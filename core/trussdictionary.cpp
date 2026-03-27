@@ -108,6 +108,24 @@ static bool RecreateUserDictionaryFromBase(const fs::path &userFile,
   return true;
 }
 
+static fs::path ResolveImportedPath(const fs::path &jsonFile,
+                                    const std::string &rawPathText) {
+  const fs::path parsedPath = fs::u8path(rawPathText);
+  if (parsedPath.is_absolute())
+    return parsedPath;
+
+  const fs::path jsonDir = jsonFile.parent_path();
+  const fs::path directPath = jsonDir / parsedPath;
+  if (fs::exists(directPath))
+    return directPath;
+
+  const fs::path snapshotAssetsPath =
+      jsonDir / (jsonFile.stem().string() + "_assets") / parsedPath;
+  if (fs::exists(snapshotAssetsPath))
+    return snapshotAssetsPath;
+  return directPath;
+}
+
 static bool EnsureMigratedToGdtf(fs::path &pathInOut, std::string &error) {
   std::string ext = LowerExt(pathInOut);
   if (ext == ".gdtf")
@@ -174,11 +192,11 @@ LoadFromFile(const fs::path &file, std::string &error) {
   }
 
   const nlohmann::json &entries = **entriesOpt;
-  fs::path dir = file.parent_path();
   bool changed = false;
 
-  auto resolveEntryPath = [&dir](const nlohmann::json &value, fs::path &entryPath,
-                                 std::string &entryError) -> bool {
+  auto resolveEntryPath = [&file](const nlohmann::json &value, fs::path &entryPath,
+                                  std::string &entryError,
+                                  std::string &rawPathOut) -> bool {
     std::string pathValue;
     if (value.is_string()) {
       pathValue = value.get<std::string>();
@@ -196,9 +214,8 @@ LoadFromFile(const fs::path &file, std::string &error) {
       return false;
     }
 
-    entryPath = fs::u8path(pathValue);
-    if (!entryPath.is_absolute())
-      entryPath = dir / entryPath;
+    rawPathOut = pathValue;
+    entryPath = ResolveImportedPath(file, pathValue);
     return true;
   };
 
@@ -211,14 +228,22 @@ LoadFromFile(const fs::path &file, std::string &error) {
     }
 
     fs::path path;
+    std::string rawPath;
     std::string entryError;
-    if (!resolveEntryPath(value, path, entryError)) {
+    if (!resolveEntryPath(value, path, entryError, rawPath)) {
       error = sourceLabel + " " + entryError;
       return false;
     }
 
-    if (!fs::exists(path))
+    if (!fs::exists(path)) {
+      if (!fs::u8path(rawPath).is_absolute()) {
+        std::cerr << "Warning: trusses dictionary " << sourceLabel
+                  << " references missing relative path '" << rawPath
+                  << "' resolved from '" << file.string() << "'."
+                  << std::endl;
+      }
       return true;
+    }
 
     std::string migrationError;
     fs::path migrated = path;

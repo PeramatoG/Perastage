@@ -54,6 +54,13 @@ struct ExportPathStatusSummary {
   size_t missing_entries = 0;
 };
 
+struct SnapshotExportResult {
+  bool success = false;
+  size_t copied_assets = 0;
+  size_t missing_assets = 0;
+  std::vector<std::string> copy_errors;
+};
+
 struct ImportPathValidationSummary {
   size_t checked_entries = 0;
   size_t found_entries = 0;
@@ -66,6 +73,23 @@ bool HasExistingPath(const std::filesystem::path &candidate) {
     return false;
   std::error_code ec;
   return std::filesystem::exists(candidate, ec);
+}
+
+std::filesystem::path ResolveImportRelativePath(
+    const std::filesystem::path &jsonPath, const std::filesystem::path &rawPath) {
+  if (rawPath.is_absolute())
+    return rawPath;
+
+  const std::filesystem::path importDir = jsonPath.parent_path();
+  const std::filesystem::path directPath = importDir / rawPath;
+  if (HasExistingPath(directPath))
+    return directPath;
+
+  const std::filesystem::path snapshotAssetsPath =
+      importDir / (jsonPath.stem().string() + "_assets") / rawPath;
+  if (HasExistingPath(snapshotAssetsPath))
+    return snapshotAssetsPath;
+  return directPath;
 }
 
 void RegisterMissingExample(ImportPathValidationSummary &summary,
@@ -119,6 +143,59 @@ bool ConfirmExportReferences(wxWindow *parent, const wxString &title,
   return confirmDialog.ShowModal() == wxID_OK;
 }
 
+bool AskCopyReferencedAssets(wxWindow *parent, const wxString &title,
+                             bool &copyAssetsOut) {
+  wxDialog optionsDialog(parent, wxID_ANY, title);
+  wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
+  wxCheckBox *copyAssetsCheckbox =
+      new wxCheckBox(&optionsDialog, wxID_ANY,
+                     "Copiar también los archivos referenciados");
+  copyAssetsCheckbox->SetValue(false);
+
+  topSizer->Add(
+      new wxStaticText(
+          &optionsDialog, wxID_ANY,
+          "Exporting without copying files keeps the previous behavior."),
+      0, wxALL, 10);
+  topSizer->Add(copyAssetsCheckbox, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
+  topSizer->Add(optionsDialog.CreateSeparatedButtonSizer(wxOK | wxCANCEL), 0,
+                wxEXPAND | wxALL, 10);
+  optionsDialog.SetSizerAndFit(topSizer);
+
+  if (optionsDialog.ShowModal() != wxID_OK)
+    return false;
+  copyAssetsOut = copyAssetsCheckbox->GetValue();
+  return true;
+}
+
+std::filesystem::path BuildSnapshotAssetsDir(
+    const std::filesystem::path &snapshotPath) {
+  return snapshotPath.parent_path() /
+         (snapshotPath.stem().string() + "_assets");
+}
+
+std::optional<std::string> CopySnapshotAsset(
+    const std::filesystem::path &sourcePath,
+    const std::filesystem::path &targetAssetsDir) {
+  if (!HasExistingPath(sourcePath))
+    return std::nullopt;
+
+  std::error_code ec;
+  std::filesystem::create_directories(targetAssetsDir, ec);
+  if (ec)
+    return std::nullopt;
+
+  const std::string fileName = sourcePath.filename().string();
+  if (fileName.empty())
+    return std::nullopt;
+  const std::filesystem::path destPath = targetAssetsDir / fileName;
+  std::filesystem::copy_file(sourcePath, destPath,
+                             std::filesystem::copy_options::overwrite_existing, ec);
+  if (ec)
+    return std::nullopt;
+  return std::string("assets/") + fileName;
+}
+
 std::optional<nlohmann::json> LoadJsonFromFile(const std::string &filePath,
                                                std::string &error) {
   std::ifstream in(filePath);
@@ -150,8 +227,7 @@ ImportPathValidationSummary ValidateFixtureImportPaths(const std::string &import
   if (!entriesOpt)
     return summary;
 
-  const std::filesystem::path importDir =
-      std::filesystem::u8path(importPath).parent_path();
+  const std::filesystem::path importFilePath = std::filesystem::u8path(importPath);
   const std::filesystem::path libraryDir = std::filesystem::u8path(
       ProjectUtils::GetDefaultLibraryPath("fixtures"));
 
@@ -169,7 +245,7 @@ ImportPathValidationSummary ValidateFixtureImportPaths(const std::string &import
     ++summary.checked_entries;
     const std::filesystem::path sourcePath = std::filesystem::u8path(rawPath);
     const std::filesystem::path importRelativePath =
-        sourcePath.is_absolute() ? sourcePath : importDir / sourcePath;
+        ResolveImportRelativePath(importFilePath, sourcePath);
     const std::filesystem::path libraryRelativePath = libraryDir / sourcePath.filename();
     if (HasExistingPath(importRelativePath) || HasExistingPath(libraryRelativePath)) {
       ++summary.found_entries;
@@ -210,8 +286,7 @@ ImportPathValidationSummary ValidateTrussImportPaths(const std::string &importPa
   if (!entriesOpt)
     return summary;
 
-  const std::filesystem::path importDir =
-      std::filesystem::u8path(importPath).parent_path();
+  const std::filesystem::path importFilePath = std::filesystem::u8path(importPath);
   const std::filesystem::path libraryDir =
       std::filesystem::u8path(ProjectUtils::GetDefaultLibraryPath("trusses"));
 
@@ -229,7 +304,7 @@ ImportPathValidationSummary ValidateTrussImportPaths(const std::string &importPa
     ++summary.checked_entries;
     const std::filesystem::path sourcePath = std::filesystem::u8path(rawPath);
     const std::filesystem::path importRelativePath =
-        sourcePath.is_absolute() ? sourcePath : importDir / sourcePath;
+        ResolveImportRelativePath(importFilePath, sourcePath);
     const std::filesystem::path libraryRelativePath = libraryDir / sourcePath.filename();
     if (HasExistingPath(importRelativePath) || HasExistingPath(libraryRelativePath)) {
       ++summary.found_entries;
@@ -382,13 +457,19 @@ bool ConfirmReplaceAllOperation(wxWindow *parent, const wxString &dictionaryName
                       parent) == wxYES;
 }
 
-bool SaveFixturesSnapshotToFile(const std::string &outputPath,
-                                const std::unordered_map<std::string, GdtfDictionary::Entry> &dict) {
+bool SaveFixturesSnapshotToFile(
+    const std::string &outputPath,
+    const std::unordered_map<std::string, GdtfDictionary::Entry> &dict,
+    bool copyReferencedAssets, SnapshotExportResult &exportResult) {
   std::vector<std::string> keys;
   keys.reserve(dict.size());
   for (const auto &[name, _] : dict)
     keys.push_back(name);
   std::sort(keys.begin(), keys.end());
+
+  const std::filesystem::path outputFsPath = std::filesystem::u8path(outputPath);
+  const std::filesystem::path targetAssetsDir =
+      BuildSnapshotAssetsDir(outputFsPath) / "assets";
 
   nlohmann::json entries = nlohmann::json::object();
   for (const auto &name : keys) {
@@ -397,9 +478,21 @@ bool SaveFixturesSnapshotToFile(const std::string &outputPath,
       continue;
     nlohmann::json obj;
     if (!entry.path.empty()) {
-      const std::string fileName = std::filesystem::path(entry.path).filename().string();
-      if (!fileName.empty())
-        obj["file"] = fileName;
+      const std::filesystem::path sourcePath = std::filesystem::u8path(entry.path);
+      if (copyReferencedAssets) {
+        const auto copiedRelativePath = CopySnapshotAsset(sourcePath, targetAssetsDir);
+        if (copiedRelativePath) {
+          obj["file"] = *copiedRelativePath;
+          ++exportResult.copied_assets;
+        } else {
+          ++exportResult.missing_assets;
+          exportResult.copy_errors.push_back(name + " -> " + entry.path);
+        }
+      } else {
+        const std::string fileName = sourcePath.filename().string();
+        if (!fileName.empty())
+          obj["file"] = fileName;
+      }
     }
     if (!entry.mode.empty())
       obj["mode"] = entry.mode;
@@ -415,26 +508,45 @@ bool SaveFixturesSnapshotToFile(const std::string &outputPath,
   if (!out.is_open())
     return false;
   out << root.dump(4);
+  exportResult.success = true;
   return true;
 }
 
 bool SaveTrussesSnapshotToFile(const std::string &outputPath,
-                               const std::unordered_map<std::string, std::string> &dict) {
+                               const std::unordered_map<std::string, std::string> &dict,
+                               bool copyReferencedAssets,
+                               SnapshotExportResult &exportResult) {
   std::vector<std::string> keys;
   keys.reserve(dict.size());
   for (const auto &[name, _] : dict)
     keys.push_back(name);
   std::sort(keys.begin(), keys.end());
 
+  const std::filesystem::path outputFsPath = std::filesystem::u8path(outputPath);
+  const std::filesystem::path targetAssetsDir =
+      BuildSnapshotAssetsDir(outputFsPath) / "assets";
+
   nlohmann::json entries = nlohmann::json::object();
   for (const auto &name : keys) {
     const auto &path = dict.at(name);
     if (path.empty())
       continue;
-    const std::string fileName = std::filesystem::path(path).filename().string();
+    const std::filesystem::path sourcePath = std::filesystem::u8path(path);
+    if (copyReferencedAssets) {
+      const auto copiedRelativePath = CopySnapshotAsset(sourcePath, targetAssetsDir);
+      if (copiedRelativePath) {
+        entries[name] = nlohmann::json{{"file", *copiedRelativePath}};
+        ++exportResult.copied_assets;
+      } else {
+        ++exportResult.missing_assets;
+        exportResult.copy_errors.push_back(name + " -> " + path);
+      }
+      continue;
+    }
+    const std::string fileName = sourcePath.filename().string();
     if (fileName.empty())
       continue;
-    entries[name] = nlohmann::json{ {"file", fileName} };
+    entries[name] = nlohmann::json{{"file", fileName}};
   }
 
   const nlohmann::json root =
@@ -443,6 +555,7 @@ bool SaveTrussesSnapshotToFile(const std::string &outputPath,
   if (!out.is_open())
     return false;
   out << root.dump(4);
+  exportResult.success = true;
   return true;
 }
 } // namespace
@@ -986,14 +1099,34 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
 
+  bool copyReferencedAssets = false;
+  if (!AskCopyReferencedAssets(this, "Export fixtures dictionary options",
+                               copyReferencedAssets)) {
+    return false;
+  }
+
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
-  if (!SaveFixturesSnapshotToFile(outputPath, *dictOpt)) {
+  SnapshotExportResult exportResult;
+  if (!SaveFixturesSnapshotToFile(outputPath, *dictOpt, copyReferencedAssets,
+                                  exportResult)) {
     wxMessageBox("Could not write fixtures dictionary snapshot.",
                  "Export fixtures dictionary", wxICON_ERROR | wxOK, this);
     return false;
   }
-  wxMessageBox("Fixtures dictionary snapshot exported successfully.",
-               "Export fixtures dictionary", wxICON_INFORMATION | wxOK, this);
+
+  wxString info = "Fixtures dictionary snapshot exported successfully.";
+  if (copyReferencedAssets) {
+    info += "\nCopied assets: " + wxString::Format("%zu", exportResult.copied_assets);
+    if (exportResult.missing_assets > 0) {
+      info += "\nMissing assets: " +
+              wxString::Format("%zu", exportResult.missing_assets);
+      const size_t exampleCount = std::min<size_t>(exportResult.copy_errors.size(), 5);
+      for (size_t i = 0; i < exampleCount; ++i)
+        info += "\n- " + wxString::FromUTF8(exportResult.copy_errors[i]);
+    }
+  }
+  wxMessageBox(info, "Export fixtures dictionary", wxICON_INFORMATION | wxOK,
+               this);
   return true;
 }
 
@@ -1016,14 +1149,34 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
 
+  bool copyReferencedAssets = false;
+  if (!AskCopyReferencedAssets(this, "Export trusses dictionary options",
+                               copyReferencedAssets)) {
+    return false;
+  }
+
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
-  if (!SaveTrussesSnapshotToFile(outputPath, *dictOpt)) {
+  SnapshotExportResult exportResult;
+  if (!SaveTrussesSnapshotToFile(outputPath, *dictOpt, copyReferencedAssets,
+                                 exportResult)) {
     wxMessageBox("Could not write trusses dictionary snapshot.",
                  "Export trusses dictionary", wxICON_ERROR | wxOK, this);
     return false;
   }
-  wxMessageBox("Trusses dictionary snapshot exported successfully.",
-               "Export trusses dictionary", wxICON_INFORMATION | wxOK, this);
+
+  wxString info = "Trusses dictionary snapshot exported successfully.";
+  if (copyReferencedAssets) {
+    info += "\nCopied assets: " + wxString::Format("%zu", exportResult.copied_assets);
+    if (exportResult.missing_assets > 0) {
+      info += "\nMissing assets: " +
+              wxString::Format("%zu", exportResult.missing_assets);
+      const size_t exampleCount = std::min<size_t>(exportResult.copy_errors.size(), 5);
+      for (size_t i = 0; i < exampleCount; ++i)
+        info += "\n- " + wxString::FromUTF8(exportResult.copy_errors[i]);
+    }
+  }
+  wxMessageBox(info, "Export trusses dictionary", wxICON_INFORMATION | wxOK,
+               this);
   return true;
 }
 
