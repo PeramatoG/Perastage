@@ -178,6 +178,18 @@ DictionaryImportSummary MergeDictionaryEntries(
     const std::unordered_map<std::string, Entry> &imported,
     DictionaryImportPolicy policy, bool applyChanges) {
   DictionaryImportSummary summary;
+  constexpr size_t kMaxMissingExamples = 5;
+
+  for (const auto &[key, value] : imported) {
+    if (value.path.empty())
+      continue;
+    std::error_code ec;
+    if (fs::exists(fs::u8path(value.path), ec))
+      continue;
+    ++summary.missing_files_count;
+    if (summary.missing_file_examples.size() < kMaxMissingExamples)
+      summary.missing_file_examples.push_back(key + " -> " + value.path);
+  }
 
   if (policy == DictionaryImportPolicy::ReplaceAll) {
     if (applyChanges)
