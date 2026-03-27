@@ -20,6 +20,7 @@
 #include "columnutils.h"
 #include "dictionary_bundle.h"
 #include "dictionary_json_contract.h"
+#include "file_import_utils.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "json.hpp"
@@ -41,11 +42,19 @@ struct FixtureRow {
   std::string name;
   std::string path;
   std::string mode;
+  std::string source;
+  std::string sha256;
 };
 
 struct TrussRow {
   std::string name;
   std::string path;
+};
+
+struct CopiedLibraryAsset {
+  std::string path;
+  std::string source;
+  std::string sha256;
 };
 
 struct ExportPathStatusSummary {
@@ -354,27 +363,67 @@ bool ConfirmImportMissingPaths(wxWindow *parent, const wxString &title,
                       parent) == wxYES;
 }
 
-std::string CopyToLibrary(const std::string &path, const char *libraryName) {
+std::optional<FileImportUtils::ConflictPolicy>
+AskConflictPolicy(wxWindow *parent, const std::filesystem::path &sourcePath,
+                  const std::filesystem::path &destPath) {
+  wxArrayString choices;
+  choices.push_back("Rename (stable: <basename>_<hash>.<ext>)");
+  choices.push_back("Overwrite existing file");
+  choices.push_back("Cancel");
+
+  wxSingleChoiceDialog dialog(
+      parent,
+      "The destination file already exists with different content.\n\n"
+      "Source: " + wxString::FromUTF8(sourcePath.string()) + "\n"
+      "Destination: " + wxString::FromUTF8(destPath.string()) +
+          "\n\nChoose conflict policy:",
+      "File conflict", choices);
+
+  if (dialog.ShowModal() != wxID_OK)
+    return std::nullopt;
+
+  if (dialog.GetSelection() == 0)
+    return FileImportUtils::ConflictPolicy::Rename;
+  if (dialog.GetSelection() == 1)
+    return FileImportUtils::ConflictPolicy::Overwrite;
+  return FileImportUtils::ConflictPolicy::Cancel;
+}
+
+std::optional<CopiedLibraryAsset>
+CopyToLibrary(wxWindow *parent, const std::string &path, const char *libraryName) {
   if (path.empty())
-    return {};
-  std::filesystem::path src = std::filesystem::u8path(path);
+    return std::nullopt;
+
+  const std::filesystem::path src = std::filesystem::u8path(path);
   if (!std::filesystem::exists(src))
-    return {};
-  std::filesystem::path dir =
+    return std::nullopt;
+
+  const std::filesystem::path dir =
       std::filesystem::u8path(ProjectUtils::GetDefaultLibraryPath(libraryName));
   if (dir.empty())
-    return path;
+    return CopiedLibraryAsset{path, path, {}};
+
+  const std::filesystem::path dest = dir / src.filename();
+  FileImportUtils::ConflictPolicy policy = FileImportUtils::ConflictPolicy::Overwrite;
+
   std::error_code ec;
-  std::filesystem::create_directories(dir, ec);
-  std::filesystem::path dest = dir / src.filename();
-  if (src != dest) {
-    std::filesystem::copy_file(src, dest,
-                               std::filesystem::copy_options::overwrite_existing,
-                               ec);
+  if (std::filesystem::exists(dest, ec) && !ec) {
+    const auto srcHash = FileImportUtils::ComputeFileSha256(src);
+    const auto dstHash = FileImportUtils::ComputeFileSha256(dest);
+    if (srcHash && dstHash && *srcHash != *dstHash) {
+      auto chosenPolicy = AskConflictPolicy(parent, src, dest);
+      if (!chosenPolicy || *chosenPolicy == FileImportUtils::ConflictPolicy::Cancel)
+        return std::nullopt;
+      policy = *chosenPolicy;
+    }
   }
-  if (std::filesystem::exists(dest))
-    return dest.string();
-  return path;
+
+  const auto copyResult = FileImportUtils::CopyWithConflictPolicy(src, dest, policy);
+  if (!copyResult.success)
+    return std::nullopt;
+
+  return CopiedLibraryAsset{copyResult.finalPath.string(), src.string(),
+                            copyResult.finalSha256};
 }
 
 std::vector<std::string> GetSortedModes(const std::string &path) {
@@ -765,17 +814,27 @@ void DictionaryEditDialog::SaveFixtures() {
     wxVariant modeVar;
     fixtureTable->GetValue(modeVar, i, 2);
     std::string mode = std::string(modeVar.GetString().ToUTF8());
-    std::string stored = CopyToLibrary(path, "fixtures");
-    if (stored.empty())
+    auto copied = CopyToLibrary(this, path, "fixtures");
+    if (!copied)
       continue;
-    rows.push_back({name, stored, mode});
+    rows.push_back({name, copied->path, mode, copied->source, copied->sha256});
   }
 
   SortFixtureRows(rows);
   std::unordered_map<std::string, GdtfDictionary::Entry> dict;
   dict.reserve(rows.size());
-  for (const auto &row : rows)
-    dict[row.name] = {row.path, row.mode, ""};
+  for (const auto &row : rows) {
+    GdtfDictionary::Entry entry;
+    entry.path = row.path;
+    entry.mode = row.mode;
+    entry.source = row.source;
+    entry.importedAt = FileImportUtils::NowUtcIso8601();
+    if (!row.sha256.empty())
+      entry.sha256 = row.sha256;
+    else if (const auto hash = FileImportUtils::ComputeFileSha256(std::filesystem::u8path(row.path)))
+      entry.sha256 = *hash;
+    dict[row.name] = std::move(entry);
+  }
   GdtfDictionary::Save(dict);
 
   LoadFixtures();
@@ -798,10 +857,10 @@ void DictionaryEditDialog::SaveTrusses() {
       continue;
     if (!std::filesystem::exists(path))
       continue;
-    std::string stored = CopyToLibrary(path, "trusses");
-    if (stored.empty())
+    auto copied = CopyToLibrary(this, path, "trusses");
+    if (!copied)
       continue;
-    rows.push_back({name, stored});
+    rows.push_back({name, copied->path});
   }
 
   SortTrussRows(rows);

@@ -18,6 +18,7 @@
 #include "trussdictionary.h"
 
 #include "dictionary_json_contract.h"
+#include "file_import_utils.h"
 #include "json.hpp"
 #include "projectutils.h"
 #include "truss_gdtf_builder.h"
@@ -376,15 +377,15 @@ bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
   if (!EnsureMigratedToGdtf(working, error))
     return false;
 
-  fs::path dest = dir / working.filename();
-  std::error_code ec;
-  fs::copy_file(working, dest, fs::copy_options::overwrite_existing, ec);
-  if (ec) {
+  const fs::path dest = dir / working.filename();
+  const auto copyResult = FileImportUtils::CopyWithConflictPolicy(
+      working, dest, FileImportUtils::ConflictPolicy::Rename);
+  if (!copyResult.success) {
     error = "Failed to copy truss file into library";
     return false;
   }
 
-  storedPath = ToUtf8String(dest);
+  storedPath = ToUtf8String(copyResult.finalPath);
   return true;
 }
 
@@ -448,7 +449,14 @@ void Save(const std::unordered_map<std::string, std::string> &dict) {
     fs::path forced = p;
     if (forced.extension() != ".gdtf")
       forced.replace_extension(".gdtf");
-    entries[model] = forced.filename().string();
+
+    nlohmann::json entry;
+    entry["file"] = forced.filename().string();
+    entry["source"] = p.string();
+    entry["imported_at"] = FileImportUtils::NowUtcIso8601();
+    if (const auto sha = FileImportUtils::ComputeFileSha256(forced))
+      entry["sha256"] = *sha;
+    entries[model] = std::move(entry);
   }
 
   const nlohmann::json root = DictionaryJsonContract::MakeRoot("trusses", std::move(entries));

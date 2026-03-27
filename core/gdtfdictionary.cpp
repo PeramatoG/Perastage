@@ -17,6 +17,7 @@
  */
 #include "gdtfdictionary.h"
 #include "dictionary_json_contract.h"
+#include "file_import_utils.h"
 #include "json.hpp"
 #include "projectutils.h"
 #include "startup_file_access_gate.h"
@@ -155,6 +156,12 @@ LoadFromFile(const fs::path &file, std::string &error) {
       entry.mode = value["mode"].get<std::string>();
     if (value.contains("category") && value["category"].is_string())
       entry.category = value["category"].get<std::string>();
+    if (value.contains("source") && value["source"].is_string())
+      entry.source = value["source"].get<std::string>();
+    if (value.contains("imported_at") && value["imported_at"].is_string())
+      entry.importedAt = value["imported_at"].get<std::string>();
+    if (value.contains("sha256") && value["sha256"].is_string())
+      entry.sha256 = value["sha256"].get<std::string>();
     if (entry.path.empty() && entry.mode.empty() && entry.category.empty()) {
       entryError = "entry object must include at least one of file/path/mode/category";
       return false;
@@ -313,6 +320,12 @@ void Save(const std::unordered_map<std::string, Entry> &dict) {
       obj["mode"] = entry.mode;
     if (!entry.category.empty())
       obj["category"] = entry.category;
+    if (!entry.source.empty())
+      obj["source"] = entry.source;
+    if (!entry.importedAt.empty())
+      obj["imported_at"] = entry.importedAt;
+    if (!entry.sha256.empty())
+      obj["sha256"] = entry.sha256;
     if (obj.empty())
       continue;
     entries[type] = obj;
@@ -346,19 +359,19 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   if (type.empty() || gdtfPath.empty())
     return;
-  fs::path src = fs::u8path(gdtfPath);
+  const fs::path src = fs::u8path(gdtfPath);
   if (!fs::exists(src))
     return;
-  fs::path file = GetUserDictFile();
+  const fs::path file = GetUserDictFile();
   if (file.empty())
     return;
-  fs::path dir = file.parent_path();
-  fs::path dest = dir / src.filename();
-  try {
-    fs::copy_file(src, dest, fs::copy_options::overwrite_existing);
-  } catch (...) {
-    // ignore copy errors
-  }
+
+  const fs::path dest = file.parent_path() / src.filename();
+  const auto copyResult = FileImportUtils::CopyWithConflictPolicy(
+      src, dest, FileImportUtils::ConflictPolicy::Rename);
+  if (!copyResult.success)
+    return;
+
   auto dictOpt = Load();
   if (!dictOpt)
     return; // avoid overwriting existing dictionary on load failure
@@ -367,11 +380,16 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
   auto it = dict.find(type);
   if (it != dict.end())
     e = it->second;
-  e.path = dest.string();
+
+  e.path = copyResult.finalPath.string();
   if (!mode.empty())
     e.mode = mode;
   if (!category.empty())
     e.category = category;
+  e.source = src.string();
+  e.importedAt = FileImportUtils::NowUtcIso8601();
+  e.sha256 = copyResult.finalSha256;
+
   dict[type] = e;
   Save(dict);
 }
