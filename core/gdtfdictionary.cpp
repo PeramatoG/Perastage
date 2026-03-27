@@ -66,6 +66,24 @@ bool RecreateUserDictionaryFromBase(const fs::path &userFile,
   return true;
 }
 
+fs::path ResolveImportedPath(const fs::path &jsonFile,
+                             const std::string &rawPathText) {
+  const fs::path parsedPath = fs::u8path(rawPathText);
+  if (parsedPath.is_absolute())
+    return parsedPath;
+
+  const fs::path jsonDir = jsonFile.parent_path();
+  const fs::path directPath = jsonDir / parsedPath;
+  if (fs::exists(directPath))
+    return directPath;
+
+  const fs::path snapshotAssetsPath =
+      jsonDir / (jsonFile.stem().string() + "_assets") / parsedPath;
+  if (fs::exists(snapshotAssetsPath))
+    return snapshotAssetsPath;
+  return directPath;
+}
+
 std::optional<std::unordered_map<std::string, Entry>>
 LoadFromFile(const fs::path &file, std::string &error) {
   std::unordered_map<std::string, Entry> dict;
@@ -99,13 +117,17 @@ LoadFromFile(const fs::path &file, std::string &error) {
   }
 
   const nlohmann::json &entries = **entriesOpt;
-  fs::path dir = file.parent_path();
-  auto parseEntryValue = [&dir](const nlohmann::json &value, Entry &entry,
+  auto parseEntryValue = [&file](const nlohmann::json &value,
+                                 const std::string &entryKey, Entry &entry,
                                 std::string &entryError) -> bool {
     if (value.is_string()) {
-      fs::path p = fs::u8path(value.get<std::string>());
-      if (!p.is_absolute())
-        p = dir / p;
+      const std::string rawPath = value.get<std::string>();
+      fs::path p = ResolveImportedPath(file, rawPath);
+      if (!fs::u8path(rawPath).is_absolute() && !fs::exists(p)) {
+        std::cerr << "Warning: fixtures dictionary entry '" << entryKey
+                  << "' references missing relative path '" << rawPath
+                  << "' resolved from '" << file.string() << "'." << std::endl;
+      }
       entry.path = p.string();
       return true;
     }
@@ -121,9 +143,12 @@ LoadFromFile(const fs::path &file, std::string &error) {
       fname = value["path"].get<std::string>();
 
     if (!fname.empty()) {
-      fs::path p = fs::u8path(fname);
-      if (!p.is_absolute())
-        p = dir / p;
+      fs::path p = ResolveImportedPath(file, fname);
+      if (!fs::u8path(fname).is_absolute() && !fs::exists(p)) {
+        std::cerr << "Warning: fixtures dictionary entry '" << entryKey
+                  << "' references missing relative path '" << fname
+                  << "' resolved from '" << file.string() << "'." << std::endl;
+      }
       entry.path = p.string();
     }
     if (value.contains("mode") && value["mode"].is_string())
@@ -141,7 +166,7 @@ LoadFromFile(const fs::path &file, std::string &error) {
     for (auto it = entries.begin(); it != entries.end(); ++it) {
       Entry entry;
       std::string entryError;
-      if (!parseEntryValue(it.value(), entry, entryError)) {
+      if (!parseEntryValue(it.value(), it.key(), entry, entryError)) {
         error = "Invalid entry '" + it.key() + "': " + entryError;
         return std::nullopt;
       }
@@ -163,12 +188,13 @@ LoadFromFile(const fs::path &file, std::string &error) {
 
     Entry entry;
     std::string entryError;
-    if (!parseEntryValue(entryJson, entry, entryError)) {
+    const std::string entryName = entryJson["name"].get<std::string>();
+    if (!parseEntryValue(entryJson, entryName, entry, entryError)) {
       error = "entries[" + std::to_string(idx) + "] " + entryError;
       return std::nullopt;
     }
 
-    dict[entryJson["name"].get<std::string>()] = entry;
+    dict[entryName] = entry;
   }
   return dict;
 }
