@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <sstream>
 #include <vector>
 
@@ -45,6 +46,237 @@ struct TrussRow {
   std::string name;
   std::string path;
 };
+
+struct ExportPathStatusSummary {
+  size_t total_entries = 0;
+  size_t found_entries = 0;
+  size_t missing_entries = 0;
+};
+
+struct ImportPathValidationSummary {
+  size_t checked_entries = 0;
+  size_t found_entries = 0;
+  size_t missing_entries = 0;
+  std::vector<std::string> missing_examples;
+};
+
+bool HasExistingPath(const std::filesystem::path &candidate) {
+  if (candidate.empty())
+    return false;
+  std::error_code ec;
+  return std::filesystem::exists(candidate, ec);
+}
+
+void RegisterMissingExample(ImportPathValidationSummary &summary,
+                            const std::string &entryName,
+                            const std::string &path) {
+  constexpr size_t kMaxMissingExamples = 5;
+  if (summary.missing_examples.size() >= kMaxMissingExamples)
+    return;
+  summary.missing_examples.push_back(entryName + " -> " + path);
+}
+
+ExportPathStatusSummary AnalyzeFixtureExportPaths(
+    const std::unordered_map<std::string, GdtfDictionary::Entry> &dict) {
+  ExportPathStatusSummary summary;
+  summary.total_entries = dict.size();
+  for (const auto &[_, entry] : dict) {
+    if (HasExistingPath(std::filesystem::u8path(entry.path)))
+      ++summary.found_entries;
+    else
+      ++summary.missing_entries;
+  }
+  return summary;
+}
+
+ExportPathStatusSummary AnalyzeTrussExportPaths(
+    const std::unordered_map<std::string, std::string> &dict) {
+  ExportPathStatusSummary summary;
+  summary.total_entries = dict.size();
+  for (const auto &[_, path] : dict) {
+    if (HasExistingPath(std::filesystem::u8path(path)))
+      ++summary.found_entries;
+    else
+      ++summary.missing_entries;
+  }
+  return summary;
+}
+
+bool ConfirmExportReferences(wxWindow *parent, const wxString &title,
+                             const ExportPathStatusSummary &summary) {
+  wxMessageDialog confirmDialog(
+      parent,
+      "Se encontraron referencias en el diccionario cargado.\n\n"
+      "Total de entradas: " + wxString::Format("%zu", summary.total_entries) + "\n" +
+          "Entradas con archivo encontrado: " +
+          wxString::Format("%zu", summary.found_entries) + "\n" +
+          "Entradas con archivo ausente: " +
+          wxString::Format("%zu", summary.missing_entries) +
+          "\n\n¿Deseas exportar solo referencias?",
+      title, wxOK | wxCANCEL | wxICON_WARNING);
+  confirmDialog.SetOKCancelLabels("Exportar solo referencias", "Cancelar");
+  return confirmDialog.ShowModal() == wxID_OK;
+}
+
+std::optional<nlohmann::json> LoadJsonFromFile(const std::string &filePath,
+                                               std::string &error) {
+  std::ifstream in(filePath);
+  if (!in.is_open()) {
+    error = "Could not open import file";
+    return std::nullopt;
+  }
+
+  nlohmann::json root;
+  try {
+    in >> root;
+  } catch (const std::exception &e) {
+    error = std::string("Failed to parse JSON: ") + e.what();
+    return std::nullopt;
+  }
+  return root;
+}
+
+ImportPathValidationSummary ValidateFixtureImportPaths(const std::string &importPath) {
+  ImportPathValidationSummary summary;
+  std::string loadError;
+  auto rootOpt = LoadJsonFromFile(importPath, loadError);
+  if (!rootOpt)
+    return summary;
+
+  std::string parseError;
+  auto entriesOpt =
+      DictionaryJsonContract::GetEntriesForType(*rootOpt, "fixtures", parseError);
+  if (!entriesOpt)
+    return summary;
+
+  const std::filesystem::path importDir =
+      std::filesystem::u8path(importPath).parent_path();
+  const std::filesystem::path libraryDir = std::filesystem::u8path(
+      ProjectUtils::GetDefaultLibraryPath("fixtures"));
+
+  auto checkEntry = [&](const std::string &entryName, const nlohmann::json &entryJson) {
+    if (!entryJson.is_object())
+      return;
+    std::string rawPath;
+    if (entryJson.contains("file") && entryJson["file"].is_string())
+      rawPath = entryJson["file"].get<std::string>();
+    else if (entryJson.contains("path") && entryJson["path"].is_string())
+      rawPath = entryJson["path"].get<std::string>();
+    if (rawPath.empty())
+      return;
+
+    ++summary.checked_entries;
+    const std::filesystem::path sourcePath = std::filesystem::u8path(rawPath);
+    const std::filesystem::path importRelativePath =
+        sourcePath.is_absolute() ? sourcePath : importDir / sourcePath;
+    const std::filesystem::path libraryRelativePath = libraryDir / sourcePath.filename();
+    if (HasExistingPath(importRelativePath) || HasExistingPath(libraryRelativePath)) {
+      ++summary.found_entries;
+      return;
+    }
+
+    ++summary.missing_entries;
+    RegisterMissingExample(summary, entryName, rawPath);
+  };
+
+  const auto &entries = **entriesOpt;
+  if (entries.is_object()) {
+    for (auto it = entries.begin(); it != entries.end(); ++it)
+      checkEntry(it.key(), it.value());
+  } else if (entries.is_array()) {
+    for (size_t i = 0; i < entries.size(); ++i) {
+      const auto &entryJson = entries[i];
+      if (!entryJson.is_object() || !entryJson.contains("name") ||
+          !entryJson["name"].is_string()) {
+        continue;
+      }
+      checkEntry(entryJson["name"].get<std::string>(), entryJson);
+    }
+  }
+  return summary;
+}
+
+ImportPathValidationSummary ValidateTrussImportPaths(const std::string &importPath) {
+  ImportPathValidationSummary summary;
+  std::string loadError;
+  auto rootOpt = LoadJsonFromFile(importPath, loadError);
+  if (!rootOpt)
+    return summary;
+
+  std::string parseError;
+  auto entriesOpt =
+      DictionaryJsonContract::GetEntriesForType(*rootOpt, "trusses", parseError);
+  if (!entriesOpt)
+    return summary;
+
+  const std::filesystem::path importDir =
+      std::filesystem::u8path(importPath).parent_path();
+  const std::filesystem::path libraryDir =
+      std::filesystem::u8path(ProjectUtils::GetDefaultLibraryPath("trusses"));
+
+  auto checkEntry = [&](const std::string &entryName, const nlohmann::json &entryJson) {
+    if (!entryJson.is_object())
+      return;
+    std::string rawPath;
+    if (entryJson.contains("file") && entryJson["file"].is_string())
+      rawPath = entryJson["file"].get<std::string>();
+    else if (entryJson.contains("path") && entryJson["path"].is_string())
+      rawPath = entryJson["path"].get<std::string>();
+    if (rawPath.empty())
+      return;
+
+    ++summary.checked_entries;
+    const std::filesystem::path sourcePath = std::filesystem::u8path(rawPath);
+    const std::filesystem::path importRelativePath =
+        sourcePath.is_absolute() ? sourcePath : importDir / sourcePath;
+    const std::filesystem::path libraryRelativePath = libraryDir / sourcePath.filename();
+    if (HasExistingPath(importRelativePath) || HasExistingPath(libraryRelativePath)) {
+      ++summary.found_entries;
+      return;
+    }
+
+    ++summary.missing_entries;
+    RegisterMissingExample(summary, entryName, rawPath);
+  };
+
+  const auto &entries = **entriesOpt;
+  if (entries.is_object()) {
+    for (auto it = entries.begin(); it != entries.end(); ++it)
+      checkEntry(it.key(), it.value());
+  } else if (entries.is_array()) {
+    for (size_t i = 0; i < entries.size(); ++i) {
+      const auto &entryJson = entries[i];
+      if (!entryJson.is_object() || !entryJson.contains("name") ||
+          !entryJson["name"].is_string()) {
+        continue;
+      }
+      checkEntry(entryJson["name"].get<std::string>(), entryJson);
+    }
+  }
+  return summary;
+}
+
+bool ConfirmImportMissingPaths(wxWindow *parent, const wxString &title,
+                               const ImportPathValidationSummary &summary) {
+  if (summary.missing_entries == 0)
+    return true;
+
+  std::ostringstream oss;
+  oss << "Some imported file references could not be resolved before applying:\n\n";
+  oss << "checked_entries: " << summary.checked_entries << "\n";
+  oss << "found_entries: " << summary.found_entries << "\n";
+  oss << "missing_entries: " << summary.missing_entries;
+  if (!summary.missing_examples.empty()) {
+    oss << "\n\nMissing examples:";
+    for (const auto &example : summary.missing_examples)
+      oss << "\n- " << example;
+  }
+  oss << "\n\nContinue with import anyway?";
+
+  return wxMessageBox(wxString::FromUTF8(oss.str()), title,
+                      wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
+                      parent) == wxYES;
+}
 
 std::string CopyToLibrary(const std::string &path, const char *libraryName) {
   if (path.empty())
@@ -94,6 +326,13 @@ wxString BuildSummaryText(const DictionaryImportSummary &summary) {
   oss << "added_count: " << summary.added_count << "\n";
   oss << "overwritten_count: " << summary.overwritten_count << "\n";
   oss << "skipped_count: " << summary.skipped_count << "\n";
+  oss << "missing_files_count: " << summary.missing_files_count << "\n";
+  if (!summary.missing_file_examples.empty()) {
+    oss << "missing_file_examples:";
+    for (const auto &example : summary.missing_file_examples)
+      oss << "\n- " << example;
+    oss << "\n";
+  }
   oss << "errors: " << summary.errors.size();
   if (!summary.errors.empty()) {
     for (const auto &error : summary.errors)
@@ -591,6 +830,7 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
   }
 
   const auto preview = GdtfDictionary::PreviewImportFromFile(importPath, policy);
+  const auto pathValidation = ValidateFixtureImportPaths(importPath);
   wxString confirmText = "Policy:\n" + GetPolicyDescription(policy) +
                          "\n\nPreview summary:\n" + BuildSummaryText(preview) +
                          "\n\nApply import?";
@@ -598,6 +838,8 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
                    wxYES_NO | wxICON_QUESTION, this) != wxYES) {
     return false;
   }
+  if (!ConfirmImportMissingPaths(this, "Fixtures import warning", pathValidation))
+    return false;
 
   const auto result = GdtfDictionary::ApplyImportFromFile(importPath, policy);
   LoadFixtures();
@@ -632,6 +874,7 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
   }
 
   const auto preview = TrussDictionary::PreviewImportFromFile(importPath, policy);
+  const auto pathValidation = ValidateTrussImportPaths(importPath);
   wxString confirmText = "Policy:\n" + GetPolicyDescription(policy) +
                          "\n\nPreview summary:\n" + BuildSummaryText(preview) +
                          "\n\nApply import?";
@@ -639,6 +882,8 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
                    wxYES_NO | wxICON_QUESTION, this) != wxYES) {
     return false;
   }
+  if (!ConfirmImportMissingPaths(this, "Trusses import warning", pathValidation))
+    return false;
 
   const auto result = TrussDictionary::ApplyImportFromFile(importPath, policy);
   LoadTrusses();
@@ -672,6 +917,10 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
     return false;
   }
 
+  const auto exportSummary = AnalyzeFixtureExportPaths(*dictOpt);
+  if (!ConfirmExportReferences(this, "Export fixtures dictionary", exportSummary))
+    return false;
+
   wxFileDialog fileDialog(this, "Export fixtures dictionary", wxEmptyString,
                           "gdtf_dictionary_snapshot.json",
                           "JSON files (*.json)|*.json",
@@ -697,6 +946,10 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
                  "Export trusses dictionary", wxICON_ERROR | wxOK, this);
     return false;
   }
+
+  const auto exportSummary = AnalyzeTrussExportPaths(*dictOpt);
+  if (!ConfirmExportReferences(this, "Export trusses dictionary", exportSummary))
+    return false;
 
   wxFileDialog fileDialog(this, "Export trusses dictionary", wxEmptyString,
                           "truss_dictionary_snapshot.json",
