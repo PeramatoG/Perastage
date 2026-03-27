@@ -33,6 +33,9 @@ namespace GdtfDictionary {
         std::string path; // optional absolute path inside fixtures library
         std::string mode;
         std::string category;
+        std::string source; // optional original import path
+        std::string importedAt; // optional UTC ISO-8601 timestamp
+        std::string sha256; // optional file hash for diagnostics
     };
 
     // Loads the dictionary file into a map of type -> {gdtf path in library, default mode}
