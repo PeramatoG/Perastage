@@ -670,6 +670,10 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   float gridB = cfg.GetFloat("grid_color_b");
   bool drawAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
   bool showRuler = cfg.GetFloat("ruler_show") != 0.0f;
+  const float rulerSmallTickMeters = cfg.GetFloat("ruler_tick_small_m");
+  const float rulerLargeTickMeters = cfg.GetFloat("ruler_tick_large_m");
+  const float rulerAxisXPosition = cfg.GetFloat("ruler_axis_x_position");
+  const float rulerAxisYPosition = cfg.GetFloat("ruler_axis_y_position");
 
   std::unique_ptr<ICanvas2D> recordingCanvas;
   if (m_captureNextFrame) {
@@ -770,8 +774,14 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     rulerState.zoom = m_zoom;
     rulerState.offsetPixelsX = m_offsetX;
     rulerState.offsetPixelsY = m_offsetY;
+    rulerState.smallTickMeters = rulerSmallTickMeters;
+    rulerState.largeTickMeters = rulerLargeTickMeters;
+    rulerState.axisXPositionMeters = rulerAxisXPosition;
+    rulerState.axisYPositionMeters = rulerAxisYPosition;
     rulerState.view = m_view;
     viewer2d::DrawRulerOverlay(rulerState, darkMode);
+    if (recordingCanvas)
+      viewer2d::EmitRulerToCanvas(rulerState, darkMode, *recordingCanvas);
   }
 
   if (swapBuffers && m_enableSelection && m_rectSelecting)

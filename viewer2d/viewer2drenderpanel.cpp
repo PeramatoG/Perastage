@@ -103,6 +103,41 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_showRuler = new wxCheckBox(rulerBoxParent, wxID_ANY, "Show ruler");
   m_showRuler->SetValue(cfg.GetFloat("ruler_show") != 0.0f);
   m_showRuler->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowRuler, this);
+  m_rulerAxisXPosition = new wxSpinCtrlDouble(
+      rulerBoxParent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
+      wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER);
+  m_rulerAxisXPosition->SetRange(-100.0, 100.0);
+  m_rulerAxisXPosition->SetIncrement(0.1);
+  m_rulerAxisXPosition->SetDigits(2);
+  m_rulerAxisXPosition->SetValue(cfg.GetFloat("ruler_axis_x_position"));
+  m_rulerAxisXPosition->Bind(wxEVT_SPINCTRLDOUBLE,
+                             &Viewer2DRenderPanel::OnRulerAxisXPosition, this);
+  m_rulerAxisXPosition->Bind(wxEVT_SET_FOCUS,
+                             &Viewer2DRenderPanel::OnBeginTextEdit, this);
+  m_rulerAxisXPosition->Bind(wxEVT_KILL_FOCUS,
+                             &Viewer2DRenderPanel::OnEndTextEdit, this);
+  m_rulerAxisXPosition->Bind(wxEVT_TEXT, &Viewer2DRenderPanel::OnTextChange,
+                             this);
+  m_rulerAxisXPosition->Bind(wxEVT_TEXT_ENTER,
+                             &Viewer2DRenderPanel::OnTextEnter, this);
+
+  m_rulerAxisYPosition = new wxSpinCtrlDouble(
+      rulerBoxParent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
+      wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER);
+  m_rulerAxisYPosition->SetRange(-100.0, 100.0);
+  m_rulerAxisYPosition->SetIncrement(0.1);
+  m_rulerAxisYPosition->SetDigits(2);
+  m_rulerAxisYPosition->SetValue(cfg.GetFloat("ruler_axis_y_position"));
+  m_rulerAxisYPosition->Bind(wxEVT_SPINCTRLDOUBLE,
+                             &Viewer2DRenderPanel::OnRulerAxisYPosition, this);
+  m_rulerAxisYPosition->Bind(wxEVT_SET_FOCUS,
+                             &Viewer2DRenderPanel::OnBeginTextEdit, this);
+  m_rulerAxisYPosition->Bind(wxEVT_KILL_FOCUS,
+                             &Viewer2DRenderPanel::OnEndTextEdit, this);
+  m_rulerAxisYPosition->Bind(wxEVT_TEXT, &Viewer2DRenderPanel::OnTextChange,
+                             this);
+  m_rulerAxisYPosition->Bind(wxEVT_TEXT_ENTER,
+                             &Viewer2DRenderPanel::OnTextEnter, this);
 
   auto *labelBox = new wxStaticBoxSizer(wxVERTICAL, this, "Labels");
   wxWindow *labelBoxParent = labelBox->GetStaticBox();
@@ -224,6 +259,16 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   sizer->Add(gridBox, 0, wxALL, 5);
 
   rulerBox->Add(m_showRuler, 0, wxALL, 5);
+  auto *rulerAxisXSizer = new wxBoxSizer(wxHORIZONTAL);
+  rulerAxisXSizer->Add(new wxStaticText(rulerBoxParent, wxID_ANY, "X ruler Y"),
+                       0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+  rulerAxisXSizer->Add(m_rulerAxisXPosition, 0);
+  rulerBox->Add(rulerAxisXSizer, 0, wxALL, 5);
+  auto *rulerAxisYSizer = new wxBoxSizer(wxHORIZONTAL);
+  rulerAxisYSizer->Add(new wxStaticText(rulerBoxParent, wxID_ANY, "Y ruler X"),
+                       0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+  rulerAxisYSizer->Add(m_rulerAxisYPosition, 0);
+  rulerBox->Add(rulerAxisYSizer, 0, wxALL, 5);
   sizer->Add(rulerBox, 0, wxALL, 5);
 
   auto *nameSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -298,6 +343,8 @@ void Viewer2DRenderPanel::ApplyConfig() {
   m_gridColor->SetColour(wxColour(rr, gg, bb));
   m_drawAbove->SetValue(cfg.GetFloat("grid_draw_above") != 0.0f);
   m_showRuler->SetValue(cfg.GetFloat("ruler_show") != 0.0f);
+  m_rulerAxisXPosition->SetValue(cfg.GetFloat("ruler_axis_x_position"));
+  m_rulerAxisYPosition->SetValue(cfg.GetFloat("ruler_axis_y_position"));
   int viewIndex = m_view->GetSelection();
   m_showLabelName->SetValue(cfg.GetFloat(NAME_KEYS[viewIndex]) != 0.0f);
   m_labelNameSize->SetValue(
@@ -384,6 +431,24 @@ void Viewer2DRenderPanel::OnDrawAbove(wxCommandEvent &evt) {
 void Viewer2DRenderPanel::OnShowRuler(wxCommandEvent &evt) {
   ConfigManager::Get().SetFloat("ruler_show",
                                 m_showRuler->GetValue() ? 1.0f : 0.0f);
+  if (auto *vp = Viewer2DPanel::Instance())
+    vp->UpdateScene(false);
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnRulerAxisXPosition(wxSpinDoubleEvent &evt) {
+  ConfigManager::Get().SetFloat(
+      "ruler_axis_x_position",
+      static_cast<float>(m_rulerAxisXPosition->GetValue()));
+  if (auto *vp = Viewer2DPanel::Instance())
+    vp->UpdateScene(false);
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnRulerAxisYPosition(wxSpinDoubleEvent &evt) {
+  ConfigManager::Get().SetFloat(
+      "ruler_axis_y_position",
+      static_cast<float>(m_rulerAxisYPosition->GetValue()));
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
@@ -519,6 +584,12 @@ void Viewer2DRenderPanel::OnTextEnter(wxCommandEvent &evt) {
     int view = m_view->GetSelection();
     cfg.SetFloat(ANGLE_KEYS[view],
                  static_cast<float>(m_labelOffsetAngle->GetValue()));
+  } else if (evt.GetEventObject() == m_rulerAxisXPosition) {
+    cfg.SetFloat("ruler_axis_x_position",
+                 static_cast<float>(m_rulerAxisXPosition->GetValue()));
+  } else if (evt.GetEventObject() == m_rulerAxisYPosition) {
+    cfg.SetFloat("ruler_axis_y_position",
+                 static_cast<float>(m_rulerAxisYPosition->GetValue()));
   }
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
