@@ -97,6 +97,13 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_drawAbove->SetValue(cfg.GetFloat("grid_draw_above") != 0.0f);
   m_drawAbove->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnDrawAbove, this);
 
+  auto *rulerBox = new wxStaticBoxSizer(wxVERTICAL, this, "Ruler");
+  wxWindow *rulerBoxParent = rulerBox->GetStaticBox();
+
+  m_showRuler = new wxCheckBox(rulerBoxParent, wxID_ANY, "Show ruler");
+  m_showRuler->SetValue(cfg.GetFloat("ruler_show") != 0.0f);
+  m_showRuler->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowRuler, this);
+
   auto *labelBox = new wxStaticBoxSizer(wxVERTICAL, this, "Labels");
   wxWindow *labelBoxParent = labelBox->GetStaticBox();
 
@@ -216,6 +223,9 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   gridBox->Add(m_drawAbove, 0, wxALL, 5);
   sizer->Add(gridBox, 0, wxALL, 5);
 
+  rulerBox->Add(m_showRuler, 0, wxALL, 5);
+  sizer->Add(rulerBox, 0, wxALL, 5);
+
   auto *nameSizer = new wxBoxSizer(wxHORIZONTAL);
   nameSizer->Add(m_showLabelName, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   nameSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, "Size"), 0,
@@ -287,6 +297,7 @@ void Viewer2DRenderPanel::ApplyConfig() {
   int bb = static_cast<int>(cfg.GetFloat("grid_color_b") * 255.0f);
   m_gridColor->SetColour(wxColour(rr, gg, bb));
   m_drawAbove->SetValue(cfg.GetFloat("grid_draw_above") != 0.0f);
+  m_showRuler->SetValue(cfg.GetFloat("ruler_show") != 0.0f);
   int viewIndex = m_view->GetSelection();
   m_showLabelName->SetValue(cfg.GetFloat(NAME_KEYS[viewIndex]) != 0.0f);
   m_labelNameSize->SetValue(
@@ -365,6 +376,14 @@ void Viewer2DRenderPanel::OnGridColor(wxColourPickerEvent &evt) {
 void Viewer2DRenderPanel::OnDrawAbove(wxCommandEvent &evt) {
   ConfigManager::Get().SetFloat("grid_draw_above",
                                 m_drawAbove->GetValue() ? 1.0f : 0.0f);
+  if (auto *vp = Viewer2DPanel::Instance())
+    vp->UpdateScene(false);
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnShowRuler(wxCommandEvent &evt) {
+  ConfigManager::Get().SetFloat("ruler_show",
+                                m_showRuler->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();

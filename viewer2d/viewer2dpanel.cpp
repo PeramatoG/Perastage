@@ -52,6 +52,7 @@
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
 #include "viewer2d_support_selection.h"
+#include "viewer2d_ruler_overlay.h"
 #include "viewer2dviewfit.h"
 #include <wx/app.h>
 #include <wx/utils.h>
@@ -668,6 +669,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   float gridG = cfg.GetFloat("grid_color_g");
   float gridB = cfg.GetFloat("grid_color_b");
   bool drawAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
+  bool showRuler = cfg.GetFloat("ruler_show") != 0.0f;
 
   std::unique_ptr<ICanvas2D> recordingCanvas;
   if (m_captureNextFrame) {
@@ -759,6 +761,17 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       if (depthEnabled)
         glEnable(GL_DEPTH_TEST);
     }
+  }
+
+  if (showRuler) {
+    viewer2d::RulerOverlayViewState rulerState;
+    rulerState.width = w;
+    rulerState.height = h;
+    rulerState.zoom = m_zoom;
+    rulerState.offsetPixelsX = m_offsetX;
+    rulerState.offsetPixelsY = m_offsetY;
+    rulerState.view = m_view;
+    viewer2d::DrawRulerOverlay(rulerState, darkMode);
   }
 
   if (swapBuffers && m_enableSelection && m_rectSelecting)

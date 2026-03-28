@@ -75,6 +75,7 @@ Viewer2DState CaptureState(const Viewer2DPanel *panel,
   state.renderOptions.gridColorG = cfg.GetFloat("grid_color_g");
   state.renderOptions.gridColorB = cfg.GetFloat("grid_color_b");
   state.renderOptions.gridDrawAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
+  state.renderOptions.showRuler = cfg.GetFloat("ruler_show") != 0.0f;
 
   for (size_t i = 0; i < state.renderOptions.showLabelName.size(); ++i) {
     state.renderOptions.showLabelName[i] =
@@ -127,6 +128,7 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
   cfg.SetFloat("grid_color_b", state.renderOptions.gridColorB);
   cfg.SetFloat("grid_draw_above",
                state.renderOptions.gridDrawAbove ? 1.0f : 0.0f);
+  cfg.SetFloat("ruler_show", state.renderOptions.showRuler ? 1.0f : 0.0f);
 
   for (size_t i = 0; i < state.renderOptions.showLabelName.size(); ++i) {
     cfg.SetFloat(kLabelNameKeys[i],
