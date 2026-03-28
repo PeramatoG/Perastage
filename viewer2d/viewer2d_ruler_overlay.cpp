@@ -4,6 +4,9 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#ifdef DrawText
+#undef DrawText
+#endif
 #endif
 
 #ifdef __APPLE__
