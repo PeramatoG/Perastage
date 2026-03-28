@@ -20,63 +20,90 @@ namespace viewer2d {
 namespace {
 constexpr float kPixelsPerMeter = 25.0f;
 constexpr float kTickStepMeters = 0.5f;
-constexpr float kLongTickPixels = 16.0f;
-constexpr float kShortTickPixels = 9.0f;
-constexpr float kAxisPaddingPixels = 2.0f;
-
-float WorldXToScreen(float xMeters, int width, float pixelsPerMeter,
-                     float offsetMetersX) {
-  return static_cast<float>(width) * 0.5f +
-         (xMeters + offsetMetersX) * pixelsPerMeter;
-}
-
-float WorldYToScreen(float yMeters, int height, float pixelsPerMeter,
-                     float offsetMetersY) {
-  return static_cast<float>(height) * 0.5f -
-         (yMeters + offsetMetersY) * pixelsPerMeter;
-}
 
 bool IsMeterTick(float valueMeters) {
   const float rounded = std::round(valueMeters);
   return std::fabs(valueMeters - rounded) < 0.0001f;
 }
 
-void DrawHorizontalRuler(float minX, float maxX, int width,
-                         float pixelsPerMeter, float offsetMetersX) {
-  const float yAxis = kAxisPaddingPixels;
-  glBegin(GL_LINES);
-  glVertex2f(0.0f, yAxis);
-  glVertex2f(static_cast<float>(width), yAxis);
+struct WorldPoint {
+  float x = 0.0f;
+  float y = 0.0f;
+  float z = 0.0f;
+};
 
-  const float startTick = std::ceil(minX / kTickStepMeters) * kTickStepMeters;
-  for (float x = startTick; x <= maxX + 0.0001f; x += kTickStepMeters) {
-    const float sx = WorldXToScreen(x, width, pixelsPerMeter, offsetMetersX);
-    if (sx < -1.0f || sx > static_cast<float>(width) + 1.0f)
-      continue;
-    const float tick = IsMeterTick(x) ? kLongTickPixels : kShortTickPixels;
-    glVertex2f(sx, yAxis);
-    glVertex2f(sx, yAxis + tick);
+WorldPoint MapViewCoordinatesToWorld(float u, float v, Viewer2DView view) {
+  switch (view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    return {u, v, 0.0f};
+  case Viewer2DView::Front:
+    return {u, 0.0f, v};
+  case Viewer2DView::Side:
+    return {0.0f, u, v};
+  }
+  return {u, v, 0.0f};
+}
+
+void EmitViewLine(float u0, float v0, float u1, float v1, Viewer2DView view) {
+  const WorldPoint p0 = MapViewCoordinatesToWorld(u0, v0, view);
+  const WorldPoint p1 = MapViewCoordinatesToWorld(u1, v1, view);
+  glVertex3f(p0.x, p0.y, p0.z);
+  glVertex3f(p1.x, p1.y, p1.z);
+}
+
+void DrawHorizontalRuler(float minU, float maxU, float vAxis,
+                         float shortTickMeters, float longTickMeters,
+                         Viewer2DView view) {
+  glBegin(GL_LINES);
+  EmitViewLine(minU, vAxis, maxU, vAxis, view);
+
+  const float startTick = std::ceil(minU / kTickStepMeters) * kTickStepMeters;
+  for (float u = startTick; u <= maxU + 0.0001f; u += kTickStepMeters) {
+    const float tick = IsMeterTick(u) ? longTickMeters : shortTickMeters;
+    EmitViewLine(u, vAxis, u, vAxis + tick, view);
   }
   glEnd();
 }
 
-void DrawVerticalRuler(float minY, float maxY, int height,
-                       float pixelsPerMeter, float offsetMetersY) {
-  const float xAxis = kAxisPaddingPixels;
+void DrawVerticalRuler(float minV, float maxV, float uAxis,
+                       float shortTickMeters, float longTickMeters,
+                       Viewer2DView view) {
   glBegin(GL_LINES);
-  glVertex2f(xAxis, 0.0f);
-  glVertex2f(xAxis, static_cast<float>(height));
+  EmitViewLine(uAxis, minV, uAxis, maxV, view);
 
-  const float startTick = std::ceil(minY / kTickStepMeters) * kTickStepMeters;
-  for (float y = startTick; y <= maxY + 0.0001f; y += kTickStepMeters) {
-    const float sy = WorldYToScreen(y, height, pixelsPerMeter, offsetMetersY);
-    if (sy < -1.0f || sy > static_cast<float>(height) + 1.0f)
-      continue;
-    const float tick = IsMeterTick(y) ? kLongTickPixels : kShortTickPixels;
-    glVertex2f(xAxis, sy);
-    glVertex2f(xAxis + tick, sy);
+  const float startTick = std::ceil(minV / kTickStepMeters) * kTickStepMeters;
+  for (float v = startTick; v <= maxV + 0.0001f; v += kTickStepMeters) {
+    const float tick = IsMeterTick(v) ? longTickMeters : shortTickMeters;
+    EmitViewLine(uAxis, v, uAxis + tick, v, view);
   }
   glEnd();
+}
+
+CanvasStroke BuildRulerStroke(bool darkMode) {
+  CanvasStroke stroke;
+  stroke.color = darkMode ? CanvasColor{1.0f, 1.0f, 1.0f, 1.0f}
+                          : CanvasColor{0.0f, 0.0f, 0.0f, 1.0f};
+  stroke.width = 1.0f;
+  return stroke;
+}
+
+struct ActiveRulers {
+  float horizontalAxisMeters = 0.0f;
+  float verticalAxisMeters = 0.0f;
+};
+
+ActiveRulers ResolveActiveRulers(const RulerOverlayViewState &state) {
+  switch (state.view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    return {state.xRulerPositionMeters, state.yRulerPositionMeters};
+  case Viewer2DView::Front:
+    return {state.xRulerPositionMeters, state.zRulerPositionMeters};
+  case Viewer2DView::Side:
+    return {state.yRulerPositionMeters, state.zRulerPositionMeters};
+  }
+  return {state.xRulerPositionMeters, state.yRulerPositionMeters};
 }
 } // namespace
 
@@ -90,6 +117,13 @@ void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
 
   const float offsetMetersX = state.offsetPixelsX / kPixelsPerMeter;
   const float offsetMetersY = state.offsetPixelsY / kPixelsPerMeter;
+  const float shortTickMeters = std::max(state.smallTickMeters, 0.01f);
+  const float longTickMeters =
+      std::max(std::max(state.largeTickMeters, shortTickMeters),
+               shortTickMeters);
+  const ActiveRulers activeRulers = ResolveActiveRulers(state);
+  const float yAxis = activeRulers.horizontalAxisMeters;
+  const float xAxis = activeRulers.verticalAxisMeters;
   const float halfW = static_cast<float>(state.width) * 0.5f / pixelsPerMeter;
   const float halfH = static_cast<float>(state.height) * 0.5f / pixelsPerMeter;
 
@@ -102,32 +136,61 @@ void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
   if (depthEnabled)
     glDisable(GL_DEPTH_TEST);
 
-  glMatrixMode(GL_PROJECTION);
-  glPushMatrix();
-  glLoadIdentity();
-  glOrtho(0.0f, static_cast<float>(state.width), 0.0f,
-          static_cast<float>(state.height), -1.0f, 1.0f);
-  glMatrixMode(GL_MODELVIEW);
-  glPushMatrix();
-  glLoadIdentity();
-
   if (darkMode)
     glColor3f(1.0f, 1.0f, 1.0f);
   else
     glColor3f(0.0f, 0.0f, 0.0f);
   glLineWidth(1.0f);
 
-  DrawHorizontalRuler(minX, maxX, state.width, pixelsPerMeter,
-                      offsetMetersX);
-  DrawVerticalRuler(minY, maxY, state.height, pixelsPerMeter, offsetMetersY);
-
-  glPopMatrix();
-  glMatrixMode(GL_PROJECTION);
-  glPopMatrix();
-  glMatrixMode(GL_MODELVIEW);
+  DrawHorizontalRuler(minX, maxX, yAxis, shortTickMeters, longTickMeters,
+                      state.view);
+  DrawVerticalRuler(minY, maxY, xAxis, shortTickMeters, longTickMeters,
+                    state.view);
 
   if (depthEnabled)
     glEnable(GL_DEPTH_TEST);
+}
+
+void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
+                       ICanvas2D &canvas) {
+  if (state.width <= 0 || state.height <= 0 || state.zoom <= 0.0f)
+    return;
+
+  const float pixelsPerMeter = kPixelsPerMeter * state.zoom;
+  if (pixelsPerMeter <= 0.0f)
+    return;
+
+  const float offsetMetersX = state.offsetPixelsX / kPixelsPerMeter;
+  const float offsetMetersY = state.offsetPixelsY / kPixelsPerMeter;
+  const float halfW = static_cast<float>(state.width) * 0.5f / pixelsPerMeter;
+  const float halfH = static_cast<float>(state.height) * 0.5f / pixelsPerMeter;
+  const float minX = -halfW - offsetMetersX;
+  const float maxX = halfW - offsetMetersX;
+  const float minY = -halfH - offsetMetersY;
+  const float maxY = halfH - offsetMetersY;
+  const float shortTickMeters = std::max(state.smallTickMeters, 0.01f);
+  const float longTickMeters =
+      std::max(std::max(state.largeTickMeters, shortTickMeters),
+               shortTickMeters);
+  auto stroke = BuildRulerStroke(darkMode);
+  const ActiveRulers activeRulers = ResolveActiveRulers(state);
+
+  const float xRulerY = activeRulers.horizontalAxisMeters;
+  const float yRulerX = activeRulers.verticalAxisMeters;
+  canvas.DrawLine(minX, xRulerY, maxX, xRulerY, stroke);
+  canvas.DrawLine(yRulerX, minY, yRulerX, maxY, stroke);
+
+  const float startX = std::ceil(minX / kTickStepMeters) * kTickStepMeters;
+  for (float x = startX; x <= maxX + 0.0001f; x += kTickStepMeters) {
+    const float tick = IsMeterTick(x) ? longTickMeters : shortTickMeters;
+    canvas.DrawLine(x, xRulerY, x, xRulerY + tick, stroke);
+  }
+
+  const float startY = std::ceil(minY / kTickStepMeters) * kTickStepMeters;
+  for (float y = startY; y <= maxY + 0.0001f; y += kTickStepMeters) {
+    const float tick = IsMeterTick(y) ? longTickMeters : shortTickMeters;
+    canvas.DrawLine(yRulerX, y, yRulerX + tick, y, stroke);
+  }
 }
 
 } // namespace viewer2d

@@ -43,6 +43,9 @@ private:
   void OnGridColor(wxColourPickerEvent &evt);
   void OnDrawAbove(wxCommandEvent &evt);
   void OnShowRuler(wxCommandEvent &evt);
+  void OnRulerAxisXPosition(wxSpinDoubleEvent &evt);
+  void OnRulerAxisYPosition(wxSpinDoubleEvent &evt);
+  void OnRulerAxisZPosition(wxSpinDoubleEvent &evt);
   void OnShowLabelName(wxCommandEvent &evt);
   void OnShowLabelId(wxCommandEvent &evt);
   void OnShowLabelAddress(wxCommandEvent &evt);
@@ -57,6 +60,7 @@ private:
   void OnTextChange(wxCommandEvent &evt);
   void OnTextEnter(wxCommandEvent &evt);
   void ApplyViewSelection(int selection);
+  void UpdateRulerControlState();
 
   wxRadioBox *m_radio = nullptr;
   wxCheckBox *m_darkMode = nullptr;
@@ -67,6 +71,9 @@ private:
   wxColourPickerCtrl *m_gridColor = nullptr;
   wxCheckBox *m_drawAbove = nullptr;
   wxCheckBox *m_showRuler = nullptr;
+  wxSpinCtrlDouble *m_rulerAxisXPosition = nullptr;
+  wxSpinCtrlDouble *m_rulerAxisYPosition = nullptr;
+  wxSpinCtrlDouble *m_rulerAxisZPosition = nullptr;
   wxCheckBox *m_showLabelName = nullptr;
   wxCheckBox *m_showLabelId = nullptr;
   wxCheckBox *m_showLabelAddress = nullptr;
