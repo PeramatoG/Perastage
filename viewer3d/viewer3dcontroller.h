@@ -50,6 +50,15 @@ class OpaqueTrussPass;
 class OpaqueObjectPass;
 class RenderPipeline;
 
+struct OverlayTextLabel {
+  float xPixels = 0.0f;
+  float yPixels = 0.0f;
+  std::string text;
+  bool centerOnX = false;
+  bool centerOnY = false;
+  float fontSize = 3.0f;
+};
+
 class Viewer3DController : public IRenderContext,
                            public ISelectionContext,
                            public IVisibilityContext {
@@ -95,6 +104,8 @@ public:
   void DrawSceneObjectLabels(int width, int height);
   void DrawAllFixtureLabels(int width, int height, Viewer2DView view,
                             float zoom = 1.0f);
+  void DrawOverlayTextLabels(const std::vector<OverlayTextLabel> &labels,
+                             bool darkMode, bool outline = true);
 
   bool GetFixtureLabelAt(int mouseX, int mouseY, int width, int height,
                          wxString &outLabel, wxPoint &outPos,

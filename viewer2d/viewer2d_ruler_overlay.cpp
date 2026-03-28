@@ -137,16 +137,18 @@ CanvasTextStyle BuildRulerLabelStyle(const CanvasStroke &stroke) {
 
 float WorldToScreenX(float worldX, const RulerOverlayViewState &state,
                      float pixelsPerMeter) {
-  const float offsetMetersX = state.offsetPixelsX / pixelsPerMeter;
+  (void)pixelsPerMeter;
+  const float offsetMetersX = state.offsetPixelsX / kPixelsPerMeter;
   return static_cast<float>(state.width) * 0.5f +
-         (worldX + offsetMetersX) * pixelsPerMeter;
+         (worldX + offsetMetersX) * kPixelsPerMeter * state.zoom;
 }
 
 float WorldToScreenY(float worldY, const RulerOverlayViewState &state,
                      float pixelsPerMeter) {
-  const float offsetMetersY = state.offsetPixelsY / pixelsPerMeter;
+  (void)pixelsPerMeter;
+  const float offsetMetersY = state.offsetPixelsY / kPixelsPerMeter;
   return static_cast<float>(state.height) * 0.5f -
-         (worldY + offsetMetersY) * pixelsPerMeter;
+         (worldY + offsetMetersY) * kPixelsPerMeter * state.zoom;
 }
 } // namespace
 
@@ -158,8 +160,8 @@ void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
   if (pixelsPerMeter <= 0.0f)
     return;
 
-  const float offsetMetersX = state.offsetPixelsX / pixelsPerMeter;
-  const float offsetMetersY = state.offsetPixelsY / pixelsPerMeter;
+  const float offsetMetersX = state.offsetPixelsX / kPixelsPerMeter;
+  const float offsetMetersY = state.offsetPixelsY / kPixelsPerMeter;
   const float shortTickMeters = std::max(state.smallTickMeters, 0.01f);
   const float longTickMeters =
       std::max(std::max(state.largeTickMeters, shortTickMeters),
@@ -203,8 +205,8 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
   if (pixelsPerMeter <= 0.0f)
     return;
 
-  const float offsetMetersX = state.offsetPixelsX / pixelsPerMeter;
-  const float offsetMetersY = state.offsetPixelsY / pixelsPerMeter;
+  const float offsetMetersX = state.offsetPixelsX / kPixelsPerMeter;
+  const float offsetMetersY = state.offsetPixelsY / kPixelsPerMeter;
   const float halfW = static_cast<float>(state.width) * 0.5f / pixelsPerMeter;
   const float halfH = static_cast<float>(state.height) * 0.5f / pixelsPerMeter;
   const float minX = -halfW - offsetMetersX;
@@ -259,8 +261,8 @@ BuildRulerScreenLabels(const RulerOverlayViewState &state) {
   if (pixelsPerMeter <= 0.0f)
     return labels;
 
-  const float offsetMetersX = state.offsetPixelsX / pixelsPerMeter;
-  const float offsetMetersY = state.offsetPixelsY / pixelsPerMeter;
+  const float offsetMetersX = state.offsetPixelsX / kPixelsPerMeter;
+  const float offsetMetersY = state.offsetPixelsY / kPixelsPerMeter;
   const float halfW = static_cast<float>(state.width) * 0.5f / pixelsPerMeter;
   const float halfH = static_cast<float>(state.height) * 0.5f / pixelsPerMeter;
   const float minX = -halfW - offsetMetersX;
