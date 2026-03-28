@@ -160,7 +160,7 @@ bool AskCopyReferencedAssets(wxWindow *parent, const wxString &title,
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   wxCheckBox *copyAssetsCheckbox =
       new wxCheckBox(&optionsDialog, wxID_ANY,
-                     "Copiar también los archivos referenciados");
+                     "Copy referenced files too");
   copyAssetsCheckbox->SetValue(false);
 
   topSizer->Add(
