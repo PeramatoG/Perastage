@@ -21,58 +21,37 @@ namespace {
 constexpr float kPixelsPerMeter = 25.0f;
 constexpr float kTickStepMeters = 0.5f;
 
-float WorldXToScreen(float xMeters, int width, float pixelsPerMeter,
-                     float offsetMetersX) {
-  return static_cast<float>(width) * 0.5f +
-         (xMeters + offsetMetersX) * pixelsPerMeter;
-}
-
-float WorldYToScreen(float yMeters, int height, float pixelsPerMeter,
-                     float offsetMetersY) {
-  return static_cast<float>(height) * 0.5f -
-         (yMeters + offsetMetersY) * pixelsPerMeter;
-}
-
 bool IsMeterTick(float valueMeters) {
   const float rounded = std::round(valueMeters);
   return std::fabs(valueMeters - rounded) < 0.0001f;
 }
 
-void DrawHorizontalRuler(float minX, float maxX, int width,
-                         float pixelsPerMeter, float offsetMetersX,
-                         float yAxis, float shortTickPixels,
-                         float longTickPixels) {
+void DrawHorizontalRuler(float minX, float maxX, float yAxis,
+                         float shortTickMeters, float longTickMeters) {
   glBegin(GL_LINES);
-  glVertex2f(0.0f, yAxis);
-  glVertex2f(static_cast<float>(width), yAxis);
+  glVertex2f(minX, yAxis);
+  glVertex2f(maxX, yAxis);
 
   const float startTick = std::ceil(minX / kTickStepMeters) * kTickStepMeters;
   for (float x = startTick; x <= maxX + 0.0001f; x += kTickStepMeters) {
-    const float sx = WorldXToScreen(x, width, pixelsPerMeter, offsetMetersX);
-    if (sx < -1.0f || sx > static_cast<float>(width) + 1.0f)
-      continue;
-    const float tick = IsMeterTick(x) ? longTickPixels : shortTickPixels;
-    glVertex2f(sx, yAxis);
-    glVertex2f(sx, yAxis + tick);
+    const float tick = IsMeterTick(x) ? longTickMeters : shortTickMeters;
+    glVertex2f(x, yAxis);
+    glVertex2f(x, yAxis + tick);
   }
   glEnd();
 }
 
-void DrawVerticalRuler(float minY, float maxY, int height,
-                       float pixelsPerMeter, float offsetMetersY, float xAxis,
-                       float shortTickPixels, float longTickPixels) {
+void DrawVerticalRuler(float minY, float maxY, float xAxis,
+                       float shortTickMeters, float longTickMeters) {
   glBegin(GL_LINES);
-  glVertex2f(xAxis, 0.0f);
-  glVertex2f(xAxis, static_cast<float>(height));
+  glVertex2f(xAxis, minY);
+  glVertex2f(xAxis, maxY);
 
   const float startTick = std::ceil(minY / kTickStepMeters) * kTickStepMeters;
   for (float y = startTick; y <= maxY + 0.0001f; y += kTickStepMeters) {
-    const float sy = WorldYToScreen(y, height, pixelsPerMeter, offsetMetersY);
-    if (sy < -1.0f || sy > static_cast<float>(height) + 1.0f)
-      continue;
-    const float tick = IsMeterTick(y) ? longTickPixels : shortTickPixels;
-    glVertex2f(xAxis, sy);
-    glVertex2f(xAxis + tick, sy);
+    const float tick = IsMeterTick(y) ? longTickMeters : shortTickMeters;
+    glVertex2f(xAxis, y);
+    glVertex2f(xAxis + tick, y);
   }
   glEnd();
 }
@@ -118,15 +97,9 @@ void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
   const float longTickMeters =
       std::max(std::max(state.largeTickMeters, shortTickMeters),
                shortTickMeters);
-  const float shortTickPixels = shortTickMeters * pixelsPerMeter;
-  const float longTickPixels = longTickMeters * pixelsPerMeter;
   const ActiveRulers activeRulers = ResolveActiveRulers(state);
-  const float yAxis =
-      WorldYToScreen(activeRulers.horizontalAxisMeters, state.height,
-                     pixelsPerMeter, offsetMetersY);
-  const float xAxis =
-      WorldXToScreen(activeRulers.verticalAxisMeters, state.width,
-                     pixelsPerMeter, offsetMetersX);
+  const float yAxis = activeRulers.horizontalAxisMeters;
+  const float xAxis = activeRulers.verticalAxisMeters;
   const float halfW = static_cast<float>(state.width) * 0.5f / pixelsPerMeter;
   const float halfH = static_cast<float>(state.height) * 0.5f / pixelsPerMeter;
 
@@ -139,30 +112,14 @@ void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
   if (depthEnabled)
     glDisable(GL_DEPTH_TEST);
 
-  glMatrixMode(GL_PROJECTION);
-  glPushMatrix();
-  glLoadIdentity();
-  glOrtho(0.0f, static_cast<float>(state.width), 0.0f,
-          static_cast<float>(state.height), -1.0f, 1.0f);
-  glMatrixMode(GL_MODELVIEW);
-  glPushMatrix();
-  glLoadIdentity();
-
   if (darkMode)
     glColor3f(1.0f, 1.0f, 1.0f);
   else
     glColor3f(0.0f, 0.0f, 0.0f);
   glLineWidth(1.0f);
 
-  DrawHorizontalRuler(minX, maxX, state.width, pixelsPerMeter, offsetMetersX,
-                      yAxis, shortTickPixels, longTickPixels);
-  DrawVerticalRuler(minY, maxY, state.height, pixelsPerMeter, offsetMetersY,
-                    xAxis, shortTickPixels, longTickPixels);
-
-  glPopMatrix();
-  glMatrixMode(GL_PROJECTION);
-  glPopMatrix();
-  glMatrixMode(GL_MODELVIEW);
+  DrawHorizontalRuler(minX, maxX, yAxis, shortTickMeters, longTickMeters);
+  DrawVerticalRuler(minY, maxY, xAxis, shortTickMeters, longTickMeters);
 
   if (depthEnabled)
     glEnable(GL_DEPTH_TEST);
