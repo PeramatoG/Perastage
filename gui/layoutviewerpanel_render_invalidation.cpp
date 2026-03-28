@@ -51,6 +51,7 @@ size_t LayoutViewerPanel::HashViewContent(
   HashCombineFloat(seed, view.renderOptions.gridColorG);
   HashCombineFloat(seed, view.renderOptions.gridColorB);
   HashCombine(seed, std::hash<bool>{}(view.renderOptions.gridDrawAbove));
+  HashCombine(seed, std::hash<bool>{}(view.renderOptions.showRuler));
 
   for (bool enabled : view.renderOptions.showLabelName)
     HashCombine(seed, std::hash<bool>{}(enabled));

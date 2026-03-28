@@ -130,6 +130,7 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
                                       {"gridColorG", options.gridColorG},
                                       {"gridColorB", options.gridColorB},
                                       {"gridDrawAbove", options.gridDrawAbove},
+                                      {"showRuler", options.showRuler},
                                       {"showLabelName", options.showLabelName},
                                       {"showLabelId", options.showLabelId},
                                       {"showLabelDmx", options.showLabelDmx},
@@ -310,6 +311,8 @@ void ReadRenderOptions(const nlohmann::json &obj,
                                     "renderOptions.gridColorB");
   if (auto it = obj.find("gridDrawAbove"); it != obj.end() && it->is_boolean())
     options.gridDrawAbove = it->get<bool>();
+  if (auto it = obj.find("showRuler"); it != obj.end() && it->is_boolean())
+    options.showRuler = it->get<bool>();
 
   ReadBoolArray(obj, "showLabelName", options.showLabelName, ctx);
   ReadBoolArray(obj, "showLabelId", options.showLabelId, ctx);

@@ -42,6 +42,7 @@ private:
   void OnGridStyle(wxCommandEvent &evt);
   void OnGridColor(wxColourPickerEvent &evt);
   void OnDrawAbove(wxCommandEvent &evt);
+  void OnShowRuler(wxCommandEvent &evt);
   void OnShowLabelName(wxCommandEvent &evt);
   void OnShowLabelId(wxCommandEvent &evt);
   void OnShowLabelAddress(wxCommandEvent &evt);
@@ -65,6 +66,7 @@ private:
   wxRadioBox *m_gridStyle = nullptr;
   wxColourPickerCtrl *m_gridColor = nullptr;
   wxCheckBox *m_drawAbove = nullptr;
+  wxCheckBox *m_showRuler = nullptr;
   wxCheckBox *m_showLabelName = nullptr;
   wxCheckBox *m_showLabelId = nullptr;
   wxCheckBox *m_showLabelAddress = nullptr;

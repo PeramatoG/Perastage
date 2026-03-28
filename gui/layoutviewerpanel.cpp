@@ -117,6 +117,7 @@ bool AreEqual(const layouts::Layout2DViewRenderOptions &lhs,
          lhs.gridColorR == rhs.gridColorR && lhs.gridColorG == rhs.gridColorG &&
          lhs.gridColorB == rhs.gridColorB &&
          lhs.gridDrawAbove == rhs.gridDrawAbove &&
+         lhs.showRuler == rhs.showRuler &&
          lhs.showLabelName == rhs.showLabelName &&
          lhs.showLabelId == rhs.showLabelId &&
          lhs.showLabelDmx == rhs.showLabelDmx &&

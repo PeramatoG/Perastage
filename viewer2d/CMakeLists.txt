@@ -11,6 +11,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/symbolcache.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dcommandrenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2doffscreenrenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer2d_ruler_overlay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpdfexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2drenderpanel.cpp
