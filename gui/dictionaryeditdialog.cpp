@@ -611,7 +611,7 @@ bool SaveTrussesSnapshotToFile(const std::string &outputPath,
 
 DictionaryEditDialog::DictionaryEditDialog(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, "Dictionary editor", wxDefaultPosition,
-               wxSize(920, 520), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+               wxSize(1100, 620), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
   BuildLayout();
   LoadFixtures();
   LoadTrusses();
@@ -678,7 +678,7 @@ void DictionaryEditDialog::BuildLayout() {
   topSizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
   SetSizer(topSizer);
-  SetMinSize(wxSize(920, 420));
+  SetMinSize(wxSize(1040, 520));
 
   addBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnAdd, this);
   deleteBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnDelete, this);
