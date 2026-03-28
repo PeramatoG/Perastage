@@ -23,6 +23,12 @@
 #include <unordered_map>
 
 // Include GLEW or other OpenGL loader first if present
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 #ifdef __APPLE__
 #  include <OpenGL/gl.h>
 #  include <OpenGL/glu.h>
