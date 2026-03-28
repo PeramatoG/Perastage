@@ -8,6 +8,21 @@ Perastage keeps JSON dictionary snapshots for backward compatibility and also su
 - The current **Import dictionary...** action accepts both JSON snapshots and ZIP bundles.
 - The current **Export dictionary...** action still writes JSON snapshots.
 - A new **Export portable bundle...** action writes a ZIP bundle that includes dictionary data and required assets.
+- JSON snapshot export can optionally copy referenced files to a sibling
+  `<snapshot>_assets/assets/` folder and write `assets/...` relative paths.
+
+## Preflight validation and warnings
+
+Both import and export run path checks before applying changes:
+
+- Export preflight reports:
+  - total entries,
+  - entries with file found,
+  - entries with missing file.
+- Import preflight reports unresolved references and shows up to a small set of
+  missing examples before asking whether to continue.
+
+The import summary also tracks `missing_files_count` and example entries.
 
 ## ZIP layout
 
@@ -58,6 +73,22 @@ When a bundle is imported:
    - trusses -> `library/trusses`
 5. Dictionary entries are rewritten so `file` references point to the imported library assets.
 6. The rewritten dictionary is imported using the same import policy flow used for JSON snapshots.
+
+## Collision policy when copying into library
+
+When a source file would overwrite an existing filename in the target library
+(`library/fixtures` or `library/trusses`) and contents differ, the user is
+prompted to choose one policy:
+
+- **Rename** to a deterministic `<basename>_<hash>.<ext>` target.
+- **Overwrite** existing file.
+- **Cancel** import for that asset.
+
+Fixture and truss dictionary entries may include optional provenance/hash
+metadata to aid diagnostics:
+
+- `source`: source path used during import.
+- `sha256`: content hash stored with the entry.
 
 ## `dictionary.json`
 

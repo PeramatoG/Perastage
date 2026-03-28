@@ -42,6 +42,12 @@
 - The rider importer parses typical lists of fixture quantities/types and creates corresponding dummy fixtures/trusses in the scene.
 - The full parser and placement rule set used by this text-to-scene workflow is documented in [`docs/text_to_scene_rules.md`](docs/text_to_scene_rules.md).
 - A dictionary helps resolve type names to GDTF specifications and can be edited via the **Tools → Edit dictionaries** menu.
+- Dictionary import/export now supports three portability levels:
+  - JSON snapshot (references only, backward compatible),
+  - JSON snapshot + optional copied `assets/` folder (`*_assets/assets/...`),
+  - portable ZIP bundle (`manifest.json` + `dictionary.json` + `assets/*`).
+- Import/export flows include preflight path validation and report missing referenced files before applying changes.
+- When importing files into `library/fixtures` or `library/trusses`, filename collisions with different content prompt a policy (rename/overwrite/cancel).
 
 ### Patch management
 
