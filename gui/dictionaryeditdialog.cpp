@@ -31,11 +31,13 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <vector>
 
 #include <wx/filename.h>
+#include <wx/busyinfo.h>
 
 namespace {
 struct FixtureRow {
@@ -727,6 +729,8 @@ void DictionaryEditDialog::LoadFixtures() {
     fixtureTable->AppendItem(items);
     fixturePaths.push_back(row.path);
   }
+
+  fixtureSnapshotAtLoad = BuildFixtureSnapshotFromUi();
 }
 
 void DictionaryEditDialog::LoadTrusses() {
@@ -756,6 +760,71 @@ void DictionaryEditDialog::LoadTrusses() {
     trussTable->AppendItem(items);
     trussPaths.push_back(row.path);
   }
+
+  trussSnapshotAtLoad = BuildTrussSnapshotFromUi();
+}
+
+std::vector<std::string> DictionaryEditDialog::BuildFixtureSnapshotFromUi() const {
+  std::vector<std::string> snapshot;
+  if (!fixtureTable)
+    return snapshot;
+
+  const int count = fixtureTable->GetItemCount();
+  snapshot.reserve(static_cast<size_t>(count));
+  for (int i = 0; i < count; ++i) {
+    wxVariant nameVar;
+    fixtureTable->GetValue(nameVar, i, 0);
+    const std::string name = std::string(nameVar.GetString().ToUTF8());
+    if (name.empty())
+      continue;
+    if (static_cast<size_t>(i) >= fixturePaths.size())
+      continue;
+    const std::string &path = fixturePaths[i];
+    if (path.empty())
+      continue;
+    if (!std::filesystem::exists(path))
+      continue;
+    wxVariant modeVar;
+    fixtureTable->GetValue(modeVar, i, 2);
+    const std::string mode = std::string(modeVar.GetString().ToUTF8());
+    snapshot.push_back(name + '\n' + path + '\n' + mode);
+  }
+  std::sort(snapshot.begin(), snapshot.end());
+  return snapshot;
+}
+
+std::vector<std::string> DictionaryEditDialog::BuildTrussSnapshotFromUi() const {
+  std::vector<std::string> snapshot;
+  if (!trussTable)
+    return snapshot;
+
+  const int count = trussTable->GetItemCount();
+  snapshot.reserve(static_cast<size_t>(count));
+  for (int i = 0; i < count; ++i) {
+    wxVariant nameVar;
+    trussTable->GetValue(nameVar, i, 0);
+    const std::string name = std::string(nameVar.GetString().ToUTF8());
+    if (name.empty())
+      continue;
+    if (static_cast<size_t>(i) >= trussPaths.size())
+      continue;
+    const std::string &path = trussPaths[i];
+    if (path.empty())
+      continue;
+    if (!std::filesystem::exists(path))
+      continue;
+    snapshot.push_back(name + '\n' + path);
+  }
+  std::sort(snapshot.begin(), snapshot.end());
+  return snapshot;
+}
+
+bool DictionaryEditDialog::HasFixtureChanges() const {
+  return BuildFixtureSnapshotFromUi() != fixtureSnapshotAtLoad;
+}
+
+bool DictionaryEditDialog::HasTrussChanges() const {
+  return BuildTrussSnapshotFromUi() != trussSnapshotAtLoad;
 }
 
 void DictionaryEditDialog::ShowDictionaryLoadStatusMessages() {
@@ -968,8 +1037,20 @@ void DictionaryEditDialog::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void DictionaryEditDialog::OnOk(wxCommandEvent &WXUNUSED(event)) {
-  SaveFixtures();
-  SaveTrusses();
+  const bool fixtureChanged = HasFixtureChanges();
+  const bool trussChanged = HasTrussChanges();
+
+  if (!fixtureChanged && !trussChanged) {
+    EndModal(wxID_OK);
+    return;
+  }
+
+  std::unique_ptr<wxBusyInfo> saveOverlay =
+      std::make_unique<wxBusyInfo>("Saving dictionary changes...");
+  if (fixtureChanged)
+    SaveFixtures();
+  if (trussChanged)
+    SaveTrusses();
   EndModal(wxID_OK);
 }
 

@@ -21,6 +21,9 @@
 #include <wx/notebook.h>
 #include <wx/wx.h>
 
+#include <string>
+#include <vector>
+
 class DictionaryEditDialog : public wxDialog {
 public:
   explicit DictionaryEditDialog(wxWindow *parent);
@@ -31,6 +34,10 @@ private:
   void LoadTrusses();
   void SaveFixtures();
   void SaveTrusses();
+  std::vector<std::string> BuildFixtureSnapshotFromUi() const;
+  std::vector<std::string> BuildTrussSnapshotFromUi() const;
+  bool HasFixtureChanges() const;
+  bool HasTrussChanges() const;
   void ShowDictionaryLoadStatusMessages();
   bool IsFixturesPage() const;
 
@@ -67,4 +74,6 @@ private:
 
   std::vector<std::string> fixturePaths;
   std::vector<std::string> trussPaths;
+  std::vector<std::string> fixtureSnapshotAtLoad;
+  std::vector<std::string> trussSnapshotAtLoad;
 };
