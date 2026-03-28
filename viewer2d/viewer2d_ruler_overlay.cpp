@@ -134,6 +134,20 @@ CanvasTextStyle BuildRulerLabelStyle(const CanvasStroke &stroke) {
   style.color = stroke.color;
   return style;
 }
+
+float WorldToScreenX(float worldX, const RulerOverlayViewState &state,
+                     float pixelsPerMeter) {
+  const float offsetMetersX = state.offsetPixelsX / pixelsPerMeter;
+  return static_cast<float>(state.width) * 0.5f +
+         (worldX + offsetMetersX) * pixelsPerMeter;
+}
+
+float WorldToScreenY(float worldY, const RulerOverlayViewState &state,
+                     float pixelsPerMeter) {
+  const float offsetMetersY = state.offsetPixelsY / pixelsPerMeter;
+  return static_cast<float>(state.height) * 0.5f -
+         (worldY + offsetMetersY) * pixelsPerMeter;
+}
 } // namespace
 
 void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
@@ -144,8 +158,8 @@ void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
   if (pixelsPerMeter <= 0.0f)
     return;
 
-  const float offsetMetersX = state.offsetPixelsX / kPixelsPerMeter;
-  const float offsetMetersY = state.offsetPixelsY / kPixelsPerMeter;
+  const float offsetMetersX = state.offsetPixelsX / pixelsPerMeter;
+  const float offsetMetersY = state.offsetPixelsY / pixelsPerMeter;
   const float shortTickMeters = std::max(state.smallTickMeters, 0.01f);
   const float longTickMeters =
       std::max(std::max(state.largeTickMeters, shortTickMeters),
@@ -189,8 +203,8 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
   if (pixelsPerMeter <= 0.0f)
     return;
 
-  const float offsetMetersX = state.offsetPixelsX / kPixelsPerMeter;
-  const float offsetMetersY = state.offsetPixelsY / kPixelsPerMeter;
+  const float offsetMetersX = state.offsetPixelsX / pixelsPerMeter;
+  const float offsetMetersY = state.offsetPixelsY / pixelsPerMeter;
   const float halfW = static_cast<float>(state.width) * 0.5f / pixelsPerMeter;
   const float halfH = static_cast<float>(state.height) * 0.5f / pixelsPerMeter;
   const float minX = -halfW - offsetMetersX;
@@ -233,6 +247,54 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
                       textStyle);
     }
   }
+}
+
+std::vector<RulerScreenLabel>
+BuildRulerScreenLabels(const RulerOverlayViewState &state) {
+  std::vector<RulerScreenLabel> labels;
+  if (state.width <= 0 || state.height <= 0 || state.zoom <= 0.0f)
+    return labels;
+
+  const float pixelsPerMeter = kPixelsPerMeter * state.zoom;
+  if (pixelsPerMeter <= 0.0f)
+    return labels;
+
+  const float offsetMetersX = state.offsetPixelsX / pixelsPerMeter;
+  const float offsetMetersY = state.offsetPixelsY / pixelsPerMeter;
+  const float halfW = static_cast<float>(state.width) * 0.5f / pixelsPerMeter;
+  const float halfH = static_cast<float>(state.height) * 0.5f / pixelsPerMeter;
+  const float minX = -halfW - offsetMetersX;
+  const float maxX = halfW - offsetMetersX;
+  const float minY = -halfH - offsetMetersY;
+  const float maxY = halfH - offsetMetersY;
+  const float shortTickMeters = std::max(state.smallTickMeters, 0.01f);
+  const float longTickMeters =
+      std::max(std::max(state.largeTickMeters, shortTickMeters),
+               shortTickMeters);
+  const ActiveRulers activeRulers = ResolveActiveRulers(state);
+  const float xRulerY = activeRulers.horizontalAxisMeters;
+  const float yRulerX = activeRulers.verticalAxisMeters;
+
+  const float startX = std::ceil(minX / kTickStepMeters) * kTickStepMeters;
+  for (float x = startX; x <= maxX + 0.0001f; x += kTickStepMeters) {
+    if (!IsMeterTick(x))
+      continue;
+    const float worldY = xRulerY + longTickMeters + kRulerLabelOffsetMeters;
+    labels.push_back({WorldToScreenX(x, state, pixelsPerMeter),
+                      WorldToScreenY(worldY, state, pixelsPerMeter),
+                      FormatRulerOffsetLabel(x - yRulerX), true, false});
+  }
+
+  const float startY = std::ceil(minY / kTickStepMeters) * kTickStepMeters;
+  for (float y = startY; y <= maxY + 0.0001f; y += kTickStepMeters) {
+    if (!IsMeterTick(y))
+      continue;
+    const float worldX = yRulerX + longTickMeters + kRulerLabelOffsetMeters;
+    labels.push_back({WorldToScreenX(worldX, state, pixelsPerMeter),
+                      WorldToScreenY(y, state, pixelsPerMeter),
+                      FormatRulerOffsetLabel(y - xRulerY), false, true});
+  }
+  return labels;
 }
 
 } // namespace viewer2d

@@ -867,6 +867,47 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
 
   Render();
 
+  ConfigManager &cfg = ConfigManager::Get();
+  const bool showRuler = cfg.GetFloat("ruler_show") != 0.0f;
+  if (showRuler) {
+    viewer2d::RulerOverlayViewState rulerState;
+    int rulerWidth = 0;
+    int rulerHeight = 0;
+    GetClientSize(&rulerWidth, &rulerHeight);
+    rulerState.width = rulerWidth;
+    rulerState.height = rulerHeight;
+    rulerState.zoom = m_zoom;
+    rulerState.offsetPixelsX = m_offsetX;
+    rulerState.offsetPixelsY = m_offsetY;
+    rulerState.smallTickMeters = cfg.GetFloat("ruler_tick_small_m");
+    rulerState.largeTickMeters = cfg.GetFloat("ruler_tick_large_m");
+    rulerState.xRulerPositionMeters = cfg.GetFloat("ruler_axis_x_position");
+    rulerState.yRulerPositionMeters = cfg.GetFloat("ruler_axis_y_position");
+    rulerState.zRulerPositionMeters = cfg.GetFloat("ruler_axis_z_position");
+    rulerState.view = m_view;
+
+    auto rulerLabels = viewer2d::BuildRulerScreenLabels(rulerState);
+    if (!rulerLabels.empty()) {
+      auto theme = cfg.GetValue("theme");
+      const bool darkMode = (theme && *theme == "dark");
+      dc.SetTextForeground(darkMode ? *wxWHITE : *wxBLACK);
+      wxFont font = GetFont();
+      font.SetPointSize(9);
+      dc.SetFont(font);
+      for (const auto &label : rulerLabels) {
+        wxString text = wxString::FromUTF8(label.text);
+        wxSize textSize = dc.GetTextExtent(text);
+        int x = static_cast<int>(std::lround(label.xPixels));
+        int y = static_cast<int>(std::lround(label.yPixels));
+        if (label.centerOnX)
+          x -= textSize.GetWidth() / 2;
+        if (label.centerOnY)
+          y -= textSize.GetHeight() / 2;
+        dc.DrawLabel(text, wxRect(x, y, textSize.GetWidth(), textSize.GetHeight()));
+      }
+    }
+  }
+
   if (!m_enableSelection || !IsShownOnScreen())
     return;
 
