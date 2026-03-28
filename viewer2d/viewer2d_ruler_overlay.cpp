@@ -15,11 +15,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <sstream>
 
 namespace viewer2d {
 namespace {
 constexpr float kPixelsPerMeter = 25.0f;
 constexpr float kTickStepMeters = 0.5f;
+constexpr float kRulerLabelFontSize = 3.0f;
+constexpr float kRulerLabelOffsetMeters = 0.12f;
 
 bool IsMeterTick(float valueMeters) {
   const float rounded = std::round(valueMeters);
@@ -105,6 +108,29 @@ ActiveRulers ResolveActiveRulers(const RulerOverlayViewState &state) {
   }
   return {state.xRulerPositionMeters, state.yRulerPositionMeters};
 }
+
+std::string FormatRulerOffsetLabel(float valueMeters) {
+  if (std::fabs(valueMeters) < 0.0001f)
+    return "0";
+
+  std::ostringstream out;
+  if (std::fabs(valueMeters - std::round(valueMeters)) < 0.0001f) {
+    out << static_cast<int>(std::lround(valueMeters));
+  } else {
+    out.setf(std::ios::fixed);
+    out.precision(1);
+    out << valueMeters;
+  }
+  out << " m";
+  return out.str();
+}
+
+CanvasTextStyle BuildRulerLabelStyle(const CanvasStroke &stroke) {
+  CanvasTextStyle style;
+  style.fontSize = kRulerLabelFontSize;
+  style.color = stroke.color;
+  return style;
+}
 } // namespace
 
 void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
@@ -181,15 +207,28 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
   canvas.DrawLine(yRulerX, minY, yRulerX, maxY, stroke);
 
   const float startX = std::ceil(minX / kTickStepMeters) * kTickStepMeters;
+  const auto textStyle = BuildRulerLabelStyle(stroke);
   for (float x = startX; x <= maxX + 0.0001f; x += kTickStepMeters) {
-    const float tick = IsMeterTick(x) ? longTickMeters : shortTickMeters;
+    const bool isLongTick = IsMeterTick(x);
+    const float tick = isLongTick ? longTickMeters : shortTickMeters;
     canvas.DrawLine(x, xRulerY, x, xRulerY + tick, stroke);
+    if (isLongTick) {
+      const std::string label = FormatRulerOffsetLabel(x - yRulerX);
+      canvas.DrawText(x, xRulerY + tick + kRulerLabelOffsetMeters, label,
+                      textStyle);
+    }
   }
 
   const float startY = std::ceil(minY / kTickStepMeters) * kTickStepMeters;
   for (float y = startY; y <= maxY + 0.0001f; y += kTickStepMeters) {
-    const float tick = IsMeterTick(y) ? longTickMeters : shortTickMeters;
+    const bool isLongTick = IsMeterTick(y);
+    const float tick = isLongTick ? longTickMeters : shortTickMeters;
     canvas.DrawLine(yRulerX, y, yRulerX + tick, y, stroke);
+    if (isLongTick) {
+      const std::string label = FormatRulerOffsetLabel(y - xRulerY);
+      canvas.DrawText(yRulerX + tick + kRulerLabelOffsetMeters, y, label,
+                      textStyle);
+    }
   }
 }
 
