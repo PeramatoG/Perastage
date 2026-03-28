@@ -1,6 +1,4 @@
 {
-    "kind": "perastage.dictionary",
-    "schema_version": 1,
     "dictionary_type": "fixtures",
     "entries": {
         "Aleda B-EYE K10": {
@@ -148,6 +146,7 @@
             "mode": "25ch"
         },
         "Q-7": {
+            "category": "Strobe",
             "file": "Q-7.gdtf",
             "mode": "6 Channel RAW"
         },
@@ -247,5 +246,7 @@
             "file": "Sharpy.gdtf",
             "mode": "Vector"
         }
-    }
+    },
+    "kind": "perastage.dictionary",
+    "schema_version": 1
 }
