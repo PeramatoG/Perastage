@@ -26,32 +26,56 @@ bool IsMeterTick(float valueMeters) {
   return std::fabs(valueMeters - rounded) < 0.0001f;
 }
 
-void DrawHorizontalRuler(float minX, float maxX, float yAxis,
-                         float shortTickMeters, float longTickMeters) {
-  glBegin(GL_LINES);
-  glVertex2f(minX, yAxis);
-  glVertex2f(maxX, yAxis);
+struct WorldPoint {
+  float x = 0.0f;
+  float y = 0.0f;
+  float z = 0.0f;
+};
 
-  const float startTick = std::ceil(minX / kTickStepMeters) * kTickStepMeters;
-  for (float x = startTick; x <= maxX + 0.0001f; x += kTickStepMeters) {
-    const float tick = IsMeterTick(x) ? longTickMeters : shortTickMeters;
-    glVertex2f(x, yAxis);
-    glVertex2f(x, yAxis + tick);
+WorldPoint MapViewCoordinatesToWorld(float u, float v, Viewer2DView view) {
+  switch (view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    return {u, v, 0.0f};
+  case Viewer2DView::Front:
+    return {u, 0.0f, v};
+  case Viewer2DView::Side:
+    return {0.0f, u, v};
+  }
+  return {u, v, 0.0f};
+}
+
+void EmitViewLine(float u0, float v0, float u1, float v1, Viewer2DView view) {
+  const WorldPoint p0 = MapViewCoordinatesToWorld(u0, v0, view);
+  const WorldPoint p1 = MapViewCoordinatesToWorld(u1, v1, view);
+  glVertex3f(p0.x, p0.y, p0.z);
+  glVertex3f(p1.x, p1.y, p1.z);
+}
+
+void DrawHorizontalRuler(float minU, float maxU, float vAxis,
+                         float shortTickMeters, float longTickMeters,
+                         Viewer2DView view) {
+  glBegin(GL_LINES);
+  EmitViewLine(minU, vAxis, maxU, vAxis, view);
+
+  const float startTick = std::ceil(minU / kTickStepMeters) * kTickStepMeters;
+  for (float u = startTick; u <= maxU + 0.0001f; u += kTickStepMeters) {
+    const float tick = IsMeterTick(u) ? longTickMeters : shortTickMeters;
+    EmitViewLine(u, vAxis, u, vAxis + tick, view);
   }
   glEnd();
 }
 
-void DrawVerticalRuler(float minY, float maxY, float xAxis,
-                       float shortTickMeters, float longTickMeters) {
+void DrawVerticalRuler(float minV, float maxV, float uAxis,
+                       float shortTickMeters, float longTickMeters,
+                       Viewer2DView view) {
   glBegin(GL_LINES);
-  glVertex2f(xAxis, minY);
-  glVertex2f(xAxis, maxY);
+  EmitViewLine(uAxis, minV, uAxis, maxV, view);
 
-  const float startTick = std::ceil(minY / kTickStepMeters) * kTickStepMeters;
-  for (float y = startTick; y <= maxY + 0.0001f; y += kTickStepMeters) {
-    const float tick = IsMeterTick(y) ? longTickMeters : shortTickMeters;
-    glVertex2f(xAxis, y);
-    glVertex2f(xAxis + tick, y);
+  const float startTick = std::ceil(minV / kTickStepMeters) * kTickStepMeters;
+  for (float v = startTick; v <= maxV + 0.0001f; v += kTickStepMeters) {
+    const float tick = IsMeterTick(v) ? longTickMeters : shortTickMeters;
+    EmitViewLine(uAxis, v, uAxis + tick, v, view);
   }
   glEnd();
 }
@@ -118,8 +142,10 @@ void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
     glColor3f(0.0f, 0.0f, 0.0f);
   glLineWidth(1.0f);
 
-  DrawHorizontalRuler(minX, maxX, yAxis, shortTickMeters, longTickMeters);
-  DrawVerticalRuler(minY, maxY, xAxis, shortTickMeters, longTickMeters);
+  DrawHorizontalRuler(minX, maxX, yAxis, shortTickMeters, longTickMeters,
+                      state.view);
+  DrawVerticalRuler(minY, maxY, xAxis, shortTickMeters, longTickMeters,
+                    state.view);
 
   if (depthEnabled)
     glEnable(GL_DEPTH_TEST);
