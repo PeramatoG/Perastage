@@ -84,6 +84,24 @@ CanvasStroke BuildRulerStroke(bool darkMode) {
   stroke.width = 1.0f;
   return stroke;
 }
+
+struct ActiveRulers {
+  float horizontalAxisMeters = 0.0f;
+  float verticalAxisMeters = 0.0f;
+};
+
+ActiveRulers ResolveActiveRulers(const RulerOverlayViewState &state) {
+  switch (state.view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    return {state.xRulerPositionMeters, state.yRulerPositionMeters};
+  case Viewer2DView::Front:
+    return {state.xRulerPositionMeters, state.zRulerPositionMeters};
+  case Viewer2DView::Side:
+    return {state.yRulerPositionMeters, state.zRulerPositionMeters};
+  }
+  return {state.xRulerPositionMeters, state.yRulerPositionMeters};
+}
 } // namespace
 
 void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
@@ -102,12 +120,13 @@ void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
                shortTickMeters);
   const float shortTickPixels = shortTickMeters * pixelsPerMeter;
   const float longTickPixels = longTickMeters * pixelsPerMeter;
+  const ActiveRulers activeRulers = ResolveActiveRulers(state);
   const float yAxis =
-      WorldYToScreen(state.axisXPositionMeters, state.height, pixelsPerMeter,
-                     offsetMetersY);
+      WorldYToScreen(activeRulers.horizontalAxisMeters, state.height,
+                     pixelsPerMeter, offsetMetersY);
   const float xAxis =
-      WorldXToScreen(state.axisYPositionMeters, state.width, pixelsPerMeter,
-                     offsetMetersX);
+      WorldXToScreen(activeRulers.verticalAxisMeters, state.width,
+                     pixelsPerMeter, offsetMetersX);
   const float halfW = static_cast<float>(state.width) * 0.5f / pixelsPerMeter;
   const float halfH = static_cast<float>(state.height) * 0.5f / pixelsPerMeter;
 
@@ -171,9 +190,10 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
       std::max(std::max(state.largeTickMeters, shortTickMeters),
                shortTickMeters);
   auto stroke = BuildRulerStroke(darkMode);
+  const ActiveRulers activeRulers = ResolveActiveRulers(state);
 
-  const float xRulerY = state.axisXPositionMeters;
-  const float yRulerX = state.axisYPositionMeters;
+  const float xRulerY = activeRulers.horizontalAxisMeters;
+  const float yRulerX = activeRulers.verticalAxisMeters;
   canvas.DrawLine(minX, xRulerY, maxX, xRulerY, stroke);
   canvas.DrawLine(yRulerX, minY, yRulerX, maxY, stroke);
 

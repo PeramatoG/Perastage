@@ -674,6 +674,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const float rulerLargeTickMeters = cfg.GetFloat("ruler_tick_large_m");
   const float rulerAxisXPosition = cfg.GetFloat("ruler_axis_x_position");
   const float rulerAxisYPosition = cfg.GetFloat("ruler_axis_y_position");
+  const float rulerAxisZPosition = cfg.GetFloat("ruler_axis_z_position");
 
   std::unique_ptr<ICanvas2D> recordingCanvas;
   if (m_captureNextFrame) {
@@ -776,8 +777,9 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     rulerState.offsetPixelsY = m_offsetY;
     rulerState.smallTickMeters = rulerSmallTickMeters;
     rulerState.largeTickMeters = rulerLargeTickMeters;
-    rulerState.axisXPositionMeters = rulerAxisXPosition;
-    rulerState.axisYPositionMeters = rulerAxisYPosition;
+    rulerState.xRulerPositionMeters = rulerAxisXPosition;
+    rulerState.yRulerPositionMeters = rulerAxisYPosition;
+    rulerState.zRulerPositionMeters = rulerAxisZPosition;
     rulerState.view = m_view;
     viewer2d::DrawRulerOverlay(rulerState, darkMode);
     if (recordingCanvas)

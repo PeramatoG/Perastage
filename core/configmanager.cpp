@@ -107,6 +107,7 @@ ConfigManager::ConfigManager() {
   RegisterVariable("ruler_tick_large_m", "float", 0.2f, 0.01f, 10.0f);
   RegisterVariable("ruler_axis_x_position", "float", 0.0f, -100.0f, 100.0f);
   RegisterVariable("ruler_axis_y_position", "float", 0.0f, -100.0f, 100.0f);
+  RegisterVariable("ruler_axis_z_position", "float", 0.0f, -100.0f, 100.0f);
   RegisterVariable("print_include_grid", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("print_viewer2d_page_size", "float", 0.0f, 0.0f, 1.0f,
                    {"print_plan_page_size", "print_page_size"});

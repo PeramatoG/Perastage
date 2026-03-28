@@ -13,8 +13,9 @@ struct RulerOverlayViewState {
   float offsetPixelsY = 0.0f;
   float smallTickMeters = 0.1f;
   float largeTickMeters = 0.2f;
-  float axisXPositionMeters = 0.0f;
-  float axisYPositionMeters = 0.0f;
+  float xRulerPositionMeters = 0.0f;
+  float yRulerPositionMeters = 0.0f;
+  float zRulerPositionMeters = 0.0f;
   Viewer2DView view = Viewer2DView::Top;
 };
 
