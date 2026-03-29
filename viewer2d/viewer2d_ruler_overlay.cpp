@@ -4,6 +4,9 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#ifdef DrawText
+#undef DrawText
+#endif
 #endif
 
 #ifdef __APPLE__
@@ -15,15 +18,24 @@
 
 #include <algorithm>
 #include <cmath>
+#include <sstream>
 
 namespace viewer2d {
 namespace {
 constexpr float kPixelsPerMeter = 25.0f;
 constexpr float kTickStepMeters = 0.5f;
+constexpr float kRulerLabelFontSize = 3.0f;
+constexpr float kRulerLabelOffsetMeters = 0.12f;
 
 bool IsMeterTick(float valueMeters) {
   const float rounded = std::round(valueMeters);
   return std::fabs(valueMeters - rounded) < 0.0001f;
+}
+
+float VerticalTickDirection(Viewer2DView view) {
+  // In Side view the vertical ruler represents Z, and its ticks must point to
+  // the opposite side to match the requested orientation.
+  return view == Viewer2DView::Side ? -1.0f : 1.0f;
 }
 
 struct WorldPoint {
@@ -73,9 +85,10 @@ void DrawVerticalRuler(float minV, float maxV, float uAxis,
   EmitViewLine(uAxis, minV, uAxis, maxV, view);
 
   const float startTick = std::ceil(minV / kTickStepMeters) * kTickStepMeters;
+  const float tickDirection = VerticalTickDirection(view);
   for (float v = startTick; v <= maxV + 0.0001f; v += kTickStepMeters) {
     const float tick = IsMeterTick(v) ? longTickMeters : shortTickMeters;
-    EmitViewLine(uAxis, v, uAxis + tick, v, view);
+    EmitViewLine(uAxis, v, uAxis + tick * tickDirection, v, view);
   }
   glEnd();
 }
@@ -104,6 +117,45 @@ ActiveRulers ResolveActiveRulers(const RulerOverlayViewState &state) {
     return {state.yRulerPositionMeters, state.zRulerPositionMeters};
   }
   return {state.xRulerPositionMeters, state.yRulerPositionMeters};
+}
+
+std::string FormatRulerOffsetLabel(float valueMeters) {
+  if (std::fabs(valueMeters) < 0.0001f)
+    return "0 m";
+
+  std::ostringstream out;
+  if (std::fabs(valueMeters - std::round(valueMeters)) < 0.0001f) {
+    out << static_cast<int>(std::lround(valueMeters));
+  } else {
+    out.setf(std::ios::fixed);
+    out.precision(1);
+    out << valueMeters;
+  }
+  out << " m";
+  return out.str();
+}
+
+CanvasTextStyle BuildRulerLabelStyle(const CanvasStroke &stroke) {
+  CanvasTextStyle style;
+  style.fontSize = kRulerLabelFontSize;
+  style.color = stroke.color;
+  return style;
+}
+
+float WorldToScreenX(float worldX, const RulerOverlayViewState &state,
+                     float pixelsPerMeter) {
+  (void)pixelsPerMeter;
+  const float offsetMetersX = state.offsetPixelsX / kPixelsPerMeter;
+  return static_cast<float>(state.width) * 0.5f +
+         (worldX + offsetMetersX) * kPixelsPerMeter * state.zoom;
+}
+
+float WorldToScreenY(float worldY, const RulerOverlayViewState &state,
+                     float pixelsPerMeter) {
+  (void)pixelsPerMeter;
+  const float offsetMetersY = state.offsetPixelsY / kPixelsPerMeter;
+  return static_cast<float>(state.height) * 0.5f -
+         (worldY + offsetMetersY) * kPixelsPerMeter * state.zoom;
 }
 } // namespace
 
@@ -181,16 +233,79 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
   canvas.DrawLine(yRulerX, minY, yRulerX, maxY, stroke);
 
   const float startX = std::ceil(minX / kTickStepMeters) * kTickStepMeters;
+  const auto textStyle = BuildRulerLabelStyle(stroke);
   for (float x = startX; x <= maxX + 0.0001f; x += kTickStepMeters) {
-    const float tick = IsMeterTick(x) ? longTickMeters : shortTickMeters;
+    const bool isLongTick = IsMeterTick(x);
+    const float tick = isLongTick ? longTickMeters : shortTickMeters;
     canvas.DrawLine(x, xRulerY, x, xRulerY + tick, stroke);
+    if (isLongTick) {
+      const std::string label = FormatRulerOffsetLabel(x - yRulerX);
+      canvas.DrawText(x, xRulerY + tick + kRulerLabelOffsetMeters, label,
+                      textStyle);
+    }
+  }
+
+  const float startY = std::ceil(minY / kTickStepMeters) * kTickStepMeters;
+  const float verticalTickDirection = VerticalTickDirection(state.view);
+  for (float y = startY; y <= maxY + 0.0001f; y += kTickStepMeters) {
+    const bool isLongTick = IsMeterTick(y);
+    const float tick = isLongTick ? longTickMeters : shortTickMeters;
+    canvas.DrawLine(yRulerX, y, yRulerX + tick * verticalTickDirection, y,
+                    stroke);
+    if (isLongTick) {
+      const std::string label = FormatRulerOffsetLabel(y - xRulerY);
+      canvas.DrawText(yRulerX + tick + kRulerLabelOffsetMeters, y, label,
+                      textStyle);
+    }
+  }
+}
+
+std::vector<RulerScreenLabel>
+BuildRulerScreenLabels(const RulerOverlayViewState &state) {
+  std::vector<RulerScreenLabel> labels;
+  if (state.width <= 0 || state.height <= 0 || state.zoom <= 0.0f)
+    return labels;
+
+  const float pixelsPerMeter = kPixelsPerMeter * state.zoom;
+  if (pixelsPerMeter <= 0.0f)
+    return labels;
+
+  const float offsetMetersX = state.offsetPixelsX / kPixelsPerMeter;
+  const float offsetMetersY = state.offsetPixelsY / kPixelsPerMeter;
+  const float halfW = static_cast<float>(state.width) * 0.5f / pixelsPerMeter;
+  const float halfH = static_cast<float>(state.height) * 0.5f / pixelsPerMeter;
+  const float minX = -halfW - offsetMetersX;
+  const float maxX = halfW - offsetMetersX;
+  const float minY = -halfH - offsetMetersY;
+  const float maxY = halfH - offsetMetersY;
+  const float shortTickMeters = std::max(state.smallTickMeters, 0.01f);
+  const float longTickMeters =
+      std::max(std::max(state.largeTickMeters, shortTickMeters),
+               shortTickMeters);
+  const ActiveRulers activeRulers = ResolveActiveRulers(state);
+  const float xRulerY = activeRulers.horizontalAxisMeters;
+  const float yRulerX = activeRulers.verticalAxisMeters;
+
+  const float startX = std::ceil(minX / kTickStepMeters) * kTickStepMeters;
+  for (float x = startX; x <= maxX + 0.0001f; x += kTickStepMeters) {
+    if (!IsMeterTick(x))
+      continue;
+    const float worldY = xRulerY + longTickMeters + kRulerLabelOffsetMeters;
+    labels.push_back({WorldToScreenX(x, state, pixelsPerMeter),
+                      WorldToScreenY(worldY, state, pixelsPerMeter),
+                      FormatRulerOffsetLabel(x - yRulerX), true, false});
   }
 
   const float startY = std::ceil(minY / kTickStepMeters) * kTickStepMeters;
   for (float y = startY; y <= maxY + 0.0001f; y += kTickStepMeters) {
-    const float tick = IsMeterTick(y) ? longTickMeters : shortTickMeters;
-    canvas.DrawLine(yRulerX, y, yRulerX + tick, y, stroke);
+    if (!IsMeterTick(y))
+      continue;
+    const float worldX = yRulerX + longTickMeters + kRulerLabelOffsetMeters;
+    labels.push_back({WorldToScreenX(worldX, state, pixelsPerMeter),
+                      WorldToScreenY(y, state, pixelsPerMeter),
+                      FormatRulerOffsetLabel(y - xRulerY), false, true});
   }
+  return labels;
 }
 
 } // namespace viewer2d

@@ -19,8 +19,18 @@ struct RulerOverlayViewState {
   Viewer2DView view = Viewer2DView::Top;
 };
 
+struct RulerScreenLabel {
+  float xPixels = 0.0f;
+  float yPixels = 0.0f;
+  std::string text;
+  bool centerOnX = false;
+  bool centerOnY = false;
+};
+
 void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode);
 void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
                        ICanvas2D &canvas);
+std::vector<RulerScreenLabel>
+BuildRulerScreenLabels(const RulerOverlayViewState &state);
 
 } // namespace viewer2d

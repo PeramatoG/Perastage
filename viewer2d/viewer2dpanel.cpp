@@ -782,6 +782,17 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     rulerState.zRulerPositionMeters = rulerAxisZPosition;
     rulerState.view = m_view;
     viewer2d::DrawRulerOverlay(rulerState, darkMode);
+    const auto rulerLabels = viewer2d::BuildRulerScreenLabels(rulerState);
+    if (!rulerLabels.empty()) {
+      std::vector<OverlayTextLabel> overlayLabels;
+      overlayLabels.reserve(rulerLabels.size());
+      for (const auto &label : rulerLabels) {
+        overlayLabels.push_back(
+            {label.xPixels, label.yPixels, label.text, label.centerOnX,
+             label.centerOnY, 3.0f * m_zoom});
+      }
+      m_controller.DrawOverlayTextLabels(overlayLabels, darkMode);
+    }
     if (recordingCanvas)
       viewer2d::EmitRulerToCanvas(rulerState, darkMode, *recordingCanvas);
   }

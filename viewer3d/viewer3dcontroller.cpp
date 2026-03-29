@@ -1443,6 +1443,49 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   m_impl->labelRenderSystem->DrawAllFixtureLabels(width, height, view, zoom);
 }
 
+void Viewer3DController::DrawOverlayTextLabels(
+    const std::vector<OverlayTextLabel> &labels, bool darkMode, bool outline) {
+  if (!m_impl->vg || m_impl->font < 0 || labels.empty())
+    return;
+
+  GLint vp[4];
+  glGetIntegerv(GL_VIEWPORT, vp);
+  nvgBeginFrame(m_impl->vg, vp[2], vp[3], 1.0f);
+  nvgSave(m_impl->vg);
+  nvgFontFaceId(m_impl->vg, m_impl->font);
+
+  const NVGcolor textColor =
+      darkMode ? nvgRGBAf(1.f, 1.f, 1.f, 1.f) : nvgRGBAf(0.f, 0.f, 0.f, 1.f);
+  const NVGcolor outlineColor =
+      darkMode ? nvgRGBAf(0.f, 0.f, 0.f, 1.f) : nvgRGBAf(1.f, 1.f, 1.f, 1.f);
+
+  for (const auto &label : labels) {
+    if (label.text.empty())
+      continue;
+    nvgFontSize(m_impl->vg, std::max(1.0f, label.fontSize));
+    int align = (label.centerOnX ? NVG_ALIGN_CENTER : NVG_ALIGN_LEFT) |
+                (label.centerOnY ? NVG_ALIGN_MIDDLE : NVG_ALIGN_TOP);
+    nvgTextAlign(m_impl->vg, align);
+
+    if (outline) {
+      nvgFillColor(m_impl->vg, outlineColor);
+      constexpr float kOutlineOffsets[4][2] = {
+          {-0.8f, 0.0f}, {0.8f, 0.0f}, {0.0f, -0.8f}, {0.0f, 0.8f}};
+      for (const auto &offset : kOutlineOffsets) {
+        nvgText(m_impl->vg, label.xPixels + offset[0], label.yPixels + offset[1],
+                label.text.c_str(), nullptr);
+      }
+    }
+
+    nvgFillColor(m_impl->vg, textColor);
+    nvgText(m_impl->vg, label.xPixels, label.yPixels, label.text.c_str(),
+            nullptr);
+  }
+
+  nvgRestore(m_impl->vg);
+  nvgEndFrame(m_impl->vg);
+}
+
 void Viewer3DController::DrawTrussLabels(int width, int height) {
   m_impl->labelRenderSystem->DrawTrussLabels(width, height);
 }
