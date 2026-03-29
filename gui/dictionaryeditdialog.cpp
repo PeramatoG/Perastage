@@ -22,6 +22,7 @@
 #include "dictionary_json_contract.h"
 #include "file_import_utils.h"
 #include "gdtfdictionary.h"
+#include "gdtf_fixture_category.h"
 #include "gdtfloader.h"
 #include "json.hpp"
 #include "mainwindow.h"
@@ -44,6 +45,7 @@ struct FixtureRow {
   std::string name;
   std::string path;
   std::string mode;
+  std::string category;
   std::string source;
   std::string sha256;
 };
@@ -609,6 +611,25 @@ bool SaveTrussesSnapshotToFile(const std::string &outputPath,
   exportResult.success = true;
   return true;
 }
+
+wxArrayString BuildFixtureCategoryChoices() {
+  wxArrayString choices;
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kBeam));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kBlinder));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kConventional));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kFx));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kHoist));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kHybrid));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kLaser));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kLed));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kSmoke));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kSpot));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kStrobe));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kUnknown));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kVideo));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kWash));
+  return choices;
+}
 } // namespace
 
 DictionaryEditDialog::DictionaryEditDialog(wxWindow *parent)
@@ -634,6 +655,8 @@ void DictionaryEditDialog::BuildLayout() {
   fixtureTable->AppendTextColumn("File", wxDATAVIEW_CELL_INERT, 260,
                                  wxALIGN_LEFT, flags);
   fixtureTable->AppendTextColumn("Mode", wxDATAVIEW_CELL_INERT, 120,
+                                 wxALIGN_LEFT, flags);
+  fixtureTable->AppendTextColumn("Category", wxDATAVIEW_CELL_INERT, 140,
                                  wxALIGN_LEFT, flags);
   ColumnUtils::EnforceMinColumnWidth(fixtureTable);
   fixtureSizer->Add(fixtureTable, 1, wxEXPAND | wxALL, 8);
@@ -715,7 +738,7 @@ void DictionaryEditDialog::LoadFixtures() {
       continue;
     if (!std::filesystem::exists(entry.path))
       continue;
-    FixtureRow row{ name, entry.path, entry.mode };
+    FixtureRow row{ name, entry.path, entry.mode, entry.category };
     rows.push_back(row);
   }
   SortFixtureRows(rows);
@@ -726,6 +749,7 @@ void DictionaryEditDialog::LoadFixtures() {
     items.push_back(wxString::FromUTF8(row.name));
     items.push_back(wxString::FromUTF8(std::filesystem::path(row.path).filename().string()));
     items.push_back(wxString::FromUTF8(row.mode));
+    items.push_back(wxString::FromUTF8(row.category));
     fixtureTable->AppendItem(items);
     fixturePaths.push_back(row.path);
   }
@@ -787,7 +811,10 @@ std::vector<std::string> DictionaryEditDialog::BuildFixtureSnapshotFromUi() cons
     wxVariant modeVar;
     fixtureTable->GetValue(modeVar, i, 2);
     const std::string mode = std::string(modeVar.GetString().ToUTF8());
-    snapshot.push_back(name + '\n' + path + '\n' + mode);
+    wxVariant categoryVar;
+    fixtureTable->GetValue(categoryVar, i, 3);
+    const std::string category = std::string(categoryVar.GetString().ToUTF8());
+    snapshot.push_back(name + '\n' + path + '\n' + mode + '\n' + category);
   }
   std::sort(snapshot.begin(), snapshot.end());
   return snapshot;
@@ -883,10 +910,14 @@ void DictionaryEditDialog::SaveFixtures() {
     wxVariant modeVar;
     fixtureTable->GetValue(modeVar, i, 2);
     std::string mode = std::string(modeVar.GetString().ToUTF8());
+    wxVariant categoryVar;
+    fixtureTable->GetValue(categoryVar, i, 3);
+    std::string category = std::string(categoryVar.GetString().ToUTF8());
     auto copied = CopyToLibrary(this, path, "fixtures");
     if (!copied)
       continue;
-    rows.push_back({name, copied->path, mode, copied->source, copied->sha256});
+    rows.push_back({name, copied->path, mode, category, copied->source,
+                    copied->sha256});
   }
 
   SortFixtureRows(rows);
@@ -896,6 +927,7 @@ void DictionaryEditDialog::SaveFixtures() {
     GdtfDictionary::Entry entry;
     entry.path = row.path;
     entry.mode = row.mode;
+    entry.category = row.category;
     entry.source = row.source;
     entry.importedAt = FileImportUtils::NowUtcIso8601();
     if (!row.sha256.empty())
@@ -971,6 +1003,7 @@ void DictionaryEditDialog::OnAdd(wxCommandEvent &WXUNUSED(event)) {
     items.push_back(wxString::FromUTF8(name));
     items.push_back(wxString::FromUTF8(std::filesystem::path(fullPath).filename().string()));
     items.push_back(wxString::FromUTF8(mode));
+    items.push_back(wxString());
     fixtureTable->AppendItem(items);
     fixturePaths.push_back(fullPath);
   } else {
@@ -1450,6 +1483,44 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
       if (dlg.ShowModal() == wxID_OK) {
         std::string mode = std::string(dlg.GetStringSelection().ToUTF8());
         table->SetValue(wxVariant(wxString::FromUTF8(mode)), row, 2);
+      }
+      return;
+    }
+    if (col == 3) {
+      const wxArrayString choices = BuildFixtureCategoryChoices();
+      wxVariant currentCategoryVar;
+      table->GetValue(currentCategoryVar, row, 3);
+
+      wxSingleChoiceDialog dlg(this, "Select category", "Category", choices);
+      if (!currentCategoryVar.GetString().empty()) {
+        const int currentSelection = choices.Index(currentCategoryVar.GetString());
+        if (currentSelection != wxNOT_FOUND)
+          dlg.SetSelection(currentSelection);
+      }
+      if (dlg.ShowModal() != wxID_OK)
+        return;
+
+      const std::string selectedCategory =
+          std::string(dlg.GetStringSelection().ToUTF8());
+      if (static_cast<size_t>(row) >= fixturePaths.size())
+        return;
+      const std::string selectedPath = fixturePaths[static_cast<size_t>(row)];
+      if (selectedPath.empty())
+        return;
+
+      for (unsigned int currentRow = 0; currentRow < table->GetItemCount();
+           ++currentRow) {
+        if (currentRow >= fixturePaths.size() ||
+            fixturePaths[currentRow] != selectedPath) {
+          continue;
+        }
+        table->SetValue(wxVariant(wxString::FromUTF8(selectedCategory)),
+                        static_cast<int>(currentRow), 3);
+        wxVariant nameVar;
+        table->GetValue(nameVar, static_cast<int>(currentRow), 0);
+        const std::string fixtureName = std::string(nameVar.GetString().ToUTF8());
+        if (!fixtureName.empty())
+          GdtfDictionary::UpdateCategory(fixtureName, selectedCategory);
       }
       return;
     }
