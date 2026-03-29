@@ -1,4 +1,5 @@
 #include "splashscreen.h"
+#include "app_version.h"
 #include "logger.h"
 #include "projectutils.h"
 #include <algorithm>
@@ -129,6 +130,13 @@ void SplashScreen::Show() {
 
   wxBitmap logoBmp = BuildSplashBitmap();
   wxStaticBitmap *logo = new wxStaticBitmap(panel, wxID_ANY, logoBmp);
+  wxStaticText *appInfoLabel =
+      new wxStaticText(panel, wxID_ANY,
+                       wxString::Format("%s %s", app::kName, app::kVersionDisplay),
+                       wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
+  wxFont appInfoFont = appInfoLabel->GetFont();
+  appInfoFont.MakeBold();
+  appInfoLabel->SetFont(appInfoFont);
 
   g_label =
       new wxStaticText(panel, wxID_ANY, "Loading Perastage...", wxDefaultPosition,
@@ -138,6 +146,7 @@ void SplashScreen::Show() {
   g_label->SetFont(font);
 
   sizer->AddStretchSpacer(1);
+  sizer->Add(appInfoLabel, 0, wxALIGN_CENTER | wxTOP | wxBOTTOM, 10);
   sizer->Add(logo, 0, wxALIGN_CENTER | wxALL, 10);
   sizer->Add(g_label, 0, wxALIGN_CENTER | wxBOTTOM, 20);
   sizer->AddStretchSpacer(1);
