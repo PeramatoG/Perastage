@@ -18,9 +18,11 @@
 #include "viewer2drenderpanel.h"
 
 #include "configmanager.h"
+#include "fixture_label_overrides.h"
 #include "mainwindow.h"
 #include <algorithm>
 #include <array>
+#include <wx/settings.h>
 
 namespace {
 const std::array<const char *, 3> DIST_KEYS = {"label_offset_distance_top",
@@ -158,6 +160,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
 
   auto *labelBox = new wxStaticBoxSizer(wxVERTICAL, this, "Labels");
   wxWindow *labelBoxParent = labelBox->GetStaticBox();
+  m_labelScopeHint =
+      new wxStaticText(labelBoxParent, wxID_ANY, "Global profile (all fixtures)");
 
   m_showLabelName = new wxCheckBox(labelBoxParent, wxID_ANY, "Show name");
   m_showLabelName->SetValue(
@@ -293,6 +297,9 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   rulerBox->Add(rulerAxisZSizer, 0, wxALL, 5);
   sizer->Add(rulerBox, 0, wxALL, 5);
 
+  labelBox->Add(m_labelScopeHint, 0, wxLEFT | wxRIGHT | wxTOP, 5);
+  labelBox->AddSpacer(2);
+
   auto *nameSizer = new wxBoxSizer(wxHORIZONTAL);
   nameSizer->Add(m_showLabelName, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   nameSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, "Size"), 0,
@@ -350,6 +357,61 @@ void Viewer2DRenderPanel::SetViewSelection(Viewer2DView view) {
   ApplyViewSelection(static_cast<int>(view));
 }
 
+bool Viewer2DRenderPanel::HasFixtureSelection() const {
+  return !ConfigManager::Get().GetSelectedFixtures().empty();
+}
+
+void Viewer2DRenderPanel::RefreshLabelScopeHint() {
+  if (!m_labelScopeHint)
+    return;
+
+  if (HasFixtureSelection()) {
+    const size_t count = ConfigManager::Get().GetSelectedFixtures().size();
+    m_labelScopeHint->SetLabel(
+        wxString::Format("Selection profile active (%zu fixtures)", count));
+    m_labelScopeHint->SetForegroundColour(wxColour(0, 180, 200));
+  } else {
+    m_labelScopeHint->SetLabel("Global profile (all fixtures)");
+    m_labelScopeHint->SetForegroundColour(
+        wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
+  }
+}
+
+void Viewer2DRenderPanel::ApplyLabelControlValuesForCurrentSelection() {
+  ConfigManager &cfg = ConfigManager::Get();
+  const int viewIndex = std::clamp(m_view->GetSelection(), 0, 2);
+  const auto selectedFixtures = cfg.GetSelectedFixtures();
+  const auto overrides = viewer2d::LoadFixtureLabelOverrides(cfg);
+
+  const viewer2d::FixtureLabelOverride *settings = nullptr;
+  if (!selectedFixtures.empty()) {
+    auto it = overrides.find(selectedFixtures.front());
+    if (it != overrides.end())
+      settings = &it->second;
+  }
+
+  m_showLabelName->SetValue(
+      viewer2d::ResolveShowLabelName(cfg, settings, viewIndex));
+  m_showLabelId->SetValue(viewer2d::ResolveShowLabelId(cfg, settings, viewIndex));
+  m_showLabelAddress->SetValue(
+      viewer2d::ResolveShowLabelDmx(cfg, settings, viewIndex));
+  m_labelOffsetDistance->SetValue(
+      viewer2d::ResolveLabelOffsetDistance(cfg, settings, viewIndex));
+  m_labelOffsetAngle->SetValue(static_cast<int>(
+      viewer2d::ResolveLabelOffsetAngle(cfg, settings, viewIndex)));
+  m_labelNameSize->SetValue(static_cast<int>(
+      viewer2d::ResolveLabelFontSizeName(cfg, settings)));
+  m_labelIdSize->SetValue(
+      static_cast<int>(viewer2d::ResolveLabelFontSizeId(cfg, settings)));
+  m_labelAddressSize->SetValue(static_cast<int>(
+      viewer2d::ResolveLabelFontSizeDmx(cfg, settings)));
+}
+
+void Viewer2DRenderPanel::RefreshLabelControlsFromSelection() {
+  ApplyLabelControlValuesForCurrentSelection();
+  RefreshLabelScopeHint();
+}
+
 void Viewer2DRenderPanel::ApplyConfig() {
   ConfigManager &cfg = ConfigManager::Get();
   m_radio->SetSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")));
@@ -369,18 +431,7 @@ void Viewer2DRenderPanel::ApplyConfig() {
   m_rulerAxisYPosition->SetValue(cfg.GetFloat("ruler_axis_y_position"));
   m_rulerAxisZPosition->SetValue(cfg.GetFloat("ruler_axis_z_position"));
   UpdateRulerControlState();
-  int viewIndex = m_view->GetSelection();
-  m_showLabelName->SetValue(cfg.GetFloat(NAME_KEYS[viewIndex]) != 0.0f);
-  m_labelNameSize->SetValue(
-      static_cast<int>(cfg.GetFloat("label_font_size_name")));
-  m_showLabelId->SetValue(cfg.GetFloat(ID_KEYS[viewIndex]) != 0.0f);
-  m_labelIdSize->SetValue(static_cast<int>(cfg.GetFloat("label_font_size_id")));
-  m_showLabelAddress->SetValue(cfg.GetFloat(DMX_KEYS[viewIndex]) != 0.0f);
-  m_labelAddressSize->SetValue(
-      static_cast<int>(cfg.GetFloat("label_font_size_dmx")));
-  m_labelOffsetDistance->SetValue(cfg.GetFloat(DIST_KEYS[viewIndex]));
-  m_labelOffsetAngle->SetValue(
-      static_cast<int>(cfg.GetFloat(ANGLE_KEYS[viewIndex])));
+  RefreshLabelControlsFromSelection();
   if (auto *vp = Viewer2DPanel::Instance()) {
     vp->SetRenderMode(static_cast<Viewer2DRenderMode>(m_radio->GetSelection()));
     vp->SetView(static_cast<Viewer2DView>(m_view->GetSelection()));
@@ -489,8 +540,13 @@ void Viewer2DRenderPanel::OnRulerAxisZPosition(wxSpinDoubleEvent &evt) {
 
 void Viewer2DRenderPanel::OnShowLabelName(wxCommandEvent &evt) {
   int view = m_view->GetSelection();
-  ConfigManager::Get().SetFloat(NAME_KEYS[view],
-                                m_showLabelName->GetValue() ? 1.0f : 0.0f);
+  ConfigManager &cfg = ConfigManager::Get();
+  if (HasFixtureSelection()) {
+    viewer2d::ApplyShowLabelNameOverride(cfg, cfg.GetSelectedFixtures(), view,
+                                         m_showLabelName->GetValue());
+  } else {
+    cfg.SetFloat(NAME_KEYS[view], m_showLabelName->GetValue() ? 1.0f : 0.0f);
+  }
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
@@ -498,8 +554,13 @@ void Viewer2DRenderPanel::OnShowLabelName(wxCommandEvent &evt) {
 
 void Viewer2DRenderPanel::OnShowLabelId(wxCommandEvent &evt) {
   int view = m_view->GetSelection();
-  ConfigManager::Get().SetFloat(ID_KEYS[view],
-                                m_showLabelId->GetValue() ? 1.0f : 0.0f);
+  ConfigManager &cfg = ConfigManager::Get();
+  if (HasFixtureSelection()) {
+    viewer2d::ApplyShowLabelIdOverride(cfg, cfg.GetSelectedFixtures(), view,
+                                       m_showLabelId->GetValue());
+  } else {
+    cfg.SetFloat(ID_KEYS[view], m_showLabelId->GetValue() ? 1.0f : 0.0f);
+  }
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
@@ -507,33 +568,58 @@ void Viewer2DRenderPanel::OnShowLabelId(wxCommandEvent &evt) {
 
 void Viewer2DRenderPanel::OnShowLabelAddress(wxCommandEvent &evt) {
   int view = m_view->GetSelection();
-  ConfigManager::Get().SetFloat(
-      DMX_KEYS[view], m_showLabelAddress->GetValue() ? 1.0f : 0.0f);
+  ConfigManager &cfg = ConfigManager::Get();
+  if (HasFixtureSelection()) {
+    viewer2d::ApplyShowLabelDmxOverride(cfg, cfg.GetSelectedFixtures(), view,
+                                        m_showLabelAddress->GetValue());
+  } else {
+    cfg.SetFloat(DMX_KEYS[view], m_showLabelAddress->GetValue() ? 1.0f : 0.0f);
+  }
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
 }
 
 void Viewer2DRenderPanel::OnLabelNameSize(wxSpinEvent &evt) {
-  ConfigManager::Get().SetFloat(
-      "label_font_size_name", static_cast<float>(m_labelNameSize->GetValue()));
+  ConfigManager &cfg = ConfigManager::Get();
+  if (HasFixtureSelection()) {
+    viewer2d::ApplyLabelFontSizeNameOverride(
+        cfg, cfg.GetSelectedFixtures(),
+        static_cast<float>(m_labelNameSize->GetValue()));
+  } else {
+    cfg.SetFloat("label_font_size_name",
+                 static_cast<float>(m_labelNameSize->GetValue()));
+  }
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
 }
 
 void Viewer2DRenderPanel::OnLabelIdSize(wxSpinEvent &evt) {
-  ConfigManager::Get().SetFloat("label_font_size_id",
-                                static_cast<float>(m_labelIdSize->GetValue()));
+  ConfigManager &cfg = ConfigManager::Get();
+  if (HasFixtureSelection()) {
+    viewer2d::ApplyLabelFontSizeIdOverride(
+        cfg, cfg.GetSelectedFixtures(),
+        static_cast<float>(m_labelIdSize->GetValue()));
+  } else {
+    cfg.SetFloat("label_font_size_id",
+                 static_cast<float>(m_labelIdSize->GetValue()));
+  }
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
 }
 
 void Viewer2DRenderPanel::OnLabelAddressSize(wxSpinEvent &evt) {
-  ConfigManager::Get().SetFloat(
-      "label_font_size_dmx",
-      static_cast<float>(m_labelAddressSize->GetValue()));
+  ConfigManager &cfg = ConfigManager::Get();
+  if (HasFixtureSelection()) {
+    viewer2d::ApplyLabelFontSizeDmxOverride(
+        cfg, cfg.GetSelectedFixtures(),
+        static_cast<float>(m_labelAddressSize->GetValue()));
+  } else {
+    cfg.SetFloat("label_font_size_dmx",
+                 static_cast<float>(m_labelAddressSize->GetValue()));
+  }
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
@@ -541,8 +627,15 @@ void Viewer2DRenderPanel::OnLabelAddressSize(wxSpinEvent &evt) {
 
 void Viewer2DRenderPanel::OnLabelOffsetDistance(wxSpinDoubleEvent &evt) {
   int view = m_view->GetSelection();
-  ConfigManager::Get().SetFloat(
-      DIST_KEYS[view], static_cast<float>(m_labelOffsetDistance->GetValue()));
+  ConfigManager &cfg = ConfigManager::Get();
+  if (HasFixtureSelection()) {
+    viewer2d::ApplyLabelOffsetDistanceOverride(
+        cfg, cfg.GetSelectedFixtures(), view,
+        static_cast<float>(m_labelOffsetDistance->GetValue()));
+  } else {
+    cfg.SetFloat(DIST_KEYS[view],
+                 static_cast<float>(m_labelOffsetDistance->GetValue()));
+  }
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
@@ -550,8 +643,15 @@ void Viewer2DRenderPanel::OnLabelOffsetDistance(wxSpinDoubleEvent &evt) {
 
 void Viewer2DRenderPanel::OnLabelOffsetAngle(wxSpinEvent &evt) {
   int view = m_view->GetSelection();
-  ConfigManager::Get().SetFloat(
-      ANGLE_KEYS[view], static_cast<float>(m_labelOffsetAngle->GetValue()));
+  ConfigManager &cfg = ConfigManager::Get();
+  if (HasFixtureSelection()) {
+    viewer2d::ApplyLabelOffsetAngleOverride(
+        cfg, cfg.GetSelectedFixtures(), view,
+        static_cast<float>(m_labelOffsetAngle->GetValue()));
+  } else {
+    cfg.SetFloat(ANGLE_KEYS[view],
+                 static_cast<float>(m_labelOffsetAngle->GetValue()));
+  }
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
@@ -569,11 +669,7 @@ void Viewer2DRenderPanel::ApplyViewSelection(int selection) {
   const int sel = std::clamp(selection, 0, static_cast<int>(DIST_KEYS.size()) - 1);
   m_view->SetSelection(sel);
   cfg.SetFloat("view2d_view", static_cast<float>(sel));
-  m_labelOffsetDistance->SetValue(cfg.GetFloat(DIST_KEYS[sel]));
-  m_labelOffsetAngle->SetValue(static_cast<int>(cfg.GetFloat(ANGLE_KEYS[sel])));
-  m_showLabelName->SetValue(cfg.GetFloat(NAME_KEYS[sel]) != 0.0f);
-  m_showLabelId->SetValue(cfg.GetFloat(ID_KEYS[sel]) != 0.0f);
-  m_showLabelAddress->SetValue(cfg.GetFloat(DMX_KEYS[sel]) != 0.0f);
+  RefreshLabelControlsFromSelection();
   UpdateRulerControlState();
   if (auto *vp = Viewer2DPanel::Instance()) {
     vp->SetView(static_cast<Viewer2DView>(sel));
@@ -618,22 +714,52 @@ void Viewer2DRenderPanel::OnTextChange(wxCommandEvent &evt) {
 void Viewer2DRenderPanel::OnTextEnter(wxCommandEvent &evt) {
   ConfigManager &cfg = ConfigManager::Get();
   if (evt.GetEventObject() == m_labelNameSize) {
-    cfg.SetFloat("label_font_size_name",
-                 static_cast<float>(m_labelNameSize->GetValue()));
+    if (HasFixtureSelection()) {
+      viewer2d::ApplyLabelFontSizeNameOverride(
+          cfg, cfg.GetSelectedFixtures(),
+          static_cast<float>(m_labelNameSize->GetValue()));
+    } else {
+      cfg.SetFloat("label_font_size_name",
+                   static_cast<float>(m_labelNameSize->GetValue()));
+    }
   } else if (evt.GetEventObject() == m_labelIdSize) {
-    cfg.SetFloat("label_font_size_id",
-                 static_cast<float>(m_labelIdSize->GetValue()));
+    if (HasFixtureSelection()) {
+      viewer2d::ApplyLabelFontSizeIdOverride(
+          cfg, cfg.GetSelectedFixtures(),
+          static_cast<float>(m_labelIdSize->GetValue()));
+    } else {
+      cfg.SetFloat("label_font_size_id",
+                   static_cast<float>(m_labelIdSize->GetValue()));
+    }
   } else if (evt.GetEventObject() == m_labelAddressSize) {
-    cfg.SetFloat("label_font_size_dmx",
-                 static_cast<float>(m_labelAddressSize->GetValue()));
+    if (HasFixtureSelection()) {
+      viewer2d::ApplyLabelFontSizeDmxOverride(
+          cfg, cfg.GetSelectedFixtures(),
+          static_cast<float>(m_labelAddressSize->GetValue()));
+    } else {
+      cfg.SetFloat("label_font_size_dmx",
+                   static_cast<float>(m_labelAddressSize->GetValue()));
+    }
   } else if (evt.GetEventObject() == m_labelOffsetDistance) {
     int view = m_view->GetSelection();
-    cfg.SetFloat(DIST_KEYS[view],
-                 static_cast<float>(m_labelOffsetDistance->GetValue()));
+    if (HasFixtureSelection()) {
+      viewer2d::ApplyLabelOffsetDistanceOverride(
+          cfg, cfg.GetSelectedFixtures(), view,
+          static_cast<float>(m_labelOffsetDistance->GetValue()));
+    } else {
+      cfg.SetFloat(DIST_KEYS[view],
+                   static_cast<float>(m_labelOffsetDistance->GetValue()));
+    }
   } else if (evt.GetEventObject() == m_labelOffsetAngle) {
     int view = m_view->GetSelection();
-    cfg.SetFloat(ANGLE_KEYS[view],
-                 static_cast<float>(m_labelOffsetAngle->GetValue()));
+    if (HasFixtureSelection()) {
+      viewer2d::ApplyLabelOffsetAngleOverride(
+          cfg, cfg.GetSelectedFixtures(), view,
+          static_cast<float>(m_labelOffsetAngle->GetValue()));
+    } else {
+      cfg.SetFloat(ANGLE_KEYS[view],
+                   static_cast<float>(m_labelOffsetAngle->GetValue()));
+    }
   } else if (evt.GetEventObject() == m_rulerAxisXPosition) {
     cfg.SetFloat("ruler_axis_x_position",
                  static_cast<float>(m_rulerAxisXPosition->GetValue()));

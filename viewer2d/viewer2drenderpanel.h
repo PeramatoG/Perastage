@@ -30,6 +30,7 @@ public:
 
   void ApplyConfig();
   void SetViewSelection(Viewer2DView view);
+  void RefreshLabelControlsFromSelection();
 
   static Viewer2DRenderPanel *Instance();
   static void SetInstance(Viewer2DRenderPanel *p);
@@ -60,6 +61,9 @@ private:
   void OnTextChange(wxCommandEvent &evt);
   void OnTextEnter(wxCommandEvent &evt);
   void ApplyViewSelection(int selection);
+  void ApplyLabelControlValuesForCurrentSelection();
+  void RefreshLabelScopeHint();
+  bool HasFixtureSelection() const;
   void UpdateRulerControlState();
 
   wxRadioBox *m_radio = nullptr;
@@ -82,5 +86,6 @@ private:
   wxSpinCtrl *m_labelAddressSize = nullptr;
   wxSpinCtrlDouble *m_labelOffsetDistance = nullptr;
   wxSpinCtrl *m_labelOffsetAngle = nullptr;
+  wxStaticText *m_labelScopeHint = nullptr;
   static Viewer2DRenderPanel *s_instance;
 };
