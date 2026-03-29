@@ -52,6 +52,7 @@
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
 #include "viewer2d_support_selection.h"
+#include "viewer2drenderpanel.h"
 #include "viewer2d_ruler_overlay.h"
 #include "viewer2dviewfit.h"
 #include "units/units.h"
@@ -245,6 +246,8 @@ void ApplyFixtureSelectionToUi(const std::vector<std::string> &selection,
   if (selection != cfg.GetSelectedFixtures()) {
     cfg.PushUndoState("fixture selection");
     cfg.SetSelectedFixtures(selection);
+    if (Viewer2DRenderPanel::Instance())
+      Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
   }
   controller.SetSelectedUuids(selection);
   if (FixtureTablePanel::Instance()) {
@@ -1123,6 +1126,8 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
     if (selection != cfg.GetSelectedFixtures()) {
       cfg.PushUndoState("fixture selection");
       cfg.SetSelectedFixtures(selection);
+      if (Viewer2DRenderPanel::Instance())
+        Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
     }
     m_controller.SetSelectedUuids(selection);
     if (selection.empty())
@@ -1640,6 +1645,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
         if (selection != cfg.GetSelectedFixtures()) {
           cfg.PushUndoState("fixture selection");
           cfg.SetSelectedFixtures(selection);
+          if (Viewer2DRenderPanel::Instance())
+            Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
         }
         m_controller.SetSelectedUuids(selection);
         FixtureTablePanel::Instance()->SelectByUuid(selection);
@@ -1707,6 +1714,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
         if (!cfg.GetSelectedFixtures().empty()) {
           cfg.PushUndoState("fixture selection");
           cfg.SetSelectedFixtures({});
+          if (Viewer2DRenderPanel::Instance())
+            Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
         }
         m_controller.SetSelectedUuids({});
         FixtureTablePanel::Instance()->ClearSelection();

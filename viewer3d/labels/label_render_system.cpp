@@ -18,6 +18,7 @@
 #endif
 
 #include "configmanager.h"
+#include "fixture_label_overrides.h"
 #include "logger.h"
 #include "scenedatamanager.h"
 #include "support.h"
@@ -481,52 +482,8 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   FillProjectionContext(width, height, projection);
 
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
-  const std::array<const char *, 4> nameKeys = {
-      "label_show_name_top", "label_show_name_front", "label_show_name_side",
-      "label_show_name_top"};
-  const std::array<const char *, 4> idKeys = {
-      "label_show_id_top", "label_show_id_front", "label_show_id_side",
-      "label_show_id_top"};
-  const std::array<const char *, 4> dmxKeys = {
-      "label_show_dmx_top", "label_show_dmx_front", "label_show_dmx_side",
-      "label_show_dmx_top"};
-  const std::array<const char *, 4> distKeys = {
-      "label_offset_distance_top", "label_offset_distance_front",
-      "label_offset_distance_side", "label_offset_distance_top"};
-  const std::array<const char *, 4> angleKeys = {
-      "label_offset_angle_top", "label_offset_angle_front",
-      "label_offset_angle_side", "label_offset_angle_top"};
-
-  int viewIdx = static_cast<int>(view);
-  const bool showName = cfg.GetFloat(nameKeys[viewIdx]) != 0.0f;
-  const bool showId = cfg.GetFloat(idKeys[viewIdx]) != 0.0f;
-  const bool showDmx = cfg.GetFloat(dmxKeys[viewIdx]) != 0.0f;
-  const float nameSize = cfg.GetFloat("label_font_size_name") * zoom;
-  const float idSize = cfg.GetFloat("label_font_size_id") * zoom;
-  const float dmxSize = cfg.GetFloat("label_font_size_dmx") * zoom;
-  const float labelDist = cfg.GetFloat(distKeys[viewIdx]);
-  const float labelAngle = cfg.GetFloat(angleKeys[viewIdx]);
-
-  constexpr float deg2rad = 3.14159265358979323846f / 180.0f;
-  const float angRad = labelAngle * deg2rad;
-  float offX = 0.0f;
-  float offY = 0.0f;
-  float offZ = 0.0f;
-  switch (view) {
-  case Viewer2DView::Top:
-  case Viewer2DView::Bottom:
-    offX = labelDist * std::sin(angRad);
-    offY = labelDist * std::cos(angRad);
-    break;
-  case Viewer2DView::Front:
-    offX = labelDist * std::sin(angRad);
-    offZ = labelDist * std::cos(angRad);
-    break;
-  case Viewer2DView::Side:
-    offY = -labelDist * std::sin(angRad);
-    offZ = labelDist * std::cos(angRad);
-    break;
-  }
+  const int viewIdx = static_cast<int>(view);
+  const auto fixtureOverrides = viewer2d::LoadFixtureLabelOverrides(cfg);
 
   const CullingSettings culling = GetCullingSettings(cfg);
   const float minLabelPixels = culling.minPixels2D;
@@ -578,6 +535,50 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   for (const auto &candidate : candidates) {
     const std::string &uuid = *candidate.uuid;
     const Fixture &f = *candidate.fixture;
+    const viewer2d::FixtureLabelOverride *overrideSettings = nullptr;
+    if (auto oit = fixtureOverrides.find(uuid); oit != fixtureOverrides.end())
+      overrideSettings = &oit->second;
+
+    const bool showName =
+        viewer2d::ResolveShowLabelName(cfg, overrideSettings, viewIdx);
+    const bool showId =
+        viewer2d::ResolveShowLabelId(cfg, overrideSettings, viewIdx);
+    const bool showDmx =
+        viewer2d::ResolveShowLabelDmx(cfg, overrideSettings, viewIdx);
+    if (!showName && !showId && !showDmx)
+      continue;
+
+    const float nameSize =
+        viewer2d::ResolveLabelFontSizeName(cfg, overrideSettings) * zoom;
+    const float idSize =
+        viewer2d::ResolveLabelFontSizeId(cfg, overrideSettings) * zoom;
+    const float dmxSize =
+        viewer2d::ResolveLabelFontSizeDmx(cfg, overrideSettings) * zoom;
+    const float labelDist =
+        viewer2d::ResolveLabelOffsetDistance(cfg, overrideSettings, viewIdx);
+    const float labelAngle =
+        viewer2d::ResolveLabelOffsetAngle(cfg, overrideSettings, viewIdx);
+
+    constexpr float deg2rad = 3.14159265358979323846f / 180.0f;
+    const float angRad = labelAngle * deg2rad;
+    float offX = 0.0f;
+    float offY = 0.0f;
+    float offZ = 0.0f;
+    switch (view) {
+    case Viewer2DView::Top:
+    case Viewer2DView::Bottom:
+      offX = labelDist * std::sin(angRad);
+      offY = labelDist * std::cos(angRad);
+      break;
+    case Viewer2DView::Front:
+      offX = labelDist * std::sin(angRad);
+      offZ = labelDist * std::cos(angRad);
+      break;
+    case Viewer2DView::Side:
+      offY = -labelDist * std::sin(angRad);
+      offZ = labelDist * std::cos(angRad);
+      break;
+    }
 
     auto bit = m_controller.GetFixtureBoundsMap().find(uuid);
     const ISelectionContext::BoundingBox *bounds =
