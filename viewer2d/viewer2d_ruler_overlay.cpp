@@ -176,6 +176,15 @@ struct ActiveRulers {
   float verticalAxisMeters = 0.0f;
 };
 
+float ResolveVerticalRulerRenderAxisX(const RulerOverlayViewState &state,
+                                      float verticalAxisMeters) {
+  // Side view uses a mirrored horizontal world direction relative to the
+  // screen-space overlays. Flip only the rendered vertical ruler anchor so its
+  // movement matches the label direction.
+  return state.view == Viewer2DView::Side ? -verticalAxisMeters
+                                          : verticalAxisMeters;
+}
+
 ActiveRulers ResolveActiveRulers(const RulerOverlayViewState &state) {
   switch (state.view) {
   case Viewer2DView::Top:
@@ -256,7 +265,8 @@ void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
                shortTickMeters);
   const ActiveRulers activeRulers = ResolveActiveRulers(state);
   const float yAxis = activeRulers.horizontalAxisMeters;
-  const float xAxis = activeRulers.verticalAxisMeters;
+  const float xAxis =
+      ResolveVerticalRulerRenderAxisX(state, activeRulers.verticalAxisMeters);
   const float halfW = static_cast<float>(state.width) * 0.5f / pixelsPerMeter;
   const float halfH = static_cast<float>(state.height) * 0.5f / pixelsPerMeter;
 
@@ -312,8 +322,9 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
 
   const float xRulerY = activeRulers.horizontalAxisMeters;
   const float yRulerX = activeRulers.verticalAxisMeters;
+  const float yRulerRenderX = ResolveVerticalRulerRenderAxisX(state, yRulerX);
   canvas.DrawLine(minX, xRulerY, maxX, xRulerY, stroke);
-  canvas.DrawLine(yRulerX, minY, yRulerX, maxY, stroke);
+  canvas.DrawLine(yRulerRenderX, minY, yRulerRenderX, maxY, stroke);
 
   const float tickStepMeters = ResolveTickStepMeters(state.useImperialUnits);
   const float startX =
@@ -347,8 +358,8 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
         ResolveTickLengthMeters(tickKind, shortTickMeters, longTickMeters);
     if (tick <= 0.0f)
       continue;
-    canvas.DrawLine(yRulerX, y, yRulerX + tick * verticalTickDirection, y,
-                    stroke);
+    canvas.DrawLine(yRulerRenderX, y,
+                    yRulerRenderX + tick * verticalTickDirection, y, stroke);
     if (tickKind == RulerTickKind::Long) {
       const float labelOffsetMeters = y - kRulerZeroOriginMeters;
       const std::string label =
