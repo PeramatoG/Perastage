@@ -32,6 +32,12 @@ bool IsMeterTick(float valueMeters) {
   return std::fabs(valueMeters - rounded) < 0.0001f;
 }
 
+float VerticalTickDirection(Viewer2DView view) {
+  // In Side view the vertical ruler represents Z, and its ticks must point to
+  // the opposite side to match the requested orientation.
+  return view == Viewer2DView::Side ? -1.0f : 1.0f;
+}
+
 struct WorldPoint {
   float x = 0.0f;
   float y = 0.0f;
@@ -134,12 +140,6 @@ CanvasTextStyle BuildRulerLabelStyle(const CanvasStroke &stroke) {
   style.fontSize = kRulerLabelFontSize;
   style.color = stroke.color;
   return style;
-}
-
-float VerticalTickDirection(Viewer2DView view) {
-  // In Side view the vertical ruler represents Z, and its ticks must point to
-  // the opposite side to match the requested orientation.
-  return view == Viewer2DView::Side ? -1.0f : 1.0f;
 }
 
 float WorldToScreenX(float worldX, const RulerOverlayViewState &state,
@@ -254,9 +254,8 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
                     stroke);
     if (isLongTick) {
       const std::string label = FormatRulerOffsetLabel(y - xRulerY);
-      canvas.DrawText(
-          yRulerX + (tick + kRulerLabelOffsetMeters) * verticalTickDirection,
-          y, label, textStyle);
+      canvas.DrawText(yRulerX + tick + kRulerLabelOffsetMeters, y, label,
+                      textStyle);
     }
   }
 }
@@ -298,13 +297,10 @@ BuildRulerScreenLabels(const RulerOverlayViewState &state) {
   }
 
   const float startY = std::ceil(minY / kTickStepMeters) * kTickStepMeters;
-  const float verticalTickDirection = VerticalTickDirection(state.view);
   for (float y = startY; y <= maxY + 0.0001f; y += kTickStepMeters) {
     if (!IsMeterTick(y))
       continue;
-    const float worldX = yRulerX +
-                         (longTickMeters + kRulerLabelOffsetMeters) *
-                             verticalTickDirection;
+    const float worldX = yRulerX + longTickMeters + kRulerLabelOffsetMeters;
     labels.push_back({WorldToScreenX(worldX, state, pixelsPerMeter),
                       WorldToScreenY(y, state, pixelsPerMeter),
                       FormatRulerOffsetLabel(y - xRulerY), false, true});
