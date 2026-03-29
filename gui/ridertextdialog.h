@@ -17,6 +17,8 @@
  */
 #pragma once
 
+#include <string>
+
 #include <wx/dialog.h>
 
 class wxTextCtrl;
@@ -27,8 +29,10 @@ public:
   explicit RiderTextDialog(wxWindow *parent,
                            const wxString &initialText = wxEmptyString,
                            const wxString &initialSource = wxEmptyString);
+  const std::string &GetRiderTextUtf8() const;
 
 private:
+  bool TryGetCurrentText(std::string &outText) const;
   void OnLoadFromFile(wxCommandEvent &event);
   void OnLoadExample(wxCommandEvent &event);
   void OnApplyFilter(wxCommandEvent &event);
@@ -37,6 +41,7 @@ private:
   wxTextCtrl *textCtrl = nullptr;
   wxStaticText *sourceText = nullptr;
   wxString sourceLabel;
+  std::string selectedRiderTextUtf8;
 
   wxDECLARE_EVENT_TABLE();
 };

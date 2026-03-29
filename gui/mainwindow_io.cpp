@@ -251,17 +251,30 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
 }
 
 void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
-  LockViewportInteraction();
-  ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
   RiderTextDialog dlg(this);
   if (dlg.ShowModal() != wxID_OK)
     return;
 
+  const std::string riderText = dlg.GetRiderTextUtf8();
+  if (riderText.empty()) {
+    wxMessageBox("Rider text is empty.", "Error", wxICON_ERROR);
+    return;
+  }
+
+  LockViewportInteraction();
+  ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
   std::unique_ptr<wxWindowDisabler> createDisabler =
       std::make_unique<wxWindowDisabler>();
   std::unique_ptr<wxBusyInfo> createOverlay =
       std::make_unique<wxBusyInfo>("Generating scene from text...");
   wxYieldIfNeeded();
+
+  if (!RiderImporter::ImportText(riderText)) {
+    wxMessageBox("Failed to import rider text.", "Error", wxICON_ERROR);
+    if (consolePanel)
+      consolePanel->AppendMessage("[ERROR] Failed to import rider from text.");
+    return;
+  }
 
   if (consolePanel)
     consolePanel->AppendMessage("[INFO] Imported rider from text.");

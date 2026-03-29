@@ -89,6 +89,21 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   Centre();
 }
 
+const std::string &RiderTextDialog::GetRiderTextUtf8() const {
+  return selectedRiderTextUtf8;
+}
+
+bool RiderTextDialog::TryGetCurrentText(std::string &outText) const {
+  if (!textCtrl)
+    return false;
+
+  const wxString value = textCtrl->GetValue();
+  const wxScopedCharBuffer textBuffer = value.ToUTF8();
+  outText = textBuffer ? std::string(textBuffer.data(), textBuffer.length())
+                       : value.ToStdString();
+  return true;
+}
+
 void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("misc"));
@@ -176,12 +191,8 @@ void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void RiderTextDialog::OnApplyFilter(wxCommandEvent &WXUNUSED(event)) {
-  wxString value = textCtrl->GetValue();
-  const wxScopedCharBuffer textBuffer = value.ToUTF8();
-  std::string text =
-      textBuffer ? std::string(textBuffer.data(), textBuffer.length())
-                 : value.ToStdString();
-  if (text.empty()) {
+  std::string text;
+  if (!TryGetCurrentText(text) || text.empty()) {
     wxMessageBox("Rider text is empty.", "Error", wxICON_ERROR);
     return;
   }
@@ -206,18 +217,11 @@ void RiderTextDialog::OnApplyFilter(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void RiderTextDialog::OnApply(wxCommandEvent &WXUNUSED(event)) {
-  wxString value = textCtrl->GetValue();
-  const wxScopedCharBuffer textBuffer = value.ToUTF8();
-  std::string text =
-      textBuffer ? std::string(textBuffer.data(), textBuffer.length())
-                 : value.ToStdString();
-  if (text.empty()) {
+  std::string text;
+  if (!TryGetCurrentText(text) || text.empty()) {
     wxMessageBox("Rider text is empty.", "Error", wxICON_ERROR);
     return;
   }
-  if (!RiderImporter::ImportText(text)) {
-    wxMessageBox("Failed to import rider text.", "Error", wxICON_ERROR);
-    return;
-  }
+  selectedRiderTextUtf8 = std::move(text);
   EndModal(wxID_OK);
 }
