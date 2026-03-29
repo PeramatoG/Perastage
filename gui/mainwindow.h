@@ -33,6 +33,7 @@ wxDECLARE_EVENT(EVT_PROJECT_LOADED, wxCommandEvent);
 
 // Forward declarations for GUI components
 class wxNotebook;
+class wxAuiNotebook;
 class wxIdleEvent;
 class wxBusyInfo;
 class wxWindowDisabler;
@@ -117,6 +118,8 @@ private:
   LayoutViewerPanel *layoutViewerPanel = nullptr;
   SummaryPanel *summaryPanel = nullptr;
   RiggingPanel *riggingPanel = nullptr;
+  wxAuiNotebook *sidePanelsNotebook = nullptr;
+  wxAuiNotebook *bottomPanelsNotebook = nullptr;
   wxAuiToolBar *fileToolBar = nullptr;
   wxAuiToolBar *editToolBar = nullptr;
   wxAuiToolBar *layoutToolBar = nullptr;

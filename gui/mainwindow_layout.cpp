@@ -22,6 +22,7 @@
 #include <unordered_set>
 
 #include <wx/notebook.h>
+#include <wx/aui/auibook.h>
 
 #include "app_version.h"
 #include "configmanager.h"
@@ -306,32 +307,23 @@ void MainWindow::SetupLayout() {
                                     .CloseButton(true)
                                     .MaximizeButton(true));
 
-  // Bottom console panel for messages
-  consolePanel = new ConsolePanel(this);
-  ConsolePanel::SetInstance(consolePanel);
-  auiManager->AddPane(consolePanel, wxAuiPaneInfo()
-                                        .Name("Console")
-                                        .Caption("Console")
-                                        .Bottom()
-                                        .Layer(1)
-                                        .BestSize(-1, 150)
-                                        .CloseButton(true)
-                                        .MaximizeButton(true)
-                                        .PaneBorder(true));
+  // Bottom tabbed utility area (Console/Rigging)
+  bottomPanelsNotebook =
+      new wxAuiNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                        wxAUI_NB_DEFAULT_STYLE | wxAUI_NB_TAB_MOVE);
 
-  layerPanel = new LayerPanel(this);
+  consolePanel = new ConsolePanel(bottomPanelsNotebook);
+  ConsolePanel::SetInstance(consolePanel);
+  bottomPanelsNotebook->AddPage(consolePanel, "Console", true);
+
+  // Right tabbed utility area (Layers/Summary/2D Render Options)
+  sidePanelsNotebook =
+      new wxAuiNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                        wxAUI_NB_DEFAULT_STYLE | wxAUI_NB_TAB_MOVE);
+
+  layerPanel = new LayerPanel(sidePanelsNotebook);
   LayerPanel::SetInstance(layerPanel);
-  auiManager->AddPane(layerPanel, wxAuiPaneInfo()
-                                      .Name("LayerPanel")
-                                      .Caption("Layers")
-                                      .Right()
-                                      .Layer(1)
-                                      .Row(0)
-                                      .Position(0)
-                                      .BestSize(250, 300)
-                                      .CloseButton(true)
-                                      .MaximizeButton(true)
-                                      .PaneBorder(true));
+  sidePanelsNotebook->AddPage(layerPanel, "Layers", true);
 
   layoutPanel = new LayoutPanel(this);
   LayoutPanel::SetInstance(layoutPanel);
@@ -362,33 +354,35 @@ void MainWindow::SetupLayout() {
                                             .MaximizeButton(true)
                                             .Hide());
 
-  summaryPanel = new SummaryPanel(this);
+  summaryPanel = new SummaryPanel(sidePanelsNotebook);
   SummaryPanel::SetInstance(summaryPanel);
-  auiManager->AddPane(summaryPanel, wxAuiPaneInfo()
-                                        .Name("SummaryPanel")
-                                        .Caption("Summary")
-                                        .Right()
-                                        .Layer(1)
-                                        .Row(0)
-                                        .Position(1)
-                                        .BestSize(250, 150)
-                                        .CloseButton(true)
-                                        .MaximizeButton(true)
-                                        .PaneBorder(true));
+  sidePanelsNotebook->AddPage(summaryPanel, "Summary", false);
 
-  riggingPanel = new RiggingPanel(this);
+  riggingPanel = new RiggingPanel(bottomPanelsNotebook);
   RiggingPanel::SetInstance(riggingPanel);
-  auiManager->AddPane(riggingPanel, wxAuiPaneInfo()
-                                        .Name("RiggingPanel")
-                                        .Caption("Rigging")
-                                        .Bottom()
-                                        .Layer(1)
-                                        .Row(0)
-                                        .Position(1)
-                                        .BestSize(250, 200)
-                                        .CloseButton(true)
-                                        .MaximizeButton(true)
-                                        .PaneBorder(true));
+  bottomPanelsNotebook->AddPage(riggingPanel, "Rigging", false);
+
+  auiManager->AddPane(bottomPanelsNotebook, wxAuiPaneInfo()
+                                              .Name("Console")
+                                              .Caption("Console")
+                                              .Bottom()
+                                              .Layer(1)
+                                              .BestSize(-1, 150)
+                                              .CloseButton(true)
+                                              .MaximizeButton(true)
+                                              .PaneBorder(true));
+
+  auiManager->AddPane(sidePanelsNotebook, wxAuiPaneInfo()
+                                            .Name("LayerPanel")
+                                            .Caption("Panels")
+                                            .Right()
+                                            .Layer(1)
+                                            .Row(0)
+                                            .Position(0)
+                                            .BestSize(250, 300)
+                                            .CloseButton(true)
+                                            .MaximizeButton(true)
+                                            .PaneBorder(true));
 
   // Apply all changes to layout
   auiManager->Update();

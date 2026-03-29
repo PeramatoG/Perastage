@@ -381,58 +381,21 @@ void MainWindow::Ensure2DViewport() {
 
   viewport2DRenderPanel = new Viewer2DRenderPanel(this);
   Viewer2DRenderPanel::SetInstance(viewport2DRenderPanel);
-  auiManager->AddPane(viewport2DRenderPanel, wxAuiPaneInfo()
-                                                 .Name("2DRenderOptions")
-                                                 .Caption("2D Render Options")
-                                                 .Right()
-                                                 .Layer(0)
-                                                 .Row(0)
-                                                 .Position(0)
-                                                 .BestSize(200, 100)
-                                                 .CloseButton(true)
-                                                 .MaximizeButton(true)
-                                                 .PaneBorder(true)
-                                                 .Hide());
+  if (sidePanelsNotebook) {
+    sidePanelsNotebook->AddPage(viewport2DRenderPanel, "2D Render Options",
+                                false);
+  }
 
   auiManager->Update();
 
   if (default2DLayoutPerspective.empty()) {
     auto &pane3d = auiManager->GetPane("3DViewport");
     auto &pane2d = auiManager->GetPane("2DViewport");
-    auto &paneRender = auiManager->GetPane("2DRenderOptions");
-    auto &paneLayers = auiManager->GetPane("LayerPanel");
-    auto &paneSummary = auiManager->GetPane("SummaryPanel");
-
-    // 2D default: keep Layers/Summary in the outer right column and place
-    // Render Options in the inner right column between viewport and side column.
-    if (paneLayers.IsOk()) {
-      paneLayers.Right().Layer(1).Row(0).Position(0);
-    }
-    if (paneSummary.IsOk()) {
-      paneSummary.Right().Layer(1).Row(0).Position(1);
-    }
-    if (paneRender.IsOk()) {
-      paneRender.Right().Layer(0).Row(0).Position(0);
-    }
 
     pane3d.Hide();
     pane2d.Show();
-    paneRender.Show();
     auiManager->Update();
     default2DLayoutPerspective = auiManager->SavePerspective().ToStdString();
-
-    // Restore base (3D) side column layout: Layers above Summary.
-    if (paneLayers.IsOk()) {
-      paneLayers.Right().Layer(1).Row(0).Position(0);
-    }
-    if (paneSummary.IsOk()) {
-      paneSummary.Right().Layer(1).Row(0).Position(1);
-    }
-    if (paneRender.IsOk()) {
-      paneRender.Right().Layer(0).Row(0).Position(0);
-    }
-
-    paneRender.Hide();
     pane2d.Hide();
     pane3d.Show();
     auiManager->Update();
@@ -855,9 +818,11 @@ void MainWindow::UpdateViewMenuChecks() {
   if (!auiManager || !GetMenuBar())
     return;
 
-  auto &consolePane = auiManager->GetPane("Console");
-  GetMenuBar()->Check(ID_View_ToggleConsole,
-                      consolePane.IsOk() && consolePane.IsShown());
+  auto &bottomPane = auiManager->GetPane("Console");
+  const bool isBottomShown = bottomPane.IsOk() && bottomPane.IsShown();
+  const int bottomSelection =
+      bottomPanelsNotebook ? bottomPanelsNotebook->GetSelection() : wxNOT_FOUND;
+  GetMenuBar()->Check(ID_View_ToggleConsole, isBottomShown);
 
   auto &dataPane = auiManager->GetPane("DataNotebook");
   GetMenuBar()->Check(ID_View_ToggleFixtures,
@@ -871,25 +836,36 @@ void MainWindow::UpdateViewMenuChecks() {
   GetMenuBar()->Check(ID_View_ToggleViewport2D,
                       viewPane2D.IsOk() && viewPane2D.IsShown());
 
-  auto &renderPane = auiManager->GetPane("2DRenderOptions");
+  auto &sidePane = auiManager->GetPane("LayerPanel");
+  const bool isSideShown = sidePane.IsOk() && sidePane.IsShown();
+  const int sideSelection =
+      sidePanelsNotebook ? sidePanelsNotebook->GetSelection() : wxNOT_FOUND;
   GetMenuBar()->Check(ID_View_ToggleRender2D,
-                      renderPane.IsOk() && renderPane.IsShown());
-
-  auto &layerPane = auiManager->GetPane("LayerPanel");
+                      isSideShown && sideSelection != wxNOT_FOUND &&
+                          sidePanelsNotebook &&
+                          sidePanelsNotebook->GetPage(sideSelection) ==
+                              viewport2DRenderPanel);
   GetMenuBar()->Check(ID_View_ToggleLayers,
-                      layerPane.IsOk() && layerPane.IsShown());
+                      isSideShown && sideSelection != wxNOT_FOUND &&
+                          sidePanelsNotebook &&
+                          sidePanelsNotebook->GetPage(sideSelection) ==
+                              layerPanel);
 
   auto &layoutPane = auiManager->GetPane("LayoutPanel");
   GetMenuBar()->Check(ID_View_ToggleLayouts,
                       layoutPane.IsOk() && layoutPane.IsShown());
 
-  auto &summaryPane = auiManager->GetPane("SummaryPanel");
   GetMenuBar()->Check(ID_View_ToggleSummary,
-                      summaryPane.IsOk() && summaryPane.IsShown());
+                      isSideShown && sideSelection != wxNOT_FOUND &&
+                          sidePanelsNotebook &&
+                          sidePanelsNotebook->GetPage(sideSelection) ==
+                              summaryPanel);
 
-  auto &riggingPane = auiManager->GetPane("RiggingPanel");
   GetMenuBar()->Check(ID_View_ToggleRigging,
-                      riggingPane.IsOk() && riggingPane.IsShown());
+                      isBottomShown && bottomSelection != wxNOT_FOUND &&
+                          bottomPanelsNotebook &&
+                          bottomPanelsNotebook->GetPage(bottomSelection) ==
+                              riggingPanel);
 
   UpdateToolBarAvailability();
 }
