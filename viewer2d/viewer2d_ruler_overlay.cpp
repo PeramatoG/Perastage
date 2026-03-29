@@ -27,13 +27,12 @@ constexpr float kMetricShortTickStepMeters = 0.5f;
 constexpr float kMetricLongTickStepMeters = 1.0f;
 constexpr float kMetersPerInch = 0.0254f;
 constexpr float kInchesPerFoot = 12.0f;
-constexpr float kImperialShortTickStepMeters = kMetersPerInch;
-constexpr float kImperialMediumTickStepMeters = 6.0f * kMetersPerInch;
+constexpr float kImperialShortTickStepMeters = 6.0f * kMetersPerInch;
 constexpr float kImperialLongTickStepMeters = kInchesPerFoot * kMetersPerInch;
 constexpr float kRulerLabelFontSize = 3.0f;
 constexpr float kRulerLabelOffsetMeters = 0.12f;
 
-enum class RulerTickKind { None, Short, Medium, Long };
+enum class RulerTickKind { None, Short, Long };
 
 bool IsNearMultiple(float value, float step) {
   if (step <= 0.0f)
@@ -54,8 +53,6 @@ RulerTickKind ResolveTickKind(float valueMeters, float rulerOriginMeters,
   if (useImperialUnits) {
     if (IsNearMultiple(relativeMeters, kImperialLongTickStepMeters))
       return RulerTickKind::Long;
-    if (IsNearMultiple(relativeMeters, kImperialMediumTickStepMeters))
-      return RulerTickKind::Medium;
     if (IsNearMultiple(relativeMeters, kImperialShortTickStepMeters))
       return RulerTickKind::Short;
     return RulerTickKind::None;
@@ -69,12 +66,10 @@ RulerTickKind ResolveTickKind(float valueMeters, float rulerOriginMeters,
 }
 
 float ResolveTickLengthMeters(RulerTickKind kind, float shortTickMeters,
-                              float mediumTickMeters, float longTickMeters) {
+                              float longTickMeters) {
   switch (kind) {
   case RulerTickKind::Long:
     return longTickMeters;
-  case RulerTickKind::Medium:
-    return mediumTickMeters;
   case RulerTickKind::Short:
     return shortTickMeters;
   case RulerTickKind::None:
@@ -124,7 +119,7 @@ void EmitViewLine(float u0, float v0, float u1, float v1, Viewer2DView view) {
 
 void DrawHorizontalRuler(float minU, float maxU, float vAxis,
                          float rulerOriginMeters, float shortTickMeters,
-                         float mediumTickMeters, float longTickMeters,
+                         float longTickMeters,
                          bool useImperialUnits, Viewer2DView view) {
   glBegin(GL_LINES);
   EmitViewLine(minU, vAxis, maxU, vAxis, view);
@@ -135,8 +130,8 @@ void DrawHorizontalRuler(float minU, float maxU, float vAxis,
   for (float u = startTick; u <= maxU + 0.0001f; u += tickStepMeters) {
     const auto tickKind =
         ResolveTickKind(u, rulerOriginMeters, useImperialUnits);
-    const float tick = ResolveTickLengthMeters(
-        tickKind, shortTickMeters, mediumTickMeters, longTickMeters);
+    const float tick =
+        ResolveTickLengthMeters(tickKind, shortTickMeters, longTickMeters);
     if (tick <= 0.0f)
       continue;
     EmitViewLine(u, vAxis, u, vAxis + tick, view);
@@ -146,7 +141,7 @@ void DrawHorizontalRuler(float minU, float maxU, float vAxis,
 
 void DrawVerticalRuler(float minV, float maxV, float uAxis,
                        float rulerOriginMeters, float shortTickMeters,
-                       float mediumTickMeters, float longTickMeters,
+                       float longTickMeters,
                        bool useImperialUnits, Viewer2DView view) {
   glBegin(GL_LINES);
   EmitViewLine(uAxis, minV, uAxis, maxV, view);
@@ -158,8 +153,8 @@ void DrawVerticalRuler(float minV, float maxV, float uAxis,
   for (float v = startTick; v <= maxV + 0.0001f; v += tickStepMeters) {
     const auto tickKind =
         ResolveTickKind(v, rulerOriginMeters, useImperialUnits);
-    const float tick = ResolveTickLengthMeters(
-        tickKind, shortTickMeters, mediumTickMeters, longTickMeters);
+    const float tick =
+        ResolveTickLengthMeters(tickKind, shortTickMeters, longTickMeters);
     if (tick <= 0.0f)
       continue;
     EmitViewLine(uAxis, v, uAxis + tick * tickDirection, v, view);
@@ -258,8 +253,6 @@ void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
   const float longTickMeters =
       std::max(std::max(state.largeTickMeters, shortTickMeters),
                shortTickMeters);
-  const float mediumTickMeters =
-      shortTickMeters + (longTickMeters - shortTickMeters) * 0.5f;
   const ActiveRulers activeRulers = ResolveActiveRulers(state);
   const float yAxis = activeRulers.horizontalAxisMeters;
   const float xAxis = activeRulers.verticalAxisMeters;
@@ -282,10 +275,10 @@ void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
   glLineWidth(1.0f);
 
   DrawHorizontalRuler(minX, maxX, yAxis, xAxis, shortTickMeters,
-                      mediumTickMeters, longTickMeters, state.useImperialUnits,
+                      longTickMeters, state.useImperialUnits,
                       state.view);
   DrawVerticalRuler(minY, maxY, xAxis, yAxis, shortTickMeters,
-                    mediumTickMeters, longTickMeters, state.useImperialUnits,
+                    longTickMeters, state.useImperialUnits,
                     state.view);
 
   if (depthEnabled)
@@ -313,8 +306,6 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
   const float longTickMeters =
       std::max(std::max(state.largeTickMeters, shortTickMeters),
                shortTickMeters);
-  const float mediumTickMeters =
-      shortTickMeters + (longTickMeters - shortTickMeters) * 0.5f;
   auto stroke = BuildRulerStroke(darkMode);
   const ActiveRulers activeRulers = ResolveActiveRulers(state);
 
@@ -328,8 +319,8 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
   const auto textStyle = BuildRulerLabelStyle(stroke);
   for (float x = startX; x <= maxX + 0.0001f; x += tickStepMeters) {
     const auto tickKind = ResolveTickKind(x, yRulerX, state.useImperialUnits);
-    const float tick = ResolveTickLengthMeters(
-        tickKind, shortTickMeters, mediumTickMeters, longTickMeters);
+    const float tick =
+        ResolveTickLengthMeters(tickKind, shortTickMeters, longTickMeters);
     if (tick <= 0.0f)
       continue;
     canvas.DrawLine(x, xRulerY, x, xRulerY + tick, stroke);
@@ -347,8 +338,8 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
   const float verticalTickDirection = VerticalTickDirection(state.view);
   for (float y = startY; y <= maxY + 0.0001f; y += tickStepMeters) {
     const auto tickKind = ResolveTickKind(y, xRulerY, state.useImperialUnits);
-    const float tick = ResolveTickLengthMeters(
-        tickKind, shortTickMeters, mediumTickMeters, longTickMeters);
+    const float tick =
+        ResolveTickLengthMeters(tickKind, shortTickMeters, longTickMeters);
     if (tick <= 0.0f)
       continue;
     canvas.DrawLine(yRulerX, y, yRulerX + tick * verticalTickDirection, y,
@@ -386,8 +377,6 @@ BuildRulerScreenLabels(const RulerOverlayViewState &state) {
   const float longTickMeters =
       std::max(std::max(state.largeTickMeters, shortTickMeters),
                shortTickMeters);
-  const float mediumTickMeters =
-      shortTickMeters + (longTickMeters - shortTickMeters) * 0.5f;
   const ActiveRulers activeRulers = ResolveActiveRulers(state);
   const float xRulerY = activeRulers.horizontalAxisMeters;
   const float yRulerX = activeRulers.verticalAxisMeters;
@@ -398,8 +387,8 @@ BuildRulerScreenLabels(const RulerOverlayViewState &state) {
     const auto tickKind = ResolveTickKind(x, yRulerX, state.useImperialUnits);
     if (tickKind != RulerTickKind::Long)
       continue;
-    const float tick = ResolveTickLengthMeters(
-        tickKind, shortTickMeters, mediumTickMeters, longTickMeters);
+    const float tick =
+        ResolveTickLengthMeters(tickKind, shortTickMeters, longTickMeters);
     const float worldY = xRulerY + tick + kRulerLabelOffsetMeters;
     const float labelOffsetMeters = x - yRulerX;
     const std::string label =
@@ -415,8 +404,8 @@ BuildRulerScreenLabels(const RulerOverlayViewState &state) {
     const auto tickKind = ResolveTickKind(y, xRulerY, state.useImperialUnits);
     if (tickKind != RulerTickKind::Long)
       continue;
-    const float tick = ResolveTickLengthMeters(
-        tickKind, shortTickMeters, mediumTickMeters, longTickMeters);
+    const float tick =
+        ResolveTickLengthMeters(tickKind, shortTickMeters, longTickMeters);
     const float worldX = yRulerX + tick + kRulerLabelOffsetMeters;
     const float labelOffsetMeters = y - xRulerY;
     const std::string label =
