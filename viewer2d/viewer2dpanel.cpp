@@ -54,6 +54,7 @@
 #include "viewer2d_support_selection.h"
 #include "viewer2d_ruler_overlay.h"
 #include "viewer2dviewfit.h"
+#include "units/units.h"
 #include <wx/app.h>
 #include <wx/utils.h>
 #include <algorithm>
@@ -675,6 +676,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const float rulerAxisXPosition = cfg.GetFloat("ruler_axis_x_position");
   const float rulerAxisYPosition = cfg.GetFloat("ruler_axis_y_position");
   const float rulerAxisZPosition = cfg.GetFloat("ruler_axis_z_position");
+  const auto distanceUnitSystem =
+      Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
 
   std::unique_ptr<ICanvas2D> recordingCanvas;
   if (m_captureNextFrame) {
@@ -780,6 +783,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     rulerState.xRulerPositionMeters = rulerAxisXPosition;
     rulerState.yRulerPositionMeters = rulerAxisYPosition;
     rulerState.zRulerPositionMeters = rulerAxisZPosition;
+    rulerState.useImperialUnits =
+        distanceUnitSystem == Units::DistanceUnitSystem::Imperial;
     rulerState.view = m_view;
     viewer2d::DrawRulerOverlay(rulerState, darkMode);
     const auto rulerLabels = viewer2d::BuildRulerScreenLabels(rulerState);
