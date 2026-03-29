@@ -1,6 +1,11 @@
 #include "mainwindow_view_controller.h"
 
 #include "mainwindow.h"
+#include "consolepanel.h"
+#include "layerpanel.h"
+#include "riggingpanel.h"
+#include "summarypanel.h"
+#include "viewer2drenderpanel.h"
 
 void MainWindowViewController::OnToggleConsole(wxCommandEvent &) {
   if (!owner_.auiManager)
