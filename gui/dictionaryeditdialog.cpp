@@ -22,7 +22,6 @@
 #include "dictionary_json_contract.h"
 #include "file_import_utils.h"
 #include "gdtfdictionary.h"
-#include "gdtf_fixture_category.h"
 #include "gdtfloader.h"
 #include "json.hpp"
 #include "mainwindow.h"
@@ -35,7 +34,6 @@
 #include <memory>
 #include <optional>
 #include <sstream>
-#include <unordered_set>
 #include <vector>
 
 #include <wx/filename.h>
@@ -614,21 +612,10 @@ bool SaveTrussesSnapshotToFile(const std::string &outputPath,
 }
 
 wxArrayString BuildFixtureCategoryChoices() {
-  wxArrayString choices;
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kBeam));
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kBlinder));
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kConventional));
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kFx));
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kHoist));
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kHybrid));
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kLaser));
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kLed));
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kSmoke));
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kSpot));
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kStrobe));
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kUnknown));
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kVideo));
-  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kWash));
+  const wxArrayString choices = {
+      "Beam",         "Blinder", "Conventional", "FX",    "Hoist",
+      "Hybrid",       "Laser",   "LED",          "Smoke", "Spot",
+      "Strobe",       "Unknown", "Video",        "Wash"};
   return choices;
 }
 } // namespace
@@ -1509,7 +1496,6 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
       if (selectedPath.empty())
         return;
 
-      std::unordered_set<std::string> affectedFixtureNames;
       for (unsigned int currentRow = 0; currentRow < table->GetItemCount();
            ++currentRow) {
         if (currentRow >= fixturePaths.size() ||
@@ -1521,14 +1507,7 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
         if (existingCategoryVar.GetString() != wxString::FromUTF8(selectedCategory))
           table->SetValue(wxVariant(wxString::FromUTF8(selectedCategory)),
                           static_cast<int>(currentRow), 3);
-        wxVariant nameVar;
-        table->GetValue(nameVar, static_cast<int>(currentRow), 0);
-        const std::string fixtureName = std::string(nameVar.GetString().ToUTF8());
-        if (!fixtureName.empty())
-          affectedFixtureNames.insert(fixtureName);
       }
-      for (const auto &fixtureName : affectedFixtureNames)
-        GdtfDictionary::UpdateCategory(fixtureName, selectedCategory);
       return;
     }
     if (col != 1)
