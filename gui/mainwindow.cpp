@@ -558,28 +558,25 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
 
 bool MainWindow::LoadProjectFromPath(const std::string &path,
                                      bool showBlockingLoadUi) {
-  std::unique_ptr<wxWindowDisabler> loadDisabler;
-  std::unique_ptr<wxBusyInfo> loadOverlay;
   if (showBlockingLoadUi) {
-    loadDisabler = std::make_unique<wxWindowDisabler>();
-    loadOverlay = std::make_unique<wxBusyInfo>("Loading project file...");
+    blockingProjectLoadDisabler = std::make_unique<wxWindowDisabler>();
+    blockingProjectLoadOverlay = std::make_unique<wxBusyInfo>("Loading project file...");
     wxYieldIfNeeded();
   }
 
   LockViewportInteraction();
-  auto finishLoad = [this, &loadOverlay, &loadDisabler]() {
+  auto finishLoad = [this]() {
     UnlockViewportInteraction();
-    loadOverlay.reset();
-    loadDisabler.reset();
   };
 
   if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(path)) {
+    ClearBlockingProjectLoadUi();
     finishLoad();
     return false;
   }
 
   if (showBlockingLoadUi) {
-    loadOverlay = std::make_unique<wxBusyInfo>("Building scene...");
+    blockingProjectLoadOverlay = std::make_unique<wxBusyInfo>("Building scene...");
     wxYieldIfNeeded();
   } else {
     SplashScreen::SetMessage("Building scene...");
@@ -628,7 +625,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   if (layerPanel)
     layerPanel->ReloadLayers();
   if (showBlockingLoadUi) {
-    loadOverlay = std::make_unique<wxBusyInfo>("Refreshing panels...");
+    blockingProjectLoadOverlay = std::make_unique<wxBusyInfo>("Refreshing panels...");
     wxYieldIfNeeded();
   } else {
     SplashScreen::SetMessage("Refreshing panels...");
@@ -638,16 +635,32 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   RefreshRigging();
   GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
   if (showBlockingLoadUi) {
-    loadOverlay = std::make_unique<wxBusyInfo>("Creating fixture symbols...");
+    blockingProjectLoadOverlay = std::make_unique<wxBusyInfo>("Creating fixture symbols...");
     wxYieldIfNeeded();
   } else {
     SplashScreen::SetMessage("Creating fixture symbols...");
     wxYieldIfNeeded();
   }
+
+  if (showBlockingLoadUi) {
+    auto previousCompletionCallback = fixtureSymbolAutoUpdateCompletionCallback;
+    fixtureSymbolAutoUpdateCompletionCallback =
+        [this, previousCompletionCallback]() {
+          if (previousCompletionCallback)
+            previousCompletionCallback();
+          ClearBlockingProjectLoadUi();
+        };
+  }
+
   StartFixtureSymbolAutoUpdateForLoadedScene();
   UpdateTitle();
   finishLoad();
   return true;
+}
+
+void MainWindow::ClearBlockingProjectLoadUi() {
+  blockingProjectLoadOverlay.reset();
+  blockingProjectLoadDisabler.reset();
 }
 
 void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
