@@ -22,6 +22,7 @@
 #include "dictionary_json_contract.h"
 #include "file_import_utils.h"
 #include "gdtfdictionary.h"
+#include "gdtf_fixture_category.h"
 #include "gdtfloader.h"
 #include "json.hpp"
 #include "mainwindow.h"
@@ -612,10 +613,21 @@ bool SaveTrussesSnapshotToFile(const std::string &outputPath,
 }
 
 wxArrayString BuildFixtureCategoryChoices() {
-  const wxArrayString choices = {
-      "Beam",         "Blinder", "Conventional", "FX",    "Hoist",
-      "Hybrid",       "Laser",   "LED",          "Smoke", "Spot",
-      "Strobe",       "Unknown", "Video",        "Wash"};
+  wxArrayString choices;
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kBeam));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kBlinder));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kConventional));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kFx));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kHoist));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kHybrid));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kLaser));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kLed));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kSmoke));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kSpot));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kStrobe));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kUnknown));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kVideo));
+  choices.push_back(wxString::FromUTF8(GdtfFixtureCategory::kWash));
   return choices;
 }
 } // namespace
