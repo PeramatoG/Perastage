@@ -411,6 +411,12 @@ CopyToLibrary(wxWindow *parent, const std::string &path, const char *libraryName
   FileImportUtils::ConflictPolicy policy = FileImportUtils::ConflictPolicy::Overwrite;
 
   std::error_code ec;
+  const bool sameFile = std::filesystem::equivalent(src, dest, ec);
+  ec.clear();
+  if (sameFile) {
+    return CopiedLibraryAsset{src.string(), src.string(), {}};
+  }
+
   if (std::filesystem::exists(dest, ec) && !ec) {
     const auto srcHash = FileImportUtils::ComputeFileSha256(src);
     const auto dstHash = FileImportUtils::ComputeFileSha256(dest);
