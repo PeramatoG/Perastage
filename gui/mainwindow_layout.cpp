@@ -265,6 +265,7 @@ void MainWindow::SetupLayout() {
 
   // Initialize AUI manager for dynamic pane layout
   auiManager = new wxAuiManager(this);
+  auiManager->SetFlags(auiManager->GetFlags() | wxAUI_MGR_ALLOW_ACTIVE_PANE);
   Bind(wxEVT_AUI_PANE_CLOSE, &MainWindow::OnPaneClose, this);
 
   CreateToolBars();
@@ -382,8 +383,8 @@ void MainWindow::SetupLayout() {
                                         .Caption("Rigging")
                                         .Bottom()
                                         .Layer(1)
-                                        .Row(1)
-                                        .Position(0)
+                                        .Row(0)
+                                        .Position(1)
                                         .BestSize(250, 200)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
