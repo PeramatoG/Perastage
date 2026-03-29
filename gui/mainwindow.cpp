@@ -385,7 +385,7 @@ void MainWindow::Ensure2DViewport() {
                                                  .Name("2DRenderOptions")
                                                  .Caption("2D Render Options")
                                                  .Right()
-                                                 .Layer(0)
+                                                 .Layer(1)
                                                  .Row(0)
                                                  .Position(0)
                                                  .BestSize(200, 100)
@@ -403,16 +403,16 @@ void MainWindow::Ensure2DViewport() {
     auto &paneLayers = auiManager->GetPane("LayerPanel");
     auto &paneSummary = auiManager->GetPane("SummaryPanel");
 
-    // 2D default: keep Layers/Summary in the outer right column and place
-    // Render Options in the inner right column between viewport and side column.
+    // 2D default: stack Render Options, Layers, and Summary in the same
+    // right-side column.
+    if (paneRender.IsOk()) {
+      paneRender.Right().Layer(1).Row(0).Position(0);
+    }
     if (paneLayers.IsOk()) {
-      paneLayers.Right().Layer(1).Row(0).Position(0);
+      paneLayers.Right().Layer(1).Row(0).Position(1);
     }
     if (paneSummary.IsOk()) {
-      paneSummary.Right().Layer(1).Row(0).Position(1);
-    }
-    if (paneRender.IsOk()) {
-      paneRender.Right().Layer(0).Row(0).Position(0);
+      paneSummary.Right().Layer(1).Row(0).Position(2);
     }
 
     pane3d.Hide();
@@ -421,7 +421,7 @@ void MainWindow::Ensure2DViewport() {
     auiManager->Update();
     default2DLayoutPerspective = auiManager->SavePerspective().ToStdString();
 
-    // Restore base (3D) side column layout: Layers above Summary.
+    // Restore base (3D) side column layout.
     if (paneLayers.IsOk()) {
       paneLayers.Right().Layer(1).Row(0).Position(0);
     }
@@ -429,7 +429,7 @@ void MainWindow::Ensure2DViewport() {
       paneSummary.Right().Layer(1).Row(0).Position(1);
     }
     if (paneRender.IsOk()) {
-      paneRender.Right().Layer(0).Row(0).Position(0);
+      paneRender.Right().Layer(1).Row(0).Position(2);
     }
 
     paneRender.Hide();
