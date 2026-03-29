@@ -35,6 +35,7 @@
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <unordered_set>
 #include <vector>
 
 #include <wx/filename.h>
@@ -1508,20 +1509,26 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
       if (selectedPath.empty())
         return;
 
+      std::unordered_set<std::string> affectedFixtureNames;
       for (unsigned int currentRow = 0; currentRow < table->GetItemCount();
            ++currentRow) {
         if (currentRow >= fixturePaths.size() ||
             fixturePaths[currentRow] != selectedPath) {
           continue;
         }
-        table->SetValue(wxVariant(wxString::FromUTF8(selectedCategory)),
-                        static_cast<int>(currentRow), 3);
+        wxVariant existingCategoryVar;
+        table->GetValue(existingCategoryVar, static_cast<int>(currentRow), 3);
+        if (existingCategoryVar.GetString() != wxString::FromUTF8(selectedCategory))
+          table->SetValue(wxVariant(wxString::FromUTF8(selectedCategory)),
+                          static_cast<int>(currentRow), 3);
         wxVariant nameVar;
         table->GetValue(nameVar, static_cast<int>(currentRow), 0);
         const std::string fixtureName = std::string(nameVar.GetString().ToUTF8());
         if (!fixtureName.empty())
-          GdtfDictionary::UpdateCategory(fixtureName, selectedCategory);
+          affectedFixtureNames.insert(fixtureName);
       }
+      for (const auto &fixtureName : affectedFixtureNames)
+        GdtfDictionary::UpdateCategory(fixtureName, selectedCategory);
       return;
     }
     if (col != 1)
