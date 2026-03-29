@@ -40,6 +40,7 @@ private:
   bool HasTrussChanges() const;
   void ShowDictionaryLoadStatusMessages();
   bool IsFixturesPage() const;
+  void UpdateFixtureCategoryForFile(int row, const std::string &category);
 
   void OnAdd(wxCommandEvent &event);
   void OnDelete(wxCommandEvent &event);
