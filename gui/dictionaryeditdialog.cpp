@@ -88,6 +88,28 @@ bool HasExistingPath(const std::filesystem::path &candidate) {
   return std::filesystem::exists(candidate, ec);
 }
 
+bool IsPathInsideDirectory(const std::filesystem::path &path,
+                           const std::filesystem::path &directory) {
+  if (path.empty() || directory.empty())
+    return false;
+  std::error_code ec;
+  const std::filesystem::path canonicalPath = std::filesystem::weakly_canonical(path, ec);
+  if (ec)
+    return false;
+  const std::filesystem::path canonicalDirectory =
+      std::filesystem::weakly_canonical(directory, ec);
+  if (ec)
+    return false;
+
+  auto pathIt = canonicalPath.begin();
+  auto dirIt = canonicalDirectory.begin();
+  for (; dirIt != canonicalDirectory.end(); ++dirIt, ++pathIt) {
+    if (pathIt == canonicalPath.end() || *pathIt != *dirIt)
+      return false;
+  }
+  return true;
+}
+
 std::filesystem::path ResolveImportRelativePath(
     const std::filesystem::path &jsonPath, const std::filesystem::path &rawPath) {
   if (rawPath.is_absolute())
@@ -898,6 +920,8 @@ void DictionaryEditDialog::ShowDictionaryLoadStatusMessages() {
 
 void DictionaryEditDialog::SaveFixtures() {
   std::vector<FixtureRow> rows;
+  const std::filesystem::path fixturesLibraryPath =
+      std::filesystem::u8path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
   int count = fixtureTable->GetItemCount();
   rows.reserve(static_cast<size_t>(count));
   for (int i = 0; i < count; ++i) {
@@ -919,6 +943,11 @@ void DictionaryEditDialog::SaveFixtures() {
     wxVariant categoryVar;
     fixtureTable->GetValue(categoryVar, i, 3);
     std::string category = std::string(categoryVar.GetString().ToUTF8());
+    const std::filesystem::path entryPath = std::filesystem::u8path(path);
+    if (IsPathInsideDirectory(entryPath, fixturesLibraryPath)) {
+      rows.push_back({name, path, mode, category, path, {}});
+      continue;
+    }
     auto copied = CopyToLibrary(this, path, "fixtures");
     if (!copied)
       continue;
