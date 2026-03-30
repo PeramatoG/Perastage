@@ -1085,6 +1085,12 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
             targetMatch.size() > 1) {
           hang = targetMatch[1].str();
           model = Trim(model.substr(0, static_cast<size_t>(targetMatch.position(0))));
+        } else if (std::smatch trailingHangMatch;
+                   std::regex_search(model, trailingHangMatch, kHangFindRe) &&
+                   trailingHangMatch.position(0) + trailingHangMatch.length(0) ==
+                       static_cast<std::ptrdiff_t>(model.size())) {
+          hang = trailingHangMatch[1].str();
+          model = Trim(model.substr(0, static_cast<size_t>(trailingHangMatch.position(0))));
         } else if (std::regex_match(model, kHangOnlyRe)) {
           hang = model;
           model.clear();
@@ -1785,6 +1791,14 @@ bool RiderImporter::ImportText(const std::string &text) {
               targetMatch.size() > 1) {
             hang = Trim(targetMatch[1].str());
             model = Trim(model.substr(0, static_cast<size_t>(targetMatch.position(0))));
+            coordinateOverride =
+                ParseTrussCoordinateOverride(hang, distanceUnitSystem);
+          } else if (std::smatch trailingHangMatch;
+                     std::regex_search(model, trailingHangMatch, kHangFindRe) &&
+                     trailingHangMatch.position(0) + trailingHangMatch.length(0) ==
+                         static_cast<std::ptrdiff_t>(model.size())) {
+            hang = Trim(trailingHangMatch[1].str());
+            model = Trim(model.substr(0, static_cast<size_t>(trailingHangMatch.position(0))));
             coordinateOverride =
                 ParseTrussCoordinateOverride(hang, distanceUnitSystem);
           } else if (std::regex_match(model, kHangOnlyRe)) {

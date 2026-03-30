@@ -137,5 +137,28 @@ int main() {
   assert(foundScreenTruss);
   assert(foundBackdropTruss);
 
+  cfg.Reset();
+  const std::string filteredBackdropOnlyText =
+      "RIGGING\n"
+      "1 TRUSS 40X40 PRO NEGRO 12m LX1\n"
+      "1 TRUSS 40X40 BACKDROP\n"
+      "2 MOTOR 500Kg PARA BACKDROP\n";
+  assert(RiderImporter::ImportText(filteredBackdropOnlyText));
+  const auto &filteredScene = cfg.GetScene();
+  bool foundFilteredBackdropTruss = false;
+  int filteredBackdropSupports = 0;
+  for (const auto &[uuid, truss] : filteredScene.trusses) {
+    (void)uuid;
+    if (truss.positionName == "BACKDROP")
+      foundFilteredBackdropTruss = true;
+  }
+  for (const auto &[uuid, support] : filteredScene.supports) {
+    (void)uuid;
+    if (support.positionName == "BACKDROP")
+      ++filteredBackdropSupports;
+  }
+  assert(foundFilteredBackdropTruss);
+  assert(filteredBackdropSupports == 2);
+
   return 0;
 }
