@@ -24,6 +24,8 @@
 #include <string>
 #include <vector>
 
+class ColorfulDataViewListStore;
+
 class DictionaryEditDialog : public wxDialog {
 public:
   explicit DictionaryEditDialog(wxWindow *parent);
@@ -41,6 +43,14 @@ private:
   void ShowDictionaryLoadStatusMessages();
   bool IsFixturesPage() const;
   void UpdateFixtureCategoryForFile(int row, const std::string &category);
+  void OnFixtureTableMouseMove(wxMouseEvent &event);
+  void OnFixtureTableMouseLeave(wxMouseEvent &event);
+  void OnTrussTableMouseMove(wxMouseEvent &event);
+  void OnTrussTableMouseLeave(wxMouseEvent &event);
+  void UpdateMissingFileTooltip(wxDataViewListCtrl *table,
+                                ColorfulDataViewListStore *store,
+                                wxString &activeTooltip,
+                                const wxPoint &position);
 
   void OnAdd(wxCommandEvent &event);
   void OnDelete(wxCommandEvent &event);
@@ -63,6 +73,8 @@ private:
   wxNotebook *notebook = nullptr;
   wxDataViewListCtrl *fixtureTable = nullptr;
   wxDataViewListCtrl *trussTable = nullptr;
+  ColorfulDataViewListStore *fixtureStore = nullptr;
+  ColorfulDataViewListStore *trussStore = nullptr;
   wxButton *addBtn = nullptr;
   wxButton *deleteBtn = nullptr;
   wxButton *downloadBtn = nullptr;
@@ -77,4 +89,6 @@ private:
   std::vector<std::string> trussPaths;
   std::vector<std::string> fixtureSnapshotAtLoad;
   std::vector<std::string> trussSnapshotAtLoad;
+  wxString activeFixtureHoverTooltip;
+  wxString activeTrussHoverTooltip;
 };
