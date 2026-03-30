@@ -71,29 +71,33 @@ LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config
     auto* visibleColumn = list->AppendToggleColumn("Visible");
     auto* layerColumn = list->AppendTextColumn("Layer");
     auto* colorRenderer = new wxDataViewIconTextRenderer();
-    auto* colorColumn = new wxDataViewColumn("Color", colorRenderer, 2, 40, wxALIGN_CENTER);
+    auto* colorColumn = new wxDataViewColumn("Color", colorRenderer, 2, 40, wxALIGN_CENTER,
+                                             wxDATAVIEW_COL_RESIZABLE);
     list->AppendColumn(colorColumn);
 
-    wxClientDC dc(list);
-    dc.SetFont(list->GetFont());
-    int visibleLabelWidth = 0;
-    int colorLabelWidth = 0;
-    dc.GetTextExtent("Visible", &visibleLabelWidth, nullptr);
-    dc.GetTextExtent("Color", &colorLabelWidth, nullptr);
+    auto applyInitialColumnWidths = [this, visibleColumn, layerColumn, colorColumn]() {
+        if (!list || !visibleColumn || !layerColumn || !colorColumn)
+            return;
 
-    const int visibleWidth = visibleLabelWidth + 28; // checkbox + header padding
-    const int colorWidth = std::max(colorLabelWidth + 16, 16 + 20); // label or swatch
+        wxClientDC dc(list);
+        dc.SetFont(list->GetFont());
+        int visibleLabelWidth = 0;
+        int colorLabelWidth = 0;
+        dc.GetTextExtent("Visible", &visibleLabelWidth, nullptr);
+        dc.GetTextExtent("Color", &colorLabelWidth, nullptr);
 
-    if (visibleColumn) {
+        const int visibleWidth = visibleLabelWidth + 28; // checkbox + header padding
+        const int colorWidth = std::max(colorLabelWidth + 16, 16 + 20); // label or swatch
+        const int listWidth = std::max(0, list->GetClientSize().GetWidth());
+        const int layerWidth = std::max(120, listWidth - visibleWidth - colorWidth - 8);
+
         visibleColumn->SetMinWidth(visibleWidth);
         visibleColumn->SetWidth(visibleWidth);
-    }
-    if (colorColumn) {
         colorColumn->SetMinWidth(colorWidth);
         colorColumn->SetWidth(colorWidth);
-    }
-    if (layerColumn)
         layerColumn->SetMinWidth(120);
+        layerColumn->SetWidth(layerWidth);
+    };
 
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(list, 1, wxEXPAND | wxALL, 5);
@@ -110,6 +114,18 @@ LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config
     }
 
     SetSizer(sizer);
+    applyInitialColumnWidths();
+    CallAfter(applyInitialColumnWidths);
+
+    list->Bind(wxEVT_SIZE, [applyInitialColumnWidths](wxSizeEvent& evt) {
+        applyInitialColumnWidths();
+        evt.Skip();
+    });
+    Bind(wxEVT_SHOW, [applyInitialColumnWidths](wxShowEvent& evt) {
+        if (evt.IsShown())
+            applyInitialColumnWidths();
+        evt.Skip();
+    });
 
     list->Bind(wxEVT_DATAVIEW_ITEM_VALUE_CHANGED, &LayerPanel::OnCheck, this);
     list->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED, &LayerPanel::OnSelect, this);
