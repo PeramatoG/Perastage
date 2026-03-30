@@ -227,7 +227,7 @@ void SummaryPanel::ShowFixtureSummaryRows(
         dc.SetPen(*wxBLACK_PEN);
         dc.DrawRectangle(0, 0, 16, 16);
         dc.SelectObject(wxNullBitmap);
-        wxDataViewIconText icon(wxString::FromUTF8(rowData.colorHex), bmp);
+        wxDataViewIconText icon("", bmp);
         row.push_back(wxVariant(icon));
         store->AppendItem(row);
     }
@@ -351,7 +351,7 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
     dc.SetPen(*wxBLACK_PEN);
     dc.DrawRectangle(0, 0, 16, 16);
     dc.SelectObject(wxNullBitmap);
-    table->SetValue(wxVariant(wxDataViewIconText(wxString::FromUTF8(hex), bmp)), row, 3);
+    table->SetValue(wxVariant(wxDataViewIconText("", bmp)), row, 3);
     RefreshVisibleViewers();
 }
 
