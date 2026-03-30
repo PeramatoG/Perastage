@@ -127,6 +127,42 @@ bool PerspectiveHasDuplicatePaneNames(const std::string &perspective) {
   return false;
 }
 
+void OverridePaneProportion(std::string &perspective, const std::string &paneName,
+                            const std::string &proportionValue) {
+  const std::string nameToken = "name=" + paneName + ";";
+  std::size_t searchPos = 0;
+  while (true) {
+    const std::size_t namePos = perspective.find(nameToken, searchPos);
+    if (namePos == std::string::npos)
+      break;
+
+    std::size_t paneStart = perspective.rfind('|', namePos);
+    paneStart = (paneStart == std::string::npos) ? 0 : paneStart + 1;
+    std::size_t paneEnd = perspective.find('|', namePos);
+    if (paneEnd == std::string::npos)
+      paneEnd = perspective.size();
+
+    const std::size_t propPos = perspective.find("prop=", paneStart);
+    if (propPos != std::string::npos && propPos < paneEnd) {
+      const std::size_t valueStart = propPos + 5;
+      const std::size_t valueEnd = perspective.find(';', valueStart);
+      if (valueEnd != std::string::npos && valueEnd <= paneEnd) {
+        perspective.replace(valueStart, valueEnd - valueStart, proportionValue);
+      }
+    }
+
+    searchPos = paneEnd;
+  }
+}
+
+std::string ApplyBottomPaneProportionsToPerspective(
+    const std::string &perspective) {
+  std::string adjusted = perspective;
+  OverridePaneProportion(adjusted, "Console", "35000");
+  OverridePaneProportion(adjusted, "RiggingPanel", "65000");
+  return adjusted;
+}
+
 void ApplyBottomPaneWidthHints(wxAuiManager *manager) {
   if (!manager)
     return;
@@ -475,8 +511,11 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
     }
   }
 
-  if (perspective && !perspective->empty())
-    auiManager->LoadPerspective(*perspective, true);
+  if (perspective && !perspective->empty()) {
+    const std::string adjustedPerspective =
+        ApplyBottomPaneProportionsToPerspective(*perspective);
+    auiManager->LoadPerspective(adjustedPerspective, true);
+  }
   else
     auiManager->Update();
 
