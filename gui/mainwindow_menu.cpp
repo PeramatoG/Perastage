@@ -64,6 +64,7 @@
 #include "markdown.h"
 #include "preferencesdialog.h"
 #include "projectutils.h"
+#include "rigging_extra_weight_settings.h"
 #include "riggingpanel.h"
 #include "sceneobjecttablepanel.h"
 #include "selectfixturetypedialog.h"
@@ -611,8 +612,12 @@ void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
   }
 
   cfg.PushUndoState("distribute hoist weights");
+  const auto extraWeights = RiggingExtraWeightSettings::ParseEntries(
+      cfg.GetValue(RiggingExtraWeightSettings::ConfigKey()));
   const auto roundedTotalsByPosition =
-      HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(scene);
+      HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(
+          scene,
+          RiggingExtraWeightSettings::BuildKilogramsByPosition(extraWeights));
   HoistWeightDistribution::ApplyForImportedSupports(
       scene, selectedSupportUuids, roundedTotalsByPosition);
   RefreshAfterSceneChange();
