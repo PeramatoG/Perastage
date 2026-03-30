@@ -668,6 +668,31 @@ target_link_libraries(rider_hoist_import_test PRIVATE ${wxWidgets_LIBRARIES} tin
 add_test(NAME RiderHoistImport COMMAND rider_hoist_import_test)
 set_library_env(RiderHoistImport)
 
+add_executable(rider_lx_sides_import_test rider_lx_sides_import_test.cpp
+               riderimporter_stubs.cpp
+               gdtfloader_stub.cpp
+               ../core/riderimporter.cpp
+               ../core/gdtf_fixture_category.cpp
+               ../core/hoist_weight_distribution.cpp
+               ../core/uuidutils.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/projectutils.cpp
+               ../core/logger.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
+target_include_directories(rider_lx_sides_import_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(rider_lx_sides_import_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME RiderLxSidesImport COMMAND rider_lx_sides_import_test)
+set_library_env(RiderLxSidesImport)
+
 add_executable(rider_import_benchmark rider_import_benchmark.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp

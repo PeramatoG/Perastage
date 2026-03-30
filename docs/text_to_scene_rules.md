@@ -89,12 +89,20 @@ Recognized hang labels:
 - `efecto` / `efectos`
 - `calle a suelo` / `calles a suelo`
 - `ground lane` / `ground lanes`
+- `calle` / `calles`
+- `side` / `sides`
 
 Behavior:
 
 - Hang labels are normalized to uppercase (`LX1`, `FLOOR`, ...).
+- Fixture hang headers can include extra descriptive suffix text before `:`
+  (for example `CALLES EN LAYHER:`), while still keeping the detected hang
+  alias (`CALLES` -> `LX SIDES`).
 - Floor aliases (`floor`, `efecto(s)`, `calle(s) a suelo`, `ground lane(s)`)
   are normalized to `FLOOR`.
+- Side-position aliases (`calle(s)`, `side(s)`) are normalized to `LX SIDES`.
+- Explicit normalized headers such as `LX SIDES` are accepted as hang labels
+  in both filtered text and direct import input.
 - Screen aliases (`screen`, `pantalla`, `led screen`) are normalized to
   `SCREEN`.
 - The active hang affects fixture/truss layer naming and default placement (`Y/Z`).
@@ -125,6 +133,11 @@ For each fixture created:
    - Fixture display/type name can be replaced by the parsed GDTF fixture name when available.
    - Physical properties (weight/power) are filled from GDTF when missing.
 4. `positionName` is set from current hang.
+   - In layer-by-position mode, side fixtures use `pos LX SIDES` when side
+     trusses exist and fallback to `pos SIDES` when no side truss is present.
+   - Side fixtures are ordered as a linear sequence and then mirrored by side:
+     first half rises on the left side, second half rises on the right side in
+     reverse order.
 5. Initial hang coordinates are injected (`Y`, `Z`) and later refined by distribution logic.
 6. Importer falls back to category `Unknown` only when category is still empty
    after the above steps (for example, dummy fixtures without usable GDTF data).
@@ -164,6 +177,15 @@ Key truss behaviors:
 Special case:
 
 - If hang is exactly `LX`, quantity `N` expands to `LX1..LXN`.
+- If hang resolves to `LX SIDES`, importer creates two mirrored side trusses
+  (left/right) per split piece:
+  - `X` anchor: `0.5 m` outside the widest detected `LX*` truss span.
+  - `Y` direction: truss axis is aligned along `Y` (not `X`).
+  - `Z` (height): fixed at `5.0 m`.
+  - If no `LX*` truss exists, importer uses a fallback reference span of `[-3, +3] m`.
+- If no side truss exists but `LX*` trusses are available, side fixtures still
+  use mirrored fallback anchors at `0.5 m` outside the widest detected `LX*`
+  truss span.
 - If hang is `SCREEN` and there is no dedicated screen config key, trusses are
   placed from the last created LX truss reference, with `Y = last_lx_y + 1m`
   and `Z = last_lx_z - 0.5m`. If no LX truss has been created yet, importer
@@ -266,6 +288,8 @@ After parsing, imported fixtures are distributed per hang:
 1. Truss span for each hang is inferred from imported truss pieces.
 2. Margin comes from `rider_lx*_margin` (for LX hangs).
 3. If no truss is found for a hang, fallback spacing is centered around origin with 500 mm steps.
+   - Exception for `LX SIDES`: fixtures are still split into left/right groups
+     as if side trusses existed, but fallback height is `1.0 m`.
 4. Ordering alternates fixture types symmetrically:
    - odd counts place a center fixture,
    - remaining fixtures are paired left/right.
@@ -289,6 +313,10 @@ After parsing, imported fixtures are distributed per hang:
      - `x`: evenly spaced from start to end (top group),
      - `y`: `baseY - trussWidth/2`,
      - `z`: `baseZ + trussWidth/2`.
+8. `LX SIDES` fixture distribution:
+   - Fixtures are split into two symmetric groups (left/right side).
+   - Each side group is distributed along `Y` (matching side truss direction).
+   - `X` anchors match side-truss anchors (or fallback anchors when no side truss exists).
 
 ## Numbering and identity rules
 
