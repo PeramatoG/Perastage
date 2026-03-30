@@ -16,7 +16,6 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "summarypanel.h"
-#include "columnutils.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include <map>
@@ -27,9 +26,21 @@ SummaryPanel::SummaryPanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
 {
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxDV_ROW_LINES);
-    table->AppendTextColumn("Count", wxDATAVIEW_CELL_INERT, 60, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
-    table->AppendTextColumn("Type", wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
-    ColumnUtils::EnforceMinColumnWidth(table);
+    auto* countColumn = table->AppendTextColumn("Count", wxDATAVIEW_CELL_INERT, 60, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
+    auto* typeColumn = table->AppendTextColumn("Type", wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
+
+    wxClientDC dc(table);
+    dc.SetFont(table->GetFont());
+    int countLabelWidth = 0;
+    dc.GetTextExtent("Count", &countLabelWidth, nullptr);
+    const int countWidth = countLabelWidth + 20;
+    if (countColumn) {
+        countColumn->SetMinWidth(countWidth);
+        countColumn->SetWidth(countWidth);
+    }
+    if (typeColumn)
+        typeColumn->SetMinWidth(120);
+
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(table, 1, wxEXPAND | wxALL, 5);
     SetSizer(sizer);

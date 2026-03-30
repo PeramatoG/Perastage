@@ -16,7 +16,6 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layerpanel.h"
-#include "columnutils.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "fixturetablepanel.h"
@@ -69,12 +68,32 @@ LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config
     : wxPanel(parent, wxID_ANY), configManager(config ? config : &GetDefaultGuiConfigServices().LegacyConfigManager())
 {
     list = new wxDataViewListCtrl(this, wxID_ANY);
-    list->AppendToggleColumn("Visible");
-    list->AppendTextColumn("Layer");
+    auto* visibleColumn = list->AppendToggleColumn("Visible");
+    auto* layerColumn = list->AppendTextColumn("Layer");
     auto* colorRenderer = new wxDataViewIconTextRenderer();
     auto* colorColumn = new wxDataViewColumn("Color", colorRenderer, 2, 40, wxALIGN_CENTER);
     list->AppendColumn(colorColumn);
-    ColumnUtils::EnforceMinColumnWidth(list);
+
+    wxClientDC dc(list);
+    dc.SetFont(list->GetFont());
+    int visibleLabelWidth = 0;
+    int colorLabelWidth = 0;
+    dc.GetTextExtent("Visible", &visibleLabelWidth, nullptr);
+    dc.GetTextExtent("Color", &colorLabelWidth, nullptr);
+
+    const int visibleWidth = visibleLabelWidth + 28; // checkbox + header padding
+    const int colorWidth = std::max(colorLabelWidth + 16, 16 + 20); // label or swatch
+
+    if (visibleColumn) {
+        visibleColumn->SetMinWidth(visibleWidth);
+        visibleColumn->SetWidth(visibleWidth);
+    }
+    if (colorColumn) {
+        colorColumn->SetMinWidth(colorWidth);
+        colorColumn->SetWidth(colorWidth);
+    }
+    if (layerColumn)
+        layerColumn->SetMinWidth(120);
 
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(list, 1, wxEXPAND | wxALL, 5);
