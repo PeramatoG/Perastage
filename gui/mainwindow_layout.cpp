@@ -313,7 +313,9 @@ void MainWindow::SetupLayout() {
                                         .Caption("Console")
                                         .Bottom()
                                         .Layer(1)
-                                        .BestSize(-1, 150)
+                                        .Row(0)
+                                        .Position(0)
+                                        .BestSize(400, 150)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
@@ -384,7 +386,7 @@ void MainWindow::SetupLayout() {
                                         .Layer(1)
                                         .Row(0)
                                         .Position(1)
-                                        .BestSize(250, 200)
+                                        .BestSize(600, 200)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
