@@ -83,6 +83,19 @@ bool IsFastInteractionModeEnabled()
     return ConfigManager::Get().GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
+bool IsWhiteModelRenderStyleEnabled() {
+    auto renderStyle = ConfigManager::Get().GetValue("viewer3d_render_style");
+    return renderStyle && *renderStyle == "white_model";
+}
+
+void ApplyViewer3DClearColorFromPreferences() {
+    if (IsWhiteModelRenderStyleEnabled()) {
+        glClearColor(0.95f, 0.95f, 0.95f, 1.0f);
+        return;
+    }
+    glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+}
+
 std::vector<std::string> BuildFixtureSelectionByType(
     const MvrScene& scene, const std::string& typeName)
 {
@@ -241,7 +254,7 @@ void Viewer3DPanel::InitGL()
         glEnable(GL_MULTISAMPLE);
     else
         glDisable(GL_MULTISAMPLE);
-    glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+    ApplyViewer3DClearColorFromPreferences();
 }
 
 // Paint event handler
@@ -391,6 +404,7 @@ void Viewer3DPanel::Render()
     int width, height;
     GetClientSize(&width, &height);
 
+    ApplyViewer3DClearColorFromPreferences();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     ApplyCameraMatrices(width, height);
 

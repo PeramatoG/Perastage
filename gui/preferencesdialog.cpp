@@ -147,6 +147,30 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   unitsPanel->SetSizer(unitsSizer);
   book->AddPage(unitsPanel, "Units");
 
+  // 3D Viewer page
+  wxPanel *viewer3dPanel = new wxPanel(book);
+  wxBoxSizer *viewer3dSizer = new wxBoxSizer(wxVERTICAL);
+  viewer3dSizer->Add(new wxStaticText(viewer3dPanel, wxID_ANY, "Render mode:"),
+                     0, wxLEFT | wxRIGHT | wxTOP, 10);
+  viewer3dStandardRenderRadio = new wxRadioButton(
+      viewer3dPanel, wxID_ANY, "Standard (current)", wxDefaultPosition,
+      wxDefaultSize, wxRB_GROUP);
+  viewer3dWhiteModelRenderRadio = new wxRadioButton(
+      viewer3dPanel, wxID_ANY, "White Model style");
+
+  auto viewer3dRenderStyle = cfg.GetValue("viewer3d_render_style");
+  const bool useWhiteModelStyle =
+      viewer3dRenderStyle && *viewer3dRenderStyle == "white_model";
+  viewer3dStandardRenderRadio->SetValue(!useWhiteModelStyle);
+  viewer3dWhiteModelRenderRadio->SetValue(useWhiteModelStyle);
+
+  viewer3dSizer->Add(viewer3dStandardRenderRadio, 0,
+                     wxLEFT | wxRIGHT | wxTOP, 10);
+  viewer3dSizer->Add(viewer3dWhiteModelRenderRadio, 0,
+                     wxLEFT | wxRIGHT | wxBOTTOM, 10);
+  viewer3dPanel->SetSizer(viewer3dSizer);
+  book->AddPage(viewer3dPanel, "3D Viewer");
+
   topSizer->Add(book, 1, wxEXPAND | wxALL, 5);
   topSizer->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL | wxAPPLY), 0,
                 wxALL | wxEXPAND, 5);
@@ -192,6 +216,11 @@ bool PreferencesDialog::ApplyPreferences() {
                                                        : "metric");
   cfg.SetValue("ui_weight_unit_system",
                weightUnitChoice->GetSelection() == 1 ? "imperial" : "metric");
+  cfg.SetValue("viewer3d_render_style",
+               viewer3dWhiteModelRenderRadio &&
+                       viewer3dWhiteModelRenderRadio->GetValue()
+                   ? "white_model"
+                   : "standard");
   return cfg.SaveUserConfig();
 }
 

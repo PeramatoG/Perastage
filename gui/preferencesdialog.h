@@ -41,6 +41,8 @@ private:
   wxCheckBox *autopatchCheck = nullptr;
   wxRadioButton *layerPosRadio = nullptr;
   wxRadioButton *layerTypeRadio = nullptr;
+  wxRadioButton *viewer3dStandardRenderRadio = nullptr;
+  wxRadioButton *viewer3dWhiteModelRenderRadio = nullptr;
   wxChoice *distanceUnitChoice = nullptr;
   wxChoice *weightUnitChoice = nullptr;
   wxString initialDistanceUnit;
