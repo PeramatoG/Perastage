@@ -189,6 +189,44 @@ void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
         glEnable(GL_TEXTURE_2D);
 }
 
+void DrawTexturedGroundPlaneBackdrop() {
+    const GLboolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+    const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+    const GLboolean cullFaceWasEnabled = glIsEnabled(GL_CULL_FACE);
+    const GLboolean texture2DWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_LIGHTING);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_TEXTURE_2D);
+
+    constexpr int kSegments = 64;
+    constexpr float kRadius = 2500.0f;
+    constexpr float kPi = 3.14159265358979323846f;
+
+    glBegin(GL_TRIANGLE_FAN);
+    glColor3f(0.22f, 0.16f, 0.14f);
+    glVertex3f(0.0f, 0.0f, 0.0f);
+    for (int i = 0; i <= kSegments; ++i) {
+        const float angle = (static_cast<float>(i) / static_cast<float>(kSegments)) *
+                            2.0f * kPi;
+        const float x = std::cos(angle) * kRadius;
+        const float y = std::sin(angle) * kRadius;
+        glColor3f(0.54f, 0.33f, 0.24f);
+        glVertex3f(x, y, 0.0f);
+    }
+    glEnd();
+
+    if (lightingWasEnabled)
+        glEnable(GL_LIGHTING);
+    if (depthTestWasEnabled)
+        glEnable(GL_DEPTH_TEST);
+    if (cullFaceWasEnabled)
+        glEnable(GL_CULL_FACE);
+    if (texture2DWasEnabled)
+        glEnable(GL_TEXTURE_2D);
+}
+
 std::vector<std::string> BuildFixtureSelectionByType(
     const MvrScene& scene, const std::string& typeName)
 {
@@ -501,8 +539,10 @@ void Viewer3DPanel::Render()
     ApplyViewer3DClearColorForStyle(renderStyle);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     ApplyCameraMatrices(width, height);
-    if (renderStyle == Viewer3DRenderStyle::Textured)
+    if (renderStyle == Viewer3DRenderStyle::Textured) {
         DrawTexturedStyleBackgroundGradient(ComputeGridPlaneHorizonNdcY());
+        DrawTexturedGroundPlaneBackdrop();
+    }
 
     m_controller.SetCameraMoving(m_cameraMoving);
     m_controller.RenderScene();

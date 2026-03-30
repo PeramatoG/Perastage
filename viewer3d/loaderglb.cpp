@@ -26,6 +26,7 @@
 #include <wx/wx.h>
 #include <wx/image.h>
 #include <wx/mstream.h>
+#include <wx/base64.h>
 #include <optional>
 #include <filesystem>
 
@@ -350,11 +351,28 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
 
     auto decodeTextureImage = [&](int imageIndex, std::vector<unsigned char>& rgba,
                                   int& width, int& height) -> bool {
+        static bool imageHandlersInitialized = false;
+        if (!imageHandlersInitialized) {
+            wxInitAllImageHandlers();
+            imageHandlersInitialized = true;
+        }
         if (!doc.contains("images") || !doc["images"].is_array() ||
             imageIndex < 0 || imageIndex >= static_cast<int>(doc["images"].size())) {
             return false;
         }
         const auto& image = doc["images"][imageIndex];
+        const auto resolveBitmapType = [&](const json& imageNode) {
+            if (!imageNode.contains("mimeType") || !imageNode["mimeType"].is_string())
+                return wxBITMAP_TYPE_ANY;
+            const std::string mime = imageNode["mimeType"].get<std::string>();
+            if (mime == "image/png")
+                return wxBITMAP_TYPE_PNG;
+            if (mime == "image/jpeg" || mime == "image/jpg")
+                return wxBITMAP_TYPE_JPEG;
+            if (mime == "image/bmp")
+                return wxBITMAP_TYPE_BMP;
+            return wxBITMAP_TYPE_ANY;
+        };
         wxImage wxImg;
         if (image.contains("bufferView")) {
             int bufferView = -1;
@@ -369,12 +387,26 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
             if (byteLength == 0 || byteOffset + byteLength > binData.size())
                 return false;
             wxMemoryInputStream stream(binData.data() + byteOffset, byteLength);
-            if (!wxImg.LoadFile(stream, wxBITMAP_TYPE_ANY))
+            if (!wxImg.LoadFile(stream, resolveBitmapType(image)))
                 return false;
         } else if (image.contains("uri") && image["uri"].is_string()) {
-            const fs::path uriPath = glbDir / fs::u8path(image["uri"].get<std::string>());
-            if (!wxImg.LoadFile(wxString::FromUTF8(uriPath.string())))
-                return false;
+            const std::string uri = image["uri"].get<std::string>();
+            if (uri.rfind("data:", 0) == 0) {
+                const auto commaPos = uri.find(',');
+                if (commaPos == std::string::npos)
+                    return false;
+                const std::string encoded = uri.substr(commaPos + 1);
+                const wxMemoryBuffer decoded = wxBase64Decode(encoded);
+                if (decoded.IsEmpty())
+                    return false;
+                wxMemoryInputStream stream(decoded.GetData(), decoded.GetDataLen());
+                if (!wxImg.LoadFile(stream, resolveBitmapType(image)))
+                    return false;
+            } else {
+                const fs::path uriPath = glbDir / fs::u8path(uri);
+                if (!wxImg.LoadFile(wxString::FromUTF8(uriPath.string())))
+                    return false;
+            }
         } else {
             return false;
         }
