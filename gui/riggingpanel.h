@@ -37,6 +37,9 @@ public:
 
 private:
   void OnItemActivated(wxDataViewEvent &event);
+  void OnItemContextMenu(wxDataViewEvent &event);
+  void OnItemEditingStarted(wxDataViewEvent &event);
+  void OnItemEditingDone(wxDataViewEvent &event);
   void OnItemValueChanged(wxDataViewEvent &event);
   void OnMouseMove(wxMouseEvent &event);
   void OnMouseLeave(wxMouseEvent &event);
@@ -46,4 +49,5 @@ private:
   ColorfulDataViewListStore *store = nullptr;
   wxString activeHoverTooltip;
   std::vector<std::string> rowPositions;
+  bool shortcutsTemporarilyDisabled = false;
 };

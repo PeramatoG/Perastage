@@ -29,6 +29,7 @@
 #include "guiconfigservices.h"
 #include "hoist_weight_distribution.h"
 #include "hoisttablepanel.h"
+#include "mainwindow.h"
 #include "rigging_extra_weight_settings.h"
 #include "units/unit_label_utils.h"
 #include "units/units.h"
@@ -148,6 +149,12 @@ RiggingPanel::RiggingPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
               &RiggingPanel::OnItemValueChanged, this);
   table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &RiggingPanel::OnItemActivated,
               this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
+              &RiggingPanel::OnItemContextMenu, this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_EDITING_STARTED,
+              &RiggingPanel::OnItemEditingStarted, this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_EDITING_DONE,
+              &RiggingPanel::OnItemEditingDone, this);
   const auto weightUnit = ResolveWeightUnitSystem();
   const wxString weightSuffix =
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
@@ -359,6 +366,42 @@ void RiggingPanel::OnItemActivated(wxDataViewEvent &event) {
   event.Skip();
 }
 
+void RiggingPanel::OnItemContextMenu(wxDataViewEvent &event) {
+  if (!table) {
+    event.Skip();
+    return;
+  }
+
+  const wxDataViewItem item = event.GetItem();
+  const int column = event.GetColumn();
+  if (!item.IsOk() || column != 7) {
+    event.Skip();
+    return;
+  }
+
+  table->EditItem(item, table->GetColumn(7));
+  event.Skip();
+}
+
+void RiggingPanel::OnItemEditingStarted(wxDataViewEvent &event) {
+  if (event.GetColumn() == 7 && !shortcutsTemporarilyDisabled) {
+    if (MainWindow::Instance()) {
+      MainWindow::Instance()->EnableShortcuts(false);
+      shortcutsTemporarilyDisabled = true;
+    }
+  }
+  event.Skip();
+}
+
+void RiggingPanel::OnItemEditingDone(wxDataViewEvent &event) {
+  if (event.GetColumn() == 7 && shortcutsTemporarilyDisabled) {
+    if (MainWindow::Instance())
+      MainWindow::Instance()->EnableShortcuts(true);
+    shortcutsTemporarilyDisabled = false;
+  }
+  event.Skip();
+}
+
 void RiggingPanel::OnItemValueChanged(wxDataViewEvent &event) {
   if (!table)
     return;
@@ -409,14 +452,22 @@ void RiggingPanel::OnItemValueChanged(wxDataViewEvent &event) {
   }
 
   if (!supportsInPosition.empty()) {
-    const auto roundedTotalsByPosition =
-        HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(
-            scene, RiggingExtraWeightSettings::BuildKilogramsByPosition(
-                       extraWeights));
-    HoistWeightDistribution::ApplyForImportedSupports(
-        scene, supportsInPosition, roundedTotalsByPosition);
-    if (HoistTablePanel::Instance())
-      HoistTablePanel::Instance()->ReloadData();
+    const wxString message = wxString::Format(
+        "Position \"%s\" has hoists.\n\nDo you want to recalculate hoist loads "
+        "using the updated rounded rigging total?",
+        wxString::FromUTF8(positionName));
+    const int answer = wxMessageBox(message, "Recalculate hoist loads",
+                                    wxYES_NO | wxICON_QUESTION, this);
+    if (answer == wxYES) {
+      const auto roundedTotalsByPosition =
+          HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(
+              scene, RiggingExtraWeightSettings::BuildKilogramsByPosition(
+                         extraWeights));
+      HoistWeightDistribution::ApplyForImportedSupports(
+          scene, supportsInPosition, roundedTotalsByPosition);
+      if (HoistTablePanel::Instance())
+        HoistTablePanel::Instance()->ReloadData();
+    }
   }
 
   RefreshData();
