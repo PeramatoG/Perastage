@@ -98,6 +98,14 @@ static std::string ToLowerAscii(std::string text) {
   return text;
 }
 
+static std::string NormalizeArchivePathValue(const std::string &archivePath) {
+  std::string normalized = Trim(NormalizeSlashes(archivePath));
+#ifdef _WIN32
+  normalized = ToLowerAscii(normalized);
+#endif
+  return normalized;
+}
+
 static std::string ExtractDigitSignature(const std::string &text) {
   std::string digits;
   digits.reserve(text.size());
@@ -261,6 +269,53 @@ static fs::path ResolveSceneRelativePath(const std::string &basePath,
   if (path.is_absolute() || basePath.empty())
     return path;
   return fs::u8path(basePath) / path;
+}
+
+// Resolves a scene-provided GDTF spec to the real extracted file path.
+// MVR files may omit ".gdtf" in <GDTFSpec> or use a different filename case,
+// so we progressively try exact, extension-appended and case-insensitive matches.
+static std::string ResolveGdtfPath(const std::string &baseDir,
+                                   const std::string &spec) {
+  const std::string normalizedSpec = NormalizeArchivePathValue(spec);
+  if (normalizedSpec.empty())
+    return {};
+
+  fs::path candidate = baseDir.empty()
+                           ? fs::u8path(normalizedSpec)
+                           : fs::u8path(baseDir) / fs::u8path(normalizedSpec);
+
+  const std::string candidateExt = ToLowerAscii(candidate.extension().string());
+  if (candidateExt == ".gdtf" && fs::exists(candidate))
+    return ToString(candidate.u8string());
+
+  if (!candidate.has_extension()) {
+    fs::path withExtension = candidate;
+    withExtension += ".gdtf";
+    if (fs::exists(withExtension))
+      return ToString(withExtension.u8string());
+  }
+
+  std::error_code ec;
+  fs::path lookupDir = baseDir.empty() ? fs::current_path(ec) : fs::u8path(baseDir);
+  if (ec || !fs::exists(lookupDir))
+    return ToString(candidate.u8string());
+
+  const std::string expectedStem =
+      ToLowerAscii(fs::u8path(normalizedSpec).filename().stem().string());
+  for (const auto &entry : fs::directory_iterator(lookupDir, ec)) {
+    if (ec)
+      break;
+    if (!entry.is_regular_file())
+      continue;
+
+    const fs::path entryPath = entry.path();
+    if (ToLowerAscii(entryPath.extension().string()) != ".gdtf")
+      continue;
+    if (ToLowerAscii(entryPath.stem().string()) == expectedStem)
+      return ToString(entryPath.u8string());
+  }
+
+  return ToString(candidate.u8string());
 }
 
 static std::string DescribeTrussForLog(const Truss &truss) {
@@ -658,11 +713,7 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
 }
 
 std::string MvrImporter::NormalizeArchivePath(const std::string &archivePath) const {
-  std::string normalized = Trim(NormalizeSlashes(archivePath));
-#ifdef _WIN32
-  normalized = ToLowerAscii(normalized);
-#endif
-  return normalized;
+  return NormalizeArchivePathValue(archivePath);
 }
 
 std::string MvrImporter::RemapArchivePathIfNeeded(const std::string &archivePath) const {
@@ -1304,11 +1355,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
         if (!fixture.gdtfSpec.empty()) {
           fixture.gdtfSpec = RemapArchivePathIfNeeded(fixture.gdtfSpec);
-          fs::path p =
-              scene.basePath.empty()
-                  ? fs::u8path(fixture.gdtfSpec)
-                  : fs::u8path(scene.basePath) / fs::u8path(fixture.gdtfSpec);
-          std::string gdtfPath = ToString(p.u8string());
+          const std::string resolvedGdtfPath =
+              ResolveGdtfPath(scene.basePath, fixture.gdtfSpec);
+          std::string gdtfPath = resolvedGdtfPath.empty()
+                                     ? fixture.gdtfSpec
+                                     : resolvedGdtfPath;
+          if (!resolvedGdtfPath.empty())
+            fixture.gdtfSpec = resolvedGdtfPath;
           fixture.typeName = Trim(GetGdtfFixtureName(gdtfPath));
           if (!fixture.typeName.empty())
             fixture.gdtfSpec = gdtfPath;
@@ -1456,12 +1509,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (!truss.gdtfSpec.empty()) {
           truss.sourceRepresentation = Truss::GeometryRepresentation::PublicGdtf;
           truss.gdtfSpec = RemapArchivePathIfNeeded(truss.gdtfSpec);
-          fs::path gdtfPath = scene.basePath.empty()
-                                  ? fs::u8path(truss.gdtfSpec)
-                                  : fs::u8path(scene.basePath) / fs::u8path(truss.gdtfSpec);
+          const std::string resolvedGdtfPath =
+              ResolveGdtfPath(scene.basePath, truss.gdtfSpec);
+          if (!resolvedGdtfPath.empty())
+            truss.gdtfSpec = resolvedGdtfPath;
           Truss gdtfTruss;
-          if (LoadTrussDefinition(ToString(gdtfPath.u8string()), gdtfTruss)) {
-            truss.gdtfSpec = ToString(gdtfPath.u8string());
+          if (LoadTrussDefinition(truss.gdtfSpec, gdtfTruss)) {
             truss.modelFile = gdtfTruss.modelFile;
             if (!gdtfTruss.symbolFile.empty())
               truss.symbolFile = gdtfTruss.symbolFile;
@@ -1675,6 +1728,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         };
 
         support.gdtfSpec = RemapArchivePathIfNeeded(readText("GDTFSpec"));
+        const std::string resolvedSupportGdtfPath =
+            ResolveGdtfPath(scene.basePath, support.gdtfSpec);
+        if (!resolvedSupportGdtfPath.empty())
+          support.gdtfSpec = resolvedSupportGdtfPath;
         support.gdtfMode = readText("GDTFMode");
         support.function = readText("Function");
         support.hoistFunction = NormalizeHoistFunction(support.function);
