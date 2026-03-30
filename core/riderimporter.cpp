@@ -1079,6 +1079,16 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
             coordinateSuffix.has_value()) {
           trussCoordinateSuffix = *coordinateSuffix;
         }
+      } else {
+        std::smatch targetMatch;
+        if (std::regex_search(model, targetMatch, kHoistTargetRe) &&
+            targetMatch.size() > 1) {
+          hang = targetMatch[1].str();
+          model = Trim(model.substr(0, static_cast<size_t>(targetMatch.position(0))));
+        } else if (std::regex_match(model, kHangOnlyRe)) {
+          hang = model;
+          model.clear();
+        }
       }
       if (trussCoordinateSuffix.empty()) {
         const auto it = hangCoordinateSuffixByHang.find(NormalizeHangName(hang));
@@ -1769,6 +1779,18 @@ bool RiderImporter::ImportText(const std::string &text) {
           hang = Trim(m[3]);
           coordinateOverride =
               ParseTrussCoordinateOverride(hang, distanceUnitSystem);
+        } else {
+          std::smatch targetMatch;
+          if (std::regex_search(model, targetMatch, kHoistTargetRe) &&
+              targetMatch.size() > 1) {
+            hang = Trim(targetMatch[1].str());
+            model = Trim(model.substr(0, static_cast<size_t>(targetMatch.position(0))));
+            coordinateOverride =
+                ParseTrussCoordinateOverride(hang, distanceUnitSystem);
+          } else if (std::regex_match(model, kHangOnlyRe)) {
+            hang = model;
+            model.clear();
+          }
         }
         hang = NormalizeHangName(hang);
         if (hang != "BACKDROP")
