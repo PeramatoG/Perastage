@@ -37,8 +37,12 @@ SummaryPanel::SummaryPanel(wxWindow* parent)
     table->AssociateModel(store);
     store->DecRef();
 
+    EnsureColumnsForMode(SummaryMode::Generic);
+
     auto applyInitialColumnWidths = [this]() {
         if (!table)
+            return;
+        if (table->GetColumnCount() == 0)
             return;
 
         const int tableWidth = std::max(0, table->GetClientSize().GetWidth());
@@ -115,7 +119,6 @@ SummaryPanel::SummaryPanel(wxWindow* parent)
     table->Bind(wxEVT_MOTION, &SummaryPanel::OnMouseMove, this);
     table->Bind(wxEVT_LEAVE_WINDOW, &SummaryPanel::OnMouseLeave, this);
 
-    EnsureColumnsForMode(SummaryMode::Generic);
 }
 
 SummaryPanel* SummaryPanel::Instance()
