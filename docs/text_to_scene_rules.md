@@ -167,6 +167,9 @@ Supported truss syntax includes:
   - `LX1 ( -1, 9 )` => `y, z` (keeps default `x`)
   - `LX1 (7)` => `y` only (keeps default `x, z`)
   - Non-numeric text inside parentheses is ignored while extracting numbers.
+  - This can be written both in truss targets (`... PARA LX1 (7)`) and in
+    hang headers (`LX1 (7)` / `LX1 (7):`), where truss placement inherits the
+    hang override.
 
 Key truss behaviors:
 

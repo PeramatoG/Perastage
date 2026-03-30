@@ -179,5 +179,31 @@ int main() {
   }
   assert(singleTrussCount > 0);
 
+  cfg.Reset();
+  cfg.SetValue("ui_distance_unit_system", "metric");
+  const std::string headerCoordinateOverrideWithoutColon =
+      "LX1 (6)\n"
+      "2 SPOT\n"
+      "RIGGING\n"
+      "1 TRUSS 40X40 14m\n";
+  assert(RiderImporter::ImportText(headerCoordinateOverrideWithoutColon));
+  const auto &sceneHeaderOverride = cfg.GetScene();
+  int headerFixtures = 0;
+  int headerTrusses = 0;
+  for (const auto &[uuid, fixture] : sceneHeaderOverride.fixtures) {
+    (void)uuid;
+    if (fixture.positionName == "LX1")
+      ++headerFixtures;
+  }
+  for (const auto &[uuid, truss] : sceneHeaderOverride.trusses) {
+    (void)uuid;
+    if (truss.positionName != "LX1")
+      continue;
+    ++headerTrusses;
+    assert(NearlyEqual(truss.transform.o[1], 6000.0f));
+  }
+  assert(headerFixtures == 2);
+  assert(headerTrusses > 0);
+
   return 0;
 }

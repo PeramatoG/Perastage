@@ -77,7 +77,7 @@ static const std::regex kFixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$",
                                        std::regex::icase);
 static const std::regex kQuantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
 static const std::regex kHangLineRe(
-    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*:?\\s*$",
+    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s*\\([^\\)]*\\))?\\s*:?\\s*$",
     std::regex::icase);
 static const std::regex kHangHeaderWithSuffixRe(
     "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s+[^:]*)?\\s*:\\s*$",
@@ -1254,6 +1254,8 @@ bool RiderImporter::ImportText(const std::string &text) {
   std::vector<HoistRequest> hoistRequests;
   int pendingQuantity = 0;
   bool havePending = false;
+  std::unordered_map<std::string, TrussCoordinateOverride>
+      hangCoordinateOverrides;
 
   auto addFixtures = [&](int baseQuantity, const std::string &desc) {
     auto parts = SplitPlus(desc);
@@ -1374,6 +1376,12 @@ bool RiderImporter::ImportText(const std::string &text) {
         std::regex_match(line, hm, kHangHeaderWithSuffixRe)) {
       havePending = false;
       currentHang = NormalizeHangName(hm[1].str());
+      std::string hangLineWithOverrides = line;
+      if (const auto parsedOverride = ParseTrussCoordinateOverride(
+              hangLineWithOverrides, distanceUnitSystem);
+          parsedOverride.has_value()) {
+        hangCoordinateOverrides[currentHang] = *parsedOverride;
+      }
       // If we weren't in any section yet, assume fixtures when a hang position
       // appears
       if (!inRigging && !inFixtures)
@@ -1595,12 +1603,40 @@ bool RiderImporter::ImportText(const std::string &text) {
           }
         };
 
+        auto resolveCoordinateOverride = [&](const std::string &posName) {
+          TrussCoordinateOverride resolved;
+          bool hasResolved = false;
+          if (const auto hangOverrideIt = hangCoordinateOverrides.find(posName);
+              hangOverrideIt != hangCoordinateOverrides.end()) {
+            resolved = hangOverrideIt->second;
+            hasResolved = true;
+          }
+          if (coordinateOverride.has_value()) {
+            if (coordinateOverride->hasX) {
+              resolved.hasX = true;
+              resolved.xMm = coordinateOverride->xMm;
+            }
+            if (coordinateOverride->hasY) {
+              resolved.hasY = true;
+              resolved.yMm = coordinateOverride->yMm;
+            }
+            if (coordinateOverride->hasZ) {
+              resolved.hasZ = true;
+              resolved.zMm = coordinateOverride->zMm;
+            }
+            hasResolved = true;
+          }
+          return hasResolved ? std::optional<TrussCoordinateOverride>(resolved)
+                             : std::nullopt;
+        };
+
         if (hang == "LX") {
           for (int i = 0; i < quantity; ++i)
-            addTrussPieces("LX" + std::to_string(i + 1), coordinateOverride);
+            addTrussPieces("LX" + std::to_string(i + 1),
+                           resolveCoordinateOverride("LX" + std::to_string(i + 1)));
         } else {
           for (int i = 0; i < quantity; ++i)
-            addTrussPieces(hang, coordinateOverride);
+            addTrussPieces(hang, resolveCoordinateOverride(hang));
         }
       } else if (std::regex_search(line, m, kTrussRe)) {
         float length = 0.0f;
@@ -1613,6 +1649,11 @@ bool RiderImporter::ImportText(const std::string &text) {
         if (std::regex_search(line, hm, kHangFindRe)) {
           hang = hm[1];
           hang = NormalizeHangName(hang);
+        }
+        if (!coordinateOverride.has_value()) {
+          const auto hangOverrideIt = hangCoordinateOverrides.find(hang);
+          if (hangOverrideIt != hangCoordinateOverrides.end())
+            coordinateOverride = hangOverrideIt->second;
         }
         if (hang == "FLOOR")
           continue;
