@@ -264,10 +264,10 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                            this);
 
   auto *sizer = new wxBoxSizer(wxVERTICAL);
-  sizer->Add(m_radio, 0, wxALL, 5);
+  sizer->Add(m_radio, 0, wxEXPAND | wxALL, 5);
   sizer->Add(m_darkMode, 0, wxALL, 5);
   sizer->Add(m_topFixturesInverted, 0, wxALL, 5);
-  sizer->Add(m_view, 0, wxALL, 5);
+  sizer->Add(m_view, 0, wxEXPAND | wxALL, 5);
 
   gridBox->Add(m_showGrid, 0, wxALL, 5);
   gridBox->Add(m_gridStyle, 0, wxALL, 5);
@@ -277,7 +277,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   colorSizer->Add(m_gridColor, 0);
   gridBox->Add(colorSizer, 0, wxALL, 5);
   gridBox->Add(m_drawAbove, 0, wxALL, 5);
-  sizer->Add(gridBox, 0, wxALL, 5);
+  sizer->Add(gridBox, 0, wxEXPAND | wxALL, 5);
 
   rulerBox->Add(m_showRuler, 0, wxALL, 5);
   auto *rulerAxisXSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -295,7 +295,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                        0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   rulerAxisZSizer->Add(m_rulerAxisZPosition, 0);
   rulerBox->Add(rulerAxisZSizer, 0, wxALL, 5);
-  sizer->Add(rulerBox, 0, wxALL, 5);
+  sizer->Add(rulerBox, 0, wxEXPAND | wxALL, 5);
 
   labelBox->Add(m_labelScopeHint, 0, wxLEFT | wxRIGHT | wxTOP, 5);
   labelBox->AddSpacer(2);
@@ -333,7 +333,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   angleSizer->Add(m_labelOffsetAngle, 0);
   labelBox->Add(angleSizer, 0, wxALL, 5);
 
-  sizer->Add(labelBox, 0, wxALL, 5);
+  sizer->Add(labelBox, 0, wxEXPAND | wxALL, 5);
 
   SetSizer(sizer);
   FitInside();
