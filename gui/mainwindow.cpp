@@ -349,6 +349,7 @@ void MainWindow::Ensure3DViewport() {
                                          .CloseButton(true)
                                          .MaximizeButton(true));
   auiManager->Update();
+
   if (defaultLayoutPerspective.empty()) {
     defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
   }
