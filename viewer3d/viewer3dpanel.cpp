@@ -486,10 +486,14 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
     if (m_dragging && (event.LeftUp() || event.MiddleUp() || event.RightUp()))
     {
         m_dragging = false;
-        m_lastInteractionTime = std::chrono::steady_clock::now();
+        m_isInteracting = false;
+        m_cameraMoving = false;
+        m_controller.SetInteracting(false);
+        m_controller.SetCameraMoving(false);
         m_mode = InteractionMode::None;
         if (HasCapture())
             ReleaseMouse();
+        Refresh();
     }
 
     if (event.LeftUp() && !m_draggedSincePress)
@@ -732,9 +736,12 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
 void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
 {
     m_dragging = false;
+    m_isInteracting = false;
+    m_cameraMoving = false;
+    m_controller.SetInteracting(false);
+    m_controller.SetCameraMoving(false);
     m_mode = InteractionMode::None;
     m_rectSelecting = false;
-    m_lastInteractionTime = std::chrono::steady_clock::now();
 }
 
 void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,

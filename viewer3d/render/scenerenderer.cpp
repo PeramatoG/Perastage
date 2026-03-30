@@ -31,10 +31,9 @@ struct LineRenderProfile {
 
 LineRenderProfile GetLineRenderProfile(bool isInteracting, bool wireframeMode,
                                        bool adaptiveEnabled) {
+  (void)isInteracting;
   if (!adaptiveEnabled)
     return {wireframeMode ? 1.0f : 2.0f, false};
-  if (isInteracting)
-    return {1.0f, false};
   return {wireframeMode ? 1.0f : 2.0f, true};
 }
 
