@@ -1104,7 +1104,8 @@ void Viewer2DPanel::FinalizeSelectionDrag() {
 }
 
 void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
-                                            const wxPoint &end) {
+                                            const wxPoint &end,
+                                            bool selectAcrossAllTables) {
   if (!m_enableSelection)
     return;
   if (!IsShownOnScreen())
@@ -1119,6 +1120,67 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
   SetCurrent(*m_glContext);
 
   ConfigManager &cfg = ConfigManager::Get();
+  if (selectAcrossAllTables) {
+    const auto fixtures =
+        m_controller.GetFixturesInScreenRect(start.x, start.y, end.x, end.y, w, h);
+    const auto trusses =
+        m_controller.GetTrussesInScreenRect(start.x, start.y, end.x, end.y, w, h);
+    const auto supports = Viewer2DSupportSelection::GetHoistsInScreenRect(
+        start.x, start.y, end.x, end.y, w, h, cfg.GetScene(),
+        cfg.GetHiddenLayers());
+    const auto sceneObjects = m_controller.GetSceneObjectsInScreenRect(
+        start.x, start.y, end.x, end.y, w, h);
+
+    const bool selectionChanged =
+        fixtures != cfg.GetSelectedFixtures() ||
+        trusses != cfg.GetSelectedTrusses() ||
+        supports != cfg.GetSelectedSupports() ||
+        sceneObjects != cfg.GetSelectedSceneObjects();
+    if (selectionChanged)
+      cfg.PushUndoState("global selection");
+
+    cfg.SetSelectedFixtures(fixtures);
+    cfg.SetSelectedTrusses(trusses);
+    cfg.SetSelectedSupports(supports);
+    cfg.SetSelectedSceneObjects(sceneObjects);
+
+    std::set<std::string> mergedSelection;
+    mergedSelection.insert(fixtures.begin(), fixtures.end());
+    mergedSelection.insert(trusses.begin(), trusses.end());
+    mergedSelection.insert(supports.begin(), supports.end());
+    mergedSelection.insert(sceneObjects.begin(), sceneObjects.end());
+    m_controller.SetSelectedUuids(
+        std::vector<std::string>(mergedSelection.begin(), mergedSelection.end()));
+
+    if (FixtureTablePanel::Instance()) {
+      if (fixtures.empty())
+        FixtureTablePanel::Instance()->ClearSelection();
+      else
+        FixtureTablePanel::Instance()->SelectByUuid(fixtures);
+    }
+    if (TrussTablePanel::Instance()) {
+      if (trusses.empty())
+        TrussTablePanel::Instance()->ClearSelection();
+      else
+        TrussTablePanel::Instance()->SelectByUuid(trusses);
+    }
+    if (HoistTablePanel::Instance()) {
+      if (supports.empty())
+        HoistTablePanel::Instance()->ClearSelection();
+      else
+        HoistTablePanel::Instance()->SelectByUuid(supports);
+    }
+    if (SceneObjectTablePanel::Instance()) {
+      if (sceneObjects.empty())
+        SceneObjectTablePanel::Instance()->ClearSelection();
+      else
+        SceneObjectTablePanel::Instance()->SelectByUuid(sceneObjects);
+    }
+    if (Viewer2DRenderPanel::Instance())
+      Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
+    return;
+  }
+
   if (FixtureTablePanel::Instance() &&
       FixtureTablePanel::Instance()->IsActivePage()) {
     auto selection = m_controller.GetFixturesInScreenRect(
@@ -1444,6 +1506,7 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     m_dragSelectionUuids.clear();
     m_dragSelectionMoved = false;
     m_dragSelectionPushedUndo = false;
+    m_rectSelectionAcrossAllTables = false;
     m_lastMousePos = event.GetPosition();
     MarkInteractionActivity();
 
@@ -1453,6 +1516,7 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     if (event.ControlDown()) {
       m_dragMode = DragMode::RectSelection;
       m_rectSelecting = true;
+      m_rectSelectionAcrossAllTables = event.ShiftDown();
       m_rectSelectStart = m_lastMousePos;
       m_rectSelectEnd = m_lastMousePos;
       return;
@@ -1567,8 +1631,10 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     if (HasCapture())
       ReleaseMouse();
     if (m_rectSelecting)
-      ApplyRectangleSelection(m_rectSelectStart, m_rectSelectEnd);
+      ApplyRectangleSelection(m_rectSelectStart, m_rectSelectEnd,
+                              m_rectSelectionAcrossAllTables);
     m_rectSelecting = false;
+    m_rectSelectionAcrossAllTables = false;
     m_dragMode = DragMode::None;
     m_dragAxis = DragAxis::None;
     m_dragTarget = DragTarget::None;
@@ -1881,6 +1947,7 @@ void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
   m_dragSelectionUuids.clear();
   m_dragSelectionMoved = false;
   m_rectSelecting = false;
+  m_rectSelectionAcrossAllTables = false;
 }
 
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {

@@ -159,7 +159,8 @@ private:
   void ClearCursorWorldPosition();
   void ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
   void FinalizeSelectionDrag();
-  void ApplyRectangleSelection(const wxPoint &start, const wxPoint &end);
+  void ApplyRectangleSelection(const wxPoint &start, const wxPoint &end,
+                               bool selectAcrossAllTables);
   void DrawSelectionRectangle(int width, int height, bool darkMode);
   void ScheduleDragTableUpdate();
   void StopDragTableUpdates();
@@ -195,6 +196,7 @@ private:
   bool m_draggedSincePress = false;
   wxLongLong m_dragPressTime = 0;
   bool m_rectSelecting = false;
+  bool m_rectSelectionAcrossAllTables = false;
   wxPoint m_rectSelectStart;
   wxPoint m_rectSelectEnd;
   wxPoint m_lastMousePos;
