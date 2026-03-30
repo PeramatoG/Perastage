@@ -33,6 +33,7 @@
 
 namespace {
 constexpr const char *kHiddenLayersConfigKey = "view_hidden_layers";
+constexpr const char *kHiddenFixtureTypesConfigKey = "view_hidden_fixture_types";
 constexpr const char *kLayoutsConfigKey = "layouts_collection";
 
 std::string SerializeHiddenLayerChecks(
@@ -57,6 +58,29 @@ DeserializeHiddenLayerChecks(const std::optional<std::string> &serialized) {
       hiddenLayers.insert(entry.get<std::string>());
   }
   return hiddenLayers;
+}
+
+std::string SerializeStringSet(const std::unordered_set<std::string> &values) {
+  std::vector<std::string> sorted(values.begin(), values.end());
+  std::sort(sorted.begin(), sorted.end());
+  return nlohmann::json(sorted).dump();
+}
+
+std::unordered_set<std::string>
+DeserializeStringSet(const std::optional<std::string> &serialized) {
+  std::unordered_set<std::string> values;
+  if (!serialized || serialized->empty())
+    return values;
+
+  nlohmann::json parsed = nlohmann::json::parse(*serialized, nullptr, false);
+  if (!parsed.is_array())
+    return values;
+
+  for (const auto &entry : parsed) {
+    if (entry.is_string())
+      values.insert(entry.get<std::string>());
+  }
+  return values;
 }
 } // namespace
 
@@ -308,6 +332,21 @@ bool ConfigManager::IsLayerVisible(const std::string &layer) const {
   return layerVisibilityState.IsLayerVisible(layer);
 }
 
+std::unordered_set<std::string> ConfigManager::GetHiddenFixtureTypes() const {
+  return DeserializeStringSet(GetValue(kHiddenFixtureTypesConfigKey));
+}
+
+void ConfigManager::SetHiddenFixtureTypes(
+    const std::unordered_set<std::string> &types) {
+  SetValue(kHiddenFixtureTypesConfigKey, SerializeStringSet(types));
+}
+
+bool ConfigManager::IsFixtureTypeVisible(
+    const std::string &fixtureType) const {
+  const auto hiddenFixtureTypes = GetHiddenFixtureTypes();
+  return hiddenFixtureTypes.find(fixtureType) == hiddenFixtureTypes.end();
+}
+
 void ConfigManager::SetLayerColor(const std::string &layer,
                                   const std::string &color) {
   layerVisibilityState.SetLayerColor(projectSession.GetScene(), layer, color);
@@ -390,6 +429,8 @@ bool ConfigManager::SaveProject(const std::string &path) {
   layouts::LayoutManager::Get().SaveToConfig(*this);
   SetValue(kHiddenLayersConfigKey,
            SerializeHiddenLayerChecks(layerVisibilityState.GetHiddenLayers()));
+  SetValue(kHiddenFixtureTypesConfigKey,
+           SerializeStringSet(GetHiddenFixtureTypes()));
   bool ok = projectSession.SaveProject(
       path, [this](const std::string &configPath) {
         return SaveToFile(configPath);
@@ -433,6 +474,8 @@ bool ConfigManager::LoadProject(const std::string &path) {
   if (ok) {
     layerVisibilityState.SetHiddenLayers(
         DeserializeHiddenLayerChecks(GetValue(kHiddenLayersConfigKey)));
+    SetHiddenFixtureTypes(
+        DeserializeStringSet(GetValue(kHiddenFixtureTypesConfigKey)));
     restoreUserPreferences();
     ClearHistory();
     selectionState.Clear();

@@ -501,7 +501,8 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   candidates.reserve(fixtures.size());
   for (const auto &[uuid, f] : fixtures) {
-    if (!IsLayerVisibleCached(hiddenLayers, f.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, f.layer) ||
+        !cfg.IsFixtureTypeVisible(f.typeName))
       continue;
 
     auto bit = m_controller.GetFixtureBoundsMap().find(uuid);

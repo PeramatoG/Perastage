@@ -20,6 +20,8 @@
 #include <wx/wx.h>
 #include <wx/dataview.h>
 
+class ColorfulDataViewListStore;
+
 // Panel that shows a summary count of items by type/model/name
 class SummaryPanel : public wxPanel {
 public:
@@ -34,6 +36,30 @@ public:
     static void SetInstance(SummaryPanel* panel);
 
 private:
+    enum class SummaryMode {
+        Fixture,
+        Generic
+    };
+
+    struct FixtureSummaryRow {
+        std::string typeName;
+        int count = 0;
+        std::string colorHex;
+        bool visible = true;
+    };
+
     wxDataViewListCtrl* table = nullptr;
+    ColorfulDataViewListStore* store = nullptr;
+    SummaryMode mode = SummaryMode::Generic;
+    wxString activeHoverTooltip;
+
     void ShowSummary(const std::vector<std::pair<std::string,int>>& items);
+    void ShowFixtureSummaryRows(const std::vector<FixtureSummaryRow>& rows);
+    void EnsureColumnsForMode(SummaryMode requestedMode);
+    void RefreshFixtureVisibilityStyles();
+    void RefreshVisibleViewers() const;
+    void OnItemValueChanged(wxDataViewEvent& event);
+    void OnItemActivated(wxDataViewEvent& event);
+    void OnMouseMove(wxMouseEvent& event);
+    void OnMouseLeave(wxMouseEvent& event);
 };

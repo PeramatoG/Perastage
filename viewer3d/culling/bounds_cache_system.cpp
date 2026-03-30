@@ -116,7 +116,8 @@ void BoundsCacheSystem::RebuildIfDirty(
 
   context.fixtureBounds.clear();
   for (const auto &[uuid, f] : fixtures) {
-    if (!IsLayerVisibleCached(hiddenLayers, f.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, f.layer) ||
+        !ConfigManager::Get().IsFixtureTypeVisible(f.typeName))
       continue;
     Viewer3DBoundingBox bb;
     Matrix fix = f.transform;
