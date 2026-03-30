@@ -18,6 +18,7 @@
 #include "dictionaryeditdialog.h"
 
 #include "columnutils.h"
+#include "colorstore.h"
 #include "dictionary_bundle.h"
 #include "dictionary_json_contract.h"
 #include "file_import_utils.h"
@@ -41,6 +42,68 @@
 #include <wx/busyinfo.h>
 
 namespace {
+bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
+  if (!store || row < 0 || col < 0)
+    return false;
+
+  const size_t rowIndex = static_cast<size_t>(row);
+  const size_t colIndex = static_cast<size_t>(col);
+  if (rowIndex >= store->cellAttrs.size())
+    return false;
+  if (colIndex >= store->cellAttrs[rowIndex].size())
+    return false;
+
+  const wxDataViewItemAttr &attr = store->cellAttrs[rowIndex][colIndex];
+  return attr.HasColour() && attr.GetColour() == *wxRED;
+}
+
+void SetTableAndChildTooltips(wxDataViewListCtrl *table,
+                              const wxString &tooltip) {
+  if (!table)
+    return;
+
+  table->SetToolTip(tooltip);
+  wxWindowList &children = table->GetChildren();
+  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
+       it = it->GetNext()) {
+    if (wxWindow *child = it->GetData())
+      child->SetToolTip(tooltip);
+  }
+}
+
+wxPoint NormalizeMousePositionForTable(wxDataViewListCtrl *table,
+                                       const wxMouseEvent &event) {
+  wxPoint position = event.GetPosition();
+  wxWindow *sourceWindow =
+      dynamic_cast<wxWindow *>(event.GetEventObject());
+  if (!table || !sourceWindow || sourceWindow == table)
+    return position;
+
+  return table->ScreenToClient(sourceWindow->ClientToScreen(position));
+}
+
+template <typename Owner>
+void BindTableHoverEvents(wxDataViewListCtrl *table, Owner *owner,
+                          void (Owner::*onMouseMove)(wxMouseEvent &),
+                          void (Owner::*onMouseLeave)(wxMouseEvent &)) {
+  if (!table || !owner)
+    return;
+
+  auto bindEvents = [&](wxWindow *window) {
+    if (!window)
+      return;
+    window->Bind(wxEVT_MOTION, onMouseMove, owner);
+    window->Bind(wxEVT_LEAVE_WINDOW, onMouseLeave, owner);
+  };
+
+  bindEvents(table);
+  wxWindowList &children = table->GetChildren();
+  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
+       it = it->GetNext()) {
+    bindEvents(it->GetData());
+  }
+}
+
 struct FixtureRow {
   std::string name;
   std::string path;
@@ -65,6 +128,7 @@ struct ExportPathStatusSummary {
   size_t total_entries = 0;
   size_t found_entries = 0;
   size_t missing_entries = 0;
+  std::vector<std::string> missing_files;
 };
 
 struct SnapshotExportResult {
@@ -117,12 +181,20 @@ void RegisterMissingExample(ImportPathValidationSummary &summary,
 ExportPathStatusSummary AnalyzeFixtureExportPaths(
     const std::unordered_map<std::string, GdtfDictionary::Entry> &dict) {
   ExportPathStatusSummary summary;
+  constexpr size_t kMaxMissingExamples = 10;
   summary.total_entries = dict.size();
-  for (const auto &[_, entry] : dict) {
+  for (const auto &[name, entry] : dict) {
     if (HasExistingPath(std::filesystem::u8path(entry.path)))
       ++summary.found_entries;
-    else
+    else {
       ++summary.missing_entries;
+      if (summary.missing_files.size() < kMaxMissingExamples) {
+        const std::string fileName =
+            std::filesystem::path(entry.path).filename().string();
+        summary.missing_files.push_back(
+            fileName.empty() ? name : fileName);
+      }
+    }
   }
   return summary;
 }
@@ -130,28 +202,43 @@ ExportPathStatusSummary AnalyzeFixtureExportPaths(
 ExportPathStatusSummary AnalyzeTrussExportPaths(
     const std::unordered_map<std::string, std::string> &dict) {
   ExportPathStatusSummary summary;
+  constexpr size_t kMaxMissingExamples = 10;
   summary.total_entries = dict.size();
-  for (const auto &[_, path] : dict) {
+  for (const auto &[name, path] : dict) {
     if (HasExistingPath(std::filesystem::u8path(path)))
       ++summary.found_entries;
-    else
+    else {
       ++summary.missing_entries;
+      if (summary.missing_files.size() < kMaxMissingExamples) {
+        const std::string fileName = std::filesystem::path(path).filename().string();
+        summary.missing_files.push_back(
+            fileName.empty() ? name : fileName);
+      }
+    }
   }
   return summary;
 }
 
 bool ConfirmExportReferences(wxWindow *parent, const wxString &title,
                              const ExportPathStatusSummary &summary) {
-  wxMessageDialog confirmDialog(
-      parent,
+  wxString message =
       "Found file references in the loaded dictionary.\n\n"
       "Total entries: " + wxString::Format("%zu", summary.total_entries) + "\n" +
-          "Entries with file found: " +
-          wxString::Format("%zu", summary.found_entries) + "\n" +
-          "Entries with missing file: " +
-          wxString::Format("%zu", summary.missing_entries) +
-          "\n\nDo you want to export references only?",
-      title, wxOK | wxCANCEL | wxICON_WARNING);
+      "Entries with file found: " +
+      wxString::Format("%zu", summary.found_entries) + "\n" +
+      "Entries with missing file: " +
+      wxString::Format("%zu", summary.missing_entries);
+  if (!summary.missing_files.empty()) {
+    message += "\nMissing files:";
+    for (const auto &file : summary.missing_files)
+      message += "\n- " + wxString::FromUTF8(file);
+    if (summary.missing_entries > summary.missing_files.size())
+      message += "\n- ...";
+  }
+  message += "\n\nDo you want to export references only?";
+
+  wxMessageDialog confirmDialog(
+      parent, message, title, wxOK | wxCANCEL | wxICON_WARNING);
   confirmDialog.SetOKCancelLabels("Export references only", "Cancel");
   return confirmDialog.ShowModal() == wxID_OK;
 }
@@ -628,8 +715,19 @@ void DictionaryEditDialog::BuildLayout() {
 
   wxPanel *fixturePanel = new wxPanel(notebook);
   wxBoxSizer *fixtureSizer = new wxBoxSizer(wxVERTICAL);
+  fixtureStore = new ColorfulDataViewListStore();
   fixtureTable = new wxDataViewListCtrl(fixturePanel, wxID_ANY, wxDefaultPosition,
                                         wxDefaultSize, wxDV_ROW_LINES);
+  fixtureTable->AssociateModel(fixtureStore);
+  fixtureStore->DecRef();
+  BindTableHoverEvents(fixtureTable, this,
+                       &DictionaryEditDialog::OnFixtureTableMouseMove,
+                       &DictionaryEditDialog::OnFixtureTableMouseLeave);
+  fixtureTable->CallAfter([this]() {
+    BindTableHoverEvents(fixtureTable, this,
+                         &DictionaryEditDialog::OnFixtureTableMouseMove,
+                         &DictionaryEditDialog::OnFixtureTableMouseLeave);
+  });
   int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
   fixtureTable->AppendTextColumn("Name", wxDATAVIEW_CELL_EDITABLE, 200,
                                  wxALIGN_LEFT, flags);
@@ -645,8 +743,19 @@ void DictionaryEditDialog::BuildLayout() {
 
   wxPanel *trussPanel = new wxPanel(notebook);
   wxBoxSizer *trussSizer = new wxBoxSizer(wxVERTICAL);
+  trussStore = new ColorfulDataViewListStore();
   trussTable = new wxDataViewListCtrl(trussPanel, wxID_ANY, wxDefaultPosition,
                                       wxDefaultSize, wxDV_ROW_LINES);
+  trussTable->AssociateModel(trussStore);
+  trussStore->DecRef();
+  BindTableHoverEvents(trussTable, this,
+                       &DictionaryEditDialog::OnTrussTableMouseMove,
+                       &DictionaryEditDialog::OnTrussTableMouseLeave);
+  trussTable->CallAfter([this]() {
+    BindTableHoverEvents(trussTable, this,
+                         &DictionaryEditDialog::OnTrussTableMouseMove,
+                         &DictionaryEditDialog::OnTrussTableMouseLeave);
+  });
   trussTable->AppendTextColumn("Name", wxDATAVIEW_CELL_EDITABLE, 200,
                                wxALIGN_LEFT, flags);
   trussTable->AppendTextColumn("File", wxDATAVIEW_CELL_INERT, 260,
@@ -704,9 +813,69 @@ bool DictionaryEditDialog::IsFixturesPage() const {
   return notebook->GetSelection() == 0;
 }
 
+void DictionaryEditDialog::OnFixtureTableMouseMove(wxMouseEvent &event) {
+  UpdateMissingFileTooltip(
+      fixtureTable, fixtureStore, activeFixtureHoverTooltip,
+      NormalizeMousePositionForTable(fixtureTable, event));
+  event.Skip();
+}
+
+void DictionaryEditDialog::OnFixtureTableMouseLeave(wxMouseEvent &event) {
+  if (!activeFixtureHoverTooltip.IsEmpty()) {
+    SetTableAndChildTooltips(fixtureTable, wxString());
+    activeFixtureHoverTooltip.clear();
+  }
+  event.Skip();
+}
+
+void DictionaryEditDialog::OnTrussTableMouseMove(wxMouseEvent &event) {
+  UpdateMissingFileTooltip(
+      trussTable, trussStore, activeTrussHoverTooltip,
+      NormalizeMousePositionForTable(trussTable, event));
+  event.Skip();
+}
+
+void DictionaryEditDialog::OnTrussTableMouseLeave(wxMouseEvent &event) {
+  if (!activeTrussHoverTooltip.IsEmpty()) {
+    SetTableAndChildTooltips(trussTable, wxString());
+    activeTrussHoverTooltip.clear();
+  }
+  event.Skip();
+}
+
+void DictionaryEditDialog::UpdateMissingFileTooltip(wxDataViewListCtrl *table,
+                                                    ColorfulDataViewListStore *store,
+                                                    wxString &activeTooltip,
+                                                    const wxPoint &position) {
+  if (!table || !store)
+    return;
+
+  wxDataViewItem item;
+  wxDataViewColumn *column = nullptr;
+  table->HitTest(position, item, column);
+
+  wxString tooltip;
+  if (item.IsOk() && column) {
+    const int row = table->ItemToRow(item);
+    const int modelColumn = column->GetModelColumn();
+    if (modelColumn == 1 && IsRedCell(store, row, modelColumn)) {
+      tooltip =
+          "Referenced file was not found on disk. Update or remove this entry.";
+    }
+  }
+
+  if (tooltip == activeTooltip)
+    return;
+
+  SetTableAndChildTooltips(table, tooltip);
+  activeTooltip = tooltip;
+}
+
 void DictionaryEditDialog::LoadFixtures() {
-  fixtureTable->DeleteAllItems();
+  fixtureStore->DeleteAllItems();
   fixturePaths.clear();
+  activeFixtureHoverTooltip.clear();
+  SetTableAndChildTooltips(fixtureTable, wxString());
 
   auto dictOpt = GdtfDictionary::Load();
   if (!dictOpt)
@@ -717,8 +886,6 @@ void DictionaryEditDialog::LoadFixtures() {
   for (const auto &[name, entry] : *dictOpt) {
     if (entry.path.empty())
       continue;
-    if (!std::filesystem::exists(entry.path))
-      continue;
     FixtureRow row{ name, entry.path, entry.mode, entry.category };
     rows.push_back(row);
   }
@@ -726,12 +893,16 @@ void DictionaryEditDialog::LoadFixtures() {
 
   fixturePaths.reserve(rows.size());
   for (const auto &row : rows) {
+    const bool fileExists = std::filesystem::exists(row.path);
     wxVector<wxVariant> items;
     items.push_back(wxString::FromUTF8(row.name));
     items.push_back(wxString::FromUTF8(std::filesystem::path(row.path).filename().string()));
     items.push_back(wxString::FromUTF8(row.mode));
     items.push_back(wxString::FromUTF8(row.category));
-    fixtureTable->AppendItem(items);
+    fixtureStore->AppendItem(items);
+    const int rowIndex = fixtureTable->GetItemCount() - 1;
+    if (!fileExists && rowIndex >= 0)
+      fixtureStore->SetCellTextColour(static_cast<size_t>(rowIndex), 1, *wxRED);
     fixturePaths.push_back(row.path);
   }
 
@@ -739,8 +910,10 @@ void DictionaryEditDialog::LoadFixtures() {
 }
 
 void DictionaryEditDialog::LoadTrusses() {
-  trussTable->DeleteAllItems();
+  trussStore->DeleteAllItems();
   trussPaths.clear();
+  activeTrussHoverTooltip.clear();
+  SetTableAndChildTooltips(trussTable, wxString());
 
   auto dictOpt = TrussDictionary::Load();
   if (!dictOpt)
@@ -751,18 +924,20 @@ void DictionaryEditDialog::LoadTrusses() {
   for (const auto &[name, path] : *dictOpt) {
     if (path.empty())
       continue;
-    if (!std::filesystem::exists(path))
-      continue;
     rows.push_back({name, path});
   }
   SortTrussRows(rows);
 
   trussPaths.reserve(rows.size());
   for (const auto &row : rows) {
+    const bool fileExists = std::filesystem::exists(row.path);
     wxVector<wxVariant> items;
     items.push_back(wxString::FromUTF8(row.name));
     items.push_back(wxString::FromUTF8(std::filesystem::path(row.path).filename().string()));
-    trussTable->AppendItem(items);
+    trussStore->AppendItem(items);
+    const int rowIndex = trussTable->GetItemCount() - 1;
+    if (!fileExists && rowIndex >= 0)
+      trussStore->SetCellTextColour(static_cast<size_t>(rowIndex), 1, *wxRED);
     trussPaths.push_back(row.path);
   }
 
