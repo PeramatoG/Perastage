@@ -127,6 +127,23 @@ bool PerspectiveHasDuplicatePaneNames(const std::string &perspective) {
   return false;
 }
 
+void ApplyBottomPaneWidthHints(wxAuiManager *manager) {
+  if (!manager)
+    return;
+
+  auto &consolePane = manager->GetPane("Console");
+  if (consolePane.IsOk()) {
+    consolePane.BestSize(420, 150);
+    consolePane.MinSize(wxSize(260, 120));
+  }
+
+  auto &riggingPane = manager->GetPane("RiggingPanel");
+  if (riggingPane.IsOk()) {
+    riggingPane.BestSize(720, 200);
+    riggingPane.MinSize(wxSize(500, 200));
+  }
+}
+
 layouts::Layout2DViewFrame BuildDefaultLayoutLegendFrame(
     const layouts::LayoutDefinition &layout) {
   constexpr double kWidthScale = 0.35;
@@ -384,8 +401,8 @@ void MainWindow::SetupLayout() {
                                         .Layer(1)
                                         .Row(0)
                                         .Position(1)
-                                        .BestSize(1300, 200)
-                                        .MinSize(wxSize(900, 200))
+                                        .BestSize(720, 200)
+                                        .MinSize(wxSize(500, 200))
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
@@ -471,6 +488,7 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
 
   applyPaneState(preset.showPanes, true);
   applyPaneState(preset.hidePanes, false);
+  ApplyBottomPaneWidthHints(auiManager);
 
   auiManager->Update();
 
@@ -558,9 +576,7 @@ void MainWindow::ApplySavedLayout() {
   if (view2dPane.IsOk())
     view2dPane.MinSize(wxSize(250, 600));
 
-  auto &riggingPane = auiManager->GetPane("RiggingPanel");
-  if (riggingPane.IsOk())
-    riggingPane.MinSize(wxSize(900, 200));
+  ApplyBottomPaneWidthHints(auiManager);
 
   auiManager->Update();
   SendSizeEvent();
