@@ -61,7 +61,10 @@ namespace {
 // the compilation cost on every import call and makes keyword matching cheap
 // even when processing large riders.
 static const std::regex kTrussLineRe(
-    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss)\\s+([^\\n]*?)(?:\\s+(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b)?(?:\\s+para\\s+(.+))?",
+    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss)\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b(?:\\s+para\\s+(.+))?",
+    std::regex::icase);
+static const std::regex kTrussLineNoLengthRe(
+    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss)\\s+([^\\n]*?)(?:\\s+para\\s+(.+))?\\s*$",
     std::regex::icase);
 static const std::regex kTrussRe(
     "(?:truss)[^\\n]*?(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b",
@@ -1062,6 +1065,42 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       continue;
     }
 
+    if (std::regex_match(line, m, kTrussLineNoLengthRe) &&
+        !std::regex_search(line, kLengthWithUnitRe)) {
+      int quantity = 0;
+      if (!TryParseInt(m[1].str(), quantity) || quantity <= 0)
+        continue;
+      std::string model = Trim(m[2]);
+      std::string hang = currentHang;
+      std::string trussCoordinateSuffix;
+      if (m.size() > 3 && m[3].matched) {
+        hang = m[3].str();
+        if (const auto coordinateSuffix = ExtractParenthesizedToken(hang);
+            coordinateSuffix.has_value()) {
+          trussCoordinateSuffix = *coordinateSuffix;
+        }
+      }
+      if (trussCoordinateSuffix.empty()) {
+        const auto it = hangCoordinateSuffixByHang.find(NormalizeHangName(hang));
+        if (it != hangCoordinateSuffixByHang.end())
+          trussCoordinateSuffix = it->second;
+      }
+      hang = NormalizeHangName(hang);
+      if (hang != "BACKDROP")
+        continue;
+
+      for (int i = 0; i < quantity; ++i) {
+        std::string out = "1 TRUSS";
+        if (!model.empty())
+          out += " " + model;
+        out += " " + hang;
+        if (!trussCoordinateSuffix.empty())
+          out += " " + trussCoordinateSuffix;
+        riggingLines.push_back(out);
+      }
+      continue;
+    }
+
     if (std::regex_search(line, m, kTrussRe)) {
       float lengthM = 0.0f;
       if (!TryParseFloat(m[1].str(), lengthM))
@@ -1479,15 +1518,9 @@ bool RiderImporter::ImportText(const std::string &text) {
           continue;
         std::string model = Trim(m[2]);
         float length = 0.0f;
-        if (m.size() > 3 && m[3].matched)
-          TryParseFloat(m[3], length);
-        if (length <= 0.0f) {
-          std::smatch lm;
-          if (std::regex_search(model, lm, kLengthWithUnitRe))
-            TryParseFloat(lm[1].str(), length);
-        }
-        if (length > 0.0f)
-          length *= 1000.0f;
+        if (!TryParseFloat(m[3], length))
+          continue;
+        length *= 1000.0f;
         float width = 400.0f;
         float height = 400.0f;
         std::smatch dm;
@@ -1527,11 +1560,6 @@ bool RiderImporter::ImportText(const std::string &text) {
         hang = NormalizeHangName(hang);
         if (hang == "FLOOR")
           continue;
-        if (length <= 0.0f) {
-          if (hang != "BACKDROP")
-            continue;
-          length = lastBackdropReferenceLengthMm.value_or(12000.0f);
-        }
 
         auto formatLength = [](float mm) {
           std::ostringstream oss;
@@ -1728,6 +1756,70 @@ bool RiderImporter::ImportText(const std::string &text) {
         } else {
           for (int i = 0; i < quantity; ++i)
             addTrussPieces(hang, resolveCoordinateOverride(hang));
+        }
+      } else if (std::regex_match(line, m, kTrussLineNoLengthRe) &&
+                 !std::regex_search(line, kLengthWithUnitRe)) {
+        int quantity = 0;
+        if (!TryParseInt(m[1].str(), quantity))
+          continue;
+        std::string model = Trim(m[2]);
+        std::string hang = currentHang;
+        std::optional<TrussCoordinateOverride> coordinateOverride;
+        if (m.size() > 3 && m[3].matched) {
+          hang = Trim(m[3]);
+          coordinateOverride =
+              ParseTrussCoordinateOverride(hang, distanceUnitSystem);
+        }
+        hang = NormalizeHangName(hang);
+        if (hang != "BACKDROP")
+          continue;
+
+        float width = 400.0f;
+        float height = 400.0f;
+        std::smatch dm;
+        if (std::regex_search(
+                model, dm,
+                std::regex("(\\d+(?:\\.\\d+)?)\\s*[xX]\\s*(\\d+(?:\\.\\d+)?)"))) {
+          float parsed = 0.0f;
+          if (TryParseFloat(dm[1], parsed))
+            width = parsed * 10.0f;
+          parsed = 0.0f;
+          if (TryParseFloat(dm[2], parsed))
+            height = parsed * 10.0f;
+        }
+
+        const float fallbackLengthMm =
+            lastBackdropReferenceLengthMm.value_or(12000.0f);
+        const float hangY = coordinateOverride && coordinateOverride->hasY
+                                ? coordinateOverride->yMm
+                                : getHangPos(hang);
+        const float hangZ = coordinateOverride && coordinateOverride->hasZ
+                                ? coordinateOverride->zMm
+                                : getHangHeight(hang);
+        for (int q = 0; q < quantity; ++q) {
+          auto pieces = SplitTrussSymmetric(fallbackLengthMm);
+          float total = std::accumulate(pieces.begin(), pieces.end(), 0.0f);
+          float x = coordinateOverride && coordinateOverride->hasX
+                        ? coordinateOverride->xMm
+                        : -0.5f * total;
+          for (float s : pieces) {
+            Truss t;
+            t.uuid = GenerateUuid();
+            t.layer = layerByType ? "truss " + hang : "pos " + hang;
+            t.lengthMm = s;
+            t.widthMm = width;
+            t.heightMm = height;
+            t.positionName = hang;
+            t.transform.o[0] = x;
+            t.transform.o[1] = hangY;
+            t.transform.o[2] = hangZ;
+            const std::string trussUuid = t.uuid;
+            const std::string trussLayer = t.layer;
+            scene.trusses.emplace(trussUuid, std::move(t));
+            importedTrussUuids.push_back(trussUuid);
+            addToLayer(trussLayer, trussUuid);
+            x += s;
+          }
         }
       } else if (std::regex_search(line, m, kTrussRe)) {
         float length = 0.0f;
