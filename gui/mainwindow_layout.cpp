@@ -384,8 +384,8 @@ void MainWindow::SetupLayout() {
                                         .Layer(1)
                                         .Row(0)
                                         .Position(1)
-                                        .BestSize(1100, 220)
-                                        .MinSize(wxSize(700, 200))
+                                        .BestSize(1300, 200)
+                                        .MinSize(wxSize(900, 200))
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
@@ -557,6 +557,10 @@ void MainWindow::ApplySavedLayout() {
   auto &view2dPane = auiManager->GetPane("2DViewport");
   if (view2dPane.IsOk())
     view2dPane.MinSize(wxSize(250, 600));
+
+  auto &riggingPane = auiManager->GetPane("RiggingPanel");
+  if (riggingPane.IsOk())
+    riggingPane.MinSize(wxSize(900, 200));
 
   auiManager->Update();
   SendSizeEvent();
