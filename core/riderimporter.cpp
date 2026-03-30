@@ -96,6 +96,16 @@ std::string Trim(const std::string &s) {
   return s.substr(start, end - start + 1);
 }
 
+std::optional<std::string> ExtractParenthesizedToken(const std::string &text) {
+  const size_t open = text.find('(');
+  if (open == std::string::npos)
+    return std::nullopt;
+  const size_t close = text.find(')', open + 1);
+  if (close == std::string::npos || close <= open)
+    return std::nullopt;
+  return text.substr(open, close - open + 1);
+}
+
 std::string ResolveGdtfPath(const MvrScene &scene,
                             const std::string &gdtfSpecPath) {
   if (gdtfSpecPath.empty())
@@ -864,6 +874,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
   std::string currentHang;
   std::vector<std::string> hangOrder;
   std::unordered_map<std::string, std::vector<std::string>> fixturesByHang;
+  std::unordered_map<std::string, std::string> hangCoordinateSuffixByHang;
   std::vector<std::string> riggingLines;
   struct HoistPreviewRequest {
     int quantity = 0;
@@ -957,6 +968,10 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       } else {
         currentHang = NormalizeHangName(captured);
       }
+      if (const auto coordinateSuffix = ExtractParenthesizedToken(line);
+          coordinateSuffix.has_value()) {
+        hangCoordinateSuffixByHang[currentHang] = *coordinateSuffix;
+      }
       if (!inRigging && !inFixtures)
         inFixtures = true;
       continue;
@@ -979,11 +994,33 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       if (!TryParseFloat(m[3].str(), lengthM))
         continue;
       std::string hang = currentHang;
+      std::string trussCoordinateSuffix;
       if (m.size() > 4 && m[4].matched) {
         hang = m[4].str();
+        if (const auto coordinateSuffix = ExtractParenthesizedToken(hang);
+            coordinateSuffix.has_value()) {
+          trussCoordinateSuffix = *coordinateSuffix;
+        }
       } else if (std::regex_match(model, kHangOnlyRe)) {
         hang = model;
         model.clear();
+      } else {
+        std::string modelForHang = model;
+        if (const auto coordinateSuffix = ExtractParenthesizedToken(modelForHang);
+            coordinateSuffix.has_value()) {
+          trussCoordinateSuffix = *coordinateSuffix;
+        }
+        modelForHang = std::regex_replace(modelForHang, std::regex("\\([^\\)]*\\)"), "");
+        modelForHang = Trim(modelForHang);
+        if (std::regex_match(modelForHang, kHangOnlyRe)) {
+          hang = modelForHang;
+          model.clear();
+        }
+      }
+      if (trussCoordinateSuffix.empty()) {
+        const auto it = hangCoordinateSuffixByHang.find(NormalizeHangName(hang));
+        if (it != hangCoordinateSuffixByHang.end())
+          trussCoordinateSuffix = it->second;
       }
       hang = NormalizeHangName(hang);
 
@@ -1000,6 +1037,8 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
         out += " " + lenText;
         if (!targetHang.empty())
           out += " " + targetHang;
+        if (!trussCoordinateSuffix.empty())
+          out += " " + trussCoordinateSuffix;
         riggingLines.push_back(out);
         if (targetHang.rfind("LX", 0) == 0 &&
             std::find(lxTargetsInRigging.begin(), lxTargetsInRigging.end(),
@@ -1070,6 +1109,10 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
     if (!firstSection)
       preview << "\n\n";
     preview << hang;
+    const auto coordinateIt = hangCoordinateSuffixByHang.find(hang);
+    if (coordinateIt != hangCoordinateSuffixByHang.end() &&
+        !coordinateIt->second.empty())
+      preview << " " << coordinateIt->second;
     for (const std::string &fixtureLine : it->second)
       preview << "\n" << fixtureLine;
     firstSection = false;
@@ -1643,6 +1686,10 @@ bool RiderImporter::ImportText(const std::string &text) {
         if (!TryParseFloat(m[1], length))
           continue;
         length *= 1000.0f;
+        std::string lineWithCoordinateOverride = line;
+        const auto lineCoordinateOverride =
+            ParseTrussCoordinateOverride(lineWithCoordinateOverride,
+                                         distanceUnitSystem);
         std::string hang = currentHang;
         std::optional<TrussCoordinateOverride> coordinateOverride =
             ParseTrussCoordinateOverride(hang, distanceUnitSystem);
@@ -1654,6 +1701,23 @@ bool RiderImporter::ImportText(const std::string &text) {
           const auto hangOverrideIt = hangCoordinateOverrides.find(hang);
           if (hangOverrideIt != hangCoordinateOverrides.end())
             coordinateOverride = hangOverrideIt->second;
+        }
+        if (lineCoordinateOverride.has_value()) {
+          TrussCoordinateOverride merged =
+              coordinateOverride.value_or(TrussCoordinateOverride{});
+          if (lineCoordinateOverride->hasX) {
+            merged.hasX = true;
+            merged.xMm = lineCoordinateOverride->xMm;
+          }
+          if (lineCoordinateOverride->hasY) {
+            merged.hasY = true;
+            merged.yMm = lineCoordinateOverride->yMm;
+          }
+          if (lineCoordinateOverride->hasZ) {
+            merged.hasZ = true;
+            merged.zMm = lineCoordinateOverride->zMm;
+          }
+          coordinateOverride = merged;
         }
         if (hang == "FLOOR")
           continue;
