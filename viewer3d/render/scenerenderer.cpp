@@ -206,9 +206,9 @@ void SceneRenderer::DrawMeshWithOutline(
       const float lineWidth = lineProfile.lineWidth + 0.8f;
       auto setHighlightOrSelectionColor = [&]() {
         if (highlight)
-          m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
+          m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
         else if (selected)
-          m_controller.SetGLColor(0.15f, 0.35f, 1.0f);
+          m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
         else
           m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
       };
@@ -222,9 +222,12 @@ void SceneRenderer::DrawMeshWithOutline(
       } else {
         glDisable(GL_LINE_SMOOTH);
       }
+      glEnable(GL_POLYGON_OFFSET_LINE);
+      glPolygonOffset(1.0f, 1.0f);
       glLineWidth(lineWidth);
       setHighlightOrSelectionColor();
       DrawMeshWireframe(mesh, scale, captureTransform);
+      glDisable(GL_POLYGON_OFFSET_LINE);
       glLineWidth(1.0f);
       if (lineSmoothWasEnabled)
         glEnable(GL_LINE_SMOOTH);
@@ -233,17 +236,19 @@ void SceneRenderer::DrawMeshWithOutline(
 
       glEnable(GL_POLYGON_OFFSET_FILL);
       glPolygonOffset(-1.0f, -1.0f);
-      const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
-      if (fillLightingWasEnabled)
-        glDisable(GL_LIGHTING);
       if (highlight || selected) {
         setHighlightOrSelectionColor();
+        if (!glIsEnabled(GL_LIGHTING))
+          glEnable(GL_LIGHTING);
         DrawMesh(mesh, scale, modelMatrix);
       } else {
+        const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
+        if (fillLightingWasEnabled)
+          glDisable(GL_LIGHTING);
         DrawMeshThreeToneInk(mesh, scale, modelMatrix);
+        if (fillLightingWasEnabled)
+          glEnable(GL_LIGHTING);
       }
-      if (fillLightingWasEnabled)
-        glEnable(GL_LIGHTING);
       glDisable(GL_POLYGON_OFFSET_FILL);
     } else {
       if (highlight)
