@@ -2599,6 +2599,8 @@ bool RiderImporter::ImportText(const std::string &text) {
   const std::string strobeCategory =
       normalizeCategory(GdtfFixtureCategory::kStrobe);
   const std::string washCategory = normalizeCategory(GdtfFixtureCategory::kWash);
+  const std::string smokeCategory =
+      normalizeCategory(GdtfFixtureCategory::kSmoke);
 
   auto isTopFrontCategory = [&](const Fixture &fixture) {
     const std::string normalized = normalizeCategory(fixture.category);
@@ -2608,59 +2610,110 @@ bool RiderImporter::ImportText(const std::string &text) {
   auto isBackBottomCategory = [&](const Fixture &fixture) {
     return normalizeCategory(fixture.category) == washCategory;
   };
+  auto isSmokeCategory = [&](const Fixture &fixture) {
+    return normalizeCategory(fixture.category) == smokeCategory;
+  };
+
+  auto placeFixturesAsSides = [&](const std::vector<Fixture *> &ordered,
+                                  float leftX, float rightX, float startY,
+                                  float endY, float z) {
+    if (ordered.empty())
+      return;
+    const int leftCount =
+        static_cast<int>(ordered.size()) / 2 + static_cast<int>(ordered.size()) % 2;
+    const int rightCount = static_cast<int>(ordered.size()) / 2;
+    auto placeSideGroup = [&](int count, float sideX,
+                              const std::function<Fixture *(int)> &pickFixture) {
+      if (count <= 0)
+        return;
+      const float step = count > 1 ? (endY - startY) / static_cast<float>(count - 1)
+                                   : 0.0f;
+      for (int i = 0; i < count; ++i) {
+        Fixture *fixture = pickFixture(i);
+        if (!fixture)
+          continue;
+        fixture->transform.o[0] = sideX;
+        fixture->transform.o[1] = startY + step * static_cast<float>(i);
+        fixture->transform.o[2] = z;
+      }
+    };
+    placeSideGroup(leftCount, leftX, [&](int i) {
+      return ordered[static_cast<size_t>(i)];
+    });
+    placeSideGroup(rightCount, rightX, [&](int i) {
+      return ordered[ordered.size() - 1U - static_cast<size_t>(i)];
+    });
+  };
+
+  float smokeLeftX = sideTrussInfo.leftX;
+  float smokeRightX = sideTrussInfo.rightX;
+  if (!sideTrussInfo.found) {
+    bool hasLxSpan = false;
+    float lxStart = 0.0f;
+    float lxEnd = 0.0f;
+    for (const auto &[positionName, info] : trussInfo) {
+      if (!info.found || !IsLxHangName(positionName))
+        continue;
+      if (!hasLxSpan) {
+        lxStart = info.startX;
+        lxEnd = info.endX;
+        hasLxSpan = true;
+      } else {
+        lxStart = std::min(lxStart, info.startX);
+        lxEnd = std::max(lxEnd, info.endX);
+      }
+    }
+    if (hasLxSpan) {
+      smokeLeftX = lxStart + 500.0f;
+      smokeRightX = lxEnd - 500.0f;
+      if (smokeLeftX > smokeRightX) {
+        const float center = (lxStart + lxEnd) * 0.5f;
+        smokeLeftX = center;
+        smokeRightX = center;
+      }
+    }
+  }
+  const float smokeStartY =
+      sideTrussInfo.found ? sideTrussInfo.startY + getHangMargin("LX1") : 1000.0f;
+  const float smokeEndY =
+      sideTrussInfo.found ? sideTrussInfo.endY - getHangMargin("LX1") : smokeStartY;
 
   for (auto &[pos, fixturesVec] : fixturesByPos) {
     if (fixturesVec.empty())
       continue;
     if (IsLxSidesHangName(pos)) {
       const std::vector<Fixture *> ordered = buildSymmetricOrder(fixturesVec);
-      if (ordered.empty())
-        continue;
-      const int leftCount =
-          static_cast<int>(ordered.size()) / 2 + static_cast<int>(ordered.size()) % 2;
-      const int rightCount = static_cast<int>(ordered.size()) / 2;
-      auto placeSideGroup = [&](int count, float sideX,
-                                const std::function<Fixture *(int)> &pickFixture) {
-        if (count <= 0)
-          return;
-        const float startY = sideTrussInfo.found
-                                 ? sideTrussInfo.startY + getHangMargin("LX1")
-                                 : 1000.0f;
-        const float endY = sideTrussInfo.found
-                               ? sideTrussInfo.endY - getHangMargin("LX1")
-                               : startY + static_cast<float>(count - 1) * 500.0f;
-        const float step = count > 1 ? (endY - startY) / static_cast<float>(count - 1)
-                                     : 0.0f;
-        for (int i = 0; i < count; ++i) {
-          Fixture *fixture = pickFixture(i);
-          if (!fixture)
-            continue;
-          fixture->transform.o[0] = sideX;
-          fixture->transform.o[1] = startY + step * static_cast<float>(i);
-          fixture->transform.o[2] = sideTrussInfo.found ? sideTrussInfo.z : 1000.0f;
-        }
-      };
-      placeSideGroup(leftCount, sideTrussInfo.leftX, [&](int i) {
-        return ordered[static_cast<size_t>(i)];
-      });
-      placeSideGroup(rightCount, sideTrussInfo.rightX, [&](int i) {
-        return ordered[ordered.size() - 1U - static_cast<size_t>(i)];
-      });
+      const float startY =
+          sideTrussInfo.found ? sideTrussInfo.startY + getHangMargin("LX1") : 1000.0f;
+      const float endY = sideTrussInfo.found ? sideTrussInfo.endY - getHangMargin("LX1")
+                                             : startY;
+      placeFixturesAsSides(ordered, sideTrussInfo.leftX, sideTrussInfo.rightX, startY,
+                           endY, sideTrussInfo.found ? sideTrussInfo.z : 1000.0f);
       continue;
     }
 
     std::vector<Fixture *> bottomFixtures;
     std::vector<Fixture *> topFrontFixtures;
+    std::vector<Fixture *> smokeFixtures;
     bottomFixtures.reserve(fixturesVec.size());
     topFrontFixtures.reserve(fixturesVec.size());
+    smokeFixtures.reserve(fixturesVec.size());
     for (Fixture *f : fixturesVec) {
       if (!f)
         continue;
+      if (isSmokeCategory(*f)) {
+        smokeFixtures.push_back(f);
+        continue;
+      }
       if (isTopFrontCategory(*f))
         topFrontFixtures.push_back(f);
       else
         bottomFixtures.push_back(f);
     }
+
+    const std::vector<Fixture *> orderedSmoke = buildSymmetricOrder(smokeFixtures);
+    placeFixturesAsSides(orderedSmoke, smokeLeftX, smokeRightX, smokeStartY, smokeEndY,
+                         0.0f);
 
     placeFixtureGroup(pos, bottomFixtures,
                       [&](Fixture &fixture, float x, float baseY, float baseZ,

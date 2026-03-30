@@ -323,6 +323,8 @@ After parsing, imported fixtures are distributed per hang:
    - **Bottom group**: all categories except `Wash`, `Blinder`, `Strobe`.
    - **Bottom-back override**: `Wash` is placed on the back side.
    - **Top-front group**: `Blinder` and `Strobe` are placed on top-front.
+   - **Smoke side-floor group**: `Smoke` fixtures are placed using side-style
+     mirroring (left/right split along `Y`) at floor level.
 6. `x` spacing is computed independently per group:
    - Bottom fixtures share one spacing/order pass.
    - Top-front fixtures use a separate spacing/order pass and do not affect bottom spacing.
@@ -343,6 +345,14 @@ After parsing, imported fixtures are distributed per hang:
    - Fixtures are split into two symmetric groups (left/right side).
    - Each side group is distributed along `Y` (matching side truss direction).
    - `X` anchors match side-truss anchors (or fallback anchors when no side truss exists).
+9. `Smoke` fixture distribution (all non-`LX SIDES` hangs):
+   - `Smoke` fixtures are split into two symmetric groups (left/right side),
+     distributed along `Y` using side-truss extents when available.
+   - `Z` is forced to floor (`0 mm`).
+   - `X` anchors:
+     - with real side trusses: same side-truss anchors as `LX SIDES`,
+     - fallback without side trusses: `0.5 m` inside the widest detected `LX*`
+       truss span (`left = minX + 0.5 m`, `right = maxX - 0.5 m`).
 
 ## Numbering and identity rules
 
