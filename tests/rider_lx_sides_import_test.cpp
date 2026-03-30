@@ -83,6 +83,7 @@ int main() {
   int noTrussFixtureCount = 0;
   int lx3FixtureCount = 0;
   std::set<float> noTrussSideX;
+  std::vector<float> noTrussSideY;
   for (const auto &[uuid, fixture] : sceneNoTruss.fixtures) {
     (void)uuid;
     if (fixture.positionName != "LX SIDES")
@@ -92,11 +93,14 @@ int main() {
       assert(NearlyEqual(fixture.transform.o[2], 1000.0f));
       assert(fixture.layer == "pos SIDES");
       noTrussSideX.insert(fixture.transform.o[0]);
+      noTrussSideY.push_back(fixture.transform.o[1]);
     }
   }
   assert(noTrussFixtureCount == 4);
   assert(lx3FixtureCount == 2);
   assert(noTrussSideX.size() == 2);
+  assert(!noTrussSideY.empty());
+  assert(*std::min_element(noTrussSideY.begin(), noTrussSideY.end()) >= 1000.0f);
   assert(NearlyEqual(*noTrussSideX.begin(), -6500.0f));
   assert(NearlyEqual(*noTrussSideX.rbegin(), 6500.0f));
 

@@ -302,7 +302,8 @@ After parsing, imported fixtures are distributed per hang:
 2. Margin comes from `rider_lx*_margin` (for LX hangs).
 3. If no truss is found for a hang, fallback spacing is centered around origin with 500 mm steps.
    - Exception for `LX SIDES`: fixtures are still split into left/right groups
-     as if side trusses existed, but fallback height is `1.0 m`.
+     as if side trusses existed, with fallback anchors at `Y = 1.0 m`
+     and `500 mm` spacing moving upstage (positive Y).
 4. Ordering alternates fixture types symmetrically:
    - odd counts place a center fixture,
    - remaining fixtures are paired left/right.

@@ -2381,10 +2381,10 @@ bool RiderImporter::ImportText(const std::string &text) {
           return;
         const float startY = sideTrussInfo.found
                                  ? sideTrussInfo.startY + getHangMargin("LX1")
-                                 : -0.5f * ((count - 1) * 500.0f);
+                                 : 1000.0f;
         const float endY = sideTrussInfo.found
                                ? sideTrussInfo.endY - getHangMargin("LX1")
-                               : 0.5f * ((count - 1) * 500.0f);
+                               : startY + static_cast<float>(count - 1) * 500.0f;
         const float step = count > 1 ? (endY - startY) / static_cast<float>(count - 1)
                                      : 0.0f;
         for (int i = 0; i < count; ++i) {
