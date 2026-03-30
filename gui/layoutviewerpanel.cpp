@@ -93,6 +93,8 @@ constexpr int kBringToFrontMenuId = wxID_HIGHEST + 499;
 constexpr int kSendToBackMenuId = wxID_HIGHEST + 500;
 constexpr int kLoadingTimerId = wxID_HIGHEST + 501;
 constexpr int kRenderDelayTimerId = wxID_HIGHEST + 502;
+constexpr int kToggleTextFrameMenuId = wxID_HIGHEST + 503;
+constexpr int kToggleTextTransparentBackgroundMenuId = wxID_HIGHEST + 504;
 constexpr int kLoadingOverlayDelayMs = 150;
 
 bool AreEqual(const layouts::Layout2DViewFrame &lhs,
@@ -385,6 +387,9 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
     EVT_MENU(kDeleteEventTableMenuId, LayoutViewerPanel::OnDeleteEventTable)
     EVT_MENU(kEditTextMenuId, LayoutViewerPanel::OnEditText)
     EVT_MENU(kDeleteTextMenuId, LayoutViewerPanel::OnDeleteText)
+    EVT_MENU(kToggleTextFrameMenuId, LayoutViewerPanel::OnToggleTextFrame)
+    EVT_MENU(kToggleTextTransparentBackgroundMenuId,
+             LayoutViewerPanel::OnToggleTextTransparentBackground)
     EVT_MENU(kEditImageMenuId, LayoutViewerPanel::OnEditImage)
     EVT_MENU(kDeleteImageMenuId, LayoutViewerPanel::OnDeleteImage)
     EVT_MENU(kBringToFrontMenuId, LayoutViewerPanel::OnBringToFront)
@@ -1371,7 +1376,15 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
     menu.Append(kSendToBackMenuId, "Send to Back");
   } else if (selectedElementType == SelectedElementType::Text) {
     menu.Append(kEditTextMenuId, "Edit Text");
+    menu.AppendCheckItem(kToggleTextFrameMenuId, "Show Border");
+    menu.AppendCheckItem(kToggleTextTransparentBackgroundMenuId,
+                         "Transparent Background");
     menu.Append(kDeleteTextMenuId, "Delete Text");
+    if (const auto *text = GetSelectedText()) {
+      menu.Check(kToggleTextFrameMenuId, text->drawFrame);
+      menu.Check(kToggleTextTransparentBackgroundMenuId,
+                 !text->solidBackground);
+    }
     menu.AppendSeparator();
     menu.Append(kBringToFrontMenuId, "Bring to Front");
     menu.Append(kSendToBackMenuId, "Send to Back");
