@@ -76,13 +76,13 @@ static const std::regex kFixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$",
                                        std::regex::icase);
 static const std::regex kQuantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
 static const std::regex kHangLineRe(
-    "^\\s*(LX\\d+|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?)\\s*:?\\s*$",
+    "^\\s*(LX\\d+|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*:?\\s*$",
     std::regex::icase);
 static const std::regex kHangFindRe(
-    "(LX\\d+|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?)",
+    "(LX\\d+|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)",
                                     std::regex::icase);
 static const std::regex kHangOnlyRe(
-    "^\\s*(LX\\d+|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?)\\s*$",
+    "^\\s*(LX\\d+|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*$",
                                     std::regex::icase);
 std::string Trim(const std::string &s) {
   size_t start = s.find_first_not_of(" \t\r\n");
@@ -389,6 +389,7 @@ std::vector<std::string> SplitPlus(const std::string &s) {
 }
 
 bool IsFloorAlias(std::string_view value);
+bool IsLxSidesAlias(std::string_view value);
 
 std::string NormalizeHangName(const std::string &raw) {
   std::string hang = Trim(raw);
@@ -396,6 +397,8 @@ std::string NormalizeHangName(const std::string &raw) {
     return {};
   if (IsFloorAlias(hang))
     return "FLOOR";
+  if (IsLxSidesAlias(hang))
+    return "LX SIDES";
   std::transform(hang.begin(), hang.end(), hang.begin(), [](unsigned char c) {
     return static_cast<char>(std::toupper(c));
   });
@@ -442,6 +445,10 @@ bool IsLxHangName(const std::string &positionName) {
       return false;
   }
   return true;
+}
+
+bool IsLxSidesHangName(const std::string &positionName) {
+  return NormalizeHangName(positionName) == "LX SIDES";
 }
 
 std::string BuildIndexedName(const std::string &prefix, int index,
@@ -640,6 +647,14 @@ bool IsFloorAlias(std::string_view value) {
   const bool groundLaneAlias = ContainsCaseInsensitive(value, "ground") &&
                                ContainsCaseInsensitive(value, "lane");
   return effectAlias || floorAlias || streetToFloorAlias || groundLaneAlias;
+}
+
+bool IsLxSidesAlias(std::string_view value) {
+  const bool hasStreetAlias = ContainsCaseInsensitive(value, "calle");
+  const bool hasSideAlias = ContainsCaseInsensitive(value, "side");
+  const bool hasFloorAlias = ContainsCaseInsensitive(value, "suelo") ||
+                             ContainsCaseInsensitive(value, "ground");
+  return (hasStreetAlias || hasSideAlias) && !hasFloorAlias;
 }
 
 std::string ReadTextFile(const std::string &path) {
@@ -1290,15 +1305,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     std::smatch hm;
     if (std::regex_match(line, hm, kHangLineRe)) {
       havePending = false;
-      std::string captured = hm[1];
-      if (IsFloorAlias(captured)) {
-        currentHang = "FLOOR";
-      } else {
-        currentHang = captured;
-        std::transform(
-            currentHang.begin(), currentHang.end(), currentHang.begin(),
-            [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
-      }
+      currentHang = NormalizeHangName(hm[1].str());
       // If we weren't in any section yet, assume fixtures when a hang position
       // appears
       if (!inRigging && !inFixtures)
@@ -1359,10 +1366,38 @@ bool RiderImporter::ImportText(const std::string &text) {
           return s + "M";
         };
 
+        auto getWidestLxSpan = [&]() {
+          bool found = false;
+          float minX = 0.0f;
+          float maxX = 0.0f;
+          for (const auto &[existingUuid, existingTruss] : scene.trusses) {
+            (void)existingUuid;
+            if (!IsLxHangName(existingTruss.positionName))
+              continue;
+            const float start = existingTruss.transform.o[0];
+            const float end = start + existingTruss.lengthMm;
+            if (!found) {
+              minX = start;
+              maxX = end;
+              found = true;
+            } else {
+              minX = std::min(minX, start);
+              maxX = std::max(maxX, end);
+            }
+          }
+          if (!found) {
+            minX = -3000.0f;
+            maxX = 3000.0f;
+          }
+          return std::pair<float, float>{minX, maxX};
+        };
+
         auto addTrussPieces = [&](const std::string &posName) {
           auto pieces = SplitTrussSymmetric(length);
           float total = std::accumulate(pieces.begin(), pieces.end(), 0.0f);
+          const bool isLxSides = IsLxSidesHangName(posName);
           float x = -0.5f * total;
+          float yStart = -0.5f * total;
           for (float s : pieces) {
             Truss t;
             t.uuid = GenerateUuid();
@@ -1379,12 +1414,17 @@ bool RiderImporter::ImportText(const std::string &text) {
             t.widthMm = width;
             t.heightMm = height;
             t.positionName = posName;
+            if (isLxSides) {
+              t.transform.u = {0.0f, 1.0f, 0.0f};
+              t.transform.v = {-1.0f, 0.0f, 0.0f};
+              t.transform.w = {0.0f, 0.0f, 1.0f};
+            }
             t.transform.o[0] = x;
-            t.transform.o[1] = getHangPos(posName);
+            t.transform.o[1] = isLxSides ? yStart : getHangPos(posName);
             // Position dummy truss so its base sits at the hang height.
             // Real truss models are inserted from their bottom, so using the
             // raw hang height keeps the base aligned when swapping models.
-            t.transform.o[2] = getHangHeight(posName);
+            t.transform.o[2] = isLxSides ? 5000.0f : getHangHeight(posName);
             std::string sizeStr = formatLength(s);
             if (model.empty())
               t.name = "TRUSS " + sizeStr;
@@ -1433,14 +1473,29 @@ bool RiderImporter::ImportText(const std::string &text) {
             }
             const std::string trussUuid = t.uuid;
             const std::string trussLayer = t.layer;
-            scene.trusses.emplace(trussUuid, std::move(t));
-            importedTrussUuids.push_back(trussUuid);
-            addToLayer(trussLayer, trussUuid);
-            if (posName.rfind("LX", 0) == 0) {
+            if (isLxSides) {
+              const auto [lxStartX, lxEndX] = getWidestLxSpan();
+              const float sideOffset = 500.0f;
+              for (float sideX : {lxStartX - sideOffset, lxEndX + sideOffset}) {
+                Truss sideTruss = t;
+                sideTruss.uuid = GenerateUuid();
+                sideTruss.transform.o[0] = sideX;
+                const std::string sideTrussUuid = sideTruss.uuid;
+                scene.trusses.emplace(sideTrussUuid, std::move(sideTruss));
+                importedTrussUuids.push_back(sideTrussUuid);
+                addToLayer(trussLayer, sideTrussUuid);
+              }
+            } else {
+              scene.trusses.emplace(trussUuid, std::move(t));
+              importedTrussUuids.push_back(trussUuid);
+              addToLayer(trussLayer, trussUuid);
+            }
+            if (IsLxHangName(posName)) {
               lastLightingTrussPosY = getHangPos(posName);
               lastLightingTrussPosZ = getHangHeight(posName);
             }
             x += s;
+            yStart += s;
           }
         };
 
@@ -1539,7 +1594,7 @@ bool RiderImporter::ImportText(const std::string &text) {
           scene.trusses.emplace(trussUuid, std::move(t));
           importedTrussUuids.push_back(trussUuid);
           addToLayer(trussLayer, trussUuid);
-          if (hang.rfind("LX", 0) == 0) {
+          if (IsLxHangName(hang)) {
             lastLightingTrussPosY = getHangPos(hang);
             lastLightingTrussPosZ = getHangHeight(hang);
           }
@@ -1685,7 +1740,36 @@ bool RiderImporter::ImportText(const std::string &text) {
     bool found = false;
   };
   std::unordered_map<std::string, TrussInfo> trussInfo;
+  struct SideTrussInfo {
+    float leftX = -3500.0f;
+    float rightX = 3500.0f;
+    float startY = -2000.0f;
+    float endY = 2000.0f;
+    float z = 1000.0f;
+    bool found = false;
+  };
+  SideTrussInfo sideTrussInfo;
   for (const auto &[uuid, t] : scene.trusses) {
+    (void)uuid;
+    if (IsLxSidesHangName(t.positionName)) {
+      const float sideX = t.transform.o[0];
+      const float startY = t.transform.o[1];
+      const float endY = startY + t.lengthMm;
+      if (!sideTrussInfo.found) {
+        sideTrussInfo.leftX = sideX;
+        sideTrussInfo.rightX = sideX;
+        sideTrussInfo.startY = std::min(startY, endY);
+        sideTrussInfo.endY = std::max(startY, endY);
+        sideTrussInfo.z = t.transform.o[2];
+        sideTrussInfo.found = true;
+      } else {
+        sideTrussInfo.leftX = std::min(sideTrussInfo.leftX, sideX);
+        sideTrussInfo.rightX = std::max(sideTrussInfo.rightX, sideX);
+        sideTrussInfo.startY = std::min(sideTrussInfo.startY, std::min(startY, endY));
+        sideTrussInfo.endY = std::max(sideTrussInfo.endY, std::max(startY, endY));
+      }
+      continue;
+    }
     auto &info = trussInfo[t.positionName];
     float start = t.transform.o[0];
     float end = start + t.lengthMm;
@@ -2023,6 +2107,37 @@ bool RiderImporter::ImportText(const std::string &text) {
   for (auto &[pos, fixturesVec] : fixturesByPos) {
     if (fixturesVec.empty())
       continue;
+    if (IsLxSidesHangName(pos)) {
+      const std::vector<Fixture *> ordered = buildSymmetricOrder(fixturesVec);
+      if (ordered.empty())
+        continue;
+      const int leftCount =
+          static_cast<int>(ordered.size()) / 2 + static_cast<int>(ordered.size()) % 2;
+      const int rightCount = static_cast<int>(ordered.size()) / 2;
+      auto placeSideGroup = [&](int startIndex, int count, float sideX) {
+        if (count <= 0)
+          return;
+        const float startY = sideTrussInfo.found
+                                 ? sideTrussInfo.startY + getHangMargin("LX1")
+                                 : -0.5f * ((count - 1) * 500.0f);
+        const float endY = sideTrussInfo.found
+                               ? sideTrussInfo.endY - getHangMargin("LX1")
+                               : 0.5f * ((count - 1) * 500.0f);
+        const float step = count > 1 ? (endY - startY) / static_cast<float>(count - 1)
+                                     : 0.0f;
+        for (int i = 0; i < count; ++i) {
+          Fixture *fixture = ordered[static_cast<size_t>(startIndex + i)];
+          if (!fixture)
+            continue;
+          fixture->transform.o[0] = sideX;
+          fixture->transform.o[1] = startY + step * static_cast<float>(i);
+          fixture->transform.o[2] = sideTrussInfo.found ? sideTrussInfo.z : 1000.0f;
+        }
+      };
+      placeSideGroup(0, leftCount, sideTrussInfo.leftX);
+      placeSideGroup(leftCount, rightCount, sideTrussInfo.rightX);
+      continue;
+    }
 
     std::vector<Fixture *> bottomFixtures;
     std::vector<Fixture *> topFrontFixtures;
