@@ -1838,6 +1838,15 @@ bool RiderImporter::ImportText(const std::string &text) {
           float x = coordinateOverride && coordinateOverride->hasX
                         ? coordinateOverride->xMm
                         : -0.5f * total;
+          auto formatLength = [](float mm) {
+            std::ostringstream oss;
+            oss << std::fixed << std::setprecision(2) << mm / 1000.0f;
+            std::string s = oss.str();
+            s.erase(s.find_last_not_of('0') + 1, std::string::npos);
+            if (!s.empty() && s.back() == '.')
+              s.pop_back();
+            return s + "M";
+          };
           for (float s : pieces) {
             Truss t;
             t.uuid = GenerateUuid();
@@ -1849,6 +1858,50 @@ bool RiderImporter::ImportText(const std::string &text) {
             t.transform.o[0] = x;
             t.transform.o[1] = hangY;
             t.transform.o[2] = hangZ;
+            const std::string sizeStr = formatLength(s);
+            if (model.empty())
+              t.name = "TRUSS " + sizeStr;
+            else
+              t.name = "TRUSS " + model + " " + sizeStr;
+            t.model = model.empty() ? TrussDictionary::NormalizeModelKey(t.name)
+                                    : TrussDictionary::NormalizeModelKey(model);
+
+            const std::vector<std::string> dictionaryLookupKeys =
+                BuildTrussDictionaryLookupKeys(model, t.name);
+            std::optional<std::string> dictPath;
+            for (const std::string &lookupKey : dictionaryLookupKeys) {
+              if (lookupKey.empty())
+                continue;
+              dictPath = TrussDictionary::Get(lookupKey);
+              if (dictPath)
+                break;
+            }
+            if (dictPath) {
+              Truss parsed;
+              if (LoadTrussDefinition(*dictPath, parsed)) {
+                if (!parsed.symbolFile.empty())
+                  t.symbolFile = parsed.symbolFile;
+                t.modelFile = parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
+                t.gdtfSpec = parsed.gdtfSpec;
+                t.gdtfMode = parsed.gdtfMode;
+                if (!parsed.manufacturer.empty())
+                  t.manufacturer = parsed.manufacturer;
+                if (!parsed.model.empty())
+                  t.model = TrussDictionary::NormalizeModelKey(parsed.model);
+                if (parsed.lengthMm > 0.0f)
+                  t.lengthMm = parsed.lengthMm;
+                if (parsed.widthMm > 0.0f)
+                  t.widthMm = parsed.widthMm;
+                if (parsed.heightMm > 0.0f)
+                  t.heightMm = parsed.heightMm;
+                if (parsed.weightKg > 0.0f)
+                  t.weightKg = parsed.weightKg;
+                if (!parsed.crossSection.empty())
+                  t.crossSection = parsed.crossSection;
+              } else {
+                t.modelFile = *dictPath;
+              }
+            }
             const std::string trussUuid = t.uuid;
             const std::string trussLayer = t.layer;
             scene.trusses.emplace(trussUuid, std::move(t));
