@@ -212,7 +212,8 @@ private:
   void ApplySavedLayout();
   void ApplyLayoutPreset(const LayoutViewPreset &preset,
                          const std::optional<std::string> &perspective,
-                         bool layoutMode, bool persistPerspective);
+                         bool layoutMode, bool persistPerspective,
+                         bool applyDefaultBottomSplit);
   void ApplyLayoutModePerspective();
   void BeginLayout2DViewEdit();
   void UpdateViewMenuChecks();

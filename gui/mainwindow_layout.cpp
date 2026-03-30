@@ -451,8 +451,8 @@ void MainWindow::SetupLayout() {
 
 void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
                                    const std::optional<std::string> &perspective,
-                                   bool layoutMode,
-                                   bool persistPerspective) {
+                                   bool layoutMode, bool persistPerspective,
+                                   bool applyDefaultBottomSplit) {
   if (!auiManager)
     return;
 
@@ -503,7 +503,8 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   applyPaneState(preset.showPanes, true);
   applyPaneState(preset.hidePanes, false);
 
-  ApplyBottomPaneWidthBias(auiManager);
+  if (applyDefaultBottomSplit)
+    ApplyBottomPaneWidthBias(auiManager);
   auiManager->Update();
 
   layoutModeActive = layoutMode;
@@ -561,10 +562,10 @@ void MainWindow::ApplySavedLayout() {
   const bool savedLayoutMode = preset && preset->name == "layout_mode_view";
   bool usedSavedPerspective = false;
   if (preset && perspective) {
-    ApplyLayoutPreset(*preset, perspective, savedLayoutMode, false);
+    ApplyLayoutPreset(*preset, perspective, savedLayoutMode, false, false);
     usedSavedPerspective = true;
   } else if (preset) {
-    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false);
+    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false, false);
   }
 
   if (preset && usedSavedPerspective &&
@@ -572,7 +573,7 @@ void MainWindow::ApplySavedLayout() {
     Logger::Instance().Log(
         "Saved layout perspective is incompatible with preset '" +
         preset->name + "'; falling back to default layout.");
-    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false);
+    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false, false);
     cfg.RemoveKey("layout_perspective");
     cfg.SaveUserConfig();
   }
@@ -590,7 +591,6 @@ void MainWindow::ApplySavedLayout() {
   if (view2dPane.IsOk())
     view2dPane.MinSize(wxSize(250, 600));
 
-  ApplyBottomPaneWidthBias(auiManager);
   auiManager->Update();
   SendSizeEvent();
   UpdateViewMenuChecks();
@@ -627,10 +627,10 @@ void MainWindow::ApplyLayoutModePerspective() {
   }
 
   if (defaultLayoutModePerspective.empty())
-    ApplyLayoutPreset(*preset, std::nullopt, true, true);
+    ApplyLayoutPreset(*preset, std::nullopt, true, true, false);
   else
     ApplyLayoutPreset(*preset, std::make_optional(defaultLayoutModePerspective),
-                      true, true);
+                      true, true, false);
 }
 
 void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
@@ -644,7 +644,7 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
   if (!preset)
     return;
   ApplyLayoutPreset(*preset, std::make_optional(defaultLayoutPerspective),
-                    false, true);
+                    false, true, true);
 }
 
 void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
@@ -658,7 +658,7 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
   if (!preset)
     return;
   ApplyLayoutPreset(*preset, std::make_optional(default2DLayoutPerspective),
-                    false, true);
+                    false, true, true);
 }
 
 void MainWindow::OnApplyLayoutModeLayout(wxCommandEvent &WXUNUSED(event)) {
