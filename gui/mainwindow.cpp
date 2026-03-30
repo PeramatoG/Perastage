@@ -330,33 +330,6 @@ MainWindow::~MainWindow() {
   ProjectUtils::SaveLastProjectPath(currentProjectPath);
 }
 
-namespace {
-void ApplyDefaultBottomPaneSplit(wxAuiManager *manager) {
-  if (!manager)
-    return;
-
-  auto &consolePane = manager->GetPane("Console");
-  if (consolePane.IsOk()) {
-    consolePane.Bottom()
-        .Layer(1)
-        .Row(0)
-        .Position(0)
-        .DockProportion(40)
-        .BestSize(400, 150);
-  }
-
-  auto &riggingPane = manager->GetPane("RiggingPanel");
-  if (riggingPane.IsOk()) {
-    riggingPane.Bottom()
-        .Layer(1)
-        .Row(0)
-        .Position(1)
-        .DockProportion(60)
-        .BestSize(600, 200);
-  }
-}
-} // namespace
-
 void MainWindow::Ensure3DViewport() {
   if (viewportPanel)
     return;
@@ -377,8 +350,6 @@ void MainWindow::Ensure3DViewport() {
                                          .MaximizeButton(true));
   auiManager->Update();
   if (defaultLayoutPerspective.empty()) {
-    ApplyDefaultBottomPaneSplit(auiManager);
-    auiManager->Update();
     defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
   }
 }
@@ -447,7 +418,6 @@ void MainWindow::Ensure2DViewport() {
     pane3d.Hide();
     pane2d.Show();
     paneRender.Show();
-    ApplyDefaultBottomPaneSplit(auiManager);
     auiManager->Update();
     default2DLayoutPerspective = auiManager->SavePerspective().ToStdString();
 

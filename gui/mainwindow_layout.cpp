@@ -45,38 +45,6 @@
 #include "LayoutManager.h"
 
 namespace {
-constexpr int kConsoleDefaultWidth = 400;
-constexpr int kConsoleDefaultHeight = 150;
-constexpr int kRiggingDefaultWidth = 600;
-constexpr int kRiggingDefaultHeight = 200;
-constexpr int kConsoleDockProportion = 40;
-constexpr int kRiggingDockProportion = 60;
-
-void ApplyBottomPaneWidthBias(wxAuiManager *manager) {
-  if (!manager)
-    return;
-
-  auto &consolePane = manager->GetPane("Console");
-  if (consolePane.IsOk()) {
-    consolePane.Bottom()
-        .Layer(1)
-        .Row(0)
-        .Position(0)
-        .DockProportion(kConsoleDockProportion)
-        .BestSize(kConsoleDefaultWidth, kConsoleDefaultHeight);
-  }
-
-  auto &riggingPane = manager->GetPane("RiggingPanel");
-  if (riggingPane.IsOk()) {
-    riggingPane.Bottom()
-        .Layer(1)
-        .Row(0)
-        .Position(1)
-        .DockProportion(kRiggingDockProportion)
-        .BestSize(kRiggingDefaultWidth, kRiggingDefaultHeight);
-  }
-}
-
 layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(
     const layouts::LayoutDefinition &layout) {
   constexpr double kFrameScale = 0.6;
@@ -347,9 +315,7 @@ void MainWindow::SetupLayout() {
                                         .Layer(1)
                                         .Row(0)
                                         .Position(0)
-                                        .DockProportion(kConsoleDockProportion)
-                                        .BestSize(kConsoleDefaultWidth,
-                                                  kConsoleDefaultHeight)
+                                        .BestSize(400, 150)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
@@ -420,9 +386,7 @@ void MainWindow::SetupLayout() {
                                         .Layer(1)
                                         .Row(0)
                                         .Position(1)
-                                        .DockProportion(kRiggingDockProportion)
-                                        .BestSize(kRiggingDefaultWidth,
-                                                  kRiggingDefaultHeight)
+                                        .BestSize(600, 200)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
@@ -457,8 +421,8 @@ void MainWindow::SetupLayout() {
 
 void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
                                    const std::optional<std::string> &perspective,
-                                   bool layoutMode, bool persistPerspective,
-                                   bool applyDefaultBottomSplit) {
+                                   bool layoutMode,
+                                   bool persistPerspective) {
   if (!auiManager)
     return;
 
@@ -509,8 +473,6 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   applyPaneState(preset.showPanes, true);
   applyPaneState(preset.hidePanes, false);
 
-  if (applyDefaultBottomSplit)
-    ApplyBottomPaneWidthBias(auiManager);
   auiManager->Update();
 
   layoutModeActive = layoutMode;
@@ -568,10 +530,10 @@ void MainWindow::ApplySavedLayout() {
   const bool savedLayoutMode = preset && preset->name == "layout_mode_view";
   bool usedSavedPerspective = false;
   if (preset && perspective) {
-    ApplyLayoutPreset(*preset, perspective, savedLayoutMode, false, false);
+    ApplyLayoutPreset(*preset, perspective, savedLayoutMode, false);
     usedSavedPerspective = true;
   } else if (preset) {
-    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false, false);
+    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false);
   }
 
   if (preset && usedSavedPerspective &&
@@ -579,7 +541,7 @@ void MainWindow::ApplySavedLayout() {
     Logger::Instance().Log(
         "Saved layout perspective is incompatible with preset '" +
         preset->name + "'; falling back to default layout.");
-    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false, false);
+    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false);
     cfg.RemoveKey("layout_perspective");
     cfg.SaveUserConfig();
   }
@@ -633,10 +595,10 @@ void MainWindow::ApplyLayoutModePerspective() {
   }
 
   if (defaultLayoutModePerspective.empty())
-    ApplyLayoutPreset(*preset, std::nullopt, true, true, false);
+    ApplyLayoutPreset(*preset, std::nullopt, true, true);
   else
     ApplyLayoutPreset(*preset, std::make_optional(defaultLayoutModePerspective),
-                      true, true, false);
+                      true, true);
 }
 
 void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
@@ -650,7 +612,14 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
   if (!preset)
     return;
   ApplyLayoutPreset(*preset, std::make_optional(defaultLayoutPerspective),
-                    false, true, true);
+                    false, true);
+  auto &consolePane = auiManager->GetPane("Console");
+  if (consolePane.IsOk())
+    consolePane.Bottom().Layer(1).Row(0).Position(0).BestSize(400, 150);
+  auto &riggingPane = auiManager->GetPane("RiggingPanel");
+  if (riggingPane.IsOk())
+    riggingPane.Bottom().Layer(1).Row(0).Position(1).BestSize(600, 200);
+  auiManager->Update();
 }
 
 void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
@@ -664,7 +633,14 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
   if (!preset)
     return;
   ApplyLayoutPreset(*preset, std::make_optional(default2DLayoutPerspective),
-                    false, true, true);
+                    false, true);
+  auto &consolePane = auiManager->GetPane("Console");
+  if (consolePane.IsOk())
+    consolePane.Bottom().Layer(1).Row(0).Position(0).BestSize(400, 150);
+  auto &riggingPane = auiManager->GetPane("RiggingPanel");
+  if (riggingPane.IsOk())
+    riggingPane.Bottom().Layer(1).Row(0).Position(1).BestSize(600, 200);
+  auiManager->Update();
 }
 
 void MainWindow::OnApplyLayoutModeLayout(wxCommandEvent &WXUNUSED(event)) {
