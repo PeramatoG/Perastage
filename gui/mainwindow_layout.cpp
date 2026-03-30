@@ -158,27 +158,11 @@ void OverridePaneProportion(std::string &perspective, const std::string &paneNam
 std::string ApplyBottomPaneProportionsToPerspective(
     const std::string &perspective) {
   std::string adjusted = perspective;
-  OverridePaneProportion(adjusted, "Console", "35000");
-  OverridePaneProportion(adjusted, "RiggingPanel", "65000");
+  OverridePaneProportion(adjusted, "Console", "45000");
+  OverridePaneProportion(adjusted, "RiggingPanel", "55000");
   return adjusted;
 }
 
-void ApplyBottomPaneWidthHints(wxAuiManager *manager) {
-  if (!manager)
-    return;
-
-  auto &consolePane = manager->GetPane("Console");
-  if (consolePane.IsOk()) {
-    consolePane.BestSize(420, 150);
-    consolePane.MinSize(wxSize(260, 120));
-  }
-
-  auto &riggingPane = manager->GetPane("RiggingPanel");
-  if (riggingPane.IsOk()) {
-    riggingPane.BestSize(720, 200);
-    riggingPane.MinSize(wxSize(500, 200));
-  }
-}
 
 layouts::Layout2DViewFrame BuildDefaultLayoutLegendFrame(
     const layouts::LayoutDefinition &layout) {
@@ -366,10 +350,7 @@ void MainWindow::SetupLayout() {
                                         .Caption("Console")
                                         .Bottom()
                                         .Layer(1)
-                                        .Row(0)
-                                        .Position(0)
-                                        .BestSize(420, 150)
-                                        .MinSize(wxSize(260, 120))
+                                        .BestSize(-1, 150)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
@@ -530,7 +511,6 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
 
   applyPaneState(preset.showPanes, true);
   applyPaneState(preset.hidePanes, false);
-  ApplyBottomPaneWidthHints(auiManager);
 
   auiManager->Update();
 
@@ -618,7 +598,6 @@ void MainWindow::ApplySavedLayout() {
   if (view2dPane.IsOk())
     view2dPane.MinSize(wxSize(250, 600));
 
-  ApplyBottomPaneWidthHints(auiManager);
 
   auiManager->Update();
   SendSizeEvent();

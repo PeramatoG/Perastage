@@ -350,21 +350,6 @@ void MainWindow::Ensure3DViewport() {
                                          .MaximizeButton(true));
   auiManager->Update();
 
-  auto &consolePane = auiManager->GetPane("Console");
-  if (consolePane.IsOk()) {
-    consolePane.Bottom().Layer(1).Row(0).Position(0);
-    consolePane.BestSize(420, 150);
-    consolePane.MinSize(wxSize(260, 120));
-  }
-
-  auto &riggingPane = auiManager->GetPane("RiggingPanel");
-  if (riggingPane.IsOk()) {
-    riggingPane.Bottom().Layer(1).Row(0).Position(1);
-    riggingPane.BestSize(720, 200);
-    riggingPane.MinSize(wxSize(500, 200));
-  }
-  auiManager->Update();
-
   if (defaultLayoutPerspective.empty()) {
     defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
   }
@@ -418,8 +403,6 @@ void MainWindow::Ensure2DViewport() {
     auto &paneRender = auiManager->GetPane("2DRenderOptions");
     auto &paneLayers = auiManager->GetPane("LayerPanel");
     auto &paneSummary = auiManager->GetPane("SummaryPanel");
-    auto &paneConsole = auiManager->GetPane("Console");
-    auto &paneRigging = auiManager->GetPane("RiggingPanel");
 
     // 2D default: keep Layers/Summary in the outer right column and place
     // Render Options in the inner right column between viewport and side column.
@@ -431,16 +414,6 @@ void MainWindow::Ensure2DViewport() {
     }
     if (paneRender.IsOk()) {
       paneRender.Right().Layer(0).Row(0).Position(0);
-    }
-    if (paneConsole.IsOk()) {
-      paneConsole.Bottom().Layer(1).Row(0).Position(0);
-      paneConsole.BestSize(420, 150);
-      paneConsole.MinSize(wxSize(260, 120));
-    }
-    if (paneRigging.IsOk()) {
-      paneRigging.Bottom().Layer(1).Row(0).Position(1);
-      paneRigging.BestSize(720, 200);
-      paneRigging.MinSize(wxSize(500, 200));
     }
 
     pane3d.Hide();
