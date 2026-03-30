@@ -252,7 +252,8 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     it->second = next;
     if (!next.typeName.empty() && !next.category.empty() &&
         next.categorySource == GdtfFixtureCategory::kManualSource) {
-      GdtfDictionary::UpdateCategory(next.typeName, next.category);
+      GdtfDictionary::UpdateCategoryForFile(next.typeName, next.gdtfSpec,
+                                            next.category);
     }
     if (!it->second.position.empty())
       scene.positions[it->second.position] = it->second.positionName;
