@@ -16,30 +16,8 @@
 
 #include <algorithm>
 #include <cmath>
-#include <unordered_map>
 
 namespace {
-struct EdgeKey {
-  unsigned short a = 0;
-  unsigned short b = 0;
-
-  bool operator==(const EdgeKey &other) const {
-    return a == other.a && b == other.b;
-  }
-};
-
-struct EdgeKeyHash {
-  size_t operator()(const EdgeKey &key) const {
-    return (static_cast<size_t>(key.a) << 16u) ^ static_cast<size_t>(key.b);
-  }
-};
-
-struct EdgeInfo {
-  int count = 0;
-  std::array<float, 3> firstFaceNormal = {0.0f, 0.0f, 0.0f};
-  std::array<float, 3> secondFaceNormal = {0.0f, 0.0f, 0.0f};
-};
-
 struct InkColor {
   float r = 1.0f;
   float g = 1.0f;
@@ -65,82 +43,6 @@ std::array<float, 3> NormalizeVector(float x, float y, float z) {
   if (length <= 1e-6f)
     return {0.0f, 0.0f, 1.0f};
   return {x / length, y / length, z / length};
-}
-
-std::array<float, 3> BuildFaceNormal(const std::vector<float> &vertices,
-                                     unsigned short i0, unsigned short i1,
-                                     unsigned short i2) {
-  const size_t p0 = static_cast<size_t>(i0) * 3u;
-  const size_t p1 = static_cast<size_t>(i1) * 3u;
-  const size_t p2 = static_cast<size_t>(i2) * 3u;
-  if (p0 + 2 >= vertices.size() || p1 + 2 >= vertices.size() ||
-      p2 + 2 >= vertices.size())
-    return {0.0f, 0.0f, 0.0f};
-
-  const float ax = vertices[p1] - vertices[p0];
-  const float ay = vertices[p1 + 1] - vertices[p0 + 1];
-  const float az = vertices[p1 + 2] - vertices[p0 + 2];
-  const float bx = vertices[p2] - vertices[p0];
-  const float by = vertices[p2 + 1] - vertices[p0 + 1];
-  const float bz = vertices[p2 + 2] - vertices[p0 + 2];
-
-  return NormalizeVector(ay * bz - az * by, az * bx - ax * bz,
-                         ax * by - ay * bx);
-}
-
-std::vector<unsigned short>
-BuildCreasedWireframeIndices(const std::vector<float> &vertices,
-                             const std::vector<unsigned short> &triangleIndices) {
-  static constexpr float kCreaseAngleDeg = 5.0f;
-  static constexpr float kPi = 3.14159265358979323846f;
-  const float creaseDotThreshold = std::cos(kCreaseAngleDeg * kPi / 180.0f);
-
-  std::unordered_map<EdgeKey, EdgeInfo, EdgeKeyHash> edges;
-  edges.reserve(triangleIndices.size());
-
-  auto registerEdge = [&](unsigned short i, unsigned short j,
-                          const std::array<float, 3> &faceNormal) {
-    const EdgeKey key = {std::min(i, j), std::max(i, j)};
-    EdgeInfo &info = edges[key];
-    ++info.count;
-    if (info.count == 1)
-      info.firstFaceNormal = faceNormal;
-    else if (info.count == 2)
-      info.secondFaceNormal = faceNormal;
-  };
-
-  for (size_t i = 0; i + 2 < triangleIndices.size(); i += 3) {
-    const unsigned short i0 = triangleIndices[i];
-    const unsigned short i1 = triangleIndices[i + 1];
-    const unsigned short i2 = triangleIndices[i + 2];
-    const std::array<float, 3> faceNormal =
-        BuildFaceNormal(vertices, i0, i1, i2);
-
-    registerEdge(i0, i1, faceNormal);
-    registerEdge(i1, i2, faceNormal);
-    registerEdge(i2, i0, faceNormal);
-  }
-
-  std::vector<unsigned short> lineIndices;
-  lineIndices.reserve(edges.size() * 2u);
-  for (const auto &[edge, info] : edges) {
-    if (info.count == 1) {
-      lineIndices.push_back(edge.a);
-      lineIndices.push_back(edge.b);
-      continue;
-    }
-    if (info.count == 2) {
-      const float dot = info.firstFaceNormal[0] * info.secondFaceNormal[0] +
-                        info.firstFaceNormal[1] * info.secondFaceNormal[1] +
-                        info.firstFaceNormal[2] * info.secondFaceNormal[2];
-      if (dot < creaseDotThreshold) {
-        lineIndices.push_back(edge.a);
-        lineIndices.push_back(edge.b);
-      }
-    }
-  }
-
-  return lineIndices;
 }
 
 std::array<float, 3> TransformNormal(const std::array<float, 3> &n,
@@ -419,18 +321,26 @@ void SceneRenderer::DrawMeshWireframe(
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glPopMatrix();
   } else if (!m_controller.IsCaptureOnly()) {
-    const std::vector<unsigned short> lineIndices =
-        BuildCreasedWireframeIndices(mesh.vertices, mesh.indices);
     glBegin(GL_LINES);
-    for (size_t i = 0; i + 1 < lineIndices.size(); i += 2) {
-      const unsigned short i0 = lineIndices[i];
-      const unsigned short i1 = lineIndices[i + 1];
-      glVertex3f(mesh.vertices[i0 * 3] * scale,
-                 mesh.vertices[i0 * 3 + 1] * scale,
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+      const unsigned short i0 = mesh.indices[i];
+      const unsigned short i1 = mesh.indices[i + 1];
+      const unsigned short i2 = mesh.indices[i + 2];
+
+      glVertex3f(mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
                  mesh.vertices[i0 * 3 + 2] * scale);
-      glVertex3f(mesh.vertices[i1 * 3] * scale,
-                 mesh.vertices[i1 * 3 + 1] * scale,
+      glVertex3f(mesh.vertices[i1 * 3] * scale, mesh.vertices[i1 * 3 + 1] * scale,
                  mesh.vertices[i1 * 3 + 2] * scale);
+
+      glVertex3f(mesh.vertices[i1 * 3] * scale, mesh.vertices[i1 * 3 + 1] * scale,
+                 mesh.vertices[i1 * 3 + 2] * scale);
+      glVertex3f(mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
+                 mesh.vertices[i2 * 3 + 2] * scale);
+
+      glVertex3f(mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
+                 mesh.vertices[i2 * 3 + 2] * scale);
+      glVertex3f(mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
+                 mesh.vertices[i0 * 3 + 2] * scale);
     }
     glEnd();
   }
