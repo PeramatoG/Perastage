@@ -1025,8 +1025,8 @@ void Viewer2DPanel::ApplySelectionDelta(
   auto &scene = cfg.GetScene();
   std::lock_guard<std::mutex> sceneLock(m_dragTableUpdateSceneMutex);
 
-  auto applyDelta = [&](auto &items) {
-    for (const auto &uuid : m_dragSelectionUuids) {
+  auto applyDelta = [&](const auto &uuids, auto &items) {
+    for (const auto &uuid : uuids) {
       auto it = items.find(uuid);
       if (it == items.end())
         continue;
@@ -1036,62 +1036,35 @@ void Viewer2DPanel::ApplySelectionDelta(
     }
   };
 
-  switch (m_dragTarget) {
-  case DragTarget::Fixtures:
-    applyDelta(scene.fixtures);
-    ScheduleDragTableUpdate();
-    break;
-  case DragTarget::Trusses:
-    applyDelta(scene.trusses);
-    ScheduleDragTableUpdate();
-    break;
-  case DragTarget::Supports:
-    applyDelta(scene.supports);
-    ScheduleDragTableUpdate();
-    break;
-  case DragTarget::SceneObjects:
-    applyDelta(scene.sceneObjects);
-    ScheduleDragTableUpdate();
-    break;
-  default:
-    break;
-  }
+  applyDelta(m_dragFixtureUuids, scene.fixtures);
+  applyDelta(m_dragTrussUuids, scene.trusses);
+  applyDelta(m_dragSupportUuids, scene.supports);
+  applyDelta(m_dragSceneObjectUuids, scene.sceneObjects);
+  ScheduleDragTableUpdate();
 }
 
 void Viewer2DPanel::FinalizeSelectionDrag() {
   StopDragTableUpdates();
   ConfigManager &cfg = ConfigManager::Get();
-  switch (m_dragTarget) {
-  case DragTarget::Fixtures:
-    if (FixtureTablePanel::Instance()) {
-      auto selection = cfg.GetSelectedFixtures();
-      FixtureTablePanel::Instance()->ReloadData();
-      FixtureTablePanel::Instance()->SelectByUuid(selection);
-    }
-    break;
-  case DragTarget::Trusses:
-    if (TrussTablePanel::Instance()) {
-      auto selection = cfg.GetSelectedTrusses();
-      TrussTablePanel::Instance()->ReloadData();
-      TrussTablePanel::Instance()->SelectByUuid(selection);
-    }
-    break;
-  case DragTarget::Supports:
-    if (HoistTablePanel::Instance()) {
-      auto selection = cfg.GetSelectedSupports();
-      HoistTablePanel::Instance()->ReloadData();
-      HoistTablePanel::Instance()->SelectByUuid(selection);
-    }
-    break;
-  case DragTarget::SceneObjects:
-    if (SceneObjectTablePanel::Instance()) {
-      auto selection = cfg.GetSelectedSceneObjects();
-      SceneObjectTablePanel::Instance()->ReloadData();
-      SceneObjectTablePanel::Instance()->SelectByUuid(selection);
-    }
-    break;
-  default:
-    break;
+  if (!m_dragFixtureUuids.empty() && FixtureTablePanel::Instance()) {
+    auto selection = cfg.GetSelectedFixtures();
+    FixtureTablePanel::Instance()->ReloadData();
+    FixtureTablePanel::Instance()->SelectByUuid(selection);
+  }
+  if (!m_dragTrussUuids.empty() && TrussTablePanel::Instance()) {
+    auto selection = cfg.GetSelectedTrusses();
+    TrussTablePanel::Instance()->ReloadData();
+    TrussTablePanel::Instance()->SelectByUuid(selection);
+  }
+  if (!m_dragSupportUuids.empty() && HoistTablePanel::Instance()) {
+    auto selection = cfg.GetSelectedSupports();
+    HoistTablePanel::Instance()->ReloadData();
+    HoistTablePanel::Instance()->SelectByUuid(selection);
+  }
+  if (!m_dragSceneObjectUuids.empty() && SceneObjectTablePanel::Instance()) {
+    auto selection = cfg.GetSelectedSceneObjects();
+    SceneObjectTablePanel::Instance()->ReloadData();
+    SceneObjectTablePanel::Instance()->SelectByUuid(selection);
   }
 
   if (!ShouldPauseHeavyTasks())
@@ -1504,6 +1477,10 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     m_dragAxis = DragAxis::None;
     m_dragTarget = DragTarget::None;
     m_dragSelectionUuids.clear();
+    m_dragFixtureUuids.clear();
+    m_dragTrussUuids.clear();
+    m_dragSupportUuids.clear();
+    m_dragSceneObjectUuids.clear();
     m_dragSelectionMoved = false;
     m_dragSelectionPushedUndo = false;
     m_rectSelectionAcrossAllTables = false;
@@ -1577,10 +1554,39 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
       }
 
       auto it = std::find(selection.begin(), selection.end(), uuid);
-      if (selection.size() > 1 || it != selection.end())
+      const bool dragCurrentSelection = it != selection.end();
+      if (selection.size() > 1 || dragCurrentSelection)
         m_dragSelectionUuids = selection;
       else
         m_dragSelectionUuids = {uuid};
+
+      if (dragCurrentSelection) {
+        m_dragFixtureUuids = cfg.GetSelectedFixtures();
+        m_dragTrussUuids = cfg.GetSelectedTrusses();
+        m_dragSupportUuids = cfg.GetSelectedSupports();
+        m_dragSceneObjectUuids = cfg.GetSelectedSceneObjects();
+      } else {
+        m_dragFixtureUuids.clear();
+        m_dragTrussUuids.clear();
+        m_dragSupportUuids.clear();
+        m_dragSceneObjectUuids.clear();
+        switch (target) {
+        case DragTarget::Fixtures:
+          m_dragFixtureUuids = {uuid};
+          break;
+        case DragTarget::Trusses:
+          m_dragTrussUuids = {uuid};
+          break;
+        case DragTarget::Supports:
+          m_dragSupportUuids = {uuid};
+          break;
+        case DragTarget::SceneObjects:
+          m_dragSceneObjectUuids = {uuid};
+          break;
+        default:
+          break;
+        }
+      }
 
       m_dragMode = DragMode::Selection;
       m_dragTarget = target;
@@ -1639,6 +1645,10 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     m_dragAxis = DragAxis::None;
     m_dragTarget = DragTarget::None;
     m_dragSelectionUuids.clear();
+    m_dragFixtureUuids.clear();
+    m_dragTrussUuids.clear();
+    m_dragSupportUuids.clear();
+    m_dragSceneObjectUuids.clear();
     m_dragSelectionMoved = false;
     m_draggedSincePress = false;
     Refresh();
@@ -1654,6 +1664,10 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     m_dragAxis = DragAxis::None;
     m_dragTarget = DragTarget::None;
     m_dragSelectionUuids.clear();
+    m_dragFixtureUuids.clear();
+    m_dragTrussUuids.clear();
+    m_dragSupportUuids.clear();
+    m_dragSceneObjectUuids.clear();
     m_dragSelectionMoved = false;
   }
 
@@ -1945,6 +1959,10 @@ void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
   m_dragAxis = DragAxis::None;
   m_dragTarget = DragTarget::None;
   m_dragSelectionUuids.clear();
+  m_dragFixtureUuids.clear();
+  m_dragTrussUuids.clear();
+  m_dragSupportUuids.clear();
+  m_dragSceneObjectUuids.clear();
   m_dragSelectionMoved = false;
   m_rectSelecting = false;
   m_rectSelectionAcrossAllTables = false;
