@@ -95,6 +95,9 @@ Recognized hang labels:
 Behavior:
 
 - Hang labels are normalized to uppercase (`LX1`, `FLOOR`, ...).
+- Fixture hang headers can include extra descriptive suffix text before `:`
+  (for example `CALLES EN LAYHER:`), while still keeping the detected hang
+  alias (`CALLES` -> `LX SIDES`).
 - Floor aliases (`floor`, `efecto(s)`, `calle(s) a suelo`, `ground lane(s)`)
   are normalized to `FLOOR`.
 - Side-position aliases (`calle(s)`, `side(s)`) are normalized to `LX SIDES`.

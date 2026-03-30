@@ -70,20 +70,26 @@ int main() {
   cfg.Reset();
   const std::string withoutSideTruss =
       "ILUMINACION\n"
-      "CALLES:\n"
+      "LX3:\n"
+      "2 SPOT\n"
+      "CALLES EN LAYHER:\n"
       "4 PAR\n";
   assert(RiderImporter::ImportText(withoutSideTruss));
   const auto &sceneNoTruss = cfg.GetScene();
 
   int noTrussFixtureCount = 0;
+  int lx3FixtureCount = 0;
   for (const auto &[uuid, fixture] : sceneNoTruss.fixtures) {
     (void)uuid;
     if (fixture.positionName != "LX SIDES")
-      continue;
-    ++noTrussFixtureCount;
-    assert(NearlyEqual(fixture.transform.o[2], 1000.0f));
+      ++lx3FixtureCount;
+    else {
+      ++noTrussFixtureCount;
+      assert(NearlyEqual(fixture.transform.o[2], 1000.0f));
+    }
   }
   assert(noTrussFixtureCount == 4);
+  assert(lx3FixtureCount == 2);
 
   return 0;
 }

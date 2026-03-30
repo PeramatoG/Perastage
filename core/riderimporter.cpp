@@ -78,6 +78,9 @@ static const std::regex kQuantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
 static const std::regex kHangLineRe(
     "^\\s*(LX\\d+|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*:?\\s*$",
     std::regex::icase);
+static const std::regex kHangHeaderWithSuffixRe(
+    "^\\s*(LX\\d+|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s+[^:]*)?\\s*:\\s*$",
+    std::regex::icase);
 static const std::regex kHangFindRe(
     "(LX\\d+|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)",
                                     std::regex::icase);
@@ -884,7 +887,8 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
 
     std::smatch m;
     std::smatch hm;
-    if (std::regex_match(line, hm, kHangLineRe)) {
+    if (std::regex_match(line, hm, kHangLineRe) ||
+        std::regex_match(line, hm, kHangHeaderWithSuffixRe)) {
       havePending = false;
       std::string captured = hm[1];
       if (IsFloorAlias(captured)) {
