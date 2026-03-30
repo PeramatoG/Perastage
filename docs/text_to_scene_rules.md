@@ -348,6 +348,8 @@ After parsing, imported fixtures are distributed per hang:
 9. `Smoke` fixture distribution (all non-`LX SIDES` hangs):
    - `Smoke` fixtures are split into two symmetric groups (left/right side),
      distributed along `Y` using side-truss extents when available.
+   - Without side trusses, each side uses fallback `Y = 1.0 m` with `500 mm`
+     spacing moving upstage (same side-style fallback spacing).
    - `Z` is forced to floor (`0 mm`).
    - `X` anchors:
      - with real side trusses: same side-truss anchors as `LX SIDES`,

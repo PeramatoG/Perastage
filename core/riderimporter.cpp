@@ -2616,7 +2616,7 @@ bool RiderImporter::ImportText(const std::string &text) {
 
   auto placeFixturesAsSides = [&](const std::vector<Fixture *> &ordered,
                                   float leftX, float rightX, float startY,
-                                  float endY, float z) {
+                                  float endY, bool hasSideSpan, float z) {
     if (ordered.empty())
       return;
     const int leftCount =
@@ -2626,7 +2626,10 @@ bool RiderImporter::ImportText(const std::string &text) {
                               const std::function<Fixture *(int)> &pickFixture) {
       if (count <= 0)
         return;
-      const float step = count > 1 ? (endY - startY) / static_cast<float>(count - 1)
+      const float effectiveEndY =
+          hasSideSpan ? endY : startY + static_cast<float>(count - 1) * 500.0f;
+      const float step =
+          count > 1 ? (effectiveEndY - startY) / static_cast<float>(count - 1)
                                    : 0.0f;
       for (int i = 0; i < count; ++i) {
         Fixture *fixture = pickFixture(i);
@@ -2688,7 +2691,8 @@ bool RiderImporter::ImportText(const std::string &text) {
       const float endY = sideTrussInfo.found ? sideTrussInfo.endY - getHangMargin("LX1")
                                              : startY;
       placeFixturesAsSides(ordered, sideTrussInfo.leftX, sideTrussInfo.rightX, startY,
-                           endY, sideTrussInfo.found ? sideTrussInfo.z : 1000.0f);
+                           endY, sideTrussInfo.found,
+                           sideTrussInfo.found ? sideTrussInfo.z : 1000.0f);
       continue;
     }
 
@@ -2713,7 +2717,7 @@ bool RiderImporter::ImportText(const std::string &text) {
 
     const std::vector<Fixture *> orderedSmoke = buildSymmetricOrder(smokeFixtures);
     placeFixturesAsSides(orderedSmoke, smokeLeftX, smokeRightX, smokeStartY, smokeEndY,
-                         0.0f);
+                         sideTrussInfo.found, 0.0f);
 
     placeFixtureGroup(pos, bottomFixtures,
                       [&](Fixture &fixture, float x, float baseY, float baseZ,
