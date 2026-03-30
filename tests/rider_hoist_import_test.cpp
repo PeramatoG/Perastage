@@ -108,8 +108,8 @@ int main() {
   assert(nameCounts["SCR 2"] == 1);
   assert(nameCounts["SCR 3"] == 1);
   assert(nameCounts["SCR 4"] == 1);
-  assert(nameCounts["RP 1"] == 1);
-  assert(nameCounts["RP 2"] == 1);
+  assert(nameCounts["BACKDROP 1"] == 1);
+  assert(nameCounts["BACKDROP 2"] == 1);
   assert(nameCounts["SF L"] == 1);
   assert(nameCounts["SF R"] == 1);
   assert(nameCounts["PA L 1"] == 1);

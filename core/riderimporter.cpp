@@ -552,6 +552,7 @@ void AssignImportedHoistNames(std::vector<Support *> &supports) {
 
   std::map<std::string, std::vector<Support *>> lxByPosition;
   std::vector<Support *> screenSupports;
+  std::vector<Support *> backdropSupports;
   std::vector<Support *> sidefillSupports;
   std::vector<Support *> paSupports;
   std::vector<Support *> otherSupports;
@@ -564,6 +565,8 @@ void AssignImportedHoistNames(std::vector<Support *> &supports) {
       lxByPosition[position].push_back(support);
     } else if (position == "SCREEN") {
       screenSupports.push_back(support);
+    } else if (position == "BACKDROP") {
+      backdropSupports.push_back(support);
     } else if (position == "SIDEFILL") {
       sidefillSupports.push_back(support);
     } else if (position == "PA" || position == "P.A.") {
@@ -590,6 +593,13 @@ void AssignImportedHoistNames(std::vector<Support *> &supports) {
   for (size_t i = 0; i < screenSupports.size(); ++i) {
     Support *support = screenSupports[i];
     support->name = "SCR " + std::to_string(i + 1);
+    support->motorName = support->name;
+  }
+
+  std::sort(backdropSupports.begin(), backdropSupports.end(), sortByX);
+  for (size_t i = 0; i < backdropSupports.size(); ++i) {
+    Support *support = backdropSupports[i];
+    support->name = "BACKDROP " + std::to_string(i + 1);
     support->motorName = support->name;
   }
 

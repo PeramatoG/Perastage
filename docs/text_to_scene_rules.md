@@ -269,6 +269,7 @@ Created hoists:
 - Hoist naming defaults (ordered left-to-right on `X`):
   - `LX*` targets => `<position> <index>` (`LX1 1`, `LX1 2`, ...).
   - `SCREEN`/video targets => `SCR <index>`.
+  - `BACKDROP` targets => `BACKDROP <index>`.
   - `SIDEFILL` => `SF L`, `SF R` (adds index when side has more than one hoist).
   - `PA`/`P.A.` => `PA L <index>`, `PA R <index>`.
   - Fallback targets => `RP <index>` (Rigging Point).
