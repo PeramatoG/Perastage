@@ -191,6 +191,10 @@ private:
   DragAxis m_dragAxis = DragAxis::None;
   DragTarget m_dragTarget = DragTarget::None;
   std::vector<std::string> m_dragSelectionUuids;
+  std::vector<std::string> m_dragFixtureUuids;
+  std::vector<std::string> m_dragTrussUuids;
+  std::vector<std::string> m_dragSupportUuids;
+  std::vector<std::string> m_dragSceneObjectUuids;
   bool m_dragSelectionMoved = false;
   bool m_dragSelectionPushedUndo = false;
   bool m_draggedSincePress = false;
