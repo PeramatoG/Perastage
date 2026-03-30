@@ -30,6 +30,33 @@ LineRenderProfile GetLineRenderProfile(bool isInteracting, bool wireframeMode,
     return {1.0f, false};
   return {wireframeMode ? 1.0f : 2.0f, true};
 }
+
+void ApplyWhiteModelEdgePassStyle(IRenderContext &controller, bool highlight,
+                                  bool selected, float lineWidth,
+                                  bool enableLineSmoothing) {
+  if (highlight)
+    controller.SetGLColor(0.0f, 0.48f, 0.0f);
+  else if (selected)
+    controller.SetGLColor(0.0f, 0.45f, 0.45f);
+  else
+    controller.SetGLColor(0.16f, 0.16f, 0.16f);
+
+  glLineWidth(lineWidth);
+  if (enableLineSmoothing) {
+    glEnable(GL_LINE_SMOOTH);
+    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+  } else {
+    glDisable(GL_LINE_SMOOTH);
+  }
+}
+
+void RestoreWhiteModelEdgePassStyle(bool hadLineSmoothing) {
+  if (hadLineSmoothing)
+    glEnable(GL_LINE_SMOOTH);
+  else
+    glDisable(GL_LINE_SMOOTH);
+  glLineWidth(1.0f);
+}
 } // namespace
 
 void SceneRenderer::DrawMeshWithOutline(
@@ -122,12 +149,23 @@ void SceneRenderer::DrawMeshWithOutline(
       glEnable(GL_LIGHTING);
 
     if (m_controller.IsWhiteModelStyleEnabled()) {
+      const LineRenderProfile edgeProfile =
+          GetLineRenderProfile(m_controller.IsInteracting(), false,
+                               m_controller.UseAdaptiveLineProfile());
+      const float edgeLineWidth =
+          m_controller.IsInteracting() ? 1.0f : edgeProfile.lineWidth * 0.75f;
       const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+      const GLboolean lineSmoothWasEnabled = glIsEnabled(GL_LINE_SMOOTH);
       if (lightingWasEnabled)
         glDisable(GL_LIGHTING);
-      glLineWidth(1.0f);
-      m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+      glEnable(GL_POLYGON_OFFSET_LINE);
+      glPolygonOffset(-1.0f, -1.0f);
+      ApplyWhiteModelEdgePassStyle(m_controller, highlight, selected,
+                                   edgeLineWidth,
+                                   edgeProfile.enableLineSmoothing);
       DrawMeshWireframe(mesh, scale, captureTransform);
+      glDisable(GL_POLYGON_OFFSET_LINE);
+      RestoreWhiteModelEdgePassStyle(lineSmoothWasEnabled);
       if (lightingWasEnabled)
         glEnable(GL_LIGHTING);
     }
