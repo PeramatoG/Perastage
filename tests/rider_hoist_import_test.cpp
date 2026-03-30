@@ -24,12 +24,14 @@ int main() {
       "6 MOTOR 500Kg + GRILLETES + ESLINGAS PARA PUENTES LX\n"
       "1 TRUSS 40X40 PRO 14m PARA PANTALLA\n"
       "4 MOTOR 1TO + GRILLETES + ESLINGAS PARA PANTALLA\n"
+      "1 TRUSS 40X40 PARA PUENTE TELONES\n"
+      "2 MOTOR 500Kg + GRILLETES + ESLINGAS PARA PUENTE TELONES\n"
       "CABLEADO Y CONTROL DE MOTORES\n";
 
   assert(RiderImporter::ImportText(riderText));
 
   const auto &scene = cfg.GetScene();
-  assert(scene.supports.size() == 16);
+  assert(scene.supports.size() == 18);
 
   std::map<std::string, int> countByPosition;
   std::map<std::string, int> countByCapacity;
@@ -54,19 +56,21 @@ int main() {
   assert(countByPosition["LX2"] == 2);
   assert(countByPosition["LX3"] == 2);
   assert(countByPosition["SCREEN"] == 4);
+  assert(countByPosition["BACKDROP"] == 2);
 
   assert(countByCapacity["2000"] == 4);
   assert(countByCapacity["1000"] == 4);
-  assert(countByCapacity["500"] == 8);
+  assert(countByCapacity["500"] == 10);
   assert(countByFunction["P.A.:Audio"] == 4);
   assert(countByFunction["SIDEFILL:Audio"] == 2);
   assert(countByFunction["SCREEN:Video"] == 4);
   assert(countByFunction["LX1:Lighting"] == 2);
   assert(countByFunction["LX2:Lighting"] == 2);
   assert(countByFunction["LX3:Lighting"] == 2);
+  assert(countByFunction["BACKDROP:Lighting"] == 2);
   assert(countByLayer["rig Audio"] == 6);
   assert(countByLayer["rig Video"] == 4);
-  assert(countByLayer["rig Lighting"] == 6);
+  assert(countByLayer["rig Lighting"] == 8);
   bool audioLayerColorOk = false;
   bool videoLayerColorOk = false;
   bool lightingLayerColorOk = false;
@@ -104,6 +108,8 @@ int main() {
   assert(nameCounts["SCR 2"] == 1);
   assert(nameCounts["SCR 3"] == 1);
   assert(nameCounts["SCR 4"] == 1);
+  assert(nameCounts["RP 1"] == 1);
+  assert(nameCounts["RP 2"] == 1);
   assert(nameCounts["SF L"] == 1);
   assert(nameCounts["SF R"] == 1);
   assert(nameCounts["PA L 1"] == 1);
@@ -112,15 +118,24 @@ int main() {
   assert(nameCounts["PA R 2"] == 1);
 
   bool foundScreenTruss = false;
+  bool foundBackdropTruss = false;
   for (const auto &[uuid, truss] : scene.trusses) {
     (void)uuid;
     if (truss.positionName != "SCREEN")
-      continue;
-    foundScreenTruss = true;
-    assert(std::abs(truss.transform.o[1] - 5000.0f) < 0.001f);
-    assert(std::abs(truss.transform.o[2] - 8500.0f) < 0.001f);
+      if (truss.positionName != "BACKDROP")
+        continue;
+    if (truss.positionName == "SCREEN") {
+      foundScreenTruss = true;
+      assert(std::abs(truss.transform.o[1] - 5000.0f) < 0.001f);
+      assert(std::abs(truss.transform.o[2] - 8500.0f) < 0.001f);
+    } else if (truss.positionName == "BACKDROP") {
+      foundBackdropTruss = true;
+      assert(std::abs(truss.transform.o[1] - 6000.0f) < 0.001f);
+      assert(std::abs(truss.transform.o[2] - 8500.0f) < 0.001f);
+    }
   }
   assert(foundScreenTruss);
+  assert(foundBackdropTruss);
 
   return 0;
 }

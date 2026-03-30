@@ -48,11 +48,13 @@ Filter behavior:
 7. Hoist lines using `PUENTES LX` are expanded and distributed over detected
    `LX*` targets in the same filtered rigging block.
 8. Truss hang alias `PANTALLA` is normalized to `SCREEN`.
-9. Truss lines normalized to `FLOOR` are skipped in filtered output/import.
-10. Expands `+` compound lines into individual fixture lines.
-11. Supports quantity-only lines (`N` followed by description on next line).
-12. Removes parenthesized notes from fixture tokens to reduce rider noise.
-13. The filter pass is idempotent for normalized truss lines ending in
+9. Truss hang aliases `BACKDROP`, `BACKDROPS`, `TELON`, `TELONES` are
+   normalized to `BACKDROP`.
+10. Truss lines normalized to `FLOOR` are skipped in filtered output/import.
+11. Expands `+` compound lines into individual fixture lines.
+12. Supports quantity-only lines (`N` followed by description on next line).
+13. Removes parenthesized notes from fixture tokens to reduce rider noise.
+14. The filter pass is idempotent for normalized truss lines ending in
     `SCREEN` (re-applying **Apply filter** keeps those lines).
 
 After applying the filter, users can manually adjust the filtered text and then
@@ -85,6 +87,7 @@ Recognized hang labels:
 
 - `LX<number>` (for example `LX1`, `LX2`, ...)
 - `screen` / `pantalla` / `led screen`
+- `backdrop` / `backdrops` / `telon` / `telones` / `puente de telon(es)`
 - `floor`
 - `efecto` / `efectos`
 - `calle a suelo` / `calles a suelo`
@@ -105,6 +108,8 @@ Behavior:
   in both filtered text and direct import input.
 - Screen aliases (`screen`, `pantalla`, `led screen`) are normalized to
   `SCREEN`.
+- Backdrop aliases (`backdrop(s)`, `telon(es)`, `puente de telon(es)`) are
+  normalized to `BACKDROP`.
 - The active hang affects fixture/truss layer naming and default placement (`Y/Z`).
 
 ## Fixture parsing rules
@@ -161,6 +166,7 @@ Special screen-object handling:
 Supported truss syntax includes:
 
 - `N truss MODEL LENGTH m [para HANG]`
+- `N truss MODEL [para HANG]` (lengthless form, used for backdrop lines)
 - More generic fallback lines containing `truss` and a measurable length.
 - Optional coordinate override appended to hang in parentheses, e.g.
   - `LX1 (0, -1, 9)` => `x, y, z`
@@ -176,6 +182,9 @@ Supported truss syntax includes:
 Key truss behaviors:
 
 1. Length is parsed in meters and converted to millimeters.
+   - For `BACKDROP` lines without explicit length, importer reuses the latest
+     parsed `LX*` or `SCREEN` truss span.
+   - If no prior `LX*`/`SCREEN` span exists, `BACKDROP` uses `12 m` by default.
 2. If model token contains dimensions like `40x40`, width/height defaults are inferred from it.
 3. `para <hang>` overrides current hang.
 4. Prefix cleanup supports `PUENTE`/`PUENTES` in hang names.
@@ -204,6 +213,8 @@ Special case:
   and `Z = last_lx_z - 0.5m`. If no LX truss has been created yet, importer
   falls back to the highest configured LX (`height > 0`) using the same
   offsets.
+- If hang is `BACKDROP`, trusses are placed `1 m` behind the latest parsed
+  `LX*` or `SCREEN` truss (`+Y`) and keep the same height (`Z`).
 
 ## Hoist (motor) parsing and placement rules
 

@@ -61,11 +61,13 @@ namespace {
 // the compilation cost on every import call and makes keyword matching cheap
 // even when processing large riders.
 static const std::regex kTrussLineRe(
-    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss)\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b(?:\\s+para\\s+(.+))?",
+    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss)\\s+([^\\n]*?)(?:\\s+(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b)?(?:\\s+para\\s+(.+))?",
     std::regex::icase);
 static const std::regex kTrussRe(
     "(?:truss)[^\\n]*?(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b",
     std::regex::icase);
+static const std::regex kLengthWithUnitRe(
+    "(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b", std::regex::icase);
 static const std::regex kHoistLineRe(
     "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:motor(?:es)?|hoist(?:s)?)\\b(.*)$",
     std::regex::icase);
@@ -77,16 +79,16 @@ static const std::regex kFixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$",
                                        std::regex::icase);
 static const std::regex kQuantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
 static const std::regex kHangLineRe(
-    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s*\\([^\\)]*\\))?\\s*:?\\s*$",
+    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s*\\([^\\)]*\\))?\\s*:?\\s*$",
     std::regex::icase);
 static const std::regex kHangHeaderWithSuffixRe(
-    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s+[^:]*)?\\s*:\\s*$",
+    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s+[^:]*)?\\s*:\\s*$",
     std::regex::icase);
 static const std::regex kHangFindRe(
-    "(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)",
+    "(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)",
                                     std::regex::icase);
 static const std::regex kHangOnlyRe(
-    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*$",
+    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*$",
                                     std::regex::icase);
 std::string Trim(const std::string &s) {
   size_t start = s.find_first_not_of(" \t\r\n");
@@ -484,6 +486,9 @@ std::string NormalizeHangName(const std::string &raw) {
     return "SCREEN";
   if (hang == "SCREEN" || hang == "LEDSCREEN")
     return "SCREEN";
+  if (hang == "BACKDROP" || hang == "BACKDROPS" || hang == "TELON" ||
+      hang == "TELONES")
+    return "BACKDROP";
   if (hang == "SIDE FILL")
     return "SIDEFILL";
   if (hang == "P.A." || hang == "P.A" || hang == "PA")
@@ -1184,6 +1189,9 @@ bool RiderImporter::ImportText(const std::string &text) {
       Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
   std::optional<float> lastLightingTrussPosY;
   std::optional<float> lastLightingTrussPosZ;
+  std::optional<float> lastBackdropReferencePosY;
+  std::optional<float> lastBackdropReferencePosZ;
+  std::optional<float> lastBackdropReferenceLengthMm;
 
   auto getHangHeight = [&](const std::string &posName) {
     if (posName.rfind("LX", 0) == 0) {
@@ -1204,6 +1212,18 @@ bool RiderImporter::ImportText(const std::string &text) {
           return configuredHeight * 1000.0f - 500.0f;
       }
     }
+    if (posName == "BACKDROP") {
+      if (lastBackdropReferencePosZ)
+        return *lastBackdropReferencePosZ;
+      if (lastLightingTrussPosZ)
+        return *lastLightingTrussPosZ;
+      for (int idx = 6; idx >= 1; --idx) {
+        const float configuredHeight =
+            cfg.GetFloat("rider_lx" + std::to_string(idx) + "_height");
+        if (configuredHeight > 0.0f)
+          return configuredHeight * 1000.0f;
+      }
+    }
     return 0.0f;
   };
 
@@ -1217,6 +1237,18 @@ bool RiderImporter::ImportText(const std::string &text) {
       }
     }
     if (posName == "SCREEN") {
+      if (lastLightingTrussPosY)
+        return *lastLightingTrussPosY + 1000.0f;
+      for (int idx = 6; idx >= 1; --idx) {
+        const float configuredPos =
+            cfg.GetFloat("rider_lx" + std::to_string(idx) + "_pos");
+        if (configuredPos != 0.0f || idx == 1)
+          return configuredPos * 1000.0f + 1000.0f;
+      }
+    }
+    if (posName == "BACKDROP") {
+      if (lastBackdropReferencePosY)
+        return *lastBackdropReferencePosY + 1000.0f;
       if (lastLightingTrussPosY)
         return *lastLightingTrussPosY + 1000.0f;
       for (int idx = 6; idx >= 1; --idx) {
@@ -1447,9 +1479,15 @@ bool RiderImporter::ImportText(const std::string &text) {
           continue;
         std::string model = Trim(m[2]);
         float length = 0.0f;
-        if (!TryParseFloat(m[3], length))
-          continue;
-        length *= 1000.0f;
+        if (m.size() > 3 && m[3].matched)
+          TryParseFloat(m[3], length);
+        if (length <= 0.0f) {
+          std::smatch lm;
+          if (std::regex_search(model, lm, kLengthWithUnitRe))
+            TryParseFloat(lm[1].str(), length);
+        }
+        if (length > 0.0f)
+          length *= 1000.0f;
         float width = 400.0f;
         float height = 400.0f;
         std::smatch dm;
@@ -1489,6 +1527,11 @@ bool RiderImporter::ImportText(const std::string &text) {
         hang = NormalizeHangName(hang);
         if (hang == "FLOOR")
           continue;
+        if (length <= 0.0f) {
+          if (hang != "BACKDROP")
+            continue;
+          length = lastBackdropReferenceLengthMm.value_or(12000.0f);
+        }
 
         auto formatLength = [](float mm) {
           std::ostringstream oss;
@@ -1643,6 +1686,11 @@ bool RiderImporter::ImportText(const std::string &text) {
             }
             x += s;
             yStart += s;
+          }
+          if (IsLxHangName(posName) || posName == "SCREEN") {
+            lastBackdropReferencePosY = hangY;
+            lastBackdropReferencePosZ = hangZ;
+            lastBackdropReferenceLengthMm = total;
           }
         };
 
@@ -1808,6 +1856,11 @@ bool RiderImporter::ImportText(const std::string &text) {
           if (IsLxHangName(hang)) {
             lastLightingTrussPosY = hangY;
             lastLightingTrussPosZ = hangZ;
+          }
+          if (IsLxHangName(hang) || hang == "SCREEN") {
+            lastBackdropReferencePosY = hangY;
+            lastBackdropReferencePosZ = hangZ;
+            lastBackdropReferenceLengthMm = total;
           }
           x += s;
         }
