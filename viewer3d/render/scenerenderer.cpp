@@ -200,7 +200,10 @@ void SceneRenderer::DrawMeshWithOutline(
     if (m_controller.IsWhiteModelStyleEnabled()) {
       // Keep 3D white-model aligned with the 2D viewer draw order:
       // stroke pass first, then polygon-offset fill pass.
-      const float lineWidth = 2.6f;
+      const LineRenderProfile lineProfile =
+          GetLineRenderProfile(false, mode == Viewer2DRenderMode::Wireframe,
+                               m_controller.UseAdaptiveLineProfile());
+      const float lineWidth = lineProfile.lineWidth + 0.8f;
       auto setHighlightOrSelectionColor = [&]() {
         if (highlight)
           m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
@@ -213,7 +216,12 @@ void SceneRenderer::DrawMeshWithOutline(
       const GLboolean lineSmoothWasEnabled = glIsEnabled(GL_LINE_SMOOTH);
       if (lightingWasEnabled)
         glDisable(GL_LIGHTING);
-      glDisable(GL_LINE_SMOOTH);
+      if (lineProfile.enableLineSmoothing) {
+        glEnable(GL_LINE_SMOOTH);
+        glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+      } else {
+        glDisable(GL_LINE_SMOOTH);
+      }
       glLineWidth(lineWidth);
       setHighlightOrSelectionColor();
       DrawMeshWireframe(mesh, scale, captureTransform);
