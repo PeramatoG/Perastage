@@ -35,6 +35,20 @@ namespace {
 
 LoadStatus g_lastLoadStatus;
 
+bool PathsMatchForDictionaryEntries(const std::string &lhs,
+                                    const std::string &rhs) {
+  if (lhs.empty() || rhs.empty())
+    return false;
+  const fs::path leftPath = fs::u8path(lhs).lexically_normal();
+  const fs::path rightPath = fs::u8path(rhs).lexically_normal();
+  if (leftPath == rightPath)
+    return true;
+
+  std::error_code ec;
+  return fs::exists(leftPath, ec) && !ec && fs::exists(rightPath, ec) && !ec &&
+         fs::equivalent(leftPath, rightPath, ec) && !ec;
+}
+
 fs::path GetUserDictFile() {
   fs::path dir = fs::u8path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
   if (dir.empty())
@@ -409,7 +423,17 @@ void UpdateCategory(const std::string &type, const std::string &category) {
     e.category = category;
     dict[type] = e;
   } else {
+    const std::string sharedPath = it->second.path;
     it->second.category = category;
+    if (!sharedPath.empty()) {
+      for (auto &[entryType, entry] : dict) {
+        if (entryType == type)
+          continue;
+        if (!PathsMatchForDictionaryEntries(entry.path, sharedPath))
+          continue;
+        entry.category = category;
+      }
+    }
   }
   Save(dict);
 }
