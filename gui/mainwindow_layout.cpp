@@ -127,6 +127,51 @@ bool PerspectiveHasDuplicatePaneNames(const std::string &perspective) {
   return false;
 }
 
+std::string SetPaneProportionInPerspective(const std::string &perspective,
+                                           const std::string &paneName,
+                                           int proportion) {
+  if (perspective.empty() || paneName.empty())
+    return perspective;
+
+  std::string adjusted = perspective;
+  const std::string nameToken = "name=" + paneName + ";";
+  std::size_t searchFrom = 0;
+
+  while (true) {
+    const std::size_t panePos = adjusted.find(nameToken, searchFrom);
+    if (panePos == std::string::npos)
+      break;
+
+    const std::size_t paneEnd = adjusted.find('|', panePos);
+    const std::size_t propPos = adjusted.find("prop=", panePos);
+    if (propPos == std::string::npos ||
+        (paneEnd != std::string::npos && propPos > paneEnd)) {
+      searchFrom = panePos + nameToken.length();
+      continue;
+    }
+
+    const std::size_t valueStart = propPos + 5;
+    const std::size_t valueEnd = adjusted.find(';', valueStart);
+    if (valueEnd == std::string::npos) {
+      searchFrom = panePos + nameToken.length();
+      continue;
+    }
+
+    adjusted.replace(valueStart, valueEnd - valueStart,
+                     std::to_string(proportion));
+    searchFrom = valueEnd + 1;
+  }
+
+  return adjusted;
+}
+
+std::string BuildBottomPaneBiasedPerspective(const std::string &basePerspective) {
+  std::string adjusted =
+      SetPaneProportionInPerspective(basePerspective, "Console", 4);
+  adjusted = SetPaneProportionInPerspective(adjusted, "RiggingPanel", 6);
+  return adjusted;
+}
+
 layouts::Layout2DViewFrame BuildDefaultLayoutLegendFrame(
     const layouts::LayoutDefinition &layout) {
   constexpr double kWidthScale = 0.35;
@@ -613,26 +658,9 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
       LayoutViewPresetRegistry::GetPreset("3d_layout_view");
   if (!preset)
     return;
-  ApplyLayoutPreset(*preset, std::make_optional(defaultLayoutPerspective),
-                    false, true);
-  auto &consolePane = auiManager->GetPane("Console");
-  if (consolePane.IsOk())
-    consolePane.Bottom()
-        .Layer(1)
-        .Row(0)
-        .Position(0)
-        .BestSize(400, 150)
-        .MinSize(wxSize(280, 150));
-  auto &riggingPane = auiManager->GetPane("RiggingPanel");
-  if (riggingPane.IsOk())
-    riggingPane.Bottom()
-        .Layer(1)
-        .Row(0)
-        .Position(1)
-        .BestSize(600, 200)
-        .MinSize(wxSize(420, 200));
-  auiManager->Update();
-  SendSizeEvent();
+  const std::string perspective =
+      BuildBottomPaneBiasedPerspective(defaultLayoutPerspective);
+  ApplyLayoutPreset(*preset, std::make_optional(perspective), false, true);
 }
 
 void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
@@ -645,26 +673,9 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
       LayoutViewPresetRegistry::GetPreset("2d_layout_view");
   if (!preset)
     return;
-  ApplyLayoutPreset(*preset, std::make_optional(default2DLayoutPerspective),
-                    false, true);
-  auto &consolePane = auiManager->GetPane("Console");
-  if (consolePane.IsOk())
-    consolePane.Bottom()
-        .Layer(1)
-        .Row(0)
-        .Position(0)
-        .BestSize(400, 150)
-        .MinSize(wxSize(280, 150));
-  auto &riggingPane = auiManager->GetPane("RiggingPanel");
-  if (riggingPane.IsOk())
-    riggingPane.Bottom()
-        .Layer(1)
-        .Row(0)
-        .Position(1)
-        .BestSize(600, 200)
-        .MinSize(wxSize(420, 200));
-  auiManager->Update();
-  SendSizeEvent();
+  const std::string perspective =
+      BuildBottomPaneBiasedPerspective(default2DLayoutPerspective);
+  ApplyLayoutPreset(*preset, std::make_optional(perspective), false, true);
 }
 
 void MainWindow::OnApplyLayoutModeLayout(wxCommandEvent &WXUNUSED(event)) {
