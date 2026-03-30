@@ -45,6 +45,34 @@
 #include "LayoutManager.h"
 
 namespace {
+constexpr int kConsoleDefaultWidth = 400;
+constexpr int kConsoleDefaultHeight = 150;
+constexpr int kRiggingDefaultWidth = 600;
+constexpr int kRiggingDefaultHeight = 200;
+
+void ApplyBottomPaneWidthBias(wxAuiManager *manager) {
+  if (!manager)
+    return;
+
+  auto &consolePane = manager->GetPane("Console");
+  if (consolePane.IsOk()) {
+    consolePane.Bottom()
+        .Layer(1)
+        .Row(0)
+        .Position(0)
+        .BestSize(kConsoleDefaultWidth, kConsoleDefaultHeight);
+  }
+
+  auto &riggingPane = manager->GetPane("RiggingPanel");
+  if (riggingPane.IsOk()) {
+    riggingPane.Bottom()
+        .Layer(1)
+        .Row(0)
+        .Position(1)
+        .BestSize(kRiggingDefaultWidth, kRiggingDefaultHeight);
+  }
+}
+
 layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(
     const layouts::LayoutDefinition &layout) {
   constexpr double kFrameScale = 0.6;
@@ -315,7 +343,8 @@ void MainWindow::SetupLayout() {
                                         .Layer(1)
                                         .Row(0)
                                         .Position(0)
-                                        .BestSize(400, 150)
+                                        .BestSize(kConsoleDefaultWidth,
+                                                  kConsoleDefaultHeight)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
@@ -386,7 +415,8 @@ void MainWindow::SetupLayout() {
                                         .Layer(1)
                                         .Row(0)
                                         .Position(1)
-                                        .BestSize(600, 200)
+                                        .BestSize(kRiggingDefaultWidth,
+                                                  kRiggingDefaultHeight)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
@@ -473,6 +503,7 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   applyPaneState(preset.showPanes, true);
   applyPaneState(preset.hidePanes, false);
 
+  ApplyBottomPaneWidthBias(auiManager);
   auiManager->Update();
 
   layoutModeActive = layoutMode;
@@ -559,6 +590,7 @@ void MainWindow::ApplySavedLayout() {
   if (view2dPane.IsOk())
     view2dPane.MinSize(wxSize(250, 600));
 
+  ApplyBottomPaneWidthBias(auiManager);
   auiManager->Update();
   SendSizeEvent();
   UpdateViewMenuChecks();
