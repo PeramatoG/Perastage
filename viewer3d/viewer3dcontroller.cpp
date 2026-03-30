@@ -820,7 +820,8 @@ void Viewer3DController::UpdateResourcesIfDirty() {
       visibleObjects.push_back(&entry);
   }
   for (const auto &entry : fixtures) {
-    if (IsLayerVisibleCached(hiddenLayers, entry.second.layer))
+    if (IsLayerVisibleCached(hiddenLayers, entry.second.layer) &&
+        cfg.IsFixtureTypeVisible(entry.second.typeName))
       visibleFixtures.push_back(&entry);
   }
 

@@ -83,6 +83,9 @@ public:
     std::unordered_set<std::string> GetHiddenLayers() const;
     void SetHiddenLayers(const std::unordered_set<std::string>& layers);
     bool IsLayerVisible(const std::string& layer) const;
+    std::unordered_set<std::string> GetHiddenFixtureTypes() const;
+    void SetHiddenFixtureTypes(const std::unordered_set<std::string>& types);
+    bool IsFixtureTypeVisible(const std::string& fixtureType) const;
 
     // Layer color management
     void SetLayerColor(const std::string& layer, const std::string& color);
