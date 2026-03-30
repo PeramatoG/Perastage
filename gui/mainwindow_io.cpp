@@ -278,6 +278,13 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
 
   if (consolePanel)
     consolePanel->AppendMessage("[INFO] Imported rider from text.");
+  if (currentProjectPath.empty() && currentProjectDisplayName.IsEmpty()) {
+    const wxString loadedFileTitle = dlg.GetLoadedFileTitle();
+    if (!loadedFileTitle.IsEmpty()) {
+      currentProjectDisplayName = loadedFileTitle;
+      UpdateTitle();
+    }
+  }
   RefreshAfterSceneChange();
 }
 

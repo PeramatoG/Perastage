@@ -30,6 +30,7 @@ public:
                            const wxString &initialText = wxEmptyString,
                            const wxString &initialSource = wxEmptyString);
   const std::string &GetRiderTextUtf8() const;
+  wxString GetLoadedFileTitle() const;
 
 private:
   bool TryGetCurrentText(std::string &outText) const;
@@ -41,6 +42,7 @@ private:
   wxTextCtrl *textCtrl = nullptr;
   wxStaticText *sourceText = nullptr;
   wxString sourceLabel;
+  bool sourceLoadedFromFile = false;
   std::string selectedRiderTextUtf8;
 
   wxDECLARE_EVENT_TABLE();

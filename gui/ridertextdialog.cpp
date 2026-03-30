@@ -19,6 +19,7 @@
 
 #include <wx/button.h>
 #include <wx/filedlg.h>
+#include <wx/filename.h>
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -93,6 +94,16 @@ const std::string &RiderTextDialog::GetRiderTextUtf8() const {
   return selectedRiderTextUtf8;
 }
 
+wxString RiderTextDialog::GetLoadedFileTitle() const {
+  if (!sourceLoadedFromFile)
+    return wxEmptyString;
+
+  const wxString fileTitle = wxFileName(sourceLabel).GetName();
+  if (fileTitle.IsEmpty())
+    return wxEmptyString;
+  return fileTitle;
+}
+
 bool RiderTextDialog::TryGetCurrentText(std::string &outText) const {
   if (!textCtrl)
     return false;
@@ -156,6 +167,7 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
   sourceLabel = dlg.GetFilename();
+  sourceLoadedFromFile = true;
   if (sourceText)
     sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
   textCtrl->ChangeValue(loadedText);
@@ -186,6 +198,7 @@ void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
       "1 truss lx3 12 m\n";
   textCtrl->ChangeValue(exampleText);
   sourceLabel = "Example text";
+  sourceLoadedFromFile = false;
   if (sourceText)
     sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
 }
