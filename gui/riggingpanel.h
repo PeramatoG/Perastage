@@ -20,6 +20,9 @@
 #include <wx/dataview.h>
 #include <wx/wx.h>
 
+#include <string>
+#include <vector>
+
 class ColorfulDataViewListStore;
 
 // Panel that summarizes rigging information grouped by position
@@ -33,6 +36,7 @@ public:
   static void SetInstance(RiggingPanel *panel);
 
 private:
+  void OnItemValueChanged(wxDataViewEvent &event);
   void OnMouseMove(wxMouseEvent &event);
   void OnMouseLeave(wxMouseEvent &event);
   void UpdateHoverTooltip(const wxPoint &position);
@@ -40,4 +44,5 @@ private:
   wxDataViewListCtrl *table = nullptr;
   ColorfulDataViewListStore *store = nullptr;
   wxString activeHoverTooltip;
+  std::vector<std::string> rowPositions;
 };
