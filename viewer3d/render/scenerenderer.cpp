@@ -200,18 +200,26 @@ void SceneRenderer::DrawMeshWithOutline(
     if (m_controller.IsWhiteModelStyleEnabled()) {
       // Keep 3D white-model aligned with the 2D viewer draw order:
       // stroke pass first, then polygon-offset fill pass.
-      const float lineWidth =
-          GetLineRenderProfile(m_controller.IsInteracting(),
-                               mode == Viewer2DRenderMode::Wireframe,
-                               m_controller.UseAdaptiveLineProfile())
-              .lineWidth;
+      const float lineWidth = 2.6f;
+      auto setHighlightOrSelectionColor = [&]() {
+        if (highlight)
+          m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
+        else if (selected)
+          m_controller.SetGLColor(0.15f, 0.35f, 1.0f);
+        else
+          m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+      };
       const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+      const GLboolean lineSmoothWasEnabled = glIsEnabled(GL_LINE_SMOOTH);
       if (lightingWasEnabled)
         glDisable(GL_LIGHTING);
+      glDisable(GL_LINE_SMOOTH);
       glLineWidth(lineWidth);
-      m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+      setHighlightOrSelectionColor();
       DrawMeshWireframe(mesh, scale, captureTransform);
       glLineWidth(1.0f);
+      if (lineSmoothWasEnabled)
+        glEnable(GL_LINE_SMOOTH);
       if (lightingWasEnabled)
         glEnable(GL_LIGHTING);
 
@@ -220,7 +228,12 @@ void SceneRenderer::DrawMeshWithOutline(
       const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
       if (fillLightingWasEnabled)
         glDisable(GL_LIGHTING);
-      DrawMeshThreeToneInk(mesh, scale, modelMatrix);
+      if (highlight || selected) {
+        setHighlightOrSelectionColor();
+        DrawMesh(mesh, scale, modelMatrix);
+      } else {
+        DrawMeshThreeToneInk(mesh, scale, modelMatrix);
+      }
       if (fillLightingWasEnabled)
         glEnable(GL_LIGHTING);
       glDisable(GL_POLYGON_OFFSET_FILL);
