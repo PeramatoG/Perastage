@@ -19,6 +19,12 @@ int main() {
       "1 PANTALLA LED 8X5m 1664X1040 PIXELS Y 1100Kg PARA TRASERA\n"
       "RIGGING\n"
       "1 TRUSS 40X40 14m PARA PANTALLA\n";
+  const std::string projectionAliasRiderText =
+      "VIDEO\n"
+      "PROYECCION\n"
+      "1 PANTALLA LED 8X4.5m 1664X936 PIXELS PARA TRASERA\n"
+      "RIGGING\n"
+      "1 TRUSS 40X40 PRO 14m PARA PUENTE PANTALLA\n";
 
   auto importAndReadScreenTransform = [&](const std::string &input) {
     cfg.Reset();
@@ -51,6 +57,19 @@ int main() {
   assert(std::fabs(directY - filteredY) < kPositionTolerance);
   assert(std::fabs(directZ - filteredZ) < kPositionTolerance);
   assert(std::fabs(directZ - 6800.0f) < 1.0f);
+
+  cfg.Reset();
+  assert(RiderImporter::ImportText(projectionAliasRiderText));
+  const auto &projectionAliasScene = cfg.GetScene();
+  assert(projectionAliasScene.fixtures.empty());
+  assert(projectionAliasScene.sceneObjects.size() == 1);
+  const SceneObject &projectionAliasScreen =
+      projectionAliasScene.sceneObjects.begin()->second;
+  constexpr float kTolerance = 1e-3f;
+  assert(std::fabs(projectionAliasScreen.transform.u[0] - (8.0f / 0.3f)) <
+         kTolerance);
+  assert(std::fabs(projectionAliasScreen.transform.w[2] - (4.5f / 0.3f)) <
+         kTolerance);
 
   return 0;
 }

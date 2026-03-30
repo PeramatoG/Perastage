@@ -86,7 +86,7 @@ The importer keeps parsing state with sections (fixtures/rigging/control):
 Recognized hang labels:
 
 - `LX<number>` (for example `LX1`, `LX2`, ...)
-- `screen` / `pantalla` / `led screen`
+- `screen` / `pantalla` / `proyeccion` / `proyección` / `led screen`
 - `backdrop` / `backdrops` / `telon` / `telones` / `puente de telon(es)`
 - `floor`
 - `efecto` / `efectos`
@@ -106,7 +106,7 @@ Behavior:
 - Side-position aliases (`calle(s)`, `side(s)`) are normalized to `LX SIDES`.
 - Explicit normalized headers such as `LX SIDES` are accepted as hang labels
   in both filtered text and direct import input.
-- Screen aliases (`screen`, `pantalla`, `led screen`) are normalized to
+- Screen aliases (`screen`, `pantalla`, `proyeccion`, `proyección`, `led screen`) are normalized to
   `SCREEN`.
 - Backdrop aliases (`backdrop(s)`, `telon(es)`, `puente de telon(es)`) are
   normalized to `BACKDROP`.
