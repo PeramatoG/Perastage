@@ -17,6 +17,12 @@
 #include <cmath>
 
 namespace {
+struct InkColor {
+  float r = 1.0f;
+  float g = 1.0f;
+  float b = 1.0f;
+};
+
 struct LineRenderProfile {
   float lineWidth = 1.0f;
   bool enableLineSmoothing = false;
@@ -29,6 +35,89 @@ LineRenderProfile GetLineRenderProfile(bool isInteracting, bool wireframeMode,
   if (isInteracting)
     return {1.0f, false};
   return {wireframeMode ? 1.0f : 2.0f, true};
+}
+
+std::array<float, 3> NormalizeVector(float x, float y, float z) {
+  const float length = std::sqrt(x * x + y * y + z * z);
+  if (length <= 1e-6f)
+    return {0.0f, 0.0f, 1.0f};
+  return {x / length, y / length, z / length};
+}
+
+std::array<float, 3> TransformNormal(const std::array<float, 3> &n,
+                                     const float *modelMatrix) {
+  if (!modelMatrix)
+    return n;
+  const float x = modelMatrix[0] * n[0] + modelMatrix[4] * n[1] +
+                  modelMatrix[8] * n[2];
+  const float y = modelMatrix[1] * n[0] + modelMatrix[5] * n[1] +
+                  modelMatrix[9] * n[2];
+  const float z = modelMatrix[2] * n[0] + modelMatrix[6] * n[1] +
+                  modelMatrix[10] * n[2];
+  return NormalizeVector(x, y, z);
+}
+
+InkColor QuantizeInkTone(float diffuseFactor) {
+  // 3-ink white-model palette with lighting weight:
+  // white 70%, light gray 20%, dark gray 10%.
+  static constexpr float kDarkThreshold = 0.10f;
+  static constexpr float kLightThreshold = 0.30f;
+  if (diffuseFactor <= kDarkThreshold)
+    return {0.62f, 0.62f, 0.62f};
+  if (diffuseFactor <= kLightThreshold)
+    return {0.84f, 0.84f, 0.84f};
+  return {1.0f, 1.0f, 1.0f};
+}
+
+void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatrix) {
+  std::array<float, 3> lightDir = NormalizeVector(0.35f, -0.55f, 1.0f);
+  const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
+  const bool flipWinding =
+      (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
+
+  const std::vector<unsigned short> *triangleIndices = &mesh.indices;
+  if (flipWinding) {
+    if (mesh.flippedIndicesCache.size() != mesh.indices.size()) {
+      mesh.flippedIndicesCache = mesh.indices;
+      for (size_t i = 0; i + 2 < mesh.flippedIndicesCache.size(); i += 3)
+        std::swap(mesh.flippedIndicesCache[i + 1], mesh.flippedIndicesCache[i + 2]);
+    }
+    triangleIndices = &mesh.flippedIndicesCache;
+  }
+
+  const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
+  if (cullWasEnabled)
+    glDisable(GL_CULL_FACE);
+  glShadeModel(GL_SMOOTH);
+
+  glBegin(GL_TRIANGLES);
+  for (size_t i = 0; i + 2 < triangleIndices->size(); i += 3) {
+    const unsigned short tri[3] = {(*triangleIndices)[i], (*triangleIndices)[i + 1],
+                                   (*triangleIndices)[i + 2]};
+    for (int v = 0; v < 3; ++v) {
+      const unsigned short idx = tri[v];
+      const float vx = mesh.vertices[idx * 3] * scale;
+      const float vy = mesh.vertices[idx * 3 + 1] * scale;
+      const float vz = mesh.vertices[idx * 3 + 2] * scale;
+
+      std::array<float, 3> n = {0.0f, 0.0f, 1.0f};
+      if (hasNormals) {
+        n = NormalizeVector(mesh.normals[idx * 3], mesh.normals[idx * 3 + 1],
+                            mesh.normals[idx * 3 + 2]);
+      }
+      n = TransformNormal(n, modelMatrix);
+      const float diffuse = std::max(
+          0.0f, n[0] * lightDir[0] + n[1] * lightDir[1] + n[2] * lightDir[2]);
+      const InkColor tone = QuantizeInkTone(diffuse);
+      glColor3f(tone.r, tone.g, tone.b);
+      glNormal3f(n[0], n[1], n[2]);
+      glVertex3f(vx, vy, vz);
+    }
+  }
+  glEnd();
+
+  if (cullWasEnabled)
+    glEnable(GL_CULL_FACE);
 }
 } // namespace
 
@@ -128,11 +217,11 @@ void SceneRenderer::DrawMeshWithOutline(
 
       glEnable(GL_POLYGON_OFFSET_FILL);
       glPolygonOffset(-1.0f, -1.0f);
-      m_controller.SetGLColor(r, g, b);
-      if (unlit)
+      const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
+      if (fillLightingWasEnabled)
         glDisable(GL_LIGHTING);
-      DrawMesh(mesh, scale, modelMatrix);
-      if (unlit)
+      DrawMeshThreeToneInk(mesh, scale, modelMatrix);
+      if (fillLightingWasEnabled)
         glEnable(GL_LIGHTING);
       glDisable(GL_POLYGON_OFFSET_FILL);
     } else {
