@@ -100,9 +100,31 @@ void ApplyViewer3DClearColorForStyle(Viewer3DRenderStyle style) {
     glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
 }
 
-void DrawTexturedStyleBackgroundGradient() {
+float ComputeGroundPlaneHorizonNdcY() {
+    GLdouble model[16] = {0.0};
+    GLdouble projection[16] = {0.0};
+    GLint viewport[4] = {0, 0, 0, 0};
+    glGetDoublev(GL_MODELVIEW_MATRIX, model);
+    glGetDoublev(GL_PROJECTION_MATRIX, projection);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    GLdouble projectedX = 0.0;
+    GLdouble projectedY = 0.0;
+    GLdouble projectedZ = 0.0;
+    if (gluProject(0.0, 0.0, 0.0, model, projection, viewport,
+                   &projectedX, &projectedY, &projectedZ) == GL_TRUE &&
+        viewport[3] > 0) {
+        const double ndcY = (projectedY / static_cast<double>(viewport[3])) * 2.0 - 1.0;
+        return static_cast<float>(std::clamp(ndcY, -0.9, 0.9));
+    }
+    return -0.05f;
+}
+
+void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
     const GLboolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
     const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+    const GLboolean cullFaceWasEnabled = glIsEnabled(GL_CULL_FACE);
+    const GLboolean texture2DWasEnabled = glIsEnabled(GL_TEXTURE_2D);
 
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
@@ -115,6 +137,8 @@ void DrawTexturedStyleBackgroundGradient() {
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_LIGHTING);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_TEXTURE_2D);
 
     glBegin(GL_QUADS);
     glColor3f(0.05f, 0.04f, 0.10f);
@@ -122,8 +146,8 @@ void DrawTexturedStyleBackgroundGradient() {
     glVertex2f(1.0f, 1.0f);
 
     glColor3f(0.72f, 0.33f, 0.18f);
-    glVertex2f(1.0f, -0.05f);
-    glVertex2f(-1.0f, -0.05f);
+    glVertex2f(1.0f, horizonNdcY);
+    glVertex2f(-1.0f, horizonNdcY);
 
     glColor3f(0.95f, 0.58f, 0.30f);
     glVertex2f(-1.0f, -1.0f);
@@ -134,6 +158,10 @@ void DrawTexturedStyleBackgroundGradient() {
         glEnable(GL_LIGHTING);
     if (depthTestWasEnabled)
         glEnable(GL_DEPTH_TEST);
+    if (cullFaceWasEnabled)
+        glEnable(GL_CULL_FACE);
+    if (texture2DWasEnabled)
+        glEnable(GL_TEXTURE_2D);
 
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
@@ -452,9 +480,9 @@ void Viewer3DPanel::Render()
     const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
     ApplyViewer3DClearColorForStyle(renderStyle);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    if (renderStyle == Viewer3DRenderStyle::Textured)
-        DrawTexturedStyleBackgroundGradient();
     ApplyCameraMatrices(width, height);
+    if (renderStyle == Viewer3DRenderStyle::Textured)
+        DrawTexturedStyleBackgroundGradient(ComputeGroundPlaneHorizonNdcY());
 
     m_controller.SetCameraMoving(m_cameraMoving);
     m_controller.RenderScene();

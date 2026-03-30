@@ -159,7 +159,7 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   viewer3dWhiteModelRenderRadio = new wxRadioButton(
       viewer3dPanel, wxID_ANY, "White Model style");
   viewer3dTexturedRenderRadio = new wxRadioButton(
-      viewer3dPanel, wxID_ANY, "Textured (sunset)");
+      viewer3dPanel, wxID_ANY, "Textured");
 
   const Viewer3DRenderStyle renderStyle = ResolveViewer3DRenderStyle(cfg);
   viewer3dStandardRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::Standard);
@@ -171,7 +171,7 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   viewer3dSizer->Add(viewer3dWhiteModelRenderRadio, 0,
                      wxLEFT | wxRIGHT | wxTOP, 10);
   viewer3dSizer->Add(viewer3dTexturedRenderRadio, 0,
-                     wxLEFT | wxRIGHT | wxBOTTOM, 10);
+                     wxLEFT | wxRIGHT | wxTOP | wxBOTTOM, 10);
   viewer3dPanel->SetSizer(viewer3dSizer);
   book->AddPage(viewer3dPanel, "3D Viewer");
 
