@@ -202,9 +202,10 @@ void SceneRenderer::DrawMeshWithOutline(
       // Keep 3D white-model aligned with the 2D viewer draw order:
       // stroke pass first, then polygon-offset fill pass.
       const LineRenderProfile lineProfile =
-          GetLineRenderProfile(false, mode == Viewer2DRenderMode::Wireframe,
+          GetLineRenderProfile(m_controller.IsInteracting(),
+                               mode == Viewer2DRenderMode::Wireframe,
                                m_controller.UseAdaptiveLineProfile());
-      const float lineWidth = lineProfile.lineWidth + 0.8f;
+      const float lineWidth = lineProfile.lineWidth;
       auto setHighlightOrSelectionColor = [&]() {
         if (highlight)
           m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
@@ -213,27 +214,22 @@ void SceneRenderer::DrawMeshWithOutline(
         else
           m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
       };
-      const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
-      const GLboolean lineSmoothWasEnabled = glIsEnabled(GL_LINE_SMOOTH);
-      if (lightingWasEnabled)
-        glDisable(GL_LIGHTING);
-      if (lineProfile.enableLineSmoothing) {
-        glEnable(GL_LINE_SMOOTH);
-        glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-      } else {
-        glDisable(GL_LINE_SMOOTH);
+      const bool drawOutline =
+          !m_controller.SkipOutlinesForCurrentFrame() &&
+          m_controller.IsSelectionOutlineEnabled2D() && (highlight || selected);
+
+      if (!m_controller.IsCaptureOnly()) {
+        if (drawOutline) {
+          const float glowWidth = lineWidth + 3.0f;
+          glLineWidth(glowWidth);
+          setHighlightOrSelectionColor();
+          DrawMeshWireframe(mesh, scale, captureTransform);
+        }
+        glLineWidth(lineWidth);
+        m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
       }
-      glEnable(GL_POLYGON_OFFSET_LINE);
-      glPolygonOffset(1.0f, 1.0f);
-      glLineWidth(lineWidth);
-      setHighlightOrSelectionColor();
       DrawMeshWireframe(mesh, scale, captureTransform);
-      glDisable(GL_POLYGON_OFFSET_LINE);
       glLineWidth(1.0f);
-      if (lineSmoothWasEnabled)
-        glEnable(GL_LINE_SMOOTH);
-      if (lightingWasEnabled)
-        glEnable(GL_LIGHTING);
 
       glEnable(GL_POLYGON_OFFSET_FILL);
       glPolygonOffset(-1.0f, -1.0f);
