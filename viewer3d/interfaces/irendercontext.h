@@ -16,6 +16,7 @@ public:
   virtual bool IsCaptureOnly() const = 0;
   virtual ICanvas2D *GetCaptureCanvas() const = 0;
   virtual bool CaptureIncludesGrid() const = 0;
+  virtual bool IsWhiteModelStyleEnabled() const = 0;
 
   virtual void SetGLColor(float r, float g, float b) const = 0;
   virtual void RecordLine(const std::array<float, 3> &a,

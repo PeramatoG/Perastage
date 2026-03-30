@@ -124,6 +124,7 @@ struct Viewer3DController::Impl {
   SymbolCache bottomSymbolCache;
   bool darkMode = false;
   Viewer2DRenderMode activeRenderMode = Viewer2DRenderMode::White;
+  bool whiteModelStyleEnabled = false;
   bool showSelectionOutline2D = false;
   bool isInteracting = false;
   bool cameraMoving = false;
@@ -166,6 +167,11 @@ static bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
 
 static bool IsFastInteractionModeEnabled(const ConfigManager &cfg) {
   return cfg.GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
+}
+
+static bool IsWhiteModelStyleEnabled(const ConfigManager &cfg) {
+  auto style = cfg.GetValue("viewer3d_render_style");
+  return style && *style == "white_model";
 }
 
 static LineRenderProfile GetLineRenderProfile(bool isInteracting,
@@ -984,6 +990,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       context.wireframe && isByFixtureTypeMode;
   context.colorByLayer = context.wireframe && isByLayerMode;
   context.colorByUniverse = context.wireframe && isByUniverseMode;
+  context.whiteModelStyle = IsWhiteModelStyleEnabled(cfg);
+  m_impl->whiteModelStyleEnabled = context.whiteModelStyle;
 
   // Keep explicit mode flags local to the context build step to avoid
   // branching logic in the render execution code path.
@@ -1064,7 +1072,8 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
 
   if (context.useLighting)
     SetupBasicLighting(context.useAmbientOcclusion,
-                      context.ambientOcclusionStrength);
+                      context.ambientOcclusionStrength,
+                      context.whiteModelStyle);
   else
     glDisable(GL_LIGHTING);
 
@@ -1425,10 +1434,12 @@ void Viewer3DController::ApplyTransform(const float matrix[16],
 
 // Initializes simple lighting for the scene
 void Viewer3DController::SetupBasicLighting(bool ambientOcclusionEnabled,
-                                          float ambientOcclusionStrength) {
+                                            float ambientOcclusionStrength,
+                                            bool whiteModelStyle) {
   Viewer3DLightingProfile::LightingOptions options;
   options.ambientOcclusionEnabled = ambientOcclusionEnabled;
   options.ambientOcclusionStrength = ambientOcclusionStrength;
+  options.whiteModelStyle = whiteModelStyle;
   Viewer3DLightingProfile::ApplyEnhancedBasicLighting(options);
 }
 
@@ -1630,6 +1641,10 @@ ICanvas2D *Viewer3DController::GetCaptureCanvas() const {
 
 bool Viewer3DController::CaptureIncludesGrid() const {
   return m_impl->captureIncludeGrid;
+}
+
+bool Viewer3DController::IsWhiteModelStyleEnabled() const {
+  return m_impl->whiteModelStyleEnabled;
 }
 
 const std::string &Viewer3DController::GetHighlightUuid() const {
