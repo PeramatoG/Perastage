@@ -1791,6 +1791,28 @@ bool RiderImporter::ImportText(const std::string &text) {
     }
   }
 
+  if (!sideTrussInfo.found) {
+    bool hasLxSpan = false;
+    float lxStart = 0.0f;
+    float lxEnd = 0.0f;
+    for (const auto &[positionName, info] : trussInfo) {
+      if (!info.found || !IsLxHangName(positionName))
+        continue;
+      if (!hasLxSpan) {
+        lxStart = info.startX;
+        lxEnd = info.endX;
+        hasLxSpan = true;
+      } else {
+        lxStart = std::min(lxStart, info.startX);
+        lxEnd = std::max(lxEnd, info.endX);
+      }
+    }
+    if (hasLxSpan) {
+      sideTrussInfo.leftX = lxStart - 500.0f;
+      sideTrussInfo.rightX = lxEnd + 500.0f;
+    }
+  }
+
   if (!layerByType && !sideTrussInfo.found) {
     auto removeFromLayer = [&](const std::string &layerName,
                                const std::string &childUuid) {
@@ -2147,7 +2169,8 @@ bool RiderImporter::ImportText(const std::string &text) {
       const int leftCount =
           static_cast<int>(ordered.size()) / 2 + static_cast<int>(ordered.size()) % 2;
       const int rightCount = static_cast<int>(ordered.size()) / 2;
-      auto placeSideGroup = [&](int startIndex, int count, float sideX) {
+      auto placeSideGroup = [&](int count, float sideX,
+                                const std::function<Fixture *(int)> &pickFixture) {
         if (count <= 0)
           return;
         const float startY = sideTrussInfo.found
@@ -2159,7 +2182,7 @@ bool RiderImporter::ImportText(const std::string &text) {
         const float step = count > 1 ? (endY - startY) / static_cast<float>(count - 1)
                                      : 0.0f;
         for (int i = 0; i < count; ++i) {
-          Fixture *fixture = ordered[static_cast<size_t>(startIndex + i)];
+          Fixture *fixture = pickFixture(i);
           if (!fixture)
             continue;
           fixture->transform.o[0] = sideX;
@@ -2167,8 +2190,12 @@ bool RiderImporter::ImportText(const std::string &text) {
           fixture->transform.o[2] = sideTrussInfo.found ? sideTrussInfo.z : 1000.0f;
         }
       };
-      placeSideGroup(0, leftCount, sideTrussInfo.leftX);
-      placeSideGroup(leftCount, rightCount, sideTrussInfo.rightX);
+      placeSideGroup(leftCount, sideTrussInfo.leftX, [&](int i) {
+        return ordered[static_cast<size_t>(i)];
+      });
+      placeSideGroup(rightCount, sideTrussInfo.rightX, [&](int i) {
+        return ordered[ordered.size() - 1U - static_cast<size_t>(i)];
+      });
       continue;
     }
 

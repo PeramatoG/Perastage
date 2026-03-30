@@ -74,12 +74,15 @@ int main() {
       "LX3:\n"
       "2 SPOT\n"
       "CALLES EN LAYHER:\n"
-      "4 PAR\n";
+      "4 PAR\n"
+      "RIGGING\n"
+      "1 TRUSS 40X40 12m PARA LX1\n";
   assert(RiderImporter::ImportText(withoutSideTruss));
   const auto &sceneNoTruss = cfg.GetScene();
 
   int noTrussFixtureCount = 0;
   int lx3FixtureCount = 0;
+  std::set<float> noTrussSideX;
   for (const auto &[uuid, fixture] : sceneNoTruss.fixtures) {
     (void)uuid;
     if (fixture.positionName != "LX SIDES")
@@ -88,10 +91,14 @@ int main() {
       ++noTrussFixtureCount;
       assert(NearlyEqual(fixture.transform.o[2], 1000.0f));
       assert(fixture.layer == "pos SIDES");
+      noTrussSideX.insert(fixture.transform.o[0]);
     }
   }
   assert(noTrussFixtureCount == 4);
   assert(lx3FixtureCount == 2);
+  assert(noTrussSideX.size() == 2);
+  assert(NearlyEqual(*noTrussSideX.begin(), -6500.0f));
+  assert(NearlyEqual(*noTrussSideX.rbegin(), 6500.0f));
 
   cfg.Reset();
   const std::string alreadyFiltered =

@@ -135,6 +135,9 @@ For each fixture created:
 4. `positionName` is set from current hang.
    - In layer-by-position mode, side fixtures use `pos LX SIDES` when side
      trusses exist and fallback to `pos SIDES` when no side truss is present.
+   - Side fixtures are ordered as a linear sequence and then mirrored by side:
+     first half rises on the left side, second half rises on the right side in
+     reverse order.
 5. Initial hang coordinates are injected (`Y`, `Z`) and later refined by distribution logic.
 6. Importer falls back to category `Unknown` only when category is still empty
    after the above steps (for example, dummy fixtures without usable GDTF data).
@@ -180,6 +183,9 @@ Special case:
   - `Y` direction: truss axis is aligned along `Y` (not `X`).
   - `Z` (height): fixed at `5.0 m`.
   - If no `LX*` truss exists, importer uses a fallback reference span of `[-3, +3] m`.
+- If no side truss exists but `LX*` trusses are available, side fixtures still
+  use mirrored fallback anchors at `0.5 m` outside the widest detected `LX*`
+  truss span.
 - If hang is `SCREEN` and there is no dedicated screen config key, trusses are
   placed from the last created LX truss reference, with `Y = last_lx_y + 1m`
   and `Z = last_lx_z - 0.5m`. If no LX truss has been created yet, importer
