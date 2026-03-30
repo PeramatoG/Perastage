@@ -38,6 +38,7 @@ class wxZipStreamLink;
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -71,11 +72,17 @@ struct ResourceEntry {
   std::string archivePath;
 };
 
+struct ThreeDsChunkHeader {
+  uint16_t id = 0;
+  uint32_t length = 0;
+};
+
 static bool TryParseInt(std::string_view text, int &out);
 static bool ParseMvrAddressNodeText(const std::string &text, int &universeOut,
                                     int &channelOut);
 static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
                                   int &absoluteOut);
+static std::string ToLowerAscii(std::string value);
 
 static bool ShouldExportSupportHoistInfo(const Support &support);
 static tinyxml2::XMLElement *FindFirstPerastageUserData(tinyxml2::XMLElement *node);
@@ -90,6 +97,134 @@ static void LogLegacyPositionUuidWarning(const std::string &message);
 static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kMvrProviderVersion = "1.0";
 static constexpr const char *kFallbackFixtureGdtfFileName = "Generic 1ch.gdtf";
+
+static bool Read3dsChunkHeader(std::ifstream &file, ThreeDsChunkHeader &chunk) {
+  if (!file.read(reinterpret_cast<char *>(&chunk.id), sizeof(chunk.id)))
+    return false;
+  if (!file.read(reinterpret_cast<char *>(&chunk.length), sizeof(chunk.length)))
+    return false;
+  return true;
+}
+
+static std::string Read3dsCString(std::ifstream &file, std::streampos endPos) {
+  std::string output;
+  char ch = 0;
+  while (file.tellg() < endPos && file.read(&ch, 1)) {
+    if (ch == '\0')
+      break;
+    output.push_back(ch);
+  }
+  return output;
+}
+
+static std::vector<std::string> Collect3dsTextureReferences(const fs::path &modelPath) {
+  std::vector<std::string> references;
+  std::ifstream file(modelPath, std::ios::binary);
+  if (!file.is_open())
+    return references;
+
+  ThreeDsChunkHeader root;
+  if (!Read3dsChunkHeader(file, root) || root.id != 0x4D4D)
+    return references;
+
+  std::unordered_set<std::string> seenRefs;
+  const std::streampos rootEnd = static_cast<std::streampos>(root.length);
+  while (file.tellg() < rootEnd) {
+    ThreeDsChunkHeader chunk;
+    if (!Read3dsChunkHeader(file, chunk))
+      break;
+    const std::streampos chunkData = file.tellg();
+    const std::streampos chunkEnd =
+        chunkData + static_cast<std::streamoff>(chunk.length - 6);
+    if (chunk.id != 0x3D3D) {
+      file.seekg(chunkEnd);
+      continue;
+    }
+
+    while (file.tellg() < chunkEnd) {
+      ThreeDsChunkHeader sub;
+      if (!Read3dsChunkHeader(file, sub))
+        break;
+      const std::streampos subData = file.tellg();
+      const std::streampos subEnd =
+          subData + static_cast<std::streamoff>(sub.length - 6);
+      if (sub.id != 0xAFFF) {
+        file.seekg(subEnd);
+        continue;
+      }
+
+      while (file.tellg() < subEnd) {
+        ThreeDsChunkHeader matChunk;
+        if (!Read3dsChunkHeader(file, matChunk))
+          break;
+        const std::streampos matData = file.tellg();
+        const std::streampos matEnd =
+            matData + static_cast<std::streamoff>(matChunk.length - 6);
+        if (matChunk.id != 0xA200) {
+          file.seekg(matEnd);
+          continue;
+        }
+
+        while (file.tellg() < matEnd) {
+          ThreeDsChunkHeader texChunk;
+          if (!Read3dsChunkHeader(file, texChunk))
+            break;
+          const std::streampos texData = file.tellg();
+          const std::streampos texEnd =
+              texData + static_cast<std::streamoff>(texChunk.length - 6);
+          if (texChunk.id == 0xA300) {
+            const std::string value = Read3dsCString(file, texEnd);
+            if (!value.empty() && seenRefs.insert(ToLowerAscii(value)).second)
+              references.push_back(value);
+          }
+          file.seekg(texEnd);
+        }
+      }
+    }
+  }
+
+  return references;
+}
+
+static bool ResolveTextureDependencyPath(const fs::path &modelPath,
+                                         const std::string &textureRef,
+                                         fs::path &resolvedPath) {
+  if (textureRef.empty())
+    return false;
+
+  const fs::path refPath = fs::u8path(textureRef);
+  if (refPath.is_absolute() && fs::exists(refPath)) {
+    resolvedPath = refPath;
+    return true;
+  }
+
+  const fs::path modelDir =
+      modelPath.has_parent_path() ? modelPath.parent_path() : fs::path();
+  if (modelDir.empty())
+    return false;
+
+  const fs::path direct = modelDir / refPath;
+  if (fs::exists(direct)) {
+    resolvedPath = direct;
+    return true;
+  }
+
+  std::error_code ec;
+  for (const auto &entry :
+       fs::directory_iterator(modelDir, fs::directory_options::skip_permission_denied, ec)) {
+    if (ec)
+      break;
+    if (!entry.is_regular_file())
+      continue;
+    if (ToLowerAscii(entry.path().filename().string()) ==
+        ToLowerAscii(refPath.filename().string())) {
+      resolvedPath = entry.path();
+      return true;
+    }
+  }
+
+  return false;
+}
 
 enum class TrussGeometryAuthority {
   MvrGeometry = 0,
@@ -1125,6 +1260,36 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     return archivePath;
   };
 
+  auto registerModelTextureDependencies = [&](const std::string &rawModelSource) {
+    if (rawModelSource.empty())
+      return;
+    const std::string normalizedModelPath = normalizeSourcePath(rawModelSource);
+    const fs::path modelPath(normalizedModelPath);
+    std::string ext = ToLowerAscii(modelPath.extension().string());
+    if (ext != ".3ds")
+      return;
+
+    const std::vector<std::string> textureRefs =
+        Collect3dsTextureReferences(modelPath);
+    for (const std::string &textureRef : textureRefs) {
+      fs::path texturePath;
+      if (!ResolveTextureDependencyPath(modelPath, textureRef, texturePath))
+        continue;
+
+      std::string preferredTextureName =
+          SanitizeArchiveFileName(textureRef, texturePath.filename().generic_string());
+      registerResource(texturePath.generic_string(), preferredTextureName);
+    }
+  };
+
+  auto registerModelResource = [&](const std::string &rawModelSource,
+                                   const std::string &fallbackArchiveName) -> std::string {
+    std::string archivePath = registerResource(
+        rawModelSource, SanitizeArchiveFileName(rawModelSource, fallbackArchiveName));
+    registerModelTextureDependencies(rawModelSource);
+    return archivePath;
+  };
+
   auto assignIds = [&]() {
     int nextNumericId = 1;
     std::unordered_set<int> usedIds;
@@ -1232,9 +1397,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           continue;
 
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-        std::string archivePath = registerResource(
-            geo.file,
-            SanitizeArchiveFileName(geo.file, "symbol.3ds"));
+        std::string archivePath = registerModelResource(geo.file, "symbol.3ds");
         g3d->SetAttribute("fileName", archivePath.c_str());
         if (!geo.geometryType.empty())
           g3d->SetAttribute("geometryType", geo.geometryType.c_str());
@@ -1591,9 +1754,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         if (ext == ".3ds" || ext == ".glb") {
           tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
           tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-          std::string symbolArchivePath = registerResource(
-              t.symbolFile,
-              SanitizeArchiveFileName(t.symbolFile, "truss.3ds"));
+          std::string symbolArchivePath =
+              registerModelResource(t.symbolFile, "truss.3ds");
           g3d->SetAttribute("fileName", symbolArchivePath.c_str());
           if (!t.sourceGeometryType.empty())
             g3d->SetAttribute("geometryType", t.sourceGeometryType.c_str());
@@ -1733,9 +1895,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           continue;
 
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-        std::string modelArchivePath = registerResource(
-            geo.modelFile,
-            SanitizeArchiveFileName(geo.modelFile, "object.3ds"));
+        std::string modelArchivePath =
+            registerModelResource(geo.modelFile, "object.3ds");
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
 
         std::string geoMatrixText = MatrixUtils::FormatMatrix(geo.localTransform);
@@ -1744,9 +1905,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         g3d->InsertEndChild(geoMatrix);
 
         geos->InsertEndChild(g3d);
-        registerResource(
-            geo.modelFile,
-            SanitizeArchiveFileName(geo.modelFile, "object.3ds"));
       }
 
       if (geos->FirstChild())
@@ -1754,15 +1912,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     } else if (!obj.modelFile.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
       tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-      std::string modelArchivePath = registerResource(
-          obj.modelFile,
-          SanitizeArchiveFileName(obj.modelFile, "object.3ds"));
+      std::string modelArchivePath =
+          registerModelResource(obj.modelFile, "object.3ds");
       g3d->SetAttribute("fileName", modelArchivePath.c_str());
       oe->InsertEndChild(geos);
       geos->InsertEndChild(g3d);
-      registerResource(
-          obj.modelFile,
-          SanitizeArchiveFileName(obj.modelFile, "object.3ds"));
     }
 
     std::string mstr = MatrixUtils::FormatMatrix(obj.transform);
