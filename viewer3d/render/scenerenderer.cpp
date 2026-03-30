@@ -16,6 +16,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include "configmanager.h"
+#include "viewer3d_render_style.h"
 
 namespace {
 struct InkColor {
@@ -120,6 +122,10 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
     glEnable(GL_CULL_FACE);
 }
 } // namespace
+
+static bool IsTexturedRenderStyleEnabled() {
+  return IsTexturedRenderStyle(ResolveViewer3DRenderStyle(ConfigManager::Get()));
+}
 
 void SceneRenderer::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
@@ -247,16 +253,21 @@ void SceneRenderer::DrawMeshWithOutline(
       }
       glDisable(GL_POLYGON_OFFSET_FILL);
     } else {
+      const bool useTexture = IsTexturedRenderStyleEnabled() &&
+                              !highlight && !selected &&
+                              mesh.textureId != 0 &&
+                              mesh.texcoords.size() >= (mesh.vertices.size() / 3u) * 2u;
       if (highlight)
         m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
       else if (selected)
         m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
       else
-        m_controller.SetGLColor(r, g, b);
+        m_controller.SetGLColor(useTexture ? 1.0f : r, useTexture ? 1.0f : g,
+                                useTexture ? 1.0f : b);
 
       if (unlit)
         glDisable(GL_LIGHTING);
-      DrawMesh(mesh, scale, modelMatrix);
+      DrawMesh(mesh, scale, modelMatrix, useTexture);
       if (unlit)
         glEnable(GL_LIGHTING);
     }
@@ -369,7 +380,8 @@ void SceneRenderer::DrawMeshWireframe(
   }
 }
 
-void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMatrix) {
+void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMatrix,
+                             bool useTexture) {
   const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
   if (cullWasEnabled)
     glDisable(GL_CULL_FACE);
@@ -400,6 +412,10 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       !requiresCpuDrawPath;
 
   if (!m_controller.IsCaptureOnly() && canUseGpuTriangles) {
+    const bool textureEnabled =
+        useTexture && mesh.textureId != 0 &&
+        mesh.vboTexCoords != 0 &&
+        mesh.texcoords.size() >= (mesh.vertices.size() / 3u) * 2u;
     glBindVertexArray(mesh.vao);
     glPushMatrix();
     glScalef(scale, scale, scale);
@@ -412,15 +428,35 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     glEnableClientState(GL_NORMAL_ARRAY);
     glNormalPointer(GL_FLOAT, 0, nullptr);
 
+    if (textureEnabled) {
+      glEnable(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, mesh.textureId);
+      glBindBuffer(GL_ARRAY_BUFFER, mesh.vboTexCoords);
+      glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+      glTexCoordPointer(2, GL_FLOAT, 0, nullptr);
+    }
+
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
     glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_SHORT,
                    nullptr);
 
+    if (textureEnabled) {
+      glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+      glBindTexture(GL_TEXTURE_2D, 0);
+      glDisable(GL_TEXTURE_2D);
+    }
     glDisableClientState(GL_NORMAL_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glPopMatrix();
   } else if (!m_controller.IsCaptureOnly()) {
+    const bool textureEnabled =
+        useTexture && mesh.textureId != 0 &&
+        mesh.texcoords.size() >= (mesh.vertices.size() / 3u) * 2u;
+    if (textureEnabled) {
+      glEnable(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, mesh.textureId);
+    }
     GLint shadeModel = GL_SMOOTH;
     glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
     const bool useFaceNormals = (shadeModel == GL_FLAT);
@@ -476,12 +512,21 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       }
 
       if (hasNormals) {
+        if (textureEnabled) {
+          glTexCoord2f(mesh.texcoords[i0 * 2], mesh.texcoords[i0 * 2 + 1]);
+        }
         glNormal3f(normalData[i0 * 3], normalData[i0 * 3 + 1],
                    normalData[i0 * 3 + 2]);
         glVertex3f(v0x, v0y, v0z);
+        if (textureEnabled) {
+          glTexCoord2f(mesh.texcoords[i1 * 2], mesh.texcoords[i1 * 2 + 1]);
+        }
         glNormal3f(normalData[i1 * 3], normalData[i1 * 3 + 1],
                    normalData[i1 * 3 + 2]);
         glVertex3f(v1x, v1y, v1z);
+        if (textureEnabled) {
+          glTexCoord2f(mesh.texcoords[i2 * 2], mesh.texcoords[i2 * 2 + 1]);
+        }
         glNormal3f(normalData[i2 * 3], normalData[i2 * 3 + 1],
                    normalData[i2 * 3 + 2]);
         glVertex3f(v2x, v2y, v2z);
@@ -497,12 +542,25 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
         }
 
         glNormal3f(nx, ny, nz);
+        if (textureEnabled) {
+          glTexCoord2f(mesh.texcoords[i0 * 2], mesh.texcoords[i0 * 2 + 1]);
+        }
         glVertex3f(v0x, v0y, v0z);
+        if (textureEnabled) {
+          glTexCoord2f(mesh.texcoords[i1 * 2], mesh.texcoords[i1 * 2 + 1]);
+        }
         glVertex3f(v1x, v1y, v1z);
+        if (textureEnabled) {
+          glTexCoord2f(mesh.texcoords[i2 * 2], mesh.texcoords[i2 * 2 + 1]);
+        }
         glVertex3f(v2x, v2y, v2z);
       }
     }
     glEnd();
+    if (textureEnabled) {
+      glBindTexture(GL_TEXTURE_2D, 0);
+      glDisable(GL_TEXTURE_2D);
+    }
   }
 
   if (cullWasEnabled)

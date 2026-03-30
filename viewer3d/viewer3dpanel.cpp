@@ -101,54 +101,84 @@ void ApplyViewer3DClearColorForStyle(Viewer3DRenderStyle style) {
     glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
 }
 
-void DrawTexturedStyleBackgroundGradient() {
+float ComputeGridPlaneHorizonNdcY() {
+    GLdouble model[16] = {0.0};
+    GLdouble projection[16] = {0.0};
+    GLint viewport[4] = {0, 0, 0, 0};
+    glGetDoublev(GL_MODELVIEW_MATRIX, model);
+    glGetDoublev(GL_PROJECTION_MATRIX, projection);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    if (viewport[3] <= 0)
+        return -0.05f;
+
+    constexpr int kSamples = 48;
+    constexpr double kProbeRadius = 2000.0;
+    bool found = false;
+    double topMostY = -1e9;
+    for (int i = 0; i < kSamples; ++i) {
+        const double angle = (static_cast<double>(i) / static_cast<double>(kSamples)) *
+                             2.0 * 3.14159265358979323846;
+        const double x = std::cos(angle) * kProbeRadius;
+        const double y = std::sin(angle) * kProbeRadius;
+        GLdouble sx = 0.0, sy = 0.0, sz = 0.0;
+        if (gluProject(x, y, 0.0, model, projection, viewport, &sx, &sy, &sz) == GL_TRUE &&
+            sz >= 0.0 && sz <= 1.0) {
+            topMostY = std::max(topMostY, sy);
+            found = true;
+        }
+    }
+
+    if (!found)
+        return -0.05f;
+
+    const double ndcY = (topMostY / static_cast<double>(viewport[3])) * 2.0 - 1.0;
+    return static_cast<float>(std::clamp(ndcY, -0.85, 0.85));
+}
+
+void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
     const GLboolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
     const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
     const GLboolean cullFaceWasEnabled = glIsEnabled(GL_CULL_FACE);
     const GLboolean texture2DWasEnabled = glIsEnabled(GL_TEXTURE_2D);
-    GLboolean depthMaskEnabled = GL_TRUE;
-    glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskEnabled);
 
-    glDepthMask(GL_FALSE);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_LIGHTING);
     glDisable(GL_CULL_FACE);
     glDisable(GL_TEXTURE_2D);
 
-    constexpr int kSegments = 72;
-    constexpr float kRadius = 2500.0f;
-    constexpr float kPi = 3.14159265358979323846f;
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
     const std::array<std::pair<float, std::array<float, 3>>, 6> bands = {{
-        {1200.0f, {0.03f, 0.05f, 0.18f}},
-        {700.0f, {0.11f, 0.17f, 0.34f}},
-        {260.0f, {0.35f, 0.28f, 0.44f}},
-        {0.0f, {0.92f, 0.48f, 0.26f}},
-        {-350.0f, {0.60f, 0.26f, 0.20f}},
-        {-1200.0f, {0.15f, 0.08f, 0.10f}},
+        {1.0f, {0.02f, 0.05f, 0.18f}},
+        {0.55f, {0.10f, 0.20f, 0.40f}},
+        {horizonNdcY + 0.16f, {0.42f, 0.28f, 0.48f}},
+        {horizonNdcY, {0.96f, 0.56f, 0.26f}},
+        {horizonNdcY - 0.28f, {0.62f, 0.28f, 0.19f}},
+        {-1.0f, {0.18f, 0.09f, 0.11f}},
     }};
-
-    for (size_t band = 0; band + 1 < bands.size(); ++band) {
-        const float z0 = bands[band].first;
-        const float z1 = bands[band + 1].first;
-        const auto &c0 = bands[band].second;
-        const auto &c1 = bands[band + 1].second;
-
-        glBegin(GL_TRIANGLE_STRIP);
-        for (int i = 0; i <= kSegments; ++i) {
-            const float angle =
-                static_cast<float>(i) / static_cast<float>(kSegments) *
-                2.0f * kPi;
-            const float x = std::cos(angle) * kRadius;
-            const float y = std::sin(angle) * kRadius;
-            glColor3f(c0[0], c0[1], c0[2]);
-            glVertex3f(x, y, z0);
-            glColor3f(c1[0], c1[1], c1[2]);
-            glVertex3f(x, y, z1);
-        }
+    for (size_t i = 0; i + 1 < bands.size(); ++i) {
+        glBegin(GL_QUADS);
+        glColor3f(bands[i].second[0], bands[i].second[1], bands[i].second[2]);
+        glVertex2f(-1.0f, bands[i].first);
+        glVertex2f(1.0f, bands[i].first);
+        glColor3f(bands[i + 1].second[0], bands[i + 1].second[1], bands[i + 1].second[2]);
+        glVertex2f(1.0f, bands[i + 1].first);
+        glVertex2f(-1.0f, bands[i + 1].first);
         glEnd();
     }
 
-    glDepthMask(depthMaskEnabled == GL_TRUE ? GL_TRUE : GL_FALSE);
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+
     if (lightingWasEnabled)
         glEnable(GL_LIGHTING);
     if (depthTestWasEnabled)
@@ -472,7 +502,7 @@ void Viewer3DPanel::Render()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     ApplyCameraMatrices(width, height);
     if (renderStyle == Viewer3DRenderStyle::Textured)
-        DrawTexturedStyleBackgroundGradient();
+        DrawTexturedStyleBackgroundGradient(ComputeGridPlaneHorizonNdcY());
 
     m_controller.SetCameraMoving(m_cameraMoving);
     m_controller.RenderScene();
