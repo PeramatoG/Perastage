@@ -49,6 +49,16 @@ bool PathsMatchForDictionaryEntries(const std::string &lhs,
          fs::equivalent(leftPath, rightPath, ec) && !ec;
 }
 
+bool PathsShareFileName(const std::string &lhs, const std::string &rhs) {
+  if (lhs.empty() || rhs.empty())
+    return false;
+  const fs::path leftPath = fs::u8path(lhs);
+  const fs::path rightPath = fs::u8path(rhs);
+  if (leftPath.filename().empty() || rightPath.filename().empty())
+    return false;
+  return leftPath.filename() == rightPath.filename();
+}
+
 fs::path GetUserDictFile() {
   fs::path dir = fs::u8path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
   if (dir.empty())
@@ -410,6 +420,11 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
 
 
 void UpdateCategory(const std::string &type, const std::string &category) {
+  UpdateCategoryForFile(type, {}, category);
+}
+
+void UpdateCategoryForFile(const std::string &type, const std::string &gdtfPath,
+                           const std::string &category) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   if (type.empty())
     return;
@@ -423,16 +438,18 @@ void UpdateCategory(const std::string &type, const std::string &category) {
     e.category = category;
     dict[type] = e;
   } else {
-    const std::string sharedPath = it->second.path;
+    std::string sharedPath = it->second.path;
+    if (sharedPath.empty() && !gdtfPath.empty())
+      sharedPath = gdtfPath;
     it->second.category = category;
-    if (!sharedPath.empty()) {
-      for (auto &[entryType, entry] : dict) {
-        if (entryType == type)
-          continue;
-        if (!PathsMatchForDictionaryEntries(entry.path, sharedPath))
-          continue;
-        entry.category = category;
-      }
+    for (auto &[entryType, entry] : dict) {
+      if (entryType == type)
+        continue;
+      const bool samePath = PathsMatchForDictionaryEntries(entry.path, sharedPath);
+      const bool sameFileName = PathsShareFileName(entry.path, sharedPath);
+      if (!samePath && !sameFileName)
+        continue;
+      entry.category = category;
     }
   }
   Save(dict);
