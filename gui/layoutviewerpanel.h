@@ -134,6 +134,8 @@ private:
   void OnDeleteEventTable(wxCommandEvent &event);
   void OnEditText(wxCommandEvent &event);
   void OnDeleteText(wxCommandEvent &event);
+  void OnToggleTextFrame(wxCommandEvent &event);
+  void OnToggleTextTransparentBackground(wxCommandEvent &event);
   void OnEditImage(wxCommandEvent &event);
   void OnDeleteImage(wxCommandEvent &event);
   void OnBringToFront(wxCommandEvent &event);

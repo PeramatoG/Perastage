@@ -200,6 +200,42 @@ void LayoutViewerPanel::OnDeleteText(wxCommandEvent &) {
   Refresh();
 }
 
+void LayoutViewerPanel::OnToggleTextFrame(wxCommandEvent &) {
+  if (selectedElementType != SelectedElementType::Text)
+    return;
+  layouts::LayoutTextDefinition *text = GetSelectedText();
+  if (!text)
+    return;
+  text->drawFrame = !text->drawFrame;
+  if (!currentLayout.name.empty()) {
+    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+    cfg.PushUndoState("toggle layout text border");
+    layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *text);
+  }
+  TextCache &cache = GetTextCache(text->id);
+  cache.renderDirty = true;
+  RequestRenderRebuild();
+  Refresh();
+}
+
+void LayoutViewerPanel::OnToggleTextTransparentBackground(wxCommandEvent &) {
+  if (selectedElementType != SelectedElementType::Text)
+    return;
+  layouts::LayoutTextDefinition *text = GetSelectedText();
+  if (!text)
+    return;
+  text->solidBackground = !text->solidBackground;
+  if (!currentLayout.name.empty()) {
+    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+    cfg.PushUndoState("toggle layout text transparent background");
+    layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *text);
+  }
+  TextCache &cache = GetTextCache(text->id);
+  cache.renderDirty = true;
+  RequestRenderRebuild();
+  Refresh();
+}
+
 void LayoutViewerPanel::DrawTextElement(
     const layouts::LayoutTextDefinition &text, int activeTextId) {
   TextCache &cache = GetTextCache(text.id);
