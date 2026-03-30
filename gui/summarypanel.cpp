@@ -16,9 +16,9 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "summarypanel.h"
-#include "columnutils.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include <algorithm>
 #include <map>
 
 static SummaryPanel* s_instance = nullptr;
@@ -27,12 +27,42 @@ SummaryPanel::SummaryPanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
 {
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxDV_ROW_LINES);
-    table->AppendTextColumn("Count", wxDATAVIEW_CELL_INERT, 60, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
-    table->AppendTextColumn("Type", wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
-    ColumnUtils::EnforceMinColumnWidth(table);
+    auto* countColumn = table->AppendTextColumn("Count", wxDATAVIEW_CELL_INERT, 60, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
+    auto* typeColumn = table->AppendTextColumn("Type", wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
+
+    auto applyInitialColumnWidths = [this, countColumn, typeColumn]() {
+        if (!table || !countColumn || !typeColumn)
+            return;
+
+        wxClientDC dc(table);
+        dc.SetFont(table->GetFont());
+        int countLabelWidth = 0;
+        dc.GetTextExtent("Count", &countLabelWidth, nullptr);
+        const int countWidth = countLabelWidth + 20;
+        const int tableWidth = std::max(0, table->GetClientSize().GetWidth());
+        const int typeWidth = std::max(120, tableWidth - countWidth - 8);
+
+        countColumn->SetMinWidth(countWidth);
+        countColumn->SetWidth(countWidth);
+        typeColumn->SetMinWidth(120);
+        typeColumn->SetWidth(typeWidth);
+    };
+
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(table, 1, wxEXPAND | wxALL, 5);
     SetSizer(sizer);
+    applyInitialColumnWidths();
+    CallAfter(applyInitialColumnWidths);
+
+    table->Bind(wxEVT_SIZE, [applyInitialColumnWidths](wxSizeEvent& evt) {
+        applyInitialColumnWidths();
+        evt.Skip();
+    });
+    Bind(wxEVT_SHOW, [applyInitialColumnWidths](wxShowEvent& evt) {
+        if (evt.IsShown())
+            applyInitialColumnWidths();
+        evt.Skip();
+    });
 }
 
 SummaryPanel* SummaryPanel::Instance()
