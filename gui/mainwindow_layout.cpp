@@ -49,6 +49,8 @@ constexpr int kConsoleDefaultWidth = 400;
 constexpr int kConsoleDefaultHeight = 150;
 constexpr int kRiggingDefaultWidth = 600;
 constexpr int kRiggingDefaultHeight = 200;
+constexpr int kConsoleDockProportion = 40;
+constexpr int kRiggingDockProportion = 60;
 
 void ApplyBottomPaneWidthBias(wxAuiManager *manager) {
   if (!manager)
@@ -60,6 +62,7 @@ void ApplyBottomPaneWidthBias(wxAuiManager *manager) {
         .Layer(1)
         .Row(0)
         .Position(0)
+        .DockProportion(kConsoleDockProportion)
         .BestSize(kConsoleDefaultWidth, kConsoleDefaultHeight);
   }
 
@@ -69,6 +72,7 @@ void ApplyBottomPaneWidthBias(wxAuiManager *manager) {
         .Layer(1)
         .Row(0)
         .Position(1)
+        .DockProportion(kRiggingDockProportion)
         .BestSize(kRiggingDefaultWidth, kRiggingDefaultHeight);
   }
 }
@@ -343,6 +347,7 @@ void MainWindow::SetupLayout() {
                                         .Layer(1)
                                         .Row(0)
                                         .Position(0)
+                                        .DockProportion(kConsoleDockProportion)
                                         .BestSize(kConsoleDefaultWidth,
                                                   kConsoleDefaultHeight)
                                         .CloseButton(true)
@@ -415,6 +420,7 @@ void MainWindow::SetupLayout() {
                                         .Layer(1)
                                         .Row(0)
                                         .Position(1)
+                                        .DockProportion(kRiggingDockProportion)
                                         .BestSize(kRiggingDefaultWidth,
                                                   kRiggingDefaultHeight)
                                         .CloseButton(true)
