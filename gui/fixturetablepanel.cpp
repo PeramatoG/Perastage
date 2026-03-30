@@ -429,6 +429,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       wxString fileName = fdlg.GetFilename();
 
       std::vector<std::string> prevTypes;
+      std::unordered_set<std::string> prevTypeSet;
 
       for (const auto &itSel : selections) {
         int r = table->ItemToRow(itSel);
@@ -437,7 +438,10 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
         wxVariant prevType;
         table->GetValue(prevType, r, 2);
-        prevTypes.push_back(std::string(prevType.GetString().ToUTF8()));
+        const std::string prevTypeUtf8 = std::string(prevType.GetString().ToUTF8());
+        prevTypes.push_back(prevTypeUtf8);
+        if (!prevTypeUtf8.empty())
+          prevTypeSet.insert(prevTypeUtf8);
 
         if ((size_t)r >= gdtfPaths.size())
           gdtfPaths.resize(table->GetItemCount());
@@ -450,6 +454,26 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxString wstr = wxString::Format("%.2f", w);
         table->SetValue(wxVariant(pstr), r, 16);
         table->SetValue(wxVariant(wstr), r, 17);
+      }
+
+      for (unsigned int i = 0; i < table->GetItemCount(); ++i) {
+        wxVariant typeVar;
+        table->GetValue(typeVar, i, 2);
+        const std::string currentType = std::string(typeVar.GetString().ToUTF8());
+        if (prevTypeSet.find(currentType) == prevTypeSet.end())
+          continue;
+
+        if ((size_t)i >= gdtfPaths.size())
+          gdtfPaths.resize(table->GetItemCount());
+
+        gdtfPaths[i] = path;
+        table->SetValue(wxVariant(fileName), i, 9);
+        table->SetValue(wxVariant(typeName), i, 2);
+
+        wxString pstr = wxString::Format("%.1f", p);
+        wxString wstr = wxString::Format("%.2f", w);
+        table->SetValue(wxVariant(pstr), i, 16);
+        table->SetValue(wxVariant(wstr), i, 17);
       }
 
       PropagateTypeValues(selections, 16);
