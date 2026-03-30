@@ -33,6 +33,7 @@
 #include "scenedatamanager.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer3dcontroller.h"
+#include "gdtfloader.h"
 
 namespace {
 namespace fs = std::filesystem;
@@ -108,6 +109,29 @@ std::string NormalizeModelKeyPath(const std::string &path) {
   fs::path normalized(path);
   normalized = normalized.lexically_normal();
   return NormalizePathSeparators(normalized.string());
+}
+
+bool TryParseHtmlHexColor(const std::string &hex, float &r, float &g, float &b) {
+  if (hex.size() != 7 || hex[0] != '#')
+    return false;
+  auto hexToNibble = [](char c) -> int {
+    if (c >= '0' && c <= '9')
+      return c - '0';
+    if (c >= 'a' && c <= 'f')
+      return 10 + (c - 'a');
+    if (c >= 'A' && c <= 'F')
+      return 10 + (c - 'A');
+    return -1;
+  };
+  auto byteAt = [&](size_t idx, float &out) -> bool {
+    const int hi = hexToNibble(hex[idx]);
+    const int lo = hexToNibble(hex[idx + 1]);
+    if (hi < 0 || lo < 0)
+      return false;
+    out = static_cast<float>((hi << 4) | lo) / 255.0f;
+    return true;
+  };
+  return byteAt(1, r) && byteAt(3, g) && byteAt(5, b);
 }
 
 std::string ResolveFixtureSymbolKeyPath(const Fixture &fixture,
@@ -435,7 +459,7 @@ void OpaqueFixturePass::Render(
       ConfigManager::Get().GetFloat("view2d_top_fixtures_inverted") != 0.0f;
   const bool drawRealTopInTopView = isTopView2D && !forceBottomViewForTopFixtures;
 
-  glShadeModel(GL_FLAT);
+  glShadeModel((context.texturedStyle && !wireframe) ? GL_SMOOTH : GL_FLAT);
   const bool forceFixturesOnTop = wireframe;
   GLboolean depthEnabled = GL_FALSE;
   if (forceFixturesOnTop) {
@@ -489,11 +513,25 @@ void OpaqueFixturePass::Render(
       cz -= f.transform.o[2] * RENDER_SCALE;
     }
 
+    std::string gdtfPath;
+    auto gdtfPathIt = controller.m_resourceSyncState.resolvedGdtfSpecs.find(
+        ResolveCacheKey(f.gdtfSpec));
+    if (gdtfPathIt != controller.m_resourceSyncState.resolvedGdtfSpecs.end() &&
+        gdtfPathIt->second.attempted)
+      gdtfPath = gdtfPathIt->second.resolvedPath;
+
     float r = 1.0f, g = 1.0f, b = 1.0f;
     if (context.whiteModelStyle && !wireframe) {
       r = 0.95f;
       g = 0.95f;
       b = 0.95f;
+    } else if (context.texturedStyle && !wireframe) {
+      if (!f.color.empty()) {
+        TryParseHtmlHexColor(f.color, r, g, b);
+      } else if (!gdtfPath.empty()) {
+        const std::string gdtfModelColor = GetGdtfModelColor(gdtfPath);
+        TryParseHtmlHexColor(gdtfModelColor, r, g, b);
+      }
     }
     if (wireframe) {
       if (mode == Viewer2DRenderMode::ByFixtureType) {
@@ -523,12 +561,6 @@ void OpaqueFixturePass::Render(
       return TransformPoint(fixtureTransform, p);
     };
 
-    std::string gdtfPath;
-    auto gdtfPathIt = controller.m_resourceSyncState.resolvedGdtfSpecs.find(
-        ResolveCacheKey(f.gdtfSpec));
-    if (gdtfPathIt != controller.m_resourceSyncState.resolvedGdtfSpecs.end() &&
-        gdtfPathIt->second.attempted)
-      gdtfPath = gdtfPathIt->second.resolvedPath;
     const std::string sceneBasePath = ConfigManager::Get().GetScene().basePath;
     const std::string modelKey =
         BuildFixtureSymbolModelKey(f, sceneBasePath, gdtfPath);

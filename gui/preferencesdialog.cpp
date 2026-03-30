@@ -19,6 +19,7 @@
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "units/units.h"
+#include "viewer3d_render_style.h"
 #include <wx/checkbox.h>
 #include <wx/choice.h>
 #include <wx/notebook.h>
@@ -153,21 +154,24 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   viewer3dSizer->Add(new wxStaticText(viewer3dPanel, wxID_ANY, "Render mode:"),
                      0, wxLEFT | wxRIGHT | wxTOP, 10);
   viewer3dStandardRenderRadio = new wxRadioButton(
-      viewer3dPanel, wxID_ANY, "Standard (current)", wxDefaultPosition,
+      viewer3dPanel, wxID_ANY, "Standard", wxDefaultPosition,
       wxDefaultSize, wxRB_GROUP);
   viewer3dWhiteModelRenderRadio = new wxRadioButton(
       viewer3dPanel, wxID_ANY, "White Model style");
+  viewer3dTexturedRenderRadio = new wxRadioButton(
+      viewer3dPanel, wxID_ANY, "Textured");
 
-  auto viewer3dRenderStyle = cfg.GetValue("viewer3d_render_style");
-  const bool useWhiteModelStyle =
-      viewer3dRenderStyle && *viewer3dRenderStyle == "white_model";
-  viewer3dStandardRenderRadio->SetValue(!useWhiteModelStyle);
-  viewer3dWhiteModelRenderRadio->SetValue(useWhiteModelStyle);
+  const Viewer3DRenderStyle renderStyle = ResolveViewer3DRenderStyle(cfg);
+  viewer3dStandardRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::Standard);
+  viewer3dWhiteModelRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::WhiteModel);
+  viewer3dTexturedRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::Textured);
 
   viewer3dSizer->Add(viewer3dStandardRenderRadio, 0,
                      wxLEFT | wxRIGHT | wxTOP, 10);
   viewer3dSizer->Add(viewer3dWhiteModelRenderRadio, 0,
-                     wxLEFT | wxRIGHT | wxBOTTOM, 10);
+                     wxLEFT | wxRIGHT | wxTOP, 10);
+  viewer3dSizer->Add(viewer3dTexturedRenderRadio, 0,
+                     wxLEFT | wxRIGHT | wxTOP | wxBOTTOM, 10);
   viewer3dPanel->SetSizer(viewer3dSizer);
   book->AddPage(viewer3dPanel, "3D Viewer");
 
@@ -216,11 +220,12 @@ bool PreferencesDialog::ApplyPreferences() {
                                                        : "metric");
   cfg.SetValue("ui_weight_unit_system",
                weightUnitChoice->GetSelection() == 1 ? "imperial" : "metric");
-  cfg.SetValue("viewer3d_render_style",
-               viewer3dWhiteModelRenderRadio &&
-                       viewer3dWhiteModelRenderRadio->GetValue()
-                   ? "white_model"
-                   : "standard");
+  Viewer3DRenderStyle renderStyle = Viewer3DRenderStyle::Standard;
+  if (viewer3dWhiteModelRenderRadio && viewer3dWhiteModelRenderRadio->GetValue())
+    renderStyle = Viewer3DRenderStyle::WhiteModel;
+  else if (viewer3dTexturedRenderRadio && viewer3dTexturedRenderRadio->GetValue())
+    renderStyle = Viewer3DRenderStyle::Textured;
+  cfg.SetValue("viewer3d_render_style", ToConfigValue(renderStyle));
   return cfg.SaveUserConfig();
 }
 

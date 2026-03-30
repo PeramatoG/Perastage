@@ -26,13 +26,21 @@ struct Mesh {
     std::vector<float> vertices; // x,y,z order in mm
     std::vector<unsigned short> indices; // 3 indices per triangle
     std::vector<float> normals;  // optional per-vertex normals
+    std::vector<float> texcoords; // optional per-vertex UVs (u,v)
+    std::vector<unsigned char> textureRgba; // optional texture pixels RGBA8
+    int textureWidth = 0;
+    int textureHeight = 0;
+    std::array<float, 3> materialBaseColor = {1.0f, 1.0f, 1.0f};
+    bool hasMaterialBaseColor = false;
 
     // OpenGL resources for VBO/VAO based rendering.
     uint32_t vao = 0;
     uint32_t vboVertices = 0;
     uint32_t vboNormals = 0;
+    uint32_t vboTexCoords = 0;
     uint32_t eboTriangles = 0;
     uint32_t eboLines = 0;
+    uint32_t textureId = 0;
     int triangleIndexCount = 0;
     int lineIndexCount = 0;
     bool buffersReady = false;

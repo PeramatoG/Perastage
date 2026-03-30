@@ -65,6 +65,7 @@
 #include "selectionsystem.h"
 #include "gl_primitive_renderer.h"
 #include "lighting_profile.h"
+#include "viewer3d_render_style.h"
 
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
@@ -169,9 +170,8 @@ static bool IsFastInteractionModeEnabled(const ConfigManager &cfg) {
   return cfg.GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
-static bool ReadWhiteModelStylePreference(const ConfigManager &cfg) {
-  auto style = cfg.GetValue("viewer3d_render_style");
-  return style && *style == "white_model";
+static Viewer3DRenderStyle ReadRenderStylePreference(const ConfigManager &cfg) {
+  return ResolveViewer3DRenderStyle(cfg);
 }
 
 static LineRenderProfile GetLineRenderProfile(bool isInteracting,
@@ -990,7 +990,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       context.wireframe && isByFixtureTypeMode;
   context.colorByLayer = context.wireframe && isByLayerMode;
   context.colorByUniverse = context.wireframe && isByUniverseMode;
-  context.whiteModelStyle = ReadWhiteModelStylePreference(cfg);
+  const Viewer3DRenderStyle renderStyle = ReadRenderStylePreference(cfg);
+  context.whiteModelStyle = IsWhiteModelRenderStyle(renderStyle);
+  context.texturedStyle = IsTexturedRenderStyle(renderStyle);
   m_impl->whiteModelStyleEnabled = context.whiteModelStyle;
 
   // Keep explicit mode flags local to the context build step to avoid
@@ -1301,6 +1303,13 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   glBufferData(GL_ARRAY_BUFFER, mesh.normals.size() * sizeof(float),
                mesh.normals.data(), GL_STATIC_DRAW);
 
+  if (!mesh.texcoords.empty()) {
+    glGenBuffers(1, &mesh.vboTexCoords);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vboTexCoords);
+    glBufferData(GL_ARRAY_BUFFER, mesh.texcoords.size() * sizeof(float),
+                 mesh.texcoords.data(), GL_STATIC_DRAW);
+  }
+
   glGenBuffers(1, &mesh.eboTriangles);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
@@ -1324,6 +1333,7 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
       glIsVertexArray(mesh.vao) == GL_TRUE &&
       glIsBuffer(mesh.vboVertices) == GL_TRUE &&
       glIsBuffer(mesh.vboNormals) == GL_TRUE &&
+      (mesh.vboTexCoords == 0 || glIsBuffer(mesh.vboTexCoords) == GL_TRUE) &&
       glIsBuffer(mesh.eboTriangles) == GL_TRUE &&
       glIsBuffer(mesh.eboLines) == GL_TRUE;
 
@@ -1331,6 +1341,7 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
     mesh.vao = 0;
     mesh.vboVertices = 0;
     mesh.vboNormals = 0;
+    mesh.vboTexCoords = 0;
     mesh.eboTriangles = 0;
     mesh.eboLines = 0;
     mesh.triangleIndexCount = 0;
@@ -1342,9 +1353,26 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   mesh.triangleIndexCount = static_cast<int>(mesh.indices.size());
   mesh.lineIndexCount = static_cast<int>(lineIndices.size());
   mesh.buffersReady = true;
+
+  if (!mesh.textureRgba.empty() && mesh.textureWidth > 0 &&
+      mesh.textureHeight > 0 && mesh.textureId == 0) {
+    glGenTextures(1, &mesh.textureId);
+    glBindTexture(GL_TEXTURE_2D, mesh.textureId);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, mesh.textureWidth, mesh.textureHeight,
+                 0, GL_RGBA, GL_UNSIGNED_BYTE, mesh.textureRgba.data());
+    glBindTexture(GL_TEXTURE_2D, 0);
+  }
 }
 
 void Viewer3DController::ReleaseMeshBuffers(Mesh &mesh) {
+  if (mesh.textureId != 0) {
+    glDeleteTextures(1, &mesh.textureId);
+    mesh.textureId = 0;
+  }
   if (mesh.eboLines != 0) {
     glDeleteBuffers(1, &mesh.eboLines);
     mesh.eboLines = 0;
@@ -1356,6 +1384,10 @@ void Viewer3DController::ReleaseMeshBuffers(Mesh &mesh) {
   if (mesh.vboNormals != 0) {
     glDeleteBuffers(1, &mesh.vboNormals);
     mesh.vboNormals = 0;
+  }
+  if (mesh.vboTexCoords != 0) {
+    glDeleteBuffers(1, &mesh.vboTexCoords);
+    mesh.vboTexCoords = 0;
   }
   if (mesh.vboVertices != 0) {
     glDeleteBuffers(1, &mesh.vboVertices);

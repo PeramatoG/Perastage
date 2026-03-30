@@ -24,7 +24,11 @@
 #include <algorithm>
 #include <functional>
 #include <wx/wx.h>
+#include <wx/image.h>
+#include <wx/mstream.h>
+#include <wx/base64.h>
 #include <optional>
+#include <filesystem>
 
 constexpr bool kLogGlbMessages = false;
 
@@ -34,6 +38,7 @@ using json = nlohmann::json;
 // millimeters. Apply a constant scale so that loaded meshes match the
 // coordinate system used for 3DS files and the rest of the viewer.
 static constexpr float GLB_TO_MVR_SCALE = 1000.0f;
+namespace fs = std::filesystem;
 
 static size_t ComponentSize(int compType)
 {
@@ -341,6 +346,161 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
         return m;
     };
 
+    const fs::path glbPath(path);
+    const fs::path glbDir = glbPath.has_parent_path() ? glbPath.parent_path() : fs::path();
+
+    auto decodeTextureImage = [&](int imageIndex, std::vector<unsigned char>& rgba,
+                                  int& width, int& height) -> bool {
+        static bool imageHandlersInitialized = false;
+        if (!imageHandlersInitialized) {
+            wxInitAllImageHandlers();
+            imageHandlersInitialized = true;
+        }
+        if (!doc.contains("images") || !doc["images"].is_array() ||
+            imageIndex < 0 || imageIndex >= static_cast<int>(doc["images"].size())) {
+            return false;
+        }
+        const auto& image = doc["images"][imageIndex];
+        const auto resolveBitmapType = [&](const json& imageNode) {
+            if (!imageNode.contains("mimeType") || !imageNode["mimeType"].is_string())
+                return wxBITMAP_TYPE_ANY;
+            const std::string mime = imageNode["mimeType"].get<std::string>();
+            if (mime == "image/png")
+                return wxBITMAP_TYPE_PNG;
+            if (mime == "image/jpeg" || mime == "image/jpg")
+                return wxBITMAP_TYPE_JPEG;
+            if (mime == "image/bmp")
+                return wxBITMAP_TYPE_BMP;
+            return wxBITMAP_TYPE_ANY;
+        };
+        wxImage wxImg;
+        if (image.contains("bufferView")) {
+            int bufferView = -1;
+            if (!readInt(image["bufferView"], bufferView) ||
+                bufferView < 0 || !doc.contains("bufferViews") ||
+                !doc["bufferViews"].is_array() ||
+                bufferView >= static_cast<int>(doc["bufferViews"].size()))
+                return false;
+            const auto& bv = doc["bufferViews"][bufferView];
+            size_t byteOffset = bv.value("byteOffset", 0u);
+            size_t byteLength = bv.value("byteLength", 0u);
+            if (byteLength == 0 || byteOffset + byteLength > binData.size())
+                return false;
+            wxMemoryInputStream stream(binData.data() + byteOffset, byteLength);
+            if (!wxImg.LoadFile(stream, resolveBitmapType(image)))
+                return false;
+        } else if (image.contains("uri") && image["uri"].is_string()) {
+            const std::string uri = image["uri"].get<std::string>();
+            if (uri.rfind("data:", 0) == 0) {
+                const auto commaPos = uri.find(',');
+                if (commaPos == std::string::npos)
+                    return false;
+                const std::string encoded = uri.substr(commaPos + 1);
+                const wxMemoryBuffer decoded = wxBase64Decode(encoded);
+                if (decoded.IsEmpty())
+                    return false;
+                wxMemoryInputStream stream(decoded.GetData(), decoded.GetDataLen());
+                if (!wxImg.LoadFile(stream, resolveBitmapType(image)))
+                    return false;
+            } else {
+                const fs::path uriPath = glbDir / fs::u8path(uri);
+                if (!wxImg.LoadFile(wxString::FromUTF8(uriPath.string())))
+                    return false;
+            }
+        } else {
+            return false;
+        }
+
+        if (!wxImg.IsOk())
+            return false;
+        width = static_cast<int>(wxImg.GetWidth());
+        height = static_cast<int>(wxImg.GetHeight());
+        const unsigned char* rgb = wxImg.GetData();
+        if (!rgb || width <= 0 || height <= 0)
+            return false;
+        const unsigned char* alpha = wxImg.HasAlpha() ? wxImg.GetAlpha() : nullptr;
+        rgba.resize(static_cast<size_t>(width) * static_cast<size_t>(height) * 4u);
+        for (int i = 0; i < width * height; ++i) {
+            rgba[static_cast<size_t>(i) * 4u + 0u] = rgb[i * 3 + 0];
+            rgba[static_cast<size_t>(i) * 4u + 1u] = rgb[i * 3 + 1];
+            rgba[static_cast<size_t>(i) * 4u + 2u] = rgb[i * 3 + 2];
+            rgba[static_cast<size_t>(i) * 4u + 3u] = alpha ? alpha[i] : 255u;
+        }
+        return true;
+    };
+
+    auto applyPrimitiveBaseColorTexture = [&](const json& prim) {
+        if (!prim.contains("material") || !doc.contains("materials") ||
+            !doc["materials"].is_array())
+            return;
+        int materialIndex = -1;
+        if (!readInt(prim["material"], materialIndex) || materialIndex < 0 ||
+            materialIndex >= static_cast<int>(doc["materials"].size()))
+            return;
+        const auto& material = doc["materials"][materialIndex];
+        if (!material.contains("pbrMetallicRoughness"))
+            return;
+        const auto& pbr = material["pbrMetallicRoughness"];
+        if (!outMesh.hasMaterialBaseColor && pbr.contains("baseColorFactor") &&
+            pbr["baseColorFactor"].is_array() && pbr["baseColorFactor"].size() >= 3) {
+            float r = 1.0f, g = 1.0f, b = 1.0f;
+            if (readFloat(pbr["baseColorFactor"][0], r) &&
+                readFloat(pbr["baseColorFactor"][1], g) &&
+                readFloat(pbr["baseColorFactor"][2], b)) {
+                outMesh.materialBaseColor = {
+                    std::clamp(r, 0.0f, 1.0f),
+                    std::clamp(g, 0.0f, 1.0f),
+                    std::clamp(b, 0.0f, 1.0f)};
+                outMesh.hasMaterialBaseColor = true;
+            }
+        }
+        if (!pbr.contains("baseColorTexture"))
+            return;
+        if (outMesh.textureWidth > 0)
+            return;
+        int textureIndex = -1;
+        if (!pbr["baseColorTexture"].contains("index") ||
+            !readInt(pbr["baseColorTexture"]["index"], textureIndex) ||
+            textureIndex < 0 || !doc.contains("textures") ||
+            !doc["textures"].is_array() ||
+            textureIndex >= static_cast<int>(doc["textures"].size()))
+            return;
+        const auto& texture = doc["textures"][textureIndex];
+        int imageIndex = -1;
+        if (!texture.contains("source") || !readInt(texture["source"], imageIndex))
+            return;
+
+        std::vector<unsigned char> rgba;
+        int width = 0;
+        int height = 0;
+        if (decodeTextureImage(imageIndex, rgba, width, height)) {
+            outMesh.textureRgba = std::move(rgba);
+            outMesh.textureWidth = width;
+            outMesh.textureHeight = height;
+        }
+    };
+
+    auto resolvePrimitiveBaseColorTexCoordSet = [&](const json& prim) -> int {
+        if (!prim.contains("material") || !doc.contains("materials") ||
+            !doc["materials"].is_array())
+            return 0;
+        int materialIndex = -1;
+        if (!readInt(prim["material"], materialIndex) || materialIndex < 0 ||
+            materialIndex >= static_cast<int>(doc["materials"].size()))
+            return 0;
+        const auto& material = doc["materials"][materialIndex];
+        if (!material.contains("pbrMetallicRoughness"))
+            return 0;
+        const auto& pbr = material["pbrMetallicRoughness"];
+        if (!pbr.contains("baseColorTexture"))
+            return 0;
+        const auto& bct = pbr["baseColorTexture"];
+        int texCoordSet = 0;
+        if (bct.contains("texCoord"))
+            readInt(bct["texCoord"], texCoordSet);
+        return std::max(0, texCoordSet);
+    };
+
     auto readPrimitive = [&](const json& prim, const Matrix& transform) -> bool {
         if(!prim.contains("attributes") || !prim.contains("indices"))
             return false;
@@ -378,6 +538,9 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
 
         size_t base = outMesh.vertices.size() / 3;
         outMesh.vertices.resize(base*3 + posCount*3);
+        if (outMesh.texcoords.size() < base * 2u)
+            outMesh.texcoords.resize(base * 2u, 0.0f);
+        outMesh.texcoords.resize((base + posCount) * 2u, 0.0f);
         for(size_t i=0;i<posCount;i++) {
             const float* src = reinterpret_cast<const float*>(binData.data()+posOff+posStride*i);
             std::array<float,3> p{src[0], src[1], src[2]};
@@ -385,6 +548,31 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
             outMesh.vertices[(base+i)*3 + 0] = p[0];
             outMesh.vertices[(base+i)*3 + 1] = p[1];
             outMesh.vertices[(base+i)*3 + 2] = p[2];
+        }
+
+        const int texCoordSet = resolvePrimitiveBaseColorTexCoordSet(prim);
+        const std::string uvAttributeName = "TEXCOORD_" + std::to_string(texCoordSet);
+        auto uvIt = attributes->find(uvAttributeName);
+        if (uvIt == attributes->end() && texCoordSet != 0)
+            uvIt = attributes->find("TEXCOORD_0");
+        if (uvIt != attributes->end()) {
+            int uvAccessor = -1;
+            if (readInt(*uvIt, uvAccessor)) {
+                size_t uvOff = 0, uvStride = 0, uvCount = 0;
+                int uvCT = 0;
+                std::string uvType;
+                if (getAccessorInfo(uvAccessor, uvOff, uvStride, uvCT, uvType, uvCount) &&
+                    uvCT == 5126 && uvType == "VEC2" &&
+                    uvOff + uvStride * std::min(uvCount, posCount) <= binData.size()) {
+                    const size_t copyCount = std::min(uvCount, posCount);
+                    for (size_t i = 0; i < copyCount; ++i) {
+                        const float* uv =
+                            reinterpret_cast<const float*>(binData.data() + uvOff + uvStride * i);
+                        outMesh.texcoords[(base + i) * 2u + 0u] = uv[0];
+                        outMesh.texcoords[(base + i) * 2u + 1u] = uv[1];
+                    }
+                }
+            }
         }
 
         outMesh.indices.resize(outMesh.indices.size() + idxCount);
@@ -401,6 +589,7 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
             }
             outMesh.indices[outMesh.indices.size()-idxCount+i] = static_cast<unsigned short>(v + base);
         }
+        applyPrimitiveBaseColorTexture(prim);
         return true;
     };
 

@@ -37,7 +37,7 @@ void OpaqueObjectPass::Render(
 
   const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
 
-  glShadeModel(GL_FLAT);
+  glShadeModel((context.texturedStyle && !wireframe) ? GL_SMOOTH : GL_FLAT);
   std::vector<std::string> drawObjectUuids = visibleSet.objectUuids;
   if (!controller.m_highlightUuid.empty()) {
     const bool highlightAlreadyVisible =
