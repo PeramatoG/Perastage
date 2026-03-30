@@ -169,7 +169,7 @@ static bool IsFastInteractionModeEnabled(const ConfigManager &cfg) {
   return cfg.GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
-static bool IsWhiteModelStyleEnabled(const ConfigManager &cfg) {
+static bool ReadWhiteModelStylePreference(const ConfigManager &cfg) {
   auto style = cfg.GetValue("viewer3d_render_style");
   return style && *style == "white_model";
 }
@@ -990,7 +990,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       context.wireframe && isByFixtureTypeMode;
   context.colorByLayer = context.wireframe && isByLayerMode;
   context.colorByUniverse = context.wireframe && isByUniverseMode;
-  context.whiteModelStyle = IsWhiteModelStyleEnabled(cfg);
+  context.whiteModelStyle = ReadWhiteModelStylePreference(cfg);
   m_impl->whiteModelStyleEnabled = context.whiteModelStyle;
 
   // Keep explicit mode flags local to the context build step to avoid
