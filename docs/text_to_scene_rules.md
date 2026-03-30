@@ -101,6 +101,8 @@ Behavior:
 - Floor aliases (`floor`, `efecto(s)`, `calle(s) a suelo`, `ground lane(s)`)
   are normalized to `FLOOR`.
 - Side-position aliases (`calle(s)`, `side(s)`) are normalized to `LX SIDES`.
+- Explicit normalized headers such as `LX SIDES` are accepted as hang labels
+  in both filtered text and direct import input.
 - Screen aliases (`screen`, `pantalla`, `led screen`) are normalized to
   `SCREEN`.
 - The active hang affects fixture/truss layer naming and default placement (`Y/Z`).
@@ -131,6 +133,8 @@ For each fixture created:
    - Fixture display/type name can be replaced by the parsed GDTF fixture name when available.
    - Physical properties (weight/power) are filled from GDTF when missing.
 4. `positionName` is set from current hang.
+   - In layer-by-position mode, side fixtures use `pos LX SIDES` when side
+     trusses exist and fallback to `pos SIDES` when no side truss is present.
 5. Initial hang coordinates are injected (`Y`, `Z`) and later refined by distribution logic.
 6. Importer falls back to category `Unknown` only when category is still empty
    after the above steps (for example, dummy fixtures without usable GDTF data).

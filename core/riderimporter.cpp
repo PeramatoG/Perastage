@@ -76,16 +76,16 @@ static const std::regex kFixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$",
                                        std::regex::icase);
 static const std::regex kQuantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
 static const std::regex kHangLineRe(
-    "^\\s*(LX\\d+|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*:?\\s*$",
+    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*:?\\s*$",
     std::regex::icase);
 static const std::regex kHangHeaderWithSuffixRe(
-    "^\\s*(LX\\d+|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s+[^:]*)?\\s*:\\s*$",
+    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s+[^:]*)?\\s*:\\s*$",
     std::regex::icase);
 static const std::regex kHangFindRe(
-    "(LX\\d+|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)",
+    "(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)",
                                     std::regex::icase);
 static const std::regex kHangOnlyRe(
-    "^\\s*(LX\\d+|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*$",
+    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*$",
                                     std::regex::icase);
 std::string Trim(const std::string &s) {
   size_t start = s.find_first_not_of(" \t\r\n");
@@ -1307,7 +1307,8 @@ bool RiderImporter::ImportText(const std::string &text) {
 
     std::smatch m;
     std::smatch hm;
-    if (std::regex_match(line, hm, kHangLineRe)) {
+    if (std::regex_match(line, hm, kHangLineRe) ||
+        std::regex_match(line, hm, kHangHeaderWithSuffixRe)) {
       havePending = false;
       currentHang = NormalizeHangName(hm[1].str());
       // If we weren't in any section yet, assume fixtures when a hang position
@@ -1787,6 +1788,34 @@ bool RiderImporter::ImportText(const std::string &text) {
     } else {
       info.startX = std::min(info.startX, start);
       info.endX = std::max(info.endX, end);
+    }
+  }
+
+  if (!layerByType && !sideTrussInfo.found) {
+    auto removeFromLayer = [&](const std::string &layerName,
+                               const std::string &childUuid) {
+      auto layerIt = layerLookup.find(layerName);
+      if (layerIt == layerLookup.end() || !layerIt->second)
+        return;
+      std::vector<std::string> &children = layerIt->second->childUUIDs;
+      children.erase(std::remove(children.begin(), children.end(), childUuid),
+                     children.end());
+    };
+
+    for (const std::string &fixtureUuid : importedFixtureUuids) {
+      auto fixtureIt = scene.fixtures.find(fixtureUuid);
+      if (fixtureIt == scene.fixtures.end())
+        continue;
+      Fixture &fixture = fixtureIt->second;
+      if (!IsLxSidesHangName(fixture.positionName))
+        continue;
+
+      const std::string oldLayer = fixture.layer;
+      fixture.layer = "pos SIDES";
+      if (oldLayer != fixture.layer) {
+        removeFromLayer(oldLayer, fixture.uuid);
+        addToLayer(fixture.layer, fixture.uuid);
+      }
     }
   }
 

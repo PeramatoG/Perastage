@@ -59,6 +59,7 @@ int main() {
     fixtureX.push_back(fixture.transform.o[0]);
     fixtureY.push_back(fixture.transform.o[1]);
     assert(NearlyEqual(fixture.transform.o[2], 5000.0f));
+    assert(fixture.layer == "pos LX SIDES");
   }
   assert(fixtureX.size() == 6);
   std::sort(fixtureX.begin(), fixtureX.end());
@@ -86,10 +87,36 @@ int main() {
     else {
       ++noTrussFixtureCount;
       assert(NearlyEqual(fixture.transform.o[2], 1000.0f));
+      assert(fixture.layer == "pos SIDES");
     }
   }
   assert(noTrussFixtureCount == 4);
   assert(lx3FixtureCount == 2);
+
+  cfg.Reset();
+  const std::string alreadyFiltered =
+      "LX3\n"
+      "2 SPOT\n"
+      "\n"
+      "LX SIDES\n"
+      "4 PAR\n";
+  assert(RiderImporter::ImportText(alreadyFiltered));
+  const auto &sceneFiltered = cfg.GetScene();
+
+  int filteredSidesCount = 0;
+  int filteredLx3Count = 0;
+  for (const auto &[uuid, fixture] : sceneFiltered.fixtures) {
+    (void)uuid;
+    if (fixture.positionName == "LX SIDES") {
+      ++filteredSidesCount;
+      assert(fixture.layer == "pos SIDES");
+      assert(NearlyEqual(fixture.transform.o[2], 1000.0f));
+    } else if (fixture.positionName == "LX3") {
+      ++filteredLx3Count;
+    }
+  }
+  assert(filteredSidesCount == 4);
+  assert(filteredLx3Count == 2);
 
   return 0;
 }
