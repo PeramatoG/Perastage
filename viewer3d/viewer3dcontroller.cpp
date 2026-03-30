@@ -123,6 +123,7 @@ struct Viewer3DController::Impl {
   bool captureUseSymbols = false;
   SymbolCache bottomSymbolCache;
   bool darkMode = false;
+  Viewer2DRenderMode activeRenderMode = Viewer2DRenderMode::White;
   bool showSelectionOutline2D = false;
   bool isInteracting = false;
   bool cameraMoving = false;
@@ -899,6 +900,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      bool is2DViewer,
                                      bool preferPerastageSvgSymbolsForLayouts) {
   ConfigManager &cfg = ConfigManager::Get();
+  m_impl->activeRenderMode = mode;
 
   RenderFrameContext context;
   context.wireframe = wireframe;
@@ -1165,6 +1167,9 @@ std::array<float, 3> Viewer3DController::AdjustColor(float r, float g,
                                                      float b) const {
   if (!m_impl->darkMode)
     return {r, g, b};
+  if (m_impl->activeRenderMode == Viewer2DRenderMode::Wireframe &&
+      r == 0.0f && g == 0.0f && b == 0.0f)
+    return {1.0f, 1.0f, 1.0f};
   return {r, g, b};
 }
 
