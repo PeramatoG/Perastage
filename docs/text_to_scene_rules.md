@@ -162,6 +162,16 @@ Supported truss syntax includes:
 
 - `N truss MODEL LENGTH m [para HANG]`
 - More generic fallback lines containing `truss` and a measurable length.
+- Optional coordinate override appended to hang in parentheses, e.g.
+  - `LX1 (0, -1, 9)` => `x, y, z`
+  - `LX1 ( -1, 9 )` => `y, z` (keeps default `x`)
+  - `LX1 (7)` => `y` only (keeps default `x, z`)
+  - Non-numeric text inside parentheses is ignored while extracting numbers.
+  - This can be written both in truss targets (`... PARA LX1 (7)`) and in
+    hang headers (`LX1 (7)` / `LX1 (7):`), where truss placement inherits the
+    hang override.
+  - The **Apply filter** pass preserves these coordinate tokens so pressing
+    **Create** after filtering keeps the same truss placement overrides.
 
 Key truss behaviors:
 
@@ -170,7 +180,10 @@ Key truss behaviors:
 3. `para <hang>` overrides current hang.
 4. Prefix cleanup supports `PUENTE`/`PUENTES` in hang names.
 5. Long trusses are split into symmetric pieces using preferred segments (`3000, 2000, 1000, 500 mm`) plus a center piece when beneficial.
-6. Each piece becomes a truss object with computed `x` placement and hang-based `y/z`.
+6. Each piece becomes a truss object with computed `x` placement and hang-based
+   `y/z`, unless a coordinate override is provided in the hang token.
+   Coordinate values use the active UI distance unit system (`metric` or
+   `imperial`) at import time.
 7. Dictionary/model resolution is attempted using normalized lookup keys.
 8. If model/symbol cannot be fully resolved to renderable geometry (`.3ds`/`.glb` available), importer keeps dummy-box truss data and logs a warning.
 

@@ -125,5 +125,85 @@ int main() {
   assert(filteredSidesCount == 4);
   assert(filteredLx3Count == 2);
 
+  cfg.Reset();
+  cfg.SetValue("ui_distance_unit_system", "metric");
+  const std::string withCoordinateOverrideMetric =
+      "RIGGING\n"
+      "1 TRUSS LX1 (abc 0, -1, 9 z) 14m\n";
+  assert(RiderImporter::ImportText(withCoordinateOverrideMetric));
+  const auto &sceneMetric = cfg.GetScene();
+  int metricTrussCount = 0;
+  for (const auto &[uuid, truss] : sceneMetric.trusses) {
+    (void)uuid;
+    ++metricTrussCount;
+    assert(truss.positionName == "LX1");
+    assert(NearlyEqual(truss.transform.o[0], 0.0f));
+    assert(NearlyEqual(truss.transform.o[1], -1000.0f));
+    assert(NearlyEqual(truss.transform.o[2], 9000.0f));
+  }
+  assert(metricTrussCount > 0);
+
+  cfg.Reset();
+  cfg.SetValue("ui_distance_unit_system", "imperial");
+  const std::string withCoordinateOverrideImperial =
+      "RIGGING\n"
+      "1 TRUSS LX1 (2, 10) 14m\n";
+  assert(RiderImporter::ImportText(withCoordinateOverrideImperial));
+  const auto &sceneImperial = cfg.GetScene();
+  int imperialTrussCount = 0;
+  for (const auto &[uuid, truss] : sceneImperial.trusses) {
+    (void)uuid;
+    ++imperialTrussCount;
+    assert(truss.positionName == "LX1");
+    // Two values map to Y/Z in active distance units (feet here).
+    assert(NearlyEqual(truss.transform.o[1], 2.0f * 304.8f));
+    assert(NearlyEqual(truss.transform.o[2], 10.0f * 304.8f));
+  }
+  assert(imperialTrussCount > 0);
+
+  cfg.Reset();
+  cfg.SetValue("ui_distance_unit_system", "metric");
+  const std::string withSingleCoordinateOverride =
+      "RIGGING\n"
+      "1 TRUSS LX1 (7) 14m\n";
+  assert(RiderImporter::ImportText(withSingleCoordinateOverride));
+  const auto &sceneSingle = cfg.GetScene();
+  int singleTrussCount = 0;
+  for (const auto &[uuid, truss] : sceneSingle.trusses) {
+    (void)uuid;
+    ++singleTrussCount;
+    assert(truss.positionName == "LX1");
+    // One value maps only to Y; X/Z keep defaults for LX1.
+    assert(NearlyEqual(truss.transform.o[1], 7000.0f));
+    assert(NearlyEqual(truss.transform.o[2], 10000.0f));
+  }
+  assert(singleTrussCount > 0);
+
+  cfg.Reset();
+  cfg.SetValue("ui_distance_unit_system", "metric");
+  const std::string headerCoordinateOverrideWithoutColon =
+      "LX1 (6)\n"
+      "2 SPOT\n"
+      "RIGGING\n"
+      "1 TRUSS 40X40 14m\n";
+  assert(RiderImporter::ImportText(headerCoordinateOverrideWithoutColon));
+  const auto &sceneHeaderOverride = cfg.GetScene();
+  int headerFixtures = 0;
+  int headerTrusses = 0;
+  for (const auto &[uuid, fixture] : sceneHeaderOverride.fixtures) {
+    (void)uuid;
+    if (fixture.positionName == "LX1")
+      ++headerFixtures;
+  }
+  for (const auto &[uuid, truss] : sceneHeaderOverride.trusses) {
+    (void)uuid;
+    if (truss.positionName != "LX1")
+      continue;
+    ++headerTrusses;
+    assert(NearlyEqual(truss.transform.o[1], 6000.0f));
+  }
+  assert(headerFixtures == 2);
+  assert(headerTrusses > 0);
+
   return 0;
 }

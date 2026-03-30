@@ -40,6 +40,10 @@
 - Import simple lighting riders from plain text or PDF documents using the **Tools → Create from text** dialog.
 - The dialog provides an **Apply filter** action that replaces the editor text with the parsed fixture-only result before you press **Create**.
 - The rider importer parses typical lists of fixture quantities/types and creates corresponding dummy fixtures/trusses in the scene.
+- Truss hang tokens can include optional coordinates in parentheses to override
+  default truss placement in **Create from text** (numeric values follow the
+  active distance unit system: meters/feet), including hang headers such as
+  `LX1 (7)` / `LX1 (7):`.
 - In text import, `CALLES`/`SIDES` hang headers map to `LX SIDES` and support mirrored side-truss/fixture placement workflows.
 - The full parser and placement rule set used by this text-to-scene workflow is documented in [`docs/text_to_scene_rules.md`](docs/text_to_scene_rules.md).
 - A dictionary helps resolve type names to GDTF specifications and can be edited via the **Tools → Edit dictionaries** menu.

@@ -52,6 +52,7 @@
 #include "truss.h"
 #include "trussdictionary.h"
 #include "trussloader.h"
+#include "units/units.h"
 #include "uuidutils.h"
 #include <filesystem>
 
@@ -76,7 +77,7 @@ static const std::regex kFixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$",
                                        std::regex::icase);
 static const std::regex kQuantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
 static const std::regex kHangLineRe(
-    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*:?\\s*$",
+    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s*\\([^\\)]*\\))?\\s*:?\\s*$",
     std::regex::icase);
 static const std::regex kHangHeaderWithSuffixRe(
     "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|led\\s*screen|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s+[^:]*)?\\s*:\\s*$",
@@ -93,6 +94,16 @@ std::string Trim(const std::string &s) {
     return {};
   size_t end = s.find_last_not_of(" \t\r\n");
   return s.substr(start, end - start + 1);
+}
+
+std::optional<std::string> ExtractParenthesizedToken(const std::string &text) {
+  const size_t open = text.find('(');
+  if (open == std::string::npos)
+    return std::nullopt;
+  const size_t close = text.find(')', open + 1);
+  if (close == std::string::npos || close <= open)
+    return std::nullopt;
+  return text.substr(open, close - open + 1);
 }
 
 std::string ResolveGdtfPath(const MvrScene &scene,
@@ -300,6 +311,66 @@ bool TryParseInt(std::string_view text, int &out) {
     return true;
   }
   return false;
+}
+
+struct TrussCoordinateOverride {
+  bool hasX = false;
+  bool hasY = false;
+  bool hasZ = false;
+  float xMm = 0.0f;
+  float yMm = 0.0f;
+  float zMm = 0.0f;
+};
+
+std::optional<TrussCoordinateOverride> ParseTrussCoordinateOverride(
+    std::string &text, Units::DistanceUnitSystem unitSystem) {
+  const size_t open = text.find('(');
+  if (open == std::string::npos)
+    return std::nullopt;
+
+  const size_t close = text.find(')', open + 1);
+  if (close == std::string::npos || close <= open + 1)
+    return std::nullopt;
+
+  const std::string inside = text.substr(open + 1, close - open - 1);
+  static const std::regex kCoordinateNumberRe("[-+]?\\d+(?:[\\.,]\\d+)?");
+  std::vector<double> values;
+  values.reserve(3);
+  for (std::sregex_iterator it(inside.begin(), inside.end(), kCoordinateNumberRe),
+       end;
+       it != end && values.size() < 3; ++it) {
+    std::string token = it->str();
+    std::replace(token.begin(), token.end(), ',', '.');
+    float parsed = 0.0f;
+    if (!TryParseFloat(token, parsed))
+      continue;
+    values.push_back(
+        Units::DistanceDisplayToMillimeters(static_cast<double>(parsed), unitSystem));
+  }
+  if (values.empty())
+    return std::nullopt;
+
+  text.erase(open, close - open + 1);
+  text = Trim(text);
+
+  TrussCoordinateOverride override;
+  if (values.size() >= 3) {
+    override.hasX = true;
+    override.hasY = true;
+    override.hasZ = true;
+    override.xMm = static_cast<float>(values[0]);
+    override.yMm = static_cast<float>(values[1]);
+    override.zMm = static_cast<float>(values[2]);
+  } else if (values.size() == 2) {
+    override.hasY = true;
+    override.hasZ = true;
+    override.yMm = static_cast<float>(values[0]);
+    override.zMm = static_cast<float>(values[1]);
+  } else {
+    override.hasY = true;
+    override.yMm = static_cast<float>(values[0]);
+  }
+  return override;
 }
 
 bool TryParseScreenDimensionsMm(const std::string &text, float &widthMm,
@@ -803,6 +874,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
   std::string currentHang;
   std::vector<std::string> hangOrder;
   std::unordered_map<std::string, std::vector<std::string>> fixturesByHang;
+  std::unordered_map<std::string, std::string> hangCoordinateSuffixByHang;
   std::vector<std::string> riggingLines;
   struct HoistPreviewRequest {
     int quantity = 0;
@@ -896,6 +968,10 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       } else {
         currentHang = NormalizeHangName(captured);
       }
+      if (const auto coordinateSuffix = ExtractParenthesizedToken(line);
+          coordinateSuffix.has_value()) {
+        hangCoordinateSuffixByHang[currentHang] = *coordinateSuffix;
+      }
       if (!inRigging && !inFixtures)
         inFixtures = true;
       continue;
@@ -918,11 +994,33 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       if (!TryParseFloat(m[3].str(), lengthM))
         continue;
       std::string hang = currentHang;
+      std::string trussCoordinateSuffix;
       if (m.size() > 4 && m[4].matched) {
         hang = m[4].str();
+        if (const auto coordinateSuffix = ExtractParenthesizedToken(hang);
+            coordinateSuffix.has_value()) {
+          trussCoordinateSuffix = *coordinateSuffix;
+        }
       } else if (std::regex_match(model, kHangOnlyRe)) {
         hang = model;
         model.clear();
+      } else {
+        std::string modelForHang = model;
+        if (const auto coordinateSuffix = ExtractParenthesizedToken(modelForHang);
+            coordinateSuffix.has_value()) {
+          trussCoordinateSuffix = *coordinateSuffix;
+        }
+        modelForHang = std::regex_replace(modelForHang, std::regex("\\([^\\)]*\\)"), "");
+        modelForHang = Trim(modelForHang);
+        if (std::regex_match(modelForHang, kHangOnlyRe)) {
+          hang = modelForHang;
+          model.clear();
+        }
+      }
+      if (trussCoordinateSuffix.empty()) {
+        const auto it = hangCoordinateSuffixByHang.find(NormalizeHangName(hang));
+        if (it != hangCoordinateSuffixByHang.end())
+          trussCoordinateSuffix = it->second;
       }
       hang = NormalizeHangName(hang);
 
@@ -939,6 +1037,8 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
         out += " " + lenText;
         if (!targetHang.empty())
           out += " " + targetHang;
+        if (!trussCoordinateSuffix.empty())
+          out += " " + trussCoordinateSuffix;
         riggingLines.push_back(out);
         if (targetHang.rfind("LX", 0) == 0 &&
             std::find(lxTargetsInRigging.begin(), lxTargetsInRigging.end(),
@@ -1009,6 +1109,10 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
     if (!firstSection)
       preview << "\n\n";
     preview << hang;
+    const auto coordinateIt = hangCoordinateSuffixByHang.find(hang);
+    if (coordinateIt != hangCoordinateSuffixByHang.end() &&
+        !coordinateIt->second.empty())
+      preview << " " << coordinateIt->second;
     for (const std::string &fixtureLine : it->second)
       preview << "\n" << fixtureLine;
     firstSection = false;
@@ -1076,6 +1180,8 @@ bool RiderImporter::ImportText(const std::string &text) {
   std::string defaultLayer = cfg.GetCurrentLayer();
   auto modeVal = cfg.GetValue("rider_layer_mode");
   bool layerByType = modeVal && *modeVal == "type";
+  const Units::DistanceUnitSystem distanceUnitSystem =
+      Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
   std::optional<float> lastLightingTrussPosY;
   std::optional<float> lastLightingTrussPosZ;
 
@@ -1191,6 +1297,8 @@ bool RiderImporter::ImportText(const std::string &text) {
   std::vector<HoistRequest> hoistRequests;
   int pendingQuantity = 0;
   bool havePending = false;
+  std::unordered_map<std::string, TrussCoordinateOverride>
+      hangCoordinateOverrides;
 
   auto addFixtures = [&](int baseQuantity, const std::string &desc) {
     auto parts = SplitPlus(desc);
@@ -1311,6 +1419,12 @@ bool RiderImporter::ImportText(const std::string &text) {
         std::regex_match(line, hm, kHangHeaderWithSuffixRe)) {
       havePending = false;
       currentHang = NormalizeHangName(hm[1].str());
+      std::string hangLineWithOverrides = line;
+      if (const auto parsedOverride = ParseTrussCoordinateOverride(
+              hangLineWithOverrides, distanceUnitSystem);
+          parsedOverride.has_value()) {
+        hangCoordinateOverrides[currentHang] = *parsedOverride;
+      }
       // If we weren't in any section yet, assume fixtures when a hang position
       // appears
       if (!inRigging && !inFixtures)
@@ -1350,9 +1464,25 @@ bool RiderImporter::ImportText(const std::string &text) {
             height = parsed * 10.0f;
         }
         std::string hang = currentHang;
+        std::optional<TrussCoordinateOverride> coordinateOverride;
         if (m.size() > 4 && m[4].matched) {
           hang = Trim(m[4]);
-        } else if (std::regex_match(model, kHangOnlyRe)) {
+          coordinateOverride =
+              ParseTrussCoordinateOverride(hang, distanceUnitSystem);
+        } else {
+          std::string modelForHang = model;
+          const auto modelCoordinateOverride =
+              ParseTrussCoordinateOverride(modelForHang, distanceUnitSystem);
+          if (std::regex_match(modelForHang, kHangOnlyRe)) {
+            hang = modelForHang;
+            coordinateOverride = modelCoordinateOverride;
+            model.clear();
+          } else if (modelCoordinateOverride.has_value()) {
+            model = modelForHang;
+            coordinateOverride = modelCoordinateOverride;
+          }
+        }
+        if (std::regex_match(model, kHangOnlyRe)) {
           hang = model;
           model.clear();
         }
@@ -1397,12 +1527,24 @@ bool RiderImporter::ImportText(const std::string &text) {
           return std::pair<float, float>{minX, maxX};
         };
 
-        auto addTrussPieces = [&](const std::string &posName) {
+        auto addTrussPieces = [&](const std::string &posName,
+                                  const std::optional<TrussCoordinateOverride>
+                                      &coordinateOverride) {
           auto pieces = SplitTrussSymmetric(length);
           float total = std::accumulate(pieces.begin(), pieces.end(), 0.0f);
           const bool isLxSides = IsLxSidesHangName(posName);
-          float x = -0.5f * total;
-          float yStart = -0.5f * total;
+          float x = coordinateOverride && coordinateOverride->hasX
+                        ? coordinateOverride->xMm
+                        : -0.5f * total;
+          float yStart = coordinateOverride && coordinateOverride->hasY
+                             ? coordinateOverride->yMm
+                             : -0.5f * total;
+          const float hangY = coordinateOverride && coordinateOverride->hasY
+                                  ? coordinateOverride->yMm
+                                  : getHangPos(posName);
+          const float hangZ = coordinateOverride && coordinateOverride->hasZ
+                                  ? coordinateOverride->zMm
+                                  : getHangHeight(posName);
           for (float s : pieces) {
             Truss t;
             t.uuid = GenerateUuid();
@@ -1425,11 +1567,11 @@ bool RiderImporter::ImportText(const std::string &text) {
               t.transform.w = {0.0f, 0.0f, 1.0f};
             }
             t.transform.o[0] = x;
-            t.transform.o[1] = isLxSides ? yStart : getHangPos(posName);
+            t.transform.o[1] = isLxSides ? yStart : hangY;
             // Position dummy truss so its base sits at the hang height.
             // Real truss models are inserted from their bottom, so using the
             // raw hang height keeps the base aligned when swapping models.
-            t.transform.o[2] = isLxSides ? 5000.0f : getHangHeight(posName);
+            t.transform.o[2] = hangZ;
             std::string sizeStr = formatLength(s);
             if (model.empty())
               t.name = "TRUSS " + sizeStr;
@@ -1496,30 +1638,86 @@ bool RiderImporter::ImportText(const std::string &text) {
               addToLayer(trussLayer, trussUuid);
             }
             if (IsLxHangName(posName)) {
-              lastLightingTrussPosY = getHangPos(posName);
-              lastLightingTrussPosZ = getHangHeight(posName);
+              lastLightingTrussPosY = hangY;
+              lastLightingTrussPosZ = hangZ;
             }
             x += s;
             yStart += s;
           }
         };
 
+        auto resolveCoordinateOverride = [&](const std::string &posName) {
+          TrussCoordinateOverride resolved;
+          bool hasResolved = false;
+          if (const auto hangOverrideIt = hangCoordinateOverrides.find(posName);
+              hangOverrideIt != hangCoordinateOverrides.end()) {
+            resolved = hangOverrideIt->second;
+            hasResolved = true;
+          }
+          if (coordinateOverride.has_value()) {
+            if (coordinateOverride->hasX) {
+              resolved.hasX = true;
+              resolved.xMm = coordinateOverride->xMm;
+            }
+            if (coordinateOverride->hasY) {
+              resolved.hasY = true;
+              resolved.yMm = coordinateOverride->yMm;
+            }
+            if (coordinateOverride->hasZ) {
+              resolved.hasZ = true;
+              resolved.zMm = coordinateOverride->zMm;
+            }
+            hasResolved = true;
+          }
+          return hasResolved ? std::optional<TrussCoordinateOverride>(resolved)
+                             : std::nullopt;
+        };
+
         if (hang == "LX") {
           for (int i = 0; i < quantity; ++i)
-            addTrussPieces("LX" + std::to_string(i + 1));
+            addTrussPieces("LX" + std::to_string(i + 1),
+                           resolveCoordinateOverride("LX" + std::to_string(i + 1)));
         } else {
           for (int i = 0; i < quantity; ++i)
-            addTrussPieces(hang);
+            addTrussPieces(hang, resolveCoordinateOverride(hang));
         }
       } else if (std::regex_search(line, m, kTrussRe)) {
         float length = 0.0f;
         if (!TryParseFloat(m[1], length))
           continue;
         length *= 1000.0f;
+        std::string lineWithCoordinateOverride = line;
+        const auto lineCoordinateOverride =
+            ParseTrussCoordinateOverride(lineWithCoordinateOverride,
+                                         distanceUnitSystem);
         std::string hang = currentHang;
+        std::optional<TrussCoordinateOverride> coordinateOverride =
+            ParseTrussCoordinateOverride(hang, distanceUnitSystem);
         if (std::regex_search(line, hm, kHangFindRe)) {
           hang = hm[1];
           hang = NormalizeHangName(hang);
+        }
+        if (!coordinateOverride.has_value()) {
+          const auto hangOverrideIt = hangCoordinateOverrides.find(hang);
+          if (hangOverrideIt != hangCoordinateOverrides.end())
+            coordinateOverride = hangOverrideIt->second;
+        }
+        if (lineCoordinateOverride.has_value()) {
+          TrussCoordinateOverride merged =
+              coordinateOverride.value_or(TrussCoordinateOverride{});
+          if (lineCoordinateOverride->hasX) {
+            merged.hasX = true;
+            merged.xMm = lineCoordinateOverride->xMm;
+          }
+          if (lineCoordinateOverride->hasY) {
+            merged.hasY = true;
+            merged.yMm = lineCoordinateOverride->yMm;
+          }
+          if (lineCoordinateOverride->hasZ) {
+            merged.hasZ = true;
+            merged.zMm = lineCoordinateOverride->zMm;
+          }
+          coordinateOverride = merged;
         }
         if (hang == "FLOOR")
           continue;
@@ -1538,7 +1736,15 @@ bool RiderImporter::ImportText(const std::string &text) {
         float height = 400.0f;
         auto pieces = SplitTrussSymmetric(length);
         float total = std::accumulate(pieces.begin(), pieces.end(), 0.0f);
-        float x = -0.5f * total;
+        float x = coordinateOverride && coordinateOverride->hasX
+                      ? coordinateOverride->xMm
+                      : -0.5f * total;
+        const float hangY = coordinateOverride && coordinateOverride->hasY
+                                ? coordinateOverride->yMm
+                                : getHangPos(hang);
+        const float hangZ = coordinateOverride && coordinateOverride->hasZ
+                                ? coordinateOverride->zMm
+                                : getHangHeight(hang);
         for (float s : pieces) {
           Truss t;
           t.uuid = GenerateUuid();
@@ -1556,10 +1762,10 @@ bool RiderImporter::ImportText(const std::string &text) {
           t.heightMm = height;
           t.positionName = hang;
           t.transform.o[0] = x;
-          t.transform.o[1] = getHangPos(hang);
+          t.transform.o[1] = hangY;
           // Store the hang height directly so the base matches real models
           // that are inserted from the bottom.
-          t.transform.o[2] = getHangHeight(hang);
+          t.transform.o[2] = hangZ;
           std::string sizeStr = formatLength(s);
           t.name = "TRUSS " + sizeStr;
           t.model = TrussDictionary::NormalizeModelKey(t.name);
@@ -1600,8 +1806,8 @@ bool RiderImporter::ImportText(const std::string &text) {
           importedTrussUuids.push_back(trussUuid);
           addToLayer(trussLayer, trussUuid);
           if (IsLxHangName(hang)) {
-            lastLightingTrussPosY = getHangPos(hang);
-            lastLightingTrussPosZ = getHangHeight(hang);
+            lastLightingTrussPosY = hangY;
+            lastLightingTrussPosZ = hangZ;
           }
           x += s;
         }

@@ -67,5 +67,27 @@ int main() {
     return 1;
   }
 
+  const std::string inputWithCoordinates =
+      "LX1 (6)\n"
+      "2 SPOT\n"
+      "RIGGING\n"
+      "1 TRUSS 40X40 14m PARA LX1 (6)\n";
+  const std::string previewWithCoordinates =
+      RiderImporter::BuildFixtureFilterPreview(inputWithCoordinates);
+  const std::string expectedWithCoordinates =
+      "LX1 (6)\n"
+      "2 SPOT\n"
+      "\n"
+      "\n"
+      "RIGGING\n"
+      "1 TRUSS 40X40 14m LX1 (6)";
+  if (previewWithCoordinates != expectedWithCoordinates) {
+    std::cerr << "Coordinate overrides should be preserved in filtered preview.\n"
+              << "Expected:\n"
+              << expectedWithCoordinates << "\n\nGot:\n"
+              << previewWithCoordinates << "\n";
+    return 1;
+  }
+
   return 0;
 }
