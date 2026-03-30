@@ -257,10 +257,17 @@ void SceneRenderer::DrawMeshWithOutline(
                               !highlight && !selected &&
                               mesh.textureId != 0 &&
                               mesh.texcoords.size() >= (mesh.vertices.size() / 3u) * 2u;
+      const bool useMaterialColor = IsTexturedRenderStyleEnabled() &&
+                                    !highlight && !selected &&
+                                    !useTexture && mesh.hasMaterialBaseColor;
       if (highlight)
         m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
       else if (selected)
         m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
+      else if (useMaterialColor)
+        m_controller.SetGLColor(mesh.materialBaseColor[0],
+                                mesh.materialBaseColor[1],
+                                mesh.materialBaseColor[2]);
       else
         m_controller.SetGLColor(useTexture ? 1.0f : r, useTexture ? 1.0f : g,
                                 useTexture ? 1.0f : b);

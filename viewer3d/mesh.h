@@ -30,6 +30,8 @@ struct Mesh {
     std::vector<unsigned char> textureRgba; // optional texture pixels RGBA8
     int textureWidth = 0;
     int textureHeight = 0;
+    std::array<float, 3> materialBaseColor = {1.0f, 1.0f, 1.0f};
+    bool hasMaterialBaseColor = false;
 
     // OpenGL resources for VBO/VAO based rendering.
     uint32_t vao = 0;

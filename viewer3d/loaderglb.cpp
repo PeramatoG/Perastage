@@ -431,7 +431,7 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
 
     auto applyPrimitiveBaseColorTexture = [&](const json& prim) {
         if (!prim.contains("material") || !doc.contains("materials") ||
-            !doc["materials"].is_array() || outMesh.textureWidth > 0)
+            !doc["materials"].is_array())
             return;
         int materialIndex = -1;
         if (!readInt(prim["material"], materialIndex) || materialIndex < 0 ||
@@ -441,7 +441,22 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
         if (!material.contains("pbrMetallicRoughness"))
             return;
         const auto& pbr = material["pbrMetallicRoughness"];
+        if (!outMesh.hasMaterialBaseColor && pbr.contains("baseColorFactor") &&
+            pbr["baseColorFactor"].is_array() && pbr["baseColorFactor"].size() >= 3) {
+            float r = 1.0f, g = 1.0f, b = 1.0f;
+            if (readFloat(pbr["baseColorFactor"][0], r) &&
+                readFloat(pbr["baseColorFactor"][1], g) &&
+                readFloat(pbr["baseColorFactor"][2], b)) {
+                outMesh.materialBaseColor = {
+                    std::clamp(r, 0.0f, 1.0f),
+                    std::clamp(g, 0.0f, 1.0f),
+                    std::clamp(b, 0.0f, 1.0f)};
+                outMesh.hasMaterialBaseColor = true;
+            }
+        }
         if (!pbr.contains("baseColorTexture"))
+            return;
+        if (outMesh.textureWidth > 0)
             return;
         int textureIndex = -1;
         if (!pbr["baseColorTexture"].contains("index") ||
@@ -463,6 +478,27 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
             outMesh.textureWidth = width;
             outMesh.textureHeight = height;
         }
+    };
+
+    auto resolvePrimitiveBaseColorTexCoordSet = [&](const json& prim) -> int {
+        if (!prim.contains("material") || !doc.contains("materials") ||
+            !doc["materials"].is_array())
+            return 0;
+        int materialIndex = -1;
+        if (!readInt(prim["material"], materialIndex) || materialIndex < 0 ||
+            materialIndex >= static_cast<int>(doc["materials"].size()))
+            return 0;
+        const auto& material = doc["materials"][materialIndex];
+        if (!material.contains("pbrMetallicRoughness"))
+            return 0;
+        const auto& pbr = material["pbrMetallicRoughness"];
+        if (!pbr.contains("baseColorTexture"))
+            return 0;
+        const auto& bct = pbr["baseColorTexture"];
+        int texCoordSet = 0;
+        if (bct.contains("texCoord"))
+            readInt(bct["texCoord"], texCoordSet);
+        return std::max(0, texCoordSet);
     };
 
     auto readPrimitive = [&](const json& prim, const Matrix& transform) -> bool {
@@ -514,7 +550,11 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
             outMesh.vertices[(base+i)*3 + 2] = p[2];
         }
 
-        auto uvIt = attributes->find("TEXCOORD_0");
+        const int texCoordSet = resolvePrimitiveBaseColorTexCoordSet(prim);
+        const std::string uvAttributeName = "TEXCOORD_" + std::to_string(texCoordSet);
+        auto uvIt = attributes->find(uvAttributeName);
+        if (uvIt == attributes->end() && texCoordSet != 0)
+            uvIt = attributes->find("TEXCOORD_0");
         if (uvIt != attributes->end()) {
             int uvAccessor = -1;
             if (readInt(*uvIt, uvAccessor)) {
