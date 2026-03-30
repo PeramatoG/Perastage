@@ -490,6 +490,11 @@ void OpaqueFixturePass::Render(
     }
 
     float r = 1.0f, g = 1.0f, b = 1.0f;
+    if (context.whiteModelStyle && !wireframe) {
+      r = 0.95f;
+      g = 0.95f;
+      b = 0.95f;
+    }
     if (wireframe) {
       if (mode == Viewer2DRenderMode::ByFixtureType) {
         auto c = getTypeColor(f.gdtfSpec, f.color);

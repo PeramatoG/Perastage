@@ -120,6 +120,17 @@ void SceneRenderer::DrawMeshWithOutline(
     DrawMesh(mesh, scale, modelMatrix);
     if (unlit)
       glEnable(GL_LIGHTING);
+
+    if (m_controller.IsWhiteModelStyleEnabled()) {
+      const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+      if (lightingWasEnabled)
+        glDisable(GL_LIGHTING);
+      glLineWidth(1.0f);
+      m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+      DrawMeshWireframe(mesh, scale, captureTransform);
+      if (lightingWasEnabled)
+        glEnable(GL_LIGHTING);
+    }
   }
   if (m_controller.GetCaptureCanvas()) {
     CanvasStroke stroke;

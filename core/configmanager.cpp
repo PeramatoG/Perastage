@@ -203,6 +203,8 @@ ConfigManager::ConfigManager() {
     SetValue("rider_autopatch", "1");
   if (!HasKey("rider_layer_mode"))
     SetValue("rider_layer_mode", "position");
+  if (!HasKey("viewer3d_render_style"))
+    SetValue("viewer3d_render_style", "standard");
   if (!HasKey("fixture_print_columns"))
     SetFixturePrintColumns({"position", "id", "type"});
   if (!HasKey("truss_print_columns"))
@@ -494,6 +496,8 @@ void ConfigManager::Reset() {
     SetValue("ui_weight_unit_system", "metric");
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");
+  if (!HasKey("viewer3d_render_style"))
+    SetValue("viewer3d_render_style", "standard");
   ApplyDefaults();
   layouts::LayoutManager::Get().ResetToDefault(*this);
   selectionState.Clear();

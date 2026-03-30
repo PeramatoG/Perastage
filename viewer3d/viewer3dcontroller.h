@@ -217,7 +217,8 @@ private:
                 Viewer2DView view = Viewer2DView::Top);
   void DrawAxes();
   void SetupBasicLighting(bool ambientOcclusionEnabled,
-                          float ambientOcclusionStrength);
+                          float ambientOcclusionStrength,
+                          bool whiteModelStyle);
   void SetupMaterialFromRGB(float r, float g, float b);
   void SetGLColor(float r, float g, float b) const override;
   std::array<float, 3> AdjustColor(float r, float g, float b) const;
@@ -255,6 +256,7 @@ private:
   bool IsCaptureOnly() const override;
   ICanvas2D *GetCaptureCanvas() const override;
   bool CaptureIncludesGrid() const override;
+  bool IsWhiteModelStyleEnabled() const override;
 
   void ApplyHighlightUuid(const std::string &uuid) override;
   void ReplaceSelectedUuids(const std::vector<std::string> &uuids) override;
