@@ -80,6 +80,7 @@ struct RenderFrameContext {
   bool colorByLayer = false;
   bool colorByUniverse = false;
   bool whiteModelStyle = false;
+  bool texturedStyle = false;
 
   std::unordered_set<std::string> hiddenLayers;
 };

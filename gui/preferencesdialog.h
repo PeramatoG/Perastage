@@ -43,6 +43,7 @@ private:
   wxRadioButton *layerTypeRadio = nullptr;
   wxRadioButton *viewer3dStandardRenderRadio = nullptr;
   wxRadioButton *viewer3dWhiteModelRenderRadio = nullptr;
+  wxRadioButton *viewer3dTexturedRenderRadio = nullptr;
   wxChoice *distanceUnitChoice = nullptr;
   wxChoice *weightUnitChoice = nullptr;
   wxString initialDistanceUnit;

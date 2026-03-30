@@ -435,7 +435,7 @@ void OpaqueFixturePass::Render(
       ConfigManager::Get().GetFloat("view2d_top_fixtures_inverted") != 0.0f;
   const bool drawRealTopInTopView = isTopView2D && !forceBottomViewForTopFixtures;
 
-  glShadeModel(GL_FLAT);
+  glShadeModel((context.texturedStyle && !wireframe) ? GL_SMOOTH : GL_FLAT);
   const bool forceFixturesOnTop = wireframe;
   GLboolean depthEnabled = GL_FALSE;
   if (forceFixturesOnTop) {

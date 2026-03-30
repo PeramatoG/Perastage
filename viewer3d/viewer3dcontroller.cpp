@@ -65,6 +65,7 @@
 #include "selectionsystem.h"
 #include "gl_primitive_renderer.h"
 #include "lighting_profile.h"
+#include "viewer3d_render_style.h"
 
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
@@ -169,9 +170,8 @@ static bool IsFastInteractionModeEnabled(const ConfigManager &cfg) {
   return cfg.GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
-static bool ReadWhiteModelStylePreference(const ConfigManager &cfg) {
-  auto style = cfg.GetValue("viewer3d_render_style");
-  return style && *style == "white_model";
+static Viewer3DRenderStyle ReadRenderStylePreference(const ConfigManager &cfg) {
+  return ResolveViewer3DRenderStyle(cfg);
 }
 
 static LineRenderProfile GetLineRenderProfile(bool isInteracting,
@@ -990,7 +990,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       context.wireframe && isByFixtureTypeMode;
   context.colorByLayer = context.wireframe && isByLayerMode;
   context.colorByUniverse = context.wireframe && isByUniverseMode;
-  context.whiteModelStyle = ReadWhiteModelStylePreference(cfg);
+  const Viewer3DRenderStyle renderStyle = ReadRenderStylePreference(cfg);
+  context.whiteModelStyle = IsWhiteModelRenderStyle(renderStyle);
+  context.texturedStyle = IsTexturedRenderStyle(renderStyle);
   m_impl->whiteModelStyleEnabled = context.whiteModelStyle;
 
   // Keep explicit mode flags local to the context build step to avoid

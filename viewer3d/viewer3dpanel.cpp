@@ -48,6 +48,7 @@
 #include "fixturepatchdialog.h"
 #include "viewer2dpanel.h"
 #include "viewer3dviewfit.h"
+#include "viewer3d_render_style.h"
 #include <wx/dcclient.h>
 #include <wx/event.h>
 #include <wx/log.h>
@@ -83,17 +84,61 @@ bool IsFastInteractionModeEnabled()
     return ConfigManager::Get().GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
-bool IsWhiteModelRenderStyleEnabled() {
-    auto renderStyle = ConfigManager::Get().GetValue("viewer3d_render_style");
-    return renderStyle && *renderStyle == "white_model";
+Viewer3DRenderStyle ResolveRenderStyleFromPreferences() {
+    return ResolveViewer3DRenderStyle(ConfigManager::Get());
 }
 
-void ApplyViewer3DClearColorFromPreferences() {
-    if (IsWhiteModelRenderStyleEnabled()) {
+void ApplyViewer3DClearColorForStyle(Viewer3DRenderStyle style) {
+    if (style == Viewer3DRenderStyle::WhiteModel) {
         glClearColor(0.95f, 0.95f, 0.95f, 1.0f);
         return;
     }
+    if (style == Viewer3DRenderStyle::Textured) {
+        glClearColor(0.05f, 0.04f, 0.08f, 1.0f);
+        return;
+    }
     glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+}
+
+void DrawTexturedStyleBackgroundGradient() {
+    const GLboolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+    const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);
+
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_LIGHTING);
+
+    glBegin(GL_QUADS);
+    glColor3f(0.05f, 0.04f, 0.10f);
+    glVertex2f(-1.0f, 1.0f);
+    glVertex2f(1.0f, 1.0f);
+
+    glColor3f(0.72f, 0.33f, 0.18f);
+    glVertex2f(1.0f, -0.05f);
+    glVertex2f(-1.0f, -0.05f);
+
+    glColor3f(0.95f, 0.58f, 0.30f);
+    glVertex2f(-1.0f, -1.0f);
+    glVertex2f(1.0f, -1.0f);
+    glEnd();
+
+    if (lightingWasEnabled)
+        glEnable(GL_LIGHTING);
+    if (depthTestWasEnabled)
+        glEnable(GL_DEPTH_TEST);
+
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
 }
 
 std::vector<std::string> BuildFixtureSelectionByType(
@@ -254,7 +299,7 @@ void Viewer3DPanel::InitGL()
         glEnable(GL_MULTISAMPLE);
     else
         glDisable(GL_MULTISAMPLE);
-    ApplyViewer3DClearColorFromPreferences();
+    ApplyViewer3DClearColorForStyle(ResolveRenderStyleFromPreferences());
 }
 
 // Paint event handler
@@ -404,8 +449,11 @@ void Viewer3DPanel::Render()
     int width, height;
     GetClientSize(&width, &height);
 
-    ApplyViewer3DClearColorFromPreferences();
+    const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
+    ApplyViewer3DClearColorForStyle(renderStyle);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    if (renderStyle == Viewer3DRenderStyle::Textured)
+        DrawTexturedStyleBackgroundGradient();
     ApplyCameraMatrices(width, height);
 
     m_controller.SetCameraMoving(m_cameraMoving);
