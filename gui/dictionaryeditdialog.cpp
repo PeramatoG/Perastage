@@ -41,6 +41,42 @@
 #include <wx/busyinfo.h>
 
 namespace {
+std::string EscapeMarkupText(const std::string &text) {
+  std::string escaped;
+  escaped.reserve(text.size());
+  for (const char ch : text) {
+    switch (ch) {
+    case '&':
+      escaped += "&amp;";
+      break;
+    case '<':
+      escaped += "&lt;";
+      break;
+    case '>':
+      escaped += "&gt;";
+      break;
+    case '"':
+      escaped += "&quot;";
+      break;
+    case '\'':
+      escaped += "&apos;";
+      break;
+    default:
+      escaped.push_back(ch);
+      break;
+    }
+  }
+  return escaped;
+}
+
+wxString BuildFileCellLabel(const std::string &path, bool fileExists) {
+  const std::string fileName = std::filesystem::path(path).filename().string();
+  if (fileExists)
+    return wxString::FromUTF8(fileName);
+  return wxString::FromUTF8("<span foreground=\"#cc0000\">" +
+                            EscapeMarkupText(fileName) + "</span>");
+}
+
 struct FixtureRow {
   std::string name;
   std::string path;
@@ -633,8 +669,12 @@ void DictionaryEditDialog::BuildLayout() {
   int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
   fixtureTable->AppendTextColumn("Name", wxDATAVIEW_CELL_EDITABLE, 200,
                                  wxALIGN_LEFT, flags);
-  fixtureTable->AppendTextColumn("File", wxDATAVIEW_CELL_INERT, 260,
-                                 wxALIGN_LEFT, flags);
+  wxDataViewColumn *fixtureFileColumn = fixtureTable->AppendTextColumn(
+      "File", wxDATAVIEW_CELL_INERT, 260, wxALIGN_LEFT, flags);
+  if (auto *renderer = dynamic_cast<wxDataViewTextRenderer *>(
+          fixtureFileColumn->GetRenderer())) {
+    renderer->EnableMarkup(true);
+  }
   fixtureTable->AppendTextColumn("Mode", wxDATAVIEW_CELL_INERT, 120,
                                  wxALIGN_LEFT, flags);
   fixtureTable->AppendTextColumn("Category", wxDATAVIEW_CELL_INERT, 130,
@@ -649,8 +689,12 @@ void DictionaryEditDialog::BuildLayout() {
                                       wxDefaultSize, wxDV_ROW_LINES);
   trussTable->AppendTextColumn("Name", wxDATAVIEW_CELL_EDITABLE, 200,
                                wxALIGN_LEFT, flags);
-  trussTable->AppendTextColumn("File", wxDATAVIEW_CELL_INERT, 260,
-                               wxALIGN_LEFT, flags);
+  wxDataViewColumn *trussFileColumn = trussTable->AppendTextColumn(
+      "File", wxDATAVIEW_CELL_INERT, 260, wxALIGN_LEFT, flags);
+  if (auto *renderer =
+          dynamic_cast<wxDataViewTextRenderer *>(trussFileColumn->GetRenderer())) {
+    renderer->EnableMarkup(true);
+  }
   ColumnUtils::EnforceMinColumnWidth(trussTable);
   trussSizer->Add(trussTable, 1, wxEXPAND | wxALL, 8);
   trussPanel->SetSizer(trussSizer);
@@ -717,8 +761,6 @@ void DictionaryEditDialog::LoadFixtures() {
   for (const auto &[name, entry] : *dictOpt) {
     if (entry.path.empty())
       continue;
-    if (!std::filesystem::exists(entry.path))
-      continue;
     FixtureRow row{ name, entry.path, entry.mode, entry.category };
     rows.push_back(row);
   }
@@ -726,9 +768,10 @@ void DictionaryEditDialog::LoadFixtures() {
 
   fixturePaths.reserve(rows.size());
   for (const auto &row : rows) {
+    const bool fileExists = std::filesystem::exists(row.path);
     wxVector<wxVariant> items;
     items.push_back(wxString::FromUTF8(row.name));
-    items.push_back(wxString::FromUTF8(std::filesystem::path(row.path).filename().string()));
+    items.push_back(BuildFileCellLabel(row.path, fileExists));
     items.push_back(wxString::FromUTF8(row.mode));
     items.push_back(wxString::FromUTF8(row.category));
     fixtureTable->AppendItem(items);
@@ -751,17 +794,16 @@ void DictionaryEditDialog::LoadTrusses() {
   for (const auto &[name, path] : *dictOpt) {
     if (path.empty())
       continue;
-    if (!std::filesystem::exists(path))
-      continue;
     rows.push_back({name, path});
   }
   SortTrussRows(rows);
 
   trussPaths.reserve(rows.size());
   for (const auto &row : rows) {
+    const bool fileExists = std::filesystem::exists(row.path);
     wxVector<wxVariant> items;
     items.push_back(wxString::FromUTF8(row.name));
-    items.push_back(wxString::FromUTF8(std::filesystem::path(row.path).filename().string()));
+    items.push_back(BuildFileCellLabel(row.path, fileExists));
     trussTable->AppendItem(items);
     trussPaths.push_back(row.path);
   }
