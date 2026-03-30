@@ -313,7 +313,9 @@ void MainWindow::SetupLayout() {
                                         .Caption("Console")
                                         .Bottom()
                                         .Layer(1)
-                                        .BestSize(-1, 150)
+                                        .Row(0)
+                                        .Position(0)
+                                        .BestSize(400, 150)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
@@ -384,7 +386,7 @@ void MainWindow::SetupLayout() {
                                         .Layer(1)
                                         .Row(0)
                                         .Position(1)
-                                        .BestSize(250, 200)
+                                        .BestSize(600, 200)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
@@ -611,6 +613,13 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
     return;
   ApplyLayoutPreset(*preset, std::make_optional(defaultLayoutPerspective),
                     false, true);
+  auto &consolePane = auiManager->GetPane("Console");
+  if (consolePane.IsOk())
+    consolePane.Bottom().Layer(1).Row(0).Position(0).BestSize(400, 150);
+  auto &riggingPane = auiManager->GetPane("RiggingPanel");
+  if (riggingPane.IsOk())
+    riggingPane.Bottom().Layer(1).Row(0).Position(1).BestSize(600, 200);
+  auiManager->Update();
 }
 
 void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
@@ -625,6 +634,13 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
     return;
   ApplyLayoutPreset(*preset, std::make_optional(default2DLayoutPerspective),
                     false, true);
+  auto &consolePane = auiManager->GetPane("Console");
+  if (consolePane.IsOk())
+    consolePane.Bottom().Layer(1).Row(0).Position(0).BestSize(400, 150);
+  auto &riggingPane = auiManager->GetPane("RiggingPanel");
+  if (riggingPane.IsOk())
+    riggingPane.Bottom().Layer(1).Row(0).Position(1).BestSize(600, 200);
+  auiManager->Update();
 }
 
 void MainWindow::OnApplyLayoutModeLayout(wxCommandEvent &WXUNUSED(event)) {
