@@ -290,8 +290,9 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
                         float v = 0.0f;
                         file.read(reinterpret_cast<char*>(&u), sizeof(float));
                         file.read(reinterpret_cast<char*>(&v), sizeof(float));
+                        const float flippedV = 1.0f - v;
                         mesh.texcoords[(objectVertexStart + i) * 2] = u;
-                        mesh.texcoords[(objectVertexStart + i) * 2 + 1] = v;
+                        mesh.texcoords[(objectVertexStart + i) * 2 + 1] = flippedV;
                     }
                 } else {
                     file.seekg(next);
