@@ -71,19 +71,44 @@ static bool FindTextureByFilename(const fs::path& root, const fs::path& targetNa
     if (root.empty() || !fs::exists(root) || !fs::is_directory(root))
         return false;
 
+    // Avoid blocking scene build when an archive is extracted into a large
+    // temp folder tree. Keep the search bounded and local to model content.
+    constexpr size_t kMaxScannedEntries = 5000;
+    constexpr int kMaxSearchDepth = 4;
+
     std::error_code ec;
+    size_t scannedEntries = 0;
     for (fs::recursive_directory_iterator it(root,
                                              fs::directory_options::skip_permission_denied,
                                              ec);
          it != fs::recursive_directory_iterator(); it.increment(ec)) {
-        if (ec)
-            break;
-        if (!it->is_regular_file())
+        if (ec) {
+            ec.clear();
             continue;
+        }
+        if (it.depth() > kMaxSearchDepth) {
+            it.disable_recursion_pending();
+            continue;
+        }
+        if (it->is_symlink(ec))
+            continue;
+        if (ec) {
+            ec.clear();
+            continue;
+        }
+        if (!it->is_regular_file(ec))
+            continue;
+        if (ec) {
+            ec.clear();
+            continue;
+        }
         if (FilenameEqualsInsensitive(it->path(), targetName)) {
             outPath = it->path();
             return true;
         }
+        ++scannedEntries;
+        if (scannedEntries >= kMaxScannedEntries)
+            break;
     }
     return false;
 }
@@ -118,9 +143,6 @@ static bool ResolveTexturePath(const fs::path& modelDir, const std::string& file
     }
 
     if (FindTextureByFilename(modelDir, texturePath, outPath))
-        return true;
-    if (modelDir.has_parent_path() &&
-        FindTextureByFilename(modelDir.parent_path(), texturePath, outPath))
         return true;
 
     return false;
