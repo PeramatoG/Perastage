@@ -21,24 +21,20 @@
 #include <map>
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 #include "colorstore.h"
 #include "columnutils.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
-#include "json.hpp"
+#include "hoist_weight_distribution.h"
+#include "hoisttablepanel.h"
+#include "rigging_extra_weight_settings.h"
 #include "units/unit_label_utils.h"
 #include "units/units.h"
 
 namespace {
 constexpr const char *UNASSIGNED_POSITION = "Unassigned";
-constexpr const char *kRiggingExtraWeightsConfigKey =
-    "rigging_position_extra_weights_v1";
-
-struct RiggingExtraWeightEntry {
-  float valueKg = 0.0f;
-  bool requiresValidation = false;
-};
 
 float RoundUpToNextFiveKg(float valueKg) {
   constexpr float kFiveKgStep = 5.0f;
@@ -84,49 +80,6 @@ wxString BuildRiggingTooltipForColumn(int modelColumn) {
   default:
     return wxString();
   }
-}
-
-std::unordered_map<std::string, RiggingExtraWeightEntry>
-LoadRiggingExtraWeights(const ConfigManager &cfg) {
-  std::unordered_map<std::string, RiggingExtraWeightEntry> result;
-  const auto serialized = cfg.GetValue(kRiggingExtraWeightsConfigKey);
-  if (!serialized || serialized->empty())
-    return result;
-
-  const nlohmann::json parsed = nlohmann::json::parse(*serialized, nullptr, false);
-  if (!parsed.is_object())
-    return result;
-
-  for (auto it = parsed.begin(); it != parsed.end(); ++it) {
-    if (!it.value().is_object())
-      continue;
-    RiggingExtraWeightEntry entry;
-    if (const auto valueIt = it.value().find("valueKg");
-        valueIt != it.value().end() && valueIt->is_number()) {
-      entry.valueKg = static_cast<float>(valueIt->get<double>());
-    }
-    if (const auto sourceIt = it.value().find("source");
-        sourceIt != it.value().end() && sourceIt->is_string() &&
-        sourceIt->get<std::string>() == "auto_unvalidated") {
-      entry.requiresValidation = true;
-    }
-    result[it.key()] = entry;
-  }
-  return result;
-}
-
-std::string SerializeRiggingExtraWeights(
-    const std::unordered_map<std::string, RiggingExtraWeightEntry> &entries) {
-  nlohmann::json root = nlohmann::json::object();
-  std::map<std::string, RiggingExtraWeightEntry> sortedEntries(entries.begin(),
-                                                               entries.end());
-  for (const auto &[position, entry] : sortedEntries) {
-    nlohmann::json item = nlohmann::json::object();
-    item["valueKg"] = entry.valueKg;
-    item["source"] = entry.requiresValidation ? "auto_unvalidated" : "manual";
-    root[position] = std::move(item);
-  }
-  return root.dump();
 }
 
 void SetTableAndChildTooltips(wxDataViewListCtrl *table,
@@ -193,6 +146,8 @@ RiggingPanel::RiggingPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   });
   table->Bind(wxEVT_DATAVIEW_ITEM_VALUE_CHANGED,
               &RiggingPanel::OnItemValueChanged, this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &RiggingPanel::OnItemActivated,
+              this);
   const auto weightUnit = ResolveWeightUnitSystem();
   const wxString weightSuffix =
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
@@ -284,7 +239,9 @@ void RiggingPanel::RefreshData() {
   }
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto &scene = cfg.GetScene();
-  const auto extraWeights = LoadRiggingExtraWeights(cfg);
+  const auto extraWeights =
+      RiggingExtraWeightSettings::ParseEntries(
+          cfg.GetValue(RiggingExtraWeightSettings::ConfigKey()));
   for (const auto &[uuid, fixture] : scene.fixtures) {
     std::string pos = fixture.positionName.empty() ? UNASSIGNED_POSITION
                                                    : fixture.positionName;
@@ -387,6 +344,21 @@ void RiggingPanel::RefreshData() {
   table->Refresh();
 }
 
+void RiggingPanel::OnItemActivated(wxDataViewEvent &event) {
+  if (!table) {
+    event.Skip();
+    return;
+  }
+
+  if (event.GetColumn() != 7) {
+    event.Skip();
+    return;
+  }
+
+  table->EditItem(event.GetItem(), table->GetColumn(7));
+  event.Skip();
+}
+
 void RiggingPanel::OnItemValueChanged(wxDataViewEvent &event) {
   if (!table)
     return;
@@ -410,18 +382,43 @@ void RiggingPanel::OnItemValueChanged(wxDataViewEvent &event) {
   }
 
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  auto extraWeights = LoadRiggingExtraWeights(cfg);
+  auto extraWeights = RiggingExtraWeightSettings::ParseEntries(
+      cfg.GetValue(RiggingExtraWeightSettings::ConfigKey()));
   const std::string &positionName = rowPositions[static_cast<size_t>(row)];
   const float valueKg = static_cast<float>(*parsedKg);
   if (Units::NearlyEqualWeightKilograms(valueKg, 0.0, 0.0001)) {
     extraWeights.erase(positionName);
   } else {
-    RiggingExtraWeightEntry &entry = extraWeights[positionName];
+    RiggingExtraWeightSettings::Entry &entry = extraWeights[positionName];
     entry.valueKg = valueKg;
     entry.requiresValidation = false;
   }
-  cfg.SetValue(kRiggingExtraWeightsConfigKey,
-               SerializeRiggingExtraWeights(extraWeights));
+
+  cfg.SetValue(RiggingExtraWeightSettings::ConfigKey(),
+               RiggingExtraWeightSettings::SerializeEntries(extraWeights));
+
+  auto &scene = cfg.GetScene();
+  std::vector<std::string> supportsInPosition;
+  supportsInPosition.reserve(scene.supports.size());
+  for (const auto &[supportUuid, support] : scene.supports) {
+    const std::string supportPosition = support.positionName.empty()
+                                            ? UNASSIGNED_POSITION
+                                            : support.positionName;
+    if (supportPosition == positionName)
+      supportsInPosition.push_back(supportUuid);
+  }
+
+  if (!supportsInPosition.empty()) {
+    const auto roundedTotalsByPosition =
+        HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(
+            scene, RiggingExtraWeightSettings::BuildKilogramsByPosition(
+                       extraWeights));
+    HoistWeightDistribution::ApplyForImportedSupports(
+        scene, supportsInPosition, roundedTotalsByPosition);
+    if (HoistTablePanel::Instance())
+      HoistTablePanel::Instance()->ReloadData();
+  }
+
   RefreshData();
 }
 

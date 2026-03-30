@@ -24,6 +24,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/print/PageSetup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/print/Viewer2DPrintSettings.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/projectutils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/rigging_extra_weight_settings.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/riderimporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scenedatamanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/simplecrypt.cpp

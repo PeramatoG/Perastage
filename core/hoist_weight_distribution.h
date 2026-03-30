@@ -15,7 +15,9 @@ std::unordered_map<std::string, bool>
 BuildMissingWeightMapByHangPosition(const MvrScene &scene);
 
 std::unordered_map<std::string, float>
-BuildRoundedRiggingTotalByHangPosition(const MvrScene &scene);
+BuildRoundedRiggingTotalByHangPosition(
+    const MvrScene &scene,
+    const std::unordered_map<std::string, float> &extraWeightKgByPosition = {});
 
 void ApplyForImportedSupports(MvrScene &scene,
                               const std::vector<std::string> &importedSupportUuids,

@@ -143,7 +143,9 @@ BuildMissingWeightMapByHangPosition(const MvrScene &scene) {
 }
 
 std::unordered_map<std::string, float>
-BuildRoundedRiggingTotalByHangPosition(const MvrScene &scene) {
+BuildRoundedRiggingTotalByHangPosition(
+    const MvrScene &scene,
+    const std::unordered_map<std::string, float> &extraWeightKgByPosition) {
   std::unordered_map<std::string, float> roundedTotals;
 
   auto accumulateWeight = [&](const std::string &positionName, float weightKg) {
@@ -161,6 +163,9 @@ BuildRoundedRiggingTotalByHangPosition(const MvrScene &scene) {
   for (const auto &[uuid, support] : scene.supports) {
     (void)uuid;
     accumulateWeight(support.positionName, support.weightKg);
+  }
+  for (const auto &[positionName, extraWeightKg] : extraWeightKgByPosition) {
+    accumulateWeight(positionName, extraWeightKg);
   }
 
   for (auto &[positionName, total] : roundedTotals)

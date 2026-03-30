@@ -36,6 +36,7 @@ public:
   static void SetInstance(RiggingPanel *panel);
 
 private:
+  void OnItemActivated(wxDataViewEvent &event);
   void OnItemValueChanged(wxDataViewEvent &event);
   void OnMouseMove(wxMouseEvent &event);
   void OnMouseLeave(wxMouseEvent &event);
