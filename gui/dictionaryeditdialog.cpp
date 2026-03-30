@@ -128,6 +128,7 @@ struct ExportPathStatusSummary {
   size_t total_entries = 0;
   size_t found_entries = 0;
   size_t missing_entries = 0;
+  std::vector<std::string> missing_files;
 };
 
 struct SnapshotExportResult {
@@ -180,12 +181,20 @@ void RegisterMissingExample(ImportPathValidationSummary &summary,
 ExportPathStatusSummary AnalyzeFixtureExportPaths(
     const std::unordered_map<std::string, GdtfDictionary::Entry> &dict) {
   ExportPathStatusSummary summary;
+  constexpr size_t kMaxMissingExamples = 10;
   summary.total_entries = dict.size();
-  for (const auto &[_, entry] : dict) {
+  for (const auto &[name, entry] : dict) {
     if (HasExistingPath(std::filesystem::u8path(entry.path)))
       ++summary.found_entries;
-    else
+    else {
       ++summary.missing_entries;
+      if (summary.missing_files.size() < kMaxMissingExamples) {
+        const std::string fileName =
+            std::filesystem::path(entry.path).filename().string();
+        summary.missing_files.push_back(
+            fileName.empty() ? name : fileName);
+      }
+    }
   }
   return summary;
 }
@@ -193,28 +202,43 @@ ExportPathStatusSummary AnalyzeFixtureExportPaths(
 ExportPathStatusSummary AnalyzeTrussExportPaths(
     const std::unordered_map<std::string, std::string> &dict) {
   ExportPathStatusSummary summary;
+  constexpr size_t kMaxMissingExamples = 10;
   summary.total_entries = dict.size();
-  for (const auto &[_, path] : dict) {
+  for (const auto &[name, path] : dict) {
     if (HasExistingPath(std::filesystem::u8path(path)))
       ++summary.found_entries;
-    else
+    else {
       ++summary.missing_entries;
+      if (summary.missing_files.size() < kMaxMissingExamples) {
+        const std::string fileName = std::filesystem::path(path).filename().string();
+        summary.missing_files.push_back(
+            fileName.empty() ? name : fileName);
+      }
+    }
   }
   return summary;
 }
 
 bool ConfirmExportReferences(wxWindow *parent, const wxString &title,
                              const ExportPathStatusSummary &summary) {
-  wxMessageDialog confirmDialog(
-      parent,
+  wxString message =
       "Found file references in the loaded dictionary.\n\n"
       "Total entries: " + wxString::Format("%zu", summary.total_entries) + "\n" +
-          "Entries with file found: " +
-          wxString::Format("%zu", summary.found_entries) + "\n" +
-          "Entries with missing file: " +
-          wxString::Format("%zu", summary.missing_entries) +
-          "\n\nDo you want to export references only?",
-      title, wxOK | wxCANCEL | wxICON_WARNING);
+      "Entries with file found: " +
+      wxString::Format("%zu", summary.found_entries) + "\n" +
+      "Entries with missing file: " +
+      wxString::Format("%zu", summary.missing_entries);
+  if (!summary.missing_files.empty()) {
+    message += "\nMissing files:";
+    for (const auto &file : summary.missing_files)
+      message += "\n- " + wxString::FromUTF8(file);
+    if (summary.missing_entries > summary.missing_files.size())
+      message += "\n- ...";
+  }
+  message += "\n\nDo you want to export references only?";
+
+  wxMessageDialog confirmDialog(
+      parent, message, title, wxOK | wxCANCEL | wxICON_WARNING);
   confirmDialog.SetOKCancelLabels("Export references only", "Cancel");
   return confirmDialog.ShowModal() == wxID_OK;
 }
