@@ -99,6 +99,9 @@ static std::string ToLowerAscii(std::string text) {
   return text;
 }
 
+static std::string ResolveGdtfPath(const std::string &baseDir,
+                                   const std::string &spec);
+
 static std::string NormalizeArchivePathValue(const std::string &archivePath) {
   std::string normalized = Trim(NormalizeSlashes(archivePath));
   // Be permissive with vendor MVRs that include an extra blank right before
@@ -317,6 +320,19 @@ static std::string ToSceneRelativePathIfPossible(const std::string &basePath,
     return ToString(candidatePath.u8string());
 
   return ToString(relative.u8string());
+}
+
+static std::string ResolveScenePathForRead(const std::string &basePath,
+                                           const std::string &pathText) {
+  if (pathText.empty())
+    return {};
+  const std::string normalized = NormalizeArchivePathValue(pathText);
+  if (normalized.empty())
+    return {};
+  const std::string gdtfResolved = ResolveGdtfPath(basePath, normalized);
+  if (!gdtfResolved.empty())
+    return gdtfResolved;
+  return ToString(ResolveSceneRelativePath(basePath, normalized).u8string());
 }
 
 // Resolves a scene-provided GDTF spec to the real extracted file path.
@@ -1481,7 +1497,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
 
         if (fixture.category.empty() && !fixture.gdtfSpec.empty()) {
-          const auto inferred = GdtfFixtureCategory::InferFromGdtf(fixture.gdtfSpec);
+          const auto inferred = GdtfFixtureCategory::InferFromGdtf(
+              ResolveScenePathForRead(scene.basePath, fixture.gdtfSpec));
           fixture.category = GdtfFixtureCategory::NormalizeCategory(inferred.category);
           if (fixture.category.empty())
             fixture.category = GdtfFixtureCategory::kUnknown;
