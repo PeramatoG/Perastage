@@ -200,7 +200,7 @@ static std::vector<std::string> CollectGltfTextureReferences(const fs::path &mod
     return references;
 
   std::unordered_set<std::string> seenRefs;
-  const std::regex uriRegex(R"("uri"\s*:\s*"([^"]+)")");
+  const std::regex uriRegex(R"re("uri"\s*:\s*"([^"]+)")re");
   for (std::sregex_iterator it(jsonText.begin(), jsonText.end(), uriRegex), end;
        it != end; ++it) {
     std::string uri = (*it)[1].str();
