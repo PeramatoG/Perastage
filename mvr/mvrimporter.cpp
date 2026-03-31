@@ -31,6 +31,7 @@
 #include "consolepanel.h"
 #include "logger.h"
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <charconv>
 #include <chrono>
@@ -100,10 +101,34 @@ static std::string ToLowerAscii(std::string text) {
 
 static std::string NormalizeArchivePathValue(const std::string &archivePath) {
   std::string normalized = Trim(NormalizeSlashes(archivePath));
+  // Be permissive with vendor MVRs that include an extra blank right before
+  // ".gdtf" (e.g. "Fixture Name .gdtf").
+  const std::string lowered = ToLowerAscii(normalized);
+  const size_t gdtfPos = lowered.rfind(".gdtf");
+  if (gdtfPos != std::string::npos && gdtfPos > 0) {
+    size_t trimPos = gdtfPos;
+    while (trimPos > 0 && normalized[trimPos - 1] == ' ')
+      --trimPos;
+    if (trimPos != gdtfPos)
+      normalized.erase(trimPos, gdtfPos - trimPos);
+  }
 #ifdef _WIN32
   normalized = ToLowerAscii(normalized);
 #endif
   return normalized;
+}
+
+static std::string NormalizeGdtfLookupKey(const std::string &value) {
+  std::string normalized = NormalizeArchivePathValue(value);
+  if (normalized.empty())
+    return normalized;
+
+  fs::path path = fs::u8path(normalized);
+  std::string stem = Trim(path.stem().string());
+  std::string ext = ToLowerAscii(path.extension().string());
+  if (ext.empty())
+    ext = ".gdtf";
+  return ToLowerAscii(stem + ext);
 }
 
 static std::string ExtractDigitSignature(const std::string &text) {
@@ -260,7 +285,7 @@ static bool IsRenderableTrussGeometry(const std::string &path) {
   std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
     return static_cast<char>(std::tolower(c));
   });
-  return ext == ".3ds" || ext == ".glb";
+  return ext == ".3ds" || ext == ".glb" || ext == ".gltf";
 }
 
 static fs::path ResolveSceneRelativePath(const std::string &basePath,
@@ -324,7 +349,8 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
     return ToString(candidate.u8string());
 
   const std::string expectedStem =
-      ToLowerAscii(fs::u8path(normalizedSpec).filename().stem().string());
+      ToLowerAscii(Trim(fs::u8path(normalizedSpec).filename().stem().string()));
+  const std::string normalizedSpecKey = NormalizeGdtfLookupKey(normalizedSpec);
   for (const auto &entry : fs::directory_iterator(lookupDir, ec)) {
     if (ec)
       break;
@@ -334,8 +360,16 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
     const fs::path entryPath = entry.path();
     if (ToLowerAscii(entryPath.extension().string()) != ".gdtf")
       continue;
-    if (ToLowerAscii(entryPath.stem().string()) == expectedStem)
+    const std::string entryStem = ToLowerAscii(Trim(entryPath.stem().string()));
+    if (entryStem == expectedStem)
       return ToString(entryPath.u8string());
+
+    // Last fallback: compare normalized names ignoring case and extra blanks
+    // before extension.
+    if (!normalizedSpecKey.empty() &&
+        NormalizeGdtfLookupKey(entryPath.filename().generic_string()) == normalizedSpecKey) {
+      return ToString(entryPath.u8string());
+    }
   }
 
   return ToString(candidate.u8string());
@@ -1146,11 +1180,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     fileName = Trim(fileName);
     if (fileName.empty())
       return fileName;
-
-    fs::path path = fs::u8path(fileName);
-    if (!path.has_extension())
-      path += ".3ds";
-    return ToString(path.u8string());
+    return ToString(fs::u8path(fileName).u8string());
   };
 
   auto normalizeAndResolveGeometryFileName = [&](std::string fileName) {
@@ -1158,18 +1188,32 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (normalized.empty())
       return normalized;
     std::string remapped = RemapArchivePathIfNeeded(normalized);
-    const fs::path resolved = ResolveSceneRelativePath(scene.basePath, remapped);
+    fs::path remappedPath = fs::u8path(remapped);
+    fs::path resolved = ResolveSceneRelativePath(scene.basePath, remapped);
+    if (!remappedPath.has_extension()) {
+      const std::array<std::string, 3> extensions = {".gltf", ".glb", ".3ds"};
+      for (const std::string &ext : extensions) {
+        fs::path candidate = resolved;
+        candidate += ext;
+        if (fs::exists(candidate)) {
+          resolved = candidate;
+          break;
+        }
+      }
+      if (!resolved.has_extension())
+        resolved += ".3ds";
+    }
     return ToSceneRelativePathIfPossible(scene.basePath, resolved);
   };
 
   auto appendGeometryInstance = [&](std::vector<GeometryInstance> &instances,
                                     const std::string &fileName,
                                     const Matrix &localTransform) {
-    std::string normalized = normalizeGeometryFileName(fileName);
+    std::string normalized = normalizeAndResolveGeometryFileName(fileName);
     if (normalized.empty())
       return;
     GeometryInstance instance;
-    instance.modelFile = RemapArchivePathIfNeeded(normalized);
+    instance.modelFile = normalized;
     instance.localTransform = localTransform;
     instances.push_back(std::move(instance));
   };

@@ -221,10 +221,11 @@ static std::vector<std::string> CollectGltfTextureReferences(const fs::path &mod
 static bool ResolveTextureDependencyPath(const fs::path &modelPath,
                                          const std::string &textureRef,
                                          fs::path &resolvedPath) {
-  if (textureRef.empty())
+  const std::string normalizedRef = TrimAscii(textureRef);
+  if (normalizedRef.empty())
     return false;
 
-  const fs::path refPath = fs::u8path(textureRef);
+  const fs::path refPath = fs::u8path(normalizedRef);
   if (refPath.is_absolute() && fs::exists(refPath)) {
     resolvedPath = refPath;
     return true;
@@ -389,6 +390,31 @@ static std::string SanitizeArchiveFileName(const std::string &input,
         sanitizeSingleFileName(fileName, fallbackName), kMaxArchiveFileNameLength);
   return TruncateFileNamePreservingExtension(
       sanitizeSingleFileName("", fallbackName), kMaxArchiveFileNameLength);
+}
+
+static std::string SanitizeArchiveRelativePath(const std::string &input,
+                                               const std::string &fallbackName) {
+  std::string candidate = TrimAscii(input);
+  std::replace(candidate.begin(), candidate.end(), '\\', '/');
+  if (candidate.empty())
+    return SanitizeArchiveFileName(candidate, fallbackName);
+
+  fs::path raw = fs::u8path(candidate);
+  std::vector<std::string> sanitizedParts;
+  for (const auto &part : raw) {
+    const std::string segment = TrimAscii(part.generic_string());
+    if (segment.empty() || segment == "." || segment == "..")
+      continue;
+    sanitizedParts.push_back(SanitizeArchiveFileName(segment, "resource.bin"));
+  }
+
+  if (sanitizedParts.empty())
+    return SanitizeArchiveFileName(candidate, fallbackName);
+
+  fs::path out;
+  for (const std::string &segment : sanitizedParts)
+    out /= fs::u8path(segment);
+  return out.generic_string();
 }
 
 static std::string BuildTrussGdtfArchiveName(const Truss &truss) {
@@ -1307,24 +1333,27 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           continue;
 
         std::string preferredTextureName =
-            SanitizeArchiveFileName(textureRef, texturePath.filename().generic_string());
+            SanitizeArchiveRelativePath(textureRef, texturePath.filename().generic_string());
         registerResource(texturePath.generic_string(), preferredTextureName);
       }
       return;
     }
 
-    if (ext == ".gltf") {
+    if (ext == ".gltf" || ext == ".glb") {
       const std::vector<std::string> textureRefs =
           CollectGltfTextureReferences(modelPath);
       const fs::path modelDir =
           modelPath.has_parent_path() ? modelPath.parent_path() : fs::path();
       for (const std::string &textureRef : textureRefs) {
-        const fs::path candidate = modelDir / fs::u8path(textureRef);
+        const std::string trimmedRef = TrimAscii(textureRef);
+        if (trimmedRef.empty())
+          continue;
+        const fs::path candidate = modelDir / fs::u8path(trimmedRef);
         if (!fs::exists(candidate))
           continue;
 
-        std::string preferredTextureName = SanitizeArchiveFileName(
-            textureRef, candidate.filename().generic_string());
+        std::string preferredTextureName = SanitizeArchiveRelativePath(
+            trimmedRef, candidate.filename().generic_string());
         registerResource(candidate.generic_string(), preferredTextureName);
       }
     }
