@@ -887,6 +887,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
   bool inFixtures = false;
   bool inRigging = false;
   bool inControl = false;
+  bool seenSectionHeader = false;
   bool havePending = false;
   int pendingQuantity = 0;
   std::string currentHang;
@@ -953,6 +954,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
         ContainsCaseInsensitive(line, "video") ||
         ContainsCaseInsensitive(line, "realizacion") ||
         ContainsCaseInsensitive(line, "control")) {
+      seenSectionHeader = true;
       inFixtures = false;
       inRigging = false;
       inControl = ContainsCaseInsensitive(line, "control");
@@ -960,6 +962,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       continue;
     }
     if (ContainsCaseInsensitive(line, "rigging")) {
+      seenSectionHeader = true;
       inFixtures = false;
       inRigging = true;
       inControl = false;
@@ -969,6 +972,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
     if (!inControl && (ContainsCaseInsensitive(line, "ilumin") ||
                        ContainsCaseInsensitive(line, "robotica") ||
                        ContainsCaseInsensitive(line, "convencion"))) {
+      seenSectionHeader = true;
       inFixtures = true;
       inRigging = false;
       havePending = false;
@@ -1155,8 +1159,11 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       continue;
     }
 
-    if (!inControl && !inRigging && std::regex_match(line, m, kFixtureLineRe)) {
-      if (!inFixtures)
+    const bool canAssumeHeaderlessFixtureList =
+        !seenSectionHeader && !inFixtures && !inControl && !inRigging;
+    if ((inFixtures || canAssumeHeaderlessFixtureList) &&
+        std::regex_match(line, m, kFixtureLineRe)) {
+      if (canAssumeHeaderlessFixtureList)
         inFixtures = true;
       if (currentHang.empty())
         currentHang = "FLOOR";
@@ -1167,8 +1174,9 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       continue;
     }
 
-    if (!inControl && !inRigging && std::regex_match(line, m, kQuantityOnlyRe)) {
-      if (!inFixtures)
+    if ((inFixtures || canAssumeHeaderlessFixtureList) &&
+        std::regex_match(line, m, kQuantityOnlyRe)) {
+      if (canAssumeHeaderlessFixtureList)
         inFixtures = true;
       if (currentHang.empty())
         currentHang = "FLOOR";
@@ -1379,6 +1387,7 @@ bool RiderImporter::ImportText(const std::string &text) {
   bool inFixtures = false;
   bool inRigging = false;
   bool inControl = false;
+  bool seenSectionHeader = false;
   std::string currentHang;
   std::unordered_map<std::string, int> nameCounters;
   std::vector<std::string> typeOrder;
@@ -1496,6 +1505,7 @@ bool RiderImporter::ImportText(const std::string &text) {
         ContainsCaseInsensitive(line, "video") ||
         ContainsCaseInsensitive(line, "realizacion") ||
         ContainsCaseInsensitive(line, "control")) {
+      seenSectionHeader = true;
       inFixtures = false;
       inRigging = false;
       inControl = ContainsCaseInsensitive(line, "control");
@@ -1503,6 +1513,7 @@ bool RiderImporter::ImportText(const std::string &text) {
       continue;
     }
     if (ContainsCaseInsensitive(line, "rigging")) {
+      seenSectionHeader = true;
       inFixtures = false;
       inRigging = true;
       inControl = false;
@@ -1512,6 +1523,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     if (!inControl && (ContainsCaseInsensitive(line, "ilumin") ||
                        ContainsCaseInsensitive(line, "robotica") ||
                        ContainsCaseInsensitive(line, "convencion"))) {
+      seenSectionHeader = true;
       inFixtures = true;
       inRigging = false;
       havePending = false;
@@ -2063,26 +2075,30 @@ bool RiderImporter::ImportText(const std::string &text) {
           }
           x += s;
         }
-      } else if (!inControl && !inRigging &&
-                 std::regex_match(line, m, kFixtureLineRe)) {
-        if (!inFixtures)
-          inFixtures = true;
-        if (currentHang.empty())
-          currentHang = "FLOOR";
-        int baseQuantity = 0;
-        if (!TryParseInt(m[1].str(), baseQuantity))
-          continue;
-        std::string desc = Trim(m[2]);
-        addFixtures(baseQuantity, desc);
-      } else if (!inControl && !inRigging &&
-                 std::regex_match(line, m, kQuantityOnlyRe)) {
-        if (!inFixtures)
-          inFixtures = true;
-        if (currentHang.empty())
-          currentHang = "FLOOR";
-        if (!TryParseInt(m[1].str(), pendingQuantity))
-          continue;
-        havePending = true;
+      } else {
+        const bool canAssumeHeaderlessFixtureList =
+            !seenSectionHeader && !inFixtures && !inControl && !inRigging;
+        if ((inFixtures || canAssumeHeaderlessFixtureList) &&
+            std::regex_match(line, m, kFixtureLineRe)) {
+          if (canAssumeHeaderlessFixtureList)
+            inFixtures = true;
+          if (currentHang.empty())
+            currentHang = "FLOOR";
+          int baseQuantity = 0;
+          if (!TryParseInt(m[1].str(), baseQuantity))
+            continue;
+          std::string desc = Trim(m[2]);
+          addFixtures(baseQuantity, desc);
+        } else if ((inFixtures || canAssumeHeaderlessFixtureList) &&
+                   std::regex_match(line, m, kQuantityOnlyRe)) {
+          if (canAssumeHeaderlessFixtureList)
+            inFixtures = true;
+          if (currentHang.empty())
+            currentHang = "FLOOR";
+          if (!TryParseInt(m[1].str(), pendingQuantity))
+            continue;
+          havePending = true;
+        }
       }
     }
   }
