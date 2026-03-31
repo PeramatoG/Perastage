@@ -867,8 +867,26 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
       msg << "Cannot create file while extracting MVR entry. entry='" << entryName
           << "', path='" << ToString(fullPath.u8string())
           << "', pathLength=" << fullPathLength;
-      LogMessage(Logger::Level::Error, msg.str());
-      return false;
+      const std::string loweredEntry = ToLowerAscii(normalizedEntryName);
+      const bool isSceneXml =
+          loweredEntry == "generalscenedescription.xml" ||
+          fs::path(loweredEntry).filename().generic_string() ==
+              "generalscenedescription.xml";
+      if (isSceneXml) {
+        LogMessage(Logger::Level::Error, msg.str() +
+                                           " (required scene XML; aborting import)");
+        return false;
+      }
+
+      LogMessage(Logger::Level::Warn, msg.str() +
+                                       " (asset entry skipped, continuing import)");
+      char discardBuffer[4096];
+      while (true) {
+        zipStream.Read(discardBuffer, sizeof(discardBuffer));
+        if (zipStream.LastRead() == 0)
+          break;
+      }
+      continue;
     }
 
     if (remapped) {
