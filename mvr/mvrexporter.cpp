@@ -1523,21 +1523,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     std::string fixtureGdtfArchivePath =
         registerGdtfResource(f.uuid, fixtureSourceGdtf, fixtureName);
     addStr("GDTFSpec", fixtureGdtfArchivePath);
-    if (!fixtureSourceGdtf.empty() &&
-        (!f.color.empty() || f.weightKg != 0.0f ||
-         f.powerConsumptionW != 0.0f)) {
-      auto &ov = gdtfOverrides[fixtureGdtfArchivePath];
-      if (!f.color.empty())
-        ov.color = f.color;
-      if (f.weightKg != 0.0f) {
-        ov.hasWeightKg = true;
-        ov.weightKg = f.weightKg;
-      }
-      if (f.powerConsumptionW != 0.0f) {
-        ov.hasPowerW = true;
-        ov.powerW = f.powerConsumptionW;
-      }
-    }
+    // Keep fixture GDTF payloads byte-preserved in exported MVR/project
+    // packages. Fixture-specific metadata such as Color/Weight/Power is
+    // already serialized at fixture level in GeneralSceneDescription.xml.
+    // Repacking fixture GDTFs here can break model/texture references in some
+    // vendor libraries after a save/reload cycle.
     addStr("GDTFMode", f.gdtfMode);
     addStr("Focus", f.focus);
     addStr("Function", f.function);
