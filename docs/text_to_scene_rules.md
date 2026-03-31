@@ -80,6 +80,9 @@ The importer keeps parsing state with sections (fixtures/rigging/control):
   `sonido`, `audio`, `control de p.a.`, `monitores`, `microfon`, `video`,
   `realizacion`, or `control`.
 - If a hang-position line appears before explicit sections, the importer assumes fixtures mode.
+- If fixture list lines appear before explicit sections and no hang header has
+  been defined yet, the importer assumes fixtures mode and defaults active hang
+  to `FLOOR`.
 
 ## Hang/position detection
 
@@ -138,6 +141,8 @@ For each fixture created:
    - Fixture display/type name can be replaced by the parsed GDTF fixture name when available.
    - Physical properties (weight/power) are filled from GDTF when missing.
 4. `positionName` is set from current hang.
+   - If no hang header was parsed for a fixture list block, `positionName`
+     defaults to `FLOOR`.
    - In layer-by-position mode, side fixtures use `pos LX SIDES` when side
      trusses exist and fallback to `pos SIDES` when no side truss is present.
    - Side fixtures are ordered as a linear sequence and then mirrored by side:

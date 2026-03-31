@@ -1155,7 +1155,11 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       continue;
     }
 
-    if (inFixtures && std::regex_match(line, m, kFixtureLineRe)) {
+    if (!inControl && !inRigging && std::regex_match(line, m, kFixtureLineRe)) {
+      if (!inFixtures)
+        inFixtures = true;
+      if (currentHang.empty())
+        currentHang = "FLOOR";
       int baseQuantity = 0;
       if (!TryParseInt(m[1].str(), baseQuantity))
         continue;
@@ -1163,7 +1167,11 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       continue;
     }
 
-    if (inFixtures && std::regex_match(line, m, kQuantityOnlyRe)) {
+    if (!inControl && !inRigging && std::regex_match(line, m, kQuantityOnlyRe)) {
+      if (!inFixtures)
+        inFixtures = true;
+      if (currentHang.empty())
+        currentHang = "FLOOR";
       if (!TryParseInt(m[1].str(), pendingQuantity))
         continue;
       havePending = true;
@@ -2055,13 +2063,23 @@ bool RiderImporter::ImportText(const std::string &text) {
           }
           x += s;
         }
-      } else if (inFixtures && std::regex_match(line, m, kFixtureLineRe)) {
+      } else if (!inControl && !inRigging &&
+                 std::regex_match(line, m, kFixtureLineRe)) {
+        if (!inFixtures)
+          inFixtures = true;
+        if (currentHang.empty())
+          currentHang = "FLOOR";
         int baseQuantity = 0;
         if (!TryParseInt(m[1].str(), baseQuantity))
           continue;
         std::string desc = Trim(m[2]);
         addFixtures(baseQuantity, desc);
-      } else if (inFixtures && std::regex_match(line, m, kQuantityOnlyRe)) {
+      } else if (!inControl && !inRigging &&
+                 std::regex_match(line, m, kQuantityOnlyRe)) {
+        if (!inFixtures)
+          inFixtures = true;
+        if (currentHang.empty())
+          currentHang = "FLOOR";
         if (!TryParseInt(m[1].str(), pendingQuantity))
           continue;
         havePending = true;

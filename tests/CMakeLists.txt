@@ -626,6 +626,33 @@ target_link_libraries(rider_filter_preview_test PRIVATE ${wxWidgets_LIBRARIES} t
 add_test(NAME RiderFilterPreview COMMAND rider_filter_preview_test)
 set_library_env(RiderFilterPreview)
 
+add_executable(rider_floor_default_hang_test rider_floor_default_hang_test.cpp
+               riderimporter_stubs.cpp
+               gdtfloader_stub.cpp
+               ../core/riderimporter.cpp
+               ../core/units/units.cpp
+               ../core/gdtf_fixture_category.cpp
+               ../core/hoist_weight_distribution.cpp
+               ../core/uuidutils.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/projectutils.cpp
+               ../core/logger.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
+target_include_directories(rider_floor_default_hang_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(rider_floor_default_hang_test PRIVATE ${wxWidgets_LIBRARIES}
+                                                            tinyxml2::tinyxml2)
+add_test(NAME RiderFloorDefaultHang COMMAND rider_floor_default_hang_test)
+set_library_env(RiderFloorDefaultHang)
+
 add_executable(rider_led_screen_object_test rider_led_screen_object_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
