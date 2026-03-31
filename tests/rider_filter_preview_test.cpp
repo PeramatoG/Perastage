@@ -89,5 +89,25 @@ int main() {
     return 1;
   }
 
+  const std::string mixedSectionsInput =
+      "SONIDO\n"
+      "2 CLUSTER FORMADOS POR:\n"
+      "ILUMINACION\n"
+      "LX1:\n"
+      "4 SPOT\n";
+  const std::string mixedSectionsExpected =
+      "LX1\n"
+      "4 SPOT";
+  const std::string mixedSectionsPreview =
+      RiderImporter::BuildFixtureFilterPreview(mixedSectionsInput);
+  if (mixedSectionsPreview != mixedSectionsExpected) {
+    std::cerr << "Audio sections should not leak into fixture preview when "
+                 "using headerless FLOOR fallback.\n"
+              << "Expected:\n"
+              << mixedSectionsExpected << "\n\nGot:\n"
+              << mixedSectionsPreview << "\n";
+    return 1;
+  }
+
   return 0;
 }
