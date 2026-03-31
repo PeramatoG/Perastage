@@ -83,6 +83,7 @@ static bool ParseMvrAddressNodeText(const std::string &text, int &universeOut,
                                     int &channelOut);
 static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
                                   int &absoluteOut);
+static std::string TrimAscii(std::string value);
 static std::string ToLowerAscii(std::string value);
 
 static bool ShouldExportSupportHoistInfo(const Support &support);
