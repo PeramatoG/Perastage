@@ -349,6 +349,27 @@ void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
   }
 }
 
+void SetupGdtfMeshBuffers(std::vector<GdtfObject> &objects,
+                          const ResourceSyncCallbacks &callbacks) {
+  if (!callbacks.setupMeshBuffers)
+    return;
+
+  for (auto &object : objects)
+    callbacks.setupMeshBuffers(object.mesh);
+}
+
+void ReleaseGdtfMeshBuffers(ResourceSyncState &state,
+                            const ResourceSyncCallbacks &callbacks) {
+  if (!callbacks.releaseMeshBuffers)
+    return;
+
+  for (auto &[path, objects] : state.loadedGdtf) {
+    (void)path;
+    for (auto &object : objects)
+      callbacks.releaseMeshBuffers(object.mesh);
+  }
+}
+
 } // namespace
 
 ResourceSyncResult ResourceSyncSystem::Sync(
@@ -366,6 +387,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
         callbacks.releaseMeshBuffers(mesh);
     }
     state.loadedMeshes.clear();
+    ReleaseGdtfMeshBuffers(state, callbacks);
     state.loadedGdtf.clear();
     state.loadedGdtfGeometryTrees.clear();
     state.fixtureNodeRegistry.clear();
@@ -541,6 +563,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       std::vector<GdtfObject> objs;
       std::string gdtfError;
       if (LoadGdtf(gdtfPath, objs, &gdtfError)) {
+        SetupGdtfMeshBuffers(objs, callbacks);
         state.loadedGdtf[gdtfPath] = std::move(objs);
         state.failedGdtfAttemptCounts.erase(gdtfPath);
 
