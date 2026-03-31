@@ -2087,6 +2087,16 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     }
   }
 
+  auto resolveFixtureGdtfPathForRead = [&](const std::string &spec) {
+    if (spec.empty())
+      return std::string{};
+    std::string remapped = RemapArchivePathIfNeeded(spec);
+    std::string resolved = ResolveGdtfPath(scene.basePath, remapped);
+    if (!resolved.empty())
+      return resolved;
+    return ToString(ResolveSceneRelativePath(scene.basePath, remapped).u8string());
+  };
+
   // After parsing the entire scene, resolve any GDTF conflicts using the
   // dictionary only if requested. This occurs before rendering so user choices
   // are applied to the final scene data.
@@ -2115,10 +2125,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           if (it != choices.end()) {
             const int previousChannelCount =
                 (!f.gdtfSpec.empty() && !f.gdtfMode.empty())
-                    ? GetGdtfModeChannelCount(f.gdtfSpec, f.gdtfMode)
+                    ? GetGdtfModeChannelCount(resolveFixtureGdtfPathForRead(f.gdtfSpec),
+                                              f.gdtfMode)
                     : -1;
             f.gdtfSpec = it->second;
-            std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
+            f.gdtfSpec = ToSceneRelativePathIfPossible(
+                scene.basePath, fs::u8path(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
+            std::string parsed =
+                Trim(GetGdtfFixtureName(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
             if (!parsed.empty())
               f.typeName = parsed;
             if (auto dictEntry = GdtfDictionary::Get(typeKey)) {
@@ -2126,7 +2140,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 f.gdtfMode = dictEntry->mode;
             }
             f.gdtfMode = ResolveExistingGdtfMode(
-                f.gdtfSpec, f.gdtfMode,
+                resolveFixtureGdtfPathForRead(f.gdtfSpec), f.gdtfMode,
                 previousChannelCount > 0 ? std::optional<int>(previousChannelCount)
                                          : std::nullopt);
           }
@@ -2136,16 +2150,20 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
             const int previousChannelCount =
                 (!f.gdtfSpec.empty() && !f.gdtfMode.empty())
-                    ? GetGdtfModeChannelCount(f.gdtfSpec, f.gdtfMode)
+                    ? GetGdtfModeChannelCount(resolveFixtureGdtfPathForRead(f.gdtfSpec),
+                                              f.gdtfMode)
                     : -1;
             f.gdtfSpec = dictEntry->path;
+            f.gdtfSpec = ToSceneRelativePathIfPossible(
+                scene.basePath, fs::u8path(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
             if (f.gdtfMode.empty())
               f.gdtfMode = dictEntry->mode;
             f.gdtfMode = ResolveExistingGdtfMode(
-                f.gdtfSpec, f.gdtfMode,
+                resolveFixtureGdtfPathForRead(f.gdtfSpec), f.gdtfMode,
                 previousChannelCount > 0 ? std::optional<int>(previousChannelCount)
                                          : std::nullopt);
-            std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
+            std::string parsed =
+                Trim(GetGdtfFixtureName(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
             if (!parsed.empty())
               f.typeName = parsed;
           }
@@ -2162,10 +2180,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       continue;
     const int currentChannelCount =
         (!fixture.gdtfMode.empty())
-            ? GetGdtfModeChannelCount(fixture.gdtfSpec, fixture.gdtfMode)
+            ? GetGdtfModeChannelCount(resolveFixtureGdtfPathForRead(fixture.gdtfSpec),
+                                      fixture.gdtfMode)
             : -1;
     fixture.gdtfMode = ResolveExistingGdtfMode(
-        fixture.gdtfSpec, fixture.gdtfMode,
+        resolveFixtureGdtfPathForRead(fixture.gdtfSpec), fixture.gdtfMode,
         currentChannelCount > 0 ? std::optional<int>(currentChannelCount)
                                 : std::nullopt);
   }
