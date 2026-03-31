@@ -418,7 +418,17 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
       !requiresCpuDrawPath;
 
-  if (!m_controller.IsCaptureOnly() && canUseGpuTriangles) {
+  GLint shadeModel = GL_SMOOTH;
+  glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
+  const bool useFaceNormals = (shadeModel == GL_FLAT);
+
+  // Flat shading expects per-face normals. The indexed VBO path uses shared
+  // per-vertex normals, which can produce alternating triangle brightness on
+  // coplanar surfaces. Force the immediate path in GL_FLAT so each triangle
+  // emits its own geometric normal.
+  const bool allowGpuTriangles = canUseGpuTriangles && !useFaceNormals;
+
+  if (!m_controller.IsCaptureOnly() && allowGpuTriangles) {
     const bool textureEnabled =
         useTexture && mesh.textureId != 0 &&
         mesh.vboTexCoords != 0 &&
@@ -464,10 +474,6 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       glEnable(GL_TEXTURE_2D);
       glBindTexture(GL_TEXTURE_2D, mesh.textureId);
     }
-    GLint shadeModel = GL_SMOOTH;
-    glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
-    const bool useFaceNormals = (shadeModel == GL_FLAT);
-
     glBegin(GL_TRIANGLES);
     for (size_t i = 0; i + 2 < triangleIndices->size(); i += 3) {
       const unsigned short i0 = (*triangleIndices)[i];
@@ -487,29 +493,14 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       const auto &normalData = mesh.normals;
 
       if (useFaceNormals) {
-        if (hasNormals) {
-          float ax = normalData[i0 * 3] + normalData[i1 * 3] +
-                     normalData[i2 * 3];
-          float ay = normalData[i0 * 3 + 1] + normalData[i1 * 3 + 1] +
-                     normalData[i2 * 3 + 1];
-          float az = normalData[i0 * 3 + 2] + normalData[i1 * 3 + 2] +
-                     normalData[i2 * 3 + 2];
-          const float alen = std::sqrt(ax * ax + ay * ay + az * az);
-          if (alen > 0.0f) {
-            glNormal3f(ax / alen, ay / alen, az / alen);
-          } else {
-            glNormal3f(0.0f, 0.0f, 1.0f);
-          }
+        float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
+        float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
+        float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
+        const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+        if (len > 0.0f) {
+          glNormal3f(nx / len, ny / len, nz / len);
         } else {
-          float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
-          float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
-          float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
-          const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
-          if (len > 0.0f) {
-            glNormal3f(nx / len, ny / len, nz / len);
-          } else {
-            glNormal3f(0.0f, 0.0f, 1.0f);
-          }
+          glNormal3f(0.0f, 0.0f, 1.0f);
         }
 
         glVertex3f(v0x, v0y, v0z);
