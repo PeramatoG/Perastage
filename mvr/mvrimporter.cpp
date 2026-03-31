@@ -271,6 +271,29 @@ static fs::path ResolveSceneRelativePath(const std::string &basePath,
   return fs::u8path(basePath) / path;
 }
 
+static std::string ToSceneRelativePathIfPossible(const std::string &basePath,
+                                                 const fs::path &candidatePath) {
+  if (candidatePath.empty())
+    return {};
+
+  if (basePath.empty() || !candidatePath.is_absolute())
+    return ToString(candidatePath.u8string());
+
+  std::error_code ec;
+  const fs::path base = fs::weakly_canonical(fs::u8path(basePath), ec);
+  if (ec)
+    return ToString(candidatePath.u8string());
+  const fs::path canonicalCandidate = fs::weakly_canonical(candidatePath, ec);
+  if (ec)
+    return ToString(candidatePath.u8string());
+
+  fs::path relative = fs::relative(canonicalCandidate, base, ec);
+  if (ec || relative.empty())
+    return ToString(candidatePath.u8string());
+
+  return ToString(relative.u8string());
+}
+
 // Resolves a scene-provided GDTF spec to the real extracted file path.
 // MVR files may omit ".gdtf" in <GDTFSpec> or use a different filename case,
 // so we progressively try exact, extension-appended and case-insensitive matches.
@@ -1136,7 +1159,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       return normalized;
     std::string remapped = RemapArchivePathIfNeeded(normalized);
     const fs::path resolved = ResolveSceneRelativePath(scene.basePath, remapped);
-    return ToString(resolved.u8string());
+    return ToSceneRelativePathIfPossible(scene.basePath, resolved);
   };
 
   auto appendGeometryInstance = [&](std::vector<GeometryInstance> &instances,
@@ -1357,14 +1380,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           fixture.gdtfSpec = RemapArchivePathIfNeeded(fixture.gdtfSpec);
           const std::string resolvedGdtfPath =
               ResolveGdtfPath(scene.basePath, fixture.gdtfSpec);
-          std::string gdtfPath = resolvedGdtfPath.empty()
-                                     ? fixture.gdtfSpec
-                                     : resolvedGdtfPath;
-          if (!resolvedGdtfPath.empty())
-            fixture.gdtfSpec = resolvedGdtfPath;
+          const std::string gdtfPath = resolvedGdtfPath.empty()
+                                           ? fixture.gdtfSpec
+                                           : resolvedGdtfPath;
+          fixture.gdtfSpec = ToSceneRelativePathIfPossible(
+              scene.basePath, fs::u8path(gdtfPath));
           fixture.typeName = Trim(GetGdtfFixtureName(gdtfPath));
-          if (!fixture.typeName.empty())
-            fixture.gdtfSpec = gdtfPath;
           float gw = 0.0f, gp = 0.0f;
           if (GetGdtfProperties(gdtfPath, gw, gp)) {
             if (fixture.weightKg == 0.0f)
@@ -1511,10 +1532,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           truss.gdtfSpec = RemapArchivePathIfNeeded(truss.gdtfSpec);
           const std::string resolvedGdtfPath =
               ResolveGdtfPath(scene.basePath, truss.gdtfSpec);
-          if (!resolvedGdtfPath.empty())
-            truss.gdtfSpec = resolvedGdtfPath;
+          const std::string trussGdtfPath = resolvedGdtfPath.empty()
+                                                ? truss.gdtfSpec
+                                                : resolvedGdtfPath;
+          truss.gdtfSpec = ToSceneRelativePathIfPossible(
+              scene.basePath, fs::u8path(trussGdtfPath));
           Truss gdtfTruss;
-          if (LoadTrussDefinition(truss.gdtfSpec, gdtfTruss)) {
+          if (LoadTrussDefinition(trussGdtfPath, gdtfTruss)) {
             truss.modelFile = gdtfTruss.modelFile;
             if (!gdtfTruss.symbolFile.empty())
               truss.symbolFile = gdtfTruss.symbolFile;
@@ -1730,8 +1754,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         support.gdtfSpec = RemapArchivePathIfNeeded(readText("GDTFSpec"));
         const std::string resolvedSupportGdtfPath =
             ResolveGdtfPath(scene.basePath, support.gdtfSpec);
-        if (!resolvedSupportGdtfPath.empty())
-          support.gdtfSpec = resolvedSupportGdtfPath;
+        if (!support.gdtfSpec.empty()) {
+          const std::string supportGdtfPath = resolvedSupportGdtfPath.empty()
+                                                  ? support.gdtfSpec
+                                                  : resolvedSupportGdtfPath;
+          support.gdtfSpec = ToSceneRelativePathIfPossible(
+              scene.basePath, fs::u8path(supportGdtfPath));
+        }
         support.gdtfMode = readText("GDTFMode");
         support.function = readText("Function");
         support.hoistFunction = NormalizeHoistFunction(support.function);

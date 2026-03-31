@@ -42,6 +42,7 @@ class wxZipStreamLink;
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <regex>
 #include <set>
 #include <sstream>
 #include <unordered_set>
@@ -181,6 +182,37 @@ static std::vector<std::string> Collect3dsTextureReferences(const fs::path &mode
         }
       }
     }
+  }
+
+  return references;
+}
+
+static std::vector<std::string> CollectGltfTextureReferences(const fs::path &modelPath) {
+  std::vector<std::string> references;
+  std::ifstream file(modelPath);
+  if (!file.is_open())
+    return references;
+
+  std::ostringstream content;
+  content << file.rdbuf();
+  const std::string jsonText = content.str();
+  if (jsonText.empty())
+    return references;
+
+  std::unordered_set<std::string> seenRefs;
+  const std::regex uriRegex(R"("uri"\s*:\s*"([^"]+)")");
+  for (std::sregex_iterator it(jsonText.begin(), jsonText.end(), uriRegex), end;
+       it != end; ++it) {
+    std::string uri = (*it)[1].str();
+    if (uri.empty())
+      continue;
+
+    // Ignore embedded data URIs. We only need to collect external files.
+    if (uri.rfind("data:", 0) == 0)
+      continue;
+
+    if (seenRefs.insert(ToLowerAscii(uri)).second)
+      references.push_back(std::move(uri));
   }
 
   return references;
@@ -1266,19 +1298,35 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     const std::string normalizedModelPath = normalizeSourcePath(rawModelSource);
     const fs::path modelPath(normalizedModelPath);
     std::string ext = ToLowerAscii(modelPath.extension().string());
-    if (ext != ".3ds")
+    if (ext == ".3ds") {
+      const std::vector<std::string> textureRefs =
+          Collect3dsTextureReferences(modelPath);
+      for (const std::string &textureRef : textureRefs) {
+        fs::path texturePath;
+        if (!ResolveTextureDependencyPath(modelPath, textureRef, texturePath))
+          continue;
+
+        std::string preferredTextureName =
+            SanitizeArchiveFileName(textureRef, texturePath.filename().generic_string());
+        registerResource(texturePath.generic_string(), preferredTextureName);
+      }
       return;
+    }
 
-    const std::vector<std::string> textureRefs =
-        Collect3dsTextureReferences(modelPath);
-    for (const std::string &textureRef : textureRefs) {
-      fs::path texturePath;
-      if (!ResolveTextureDependencyPath(modelPath, textureRef, texturePath))
-        continue;
+    if (ext == ".gltf") {
+      const std::vector<std::string> textureRefs =
+          CollectGltfTextureReferences(modelPath);
+      const fs::path modelDir =
+          modelPath.has_parent_path() ? modelPath.parent_path() : fs::path();
+      for (const std::string &textureRef : textureRefs) {
+        const fs::path candidate = modelDir / fs::u8path(textureRef);
+        if (!fs::exists(candidate))
+          continue;
 
-      std::string preferredTextureName =
-          SanitizeArchiveFileName(textureRef, texturePath.filename().generic_string());
-      registerResource(texturePath.generic_string(), preferredTextureName);
+        std::string preferredTextureName = SanitizeArchiveFileName(
+            textureRef, candidate.filename().generic_string());
+        registerResource(candidate.generic_string(), preferredTextureName);
+      }
     }
   };
 
