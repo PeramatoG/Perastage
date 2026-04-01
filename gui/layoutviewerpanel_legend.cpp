@@ -807,9 +807,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                     : 10.0;
   fontSize = std::clamp(fontSize, 6.0, 14.0);
   fontSize *= kLegendFontScale;
-  const double fontScale =
-      std::clamp(fontSize / (14.0 * kLegendFontScale), 0.0, 1.0);
-  const int fontSizePx =
+  int fontSizePx =
       std::max(1, static_cast<int>(std::lround(fontSize * renderZoom)));
 
   wxFont baseFont =
@@ -856,6 +854,48 @@ wxImage LayoutViewerPanel::BuildLegendImage(
             : wxString("-")});
   }
 
+  const int paddingLeftPx =
+      std::max(0, static_cast<int>(std::lround(paddingLeft * renderZoom)));
+  const int paddingRightPx =
+      std::max(0, static_cast<int>(std::lround(paddingRight * renderZoom)));
+  const int paddingTopPx =
+      std::max(0, static_cast<int>(std::lround(paddingTop * renderZoom)));
+  const int paddingBottomPx =
+      std::max(0, static_cast<int>(std::lround(paddingBottom * renderZoom)));
+  const int separatorGapPx =
+      std::max(1, static_cast<int>(std::lround(separatorGap * renderZoom)));
+  const int contentHeightPx =
+      std::max(1, size.GetHeight() - paddingTopPx - paddingBottomPx - separatorGapPx);
+  const int maxRowHeightPx =
+      std::max(1, totalRows > 0 ? contentHeightPx / totalRows : contentHeightPx);
+
+  int textHeight = 0;
+  int lineWidth = 0;
+  for (;;) {
+    dc.SetFont(baseFont);
+    dc.GetTextExtent("Hg", &lineWidth, &textHeight);
+    if (textHeight <= maxRowHeightPx || fontSizePx <= 1)
+      break;
+    --fontSizePx;
+    baseFont = layoutviewerpanel::detail::MakeSharedFont(fontSizePx,
+                                                          wxFONTWEIGHT_NORMAL);
+    headerFont = layoutviewerpanel::detail::MakeSharedFont(fontSizePx,
+                                                            wxFONTWEIGHT_BOLD);
+  }
+
+  const int lineHeight = textHeight + separatorGapPx;
+  const double rowHeight = totalRows > 0 ? availableHeight / totalRows : 0.0;
+  const int desiredRowHeightPx =
+      std::max(lineHeight,
+               static_cast<int>(std::lround(rowHeight * renderZoom *
+                                            kLegendLineSpacingScale)));
+  const int rowHeightPx = std::max(1, std::min(desiredRowHeightPx, maxRowHeightPx));
+  const double currentFontScale =
+      std::clamp(static_cast<double>(fontSizePx) /
+                     (14.0 * kLegendFontScale * renderZoom),
+                 0.0, 1.0);
+
+  baseTextExtentCache.clear();
   dc.SetFont(baseFont);
   int maxCountWidth = measureTextWidth("Count");
   int maxChWidth = measureTextWidth("Ch");
@@ -865,21 +905,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   }
   const int chExtraWidthPx = measureTextWidth("0");
   maxChWidth += chExtraWidthPx;
-
-  int textHeight = 0;
-  int lineWidth = 0;
-  dc.GetTextExtent("Hg", &lineWidth, &textHeight);
-  const int separatorGapPx =
-      std::max(1, static_cast<int>(std::lround(separatorGap * renderZoom)));
-  const int lineHeight = textHeight + separatorGapPx;
-
-  const double rowHeight = totalRows > 0 ? availableHeight / totalRows : 0.0;
-  const int baseRowHeightPx =
-      std::max(lineHeight,
-               static_cast<int>(std::lround(rowHeight * renderZoom *
-                                            kLegendLineSpacingScale)));
   const int desiredSymbolSize = static_cast<int>(std::lround(
-      kLegendSymbolSizePx * renderZoom * fontScale));
+      kLegendSymbolSizePx * renderZoom * currentFontScale));
   const int symbolSize = std::max(4, desiredSymbolSize);
   const double fallbackSymbolSize =
       std::max(4.0, static_cast<double>(symbolSize) * kLegendFallbackSymbolScale);
@@ -1066,15 +1093,6 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                                           maxMeasuredSymbolColumnWidth) *
                                  kLegendSymbolColumnScale)),
       0, limitedSymbolColumnSize);
-  const int rowHeightPx = baseRowHeightPx;
-  const int paddingLeftPx =
-      std::max(0, static_cast<int>(std::lround(paddingLeft * renderZoom)));
-  const int paddingRightPx =
-      std::max(0, static_cast<int>(std::lround(paddingRight * renderZoom)));
-  const int paddingTopPx =
-      std::max(0, static_cast<int>(std::lround(paddingTop * renderZoom)));
-  const int paddingBottomPx =
-      std::max(0, static_cast<int>(std::lround(paddingBottom * renderZoom)));
   const int columnGapPx =
       std::max(0, static_cast<int>(std::lround(columnGap * renderZoom)));
   int symbolColumnGapPx =
