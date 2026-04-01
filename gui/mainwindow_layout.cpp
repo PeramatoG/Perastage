@@ -1018,6 +1018,7 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
 
   layout2DViewStateGuard.reset();
   layout2DViewEditingId = 0;
+  RefreshSummary();
 
   if (editPanel)
     editPanel->SetLayoutEditOverlay(std::nullopt);
@@ -1032,6 +1033,7 @@ void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {
 
   layout2DViewStateGuard.reset();
   layout2DViewEditingId = 0;
+  RefreshSummary();
 
   Viewer2DPanel *editPanel =
       layout2DViewEditPanel ? layout2DViewEditPanel : viewport2DPanel;

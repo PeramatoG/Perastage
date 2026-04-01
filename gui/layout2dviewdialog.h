@@ -32,4 +32,5 @@ private:
   SummaryPanel *summaryPanel = nullptr;
   wxSlider *scaleSlider = nullptr;
   wxStaticText *scaleValueLabel = nullptr;
+  bool initialShowSyncDone = false;
 };
