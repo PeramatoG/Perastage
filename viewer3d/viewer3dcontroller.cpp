@@ -174,6 +174,16 @@ static Viewer3DRenderStyle ReadRenderStylePreference(const ConfigManager &cfg) {
   return ResolveViewer3DRenderStyle(cfg);
 }
 
+Viewer3DRenderStyle ResolveRenderStyleForContext(const ConfigManager &cfg,
+                                                 bool is2DViewer) {
+  if (is2DViewer) {
+    // Keep 2D render paths isolated from user-selected 3D styles.
+    // The 2D viewer rendering was tuned against the standard style.
+    return Viewer3DRenderStyle::Standard;
+  }
+  return ReadRenderStylePreference(cfg);
+}
+
 static LineRenderProfile GetLineRenderProfile(bool isInteracting,
                                               bool wireframeMode,
                                               bool adaptiveEnabled) {
@@ -989,7 +999,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.colorByFixtureType = isByFixtureTypeMode;
   context.colorByLayer = isByLayerMode;
   context.colorByUniverse = isByUniverseMode;
-  const Viewer3DRenderStyle renderStyle = ReadRenderStylePreference(cfg);
+  const Viewer3DRenderStyle renderStyle =
+      ResolveRenderStyleForContext(cfg, context.is2DViewer);
   context.whiteModelStyle = IsWhiteModelRenderStyle(renderStyle);
   context.texturedStyle = IsTexturedRenderStyle(renderStyle);
   m_impl->whiteModelStyleEnabled = context.whiteModelStyle;
