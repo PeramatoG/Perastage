@@ -285,6 +285,28 @@ void CloseMaskGaps(PixelMask &mask, int maxGapPixels) {
   closeDirectionalRuns(1, -1);
 }
 
+Polyline2D BuildClosedStrokeFromRing(const Polyline2D &ring) {
+  if (ring.size() < 3)
+    return {};
+  Polyline2D closed = ring;
+  closed.push_back(ring.front());
+  return closed;
+}
+
+void AddFillBoundaryStrokeFallback(Symbol2D &symbol) {
+  for (const auto &polygon : symbol.fill) {
+    Polyline2D outerStroke = BuildClosedStrokeFromRing(polygon.outer);
+    if (!outerStroke.empty())
+      symbol.strokes.push_back(std::move(outerStroke));
+
+    for (const auto &hole : polygon.holes) {
+      Polyline2D holeStroke = BuildClosedStrokeFromRing(hole);
+      if (!holeStroke.empty())
+        symbol.strokes.push_back(std::move(holeStroke));
+    }
+  }
+}
+
 std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
   const int w = fillMask.width;
   const int h = fillMask.height;
@@ -648,6 +670,7 @@ Symbol2DImageBuilder::BuildFromRenderedImages(
     symbol.fill = ExtractFillPolygons(fillMask);
 
     symbol.strokes = ExtractPolylines(lineMask, params);
+    AddFillBoundaryStrokeFallback(symbol);
 
     for (const auto &polygon : symbol.fill)
       for (const auto &p : polygon.outer)
