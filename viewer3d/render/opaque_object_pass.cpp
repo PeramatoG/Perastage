@@ -16,12 +16,51 @@
 #endif
 
 #include "matrixutils.h"
+#include "mesh.h"
 #include "opaque_pass_utils.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
+#include "viewer3d_render_style.h"
+#include "configmanager.h"
 
 #include <algorithm>
 #include <vector>
+
+namespace {
+
+bool IsSketchStyleActive() {
+  return ResolveViewer3DRenderStyle(ConfigManager::Get()) ==
+         Viewer3DRenderStyle::WhiteModel;
+}
+
+const Mesh &FallbackSceneObjectCubeMesh() {
+  static const Mesh mesh = []() {
+    Mesh cube;
+    cube.vertices = {
+        -0.5f, -0.5f, -0.5f, // 0
+        0.5f,  -0.5f, -0.5f, // 1
+        0.5f,  0.5f,  -0.5f, // 2
+        -0.5f, 0.5f,  -0.5f, // 3
+        -0.5f, -0.5f, 0.5f,  // 4
+        0.5f,  -0.5f, 0.5f,  // 5
+        0.5f,  0.5f,  0.5f,  // 6
+        -0.5f, 0.5f,  0.5f   // 7
+    };
+    cube.indices = {
+        0, 1, 2, 0, 2, 3, // back
+        4, 6, 5, 4, 7, 6, // front
+        0, 4, 5, 0, 5, 1, // bottom
+        3, 2, 6, 3, 6, 7, // top
+        0, 3, 7, 0, 7, 4, // left
+        1, 5, 6, 1, 6, 2  // right
+    };
+    ComputeNormals(cube);
+    return cube;
+  }();
+  return mesh;
+}
+
+} // namespace
 
 void OpaqueObjectPass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
@@ -200,28 +239,17 @@ void OpaqueObjectPass::Render(
               glPopMatrix();
             }
           } else {
-            // Fallback scene objects are rendered as cubes that may be
-            // non-uniformly scaled through the object's transform matrix.
-            // Render these as double-sided geometry to avoid apparent
-            // transparency artifacts on thin objects (for example LED
-            // screens), while preserving regular culling state for the rest of
-            // the frame.
-            const GLboolean cullEnabled = glIsEnabled(GL_CULL_FACE);
-            if (cullEnabled)
-              glDisable(GL_CULL_FACE);
+            // Fallback scene objects use the same mesh path as regular models
+            // so every render style (white model, textured, by-layer, etc.)
+            // stays visually consistent even when the object has no mesh file.
             const bool useUnlitFallbackFill =
-                !isHighlighted && !isSelected && context.whiteModelStyle;
-            const GLboolean lightingEnabled = glIsEnabled(GL_LIGHTING);
-            if (useUnlitFallbackFill && lightingEnabled)
-              glDisable(GL_LIGHTING);
-            const bool fallbackWireframe = wireframe || context.whiteModelStyle;
-            controller.DrawCubeWithOutline(0.3f, r, g, b, isHighlighted,
-                                           isSelected, cx, cy, cz, fallbackWireframe,
-                                           mode, captureTransformFn);
-            if (useUnlitFallbackFill && lightingEnabled)
-              glEnable(GL_LIGHTING);
-            if (cullEnabled)
-              glEnable(GL_CULL_FACE);
+                !isHighlighted && !isSelected &&
+                context.whiteModelStyle && !IsSketchStyleActive();
+            const bool fallbackWireframe = wireframe;
+            controller.DrawMeshWithOutline(
+                FallbackSceneObjectCubeMesh(), r, g, b, 0.3f, isHighlighted,
+                isSelected, cx, cy, cz, fallbackWireframe, mode,
+                captureTransformFn, useUnlitFallbackFill);
           }
         };
 
