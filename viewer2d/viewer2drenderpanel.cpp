@@ -42,7 +42,7 @@ const std::array<const char *, 3> DMX_KEYS = {"label_show_dmx_top",
                                               "label_show_dmx_side"};
 
 constexpr int kRulerAxisPositionWidth = 72;
-constexpr int kRulerAxisColorSwatchSize = 32;
+constexpr int kRulerAxisColorSwatchSize = 36;
 
 wxColour BuildColorFromConfig(const ConfigManager &cfg, const char *rKey,
                               const char *gKey, const char *bKey) {
