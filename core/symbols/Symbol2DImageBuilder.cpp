@@ -201,7 +201,7 @@ PixelMask BuildLineMask(const RenderedSymbolImage &render,
     const int luminance = static_cast<int>(0.2126f * static_cast<float>(r) +
                                            0.7152f * static_cast<float>(g) +
                                            0.0722f * static_cast<float>(b));
-    if (a > params.fillAlphaThreshold && luminance < params.blackThreshold)
+    if (a > params.lineAlphaThreshold && luminance < params.blackThreshold)
       mask.value[i] = 1;
   }
   return mask;
