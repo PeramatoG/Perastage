@@ -99,37 +99,55 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
   bool flipNormalsForSketch = false;
   if (hasNormals) {
-    const size_t vcount = mesh.vertices.size() / 3u;
-    if (vcount > 0u) {
-      float cx = 0.0f, cy = 0.0f, cz = 0.0f;
-      for (size_t i = 0; i < vcount; ++i) {
-        cx += mesh.vertices[i * 3];
-        cy += mesh.vertices[i * 3 + 1];
-        cz += mesh.vertices[i * 3 + 2];
-      }
-      const float invCount = 1.0f / static_cast<float>(vcount);
-      cx *= invCount;
-      cy *= invCount;
-      cz *= invCount;
+    double orientationScore = 0.0;
+    double magnitudeScore = 0.0;
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+      const unsigned short i0 = mesh.indices[i];
+      const unsigned short i1 = mesh.indices[i + 1];
+      const unsigned short i2 = mesh.indices[i + 2];
 
-      double orientationScore = 0.0;
-      double magnitudeScore = 0.0;
-      for (size_t i = 0; i < vcount; ++i) {
-        const float vx = mesh.vertices[i * 3] - cx;
-        const float vy = mesh.vertices[i * 3 + 1] - cy;
-        const float vz = mesh.vertices[i * 3 + 2] - cz;
-        const std::array<float, 3> n = NormalizeVector(
-            mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]);
-        const double dot =
-            static_cast<double>(n[0]) * vx + static_cast<double>(n[1]) * vy +
-            static_cast<double>(n[2]) * vz;
-        orientationScore += dot;
-        magnitudeScore += std::fabs(dot);
-      }
+      const float v0x = mesh.vertices[i0 * 3];
+      const float v0y = mesh.vertices[i0 * 3 + 1];
+      const float v0z = mesh.vertices[i0 * 3 + 2];
+      const float v1x = mesh.vertices[i1 * 3];
+      const float v1y = mesh.vertices[i1 * 3 + 1];
+      const float v1z = mesh.vertices[i1 * 3 + 2];
+      const float v2x = mesh.vertices[i2 * 3];
+      const float v2y = mesh.vertices[i2 * 3 + 1];
+      const float v2z = mesh.vertices[i2 * 3 + 2];
 
-      if (magnitudeScore > 1e-6 && orientationScore < -magnitudeScore * 0.15)
-        flipNormalsForSketch = true;
+      const float ux = v1x - v0x;
+      const float uy = v1y - v0y;
+      const float uz = v1z - v0z;
+      const float vx = v2x - v0x;
+      const float vy = v2y - v0y;
+      const float vz = v2z - v0z;
+      const std::array<float, 3> faceN = NormalizeVector(
+          uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+
+      const std::array<float, 3> n0 = NormalizeVector(
+          mesh.normals[i0 * 3], mesh.normals[i0 * 3 + 1], mesh.normals[i0 * 3 + 2]);
+      const std::array<float, 3> n1 = NormalizeVector(
+          mesh.normals[i1 * 3], mesh.normals[i1 * 3 + 1], mesh.normals[i1 * 3 + 2]);
+      const std::array<float, 3> n2 = NormalizeVector(
+          mesh.normals[i2 * 3], mesh.normals[i2 * 3 + 1], mesh.normals[i2 * 3 + 2]);
+
+      const double d0 = static_cast<double>(faceN[0]) * n0[0] +
+                        static_cast<double>(faceN[1]) * n0[1] +
+                        static_cast<double>(faceN[2]) * n0[2];
+      const double d1 = static_cast<double>(faceN[0]) * n1[0] +
+                        static_cast<double>(faceN[1]) * n1[1] +
+                        static_cast<double>(faceN[2]) * n1[2];
+      const double d2 = static_cast<double>(faceN[0]) * n2[0] +
+                        static_cast<double>(faceN[1]) * n2[1] +
+                        static_cast<double>(faceN[2]) * n2[2];
+
+      orientationScore += d0 + d1 + d2;
+      magnitudeScore += std::fabs(d0) + std::fabs(d1) + std::fabs(d2);
     }
+
+    if (magnitudeScore > 1e-6 && orientationScore < -magnitudeScore * 0.15)
+      flipNormalsForSketch = true;
   }
   const bool flipWinding =
       (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
