@@ -307,10 +307,9 @@ void SceneRenderer::DrawMeshWithOutline(
         glDisable(GL_TEXTURE_2D);
       const bool useColorFillInWhiteStyle =
           !IsSketchRenderStyleEnabled() &&
-          (mode == Viewer2DRenderMode::White ||
-          mode == Viewer2DRenderMode::ByFixtureType ||
-          mode == Viewer2DRenderMode::ByLayer ||
-          mode == Viewer2DRenderMode::ByUniverse);
+          (mode == Viewer2DRenderMode::ByFixtureType ||
+           mode == Viewer2DRenderMode::ByLayer ||
+           mode == Viewer2DRenderMode::ByUniverse);
       // Keep 3D white-model aligned with the 2D viewer draw order:
       // stroke pass first, then polygon-offset fill pass.
       const LineRenderProfile lineProfile =
@@ -350,6 +349,14 @@ void SceneRenderer::DrawMeshWithOutline(
         if (!glIsEnabled(GL_LIGHTING))
           glEnable(GL_LIGHTING);
         DrawMesh(mesh, scale, modelMatrix);
+      } else if (usePureWhiteFillInWhiteMode) {
+        const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
+        if (fillLightingWasEnabled)
+          glDisable(GL_LIGHTING);
+        m_controller.SetGLColor(1.0f, 1.0f, 1.0f);
+        DrawMesh(mesh, scale, modelMatrix);
+        if (fillLightingWasEnabled)
+          glEnable(GL_LIGHTING);
       } else if (useColorFillInWhiteStyle) {
         const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
         if (fillLightingWasEnabled)

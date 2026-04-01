@@ -51,7 +51,9 @@
 #include "viewer3d_render_style.h"
 #include <wx/dcclient.h>
 #include <wx/event.h>
+#include <wx/filedlg.h>
 #include <wx/log.h>
+#include <wx/msgdlg.h>
 #include <chrono>
 #include <array>
 #include <algorithm>
@@ -79,6 +81,9 @@ wxEND_EVENT_TABLE()
 
 namespace {
 constexpr auto kPauseDelay = std::chrono::milliseconds(200);
+constexpr int kExportImageWidth = 1920;
+constexpr int kExportImageHeight = 1080;
+constexpr double kDefaultFovYDegrees = 45.0;
 
 bool IsFastInteractionModeEnabled()
 {
@@ -112,9 +117,32 @@ Viewer2DRenderMode ToSceneRenderMode(Viewer3DRenderStyle style) {
     }
 }
 
+double ComputeExpandedFovYDegrees(int sourceWidth, int sourceHeight,
+                                  int targetWidth, int targetHeight) {
+    constexpr double kPi = 3.14159265358979323846;
+    if (sourceWidth <= 0 || sourceHeight <= 0 || targetWidth <= 0 || targetHeight <= 0)
+        return kDefaultFovYDegrees;
+
+    const double sourceAspect =
+        static_cast<double>(sourceWidth) / static_cast<double>(sourceHeight);
+    const double targetAspect =
+        static_cast<double>(targetWidth) / static_cast<double>(targetHeight);
+    if (sourceAspect <= targetAspect)
+        return kDefaultFovYDegrees;
+
+    const double baseHalfFovRadians = (kDefaultFovYDegrees * 0.5) * kPi / 180.0;
+    const double expandedHalfFovRadians =
+        std::atan(std::tan(baseHalfFovRadians) * (sourceAspect / targetAspect));
+    const double expandedFovDegrees = expandedHalfFovRadians * 2.0 * 180.0 / kPi;
+    return std::clamp(expandedFovDegrees, kDefaultFovYDegrees, 170.0);
+}
+
 void ApplyViewer3DClearColorForStyle(Viewer3DRenderStyle style) {
-    if (style == Viewer3DRenderStyle::Wireframe ||
-        IsWhiteModelRenderStyle(style)) {
+    if (IsWhiteModelRenderStyle(style)) {
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        return;
+    }
+    if (style == Viewer3DRenderStyle::Wireframe) {
         glClearColor(0.95f, 0.95f, 0.95f, 1.0f);
         return;
     }
@@ -575,16 +603,142 @@ void Viewer3DPanel::Render()
     glFlush();
 }
 
-void Viewer3DPanel::ApplyCameraMatrices(int width, int height)
+bool Viewer3DPanel::ExportCurrentViewToPng() {
+    if (!IsShownOnScreen()) {
+        wxMessageBox("Cannot export while the 3D viewer is hidden.",
+                     "Export image", wxOK | wxICON_WARNING, this);
+        return false;
+    }
+
+    wxFileDialog saveDialog(this, "Export image",
+                            wxEmptyString, "viewer3d_export.png",
+                            "PNG files (*.png)|*.png",
+                            wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    if (saveDialog.ShowModal() != wxID_OK)
+        return false;
+
+    std::string path = saveDialog.GetPath().ToStdString();
+    if (path.empty())
+        return false;
+
+    SetCurrent(*m_glContext);
+    InitGL();
+    if (!m_glInitialized) {
+        wxMessageBox("OpenGL is not initialized yet.", "Export image",
+                     wxOK | wxICON_ERROR, this);
+        return false;
+    }
+
+    int sourceWidth = 0;
+    int sourceHeight = 0;
+    GetClientSize(&sourceWidth, &sourceHeight);
+    const double exportFovYDegrees =
+        ComputeExpandedFovYDegrees(sourceWidth, sourceHeight, kExportImageWidth,
+                                   kExportImageHeight);
+
+    GLuint fbo = 0;
+    GLuint colorTex = 0;
+    GLuint depthRb = 0;
+    glGenFramebuffers(1, &fbo);
+    glGenTextures(1, &colorTex);
+    glGenRenderbuffers(1, &depthRb);
+
+    GLint previousFbo = 0;
+    GLint previousViewport[4] = {0, 0, 0, 0};
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFbo);
+    glGetIntegerv(GL_VIEWPORT, previousViewport);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    glBindTexture(GL_TEXTURE_2D, colorTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, kExportImageWidth, kExportImageHeight,
+                 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                           colorTex, 0);
+
+    glBindRenderbuffer(GL_RENDERBUFFER, depthRb);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, kExportImageWidth,
+                          kExportImageHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                              GL_RENDERBUFFER, depthRb);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        glBindFramebuffer(GL_FRAMEBUFFER, previousFbo);
+        glViewport(previousViewport[0], previousViewport[1], previousViewport[2],
+                   previousViewport[3]);
+        glDeleteRenderbuffers(1, &depthRb);
+        glDeleteTextures(1, &colorTex);
+        glDeleteFramebuffers(1, &fbo);
+        wxMessageBox("Failed to create an offscreen framebuffer for export.",
+                     "Export image", wxOK | wxICON_ERROR, this);
+        return false;
+    }
+
+    const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
+    ApplyViewer3DClearColorForStyle(renderStyle);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    ApplyCameraMatrices(kExportImageWidth, kExportImageHeight, exportFovYDegrees);
+    if (renderStyle == Viewer3DRenderStyle::Textured) {
+        DrawTexturedStyleBackgroundGradient(ComputeGridPlaneHorizonNdcY());
+        DrawTexturedGroundPlaneBackdrop();
+    }
+
+    const bool previousCameraMoving = m_cameraMoving;
+    m_controller.SetCameraMoving(false);
+    m_controller.RenderScene(IsWireframeRenderStyle(renderStyle),
+                             ToSceneRenderMode(renderStyle));
+    glFlush();
+
+    std::vector<unsigned char> rgba(static_cast<size_t>(kExportImageWidth) *
+                                    static_cast<size_t>(kExportImageHeight) * 4u);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, kExportImageWidth, kExportImageHeight, GL_RGBA,
+                 GL_UNSIGNED_BYTE, rgba.data());
+
+    glBindFramebuffer(GL_FRAMEBUFFER, previousFbo);
+    glViewport(previousViewport[0], previousViewport[1], previousViewport[2],
+               previousViewport[3]);
+    glDeleteRenderbuffers(1, &depthRb);
+    glDeleteTextures(1, &colorTex);
+    glDeleteFramebuffers(1, &fbo);
+    m_controller.SetCameraMoving(previousCameraMoving);
+
+    wxImage image(kExportImageWidth, kExportImageHeight);
+    unsigned char *rgb = image.GetData();
+    for (int y = 0; y < kExportImageHeight; ++y) {
+        const int srcY = kExportImageHeight - 1 - y;
+        for (int x = 0; x < kExportImageWidth; ++x) {
+            const size_t srcIndex =
+                (static_cast<size_t>(srcY) * kExportImageWidth + x) * 4u;
+            const size_t dstIndex =
+                (static_cast<size_t>(y) * kExportImageWidth + x) * 3u;
+            rgb[dstIndex + 0] = rgba[srcIndex + 0];
+            rgb[dstIndex + 1] = rgba[srcIndex + 1];
+            rgb[dstIndex + 2] = rgba[srcIndex + 2];
+        }
+    }
+
+    if (!image.SaveFile(saveDialog.GetPath(), wxBITMAP_TYPE_PNG)) {
+        wxMessageBox("Failed to save PNG image.", "Export image",
+                     wxOK | wxICON_ERROR, this);
+        return false;
+    }
+
+    return true;
+}
+
+void Viewer3DPanel::ApplyCameraMatrices(int width, int height, double fovYDegrees)
 {
     glViewport(0, 0, width, height);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    constexpr double kFovYDegrees = 45.0;
     constexpr double kNearPlane = 0.05;
     constexpr double kFarPlane = 2000.0;
-    gluPerspective(kFovYDegrees, static_cast<double>(width) / height,
+    gluPerspective(fovYDegrees, static_cast<double>(width) / height,
                    kNearPlane, kFarPlane);
 
     glMatrixMode(GL_MODELVIEW);
@@ -835,6 +989,7 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     constexpr int kRenderStyleByDeviceTypeId = wxID_HIGHEST + 1205;
     constexpr int kRenderStyleByLayerId = wxID_HIGHEST + 1206;
     constexpr int kRenderStyleByUniverseId = wxID_HIGHEST + 1207;
+    constexpr int kExportImagePngId = wxID_HIGHEST + 1208;
 
     typeSubmenu->Append(kSelectTypeAllId, "All fixtures");
     std::vector<std::string> orderedTypes;
@@ -897,6 +1052,8 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
         rootMenu.AppendSeparator();
     }
     rootMenu.AppendSubMenu(renderStyleSubmenu.release(), "Render style");
+    rootMenu.AppendSeparator();
+    rootMenu.Append(kExportImagePngId, "Export image...");
 
     const int selectedId = GetPopupMenuSelectionFromUser(rootMenu, event.GetPosition());
     if (selectedId == wxID_NONE)
@@ -937,6 +1094,10 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     }
     if (selectedId == kRenderStyleByUniverseId) {
         applyRenderStyleSelection(Viewer3DRenderStyle::ByUniverse);
+        return;
+    }
+    if (selectedId == kExportImagePngId) {
+        ExportCurrentViewToPng();
         return;
     }
 
