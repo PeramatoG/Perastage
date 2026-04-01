@@ -389,7 +389,7 @@ void MainWindow::Ensure2DViewport() {
                                                  .Layer(0)
                                                  .Row(0)
                                                  .Position(0)
-                                                 .BestSize(200, 100)
+                                                 .BestSize(220, 100)
                                                  .CloseButton(true)
                                                  .MaximizeButton(true)
                                                  .PaneBorder(true)

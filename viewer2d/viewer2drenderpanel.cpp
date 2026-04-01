@@ -41,6 +41,9 @@ const std::array<const char *, 3> DMX_KEYS = {"label_show_dmx_top",
                                               "label_show_dmx_front",
                                               "label_show_dmx_side"};
 
+constexpr int kRulerAxisPositionWidth = 72;
+constexpr int kRulerAxisColorSwatchSize = 28;
+
 wxColour BuildColorFromConfig(const ConfigManager &cfg, const char *rKey,
                               const char *gKey, const char *bKey) {
   return wxColour(static_cast<int>(cfg.GetFloat(rKey) * 255.0f),
@@ -136,13 +139,15 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                              this);
   m_rulerAxisXPosition->Bind(wxEVT_TEXT_ENTER,
                              &Viewer2DRenderPanel::OnTextEnter, this);
-  m_rulerAxisXPosition->SetMinSize(wxSize(80, -1));
+  m_rulerAxisXPosition->SetMinSize(wxSize(kRulerAxisPositionWidth, -1));
   m_rulerAxisXColor = new wxColourPickerCtrl(
       rulerBoxParent, wxID_ANY,
       BuildColorFromConfig(cfg, "ruler_axis_x_color_r", "ruler_axis_x_color_g",
                            "ruler_axis_x_color_b"));
-  m_rulerAxisXColor->SetMinSize(wxSize(24, 24));
-  m_rulerAxisXColor->SetMaxSize(wxSize(24, 24));
+  m_rulerAxisXColor->SetMinSize(
+      wxSize(kRulerAxisColorSwatchSize, kRulerAxisColorSwatchSize));
+  m_rulerAxisXColor->SetMaxSize(
+      wxSize(kRulerAxisColorSwatchSize, kRulerAxisColorSwatchSize));
   m_rulerAxisXColor->Bind(wxEVT_COLOURPICKER_CHANGED,
                           &Viewer2DRenderPanel::OnRulerAxisXColor, this);
 
@@ -163,13 +168,15 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                              this);
   m_rulerAxisYPosition->Bind(wxEVT_TEXT_ENTER,
                              &Viewer2DRenderPanel::OnTextEnter, this);
-  m_rulerAxisYPosition->SetMinSize(wxSize(80, -1));
+  m_rulerAxisYPosition->SetMinSize(wxSize(kRulerAxisPositionWidth, -1));
   m_rulerAxisYColor = new wxColourPickerCtrl(
       rulerBoxParent, wxID_ANY,
       BuildColorFromConfig(cfg, "ruler_axis_y_color_r", "ruler_axis_y_color_g",
                            "ruler_axis_y_color_b"));
-  m_rulerAxisYColor->SetMinSize(wxSize(24, 24));
-  m_rulerAxisYColor->SetMaxSize(wxSize(24, 24));
+  m_rulerAxisYColor->SetMinSize(
+      wxSize(kRulerAxisColorSwatchSize, kRulerAxisColorSwatchSize));
+  m_rulerAxisYColor->SetMaxSize(
+      wxSize(kRulerAxisColorSwatchSize, kRulerAxisColorSwatchSize));
   m_rulerAxisYColor->Bind(wxEVT_COLOURPICKER_CHANGED,
                           &Viewer2DRenderPanel::OnRulerAxisYColor, this);
   m_rulerAxisZPosition = new wxSpinCtrlDouble(
@@ -189,13 +196,15 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                              this);
   m_rulerAxisZPosition->Bind(wxEVT_TEXT_ENTER,
                              &Viewer2DRenderPanel::OnTextEnter, this);
-  m_rulerAxisZPosition->SetMinSize(wxSize(80, -1));
+  m_rulerAxisZPosition->SetMinSize(wxSize(kRulerAxisPositionWidth, -1));
   m_rulerAxisZColor = new wxColourPickerCtrl(
       rulerBoxParent, wxID_ANY,
       BuildColorFromConfig(cfg, "ruler_axis_z_color_r", "ruler_axis_z_color_g",
                            "ruler_axis_z_color_b"));
-  m_rulerAxisZColor->SetMinSize(wxSize(24, 24));
-  m_rulerAxisZColor->SetMaxSize(wxSize(24, 24));
+  m_rulerAxisZColor->SetMinSize(
+      wxSize(kRulerAxisColorSwatchSize, kRulerAxisColorSwatchSize));
+  m_rulerAxisZColor->SetMaxSize(
+      wxSize(kRulerAxisColorSwatchSize, kRulerAxisColorSwatchSize));
   m_rulerAxisZColor->Bind(wxEVT_COLOURPICKER_CHANGED,
                           &Viewer2DRenderPanel::OnRulerAxisZColor, this);
 
