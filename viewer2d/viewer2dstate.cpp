@@ -43,6 +43,12 @@ const std::array<const char *, 3> kLabelOffsetDistanceKeys = {
 const std::array<const char *, 3> kLabelOffsetAngleKeys = {
     "label_offset_angle_top", "label_offset_angle_front",
     "label_offset_angle_side"};
+const std::array<const char *, 3> kRulerColorRKeys = {
+    "ruler_axis_x_color_r", "ruler_axis_y_color_r", "ruler_axis_z_color_r"};
+const std::array<const char *, 3> kRulerColorGKeys = {
+    "ruler_axis_x_color_g", "ruler_axis_y_color_g", "ruler_axis_z_color_g"};
+const std::array<const char *, 3> kRulerColorBKeys = {
+    "ruler_axis_x_color_b", "ruler_axis_y_color_b", "ruler_axis_z_color_b"};
 } // namespace
 
 Viewer2DState CaptureState(const Viewer2DPanel *panel,
@@ -76,6 +82,11 @@ Viewer2DState CaptureState(const Viewer2DPanel *panel,
   state.renderOptions.gridColorB = cfg.GetFloat("grid_color_b");
   state.renderOptions.gridDrawAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
   state.renderOptions.showRuler = cfg.GetFloat("ruler_show") != 0.0f;
+  for (size_t i = 0; i < state.renderOptions.rulerColorR.size(); ++i) {
+    state.renderOptions.rulerColorR[i] = cfg.GetFloat(kRulerColorRKeys[i]);
+    state.renderOptions.rulerColorG[i] = cfg.GetFloat(kRulerColorGKeys[i]);
+    state.renderOptions.rulerColorB[i] = cfg.GetFloat(kRulerColorBKeys[i]);
+  }
 
   for (size_t i = 0; i < state.renderOptions.showLabelName.size(); ++i) {
     state.renderOptions.showLabelName[i] =
@@ -136,6 +147,11 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
   cfg.SetFloat("grid_draw_above",
                state.renderOptions.gridDrawAbove ? 1.0f : 0.0f);
   cfg.SetFloat("ruler_show", state.renderOptions.showRuler ? 1.0f : 0.0f);
+  for (size_t i = 0; i < state.renderOptions.rulerColorR.size(); ++i) {
+    cfg.SetFloat(kRulerColorRKeys[i], state.renderOptions.rulerColorR[i]);
+    cfg.SetFloat(kRulerColorGKeys[i], state.renderOptions.rulerColorG[i]);
+    cfg.SetFloat(kRulerColorBKeys[i], state.renderOptions.rulerColorB[i]);
+  }
 
   for (size_t i = 0; i < state.renderOptions.showLabelName.size(); ++i) {
     cfg.SetFloat(kLabelNameKeys[i],

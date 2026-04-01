@@ -679,6 +679,15 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const float rulerAxisXPosition = cfg.GetFloat("ruler_axis_x_position");
   const float rulerAxisYPosition = cfg.GetFloat("ruler_axis_y_position");
   const float rulerAxisZPosition = cfg.GetFloat("ruler_axis_z_position");
+  const float rulerAxisXColorR = cfg.GetFloat("ruler_axis_x_color_r");
+  const float rulerAxisXColorG = cfg.GetFloat("ruler_axis_x_color_g");
+  const float rulerAxisXColorB = cfg.GetFloat("ruler_axis_x_color_b");
+  const float rulerAxisYColorR = cfg.GetFloat("ruler_axis_y_color_r");
+  const float rulerAxisYColorG = cfg.GetFloat("ruler_axis_y_color_g");
+  const float rulerAxisYColorB = cfg.GetFloat("ruler_axis_y_color_b");
+  const float rulerAxisZColorR = cfg.GetFloat("ruler_axis_z_color_r");
+  const float rulerAxisZColorG = cfg.GetFloat("ruler_axis_z_color_g");
+  const float rulerAxisZColorB = cfg.GetFloat("ruler_axis_z_color_b");
   const auto distanceUnitSystem =
       Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
 
@@ -786,6 +795,12 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     rulerState.xRulerPositionMeters = rulerAxisXPosition;
     rulerState.yRulerPositionMeters = rulerAxisYPosition;
     rulerState.zRulerPositionMeters = rulerAxisZPosition;
+    rulerState.xRulerColor = {rulerAxisXColorR, rulerAxisXColorG,
+                              rulerAxisXColorB, 1.0f};
+    rulerState.yRulerColor = {rulerAxisYColorR, rulerAxisYColorG,
+                              rulerAxisYColorB, 1.0f};
+    rulerState.zRulerColor = {rulerAxisZColorR, rulerAxisZColorG,
+                              rulerAxisZColorB, 1.0f};
     rulerState.useImperialUnits =
         distanceUnitSystem == Units::DistanceUnitSystem::Imperial;
     rulerState.view = m_view;

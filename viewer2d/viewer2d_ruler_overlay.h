@@ -16,6 +16,9 @@ struct RulerOverlayViewState {
   float xRulerPositionMeters = 0.0f;
   float yRulerPositionMeters = 0.0f;
   float zRulerPositionMeters = 0.0f;
+  CanvasColor xRulerColor{0.0f, 0.0f, 0.0f, 1.0f};
+  CanvasColor yRulerColor{0.0f, 0.0f, 0.0f, 1.0f};
+  CanvasColor zRulerColor{0.0f, 0.0f, 0.0f, 1.0f};
   bool useImperialUnits = false;
   Viewer2DView view = Viewer2DView::Top;
 };

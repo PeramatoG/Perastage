@@ -40,6 +40,20 @@ const std::array<const char *, 3> ID_KEYS = {"label_show_id_top",
 const std::array<const char *, 3> DMX_KEYS = {"label_show_dmx_top",
                                               "label_show_dmx_front",
                                               "label_show_dmx_side"};
+
+wxColour BuildColorFromConfig(const ConfigManager &cfg, const char *rKey,
+                              const char *gKey, const char *bKey) {
+  return wxColour(static_cast<int>(cfg.GetFloat(rKey) * 255.0f),
+                  static_cast<int>(cfg.GetFloat(gKey) * 255.0f),
+                  static_cast<int>(cfg.GetFloat(bKey) * 255.0f));
+}
+
+void SaveColorToConfig(ConfigManager &cfg, const wxColour &color,
+                       const char *rKey, const char *gKey, const char *bKey) {
+  cfg.SetFloat(rKey, color.Red() / 255.0f);
+  cfg.SetFloat(gKey, color.Green() / 255.0f);
+  cfg.SetFloat(bKey, color.Blue() / 255.0f);
+}
 } // namespace
 
 Viewer2DRenderPanel *Viewer2DRenderPanel::s_instance = nullptr;
@@ -122,6 +136,13 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                              this);
   m_rulerAxisXPosition->Bind(wxEVT_TEXT_ENTER,
                              &Viewer2DRenderPanel::OnTextEnter, this);
+  m_rulerAxisXPosition->SetMinSize(wxSize(80, -1));
+  m_rulerAxisXColor = new wxColourPickerCtrl(
+      rulerBoxParent, wxID_ANY,
+      BuildColorFromConfig(cfg, "ruler_axis_x_color_r", "ruler_axis_x_color_g",
+                           "ruler_axis_x_color_b"));
+  m_rulerAxisXColor->Bind(wxEVT_COLOURPICKER_CHANGED,
+                          &Viewer2DRenderPanel::OnRulerAxisXColor, this);
 
   m_rulerAxisYPosition = new wxSpinCtrlDouble(
       rulerBoxParent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
@@ -140,6 +161,13 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                              this);
   m_rulerAxisYPosition->Bind(wxEVT_TEXT_ENTER,
                              &Viewer2DRenderPanel::OnTextEnter, this);
+  m_rulerAxisYPosition->SetMinSize(wxSize(80, -1));
+  m_rulerAxisYColor = new wxColourPickerCtrl(
+      rulerBoxParent, wxID_ANY,
+      BuildColorFromConfig(cfg, "ruler_axis_y_color_r", "ruler_axis_y_color_g",
+                           "ruler_axis_y_color_b"));
+  m_rulerAxisYColor->Bind(wxEVT_COLOURPICKER_CHANGED,
+                          &Viewer2DRenderPanel::OnRulerAxisYColor, this);
   m_rulerAxisZPosition = new wxSpinCtrlDouble(
       rulerBoxParent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
       wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER);
@@ -157,6 +185,13 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                              this);
   m_rulerAxisZPosition->Bind(wxEVT_TEXT_ENTER,
                              &Viewer2DRenderPanel::OnTextEnter, this);
+  m_rulerAxisZPosition->SetMinSize(wxSize(80, -1));
+  m_rulerAxisZColor = new wxColourPickerCtrl(
+      rulerBoxParent, wxID_ANY,
+      BuildColorFromConfig(cfg, "ruler_axis_z_color_r", "ruler_axis_z_color_g",
+                           "ruler_axis_z_color_b"));
+  m_rulerAxisZColor->Bind(wxEVT_COLOURPICKER_CHANGED,
+                          &Viewer2DRenderPanel::OnRulerAxisZColor, this);
 
   auto *labelBox = new wxStaticBoxSizer(wxVERTICAL, this, "Labels");
   wxWindow *labelBoxParent = labelBox->GetStaticBox();
@@ -283,17 +318,20 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   auto *rulerAxisXSizer = new wxBoxSizer(wxHORIZONTAL);
   rulerAxisXSizer->Add(new wxStaticText(rulerBoxParent, wxID_ANY, "X ruler"),
                        0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-  rulerAxisXSizer->Add(m_rulerAxisXPosition, 0);
+  rulerAxisXSizer->Add(m_rulerAxisXPosition, 0, wxRIGHT, 4);
+  rulerAxisXSizer->Add(m_rulerAxisXColor, 0);
   rulerBox->Add(rulerAxisXSizer, 0, wxALL, 5);
   auto *rulerAxisYSizer = new wxBoxSizer(wxHORIZONTAL);
   rulerAxisYSizer->Add(new wxStaticText(rulerBoxParent, wxID_ANY, "Y ruler"),
                        0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-  rulerAxisYSizer->Add(m_rulerAxisYPosition, 0);
+  rulerAxisYSizer->Add(m_rulerAxisYPosition, 0, wxRIGHT, 4);
+  rulerAxisYSizer->Add(m_rulerAxisYColor, 0);
   rulerBox->Add(rulerAxisYSizer, 0, wxALL, 5);
   auto *rulerAxisZSizer = new wxBoxSizer(wxHORIZONTAL);
   rulerAxisZSizer->Add(new wxStaticText(rulerBoxParent, wxID_ANY, "Z ruler"),
                        0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-  rulerAxisZSizer->Add(m_rulerAxisZPosition, 0);
+  rulerAxisZSizer->Add(m_rulerAxisZPosition, 0, wxRIGHT, 4);
+  rulerAxisZSizer->Add(m_rulerAxisZColor, 0);
   rulerBox->Add(rulerAxisZSizer, 0, wxALL, 5);
   sizer->Add(rulerBox, 0, wxEXPAND | wxALL, 5);
 
@@ -430,6 +468,15 @@ void Viewer2DRenderPanel::ApplyConfig() {
   m_rulerAxisXPosition->SetValue(cfg.GetFloat("ruler_axis_x_position"));
   m_rulerAxisYPosition->SetValue(cfg.GetFloat("ruler_axis_y_position"));
   m_rulerAxisZPosition->SetValue(cfg.GetFloat("ruler_axis_z_position"));
+  m_rulerAxisXColor->SetColour(
+      BuildColorFromConfig(cfg, "ruler_axis_x_color_r", "ruler_axis_x_color_g",
+                           "ruler_axis_x_color_b"));
+  m_rulerAxisYColor->SetColour(
+      BuildColorFromConfig(cfg, "ruler_axis_y_color_r", "ruler_axis_y_color_g",
+                           "ruler_axis_y_color_b"));
+  m_rulerAxisZColor->SetColour(
+      BuildColorFromConfig(cfg, "ruler_axis_z_color_r", "ruler_axis_z_color_g",
+                           "ruler_axis_z_color_b"));
   UpdateRulerControlState();
   RefreshLabelControlsFromSelection();
   if (auto *vp = Viewer2DPanel::Instance()) {
@@ -533,6 +580,33 @@ void Viewer2DRenderPanel::OnRulerAxisZPosition(wxSpinDoubleEvent &evt) {
   ConfigManager::Get().SetFloat(
       "ruler_axis_z_position",
       static_cast<float>(m_rulerAxisZPosition->GetValue()));
+  if (auto *vp = Viewer2DPanel::Instance())
+    vp->UpdateScene(false);
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnRulerAxisXColor(wxColourPickerEvent &evt) {
+  ConfigManager &cfg = ConfigManager::Get();
+  SaveColorToConfig(cfg, evt.GetColour(), "ruler_axis_x_color_r",
+                    "ruler_axis_x_color_g", "ruler_axis_x_color_b");
+  if (auto *vp = Viewer2DPanel::Instance())
+    vp->UpdateScene(false);
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnRulerAxisYColor(wxColourPickerEvent &evt) {
+  ConfigManager &cfg = ConfigManager::Get();
+  SaveColorToConfig(cfg, evt.GetColour(), "ruler_axis_y_color_r",
+                    "ruler_axis_y_color_g", "ruler_axis_y_color_b");
+  if (auto *vp = Viewer2DPanel::Instance())
+    vp->UpdateScene(false);
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnRulerAxisZColor(wxColourPickerEvent &evt) {
+  ConfigManager &cfg = ConfigManager::Get();
+  SaveColorToConfig(cfg, evt.GetColour(), "ruler_axis_z_color_r",
+                    "ruler_axis_z_color_g", "ruler_axis_z_color_b");
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
@@ -691,6 +765,9 @@ void Viewer2DRenderPanel::UpdateRulerControlState() {
   m_rulerAxisXPosition->Enable(showX);
   m_rulerAxisYPosition->Enable(showY);
   m_rulerAxisZPosition->Enable(showZ);
+  m_rulerAxisXColor->Enable(showX);
+  m_rulerAxisYColor->Enable(showY);
+  m_rulerAxisZColor->Enable(showZ);
 }
 
 void Viewer2DRenderPanel::OnBeginTextEdit(wxFocusEvent &evt) {

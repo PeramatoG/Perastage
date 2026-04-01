@@ -53,6 +53,9 @@ struct Layout2DViewRenderOptions {
   float gridColorB = 0.35f;
   bool gridDrawAbove = false;
   bool showRuler = true;
+  std::array<float, 3> rulerColorR = {0.0f, 0.0f, 0.0f};
+  std::array<float, 3> rulerColorG = {0.0f, 0.0f, 0.0f};
+  std::array<float, 3> rulerColorB = {0.0f, 0.0f, 0.0f};
 
   std::array<bool, 3> showLabelName = {true, true, true};
   std::array<bool, 3> showLabelId = {true, true, true};
