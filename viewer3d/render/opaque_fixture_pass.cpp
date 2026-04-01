@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "matrixutils.h"
+#include "configmanager.h"
 #include "mesh.h"
 #include "opaque_pass_utils.h"
 #include "universe_color.h"
