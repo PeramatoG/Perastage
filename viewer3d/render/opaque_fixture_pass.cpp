@@ -708,9 +708,11 @@ void OpaqueFixturePass::Render(
                   if (!is2DViewer && obj.isLens) {
                     const bool isWhiteRenderMode =
                         mode == Viewer2DRenderMode::White;
+                    const bool usePureWhiteLens =
+                        isWhiteRenderMode || IsSketchStyleActive();
                     partR = 1.0f;
-                    partG = isWhiteRenderMode ? 1.0f : 0.78f;
-                    partB = isWhiteRenderMode ? 1.0f : 0.35f;
+                    partG = usePureWhiteLens ? 1.0f : 0.78f;
+                    partB = usePureWhiteLens ? 1.0f : 0.35f;
                   }
                   controller.DrawMeshWithOutline(
                       obj.mesh, partR, partG, partB, RENDER_SCALE, false, false,
@@ -777,9 +779,11 @@ void OpaqueFixturePass::Render(
           float partB = b;
           if (!is2DViewer && obj.isLens) {
             const bool isWhiteRenderMode = mode == Viewer2DRenderMode::White;
+            const bool usePureWhiteLens =
+                isWhiteRenderMode || IsSketchStyleActive();
             partR = 1.0f;
-            partG = isWhiteRenderMode ? 1.0f : 0.78f;
-            partB = isWhiteRenderMode ? 1.0f : 0.35f;
+            partG = usePureWhiteLens ? 1.0f : 0.78f;
+            partB = usePureWhiteLens ? 1.0f : 0.35f;
           }
           const bool drawUnlit = !is2DViewer && obj.isLens;
           controller.DrawMeshWithOutline(obj.mesh, partR, partG, partB,
