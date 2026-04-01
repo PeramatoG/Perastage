@@ -310,6 +310,8 @@ void SceneRenderer::DrawMeshWithOutline(
           (mode == Viewer2DRenderMode::ByFixtureType ||
            mode == Viewer2DRenderMode::ByLayer ||
            mode == Viewer2DRenderMode::ByUniverse);
+      const bool usePureWhiteFillInWhiteMode =
+          !IsSketchRenderStyleEnabled() && mode == Viewer2DRenderMode::White;
       // Keep 3D white-model aligned with the 2D viewer draw order:
       // stroke pass first, then polygon-offset fill pass.
       const LineRenderProfile lineProfile =
