@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "app_version.h"
+#include "configmanager.h"
 #include "logger.h"
 #include "mainwindow.h"
 #include "projectutils.h"
@@ -156,6 +157,11 @@ bool MyApp::OnInit() {
 }
 
 int MyApp::OnExit() {
+  // Release application-level singletons before CRT leak reporting runs in
+  // debug builds on Windows.
+  ConfigManager::Get().Reset();
+  ConfigManager::Get().ClearHistory();
+  wxImage::CleanUpHandlers();
   return wxApp::OnExit();
 }
 
