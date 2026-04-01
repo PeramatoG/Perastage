@@ -248,10 +248,17 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
                        "Changes in this column update the GDTF file and append a GDTF revision entry."),
       0, wxLEFT | wxRIGHT | wxBOTTOM, 6);
 
+  channelList = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
+                               wxSize(-1, 150), wxTE_MULTILINE | wxTE_READONLY);
+  gdtfGeneralSizer->Add(new wxStaticText(this, wxID_ANY, "Mode channels"), 0,
+                        wxLEFT | wxRIGHT | wxTOP, 6);
+  gdtfGeneralSizer->Add(channelList, 1,
+                        wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 6);
+
   wxBoxSizer *formSizer = new wxBoxSizer(wxHORIZONTAL);
   formSizer->Add(fixtureSpecificSizer, 1, wxRIGHT | wxEXPAND, 8);
   formSizer->Add(gdtfGeneralSizer, 1, wxLEFT | wxEXPAND, 8);
-  hSizer->Add(formSizer, 2, wxALL | wxEXPAND, 10);
+  hSizer->Add(formSizer, 3, wxALL | wxEXPAND, 10);
 
   wxBoxSizer *rightSizer = new wxBoxSizer(wxVERTICAL);
   preview = new FixturePreviewPanel(this);
@@ -281,9 +288,6 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   imageSizer->Add(fixtureImagePreview, 0, wxALIGN_CENTER | wxALL, 4);
   rightSizer->Add(imageSizer, 0, wxEXPAND | wxBOTTOM, 5);
 
-  channelList = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
-                               wxSize(-1, 150), wxTE_MULTILINE | wxTE_READONLY);
-  rightSizer->Add(channelList, 1, wxEXPAND);
   hSizer->Add(rightSizer, 1, wxTOP | wxBOTTOM | wxRIGHT | wxEXPAND, 10);
 
   topSizer->Add(hSizer, 1, wxEXPAND);
@@ -400,6 +404,20 @@ void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
                           originY + poly.points[i].y * scale);
     path.CloseSubpath();
     gc->FillPath(path);
+    gc->SetBrush(*wxWHITE_BRUSH);
+    for (const auto &hole : poly.holes) {
+      if (hole.size() < 3)
+        continue;
+      wxGraphicsPath holePath = gc->CreatePath();
+      holePath.MoveToPoint(originX + hole[0].x * scale,
+                           originY + hole[0].y * scale);
+      for (size_t i = 1; i < hole.size(); ++i)
+        holePath.AddLineToPoint(originX + hole[i].x * scale,
+                                originY + hole[i].y * scale);
+      holePath.CloseSubpath();
+      gc->FillPath(holePath);
+    }
+    gc->SetBrush(*wxBLACK_BRUSH);
   }
   gc->SetPen(wxPen(*wxBLACK, 1));
   for (const auto &line : svg.strokes) {
@@ -419,7 +437,7 @@ void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
 void FixtureEditDialog::UpdateVisualizers() {
   const wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
   const std::string path = std::string(gdtfPath.ToUTF8());
-  const std::array<SymbolViewKind, 3> views = {SymbolViewKind::Top,
+  const std::array<SymbolViewKind, 3> views = {SymbolViewKind::Bottom,
                                                 SymbolViewKind::Front,
                                                 SymbolViewKind::Left};
   for (size_t i = 0; i < views.size(); ++i) {
