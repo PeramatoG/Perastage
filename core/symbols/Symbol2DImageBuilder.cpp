@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <optional>
 #include <queue>
 #include <set>
@@ -97,6 +98,38 @@ Point2D PolygonProbePoint(const Polyline2D &polygon) {
   probe.x *= inv;
   probe.y *= inv;
   return probe;
+}
+
+Point2D FindInteriorProbePoint(const Polyline2D &polygon) {
+  if (polygon.empty())
+    return {};
+
+  float minX = polygon.front().x;
+  float minY = polygon.front().y;
+  float maxX = polygon.front().x;
+  float maxY = polygon.front().y;
+  for (const auto &p : polygon) {
+    minX = std::min(minX, p.x);
+    minY = std::min(minY, p.y);
+    maxX = std::max(maxX, p.x);
+    maxY = std::max(maxY, p.y);
+  }
+
+  const int x0 = static_cast<int>(std::floor(minX));
+  const int x1 = static_cast<int>(std::ceil(maxX));
+  const int y0 = static_cast<int>(std::floor(minY));
+  const int y1 = static_cast<int>(std::ceil(maxY));
+
+  for (int y = y0; y <= y1; ++y) {
+    for (int x = x0; x <= x1; ++x) {
+      const Point2D candidate{static_cast<float>(x) + 0.5f,
+                              static_cast<float>(y) + 0.5f};
+      if (PointInPolygon(candidate, polygon))
+        return candidate;
+    }
+  }
+
+  return PolygonProbePoint(polygon);
 }
 
 int PixelIndex(const PixelMask &mask, int x, int y) {
@@ -201,10 +234,128 @@ PixelMask BuildLineMask(const RenderedSymbolImage &render,
     const int luminance = static_cast<int>(0.2126f * static_cast<float>(r) +
                                            0.7152f * static_cast<float>(g) +
                                            0.0722f * static_cast<float>(b));
-    if (a > params.fillAlphaThreshold && luminance < params.blackThreshold)
+    if (a > params.lineAlphaThreshold && luminance < params.blackThreshold)
       mask.value[i] = 1;
   }
   return mask;
+}
+
+void CloseMaskGaps(PixelMask &mask, int maxGapPixels) {
+  if (maxGapPixels <= 0 || mask.width <= 0 || mask.height <= 0)
+    return;
+
+  const auto closeDirectionalRuns = [&](int dx, int dy) {
+    std::vector<std::pair<int, int>> toFill;
+    for (int y = 0; y < mask.height; ++y) {
+      for (int x = 0; x < mask.width; ++x) {
+        const int px = x - dx;
+        const int py = y - dy;
+        if (mask.InBounds(px, py))
+          continue;
+
+        int cx = x;
+        int cy = y;
+        int distanceFromFilled = -1;
+        std::vector<std::pair<int, int>> gapCells;
+        while (mask.InBounds(cx, cy)) {
+          if (mask.Get(cx, cy)) {
+            if (distanceFromFilled >= 0 && distanceFromFilled <= maxGapPixels)
+              toFill.insert(toFill.end(), gapCells.begin(), gapCells.end());
+            distanceFromFilled = 0;
+            gapCells.clear();
+          } else if (distanceFromFilled >= 0) {
+            ++distanceFromFilled;
+            if (distanceFromFilled <= maxGapPixels)
+              gapCells.emplace_back(cx, cy);
+            else
+              gapCells.clear();
+          }
+          cx += dx;
+          cy += dy;
+        }
+      }
+    }
+
+    for (const auto &[x, y] : toFill)
+      mask.Get(x, y) = 1;
+  };
+
+  closeDirectionalRuns(1, 0);
+  closeDirectionalRuns(0, 1);
+  closeDirectionalRuns(1, 1);
+  closeDirectionalRuns(1, -1);
+}
+
+Polyline2D BuildClosedStrokeFromRing(const Polyline2D &ring) {
+  if (ring.size() < 3)
+    return {};
+  Polyline2D closed = ring;
+  closed.push_back(ring.front());
+  return closed;
+}
+
+void AddFillBoundaryStrokeFallback(Symbol2D &symbol) {
+  const auto squaredDistance = [](const Point2D &a, const Point2D &b) {
+    const float dx = a.x - b.x;
+    const float dy = a.y - b.y;
+    return dx * dx + dy * dy;
+  };
+
+  constexpr float kRingCoverageTolerancePx = 1.5f;
+  constexpr float kBoundaryOverlapThreshold = 0.85f;
+
+  std::vector<Polyline2D> boundaryStrokes;
+  for (const auto &polygon : symbol.fill) {
+    Polyline2D outerStroke = BuildClosedStrokeFromRing(polygon.outer);
+    if (!outerStroke.empty())
+      boundaryStrokes.push_back(std::move(outerStroke));
+    for (const auto &hole : polygon.holes) {
+      Polyline2D holeStroke = BuildClosedStrokeFromRing(hole);
+      if (!holeStroke.empty())
+        boundaryStrokes.push_back(std::move(holeStroke));
+    }
+  }
+
+  if (boundaryStrokes.empty())
+    return;
+
+  const auto strokeBoundaryOverlap = [&](const Polyline2D &stroke) {
+    if (stroke.empty())
+      return 0.0f;
+    int overlappingPoints = 0;
+    const float toleranceSq = kRingCoverageTolerancePx * kRingCoverageTolerancePx;
+    for (const auto &strokePoint : stroke) {
+      bool overlaps = false;
+      for (const auto &boundary : boundaryStrokes) {
+        for (const auto &boundaryPoint : boundary) {
+          if (squaredDistance(strokePoint, boundaryPoint) <= toleranceSq) {
+            overlaps = true;
+            break;
+          }
+        }
+        if (overlaps)
+          break;
+      }
+      if (overlaps)
+        ++overlappingPoints;
+    }
+    return static_cast<float>(overlappingPoints) /
+           static_cast<float>(stroke.size());
+  };
+
+  std::vector<Polyline2D> filteredStrokes;
+  filteredStrokes.reserve(symbol.strokes.size() + boundaryStrokes.size());
+  for (auto &stroke : symbol.strokes) {
+    const float overlap = strokeBoundaryOverlap(stroke);
+    if (overlap >= kBoundaryOverlapThreshold)
+      continue;
+    filteredStrokes.push_back(std::move(stroke));
+  }
+
+  filteredStrokes.insert(filteredStrokes.end(),
+                         std::make_move_iterator(boundaryStrokes.begin()),
+                         std::make_move_iterator(boundaryStrokes.end()));
+  symbol.strokes = std::move(filteredStrokes);
 }
 
 std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
@@ -293,7 +444,7 @@ std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
     infos.push_back(LoopInfo{std::move(loop), std::abs(SignedArea(loop))});
 
   for (size_t i = 0; i < infos.size(); ++i) {
-    const Point2D probe = PolygonProbePoint(infos[i].polygon);
+    const Point2D probe = FindInteriorProbePoint(infos[i].polygon);
     int depth = 0;
     int owner = -1;
     float ownerArea = std::numeric_limits<float>::max();
@@ -559,6 +710,8 @@ Symbol2DImageBuilder::BuildFromRenderedImages(
 
     PixelMask fillMask = BuildFillMask(render, params);
     PixelMask lineMask = BuildLineMask(render, params);
+    CloseMaskGaps(fillMask, params.fillGapClosurePixels);
+    CloseMaskGaps(lineMask, params.lineGapClosurePixels);
     ThinZhangSuen(lineMask);
 
     Symbol2D symbol;
@@ -568,6 +721,7 @@ Symbol2DImageBuilder::BuildFromRenderedImages(
     symbol.fill = ExtractFillPolygons(fillMask);
 
     symbol.strokes = ExtractPolylines(lineMask, params);
+    AddFillBoundaryStrokeFallback(symbol);
 
     for (const auto &polygon : symbol.fill)
       for (const auto &p : polygon.outer)
