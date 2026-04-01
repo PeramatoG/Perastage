@@ -567,7 +567,6 @@ void Viewer3DPanel::Render()
     }
 
     m_controller.SetCameraMoving(m_cameraMoving);
-    const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
     m_controller.RenderScene(IsWireframeRenderStyle(renderStyle),
                              ToSceneRenderMode(renderStyle));
 
