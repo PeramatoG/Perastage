@@ -146,12 +146,20 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
 
       std::array<float, 3> n = triangleNormal;
       if (hasNormals) {
-        const std::array<float, 3> meshNormal = NormalizeVector(
-            mesh.normals[idx * 3], mesh.normals[idx * 3 + 1],
-            mesh.normals[idx * 3 + 2]);
-        if (std::fabs(meshNormal[0]) + std::fabs(meshNormal[1]) +
-                std::fabs(meshNormal[2]) >
-            1e-6f) {
+        const float nx = mesh.normals[idx * 3];
+        const float ny = mesh.normals[idx * 3 + 1];
+        const float nz = mesh.normals[idx * 3 + 2];
+        const float normalLenSq = nx * nx + ny * ny + nz * nz;
+        if (normalLenSq > 1e-12f) {
+          std::array<float, 3> meshNormal = NormalizeVector(nx, ny, nz);
+          const float dot = meshNormal[0] * triangleNormal[0] +
+                            meshNormal[1] * triangleNormal[1] +
+                            meshNormal[2] * triangleNormal[2];
+          if (dot < 0.0f) {
+            meshNormal[0] = -meshNormal[0];
+            meshNormal[1] = -meshNormal[1];
+            meshNormal[2] = -meshNormal[2];
+          }
           n = meshNormal;
         }
       }
