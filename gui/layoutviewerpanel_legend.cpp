@@ -18,6 +18,7 @@
 #include "layoutviewerpanel.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <functional>
 #include <limits>
@@ -883,7 +884,10 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                                                             wxFONTWEIGHT_BOLD);
   }
 
-  const int lineHeight = textHeight + separatorGapPx;
+  constexpr int kLegendTypeLineCount = 2;
+  const int lineHeight =
+      (textHeight * kLegendTypeLineCount) +
+      (separatorGapPx * std::max(0, kLegendTypeLineCount - 1));
   const double rowHeight = totalRows > 0 ? availableHeight / totalRows : 0.0;
   const int desiredRowHeightPx =
       std::max(lineHeight,
@@ -1123,30 +1127,55 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     xCh = xType + columnGapPx;
   int typeWidth = std::max(0, xCh - xType - columnGapPx);
 
-  auto trimTextToWidth = [&](const wxString &text, int maxWidth) {
+  auto wrapTextToTwoLines = [&](const wxString &text, int maxWidth) {
     if (maxWidth <= 0)
-      return wxString();
-    int textWidth = measureTextWidth(text);
-    if (textWidth <= maxWidth)
-      return text;
-    wxString ellipsis = "...";
-    int ellipsisWidth = measureTextWidth(ellipsis);
-    if (ellipsisWidth >= maxWidth)
-      return ellipsis.Left(1);
-    wxString trimmed = text;
-    while (!trimmed.empty() &&
-           measureTextWidth(trimmed) + ellipsisWidth > maxWidth) {
-      trimmed.RemoveLast();
+      return std::array<wxString, 2>{wxString(), wxString()};
+
+    if (measureTextWidth(text) <= maxWidth)
+      return std::array<wxString, 2>{text, wxString()};
+
+    wxString firstLine = text;
+    int splitAt = -1;
+    for (int i = static_cast<int>(text.length()) - 1; i > 0; --i) {
+      if (text[static_cast<size_t>(i)] == ' ') {
+        wxString candidate = text.Left(static_cast<size_t>(i));
+        if (!candidate.empty() && measureTextWidth(candidate) <= maxWidth) {
+          splitAt = i;
+          break;
+        }
+      }
     }
-    return trimmed + ellipsis;
+
+    if (splitAt < 0) {
+      firstLine.clear();
+      for (size_t i = 0; i < text.length(); ++i) {
+        wxString candidate = text.Left(i + 1);
+        if (measureTextWidth(candidate) > maxWidth)
+          break;
+        firstLine = candidate;
+      }
+      if (firstLine.empty() && !text.empty())
+        firstLine = text.Left(1);
+    } else {
+      firstLine = text.Left(static_cast<size_t>(splitAt));
+    }
+
+    wxString secondLine = text.Mid(firstLine.length());
+    secondLine.Trim(true);
+    secondLine.Trim(false);
+    return std::array<wxString, 2>{firstLine, secondLine};
   };
 
   int y = paddingTopPx;
-  const int textOffset = std::max(0, (rowHeightPx - textHeight) / 2);
+  const int headerTextOffset = std::max(0, (rowHeightPx - textHeight) / 2);
+  const int rowSingleTextOffset = std::max(0, (rowHeightPx - textHeight) / 2);
+  const int typeBlockHeight =
+      (textHeight * kLegendTypeLineCount) + separatorGapPx;
+  const int rowTypeTextOffset = std::max(0, (rowHeightPx - typeBlockHeight) / 2);
   dc.SetFont(headerFont);
-  dc.DrawText("Count", xCount, y + textOffset);
-  dc.DrawText("Type", xType, y + textOffset);
-  dc.DrawText("Ch", xCh, y + textOffset);
+  dc.DrawText("Count", xCount, y + headerTextOffset);
+  dc.DrawText("Type", xType, y + headerTextOffset);
+  dc.DrawText("Ch", xCh, y + headerTextOffset);
 
   y += rowHeightPx;
   dc.SetPen(wxPen(wxColour(200, 200, 200)));
@@ -1160,7 +1189,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     const auto &rowText = rowTexts[index];
     if (y + rowHeightPx > size.GetHeight() - paddingBottomPx)
       break;
-    wxString typeText = trimTextToWidth(rowText.typeText, typeWidth);
+    const auto wrappedType = wrapTextToTwoLines(rowText.typeText, typeWidth);
     if (!item.symbolKey.empty()) {
       const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
           symbols, item.symbolKey, SymbolViewKind::Bottom);
@@ -1283,9 +1312,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                      symbolDrawTop);
       }
     }
-    dc.DrawText(rowText.countText, xCount, y + textOffset);
-    dc.DrawText(typeText, xType, y + textOffset);
-    dc.DrawText(rowText.chText, xCh, y + textOffset);
+    dc.DrawText(rowText.countText, xCount, y + rowSingleTextOffset);
+    dc.DrawText(wrappedType[0], xType, y + rowTypeTextOffset);
+    if (!wrappedType[1].empty())
+      dc.DrawText(wrappedType[1], xType,
+                  y + rowTypeTextOffset + textHeight + separatorGapPx);
+    dc.DrawText(rowText.chText, xCh, y + rowSingleTextOffset);
     y += rowHeightPx;
   }
 
