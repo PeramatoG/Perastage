@@ -137,6 +137,8 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
     const float vz = v2z - v0z;
     const std::array<float, 3> triangleNormal = NormalizeVector(
         uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+    const std::array<float, 3> worldTriNormal =
+        TransformNormal(triangleNormal, modelMatrix);
 
     for (int v = 0; v < 3; ++v) {
       const unsigned short idx = tri[v];
@@ -144,31 +146,33 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
       const float vy = mesh.vertices[idx * 3 + 1] * scale;
       const float vz = mesh.vertices[idx * 3 + 2] * scale;
 
-      std::array<float, 3> n = triangleNormal;
+      std::array<float, 3> localNormal = triangleNormal;
       if (hasNormals) {
         const float nx = mesh.normals[idx * 3];
         const float ny = mesh.normals[idx * 3 + 1];
         const float nz = mesh.normals[idx * 3 + 2];
         const float normalLenSq = nx * nx + ny * ny + nz * nz;
         if (normalLenSq > 1e-12f) {
-          std::array<float, 3> meshNormal = NormalizeVector(nx, ny, nz);
-          const float dot = meshNormal[0] * triangleNormal[0] +
-                            meshNormal[1] * triangleNormal[1] +
-                            meshNormal[2] * triangleNormal[2];
-          if (dot < 0.0f) {
-            meshNormal[0] = -meshNormal[0];
-            meshNormal[1] = -meshNormal[1];
-            meshNormal[2] = -meshNormal[2];
-          }
-          n = meshNormal;
+          localNormal = NormalizeVector(nx, ny, nz);
         }
       }
-      n = TransformNormal(n, modelMatrix);
+
+      std::array<float, 3> worldNormal = TransformNormal(localNormal, modelMatrix);
+      const float dotWorld = worldNormal[0] * worldTriNormal[0] +
+                             worldNormal[1] * worldTriNormal[1] +
+                             worldNormal[2] * worldTriNormal[2];
+      if (dotWorld < 0.0f) {
+        worldNormal[0] = -worldNormal[0];
+        worldNormal[1] = -worldNormal[1];
+        worldNormal[2] = -worldNormal[2];
+      }
+
       const float diffuse = std::max(
-          0.0f, n[0] * lightDir[0] + n[1] * lightDir[1] + n[2] * lightDir[2]);
+          0.0f, worldNormal[0] * lightDir[0] + worldNormal[1] * lightDir[1] +
+                    worldNormal[2] * lightDir[2]);
       const InkColor tone = QuantizeInkTone(diffuse);
       glColor3f(tone.r, tone.g, tone.b);
-      glNormal3f(n[0], n[1], n[2]);
+      glNormal3f(worldNormal[0], worldNormal[1], worldNormal[2]);
       glVertex3f(vx, vy, vz);
     }
   }
