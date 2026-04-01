@@ -560,9 +560,10 @@ void OpaqueFixturePass::Render(
       g = 0.95f;
       b = 0.95f;
     } else if (context.texturedStyle && !wireframe) {
-      if (!f.color.empty()) {
-        TryParseHtmlHexColor(f.color, r, g, b);
-      } else if (!gdtfPath.empty()) {
+      r = 0.2f;
+      g = 0.2f;
+      b = 0.2f;
+      if (!gdtfPath.empty()) {
         const std::string gdtfModelColor = GetGdtfModelColor(gdtfPath);
         TryParseHtmlHexColor(gdtfModelColor, r, g, b);
       }
