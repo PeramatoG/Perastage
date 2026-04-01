@@ -294,12 +294,53 @@ Polyline2D BuildClosedStrokeFromRing(const Polyline2D &ring) {
 }
 
 void AddFillBoundaryStrokeFallback(Symbol2D &symbol) {
+  const auto squaredDistance = [](const Point2D &a, const Point2D &b) {
+    const float dx = a.x - b.x;
+    const float dy = a.y - b.y;
+    return dx * dx + dy * dy;
+  };
+
+  const auto ringCoverageByExistingStrokes = [&](const Polyline2D &ring,
+                                                 float tolerancePx) {
+    if (ring.empty() || symbol.strokes.empty())
+      return 0.0f;
+    const float toleranceSq = tolerancePx * tolerancePx;
+    int covered = 0;
+    for (const auto &ringPoint : ring) {
+      bool found = false;
+      for (const auto &stroke : symbol.strokes) {
+        for (const auto &strokePoint : stroke) {
+          if (squaredDistance(ringPoint, strokePoint) <= toleranceSq) {
+            found = true;
+            break;
+          }
+        }
+        if (found)
+          break;
+      }
+      if (found)
+        ++covered;
+    }
+    return static_cast<float>(covered) / static_cast<float>(ring.size());
+  };
+
+  constexpr float kRingCoverageTolerancePx = 1.5f;
+  constexpr float kRingCoverageThreshold = 0.92f;
+
   for (const auto &polygon : symbol.fill) {
-    Polyline2D outerStroke = BuildClosedStrokeFromRing(polygon.outer);
-    if (!outerStroke.empty())
-      symbol.strokes.push_back(std::move(outerStroke));
+    const float outerCoverage =
+        ringCoverageByExistingStrokes(polygon.outer, kRingCoverageTolerancePx);
+    if (outerCoverage < kRingCoverageThreshold) {
+      Polyline2D outerStroke = BuildClosedStrokeFromRing(polygon.outer);
+      if (!outerStroke.empty())
+        symbol.strokes.push_back(std::move(outerStroke));
+    }
 
     for (const auto &hole : polygon.holes) {
+      const float holeCoverage =
+          ringCoverageByExistingStrokes(hole, kRingCoverageTolerancePx);
+      if (holeCoverage >= kRingCoverageThreshold)
+        continue;
       Polyline2D holeStroke = BuildClosedStrokeFromRing(hole);
       if (!holeStroke.empty())
         symbol.strokes.push_back(std::move(holeStroke));

@@ -21,7 +21,7 @@ struct ImageBuildParams {
   unsigned char blackThreshold = 80;
   int fillGapClosurePixels = 1;
   int lineGapClosurePixels = 1;
-  int minStrokePixels = 6;
+  int minStrokePixels = 2;
 };
 
 class Symbol2DImageBuilder {
