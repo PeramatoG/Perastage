@@ -44,6 +44,10 @@ private:
   wxRadioButton *viewer3dStandardRenderRadio = nullptr;
   wxRadioButton *viewer3dWhiteModelRenderRadio = nullptr;
   wxRadioButton *viewer3dTexturedRenderRadio = nullptr;
+  wxRadioButton *viewer3dWireframeRenderRadio = nullptr;
+  wxRadioButton *viewer3dByDeviceTypeRenderRadio = nullptr;
+  wxRadioButton *viewer3dByLayerRenderRadio = nullptr;
+  wxRadioButton *viewer3dByUniverseRenderRadio = nullptr;
   wxChoice *distanceUnitChoice = nullptr;
   wxChoice *weightUnitChoice = nullptr;
   wxString initialDistanceUnit;

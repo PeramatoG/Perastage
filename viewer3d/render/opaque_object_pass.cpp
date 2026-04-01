@@ -90,7 +90,7 @@ void OpaqueObjectPass::Render(
       g = 0.95f;
       b = 0.95f;
     }
-    if (wireframe && mode == Viewer2DRenderMode::ByLayer) {
+    if (mode == Viewer2DRenderMode::ByLayer) {
       auto c = getLayerColor(m.layer);
       r = c[0];
       g = c[1];
