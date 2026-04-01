@@ -50,12 +50,35 @@ std::array<float, 3> TransformNormal(const std::array<float, 3> &n,
                                      const float *modelMatrix) {
   if (!modelMatrix)
     return n;
-  const float x = modelMatrix[0] * n[0] + modelMatrix[4] * n[1] +
-                  modelMatrix[8] * n[2];
-  const float y = modelMatrix[1] * n[0] + modelMatrix[5] * n[1] +
-                  modelMatrix[9] * n[2];
-  const float z = modelMatrix[2] * n[0] + modelMatrix[6] * n[1] +
-                  modelMatrix[10] * n[2];
+  // Match OpenGL fixed-function normal transform (inverse-transpose of the
+  // model's 3x3 linear part) used by the standard/textured lighting paths.
+  const float m00 = modelMatrix[0];
+  const float m01 = modelMatrix[4];
+  const float m02 = modelMatrix[8];
+  const float m10 = modelMatrix[1];
+  const float m11 = modelMatrix[5];
+  const float m12 = modelMatrix[9];
+  const float m20 = modelMatrix[2];
+  const float m21 = modelMatrix[6];
+  const float m22 = modelMatrix[10];
+
+  const float c00 = m11 * m22 - m12 * m21;
+  const float c01 = m12 * m20 - m10 * m22;
+  const float c02 = m10 * m21 - m11 * m20;
+  const float c10 = m02 * m21 - m01 * m22;
+  const float c11 = m00 * m22 - m02 * m20;
+  const float c12 = m01 * m20 - m00 * m21;
+  const float c20 = m01 * m12 - m02 * m11;
+  const float c21 = m02 * m10 - m00 * m12;
+  const float c22 = m00 * m11 - m01 * m10;
+  const float det = m00 * c00 + m01 * c01 + m02 * c02;
+  if (std::fabs(det) <= 1e-8f)
+    return NormalizeVector(n[0], n[1], n[2]);
+  const float invDet = 1.0f / det;
+
+  const float x = (c00 * n[0] + c10 * n[1] + c20 * n[2]) * invDet;
+  const float y = (c01 * n[0] + c11 * n[1] + c21 * n[2]) * invDet;
+  const float z = (c02 * n[0] + c12 * n[1] + c22 * n[2]) * invDet;
   return NormalizeVector(x, y, z);
 }
 
@@ -74,6 +97,58 @@ InkColor QuantizeInkTone(float diffuseFactor) {
 void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatrix) {
   std::array<float, 3> lightDir = NormalizeVector(0.35f, -0.55f, 1.0f);
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
+  bool flipNormalsForSketch = false;
+  if (hasNormals) {
+    double orientationScore = 0.0;
+    double magnitudeScore = 0.0;
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+      const unsigned short i0 = mesh.indices[i];
+      const unsigned short i1 = mesh.indices[i + 1];
+      const unsigned short i2 = mesh.indices[i + 2];
+
+      const float v0x = mesh.vertices[i0 * 3];
+      const float v0y = mesh.vertices[i0 * 3 + 1];
+      const float v0z = mesh.vertices[i0 * 3 + 2];
+      const float v1x = mesh.vertices[i1 * 3];
+      const float v1y = mesh.vertices[i1 * 3 + 1];
+      const float v1z = mesh.vertices[i1 * 3 + 2];
+      const float v2x = mesh.vertices[i2 * 3];
+      const float v2y = mesh.vertices[i2 * 3 + 1];
+      const float v2z = mesh.vertices[i2 * 3 + 2];
+
+      const float ux = v1x - v0x;
+      const float uy = v1y - v0y;
+      const float uz = v1z - v0z;
+      const float vx = v2x - v0x;
+      const float vy = v2y - v0y;
+      const float vz = v2z - v0z;
+      const std::array<float, 3> faceN = NormalizeVector(
+          uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+
+      const std::array<float, 3> n0 = NormalizeVector(
+          mesh.normals[i0 * 3], mesh.normals[i0 * 3 + 1], mesh.normals[i0 * 3 + 2]);
+      const std::array<float, 3> n1 = NormalizeVector(
+          mesh.normals[i1 * 3], mesh.normals[i1 * 3 + 1], mesh.normals[i1 * 3 + 2]);
+      const std::array<float, 3> n2 = NormalizeVector(
+          mesh.normals[i2 * 3], mesh.normals[i2 * 3 + 1], mesh.normals[i2 * 3 + 2]);
+
+      const double d0 = static_cast<double>(faceN[0]) * n0[0] +
+                        static_cast<double>(faceN[1]) * n0[1] +
+                        static_cast<double>(faceN[2]) * n0[2];
+      const double d1 = static_cast<double>(faceN[0]) * n1[0] +
+                        static_cast<double>(faceN[1]) * n1[1] +
+                        static_cast<double>(faceN[2]) * n1[2];
+      const double d2 = static_cast<double>(faceN[0]) * n2[0] +
+                        static_cast<double>(faceN[1]) * n2[1] +
+                        static_cast<double>(faceN[2]) * n2[2];
+
+      orientationScore += d0 + d1 + d2;
+      magnitudeScore += std::fabs(d0) + std::fabs(d1) + std::fabs(d2);
+    }
+
+    if (magnitudeScore > 1e-6 && orientationScore < -magnitudeScore * 0.15)
+      flipNormalsForSketch = true;
+  }
   const bool flipWinding =
       (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
 
@@ -106,6 +181,11 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
       if (hasNormals) {
         n = NormalizeVector(mesh.normals[idx * 3], mesh.normals[idx * 3 + 1],
                             mesh.normals[idx * 3 + 2]);
+        if (flipNormalsForSketch) {
+          n[0] = -n[0];
+          n[1] = -n[1];
+          n[2] = -n[2];
+        }
       }
       n = TransformNormal(n, modelMatrix);
       const float diffuse = std::max(
@@ -222,8 +302,9 @@ void SceneRenderer::DrawMeshWithOutline(
 
   if (!m_controller.IsCaptureOnly()) {
     if (m_controller.IsWhiteModelStyleEnabled()) {
-      const bool usePureWhiteFillInWhiteMode =
-          !IsSketchRenderStyleEnabled() && mode == Viewer2DRenderMode::White;
+      const GLboolean texture2DWhiteModelWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+      if (texture2DWhiteModelWasEnabled)
+        glDisable(GL_TEXTURE_2D);
       const bool useColorFillInWhiteStyle =
           !IsSketchRenderStyleEnabled() &&
           (mode == Viewer2DRenderMode::ByFixtureType ||
@@ -293,6 +374,8 @@ void SceneRenderer::DrawMeshWithOutline(
           glEnable(GL_LIGHTING);
       }
       glDisable(GL_POLYGON_OFFSET_FILL);
+      if (texture2DWhiteModelWasEnabled)
+        glEnable(GL_TEXTURE_2D);
     } else {
       const bool useTexture = IsTexturedRenderStyleEnabled() &&
                               !highlight && !selected &&
