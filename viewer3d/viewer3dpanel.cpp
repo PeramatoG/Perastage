@@ -113,8 +113,11 @@ Viewer2DRenderMode ToSceneRenderMode(Viewer3DRenderStyle style) {
 }
 
 void ApplyViewer3DClearColorForStyle(Viewer3DRenderStyle style) {
-    if (style == Viewer3DRenderStyle::Wireframe ||
-        IsWhiteModelRenderStyle(style)) {
+    if (IsWhiteModelRenderStyle(style)) {
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        return;
+    }
+    if (style == Viewer3DRenderStyle::Wireframe) {
         glClearColor(0.95f, 0.95f, 0.95f, 1.0f);
         return;
     }
