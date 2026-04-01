@@ -144,6 +144,7 @@ void SceneRenderer::DrawMeshWithOutline(
   (void)cz;
   const bool forceDisableTexture =
       mode == Viewer2DRenderMode::Wireframe ||
+      mode == Viewer2DRenderMode::White ||
       mode == Viewer2DRenderMode::ByFixtureType ||
       mode == Viewer2DRenderMode::ByLayer ||
       mode == Viewer2DRenderMode::ByUniverse;
