@@ -35,9 +35,15 @@
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer3dcontroller.h"
 #include "gdtfloader.h"
+#include "viewer3d_render_style.h"
 
 namespace {
 namespace fs = std::filesystem;
+
+bool IsSketchStyleActive() {
+  return ResolveViewer3DRenderStyle(ConfigManager::Get()) ==
+         Viewer3DRenderStyle::WhiteModel;
+}
 
 std::string FindFileRecursive(const std::string &baseDir,
                               const std::string &fileName) {
@@ -713,7 +719,8 @@ void OpaqueFixturePass::Render(
                 const bool fallbackWireframe =
                     wireframe || context.whiteModelStyle ||
                     mode == Viewer2DRenderMode::White;
-                const bool fallbackUnlit = context.whiteModelStyle;
+                const bool fallbackUnlit =
+                    context.whiteModelStyle && !IsSketchStyleActive();
                 controller.DrawMeshWithOutline(
                     FallbackFixtureCubeMesh(), r, g, b, 0.2f, false, false,
                     0.0f, 0.0f, 0.0f, fallbackWireframe, mode,
@@ -781,7 +788,8 @@ void OpaqueFixturePass::Render(
             wireframe || context.whiteModelStyle ||
             mode == Viewer2DRenderMode::White;
         const bool fallbackUnlit =
-            !highlight && !selected && context.whiteModelStyle;
+            !highlight && !selected &&
+            context.whiteModelStyle && !IsSketchStyleActive();
         controller.DrawMeshWithOutline(FallbackFixtureCubeMesh(), r, g, b, 0.2f,
                                        highlight, selected, cx, cy, cz,
                                        fallbackWireframe, mode,
