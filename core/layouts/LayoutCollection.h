@@ -66,6 +66,7 @@ struct Layout2DViewRenderOptions {
 
 struct Layout2DViewLayers {
   std::vector<std::string> hiddenLayers;
+  std::vector<std::string> hiddenFixtureTypes;
 };
 
 struct Layout2DViewDefinition {

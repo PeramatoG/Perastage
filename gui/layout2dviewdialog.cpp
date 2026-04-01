@@ -1,6 +1,8 @@
 #include "layout2dviewdialog.h"
 
+#include "configmanager.h"
 #include "layerpanel.h"
+#include "summarypanel.h"
 #include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
 
@@ -13,7 +15,9 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
-Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent)
+Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
+                                       ConfigManager *visibilityConfig,
+                                       ConfigManager *colorConfig)
     : wxDialog(parent, wxID_ANY, "2D View Editor", wxDefaultPosition,
                wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER |
                                    wxMAXIMIZE_BOX | wxMINIMIZE_BOX) {
@@ -22,14 +26,20 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent)
 
   viewerPanel = new Viewer2DPanel(this, false, false, false);
   renderPanel = new Viewer2DRenderPanel(this);
-  layerPanel = new LayerPanel(this, false);
+  layerPanel = new LayerPanel(this, false, visibilityConfig);
+  summaryPanel = new SummaryPanel(this, visibilityConfig, colorConfig);
 
   renderPanel->SetMinSize(wxSize(260, -1));
-  layerPanel->SetMinSize(wxSize(220, -1));
+  layerPanel->SetMinSize(wxSize(250, 220));
+  summaryPanel->SetMinSize(wxSize(250, 220));
+
+  auto *rightColumnSizer = new wxBoxSizer(wxVERTICAL);
+  rightColumnSizer->Add(layerPanel, 1, wxEXPAND | wxBOTTOM, 8);
+  rightColumnSizer->Add(summaryPanel, 1, wxEXPAND);
 
   contentSizer->Add(viewerPanel, 1, wxEXPAND | wxALL, 8);
   contentSizer->Add(renderPanel, 0, wxEXPAND | wxTOP | wxBOTTOM | wxRIGHT, 8);
-  contentSizer->Add(layerPanel, 0, wxEXPAND | wxTOP | wxBOTTOM | wxRIGHT, 8);
+  contentSizer->Add(rightColumnSizer, 0, wxEXPAND | wxTOP | wxBOTTOM | wxRIGHT, 8);
 
   mainSizer->Add(contentSizer, 1, wxEXPAND);
 
@@ -77,6 +87,9 @@ void Layout2DViewDialog::OnCancel(wxCommandEvent &event) {
 void Layout2DViewDialog::OnShow(wxShowEvent &event) {
   if (event.IsShown() && layerPanel) {
     layerPanel->ReloadLayers();
+  }
+  if (event.IsShown() && summaryPanel) {
+    summaryPanel->ShowFixtureSummary();
   }
   if (event.IsShown() && viewerPanel) {
     auto retries = std::make_shared<int>(3);

@@ -29,8 +29,17 @@
 
 static SummaryPanel* s_instance = nullptr;
 
-SummaryPanel::SummaryPanel(wxWindow* parent)
-    : wxPanel(parent, wxID_ANY)
+SummaryPanel::SummaryPanel(wxWindow* parent, ConfigManager* visibilityConfig,
+                           ConfigManager* colorConfig)
+    : wxPanel(parent, wxID_ANY),
+      visibilityConfigManager(visibilityConfig
+                                  ? visibilityConfig
+                                  : &GetDefaultGuiConfigServices().LegacyConfigManager()),
+      colorConfigManager(colorConfig
+                             ? colorConfig
+                             : (visibilityConfigManager
+                                    ? visibilityConfigManager
+                                    : &GetDefaultGuiConfigServices().LegacyConfigManager()))
 {
     store = new ColorfulDataViewListStore();
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxDV_ROW_LINES);
@@ -148,7 +157,7 @@ void SummaryPanel::ShowFixtureSummary()
 {
     if (!table || !store) return;
     std::map<std::string, FixtureSummaryRow> grouped;
-    const auto& fixtures = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures;
+    const auto& fixtures = (*visibilityConfigManager).GetScene().fixtures;
     for (const auto& [uuid, fix] : fixtures) {
         (void)uuid;
         auto& row = grouped[fix.typeName];
@@ -159,7 +168,7 @@ void SummaryPanel::ShowFixtureSummary()
     }
 
     const auto hiddenFixtureTypes =
-        GetDefaultGuiConfigServices().LegacyConfigManager().GetHiddenFixtureTypes();
+        (*visibilityConfigManager).GetHiddenFixtureTypes();
     std::vector<FixtureSummaryRow> rows;
     rows.reserve(grouped.size());
     for (auto& [typeName, row] : grouped) {
@@ -175,7 +184,7 @@ void SummaryPanel::ShowFixtureSummary()
 void SummaryPanel::ShowTrussSummary()
 {
     std::map<std::string,int> counts;
-    const auto& trusses = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().trusses;
+    const auto& trusses = (*visibilityConfigManager).GetScene().trusses;
     for (const auto& [uuid, truss] : trusses)
         counts[truss.model]++;
     std::vector<std::pair<std::string,int>> items(counts.begin(), counts.end());
@@ -187,7 +196,7 @@ void SummaryPanel::ShowHoistSummary()
     if (!table) return;
 
     std::map<std::string, int> hoistCounts;
-    const auto& supports = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().supports;
+    const auto& supports = (*visibilityConfigManager).GetScene().supports;
     for (const auto& [uuid, support] : supports) {
         std::string type = support.function.empty() ? "Hoist" : support.function;
         hoistCounts[type]++;
@@ -200,7 +209,7 @@ void SummaryPanel::ShowHoistSummary()
 void SummaryPanel::ShowSceneObjectSummary()
 {
     std::map<std::string,int> counts;
-    const auto& objs = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().sceneObjects;
+    const auto& objs = (*visibilityConfigManager).GetScene().sceneObjects;
     for (const auto& [uuid, obj] : objs)
         counts[obj.name]++;
     std::vector<std::pair<std::string,int>> items(counts.begin(), counts.end());
@@ -267,7 +276,7 @@ void SummaryPanel::RefreshFixtureVisibilityStyles() {
         return;
 
     const auto hiddenFixtureTypes =
-        GetDefaultGuiConfigServices().LegacyConfigManager().GetHiddenFixtureTypes();
+        (*visibilityConfigManager).GetHiddenFixtureTypes();
     for (unsigned int row = 0; row < table->GetItemCount(); ++row) {
         store->ClearRowTextColour(row);
         wxString typeName = table->GetTextValue(static_cast<int>(row), 2);
@@ -301,12 +310,12 @@ void SummaryPanel::OnItemValueChanged(wxDataViewEvent& event) {
     const std::string typeName = table->GetTextValue(row, 2).ToStdString();
 
     auto hiddenFixtureTypes =
-        GetDefaultGuiConfigServices().LegacyConfigManager().GetHiddenFixtureTypes();
+        (*visibilityConfigManager).GetHiddenFixtureTypes();
     if (visible)
         hiddenFixtureTypes.erase(typeName);
     else
         hiddenFixtureTypes.insert(typeName);
-    GetDefaultGuiConfigServices().LegacyConfigManager().SetHiddenFixtureTypes(hiddenFixtureTypes);
+    (*visibilityConfigManager).SetHiddenFixtureTypes(hiddenFixtureTypes);
     RefreshFixtureVisibilityStyles();
     RefreshVisibleViewers();
 }
@@ -319,8 +328,8 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
         return;
 
     const std::string typeName = table->GetTextValue(row, 2).ToStdString();
-    auto& cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    auto& fixtures = cfg.GetScene().fixtures;
+    auto& colorCfg = (*colorConfigManager);
+    auto& fixtures = colorCfg.GetScene().fixtures;
 
     wxColourData data;
     for (const auto& [uuid, fixture] : fixtures) {
@@ -338,7 +347,7 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
     const wxColour color = dlg.GetColourData().GetColour();
     const std::string hex = wxString::Format("#%02X%02X%02X", color.Red(), color.Green(),
                                              color.Blue()).ToStdString();
-    cfg.PushUndoState("change fixture type color from summary");
+    colorCfg.PushUndoState("change fixture type color from summary");
     for (auto& [uuid, fixture] : fixtures) {
         (void)uuid;
         if (fixture.typeName == typeName)

@@ -5,12 +5,16 @@
 class Viewer2DPanel;
 class Viewer2DRenderPanel;
 class LayerPanel;
+class SummaryPanel;
+class ConfigManager;
 class wxSlider;
 class wxStaticText;
 
 class Layout2DViewDialog : public wxDialog {
 public:
-  explicit Layout2DViewDialog(wxWindow *parent);
+  explicit Layout2DViewDialog(wxWindow *parent,
+                              ConfigManager *visibilityConfig = nullptr,
+                              ConfigManager *colorConfig = nullptr);
 
   Viewer2DPanel *GetViewerPanel() const { return viewerPanel; }
   Viewer2DRenderPanel *GetRenderPanel() const { return renderPanel; }
@@ -25,6 +29,7 @@ private:
   Viewer2DPanel *viewerPanel = nullptr;
   Viewer2DRenderPanel *renderPanel = nullptr;
   LayerPanel *layerPanel = nullptr;
+  SummaryPanel *summaryPanel = nullptr;
   wxSlider *scaleSlider = nullptr;
   wxStaticText *scaleValueLabel = nullptr;
 };

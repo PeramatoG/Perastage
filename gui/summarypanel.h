@@ -21,11 +21,13 @@
 #include <wx/dataview.h>
 
 class ColorfulDataViewListStore;
+class ConfigManager;
 
 // Panel that shows a summary count of items by type/model/name
 class SummaryPanel : public wxPanel {
 public:
-    explicit SummaryPanel(wxWindow* parent);
+    explicit SummaryPanel(wxWindow* parent, ConfigManager* visibilityConfig = nullptr,
+                          ConfigManager* colorConfig = nullptr);
 
     void ShowFixtureSummary();
     void ShowTrussSummary();
@@ -50,6 +52,8 @@ private:
 
     wxDataViewListCtrl* table = nullptr;
     ColorfulDataViewListStore* store = nullptr;
+    ConfigManager* visibilityConfigManager = nullptr;
+    ConfigManager* colorConfigManager = nullptr;
     SummaryMode mode = SummaryMode::Generic;
     wxString activeHoverTooltip;
 

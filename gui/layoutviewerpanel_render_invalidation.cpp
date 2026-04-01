@@ -69,6 +69,8 @@ size_t LayoutViewerPanel::HashViewContent(
 
   for (const auto &hiddenLayer : view.layers.hiddenLayers)
     HashCombine(seed, std::hash<std::string>{}(hiddenLayer));
+  for (const auto &hiddenFixtureType : view.layers.hiddenFixtureTypes)
+    HashCombine(seed, std::hash<std::string>{}(hiddenFixtureType));
   return seed;
 }
 
