@@ -117,9 +117,21 @@ bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
     wxImage image;
     if (!image.LoadFile(stream, wxBITMAP_TYPE_ANY))
       continue;
-    if (image.GetWidth() > 220 || image.GetHeight() > 150)
-      image.Rescale(220, 150, wxIMAGE_QUALITY_HIGH);
-    outBitmap = wxBitmap(image);
+    constexpr int kPreviewSize = 220;
+    const int srcW = std::max(1, image.GetWidth());
+    const int srcH = std::max(1, image.GetHeight());
+    const double scale = std::min(static_cast<double>(kPreviewSize) / srcW,
+                                  static_cast<double>(kPreviewSize) / srcH);
+    const int dstW = std::max(1, static_cast<int>(std::round(srcW * scale)));
+    const int dstH = std::max(1, static_cast<int>(std::round(srcH * scale)));
+    if (dstW != srcW || dstH != srcH)
+      image.Rescale(dstW, dstH, wxIMAGE_QUALITY_HIGH);
+
+    wxImage canvas(kPreviewSize, kPreviewSize);
+    canvas.SetRGB(wxRect(0, 0, kPreviewSize, kPreviewSize), 255, 255, 255);
+    canvas.Paste(image, (kPreviewSize - image.GetWidth()) / 2,
+                 (kPreviewSize - image.GetHeight()) / 2);
+    outBitmap = wxBitmap(canvas);
     return outBitmap.IsOk();
   }
   return false;
@@ -129,7 +141,7 @@ bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
 
 FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     : wxDialog(p, wxID_ANY, "Edit Fixture", wxDefaultPosition,
-               wxSize(700, 600)),
+               wxSize(760, 700)),
       panel(p), row(r) {
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   wxBoxSizer *hSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -284,7 +296,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   wxStaticBoxSizer *imageSizer =
       new wxStaticBoxSizer(wxVERTICAL, this, "Fixture image");
   fixtureImagePreview =
-      new wxStaticBitmap(this, wxID_ANY, wxBitmap(220, 150));
+      new wxStaticBitmap(this, wxID_ANY, wxBitmap(220, 220));
   imageSizer->Add(fixtureImagePreview, 0, wxALIGN_CENTER | wxALL, 4);
   rightSizer->Add(imageSizer, 0, wxEXPAND | wxBOTTOM, 5);
 
@@ -389,10 +401,11 @@ void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
   const double originX = rect.GetX() + (rect.GetWidth() - svg.viewBoxWidth * scale) * 0.5;
   const double originY = rect.GetY() + (rect.GetHeight() - svg.viewBoxHeight * scale) * 0.5;
 
-  gc->SetPen(wxPen(*wxBLACK, 1));
+  gc->SetPen(wxPen(wxColour(210, 210, 210), 1));
   gc->SetBrush(*wxWHITE_BRUSH);
   gc->DrawRectangle(rect.GetX(), rect.GetY(), rect.GetWidth(), rect.GetHeight());
-  gc->SetBrush(*wxBLACK_BRUSH);
+  gc->SetPen(*wxTRANSPARENT_PEN);
+  gc->SetBrush(wxBrush(wxColour(224, 224, 224)));
   for (const auto &poly : svg.fills) {
     if (poly.points.size() < 3)
       continue;
@@ -417,9 +430,9 @@ void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
       holePath.CloseSubpath();
       gc->FillPath(holePath);
     }
-    gc->SetBrush(*wxBLACK_BRUSH);
+    gc->SetBrush(wxBrush(wxColour(224, 224, 224)));
   }
-  gc->SetPen(wxPen(*wxBLACK, 1));
+  gc->SetPen(wxPen(wxColour(0, 0, 0), 1));
   for (const auto &line : svg.strokes) {
     if (line.points.size() < 2)
       continue;
@@ -456,12 +469,12 @@ void FixtureEditDialog::UpdateVisualizers() {
       fixtureImagePreview->SetBitmap(image);
       fixtureImagePreview->SetToolTip("");
     } else {
-      wxBitmap fallback(220, 150);
+      wxBitmap fallback(220, 220);
       wxMemoryDC dc(fallback);
       dc.SetBackground(*wxLIGHT_GREY_BRUSH);
       dc.Clear();
       dc.SetTextForeground(*wxBLACK);
-      dc.DrawLabel("No image", wxRect(0, 0, 220, 150), wxALIGN_CENTER);
+      dc.DrawLabel("No image", wxRect(0, 0, 220, 220), wxALIGN_CENTER);
       dc.SelectObject(wxNullBitmap);
       fixtureImagePreview->SetBitmap(fallback);
       fixtureImagePreview->SetToolTip("No thumbnail image found in this GDTF.");
