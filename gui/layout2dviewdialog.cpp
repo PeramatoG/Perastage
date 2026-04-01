@@ -29,9 +29,9 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
   layerPanel = new LayerPanel(this, false, visibilityConfig);
   summaryPanel = new SummaryPanel(this, visibilityConfig, colorConfig);
 
-  renderPanel->SetMinSize(wxSize(260, -1));
-  layerPanel->SetMinSize(wxSize(250, 220));
-  summaryPanel->SetMinSize(wxSize(250, 220));
+  renderPanel->SetMinSize(wxSize(220, -1));
+  layerPanel->SetMinSize(wxSize(320, 220));
+  summaryPanel->SetMinSize(wxSize(320, 220));
 
   auto *rightColumnSizer = new wxBoxSizer(wxVERTICAL);
   rightColumnSizer->Add(layerPanel, 1, wxEXPAND | wxBOTTOM, 8);
@@ -85,19 +85,15 @@ void Layout2DViewDialog::OnCancel(wxCommandEvent &event) {
 }
 
 void Layout2DViewDialog::OnShow(wxShowEvent &event) {
-  if (event.IsShown() && !deferredShowRefreshScheduled) {
-    deferredShowRefreshScheduled = true;
-    CallAfter([this]() {
-      deferredShowRefreshScheduled = false;
-      if (layerPanel) {
-        layerPanel->ReloadLayers();
-      }
-      if (summaryPanel) {
-        summaryPanel->ShowFixtureSummary();
-      }
-      if (!viewerPanel)
-        return;
-
+  if (event.IsShown() && !initialShowSyncDone) {
+    initialShowSyncDone = true;
+    if (layerPanel) {
+      layerPanel->ReloadLayers();
+    }
+    if (summaryPanel) {
+      summaryPanel->ShowFixtureSummary();
+    }
+    if (viewerPanel) {
       auto retries = std::make_shared<int>(3);
       std::shared_ptr<std::function<void()>> syncRender =
           std::make_shared<std::function<void()>>();
@@ -108,9 +104,11 @@ void Layout2DViewDialog::OnShow(wxShowEvent &event) {
         int width = 0;
         int height = 0;
         panel->GetClientSize(&width, &height);
-        if ((width <= 0 || height <= 0) && *retries > 0) {
-          --(*retries);
-          panel->CallAfter(*syncRender);
+        if (width <= 0 || height <= 0) {
+          if (*retries > 0) {
+            --(*retries);
+            panel->CallAfter(*syncRender);
+          }
           return;
         }
 
@@ -119,7 +117,7 @@ void Layout2DViewDialog::OnShow(wxShowEvent &event) {
         panel->Update();
       };
       (*syncRender)();
-    });
+    }
   }
   if (viewerPanel && scaleSlider) {
     const int value = static_cast<int>(
