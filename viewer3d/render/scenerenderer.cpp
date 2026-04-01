@@ -82,6 +82,19 @@ std::array<float, 3> TransformNormal(const std::array<float, 3> &n,
   return NormalizeVector(x, y, z);
 }
 
+std::array<float, 3> TransformPoint(const std::array<float, 3> &p,
+                                    const float *modelMatrix) {
+  if (!modelMatrix)
+    return p;
+  const float x = modelMatrix[0] * p[0] + modelMatrix[4] * p[1] +
+                  modelMatrix[8] * p[2] + modelMatrix[12];
+  const float y = modelMatrix[1] * p[0] + modelMatrix[5] * p[1] +
+                  modelMatrix[9] * p[2] + modelMatrix[13];
+  const float z = modelMatrix[2] * p[0] + modelMatrix[6] * p[1] +
+                  modelMatrix[10] * p[2] + modelMatrix[14];
+  return {x, y, z};
+}
+
 InkColor QuantizeInkTone(float diffuseFactor) {
   // 3-ink white-model palette with lighting weight:
   // white 70%, light gray 20%, dark gray 10%.
@@ -137,8 +150,19 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
     const float vz = v2z - v0z;
     const std::array<float, 3> triangleNormal = NormalizeVector(
         uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
-    const std::array<float, 3> worldTriNormal =
-        TransformNormal(triangleNormal, modelMatrix);
+    const std::array<float, 3> p0World =
+        TransformPoint({v0x, v0y, v0z}, modelMatrix);
+    const std::array<float, 3> p1World =
+        TransformPoint({v1x, v1y, v1z}, modelMatrix);
+    const std::array<float, 3> p2World =
+        TransformPoint({v2x, v2y, v2z}, modelMatrix);
+    const std::array<float, 3> worldTriNormal = NormalizeVector(
+        (p1World[1] - p0World[1]) * (p2World[2] - p0World[2]) -
+            (p1World[2] - p0World[2]) * (p2World[1] - p0World[1]),
+        (p1World[2] - p0World[2]) * (p2World[0] - p0World[0]) -
+            (p1World[0] - p0World[0]) * (p2World[2] - p0World[2]),
+        (p1World[0] - p0World[0]) * (p2World[1] - p0World[1]) -
+            (p1World[1] - p0World[1]) * (p2World[0] - p0World[0]));
 
     for (int v = 0; v < 3; ++v) {
       const unsigned short idx = tri[v];
