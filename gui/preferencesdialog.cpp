@@ -183,13 +183,13 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
 
   viewer3dSizer->Add(viewer3dStandardRenderRadio, 0,
                      wxLEFT | wxRIGHT | wxTOP, 10);
-  viewer3dSizer->Add(viewer3dWhiteRenderRadio, 0,
-                     wxLEFT | wxRIGHT | wxTOP, 10);
   viewer3dSizer->Add(viewer3dWhiteModelRenderRadio, 0,
                      wxLEFT | wxRIGHT | wxTOP, 10);
   viewer3dSizer->Add(viewer3dTexturedRenderRadio, 0,
                      wxLEFT | wxRIGHT | wxTOP, 10);
   viewer3dSizer->Add(viewer3dWireframeRenderRadio, 0,
+                     wxLEFT | wxRIGHT | wxTOP, 10);
+  viewer3dSizer->Add(viewer3dWhiteRenderRadio, 0,
                      wxLEFT | wxRIGHT | wxTOP, 10);
   viewer3dSizer->Add(viewer3dByDeviceTypeRenderRadio, 0,
                      wxLEFT | wxRIGHT | wxTOP, 10);

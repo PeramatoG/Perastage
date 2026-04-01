@@ -855,10 +855,10 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     }
 
     renderStyleSubmenu->AppendRadioItem(kRenderStyleStandardId, "Standard");
-    renderStyleSubmenu->AppendRadioItem(kRenderStyleWhiteId, "White");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleSketchId, "Sketch mode");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleTexturedId, "Textured");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleWireframeId, "Wireframe");
+    renderStyleSubmenu->AppendRadioItem(kRenderStyleWhiteId, "White");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleByDeviceTypeId, "By device type");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleByLayerId, "By layer");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleByUniverseId, "By universe");
