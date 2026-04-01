@@ -50,12 +50,35 @@ std::array<float, 3> TransformNormal(const std::array<float, 3> &n,
                                      const float *modelMatrix) {
   if (!modelMatrix)
     return n;
-  const float x = modelMatrix[0] * n[0] + modelMatrix[4] * n[1] +
-                  modelMatrix[8] * n[2];
-  const float y = modelMatrix[1] * n[0] + modelMatrix[5] * n[1] +
-                  modelMatrix[9] * n[2];
-  const float z = modelMatrix[2] * n[0] + modelMatrix[6] * n[1] +
-                  modelMatrix[10] * n[2];
+  // Match OpenGL fixed-function normal transform (inverse-transpose of the
+  // model's 3x3 linear part) used by the standard/textured lighting paths.
+  const float m00 = modelMatrix[0];
+  const float m01 = modelMatrix[4];
+  const float m02 = modelMatrix[8];
+  const float m10 = modelMatrix[1];
+  const float m11 = modelMatrix[5];
+  const float m12 = modelMatrix[9];
+  const float m20 = modelMatrix[2];
+  const float m21 = modelMatrix[6];
+  const float m22 = modelMatrix[10];
+
+  const float c00 = m11 * m22 - m12 * m21;
+  const float c01 = m12 * m20 - m10 * m22;
+  const float c02 = m10 * m21 - m11 * m20;
+  const float c10 = m02 * m21 - m01 * m22;
+  const float c11 = m00 * m22 - m02 * m20;
+  const float c12 = m01 * m20 - m00 * m21;
+  const float c20 = m01 * m12 - m02 * m11;
+  const float c21 = m02 * m10 - m00 * m12;
+  const float c22 = m00 * m11 - m01 * m10;
+  const float det = m00 * c00 + m01 * c01 + m02 * c02;
+  if (std::fabs(det) <= 1e-8f)
+    return NormalizeVector(n[0], n[1], n[2]);
+  const float invDet = 1.0f / det;
+
+  const float x = (c00 * n[0] + c10 * n[1] + c20 * n[2]) * invDet;
+  const float y = (c01 * n[0] + c11 * n[1] + c21 * n[2]) * invDet;
+  const float z = (c02 * n[0] + c12 * n[1] + c22 * n[2]) * invDet;
   return NormalizeVector(x, y, z);
 }
 
@@ -108,12 +131,8 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
                             mesh.normals[idx * 3 + 2]);
       }
       n = TransformNormal(n, modelMatrix);
-      // Sketch ink shading should mimic OpenGL's two-sided lighting used by
-      // the standard/textured paths. Some fixture meshes have opposite normal
-      // orientation; using the absolute cosine keeps light-dark response
-      // stable regardless of normal direction.
-      const float diffuse =
-          std::fabs(n[0] * lightDir[0] + n[1] * lightDir[1] + n[2] * lightDir[2]);
+      const float diffuse = std::max(
+          0.0f, n[0] * lightDir[0] + n[1] * lightDir[1] + n[2] * lightDir[2]);
       const InkColor tone = QuantizeInkTone(diffuse);
       glColor3f(tone.r, tone.g, tone.b);
       glNormal3f(n[0], n[1], n[2]);
@@ -535,33 +554,7 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
         float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
         const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
         if (len > 0.0f) {
-          nx /= len;
-          ny /= len;
-          nz /= len;
-          if (hasNormals) {
-            // Keep GL_FLAT geometric normals consistent with imported smoothing
-            // normals. Some fixture meshes provide winding opposite to their
-            // authored normals; this check avoids inverted lighting in sketch
-            // mode without changing non-flat paths.
-            float anx = normalData[i0 * 3] + normalData[i1 * 3] + normalData[i2 * 3];
-            float any = normalData[i0 * 3 + 1] + normalData[i1 * 3 + 1] +
-                        normalData[i2 * 3 + 1];
-            float anz = normalData[i0 * 3 + 2] + normalData[i1 * 3 + 2] +
-                        normalData[i2 * 3 + 2];
-            const float alen = std::sqrt(anx * anx + any * any + anz * anz);
-            if (alen > 0.0f) {
-              anx /= alen;
-              any /= alen;
-              anz /= alen;
-              const float alignment = nx * anx + ny * any + nz * anz;
-              if (alignment < 0.0f) {
-                nx = -nx;
-                ny = -ny;
-                nz = -nz;
-              }
-            }
-          }
-          glNormal3f(nx, ny, nz);
+          glNormal3f(nx / len, ny / len, nz / len);
         } else {
           glNormal3f(0.0f, 0.0f, 1.0f);
         }
