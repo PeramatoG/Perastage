@@ -257,9 +257,9 @@ private:
   ICanvas2D *GetCaptureCanvas() const override;
   bool CaptureIncludesGrid() const override;
   bool IsWhiteModelStyleEnabled() const override;
-  bool IsSketchRenderStyleEnabled() const;
-  bool IsPureWhiteRenderStyleEnabled() const;
-  bool IsTexturedRenderStyleEnabled() const;
+  bool IsSketchRenderStyleEnabled() const override;
+  bool IsPureWhiteRenderStyleEnabled() const override;
+  bool IsTexturedRenderStyleEnabled() const override;
 
   void ApplyHighlightUuid(const std::string &uuid) override;
   void ReplaceSelectedUuids(const std::vector<std::string> &uuids) override;
