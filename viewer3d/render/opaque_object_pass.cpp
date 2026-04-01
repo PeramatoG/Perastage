@@ -235,11 +235,16 @@ void OpaqueObjectPass::Render(
             // Fallback scene objects use the same mesh path as regular models
             // so every render style (white model, textured, by-layer, etc.)
             // stays visually consistent even when the object has no mesh file.
-            const bool fallbackWireframe = wireframe || context.whiteModelStyle;
+            const bool useUnlitFallbackFill =
+                !isHighlighted && !isSelected &&
+                mode == Viewer2DRenderMode::White;
+            const bool fallbackWireframe =
+                wireframe || context.whiteModelStyle ||
+                mode == Viewer2DRenderMode::White;
             controller.DrawMeshWithOutline(
                 FallbackSceneObjectCubeMesh(), r, g, b, 0.3f, isHighlighted,
                 isSelected, cx, cy, cz, fallbackWireframe, mode,
-                captureTransformFn);
+                captureTransformFn, useUnlitFallbackFill);
           }
         };
 
