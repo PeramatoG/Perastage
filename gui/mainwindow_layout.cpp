@@ -895,7 +895,7 @@ void MainWindow::BeginLayout2DViewEdit() {
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
 
-  Layout2DViewDialog dialog(this);
+  Layout2DViewDialog dialog(this, &cfg, &cfg);
   layout2DViewEditPanel = dialog.GetViewerPanel();
   layout2DViewEditRenderPanel = dialog.GetRenderPanel();
   if (layout2DViewEditPanel) {

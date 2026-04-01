@@ -98,6 +98,13 @@ Viewer2DState CaptureState(const Viewer2DPanel *panel,
   state.layers.hiddenLayers.insert(state.layers.hiddenLayers.end(),
                                    hidden.begin(), hidden.end());
   std::sort(state.layers.hiddenLayers.begin(), state.layers.hiddenLayers.end());
+  state.layers.hiddenFixtureTypes.clear();
+  auto hiddenFixtureTypes = cfg.GetHiddenFixtureTypes();
+  state.layers.hiddenFixtureTypes.insert(state.layers.hiddenFixtureTypes.end(),
+                                         hiddenFixtureTypes.begin(),
+                                         hiddenFixtureTypes.end());
+  std::sort(state.layers.hiddenFixtureTypes.begin(),
+            state.layers.hiddenFixtureTypes.end());
 
   return state;
 }
@@ -150,6 +157,10 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
   std::unordered_set<std::string> hidden(state.layers.hiddenLayers.begin(),
                                          state.layers.hiddenLayers.end());
   cfg.SetHiddenLayers(hidden);
+  std::unordered_set<std::string> hiddenFixtureTypes(
+      state.layers.hiddenFixtureTypes.begin(),
+      state.layers.hiddenFixtureTypes.end());
+  cfg.SetHiddenFixtureTypes(hiddenFixtureTypes);
 
   if (panel && updatePanels) {
     if (persistCameraToConfig) {

@@ -145,7 +145,9 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
          }
          return renderOptions;
        }()},
-      {"layers", {{"hiddenLayers", layers.hiddenLayers}}},
+      {"layers",
+       {{"hiddenLayers", layers.hiddenLayers},
+        {"hiddenFixtureTypes", layers.hiddenFixtureTypes}}},
   };
 }
 
@@ -339,22 +341,40 @@ void ReadRenderOptions(const nlohmann::json &obj,
 
 void ReadLayers(const nlohmann::json &obj, Layout2DViewLayers &layers,
                 const ParseContext &ctx) {
+  layers.hiddenLayers.clear();
+  layers.hiddenFixtureTypes.clear();
+
   if (auto it = obj.find("hiddenLayers"); it != obj.end()) {
     if (!it->is_array()) {
       AddWarning(ctx, "Ignored 'hiddenLayers' because it is not an array.");
-      return;
+    } else {
+      std::unordered_set<std::string> dedupe;
+      for (const auto &entry : *it) {
+        if (!entry.is_string())
+          continue;
+        std::string layerName = entry.get<std::string>();
+        if (layerName.empty())
+          continue;
+        if (dedupe.insert(layerName).second)
+          layers.hiddenLayers.push_back(std::move(layerName));
+      }
     }
+  }
 
-    layers.hiddenLayers.clear();
-    std::unordered_set<std::string> dedupe;
-    for (const auto &entry : *it) {
-      if (!entry.is_string())
-        continue;
-      std::string layerName = entry.get<std::string>();
-      if (layerName.empty())
-        continue;
-      if (dedupe.insert(layerName).second)
-        layers.hiddenLayers.push_back(std::move(layerName));
+  if (auto it = obj.find("hiddenFixtureTypes"); it != obj.end()) {
+    if (!it->is_array()) {
+      AddWarning(ctx, "Ignored 'hiddenFixtureTypes' because it is not an array.");
+    } else {
+      std::unordered_set<std::string> dedupe;
+      for (const auto &entry : *it) {
+        if (!entry.is_string())
+          continue;
+        std::string typeName = entry.get<std::string>();
+        if (typeName.empty())
+          continue;
+        if (dedupe.insert(typeName).second)
+          layers.hiddenFixtureTypes.push_back(std::move(typeName));
+      }
     }
   }
 }
@@ -501,6 +521,13 @@ bool ParseLegacySingleView(const nlohmann::json &value, LayoutDefinition &out,
     for (const auto &entry : *it) {
       if (entry.is_string())
         layers.hiddenLayers.push_back(entry.get<std::string>());
+    }
+  }
+  if (auto it = viewObj.find("hiddenFixtureTypes");
+      it != viewObj.end() && it->is_array()) {
+    for (const auto &entry : *it) {
+      if (entry.is_string())
+        layers.hiddenFixtureTypes.push_back(entry.get<std::string>());
     }
   }
 

@@ -132,7 +132,8 @@ bool AreEqual(const layouts::Layout2DViewRenderOptions &lhs,
 
 bool AreEqual(const layouts::Layout2DViewLayers &lhs,
               const layouts::Layout2DViewLayers &rhs) {
-  return lhs.hiddenLayers == rhs.hiddenLayers;
+  return lhs.hiddenLayers == rhs.hiddenLayers &&
+         lhs.hiddenFixtureTypes == rhs.hiddenFixtureTypes;
 }
 
 bool AreEqual(const layouts::Layout2DViewDefinition &lhs,
