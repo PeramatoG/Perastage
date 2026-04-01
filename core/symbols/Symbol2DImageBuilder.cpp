@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <optional>
 #include <queue>
 #include <set>
@@ -300,52 +301,61 @@ void AddFillBoundaryStrokeFallback(Symbol2D &symbol) {
     return dx * dx + dy * dy;
   };
 
-  const auto ringCoverageByExistingStrokes = [&](const Polyline2D &ring,
-                                                 float tolerancePx) {
-    if (ring.empty() || symbol.strokes.empty())
+  constexpr float kRingCoverageTolerancePx = 1.5f;
+  constexpr float kBoundaryOverlapThreshold = 0.85f;
+
+  std::vector<Polyline2D> boundaryStrokes;
+  for (const auto &polygon : symbol.fill) {
+    Polyline2D outerStroke = BuildClosedStrokeFromRing(polygon.outer);
+    if (!outerStroke.empty())
+      boundaryStrokes.push_back(std::move(outerStroke));
+    for (const auto &hole : polygon.holes) {
+      Polyline2D holeStroke = BuildClosedStrokeFromRing(hole);
+      if (!holeStroke.empty())
+        boundaryStrokes.push_back(std::move(holeStroke));
+    }
+  }
+
+  if (boundaryStrokes.empty())
+    return;
+
+  const auto strokeBoundaryOverlap = [&](const Polyline2D &stroke) {
+    if (stroke.empty())
       return 0.0f;
-    const float toleranceSq = tolerancePx * tolerancePx;
-    int covered = 0;
-    for (const auto &ringPoint : ring) {
-      bool found = false;
-      for (const auto &stroke : symbol.strokes) {
-        for (const auto &strokePoint : stroke) {
-          if (squaredDistance(ringPoint, strokePoint) <= toleranceSq) {
-            found = true;
+    int overlappingPoints = 0;
+    const float toleranceSq = kRingCoverageTolerancePx * kRingCoverageTolerancePx;
+    for (const auto &strokePoint : stroke) {
+      bool overlaps = false;
+      for (const auto &boundary : boundaryStrokes) {
+        for (const auto &boundaryPoint : boundary) {
+          if (squaredDistance(strokePoint, boundaryPoint) <= toleranceSq) {
+            overlaps = true;
             break;
           }
         }
-        if (found)
+        if (overlaps)
           break;
       }
-      if (found)
-        ++covered;
+      if (overlaps)
+        ++overlappingPoints;
     }
-    return static_cast<float>(covered) / static_cast<float>(ring.size());
+    return static_cast<float>(overlappingPoints) /
+           static_cast<float>(stroke.size());
   };
 
-  constexpr float kRingCoverageTolerancePx = 1.5f;
-  constexpr float kRingCoverageThreshold = 0.92f;
-
-  for (const auto &polygon : symbol.fill) {
-    const float outerCoverage =
-        ringCoverageByExistingStrokes(polygon.outer, kRingCoverageTolerancePx);
-    if (outerCoverage < kRingCoverageThreshold) {
-      Polyline2D outerStroke = BuildClosedStrokeFromRing(polygon.outer);
-      if (!outerStroke.empty())
-        symbol.strokes.push_back(std::move(outerStroke));
-    }
-
-    for (const auto &hole : polygon.holes) {
-      const float holeCoverage =
-          ringCoverageByExistingStrokes(hole, kRingCoverageTolerancePx);
-      if (holeCoverage >= kRingCoverageThreshold)
-        continue;
-      Polyline2D holeStroke = BuildClosedStrokeFromRing(hole);
-      if (!holeStroke.empty())
-        symbol.strokes.push_back(std::move(holeStroke));
-    }
+  std::vector<Polyline2D> filteredStrokes;
+  filteredStrokes.reserve(symbol.strokes.size() + boundaryStrokes.size());
+  for (auto &stroke : symbol.strokes) {
+    const float overlap = strokeBoundaryOverlap(stroke);
+    if (overlap >= kBoundaryOverlapThreshold)
+      continue;
+    filteredStrokes.push_back(std::move(stroke));
   }
+
+  filteredStrokes.insert(filteredStrokes.end(),
+                         std::make_move_iterator(boundaryStrokes.begin()),
+                         std::make_move_iterator(boundaryStrokes.end()));
+  symbol.strokes = std::move(filteredStrokes);
 }
 
 std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {

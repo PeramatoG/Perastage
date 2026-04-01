@@ -14,7 +14,7 @@ struct RenderedSymbolImage {
 };
 
 struct ImageBuildParams {
-  float previewStrokeWidthPx = 2.0f;
+  float previewStrokeWidthPx = 1.0f;
   unsigned char fillAlphaThreshold = 10;
   unsigned char lineAlphaThreshold = 1;
   unsigned char backgroundTolerance = 18;
