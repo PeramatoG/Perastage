@@ -131,11 +131,8 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
                             mesh.normals[idx * 3 + 2]);
       }
       n = TransformNormal(n, modelMatrix);
-      // Standard/textured rendering uses GL_LIGHT_MODEL_TWO_SIDE, so keep
-      // sketch ink shading two-sided as well to avoid inverted light/dark
-      // response on assets authored with inward normals.
-      const float diffuse =
-          std::fabs(n[0] * lightDir[0] + n[1] * lightDir[1] + n[2] * lightDir[2]);
+      const float diffuse = std::max(
+          0.0f, n[0] * lightDir[0] + n[1] * lightDir[1] + n[2] * lightDir[2]);
       const InkColor tone = QuantizeInkTone(diffuse);
       glColor3f(tone.r, tone.g, tone.b);
       glNormal3f(n[0], n[1], n[2]);
