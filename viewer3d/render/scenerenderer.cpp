@@ -137,6 +137,18 @@ void SceneRenderer::DrawMeshWithOutline(
   (void)cx;
   (void)cy;
   (void)cz;
+  const bool forceDisableTexture =
+      mode == Viewer2DRenderMode::Wireframe ||
+      mode == Viewer2DRenderMode::ByFixtureType ||
+      mode == Viewer2DRenderMode::ByLayer ||
+      mode == Viewer2DRenderMode::ByUniverse;
+  const GLboolean texture2DWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+  if (forceDisableTexture && texture2DWasEnabled)
+    glDisable(GL_TEXTURE_2D);
+  const auto restoreTextureState = [&]() {
+    if (forceDisableTexture && texture2DWasEnabled)
+      glEnable(GL_TEXTURE_2D);
+  };
 
   if (wireframe) {
     float lineWidth =
@@ -199,6 +211,7 @@ void SceneRenderer::DrawMeshWithOutline(
         glDisable(GL_POLYGON_OFFSET_FILL);
       }
     }
+    restoreTextureState();
     return;
   }
 
@@ -315,6 +328,7 @@ void SceneRenderer::DrawMeshWithOutline(
       m_controller.RecordPolygon(pts, stroke, &fill);
     }
   }
+  restoreTextureState();
 }
 
 void SceneRenderer::DrawMeshWireframe(
