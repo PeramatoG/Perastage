@@ -45,6 +45,11 @@ bool IsSketchStyleActive() {
          Viewer3DRenderStyle::WhiteModel;
 }
 
+bool IsPureWhiteLensStyleActive() {
+  return ResolveViewer3DRenderStyle(ConfigManager::Get()) ==
+         Viewer3DRenderStyle::White;
+}
+
 std::string FindFileRecursive(const std::string &baseDir,
                               const std::string &fileName) {
   if (baseDir.empty() || fileName.empty())
@@ -706,13 +711,10 @@ void OpaqueFixturePass::Render(
                   float partG = g;
                   float partB = b;
                   if (!is2DViewer && obj.isLens) {
-                    const bool isWhiteRenderMode =
-                        mode == Viewer2DRenderMode::White;
-                    const bool usePureWhiteLens =
-                        isWhiteRenderMode || IsSketchStyleActive();
+                    const bool isWhiteRenderMode = IsPureWhiteLensStyleActive();
                     partR = 1.0f;
-                    partG = usePureWhiteLens ? 1.0f : 0.78f;
-                    partB = usePureWhiteLens ? 1.0f : 0.35f;
+                    partG = isWhiteRenderMode ? 1.0f : 0.78f;
+                    partB = isWhiteRenderMode ? 1.0f : 0.35f;
                   }
                   controller.DrawMeshWithOutline(
                       obj.mesh, partR, partG, partB, RENDER_SCALE, false, false,
@@ -778,12 +780,10 @@ void OpaqueFixturePass::Render(
           float partG = g;
           float partB = b;
           if (!is2DViewer && obj.isLens) {
-            const bool isWhiteRenderMode = mode == Viewer2DRenderMode::White;
-            const bool usePureWhiteLens =
-                isWhiteRenderMode || IsSketchStyleActive();
+            const bool isWhiteRenderMode = IsPureWhiteLensStyleActive();
             partR = 1.0f;
-            partG = usePureWhiteLens ? 1.0f : 0.78f;
-            partB = usePureWhiteLens ? 1.0f : 0.35f;
+            partG = isWhiteRenderMode ? 1.0f : 0.78f;
+            partB = isWhiteRenderMode ? 1.0f : 0.35f;
           }
           const bool drawUnlit = !is2DViewer && obj.isLens;
           controller.DrawMeshWithOutline(obj.mesh, partR, partG, partB,
