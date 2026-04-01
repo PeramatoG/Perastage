@@ -97,6 +97,9 @@ InkColor QuantizeInkTone(float diffuseFactor) {
 void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatrix) {
   std::array<float, 3> lightDir = NormalizeVector(0.35f, -0.55f, 1.0f);
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
+  GLint twoSidedLighting = GL_FALSE;
+  glGetIntegerv(GL_LIGHT_MODEL_TWO_SIDE, &twoSidedLighting);
+  const bool useTwoSidedDiffuse = (twoSidedLighting == GL_TRUE);
   const bool flipWinding =
       (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
 
@@ -167,9 +170,12 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
         worldNormal[2] = -worldNormal[2];
       }
 
-      const float diffuse = std::max(
-          0.0f, worldNormal[0] * lightDir[0] + worldNormal[1] * lightDir[1] +
-                    worldNormal[2] * lightDir[2]);
+      const float ndotl = worldNormal[0] * lightDir[0] +
+                          worldNormal[1] * lightDir[1] +
+                          worldNormal[2] * lightDir[2];
+      float diffuse = std::max(0.0f, ndotl);
+      if (useTwoSidedDiffuse)
+        diffuse = std::max(diffuse, std::max(0.0f, -ndotl));
       const InkColor tone = QuantizeInkTone(diffuse);
       glColor3f(tone.r, tone.g, tone.b);
       glNormal3f(worldNormal[0], worldNormal[1], worldNormal[2]);
