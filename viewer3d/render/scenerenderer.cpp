@@ -108,8 +108,12 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
                             mesh.normals[idx * 3 + 2]);
       }
       n = TransformNormal(n, modelMatrix);
-      const float diffuse = std::max(
-          0.0f, n[0] * lightDir[0] + n[1] * lightDir[1] + n[2] * lightDir[2]);
+      // Sketch ink shading should mimic OpenGL's two-sided lighting used by
+      // the standard/textured paths. Some fixture meshes have opposite normal
+      // orientation; using the absolute cosine keeps light-dark response
+      // stable regardless of normal direction.
+      const float diffuse =
+          std::fabs(n[0] * lightDir[0] + n[1] * lightDir[1] + n[2] * lightDir[2]);
       const InkColor tone = QuantizeInkTone(diffuse);
       glColor3f(tone.r, tone.g, tone.b);
       glNormal3f(n[0], n[1], n[2]);
