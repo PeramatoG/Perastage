@@ -156,8 +156,10 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   viewer3dStandardRenderRadio = new wxRadioButton(
       viewer3dPanel, wxID_ANY, "Standard", wxDefaultPosition,
       wxDefaultSize, wxRB_GROUP);
+  viewer3dWhiteRenderRadio = new wxRadioButton(
+      viewer3dPanel, wxID_ANY, "White");
   viewer3dWhiteModelRenderRadio = new wxRadioButton(
-      viewer3dPanel, wxID_ANY, "White Model style");
+      viewer3dPanel, wxID_ANY, "Sketch mode");
   viewer3dTexturedRenderRadio = new wxRadioButton(
       viewer3dPanel, wxID_ANY, "Textured");
   viewer3dWireframeRenderRadio = new wxRadioButton(
@@ -171,6 +173,7 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
 
   const Viewer3DRenderStyle renderStyle = ResolveViewer3DRenderStyle(cfg);
   viewer3dStandardRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::Standard);
+  viewer3dWhiteRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::White);
   viewer3dWhiteModelRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::WhiteModel);
   viewer3dTexturedRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::Textured);
   viewer3dWireframeRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::Wireframe);
@@ -179,6 +182,8 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   viewer3dByUniverseRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::ByUniverse);
 
   viewer3dSizer->Add(viewer3dStandardRenderRadio, 0,
+                     wxLEFT | wxRIGHT | wxTOP, 10);
+  viewer3dSizer->Add(viewer3dWhiteRenderRadio, 0,
                      wxLEFT | wxRIGHT | wxTOP, 10);
   viewer3dSizer->Add(viewer3dWhiteModelRenderRadio, 0,
                      wxLEFT | wxRIGHT | wxTOP, 10);
@@ -241,7 +246,9 @@ bool PreferencesDialog::ApplyPreferences() {
   cfg.SetValue("ui_weight_unit_system",
                weightUnitChoice->GetSelection() == 1 ? "imperial" : "metric");
   Viewer3DRenderStyle renderStyle = Viewer3DRenderStyle::Standard;
-  if (viewer3dWhiteModelRenderRadio && viewer3dWhiteModelRenderRadio->GetValue())
+  if (viewer3dWhiteRenderRadio && viewer3dWhiteRenderRadio->GetValue())
+    renderStyle = Viewer3DRenderStyle::White;
+  else if (viewer3dWhiteModelRenderRadio && viewer3dWhiteModelRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::WhiteModel;
   else if (viewer3dTexturedRenderRadio && viewer3dTexturedRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::Textured;

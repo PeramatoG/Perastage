@@ -209,9 +209,18 @@ void OpaqueObjectPass::Render(
             const GLboolean cullEnabled = glIsEnabled(GL_CULL_FACE);
             if (cullEnabled)
               glDisable(GL_CULL_FACE);
+            const bool useUnlitFallbackFill =
+                !isHighlighted && !isSelected &&
+                (mode == Viewer2DRenderMode::White ||
+                 mode == Viewer2DRenderMode::ByLayer);
+            const GLboolean lightingEnabled = glIsEnabled(GL_LIGHTING);
+            if (useUnlitFallbackFill && lightingEnabled)
+              glDisable(GL_LIGHTING);
             controller.DrawCubeWithOutline(0.3f, r, g, b, isHighlighted,
                                            isSelected, cx, cy, cz, wireframe,
                                            mode, captureTransformFn);
+            if (useUnlitFallbackFill && lightingEnabled)
+              glEnable(GL_LIGHTING);
             if (cullEnabled)
               glEnable(GL_CULL_FACE);
           }

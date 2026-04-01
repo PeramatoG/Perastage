@@ -103,6 +103,7 @@ Viewer2DRenderMode ToSceneRenderMode(Viewer3DRenderStyle style) {
             return Viewer2DRenderMode::ByLayer;
         case Viewer3DRenderStyle::ByUniverse:
             return Viewer2DRenderMode::ByUniverse;
+        case Viewer3DRenderStyle::White:
         case Viewer3DRenderStyle::WhiteModel:
         case Viewer3DRenderStyle::Textured:
         case Viewer3DRenderStyle::Standard:
@@ -827,12 +828,13 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     constexpr int kSelectPositionNoneId = wxID_HIGHEST + 1100;
     constexpr int kSelectPositionBaseId = wxID_HIGHEST + 1101;
     constexpr int kRenderStyleStandardId = wxID_HIGHEST + 1200;
-    constexpr int kRenderStyleWhiteModelId = wxID_HIGHEST + 1201;
-    constexpr int kRenderStyleTexturedId = wxID_HIGHEST + 1202;
-    constexpr int kRenderStyleWireframeId = wxID_HIGHEST + 1203;
-    constexpr int kRenderStyleByDeviceTypeId = wxID_HIGHEST + 1204;
-    constexpr int kRenderStyleByLayerId = wxID_HIGHEST + 1205;
-    constexpr int kRenderStyleByUniverseId = wxID_HIGHEST + 1206;
+    constexpr int kRenderStyleWhiteId = wxID_HIGHEST + 1201;
+    constexpr int kRenderStyleSketchId = wxID_HIGHEST + 1202;
+    constexpr int kRenderStyleTexturedId = wxID_HIGHEST + 1203;
+    constexpr int kRenderStyleWireframeId = wxID_HIGHEST + 1204;
+    constexpr int kRenderStyleByDeviceTypeId = wxID_HIGHEST + 1205;
+    constexpr int kRenderStyleByLayerId = wxID_HIGHEST + 1206;
+    constexpr int kRenderStyleByUniverseId = wxID_HIGHEST + 1207;
 
     typeSubmenu->Append(kSelectTypeAllId, "All fixtures");
     std::vector<std::string> orderedTypes;
@@ -853,7 +855,8 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     }
 
     renderStyleSubmenu->AppendRadioItem(kRenderStyleStandardId, "Standard");
-    renderStyleSubmenu->AppendRadioItem(kRenderStyleWhiteModelId, "White model");
+    renderStyleSubmenu->AppendRadioItem(kRenderStyleWhiteId, "White");
+    renderStyleSubmenu->AppendRadioItem(kRenderStyleSketchId, "Sketch mode");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleTexturedId, "Textured");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleWireframeId, "Wireframe");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleByDeviceTypeId, "By device type");
@@ -873,8 +876,11 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
         case Viewer3DRenderStyle::ByUniverse:
             renderStyleSubmenu->Check(kRenderStyleByUniverseId, true);
             break;
+        case Viewer3DRenderStyle::White:
+            renderStyleSubmenu->Check(kRenderStyleWhiteId, true);
+            break;
         case Viewer3DRenderStyle::WhiteModel:
-            renderStyleSubmenu->Check(kRenderStyleWhiteModelId, true);
+            renderStyleSubmenu->Check(kRenderStyleSketchId, true);
             break;
         case Viewer3DRenderStyle::Textured:
             renderStyleSubmenu->Check(kRenderStyleTexturedId, true);
@@ -905,7 +911,11 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
         applyRenderStyleSelection(Viewer3DRenderStyle::Standard);
         return;
     }
-    if (selectedId == kRenderStyleWhiteModelId) {
+    if (selectedId == kRenderStyleWhiteId) {
+        applyRenderStyleSelection(Viewer3DRenderStyle::White);
+        return;
+    }
+    if (selectedId == kRenderStyleSketchId) {
         applyRenderStyleSelection(Viewer3DRenderStyle::WhiteModel);
         return;
     }

@@ -42,6 +42,7 @@ private:
   wxRadioButton *layerPosRadio = nullptr;
   wxRadioButton *layerTypeRadio = nullptr;
   wxRadioButton *viewer3dStandardRenderRadio = nullptr;
+  wxRadioButton *viewer3dWhiteRenderRadio = nullptr;
   wxRadioButton *viewer3dWhiteModelRenderRadio = nullptr;
   wxRadioButton *viewer3dTexturedRenderRadio = nullptr;
   wxRadioButton *viewer3dWireframeRenderRadio = nullptr;

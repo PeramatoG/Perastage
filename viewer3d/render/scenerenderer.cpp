@@ -127,6 +127,11 @@ static bool IsTexturedRenderStyleEnabled() {
   return IsTexturedRenderStyle(ResolveViewer3DRenderStyle(ConfigManager::Get()));
 }
 
+static bool IsSketchRenderStyleEnabled() {
+  return ResolveViewer3DRenderStyle(ConfigManager::Get()) ==
+         Viewer3DRenderStyle::WhiteModel;
+}
+
 void SceneRenderer::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
     bool selected, float cx, float cy, float cz, bool wireframe,
@@ -218,9 +223,11 @@ void SceneRenderer::DrawMeshWithOutline(
   if (!m_controller.IsCaptureOnly()) {
     if (m_controller.IsWhiteModelStyleEnabled()) {
       const bool useColorFillInWhiteStyle =
+          !IsSketchRenderStyleEnabled() &&
+          (mode == Viewer2DRenderMode::White ||
           mode == Viewer2DRenderMode::ByFixtureType ||
           mode == Viewer2DRenderMode::ByLayer ||
-          mode == Viewer2DRenderMode::ByUniverse;
+          mode == Viewer2DRenderMode::ByUniverse);
       // Keep 3D white-model aligned with the 2D viewer draw order:
       // stroke pass first, then polygon-offset fill pass.
       const LineRenderProfile lineProfile =

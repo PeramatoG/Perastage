@@ -6,6 +6,7 @@ class ConfigManager;
 
 enum class Viewer3DRenderStyle {
   Standard,
+  White,
   WhiteModel,
   Textured,
   Wireframe,
