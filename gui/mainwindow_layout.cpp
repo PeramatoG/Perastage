@@ -335,7 +335,7 @@ void MainWindow::SetupLayout() {
                                     .Name("DataNotebook")
                                     .Caption("Data Views")
                                     .Left()
-                                    .BestSize(halfWidth, 600)
+                                    .BestSize(500, 600)
                                     .MinSize(wxSize(200, 300))
                                     .PaneBorder(false)
                                     .CaptionVisible(true)
@@ -364,7 +364,7 @@ void MainWindow::SetupLayout() {
                                       .Layer(1)
                                       .Row(0)
                                       .Position(0)
-                                      .BestSize(300, 300)
+                                      .BestSize(295, 300)
                                       .CloseButton(true)
                                       .MaximizeButton(true)
                                       .PaneBorder(true));
@@ -407,7 +407,7 @@ void MainWindow::SetupLayout() {
                                         .Layer(1)
                                         .Row(0)
                                         .Position(1)
-                                        .BestSize(300, 150)
+                                        .BestSize(295, 150)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));

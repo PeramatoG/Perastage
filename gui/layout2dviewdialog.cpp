@@ -29,9 +29,9 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
   layerPanel = new LayerPanel(this, false, visibilityConfig);
   summaryPanel = new SummaryPanel(this, visibilityConfig, colorConfig);
 
-  renderPanel->SetMinSize(wxSize(220, -1));
-  layerPanel->SetMinSize(wxSize(320, 220));
-  summaryPanel->SetMinSize(wxSize(320, 220));
+  renderPanel->SetMinSize(wxSize(240, -1));
+  layerPanel->SetMinSize(wxSize(290, 220));
+  summaryPanel->SetMinSize(wxSize(290, 220));
 
   auto *rightColumnSizer = new wxBoxSizer(wxVERTICAL);
   rightColumnSizer->Add(layerPanel, 1, wxEXPAND | wxBOTTOM, 8);
