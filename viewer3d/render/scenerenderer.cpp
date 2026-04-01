@@ -97,6 +97,40 @@ InkColor QuantizeInkTone(float diffuseFactor) {
 void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatrix) {
   std::array<float, 3> lightDir = NormalizeVector(0.35f, -0.55f, 1.0f);
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
+  bool flipNormalsForSketch = false;
+  if (hasNormals) {
+    const size_t vcount = mesh.vertices.size() / 3u;
+    if (vcount > 0u) {
+      float cx = 0.0f, cy = 0.0f, cz = 0.0f;
+      for (size_t i = 0; i < vcount; ++i) {
+        cx += mesh.vertices[i * 3];
+        cy += mesh.vertices[i * 3 + 1];
+        cz += mesh.vertices[i * 3 + 2];
+      }
+      const float invCount = 1.0f / static_cast<float>(vcount);
+      cx *= invCount;
+      cy *= invCount;
+      cz *= invCount;
+
+      double orientationScore = 0.0;
+      double magnitudeScore = 0.0;
+      for (size_t i = 0; i < vcount; ++i) {
+        const float vx = mesh.vertices[i * 3] - cx;
+        const float vy = mesh.vertices[i * 3 + 1] - cy;
+        const float vz = mesh.vertices[i * 3 + 2] - cz;
+        const std::array<float, 3> n = NormalizeVector(
+            mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]);
+        const double dot =
+            static_cast<double>(n[0]) * vx + static_cast<double>(n[1]) * vy +
+            static_cast<double>(n[2]) * vz;
+        orientationScore += dot;
+        magnitudeScore += std::fabs(dot);
+      }
+
+      if (magnitudeScore > 1e-6 && orientationScore < -magnitudeScore * 0.15)
+        flipNormalsForSketch = true;
+    }
+  }
   const bool flipWinding =
       (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
 
@@ -129,6 +163,11 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
       if (hasNormals) {
         n = NormalizeVector(mesh.normals[idx * 3], mesh.normals[idx * 3 + 1],
                             mesh.normals[idx * 3 + 2]);
+        if (flipNormalsForSketch) {
+          n[0] = -n[0];
+          n[1] = -n[1];
+          n[2] = -n[2];
+        }
       }
       n = TransformNormal(n, modelMatrix);
       const float diffuse = std::max(

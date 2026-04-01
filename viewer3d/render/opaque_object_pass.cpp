@@ -249,7 +249,7 @@ void OpaqueObjectPass::Render(
             controller.DrawMeshWithOutline(
                 FallbackSceneObjectCubeMesh(), r, g, b, 0.3f, isHighlighted,
                 isSelected, cx, cy, cz, fallbackWireframe, mode,
-                captureTransformFn, useUnlitFallbackFill);
+                captureTransformFn, useUnlitFallbackFill, matrix);
           }
         };
 
