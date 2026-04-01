@@ -531,7 +531,33 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
         float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
         const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
         if (len > 0.0f) {
-          glNormal3f(nx / len, ny / len, nz / len);
+          nx /= len;
+          ny /= len;
+          nz /= len;
+          if (hasNormals) {
+            // Keep GL_FLAT geometric normals consistent with imported smoothing
+            // normals. Some fixture meshes provide winding opposite to their
+            // authored normals; this check avoids inverted lighting in sketch
+            // mode without changing non-flat paths.
+            float anx = normalData[i0 * 3] + normalData[i1 * 3] + normalData[i2 * 3];
+            float any = normalData[i0 * 3 + 1] + normalData[i1 * 3 + 1] +
+                        normalData[i2 * 3 + 1];
+            float anz = normalData[i0 * 3 + 2] + normalData[i1 * 3 + 2] +
+                        normalData[i2 * 3 + 2];
+            const float alen = std::sqrt(anx * anx + any * any + anz * anz);
+            if (alen > 0.0f) {
+              anx /= alen;
+              any /= alen;
+              anz /= alen;
+              const float alignment = nx * anx + ny * any + nz * anz;
+              if (alignment < 0.0f) {
+                nx = -nx;
+                ny = -ny;
+                nz = -nz;
+              }
+            }
+          }
+          glNormal3f(nx, ny, nz);
         } else {
           glNormal3f(0.0f, 0.0f, 1.0f);
         }
