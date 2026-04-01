@@ -127,6 +127,11 @@ static bool IsTexturedRenderStyleEnabled() {
   return IsTexturedRenderStyle(ResolveViewer3DRenderStyle(ConfigManager::Get()));
 }
 
+static bool IsSketchRenderStyleEnabled() {
+  return ResolveViewer3DRenderStyle(ConfigManager::Get()) ==
+         Viewer3DRenderStyle::WhiteModel;
+}
+
 void SceneRenderer::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
     bool selected, float cx, float cy, float cz, bool wireframe,
@@ -137,6 +142,18 @@ void SceneRenderer::DrawMeshWithOutline(
   (void)cx;
   (void)cy;
   (void)cz;
+  const bool forceDisableTexture =
+      mode == Viewer2DRenderMode::Wireframe ||
+      mode == Viewer2DRenderMode::ByFixtureType ||
+      mode == Viewer2DRenderMode::ByLayer ||
+      mode == Viewer2DRenderMode::ByUniverse;
+  const GLboolean texture2DWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+  if (forceDisableTexture && texture2DWasEnabled)
+    glDisable(GL_TEXTURE_2D);
+  const auto restoreTextureState = [&]() {
+    if (forceDisableTexture && texture2DWasEnabled)
+      glEnable(GL_TEXTURE_2D);
+  };
 
   if (wireframe) {
     float lineWidth =
@@ -199,11 +216,18 @@ void SceneRenderer::DrawMeshWithOutline(
         glDisable(GL_POLYGON_OFFSET_FILL);
       }
     }
+    restoreTextureState();
     return;
   }
 
   if (!m_controller.IsCaptureOnly()) {
     if (m_controller.IsWhiteModelStyleEnabled()) {
+      const bool useColorFillInWhiteStyle =
+          !IsSketchRenderStyleEnabled() &&
+          (mode == Viewer2DRenderMode::White ||
+          mode == Viewer2DRenderMode::ByFixtureType ||
+          mode == Viewer2DRenderMode::ByLayer ||
+          mode == Viewer2DRenderMode::ByUniverse);
       // Keep 3D white-model aligned with the 2D viewer draw order:
       // stroke pass first, then polygon-offset fill pass.
       const LineRenderProfile lineProfile =
@@ -243,6 +267,14 @@ void SceneRenderer::DrawMeshWithOutline(
         if (!glIsEnabled(GL_LIGHTING))
           glEnable(GL_LIGHTING);
         DrawMesh(mesh, scale, modelMatrix);
+      } else if (useColorFillInWhiteStyle) {
+        const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
+        if (fillLightingWasEnabled)
+          glDisable(GL_LIGHTING);
+        m_controller.SetGLColor(r, g, b);
+        DrawMesh(mesh, scale, modelMatrix);
+        if (fillLightingWasEnabled)
+          glEnable(GL_LIGHTING);
       } else {
         const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
         if (fillLightingWasEnabled)
@@ -303,6 +335,7 @@ void SceneRenderer::DrawMeshWithOutline(
       m_controller.RecordPolygon(pts, stroke, &fill);
     }
   }
+  restoreTextureState();
 }
 
 void SceneRenderer::DrawMeshWireframe(

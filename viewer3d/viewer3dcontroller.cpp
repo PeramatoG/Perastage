@@ -986,10 +986,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.drawGridBeforeScene = shouldDrawGridBeforeScene;
   context.drawGridAfterScene = shouldDrawGridAfterScene;
 
-  context.colorByFixtureType =
-      context.wireframe && isByFixtureTypeMode;
-  context.colorByLayer = context.wireframe && isByLayerMode;
-  context.colorByUniverse = context.wireframe && isByUniverseMode;
+  context.colorByFixtureType = isByFixtureTypeMode;
+  context.colorByLayer = isByLayerMode;
+  context.colorByUniverse = isByUniverseMode;
   const Viewer3DRenderStyle renderStyle = ReadRenderStylePreference(cfg);
   context.whiteModelStyle = IsWhiteModelRenderStyle(renderStyle);
   context.texturedStyle = IsTexturedRenderStyle(renderStyle);

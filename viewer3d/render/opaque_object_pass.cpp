@@ -90,7 +90,7 @@ void OpaqueObjectPass::Render(
       g = 0.95f;
       b = 0.95f;
     }
-    if (wireframe && mode == Viewer2DRenderMode::ByLayer) {
+    if (mode == Viewer2DRenderMode::ByLayer) {
       auto c = getLayerColor(m.layer);
       r = c[0];
       g = c[1];
@@ -209,9 +209,17 @@ void OpaqueObjectPass::Render(
             const GLboolean cullEnabled = glIsEnabled(GL_CULL_FACE);
             if (cullEnabled)
               glDisable(GL_CULL_FACE);
+            const bool useUnlitFallbackFill =
+                !isHighlighted && !isSelected && context.whiteModelStyle;
+            const GLboolean lightingEnabled = glIsEnabled(GL_LIGHTING);
+            if (useUnlitFallbackFill && lightingEnabled)
+              glDisable(GL_LIGHTING);
+            const bool fallbackWireframe = wireframe || context.whiteModelStyle;
             controller.DrawCubeWithOutline(0.3f, r, g, b, isHighlighted,
-                                           isSelected, cx, cy, cz, wireframe,
+                                           isSelected, cx, cy, cz, fallbackWireframe,
                                            mode, captureTransformFn);
+            if (useUnlitFallbackFill && lightingEnabled)
+              glEnable(GL_LIGHTING);
             if (cullEnabled)
               glEnable(GL_CULL_FACE);
           }

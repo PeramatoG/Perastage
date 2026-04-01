@@ -156,21 +156,46 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   viewer3dStandardRenderRadio = new wxRadioButton(
       viewer3dPanel, wxID_ANY, "Standard", wxDefaultPosition,
       wxDefaultSize, wxRB_GROUP);
+  viewer3dWhiteRenderRadio = new wxRadioButton(
+      viewer3dPanel, wxID_ANY, "White");
   viewer3dWhiteModelRenderRadio = new wxRadioButton(
-      viewer3dPanel, wxID_ANY, "White Model style");
+      viewer3dPanel, wxID_ANY, "Sketch mode");
   viewer3dTexturedRenderRadio = new wxRadioButton(
       viewer3dPanel, wxID_ANY, "Textured");
+  viewer3dWireframeRenderRadio = new wxRadioButton(
+      viewer3dPanel, wxID_ANY, "Wireframe");
+  viewer3dByDeviceTypeRenderRadio = new wxRadioButton(
+      viewer3dPanel, wxID_ANY, "By device type");
+  viewer3dByLayerRenderRadio = new wxRadioButton(
+      viewer3dPanel, wxID_ANY, "By layer");
+  viewer3dByUniverseRenderRadio = new wxRadioButton(
+      viewer3dPanel, wxID_ANY, "By universe");
 
   const Viewer3DRenderStyle renderStyle = ResolveViewer3DRenderStyle(cfg);
   viewer3dStandardRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::Standard);
+  viewer3dWhiteRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::White);
   viewer3dWhiteModelRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::WhiteModel);
   viewer3dTexturedRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::Textured);
+  viewer3dWireframeRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::Wireframe);
+  viewer3dByDeviceTypeRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::ByDeviceType);
+  viewer3dByLayerRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::ByLayer);
+  viewer3dByUniverseRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::ByUniverse);
 
   viewer3dSizer->Add(viewer3dStandardRenderRadio, 0,
                      wxLEFT | wxRIGHT | wxTOP, 10);
   viewer3dSizer->Add(viewer3dWhiteModelRenderRadio, 0,
                      wxLEFT | wxRIGHT | wxTOP, 10);
   viewer3dSizer->Add(viewer3dTexturedRenderRadio, 0,
+                     wxLEFT | wxRIGHT | wxTOP, 10);
+  viewer3dSizer->Add(viewer3dWireframeRenderRadio, 0,
+                     wxLEFT | wxRIGHT | wxTOP, 10);
+  viewer3dSizer->Add(viewer3dWhiteRenderRadio, 0,
+                     wxLEFT | wxRIGHT | wxTOP, 10);
+  viewer3dSizer->Add(viewer3dByDeviceTypeRenderRadio, 0,
+                     wxLEFT | wxRIGHT | wxTOP, 10);
+  viewer3dSizer->Add(viewer3dByLayerRenderRadio, 0,
+                     wxLEFT | wxRIGHT | wxTOP, 10);
+  viewer3dSizer->Add(viewer3dByUniverseRenderRadio, 0,
                      wxLEFT | wxRIGHT | wxTOP | wxBOTTOM, 10);
   viewer3dPanel->SetSizer(viewer3dSizer);
   book->AddPage(viewer3dPanel, "3D Viewer");
@@ -221,10 +246,20 @@ bool PreferencesDialog::ApplyPreferences() {
   cfg.SetValue("ui_weight_unit_system",
                weightUnitChoice->GetSelection() == 1 ? "imperial" : "metric");
   Viewer3DRenderStyle renderStyle = Viewer3DRenderStyle::Standard;
-  if (viewer3dWhiteModelRenderRadio && viewer3dWhiteModelRenderRadio->GetValue())
+  if (viewer3dWhiteRenderRadio && viewer3dWhiteRenderRadio->GetValue())
+    renderStyle = Viewer3DRenderStyle::White;
+  else if (viewer3dWhiteModelRenderRadio && viewer3dWhiteModelRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::WhiteModel;
   else if (viewer3dTexturedRenderRadio && viewer3dTexturedRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::Textured;
+  else if (viewer3dWireframeRenderRadio && viewer3dWireframeRenderRadio->GetValue())
+    renderStyle = Viewer3DRenderStyle::Wireframe;
+  else if (viewer3dByDeviceTypeRenderRadio && viewer3dByDeviceTypeRenderRadio->GetValue())
+    renderStyle = Viewer3DRenderStyle::ByDeviceType;
+  else if (viewer3dByLayerRenderRadio && viewer3dByLayerRenderRadio->GetValue())
+    renderStyle = Viewer3DRenderStyle::ByLayer;
+  else if (viewer3dByUniverseRenderRadio && viewer3dByUniverseRenderRadio->GetValue())
+    renderStyle = Viewer3DRenderStyle::ByUniverse;
   cfg.SetValue("viewer3d_render_style", ToConfigValue(renderStyle));
   return cfg.SaveUserConfig();
 }

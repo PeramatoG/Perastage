@@ -533,23 +533,21 @@ void OpaqueFixturePass::Render(
         TryParseHtmlHexColor(gdtfModelColor, r, g, b);
       }
     }
-    if (wireframe) {
-      if (mode == Viewer2DRenderMode::ByFixtureType) {
-        auto c = getTypeColor(f.gdtfSpec, f.color);
-        r = c[0];
-        g = c[1];
-        b = c[2];
-      } else if (mode == Viewer2DRenderMode::ByLayer) {
-        auto c = getLayerColor(f.layer);
-        r = c[0];
-        g = c[1];
-        b = c[2];
-      } else if (mode == Viewer2DRenderMode::ByUniverse) {
-        auto c = GetUniverseColor(ParseUniverseFromAddress(f.address));
-        r = c[0];
-        g = c[1];
-        b = c[2];
-      }
+    if (mode == Viewer2DRenderMode::ByFixtureType) {
+      auto c = getTypeColor(f.gdtfSpec, f.color);
+      r = c[0];
+      g = c[1];
+      b = c[2];
+    } else if (mode == Viewer2DRenderMode::ByLayer) {
+      auto c = getLayerColor(f.layer);
+      r = c[0];
+      g = c[1];
+      b = c[2];
+    } else if (mode == Viewer2DRenderMode::ByUniverse) {
+      auto c = GetUniverseColor(ParseUniverseFromAddress(f.address));
+      r = c[0];
+      g = c[1];
+      b = c[2];
     }
 
     Matrix fixtureTransform = f.transform;
