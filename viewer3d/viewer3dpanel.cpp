@@ -85,26 +85,54 @@ bool IsFastInteractionModeEnabled()
     return ConfigManager::Get().GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
-Viewer2DRenderMode ResolveViewerRenderModePreference() {
-    const int mode = static_cast<int>(ConfigManager::Get().GetFloat("view2d_render_mode"));
+enum class Viewer3DViewportRenderMode {
+    Solid = 0,
+    Wireframe = 1,
+    ByDeviceType = 2,
+    ByLayer = 3,
+    ByUniverse = 4
+};
+
+Viewer3DViewportRenderMode ResolveViewer3DRenderModePreference() {
+    const int mode = static_cast<int>(ConfigManager::Get().GetFloat("viewer3d_render_mode"));
     switch (mode) {
-        case static_cast<int>(Viewer2DRenderMode::Wireframe):
-            return Viewer2DRenderMode::Wireframe;
-        case static_cast<int>(Viewer2DRenderMode::White):
-            return Viewer2DRenderMode::White;
-        case static_cast<int>(Viewer2DRenderMode::ByFixtureType):
-            return Viewer2DRenderMode::ByFixtureType;
-        case static_cast<int>(Viewer2DRenderMode::ByLayer):
-            return Viewer2DRenderMode::ByLayer;
-        case static_cast<int>(Viewer2DRenderMode::ByUniverse):
-            return Viewer2DRenderMode::ByUniverse;
+        case static_cast<int>(Viewer3DViewportRenderMode::Wireframe):
+            return Viewer3DViewportRenderMode::Wireframe;
+        case static_cast<int>(Viewer3DViewportRenderMode::ByDeviceType):
+            return Viewer3DViewportRenderMode::ByDeviceType;
+        case static_cast<int>(Viewer3DViewportRenderMode::ByLayer):
+            return Viewer3DViewportRenderMode::ByLayer;
+        case static_cast<int>(Viewer3DViewportRenderMode::ByUniverse):
+            return Viewer3DViewportRenderMode::ByUniverse;
+        case static_cast<int>(Viewer3DViewportRenderMode::Solid):
+            return Viewer3DViewportRenderMode::Solid;
         default:
-            return Viewer2DRenderMode::White;
+            return Viewer3DViewportRenderMode::Solid;
     }
 }
 
 Viewer3DRenderStyle ResolveRenderStyleFromPreferences() {
     return ResolveViewer3DRenderStyle(ConfigManager::Get());
+}
+
+bool IsWireframeRenderMode(Viewer3DViewportRenderMode mode) {
+    return mode != Viewer3DViewportRenderMode::Solid;
+}
+
+Viewer2DRenderMode ToSceneRenderMode(Viewer3DViewportRenderMode mode) {
+    switch (mode) {
+        case Viewer3DViewportRenderMode::Wireframe:
+            return Viewer2DRenderMode::Wireframe;
+        case Viewer3DViewportRenderMode::ByDeviceType:
+            return Viewer2DRenderMode::ByFixtureType;
+        case Viewer3DViewportRenderMode::ByLayer:
+            return Viewer2DRenderMode::ByLayer;
+        case Viewer3DViewportRenderMode::ByUniverse:
+            return Viewer2DRenderMode::ByUniverse;
+        case Viewer3DViewportRenderMode::Solid:
+        default:
+            return Viewer2DRenderMode::White;
+    }
 }
 
 void ApplyViewer3DClearColorForStyle(Viewer3DRenderStyle style) {
@@ -563,7 +591,9 @@ void Viewer3DPanel::Render()
     }
 
     m_controller.SetCameraMoving(m_cameraMoving);
-    m_controller.RenderScene(false, ResolveViewerRenderModePreference());
+    const Viewer3DViewportRenderMode renderMode = ResolveViewer3DRenderModePreference();
+    m_controller.RenderScene(IsWireframeRenderMode(renderMode),
+                             ToSceneRenderMode(renderMode));
 
     glFlush();
 }
@@ -778,11 +808,6 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     if (m_draggedSincePress)
         return;
 
-    if (!(FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())) {
-        event.Skip();
-        return;
-    }
-
     int w, h;
     GetClientSize(&w, &h);
     if (w <= 0 || h <= 0 || !IsShownOnScreen()) {
@@ -790,43 +815,48 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
         return;
     }
 
-    SetCurrent(*m_glContext);
-    wxString label;
-    wxPoint pos;
-    std::string hitUuid;
-    if (m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label, pos, &hitUuid)) {
-        event.Skip();
-        return;
-    }
-
+    const bool fixturePageActive =
+        FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage();
     const auto& scene = ConfigManager::Get().GetScene();
-    if (scene.fixtures.empty())
-        return;
-
     std::set<std::string> typeNames;
     std::set<std::string> positionNames;
     bool hasNoPosition = false;
-    for (const auto& [uuid, fixture] : scene.fixtures) {
-        if (!fixture.typeName.empty())
-            typeNames.insert(fixture.typeName);
-        if (fixture.positionName.empty())
-            hasNoPosition = true;
-        else
-            positionNames.insert(fixture.positionName);
+    bool showSelectionSubmenus = false;
+    if (fixturePageActive && !scene.fixtures.empty()) {
+        SetCurrent(*m_glContext);
+        wxString label;
+        wxPoint pos;
+        std::string hitUuid;
+        if (!m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label, pos,
+                                            &hitUuid)) {
+            for (const auto& [uuid, fixture] : scene.fixtures) {
+                if (!fixture.typeName.empty())
+                    typeNames.insert(fixture.typeName);
+                if (fixture.positionName.empty())
+                    hasNoPosition = true;
+                else
+                    positionNames.insert(fixture.positionName);
+            }
+            showSelectionSubmenus = true;
+        }
     }
 
     wxMenu rootMenu;
     auto typeSubmenu = std::make_unique<wxMenu>();
     auto positionSubmenu = std::make_unique<wxMenu>();
+    auto renderStyleSubmenu = std::make_unique<wxMenu>();
     auto renderModeSubmenu = std::make_unique<wxMenu>();
 
     constexpr int kSelectTypeAllId = wxID_HIGHEST + 900;
     constexpr int kSelectTypeBaseId = wxID_HIGHEST + 901;
     constexpr int kSelectPositionNoneId = wxID_HIGHEST + 1100;
     constexpr int kSelectPositionBaseId = wxID_HIGHEST + 1101;
-    constexpr int kRenderModeWireframeId = wxID_HIGHEST + 1300;
-    constexpr int kRenderModeWhiteId = wxID_HIGHEST + 1301;
-    constexpr int kRenderModeByFixtureTypeId = wxID_HIGHEST + 1302;
+    constexpr int kRenderStyleStandardId = wxID_HIGHEST + 1200;
+    constexpr int kRenderStyleWhiteModelId = wxID_HIGHEST + 1201;
+    constexpr int kRenderStyleTexturedId = wxID_HIGHEST + 1202;
+    constexpr int kRenderModeSolidId = wxID_HIGHEST + 1300;
+    constexpr int kRenderModeWireframeId = wxID_HIGHEST + 1301;
+    constexpr int kRenderModeByDeviceTypeId = wxID_HIGHEST + 1302;
     constexpr int kRenderModeByLayerId = wxID_HIGHEST + 1303;
     constexpr int kRenderModeByUniverseId = wxID_HIGHEST + 1304;
 
@@ -848,63 +878,101 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
         positionSubmenu->Append(nextPositionId++, wxString::FromUTF8(positionName));
     }
 
-    renderModeSubmenu->AppendRadioItem(kRenderModeWireframeId, "Wireframe");
-    renderModeSubmenu->AppendRadioItem(kRenderModeWhiteId, "White");
-    renderModeSubmenu->AppendRadioItem(kRenderModeByFixtureTypeId, "By fixture type");
-    renderModeSubmenu->AppendRadioItem(kRenderModeByLayerId, "By layer");
-    renderModeSubmenu->AppendRadioItem(kRenderModeByUniverseId, "By universe");
-    const Viewer2DRenderMode activeRenderMode = ResolveViewerRenderModePreference();
-    switch (activeRenderMode) {
-        case Viewer2DRenderMode::Wireframe:
-            renderModeSubmenu->Check(kRenderModeWireframeId, true);
+    renderStyleSubmenu->AppendRadioItem(kRenderStyleStandardId, "Standard");
+    renderStyleSubmenu->AppendRadioItem(kRenderStyleWhiteModelId, "White model");
+    renderStyleSubmenu->AppendRadioItem(kRenderStyleTexturedId, "Textured");
+    const Viewer3DRenderStyle activeRenderStyle = ResolveRenderStyleFromPreferences();
+    switch (activeRenderStyle) {
+        case Viewer3DRenderStyle::WhiteModel:
+            renderStyleSubmenu->Check(kRenderStyleWhiteModelId, true);
             break;
-        case Viewer2DRenderMode::ByFixtureType:
-            renderModeSubmenu->Check(kRenderModeByFixtureTypeId, true);
+        case Viewer3DRenderStyle::Textured:
+            renderStyleSubmenu->Check(kRenderStyleTexturedId, true);
             break;
-        case Viewer2DRenderMode::ByLayer:
-            renderModeSubmenu->Check(kRenderModeByLayerId, true);
-            break;
-        case Viewer2DRenderMode::ByUniverse:
-            renderModeSubmenu->Check(kRenderModeByUniverseId, true);
-            break;
-        case Viewer2DRenderMode::White:
+        case Viewer3DRenderStyle::Standard:
         default:
-            renderModeSubmenu->Check(kRenderModeWhiteId, true);
+            renderStyleSubmenu->Check(kRenderStyleStandardId, true);
             break;
     }
 
-    rootMenu.AppendSubMenu(typeSubmenu.release(), "Select by fixture type");
-    rootMenu.AppendSubMenu(positionSubmenu.release(), "Select by position");
-    rootMenu.AppendSeparator();
+    renderModeSubmenu->AppendRadioItem(kRenderModeSolidId, "Solid");
+    renderModeSubmenu->AppendRadioItem(kRenderModeWireframeId, "Wireframe");
+    renderModeSubmenu->AppendRadioItem(kRenderModeByDeviceTypeId, "By device type");
+    renderModeSubmenu->AppendRadioItem(kRenderModeByLayerId, "By layer");
+    renderModeSubmenu->AppendRadioItem(kRenderModeByUniverseId, "By universe");
+    const Viewer3DViewportRenderMode activeRenderMode = ResolveViewer3DRenderModePreference();
+    switch (activeRenderMode) {
+        case Viewer3DViewportRenderMode::Wireframe:
+            renderModeSubmenu->Check(kRenderModeWireframeId, true);
+            break;
+        case Viewer3DViewportRenderMode::ByDeviceType:
+            renderModeSubmenu->Check(kRenderModeByDeviceTypeId, true);
+            break;
+        case Viewer3DViewportRenderMode::ByLayer:
+            renderModeSubmenu->Check(kRenderModeByLayerId, true);
+            break;
+        case Viewer3DViewportRenderMode::ByUniverse:
+            renderModeSubmenu->Check(kRenderModeByUniverseId, true);
+            break;
+        case Viewer3DViewportRenderMode::Solid:
+        default:
+            renderModeSubmenu->Check(kRenderModeSolidId, true);
+            break;
+    }
+
+    if (showSelectionSubmenus) {
+        rootMenu.AppendSubMenu(typeSubmenu.release(), "Select by fixture type");
+        rootMenu.AppendSubMenu(positionSubmenu.release(), "Select by position");
+        rootMenu.AppendSeparator();
+    }
+    rootMenu.AppendSubMenu(renderStyleSubmenu.release(), "Render style");
     rootMenu.AppendSubMenu(renderModeSubmenu.release(), "Render mode");
 
     const int selectedId = GetPopupMenuSelectionFromUser(rootMenu, event.GetPosition());
     if (selectedId == wxID_NONE)
         return;
 
-    auto applyRenderModeSelection = [this](Viewer2DRenderMode mode) {
-        ConfigManager::Get().SetFloat("view2d_render_mode", static_cast<float>(mode));
+    auto applyRenderStyleSelection = [this](Viewer3DRenderStyle style) {
+        ConfigManager::Get().SetValue("viewer3d_render_style", ToConfigValue(style));
         Refresh();
     };
 
+    if (selectedId == kRenderStyleStandardId) {
+        applyRenderStyleSelection(Viewer3DRenderStyle::Standard);
+        return;
+    }
+    if (selectedId == kRenderStyleWhiteModelId) {
+        applyRenderStyleSelection(Viewer3DRenderStyle::WhiteModel);
+        return;
+    }
+    if (selectedId == kRenderStyleTexturedId) {
+        applyRenderStyleSelection(Viewer3DRenderStyle::Textured);
+        return;
+    }
+
+    auto applyRenderModeSelection = [this](Viewer3DViewportRenderMode mode) {
+        ConfigManager::Get().SetFloat("viewer3d_render_mode", static_cast<float>(mode));
+        Refresh();
+    };
+
+    if (selectedId == kRenderModeSolidId) {
+        applyRenderModeSelection(Viewer3DViewportRenderMode::Solid);
+        return;
+    }
     if (selectedId == kRenderModeWireframeId) {
-        applyRenderModeSelection(Viewer2DRenderMode::Wireframe);
+        applyRenderModeSelection(Viewer3DViewportRenderMode::Wireframe);
         return;
     }
-    if (selectedId == kRenderModeWhiteId) {
-        applyRenderModeSelection(Viewer2DRenderMode::White);
-        return;
-    }
-    if (selectedId == kRenderModeByFixtureTypeId) {
-        applyRenderModeSelection(Viewer2DRenderMode::ByFixtureType);
+    if (selectedId == kRenderModeByDeviceTypeId) {
+        applyRenderModeSelection(Viewer3DViewportRenderMode::ByDeviceType);
         return;
     }
     if (selectedId == kRenderModeByLayerId) {
-        applyRenderModeSelection(Viewer2DRenderMode::ByLayer);
+        applyRenderModeSelection(Viewer3DViewportRenderMode::ByLayer);
         return;
     }
     if (selectedId == kRenderModeByUniverseId) {
-        applyRenderModeSelection(Viewer2DRenderMode::ByUniverse);
+        applyRenderModeSelection(Viewer3DViewportRenderMode::ByUniverse);
         return;
     }
 
