@@ -22,10 +22,110 @@
 #include "gdtfloader.h"
 #include "projectutils.h"
 #include "gdtf_fixture_category.h"
+#include "symbolcache.h"
+#include "symbols/PerastageSvgSymbol.h"
 #include "viewer3dpanel.h"
 #include <wx/filedlg.h>
 #include <wx/filename.h>
 #include <wx/clrpicker.h>
+#include <wx/dcbuffer.h>
+#include <wx/graphics.h>
+#include <wx/mstream.h>
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
+#include <tinyxml2.h>
+#include <unordered_map>
+#include <set>
+#include <cmath>
+#include <memory>
+
+namespace {
+
+bool ParseFloatOrDefault(const wxString &text, float &out) {
+  double parsed = 0.0;
+  if (!text.ToDouble(&parsed))
+    return false;
+  out = static_cast<float>(parsed);
+  return true;
+}
+
+bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
+  if (gdtfPath.empty())
+    return false;
+
+  wxFileInputStream input(wxString::FromUTF8(gdtfPath));
+  if (!input.IsOk())
+    return false;
+
+  wxZipInputStream zipInput(input);
+  std::unique_ptr<wxZipEntry> entry;
+  std::unordered_map<std::string, std::string> entries;
+  while ((entry.reset(zipInput.GetNextEntry())), entry) {
+    wxString name = entry->GetName();
+    std::string content;
+    char buffer[4096];
+    while (true) {
+      zipInput.Read(buffer, sizeof(buffer));
+      size_t count = zipInput.LastRead();
+      if (count == 0)
+        break;
+      content.append(buffer, buffer + count);
+    }
+    entries.emplace(std::string(name.ToUTF8()), std::move(content));
+  }
+
+  auto descriptionIt = entries.find("description.xml");
+  if (descriptionIt == entries.end())
+    return false;
+
+  tinyxml2::XMLDocument doc;
+  if (doc.Parse(descriptionIt->second.c_str(), descriptionIt->second.size()) !=
+      tinyxml2::XML_SUCCESS) {
+    return false;
+  }
+
+  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
+  if (fixtureType)
+    fixtureType = fixtureType->FirstChildElement("FixtureType");
+  else
+    fixtureType = doc.FirstChildElement("FixtureType");
+  if (!fixtureType)
+    return false;
+
+  const char *thumbnailAttr = fixtureType->Attribute("Thumbnail");
+  std::string thumbnailBase = thumbnailAttr ? thumbnailAttr : "";
+
+  std::vector<std::string> candidates;
+  if (!thumbnailBase.empty()) {
+    candidates.push_back(thumbnailBase);
+    candidates.push_back(thumbnailBase + ".png");
+    candidates.push_back(thumbnailBase + ".jpg");
+    candidates.push_back(thumbnailBase + ".jpeg");
+    candidates.push_back("thumbnails/" + thumbnailBase + ".png");
+    candidates.push_back("thumbnails/" + thumbnailBase + ".jpg");
+    candidates.push_back("thumbnails/" + thumbnailBase + ".jpeg");
+  }
+  candidates.push_back("thumbnail.png");
+  candidates.push_back("thumbnail.jpg");
+  candidates.push_back("thumbnail.jpeg");
+
+  for (const auto &candidate : candidates) {
+    auto it = entries.find(candidate);
+    if (it == entries.end())
+      continue;
+    wxMemoryInputStream stream(it->second.data(), it->second.size());
+    wxImage image;
+    if (!image.LoadFile(stream, wxBITMAP_TYPE_ANY))
+      continue;
+    if (image.GetWidth() > 220 || image.GetHeight() > 150)
+      image.Rescale(220, 150, wxIMAGE_QUALITY_HIGH);
+    outBitmap = wxBitmap(image);
+    return outBitmap.IsOk();
+  }
+  return false;
+}
+
+} // namespace
 
 FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     : wxDialog(p, wxID_ANY, "Edit Fixture", wxDefaultPosition,
@@ -33,8 +133,14 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       panel(p), row(r) {
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   wxBoxSizer *hSizer = new wxBoxSizer(wxHORIZONTAL);
-  wxFlexGridSizer *grid = new wxFlexGridSizer(2, 5, 5);
-  grid->AddGrowableCol(1, 1);
+  wxStaticBoxSizer *fixtureSpecificSizer =
+      new wxStaticBoxSizer(wxVERTICAL, this, "Fixture-specific");
+  wxStaticBoxSizer *gdtfGeneralSizer =
+      new wxStaticBoxSizer(wxVERTICAL, this, "GDTF (shared for this fixture type)");
+  wxFlexGridSizer *fixtureGrid = new wxFlexGridSizer(2, 5, 5);
+  fixtureGrid->AddGrowableCol(1, 1);
+  wxFlexGridSizer *gdtfGrid = new wxFlexGridSizer(2, 5, 5);
+  gdtfGrid->AddGrowableCol(1, 1);
 
   auto *table = panel->table; // friend access
   ctrls.resize(panel->columnLabels.size(), nullptr);
@@ -43,11 +149,23 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   table->GetValue(initType, row, 2);
   originalType = initType.GetString();
 
+  const std::set<size_t> gdtfColumns = {2, 7, 8, 9, 16, 17, 18};
+  auto addLabeledControl = [&](size_t index, wxWindow *controlWindow,
+                               wxSizer *nestedSizer, bool isGdtfField) {
+    wxFlexGridSizer *targetGrid = isGdtfField ? gdtfGrid : fixtureGrid;
+    targetGrid->Add(new wxStaticText(this, wxID_ANY, panel->columnLabels[index]), 0,
+                    wxALIGN_CENTER_VERTICAL);
+    if (nestedSizer)
+      targetGrid->Add(nestedSizer, 1, wxEXPAND);
+    else
+      targetGrid->Add(controlWindow, 1, wxEXPAND);
+  };
+
   for (size_t i = 0; i < panel->columnLabels.size(); ++i) {
-    grid->Add(new wxStaticText(this, wxID_ANY, panel->columnLabels[i]), 0,
-              wxALIGN_CENTER_VERTICAL);
     wxVariant v;
     table->GetValue(v, row, i);
+    wxWindow *controlWindow = nullptr;
+    wxSizer *nestedSizer = nullptr;
     if (i == 7) {
       wxString gdtfPath;
       if ((size_t)row < panel->gdtfPaths.size())
@@ -60,13 +178,13 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       if (sel != wxNOT_FOUND)
         modeChoice->SetSelection(sel);
       ctrls[i] = modeChoice;
-      grid->Add(modeChoice, 1, wxEXPAND);
+      controlWindow = modeChoice;
     } else if (i == 8) {
       chCountCtrl =
           new wxTextCtrl(this, wxID_ANY, v.GetString(), wxDefaultPosition,
                          wxDefaultSize, wxTE_READONLY);
       ctrls[i] = chCountCtrl;
-      grid->Add(chCountCtrl, 1, wxEXPAND);
+      controlWindow = chCountCtrl;
     } else if (i == 9) {
       wxBoxSizer *hs = new wxBoxSizer(wxHORIZONTAL);
       modelCtrl = new wxTextCtrl(this, wxID_ANY);
@@ -77,7 +195,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       hs->Add(browse, 0);
       browse->Bind(wxEVT_BUTTON, &FixtureEditDialog::OnBrowse, this);
       ctrls[i] = modelCtrl;
-      grid->Add(hs, 1, wxEXPAND);
+      nestedSizer = hs;
     } else if (i == 18) {
       auto *category = new wxChoice(this, wxID_ANY);
       const wxArrayString values = {
@@ -90,7 +208,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       if (selection != wxNOT_FOUND)
         category->SetSelection(selection);
       ctrls[i] = category;
-      grid->Add(category, 1, wxEXPAND);
+      controlWindow = category;
     } else if (i == 19) {
       wxString colorString;
       if (v.GetType() == "wxDataViewIconText") {
@@ -105,19 +223,64 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
         initial = *wxWHITE;
       auto *picker = new wxColourPickerCtrl(this, wxID_ANY, initial);
       ctrls[i] = picker;
-      grid->Add(picker, 1, wxEXPAND);
+      controlWindow = picker;
     } else {
       wxTextCtrl *tc = new wxTextCtrl(this, wxID_ANY, v.GetString());
       ctrls[i] = tc;
-      grid->Add(tc, 1, wxEXPAND);
+      controlWindow = tc;
     }
+    addLabeledControl(i, controlWindow, nestedSizer, gdtfColumns.count(i) > 0);
   }
 
-  hSizer->Add(grid, 1, wxALL | wxEXPAND, 10);
+  if (ctrls.size() > 16) {
+    if (auto *powerCtrl = wxDynamicCast(ctrls[16], wxTextCtrl))
+      ParseFloatOrDefault(powerCtrl->GetValue(), originalPowerW);
+  }
+  if (ctrls.size() > 17) {
+    if (auto *weightCtrl = wxDynamicCast(ctrls[17], wxTextCtrl))
+      ParseFloatOrDefault(weightCtrl->GetValue(), originalWeightKg);
+  }
+
+  fixtureSpecificSizer->Add(fixtureGrid, 1, wxEXPAND | wxALL, 6);
+  gdtfGeneralSizer->Add(gdtfGrid, 1, wxEXPAND | wxALL, 6);
+  gdtfGeneralSizer->Add(
+      new wxStaticText(this, wxID_ANY,
+                       "Changes in this column update the GDTF file and append a GDTF revision entry."),
+      0, wxLEFT | wxRIGHT | wxBOTTOM, 6);
+
+  wxBoxSizer *formSizer = new wxBoxSizer(wxHORIZONTAL);
+  formSizer->Add(fixtureSpecificSizer, 1, wxRIGHT | wxEXPAND, 8);
+  formSizer->Add(gdtfGeneralSizer, 1, wxLEFT | wxEXPAND, 8);
+  hSizer->Add(formSizer, 2, wxALL | wxEXPAND, 10);
 
   wxBoxSizer *rightSizer = new wxBoxSizer(wxVERTICAL);
   preview = new FixturePreviewPanel(this);
   rightSizer->Add(preview, 1, wxEXPAND | wxBOTTOM, 5);
+
+  wxStaticBoxSizer *symbolSizer =
+      new wxStaticBoxSizer(wxHORIZONTAL, this, "Symbols");
+  const std::array<wxString, 3> symbolLabels = {"Top", "Front", "Side"};
+  for (size_t i = 0; i < symbolPanels.size(); ++i) {
+    wxBoxSizer *symbolColumn = new wxBoxSizer(wxVERTICAL);
+    symbolColumn->Add(new wxStaticText(this, wxID_ANY, symbolLabels[i]), 0,
+                      wxALIGN_CENTER_HORIZONTAL | wxBOTTOM, 3);
+    symbolPanels[i] = new wxPanel(this, wxID_ANY, wxDefaultPosition,
+                                  wxSize(90, 70), wxBORDER_SIMPLE);
+    symbolPanels[i]->SetBackgroundStyle(wxBG_STYLE_PAINT);
+    symbolPanels[i]->Bind(wxEVT_PAINT, &FixtureEditDialog::OnSymbolPreviewPaint,
+                          this);
+    symbolColumn->Add(symbolPanels[i], 1, wxEXPAND);
+    symbolSizer->Add(symbolColumn, 1, wxEXPAND | wxRIGHT, i < 2 ? 6 : 0);
+  }
+  rightSizer->Add(symbolSizer, 0, wxEXPAND | wxBOTTOM, 5);
+
+  wxStaticBoxSizer *imageSizer =
+      new wxStaticBoxSizer(wxVERTICAL, this, "Fixture image");
+  fixtureImagePreview =
+      new wxStaticBitmap(this, wxID_ANY, wxBitmap(220, 150));
+  imageSizer->Add(fixtureImagePreview, 0, wxALIGN_CENTER | wxALL, 4);
+  rightSizer->Add(imageSizer, 0, wxEXPAND | wxBOTTOM, 5);
+
   channelList = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
                                wxSize(-1, 150), wxTE_MULTILINE | wxTE_READONLY);
   rightSizer->Add(channelList, 1, wxEXPAND);
@@ -140,10 +303,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
 
   SetSizerAndFit(topSizer);
   UpdateChannels();
-  if (preview) {
-    wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
-    preview->LoadFixture(std::string(gdtfPath.ToUTF8()));
-  }
+  UpdateVisualizers();
 }
 
 void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
@@ -183,9 +343,114 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
       modeChoice->SetSelection(0);
   }
   UpdateChannels();
+  UpdateVisualizers();
 }
 
 void FixtureEditDialog::OnModeChanged(wxCommandEvent &) { UpdateChannels(); }
+
+void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
+  wxPanel *panelWindow = wxDynamicCast(evt.GetEventObject(), wxPanel);
+  if (!panelWindow)
+    return;
+
+  int panelIndex = -1;
+  for (size_t i = 0; i < symbolPanels.size(); ++i) {
+    if (symbolPanels[i] == panelWindow) {
+      panelIndex = static_cast<int>(i);
+      break;
+    }
+  }
+  if (panelIndex < 0)
+    return;
+
+  wxAutoBufferedPaintDC dc(panelWindow);
+  dc.SetBackground(*wxWHITE_BRUSH);
+  dc.Clear();
+
+  if (!symbolAvailability[panelIndex]) {
+    dc.SetTextForeground(*wxLIGHT_GREY);
+    dc.DrawLabel("N/A", panelWindow->GetClientRect(), wxALIGN_CENTER);
+    return;
+  }
+
+  wxGraphicsContext *gc = wxGraphicsContext::Create(dc);
+  if (!gc)
+    return;
+
+  const PerastageSvgSymbolData &svg = symbolData[panelIndex];
+  wxRect rect = panelWindow->GetClientRect();
+  const double scale = std::min(
+      (rect.GetWidth() - 8.0) / std::max(1.0, svg.viewBoxWidth),
+      (rect.GetHeight() - 8.0) / std::max(1.0, svg.viewBoxHeight));
+  const double originX = rect.GetX() + (rect.GetWidth() - svg.viewBoxWidth * scale) * 0.5;
+  const double originY = rect.GetY() + (rect.GetHeight() - svg.viewBoxHeight * scale) * 0.5;
+
+  gc->SetPen(wxPen(*wxBLACK, 1));
+  gc->SetBrush(*wxWHITE_BRUSH);
+  gc->DrawRectangle(rect.GetX(), rect.GetY(), rect.GetWidth(), rect.GetHeight());
+  gc->SetBrush(*wxBLACK_BRUSH);
+  for (const auto &poly : svg.fills) {
+    if (poly.points.size() < 3)
+      continue;
+    wxGraphicsPath path = gc->CreatePath();
+    path.MoveToPoint(originX + poly.points[0].x * scale,
+                     originY + poly.points[0].y * scale);
+    for (size_t i = 1; i < poly.points.size(); ++i)
+      path.AddLineToPoint(originX + poly.points[i].x * scale,
+                          originY + poly.points[i].y * scale);
+    path.CloseSubpath();
+    gc->FillPath(path);
+  }
+  gc->SetPen(wxPen(*wxBLACK, 1));
+  for (const auto &line : svg.strokes) {
+    if (line.points.size() < 2)
+      continue;
+    wxGraphicsPath path = gc->CreatePath();
+    path.MoveToPoint(originX + line.points[0].x * scale,
+                     originY + line.points[0].y * scale);
+    for (size_t i = 1; i < line.points.size(); ++i)
+      path.AddLineToPoint(originX + line.points[i].x * scale,
+                          originY + line.points[i].y * scale);
+    gc->StrokePath(path);
+  }
+  delete gc;
+}
+
+void FixtureEditDialog::UpdateVisualizers() {
+  const wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  const std::string path = std::string(gdtfPath.ToUTF8());
+  const std::array<SymbolViewKind, 3> views = {SymbolViewKind::Top,
+                                                SymbolViewKind::Front,
+                                                SymbolViewKind::Left};
+  for (size_t i = 0; i < views.size(); ++i) {
+    PerastageSvgSymbolData loaded;
+    symbolAvailability[i] =
+        LoadPerastageSvgSymbolFromGdtf(path, views[i], loaded);
+    if (symbolAvailability[i])
+      symbolData[i] = std::move(loaded);
+    if (symbolPanels[i])
+      symbolPanels[i]->Refresh();
+  }
+
+  if (fixtureImagePreview) {
+    wxBitmap image;
+    if (LoadGdtfThumbnail(path, image)) {
+      fixtureImagePreview->SetBitmap(image);
+      fixtureImagePreview->SetToolTip("");
+    } else {
+      wxBitmap fallback(220, 150);
+      wxMemoryDC dc(fallback);
+      dc.SetBackground(*wxLIGHT_GREY_BRUSH);
+      dc.Clear();
+      dc.SetTextForeground(*wxBLACK);
+      dc.DrawLabel("No image", wxRect(0, 0, 220, 150), wxALIGN_CENTER);
+      dc.SelectObject(wxNullBitmap);
+      fixtureImagePreview->SetBitmap(fallback);
+      fixtureImagePreview->SetToolTip("No thumbnail image found in this GDTF.");
+    }
+    Layout();
+  }
+}
 
 void FixtureEditDialog::UpdateChannels() {
   wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
@@ -298,6 +563,28 @@ void FixtureEditDialog::ApplyChanges() {
     }
   }
   if (!gdtfPath.empty()) {
+    if (ctrls.size() > 17) {
+      float newPowerW = originalPowerW;
+      float newWeightKg = originalWeightKg;
+      if (auto *powerCtrl = wxDynamicCast(ctrls[16], wxTextCtrl))
+        ParseFloatOrDefault(powerCtrl->GetValue(), newPowerW);
+      if (auto *weightCtrl = wxDynamicCast(ctrls[17], wxTextCtrl))
+        ParseFloatOrDefault(weightCtrl->GetValue(), newWeightKg);
+      const bool gdtfPhysicalChanged =
+          std::fabs(newPowerW - originalPowerW) > 0.01f ||
+          std::fabs(newWeightKg - originalWeightKg) > 0.01f;
+      if (gdtfPhysicalChanged &&
+          !SetGdtfProperties(std::string(gdtfPath.ToUTF8()), newWeightKg,
+                             newPowerW, "Perastage")) {
+        wxMessageBox(
+            "Could not update GDTF physical properties (Weight/PowerConsumption).",
+            "GDTF update", wxOK | wxICON_WARNING, this);
+      } else if (gdtfPhysicalChanged) {
+        originalPowerW = newPowerW;
+        originalWeightKg = newWeightKg;
+      }
+    }
+
     std::string mode =
         modeChoice ? std::string(modeChoice->GetStringSelection().ToUTF8()) :
                      std::string();

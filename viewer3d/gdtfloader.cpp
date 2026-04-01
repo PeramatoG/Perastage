@@ -1529,3 +1529,129 @@ bool SetGdtfModelColor(const std::string& gdtfPath,
     bool ok = ZipDir(extraction.Path(), gdtfPath);
     return ok;
 }
+
+namespace {
+
+std::string BuildGdtfIsoTimestampUtc()
+{
+    using Clock = std::chrono::system_clock;
+    const auto now = Clock::now();
+    const std::time_t nowTime = Clock::to_time_t(now);
+
+    std::tm utcTm{};
+#if defined(_WIN32)
+    gmtime_s(&utcTm, &nowTime);
+#else
+    gmtime_r(&nowTime, &utcTm);
+#endif
+
+    std::ostringstream stamp;
+    stamp << std::put_time(&utcTm, "%Y-%m-%dT%H:%M:%SZ");
+    return stamp.str();
+}
+
+void AppendGdtfRevision(tinyxml2::XMLElement* fixtureType,
+                        tinyxml2::XMLDocument& doc,
+                        const std::string& text,
+                        const std::string& modifiedByProgram)
+{
+    if (!fixtureType)
+        return;
+
+    tinyxml2::XMLElement* revisions = fixtureType->FirstChildElement("Revisions");
+    if (!revisions) {
+        revisions = doc.NewElement("Revisions");
+        fixtureType->InsertEndChild(revisions);
+    }
+
+    tinyxml2::XMLElement* revision = doc.NewElement("Revision");
+    revision->SetAttribute("Date", BuildGdtfIsoTimestampUtc().c_str());
+    revision->SetAttribute("Text", text.c_str());
+    revision->SetAttribute("ModifiedBy",
+                           modifiedByProgram.empty() ? "Perastage" : modifiedByProgram.c_str());
+    revision->SetAttribute("UserID", 0);
+    revisions->InsertEndChild(revision);
+    fixtureType->SetAttribute("Editor", "Perastage");
+}
+
+tinyxml2::XMLElement* EnsurePropertiesNode(tinyxml2::XMLElement* fixtureType,
+                                           tinyxml2::XMLDocument& doc)
+{
+    if (!fixtureType)
+        return nullptr;
+
+    tinyxml2::XMLElement* physicalDescriptions =
+        fixtureType->FirstChildElement("PhysicalDescriptions");
+    if (!physicalDescriptions) {
+        physicalDescriptions = doc.NewElement("PhysicalDescriptions");
+        fixtureType->InsertEndChild(physicalDescriptions);
+    }
+
+    tinyxml2::XMLElement* properties =
+        physicalDescriptions->FirstChildElement("Properties");
+    if (!properties) {
+        properties = doc.NewElement("Properties");
+        physicalDescriptions->InsertEndChild(properties);
+    }
+    return properties;
+}
+
+} // namespace
+
+bool SetGdtfProperties(const std::string& gdtfPath,
+                       float weightKg,
+                       float powerW,
+                       const std::string& modifiedByProgram)
+{
+    if (gdtfPath.empty())
+        return false;
+
+    TempExtraction extraction(gdtfPath);
+    if (!extraction.IsValid())
+        return false;
+
+    const std::string descPath = extraction.Path() + "/description.xml";
+    tinyxml2::XMLDocument doc;
+    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
+        return false;
+
+    tinyxml2::XMLElement* fixtureType = doc.FirstChildElement("GDTF");
+    if (fixtureType)
+        fixtureType = fixtureType->FirstChildElement("FixtureType");
+    else
+        fixtureType = doc.FirstChildElement("FixtureType");
+    if (!fixtureType)
+        return false;
+
+    tinyxml2::XMLElement* properties = EnsurePropertiesNode(fixtureType, doc);
+    if (!properties)
+        return false;
+
+    tinyxml2::XMLElement* weightNode = properties->FirstChildElement("Weight");
+    if (!weightNode) {
+        weightNode = doc.NewElement("Weight");
+        properties->InsertEndChild(weightNode);
+    }
+    weightNode->SetAttribute("Value", wxString::Format("%.3f", weightKg).ToStdString().c_str());
+
+    tinyxml2::XMLElement* powerNode =
+        properties->FirstChildElement("PowerConsumption");
+    if (!powerNode) {
+        powerNode = doc.NewElement("PowerConsumption");
+        properties->InsertEndChild(powerNode);
+    }
+    powerNode->SetAttribute("Value", wxString::Format("%.3f", powerW).ToStdString().c_str());
+
+    AppendGdtfRevision(
+        fixtureType, doc,
+        "Updated fixture physical properties (Weight/PowerConsumption) from Perastage",
+        modifiedByProgram);
+
+    doc.SaveFile(descPath.c_str());
+    if (!ZipDir(extraction.Path(), gdtfPath))
+        return false;
+
+    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+    g_gdtfCache.erase(gdtfPath);
+    return true;
+}

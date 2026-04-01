@@ -21,9 +21,13 @@
 #include <wx/dataview.h>
 #include <vector>
 #include <string>
+#include <array>
+#include "symbols/PerastageSvgSymbol.h"
 
 class FixtureTablePanel;
 class FixturePreviewPanel;
+class wxStaticBitmap;
+class wxPanel;
 
 class FixtureEditDialog : public wxDialog {
 public:
@@ -36,7 +40,9 @@ private:
     void OnCancel(wxCommandEvent& evt);
     void OnBrowse(wxCommandEvent& evt);
     void OnModeChanged(wxCommandEvent& evt);
+    void OnSymbolPreviewPaint(wxPaintEvent& evt);
     void UpdateChannels();
+    void UpdateVisualizers();
     void ApplyChanges();
 
     FixtureTablePanel* panel;
@@ -47,7 +53,12 @@ private:
     wxTextCtrl* modelCtrl = nullptr;
     wxTextCtrl* channelList = nullptr;
     FixturePreviewPanel* preview = nullptr;
+    wxStaticBitmap* fixtureImagePreview = nullptr;
+    std::array<wxPanel*, 3> symbolPanels{};
+    std::array<bool, 3> symbolAvailability{};
+    std::array<PerastageSvgSymbolData, 3> symbolData{};
     bool applied = false;
     wxString originalType;
+    float originalPowerW = 0.0f;
+    float originalWeightKg = 0.0f;
 };
-

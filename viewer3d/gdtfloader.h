@@ -119,3 +119,10 @@ std::string GetGdtfModelColor(const std::string& gdtfPath);
 // success.
 bool SetGdtfModelColor(const std::string& gdtfPath,
                        const std::string& hexColor);
+
+// Updates Weight/PowerConsumption values in description.xml and appends a
+// revision entry with timestamp and modifier metadata.
+bool SetGdtfProperties(const std::string& gdtfPath,
+                       float weightKg,
+                       float powerW,
+                       const std::string& modifiedByProgram);
