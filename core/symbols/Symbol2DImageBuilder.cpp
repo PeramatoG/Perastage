@@ -99,6 +99,38 @@ Point2D PolygonProbePoint(const Polyline2D &polygon) {
   return probe;
 }
 
+Point2D FindInteriorProbePoint(const Polyline2D &polygon) {
+  if (polygon.empty())
+    return {};
+
+  float minX = polygon.front().x;
+  float minY = polygon.front().y;
+  float maxX = polygon.front().x;
+  float maxY = polygon.front().y;
+  for (const auto &p : polygon) {
+    minX = std::min(minX, p.x);
+    minY = std::min(minY, p.y);
+    maxX = std::max(maxX, p.x);
+    maxY = std::max(maxY, p.y);
+  }
+
+  const int x0 = static_cast<int>(std::floor(minX));
+  const int x1 = static_cast<int>(std::ceil(maxX));
+  const int y0 = static_cast<int>(std::floor(minY));
+  const int y1 = static_cast<int>(std::ceil(maxY));
+
+  for (int y = y0; y <= y1; ++y) {
+    for (int x = x0; x <= x1; ++x) {
+      const Point2D candidate{static_cast<float>(x) + 0.5f,
+                              static_cast<float>(y) + 0.5f};
+      if (PointInPolygon(candidate, polygon))
+        return candidate;
+    }
+  }
+
+  return PolygonProbePoint(polygon);
+}
+
 int PixelIndex(const PixelMask &mask, int x, int y) {
   return y * mask.width + x;
 }
@@ -207,6 +239,52 @@ PixelMask BuildLineMask(const RenderedSymbolImage &render,
   return mask;
 }
 
+void CloseMaskGaps(PixelMask &mask, int maxGapPixels) {
+  if (maxGapPixels <= 0 || mask.width <= 0 || mask.height <= 0)
+    return;
+
+  const auto closeDirectionalRuns = [&](int dx, int dy) {
+    std::vector<std::pair<int, int>> toFill;
+    for (int y = 0; y < mask.height; ++y) {
+      for (int x = 0; x < mask.width; ++x) {
+        const int px = x - dx;
+        const int py = y - dy;
+        if (mask.InBounds(px, py))
+          continue;
+
+        int cx = x;
+        int cy = y;
+        int distanceFromFilled = -1;
+        std::vector<std::pair<int, int>> gapCells;
+        while (mask.InBounds(cx, cy)) {
+          if (mask.Get(cx, cy)) {
+            if (distanceFromFilled >= 0 && distanceFromFilled <= maxGapPixels)
+              toFill.insert(toFill.end(), gapCells.begin(), gapCells.end());
+            distanceFromFilled = 0;
+            gapCells.clear();
+          } else if (distanceFromFilled >= 0) {
+            ++distanceFromFilled;
+            if (distanceFromFilled <= maxGapPixels)
+              gapCells.emplace_back(cx, cy);
+            else
+              gapCells.clear();
+          }
+          cx += dx;
+          cy += dy;
+        }
+      }
+    }
+
+    for (const auto &[x, y] : toFill)
+      mask.Get(x, y) = 1;
+  };
+
+  closeDirectionalRuns(1, 0);
+  closeDirectionalRuns(0, 1);
+  closeDirectionalRuns(1, 1);
+  closeDirectionalRuns(1, -1);
+}
+
 std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
   const int w = fillMask.width;
   const int h = fillMask.height;
@@ -293,7 +371,7 @@ std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
     infos.push_back(LoopInfo{std::move(loop), std::abs(SignedArea(loop))});
 
   for (size_t i = 0; i < infos.size(); ++i) {
-    const Point2D probe = PolygonProbePoint(infos[i].polygon);
+    const Point2D probe = FindInteriorProbePoint(infos[i].polygon);
     int depth = 0;
     int owner = -1;
     float ownerArea = std::numeric_limits<float>::max();
@@ -559,6 +637,8 @@ Symbol2DImageBuilder::BuildFromRenderedImages(
 
     PixelMask fillMask = BuildFillMask(render, params);
     PixelMask lineMask = BuildLineMask(render, params);
+    CloseMaskGaps(fillMask, params.fillGapClosurePixels);
+    CloseMaskGaps(lineMask, params.lineGapClosurePixels);
     ThinZhangSuen(lineMask);
 
     Symbol2D symbol;

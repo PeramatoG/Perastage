@@ -19,6 +19,8 @@ struct ImageBuildParams {
   unsigned char lineAlphaThreshold = 1;
   unsigned char backgroundTolerance = 18;
   unsigned char blackThreshold = 80;
+  int fillGapClosurePixels = 1;
+  int lineGapClosurePixels = 1;
   int minStrokePixels = 6;
 };
 
