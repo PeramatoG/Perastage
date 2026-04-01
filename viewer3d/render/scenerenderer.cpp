@@ -262,12 +262,12 @@ void SceneRenderer::DrawMeshWithOutline(
         DrawMesh(mesh, scale, modelMatrix);
       } else if (useColorFillInWhiteStyle) {
         const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
-        if (!fillLightingWasEnabled)
-          glEnable(GL_LIGHTING);
+        if (fillLightingWasEnabled)
+          glDisable(GL_LIGHTING);
         m_controller.SetGLColor(r, g, b);
         DrawMesh(mesh, scale, modelMatrix);
-        if (!fillLightingWasEnabled)
-          glDisable(GL_LIGHTING);
+        if (fillLightingWasEnabled)
+          glEnable(GL_LIGHTING);
       } else {
         const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
         if (fillLightingWasEnabled)
