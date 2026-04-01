@@ -16,8 +16,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include "configmanager.h"
-#include "viewer3d_render_style.h"
 
 namespace {
 struct InkColor {
@@ -203,15 +201,6 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
 }
 } // namespace
 
-static bool IsTexturedRenderStyleEnabled() {
-  return IsTexturedRenderStyle(ResolveViewer3DRenderStyle(ConfigManager::Get()));
-}
-
-static bool IsSketchRenderStyleEnabled() {
-  return ResolveViewer3DRenderStyle(ConfigManager::Get()) ==
-         Viewer3DRenderStyle::WhiteModel;
-}
-
 void SceneRenderer::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
     bool selected, float cx, float cy, float cz, bool wireframe,
@@ -306,12 +295,13 @@ void SceneRenderer::DrawMeshWithOutline(
       if (texture2DWhiteModelWasEnabled)
         glDisable(GL_TEXTURE_2D);
       const bool useColorFillInWhiteStyle =
-          !IsSketchRenderStyleEnabled() &&
+          !m_controller.IsSketchRenderStyleEnabled() &&
           (mode == Viewer2DRenderMode::ByFixtureType ||
            mode == Viewer2DRenderMode::ByLayer ||
            mode == Viewer2DRenderMode::ByUniverse);
       const bool usePureWhiteFillInWhiteMode =
-          !IsSketchRenderStyleEnabled() && mode == Viewer2DRenderMode::White;
+          !m_controller.IsSketchRenderStyleEnabled() &&
+          m_controller.IsPureWhiteRenderStyleEnabled();
       // Keep 3D white-model aligned with the 2D viewer draw order:
       // stroke pass first, then polygon-offset fill pass.
       const LineRenderProfile lineProfile =
@@ -379,11 +369,12 @@ void SceneRenderer::DrawMeshWithOutline(
       if (texture2DWhiteModelWasEnabled)
         glEnable(GL_TEXTURE_2D);
     } else {
-      const bool useTexture = IsTexturedRenderStyleEnabled() &&
+      const bool useTexture = m_controller.IsTexturedRenderStyleEnabled() &&
                               !highlight && !selected &&
                               mesh.textureId != 0 &&
                               mesh.texcoords.size() >= (mesh.vertices.size() / 3u) * 2u;
-      const bool useMaterialColor = IsTexturedRenderStyleEnabled() &&
+      const bool useMaterialColor =
+                                    m_controller.IsTexturedRenderStyleEnabled() &&
                                     !highlight && !selected &&
                                     !useTexture && mesh.hasMaterialBaseColor;
       if (highlight)
