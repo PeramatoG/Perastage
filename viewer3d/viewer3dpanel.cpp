@@ -85,6 +85,24 @@ bool IsFastInteractionModeEnabled()
     return ConfigManager::Get().GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
+Viewer2DRenderMode ResolveViewerRenderModePreference() {
+    const int mode = static_cast<int>(ConfigManager::Get().GetFloat("view2d_render_mode"));
+    switch (mode) {
+        case static_cast<int>(Viewer2DRenderMode::Wireframe):
+            return Viewer2DRenderMode::Wireframe;
+        case static_cast<int>(Viewer2DRenderMode::White):
+            return Viewer2DRenderMode::White;
+        case static_cast<int>(Viewer2DRenderMode::ByFixtureType):
+            return Viewer2DRenderMode::ByFixtureType;
+        case static_cast<int>(Viewer2DRenderMode::ByLayer):
+            return Viewer2DRenderMode::ByLayer;
+        case static_cast<int>(Viewer2DRenderMode::ByUniverse):
+            return Viewer2DRenderMode::ByUniverse;
+        default:
+            return Viewer2DRenderMode::White;
+    }
+}
+
 Viewer3DRenderStyle ResolveRenderStyleFromPreferences() {
     return ResolveViewer3DRenderStyle(ConfigManager::Get());
 }
@@ -545,7 +563,7 @@ void Viewer3DPanel::Render()
     }
 
     m_controller.SetCameraMoving(m_cameraMoving);
-    m_controller.RenderScene();
+    m_controller.RenderScene(false, ResolveViewerRenderModePreference());
 
     glFlush();
 }
@@ -800,11 +818,17 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     wxMenu rootMenu;
     auto typeSubmenu = std::make_unique<wxMenu>();
     auto positionSubmenu = std::make_unique<wxMenu>();
+    auto renderModeSubmenu = std::make_unique<wxMenu>();
 
     constexpr int kSelectTypeAllId = wxID_HIGHEST + 900;
     constexpr int kSelectTypeBaseId = wxID_HIGHEST + 901;
     constexpr int kSelectPositionNoneId = wxID_HIGHEST + 1100;
     constexpr int kSelectPositionBaseId = wxID_HIGHEST + 1101;
+    constexpr int kRenderModeWireframeId = wxID_HIGHEST + 1300;
+    constexpr int kRenderModeWhiteId = wxID_HIGHEST + 1301;
+    constexpr int kRenderModeByFixtureTypeId = wxID_HIGHEST + 1302;
+    constexpr int kRenderModeByLayerId = wxID_HIGHEST + 1303;
+    constexpr int kRenderModeByUniverseId = wxID_HIGHEST + 1304;
 
     typeSubmenu->Append(kSelectTypeAllId, "All fixtures");
     std::vector<std::string> orderedTypes;
@@ -824,12 +848,65 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
         positionSubmenu->Append(nextPositionId++, wxString::FromUTF8(positionName));
     }
 
+    renderModeSubmenu->AppendRadioItem(kRenderModeWireframeId, "Wireframe");
+    renderModeSubmenu->AppendRadioItem(kRenderModeWhiteId, "White");
+    renderModeSubmenu->AppendRadioItem(kRenderModeByFixtureTypeId, "By fixture type");
+    renderModeSubmenu->AppendRadioItem(kRenderModeByLayerId, "By layer");
+    renderModeSubmenu->AppendRadioItem(kRenderModeByUniverseId, "By universe");
+    const Viewer2DRenderMode activeRenderMode = ResolveViewerRenderModePreference();
+    switch (activeRenderMode) {
+        case Viewer2DRenderMode::Wireframe:
+            renderModeSubmenu->Check(kRenderModeWireframeId, true);
+            break;
+        case Viewer2DRenderMode::ByFixtureType:
+            renderModeSubmenu->Check(kRenderModeByFixtureTypeId, true);
+            break;
+        case Viewer2DRenderMode::ByLayer:
+            renderModeSubmenu->Check(kRenderModeByLayerId, true);
+            break;
+        case Viewer2DRenderMode::ByUniverse:
+            renderModeSubmenu->Check(kRenderModeByUniverseId, true);
+            break;
+        case Viewer2DRenderMode::White:
+        default:
+            renderModeSubmenu->Check(kRenderModeWhiteId, true);
+            break;
+    }
+
     rootMenu.AppendSubMenu(typeSubmenu.release(), "Select by fixture type");
     rootMenu.AppendSubMenu(positionSubmenu.release(), "Select by position");
+    rootMenu.AppendSeparator();
+    rootMenu.AppendSubMenu(renderModeSubmenu.release(), "Render mode");
 
     const int selectedId = GetPopupMenuSelectionFromUser(rootMenu, event.GetPosition());
     if (selectedId == wxID_NONE)
         return;
+
+    auto applyRenderModeSelection = [this](Viewer2DRenderMode mode) {
+        ConfigManager::Get().SetFloat("view2d_render_mode", static_cast<float>(mode));
+        Refresh();
+    };
+
+    if (selectedId == kRenderModeWireframeId) {
+        applyRenderModeSelection(Viewer2DRenderMode::Wireframe);
+        return;
+    }
+    if (selectedId == kRenderModeWhiteId) {
+        applyRenderModeSelection(Viewer2DRenderMode::White);
+        return;
+    }
+    if (selectedId == kRenderModeByFixtureTypeId) {
+        applyRenderModeSelection(Viewer2DRenderMode::ByFixtureType);
+        return;
+    }
+    if (selectedId == kRenderModeByLayerId) {
+        applyRenderModeSelection(Viewer2DRenderMode::ByLayer);
+        return;
+    }
+    if (selectedId == kRenderModeByUniverseId) {
+        applyRenderModeSelection(Viewer2DRenderMode::ByUniverse);
+        return;
+    }
 
     if (selectedId == kSelectTypeAllId) {
         ApplyFixtureSelectionToUi(BuildFixtureSelectionByType(scene, ""), this,
