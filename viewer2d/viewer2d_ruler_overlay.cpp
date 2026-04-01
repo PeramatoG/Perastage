@@ -163,10 +163,21 @@ void DrawVerticalRuler(float minV, float maxV, float uAxis,
   glEnd();
 }
 
-CanvasStroke BuildRulerStroke(bool darkMode) {
+bool IsPureBlackOrWhite(const CanvasColor &color) {
+  const bool black = color.r == 0.0f && color.g == 0.0f && color.b == 0.0f;
+  const bool white = color.r == 1.0f && color.g == 1.0f && color.b == 1.0f;
+  return black || white;
+}
+
+CanvasStroke BuildRulerStroke(bool darkMode, const CanvasColor &requestedColor) {
   CanvasStroke stroke;
-  stroke.color = darkMode ? CanvasColor{1.0f, 1.0f, 1.0f, 1.0f}
-                          : CanvasColor{0.0f, 0.0f, 0.0f, 1.0f};
+  if (IsPureBlackOrWhite(requestedColor)) {
+    stroke.color = darkMode ? CanvasColor{1.0f, 1.0f, 1.0f, 1.0f}
+                            : CanvasColor{0.0f, 0.0f, 0.0f, 1.0f};
+  } else {
+    stroke.color = requestedColor;
+    stroke.color.a = 1.0f;
+  }
   stroke.width = 1.0f;
   return stroke;
 }
@@ -174,6 +185,8 @@ CanvasStroke BuildRulerStroke(bool darkMode) {
 struct ActiveRulers {
   float horizontalAxisMeters = 0.0f;
   float verticalAxisMeters = 0.0f;
+  CanvasColor horizontalColor{0.0f, 0.0f, 0.0f, 1.0f};
+  CanvasColor verticalColor{0.0f, 0.0f, 0.0f, 1.0f};
 };
 
 float ResolveVerticalRulerRenderAxisX(const RulerOverlayViewState &state,
@@ -189,13 +202,17 @@ ActiveRulers ResolveActiveRulers(const RulerOverlayViewState &state) {
   switch (state.view) {
   case Viewer2DView::Top:
   case Viewer2DView::Bottom:
-    return {state.xRulerPositionMeters, state.yRulerPositionMeters};
+    return {state.xRulerPositionMeters, state.yRulerPositionMeters,
+            state.xRulerColor, state.yRulerColor};
   case Viewer2DView::Front:
-    return {state.xRulerPositionMeters, state.zRulerPositionMeters};
+    return {state.xRulerPositionMeters, state.zRulerPositionMeters,
+            state.xRulerColor, state.zRulerColor};
   case Viewer2DView::Side:
-    return {state.yRulerPositionMeters, state.zRulerPositionMeters};
+    return {state.yRulerPositionMeters, state.zRulerPositionMeters,
+            state.yRulerColor, state.zRulerColor};
   }
-  return {state.xRulerPositionMeters, state.yRulerPositionMeters};
+  return {state.xRulerPositionMeters, state.yRulerPositionMeters,
+          state.xRulerColor, state.yRulerColor};
 }
 
 std::string FormatRulerOffsetLabel(float valueMeters) {
@@ -279,15 +296,19 @@ void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode) {
   if (depthEnabled)
     glDisable(GL_DEPTH_TEST);
 
-  if (darkMode)
-    glColor3f(1.0f, 1.0f, 1.0f);
-  else
-    glColor3f(0.0f, 0.0f, 0.0f);
+  const CanvasStroke horizontalStroke =
+      BuildRulerStroke(darkMode, activeRulers.horizontalColor);
+  const CanvasStroke verticalStroke =
+      BuildRulerStroke(darkMode, activeRulers.verticalColor);
   glLineWidth(1.0f);
 
+  glColor3f(horizontalStroke.color.r, horizontalStroke.color.g,
+            horizontalStroke.color.b);
   DrawHorizontalRuler(minX, maxX, yAxis, kRulerZeroOriginMeters, shortTickMeters,
                       longTickMeters, state.useImperialUnits,
                       state.view);
+  glColor3f(verticalStroke.color.r, verticalStroke.color.g,
+            verticalStroke.color.b);
   DrawVerticalRuler(minY, maxY, xAxis, kRulerZeroOriginMeters, shortTickMeters,
                     longTickMeters, state.useImperialUnits,
                     state.view);
@@ -317,19 +338,23 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
   const float longTickMeters =
       std::max(std::max(state.largeTickMeters, shortTickMeters),
                shortTickMeters);
-  auto stroke = BuildRulerStroke(darkMode);
   const ActiveRulers activeRulers = ResolveActiveRulers(state);
+  const CanvasStroke horizontalStroke =
+      BuildRulerStroke(darkMode, activeRulers.horizontalColor);
+  const CanvasStroke verticalStroke =
+      BuildRulerStroke(darkMode, activeRulers.verticalColor);
 
   const float xRulerY = activeRulers.horizontalAxisMeters;
   const float yRulerX = activeRulers.verticalAxisMeters;
   const float yRulerRenderX = ResolveVerticalRulerRenderAxisX(state, yRulerX);
-  canvas.DrawLine(minX, xRulerY, maxX, xRulerY, stroke);
-  canvas.DrawLine(yRulerRenderX, minY, yRulerRenderX, maxY, stroke);
+  canvas.DrawLine(minX, xRulerY, maxX, xRulerY, horizontalStroke);
+  canvas.DrawLine(yRulerRenderX, minY, yRulerRenderX, maxY, verticalStroke);
 
   const float tickStepMeters = ResolveTickStepMeters(state.useImperialUnits);
   const float startX =
       ComputeStartTick(minX, kRulerZeroOriginMeters, tickStepMeters);
-  const auto textStyle = BuildRulerLabelStyle(stroke);
+  const auto horizontalTextStyle = BuildRulerLabelStyle(horizontalStroke);
+  const auto verticalTextStyle = BuildRulerLabelStyle(verticalStroke);
   for (float x = startX; x <= maxX + 0.0001f; x += tickStepMeters) {
     const auto tickKind =
         ResolveTickKind(x, kRulerZeroOriginMeters, state.useImperialUnits);
@@ -337,14 +362,14 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
         ResolveTickLengthMeters(tickKind, shortTickMeters, longTickMeters);
     if (tick <= 0.0f)
       continue;
-    canvas.DrawLine(x, xRulerY, x, xRulerY + tick, stroke);
+    canvas.DrawLine(x, xRulerY, x, xRulerY + tick, horizontalStroke);
     if (tickKind == RulerTickKind::Long) {
       const float labelOffsetMeters = x - kRulerZeroOriginMeters;
       const std::string label =
           state.useImperialUnits ? FormatImperialRulerOffsetLabel(labelOffsetMeters)
                                  : FormatRulerOffsetLabel(labelOffsetMeters);
       canvas.DrawText(x, xRulerY + tick + kRulerLabelOffsetMeters, label,
-                      textStyle);
+                      horizontalTextStyle);
     }
   }
 
@@ -359,14 +384,15 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
     if (tick <= 0.0f)
       continue;
     canvas.DrawLine(yRulerRenderX, y,
-                    yRulerRenderX + tick * verticalTickDirection, y, stroke);
+                    yRulerRenderX + tick * verticalTickDirection, y,
+                    verticalStroke);
     if (tickKind == RulerTickKind::Long) {
       const float labelOffsetMeters = y - kRulerZeroOriginMeters;
       const std::string label =
           state.useImperialUnits ? FormatImperialRulerOffsetLabel(labelOffsetMeters)
                                  : FormatRulerOffsetLabel(labelOffsetMeters);
       canvas.DrawText(yRulerX + tick + kRulerLabelOffsetMeters, y, label,
-                      textStyle);
+                      verticalTextStyle);
     }
   }
 }

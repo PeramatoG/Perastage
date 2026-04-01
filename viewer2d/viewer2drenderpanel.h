@@ -47,6 +47,9 @@ private:
   void OnRulerAxisXPosition(wxSpinDoubleEvent &evt);
   void OnRulerAxisYPosition(wxSpinDoubleEvent &evt);
   void OnRulerAxisZPosition(wxSpinDoubleEvent &evt);
+  void OnRulerAxisXColor(wxColourPickerEvent &evt);
+  void OnRulerAxisYColor(wxColourPickerEvent &evt);
+  void OnRulerAxisZColor(wxColourPickerEvent &evt);
   void OnShowLabelName(wxCommandEvent &evt);
   void OnShowLabelId(wxCommandEvent &evt);
   void OnShowLabelAddress(wxCommandEvent &evt);
@@ -78,6 +81,9 @@ private:
   wxSpinCtrlDouble *m_rulerAxisXPosition = nullptr;
   wxSpinCtrlDouble *m_rulerAxisYPosition = nullptr;
   wxSpinCtrlDouble *m_rulerAxisZPosition = nullptr;
+  wxColourPickerCtrl *m_rulerAxisXColor = nullptr;
+  wxColourPickerCtrl *m_rulerAxisYColor = nullptr;
+  wxColourPickerCtrl *m_rulerAxisZColor = nullptr;
   wxCheckBox *m_showLabelName = nullptr;
   wxCheckBox *m_showLabelId = nullptr;
   wxCheckBox *m_showLabelAddress = nullptr;
