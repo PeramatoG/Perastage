@@ -39,6 +39,20 @@ LineRenderProfile GetLineRenderProfile(bool isInteracting, bool wireframeMode,
   return {wireframeMode ? 1.0f : 2.0f, true};
 }
 
+bool IsTexturedRenderStyleEnabled() {
+  return IsTexturedRenderStyle(ResolveViewer3DRenderStyle(ConfigManager::Get()));
+}
+
+bool IsSketchRenderStyleEnabled() {
+  return ResolveViewer3DRenderStyle(ConfigManager::Get()) ==
+         Viewer3DRenderStyle::WhiteModel;
+}
+
+bool IsPureWhiteRenderStyleEnabled() {
+  return ResolveViewer3DRenderStyle(ConfigManager::Get()) ==
+         Viewer3DRenderStyle::White;
+}
+
 std::array<float, 3> NormalizeVector(float x, float y, float z) {
   const float length = std::sqrt(x * x + y * y + z * z);
   if (length <= 1e-6f)
@@ -203,15 +217,6 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
 }
 } // namespace
 
-static bool IsTexturedRenderStyleEnabled() {
-  return IsTexturedRenderStyle(ResolveViewer3DRenderStyle(ConfigManager::Get()));
-}
-
-static bool IsSketchRenderStyleEnabled() {
-  return ResolveViewer3DRenderStyle(ConfigManager::Get()) ==
-         Viewer3DRenderStyle::WhiteModel;
-}
-
 void SceneRenderer::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
     bool selected, float cx, float cy, float cz, bool wireframe,
@@ -311,7 +316,7 @@ void SceneRenderer::DrawMeshWithOutline(
            mode == Viewer2DRenderMode::ByLayer ||
            mode == Viewer2DRenderMode::ByUniverse);
       const bool usePureWhiteFillInWhiteMode =
-          !IsSketchRenderStyleEnabled() && mode == Viewer2DRenderMode::White;
+          !IsSketchRenderStyleEnabled() && IsPureWhiteRenderStyleEnabled();
       // Keep 3D white-model aligned with the 2D viewer draw order:
       // stroke pass first, then polygon-offset fill pass.
       const LineRenderProfile lineProfile =
@@ -383,7 +388,8 @@ void SceneRenderer::DrawMeshWithOutline(
                               !highlight && !selected &&
                               mesh.textureId != 0 &&
                               mesh.texcoords.size() >= (mesh.vertices.size() / 3u) * 2u;
-      const bool useMaterialColor = IsTexturedRenderStyleEnabled() &&
+      const bool useMaterialColor =
+                                    IsTexturedRenderStyleEnabled() &&
                                     !highlight && !selected &&
                                     !useTexture && mesh.hasMaterialBaseColor;
       if (highlight)

@@ -20,18 +20,11 @@
 #include "opaque_pass_utils.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
-#include "viewer3d_render_style.h"
-#include "configmanager.h"
 
 #include <algorithm>
 #include <vector>
 
 namespace {
-
-bool IsSketchStyleActive() {
-  return ResolveViewer3DRenderStyle(ConfigManager::Get()) ==
-         Viewer3DRenderStyle::WhiteModel;
-}
 
 const Mesh &FallbackSceneObjectCubeMesh() {
   static const Mesh mesh = []() {
@@ -244,7 +237,8 @@ void OpaqueObjectPass::Render(
             // stays visually consistent even when the object has no mesh file.
             const bool useUnlitFallbackFill =
                 !isHighlighted && !isSelected &&
-                context.whiteModelStyle && !IsSketchStyleActive();
+                context.whiteModelStyle &&
+                !controller.IsSketchRenderStyleEnabled();
             const bool fallbackWireframe = wireframe;
             controller.DrawMeshWithOutline(
                 FallbackSceneObjectCubeMesh(), r, g, b, 0.3f, isHighlighted,

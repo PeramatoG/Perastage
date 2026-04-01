@@ -35,15 +35,9 @@
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer3dcontroller.h"
 #include "gdtfloader.h"
-#include "viewer3d_render_style.h"
 
 namespace {
 namespace fs = std::filesystem;
-
-bool IsSketchStyleActive() {
-  return ResolveViewer3DRenderStyle(ConfigManager::Get()) ==
-         Viewer3DRenderStyle::WhiteModel;
-}
 
 std::string FindFileRecursive(const std::string &baseDir,
                               const std::string &fileName) {
@@ -708,7 +702,7 @@ void OpaqueFixturePass::Render(
                   float partB = b;
                   if (!is2DViewer && obj.isLens) {
                     const bool isWhiteRenderMode =
-                        mode == Viewer2DRenderMode::White;
+                        controller.IsPureWhiteRenderStyleEnabled();
                     partR = 1.0f;
                     partG = isWhiteRenderMode ? 1.0f : 0.78f;
                     partB = isWhiteRenderMode ? 1.0f : 0.35f;
@@ -722,7 +716,8 @@ void OpaqueFixturePass::Render(
                 const bool fallbackWireframe =
                     wireframe;
                 const bool fallbackUnlit =
-                    context.whiteModelStyle && !IsSketchStyleActive();
+                    context.whiteModelStyle &&
+                    !controller.IsSketchRenderStyleEnabled();
                 controller.DrawMeshWithOutline(
                     FallbackFixtureCubeMesh(), r, g, b, 0.2f, false, false,
                     0.0f, 0.0f, 0.0f, fallbackWireframe, mode,
@@ -777,7 +772,8 @@ void OpaqueFixturePass::Render(
           float partG = g;
           float partB = b;
           if (!is2DViewer && obj.isLens) {
-            const bool isWhiteRenderMode = mode == Viewer2DRenderMode::White;
+            const bool isWhiteRenderMode =
+                controller.IsPureWhiteRenderStyleEnabled();
             partR = 1.0f;
             partG = isWhiteRenderMode ? 1.0f : 0.78f;
             partB = isWhiteRenderMode ? 1.0f : 0.35f;
@@ -794,7 +790,8 @@ void OpaqueFixturePass::Render(
             wireframe;
         const bool fallbackUnlit =
             !highlight && !selected &&
-            context.whiteModelStyle && !IsSketchStyleActive();
+            context.whiteModelStyle &&
+            !controller.IsSketchRenderStyleEnabled();
         controller.DrawMeshWithOutline(FallbackFixtureCubeMesh(), r, g, b, 0.2f,
                                        highlight, selected, cx, cy, cz,
                                        fallbackWireframe, mode,

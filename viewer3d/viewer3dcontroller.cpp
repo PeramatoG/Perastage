@@ -126,6 +126,9 @@ struct Viewer3DController::Impl {
   bool darkMode = false;
   Viewer2DRenderMode activeRenderMode = Viewer2DRenderMode::White;
   bool whiteModelStyleEnabled = false;
+  bool sketchStyleEnabled = false;
+  bool pureWhiteStyleEnabled = false;
+  bool texturedStyleEnabled = false;
   bool showSelectionOutline2D = false;
   bool isInteracting = false;
   bool cameraMoving = false;
@@ -1004,6 +1007,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.whiteModelStyle = IsWhiteModelRenderStyle(renderStyle);
   context.texturedStyle = IsTexturedRenderStyle(renderStyle);
   m_impl->whiteModelStyleEnabled = context.whiteModelStyle;
+  m_impl->sketchStyleEnabled = renderStyle == Viewer3DRenderStyle::WhiteModel;
+  m_impl->pureWhiteStyleEnabled = renderStyle == Viewer3DRenderStyle::White;
+  m_impl->texturedStyleEnabled = context.texturedStyle;
 
   // Keep explicit mode flags local to the context build step to avoid
   // branching logic in the render execution code path.
@@ -1687,6 +1693,18 @@ bool Viewer3DController::CaptureIncludesGrid() const {
 
 bool Viewer3DController::IsWhiteModelStyleEnabled() const {
   return m_impl->whiteModelStyleEnabled;
+}
+
+bool Viewer3DController::IsSketchRenderStyleEnabled() const {
+  return m_impl->sketchStyleEnabled;
+}
+
+bool Viewer3DController::IsPureWhiteRenderStyleEnabled() const {
+  return m_impl->pureWhiteStyleEnabled;
+}
+
+bool Viewer3DController::IsTexturedRenderStyleEnabled() const {
+  return m_impl->texturedStyleEnabled;
 }
 
 const std::string &Viewer3DController::GetHighlightUuid() const {
