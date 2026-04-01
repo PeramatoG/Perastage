@@ -171,19 +171,6 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
   for (size_t i = 0; i + 2 < triangleIndices->size(); i += 3) {
     const unsigned short tri[3] = {(*triangleIndices)[i], (*triangleIndices)[i + 1],
                                    (*triangleIndices)[i + 2]};
-    const float v0x = mesh.vertices[tri[0] * 3];
-    const float v0y = mesh.vertices[tri[0] * 3 + 1];
-    const float v0z = mesh.vertices[tri[0] * 3 + 2];
-    const float v1x = mesh.vertices[tri[1] * 3];
-    const float v1y = mesh.vertices[tri[1] * 3 + 1];
-    const float v1z = mesh.vertices[tri[1] * 3 + 2];
-    const float v2x = mesh.vertices[tri[2] * 3];
-    const float v2y = mesh.vertices[tri[2] * 3 + 1];
-    const float v2z = mesh.vertices[tri[2] * 3 + 2];
-    const std::array<float, 3> faceN = NormalizeVector(
-        (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y),
-        (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z),
-        (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x));
     for (int v = 0; v < 3; ++v) {
       const unsigned short idx = tri[v];
       const float vx = mesh.vertices[idx * 3] * scale;
@@ -195,13 +182,6 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
         n = NormalizeVector(mesh.normals[idx * 3], mesh.normals[idx * 3 + 1],
                             mesh.normals[idx * 3 + 2]);
         if (flipNormalsForSketch) {
-          n[0] = -n[0];
-          n[1] = -n[1];
-          n[2] = -n[2];
-        }
-        const float faceAlignment =
-            n[0] * faceN[0] + n[1] * faceN[1] + n[2] * faceN[2];
-        if (faceAlignment < 0.0f) {
           n[0] = -n[0];
           n[1] = -n[1];
           n[2] = -n[2];
@@ -322,6 +302,9 @@ void SceneRenderer::DrawMeshWithOutline(
 
   if (!m_controller.IsCaptureOnly()) {
     if (m_controller.IsWhiteModelStyleEnabled()) {
+      const GLboolean texture2DWhiteModelWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+      if (texture2DWhiteModelWasEnabled)
+        glDisable(GL_TEXTURE_2D);
       const bool useColorFillInWhiteStyle =
           !IsSketchRenderStyleEnabled() &&
           (mode == Viewer2DRenderMode::White ||
@@ -384,6 +367,8 @@ void SceneRenderer::DrawMeshWithOutline(
           glEnable(GL_LIGHTING);
       }
       glDisable(GL_POLYGON_OFFSET_FILL);
+      if (texture2DWhiteModelWasEnabled)
+        glEnable(GL_TEXTURE_2D);
     } else {
       const bool useTexture = IsTexturedRenderStyleEnabled() &&
                               !highlight && !selected &&
