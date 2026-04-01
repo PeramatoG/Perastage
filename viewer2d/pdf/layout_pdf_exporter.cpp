@@ -1382,6 +1382,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double paddingBottom = 0.0;
     const double columnGap = 6.0;
     const double symbolColumnGap = 0.0;
+    constexpr int kLegendTypeLineCount = 2;
     constexpr double kLegendLineSpacingScale = 1.0;
     constexpr double kLegendSymbolColumnScale = 1.0;
     constexpr double kLegendMaxSymbolSlotScale = 1.45;
@@ -1399,14 +1400,21 @@ Viewer2DExportResult ExportLayoutToPdf(
         std::clamp(fontSize / (14.0 * kLegendFontScale), 0.0, 1.0);
 
     const double textHeightEstimate = fontSize * 1.2;
-    const double lineHeight = textHeightEstimate + separatorGap;
+    const double lineHeight =
+        (textHeightEstimate * static_cast<double>(kLegendTypeLineCount)) +
+        (separatorGap * static_cast<double>(std::max(0, kLegendTypeLineCount - 1)));
     const double rowHeightCandidate =
         totalRows > 0 ? (availableHeight / static_cast<double>(totalRows)) : 0.0;
     const double rowHeight =
         std::max(lineHeight,
                  rowHeightCandidate * kLegendLineSpacingScale);
-    const double textOffset =
+    const double singleTextOffset =
         std::max(0.0, (rowHeight - textHeightEstimate) * 0.5);
+    const double typeBlockHeight =
+        (textHeightEstimate * static_cast<double>(kLegendTypeLineCount)) +
+        separatorGap;
+    const double typeTextOffset =
+        std::max(0.0, (rowHeight - typeBlockHeight) * 0.5);
 
     const double symbolSize = std::max(4.0, kLegendSymbolSize * fontScale);
     const double fallbackSymbolSize =
@@ -1580,24 +1588,51 @@ Viewer2DExportResult ExportLayoutToPdf(
       xCh = xType + columnGap;
     const double typeWidth = std::max(0.0, xCh - xType - columnGap);
 
-    auto trimTextToWidth = [&](const std::string &text, double maxWidth) {
+    auto wrapTextToTwoLines = [&](const std::string &text, double maxWidth) {
       if (maxWidth <= 0.0)
-        return std::string();
+        return std::array<std::string, 2>{"", ""};
       if (MeasureTextWidth(text, fontSize, fontCatalog.regular) <= maxWidth)
-        return text;
-      const std::string ellipsis = "...";
-      const double ellipsisWidth =
-          MeasureTextWidth(ellipsis, fontSize, fontCatalog.regular);
-      if (ellipsisWidth >= maxWidth)
-        return std::string(".");
-      std::string trimmed = text;
-      while (!trimmed.empty() &&
-             MeasureTextWidth(trimmed, fontSize, fontCatalog.regular) +
-                     ellipsisWidth >
-                 maxWidth) {
-        trimmed.pop_back();
+        return std::array<std::string, 2>{text, ""};
+
+      std::string firstLine = text;
+      int splitAt = -1;
+      for (int i = static_cast<int>(text.size()) - 1; i > 0; --i) {
+        if (text[static_cast<size_t>(i)] == ' ') {
+          const std::string candidate = text.substr(0, static_cast<size_t>(i));
+          if (!candidate.empty() &&
+              MeasureTextWidth(candidate, fontSize, fontCatalog.regular) <=
+                  maxWidth) {
+            splitAt = i;
+            break;
+          }
+        }
       }
-      return trimmed + ellipsis;
+
+      if (splitAt < 0) {
+        firstLine.clear();
+        for (size_t i = 0; i < text.size(); ++i) {
+          const std::string candidate = text.substr(0, i + 1);
+          if (MeasureTextWidth(candidate, fontSize, fontCatalog.regular) >
+              maxWidth) {
+            break;
+          }
+          firstLine = candidate;
+        }
+        if (firstLine.empty() && !text.empty())
+          firstLine = text.substr(0, 1);
+      } else {
+        firstLine = text.substr(0, static_cast<size_t>(splitAt));
+      }
+
+      std::string secondLine = text.substr(firstLine.size());
+      const auto secondStart = secondLine.find_first_not_of(' ');
+      if (secondStart == std::string::npos) {
+        secondLine.clear();
+      } else if (secondStart > 0) {
+        secondLine.erase(0, secondStart);
+      }
+
+      return std::array<std::string, 2>{firstLine, secondLine};
     };
 
     auto appendText = [&](double x, double y, const std::string &text,
@@ -1612,11 +1647,11 @@ Viewer2DExportResult ExportLayoutToPdf(
     };
 
     double y = frameY + frameH - paddingTop;
-    appendText(xCount, y - textOffset - fontSize, encodeText("Count"), "F2", 0.08,
+    appendText(xCount, y - singleTextOffset - fontSize, encodeText("Count"), "F2", 0.08,
                0.08, 0.08);
-    appendText(xType, y - textOffset - fontSize, encodeText("Type"), "F2", 0.08,
+    appendText(xType, y - singleTextOffset - fontSize, encodeText("Type"), "F2", 0.08,
                0.08, 0.08);
-    appendText(xCh, y - textOffset - fontSize, encodeText("Ch"), "F2", 0.08,
+    appendText(xCh, y - singleTextOffset - fontSize, encodeText("Ch"), "F2", 0.08,
                0.08, 0.08);
 
     y -= rowHeight;
@@ -1633,7 +1668,8 @@ Viewer2DExportResult ExportLayoutToPdf(
         break;
 
       const std::string countText = encodeText(std::to_string(item.count));
-      const std::string typeText = trimTextToWidth(encodeText(item.typeName), typeWidth);
+      const auto typeLines =
+          wrapTextToTwoLines(encodeText(item.typeName), typeWidth);
       const std::string chText =
           encodeText(item.channelCount ? std::to_string(*item.channelCount) : "-");
 
@@ -1774,11 +1810,19 @@ Viewer2DExportResult ExportLayoutToPdf(
         }
       }
 
-      appendText(xCount, y - textOffset - fontSize, countText, "F1", 0.08, 0.08,
+      appendText(xCount, y - singleTextOffset - fontSize, countText, "F1", 0.08, 0.08,
                  0.08);
-      appendText(xType, y - textOffset - fontSize, typeText, "F1", 0.08, 0.08,
+      appendText(xType, y - typeTextOffset - fontSize, typeLines[0], "F1", 0.08, 0.08,
                  0.08);
-      appendText(xCh, y - textOffset - fontSize, chText, "F1", 0.08, 0.08,
+      if (!typeLines[1].empty()) {
+        const double secondTypeBaseline =
+            y - typeTextOffset - fontSize +
+            ComputeTextLineAdvance(textHeightEstimate * 0.8,
+                                   textHeightEstimate * 0.2);
+        appendText(xType, secondTypeBaseline, typeLines[1], "F1", 0.08, 0.08,
+                   0.08);
+      }
+      appendText(xCh, y - singleTextOffset - fontSize, chText, "F1", 0.08, 0.08,
                  0.08);
       y -= rowHeight;
     }
