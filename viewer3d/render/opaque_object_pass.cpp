@@ -244,11 +244,8 @@ void OpaqueObjectPass::Render(
             // stays visually consistent even when the object has no mesh file.
             const bool useUnlitFallbackFill =
                 !isHighlighted && !isSelected &&
-                ((context.whiteModelStyle && !IsSketchStyleActive()) ||
-                 mode == Viewer2DRenderMode::White);
-            const bool fallbackWireframe =
-                wireframe || context.whiteModelStyle ||
-                mode == Viewer2DRenderMode::White;
+                context.whiteModelStyle && !IsSketchStyleActive();
+            const bool fallbackWireframe = wireframe;
             controller.DrawMeshWithOutline(
                 FallbackSceneObjectCubeMesh(), r, g, b, 0.3f, isHighlighted,
                 isSelected, cx, cy, cz, fallbackWireframe, mode,

@@ -717,8 +717,7 @@ void OpaqueFixturePass::Render(
               } else {
                 controller.m_captureCanvas->SetSourceKey(fixtureCaptureKey);
                 const bool fallbackWireframe =
-                    wireframe || context.whiteModelStyle ||
-                    mode == Viewer2DRenderMode::White;
+                    wireframe;
                 const bool fallbackUnlit =
                     context.whiteModelStyle && !IsSketchStyleActive();
                 controller.DrawMeshWithOutline(
@@ -785,8 +784,7 @@ void OpaqueFixturePass::Render(
         }
       } else {
         const bool fallbackWireframe =
-            wireframe || context.whiteModelStyle ||
-            mode == Viewer2DRenderMode::White;
+            wireframe;
         const bool fallbackUnlit =
             !highlight && !selected &&
             context.whiteModelStyle && !IsSketchStyleActive();
