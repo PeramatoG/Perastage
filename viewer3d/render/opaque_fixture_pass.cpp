@@ -27,6 +27,7 @@
 
 #include "matrixutils.h"
 #include "configmanager.h"
+#include "mesh.h"
 #include "opaque_pass_utils.h"
 #include "universe_color.h"
 #include "perastage_svg_symbol_builder.h"
@@ -171,6 +172,33 @@ std::string BuildFixtureSymbolModelKey(const Fixture &fixture,
   if (modelKey.empty())
     modelKey = "unknown";
   return modelKey;
+}
+
+const Mesh &FallbackFixtureCubeMesh() {
+  static const Mesh mesh = []() {
+    Mesh cube;
+    cube.vertices = {
+        -0.5f, -0.5f, -0.5f, // 0
+        0.5f,  -0.5f, -0.5f, // 1
+        0.5f,  0.5f,  -0.5f, // 2
+        -0.5f, 0.5f,  -0.5f, // 3
+        -0.5f, -0.5f, 0.5f,  // 4
+        0.5f,  -0.5f, 0.5f,  // 5
+        0.5f,  0.5f,  0.5f,  // 6
+        -0.5f, 0.5f,  0.5f   // 7
+    };
+    cube.indices = {
+        0, 1, 2, 0, 2, 3, // back
+        4, 6, 5, 4, 7, 6, // front
+        0, 4, 5, 0, 5, 1, // bottom
+        3, 2, 6, 3, 6, 7, // top
+        0, 3, 7, 0, 7, 4, // left
+        1, 5, 6, 1, 6, 2  // right
+    };
+    ComputeNormals(cube);
+    return cube;
+  }();
+  return mesh;
 }
 
 struct SvgSymbolCacheKey {
@@ -682,11 +710,15 @@ void OpaqueFixturePass::Render(
                 }
               } else {
                 controller.m_captureCanvas->SetSourceKey(fixtureCaptureKey);
-                controller.DrawCubeWithOutline(0.2f, r, g, b, false, false, 0.0f,
-                                               0.0f, 0.0f, wireframe, mode,
-                                               [](const std::array<float, 3> &p) {
-                                                 return p;
-                                               });
+                const bool fallbackWireframe =
+                    wireframe || context.whiteModelStyle ||
+                    mode == Viewer2DRenderMode::White;
+                const bool fallbackUnlit = context.whiteModelStyle;
+                controller.DrawMeshWithOutline(
+                    FallbackFixtureCubeMesh(), r, g, b, 0.2f, false, false,
+                    0.0f, 0.0f, 0.0f, fallbackWireframe, mode,
+                    [](const std::array<float, 3> &p) { return p; },
+                    fallbackUnlit);
               }
 
               localCanvas->EndFrame();
@@ -745,9 +777,15 @@ void OpaqueFixturePass::Render(
           glPopMatrix();
         }
       } else {
-        controller.DrawCubeWithOutline(0.2f, r, g, b, highlight, selected, cx,
-                                       cy, cz, wireframe, mode,
-                                       applyFixtureCapture);
+        const bool fallbackWireframe =
+            wireframe || context.whiteModelStyle ||
+            mode == Viewer2DRenderMode::White;
+        const bool fallbackUnlit =
+            !highlight && !selected && context.whiteModelStyle;
+        controller.DrawMeshWithOutline(FallbackFixtureCubeMesh(), r, g, b, 0.2f,
+                                       highlight, selected, cx, cy, cz,
+                                       fallbackWireframe, mode,
+                                       applyFixtureCapture, fallbackUnlit);
       }
     };
 
