@@ -30,41 +30,24 @@ const Mesh &FallbackSceneObjectCubeMesh() {
   static const Mesh mesh = []() {
     Mesh cube;
     cube.vertices = {
-        // Front (+Z)
-        -0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f,
-        // Back (-Z)
-        0.5f,  -0.5f, -0.5f, -0.5f, -0.5f, -0.5f, -0.5f, 0.5f,  -0.5f, 0.5f,  0.5f,  -0.5f,
-        // Left (-X)
-        -0.5f, -0.5f, -0.5f, -0.5f, -0.5f, 0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f, -0.5f,
-        // Right (+X)
-        0.5f,  -0.5f, 0.5f,  0.5f,  -0.5f, -0.5f, 0.5f,  0.5f, -0.5f, 0.5f,  0.5f, 0.5f,
-        // Top (+Y)
-        -0.5f, 0.5f,  0.5f,  0.5f,  0.5f,  0.5f,  0.5f, 0.5f,  -0.5f, -0.5f, 0.5f, -0.5f,
-        // Bottom (-Y)
-        -0.5f, -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, 0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, 0.5f,
+        -0.5f, -0.5f, -0.5f, // 0
+        0.5f,  -0.5f, -0.5f, // 1
+        0.5f,  0.5f,  -0.5f, // 2
+        -0.5f, 0.5f,  -0.5f, // 3
+        -0.5f, -0.5f, 0.5f,  // 4
+        0.5f,  -0.5f, 0.5f,  // 5
+        0.5f,  0.5f,  0.5f,  // 6
+        -0.5f, 0.5f,  0.5f   // 7
     };
     cube.indices = {
-        0,  1,  2,  0,  2,  3,   // front
-        4,  5,  6,  4,  6,  7,   // back
-        8,  9,  10, 8,  10, 11,  // left
-        12, 13, 14, 12, 14, 15,  // right
-        16, 17, 18, 16, 18, 19,  // top
-        20, 21, 22, 20, 22, 23   // bottom
+        0, 1, 2, 0, 2, 3, // back
+        4, 6, 5, 4, 7, 6, // front
+        0, 4, 5, 0, 5, 1, // bottom
+        3, 2, 6, 3, 6, 7, // top
+        0, 3, 7, 0, 7, 4, // left
+        1, 5, 6, 1, 6, 2  // right
     };
-    cube.normals = {
-        // Front (+Z)
-        0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-        // Back (-Z)
-        0.0f, 0.0f, -1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, -1.0f,
-        // Left (-X)
-        -1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
-        // Right (+X)
-        1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-        // Top (+Y)
-        0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-        // Bottom (-Y)
-        0.0f, -1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, -1.0f, 0.0f,
-    };
+    ComputeNormals(cube);
     return cube;
   }();
   return mesh;
@@ -254,7 +237,8 @@ void OpaqueObjectPass::Render(
             // stays visually consistent even when the object has no mesh file.
             const bool useUnlitFallbackFill =
                 !isHighlighted && !isSelected &&
-                mode == Viewer2DRenderMode::White;
+                (context.whiteModelStyle ||
+                 mode == Viewer2DRenderMode::White);
             const bool fallbackWireframe =
                 wireframe || context.whiteModelStyle ||
                 mode == Viewer2DRenderMode::White;
