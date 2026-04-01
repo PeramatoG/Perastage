@@ -1053,7 +1053,7 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     }
     rootMenu.AppendSubMenu(renderStyleSubmenu.release(), "Render style");
     rootMenu.AppendSeparator();
-    rootMenu.Append(kExportImagePngId, "Export image (PNG 1920x1080)...");
+    rootMenu.Append(kExportImagePngId, "Export image...");
 
     const int selectedId = GetPopupMenuSelectionFromUser(rootMenu, event.GetPosition());
     if (selectedId == wxID_NONE)
