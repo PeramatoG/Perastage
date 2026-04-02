@@ -715,6 +715,7 @@ void MainWindow::OnLayoutAdd2DView(wxCommandEvent &WXUNUSED(event)) {
   layouts::Layout2DViewDefinition view =
       viewer2d::ToLayoutDefinition(baseState, frame);
 
+  cfg.PushUndoState("add layout 2d view");
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
 
   if (layoutViewerPanel) {
@@ -745,6 +746,8 @@ void MainWindow::OnLayoutAddLegend(wxCommandEvent &WXUNUSED(event)) {
   layouts::LayoutLegendDefinition legend;
   legend.frame = BuildDefaultLayoutLegendFrame(*layout);
 
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  cfg.PushUndoState("add layout legend");
   layouts::LayoutManager::Get().UpdateLayoutLegend(activeLayoutName, legend);
 
   if (layoutViewerPanel) {
@@ -775,6 +778,8 @@ void MainWindow::OnLayoutAddEventTable(wxCommandEvent &WXUNUSED(event)) {
   layouts::LayoutEventTableDefinition table;
   table.frame = BuildDefaultLayoutEventTableFrame(*layout);
 
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  cfg.PushUndoState("add layout event table");
   layouts::LayoutManager::Get().UpdateLayoutEventTable(activeLayoutName, table);
 
   if (layoutViewerPanel) {
@@ -808,6 +813,8 @@ void MainWindow::OnLayoutAddText(wxCommandEvent &WXUNUSED(event)) {
   text.solidBackground = true;
   text.drawFrame = true;
 
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  cfg.PushUndoState("add layout text");
   layouts::LayoutManager::Get().UpdateLayoutText(activeLayoutName, text);
 
   if (layoutViewerPanel) {
@@ -845,6 +852,8 @@ void MainWindow::OnLayoutAddImage(wxCommandEvent &WXUNUSED(event)) {
   image.imagePath = pathBuf.data() ? pathBuf.data() : "";
   image.aspectRatio = result->aspectRatio;
 
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  cfg.PushUndoState("add layout image");
   layouts::LayoutManager::Get().UpdateLayoutImage(activeLayoutName, image);
 
   if (layoutViewerPanel) {
@@ -1003,6 +1012,7 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   } else if (editableView) {
     updatedView.zIndex = editableView->zIndex;
   }
+  cfg.PushUndoState("edit layout 2d view");
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName,
                                                    updatedView);
 

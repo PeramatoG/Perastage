@@ -125,6 +125,8 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
                           text->drawFrame);
   if (dialog.ShowModal() != wxID_OK)
     return;
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  cfg.PushUndoState("edit layout text");
   wxString updatedRichText = dialog.GetRichText();
   wxString updatedPlainText = dialog.GetPlainText();
   const bool hadRichText = !text->richText.empty();

@@ -127,6 +127,8 @@ void LayoutViewerPanel::OnEditImage(wxCommandEvent &) {
   auto result = PromptForLayoutImage(this, "Selecciona una imagen");
   if (!result)
     return;
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  cfg.PushUndoState("edit layout image");
 
   wxScopedCharBuffer pathBuf = result->path.ToUTF8();
   image->imagePath = pathBuf.data() ? pathBuf.data() : "";

@@ -1062,6 +1062,8 @@ void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
       dragStartFrame = selectedFrame;
       CaptureMouse();
       if (!currentLayout.name.empty()) {
+        auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+        cfg.PushUndoState("edit layout element frame");
         layouts::LayoutManager::Get().BeginBatchUpdate();
       }
       return;
@@ -1417,6 +1419,8 @@ void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
       return;
     it->zIndex = maxZ + 1;
     if (!currentLayout.name.empty()) {
+      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+      cfg.PushUndoState("bring layout element to front");
       layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name, *it);
     }
   } else if (selectedElementType == SelectedElementType::Legend) {
@@ -1430,6 +1434,8 @@ void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
       return;
     it->zIndex = maxZ + 1;
     if (!currentLayout.name.empty()) {
+      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+      cfg.PushUndoState("bring layout element to front");
       layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name,
                                                        *it);
     }
@@ -1444,6 +1450,8 @@ void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
       return;
     it->zIndex = maxZ + 1;
     if (!currentLayout.name.empty()) {
+      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+      cfg.PushUndoState("bring layout element to front");
       layouts::LayoutManager::Get().UpdateLayoutEventTable(currentLayout.name,
                                                            *it);
     }
@@ -1458,6 +1466,8 @@ void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
       return;
     it->zIndex = maxZ + 1;
     if (!currentLayout.name.empty()) {
+      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+      cfg.PushUndoState("bring layout element to front");
       layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *it);
     }
   } else if (selectedElementType == SelectedElementType::Image) {
@@ -1471,6 +1481,8 @@ void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
       return;
     it->zIndex = maxZ + 1;
     if (!currentLayout.name.empty()) {
+      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+      cfg.PushUndoState("bring layout element to front");
       layouts::LayoutManager::Get().UpdateLayoutImage(currentLayout.name, *it);
     }
   } else {
@@ -1497,6 +1509,8 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
       return;
     it->zIndex = minZ - 1;
     if (!currentLayout.name.empty()) {
+      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+      cfg.PushUndoState("send layout element to back");
       layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name, *it);
     }
   } else if (selectedElementType == SelectedElementType::Legend) {
@@ -1510,6 +1524,8 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
       return;
     it->zIndex = minZ - 1;
     if (!currentLayout.name.empty()) {
+      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+      cfg.PushUndoState("send layout element to back");
       layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name,
                                                        *it);
     }
@@ -1524,6 +1540,8 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
       return;
     it->zIndex = minZ - 1;
     if (!currentLayout.name.empty()) {
+      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+      cfg.PushUndoState("send layout element to back");
       layouts::LayoutManager::Get().UpdateLayoutEventTable(currentLayout.name,
                                                            *it);
     }
@@ -1538,6 +1556,8 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
       return;
     it->zIndex = minZ - 1;
     if (!currentLayout.name.empty()) {
+      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+      cfg.PushUndoState("send layout element to back");
       layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *it);
     }
   } else if (selectedElementType == SelectedElementType::Image) {
@@ -1551,6 +1571,8 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
       return;
     it->zIndex = minZ - 1;
     if (!currentLayout.name.empty()) {
+      auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+      cfg.PushUndoState("send layout element to back");
       layouts::LayoutManager::Get().UpdateLayoutImage(currentLayout.name, *it);
     }
   } else {
