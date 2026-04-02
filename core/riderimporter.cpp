@@ -61,10 +61,10 @@ namespace {
 // the compilation cost on every import call and makes keyword matching cheap
 // even when processing large riders.
 static const std::regex kTrussLineRe(
-    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss)\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b(?:\\s+para\\s+(.+))?",
+    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss)\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b(?:\\s+(?:(?:para|for)\\s+)?(.+))?\\s*$",
     std::regex::icase);
 static const std::regex kTrussLineNoLengthRe(
-    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss)\\s+([^\\n]*?)(?:\\s+para\\s+(.+))?\\s*$",
+    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss)\\s+([^\\n]*?)(?:\\s+(?:para|for)\\s+(.+))?\\s*$",
     std::regex::icase);
 static const std::regex kTrussRe(
     "(?:truss)[^\\n]*?(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b",
@@ -77,7 +77,8 @@ static const std::regex kHoistLineRe(
 static const std::regex kHoistCapacityRe(
     "(\\d+(?:[\\.,]\\d+)?)\\s*(kg|kgs?|kilogramos?|kilos?|t|to|tn|ton|tons?|toneladas?)\\b",
     std::regex::icase);
-static const std::regex kHoistTargetRe("\\bpara\\s+(.+)$", std::regex::icase);
+static const std::regex kHoistTargetRe("\\b(?:para|for)\\s+(.+)$",
+                                       std::regex::icase);
 static const std::regex kFixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$",
                                        std::regex::icase);
 static const std::regex kQuantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
@@ -93,6 +94,9 @@ static const std::regex kHangFindRe(
 static const std::regex kHangOnlyRe(
     "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|proyecci[oó]n|led\\s*screen|backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*$",
                                     std::regex::icase);
+static const std::regex kTrailingHangWithCoordinateRe(
+    "(LX\\d+|lx\\s*sides?|screen|pantalla|proyecci[oó]n|led\\s*screen|backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s*(\\([^\\)]*\\)))?\\s*$",
+    std::regex::icase);
 std::string Trim(const std::string &s) {
   size_t start = s.find_first_not_of(" \t\r\n");
   if (start == std::string::npos)
@@ -109,6 +113,23 @@ std::optional<std::string> ExtractParenthesizedToken(const std::string &text) {
   if (close == std::string::npos || close <= open)
     return std::nullopt;
   return text.substr(open, close - open + 1);
+}
+
+bool TryExtractTrailingHangWithCoordinate(std::string &text, std::string &hangOut,
+                                          std::string &coordinateSuffixOut) {
+  std::smatch trailingHangMatch;
+  if (!std::regex_search(text, trailingHangMatch, kTrailingHangWithCoordinateRe) ||
+      trailingHangMatch.size() < 2) {
+    return false;
+  }
+
+  hangOut = Trim(trailingHangMatch[1].str());
+  coordinateSuffixOut.clear();
+  if (trailingHangMatch.size() > 2 && trailingHangMatch[2].matched)
+    coordinateSuffixOut = Trim(trailingHangMatch[2].str());
+
+  text = Trim(text.substr(0, static_cast<size_t>(trailingHangMatch.position(0))));
+  return !hangOut.empty();
 }
 
 std::string ResolveGdtfPath(const MvrScene &scene,
@@ -472,6 +493,10 @@ bool IsLxSidesAlias(std::string_view value);
 
 std::string NormalizeHangName(const std::string &raw) {
   std::string hang = Trim(raw);
+  if (hang.empty())
+    return {};
+  hang = std::regex_replace(hang, std::regex("\\([^\\)]*\\)"), "");
+  hang = Trim(hang);
   if (hang.empty())
     return {};
   if (IsFloorAlias(hang))
@@ -846,9 +871,43 @@ BuildTrussDictionaryLookupKeys(const std::string &modelToken,
       keys.push_back(normalized);
   };
 
+  auto simplifyModelToken = [](std::string token) {
+    token = TrussDictionary::NormalizeModelKey(token);
+    if (token.empty())
+      return token;
+
+    static const std::unordered_set<std::string> kFinishWords = {
+        "NEGRO", "NEGRA", "NEGRAS", "NEGROS", "BLACK",
+        "PLATA", "SILVER", "ALUMINIO", "ALUMINUM"};
+
+    std::istringstream iss(token);
+    std::string word;
+    std::vector<std::string> kept;
+    while (iss >> word) {
+      if (kFinishWords.find(word) != kFinishWords.end())
+        continue;
+      kept.push_back(word);
+    }
+    if (kept.empty())
+      return token;
+    std::ostringstream oss;
+    for (size_t i = 0; i < kept.size(); ++i) {
+      if (i > 0)
+        oss << ' ';
+      oss << kept[i];
+    }
+    return oss.str();
+  };
+
   pushNormalized(modelToken);
   if (!modelToken.empty())
     pushNormalized("TRUSS " + modelToken);
+  const std::string simplifiedModelToken = simplifyModelToken(modelToken);
+  if (!simplifiedModelToken.empty() && simplifiedModelToken !=
+                                          TrussDictionary::NormalizeModelKey(modelToken)) {
+    pushNormalized(simplifiedModelToken);
+    pushNormalized("TRUSS " + simplifiedModelToken);
+  }
   pushNormalized(trussName);
 
   return keys;
@@ -1099,12 +1158,11 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
             targetMatch.size() > 1) {
           hang = targetMatch[1].str();
           model = Trim(model.substr(0, static_cast<size_t>(targetMatch.position(0))));
-        } else if (std::smatch trailingHangMatch;
-                   std::regex_search(model, trailingHangMatch, kHangFindRe) &&
-                   trailingHangMatch.position(0) + trailingHangMatch.length(0) ==
-                       static_cast<std::ptrdiff_t>(model.size())) {
-          hang = trailingHangMatch[1].str();
-          model = Trim(model.substr(0, static_cast<size_t>(trailingHangMatch.position(0))));
+        } else if (std::string trailingCoordinateSuffix;
+                   TryExtractTrailingHangWithCoordinate(model, hang,
+                                                        trailingCoordinateSuffix)) {
+          if (trussCoordinateSuffix.empty())
+            trussCoordinateSuffix = trailingCoordinateSuffix;
         } else if (std::regex_match(model, kHangOnlyRe)) {
           hang = model;
           model.clear();
@@ -1823,14 +1881,12 @@ bool RiderImporter::ImportText(const std::string &text) {
             model = Trim(model.substr(0, static_cast<size_t>(targetMatch.position(0))));
             coordinateOverride =
                 ParseTrussCoordinateOverride(hang, distanceUnitSystem);
-          } else if (std::smatch trailingHangMatch;
-                     std::regex_search(model, trailingHangMatch, kHangFindRe) &&
-                     trailingHangMatch.position(0) + trailingHangMatch.length(0) ==
-                         static_cast<std::ptrdiff_t>(model.size())) {
-            hang = Trim(trailingHangMatch[1].str());
-            model = Trim(model.substr(0, static_cast<size_t>(trailingHangMatch.position(0))));
-            coordinateOverride =
-                ParseTrussCoordinateOverride(hang, distanceUnitSystem);
+          } else if (std::string trailingCoordinateSuffix;
+                     TryExtractTrailingHangWithCoordinate(model, hang,
+                                                          trailingCoordinateSuffix)) {
+            if (!trailingCoordinateSuffix.empty())
+              hang += " " + trailingCoordinateSuffix;
+            coordinateOverride = ParseTrussCoordinateOverride(hang, distanceUnitSystem);
           } else if (std::regex_match(model, kHangOnlyRe)) {
             hang = model;
             model.clear();

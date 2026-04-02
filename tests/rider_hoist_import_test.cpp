@@ -166,5 +166,67 @@ int main() {
   assert(filteredBackdropTrussHasModelInfo);
   assert(filteredBackdropSupports == 2);
 
+  cfg.Reset();
+  cfg.SetValue("ui_distance_unit_system", "metric");
+  const std::string noParaCoordinatesText =
+      "RIGGING\n"
+      "1 TRUSS 40X40 PRO NEGRO 12m LX1 (-1)\n"
+      "1 TRUSS 40X40 PRO NEGRO 12m LX2 (4)\n"
+      "1 TRUSS 40X40 PRO NEGRO 12m LX3 (7)\n"
+      "1 TRUSS 40X40 BACKDROP (8)\n";
+  assert(RiderImporter::ImportText(noParaCoordinatesText));
+  const auto &noParaScene = cfg.GetScene();
+  int lx1Count = 0;
+  int lx2Count = 0;
+  int lx3Count = 0;
+  int backdropCount = 0;
+  for (const auto &[uuid, truss] : noParaScene.trusses) {
+    (void)uuid;
+    if (truss.positionName == "LX1") {
+      ++lx1Count;
+      assert(std::abs(truss.transform.o[1] - (-1000.0f)) < 0.001f);
+    } else if (truss.positionName == "LX2") {
+      ++lx2Count;
+      assert(std::abs(truss.transform.o[1] - 4000.0f) < 0.001f);
+    } else if (truss.positionName == "LX3") {
+      ++lx3Count;
+      assert(std::abs(truss.transform.o[1] - 7000.0f) < 0.001f);
+    } else if (truss.positionName == "BACKDROP") {
+      ++backdropCount;
+      assert(std::abs(truss.transform.o[1] - 8000.0f) < 0.001f);
+    }
+  }
+  assert(lx1Count > 0);
+  assert(lx2Count > 0);
+  assert(lx3Count > 0);
+  assert(backdropCount > 0);
+  for (const auto &[layerUuid, layer] : noParaScene.layers) {
+    (void)layerUuid;
+    assert(layer.name.find('(') == std::string::npos);
+  }
+
+  cfg.Reset();
+  cfg.SetValue("ui_distance_unit_system", "metric");
+  const std::string englishForKeywordText =
+      "RIGGING\n"
+      "1 TRUSS 40X40 PRO NEGRO 12m for LX1 (-1)\n"
+      "1 TRUSS 40X40 for BACKDROP (8)\n";
+  assert(RiderImporter::ImportText(englishForKeywordText));
+  const auto &englishForScene = cfg.GetScene();
+  bool foundEnglishLx1 = false;
+  bool foundEnglishBackdrop = false;
+  for (const auto &[uuid, truss] : englishForScene.trusses) {
+    (void)uuid;
+    if (truss.positionName == "LX1") {
+      foundEnglishLx1 = true;
+      assert(std::abs(truss.transform.o[1] - (-1000.0f)) < 0.001f);
+    } else if (truss.positionName == "BACKDROP") {
+      foundEnglishBackdrop = true;
+      assert(std::abs(truss.transform.o[1] - 8000.0f) < 0.001f);
+    }
+  }
+  assert(foundEnglishLx1);
+  assert(foundEnglishBackdrop);
+
   return 0;
 }
