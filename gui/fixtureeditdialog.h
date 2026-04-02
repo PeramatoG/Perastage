@@ -35,13 +35,14 @@ public:
     bool WasApplied() const { return applied; }
 
 private:
+    void MarkColumnModified(size_t index);
     void OnApply(wxCommandEvent& evt);
     void OnOk(wxCommandEvent& evt);
     void OnCancel(wxCommandEvent& evt);
     void OnBrowse(wxCommandEvent& evt);
     void OnModeChanged(wxCommandEvent& evt);
     void OnSymbolPreviewPaint(wxPaintEvent& evt);
-    void UpdateChannels();
+    void UpdateChannels(bool markChannelCountDirty = false);
     void UpdateVisualizers();
     void ApplyChanges();
 
@@ -61,4 +62,5 @@ private:
     wxString originalType;
     float originalPowerW = 0.0f;
     float originalWeightKg = 0.0f;
+    std::vector<bool> modifiedColumns;
 };

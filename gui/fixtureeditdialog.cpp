@@ -38,6 +38,7 @@
 #include <set>
 #include <cmath>
 #include <memory>
+#include <algorithm>
 
 namespace {
 
@@ -156,6 +157,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
 
   auto *table = panel->table; // friend access
   ctrls.resize(panel->columnLabels.size(), nullptr);
+  modifiedColumns.assign(panel->columnLabels.size(), false);
 
   wxVariant initType;
   table->GetValue(initType, row, 2);
@@ -189,6 +191,10 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       int sel = modeChoice->FindString(v.GetString());
       if (sel != wxNOT_FOUND)
         modeChoice->SetSelection(sel);
+      modeChoice->Bind(wxEVT_CHOICE, [this, i](wxCommandEvent &) {
+        MarkColumnModified(i);
+        UpdateChannels(true);
+      });
       ctrls[i] = modeChoice;
       controlWindow = modeChoice;
     } else if (i == 8) {
@@ -202,6 +208,9 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       modelCtrl = new wxTextCtrl(this, wxID_ANY);
       if ((size_t)row < panel->gdtfPaths.size())
         modelCtrl->SetValue(panel->gdtfPaths[row]);
+      modelCtrl->Bind(wxEVT_TEXT, [this, i](wxCommandEvent &) {
+        MarkColumnModified(i);
+      });
       hs->Add(modelCtrl, 1, wxEXPAND | wxRIGHT, 5);
       wxButton *browse = new wxButton(this, wxID_ANY, "...");
       hs->Add(browse, 0);
@@ -219,6 +228,9 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       int selection = category->FindString(v.GetString());
       if (selection != wxNOT_FOUND)
         category->SetSelection(selection);
+      category->Bind(wxEVT_CHOICE, [this, i](wxCommandEvent &) {
+        MarkColumnModified(i);
+      });
       ctrls[i] = category;
       controlWindow = category;
     } else if (i == 19) {
@@ -234,10 +246,13 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       if (colorString.IsEmpty() || !initial.IsOk())
         initial = *wxWHITE;
       auto *picker = new wxColourPickerCtrl(this, wxID_ANY, initial);
+      picker->Bind(wxEVT_COLOURPICKER_CHANGED,
+                   [this, i](wxColourPickerEvent &) { MarkColumnModified(i); });
       ctrls[i] = picker;
       controlWindow = picker;
     } else {
       wxTextCtrl *tc = new wxTextCtrl(this, wxID_ANY, v.GetString());
+      tc->Bind(wxEVT_TEXT, [this, i](wxCommandEvent &) { MarkColumnModified(i); });
       ctrls[i] = tc;
       controlWindow = tc;
     }
@@ -314,12 +329,15 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   Bind(wxEVT_BUTTON, &FixtureEditDialog::OnApply, this, wxID_APPLY);
   Bind(wxEVT_BUTTON, &FixtureEditDialog::OnOk, this, wxID_OK);
   Bind(wxEVT_BUTTON, &FixtureEditDialog::OnCancel, this, wxID_CANCEL);
-  if (modeChoice)
-    modeChoice->Bind(wxEVT_CHOICE, &FixtureEditDialog::OnModeChanged, this);
 
   SetSizerAndFit(topSizer);
-  UpdateChannels();
+  UpdateChannels(false);
   UpdateVisualizers();
+}
+
+void FixtureEditDialog::MarkColumnModified(size_t index) {
+  if (index < modifiedColumns.size())
+    modifiedColumns[index] = true;
 }
 
 void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
@@ -331,6 +349,7 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
     return;
   wxString path = fdlg.GetPath();
   modelCtrl->SetValue(path);
+  MarkColumnModified(9);
   if (preview)
     preview->LoadFixture(std::string(path.ToUTF8()));
   // update type/power/weight fields
@@ -340,14 +359,19 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
     if (typeName.empty())
       typeName = fdlg.GetFilename();
     static_cast<wxTextCtrl *>(ctrls[2])->SetValue(typeName);
+    MarkColumnModified(2);
     float w = 0.f, p = 0.f;
     GetGdtfProperties(std::string(path.ToUTF8()), w, p);
     if (ctrls.size() > 16)
       static_cast<wxTextCtrl *>(ctrls[16])->SetValue(
           wxString::Format("%.1f", p));
+    if (ctrls.size() > 16)
+      MarkColumnModified(16);
     if (ctrls.size() > 17)
       static_cast<wxTextCtrl *>(ctrls[17])->SetValue(
           wxString::Format("%.2f", w));
+    if (ctrls.size() > 17)
+      MarkColumnModified(17);
   }
   // repopulate modes
   if (modeChoice) {
@@ -355,14 +379,16 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
     auto modes = GetGdtfModes(std::string(path.ToUTF8()));
     for (const auto &m : modes)
       modeChoice->Append(wxString::FromUTF8(m));
-    if (!modeChoice->IsEmpty())
+    if (!modeChoice->IsEmpty()) {
       modeChoice->SetSelection(0);
+      MarkColumnModified(7);
+    }
   }
-  UpdateChannels();
+  UpdateChannels(true);
   UpdateVisualizers();
 }
 
-void FixtureEditDialog::OnModeChanged(wxCommandEvent &) { UpdateChannels(); }
+void FixtureEditDialog::OnModeChanged(wxCommandEvent &) { UpdateChannels(true); }
 
 void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
   wxPanel *panelWindow = wxDynamicCast(evt.GetEventObject(), wxPanel);
@@ -483,7 +509,7 @@ void FixtureEditDialog::UpdateVisualizers() {
   }
 }
 
-void FixtureEditDialog::UpdateChannels() {
+void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
   wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
   wxString mode = modeChoice ? modeChoice->GetStringSelection() : wxString();
   if (preview)
@@ -522,9 +548,12 @@ void FixtureEditDialog::UpdateChannels() {
   channelList->SetValue(msg);
   int chCount = GetGdtfModeChannelCount(std::string(gdtfPath.ToUTF8()),
                                         std::string(mode.ToUTF8()));
-  if (chCountCtrl)
+  if (chCountCtrl) {
     chCountCtrl->SetValue(chCount >= 0 ? wxString::Format("%d", chCount)
                                        : wxString());
+    if (markChannelCountDirty)
+      MarkColumnModified(8);
+  }
 }
 
 void FixtureEditDialog::OnApply(wxCommandEvent &) { ApplyChanges(); }
@@ -547,7 +576,15 @@ void FixtureEditDialog::ApplyChanges() {
   if ((size_t)row < panel->rowUuids.size())
     selectedUuids.push_back(panel->rowUuids[row]);
 
+  const bool hasUserChanges = std::any_of(modifiedColumns.begin(),
+                                          modifiedColumns.end(),
+                                          [](bool modified) { return modified; });
+  if (!hasUserChanges)
+    return;
+
   for (size_t i = 0; i < ctrls.size(); ++i) {
+    if (i >= modifiedColumns.size() || !modifiedColumns[i])
+      continue;
     if (i == 7 && modeChoice) {
       table->SetValue(wxVariant(modeChoice->GetStringSelection()), row, i);
     } else if (i == 8 && chCountCtrl) {
@@ -593,6 +630,15 @@ void FixtureEditDialog::ApplyChanges() {
       }
     }
   }
+  const bool gdtfMetadataChanged =
+      (modifiedColumns.size() > 2 && modifiedColumns[2]) ||
+      (modifiedColumns.size() > 7 && modifiedColumns[7]) ||
+      (modifiedColumns.size() > 9 && modifiedColumns[9]) ||
+      (modifiedColumns.size() > 18 && modifiedColumns[18]);
+  const bool gdtfPhysicalCandidateChanged =
+      (modifiedColumns.size() > 16 && modifiedColumns[16]) ||
+      (modifiedColumns.size() > 17 && modifiedColumns[17]);
+
   if (!gdtfPath.empty()) {
     if (ctrls.size() > 17) {
       float newPowerW = originalPowerW;
@@ -604,28 +650,30 @@ void FixtureEditDialog::ApplyChanges() {
       const bool gdtfPhysicalChanged =
           std::fabs(newPowerW - originalPowerW) > 0.01f ||
           std::fabs(newWeightKg - originalWeightKg) > 0.01f;
-      if (gdtfPhysicalChanged &&
+      if (gdtfPhysicalCandidateChanged && gdtfPhysicalChanged &&
           !SetGdtfProperties(std::string(gdtfPath.ToUTF8()), newWeightKg,
                              newPowerW, "Perastage")) {
         wxMessageBox(
             "Could not update GDTF physical properties (Weight/PowerConsumption).",
             "GDTF update", wxOK | wxICON_WARNING, this);
-      } else if (gdtfPhysicalChanged) {
+      } else if (gdtfPhysicalCandidateChanged && gdtfPhysicalChanged) {
         originalPowerW = newPowerW;
         originalWeightKg = newWeightKg;
       }
     }
 
-    std::string mode =
-        modeChoice ? std::string(modeChoice->GetStringSelection().ToUTF8()) :
-                     std::string();
-    wxVariant categoryVar;
-    table->GetValue(categoryVar, row, 18);
-    const std::string category =
-        GdtfFixtureCategory::NormalizeCategory(std::string(categoryVar.GetString().ToUTF8()));
-    GdtfDictionary::Update(std::string(originalType.ToUTF8()),
-                           std::string(gdtfPath.ToUTF8()), mode, category);
-    panel->ApplyModeForGdtf(gdtfPath, wxString::FromUTF8(mode));
+    if (gdtfMetadataChanged) {
+      std::string mode =
+          modeChoice ? std::string(modeChoice->GetStringSelection().ToUTF8())
+                     : std::string();
+      wxVariant categoryVar;
+      table->GetValue(categoryVar, row, 18);
+      const std::string category = GdtfFixtureCategory::NormalizeCategory(
+          std::string(categoryVar.GetString().ToUTF8()));
+      GdtfDictionary::Update(std::string(originalType.ToUTF8()),
+                             std::string(gdtfPath.ToUTF8()), mode, category);
+      panel->ApplyModeForGdtf(gdtfPath, wxString::FromUTF8(mode));
+    }
   }
   panel->ResyncRows(oldOrder, selectedUuids);
   panel->UpdateSceneData();
@@ -635,4 +683,5 @@ void FixtureEditDialog::ApplyChanges() {
     Viewer3DPanel::Instance()->UpdateScene();
     Viewer3DPanel::Instance()->Refresh();
   }
+  std::fill(modifiedColumns.begin(), modifiedColumns.end(), false);
 }
