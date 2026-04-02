@@ -717,12 +717,6 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
                            gridR, gridG, gridB, drawAbove, true,
                            m_preferPerastageSvgSymbolsForLayouts);
 
-  // Draw labels for all fixtures after rendering the scene so they appear on
-  // top of geometry. Scale the label size with the current zoom so they behave
-  // like regular scene objects instead of remaining a constant screen size.
-  if (!pauseHeavyTasks)
-    m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom);
-
   if (m_layoutEditAspect && *m_layoutEditAspect > 0.0f) {
     if (!m_layoutEditBaseSize || m_layoutEditBaseSize->GetWidth() <= 0 ||
         m_layoutEditBaseSize->GetHeight() <= 0) {
@@ -820,6 +814,12 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     if (recordingCanvas)
       viewer2d::EmitRulerToCanvas(rulerState, darkMode, *recordingCanvas);
   }
+
+  // Draw fixture/hoist labels after all overlays so they remain on top of
+  // rulers and other scene elements. Scale with zoom so labels behave like
+  // regular scene objects instead of remaining a constant screen size.
+  if (!pauseHeavyTasks)
+    m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom);
 
   if (swapBuffers && m_enableSelection && m_rectSelecting)
     DrawSelectionRectangle(w, h, darkMode);
