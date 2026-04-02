@@ -803,6 +803,8 @@ void MainWindow::OnCloseWindow(wxCloseEvent &event) {
     return;
   }
 
+  userConfigPersistedOnClose = true;
+
   if (viewportPanel)
     viewportPanel->StopRefreshThread();
   viewportPanel = nullptr;

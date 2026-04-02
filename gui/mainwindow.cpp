@@ -321,7 +321,8 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 }
 
 MainWindow::~MainWindow() {
-  SaveUserConfigWithViewport2DState();
+  if (!userConfigPersistedOnClose)
+    SaveUserConfigWithViewport2DState();
   if (auiManager) {
     auiManager->UnInit();
     delete auiManager;
