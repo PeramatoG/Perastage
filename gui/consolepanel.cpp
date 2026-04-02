@@ -809,7 +809,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       size_t j = i + 1;
       bool allowAxis = (lw != "pos" && lw != "rot");
       bool allowRangeSeparator =
-          (!lw.empty() && (lw[0] == 'f' || lw[0] == 't'));
+          (lw == "pos" || lw == "rot" || lw == "x" || lw == "y" ||
+           lw == "z" || (!lw.empty() && (lw[0] == 'f' || lw[0] == 't')));
       while (j < tokens.size() &&
              !isCmd(tokens[j], allowAxis, allowRangeSeparator))
         ++j;
