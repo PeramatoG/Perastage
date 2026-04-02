@@ -24,6 +24,7 @@
 #include <limits>
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 // Include GLEW or other OpenGL loader first if present
@@ -42,6 +43,7 @@
 #endif
 
 #include "layoutviewerpanel_shared.h"
+#include "layoutlegendeditdialog.h"
 #include "layoutlegenditems.h"
 #include "LayoutManager.h"
 #include "guiconfigservices.h"
@@ -655,6 +657,29 @@ void LayoutViewerPanel::OnDeleteLegend(wxCommandEvent &) {
   Refresh();
 }
 
+void LayoutViewerPanel::OnEditLegend(wxCommandEvent &) {
+  if (selectedElementType != SelectedElementType::Legend)
+    return;
+  layouts::LayoutLegendDefinition *legend = GetSelectedLegend();
+  if (!legend)
+    return;
+
+  const std::vector<SharedLayoutLegendItem> availableItems =
+      BuildSharedLayoutLegendItems();
+  LayoutLegendEditDialog dialog(this, *legend, availableItems);
+  if (dialog.ShowModal() != wxID_OK)
+    return;
+
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  cfg.PushUndoState("edit layout legend");
+  legend->showChannelColumn = dialog.GetShowChannelColumn();
+  legend->itemSettings = dialog.GetItemSettings();
+  layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name, *legend);
+  RefreshLegendData();
+  RequestRenderRebuild();
+  Refresh();
+}
+
 void LayoutViewerPanel::DrawLegendElement(
     const layouts::LayoutLegendDefinition &legend, int activeLegendId) {
   LegendCache &cache = GetLegendCache(legend.id);
@@ -745,16 +770,61 @@ std::vector<LayoutViewerPanel::LegendItem>
 LayoutViewerPanel::BuildLegendItems() const {
   std::vector<SharedLayoutLegendItem> sharedItems =
       BuildSharedLayoutLegendItems();
+  const layouts::LayoutLegendDefinition *legend = GetSelectedLegend();
+  std::unordered_map<std::string, layouts::LayoutLegendDefinition::ItemSettings>
+      settingsByType;
+  if (legend) {
+    settingsByType.reserve(legend->itemSettings.size());
+    for (const auto &settings : legend->itemSettings)
+      settingsByType[settings.typeName] = settings;
+  }
+
+  std::unordered_map<std::string, SharedLayoutLegendItem> availableByType;
+  availableByType.reserve(sharedItems.size());
+  for (const auto &shared : sharedItems)
+    availableByType.emplace(shared.typeName, shared);
+
   std::vector<LegendItem> items;
   items.reserve(sharedItems.size());
-  for (const auto &shared : sharedItems) {
+  auto appendItem = [&](const SharedLayoutLegendItem &shared) {
     LegendItem item;
     item.typeName = shared.typeName;
+    item.displayName = shared.typeName;
     item.count = shared.count;
     item.channelCount = shared.channelCount;
     item.symbolKey = shared.symbolKey;
     item.symbolFillHex = shared.symbolFillHex;
+    if (const auto it = settingsByType.find(shared.typeName);
+        it != settingsByType.end()) {
+      item.showBottomSymbol = it->second.showBottomSymbol;
+      item.showFrontSymbol = it->second.showFrontSymbol;
+      item.showSideSymbol = it->second.showSideSymbol;
+      if (!it->second.customName.empty())
+        item.displayName = it->second.customName;
+      if (!it->second.visible)
+        return;
+    }
     items.push_back(std::move(item));
+  };
+
+  if (legend) {
+    std::unordered_set<std::string> usedTypes;
+    usedTypes.reserve(legend->itemSettings.size());
+    for (const auto &settings : legend->itemSettings) {
+      const auto it = availableByType.find(settings.typeName);
+      if (it == availableByType.end())
+        continue;
+      appendItem(it->second);
+      usedTypes.insert(settings.typeName);
+    }
+    for (const auto &shared : sharedItems) {
+      if (usedTypes.find(shared.typeName) != usedTypes.end())
+        continue;
+      appendItem(shared);
+    }
+  } else {
+    for (const auto &shared : sharedItems)
+      appendItem(shared);
   }
   return items;
 }
@@ -766,12 +836,22 @@ size_t LayoutViewerPanel::HashLegendItems(
   std::hash<int> intHasher;
   for (const auto &item : items) {
     hash ^= strHasher(item.typeName) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    hash ^= strHasher(item.displayName) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
     hash ^= intHasher(item.count) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
     int chValue = item.channelCount.value_or(-1);
     hash ^= intHasher(chValue) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
     hash ^= strHasher(item.symbolKey) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
     hash ^= strHasher(item.symbolFillHex.value_or("")) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    hash ^= intHasher(item.showBottomSymbol ? 1 : 0) + 0x9e3779b9 + (hash << 6) +
+            (hash >> 2);
+    hash ^= intHasher(item.showFrontSymbol ? 1 : 0) + 0x9e3779b9 + (hash << 6) +
+            (hash >> 2);
+    hash ^= intHasher(item.showSideSymbol ? 1 : 0) + 0x9e3779b9 + (hash << 6) +
+            (hash >> 2);
   }
+  const auto *legend = GetSelectedLegend();
+  hash ^= intHasher((legend && legend->showChannelColumn) ? 1 : 0) +
+          0x9e3779b9 + (hash << 6) + (hash >> 2);
   return hash;
 }
 
@@ -849,11 +929,13 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   for (const auto &item : items) {
     rowTexts.push_back({
         wxString::Format("%d", item.count),
-        wxString::FromUTF8(item.typeName),
+        wxString::FromUTF8(item.displayName),
         item.channelCount.has_value()
             ? wxString::Format("%d", item.channelCount.value())
             : wxString("-")});
   }
+  const bool showChannelColumn =
+      GetSelectedLegend() ? GetSelectedLegend()->showChannelColumn : true;
 
   const int paddingLeftPx =
       std::max(0, static_cast<int>(std::lround(paddingLeft * renderZoom)));
@@ -902,13 +984,16 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   baseTextExtentCache.clear();
   dc.SetFont(baseFont);
   int maxCountWidth = measureTextWidth("Count");
-  int maxChWidth = measureTextWidth("Ch");
+  int maxChWidth = showChannelColumn ? measureTextWidth("Ch") : 0;
   for (const auto &row : rowTexts) {
     maxCountWidth = std::max(maxCountWidth, measureTextWidth(row.countText));
-    maxChWidth = std::max(maxChWidth, measureTextWidth(row.chText));
+    if (showChannelColumn)
+      maxChWidth = std::max(maxChWidth, measureTextWidth(row.chText));
   }
-  const int chExtraWidthPx = measureTextWidth("0");
-  maxChWidth += chExtraWidthPx;
+  if (showChannelColumn) {
+    const int chExtraWidthPx = measureTextWidth("0");
+    maxChWidth += chExtraWidthPx;
+  }
   const int desiredSymbolSize = static_cast<int>(std::lround(
       kLegendSymbolSizePx * renderZoom * currentFontScale));
   const int symbolSize = std::max(4, desiredSymbolSize);
@@ -1047,21 +1132,36 @@ wxImage LayoutViewerPanel::BuildLegendImage(
 
   double maxTopSymbolColumnWidth = 0.0;
   double maxFrontSymbolColumnWidth = 0.0;
+  double maxSideSymbolColumnWidth = 0.0;
   bool hasSvgSymbols = false;
   bool hasFallbackSymbols = false;
   bool hasTopSvgSymbols = false;
   bool hasFrontSvgSymbols = false;
+  bool hasSideSvgSymbols = false;
   for (const auto &item : items) {
     if (item.symbolKey.empty())
       continue;
-    const PerastageSvgSymbolData *topSvg =
-        findSvgSymbol(item.symbolKey, SymbolViewKind::Bottom);
-    const PerastageSvgSymbolData *frontSvg =
-        findSvgSymbol(item.symbolKey, SymbolViewKind::Front);
-    const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
-        symbols, item.symbolKey, SymbolViewKind::Bottom);
-    const SymbolDefinition *frontSymbol =
-        FindSymbolDefinitionExact(symbols, item.symbolKey, SymbolViewKind::Front);
+    const PerastageSvgSymbolData *topSvg = item.showBottomSymbol
+                                               ? findSvgSymbol(item.symbolKey, SymbolViewKind::Bottom)
+                                               : nullptr;
+    const PerastageSvgSymbolData *frontSvg = item.showFrontSymbol
+                                                 ? findSvgSymbol(item.symbolKey, SymbolViewKind::Front)
+                                                 : nullptr;
+    const PerastageSvgSymbolData *sideSvg = item.showSideSymbol
+                                                ? findSvgSymbol(item.symbolKey, SymbolViewKind::Right)
+                                                : nullptr;
+    const SymbolDefinition *topSymbol = item.showBottomSymbol
+                                            ? FindSymbolDefinitionPreferred(symbols, item.symbolKey,
+                                                                           SymbolViewKind::Bottom)
+                                            : nullptr;
+    const SymbolDefinition *frontSymbol = item.showFrontSymbol
+                                              ? FindSymbolDefinitionExact(symbols, item.symbolKey,
+                                                                          SymbolViewKind::Front)
+                                              : nullptr;
+    const SymbolDefinition *sideSymbol = item.showSideSymbol
+                                             ? FindSymbolDefinitionExact(symbols, item.symbolKey,
+                                                                         SymbolViewKind::Right)
+                                             : nullptr;
     if (topSvg) {
       hasSvgSymbols = true;
       hasTopSvgSymbols = true;
@@ -1074,12 +1174,21 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     } else if (frontSymbol) {
       hasFallbackSymbols = true;
     }
+    if (sideSvg) {
+      hasSvgSymbols = true;
+      hasSideSvgSymbols = true;
+    } else if (sideSymbol) {
+      hasFallbackSymbols = true;
+    }
     const double topDrawW =
         topSvg ? symbolDrawWidthSvg(topSvg) : symbolDrawWidth(topSymbol);
     const double frontDrawW =
         frontSvg ? symbolDrawWidthSvg(frontSvg) : symbolDrawWidth(frontSymbol);
+    const double sideDrawW =
+        sideSvg ? symbolDrawWidthSvg(sideSvg) : symbolDrawWidth(sideSymbol);
     maxTopSymbolColumnWidth = std::max(maxTopSymbolColumnWidth, topDrawW);
     maxFrontSymbolColumnWidth = std::max(maxFrontSymbolColumnWidth, frontDrawW);
+    maxSideSymbolColumnWidth = std::max(maxSideSymbolColumnWidth, sideDrawW);
   }
   const int maxSymbolColumnSize =
       std::max(4, static_cast<int>(std::lround(symbolSize *
@@ -1097,6 +1206,11 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                                           maxMeasuredSymbolColumnWidth) *
                                  kLegendSymbolColumnScale)),
       0, limitedSymbolColumnSize);
+  int sideSymbolColumnSize = std::clamp(
+      static_cast<int>(std::ceil(std::min(maxSideSymbolColumnWidth,
+                                          maxMeasuredSymbolColumnWidth) *
+                                 kLegendSymbolColumnScale)),
+      0, limitedSymbolColumnSize);
   const int columnGapPx =
       std::max(0, static_cast<int>(std::lround(columnGap * renderZoom)));
   int symbolColumnGapPx =
@@ -1111,6 +1225,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     if (hasFrontSvgSymbols)
       frontSymbolColumnSize =
           std::max(frontSymbolColumnSize, minSvgColumnSize);
+    if (hasSideSvgSymbols)
+      sideSymbolColumnSize = std::max(sideSymbolColumnSize, minSvgColumnSize);
     symbolColumnGapPx =
         std::max(symbolColumnGapPx,
                  std::max(1, static_cast<int>(std::lround(2.5 * renderZoom))));
@@ -1120,12 +1236,18 @@ wxImage LayoutViewerPanel::BuildLegendImage(
 
   int xTopSymbol = paddingLeftPx + symbolOuterMarginPx;
   int xFrontSymbol = xTopSymbol + topSymbolColumnSize + symbolColumnGapPx;
-  int xCount = xFrontSymbol + frontSymbolColumnSize + columnGapPx;
+  int xSideSymbol = xFrontSymbol + frontSymbolColumnSize + symbolColumnGapPx;
+  int xCount = xSideSymbol + sideSymbolColumnSize + columnGapPx;
   int xType = xCount + maxCountWidth + columnGapPx;
   int xCh = size.GetWidth() - paddingRightPx - maxChWidth;
-  if (xCh < xType + columnGapPx)
-    xCh = xType + columnGapPx;
-  int typeWidth = std::max(0, xCh - xType - columnGapPx);
+  if (showChannelColumn) {
+    if (xCh < xType + columnGapPx)
+      xCh = xType + columnGapPx;
+  } else {
+    xCh = size.GetWidth() - paddingRightPx;
+  }
+  int typeWidth = std::max(
+      0, showChannelColumn ? (xCh - xType - columnGapPx) : (xCh - xType));
 
   auto wrapTextToTwoLines = [&](const wxString &text, int maxWidth) {
     if (maxWidth <= 0)
@@ -1175,7 +1297,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   dc.SetFont(headerFont);
   dc.DrawText("Count", xCount, y + headerTextOffset);
   dc.DrawText("Type", xType, y + headerTextOffset);
-  dc.DrawText("Ch", xCh, y + headerTextOffset);
+  if (showChannelColumn)
+    dc.DrawText("Ch", xCh, y + headerTextOffset);
 
   y += rowHeightPx;
   dc.SetPen(wxPen(wxColour(200, 200, 200)));
@@ -1195,10 +1318,14 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           symbols, item.symbolKey, SymbolViewKind::Bottom);
       const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
           symbols, item.symbolKey, SymbolViewKind::Front);
+      const SymbolDefinition *sideSymbol = FindSymbolDefinitionExact(
+          symbols, item.symbolKey, SymbolViewKind::Right);
       const PerastageSvgSymbolData *topSvg =
           findSvgSymbol(item.symbolKey, SymbolViewKind::Bottom);
       const PerastageSvgSymbolData *frontSvg =
           findSvgSymbol(item.symbolKey, SymbolViewKind::Front);
+      const PerastageSvgSymbolData *sideSvg =
+          findSvgSymbol(item.symbolKey, SymbolViewKind::Right);
       auto drawSymbol = [&](const SymbolDefinition *symbol, double drawCenterX,
                             double drawTop) {
         if (!symbol)
@@ -1283,7 +1410,11 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       const double frontDrawH =
           frontSvg ? symbolDrawHeightSvg(frontSvg)
                    : symbolDrawHeight(frontSymbol);
-      if (topDrawW > 0.0) {
+      const double sideDrawW =
+          sideSvg ? symbolDrawWidthSvg(sideSvg) : symbolDrawWidth(sideSymbol);
+      const double sideDrawH =
+          sideSvg ? symbolDrawHeightSvg(sideSvg) : symbolDrawHeight(sideSymbol);
+      if (item.showBottomSymbol && topDrawW > 0.0) {
         const double symbolDrawTop =
             y + (static_cast<double>(rowHeightPx) - topDrawH) * 0.5;
         const double symbolDrawLeft =
@@ -1297,7 +1428,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                      xTopSymbol + static_cast<double>(topSymbolColumnSize) * 0.5,
                      symbolDrawTop);
       }
-      if (frontDrawW > 0.0) {
+      if (item.showFrontSymbol && frontDrawW > 0.0) {
         const double symbolDrawTop =
             y + (static_cast<double>(rowHeightPx) - frontDrawH) * 0.5;
         const double symbolDrawLeft =
@@ -1311,13 +1442,28 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                      xFrontSymbol + static_cast<double>(frontSymbolColumnSize) * 0.5,
                      symbolDrawTop);
       }
+      if (item.showSideSymbol && sideDrawW > 0.0) {
+        const double symbolDrawTop =
+            y + (static_cast<double>(rowHeightPx) - sideDrawH) * 0.5;
+        const double symbolDrawLeft =
+            xSideSymbol +
+            std::max(0.0, (static_cast<double>(sideSymbolColumnSize) - sideDrawW) *
+                                 0.5);
+        if (sideSvg)
+          drawSvg(sideSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop);
+        else
+          drawSymbol(sideSymbol,
+                     xSideSymbol + static_cast<double>(sideSymbolColumnSize) * 0.5,
+                     symbolDrawTop);
+      }
     }
     dc.DrawText(rowText.countText, xCount, y + rowSingleTextOffset);
     dc.DrawText(wrappedType[0], xType, y + rowTypeTextOffset);
     if (!wrappedType[1].empty())
       dc.DrawText(wrappedType[1], xType,
                   y + rowTypeTextOffset + textHeight + separatorGapPx);
-    dc.DrawText(rowText.chText, xCh, y + rowSingleTextOffset);
+    if (showChannelColumn)
+      dc.DrawText(rowText.chText, xCh, y + rowSingleTextOffset);
     y += rowHeightPx;
   }
 
