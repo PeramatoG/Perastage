@@ -173,7 +173,9 @@ Supported truss syntax includes:
 
 - `N truss MODEL LENGTH m [para HANG]`
 - `N truss MODEL LENGTH m [HANG]` (hang can appear with or without `para`)
+- `N truss MODEL LENGTH m [for HANG]`
 - `N truss MODEL [para HANG]` (lengthless form, used for backdrop lines)
+- `N truss MODEL [for HANG]` (lengthless form, used for backdrop lines)
 - More generic fallback lines containing `truss` and a measurable length.
 - Optional coordinate override appended to hang in parentheses, e.g.
   - `LX1 (0, -1, 9)` => `x, y, z`
@@ -193,7 +195,7 @@ Key truss behaviors:
      parsed `LX*` or `SCREEN` truss span.
    - If no prior `LX*`/`SCREEN` span exists, `BACKDROP` uses `12 m` by default.
 2. If model token contains dimensions like `40x40`, width/height defaults are inferred from it.
-3. `para <hang>` overrides current hang.
+3. `para <hang>` / `for <hang>` overrides current hang.
 4. Prefix cleanup supports `PUENTE`/`PUENTES` in hang names.
 5. Long trusses are split into symmetric pieces using preferred segments (`3000, 2000, 1000, 500 mm`) plus a center piece when beneficial.
 6. Each piece becomes a truss object with computed `x` placement and hang-based

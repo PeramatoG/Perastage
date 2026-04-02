@@ -109,6 +109,26 @@ int main() {
     return 1;
   }
 
+  const std::string inputEnglishForKeyword =
+      "RIGGING\n"
+      "1 TRUSS 40X40 PRO NEGRO 12m for LX2 (4)\n"
+      "1 TRUSS 40X40 for BACKDROP (8)\n";
+  const std::string previewEnglishForKeyword =
+      RiderImporter::BuildFixtureFilterPreview(inputEnglishForKeyword);
+  const std::string expectedEnglishForKeyword =
+      "\n"
+      "\n"
+      "RIGGING\n"
+      "1 TRUSS 40X40 PRO NEGRO 12m LX2 (4)\n"
+      "1 TRUSS 40X40 BACKDROP (8)";
+  if (previewEnglishForKeyword != expectedEnglishForKeyword) {
+    std::cerr << "English 'for' truss targets should be preserved.\n"
+              << "Expected:\n"
+              << expectedEnglishForKeyword << "\n\nGot:\n"
+              << previewEnglishForKeyword << "\n";
+    return 1;
+  }
+
   const std::string mixedSectionsInput =
       "SONIDO\n"
       "2 CLUSTER FORMADOS POR:\n"
