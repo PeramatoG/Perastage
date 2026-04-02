@@ -156,13 +156,27 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
 
 nlohmann::json ToJson(const LayoutLegendDefinition &legend) {
   const auto &frame = legend.frame;
+  nlohmann::json itemSettings = nlohmann::json::array();
+  for (const auto &item : legend.itemSettings) {
+    itemSettings.push_back({
+        {"typeName", item.typeName},
+        {"visible", item.visible},
+        {"showBottomSymbol", item.showBottomSymbol},
+        {"showFrontSymbol", item.showFrontSymbol},
+        {"showSideSymbol", item.showSideSymbol},
+        {"customName", item.customName},
+    });
+  }
+
   return {{"id", legend.id},
           {"zIndex", legend.zIndex},
           {"frame",
            {{"x", frame.x},
             {"y", frame.y},
             {"width", frame.width},
-            {"height", frame.height}}}};
+            {"height", frame.height}}},
+          {"showChannelColumn", legend.showChannelColumn},
+          {"itemSettings", std::move(itemSettings)}};
 }
 
 nlohmann::json ToJson(const LayoutEventTableDefinition &table) {
@@ -428,6 +442,51 @@ bool ParseLayoutLegend(const nlohmann::json &value, LayoutLegendDefinition &out,
   auto frameIt = value.find("frame");
   if (frameIt != value.end() && frameIt->is_object())
     ReadFrame(*frameIt, out.frame, ctx);
+  if (auto channelIt = value.find("showChannelColumn");
+      channelIt != value.end() && channelIt->is_boolean()) {
+    out.showChannelColumn = channelIt->get<bool>();
+  }
+  if (auto itemSettingsIt = value.find("itemSettings");
+      itemSettingsIt != value.end()) {
+    if (!itemSettingsIt->is_array()) {
+      AddWarning(ctx, "Ignored legend 'itemSettings' because it is not an array.");
+    } else {
+      out.itemSettings.clear();
+      out.itemSettings.reserve(itemSettingsIt->size());
+      for (const auto &entry : *itemSettingsIt) {
+        if (!entry.is_object())
+          continue;
+        LayoutLegendDefinition::ItemSettings item;
+        if (auto typeIt = entry.find("typeName");
+            typeIt != entry.end() && typeIt->is_string()) {
+          item.typeName = typeIt->get<std::string>();
+        }
+        if (item.typeName.empty())
+          continue;
+        if (auto visibleIt = entry.find("visible");
+            visibleIt != entry.end() && visibleIt->is_boolean()) {
+          item.visible = visibleIt->get<bool>();
+        }
+        if (auto bottomIt = entry.find("showBottomSymbol");
+            bottomIt != entry.end() && bottomIt->is_boolean()) {
+          item.showBottomSymbol = bottomIt->get<bool>();
+        }
+        if (auto frontIt = entry.find("showFrontSymbol");
+            frontIt != entry.end() && frontIt->is_boolean()) {
+          item.showFrontSymbol = frontIt->get<bool>();
+        }
+        if (auto sideIt = entry.find("showSideSymbol");
+            sideIt != entry.end() && sideIt->is_boolean()) {
+          item.showSideSymbol = sideIt->get<bool>();
+        }
+        if (auto customIt = entry.find("customName");
+            customIt != entry.end() && customIt->is_string()) {
+          item.customName = customIt->get<std::string>();
+        }
+        out.itemSettings.push_back(std::move(item));
+      }
+    }
+  }
   return true;
 }
 

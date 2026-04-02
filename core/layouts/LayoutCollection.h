@@ -82,9 +82,20 @@ struct Layout2DViewDefinition {
 };
 
 struct LayoutLegendDefinition {
+  struct ItemSettings {
+    std::string typeName;
+    bool visible = true;
+    bool showBottomSymbol = true;
+    bool showFrontSymbol = true;
+    bool showSideSymbol = false;
+    std::string customName;
+  };
+
   int id = 0;
   int zIndex = 0;
   Layout2DViewFrame frame;
+  bool showChannelColumn = true;
+  std::vector<ItemSettings> itemSettings;
 };
 
 struct LayoutEventTableDefinition {

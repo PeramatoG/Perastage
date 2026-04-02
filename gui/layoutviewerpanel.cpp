@@ -84,6 +84,7 @@ constexpr size_t kMaxRenderBytes = 64 * 1024 * 1024;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
 constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
 constexpr int kDeleteLegendMenuId = wxID_HIGHEST + 492;
+constexpr int kEditLegendMenuId = wxID_HIGHEST + 505;
 constexpr int kEditEventTableMenuId = wxID_HIGHEST + 493;
 constexpr int kDeleteEventTableMenuId = wxID_HIGHEST + 494;
 constexpr int kEditTextMenuId = wxID_HIGHEST + 495;
@@ -426,6 +427,7 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
     EVT_SHOW(LayoutViewerPanel::OnShow)
     EVT_MENU(kEditMenuId, LayoutViewerPanel::OnEditView)
     EVT_MENU(kDeleteMenuId, LayoutViewerPanel::OnDeleteView)
+    EVT_MENU(kEditLegendMenuId, LayoutViewerPanel::OnEditLegend)
     EVT_MENU(kDeleteLegendMenuId, LayoutViewerPanel::OnDeleteLegend)
     EVT_MENU(kEditEventTableMenuId, LayoutViewerPanel::OnEditEventTable)
     EVT_MENU(kDeleteEventTableMenuId, LayoutViewerPanel::OnDeleteEventTable)
@@ -1150,6 +1152,11 @@ void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
       OnEditEventTable(editEvent);
       return;
     }
+    if (selectedElementType == SelectedElementType::Legend) {
+      wxCommandEvent editEvent;
+      OnEditLegend(editEvent);
+      return;
+    }
     if (selectedElementType == SelectedElementType::Text) {
       wxCommandEvent editEvent;
       OnEditText(editEvent);
@@ -1416,6 +1423,7 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
     menu.Append(kBringToFrontMenuId, "Bring to Front");
     menu.Append(kSendToBackMenuId, "Send to Back");
   } else if (selectedElementType == SelectedElementType::Legend) {
+    menu.Append(kEditLegendMenuId, "Edit Legend");
     menu.Append(kDeleteLegendMenuId, "Delete Legend");
     menu.AppendSeparator();
     menu.Append(kBringToFrontMenuId, "Bring to Front");

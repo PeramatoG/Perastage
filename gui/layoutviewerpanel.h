@@ -50,10 +50,14 @@ public:
 private:
   struct LegendItem {
     std::string typeName;
+    std::string displayName;
     int count = 0;
     std::optional<int> channelCount;
     std::string symbolKey;
     std::optional<std::string> symbolFillHex;
+    bool showBottomSymbol = true;
+    bool showFrontSymbol = true;
+    bool showSideSymbol = false;
   };
 
   struct ViewCache {
@@ -129,6 +133,7 @@ private:
   void OnShow(wxShowEvent &event);
   void OnEditView(wxCommandEvent &event);
   void OnDeleteView(wxCommandEvent &event);
+  void OnEditLegend(wxCommandEvent &event);
   void OnDeleteLegend(wxCommandEvent &event);
   void OnEditEventTable(wxCommandEvent &event);
   void OnDeleteEventTable(wxCommandEvent &event);

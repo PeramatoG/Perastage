@@ -45,6 +45,9 @@ layouts::LayoutDefinition BuildFullLayoutDefinition() {
   legend.id = 12;
   legend.zIndex = 5;
   legend.frame = {2, 3, 80, 120};
+  legend.showChannelColumn = false;
+  legend.itemSettings.push_back({"Spot", true, true, false, true, "Spot Main"});
+  legend.itemSettings.push_back({"Wash", false, true, true, false, ""});
   layout.legendViews.push_back(legend);
 
   layouts::LayoutEventTableDefinition table;
@@ -100,6 +103,10 @@ void TestFullRoundTrip() {
 
   assert(layout.view2dViews.front().camera.view == 2);
   assert(layout.legendViews.front().id == 12);
+  assert(!layout.legendViews.front().showChannelColumn);
+  assert(layout.legendViews.front().itemSettings.size() == 2);
+  assert(layout.legendViews.front().itemSettings[0].typeName == "Spot");
+  assert(layout.legendViews.front().itemSettings[0].showSideSymbol);
   assert(layout.eventTables.front().fields[0] == "Venue");
   assert(layout.textViews.front().richText == "<b>Rich</b>");
   assert(layout.imageViews.front().aspectRatio == original.imageViews.front().aspectRatio);
