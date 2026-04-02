@@ -4,6 +4,7 @@
 #include "mainwindow_cli_shortcut_router.h"
 
 #include <wx/combobox.h>
+#include <wx/grid.h>
 #include <wx/spinctrl.h>
 #include <wx/textctrl.h>
 
@@ -20,7 +21,8 @@ bool MainWindow::IsEditableTextWidgetOrChild(const wxWindow *window) const {
         dynamic_cast<const wxSpinCtrlDouble *>(current)) {
       return true;
     }
-    if (current->IsEditable()) {
+    if (auto *grid = dynamic_cast<const wxGrid *>(current);
+        grid && grid->IsCellEditControlShown()) {
       return true;
     }
     current = current->GetParent();
