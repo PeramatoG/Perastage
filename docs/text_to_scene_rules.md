@@ -172,6 +172,7 @@ Special screen-object handling:
 Supported truss syntax includes:
 
 - `N truss MODEL LENGTH m [para HANG]`
+- `N truss MODEL LENGTH m [HANG]` (hang can appear with or without `para`)
 - `N truss MODEL [para HANG]` (lengthless form, used for backdrop lines)
 - More generic fallback lines containing `truss` and a measurable length.
 - Optional coordinate override appended to hang in parentheses, e.g.
