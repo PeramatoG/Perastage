@@ -29,6 +29,12 @@ enum GridColumn {
   kColCustomName,
   kColCount,
 };
+
+wxString BoolCellValue(bool value) {
+  // wxGrid bool editor expects "1" for true and empty string for false.
+  // Using "0" can trigger assertions in debug wxWidgets builds.
+  return value ? "1" : "";
+}
 }
 
 LayoutLegendEditDialog::LayoutLegendEditDialog(
@@ -147,10 +153,10 @@ void LayoutLegendEditDialog::PopulateGrid() {
     const RowData &data = rows_[static_cast<size_t>(row)];
     grid_->SetCellValue(row, kColType, wxString::FromUTF8(data.typeName));
     grid_->SetReadOnly(row, kColType, true);
-    grid_->SetCellValue(row, kColVisible, data.visible ? "1" : "0");
-    grid_->SetCellValue(row, kColBottom, data.showBottomSymbol ? "1" : "0");
-    grid_->SetCellValue(row, kColFront, data.showFrontSymbol ? "1" : "0");
-    grid_->SetCellValue(row, kColSide, data.showSideSymbol ? "1" : "0");
+    grid_->SetCellValue(row, kColVisible, BoolCellValue(data.visible));
+    grid_->SetCellValue(row, kColBottom, BoolCellValue(data.showBottomSymbol));
+    grid_->SetCellValue(row, kColFront, BoolCellValue(data.showFrontSymbol));
+    grid_->SetCellValue(row, kColSide, BoolCellValue(data.showSideSymbol));
     grid_->SetCellValue(row, kColCustomName, wxString::FromUTF8(data.customName));
   }
 }
@@ -180,10 +186,10 @@ void LayoutLegendEditDialog::SaveFromGrid() {
 
   for (int row = 0; row < static_cast<int>(rows_.size()); ++row) {
     RowData &data = rows_[static_cast<size_t>(row)];
-    data.visible = grid_->GetCellValue(row, kColVisible) == "1";
-    data.showBottomSymbol = grid_->GetCellValue(row, kColBottom) == "1";
-    data.showFrontSymbol = grid_->GetCellValue(row, kColFront) == "1";
-    data.showSideSymbol = grid_->GetCellValue(row, kColSide) == "1";
+    data.visible = !grid_->GetCellValue(row, kColVisible).IsEmpty();
+    data.showBottomSymbol = !grid_->GetCellValue(row, kColBottom).IsEmpty();
+    data.showFrontSymbol = !grid_->GetCellValue(row, kColFront).IsEmpty();
+    data.showSideSymbol = !grid_->GetCellValue(row, kColSide).IsEmpty();
     data.customName = std::string(grid_->GetCellValue(row, kColCustomName).utf8_string());
   }
 }
