@@ -20,6 +20,27 @@ class wxZipStreamLink;
 #include <wx/zipstrm.h>
 
 namespace {
+namespace fs = std::filesystem;
+
+std::string Utf8StringFromPath(const fs::path &path) {
+  const auto utf8 = path.u8string();
+  return std::string(utf8.begin(), utf8.end());
+}
+
+fs::path PathFromUtf8(const std::string &path) {
+  if (path.empty())
+    return {};
+  return fs::u8path(path);
+}
+
+wxString WxStringFromPath(const fs::path &path) {
+#ifdef _WIN32
+  return wxString(path.wstring());
+#else
+  return wxString::FromUTF8(path.string());
+#endif
+}
+
 std::vector<std::string> SplitCSV(const std::string &s) {
   std::vector<std::string> result;
   std::stringstream ss(s);
@@ -69,10 +90,15 @@ bool TryParseFloat(const std::string &text, float &out) {
 class TempDir {
 public:
   explicit TempDir(const std::string &prefix) {
-    namespace fs = std::filesystem;
     auto stamp = std::chrono::system_clock::now().time_since_epoch().count();
-    path = fs::temp_directory_path() / (prefix + std::to_string(stamp));
-    created = std::filesystem::create_directory(path);
+    std::error_code ec;
+    const fs::path base = fs::temp_directory_path(ec);
+    if (ec)
+      return;
+    path = base / (prefix + std::to_string(stamp));
+    created = fs::create_directory(path, ec);
+    if (ec)
+      created = false;
   }
 
   ~TempDir() {
@@ -91,7 +117,7 @@ private:
 };
 
 bool LooksLikeZipFile(const std::string &path) {
-  std::ifstream file(path, std::ios::binary);
+  std::ifstream file(PathFromUtf8(path), std::ios::binary);
   if (!file.is_open())
     return false;
   unsigned char signature[2] = {};
@@ -101,7 +127,7 @@ bool LooksLikeZipFile(const std::string &path) {
 }
 
 bool LooksLikeJsonFile(const std::string &path) {
-  std::ifstream file(path, std::ios::binary);
+  std::ifstream file(PathFromUtf8(path), std::ios::binary);
   if (!file.is_open())
     return false;
   char ch = '\0';
@@ -279,7 +305,7 @@ void UserPreferencesStore::SetSceneObjectPrintColumns(
 }
 
 bool UserPreferencesStore::LoadFromFile(const std::string &path) {
-  std::ifstream file(path, std::ios::binary);
+  std::ifstream file(PathFromUtf8(path), std::ios::binary);
   if (!file.is_open())
     return false;
 
@@ -303,7 +329,7 @@ bool UserPreferencesStore::LoadFromFile(const std::string &path) {
 }
 
 bool UserPreferencesStore::SaveToFile(const std::string &path) const {
-  std::ofstream file(path, std::ios::binary);
+  std::ofstream file(PathFromUtf8(path), std::ios::binary);
   if (!file.is_open())
     return false;
 
@@ -314,19 +340,19 @@ bool UserPreferencesStore::SaveToFile(const std::string &path) const {
 
 std::string UserPreferencesStore::GetUserConfigFile() {
   wxString dir = wxStandardPaths::Get().GetUserDataDir();
-  std::filesystem::path p = std::filesystem::path(dir.ToStdString());
+  std::filesystem::path p(dir.ToStdWstring());
   std::error_code ec;
   std::filesystem::create_directories(p, ec);
   if (ec) {
     ec.clear();
     const wxString tempDir = wxStandardPaths::Get().GetTempDir();
-    p = std::filesystem::path(tempDir.ToStdString()) / "Perastage";
+    p = std::filesystem::path(tempDir.ToStdWstring()) / "Perastage";
     std::filesystem::create_directories(p, ec);
     if (ec)
       return {};
   }
   p /= "user_config.json";
-  return p.string();
+  return Utf8StringFromPath(p);
 }
 
 bool UserPreferencesStore::LoadUserConfig() {
@@ -536,7 +562,6 @@ const MvrScene &ProjectSession::GetScene() const { return scene; }
 bool ProjectSession::SaveProject(const std::string &path,
                                  const SaveConfigFn &saveConfig,
                                  const SaveSceneFn &saveScene) const {
-  namespace fs = std::filesystem;
   if (!saveConfig || !saveScene)
     return false;
 
@@ -549,7 +574,7 @@ bool ProjectSession::SaveProject(const std::string &path,
   if (!saveConfig(configPath.string()) || !saveScene(scenePath.string()))
     return false;
 
-  wxFileOutputStream out(path);
+  wxFileOutputStream out(WxStringFromPath(PathFromUtf8(path)));
   if (!out.IsOk())
     return false;
   wxZipOutputStream zip(out);
@@ -578,7 +603,6 @@ bool ProjectSession::SaveProject(const std::string &path,
 bool ProjectSession::LoadProject(const std::string &path,
                                  const LoadConfigFn &loadConfig,
                                  const LoadSceneFn &loadScene) {
-  namespace fs = std::filesystem;
   if (!loadConfig || !loadScene)
     return false;
 
@@ -588,7 +612,7 @@ bool ProjectSession::LoadProject(const std::string &path,
     return false;
   }
 
-  wxFileInputStream in(path);
+  wxFileInputStream in(WxStringFromPath(PathFromUtf8(path)));
   if (!in.IsOk())
     return false;
   wxZipInputStream zip(in);

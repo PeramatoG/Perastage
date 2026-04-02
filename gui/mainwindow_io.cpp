@@ -60,21 +60,26 @@
 
 namespace {
 
+std::string Utf8StringFromPath(const std::filesystem::path &path) {
+  const auto utf8 = path.u8string();
+  return std::string(utf8.begin(), utf8.end());
+}
+
 std::string EnsureProjectFileExtension(const std::string &path) {
   if (path.empty())
     return path;
 
-  const std::filesystem::path candidate(path);
+  const std::filesystem::path candidate = std::filesystem::u8path(path);
   const std::string ext = candidate.extension().string();
   const std::string requiredExt = ProjectUtils::PROJECT_EXTENSION;
   if (ext == requiredExt)
-    return candidate.string();
+    return Utf8StringFromPath(candidate);
   if (!ext.empty())
-    return candidate.string();
+    return Utf8StringFromPath(candidate);
 
   std::filesystem::path withExtension = candidate;
   withExtension += requiredExt;
-  return withExtension.string();
+  return Utf8StringFromPath(withExtension);
 }
 
 class ScopeExit {
@@ -147,7 +152,8 @@ void MainWindow::OnLoad(wxCommandEvent &event) {
     return;
 
   wxString path = dlg.GetPath();
-  if (!LoadProjectFromPath(path.ToStdString()))
+  const std::filesystem::path selectedPath(path.ToStdWstring());
+  if (!LoadProjectFromPath(Utf8StringFromPath(selectedPath)))
     wxMessageBox("Failed to load project.", "Error", wxICON_ERROR);
 }
 
@@ -216,7 +222,8 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
 
-  currentProjectPath = EnsureProjectFileExtension(dlg.GetPath().ToStdString());
+  const std::filesystem::path selectedPath(dlg.GetPath().ToStdWstring());
+  currentProjectPath = EnsureProjectFileExtension(Utf8StringFromPath(selectedPath));
   currentProjectDisplayName.clear();
 
   std::unique_ptr<wxWindowDisabler> saveDisabler =
