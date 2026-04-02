@@ -277,6 +277,41 @@ ConsolePanel *ConsolePanel::Instance() { return s_instance; }
 
 void ConsolePanel::SetInstance(ConsolePanel *panel) { s_instance = panel; }
 
+bool ConsolePanel::IsInputWidgetOrChild(const wxWindow *window) const {
+  if (!window || !m_inputCtrl)
+    return false;
+
+  const wxWindow *current = window;
+  while (current) {
+    if (current == m_inputCtrl)
+      return true;
+    current = current->GetParent();
+  }
+  return false;
+}
+
+bool ConsolePanel::InputHasTypedContent() const {
+  if (!m_inputCtrl)
+    return false;
+
+  wxString value = m_inputCtrl->GetValue();
+  if (value.StartsWith(">>> "))
+    value = value.Mid(4);
+  value.Trim(true).Trim(false);
+  return !value.IsEmpty();
+}
+
+void ConsolePanel::FocusInputWithOptionalPrefill(const wxString &text) {
+  if (!m_inputCtrl)
+    return;
+
+  if (!text.IsEmpty() && !InputHasTypedContent())
+    m_inputCtrl->SetValue(">>> " + text);
+
+  m_inputCtrl->SetFocus();
+  m_inputCtrl->SetInsertionPointEnd();
+}
+
 void ConsolePanel::OnScroll(wxScrollWinEvent &event) {
   if (!m_textCtrl) {
     event.Skip();

@@ -33,6 +33,9 @@ public:
     // Access singleton instance
     static ConsolePanel* Instance();
     static void SetInstance(ConsolePanel* panel);
+    bool IsInputWidgetOrChild(const wxWindow* window) const;
+    bool InputHasTypedContent() const;
+    void FocusInputWithOptionalPrefill(const wxString& text);
 
 private:
     wxTextCtrl* m_textCtrl = nullptr;

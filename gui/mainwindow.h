@@ -75,6 +75,8 @@ public:
   static void SetInstance(MainWindow *inst);
 
   void EnableShortcuts(bool enable);
+  bool IsEditableTextWidgetOrChild(const wxWindow *window) const;
+  void FocusConsoleForQuickCommand(const wxString &prefill);
   void Ensure2DViewportAvailable();
   Viewer2DPanel *GetLayoutCapturePanel() const;
   Viewer2DOffscreenRenderer *GetOffscreenRenderer();
@@ -173,6 +175,7 @@ private:
   void OnSelectSupports(wxCommandEvent &event);       // Switch to supports tab
   void OnSelectObjects(wxCommandEvent &event);        // Switch to objects tab
   void OnNotebookPageChanged(wxBookCtrlEvent &event); // Update summary panel
+  void OnGlobalCharHook(wxKeyEvent &event);
   void RefreshSummary();                              // Refresh summary counts
   void RefreshAfterSceneChange(bool refreshViewport = true);
   void RefreshAfterUnitSystemChange();
