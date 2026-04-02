@@ -36,6 +36,12 @@ Keep Perastage clean and modular while continuing to deliver new features, follo
      must update `docs/text_to_scene_rules.md` in the same PR.
    - If behavior becomes user-visible, also update Help/README references.
 
+8. **Shortcut documentation policy**
+   - Any change that adds, removes, or remaps GUI shortcuts must update
+     `docs/gui_shortcut_architecture.md` in the same PR.
+   - If shortcut scope/priority/focus behavior changes, document the
+     resolution and precedence impact in that file.
+
 ## Current hotspots (watch for growth)
 - `gui/layoutviewerpanel.cpp`
 - `viewer2d/viewer2dpanel.cpp`

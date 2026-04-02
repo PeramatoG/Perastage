@@ -1413,18 +1413,6 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
             else
                 m_camera.targetPitch = std::clamp(m_camera.targetPitch - 5.0f, -89.0f, 89.0f);
             break;
-        case WXK_NUMPAD1: // Front
-            SetStandardView(Viewer2DView::Front);
-            break;
-        case WXK_NUMPAD3: // Right
-            SetStandardView(Viewer2DView::Side);
-            break;
-        case WXK_NUMPAD7: // Top
-            SetStandardView(Viewer2DView::Top);
-            break;
-        case WXK_NUMPAD5: // Reset/isometric
-            m_camera.Reset();
-            break;
         case WXK_DELETE:
         case WXK_NUMPAD_DELETE: {
             if (MainWindow::Instance()) {
@@ -1435,27 +1423,33 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
             event.Skip();
             return;
         }
-        case 'Z':
-        case 'z': {
-            int width = 0;
-            int height = 0;
-            GetClientSize(&width, &height);
-            if (!viewer3d::FrameSceneInCamera(m_controller, width, height, m_camera)) {
-                event.Skip();
-                return;
-            }
-            m_isInteracting = true;
-            m_cameraMoving = true;
-            m_lastInteractionTime = std::chrono::steady_clock::now();
-            m_controller.SetInteracting(true);
-            break;
-        }
         default:
             event.Skip();
             return;
     }
 
     Refresh();
+}
+
+bool Viewer3DPanel::ResetCameraToIsometric() {
+    m_camera.Reset();
+    Refresh();
+    return true;
+}
+
+bool Viewer3DPanel::FrameSceneToFit() {
+    int width = 0;
+    int height = 0;
+    GetClientSize(&width, &height);
+    if (!viewer3d::FrameSceneInCamera(m_controller, width, height, m_camera))
+        return false;
+
+    m_isInteracting = true;
+    m_cameraMoving = true;
+    m_lastInteractionTime = std::chrono::steady_clock::now();
+    m_controller.SetInteracting(true);
+    Refresh();
+    return true;
 }
 
 void Viewer3DPanel::SetStandardView(Viewer2DView view) {

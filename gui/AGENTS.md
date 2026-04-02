@@ -23,3 +23,7 @@ These rules apply to everything under `gui/`.
 
 4. **Dependencies**
    - Avoid introducing GUI dependencies on internal details of other modules when a public API or helper exists in the owning module.
+
+5. **Shortcut changes must update docs**
+   - If you add, remove, or modify keyboard shortcuts in `gui/` or their routing,
+     update `docs/gui_shortcut_architecture.md` in the same change.

@@ -30,3 +30,7 @@ This document defines the expected directory conventions for Perastage.
 
 - Scene-object presets live in `library/scene_objects/`.
 - Any new code/path references must use `scene_objects` (underscore), not `scene objects`.
+
+## GUI architecture references
+
+- Keyboard shortcut routing and scope rules are documented in `docs/gui_shortcut_architecture.md`.

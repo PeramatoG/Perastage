@@ -2120,14 +2120,6 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
     event.Skip();
     return;
   }
-  case 'Z':
-  case 'z': {
-    if (!FitViewToScene()) {
-      event.Skip();
-      return;
-    }
-    break;
-  }
   default:
     event.Skip();
     return;
