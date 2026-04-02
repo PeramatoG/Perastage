@@ -111,6 +111,7 @@ Notes:
 | Ctrl+Z / Ctrl+Y | Undo / Redo |
 | Del | Delete selection |
 | F1 | Open help |
+| F | Focus CLI and prefill `fixture ` (outside editable widgets) |
 | 1 / 2 / 3 / 4 | Switch to Fixtures / Trusses / Hoists / Objects |
 
 ### Console input
@@ -131,7 +132,7 @@ Notes:
 | Alt + arrow keys | Zoom in/out |
 | Numpad 1 / 3 / 7 | Front / Right / Top views |
 | Numpad 5 | Reset camera orientation |
-| F | Frame scene (fit all objects in view) |
+| Z | Frame scene (fit all objects in view) |
 
 ### 2D Viewer (keyboard)
 
@@ -145,7 +146,7 @@ Notes:
 | Shortcut | Action |
 | --- | --- |
 | Delete | Delete selected layout element |
-| F | Reset layout view to fit |
+| Z | Reset layout view to fit |
 
 ## Mouse Shortcuts (complete)
 
@@ -290,6 +291,7 @@ Notas:
 | Ctrl+Z / Ctrl+Y | Deshacer / Rehacer |
 | Del | Borrar selección |
 | F1 | Abrir ayuda |
+| F | Enfocar CLI y rellenar `fixture ` (fuera de widgets editables) |
 | 1 / 2 / 3 / 4 | Ir a Fixtures / Trusses / Hoists / Objects |
 
 ### Entrada de consola
@@ -310,7 +312,7 @@ Notas:
 | Alt + flechas | Zoom +/- |
 | Numpad 1 / 3 / 7 | Vista frontal / derecha / superior |
 | Numpad 5 | Resetear cámara |
-| F | Encuadrar escena (ajustar todo a vista) |
+| Z | Encuadrar escena (ajustar todo a vista) |
 
 ### Visor 2D (teclado)
 
