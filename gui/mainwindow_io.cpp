@@ -29,6 +29,7 @@
 
 #include <tinyxml2.h>
 #include <wx/busyinfo.h>
+#include <wx/filename.h>
 #include <wx/log.h>
 #include <wx/utils.h>
 #include <wx/wfstream.h>
@@ -161,6 +162,13 @@ void MainWindow::OnSave(wxCommandEvent &event) {
     OnSaveAs(event);
     return;
   }
+
+  std::unique_ptr<wxWindowDisabler> saveDisabler =
+      std::make_unique<wxWindowDisabler>();
+  std::unique_ptr<wxBusyInfo> saveOverlay =
+      std::make_unique<wxBusyInfo>("Saving project...");
+  wxYieldIfNeeded();
+
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   // Always sync table edits before saving; each panel now applies only real changes.
   SyncSceneData();
@@ -191,12 +199,32 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   else
     projDir =
         wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("projects"));
-  wxFileDialog dlg(this, "Save Project", projDir, "", filter,
+
+  wxString suggestedProjectName;
+  if (!currentProjectPath.empty()) {
+    suggestedProjectName =
+        wxFileName(wxString::FromUTF8(currentProjectPath)).GetName();
+  } else if (!currentProjectDisplayName.IsEmpty() &&
+             currentProjectDisplayName != "Untitled") {
+    suggestedProjectName = currentProjectDisplayName;
+  }
+  const wxString suggestedFileName =
+      suggestedProjectName.IsEmpty() ? wxString() : suggestedProjectName + projectExtension;
+
+  wxFileDialog dlg(this, "Save Project", projDir, suggestedFileName, filter,
                    wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
 
   currentProjectPath = EnsureProjectFileExtension(dlg.GetPath().ToStdString());
+  currentProjectDisplayName.clear();
+
+  std::unique_ptr<wxWindowDisabler> saveDisabler =
+      std::make_unique<wxWindowDisabler>();
+  std::unique_ptr<wxBusyInfo> saveOverlay =
+      std::make_unique<wxBusyInfo>("Saving project...");
+  wxYieldIfNeeded();
+
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   // Always sync table edits before saving; each panel now applies only real changes.
   SyncSceneData();
