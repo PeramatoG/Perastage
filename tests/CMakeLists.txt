@@ -69,6 +69,12 @@ target_include_directories(fixture_table_parser_test PRIVATE .. ../gui)
 target_link_libraries(fixture_table_parser_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME FixtureTableParser COMMAND fixture_table_parser_test)
 
+add_executable(mainwindow_cli_shortcut_router_test
+               mainwindow_cli_shortcut_router_test.cpp
+               ../gui/mainwindow_cli_shortcut_router.cpp)
+target_include_directories(mainwindow_cli_shortcut_router_test PRIVATE .. ../gui)
+add_test(NAME MainWindowCliShortcutRouter COMMAND mainwindow_cli_shortcut_router_test)
+
 
 add_executable(ui_unit_utils_test
                ui_unit_utils_test.cpp

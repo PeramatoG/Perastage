@@ -315,6 +315,7 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
     layoutPanel->ReloadLayouts();
 
   Bind(wxEVT_IDLE, &MainWindow::OnStartupSplashCloseIdle, this);
+  Bind(wxEVT_CHAR_HOOK, &MainWindow::OnGlobalCharHook, this);
 
   SetStartupProjectLoadPending(true);
   UpdateTitle();
