@@ -118,6 +118,8 @@ void BindTableHoverEvents(wxDataViewListCtrl *table, Owner *owner,
   auto bindEvents = [&](wxWindow *window) {
     if (!window)
       return;
+    window->Unbind(wxEVT_MOTION, onMouseMove, owner);
+    window->Unbind(wxEVT_LEAVE_WINDOW, onMouseLeave, owner);
     window->Bind(wxEVT_MOTION, onMouseMove, owner);
     window->Bind(wxEVT_LEAVE_WINDOW, onMouseLeave, owner);
   };
