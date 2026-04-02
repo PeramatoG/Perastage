@@ -805,6 +805,7 @@ void MainWindow::OnCloseWindow(wxCloseEvent &event) {
 
   if (viewportPanel)
     viewportPanel->StopRefreshThread();
+  viewportPanel = nullptr;
 
   Destroy();
 }
