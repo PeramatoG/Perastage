@@ -139,6 +139,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                              this);
   m_rulerAxisXPosition->Bind(wxEVT_TEXT_ENTER,
                              &Viewer2DRenderPanel::OnTextEnter, this);
+  m_rulerAxisXPosition->Bind(wxEVT_KEY_DOWN,
+                             &Viewer2DRenderPanel::OnNumericTextKeyDown, this);
   m_rulerAxisXPosition->SetMinSize(wxSize(kRulerAxisPositionWidth, -1));
   m_rulerAxisXColor = new wxColourPickerCtrl(
       rulerBoxParent, wxID_ANY,
@@ -168,6 +170,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                              this);
   m_rulerAxisYPosition->Bind(wxEVT_TEXT_ENTER,
                              &Viewer2DRenderPanel::OnTextEnter, this);
+  m_rulerAxisYPosition->Bind(wxEVT_KEY_DOWN,
+                             &Viewer2DRenderPanel::OnNumericTextKeyDown, this);
   m_rulerAxisYPosition->SetMinSize(wxSize(kRulerAxisPositionWidth, -1));
   m_rulerAxisYColor = new wxColourPickerCtrl(
       rulerBoxParent, wxID_ANY,
@@ -196,6 +200,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                              this);
   m_rulerAxisZPosition->Bind(wxEVT_TEXT_ENTER,
                              &Viewer2DRenderPanel::OnTextEnter, this);
+  m_rulerAxisZPosition->Bind(wxEVT_KEY_DOWN,
+                             &Viewer2DRenderPanel::OnNumericTextKeyDown, this);
   m_rulerAxisZPosition->SetMinSize(wxSize(kRulerAxisPositionWidth, -1));
   m_rulerAxisZColor = new wxColourPickerCtrl(
       rulerBoxParent, wxID_ANY,
@@ -233,6 +239,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_labelNameSize->Bind(wxEVT_TEXT, &Viewer2DRenderPanel::OnTextChange, this);
   m_labelNameSize->Bind(wxEVT_TEXT_ENTER, &Viewer2DRenderPanel::OnTextEnter,
                         this);
+  m_labelNameSize->Bind(wxEVT_KEY_DOWN,
+                        &Viewer2DRenderPanel::OnNumericTextKeyDown, this);
 
   m_showLabelId = new wxCheckBox(labelBoxParent, wxID_ANY, "Show ID");
   m_showLabelId->SetValue(
@@ -253,6 +261,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_labelIdSize->Bind(wxEVT_TEXT, &Viewer2DRenderPanel::OnTextChange, this);
   m_labelIdSize->Bind(wxEVT_TEXT_ENTER, &Viewer2DRenderPanel::OnTextEnter,
                       this);
+  m_labelIdSize->Bind(wxEVT_KEY_DOWN,
+                      &Viewer2DRenderPanel::OnNumericTextKeyDown, this);
 
   m_showLabelAddress =
       new wxCheckBox(labelBoxParent, wxID_ANY, "Show DMX");
@@ -276,6 +286,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                            this);
   m_labelAddressSize->Bind(wxEVT_TEXT_ENTER,
                            &Viewer2DRenderPanel::OnTextEnter, this);
+  m_labelAddressSize->Bind(wxEVT_KEY_DOWN,
+                           &Viewer2DRenderPanel::OnNumericTextKeyDown, this);
 
   m_labelOffsetDistance = new wxSpinCtrlDouble(
       labelBoxParent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
@@ -295,6 +307,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                               this);
   m_labelOffsetDistance->Bind(wxEVT_TEXT_ENTER,
                               &Viewer2DRenderPanel::OnTextEnter, this);
+  m_labelOffsetDistance->Bind(wxEVT_KEY_DOWN,
+                              &Viewer2DRenderPanel::OnNumericTextKeyDown, this);
 
   m_labelOffsetAngle = new wxSpinCtrl(labelBoxParent, wxID_ANY, "",
                                       wxDefaultPosition, wxDefaultSize,
@@ -312,6 +326,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                            this);
   m_labelOffsetAngle->Bind(wxEVT_TEXT_ENTER, &Viewer2DRenderPanel::OnTextEnter,
                            this);
+  m_labelOffsetAngle->Bind(wxEVT_KEY_DOWN,
+                           &Viewer2DRenderPanel::OnNumericTextKeyDown, this);
 
   auto *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(m_radio, 0, wxEXPAND | wxALL, 5);
@@ -867,4 +883,22 @@ void Viewer2DRenderPanel::OnTextEnter(wxCommandEvent &evt) {
   if (auto *mw = MainWindow::Instance())
     mw->EnableShortcuts(true);
   evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnNumericTextKeyDown(wxKeyEvent &evt) {
+  const int keyCode = evt.GetKeyCode();
+  if (keyCode != WXK_RETURN && keyCode != WXK_NUMPAD_ENTER) {
+    evt.Skip();
+    return;
+  }
+
+  auto *control = dynamic_cast<wxWindow *>(evt.GetEventObject());
+  if (!control) {
+    evt.Skip();
+    return;
+  }
+
+  wxCommandEvent enterEvent(wxEVT_TEXT_ENTER, control->GetId());
+  enterEvent.SetEventObject(control);
+  GetEventHandler()->ProcessEvent(enterEvent);
 }

@@ -63,6 +63,7 @@ private:
   void OnEndTextEdit(wxFocusEvent &evt);
   void OnTextChange(wxCommandEvent &evt);
   void OnTextEnter(wxCommandEvent &evt);
+  void OnNumericTextKeyDown(wxKeyEvent &evt);
   void ApplyViewSelection(int selection);
   void ApplyLabelControlValuesForCurrentSelection();
   void RefreshLabelScopeHint();
