@@ -57,6 +57,26 @@ void SaveColorToConfig(ConfigManager &cfg, const wxColour &color,
   cfg.SetFloat(gKey, color.Green() / 255.0f);
   cfg.SetFloat(bKey, color.Blue() / 255.0f);
 }
+
+float CurrentSpinDoubleValue(const wxSpinCtrlDouble *control) {
+  if (!control)
+    return 0.0f;
+
+  double typedValue = 0.0;
+  if (control->GetTextValue().ToDouble(&typedValue))
+    return static_cast<float>(typedValue);
+  return static_cast<float>(control->GetValue());
+}
+
+int CurrentSpinValue(const wxSpinCtrl *control) {
+  if (!control)
+    return 0;
+
+  long typedValue = 0;
+  if (control->GetTextValue().ToLong(&typedValue))
+    return static_cast<int>(typedValue);
+  return control->GetValue();
+}
 } // namespace
 
 Viewer2DRenderPanel *Viewer2DRenderPanel::s_instance = nullptr;
@@ -822,61 +842,55 @@ void Viewer2DRenderPanel::OnTextChange(wxCommandEvent &evt) {
 void Viewer2DRenderPanel::OnTextEnter(wxCommandEvent &evt) {
   ConfigManager &cfg = ConfigManager::Get();
   if (evt.GetEventObject() == m_labelNameSize) {
+    const float labelNameSize = static_cast<float>(CurrentSpinValue(m_labelNameSize));
     if (HasFixtureSelection()) {
       viewer2d::ApplyLabelFontSizeNameOverride(
-          cfg, cfg.GetSelectedFixtures(),
-          static_cast<float>(m_labelNameSize->GetValue()));
+          cfg, cfg.GetSelectedFixtures(), labelNameSize);
     } else {
-      cfg.SetFloat("label_font_size_name",
-                   static_cast<float>(m_labelNameSize->GetValue()));
+      cfg.SetFloat("label_font_size_name", labelNameSize);
     }
   } else if (evt.GetEventObject() == m_labelIdSize) {
+    const float labelIdSize = static_cast<float>(CurrentSpinValue(m_labelIdSize));
     if (HasFixtureSelection()) {
       viewer2d::ApplyLabelFontSizeIdOverride(
-          cfg, cfg.GetSelectedFixtures(),
-          static_cast<float>(m_labelIdSize->GetValue()));
+          cfg, cfg.GetSelectedFixtures(), labelIdSize);
     } else {
-      cfg.SetFloat("label_font_size_id",
-                   static_cast<float>(m_labelIdSize->GetValue()));
+      cfg.SetFloat("label_font_size_id", labelIdSize);
     }
   } else if (evt.GetEventObject() == m_labelAddressSize) {
+    const float labelAddressSize =
+        static_cast<float>(CurrentSpinValue(m_labelAddressSize));
     if (HasFixtureSelection()) {
       viewer2d::ApplyLabelFontSizeDmxOverride(
-          cfg, cfg.GetSelectedFixtures(),
-          static_cast<float>(m_labelAddressSize->GetValue()));
+          cfg, cfg.GetSelectedFixtures(), labelAddressSize);
     } else {
-      cfg.SetFloat("label_font_size_dmx",
-                   static_cast<float>(m_labelAddressSize->GetValue()));
+      cfg.SetFloat("label_font_size_dmx", labelAddressSize);
     }
   } else if (evt.GetEventObject() == m_labelOffsetDistance) {
     int view = m_view->GetSelection();
+    const float labelOffsetDistance =
+        CurrentSpinDoubleValue(m_labelOffsetDistance);
     if (HasFixtureSelection()) {
       viewer2d::ApplyLabelOffsetDistanceOverride(
-          cfg, cfg.GetSelectedFixtures(), view,
-          static_cast<float>(m_labelOffsetDistance->GetValue()));
+          cfg, cfg.GetSelectedFixtures(), view, labelOffsetDistance);
     } else {
-      cfg.SetFloat(DIST_KEYS[view],
-                   static_cast<float>(m_labelOffsetDistance->GetValue()));
+      cfg.SetFloat(DIST_KEYS[view], labelOffsetDistance);
     }
   } else if (evt.GetEventObject() == m_labelOffsetAngle) {
     int view = m_view->GetSelection();
+    const float labelOffsetAngle = static_cast<float>(CurrentSpinValue(m_labelOffsetAngle));
     if (HasFixtureSelection()) {
       viewer2d::ApplyLabelOffsetAngleOverride(
-          cfg, cfg.GetSelectedFixtures(), view,
-          static_cast<float>(m_labelOffsetAngle->GetValue()));
+          cfg, cfg.GetSelectedFixtures(), view, labelOffsetAngle);
     } else {
-      cfg.SetFloat(ANGLE_KEYS[view],
-                   static_cast<float>(m_labelOffsetAngle->GetValue()));
+      cfg.SetFloat(ANGLE_KEYS[view], labelOffsetAngle);
     }
   } else if (evt.GetEventObject() == m_rulerAxisXPosition) {
-    cfg.SetFloat("ruler_axis_x_position",
-                 static_cast<float>(m_rulerAxisXPosition->GetValue()));
+    cfg.SetFloat("ruler_axis_x_position", CurrentSpinDoubleValue(m_rulerAxisXPosition));
   } else if (evt.GetEventObject() == m_rulerAxisYPosition) {
-    cfg.SetFloat("ruler_axis_y_position",
-                 static_cast<float>(m_rulerAxisYPosition->GetValue()));
+    cfg.SetFloat("ruler_axis_y_position", CurrentSpinDoubleValue(m_rulerAxisYPosition));
   } else if (evt.GetEventObject() == m_rulerAxisZPosition) {
-    cfg.SetFloat("ruler_axis_z_position",
-                 static_cast<float>(m_rulerAxisZPosition->GetValue()));
+    cfg.SetFloat("ruler_axis_z_position", CurrentSpinDoubleValue(m_rulerAxisZPosition));
   }
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
