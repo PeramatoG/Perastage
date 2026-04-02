@@ -97,6 +97,45 @@ constexpr int kToggleTextFrameMenuId = wxID_HIGHEST + 503;
 constexpr int kToggleTextTransparentBackgroundMenuId = wxID_HIGHEST + 504;
 constexpr int kLoadingOverlayDelayMs = 150;
 
+double GetMaxZoomForFrame(const layouts::Layout2DViewFrame &frame) {
+  if (frame.width <= 0 || frame.height <= 0)
+    return kMaxZoom;
+
+  const double width = static_cast<double>(frame.width);
+  const double height = static_cast<double>(frame.height);
+  const double byDimension =
+      std::min(static_cast<double>(kMaxRenderDimension) / width,
+               static_cast<double>(kMaxRenderDimension) / height);
+  const double sourcePixels = width * height;
+  if (sourcePixels <= 0.0)
+    return std::clamp(byDimension, kMinZoom, kMaxZoom);
+
+  const double maxPixelsByArea =
+      static_cast<double>(kMaxRenderBytes / 4) / sourcePixels;
+  if (maxPixelsByArea <= 0.0)
+    return std::clamp(byDimension, kMinZoom, kMaxZoom);
+
+  const double byPixelBudget = std::sqrt(maxPixelsByArea);
+  const double maxZoom = std::min(byDimension, byPixelBudget);
+  return std::clamp(maxZoom, kMinZoom, kMaxZoom);
+}
+
+double GetLayoutSafeMaxZoom(const layouts::LayoutDefinition &layout) {
+  double maxZoom = kMaxZoom;
+  auto clampFromFrames = [&maxZoom](const auto &collection) {
+    for (const auto &entry : collection) {
+      maxZoom = std::min(maxZoom, GetMaxZoomForFrame(entry.frame));
+    }
+  };
+
+  clampFromFrames(layout.view2dViews);
+  clampFromFrames(layout.legendViews);
+  clampFromFrames(layout.eventTables);
+  clampFromFrames(layout.textViews);
+  clampFromFrames(layout.imageViews);
+  return std::clamp(maxZoom, kMinZoom, kMaxZoom);
+}
+
 bool AreEqual(const layouts::Layout2DViewFrame &lhs,
               const layouts::Layout2DViewFrame &rhs) {
   return lhs.x == rhs.x && lhs.y == rhs.y && lhs.width == rhs.width &&
@@ -1303,7 +1342,8 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
   const double steps = static_cast<double>(rotation) /
                        static_cast<double>(delta);
   const double factor = std::pow(kZoomStep, steps);
-  const double newZoom = std::clamp(zoom * factor, kMinZoom, kMaxZoom);
+  const double safeMaxZoom = GetLayoutSafeMaxZoom(currentLayout);
+  const double newZoom = std::clamp(zoom * factor, kMinZoom, safeMaxZoom);
   if (std::abs(newZoom - zoom) < 1e-6)
     return;
 
