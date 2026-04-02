@@ -495,6 +495,10 @@ std::string NormalizeHangName(const std::string &raw) {
   std::string hang = Trim(raw);
   if (hang.empty())
     return {};
+  hang = std::regex_replace(hang, std::regex("\\([^\\)]*\\)"), "");
+  hang = Trim(hang);
+  if (hang.empty())
+    return {};
   if (IsFloorAlias(hang))
     return "FLOOR";
   if (IsLxSidesAlias(hang))

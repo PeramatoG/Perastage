@@ -200,6 +200,10 @@ int main() {
   assert(lx2Count > 0);
   assert(lx3Count > 0);
   assert(backdropCount > 0);
+  for (const auto &[layerUuid, layer] : noParaScene.layers) {
+    (void)layerUuid;
+    assert(layer.name.find('(') == std::string::npos);
+  }
 
   cfg.Reset();
   cfg.SetValue("ui_distance_unit_system", "metric");

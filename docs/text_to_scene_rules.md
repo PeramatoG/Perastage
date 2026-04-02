@@ -185,6 +185,8 @@ Supported truss syntax includes:
   - This can be written both in truss targets (`... PARA LX1 (7)`) and in
     hang headers (`LX1 (7)` / `LX1 (7):`), where truss placement inherits the
     hang override.
+  - If both are present, truss-line overrides take precedence over hang-header
+    overrides for any axis values provided in the truss line.
   - The **Apply filter** pass preserves these coordinate tokens so pressing
     **Create** after filtering keeps the same truss placement overrides.
 
