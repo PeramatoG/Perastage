@@ -57,6 +57,7 @@
 #endif
 
 #include "configmanager.h"
+#include "editable_focus_utils.h"
 #include "guiconfigservices.h"
 #include "legendsymbolcapture.h"
 #include "LayoutManager.h"
@@ -1150,6 +1151,11 @@ bool LayoutViewerPanel::DeleteSelectedElement() {
 }
 
 void LayoutViewerPanel::OnKeyDown(wxKeyEvent &event) {
+  if (gui::IsEditableWidgetFocused(wxWindow::FindFocus())) {
+    event.Skip();
+    return;
+  }
+
   const int key = event.GetKeyCode();
   if (key == WXK_DELETE || key == WXK_NUMPAD_DELETE) {
     DeleteSelectedElement();

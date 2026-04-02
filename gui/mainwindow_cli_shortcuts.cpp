@@ -1,15 +1,11 @@
 #include "mainwindow.h"
 
 #include "consolepanel.h"
+#include "editable_focus_utils.h"
 #include "shortcut_registry.h"
 #include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
-
-#include <wx/combobox.h>
-#include <wx/grid.h>
-#include <wx/spinctrl.h>
-#include <wx/textctrl.h>
 
 namespace {
 
@@ -40,28 +36,6 @@ int NormalizeShortcutKeyForRegistry(int keyCode) {
   default:
     return keyCode;
   }
-}
-
-bool MainWindow::IsEditableTextWidgetOrChild(const wxWindow *window) const {
-  const wxWindow *current = window;
-  while (current) {
-    if (dynamic_cast<const wxTextCtrl *>(current))
-      return true;
-    if (auto *combo = dynamic_cast<const wxComboBox *>(current);
-        combo && combo->IsEditable()) {
-      return true;
-    }
-    if (dynamic_cast<const wxSpinCtrl *>(current) ||
-        dynamic_cast<const wxSpinCtrlDouble *>(current)) {
-      return true;
-    }
-    if (auto *grid = dynamic_cast<const wxGrid *>(current);
-        grid && grid->IsCellEditControlShown()) {
-      return true;
-    }
-    current = current->GetParent();
-  }
-  return false;
 }
 
 void MainWindow::FocusConsoleForQuickCommand(const wxString &prefill) {
@@ -140,7 +114,7 @@ void MainWindow::OnGlobalCharHook(wxKeyEvent &event) {
   const gui::ShortcutExecutionContext context{
       .hasModifiers =
           event.ControlDown() || event.AltDown() || event.MetaDown(),
-      .focusInEditableText = IsEditableTextWidgetOrChild(focus),
+      .focusInEditableText = gui::IsEditableWidgetFocused(focus),
       .focusInCliInput = consolePanel && consolePanel->IsInputWidgetOrChild(focus),
       .cliHasTypedContent = consolePanel && consolePanel->InputHasTypedContent(),
       .focusInViewer2D =

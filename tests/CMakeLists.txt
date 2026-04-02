@@ -76,6 +76,13 @@ add_executable(mainwindow_cli_shortcut_router_test
 target_include_directories(mainwindow_cli_shortcut_router_test PRIVATE .. ../gui)
 add_test(NAME MainWindowCliShortcutRouter COMMAND mainwindow_cli_shortcut_router_test)
 
+add_executable(editable_focus_utils_test
+               editable_focus_utils_test.cpp
+               ../gui/editable_focus_utils.cpp)
+target_include_directories(editable_focus_utils_test PRIVATE .. ../gui)
+target_link_libraries(editable_focus_utils_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME EditableFocusUtils COMMAND editable_focus_utils_test)
+
 add_executable(shortcut_registry_test
                shortcut_registry_test.cpp
                ../gui/shortcut_registry.cpp)

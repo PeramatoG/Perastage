@@ -63,6 +63,8 @@ private:
   void OnEndTextEdit(wxFocusEvent &evt);
   void OnTextChange(wxCommandEvent &evt);
   void OnTextEnter(wxCommandEvent &evt);
+  void OnNumericCharHook(wxKeyEvent &evt);
+  wxWindow *ResolveNumericCommitSource(const wxWindow *focused) const;
   void ApplyViewSelection(int selection);
   void ApplyLabelControlValuesForCurrentSelection();
   void RefreshLabelScopeHint();

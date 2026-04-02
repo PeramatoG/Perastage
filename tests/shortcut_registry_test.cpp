@@ -58,8 +58,18 @@ int main() {
   const gui::ShortcutExecutionContext editableContext{
       .focusInEditableText = true,
   };
-  const auto blocked = gui::ResolveShortcut('f', editableContext);
-  ok &= Expect(!blocked.has_value(), "shortcuts should be blocked in editable widgets");
+  const auto blockedF = gui::ResolveShortcut('f', editableContext);
+  ok &= Expect(!blockedF.has_value(),
+               "F should be blocked while editing text");
+  const auto blockedP = gui::ResolveShortcut('p', editableContext);
+  ok &= Expect(!blockedP.has_value(),
+               "P should be blocked while editing text");
+  const auto blockedR = gui::ResolveShortcut('r', editableContext);
+  ok &= Expect(!blockedR.has_value(),
+               "R should be blocked while editing text");
+  const auto blockedZ = gui::ResolveShortcut('z', editableContext);
+  ok &= Expect(!blockedZ.has_value(),
+               "Z should be blocked while editing text");
 
   return ok ? 0 : 1;
 }
