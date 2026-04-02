@@ -41,6 +41,7 @@
 
 #include "viewer2dpanel.h"
 #include "mainwindow.h"
+#include "editable_focus_utils.h"
 #include "configmanager.h"
 #include "canvas2d.h"
 #include "fixturetablepanel.h"
@@ -2078,6 +2079,10 @@ void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
 
 void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
   if (!m_mouseInside) {
+    event.Skip();
+    return;
+  }
+  if (gui::IsEditableWidgetFocused(wxWindow::FindFocus())) {
     event.Skip();
     return;
   }

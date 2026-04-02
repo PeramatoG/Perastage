@@ -40,6 +40,7 @@
 
 #include "viewer3dpanel.h"
 #include "mainwindow.h"
+#include "editable_focus_utils.h"
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
 #include "trusstablepanel.h"
@@ -1376,6 +1377,10 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
 void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
 {
     if (!m_mouseInside && !HasFocus()) { event.Skip(); return; }
+    if (gui::IsEditableWidgetFocused(wxWindow::FindFocus())) {
+        event.Skip();
+        return;
+    }
 
     bool shift = event.ShiftDown();
     bool alt = event.AltDown();

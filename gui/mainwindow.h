@@ -76,7 +76,6 @@ public:
   static void SetInstance(MainWindow *inst);
 
   void EnableShortcuts(bool enable);
-  bool IsEditableTextWidgetOrChild(const wxWindow *window) const;
   void FocusConsoleForQuickCommand(const wxString &prefill);
   bool ApplyShortcutDecision(const gui::ShortcutExecutionDecision &decision);
   void Ensure2DViewportAvailable();

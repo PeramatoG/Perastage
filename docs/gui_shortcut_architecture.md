@@ -65,6 +65,11 @@ This makes shortcut behavior deterministic and keeps one single decision point f
 ## Execution flow in GUI
 
 1. `MainWindow::OnGlobalCharHook(...)` builds a `ShortcutExecutionContext` from focus state.
+   - Editable focus is detected via `gui::IsEditableWidgetFocused(...)` in
+     `gui/editable_focus_utils.{h,cpp}`.
+   - The helper covers `wxTextEntry`-based controls (for example `wxTextCtrl`
+     and custom text-entry widgets), editable `wxComboBox`, spin controls, and
+     active `wxGrid` cell editors.
 2. The hook asks `ResolveShortcut(...)` for one decision.
 3. `MainWindow::ApplyShortcutDecision(...)` executes the routed action:
    - `ApplyFitShortcut()` for focused viewer fit,
@@ -74,3 +79,15 @@ This makes shortcut behavior deterministic and keeps one single decision point f
 
 Viewer-specific direct handling for these migrated shortcuts is intentionally avoided,
 so routing stays centralized in GUI.
+
+## Consistent editable-focus guard across local key handlers
+
+Panels that handle local key events also reuse `gui::IsEditableWidgetFocused(...)`
+before executing panel-level actions, avoiding divergent focus checks:
+
+- `Viewer2DPanel::OnKeyDown(...)`
+- `Viewer3DPanel::OnKeyDown(...)`
+- `LayoutViewerPanel::OnKeyDown(...)`
+
+This keeps key behavior consistent while editing text or cell editors, and
+prevents global-style actions from stealing keys during edit sessions.
