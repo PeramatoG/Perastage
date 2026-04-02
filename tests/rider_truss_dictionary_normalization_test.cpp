@@ -146,6 +146,10 @@ int main() {
   AssertModelTokenDictionaryLookupWorks("1 truss FK40Q 3 m para lx1\n");
   AssertModelTokenDictionaryLookupWorks("1 truss fk40q 3 m para lx1\n");
 
+  TrussDictionary::Update("TRUSS 40X40 PRO 3M", ToUtf8String(archivePath));
+  AssertTrussSymbolResolved("1 truss 40X40 PRO NEGRO 3m para lx1\n");
+  AssertTrussSymbolResolved("1 truss 40X40 PRO BLACK 3m for lx1\n");
+
   TrussDictionary::Save({});
   fs::remove_all(tempRoot, ec);
   return 0;

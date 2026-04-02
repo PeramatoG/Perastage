@@ -203,6 +203,9 @@ Key truss behaviors:
    Coordinate values use the active UI distance unit system (`metric` or
    `imperial`) at import time.
 7. Dictionary/model resolution is attempted using normalized lookup keys.
+   - Lookup also tries model-token variants that remove common finish/color
+     adjectives (e.g. `NEGRO`, `BLACK`) so names like `40X40 PRO NEGRO` can
+     resolve against canonical dictionary entries such as `TRUSS 40X40 PRO 3M`.
 8. If model/symbol cannot be fully resolved to renderable geometry (`.3ds`/`.glb` available), importer keeps dummy-box truss data and logs a warning.
 
 Special case:

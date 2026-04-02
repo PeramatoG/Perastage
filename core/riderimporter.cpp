@@ -867,9 +867,43 @@ BuildTrussDictionaryLookupKeys(const std::string &modelToken,
       keys.push_back(normalized);
   };
 
+  auto simplifyModelToken = [](std::string token) {
+    token = TrussDictionary::NormalizeModelKey(token);
+    if (token.empty())
+      return token;
+
+    static const std::unordered_set<std::string> kFinishWords = {
+        "NEGRO", "NEGRA", "NEGRAS", "NEGROS", "BLACK",
+        "PLATA", "SILVER", "ALUMINIO", "ALUMINUM"};
+
+    std::istringstream iss(token);
+    std::string word;
+    std::vector<std::string> kept;
+    while (iss >> word) {
+      if (kFinishWords.find(word) != kFinishWords.end())
+        continue;
+      kept.push_back(word);
+    }
+    if (kept.empty())
+      return token;
+    std::ostringstream oss;
+    for (size_t i = 0; i < kept.size(); ++i) {
+      if (i > 0)
+        oss << ' ';
+      oss << kept[i];
+    }
+    return oss.str();
+  };
+
   pushNormalized(modelToken);
   if (!modelToken.empty())
     pushNormalized("TRUSS " + modelToken);
+  const std::string simplifiedModelToken = simplifyModelToken(modelToken);
+  if (!simplifiedModelToken.empty() && simplifiedModelToken !=
+                                          TrussDictionary::NormalizeModelKey(modelToken)) {
+    pushNormalized(simplifiedModelToken);
+    pushNormalized("TRUSS " + simplifiedModelToken);
+  }
   pushNormalized(trussName);
 
   return keys;
