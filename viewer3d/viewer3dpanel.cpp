@@ -75,7 +75,6 @@ EVT_KEY_DOWN(Viewer3DPanel::OnKeyDown)
 EVT_ENTER_WINDOW(Viewer3DPanel::OnMouseEnter)
 EVT_LEAVE_WINDOW(Viewer3DPanel::OnMouseLeave)
 EVT_MOUSE_CAPTURE_LOST(Viewer3DPanel::OnCaptureLost)
-EVT_THREAD(wxEVT_VIEWER_REFRESH, Viewer3DPanel::OnThreadRefresh)
 wxEND_EVENT_TABLE()
 
 
@@ -389,16 +388,21 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
     m_glContext(new wxGLContext(this))
 {
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
+    Bind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this, wxEVT_VIEWER_REFRESH);
     m_threadRunning = true;
     m_refreshThread = std::thread(&Viewer3DPanel::RefreshLoop, this);
 }
 
 Viewer3DPanel::~Viewer3DPanel()
 {
+    m_shuttingDown = true;
+    Unbind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this, wxEVT_VIEWER_REFRESH);
+    DeletePendingEvents();
     if (HasCapture())
         ReleaseMouse();
     StopRefreshThread();
     delete m_glContext;
+    m_glContext = nullptr;
     SetInstance(nullptr);
 }
 
@@ -1542,6 +1546,8 @@ void Viewer3DPanel::RefreshLoop()
     using namespace std::chrono_literals;
     while (m_threadRunning)
     {
+        if (m_shuttingDown)
+            return;
         wxThreadEvent* evt = new wxThreadEvent(wxEVT_VIEWER_REFRESH);
         wxQueueEvent(this, evt);
         std::this_thread::sleep_for(16ms);
@@ -1550,6 +1556,8 @@ void Viewer3DPanel::RefreshLoop()
 
 void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
 {
+    if (m_shuttingDown || !m_glContext || IsBeingDeleted())
+        return;
     Refresh();
 }
 
