@@ -56,9 +56,8 @@ std::array<std::string, 7> LayoutEventTableDialog::GetFields() const {
   std::array<std::string, 7> fields{};
   for (size_t idx = 0; idx < fieldControls_.size(); ++idx) {
     if (fieldControls_[idx]) {
-      wxString value = fieldControls_[idx]->GetValue();
-      value.Trim(true).Trim(false);
-      fields[idx] = value.ToStdString();
+      const wxString value = fieldControls_[idx]->GetValue();
+      fields[idx] = std::string(value.utf8_string());
     }
   }
   return fields;
