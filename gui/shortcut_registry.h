@@ -6,6 +6,11 @@
 
 namespace gui {
 
+inline constexpr int kShortcutKeyNumpad1 = 10001;
+inline constexpr int kShortcutKeyNumpad3 = 10003;
+inline constexpr int kShortcutKeyNumpad5 = 10005;
+inline constexpr int kShortcutKeyNumpad7 = 10007;
+
 enum class ShortcutScope {
   Global,
   Viewer2D,
@@ -23,6 +28,14 @@ enum class ShortcutAction {
   CliPrefillPos,
   CliPrefillRot,
   CliPrefillFixture,
+  SelectFixturesTab,
+  SelectTrussesTab,
+  SelectSupportsTab,
+  SelectObjectsTab,
+  ViewportFront,
+  ViewportSide,
+  ViewportTop,
+  ViewportReset3D,
 };
 
 struct ShortcutDefinition {

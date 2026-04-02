@@ -435,13 +435,9 @@ void MainWindow::SetupLayout() {
   if (riggingPanel)
     riggingPanel->RefreshData();
 
-  // Keyboard shortcuts to switch notebook pages
-  wxAcceleratorEntry entries[4];
-  entries[0].Set(wxACCEL_NORMAL, (int)'1', ID_Select_Fixtures);
-  entries[1].Set(wxACCEL_NORMAL, (int)'2', ID_Select_Trusses);
-  entries[2].Set(wxACCEL_NORMAL, (int)'3', ID_Select_Supports);
-  entries[3].Set(wxACCEL_NORMAL, (int)'4', ID_Select_Objects);
-  m_accel = wxAcceleratorTable(4, entries);
+  // Keyboard shortcuts are routed through MainWindow::OnGlobalCharHook
+  // using gui::ShortcutRegistry.
+  m_accel = wxAcceleratorTable();
   SetAcceleratorTable(m_accel);
 
   CreateStatusBar(3);

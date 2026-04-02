@@ -1413,18 +1413,6 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
             else
                 m_camera.targetPitch = std::clamp(m_camera.targetPitch - 5.0f, -89.0f, 89.0f);
             break;
-        case WXK_NUMPAD1: // Front
-            SetStandardView(Viewer2DView::Front);
-            break;
-        case WXK_NUMPAD3: // Right
-            SetStandardView(Viewer2DView::Side);
-            break;
-        case WXK_NUMPAD7: // Top
-            SetStandardView(Viewer2DView::Top);
-            break;
-        case WXK_NUMPAD5: // Reset/isometric
-            m_camera.Reset();
-            break;
         case WXK_DELETE:
         case WXK_NUMPAD_DELETE: {
             if (MainWindow::Instance()) {
@@ -1441,6 +1429,12 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
     }
 
     Refresh();
+}
+
+bool Viewer3DPanel::ResetCameraToIsometric() {
+    m_camera.Reset();
+    Refresh();
+    return true;
 }
 
 bool Viewer3DPanel::FrameSceneToFit() {

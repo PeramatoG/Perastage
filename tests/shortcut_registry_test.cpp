@@ -42,6 +42,19 @@ int main() {
   ok &= Expect(rot && rot->cliPrefill.empty(),
                "rot should not force prefill when CLI has typed content");
 
+
+  const gui::ShortcutExecutionContext tableContext{};
+  const auto fixturesTab = gui::ResolveShortcut('1', tableContext);
+  ok &= Expect(fixturesTab && fixturesTab->action == gui::ShortcutAction::SelectFixturesTab,
+               "1 should resolve fixtures tab action");
+
+  const gui::ShortcutExecutionContext viewer3dContext{
+      .focusInViewer3D = true,
+  };
+  const auto numpadTop = gui::ResolveShortcut(gui::kShortcutKeyNumpad7, viewer3dContext);
+  ok &= Expect(numpadTop && numpadTop->action == gui::ShortcutAction::ViewportTop,
+               "NumPad7 should resolve top view in viewer3d scope");
+
   const gui::ShortcutExecutionContext editableContext{
       .focusInEditableText = true,
   };

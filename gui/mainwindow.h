@@ -128,6 +128,7 @@ private:
   wxAuiToolBar *toolsToolBar = nullptr;
 
   wxAcceleratorTable m_accel;
+  bool shortcutHandlingEnabled = true;
   std::unique_ptr<MainWindowIoController> ioController;
   std::unique_ptr<MainWindowLayoutController> layoutController;
   std::unique_ptr<MainWindowPrintController> printController;

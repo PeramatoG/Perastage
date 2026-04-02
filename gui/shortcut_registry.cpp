@@ -8,7 +8,11 @@
 namespace gui {
 namespace {
 
-int NormalizeKeyCode(int keyCode) { return std::toupper(keyCode); }
+int NormalizeKeyCode(int keyCode) {
+  if (keyCode >= 0 && keyCode <= 255)
+    return std::toupper(static_cast<unsigned char>(keyCode));
+  return keyCode;
+}
 
 std::optional<std::string> CliPrefillForAction(const ShortcutAction action,
                                                const bool cliHasTypedContent) {
@@ -78,6 +82,62 @@ const std::vector<ShortcutDefinition> &GetShortcutRegistry() {
                          .focusPolicy =
                              ShortcutFocusPolicy::BlockInEditableWidgets,
                          .priority = 200},
+      ShortcutDefinition{.keyCode = '1',
+                         .action = ShortcutAction::SelectFixturesTab,
+                         .ownerModule = "gui",
+                         .scope = ShortcutScope::Global,
+                         .focusPolicy =
+                             ShortcutFocusPolicy::BlockInEditableWidgets,
+                         .priority = 150},
+      ShortcutDefinition{.keyCode = '2',
+                         .action = ShortcutAction::SelectTrussesTab,
+                         .ownerModule = "gui",
+                         .scope = ShortcutScope::Global,
+                         .focusPolicy =
+                             ShortcutFocusPolicy::BlockInEditableWidgets,
+                         .priority = 150},
+      ShortcutDefinition{.keyCode = '3',
+                         .action = ShortcutAction::SelectSupportsTab,
+                         .ownerModule = "gui",
+                         .scope = ShortcutScope::Global,
+                         .focusPolicy =
+                             ShortcutFocusPolicy::BlockInEditableWidgets,
+                         .priority = 150},
+      ShortcutDefinition{.keyCode = '4',
+                         .action = ShortcutAction::SelectObjectsTab,
+                         .ownerModule = "gui",
+                         .scope = ShortcutScope::Global,
+                         .focusPolicy =
+                             ShortcutFocusPolicy::BlockInEditableWidgets,
+                         .priority = 150},
+      ShortcutDefinition{.keyCode = kShortcutKeyNumpad1,
+                         .action = ShortcutAction::ViewportFront,
+                         .ownerModule = "viewer3d",
+                         .scope = ShortcutScope::Viewer3D,
+                         .focusPolicy =
+                             ShortcutFocusPolicy::BlockInEditableWidgets,
+                         .priority = 250},
+      ShortcutDefinition{.keyCode = kShortcutKeyNumpad3,
+                         .action = ShortcutAction::ViewportSide,
+                         .ownerModule = "viewer3d",
+                         .scope = ShortcutScope::Viewer3D,
+                         .focusPolicy =
+                             ShortcutFocusPolicy::BlockInEditableWidgets,
+                         .priority = 250},
+      ShortcutDefinition{.keyCode = kShortcutKeyNumpad7,
+                         .action = ShortcutAction::ViewportTop,
+                         .ownerModule = "viewer3d",
+                         .scope = ShortcutScope::Viewer3D,
+                         .focusPolicy =
+                             ShortcutFocusPolicy::BlockInEditableWidgets,
+                         .priority = 250},
+      ShortcutDefinition{.keyCode = kShortcutKeyNumpad5,
+                         .action = ShortcutAction::ViewportReset3D,
+                         .ownerModule = "viewer3d",
+                         .scope = ShortcutScope::Viewer3D,
+                         .focusPolicy =
+                             ShortcutFocusPolicy::BlockInEditableWidgets,
+                         .priority = 250},
   };
   return kRegistry;
 }
@@ -106,9 +166,12 @@ std::vector<std::string> ValidateShortcutRegistry() {
       details += shortcut.ownerModule;
     }
 
-    errors.push_back("Shortcut collision for key '" +
-                     std::string(1, static_cast<char>(normalizedKey)) +
-                     "' in same scope. Owners: " + details);
+    const std::string keyLabel =
+        (normalizedKey >= 32 && normalizedKey <= 126)
+            ? ("'" + std::string(1, static_cast<char>(normalizedKey)) + "'")
+            : ("code " + std::to_string(normalizedKey));
+    errors.push_back("Shortcut collision for key " + keyLabel +
+                     " in same scope. Owners: " + details);
   }
 
   return errors;

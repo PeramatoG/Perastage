@@ -2,6 +2,7 @@
 
 #include "consolepanel.h"
 #include "shortcut_registry.h"
+#include "viewer3dpanel.h"
 
 #include <wx/combobox.h>
 #include <wx/grid.h>
@@ -23,6 +24,21 @@ bool IsChildOrSame(const wxWindow *root, const wxWindow *window) {
 }
 
 } // namespace
+
+int NormalizeShortcutKeyForRegistry(int keyCode) {
+  switch (keyCode) {
+  case WXK_NUMPAD1:
+    return gui::kShortcutKeyNumpad1;
+  case WXK_NUMPAD3:
+    return gui::kShortcutKeyNumpad3;
+  case WXK_NUMPAD5:
+    return gui::kShortcutKeyNumpad5;
+  case WXK_NUMPAD7:
+    return gui::kShortcutKeyNumpad7;
+  default:
+    return keyCode;
+  }
+}
 
 bool MainWindow::IsEditableTextWidgetOrChild(const wxWindow *window) const {
   const wxWindow *current = window;
@@ -72,11 +88,52 @@ bool MainWindow::ApplyShortcutDecision(
   case gui::ShortcutAction::CliPrefillFixture:
     FocusConsoleForQuickCommand(wxString::FromUTF8(decision.cliPrefill));
     return true;
+  case gui::ShortcutAction::SelectFixturesTab:
+  case gui::ShortcutAction::SelectTrussesTab:
+  case gui::ShortcutAction::SelectSupportsTab:
+  case gui::ShortcutAction::SelectObjectsTab: {
+    int commandId = ID_Select_Fixtures;
+    if (decision.action == gui::ShortcutAction::SelectTrussesTab)
+      commandId = ID_Select_Trusses;
+    else if (decision.action == gui::ShortcutAction::SelectSupportsTab)
+      commandId = ID_Select_Supports;
+    else if (decision.action == gui::ShortcutAction::SelectObjectsTab)
+      commandId = ID_Select_Objects;
+
+    wxCommandEvent event(wxEVT_MENU, commandId);
+    return GetEventHandler()->ProcessEvent(event);
+  }
+  case gui::ShortcutAction::ViewportFront:
+    if (viewportPanel) {
+      viewportPanel->SetStandardView(Viewer2DView::Front);
+      return true;
+    }
+    return false;
+  case gui::ShortcutAction::ViewportSide:
+    if (viewportPanel) {
+      viewportPanel->SetStandardView(Viewer2DView::Side);
+      return true;
+    }
+    return false;
+  case gui::ShortcutAction::ViewportTop:
+    if (viewportPanel) {
+      viewportPanel->SetStandardView(Viewer2DView::Top);
+      return true;
+    }
+    return false;
+  case gui::ShortcutAction::ViewportReset3D:
+    if (viewportPanel)
+      return viewportPanel->ResetCameraToIsometric();
+    return false;
   }
   return false;
 }
 
 void MainWindow::OnGlobalCharHook(wxKeyEvent &event) {
+  if (!shortcutHandlingEnabled) {
+    event.Skip();
+    return;
+  }
   const wxWindow *focus = FindFocus();
   const gui::ShortcutExecutionContext context{
       .hasModifiers =
@@ -90,7 +147,8 @@ void MainWindow::OnGlobalCharHook(wxKeyEvent &event) {
       .focusInViewer3D = IsChildOrSame(viewportPanel, focus),
   };
 
-  const auto decision = gui::ResolveShortcut(event.GetKeyCode(), context);
+  const int normalizedKeyCode = NormalizeShortcutKeyForRegistry(event.GetKeyCode());
+  const auto decision = gui::ResolveShortcut(normalizedKeyCode, context);
   if (!decision.has_value() || !ApplyShortcutDecision(*decision)) {
     event.Skip();
     return;

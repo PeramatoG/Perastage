@@ -30,6 +30,14 @@ Each shortcut entry defines:
 | `P` | `CliPrefillPos` | `cli` | `Cli` | Block in editable widgets |
 | `R` | `CliPrefillRot` | `cli` | `Cli` | Block in editable widgets |
 | `F` | `CliPrefillFixture` | `cli` | `Cli` | Block in editable widgets |
+| `1` | `SelectFixturesTab` | `gui` | `Global` | Block in editable widgets |
+| `2` | `SelectTrussesTab` | `gui` | `Global` | Block in editable widgets |
+| `3` | `SelectSupportsTab` | `gui` | `Global` | Block in editable widgets |
+| `4` | `SelectObjectsTab` | `gui` | `Global` | Block in editable widgets |
+| `NumPad1` | `ViewportFront` | `viewer3d` | `Viewer3D` | Block in editable widgets |
+| `NumPad3` | `ViewportSide` | `viewer3d` | `Viewer3D` | Block in editable widgets |
+| `NumPad7` | `ViewportTop` | `viewer3d` | `Viewer3D` | Block in editable widgets |
+| `NumPad5` | `ViewportReset3D` | `viewer3d` | `Viewer3D` | Block in editable widgets |
 
 ## Priority and resolution rules
 
@@ -58,9 +66,11 @@ This makes shortcut behavior deterministic and keeps one single decision point f
 
 1. `MainWindow::OnGlobalCharHook(...)` builds a `ShortcutExecutionContext` from focus state.
 2. The hook asks `ResolveShortcut(...)` for one decision.
-3. `MainWindow::ApplyShortcutDecision(...)` executes either:
-   - `ApplyFitShortcut()` for focused viewer scope, or
-   - `FocusConsoleForQuickCommand(...)` for CLI-prefill actions.
+3. `MainWindow::ApplyShortcutDecision(...)` executes the routed action:
+   - `ApplyFitShortcut()` for focused viewer fit,
+   - `FocusConsoleForQuickCommand(...)` for CLI-prefill actions,
+   - notebook-tab selection commands for `1..4`,
+   - 3D viewport standard/reset view commands for numpad actions.
 
 Viewer-specific direct handling for these migrated shortcuts is intentionally avoided,
 so routing stays centralized in GUI.

@@ -1155,6 +1155,7 @@ void MainWindow::RefreshRigging() {
 }
 
 void MainWindow::EnableShortcuts(bool enable) {
+  shortcutHandlingEnabled = enable;
   if (enable)
     SetAcceleratorTable(m_accel);
   else
