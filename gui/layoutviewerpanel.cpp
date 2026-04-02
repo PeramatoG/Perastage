@@ -66,7 +66,7 @@
 #include "viewer2dstate.h"
 
 namespace {
-constexpr double kMinZoom = 0.1;
+constexpr double kMinZoom = 0.25;
 constexpr double kMaxZoom = 10.0;
 constexpr double kZoomStep = 1.1;
 constexpr int kZoomCacheStepsPerLevel = 2;
