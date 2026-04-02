@@ -1,0 +1,66 @@
+# GUI shortcut architecture
+
+## Goal
+
+Perastage uses a centralized GUI shortcut registry to keep keyboard behavior explicit,
+validated and consistent across modules.
+
+## Central registry
+
+The canonical shortcut map lives in:
+
+- `gui/shortcut_registry.h`
+- `gui/shortcut_registry.cpp`
+
+Each shortcut entry defines:
+
+- **Key combination** (`keyCode` for non-modifier shortcuts).
+- **Action** (`ShortcutAction`).
+- **Owner module** (`ownerModule`).
+- **Scope** (`ShortcutScope`: `Global`, `Viewer2D`, `Viewer3D`, `Cli`).
+- **Focus policy** (`ShortcutFocusPolicy`: allowed or blocked in editable widgets).
+- **Priority** (used when multiple entries share the same key across scopes).
+
+## Current shortcut map
+
+| Key | Action | Owner | Scope | Focus policy |
+|---|---|---|---|---|
+| `Z` | `FitView` | `viewer2d` | `Viewer2D` | Block in editable widgets |
+| `Z` | `FitView` | `viewer3d` | `Viewer3D` | Block in editable widgets |
+| `P` | `CliPrefillPos` | `cli` | `Cli` | Block in editable widgets |
+| `R` | `CliPrefillRot` | `cli` | `Cli` | Block in editable widgets |
+| `F` | `CliPrefillFixture` | `cli` | `Cli` | Block in editable widgets |
+
+## Priority and resolution rules
+
+Resolution is performed by `ResolveShortcut(...)`.
+
+1. Normalize key code to uppercase.
+2. Filter shortcuts with matching key.
+3. Apply focus gating through `CanExecuteShortcut(...)`:
+   - reject when modifiers are active,
+   - reject when policy blocks editable-focus and focus is in editable text,
+   - require scope/focus match (for example, `Viewer2D` requires focus in 2D viewer).
+4. Select the highest-priority shortcut among eligible entries.
+5. Return one execution decision for `MainWindow::OnGlobalCharHook(...)`.
+
+This makes shortcut behavior deterministic and keeps one single decision point for
+"can this shortcut run under current focus?".
+
+## Startup/test validation
+
+`ValidateShortcutRegistry()` detects collisions by `(scope, normalized key)`.
+
+- Called at `MainWindow` startup (debug assertion + error log).
+- Covered by `tests/shortcut_registry_test.cpp`.
+
+## Execution flow in GUI
+
+1. `MainWindow::OnGlobalCharHook(...)` builds a `ShortcutExecutionContext` from focus state.
+2. The hook asks `ResolveShortcut(...)` for one decision.
+3. `MainWindow::ApplyShortcutDecision(...)` executes either:
+   - `ApplyFitShortcut()` for focused viewer scope, or
+   - `FocusConsoleForQuickCommand(...)` for CLI-prefill actions.
+
+Viewer-specific direct handling for these migrated shortcuts is intentionally avoided,
+so routing stays centralized in GUI.

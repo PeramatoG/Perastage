@@ -1435,27 +1435,27 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
             event.Skip();
             return;
         }
-        case 'Z':
-        case 'z': {
-            int width = 0;
-            int height = 0;
-            GetClientSize(&width, &height);
-            if (!viewer3d::FrameSceneInCamera(m_controller, width, height, m_camera)) {
-                event.Skip();
-                return;
-            }
-            m_isInteracting = true;
-            m_cameraMoving = true;
-            m_lastInteractionTime = std::chrono::steady_clock::now();
-            m_controller.SetInteracting(true);
-            break;
-        }
         default:
             event.Skip();
             return;
     }
 
     Refresh();
+}
+
+bool Viewer3DPanel::FrameSceneToFit() {
+    int width = 0;
+    int height = 0;
+    GetClientSize(&width, &height);
+    if (!viewer3d::FrameSceneInCamera(m_controller, width, height, m_camera))
+        return false;
+
+    m_isInteracting = true;
+    m_cameraMoving = true;
+    m_lastInteractionTime = std::chrono::steady_clock::now();
+    m_controller.SetInteracting(true);
+    Refresh();
+    return true;
 }
 
 void Viewer3DPanel::SetStandardView(Viewer2DView view) {

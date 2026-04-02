@@ -38,6 +38,21 @@ void MainWindow::OnViewportSideView(wxCommandEvent &WXUNUSED(event)) {
   ApplyViewportShortcut(Viewer2DView::Side);
 }
 
+
+bool MainWindow::ApplyFitShortcut() {
+  const wxWindow *focusedWindow = wxWindow::FindFocus();
+  const bool focusIn2D = IsChildOrSame(viewport2DPanel, focusedWindow) ||
+                         IsChildOrSame(viewport2DRenderPanel, focusedWindow);
+  if (focusIn2D && viewport2DPanel)
+    return viewport2DPanel->FitViewToScene();
+
+  const bool focusIn3D = IsChildOrSame(viewportPanel, focusedWindow);
+  if (focusIn3D && viewportPanel)
+    return viewportPanel->FrameSceneToFit();
+
+  return false;
+}
+
 void MainWindow::ApplyViewportShortcut(Viewer2DView view) {
   const bool is2DShown = IsPaneShown(auiManager, "2DViewport");
   const bool is3DShown = IsPaneShown(auiManager, "3DViewport");

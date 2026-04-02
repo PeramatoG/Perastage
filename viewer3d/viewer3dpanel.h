@@ -67,6 +67,7 @@ public:
     bool ShouldPauseHeavyTasks();
     bool IsCameraMoving() const { return m_cameraMoving; }
     void SetStandardView(Viewer2DView view);
+    bool FrameSceneToFit();
 
 private:
     wxGLContext* m_glContext;

@@ -1,30 +1,34 @@
 #include "mainwindow_cli_shortcut_router.h"
 
-#include <cctype>
+#include "shortcut_registry.h"
 
 namespace gui {
 
 CliShortcutRouteResult RouteCliShortcut(int keyCode,
                                         const CliShortcutRouteContext &context) {
+  const ShortcutExecutionContext shortcutContext{
+      .hasModifiers = context.hasModifiers,
+      .focusInEditableText = context.focusInEditableText,
+      .focusInCliInput = context.focusInCliInput,
+      .cliHasTypedContent = context.cliHasTypedContent,
+      .focusInViewer2D = false,
+      .focusInViewer3D = false,
+  };
+
   CliShortcutRouteResult result;
-
-  if (context.hasModifiers || context.focusInCliInput ||
-      context.focusInEditableText) {
+  const auto decision = ResolveShortcut(keyCode, shortcutContext);
+  if (!decision.has_value())
     return result;
-  }
 
-  const int normalizedKey = std::toupper(keyCode);
-  if (normalizedKey == 'P') {
+  switch (decision->action) {
+  case ShortcutAction::CliPrefillPos:
+  case ShortcutAction::CliPrefillRot:
+  case ShortcutAction::CliPrefillFixture:
     result.shouldFocusCli = true;
-    if (!context.cliHasTypedContent)
-      result.prefill = "pos ";
-  } else if (normalizedKey == 'R') {
-    result.shouldFocusCli = true;
-    if (!context.cliHasTypedContent)
-      result.prefill = "rot ";
-  } else if (normalizedKey == 'F') {
-    result.shouldFocusCli = true;
-    result.prefill = "fixture ";
+    result.prefill = decision->cliPrefill;
+    break;
+  default:
+    break;
   }
 
   return result;

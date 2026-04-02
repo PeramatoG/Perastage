@@ -71,9 +71,16 @@ add_test(NAME FixtureTableParser COMMAND fixture_table_parser_test)
 
 add_executable(mainwindow_cli_shortcut_router_test
                mainwindow_cli_shortcut_router_test.cpp
-               ../gui/mainwindow_cli_shortcut_router.cpp)
+               ../gui/mainwindow_cli_shortcut_router.cpp
+               ../gui/shortcut_registry.cpp)
 target_include_directories(mainwindow_cli_shortcut_router_test PRIVATE .. ../gui)
 add_test(NAME MainWindowCliShortcutRouter COMMAND mainwindow_cli_shortcut_router_test)
+
+add_executable(shortcut_registry_test
+               shortcut_registry_test.cpp
+               ../gui/shortcut_registry.cpp)
+target_include_directories(shortcut_registry_test PRIVATE .. ../gui)
+add_test(NAME ShortcutRegistry COMMAND shortcut_registry_test)
 
 
 add_executable(ui_unit_utils_test

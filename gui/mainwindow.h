@@ -19,6 +19,7 @@
 
 #include "edit_ids.h"
 #include "viewer2dstate.h"
+#include "shortcut_registry.h"
 #include <wx/aui/aui.h>
 #include <wx/frame.h>
 
@@ -77,6 +78,7 @@ public:
   void EnableShortcuts(bool enable);
   bool IsEditableTextWidgetOrChild(const wxWindow *window) const;
   void FocusConsoleForQuickCommand(const wxString &prefill);
+  bool ApplyShortcutDecision(const gui::ShortcutExecutionDecision &decision);
   void Ensure2DViewportAvailable();
   Viewer2DPanel *GetLayoutCapturePanel() const;
   Viewer2DOffscreenRenderer *GetOffscreenRenderer();
@@ -224,6 +226,7 @@ private:
   void ShowLayoutLoadingIndicator(const wxString &message);
   void ClearLayoutLoadingIndicator();
   void ApplyViewportShortcut(Viewer2DView view);
+  bool ApplyFitShortcut();
   bool HasActiveLayout2DView() const;
   void SyncSceneData();
   void SyncLayerVisibilityPanels();

@@ -1,12 +1,28 @@
 #include "mainwindow.h"
 
 #include "consolepanel.h"
-#include "mainwindow_cli_shortcut_router.h"
+#include "shortcut_registry.h"
 
 #include <wx/combobox.h>
 #include <wx/grid.h>
 #include <wx/spinctrl.h>
 #include <wx/textctrl.h>
+
+namespace {
+
+bool IsChildOrSame(const wxWindow *root, const wxWindow *window) {
+  if (!root || !window)
+    return false;
+  const wxWindow *current = window;
+  while (current) {
+    if (current == root)
+      return true;
+    current = current->GetParent();
+  }
+  return false;
+}
+
+} // namespace
 
 bool MainWindow::IsEditableTextWidgetOrChild(const wxWindow *window) const {
   const wxWindow *current = window;
@@ -46,26 +62,37 @@ void MainWindow::FocusConsoleForQuickCommand(const wxString &prefill) {
   consolePanel->FocusInputWithOptionalPrefill(prefill);
 }
 
-void MainWindow::OnGlobalCharHook(wxKeyEvent &event) {
-  if (!consolePanel) {
-    event.Skip();
-    return;
+bool MainWindow::ApplyShortcutDecision(
+    const gui::ShortcutExecutionDecision &decision) {
+  switch (decision.action) {
+  case gui::ShortcutAction::FitView:
+    return ApplyFitShortcut();
+  case gui::ShortcutAction::CliPrefillPos:
+  case gui::ShortcutAction::CliPrefillRot:
+  case gui::ShortcutAction::CliPrefillFixture:
+    FocusConsoleForQuickCommand(wxString::FromUTF8(decision.cliPrefill));
+    return true;
   }
+  return false;
+}
 
-  const gui::CliShortcutRouteContext context{
+void MainWindow::OnGlobalCharHook(wxKeyEvent &event) {
+  const wxWindow *focus = FindFocus();
+  const gui::ShortcutExecutionContext context{
       .hasModifiers =
           event.ControlDown() || event.AltDown() || event.MetaDown(),
-      .focusInCliInput = consolePanel->IsInputWidgetOrChild(FindFocus()),
-      .focusInEditableText = IsEditableTextWidgetOrChild(FindFocus()),
-      .cliHasTypedContent = consolePanel->InputHasTypedContent(),
+      .focusInEditableText = IsEditableTextWidgetOrChild(focus),
+      .focusInCliInput = consolePanel && consolePanel->IsInputWidgetOrChild(focus),
+      .cliHasTypedContent = consolePanel && consolePanel->InputHasTypedContent(),
+      .focusInViewer2D =
+          IsChildOrSame(viewport2DPanel, focus) ||
+          IsChildOrSame(viewport2DRenderPanel, focus),
+      .focusInViewer3D = IsChildOrSame(viewportPanel, focus),
   };
 
-  const gui::CliShortcutRouteResult route =
-      gui::RouteCliShortcut(event.GetKeyCode(), context);
-  if (!route.shouldFocusCli) {
+  const auto decision = gui::ResolveShortcut(event.GetKeyCode(), context);
+  if (!decision.has_value() || !ApplyShortcutDecision(*decision)) {
     event.Skip();
     return;
   }
-
-  FocusConsoleForQuickCommand(wxString::FromUTF8(route.prefill));
 }

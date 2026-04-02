@@ -314,6 +314,12 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
 
+  const auto shortcutRegistryErrors = gui::ValidateShortcutRegistry();
+  for (const std::string &error : shortcutRegistryErrors)
+    wxLogError("Shortcut registry validation failed: %s", error.c_str());
+  wxASSERT_MSG(shortcutRegistryErrors.empty(),
+               "Shortcut registry contains scope collisions");
+
   Bind(wxEVT_IDLE, &MainWindow::OnStartupSplashCloseIdle, this);
   Bind(wxEVT_CHAR_HOOK, &MainWindow::OnGlobalCharHook, this);
 
