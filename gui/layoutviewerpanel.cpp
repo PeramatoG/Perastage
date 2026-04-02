@@ -1153,7 +1153,7 @@ void LayoutViewerPanel::OnKeyDown(wxKeyEvent &event) {
     DeleteSelectedElement();
     return;
   }
-  if (key == 'F' || key == 'f') {
+  if (key == 'Z' || key == 'z') {
     ResetViewToFit();
     RequestRenderRebuild();
     Refresh();

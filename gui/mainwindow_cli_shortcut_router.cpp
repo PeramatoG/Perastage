@@ -22,6 +22,9 @@ CliShortcutRouteResult RouteCliShortcut(int keyCode,
     result.shouldFocusCli = true;
     if (!context.cliHasTypedContent)
       result.prefill = "rot ";
+  } else if (normalizedKey == 'F') {
+    result.shouldFocusCli = true;
+    result.prefill = "fixture ";
   }
 
   return result;

@@ -1435,8 +1435,8 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
             event.Skip();
             return;
         }
-        case 'F':
-        case 'f': {
+        case 'Z':
+        case 'z': {
             int width = 0;
             int height = 0;
             GetClientSize(&width, &height);
