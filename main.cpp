@@ -25,9 +25,13 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <cstdlib>
 #include <new>
 #include <optional>
 #include <string>
+#if defined(_MSC_VER) && defined(_DEBUG)
+#include <crtdbg.h>
+#endif
 #include <wx/stackwalk.h>
 #include <wx/sysopt.h>
 #include <wx/weakref.h>
@@ -86,11 +90,32 @@ std::optional<std::string> GetStartupPathFromArgs(int argc, wxChar **argv) {
   }
   return std::nullopt;
 }
+
+#if defined(_MSC_VER) && defined(_DEBUG)
+void ConfigureWindowsDebugHeapLeakCheck() {
+  int flags = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
+  const char *requestedLeakCheck = std::getenv("PERASTAGE_CRT_LEAK_CHECK");
+  const bool enableLeakCheck =
+      requestedLeakCheck && std::string(requestedLeakCheck) == "1";
+
+  if (enableLeakCheck) {
+    flags |= _CRTDBG_LEAK_CHECK_DF;
+  } else {
+    flags &= ~_CRTDBG_LEAK_CHECK_DF;
+  }
+
+  _CrtSetDbgFlag(flags);
+}
+#endif
 } // namespace
 
 wxIMPLEMENT_APP(MyApp);
 
 bool MyApp::OnInit() {
+#if defined(_MSC_VER) && defined(_DEBUG)
+  ConfigureWindowsDebugHeapLeakCheck();
+#endif
+
   SetAppName(app::kName);
   SetVendorName("Perasoft");
 
