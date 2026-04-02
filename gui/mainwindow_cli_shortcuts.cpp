@@ -2,6 +2,8 @@
 
 #include "consolepanel.h"
 #include "shortcut_registry.h"
+#include "viewer2dpanel.h"
+#include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
 
 #include <wx/combobox.h>
