@@ -800,14 +800,16 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
         distanceUnitSystem == Units::DistanceUnitSystem::Imperial;
     rulerState.view = m_view;
     viewer2d::DrawRulerOverlay(rulerState, darkMode);
-    const auto rulerLabels = viewer2d::BuildRulerScreenLabels(rulerState);
+    const auto rulerLabels =
+        viewer2d::BuildRulerScreenLabels(rulerState, darkMode);
     if (!rulerLabels.empty()) {
       std::vector<OverlayTextLabel> overlayLabels;
       overlayLabels.reserve(rulerLabels.size());
       for (const auto &label : rulerLabels) {
         overlayLabels.push_back(
             {label.xPixels, label.yPixels, label.text, label.centerOnX,
-             label.centerOnY, 3.0f * m_zoom});
+             label.centerOnY, 3.0f * m_zoom, true, label.color.r,
+             label.color.g, label.color.b});
       }
       m_controller.DrawOverlayTextLabels(overlayLabels, darkMode);
     }

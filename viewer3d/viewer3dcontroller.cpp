@@ -40,6 +40,7 @@
 #include <GL/glu.h>
 #endif
 #include <cstdlib>
+#include <algorithm>
 #include <numeric>
 
 #include "configmanager.h"
@@ -1581,7 +1582,14 @@ void Viewer3DController::DrawOverlayTextLabels(
       }
     }
 
-    nvgFillColor(m_impl->vg, textColor);
+    if (label.hasCustomColor) {
+      nvgFillColor(m_impl->vg,
+                   nvgRGBAf(std::clamp(label.colorR, 0.0f, 1.0f),
+                            std::clamp(label.colorG, 0.0f, 1.0f),
+                            std::clamp(label.colorB, 0.0f, 1.0f), 1.0f));
+    } else {
+      nvgFillColor(m_impl->vg, textColor);
+    }
     nvgText(m_impl->vg, label.xPixels, label.yPixels, label.text.c_str(),
             nullptr);
   }

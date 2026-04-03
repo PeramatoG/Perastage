@@ -57,6 +57,10 @@ struct OverlayTextLabel {
   bool centerOnX = false;
   bool centerOnY = false;
   float fontSize = 3.0f;
+  bool hasCustomColor = false;
+  float colorR = 0.0f;
+  float colorG = 0.0f;
+  float colorB = 0.0f;
 };
 
 class Viewer3DController : public IRenderContext,
