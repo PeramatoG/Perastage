@@ -151,13 +151,16 @@ void SummaryPanel::UpdatePaneCaption(const wxString& suffix) {
     if (!pane.IsOk())
         return;
 
-    const wxString caption = suffix.empty() ? "Summary" : ("Summary - " + suffix);
+    const wxString caption = suffix.empty()
+                                 ? wxString("Summary")
+                                 : wxString::Format("Summary - %s", suffix);
     if (pane.caption == caption)
         return;
 
     pane.Caption(caption);
     manager->Update();
 }
+
 void SummaryPanel::ShowSummary(const std::vector<std::pair<std::string,int>>& items)
 {
     if (!table || !store) return;
