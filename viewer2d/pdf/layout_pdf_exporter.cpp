@@ -717,11 +717,13 @@ Viewer2DExportResult ExportLayoutToPdf(
     const std::vector<LayoutLegendExportData> &legends,
     const std::vector<LayoutEventTableExportData> &tables,
     const std::vector<LayoutTextExportData> &texts,
+    const std::vector<LayoutImageExportData> &images,
     const Viewer2DPrintOptions &options,
     const std::filesystem::path &outputPath) {
   Viewer2DExportResult result{};
 
-  if (views.empty() && legends.empty() && tables.empty() && texts.empty()) {
+  if (views.empty() && legends.empty() && tables.empty() && texts.empty() &&
+      images.empty()) {
     result.message = "The selected layout is empty.";
     return result;
   }
@@ -898,7 +900,7 @@ Viewer2DExportResult ExportLayoutToPdf(
   }
 
   if (layoutGroups.empty() && legends.empty() && tables.empty() &&
-      texts.empty()) {
+      texts.empty() && images.empty()) {
     result.message = "Nothing to export";
     return result;
   }
@@ -1191,6 +1193,40 @@ Viewer2DExportResult ExportLayoutToPdf(
     return objects.size();
   };
 
+  auto appendImageObject = [&](const LayoutImageExportData &image,
+                               const std::string &name) -> size_t {
+    if (image.pixelWidth <= 0 || image.pixelHeight <= 0)
+      return 0;
+    if (image.pixels.size() !=
+        static_cast<size_t>(image.pixelWidth * image.pixelHeight * 3)) {
+      Logger::Instance().Log("PDF export: skipping invalid layout image '" +
+                             name + "' due to pixel buffer mismatch");
+      return 0;
+    }
+    std::string rawData(reinterpret_cast<const char *>(image.pixels.data()),
+                        image.pixels.size());
+    std::string encodedData;
+    bool compressed = false;
+    if (options.compressStreams) {
+      std::string error;
+      if (PdfDeflater::Compress(rawData, encodedData, error)) {
+        compressed = true;
+      }
+    }
+    const std::string &streamData = compressed ? encodedData : rawData;
+
+    std::ostringstream imageObj;
+    imageObj << "<< /Type /XObject /Subtype /Image /Width " << image.pixelWidth
+             << " /Height " << image.pixelHeight
+             << " /ColorSpace /DeviceRGB /BitsPerComponent 8";
+    if (compressed)
+      imageObj << " /Filter /FlateDecode";
+    imageObj << " /Length " << streamData.size() << " >>\nstream\n"
+             << streamData << "endstream";
+    objects.push_back({imageObj.str()});
+    return objects.size();
+  };
+
 
   auto populateViewSymbolNames =
       [&](const LayoutCommandGroup &group,
@@ -1284,8 +1320,23 @@ Viewer2DExportResult ExportLayoutToPdf(
   }
 
 
+  std::vector<std::string> imageXObjectNames(images.size());
+  for (size_t idx = 0; idx < images.size(); ++idx) {
+    const auto &image = images[idx];
+    if (image.pixelWidth <= 0 || image.pixelHeight <= 0)
+      continue;
+    if (image.frame.width <= 0 || image.frame.height <= 0)
+      continue;
+    const std::string xObjectName = "I" + std::to_string(idx);
+    size_t objectId = appendImageObject(image, xObjectName);
+    if (objectId == 0)
+      continue;
+    xObjectNameIds[xObjectName] = objectId;
+    imageXObjectNames[idx] = xObjectName;
+  }
+
   struct LayoutRenderElement {
-    enum class Type { View, Legend, EventTable, Text };
+    enum class Type { View, Legend, EventTable, Text, Image };
     Type type = Type::View;
     size_t index = 0;
     int zIndex = 0;
@@ -1294,7 +1345,7 @@ Viewer2DExportResult ExportLayoutToPdf(
 
   std::vector<LayoutRenderElement> renderOrder;
   renderOrder.reserve(layoutGroups.size() + legends.size() + tables.size() +
-                      texts.size());
+                      texts.size() + images.size());
   size_t renderOrderIndex = 0;
   for (size_t idx = 0; idx < layoutGroups.size(); ++idx) {
     renderOrder.push_back(
@@ -1314,6 +1365,11 @@ Viewer2DExportResult ExportLayoutToPdf(
   for (size_t idx = 0; idx < texts.size(); ++idx) {
     renderOrder.push_back(
         {LayoutRenderElement::Type::Text, idx, texts[idx].zIndex,
+         renderOrderIndex++});
+  }
+  for (size_t idx = 0; idx < images.size(); ++idx) {
+    renderOrder.push_back(
+        {LayoutRenderElement::Type::Image, idx, images[idx].zIndex,
          renderOrderIndex++});
   }
 
@@ -2019,6 +2075,28 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
   };
 
+  auto renderImage = [&](size_t idx) {
+    if (idx >= images.size() || idx >= imageXObjectNames.size())
+      return;
+    const auto &image = images[idx];
+    const std::string &xObjectName = imageXObjectNames[idx];
+    if (xObjectName.empty())
+      return;
+    const double frameW = static_cast<double>(image.frame.width);
+    const double frameH = static_cast<double>(image.frame.height);
+    if (frameW <= 0.0 || frameH <= 0.0)
+      return;
+    const double frameX = static_cast<double>(image.frame.x);
+    const double frameY =
+        pageH - image.frame.y - static_cast<double>(image.frame.height);
+    contentStream << "q\n"
+                  << formatter.Format(frameW) << " 0 0 "
+                  << formatter.Format(frameH) << ' '
+                  << formatter.Format(frameX) << ' '
+                  << formatter.Format(frameY) << " cm\n/"
+                  << xObjectName << " Do\nQ\n";
+  };
+
   for (const auto &entry : renderOrder) {
     if (entry.type == LayoutRenderElement::Type::View) {
       renderViewGroup(entry.index);
@@ -2026,6 +2104,8 @@ Viewer2DExportResult ExportLayoutToPdf(
       renderLegend(entry.index);
     } else if (entry.type == LayoutRenderElement::Type::EventTable) {
       renderEventTable(entry.index);
+    } else if (entry.type == LayoutRenderElement::Type::Image) {
+      renderImage(entry.index);
     } else {
       renderText(entry.index);
     }
