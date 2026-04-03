@@ -276,7 +276,7 @@ void SceneRenderer::DrawMeshWithOutline(
           m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
         DrawMeshWireframe(mesh, scale, captureTransform);
       }
-      glLineWidth(symbolCaptureRenderProfile ? 1.0f : lineWidth);
+      glLineWidth(symbolCaptureRenderProfile ? 2.0f : lineWidth);
       m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
       DrawMeshWireframe(mesh, scale, captureTransform);
       if (symbolCaptureRenderProfile) {
