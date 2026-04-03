@@ -75,6 +75,11 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
 std::optional<LayoutImageExportData> BuildLayoutImageExportData(
     const layouts::LayoutImageDefinition &imageDef, double scaleX,
     double scaleY) {
+  constexpr double kPdfPointsPerInch = 72.0;
+  constexpr double kTargetPrintDpi = 300.0;
+  constexpr int kMaxImageSidePx = 8192;
+  constexpr int kMaxImagePixels = 8192 * 8192;
+
   LayoutImageExportData data;
   data.zIndex = imageDef.zIndex;
   data.frame = imageDef.frame;
@@ -93,8 +98,23 @@ std::optional<LayoutImageExportData> BuildLayoutImageExportData(
   if (sourceImage.GetWidth() <= 0 || sourceImage.GetHeight() <= 0)
     return std::nullopt;
 
-  wxImage scaled = sourceImage.Scale(data.frame.width, data.frame.height,
-                                     wxIMAGE_QUALITY_HIGH);
+  const double frameWidthInches =
+      static_cast<double>(data.frame.width) / kPdfPointsPerInch;
+  const double frameHeightInches =
+      static_cast<double>(data.frame.height) / kPdfPointsPerInch;
+  int targetPixelWidth = static_cast<int>(
+      std::lround(std::max(1.0, frameWidthInches * kTargetPrintDpi)));
+  int targetPixelHeight = static_cast<int>(
+      std::lround(std::max(1.0, frameHeightInches * kTargetPrintDpi)));
+  targetPixelWidth = std::clamp(targetPixelWidth, 1, kMaxImageSidePx);
+  targetPixelHeight = std::clamp(targetPixelHeight, 1, kMaxImageSidePx);
+  if (targetPixelWidth > 0 &&
+      targetPixelHeight > (kMaxImagePixels / targetPixelWidth)) {
+    targetPixelHeight = std::max(1, kMaxImagePixels / targetPixelWidth);
+  }
+
+  wxImage scaled =
+      sourceImage.Scale(targetPixelWidth, targetPixelHeight, wxIMAGE_QUALITY_HIGH);
   if (!scaled.IsOk() || scaled.GetWidth() <= 0 || scaled.GetHeight() <= 0)
     return std::nullopt;
 
