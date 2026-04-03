@@ -192,6 +192,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
           {"view2d_render_mode", static_cast<float>(Viewer2DRenderMode::ByFixtureType)},
           {"viewer3d_aa_quality", 0.0f},
           {"viewer3d_adaptive_line_profile", 0.0f},
+          {"viewer3d_symbol_capture_render_profile", 1.0f},
           {"label_show_name_top", 0.0f},
           {"label_show_name_front", 0.0f},
           {"label_show_name_side", 0.0f},
@@ -257,12 +258,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
   capturePanel->SetView(previousView);
 
-  symbols::ImageBuildParams imageBuildParams;
-  imageBuildParams.blackThreshold = 140;
-  imageBuildParams.minStrokePixels = 1;
-
-  auto symbols = symbols::Symbol2DImageBuilder::BuildFromRenderedImages(
-      renders, imageBuildParams);
+  auto symbols = symbols::Symbol2DImageBuilder::BuildFromRenderedImages(renders);
   if (symbols.size() != requests.size()) {
     result.error = "Could not generate all symbols from captured views.";
     return result;
