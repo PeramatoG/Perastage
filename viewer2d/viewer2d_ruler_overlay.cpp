@@ -242,9 +242,10 @@ std::string FormatImperialRulerOffsetLabel(float valueMeters) {
   return out.str();
 }
 
-CanvasTextStyle BuildRulerLabelStyle(const CanvasStroke &stroke) {
+CanvasTextStyle BuildRulerLabelStyle(const CanvasStroke &stroke, float zoom) {
   CanvasTextStyle style;
-  style.fontSize = kRulerLabelFontSize;
+  const float pixelsPerMeter = kPixelsPerMeter * std::max(zoom, 0.0001f);
+  style.fontSize = kRulerLabelFontSize / pixelsPerMeter;
   style.color = stroke.color;
   return style;
 }
@@ -353,8 +354,8 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
   const float tickStepMeters = ResolveTickStepMeters(state.useImperialUnits);
   const float startX =
       ComputeStartTick(minX, kRulerZeroOriginMeters, tickStepMeters);
-  const auto horizontalTextStyle = BuildRulerLabelStyle(horizontalStroke);
-  const auto verticalTextStyle = BuildRulerLabelStyle(verticalStroke);
+  const auto horizontalTextStyle = BuildRulerLabelStyle(horizontalStroke, state.zoom);
+  const auto verticalTextStyle = BuildRulerLabelStyle(verticalStroke, state.zoom);
   for (float x = startX; x <= maxX + 0.0001f; x += tickStepMeters) {
     const auto tickKind =
         ResolveTickKind(x, kRulerZeroOriginMeters, state.useImperialUnits);
