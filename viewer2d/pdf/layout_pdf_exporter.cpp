@@ -1448,7 +1448,8 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double paddingTop = 0.0;
     const double paddingBottom = 0.0;
     const double columnGap = 6.0;
-    const double symbolColumnGap = 0.0;
+    double symbolColumnGap = 0.0;
+    double symbolOuterMargin = 0.0;
     constexpr int kLegendTypeLineCount = 2;
     constexpr double kLegendLineSpacingScale = 1.0;
     constexpr double kLegendSymbolColumnScale = 1.0;
@@ -1613,16 +1614,21 @@ Viewer2DExportResult ExportLayoutToPdf(
       if (item.symbolKey.empty())
         continue;
       const PerastageSvgSymbolData *topSvg =
-          findLegendSvg(item.symbolKey, SymbolViewKind::Bottom);
+          item.showBottomSymbol
+              ? findLegendSvg(item.symbolKey, SymbolViewKind::Bottom)
+              : nullptr;
       const PerastageSvgSymbolData *frontSvg =
-          findLegendSvg(item.symbolKey, SymbolViewKind::Front);
-      const SymbolDefinition *topSymbol = legendSymbolsForSizing
-          ? FindSymbolDefinitionPreferred(legendSymbolsForSizing, item.symbolKey,
-                                          SymbolViewKind::Bottom)
-          : nullptr;
-      const SymbolDefinition *frontSymbol = legendSymbolsForSizing
-          ? FindSymbolDefinitionExact(legendSymbolsForSizing, item.symbolKey,
-                                      SymbolViewKind::Front)
+          item.showFrontSymbol ? findLegendSvg(item.symbolKey, SymbolViewKind::Front)
+                               : nullptr;
+      const SymbolDefinition *topSymbol =
+          (item.showBottomSymbol && legendSymbolsForSizing)
+              ? FindSymbolDefinitionPreferred(legendSymbolsForSizing, item.symbolKey,
+                                              SymbolViewKind::Bottom)
+              : nullptr;
+      const SymbolDefinition *frontSymbol =
+          (item.showFrontSymbol && legendSymbolsForSizing)
+              ? FindSymbolDefinitionExact(legendSymbolsForSizing, item.symbolKey,
+                                          SymbolViewKind::Front)
           : nullptr;
       maxTopSymbolColumnWidth = std::max(
           maxTopSymbolColumnWidth,
@@ -1646,14 +1652,53 @@ Viewer2DExportResult ExportLayoutToPdf(
                   kLegendSymbolColumnScale),
         0.0, static_cast<double>(limitedSymbolColumnSize));
 
-    const double xTopSymbol = frameX + paddingLeft;
+    bool hasSvgSymbols = false;
+    bool hasFallbackSymbols = false;
+    for (const auto &item : legend.items) {
+      if (item.symbolKey.empty())
+        continue;
+      const bool topVisible = item.showBottomSymbol;
+      const bool frontVisible = item.showFrontSymbol;
+      const PerastageSvgSymbolData *topSvg =
+          topVisible ? findLegendSvg(item.symbolKey, SymbolViewKind::Bottom)
+                     : nullptr;
+      const PerastageSvgSymbolData *frontSvg =
+          frontVisible ? findLegendSvg(item.symbolKey, SymbolViewKind::Front)
+                       : nullptr;
+      const SymbolDefinition *topSymbol = legendSymbolsForSizing
+          ? FindSymbolDefinitionPreferred(legendSymbolsForSizing, item.symbolKey,
+                                          SymbolViewKind::Bottom)
+          : nullptr;
+      const SymbolDefinition *frontSymbol = legendSymbolsForSizing
+          ? FindSymbolDefinitionExact(legendSymbolsForSizing, item.symbolKey,
+                                      SymbolViewKind::Front)
+          : nullptr;
+      if ((topVisible && topSvg) || (frontVisible && frontSvg)) {
+        hasSvgSymbols = true;
+      }
+      if ((topVisible && !topSvg && topSymbol) ||
+          (frontVisible && !frontSvg && frontSymbol)) {
+        hasFallbackSymbols = true;
+      }
+    }
+    if (hasSvgSymbols && !hasFallbackSymbols) {
+      symbolColumnGap = 2.5;
+      symbolOuterMargin = 2.0;
+    }
+
+    const double xTopSymbol = frameX + paddingLeft + symbolOuterMargin;
     const double xFrontSymbol = xTopSymbol + topSymbolColumnSize + symbolColumnGap;
     const double xCount = xFrontSymbol + frontSymbolColumnSize + columnGap;
     const double xType = xCount + maxCountWidth + columnGap;
     double xCh = frameX + frameW - paddingRight - maxChWidth;
-    if (xCh < xType + columnGap)
-      xCh = xType + columnGap;
-    const double typeWidth = std::max(0.0, xCh - xType - columnGap);
+    if (legend.showChannelColumn) {
+      if (xCh < xType + columnGap)
+        xCh = xType + columnGap;
+    } else {
+      xCh = frameX + frameW - paddingRight;
+    }
+    const double typeWidth = std::max(
+        0.0, legend.showChannelColumn ? (xCh - xType - columnGap) : (xCh - xType));
 
     auto wrapTextToTwoLines = [&](const std::string &text, double maxWidth) {
       if (maxWidth <= 0.0)
@@ -1718,8 +1763,10 @@ Viewer2DExportResult ExportLayoutToPdf(
                0.08, 0.08);
     appendText(xType, y - singleTextOffset - fontSize, encodeText("Type"), "F2", 0.08,
                0.08, 0.08);
-    appendText(xCh, y - singleTextOffset - fontSize, encodeText("Ch"), "F2", 0.08,
-               0.08, 0.08);
+    if (legend.showChannelColumn) {
+      appendText(xCh, y - singleTextOffset - fontSize, encodeText("Ch"), "F2",
+                 0.08, 0.08, 0.08);
+    }
 
     y -= rowHeight;
     const double separatorY = y;
@@ -1736,7 +1783,7 @@ Viewer2DExportResult ExportLayoutToPdf(
 
       const std::string countText = encodeText(std::to_string(item.count));
       const auto typeLines =
-          wrapTextToTwoLines(encodeText(item.typeName), typeWidth);
+          wrapTextToTwoLines(encodeText(item.displayName), typeWidth);
       const std::string chText =
           encodeText(item.channelCount ? std::to_string(*item.channelCount) : "-");
 
@@ -1745,17 +1792,23 @@ Viewer2DExportResult ExportLayoutToPdf(
             legend.symbolSnapshot ? legend.symbolSnapshot.get()
                                   : symbolSnapshot.get();
         const PerastageSvgSymbolData *topSvg =
-            findLegendSvg(item.symbolKey, SymbolViewKind::Bottom);
+            item.showBottomSymbol
+                ? findLegendSvg(item.symbolKey, SymbolViewKind::Bottom)
+                : nullptr;
         const PerastageSvgSymbolData *frontSvg =
-            findLegendSvg(item.symbolKey, SymbolViewKind::Front);
-        const SymbolDefinition *topSymbol = legendSymbols
-            ? FindSymbolDefinitionPreferred(legendSymbols, item.symbolKey,
-                                           SymbolViewKind::Bottom)
-            : nullptr;
-        const SymbolDefinition *frontSymbol = legendSymbols
-            ? FindSymbolDefinitionExact(legendSymbols, item.symbolKey,
-                                       SymbolViewKind::Front)
-            : nullptr;
+            item.showFrontSymbol
+                ? findLegendSvg(item.symbolKey, SymbolViewKind::Front)
+                : nullptr;
+        const SymbolDefinition *topSymbol =
+            (item.showBottomSymbol && legendSymbols)
+                ? FindSymbolDefinitionPreferred(legendSymbols, item.symbolKey,
+                                                SymbolViewKind::Bottom)
+                : nullptr;
+        const SymbolDefinition *frontSymbol =
+            (item.showFrontSymbol && legendSymbols)
+                ? FindSymbolDefinitionExact(legendSymbols, item.symbolKey,
+                                            SymbolViewKind::Front)
+                : nullptr;
 
         const double topDrawW =
             topSvg ? symbolDrawWidthSvg(topSvg) : symbolDrawWidth(topSymbol);
@@ -1891,8 +1944,10 @@ Viewer2DExportResult ExportLayoutToPdf(
         appendText(xType, secondTypeBaseline, typeLines[1], "F1", 0.08, 0.08,
                    0.08);
       }
-      appendText(xCh, y - singleTextOffset - fontSize, chText, "F1", 0.08, 0.08,
-                 0.08);
+      if (legend.showChannelColumn) {
+        appendText(xCh, y - singleTextOffset - fontSize, chText, "F1", 0.08,
+                   0.08, 0.08);
+      }
       y -= rowHeight;
     }
 

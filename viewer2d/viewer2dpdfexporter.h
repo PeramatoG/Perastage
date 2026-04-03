@@ -61,16 +61,21 @@ struct LayoutViewExportData {
 
 struct LayoutLegendItem {
   std::string typeName;
+  std::string displayName;
   int count = 0;
   std::optional<int> channelCount;
   std::string symbolKey;
   std::optional<std::string> symbolFillHex;
+  bool showBottomSymbol = true;
+  bool showFrontSymbol = true;
+  bool showSideSymbol = false;
 };
 
 struct LayoutLegendExportData {
   layouts::Layout2DViewFrame frame;
   std::vector<LayoutLegendItem> items;
   int zIndex = 0;
+  bool showChannelColumn = true;
   std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr;
 };
 
