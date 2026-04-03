@@ -269,7 +269,8 @@ static std::array<float, 3> BuildFaceNormal(const std::vector<float> &vertices,
 
 static std::vector<unsigned short>
 BuildWireframeIndices(const std::vector<float> &vertices,
-                      const std::vector<unsigned short> &triangleIndices) {
+                      const std::vector<unsigned short> &triangleIndices,
+                      bool includeCoplanarEdges) {
   static constexpr float kCreaseAngleDeg = 5.0f;
   static constexpr float kPi = 3.14159265358979323846f;
   const float creaseDotThreshold =
@@ -310,6 +311,11 @@ BuildWireframeIndices(const std::vector<float> &vertices,
     }
 
     if (info.count == 2) {
+      if (includeCoplanarEdges) {
+        lineIndices.push_back(edge.a);
+        lineIndices.push_back(edge.b);
+        continue;
+      }
       const float dot = info.firstFaceNormal[0] * info.secondFaceNormal[0] +
                         info.firstFaceNormal[1] * info.secondFaceNormal[1] +
                         info.firstFaceNormal[2] * info.secondFaceNormal[2];
@@ -1344,8 +1350,11 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   if (mesh.normals.size() < mesh.vertices.size())
     ComputeNormals(mesh);
 
-  std::vector<unsigned short> lineIndices =
-      BuildWireframeIndices(mesh.vertices, mesh.indices);
+  const bool includeCoplanarEdgesForCapture =
+      ConfigManager::Get().GetFloat(
+          "viewer3d_symbol_capture_include_coplanar_edges") >= 0.5f;
+  std::vector<unsigned short> lineIndices = BuildWireframeIndices(
+      mesh.vertices, mesh.indices, includeCoplanarEdgesForCapture);
 
   glGenVertexArrays(1, &mesh.vao);
   glBindVertexArray(mesh.vao);
