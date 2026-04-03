@@ -981,6 +981,39 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                      (14.0 * kLegendFontScale * renderZoom),
                  0.0, 1.0);
 
+  int wrapFontPx =
+      std::max(1, static_cast<int>(std::lround(fontSize)));
+  const int wrapRowLimitPx = std::max(
+      1, totalRows > 0
+             ? static_cast<int>(std::floor(availableHeight / totalRows))
+             : static_cast<int>(std::floor(availableHeight)));
+  wxFont wrapFont =
+      layoutviewerpanel::detail::MakeSharedFont(wrapFontPx,
+                                                wxFONTWEIGHT_NORMAL);
+  std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
+      wrapTextExtentCache;
+  auto measureWrapTextWidth = [&](const wxString &text) {
+    const wxFont previousFont = dc.GetFont();
+    dc.SetFont(wrapFont);
+    const int width = measureTextExtent(text, wrapTextExtentCache).GetWidth();
+    dc.SetFont(previousFont);
+    return width;
+  };
+  for (;;) {
+    const wxFont previousFont = dc.GetFont();
+    dc.SetFont(wrapFont);
+    int wrapTextHeight = 0;
+    int ignoredWidth = 0;
+    dc.GetTextExtent("Hg", &ignoredWidth, &wrapTextHeight);
+    dc.SetFont(previousFont);
+    if (wrapTextHeight <= wrapRowLimitPx || wrapFontPx <= 1)
+      break;
+    --wrapFontPx;
+    wrapFont = layoutviewerpanel::detail::MakeSharedFont(wrapFontPx,
+                                                          wxFONTWEIGHT_NORMAL);
+    wrapTextExtentCache.clear();
+  }
+
   baseTextExtentCache.clear();
   dc.SetFont(baseFont);
   int maxCountWidth = measureTextWidth("Count");
@@ -1248,12 +1281,64 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   }
   int typeWidth = std::max(
       0, showChannelColumn ? (xCh - xType - columnGapPx) : (xCh - xType));
+  const int logicalSizeWidth =
+      logicalSize.GetWidth() > 0 ? logicalSize.GetWidth() : size.GetWidth();
+  int maxCountWidthLogical = measureWrapTextWidth("Count");
+  int maxChWidthLogical = showChannelColumn ? measureWrapTextWidth("Ch") : 0;
+  for (const auto &row : rowTexts) {
+    maxCountWidthLogical =
+        std::max(maxCountWidthLogical, measureWrapTextWidth(row.countText));
+    if (showChannelColumn) {
+      maxChWidthLogical =
+          std::max(maxChWidthLogical, measureWrapTextWidth(row.chText));
+    }
+  }
+  if (showChannelColumn) {
+    maxChWidthLogical += measureWrapTextWidth("0");
+  }
+  const int topSymbolColumnSizeLogical = std::max(
+      0, static_cast<int>(std::lround(static_cast<double>(topSymbolColumnSize) /
+                                      renderZoom)));
+  const int frontSymbolColumnSizeLogical =
+      std::max(0, static_cast<int>(std::lround(
+                      static_cast<double>(frontSymbolColumnSize) / renderZoom)));
+  const int sideSymbolColumnSizeLogical = std::max(
+      0, static_cast<int>(std::lround(static_cast<double>(sideSymbolColumnSize) /
+                                      renderZoom)));
+  const int symbolColumnGapLogical = std::max(
+      0, static_cast<int>(std::lround(static_cast<double>(symbolColumnGapPx) /
+                                      renderZoom)));
+  const int symbolOuterMarginLogical = std::max(
+      0, static_cast<int>(std::lround(static_cast<double>(symbolOuterMarginPx) /
+                                      renderZoom)));
+  const int xTopSymbolLogical = paddingLeft + symbolOuterMarginLogical;
+  const int xFrontSymbolLogical =
+      xTopSymbolLogical + topSymbolColumnSizeLogical + symbolColumnGapLogical;
+  const int xSideSymbolLogical =
+      xFrontSymbolLogical + frontSymbolColumnSizeLogical + symbolColumnGapLogical;
+  const int xCountLogical =
+      xSideSymbolLogical + sideSymbolColumnSizeLogical + columnGap;
+  const int xTypeLogical = xCountLogical + maxCountWidthLogical + columnGap;
+  int xChLogical = logicalSizeWidth - paddingRight - maxChWidthLogical;
+  if (showChannelColumn) {
+    if (xChLogical < xTypeLogical + columnGap)
+      xChLogical = xTypeLogical + columnGap;
+  } else {
+    xChLogical = logicalSizeWidth - paddingRight;
+  }
+  const int typeWidthLogical = std::max(
+      0, showChannelColumn ? (xChLogical - xTypeLogical - columnGap)
+                           : (xChLogical - xTypeLogical));
 
   auto wrapTextToTwoLines = [&](const wxString &text, int maxWidth) {
-    if (maxWidth <= 0)
+    const int wrapMaxWidth =
+        typeWidthLogical > 0
+            ? typeWidthLogical
+            : std::max(0, static_cast<int>(std::lround(maxWidth / renderZoom)));
+    if (wrapMaxWidth <= 0)
       return std::array<wxString, 2>{wxString(), wxString()};
 
-    if (measureTextWidth(text) <= maxWidth)
+    if (measureWrapTextWidth(text) <= wrapMaxWidth)
       return std::array<wxString, 2>{text, wxString()};
 
     wxString firstLine = text;
@@ -1261,7 +1346,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     for (int i = static_cast<int>(text.length()) - 1; i > 0; --i) {
       if (text[static_cast<size_t>(i)] == ' ') {
         wxString candidate = text.Left(static_cast<size_t>(i));
-        if (!candidate.empty() && measureTextWidth(candidate) <= maxWidth) {
+        if (!candidate.empty() &&
+            measureWrapTextWidth(candidate) <= wrapMaxWidth) {
           splitAt = i;
           break;
         }
@@ -1272,7 +1358,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       firstLine.clear();
       for (size_t i = 0; i < text.length(); ++i) {
         wxString candidate = text.Left(i + 1);
-        if (measureTextWidth(candidate) > maxWidth)
+        if (measureWrapTextWidth(candidate) > wrapMaxWidth)
           break;
         firstLine = candidate;
       }
