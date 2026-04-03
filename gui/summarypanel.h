@@ -58,6 +58,7 @@ private:
     wxString activeHoverTooltip;
 
     void ShowSummary(const std::vector<std::pair<std::string,int>>& items);
+    void UpdatePaneCaption(const wxString& suffix);
     void ShowFixtureSummaryRows(const std::vector<FixtureSummaryRow>& rows);
     void EnsureColumnsForMode(SummaryMode requestedMode);
     void RefreshFixtureVisibilityStyles();

@@ -23,6 +23,7 @@
 #include "viewer3dpanel.h"
 #include <wx/colordlg.h>
 #include <wx/dcmemory.h>
+#include <wx/aui/framemanager.h>
 #include <algorithm>
 #include <map>
 #include <unordered_set>
@@ -140,6 +141,23 @@ void SummaryPanel::SetInstance(SummaryPanel* panel)
     s_instance = panel;
 }
 
+
+void SummaryPanel::UpdatePaneCaption(const wxString& suffix) {
+    wxAuiManager* manager = wxAuiManager::GetManager(this);
+    if (!manager)
+        return;
+
+    wxAuiPaneInfo& pane = manager->GetPane(this);
+    if (!pane.IsOk())
+        return;
+
+    const wxString caption = suffix.empty() ? "Summary" : ("Summary - " + suffix);
+    if (pane.caption == caption)
+        return;
+
+    pane.Caption(caption);
+    manager->Update();
+}
 void SummaryPanel::ShowSummary(const std::vector<std::pair<std::string,int>>& items)
 {
     if (!table || !store) return;
@@ -155,6 +173,7 @@ void SummaryPanel::ShowSummary(const std::vector<std::pair<std::string,int>>& it
 
 void SummaryPanel::ShowFixtureSummary()
 {
+    UpdatePaneCaption("Fixtures");
     if (!table || !store) return;
     std::map<std::string, FixtureSummaryRow> grouped;
     const auto& fixtures = (*visibilityConfigManager).GetScene().fixtures;
@@ -183,6 +202,7 @@ void SummaryPanel::ShowFixtureSummary()
 
 void SummaryPanel::ShowTrussSummary()
 {
+    UpdatePaneCaption("Trusses");
     std::map<std::string,int> counts;
     const auto& trusses = (*visibilityConfigManager).GetScene().trusses;
     for (const auto& [uuid, truss] : trusses)
@@ -193,6 +213,7 @@ void SummaryPanel::ShowTrussSummary()
 
 void SummaryPanel::ShowHoistSummary()
 {
+    UpdatePaneCaption("Hoists");
     if (!table) return;
 
     std::map<std::string, int> hoistCounts;
@@ -208,6 +229,7 @@ void SummaryPanel::ShowHoistSummary()
 
 void SummaryPanel::ShowSceneObjectSummary()
 {
+    UpdatePaneCaption("Objects");
     std::map<std::string,int> counts;
     const auto& objs = (*visibilityConfigManager).GetScene().sceneObjects;
     for (const auto& [uuid, obj] : objs)
