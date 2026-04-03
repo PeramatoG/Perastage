@@ -51,6 +51,7 @@ using namespace layout_pdf_internal;
 
 constexpr double kLegendContentScale = 0.7;
 constexpr double kPdfPointsPerPixel = 72.0 / 96.0;
+constexpr double kPdfStrokeWidthScreenMatchFactor = 0.75;
 constexpr double kLegendSymbolSize =
     96.0 * 2.0 / 3.0 * kLegendContentScale;
 constexpr double kLegendFontScale =
@@ -421,9 +422,11 @@ Viewer2DExportResult ExportViewer2DToPdf(
   double minY = viewMapping.minY;
 
   FloatFormatter formatter(options.floatPrecision);
-  // Maintain a consistent physical stroke size in PDF (points) to mirror
-  // on-screen pixel widths regardless of view scale.
-  const double strokeScale = kPdfPointsPerPixel / scale;
+  // Maintain a consistent physical stroke size in PDF (points) and apply a
+  // slight reduction so printed lines better match the perceived on-screen
+  // weight.
+  const double strokeScale =
+      (kPdfPointsPerPixel * kPdfStrokeWidthScreenMatchFactor) / scale;
 
   struct CommandGroup {
     std::vector<CanvasCommand> commands;
@@ -870,10 +873,12 @@ Viewer2DExportResult ExportLayoutToPdf(
     std::unordered_set<std::string> viewSymbolKeys;
     std::unordered_set<uint32_t> viewSymbolIds;
     captureCommands(view.buffer, mainCommands, viewSymbolKeys, viewSymbolIds);
-    // Maintain a consistent physical stroke size in PDF (points) to mirror
-    // on-screen pixel widths regardless of view scale.
+    // Maintain a consistent physical stroke size in PDF (points) and apply a
+    // slight reduction so printed lines better match the perceived on-screen
+    // weight.
     const double strokeScale =
-        kPdfPointsPerPixel / viewMapping.scale;
+        (kPdfPointsPerPixel * kPdfStrokeWidthScreenMatchFactor) /
+        viewMapping.scale;
     layoutGroups.push_back({std::move(mainCommands),
                             mapping,
                             static_cast<double>(view.frame.x),
@@ -943,7 +948,11 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
     return it->second ? &it->second.value() : nullptr;
   };
-  const double legendStrokeScale = 1.0 / viewer2d::kViewer2DPixelsPerMeter;
+  // Legend symbols rendered from local command buffers use meter-based
+  // coordinates. Apply the same screen-match reduction used for layout/view
+  // command buffers so visual stroke weight stays consistent.
+  const double legendStrokeScale =
+      kPdfStrokeWidthScreenMatchFactor / viewer2d::kViewer2DPixelsPerMeter;
   auto makeLegendIdName = [](uint32_t symbolId) {
     return "L" + std::to_string(symbolId);
   };
@@ -1828,7 +1837,9 @@ Viewer2DExportResult ExportLayoutToPdf(
             contentStream << (polygon.holes.empty() ? "f\n" : "f*\n");
           }
 
-          contentStream << "0 0 0 RG 1 w\n";
+          contentStream << "0 0 0 RG "
+                        << formatter.Format(kPdfStrokeWidthScreenMatchFactor)
+                        << " w\n";
           for (const auto &line : svg->strokes) {
             if (line.points.size() < 2)
               continue;
