@@ -150,6 +150,8 @@ struct Viewer3DController::Impl {
   std::unique_ptr<VisibilitySystem> visibilitySystem;
   std::unique_ptr<SelectionSystem> selectionSystem;
   std::unique_ptr<LabelRenderSystem> labelRenderSystem;
+  size_t logicalSceneSignature = 0;
+  bool hasLogicalSceneSignature = false;
 };
 
 struct LineRenderProfile {
@@ -525,6 +527,37 @@ static size_t HashMatrix(const Matrix &m) {
   return seed;
 }
 
+static size_t BuildLogicalSceneSignature(
+    const std::string &basePath,
+    const std::unordered_map<std::string, Truss> &trusses,
+    const std::unordered_map<std::string, SceneObject> &objects,
+    const std::unordered_map<std::string, Fixture> &fixtures) {
+  size_t signature = HashString(basePath);
+  for (const auto &[uuid, t] : trusses) {
+    signature = HashCombine(signature, HashString(uuid));
+    signature = HashCombine(signature, HashString(t.symbolFile));
+    signature = HashCombine(signature, HashMatrix(t.transform));
+    signature = HashCombine(signature, HashFloat(t.lengthMm));
+    signature = HashCombine(signature, HashFloat(t.widthMm));
+    signature = HashCombine(signature, HashFloat(t.heightMm));
+  }
+  for (const auto &[uuid, o] : objects) {
+    signature = HashCombine(signature, HashString(uuid));
+    signature = HashCombine(signature, HashString(o.modelFile));
+    signature = HashCombine(signature, HashMatrix(o.transform));
+    for (const auto &g : o.geometries) {
+      signature = HashCombine(signature, HashString(g.modelFile));
+      signature = HashCombine(signature, HashMatrix(g.localTransform));
+    }
+  }
+  for (const auto &[uuid, f] : fixtures) {
+    signature = HashCombine(signature, HashString(uuid));
+    signature = HashCombine(signature, HashString(f.gdtfSpec));
+    signature = HashCombine(signature, HashMatrix(f.transform));
+  }
+  return signature;
+}
+
 
 static Transform2D BuildInstanceTransform2D(const Matrix &m, Viewer2DView view) {
   Transform2D t{};
@@ -822,6 +855,13 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+  const size_t logicalSceneSignature =
+      BuildLogicalSceneSignature(base, trusses, objects, fixtures);
+  const bool logicalSceneChanged =
+      !m_impl->hasLogicalSceneSignature ||
+      logicalSceneSignature != m_impl->logicalSceneSignature;
+  m_impl->logicalSceneSignature = logicalSceneSignature;
+  m_impl->hasLogicalSceneSignature = true;
 
   std::vector<const std::pair<const std::string, Truss> *> visibleTrusses;
   std::vector<const std::pair<const std::string, SceneObject> *> visibleObjects;
@@ -855,7 +895,7 @@ void Viewer3DController::UpdateResourcesIfDirty() {
       base, visibleTrusses, visibleObjects, visibleFixtures,
       m_impl->resourceSyncState, callbacks);
 
-  if (syncResult.sceneChanged) {
+  if (syncResult.sceneChanged || logicalSceneChanged) {
     ++m_impl->sceneVersion;
     m_impl->sceneChangedDirty = true;
     std::lock_guard<std::mutex> lock(m_impl->sortedListsMutex);
