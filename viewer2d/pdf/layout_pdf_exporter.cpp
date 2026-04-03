@@ -51,7 +51,7 @@ using namespace layout_pdf_internal;
 
 constexpr double kLegendContentScale = 0.7;
 constexpr double kPdfPointsPerPixel = 72.0 / 96.0;
-constexpr double kPdfStrokeWidthScreenMatchFactor = 0.5;
+constexpr double kPdfStrokeWidthScreenMatchFactor = 0.75;
 constexpr double kLegendSymbolSize =
     96.0 * 2.0 / 3.0 * kLegendContentScale;
 constexpr double kLegendFontScale =
