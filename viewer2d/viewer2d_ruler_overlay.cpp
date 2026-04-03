@@ -398,7 +398,7 @@ void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
 }
 
 std::vector<RulerScreenLabel>
-BuildRulerScreenLabels(const RulerOverlayViewState &state) {
+BuildRulerScreenLabels(const RulerOverlayViewState &state, bool darkMode) {
   std::vector<RulerScreenLabel> labels;
   if (state.width <= 0 || state.height <= 0 || state.zoom <= 0.0f)
     return labels;
@@ -420,6 +420,10 @@ BuildRulerScreenLabels(const RulerOverlayViewState &state) {
       std::max(std::max(state.largeTickMeters, shortTickMeters),
                shortTickMeters);
   const ActiveRulers activeRulers = ResolveActiveRulers(state);
+  const CanvasStroke horizontalStroke =
+      BuildRulerStroke(darkMode, activeRulers.horizontalColor);
+  const CanvasStroke verticalStroke =
+      BuildRulerStroke(darkMode, activeRulers.verticalColor);
   const float xRulerY = activeRulers.horizontalAxisMeters;
   const float yRulerX = activeRulers.verticalAxisMeters;
 
@@ -440,7 +444,7 @@ BuildRulerScreenLabels(const RulerOverlayViewState &state) {
                                : FormatRulerOffsetLabel(labelOffsetMeters);
     labels.push_back({WorldToScreenX(x, state, pixelsPerMeter),
                       WorldToScreenY(worldY, state, pixelsPerMeter),
-                      label, true, false});
+                      label, true, false, horizontalStroke.color});
   }
 
   const float startY =
@@ -459,7 +463,7 @@ BuildRulerScreenLabels(const RulerOverlayViewState &state) {
                                : FormatRulerOffsetLabel(labelOffsetMeters);
     labels.push_back({WorldToScreenX(worldX, state, pixelsPerMeter),
                       WorldToScreenY(y, state, pixelsPerMeter),
-                      label, false, true});
+                      label, false, true, verticalStroke.color});
   }
   return labels;
 }

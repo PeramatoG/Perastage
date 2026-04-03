@@ -29,12 +29,13 @@ struct RulerScreenLabel {
   std::string text;
   bool centerOnX = false;
   bool centerOnY = false;
+  CanvasColor color{0.0f, 0.0f, 0.0f, 1.0f};
 };
 
 void DrawRulerOverlay(const RulerOverlayViewState &state, bool darkMode);
 void EmitRulerToCanvas(const RulerOverlayViewState &state, bool darkMode,
                        ICanvas2D &canvas);
 std::vector<RulerScreenLabel>
-BuildRulerScreenLabels(const RulerOverlayViewState &state);
+BuildRulerScreenLabels(const RulerOverlayViewState &state, bool darkMode);
 
 } // namespace viewer2d
