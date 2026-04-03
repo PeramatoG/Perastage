@@ -454,6 +454,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
                   static_cast<int>(std::lround(frame.height * scaleY));
               data.frame = frame;
               data.zIndex = view.zIndex;
+              data.drawFrame = view.drawFrame;
               if (capturePanel)
                 data.symbolSnapshot =
                     capturePanel->GetBottomSymbolCacheSnapshot();

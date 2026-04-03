@@ -113,6 +113,7 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
       {"zIndex", view.zIndex},
       {"frame",
        {{"x", frame.x}, {"y", frame.y}, {"width", frame.width}, {"height", frame.height}}},
+      {"drawFrame", view.drawFrame},
       {"camera",
        {{"offsetPixelsX", camera.offsetPixelsX},
         {"offsetPixelsY", camera.offsetPixelsY},
@@ -411,6 +412,9 @@ bool ParseLayout2DView(const nlohmann::json &value, Layout2DViewDefinition &out,
     out.id = idIt->get<int>();
   if (auto zIt = value.find("zIndex"); zIt != value.end() && zIt->is_number_integer())
     out.zIndex = zIt->get<int>();
+  if (auto drawFrameIt = value.find("drawFrame");
+      drawFrameIt != value.end() && drawFrameIt->is_boolean())
+    out.drawFrame = drawFrameIt->get<bool>();
 
   auto frameIt = value.find("frame");
   if (frameIt != value.end() && frameIt->is_object())

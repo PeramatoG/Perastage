@@ -1350,11 +1350,13 @@ Viewer2DExportResult ExportLayoutToPdf(
                                             group.mapping, formatter,
                                             mainOptions);
     contentStream << "Q\n";
-    contentStream << "q\n0 0 0 RG 0.5 w "
-                  << formatter.Format(group.frameX) << ' '
-                  << formatter.Format(group.frameY) << ' '
-                  << formatter.Format(group.frameW) << ' '
-                  << formatter.Format(group.frameH) << " re S\nQ\n";
+    if (views[idx].drawFrame) {
+      contentStream << "q\n0 0 0 RG 0.5 w "
+                    << formatter.Format(group.frameX) << ' '
+                    << formatter.Format(group.frameY) << ' '
+                    << formatter.Format(group.frameW) << ' '
+                    << formatter.Format(group.frameH) << " re S\nQ\n";
+    }
   };
 
   auto renderLegend = [&](size_t idx) {

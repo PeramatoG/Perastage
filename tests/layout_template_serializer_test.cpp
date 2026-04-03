@@ -15,6 +15,7 @@ layouts::LayoutDefinition BuildFullLayoutDefinition() {
   view.id = 11;
   view.zIndex = 4;
   view.frame = {10, 20, 300, 200};
+  view.drawFrame = false;
   view.camera.offsetPixelsX = 12.5f;
   view.camera.offsetPixelsY = -2.0f;
   view.camera.zoom = 2.5f;
@@ -102,6 +103,7 @@ void TestFullRoundTrip() {
   assert(layout.imageViews.size() == 1);
 
   assert(layout.view2dViews.front().camera.view == 2);
+  assert(!layout.view2dViews.front().drawFrame);
   assert(layout.legendViews.front().id == 12);
   assert(!layout.legendViews.front().showChannelColumn);
   assert(layout.legendViews.front().itemSettings.size() == 2);
