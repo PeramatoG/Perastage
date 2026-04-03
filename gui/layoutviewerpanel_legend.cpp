@@ -990,8 +990,11 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
       wrapTextExtentCache;
   auto measureWrapTextWidth = [&](const wxString &text) {
+    const wxFont previousFont = dc.GetFont();
     dc.SetFont(wrapFont);
-    return measureTextExtent(text, wrapTextExtentCache).GetWidth();
+    const int width = measureTextExtent(text, wrapTextExtentCache).GetWidth();
+    dc.SetFont(previousFont);
+    return width;
   };
 
   baseTextExtentCache.clear();
