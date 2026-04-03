@@ -809,7 +809,7 @@ void HoistTablePanel::OnMouseLeave(wxMouseEvent &evt) {
 }
 
 void HoistTablePanel::UpdateHoverTooltip(const wxPoint &position) {
-  if (EditableFocusUtils::IsAnyEditableTextControlFocused(table))
+  if (gui::IsEditableWidgetFocused(wxWindow::FindFocus()))
     return;
 
   wxDataViewItem item;
