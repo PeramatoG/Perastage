@@ -97,6 +97,7 @@ constexpr int kLoadingTimerId = wxID_HIGHEST + 501;
 constexpr int kRenderDelayTimerId = wxID_HIGHEST + 502;
 constexpr int kToggleTextFrameMenuId = wxID_HIGHEST + 503;
 constexpr int kToggleTextTransparentBackgroundMenuId = wxID_HIGHEST + 504;
+constexpr int kToggleViewFrameMenuId = wxID_HIGHEST + 506;
 constexpr int kLoadingOverlayDelayMs = 150;
 
 double GetMaxZoomForFrame(const layouts::Layout2DViewFrame &frame) {
@@ -185,6 +186,7 @@ bool AreEqual(const layouts::Layout2DViewDefinition &lhs,
   return lhs.id == rhs.id && lhs.zIndex == rhs.zIndex &&
          AreEqual(lhs.frame, rhs.frame) && AreEqual(lhs.camera, rhs.camera) &&
          AreEqual(lhs.renderOptions, rhs.renderOptions) &&
+         lhs.drawFrame == rhs.drawFrame &&
          AreEqual(lhs.layers, rhs.layers);
 }
 
@@ -427,6 +429,7 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
     EVT_SHOW(LayoutViewerPanel::OnShow)
     EVT_MENU(kEditMenuId, LayoutViewerPanel::OnEditView)
     EVT_MENU(kDeleteMenuId, LayoutViewerPanel::OnDeleteView)
+    EVT_MENU(kToggleViewFrameMenuId, LayoutViewerPanel::OnToggleViewFrame)
     EVT_MENU(kEditLegendMenuId, LayoutViewerPanel::OnEditLegend)
     EVT_MENU(kDeleteLegendMenuId, LayoutViewerPanel::OnDeleteLegend)
     EVT_MENU(kEditEventTableMenuId, LayoutViewerPanel::OnEditEventTable)
@@ -1418,7 +1421,10 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
   wxMenu menu;
   if (selectedElementType == SelectedElementType::View2D) {
     menu.Append(kEditMenuId, "2D View Editor");
+    menu.AppendCheckItem(kToggleViewFrameMenuId, "Show Border");
     menu.Append(kDeleteMenuId, "Delete 2D View");
+    if (const auto *view = GetEditableView())
+      menu.Check(kToggleViewFrameMenuId, view->drawFrame);
     menu.AppendSeparator();
     menu.Append(kBringToFrontMenuId, "Bring to Front");
     menu.Append(kSendToBackMenuId, "Send to Back");

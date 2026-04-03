@@ -76,6 +76,7 @@ struct Layout2DViewDefinition {
   int id = 0;
   int zIndex = 0;
   Layout2DViewFrame frame;
+  bool drawFrame = true;
   Layout2DViewCameraState camera;
   Layout2DViewRenderOptions renderOptions;
   Layout2DViewLayers layers;
