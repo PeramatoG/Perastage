@@ -948,7 +948,11 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
     return it->second ? &it->second.value() : nullptr;
   };
-  const double legendStrokeScale = 1.0 / viewer2d::kViewer2DPixelsPerMeter;
+  // Legend symbols rendered from local command buffers use meter-based
+  // coordinates. Apply the same screen-match reduction used for layout/view
+  // command buffers so visual stroke weight stays consistent.
+  const double legendStrokeScale =
+      kPdfStrokeWidthScreenMatchFactor / viewer2d::kViewer2DPixelsPerMeter;
   auto makeLegendIdName = [](uint32_t symbolId) {
     return "L" + std::to_string(symbolId);
   };
@@ -1833,7 +1837,9 @@ Viewer2DExportResult ExportLayoutToPdf(
             contentStream << (polygon.holes.empty() ? "f\n" : "f*\n");
           }
 
-          contentStream << "0 0 0 RG 1 w\n";
+          contentStream << "0 0 0 RG "
+                        << formatter.Format(kPdfStrokeWidthScreenMatchFactor)
+                        << " w\n";
           for (const auto &line : svg->strokes) {
             if (line.points.size() < 2)
               continue;
