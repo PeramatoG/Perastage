@@ -981,6 +981,19 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                      (14.0 * kLegendFontScale * renderZoom),
                  0.0, 1.0);
 
+  const int wrapFontPx =
+      std::max(1, static_cast<int>(std::lround(static_cast<double>(fontSizePx) /
+                                               renderZoom)));
+  wxFont wrapFont =
+      layoutviewerpanel::detail::MakeSharedFont(wrapFontPx,
+                                                wxFONTWEIGHT_NORMAL);
+  std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
+      wrapTextExtentCache;
+  auto measureWrapTextWidth = [&](const wxString &text) {
+    dc.SetFont(wrapFont);
+    return measureTextExtent(text, wrapTextExtentCache).GetWidth();
+  };
+
   baseTextExtentCache.clear();
   dc.SetFont(baseFont);
   int maxCountWidth = measureTextWidth("Count");
@@ -1250,10 +1263,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       0, showChannelColumn ? (xCh - xType - columnGapPx) : (xCh - xType));
 
   auto wrapTextToTwoLines = [&](const wxString &text, int maxWidth) {
-    if (maxWidth <= 0)
+    const int wrapMaxWidth =
+        std::max(0, static_cast<int>(std::lround(maxWidth / renderZoom)));
+    if (wrapMaxWidth <= 0)
       return std::array<wxString, 2>{wxString(), wxString()};
 
-    if (measureTextWidth(text) <= maxWidth)
+    if (measureWrapTextWidth(text) <= wrapMaxWidth)
       return std::array<wxString, 2>{text, wxString()};
 
     wxString firstLine = text;
@@ -1261,7 +1276,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     for (int i = static_cast<int>(text.length()) - 1; i > 0; --i) {
       if (text[static_cast<size_t>(i)] == ' ') {
         wxString candidate = text.Left(static_cast<size_t>(i));
-        if (!candidate.empty() && measureTextWidth(candidate) <= maxWidth) {
+        if (!candidate.empty() &&
+            measureWrapTextWidth(candidate) <= wrapMaxWidth) {
           splitAt = i;
           break;
         }
@@ -1272,7 +1288,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       firstLine.clear();
       for (size_t i = 0; i < text.length(); ++i) {
         wxString candidate = text.Left(i + 1);
-        if (measureTextWidth(candidate) > maxWidth)
+        if (measureWrapTextWidth(candidate) > wrapMaxWidth)
           break;
         firstLine = candidate;
       }
