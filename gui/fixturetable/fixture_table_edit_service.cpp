@@ -17,6 +17,12 @@ const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
 }
+
+constexpr const char *kUnassignedPosition = "Unassigned";
+
+std::string NormalizePositionName(const std::string &positionName) {
+  return positionName.empty() ? kUnassignedPosition : positionName;
+}
 }
 
 std::vector<int> BuildOrderedRows(const std::vector<int> &selectedRows,
@@ -66,6 +72,7 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                      const std::vector<std::string> &rowUuids,
                      const std::vector<wxString> &gdtfPaths,
                      const std::unordered_set<std::string> *manualCategoryUuids,
+                     std::unordered_set<std::string> *changedWeightPositions,
                      bool logChanges) {
   // Ensure in-place cell editors commit pending values before reading table rows.
   if (table)
@@ -201,11 +208,14 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     next.powerConsumptionW = static_cast<float>(pw);
 
     table->GetValue(v, i, 17);
+    const float previousWeightKg = next.weightKg;
     if (const auto parsedWeightKg = Units::ParseWeightToKilograms(
             std::string(v.GetString().ToUTF8()), weightUnitSystem);
         parsedWeightKg.has_value()) {
       next.weightKg = static_cast<float>(*parsedWeightKg);
     }
+    const bool weightChanged = !Units::NearlyEqualWeightKilograms(
+        previousWeightKg, next.weightKg, 0.001);
 
     table->GetValue(v, i, 18);
     next.category = GdtfFixtureCategory::NormalizeCategory(std::string(v.GetString().ToUTF8()));
@@ -249,6 +259,10 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
 
     pushUndoIfNeeded();
     anyChanged = true;
+    if (weightChanged && changedWeightPositions) {
+      changedWeightPositions->insert(NormalizePositionName(old.positionName));
+      changedWeightPositions->insert(NormalizePositionName(next.positionName));
+    }
     it->second = next;
     if (!next.typeName.empty() && !next.category.empty() &&
         next.categorySource == GdtfFixtureCategory::kManualSource) {

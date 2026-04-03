@@ -27,8 +27,7 @@
 #include "columnutils.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
-#include "hoist_weight_distribution.h"
-#include "hoisttablepanel.h"
+#include "hoist_load_recalculation_prompt.h"
 #include "mainwindow.h"
 #include "rigging_extra_weight_settings.h"
 #include "units/unit_label_utils.h"
@@ -442,35 +441,7 @@ void RiggingPanel::OnItemValueChanged(wxDataViewEvent &event) {
   cfg.SetValue(RiggingExtraWeightSettings::ConfigKey(),
                RiggingExtraWeightSettings::SerializeEntries(extraWeights));
 
-  auto &scene = cfg.GetScene();
-  std::vector<std::string> supportsInPosition;
-  supportsInPosition.reserve(scene.supports.size());
-  for (const auto &[supportUuid, support] : scene.supports) {
-    const std::string supportPosition = support.positionName.empty()
-                                            ? UNASSIGNED_POSITION
-                                            : support.positionName;
-    if (supportPosition == positionName)
-      supportsInPosition.push_back(supportUuid);
-  }
-
-  if (!supportsInPosition.empty()) {
-    const wxString message = wxString::Format(
-        "Position \"%s\" has hoists.\n\nDo you want to recalculate hoist loads "
-        "using the updated rounded rigging total?",
-        wxString::FromUTF8(positionName));
-    const int answer = wxMessageBox(message, "Recalculate hoist loads",
-                                    wxYES_NO | wxICON_QUESTION, this);
-    if (answer == wxYES) {
-      const auto roundedTotalsByPosition =
-          HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(
-              scene, RiggingExtraWeightSettings::BuildKilogramsByPosition(
-                         extraWeights));
-      HoistWeightDistribution::ApplyForImportedSupports(
-          scene, supportsInPosition, roundedTotalsByPosition);
-      if (HoistTablePanel::Instance())
-        HoistTablePanel::Instance()->ReloadData();
-    }
-  }
+  HoistLoadRecalculationPrompt::PromptAndApply(cfg, this, {positionName});
 
   RefreshData();
 }

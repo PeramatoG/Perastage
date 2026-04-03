@@ -21,6 +21,7 @@
 #include "colorfulrenderers.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "hoist_load_recalculation_prompt.h"
 #include "layerpanel.h"
 #include "dummyprofilelibrary.h"
 #include "matrixutils.h"
@@ -49,6 +50,12 @@ namespace {
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
+}
+
+constexpr const char *kUnassignedPosition = "Unassigned";
+
+std::string NormalizePositionName(const std::string &positionName) {
+  return positionName.empty() ? kUnassignedPosition : positionName;
 }
 
 Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
@@ -776,6 +783,7 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
   auto &scene = cfg.GetScene();
   size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
   bool anyChanged = false;
+  std::unordered_set<std::string> changedWeightPositions;
   bool undoPushed = false;
   auto pushUndoIfNeeded = [&]() {
     if (!undoPushed) {
@@ -967,11 +975,17 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
                                     NormalizeHoistDataSource(next.weightSource) ||
                                 NormalizeHoistDataSource(old.hoistFunctionSource) !=
                                     NormalizeHoistDataSource(next.hoistFunctionSource);
+    const bool weightChanged =
+        !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
     if (!supportChanged)
       continue;
 
     pushUndoIfNeeded();
     anyChanged = true;
+    if (weightChanged) {
+      changedWeightPositions.insert(NormalizePositionName(old.positionName));
+      changedWeightPositions.insert(NormalizePositionName(next.positionName));
+    }
     it->second = next;
     if (!it->second.position.empty())
       scene.positions[it->second.position] = it->second.positionName;
@@ -979,6 +993,11 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
 
   if (!anyChanged)
     return;
+
+  const bool loadsRecalculated = HoistLoadRecalculationPrompt::PromptAndApply(
+      cfg, this, changedWeightPositions, false);
+  if (loadsRecalculated)
+    ReloadData();
 
   if (SummaryPanel::Instance())
     SummaryPanel::Instance()->ShowHoistSummary();
