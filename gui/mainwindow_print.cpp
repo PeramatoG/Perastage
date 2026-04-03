@@ -18,9 +18,11 @@
 #include "mainwindow.h"
 #include "viewer2dstate.h"
 
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -68,6 +70,87 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
     items.push_back(std::move(item));
   }
   return items;
+}
+
+std::optional<LayoutImageExportData> BuildLayoutImageExportData(
+    const layouts::LayoutImageDefinition &imageDef, double scaleX,
+    double scaleY) {
+  constexpr double kPdfPointsPerInch = 72.0;
+  constexpr double kTargetPrintDpi = 300.0;
+  constexpr int kMaxImageSidePx = 8192;
+  constexpr int kMaxImagePixels = 8192 * 8192;
+
+  LayoutImageExportData data;
+  data.zIndex = imageDef.zIndex;
+  data.frame = imageDef.frame;
+  data.frame.x = static_cast<int>(std::lround(data.frame.x * scaleX));
+  data.frame.y = static_cast<int>(std::lround(data.frame.y * scaleY));
+  data.frame.width = static_cast<int>(std::lround(data.frame.width * scaleX));
+  data.frame.height = static_cast<int>(std::lround(data.frame.height * scaleY));
+  if (data.frame.width <= 0 || data.frame.height <= 0)
+    return std::nullopt;
+  if (imageDef.imagePath.empty())
+    return std::nullopt;
+
+  wxImage sourceImage;
+  if (!sourceImage.LoadFile(wxString::FromUTF8(imageDef.imagePath)))
+    return std::nullopt;
+  if (sourceImage.GetWidth() <= 0 || sourceImage.GetHeight() <= 0)
+    return std::nullopt;
+
+  const double frameWidthInches =
+      static_cast<double>(data.frame.width) / kPdfPointsPerInch;
+  const double frameHeightInches =
+      static_cast<double>(data.frame.height) / kPdfPointsPerInch;
+  int targetPixelWidth = static_cast<int>(
+      std::lround(std::max(1.0, frameWidthInches * kTargetPrintDpi)));
+  int targetPixelHeight = static_cast<int>(
+      std::lround(std::max(1.0, frameHeightInches * kTargetPrintDpi)));
+  targetPixelWidth = std::clamp(targetPixelWidth, 1, kMaxImageSidePx);
+  targetPixelHeight = std::clamp(targetPixelHeight, 1, kMaxImageSidePx);
+  if (targetPixelWidth > 0 &&
+      targetPixelHeight > (kMaxImagePixels / targetPixelWidth)) {
+    targetPixelHeight = std::max(1, kMaxImagePixels / targetPixelWidth);
+  }
+
+  wxImage scaled =
+      sourceImage.Scale(targetPixelWidth, targetPixelHeight, wxIMAGE_QUALITY_HIGH);
+  if (!scaled.IsOk() || scaled.GetWidth() <= 0 || scaled.GetHeight() <= 0)
+    return std::nullopt;
+
+  data.pixelWidth = scaled.GetWidth();
+  data.pixelHeight = scaled.GetHeight();
+  data.pixels.resize(static_cast<size_t>(data.pixelWidth) *
+                     static_cast<size_t>(data.pixelHeight) * 3u);
+
+  const unsigned char *rgb = scaled.GetData();
+  const unsigned char *alpha = scaled.HasAlpha() ? scaled.GetAlpha() : nullptr;
+  if (!rgb)
+    return std::nullopt;
+  for (int idx = 0; idx < data.pixelWidth * data.pixelHeight; ++idx) {
+    const size_t rgbOffset = static_cast<size_t>(idx) * 3u;
+    if (!alpha) {
+      data.pixels[rgbOffset + 0] = rgb[rgbOffset + 0];
+      data.pixels[rgbOffset + 1] = rgb[rgbOffset + 1];
+      data.pixels[rgbOffset + 2] = rgb[rgbOffset + 2];
+      continue;
+    }
+
+    const double a = static_cast<double>(alpha[idx]) / 255.0;
+    data.pixels[rgbOffset + 0] = static_cast<unsigned char>(
+        std::clamp((static_cast<double>(rgb[rgbOffset + 0]) * a) +
+                       (255.0 * (1.0 - a)),
+                   0.0, 255.0));
+    data.pixels[rgbOffset + 1] = static_cast<unsigned char>(
+        std::clamp((static_cast<double>(rgb[rgbOffset + 1]) * a) +
+                       (255.0 * (1.0 - a)),
+                   0.0, 255.0));
+    data.pixels[rgbOffset + 2] = static_cast<unsigned char>(
+        std::clamp((static_cast<double>(rgb[rgbOffset + 2]) * a) +
+                       (255.0 * (1.0 - a)),
+                   0.0, 255.0));
+  }
+  return data;
 }
 }
 
@@ -303,6 +386,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   layoutTables.reserve(layout->eventTables.size());
   std::vector<LayoutTextExportData> layoutTexts;
   layoutTexts.reserve(layout->textViews.size());
+  std::vector<LayoutImageExportData> layoutImages;
+  layoutImages.reserve(layout->imageViews.size());
   const auto legendItems = BuildLayoutLegendItems();
   for (const auto &legend : layout->legendViews) {
     LayoutLegendExportData legendData;
@@ -332,6 +417,11 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     layoutTexts.push_back(
         layouttext::BuildLayoutTextExportData(text, scaleX, scaleY));
   }
+  for (const auto &image : layout->imageViews) {
+    auto imageData = BuildLayoutImageExportData(image, scaleX, scaleY);
+    if (imageData.has_value())
+      layoutImages.push_back(std::move(*imageData));
+  }
   auto exportViews = std::make_shared<std::vector<LayoutViewExportData>>();
   exportViews->reserve(layoutViews.size());
   auto exportLegends =
@@ -343,6 +433,9 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   auto exportTexts =
       std::make_shared<std::vector<LayoutTextExportData>>(
           std::move(layoutTexts));
+  auto exportImages =
+      std::make_shared<std::vector<LayoutImageExportData>>(
+          std::move(layoutImages));
 
   if (capturePanel)
     capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
@@ -353,7 +446,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       [this, captureNext, exportViews, layoutViews, offscreenRenderer,
        capturePanel, cfgPtr, useSimplifiedFootprints, includeGrid, scaleX,
        scaleY, outputPageW, outputPageH, outputLandscape, exportLegends,
-       exportTables, exportTexts, outputPathWx](size_t index) mutable {
+       exportTables, exportTexts, exportImages, outputPathWx](size_t index) mutable {
         if (index >= layoutViews.size()) {
           Viewer2DPrintOptions opts;
           opts.pageWidthPt = outputPageW;
@@ -369,6 +462,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
           auto legendsToExport = std::move(*exportLegends);
           auto tablesToExport = std::move(*exportTables);
           auto textsToExport = std::move(*exportTexts);
+          auto imagesToExport = std::move(*exportImages);
           if (capturePanel) {
             auto legendSymbols =
                 CaptureLegendSymbolSnapshot(capturePanel, *cfgPtr, true);
@@ -380,10 +474,11 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
           std::thread([this, views = std::move(viewsToExport), opts,
                        legends = std::move(legendsToExport),
                        tables = std::move(tablesToExport),
-                       texts = std::move(textsToExport), outputPath,
+                       texts = std::move(textsToExport),
+                       images = std::move(imagesToExport), outputPath,
                        outputPathDisplay]() {
             Viewer2DExportResult res =
-                ExportLayoutToPdf(views, legends, tables, texts, opts,
+                ExportLayoutToPdf(views, legends, tables, texts, images, opts,
                                   outputPath);
 
             wxTheApp->CallAfter([this, res, outputPathDisplay]() {

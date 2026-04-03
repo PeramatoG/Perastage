@@ -102,6 +102,15 @@ struct LayoutTextExportData {
   std::vector<Line> lines;
 };
 
+struct LayoutImageExportData {
+  layouts::Layout2DViewFrame frame;
+  int zIndex = 0;
+  int pixelWidth = 0;
+  int pixelHeight = 0;
+  // RGB24 pixels (row-major, top-left origin).
+  std::vector<unsigned char> pixels;
+};
+
 // Writes the captured 2D drawing commands to a vector PDF that mirrors the
 // current viewport state. Returns structured information so callers can surface
 // meaningful errors to the user.
@@ -117,5 +126,6 @@ Viewer2DExportResult ExportLayoutToPdf(
     const std::vector<LayoutLegendExportData> &legends,
     const std::vector<LayoutEventTableExportData> &tables,
     const std::vector<LayoutTextExportData> &texts,
+    const std::vector<LayoutImageExportData> &images,
     const Viewer2DPrintOptions &options,
     const std::filesystem::path &outputPath);
