@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include "colorstore.h"
+#include "hoist_load_limit_utils.h"
 #include "positionvalueupdate.h"
 
 class IGuiConfigServices;
@@ -51,6 +52,8 @@ private:
   wxDataViewListCtrl *table;
   std::vector<wxString> columnLabels;
   std::vector<std::string> rowUuids;
+  std::vector<HoistLoadLimitUtils::LoadLimitState> rowLoadStates;
+  wxString activeHoverTooltip;
   bool dragSelecting = false;
   int startRow = -1;
   IGuiConfigServices *guiConfigServices = nullptr;
@@ -64,6 +67,8 @@ private:
   void OnLeftDown(wxMouseEvent &evt);
   void OnLeftUp(wxMouseEvent &evt);
   void OnMouseMove(wxMouseEvent &evt);
+  void OnMouseLeave(wxMouseEvent &evt);
   void OnCaptureLost(wxMouseCaptureLostEvent &evt);
+  void UpdateHoverTooltip(const wxPoint &position);
   void UpdateSelectionHighlight();
 };

@@ -30,6 +30,7 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                      const std::vector<std::string> &rowUuids,
                      const std::vector<wxString> &gdtfPaths,
                      const std::unordered_set<std::string> *manualCategoryUuids = nullptr,
+                     std::unordered_set<std::string> *changedWeightPositions = nullptr,
                      bool logChanges = true);
 
 } // namespace FixtureTableEditService

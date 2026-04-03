@@ -27,6 +27,7 @@
 #include "gdtf_fixture_category.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
+#include "hoist_load_recalculation_prompt.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
 #include "patchmanager.h"
@@ -1369,10 +1370,15 @@ void FixtureTablePanel::PropagateTypeValues(
 
 void FixtureTablePanel::UpdateSceneData(bool logChanges) {
   ConfigManagerSceneAdapter adapter;
+  std::unordered_set<std::string> changedWeightPositions;
   FixtureTableEditService::UpdateSceneData(adapter, table, rowUuids, gdtfPaths,
                                            &manualCategoryUuidsPending,
+                                           &changedWeightPositions,
                                            logChanges);
   manualCategoryUuidsPending.clear();
+
+  HoistLoadRecalculationPrompt::PromptAndApply(
+      guiConfigServices->LegacyConfigManager(), this, changedWeightPositions);
 
   HighlightDuplicateFixtureIds();
 

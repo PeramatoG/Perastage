@@ -20,7 +20,9 @@
 #include "columnutils.h"
 #include "colorfulrenderers.h"
 #include "configmanager.h"
+#include "editable_focus_utils.h"
 #include "guiconfigservices.h"
+#include "hoist_load_recalculation_prompt.h"
 #include "layerpanel.h"
 #include "dummyprofilelibrary.h"
 #include "matrixutils.h"
@@ -49,6 +51,75 @@ namespace {
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
+}
+
+constexpr const char *kUnassignedPosition = "Unassigned";
+
+std::string NormalizePositionName(const std::string &positionName) {
+  return positionName.empty() ? kUnassignedPosition : positionName;
+}
+
+bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
+  if (!store || row < 0 || col < 0)
+    return false;
+
+  const size_t rowIndex = static_cast<size_t>(row);
+  const size_t colIndex = static_cast<size_t>(col);
+  if (rowIndex >= store->cellAttrs.size())
+    return false;
+  if (colIndex >= store->cellAttrs[rowIndex].size())
+    return false;
+
+  const wxDataViewItemAttr &attr = store->cellAttrs[rowIndex][colIndex];
+  return attr.HasColour() && attr.GetColour() == *wxRED;
+}
+
+void SetTableAndChildTooltips(wxDataViewListCtrl *table,
+                              const wxString &tooltip) {
+  if (!table)
+    return;
+
+  table->SetToolTip(tooltip);
+  wxWindowList &children = table->GetChildren();
+  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
+       it = it->GetNext()) {
+    if (wxWindow *child = it->GetData())
+      child->SetToolTip(tooltip);
+  }
+}
+
+wxPoint NormalizeMousePositionForTable(wxDataViewListCtrl *table,
+                                       const wxMouseEvent &event) {
+  wxPoint position = event.GetPosition();
+  wxWindow *sourceWindow = dynamic_cast<wxWindow *>(event.GetEventObject());
+  if (!table || !sourceWindow || sourceWindow == table)
+    return position;
+
+  return table->ScreenToClient(sourceWindow->ClientToScreen(position));
+}
+
+template <typename Owner>
+void BindTableHoverEvents(wxDataViewListCtrl *table, Owner *owner,
+                          void (Owner::*onMouseMove)(wxMouseEvent &),
+                          void (Owner::*onMouseLeave)(wxMouseEvent &)) {
+  if (!table || !owner)
+    return;
+
+  auto bindEvents = [&](wxWindow *window) {
+    if (!window)
+      return;
+    window->Unbind(wxEVT_MOTION, onMouseMove, owner);
+    window->Unbind(wxEVT_LEAVE_WINDOW, onMouseLeave, owner);
+    window->Bind(wxEVT_MOTION, onMouseMove, owner);
+    window->Bind(wxEVT_LEAVE_WINDOW, onMouseLeave, owner);
+  };
+
+  bindEvents(table);
+  wxWindowList &children = table->GetChildren();
+  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
+       it = it->GetNext()) {
+    bindEvents(it->GetData());
+  }
 }
 
 Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
@@ -220,7 +291,12 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
   store->SetSelectionColours(selectionBackground, selectionForeground);
   table->Bind(wxEVT_LEFT_DOWN, &HoistTablePanel::OnLeftDown, this);
   table->Bind(wxEVT_LEFT_UP, &HoistTablePanel::OnLeftUp, this);
-  table->Bind(wxEVT_MOTION, &HoistTablePanel::OnMouseMove, this);
+  BindTableHoverEvents(table, this, &HoistTablePanel::OnMouseMove,
+                       &HoistTablePanel::OnMouseLeave);
+  table->CallAfter([this]() {
+    BindTableHoverEvents(table, this, &HoistTablePanel::OnMouseMove,
+                         &HoistTablePanel::OnMouseLeave);
+  });
   table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
               &HoistTablePanel::OnSelectionChanged, this);
 
@@ -282,6 +358,7 @@ void HoistTablePanel::ReloadData() {
 
   table->DeleteAllItems();
   rowUuids.clear();
+  rowLoadStates.clear();
   const MvrScene &scene = guiConfigServices->LegacyConfigManager().GetScene();
   auto &supports = guiConfigServices->LegacyConfigManager().GetScene().supports;
 
@@ -355,6 +432,8 @@ void HoistTablePanel::ReloadData() {
         effective.weightKg, weightUnit, Units::ValueFormatContext::Table));
     wxString load = wxString::FromUTF8(Units::FormatWeightFromKilograms(
         support.loadKg, weightUnit, Units::ValueFormatContext::Table));
+    const auto loadState =
+        HoistLoadLimitUtils::Evaluate(support.loadKg, effective.capacityKg);
 
     row.push_back(name);
     row.push_back(type);
@@ -376,7 +455,13 @@ void HoistTablePanel::ReloadData() {
     row.push_back(load);
 
     store->AppendItem(row, rowUuids.size());
+    const unsigned int rowIndex = static_cast<unsigned int>(rowUuids.size());
+    if (HoistLoadLimitUtils::IsCritical(loadState))
+      store->SetCellTextColour(rowIndex, 18, *wxRED);
+    else
+      store->ClearCellTextColour(rowIndex, 18);
     rowUuids.push_back(uuid);
+    rowLoadStates.push_back(loadState);
     ++hoistId;
   }
 
@@ -695,13 +780,15 @@ void HoistTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
 }
 
 void HoistTablePanel::OnMouseMove(wxMouseEvent &evt) {
+  UpdateHoverTooltip(NormalizeMousePositionForTable(table, evt));
+
   if (!dragSelecting || !evt.Dragging()) {
     evt.Skip();
     return;
   }
   wxDataViewItem item;
   wxDataViewColumn *col;
-  table->HitTest(evt.GetPosition(), item, col);
+  table->HitTest(NormalizeMousePositionForTable(table, evt), item, col);
   int row = table->ItemToRow(item);
   if (row != wxNOT_FOUND) {
     int minRow = std::min(startRow, row);
@@ -711,6 +798,40 @@ void HoistTablePanel::OnMouseMove(wxMouseEvent &evt) {
       table->SelectRow(r);
   }
   evt.Skip();
+}
+
+void HoistTablePanel::OnMouseLeave(wxMouseEvent &evt) {
+  if (!activeHoverTooltip.IsEmpty()) {
+    SetTableAndChildTooltips(table, wxString());
+    activeHoverTooltip.clear();
+  }
+  evt.Skip();
+}
+
+void HoistTablePanel::UpdateHoverTooltip(const wxPoint &position) {
+  if (gui::IsEditableWidgetFocused(wxWindow::FindFocus()))
+    return;
+
+  wxDataViewItem item;
+  wxDataViewColumn *column = nullptr;
+  table->HitTest(position, item, column);
+
+  wxString tooltip;
+  if (item.IsOk() && column) {
+    const int row = table->ItemToRow(item);
+    const int modelColumn = column->GetModelColumn();
+    if (modelColumn == 18 && IsRedCell(store, row, modelColumn) && row >= 0 &&
+        static_cast<size_t>(row) < rowLoadStates.size()) {
+      tooltip = wxString::FromUTF8(HoistLoadLimitUtils::TooltipForState(
+          rowLoadStates[static_cast<size_t>(row)]));
+    }
+  }
+
+  if (tooltip == activeHoverTooltip)
+    return;
+
+  SetTableAndChildTooltips(table, tooltip);
+  activeHoverTooltip = tooltip;
 }
 
 void HoistTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
@@ -776,6 +897,7 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
   auto &scene = cfg.GetScene();
   size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
   bool anyChanged = false;
+  std::unordered_set<std::string> changedWeightPositions;
   bool undoPushed = false;
   auto pushUndoIfNeeded = [&]() {
     if (!undoPushed) {
@@ -967,11 +1089,17 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
                                     NormalizeHoistDataSource(next.weightSource) ||
                                 NormalizeHoistDataSource(old.hoistFunctionSource) !=
                                     NormalizeHoistDataSource(next.hoistFunctionSource);
+    const bool weightChanged =
+        !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
     if (!supportChanged)
       continue;
 
     pushUndoIfNeeded();
     anyChanged = true;
+    if (weightChanged) {
+      changedWeightPositions.insert(NormalizePositionName(old.positionName));
+      changedWeightPositions.insert(NormalizePositionName(next.positionName));
+    }
     it->second = next;
     if (!it->second.position.empty())
       scene.positions[it->second.position] = it->second.positionName;
@@ -979,6 +1107,11 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
 
   if (!anyChanged)
     return;
+
+  const bool loadsRecalculated = HoistLoadRecalculationPrompt::PromptAndApply(
+      cfg, this, changedWeightPositions, false);
+  if (loadsRecalculated)
+    ReloadData();
 
   if (SummaryPanel::Instance())
     SummaryPanel::Instance()->ShowHoistSummary();

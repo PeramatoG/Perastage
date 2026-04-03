@@ -21,6 +21,7 @@
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "consolepanel.h"
+#include "hoist_load_recalculation_prompt.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
 #include "projectutils.h"
@@ -55,6 +56,12 @@ namespace {
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
+}
+
+constexpr const char *kUnassignedPosition = "Unassigned";
+
+std::string NormalizePositionName(const std::string &positionName) {
+    return positionName.empty() ? kUnassignedPosition : positionName;
 }
 
 
@@ -807,6 +814,7 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
     };
     std::unordered_map<std::string, Dim> dims;
     std::unordered_set<std::string> changedTrussIds;
+    std::unordered_set<std::string> changedWeightPositions;
     std::vector<std::pair<std::string, std::string>> updatedTrusses;
 
     auto makeKey = [](const std::string& n,
@@ -961,11 +969,17 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
             !Units::NearlyEqualDistanceMillimeters(old.widthMm, next.widthMm, 0.5) ||
             !Units::NearlyEqualDistanceMillimeters(old.heightMm, next.heightMm, 0.5) ||
             !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
+        const bool weightChanged =
+            !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
 
         if (trussChanged)
         {
             pushUndoIfNeeded();
             anyChanged = true;
+            if (weightChanged) {
+                changedWeightPositions.insert(NormalizePositionName(old.positionName));
+                changedWeightPositions.insert(NormalizePositionName(next.positionName));
+            }
             it->second = next;
             if (!it->second.position.empty())
                 scene.positions[it->second.position] = it->second.positionName;
@@ -1013,6 +1027,7 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
             it->second.widthMm = widMm;
             it->second.heightMm = heiMm;
             it->second.weightKg = weightKg;
+            changedWeightPositions.insert(NormalizePositionName(it->second.positionName));
 
             wxString lenStr = wxString::Format("%.2f", lenMm / 1000.0f);
             wxString widStr =
@@ -1034,6 +1049,8 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
 
     if (!anyChanged)
         return;
+
+    HoistLoadRecalculationPrompt::PromptAndApply(cfg, this, changedWeightPositions);
 
     if (SummaryPanel::Instance() && IsActivePage())
         SummaryPanel::Instance()->ShowTrussSummary();
