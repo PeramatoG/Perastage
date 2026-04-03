@@ -24,6 +24,8 @@
 #include <memory>
 #include <optional>
 #include <thread>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <wx/choicdlg.h>
@@ -55,20 +57,66 @@ void SetPrintStatus(MainWindow *window, const wxString &message) {
   window->SetStatusText(message, 0);
 }
 
-std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
+std::vector<LayoutLegendItem> BuildLayoutLegendItems(
+    const layouts::LayoutLegendDefinition *legend) {
   std::vector<SharedLayoutLegendItem> sharedItems =
       BuildSharedLayoutLegendItems();
+  std::unordered_map<std::string, layouts::LayoutLegendDefinition::ItemSettings>
+      settingsByType;
+  if (legend) {
+    settingsByType.reserve(legend->itemSettings.size());
+    for (const auto &settings : legend->itemSettings)
+      settingsByType[settings.typeName] = settings;
+  }
+
+  std::unordered_map<std::string, SharedLayoutLegendItem> availableByType;
+  availableByType.reserve(sharedItems.size());
+  for (const auto &shared : sharedItems)
+    availableByType.emplace(shared.typeName, shared);
+
   std::vector<LayoutLegendItem> items;
   items.reserve(sharedItems.size());
-  for (const auto &shared : sharedItems) {
+  auto appendItem = [&](const SharedLayoutLegendItem &shared) {
     LayoutLegendItem item;
     item.typeName = shared.typeName;
+    item.displayName = shared.typeName;
     item.count = shared.count;
     item.channelCount = shared.channelCount;
     item.symbolKey = shared.symbolKey;
     item.symbolFillHex = shared.symbolFillHex;
+    if (const auto it = settingsByType.find(shared.typeName);
+        it != settingsByType.end()) {
+      item.showBottomSymbol = it->second.showBottomSymbol;
+      item.showFrontSymbol = it->second.showFrontSymbol;
+      item.showSideSymbol = it->second.showSideSymbol;
+      if (!it->second.customName.empty())
+        item.displayName = it->second.customName;
+      if (!it->second.visible)
+        return;
+    }
     items.push_back(std::move(item));
+  };
+
+  if (legend) {
+    std::unordered_set<std::string> usedTypes;
+    usedTypes.reserve(legend->itemSettings.size());
+    for (const auto &settings : legend->itemSettings) {
+      const auto it = availableByType.find(settings.typeName);
+      if (it == availableByType.end())
+        continue;
+      appendItem(it->second);
+      usedTypes.insert(settings.typeName);
+    }
+    for (const auto &shared : sharedItems) {
+      if (usedTypes.find(shared.typeName) != usedTypes.end())
+        continue;
+      appendItem(shared);
+    }
+  } else {
+    for (const auto &shared : sharedItems)
+      appendItem(shared);
   }
+
   return items;
 }
 
@@ -388,11 +436,11 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   layoutTexts.reserve(layout->textViews.size());
   std::vector<LayoutImageExportData> layoutImages;
   layoutImages.reserve(layout->imageViews.size());
-  const auto legendItems = BuildLayoutLegendItems();
   for (const auto &legend : layout->legendViews) {
     LayoutLegendExportData legendData;
-    legendData.items = legendItems;
+    legendData.items = BuildLayoutLegendItems(&legend);
     legendData.zIndex = legend.zIndex;
+    legendData.showChannelColumn = legend.showChannelColumn;
     layouts::Layout2DViewFrame frame = legend.frame;
     frame.x = static_cast<int>(std::lround(frame.x * scaleX));
     frame.y = static_cast<int>(std::lround(frame.y * scaleY));
