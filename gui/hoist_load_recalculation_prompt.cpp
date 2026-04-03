@@ -1,9 +1,11 @@
 #include "hoist_load_recalculation_prompt.h"
 
 #include "configmanager.h"
+#include "hoist_load_limit_utils.h"
 #include "hoist_weight_distribution.h"
 #include "hoisttablepanel.h"
 #include "rigging_extra_weight_settings.h"
+#include "support.h"
 
 #include <algorithm>
 #include <vector>
@@ -69,6 +71,41 @@ bool PromptAndApply(ConfigManager &cfg, wxWindow *parent,
   std::sort(supportUuids.begin(), supportUuids.end());
   HoistWeightDistribution::ApplyForImportedSupports(scene, supportUuids,
                                                      roundedTotalsByPosition);
+
+  size_t nearCapacityCount = 0;
+  size_t overloadedCount = 0;
+  for (const auto &supportUuid : supportUuids) {
+    auto supportIt = scene.supports.find(supportUuid);
+    if (supportIt == scene.supports.end())
+      continue;
+    const auto effective = ResolveEffectiveSupportData(supportIt->second);
+    const auto state =
+        HoistLoadLimitUtils::Evaluate(supportIt->second.loadKg, effective.capacityKg);
+    if (state == HoistLoadLimitUtils::LoadLimitState::NearCapacity)
+      ++nearCapacityCount;
+    else if (state == HoistLoadLimitUtils::LoadLimitState::AtOrAboveCapacity)
+      ++overloadedCount;
+  }
+
+  if (nearCapacityCount > 0 || overloadedCount > 0) {
+    wxString warningMessage;
+    if (overloadedCount > 0 && nearCapacityCount > 0) {
+      warningMessage = wxString::Format(
+          "%zu hoist(s) reached or exceeded capacity and %zu hoist(s) are within "
+          "75 kg of capacity after recalculation.",
+          overloadedCount, nearCapacityCount);
+    } else if (overloadedCount > 0) {
+      warningMessage = wxString::Format(
+          "%zu hoist(s) reached or exceeded capacity after recalculation.",
+          overloadedCount);
+    } else {
+      warningMessage = wxString::Format(
+          "%zu hoist(s) are within 75 kg of capacity after recalculation.",
+          nearCapacityCount);
+    }
+    wxMessageBox(warningMessage, "Hoist load warning", wxOK | wxICON_WARNING,
+                 parent);
+  }
 
   if (reloadHoistTable && HoistTablePanel::Instance())
     HoistTablePanel::Instance()->ReloadData();
