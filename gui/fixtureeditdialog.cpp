@@ -142,8 +142,10 @@ bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
 }
 
 struct GdtfMetadataSummary {
-  std::string creator;
+  std::string manufacturer;
+  std::string description;
   std::string creationDate;
+  std::string userId;
   std::string modifiedBy;
   std::string revision;
   std::string lastModified;
@@ -163,7 +165,7 @@ std::string FirstNonEmptyAttribute(tinyxml2::XMLElement *element,
   return "";
 }
 
-std::string ExtractRevisionAuthor(tinyxml2::XMLElement *revision) {
+std::string ExtractRevisionModifiedBy(tinyxml2::XMLElement *revision) {
   if (!revision)
     return {};
 
@@ -171,14 +173,15 @@ std::string ExtractRevisionAuthor(tinyxml2::XMLElement *revision) {
       modifiedBy && *modifiedBy) {
     return modifiedBy;
   }
-  if (const char *userName = revision->Attribute("UserName");
-      userName && *userName) {
-    return userName;
-  }
-  if (const char *userId = revision->Attribute("UserID"); userId && *userId) {
-    return std::string("UserID: ") + userId;
-  }
   return {};
+}
+
+std::string ExtractRevisionUserId(tinyxml2::XMLElement *revision) {
+  if (!revision)
+    return "0";
+  if (const char *userId = revision->Attribute("UserID"); userId && *userId)
+    return userId;
+  return "0";
 }
 
 std::string FormatMetadataTimestamp(const std::string &value) {
@@ -203,6 +206,7 @@ std::string FormatMetadataTimestamp(const std::string &value) {
 bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
                              GdtfMetadataSummary &outSummary) {
   outSummary = {};
+  outSummary.userId = "0";
   if (gdtfPath.empty())
     return false;
 
@@ -242,8 +246,9 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
   if (!fixtureType)
     return false;
 
-  outSummary.creator =
-      FirstNonEmptyAttribute(fixtureType, {"Creator", "Author"});
+  outSummary.manufacturer =
+      FirstNonEmptyAttribute(fixtureType, {"Manufacturer"});
+  outSummary.description = FirstNonEmptyAttribute(fixtureType, {"Description"});
   outSummary.creationDate = FirstNonEmptyAttribute(
       fixtureType, {"CreateDate", "CreationDate", "DateCreated"});
   outSummary.revision = FirstNonEmptyAttribute(
@@ -273,10 +278,8 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
       }
       outSummary.lastModified =
           FirstNonEmptyAttribute(latestRevision, {"Date", "TimeStamp"});
-      outSummary.modifiedBy = ExtractRevisionAuthor(latestRevision);
-      if (outSummary.creator.empty()) {
-        outSummary.creator = ExtractRevisionAuthor(firstRevision);
-      }
+      outSummary.modifiedBy = ExtractRevisionModifiedBy(latestRevision);
+      outSummary.userId = ExtractRevisionUserId(latestRevision);
       if (outSummary.creationDate.empty()) {
         outSummary.creationDate =
             FirstNonEmptyAttribute(firstRevision, {"Date", "TimeStamp"});
@@ -296,7 +299,7 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
 
 FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     : wxDialog(p, wxID_ANY, "Edit Fixture", wxDefaultPosition,
-               wxSize(760, 700)),
+               wxSize(860, 700)),
       panel(p), row(r) {
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   wxBoxSizer *hSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -428,14 +431,14 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
 
   wxFlexGridSizer *metadataGrid = new wxFlexGridSizer(2, 4, 8);
   metadataGrid->AddGrowableCol(1, 1);
-  const std::array<wxString, 6> metadataLabels = {
-      "Creator", "Creation date", "ModifiedBy", "Revision", "Last modified",
-      "Version"};
+  const std::array<wxString, 8> metadataLabels = {
+      "Manufacturer", "Description", "Creation date", "UserID", "ModifiedBy",
+      "Revision", "Last modified", "Version"};
   for (size_t i = 0; i < metadataLabels.size(); ++i) {
     metadataGrid->Add(new wxStaticText(this, wxID_ANY, metadataLabels[i]), 0,
                       wxALIGN_CENTER_VERTICAL);
     metadataValueLabels[i] = new wxStaticText(this, wxID_ANY, "-");
-    metadataValueLabels[i]->Wrap(290);
+    metadataValueLabels[i]->Wrap(360);
     metadataGrid->Add(metadataValueLabels[i], 1, wxEXPAND);
   }
   metadataSizer->Add(metadataGrid, 1, wxEXPAND | wxALL, 6);
@@ -696,8 +699,10 @@ void FixtureEditDialog::UpdateMetadataSummary() {
       return unavailable;
     return wxString::FromUTF8(value);
   };
-  const std::array<wxString, 6> values = {
-      toValueOrFallback(metadata.creator), toValueOrFallback(metadata.creationDate),
+  const std::array<wxString, 8> values = {
+      toValueOrFallback(metadata.manufacturer),
+      toValueOrFallback(metadata.description),
+      toValueOrFallback(metadata.creationDate), toValueOrFallback(metadata.userId),
       toValueOrFallback(metadata.modifiedBy), toValueOrFallback(metadata.revision),
       toValueOrFallback(metadata.lastModified), toValueOrFallback(metadata.version)};
   for (size_t i = 0; i < metadataValueLabels.size() && i < values.size(); ++i) {
