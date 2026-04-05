@@ -114,6 +114,7 @@ add_executable(layout_template_import_name_collision_test
                configmanager_layoutmanager_stub.cpp
                ../core/layouts/LayoutManager.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
+               ../core/projectutils.cpp
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp)
 add_test(NAME LayoutTemplateImportNameCollision
