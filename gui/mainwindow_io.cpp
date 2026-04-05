@@ -23,6 +23,7 @@
 #include <fstream>
 #include <functional>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -533,39 +534,17 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  tinyxml2::XMLElement *phys = ft->FirstChildElement("PhysicalDescriptions");
-  if (!phys)
-    phys =
-        ft->InsertEndChild(doc.NewElement("PhysicalDescriptions"))->ToElement();
-  tinyxml2::XMLElement *props = phys->FirstChildElement("Properties");
-  if (!props)
-    props = phys->InsertEndChild(doc.NewElement("Properties"))->ToElement();
-
-  bool mutated = false;
-  if (chosen->weightKg != 0.0f) {
-    tinyxml2::XMLElement *w = props->FirstChildElement("Weight");
-    if (!w)
-      w = props->InsertEndChild(doc.NewElement("Weight"))->ToElement();
-    w->SetAttribute("Value", chosen->weightKg);
-    mutated = true;
-  }
-
-  if (chosen->powerConsumptionW != 0.0f) {
-    tinyxml2::XMLElement *pc = props->FirstChildElement("PowerConsumption");
-    if (!pc)
-      pc = props->InsertEndChild(doc.NewElement("PowerConsumption"))
-               ->ToElement();
-    pc->SetAttribute("Value", chosen->powerConsumptionW);
-    mutated = true;
-  }
-
-  if (mutated) {
-    GdtfMutationAudit::StampPerastageMutationMetadata(ft, doc);
-    GdtfMutationAudit::AppendRevision(
-        ft, doc,
-        "Exported fixture with updated physical properties from Perastage",
-        GdtfMutationAudit::BuildPerastageModifiedBy());
-  }
+  const std::optional<float> weightKg =
+      (chosen->weightKg != 0.0f) ? std::optional<float>(chosen->weightKg)
+                                 : std::nullopt;
+  const std::optional<float> powerConsumptionW =
+      (chosen->powerConsumptionW != 0.0f)
+          ? std::optional<float>(chosen->powerConsumptionW)
+          : std::nullopt;
+  GdtfMutationAudit::ApplyPhysicalPropertiesWithAudit(
+      ft, doc, weightKg, powerConsumptionW,
+      "Exported fixture with updated physical properties from Perastage",
+      GdtfMutationAudit::BuildPerastageModifiedBy());
 
   doc.SaveFile(descPath.string().c_str());
 
