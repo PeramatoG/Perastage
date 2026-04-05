@@ -18,6 +18,7 @@
 #include "mvrexporter.h"
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
+#include "gdtf_mutation_audit.h"
 #include "logger.h"
 #include "matrixutils.h"
 #include "projectutils.h"
@@ -49,6 +50,7 @@ class wxZipStreamLink;
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <optional>
 
 namespace fs = std::filesystem;
 
@@ -1082,6 +1084,7 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
     ft = doc.FirstChildElement("FixtureType");
   if (!ft)
     return {};
+  bool patched = false;
   if (!ov.color.empty()) {
     tinyxml2::XMLElement *models = ft->FirstChildElement("Models");
     if (models) {
@@ -1089,32 +1092,24 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
       for (tinyxml2::XMLElement *m = models->FirstChildElement("Model"); m;
            m = m->NextSiblingElement("Model"))
         m->SetAttribute("Color", cie.c_str());
+      patched = true;
     }
   }
-  if (ov.hasWeightKg || ov.hasPowerW) {
-    tinyxml2::XMLElement *phys = ft->FirstChildElement("PhysicalDescriptions");
-    if (!phys)
-      phys = ft->InsertNewChildElement("PhysicalDescriptions");
-    tinyxml2::XMLElement *props = phys->FirstChildElement("Properties");
-    if (!props)
-      props = phys->InsertNewChildElement("Properties");
-    if (ov.hasWeightKg) {
-      tinyxml2::XMLElement *w = props->FirstChildElement("Weight");
-      if (!w)
-        w = props->InsertNewChildElement("Weight");
-      w->SetAttribute("Value", ov.weightKg);
-    }
-    if (ov.hasPowerW) {
-      tinyxml2::XMLElement *p = props->FirstChildElement("PowerConsumption");
-      if (!p)
-        p = props->InsertNewChildElement("PowerConsumption");
-      p->SetAttribute("Value", ov.powerW);
-    }
-  }
-  if (!ov.manufacturer.empty())
+  const std::optional<float> weightKg =
+      ov.hasWeightKg ? std::optional<float>(ov.weightKg) : std::nullopt;
+  const std::optional<float> powerW =
+      ov.hasPowerW ? std::optional<float>(ov.powerW) : std::nullopt;
+  patched = GdtfMutationAudit::ApplyPhysicalProperties(
+                ft, doc, weightKg, powerW) ||
+            patched;
+  if (!ov.manufacturer.empty()) {
     ft->SetAttribute("Manufacturer", ov.manufacturer.c_str());
-  if (!ov.model.empty())
+    patched = true;
+  }
+  if (!ov.model.empty()) {
     ft->SetAttribute("Name", ov.model.c_str());
+    patched = true;
+  }
 
   if (ov.hasLengthMm || ov.hasWidthMm || ov.hasHeightMm) {
     tinyxml2::XMLElement *models = ft->FirstChildElement("Models");
@@ -1130,6 +1125,14 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
       model->SetAttribute("Width", ov.widthMm / 1000.0f);
     if (ov.hasHeightMm)
       model->SetAttribute("Height", ov.heightMm / 1000.0f);
+    patched = true;
+  }
+
+  if (patched) {
+    GdtfMutationAudit::StampPerastageMutationMetadata(ft, doc);
+    GdtfMutationAudit::AppendRevision(
+        ft, doc, "Patched fixture metadata for MVR export",
+        GdtfMutationAudit::BuildPerastageModifiedBy());
   }
 
   doc.SaveFile(descPath.c_str());

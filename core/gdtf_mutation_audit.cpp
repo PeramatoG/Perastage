@@ -113,4 +113,75 @@ void StampPerastageMutationMetadata(tinyxml2::XMLElement *fixtureType,
   auditNode->SetAttribute("LastMutationDateUtc", BuildIsoTimestampUtcNow().c_str());
 }
 
+tinyxml2::XMLElement *EnsurePhysicalPropertiesNode(
+    tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc) {
+  if (!fixtureType)
+    return nullptr;
+
+  tinyxml2::XMLElement *physicalDescriptions =
+      fixtureType->FirstChildElement("PhysicalDescriptions");
+  if (!physicalDescriptions) {
+    physicalDescriptions = doc.NewElement("PhysicalDescriptions");
+    fixtureType->InsertEndChild(physicalDescriptions);
+  }
+
+  tinyxml2::XMLElement *properties =
+      physicalDescriptions->FirstChildElement("Properties");
+  if (!properties) {
+    properties = doc.NewElement("Properties");
+    physicalDescriptions->InsertEndChild(properties);
+  }
+  return properties;
+}
+
+bool ApplyPhysicalProperties(tinyxml2::XMLElement *fixtureType,
+                             tinyxml2::XMLDocument &doc,
+                             const std::optional<float> &weightKg,
+                             const std::optional<float> &powerConsumptionW) {
+  if (!fixtureType)
+    return false;
+
+  if (!weightKg.has_value() && !powerConsumptionW.has_value())
+    return false;
+
+  tinyxml2::XMLElement *properties = EnsurePhysicalPropertiesNode(fixtureType, doc);
+  if (!properties)
+    return false;
+
+  bool mutated = false;
+  if (weightKg.has_value()) {
+    tinyxml2::XMLElement *weightNode = properties->FirstChildElement("Weight");
+    if (!weightNode)
+      weightNode = properties->InsertNewChildElement("Weight");
+    weightNode->SetAttribute("Value", *weightKg);
+    mutated = true;
+  }
+
+  if (powerConsumptionW.has_value()) {
+    tinyxml2::XMLElement *powerNode =
+        properties->FirstChildElement("PowerConsumption");
+    if (!powerNode)
+      powerNode = properties->InsertNewChildElement("PowerConsumption");
+    powerNode->SetAttribute("Value", *powerConsumptionW);
+    mutated = true;
+  }
+
+  return mutated;
+}
+
+bool ApplyPhysicalPropertiesWithAudit(
+    tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc,
+    const std::optional<float> &weightKg,
+    const std::optional<float> &powerConsumptionW, const std::string &revisionText,
+    const std::string &modifiedBy) {
+  const bool mutated =
+      ApplyPhysicalProperties(fixtureType, doc, weightKg, powerConsumptionW);
+  if (!mutated)
+    return false;
+
+  StampPerastageMutationMetadata(fixtureType, doc);
+  AppendRevision(fixtureType, doc, revisionText, modifiedBy);
+  return true;
+}
+
 } // namespace GdtfMutationAudit

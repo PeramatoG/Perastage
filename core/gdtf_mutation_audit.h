@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include <tinyxml2.h>
@@ -38,5 +39,27 @@ void AppendRevision(tinyxml2::XMLElement *fixtureType,
 // Editor="Perastage". Metadata is stored in <PerastageMutationAudit>.
 void StampPerastageMutationMetadata(tinyxml2::XMLElement *fixtureType,
                                     tinyxml2::XMLDocument &doc);
+
+// Returns the <Properties> node under
+// <FixtureType>/<PhysicalDescriptions>/<Properties>, creating missing nodes.
+tinyxml2::XMLElement *EnsurePhysicalPropertiesNode(
+    tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc);
+
+// Applies Weight/PowerConsumption values under PhysicalDescriptions/Properties.
+// Only values provided through optionals are written.
+// Returns true when at least one property was written.
+bool ApplyPhysicalProperties(
+    tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc,
+    const std::optional<float> &weightKg,
+    const std::optional<float> &powerConsumptionW);
+
+// Applies physical properties and, when a mutation happened, stamps Perastage
+// mutation metadata and appends a revision.
+// Returns true when at least one property was written.
+bool ApplyPhysicalPropertiesWithAudit(
+    tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc,
+    const std::optional<float> &weightKg,
+    const std::optional<float> &powerConsumptionW, const std::string &revisionText,
+    const std::string &modifiedBy = "");
 
 } // namespace GdtfMutationAudit
