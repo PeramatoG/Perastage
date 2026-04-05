@@ -835,6 +835,10 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/gdtf_mutation_audit.cpp
                ../core/projectutils.cpp
                ../core/uuidutils.cpp
+               ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/dummyprofilelibrary.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
