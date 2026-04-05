@@ -44,6 +44,7 @@ private:
     void OnSymbolPreviewPaint(wxPaintEvent& evt);
     void UpdateChannels(bool markChannelCountDirty = false);
     void UpdateVisualizers();
+    void UpdateMetadataSummary();
     void ApplyChanges();
 
     FixtureTablePanel* panel;
@@ -55,6 +56,7 @@ private:
     wxTextCtrl* channelList = nullptr;
     FixturePreviewPanel* preview = nullptr;
     wxStaticBitmap* fixtureImagePreview = nullptr;
+    std::array<wxStaticText*, 6> metadataValueLabels{};
     std::array<wxPanel*, 3> symbolPanels{};
     std::array<bool, 3> symbolAvailability{};
     std::array<PerastageSvgSymbolData, 3> symbolData{};
