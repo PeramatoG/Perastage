@@ -1,4 +1,5 @@
 #include "symbols/PerastageSvgSymbol.h"
+#include "gdtf_mutation_audit.h"
 #include "startup_file_access_gate.h"
 
 #include <algorithm>
@@ -16,6 +17,7 @@
 
 #include <tinyxml2.h>
 #include <wx/wfstream.h>
+#include <wx/log.h>
 #include <wx/zipstrm.h>
 
 namespace {
@@ -659,7 +661,20 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
   }
 
   const char *editor = fixtureType->Attribute("Editor");
-  const bool editorIsPerastage = editor && EqualsNoCase(editor, "Perastage");
+  const bool editorIsPerastageLegacy =
+      editor && EqualsNoCase(editor, "Perastage");
+  const auto compatibility = GdtfMutationAudit::InspectCompatibility(fixtureType);
+  if (!compatibility.warning.empty()) {
+    wxLogWarning("GDTF symbol compatibility warning for '%s': %s",
+                 gdtfPath.c_str(), compatibility.warning.c_str());
+  }
+  const bool editorIsPerastage =
+      compatibility.mode == GdtfMutationAudit::CompatibilityMode::KnownPerastageVersion
+          ? true
+          : (compatibility.mode ==
+                     GdtfMutationAudit::CompatibilityMode::LegacyFallback
+                 ? editorIsPerastageLegacy
+                 : false);
 
   const tinyxml2::XMLElement *model = ResolveTargetModel(fixtureType);
   const std::string baseName = ResolveModelSvgBasename(model);

@@ -205,6 +205,14 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
     return;
   }
 
+  if (!inspection.warningMessage.empty()) {
+    ReportFixtureAutoUpdate(
+        *this, consolePanel,
+        "Fixture symbol auto-update: warning for '" + fixtureLabel + "' (" +
+            inspection.warningMessage + ").",
+        false);
+  }
+
   if (!inspection.requiresSymbolGeneration) {
     CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
     return;

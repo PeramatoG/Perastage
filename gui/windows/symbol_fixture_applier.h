@@ -19,6 +19,7 @@ struct FixtureSymbolInspectionResult {
   bool editorIsPerastage = false;
   bool hasValidSvgSymbolSet = false;
   bool requiresSymbolGeneration = false;
+  std::string warningMessage;
   std::string scenePath;
   std::string libraryPath;
 };

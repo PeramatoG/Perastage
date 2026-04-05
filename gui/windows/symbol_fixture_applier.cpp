@@ -708,7 +708,16 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
     return true;
 
   const char *editor = fixtureType->Attribute("Editor");
-  result.editorIsPerastage = editor && std::string(editor) == "Perastage";
+  const bool editorIsPerastage = editor && std::string(editor) == "Perastage";
+  const auto compatibility = GdtfMutationAudit::InspectCompatibility(fixtureType);
+  result.warningMessage = compatibility.warning;
+  result.editorIsPerastage =
+      compatibility.mode == GdtfMutationAudit::CompatibilityMode::KnownPerastageVersion
+          ? true
+          : (compatibility.mode ==
+                     GdtfMutationAudit::CompatibilityMode::LegacyFallback
+                 ? editorIsPerastage
+                 : false);
 
   std::string modelSvgBase = ResolveModelSvgBasename(inspectPath, errorMessage);
   if (modelSvgBase.empty()) {
