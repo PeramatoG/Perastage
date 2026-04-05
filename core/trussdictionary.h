@@ -32,7 +32,8 @@ struct LoadStatus {
 std::string NormalizeModelKey(const std::string &model);
 std::optional<std::unordered_map<std::string, std::string>> Load();
 LoadStatus GetLastLoadStatus();
-void Save(const std::unordered_map<std::string, std::string> &dict);
+bool Save(const std::unordered_map<std::string, std::string> &dict,
+          std::string *errorOut = nullptr);
 std::optional<std::string> Get(const std::string &model);
 void Update(const std::string &model, const std::string &modelPath);
 bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,

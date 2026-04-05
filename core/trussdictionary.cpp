@@ -423,11 +423,17 @@ LoadStatus GetLastLoadStatus() {
   return g_lastLoadStatus;
 }
 
-void Save(const std::unordered_map<std::string, std::string> &dict) {
+bool Save(const std::unordered_map<std::string, std::string> &dict,
+          std::string *errorOut) {
+  if (errorOut)
+    errorOut->clear();
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   fs::path file = GetUserDictFile();
-  if (file.empty())
-    return;
+  if (file.empty()) {
+    if (errorOut)
+      *errorOut = "User trusses dictionary path is empty";
+    return false;
+  }
 
   nlohmann::json entries = nlohmann::json::object();
   std::unordered_map<std::string, std::string> normalizedDict;
@@ -461,8 +467,27 @@ void Save(const std::unordered_map<std::string, std::string> &dict) {
 
   const nlohmann::json root = DictionaryJsonContract::MakeRoot("trusses", std::move(entries));
   std::ofstream out(file);
-  if (out.is_open())
-    out << root.dump(4);
+  if (!out.is_open()) {
+    if (errorOut)
+      *errorOut = "Could not open user trusses dictionary for writing: " +
+                  file.string();
+    return false;
+  }
+  out << root.dump(4);
+  if (!out.good()) {
+    if (errorOut)
+      *errorOut = "Failed while writing user trusses dictionary: " +
+                  file.string();
+    return false;
+  }
+  out.flush();
+  if (!out.good()) {
+    if (errorOut)
+      *errorOut = "Failed to flush user trusses dictionary to disk: " +
+                  file.string();
+    return false;
+  }
+  return true;
 }
 
 std::optional<std::string> Get(const std::string &model) {
@@ -553,7 +578,9 @@ DictionaryImportSummary ApplyImportFromFile(const std::string &filePath,
 
   auto current = *currentOpt;
   summary = MergeDictionaryEntries(current, *importedOpt, policy, true);
-  Save(current);
+  std::string saveError;
+  if (!Save(current, &saveError))
+    summary.errors.push_back("Failed to save current dictionary: " + saveError);
   return summary;
 }
 
