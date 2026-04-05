@@ -53,6 +53,11 @@ bool IsPureWhiteRenderStyleEnabled() {
          Viewer3DRenderStyle::White;
 }
 
+bool IsSymbolCaptureRenderProfileEnabled() {
+  return ConfigManager::Get().GetFloat("viewer3d_symbol_capture_render_profile") >=
+         0.5f;
+}
+
 std::array<float, 3> NormalizeVector(float x, float y, float z) {
   const float length = std::sqrt(x * x + y * y + z * z);
   if (length <= 1e-6f)
@@ -251,10 +256,17 @@ void SceneRenderer::DrawMeshWithOutline(
                              mode == Viewer2DRenderMode::Wireframe,
                              m_controller.UseAdaptiveLineProfile())
             .lineWidth;
+    const bool symbolCaptureRenderProfile = IsSymbolCaptureRenderProfileEnabled();
     const bool drawOutline =
         !m_controller.SkipOutlinesForCurrentFrame() &&
         m_controller.IsSelectionOutlineEnabled2D() && (highlight || selected);
     if (!m_controller.IsCaptureOnly()) {
+      const GLboolean lineSmoothWasEnabled = glIsEnabled(GL_LINE_SMOOTH);
+      const GLboolean multisampleWasEnabled = glIsEnabled(GL_MULTISAMPLE);
+      if (symbolCaptureRenderProfile) {
+        glDisable(GL_LINE_SMOOTH);
+        glDisable(GL_MULTISAMPLE);
+      }
       if (drawOutline) {
         float glowWidth = lineWidth + 3.0f;
         glLineWidth(glowWidth);
@@ -264,13 +276,29 @@ void SceneRenderer::DrawMeshWithOutline(
           m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
         DrawMeshWireframe(mesh, scale, captureTransform);
       }
+      glLineWidth(symbolCaptureRenderProfile ? 2.0f : lineWidth);
+      m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+      DrawMeshWireframe(mesh, scale, captureTransform);
+      if (symbolCaptureRenderProfile) {
+        glLineWidth(2.0f);
+        DrawMeshWireframe(mesh, scale, captureTransform);
+      }
       glLineWidth(lineWidth);
       m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+      if (lineSmoothWasEnabled)
+        glEnable(GL_LINE_SMOOTH);
+      else
+        glDisable(GL_LINE_SMOOTH);
+      if (multisampleWasEnabled)
+        glEnable(GL_MULTISAMPLE);
+      else
+        glDisable(GL_MULTISAMPLE);
     }
     CanvasStroke stroke;
     stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
     stroke.width = lineWidth;
-    DrawMeshWireframe(mesh, scale, captureTransform);
+    if (m_controller.IsCaptureOnly())
+      DrawMeshWireframe(mesh, scale, captureTransform);
     if (m_controller.GetCaptureCanvas() && mode != Viewer2DRenderMode::Wireframe) {
       CanvasFill fill;
       fill.color = {r, g, b, 1.0f};
@@ -450,9 +478,12 @@ void SceneRenderer::DrawMeshWireframe(
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.eboLines) == GL_TRUE &&
                                glIsBuffer(mesh.eboTriangles) == GL_TRUE;
+  const bool forceImmediateWireframeForSymbolCapture =
+      IsSymbolCaptureRenderProfileEnabled();
   const bool canUseGpuWireframe =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
-      mesh.eboLines != 0 && mesh.eboTriangles != 0 && gpuHandlesValid;
+      mesh.eboLines != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
+      !forceImmediateWireframeForSymbolCapture;
 
   if (!m_controller.IsCaptureOnly() && canUseGpuWireframe) {
     glBindVertexArray(mesh.vao);
