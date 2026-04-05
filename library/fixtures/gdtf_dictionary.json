@@ -241,7 +241,7 @@
         "SGM Q7": {
             "category": "Strobe",
             "file": "Q-7.gdtf",
-            "mode": "3 Channel RAW"
+            "mode": "6 Channel RAW"
         },
         "Sharpy": {
             "category": "Beam",
