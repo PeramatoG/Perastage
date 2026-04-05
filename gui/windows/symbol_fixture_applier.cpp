@@ -357,14 +357,64 @@ bool PatchDescriptionXml(const std::string &xml,
   setOffsets(sidePath.c_str(), "SVGSideOffsetX", "SVGSideOffsetY");
   setOffsets(frontPath.c_str(), "SVGFrontOffsetX", "SVGFrontOffsetY");
 
+  tinyxml2::XMLPrinter printer;
+  doc.Print(&printer);
+  updatedXml = printer.CStr();
+  return true;
+}
+
+std::string BuildSymbolRevisionAction(
+    const std::unordered_map<std::string, SymbolPayload> &payloads,
+    const std::string &topPath,
+    const std::string &sidePath,
+    const std::string &frontPath,
+    const std::string &bottomPath) {
+  std::vector<std::string> appliedViews;
+  auto appendIfApplied = [&](const std::string &path, const char *label) {
+    if (payloads.find(path) != payloads.end())
+      appliedViews.emplace_back(label);
+  };
+
+  appendIfApplied(topPath, "top");
+  appendIfApplied(sidePath, "side");
+  appendIfApplied(frontPath, "front");
+  appendIfApplied(bottomPath, "bottom");
+
+  std::ostringstream action;
+  action << "Applied fixture SVG symbol views (";
+  for (size_t i = 0; i < appliedViews.size(); ++i) {
+    if (i > 0)
+      action << ", ";
+    action << appliedViews[i];
+  }
+  action << ")";
+  return action.str();
+}
+
+bool AppendMutationAuditMetadata(std::string &descriptionXml,
+                                 const std::unordered_map<std::string, SymbolPayload> &payloads,
+                                 const std::string &topPath,
+                                 const std::string &sidePath,
+                                 const std::string &frontPath,
+                                 const std::string &bottomPath,
+                                 std::string &errorMessage) {
+  tinyxml2::XMLDocument doc;
+  if (doc.Parse(descriptionXml.c_str(), descriptionXml.size()) !=
+      tinyxml2::XML_SUCCESS) {
+    errorMessage = "Could not parse description.xml from the GDTF file.";
+    return false;
+  }
+
+  tinyxml2::XMLElement *fixtureType = GdtfMutationAudit::EnsureFixtureType(doc);
   GdtfMutationAudit::StampPerastageMutationMetadata(fixtureType, doc);
   GdtfMutationAudit::AppendRevision(
-      fixtureType, doc, "Updated fixture SVG symbol views from Perastage",
+      fixtureType, doc,
+      BuildSymbolRevisionAction(payloads, topPath, sidePath, frontPath, bottomPath),
       GdtfMutationAudit::BuildPerastageModifiedBy());
 
   tinyxml2::XMLPrinter printer;
   doc.Print(&printer);
-  updatedXml = printer.CStr();
+  descriptionXml = printer.CStr();
   return true;
 }
 
@@ -402,6 +452,7 @@ bool RewriteGdtf(const fs::path &sourcePath,
                  const std::string &topPath,
                  const std::string &sidePath,
                  const std::string &frontPath,
+                 const std::string &bottomPath,
                  std::string &errorMessage) {
   std::vector<std::pair<std::string, std::string>> entries;
   std::vector<std::string> sampleEntries;
@@ -445,6 +496,10 @@ bool RewriteGdtf(const fs::path &sourcePath,
   std::string updatedDescription;
   if (!PatchDescriptionXml(descriptionIt->second, payloads, topPath, sidePath,
                            frontPath, updatedDescription, errorMessage)) {
+    return false;
+  }
+  if (!AppendMutationAuditMetadata(updatedDescription, payloads, topPath, sidePath,
+                                   frontPath, bottomPath, errorMessage)) {
     return false;
   }
 
@@ -575,7 +630,7 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
 
   if (options.updateSceneCopy && !scenePath.empty()) {
     if (!RewriteGdtf(scenePath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
-                     errorMessage)) {
+                     bottomSvgPath, errorMessage)) {
       return false;
     }
   }
@@ -584,7 +639,7 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     const bool libraryEqualsScene = !scenePath.empty() && libraryPath == scenePath;
     if (!libraryEqualsScene &&
         !RewriteGdtf(libraryPath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
-                     errorMessage)) {
+                     bottomSvgPath, errorMessage)) {
       return false;
     }
   }
