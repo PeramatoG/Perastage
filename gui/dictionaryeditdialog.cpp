@@ -1278,12 +1278,15 @@ void DictionaryEditDialog::OnOk(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  std::unique_ptr<wxBusyInfo> saveOverlay =
-      std::make_unique<wxBusyInfo>("Saving dictionary changes...");
-  if (fixtureChanged)
-    SaveFixtures();
-  if (trussChanged)
-    SaveTrusses();
+  {
+    std::unique_ptr<wxBusyInfo> saveOverlay =
+        std::make_unique<wxBusyInfo>("Saving dictionary changes...");
+    if (fixtureChanged)
+      SaveFixtures();
+    if (trussChanged)
+      SaveTrusses();
+    saveOverlay.reset();
+  }
   EndModal(wxID_OK);
 }
 
