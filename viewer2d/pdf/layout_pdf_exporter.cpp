@@ -123,6 +123,29 @@ double ApplyLayoutPdfTypographyScale(double baseFontSize,
   return baseFontSize * kPdfLayoutTypographyCompensationScale * layoutScale;
 }
 
+double ComputePdfRunAscent(const PdfFontDefinition *font, double fontSize) {
+  if (!font || !font->embedded || font->metrics.unitsPerEm <= 0)
+    return fontSize * 0.8;
+  const double unitsPerEm = static_cast<double>(font->metrics.unitsPerEm);
+  const double ascentUnits = std::max(0.0, static_cast<double>(font->metrics.ascent));
+  if (ascentUnits <= 0.0)
+    return fontSize * 0.8;
+  return (ascentUnits / unitsPerEm) * fontSize;
+}
+
+double ComputePdfRunLineHeight(const PdfFontDefinition *font, double fontSize) {
+  if (!font || !font->embedded || font->metrics.unitsPerEm <= 0)
+    return fontSize * 1.2;
+  const double unitsPerEm = static_cast<double>(font->metrics.unitsPerEm);
+  const double ascentUnits = std::max(0.0, static_cast<double>(font->metrics.ascent));
+  const double descentUnits =
+      std::abs(std::min(0.0, static_cast<double>(font->metrics.descent)));
+  const double heightUnits = ascentUnits + descentUnits;
+  if (heightUnits <= 0.0)
+    return fontSize * 1.2;
+  return (heightUnits / unitsPerEm) * fontSize;
+}
+
 int SymbolViewRank(SymbolViewKind kind) {
   switch (kind) {
   case SymbolViewKind::Top:
@@ -2102,14 +2125,20 @@ Viewer2DExportResult ExportLayoutToPdf(
       double lineFontSize =
           text.fontSize > 0 ? static_cast<double>(text.fontSize) : 12.0;
       lineFontSize *= layoutScale;
+      double lineAscent = ComputePdfRunAscent(fontCatalog.regular, lineFontSize);
+      double lineHeight = ComputePdfRunLineHeight(fontCatalog.regular, lineFontSize);
       for (const auto &run : line.runs) {
         const double runSize =
             run.fontSize > 0
                 ? static_cast<double>(run.fontSize) * layoutScale
                 : lineFontSize;
         lineFontSize = std::max(lineFontSize, runSize);
+        const PdfFontDefinition *runFont =
+            run.bold ? fontCatalog.bold : fontCatalog.regular;
+        lineAscent = std::max(lineAscent, ComputePdfRunAscent(runFont, runSize));
+        lineHeight =
+            std::max(lineHeight, ComputePdfRunLineHeight(runFont, runSize));
       }
-      const double lineHeight = lineFontSize * 1.2;
       if (usedHeight + lineHeight > availableH && usedHeight > 0.0)
         break;
       double lineWidth = 0.0;
@@ -2129,7 +2158,7 @@ Viewer2DExportResult ExportLayoutToPdf(
       } else if (text.alignment == LayoutTextExportData::Alignment::Right) {
         x = frameX + frameW - padding - lineWidth;
       }
-      const double y = frameY + frameH - padding - usedHeight - lineFontSize;
+      const double y = frameY + frameH - padding - usedHeight - lineAscent;
       double cursorX = x;
       if (line.runs.empty()) {
         usedHeight += lineHeight;
