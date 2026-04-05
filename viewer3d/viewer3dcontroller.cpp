@@ -1089,6 +1089,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
     const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
     std::lock_guard<std::mutex> lock(m_impl->sortedListsMutex);
+    bool rebuiltSortedLists = false;
     if (m_impl->sortedListsDirty && !context.skipOptionalWork) {
       m_impl->sortedObjects.clear();
       m_impl->sortedObjects.reserve(sceneObjects.size());
@@ -1118,6 +1119,15 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
                 });
 
       m_impl->sortedListsDirty = false;
+      rebuiltSortedLists = true;
+    }
+
+    if (rebuiltSortedLists) {
+      // If layer candidates were cached while sorted lists were temporarily
+      // empty (for example during fast interaction), force a rebuild now.
+      // Otherwise visibility cache could keep truss/object/fixture UUID lists
+      // empty until a full scene reload increments sceneVersion.
+      m_impl->layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
     }
   }
 
