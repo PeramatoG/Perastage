@@ -32,6 +32,7 @@
 
 #include <wx/aboutdlg.h>
 #include <wx/artprov.h>
+#include <wx/busyinfo.h>
 #include <wx/choice.h>
 #include <wx/choicdlg.h>
 #include <wx/filename.h>
@@ -40,6 +41,8 @@
 #include <wx/iconbndl.h>
 #include <wx/numdlg.h>
 #include <wx/stdpaths.h>
+#include <wx/utils.h>
+#include <wx/window.h>
 
 #include "addfixturedialog.h"
 #include "autopatcher.h"
@@ -458,6 +461,16 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   GdtfLoginDialog loginDlg(this, savedUser, savedPass);
   if (loginDlg.ShowModal() != wxID_OK)
     return;
+
+  std::unique_ptr<wxWindowDisabler> gdtfDownloadDisabler =
+      std::make_unique<wxWindowDisabler>();
+  std::unique_ptr<wxBusyInfo> gdtfDownloadBusyOverlay;
+  auto updateGdtfDownloadBusyOverlay = [&](const wxString &message) {
+    gdtfDownloadBusyOverlay = std::make_unique<wxBusyInfo>(message);
+    wxYieldIfNeeded();
+  };
+
+  updateGdtfDownloadBusyOverlay("Connecting to GDTF Share...");
   wxString username =
       wxString::FromUTF8(loginDlg.GetUsername()).Trim(true).Trim(false);
   wxString password = wxString::FromUTF8(loginDlg.GetPassword());
@@ -476,6 +489,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   long httpCode = 0;
   if (consolePanel)
     consolePanel->AppendMessage("[INFO] Logging into GDTF Share using libcurl");
+  updateGdtfDownloadBusyOverlay("Logging in to GDTF Share...");
   if (!GdtfLogin(WxToUtf8(username), WxToUtf8(password),
                  cookieFile, httpCode)) {
     wxMessageBox("Failed to connect to GDTF Share.", "Login Error",
@@ -497,6 +511,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
   if (consolePanel)
     consolePanel->AppendMessage("[INFO] Retrieving fixture list via libcurl");
+  updateGdtfDownloadBusyOverlay("Retrieving fixture list...");
   std::string listData;
   if (!GdtfGetList(cookieFile, listData)) {
     wxMessageBox("Failed to retrieve fixture list.", "Error",
@@ -509,6 +524,9 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         "[INFO] Retrieved list size: %zu bytes", listData.size()));
 
   GetDefaultGuiConfigServices().LegacyConfigManager().SetValue("gdtf_fixture_list", listData);
+
+  gdtfDownloadBusyOverlay.reset();
+  gdtfDownloadDisabler.reset();
 
   // open search dialog
   GdtfSearchDialog searchDlg(this, listData);
