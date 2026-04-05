@@ -18,6 +18,7 @@
 #include "summarypanel.h"
 #include "colorstore.h"
 #include "configmanager.h"
+#include "fixturetablepanel.h"
 #include "guiconfigservices.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -378,6 +379,9 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
         if (fixture.typeName == typeName)
             fixture.color = hex;
     }
+
+    if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->ReloadData();
 
     wxBitmap bmp(16, 16);
     wxMemoryDC dc(bmp);
