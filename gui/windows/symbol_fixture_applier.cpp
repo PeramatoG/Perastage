@@ -24,6 +24,7 @@
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "gdtfdictionary.h"
+#include "gdtf_mutation_audit.h"
 #include "projectutils.h"
 #include "windows/symbol_preview_exporter.h"
 
@@ -318,17 +319,7 @@ bool PatchDescriptionXml(const std::string &xml,
     return false;
   }
 
-  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
-  if (fixtureType)
-    fixtureType = fixtureType->FirstChildElement("FixtureType");
-  if (!fixtureType)
-    fixtureType = doc.FirstChildElement("FixtureType");
-  if (!fixtureType) {
-    errorMessage = "Could not find FixtureType node in description.xml.";
-    return false;
-  }
-
-  fixtureType->SetAttribute("Editor", "Perastage");
+  tinyxml2::XMLElement *fixtureType = GdtfMutationAudit::EnsureFixtureType(doc);
 
   tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
   if (!models) {
@@ -365,6 +356,11 @@ bool PatchDescriptionXml(const std::string &xml,
   setOffsets(topPath.c_str(), "SVGOffsetX", "SVGOffsetY");
   setOffsets(sidePath.c_str(), "SVGSideOffsetX", "SVGSideOffsetY");
   setOffsets(frontPath.c_str(), "SVGFrontOffsetX", "SVGFrontOffsetY");
+
+  GdtfMutationAudit::StampPerastageMutationMetadata(fixtureType, doc);
+  GdtfMutationAudit::AppendRevision(
+      fixtureType, doc, "Updated fixture SVG symbol views from Perastage",
+      GdtfMutationAudit::BuildPerastageModifiedBy());
 
   tinyxml2::XMLPrinter printer;
   doc.Print(&printer);

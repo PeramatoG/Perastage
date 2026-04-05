@@ -43,6 +43,7 @@
 #include "exporttrussdialog.h"
 #include "fixture.h"
 #include "fixturetablepanel.h"
+#include "gdtf_mutation_audit.h"
 #include "hoisttablepanel.h"
 #include "layoutviewerpanel.h"
 #include "mvrexporter.h"
@@ -525,11 +526,7 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  tinyxml2::XMLElement *ft = doc.FirstChildElement("GDTF");
-  if (ft)
-    ft = ft->FirstChildElement("FixtureType");
-  else
-    ft = doc.FirstChildElement("FixtureType");
+  tinyxml2::XMLElement *ft = GdtfMutationAudit::EnsureFixtureType(doc);
   if (!ft) {
     fs::remove_all(tempDir);
     wxMessageBox("Invalid GDTF file.", "Error", wxOK | wxICON_ERROR);
@@ -544,11 +541,13 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
   if (!props)
     props = phys->InsertEndChild(doc.NewElement("Properties"))->ToElement();
 
+  bool mutated = false;
   if (chosen->weightKg != 0.0f) {
     tinyxml2::XMLElement *w = props->FirstChildElement("Weight");
     if (!w)
       w = props->InsertEndChild(doc.NewElement("Weight"))->ToElement();
     w->SetAttribute("Value", chosen->weightKg);
+    mutated = true;
   }
 
   if (chosen->powerConsumptionW != 0.0f) {
@@ -557,6 +556,15 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
       pc = props->InsertEndChild(doc.NewElement("PowerConsumption"))
                ->ToElement();
     pc->SetAttribute("Value", chosen->powerConsumptionW);
+    mutated = true;
+  }
+
+  if (mutated) {
+    GdtfMutationAudit::StampPerastageMutationMetadata(ft, doc);
+    GdtfMutationAudit::AppendRevision(
+        ft, doc,
+        "Exported fixture with updated physical properties from Perastage",
+        GdtfMutationAudit::BuildPerastageModifiedBy());
   }
 
   doc.SaveFile(descPath.string().c_str());

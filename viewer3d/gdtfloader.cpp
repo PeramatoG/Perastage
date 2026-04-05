@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "gdtfloader.h"
+#include "gdtf_mutation_audit.h"
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "matrixutils.h"
@@ -403,11 +404,7 @@ static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
 
 static tinyxml2::XMLElement* GetFixtureType(tinyxml2::XMLDocument& doc)
 {
-    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
-    if (ft)
-        ft = ft->FirstChildElement("FixtureType");
-    else
-        ft = doc.FirstChildElement("FixtureType");
+    tinyxml2::XMLElement* ft = GdtfMutationAudit::EnsureFixtureType(doc);
     return ft;
 }
 
@@ -1508,11 +1505,7 @@ bool SetGdtfModelColor(const std::string& gdtfPath,
     if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
         return false;
 
-    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
-    if (ft)
-        ft = ft->FirstChildElement("FixtureType");
-    else
-        ft = doc.FirstChildElement("FixtureType");
+    tinyxml2::XMLElement* ft = GdtfMutationAudit::EnsureFixtureType(doc);
     if (!ft)
         return false;
 
@@ -1525,54 +1518,17 @@ bool SetGdtfModelColor(const std::string& gdtfPath,
          m = m->NextSiblingElement("Model"))
         m->SetAttribute("Color", cie.c_str());
 
+    GdtfMutationAudit::StampPerastageMutationMetadata(ft, doc);
+    GdtfMutationAudit::AppendRevision(
+        ft, doc, "Updated fixture default model color from Perastage",
+        GdtfMutationAudit::BuildPerastageModifiedBy());
+
     doc.SaveFile(descPath.c_str());
     bool ok = ZipDir(extraction.Path(), gdtfPath);
     return ok;
 }
 
 namespace {
-
-std::string BuildGdtfIsoTimestampUtc()
-{
-    using Clock = std::chrono::system_clock;
-    const auto now = Clock::now();
-    const std::time_t nowTime = Clock::to_time_t(now);
-
-    std::tm utcTm{};
-#if defined(_WIN32)
-    gmtime_s(&utcTm, &nowTime);
-#else
-    gmtime_r(&nowTime, &utcTm);
-#endif
-
-    std::ostringstream stamp;
-    stamp << std::put_time(&utcTm, "%Y-%m-%dT%H:%M:%SZ");
-    return stamp.str();
-}
-
-void AppendGdtfRevision(tinyxml2::XMLElement* fixtureType,
-                        tinyxml2::XMLDocument& doc,
-                        const std::string& text,
-                        const std::string& modifiedByProgram)
-{
-    if (!fixtureType)
-        return;
-
-    tinyxml2::XMLElement* revisions = fixtureType->FirstChildElement("Revisions");
-    if (!revisions) {
-        revisions = doc.NewElement("Revisions");
-        fixtureType->InsertEndChild(revisions);
-    }
-
-    tinyxml2::XMLElement* revision = doc.NewElement("Revision");
-    revision->SetAttribute("Date", BuildGdtfIsoTimestampUtc().c_str());
-    revision->SetAttribute("Text", text.c_str());
-    revision->SetAttribute("ModifiedBy",
-                           modifiedByProgram.empty() ? "Perastage" : modifiedByProgram.c_str());
-    revision->SetAttribute("UserID", 0);
-    revisions->InsertEndChild(revision);
-    fixtureType->SetAttribute("Editor", "Perastage");
-}
 
 tinyxml2::XMLElement* EnsurePropertiesNode(tinyxml2::XMLElement* fixtureType,
                                            tinyxml2::XMLDocument& doc)
@@ -1615,11 +1571,7 @@ bool SetGdtfProperties(const std::string& gdtfPath,
     if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
         return false;
 
-    tinyxml2::XMLElement* fixtureType = doc.FirstChildElement("GDTF");
-    if (fixtureType)
-        fixtureType = fixtureType->FirstChildElement("FixtureType");
-    else
-        fixtureType = doc.FirstChildElement("FixtureType");
+    tinyxml2::XMLElement* fixtureType = GdtfMutationAudit::EnsureFixtureType(doc);
     if (!fixtureType)
         return false;
 
@@ -1642,7 +1594,8 @@ bool SetGdtfProperties(const std::string& gdtfPath,
     }
     powerNode->SetAttribute("Value", wxString::Format("%.3f", powerW).ToStdString().c_str());
 
-    AppendGdtfRevision(
+    GdtfMutationAudit::StampPerastageMutationMetadata(fixtureType, doc);
+    GdtfMutationAudit::AppendRevision(
         fixtureType, doc,
         "Updated fixture physical properties (Weight/PowerConsumption) from Perastage",
         modifiedByProgram);
