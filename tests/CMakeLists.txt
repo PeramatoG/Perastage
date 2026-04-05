@@ -113,6 +113,7 @@ add_executable(layout_template_import_name_collision_test
                layout_template_import_name_collision_test.cpp
                configmanager_layoutmanager_stub.cpp
                ../core/layouts/LayoutManager.cpp
+               ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp)
 add_test(NAME LayoutTemplateImportNameCollision
@@ -124,6 +125,7 @@ endfunction()
 
 set(LAYOUT_SOURCES
     ../core/layouts/LayoutManager.cpp
+    ../core/layouts/LayoutDefaultsLoader.cpp
     ../core/layouts/LayoutCollection.cpp
     ../core/layouts/LayoutTemplateSerializer.cpp)
 
