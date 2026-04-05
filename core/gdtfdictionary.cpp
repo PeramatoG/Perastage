@@ -22,6 +22,7 @@
 #include "projectutils.h"
 #include "startup_file_access_gate.h"
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -57,6 +58,29 @@ bool PathsShareFileName(const std::string &lhs, const std::string &rhs) {
   if (leftPath.filename().empty() || rightPath.filename().empty())
     return false;
   return leftPath.filename() == rightPath.filename();
+}
+
+std::string NormalizeAsciiKey(std::string value) {
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  value.erase(std::remove_if(value.begin(), value.end(),
+                             [](unsigned char ch) {
+                               return std::isspace(ch) != 0 || ch == '_' || ch == '-';
+                             }),
+              value.end());
+  return value;
+}
+
+bool IsGeneric1ChFallbackType(const std::string &type) {
+  return NormalizeAsciiKey(type) == "generic1ch";
+}
+
+bool IsGeneric1ChFallbackPath(const std::string &gdtfPath) {
+  if (gdtfPath.empty())
+    return false;
+  const std::string fileName =
+      fs::u8path(gdtfPath).filename().string();
+  return NormalizeAsciiKey(fileName) == "generic1ch.gdtf";
 }
 
 fs::path GetUserDictFile() {
@@ -382,6 +406,8 @@ std::optional<Entry> Get(const std::string &type) {
 void Update(const std::string &type, const std::string &gdtfPath, const std::string &mode, const std::string &category) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   if (type.empty() || gdtfPath.empty())
+    return;
+  if (IsGeneric1ChFallbackType(type) || IsGeneric1ChFallbackPath(gdtfPath))
     return;
   const fs::path src = fs::u8path(gdtfPath);
   if (!fs::exists(src))

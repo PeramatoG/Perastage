@@ -49,6 +49,16 @@ int main() {
 
     // Dictionary entry that should NOT be applied on load
     GdtfDictionary::Update("FixtureType", (tempDir / "dict.gdtf").string(), "");
+    std::ofstream(tempDir / "Generic 1ch.gdtf") << "generic";
+    GdtfDictionary::Update("Generic 1ch", (tempDir / "Generic 1ch.gdtf").string(), "");
+    auto genericEntry = GdtfDictionary::Get("Generic 1ch");
+    assert(!genericEntry.has_value());
+    GdtfDictionary::Update("Generic 1ch", (tempDir / "dict.gdtf").string(), "");
+    genericEntry = GdtfDictionary::Get("Generic 1ch");
+    assert(!genericEntry.has_value());
+    GdtfDictionary::Update("Some Type", (tempDir / "Generic 1ch.gdtf").string(), "");
+    auto dummyPathEntry = GdtfDictionary::Get("Some Type");
+    assert(!dummyPathEntry.has_value());
     GdtfDictionary::UpdateCategory("TextOnlyType", "Spot");
     auto textOnlyEntry = GdtfDictionary::Get("TextOnlyType");
     assert(textOnlyEntry.has_value());
