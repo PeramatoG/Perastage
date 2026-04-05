@@ -71,16 +71,15 @@ std::string NormalizeAsciiKey(std::string value) {
   return value;
 }
 
-bool IsGeneric1ChFallbackType(const std::string &type) {
-  return NormalizeAsciiKey(type) == "generic1ch";
+bool IsDummy1ChFallbackType(const std::string &type) {
+  return NormalizeAsciiKey(type) == "dummy1ch";
 }
 
-bool IsGeneric1ChFallbackPath(const std::string &gdtfPath) {
+bool IsDummy1ChFallbackPath(const std::string &gdtfPath) {
   if (gdtfPath.empty())
     return false;
-  const std::string fileName =
-      fs::u8path(gdtfPath).filename().string();
-  return NormalizeAsciiKey(fileName) == "generic1ch.gdtf";
+  const std::string fileName = fs::u8path(gdtfPath).filename().string();
+  return NormalizeAsciiKey(fileName) == "dummy1ch.gdtf";
 }
 
 fs::path GetUserDictFile() {
@@ -407,7 +406,7 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   if (type.empty() || gdtfPath.empty())
     return;
-  if (IsGeneric1ChFallbackType(type) || IsGeneric1ChFallbackPath(gdtfPath))
+  if (IsDummy1ChFallbackType(type) || IsDummy1ChFallbackPath(gdtfPath))
     return;
   const fs::path src = fs::u8path(gdtfPath);
   if (!fs::exists(src))

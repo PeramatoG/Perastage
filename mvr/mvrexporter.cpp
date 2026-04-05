@@ -35,6 +35,7 @@ class wxZipStreamLink;
 #include <tinyxml2.h>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <charconv>
 #include <chrono>
@@ -100,7 +101,8 @@ static void LogLegacyPositionUuidWarning(const std::string &message);
 
 static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kMvrProviderVersion = "1.0";
-static constexpr const char *kFallbackFixtureGdtfFileName = "Generic 1ch.gdtf";
+static constexpr const char *kDummyFallbackFixtureGdtfFileName = "Dummy 1ch.gdtf";
+static constexpr const char *kLegacyFallbackFixtureGdtfFileName = "Generic 1ch.gdtf";
 
 static bool Read3dsChunkHeader(std::ifstream &file, ThreeDsChunkHeader &chunk) {
   if (!file.read(reinterpret_cast<char *>(&chunk.id), sizeof(chunk.id)))
@@ -313,11 +315,18 @@ static std::string TruncateFileNamePreservingExtension(const std::string &fileNa
 
 static std::string ResolveFallbackFixtureGdtfPath() {
   static const std::string resolvedPath = []() {
-    const fs::path fallbackPath =
-        ProjectUtils::GetBaseLibraryPath("fixtures") / kFallbackFixtureGdtfFileName;
-    std::error_code ec;
-    if (fs::exists(fallbackPath, ec) && !ec && fs::is_regular_file(fallbackPath, ec) && !ec)
-      return fallbackPath.generic_string();
+    const fs::path basePath = ProjectUtils::GetBaseLibraryPath("fixtures");
+    const std::array<fs::path, 2> candidates = {
+        basePath / kDummyFallbackFixtureGdtfFileName,
+        basePath / kLegacyFallbackFixtureGdtfFileName,
+    };
+    for (const fs::path &fallbackPath : candidates) {
+      std::error_code ec;
+      if (fs::exists(fallbackPath, ec) && !ec &&
+          fs::is_regular_file(fallbackPath, ec) && !ec) {
+        return fallbackPath.generic_string();
+      }
+    }
     return std::string{};
   }();
   return resolvedPath;
