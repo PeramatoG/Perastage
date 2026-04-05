@@ -889,8 +889,16 @@ void FixtureEditDialog::ApplyChanges() {
       table->GetValue(categoryVar, row, 18);
       const std::string category = GdtfFixtureCategory::NormalizeCategory(
           std::string(categoryVar.GetString().ToUTF8()));
-      GdtfDictionary::Update(std::string(originalType.ToUTF8()),
-                             std::string(gdtfPath.ToUTF8()), mode, category);
+      const bool modeOnlyChange =
+          (modifiedColumns.size() > 7 && modifiedColumns[7]) &&
+          !(modifiedColumns.size() > 2 && modifiedColumns[2]) &&
+          !(modifiedColumns.size() > 9 && modifiedColumns[9]) &&
+          !(modifiedColumns.size() > 18 && modifiedColumns[18]);
+      if (!modeOnlyChange) {
+        // Keep dictionary default modes immutable outside dictionary editor.
+        GdtfDictionary::Update(std::string(originalType.ToUTF8()),
+                               std::string(gdtfPath.ToUTF8()), {}, category);
+      }
       panel->ApplyModeForGdtf(gdtfPath, wxString::FromUTF8(mode));
     }
   }
