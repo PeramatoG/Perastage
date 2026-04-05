@@ -11,7 +11,7 @@
 
 namespace layout_pdf_internal {
 
-constexpr double kPdfImplicitLineHeightReductionFactor = 0.96;
+constexpr double kPdfImplicitLineHeightReductionFactor = 0.80;
 
 double ComputeTextLineAdvance(double ascent, double descent) {
   return -(ascent + descent);
