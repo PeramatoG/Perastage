@@ -19,6 +19,8 @@
 
 #include <functional>
 
+#include "guiconfigservices.h"
+
 namespace {
 void HashCombine(size_t &seed, size_t value) {
   seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
@@ -27,7 +29,29 @@ void HashCombine(size_t &seed, size_t value) {
 void HashCombineFloat(size_t &seed, float value) {
   HashCombine(seed, std::hash<float>{}(value));
 }
+
+template <typename TMap>
+size_t HashSceneUuidMap(const TMap &items) {
+  size_t aggregate = std::hash<size_t>{}(items.size());
+  const std::hash<std::string> strHasher;
+  for (const auto &[uuid, value] : items) {
+    (void)value;
+    const size_t entryHash = strHasher(uuid);
+    aggregate ^= entryHash + 0x9e3779b9 + (aggregate << 6) + (aggregate >> 2);
+  }
+  return aggregate;
+}
 } // namespace
+
+size_t LayoutViewerPanel::ComputeSceneContentHash() const {
+  const auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  size_t hash = 0;
+  HashCombine(hash, HashSceneUuidMap(scene.fixtures));
+  HashCombine(hash, HashSceneUuidMap(scene.trusses));
+  HashCombine(hash, HashSceneUuidMap(scene.sceneObjects));
+  HashCombine(hash, HashSceneUuidMap(scene.supports));
+  return hash;
+}
 
 size_t LayoutViewerPanel::HashViewContent(
     const layouts::Layout2DViewDefinition &view) const {
@@ -87,6 +111,9 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
   const bool zoomChanged = lastRenderZoom != renderZoom;
   const bool pageChanged =
       lastPageWidthPt != pageWidth || lastPageHeightPt != pageHeight;
+  const size_t sceneContentHash = ComputeSceneContentHash();
+  const bool sceneContentChanged =
+      !hasSceneContentHash || sceneContentHash != lastSceneContentHash;
   auto markDirty = [&](bool &cacheDirty) {
     if (cacheDirty)
       return;
@@ -97,6 +124,11 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     ViewCache &cache = GetViewCache(view.id);
     const size_t contentHash = HashViewContent(view);
     if (cache.contentHash != 0 && cache.contentHash != contentHash) {
+      markDirty(cache.renderDirty);
+    }
+    if (sceneContentChanged) {
+      cache.captureVersion = -1;
+      cache.captureInProgress = false;
       markDirty(cache.renderDirty);
     }
     wxRect frameRect;
@@ -118,6 +150,9 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
 
   for (const auto &legend : currentLayout.legendViews) {
     LegendCache &cache = GetLegendCache(legend.id);
+    if (sceneContentChanged) {
+      markDirty(cache.renderDirty);
+    }
     wxRect frameRect;
     if (!GetFrameRect(legend.frame, frameRect)) {
       if (cache.texture != 0) {
@@ -192,12 +227,14 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     }
   }
 
-  if (zoomChanged || pageChanged) {
+  if (zoomChanged || pageChanged || sceneContentChanged) {
     renderDirty = true;
   }
   lastRenderZoom = renderZoom;
   lastPageWidthPt = pageWidth;
   lastPageHeightPt = pageHeight;
+  lastSceneContentHash = sceneContentHash;
+  hasSceneContentHash = true;
 }
 
 void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
