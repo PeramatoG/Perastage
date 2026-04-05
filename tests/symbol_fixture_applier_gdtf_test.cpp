@@ -15,6 +15,7 @@
 #include <wx/zipstrm.h>
 
 #include "../core/configmanager.h"
+#include "../core/gdtf_mutation_audit.h"
 #include "../core/symbols/Symbol2D.h"
 #include "../gui/windows/symbol_fixture_applier.h"
 #include "../models/fixture.h"
@@ -150,7 +151,23 @@ int main() {
   const bool hasRevision =
       fixtureType->FirstChildElement("Revisions") != nullptr &&
       fixtureType->FirstChildElement("Revisions")->FirstChildElement("Revision") != nullptr;
-  assert(!hasRevision);
+  assert(hasRevision);
+
+  tinyxml2::XMLElement *audit = fixtureType->FirstChildElement("PerastageMutationAudit");
+  assert(audit != nullptr);
+  assert(audit->IntAttribute("SchemaVersion") ==
+         GdtfMutationAudit::kPerastageGdtfMutationSchemaVersion);
+
+  tinyxml2::XMLElement *revision =
+      fixtureType->FirstChildElement("Revisions")->FirstChildElement("Revision");
+  assert(revision != nullptr);
+  const char *text = revision->Attribute("Text");
+  const char *modifiedBy = revision->Attribute("ModifiedBy");
+  assert(text != nullptr);
+  assert(modifiedBy != nullptr);
+  assert(std::string(text) ==
+         "Applied fixture SVG symbol views (top, side, front)");
+  assert(std::string(modifiedBy).rfind("Perastage ", 0) == 0);
 
   symbol_preview::FixtureSymbolInspectionResult after{};
   assert(symbol_preview::InspectFixtureSymbolState(scene.fixtures.at(fixture.uuid), scene,
