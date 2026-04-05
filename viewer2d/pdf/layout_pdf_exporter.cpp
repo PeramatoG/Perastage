@@ -59,7 +59,7 @@ constexpr double kLegendFontScale =
 // Typography rendered directly in the PDF stream (legend/event table/text
 // helpers) needs an extra point-size compensation so it visually matches the
 // on-screen layout preview.
-constexpr double kPdfLayoutTypographyCompensationScale = 1.5;
+constexpr double kPdfLayoutTypographyCompensationScale = 1.45;
 constexpr double kLegendFallbackSymbolScale = 2.0;
 constexpr double kLegendSvgSymbolScale = 0.4;
 constexpr std::array<const char *, 7> kEventTableLabels = {
@@ -1501,15 +1501,19 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double fontScale =
         std::clamp(fontSize / (14.0 * kLegendFontScale), 0.0, 1.0);
 
-    const double textHeightEstimate = fontSize * 1.2;
-    const double lineHeight =
-        (textHeightEstimate * static_cast<double>(kLegendTypeLineCount)) +
-        (separatorGap * static_cast<double>(std::max(0, kLegendTypeLineCount - 1)));
     const double rowHeightCandidate =
         totalRows > 0 ? (availableHeight / static_cast<double>(totalRows)) : 0.0;
-    const double rowHeight =
-        std::max(lineHeight,
-                 rowHeightCandidate * kLegendLineSpacingScale);
+    const double maxLineHeightForRow =
+        std::max(0.0, (rowHeightCandidate - separatorGap) /
+                          static_cast<double>(kLegendTypeLineCount));
+    const double measuredLineHeight = ComputePdfRunLineHeight(
+        fontCatalog.regular, fontSize);
+    if (maxLineHeightForRow > 0.0 && measuredLineHeight > maxLineHeightForRow) {
+      fontSize *= maxLineHeightForRow / measuredLineHeight;
+    }
+    const double textHeightEstimate =
+        ComputePdfRunLineHeight(fontCatalog.regular, fontSize);
+    const double rowHeight = rowHeightCandidate * kLegendLineSpacingScale;
     const double singleTextOffset =
         std::max(0.0, (rowHeight - textHeightEstimate) * 0.5);
     const double typeBlockHeight =
@@ -1812,7 +1816,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     y -= separatorGap;
 
     for (const auto &item : legend.items) {
-      if (y - rowHeight < frameY + paddingBottom)
+      if ((y - rowHeight) + 1e-6 < frameY + paddingBottom)
         break;
 
       const std::string countText = encodeText(std::to_string(item.count));
@@ -1968,9 +1972,12 @@ Viewer2DExportResult ExportLayoutToPdf(
 
       appendText(xCount, y - singleTextOffset - fontSize, countText, "F1", 0.08, 0.08,
                  0.08);
-      appendText(xType, y - typeTextOffset - fontSize, typeLines[0], "F1", 0.08, 0.08,
+      const bool hasSecondTypeLine = !typeLines[1].empty();
+      const double firstTypeOffset =
+          hasSecondTypeLine ? typeTextOffset : singleTextOffset;
+      appendText(xType, y - firstTypeOffset - fontSize, typeLines[0], "F1", 0.08, 0.08,
                  0.08);
-      if (!typeLines[1].empty()) {
+      if (hasSecondTypeLine) {
         const double secondTypeBaseline =
             y - typeTextOffset - fontSize +
             ComputeTextLineAdvance(textHeightEstimate * 0.8,
