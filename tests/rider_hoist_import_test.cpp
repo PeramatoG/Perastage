@@ -228,5 +228,39 @@ int main() {
   assert(foundEnglishLx1);
   assert(foundEnglishBackdrop);
 
+  cfg.Reset();
+  const std::string ambiguousBridgeText =
+      "RIGGING Y ESTRUCTURAS\n"
+      "2 TRUSS 45X45 APILABLE PRO 10m + HUESITOS PARA PUENTES LX\n"
+      "4 MOTOR 500Kg + GRILLETES + ESLINGAS PARA PUENTES LX\n";
+  assert(RiderImporter::ImportText(ambiguousBridgeText));
+  const auto &ambiguousBridgeScene = cfg.GetScene();
+  int lx1TrussCount = 0;
+  int lx2TrussCount = 0;
+  int lx1SupportCount = 0;
+  int lx2SupportCount = 0;
+  bool pollutedLayerNameFound = false;
+  for (const auto &[uuid, truss] : ambiguousBridgeScene.trusses) {
+    (void)uuid;
+    if (truss.positionName == "LX1")
+      ++lx1TrussCount;
+    else if (truss.positionName == "LX2")
+      ++lx2TrussCount;
+    if (truss.layer.find("HUESITOS") != std::string::npos)
+      pollutedLayerNameFound = true;
+  }
+  for (const auto &[uuid, support] : ambiguousBridgeScene.supports) {
+    (void)uuid;
+    if (support.positionName == "LX1")
+      ++lx1SupportCount;
+    else if (support.positionName == "LX2")
+      ++lx2SupportCount;
+  }
+  assert(lx1TrussCount > 0);
+  assert(lx2TrussCount > 0);
+  assert(lx1SupportCount == 2);
+  assert(lx2SupportCount == 2);
+  assert(!pollutedLayerNameFound);
+
   return 0;
 }
