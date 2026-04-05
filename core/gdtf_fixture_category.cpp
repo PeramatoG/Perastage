@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <limits>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <string>
