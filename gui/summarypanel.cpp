@@ -50,85 +50,17 @@ SummaryPanel::SummaryPanel(wxWindow* parent, ConfigManager* visibilityConfig,
 
     EnsureColumnsForMode(SummaryMode::Generic);
 
-    auto applyInitialColumnWidths = [this]() {
-        if (!table)
-            return;
-        if (table->GetColumnCount() == 0)
-            return;
-
-        const int tableWidth = std::max(0, table->GetClientSize().GetWidth());
-        if (mode == SummaryMode::Fixture) {
-            auto* visibleColumn = table->GetColumn(0);
-            auto* countColumn = table->GetColumn(1);
-            auto* typeColumn = table->GetColumn(2);
-            auto* colorColumn = table->GetColumn(3);
-            if (!visibleColumn || !countColumn || !typeColumn || !colorColumn)
-                return;
-
-            wxClientDC dc(table);
-            dc.SetFont(table->GetFont());
-            int visibleLabelWidth = 0;
-            int countLabelWidth = 0;
-            int colorLabelWidth = 0;
-            dc.GetTextExtent("Visible", &visibleLabelWidth, nullptr);
-            dc.GetTextExtent("Count", &countLabelWidth, nullptr);
-            dc.GetTextExtent("Color", &colorLabelWidth, nullptr);
-
-            const int visibleWidth = visibleLabelWidth + 30;
-            const int countWidth = countLabelWidth + 20;
-            const int colorWidth = std::max(60, colorLabelWidth + 24);
-            const int typeWidth = std::max(120, tableWidth - visibleWidth - countWidth - colorWidth - 8);
-
-            visibleColumn->SetMinWidth(visibleWidth);
-            visibleColumn->SetWidth(visibleWidth);
-            countColumn->SetMinWidth(countWidth);
-            countColumn->SetWidth(countWidth);
-            typeColumn->SetMinWidth(120);
-            typeColumn->SetWidth(typeWidth);
-            colorColumn->SetMinWidth(colorWidth);
-            colorColumn->SetWidth(colorWidth);
-            return;
-        }
-
-        auto* countColumn = table->GetColumn(0);
-        auto* typeColumn = table->GetColumn(1);
-        if (!countColumn || !typeColumn)
-            return;
-
-        wxClientDC dc(table);
-        dc.SetFont(table->GetFont());
-        int countLabelWidth = 0;
-        dc.GetTextExtent("Count", &countLabelWidth, nullptr);
-        const int countWidth = countLabelWidth + 20;
-        const int typeWidth = std::max(120, tableWidth - countWidth - 8);
-        countColumn->SetMinWidth(countWidth);
-        countColumn->SetWidth(countWidth);
-        typeColumn->SetMinWidth(120);
-        typeColumn->SetWidth(typeWidth);
-    };
-
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(table, 1, wxEXPAND | wxALL, 5);
     SetSizer(sizer);
-    applyInitialColumnWidths();
-    CallAfter(applyInitialColumnWidths);
-
-    table->Bind(wxEVT_SIZE, [applyInitialColumnWidths](wxSizeEvent& evt) {
-        applyInitialColumnWidths();
-        evt.Skip();
-    });
-    Bind(wxEVT_SHOW, [applyInitialColumnWidths](wxShowEvent& evt) {
+    BindTableEvents();
+    ApplyInitialColumnWidths();
+    CallAfter([this]() { ApplyInitialColumnWidths(); });
+    Bind(wxEVT_SHOW, [this](wxShowEvent& evt) {
         if (evt.IsShown())
-            applyInitialColumnWidths();
+            ApplyInitialColumnWidths();
         evt.Skip();
     });
-
-    table->Bind(wxEVT_DATAVIEW_ITEM_VALUE_CHANGED,
-                &SummaryPanel::OnItemValueChanged, this);
-    table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
-                &SummaryPanel::OnItemActivated, this);
-    table->Bind(wxEVT_MOTION, &SummaryPanel::OnMouseMove, this);
-    table->Bind(wxEVT_LEAVE_WINDOW, &SummaryPanel::OnMouseLeave, this);
 
 }
 
@@ -275,8 +207,19 @@ void SummaryPanel::EnsureColumnsForMode(SummaryMode requestedMode) {
     if (mode == requestedMode && table->GetColumnCount() > 0)
         return;
 
-    while (table->GetColumnCount() > 0)
-        table->DeleteColumn(table->GetColumn(0));
+    bool recreatedControl = false;
+    while (table->GetColumnCount() > 0) {
+        wxDataViewColumn* firstColumn = table->GetColumn(0);
+        if (!firstColumn)
+            break;
+        if (!table->DeleteColumn(firstColumn)) {
+            RecreateTableControl();
+            recreatedControl = true;
+            break;
+        }
+    }
+    if (recreatedControl && table->GetColumnCount() > 0)
+        return;
 
     if (requestedMode == SummaryMode::Fixture) {
         table->AppendToggleColumn("Visible", wxDATAVIEW_CELL_ACTIVATABLE, 70,
@@ -295,6 +238,100 @@ void SummaryPanel::EnsureColumnsForMode(SummaryMode requestedMode) {
                                 wxDATAVIEW_COL_RESIZABLE);
     }
     mode = requestedMode;
+    ApplyInitialColumnWidths();
+}
+
+void SummaryPanel::BindTableEvents() {
+    if (!table)
+        return;
+
+    table->Bind(wxEVT_SIZE, [this](wxSizeEvent& evt) {
+        ApplyInitialColumnWidths();
+        evt.Skip();
+    });
+    table->Bind(wxEVT_DATAVIEW_ITEM_VALUE_CHANGED,
+                &SummaryPanel::OnItemValueChanged, this);
+    table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
+                &SummaryPanel::OnItemActivated, this);
+    table->Bind(wxEVT_MOTION, &SummaryPanel::OnMouseMove, this);
+    table->Bind(wxEVT_LEAVE_WINDOW, &SummaryPanel::OnMouseLeave, this);
+}
+
+void SummaryPanel::ApplyInitialColumnWidths() {
+    if (!table)
+        return;
+    if (table->GetColumnCount() == 0)
+        return;
+
+    const int tableWidth = std::max(0, table->GetClientSize().GetWidth());
+    if (mode == SummaryMode::Fixture) {
+        auto* visibleColumn = table->GetColumn(0);
+        auto* countColumn = table->GetColumn(1);
+        auto* typeColumn = table->GetColumn(2);
+        auto* colorColumn = table->GetColumn(3);
+        if (!visibleColumn || !countColumn || !typeColumn || !colorColumn)
+            return;
+
+        wxClientDC dc(table);
+        dc.SetFont(table->GetFont());
+        int visibleLabelWidth = 0;
+        int countLabelWidth = 0;
+        int colorLabelWidth = 0;
+        dc.GetTextExtent("Visible", &visibleLabelWidth, nullptr);
+        dc.GetTextExtent("Count", &countLabelWidth, nullptr);
+        dc.GetTextExtent("Color", &colorLabelWidth, nullptr);
+
+        const int visibleWidth = visibleLabelWidth + 30;
+        const int countWidth = countLabelWidth + 20;
+        const int colorWidth = std::max(60, colorLabelWidth + 24);
+        const int typeWidth = std::max(120, tableWidth - visibleWidth - countWidth - colorWidth - 8);
+
+        visibleColumn->SetMinWidth(visibleWidth);
+        visibleColumn->SetWidth(visibleWidth);
+        countColumn->SetMinWidth(countWidth);
+        countColumn->SetWidth(countWidth);
+        typeColumn->SetMinWidth(120);
+        typeColumn->SetWidth(typeWidth);
+        colorColumn->SetMinWidth(colorWidth);
+        colorColumn->SetWidth(colorWidth);
+        return;
+    }
+
+    auto* countColumn = table->GetColumn(0);
+    auto* typeColumn = table->GetColumn(1);
+    if (!countColumn || !typeColumn)
+        return;
+
+    wxClientDC dc(table);
+    dc.SetFont(table->GetFont());
+    int countLabelWidth = 0;
+    dc.GetTextExtent("Count", &countLabelWidth, nullptr);
+    const int countWidth = countLabelWidth + 20;
+    const int typeWidth = std::max(120, tableWidth - countWidth - 8);
+    countColumn->SetMinWidth(countWidth);
+    countColumn->SetWidth(countWidth);
+    typeColumn->SetMinWidth(120);
+    typeColumn->SetWidth(typeWidth);
+}
+
+void SummaryPanel::RecreateTableControl() {
+    if (!table || !store)
+        return;
+
+    wxSizer* sizer = GetSizer();
+    if (sizer)
+        sizer->Detach(table);
+    table->Destroy();
+
+    table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                                   wxDV_ROW_LINES);
+    table->AssociateModel(store);
+    BindTableEvents();
+
+    if (sizer) {
+        sizer->Add(table, 1, wxEXPAND | wxALL, 5);
+        Layout();
+    }
 }
 
 void SummaryPanel::RefreshFixtureVisibilityStyles() {
