@@ -525,11 +525,11 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
   GetDefaultGuiConfigServices().LegacyConfigManager().SetValue("gdtf_fixture_list", listData);
 
+  // open search dialog
+  updateGdtfDownloadBusyOverlay("Preparing fixture search...");
+  GdtfSearchDialog searchDlg(this, listData);
   gdtfDownloadBusyOverlay.reset();
   gdtfDownloadDisabler.reset();
-
-  // open search dialog
-  GdtfSearchDialog searchDlg(this, listData);
   if (searchDlg.ShowModal() == wxID_OK) {
     wxString rid = wxString::FromUTF8(searchDlg.GetSelectedId());
     wxString name = wxString::FromUTF8(searchDlg.GetSelectedName());
