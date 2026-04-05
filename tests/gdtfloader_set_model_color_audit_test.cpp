@@ -14,7 +14,6 @@
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
-#include "../core/app_version.h"
 #include "../core/gdtf_mutation_audit.h"
 #include "../viewer3d/gdtfloader.h"
 
@@ -138,8 +137,7 @@ int main() {
   assert(fixtureType != nullptr);
 
   const char *editor = fixtureType->Attribute("Editor");
-  assert(editor != nullptr);
-  assert(std::string(editor) == "Perastage");
+  assert(editor == nullptr);
 
   tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
   assert(models != nullptr);

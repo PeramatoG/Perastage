@@ -55,6 +55,35 @@ std::string ToLowerCopy(std::string value) {
   return value;
 }
 
+bool IsPerastageEditorValue(const char *editorValue) {
+  if (!editorValue)
+    return false;
+  const std::string editor = editorValue;
+  return editor == "Perastage" || editor.rfind("Perastage ", 0) == 0;
+}
+
+bool IsPerastageModifiedByValue(const char *modifiedByValue) {
+  if (!modifiedByValue)
+    return false;
+  const std::string modifiedBy = modifiedByValue;
+  return modifiedBy == "Perastage" || modifiedBy.rfind("Perastage ", 0) == 0;
+}
+
+bool HasPerastageRevisionModifiedBy(const tinyxml2::XMLElement *fixtureType) {
+  if (!fixtureType)
+    return false;
+  const tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
+  if (!revisions)
+    return false;
+  for (const tinyxml2::XMLElement *revision =
+           revisions->FirstChildElement("Revision");
+       revision; revision = revision->NextSiblingElement("Revision")) {
+    if (IsPerastageModifiedByValue(revision->Attribute("ModifiedBy")))
+      return true;
+  }
+  return false;
+}
+
 bool IsDescriptionXmlPath(const std::string &archivePath) {
   const std::string normalized = ToLowerCopy(NormalizeArchivePath(archivePath));
   return normalized == "description.xml" ||
@@ -707,8 +736,10 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
   if (!fixtureType)
     return true;
 
-  const char *editor = fixtureType->Attribute("Editor");
-  const bool editorIsPerastage = editor && std::string(editor) == "Perastage";
+  const bool revisionModifiedByPerastage =
+      HasPerastageRevisionModifiedBy(fixtureType);
+  const bool editorIsPerastage =
+      IsPerastageEditorValue(fixtureType->Attribute("Editor"));
   const auto compatibility = GdtfMutationAudit::InspectCompatibility(fixtureType);
   result.warningMessage = compatibility.warning;
   result.editorIsPerastage =
@@ -716,7 +747,7 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
           ? true
           : (compatibility.mode ==
                      GdtfMutationAudit::CompatibilityMode::LegacyFallback
-                 ? editorIsPerastage
+                 ? (revisionModifiedByPerastage || editorIsPerastage)
                  : false);
 
   std::string modelSvgBase = ResolveModelSvgBasename(inspectPath, errorMessage);

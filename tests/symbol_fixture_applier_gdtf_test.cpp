@@ -190,8 +190,7 @@ int main() {
   assert(fixtureType != nullptr);
 
   const char *editor = fixtureType->Attribute("Editor");
-  assert(editor != nullptr);
-  assert(std::string(editor) == "Perastage");
+  assert(editor == nullptr);
 
   const bool hasRevision =
       fixtureType->FirstChildElement("Revisions") != nullptr &&

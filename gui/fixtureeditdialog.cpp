@@ -20,11 +20,13 @@
 #include "fixturetablepanel.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
+#include "gdtf_mutation_audit.h"
 #include "projectutils.h"
 #include "gdtf_fixture_category.h"
 #include "symbolcache.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer3dpanel.h"
+#include <wx/datetime.h>
 #include <wx/filedlg.h>
 #include <wx/filename.h>
 #include <wx/clrpicker.h>
@@ -142,10 +144,10 @@ bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
 struct GdtfMetadataSummary {
   std::string creator;
   std::string creationDate;
+  std::string modifiedBy;
   std::string revision;
   std::string lastModified;
   std::string version;
-  std::string fixtureTypeId;
 };
 
 std::string FirstNonEmptyAttribute(tinyxml2::XMLElement *element,
@@ -159,6 +161,25 @@ std::string FirstNonEmptyAttribute(tinyxml2::XMLElement *element,
       return value;
   }
   return "";
+}
+
+std::string FormatMetadataTimestamp(const std::string &value) {
+  if (value.empty())
+    return {};
+
+  wxDateTime parsed;
+  if (parsed.ParseISOCombined(value.c_str())) {
+    if (parsed.IsValid())
+      return parsed.FormatISOCombined(' ').ToStdString();
+  }
+
+  wxDateTime parsedUtc;
+  if (parsedUtc.ParseFormat(value.c_str(), "%Y-%m-%dT%H:%M:%SZ")) {
+    if (parsedUtc.IsValid())
+      return parsedUtc.FormatISOCombined(' ').ToStdString();
+  }
+
+  return value;
 }
 
 bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
@@ -203,14 +224,12 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
   if (!fixtureType)
     return false;
 
-  outSummary.creator = FirstNonEmptyAttribute(
-      fixtureType, {"Creator", "Author", "Editor", "Manufacturer"});
+  outSummary.creator =
+      FirstNonEmptyAttribute(fixtureType, {"Creator", "Author"});
   outSummary.creationDate = FirstNonEmptyAttribute(
       fixtureType, {"CreateDate", "CreationDate", "DateCreated"});
   outSummary.revision = FirstNonEmptyAttribute(
       fixtureType, {"Revision", "DataVersion", "Version"});
-  outSummary.fixtureTypeId =
-      FirstNonEmptyAttribute(fixtureType, {"FixtureTypeID"});
 
   if (root) {
     if (outSummary.version.empty())
@@ -223,6 +242,7 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
 
   tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
   if (revisions) {
+    tinyxml2::XMLElement *firstRevision = revisions->FirstChildElement("Revision");
     tinyxml2::XMLElement *latestRevision = nullptr;
     for (tinyxml2::XMLElement *rev = revisions->FirstChildElement("Revision");
          rev; rev = rev->NextSiblingElement("Revision")) {
@@ -235,12 +255,13 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
       }
       outSummary.lastModified =
           FirstNonEmptyAttribute(latestRevision, {"Date", "TimeStamp"});
+      outSummary.modifiedBy = FirstNonEmptyAttribute(
+          latestRevision, {"ModifiedBy", "UserName", "UserID"});
       if (outSummary.creator.empty()) {
         outSummary.creator = FirstNonEmptyAttribute(
-            latestRevision, {"ModifiedBy", "UserName", "UserID"});
+            firstRevision, {"ModifiedBy", "UserName", "UserID"});
       }
       if (outSummary.creationDate.empty()) {
-        tinyxml2::XMLElement *firstRevision = revisions->FirstChildElement("Revision");
         outSummary.creationDate =
             FirstNonEmptyAttribute(firstRevision, {"Date", "TimeStamp"});
       }
@@ -249,6 +270,8 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
 
   if (outSummary.version.empty())
     outSummary.version = outSummary.revision;
+  outSummary.creationDate = FormatMetadataTimestamp(outSummary.creationDate);
+  outSummary.lastModified = FormatMetadataTimestamp(outSummary.lastModified);
 
   return true;
 }
@@ -390,7 +413,8 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   wxFlexGridSizer *metadataGrid = new wxFlexGridSizer(2, 4, 8);
   metadataGrid->AddGrowableCol(1, 1);
   const std::array<wxString, 6> metadataLabels = {
-      "Creator", "Creation date", "Revision", "Last modified", "Version", "FixtureTypeID"};
+      "Creator", "Creation date", "ModifiedBy", "Revision", "Last modified",
+      "Version"};
   for (size_t i = 0; i < metadataLabels.size(); ++i) {
     metadataGrid->Add(new wxStaticText(this, wxID_ANY, metadataLabels[i]), 0,
                       wxALIGN_CENTER_VERTICAL);
@@ -658,8 +682,8 @@ void FixtureEditDialog::UpdateMetadataSummary() {
   };
   const std::array<wxString, 6> values = {
       toValueOrFallback(metadata.creator), toValueOrFallback(metadata.creationDate),
-      toValueOrFallback(metadata.revision), toValueOrFallback(metadata.lastModified),
-      toValueOrFallback(metadata.version), toValueOrFallback(metadata.fixtureTypeId)};
+      toValueOrFallback(metadata.modifiedBy), toValueOrFallback(metadata.revision),
+      toValueOrFallback(metadata.lastModified), toValueOrFallback(metadata.version)};
   for (size_t i = 0; i < metadataValueLabels.size() && i < values.size(); ++i) {
     if (metadataValueLabels[i])
       metadataValueLabels[i]->SetLabel(values[i]);
@@ -810,7 +834,8 @@ void FixtureEditDialog::ApplyChanges() {
           std::fabs(newWeightKg - originalWeightKg) > 0.01f;
       if (gdtfPhysicalCandidateChanged && gdtfPhysicalChanged &&
           !SetGdtfProperties(std::string(gdtfPath.ToUTF8()), newWeightKg,
-                             newPowerW, "Perastage")) {
+                             newPowerW,
+                             GdtfMutationAudit::BuildPerastageModifiedBy())) {
         wxMessageBox(
             "Could not update GDTF physical properties (Weight/PowerConsumption).",
             "GDTF update", wxOK | wxICON_WARNING, this);
