@@ -174,8 +174,8 @@ bool ProjectLabelAnchor(const ProjectionContext &ctx, double wx, double wy,
       GL_TRUE) {
     return false;
   }
-  outX = static_cast<int>(sx);
-  outY = ctx.height - static_cast<int>(sy);
+  outX = static_cast<int>(std::lround(sx));
+  outY = static_cast<int>(std::lround(static_cast<double>(ctx.height) - sy));
   return true;
 }
 
