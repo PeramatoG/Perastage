@@ -12,9 +12,27 @@ namespace GdtfMutationAudit {
 // only Perastage mutation-audit semantics.
 inline constexpr int kPerastageGdtfMutationSchemaVersion = 1;
 
+enum class CompatibilityMode {
+  LegacyFallback,
+  KnownPerastageVersion,
+  SafeFallbackUnknownVersion,
+};
+
+struct CompatibilityDecision {
+  CompatibilityMode mode = CompatibilityMode::LegacyFallback;
+  std::string warning;
+};
+
 // Returns the root <FixtureType> node, creating <GDTF>/<FixtureType> when
 // needed for mutation operations.
 tinyxml2::XMLElement *EnsureFixtureType(tinyxml2::XMLDocument &doc);
+
+// Decides how to treat Perastage mutation metadata compatibility for a
+// FixtureType node.
+// - No metadata node: legacy fallback (compatible with older files).
+// - Known schema version: treat as trusted Perastage metadata.
+// - Unknown schema version: safe fallback with warning.
+CompatibilityDecision InspectCompatibility(const tinyxml2::XMLElement *fixtureType);
 
 // Returns the <Revisions> node under fixtureType, creating it when missing.
 tinyxml2::XMLElement *EnsureRevisionsNode(tinyxml2::XMLElement *fixtureType,

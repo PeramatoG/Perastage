@@ -64,6 +64,50 @@ std::string MakeFixtureGdtf() {
   return outPath;
 }
 
+std::string MakeFixtureGdtfFromFixtureTypeXml(const std::string &fixtureTypeXml) {
+  wxFileName tempName(wxFileName::CreateTempFileName("gdtf_symbol_compat_"));
+  const std::string outPath = tempName.GetFullPath().ToStdString() + ".gdtf";
+  wxRemoveFile(tempName.GetFullPath());
+
+  wxFFileOutputStream fileOut(outPath);
+  assert(fileOut.IsOk());
+  wxZipOutputStream zipOut(fileOut);
+
+  zipOut.PutNextEntry("description.xml");
+  const std::string xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                          "<GDTF DataVersion=\"1.2\">" +
+                          fixtureTypeXml + "</GDTF>";
+  zipOut.Write(xml.data(), xml.size());
+
+  const std::string symbolBody = "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>";
+  zipOut.PutNextEntry("models/svg/Body.svg");
+  zipOut.Write(symbolBody.data(), symbolBody.size());
+  zipOut.PutNextEntry("models/svg_side/Body.svg");
+  zipOut.Write(symbolBody.data(), symbolBody.size());
+  zipOut.PutNextEntry("models/svg_front/Body.svg");
+  zipOut.Write(symbolBody.data(), symbolBody.size());
+  zipOut.Close();
+
+  return outPath;
+}
+
+symbol_preview::FixtureSymbolInspectionResult InspectFixturePath(const std::string &fixtureUuid,
+                                                                 const std::string &gdtfPath) {
+  auto &cfg = ConfigManager::Get();
+  Fixture fixture;
+  fixture.uuid = fixtureUuid;
+  fixture.typeName = "SymbolFixture";
+  fixture.gdtfSpec = gdtfPath;
+  cfg.GetScene().fixtures[fixture.uuid] = fixture;
+
+  symbol_preview::FixtureSymbolInspectionResult inspection{};
+  std::string errorMessage;
+  assert(symbol_preview::InspectFixtureSymbolState(fixture, cfg.GetScene(), inspection,
+                                                   errorMessage));
+  assert(errorMessage.empty());
+  return inspection;
+}
+
 std::vector<symbols::Symbol2D> BuildSymbols() {
   auto makeView = [](symbols::SymbolView view) {
     symbols::Symbol2D symbol;
@@ -106,6 +150,7 @@ int main() {
   assert(errorMessage.empty());
   assert(before.hasResolvableGdtf);
   assert(!before.editorIsPerastage);
+  assert(before.requiresSymbolGeneration);
 
   const auto symbols = BuildSymbols();
   symbol_preview::ApplySymbolsOptions options;
@@ -177,6 +222,30 @@ int main() {
   assert(after.hasValidSvgSymbolSet);
   assert(!after.requiresSymbolGeneration);
 
+  const std::string currentVersionPath = MakeFixtureGdtfFromFixtureTypeXml(
+      "<FixtureType Name=\"Current\" Manufacturer=\"Acme\" Editor=\"Vendor\">"
+      "<Models><Model Name=\"Body\" File=\"\" PrimitiveType=\"Cube\"/></Models>"
+      "<PerastageMutationAudit SchemaVersion=\"1\"/>"
+      "</FixtureType>");
+  const auto currentVersion =
+      InspectFixturePath("fixture-current-version", currentVersionPath);
+  assert(currentVersion.editorIsPerastage);
+  assert(currentVersion.hasValidSvgSymbolSet);
+  assert(!currentVersion.requiresSymbolGeneration);
+  assert(currentVersion.warningMessage.empty());
+
+  const std::string unknownVersionPath = MakeFixtureGdtfFromFixtureTypeXml(
+      "<FixtureType Name=\"Future\" Manufacturer=\"Acme\" Editor=\"Perastage\">"
+      "<Models><Model Name=\"Body\" File=\"\" PrimitiveType=\"Cube\"/></Models>"
+      "<PerastageMutationAudit SchemaVersion=\"999\"/>"
+      "</FixtureType>");
+  const auto unknownVersion =
+      InspectFixturePath("fixture-unknown-version", unknownVersionPath);
+  assert(!unknownVersion.editorIsPerastage);
+  assert(!unknownVersion.hasValidSvgSymbolSet);
+  assert(unknownVersion.requiresSymbolGeneration);
+  assert(!unknownVersion.warningMessage.empty());
+
   std::vector<GdtfObject> objects;
   std::string loadError;
   assert(LoadGdtf(gdtfPath, objects, &loadError));
@@ -184,6 +253,8 @@ int main() {
 
   std::error_code ec;
   fs::remove(gdtfPath, ec);
+  fs::remove(currentVersionPath, ec);
+  fs::remove(unknownVersionPath, ec);
   cfg.Reset();
   return 0;
 }

@@ -29,6 +29,40 @@ std::string BuildIsoTimestampUtcNow() {
 
 } // namespace
 
+CompatibilityDecision
+InspectCompatibility(const tinyxml2::XMLElement *fixtureType) {
+  CompatibilityDecision decision;
+  if (!fixtureType)
+    return decision;
+
+  const tinyxml2::XMLElement *auditNode =
+      fixtureType->FirstChildElement("PerastageMutationAudit");
+  if (!auditNode)
+    return decision;
+
+  int schemaVersion = -1;
+  if (auditNode->QueryIntAttribute("SchemaVersion", &schemaVersion) !=
+      tinyxml2::XML_SUCCESS) {
+    decision.mode = CompatibilityMode::SafeFallbackUnknownVersion;
+    decision.warning =
+        "PerastageMutationAudit metadata is present but SchemaVersion is "
+        "missing or invalid. Using safe fallback compatibility mode.";
+    return decision;
+  }
+
+  if (schemaVersion == kPerastageGdtfMutationSchemaVersion) {
+    decision.mode = CompatibilityMode::KnownPerastageVersion;
+    return decision;
+  }
+
+  decision.mode = CompatibilityMode::SafeFallbackUnknownVersion;
+  decision.warning =
+      "PerastageMutationAudit SchemaVersion=" + std::to_string(schemaVersion) +
+      " is not supported by this Perastage build. Using safe fallback "
+      "compatibility mode.";
+  return decision;
+}
+
 tinyxml2::XMLElement *EnsureFixtureType(tinyxml2::XMLDocument &doc) {
   tinyxml2::XMLElement *root = doc.FirstChildElement("GDTF");
   if (root) {
