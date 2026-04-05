@@ -39,7 +39,6 @@
 #include <vector>
 
 #include <wx/filename.h>
-#include <wx/busyinfo.h>
 
 namespace {
 bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
@@ -1292,18 +1291,10 @@ void DictionaryEditDialog::OnOk(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  {
-    std::unique_ptr<wxBusyInfo> saveOverlay =
-        std::make_unique<wxBusyInfo>("Saving dictionary changes...");
-    bool saveSucceeded = true;
-    if (fixtureChanged && !SaveFixtures())
-      saveSucceeded = false;
-    if (trussChanged && !SaveTrusses())
-      saveSucceeded = false;
-    saveOverlay.reset();
-    if (!saveSucceeded)
-      return;
-  }
+  if (fixtureChanged)
+    (void)SaveFixtures();
+  if (trussChanged)
+    (void)SaveTrusses();
   EndModal(wxID_OK);
 }
 
