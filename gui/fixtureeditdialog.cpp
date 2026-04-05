@@ -39,6 +39,7 @@
 #include <cmath>
 #include <memory>
 #include <algorithm>
+#include <initializer_list>
 
 namespace {
 
@@ -138,6 +139,120 @@ bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
   return false;
 }
 
+struct GdtfMetadataSummary {
+  std::string creator;
+  std::string creationDate;
+  std::string revision;
+  std::string lastModified;
+  std::string version;
+  std::string fixtureTypeId;
+};
+
+std::string FirstNonEmptyAttribute(tinyxml2::XMLElement *element,
+                                   std::initializer_list<const char *> names) {
+  if (!element)
+    return "";
+  for (const char *name : names) {
+    if (!name)
+      continue;
+    if (const char *value = element->Attribute(name); value && *value)
+      return value;
+  }
+  return "";
+}
+
+bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
+                             GdtfMetadataSummary &outSummary) {
+  outSummary = {};
+  if (gdtfPath.empty())
+    return false;
+
+  wxFileInputStream input(wxString::FromUTF8(gdtfPath));
+  if (!input.IsOk())
+    return false;
+
+  wxZipInputStream zipInput(input);
+  std::unique_ptr<wxZipEntry> entry;
+  std::string descriptionXml;
+  while ((entry.reset(zipInput.GetNextEntry())), entry) {
+    if (entry->GetName().CmpNoCase("description.xml") != 0)
+      continue;
+    char buffer[4096];
+    while (true) {
+      zipInput.Read(buffer, sizeof(buffer));
+      const size_t count = zipInput.LastRead();
+      if (count == 0)
+        break;
+      descriptionXml.append(buffer, buffer + count);
+    }
+    break;
+  }
+  if (descriptionXml.empty())
+    return false;
+
+  tinyxml2::XMLDocument doc;
+  if (doc.Parse(descriptionXml.c_str(), descriptionXml.size()) !=
+      tinyxml2::XML_SUCCESS) {
+    return false;
+  }
+
+  tinyxml2::XMLElement *root = doc.FirstChildElement("GDTF");
+  tinyxml2::XMLElement *fixtureType =
+      root ? root->FirstChildElement("FixtureType")
+           : doc.FirstChildElement("FixtureType");
+  if (!fixtureType)
+    return false;
+
+  outSummary.creator = FirstNonEmptyAttribute(
+      fixtureType, {"Creator", "Author", "Editor", "Manufacturer"});
+  outSummary.creationDate = FirstNonEmptyAttribute(
+      fixtureType, {"CreateDate", "CreationDate", "DateCreated"});
+  outSummary.revision = FirstNonEmptyAttribute(
+      fixtureType, {"Revision", "DataVersion", "Version"});
+  outSummary.fixtureTypeId =
+      FirstNonEmptyAttribute(fixtureType, {"FixtureTypeID"});
+
+  if (root) {
+    if (outSummary.version.empty())
+      outSummary.version =
+          FirstNonEmptyAttribute(root, {"DataVersion", "Version", "CreatedWith"});
+    if (outSummary.creationDate.empty())
+      outSummary.creationDate = FirstNonEmptyAttribute(
+          root, {"CreateDate", "CreationDate", "DateCreated"});
+  }
+
+  tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
+  if (revisions) {
+    tinyxml2::XMLElement *latestRevision = nullptr;
+    for (tinyxml2::XMLElement *rev = revisions->FirstChildElement("Revision");
+         rev; rev = rev->NextSiblingElement("Revision")) {
+      latestRevision = rev;
+    }
+    if (latestRevision) {
+      if (outSummary.revision.empty()) {
+        outSummary.revision = FirstNonEmptyAttribute(
+            latestRevision, {"Text", "Comment", "Version"});
+      }
+      outSummary.lastModified =
+          FirstNonEmptyAttribute(latestRevision, {"Date", "TimeStamp"});
+      if (outSummary.creator.empty()) {
+        outSummary.creator = FirstNonEmptyAttribute(
+            latestRevision, {"ModifiedBy", "UserName", "UserID"});
+      }
+      if (outSummary.creationDate.empty()) {
+        tinyxml2::XMLElement *firstRevision = revisions->FirstChildElement("Revision");
+        outSummary.creationDate =
+            FirstNonEmptyAttribute(firstRevision, {"Date", "TimeStamp"});
+      }
+    }
+  }
+
+  if (outSummary.version.empty())
+    outSummary.version = outSummary.revision;
+
+  return true;
+}
+
 } // namespace
 
 FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
@@ -148,6 +263,8 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   wxBoxSizer *hSizer = new wxBoxSizer(wxHORIZONTAL);
   wxStaticBoxSizer *fixtureSpecificSizer =
       new wxStaticBoxSizer(wxVERTICAL, this, "Fixture-specific");
+  wxStaticBoxSizer *metadataSizer =
+      new wxStaticBoxSizer(wxVERTICAL, this, "GDTF metadata");
   wxStaticBoxSizer *gdtfGeneralSizer =
       new wxStaticBoxSizer(wxVERTICAL, this, "GDTF (shared for this fixture type)");
   wxFlexGridSizer *fixtureGrid = new wxFlexGridSizer(2, 5, 5);
@@ -269,6 +386,20 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   }
 
   fixtureSpecificSizer->Add(fixtureGrid, 1, wxEXPAND | wxALL, 6);
+
+  wxFlexGridSizer *metadataGrid = new wxFlexGridSizer(2, 4, 8);
+  metadataGrid->AddGrowableCol(1, 1);
+  const std::array<wxString, 6> metadataLabels = {
+      "Creator", "Creation date", "Revision", "Last modified", "Version", "FixtureTypeID"};
+  for (size_t i = 0; i < metadataLabels.size(); ++i) {
+    metadataGrid->Add(new wxStaticText(this, wxID_ANY, metadataLabels[i]), 0,
+                      wxALIGN_CENTER_VERTICAL);
+    metadataValueLabels[i] = new wxStaticText(this, wxID_ANY, "-");
+    metadataValueLabels[i]->Wrap(290);
+    metadataGrid->Add(metadataValueLabels[i], 1, wxEXPAND);
+  }
+  metadataSizer->Add(metadataGrid, 1, wxEXPAND | wxALL, 6);
+
   gdtfGeneralSizer->Add(gdtfGrid, 1, wxEXPAND | wxALL, 6);
   gdtfGeneralSizer->Add(
       new wxStaticText(this, wxID_ANY,
@@ -283,7 +414,10 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
                         wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 6);
 
   wxBoxSizer *formSizer = new wxBoxSizer(wxHORIZONTAL);
-  formSizer->Add(fixtureSpecificSizer, 1, wxRIGHT | wxEXPAND, 8);
+  wxBoxSizer *leftColumnSizer = new wxBoxSizer(wxVERTICAL);
+  leftColumnSizer->Add(metadataSizer, 0, wxEXPAND | wxBOTTOM, 8);
+  leftColumnSizer->Add(fixtureSpecificSizer, 1, wxEXPAND);
+  formSizer->Add(leftColumnSizer, 1, wxRIGHT | wxEXPAND, 8);
   formSizer->Add(gdtfGeneralSizer, 1, wxLEFT | wxEXPAND, 8);
   hSizer->Add(formSizer, 3, wxALL | wxEXPAND, 10);
 
@@ -333,6 +467,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   SetSizerAndFit(topSizer);
   UpdateChannels(false);
   UpdateVisualizers();
+  UpdateMetadataSummary();
 }
 
 void FixtureEditDialog::MarkColumnModified(size_t index) {
@@ -386,6 +521,7 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   }
   UpdateChannels(true);
   UpdateVisualizers();
+  UpdateMetadataSummary();
 }
 
 void FixtureEditDialog::OnModeChanged(wxCommandEvent &) { UpdateChannels(true); }
@@ -507,6 +643,25 @@ void FixtureEditDialog::UpdateVisualizers() {
     }
     Layout();
   }
+}
+
+void FixtureEditDialog::UpdateMetadataSummary() {
+  const wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  const std::string path = std::string(gdtfPath.ToUTF8());
+  GdtfMetadataSummary metadata;
+  const bool loaded = LoadGdtfMetadataSummary(path, metadata);
+  const std::array<wxString, 6> values = {
+      loaded && !metadata.creator.empty() ? wxString::FromUTF8(metadata.creator) : "-",
+      loaded && !metadata.creationDate.empty() ? wxString::FromUTF8(metadata.creationDate) : "-",
+      loaded && !metadata.revision.empty() ? wxString::FromUTF8(metadata.revision) : "-",
+      loaded && !metadata.lastModified.empty() ? wxString::FromUTF8(metadata.lastModified) : "-",
+      loaded && !metadata.version.empty() ? wxString::FromUTF8(metadata.version) : "-",
+      loaded && !metadata.fixtureTypeId.empty() ? wxString::FromUTF8(metadata.fixtureTypeId) : "-"};
+  for (size_t i = 0; i < metadataValueLabels.size() && i < values.size(); ++i) {
+    if (metadataValueLabels[i])
+      metadataValueLabels[i]->SetLabel(values[i]);
+  }
+  Layout();
 }
 
 void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
