@@ -33,6 +33,7 @@
   - Online lookup: download fixtures from **GDTF‑Share** via the *Tools → Download GDTF fixture* dialog.
   - Exported MVR packages store referenced GDTFs under `gdtf/` inside the archive and `GDTFSpec` always uses archive‑relative forward‑slash paths.
   - If two different GDTF files share the same filename, export auto‑renames collisions deterministically (`name (1).gdtf`, etc.) and updates each `GDTFSpec` reference.
+  - GDTF mutation and compatibility policy for `description.xml` writes, revision stamping and schema fallback is documented in [`docs/gdtf_mutation_policy.md`](docs/gdtf_mutation_policy.md).
   - Parametric objects exported as Fixture/Truss/Support receive non-empty `FixtureID` + globally unique `FixtureIDNumeric` values across the scene.
 
 ### Rider import from text or PDF
