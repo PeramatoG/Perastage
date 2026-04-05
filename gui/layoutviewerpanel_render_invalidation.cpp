@@ -19,6 +19,7 @@
 
 #include <functional>
 
+#include "configmanager.h"
 #include "guiconfigservices.h"
 
 namespace {
