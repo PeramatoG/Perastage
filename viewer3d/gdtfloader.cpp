@@ -1520,7 +1520,7 @@ bool SetGdtfModelColor(const std::string& gdtfPath,
 
     GdtfMutationAudit::StampPerastageMutationMetadata(ft, doc);
     GdtfMutationAudit::AppendRevision(
-        ft, doc, "Updated fixture default model color from Perastage",
+        ft, doc, "Updated model color",
         GdtfMutationAudit::BuildPerastageModifiedBy());
 
     doc.SaveFile(descPath.c_str());
