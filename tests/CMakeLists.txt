@@ -804,6 +804,74 @@ target_link_libraries(gdtfloader_channel_modes_test PRIVATE ${wxWidgets_LIBRARIE
 add_test(NAME GdtfLoaderChannelModeSummaries COMMAND gdtfloader_channel_modes_test)
 set_library_env(GdtfLoaderChannelModeSummaries)
 
+add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
+               ../viewer3d/gdtfloader.cpp
+               ../viewer3d/loader3ds.cpp
+               ../viewer3d/loaderglb.cpp
+               ../viewer3d/meshprimitives.cpp
+               consolepanel_stub.cpp)
+target_include_directories(gdtfloader_set_properties_test PRIVATE
+                           . ../viewer3d ../models ../gui ../third_party)
+target_link_libraries(gdtfloader_set_properties_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME GdtfLoaderSetPropertiesMutation COMMAND gdtfloader_set_properties_test)
+set_library_env(GdtfLoaderSetPropertiesMutation)
+
+add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test.cpp
+               ../gui/windows/symbol_fixture_applier.cpp
+               ../gui/windows/symbol_preview_exporter.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/guiconfigservices.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/gdtf_fixture_category.cpp
+               ../core/projectutils.cpp
+               ../core/uuidutils.cpp
+               ../core/logger.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp
+               ../viewer3d/gdtfloader.cpp
+               ../viewer3d/loader3ds.cpp
+               ../viewer3d/loaderglb.cpp
+               ../viewer3d/meshprimitives.cpp
+               consolepanel_stub.cpp)
+target_include_directories(symbol_fixture_applier_gdtf_test PRIVATE
+                           . .. ../core ../models ../gui ../viewer3d ../third_party)
+target_link_libraries(symbol_fixture_applier_gdtf_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME SymbolFixtureApplierGdtfMutation COMMAND symbol_fixture_applier_gdtf_test)
+set_library_env(SymbolFixtureApplierGdtfMutation)
+
+add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
+               ../mvr/mvrexporter.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/projectutils.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/gdtf_fixture_category.cpp
+               ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/uuidutils.cpp
+               ../core/dummyprofilelibrary.cpp
+               ../core/logger.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp
+               ../viewer3d/gdtfloader.cpp
+               ../viewer3d/loader3ds.cpp
+               ../viewer3d/loaderglb.cpp
+               ../viewer3d/meshprimitives.cpp
+               consolepanel_stub.cpp)
+target_include_directories(mvr_patched_gdtf_export_test PRIVATE
+                           . .. ../core ../models ../mvr ../gui ../viewer3d ../third_party)
+target_link_libraries(mvr_patched_gdtf_export_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME MvrPatchedGdtfExportMutation COMMAND mvr_patched_gdtf_export_test)
+set_library_env(MvrPatchedGdtfExportMutation)
+
 
 add_executable(user_preferences_store_test
                user_preferences_store_test.cpp
