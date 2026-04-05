@@ -61,6 +61,9 @@ private:
     void UpdatePaneCaption(const wxString& suffix);
     void ShowFixtureSummaryRows(const std::vector<FixtureSummaryRow>& rows);
     void EnsureColumnsForMode(SummaryMode requestedMode);
+    void BindTableEvents();
+    void ApplyInitialColumnWidths();
+    void RecreateTableControl();
     void RefreshFixtureVisibilityStyles();
     void RefreshVisibleViewers() const;
     void OnItemValueChanged(wxDataViewEvent& event);
