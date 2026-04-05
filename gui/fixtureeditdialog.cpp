@@ -163,6 +163,24 @@ std::string FirstNonEmptyAttribute(tinyxml2::XMLElement *element,
   return "";
 }
 
+std::string ExtractRevisionAuthor(tinyxml2::XMLElement *revision) {
+  if (!revision)
+    return {};
+
+  if (const char *modifiedBy = revision->Attribute("ModifiedBy");
+      modifiedBy && *modifiedBy) {
+    return modifiedBy;
+  }
+  if (const char *userName = revision->Attribute("UserName");
+      userName && *userName) {
+    return userName;
+  }
+  if (const char *userId = revision->Attribute("UserID"); userId && *userId) {
+    return std::string("UserID: ") + userId;
+  }
+  return {};
+}
+
 std::string FormatMetadataTimestamp(const std::string &value) {
   if (value.empty())
     return {};
@@ -255,11 +273,9 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
       }
       outSummary.lastModified =
           FirstNonEmptyAttribute(latestRevision, {"Date", "TimeStamp"});
-      outSummary.modifiedBy = FirstNonEmptyAttribute(
-          latestRevision, {"ModifiedBy", "UserName", "UserID"});
+      outSummary.modifiedBy = ExtractRevisionAuthor(latestRevision);
       if (outSummary.creator.empty()) {
-        outSummary.creator = FirstNonEmptyAttribute(
-            firstRevision, {"ModifiedBy", "UserName", "UserID"});
+        outSummary.creator = ExtractRevisionAuthor(firstRevision);
       }
       if (outSummary.creationDate.empty()) {
         outSummary.creationDate =
