@@ -121,6 +121,12 @@ bool EqualsNoCase(std::string_view a, std::string_view b) {
   return true;
 }
 
+bool StartsWithNoCase(std::string_view value, std::string_view prefix) {
+  if (value.size() < prefix.size())
+    return false;
+  return EqualsNoCase(value.substr(0, prefix.size()), prefix);
+}
+
 const tinyxml2::XMLElement *ResolveFixtureType(const tinyxml2::XMLDocument &doc) {
   const tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
   if (fixtureType)
@@ -662,7 +668,7 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
 
   const char *editor = fixtureType->Attribute("Editor");
   const bool editorIsPerastageLegacy =
-      editor && EqualsNoCase(editor, "Perastage");
+      editor && StartsWithNoCase(editor, "Perastage");
   const auto compatibility = GdtfMutationAudit::InspectCompatibility(fixtureType);
   if (!compatibility.warning.empty()) {
     wxLogWarning("GDTF symbol compatibility warning for '%s': %s",

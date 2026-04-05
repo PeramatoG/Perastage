@@ -139,7 +139,7 @@ int main() {
 
   const char *editor = fixtureType->Attribute("Editor");
   assert(editor != nullptr);
-  assert(std::string(editor) == "Perastage");
+  assert(std::string(editor) == std::string("Perastage ") + app::kVersion);
 
   tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
   assert(models != nullptr);

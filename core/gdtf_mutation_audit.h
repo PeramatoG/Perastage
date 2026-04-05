@@ -54,7 +54,8 @@ void AppendRevision(tinyxml2::XMLElement *fixtureType,
                     const std::string &dateUtcIso8601 = "");
 
 // Stamps Perastage-owned mutation metadata under <FixtureType> and sets
-// Editor="Perastage". Metadata is stored in <PerastageMutationAudit>.
+// Editor="Perastage <app version>". Metadata is stored in
+// <PerastageMutationAudit>.
 void StampPerastageMutationMetadata(tinyxml2::XMLElement *fixtureType,
                                     tinyxml2::XMLDocument &doc);
 

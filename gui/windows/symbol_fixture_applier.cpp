@@ -55,6 +55,13 @@ std::string ToLowerCopy(std::string value) {
   return value;
 }
 
+bool IsPerastageEditorValue(const char *editorValue) {
+  if (!editorValue)
+    return false;
+  const std::string editor = editorValue;
+  return editor == "Perastage" || editor.rfind("Perastage ", 0) == 0;
+}
+
 bool IsDescriptionXmlPath(const std::string &archivePath) {
   const std::string normalized = ToLowerCopy(NormalizeArchivePath(archivePath));
   return normalized == "description.xml" ||
@@ -707,8 +714,8 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
   if (!fixtureType)
     return true;
 
-  const char *editor = fixtureType->Attribute("Editor");
-  const bool editorIsPerastage = editor && std::string(editor) == "Perastage";
+  const bool editorIsPerastage =
+      IsPerastageEditorValue(fixtureType->Attribute("Editor"));
   const auto compatibility = GdtfMutationAudit::InspectCompatibility(fixtureType);
   result.warningMessage = compatibility.warning;
   result.editorIsPerastage =
