@@ -192,6 +192,15 @@ Supported truss syntax includes:
     overrides for any axis values provided in the truss line.
   - The **Apply filter** pass preserves these coordinate tokens so pressing
     **Create** after filtering keeps the same truss placement overrides.
+- Optional margin override appended to hang in square brackets, e.g.
+  - `LX1 [0.8]` => per-rider margin override for `LX1`.
+  - Can be written in truss targets (`... PARA LX1 [0.8]`) and hang headers
+    (`LX1 [0.8]` / `LX1 [0.8]:`).
+  - Values use the active UI distance unit system (`metric` or `imperial`).
+  - If both are present, truss-line bracket overrides take precedence over
+    hang-header bracket overrides for the same hang.
+  - The **Apply filter** pass preserves bracket tokens so pressing **Create**
+    after filtering keeps the same margin overrides.
 
 Key truss behaviors:
 
@@ -328,7 +337,8 @@ Missing/empty names fall back to the default scene layer.
 After parsing, imported fixtures are distributed per hang:
 
 1. Truss span for each hang is inferred from imported truss pieces.
-2. Margin comes from `rider_lx*_margin` (for LX hangs).
+2. Margin comes from `rider_lx*_margin` (for LX hangs), unless a square-bracket
+   override (`[value]`) was provided for that hang in the imported rider.
 3. If no truss is found for a hang, fallback spacing is centered around origin with 500 mm steps.
    - Exception for `LX SIDES`: fixtures are still split into left/right groups
      as if side trusses existed, with fallback anchors at `Y = 1.0 m`
