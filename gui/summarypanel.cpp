@@ -318,6 +318,10 @@ void SummaryPanel::RecreateTableControl() {
     if (!table || !store)
         return;
 
+    // Keep the model alive while the old control is destroyed and a new one
+    // takes ownership. This avoids a dangling model pointer on macOS.
+    store->IncRef();
+
     wxSizer* sizer = GetSizer();
     if (sizer)
         sizer->Detach(table);
@@ -326,6 +330,7 @@ void SummaryPanel::RecreateTableControl() {
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                                    wxDV_ROW_LINES);
     table->AssociateModel(store);
+    store->DecRef();
     BindTableEvents();
 
     if (sizer) {
