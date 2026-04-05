@@ -14,6 +14,7 @@
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
+#include "../core/app_version.h"
 #include "../core/gdtf_mutation_audit.h"
 #include "../viewer3d/gdtfloader.h"
 
