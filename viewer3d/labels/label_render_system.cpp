@@ -168,14 +168,14 @@ bool ShouldCullByScreenRect(const ScreenRect &rect, const ProjectionContext &ctx
 }
 
 bool ProjectLabelAnchor(const ProjectionContext &ctx, double wx, double wy,
-                        double wz, int &outX, int &outY) {
+                        double wz, double &outX, double &outY) {
   double sx, sy, sz;
   if (gluProject(wx, wy, wz, ctx.model, ctx.proj, ctx.viewport, &sx, &sy, &sz) !=
       GL_TRUE) {
     return false;
   }
-  outX = static_cast<int>(std::lround(sx));
-  outY = static_cast<int>(std::lround(static_cast<double>(ctx.height) - sy));
+  outX = sx;
+  outY = static_cast<double>(ctx.height) - sy;
   return true;
 }
 
@@ -340,7 +340,7 @@ void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x, int y,
 }
 
 void DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines,
-                      int x, int y, int horizontalAlign = NVG_ALIGN_CENTER,
+                      float x, float y, int horizontalAlign = NVG_ALIGN_CENTER,
                       NVGcolor textColor = nvgRGBAf(1.f, 1.f, 1.f, 1.f),
                       NVGcolor outlineColor = nvgRGBAf(0.f, 0.f, 0.f, 1.f),
                       bool outline = false) {
@@ -383,12 +383,12 @@ void DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines,
           std::array<float, 2>{-1.f, -1.f}, std::array<float, 2>{1.f, -1.f},
           std::array<float, 2>{-1.f, 1.f}, std::array<float, 2>{1.f, 1.f}};
       for (const auto &offset : offsets) {
-        nvgText(vg, static_cast<float>(x) + offset[0], currentY + offset[1],
-                lines[i].text.c_str(), nullptr);
+        nvgText(vg, x + offset[0], currentY + offset[1], lines[i].text.c_str(),
+                nullptr);
       }
     }
     nvgFillColor(vg, textColor);
-    nvgText(vg, static_cast<float>(x), currentY, lines[i].text.c_str(), nullptr);
+    nvgText(vg, x, currentY, lines[i].text.c_str(), nullptr);
     currentY += heights[i] + lineSpacing;
   }
 
@@ -443,8 +443,8 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
     }
 
     const auto anchor = ResolveAnchor(bounds, f.transform.o);
-    int x = 0;
-    int y = 0;
+    double x = 0.0;
+    double y = 0.0;
     if (!ProjectLabelAnchor(projection, anchor[0], anchor[1], anchor[2], x, y))
       continue;
 
@@ -467,7 +467,9 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
 
     auto utf8 = label.ToUTF8();
     DrawText2D(m_controller.GetNanoVGContext(), m_controller.GetLabelFont(),
-               std::string(utf8.data(), utf8.length()), x, y);
+               std::string(utf8.data(), utf8.length()),
+               static_cast<int>(std::lround(x)),
+               static_cast<int>(std::lround(y)));
   }
 }
 
@@ -590,8 +592,8 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     const double wy = anchor[1] + offY;
     const double wz = anchor[2] + offZ;
 
-    int x = 0;
-    int y = 0;
+    double x = 0.0;
+    double y = 0.0;
     if (!ProjectLabelAnchor(projection, wx, wy, wz, x, y))
       continue;
 
@@ -740,8 +742,8 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     const double wy = support.transform.o[1] * RENDER_SCALE;
     const double wz = support.transform.o[2] * RENDER_SCALE;
 
-    int x = 0;
-    int y = 0;
+    double x = 0.0;
+    double y = 0.0;
     if (!ProjectLabelAnchor(projection, wx, wy, wz, x, y))
       continue;
 
@@ -827,15 +829,15 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
         m_controller.IsDarkMode() ? nvgRGBAf(0.f, 0.f, 0.f, 1.f)
                                   : nvgRGBAf(1.f, 1.f, 1.f, 1.f);
     DrawLabelLines2D(m_controller.GetNanoVGContext(), titleLines, x,
-                     static_cast<int>(std::lround(y - kSupportTopGapPx * zoom)),
+                     static_cast<float>(y - kSupportTopGapPx * zoom),
                      NVG_ALIGN_CENTER, textColor, outlineColor, true);
     DrawLabelLines2D(m_controller.GetNanoVGContext(), coordLines, x,
-                     static_cast<int>(std::lround(y + kSupportBottomGapPx * zoom)),
+                     static_cast<float>(y + kSupportBottomGapPx * zoom),
                      NVG_ALIGN_CENTER, textColor, outlineColor, true);
     DrawLabelLines2D(
         m_controller.GetNanoVGContext(), infoLines,
-        static_cast<int>(std::lround(x + kSupportRightGapPx * zoom)),
-        static_cast<int>(std::lround(y - kSupportInfoTopGapPx * zoom)), NVG_ALIGN_LEFT,
+        static_cast<float>(x + kSupportRightGapPx * zoom),
+        static_cast<float>(y - kSupportInfoTopGapPx * zoom), NVG_ALIGN_LEFT,
         textColor, outlineColor, true);
   }
 }
@@ -880,8 +882,8 @@ void LabelRenderSystem::DrawTrussLabels(int width, int height) {
     }
 
     const auto anchor = ResolveAnchor(bounds, t.transform.o);
-    int x = 0;
-    int y = 0;
+    double x = 0.0;
+    double y = 0.0;
     if (!ProjectLabelAnchor(projection, anchor[0], anchor[1], anchor[2], x, y))
       continue;
 
@@ -893,7 +895,9 @@ void LabelRenderSystem::DrawTrussLabels(int width, int height) {
 
     auto utf8 = label.ToUTF8();
     DrawText2D(m_controller.GetNanoVGContext(), m_controller.GetLabelFont(),
-               std::string(utf8.data(), utf8.length()), x, y);
+               std::string(utf8.data(), utf8.length()),
+               static_cast<int>(std::lround(x)),
+               static_cast<int>(std::lround(y)));
     ++labelsDrawn;
   }
 }
@@ -938,8 +942,8 @@ void LabelRenderSystem::DrawSceneObjectLabels(int width, int height) {
     }
 
     const auto anchor = ResolveAnchor(bounds, obj.transform.o);
-    int x = 0;
-    int y = 0;
+    double x = 0.0;
+    double y = 0.0;
     if (!ProjectLabelAnchor(projection, anchor[0], anchor[1], anchor[2], x, y))
       continue;
 
@@ -947,7 +951,9 @@ void LabelRenderSystem::DrawSceneObjectLabels(int width, int height) {
                                       : wxString::FromUTF8(obj.name);
     auto utf8 = label.ToUTF8();
     DrawText2D(m_controller.GetNanoVGContext(), m_controller.GetLabelFont(),
-               std::string(utf8.data(), utf8.length()), x, y);
+               std::string(utf8.data(), utf8.length()),
+               static_cast<int>(std::lround(x)),
+               static_cast<int>(std::lround(y)));
     ++labelsDrawn;
   }
 }
