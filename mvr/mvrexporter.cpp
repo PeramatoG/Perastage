@@ -1593,20 +1593,22 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     std::string fixtureSourceGdtf = f.gdtfSpec;
     if (fixtureSourceGdtf.empty()) {
       fixtureSourceGdtf = ResolveFallbackFixtureGdtfPath();
+      const std::string fallbackHint = std::string(kDummyFallbackFixtureGdtfFileName) +
+                                       " (legacy: " +
+                                       kLegacyFallbackFixtureGdtfFileName + ")";
       if (fixtureSourceGdtf.empty()) {
-        Logger::Instance().Log(
-            Logger::Level::Warn,
-            wxString::Format(
-                "Fixture '%s' (uuid=%s) has no GDTF and fallback '%s' is not available.",
-                fixtureExportName.c_str(), f.uuid.c_str(), kFallbackFixtureGdtfFileName)
-                .ToStdString());
+        std::ostringstream msg;
+        msg << "Fixture '" << fixtureExportName << "' (uuid=" << f.uuid
+            << ") has no GDTF and fallback '" << fallbackHint
+            << "' is not available.";
+        Logger::Instance().Log(Logger::Level::Warn, msg.str());
       } else {
-        Logger::Instance().Log(
-            Logger::Level::Info,
-            wxString::Format(
-                "Fixture '%s' (uuid=%s) has no GDTF. Using fallback '%s' for MVR export.",
-                fixtureExportName.c_str(), f.uuid.c_str(), kFallbackFixtureGdtfFileName)
-                .ToStdString());
+        std::ostringstream msg;
+        msg << "Fixture '" << fixtureExportName << "' (uuid=" << f.uuid
+            << ") has no GDTF. Using fallback '"
+            << fs::path(fixtureSourceGdtf).filename().string()
+            << "' for MVR export.";
+        Logger::Instance().Log(Logger::Level::Info, msg.str());
       }
     }
     std::string fixtureName = SanitizeArchiveFileName(fixtureSourceGdtf, "fixture.gdtf");
