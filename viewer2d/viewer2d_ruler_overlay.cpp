@@ -243,9 +243,15 @@ std::string FormatImperialRulerOffsetLabel(float valueMeters) {
 }
 
 CanvasTextStyle BuildRulerLabelStyle(const CanvasStroke &stroke, float zoom) {
+  (void)zoom;
   CanvasTextStyle style;
-  const float pixelsPerMeter = kPixelsPerMeter * std::max(zoom, 0.0001f);
-  style.fontSize = kRulerLabelFontSize / pixelsPerMeter;
+  // Screen overlays render ruler labels at kRulerLabelFontSize * zoom pixels
+  // so they scale with the scene exactly like fixture labels. For captured
+  // canvas output (PDF export), convert that to world units while preserving
+  // the same zoom-scaled behavior:
+  // worldSize = (kRulerLabelFontSize * zoom) / (kPixelsPerMeter * zoom)
+  //           = kRulerLabelFontSize / kPixelsPerMeter.
+  style.fontSize = kRulerLabelFontSize / kPixelsPerMeter;
   style.color = stroke.color;
   return style;
 }
