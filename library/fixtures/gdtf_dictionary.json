@@ -153,10 +153,7 @@
         "PAR LED PROLIGHT 270 5-IN-1": {
             "category": "Conventional",
             "file": "PAR PRO 270 5-in-1.gdtf",
-            "imported_at": "2026-04-02T08:52:08Z",
-            "mode": "8ch",
-            "sha256": "24afab3ae63682e4bfebe029b94ba49cea4dbca8fb837d21d86538c7315eaa8f",
-            "source": "C:\\codigoscpp\\Perastage\\build\\win-x64-debug-ninja\\library\\fixtures\\PAR PRO 270 5-in-1.gdtf"
+            "mode": "8ch"
         },
         "PAR PRO 270 5-IN-1": {
             "category": "Conventional",
@@ -275,10 +272,7 @@
         "TURBINA": {
             "category": "Smoke",
             "file": "theFAN.gdtf",
-            "imported_at": "2026-04-02T08:57:50Z",
-            "mode": "Mode 1 Channel",
-            "sha256": "6f52a1e2cc82bf9c5e79ee2a6e8a7dc68fd10c320f6f5178b567e6fc4a0fa96e",
-            "source": "C:\\codigoscpp\\Perastage\\build\\win-x64-debug-ninja\\library\\fixtures\\theFAN.gdtf"
+            "mode": "Mode 1 Channel"
         },
         "Tour Hazer 2": {
             "category": "Smoke",
@@ -288,10 +282,7 @@
         "Tour Hazer II": {
             "category": "Smoke",
             "file": "Tour Hazer II.gdtf",
-            "imported_at": "2026-04-02T09:00:18Z",
-            "mode": "Default",
-            "sha256": "82a8b1e4664a31c9fb4f7935271cbb383fe2fe42ea12f4787746874437727a76",
-            "source": "C:\\codigoscpp\\Perastage\\build\\win-x64-debug-ninja\\library\\fixtures\\Tour Hazer II.gdtf"
+            "mode": "Default"
         },
         "XBEAM 17 CMY": {
             "category": "Hybrid",
@@ -326,10 +317,7 @@
         "theFAN": {
             "category": "Smoke",
             "file": "theFAN.gdtf",
-            "imported_at": "2026-04-02T08:57:16Z",
-            "mode": "Mode 1 Channel",
-            "sha256": "6f52a1e2cc82bf9c5e79ee2a6e8a7dc68fd10c320f6f5178b567e6fc4a0fa96e",
-            "source": "C:\\codigoscpp\\Perastage\\build\\win-x64-debug-ninja\\library\\fixtures\\theFAN.gdtf"
+            "mode": "Mode 1 Channel"
         }
     },
     "kind": "perastage.dictionary",
