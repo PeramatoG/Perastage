@@ -89,6 +89,28 @@ int main() {
     return 1;
   }
 
+  const std::string inputWithMarginOverride =
+      "LX1 [0.8]\n"
+      "2 SPOT\n"
+      "RIGGING\n"
+      "1 TRUSS 40X40 14m PARA LX1 [0.8]\n";
+  const std::string previewWithMarginOverride =
+      RiderImporter::BuildFixtureFilterPreview(inputWithMarginOverride);
+  const std::string expectedWithMarginOverride =
+      "LX1 [0.8]\n"
+      "2 SPOT\n"
+      "\n"
+      "\n"
+      "RIGGING\n"
+      "1 TRUSS 40X40 14m LX1 [0.8]";
+  if (previewWithMarginOverride != expectedWithMarginOverride) {
+    std::cerr << "Margin overrides should be preserved in filtered preview.\n"
+              << "Expected:\n"
+              << expectedWithMarginOverride << "\n\nGot:\n"
+              << previewWithMarginOverride << "\n";
+    return 1;
+  }
+
   const std::string inputWithoutParaCoordinates =
       "RIGGING\n"
       "1 TRUSS 40X40 PRO NEGRO 12m LX1 (-1)\n"
