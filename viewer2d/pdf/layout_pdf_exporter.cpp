@@ -56,6 +56,10 @@ constexpr double kLegendSymbolSize =
     96.0 * 2.0 / 3.0 * kLegendContentScale;
 constexpr double kLegendFontScale =
     (2.0 / 3.0) * kLegendContentScale;
+// Typography rendered directly in the PDF stream (legend/event table/text
+// helpers) needs an extra point-size compensation so it visually matches the
+// on-screen layout preview.
+constexpr double kPdfLayoutTypographyCompensationScale = 1.5;
 constexpr double kLegendFallbackSymbolScale = 2.0;
 constexpr double kLegendSvgSymbolScale = 0.4;
 constexpr std::array<const char *, 7> kEventTableLabels = {
@@ -112,6 +116,11 @@ double ComputeTextLineAdvance(double ascent, double descent) {
   // translation. The advance mirrors the ascent + descent used by the
   // on-screen viewer when positioning multi-line labels.
   return -(ascent + descent);
+}
+
+double ApplyLayoutPdfTypographyScale(double baseFontSize,
+                                     double layoutScale) {
+  return baseFontSize * kPdfLayoutTypographyCompensationScale * layoutScale;
 }
 
 int SymbolViewRank(SymbolViewKind kind) {
@@ -1464,9 +1473,8 @@ Viewer2DExportResult ExportLayoutToPdf(
         totalRows > 0 ? (availableHeight / static_cast<double>(totalRows)) - 2.0
                       : 10.0;
     fontSize = std::clamp(fontSize, 6.0, 14.0);
-    // Compensate PDF point units so legend typography matches on-screen Layout Viewer sizing.
-    fontSize *= (kLegendFontScale * 1.5);
-    fontSize *= layoutScale;
+    fontSize = ApplyLayoutPdfTypographyScale(fontSize * kLegendFontScale,
+                                             layoutScale);
     const double fontScale =
         std::clamp(fontSize / (14.0 * kLegendFontScale), 0.0, 1.0);
 
@@ -1991,8 +1999,8 @@ Viewer2DExportResult ExportLayoutToPdf(
     double fontSize =
         totalRows > 0 ? (availableHeight / totalRows) - 2.0 : 10.0;
     fontSize = std::clamp(fontSize, 6.0, 14.0);
-    fontSize *= kLegendFontScale;
-    fontSize *= layoutScale;
+    fontSize = ApplyLayoutPdfTypographyScale(fontSize * kLegendFontScale,
+                                             layoutScale);
     const double emphasizedFontSize =
         std::max(fontSize + 1.0, fontSize * 1.1);
 
