@@ -161,7 +161,14 @@ endif()
 # Mark as GUI application (no console)
 set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
 
-install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
+if(APPLE)
+    install(TARGETS ${PROJECT_NAME}
+        BUNDLE DESTINATION .
+        RUNTIME DESTINATION .
+    )
+else()
+    install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
+endif()
 
 if(UNIX AND NOT APPLE)
     configure_file(
