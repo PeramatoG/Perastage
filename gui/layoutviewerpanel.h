@@ -45,6 +45,7 @@ public:
   const layouts::Layout2DViewDefinition *GetEditableView() const;
   bool DeleteSelectedElement();
   void RefreshLegendData();
+  void RefreshAfterSceneContentUpdate();
   void RefreshAfterFixtureSymbolUpdate();
 
 private:
@@ -195,6 +196,7 @@ private:
   bool NeedsRenderRebuild() const;
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
+  size_t ComputeSceneContentHash() const;
   size_t HashViewContent(const layouts::Layout2DViewDefinition &view) const;
   void OnLoadingTimer(wxTimerEvent &event);
   void OnRenderDelayTimer(wxTimerEvent &event);
@@ -296,6 +298,8 @@ private:
   double lastRenderZoom = 0.0;
   double lastPageWidthPt = 0.0;
   double lastPageHeightPt = 0.0;
+  size_t lastSceneContentHash = 0;
+  bool hasSceneContentHash = false;
   bool renderPending = false;
   bool isLoading = false;
   bool loadingRequested = false;
