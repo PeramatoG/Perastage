@@ -650,13 +650,16 @@ void FixtureEditDialog::UpdateMetadataSummary() {
   const std::string path = std::string(gdtfPath.ToUTF8());
   GdtfMetadataSummary metadata;
   const bool loaded = LoadGdtfMetadataSummary(path, metadata);
+  const wxString unavailable = wxString("-");
+  auto toValueOrFallback = [&](const std::string &value) -> wxString {
+    if (!loaded || value.empty())
+      return unavailable;
+    return wxString::FromUTF8(value);
+  };
   const std::array<wxString, 6> values = {
-      loaded && !metadata.creator.empty() ? wxString::FromUTF8(metadata.creator) : "-",
-      loaded && !metadata.creationDate.empty() ? wxString::FromUTF8(metadata.creationDate) : "-",
-      loaded && !metadata.revision.empty() ? wxString::FromUTF8(metadata.revision) : "-",
-      loaded && !metadata.lastModified.empty() ? wxString::FromUTF8(metadata.lastModified) : "-",
-      loaded && !metadata.version.empty() ? wxString::FromUTF8(metadata.version) : "-",
-      loaded && !metadata.fixtureTypeId.empty() ? wxString::FromUTF8(metadata.fixtureTypeId) : "-"};
+      toValueOrFallback(metadata.creator), toValueOrFallback(metadata.creationDate),
+      toValueOrFallback(metadata.revision), toValueOrFallback(metadata.lastModified),
+      toValueOrFallback(metadata.version), toValueOrFallback(metadata.fixtureTypeId)};
   for (size_t i = 0; i < metadataValueLabels.size() && i < values.size(); ++i) {
     if (metadataValueLabels[i])
       metadataValueLabels[i]->SetLabel(values[i]);
