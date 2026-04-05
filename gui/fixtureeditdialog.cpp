@@ -299,7 +299,7 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
 
 FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     : wxDialog(p, wxID_ANY, "Edit Fixture", wxDefaultPosition,
-               wxSize(860, 700)),
+               wxSize(900, 740)),
       panel(p), row(r) {
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   wxBoxSizer *hSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -437,6 +437,16 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   for (size_t i = 0; i < metadataLabels.size(); ++i) {
     metadataGrid->Add(new wxStaticText(this, wxID_ANY, metadataLabels[i]), 0,
                       wxALIGN_CENTER_VERTICAL);
+    if (i == 1) {
+      metadataDescriptionCtrl = new wxTextCtrl(
+          this, wxID_ANY, "-", wxDefaultPosition, wxSize(-1, 90),
+          wxTE_MULTILINE | wxTE_READONLY);
+      metadataDescriptionCtrl->SetMinSize(wxSize(300, 90));
+      metadataDescriptionCtrl->ShowPosition(0);
+      metadataValueLabels[i] = nullptr;
+      metadataGrid->Add(metadataDescriptionCtrl, 1, wxEXPAND);
+      continue;
+    }
     metadataValueLabels[i] = new wxStaticText(this, wxID_ANY, "-");
     metadataValueLabels[i]->Wrap(360);
     metadataGrid->Add(metadataValueLabels[i], 1, wxEXPAND);
@@ -706,6 +716,11 @@ void FixtureEditDialog::UpdateMetadataSummary() {
       toValueOrFallback(metadata.modifiedBy), toValueOrFallback(metadata.revision),
       toValueOrFallback(metadata.lastModified), toValueOrFallback(metadata.version)};
   for (size_t i = 0; i < metadataValueLabels.size() && i < values.size(); ++i) {
+    if (i == 1 && metadataDescriptionCtrl) {
+      metadataDescriptionCtrl->SetValue(values[i]);
+      metadataDescriptionCtrl->ShowPosition(0);
+      continue;
+    }
     if (metadataValueLabels[i])
       metadataValueLabels[i]->SetLabel(values[i]);
   }
