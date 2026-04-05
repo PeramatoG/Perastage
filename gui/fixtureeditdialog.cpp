@@ -244,6 +244,7 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
 
   tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
   if (revisions) {
+    tinyxml2::XMLElement *firstRevision = revisions->FirstChildElement("Revision");
     tinyxml2::XMLElement *latestRevision = nullptr;
     for (tinyxml2::XMLElement *rev = revisions->FirstChildElement("Revision");
          rev; rev = rev->NextSiblingElement("Revision")) {
@@ -256,8 +257,11 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
       }
       outSummary.lastModified =
           FirstNonEmptyAttribute(latestRevision, {"Date", "TimeStamp"});
+      if (outSummary.creator.empty()) {
+        outSummary.creator = FirstNonEmptyAttribute(
+            firstRevision, {"ModifiedBy", "UserName", "UserID"});
+      }
       if (outSummary.creationDate.empty()) {
-        tinyxml2::XMLElement *firstRevision = revisions->FirstChildElement("Revision");
         outSummary.creationDate =
             FirstNonEmptyAttribute(firstRevision, {"Date", "TimeStamp"});
       }
