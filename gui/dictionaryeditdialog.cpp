@@ -1278,12 +1278,15 @@ void DictionaryEditDialog::OnOk(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  std::unique_ptr<wxBusyInfo> saveOverlay =
-      std::make_unique<wxBusyInfo>("Saving dictionary changes...");
-  if (fixtureChanged)
-    SaveFixtures();
-  if (trussChanged)
-    SaveTrusses();
+  {
+    std::unique_ptr<wxBusyInfo> saveOverlay =
+        std::make_unique<wxBusyInfo>("Saving dictionary changes...");
+    if (fixtureChanged)
+      SaveFixtures();
+    if (trussChanged)
+      SaveTrusses();
+    saveOverlay.reset();
+  }
   EndModal(wxID_OK);
 }
 
@@ -1296,7 +1299,9 @@ void DictionaryEditDialog::OnImportDictionary(wxCommandEvent &WXUNUSED(event)) {
 }
 
 bool DictionaryEditDialog::ImportFixturesDictionary() {
-  wxFileDialog fileDialog(this, "Import fixtures dictionary", wxEmptyString,
+  const wxString fixturesDir =
+      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+  wxFileDialog fileDialog(this, "Import fixtures dictionary", fixturesDir,
                           wxEmptyString,
                           "Dictionary files (*.json;*.zip)|*.json;*.zip|JSON files (*.json)|*.json|ZIP files (*.zip)|*.zip",
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
@@ -1363,7 +1368,9 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
 }
 
 bool DictionaryEditDialog::ImportTrussesDictionary() {
-  wxFileDialog fileDialog(this, "Import trusses dictionary", wxEmptyString,
+  const wxString trussesDir =
+      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+  wxFileDialog fileDialog(this, "Import trusses dictionary", trussesDir,
                           wxEmptyString,
                           "Dictionary files (*.json;*.zip)|*.json;*.zip|JSON files (*.json)|*.json|ZIP files (*.zip)|*.zip",
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
@@ -1465,7 +1472,9 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
   if (!ConfirmExportReferences(this, "Export fixtures dictionary", exportSummary))
     return false;
 
-  wxFileDialog fileDialog(this, "Export fixtures dictionary", wxEmptyString,
+  const wxString fixturesDir =
+      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+  wxFileDialog fileDialog(this, "Export fixtures dictionary", fixturesDir,
                           "gdtf_dictionary_snapshot.json",
                           "JSON files (*.json)|*.json",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
@@ -1515,7 +1524,9 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
   if (!ConfirmExportReferences(this, "Export trusses dictionary", exportSummary))
     return false;
 
-  wxFileDialog fileDialog(this, "Export trusses dictionary", wxEmptyString,
+  const wxString trussesDir =
+      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+  wxFileDialog fileDialog(this, "Export trusses dictionary", trussesDir,
                           "truss_dictionary_snapshot.json",
                           "JSON files (*.json)|*.json",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
@@ -1561,7 +1572,9 @@ bool DictionaryEditDialog::ExportFixturesPortableBundle() {
     return false;
   }
 
-  wxFileDialog fileDialog(this, "Export portable fixtures bundle", wxEmptyString,
+  const wxString fixturesDir =
+      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+  wxFileDialog fileDialog(this, "Export portable fixtures bundle", fixturesDir,
                           "gdtf_dictionary_bundle.zip",
                           "ZIP files (*.zip)|*.zip",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
@@ -1590,7 +1603,9 @@ bool DictionaryEditDialog::ExportTrussesPortableBundle() {
     return false;
   }
 
-  wxFileDialog fileDialog(this, "Export portable trusses bundle", wxEmptyString,
+  const wxString trussesDir =
+      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+  wxFileDialog fileDialog(this, "Export portable trusses bundle", trussesDir,
                           "truss_dictionary_bundle.zip",
                           "ZIP files (*.zip)|*.zip",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
