@@ -84,6 +84,7 @@ using json = nlohmann::json;
 #include "gdtfnet.h"
 #include "gdtfsearchdialog.h"
 #include "layout2dviewdialog.h"
+#include "LayoutManager.h"
 #include "layoutviewpresets.h"
 #include "mainwindow_io_controller.h"
 #include "mainwindow_layout_controller.h"
@@ -701,9 +702,12 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
   SetStartupProjectLoadPending(false);
 }
 
-void MainWindow::ResetProject() {
-  GetDefaultGuiConfigServices().LegacyConfigManager().Reset();
-  GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
+void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  cfg.Reset();
+  if (applyLayoutDefaultsForNewProject)
+    layouts::LayoutManager::Get().LoadDefaultsForNewProject(cfg);
+  cfg.MarkSaved();
   fixtureSymbolAutoUpdateQueue.clear();
   fixtureSymbolAutoUpdateProcessedKeys.clear();
   fixtureSymbolPendingLibrarySyncUuids.clear();

@@ -435,7 +435,7 @@ void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
   if (!ConfirmSaveIfDirty("creating a new project", "New Project"))
     return;
 
-  ResetProject();
+  ResetProject(true);
 }
 
 void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {

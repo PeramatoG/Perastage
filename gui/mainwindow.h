@@ -70,7 +70,7 @@ public:
                            bool showBlockingLoadUi = true); // Load given project
   void LoadStartupProjectFromPath(const std::string &path);
   bool OpenPathFromCommandLine(const std::string &path);
-  void ResetProject();                               // Clear current project
+  void ResetProject(bool applyLayoutDefaultsForNewProject = false); // Clear current project
 
   static MainWindow *Instance();
   static void SetInstance(MainWindow *inst);
