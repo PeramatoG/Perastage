@@ -751,6 +751,8 @@ Viewer2DExportResult ExportLayoutToPdf(
     result.message = "The selected paper size leaves no space for drawing.";
     return result;
   }
+  const double layoutScale =
+      std::max(0.1, (options.layoutScaleX + options.layoutScaleY) * 0.5);
 
   struct CommandGroup {
     std::vector<CanvasCommand> commands;
@@ -1464,6 +1466,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     fontSize = std::clamp(fontSize, 6.0, 14.0);
     // Compensate PDF point units so legend typography matches on-screen Layout Viewer sizing.
     fontSize *= (kLegendFontScale * 1.5);
+    fontSize *= layoutScale;
     const double fontScale =
         std::clamp(fontSize / (14.0 * kLegendFontScale), 0.0, 1.0);
 
@@ -1989,6 +1992,7 @@ Viewer2DExportResult ExportLayoutToPdf(
         totalRows > 0 ? (availableHeight / totalRows) - 2.0 : 10.0;
     fontSize = std::clamp(fontSize, 6.0, 14.0);
     fontSize *= kLegendFontScale;
+    fontSize *= layoutScale;
     const double emphasizedFontSize =
         std::max(fontSize + 1.0, fontSize * 1.1);
 
@@ -2089,9 +2093,12 @@ Viewer2DExportResult ExportLayoutToPdf(
     for (const auto &line : text.lines) {
       double lineFontSize =
           text.fontSize > 0 ? static_cast<double>(text.fontSize) : 12.0;
+      lineFontSize *= layoutScale;
       for (const auto &run : line.runs) {
         const double runSize =
-            run.fontSize > 0 ? static_cast<double>(run.fontSize) : lineFontSize;
+            run.fontSize > 0
+                ? static_cast<double>(run.fontSize) * layoutScale
+                : lineFontSize;
         lineFontSize = std::max(lineFontSize, runSize);
       }
       const double lineHeight = lineFontSize * 1.2;
@@ -2100,7 +2107,9 @@ Viewer2DExportResult ExportLayoutToPdf(
       double lineWidth = 0.0;
       for (const auto &run : line.runs) {
         const double runSize =
-            run.fontSize > 0 ? static_cast<double>(run.fontSize) : lineFontSize;
+            run.fontSize > 0
+                ? static_cast<double>(run.fontSize) * layoutScale
+                : lineFontSize;
         const PdfFontDefinition *font =
             run.bold ? fontCatalog.bold : fontCatalog.regular;
         const std::string encoded = encodeText(run.text);
@@ -2120,7 +2129,9 @@ Viewer2DExportResult ExportLayoutToPdf(
       }
       for (const auto &run : line.runs) {
         const double runSize =
-            run.fontSize > 0 ? static_cast<double>(run.fontSize) : lineFontSize;
+            run.fontSize > 0
+                ? static_cast<double>(run.fontSize) * layoutScale
+                : lineFontSize;
         const char *fontKey = run.bold ? "F2" : "F1";
         const PdfFontDefinition *font =
             run.bold ? fontCatalog.bold : fontCatalog.regular;

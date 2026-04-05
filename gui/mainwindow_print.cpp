@@ -500,6 +500,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
           opts.pageWidthPt = outputPageW;
           opts.pageHeightPt = outputPageH;
           opts.marginPt = 0.0;
+          opts.layoutScaleX = scaleX;
+          opts.layoutScaleY = scaleY;
           opts.landscape = outputLandscape;
           opts.printIncludeGrid = includeGrid;
           opts.useSimplifiedFootprints = useSimplifiedFootprints;

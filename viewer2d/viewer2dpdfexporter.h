@@ -38,6 +38,8 @@ struct Viewer2DPrintOptions {
   double pageWidthPt = 297.0 * kMmToPt;  // A3 portrait width
   double pageHeightPt = 420.0 * kMmToPt; // A3 portrait height
   double marginPt = 36.0;                // Half an inch margin for readability
+  double layoutScaleX = 1.0;
+  double layoutScaleY = 1.0;
   bool landscape = false;
   bool compressStreams = true;
   int floatPrecision = 3;
