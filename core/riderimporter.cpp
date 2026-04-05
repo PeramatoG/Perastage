@@ -560,6 +560,7 @@ std::string NormalizeHangName(const std::string &raw) {
   if (hang.empty())
     return {};
   hang = std::regex_replace(hang, std::regex("\\([^\\)]*\\)"), "");
+  hang = std::regex_replace(hang, std::regex("\\[[^\\]]*\\]"), "");
   hang = Trim(hang);
   if (hang.empty())
     return {};

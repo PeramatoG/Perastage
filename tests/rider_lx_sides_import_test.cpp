@@ -140,12 +140,20 @@ int main() {
   assert(RiderImporter::ImportText(withMarginOverrideInHangHeader));
   const auto &sceneMarginHeader = cfg.GetScene();
   std::vector<float> marginHeaderX;
+  int marginHeaderTrussCount = 0;
   for (const auto &[uuid, fixture] : sceneMarginHeader.fixtures) {
     (void)uuid;
     if (fixture.positionName == "LX1")
       marginHeaderX.push_back(fixture.transform.o[0]);
   }
+  for (const auto &[uuid, truss] : sceneMarginHeader.trusses) {
+    (void)uuid;
+    if (truss.positionName == "LX1")
+      ++marginHeaderTrussCount;
+    assert(truss.positionName.find('[') == std::string::npos);
+  }
   assert(marginHeaderX.size() == 3);
+  assert(marginHeaderTrussCount > 0);
   std::sort(marginHeaderX.begin(), marginHeaderX.end());
   assert(NearlyEqual(marginHeaderX.front(), -4000.0f));
   assert(NearlyEqual(marginHeaderX.back(), 4000.0f));
@@ -161,12 +169,20 @@ int main() {
   assert(RiderImporter::ImportText(withMarginOverrideInTrussLine));
   const auto &sceneMarginLine = cfg.GetScene();
   std::vector<float> marginLineX;
+  int marginLineTrussCount = 0;
   for (const auto &[uuid, fixture] : sceneMarginLine.fixtures) {
     (void)uuid;
     if (fixture.positionName == "LX1")
       marginLineX.push_back(fixture.transform.o[0]);
   }
+  for (const auto &[uuid, truss] : sceneMarginLine.trusses) {
+    (void)uuid;
+    if (truss.positionName == "LX1")
+      ++marginLineTrussCount;
+    assert(truss.positionName.find('[') == std::string::npos);
+  }
   assert(marginLineX.size() == 3);
+  assert(marginLineTrussCount > 0);
   std::sort(marginLineX.begin(), marginLineX.end());
   assert(NearlyEqual(marginLineX.front(), -4500.0f));
   assert(NearlyEqual(marginLineX.back(), 4500.0f));
