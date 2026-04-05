@@ -205,8 +205,10 @@ int main() {
   tinyxml2::XMLElement *revision =
       fixtureType->FirstChildElement("Revisions")->FirstChildElement("Revision");
   assert(revision != nullptr);
+  const char *date = revision->Attribute("Date");
   const char *text = revision->Attribute("Text");
   const char *modifiedBy = revision->Attribute("ModifiedBy");
+  assert(date != nullptr && std::string(date).size() > 0);
   assert(text != nullptr);
   assert(modifiedBy != nullptr);
   assert(std::string(text) ==
