@@ -11,6 +11,8 @@
 
 namespace layout_pdf_internal {
 
+constexpr double kPdfImplicitLineHeightReductionFactor = 0.96;
+
 double ComputeTextLineAdvance(double ascent, double descent) {
   return -(ascent + descent);
 }
@@ -232,7 +234,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   const double measuredLineHeight =
       style.lineHeight > 0.0f
           ? style.lineHeight * scale
-          : scaledFontSize;
+          : scaledFontSize * kPdfImplicitLineHeightReductionFactor;
   const double extraSpacing =
       style.lineHeight > 0.0f ? style.extraLineSpacing * scale : 0.0;
 
