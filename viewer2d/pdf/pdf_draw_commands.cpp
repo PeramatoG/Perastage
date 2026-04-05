@@ -11,7 +11,7 @@
 
 namespace layout_pdf_internal {
 
-constexpr double kPdfImplicitLineHeightReductionFactor = 0.80;
+constexpr double kPdfLineAdvanceScaleFactor = 0.50;
 
 double ComputeTextLineAdvance(double ascent, double descent) {
   return -(ascent + descent);
@@ -232,9 +232,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   const double descent =
       style.descent > 0.0f ? style.descent * scale : fallbackDescent;
   const double measuredLineHeight =
-      style.lineHeight > 0.0f
-          ? style.lineHeight * scale
-          : scaledFontSize * kPdfImplicitLineHeightReductionFactor;
+      style.lineHeight > 0.0f ? style.lineHeight * scale : scaledFontSize;
   const double extraSpacing =
       style.lineHeight > 0.0f ? style.extraLineSpacing * scale : 0.0;
 
@@ -275,9 +273,10 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   // rendering, even if upstream metrics change sign conventions.
   double lineAdvance = 0.0;
   if (style.lineHeight > 0.0f) {
-    lineAdvance = -(measuredLineHeight + extraSpacing);
+    lineAdvance = -(measuredLineHeight + extraSpacing) *
+                  kPdfLineAdvanceScaleFactor;
   } else {
-    lineAdvance = -measuredLineHeight;
+    lineAdvance = -measuredLineHeight * kPdfLineAdvanceScaleFactor;
   }
   if (lineAdvance > 0.0)
     lineAdvance = -lineAdvance;
