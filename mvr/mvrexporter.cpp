@@ -35,6 +35,7 @@ class wxZipStreamLink;
 #include <tinyxml2.h>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <charconv>
 #include <chrono>
@@ -100,7 +101,8 @@ static void LogLegacyPositionUuidWarning(const std::string &message);
 
 static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kMvrProviderVersion = "1.0";
-static constexpr const char *kFallbackFixtureGdtfFileName = "Generic 1ch.gdtf";
+static constexpr const char *kDummyFallbackFixtureGdtfFileName = "Dummy 1ch.gdtf";
+static constexpr const char *kLegacyFallbackFixtureGdtfFileName = "Generic 1ch.gdtf";
 
 static bool Read3dsChunkHeader(std::ifstream &file, ThreeDsChunkHeader &chunk) {
   if (!file.read(reinterpret_cast<char *>(&chunk.id), sizeof(chunk.id)))
@@ -313,11 +315,18 @@ static std::string TruncateFileNamePreservingExtension(const std::string &fileNa
 
 static std::string ResolveFallbackFixtureGdtfPath() {
   static const std::string resolvedPath = []() {
-    const fs::path fallbackPath =
-        ProjectUtils::GetBaseLibraryPath("fixtures") / kFallbackFixtureGdtfFileName;
-    std::error_code ec;
-    if (fs::exists(fallbackPath, ec) && !ec && fs::is_regular_file(fallbackPath, ec) && !ec)
-      return fallbackPath.generic_string();
+    const fs::path basePath = ProjectUtils::GetBaseLibraryPath("fixtures");
+    const std::array<fs::path, 2> candidates = {
+        basePath / kDummyFallbackFixtureGdtfFileName,
+        basePath / kLegacyFallbackFixtureGdtfFileName,
+    };
+    for (const fs::path &fallbackPath : candidates) {
+      std::error_code ec;
+      if (fs::exists(fallbackPath, ec) && !ec &&
+          fs::is_regular_file(fallbackPath, ec) && !ec) {
+        return fallbackPath.generic_string();
+      }
+    }
     return std::string{};
   }();
   return resolvedPath;
@@ -1584,20 +1593,22 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     std::string fixtureSourceGdtf = f.gdtfSpec;
     if (fixtureSourceGdtf.empty()) {
       fixtureSourceGdtf = ResolveFallbackFixtureGdtfPath();
+      const std::string fallbackHint = std::string(kDummyFallbackFixtureGdtfFileName) +
+                                       " (legacy: " +
+                                       kLegacyFallbackFixtureGdtfFileName + ")";
       if (fixtureSourceGdtf.empty()) {
-        Logger::Instance().Log(
-            Logger::Level::Warn,
-            wxString::Format(
-                "Fixture '%s' (uuid=%s) has no GDTF and fallback '%s' is not available.",
-                fixtureExportName.c_str(), f.uuid.c_str(), kFallbackFixtureGdtfFileName)
-                .ToStdString());
+        std::ostringstream msg;
+        msg << "Fixture '" << fixtureExportName << "' (uuid=" << f.uuid
+            << ") has no GDTF and fallback '" << fallbackHint
+            << "' is not available.";
+        Logger::Instance().Log(Logger::Level::Warn, msg.str());
       } else {
-        Logger::Instance().Log(
-            Logger::Level::Info,
-            wxString::Format(
-                "Fixture '%s' (uuid=%s) has no GDTF. Using fallback '%s' for MVR export.",
-                fixtureExportName.c_str(), f.uuid.c_str(), kFallbackFixtureGdtfFileName)
-                .ToStdString());
+        std::ostringstream msg;
+        msg << "Fixture '" << fixtureExportName << "' (uuid=" << f.uuid
+            << ") has no GDTF. Using fallback '"
+            << fs::path(fixtureSourceGdtf).filename().string()
+            << "' for MVR export.";
+        Logger::Instance().Log(Logger::Level::Info, msg.str());
       }
     }
     std::string fixtureName = SanitizeArchiveFileName(fixtureSourceGdtf, "fixture.gdtf");
