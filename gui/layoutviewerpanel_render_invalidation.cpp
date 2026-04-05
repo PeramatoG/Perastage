@@ -200,7 +200,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
   lastPageHeightPt = pageHeight;
 }
 
-void LayoutViewerPanel::RefreshAfterFixtureSymbolUpdate() {
+void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
   viewRenderVersion++;
   captureInProgress = false;
 
@@ -217,4 +217,8 @@ void LayoutViewerPanel::RefreshAfterFixtureSymbolUpdate() {
   renderDirty = true;
   RequestRenderRebuild();
   Refresh();
+}
+
+void LayoutViewerPanel::RefreshAfterFixtureSymbolUpdate() {
+  RefreshAfterSceneContentUpdate();
 }

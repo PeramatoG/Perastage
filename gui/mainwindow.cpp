@@ -1029,6 +1029,8 @@ void MainWindow::RefreshAfterSceneChange(bool refreshViewport) {
   if (sceneObjPanel)
     sceneObjPanel->ReloadData();
   RefreshSummary();
+  if (layoutViewerPanel)
+    layoutViewerPanel->RefreshAfterSceneContentUpdate();
   if (refreshViewport) {
     if (viewportPanel) {
       viewportPanel->UpdateScene();

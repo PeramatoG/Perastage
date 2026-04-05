@@ -45,6 +45,7 @@ public:
   const layouts::Layout2DViewDefinition *GetEditableView() const;
   bool DeleteSelectedElement();
   void RefreshLegendData();
+  void RefreshAfterSceneContentUpdate();
   void RefreshAfterFixtureSymbolUpdate();
 
 private:
