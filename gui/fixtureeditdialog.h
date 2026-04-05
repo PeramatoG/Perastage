@@ -54,6 +54,7 @@ private:
     wxTextCtrl* chCountCtrl = nullptr;
     wxTextCtrl* modelCtrl = nullptr;
     wxTextCtrl* channelList = nullptr;
+    wxTextCtrl* metadataDescriptionCtrl = nullptr;
     FixturePreviewPanel* preview = nullptr;
     wxStaticBitmap* fixtureImagePreview = nullptr;
     std::array<wxStaticText*, 8> metadataValueLabels{};
