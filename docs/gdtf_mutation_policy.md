@@ -56,8 +56,6 @@ This schema version controls semantics for the `<PerastageMutationAudit .../>` n
 - `PerastageVersionDisplay`
 - `LastMutationDateUtc`
 
-and with `Editor="Perastage <app version>"` set on `<FixtureType>`.
-
 ## 4) Compatibility matrix (legacy / current / future reads)
 
 Compatibility is resolved by `InspectCompatibility(...)` in `core/gdtf_mutation_audit.cpp`.

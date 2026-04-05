@@ -144,10 +144,10 @@ bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
 struct GdtfMetadataSummary {
   std::string creator;
   std::string creationDate;
+  std::string modifiedBy;
   std::string revision;
   std::string lastModified;
   std::string version;
-  std::string fixtureTypeId;
 };
 
 std::string FirstNonEmptyAttribute(tinyxml2::XMLElement *element,
@@ -230,8 +230,6 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
       fixtureType, {"CreateDate", "CreationDate", "DateCreated"});
   outSummary.revision = FirstNonEmptyAttribute(
       fixtureType, {"Revision", "DataVersion", "Version"});
-  outSummary.fixtureTypeId =
-      FirstNonEmptyAttribute(fixtureType, {"FixtureTypeID"});
 
   if (root) {
     if (outSummary.version.empty())
@@ -257,6 +255,8 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
       }
       outSummary.lastModified =
           FirstNonEmptyAttribute(latestRevision, {"Date", "TimeStamp"});
+      outSummary.modifiedBy = FirstNonEmptyAttribute(
+          latestRevision, {"ModifiedBy", "UserName", "UserID"});
       if (outSummary.creator.empty()) {
         outSummary.creator = FirstNonEmptyAttribute(
             firstRevision, {"ModifiedBy", "UserName", "UserID"});
@@ -413,7 +413,8 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   wxFlexGridSizer *metadataGrid = new wxFlexGridSizer(2, 4, 8);
   metadataGrid->AddGrowableCol(1, 1);
   const std::array<wxString, 6> metadataLabels = {
-      "Creator", "Creation date", "Revision", "Last modified", "Version", "FixtureTypeID"};
+      "Creator", "Creation date", "ModifiedBy", "Revision", "Last modified",
+      "Version"};
   for (size_t i = 0; i < metadataLabels.size(); ++i) {
     metadataGrid->Add(new wxStaticText(this, wxID_ANY, metadataLabels[i]), 0,
                       wxALIGN_CENTER_VERTICAL);
@@ -681,8 +682,8 @@ void FixtureEditDialog::UpdateMetadataSummary() {
   };
   const std::array<wxString, 6> values = {
       toValueOrFallback(metadata.creator), toValueOrFallback(metadata.creationDate),
-      toValueOrFallback(metadata.revision), toValueOrFallback(metadata.lastModified),
-      toValueOrFallback(metadata.version), toValueOrFallback(metadata.fixtureTypeId)};
+      toValueOrFallback(metadata.modifiedBy), toValueOrFallback(metadata.revision),
+      toValueOrFallback(metadata.lastModified), toValueOrFallback(metadata.version)};
   for (size_t i = 0; i < metadataValueLabels.size() && i < values.size(); ++i) {
     if (metadataValueLabels[i])
       metadataValueLabels[i]->SetLabel(values[i]);

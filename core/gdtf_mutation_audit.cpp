@@ -132,8 +132,6 @@ void StampPerastageMutationMetadata(tinyxml2::XMLElement *fixtureType,
   if (!fixtureType)
     return;
 
-  fixtureType->SetAttribute("Editor", BuildPerastageModifiedBy().c_str());
-
   tinyxml2::XMLElement *auditNode =
       fixtureType->FirstChildElement("PerastageMutationAudit");
   if (!auditNode) {

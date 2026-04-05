@@ -127,6 +127,27 @@ bool StartsWithNoCase(std::string_view value, std::string_view prefix) {
   return EqualsNoCase(value.substr(0, prefix.size()), prefix);
 }
 
+bool IsPerastageModifiedByValue(const char *modifiedByValue) {
+  if (!modifiedByValue)
+    return false;
+  return StartsWithNoCase(modifiedByValue, "Perastage");
+}
+
+bool HasPerastageRevisionModifiedBy(const tinyxml2::XMLElement *fixtureType) {
+  if (!fixtureType)
+    return false;
+  const tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
+  if (!revisions)
+    return false;
+  for (const tinyxml2::XMLElement *revision =
+           revisions->FirstChildElement("Revision");
+       revision; revision = revision->NextSiblingElement("Revision")) {
+    if (IsPerastageModifiedByValue(revision->Attribute("ModifiedBy")))
+      return true;
+  }
+  return false;
+}
+
 const tinyxml2::XMLElement *ResolveFixtureType(const tinyxml2::XMLDocument &doc) {
   const tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
   if (fixtureType)
@@ -666,6 +687,8 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
     return false;
   }
 
+  const bool revisionModifiedByPerastage =
+      HasPerastageRevisionModifiedBy(fixtureType);
   const char *editor = fixtureType->Attribute("Editor");
   const bool editorIsPerastageLegacy =
       editor && StartsWithNoCase(editor, "Perastage");
@@ -679,7 +702,7 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
           ? true
           : (compatibility.mode ==
                      GdtfMutationAudit::CompatibilityMode::LegacyFallback
-                 ? editorIsPerastageLegacy
+                 ? (revisionModifiedByPerastage || editorIsPerastageLegacy)
                  : false);
 
   const tinyxml2::XMLElement *model = ResolveTargetModel(fixtureType);
