@@ -787,6 +787,7 @@ set_library_env(RiderImportBenchmark)
 
 add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
@@ -799,6 +800,7 @@ set_library_env(GdtfLoaderPrimitiveFallback)
 
 add_executable(gdtfloader_channel_modes_test gdtfloader_channel_modes_test.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
@@ -811,6 +813,7 @@ set_library_env(GdtfLoaderChannelModeSummaries)
 
 add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
@@ -829,6 +832,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/guiconfigservices.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/gdtf_mutation_audit.cpp
                ../core/projectutils.cpp
                ../core/uuidutils.cpp
                ../core/logger.cpp
@@ -841,7 +845,10 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
-               consolepanel_stub.cpp)
+               ../mvr/mvrimporter.cpp
+               ../mvr/mvrexporter.cpp
+               consolepanel_stub.cpp
+               ${LAYOUT_SOURCES})
 target_include_directories(symbol_fixture_applier_gdtf_test PRIVATE
                            . .. ../core ../models ../gui ../viewer3d ../third_party)
 target_link_libraries(symbol_fixture_applier_gdtf_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -855,6 +862,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/gdtf_mutation_audit.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp
@@ -870,7 +878,9 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
-               consolepanel_stub.cpp)
+               ../mvr/mvrimporter.cpp
+               consolepanel_stub.cpp
+               ${LAYOUT_SOURCES})
 target_include_directories(mvr_patched_gdtf_export_test PRIVATE
                            . .. ../core ../models ../mvr ../gui ../viewer3d ../third_party)
 target_link_libraries(mvr_patched_gdtf_export_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
