@@ -95,6 +95,11 @@
             "file": "MAC Axiom Hybrid.gdtf",
             "mode": "Basic"
         },
+        "MAC Axiom Hybrid": {
+            "category": "Hybrid",
+            "file": "MAC Axiom Hybrid.gdtf",
+            "mode": "Basic"
+        },
         "MAC Quantum Profile": {
             "category": "Spot",
             "file": "MAC Quantum Profile.gdtf",
@@ -216,6 +221,7 @@
             "mode": "Mode 1 - Standard 16 - bit"
         },
         "Robin Spiider": {
+            "category": "Wash",
             "file": "Robin Spiider.gdtf",
             "mode": "Mode 3 - Advanced"
         },
@@ -242,10 +248,12 @@
             "mode": "Vector"
         },
         "Spiider": {
+            "category": "Wash",
             "file": "Robin Spiider.gdtf",
             "mode": "Mode 3 - Advanced"
         },
         "Spiider (Bulb=LED)": {
+            "category": "Wash",
             "file": "Robin Spiider.gdtf",
             "mode": "Mode 3 - Advanced"
         },
