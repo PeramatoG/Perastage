@@ -17,6 +17,7 @@
  */
 #include "LayoutManager.h"
 
+#include "LayoutDefaultsLoader.h"
 #include "LayoutTemplateSerializer.h"
 #include "configmanager.h"
 #include "json.hpp"
@@ -24,6 +25,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iterator>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace layouts {
@@ -431,6 +433,42 @@ void LayoutManager::SaveToConfig(ConfigManager &cfg) const {
 void LayoutManager::ResetToDefault(ConfigManager &cfg) {
   layouts = LayoutCollection();
   SaveToConfig(cfg);
+}
+
+bool LayoutManager::LoadDefaultsForNewProject(ConfigManager &cfg) {
+  LayoutDefaultsLoadResult loadedDefaults = LoadLayoutDefaultsFromLibrary();
+  if (loadedDefaults.layouts.empty())
+    return false;
+
+  std::unordered_map<std::string, int> suffixByBaseName;
+  std::unordered_set<std::string> usedNames;
+  for (auto &layout : loadedDefaults.layouts) {
+    EnsureUniqueViewIds(layout);
+    EnsureUniqueLegendIds(layout);
+    EnsureUniqueEventTableIds(layout);
+    EnsureUniqueTextIds(layout);
+    EnsureUniqueImageIds(layout);
+
+    std::string baseName = layout.name.empty() ? "Layout" : layout.name;
+    int suffix = suffixByBaseName[baseName];
+    std::string candidate = baseName;
+    if (suffix > 1)
+      candidate = baseName + " (" + std::to_string(suffix) + ")";
+    while (usedNames.count(candidate) > 0) {
+      ++suffix;
+      candidate = baseName + " (" + std::to_string(suffix) + ")";
+    }
+    if (suffix <= 1)
+      suffixByBaseName[baseName] = 2;
+    else
+      suffixByBaseName[baseName] = suffix + 1;
+    usedNames.insert(candidate);
+    layout.name = candidate;
+  }
+
+  layouts.ReplaceAll(std::move(loadedDefaults.layouts));
+  SaveToConfig(cfg);
+  return true;
 }
 
 void LayoutManager::SyncToConfig() {

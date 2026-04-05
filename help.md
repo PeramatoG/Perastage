@@ -14,7 +14,9 @@ Perastage projects (`.pstg`) store the scene, layouts, and user settings.
 
 **File > New / Load / Save / Save As...**
 
-- **New** creates a blank project.
+- **New** creates a new project. If default layout templates are available in
+  `library/default_layouts/`, they are loaded; otherwise Perastage keeps the
+  built-in blank layout.
 - **Load** opens an existing `.pstg` file.
 - **Save** stores changes in the current project file.
 - **Save As...** writes the project under a new name or location.

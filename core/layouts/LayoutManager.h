@@ -68,6 +68,7 @@ public:
   void LoadFromConfig(ConfigManager &cfg);
   void SaveToConfig(ConfigManager &cfg) const;
   void ResetToDefault(ConfigManager &cfg);
+  bool LoadDefaultsForNewProject(ConfigManager &cfg);
 
 private:
   LayoutManager();
