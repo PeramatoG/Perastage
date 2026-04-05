@@ -489,15 +489,12 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       }
       ApplyModeForGdtf(path, dictMode);
 
-      // Update dictionary with final mode for each previous type
+      // Keep dictionary default modes immutable from project table edits.
       for (size_t idx = 0; idx < selections.size(); ++idx) {
         int r = table->ItemToRow(selections[idx]);
         if (r == wxNOT_FOUND)
           continue;
-        wxVariant modeVar;
-        table->GetValue(modeVar, r, 7);
-        GdtfDictionary::Update(prevTypes[idx], pathUtf8,
-                               std::string(modeVar.GetString().ToUTF8()));
+        GdtfDictionary::Update(prevTypes[idx], pathUtf8);
       }
     }
     ResyncRows(oldOrder, selectedUuids);
@@ -559,11 +556,6 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
           chCount >= 0 ? wxString::Format("%d", chCount) : wxString();
       table->SetValue(wxVariant(chStr), sr, 8);
 
-      wxVariant typeVar;
-      table->GetValue(typeVar, sr, 2);
-      GdtfDictionary::Update(std::string(typeVar.GetString().ToUTF8()),
-                             std::string(gdtfPath.ToUTF8()),
-                             std::string(sel.ToUTF8()));
     }
     ApplyModeForGdtf(gdtfPath, sel);
 
