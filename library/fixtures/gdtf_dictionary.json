@@ -73,12 +73,12 @@
         "JNR BLinder 4x100C (Bulb=LED 3200K)": {
             "category": "Blinder",
             "file": "BLINDER 4 PRO.gdtf",
-            "mode": "4ch d001"
+            "mode": "8ch A001"
         },
         "LED-BL4 (Bulb=LED)": {
             "category": "Blinder",
             "file": "BLINDER 4 PRO.gdtf",
-            "mode": "4ch d001"
+            "mode": "8ch A001"
         },
         "LITELEE B-EYE L10R": {
             "category": "Wash",
@@ -158,12 +158,12 @@
         "PAR LED PROLIGHT 270 5-IN-1": {
             "category": "Conventional",
             "file": "PAR PRO 270 5-in-1.gdtf",
-            "mode": "7ch"
+            "mode": "8ch"
         },
         "PAR PRO 270 5-IN-1": {
             "category": "Conventional",
             "file": "PAR PRO 270 5-in-1.gdtf",
-            "mode": "7ch"
+            "mode": "8ch"
         },
         "PIXEL STROBE 400 RGB": {
             "category": "Strobe",
@@ -198,7 +198,7 @@
         "RoHS 18x10 LED Par RGBWA (Bulb=LED) (Lens=30 deg)": {
             "category": "Conventional",
             "file": "PAR PRO 270 5-in-1.gdtf",
-            "mode": "7ch"
+            "mode": "8ch"
         },
         "Robin MMX Spot": {
             "category": "Spot",
@@ -239,8 +239,9 @@
             "mode": "Shapes"
         },
         "SGM Q7": {
+            "category": "Strobe",
             "file": "Q-7.gdtf",
-            "mode": "6 Channel RAW"
+            "mode": "3 Channel RAW"
         },
         "Sharpy": {
             "category": "Beam",
