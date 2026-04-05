@@ -30,6 +30,7 @@ using namespace PoDoFo;
 
 namespace {
 
+#if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0, 10, 0)
 void AppendEntriesToText(const std::vector<PdfTextEntry> &entries,
                          std::string &out) {
   double lastY = std::numeric_limits<double>::quiet_NaN();
@@ -51,6 +52,7 @@ void AppendEntriesToText(const std::vector<PdfTextEntry> &entries,
     lastX = right;
   }
 }
+#endif
 
 } // namespace
 
