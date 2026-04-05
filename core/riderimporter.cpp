@@ -115,6 +115,36 @@ std::optional<std::string> ExtractParenthesizedToken(const std::string &text) {
   return text.substr(open, close - open + 1);
 }
 
+std::string NormalizeHangName(const std::string &raw);
+
+std::string ResolveHangTargetFallback(const std::string &raw) {
+  std::string candidate = Trim(raw);
+  if (candidate.empty())
+    return {};
+
+  std::smatch targetMatch;
+  if (std::regex_search(candidate, targetMatch, kHoistTargetRe) &&
+      targetMatch.size() > 1) {
+    candidate = Trim(targetMatch[1].str());
+  }
+
+  // Some riders append accessories before the real target:
+  // "... + HUESITOS PARA PUENTES LX". Keep only the effective hang target.
+  const size_t plusPos = candidate.find('+');
+  if (plusPos != std::string::npos) {
+    const std::string tail = Trim(candidate.substr(plusPos + 1));
+    if (!tail.empty()) {
+      std::smatch plusTargetMatch;
+      if (std::regex_search(tail, plusTargetMatch, kHoistTargetRe) &&
+          plusTargetMatch.size() > 1) {
+        candidate = Trim(plusTargetMatch[1].str());
+      }
+    }
+  }
+
+  return NormalizeHangName(candidate);
+}
+
 bool TryExtractTrailingHangWithCoordinate(std::string &text, std::string &hangOut,
                                           std::string &coordinateSuffixOut) {
   std::smatch trailingHangMatch;
@@ -1103,7 +1133,9 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
         if (it != hangCoordinateSuffixByHang.end())
           trussCoordinateSuffix = it->second;
       }
-      hang = NormalizeHangName(hang);
+      hang = ResolveHangTargetFallback(hang);
+      if (hang.empty())
+        hang = NormalizeHangName(currentHang);
 
       // Do not keep floor trusses in filtered output because those are not
       // useful for the target lighting rigging workflow.
@@ -1173,7 +1205,9 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
         if (it != hangCoordinateSuffixByHang.end())
           trussCoordinateSuffix = it->second;
       }
-      hang = NormalizeHangName(hang);
+      hang = ResolveHangTargetFallback(hang);
+      if (hang.empty())
+        hang = NormalizeHangName(currentHang);
       if (hang != "BACKDROP")
         continue;
 
@@ -1195,7 +1229,9 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
         continue;
       std::string hang = NormalizeHangName(currentHang);
       if (std::regex_search(line, hm, kHangFindRe))
-        hang = NormalizeHangName(hm[1].str());
+        hang = ResolveHangTargetFallback(hm[1].str());
+      if (hang.empty())
+        hang = NormalizeHangName(currentHang);
       if (hang == "FLOOR")
         continue;
       std::string out = "1 TRUSS " + formatLengthM(lengthM) + "m";
@@ -1661,7 +1697,9 @@ bool RiderImporter::ImportText(const std::string &text) {
           hang = model;
           model.clear();
         }
-        hang = NormalizeHangName(hang);
+        hang = ResolveHangTargetFallback(hang);
+        if (hang.empty())
+          hang = NormalizeHangName(currentHang);
         if (hang == "FLOOR")
           continue;
 
@@ -1892,7 +1930,9 @@ bool RiderImporter::ImportText(const std::string &text) {
             model.clear();
           }
         }
-        hang = NormalizeHangName(hang);
+        hang = ResolveHangTargetFallback(hang);
+        if (hang.empty())
+          hang = NormalizeHangName(currentHang);
         if (hang != "BACKDROP")
           continue;
 
@@ -2008,10 +2048,10 @@ bool RiderImporter::ImportText(const std::string &text) {
         std::string hang = currentHang;
         std::optional<TrussCoordinateOverride> coordinateOverride =
             ParseTrussCoordinateOverride(hang, distanceUnitSystem);
-        if (std::regex_search(line, hm, kHangFindRe)) {
-          hang = hm[1];
-          hang = NormalizeHangName(hang);
-        }
+        if (std::regex_search(line, hm, kHangFindRe))
+          hang = ResolveHangTargetFallback(hm[1].str());
+        if (hang.empty())
+          hang = NormalizeHangName(currentHang);
         if (!coordinateOverride.has_value()) {
           const auto hangOverrideIt = hangCoordinateOverrides.find(hang);
           if (hangOverrideIt != hangCoordinateOverrides.end())

@@ -56,6 +56,9 @@ Filter behavior:
 13. Removes parenthesized notes from fixture tokens to reduce rider noise.
 14. The filter pass is idempotent for normalized truss lines ending in
     `SCREEN` (re-applying **Apply filter** keeps those lines).
+15. Truss targets with accessory suffixes are normalized to the effective hang
+    target (for example, `... + HUESITOS PARA PUENTES LX` is interpreted as
+    `PUENTES LX`).
 
 After applying the filter, users can manually adjust the filtered text and then
 press **Create**; the same normalization rules are still applied at creation
