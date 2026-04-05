@@ -117,6 +117,8 @@ add_executable(layout_template_import_name_collision_test
                ../core/projectutils.cpp
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp)
+target_link_libraries(layout_template_import_name_collision_test
+                      PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME LayoutTemplateImportNameCollision
          COMMAND layout_template_import_name_collision_test)
 
