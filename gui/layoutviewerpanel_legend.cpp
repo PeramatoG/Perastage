@@ -1544,8 +1544,11 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       }
     }
     dc.DrawText(rowText.countText, xCount, y + rowSingleTextOffset);
-    dc.DrawText(wrappedType[0], xType, y + rowTypeTextOffset);
-    if (!wrappedType[1].empty())
+    const bool hasSecondTypeLine = !wrappedType[1].empty();
+    const int firstTypeOffset =
+        hasSecondTypeLine ? rowTypeTextOffset : rowSingleTextOffset;
+    dc.DrawText(wrappedType[0], xType, y + firstTypeOffset);
+    if (hasSecondTypeLine)
       dc.DrawText(wrappedType[1], xType,
                   y + rowTypeTextOffset + textHeight + separatorGapPx);
     if (showChannelColumn)

@@ -59,7 +59,7 @@ constexpr double kLegendFontScale =
 // Typography rendered directly in the PDF stream (legend/event table/text
 // helpers) needs an extra point-size compensation so it visually matches the
 // on-screen layout preview.
-constexpr double kPdfLayoutTypographyCompensationScale = 1.5;
+constexpr double kPdfLayoutTypographyCompensationScale = 1.45;
 constexpr double kLegendFallbackSymbolScale = 2.0;
 constexpr double kLegendSvgSymbolScale = 0.4;
 constexpr std::array<const char *, 7> kEventTableLabels = {
@@ -121,6 +121,29 @@ double ComputeTextLineAdvance(double ascent, double descent) {
 double ApplyLayoutPdfTypographyScale(double baseFontSize,
                                      double layoutScale) {
   return baseFontSize * kPdfLayoutTypographyCompensationScale * layoutScale;
+}
+
+double ComputePdfRunAscent(const PdfFontDefinition *font, double fontSize) {
+  if (!font || !font->embedded || font->metrics.unitsPerEm <= 0)
+    return fontSize * 0.8;
+  const double unitsPerEm = static_cast<double>(font->metrics.unitsPerEm);
+  const double ascentUnits = std::max(0.0, static_cast<double>(font->metrics.ascent));
+  if (ascentUnits <= 0.0)
+    return fontSize * 0.8;
+  return (ascentUnits / unitsPerEm) * fontSize;
+}
+
+double ComputePdfRunLineHeight(const PdfFontDefinition *font, double fontSize) {
+  if (!font || !font->embedded || font->metrics.unitsPerEm <= 0)
+    return fontSize * 1.2;
+  const double unitsPerEm = static_cast<double>(font->metrics.unitsPerEm);
+  const double ascentUnits = std::max(0.0, static_cast<double>(font->metrics.ascent));
+  const double descentUnits =
+      std::abs(std::min(0.0, static_cast<double>(font->metrics.descent)));
+  const double heightUnits = ascentUnits + descentUnits;
+  if (heightUnits <= 0.0)
+    return fontSize * 1.2;
+  return (heightUnits / unitsPerEm) * fontSize;
 }
 
 int SymbolViewRank(SymbolViewKind kind) {
@@ -1478,15 +1501,19 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double fontScale =
         std::clamp(fontSize / (14.0 * kLegendFontScale), 0.0, 1.0);
 
-    const double textHeightEstimate = fontSize * 1.2;
-    const double lineHeight =
-        (textHeightEstimate * static_cast<double>(kLegendTypeLineCount)) +
-        (separatorGap * static_cast<double>(std::max(0, kLegendTypeLineCount - 1)));
     const double rowHeightCandidate =
         totalRows > 0 ? (availableHeight / static_cast<double>(totalRows)) : 0.0;
-    const double rowHeight =
-        std::max(lineHeight,
-                 rowHeightCandidate * kLegendLineSpacingScale);
+    const double maxLineHeightForRow =
+        std::max(0.0, (rowHeightCandidate - separatorGap) /
+                          static_cast<double>(kLegendTypeLineCount));
+    const double measuredLineHeight = ComputePdfRunLineHeight(
+        fontCatalog.regular, fontSize);
+    if (maxLineHeightForRow > 0.0 && measuredLineHeight > maxLineHeightForRow) {
+      fontSize *= maxLineHeightForRow / measuredLineHeight;
+    }
+    const double textHeightEstimate =
+        ComputePdfRunLineHeight(fontCatalog.regular, fontSize);
+    const double rowHeight = rowHeightCandidate * kLegendLineSpacingScale;
     const double singleTextOffset =
         std::max(0.0, (rowHeight - textHeightEstimate) * 0.5);
     const double typeBlockHeight =
@@ -1789,7 +1816,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     y -= separatorGap;
 
     for (const auto &item : legend.items) {
-      if (y - rowHeight < frameY + paddingBottom)
+      if ((y - rowHeight) + 1e-6 < frameY + paddingBottom)
         break;
 
       const std::string countText = encodeText(std::to_string(item.count));
@@ -1945,9 +1972,12 @@ Viewer2DExportResult ExportLayoutToPdf(
 
       appendText(xCount, y - singleTextOffset - fontSize, countText, "F1", 0.08, 0.08,
                  0.08);
-      appendText(xType, y - typeTextOffset - fontSize, typeLines[0], "F1", 0.08, 0.08,
+      const bool hasSecondTypeLine = !typeLines[1].empty();
+      const double firstTypeOffset =
+          hasSecondTypeLine ? typeTextOffset : singleTextOffset;
+      appendText(xType, y - firstTypeOffset - fontSize, typeLines[0], "F1", 0.08, 0.08,
                  0.08);
-      if (!typeLines[1].empty()) {
+      if (hasSecondTypeLine) {
         const double secondTypeBaseline =
             y - typeTextOffset - fontSize +
             ComputeTextLineAdvance(textHeightEstimate * 0.8,
@@ -2102,14 +2132,20 @@ Viewer2DExportResult ExportLayoutToPdf(
       double lineFontSize =
           text.fontSize > 0 ? static_cast<double>(text.fontSize) : 12.0;
       lineFontSize *= layoutScale;
+      double lineAscent = ComputePdfRunAscent(fontCatalog.regular, lineFontSize);
+      double lineHeight = ComputePdfRunLineHeight(fontCatalog.regular, lineFontSize);
       for (const auto &run : line.runs) {
         const double runSize =
             run.fontSize > 0
                 ? static_cast<double>(run.fontSize) * layoutScale
                 : lineFontSize;
         lineFontSize = std::max(lineFontSize, runSize);
+        const PdfFontDefinition *runFont =
+            run.bold ? fontCatalog.bold : fontCatalog.regular;
+        lineAscent = std::max(lineAscent, ComputePdfRunAscent(runFont, runSize));
+        lineHeight =
+            std::max(lineHeight, ComputePdfRunLineHeight(runFont, runSize));
       }
-      const double lineHeight = lineFontSize * 1.2;
       if (usedHeight + lineHeight > availableH && usedHeight > 0.0)
         break;
       double lineWidth = 0.0;
@@ -2129,7 +2165,7 @@ Viewer2DExportResult ExportLayoutToPdf(
       } else if (text.alignment == LayoutTextExportData::Alignment::Right) {
         x = frameX + frameW - padding - lineWidth;
       }
-      const double y = frameY + frameH - padding - usedHeight - lineFontSize;
+      const double y = frameY + frameH - padding - usedHeight - lineAscent;
       double cursorX = x;
       if (line.runs.empty()) {
         usedHeight += lineHeight;

@@ -230,13 +230,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   const double descent =
       style.descent > 0.0f ? style.descent * scale : fallbackDescent;
   const double measuredLineHeight =
-      style.lineHeight > 0.0f
-          ? style.lineHeight * scale
-          : (ascent + descent +
-             (font && font->embedded
-                  ? (font->metrics.lineGap * scaledFontSize /
-                     font->metrics.unitsPerEm)
-                  : 0.0));
+      style.lineHeight > 0.0f ? style.lineHeight * scale : scaledFontSize;
   const double extraSpacing =
       style.lineHeight > 0.0f ? style.extraLineSpacing * scale : 0.0;
 
@@ -279,7 +273,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   if (style.lineHeight > 0.0f) {
     lineAdvance = -(measuredLineHeight + extraSpacing);
   } else {
-    lineAdvance = ComputeTextLineAdvance(ascent, descent);
+    lineAdvance = -measuredLineHeight;
   }
   if (lineAdvance > 0.0)
     lineAdvance = -lineAdvance;

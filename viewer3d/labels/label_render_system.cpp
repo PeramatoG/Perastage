@@ -634,6 +634,7 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
 
       const float pxToWorld = 1.0f / (PIXELS_PER_METER * zoom);
       const float lineSpacingWorld = 2.0f * pxToWorld;
+      constexpr float kPdfFixtureLabelLineAdvanceScale = 0.82f;
 
       std::vector<float> worldFontSizes;
       std::vector<float> lineHeightsWorld;
@@ -707,7 +708,9 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
         }
         m_controller.RecordText(canvasAnchor[0], baseline, lines[i].text, style);
         if (i + 1 < lines.size())
-          currentY -= lineHeightsWorld[i] + lineSpacingWorld;
+          currentY -=
+              (lineHeightsWorld[i] + lineSpacingWorld) *
+              kPdfFixtureLabelLineAdvanceScale;
       }
     }
 
