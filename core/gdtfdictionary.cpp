@@ -341,11 +341,17 @@ LoadStatus GetLastLoadStatus() {
   return g_lastLoadStatus;
 }
 
-void Save(const std::unordered_map<std::string, Entry> &dict) {
+bool Save(const std::unordered_map<std::string, Entry> &dict,
+          std::string *errorOut) {
+  if (errorOut)
+    errorOut->clear();
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   fs::path file = GetUserDictFile();
-  if (file.empty())
-    return;
+  if (file.empty()) {
+    if (errorOut)
+      *errorOut = "User fixtures dictionary path is empty";
+    return false;
+  }
   nlohmann::json entries = nlohmann::json::object();
   std::vector<std::string> keys;
   keys.reserve(dict.size());
@@ -380,9 +386,27 @@ void Save(const std::unordered_map<std::string, Entry> &dict) {
 
   const nlohmann::json root = DictionaryJsonContract::MakeRoot("fixtures", std::move(entries));
   std::ofstream out(file);
-  if (!out.is_open())
-    return;
+  if (!out.is_open()) {
+    if (errorOut)
+      *errorOut = "Could not open user fixtures dictionary for writing: " +
+                  file.string();
+    return false;
+  }
   out << root.dump(4);
+  if (!out.good()) {
+    if (errorOut)
+      *errorOut = "Failed while writing user fixtures dictionary: " +
+                  file.string();
+    return false;
+  }
+  out.flush();
+  if (!out.good()) {
+    if (errorOut)
+      *errorOut = "Failed to flush user fixtures dictionary to disk: " +
+                  file.string();
+    return false;
+  }
+  return true;
 }
 
 std::optional<Entry> Get(const std::string &type) {
@@ -524,7 +548,9 @@ DictionaryImportSummary ApplyImportFromFile(const std::string &filePath,
 
   auto current = *currentOpt;
   summary = MergeDictionaryEntries(current, *importedOpt, policy, true);
-  Save(current);
+  std::string saveError;
+  if (!Save(current, &saveError))
+    summary.errors.push_back("Failed to save current dictionary: " + saveError);
   return summary;
 }
 

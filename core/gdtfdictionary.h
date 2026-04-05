@@ -41,8 +41,10 @@ namespace GdtfDictionary {
     // Loads the dictionary file into a map of type -> {gdtf path in library, default mode}
     std::optional<std::unordered_map<std::string, Entry>> Load();
     LoadStatus GetLastLoadStatus();
-    // Saves the dictionary map back to disk
-    void Save(const std::unordered_map<std::string, Entry>& dict);
+    // Saves the dictionary map back to disk.
+    // Returns false and optionally fills errorOut when writing fails.
+    bool Save(const std::unordered_map<std::string, Entry>& dict,
+              std::string* errorOut = nullptr);
     // Returns the stored entry for a given type if it exists and file exists.
     // If the file is missing, the entry is removed and std::nullopt returned.
     std::optional<Entry> Get(const std::string& type);

@@ -34,8 +34,8 @@ private:
   void BuildLayout();
   void LoadFixtures();
   void LoadTrusses();
-  void SaveFixtures();
-  void SaveTrusses();
+  bool SaveFixtures();
+  bool SaveTrusses();
   std::vector<std::string> BuildFixtureSnapshotFromUi() const;
   std::vector<std::string> BuildTrussSnapshotFromUi() const;
   bool HasFixtureChanges() const;

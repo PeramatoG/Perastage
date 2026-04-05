@@ -1045,7 +1045,7 @@ void DictionaryEditDialog::ShowDictionaryLoadStatusMessages() {
   }
 }
 
-void DictionaryEditDialog::SaveFixtures() {
+bool DictionaryEditDialog::SaveFixtures() {
   std::vector<FixtureRow> rows;
   int count = fixtureTable->GetItemCount();
   rows.reserve(static_cast<size_t>(count));
@@ -1092,12 +1092,19 @@ void DictionaryEditDialog::SaveFixtures() {
       entry.sha256 = *hash;
     dict[row.name] = std::move(entry);
   }
-  GdtfDictionary::Save(dict);
+  std::string saveError;
+  if (!GdtfDictionary::Save(dict, &saveError)) {
+    wxMessageBox("Could not save fixtures dictionary.\n\n" +
+                     wxString::FromUTF8(saveError),
+                 "Save fixtures dictionary", wxICON_ERROR | wxOK, this);
+    return false;
+  }
 
   LoadFixtures();
+  return true;
 }
 
-void DictionaryEditDialog::SaveTrusses() {
+bool DictionaryEditDialog::SaveTrusses() {
   std::vector<TrussRow> rows;
   int count = trussTable->GetItemCount();
   rows.reserve(static_cast<size_t>(count));
@@ -1125,9 +1132,16 @@ void DictionaryEditDialog::SaveTrusses() {
   dict.reserve(rows.size());
   for (const auto &row : rows)
     dict[row.name] = row.path;
-  TrussDictionary::Save(dict);
+  std::string saveError;
+  if (!TrussDictionary::Save(dict, &saveError)) {
+    wxMessageBox("Could not save trusses dictionary.\n\n" +
+                     wxString::FromUTF8(saveError),
+                 "Save trusses dictionary", wxICON_ERROR | wxOK, this);
+    return false;
+  }
 
   LoadTrusses();
+  return true;
 }
 
 void DictionaryEditDialog::OnAdd(wxCommandEvent &WXUNUSED(event)) {
@@ -1281,11 +1295,14 @@ void DictionaryEditDialog::OnOk(wxCommandEvent &WXUNUSED(event)) {
   {
     std::unique_ptr<wxBusyInfo> saveOverlay =
         std::make_unique<wxBusyInfo>("Saving dictionary changes...");
-    if (fixtureChanged)
-      SaveFixtures();
-    if (trussChanged)
-      SaveTrusses();
+    bool saveSucceeded = true;
+    if (fixtureChanged && !SaveFixtures())
+      saveSucceeded = false;
+    if (trussChanged && !SaveTrusses())
+      saveSucceeded = false;
     saveOverlay.reset();
+    if (!saveSucceeded)
+      return;
   }
   EndModal(wxID_OK);
 }
@@ -1361,9 +1378,13 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
   const auto result = GdtfDictionary::ApplyImportFromFile(importPath, policy);
   DictionaryBundle::CleanupPreparedImport(preparedImport);
   LoadFixtures();
-  wxMessageBox("Fixtures dictionary import completed.\n\n" +
-                   BuildSummaryText(result),
-               "Fixtures dictionary import", wxOK | wxICON_INFORMATION, this);
+  const bool hasErrors = result.HasErrors();
+  wxMessageBox(
+      (hasErrors ? "Fixtures dictionary import finished with errors.\n\n"
+                 : "Fixtures dictionary import completed.\n\n") +
+          BuildSummaryText(result),
+      "Fixtures dictionary import",
+      wxOK | (hasErrors ? wxICON_WARNING : wxICON_INFORMATION), this);
   return !result.HasErrors();
 }
 
@@ -1430,9 +1451,13 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
   const auto result = TrussDictionary::ApplyImportFromFile(importPath, policy);
   DictionaryBundle::CleanupPreparedImport(preparedImport);
   LoadTrusses();
-  wxMessageBox("Trusses dictionary import completed.\n\n" +
-                   BuildSummaryText(result),
-               "Trusses dictionary import", wxOK | wxICON_INFORMATION, this);
+  const bool hasErrors = result.HasErrors();
+  wxMessageBox(
+      (hasErrors ? "Trusses dictionary import finished with errors.\n\n"
+                 : "Trusses dictionary import completed.\n\n") +
+          BuildSummaryText(result),
+      "Trusses dictionary import",
+      wxOK | (hasErrors ? wxICON_WARNING : wxICON_INFORMATION), this);
   return !result.HasErrors();
 }
 
@@ -1641,9 +1666,13 @@ bool DictionaryEditDialog::ResetFixturesDictionaryToDefault() {
   const auto result = GdtfDictionary::ApplyImportFromFile(
       basePath.string(), DictionaryImportPolicy::ReplaceAll);
   LoadFixtures();
-  wxMessageBox("Fixtures dictionary restored to defaults.\n\n" +
-                   BuildSummaryText(result),
-               "Reset fixtures dictionary", wxICON_INFORMATION | wxOK, this);
+  const bool hasErrors = result.HasErrors();
+  wxMessageBox(
+      (hasErrors ? "Fixtures dictionary reset finished with errors.\n\n"
+                 : "Fixtures dictionary restored to defaults.\n\n") +
+          BuildSummaryText(result),
+      "Reset fixtures dictionary",
+      wxOK | (hasErrors ? wxICON_WARNING : wxICON_INFORMATION), this);
   return !result.HasErrors();
 }
 
@@ -1662,9 +1691,13 @@ bool DictionaryEditDialog::ResetTrussesDictionaryToDefault() {
   const auto result = TrussDictionary::ApplyImportFromFile(
       basePath.string(), DictionaryImportPolicy::ReplaceAll);
   LoadTrusses();
-  wxMessageBox("Trusses dictionary restored to defaults.\n\n" +
-                   BuildSummaryText(result),
-               "Reset trusses dictionary", wxICON_INFORMATION | wxOK, this);
+  const bool hasErrors = result.HasErrors();
+  wxMessageBox(
+      (hasErrors ? "Trusses dictionary reset finished with errors.\n\n"
+                 : "Trusses dictionary restored to defaults.\n\n") +
+          BuildSummaryText(result),
+      "Reset trusses dictionary",
+      wxOK | (hasErrors ? wxICON_WARNING : wxICON_INFORMATION), this);
   return !result.HasErrors();
 }
 
