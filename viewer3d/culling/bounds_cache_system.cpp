@@ -374,6 +374,39 @@ void BoundsCacheSystem::RebuildIfDirty(
           found = true;
         }
       }
+    } else if (!obj.primitiveType.empty()) {
+      const float halfX =
+          (obj.primitiveSizeMm[0] > 0.0f ? obj.primitiveSizeMm[0] * RENDER_SCALE * 0.5f
+                                         : 0.15f);
+      const float halfY =
+          (obj.primitiveSizeMm[1] > 0.0f ? obj.primitiveSizeMm[1] * RENDER_SCALE * 0.5f
+                                         : 0.15f);
+      const float halfZ =
+          (obj.primitiveSizeMm[2] > 0.0f ? obj.primitiveSizeMm[2] * RENDER_SCALE * 0.5f
+                                         : 0.15f);
+      std::array<std::array<float, 3>, 8> corners = {
+          std::array<float, 3>{-halfX, -halfY, -halfZ},
+          {halfX, -halfY, -halfZ},
+          {-halfX, halfY, -halfZ},
+          {halfX, halfY, -halfZ},
+          {-halfX, -halfY, halfZ},
+          {halfX, -halfY, halfZ},
+          {-halfX, halfY, halfZ},
+          {halfX, halfY, halfZ}};
+      Matrix primitiveTm = tm;
+      primitiveTm.o[0] *= RENDER_SCALE;
+      primitiveTm.o[1] *= RENDER_SCALE;
+      primitiveTm.o[2] *= RENDER_SCALE;
+      for (const auto &c : corners) {
+        auto p = TransformPoint(primitiveTm, c);
+        bb.min[0] = std::min(bb.min[0], p[0]);
+        bb.min[1] = std::min(bb.min[1], p[1]);
+        bb.min[2] = std::min(bb.min[2], p[2]);
+        bb.max[0] = std::max(bb.max[0], p[0]);
+        bb.max[1] = std::max(bb.max[1], p[1]);
+        bb.max[2] = std::max(bb.max[2], p[2]);
+      }
+      found = true;
     }
 
     if (!found) {

@@ -369,6 +369,10 @@ void MainWindow::CreateMenuBar() {
   editMenu->Append(ID_Edit_AddFixture, "Add fixture...");
   editMenu->Append(ID_Edit_AddTruss, "Add truss...");
   editMenu->Append(ID_Edit_AddSceneObject, "Add scene object...");
+  wxMenu *basicGeometryMenu = new wxMenu();
+  basicGeometryMenu->Append(ID_Edit_AddSpherePrimitive, "Sphere...");
+  basicGeometryMenu->Append(ID_Edit_AddCubePrimitive, "Cube...");
+  editMenu->AppendSubMenu(basicGeometryMenu, "Add basic geometry...");
   editMenu->AppendSeparator();
   editMenu->Append(ID_Edit_Delete, "Delete\tDel");
   editMenu->AppendSeparator();

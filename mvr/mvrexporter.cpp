@@ -1973,13 +1973,16 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!obj.geometries.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
       for (const auto &geo : obj.geometries) {
-        if (geo.modelFile.empty())
-          continue;
-
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-        std::string modelArchivePath =
-            registerModelResource(geo.modelFile, "object.3ds");
-        g3d->SetAttribute("fileName", modelArchivePath.c_str());
+        if (!geo.modelFile.empty()) {
+          std::string modelArchivePath =
+              registerModelResource(geo.modelFile, "object.3ds");
+          g3d->SetAttribute("fileName", modelArchivePath.c_str());
+        } else if (!obj.primitiveType.empty()) {
+          g3d->SetAttribute("geometryType", obj.primitiveType.c_str());
+        } else {
+          continue;
+        }
 
         std::string geoMatrixText = MatrixUtils::FormatMatrix(geo.localTransform);
         tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
@@ -1997,6 +2000,23 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       std::string modelArchivePath =
           registerModelResource(obj.modelFile, "object.3ds");
       g3d->SetAttribute("fileName", modelArchivePath.c_str());
+      oe->InsertEndChild(geos);
+      geos->InsertEndChild(g3d);
+    } else if (!obj.primitiveType.empty()) {
+      tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
+      tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+      g3d->SetAttribute("geometryType", obj.primitiveType.c_str());
+      Matrix primitiveMatrix = MatrixUtils::Identity();
+      primitiveMatrix.u = {obj.primitiveSizeMm[0] > 0.0f ? obj.primitiveSizeMm[0] / 1000.0f : 1.0f,
+                           0.0f, 0.0f};
+      primitiveMatrix.v = {0.0f,
+                           obj.primitiveSizeMm[1] > 0.0f ? obj.primitiveSizeMm[1] / 1000.0f : 1.0f,
+                           0.0f};
+      primitiveMatrix.w = {0.0f, 0.0f,
+                           obj.primitiveSizeMm[2] > 0.0f ? obj.primitiveSizeMm[2] / 1000.0f : 1.0f};
+      tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
+      geoMatrix->SetText(MatrixUtils::FormatMatrix(primitiveMatrix).c_str());
+      g3d->InsertEndChild(geoMatrix);
       oe->InsertEndChild(geos);
       geos->InsertEndChild(g3d);
     }

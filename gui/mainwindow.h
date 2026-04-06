@@ -198,6 +198,8 @@ private:
   void OnAddFixture(wxCommandEvent &event);     // Add fixture from GDTF
   void OnAddTruss(wxCommandEvent &event);       // Add truss from library
   void OnAddSceneObject(wxCommandEvent &event); // Add generic scene object
+  void OnAddSpherePrimitive(wxCommandEvent &event); // Add primitive sphere
+  void OnAddCubePrimitive(wxCommandEvent &event);   // Add primitive cube
   void OnDelete(wxCommandEvent &event);         // Delete selected items
   void OnLayoutAdd2DView(wxCommandEvent &event); // Layout 2D view creation
   void OnLayoutAddLegend(wxCommandEvent &event); // Layout legend creation

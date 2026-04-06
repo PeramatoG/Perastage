@@ -17,11 +17,13 @@
 
 #include "matrixutils.h"
 #include "mesh.h"
+#include "meshprimitives.h"
 #include "opaque_pass_utils.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
 #include <algorithm>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -51,6 +53,35 @@ const Mesh &FallbackSceneObjectCubeMesh() {
     return cube;
   }();
   return mesh;
+}
+
+const Mesh *ResolvePrimitiveMesh(const std::string &primitiveType) {
+  if (primitiveType.empty())
+    return nullptr;
+  static std::unordered_map<std::string, Mesh> primitiveMeshes;
+  auto it = primitiveMeshes.find(primitiveType);
+  if (it != primitiveMeshes.end())
+    return &it->second;
+
+  Mesh mesh;
+  if (!BuildPrimitiveMesh(primitiveType, mesh))
+    return nullptr;
+  auto [insertedIt, inserted] =
+      primitiveMeshes.emplace(primitiveType, std::move(mesh));
+  if (!inserted)
+    return nullptr;
+  return &insertedIt->second;
+}
+
+Matrix BuildPrimitiveScaleTransform(const std::array<float, 3> &sizeMm) {
+  Matrix transform = MatrixUtils::Identity();
+  const float sx = sizeMm[0] > 0.0f ? sizeMm[0] / 1000.0f : 1.0f;
+  const float sy = sizeMm[1] > 0.0f ? sizeMm[1] / 1000.0f : 1.0f;
+  const float sz = sizeMm[2] > 0.0f ? sizeMm[2] / 1000.0f : 1.0f;
+  transform.u = {sx, 0.0f, 0.0f};
+  transform.v = {0.0f, sy, 0.0f};
+  transform.w = {0.0f, 0.0f, sz};
+  return transform;
 }
 
 } // namespace
@@ -178,6 +209,15 @@ void OpaqueObjectPass::Render(
           part.modelKey = NormalizeModelKey(objectPath);
           objectMeshParts.push_back(std::move(part));
         }
+      }
+    }
+    if (objectMeshParts.empty()) {
+      if (const Mesh *primitiveMesh = ResolvePrimitiveMesh(m.primitiveType)) {
+        SceneObjectMeshPart part;
+        part.mesh = primitiveMesh;
+        part.localTransform = BuildPrimitiveScaleTransform(m.primitiveSizeMm);
+        part.modelKey = "primitive:" + m.primitiveType;
+        objectMeshParts.push_back(std::move(part));
       }
     }
 

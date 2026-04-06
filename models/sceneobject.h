@@ -19,6 +19,7 @@
 
 #include <vector>
 #include <string>
+#include <array>
 #include "types.h"
 
 struct GeometryInstance {
@@ -33,6 +34,8 @@ struct SceneObject {
     std::string layer;
     std::string modelFile; // Referenced 3D model file (Geometry3D or Symdef)
     std::vector<GeometryInstance> geometries;
+    std::string primitiveType; // MVR primitive geometryType (e.g. sphere, cube)
+    std::array<float, 3> primitiveSizeMm{0.0f, 0.0f, 0.0f}; // Diameter for sphere; X/Y/Z for cube
     Matrix transform;
 
     std::string GetPrimaryModel() const {

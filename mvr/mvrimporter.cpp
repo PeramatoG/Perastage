@@ -1890,16 +1890,26 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 node->FirstChildElement("Geometries")) {
           for (tinyxml2::XMLElement *g3d = geos->FirstChildElement("Geometry3D"); g3d;
                g3d = g3d->NextSiblingElement("Geometry3D")) {
-            const char *file = g3d->Attribute("fileName");
-            if (!file)
-              continue;
-
             if (const char *type = g3d->Attribute("geometryType"))
               geometryType = Trim(type);
 
             Matrix geoMatrix = MatrixUtils::Identity();
             parseMatrixOrIdentity(g3d, "Matrix", "SceneObject/Geometry3D", geoMatrix, true);
-            appendGeometryInstance(obj.geometries, file, geoMatrix);
+            const char *file = g3d->Attribute("fileName");
+            if (file) {
+              appendGeometryInstance(obj.geometries, file, geoMatrix);
+            } else if (!geometryType.empty()) {
+              std::string primitiveLower = geometryType;
+              std::transform(primitiveLower.begin(), primitiveLower.end(),
+                             primitiveLower.begin(),
+                             [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+              if (primitiveLower == "sphere" || primitiveLower == "cube") {
+                obj.primitiveType = primitiveLower;
+                obj.primitiveSizeMm = {std::abs(geoMatrix.u[0]) * 1000.0f,
+                                       std::abs(geoMatrix.v[1]) * 1000.0f,
+                                       std::abs(geoMatrix.w[2]) * 1000.0f};
+              }
+            }
           }
 
           for (tinyxml2::XMLElement *sym = geos->FirstChildElement("Symbol"); sym;

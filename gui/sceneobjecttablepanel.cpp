@@ -205,6 +205,9 @@ void SceneObjectTablePanel::ReloadData()
         wxString layer = obj.layer == DEFAULT_LAYER_NAME ? wxString()
                                                           : wxString::FromUTF8(obj.layer);
         wxString model = wxString::FromUTF8(obj.modelFile);
+        if (model.IsEmpty() && !obj.primitiveType.empty()) {
+            model = wxString::FromUTF8("primitive:" + obj.primitiveType);
+        }
 
         auto posArr = obj.transform.o;
         wxString posX = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
