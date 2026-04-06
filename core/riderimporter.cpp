@@ -2761,7 +2761,6 @@ bool RiderImporter::ImportText(const std::string &text) {
   }
 
   constexpr float kScreenThicknessMm = 100.0f;
-  constexpr float kFallbackCubeMeters = 0.3f;
   for (const ScreenObjectRequest &request : screenObjectRequests) {
     TrussInfo info;
     auto infoIt = trussInfo.find(request.positionName);
@@ -2780,11 +2779,11 @@ bool RiderImporter::ImportText(const std::string &text) {
     screenObject.name = request.name;
     screenObject.layer = request.layer;
     screenObject.transform.u = {
-        request.widthMm / (kFallbackCubeMeters * 1000.0f), 0.0f, 0.0f};
+        request.widthMm / 1000.0f, 0.0f, 0.0f};
     screenObject.transform.v = {
-        0.0f, kScreenThicknessMm / (kFallbackCubeMeters * 1000.0f), 0.0f};
+        0.0f, kScreenThicknessMm / 1000.0f, 0.0f};
     screenObject.transform.w = {
-        0.0f, 0.0f, request.heightMm / (kFallbackCubeMeters * 1000.0f)};
+        0.0f, 0.0f, request.heightMm / 1000.0f};
     screenObject.transform.o[0] = centerX;
     screenObject.transform.o[1] = centerY;
     screenObject.transform.o[2] = centerZ;
