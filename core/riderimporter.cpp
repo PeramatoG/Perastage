@@ -2000,8 +2000,8 @@ bool RiderImporter::ImportText(const std::string &text) {
                                  const std::optional<TrussCoordinateOverride>
                                      &coordinateOverride) {
           const float pipeLengthMm = length;
-          const float pipeDiameterMm = 100.0f;
-          const float fallbackCubeMm = 300.0f;
+          const float pipeDiameterMm = 50.0f;
+          const float primitiveCylinderHeightMm = 1000.0f;
           const float startX = coordinateOverride && coordinateOverride->hasX
                                    ? coordinateOverride->xMm
                                    : -0.5f * pipeLengthMm;
@@ -2019,9 +2019,11 @@ bool RiderImporter::ImportText(const std::string &text) {
           std::string lengthLabel = formatLength(pipeLengthMm);
           pipeObject.name = model.empty() ? ("PIPE " + lengthLabel)
                                           : ("PIPE " + model + " " + lengthLabel);
-          pipeObject.transform.u = {pipeLengthMm / fallbackCubeMm, 0.0f, 0.0f};
-          pipeObject.transform.v = {0.0f, pipeDiameterMm / fallbackCubeMm, 0.0f};
-          pipeObject.transform.w = {0.0f, 0.0f, pipeDiameterMm / fallbackCubeMm};
+          pipeObject.transform.u = {pipeLengthMm / primitiveCylinderHeightMm, 0.0f,
+                                    0.0f};
+          pipeObject.transform.v = {0.0f, pipeDiameterMm / primitiveCylinderHeightMm,
+                                    0.0f};
+          pipeObject.transform.w = {0.0f, 0.0f, pipeDiameterMm / primitiveCylinderHeightMm};
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
@@ -2127,8 +2129,8 @@ bool RiderImporter::ImportText(const std::string &text) {
 
         if (isPipe) {
           const float defaultPipeLengthMm = 14000.0f;
-          const float pipeDiameterMm = 100.0f;
-          const float fallbackCubeMm = 300.0f;
+          const float pipeDiameterMm = 50.0f;
+          const float primitiveCylinderHeightMm = 1000.0f;
           auto addPipeObject = [&](const std::string &posName,
                                    const std::optional<TrussCoordinateOverride>
                                        &resolvedOverride) {
@@ -2146,10 +2148,12 @@ bool RiderImporter::ImportText(const std::string &text) {
             pipeObject.uuid = GenerateUuid();
             pipeObject.layer = layerByType ? ("obj " + posName) : ("pos " + posName);
             pipeObject.name = model.empty() ? "PIPE 14M" : ("PIPE " + model + " 14M");
-            pipeObject.transform.u = {defaultPipeLengthMm / fallbackCubeMm, 0.0f,
+            pipeObject.transform.u = {defaultPipeLengthMm / primitiveCylinderHeightMm,
+                                      0.0f, 0.0f};
+            pipeObject.transform.v = {0.0f, pipeDiameterMm / primitiveCylinderHeightMm,
                                       0.0f};
-            pipeObject.transform.v = {0.0f, pipeDiameterMm / fallbackCubeMm, 0.0f};
-            pipeObject.transform.w = {0.0f, 0.0f, pipeDiameterMm / fallbackCubeMm};
+            pipeObject.transform.w = {
+                0.0f, 0.0f, pipeDiameterMm / primitiveCylinderHeightMm};
             pipeObject.transform.o[0] = startX + 0.5f * defaultPipeLengthMm;
             pipeObject.transform.o[1] = hangY;
             pipeObject.transform.o[2] = hangZ;
@@ -2351,8 +2355,8 @@ bool RiderImporter::ImportText(const std::string &text) {
 
         if (riggingKind == RiggingLineKind::Pipe) {
           const float pipeLengthMm = length;
-          const float pipeDiameterMm = 100.0f;
-          const float fallbackCubeMm = 300.0f;
+          const float pipeDiameterMm = 50.0f;
+          const float primitiveCylinderHeightMm = 1000.0f;
           const float startX = coordinateOverride && coordinateOverride->hasX
                                    ? coordinateOverride->xMm
                                    : -0.5f * pipeLengthMm;
@@ -2376,9 +2380,11 @@ bool RiderImporter::ImportText(const std::string &text) {
               lengthText.pop_back();
             pipeObject.name = "PIPE " + lengthText + "M";
           }
-          pipeObject.transform.u = {pipeLengthMm / fallbackCubeMm, 0.0f, 0.0f};
-          pipeObject.transform.v = {0.0f, pipeDiameterMm / fallbackCubeMm, 0.0f};
-          pipeObject.transform.w = {0.0f, 0.0f, pipeDiameterMm / fallbackCubeMm};
+          pipeObject.transform.u = {pipeLengthMm / primitiveCylinderHeightMm, 0.0f,
+                                    0.0f};
+          pipeObject.transform.v = {0.0f, pipeDiameterMm / primitiveCylinderHeightMm,
+                                    0.0f};
+          pipeObject.transform.w = {0.0f, 0.0f, pipeDiameterMm / primitiveCylinderHeightMm};
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
