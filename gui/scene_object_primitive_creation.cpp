@@ -15,15 +15,14 @@ namespace scene_object_primitives {
 namespace {
 constexpr const char *kSceneObjectsLayerName = "3D Objects";
 
-void EnsureCurrentLayerExists(MvrScene &scene, const std::string &layerName,
-                              long long baseId) {
+void EnsureCurrentLayerExists(MvrScene &scene, const std::string &layerName) {
   for (const auto &[uid, layer] : scene.layers) {
     if (layer.name == layerName)
       return;
   }
 
   Layer layer;
-  layer.uuid = wxString::Format("layer_%lld", baseId).ToStdString();
+  layer.uuid = GenerateUuid();
   layer.name = layerName;
   scene.layers[layer.uuid] = layer;
 }
@@ -58,7 +57,7 @@ void AddSphereObjects(ConfigManager &cfg, const SphereRequest &request) {
   const long long baseId = NextBaseId();
   const std::string layerName = kSceneObjectsLayerName;
 
-  EnsureCurrentLayerExists(scene, layerName, baseId);
+  EnsureCurrentLayerExists(scene, layerName);
   AddPrimitiveObjects(scene, layerName, "Sphere", "primitive:sphere",
                       BuildSphereScaleTransform(request.radiusMeters),
                       request.quantity, baseId);
@@ -69,7 +68,7 @@ void AddCubeObjects(ConfigManager &cfg, const CubeRequest &request) {
   const long long baseId = NextBaseId();
   const std::string layerName = kSceneObjectsLayerName;
 
-  EnsureCurrentLayerExists(scene, layerName, baseId);
+  EnsureCurrentLayerExists(scene, layerName);
   AddPrimitiveObjects(scene, layerName, "Cube", "primitive:cube",
                       BuildCubeScaleTransform(request.lengthMeters,
                                               request.heightMeters,
@@ -82,7 +81,7 @@ void AddCylinderObjects(ConfigManager &cfg, const CylinderRequest &request) {
   const long long baseId = NextBaseId();
   const std::string layerName = kSceneObjectsLayerName;
 
-  EnsureCurrentLayerExists(scene, layerName, baseId);
+  EnsureCurrentLayerExists(scene, layerName);
   AddPrimitiveObjects(scene, layerName, "Cylinder",
                       BuildCylinderPrimitiveToken(request.topRadiusMeters,
                                                   request.bottomRadiusMeters,

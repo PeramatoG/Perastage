@@ -2214,8 +2214,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (layer.name == DEFAULT_LAYER_NAME)
       continue;
     tinyxml2::XMLElement *layerElem = doc.NewElement("Layer");
-    if (!layerUuid.empty() && IsCanonicalUuidString(layerUuid))
-      layerElem->SetAttribute("uuid", layerUuid.c_str());
+    if (!layerUuid.empty()) {
+      const std::string exportLayerUuid =
+          IsCanonicalUuidString(layerUuid)
+              ? layerUuid
+              : DeriveDeterministicUuid("mvr:layer:" + layer.name + ":" + layerUuid);
+      layerElem->SetAttribute("uuid", exportLayerUuid.c_str());
+    }
     if (!layer.name.empty())
       layerElem->SetAttribute("name", layer.name.c_str());
 
@@ -2358,8 +2363,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   }
   if (rootChildList->FirstChild()) {
     tinyxml2::XMLElement *defaultLayerElem = doc.NewElement("Layer");
-    if (!defaultLayerUuid.empty() && IsCanonicalUuidString(defaultLayerUuid))
-      defaultLayerElem->SetAttribute("uuid", defaultLayerUuid.c_str());
+    if (!defaultLayerUuid.empty()) {
+      const std::string exportDefaultLayerUuid =
+          IsCanonicalUuidString(defaultLayerUuid)
+              ? defaultLayerUuid
+              : DeriveDeterministicUuid("mvr:layer:" + defaultLayerName + ":" +
+                                        defaultLayerUuid);
+      defaultLayerElem->SetAttribute("uuid", exportDefaultLayerUuid.c_str());
+    }
     if (!defaultLayerName.empty())
       defaultLayerElem->SetAttribute("name", defaultLayerName.c_str());
     defaultLayerElem->InsertEndChild(rootChildList);

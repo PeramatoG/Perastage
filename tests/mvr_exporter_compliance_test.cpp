@@ -558,6 +558,9 @@ int main() {
     assert(std::string(layerOrOther->Name()) == "Layer");
     const char *layerName = layerOrOther->Attribute("name");
     const std::string layerNameText = layerName ? layerName : "";
+    const char *layerUuid = layerOrOther->Attribute("uuid");
+    assert(layerUuid != nullptr);
+    assert(CanonicalizeUuid(layerUuid) == std::string(layerUuid));
     if (layerNameText == "Default")
       sawDefaultLayerNode = true;
 
