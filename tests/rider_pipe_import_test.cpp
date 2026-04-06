@@ -41,6 +41,9 @@ int main() {
     assert(object.name.find("PIPE") == 0);
     assert(object.geometries.size() == 1);
     assert(object.geometries.front().modelFile == "primitive:cylinder");
+    assert(NearlyEqual(object.geometries.front().localTransform.u[0], 0.0f));
+    assert(NearlyEqual(object.geometries.front().localTransform.u[2], -1.0f));
+    assert(NearlyEqual(object.geometries.front().localTransform.w[0], 1.0f));
     assert(NearlyEqual(object.transform.u[0], 14000.0f / 300.0f));
     assert(NearlyEqual(object.transform.v[1], 100.0f / 300.0f));
     assert(NearlyEqual(object.transform.w[2], 100.0f / 300.0f));
@@ -77,6 +80,7 @@ int main() {
       ++lx3Count;
     assert(object.geometries.size() == 1);
     assert(object.geometries.front().modelFile == "primitive:cylinder");
+    assert(NearlyEqual(object.geometries.front().localTransform.w[0], 1.0f));
     assert(NearlyEqual(object.transform.u[0], 14000.0f / 300.0f));
   }
   assert(lx1Count == 1);

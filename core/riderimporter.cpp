@@ -59,6 +59,15 @@
 
 namespace {
 constexpr const char *kPrimitiveCylinderToken = "primitive:cylinder";
+
+Matrix BuildCylinderAxisXLocalTransform() {
+  Matrix transform{};
+  transform.u = {0.0f, 0.0f, -1.0f};
+  transform.v = {0.0f, 1.0f, 0.0f};
+  transform.w = {1.0f, 0.0f, 0.0f};
+  transform.o = {0.0f, 0.0f, 0.0f};
+  return transform;
+}
 // Precompiled regexes used by RiderImporter. Keeping them static avoids paying
 // the compilation cost on every import call and makes keyword matching cheap
 // even when processing large riders.
@@ -2016,7 +2025,8 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
-          pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
+          pipeObject.geometries.push_back(
+              {kPrimitiveCylinderToken, BuildCylinderAxisXLocalTransform()});
 
           importedPipeSpans.push_back({posName, startX, startX + pipeLengthMm, hangY,
                                        hangZ});
@@ -2143,7 +2153,8 @@ bool RiderImporter::ImportText(const std::string &text) {
             pipeObject.transform.o[0] = startX + 0.5f * defaultPipeLengthMm;
             pipeObject.transform.o[1] = hangY;
             pipeObject.transform.o[2] = hangZ;
-            pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
+            pipeObject.geometries.push_back(
+                {kPrimitiveCylinderToken, BuildCylinderAxisXLocalTransform()});
             scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
             addToLayer(pipeObject.layer, pipeObject.uuid);
             importedPipeSpans.push_back(
@@ -2371,7 +2382,8 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
-          pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
+          pipeObject.geometries.push_back(
+              {kPrimitiveCylinderToken, BuildCylinderAxisXLocalTransform()});
           scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
           addToLayer(pipeObject.layer, pipeObject.uuid);
           importedPipeSpans.push_back({hang, startX, startX + pipeLengthMm, hangY, hangZ});
