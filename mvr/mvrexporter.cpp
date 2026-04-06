@@ -44,6 +44,7 @@ class wxZipStreamLink;
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <regex>
 #include <set>
@@ -1388,18 +1389,34 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     std::string primitiveToken;
     if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
       return {};
+    const std::string normalizedModelRef = ToLowerAscii(TrimAscii(modelRef));
+    const std::string primitiveKey =
+        normalizedModelRef.empty() ? primitiveToken : normalizedModelRef;
 
-    auto sourceIt = primitiveSourceByToken.find(primitiveToken);
+    auto sourceIt = primitiveSourceByToken.find(primitiveKey);
     std::string sourcePath;
     if (sourceIt != primitiveSourceByToken.end()) {
       sourcePath = sourceIt->second;
     } else {
-      fs::path outputPath = fs::u8path(primitiveTempDir) /
-                            fs::u8path(mvr::PrimitiveArchivePathForToken(primitiveToken)).filename();
-      if (!mvr::WritePrimitiveModelForToken(primitiveToken, outputPath.generic_string()))
+      std::string primitiveLabel = primitiveToken;
+      const size_t colonPos = primitiveLabel.find(':');
+      if (colonPos != std::string::npos && colonPos + 1 < primitiveLabel.size())
+        primitiveLabel = primitiveLabel.substr(colonPos + 1);
+      for (char &ch : primitiveLabel) {
+        if (!std::isalnum(static_cast<unsigned char>(ch)))
+          ch = '_';
+      }
+      if (primitiveLabel.empty())
+        primitiveLabel = "shape";
+      const std::size_t primitiveHash = std::hash<std::string>{}(primitiveKey);
+      const std::string tempFileName = wxString::Format(
+          "primitive_%s_%zx.glb", primitiveLabel.c_str(), primitiveHash)
+                                           .ToStdString();
+      fs::path outputPath = fs::u8path(primitiveTempDir) / fs::u8path(tempFileName);
+      if (!mvr::WritePrimitiveModelForToken(primitiveKey, outputPath.generic_string()))
         return {};
       sourcePath = outputPath.generic_string();
-      primitiveSourceByToken[primitiveToken] = sourcePath;
+      primitiveSourceByToken[primitiveKey] = sourcePath;
     }
 
     const std::string preferredArchivePath =
@@ -2008,6 +2025,29 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   auto exportSceneObject = [&](tinyxml2::XMLElement *parent,
                                const SceneObject &obj) {
+    auto matrixAlmostEqual = [](const Matrix &a, const Matrix &b, float eps = 1e-5f) {
+      for (int i = 0; i < 3; ++i) {
+        if (std::fabs(a.u[i] - b.u[i]) > eps || std::fabs(a.v[i] - b.v[i]) > eps ||
+            std::fabs(a.w[i] - b.w[i]) > eps || std::fabs(a.o[i] - b.o[i]) > eps) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    Matrix objectMatrixToWrite = obj.transform;
+    bool bakeGeometryMatrixIntoObject = false;
+    if (obj.geometries.size() == 1) {
+      const auto &singleGeometry = obj.geometries.front();
+      std::string primitiveToken;
+      if (mvr::ResolvePrimitiveTokenFromModelRef(singleGeometry.modelFile, primitiveToken) &&
+          !matrixAlmostEqual(singleGeometry.localTransform, MatrixUtils::Identity())) {
+        objectMatrixToWrite =
+            MatrixUtils::Multiply(obj.transform, singleGeometry.localTransform);
+        bakeGeometryMatrixIntoObject = true;
+      }
+    }
+
     tinyxml2::XMLElement *oe = doc.NewElement("SceneObject");
     oe->SetAttribute("uuid", obj.uuid.c_str());
     if (!obj.name.empty())
@@ -2040,7 +2080,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           continue;
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
 
-        std::string geoMatrixText = MatrixUtils::FormatMatrix(geo.localTransform);
+        const Matrix geoMatrixToWrite =
+            bakeGeometryMatrixIntoObject ? MatrixUtils::Identity() : geo.localTransform;
+        std::string geoMatrixText = MatrixUtils::FormatMatrix(geoMatrixToWrite);
         tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
         geoMatrix->SetText(geoMatrixText.c_str());
         g3d->InsertEndChild(geoMatrix);
@@ -2065,7 +2107,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
     }
 
-    std::string mstr = MatrixUtils::FormatMatrix(obj.transform);
+    std::string mstr = MatrixUtils::FormatMatrix(objectMatrixToWrite);
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(mstr.c_str());
     oe->InsertEndChild(mat);
