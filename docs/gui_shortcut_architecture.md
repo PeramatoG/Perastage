@@ -91,3 +91,15 @@ before executing panel-level actions, avoiding divergent focus checks:
 
 This keeps key behavior consistent while editing text or cell editors, and
 prevents global-style actions from stealing keys during edit sessions.
+
+## Mouse modifier gestures tied to selection behavior
+
+The following mouse gestures are implemented directly in viewer panels (not in
+the keyboard shortcut registry), and must stay aligned between viewers when they
+represent equivalent actions:
+
+- `Ctrl + Left Drag`:
+  rectangle selection in the active table context.
+- `Ctrl + Shift + Left Drag`:
+  transversal rectangle selection across all selectable object tables in both
+  `Viewer2D` and `Viewer3D`.

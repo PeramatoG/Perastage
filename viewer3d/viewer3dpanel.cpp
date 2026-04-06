@@ -769,6 +769,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
     {
         if (event.LeftDown() && event.ControlDown()) {
             m_rectSelecting = true;
+            m_rectSelectionAcrossAllTables = event.ShiftDown();
             m_controller.SetInteracting(true);
             m_isInteracting = true;
             m_cameraMoving = true;
@@ -1164,6 +1165,7 @@ void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
     m_controller.SetCameraMoving(false);
     m_mode = InteractionMode::None;
     m_rectSelecting = false;
+    m_rectSelectionAcrossAllTables = false;
 }
 
 void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
@@ -1178,6 +1180,54 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
     SetCurrent(*m_glContext);
 
     ConfigManager& cfg = ConfigManager::Get();
+    if (m_rectSelectionAcrossAllTables)
+    {
+        const auto fixtures = m_controller.GetFixturesInScreenRect(
+            start.x, start.y, end.x, end.y, w, h);
+        const auto trusses = m_controller.GetTrussesInScreenRect(
+            start.x, start.y, end.x, end.y, w, h);
+        const auto sceneObjects = m_controller.GetSceneObjectsInScreenRect(
+            start.x, start.y, end.x, end.y, w, h);
+
+        const bool selectionChanged =
+            fixtures != cfg.GetSelectedFixtures() ||
+            trusses != cfg.GetSelectedTrusses() ||
+            sceneObjects != cfg.GetSelectedSceneObjects();
+        if (selectionChanged)
+            cfg.PushUndoState("global selection");
+
+        cfg.SetSelectedFixtures(fixtures);
+        cfg.SetSelectedTrusses(trusses);
+        cfg.SetSelectedSceneObjects(sceneObjects);
+
+        std::set<std::string> mergedSelection;
+        mergedSelection.insert(fixtures.begin(), fixtures.end());
+        mergedSelection.insert(trusses.begin(), trusses.end());
+        mergedSelection.insert(sceneObjects.begin(), sceneObjects.end());
+        SetSelectedFixtures(
+            std::vector<std::string>(mergedSelection.begin(), mergedSelection.end()));
+
+        if (FixtureTablePanel::Instance()) {
+            if (fixtures.empty())
+                FixtureTablePanel::Instance()->ClearSelection();
+            else
+                FixtureTablePanel::Instance()->SelectByUuid(fixtures);
+        }
+        if (TrussTablePanel::Instance()) {
+            if (trusses.empty())
+                TrussTablePanel::Instance()->ClearSelection();
+            else
+                TrussTablePanel::Instance()->SelectByUuid(trusses);
+        }
+        if (SceneObjectTablePanel::Instance()) {
+            if (sceneObjects.empty())
+                SceneObjectTablePanel::Instance()->ClearSelection();
+            else
+                SceneObjectTablePanel::Instance()->SelectByUuid(sceneObjects);
+        }
+        return;
+    }
+
     if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
     {
         auto selection = m_controller.GetFixturesInScreenRect(start.x, start.y, end.x, end.y, w, h);
