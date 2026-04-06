@@ -1396,7 +1396,6 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     return;
 
   namespace fs = std::filesystem;
-  cfg.PushUndoState("add scene object");
   std::string base = scene.basePath;
   if (!base.empty()) {
     fs::path abs = fs::absolute(path);
@@ -1405,43 +1404,9 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
       path = fs::relative(abs, b).string();
   }
 
-  auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
-  std::string layerName = cfg.GetCurrentLayer();
-  bool hasLayer = false;
-  for (const auto &[uid, layer] : scene.layers) {
-    if (layer.name == layerName) {
-      hasLayer = true;
-      break;
-    }
-  }
-  if (!hasLayer) {
-    Layer layer;
-    layer.uuid = wxString::Format("layer_%lld", static_cast<long long>(baseId))
-                     .ToStdString();
-    layer.name = layerName;
-    scene.layers[layer.uuid] = layer;
-  }
-
-  for (long i = 0; i < qty; ++i) {
-    SceneObject obj;
-    obj.uuid = wxString::Format("uuid_%lld", static_cast<long long>(baseId + i))
-                   .ToStdString();
-    if (qty > 1)
-      obj.name = defaultName + " " + std::to_string(i + 1);
-    else
-      obj.name = defaultName;
-    obj.modelFile = path;
-    obj.layer = layerName;
-    scene.sceneObjects[obj.uuid] = obj;
-  }
-
-  if (sceneObjPanel)
-    sceneObjPanel->ReloadData();
-  if (viewportPanel) {
-    viewportPanel->UpdateScene();
-    viewportPanel->Refresh();
-  }
-  RefreshSummary();
+  AddSceneObjects("add scene object", defaultName, qty,
+                  [&](SceneObject &obj, long) { obj.modelFile = path; });
+  RefreshAfterSceneObjectCreation();
 }
 
 void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {

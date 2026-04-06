@@ -1,6 +1,5 @@
 #include "mainwindow.h"
 
-#include <chrono>
 #include <string>
 
 #include <wx/dialog.h>
@@ -8,12 +7,8 @@
 #include <wx/spinctrl.h>
 #include <wx/stattext.h>
 
-#include "configmanager.h"
-#include "guiconfigservices.h"
-#include "layer.h"
 #include "matrixutils.h"
-#include "sceneobjecttablepanel.h"
-#include "viewer3dpanel.h"
+#include "sceneobject.h"
 
 namespace {
 
@@ -133,36 +128,10 @@ void MainWindow::OnAddSpherePrimitive(wxCommandEvent &WXUNUSED(event)) {
   if (dialog.ShowModal() != wxID_OK)
     return;
 
-  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  auto &scene = cfg.GetScene();
-  cfg.PushUndoState("add sphere primitive");
-
   const float diameterMm = static_cast<float>(dialog.RadiusMeters() * 2000.0);
   const long quantity = dialog.Quantity();
-  const auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
-  const std::string layerName = cfg.GetCurrentLayer();
-
-  bool hasLayer = false;
-  for (const auto &[uid, layer] : scene.layers) {
-    if (layer.name == layerName) {
-      hasLayer = true;
-      break;
-    }
-  }
-  if (!hasLayer) {
-    Layer layer;
-    layer.uuid = wxString::Format("layer_%lld", static_cast<long long>(baseId))
-                     .ToStdString();
-    layer.name = layerName;
-    scene.layers[layer.uuid] = layer;
-  }
-
-  for (long i = 0; i < quantity; ++i) {
-    SceneObject object;
-    object.uuid = wxString::Format("uuid_%lld", static_cast<long long>(baseId + i))
-                      .ToStdString();
-    object.name = quantity > 1 ? "Sphere " + std::to_string(i + 1) : "Sphere";
-    object.layer = layerName;
+  AddSceneObjects("add sphere primitive", "Sphere", quantity,
+                  [&](SceneObject &object, long) {
     object.primitiveType = "sphere";
     object.primitiveSizeMm = {diameterMm, diameterMm, diameterMm};
 
@@ -170,17 +139,8 @@ void MainWindow::OnAddSpherePrimitive(wxCommandEvent &WXUNUSED(event)) {
     geo.localTransform = BuildPrimitiveLocalTransformMm(
         diameterMm, diameterMm, diameterMm);
     object.geometries.push_back(geo);
-
-    scene.sceneObjects[object.uuid] = object;
-  }
-
-  if (sceneObjPanel)
-    sceneObjPanel->ReloadData();
-  if (viewportPanel) {
-    viewportPanel->UpdateScene();
-    viewportPanel->Refresh();
-  }
-  RefreshSummary();
+  });
+  RefreshAfterSceneObjectCreation();
 }
 
 void MainWindow::OnAddCubePrimitive(wxCommandEvent &WXUNUSED(event)) {
@@ -188,38 +148,12 @@ void MainWindow::OnAddCubePrimitive(wxCommandEvent &WXUNUSED(event)) {
   if (dialog.ShowModal() != wxID_OK)
     return;
 
-  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  auto &scene = cfg.GetScene();
-  cfg.PushUndoState("add cube primitive");
-
   const float lengthMm = static_cast<float>(dialog.LengthMeters() * 1000.0);
   const float widthMm = static_cast<float>(dialog.WidthMeters() * 1000.0);
   const float heightMm = static_cast<float>(dialog.HeightMeters() * 1000.0);
   const long quantity = dialog.Quantity();
-  const auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
-  const std::string layerName = cfg.GetCurrentLayer();
-
-  bool hasLayer = false;
-  for (const auto &[uid, layer] : scene.layers) {
-    if (layer.name == layerName) {
-      hasLayer = true;
-      break;
-    }
-  }
-  if (!hasLayer) {
-    Layer layer;
-    layer.uuid = wxString::Format("layer_%lld", static_cast<long long>(baseId))
-                     .ToStdString();
-    layer.name = layerName;
-    scene.layers[layer.uuid] = layer;
-  }
-
-  for (long i = 0; i < quantity; ++i) {
-    SceneObject object;
-    object.uuid = wxString::Format("uuid_%lld", static_cast<long long>(baseId + i))
-                      .ToStdString();
-    object.name = quantity > 1 ? "Cube " + std::to_string(i + 1) : "Cube";
-    object.layer = layerName;
+  AddSceneObjects("add cube primitive", "Cube", quantity,
+                  [&](SceneObject &object, long) {
     object.primitiveType = "cube";
     object.primitiveSizeMm = {lengthMm, widthMm, heightMm};
 
@@ -227,15 +161,6 @@ void MainWindow::OnAddCubePrimitive(wxCommandEvent &WXUNUSED(event)) {
     geo.localTransform =
         BuildPrimitiveLocalTransformMm(lengthMm, widthMm, heightMm);
     object.geometries.push_back(geo);
-
-    scene.sceneObjects[object.uuid] = object;
-  }
-
-  if (sceneObjPanel)
-    sceneObjPanel->ReloadData();
-  if (viewportPanel) {
-    viewportPanel->UpdateScene();
-    viewportPanel->Refresh();
-  }
-  RefreshSummary();
+  });
+  RefreshAfterSceneObjectCreation();
 }

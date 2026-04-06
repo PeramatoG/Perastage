@@ -24,9 +24,9 @@
 #include <wx/frame.h>
 
 #include <memory>
+#include <functional>
 #include <optional>
 #include <array>
-#include <functional>
 #include <unordered_set>
 #include <vector>
 
@@ -58,6 +58,7 @@ class MainWindowLayoutController;
 class MainWindowPrintController;
 class MainWindowViewController;
 enum class Viewer2DView;
+struct SceneObject;
 
 
 // Main application window for GUI components
@@ -236,6 +237,10 @@ private:
   bool GuardStartupProjectLoadAction(const wxString &actionLabel);
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
+  void AddSceneObjects(const std::string &undoLabel,
+                       const std::string &baseName, long quantity,
+                       const std::function<void(SceneObject &, long)> &configureObject);
+  void RefreshAfterSceneObjectCreation();
   void StartFixtureSymbolAutoUpdateForLoadedScene();
   void ProcessNextFixtureSymbolAutoUpdate();
   void ClearBlockingProjectLoadUi();

@@ -59,6 +59,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_cli_shortcuts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_view_shortcuts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_scene_object_creation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_scene_object_primitives.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_print.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferencesdialog.cpp
