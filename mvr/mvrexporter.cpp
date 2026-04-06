@@ -1454,6 +1454,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         stringId = std::to_string(numeric);
       result[uid] = {stringId, numeric};
     }
+
+    for (const auto &[uid, obj] : scene.sceneObjects) {
+      int numeric = allocId();
+      result[uid] = {std::to_string(numeric), numeric};
+    }
     return result;
   };
 
@@ -1948,6 +1953,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!s.name.empty())
       se->SetAttribute("name", s.name.c_str());
 
+    auto supportIdIt = assignedIds.find(s.uuid);
+    int supportNumericId = (supportIdIt != assignedIds.end()) ? supportIdIt->second.second : 0;
+    if (supportNumericId <= 0)
+      supportNumericId = 1;
+    tinyxml2::XMLElement *supportId = doc.NewElement("FixtureID");
+    supportId->SetText(std::to_string(supportNumericId).c_str());
+    se->InsertEndChild(supportId);
+    tinyxml2::XMLElement *supportIdNumeric = doc.NewElement("FixtureIDNumeric");
+    supportIdNumeric->SetText(std::to_string(supportNumericId).c_str());
+    se->InsertEndChild(supportIdNumeric);
+
     auto addSupportInfo = [&](const char *n, const std::string &v,
                               tinyxml2::XMLElement *info) {
       if (!v.empty()) {
@@ -1996,6 +2012,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     oe->SetAttribute("uuid", obj.uuid.c_str());
     if (!obj.name.empty())
       oe->SetAttribute("name", obj.name.c_str());
+
+    auto idIt = assignedIds.find(obj.uuid);
+    int numericId = (idIt != assignedIds.end()) ? idIt->second.second : 0;
+    if (numericId <= 0)
+      numericId = 1;
+    tinyxml2::XMLElement *idNode = doc.NewElement("FixtureID");
+    idNode->SetText(std::to_string(numericId).c_str());
+    oe->InsertEndChild(idNode);
+    tinyxml2::XMLElement *numNode = doc.NewElement("FixtureIDNumeric");
+    numNode->SetText(std::to_string(numericId).c_str());
+    oe->InsertEndChild(numNode);
 
     if (!obj.geometries.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
