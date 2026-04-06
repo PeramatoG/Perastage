@@ -29,12 +29,12 @@
         "Beam 201": {
             "category": "Beam",
             "file": "Sharpy.gdtf",
-            "mode": "Standard"
+            "mode": "Vector"
         },
         "Beam201": {
             "category": "Beam",
             "file": "Sharpy.gdtf",
-            "mode": "Standard"
+            "mode": "Vector"
         },
         "Blinder 2": {
             "category": "Blinder",
