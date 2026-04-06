@@ -69,6 +69,7 @@ public:
     void SetStandardView(Viewer2DView view);
     bool FrameSceneToFit();
     bool ResetCameraToIsometric();
+    void SetModalDialogActive(bool active);
 
 private:
     wxGLContext* m_glContext;
@@ -140,6 +141,7 @@ private:
 
     std::atomic<bool> m_threadRunning{false};
     std::atomic<bool> m_shuttingDown{false};
+    std::atomic<bool> m_modalDialogActive{false};
     std::thread m_refreshThread;
     void RefreshLoop();
     void OnThreadRefresh(wxThreadEvent& event);

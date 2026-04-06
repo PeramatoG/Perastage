@@ -449,7 +449,7 @@ void Viewer3DPanel::InitGL()
 void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 {
     wxPaintDC dc(this);
-    if (!IsShownOnScreen()) {
+    if (!IsShownOnScreen() || m_modalDialogActive) {
         return;
     }
     InitGL();
@@ -497,10 +497,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     const bool skipLabelWork = m_cameraMoving &&
         (IsFastInteractionModeEnabled() || skipLabelsWhenMoving);
 
-    bool shouldUpdateHoverQuery = true;
-#ifdef __APPLE__
-    shouldUpdateHoverQuery = m_mouseMoved || m_isInteracting || m_cameraMoving || !m_hasHover;
-#endif
+    const bool shouldUpdateHoverQuery =
+        m_mouseMoved || m_isInteracting || m_cameraMoving || !m_hasHover;
 
     if (!skipLabelWork && shouldUpdateHoverQuery &&
         FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
@@ -1559,6 +1557,10 @@ void Viewer3DPanel::RefreshLoop()
     {
         if (m_shuttingDown)
             return;
+        if (m_modalDialogActive) {
+            std::this_thread::sleep_for(16ms);
+            continue;
+        }
         wxThreadEvent* evt = new wxThreadEvent(wxEVT_VIEWER_REFRESH);
         wxQueueEvent(this, evt);
         std::this_thread::sleep_for(16ms);
@@ -1567,9 +1569,14 @@ void Viewer3DPanel::RefreshLoop()
 
 void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
 {
-    if (m_shuttingDown || !m_glContext || IsBeingDeleted())
+    if (m_shuttingDown || m_modalDialogActive || !m_glContext || IsBeingDeleted())
         return;
     Refresh();
+}
+
+void Viewer3DPanel::SetModalDialogActive(bool active)
+{
+    m_modalDialogActive = active;
 }
 
 
