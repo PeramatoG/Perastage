@@ -146,13 +146,23 @@ PrimitiveMeshData BuildSphereMesh() {
 PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
                                     float height, CylinderAxis axis) {
   PrimitiveMeshData mesh;
-  constexpr int kSegments = 16;
+  constexpr int kSegments = 32;
   constexpr float kPi = 3.14159265358979323846f;
-  mesh.positions.reserve(static_cast<size_t>(kSegments * 2 + 2) * 3);
+  mesh.positions.reserve(static_cast<size_t>(kSegments * 6 + 2) * 3);
   mesh.indices.reserve(static_cast<size_t>(kSegments) * 12);
 
   const float halfHeight = 0.5f * height;
 
+  auto appendAxisPosition = [&](float axial, float radialA, float radialB) {
+    if (axis == CylinderAxis::X) {
+      mesh.positions.insert(mesh.positions.end(), {axial, radialA, radialB});
+    } else {
+      mesh.positions.insert(mesh.positions.end(), {radialA, radialB, axial});
+    }
+  };
+
+  // Side vertices (separate from cap vertices to keep hard normals on edges).
+  const uint16_t sideBase = 0;
   for (int i = 0; i < kSegments; ++i) {
     const float a = static_cast<float>(i) * 2.0f * kPi /
                     static_cast<float>(kSegments);
@@ -160,33 +170,48 @@ PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
     const float yTop = topRadius * std::sin(a);
     const float xBottom = bottomRadius * std::cos(a);
     const float yBottom = bottomRadius * std::sin(a);
-    if (axis == CylinderAxis::X) {
-      mesh.positions.insert(mesh.positions.end(), {halfHeight, xTop, yTop});
-      mesh.positions.insert(mesh.positions.end(), {-halfHeight, xBottom, yBottom});
-    } else {
-      mesh.positions.insert(mesh.positions.end(), {xTop, yTop, halfHeight});
-      mesh.positions.insert(mesh.positions.end(), {xBottom, yBottom, -halfHeight});
-    }
+    appendAxisPosition(halfHeight, xTop, yTop);
+    appendAxisPosition(-halfHeight, xBottom, yBottom);
+  }
+  for (int i = 0; i < kSegments; ++i) {
+    const uint16_t top0 = static_cast<uint16_t>(sideBase + i * 2);
+    const uint16_t bot0 = static_cast<uint16_t>(sideBase + i * 2 + 1);
+    const uint16_t top1 =
+        static_cast<uint16_t>(sideBase + ((i + 1) % kSegments) * 2);
+    const uint16_t bot1 =
+        static_cast<uint16_t>(sideBase + ((i + 1) % kSegments) * 2 + 1);
+    mesh.indices.insert(mesh.indices.end(), {top0, bot1, bot0, top0, top1, bot1});
+  }
+
+  // Top cap vertices.
+  const uint16_t topCapBase = static_cast<uint16_t>(mesh.positions.size() / 3);
+  for (int i = 0; i < kSegments; ++i) {
+    const float a = static_cast<float>(i) * 2.0f * kPi /
+                    static_cast<float>(kSegments);
+    appendAxisPosition(halfHeight, topRadius * std::cos(a), topRadius * std::sin(a));
   }
   const uint16_t topCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
-  if (axis == CylinderAxis::X)
-    mesh.positions.insert(mesh.positions.end(), {halfHeight, 0.0f, 0.0f});
-  else
-    mesh.positions.insert(mesh.positions.end(), {0.0f, 0.0f, halfHeight});
-  const uint16_t bottomCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
-  if (axis == CylinderAxis::X)
-    mesh.positions.insert(mesh.positions.end(), {-halfHeight, 0.0f, 0.0f});
-  else
-    mesh.positions.insert(mesh.positions.end(), {0.0f, 0.0f, -halfHeight});
-
+  appendAxisPosition(halfHeight, 0.0f, 0.0f);
   for (int i = 0; i < kSegments; ++i) {
-    const uint16_t top0 = static_cast<uint16_t>(i * 2);
-    const uint16_t bot0 = static_cast<uint16_t>(i * 2 + 1);
-    const uint16_t top1 = static_cast<uint16_t>(((i + 1) % kSegments) * 2);
-    const uint16_t bot1 = static_cast<uint16_t>(((i + 1) % kSegments) * 2 + 1);
-
-    mesh.indices.insert(mesh.indices.end(), {top0, bot1, bot0, top0, top1, bot1});
+    const uint16_t top0 = static_cast<uint16_t>(topCapBase + i);
+    const uint16_t top1 = static_cast<uint16_t>(topCapBase + ((i + 1) % kSegments));
     mesh.indices.insert(mesh.indices.end(), {topCenter, top0, top1});
+  }
+
+  // Bottom cap vertices.
+  const uint16_t bottomCapBase = static_cast<uint16_t>(mesh.positions.size() / 3);
+  for (int i = 0; i < kSegments; ++i) {
+    const float a = static_cast<float>(i) * 2.0f * kPi /
+                    static_cast<float>(kSegments);
+    appendAxisPosition(-halfHeight, bottomRadius * std::cos(a),
+                       bottomRadius * std::sin(a));
+  }
+  const uint16_t bottomCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
+  appendAxisPosition(-halfHeight, 0.0f, 0.0f);
+  for (int i = 0; i < kSegments; ++i) {
+    const uint16_t bot0 = static_cast<uint16_t>(bottomCapBase + i);
+    const uint16_t bot1 =
+        static_cast<uint16_t>(bottomCapBase + ((i + 1) % kSegments));
     mesh.indices.insert(mesh.indices.end(), {bottomCenter, bot1, bot0});
   }
 
