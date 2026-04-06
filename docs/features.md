@@ -1,55 +1,148 @@
 # Perastage Feature Overview
 
-This document summarizes the main end-user capabilities in Perastage. For exact parser behavior and format compliance details, follow the linked policy documents.
+This document is the canonical feature map for the current Perastage release line. It consolidates the active workflows that have evolved from the beta period into the current production-oriented toolset.
 
-## Project and Scene Management
+## Audience and Primary Use Cases
 
-- Open and save Perastage projects (`.pstg`) with multiple named pages/layouts.
-- Organize fixtures, trusses, hoists, and objects into layers with per-layer visibility and selection control.
-- Preserve workspace preferences such as view mode, directories, and window layout.
+Perastage is designed for lighting designers, programmers, and technicians who need to:
+
+- import and normalize real show data,
+- visualize rigs in 3D and 2D,
+- maintain fixture/truss/hoist/object metadata,
+- generate printable and shareable technical documentation.
+
+## Project and Scene Lifecycle
+
+### Project files and defaults
+
+- Perastage projects use the `.pstg` format.
+- New projects can load default layout templates from `library/default_layouts/`.
+- Save, Save As, and Load workflows preserve scene and user-facing project context.
+
+### Layer-aware organization
+
+- Fixtures, trusses, hoists, and objects can be grouped into layers.
+- Layer visibility and selection behavior is shared across viewer and documentation workflows.
+- Active layer controls where newly created items are placed.
 
 ## MVR and GDTF Workflows
 
-- Import and export MVR scenes for interoperability with other lighting tools.
-- Use a built-in fixture dictionary mapped to GDTF files stored in `library/`.
-- Download fixtures from GDTF-Share through the GUI.
-- Handle GDTF filename collisions during export with deterministic renaming.
-- Follow [GDTF mutation policy](gdtf_mutation_policy.md) for `description.xml` writes, revision behavior, and schema fallback.
+### MVR import and open behavior
 
-## Rider and Text-to-Scene Import
+- Imports MVR 1.6 scenes with fixtures, trusses, hoists/supports, and generic objects.
+- `.mvr` opening uses a clean-scene reset plus import flow for deterministic behavior.
+- Menu import and OS association entry points use the same progress and UI lock strategy.
 
-- Parse rider-like text or PDF content using **Tools → Create from text**.
-- Use filter-first workflows before object creation.
-- Support common hang tokens and side mappings in parser input.
-- Maintain parser contract in [Text-to-scene rules](text_to_scene_rules.md).
+### MVR export
 
-## Patch and Data Table Tools
+- Exports the current scene back to `.mvr` for interoperability.
+- Parametric objects exported as Fixture/Truss/Support receive stable non-empty `FixtureID` and globally unique `FixtureIDNumeric` values.
 
-- Manage DMX universes, addresses, and patch assignments.
-- Use auto patch to assign channels by grouped fixture logic.
-- Edit fixtures, trusses, hoists, and objects in dedicated tables with batch operations.
+### GDTF integration and dictionary pipeline
 
-## Visualization and Layout
+- Local fixture dictionary maps textual fixture descriptions to GDTF specs under `library/`.
+- GDTF-Share download flow is available from the Tools menu.
+- Export packages GDTFs under `gdtf/` with archive-relative forward-slash paths.
+- Filename collisions are handled deterministically (`name (1).gdtf`, etc.) and references are updated.
+- Policy details for mutation, revisions, and schema fallback are maintained in [GDTF mutation policy](gdtf_mutation_policy.md).
 
-- Use a real-time OpenGL 3D viewer for scene navigation and inspection.
-- Use the 2D viewer for plan-oriented documentation and vector capture workflows.
-- Build multi-page layouts with views, legends, event tables, text blocks, and images.
+## Rider and Text-to-Scene Generation
 
-## Print and Export Outputs
+### Inputs and parsing flow
 
-- Print layouts and tables to PDF/CSV-oriented outputs.
-- Export fixture/truss/object assets through tool workflows.
-- Generate documentation sheets from layout pages.
+- Rider-like imports accept text and PDF input through **Tools → Create from text**.
+- **Apply filter** supports parser-first cleanup before final object creation.
+- Parser understands hang tokens, including optional coordinate payloads where supported.
+- `CALLES` and `SIDES` headers map into side-truss/fixture placement workflows.
 
-## GUI and Workflow Notes
+### Rules contract
 
-- Some tools are build-gated to keep Release builds focused on production workflows.
-- Unit systems for distance and weight are configurable in Preferences.
-- Shortcut scope and precedence are documented in [GUI shortcut architecture](gui_shortcut_architecture.md).
+- Parsing and placement behavior is governed by [Text-to-scene rules](text_to_scene_rules.md).
+- Any parser behavior changes must update the rules document in the same change set.
 
-## Known Limitations
+## Dictionary Portability and Asset Handling
 
-- Some advanced menu tools remain incomplete or workflow-specific.
-- Very large scenes may stress rendering and redraw paths.
-- Interchange support is centered on MVR; additional formats are limited.
-- Undo/redo coverage is broad but not universal across all operations.
+Perastage dictionary import/export supports multiple transport levels:
+
+- JSON snapshot (references only),
+- JSON snapshot with optional copied assets,
+- portable ZIP bundle with manifest and assets.
+
+Additional safeguards include:
+
+- preflight path validation,
+- missing-reference reporting,
+- collision policy prompts for differing file content.
+
+## Patch, Data Tables, and Editing Helpers
+
+### Patch management
+
+- Manual and assisted patch workflows support universe and address management.
+- Auto patch can group by hang position/type and assign channels sequentially.
+
+### Data tables
+
+- Dedicated tables for fixtures, trusses, hoists, and objects.
+- Multi-row editing helpers include fills, ranges, interpolation, and relative expressions.
+- CSV export is available through file/export workflows.
+
+### Conversion and type/color helpers
+
+- **Auto color** can assign colors by layer/type while preserving explicit colors.
+- **Convert to Hoist** transforms selected fixtures into supports while retaining scene context.
+
+## Visualization and Layout Production
+
+### 3D Viewer
+
+- OpenGL-based viewer with orbit, pan, zoom, and preset camera views.
+- Selection flows integrate with scene tables and command operations.
+
+### 2D Viewer
+
+- Top-down plan visualization with configurable grid and labels.
+- Supports vector draw-command capture for downstream document/export workflows.
+
+### Layout system
+
+- Multi-page layout authoring with page naming and orientation control.
+- Place and edit views, legends, event tables, text blocks, and image elements.
+- Layouts can be exported and printed as production documentation sheets.
+
+## Printing and Export Outputs
+
+- Layout-to-PDF output for full documentation sets.
+- Print table workflows for fixtures/trusses/hoists/objects.
+- Debug-only 2D direct print dialog is gated in Release builds via feature flags.
+
+## GUI Workflow and Operations
+
+### Console and command workflows
+
+- Console supports text command workflows for selection and transform operations.
+- Command history and prompt behavior provide fast operator iteration in large scenes.
+
+### Units and preferences
+
+- Distance and weight systems are independently configurable.
+- Internal canonical values remain millimeters (distance) and kilograms (weight).
+- Input parsing accepts explicit unit suffixes regardless of active display system.
+
+### Shortcut and interaction model
+
+- Keyboard/mouse interaction includes viewer navigation, selection, and layout editing actions.
+- Detailed precedence and scope are tracked in [GUI shortcut architecture](gui_shortcut_architecture.md).
+
+## Build-Gated and Experimental Areas
+
+- Some tools remain Debug-only for production safety in Release builds.
+- Optional Peraviz and DMX/Art-Net integrations are available for advanced setups.
+- Large-scene performance and selected advanced workflows continue to be iterated.
+
+## Related Documents
+
+- [Changes since beta 0.1.0](changes_since_beta_0_1_0.md)
+- [Build and dependency guide](build.md)
+- [Packaging and platform integration](packaging.md)
+- [Build troubleshooting](troubleshooting.md)

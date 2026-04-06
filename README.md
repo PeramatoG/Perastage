@@ -5,7 +5,7 @@
 
 ![Perastage 3D View](resources/perastage3d.png)
 
-Perastage is a C++20 desktop application for professional lighting design and show documentation. It helps lighting designers, programmers, and technicians import MVR data, manage fixtures/trusses/hoists, and generate printable 2D/3D documentation from a single project. The goal is to keep rig planning, scene visualization, and export workflows in one focused tool.
+Perastage is a C++20 desktop application for professional lighting design and show documentation. It helps lighting designers, programmers, and technicians import MVR data, manage fixtures/trusses/hoists, and generate printable 2D/3D documentation from a single project. The current stable line extends the original beta workflow set with production-ready MVR, dictionary portability, and layout/print pipelines.
 
 ## Highlights
 
@@ -39,6 +39,7 @@ The README is intentionally concise. Detailed documentation lives in `docs/`:
 
 - [Documentation policy](docs/documentation_policy.md)
 - [Feature overview](docs/features.md)
+- [Changes since beta 0.1.0](docs/changes_since_beta_0_1_0.md)
 - [Build and dependency guide](docs/build.md)
 - [Windows installation notes](docs/installation_windows.md)
 - [Packaging and platform integration](docs/packaging.md)

@@ -1,53 +1,63 @@
 # Build and Dependency Guide
 
-This document covers essential and advanced build details for Perastage. Use it together with `CMakePresets.json` when available in your environment.
+This document covers baseline and advanced build behavior for Perastage. It is the detailed companion to the short installation section in `README.md`.
 
 ## Core Requirements
 
 - CMake 3.21 or newer.
-- C++20-capable toolchain.
-- Main dependencies: wxWidgets, tinyxml2, OpenGL/GLU, GLEW, CURL, nanovg, and PoDoFo.
+- C++20-capable compiler/toolchain.
+- Required libraries include wxWidgets, tinyxml2, OpenGL/GLU, GLEW, CURL, nanovg, and PoDoFo.
 
-## Quick Build
+## Quick Build (All Platforms)
 
 ```bash
 cmake -S . -B build
 cmake --build build --config Release
 ```
 
-### Running Tests
+## Presets and Configuration Strategy
+
+When available, prefer `CMakePresets.json` for consistent local/team builds.
+
+- Single-config generators rely on `CMAKE_BUILD_TYPE`.
+- Multi-config generators (for example Visual Studio) use `--config Debug|Release`.
+
+## Running Tests
 
 ```bash
 ctest --test-dir build
 ```
 
-## Build Outputs
+## Build Targets and Outputs
 
-- The app executable is generated in the selected build output folder.
-- The `perastage_stage` target prepares runtime assets in `out/install/<CONFIG>` for packaging workflows.
-- The `perastage_symbols` target can collect debug symbols on supported Windows setups.
+- Application target: `Perastage` executable.
+- `perastage_stage`: stages runtime files in `out/install/<CONFIG>` for packaging.
+- `perastage_symbols`: collects symbol artifacts on supported Windows environments.
 
-## Optional Peraviz and DMX Options
+## Optional Peraviz and DMX/Art-Net Integration
 
-Perastage includes optional Peraviz integration and DMX/Art-Net support.
+Perastage can build optional Peraviz components when dependencies are present.
 
 ```bash
 cmake -S . -B build -DPERAVIZ_ENABLE_NATIVE=ON -DPERAVIZ_ENABLE_DMX=ON
 ```
 
-Use these options only when your environment has the required dependencies and intended runtime support.
+### Notes
+
+- These options are not required for core Perastage workflows.
+- Ensure Python 3 and dependent toolchain pieces are discoverable when enabling native Peraviz builds.
 
 ## Project File Format
 
-Perastage project files (`.pstg`) are ZIP archives that typically include:
+Perastage project files (`.pstg`) are ZIP archives that commonly include:
 
-- `config.json` for preferences and layout-related settings.
-- `scene.mvr` for show data representation.
+- `config.json` for preferences and layout/user settings,
+- `scene.mvr` for show-scene payload.
 
-Standard ZIP tools can inspect archive contents for diagnostics.
+You can inspect these archives with standard ZIP tools for diagnostics.
 
 ## Related Documents
 
 - [Windows installation notes](installation_windows.md)
 - [Packaging and platform integration](packaging.md)
-- [Troubleshooting](troubleshooting.md)
+- [Build troubleshooting](troubleshooting.md)
