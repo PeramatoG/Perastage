@@ -44,6 +44,7 @@ class wxZipStreamLink;
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <regex>
 #include <set>
@@ -1388,15 +1389,30 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     std::string primitiveToken;
     if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
       return {};
-    const std::string primitiveKey = TrimAscii(modelRef).empty() ? primitiveToken : TrimAscii(modelRef);
+    const std::string normalizedModelRef = ToLowerAscii(TrimAscii(modelRef));
+    const std::string primitiveKey =
+        normalizedModelRef.empty() ? primitiveToken : normalizedModelRef;
 
     auto sourceIt = primitiveSourceByToken.find(primitiveKey);
     std::string sourcePath;
     if (sourceIt != primitiveSourceByToken.end()) {
       sourcePath = sourceIt->second;
     } else {
-      fs::path outputPath = fs::u8path(primitiveTempDir) /
-                            fs::u8path(mvr::PrimitiveArchivePathForToken(primitiveToken)).filename();
+      std::string primitiveLabel = primitiveToken;
+      const size_t colonPos = primitiveLabel.find(':');
+      if (colonPos != std::string::npos && colonPos + 1 < primitiveLabel.size())
+        primitiveLabel = primitiveLabel.substr(colonPos + 1);
+      for (char &ch : primitiveLabel) {
+        if (!std::isalnum(static_cast<unsigned char>(ch)))
+          ch = '_';
+      }
+      if (primitiveLabel.empty())
+        primitiveLabel = "shape";
+      const std::size_t primitiveHash = std::hash<std::string>{}(primitiveKey);
+      const std::string tempFileName = wxString::Format(
+          "primitive_%s_%zx.glb", primitiveLabel.c_str(), primitiveHash)
+                                           .ToStdString();
+      fs::path outputPath = fs::u8path(primitiveTempDir) / fs::u8path(tempFileName);
       if (!mvr::WritePrimitiveModelForToken(primitiveKey, outputPath.generic_string()))
         return {};
       sourcePath = outputPath.generic_string();
