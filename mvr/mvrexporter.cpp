@@ -2051,6 +2051,43 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     };
 
     Matrix objectMatrixToWrite = obj.transform;
+    std::optional<std::string> overridePrimitiveModelRef;
+    bool forceIdentityGeometryMatrix = false;
+    if (obj.geometries.size() == 1) {
+      const auto &singleGeometry = obj.geometries.front();
+      if (isLegacyPipeCylinderAxisTransform(singleGeometry.modelFile,
+                                            singleGeometry.localTransform)) {
+        auto axisLength = [](const std::array<float, 3> &axis) {
+          return std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+        };
+        const float su = axisLength(obj.transform.u);
+        const float sv = axisLength(obj.transform.v);
+        const float sw = axisLength(obj.transform.w);
+        const std::array<float, 3> scales = {su, sv, sw};
+        const float lengthScale = std::max({scales[0], scales[1], scales[2]});
+        const float diameterScale = std::max(
+            1e-5f, (scales[0] + scales[1] + scales[2] - lengthScale) * 0.5f);
+
+        const float lengthMm = lengthScale * 1000.0f;
+        const float radiusMm = diameterScale * 500.0f;
+        overridePrimitiveModelRef =
+            "primitive:cylinder;top=" + std::to_string(radiusMm) +
+            ";bottom=" + std::to_string(radiusMm) +
+            ";height=" + std::to_string(lengthMm);
+        forceIdentityGeometryMatrix = true;
+
+        auto normalizeAxis = [](const std::array<float, 3> &axis) {
+          const float len =
+              std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+          if (len <= 1e-5f)
+            return std::array<float, 3>{0.0f, 0.0f, 0.0f};
+          return std::array<float, 3>{axis[0] / len, axis[1] / len, axis[2] / len};
+        };
+        objectMatrixToWrite.u = normalizeAxis(objectMatrixToWrite.u);
+        objectMatrixToWrite.v = normalizeAxis(objectMatrixToWrite.v);
+        objectMatrixToWrite.w = normalizeAxis(objectMatrixToWrite.w);
+      }
+    }
 
     tinyxml2::XMLElement *oe = doc.NewElement("SceneObject");
     oe->SetAttribute("uuid", obj.uuid.c_str());
@@ -2075,8 +2112,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           continue;
 
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+        const std::string modelRef =
+            overridePrimitiveModelRef.has_value() ? *overridePrimitiveModelRef
+                                                  : geo.modelFile;
         std::string modelArchivePath =
-            registerPrimitiveModelResource(geo.modelFile, obj.uuid);
+            registerPrimitiveModelResource(modelRef, obj.uuid);
         if (modelArchivePath.empty()) {
           modelArchivePath = registerModelResource(geo.modelFile, "object.3ds");
         }
@@ -2085,7 +2125,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
 
         const Matrix geoMatrixToWrite =
-            isLegacyPipeCylinderAxisTransform(geo.modelFile, geo.localTransform)
+            forceIdentityGeometryMatrix ||
+                    isLegacyPipeCylinderAxisTransform(geo.modelFile, geo.localTransform)
                 ? MatrixUtils::Identity()
                 : geo.localTransform;
         std::string geoMatrixText = MatrixUtils::FormatMatrix(geoMatrixToWrite);
@@ -2120,6 +2161,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(mstr.c_str());
     oe->InsertEndChild(mat);
+
+    tinyxml2::XMLElement *gdtfSpec = doc.NewElement("GDTFSpec");
+    gdtfSpec->SetText("");
+    oe->InsertEndChild(gdtfSpec);
+    tinyxml2::XMLElement *gdtfMode = doc.NewElement("GDTFMode");
+    gdtfMode->SetText("");
+    oe->InsertEndChild(gdtfMode);
 
     parent->InsertEndChild(oe);
   };

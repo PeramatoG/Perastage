@@ -306,7 +306,7 @@ int main() {
   bool sawAddress3585 = false;
   bool sawNonNumericTrussNameFixtureIdConsistency = false;
   bool sawPrimitiveSphereWithIdentityGeometryMatrix = false;
-  bool sawPrimitivePipeObjectMatrixUnbaked = false;
+  bool sawPrimitivePipeObjectMatrixScaleNormalized = false;
   bool sawPrimitivePipeGeometryMatrixNormalized = false;
   int mvrGeometryTrussCount = 0;
   int mvrGeometryTrussesWithGeometry3d = 0;
@@ -448,6 +448,10 @@ int main() {
       if (std::string(cur->Name()) == "SceneObject") {
         const char *sceneObjectUuid = cur->Attribute("uuid");
         auto *geometries = cur->FirstChildElement("Geometries");
+        auto *gdtfSpecNode = cur->FirstChildElement("GDTFSpec");
+        auto *gdtfModeNode = cur->FirstChildElement("GDTFMode");
+        assert(gdtfSpecNode != nullptr);
+        assert(gdtfModeNode != nullptr);
         if (sceneObjectUuid && geometries) {
           if (std::string(sceneObjectUuid) == primitiveSphere.uuid) {
             auto *g3d = geometries->FirstChildElement("Geometry3D");
@@ -472,10 +476,11 @@ int main() {
             assert(objMatrixNode != nullptr && objMatrixNode->GetText() != nullptr);
             Matrix parsedObjMatrix = MatrixUtils::Identity();
             assert(MatrixUtils::ParseMatrix(objMatrixNode->GetText(), parsedObjMatrix));
-            if (parsedObjMatrix.u == primitivePipe.transform.u &&
-                parsedObjMatrix.v == primitivePipe.transform.v &&
-                parsedObjMatrix.w == primitivePipe.transform.w) {
-              sawPrimitivePipeObjectMatrixUnbaked = true;
+            const Matrix identity = MatrixUtils::Identity();
+            if (parsedObjMatrix.u == identity.u &&
+                parsedObjMatrix.v == identity.v &&
+                parsedObjMatrix.w == identity.w) {
+              sawPrimitivePipeObjectMatrixScaleNormalized = true;
             }
 
             auto *g3d = geometries->FirstChildElement("Geometry3D");
@@ -510,7 +515,7 @@ int main() {
   assert(sawAddress3585);
   assert(sawNonNumericTrussNameFixtureIdConsistency);
   assert(sawPrimitiveSphereWithIdentityGeometryMatrix);
-  assert(sawPrimitivePipeObjectMatrixUnbaked);
+  assert(sawPrimitivePipeObjectMatrixScaleNormalized);
   assert(sawPrimitivePipeGeometryMatrixNormalized);
   assert(mvrGeometryTrussCount == static_cast<int>(scene.trusses.size()));
   assert(mvrGeometryTrussesWithGeometry3d == mvrGeometryTrussCount);
