@@ -240,11 +240,61 @@ bool WriteGlb(const PrimitiveMeshData &mesh, const std::string &outputPath) {
   }
 
   const uint32_t positionBytes = static_cast<uint32_t>(mesh.positions.size() * sizeof(float));
+  std::vector<float> normals(mesh.positions.size(), 0.0f);
+  for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+    const uint16_t ia = mesh.indices[i];
+    const uint16_t ib = mesh.indices[i + 1];
+    const uint16_t ic = mesh.indices[i + 2];
+    const size_t a = static_cast<size_t>(ia) * 3u;
+    const size_t b = static_cast<size_t>(ib) * 3u;
+    const size_t c = static_cast<size_t>(ic) * 3u;
+    if (c + 2 >= mesh.positions.size())
+      continue;
+
+    const float abx = mesh.positions[b] - mesh.positions[a];
+    const float aby = mesh.positions[b + 1] - mesh.positions[a + 1];
+    const float abz = mesh.positions[b + 2] - mesh.positions[a + 2];
+    const float acx = mesh.positions[c] - mesh.positions[a];
+    const float acy = mesh.positions[c + 1] - mesh.positions[a + 1];
+    const float acz = mesh.positions[c + 2] - mesh.positions[a + 2];
+
+    const float nx = aby * acz - abz * acy;
+    const float ny = abz * acx - abx * acz;
+    const float nz = abx * acy - aby * acx;
+    normals[a] += nx;
+    normals[a + 1] += ny;
+    normals[a + 2] += nz;
+    normals[b] += nx;
+    normals[b + 1] += ny;
+    normals[b + 2] += nz;
+    normals[c] += nx;
+    normals[c + 1] += ny;
+    normals[c + 2] += nz;
+  }
+  for (size_t i = 0; i + 2 < normals.size(); i += 3) {
+    const float len =
+        std::sqrt(normals[i] * normals[i] + normals[i + 1] * normals[i + 1] +
+                  normals[i + 2] * normals[i + 2]);
+    if (len > 1e-8f) {
+      normals[i] /= len;
+      normals[i + 1] /= len;
+      normals[i + 2] /= len;
+    } else {
+      normals[i] = 0.0f;
+      normals[i + 1] = 0.0f;
+      normals[i + 2] = 1.0f;
+    }
+  }
+  const uint32_t normalBytes = static_cast<uint32_t>(normals.size() * sizeof(float));
   const uint32_t indexBytes = static_cast<uint32_t>(mesh.indices.size() * sizeof(uint16_t));
 
   std::vector<uint8_t> bin;
-  bin.reserve(positionBytes + indexBytes + 4);
+  bin.reserve(positionBytes + normalBytes + indexBytes + 8);
   AppendBytes(bin, mesh.positions.data(), positionBytes);
+  while ((bin.size() % 4u) != 0u)
+    bin.push_back(0u);
+  const uint32_t normalOffset = static_cast<uint32_t>(bin.size());
+  AppendBytes(bin, normals.data(), normalBytes);
   while ((bin.size() % 4u) != 0u)
     bin.push_back(0u);
   const uint32_t indexOffset = static_cast<uint32_t>(bin.size());
@@ -260,6 +310,8 @@ bool WriteGlb(const PrimitiveMeshData &mesh, const std::string &outputPath) {
        << "\"bufferViews\":["
        << "{\"buffer\":0,\"byteOffset\":0,\"byteLength\":" << positionBytes
        << ",\"target\":34962},"
+       << "{\"buffer\":0,\"byteOffset\":" << normalOffset
+       << ",\"byteLength\":" << normalBytes << ",\"target\":34962},"
        << "{\"buffer\":0,\"byteOffset\":" << indexOffset
        << ",\"byteLength\":" << indexBytes << ",\"target\":34963}"
        << "],"
@@ -268,10 +320,13 @@ bool WriteGlb(const PrimitiveMeshData &mesh, const std::string &outputPath) {
        << (mesh.positions.size() / 3u)
        << ",\"type\":\"VEC3\",\"min\":[" << minX << "," << minY << "," << minZ
        << "],\"max\":[" << maxX << "," << maxY << "," << maxZ << "]},"
-       << "{\"bufferView\":1,\"componentType\":5123,\"count\":"
+       << "{\"bufferView\":1,\"componentType\":5126,\"count\":"
+       << (normals.size() / 3u) << ",\"type\":\"VEC3\"},"
+       << "{\"bufferView\":2,\"componentType\":5123,\"count\":"
        << mesh.indices.size() << ",\"type\":\"SCALAR\"}"
        << "],"
-       << "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0},\"indices\":1}]}],"
+       << "\"materials\":[{\"doubleSided\":true}],"
+       << "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},\"indices\":2,\"material\":0}]}],"
        << "\"nodes\":[{\"mesh\":0}],"
        << "\"scenes\":[{\"nodes\":[0]}],"
        << "\"scene\":0"

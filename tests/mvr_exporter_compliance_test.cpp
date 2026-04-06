@@ -454,6 +454,7 @@ int main() {
             assert(g3d != nullptr);
             const char *fileName = g3d->Attribute("fileName");
             assert(fileName != nullptr && std::string(fileName).find("sphere") != std::string::npos);
+            assert(mvrGeometryEntries.count(fileName) == 1);
             auto *geoMatrix = g3d->FirstChildElement("Matrix");
             assert(geoMatrix != nullptr && geoMatrix->GetText() != nullptr);
             Matrix parsedGeoMatrix = MatrixUtils::Identity();
