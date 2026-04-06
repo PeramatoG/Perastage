@@ -47,6 +47,7 @@ class wxZipStreamLink;
 #include <regex>
 #include <set>
 #include <sstream>
+#include <string_view>
 #include <unordered_set>
 #include <unordered_map>
 #include <utility>
@@ -288,6 +289,11 @@ static std::string ToLowerAscii(std::string value) {
   std::transform(value.begin(), value.end(), value.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   return value;
+}
+
+static bool IsPrimitiveModelRef(const std::string &modelRef) {
+  constexpr std::string_view kPrimitivePrefix = "primitive:";
+  return modelRef.rfind(kPrimitivePrefix.data(), 0) == 0;
 }
 
 static void LogLegacyPositionUuidWarning(const std::string &message) {
@@ -1973,16 +1979,23 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!obj.geometries.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
       for (const auto &geo : obj.geometries) {
-        tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-        if (!geo.modelFile.empty()) {
-          std::string modelArchivePath =
-              registerModelResource(geo.modelFile, "object.3ds");
-          g3d->SetAttribute("fileName", modelArchivePath.c_str());
-        } else if (!obj.primitiveType.empty()) {
-          g3d->SetAttribute("geometryType", obj.primitiveType.c_str());
-        } else {
+        if (geo.modelFile.empty() || IsPrimitiveModelRef(geo.modelFile)) {
+          if (!obj.primitiveType.empty()) {
+            tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+            g3d->SetAttribute("geometryType", obj.primitiveType.c_str());
+            std::string geoMatrixText =
+                MatrixUtils::FormatMatrix(geo.localTransform);
+            tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
+            geoMatrix->SetText(geoMatrixText.c_str());
+            g3d->InsertEndChild(geoMatrix);
+            geos->InsertEndChild(g3d);
+          }
           continue;
         }
+        tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+        std::string modelArchivePath =
+            registerModelResource(geo.modelFile, "object.3ds");
+        g3d->SetAttribute("fileName", modelArchivePath.c_str());
 
         std::string geoMatrixText = MatrixUtils::FormatMatrix(geo.localTransform);
         tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
