@@ -2094,17 +2094,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!obj.name.empty())
       oe->SetAttribute("name", obj.name.c_str());
 
-    auto idIt = assignedIds.find(obj.uuid);
-    int numericId = (idIt != assignedIds.end()) ? idIt->second.second : 0;
-    if (numericId <= 0)
-      numericId = 1;
-    tinyxml2::XMLElement *idNode = doc.NewElement("FixtureID");
-    idNode->SetText(std::to_string(numericId).c_str());
-    oe->InsertEndChild(idNode);
-    tinyxml2::XMLElement *numNode = doc.NewElement("FixtureIDNumeric");
-    numNode->SetText(std::to_string(numericId).c_str());
-    oe->InsertEndChild(numNode);
-
     if (!obj.geometries.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
       for (const auto &geo : obj.geometries) {
@@ -2161,13 +2150,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(mstr.c_str());
     oe->InsertEndChild(mat);
-
-    tinyxml2::XMLElement *gdtfSpec = doc.NewElement("GDTFSpec");
-    gdtfSpec->SetText("");
-    oe->InsertEndChild(gdtfSpec);
-    tinyxml2::XMLElement *gdtfMode = doc.NewElement("GDTFMode");
-    gdtfMode->SetText("");
-    oe->InsertEndChild(gdtfMode);
 
     parent->InsertEndChild(oe);
   };

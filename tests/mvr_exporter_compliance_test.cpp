@@ -448,10 +448,6 @@ int main() {
       if (std::string(cur->Name()) == "SceneObject") {
         const char *sceneObjectUuid = cur->Attribute("uuid");
         auto *geometries = cur->FirstChildElement("Geometries");
-        auto *gdtfSpecNode = cur->FirstChildElement("GDTFSpec");
-        auto *gdtfModeNode = cur->FirstChildElement("GDTFMode");
-        assert(gdtfSpecNode != nullptr);
-        assert(gdtfModeNode != nullptr);
         if (sceneObjectUuid && geometries) {
           if (std::string(sceneObjectUuid) == primitiveSphere.uuid) {
             auto *g3d = geometries->FirstChildElement("Geometry3D");
