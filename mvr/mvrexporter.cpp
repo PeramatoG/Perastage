@@ -2050,13 +2050,46 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       return matrixAlmostEqual(localTransform, axisXTransform);
     };
 
+    auto isPrimitiveCylinderRef = [&](const std::string &modelRef) {
+      std::string primitiveToken;
+      if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
+        return false;
+      return ToLowerAscii(TrimAscii(primitiveToken)).rfind("primitive:cylinder", 0) == 0;
+    };
+
+    auto isLegacyBakedPipeObjectMatrix = [&](const Matrix &m) {
+      const float eps = 1e-4f;
+      return std::fabs(m.u[0]) < eps && std::fabs(m.u[1]) < eps &&
+             std::fabs(m.v[0]) < eps && std::fabs(m.v[2]) < eps &&
+             std::fabs(m.w[1]) < eps && std::fabs(m.w[2]) < eps &&
+             std::fabs(m.u[2]) > eps && std::fabs(m.v[1]) > eps &&
+             std::fabs(m.w[0]) > eps;
+    };
+
     Matrix objectMatrixToWrite = obj.transform;
     bool forceIdentityGeometryMatrix = false;
     if (obj.geometries.size() == 1) {
       const auto &singleGeometry = obj.geometries.front();
-      if (isLegacyPipeCylinderAxisTransform(singleGeometry.modelFile,
-                                            singleGeometry.localTransform)) {
+      const bool isCylinderPrimitive = isPrimitiveCylinderRef(singleGeometry.modelFile);
+      const bool hasLegacyAxisGeometry =
+          isLegacyPipeCylinderAxisTransform(singleGeometry.modelFile,
+                                            singleGeometry.localTransform);
+      const bool hasLegacyBakedObject = isCylinderPrimitive &&
+                                        isLegacyBakedPipeObjectMatrix(obj.transform);
+      if (hasLegacyAxisGeometry || hasLegacyBakedObject) {
         forceIdentityGeometryMatrix = true;
+        auto axisLength = [](const std::array<float, 3> &axis) {
+          return std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+        };
+        const float su = axisLength(obj.transform.u);
+        const float sv = axisLength(obj.transform.v);
+        const float sw = axisLength(obj.transform.w);
+        const float lengthScale = std::max({su, sv, sw});
+        const float minScale = std::min({su, sv, sw});
+        const float midScale = su + sv + sw - lengthScale - minScale;
+        objectMatrixToWrite.u = {lengthScale, 0.0f, 0.0f};
+        objectMatrixToWrite.v = {0.0f, midScale, 0.0f};
+        objectMatrixToWrite.w = {0.0f, 0.0f, minScale};
       }
     }
 

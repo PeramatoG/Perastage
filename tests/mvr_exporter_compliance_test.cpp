@@ -273,6 +273,19 @@ int main() {
   primitivePipe.geometries.push_back(primitivePipeGeo);
   scene.sceneObjects[primitivePipe.uuid] = primitivePipe;
 
+  SceneObject primitivePipeBaked = primitivePipe;
+  primitivePipeBaked.uuid = "obj-pipe-baked";
+  primitivePipeBaked.name = "Pipe Baked";
+  primitivePipeBaked.transform.u = {0.0f, 0.0f, -0.05f};
+  primitivePipeBaked.transform.v = {0.0f, 0.05f, 0.0f};
+  primitivePipeBaked.transform.w = {14.0f, 0.0f, 0.0f};
+  primitivePipeBaked.geometries.clear();
+  GeometryInstance primitivePipeBakedGeo;
+  primitivePipeBakedGeo.modelFile = "primitive:cylinder";
+  primitivePipeBakedGeo.localTransform = MatrixUtils::Identity();
+  primitivePipeBaked.geometries.push_back(primitivePipeBakedGeo);
+  scene.sceneObjects[primitivePipeBaked.uuid] = primitivePipeBaked;
+
   MvrExporter exporter;
   fs::path mvrPath = tempDir / "Test1.mvr";
   assert(exporter.ExportToFile(mvrPath.generic_string()));
@@ -308,6 +321,7 @@ int main() {
   bool sawPrimitiveSphereWithIdentityGeometryMatrix = false;
   bool sawPrimitivePipeObjectMatrixUnbaked = false;
   bool sawPrimitivePipeGeometryMatrixNormalized = false;
+  bool sawPrimitivePipeBakedMatrixCanonicalized = false;
   int mvrGeometryTrussCount = 0;
   int mvrGeometryTrussesWithGeometry3d = 0;
   int mvrGeometryTrussesWithRenderableGdtf = 0;
@@ -491,6 +505,18 @@ int main() {
               sawPrimitivePipeGeometryMatrixNormalized = true;
             }
           }
+
+          if (std::string(sceneObjectUuid) == primitivePipeBaked.uuid) {
+            auto *objMatrixNode = cur->FirstChildElement("Matrix");
+            assert(objMatrixNode != nullptr && objMatrixNode->GetText() != nullptr);
+            Matrix parsedObjMatrix = MatrixUtils::Identity();
+            assert(MatrixUtils::ParseMatrix(objMatrixNode->GetText(), parsedObjMatrix));
+            if (parsedObjMatrix.u == primitivePipe.transform.u &&
+                parsedObjMatrix.v == primitivePipe.transform.v &&
+                parsedObjMatrix.w == primitivePipe.transform.w) {
+              sawPrimitivePipeBakedMatrixCanonicalized = true;
+            }
+          }
         }
       }
       for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
@@ -511,6 +537,7 @@ int main() {
   assert(sawPrimitiveSphereWithIdentityGeometryMatrix);
   assert(sawPrimitivePipeObjectMatrixUnbaked);
   assert(sawPrimitivePipeGeometryMatrixNormalized);
+  assert(sawPrimitivePipeBakedMatrixCanonicalized);
   assert(mvrGeometryTrussCount == static_cast<int>(scene.trusses.size()));
   assert(mvrGeometryTrussesWithGeometry3d == mvrGeometryTrussCount);
   assert(mvrGeometryTrussesWithRenderableGdtf == mvrGeometryTrussCount);
