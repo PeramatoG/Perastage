@@ -180,7 +180,8 @@ PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
         static_cast<uint16_t>(sideBase + ((i + 1) % kSegments) * 2);
     const uint16_t bot1 =
         static_cast<uint16_t>(sideBase + ((i + 1) % kSegments) * 2 + 1);
-    mesh.indices.insert(mesh.indices.end(), {top0, bot1, bot0, top0, top1, bot1});
+    // Keep counter-clockwise winding for outward normals in the right-handed MVR space.
+    mesh.indices.insert(mesh.indices.end(), {top0, bot0, bot1, top0, bot1, top1});
   }
 
   // Top cap vertices.
