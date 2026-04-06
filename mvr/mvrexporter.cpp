@@ -1383,7 +1383,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     return archivePath;
   };
 
-  auto registerPrimitiveModelResource = [&](const std::string &modelRef) -> std::string {
+  auto registerPrimitiveModelResource = [&](const std::string &modelRef,
+                                            const std::string &objectUuid) -> std::string {
     std::string primitiveToken;
     if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
       return {};
@@ -1402,7 +1403,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     }
 
     const std::string preferredArchivePath =
-        mvr::PrimitiveArchivePathForToken(primitiveToken);
+        mvr::PrimitiveArchivePathForToken(primitiveToken, objectUuid);
     return registerResource(sourcePath, preferredArchivePath);
   };
 
@@ -2003,7 +2004,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           continue;
 
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-        std::string modelArchivePath = registerPrimitiveModelResource(geo.modelFile);
+        std::string modelArchivePath =
+            registerPrimitiveModelResource(geo.modelFile, obj.uuid);
         if (modelArchivePath.empty()) {
           modelArchivePath = registerModelResource(geo.modelFile, "object.3ds");
         }
@@ -2024,7 +2026,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     } else if (!obj.modelFile.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
       tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-      std::string modelArchivePath = registerPrimitiveModelResource(obj.modelFile);
+      std::string modelArchivePath =
+          registerPrimitiveModelResource(obj.modelFile, obj.uuid);
       if (modelArchivePath.empty()) {
         modelArchivePath = registerModelResource(obj.modelFile, "object.3ds");
       }

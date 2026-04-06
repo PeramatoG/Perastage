@@ -38,13 +38,27 @@ std::string NormalizeLower(std::string value) {
 bool IsSphereRef(const std::string &normalized) {
   return normalized.rfind(kSphereToken, 0) == 0 ||
          normalized.find("perastage_primitive_sphere.glb") != std::string::npos ||
-         normalized.find("perastage_primitive_sphere.obj") != std::string::npos;
+         normalized.find("perastage_primitive_sphere.obj") != std::string::npos ||
+         normalized.find("primitive_sphere_") != std::string::npos;
 }
 
 bool IsCubeRef(const std::string &normalized) {
   return normalized.rfind(kCubeToken, 0) == 0 ||
          normalized.find("perastage_primitive_cube.glb") != std::string::npos ||
-         normalized.find("perastage_primitive_cube.obj") != std::string::npos;
+         normalized.find("perastage_primitive_cube.obj") != std::string::npos ||
+         normalized.find("primitive_cube_") != std::string::npos;
+}
+
+std::string SanitizeUuidForFileName(const std::string &objectUuid) {
+  std::string out;
+  out.reserve(objectUuid.size());
+  for (char ch : objectUuid) {
+    if (std::isalnum(static_cast<unsigned char>(ch)))
+      out.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+    else
+      out.push_back('_');
+  }
+  return out;
 }
 
 struct PrimitiveMeshData {
@@ -224,6 +238,19 @@ std::string PrimitiveArchivePathForToken(const std::string &primitiveToken) {
     return kSphereArchiveName;
   if (normalized.rfind(kCubeToken, 0) == 0)
     return kCubeArchiveName;
+  return {};
+}
+
+std::string PrimitiveArchivePathForToken(const std::string &primitiveToken,
+                                         const std::string &objectUuid) {
+  const std::string normalized = NormalizeLower(primitiveToken);
+  const std::string suffix = SanitizeUuidForFileName(objectUuid);
+  if (suffix.empty())
+    return PrimitiveArchivePathForToken(primitiveToken);
+  if (normalized.rfind(kSphereToken, 0) == 0)
+    return "primitives/primitive_sphere_" + suffix + ".glb";
+  if (normalized.rfind(kCubeToken, 0) == 0)
+    return "primitives/primitive_cube_" + suffix + ".glb";
   return {};
 }
 

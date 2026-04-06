@@ -110,6 +110,16 @@ RangeParts SplitRangeParts(const wxString& value)
             parts.push_back(part);
     return {parts, usedSeparator, trailingSeparator};
 }
+
+std::string ModelRefForDisplay(const SceneObject &object)
+{
+    const std::string primary = object.GetPrimaryModel();
+    if (primary.rfind("primitive:sphere", 0) == 0)
+        return "primitive_sphere.glb";
+    if (primary.rfind("primitive:cube", 0) == 0)
+        return "primitive_cube.glb";
+    return primary;
+}
 } // namespace
 
 SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent, IGuiConfigServices* services)
@@ -208,7 +218,7 @@ void SceneObjectTablePanel::ReloadData()
         wxString name = wxString::FromUTF8(obj.name);
         wxString layer = obj.layer == DEFAULT_LAYER_NAME ? wxString()
                                                           : wxString::FromUTF8(obj.layer);
-        wxString model = wxString::FromUTF8(obj.modelFile);
+        wxString model = wxString::FromUTF8(ModelRefForDisplay(obj));
 
         auto posArr = obj.transform.o;
         wxString posX = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
