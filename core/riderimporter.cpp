@@ -48,6 +48,7 @@
 #include "hoist_weight_distribution.h"
 #include "layer.h"
 #include "logger.h"
+#include "sceneobject.h"
 #include "support.h"
 #include "truss.h"
 #include "trussdictionary.h"
@@ -61,14 +62,16 @@ namespace {
 // the compilation cost on every import call and makes keyword matching cheap
 // even when processing large riders.
 static const std::regex kTrussLineRe(
-    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss)\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b(?:\\s+(?:(?:para|for)\\s+)?(.+))?\\s*$",
+    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss|pipe|pipes|vara|varas)\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b(?:\\s+(?:(?:para|for)\\s+)?(.+))?\\s*$",
     std::regex::icase);
 static const std::regex kTrussLineNoLengthRe(
-    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss)\\s+([^\\n]*?)(?:\\s+(?:para|for)\\s+(.+))?\\s*$",
+    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss|pipe|pipes|vara|varas)\\s+([^\\n]*?)(?:\\s+(?:para|for)\\s+(.+))?\\s*$",
     std::regex::icase);
 static const std::regex kTrussRe(
-    "(?:truss)[^\\n]*?(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b",
+    "(?:truss|pipe|pipes|vara|varas)[^\\n]*?(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b",
     std::regex::icase);
+static const std::regex kPipeKeywordRe("\\b(?:pipe|pipes|vara|varas)\\b",
+                                       std::regex::icase);
 static const std::regex kLengthWithUnitRe(
     "(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b", std::regex::icase);
 static const std::regex kHoistLineRe(
@@ -103,6 +106,13 @@ std::string Trim(const std::string &s) {
     return {};
   size_t end = s.find_last_not_of(" \t\r\n");
   return s.substr(start, end - start + 1);
+}
+
+enum class RiggingLineKind { Truss, Pipe };
+
+RiggingLineKind DetectRiggingLineKind(const std::string &line) {
+  return std::regex_search(line, kPipeKeywordRe) ? RiggingLineKind::Pipe
+                                                  : RiggingLineKind::Truss;
 }
 
 std::optional<std::string> ExtractParenthesizedToken(const std::string &text) {
@@ -1137,6 +1147,9 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
     }
 
     if (std::regex_match(line, m, kTrussLineRe)) {
+      const RiggingLineKind riggingKind = DetectRiggingLineKind(line);
+      const std::string riggingKeyword =
+          riggingKind == RiggingLineKind::Pipe ? "PIPE" : "TRUSS";
       int quantity = 0;
       if (!TryParseInt(m[1].str(), quantity) || quantity <= 0)
         continue;
@@ -1200,7 +1213,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
 
       const std::string lenText = formatLengthM(lengthM) + "m";
       auto buildLine = [&](const std::string &targetHang) {
-        std::string out = "1 TRUSS";
+        std::string out = "1 " + riggingKeyword;
         if (!model.empty())
           out += " " + model;
         out += " " + lenText;
@@ -1230,6 +1243,9 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
 
     if (std::regex_match(line, m, kTrussLineNoLengthRe) &&
         !std::regex_search(line, kLengthWithUnitRe)) {
+      const RiggingLineKind riggingKind = DetectRiggingLineKind(line);
+      const std::string riggingKeyword =
+          riggingKind == RiggingLineKind::Pipe ? "PIPE" : "TRUSS";
       int quantity = 0;
       if (!TryParseInt(m[1].str(), quantity) || quantity <= 0)
         continue;
@@ -1276,14 +1292,18 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       hang = ResolveHangTargetFallback(hang);
       if (hang.empty())
         hang = NormalizeHangName(currentHang);
-      if (hang != "BACKDROP")
+      const bool keepLine = riggingKind == RiggingLineKind::Pipe || hang == "BACKDROP";
+      if (!keepLine)
         continue;
 
       for (int i = 0; i < quantity; ++i) {
-        std::string out = "1 TRUSS";
+        std::string out = "1 " + riggingKeyword;
         if (!model.empty())
           out += " " + model;
-        out += " " + hang;
+        if (riggingKind == RiggingLineKind::Pipe)
+          out += " 14m";
+        if (!hang.empty())
+          out += " " + hang;
         if (!trussCoordinateSuffix.empty())
           out += " " + trussCoordinateSuffix;
         if (!trussMarginSuffix.empty())
@@ -1294,6 +1314,9 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
     }
 
     if (std::regex_search(line, m, kTrussRe)) {
+      const RiggingLineKind riggingKind = DetectRiggingLineKind(line);
+      const std::string riggingKeyword =
+          riggingKind == RiggingLineKind::Pipe ? "PIPE" : "TRUSS";
       float lengthM = 0.0f;
       if (!TryParseFloat(m[1].str(), lengthM))
         continue;
@@ -1304,7 +1327,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
         hang = NormalizeHangName(currentHang);
       if (hang == "FLOOR")
         continue;
-      std::string out = "1 TRUSS " + formatLengthM(lengthM) + "m";
+      std::string out = "1 " + riggingKeyword + " " + formatLengthM(lengthM) + "m";
       if (!hang.empty())
         out += " " + hang;
       riggingLines.push_back(out);
@@ -1567,6 +1590,15 @@ bool RiderImporter::ImportText(const std::string &text) {
   std::unordered_set<std::string> seenTypes;
   std::vector<std::string> importedTrussUuids;
   std::vector<std::string> importedFixtureUuids;
+  struct PipeSpanInfo {
+    std::string positionName;
+    float startX = 0.0f;
+    float endX = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+  };
+  std::vector<PipeSpanInfo> importedPipeSpans;
+  std::unordered_set<std::string> pipeHangNames;
   struct ScreenObjectRequest {
     std::string name;
     std::string layer;
@@ -1736,6 +1768,7 @@ bool RiderImporter::ImportText(const std::string &text) {
         hoistRequests.push_back(
             {parsedHoist.quantity, parsedHoist.capacityKg, parsedHoist.target});
       } else if (std::regex_match(line, m, kTrussLineRe)) {
+        const RiggingLineKind riggingKind = DetectRiggingLineKind(line);
         int quantity = 0;
         if (!TryParseInt(m[1].str(), quantity))
           continue;
@@ -1953,6 +1986,43 @@ bool RiderImporter::ImportText(const std::string &text) {
           }
         };
 
+        auto addPipeObject = [&](const std::string &posName,
+                                 const std::optional<TrussCoordinateOverride>
+                                     &coordinateOverride) {
+          const float pipeLengthMm = length;
+          const float pipeDiameterMm = 100.0f;
+          const float fallbackCubeMm = 300.0f;
+          const float startX = coordinateOverride && coordinateOverride->hasX
+                                   ? coordinateOverride->xMm
+                                   : -0.5f * pipeLengthMm;
+          const float hangY = coordinateOverride && coordinateOverride->hasY
+                                  ? coordinateOverride->yMm
+                                  : getHangPos(posName);
+          const float hangZ = coordinateOverride && coordinateOverride->hasZ
+                                  ? coordinateOverride->zMm
+                                  : getHangHeight(posName);
+
+          SceneObject pipeObject;
+          pipeObject.uuid = GenerateUuid();
+          pipeObject.layer =
+              layerByType ? ("obj " + posName) : ("pos " + posName);
+          std::string lengthLabel = formatLength(pipeLengthMm);
+          pipeObject.name = model.empty() ? ("PIPE " + lengthLabel)
+                                          : ("PIPE " + model + " " + lengthLabel);
+          pipeObject.transform.u = {pipeLengthMm / fallbackCubeMm, 0.0f, 0.0f};
+          pipeObject.transform.v = {0.0f, pipeDiameterMm / fallbackCubeMm, 0.0f};
+          pipeObject.transform.w = {0.0f, 0.0f, pipeDiameterMm / fallbackCubeMm};
+          pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
+          pipeObject.transform.o[1] = hangY;
+          pipeObject.transform.o[2] = hangZ;
+
+          importedPipeSpans.push_back({posName, startX, startX + pipeLengthMm, hangY,
+                                       hangZ});
+          pipeHangNames.insert(posName);
+          scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
+          addToLayer(pipeObject.layer, pipeObject.uuid);
+        };
+
         auto resolveCoordinateOverride = [&](const std::string &posName) {
           TrussCoordinateOverride resolved;
           bool hasResolved = false;
@@ -1981,15 +2051,26 @@ bool RiderImporter::ImportText(const std::string &text) {
         };
 
         if (hang == "LX") {
-          for (int i = 0; i < quantity; ++i)
-            addTrussPieces("LX" + std::to_string(i + 1),
-                           resolveCoordinateOverride("LX" + std::to_string(i + 1)));
+          for (int i = 0; i < quantity; ++i) {
+            const std::string posName = "LX" + std::to_string(i + 1);
+            if (riggingKind == RiggingLineKind::Pipe) {
+              addPipeObject(posName, resolveCoordinateOverride(posName));
+            } else {
+              addTrussPieces(posName, resolveCoordinateOverride(posName));
+            }
+          }
         } else {
-          for (int i = 0; i < quantity; ++i)
-            addTrussPieces(hang, resolveCoordinateOverride(hang));
+          for (int i = 0; i < quantity; ++i) {
+            if (riggingKind == RiggingLineKind::Pipe) {
+              addPipeObject(hang, resolveCoordinateOverride(hang));
+            } else {
+              addTrussPieces(hang, resolveCoordinateOverride(hang));
+            }
+          }
         }
       } else if (std::regex_match(line, m, kTrussLineNoLengthRe) &&
                  !std::regex_search(line, kLengthWithUnitRe)) {
+        const RiggingLineKind riggingKind = DetectRiggingLineKind(line);
         int quantity = 0;
         if (!TryParseInt(m[1].str(), quantity))
           continue;
@@ -2026,10 +2107,85 @@ bool RiderImporter::ImportText(const std::string &text) {
         hang = ResolveHangTargetFallback(hang);
         if (hang.empty())
           hang = NormalizeHangName(currentHang);
-        if (hang != "BACKDROP")
+        const bool isPipe = riggingKind == RiggingLineKind::Pipe;
+        if (!isPipe && hang != "BACKDROP")
           continue;
         if (marginOverrideMm.has_value())
           hangMarginOverridesMm[hang] = *marginOverrideMm;
+
+        if (isPipe) {
+          const float defaultPipeLengthMm = 14000.0f;
+          const float pipeDiameterMm = 100.0f;
+          const float fallbackCubeMm = 300.0f;
+          auto addPipeObject = [&](const std::string &posName,
+                                   const std::optional<TrussCoordinateOverride>
+                                       &resolvedOverride) {
+            const float startX = resolvedOverride && resolvedOverride->hasX
+                                     ? resolvedOverride->xMm
+                                     : -0.5f * defaultPipeLengthMm;
+            const float hangY = resolvedOverride && resolvedOverride->hasY
+                                    ? resolvedOverride->yMm
+                                    : getHangPos(posName);
+            const float hangZ = resolvedOverride && resolvedOverride->hasZ
+                                    ? resolvedOverride->zMm
+                                    : getHangHeight(posName);
+
+            SceneObject pipeObject;
+            pipeObject.uuid = GenerateUuid();
+            pipeObject.layer = layerByType ? ("obj " + posName) : ("pos " + posName);
+            pipeObject.name = model.empty() ? "PIPE 14M" : ("PIPE " + model + " 14M");
+            pipeObject.transform.u = {defaultPipeLengthMm / fallbackCubeMm, 0.0f,
+                                      0.0f};
+            pipeObject.transform.v = {0.0f, pipeDiameterMm / fallbackCubeMm, 0.0f};
+            pipeObject.transform.w = {0.0f, 0.0f, pipeDiameterMm / fallbackCubeMm};
+            pipeObject.transform.o[0] = startX + 0.5f * defaultPipeLengthMm;
+            pipeObject.transform.o[1] = hangY;
+            pipeObject.transform.o[2] = hangZ;
+            scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
+            addToLayer(pipeObject.layer, pipeObject.uuid);
+            importedPipeSpans.push_back(
+                {posName, startX, startX + defaultPipeLengthMm, hangY, hangZ});
+            pipeHangNames.insert(posName);
+          };
+
+          auto resolveOverride = [&](const std::string &posName) {
+            TrussCoordinateOverride resolved;
+            bool hasResolved = false;
+            if (const auto hangOverrideIt = hangCoordinateOverrides.find(posName);
+                hangOverrideIt != hangCoordinateOverrides.end()) {
+              resolved = hangOverrideIt->second;
+              hasResolved = true;
+            }
+            if (coordinateOverride.has_value()) {
+              if (coordinateOverride->hasX) {
+                resolved.hasX = true;
+                resolved.xMm = coordinateOverride->xMm;
+              }
+              if (coordinateOverride->hasY) {
+                resolved.hasY = true;
+                resolved.yMm = coordinateOverride->yMm;
+              }
+              if (coordinateOverride->hasZ) {
+                resolved.hasZ = true;
+                resolved.zMm = coordinateOverride->zMm;
+              }
+              hasResolved = true;
+            }
+            return hasResolved ? std::optional<TrussCoordinateOverride>(resolved)
+                               : std::nullopt;
+          };
+
+          if (hang == "LX") {
+            for (int i = 0; i < quantity; ++i) {
+              const std::string posName = "LX" + std::to_string(i + 1);
+              addPipeObject(posName, resolveOverride(posName));
+            }
+          } else {
+            for (int i = 0; i < quantity; ++i)
+              addPipeObject(hang, resolveOverride(hang));
+          }
+          continue;
+        }
 
         float width = 400.0f;
         float height = 400.0f;
@@ -2132,6 +2288,7 @@ bool RiderImporter::ImportText(const std::string &text) {
           }
         }
       } else if (std::regex_search(line, m, kTrussRe)) {
+        const RiggingLineKind riggingKind = DetectRiggingLineKind(line);
         float length = 0.0f;
         if (!TryParseFloat(m[1], length))
           continue;
@@ -2177,6 +2334,46 @@ bool RiderImporter::ImportText(const std::string &text) {
         }
         if (hang == "FLOOR")
           continue;
+
+        if (riggingKind == RiggingLineKind::Pipe) {
+          const float pipeLengthMm = length;
+          const float pipeDiameterMm = 100.0f;
+          const float fallbackCubeMm = 300.0f;
+          const float startX = coordinateOverride && coordinateOverride->hasX
+                                   ? coordinateOverride->xMm
+                                   : -0.5f * pipeLengthMm;
+          const float hangY = coordinateOverride && coordinateOverride->hasY
+                                  ? coordinateOverride->yMm
+                                  : getHangPos(hang);
+          const float hangZ = coordinateOverride && coordinateOverride->hasZ
+                                  ? coordinateOverride->zMm
+                                  : getHangHeight(hang);
+
+          SceneObject pipeObject;
+          pipeObject.uuid = GenerateUuid();
+          pipeObject.layer = layerByType ? ("obj " + hang) : ("pos " + hang);
+          {
+            std::ostringstream label;
+            label << std::fixed << std::setprecision(2) << (length / 1000.0f);
+            std::string lengthText = label.str();
+            lengthText.erase(lengthText.find_last_not_of('0') + 1,
+                             std::string::npos);
+            if (!lengthText.empty() && lengthText.back() == '.')
+              lengthText.pop_back();
+            pipeObject.name = "PIPE " + lengthText + "M";
+          }
+          pipeObject.transform.u = {pipeLengthMm / fallbackCubeMm, 0.0f, 0.0f};
+          pipeObject.transform.v = {0.0f, pipeDiameterMm / fallbackCubeMm, 0.0f};
+          pipeObject.transform.w = {0.0f, 0.0f, pipeDiameterMm / fallbackCubeMm};
+          pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
+          pipeObject.transform.o[1] = hangY;
+          pipeObject.transform.o[2] = hangZ;
+          scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
+          addToLayer(pipeObject.layer, pipeObject.uuid);
+          importedPipeSpans.push_back({hang, startX, startX + pipeLengthMm, hangY, hangZ});
+          pipeHangNames.insert(hang);
+          continue;
+        }
 
         auto formatLength = [](float mm) {
           std::ostringstream oss;
@@ -2469,6 +2666,24 @@ bool RiderImporter::ImportText(const std::string &text) {
     } else {
       info.startX = std::min(info.startX, start);
       info.endX = std::max(info.endX, end);
+    }
+  }
+
+  for (const PipeSpanInfo &pipeInfo : importedPipeSpans) {
+    auto &info = trussInfo[pipeInfo.positionName];
+    if (!info.found) {
+      info.startX = pipeInfo.startX;
+      info.endX = pipeInfo.endX;
+      info.y = pipeInfo.y;
+      info.z = pipeInfo.z;
+      info.width = 100.0f;
+      info.found = true;
+    } else {
+      info.startX = std::min(info.startX, pipeInfo.startX);
+      info.endX = std::max(info.endX, pipeInfo.endX);
+      info.y = pipeInfo.y;
+      info.z = pipeInfo.z;
+      info.width = 100.0f;
     }
   }
 
@@ -2924,6 +3139,16 @@ bool RiderImporter::ImportText(const std::string &text) {
       placeFixturesAsSides(ordered, sideTrussInfo.leftX, sideTrussInfo.rightX, startY,
                            endY, sideTrussInfo.found,
                            sideTrussInfo.found ? sideTrussInfo.z : 1000.0f);
+      continue;
+    }
+    if (pipeHangNames.count(pos) > 0) {
+      placeFixtureGroup(pos, fixturesVec,
+                        [&](Fixture &fixture, float x, float baseY, float baseZ,
+                            float /*width*/) {
+                          fixture.transform.o[0] = x;
+                          fixture.transform.o[1] = baseY;
+                          fixture.transform.o[2] = baseZ;
+                        });
       continue;
     }
 

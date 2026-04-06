@@ -180,6 +180,11 @@ Supported truss syntax includes:
 - `N truss MODEL [para HANG]` (lengthless form, used for backdrop lines)
 - `N truss MODEL [for HANG]` (lengthless form, used for backdrop lines)
 - More generic fallback lines containing `truss` and a measurable length.
+- Pipe aliases are also accepted: `pipe`, `pipes`, `vara`, `varas`.
+  - `N pipe MODEL LENGTH m [para/for HANG]`
+  - `N pipe MODEL [para/for HANG]` (defaults to `14 m`).
+  - Pipe lines use the same parenthesis coordinate overrides and bracket margin
+    overrides as truss lines.
 - Optional coordinate override appended to hang in parentheses, e.g.
   - `LX1 (0, -1, 9)` => `x, y, z`
   - `LX1 ( -1, 9 )` => `y, z` (keeps default `x`)
@@ -221,6 +226,17 @@ Key truss behaviors:
      adjectives (e.g. `NEGRO`, `BLACK`) so names like `40X40 PRO NEGRO` can
      resolve against canonical dictionary entries such as `TRUSS 40X40 PRO 3M`.
 8. If model/symbol cannot be fully resolved to renderable geometry (`.3ds`/`.glb` available), importer keeps dummy-box truss data and logs a warning.
+
+Pipe-specific behavior:
+
+1. Pipe lines create `SceneObject` entries (object table), not truss entries.
+2. Imported pipes are created as simple cylindrical placeholders:
+   - length = parsed length (or `14 m` for lengthless pipe lines),
+   - radius = `5 cm` (`100 mm` diameter).
+3. Pipe lines still create/target the same normalized hang names (`LX1`, `LX2`, ...),
+   including `PUENTES LX` expansion to `LX1..LXN`.
+4. Pipes do not carry truss hang-weight fields; fixtures still keep their hang
+   position assignments exactly as usual.
 
 Special case:
 
@@ -325,14 +341,16 @@ Driven by config key `rider_layer_mode`:
 - `position` mode:
   - Fixtures: `pos <hang>`
   - Trusses: `pos <hang>`
+  - Pipe objects: `pos <hang>`
 - `type` mode:
   - Fixtures: `fix <fixture type>`
   - Trusses: `truss <hang>`
+  - Pipe objects: `obj <hang>`
 - Hoists (both modes): `rig <hoist function>`
 
 Missing/empty names fall back to the default scene layer.
 
-## Fixture distribution over trusses
+## Fixture distribution over trusses/pipes
 
 After parsing, imported fixtures are distributed per hang:
 
@@ -382,6 +400,9 @@ After parsing, imported fixtures are distributed per hang:
      - with real side trusses: same side-truss anchors as `LX SIDES`,
      - fallback without side trusses: `0.5 m` inside the widest detected `LX*`
        truss span (`left = minX + 0.5 m`, `right = maxX - 0.5 m`).
+10. If a hang is created from `pipe`/`vara` syntax, all fixture categories on
+    that hang use the same direct placement (`x` distribution + shared `baseY/baseZ`);
+    no extra front/back/top offsets are applied.
 
 ## Numbering and identity rules
 
