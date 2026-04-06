@@ -523,6 +523,32 @@ int main() {
   tinyxml2::XMLElement *sceneNode = root->FirstChildElement("Scene");
   assert(sceneNode != nullptr);
   assert(sceneNode->FirstChildElement("UserData") == nullptr);
+  tinyxml2::XMLElement *layersNode = sceneNode->FirstChildElement("Layers");
+  assert(layersNode != nullptr);
+  bool sawDefaultLayerNode = false;
+  bool sawSphereInDefaultLayer = false;
+  for (tinyxml2::XMLElement *layerOrOther = layersNode->FirstChildElement(); layerOrOther;
+       layerOrOther = layerOrOther->NextSiblingElement()) {
+    assert(std::string(layerOrOther->Name()) == "Layer");
+    const char *layerName = layerOrOther->Attribute("name");
+    const std::string layerNameText = layerName ? layerName : "";
+    if (layerNameText == "Default")
+      sawDefaultLayerNode = true;
+
+    tinyxml2::XMLElement *childList = layerOrOther->FirstChildElement("ChildList");
+    for (tinyxml2::XMLElement *child = childList ? childList->FirstChildElement() : nullptr; child;
+         child = child->NextSiblingElement()) {
+      if (std::string(child->Name()) != "SceneObject")
+        continue;
+      const char *uuidAttr = child->Attribute("uuid");
+      if (uuidAttr != nullptr && std::string(uuidAttr) == primitiveSphere.uuid &&
+          layerNameText == "Default") {
+        sawSphereInDefaultLayer = true;
+      }
+    }
+  }
+  assert(sawDefaultLayerNode);
+  assert(sawSphereInDefaultLayer);
   tinyxml2::XMLElement *rootUserData = root->FirstChildElement("UserData");
   assert(rootUserData != nullptr);
 

@@ -2199,6 +2199,16 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
             .ToStdString());
   };
 
+  std::string defaultLayerUuid;
+  std::string defaultLayerName = DEFAULT_LAYER_NAME;
+  for (const auto &[layerUuid, layer] : scene.layers) {
+    if (layer.name == DEFAULT_LAYER_NAME) {
+      defaultLayerUuid = layerUuid;
+      if (!layer.name.empty())
+        defaultLayerName = layer.name;
+    }
+  }
+
   for (const auto &[layerUuid, layer] : scene.layers) {
     if (layer.name == DEFAULT_LAYER_NAME)
       continue;
@@ -2345,8 +2355,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!grouped)
       exportSceneObject(rootChildList, obj);
   }
-  if (rootChildList->FirstChild())
-    layersNode->InsertEndChild(rootChildList);
+  if (rootChildList->FirstChild()) {
+    tinyxml2::XMLElement *defaultLayerElem = doc.NewElement("Layer");
+    if (!defaultLayerUuid.empty())
+      defaultLayerElem->SetAttribute("uuid", defaultLayerUuid.c_str());
+    if (!defaultLayerName.empty())
+      defaultLayerElem->SetAttribute("name", defaultLayerName.c_str());
+    defaultLayerElem->InsertEndChild(rootChildList);
+    layersNode->InsertEndChild(defaultLayerElem);
+  }
 
   sceneNode->InsertEndChild(layersNode);
 
