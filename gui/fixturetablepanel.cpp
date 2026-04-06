@@ -210,6 +210,9 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *servi
 }
 
 FixtureTablePanel::~FixtureTablePanel() {
+  if (HasCapture())
+    ReleaseMouse();
+  SetInstance(nullptr);
   store = nullptr;
 }
 
@@ -1175,6 +1178,18 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
   int r = table->ItemToRow(item);
   if (r == wxNOT_FOUND)
     return;
+
+  struct Viewer3DModalGuard {
+    explicit Viewer3DModalGuard(Viewer3DPanel *panel) : panel(panel) {
+      if (panel)
+        panel->SetModalDialogActive(true);
+    }
+    ~Viewer3DModalGuard() {
+      if (panel)
+        panel->SetModalDialogActive(false);
+    }
+    Viewer3DPanel *panel = nullptr;
+  } viewer3DModalGuard(Viewer3DPanel::Instance());
 
   FixtureEditDialog dlg(this, r);
   dlg.ShowModal();

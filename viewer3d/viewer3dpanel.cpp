@@ -449,7 +449,7 @@ void Viewer3DPanel::InitGL()
 void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 {
     wxPaintDC dc(this);
-    if (!IsShownOnScreen()) {
+    if (!IsShownOnScreen() || m_modalDialogActive) {
         return;
     }
     InitGL();
@@ -490,15 +490,21 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     wxPoint newPos;
     std::string newUuid;
     bool found = false;
+    bool hoverQueryRan = false;
 
     const bool skipLabelsWhenMoving =
         ConfigManager::Get().GetFloat("viewer3d_skip_labels_when_moving") >= 0.5f;
     const bool skipLabelWork = m_cameraMoving &&
         (IsFastInteractionModeEnabled() || skipLabelsWhenMoving);
 
-    if (!skipLabelWork && FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
+    const bool shouldUpdateHoverQuery =
+        m_mouseMoved || m_isInteracting || m_cameraMoving || !m_hasHover;
+
+    if (!skipLabelWork && shouldUpdateHoverQuery &&
+        FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
         found = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
             w, h, newLabel, newPos, &newUuid);
+        hoverQueryRan = true;
         if (found) {
             if (TrussTablePanel::Instance())
                 TrussTablePanel::Instance()->HighlightTruss(std::string());
@@ -506,9 +512,11 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                 SceneObjectTablePanel::Instance()->HighlightObject(std::string());
         }
     }
-    else if (!skipLabelWork && TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
+    else if (!skipLabelWork && shouldUpdateHoverQuery &&
+             TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
         found = m_controller.GetTrussLabelAt(m_lastMousePos.x, m_lastMousePos.y,
             w, h, newLabel, newPos, &newUuid);
+        hoverQueryRan = true;
         if (found) {
             if (FixtureTablePanel::Instance())
                 FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -516,9 +524,11 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                 SceneObjectTablePanel::Instance()->HighlightObject(std::string());
         }
     }
-    else if (!skipLabelWork && SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
+    else if (!skipLabelWork && shouldUpdateHoverQuery &&
+             SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
         found = m_controller.GetSceneObjectLabelAt(m_lastMousePos.x, m_lastMousePos.y,
             w, h, newLabel, newPos, &newUuid);
+        hoverQueryRan = true;
         if (found) {
             if (FixtureTablePanel::Instance())
                 FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -527,7 +537,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         }
     }
 
-    if (found) {
+    if (hoverQueryRan && found) {
         m_hasHover = true;
         m_hoverText = newLabel;
         m_hoverPos = newPos;
@@ -540,7 +550,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
             SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
     }
-    else if (!skipLabelWork) {
+    else if (hoverQueryRan && !skipLabelWork) {
         m_hasHover = false;
         m_hoverUuid.clear();
         m_hoverText.clear();
@@ -1547,6 +1557,10 @@ void Viewer3DPanel::RefreshLoop()
     {
         if (m_shuttingDown)
             return;
+        if (m_modalDialogActive) {
+            std::this_thread::sleep_for(16ms);
+            continue;
+        }
         wxThreadEvent* evt = new wxThreadEvent(wxEVT_VIEWER_REFRESH);
         wxQueueEvent(this, evt);
         std::this_thread::sleep_for(16ms);
@@ -1555,9 +1569,14 @@ void Viewer3DPanel::RefreshLoop()
 
 void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
 {
-    if (m_shuttingDown || !m_glContext || IsBeingDeleted())
+    if (m_shuttingDown || m_modalDialogActive || !m_glContext || IsBeingDeleted())
         return;
     Refresh();
+}
+
+void Viewer3DPanel::SetModalDialogActive(bool active)
+{
+    m_modalDialogActive = active;
 }
 
 
