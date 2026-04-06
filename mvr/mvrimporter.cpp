@@ -1888,6 +1888,28 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           obj.name = nameAttr;
 
         std::string geometryType;
+        std::unordered_map<std::string, std::string> primitiveModelRefByArchiveFile;
+
+        for (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData"); ud;
+             ud = ud->NextSiblingElement("UserData")) {
+          for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
+               data = data->NextSiblingElement("Data")) {
+            const std::string provider = ToLowerCopy(
+                Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
+            if (provider != "perastage")
+              continue;
+            if (tinyxml2::XMLElement *map = data->FirstChildElement("PrimitiveGeometryMap")) {
+              for (tinyxml2::XMLElement *entry = map->FirstChildElement("Entry"); entry;
+                   entry = entry->NextSiblingElement("Entry")) {
+                const char *fileName = entry->Attribute("fileName");
+                const char *modelRef = entry->Attribute("modelRef");
+                if (!fileName || !modelRef)
+                  continue;
+                primitiveModelRefByArchiveFile[ToLowerCopy(Trim(fileName))] = Trim(modelRef);
+              }
+            }
+          }
+        }
 
         if (const char *typeAttr = node->Attribute("geometryType"))
           geometryType = Trim(typeAttr);
@@ -1905,7 +1927,17 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
             Matrix geoMatrix = MatrixUtils::Identity();
             parseMatrixOrIdentity(g3d, "Matrix", "SceneObject/Geometry3D", geoMatrix, true);
-            appendGeometryInstance(obj.geometries, file, geoMatrix);
+            std::string fileName = Trim(file);
+            auto mappedModelRefIt =
+                primitiveModelRefByArchiveFile.find(ToLowerCopy(fileName));
+            if (mappedModelRefIt != primitiveModelRefByArchiveFile.end()) {
+              GeometryInstance instance;
+              instance.modelFile = mappedModelRefIt->second;
+              instance.localTransform = geoMatrix;
+              obj.geometries.push_back(std::move(instance));
+            } else {
+              appendGeometryInstance(obj.geometries, fileName, geoMatrix);
+            }
           }
 
           for (tinyxml2::XMLElement *sym = geos->FirstChildElement("Symbol"); sym;

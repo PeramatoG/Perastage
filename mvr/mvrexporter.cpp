@@ -2110,6 +2110,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
     if (!obj.geometries.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
+      std::vector<std::pair<std::string, std::string>> primitiveGeometryModelRefs;
       for (const auto &geo : obj.geometries) {
         if (geo.modelFile.empty())
           continue;
@@ -2126,6 +2127,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         if (modelArchivePath.empty())
           continue;
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
+        std::string primitiveToken;
+        if (mvr::ResolvePrimitiveTokenFromModelRef(geo.modelFile, primitiveToken)) {
+          primitiveGeometryModelRefs.emplace_back(modelArchivePath, geo.modelFile);
+        }
 
         const Matrix geoMatrixToWrite =
             forceIdentityGeometryMatrix ||
@@ -2142,6 +2147,22 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
       if (geos->FirstChild())
         oe->InsertEndChild(geos);
+
+      if (!primitiveGeometryModelRefs.empty()) {
+        tinyxml2::XMLElement *ud = doc.NewElement("UserData");
+        tinyxml2::XMLElement *data = doc.NewElement("Data");
+        data->SetAttribute("provider", "Perastage");
+        tinyxml2::XMLElement *map = doc.NewElement("PrimitiveGeometryMap");
+        for (const auto &[archiveFileName, modelRef] : primitiveGeometryModelRefs) {
+          tinyxml2::XMLElement *entry = doc.NewElement("Entry");
+          entry->SetAttribute("fileName", archiveFileName.c_str());
+          entry->SetAttribute("modelRef", modelRef.c_str());
+          map->InsertEndChild(entry);
+        }
+        data->InsertEndChild(map);
+        ud->InsertEndChild(data);
+        oe->InsertEndChild(ud);
+      }
     } else if (!obj.modelFile.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
       tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
