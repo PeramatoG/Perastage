@@ -4,7 +4,7 @@
 
 **Perastage** is a desktop application for lighting designers and technicians built in C++20.  It reads, organises and visualises show data using the **MVR** (My Virtual Rig) format and **GDTF** (General Device Type Format).  The graphical user interface is written with **wxWidgets** and the 3D/2D rendering is performed with **OpenGL**.
 
-> **Status:** active beta. Core workflows (MVR import/export, editing, layout/printing, and table tooling) are usable and under continuous stabilization. Some advanced and experimental tools remain build-gated or workflow-specific.
+> **Status:** first stable release (1.0.0). Core workflows (MVR import/export, editing, layout/printing, and table tooling) are production-ready and under continuous improvement. Some advanced and experimental tools remain build-gated or workflow-specific.
 
 ---
 
