@@ -75,4 +75,17 @@ void AddCubeObjects(ConfigManager &cfg, const CubeRequest &request) {
                       request.quantity, baseId);
 }
 
+void AddCylinderObjects(ConfigManager &cfg, const CylinderRequest &request) {
+  auto &scene = cfg.GetScene();
+  const long long baseId = NextBaseId();
+  const std::string layerName = cfg.GetCurrentLayer();
+
+  EnsureCurrentLayerExists(scene, layerName, baseId);
+  AddPrimitiveObjects(scene, layerName, "Cylinder",
+                      BuildCylinderPrimitiveToken(request.topRadiusMeters,
+                                                  request.bottomRadiusMeters,
+                                                  request.heightMeters),
+                      Matrix{}, request.quantity, baseId);
+}
+
 } // namespace scene_object_primitives

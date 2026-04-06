@@ -374,6 +374,7 @@ void MainWindow::CreateMenuBar() {
   wxMenu *primitiveMenu = new wxMenu();
   primitiveMenu->Append(ID_Edit_AddPrimitiveSphere, "Sphere...");
   primitiveMenu->Append(ID_Edit_AddPrimitiveCube, "Cube...");
+  primitiveMenu->Append(ID_Edit_AddPrimitiveCylinder, "Cylinder...");
   editMenu->AppendSubMenu(primitiveMenu, "Add basic geometry");
   editMenu->AppendSeparator();
   editMenu->Append(ID_Edit_Delete, "Delete\tDel");
@@ -1472,6 +1473,24 @@ void MainWindow::OnAddPrimitiveCube(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   cfg.PushUndoState("add primitive cube");
   scene_object_primitives::AddCubeObjects(cfg, request);
+
+  if (sceneObjPanel)
+    sceneObjPanel->ReloadData();
+  if (viewportPanel) {
+    viewportPanel->UpdateScene();
+    viewportPanel->Refresh();
+  }
+  RefreshSummary();
+}
+
+void MainWindow::OnAddPrimitiveCylinder(wxCommandEvent &WXUNUSED(event)) {
+  scene_object_primitives::CylinderRequest request;
+  if (!scene_object_primitives::ShowCylinderDialog(this, request))
+    return;
+
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  cfg.PushUndoState("add primitive cylinder");
+  scene_object_primitives::AddCylinderObjects(cfg, request);
 
   if (sceneObjPanel)
     sceneObjPanel->ReloadData();

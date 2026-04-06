@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <string_view>
 
 namespace {
 constexpr float kPi = 3.14159265358979323846f;
@@ -73,8 +74,15 @@ Mesh BuildCubeMesh(float sizeX, float sizeY, float sizeZ)
 
 Mesh BuildCylinderMesh(float radius, float height, int segments)
 {
+    return BuildCylinderMesh(radius, radius, height, segments);
+}
+
+Mesh BuildCylinderMesh(float topRadius, float bottomRadius, float height, int segments)
+{
     Mesh mesh;
     segments = std::max(segments, 3);
+    topRadius = std::max(topRadius, 0.0f);
+    bottomRadius = std::max(bottomRadius, 0.0f);
 
     const float halfH = height * 0.5f;
     const unsigned short topCenter = 0;
@@ -84,10 +92,10 @@ Mesh BuildCylinderMesh(float radius, float height, int segments)
 
     for (int i = 0; i < segments; ++i) {
         float a = (2.0f * kPi * static_cast<float>(i)) / static_cast<float>(segments);
-        float x = std::cos(a) * radius;
-        float y = std::sin(a) * radius;
-        AddVertex(mesh, x, y, halfH);
-        AddVertex(mesh, x, y, -halfH);
+        float cosA = std::cos(a);
+        float sinA = std::sin(a);
+        AddVertex(mesh, cosA * topRadius, sinA * topRadius, halfH);
+        AddVertex(mesh, cosA * bottomRadius, sinA * bottomRadius, -halfH);
     }
 
     for (int i = 0; i < segments; ++i) {
@@ -158,6 +166,24 @@ Mesh BuildSphereMesh(float radius, int rings, int segments)
 bool BuildPrimitiveMesh(const std::string& primitiveType, Mesh& outMesh)
 {
     const std::string type = ToLower(primitiveType);
+    auto parseFloatParam = [&type](std::string_view key, float fallback) {
+        const std::string token = std::string(key) + "=";
+        const size_t pos = type.find(token);
+        if (pos == std::string::npos)
+            return fallback;
+        const size_t valueStart = pos + token.size();
+        size_t valueEnd = type.find_first_of(";,&", valueStart);
+        if (valueEnd == std::string::npos)
+            valueEnd = type.size();
+        const std::string value = type.substr(valueStart, valueEnd - valueStart);
+        if (value.empty())
+            return fallback;
+        try {
+            return std::stof(value);
+        } catch (...) {
+            return fallback;
+        }
+    };
 
     if (type == "cube" || type == "base" || type == "base1_1" ||
         type == "conventional" || type == "conventional1_1") {
@@ -168,6 +194,15 @@ bool BuildPrimitiveMesh(const std::string& primitiveType, Mesh& outMesh)
     if (type == "cylinder" || type == "yoke" || type == "scanner" ||
         type == "scanner1_1" || type == "pigtail") {
         outMesh = BuildCylinderMesh(500.0f, 1000.0f);
+        return true;
+    }
+
+    if (type.rfind("cylinder;", 0) == 0 || type.rfind("cylinder,", 0) == 0 ||
+        type.rfind("cylinder&", 0) == 0 || type.rfind("cylinder?", 0) == 0) {
+        const float topRadiusMm = std::max(parseFloatParam("top", 500.0f), 0.0f);
+        const float bottomRadiusMm = std::max(parseFloatParam("bottom", 500.0f), 0.0f);
+        const float heightMm = std::max(parseFloatParam("height", 1000.0f), 1.0f);
+        outMesh = BuildCylinderMesh(topRadiusMm, bottomRadiusMm, heightMm);
         return true;
     }
 

@@ -163,6 +163,7 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
 
   Matrix updatedTransform = currentTransform;
   bool accepted = false;
+  bool primitiveTokenUpdated = false;
 
   if (target.kind == PrimitiveKind::Sphere) {
     SphereRequest request;
@@ -189,12 +190,34 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
     updatedTransform = BuildCubeScaleTransform(request.lengthMeters,
                                                request.heightMeters,
                                                request.widthMeters);
+  } else if (target.kind == PrimitiveKind::Cylinder) {
+    CylinderRequest request = ParseCylinderPrimitiveToken(
+        target.usesGeometryEntry && target.geometryIndex < object.geometries.size()
+            ? object.geometries[target.geometryIndex].modelFile
+            : object.modelFile,
+        currentTransform);
+    accepted = ShowCylinderEditDialog(parent, request);
+    if (!accepted)
+      return false;
+    updatedTransform = Matrix{};
+    if (target.usesGeometryEntry && target.geometryIndex < object.geometries.size()) {
+      object.geometries[target.geometryIndex].modelFile =
+          BuildCylinderPrimitiveToken(request.topRadiusMeters,
+                                      request.bottomRadiusMeters,
+                                      request.heightMeters);
+    } else {
+      object.modelFile = BuildCylinderPrimitiveToken(request.topRadiusMeters,
+                                                     request.bottomRadiusMeters,
+                                                     request.heightMeters);
+    }
+    primitiveTokenUpdated = true;
   }
 
   if (!accepted ||
+      (!primitiveTokenUpdated &&
       (updatedTransform.u == currentTransform.u &&
        updatedTransform.v == currentTransform.v &&
-       updatedTransform.w == currentTransform.w))
+       updatedTransform.w == currentTransform.w)))
     return false;
 
   cfg.PushUndoState("edit primitive geometry");
