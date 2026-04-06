@@ -489,7 +489,6 @@ int main() {
             assert(geoMatrix != nullptr && geoMatrix->GetText() != nullptr);
             Matrix parsedGeoMatrix = MatrixUtils::Identity();
             assert(MatrixUtils::ParseMatrix(geoMatrix->GetText(), parsedGeoMatrix));
-            const Matrix identity = MatrixUtils::Identity();
             if (parsedGeoMatrix.u == identity.u &&
                 parsedGeoMatrix.v == identity.v &&
                 parsedGeoMatrix.w == identity.w &&
