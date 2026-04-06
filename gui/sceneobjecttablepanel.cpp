@@ -22,6 +22,9 @@
 #include "guiconfigservices.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
+#include "primitive_model_resources.h"
+#include "projectutils.h"
+#include "scene_object_primitive_editing.h"
 #include "stringutils.h"
 #include "summarypanel.h"
 #include "dataview_edit_commit.h"
@@ -32,8 +35,11 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <filesystem>
 #include <wx/notebook.h>
 #include <wx/choicdlg.h>
+#include <wx/filedlg.h>
+#include <wx/filename.h>
 #include <wx/wupdlock.h> // freeze/thaw UI during batch edits
 #include <wx/version.h>
 
@@ -109,6 +115,47 @@ RangeParts SplitRangeParts(const wxString& value)
             parts.push_back(part);
     return {parts, usedSeparator, trailingSeparator};
 }
+
+std::string ModelRefForDisplay(const SceneObject &object)
+{
+    const std::string primary = object.GetPrimaryModel();
+    if (primary.rfind("primitive:", 0) == 0) {
+        const std::string archivePath = mvr::PrimitiveArchivePathForToken(primary, object.uuid);
+        if (!archivePath.empty())
+            return std::filesystem::path(archivePath).filename().string();
+    }
+    return primary;
+}
+
+wxString ResolvePrimitivePreviewPath(const SceneObject &object,
+                                     const std::string &basePath)
+{
+    const std::string token = object.GetPrimaryModel();
+    std::string archiveRel = mvr::PrimitiveArchivePathForToken(token, object.uuid);
+    if (archiveRel.empty())
+        archiveRel = mvr::PrimitiveArchivePathForToken(token);
+
+    if (!archiveRel.empty() && !basePath.empty()) {
+        std::filesystem::path candidate = std::filesystem::path(basePath) /
+                                          std::filesystem::path(archiveRel);
+        if (std::filesystem::exists(candidate))
+            return wxString::FromUTF8(candidate.string());
+    }
+
+    std::filesystem::path cacheDir = std::filesystem::temp_directory_path() /
+                                     "perastage_primitive_preview";
+    std::error_code ec;
+    std::filesystem::create_directories(cacheDir, ec);
+    std::string fileName = std::filesystem::path(
+        mvr::PrimitiveArchivePathForToken(token, object.uuid)).filename().string();
+    if (fileName.empty())
+        fileName = std::filesystem::path(ModelRefForDisplay(object)).string();
+    std::filesystem::path outPath = cacheDir / std::filesystem::path(fileName);
+    if (!std::filesystem::exists(outPath) &&
+        !mvr::WritePrimitiveModelForToken(token, outPath.string()))
+        return wxString();
+    return wxString::FromUTF8(outPath.string());
+}
 } // namespace
 
 SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent, IGuiConfigServices* services)
@@ -126,6 +173,7 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent, IGuiConfigService
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
     table->Bind(wxEVT_LEFT_DOWN, &SceneObjectTablePanel::OnLeftDown, this);
+    table->Bind(wxEVT_LEFT_DCLICK, &SceneObjectTablePanel::OnLeftDClick, this);
     table->Bind(wxEVT_LEFT_UP, &SceneObjectTablePanel::OnLeftUp, this);
     table->Bind(wxEVT_MOTION, &SceneObjectTablePanel::OnMouseMove, this);
     table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
@@ -135,6 +183,8 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent, IGuiConfigService
                 &SceneObjectTablePanel::OnContextMenu, this);
     table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED,
                 &SceneObjectTablePanel::OnColumnSorted, this);
+    table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
+                &SceneObjectTablePanel::OnItemActivated, this);
 
     Bind(wxEVT_MOUSE_CAPTURE_LOST, &SceneObjectTablePanel::OnCaptureLost, this);
 
@@ -183,6 +233,7 @@ void SceneObjectTablePanel::ReloadData()
     }
 
     table->DeleteAllItems();
+    modelPaths.clear();
     rowUuids.clear();
     const auto& objs = guiConfigServices->LegacyConfigManager().GetScene().sceneObjects;
 
@@ -204,7 +255,23 @@ void SceneObjectTablePanel::ReloadData()
         wxString name = wxString::FromUTF8(obj.name);
         wxString layer = obj.layer == DEFAULT_LAYER_NAME ? wxString()
                                                           : wxString::FromUTF8(obj.layer);
-        wxString model = wxString::FromUTF8(obj.modelFile);
+        const std::string primaryModel = obj.GetPrimaryModel();
+        wxString model;
+        wxString modelFullPath;
+        const std::string &base = guiConfigServices->LegacyConfigManager().GetScene().basePath;
+        if (primaryModel.rfind("primitive:", 0) == 0) {
+            modelFullPath = ResolvePrimitivePreviewPath(obj, base);
+            if (!modelFullPath.IsEmpty())
+                model = wxFileName(modelFullPath).GetFullName();
+            else
+                model = wxString::FromUTF8(ModelRefForDisplay(obj));
+        } else if (!primaryModel.empty()) {
+            wxFileName fullPath(base.empty() ? wxString::FromUTF8(primaryModel)
+                                             : wxString::FromUTF8((std::filesystem::path(base) /
+                                                                   std::filesystem::path(primaryModel)).string()));
+            modelFullPath = fullPath.GetFullPath();
+            model = fullPath.GetFullName();
+        }
 
         auto posArr = obj.transform.o;
         wxString posX = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
@@ -230,6 +297,7 @@ void SceneObjectTablePanel::ReloadData()
         row.push_back(yaw);
 
         store->AppendItem(row, rowUuids.size());
+        modelPaths.push_back(modelFullPath);
         rowUuids.push_back(uuid);
     }
 
@@ -292,6 +360,48 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
             if (r != wxNOT_FOUND)
                 table->SetValue(wxVariant(val), r, col);
         }
+        ResyncRows(oldOrder, selectedUuids);
+        UpdateSceneData();
+        if (Viewer3DPanel::Instance())
+        {
+            Viewer3DPanel::Instance()->UpdateScene();
+            Viewer3DPanel::Instance()->Refresh();
+        }
+        else if (Viewer2DPanel::Instance())
+        {
+            Viewer2DPanel::Instance()->UpdateScene();
+        }
+        return;
+    }
+
+    if (col == 2)
+    {
+        wxString initialDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("objects"));
+        if (row >= 0 && static_cast<size_t>(row) < modelPaths.size() && !modelPaths[static_cast<size_t>(row)].IsEmpty()) {
+            wxFileName current(modelPaths[static_cast<size_t>(row)]);
+            if (current.DirExists())
+                initialDir = current.GetPath();
+        }
+
+        wxFileDialog fdlg(this, "Select Object Model", initialDir, wxEmptyString,
+                          "3D files (*.glb;*.gltf;*.3ds;*.obj)|*.glb;*.gltf;*.3ds;*.obj|All files|*.*",
+                          wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+        if (fdlg.ShowModal() != wxID_OK)
+            return;
+
+        wxString selectedPath = fdlg.GetPath();
+        wxString displayName = wxFileName(selectedPath).GetFullName();
+        for (const auto& itSel : selections)
+        {
+            int r = table->ItemToRow(itSel);
+            if (r == wxNOT_FOUND)
+                continue;
+            table->SetValue(wxVariant(displayName), r, col);
+            if (static_cast<size_t>(r) >= modelPaths.size())
+                modelPaths.resize(table->GetItemCount());
+            modelPaths[static_cast<size_t>(r)] = selectedPath;
+        }
+
         ResyncRows(oldOrder, selectedUuids);
         UpdateSceneData();
         if (Viewer3DPanel::Instance())
@@ -449,6 +559,36 @@ void SceneObjectTablePanel::OnLeftDown(wxMouseEvent& evt)
         table->SelectRow(startRow);
         CaptureMouse();
     }
+    evt.Skip();
+}
+
+void SceneObjectTablePanel::OnLeftDClick(wxMouseEvent& evt)
+{
+    wxDataViewItem item;
+    wxDataViewColumn* col;
+    table->HitTest(evt.GetPosition(), item, col);
+    const int row = table->ItemToRow(item);
+    if (row == wxNOT_FOUND || static_cast<size_t>(row) >= rowUuids.size()) {
+        evt.Skip();
+        return;
+    }
+
+    const std::string uuid = rowUuids[static_cast<size_t>(row)];
+    ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
+    const bool edited = scene_object_primitives::EditPrimitiveObjectByUuid(
+        this, cfg, uuid);
+    if (edited) {
+        if (Viewer3DPanel::Instance()) {
+            Viewer3DPanel::Instance()->UpdateScene();
+            Viewer3DPanel::Instance()->Refresh();
+        } else if (Viewer2DPanel::Instance()) {
+            Viewer2DPanel::Instance()->UpdateScene();
+        }
+        ReloadData();
+        SelectByUuid({uuid});
+        return;
+    }
+
     evt.Skip();
 }
 
@@ -614,6 +754,16 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
         else
             next.layer = layerStr;
 
+        const bool hasPrimitiveModel = old.GetPrimaryModel().rfind("primitive:", 0) == 0;
+        if (i < modelPaths.size() && !modelPaths[i].IsEmpty())
+            next.modelFile = std::string(modelPaths[i].ToUTF8());
+        else if (hasPrimitiveModel)
+            next.modelFile = old.modelFile;
+        else {
+            table->GetValue(v, i, 2);
+            next.modelFile = std::string(v.GetString().ToUTF8());
+        }
+
         const auto distanceUnit = ResolveDistanceUnitSystem();
         double xMm = old.transform.o[0], yMm = old.transform.o[1], zMm = old.transform.o[2];
         table->GetValue(v, i, 3);
@@ -670,7 +820,9 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
                  static_cast<float>(zMm)});
         }
 
-        const bool objectChanged = old.layer != next.layer || transformChanged;
+        const bool objectChanged = old.layer != next.layer ||
+                                   old.modelFile != next.modelFile ||
+                                   transformChanged;
         if (!objectChanged)
             continue;
 
@@ -826,15 +978,20 @@ void SceneObjectTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
 {
     unsigned int count = table->GetItemCount();
     std::vector<std::string> newOrder(count);
+    std::vector<wxString> newPaths(count);
     for (unsigned int i = 0; i < count; ++i)
     {
         wxDataViewItem it = table->RowToItem(i);
         unsigned long idx = store->GetItemData(it);
-        if (idx < oldOrder.size())
+        if (idx < oldOrder.size()) {
             newOrder[i] = oldOrder[idx];
+            if (idx < modelPaths.size())
+                newPaths[i] = modelPaths[idx];
+        }
         store->SetItemData(it, i);
     }
     rowUuids.swap(newOrder);
+    modelPaths.swap(newPaths);
 
     table->UnselectAll();
     for (const auto& uuid : selectedUuids)
@@ -860,4 +1017,31 @@ void SceneObjectTablePanel::OnColumnSorted(wxDataViewEvent& event)
     std::vector<std::string> oldOrder = rowUuids;
     ResyncRows(oldOrder, selectedUuids);
     event.Skip();
+}
+
+void SceneObjectTablePanel::OnItemActivated(wxDataViewEvent &event)
+{
+    const wxDataViewItem item = event.GetItem();
+    const int row = table->ItemToRow(item);
+    if (row == wxNOT_FOUND || static_cast<size_t>(row) >= rowUuids.size()) {
+        event.Skip();
+        return;
+    }
+
+    const std::string uuid = rowUuids[static_cast<size_t>(row)];
+    ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
+    const bool edited = scene_object_primitives::EditPrimitiveObjectByUuid(
+        this, cfg, uuid);
+    if (!edited)
+        return;
+
+    if (Viewer3DPanel::Instance()) {
+        Viewer3DPanel::Instance()->UpdateScene();
+        Viewer3DPanel::Instance()->Refresh();
+    } else if (Viewer2DPanel::Instance()) {
+        Viewer2DPanel::Instance()->UpdateScene();
+    }
+
+    ReloadData();
+    SelectByUuid({uuid});
 }

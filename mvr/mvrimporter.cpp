@@ -22,6 +22,7 @@
 #include "gdtfloader.h"
 #include "gdtf_fixture_category.h"
 #include "matrixutils.h"
+#include "primitive_model_resources.h"
 #include "sceneobject.h"
 #include "support.h"
 #include "groupobject.h"
@@ -1221,7 +1222,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     std::string normalized = normalizeGeometryFileName(std::move(fileName));
     if (normalized.empty())
       return normalized;
+    std::string primitiveToken;
+    if (mvr::ResolvePrimitiveTokenFromModelRef(normalized, primitiveToken))
+      return primitiveToken;
     std::string remapped = RemapArchivePathIfNeeded(normalized);
+    if (mvr::ResolvePrimitiveTokenFromModelRef(remapped, primitiveToken))
+      return primitiveToken;
     fs::path remappedPath = fs::u8path(remapped);
     fs::path resolved = ResolveSceneRelativePath(scene.basePath, remapped);
     if (!remappedPath.has_extension()) {

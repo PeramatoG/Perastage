@@ -45,6 +45,7 @@
 #include "fixturetablepanel.h"
 #include "trusstablepanel.h"
 #include "sceneobjecttablepanel.h"
+#include "scene_object_primitive_editing.h"
 #include "configmanager.h"
 #include "fixturepatchdialog.h"
 #include "viewer2dpanel.h"
@@ -1348,9 +1349,18 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
     if (cameraWasMoving)
         m_controller.SetCameraMoving(false);
 
-    const bool found =
-        m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label,
-                                       pos, &uuid);
+    const bool sceneObjectsActive =
+        SceneObjectTablePanel::Instance() &&
+        SceneObjectTablePanel::Instance()->IsActivePage();
+
+    const bool foundSceneObject = sceneObjectsActive &&
+        m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w, h,
+                                           label, pos, &uuid);
+
+    bool found = foundSceneObject;
+    if (!found)
+        found = m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h,
+                                               label, pos, &uuid);
 
     if (cameraWasMoving)
         m_controller.SetCameraMoving(true);
@@ -1360,7 +1370,28 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
     if (uuid.empty())
         return;
 
-    auto& scene = ConfigManager::Get().GetScene();
+    ConfigManager &cfg = ConfigManager::Get();
+    if (foundSceneObject) {
+        const bool edited = scene_object_primitives::EditPrimitiveObjectByUuid(
+            this, cfg, uuid);
+        if (!edited)
+            return;
+
+        if (SceneObjectTablePanel::Instance()) {
+            SceneObjectTablePanel::Instance()->ReloadData();
+            SceneObjectTablePanel::Instance()->SelectByUuid({uuid});
+        }
+
+        UpdateScene();
+        Refresh();
+        if (Viewer2DPanel::Instance()) {
+            Viewer2DPanel::Instance()->UpdateScene();
+            Viewer2DPanel::Instance()->Refresh();
+        }
+        return;
+    }
+
+    auto& scene = cfg.GetScene();
     auto it = scene.fixtures.find(uuid);
     if (it == scene.fixtures.end())
         return;

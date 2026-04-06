@@ -22,6 +22,7 @@
 #include "logger.h"
 #include "matrixutils.h"
 #include "projectutils.h"
+#include "primitive_model_resources.h"
 #include "support.h"
 #include "uuidutils.h"
 #include "truss_gdtf_builder.h"
@@ -1287,7 +1288,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   std::unordered_map<std::string, GdtfOverrides> gdtfOverrides;
   std::unordered_map<std::string, std::string> trussArchiveByTypeKey;
   std::unordered_map<std::string, std::string> trussInstanceToTypeKey;
+  std::unordered_map<std::string, std::string> primitiveSourceByToken;
   std::unordered_set<std::string> reservedArchivePaths;
+  const std::string primitiveTempDir = CreateTempDir();
 
   auto normalizeSourcePath = [&](const std::string &rawPath) {
     fs::path src = fs::path(rawPath);
@@ -1378,6 +1381,30 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         rawModelSource, SanitizeArchiveFileName(rawModelSource, fallbackArchiveName));
     registerModelTextureDependencies(rawModelSource);
     return archivePath;
+  };
+
+  auto registerPrimitiveModelResource = [&](const std::string &modelRef,
+                                            const std::string &objectUuid) -> std::string {
+    std::string primitiveToken;
+    if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
+      return {};
+
+    auto sourceIt = primitiveSourceByToken.find(primitiveToken);
+    std::string sourcePath;
+    if (sourceIt != primitiveSourceByToken.end()) {
+      sourcePath = sourceIt->second;
+    } else {
+      fs::path outputPath = fs::u8path(primitiveTempDir) /
+                            fs::u8path(mvr::PrimitiveArchivePathForToken(primitiveToken)).filename();
+      if (!mvr::WritePrimitiveModelForToken(primitiveToken, outputPath.generic_string()))
+        return {};
+      sourcePath = outputPath.generic_string();
+      primitiveSourceByToken[primitiveToken] = sourcePath;
+    }
+
+    const std::string preferredArchivePath =
+        mvr::PrimitiveArchivePathForToken(primitiveToken, objectUuid);
+    return registerResource(sourcePath, preferredArchivePath);
   };
 
   auto assignIds = [&]() {
@@ -1965,9 +1992,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   auto exportSceneObject = [&](tinyxml2::XMLElement *parent,
                                const SceneObject &obj) {
-    auto isPrimitiveModelRef = [](const std::string &modelRef) {
-      return modelRef.rfind("primitive:", 0) == 0;
-    };
     tinyxml2::XMLElement *oe = doc.NewElement("SceneObject");
     oe->SetAttribute("uuid", obj.uuid.c_str());
     if (!obj.name.empty())
@@ -1976,12 +2000,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!obj.geometries.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
       for (const auto &geo : obj.geometries) {
-        if (geo.modelFile.empty() || isPrimitiveModelRef(geo.modelFile))
+        if (geo.modelFile.empty())
           continue;
 
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
         std::string modelArchivePath =
-            registerModelResource(geo.modelFile, "object.3ds");
+            registerPrimitiveModelResource(geo.modelFile, obj.uuid);
+        if (modelArchivePath.empty()) {
+          modelArchivePath = registerModelResource(geo.modelFile, "object.3ds");
+        }
+        if (modelArchivePath.empty())
+          continue;
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
 
         std::string geoMatrixText = MatrixUtils::FormatMatrix(geo.localTransform);
@@ -1994,14 +2023,19 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
       if (geos->FirstChild())
         oe->InsertEndChild(geos);
-    } else if (!obj.modelFile.empty() && !isPrimitiveModelRef(obj.modelFile)) {
+    } else if (!obj.modelFile.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
       tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
       std::string modelArchivePath =
-          registerModelResource(obj.modelFile, "object.3ds");
-      g3d->SetAttribute("fileName", modelArchivePath.c_str());
-      oe->InsertEndChild(geos);
-      geos->InsertEndChild(g3d);
+          registerPrimitiveModelResource(obj.modelFile, obj.uuid);
+      if (modelArchivePath.empty()) {
+        modelArchivePath = registerModelResource(obj.modelFile, "object.3ds");
+      }
+      if (!modelArchivePath.empty()) {
+        g3d->SetAttribute("fileName", modelArchivePath.c_str());
+        oe->InsertEndChild(geos);
+        geos->InsertEndChild(g3d);
+      }
     }
 
     std::string mstr = MatrixUtils::FormatMatrix(obj.transform);

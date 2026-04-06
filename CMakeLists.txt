@@ -122,6 +122,7 @@ add_executable(${PROJECT_NAME} main.cpp
     models/truss.cpp
     mvr/mvrimporter.cpp
     mvr/mvrexporter.cpp
+    mvr/primitive_model_resources.cpp
 )
 
 if(APPLE)
