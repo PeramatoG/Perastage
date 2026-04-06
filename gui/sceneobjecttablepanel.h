@@ -65,6 +65,7 @@ private:
     void ResyncRows(const std::vector<std::string>& oldOrder,
                     const std::vector<std::string>& selectedUuids);
     void OnLeftDown(wxMouseEvent& evt);
+    void OnLeftDClick(wxMouseEvent& evt);
     void OnLeftUp(wxMouseEvent& evt);
     void OnMouseMove(wxMouseEvent& evt);
     void OnCaptureLost(wxMouseCaptureLostEvent& evt);

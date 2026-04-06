@@ -127,6 +127,7 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent, IGuiConfigService
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
     table->Bind(wxEVT_LEFT_DOWN, &SceneObjectTablePanel::OnLeftDown, this);
+    table->Bind(wxEVT_LEFT_DCLICK, &SceneObjectTablePanel::OnLeftDClick, this);
     table->Bind(wxEVT_LEFT_UP, &SceneObjectTablePanel::OnLeftUp, this);
     table->Bind(wxEVT_MOTION, &SceneObjectTablePanel::OnMouseMove, this);
     table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
@@ -452,6 +453,36 @@ void SceneObjectTablePanel::OnLeftDown(wxMouseEvent& evt)
         table->SelectRow(startRow);
         CaptureMouse();
     }
+    evt.Skip();
+}
+
+void SceneObjectTablePanel::OnLeftDClick(wxMouseEvent& evt)
+{
+    wxDataViewItem item;
+    wxDataViewColumn* col;
+    table->HitTest(evt.GetPosition(), item, col);
+    const int row = table->ItemToRow(item);
+    if (row == wxNOT_FOUND || static_cast<size_t>(row) >= rowUuids.size()) {
+        evt.Skip();
+        return;
+    }
+
+    const std::string uuid = rowUuids[static_cast<size_t>(row)];
+    ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
+    const bool edited = scene_object_primitives::EditPrimitiveObjectByUuid(
+        this, cfg, uuid);
+    if (edited) {
+        if (Viewer3DPanel::Instance()) {
+            Viewer3DPanel::Instance()->UpdateScene();
+            Viewer3DPanel::Instance()->Refresh();
+        } else if (Viewer2DPanel::Instance()) {
+            Viewer2DPanel::Instance()->UpdateScene();
+        }
+        ReloadData();
+        SelectByUuid({uuid});
+        return;
+    }
+
     evt.Skip();
 }
 
@@ -874,13 +905,12 @@ void SceneObjectTablePanel::OnItemActivated(wxDataViewEvent &event)
         return;
     }
 
+    const std::string uuid = rowUuids[static_cast<size_t>(row)];
     ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
     const bool edited = scene_object_primitives::EditPrimitiveObjectByUuid(
-        this, cfg, rowUuids[static_cast<size_t>(row)]);
-    if (!edited) {
-        event.Skip();
+        this, cfg, uuid);
+    if (!edited)
         return;
-    }
 
     if (Viewer3DPanel::Instance()) {
         Viewer3DPanel::Instance()->UpdateScene();
@@ -890,4 +920,5 @@ void SceneObjectTablePanel::OnItemActivated(wxDataViewEvent &event)
     }
 
     ReloadData();
+    SelectByUuid({uuid});
 }

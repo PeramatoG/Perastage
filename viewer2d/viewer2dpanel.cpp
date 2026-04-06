@@ -49,6 +49,7 @@
 #include "hoisttablepanel.h"
 #include "logger.h"
 #include "positionvalueupdate.h"
+#include "scene_object_primitive_editing.h"
 #include "sceneobjecttablepanel.h"
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
@@ -1622,11 +1623,38 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
   wxString label;
   wxPoint pos;
   std::string uuid;
+  ConfigManager &cfg = ConfigManager::Get();
+
+  if (SceneObjectTablePanel::Instance() &&
+      SceneObjectTablePanel::Instance()->IsActivePage()) {
+    if (!m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w, h,
+                                            label, pos, &uuid))
+      return;
+
+    const bool edited = scene_object_primitives::EditPrimitiveObjectByUuid(
+        this, cfg, uuid);
+    if (!edited)
+      return;
+
+    if (SceneObjectTablePanel::Instance()) {
+      SceneObjectTablePanel::Instance()->ReloadData();
+      SceneObjectTablePanel::Instance()->SelectByUuid({uuid});
+    }
+
+    UpdateScene(false);
+    if (Viewer3DPanel::Instance()) {
+      Viewer3DPanel::Instance()->UpdateScene();
+      Viewer3DPanel::Instance()->Refresh();
+    }
+    Refresh();
+    return;
+  }
+
   if (!m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label,
                                       pos, &uuid))
     return;
 
-  auto &scene = ConfigManager::Get().GetScene();
+  auto &scene = cfg.GetScene();
   auto it = scene.fixtures.find(uuid);
   if (it == scene.fixtures.end())
     return;
