@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cstdint>
 #include <cstring>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -17,8 +18,10 @@ namespace {
 
 constexpr const char *kSphereToken = "primitive:sphere";
 constexpr const char *kCubeToken = "primitive:cube";
+constexpr const char *kCylinderToken = "primitive:cylinder";
 constexpr const char *kSphereArchiveName = "primitives/perastage_primitive_sphere.glb";
 constexpr const char *kCubeArchiveName = "primitives/perastage_primitive_cube.glb";
+constexpr const char *kCylinderArchiveName = "primitives/perastage_primitive_cylinder.glb";
 
 std::string NormalizeLower(std::string value) {
   value.erase(value.begin(),
@@ -47,6 +50,12 @@ bool IsCubeRef(const std::string &normalized) {
          normalized.find("perastage_primitive_cube.glb") != std::string::npos ||
          normalized.find("perastage_primitive_cube.obj") != std::string::npos ||
          normalized.find("primitive_cube_") != std::string::npos;
+}
+
+bool IsCylinderRef(const std::string &normalized) {
+  return normalized.rfind(kCylinderToken, 0) == 0 ||
+         normalized.find("perastage_primitive_cylinder.glb") != std::string::npos ||
+         normalized.find("primitive_cylinder_") != std::string::npos;
 }
 
 std::string SanitizeUuidForFileName(const std::string &objectUuid) {
@@ -114,6 +123,40 @@ PrimitiveMeshData BuildSphereMesh() {
       7, 11, 12, 7, 12, 8, 8, 12, 9, 8, 9, 5,
       9, 13, 10, 10, 13, 11, 11, 13, 12, 12, 13, 9,
   };
+  return mesh;
+}
+
+PrimitiveMeshData BuildCylinderMesh() {
+  PrimitiveMeshData mesh;
+  constexpr int kSegments = 16;
+  constexpr float kPi = 3.14159265358979323846f;
+  mesh.positions.reserve(static_cast<size_t>(kSegments * 2 + 2) * 3);
+  mesh.indices.reserve(static_cast<size_t>(kSegments) * 12);
+
+  for (int i = 0; i < kSegments; ++i) {
+    const float a = static_cast<float>(i) * 2.0f * kPi /
+                    static_cast<float>(kSegments);
+    const float x = 0.5f * std::cos(a);
+    const float z = 0.5f * std::sin(a);
+    mesh.positions.insert(mesh.positions.end(), {x, 0.5f, z});
+    mesh.positions.insert(mesh.positions.end(), {x, -0.5f, z});
+  }
+  const uint16_t topCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
+  mesh.positions.insert(mesh.positions.end(), {0.0f, 0.5f, 0.0f});
+  const uint16_t bottomCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
+  mesh.positions.insert(mesh.positions.end(), {0.0f, -0.5f, 0.0f});
+
+  for (int i = 0; i < kSegments; ++i) {
+    const uint16_t top0 = static_cast<uint16_t>(i * 2);
+    const uint16_t bot0 = static_cast<uint16_t>(i * 2 + 1);
+    const uint16_t top1 = static_cast<uint16_t>(((i + 1) % kSegments) * 2);
+    const uint16_t bot1 = static_cast<uint16_t>(((i + 1) % kSegments) * 2 + 1);
+
+    mesh.indices.insert(mesh.indices.end(), {top0, bot0, bot1, top0, bot1, top1});
+    mesh.indices.insert(mesh.indices.end(), {topCenter, top1, top0});
+    mesh.indices.insert(mesh.indices.end(), {bottomCenter, bot0, bot1});
+  }
+
   return mesh;
 }
 
@@ -229,6 +272,10 @@ bool ResolvePrimitiveTokenFromModelRef(const std::string &modelRef,
     outPrimitiveToken = kCubeToken;
     return true;
   }
+  if (IsCylinderRef(normalized)) {
+    outPrimitiveToken = kCylinderToken;
+    return true;
+  }
   return false;
 }
 
@@ -238,6 +285,8 @@ std::string PrimitiveArchivePathForToken(const std::string &primitiveToken) {
     return kSphereArchiveName;
   if (normalized.rfind(kCubeToken, 0) == 0)
     return kCubeArchiveName;
+  if (normalized.rfind(kCylinderToken, 0) == 0)
+    return kCylinderArchiveName;
   return {};
 }
 
@@ -251,6 +300,8 @@ std::string PrimitiveArchivePathForToken(const std::string &primitiveToken,
     return "primitives/primitive_sphere_" + suffix + ".glb";
   if (normalized.rfind(kCubeToken, 0) == 0)
     return "primitives/primitive_cube_" + suffix + ".glb";
+  if (normalized.rfind(kCylinderToken, 0) == 0)
+    return "primitives/primitive_cylinder_" + suffix + ".glb";
   return {};
 }
 
@@ -261,6 +312,8 @@ bool WritePrimitiveModelForToken(const std::string &primitiveToken,
     return WriteGlb(BuildCubeMesh(), outputPath);
   if (normalized.rfind(kSphereToken, 0) == 0)
     return WriteGlb(BuildSphereMesh(), outputPath);
+  if (normalized.rfind(kCylinderToken, 0) == 0)
+    return WriteGlb(BuildCylinderMesh(), outputPath);
   return false;
 }
 

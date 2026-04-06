@@ -118,6 +118,8 @@ std::string ModelRefForDisplay(const SceneObject &object)
         return "primitive_sphere.glb";
     if (primary.rfind("primitive:cube", 0) == 0)
         return "primitive_cube.glb";
+    if (primary.rfind("primitive:cylinder", 0) == 0)
+        return "primitive_cylinder.glb";
     return primary;
 }
 } // namespace
