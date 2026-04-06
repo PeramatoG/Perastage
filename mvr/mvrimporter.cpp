@@ -1902,7 +1902,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               for (tinyxml2::XMLElement *entry = map->FirstChildElement("Entry"); entry;
                    entry = entry->NextSiblingElement("Entry")) {
                 const char *fileName = entry->Attribute("fileName");
-                const char *modelRef = entry->Attribute("modelRef");
+                const char *modelRef = entry->Attribute("perastageModelRef");
+                if (!modelRef)
+                  modelRef = entry->Attribute("modelRef");
                 if (!fileName || !modelRef)
                   continue;
                 primitiveModelRefByArchiveFile[ToLowerCopy(Trim(fileName))] = Trim(modelRef);

@@ -2156,7 +2156,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         for (const auto &[archiveFileName, modelRef] : primitiveGeometryModelRefs) {
           tinyxml2::XMLElement *entry = doc.NewElement("Entry");
           entry->SetAttribute("fileName", archiveFileName.c_str());
-          entry->SetAttribute("modelRef", modelRef.c_str());
+          // Keep Perastage-specific metadata namespaced to reduce collisions with
+          // third-party MVR parsers that may react to generic attribute names.
+          entry->SetAttribute("perastageModelRef", modelRef.c_str());
           map->InsertEndChild(entry);
         }
         data->InsertEndChild(map);
