@@ -400,6 +400,19 @@ Matrix BuildCubeScaleTransform(double lengthMeters, double heightMeters,
   return transform;
 }
 
+Matrix BuildCylinderScaleTransform(double radiusMeters, double heightMeters) {
+  const float radialScale = static_cast<float>(
+      std::max(radiusMeters, 0.01) * 2.0 * kMetersToMillimeters);
+  const float heightScale =
+      static_cast<float>(std::max(heightMeters, 0.01) * kMetersToMillimeters);
+
+  Matrix transform;
+  transform.u = {radialScale, 0.0f, 0.0f};
+  transform.v = {0.0f, radialScale, 0.0f};
+  transform.w = {0.0f, 0.0f, heightScale};
+  return transform;
+}
+
 CylinderRequest ParseCylinderPrimitiveToken(const std::string &token,
                                             const Matrix &fallbackTransform) {
   CylinderRequest request;

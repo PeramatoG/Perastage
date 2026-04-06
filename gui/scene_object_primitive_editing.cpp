@@ -16,6 +16,7 @@ constexpr const char *kPrimitiveSphereToken = "primitive:sphere";
 constexpr const char *kPrimitiveCubeToken = "primitive:cube";
 constexpr const char *kPrimitiveCylinderToken = "primitive:cylinder";
 constexpr float kScreenDepthMeters = 0.1f;
+constexpr double kCylinderRoundToleranceMeters = 1e-6;
 
 enum class PrimitiveKind {
   None,
@@ -199,16 +200,23 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
     accepted = ShowCylinderEditDialog(parent, request);
     if (!accepted)
       return false;
-    updatedTransform = Matrix{};
+    const bool isRoundCylinder =
+        std::fabs(request.topRadiusMeters - request.bottomRadiusMeters) <
+        kCylinderRoundToleranceMeters;
+    updatedTransform =
+        isRoundCylinder
+            ? BuildCylinderScaleTransform(request.topRadiusMeters, request.heightMeters)
+            : Matrix{};
+    const std::string updatedToken =
+        isRoundCylinder
+            ? std::string(kPrimitiveCylinderToken)
+            : BuildCylinderPrimitiveToken(request.topRadiusMeters,
+                                          request.bottomRadiusMeters,
+                                          request.heightMeters);
     if (target.usesGeometryEntry && target.geometryIndex < object.geometries.size()) {
-      object.geometries[target.geometryIndex].modelFile =
-          BuildCylinderPrimitiveToken(request.topRadiusMeters,
-                                      request.bottomRadiusMeters,
-                                      request.heightMeters);
+      object.geometries[target.geometryIndex].modelFile = updatedToken;
     } else {
-      object.modelFile = BuildCylinderPrimitiveToken(request.topRadiusMeters,
-                                                     request.bottomRadiusMeters,
-                                                     request.heightMeters);
+      object.modelFile = updatedToken;
     }
     primitiveTokenUpdated = true;
   }

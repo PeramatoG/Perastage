@@ -48,6 +48,7 @@ bool ShowPipeEditDialog(wxWindow *parent, PipeEditRequest &inOutRequest);
 Matrix BuildSphereScaleTransform(double radiusMeters);
 Matrix BuildCubeScaleTransform(double lengthMeters, double heightMeters,
                                double widthMeters);
+Matrix BuildCylinderScaleTransform(double radiusMeters, double heightMeters);
 std::string BuildCylinderPrimitiveToken(double topRadiusMeters,
                                         double bottomRadiusMeters,
                                         double heightMeters);
