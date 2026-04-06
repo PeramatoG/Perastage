@@ -19,9 +19,9 @@ namespace {
 constexpr const char *kSphereToken = "primitive:sphere";
 constexpr const char *kCubeToken = "primitive:cube";
 constexpr const char *kCylinderToken = "primitive:cylinder";
-constexpr const char *kSphereArchiveName = "primitives/perastage_primitive_sphere.glb";
-constexpr const char *kCubeArchiveName = "primitives/perastage_primitive_cube.glb";
-constexpr const char *kCylinderArchiveName = "primitives/perastage_primitive_cylinder.glb";
+constexpr const char *kSphereArchiveName = "perastage_primitive_sphere.glb";
+constexpr const char *kCubeArchiveName = "perastage_primitive_cube.glb";
+constexpr const char *kCylinderArchiveName = "perastage_primitive_cylinder.glb";
 
 std::string NormalizeLower(std::string value) {
   value.erase(value.begin(),
@@ -297,11 +297,11 @@ std::string PrimitiveArchivePathForToken(const std::string &primitiveToken,
   if (suffix.empty())
     return PrimitiveArchivePathForToken(primitiveToken);
   if (normalized.rfind(kSphereToken, 0) == 0)
-    return "primitives/primitive_sphere_" + suffix + ".glb";
+    return "primitive_sphere_" + suffix + ".glb";
   if (normalized.rfind(kCubeToken, 0) == 0)
-    return "primitives/primitive_cube_" + suffix + ".glb";
+    return "primitive_cube_" + suffix + ".glb";
   if (normalized.rfind(kCylinderToken, 0) == 0)
-    return "primitives/primitive_cylinder_" + suffix + ".glb";
+    return "primitive_cylinder_" + suffix + ".glb";
   return {};
 }
 
