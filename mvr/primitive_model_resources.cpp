@@ -75,6 +75,11 @@ struct PrimitiveMeshData {
   std::vector<uint16_t> indices;
 };
 
+enum class CylinderAxis {
+  Z,
+  X,
+};
+
 PrimitiveMeshData BuildCubeMesh() {
   PrimitiveMeshData mesh;
   mesh.positions = {
@@ -139,7 +144,7 @@ PrimitiveMeshData BuildSphereMesh() {
 }
 
 PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
-                                    float height) {
+                                    float height, CylinderAxis axis) {
   PrimitiveMeshData mesh;
   constexpr int kSegments = 16;
   constexpr float kPi = 3.14159265358979323846f;
@@ -155,13 +160,24 @@ PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
     const float yTop = topRadius * std::sin(a);
     const float xBottom = bottomRadius * std::cos(a);
     const float yBottom = bottomRadius * std::sin(a);
-    mesh.positions.insert(mesh.positions.end(), {halfHeight, xTop, yTop});
-    mesh.positions.insert(mesh.positions.end(), {-halfHeight, xBottom, yBottom});
+    if (axis == CylinderAxis::X) {
+      mesh.positions.insert(mesh.positions.end(), {halfHeight, xTop, yTop});
+      mesh.positions.insert(mesh.positions.end(), {-halfHeight, xBottom, yBottom});
+    } else {
+      mesh.positions.insert(mesh.positions.end(), {xTop, yTop, halfHeight});
+      mesh.positions.insert(mesh.positions.end(), {xBottom, yBottom, -halfHeight});
+    }
   }
   const uint16_t topCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
-  mesh.positions.insert(mesh.positions.end(), {halfHeight, 0.0f, 0.0f});
+  if (axis == CylinderAxis::X)
+    mesh.positions.insert(mesh.positions.end(), {halfHeight, 0.0f, 0.0f});
+  else
+    mesh.positions.insert(mesh.positions.end(), {0.0f, 0.0f, halfHeight});
   const uint16_t bottomCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
-  mesh.positions.insert(mesh.positions.end(), {-halfHeight, 0.0f, 0.0f});
+  if (axis == CylinderAxis::X)
+    mesh.positions.insert(mesh.positions.end(), {-halfHeight, 0.0f, 0.0f});
+  else
+    mesh.positions.insert(mesh.positions.end(), {0.0f, 0.0f, -halfHeight});
 
   for (int i = 0; i < kSegments; ++i) {
     const uint16_t top0 = static_cast<uint16_t>(i * 2);
@@ -178,7 +194,7 @@ PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
 }
 
 PrimitiveMeshData BuildCylinderMesh() {
-  return BuildCylinderMesh(0.5f, 0.5f, 1.0f);
+  return BuildCylinderMesh(0.5f, 0.5f, 1.0f, CylinderAxis::Z);
 }
 
 float ParsePositiveNumber(const std::string &text, float fallback) {
@@ -193,10 +209,12 @@ float ParsePositiveNumber(const std::string &text, float fallback) {
 }
 
 void ParseCylinderTokenDimensions(const std::string &token, float &topRadius,
-                                  float &bottomRadius, float &height) {
+                                  float &bottomRadius, float &height,
+                                  CylinderAxis &axis) {
   topRadius = 0.5f;
   bottomRadius = 0.5f;
   height = 1.0f;
+  axis = CylinderAxis::Z;
 
   const std::string normalized = NormalizeLower(token);
   if (normalized.rfind(kCylinderToken, 0) != 0)
@@ -220,6 +238,11 @@ void ParseCylinderTokenDimensions(const std::string &token, float &topRadius,
       bottomRadius = ParsePositiveNumber(value, bottomRadius);
     } else if (key == "height") {
       height = ParsePositiveNumber(value, height);
+    } else if (key == "axis") {
+      if (value == "x")
+        axis = CylinderAxis::X;
+      else if (value == "z")
+        axis = CylinderAxis::Z;
     }
   }
 }
@@ -435,9 +458,10 @@ bool WritePrimitiveModelForToken(const std::string &primitiveToken,
     float topRadius = 0.5f;
     float bottomRadius = 0.5f;
     float height = 1.0f;
+    CylinderAxis axis = CylinderAxis::Z;
     if (normalized.rfind(kCylinderToken, 0) == 0)
-      ParseCylinderTokenDimensions(primitiveToken, topRadius, bottomRadius, height);
-    return WriteGlb(BuildCylinderMesh(topRadius, bottomRadius, height), outputPath);
+      ParseCylinderTokenDimensions(primitiveToken, topRadius, bottomRadius, height, axis);
+    return WriteGlb(BuildCylinderMesh(topRadius, bottomRadius, height, axis), outputPath);
   }
   return false;
 }

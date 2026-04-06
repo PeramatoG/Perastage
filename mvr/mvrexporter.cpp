@@ -2066,8 +2066,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
              std::fabs(m.w[0]) > eps;
     };
 
+    auto withCylinderAxisX = [](std::string modelRef) {
+      if (ToLowerAscii(modelRef).find("axis=") != std::string::npos)
+        return modelRef;
+      if (modelRef.find(';') == std::string::npos)
+        return modelRef + ";axis=x";
+      return modelRef + ";axis=x";
+    };
+
     Matrix objectMatrixToWrite = obj.transform;
     bool forceIdentityGeometryMatrix = false;
+    std::optional<std::string> overridePrimitiveModelRef;
     if (obj.geometries.size() == 1) {
       const auto &singleGeometry = obj.geometries.front();
       const bool isCylinderPrimitive = isPrimitiveCylinderRef(singleGeometry.modelFile);
@@ -2078,6 +2087,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
                                         isLegacyBakedPipeObjectMatrix(obj.transform);
       if (hasLegacyAxisGeometry || hasLegacyBakedObject) {
         forceIdentityGeometryMatrix = true;
+        overridePrimitiveModelRef = withCylinderAxisX(singleGeometry.modelFile);
         auto axisLength = [](const std::array<float, 3> &axis) {
           return std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
         };
@@ -2105,8 +2115,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           continue;
 
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+        const std::string modelRef =
+            overridePrimitiveModelRef.has_value() ? *overridePrimitiveModelRef
+                                                  : geo.modelFile;
         std::string modelArchivePath =
-            registerPrimitiveModelResource(geo.modelFile, obj.uuid);
+            registerPrimitiveModelResource(modelRef, obj.uuid);
         if (modelArchivePath.empty()) {
           modelArchivePath = registerModelResource(geo.modelFile, "object.3ds");
         }
