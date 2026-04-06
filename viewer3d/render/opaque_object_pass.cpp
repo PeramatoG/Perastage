@@ -17,11 +17,13 @@
 
 #include "matrixutils.h"
 #include "mesh.h"
+#include "meshprimitives.h"
 #include "opaque_pass_utils.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
 #include <algorithm>
+#include <cctype>
 #include <vector>
 
 namespace {
@@ -51,6 +53,23 @@ const Mesh &FallbackSceneObjectCubeMesh() {
     return cube;
   }();
   return mesh;
+}
+
+const Mesh &FallbackSceneObjectCylinderMesh() {
+  static const Mesh mesh = BuildCylinderMesh(0.5f, 1.0f, 24);
+  return mesh;
+}
+
+bool IsPipeSceneObject(const SceneObject &object) {
+  if (!object.modelFile.empty() || !object.geometries.empty())
+    return false;
+
+  std::string upperName = object.name;
+  std::transform(upperName.begin(), upperName.end(), upperName.begin(),
+                 [](unsigned char c) {
+                   return static_cast<char>(std::toupper(c));
+                 });
+  return upperName.rfind("PIPE", 0) == 0;
 }
 
 } // namespace
@@ -240,10 +259,13 @@ void OpaqueObjectPass::Render(
                 context.whiteModelStyle &&
                 !controller.IsSketchRenderStyleEnabled();
             const bool fallbackWireframe = wireframe;
+            const Mesh &fallbackMesh = IsPipeSceneObject(m)
+                                           ? FallbackSceneObjectCylinderMesh()
+                                           : FallbackSceneObjectCubeMesh();
             controller.DrawMeshWithOutline(
-                FallbackSceneObjectCubeMesh(), r, g, b, 0.3f, isHighlighted,
-                isSelected, cx, cy, cz, fallbackWireframe, mode,
-                captureTransformFn, useUnlitFallbackFill, matrix);
+                fallbackMesh, r, g, b, 0.3f, isHighlighted, isSelected, cx, cy,
+                cz, fallbackWireframe, mode, captureTransformFn,
+                useUnlitFallbackFill, matrix);
           }
         };
 
