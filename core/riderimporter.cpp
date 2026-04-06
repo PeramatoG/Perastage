@@ -59,6 +59,7 @@
 
 namespace {
 constexpr const char *kPrimitiveCylinderToken = "primitive:cylinder";
+constexpr const char *kPrimitiveCubeToken = "primitive:cube";
 
 Matrix BuildCylinderAxisXLocalTransform() {
   Matrix transform{};
@@ -2787,6 +2788,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     screenObject.transform.o[0] = centerX;
     screenObject.transform.o[1] = centerY;
     screenObject.transform.o[2] = centerZ;
+    screenObject.geometries.push_back({kPrimitiveCubeToken, Matrix{}});
     scene.sceneObjects[screenObject.uuid] = screenObject;
     addToLayer(screenObject.layer, screenObject.uuid);
   }

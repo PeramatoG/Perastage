@@ -122,6 +122,84 @@ private:
   bool includeQuantity_ = true;
 };
 
+class ScreenEditDialog : public wxDialog {
+public:
+  ScreenEditDialog(wxWindow *parent, const ScreenEditRequest &initial)
+      : wxDialog(parent, wxID_ANY, "Edit Screen", wxDefaultPosition,
+                 wxDefaultSize,
+                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+    auto *root = new wxBoxSizer(wxVERTICAL);
+    auto *grid = new wxFlexGridSizer(2, 2, 8, 8);
+
+    widthCtrl_ = AddDimensionRow(grid, "Width (m):", initial.widthMeters);
+    heightCtrl_ = AddDimensionRow(grid, "Height (m):", initial.heightMeters);
+
+    grid->AddGrowableCol(1, 1);
+    root->Add(grid, 1, wxALL | wxEXPAND, 12);
+    root->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL),
+              0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 12);
+    SetSizerAndFit(root);
+  }
+
+  ScreenEditRequest Request() const {
+    ScreenEditRequest request;
+    request.widthMeters = widthCtrl_->GetValue();
+    request.heightMeters = heightCtrl_->GetValue();
+    return request;
+  }
+
+private:
+  wxSpinCtrlDouble *AddDimensionRow(wxFlexGridSizer *grid, const char *label,
+                                    double defaultValue) {
+    grid->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALIGN_CENTER_VERTICAL);
+    auto *ctrl = new wxSpinCtrlDouble(this, wxID_ANY);
+    ctrl->SetRange(0.01, 1000.0);
+    ctrl->SetIncrement(0.1);
+    ctrl->SetDigits(2);
+    ctrl->SetValue(defaultValue);
+    grid->Add(ctrl, 1, wxEXPAND);
+    return ctrl;
+  }
+
+  wxSpinCtrlDouble *widthCtrl_ = nullptr;
+  wxSpinCtrlDouble *heightCtrl_ = nullptr;
+};
+
+class PipeEditDialog : public wxDialog {
+public:
+  PipeEditDialog(wxWindow *parent, const PipeEditRequest &initial)
+      : wxDialog(parent, wxID_ANY, "Edit Pipe", wxDefaultPosition,
+                 wxDefaultSize,
+                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+    auto *root = new wxBoxSizer(wxVERTICAL);
+    auto *grid = new wxFlexGridSizer(1, 2, 8, 8);
+
+    grid->Add(new wxStaticText(this, wxID_ANY, "Length (m):"),
+              0, wxALIGN_CENTER_VERTICAL);
+    lengthCtrl_ = new wxSpinCtrlDouble(this, wxID_ANY);
+    lengthCtrl_->SetRange(0.01, 1000.0);
+    lengthCtrl_->SetIncrement(0.1);
+    lengthCtrl_->SetDigits(2);
+    lengthCtrl_->SetValue(initial.lengthMeters);
+    grid->Add(lengthCtrl_, 1, wxEXPAND);
+
+    grid->AddGrowableCol(1, 1);
+    root->Add(grid, 1, wxALL | wxEXPAND, 12);
+    root->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL),
+              0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 12);
+    SetSizerAndFit(root);
+  }
+
+  PipeEditRequest Request() const {
+    PipeEditRequest request;
+    request.lengthMeters = lengthCtrl_->GetValue();
+    return request;
+  }
+
+private:
+  wxSpinCtrlDouble *lengthCtrl_ = nullptr;
+};
+
 constexpr double kMetersToMillimeters = 1000.0;
 constexpr double kPrimitiveCubeSizeMillimeters = 1000.0;
 constexpr double kPrimitiveSphereDiameterMillimeters = 1000.0;
@@ -157,6 +235,24 @@ bool ShowSphereEditDialog(wxWindow *parent, SphereRequest &inOutRequest) {
 
 bool ShowCubeEditDialog(wxWindow *parent, CubeRequest &inOutRequest) {
   CubeDialog dialog(parent, "Edit Cube", inOutRequest, false);
+  if (dialog.ShowModal() != wxID_OK)
+    return false;
+
+  inOutRequest = dialog.Request();
+  return true;
+}
+
+bool ShowScreenEditDialog(wxWindow *parent, ScreenEditRequest &inOutRequest) {
+  ScreenEditDialog dialog(parent, inOutRequest);
+  if (dialog.ShowModal() != wxID_OK)
+    return false;
+
+  inOutRequest = dialog.Request();
+  return true;
+}
+
+bool ShowPipeEditDialog(wxWindow *parent, PipeEditRequest &inOutRequest) {
+  PipeEditDialog dialog(parent, inOutRequest);
   if (dialog.ShowModal() != wxID_OK)
     return false;
 

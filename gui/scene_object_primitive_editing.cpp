@@ -14,11 +14,14 @@ namespace {
 
 constexpr const char *kPrimitiveSphereToken = "primitive:sphere";
 constexpr const char *kPrimitiveCubeToken = "primitive:cube";
+constexpr const char *kPrimitiveCylinderToken = "primitive:cylinder";
+constexpr float kScreenDepthMeters = 0.1f;
 
 enum class PrimitiveKind {
   None,
   Sphere,
   Cube,
+  Cylinder,
 };
 
 struct PrimitiveGeometryTarget {
@@ -51,7 +54,28 @@ PrimitiveKind PrimitiveKindFromToken(const std::string &token) {
     return PrimitiveKind::Sphere;
   if (normalized.rfind(kPrimitiveCubeToken, 0) == 0)
     return PrimitiveKind::Cube;
+  if (normalized.rfind(kPrimitiveCylinderToken, 0) == 0)
+    return PrimitiveKind::Cylinder;
   return PrimitiveKind::None;
+}
+std::array<float, 3> AxisWithLength(const std::array<float, 3> &axis,
+                                    float length) {
+  const float current = AxisLength(axis);
+  if (current < 1e-6f)
+    return {length, 0.0f, 0.0f};
+  const float scale = length / current;
+  return {axis[0] * scale, axis[1] * scale, axis[2] * scale};
+}
+
+bool IsScreenObject(const SceneObject &object) {
+  const std::string name = ToLowerTrimmed(object.name);
+  return name.find("screen") != std::string::npos ||
+         name.find("pantalla") != std::string::npos;
+}
+
+bool IsPipeObject(const SceneObject &object) {
+  const std::string name = ToLowerTrimmed(object.name);
+  return name.rfind("pipe", 0) == 0;
 }
 
 PrimitiveGeometryTarget ResolvePrimitiveTarget(const SceneObject &object) {
@@ -96,6 +120,41 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
     return false;
 
   SceneObject &object = it->second;
+
+  if (IsScreenObject(object)) {
+    ScreenEditRequest request;
+    request.widthMeters = std::max(0.01, static_cast<double>(AxisLength(object.transform.u)));
+    request.heightMeters = std::max(0.01, static_cast<double>(AxisLength(object.transform.w)));
+    if (!ShowScreenEditDialog(parent, request))
+      return false;
+
+    const auto oldU = object.transform.u;
+    const auto oldV = object.transform.v;
+    const auto oldW = object.transform.w;
+    object.transform.u = AxisWithLength(object.transform.u, static_cast<float>(request.widthMeters));
+    object.transform.v = AxisWithLength(object.transform.v, kScreenDepthMeters);
+    object.transform.w = AxisWithLength(object.transform.w, static_cast<float>(request.heightMeters));
+
+    if (object.transform.u == oldU && object.transform.v == oldV && object.transform.w == oldW)
+      return false;
+    cfg.PushUndoState("edit screen geometry");
+    return true;
+  }
+
+  if (IsPipeObject(object)) {
+    PipeEditRequest request;
+    request.lengthMeters = std::max(0.01, static_cast<double>(AxisLength(object.transform.u)));
+    if (!ShowPipeEditDialog(parent, request))
+      return false;
+
+    const auto oldU = object.transform.u;
+    object.transform.u = AxisWithLength(object.transform.u, static_cast<float>(request.lengthMeters));
+    if (object.transform.u == oldU)
+      return false;
+    cfg.PushUndoState("edit pipe geometry");
+    return true;
+  }
+
   const PrimitiveGeometryTarget target = ResolvePrimitiveTarget(object);
   if (target.kind == PrimitiveKind::None)
     return false;
