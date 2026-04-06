@@ -100,29 +100,41 @@ PrimitiveMeshData BuildCubeMesh() {
 
 PrimitiveMeshData BuildSphereMesh() {
   PrimitiveMeshData mesh;
-  mesh.positions = {
-      0.0f,  0.5f,  0.0f,
-      0.353553f, 0.353553f, 0.0f,
-      0.0f,  0.353553f, 0.353553f,
-      -0.353553f, 0.353553f, 0.0f,
-      0.0f,  0.353553f, -0.353553f,
-      0.5f, 0.0f, 0.0f,
-      0.0f, 0.0f, 0.5f,
-      -0.5f, 0.0f, 0.0f,
-      0.0f, 0.0f, -0.5f,
-      0.353553f, -0.353553f, 0.0f,
-      0.0f, -0.353553f, 0.353553f,
-      -0.353553f, -0.353553f, 0.0f,
-      0.0f, -0.353553f, -0.353553f,
-      0.0f, -0.5f, 0.0f,
-  };
-  mesh.indices = {
-      0, 2, 1, 0, 3, 2, 0, 4, 3, 0, 1, 4,
-      1, 2, 5, 2, 3, 6, 3, 4, 7, 4, 1, 8,
-      5, 10, 9, 5, 6, 10, 6, 11, 10, 6, 7, 11,
-      7, 12, 11, 7, 8, 12, 8, 9, 12, 8, 5, 9,
-      9, 10, 13, 10, 11, 13, 11, 12, 13, 12, 9, 13,
-  };
+  constexpr int kRings = 12;
+  constexpr int kSegments = 24;
+  constexpr float kRadius = 0.5f;
+  constexpr float kPi = 3.14159265358979323846f;
+
+  mesh.positions.reserve(static_cast<size_t>((kRings + 1) * (kSegments + 1) * 3));
+  mesh.indices.reserve(static_cast<size_t>(kRings * kSegments * 6));
+
+  for (int ring = 0; ring <= kRings; ++ring) {
+    const float v = static_cast<float>(ring) / static_cast<float>(kRings);
+    const float phi = v * kPi;
+    const float z = std::cos(phi) * kRadius;
+    const float ringRadius = std::sin(phi) * kRadius;
+    for (int segment = 0; segment <= kSegments; ++segment) {
+      const float u = static_cast<float>(segment) / static_cast<float>(kSegments);
+      const float theta = u * 2.0f * kPi;
+      mesh.positions.push_back(std::cos(theta) * ringRadius);
+      mesh.positions.push_back(std::sin(theta) * ringRadius);
+      mesh.positions.push_back(z);
+    }
+  }
+
+  for (int ring = 0; ring < kRings; ++ring) {
+    for (int segment = 0; segment < kSegments; ++segment) {
+      const uint16_t i0 =
+          static_cast<uint16_t>(ring * (kSegments + 1) + segment);
+      const uint16_t i1 = static_cast<uint16_t>(i0 + kSegments + 1);
+      const uint16_t i2 = static_cast<uint16_t>(i0 + 1);
+      const uint16_t i3 = static_cast<uint16_t>(i1 + 1);
+
+      mesh.indices.insert(mesh.indices.end(), {i0, i1, i2});
+      mesh.indices.insert(mesh.indices.end(), {i2, i1, i3});
+    }
+  }
+
   return mesh;
 }
 
