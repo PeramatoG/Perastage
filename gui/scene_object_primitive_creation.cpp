@@ -4,6 +4,7 @@
 #include "layer.h"
 #include "mvrscene.h"
 #include "sceneobject.h"
+#include "uuidutils.h"
 
 #include <chrono>
 #include <string>
@@ -38,7 +39,7 @@ void AddPrimitiveObjects(MvrScene &scene, const std::string &layerName,
                          long long baseId) {
   for (int i = 0; i < quantity; ++i) {
     SceneObject obj;
-    obj.uuid = wxString::Format("uuid_%lld", baseId + i).ToStdString();
+    obj.uuid = GenerateUuid();
     if (quantity > 1)
       obj.name = baseName + " " + std::to_string(i + 1);
     else

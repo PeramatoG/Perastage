@@ -2025,6 +2025,29 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   auto exportSceneObject = [&](tinyxml2::XMLElement *parent,
                                const SceneObject &obj) {
+    auto matrixAlmostEqual = [](const Matrix &a, const Matrix &b, float eps = 1e-5f) {
+      for (int i = 0; i < 3; ++i) {
+        if (std::fabs(a.u[i] - b.u[i]) > eps || std::fabs(a.v[i] - b.v[i]) > eps ||
+            std::fabs(a.w[i] - b.w[i]) > eps || std::fabs(a.o[i] - b.o[i]) > eps) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    Matrix objectMatrixToWrite = obj.transform;
+    bool bakeGeometryMatrixIntoObject = false;
+    if (obj.geometries.size() == 1) {
+      const auto &singleGeometry = obj.geometries.front();
+      std::string primitiveToken;
+      if (mvr::ResolvePrimitiveTokenFromModelRef(singleGeometry.modelFile, primitiveToken) &&
+          !matrixAlmostEqual(singleGeometry.localTransform, MatrixUtils::Identity())) {
+        objectMatrixToWrite =
+            MatrixUtils::Multiply(obj.transform, singleGeometry.localTransform);
+        bakeGeometryMatrixIntoObject = true;
+      }
+    }
+
     tinyxml2::XMLElement *oe = doc.NewElement("SceneObject");
     oe->SetAttribute("uuid", obj.uuid.c_str());
     if (!obj.name.empty())
@@ -2057,7 +2080,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           continue;
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
 
-        std::string geoMatrixText = MatrixUtils::FormatMatrix(geo.localTransform);
+        const Matrix geoMatrixToWrite =
+            bakeGeometryMatrixIntoObject ? MatrixUtils::Identity() : geo.localTransform;
+        std::string geoMatrixText = MatrixUtils::FormatMatrix(geoMatrixToWrite);
         tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
         geoMatrix->SetText(geoMatrixText.c_str());
         g3d->InsertEndChild(geoMatrix);
@@ -2082,7 +2107,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
     }
 
-    std::string mstr = MatrixUtils::FormatMatrix(obj.transform);
+    std::string mstr = MatrixUtils::FormatMatrix(objectMatrixToWrite);
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(mstr.c_str());
     oe->InsertEndChild(mat);
