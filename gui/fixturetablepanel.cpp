@@ -210,6 +210,9 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *servi
 }
 
 FixtureTablePanel::~FixtureTablePanel() {
+  if (HasCapture())
+    ReleaseMouse();
+  SetInstance(nullptr);
   store = nullptr;
 }
 
