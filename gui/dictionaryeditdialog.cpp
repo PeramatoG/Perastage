@@ -18,6 +18,7 @@
 #include "dictionaryeditdialog.h"
 
 #include "columnutils.h"
+#include "dictionary_export_conflict_dialog.h"
 #include "colorstore.h"
 #include "dictionary_bundle.h"
 #include "dictionary_json_contract.h"
@@ -137,6 +138,11 @@ struct SnapshotExportResult {
   size_t copied_assets = 0;
   size_t missing_assets = 0;
   std::vector<std::string> copy_errors;
+};
+
+struct SnapshotExportConflictResolution {
+  bool accepted = true;
+  std::unordered_map<std::string, bool> useNewByFileName;
 };
 
 struct ImportPathValidationSummary {
@@ -269,15 +275,10 @@ bool AskCopyReferencedAssets(wxWindow *parent, const wxString &title,
   return true;
 }
 
-std::filesystem::path BuildSnapshotAssetsDir(
-    const std::filesystem::path &snapshotPath) {
-  return snapshotPath.parent_path() /
-         (snapshotPath.stem().string() + "_assets");
-}
-
 std::optional<std::string> CopySnapshotAsset(
     const std::filesystem::path &sourcePath,
-    const std::filesystem::path &targetAssetsDir) {
+    const std::filesystem::path &targetAssetsDir,
+    const std::unordered_map<std::string, bool> &useNewByFileName) {
   if (!HasExistingPath(sourcePath))
     return std::nullopt;
 
@@ -290,11 +291,70 @@ std::optional<std::string> CopySnapshotAsset(
   if (fileName.empty())
     return std::nullopt;
   const std::filesystem::path destPath = targetAssetsDir / fileName;
+  const auto keepExistingIt = useNewByFileName.find(fileName);
+  if (keepExistingIt != useNewByFileName.end() && !keepExistingIt->second &&
+      HasExistingPath(destPath)) {
+    return fileName;
+  }
   std::filesystem::copy_file(sourcePath, destPath,
                              std::filesystem::copy_options::overwrite_existing, ec);
   if (ec)
     return std::nullopt;
-  return std::string("assets/") + fileName;
+  return fileName;
+}
+
+template <typename GatherPathsFn>
+SnapshotExportConflictResolution ResolveExportConflicts(
+    wxWindow *parent, const wxString &title,
+    const std::filesystem::path &outputPath,
+    GatherPathsFn &&gatherSourcePaths) {
+  SnapshotExportConflictResolution resolution;
+  const std::filesystem::path outputDir = outputPath.parent_path();
+
+  std::vector<std::filesystem::path> sourcePaths = gatherSourcePaths();
+  std::sort(sourcePaths.begin(), sourcePaths.end(),
+            [](const std::filesystem::path &a, const std::filesystem::path &b) {
+              return a.filename().string() < b.filename().string();
+            });
+  sourcePaths.erase(std::unique(sourcePaths.begin(), sourcePaths.end()), sourcePaths.end());
+
+  std::vector<DictionaryExportConflictDialog::Item> conflicts;
+  for (const std::filesystem::path &sourcePath : sourcePaths) {
+    if (!HasExistingPath(sourcePath))
+      continue;
+    const std::string fileName = sourcePath.filename().string();
+    if (fileName.empty())
+      continue;
+    const std::filesystem::path destinationPath = outputDir / fileName;
+    if (!HasExistingPath(destinationPath))
+      continue;
+
+    const auto sourceHash = FileImportUtils::ComputeFileSha256(sourcePath);
+    const auto destinationHash = FileImportUtils::ComputeFileSha256(destinationPath);
+    if (sourceHash && destinationHash && *sourceHash == *destinationHash)
+      continue;
+
+    conflicts.push_back(DictionaryExportConflictDialog::Item{
+        fileName, destinationPath.string(), sourcePath.string(), true});
+  }
+
+  std::sort(conflicts.begin(), conflicts.end(),
+            [](const DictionaryExportConflictDialog::Item &a,
+               const DictionaryExportConflictDialog::Item &b) {
+              return a.file_name < b.file_name;
+            });
+
+  if (conflicts.empty())
+    return resolution;
+
+  DictionaryExportConflictDialog dialog(parent, title, std::move(conflicts));
+  if (dialog.ShowModal() != wxID_OK) {
+    resolution.accepted = false;
+    return resolution;
+  }
+  for (const auto &item : dialog.GetItems())
+    resolution.useNewByFileName[item.file_name] = item.use_new;
+  return resolution;
 }
 
 std::optional<nlohmann::json> LoadJsonFromFile(const std::string &filePath,
@@ -599,6 +659,7 @@ bool ConfirmReplaceAllOperation(wxWindow *parent, const wxString &dictionaryName
 }
 
 bool SaveFixturesSnapshotToFile(
+    wxWindow *parent,
     const std::string &outputPath,
     const std::unordered_map<std::string, GdtfDictionary::Entry> &dict,
     bool copyReferencedAssets, SnapshotExportResult &exportResult) {
@@ -609,8 +670,23 @@ bool SaveFixturesSnapshotToFile(
   std::sort(keys.begin(), keys.end());
 
   const std::filesystem::path outputFsPath = std::filesystem::u8path(outputPath);
-  const std::filesystem::path targetAssetsDir =
-      BuildSnapshotAssetsDir(outputFsPath) / "assets";
+  const std::filesystem::path targetAssetsDir = outputFsPath.parent_path();
+  std::unordered_map<std::string, bool> useNewByFileName;
+  if (copyReferencedAssets) {
+    auto resolution = ResolveExportConflicts(
+        parent, "Resolve fixture export conflicts", outputFsPath, [&dict]() {
+          std::vector<std::filesystem::path> paths;
+          paths.reserve(dict.size());
+          for (const auto &[_, entry] : dict) {
+            if (!entry.path.empty())
+              paths.push_back(std::filesystem::u8path(entry.path));
+          }
+          return paths;
+        });
+    if (!resolution.accepted)
+      return false;
+    useNewByFileName = std::move(resolution.useNewByFileName);
+  }
 
   nlohmann::json entries = nlohmann::json::object();
   for (const auto &name : keys) {
@@ -621,7 +697,8 @@ bool SaveFixturesSnapshotToFile(
     if (!entry.path.empty()) {
       const std::filesystem::path sourcePath = std::filesystem::u8path(entry.path);
       if (copyReferencedAssets) {
-        const auto copiedRelativePath = CopySnapshotAsset(sourcePath, targetAssetsDir);
+        const auto copiedRelativePath =
+            CopySnapshotAsset(sourcePath, targetAssetsDir, useNewByFileName);
         if (copiedRelativePath) {
           obj["file"] = *copiedRelativePath;
           ++exportResult.copied_assets;
@@ -653,7 +730,7 @@ bool SaveFixturesSnapshotToFile(
   return true;
 }
 
-bool SaveTrussesSnapshotToFile(const std::string &outputPath,
+bool SaveTrussesSnapshotToFile(wxWindow *parent, const std::string &outputPath,
                                const std::unordered_map<std::string, std::string> &dict,
                                bool copyReferencedAssets,
                                SnapshotExportResult &exportResult) {
@@ -664,8 +741,23 @@ bool SaveTrussesSnapshotToFile(const std::string &outputPath,
   std::sort(keys.begin(), keys.end());
 
   const std::filesystem::path outputFsPath = std::filesystem::u8path(outputPath);
-  const std::filesystem::path targetAssetsDir =
-      BuildSnapshotAssetsDir(outputFsPath) / "assets";
+  const std::filesystem::path targetAssetsDir = outputFsPath.parent_path();
+  std::unordered_map<std::string, bool> useNewByFileName;
+  if (copyReferencedAssets) {
+    auto resolution = ResolveExportConflicts(
+        parent, "Resolve truss export conflicts", outputFsPath, [&dict]() {
+          std::vector<std::filesystem::path> paths;
+          paths.reserve(dict.size());
+          for (const auto &[_, path] : dict) {
+            if (!path.empty())
+              paths.push_back(std::filesystem::u8path(path));
+          }
+          return paths;
+        });
+    if (!resolution.accepted)
+      return false;
+    useNewByFileName = std::move(resolution.useNewByFileName);
+  }
 
   nlohmann::json entries = nlohmann::json::object();
   for (const auto &name : keys) {
@@ -674,7 +766,8 @@ bool SaveTrussesSnapshotToFile(const std::string &outputPath,
       continue;
     const std::filesystem::path sourcePath = std::filesystem::u8path(path);
     if (copyReferencedAssets) {
-      const auto copiedRelativePath = CopySnapshotAsset(sourcePath, targetAssetsDir);
+      const auto copiedRelativePath =
+          CopySnapshotAsset(sourcePath, targetAssetsDir, useNewByFileName);
       if (copiedRelativePath) {
         entries[name] = nlohmann::json{{"file", *copiedRelativePath}};
         ++exportResult.copied_assets;
@@ -1505,7 +1598,7 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
 
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
   SnapshotExportResult exportResult;
-  if (!SaveFixturesSnapshotToFile(outputPath, *dictOpt, copyReferencedAssets,
+  if (!SaveFixturesSnapshotToFile(this, outputPath, *dictOpt, copyReferencedAssets,
                                   exportResult)) {
     wxMessageBox("Could not write fixtures dictionary snapshot.",
                  "Export fixtures dictionary", wxICON_ERROR | wxOK, this);
@@ -1557,7 +1650,7 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
 
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
   SnapshotExportResult exportResult;
-  if (!SaveTrussesSnapshotToFile(outputPath, *dictOpt, copyReferencedAssets,
+  if (!SaveTrussesSnapshotToFile(this, outputPath, *dictOpt, copyReferencedAssets,
                                  exportResult)) {
     wxMessageBox("Could not write trusses dictionary snapshot.",
                  "Export trusses dictionary", wxICON_ERROR | wxOK, this);
@@ -1591,17 +1684,17 @@ bool DictionaryEditDialog::ExportFixturesPortableBundle() {
   const wxString fixturesDir =
       wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
   wxFileDialog fileDialog(this, "Export portable fixtures bundle", fixturesDir,
-                          "gdtf_dictionary_bundle.zip",
-                          "ZIP files (*.zip)|*.zip",
+                          "gdtf_dictionary_bundle.json",
+                          "JSON files (*.json)|*.json",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
 
-  std::string error;
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
-  if (!DictionaryBundle::ExportFixturesBundle(*dictOpt, outputPath, error)) {
-    wxMessageBox("Could not write fixtures portable bundle.\n\n" +
-                     wxString::FromUTF8(error),
+  SnapshotExportResult exportResult;
+  if (!SaveFixturesSnapshotToFile(this, outputPath, *dictOpt, true,
+                                  exportResult)) {
+    wxMessageBox("Could not write fixtures portable bundle.",
                  "Export portable fixtures bundle", wxICON_ERROR | wxOK, this);
     return false;
   }
@@ -1622,17 +1715,17 @@ bool DictionaryEditDialog::ExportTrussesPortableBundle() {
   const wxString trussesDir =
       wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
   wxFileDialog fileDialog(this, "Export portable trusses bundle", trussesDir,
-                          "truss_dictionary_bundle.zip",
-                          "ZIP files (*.zip)|*.zip",
+                          "truss_dictionary_bundle.json",
+                          "JSON files (*.json)|*.json",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
 
-  std::string error;
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
-  if (!DictionaryBundle::ExportTrussesBundle(*dictOpt, outputPath, error)) {
-    wxMessageBox("Could not write trusses portable bundle.\n\n" +
-                     wxString::FromUTF8(error),
+  SnapshotExportResult exportResult;
+  if (!SaveTrussesSnapshotToFile(this, outputPath, *dictOpt, true,
+                                 exportResult)) {
+    wxMessageBox("Could not write trusses portable bundle.",
                  "Export portable trusses bundle", wxICON_ERROR | wxOK, this);
     return false;
   }
