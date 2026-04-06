@@ -1349,8 +1349,13 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
     if (cameraWasMoving)
         m_controller.SetCameraMoving(false);
 
-    const bool foundSceneObject = m_controller.GetSceneObjectLabelAt(
-        event.GetX(), event.GetY(), w, h, label, pos, &uuid);
+    const bool sceneObjectsActive =
+        SceneObjectTablePanel::Instance() &&
+        SceneObjectTablePanel::Instance()->IsActivePage();
+
+    const bool foundSceneObject = sceneObjectsActive &&
+        m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w, h,
+                                           label, pos, &uuid);
 
     bool found = foundSceneObject;
     if (!found)

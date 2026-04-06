@@ -1625,7 +1625,11 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
   std::string uuid;
   ConfigManager &cfg = ConfigManager::Get();
 
-  if (m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w, h,
+  const bool sceneObjectsActive =
+      SceneObjectTablePanel::Instance() &&
+      SceneObjectTablePanel::Instance()->IsActivePage();
+  if (sceneObjectsActive &&
+      m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w, h,
                                          label, pos, &uuid)) {
     const bool edited = scene_object_primitives::EditPrimitiveObjectByUuid(
         this, cfg, uuid);
