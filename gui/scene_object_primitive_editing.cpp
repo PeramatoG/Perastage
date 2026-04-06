@@ -5,6 +5,7 @@
 #include "sceneobject.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <string>
 
@@ -14,21 +15,75 @@ namespace {
 constexpr const char *kPrimitiveSphereToken = "primitive:sphere";
 constexpr const char *kPrimitiveCubeToken = "primitive:cube";
 
+enum class PrimitiveKind {
+  None,
+  Sphere,
+  Cube,
+};
+
+struct PrimitiveGeometryTarget {
+  PrimitiveKind kind = PrimitiveKind::None;
+  size_t geometryIndex = 0;
+  bool usesGeometryEntry = false;
+};
+
 float AxisLength(const std::array<float, 3> &axis) {
   return std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
 }
 
-std::string PrimaryPrimitiveToken(const SceneObject &object) {
-  if (!object.geometries.empty())
-    return object.geometries.front().modelFile;
-  return object.modelFile;
+std::string ToLowerTrimmed(std::string value) {
+  value.erase(value.begin(),
+              std::find_if(value.begin(), value.end(), [](unsigned char c) {
+                return !std::isspace(c);
+              }));
+  value.erase(std::find_if(value.rbegin(), value.rend(),
+                           [](unsigned char c) { return !std::isspace(c); })
+                  .base(),
+              value.end());
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return value;
 }
 
-bool IsEditablePrimitive(const SceneObject &object) {
-  if (object.geometries.empty())
-    return false;
-  const std::string token = PrimaryPrimitiveToken(object);
-  return token == kPrimitiveSphereToken || token == kPrimitiveCubeToken;
+PrimitiveKind PrimitiveKindFromToken(const std::string &token) {
+  const std::string normalized = ToLowerTrimmed(token);
+  if (normalized.rfind(kPrimitiveSphereToken, 0) == 0)
+    return PrimitiveKind::Sphere;
+  if (normalized.rfind(kPrimitiveCubeToken, 0) == 0)
+    return PrimitiveKind::Cube;
+  return PrimitiveKind::None;
+}
+
+PrimitiveGeometryTarget ResolvePrimitiveTarget(const SceneObject &object) {
+  for (size_t i = 0; i < object.geometries.size(); ++i) {
+    const PrimitiveKind kind =
+        PrimitiveKindFromToken(object.geometries[i].modelFile);
+    if (kind != PrimitiveKind::None) {
+      PrimitiveGeometryTarget target;
+      target.kind = kind;
+      target.geometryIndex = i;
+      target.usesGeometryEntry = true;
+      return target;
+    }
+  }
+
+  const PrimitiveKind modelKind = PrimitiveKindFromToken(object.modelFile);
+  if (modelKind != PrimitiveKind::None) {
+    PrimitiveGeometryTarget target;
+    target.kind = modelKind;
+    target.geometryIndex = 0;
+    target.usesGeometryEntry = false;
+    return target;
+  }
+
+  return {};
+}
+
+Matrix ResolveEditableTransform(const SceneObject &object,
+                               const PrimitiveGeometryTarget &target) {
+  if (target.usesGeometryEntry && target.geometryIndex < object.geometries.size())
+    return object.geometries[target.geometryIndex].localTransform;
+  return Matrix{};
 }
 
 } // namespace
@@ -41,16 +96,16 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
     return false;
 
   SceneObject &object = it->second;
-  if (!IsEditablePrimitive(object))
+  const PrimitiveGeometryTarget target = ResolvePrimitiveTarget(object);
+  if (target.kind == PrimitiveKind::None)
     return false;
 
-  const std::string token = PrimaryPrimitiveToken(object);
-  const Matrix currentTransform = object.geometries.front().localTransform;
+  const Matrix currentTransform = ResolveEditableTransform(object, target);
 
   Matrix updatedTransform = currentTransform;
   bool accepted = false;
 
-  if (token == kPrimitiveSphereToken) {
+  if (target.kind == PrimitiveKind::Sphere) {
     SphereRequest request;
     const double uniformScale = std::max(
         {static_cast<double>(AxisLength(currentTransform.u)),
@@ -61,7 +116,7 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
     if (!accepted)
       return false;
     updatedTransform = BuildSphereScaleTransform(request.radiusMeters);
-  } else if (token == kPrimitiveCubeToken) {
+  } else if (target.kind == PrimitiveKind::Cube) {
     CubeRequest request;
     request.lengthMeters =
         std::max(static_cast<double>(AxisLength(currentTransform.u)), 0.01);
@@ -84,7 +139,14 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
     return false;
 
   cfg.PushUndoState("edit primitive geometry");
-  object.geometries.front().localTransform = updatedTransform;
+  if (target.usesGeometryEntry && target.geometryIndex < object.geometries.size()) {
+    object.geometries[target.geometryIndex].localTransform = updatedTransform;
+  } else {
+    GeometryInstance geometry;
+    geometry.modelFile = object.modelFile;
+    geometry.localTransform = updatedTransform;
+    object.geometries.push_back(geometry);
+  }
 
   return true;
 }
