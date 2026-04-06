@@ -360,15 +360,16 @@ std::string PrimitiveArchivePathForToken(const std::string &primitiveToken,
 bool WritePrimitiveModelForToken(const std::string &primitiveToken,
                                  const std::string &outputPath) {
   const std::string normalized = NormalizeLower(primitiveToken);
-  if (normalized.rfind(kCubeToken, 0) == 0)
+  if (IsCubeRef(normalized))
     return WriteGlb(BuildCubeMesh(), outputPath);
-  if (normalized.rfind(kSphereToken, 0) == 0)
+  if (IsSphereRef(normalized))
     return WriteGlb(BuildSphereMesh(), outputPath);
-  if (normalized.rfind(kCylinderToken, 0) == 0) {
+  if (IsCylinderRef(normalized)) {
     float topRadius = 0.5f;
     float bottomRadius = 0.5f;
     float height = 1.0f;
-    ParseCylinderTokenDimensions(primitiveToken, topRadius, bottomRadius, height);
+    if (normalized.rfind(kCylinderToken, 0) == 0)
+      ParseCylinderTokenDimensions(primitiveToken, topRadius, bottomRadius, height);
     return WriteGlb(BuildCylinderMesh(topRadius, bottomRadius, height), outputPath);
   }
   return false;
