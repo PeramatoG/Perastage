@@ -2051,34 +2051,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     };
 
     Matrix objectMatrixToWrite = obj.transform;
-    std::optional<std::string> overridePrimitiveModelRef;
     bool forceIdentityGeometryMatrix = false;
     if (obj.geometries.size() == 1) {
       const auto &singleGeometry = obj.geometries.front();
       if (isLegacyPipeCylinderAxisTransform(singleGeometry.modelFile,
                                             singleGeometry.localTransform)) {
-        auto axisLength = [](const std::array<float, 3> &axis) {
-          return std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
-        };
-        const float su = axisLength(obj.transform.u);
-        const float sv = axisLength(obj.transform.v);
-        const float sw = axisLength(obj.transform.w);
-        const std::array<float, 3> scales = {su, sv, sw};
-        const float lengthScale = std::max({scales[0], scales[1], scales[2]});
-        const float diameterScale = std::max(
-            1e-5f, (scales[0] + scales[1] + scales[2] - lengthScale) * 0.5f);
-
-        const float lengthMm = lengthScale * 1000.0f;
-        const float radiusMm = diameterScale * 500.0f;
-        overridePrimitiveModelRef =
-            "primitive:cylinder;top=" + std::to_string(radiusMm) +
-            ";bottom=" + std::to_string(radiusMm) +
-            ";height=" + std::to_string(lengthMm);
         forceIdentityGeometryMatrix = true;
-
-        objectMatrixToWrite.u = {1.0f, 0.0f, 0.0f};
-        objectMatrixToWrite.v = {0.0f, 1.0f, 0.0f};
-        objectMatrixToWrite.w = {0.0f, 0.0f, 1.0f};
       }
     }
 
@@ -2094,11 +2072,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           continue;
 
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-        const std::string modelRef =
-            overridePrimitiveModelRef.has_value() ? *overridePrimitiveModelRef
-                                                  : geo.modelFile;
         std::string modelArchivePath =
-            registerPrimitiveModelResource(modelRef, obj.uuid);
+            registerPrimitiveModelResource(geo.modelFile, obj.uuid);
         if (modelArchivePath.empty()) {
           modelArchivePath = registerModelResource(geo.modelFile, "object.3ds");
         }

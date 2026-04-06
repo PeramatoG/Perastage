@@ -13,6 +13,7 @@
 
 namespace scene_object_primitives {
 namespace {
+constexpr const char *kSceneObjectsLayerName = "3D Objects";
 
 void EnsureCurrentLayerExists(MvrScene &scene, const std::string &layerName,
                               long long baseId) {
@@ -55,7 +56,7 @@ void AddPrimitiveObjects(MvrScene &scene, const std::string &layerName,
 void AddSphereObjects(ConfigManager &cfg, const SphereRequest &request) {
   auto &scene = cfg.GetScene();
   const long long baseId = NextBaseId();
-  const std::string layerName = cfg.GetCurrentLayer();
+  const std::string layerName = kSceneObjectsLayerName;
 
   EnsureCurrentLayerExists(scene, layerName, baseId);
   AddPrimitiveObjects(scene, layerName, "Sphere", "primitive:sphere",
@@ -66,7 +67,7 @@ void AddSphereObjects(ConfigManager &cfg, const SphereRequest &request) {
 void AddCubeObjects(ConfigManager &cfg, const CubeRequest &request) {
   auto &scene = cfg.GetScene();
   const long long baseId = NextBaseId();
-  const std::string layerName = cfg.GetCurrentLayer();
+  const std::string layerName = kSceneObjectsLayerName;
 
   EnsureCurrentLayerExists(scene, layerName, baseId);
   AddPrimitiveObjects(scene, layerName, "Cube", "primitive:cube",
@@ -79,7 +80,7 @@ void AddCubeObjects(ConfigManager &cfg, const CubeRequest &request) {
 void AddCylinderObjects(ConfigManager &cfg, const CylinderRequest &request) {
   auto &scene = cfg.GetScene();
   const long long baseId = NextBaseId();
-  const std::string layerName = cfg.GetCurrentLayer();
+  const std::string layerName = kSceneObjectsLayerName;
 
   EnsureCurrentLayerExists(scene, layerName, baseId);
   AddPrimitiveObjects(scene, layerName, "Cylinder",
