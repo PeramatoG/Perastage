@@ -1390,8 +1390,55 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
       return {};
     const std::string normalizedModelRef = ToLowerAscii(TrimAscii(modelRef));
-    const std::string primitiveKey =
+
+    auto convertCylinderTokenMillimetersToMeters = [&](const std::string &token) {
+      std::string normalized = ToLowerAscii(TrimAscii(token));
+      if (normalized.rfind("primitive:cylinder", 0) != 0)
+        return normalized;
+      const size_t separator = normalized.find(';');
+      if (separator == std::string::npos || separator + 1 >= normalized.size())
+        return normalized;
+
+      std::vector<std::string> fields;
+      std::stringstream stream(normalized.substr(separator + 1));
+      std::string field;
+      bool changed = false;
+      while (std::getline(stream, field, ';')) {
+        const size_t equalPos = field.find('=');
+        if (equalPos == std::string::npos) {
+          fields.push_back(field);
+          continue;
+        }
+        const std::string key = field.substr(0, equalPos);
+        const std::string value = field.substr(equalPos + 1);
+        if (key == "top" || key == "bottom" || key == "height") {
+          try {
+            const float parsed = std::stof(value);
+            const float meters = parsed / 1000.0f;
+            fields.push_back(key + "=" + std::to_string(meters));
+            changed = true;
+          } catch (...) {
+            fields.push_back(field);
+          }
+        } else {
+          fields.push_back(field);
+        }
+      }
+
+      if (!changed)
+        return normalized;
+      std::string out = "primitive:cylinder";
+      for (const auto &entry : fields) {
+        if (!entry.empty())
+          out += ";" + entry;
+      }
+      return out;
+    };
+
+    const std::string primitiveKeyRaw =
         normalizedModelRef.empty() ? primitiveToken : normalizedModelRef;
+    const std::string primitiveKey =
+        convertCylinderTokenMillimetersToMeters(primitiveKeyRaw);
 
     auto sourceIt = primitiveSourceByToken.find(primitiveKey);
     std::string sourcePath;
