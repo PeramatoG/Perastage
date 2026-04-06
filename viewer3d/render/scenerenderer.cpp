@@ -744,6 +744,9 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
   stroke.width = profile.lineWidth;
 
   const GLboolean lineSmoothWasEnabled = glIsEnabled(GL_LINE_SMOOTH);
+  const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+  if (lightingWasEnabled)
+    glDisable(GL_LIGHTING);
   if (profile.enableLineSmoothing)
     glEnable(GL_LINE_SMOOTH);
   else
@@ -867,6 +870,9 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
     glEnable(GL_LINE_SMOOTH);
   else
     glDisable(GL_LINE_SMOOTH);
+
+  if (lightingWasEnabled)
+    glEnable(GL_LIGHTING);
 }
 
 void SceneRenderer::SetupMaterialFromRGB(float r, float g, float b) {
