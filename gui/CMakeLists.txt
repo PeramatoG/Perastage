@@ -62,6 +62,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_print.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferencesdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/scene_object_primitive_creation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/scene_object_primitive_dialogs.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ridertextdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/riggingpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/sceneobjecttablepanel.cpp
