@@ -1162,6 +1162,16 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
     event.Skip();
     return;
   }
+
+  // On macOS, opening a modal editor from a double-click can happen while a
+  // drag-selection capture is still active. Releasing capture before opening
+  // the dialog avoids a later destruction-time assert/crash.
+  if (dragSelecting) {
+    dragSelecting = false;
+    if (HasCapture())
+      ReleaseMouse();
+  }
+
   int r = table->ItemToRow(item);
   if (r == wxNOT_FOUND)
     return;
@@ -1187,7 +1197,8 @@ void FixtureTablePanel::OnLeftDown(wxMouseEvent &evt) {
 void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) {
   if (dragSelecting) {
     dragSelecting = false;
-    ReleaseMouse();
+    if (HasCapture())
+      ReleaseMouse();
   }
   evt.Skip();
 }
