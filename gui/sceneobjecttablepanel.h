@@ -52,6 +52,7 @@ private:
     ColorfulDataViewListStore* store;
     wxDataViewListCtrl* table;
     std::vector<wxString> columnLabels;
+    std::vector<wxString> modelPaths;
     std::vector<std::string> rowUuids;
     std::string highlightedUuid;
     bool dragSelecting = false;
