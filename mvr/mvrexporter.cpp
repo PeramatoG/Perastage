@@ -1388,18 +1388,19 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     std::string primitiveToken;
     if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
       return {};
+    const std::string primitiveKey = TrimAscii(modelRef).empty() ? primitiveToken : TrimAscii(modelRef);
 
-    auto sourceIt = primitiveSourceByToken.find(primitiveToken);
+    auto sourceIt = primitiveSourceByToken.find(primitiveKey);
     std::string sourcePath;
     if (sourceIt != primitiveSourceByToken.end()) {
       sourcePath = sourceIt->second;
     } else {
       fs::path outputPath = fs::u8path(primitiveTempDir) /
                             fs::u8path(mvr::PrimitiveArchivePathForToken(primitiveToken)).filename();
-      if (!mvr::WritePrimitiveModelForToken(primitiveToken, outputPath.generic_string()))
+      if (!mvr::WritePrimitiveModelForToken(primitiveKey, outputPath.generic_string()))
         return {};
       sourcePath = outputPath.generic_string();
-      primitiveSourceByToken[primitiveToken] = sourcePath;
+      primitiveSourceByToken[primitiveKey] = sourcePath;
     }
 
     const std::string preferredArchivePath =

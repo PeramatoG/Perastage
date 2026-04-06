@@ -126,25 +126,30 @@ PrimitiveMeshData BuildSphereMesh() {
   return mesh;
 }
 
-PrimitiveMeshData BuildCylinderMesh() {
+PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
+                                    float height) {
   PrimitiveMeshData mesh;
   constexpr int kSegments = 16;
   constexpr float kPi = 3.14159265358979323846f;
   mesh.positions.reserve(static_cast<size_t>(kSegments * 2 + 2) * 3);
   mesh.indices.reserve(static_cast<size_t>(kSegments) * 12);
 
+  const float halfHeight = 0.5f * height;
+
   for (int i = 0; i < kSegments; ++i) {
     const float a = static_cast<float>(i) * 2.0f * kPi /
                     static_cast<float>(kSegments);
-    const float x = 0.5f * std::cos(a);
-    const float z = 0.5f * std::sin(a);
-    mesh.positions.insert(mesh.positions.end(), {x, 0.5f, z});
-    mesh.positions.insert(mesh.positions.end(), {x, -0.5f, z});
+    const float xTop = topRadius * std::cos(a);
+    const float yTop = topRadius * std::sin(a);
+    const float xBottom = bottomRadius * std::cos(a);
+    const float yBottom = bottomRadius * std::sin(a);
+    mesh.positions.insert(mesh.positions.end(), {xTop, yTop, halfHeight});
+    mesh.positions.insert(mesh.positions.end(), {xBottom, yBottom, -halfHeight});
   }
   const uint16_t topCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
-  mesh.positions.insert(mesh.positions.end(), {0.0f, 0.5f, 0.0f});
+  mesh.positions.insert(mesh.positions.end(), {0.0f, 0.0f, halfHeight});
   const uint16_t bottomCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
-  mesh.positions.insert(mesh.positions.end(), {0.0f, -0.5f, 0.0f});
+  mesh.positions.insert(mesh.positions.end(), {0.0f, 0.0f, -halfHeight});
 
   for (int i = 0; i < kSegments; ++i) {
     const uint16_t top0 = static_cast<uint16_t>(i * 2);
@@ -158,6 +163,53 @@ PrimitiveMeshData BuildCylinderMesh() {
   }
 
   return mesh;
+}
+
+PrimitiveMeshData BuildCylinderMesh() {
+  return BuildCylinderMesh(0.5f, 0.5f, 1.0f);
+}
+
+float ParsePositiveNumber(const std::string &text, float fallback) {
+  if (text.empty())
+    return fallback;
+  try {
+    const float value = std::stof(text);
+    return std::isfinite(value) && value > 0.0f ? value : fallback;
+  } catch (...) {
+    return fallback;
+  }
+}
+
+void ParseCylinderTokenDimensions(const std::string &token, float &topRadius,
+                                  float &bottomRadius, float &height) {
+  topRadius = 0.5f;
+  bottomRadius = 0.5f;
+  height = 1.0f;
+
+  const std::string normalized = NormalizeLower(token);
+  if (normalized.rfind(kCylinderToken, 0) != 0)
+    return;
+
+  const size_t separator = normalized.find(';');
+  if (separator == std::string::npos || separator + 1 >= normalized.size())
+    return;
+
+  std::stringstream ss(normalized.substr(separator + 1));
+  std::string field;
+  while (std::getline(ss, field, ';')) {
+    const size_t equalPos = field.find('=');
+    if (equalPos == std::string::npos)
+      continue;
+    const std::string key = field.substr(0, equalPos);
+    const std::string value = field.substr(equalPos + 1);
+    if (key == "top") {
+      topRadius = ParsePositiveNumber(value, topRadius);
+    } else if (key == "bottom") {
+      bottomRadius = ParsePositiveNumber(value, bottomRadius);
+    } else if (key == "height") {
+      height = ParsePositiveNumber(value, height);
+    }
+  }
 }
 
 void AppendU32(std::vector<uint8_t> &buffer, uint32_t value) {
@@ -312,8 +364,13 @@ bool WritePrimitiveModelForToken(const std::string &primitiveToken,
     return WriteGlb(BuildCubeMesh(), outputPath);
   if (normalized.rfind(kSphereToken, 0) == 0)
     return WriteGlb(BuildSphereMesh(), outputPath);
-  if (normalized.rfind(kCylinderToken, 0) == 0)
-    return WriteGlb(BuildCylinderMesh(), outputPath);
+  if (normalized.rfind(kCylinderToken, 0) == 0) {
+    float topRadius = 0.5f;
+    float bottomRadius = 0.5f;
+    float height = 1.0f;
+    ParseCylinderTokenDimensions(primitiveToken, topRadius, bottomRadius, height);
+    return WriteGlb(BuildCylinderMesh(topRadius, bottomRadius, height), outputPath);
+  }
   return false;
 }
 
