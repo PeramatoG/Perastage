@@ -81,6 +81,7 @@ private:
     bool m_mouseInside = false;
     wxPoint m_lastMousePos;
     bool m_rectSelecting = false;
+    bool m_rectSelectionAcrossAllTables = false;
     wxPoint m_rectSelectStart;
     wxPoint m_rectSelectEnd;
 
