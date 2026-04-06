@@ -117,11 +117,11 @@ PrimitiveMeshData BuildSphereMesh() {
       0.0f, -0.5f, 0.0f,
   };
   mesh.indices = {
-      0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 1,
-      1, 5, 2, 2, 6, 3, 3, 7, 4, 4, 8, 1,
-      5, 9, 10, 5, 10, 6, 6, 10, 11, 6, 11, 7,
-      7, 11, 12, 7, 12, 8, 8, 12, 9, 8, 9, 5,
-      9, 13, 10, 10, 13, 11, 11, 13, 12, 12, 13, 9,
+      0, 2, 1, 0, 3, 2, 0, 4, 3, 0, 1, 4,
+      1, 2, 5, 2, 3, 6, 3, 4, 7, 4, 1, 8,
+      5, 10, 9, 5, 6, 10, 6, 11, 10, 6, 7, 11,
+      7, 12, 11, 7, 8, 12, 8, 9, 12, 8, 5, 9,
+      9, 10, 13, 10, 11, 13, 11, 12, 13, 12, 9, 13,
   };
   return mesh;
 }
@@ -143,13 +143,13 @@ PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
     const float yTop = topRadius * std::sin(a);
     const float xBottom = bottomRadius * std::cos(a);
     const float yBottom = bottomRadius * std::sin(a);
-    mesh.positions.insert(mesh.positions.end(), {xTop, yTop, halfHeight});
-    mesh.positions.insert(mesh.positions.end(), {xBottom, yBottom, -halfHeight});
+    mesh.positions.insert(mesh.positions.end(), {halfHeight, xTop, yTop});
+    mesh.positions.insert(mesh.positions.end(), {-halfHeight, xBottom, yBottom});
   }
   const uint16_t topCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
-  mesh.positions.insert(mesh.positions.end(), {0.0f, 0.0f, halfHeight});
+  mesh.positions.insert(mesh.positions.end(), {halfHeight, 0.0f, 0.0f});
   const uint16_t bottomCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
-  mesh.positions.insert(mesh.positions.end(), {0.0f, 0.0f, -halfHeight});
+  mesh.positions.insert(mesh.positions.end(), {-halfHeight, 0.0f, 0.0f});
 
   for (int i = 0; i < kSegments; ++i) {
     const uint16_t top0 = static_cast<uint16_t>(i * 2);
@@ -157,9 +157,9 @@ PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
     const uint16_t top1 = static_cast<uint16_t>(((i + 1) % kSegments) * 2);
     const uint16_t bot1 = static_cast<uint16_t>(((i + 1) % kSegments) * 2 + 1);
 
-    mesh.indices.insert(mesh.indices.end(), {top0, bot0, bot1, top0, bot1, top1});
-    mesh.indices.insert(mesh.indices.end(), {topCenter, top1, top0});
-    mesh.indices.insert(mesh.indices.end(), {bottomCenter, bot0, bot1});
+    mesh.indices.insert(mesh.indices.end(), {top0, bot1, bot0, top0, top1, bot1});
+    mesh.indices.insert(mesh.indices.end(), {topCenter, top0, top1});
+    mesh.indices.insert(mesh.indices.end(), {bottomCenter, bot1, bot0});
   }
 
   return mesh;

@@ -307,7 +307,7 @@ int main() {
   bool sawNonNumericTrussNameFixtureIdConsistency = false;
   bool sawPrimitiveSphereWithIdentityGeometryMatrix = false;
   bool sawPrimitivePipeObjectMatrixUnbaked = false;
-  bool sawPrimitivePipeGeometryMatrix = false;
+  bool sawPrimitivePipeGeometryMatrixNormalized = false;
   int mvrGeometryTrussCount = 0;
   int mvrGeometryTrussesWithGeometry3d = 0;
   int mvrGeometryTrussesWithRenderableGdtf = 0;
@@ -483,10 +483,12 @@ int main() {
             assert(geoMatrix != nullptr && geoMatrix->GetText() != nullptr);
             Matrix parsedGeoMatrix = MatrixUtils::Identity();
             assert(MatrixUtils::ParseMatrix(geoMatrix->GetText(), parsedGeoMatrix));
-            if (parsedGeoMatrix.u == primitivePipeGeo.localTransform.u &&
-                parsedGeoMatrix.v == primitivePipeGeo.localTransform.v &&
-                parsedGeoMatrix.w == primitivePipeGeo.localTransform.w) {
-              sawPrimitivePipeGeometryMatrix = true;
+            const Matrix identity = MatrixUtils::Identity();
+            if (parsedGeoMatrix.u == identity.u &&
+                parsedGeoMatrix.v == identity.v &&
+                parsedGeoMatrix.w == identity.w &&
+                parsedGeoMatrix.o == identity.o) {
+              sawPrimitivePipeGeometryMatrixNormalized = true;
             }
           }
         }
@@ -508,7 +510,7 @@ int main() {
   assert(sawNonNumericTrussNameFixtureIdConsistency);
   assert(sawPrimitiveSphereWithIdentityGeometryMatrix);
   assert(sawPrimitivePipeObjectMatrixUnbaked);
-  assert(sawPrimitivePipeGeometryMatrix);
+  assert(sawPrimitivePipeGeometryMatrixNormalized);
   assert(mvrGeometryTrussCount == static_cast<int>(scene.trusses.size()));
   assert(mvrGeometryTrussesWithGeometry3d == mvrGeometryTrussCount);
   assert(mvrGeometryTrussesWithRenderableGdtf == mvrGeometryTrussCount);

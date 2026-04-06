@@ -2025,6 +2025,31 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   auto exportSceneObject = [&](tinyxml2::XMLElement *parent,
                                const SceneObject &obj) {
+    auto matrixAlmostEqual = [](const Matrix &a, const Matrix &b, float eps = 1e-5f) {
+      for (int i = 0; i < 3; ++i) {
+        if (std::fabs(a.u[i] - b.u[i]) > eps || std::fabs(a.v[i] - b.v[i]) > eps ||
+            std::fabs(a.w[i] - b.w[i]) > eps || std::fabs(a.o[i] - b.o[i]) > eps) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    auto isLegacyPipeCylinderAxisTransform = [&](const std::string &modelRef,
+                                                 const Matrix &localTransform) {
+      std::string primitiveToken;
+      if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
+        return false;
+      if (ToLowerAscii(TrimAscii(primitiveToken)).rfind("primitive:cylinder", 0) != 0)
+        return false;
+
+      Matrix axisXTransform = MatrixUtils::Identity();
+      axisXTransform.u = {0.0f, 0.0f, -1.0f};
+      axisXTransform.v = {0.0f, 1.0f, 0.0f};
+      axisXTransform.w = {1.0f, 0.0f, 0.0f};
+      return matrixAlmostEqual(localTransform, axisXTransform);
+    };
+
     Matrix objectMatrixToWrite = obj.transform;
 
     tinyxml2::XMLElement *oe = doc.NewElement("SceneObject");
@@ -2059,7 +2084,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           continue;
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
 
-        std::string geoMatrixText = MatrixUtils::FormatMatrix(geo.localTransform);
+        const Matrix geoMatrixToWrite =
+            isLegacyPipeCylinderAxisTransform(geo.modelFile, geo.localTransform)
+                ? MatrixUtils::Identity()
+                : geo.localTransform;
+        std::string geoMatrixText = MatrixUtils::FormatMatrix(geoMatrixToWrite);
         tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
         geoMatrix->SetText(geoMatrixText.c_str());
         g3d->InsertEndChild(geoMatrix);
