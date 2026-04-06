@@ -2251,6 +2251,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           if (!modelArchivePath.empty())
             g3d->SetAttribute("fileName", modelArchivePath.c_str());
 
+          // Round cylinders with explicit token dimensions should not compound any
+          // pre-existing local scale; use a clean matrix like sphere/cube primitives.
+          geoMatrixToWrite = MatrixUtils::Identity();
+
           // Convert token dimensions (stored in millimeters) to scene meters for
           // Geometry3D matrix scaling, matching importer expectations in MA3.
           constexpr float kMillimetersPerMeter = 1000.0f;
