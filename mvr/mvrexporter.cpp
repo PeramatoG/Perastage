@@ -2242,18 +2242,21 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
         CylinderTokenParams cylinderParams;
         const bool hasCylinderToken = parseCylinderTokenParams(rawModelRef, cylinderParams);
+        const bool hasExplicitCylinderDimensions =
+            hasCylinderToken && cylinderParams.hasExplicitDimensions;
         const bool isRoundCylinder =
-            hasCylinderToken && cylinderParams.hasExplicitDimensions &&
+            hasExplicitCylinderDimensions &&
             std::fabs(cylinderParams.topRadiusMm - cylinderParams.bottomRadiusMm) < 1e-3f;
+        if (hasExplicitCylinderDimensions) {
+          // Explicit parametric cylinders already encode final dimensions in the
+          // generated primitive mesh; keep geometry matrix scale neutral.
+          geoMatrixToWrite = MatrixUtils::Identity();
+        }
         if (isRoundCylinder) {
           modelRef = cylinderParams.axisX ? "primitive:cylinder;axis=x" : "primitive:cylinder";
           modelArchivePath = registerPrimitiveModelResource(modelRef, obj.uuid);
           if (!modelArchivePath.empty())
             g3d->SetAttribute("fileName", modelArchivePath.c_str());
-
-          // Round cylinders with explicit token dimensions should not compound any
-          // pre-existing local scale; use a clean matrix like sphere/cube primitives.
-          geoMatrixToWrite = MatrixUtils::Identity();
 
           // Convert token dimensions (stored in millimeters) to scene meters for
           // Geometry3D matrix scaling, matching importer expectations in MA3.

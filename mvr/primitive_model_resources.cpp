@@ -76,8 +76,9 @@ struct PrimitiveMeshData {
 };
 
 enum class CylinderAxis {
-  Z,
   X,
+  Y,
+  Z,
 };
 
 PrimitiveMeshData BuildCubeMesh() {
@@ -156,6 +157,8 @@ PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
   auto appendAxisPosition = [&](float axial, float radialA, float radialB) {
     if (axis == CylinderAxis::X) {
       mesh.positions.insert(mesh.positions.end(), {axial, radialA, radialB});
+    } else if (axis == CylinderAxis::Y) {
+      mesh.positions.insert(mesh.positions.end(), {radialA, axial, radialB});
     } else {
       mesh.positions.insert(mesh.positions.end(), {radialA, radialB, axial});
     }
@@ -220,7 +223,7 @@ PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
 }
 
 PrimitiveMeshData BuildCylinderMesh() {
-  return BuildCylinderMesh(0.5f, 0.5f, 1.0f, CylinderAxis::Z);
+  return BuildCylinderMesh(0.5f, 0.5f, 1.0f, CylinderAxis::Y);
 }
 
 float ParsePositiveNumber(const std::string &text, float fallback) {
@@ -240,7 +243,7 @@ void ParseCylinderTokenDimensions(const std::string &token, float &topRadius,
   topRadius = 0.5f;
   bottomRadius = 0.5f;
   height = 1.0f;
-  axis = CylinderAxis::Z;
+  axis = CylinderAxis::Y;
 
   const std::string normalized = NormalizeLower(token);
   if (normalized.rfind(kCylinderToken, 0) != 0)
@@ -267,6 +270,8 @@ void ParseCylinderTokenDimensions(const std::string &token, float &topRadius,
     } else if (key == "axis") {
       if (value == "x")
         axis = CylinderAxis::X;
+      else if (value == "y")
+        axis = CylinderAxis::Y;
       else if (value == "z")
         axis = CylinderAxis::Z;
     }
