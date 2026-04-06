@@ -24,6 +24,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -70,6 +72,29 @@ bool IsPipeSceneObject(const SceneObject &object) {
                    return static_cast<char>(std::toupper(c));
                  });
   return upperName.rfind("PIPE", 0) == 0;
+}
+
+const Mesh *TryGetPrimitiveSceneObjectMesh(const std::string &modelRef) {
+  constexpr std::string_view prefix = "primitive:";
+  if (modelRef.rfind(prefix.data(), 0) != 0)
+    return nullptr;
+
+  const std::string primitiveType = modelRef.substr(prefix.size());
+  if (primitiveType.empty())
+    return nullptr;
+
+  static std::unordered_map<std::string, Mesh> cache;
+  auto it = cache.find(primitiveType);
+  if (it != cache.end())
+    return &it->second;
+
+  Mesh mesh;
+  if (!BuildPrimitiveMesh(primitiveType, mesh))
+    return nullptr;
+  auto [insertedIt, inserted] =
+      cache.emplace(primitiveType, std::move(mesh));
+  (void)inserted;
+  return &insertedIt->second;
 }
 
 } // namespace
@@ -164,6 +189,16 @@ void OpaqueObjectPass::Render(
     std::vector<SceneObjectMeshPart> objectMeshParts;
     if (!m.geometries.empty()) {
       for (const auto &geo : m.geometries) {
+        if (const Mesh *primitiveMesh =
+                TryGetPrimitiveSceneObjectMesh(geo.modelFile);
+            primitiveMesh != nullptr) {
+          SceneObjectMeshPart part;
+          part.mesh = primitiveMesh;
+          part.localTransform = geo.localTransform;
+          part.modelKey = NormalizeModelKey(geo.modelFile);
+          objectMeshParts.push_back(std::move(part));
+          continue;
+        }
         std::string objectPath;
         auto pathIt = controller.m_resourceSyncState.resolvedModelRefs.find(
             ResolveCacheKey(geo.modelFile));

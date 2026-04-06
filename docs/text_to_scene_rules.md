@@ -233,6 +233,9 @@ Pipe-specific behavior:
 2. Imported pipes are created as simple cylindrical placeholders:
    - length = parsed length (or `14 m` for lengthless pipe lines),
    - radius = `5 cm` (`100 mm` diameter).
+   - Import stores a cylinder primitive geometry reference on the object so the
+     3D view renders the pipe directly as a cylinder (not only as a generic
+     meshless fallback box).
 3. Pipe lines still create/target the same normalized hang names (`LX1`, `LX2`, ...),
    including `PUENTES LX` expansion to `LX1..LXN`.
 4. Pipes do not carry truss hang-weight fields; fixtures still keep their hang

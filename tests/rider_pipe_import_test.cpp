@@ -39,6 +39,8 @@ int main() {
     (void)uuid;
     foundPipeObject = true;
     assert(object.name.find("PIPE") == 0);
+    assert(object.geometries.size() == 1);
+    assert(object.geometries.front().modelFile == "primitive:cylinder");
     assert(NearlyEqual(object.transform.u[0], 14000.0f / 300.0f));
     assert(NearlyEqual(object.transform.v[1], 100.0f / 300.0f));
     assert(NearlyEqual(object.transform.w[2], 100.0f / 300.0f));
@@ -73,6 +75,8 @@ int main() {
       ++lx2Count;
     else if (object.layer == "pos LX3")
       ++lx3Count;
+    assert(object.geometries.size() == 1);
+    assert(object.geometries.front().modelFile == "primitive:cylinder");
     assert(NearlyEqual(object.transform.u[0], 14000.0f / 300.0f));
   }
   assert(lx1Count == 1);
