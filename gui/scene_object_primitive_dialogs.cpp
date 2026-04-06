@@ -12,10 +12,12 @@ namespace {
 
 class SphereDialog : public wxDialog {
 public:
-  explicit SphereDialog(wxWindow *parent)
-      : wxDialog(parent, wxID_ANY, "Add Sphere", wxDefaultPosition,
+  SphereDialog(wxWindow *parent, const wxString &title,
+               const SphereRequest &initialRequest, bool includeQuantity)
+      : wxDialog(parent, wxID_ANY, title, wxDefaultPosition,
                  wxDefaultSize,
-                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+        includeQuantity_(includeQuantity) {
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(2, 2, 8, 8);
 
@@ -25,15 +27,17 @@ public:
     radiusCtrl_->SetRange(0.01, 1000.0);
     radiusCtrl_->SetIncrement(0.1);
     radiusCtrl_->SetDigits(2);
-    radiusCtrl_->SetValue(1.0);
+    radiusCtrl_->SetValue(initialRequest.radiusMeters);
     grid->Add(radiusCtrl_, 1, wxEXPAND);
 
-    grid->Add(new wxStaticText(this, wxID_ANY, "Units:"),
-              0, wxALIGN_CENTER_VERTICAL);
-    quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
-    quantityCtrl_->SetRange(1, 1000);
-    quantityCtrl_->SetValue(1);
-    grid->Add(quantityCtrl_, 1, wxEXPAND);
+    if (includeQuantity_) {
+      grid->Add(new wxStaticText(this, wxID_ANY, "Units:"),
+                0, wxALIGN_CENTER_VERTICAL);
+      quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
+      quantityCtrl_->SetRange(1, 1000);
+      quantityCtrl_->SetValue(initialRequest.quantity);
+      grid->Add(quantityCtrl_, 1, wxEXPAND);
+    }
 
     grid->AddGrowableCol(1, 1);
     root->Add(grid, 1, wxALL | wxEXPAND, 12);
@@ -46,34 +50,39 @@ public:
   SphereRequest Request() const {
     SphereRequest request;
     request.radiusMeters = radiusCtrl_->GetValue();
-    request.quantity = quantityCtrl_->GetValue();
+    request.quantity = includeQuantity_ ? quantityCtrl_->GetValue() : 1;
     return request;
   }
 
 private:
   wxSpinCtrlDouble *radiusCtrl_ = nullptr;
   wxSpinCtrl *quantityCtrl_ = nullptr;
+  bool includeQuantity_ = true;
 };
 
 class CubeDialog : public wxDialog {
 public:
-  explicit CubeDialog(wxWindow *parent)
-      : wxDialog(parent, wxID_ANY, "Add Cube", wxDefaultPosition,
+  CubeDialog(wxWindow *parent, const wxString &title,
+             const CubeRequest &initialRequest, bool includeQuantity)
+      : wxDialog(parent, wxID_ANY, title, wxDefaultPosition,
                  wxDefaultSize,
-                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+        includeQuantity_(includeQuantity) {
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(4, 2, 8, 8);
 
-    lengthCtrl_ = AddDimensionRow(grid, "Length (m):", 1.0);
-    heightCtrl_ = AddDimensionRow(grid, "Height (m):", 1.0);
-    widthCtrl_ = AddDimensionRow(grid, "Width (m):", 1.0);
+    lengthCtrl_ = AddDimensionRow(grid, "Length (m):", initialRequest.lengthMeters);
+    heightCtrl_ = AddDimensionRow(grid, "Height (m):", initialRequest.heightMeters);
+    widthCtrl_ = AddDimensionRow(grid, "Width (m):", initialRequest.widthMeters);
 
-    grid->Add(new wxStaticText(this, wxID_ANY, "Units:"),
-              0, wxALIGN_CENTER_VERTICAL);
-    quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
-    quantityCtrl_->SetRange(1, 1000);
-    quantityCtrl_->SetValue(1);
-    grid->Add(quantityCtrl_, 1, wxEXPAND);
+    if (includeQuantity_) {
+      grid->Add(new wxStaticText(this, wxID_ANY, "Units:"),
+                0, wxALIGN_CENTER_VERTICAL);
+      quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
+      quantityCtrl_->SetRange(1, 1000);
+      quantityCtrl_->SetValue(initialRequest.quantity);
+      grid->Add(quantityCtrl_, 1, wxEXPAND);
+    }
 
     grid->AddGrowableCol(1, 1);
     root->Add(grid, 1, wxALL | wxEXPAND, 12);
@@ -88,7 +97,7 @@ public:
     request.lengthMeters = lengthCtrl_->GetValue();
     request.heightMeters = heightCtrl_->GetValue();
     request.widthMeters = widthCtrl_->GetValue();
-    request.quantity = quantityCtrl_->GetValue();
+    request.quantity = includeQuantity_ ? quantityCtrl_->GetValue() : 1;
     return request;
   }
 
@@ -110,6 +119,7 @@ private:
   wxSpinCtrlDouble *heightCtrl_ = nullptr;
   wxSpinCtrlDouble *widthCtrl_ = nullptr;
   wxSpinCtrl *quantityCtrl_ = nullptr;
+  bool includeQuantity_ = true;
 };
 
 constexpr double kMetersToMillimeters = 1000.0;
@@ -119,7 +129,7 @@ constexpr double kPrimitiveSphereDiameterMillimeters = 1000.0;
 } // namespace
 
 bool ShowSphereDialog(wxWindow *parent, SphereRequest &outRequest) {
-  SphereDialog dialog(parent);
+  SphereDialog dialog(parent, "Add Sphere", SphereRequest{}, true);
   if (dialog.ShowModal() != wxID_OK)
     return false;
 
@@ -128,11 +138,29 @@ bool ShowSphereDialog(wxWindow *parent, SphereRequest &outRequest) {
 }
 
 bool ShowCubeDialog(wxWindow *parent, CubeRequest &outRequest) {
-  CubeDialog dialog(parent);
+  CubeDialog dialog(parent, "Add Cube", CubeRequest{}, true);
   if (dialog.ShowModal() != wxID_OK)
     return false;
 
   outRequest = dialog.Request();
+  return true;
+}
+
+bool ShowSphereEditDialog(wxWindow *parent, SphereRequest &inOutRequest) {
+  SphereDialog dialog(parent, "Edit Sphere", inOutRequest, false);
+  if (dialog.ShowModal() != wxID_OK)
+    return false;
+
+  inOutRequest = dialog.Request();
+  return true;
+}
+
+bool ShowCubeEditDialog(wxWindow *parent, CubeRequest &inOutRequest) {
+  CubeDialog dialog(parent, "Edit Cube", inOutRequest, false);
+  if (dialog.ShowModal() != wxID_OK)
+    return false;
+
+  inOutRequest = dialog.Request();
   return true;
 }
 

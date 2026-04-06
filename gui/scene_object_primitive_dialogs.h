@@ -20,6 +20,8 @@ struct CubeRequest {
 
 bool ShowSphereDialog(wxWindow *parent, SphereRequest &outRequest);
 bool ShowCubeDialog(wxWindow *parent, CubeRequest &outRequest);
+bool ShowSphereEditDialog(wxWindow *parent, SphereRequest &inOutRequest);
+bool ShowCubeEditDialog(wxWindow *parent, CubeRequest &inOutRequest);
 
 Matrix BuildSphereScaleTransform(double radiusMeters);
 Matrix BuildCubeScaleTransform(double lengthMeters, double heightMeters,

@@ -22,6 +22,7 @@
 #include "guiconfigservices.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
+#include "scene_object_primitive_editing.h"
 #include "stringutils.h"
 #include "summarypanel.h"
 #include "dataview_edit_commit.h"
@@ -135,6 +136,8 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent, IGuiConfigService
                 &SceneObjectTablePanel::OnContextMenu, this);
     table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED,
                 &SceneObjectTablePanel::OnColumnSorted, this);
+    table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
+                &SceneObjectTablePanel::OnItemActivated, this);
 
     Bind(wxEVT_MOUSE_CAPTURE_LOST, &SceneObjectTablePanel::OnCaptureLost, this);
 
@@ -860,4 +863,31 @@ void SceneObjectTablePanel::OnColumnSorted(wxDataViewEvent& event)
     std::vector<std::string> oldOrder = rowUuids;
     ResyncRows(oldOrder, selectedUuids);
     event.Skip();
+}
+
+void SceneObjectTablePanel::OnItemActivated(wxDataViewEvent &event)
+{
+    const wxDataViewItem item = event.GetItem();
+    const int row = table->ItemToRow(item);
+    if (row == wxNOT_FOUND || static_cast<size_t>(row) >= rowUuids.size()) {
+        event.Skip();
+        return;
+    }
+
+    ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
+    const bool edited = scene_object_primitives::EditPrimitiveObjectByUuid(
+        this, cfg, rowUuids[static_cast<size_t>(row)]);
+    if (!edited) {
+        event.Skip();
+        return;
+    }
+
+    if (Viewer3DPanel::Instance()) {
+        Viewer3DPanel::Instance()->UpdateScene();
+        Viewer3DPanel::Instance()->Refresh();
+    } else if (Viewer2DPanel::Instance()) {
+        Viewer2DPanel::Instance()->UpdateScene();
+    }
+
+    ReloadData();
 }
