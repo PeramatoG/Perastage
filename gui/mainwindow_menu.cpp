@@ -69,6 +69,8 @@
 #include "projectutils.h"
 #include "rigging_extra_weight_settings.h"
 #include "riggingpanel.h"
+#include "scene_object_primitive_dialogs.h"
+#include "scene_object_primitive_creation.h"
 #include "sceneobjecttablepanel.h"
 #include "selectfixturetypedialog.h"
 #include "selectnamedialog.h"
@@ -369,6 +371,10 @@ void MainWindow::CreateMenuBar() {
   editMenu->Append(ID_Edit_AddFixture, "Add fixture...");
   editMenu->Append(ID_Edit_AddTruss, "Add truss...");
   editMenu->Append(ID_Edit_AddSceneObject, "Add scene object...");
+  wxMenu *primitiveMenu = new wxMenu();
+  primitiveMenu->Append(ID_Edit_AddPrimitiveSphere, "Sphere...");
+  primitiveMenu->Append(ID_Edit_AddPrimitiveCube, "Cube...");
+  editMenu->AppendSubMenu(primitiveMenu, "Add basic geometry");
   editMenu->AppendSeparator();
   editMenu->Append(ID_Edit_Delete, "Delete\tDel");
   editMenu->AppendSeparator();
@@ -1430,6 +1436,42 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     obj.layer = layerName;
     scene.sceneObjects[obj.uuid] = obj;
   }
+
+  if (sceneObjPanel)
+    sceneObjPanel->ReloadData();
+  if (viewportPanel) {
+    viewportPanel->UpdateScene();
+    viewportPanel->Refresh();
+  }
+  RefreshSummary();
+}
+
+void MainWindow::OnAddPrimitiveSphere(wxCommandEvent &WXUNUSED(event)) {
+  scene_object_primitives::SphereRequest request;
+  if (!scene_object_primitives::ShowSphereDialog(this, request))
+    return;
+
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  cfg.PushUndoState("add primitive sphere");
+  scene_object_primitives::AddSphereObjects(cfg, request);
+
+  if (sceneObjPanel)
+    sceneObjPanel->ReloadData();
+  if (viewportPanel) {
+    viewportPanel->UpdateScene();
+    viewportPanel->Refresh();
+  }
+  RefreshSummary();
+}
+
+void MainWindow::OnAddPrimitiveCube(wxCommandEvent &WXUNUSED(event)) {
+  scene_object_primitives::CubeRequest request;
+  if (!scene_object_primitives::ShowCubeDialog(this, request))
+    return;
+
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  cfg.PushUndoState("add primitive cube");
+  scene_object_primitives::AddCubeObjects(cfg, request);
 
   if (sceneObjPanel)
     sceneObjPanel->ReloadData();

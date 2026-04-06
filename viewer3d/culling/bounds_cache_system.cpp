@@ -5,6 +5,7 @@
 #endif
 
 #include "bounds_cache_system.h"
+#include "primitive_bounds_utils.h"
 
 #include "configmanager.h"
 #include "projectutils.h"
@@ -286,6 +287,23 @@ void BoundsCacheSystem::RebuildIfDirty(
 
     if (!obj.geometries.empty()) {
       for (const auto &geo : obj.geometries) {
+        Viewer3DBoundingBox primitiveBounds;
+        if (TryGetPrimitiveBoundsFromModelRef(geo.modelFile, primitiveBounds)) {
+          Matrix geoTm = MatrixUtils::Multiply(tm, geo.localTransform);
+          geoTm.o[0] *= RENDER_SCALE;
+          geoTm.o[1] *= RENDER_SCALE;
+          geoTm.o[2] *= RENDER_SCALE;
+          Viewer3DBoundingBox geoWorld = TransformBounds(primitiveBounds, geoTm);
+          bb.min[0] = std::min(bb.min[0], geoWorld.min[0]);
+          bb.min[1] = std::min(bb.min[1], geoWorld.min[1]);
+          bb.min[2] = std::min(bb.min[2], geoWorld.min[2]);
+          bb.max[0] = std::max(bb.max[0], geoWorld.max[0]);
+          bb.max[1] = std::max(bb.max[1], geoWorld.max[1]);
+          bb.max[2] = std::max(bb.max[2], geoWorld.max[2]);
+          found = true;
+          continue;
+        }
+
         std::string path;
         auto modelIt =
             context.resourceSyncState.resolvedModelRefs.find(ResolveCacheKey(geo.modelFile));
