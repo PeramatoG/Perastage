@@ -25,6 +25,8 @@ Mesh BuildCubeMesh(float sizeX, float sizeY, float sizeZ);
 
 // Builds a cylinder centered at origin, axis aligned on Z, dimensions in mm.
 Mesh BuildCylinderMesh(float radius, float height, int segments = 24);
+Mesh BuildCylinderMesh(float topRadius, float bottomRadius, float height,
+                       int segments = 24);
 
 // Builds a UV sphere centered at origin, dimensions in mm.
 Mesh BuildSphereMesh(float radius, int rings = 12, int segments = 24);

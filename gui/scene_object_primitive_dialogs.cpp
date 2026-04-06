@@ -1,6 +1,9 @@
 #include "scene_object_primitive_dialogs.h"
 
 #include <algorithm>
+#include <cmath>
+#include <string>
+#include <string_view>
 
 #include <wx/dialog.h>
 #include <wx/sizer.h>
@@ -122,6 +125,67 @@ private:
   bool includeQuantity_ = true;
 };
 
+class CylinderDialog : public wxDialog {
+public:
+  CylinderDialog(wxWindow *parent, const wxString &title,
+                 const CylinderRequest &initialRequest, bool includeQuantity)
+      : wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize,
+                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+        includeQuantity_(includeQuantity) {
+    auto *root = new wxBoxSizer(wxVERTICAL);
+    auto *grid = new wxFlexGridSizer(4, 2, 8, 8);
+
+    topRadiusCtrl_ =
+        AddDimensionRow(grid, "Top radius (m):", initialRequest.topRadiusMeters);
+    bottomRadiusCtrl_ = AddDimensionRow(
+        grid, "Bottom radius (m):", initialRequest.bottomRadiusMeters);
+    heightCtrl_ = AddDimensionRow(grid, "Height (m):", initialRequest.heightMeters);
+
+    if (includeQuantity_) {
+      grid->Add(new wxStaticText(this, wxID_ANY, "Units:"),
+                0, wxALIGN_CENTER_VERTICAL);
+      quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
+      quantityCtrl_->SetRange(1, 1000);
+      quantityCtrl_->SetValue(initialRequest.quantity);
+      grid->Add(quantityCtrl_, 1, wxEXPAND);
+    }
+
+    grid->AddGrowableCol(1, 1);
+    root->Add(grid, 1, wxALL | wxEXPAND, 12);
+    root->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL),
+              0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 12);
+    SetSizerAndFit(root);
+  }
+
+  CylinderRequest Request() const {
+    CylinderRequest request;
+    request.topRadiusMeters = topRadiusCtrl_->GetValue();
+    request.bottomRadiusMeters = bottomRadiusCtrl_->GetValue();
+    request.heightMeters = heightCtrl_->GetValue();
+    request.quantity = includeQuantity_ ? quantityCtrl_->GetValue() : 1;
+    return request;
+  }
+
+private:
+  wxSpinCtrlDouble *AddDimensionRow(wxFlexGridSizer *grid, const char *label,
+                                    double defaultValue) {
+    grid->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALIGN_CENTER_VERTICAL);
+    auto *ctrl = new wxSpinCtrlDouble(this, wxID_ANY);
+    ctrl->SetRange(0.01, 1000.0);
+    ctrl->SetIncrement(0.1);
+    ctrl->SetDigits(2);
+    ctrl->SetValue(defaultValue);
+    grid->Add(ctrl, 1, wxEXPAND);
+    return ctrl;
+  }
+
+  wxSpinCtrlDouble *topRadiusCtrl_ = nullptr;
+  wxSpinCtrlDouble *bottomRadiusCtrl_ = nullptr;
+  wxSpinCtrlDouble *heightCtrl_ = nullptr;
+  wxSpinCtrl *quantityCtrl_ = nullptr;
+  bool includeQuantity_ = true;
+};
+
 class ScreenEditDialog : public wxDialog {
 public:
   ScreenEditDialog(wxWindow *parent, const ScreenEditRequest &initial)
@@ -204,6 +268,32 @@ constexpr double kMetersToMillimeters = 1000.0;
 constexpr double kPrimitiveCubeSizeMillimeters = 1000.0;
 constexpr double kPrimitiveSphereDiameterMillimeters = 1000.0;
 
+double ClampDimensionMeters(double value) { return std::max(value, 0.01); }
+double AxisLength(const std::array<float, 3> &axis) {
+  return std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+}
+
+double ParseFloatTokenValue(std::string_view token, std::string_view key,
+                            double fallback) {
+  const std::string search = std::string(key) + "=";
+  const size_t startPos = token.find(search);
+  if (startPos == std::string_view::npos)
+    return fallback;
+  const size_t valueStart = startPos + search.size();
+  size_t valueEnd = token.find_first_of(";,&", valueStart);
+  if (valueEnd == std::string_view::npos)
+    valueEnd = token.size();
+
+  const std::string value(token.substr(valueStart, valueEnd - valueStart));
+  if (value.empty())
+    return fallback;
+  try {
+    return std::stod(value);
+  } catch (...) {
+    return fallback;
+  }
+}
+
 } // namespace
 
 bool ShowSphereDialog(wxWindow *parent, SphereRequest &outRequest) {
@@ -224,6 +314,15 @@ bool ShowCubeDialog(wxWindow *parent, CubeRequest &outRequest) {
   return true;
 }
 
+bool ShowCylinderDialog(wxWindow *parent, CylinderRequest &outRequest) {
+  CylinderDialog dialog(parent, "Add Cylinder", CylinderRequest{}, true);
+  if (dialog.ShowModal() != wxID_OK)
+    return false;
+
+  outRequest = dialog.Request();
+  return true;
+}
+
 bool ShowSphereEditDialog(wxWindow *parent, SphereRequest &inOutRequest) {
   SphereDialog dialog(parent, "Edit Sphere", inOutRequest, false);
   if (dialog.ShowModal() != wxID_OK)
@@ -235,6 +334,15 @@ bool ShowSphereEditDialog(wxWindow *parent, SphereRequest &inOutRequest) {
 
 bool ShowCubeEditDialog(wxWindow *parent, CubeRequest &inOutRequest) {
   CubeDialog dialog(parent, "Edit Cube", inOutRequest, false);
+  if (dialog.ShowModal() != wxID_OK)
+    return false;
+
+  inOutRequest = dialog.Request();
+  return true;
+}
+
+bool ShowCylinderEditDialog(wxWindow *parent, CylinderRequest &inOutRequest) {
+  CylinderDialog dialog(parent, "Edit Cylinder", inOutRequest, false);
   if (dialog.ShowModal() != wxID_OK)
     return false;
 
@@ -290,6 +398,41 @@ Matrix BuildCubeScaleTransform(double lengthMeters, double heightMeters,
   transform.v = {0.0f, sy, 0.0f};
   transform.w = {0.0f, 0.0f, sz};
   return transform;
+}
+
+CylinderRequest ParseCylinderPrimitiveToken(const std::string &token,
+                                            const Matrix &fallbackTransform) {
+  CylinderRequest request;
+  const double fallbackRadius =
+      std::max((AxisLength(fallbackTransform.u) + AxisLength(fallbackTransform.v)) * 0.25, 0.01);
+  const double fallbackHeight = std::max(AxisLength(fallbackTransform.w), 0.01);
+
+  request.topRadiusMeters = ClampDimensionMeters(ParseFloatTokenValue(
+      token, "top", fallbackRadius * kMetersToMillimeters) /
+                                           kMetersToMillimeters);
+  request.bottomRadiusMeters = ClampDimensionMeters(ParseFloatTokenValue(
+      token, "bottom", fallbackRadius * kMetersToMillimeters) /
+                                              kMetersToMillimeters);
+  request.heightMeters =
+      ClampDimensionMeters(ParseFloatTokenValue(
+                               token, "height",
+                               fallbackHeight * kMetersToMillimeters) /
+                           kMetersToMillimeters);
+  return request;
+}
+
+std::string BuildCylinderPrimitiveToken(double topRadiusMeters,
+                                        double bottomRadiusMeters,
+                                        double heightMeters) {
+  const double topRadiusMm =
+      ClampDimensionMeters(topRadiusMeters) * kMetersToMillimeters;
+  const double bottomRadiusMm =
+      ClampDimensionMeters(bottomRadiusMeters) * kMetersToMillimeters;
+  const double heightMm = ClampDimensionMeters(heightMeters) * kMetersToMillimeters;
+
+  return "primitive:cylinder;top=" + std::to_string(topRadiusMm) +
+         ";bottom=" + std::to_string(bottomRadiusMm) +
+         ";height=" + std::to_string(heightMm);
 }
 
 } // namespace scene_object_primitives
