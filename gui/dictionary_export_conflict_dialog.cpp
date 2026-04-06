@@ -24,6 +24,7 @@ DictionaryExportConflictDialog::DictionaryExportConflictDialog(
 
   table_ = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                                   wxDV_ROW_LINES | wxDV_VERT_RULES);
+  table_->SetMinSize(wxSize(940, 460));
   const int textFlags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
   table_->AppendTextColumn("File", wxDATAVIEW_CELL_INERT, 180, wxALIGN_LEFT,
                            textFlags);
@@ -48,8 +49,10 @@ DictionaryExportConflictDialog::DictionaryExportConflictDialog(
                     wxALIGN_CENTER_VERTICAL);
 
   topSizer->Add(actionsSizer, 0, wxEXPAND | wxALL, 10);
-  SetSizerAndFit(topSizer);
-  SetMinSize(wxSize(860, 480));
+  SetSizer(topSizer);
+  SetMinSize(wxSize(1100, 720));
+  SetSize(wxSize(1260, 820));
+  Layout();
 
   RefreshTable();
 
