@@ -22,6 +22,7 @@
 #include "guiconfigservices.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
+#include "primitive_model_resources.h"
 #include "projectutils.h"
 #include "scene_object_primitive_editing.h"
 #include "stringutils.h"
@@ -126,6 +127,36 @@ std::string ModelRefForDisplay(const SceneObject &object)
         return "primitive_cylinder.glb";
     return primary;
 }
+
+wxString ResolvePrimitivePreviewPath(const SceneObject &object,
+                                     const std::string &basePath)
+{
+    const std::string token = object.GetPrimaryModel();
+    std::string archiveRel = mvr::PrimitiveArchivePathForToken(token, object.uuid);
+    if (archiveRel.empty())
+        archiveRel = mvr::PrimitiveArchivePathForToken(token);
+
+    if (!archiveRel.empty() && !basePath.empty()) {
+        std::filesystem::path candidate = std::filesystem::path(basePath) /
+                                          std::filesystem::path(archiveRel);
+        if (std::filesystem::exists(candidate))
+            return wxString::FromUTF8(candidate.string());
+    }
+
+    std::filesystem::path cacheDir = std::filesystem::temp_directory_path() /
+                                     "perastage_primitive_preview";
+    std::error_code ec;
+    std::filesystem::create_directories(cacheDir, ec);
+    std::string fileName = std::filesystem::path(
+        mvr::PrimitiveArchivePathForToken(token, object.uuid)).filename().string();
+    if (fileName.empty())
+        fileName = std::filesystem::path(ModelRefForDisplay(object)).string();
+    std::filesystem::path outPath = cacheDir / std::filesystem::path(fileName);
+    if (!std::filesystem::exists(outPath) &&
+        !mvr::WritePrimitiveModelForToken(token, outPath.string()))
+        return wxString();
+    return wxString::FromUTF8(outPath.string());
+}
 } // namespace
 
 SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent, IGuiConfigServices* services)
@@ -228,10 +259,11 @@ void SceneObjectTablePanel::ReloadData()
         const std::string primaryModel = obj.GetPrimaryModel();
         wxString model;
         wxString modelFullPath;
+        const std::string &base = guiConfigServices->LegacyConfigManager().GetScene().basePath;
         if (primaryModel.rfind("primitive:", 0) == 0) {
             model = wxString::FromUTF8(ModelRefForDisplay(obj));
+            modelFullPath = ResolvePrimitivePreviewPath(obj, base);
         } else if (!primaryModel.empty()) {
-            const std::string &base = guiConfigServices->LegacyConfigManager().GetScene().basePath;
             wxFileName fullPath(base.empty() ? wxString::FromUTF8(primaryModel)
                                              : wxString::FromUTF8((std::filesystem::path(base) /
                                                                    std::filesystem::path(primaryModel)).string()));
