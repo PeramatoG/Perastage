@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.21)
 cmake_policy(SET CMP0074 NEW)
 
-project(Perastage VERSION 0.1.0 LANGUAGES CXX)
+project(Perastage VERSION 1.0.0 LANGUAGES CXX)
 
 set(PERASTAGE_APP_VERSION "${PROJECT_VERSION}")
-set(PERASTAGE_APP_VERSION_DISPLAY "beta ${PROJECT_VERSION}")
+set(PERASTAGE_APP_VERSION_DISPLAY "${PROJECT_VERSION}")
 option(PERASTAGE_ASSOCIATE_PSTG "Register .pstg file association during packaging/installation where supported" ON)
 
 set(CMAKE_CXX_STANDARD 20)

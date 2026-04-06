@@ -3,7 +3,7 @@
 ; exposes .mvr association as an optional installer task.
 
 #define MyAppName "Perastage"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "1.0.0"
 #define MyAppPublisher "Perasoft"
 #define MyAppURL "https://github.com/PeramatoG/Perastage"
 #define MyAppExeName "Perastage.exe"
