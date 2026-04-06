@@ -119,12 +119,11 @@ RangeParts SplitRangeParts(const wxString& value)
 std::string ModelRefForDisplay(const SceneObject &object)
 {
     const std::string primary = object.GetPrimaryModel();
-    if (primary.rfind("primitive:sphere", 0) == 0)
-        return "primitive_sphere.glb";
-    if (primary.rfind("primitive:cube", 0) == 0)
-        return "primitive_cube.glb";
-    if (primary.rfind("primitive:cylinder", 0) == 0)
-        return "primitive_cylinder.glb";
+    if (primary.rfind("primitive:", 0) == 0) {
+        const std::string archivePath = mvr::PrimitiveArchivePathForToken(primary, object.uuid);
+        if (!archivePath.empty())
+            return std::filesystem::path(archivePath).filename().string();
+    }
     return primary;
 }
 
@@ -261,8 +260,11 @@ void SceneObjectTablePanel::ReloadData()
         wxString modelFullPath;
         const std::string &base = guiConfigServices->LegacyConfigManager().GetScene().basePath;
         if (primaryModel.rfind("primitive:", 0) == 0) {
-            model = wxString::FromUTF8(ModelRefForDisplay(obj));
             modelFullPath = ResolvePrimitivePreviewPath(obj, base);
+            if (!modelFullPath.IsEmpty())
+                model = wxFileName(modelFullPath).GetFullName();
+            else
+                model = wxString::FromUTF8(ModelRefForDisplay(obj));
         } else if (!primaryModel.empty()) {
             wxFileName fullPath(base.empty() ? wxString::FromUTF8(primaryModel)
                                              : wxString::FromUTF8((std::filesystem::path(base) /
