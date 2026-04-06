@@ -2204,8 +2204,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           if (!modelArchivePath.empty())
             g3d->SetAttribute("fileName", modelArchivePath.c_str());
 
-          const float radialScale = std::max(cylinderParams.topRadiusMm * 2.0f, 0.001f);
-          const float heightScale = std::max(cylinderParams.heightMm, 0.001f);
+          // Convert token dimensions (stored in millimeters) to scene meters for
+          // Geometry3D matrix scaling, matching importer expectations in MA3.
+          constexpr float kMillimetersPerMeter = 1000.0f;
+          const float radialScale = std::max(
+              (cylinderParams.topRadiusMm * 2.0f) / kMillimetersPerMeter, 0.000001f);
+          const float heightScale = std::max(cylinderParams.heightMm / kMillimetersPerMeter,
+                                             0.000001f);
           if (cylinderParams.axisX) {
             for (float &component : geoMatrixToWrite.u)
               component *= heightScale;
