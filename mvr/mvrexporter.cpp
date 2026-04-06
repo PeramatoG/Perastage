@@ -1965,6 +1965,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   auto exportSceneObject = [&](tinyxml2::XMLElement *parent,
                                const SceneObject &obj) {
+    auto isPrimitiveModelRef = [](const std::string &modelRef) {
+      return modelRef.rfind("primitive:", 0) == 0;
+    };
     tinyxml2::XMLElement *oe = doc.NewElement("SceneObject");
     oe->SetAttribute("uuid", obj.uuid.c_str());
     if (!obj.name.empty())
@@ -1973,7 +1976,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!obj.geometries.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
       for (const auto &geo : obj.geometries) {
-        if (geo.modelFile.empty())
+        if (geo.modelFile.empty() || isPrimitiveModelRef(geo.modelFile))
           continue;
 
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
@@ -1991,7 +1994,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
       if (geos->FirstChild())
         oe->InsertEndChild(geos);
-    } else if (!obj.modelFile.empty()) {
+    } else if (!obj.modelFile.empty() && !isPrimitiveModelRef(obj.modelFile)) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
       tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
       std::string modelArchivePath =

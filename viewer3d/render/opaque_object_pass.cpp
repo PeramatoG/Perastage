@@ -17,11 +17,15 @@
 
 #include "matrixutils.h"
 #include "mesh.h"
+#include "meshprimitives.h"
 #include "opaque_pass_utils.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
 #include <algorithm>
+#include <cctype>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -51,6 +55,46 @@ const Mesh &FallbackSceneObjectCubeMesh() {
     return cube;
   }();
   return mesh;
+}
+
+const Mesh &FallbackSceneObjectCylinderMesh() {
+  static const Mesh mesh = BuildCylinderMesh(0.5f, 1.0f, 24);
+  return mesh;
+}
+
+bool IsPipeSceneObject(const SceneObject &object) {
+  if (!object.modelFile.empty() || !object.geometries.empty())
+    return false;
+
+  std::string upperName = object.name;
+  std::transform(upperName.begin(), upperName.end(), upperName.begin(),
+                 [](unsigned char c) {
+                   return static_cast<char>(std::toupper(c));
+                 });
+  return upperName.rfind("PIPE", 0) == 0;
+}
+
+const Mesh *TryGetPrimitiveSceneObjectMesh(const std::string &modelRef) {
+  constexpr std::string_view prefix = "primitive:";
+  if (modelRef.rfind(prefix.data(), 0) != 0)
+    return nullptr;
+
+  const std::string primitiveType = modelRef.substr(prefix.size());
+  if (primitiveType.empty())
+    return nullptr;
+
+  static std::unordered_map<std::string, Mesh> cache;
+  auto it = cache.find(primitiveType);
+  if (it != cache.end())
+    return &it->second;
+
+  Mesh mesh;
+  if (!BuildPrimitiveMesh(primitiveType, mesh))
+    return nullptr;
+  auto [insertedIt, inserted] =
+      cache.emplace(primitiveType, std::move(mesh));
+  (void)inserted;
+  return &insertedIt->second;
 }
 
 } // namespace
@@ -145,6 +189,16 @@ void OpaqueObjectPass::Render(
     std::vector<SceneObjectMeshPart> objectMeshParts;
     if (!m.geometries.empty()) {
       for (const auto &geo : m.geometries) {
+        if (const Mesh *primitiveMesh =
+                TryGetPrimitiveSceneObjectMesh(geo.modelFile);
+            primitiveMesh != nullptr) {
+          SceneObjectMeshPart part;
+          part.mesh = primitiveMesh;
+          part.localTransform = geo.localTransform;
+          part.modelKey = NormalizeModelKey(geo.modelFile);
+          objectMeshParts.push_back(std::move(part));
+          continue;
+        }
         std::string objectPath;
         auto pathIt = controller.m_resourceSyncState.resolvedModelRefs.find(
             ResolveCacheKey(geo.modelFile));
@@ -240,10 +294,13 @@ void OpaqueObjectPass::Render(
                 context.whiteModelStyle &&
                 !controller.IsSketchRenderStyleEnabled();
             const bool fallbackWireframe = wireframe;
+            const Mesh &fallbackMesh = IsPipeSceneObject(m)
+                                           ? FallbackSceneObjectCylinderMesh()
+                                           : FallbackSceneObjectCubeMesh();
             controller.DrawMeshWithOutline(
-                FallbackSceneObjectCubeMesh(), r, g, b, 0.3f, isHighlighted,
-                isSelected, cx, cy, cz, fallbackWireframe, mode,
-                captureTransformFn, useUnlitFallbackFill, matrix);
+                fallbackMesh, r, g, b, 0.3f, isHighlighted, isSelected, cx, cy,
+                cz, fallbackWireframe, mode, captureTransformFn,
+                useUnlitFallbackFill, matrix);
           }
         };
 
