@@ -2076,16 +2076,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
             ";height=" + std::to_string(lengthMm);
         forceIdentityGeometryMatrix = true;
 
-        auto normalizeAxis = [](const std::array<float, 3> &axis) {
-          const float len =
-              std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
-          if (len <= 1e-5f)
-            return std::array<float, 3>{0.0f, 0.0f, 0.0f};
-          return std::array<float, 3>{axis[0] / len, axis[1] / len, axis[2] / len};
-        };
-        objectMatrixToWrite.u = normalizeAxis(objectMatrixToWrite.u);
-        objectMatrixToWrite.v = normalizeAxis(objectMatrixToWrite.v);
-        objectMatrixToWrite.w = normalizeAxis(objectMatrixToWrite.w);
+        objectMatrixToWrite.u = {1.0f, 0.0f, 0.0f};
+        objectMatrixToWrite.v = {0.0f, 1.0f, 0.0f};
+        objectMatrixToWrite.w = {0.0f, 0.0f, 1.0f};
       }
     }
 
@@ -2213,7 +2206,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (layer.name == DEFAULT_LAYER_NAME)
       continue;
     tinyxml2::XMLElement *layerElem = doc.NewElement("Layer");
-    if (!layerUuid.empty())
+    if (!layerUuid.empty() && IsCanonicalUuidString(layerUuid))
       layerElem->SetAttribute("uuid", layerUuid.c_str());
     if (!layer.name.empty())
       layerElem->SetAttribute("name", layer.name.c_str());
@@ -2357,7 +2350,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   }
   if (rootChildList->FirstChild()) {
     tinyxml2::XMLElement *defaultLayerElem = doc.NewElement("Layer");
-    if (!defaultLayerUuid.empty())
+    if (!defaultLayerUuid.empty() && IsCanonicalUuidString(defaultLayerUuid))
       defaultLayerElem->SetAttribute("uuid", defaultLayerUuid.c_str());
     if (!defaultLayerName.empty())
       defaultLayerElem->SetAttribute("name", defaultLayerName.c_str());
