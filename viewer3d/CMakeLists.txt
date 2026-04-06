@@ -1,5 +1,6 @@
 target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/culling/bounds_cache_system.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/culling/primitive_bounds_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/culling/visibilitysystem.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfloader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/labels/label_render_system.cpp

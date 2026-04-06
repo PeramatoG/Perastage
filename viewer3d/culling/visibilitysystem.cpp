@@ -1,4 +1,5 @@
 #include "visibilitysystem.h"
+#include "primitive_bounds_utils.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -345,6 +346,23 @@ bool VisibilitySystem::EnsureBoundsComputed(
 
   if (!oit->second.geometries.empty()) {
     for (const auto &geo : oit->second.geometries) {
+      IVisibilityContext::BoundingBox primitiveBounds;
+      if (TryGetPrimitiveBoundsFromModelRef(geo.modelFile, primitiveBounds)) {
+        Matrix geoTm = MatrixUtils::Multiply(tm, geo.localTransform);
+        geoTm.o[0] *= RENDER_SCALE;
+        geoTm.o[1] *= RENDER_SCALE;
+        geoTm.o[2] *= RENDER_SCALE;
+        IVisibilityContext::BoundingBox geoWorld = transformBounds(primitiveBounds, geoTm);
+        bb.min[0] = std::min(bb.min[0], geoWorld.min[0]);
+        bb.min[1] = std::min(bb.min[1], geoWorld.min[1]);
+        bb.min[2] = std::min(bb.min[2], geoWorld.min[2]);
+        bb.max[0] = std::max(bb.max[0], geoWorld.max[0]);
+        bb.max[1] = std::max(bb.max[1], geoWorld.max[1]);
+        bb.max[2] = std::max(bb.max[2], geoWorld.max[2]);
+        found = true;
+        continue;
+      }
+
       std::string path;
       auto modelIt = m_controller.GetResourceSyncState().resolvedModelRefs.find(
           ResolveCacheKey(geo.modelFile));
