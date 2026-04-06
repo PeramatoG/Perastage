@@ -5,37 +5,51 @@
 
 ![Perastage 3D View](resources/perastage3d.png)
 
-Perastage is a C++20 desktop application for professional lighting design and show documentation. It helps lighting designers, programmers, and technicians import MVR data, manage fixtures/trusses/hoists, and generate printable 2D/3D documentation from a single project. The current stable line extends the original beta workflow set with production-ready MVR, dictionary portability, and layout/print pipelines.
+Perastage is a free, cross-platform desktop viewer for MVR files.
+
+It is designed to open an MVR project quickly, inspect its contents in a clear visual way, and make it easier to review fixtures, trusses, hoists, objects, and general scene structure without needing a full real-time DMX visualizer.
+
+Perastage is **not** a real-time DMX visualizer. Its main purpose is to provide a fast and practical way to view, check, and work with MVR files that use GDTF libraries.
+
+## What Perastage is for
+
+Perastage focuses primarily on **viewing and working with MVR files**. It uses **GDTF fixture libraries** to represent lighting devices and supports personal dictionary workflows so you can build and maintain your own GDTF library.
+
+If you have a free GDTF Share account, Perastage can also connect to the official API to download GDTF files and help you complete your local library.
+
+The goal is simple: make MVR files easy to open, understand, review, and present.
 
 ## Highlights
 
-- Imports and exports MVR scenes with integrated GDTF fixture handling and archive-safe asset references.
-- Combines a real-time 3D viewer, a plan-focused 2D viewer, and a multi-page layout/print workflow.
-- Includes rider/text parsing to generate fixtures and truss structures directly from production notes.
-- Provides fixture, truss, hoist, and object tables with batch-edit and patch management workflows.
-- Supports flexible dictionary workflows (JSON snapshots, copied assets, and portable ZIP bundles).
-- Produces documentation outputs such as layout PDFs, table exports, and print-ready sheets.
+- Fast and practical **MVR viewer** for lighting and show files.
+- **Free and cross-platform** desktop application.
+- Uses **GDTF libraries** to represent fixture data.
+- Can connect to the **official GDTF API** to download fixture profiles if you have an account.
+- Lets you maintain your own **custom GDTF dictionary/library**.
+- Includes both **3D viewing** and **plan-focused 2D workflows**.
+- Supports importing and exporting MVR scenes.
+- Can create elements directly from text using **Tools → Create from text**.
+- Includes some distinctive workflow tools, such as the ability to **create, modify, adjust, and distribute MVR elements from the command line**.
+- Helps review scene content quickly in a comfortable visual way.
 
 ## Installation
 
-```bash
-git clone https://github.com/PeramatoG/perastage.git
-cd perastage
-cmake -S . -B build
-cmake --build build --config Release
-```
+The recommended way to install Perastage is to download the latest release from GitHub:
 
-For platform-specific setup, dependency installation, and packaging, see [docs/build.md](docs/build.md).
+- Go to the **latest release** in this repository and download the package for your platform.
 
-## Basic Usage
+If you want to build from source, setup and dependency notes are available in the documentation under `docs/`.
 
-- Start the executable from your build output (`build/.../Perastage` or `Perastage.exe`).
-- Open an existing `.pstg`/`.mvr` project or create a new scene from the main menu.
-- Use **Tools → Create from text** to generate fixtures from rider-style notes, or use the table/layout panels to document the rig.
+## Basic usage
+
+- Open an existing `.mvr` file to inspect its content quickly.
+- Review fixtures, trusses, hoists, objects, and scene structure.
+- Use **Tools → Create from text** to generate elements from rider-style notes.
+- Use the available tools to adjust and organize scene data more comfortably.
 
 ## Documentation
 
-The README is intentionally concise. Detailed documentation lives in `docs/`:
+The README is intentionally kept fairly compact. More detailed documentation lives in `docs/`:
 
 - [Documentation policy](docs/documentation_policy.md)
 - [Feature overview](docs/features.md)
@@ -51,7 +65,15 @@ The README is intentionally concise. Detailed documentation lives in `docs/`:
 
 ## Contributing
 
-Contributions are welcome. Please keep changes modular and update the matching document in `docs/` when behavior changes. If you modify parsing or shortcut behavior, also update the dedicated rule documents referenced above.
+Feedback is very welcome.
+
+If you try Perastage, it would be especially helpful if you:
+
+- report bugs or unexpected behaviour
+- suggest ideas for improving workflows or usability
+- share edge cases or MVR/GDTF files that help improve compatibility
+
+This is particularly useful for keeping Perastage as compatible and practical as possible across files created by different applications.
 
 ## License
 
