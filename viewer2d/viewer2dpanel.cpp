@@ -1073,22 +1073,22 @@ void Viewer2DPanel::FinalizeSelectionDrag() {
   if (!m_dragFixtureUuids.empty() && FixtureTablePanel::Instance()) {
     auto selection = cfg.GetSelectedFixtures();
     FixtureTablePanel::Instance()->ReloadData();
-    FixtureTablePanel::Instance()->SelectByUuid(selection);
+    FixtureTablePanel::Instance()->SelectByUuid(selection, false);
   }
   if (!m_dragTrussUuids.empty() && TrussTablePanel::Instance()) {
     auto selection = cfg.GetSelectedTrusses();
     TrussTablePanel::Instance()->ReloadData();
-    TrussTablePanel::Instance()->SelectByUuid(selection);
+    TrussTablePanel::Instance()->SelectByUuid(selection, false);
   }
   if (!m_dragSupportUuids.empty() && HoistTablePanel::Instance()) {
     auto selection = cfg.GetSelectedSupports();
     HoistTablePanel::Instance()->ReloadData();
-    HoistTablePanel::Instance()->SelectByUuid(selection);
+    HoistTablePanel::Instance()->SelectByUuid(selection, false);
   }
   if (!m_dragSceneObjectUuids.empty() && SceneObjectTablePanel::Instance()) {
     auto selection = cfg.GetSelectedSceneObjects();
     SceneObjectTablePanel::Instance()->ReloadData();
-    SceneObjectTablePanel::Instance()->SelectByUuid(selection);
+    SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
   }
 
   if (!ShouldPauseHeavyTasks())
@@ -1153,25 +1153,25 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
       if (fixtures.empty())
         FixtureTablePanel::Instance()->ClearSelection();
       else
-        FixtureTablePanel::Instance()->SelectByUuid(fixtures);
+        FixtureTablePanel::Instance()->SelectByUuid(fixtures, false);
     }
     if (TrussTablePanel::Instance()) {
       if (trusses.empty())
         TrussTablePanel::Instance()->ClearSelection();
       else
-        TrussTablePanel::Instance()->SelectByUuid(trusses);
+        TrussTablePanel::Instance()->SelectByUuid(trusses, false);
     }
     if (HoistTablePanel::Instance()) {
       if (supports.empty())
         HoistTablePanel::Instance()->ClearSelection();
       else
-        HoistTablePanel::Instance()->SelectByUuid(supports);
+        HoistTablePanel::Instance()->SelectByUuid(supports, false);
     }
     if (SceneObjectTablePanel::Instance()) {
       if (sceneObjects.empty())
         SceneObjectTablePanel::Instance()->ClearSelection();
       else
-        SceneObjectTablePanel::Instance()->SelectByUuid(sceneObjects);
+        SceneObjectTablePanel::Instance()->SelectByUuid(sceneObjects, false);
     }
     if (Viewer2DRenderPanel::Instance())
       Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
