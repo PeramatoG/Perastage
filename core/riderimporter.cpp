@@ -61,8 +61,10 @@ namespace {
 constexpr const char *kPrimitiveCylinderToken = "primitive:cylinder";
 constexpr const char *kPrimitiveCubeToken = "primitive:cube";
 
-Matrix BuildCylinderAxisXLocalTransform() {
+Matrix BuildCylinderPitchY90LocalTransform() {
   Matrix transform{};
+  // Equivalent to applying a +90° pitch around Y after creating the
+  // cylinder primitive with its default orientation.
   transform.u = {0.0f, 0.0f, -1.0f};
   transform.v = {0.0f, 1.0f, 0.0f};
   transform.w = {1.0f, 0.0f, 0.0f};
@@ -2027,7 +2029,7 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
           pipeObject.geometries.push_back(
-              {kPrimitiveCylinderToken, BuildCylinderAxisXLocalTransform()});
+              {kPrimitiveCylinderToken, BuildCylinderPitchY90LocalTransform()});
 
           importedPipeSpans.push_back({posName, startX, startX + pipeLengthMm, hangY,
                                        hangZ});
@@ -2157,7 +2159,7 @@ bool RiderImporter::ImportText(const std::string &text) {
             pipeObject.transform.o[1] = hangY;
             pipeObject.transform.o[2] = hangZ;
             pipeObject.geometries.push_back(
-                {kPrimitiveCylinderToken, BuildCylinderAxisXLocalTransform()});
+                {kPrimitiveCylinderToken, BuildCylinderPitchY90LocalTransform()});
             scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
             addToLayer(pipeObject.layer, pipeObject.uuid);
             importedPipeSpans.push_back(
@@ -2379,7 +2381,7 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
           pipeObject.geometries.push_back(
-              {kPrimitiveCylinderToken, BuildCylinderAxisXLocalTransform()});
+              {kPrimitiveCylinderToken, BuildCylinderPitchY90LocalTransform()});
           scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
           addToLayer(pipeObject.layer, pipeObject.uuid);
           importedPipeSpans.push_back({hang, startX, startX + pipeLengthMm, hangY, hangZ});
