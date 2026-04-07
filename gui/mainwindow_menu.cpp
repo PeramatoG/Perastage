@@ -1162,6 +1162,10 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
   float weight = 0.0f, power = 0.0f;
   GetGdtfProperties(gdtfPath, weight, power);
   std::string defaultColor = GetGdtfModelColor(gdtfPath);
+  if (auto dictEntry = GdtfDictionary::Get(defaultName)) {
+    if (!dictEntry->color.empty())
+      defaultColor = dictEntry->color;
+  }
 
   int count = dlg.GetUnitCount();
   std::string name = dlg.GetFixtureName();

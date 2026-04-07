@@ -139,6 +139,7 @@ For each fixture created:
 2. `typeName` is set from parsed text and may be refined through the GDTF dictionary.
 3. If dictionary entry exists:
    - `gdtfSpec` and `gdtfMode` are assigned.
+   - If dictionary color is defined, it is copied into fixture `color`.
    - If dictionary category is defined, it is copied into fixture `category`
      with source `Manual`.
    - Fixture display/type name can be replaced by the parsed GDTF fixture name when available.
@@ -172,6 +173,19 @@ Special screen-object handling:
 - If no valid size is found, importer falls back to `8.0 x 5.0 m`.
 - Screen objects are centered on the associated screen truss span and placed so
   their top edge sits `0.2 m` below the truss.
+
+## Fixture color precedence
+
+Fixture color resolution follows this order:
+
+1. Explicit fixture color (already stored on the fixture row/object).
+2. Dictionary color for the fixture `typeName`.
+3. Deterministic fallback color (GDTF/model-derived fallback used by the
+   current creation flow).
+
+When changing a fixture type color from Summary, Perastage updates matching
+fixtures in the scene and also persists that color in dictionary entries for
+the edited type (and entries sharing the same GDTF file identity).
 
 ## Truss parsing rules
 

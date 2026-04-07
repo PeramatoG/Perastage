@@ -511,6 +511,42 @@ void UpdateCategoryForFile(const std::string &type, const std::string &gdtfPath,
   Save(dict);
 }
 
+void UpdateColor(const std::string &type, const std::string &color) {
+  UpdateColorForFile(type, {}, color);
+}
+
+void UpdateColorForFile(const std::string &type, const std::string &gdtfPath,
+                        const std::string &color) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  if (type.empty())
+    return;
+  auto dictOpt = Load();
+  if (!dictOpt)
+    return;
+  auto &dict = *dictOpt;
+  auto it = dict.find(type);
+  if (it == dict.end()) {
+    Entry e;
+    e.color = color;
+    dict[type] = e;
+  } else {
+    std::string sharedPath = it->second.path;
+    if (sharedPath.empty() && !gdtfPath.empty())
+      sharedPath = gdtfPath;
+    it->second.color = color;
+    for (auto &[entryType, entry] : dict) {
+      if (entryType == type)
+        continue;
+      const bool samePath = PathsMatchForDictionaryEntries(entry.path, sharedPath);
+      const bool sameFileName = PathsShareFileName(entry.path, sharedPath);
+      if (!samePath && !sameFileName)
+        continue;
+      entry.color = color;
+    }
+  }
+  Save(dict);
+}
+
 DictionaryImportSummary PreviewImportFromFile(const std::string &filePath,
                                               DictionaryImportPolicy policy) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());

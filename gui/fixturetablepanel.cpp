@@ -167,6 +167,22 @@ wxString BuildCategoryFallbackTooltip(const Fixture &fixture) {
   }
   return "Category auto-assigned by fallback.";
 }
+
+void SetFixtureColorCell(wxDataViewListCtrl *table, int row,
+                         const std::string &hexColor) {
+  if (!table || row == wxNOT_FOUND || hexColor.empty())
+    return;
+  wxBitmap bmp(16, 16);
+  wxMemoryDC dc(bmp);
+  dc.SetPen(*wxTRANSPARENT_PEN);
+  dc.SetBrush(wxBrush(wxColour(wxString::FromUTF8(hexColor))));
+  dc.DrawRectangle(0, 0, 16, 16);
+  dc.SelectObject(wxNullBitmap);
+
+  wxVariant colorValue;
+  colorValue << wxDataViewIconText(wxString::FromUTF8(hexColor), bmp);
+  table->SetValue(colorValue, row, 19);
+}
 } // namespace
 
 FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *services)
@@ -434,6 +450,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       if (typeName.empty())
         typeName = wxFileName(path).GetName();
       wxString fileName = fdlg.GetFilename();
+      const std::string typeNameUtf8 = std::string(typeName.ToUTF8());
+      const auto dictColor = GdtfDictionary::Get(typeNameUtf8);
 
       std::vector<std::string> prevTypes;
       std::unordered_set<std::string> prevTypeSet;
@@ -461,6 +479,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxString wstr = wxString::Format("%.2f", w);
         table->SetValue(wxVariant(pstr), r, 16);
         table->SetValue(wxVariant(wstr), r, 17);
+        if (dictColor && !dictColor->color.empty())
+          SetFixtureColorCell(table, r, dictColor->color);
       }
 
       for (unsigned int i = 0; i < table->GetItemCount(); ++i) {
@@ -481,6 +501,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxString wstr = wxString::Format("%.2f", w);
         table->SetValue(wxVariant(pstr), i, 16);
         table->SetValue(wxVariant(wstr), i, 17);
+        if (dictColor && !dictColor->color.empty())
+          SetFixtureColorCell(table, i, dictColor->color);
       }
 
       PropagateTypeValues(selections, 16);
