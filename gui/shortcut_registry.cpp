@@ -112,6 +112,27 @@ const std::vector<ShortcutDefinition> &GetShortcutRegistry() {
                          .priority = 150},
       ShortcutDefinition{.keyCode = kShortcutKeyNumpad1,
                          .action = ShortcutAction::ViewportFront,
+                         .ownerModule = "viewer2d",
+                         .scope = ShortcutScope::Viewer2D,
+                         .focusPolicy =
+                             ShortcutFocusPolicy::BlockInEditableWidgets,
+                         .priority = 250},
+      ShortcutDefinition{.keyCode = kShortcutKeyNumpad3,
+                         .action = ShortcutAction::ViewportSide,
+                         .ownerModule = "viewer2d",
+                         .scope = ShortcutScope::Viewer2D,
+                         .focusPolicy =
+                             ShortcutFocusPolicy::BlockInEditableWidgets,
+                         .priority = 250},
+      ShortcutDefinition{.keyCode = kShortcutKeyNumpad7,
+                         .action = ShortcutAction::ViewportTop,
+                         .ownerModule = "viewer2d",
+                         .scope = ShortcutScope::Viewer2D,
+                         .focusPolicy =
+                             ShortcutFocusPolicy::BlockInEditableWidgets,
+                         .priority = 250},
+      ShortcutDefinition{.keyCode = kShortcutKeyNumpad1,
+                         .action = ShortcutAction::ViewportFront,
                          .ownerModule = "viewer3d",
                          .scope = ShortcutScope::Viewer3D,
                          .focusPolicy =

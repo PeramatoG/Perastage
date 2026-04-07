@@ -1557,7 +1557,7 @@ void Viewer3DPanel::SetStandardView(Viewer2DView view) {
             m_camera.SetOrientation(0.0f, 0.0f);
             break;
         case Viewer2DView::Side:
-            m_camera.SetOrientation(90.0f, 0.0f);
+            m_camera.SetOrientation(-90.0f, 0.0f);
             break;
         default:
             return;
