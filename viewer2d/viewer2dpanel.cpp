@@ -518,7 +518,7 @@ Viewer2DPanel::ComputeWorldPositionFromScreen(const wxPoint &screenPos) const {
   case Viewer2DView::Bottom:
     return std::array<float, 3>{viewX, viewY, 0.0f};
   case Viewer2DView::Front:
-    return std::array<float, 3>{-viewX, 0.0f, viewY};
+    return std::array<float, 3>{viewX, 0.0f, viewY};
   case Viewer2DView::Side:
     return std::array<float, 3>{0.0f, viewX, viewY};
   }
@@ -653,7 +653,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     gluLookAt(0.0, 0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
     break;
   case Viewer2DView::Front:
-    gluLookAt(0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    gluLookAt(0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
     break;
   case Viewer2DView::Side:
     gluLookAt(-10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
