@@ -233,7 +233,7 @@ void SceneRenderer::DrawMeshWithOutline(
     Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform,
-    bool unlit, const float *modelMatrix) {
+    bool unlit, const float *modelMatrix, bool disableDepthBias) {
   (void)cx;
   (void)cy;
   (void)cz;
@@ -323,15 +323,18 @@ void SceneRenderer::DrawMeshWithOutline(
     if (!m_controller.IsCaptureOnly()) {
       glLineWidth(1.0f);
       if (mode != Viewer2DRenderMode::Wireframe) {
-        glEnable(GL_POLYGON_OFFSET_FILL);
-        glPolygonOffset(-1.0f, -1.0f);
+        if (!disableDepthBias) {
+          glEnable(GL_POLYGON_OFFSET_FILL);
+          glPolygonOffset(-1.0f, -1.0f);
+        }
         m_controller.SetGLColor(r, g, b);
         if (unlit)
           glDisable(GL_LIGHTING);
         DrawMesh(mesh, scale, modelMatrix);
         if (unlit)
           glEnable(GL_LIGHTING);
-        glDisable(GL_POLYGON_OFFSET_FILL);
+        if (!disableDepthBias)
+          glDisable(GL_POLYGON_OFFSET_FILL);
       }
     }
     restoreTextureState();
@@ -382,8 +385,10 @@ void SceneRenderer::DrawMeshWithOutline(
       DrawMeshWireframe(mesh, scale, captureTransform);
       glLineWidth(1.0f);
 
-      glEnable(GL_POLYGON_OFFSET_FILL);
-      glPolygonOffset(-1.0f, -1.0f);
+      if (!disableDepthBias) {
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-1.0f, -1.0f);
+      }
       if (highlight || selected) {
         setHighlightOrSelectionColor();
         if (!glIsEnabled(GL_LIGHTING))
@@ -413,7 +418,8 @@ void SceneRenderer::DrawMeshWithOutline(
         if (fillLightingWasEnabled)
           glEnable(GL_LIGHTING);
       }
-      glDisable(GL_POLYGON_OFFSET_FILL);
+      if (!disableDepthBias)
+        glDisable(GL_POLYGON_OFFSET_FILL);
       if (texture2DWhiteModelWasEnabled)
         glEnable(GL_TEXTURE_2D);
     } else {

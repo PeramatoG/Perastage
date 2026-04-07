@@ -1655,10 +1655,11 @@ void Viewer3DController::DrawMeshWithOutline(
     Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform,
-    bool unlit, const float *modelMatrix) {
+    bool unlit, const float *modelMatrix, bool disableDepthBias) {
   m_impl->sceneRenderer->DrawMeshWithOutline(mesh, r, g, b, scale, highlight,
                                        selected, cx, cy, cz, wireframe, mode,
-                                       captureTransform, unlit, modelMatrix);
+                                       captureTransform, unlit, modelMatrix,
+                                       disableDepthBias);
 }
 
 void Viewer3DController::DrawMeshWireframe(

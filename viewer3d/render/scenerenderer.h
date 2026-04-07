@@ -14,7 +14,8 @@ public:
       bool selected, float cx, float cy, float cz, bool wireframe,
       Viewer2DRenderMode mode,
       const std::function<std::array<float, 3>(const std::array<float, 3> &)> &captureTransform,
-      bool unlit, const float *modelMatrix);
+      bool unlit, const float *modelMatrix,
+      bool disableDepthBias = false);
   void DrawMeshWireframe(
       const Mesh &mesh, float scale,
       const std::function<std::array<float, 3>(const std::array<float, 3> &)> &captureTransform);
