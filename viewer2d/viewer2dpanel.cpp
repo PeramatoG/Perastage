@@ -259,6 +259,25 @@ void ApplyFixtureSelectionToUi(const std::vector<std::string> &selection,
       FixtureTablePanel::Instance()->SelectByUuid(selection);
   }
 }
+
+std::vector<std::string> BuildCombinedSelection(const ConfigManager &cfg) {
+  std::vector<std::string> combined;
+  std::set<std::string> seen;
+
+  const auto appendUnique = [&](const std::vector<std::string> &source) {
+    for (const auto &uuid : source) {
+      if (seen.insert(uuid).second)
+        combined.push_back(uuid);
+    }
+  };
+
+  appendUnique(cfg.GetSelectedFixtures());
+  appendUnique(cfg.GetSelectedTrusses());
+  appendUnique(cfg.GetSelectedSupports());
+  appendUnique(cfg.GetSelectedSceneObjects());
+
+  return combined;
+}
 } // namespace
 
 namespace {
@@ -322,21 +341,7 @@ void Viewer2DPanel::UpdateScene(bool reload) {
     m_controller.Update();
   if (m_enableSelection) {
     ConfigManager &cfg = ConfigManager::Get();
-    std::vector<std::string> selection;
-    if (FixtureTablePanel::Instance() &&
-        FixtureTablePanel::Instance()->IsActivePage()) {
-      selection = cfg.GetSelectedFixtures();
-    } else if (TrussTablePanel::Instance() &&
-               TrussTablePanel::Instance()->IsActivePage()) {
-      selection = cfg.GetSelectedTrusses();
-    } else if (HoistTablePanel::Instance() &&
-               HoistTablePanel::Instance()->IsActivePage()) {
-      selection = cfg.GetSelectedSupports();
-    } else if (SceneObjectTablePanel::Instance() &&
-               SceneObjectTablePanel::Instance()->IsActivePage()) {
-      selection = cfg.GetSelectedSceneObjects();
-    }
-    m_controller.SetSelectedUuids(selection);
+    m_controller.SetSelectedUuids(BuildCombinedSelection(cfg));
   }
   Refresh();
 }
