@@ -265,6 +265,7 @@ int main() {
   primitivePipe.transform.u = {14.0f, 0.0f, 0.0f};
   primitivePipe.transform.v = {0.0f, 0.05f, 0.0f};
   primitivePipe.transform.w = {0.0f, 0.0f, 0.05f};
+  primitivePipe.transform.o = {0.0f, -2000.0f, 10000.0f};
   GeometryInstance primitivePipeGeo;
   primitivePipeGeo.modelFile = "primitive:cylinder";
   primitivePipeGeo.localTransform.u = {0.0f, 0.0f, -1.0f};
@@ -322,6 +323,8 @@ int main() {
   bool sawPrimitivePipeObjectMatrixUnbaked = false;
   bool sawPrimitivePipeGeometryMatrixNormalized = false;
   bool sawPrimitivePipeBakedMatrixCanonicalized = false;
+  bool sawPrimitivePipePositionPreserved = false;
+  bool sawPrimitivePipeBakedPositionPreserved = false;
   int mvrGeometryTrussCount = 0;
   int mvrGeometryTrussesWithGeometry3d = 0;
   int mvrGeometryTrussesWithRenderableGdtf = 0;
@@ -491,6 +494,9 @@ int main() {
                 parsedObjMatrix.w == primitivePipe.transform.w) {
               sawPrimitivePipeObjectMatrixUnbaked = true;
             }
+            if (parsedObjMatrix.o == primitivePipe.transform.o) {
+              sawPrimitivePipePositionPreserved = true;
+            }
 
             auto *g3d = geometries->FirstChildElement("Geometry3D");
             assert(g3d != nullptr);
@@ -517,6 +523,9 @@ int main() {
                 parsedObjMatrix.w == primitivePipe.transform.w) {
               sawPrimitivePipeBakedMatrixCanonicalized = true;
             }
+            if (parsedObjMatrix.o == primitivePipe.transform.o) {
+              sawPrimitivePipeBakedPositionPreserved = true;
+            }
           }
         }
       }
@@ -539,6 +548,8 @@ int main() {
   assert(sawPrimitivePipeObjectMatrixUnbaked);
   assert(sawPrimitivePipeGeometryMatrixNormalized);
   assert(sawPrimitivePipeBakedMatrixCanonicalized);
+  assert(sawPrimitivePipePositionPreserved);
+  assert(sawPrimitivePipeBakedPositionPreserved);
   assert(mvrGeometryTrussCount == static_cast<int>(scene.trusses.size()));
   assert(mvrGeometryTrussesWithGeometry3d == mvrGeometryTrussCount);
   assert(mvrGeometryTrussesWithRenderableGdtf == mvrGeometryTrussCount);

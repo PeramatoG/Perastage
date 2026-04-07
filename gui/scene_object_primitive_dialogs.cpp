@@ -267,6 +267,8 @@ private:
 constexpr double kMetersToMillimeters = 1000.0;
 constexpr double kPrimitiveCubeSizeMillimeters = 1000.0;
 constexpr double kPrimitiveSphereDiameterMillimeters = 1000.0;
+constexpr double kPrimitiveCylinderDiameterMillimeters = 1000.0;
+constexpr double kPrimitiveCylinderHeightMillimeters = 1000.0;
 
 double ClampDimensionMeters(double value) { return std::max(value, 0.01); }
 double AxisLength(const std::array<float, 3> &axis) {
@@ -402,9 +404,11 @@ Matrix BuildCubeScaleTransform(double lengthMeters, double heightMeters,
 
 Matrix BuildCylinderScaleTransform(double radiusMeters, double heightMeters) {
   const float radialScale = static_cast<float>(
-      std::max(radiusMeters, 0.01) * 2.0 * kMetersToMillimeters);
-  const float heightScale =
-      static_cast<float>(std::max(heightMeters, 0.01) * kMetersToMillimeters);
+      std::max(radiusMeters, 0.01) * 2.0 * kMetersToMillimeters /
+      kPrimitiveCylinderDiameterMillimeters);
+  const float heightScale = static_cast<float>(
+      std::max(heightMeters, 0.01) * kMetersToMillimeters /
+      kPrimitiveCylinderHeightMillimeters);
 
   Matrix transform;
   transform.u = {radialScale, 0.0f, 0.0f};

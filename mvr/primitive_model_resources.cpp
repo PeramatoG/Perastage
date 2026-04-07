@@ -276,6 +276,17 @@ void ParseCylinderTokenDimensions(const std::string &token, float &topRadius,
         axis = CylinderAxis::Z;
     }
   }
+
+  // Perastage stores explicit primitive:cylinder dimensions in millimeters.
+  // Some legacy/internal paths may still provide meters. Normalize to meters:
+  // treat clearly large values as millimeters.
+  const float largestDimension = std::max({topRadius, bottomRadius, height});
+  if (largestDimension > 20.0f) {
+    constexpr float kMillimetersPerMeter = 1000.0f;
+    topRadius /= kMillimetersPerMeter;
+    bottomRadius /= kMillimetersPerMeter;
+    height /= kMillimetersPerMeter;
+  }
 }
 
 void AppendU32(std::vector<uint8_t> &buffer, uint32_t value) {
