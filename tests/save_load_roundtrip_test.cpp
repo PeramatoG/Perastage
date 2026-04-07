@@ -49,6 +49,14 @@ int main() {
 
     // Dictionary entry that should NOT be applied on load
     GdtfDictionary::Update("FixtureType", (tempDir / "dict.gdtf").string(), "");
+    auto fixtureTypeCanonical = GdtfDictionary::Get("FixtureType");
+    assert(fixtureTypeCanonical.has_value());
+    const auto fixtureTypeLower = GdtfDictionary::Get("fixturetype");
+    assert(fixtureTypeLower.has_value());
+    assert(fixtureTypeLower->path == fixtureTypeCanonical->path);
+    const auto fixtureTypeSpaced = GdtfDictionary::Get("Fixture   Type");
+    assert(fixtureTypeSpaced.has_value());
+    assert(fixtureTypeSpaced->path == fixtureTypeCanonical->path);
     std::ofstream(tempDir / "Dummy 1ch.gdtf") << "dummy";
     GdtfDictionary::Update("Dummy 1ch", (tempDir / "Dummy 1ch.gdtf").string(), "");
     auto dummyEntry = GdtfDictionary::Get("Dummy 1ch");
