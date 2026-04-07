@@ -1395,6 +1395,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       std::string normalized = ToLowerAscii(TrimAscii(token));
       if (normalized.rfind("primitive:cylinder", 0) != 0)
         return normalized;
+      if (normalized == "primitive:cylinder")
+        return "primitive:cylinder;axis=z";
       const size_t separator = normalized.find(';');
       if (separator == std::string::npos || separator + 1 >= normalized.size())
         return normalized;
