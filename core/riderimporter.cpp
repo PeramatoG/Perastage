@@ -71,6 +71,22 @@ Matrix BuildCylinderPitchY90LocalTransform() {
   transform.o = {0.0f, 0.0f, 0.0f};
   return transform;
 }
+
+Matrix BuildPipeObjectTransform(float pipeLengthMm, float pipeDiameterMm,
+                                float primitiveCylinderHeightMm) {
+  Matrix transform{};
+  const float radialScale = pipeDiameterMm / primitiveCylinderHeightMm;
+  const float lengthScale = pipeLengthMm / primitiveCylinderHeightMm;
+  const Matrix pitchY90 = BuildCylinderPitchY90LocalTransform();
+  transform.u = {pitchY90.u[0] * radialScale, pitchY90.u[1] * radialScale,
+                 pitchY90.u[2] * radialScale};
+  transform.v = {pitchY90.v[0] * radialScale, pitchY90.v[1] * radialScale,
+                 pitchY90.v[2] * radialScale};
+  transform.w = {pitchY90.w[0] * lengthScale, pitchY90.w[1] * lengthScale,
+                 pitchY90.w[2] * lengthScale};
+  transform.o = {0.0f, 0.0f, 0.0f};
+  return transform;
+}
 // Precompiled regexes used by RiderImporter. Keeping them static avoids paying
 // the compilation cost on every import call and makes keyword matching cheap
 // even when processing large riders.
@@ -2020,16 +2036,12 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.layer =
               layerByType ? ("obj " + posName) : ("pos " + posName);
           pipeObject.name = "PIPE " + posName;
-          pipeObject.transform.u = {pipeDiameterMm / primitiveCylinderHeightMm, 0.0f,
-                                    0.0f};
-          pipeObject.transform.v = {0.0f, pipeDiameterMm / primitiveCylinderHeightMm,
-                                    0.0f};
-          pipeObject.transform.w = {0.0f, 0.0f, pipeLengthMm / primitiveCylinderHeightMm};
+          pipeObject.transform = BuildPipeObjectTransform(
+              pipeLengthMm, pipeDiameterMm, primitiveCylinderHeightMm);
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
-          pipeObject.geometries.push_back(
-              {kPrimitiveCylinderToken, BuildCylinderPitchY90LocalTransform()});
+          pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
 
           importedPipeSpans.push_back({posName, startX, startX + pipeLengthMm, hangY,
                                        hangZ});
@@ -2149,17 +2161,12 @@ bool RiderImporter::ImportText(const std::string &text) {
             pipeObject.uuid = GenerateUuid();
             pipeObject.layer = layerByType ? ("obj " + posName) : ("pos " + posName);
             pipeObject.name = "PIPE " + posName;
-            pipeObject.transform.u = {pipeDiameterMm / primitiveCylinderHeightMm,
-                                      0.0f, 0.0f};
-            pipeObject.transform.v = {0.0f, pipeDiameterMm / primitiveCylinderHeightMm,
-                                      0.0f};
-            pipeObject.transform.w = {
-                0.0f, 0.0f, defaultPipeLengthMm / primitiveCylinderHeightMm};
+            pipeObject.transform = BuildPipeObjectTransform(
+                defaultPipeLengthMm, pipeDiameterMm, primitiveCylinderHeightMm);
             pipeObject.transform.o[0] = startX + 0.5f * defaultPipeLengthMm;
             pipeObject.transform.o[1] = hangY;
             pipeObject.transform.o[2] = hangZ;
-            pipeObject.geometries.push_back(
-                {kPrimitiveCylinderToken, BuildCylinderPitchY90LocalTransform()});
+            pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
             scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
             addToLayer(pipeObject.layer, pipeObject.uuid);
             importedPipeSpans.push_back(
@@ -2372,16 +2379,12 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.uuid = GenerateUuid();
           pipeObject.layer = layerByType ? ("obj " + hang) : ("pos " + hang);
           pipeObject.name = "PIPE " + hang;
-          pipeObject.transform.u = {pipeDiameterMm / primitiveCylinderHeightMm, 0.0f,
-                                    0.0f};
-          pipeObject.transform.v = {0.0f, pipeDiameterMm / primitiveCylinderHeightMm,
-                                    0.0f};
-          pipeObject.transform.w = {0.0f, 0.0f, pipeLengthMm / primitiveCylinderHeightMm};
+          pipeObject.transform = BuildPipeObjectTransform(
+              pipeLengthMm, pipeDiameterMm, primitiveCylinderHeightMm);
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
-          pipeObject.geometries.push_back(
-              {kPrimitiveCylinderToken, BuildCylinderPitchY90LocalTransform()});
+          pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
           scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
           addToLayer(pipeObject.layer, pipeObject.uuid);
           importedPipeSpans.push_back({hang, startX, startX + pipeLengthMm, hangY, hangZ});
