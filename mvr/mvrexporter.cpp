@@ -2125,7 +2125,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       float topRadiusMm = 0.5f;
       float bottomRadiusMm = 0.5f;
       float heightMm = 1.0f;
-      bool axisX = false;
+      char axis = 'y';
       bool hasExplicitDimensions = false;
     };
 
@@ -2172,7 +2172,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           out.heightMm = parsePositive(value, out.heightMm);
           out.hasExplicitDimensions = true;
         } else if (key == "axis") {
-          out.axisX = (value == "x");
+          if (value == "x" || value == "y" || value == "z")
+            out.axis = value[0];
         }
       }
 
@@ -2253,7 +2254,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           geoMatrixToWrite = MatrixUtils::Identity();
         }
         if (isRoundCylinder) {
-          modelRef = cylinderParams.axisX ? "primitive:cylinder;axis=x" : "primitive:cylinder";
+          if (cylinderParams.axis == 'x')
+            modelRef = "primitive:cylinder;axis=x";
+          else if (cylinderParams.axis == 'z')
+            modelRef = "primitive:cylinder;axis=z";
+          else
+            modelRef = "primitive:cylinder";
           modelArchivePath = registerPrimitiveModelResource(modelRef, obj.uuid);
           if (!modelArchivePath.empty())
             g3d->SetAttribute("fileName", modelArchivePath.c_str());
@@ -2265,11 +2271,18 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
               (cylinderParams.topRadiusMm * 2.0f) / kMillimetersPerMeter, 0.000001f);
           const float heightScale = std::max(cylinderParams.heightMm / kMillimetersPerMeter,
                                              0.000001f);
-          if (cylinderParams.axisX) {
+          if (cylinderParams.axis == 'x') {
             for (float &component : geoMatrixToWrite.u)
               component *= heightScale;
             for (float &component : geoMatrixToWrite.v)
               component *= radialScale;
+            for (float &component : geoMatrixToWrite.w)
+              component *= radialScale;
+          } else if (cylinderParams.axis == 'y') {
+            for (float &component : geoMatrixToWrite.u)
+              component *= radialScale;
+            for (float &component : geoMatrixToWrite.v)
+              component *= heightScale;
             for (float &component : geoMatrixToWrite.w)
               component *= radialScale;
           } else {
