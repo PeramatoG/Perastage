@@ -90,6 +90,30 @@ bool EntriesShareFixtureFamily(const Entry &entry, const std::string &referenceP
   return ModesMatchForDictionaryEntries(entry.mode, referenceMode);
 }
 
+void HarmonizeColorsByFixtureFamily(std::unordered_map<std::string, Entry> &dict) {
+  std::vector<std::string> keys;
+  keys.reserve(dict.size());
+  for (const auto &[key, _] : dict)
+    keys.push_back(key);
+  std::sort(keys.begin(), keys.end());
+
+  for (const auto &sourceKey : keys) {
+    const auto sourceIt = dict.find(sourceKey);
+    if (sourceIt == dict.end())
+      continue;
+    const Entry &source = sourceIt->second;
+    if (source.path.empty() || source.mode.empty() || source.color.empty())
+      continue;
+    for (auto &[targetKey, target] : dict) {
+      if (targetKey == sourceKey)
+        continue;
+      if (!EntriesShareFixtureFamily(target, source.path, source.mode))
+        continue;
+      target.color = source.color;
+    }
+  }
+}
+
 bool IsDummy1ChFallbackType(const std::string &type) {
   return NormalizeAsciiKey(type) == "dummy1ch";
 }
@@ -274,6 +298,7 @@ LoadFromFile(const fs::path &file, std::string &error) {
       }
       dict[it.key()] = entry;
     }
+    HarmonizeColorsByFixtureFamily(dict);
     return dict;
   }
 
@@ -298,6 +323,7 @@ LoadFromFile(const fs::path &file, std::string &error) {
 
     dict[entryName] = entry;
   }
+  HarmonizeColorsByFixtureFamily(dict);
   return dict;
 }
 

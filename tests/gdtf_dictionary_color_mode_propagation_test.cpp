@@ -113,6 +113,25 @@ int main() {
   assert(dictAfterPathRefresh.at("TypeC").color == "#654321");
   assert(dictAfterPathRefresh.at("TypeB").color == "#200000");
 
+  nlohmann::json inconsistentEntries = nlohmann::json::object();
+  inconsistentEntries["TypeWithColor"] = {{"file", fixtureFileNew.string()},
+                                          {"mode", "Mode A"},
+                                          {"color", "#0F0F0F"}};
+  inconsistentEntries["TypeWithoutColor"] = {{"file", fixtureFileNew.string()},
+                                             {"mode", "mode-a"}};
+  inconsistentEntries["TypeOtherMode"] = {{"file", fixtureFileNew.string()},
+                                          {"mode", "Mode B"}};
+  WriteFile(dictPath,
+            DictionaryJsonContract::MakeRoot("fixtures", std::move(inconsistentEntries))
+                .dump(4));
+
+  auto dictAfterLoadHarmonizationOpt = GdtfDictionary::Load();
+  assert(dictAfterLoadHarmonizationOpt.has_value());
+  const auto &dictAfterLoadHarmonization = *dictAfterLoadHarmonizationOpt;
+  assert(dictAfterLoadHarmonization.at("TypeWithColor").color == "#0F0F0F");
+  assert(dictAfterLoadHarmonization.at("TypeWithoutColor").color == "#0F0F0F");
+  assert(dictAfterLoadHarmonization.at("TypeOtherMode").color.empty());
+
   std::filesystem::remove(fixtureFileNew);
   std::filesystem::remove(fixtureFile);
   if (hadOriginal)
