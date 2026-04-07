@@ -71,6 +71,49 @@ std::string NormalizeAsciiKey(std::string value) {
   return value;
 }
 
+std::string NormalizeModeKey(const std::string &mode) {
+  return NormalizeAsciiKey(mode);
+}
+
+bool ModesMatchForDictionaryEntries(const std::string &lhs,
+                                    const std::string &rhs) {
+  return NormalizeModeKey(lhs) == NormalizeModeKey(rhs);
+}
+
+bool EntriesShareFixtureFamily(const Entry &entry, const std::string &referencePath,
+                               const std::string &referenceMode) {
+  const bool samePath =
+      PathsMatchForDictionaryEntries(entry.path, referencePath);
+  const bool sameFileName = PathsShareFileName(entry.path, referencePath);
+  if (!samePath && !sameFileName)
+    return false;
+  return ModesMatchForDictionaryEntries(entry.mode, referenceMode);
+}
+
+void HarmonizeColorsByFixtureFamily(std::unordered_map<std::string, Entry> &dict) {
+  std::vector<std::string> keys;
+  keys.reserve(dict.size());
+  for (const auto &[key, _] : dict)
+    keys.push_back(key);
+  std::sort(keys.begin(), keys.end());
+
+  for (const auto &sourceKey : keys) {
+    const auto sourceIt = dict.find(sourceKey);
+    if (sourceIt == dict.end())
+      continue;
+    const Entry &source = sourceIt->second;
+    if (source.path.empty() || source.mode.empty() || source.color.empty())
+      continue;
+    for (auto &[targetKey, target] : dict) {
+      if (targetKey == sourceKey)
+        continue;
+      if (!EntriesShareFixtureFamily(target, source.path, source.mode))
+        continue;
+      target.color = source.color;
+    }
+  }
+}
+
 bool IsDummy1ChFallbackType(const std::string &type) {
   return NormalizeAsciiKey(type) == "dummy1ch";
 }
@@ -255,6 +298,7 @@ LoadFromFile(const fs::path &file, std::string &error) {
       }
       dict[it.key()] = entry;
     }
+    HarmonizeColorsByFixtureFamily(dict);
     return dict;
   }
 
@@ -279,6 +323,7 @@ LoadFromFile(const fs::path &file, std::string &error) {
 
     dict[entryName] = entry;
   }
+  HarmonizeColorsByFixtureFamily(dict);
   return dict;
 }
 
@@ -550,11 +595,11 @@ void UpdateCategoryForFile(const std::string &type, const std::string &gdtfPath,
 }
 
 void UpdateColor(const std::string &type, const std::string &color) {
-  UpdateColorForFile(type, {}, color);
+  UpdateColorForFile(type, {}, {}, color);
 }
 
 void UpdateColorForFile(const std::string &type, const std::string &gdtfPath,
-                        const std::string &color) {
+                        const std::string &mode, const std::string &color) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   const std::string normalizedType = NormalizeTypeKey(type);
   if (normalizedType.empty())
@@ -567,24 +612,45 @@ void UpdateColorForFile(const std::string &type, const std::string &gdtfPath,
   if (auto existingKey = FindEquivalentTypeKey(dict, normalizedType))
     keyToUse = *existingKey;
   auto it = dict.find(keyToUse);
+  std::string sharedPath = gdtfPath;
+  std::string sharedMode = mode;
   if (it == dict.end()) {
     Entry e;
+    if (!gdtfPath.empty())
+      e.path = gdtfPath;
+    if (!mode.empty())
+      e.mode = mode;
     e.color = color;
     dict[keyToUse] = e;
   } else {
-    std::string sharedPath = it->second.path;
-    if (sharedPath.empty() && !gdtfPath.empty())
-      sharedPath = gdtfPath;
+    if (sharedPath.empty())
+      sharedPath = it->second.path;
+    if (sharedMode.empty())
+      sharedMode = it->second.mode;
+    if (!gdtfPath.empty())
+      it->second.path = gdtfPath;
+    if (!mode.empty())
+      it->second.mode = mode;
     it->second.color = color;
-    for (auto &[entryType, entry] : dict) {
-      if (entryType == keyToUse)
-        continue;
-      const bool samePath = PathsMatchForDictionaryEntries(entry.path, sharedPath);
-      const bool sameFileName = PathsShareFileName(entry.path, sharedPath);
-      if (!samePath && !sameFileName)
-        continue;
-      entry.color = color;
-    }
+  }
+
+  if (sharedMode.empty()) {
+    auto keyIt = dict.find(keyToUse);
+    if (keyIt != dict.end())
+      sharedMode = keyIt->second.mode;
+  }
+  if (sharedPath.empty()) {
+    auto keyIt = dict.find(keyToUse);
+    if (keyIt != dict.end())
+      sharedPath = keyIt->second.path;
+  }
+
+  for (auto &[entryType, entry] : dict) {
+    if (entryType == keyToUse)
+      continue;
+    if (!EntriesShareFixtureFamily(entry, sharedPath, sharedMode))
+      continue;
+    entry.color = color;
   }
   Save(dict);
 }
