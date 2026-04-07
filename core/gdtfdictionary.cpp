@@ -71,6 +71,15 @@ std::string NormalizeAsciiKey(std::string value) {
   return value;
 }
 
+std::string NormalizeModeKey(const std::string &mode) {
+  return NormalizeAsciiKey(mode);
+}
+
+bool ModesMatchForDictionaryEntries(const std::string &lhs,
+                                    const std::string &rhs) {
+  return NormalizeModeKey(lhs) == NormalizeModeKey(rhs);
+}
+
 bool IsDummy1ChFallbackType(const std::string &type) {
   return NormalizeAsciiKey(type) == "dummy1ch";
 }
@@ -550,11 +559,11 @@ void UpdateCategoryForFile(const std::string &type, const std::string &gdtfPath,
 }
 
 void UpdateColor(const std::string &type, const std::string &color) {
-  UpdateColorForFile(type, {}, color);
+  UpdateColorForFile(type, {}, {}, color);
 }
 
 void UpdateColorForFile(const std::string &type, const std::string &gdtfPath,
-                        const std::string &color) {
+                        const std::string &mode, const std::string &color) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   const std::string normalizedType = NormalizeTypeKey(type);
   if (normalizedType.empty())
@@ -569,12 +578,19 @@ void UpdateColorForFile(const std::string &type, const std::string &gdtfPath,
   auto it = dict.find(keyToUse);
   if (it == dict.end()) {
     Entry e;
+    if (!mode.empty())
+      e.mode = mode;
     e.color = color;
     dict[keyToUse] = e;
   } else {
     std::string sharedPath = it->second.path;
+    std::string sharedMode = mode;
     if (sharedPath.empty() && !gdtfPath.empty())
       sharedPath = gdtfPath;
+    if (sharedMode.empty())
+      sharedMode = it->second.mode;
+    if (!mode.empty())
+      it->second.mode = mode;
     it->second.color = color;
     for (auto &[entryType, entry] : dict) {
       if (entryType == keyToUse)
@@ -582,6 +598,8 @@ void UpdateColorForFile(const std::string &type, const std::string &gdtfPath,
       const bool samePath = PathsMatchForDictionaryEntries(entry.path, sharedPath);
       const bool sameFileName = PathsShareFileName(entry.path, sharedPath);
       if (!samePath && !sameFileName)
+        continue;
+      if (!ModesMatchForDictionaryEntries(entry.mode, sharedMode))
         continue;
       entry.color = color;
     }
