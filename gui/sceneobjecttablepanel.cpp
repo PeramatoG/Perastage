@@ -27,6 +27,7 @@
 #include "scene_object_primitive_editing.h"
 #include "stringutils.h"
 #include "summarypanel.h"
+#include "layoutviewerpanel.h"
 #include "dataview_edit_commit.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -68,6 +69,33 @@ bool IsNumChar(char c)
 {
     return std::isdigit(static_cast<unsigned char>(c)) || c == '.' || c == '-' ||
            c == '+';
+}
+
+LayoutViewerPanel *FindLayoutViewerPanel(wxWindow *root) {
+    if (!root)
+        return nullptr;
+
+    if (auto *layoutViewer = dynamic_cast<LayoutViewerPanel *>(root))
+        return layoutViewer;
+
+    for (wxWindow *child : root->GetChildren()) {
+        if (auto *layoutViewer = FindLayoutViewerPanel(child))
+            return layoutViewer;
+    }
+    return nullptr;
+}
+
+void RefreshSceneObjectVisuals() {
+    if (Viewer2DPanel::Instance()) {
+        Viewer2DPanel::Instance()->InvalidateBottomSymbolCache();
+        Viewer2DPanel::Instance()->UpdateScene();
+        Viewer2DPanel::Instance()->Refresh();
+    }
+
+    wxWindow *topLevel = wxGetTopLevelParent(SceneObjectTablePanel::Instance());
+    if (auto *layoutViewer = FindLayoutViewerPanel(topLevel)) {
+        layoutViewer->RefreshAfterSceneContentUpdate();
+    }
 }
 
 RangeParts SplitRangeParts(const wxString& value)
@@ -363,14 +391,9 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
         }
         ResyncRows(oldOrder, selectedUuids);
         UpdateSceneData();
-        if (Viewer3DPanel::Instance())
-        {
+        if (Viewer3DPanel::Instance()) {
             Viewer3DPanel::Instance()->UpdateScene();
             Viewer3DPanel::Instance()->Refresh();
-        }
-        else if (Viewer2DPanel::Instance())
-        {
-            Viewer2DPanel::Instance()->UpdateScene();
         }
         return;
     }
@@ -405,14 +428,9 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
 
         ResyncRows(oldOrder, selectedUuids);
         UpdateSceneData();
-        if (Viewer3DPanel::Instance())
-        {
+        if (Viewer3DPanel::Instance()) {
             Viewer3DPanel::Instance()->UpdateScene();
             Viewer3DPanel::Instance()->Refresh();
-        }
-        else if (Viewer2DPanel::Instance())
-        {
-            Viewer2DPanel::Instance()->UpdateScene();
         }
         return;
     }
@@ -536,14 +554,9 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
     ResyncRows(oldOrder, selectedUuids);
 
     UpdateSceneData();
-    if (Viewer3DPanel::Instance())
-    {
+    if (Viewer3DPanel::Instance()) {
         Viewer3DPanel::Instance()->UpdateScene();
         Viewer3DPanel::Instance()->Refresh();
-    }
-    else if (Viewer2DPanel::Instance())
-    {
-        Viewer2DPanel::Instance()->UpdateScene();
     }
 }
 
@@ -845,6 +858,8 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
 
     if (SummaryPanel::Instance() && IsActivePage())
         SummaryPanel::Instance()->ShowSceneObjectSummary();
+
+    RefreshSceneObjectVisuals();
 }
 
 
