@@ -917,7 +917,7 @@ void SceneObjectTablePanel::SelectByUuid(const std::vector<std::string>& uuids) 
     store->SetSelectedRows(selectedRows);
 }
 
-void SceneObjectTablePanel::DeleteSelected()
+void SceneObjectTablePanel::DeleteSelected(bool pushUndoState)
 {
     wxDataViewItemArray selections;
     table->GetSelections(selections);
@@ -925,7 +925,8 @@ void SceneObjectTablePanel::DeleteSelected()
         return;
 
     ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
-    cfg.PushUndoState("delete scene object");
+    if (pushUndoState)
+        cfg.PushUndoState("delete scene object");
     cfg.SetSelectedSceneObjects({});
 
     std::vector<int> rows;

@@ -1094,14 +1094,15 @@ void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids) {
   store->SetSelectedRows(selectedRows);
 }
 
-void FixtureTablePanel::DeleteSelected() {
+void FixtureTablePanel::DeleteSelected(bool pushUndoState) {
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   if (selections.empty())
     return;
 
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
-  cfg.PushUndoState("delete fixture");
+  if (pushUndoState)
+    cfg.PushUndoState("delete fixture");
   cfg.SetSelectedFixtures({});
 
   std::vector<std::string> oldOrder = rowUuids;

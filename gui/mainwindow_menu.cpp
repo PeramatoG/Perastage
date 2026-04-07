@@ -1526,20 +1526,26 @@ void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
       sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
   };
 
+  const bool hasAnySelection =
+      !cfg.GetSelectedFixtures().empty() || !cfg.GetSelectedTrusses().empty() ||
+      !cfg.GetSelectedSupports().empty() || !cfg.GetSelectedSceneObjects().empty();
+  if (hasAnySelection)
+    cfg.PushUndoState("delete selected elements");
+
   if (fixturePanel && !cfg.GetSelectedFixtures().empty()) {
     ensureFixtureSelection();
-    fixturePanel->DeleteSelected();
+    fixturePanel->DeleteSelected(false);
   }
   if (trussPanel && !cfg.GetSelectedTrusses().empty()) {
     ensureTrussSelection();
-    trussPanel->DeleteSelected();
+    trussPanel->DeleteSelected(false);
   }
   if (hoistPanel && !cfg.GetSelectedSupports().empty()) {
     ensureSupportSelection();
-    hoistPanel->DeleteSelected();
+    hoistPanel->DeleteSelected(false);
   }
   if (sceneObjPanel && !cfg.GetSelectedSceneObjects().empty()) {
     ensureObjectSelection();
-    sceneObjPanel->DeleteSelected();
+    sceneObjPanel->DeleteSelected(false);
   }
 }

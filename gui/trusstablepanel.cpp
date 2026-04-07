@@ -1137,7 +1137,7 @@ void TrussTablePanel::SelectByUuid(const std::vector<std::string>& uuids) {
     store->SetSelectedRows(selectedRows);
 }
 
-void TrussTablePanel::DeleteSelected()
+void TrussTablePanel::DeleteSelected(bool pushUndoState)
 {
     wxDataViewItemArray selections;
     table->GetSelections(selections);
@@ -1145,7 +1145,8 @@ void TrussTablePanel::DeleteSelected()
         return;
 
     ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
-    cfg.PushUndoState("delete truss");
+    if (pushUndoState)
+        cfg.PushUndoState("delete truss");
     cfg.SetSelectedTrusses({});
 
     std::vector<int> rows;

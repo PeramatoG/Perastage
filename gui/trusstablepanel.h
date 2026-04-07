@@ -38,7 +38,7 @@ public:
     std::vector<std::string> GetSelectedUuids() const;
     void SelectByUuid(const std::vector<std::string>& uuids);
     bool IsActivePage() const;
-    void DeleteSelected();
+    void DeleteSelected(bool pushUndoState = true);
     void UpdatePositionValues(const std::vector<std::string>& uuids);
     void ApplyPositionValueUpdates(const std::vector<PositionValueUpdate>& updates);
     wxDataViewListCtrl* GetTableCtrl() const { return table; }

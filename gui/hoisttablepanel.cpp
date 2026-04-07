@@ -1174,14 +1174,15 @@ void HoistTablePanel::SelectByUuid(const std::vector<std::string> &uuids) {
   store->SetSelectedRows(selectedRows);
 }
 
-void HoistTablePanel::DeleteSelected() {
+void HoistTablePanel::DeleteSelected(bool pushUndoState) {
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   if (selections.empty())
     return;
 
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
-  cfg.PushUndoState("delete support");
+  if (pushUndoState)
+    cfg.PushUndoState("delete support");
   cfg.SetSelectedSupports({});
 
   std::vector<int> rows;
