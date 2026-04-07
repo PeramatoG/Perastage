@@ -1687,6 +1687,8 @@ bool RiderImporter::ImportText(const std::string &text) {
         if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
           f.gdtfSpec = dictEntry->path;
           f.gdtfMode = dictEntry->mode;
+          if (!dictEntry->color.empty())
+            f.color = dictEntry->color;
           const std::string dictionaryCategory = Trim(dictEntry->category);
           if (!dictionaryCategory.empty()) {
             f.category = dictionaryCategory;

@@ -53,6 +53,23 @@ bool ParseFloatOrDefault(const wxString &text, float &out) {
   return true;
 }
 
+void SetFixtureColorCell(wxDataViewListCtrl *table, int row,
+                         const std::string &hexColor) {
+  if (!table || row == wxNOT_FOUND || hexColor.empty())
+    return;
+  wxBitmap colorSwatch(16, 16);
+  {
+    wxMemoryDC dc(colorSwatch);
+    dc.SetPen(*wxTRANSPARENT_PEN);
+    dc.SetBrush(wxBrush(wxColour(wxString::FromUTF8(hexColor))));
+    dc.DrawRectangle(0, 0, 16, 16);
+    dc.SelectObject(wxNullBitmap);
+  }
+  wxVariant colorValue;
+  colorValue << wxDataViewIconText(wxString::FromUTF8(hexColor), colorSwatch);
+  table->SetValue(colorValue, row, 19);
+}
+
 bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
   if (gdtfPath.empty())
     return false;
@@ -856,6 +873,21 @@ void FixtureEditDialog::ApplyChanges() {
   const bool gdtfPhysicalCandidateChanged =
       (modifiedColumns.size() > 16 && modifiedColumns[16]) ||
       (modifiedColumns.size() > 17 && modifiedColumns[17]);
+  const bool gdtfTypeOrModelChanged =
+      (modifiedColumns.size() > 2 && modifiedColumns[2]) ||
+      (modifiedColumns.size() > 9 && modifiedColumns[9]);
+  const bool fixtureColorChanged =
+      (modifiedColumns.size() > 19 && modifiedColumns[19]);
+
+  if (gdtfTypeOrModelChanged && !fixtureColorChanged) {
+    wxVariant typeVar;
+    table->GetValue(typeVar, row, 2);
+    const std::string currentType = std::string(typeVar.GetString().ToUTF8());
+    if (auto dictEntry = GdtfDictionary::Get(currentType)) {
+      if (!dictEntry->color.empty())
+        SetFixtureColorCell(table, row, dictEntry->color);
+    }
+  }
 
   if (!gdtfPath.empty()) {
     if (ctrls.size() > 17) {

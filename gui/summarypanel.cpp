@@ -19,6 +19,7 @@
 #include "colorstore.h"
 #include "configmanager.h"
 #include "fixturetablepanel.h"
+#include "gdtfdictionary.h"
 #include "guiconfigservices.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -398,10 +399,13 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
     const std::string typeName = table->GetTextValue(row, 2).ToStdString();
     auto& colorCfg = (*colorConfigManager);
     auto& fixtures = colorCfg.GetScene().fixtures;
+    std::string typeGdtfSpec;
 
     wxColourData data;
     for (const auto& [uuid, fixture] : fixtures) {
         (void)uuid;
+        if (fixture.typeName == typeName && typeGdtfSpec.empty())
+            typeGdtfSpec = fixture.gdtfSpec;
         if (fixture.typeName == typeName && !fixture.color.empty()) {
             data.SetColour(wxColour(wxString::FromUTF8(fixture.color)));
             break;
@@ -421,6 +425,7 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
         if (fixture.typeName == typeName)
             fixture.color = hex;
     }
+    GdtfDictionary::UpdateColorForFile(typeName, typeGdtfSpec, hex);
 
     if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->ReloadData();

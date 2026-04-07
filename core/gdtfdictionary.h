@@ -54,6 +54,9 @@ namespace GdtfDictionary {
     void UpdateCategory(const std::string& type, const std::string& category);
     void UpdateCategoryForFile(const std::string& type, const std::string& gdtfPath,
                                const std::string& category);
+    void UpdateColor(const std::string& type, const std::string& color);
+    void UpdateColorForFile(const std::string& type, const std::string& gdtfPath,
+                            const std::string& color);
     DictionaryImportSummary PreviewImportFromFile(
         const std::string &filePath, DictionaryImportPolicy policy);
     DictionaryImportSummary ApplyImportFromFile(
