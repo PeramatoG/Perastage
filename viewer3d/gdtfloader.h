@@ -114,14 +114,6 @@ bool GetGdtfProperties(const std::string& gdtfPath,
 // the file cannot be parsed.
 std::string GetGdtfModelColor(const std::string& gdtfPath);
 
-// Updates the default model color in a GDTF file. The color should be
-// provided as a HTML-style hex string (e.g. "#RRGGBB"). Returns true on
-// success.
-// This write path must follow docs/gdtf_mutation_policy.md (revision format,
-// mutation-audit stamping, and compatibility expectations).
-bool SetGdtfModelColor(const std::string& gdtfPath,
-                       const std::string& hexColor);
-
 // Updates Weight/PowerConsumption values in description.xml and appends a
 // revision entry with timestamp and modifier metadata.
 // Behavior and non-regression criteria are documented in

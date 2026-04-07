@@ -35,5 +35,4 @@ std::vector<std::string> GetGdtfModes(const std::string&) { return {}; }
 std::vector<GdtfChannelInfo> GetGdtfModeChannels(const std::string&, const std::string&) { return {}; }
 std::string GetGdtfFixtureName(const std::string& gdtfPath) { return gdtfPath; }
 std::string GetGdtfModelColor(const std::string& gdtfPath) { return "#000000"; }
-bool SetGdtfModelColor(const std::string&, const std::string&) { return true; }
 bool GetGdtfProperties(const std::string&, float &w, float &p) { w = 0.0f; p = 0.0f; return false; }
