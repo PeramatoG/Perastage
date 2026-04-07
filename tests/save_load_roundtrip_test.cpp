@@ -125,7 +125,7 @@ int main() {
     assert(loadedCylinderToken.find("bottom=450") != std::string::npos);
     const std::string loadedLegacyPipeToken =
         scene2.sceneObjects.at("obj-legacy-pipe").geometries.front().modelFile;
-    assert(loadedLegacyPipeToken == "primitive:cylinder;axis=x");
+    assert(loadedLegacyPipeToken == "primitive:cylinder");
     assert(scene2.fixtures.at("fx1").color == "#445566");
     assert(scene2.fixtures.at("fx1").fixtureIdText == "S101A");
     assert(scene2.fixtures.at("fx1").fixtureIdNumeric == 101);

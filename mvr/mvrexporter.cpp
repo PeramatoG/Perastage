@@ -2072,55 +2072,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   auto exportSceneObject = [&](tinyxml2::XMLElement *parent,
                                const SceneObject &obj) {
-    auto matrixAlmostEqual = [](const Matrix &a, const Matrix &b, float eps = 1e-5f) {
-      for (int i = 0; i < 3; ++i) {
-        if (std::fabs(a.u[i] - b.u[i]) > eps || std::fabs(a.v[i] - b.v[i]) > eps ||
-            std::fabs(a.w[i] - b.w[i]) > eps || std::fabs(a.o[i] - b.o[i]) > eps) {
-          return false;
-        }
-      }
-      return true;
-    };
-
-    auto isLegacyPipeCylinderAxisTransform = [&](const std::string &modelRef,
-                                                 const Matrix &localTransform) {
-      std::string primitiveToken;
-      if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
-        return false;
-      if (ToLowerAscii(TrimAscii(primitiveToken)).rfind("primitive:cylinder", 0) != 0)
-        return false;
-
-      Matrix axisXTransform = MatrixUtils::Identity();
-      axisXTransform.u = {0.0f, 0.0f, -1.0f};
-      axisXTransform.v = {0.0f, 1.0f, 0.0f};
-      axisXTransform.w = {1.0f, 0.0f, 0.0f};
-      return matrixAlmostEqual(localTransform, axisXTransform);
-    };
-
-    auto isPrimitiveCylinderRef = [&](const std::string &modelRef) {
-      std::string primitiveToken;
-      if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
-        return false;
-      return ToLowerAscii(TrimAscii(primitiveToken)).rfind("primitive:cylinder", 0) == 0;
-    };
-
-    auto isLegacyBakedPipeObjectMatrix = [&](const Matrix &m) {
-      const float eps = 1e-4f;
-      return std::fabs(m.u[0]) < eps && std::fabs(m.u[1]) < eps &&
-             std::fabs(m.v[0]) < eps && std::fabs(m.v[2]) < eps &&
-             std::fabs(m.w[1]) < eps && std::fabs(m.w[2]) < eps &&
-             std::fabs(m.u[2]) > eps && std::fabs(m.v[1]) > eps &&
-             std::fabs(m.w[0]) > eps;
-    };
-
-    auto withCylinderAxisX = [](std::string modelRef) {
-      if (ToLowerAscii(modelRef).find("axis=") != std::string::npos)
-        return modelRef;
-      if (modelRef.find(';') == std::string::npos)
-        return modelRef + ";axis=x";
-      return modelRef + ";axis=x";
-    };
-
     struct CylinderTokenParams {
       float topRadiusMm = 0.5f;
       float bottomRadiusMm = 0.5f;
@@ -2181,33 +2132,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     };
 
     Matrix objectMatrixToWrite = obj.transform;
-    bool forceIdentityGeometryMatrix = false;
-    std::optional<std::string> overridePrimitiveModelRef;
-    if (obj.geometries.size() == 1) {
-      const auto &singleGeometry = obj.geometries.front();
-      const bool isCylinderPrimitive = isPrimitiveCylinderRef(singleGeometry.modelFile);
-      const bool hasLegacyAxisGeometry =
-          isLegacyPipeCylinderAxisTransform(singleGeometry.modelFile,
-                                            singleGeometry.localTransform);
-      const bool hasLegacyBakedObject = isCylinderPrimitive &&
-                                        isLegacyBakedPipeObjectMatrix(obj.transform);
-      if (hasLegacyAxisGeometry || hasLegacyBakedObject) {
-        forceIdentityGeometryMatrix = true;
-        overridePrimitiveModelRef = withCylinderAxisX(singleGeometry.modelFile);
-        auto axisLength = [](const std::array<float, 3> &axis) {
-          return std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
-        };
-        const float su = axisLength(obj.transform.u);
-        const float sv = axisLength(obj.transform.v);
-        const float sw = axisLength(obj.transform.w);
-        const float lengthScale = std::max({su, sv, sw});
-        const float minScale = std::min({su, sv, sw});
-        const float midScale = su + sv + sw - lengthScale - minScale;
-        objectMatrixToWrite.u = {lengthScale, 0.0f, 0.0f};
-        objectMatrixToWrite.v = {0.0f, midScale, 0.0f};
-        objectMatrixToWrite.w = {0.0f, 0.0f, minScale};
-      }
-    }
 
     tinyxml2::XMLElement *oe = doc.NewElement("SceneObject");
     oe->SetAttribute("uuid", obj.uuid.c_str());
@@ -2222,10 +2146,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           continue;
 
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-        const std::string rawModelRef =
-            overridePrimitiveModelRef.has_value() ? *overridePrimitiveModelRef
-                                                  : geo.modelFile;
-        std::string modelRef = rawModelRef;
+        std::string modelRef = geo.modelFile;
         std::string modelArchivePath =
             registerPrimitiveModelResource(modelRef, obj.uuid);
         if (modelArchivePath.empty()) {
@@ -2235,14 +2156,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           continue;
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
 
-        Matrix geoMatrixToWrite =
-            forceIdentityGeometryMatrix ||
-                    isLegacyPipeCylinderAxisTransform(geo.modelFile, geo.localTransform)
-                ? MatrixUtils::Identity()
-                : geo.localTransform;
+        Matrix geoMatrixToWrite = geo.localTransform;
 
         CylinderTokenParams cylinderParams;
-        const bool hasCylinderToken = parseCylinderTokenParams(rawModelRef, cylinderParams);
+        const bool hasCylinderToken = parseCylinderTokenParams(modelRef, cylinderParams);
         const bool hasExplicitCylinderDimensions =
             hasCylinderToken && cylinderParams.hasExplicitDimensions;
         const bool isRoundCylinder =
@@ -2298,8 +2215,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         std::string primitiveToken;
         if (mvr::ResolvePrimitiveTokenFromModelRef(geo.modelFile, primitiveToken)) {
           // Persist the effective model reference used for Geometry3D so a
-          // roundtrip keeps axis overrides (for example, legacy pipe cylinder
-          // normalization to axis=x) aligned with the stored matrices.
+          // roundtrip keeps primitive token parameters/axis aligned with the
+          // stored geometry matrix.
           primitiveGeometryModelRefs.emplace_back(modelArchivePath, modelRef);
         }
 
