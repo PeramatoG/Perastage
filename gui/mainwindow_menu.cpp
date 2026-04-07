@@ -1006,19 +1006,19 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
     consolePanel->AppendMessage(action.empty() ? "Undo" : "Undo " + action);
   if (fixturePanel) {
     fixturePanel->ReloadData();
-    fixturePanel->SelectByUuid(cfg.GetSelectedFixtures());
+    fixturePanel->SelectByUuid(cfg.GetSelectedFixtures(), false);
   }
   if (trussPanel) {
     trussPanel->ReloadData();
-    trussPanel->SelectByUuid(cfg.GetSelectedTrusses());
+    trussPanel->SelectByUuid(cfg.GetSelectedTrusses(), false);
   }
   if (hoistPanel) {
     hoistPanel->ReloadData();
-    hoistPanel->SelectByUuid(cfg.GetSelectedSupports());
+    hoistPanel->SelectByUuid(cfg.GetSelectedSupports(), false);
   }
   if (sceneObjPanel) {
     sceneObjPanel->ReloadData();
-    sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
+    sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects(), false);
   }
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
@@ -1054,19 +1054,19 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
     consolePanel->AppendMessage(action.empty() ? "Redo" : "Redo " + action);
   if (fixturePanel) {
     fixturePanel->ReloadData();
-    fixturePanel->SelectByUuid(cfg.GetSelectedFixtures());
+    fixturePanel->SelectByUuid(cfg.GetSelectedFixtures(), false);
   }
   if (trussPanel) {
     trussPanel->ReloadData();
-    trussPanel->SelectByUuid(cfg.GetSelectedTrusses());
+    trussPanel->SelectByUuid(cfg.GetSelectedTrusses(), false);
   }
   if (hoistPanel) {
     hoistPanel->ReloadData();
-    hoistPanel->SelectByUuid(cfg.GetSelectedSupports());
+    hoistPanel->SelectByUuid(cfg.GetSelectedSupports(), false);
   }
   if (sceneObjPanel) {
     sceneObjPanel->ReloadData();
-    sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
+    sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects(), false);
   }
   if (layoutPanel)
     layoutPanel->ReloadLayouts();

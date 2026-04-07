@@ -36,6 +36,7 @@
 #include <cctype>
 #include <cmath>
 #include <filesystem>
+#include <memory>
 #include <wx/notebook.h>
 #include <wx/choicdlg.h>
 #include <wx/filedlg.h>
@@ -902,7 +903,13 @@ std::vector<std::string> SceneObjectTablePanel::GetSelectedUuids() const {
     return uuids;
 }
 
-void SceneObjectTablePanel::SelectByUuid(const std::vector<std::string>& uuids) {
+void SceneObjectTablePanel::SelectByUuid(const std::vector<std::string>& uuids,
+                                         bool notifySelectionChanged) {
+    std::unique_ptr<wxEventBlocker> selectionBlocker;
+    if (!notifySelectionChanged) {
+        selectionBlocker = std::make_unique<wxEventBlocker>(
+            table, wxEVT_DATAVIEW_SELECTION_CHANGED);
+    }
     table->UnselectAll();
     std::vector<bool> selectedRows(table->GetItemCount(), false);
     for (const auto& u : uuids) {

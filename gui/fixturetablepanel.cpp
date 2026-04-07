@@ -42,6 +42,7 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <memory>
 #include <unordered_map>
 #include <unordered_set>
 #include <wx/choicdlg.h>
@@ -1077,7 +1078,11 @@ std::vector<std::string> FixtureTablePanel::GetSelectedUuids() const {
   return uuids;
 }
 
-void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids) {
+void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
+                                     bool notifySelectionChanged) {
+  std::unique_ptr<wxEventBlocker> selectionBlocker;
+  if (!notifySelectionChanged)
+    selectionBlocker = std::make_unique<wxEventBlocker>(table, wxEVT_DATAVIEW_SELECTION_CHANGED);
   table->UnselectAll();
   selectionOrder.clear();
   std::vector<bool> selectedRows(table->GetItemCount(), false);

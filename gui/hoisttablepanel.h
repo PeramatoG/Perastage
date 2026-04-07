@@ -36,7 +36,8 @@ public:
   void HighlightHoist(const std::string &uuid);
   void ClearSelection();
   std::vector<std::string> GetSelectedUuids() const;
-  void SelectByUuid(const std::vector<std::string> &uuids);
+  void SelectByUuid(const std::vector<std::string> &uuids,
+                    bool notifySelectionChanged = true);
   bool IsActivePage() const;
   void DeleteSelected(bool pushUndoState = true);
   void ApplyPositionValueUpdates(const std::vector<PositionValueUpdate> &updates);

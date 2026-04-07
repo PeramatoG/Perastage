@@ -38,6 +38,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <memory>
 #include <optional>
 #include <wx/choicdlg.h>
 #include <wx/notebook.h>
@@ -1159,7 +1160,13 @@ std::vector<std::string> HoistTablePanel::GetSelectedUuids() const {
   return uuids;
 }
 
-void HoistTablePanel::SelectByUuid(const std::vector<std::string> &uuids) {
+void HoistTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
+                                   bool notifySelectionChanged) {
+  std::unique_ptr<wxEventBlocker> selectionBlocker;
+  if (!notifySelectionChanged) {
+    selectionBlocker =
+        std::make_unique<wxEventBlocker>(table, wxEVT_DATAVIEW_SELECTION_CHANGED);
+  }
   table->UnselectAll();
   std::vector<bool> selectedRows(table->GetItemCount(), false);
   for (const auto &u : uuids) {
