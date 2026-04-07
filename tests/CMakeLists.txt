@@ -869,19 +869,6 @@ target_link_libraries(gdtfloader_set_properties_test PRIVATE ${wxWidgets_LIBRARI
 add_test(NAME GdtfLoaderSetPropertiesMutation COMMAND gdtfloader_set_properties_test)
 set_library_env(GdtfLoaderSetPropertiesMutation)
 
-add_executable(gdtfloader_set_model_color_audit_test gdtfloader_set_model_color_audit_test.cpp
-               ../viewer3d/gdtfloader.cpp
-               ../core/gdtf_mutation_audit.cpp
-               ../viewer3d/loader3ds.cpp
-               ../viewer3d/loaderglb.cpp
-               ../viewer3d/meshprimitives.cpp
-               consolepanel_stub.cpp)
-target_include_directories(gdtfloader_set_model_color_audit_test PRIVATE
-                           . ../viewer3d ../models ../gui ../third_party)
-target_link_libraries(gdtfloader_set_model_color_audit_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
-add_test(NAME GdtfLoaderSetModelColorAudit COMMAND gdtfloader_set_model_color_audit_test)
-set_library_env(GdtfLoaderSetModelColorAudit)
-
 add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test.cpp
                ../gui/windows/symbol_fixture_applier.cpp
                ../gui/windows/symbol_preview_exporter.cpp

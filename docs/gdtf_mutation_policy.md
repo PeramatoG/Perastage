@@ -8,7 +8,6 @@ Perastage currently mutates GDTF archives at the following integration points.
 
 | Module | File | Function(s) | Mutation scope |
 |---|---|---|---|
-| Viewer 3D API | `viewer3d/gdtfloader.cpp` | `SetGdtfModelColor(...)` | Writes model `Color` in `description.xml`, stamps `PerastageMutationAudit`, appends `Revision`, rewrites the `.gdtf` archive. |
 | Viewer 3D API | `viewer3d/gdtfloader.cpp` | `SetGdtfProperties(...)` | Writes `PhysicalDescriptions/Properties` (`Weight`, `PowerConsumption`), stamps audit metadata, appends `Revision`, rewrites `.gdtf`. |
 | GUI symbol workflow | `gui/windows/symbol_fixture_applier.cpp` | `RewriteGdtf(...)` + `AppendMutationAuditMetadata(...)` (called by `ApplySymbolsToFixtureGdtf(...)`) | Writes/updates SVG symbol assets and model SVG offsets, stamps audit metadata, appends `Revision`, rewrites `.gdtf`. |
 | MVR export patching | `mvr/mvrexporter.cpp` | `CreatePatchedGdtf(...)` | Creates temporary patched GDTF copies for export overrides (manufacturer/model/physical properties/color/dimensions), stamps audit metadata and appends `Revision` when patched. |
@@ -18,6 +17,7 @@ Perastage currently mutates GDTF archives at the following integration points.
 
 - `core/gdtf_mutation_audit.{h,cpp}` is the single owner of Perastage mutation-audit schema semantics.
 - Write call sites in other modules must use this helper API instead of hand-rolling custom audit XML shapes.
+- Fixture display color is no longer persisted by mutating `description.xml` model `Color` values in place. The persisted source of truth for default color selection is the Perastage dictionary/project data layer, while `GetGdtfModelColor(...)` remains read-only for legacy fallback reads.
 
 ## 2) Exact `Revision` format used by Perastage
 
@@ -28,6 +28,7 @@ Perastage writes these attributes:
 - `Date`: UTC timestamp in ISO-8601 `YYYY-MM-DDTHH:MM:SSZ`.
 - `ModifiedBy`: caller-provided string, or default value returned by `BuildPerastageModifiedBy()` (`"Perastage " + app::kVersion`).
 - `Text`: human-readable action summary (for example: model color update, fixture symbol views applied, MVR export patch action).
+  - Note: this remains an example because MVR export patching can still record color-related patch actions in the exported temporary copy, but the direct in-place model-color mutation API was removed.
 - `UserID`: integer; default `0`.
 
 Canonical shape:
@@ -94,7 +95,7 @@ A GDTF mutation change is accepted only if all conditions below hold:
 ### Manual checklist
 
 - [ ] Apply fixture symbol generation to a fixture and verify the `.gdtf` receives updated SVG entries and offsets.
-- [ ] Edit fixture color via GDTF mutation path and verify model color updates persist after reopening.
+- [ ] Edit fixture color via dictionary/project workflow and verify fixture color persists after reopening without mutating model `Color` in the source `.gdtf`.
 - [ ] Edit fixture physical properties and verify weight/power values persist after reopening.
 - [ ] Inspect resulting `description.xml` and verify `PerastageMutationAudit` + `Revision` attributes follow the policy format.
 - [ ] Export an MVR that triggers patched GDTF overrides and verify the exported patched GDTF carries mutation audit and revision metadata.
@@ -103,8 +104,6 @@ A GDTF mutation change is accepted only if all conditions below hold:
 
 ### Automated tests relevant to this policy
 
-- `tests/gdtfloader_set_model_color_audit_test.cpp`
-  - validates color mutation + audit/revision stamping behavior.
 - `tests/gdtfloader_set_properties_test.cpp`
   - validates physical-properties mutation and persisted XML changes.
 - `tests/symbol_fixture_applier_gdtf_test.cpp`
