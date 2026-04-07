@@ -38,15 +38,16 @@ int main() {
   for (const auto &[uuid, object] : pipeWithLengthScene.sceneObjects) {
     (void)uuid;
     foundPipeObject = true;
-    assert(object.name.find("PIPE") == 0);
+    assert(object.name == "PIPE LX1");
     assert(object.geometries.size() == 1);
     assert(object.geometries.front().modelFile == "primitive:cylinder");
-    assert(NearlyEqual(object.geometries.front().localTransform.u[0], 0.0f));
-    assert(NearlyEqual(object.geometries.front().localTransform.u[2], -1.0f));
-    assert(NearlyEqual(object.geometries.front().localTransform.w[0], 1.0f));
-    assert(NearlyEqual(object.transform.u[0], 14000.0f / 1000.0f));
+    assert(NearlyEqual(object.geometries.front().localTransform.u[0], 1.0f));
+    assert(NearlyEqual(object.geometries.front().localTransform.u[2], 0.0f));
+    assert(NearlyEqual(object.geometries.front().localTransform.w[0], 0.0f));
+    assert(NearlyEqual(object.transform.u[0], 0.0f));
+    assert(NearlyEqual(object.transform.u[2], -50.0f / 1000.0f));
     assert(NearlyEqual(object.transform.v[1], 50.0f / 1000.0f));
-    assert(NearlyEqual(object.transform.w[2], 50.0f / 1000.0f));
+    assert(NearlyEqual(object.transform.w[0], 14000.0f / 1000.0f));
   }
   assert(foundPipeObject);
 
@@ -78,10 +79,13 @@ int main() {
       ++lx2Count;
     else if (object.layer == "pos LX3")
       ++lx3Count;
+    assert(object.name == ("PIPE " + object.layer.substr(4)));
     assert(object.geometries.size() == 1);
     assert(object.geometries.front().modelFile == "primitive:cylinder");
-    assert(NearlyEqual(object.geometries.front().localTransform.w[0], 1.0f));
-    assert(NearlyEqual(object.transform.u[0], 14000.0f / 1000.0f));
+    assert(NearlyEqual(object.geometries.front().localTransform.w[0], 0.0f));
+    assert(NearlyEqual(object.transform.u[0], 0.0f));
+    assert(NearlyEqual(object.transform.u[2], -50.0f / 1000.0f));
+    assert(NearlyEqual(object.transform.w[0], 14000.0f / 1000.0f));
   }
   assert(lx1Count == 1);
   assert(lx2Count == 1);

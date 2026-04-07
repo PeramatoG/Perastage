@@ -236,8 +236,11 @@ Pipe-specific behavior:
    - Import stores a cylinder primitive geometry reference on the object so the
      3D view renders the pipe directly as a cylinder (not only as a generic
      meshless fallback box).
-   - The primitive is oriented so the cylinder main axis is parallel to `X`
-     for regular pipe hangs.
+   - Transform path matches regular primitive cylinders (diameter/diameter/length
+     scaling) and then applies a `+90°` rotation on `Y`, so the final pipe axis
+     is parallel to `X`.
+   - Pipe object names use hang naming, not length naming: `PIPE <hang>`
+     (for example `PIPE LX1`).
 3. Pipe lines still create/target the same normalized hang names (`LX1`, `LX2`, ...),
    including `PUENTES LX` expansion to `LX1..LXN`.
 4. Pipes do not carry truss hang-weight fields; fixtures still keep their hang

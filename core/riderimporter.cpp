@@ -61,11 +61,29 @@ namespace {
 constexpr const char *kPrimitiveCylinderToken = "primitive:cylinder";
 constexpr const char *kPrimitiveCubeToken = "primitive:cube";
 
-Matrix BuildCylinderAxisXLocalTransform() {
+Matrix BuildCylinderPitchY90LocalTransform() {
   Matrix transform{};
+  // Equivalent to applying a +90° pitch around Y after creating the
+  // cylinder primitive with its default orientation.
   transform.u = {0.0f, 0.0f, -1.0f};
   transform.v = {0.0f, 1.0f, 0.0f};
   transform.w = {1.0f, 0.0f, 0.0f};
+  transform.o = {0.0f, 0.0f, 0.0f};
+  return transform;
+}
+
+Matrix BuildPipeObjectTransform(float pipeLengthMm, float pipeDiameterMm,
+                                float primitiveCylinderHeightMm) {
+  Matrix transform{};
+  const float radialScale = pipeDiameterMm / primitiveCylinderHeightMm;
+  const float lengthScale = pipeLengthMm / primitiveCylinderHeightMm;
+  const Matrix pitchY90 = BuildCylinderPitchY90LocalTransform();
+  transform.u = {pitchY90.u[0] * radialScale, pitchY90.u[1] * radialScale,
+                 pitchY90.u[2] * radialScale};
+  transform.v = {pitchY90.v[0] * radialScale, pitchY90.v[1] * radialScale,
+                 pitchY90.v[2] * radialScale};
+  transform.w = {pitchY90.w[0] * lengthScale, pitchY90.w[1] * lengthScale,
+                 pitchY90.w[2] * lengthScale};
   transform.o = {0.0f, 0.0f, 0.0f};
   return transform;
 }
@@ -2017,19 +2035,13 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.uuid = GenerateUuid();
           pipeObject.layer =
               layerByType ? ("obj " + posName) : ("pos " + posName);
-          std::string lengthLabel = formatLength(pipeLengthMm);
-          pipeObject.name = model.empty() ? ("PIPE " + lengthLabel)
-                                          : ("PIPE " + model + " " + lengthLabel);
-          pipeObject.transform.u = {pipeLengthMm / primitiveCylinderHeightMm, 0.0f,
-                                    0.0f};
-          pipeObject.transform.v = {0.0f, pipeDiameterMm / primitiveCylinderHeightMm,
-                                    0.0f};
-          pipeObject.transform.w = {0.0f, 0.0f, pipeDiameterMm / primitiveCylinderHeightMm};
+          pipeObject.name = "PIPE " + posName;
+          pipeObject.transform = BuildPipeObjectTransform(
+              pipeLengthMm, pipeDiameterMm, primitiveCylinderHeightMm);
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
-          pipeObject.geometries.push_back(
-              {kPrimitiveCylinderToken, BuildCylinderAxisXLocalTransform()});
+          pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
 
           importedPipeSpans.push_back({posName, startX, startX + pipeLengthMm, hangY,
                                        hangZ});
@@ -2148,18 +2160,13 @@ bool RiderImporter::ImportText(const std::string &text) {
             SceneObject pipeObject;
             pipeObject.uuid = GenerateUuid();
             pipeObject.layer = layerByType ? ("obj " + posName) : ("pos " + posName);
-            pipeObject.name = model.empty() ? "PIPE 14M" : ("PIPE " + model + " 14M");
-            pipeObject.transform.u = {defaultPipeLengthMm / primitiveCylinderHeightMm,
-                                      0.0f, 0.0f};
-            pipeObject.transform.v = {0.0f, pipeDiameterMm / primitiveCylinderHeightMm,
-                                      0.0f};
-            pipeObject.transform.w = {
-                0.0f, 0.0f, pipeDiameterMm / primitiveCylinderHeightMm};
+            pipeObject.name = "PIPE " + posName;
+            pipeObject.transform = BuildPipeObjectTransform(
+                defaultPipeLengthMm, pipeDiameterMm, primitiveCylinderHeightMm);
             pipeObject.transform.o[0] = startX + 0.5f * defaultPipeLengthMm;
             pipeObject.transform.o[1] = hangY;
             pipeObject.transform.o[2] = hangZ;
-            pipeObject.geometries.push_back(
-                {kPrimitiveCylinderToken, BuildCylinderAxisXLocalTransform()});
+            pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
             scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
             addToLayer(pipeObject.layer, pipeObject.uuid);
             importedPipeSpans.push_back(
@@ -2371,26 +2378,13 @@ bool RiderImporter::ImportText(const std::string &text) {
           SceneObject pipeObject;
           pipeObject.uuid = GenerateUuid();
           pipeObject.layer = layerByType ? ("obj " + hang) : ("pos " + hang);
-          {
-            std::ostringstream label;
-            label << std::fixed << std::setprecision(2) << (length / 1000.0f);
-            std::string lengthText = label.str();
-            lengthText.erase(lengthText.find_last_not_of('0') + 1,
-                             std::string::npos);
-            if (!lengthText.empty() && lengthText.back() == '.')
-              lengthText.pop_back();
-            pipeObject.name = "PIPE " + lengthText + "M";
-          }
-          pipeObject.transform.u = {pipeLengthMm / primitiveCylinderHeightMm, 0.0f,
-                                    0.0f};
-          pipeObject.transform.v = {0.0f, pipeDiameterMm / primitiveCylinderHeightMm,
-                                    0.0f};
-          pipeObject.transform.w = {0.0f, 0.0f, pipeDiameterMm / primitiveCylinderHeightMm};
+          pipeObject.name = "PIPE " + hang;
+          pipeObject.transform = BuildPipeObjectTransform(
+              pipeLengthMm, pipeDiameterMm, primitiveCylinderHeightMm);
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
-          pipeObject.geometries.push_back(
-              {kPrimitiveCylinderToken, BuildCylinderAxisXLocalTransform()});
+          pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
           scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
           addToLayer(pipeObject.layer, pipeObject.uuid);
           importedPipeSpans.push_back({hang, startX, startX + pipeLengthMm, hangY, hangZ});
