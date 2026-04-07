@@ -104,6 +104,17 @@ target_include_directories(gdtf_fixture_category_test PRIVATE ../core)
 target_link_libraries(gdtf_fixture_category_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfFixtureCategoryFallback COMMAND gdtf_fixture_category_test)
 
+add_executable(gdtf_dictionary_color_roundtrip_test
+               gdtf_dictionary_color_roundtrip_test.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/projectutils.cpp
+               ../core/logger.cpp)
+target_include_directories(gdtf_dictionary_color_roundtrip_test PRIVATE
+                           . ../core ../third_party)
+target_link_libraries(gdtf_dictionary_color_roundtrip_test PRIVATE
+                      ${wxWidgets_LIBRARIES})
+add_test(NAME GdtfDictionaryColorRoundtrip COMMAND gdtf_dictionary_color_roundtrip_test)
+
 add_executable(layout_template_serializer_test
                layout_template_serializer_test.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp)
