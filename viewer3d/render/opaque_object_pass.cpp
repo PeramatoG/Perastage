@@ -24,6 +24,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <iomanip>
+#include <sstream>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -84,6 +87,23 @@ bool IsScreenSceneObject(const SceneObject &object) {
          lowerName.find("pantalla") != std::string::npos;
 }
 
+bool CanUseAffineSymbolInstance(const Matrix &transform, Viewer2DView view) {
+  constexpr float kEpsilon = 1e-4f;
+  switch (view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    return std::abs(transform.w[0]) <= kEpsilon &&
+           std::abs(transform.w[1]) <= kEpsilon;
+  case Viewer2DView::Front:
+    return std::abs(transform.v[0]) <= kEpsilon &&
+           std::abs(transform.v[2]) <= kEpsilon;
+  case Viewer2DView::Side:
+    return std::abs(transform.u[1]) <= kEpsilon &&
+           std::abs(transform.u[2]) <= kEpsilon;
+  }
+  return false;
+}
+
 const Mesh *TryGetPrimitiveSceneObjectMesh(const std::string &modelRef) {
   constexpr std::string_view prefix = "primitive:";
   if (modelRef.rfind(prefix.data(), 0) != 0)
@@ -105,6 +125,40 @@ const Mesh *TryGetPrimitiveSceneObjectMesh(const std::string &modelRef) {
       cache.emplace(primitiveType, std::move(mesh));
   (void)inserted;
   return &insertedIt->second;
+}
+
+std::string BuildSceneObjectSymbolSignature(
+    const SceneObject &object,
+    const std::vector<std::pair<std::string, Matrix>> &meshParts) {
+  std::ostringstream signature;
+  signature << std::fixed << std::setprecision(6);
+
+  if (!meshParts.empty()) {
+    signature << "parts:" << meshParts.size();
+    for (const auto &part : meshParts) {
+      signature << '|';
+      if (!part.first.empty())
+        signature << part.first;
+      else
+        signature << "<unnamed>";
+
+      const Matrix &m = part.second;
+      signature << "@" << m.u[0] << ',' << m.u[1] << ',' << m.u[2] << ';'
+                << m.v[0] << ',' << m.v[1] << ',' << m.v[2] << ';' << m.w[0]
+                << ',' << m.w[1] << ',' << m.w[2] << ';' << m.o[0] << ','
+                << m.o[1] << ',' << m.o[2];
+    }
+    return signature.str();
+  }
+
+  if (!object.modelFile.empty()) {
+    signature << "model:" << NormalizeModelKey(object.modelFile);
+    return signature.str();
+  }
+
+  signature << "fallback:";
+  signature << (IsPipeSceneObject(object) ? "pipe-cylinder" : "cube");
+  return signature.str();
 }
 
 } // namespace
@@ -327,16 +381,16 @@ void OpaqueObjectPass::Render(
           captureView == Viewer2DView::Top ||
           captureView == Viewer2DView::Front ||
           captureView == Viewer2DView::Side) &&
+         CanUseAffineSymbolInstance(captureTransform, captureView) &&
          !highlight && !selected);
     bool placedInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
-      std::string modelKey;
-      if (!objectMeshParts.empty())
-        modelKey = objectMeshParts.front().modelKey;
-      else if (!m.modelFile.empty())
-        modelKey = NormalizeModelKey(m.modelFile);
-      if (modelKey.empty() && !m.name.empty())
-        modelKey = m.name;
+      std::vector<std::pair<std::string, Matrix>> symbolMeshParts;
+      symbolMeshParts.reserve(objectMeshParts.size());
+      for (const auto &part : objectMeshParts)
+        symbolMeshParts.emplace_back(part.modelKey, part.localTransform);
+      const std::string modelKey =
+          BuildSceneObjectSymbolSignature(m, symbolMeshParts);
 
       if (!modelKey.empty()) {
         SymbolKey symbolKey;

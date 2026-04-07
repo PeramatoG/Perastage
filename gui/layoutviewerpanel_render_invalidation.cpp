@@ -31,13 +31,70 @@ void HashCombineFloat(size_t &seed, float value) {
   HashCombine(seed, std::hash<float>{}(value));
 }
 
-template <typename TMap>
-size_t HashSceneUuidMap(const TMap &items) {
+size_t HashMatrixValue(const Matrix &matrix) {
+  size_t hash = 0;
+  HashCombineFloat(hash, matrix.u[0]);
+  HashCombineFloat(hash, matrix.u[1]);
+  HashCombineFloat(hash, matrix.u[2]);
+  HashCombineFloat(hash, matrix.v[0]);
+  HashCombineFloat(hash, matrix.v[1]);
+  HashCombineFloat(hash, matrix.v[2]);
+  HashCombineFloat(hash, matrix.w[0]);
+  HashCombineFloat(hash, matrix.w[1]);
+  HashCombineFloat(hash, matrix.w[2]);
+  HashCombineFloat(hash, matrix.o[0]);
+  HashCombineFloat(hash, matrix.o[1]);
+  HashCombineFloat(hash, matrix.o[2]);
+  return hash;
+}
+
+size_t HashSceneObjectValue(const SceneObject &object) {
+  size_t hash = std::hash<std::string>{}(object.layer);
+  HashCombine(hash, std::hash<std::string>{}(object.name));
+  HashCombine(hash, std::hash<std::string>{}(object.modelFile));
+  HashCombine(hash, HashMatrixValue(object.transform));
+  HashCombine(hash, std::hash<size_t>{}(object.geometries.size()));
+  for (const auto &geometry : object.geometries) {
+    HashCombine(hash, std::hash<std::string>{}(geometry.modelFile));
+    HashCombine(hash, HashMatrixValue(geometry.localTransform));
+  }
+  return hash;
+}
+
+size_t HashFixtureValue(const Fixture &fixture) {
+  size_t hash = std::hash<std::string>{}(fixture.layer);
+  HashCombine(hash, std::hash<std::string>{}(fixture.instanceName));
+  HashCombine(hash, std::hash<std::string>{}(fixture.typeName));
+  HashCombine(hash, std::hash<std::string>{}(fixture.gdtfSpec));
+  HashCombine(hash, std::hash<std::string>{}(fixture.gdtfMode));
+  HashCombine(hash, std::hash<std::string>{}(fixture.color));
+  HashCombine(hash, HashMatrixValue(fixture.transform));
+  return hash;
+}
+
+size_t HashTrussValue(const Truss &truss) {
+  size_t hash = std::hash<std::string>{}(truss.layer);
+  HashCombine(hash, std::hash<std::string>{}(truss.name));
+  HashCombine(hash, std::hash<std::string>{}(truss.symbolFile));
+  HashCombine(hash, std::hash<std::string>{}(truss.modelFile));
+  HashCombine(hash, HashMatrixValue(truss.transform));
+  return hash;
+}
+
+size_t HashSupportValue(const Support &support) {
+  size_t hash = std::hash<std::string>{}(support.layer);
+  HashCombine(hash, std::hash<std::string>{}(support.name));
+  HashCombine(hash, std::hash<std::string>{}(support.hoistFunction));
+  HashCombine(hash, HashMatrixValue(support.transform));
+  return hash;
+}
+
+template <typename TMap, typename ValueHasher>
+size_t HashSceneMapWithValues(const TMap &items, ValueHasher hasher) {
   size_t aggregate = std::hash<size_t>{}(items.size());
-  const std::hash<std::string> strHasher;
   for (const auto &[uuid, value] : items) {
-    (void)value;
-    const size_t entryHash = strHasher(uuid);
+    size_t entryHash = std::hash<std::string>{}(uuid);
+    HashCombine(entryHash, hasher(value));
     aggregate ^= entryHash + 0x9e3779b9 + (aggregate << 6) + (aggregate >> 2);
   }
   return aggregate;
@@ -47,10 +104,10 @@ size_t HashSceneUuidMap(const TMap &items) {
 size_t LayoutViewerPanel::ComputeSceneContentHash() const {
   const auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
   size_t hash = 0;
-  HashCombine(hash, HashSceneUuidMap(scene.fixtures));
-  HashCombine(hash, HashSceneUuidMap(scene.trusses));
-  HashCombine(hash, HashSceneUuidMap(scene.sceneObjects));
-  HashCombine(hash, HashSceneUuidMap(scene.supports));
+  HashCombine(hash, HashSceneMapWithValues(scene.fixtures, HashFixtureValue));
+  HashCombine(hash, HashSceneMapWithValues(scene.trusses, HashTrussValue));
+  HashCombine(hash, HashSceneMapWithValues(scene.sceneObjects, HashSceneObjectValue));
+  HashCombine(hash, HashSceneMapWithValues(scene.supports, HashSupportValue));
   return hash;
 }
 
