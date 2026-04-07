@@ -120,6 +120,7 @@ void OpaqueObjectPass::Render(
   const Viewer2DView captureView = context.view;
   const bool drawRealTopInTopView =
       context.is2DViewer && captureView == Viewer2DView::Top;
+  const bool disableDepthBiasFor2DViewer = context.is2DViewer;
 
   const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
 
@@ -251,6 +252,8 @@ void OpaqueObjectPass::Render(
             bool isHighlighted, bool isSelected) {
           const bool disableDepthBiasForScreen =
               IsScreenSceneObject(m) && !isHighlighted && !isSelected;
+          const bool disableDepthBias =
+              disableDepthBiasFor2DViewer || disableDepthBiasForScreen;
           if (!objectMeshParts.empty()) {
             const bool reversePartOrder = drawRealTopInTopView;
             for (size_t offset = 0; offset < objectMeshParts.size(); ++offset) {
@@ -295,7 +298,7 @@ void OpaqueObjectPass::Render(
                                              cz, wireframe, mode,
                                              partCaptureTransform, false,
                                              partMatrix,
-                                             disableDepthBiasForScreen);
+                                             disableDepthBias);
               glPopMatrix();
             }
           } else {
@@ -314,7 +317,7 @@ void OpaqueObjectPass::Render(
                 fallbackMesh, r, g, b, 0.3f, isHighlighted, isSelected, cx, cy,
                 cz, fallbackWireframe, mode, captureTransformFn,
                 useUnlitFallbackFill, matrix,
-                disableDepthBiasForScreen);
+                disableDepthBias);
           }
         };
 

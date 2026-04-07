@@ -33,6 +33,7 @@ void OpaqueTrussPass::Render(
   const Viewer2DRenderMode mode = context.mode;
   const bool skipCapture = context.skipCapture;
   const Viewer2DView captureView = context.view;
+  const bool disableDepthBias = context.is2DViewer;
 
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
 
@@ -133,7 +134,8 @@ void OpaqueTrussPass::Render(
             controller.DrawMeshWithOutline(*trussMesh, r, g, b, RENDER_SCALE,
                                            isHighlighted, isSelected, cx, cy,
                                            cz, wireframe, mode,
-                                           captureTransformFn, false, matrix);
+                                           captureTransformFn, false, matrix,
+                                           disableDepthBias);
           } else {
             controller.DrawWireframeBox(trussLen, trussHei, trussWid,
                                         isHighlighted, isSelected, wireframe,
