@@ -110,6 +110,8 @@ struct Viewer3DController::Impl {
   std::unordered_set<std::string> lastHiddenLayers;
   size_t hiddenLayersVersion = 0;
   bool sortedListsDirty = true;
+  bool sortedListsLastWas2D = false;
+  Viewer2DView sortedListsLastView = Viewer2DView::Top;
   mutable std::mutex sortedListsMutex;
   std::unordered_map<std::string, std::array<float, 3>> typeColors;
   std::unordered_map<std::string, std::array<float, 3>> layerColors;
@@ -1090,14 +1092,35 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
 
     std::lock_guard<std::mutex> lock(m_impl->sortedListsMutex);
     bool rebuiltSortedLists = false;
-    if (m_impl->sortedListsDirty && !context.skipOptionalWork) {
+    const bool viewSortChanged =
+        m_impl->sortedListsLastWas2D != context.is2DViewer ||
+        (context.is2DViewer && m_impl->sortedListsLastView != context.view);
+    if ((m_impl->sortedListsDirty || viewSortChanged) &&
+        !context.skipOptionalWork) {
+      const auto sortDepthKey = [&](const Matrix &transform) {
+        if (!context.is2DViewer)
+          return transform.o[2];
+        switch (context.view) {
+        case Viewer2DView::Top:
+          return transform.o[2];
+        case Viewer2DView::Bottom:
+          return -transform.o[2];
+        case Viewer2DView::Front:
+          return -transform.o[1];
+        case Viewer2DView::Side:
+          return -transform.o[0];
+        default:
+          return transform.o[2];
+        }
+      };
       m_impl->sortedObjects.clear();
       m_impl->sortedObjects.reserve(sceneObjects.size());
       for (const auto &obj : sceneObjects)
         m_impl->sortedObjects.push_back(&obj);
       std::sort(m_impl->sortedObjects.begin(), m_impl->sortedObjects.end(),
-                [](const auto *a, const auto *b) {
-                  return a->second.transform.o[2] < b->second.transform.o[2];
+                [&](const auto *a, const auto *b) {
+                  return sortDepthKey(a->second.transform) <
+                         sortDepthKey(b->second.transform);
                 });
 
       m_impl->sortedTrusses.clear();
@@ -1105,8 +1128,9 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
       for (const auto &t : trusses)
         m_impl->sortedTrusses.push_back(&t);
       std::sort(m_impl->sortedTrusses.begin(), m_impl->sortedTrusses.end(),
-                [](const auto *a, const auto *b) {
-                  return a->second.transform.o[2] < b->second.transform.o[2];
+                [&](const auto *a, const auto *b) {
+                  return sortDepthKey(a->second.transform) <
+                         sortDepthKey(b->second.transform);
                 });
 
       m_impl->sortedFixtures.clear();
@@ -1114,10 +1138,13 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
       for (const auto &f : fixtures)
         m_impl->sortedFixtures.push_back(&f);
       std::sort(m_impl->sortedFixtures.begin(), m_impl->sortedFixtures.end(),
-                [](const auto *a, const auto *b) {
-                  return a->second.transform.o[2] < b->second.transform.o[2];
+                [&](const auto *a, const auto *b) {
+                  return sortDepthKey(a->second.transform) <
+                         sortDepthKey(b->second.transform);
                 });
 
+      m_impl->sortedListsLastWas2D = context.is2DViewer;
+      m_impl->sortedListsLastView = context.view;
       m_impl->sortedListsDirty = false;
       rebuiltSortedLists = true;
     }
@@ -1129,6 +1156,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
       // empty until a full scene reload increments sceneVersion.
       m_impl->layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
     }
+
   }
 
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
@@ -1654,10 +1682,11 @@ void Viewer3DController::DrawMeshWithOutline(
     Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform,
-    bool unlit, const float *modelMatrix) {
+    bool unlit, const float *modelMatrix, bool disableDepthBias) {
   m_impl->sceneRenderer->DrawMeshWithOutline(mesh, r, g, b, scale, highlight,
                                        selected, cx, cy, cz, wireframe, mode,
-                                       captureTransform, unlit, modelMatrix);
+                                       captureTransform, unlit, modelMatrix,
+                                       disableDepthBias);
 }
 
 void Viewer3DController::DrawMeshWireframe(

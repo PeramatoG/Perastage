@@ -35,10 +35,12 @@ int main() {
     assert(scene.sceneObjects.size() == 1);
 
     const SceneObject &screen = scene.sceneObjects.begin()->second;
+    assert(screen.geometries.size() == 1);
+    const Matrix &screenScale = screen.geometries.front().localTransform;
     constexpr float kTolerance = 1e-3f;
-    assert(std::fabs(screen.transform.u[0] - (8.0f / 0.3f)) < kTolerance);
-    assert(std::fabs(screen.transform.v[1] - (0.1f / 0.3f)) < kTolerance);
-    assert(std::fabs(screen.transform.w[2] - (5.0f / 0.3f)) < kTolerance);
+    assert(std::fabs(screenScale.u[0] - (8.0f / 0.3f)) < kTolerance);
+    assert(std::fabs(screenScale.v[1] - (0.1f / 0.3f)) < kTolerance);
+    assert(std::fabs(screenScale.w[2] - (5.0f / 0.3f)) < kTolerance);
     assert(screen.transform.o[0] > -kTolerance);
     assert(screen.transform.o[0] < kTolerance);
 
@@ -65,10 +67,13 @@ int main() {
   assert(projectionAliasScene.sceneObjects.size() == 1);
   const SceneObject &projectionAliasScreen =
       projectionAliasScene.sceneObjects.begin()->second;
+  assert(projectionAliasScreen.geometries.size() == 1);
+  const Matrix &projectionAliasScale =
+      projectionAliasScreen.geometries.front().localTransform;
   constexpr float kTolerance = 1e-3f;
-  assert(std::fabs(projectionAliasScreen.transform.u[0] - (8.0f / 0.3f)) <
+  assert(std::fabs(projectionAliasScale.u[0] - (8.0f / 0.3f)) <
          kTolerance);
-  assert(std::fabs(projectionAliasScreen.transform.w[2] - (4.5f / 0.3f)) <
+  assert(std::fabs(projectionAliasScale.w[2] - (4.5f / 0.3f)) <
          kTolerance);
 
   return 0;

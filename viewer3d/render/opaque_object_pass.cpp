@@ -74,6 +74,16 @@ bool IsPipeSceneObject(const SceneObject &object) {
   return upperName.rfind("PIPE", 0) == 0;
 }
 
+bool IsScreenSceneObject(const SceneObject &object) {
+  std::string lowerName = object.name;
+  std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
+                 [](unsigned char c) {
+                   return static_cast<char>(std::tolower(c));
+                 });
+  return lowerName.find("screen") != std::string::npos ||
+         lowerName.find("pantalla") != std::string::npos;
+}
+
 const Mesh *TryGetPrimitiveSceneObjectMesh(const std::string &modelRef) {
   constexpr std::string_view prefix = "primitive:";
   if (modelRef.rfind(prefix.data(), 0) != 0)
@@ -110,6 +120,7 @@ void OpaqueObjectPass::Render(
   const Viewer2DView captureView = context.view;
   const bool drawRealTopInTopView =
       context.is2DViewer && captureView == Viewer2DView::Top;
+  const bool disableDepthBiasFor2DViewer = context.is2DViewer;
 
   const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
 
@@ -239,6 +250,10 @@ void OpaqueObjectPass::Render(
         [&](const std::function<std::array<float, 3>(
                 const std::array<float, 3> &)> &captureTransformFn,
             bool isHighlighted, bool isSelected) {
+          const bool disableDepthBiasForScreen =
+              IsScreenSceneObject(m) && !isHighlighted && !isSelected;
+          const bool disableDepthBias =
+              disableDepthBiasFor2DViewer || disableDepthBiasForScreen;
           if (!objectMeshParts.empty()) {
             const bool reversePartOrder = drawRealTopInTopView;
             for (size_t offset = 0; offset < objectMeshParts.size(); ++offset) {
@@ -282,7 +297,8 @@ void OpaqueObjectPass::Render(
                                              isHighlighted, isSelected, cx, cy,
                                              cz, wireframe, mode,
                                              partCaptureTransform, false,
-                                             partMatrix);
+                                             partMatrix,
+                                             disableDepthBias);
               glPopMatrix();
             }
           } else {
@@ -300,7 +316,8 @@ void OpaqueObjectPass::Render(
             controller.DrawMeshWithOutline(
                 fallbackMesh, r, g, b, 0.3f, isHighlighted, isSelected, cx, cy,
                 cz, fallbackWireframe, mode, captureTransformFn,
-                useUnlitFallbackFill, matrix);
+                useUnlitFallbackFill, matrix,
+                disableDepthBias);
           }
         };
 

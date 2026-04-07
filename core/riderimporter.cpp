@@ -2772,16 +2772,14 @@ bool RiderImporter::ImportText(const std::string &text) {
     screenObject.uuid = GenerateUuid();
     screenObject.name = request.name;
     screenObject.layer = request.layer;
-    screenObject.transform.u = {
-        request.widthMm / 1000.0f, 0.0f, 0.0f};
-    screenObject.transform.v = {
-        0.0f, kScreenThicknessMm / 1000.0f, 0.0f};
-    screenObject.transform.w = {
-        0.0f, 0.0f, request.heightMm / 1000.0f};
     screenObject.transform.o[0] = centerX;
     screenObject.transform.o[1] = centerY;
     screenObject.transform.o[2] = centerZ;
-    screenObject.geometries.push_back({kPrimitiveCubeToken, Matrix{}});
+    Matrix screenGeometryScale;
+    screenGeometryScale.u = {request.widthMm / 1000.0f, 0.0f, 0.0f};
+    screenGeometryScale.v = {0.0f, kScreenThicknessMm / 1000.0f, 0.0f};
+    screenGeometryScale.w = {0.0f, 0.0f, request.heightMm / 1000.0f};
+    screenObject.geometries.push_back({kPrimitiveCubeToken, screenGeometryScale});
     scene.sceneObjects[screenObject.uuid] = screenObject;
     addToLayer(screenObject.layer, screenObject.uuid);
   }
