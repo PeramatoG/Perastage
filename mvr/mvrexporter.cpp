@@ -2297,7 +2297,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
         std::string primitiveToken;
         if (mvr::ResolvePrimitiveTokenFromModelRef(geo.modelFile, primitiveToken)) {
-          primitiveGeometryModelRefs.emplace_back(modelArchivePath, geo.modelFile);
+          // Persist the effective model reference used for Geometry3D so a
+          // roundtrip keeps axis overrides (for example, legacy pipe cylinder
+          // normalization to axis=x) aligned with the stored matrices.
+          primitiveGeometryModelRefs.emplace_back(modelArchivePath, modelRef);
         }
 
         std::string geoMatrixText = MatrixUtils::FormatMatrix(geoMatrixToWrite);
