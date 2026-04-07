@@ -2017,8 +2017,7 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.uuid = GenerateUuid();
           pipeObject.layer =
               layerByType ? ("obj " + posName) : ("pos " + posName);
-          pipeObject.name = model.empty() ? ("PIPE " + posName)
-                                          : ("PIPE " + model + " " + posName);
+          pipeObject.name = "PIPE " + posName;
           pipeObject.transform.u = {pipeDiameterMm / primitiveCylinderHeightMm, 0.0f,
                                     0.0f};
           pipeObject.transform.v = {0.0f, pipeDiameterMm / primitiveCylinderHeightMm,
@@ -2147,8 +2146,7 @@ bool RiderImporter::ImportText(const std::string &text) {
             SceneObject pipeObject;
             pipeObject.uuid = GenerateUuid();
             pipeObject.layer = layerByType ? ("obj " + posName) : ("pos " + posName);
-            pipeObject.name = model.empty() ? ("PIPE " + posName)
-                                            : ("PIPE " + model + " " + posName);
+            pipeObject.name = "PIPE " + posName;
             pipeObject.transform.u = {pipeDiameterMm / primitiveCylinderHeightMm,
                                       0.0f, 0.0f};
             pipeObject.transform.v = {0.0f, pipeDiameterMm / primitiveCylinderHeightMm,
@@ -2371,8 +2369,7 @@ bool RiderImporter::ImportText(const std::string &text) {
           SceneObject pipeObject;
           pipeObject.uuid = GenerateUuid();
           pipeObject.layer = layerByType ? ("obj " + hang) : ("pos " + hang);
-          pipeObject.name = model.empty() ? ("PIPE " + hang)
-                                          : ("PIPE " + model + " " + hang);
+          pipeObject.name = "PIPE " + hang;
           pipeObject.transform.u = {pipeDiameterMm / primitiveCylinderHeightMm, 0.0f,
                                     0.0f};
           pipeObject.transform.v = {0.0f, pipeDiameterMm / primitiveCylinderHeightMm,

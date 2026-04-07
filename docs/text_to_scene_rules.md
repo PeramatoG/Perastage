@@ -239,9 +239,8 @@ Pipe-specific behavior:
    - Transform path matches regular primitive cylinders (diameter/diameter/length
      scaling) and then applies a `+90°` rotation on `Y`, so the final pipe axis
      is parallel to `X`.
-   - Pipe object names use hang naming, not length naming:
-     - no-model case: `PIPE <hang>` (for example `PIPE LX1`),
-     - model case: `PIPE <model> <hang>`.
+   - Pipe object names use hang naming, not length naming: `PIPE <hang>`
+     (for example `PIPE LX1`).
 3. Pipe lines still create/target the same normalized hang names (`LX1`, `LX2`, ...),
    including `PUENTES LX` expansion to `LX1..LXN`.
 4. Pipes do not carry truss hang-weight fields; fixtures still keep their hang
