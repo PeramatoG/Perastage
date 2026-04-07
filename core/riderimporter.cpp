@@ -2036,12 +2036,14 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.layer =
               layerByType ? ("obj " + posName) : ("pos " + posName);
           pipeObject.name = "PIPE " + posName;
-          pipeObject.transform = BuildPipeObjectTransform(
-              pipeLengthMm, pipeDiameterMm, primitiveCylinderHeightMm);
+          pipeObject.transform = MatrixUtils::Identity();
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
-          pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
+          pipeObject.geometries.push_back(
+              {kPrimitiveCylinderToken,
+               BuildPipeObjectTransform(pipeLengthMm, pipeDiameterMm,
+                                        primitiveCylinderHeightMm)});
 
           importedPipeSpans.push_back({posName, startX, startX + pipeLengthMm, hangY,
                                        hangZ});
@@ -2161,12 +2163,14 @@ bool RiderImporter::ImportText(const std::string &text) {
             pipeObject.uuid = GenerateUuid();
             pipeObject.layer = layerByType ? ("obj " + posName) : ("pos " + posName);
             pipeObject.name = "PIPE " + posName;
-            pipeObject.transform = BuildPipeObjectTransform(
-                defaultPipeLengthMm, pipeDiameterMm, primitiveCylinderHeightMm);
+            pipeObject.transform = MatrixUtils::Identity();
             pipeObject.transform.o[0] = startX + 0.5f * defaultPipeLengthMm;
             pipeObject.transform.o[1] = hangY;
             pipeObject.transform.o[2] = hangZ;
-            pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
+            pipeObject.geometries.push_back(
+                {kPrimitiveCylinderToken,
+                 BuildPipeObjectTransform(defaultPipeLengthMm, pipeDiameterMm,
+                                          primitiveCylinderHeightMm)});
             scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
             addToLayer(pipeObject.layer, pipeObject.uuid);
             importedPipeSpans.push_back(
@@ -2379,12 +2383,14 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.uuid = GenerateUuid();
           pipeObject.layer = layerByType ? ("obj " + hang) : ("pos " + hang);
           pipeObject.name = "PIPE " + hang;
-          pipeObject.transform = BuildPipeObjectTransform(
-              pipeLengthMm, pipeDiameterMm, primitiveCylinderHeightMm);
+          pipeObject.transform = MatrixUtils::Identity();
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
-          pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
+          pipeObject.geometries.push_back(
+              {kPrimitiveCylinderToken,
+               BuildPipeObjectTransform(pipeLengthMm, pipeDiameterMm,
+                                        primitiveCylinderHeightMm)});
           scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
           addToLayer(pipeObject.layer, pipeObject.uuid);
           importedPipeSpans.push_back({hang, startX, startX + pipeLengthMm, hangY, hangZ});

@@ -239,9 +239,10 @@ Pipe-specific behavior:
    - Import stores a cylinder primitive geometry reference on the object so the
      3D view renders the pipe directly as a cylinder (not only as a generic
      meshless fallback box).
-   - Transform path matches regular primitive cylinders (diameter/diameter/length
-     scaling) and then applies a `+90°` rotation on `Y`, so the final pipe axis
-     is parallel to `X`.
+   - Transform path matches regular primitive cylinders: pipe proportions and
+     `+90°` `Y` rotation are stored in `SceneObject.geometries[].localTransform`
+     (same primitive route used by cylinder objects), while
+     `SceneObject.transform` keeps world position.
    - Pipe object names use hang naming, not length naming: `PIPE <hang>`
      (for example `PIPE LX1`).
 3. Pipe lines still create/target the same normalized hang names (`LX1`, `LX2`, ...),
