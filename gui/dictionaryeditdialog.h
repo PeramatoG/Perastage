@@ -43,6 +43,7 @@ private:
   void ShowDictionaryLoadStatusMessages();
   bool IsFixturesPage() const;
   void UpdateFixtureCategoryForFile(int row, const std::string &category);
+  void UpdateFixtureColorForFileAndMode(int row, const std::string &colorHex);
   void OnFixtureTableMouseMove(wxMouseEvent &event);
   void OnFixtureTableMouseLeave(wxMouseEvent &event);
   void OnTrussTableMouseMove(wxMouseEvent &event);
