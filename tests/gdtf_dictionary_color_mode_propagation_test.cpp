@@ -77,6 +77,17 @@ int main() {
   assert(dictAfterEntryMode.at("TypeC").color == "#FEDCBA");
   assert(dictAfterEntryMode.at("TypeB").color == "#000002");
 
+  GdtfDictionary::UpdateColorForFile("TypeNotInDictionary", fixtureFile.string(),
+                                     "mode_a", "#123456");
+
+  auto dictAfterNewTypeOpt = GdtfDictionary::Load();
+  assert(dictAfterNewTypeOpt.has_value());
+  const auto &dictAfterNewType = *dictAfterNewTypeOpt;
+  assert(dictAfterNewType.at("TypeA").color == "#123456");
+  assert(dictAfterNewType.at("TypeC").color == "#123456");
+  assert(dictAfterNewType.at("TypeB").color == "#000002");
+  assert(dictAfterNewType.at("TypeNotInDictionary").color == "#123456");
+
   std::filesystem::remove(fixtureFile);
   if (hadOriginal)
     WriteFile(dictPath, originalContent);
