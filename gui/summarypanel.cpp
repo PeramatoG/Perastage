@@ -19,7 +19,6 @@
 #include "colorstore.h"
 #include "configmanager.h"
 #include "fixturetablepanel.h"
-#include "gdtfdictionary.h"
 #include "guiconfigservices.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -399,13 +398,10 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
     const std::string typeName = table->GetTextValue(row, 2).ToStdString();
     auto& colorCfg = (*colorConfigManager);
     auto& fixtures = colorCfg.GetScene().fixtures;
-    std::string typeGdtfSpec;
 
     wxColourData data;
     for (const auto& [uuid, fixture] : fixtures) {
         (void)uuid;
-        if (fixture.typeName == typeName && typeGdtfSpec.empty())
-            typeGdtfSpec = fixture.gdtfSpec;
         if (fixture.typeName == typeName && !fixture.color.empty()) {
             data.SetColour(wxColour(wxString::FromUTF8(fixture.color)));
             break;
@@ -419,13 +415,12 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
     const wxColour color = dlg.GetColourData().GetColour();
     const std::string hex = wxString::Format("#%02X%02X%02X", color.Red(), color.Green(),
                                              color.Blue()).ToStdString();
-    colorCfg.PushUndoState("change fixture type color from summary");
+    colorCfg.PushUndoState("change fixture type color in project from summary");
     for (auto& [uuid, fixture] : fixtures) {
         (void)uuid;
         if (fixture.typeName == typeName)
             fixture.color = hex;
     }
-    GdtfDictionary::UpdateColorForFile(typeName, typeGdtfSpec, hex);
 
     if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->ReloadData();
