@@ -7,22 +7,24 @@
 #include "uuidutils.h"
 
 #include <chrono>
+#include <cmath>
 #include <string>
 
 #include <wx/string.h>
 
 namespace scene_object_primitives {
 namespace {
+constexpr const char *kSceneObjectsLayerName = "3D Objects";
+constexpr double kCylinderRoundToleranceMeters = 1e-6;
 
-void EnsureCurrentLayerExists(MvrScene &scene, const std::string &layerName,
-                              long long baseId) {
+void EnsureCurrentLayerExists(MvrScene &scene, const std::string &layerName) {
   for (const auto &[uid, layer] : scene.layers) {
     if (layer.name == layerName)
       return;
   }
 
   Layer layer;
-  layer.uuid = wxString::Format("layer_%lld", baseId).ToStdString();
+  layer.uuid = GenerateUuid();
   layer.name = layerName;
   scene.layers[layer.uuid] = layer;
 }
@@ -55,9 +57,9 @@ void AddPrimitiveObjects(MvrScene &scene, const std::string &layerName,
 void AddSphereObjects(ConfigManager &cfg, const SphereRequest &request) {
   auto &scene = cfg.GetScene();
   const long long baseId = NextBaseId();
-  const std::string layerName = cfg.GetCurrentLayer();
+  const std::string layerName = kSceneObjectsLayerName;
 
-  EnsureCurrentLayerExists(scene, layerName, baseId);
+  EnsureCurrentLayerExists(scene, layerName);
   AddPrimitiveObjects(scene, layerName, "Sphere", "primitive:sphere",
                       BuildSphereScaleTransform(request.radiusMeters),
                       request.quantity, baseId);
@@ -66,9 +68,9 @@ void AddSphereObjects(ConfigManager &cfg, const SphereRequest &request) {
 void AddCubeObjects(ConfigManager &cfg, const CubeRequest &request) {
   auto &scene = cfg.GetScene();
   const long long baseId = NextBaseId();
-  const std::string layerName = cfg.GetCurrentLayer();
+  const std::string layerName = kSceneObjectsLayerName;
 
-  EnsureCurrentLayerExists(scene, layerName, baseId);
+  EnsureCurrentLayerExists(scene, layerName);
   AddPrimitiveObjects(scene, layerName, "Cube", "primitive:cube",
                       BuildCubeScaleTransform(request.lengthMeters,
                                               request.heightMeters,
@@ -79,14 +81,24 @@ void AddCubeObjects(ConfigManager &cfg, const CubeRequest &request) {
 void AddCylinderObjects(ConfigManager &cfg, const CylinderRequest &request) {
   auto &scene = cfg.GetScene();
   const long long baseId = NextBaseId();
-  const std::string layerName = cfg.GetCurrentLayer();
+  const std::string layerName = kSceneObjectsLayerName;
 
-  EnsureCurrentLayerExists(scene, layerName, baseId);
-  AddPrimitiveObjects(scene, layerName, "Cylinder",
-                      BuildCylinderPrimitiveToken(request.topRadiusMeters,
-                                                  request.bottomRadiusMeters,
-                                                  request.heightMeters),
-                      Matrix{}, request.quantity, baseId);
+  EnsureCurrentLayerExists(scene, layerName);
+  const bool isRoundCylinder =
+      std::fabs(request.topRadiusMeters - request.bottomRadiusMeters) <
+      kCylinderRoundToleranceMeters;
+  const std::string primitiveToken =
+      isRoundCylinder
+          ? "primitive:cylinder"
+          : BuildCylinderPrimitiveToken(request.topRadiusMeters,
+                                        request.bottomRadiusMeters,
+                                        request.heightMeters);
+  const Matrix localTransform =
+      isRoundCylinder
+          ? BuildCylinderScaleTransform(request.topRadiusMeters, request.heightMeters)
+          : Matrix{};
+  AddPrimitiveObjects(scene, layerName, "Cylinder", primitiveToken, localTransform,
+                      request.quantity, baseId);
 }
 
 } // namespace scene_object_primitives

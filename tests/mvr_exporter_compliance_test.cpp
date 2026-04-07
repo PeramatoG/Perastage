@@ -17,9 +17,11 @@
 #include <wx/zipstrm.h>
 
 #include "configmanager.h"
+#include "fixture.h"
+#include "matrixutils.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
-#include "fixture.h"
+#include "sceneobject.h"
 #include "truss.h"
 #include "support.h"
 #include "uuidutils.h"
@@ -251,6 +253,40 @@ int main() {
   sup.positionName = "SCREEN";
   scene.supports[sup.uuid] = sup;
 
+  SceneObject primitiveSphere;
+  primitiveSphere.uuid = "obj-sphere";
+  primitiveSphere.name = "Sphere";
+  primitiveSphere.modelFile = "primitive:sphere";
+  scene.sceneObjects[primitiveSphere.uuid] = primitiveSphere;
+
+  SceneObject primitivePipe;
+  primitivePipe.uuid = "obj-pipe";
+  primitivePipe.name = "Pipe";
+  primitivePipe.transform.u = {14.0f, 0.0f, 0.0f};
+  primitivePipe.transform.v = {0.0f, 0.05f, 0.0f};
+  primitivePipe.transform.w = {0.0f, 0.0f, 0.05f};
+  primitivePipe.transform.o = {0.0f, -2000.0f, 10000.0f};
+  GeometryInstance primitivePipeGeo;
+  primitivePipeGeo.modelFile = "primitive:cylinder";
+  primitivePipeGeo.localTransform.u = {0.0f, 0.0f, -1.0f};
+  primitivePipeGeo.localTransform.v = {0.0f, 1.0f, 0.0f};
+  primitivePipeGeo.localTransform.w = {1.0f, 0.0f, 0.0f};
+  primitivePipe.geometries.push_back(primitivePipeGeo);
+  scene.sceneObjects[primitivePipe.uuid] = primitivePipe;
+
+  SceneObject primitivePipeBaked = primitivePipe;
+  primitivePipeBaked.uuid = "obj-pipe-baked";
+  primitivePipeBaked.name = "Pipe Baked";
+  primitivePipeBaked.transform.u = {0.0f, 0.0f, -0.05f};
+  primitivePipeBaked.transform.v = {0.0f, 0.05f, 0.0f};
+  primitivePipeBaked.transform.w = {14.0f, 0.0f, 0.0f};
+  primitivePipeBaked.geometries.clear();
+  GeometryInstance primitivePipeBakedGeo;
+  primitivePipeBakedGeo.modelFile = "primitive:cylinder";
+  primitivePipeBakedGeo.localTransform = MatrixUtils::Identity();
+  primitivePipeBaked.geometries.push_back(primitivePipeBakedGeo);
+  scene.sceneObjects[primitivePipeBaked.uuid] = primitivePipeBaked;
+
   MvrExporter exporter;
   fs::path mvrPath = tempDir / "Test1.mvr";
   assert(exporter.ExportToFile(mvrPath.generic_string()));
@@ -283,6 +319,12 @@ int main() {
   bool sawAddress3073 = false;
   bool sawAddress3585 = false;
   bool sawNonNumericTrussNameFixtureIdConsistency = false;
+  bool sawPrimitiveSphereWithIdentityGeometryMatrix = false;
+  bool sawPrimitivePipeObjectMatrixUnbaked = false;
+  bool sawPrimitivePipeGeometryMatrixNormalized = false;
+  bool sawPrimitivePipeBakedMatrixCanonicalized = false;
+  bool sawPrimitivePipePositionPreserved = false;
+  bool sawPrimitivePipeBakedPositionPreserved = false;
   int mvrGeometryTrussCount = 0;
   int mvrGeometryTrussesWithGeometry3d = 0;
   int mvrGeometryTrussesWithRenderableGdtf = 0;
@@ -414,6 +456,86 @@ int main() {
     }
   }
 
+  for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
+       node = node->NextSiblingElement()) {
+    std::vector<tinyxml2::XMLElement *> stack{node};
+    while (!stack.empty()) {
+      tinyxml2::XMLElement *cur = stack.back();
+      stack.pop_back();
+      if (std::string(cur->Name()) == "SceneObject") {
+        const char *sceneObjectUuid = cur->Attribute("uuid");
+        auto *geometries = cur->FirstChildElement("Geometries");
+        if (sceneObjectUuid && geometries) {
+          if (std::string(sceneObjectUuid) == primitiveSphere.uuid) {
+            auto *g3d = geometries->FirstChildElement("Geometry3D");
+            assert(g3d != nullptr);
+            const char *fileName = g3d->Attribute("fileName");
+            assert(fileName != nullptr && std::string(fileName).find("sphere") != std::string::npos);
+            assert(mvrGeometryEntries.count(fileName) == 1);
+            auto *geoMatrix = g3d->FirstChildElement("Matrix");
+            assert(geoMatrix != nullptr && geoMatrix->GetText() != nullptr);
+            Matrix parsedGeoMatrix = MatrixUtils::Identity();
+            assert(MatrixUtils::ParseMatrix(geoMatrix->GetText(), parsedGeoMatrix));
+            const Matrix identity = MatrixUtils::Identity();
+            assert(parsedGeoMatrix.u == identity.u);
+            assert(parsedGeoMatrix.v == identity.v);
+            assert(parsedGeoMatrix.w == identity.w);
+            assert(parsedGeoMatrix.o == identity.o);
+            sawPrimitiveSphereWithIdentityGeometryMatrix = true;
+          }
+
+          if (std::string(sceneObjectUuid) == primitivePipe.uuid) {
+            auto *objMatrixNode = cur->FirstChildElement("Matrix");
+            assert(objMatrixNode != nullptr && objMatrixNode->GetText() != nullptr);
+            Matrix parsedObjMatrix = MatrixUtils::Identity();
+            assert(MatrixUtils::ParseMatrix(objMatrixNode->GetText(), parsedObjMatrix));
+            if (parsedObjMatrix.u == primitivePipe.transform.u &&
+                parsedObjMatrix.v == primitivePipe.transform.v &&
+                parsedObjMatrix.w == primitivePipe.transform.w) {
+              sawPrimitivePipeObjectMatrixUnbaked = true;
+            }
+            if (parsedObjMatrix.o == primitivePipe.transform.o) {
+              sawPrimitivePipePositionPreserved = true;
+            }
+
+            auto *g3d = geometries->FirstChildElement("Geometry3D");
+            assert(g3d != nullptr);
+            auto *geoMatrix = g3d->FirstChildElement("Matrix");
+            assert(geoMatrix != nullptr && geoMatrix->GetText() != nullptr);
+            Matrix parsedGeoMatrix = MatrixUtils::Identity();
+            assert(MatrixUtils::ParseMatrix(geoMatrix->GetText(), parsedGeoMatrix));
+            const Matrix identity = MatrixUtils::Identity();
+            if (parsedGeoMatrix.u == identity.u &&
+                parsedGeoMatrix.v == identity.v &&
+                parsedGeoMatrix.w == identity.w &&
+                parsedGeoMatrix.o == identity.o) {
+              sawPrimitivePipeGeometryMatrixNormalized = true;
+            }
+          }
+
+          if (std::string(sceneObjectUuid) == primitivePipeBaked.uuid) {
+            auto *objMatrixNode = cur->FirstChildElement("Matrix");
+            assert(objMatrixNode != nullptr && objMatrixNode->GetText() != nullptr);
+            Matrix parsedObjMatrix = MatrixUtils::Identity();
+            assert(MatrixUtils::ParseMatrix(objMatrixNode->GetText(), parsedObjMatrix));
+            if (parsedObjMatrix.u == primitivePipe.transform.u &&
+                parsedObjMatrix.v == primitivePipe.transform.v &&
+                parsedObjMatrix.w == primitivePipe.transform.w) {
+              sawPrimitivePipeBakedMatrixCanonicalized = true;
+            }
+            if (parsedObjMatrix.o == primitivePipe.transform.o) {
+              sawPrimitivePipeBakedPositionPreserved = true;
+            }
+          }
+        }
+      }
+      for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
+           child = child->NextSiblingElement()) {
+        stack.push_back(child);
+      }
+    }
+  }
+
   assert(gdtfCount.size() >= 2);
   assert(fixtureAddressCount == 5);
   assert(sawAddress1);
@@ -422,6 +544,12 @@ int main() {
   assert(sawAddress3073);
   assert(sawAddress3585);
   assert(sawNonNumericTrussNameFixtureIdConsistency);
+  assert(sawPrimitiveSphereWithIdentityGeometryMatrix);
+  assert(sawPrimitivePipeObjectMatrixUnbaked);
+  assert(sawPrimitivePipeGeometryMatrixNormalized);
+  assert(sawPrimitivePipeBakedMatrixCanonicalized);
+  assert(sawPrimitivePipePositionPreserved);
+  assert(sawPrimitivePipeBakedPositionPreserved);
   assert(mvrGeometryTrussCount == static_cast<int>(scene.trusses.size()));
   assert(mvrGeometryTrussesWithGeometry3d == mvrGeometryTrussCount);
   assert(mvrGeometryTrussesWithRenderableGdtf == mvrGeometryTrussCount);
@@ -433,6 +561,35 @@ int main() {
   tinyxml2::XMLElement *sceneNode = root->FirstChildElement("Scene");
   assert(sceneNode != nullptr);
   assert(sceneNode->FirstChildElement("UserData") == nullptr);
+  tinyxml2::XMLElement *layersNode = sceneNode->FirstChildElement("Layers");
+  assert(layersNode != nullptr);
+  bool sawDefaultLayerNode = false;
+  bool sawSphereInDefaultLayer = false;
+  for (tinyxml2::XMLElement *layerOrOther = layersNode->FirstChildElement(); layerOrOther;
+       layerOrOther = layerOrOther->NextSiblingElement()) {
+    assert(std::string(layerOrOther->Name()) == "Layer");
+    const char *layerName = layerOrOther->Attribute("name");
+    const std::string layerNameText = layerName ? layerName : "";
+    const char *layerUuid = layerOrOther->Attribute("uuid");
+    assert(layerUuid != nullptr);
+    assert(CanonicalizeUuid(layerUuid) == std::string(layerUuid));
+    if (layerNameText == "Default")
+      sawDefaultLayerNode = true;
+
+    tinyxml2::XMLElement *childList = layerOrOther->FirstChildElement("ChildList");
+    for (tinyxml2::XMLElement *child = childList ? childList->FirstChildElement() : nullptr; child;
+         child = child->NextSiblingElement()) {
+      if (std::string(child->Name()) != "SceneObject")
+        continue;
+      const char *uuidAttr = child->Attribute("uuid");
+      if (uuidAttr != nullptr && std::string(uuidAttr) == primitiveSphere.uuid &&
+          layerNameText == "Default") {
+        sawSphereInDefaultLayer = true;
+      }
+    }
+  }
+  assert(sawDefaultLayerNode);
+  assert(sawSphereInDefaultLayer);
   tinyxml2::XMLElement *rootUserData = root->FirstChildElement("UserData");
   assert(rootUserData != nullptr);
 

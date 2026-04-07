@@ -75,6 +75,12 @@ struct PrimitiveMeshData {
   std::vector<uint16_t> indices;
 };
 
+enum class CylinderAxis {
+  X,
+  Y,
+  Z,
+};
+
 PrimitiveMeshData BuildCubeMesh() {
   PrimitiveMeshData mesh;
   mesh.positions = {
@@ -100,42 +106,66 @@ PrimitiveMeshData BuildCubeMesh() {
 
 PrimitiveMeshData BuildSphereMesh() {
   PrimitiveMeshData mesh;
-  mesh.positions = {
-      0.0f,  0.5f,  0.0f,
-      0.353553f, 0.353553f, 0.0f,
-      0.0f,  0.353553f, 0.353553f,
-      -0.353553f, 0.353553f, 0.0f,
-      0.0f,  0.353553f, -0.353553f,
-      0.5f, 0.0f, 0.0f,
-      0.0f, 0.0f, 0.5f,
-      -0.5f, 0.0f, 0.0f,
-      0.0f, 0.0f, -0.5f,
-      0.353553f, -0.353553f, 0.0f,
-      0.0f, -0.353553f, 0.353553f,
-      -0.353553f, -0.353553f, 0.0f,
-      0.0f, -0.353553f, -0.353553f,
-      0.0f, -0.5f, 0.0f,
-  };
-  mesh.indices = {
-      0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 1,
-      1, 5, 2, 2, 6, 3, 3, 7, 4, 4, 8, 1,
-      5, 9, 10, 5, 10, 6, 6, 10, 11, 6, 11, 7,
-      7, 11, 12, 7, 12, 8, 8, 12, 9, 8, 9, 5,
-      9, 13, 10, 10, 13, 11, 11, 13, 12, 12, 13, 9,
-  };
+  constexpr int kRings = 12;
+  constexpr int kSegments = 24;
+  constexpr float kRadius = 0.5f;
+  constexpr float kPi = 3.14159265358979323846f;
+
+  mesh.positions.reserve(static_cast<size_t>((kRings + 1) * (kSegments + 1) * 3));
+  mesh.indices.reserve(static_cast<size_t>(kRings * kSegments * 6));
+
+  for (int ring = 0; ring <= kRings; ++ring) {
+    const float v = static_cast<float>(ring) / static_cast<float>(kRings);
+    const float phi = v * kPi;
+    const float z = std::cos(phi) * kRadius;
+    const float ringRadius = std::sin(phi) * kRadius;
+    for (int segment = 0; segment <= kSegments; ++segment) {
+      const float u = static_cast<float>(segment) / static_cast<float>(kSegments);
+      const float theta = u * 2.0f * kPi;
+      mesh.positions.push_back(std::cos(theta) * ringRadius);
+      mesh.positions.push_back(std::sin(theta) * ringRadius);
+      mesh.positions.push_back(z);
+    }
+  }
+
+  for (int ring = 0; ring < kRings; ++ring) {
+    for (int segment = 0; segment < kSegments; ++segment) {
+      const uint16_t i0 =
+          static_cast<uint16_t>(ring * (kSegments + 1) + segment);
+      const uint16_t i1 = static_cast<uint16_t>(i0 + kSegments + 1);
+      const uint16_t i2 = static_cast<uint16_t>(i0 + 1);
+      const uint16_t i3 = static_cast<uint16_t>(i1 + 1);
+
+      mesh.indices.insert(mesh.indices.end(), {i0, i1, i2});
+      mesh.indices.insert(mesh.indices.end(), {i2, i1, i3});
+    }
+  }
+
   return mesh;
 }
 
 PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
-                                    float height) {
+                                    float height, CylinderAxis axis) {
   PrimitiveMeshData mesh;
-  constexpr int kSegments = 16;
+  constexpr int kSegments = 32;
   constexpr float kPi = 3.14159265358979323846f;
-  mesh.positions.reserve(static_cast<size_t>(kSegments * 2 + 2) * 3);
+  mesh.positions.reserve(static_cast<size_t>(kSegments * 6 + 2) * 3);
   mesh.indices.reserve(static_cast<size_t>(kSegments) * 12);
 
   const float halfHeight = 0.5f * height;
 
+  auto appendAxisPosition = [&](float axial, float radialA, float radialB) {
+    if (axis == CylinderAxis::X) {
+      mesh.positions.insert(mesh.positions.end(), {axial, radialA, radialB});
+    } else if (axis == CylinderAxis::Y) {
+      mesh.positions.insert(mesh.positions.end(), {radialA, axial, radialB});
+    } else {
+      mesh.positions.insert(mesh.positions.end(), {radialA, radialB, axial});
+    }
+  };
+
+  // Side vertices (separate from cap vertices to keep hard normals on edges).
+  const uint16_t sideBase = 0;
   for (int i = 0; i < kSegments; ++i) {
     const float a = static_cast<float>(i) * 2.0f * kPi /
                     static_cast<float>(kSegments);
@@ -143,30 +173,57 @@ PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
     const float yTop = topRadius * std::sin(a);
     const float xBottom = bottomRadius * std::cos(a);
     const float yBottom = bottomRadius * std::sin(a);
-    mesh.positions.insert(mesh.positions.end(), {xTop, yTop, halfHeight});
-    mesh.positions.insert(mesh.positions.end(), {xBottom, yBottom, -halfHeight});
+    appendAxisPosition(halfHeight, xTop, yTop);
+    appendAxisPosition(-halfHeight, xBottom, yBottom);
+  }
+  for (int i = 0; i < kSegments; ++i) {
+    const uint16_t top0 = static_cast<uint16_t>(sideBase + i * 2);
+    const uint16_t bot0 = static_cast<uint16_t>(sideBase + i * 2 + 1);
+    const uint16_t top1 =
+        static_cast<uint16_t>(sideBase + ((i + 1) % kSegments) * 2);
+    const uint16_t bot1 =
+        static_cast<uint16_t>(sideBase + ((i + 1) % kSegments) * 2 + 1);
+    // Keep counter-clockwise winding for outward normals in the right-handed MVR space.
+    mesh.indices.insert(mesh.indices.end(), {top0, bot0, bot1, top0, bot1, top1});
+  }
+
+  // Top cap vertices.
+  const uint16_t topCapBase = static_cast<uint16_t>(mesh.positions.size() / 3);
+  for (int i = 0; i < kSegments; ++i) {
+    const float a = static_cast<float>(i) * 2.0f * kPi /
+                    static_cast<float>(kSegments);
+    appendAxisPosition(halfHeight, topRadius * std::cos(a), topRadius * std::sin(a));
   }
   const uint16_t topCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
-  mesh.positions.insert(mesh.positions.end(), {0.0f, 0.0f, halfHeight});
-  const uint16_t bottomCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
-  mesh.positions.insert(mesh.positions.end(), {0.0f, 0.0f, -halfHeight});
-
+  appendAxisPosition(halfHeight, 0.0f, 0.0f);
   for (int i = 0; i < kSegments; ++i) {
-    const uint16_t top0 = static_cast<uint16_t>(i * 2);
-    const uint16_t bot0 = static_cast<uint16_t>(i * 2 + 1);
-    const uint16_t top1 = static_cast<uint16_t>(((i + 1) % kSegments) * 2);
-    const uint16_t bot1 = static_cast<uint16_t>(((i + 1) % kSegments) * 2 + 1);
+    const uint16_t top0 = static_cast<uint16_t>(topCapBase + i);
+    const uint16_t top1 = static_cast<uint16_t>(topCapBase + ((i + 1) % kSegments));
+    mesh.indices.insert(mesh.indices.end(), {topCenter, top0, top1});
+  }
 
-    mesh.indices.insert(mesh.indices.end(), {top0, bot0, bot1, top0, bot1, top1});
-    mesh.indices.insert(mesh.indices.end(), {topCenter, top1, top0});
-    mesh.indices.insert(mesh.indices.end(), {bottomCenter, bot0, bot1});
+  // Bottom cap vertices.
+  const uint16_t bottomCapBase = static_cast<uint16_t>(mesh.positions.size() / 3);
+  for (int i = 0; i < kSegments; ++i) {
+    const float a = static_cast<float>(i) * 2.0f * kPi /
+                    static_cast<float>(kSegments);
+    appendAxisPosition(-halfHeight, bottomRadius * std::cos(a),
+                       bottomRadius * std::sin(a));
+  }
+  const uint16_t bottomCenter = static_cast<uint16_t>(mesh.positions.size() / 3);
+  appendAxisPosition(-halfHeight, 0.0f, 0.0f);
+  for (int i = 0; i < kSegments; ++i) {
+    const uint16_t bot0 = static_cast<uint16_t>(bottomCapBase + i);
+    const uint16_t bot1 =
+        static_cast<uint16_t>(bottomCapBase + ((i + 1) % kSegments));
+    mesh.indices.insert(mesh.indices.end(), {bottomCenter, bot1, bot0});
   }
 
   return mesh;
 }
 
 PrimitiveMeshData BuildCylinderMesh() {
-  return BuildCylinderMesh(0.5f, 0.5f, 1.0f);
+  return BuildCylinderMesh(0.5f, 0.5f, 1.0f, CylinderAxis::Y);
 }
 
 float ParsePositiveNumber(const std::string &text, float fallback) {
@@ -181,10 +238,12 @@ float ParsePositiveNumber(const std::string &text, float fallback) {
 }
 
 void ParseCylinderTokenDimensions(const std::string &token, float &topRadius,
-                                  float &bottomRadius, float &height) {
+                                  float &bottomRadius, float &height,
+                                  CylinderAxis &axis) {
   topRadius = 0.5f;
   bottomRadius = 0.5f;
   height = 1.0f;
+  axis = CylinderAxis::Y;
 
   const std::string normalized = NormalizeLower(token);
   if (normalized.rfind(kCylinderToken, 0) != 0)
@@ -208,7 +267,25 @@ void ParseCylinderTokenDimensions(const std::string &token, float &topRadius,
       bottomRadius = ParsePositiveNumber(value, bottomRadius);
     } else if (key == "height") {
       height = ParsePositiveNumber(value, height);
+    } else if (key == "axis") {
+      if (value == "x")
+        axis = CylinderAxis::X;
+      else if (value == "y")
+        axis = CylinderAxis::Y;
+      else if (value == "z")
+        axis = CylinderAxis::Z;
     }
+  }
+
+  // Perastage stores explicit primitive:cylinder dimensions in millimeters.
+  // Some legacy/internal paths may still provide meters. Normalize to meters:
+  // treat clearly large values as millimeters.
+  const float largestDimension = std::max({topRadius, bottomRadius, height});
+  if (largestDimension > 20.0f) {
+    constexpr float kMillimetersPerMeter = 1000.0f;
+    topRadius /= kMillimetersPerMeter;
+    bottomRadius /= kMillimetersPerMeter;
+    height /= kMillimetersPerMeter;
   }
 }
 
@@ -240,11 +317,61 @@ bool WriteGlb(const PrimitiveMeshData &mesh, const std::string &outputPath) {
   }
 
   const uint32_t positionBytes = static_cast<uint32_t>(mesh.positions.size() * sizeof(float));
+  std::vector<float> normals(mesh.positions.size(), 0.0f);
+  for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+    const uint16_t ia = mesh.indices[i];
+    const uint16_t ib = mesh.indices[i + 1];
+    const uint16_t ic = mesh.indices[i + 2];
+    const size_t a = static_cast<size_t>(ia) * 3u;
+    const size_t b = static_cast<size_t>(ib) * 3u;
+    const size_t c = static_cast<size_t>(ic) * 3u;
+    if (c + 2 >= mesh.positions.size())
+      continue;
+
+    const float abx = mesh.positions[b] - mesh.positions[a];
+    const float aby = mesh.positions[b + 1] - mesh.positions[a + 1];
+    const float abz = mesh.positions[b + 2] - mesh.positions[a + 2];
+    const float acx = mesh.positions[c] - mesh.positions[a];
+    const float acy = mesh.positions[c + 1] - mesh.positions[a + 1];
+    const float acz = mesh.positions[c + 2] - mesh.positions[a + 2];
+
+    const float nx = aby * acz - abz * acy;
+    const float ny = abz * acx - abx * acz;
+    const float nz = abx * acy - aby * acx;
+    normals[a] += nx;
+    normals[a + 1] += ny;
+    normals[a + 2] += nz;
+    normals[b] += nx;
+    normals[b + 1] += ny;
+    normals[b + 2] += nz;
+    normals[c] += nx;
+    normals[c + 1] += ny;
+    normals[c + 2] += nz;
+  }
+  for (size_t i = 0; i + 2 < normals.size(); i += 3) {
+    const float len =
+        std::sqrt(normals[i] * normals[i] + normals[i + 1] * normals[i + 1] +
+                  normals[i + 2] * normals[i + 2]);
+    if (len > 1e-8f) {
+      normals[i] /= len;
+      normals[i + 1] /= len;
+      normals[i + 2] /= len;
+    } else {
+      normals[i] = 0.0f;
+      normals[i + 1] = 0.0f;
+      normals[i + 2] = 1.0f;
+    }
+  }
+  const uint32_t normalBytes = static_cast<uint32_t>(normals.size() * sizeof(float));
   const uint32_t indexBytes = static_cast<uint32_t>(mesh.indices.size() * sizeof(uint16_t));
 
   std::vector<uint8_t> bin;
-  bin.reserve(positionBytes + indexBytes + 4);
+  bin.reserve(positionBytes + normalBytes + indexBytes + 8);
   AppendBytes(bin, mesh.positions.data(), positionBytes);
+  while ((bin.size() % 4u) != 0u)
+    bin.push_back(0u);
+  const uint32_t normalOffset = static_cast<uint32_t>(bin.size());
+  AppendBytes(bin, normals.data(), normalBytes);
   while ((bin.size() % 4u) != 0u)
     bin.push_back(0u);
   const uint32_t indexOffset = static_cast<uint32_t>(bin.size());
@@ -260,6 +387,8 @@ bool WriteGlb(const PrimitiveMeshData &mesh, const std::string &outputPath) {
        << "\"bufferViews\":["
        << "{\"buffer\":0,\"byteOffset\":0,\"byteLength\":" << positionBytes
        << ",\"target\":34962},"
+       << "{\"buffer\":0,\"byteOffset\":" << normalOffset
+       << ",\"byteLength\":" << normalBytes << ",\"target\":34962},"
        << "{\"buffer\":0,\"byteOffset\":" << indexOffset
        << ",\"byteLength\":" << indexBytes << ",\"target\":34963}"
        << "],"
@@ -268,10 +397,13 @@ bool WriteGlb(const PrimitiveMeshData &mesh, const std::string &outputPath) {
        << (mesh.positions.size() / 3u)
        << ",\"type\":\"VEC3\",\"min\":[" << minX << "," << minY << "," << minZ
        << "],\"max\":[" << maxX << "," << maxY << "," << maxZ << "]},"
-       << "{\"bufferView\":1,\"componentType\":5123,\"count\":"
+       << "{\"bufferView\":1,\"componentType\":5126,\"count\":"
+       << (normals.size() / 3u) << ",\"type\":\"VEC3\"},"
+       << "{\"bufferView\":2,\"componentType\":5123,\"count\":"
        << mesh.indices.size() << ",\"type\":\"SCALAR\"}"
        << "],"
-       << "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0},\"indices\":1}]}],"
+       << "\"materials\":[{\"doubleSided\":true}],"
+       << "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},\"indices\":2,\"material\":0}]}],"
        << "\"nodes\":[{\"mesh\":0}],"
        << "\"scenes\":[{\"nodes\":[0]}],"
        << "\"scene\":0"
@@ -368,9 +500,10 @@ bool WritePrimitiveModelForToken(const std::string &primitiveToken,
     float topRadius = 0.5f;
     float bottomRadius = 0.5f;
     float height = 1.0f;
+    CylinderAxis axis = CylinderAxis::Z;
     if (normalized.rfind(kCylinderToken, 0) == 0)
-      ParseCylinderTokenDimensions(primitiveToken, topRadius, bottomRadius, height);
-    return WriteGlb(BuildCylinderMesh(topRadius, bottomRadius, height), outputPath);
+      ParseCylinderTokenDimensions(primitiveToken, topRadius, bottomRadius, height, axis);
+    return WriteGlb(BuildCylinderMesh(topRadius, bottomRadius, height, axis), outputPath);
   }
   return false;
 }

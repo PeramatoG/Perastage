@@ -1390,8 +1390,55 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
       return {};
     const std::string normalizedModelRef = ToLowerAscii(TrimAscii(modelRef));
-    const std::string primitiveKey =
+
+    auto convertCylinderTokenMillimetersToMeters = [&](const std::string &token) {
+      std::string normalized = ToLowerAscii(TrimAscii(token));
+      if (normalized.rfind("primitive:cylinder", 0) != 0)
+        return normalized;
+      const size_t separator = normalized.find(';');
+      if (separator == std::string::npos || separator + 1 >= normalized.size())
+        return normalized;
+
+      std::vector<std::string> fields;
+      std::stringstream stream(normalized.substr(separator + 1));
+      std::string field;
+      bool changed = false;
+      while (std::getline(stream, field, ';')) {
+        const size_t equalPos = field.find('=');
+        if (equalPos == std::string::npos) {
+          fields.push_back(field);
+          continue;
+        }
+        const std::string key = field.substr(0, equalPos);
+        const std::string value = field.substr(equalPos + 1);
+        if (key == "top" || key == "bottom" || key == "height") {
+          try {
+            const float parsed = std::stof(value);
+            const float meters = parsed / 1000.0f;
+            fields.push_back(key + "=" + std::to_string(meters));
+            changed = true;
+          } catch (...) {
+            fields.push_back(field);
+          }
+        } else {
+          fields.push_back(field);
+        }
+      }
+
+      if (!changed)
+        return normalized;
+      std::string out = "primitive:cylinder";
+      for (const auto &entry : fields) {
+        if (!entry.empty())
+          out += ";" + entry;
+      }
+      return out;
+    };
+
+    const std::string primitiveKeyRaw =
         normalizedModelRef.empty() ? primitiveToken : normalizedModelRef;
+    const std::string primitiveKey =
+        convertCylinderTokenMillimetersToMeters(primitiveKeyRaw);
 
     auto sourceIt = primitiveSourceByToken.find(primitiveKey);
     std::string sourcePath;
@@ -2035,16 +2082,130 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       return true;
     };
 
+    auto isLegacyPipeCylinderAxisTransform = [&](const std::string &modelRef,
+                                                 const Matrix &localTransform) {
+      std::string primitiveToken;
+      if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
+        return false;
+      if (ToLowerAscii(TrimAscii(primitiveToken)).rfind("primitive:cylinder", 0) != 0)
+        return false;
+
+      Matrix axisXTransform = MatrixUtils::Identity();
+      axisXTransform.u = {0.0f, 0.0f, -1.0f};
+      axisXTransform.v = {0.0f, 1.0f, 0.0f};
+      axisXTransform.w = {1.0f, 0.0f, 0.0f};
+      return matrixAlmostEqual(localTransform, axisXTransform);
+    };
+
+    auto isPrimitiveCylinderRef = [&](const std::string &modelRef) {
+      std::string primitiveToken;
+      if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
+        return false;
+      return ToLowerAscii(TrimAscii(primitiveToken)).rfind("primitive:cylinder", 0) == 0;
+    };
+
+    auto isLegacyBakedPipeObjectMatrix = [&](const Matrix &m) {
+      const float eps = 1e-4f;
+      return std::fabs(m.u[0]) < eps && std::fabs(m.u[1]) < eps &&
+             std::fabs(m.v[0]) < eps && std::fabs(m.v[2]) < eps &&
+             std::fabs(m.w[1]) < eps && std::fabs(m.w[2]) < eps &&
+             std::fabs(m.u[2]) > eps && std::fabs(m.v[1]) > eps &&
+             std::fabs(m.w[0]) > eps;
+    };
+
+    auto withCylinderAxisX = [](std::string modelRef) {
+      if (ToLowerAscii(modelRef).find("axis=") != std::string::npos)
+        return modelRef;
+      if (modelRef.find(';') == std::string::npos)
+        return modelRef + ";axis=x";
+      return modelRef + ";axis=x";
+    };
+
+    struct CylinderTokenParams {
+      float topRadiusMm = 0.5f;
+      float bottomRadiusMm = 0.5f;
+      float heightMm = 1.0f;
+      char axis = 'y';
+      bool hasExplicitDimensions = false;
+    };
+
+    auto parseCylinderTokenParams = [&](const std::string &modelRef,
+                                        CylinderTokenParams &out) {
+      std::string primitiveToken;
+      if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
+        return false;
+      std::string normalized = ToLowerAscii(TrimAscii(primitiveToken));
+      if (normalized.rfind("primitive:cylinder", 0) != 0)
+        return false;
+
+      const auto parsePositive = [](const std::string &value, float fallback) {
+        if (value.empty())
+          return fallback;
+        try {
+          const float parsed = std::stof(value);
+          if (std::isfinite(parsed) && parsed > 0.0f)
+            return parsed;
+        } catch (...) {
+        }
+        return fallback;
+      };
+
+      const size_t separator = normalized.find(';');
+      if (separator == std::string::npos || separator + 1 >= normalized.size())
+        return true;
+
+      std::stringstream stream(normalized.substr(separator + 1));
+      std::string field;
+      while (std::getline(stream, field, ';')) {
+        const size_t equalPos = field.find('=');
+        if (equalPos == std::string::npos)
+          continue;
+        const std::string key = field.substr(0, equalPos);
+        const std::string value = field.substr(equalPos + 1);
+        if (key == "top") {
+          out.topRadiusMm = parsePositive(value, out.topRadiusMm);
+          out.hasExplicitDimensions = true;
+        } else if (key == "bottom") {
+          out.bottomRadiusMm = parsePositive(value, out.bottomRadiusMm);
+          out.hasExplicitDimensions = true;
+        } else if (key == "height") {
+          out.heightMm = parsePositive(value, out.heightMm);
+          out.hasExplicitDimensions = true;
+        } else if (key == "axis") {
+          if (value == "x" || value == "y" || value == "z")
+            out.axis = value[0];
+        }
+      }
+
+      return true;
+    };
+
     Matrix objectMatrixToWrite = obj.transform;
-    bool bakeGeometryMatrixIntoObject = false;
+    bool forceIdentityGeometryMatrix = false;
+    std::optional<std::string> overridePrimitiveModelRef;
     if (obj.geometries.size() == 1) {
       const auto &singleGeometry = obj.geometries.front();
-      std::string primitiveToken;
-      if (mvr::ResolvePrimitiveTokenFromModelRef(singleGeometry.modelFile, primitiveToken) &&
-          !matrixAlmostEqual(singleGeometry.localTransform, MatrixUtils::Identity())) {
-        objectMatrixToWrite =
-            MatrixUtils::Multiply(obj.transform, singleGeometry.localTransform);
-        bakeGeometryMatrixIntoObject = true;
+      const bool isCylinderPrimitive = isPrimitiveCylinderRef(singleGeometry.modelFile);
+      const bool hasLegacyAxisGeometry =
+          isLegacyPipeCylinderAxisTransform(singleGeometry.modelFile,
+                                            singleGeometry.localTransform);
+      const bool hasLegacyBakedObject = isCylinderPrimitive &&
+                                        isLegacyBakedPipeObjectMatrix(obj.transform);
+      if (hasLegacyAxisGeometry || hasLegacyBakedObject) {
+        forceIdentityGeometryMatrix = true;
+        overridePrimitiveModelRef = withCylinderAxisX(singleGeometry.modelFile);
+        auto axisLength = [](const std::array<float, 3> &axis) {
+          return std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+        };
+        const float su = axisLength(obj.transform.u);
+        const float sv = axisLength(obj.transform.v);
+        const float sw = axisLength(obj.transform.w);
+        const float lengthScale = std::max({su, sv, sw});
+        const float minScale = std::min({su, sv, sw});
+        const float midScale = su + sv + sw - lengthScale - minScale;
+        objectMatrixToWrite.u = {lengthScale, 0.0f, 0.0f};
+        objectMatrixToWrite.v = {0.0f, midScale, 0.0f};
+        objectMatrixToWrite.w = {0.0f, 0.0f, minScale};
       }
     }
 
@@ -2053,26 +2214,20 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!obj.name.empty())
       oe->SetAttribute("name", obj.name.c_str());
 
-    auto idIt = assignedIds.find(obj.uuid);
-    int numericId = (idIt != assignedIds.end()) ? idIt->second.second : 0;
-    if (numericId <= 0)
-      numericId = 1;
-    tinyxml2::XMLElement *idNode = doc.NewElement("FixtureID");
-    idNode->SetText(std::to_string(numericId).c_str());
-    oe->InsertEndChild(idNode);
-    tinyxml2::XMLElement *numNode = doc.NewElement("FixtureIDNumeric");
-    numNode->SetText(std::to_string(numericId).c_str());
-    oe->InsertEndChild(numNode);
-
     if (!obj.geometries.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
+      std::vector<std::pair<std::string, std::string>> primitiveGeometryModelRefs;
       for (const auto &geo : obj.geometries) {
         if (geo.modelFile.empty())
           continue;
 
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+        const std::string rawModelRef =
+            overridePrimitiveModelRef.has_value() ? *overridePrimitiveModelRef
+                                                  : geo.modelFile;
+        std::string modelRef = rawModelRef;
         std::string modelArchivePath =
-            registerPrimitiveModelResource(geo.modelFile, obj.uuid);
+            registerPrimitiveModelResource(modelRef, obj.uuid);
         if (modelArchivePath.empty()) {
           modelArchivePath = registerModelResource(geo.modelFile, "object.3ds");
         }
@@ -2080,8 +2235,71 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           continue;
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
 
-        const Matrix geoMatrixToWrite =
-            bakeGeometryMatrixIntoObject ? MatrixUtils::Identity() : geo.localTransform;
+        Matrix geoMatrixToWrite =
+            forceIdentityGeometryMatrix ||
+                    isLegacyPipeCylinderAxisTransform(geo.modelFile, geo.localTransform)
+                ? MatrixUtils::Identity()
+                : geo.localTransform;
+
+        CylinderTokenParams cylinderParams;
+        const bool hasCylinderToken = parseCylinderTokenParams(rawModelRef, cylinderParams);
+        const bool hasExplicitCylinderDimensions =
+            hasCylinderToken && cylinderParams.hasExplicitDimensions;
+        const bool isRoundCylinder =
+            hasExplicitCylinderDimensions &&
+            std::fabs(cylinderParams.topRadiusMm - cylinderParams.bottomRadiusMm) < 1e-3f;
+        if (hasExplicitCylinderDimensions) {
+          // Explicit parametric cylinders already encode final dimensions in the
+          // generated primitive mesh; keep geometry matrix scale neutral.
+          geoMatrixToWrite = MatrixUtils::Identity();
+        }
+        if (isRoundCylinder) {
+          if (cylinderParams.axis == 'x')
+            modelRef = "primitive:cylinder;axis=x";
+          else if (cylinderParams.axis == 'z')
+            modelRef = "primitive:cylinder;axis=z";
+          else
+            modelRef = "primitive:cylinder";
+          modelArchivePath = registerPrimitiveModelResource(modelRef, obj.uuid);
+          if (!modelArchivePath.empty())
+            g3d->SetAttribute("fileName", modelArchivePath.c_str());
+
+          // Convert token dimensions (stored in millimeters) to scene meters for
+          // Geometry3D matrix scaling, matching importer expectations in MA3.
+          constexpr float kMillimetersPerMeter = 1000.0f;
+          const float radialScale = std::max(
+              (cylinderParams.topRadiusMm * 2.0f) / kMillimetersPerMeter, 0.000001f);
+          const float heightScale = std::max(cylinderParams.heightMm / kMillimetersPerMeter,
+                                             0.000001f);
+          if (cylinderParams.axis == 'x') {
+            for (float &component : geoMatrixToWrite.u)
+              component *= heightScale;
+            for (float &component : geoMatrixToWrite.v)
+              component *= radialScale;
+            for (float &component : geoMatrixToWrite.w)
+              component *= radialScale;
+          } else if (cylinderParams.axis == 'y') {
+            for (float &component : geoMatrixToWrite.u)
+              component *= radialScale;
+            for (float &component : geoMatrixToWrite.v)
+              component *= heightScale;
+            for (float &component : geoMatrixToWrite.w)
+              component *= radialScale;
+          } else {
+            for (float &component : geoMatrixToWrite.u)
+              component *= radialScale;
+            for (float &component : geoMatrixToWrite.v)
+              component *= radialScale;
+            for (float &component : geoMatrixToWrite.w)
+              component *= heightScale;
+          }
+        }
+
+        std::string primitiveToken;
+        if (mvr::ResolvePrimitiveTokenFromModelRef(geo.modelFile, primitiveToken)) {
+          primitiveGeometryModelRefs.emplace_back(modelArchivePath, geo.modelFile);
+        }
+
         std::string geoMatrixText = MatrixUtils::FormatMatrix(geoMatrixToWrite);
         tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
         geoMatrix->SetText(geoMatrixText.c_str());
@@ -2092,6 +2310,24 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
       if (geos->FirstChild())
         oe->InsertEndChild(geos);
+
+      if (!primitiveGeometryModelRefs.empty()) {
+        tinyxml2::XMLElement *ud = doc.NewElement("UserData");
+        tinyxml2::XMLElement *data = doc.NewElement("Data");
+        data->SetAttribute("provider", "Perastage");
+        tinyxml2::XMLElement *map = doc.NewElement("PrimitiveGeometryMap");
+        for (const auto &[archiveFileName, modelRef] : primitiveGeometryModelRefs) {
+          tinyxml2::XMLElement *entry = doc.NewElement("Entry");
+          entry->SetAttribute("fileName", archiveFileName.c_str());
+          // Keep Perastage-specific metadata namespaced to reduce collisions with
+          // third-party MVR parsers that may react to generic attribute names.
+          entry->SetAttribute("perastageModelRef", modelRef.c_str());
+          map->InsertEndChild(entry);
+        }
+        data->InsertEndChild(map);
+        ud->InsertEndChild(data);
+        oe->InsertEndChild(ud);
+      }
     } else if (!obj.modelFile.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
       tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
@@ -2102,6 +2338,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
       if (!modelArchivePath.empty()) {
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
+        tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
+        geoMatrix->SetText(MatrixUtils::FormatMatrix(MatrixUtils::Identity()).c_str());
+        g3d->InsertEndChild(geoMatrix);
         oe->InsertEndChild(geos);
         geos->InsertEndChild(g3d);
       }
@@ -2160,12 +2399,27 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
             .ToStdString());
   };
 
+  std::string defaultLayerUuid;
+  std::string defaultLayerName = DEFAULT_LAYER_NAME;
+  for (const auto &[layerUuid, layer] : scene.layers) {
+    if (layer.name == DEFAULT_LAYER_NAME) {
+      defaultLayerUuid = layerUuid;
+      if (!layer.name.empty())
+        defaultLayerName = layer.name;
+    }
+  }
+
   for (const auto &[layerUuid, layer] : scene.layers) {
     if (layer.name == DEFAULT_LAYER_NAME)
       continue;
     tinyxml2::XMLElement *layerElem = doc.NewElement("Layer");
-    if (!layerUuid.empty())
-      layerElem->SetAttribute("uuid", layerUuid.c_str());
+    if (!layerUuid.empty()) {
+      const std::string exportLayerUuid =
+          IsCanonicalUuidString(layerUuid)
+              ? layerUuid
+              : DeriveDeterministicUuid("mvr:layer:" + layer.name + ":" + layerUuid);
+      layerElem->SetAttribute("uuid", exportLayerUuid.c_str());
+    }
     if (!layer.name.empty())
       layerElem->SetAttribute("name", layer.name.c_str());
 
@@ -2306,8 +2560,21 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!grouped)
       exportSceneObject(rootChildList, obj);
   }
-  if (rootChildList->FirstChild())
-    layersNode->InsertEndChild(rootChildList);
+  if (rootChildList->FirstChild()) {
+    tinyxml2::XMLElement *defaultLayerElem = doc.NewElement("Layer");
+    if (!defaultLayerUuid.empty()) {
+      const std::string exportDefaultLayerUuid =
+          IsCanonicalUuidString(defaultLayerUuid)
+              ? defaultLayerUuid
+              : DeriveDeterministicUuid("mvr:layer:" + defaultLayerName + ":" +
+                                        defaultLayerUuid);
+      defaultLayerElem->SetAttribute("uuid", exportDefaultLayerUuid.c_str());
+    }
+    if (!defaultLayerName.empty())
+      defaultLayerElem->SetAttribute("name", defaultLayerName.c_str());
+    defaultLayerElem->InsertEndChild(rootChildList);
+    layersNode->InsertEndChild(defaultLayerElem);
+  }
 
   sceneNode->InsertEndChild(layersNode);
 

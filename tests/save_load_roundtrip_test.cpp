@@ -69,6 +69,15 @@ int main() {
     Fixture f2; f2.uuid = "fx2"; f2.instanceName = "Fixture 2"; f2.layer = layer.name; f2.typeName = "FixtureType"; f2.gdtfSpec = "orig.gdtf"; f2.fixtureIdText = "S101B"; f2.fixtureIdNumeric = 101; f2.fixtureId = 101; scene.fixtures[f2.uuid] = f2;
     Truss t; t.uuid = "tr1"; t.name = "Truss"; t.layer = layer.name; scene.trusses[t.uuid] = t;
     SceneObject o; o.uuid = "obj1"; o.name = "Object"; o.layer = layer.name; scene.sceneObjects[o.uuid] = o;
+    SceneObject cylinderObj;
+    cylinderObj.uuid = "obj-cylinder";
+    cylinderObj.name = "Cylinder";
+    cylinderObj.layer = layer.name;
+    GeometryInstance cylinderGeometry;
+    cylinderGeometry.modelFile = "primitive:cylinder;top=200.000000;bottom=450.000000;height=1200.000000";
+    cylinderObj.geometries.push_back(cylinderGeometry);
+    cylinderObj.modelFile = cylinderGeometry.modelFile;
+    scene.sceneObjects[cylinderObj.uuid] = cylinderObj;
 
     Support sManual; sManual.uuid = "sup-manual"; sManual.name = "Manual Hoist"; sManual.layer = layer.name;
     sManual.motorName = "ChainMaster D8+"; sManual.motorManufacturer = "ChainMaster"; sManual.motorModel = "D8+"; sManual.dummyPreset = "D8+ 1000kg";
@@ -89,11 +98,17 @@ int main() {
     const auto &scene2 = cfg.GetScene();
     assert(scene2.fixtures.size() == 2);
     assert(scene2.trusses.size() == 1);
-    assert(scene2.sceneObjects.size() == 1);
+    assert(scene2.sceneObjects.size() == 2);
     assert(scene2.supports.size() == 2);
     assert(scene2.fixtures.at("fx1").instanceName == "Fixture");
     assert(scene2.trusses.at("tr1").name == "Truss");
     assert(scene2.sceneObjects.at("obj1").name == "Object");
+    assert(scene2.sceneObjects.at("obj-cylinder").geometries.size() == 1);
+    const std::string loadedCylinderToken =
+        scene2.sceneObjects.at("obj-cylinder").geometries.front().modelFile;
+    assert(loadedCylinderToken.find("primitive:cylinder") == 0);
+    assert(loadedCylinderToken.find("top=200") != std::string::npos);
+    assert(loadedCylinderToken.find("bottom=450") != std::string::npos);
     assert(scene2.fixtures.at("fx1").color == "#445566");
     assert(scene2.fixtures.at("fx1").fixtureIdText == "S101A");
     assert(scene2.fixtures.at("fx1").fixtureIdNumeric == 101);

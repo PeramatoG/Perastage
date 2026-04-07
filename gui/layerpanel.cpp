@@ -330,8 +330,6 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
             layerUuid = uuid;
             break;
         }
-    if (layerUuid.empty())
-        return;
 
     bool empty = true;
     for (const auto& [u, f] : scene.fixtures)
@@ -342,6 +340,12 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
     if (empty)
         for (const auto& [u, o] : scene.sceneObjects)
             if (o.layer == name) { empty = false; break; }
+    if (empty)
+        for (const auto& [u, s] : scene.supports)
+            if (s.layer == name) { empty = false; break; }
+    if (empty)
+        for (const auto& [u, g] : scene.groupObjects)
+            if (g.layer == name) { empty = false; break; }
 
     if (!empty)
     {
@@ -371,8 +375,21 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
         else
             ++it;
     }
+    for (auto it = scene.supports.begin(); it != scene.supports.end();) {
+        if (it->second.layer == name)
+            it = scene.supports.erase(it);
+        else
+            ++it;
+    }
+    for (auto it = scene.groupObjects.begin(); it != scene.groupObjects.end();) {
+        if (it->second.layer == name)
+            it = scene.groupObjects.erase(it);
+        else
+            ++it;
+    }
 
-    scene.layers.erase(layerUuid);
+    if (!layerUuid.empty())
+        scene.layers.erase(layerUuid);
 
     auto hidden = cfg.GetHiddenLayers();
     hidden.erase(name);
@@ -447,12 +464,11 @@ void LayerPanel::OnRenameLayer(wxDataViewEvent& evt)
             layerUuid = uuid;
             break;
         }
-    if (layerUuid.empty())
-        return;
 
     cfg.PushUndoState("rename layer");
 
-    scene.layers[layerUuid].name = newName;
+    if (!layerUuid.empty())
+        scene.layers[layerUuid].name = newName;
     auto rename = [&](auto& container){
         for (auto& [u, obj] : container)
             if (obj.layer == oldName)
@@ -461,6 +477,8 @@ void LayerPanel::OnRenameLayer(wxDataViewEvent& evt)
     rename(scene.fixtures);
     rename(scene.trusses);
     rename(scene.sceneObjects);
+    rename(scene.supports);
+    rename(scene.groupObjects);
 
     auto hidden = cfg.GetHiddenLayers();
     if (hidden.erase(oldName))
