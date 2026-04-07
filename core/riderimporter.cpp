@@ -77,13 +77,9 @@ Matrix BuildPipeObjectTransform(float pipeLengthMm, float pipeDiameterMm,
   Matrix transform{};
   const float radialScale = pipeDiameterMm / primitiveCylinderHeightMm;
   const float lengthScale = pipeLengthMm / primitiveCylinderHeightMm;
-  const Matrix pitchY90 = BuildCylinderPitchY90LocalTransform();
-  transform.u = {pitchY90.u[0] * radialScale, pitchY90.u[1] * radialScale,
-                 pitchY90.u[2] * radialScale};
-  transform.v = {pitchY90.v[0] * radialScale, pitchY90.v[1] * radialScale,
-                 pitchY90.v[2] * radialScale};
-  transform.w = {pitchY90.w[0] * lengthScale, pitchY90.w[1] * lengthScale,
-                 pitchY90.w[2] * lengthScale};
+  transform.u = {radialScale, 0.0f, 0.0f};
+  transform.v = {0.0f, radialScale, 0.0f};
+  transform.w = {0.0f, 0.0f, lengthScale};
   transform.o = {0.0f, 0.0f, 0.0f};
   return transform;
 }
@@ -2036,12 +2032,14 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.layer =
               layerByType ? ("obj " + posName) : ("pos " + posName);
           pipeObject.name = "PIPE " + posName;
-          pipeObject.transform = BuildPipeObjectTransform(
-              pipeLengthMm, pipeDiameterMm, primitiveCylinderHeightMm);
+          pipeObject.transform = BuildCylinderPitchY90LocalTransform();
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
-          pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
+          pipeObject.geometries.push_back(
+              {kPrimitiveCylinderToken,
+               BuildPipeObjectTransform(pipeLengthMm, pipeDiameterMm,
+                                        primitiveCylinderHeightMm)});
 
           importedPipeSpans.push_back({posName, startX, startX + pipeLengthMm, hangY,
                                        hangZ});
@@ -2161,12 +2159,14 @@ bool RiderImporter::ImportText(const std::string &text) {
             pipeObject.uuid = GenerateUuid();
             pipeObject.layer = layerByType ? ("obj " + posName) : ("pos " + posName);
             pipeObject.name = "PIPE " + posName;
-            pipeObject.transform = BuildPipeObjectTransform(
-                defaultPipeLengthMm, pipeDiameterMm, primitiveCylinderHeightMm);
+            pipeObject.transform = BuildCylinderPitchY90LocalTransform();
             pipeObject.transform.o[0] = startX + 0.5f * defaultPipeLengthMm;
             pipeObject.transform.o[1] = hangY;
             pipeObject.transform.o[2] = hangZ;
-            pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
+            pipeObject.geometries.push_back(
+                {kPrimitiveCylinderToken,
+                 BuildPipeObjectTransform(defaultPipeLengthMm, pipeDiameterMm,
+                                          primitiveCylinderHeightMm)});
             scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
             addToLayer(pipeObject.layer, pipeObject.uuid);
             importedPipeSpans.push_back(
@@ -2379,12 +2379,14 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.uuid = GenerateUuid();
           pipeObject.layer = layerByType ? ("obj " + hang) : ("pos " + hang);
           pipeObject.name = "PIPE " + hang;
-          pipeObject.transform = BuildPipeObjectTransform(
-              pipeLengthMm, pipeDiameterMm, primitiveCylinderHeightMm);
+          pipeObject.transform = BuildCylinderPitchY90LocalTransform();
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
-          pipeObject.geometries.push_back({kPrimitiveCylinderToken, Matrix{}});
+          pipeObject.geometries.push_back(
+              {kPrimitiveCylinderToken,
+               BuildPipeObjectTransform(pipeLengthMm, pipeDiameterMm,
+                                        primitiveCylinderHeightMm)});
           scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
           addToLayer(pipeObject.layer, pipeObject.uuid);
           importedPipeSpans.push_back({hang, startX, startX + pipeLengthMm, hangY, hangZ});

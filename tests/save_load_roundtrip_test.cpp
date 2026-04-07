@@ -79,6 +79,20 @@ int main() {
     cylinderObj.modelFile = cylinderGeometry.modelFile;
     scene.sceneObjects[cylinderObj.uuid] = cylinderObj;
 
+    SceneObject legacyPipeObj;
+    legacyPipeObj.uuid = "obj-legacy-pipe";
+    legacyPipeObj.name = "Legacy Pipe";
+    legacyPipeObj.layer = layer.name;
+    GeometryInstance legacyPipeGeometry;
+    legacyPipeGeometry.modelFile = "primitive:cylinder";
+    legacyPipeObj.geometries.push_back(legacyPipeGeometry);
+    legacyPipeObj.modelFile = legacyPipeGeometry.modelFile;
+    legacyPipeObj.transform.u = {0.0f, 0.0f, -0.05f};
+    legacyPipeObj.transform.v = {0.0f, 0.05f, 0.0f};
+    legacyPipeObj.transform.w = {14.0f, 0.0f, 0.0f};
+    legacyPipeObj.transform.o = {0.0f, 0.0f, 0.0f};
+    scene.sceneObjects[legacyPipeObj.uuid] = legacyPipeObj;
+
     Support sManual; sManual.uuid = "sup-manual"; sManual.name = "Manual Hoist"; sManual.layer = layer.name;
     sManual.motorName = "ChainMaster D8+"; sManual.motorManufacturer = "ChainMaster"; sManual.motorModel = "D8+"; sManual.dummyPreset = "D8+ 1000kg";
     sManual.hoistDataSource = "Manual"; sManual.hoistFunction = "Audio";
@@ -98,7 +112,7 @@ int main() {
     const auto &scene2 = cfg.GetScene();
     assert(scene2.fixtures.size() == 2);
     assert(scene2.trusses.size() == 1);
-    assert(scene2.sceneObjects.size() == 2);
+    assert(scene2.sceneObjects.size() == 3);
     assert(scene2.supports.size() == 2);
     assert(scene2.fixtures.at("fx1").instanceName == "Fixture");
     assert(scene2.trusses.at("tr1").name == "Truss");
@@ -109,6 +123,9 @@ int main() {
     assert(loadedCylinderToken.find("primitive:cylinder") == 0);
     assert(loadedCylinderToken.find("top=200") != std::string::npos);
     assert(loadedCylinderToken.find("bottom=450") != std::string::npos);
+    const std::string loadedLegacyPipeToken =
+        scene2.sceneObjects.at("obj-legacy-pipe").geometries.front().modelFile;
+    assert(loadedLegacyPipeToken == "primitive:cylinder");
     assert(scene2.fixtures.at("fx1").color == "#445566");
     assert(scene2.fixtures.at("fx1").fixtureIdText == "S101A");
     assert(scene2.fixtures.at("fx1").fixtureIdNumeric == 101);
