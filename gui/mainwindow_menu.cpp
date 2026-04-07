@@ -1024,6 +1024,10 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
     layoutPanel->ReloadLayouts();
   if (!activeLayoutName.empty())
     ActivateLayoutView(activeLayoutName);
+  if (viewport2DPanel) {
+    viewport2DPanel->UpdateScene();
+    viewport2DPanel->Refresh();
+  }
   if (viewportPanel) {
     viewportPanel->UpdateScene();
     if (fixturePanel && fixturePanel->IsActivePage())
@@ -1068,6 +1072,10 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
     layoutPanel->ReloadLayouts();
   if (!activeLayoutName.empty())
     ActivateLayoutView(activeLayoutName);
+  if (viewport2DPanel) {
+    viewport2DPanel->UpdateScene();
+    viewport2DPanel->Refresh();
+  }
   if (viewportPanel) {
     viewportPanel->UpdateScene();
     if (fixturePanel && fixturePanel->IsActivePage())
