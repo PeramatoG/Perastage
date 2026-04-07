@@ -34,6 +34,9 @@ Each shortcut entry defines:
 | `2` | `SelectTrussesTab` | `gui` | `Global` | Block in editable widgets |
 | `3` | `SelectSupportsTab` | `gui` | `Global` | Block in editable widgets |
 | `4` | `SelectObjectsTab` | `gui` | `Global` | Block in editable widgets |
+| `NumPad1` | `ViewportFront` | `viewer2d` | `Viewer2D` | Block in editable widgets |
+| `NumPad3` | `ViewportSide` | `viewer2d` | `Viewer2D` | Block in editable widgets |
+| `NumPad7` | `ViewportTop` | `viewer2d` | `Viewer2D` | Block in editable widgets |
 | `NumPad1` | `ViewportFront` | `viewer3d` | `Viewer3D` | Block in editable widgets |
 | `NumPad3` | `ViewportSide` | `viewer3d` | `Viewer3D` | Block in editable widgets |
 | `NumPad7` | `ViewportTop` | `viewer3d` | `Viewer3D` | Block in editable widgets |
@@ -75,7 +78,8 @@ This makes shortcut behavior deterministic and keeps one single decision point f
    - `ApplyFitShortcut()` for focused viewer fit,
    - `FocusConsoleForQuickCommand(...)` for CLI-prefill actions,
    - notebook-tab selection commands for `1..4`,
-   - 3D viewport standard/reset view commands for numpad actions.
+   - `ApplyViewportShortcut(...)` for top/front/side numpad view actions in the active viewer,
+   - 3D viewport reset for `NumPad5`.
 
 Viewer-specific direct handling for these migrated shortcuts is intentionally avoided,
 so routing stays centralized in GUI.

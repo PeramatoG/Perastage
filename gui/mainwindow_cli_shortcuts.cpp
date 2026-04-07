@@ -80,23 +80,14 @@ bool MainWindow::ApplyShortcutDecision(
     return GetEventHandler()->ProcessEvent(event);
   }
   case gui::ShortcutAction::ViewportFront:
-    if (viewportPanel) {
-      viewportPanel->SetStandardView(Viewer2DView::Front);
-      return true;
-    }
-    return false;
+    ApplyViewportShortcut(Viewer2DView::Front);
+    return true;
   case gui::ShortcutAction::ViewportSide:
-    if (viewportPanel) {
-      viewportPanel->SetStandardView(Viewer2DView::Side);
-      return true;
-    }
-    return false;
+    ApplyViewportShortcut(Viewer2DView::Side);
+    return true;
   case gui::ShortcutAction::ViewportTop:
-    if (viewportPanel) {
-      viewportPanel->SetStandardView(Viewer2DView::Top);
-      return true;
-    }
-    return false;
+    ApplyViewportShortcut(Viewer2DView::Top);
+    return true;
   case gui::ShortcutAction::ViewportReset3D:
     if (viewportPanel)
       return viewportPanel->ResetCameraToIsometric();

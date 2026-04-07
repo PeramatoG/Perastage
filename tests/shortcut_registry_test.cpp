@@ -55,6 +55,12 @@ int main() {
   ok &= Expect(numpadTop && numpadTop->action == gui::ShortcutAction::ViewportTop,
                "NumPad7 should resolve top view in viewer3d scope");
 
+  const auto numpadFront2d =
+      gui::ResolveShortcut(gui::kShortcutKeyNumpad1, viewer2dContext);
+  ok &= Expect(numpadFront2d &&
+                   numpadFront2d->action == gui::ShortcutAction::ViewportFront,
+               "NumPad1 should resolve front view in viewer2d scope");
+
   const gui::ShortcutExecutionContext editableContext{
       .focusInEditableText = true,
   };
