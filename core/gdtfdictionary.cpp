@@ -82,6 +82,31 @@ bool IsDummy1ChFallbackPath(const std::string &gdtfPath) {
   return NormalizeAsciiKey(fileName) == "dummy1ch.gdtf";
 }
 
+std::string NormalizeTypeKey(const std::string &type) {
+  std::string normalized;
+  normalized.reserve(type.size());
+  for (unsigned char ch : type) {
+    if (std::isspace(ch) != 0)
+      continue;
+    normalized.push_back(static_cast<char>(std::toupper(ch)));
+  }
+  return normalized;
+}
+
+std::optional<std::string>
+FindEquivalentTypeKey(const std::unordered_map<std::string, Entry> &dict,
+                      const std::string &rawType) {
+  const std::string normalizedTarget = NormalizeTypeKey(rawType);
+  if (normalizedTarget.empty())
+    return std::nullopt;
+
+  for (const auto &[existingType, _] : dict) {
+    if (NormalizeTypeKey(existingType) == normalizedTarget)
+      return existingType;
+  }
+  return std::nullopt;
+}
+
 fs::path GetUserDictFile() {
   fs::path dir = fs::u8path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
   if (dir.empty())
@@ -287,7 +312,8 @@ DictionaryImportSummary MergeDictionaryEntries(
   }
 
   for (const auto &[key, value] : imported) {
-    const auto it = current.find(key);
+    const auto resolvedKey = FindEquivalentTypeKey(current, key);
+    const auto it = resolvedKey ? current.find(*resolvedKey) : current.end();
     if (it == current.end()) {
       if (applyChanges)
         current[key] = value;
@@ -418,13 +444,17 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
 
 std::optional<Entry> Get(const std::string &type) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  const std::string normalizedType = NormalizeTypeKey(type);
+  if (normalizedType.empty())
+    return std::nullopt;
   auto dictOpt = Load();
   if (!dictOpt)
     return std::nullopt;
   auto &dict = *dictOpt;
-  auto it = dict.find(type);
-  if (it == dict.end())
+  auto keyOpt = FindEquivalentTypeKey(dict, normalizedType);
+  if (!keyOpt)
     return std::nullopt;
+  auto it = dict.find(*keyOpt);
   if (!it->second.path.empty() && !fs::exists(it->second.path)) {
     dict.erase(it);
     Save(dict);
@@ -435,9 +465,10 @@ std::optional<Entry> Get(const std::string &type) {
 
 void Update(const std::string &type, const std::string &gdtfPath, const std::string &mode, const std::string &category) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  if (type.empty() || gdtfPath.empty())
+  const std::string normalizedType = NormalizeTypeKey(type);
+  if (normalizedType.empty() || gdtfPath.empty())
     return;
-  if (IsDummy1ChFallbackType(type) || IsDummy1ChFallbackPath(gdtfPath))
+  if (IsDummy1ChFallbackType(normalizedType) || IsDummy1ChFallbackPath(gdtfPath))
     return;
   const fs::path src = fs::u8path(gdtfPath);
   if (!fs::exists(src))
@@ -456,8 +487,11 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
   if (!dictOpt)
     return; // avoid overwriting existing dictionary on load failure
   auto &dict = *dictOpt;
+  std::string keyToUse = type;
+  if (auto existingKey = FindEquivalentTypeKey(dict, normalizedType))
+    keyToUse = *existingKey;
   Entry e;
-  auto it = dict.find(type);
+  auto it = dict.find(keyToUse);
   if (it != dict.end())
     e = it->second;
 
@@ -470,7 +504,7 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
   e.importedAt = FileImportUtils::NowUtcIso8601();
   e.sha256 = copyResult.finalSha256;
 
-  dict[type] = e;
+  dict[keyToUse] = e;
   Save(dict);
 }
 
@@ -482,24 +516,28 @@ void UpdateCategory(const std::string &type, const std::string &category) {
 void UpdateCategoryForFile(const std::string &type, const std::string &gdtfPath,
                            const std::string &category) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  if (type.empty())
+  const std::string normalizedType = NormalizeTypeKey(type);
+  if (normalizedType.empty())
     return;
   auto dictOpt = Load();
   if (!dictOpt)
     return;
   auto &dict = *dictOpt;
-  auto it = dict.find(type);
+  std::string keyToUse = type;
+  if (auto existingKey = FindEquivalentTypeKey(dict, normalizedType))
+    keyToUse = *existingKey;
+  auto it = dict.find(keyToUse);
   if (it == dict.end()) {
     Entry e;
     e.category = category;
-    dict[type] = e;
+    dict[keyToUse] = e;
   } else {
     std::string sharedPath = it->second.path;
     if (sharedPath.empty() && !gdtfPath.empty())
       sharedPath = gdtfPath;
     it->second.category = category;
     for (auto &[entryType, entry] : dict) {
-      if (entryType == type)
+      if (entryType == keyToUse)
         continue;
       const bool samePath = PathsMatchForDictionaryEntries(entry.path, sharedPath);
       const bool sameFileName = PathsShareFileName(entry.path, sharedPath);
@@ -518,24 +556,28 @@ void UpdateColor(const std::string &type, const std::string &color) {
 void UpdateColorForFile(const std::string &type, const std::string &gdtfPath,
                         const std::string &color) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  if (type.empty())
+  const std::string normalizedType = NormalizeTypeKey(type);
+  if (normalizedType.empty())
     return;
   auto dictOpt = Load();
   if (!dictOpt)
     return;
   auto &dict = *dictOpt;
-  auto it = dict.find(type);
+  std::string keyToUse = type;
+  if (auto existingKey = FindEquivalentTypeKey(dict, normalizedType))
+    keyToUse = *existingKey;
+  auto it = dict.find(keyToUse);
   if (it == dict.end()) {
     Entry e;
     e.color = color;
-    dict[type] = e;
+    dict[keyToUse] = e;
   } else {
     std::string sharedPath = it->second.path;
     if (sharedPath.empty() && !gdtfPath.empty())
       sharedPath = gdtfPath;
     it->second.color = color;
     for (auto &[entryType, entry] : dict) {
-      if (entryType == type)
+      if (entryType == keyToUse)
         continue;
       const bool samePath = PathsMatchForDictionaryEntries(entry.path, sharedPath);
       const bool sameFileName = PathsShareFileName(entry.path, sharedPath);

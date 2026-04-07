@@ -138,6 +138,9 @@ For each fixture created:
 1. `instanceName` is initialized with incremental numbering per parsed token (`Type 1`, `Type 2`, ...).
 2. `typeName` is set from parsed text and may be refined through the GDTF dictionary.
 3. If dictionary entry exists:
+   - Fixture dictionary lookup is case-insensitive and ignores whitespace in
+     type names (for example `MACAURA`, `Mac Aura`, and `mac aura` resolve to
+     the same entry).
    - `gdtfSpec` and `gdtfMode` are assigned.
    - If dictionary color is defined, it is copied into fixture `color`.
    - If dictionary category is defined, it is copied into fixture `category`
