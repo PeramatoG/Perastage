@@ -3,6 +3,7 @@
     "entries": {
         "Aleda B-EYE K10": {
             "category": "Wash",
+            "color": "#7A5CFA",
             "file": "Aleda B-EYE K10.gdtf",
             "mode": "Shapes"
         },
@@ -67,6 +68,7 @@
         },
         "JDC-1": {
             "category": "Strobe",
+            "color": "#FFD966",
             "file": "JDC-1.gdtf",
             "mode": "DMX Mode 1 (Compressed Pro)"
         },
@@ -290,6 +292,7 @@
         },
         "Tour Hazer II": {
             "category": "Smoke",
+            "color": "#9E9E9E",
             "file": "Tour Hazer II.gdtf",
             "mode": "Default"
         },

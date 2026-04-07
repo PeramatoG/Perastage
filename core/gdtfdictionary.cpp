@@ -203,14 +203,18 @@ LoadFromFile(const fs::path &file, std::string &error) {
       entry.mode = value["mode"].get<std::string>();
     if (value.contains("category") && value["category"].is_string())
       entry.category = value["category"].get<std::string>();
+    if (value.contains("color") && value["color"].is_string())
+      entry.color = value["color"].get<std::string>();
     if (value.contains("source") && value["source"].is_string())
       entry.source = value["source"].get<std::string>();
     if (value.contains("imported_at") && value["imported_at"].is_string())
       entry.importedAt = value["imported_at"].get<std::string>();
     if (value.contains("sha256") && value["sha256"].is_string())
       entry.sha256 = value["sha256"].get<std::string>();
-    if (entry.path.empty() && entry.mode.empty() && entry.category.empty()) {
-      entryError = "entry object must include at least one of file/path/mode/category";
+    if (entry.path.empty() && entry.mode.empty() && entry.category.empty() &&
+        entry.color.empty()) {
+      entryError =
+          "entry object must include at least one of file/path/mode/category/color";
       return false;
     }
     return true;
@@ -360,7 +364,8 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
   std::sort(keys.begin(), keys.end());
   for (const auto &type : keys) {
     const auto &entry = dict.at(type);
-    if (entry.path.empty() && entry.mode.empty() && entry.category.empty())
+    if (entry.path.empty() && entry.mode.empty() && entry.category.empty() &&
+        entry.color.empty())
       continue;
     nlohmann::json obj;
     if (!entry.path.empty()) {
@@ -373,6 +378,8 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
       obj["mode"] = entry.mode;
     if (!entry.category.empty())
       obj["category"] = entry.category;
+    if (!entry.color.empty())
+      obj["color"] = entry.color;
     if (!entry.source.empty())
       obj["source"] = entry.source;
     if (!entry.importedAt.empty())
