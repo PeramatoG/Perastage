@@ -94,12 +94,12 @@ PrimitiveMeshData BuildCubeMesh() {
       -0.5f, 0.5f,  0.5f,
   };
   mesh.indices = {
-      0, 1, 2, 0, 2, 3,
-      4, 7, 6, 4, 6, 5,
-      0, 4, 5, 0, 5, 1,
-      1, 5, 6, 1, 6, 2,
-      2, 6, 7, 2, 7, 3,
-      3, 7, 4, 3, 4, 0,
+      0, 2, 1, 0, 3, 2,
+      4, 6, 7, 4, 5, 6,
+      0, 5, 4, 0, 1, 5,
+      1, 6, 5, 1, 2, 6,
+      2, 7, 6, 2, 3, 7,
+      3, 4, 7, 3, 0, 4,
   };
   return mesh;
 }
@@ -184,7 +184,7 @@ PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
     const uint16_t bot1 =
         static_cast<uint16_t>(sideBase + ((i + 1) % kSegments) * 2 + 1);
     // Keep counter-clockwise winding for outward normals in the right-handed MVR space.
-    mesh.indices.insert(mesh.indices.end(), {top0, bot0, bot1, top0, bot1, top1});
+    mesh.indices.insert(mesh.indices.end(), {top0, bot1, bot0, top0, top1, bot1});
   }
 
   // Top cap vertices.
@@ -199,7 +199,7 @@ PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
   for (int i = 0; i < kSegments; ++i) {
     const uint16_t top0 = static_cast<uint16_t>(topCapBase + i);
     const uint16_t top1 = static_cast<uint16_t>(topCapBase + ((i + 1) % kSegments));
-    mesh.indices.insert(mesh.indices.end(), {topCenter, top0, top1});
+    mesh.indices.insert(mesh.indices.end(), {topCenter, top1, top0});
   }
 
   // Bottom cap vertices.
@@ -216,7 +216,7 @@ PrimitiveMeshData BuildCylinderMesh(float topRadius, float bottomRadius,
     const uint16_t bot0 = static_cast<uint16_t>(bottomCapBase + i);
     const uint16_t bot1 =
         static_cast<uint16_t>(bottomCapBase + ((i + 1) % kSegments));
-    mesh.indices.insert(mesh.indices.end(), {bottomCenter, bot1, bot0});
+    mesh.indices.insert(mesh.indices.end(), {bottomCenter, bot0, bot1});
   }
 
   return mesh;
