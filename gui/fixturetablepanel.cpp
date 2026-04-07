@@ -42,6 +42,7 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <memory>
 #include <unordered_map>
 #include <unordered_set>
 #include <wx/choicdlg.h>
@@ -1077,7 +1078,11 @@ std::vector<std::string> FixtureTablePanel::GetSelectedUuids() const {
   return uuids;
 }
 
-void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids) {
+void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
+                                     bool notifySelectionChanged) {
+  std::unique_ptr<wxEventBlocker> selectionBlocker;
+  if (!notifySelectionChanged)
+    selectionBlocker = std::make_unique<wxEventBlocker>(table, wxEVT_DATAVIEW_SELECTION_CHANGED);
   table->UnselectAll();
   selectionOrder.clear();
   std::vector<bool> selectedRows(table->GetItemCount(), false);
@@ -1094,14 +1099,15 @@ void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids) {
   store->SetSelectedRows(selectedRows);
 }
 
-void FixtureTablePanel::DeleteSelected() {
+void FixtureTablePanel::DeleteSelected(bool pushUndoState) {
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   if (selections.empty())
     return;
 
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
-  cfg.PushUndoState("delete fixture");
+  if (pushUndoState)
+    cfg.PushUndoState("delete fixture");
   cfg.SetSelectedFixtures({});
 
   std::vector<std::string> oldOrder = rowUuids;
@@ -1140,12 +1146,21 @@ void FixtureTablePanel::DeleteSelected() {
 
   HighlightDuplicateFixtureIds();
 
+  std::vector<std::string> mergedSelection;
+  const auto appendSelection = [&](const std::vector<std::string> &source) {
+    mergedSelection.insert(mergedSelection.end(), source.begin(), source.end());
+  };
+  appendSelection(cfg.GetSelectedFixtures());
+  appendSelection(cfg.GetSelectedTrusses());
+  appendSelection(cfg.GetSelectedSupports());
+  appendSelection(cfg.GetSelectedSceneObjects());
+
   if (Viewer3DPanel::Instance()) {
-    Viewer3DPanel::Instance()->SetSelectedFixtures({});
+    Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
     Viewer3DPanel::Instance()->UpdateScene();
     Viewer3DPanel::Instance()->Refresh();
   } else if (Viewer2DPanel::Instance()) {
-    Viewer2DPanel::Instance()->SetSelectedUuids({});
+    Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
     Viewer2DPanel::Instance()->UpdateScene();
   }
 
@@ -1312,10 +1327,18 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
     cfg.PushUndoState("fixture selection");
     cfg.SetSelectedFixtures(uuids);
   }
+  std::vector<std::string> mergedSelection;
+  const auto appendSelection = [&](const std::vector<std::string> &source) {
+    mergedSelection.insert(mergedSelection.end(), source.begin(), source.end());
+  };
+  appendSelection(cfg.GetSelectedFixtures());
+  appendSelection(cfg.GetSelectedTrusses());
+  appendSelection(cfg.GetSelectedSupports());
+  appendSelection(cfg.GetSelectedSceneObjects());
   if (Viewer3DPanel::Instance())
-    Viewer3DPanel::Instance()->SetSelectedFixtures(uuids);
+    Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
   if (Viewer2DPanel::Instance())
-    Viewer2DPanel::Instance()->SetSelectedUuids(uuids);
+    Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
   UpdateSelectionHighlight();
   evt.Skip();
 }

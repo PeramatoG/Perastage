@@ -1006,36 +1006,41 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
     consolePanel->AppendMessage(action.empty() ? "Undo" : "Undo " + action);
   if (fixturePanel) {
     fixturePanel->ReloadData();
-    fixturePanel->SelectByUuid(cfg.GetSelectedFixtures());
+    fixturePanel->SelectByUuid(cfg.GetSelectedFixtures(), false);
   }
   if (trussPanel) {
     trussPanel->ReloadData();
-    trussPanel->SelectByUuid(cfg.GetSelectedTrusses());
+    trussPanel->SelectByUuid(cfg.GetSelectedTrusses(), false);
   }
   if (hoistPanel) {
     hoistPanel->ReloadData();
-    hoistPanel->SelectByUuid(cfg.GetSelectedSupports());
+    hoistPanel->SelectByUuid(cfg.GetSelectedSupports(), false);
   }
   if (sceneObjPanel) {
     sceneObjPanel->ReloadData();
-    sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
+    sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects(), false);
   }
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
   if (!activeLayoutName.empty())
     ActivateLayoutView(activeLayoutName);
+  if (viewport2DPanel) {
+    viewport2DPanel->UpdateScene();
+    viewport2DPanel->Refresh();
+  }
   if (viewportPanel) {
+    std::vector<std::string> mergedSelection;
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedFixtures().begin(),
+                           cfg.GetSelectedFixtures().end());
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedTrusses().begin(),
+                           cfg.GetSelectedTrusses().end());
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedSupports().begin(),
+                           cfg.GetSelectedSupports().end());
+    mergedSelection.insert(mergedSelection.end(),
+                           cfg.GetSelectedSceneObjects().begin(),
+                           cfg.GetSelectedSceneObjects().end());
     viewportPanel->UpdateScene();
-    if (fixturePanel && fixturePanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedFixtures());
-    else if (trussPanel && trussPanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedTrusses());
-    else if (hoistPanel && hoistPanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedSupports());
-    else if (sceneObjPanel && sceneObjPanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedSceneObjects());
-    else
-      viewportPanel->SetSelectedFixtures({});
+    viewportPanel->SetSelectedFixtures(mergedSelection);
     viewportPanel->Refresh();
   }
   RefreshSummary();
@@ -1050,36 +1055,41 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
     consolePanel->AppendMessage(action.empty() ? "Redo" : "Redo " + action);
   if (fixturePanel) {
     fixturePanel->ReloadData();
-    fixturePanel->SelectByUuid(cfg.GetSelectedFixtures());
+    fixturePanel->SelectByUuid(cfg.GetSelectedFixtures(), false);
   }
   if (trussPanel) {
     trussPanel->ReloadData();
-    trussPanel->SelectByUuid(cfg.GetSelectedTrusses());
+    trussPanel->SelectByUuid(cfg.GetSelectedTrusses(), false);
   }
   if (hoistPanel) {
     hoistPanel->ReloadData();
-    hoistPanel->SelectByUuid(cfg.GetSelectedSupports());
+    hoistPanel->SelectByUuid(cfg.GetSelectedSupports(), false);
   }
   if (sceneObjPanel) {
     sceneObjPanel->ReloadData();
-    sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
+    sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects(), false);
   }
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
   if (!activeLayoutName.empty())
     ActivateLayoutView(activeLayoutName);
+  if (viewport2DPanel) {
+    viewport2DPanel->UpdateScene();
+    viewport2DPanel->Refresh();
+  }
   if (viewportPanel) {
+    std::vector<std::string> mergedSelection;
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedFixtures().begin(),
+                           cfg.GetSelectedFixtures().end());
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedTrusses().begin(),
+                           cfg.GetSelectedTrusses().end());
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedSupports().begin(),
+                           cfg.GetSelectedSupports().end());
+    mergedSelection.insert(mergedSelection.end(),
+                           cfg.GetSelectedSceneObjects().begin(),
+                           cfg.GetSelectedSceneObjects().end());
     viewportPanel->UpdateScene();
-    if (fixturePanel && fixturePanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedFixtures());
-    else if (trussPanel && trussPanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedTrusses());
-    else if (hoistPanel && hoistPanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedSupports());
-    else if (sceneObjPanel && sceneObjPanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedSceneObjects());
-    else
-      viewportPanel->SetSelectedFixtures({});
+    viewportPanel->SetSelectedFixtures(mergedSelection);
     viewportPanel->Refresh();
   }
   RefreshSummary();
@@ -1511,59 +1521,41 @@ void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
 
   auto ensureFixtureSelection = [&]() {
     if (fixturePanel && fixturePanel->GetSelectedUuids().empty())
-      fixturePanel->SelectByUuid(cfg.GetSelectedFixtures());
+      fixturePanel->SelectByUuid(cfg.GetSelectedFixtures(), false);
   };
   auto ensureTrussSelection = [&]() {
     if (trussPanel && trussPanel->GetSelectedUuids().empty())
-      trussPanel->SelectByUuid(cfg.GetSelectedTrusses());
+      trussPanel->SelectByUuid(cfg.GetSelectedTrusses(), false);
   };
   auto ensureSupportSelection = [&]() {
     if (hoistPanel && hoistPanel->GetSelectedUuids().empty())
-      hoistPanel->SelectByUuid(cfg.GetSelectedSupports());
+      hoistPanel->SelectByUuid(cfg.GetSelectedSupports(), false);
   };
   auto ensureObjectSelection = [&]() {
     if (sceneObjPanel && sceneObjPanel->GetSelectedUuids().empty())
-      sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
+      sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects(), false);
   };
 
-  if (fixturePanel && fixturePanel->IsActivePage()) {
-    ensureFixtureSelection();
-    fixturePanel->DeleteSelected();
-    return;
-  }
-  if (trussPanel && trussPanel->IsActivePage()) {
-    ensureTrussSelection();
-    trussPanel->DeleteSelected();
-    return;
-  }
-  if (hoistPanel && hoistPanel->IsActivePage()) {
-    ensureSupportSelection();
-    hoistPanel->DeleteSelected();
-    return;
-  }
-  if (sceneObjPanel && sceneObjPanel->IsActivePage()) {
-    ensureObjectSelection();
-    sceneObjPanel->DeleteSelected();
-    return;
-  }
+  const bool hasAnySelection =
+      !cfg.GetSelectedFixtures().empty() || !cfg.GetSelectedTrusses().empty() ||
+      !cfg.GetSelectedSupports().empty() || !cfg.GetSelectedSceneObjects().empty();
+  if (hasAnySelection)
+    cfg.PushUndoState("delete selected elements");
 
   if (fixturePanel && !cfg.GetSelectedFixtures().empty()) {
     ensureFixtureSelection();
-    fixturePanel->DeleteSelected();
-    return;
+    fixturePanel->DeleteSelected(false);
   }
   if (trussPanel && !cfg.GetSelectedTrusses().empty()) {
     ensureTrussSelection();
-    trussPanel->DeleteSelected();
-    return;
+    trussPanel->DeleteSelected(false);
   }
   if (hoistPanel && !cfg.GetSelectedSupports().empty()) {
     ensureSupportSelection();
-    hoistPanel->DeleteSelected();
-    return;
+    hoistPanel->DeleteSelected(false);
   }
   if (sceneObjPanel && !cfg.GetSelectedSceneObjects().empty()) {
     ensureObjectSelection();
-    sceneObjPanel->DeleteSelected();
+    sceneObjPanel->DeleteSelected(false);
   }
 }

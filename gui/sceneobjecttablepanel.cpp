@@ -36,6 +36,7 @@
 #include <cctype>
 #include <cmath>
 #include <filesystem>
+#include <memory>
 #include <wx/notebook.h>
 #include <wx/choicdlg.h>
 #include <wx/filedlg.h>
@@ -646,10 +647,18 @@ void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
         cfg.PushUndoState("scene object selection");
         cfg.SetSelectedSceneObjects(uuids);
     }
+    std::vector<std::string> mergedSelection;
+    const auto appendSelection = [&](const std::vector<std::string>& source) {
+        mergedSelection.insert(mergedSelection.end(), source.begin(), source.end());
+    };
+    appendSelection(cfg.GetSelectedFixtures());
+    appendSelection(cfg.GetSelectedTrusses());
+    appendSelection(cfg.GetSelectedSupports());
+    appendSelection(cfg.GetSelectedSceneObjects());
     if (Viewer3DPanel::Instance())
-        Viewer3DPanel::Instance()->SetSelectedFixtures(uuids);
+        Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
     if (Viewer2DPanel::Instance())
-        Viewer2DPanel::Instance()->SetSelectedUuids(uuids);
+        Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
     UpdateSelectionHighlight();
     evt.Skip();
 }
@@ -902,7 +911,13 @@ std::vector<std::string> SceneObjectTablePanel::GetSelectedUuids() const {
     return uuids;
 }
 
-void SceneObjectTablePanel::SelectByUuid(const std::vector<std::string>& uuids) {
+void SceneObjectTablePanel::SelectByUuid(const std::vector<std::string>& uuids,
+                                         bool notifySelectionChanged) {
+    std::unique_ptr<wxEventBlocker> selectionBlocker;
+    if (!notifySelectionChanged) {
+        selectionBlocker = std::make_unique<wxEventBlocker>(
+            table, wxEVT_DATAVIEW_SELECTION_CHANGED);
+    }
     table->UnselectAll();
     std::vector<bool> selectedRows(table->GetItemCount(), false);
     for (const auto& u : uuids) {
@@ -917,7 +932,7 @@ void SceneObjectTablePanel::SelectByUuid(const std::vector<std::string>& uuids) 
     store->SetSelectedRows(selectedRows);
 }
 
-void SceneObjectTablePanel::DeleteSelected()
+void SceneObjectTablePanel::DeleteSelected(bool pushUndoState)
 {
     wxDataViewItemArray selections;
     table->GetSelections(selections);
@@ -925,7 +940,8 @@ void SceneObjectTablePanel::DeleteSelected()
         return;
 
     ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
-    cfg.PushUndoState("delete scene object");
+    if (pushUndoState)
+        cfg.PushUndoState("delete scene object");
     cfg.SetSelectedSceneObjects({});
 
     std::vector<int> rows;
@@ -956,13 +972,22 @@ void SceneObjectTablePanel::DeleteSelected()
         }
     }
 
+    std::vector<std::string> mergedSelection;
+    const auto appendSelection = [&](const std::vector<std::string>& source) {
+        mergedSelection.insert(mergedSelection.end(), source.begin(), source.end());
+    };
+    appendSelection(cfg.GetSelectedFixtures());
+    appendSelection(cfg.GetSelectedTrusses());
+    appendSelection(cfg.GetSelectedSupports());
+    appendSelection(cfg.GetSelectedSceneObjects());
+
     if (Viewer3DPanel::Instance()) {
-        Viewer3DPanel::Instance()->SetSelectedFixtures({});
+        Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
         Viewer3DPanel::Instance()->UpdateScene();
         Viewer3DPanel::Instance()->Refresh();
     }
     else if (Viewer2DPanel::Instance()) {
-        Viewer2DPanel::Instance()->SetSelectedUuids({});
+        Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
         Viewer2DPanel::Instance()->UpdateScene();
     }
 

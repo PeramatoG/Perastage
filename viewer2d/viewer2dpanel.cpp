@@ -259,6 +259,25 @@ void ApplyFixtureSelectionToUi(const std::vector<std::string> &selection,
       FixtureTablePanel::Instance()->SelectByUuid(selection);
   }
 }
+
+std::vector<std::string> BuildCombinedSelection(const ConfigManager &cfg) {
+  std::vector<std::string> combined;
+  std::set<std::string> seen;
+
+  const auto appendUnique = [&](const std::vector<std::string> &source) {
+    for (const auto &uuid : source) {
+      if (seen.insert(uuid).second)
+        combined.push_back(uuid);
+    }
+  };
+
+  appendUnique(cfg.GetSelectedFixtures());
+  appendUnique(cfg.GetSelectedTrusses());
+  appendUnique(cfg.GetSelectedSupports());
+  appendUnique(cfg.GetSelectedSceneObjects());
+
+  return combined;
+}
 } // namespace
 
 namespace {
@@ -322,21 +341,7 @@ void Viewer2DPanel::UpdateScene(bool reload) {
     m_controller.Update();
   if (m_enableSelection) {
     ConfigManager &cfg = ConfigManager::Get();
-    std::vector<std::string> selection;
-    if (FixtureTablePanel::Instance() &&
-        FixtureTablePanel::Instance()->IsActivePage()) {
-      selection = cfg.GetSelectedFixtures();
-    } else if (TrussTablePanel::Instance() &&
-               TrussTablePanel::Instance()->IsActivePage()) {
-      selection = cfg.GetSelectedTrusses();
-    } else if (HoistTablePanel::Instance() &&
-               HoistTablePanel::Instance()->IsActivePage()) {
-      selection = cfg.GetSelectedSupports();
-    } else if (SceneObjectTablePanel::Instance() &&
-               SceneObjectTablePanel::Instance()->IsActivePage()) {
-      selection = cfg.GetSelectedSceneObjects();
-    }
-    m_controller.SetSelectedUuids(selection);
+    m_controller.SetSelectedUuids(BuildCombinedSelection(cfg));
   }
   Refresh();
 }
@@ -1068,22 +1073,22 @@ void Viewer2DPanel::FinalizeSelectionDrag() {
   if (!m_dragFixtureUuids.empty() && FixtureTablePanel::Instance()) {
     auto selection = cfg.GetSelectedFixtures();
     FixtureTablePanel::Instance()->ReloadData();
-    FixtureTablePanel::Instance()->SelectByUuid(selection);
+    FixtureTablePanel::Instance()->SelectByUuid(selection, false);
   }
   if (!m_dragTrussUuids.empty() && TrussTablePanel::Instance()) {
     auto selection = cfg.GetSelectedTrusses();
     TrussTablePanel::Instance()->ReloadData();
-    TrussTablePanel::Instance()->SelectByUuid(selection);
+    TrussTablePanel::Instance()->SelectByUuid(selection, false);
   }
   if (!m_dragSupportUuids.empty() && HoistTablePanel::Instance()) {
     auto selection = cfg.GetSelectedSupports();
     HoistTablePanel::Instance()->ReloadData();
-    HoistTablePanel::Instance()->SelectByUuid(selection);
+    HoistTablePanel::Instance()->SelectByUuid(selection, false);
   }
   if (!m_dragSceneObjectUuids.empty() && SceneObjectTablePanel::Instance()) {
     auto selection = cfg.GetSelectedSceneObjects();
     SceneObjectTablePanel::Instance()->ReloadData();
-    SceneObjectTablePanel::Instance()->SelectByUuid(selection);
+    SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
   }
 
   if (!ShouldPauseHeavyTasks())
@@ -1148,25 +1153,25 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
       if (fixtures.empty())
         FixtureTablePanel::Instance()->ClearSelection();
       else
-        FixtureTablePanel::Instance()->SelectByUuid(fixtures);
+        FixtureTablePanel::Instance()->SelectByUuid(fixtures, false);
     }
     if (TrussTablePanel::Instance()) {
       if (trusses.empty())
         TrussTablePanel::Instance()->ClearSelection();
       else
-        TrussTablePanel::Instance()->SelectByUuid(trusses);
+        TrussTablePanel::Instance()->SelectByUuid(trusses, false);
     }
     if (HoistTablePanel::Instance()) {
       if (supports.empty())
         HoistTablePanel::Instance()->ClearSelection();
       else
-        HoistTablePanel::Instance()->SelectByUuid(supports);
+        HoistTablePanel::Instance()->SelectByUuid(supports, false);
     }
     if (SceneObjectTablePanel::Instance()) {
       if (sceneObjects.empty())
         SceneObjectTablePanel::Instance()->ClearSelection();
       else
-        SceneObjectTablePanel::Instance()->SelectByUuid(sceneObjects);
+        SceneObjectTablePanel::Instance()->SelectByUuid(sceneObjects, false);
     }
     if (Viewer2DRenderPanel::Instance())
       Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
@@ -1835,43 +1840,29 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
         SceneObjectTablePanel::Instance()->SelectByUuid(selection);
       }
     } else {
-      if (FixtureTablePanel::Instance() &&
-          FixtureTablePanel::Instance()->IsActivePage()) {
-        if (!cfg.GetSelectedFixtures().empty()) {
-          cfg.PushUndoState("fixture selection");
-          cfg.SetSelectedFixtures({});
-          if (Viewer2DRenderPanel::Instance())
-            Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
-        }
-        m_controller.SetSelectedUuids({});
-        FixtureTablePanel::Instance()->ClearSelection();
-      } else if (TrussTablePanel::Instance() &&
-                 TrussTablePanel::Instance()->IsActivePage()) {
-        if (!cfg.GetSelectedTrusses().empty()) {
-          cfg.PushUndoState("truss selection");
-          cfg.SetSelectedTrusses({});
-        }
-        m_controller.SetSelectedUuids({});
-        TrussTablePanel::Instance()->ClearSelection();
-      } else if (HoistTablePanel::Instance() &&
-                 HoistTablePanel::Instance()->IsActivePage()) {
-        if (!cfg.GetSelectedSupports().empty()) {
-          cfg.PushUndoState("support selection");
-          cfg.SetSelectedSupports({});
-        }
-        m_controller.SetSelectedUuids({});
-        HoistTablePanel::Instance()->ClearSelection();
-      } else if (SceneObjectTablePanel::Instance() &&
-                 SceneObjectTablePanel::Instance()->IsActivePage()) {
-        if (!cfg.GetSelectedSceneObjects().empty()) {
-          cfg.PushUndoState("scene object selection");
-          cfg.SetSelectedSceneObjects({});
-        }
-        m_controller.SetSelectedUuids({});
-        SceneObjectTablePanel::Instance()->ClearSelection();
-      } else {
-        m_controller.SetSelectedUuids({});
+      const bool hasAnySelection =
+          !cfg.GetSelectedFixtures().empty() || !cfg.GetSelectedTrusses().empty() ||
+          !cfg.GetSelectedSupports().empty() || !cfg.GetSelectedSceneObjects().empty();
+      if (hasAnySelection) {
+        cfg.PushUndoState("clear selection");
+        cfg.SetSelectedFixtures({});
+        cfg.SetSelectedTrusses({});
+        cfg.SetSelectedSupports({});
+        cfg.SetSelectedSceneObjects({});
+        if (Viewer2DRenderPanel::Instance())
+          Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
       }
+
+      m_controller.SetSelectedUuids({});
+
+      if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->ClearSelection();
+      if (TrussTablePanel::Instance())
+        TrussTablePanel::Instance()->ClearSelection();
+      if (HoistTablePanel::Instance())
+        HoistTablePanel::Instance()->ClearSelection();
+      if (SceneObjectTablePanel::Instance())
+        SceneObjectTablePanel::Instance()->ClearSelection();
     }
     Refresh();
   }
