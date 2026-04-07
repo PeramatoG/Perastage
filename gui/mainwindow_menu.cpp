@@ -1526,41 +1526,17 @@ void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
       sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
   };
 
-  if (fixturePanel && fixturePanel->IsActivePage()) {
-    ensureFixtureSelection();
-    fixturePanel->DeleteSelected();
-    return;
-  }
-  if (trussPanel && trussPanel->IsActivePage()) {
-    ensureTrussSelection();
-    trussPanel->DeleteSelected();
-    return;
-  }
-  if (hoistPanel && hoistPanel->IsActivePage()) {
-    ensureSupportSelection();
-    hoistPanel->DeleteSelected();
-    return;
-  }
-  if (sceneObjPanel && sceneObjPanel->IsActivePage()) {
-    ensureObjectSelection();
-    sceneObjPanel->DeleteSelected();
-    return;
-  }
-
   if (fixturePanel && !cfg.GetSelectedFixtures().empty()) {
     ensureFixtureSelection();
     fixturePanel->DeleteSelected();
-    return;
   }
   if (trussPanel && !cfg.GetSelectedTrusses().empty()) {
     ensureTrussSelection();
     trussPanel->DeleteSelected();
-    return;
   }
   if (hoistPanel && !cfg.GetSelectedSupports().empty()) {
     ensureSupportSelection();
     hoistPanel->DeleteSelected();
-    return;
   }
   if (sceneObjPanel && !cfg.GetSelectedSceneObjects().empty()) {
     ensureObjectSelection();
