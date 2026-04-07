@@ -45,6 +45,8 @@ int main() {
 
   const std::filesystem::path fixtureFile = fixturesDir / "mode_shared_fixture.gdtf";
   WriteFile(fixtureFile, "fixture");
+  const std::filesystem::path fixtureFileNew = fixturesDir / "mode_shared_fixture_new.gdtf";
+  WriteFile(fixtureFileNew, "fixture-new");
 
   nlohmann::json entries = nlohmann::json::object();
   entries["TypeA"] = {{"file", fixtureFile.string()},
@@ -88,6 +90,30 @@ int main() {
   assert(dictAfterNewType.at("TypeB").color == "#000002");
   assert(dictAfterNewType.at("TypeNotInDictionary").color == "#123456");
 
+  nlohmann::json migratedEntries = nlohmann::json::object();
+  migratedEntries["TypeA"] = {{"file", fixtureFile.string()},
+                              {"mode", "Mode A"},
+                              {"color", "#100000"}};
+  migratedEntries["TypeB"] = {{"file", fixtureFile.string()},
+                              {"mode", "Mode_B"},
+                              {"color", "#200000"}};
+  migratedEntries["TypeC"] = {{"file", fixtureFileNew.string()},
+                              {"mode", "Mode A"},
+                              {"color", "#300000"}};
+  WriteFile(dictPath, DictionaryJsonContract::MakeRoot("fixtures", std::move(migratedEntries))
+                         .dump(4));
+
+  GdtfDictionary::UpdateColorForFile("TypeA", fixtureFileNew.string(), "Mode A",
+                                     "#654321");
+  auto dictAfterPathRefreshOpt = GdtfDictionary::Load();
+  assert(dictAfterPathRefreshOpt.has_value());
+  const auto &dictAfterPathRefresh = *dictAfterPathRefreshOpt;
+  assert(dictAfterPathRefresh.at("TypeA").path == fixtureFileNew.string());
+  assert(dictAfterPathRefresh.at("TypeA").color == "#654321");
+  assert(dictAfterPathRefresh.at("TypeC").color == "#654321");
+  assert(dictAfterPathRefresh.at("TypeB").color == "#200000");
+
+  std::filesystem::remove(fixtureFileNew);
   std::filesystem::remove(fixtureFile);
   if (hadOriginal)
     WriteFile(dictPath, originalContent);

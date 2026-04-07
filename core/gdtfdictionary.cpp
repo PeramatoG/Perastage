@@ -586,7 +586,7 @@ void UpdateColorForFile(const std::string &type, const std::string &gdtfPath,
   if (auto existingKey = FindEquivalentTypeKey(dict, normalizedType))
     keyToUse = *existingKey;
   auto it = dict.find(keyToUse);
-  std::string sharedPath;
+  std::string sharedPath = gdtfPath;
   std::string sharedMode = mode;
   if (it == dict.end()) {
     Entry e;
@@ -596,13 +596,13 @@ void UpdateColorForFile(const std::string &type, const std::string &gdtfPath,
       e.mode = mode;
     e.color = color;
     dict[keyToUse] = e;
-    sharedPath = e.path;
   } else {
-    sharedPath = it->second.path;
-    if (sharedPath.empty() && !gdtfPath.empty())
-      sharedPath = gdtfPath;
+    if (sharedPath.empty())
+      sharedPath = it->second.path;
     if (sharedMode.empty())
       sharedMode = it->second.mode;
+    if (!gdtfPath.empty())
+      it->second.path = gdtfPath;
     if (!mode.empty())
       it->second.mode = mode;
     it->second.color = color;
