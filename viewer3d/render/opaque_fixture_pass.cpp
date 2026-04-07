@@ -112,29 +112,6 @@ std::string NormalizeModelKeyPath(const std::string &path) {
   return NormalizePathSeparators(normalized.string());
 }
 
-bool TryParseHtmlHexColor(const std::string &hex, float &r, float &g, float &b) {
-  if (hex.size() != 7 || hex[0] != '#')
-    return false;
-  auto hexToNibble = [](char c) -> int {
-    if (c >= '0' && c <= '9')
-      return c - '0';
-    if (c >= 'a' && c <= 'f')
-      return 10 + (c - 'a');
-    if (c >= 'A' && c <= 'F')
-      return 10 + (c - 'A');
-    return -1;
-  };
-  auto byteAt = [&](size_t idx, float &out) -> bool {
-    const int hi = hexToNibble(hex[idx]);
-    const int lo = hexToNibble(hex[idx + 1]);
-    if (hi < 0 || lo < 0)
-      return false;
-    out = static_cast<float>((hi << 4) | lo) / 255.0f;
-    return true;
-  };
-  return byteAt(1, r) && byteAt(3, g) && byteAt(5, b);
-}
-
 std::string ResolveFixtureSymbolKeyPath(const Fixture &fixture,
                                         const std::string &basePath) {
   if (fixture.gdtfSpec.empty())
@@ -554,13 +531,11 @@ void OpaqueFixturePass::Render(
       g = 0.95f;
       b = 0.95f;
     } else if (context.texturedStyle && !wireframe) {
+      // Keep textured fixtures on a neutral tone. Colorized modes such as
+      // ByFixtureType override this with fixture-driven colors afterwards.
       r = 0.2f;
       g = 0.2f;
       b = 0.2f;
-      if (!gdtfPath.empty()) {
-        const std::string gdtfModelColor = GetGdtfModelColor(gdtfPath);
-        TryParseHtmlHexColor(gdtfModelColor, r, g, b);
-      }
     }
     if (mode == Viewer2DRenderMode::ByFixtureType) {
       auto c = getTypeColor(f.gdtfSpec, f.color);
