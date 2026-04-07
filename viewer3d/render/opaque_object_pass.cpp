@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <iomanip>
 #include <sstream>
 #include <string_view>
@@ -84,6 +85,23 @@ bool IsScreenSceneObject(const SceneObject &object) {
                  });
   return lowerName.find("screen") != std::string::npos ||
          lowerName.find("pantalla") != std::string::npos;
+}
+
+bool CanUseAffineSymbolInstance(const Matrix &transform, Viewer2DView view) {
+  constexpr float kEpsilon = 1e-4f;
+  switch (view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    return std::abs(transform.w[0]) <= kEpsilon &&
+           std::abs(transform.w[1]) <= kEpsilon;
+  case Viewer2DView::Front:
+    return std::abs(transform.v[0]) <= kEpsilon &&
+           std::abs(transform.v[2]) <= kEpsilon;
+  case Viewer2DView::Side:
+    return std::abs(transform.u[1]) <= kEpsilon &&
+           std::abs(transform.u[2]) <= kEpsilon;
+  }
+  return false;
 }
 
 const Mesh *TryGetPrimitiveSceneObjectMesh(const std::string &modelRef) {
@@ -363,6 +381,7 @@ void OpaqueObjectPass::Render(
           captureView == Viewer2DView::Top ||
           captureView == Viewer2DView::Front ||
           captureView == Viewer2DView::Side) &&
+         CanUseAffineSymbolInstance(captureTransform, captureView) &&
          !highlight && !selected);
     bool placedInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
