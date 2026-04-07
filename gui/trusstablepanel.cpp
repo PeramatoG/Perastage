@@ -726,10 +726,18 @@ void TrussTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
         cfg.PushUndoState("truss selection");
         cfg.SetSelectedTrusses(uuids);
     }
+    std::vector<std::string> mergedSelection;
+    const auto appendSelection = [&](const std::vector<std::string>& source) {
+        mergedSelection.insert(mergedSelection.end(), source.begin(), source.end());
+    };
+    appendSelection(cfg.GetSelectedFixtures());
+    appendSelection(cfg.GetSelectedTrusses());
+    appendSelection(cfg.GetSelectedSupports());
+    appendSelection(cfg.GetSelectedSceneObjects());
     if (Viewer3DPanel::Instance())
-        Viewer3DPanel::Instance()->SetSelectedFixtures(uuids);
+        Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
     if (Viewer2DPanel::Instance())
-        Viewer2DPanel::Instance()->SetSelectedUuids(uuids);
+        Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
     UpdateSelectionHighlight();
     evt.Skip();
 }
@@ -1182,13 +1190,22 @@ void TrussTablePanel::DeleteSelected(bool pushUndoState)
     modelPaths = oldModelPaths;
     symbolPaths = oldSymbolPaths;
 
+    std::vector<std::string> mergedSelection;
+    const auto appendSelection = [&](const std::vector<std::string>& source) {
+        mergedSelection.insert(mergedSelection.end(), source.begin(), source.end());
+    };
+    appendSelection(cfg.GetSelectedFixtures());
+    appendSelection(cfg.GetSelectedTrusses());
+    appendSelection(cfg.GetSelectedSupports());
+    appendSelection(cfg.GetSelectedSceneObjects());
+
     if (Viewer3DPanel::Instance()) {
-        Viewer3DPanel::Instance()->SetSelectedFixtures({});
+        Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
         Viewer3DPanel::Instance()->UpdateScene();
         Viewer3DPanel::Instance()->Refresh();
     }
     else if (Viewer2DPanel::Instance()) {
-        Viewer2DPanel::Instance()->SetSelectedUuids({});
+        Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
         Viewer2DPanel::Instance()->UpdateScene();
     }
 

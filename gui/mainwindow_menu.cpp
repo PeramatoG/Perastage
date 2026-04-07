@@ -1029,17 +1029,18 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
     viewport2DPanel->Refresh();
   }
   if (viewportPanel) {
+    std::vector<std::string> mergedSelection;
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedFixtures().begin(),
+                           cfg.GetSelectedFixtures().end());
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedTrusses().begin(),
+                           cfg.GetSelectedTrusses().end());
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedSupports().begin(),
+                           cfg.GetSelectedSupports().end());
+    mergedSelection.insert(mergedSelection.end(),
+                           cfg.GetSelectedSceneObjects().begin(),
+                           cfg.GetSelectedSceneObjects().end());
     viewportPanel->UpdateScene();
-    if (fixturePanel && fixturePanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedFixtures());
-    else if (trussPanel && trussPanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedTrusses());
-    else if (hoistPanel && hoistPanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedSupports());
-    else if (sceneObjPanel && sceneObjPanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedSceneObjects());
-    else
-      viewportPanel->SetSelectedFixtures({});
+    viewportPanel->SetSelectedFixtures(mergedSelection);
     viewportPanel->Refresh();
   }
   RefreshSummary();
@@ -1077,17 +1078,18 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
     viewport2DPanel->Refresh();
   }
   if (viewportPanel) {
+    std::vector<std::string> mergedSelection;
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedFixtures().begin(),
+                           cfg.GetSelectedFixtures().end());
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedTrusses().begin(),
+                           cfg.GetSelectedTrusses().end());
+    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedSupports().begin(),
+                           cfg.GetSelectedSupports().end());
+    mergedSelection.insert(mergedSelection.end(),
+                           cfg.GetSelectedSceneObjects().begin(),
+                           cfg.GetSelectedSceneObjects().end());
     viewportPanel->UpdateScene();
-    if (fixturePanel && fixturePanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedFixtures());
-    else if (trussPanel && trussPanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedTrusses());
-    else if (hoistPanel && hoistPanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedSupports());
-    else if (sceneObjPanel && sceneObjPanel->IsActivePage())
-      viewportPanel->SetSelectedFixtures(cfg.GetSelectedSceneObjects());
-    else
-      viewportPanel->SetSelectedFixtures({});
+    viewportPanel->SetSelectedFixtures(mergedSelection);
     viewportPanel->Refresh();
   }
   RefreshSummary();
