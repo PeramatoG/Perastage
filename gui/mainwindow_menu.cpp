@@ -1519,19 +1519,19 @@ void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
 
   auto ensureFixtureSelection = [&]() {
     if (fixturePanel && fixturePanel->GetSelectedUuids().empty())
-      fixturePanel->SelectByUuid(cfg.GetSelectedFixtures());
+      fixturePanel->SelectByUuid(cfg.GetSelectedFixtures(), false);
   };
   auto ensureTrussSelection = [&]() {
     if (trussPanel && trussPanel->GetSelectedUuids().empty())
-      trussPanel->SelectByUuid(cfg.GetSelectedTrusses());
+      trussPanel->SelectByUuid(cfg.GetSelectedTrusses(), false);
   };
   auto ensureSupportSelection = [&]() {
     if (hoistPanel && hoistPanel->GetSelectedUuids().empty())
-      hoistPanel->SelectByUuid(cfg.GetSelectedSupports());
+      hoistPanel->SelectByUuid(cfg.GetSelectedSupports(), false);
   };
   auto ensureObjectSelection = [&]() {
     if (sceneObjPanel && sceneObjPanel->GetSelectedUuids().empty())
-      sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
+      sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects(), false);
   };
 
   const bool hasAnySelection =
