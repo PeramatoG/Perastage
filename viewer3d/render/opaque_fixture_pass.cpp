@@ -473,7 +473,6 @@ void OpaqueFixturePass::Render(
   const bool skipCapture = context.skipCapture;
   const bool is2DViewer = context.is2DViewer;
   const bool isTopView2D = is2DViewer && context.view == Viewer2DView::Top;
-  const bool disableDepthBias = is2DViewer;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   std::unordered_map<SvgSymbolCacheKey, std::optional<PerastageSvgSymbolData>,
@@ -710,8 +709,7 @@ void OpaqueFixturePass::Render(
                   }
                   controller.DrawMeshWithOutline(
                       obj.mesh, partR, partG, partB, RENDER_SCALE, false, false,
-                      0.0f, 0.0f, 0.0f, wireframe, mode, applyCapture, false,
-                      nullptr, disableDepthBias);
+                      0.0f, 0.0f, 0.0f, wireframe, mode, applyCapture, false);
                 }
               } else {
                 controller.m_captureCanvas->SetSourceKey(fixtureCaptureKey);
@@ -724,7 +722,7 @@ void OpaqueFixturePass::Render(
                     FallbackFixtureCubeMesh(), r, g, b, 0.2f, false, false,
                     0.0f, 0.0f, 0.0f, fallbackWireframe, mode,
                     [](const std::array<float, 3> &p) { return p; },
-                    fallbackUnlit, nullptr, disableDepthBias);
+                    fallbackUnlit);
               }
 
               localCanvas->EndFrame();
@@ -784,8 +782,7 @@ void OpaqueFixturePass::Render(
           controller.DrawMeshWithOutline(obj.mesh, partR, partG, partB,
                                          RENDER_SCALE, highlight, selected, cx,
                                          cy, cz, wireframe, mode, applyCapture,
-                                         drawUnlit, partMatrix,
-                                         disableDepthBias);
+                                         drawUnlit, partMatrix);
           glPopMatrix();
         }
       } else {
@@ -799,7 +796,7 @@ void OpaqueFixturePass::Render(
                                        highlight, selected, cx, cy, cz,
                                        fallbackWireframe, mode,
                                        applyFixtureCapture, fallbackUnlit,
-                                       matrix, disableDepthBias);
+                                       matrix);
       }
     };
 
