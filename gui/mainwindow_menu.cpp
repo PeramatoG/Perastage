@@ -55,6 +55,7 @@
 #include "dictionaryeditdialog.h"
 #include "fixture.h"
 #include "fixturetablepanel.h"
+#include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "gdtfnet.h"
 #include "gdtfsearchdialog.h"
