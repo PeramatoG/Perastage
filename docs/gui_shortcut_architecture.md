@@ -80,6 +80,10 @@ This makes shortcut behavior deterministic and keeps one single decision point f
    - notebook-tab selection commands for `1..4`,
    - `ApplyViewportShortcut(...)` for top/front/side numpad view actions in the active viewer,
    - 3D viewport reset for `NumPad5`.
+4. Viewport orientation parity rule:
+   - `ViewportFront` in `Viewer2D` and `Viewer3D` must represent the same front-facing
+     convention (camera from positive Y looking toward the origin) so shortcut behavior
+     is consistent across both viewers.
 
 Viewer-specific direct handling for these migrated shortcuts is intentionally avoided,
 so routing stays centralized in GUI.

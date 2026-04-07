@@ -1129,6 +1129,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
       // empty until a full scene reload increments sceneVersion.
       m_impl->layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
     }
+
   }
 
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
