@@ -2036,7 +2036,7 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.layer =
               layerByType ? ("obj " + posName) : ("pos " + posName);
           pipeObject.name = "PIPE " + posName;
-          pipeObject.transform = MatrixUtils::Identity();
+          pipeObject.transform = Matrix{};
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
@@ -2163,7 +2163,7 @@ bool RiderImporter::ImportText(const std::string &text) {
             pipeObject.uuid = GenerateUuid();
             pipeObject.layer = layerByType ? ("obj " + posName) : ("pos " + posName);
             pipeObject.name = "PIPE " + posName;
-            pipeObject.transform = MatrixUtils::Identity();
+            pipeObject.transform = Matrix{};
             pipeObject.transform.o[0] = startX + 0.5f * defaultPipeLengthMm;
             pipeObject.transform.o[1] = hangY;
             pipeObject.transform.o[2] = hangZ;
@@ -2383,7 +2383,7 @@ bool RiderImporter::ImportText(const std::string &text) {
           pipeObject.uuid = GenerateUuid();
           pipeObject.layer = layerByType ? ("obj " + hang) : ("pos " + hang);
           pipeObject.name = "PIPE " + hang;
-          pipeObject.transform = MatrixUtils::Identity();
+          pipeObject.transform = Matrix{};
           pipeObject.transform.o[0] = startX + 0.5f * pipeLengthMm;
           pipeObject.transform.o[1] = hangY;
           pipeObject.transform.o[2] = hangZ;
