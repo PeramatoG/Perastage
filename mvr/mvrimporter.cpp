@@ -135,17 +135,6 @@ static std::string NormalizeGdtfLookupKey(const std::string &value) {
   return ToLowerAscii(stem + ext);
 }
 
-static std::string NormalizeRelaxedGdtfLookupKey(const std::string &value) {
-  std::string key = NormalizeGdtfLookupKey(value);
-  if (key.empty())
-    return key;
-
-  const size_t atPos = key.find('@');
-  if (atPos == std::string::npos || atPos + 1 >= key.size())
-    return key;
-  return key.substr(atPos + 1);
-}
-
 static std::string ExtractDigitSignature(const std::string &text) {
   std::string digits;
   digits.reserve(text.size());
@@ -379,23 +368,6 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
   const std::string expectedStem =
       ToLowerAscii(Trim(fs::u8path(normalizedSpec).filename().stem().string()));
   const std::string normalizedSpecKey = NormalizeGdtfLookupKey(normalizedSpec);
-  const std::string relaxedSpecKey = NormalizeRelaxedGdtfLookupKey(normalizedSpec);
-  auto isMatchingGdtfCandidate = [&](const fs::path &entryPath) {
-    const std::string entryStem = ToLowerAscii(Trim(entryPath.stem().string()));
-    if (entryStem == expectedStem)
-      return true;
-
-    const std::string entryFileName = entryPath.filename().generic_string();
-    const std::string normalizedEntryKey = NormalizeGdtfLookupKey(entryFileName);
-    if (!normalizedSpecKey.empty() && normalizedEntryKey == normalizedSpecKey)
-      return true;
-
-    if (!relaxedSpecKey.empty() &&
-        NormalizeRelaxedGdtfLookupKey(entryFileName) == relaxedSpecKey) {
-      return true;
-    }
-    return false;
-  };
   for (const auto &entry : fs::directory_iterator(lookupDir, ec)) {
     if (ec)
       break;
@@ -405,23 +377,16 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
     const fs::path entryPath = entry.path();
     if (ToLowerAscii(entryPath.extension().string()) != ".gdtf")
       continue;
-    if (isMatchingGdtfCandidate(entryPath))
+    const std::string entryStem = ToLowerAscii(Trim(entryPath.stem().string()));
+    if (entryStem == expectedStem)
       return ToString(entryPath.u8string());
-  }
 
-  // Vendor MVR packages can place GDTFs in nested folders (for example, GDTF/).
-  // Perform a recursive lookup only as last fallback.
-  ec.clear();
-  for (const auto &entry : fs::recursive_directory_iterator(lookupDir, ec)) {
-    if (ec)
-      break;
-    if (!entry.is_regular_file())
-      continue;
-    const fs::path entryPath = entry.path();
-    if (ToLowerAscii(entryPath.extension().string()) != ".gdtf")
-      continue;
-    if (isMatchingGdtfCandidate(entryPath))
+    // Last fallback: compare normalized names ignoring case and extra blanks
+    // before extension.
+    if (!normalizedSpecKey.empty() &&
+        NormalizeGdtfLookupKey(entryPath.filename().generic_string()) == normalizedSpecKey) {
       return ToString(entryPath.u8string());
+    }
   }
 
   return ToString(candidate.u8string());

@@ -1359,16 +1359,6 @@ bool LoadGdtf(const std::string& gdtfPath,
     if (outObjects.empty()) {
         constexpr const char* kEmptyGeometryReason = "No geometry with models found";
         size_t count = ++entry->emptyGeometryLogCount;
-        std::string extractionDir = entry->extractedDir;
-        auto timestamp = entry->timestamp;
-
-        if (!cacheKey.empty()) {
-            g_failedGdtfCache[cacheKey] = timestamp;
-            g_gdtfFailureReasons[cacheKey] = kEmptyGeometryReason;
-            g_gdtfCache.erase(cacheKey);
-            std::error_code ec;
-            fs::remove_all(extractionDir, ec);
-        }
 
         if (outError)
             *outError = kEmptyGeometryReason;
