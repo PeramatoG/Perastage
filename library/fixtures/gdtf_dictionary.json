@@ -3,21 +3,25 @@
     "entries": {
         "Aleda B-EYE K10": {
             "category": "Wash",
+            "color": "#00D200",
             "file": "Aleda B-EYE K10.gdtf",
             "mode": "Shapes"
         },
         "Aleda K10 B-EYE (Bulb=LED)": {
             "category": "Wash",
+            "color": "#00D200",
             "file": "Aleda B-EYE K10.gdtf",
             "mode": "Shapes"
         },
         "BLINDER 2 PRO": {
             "category": "Blinder",
+            "color": "#E87400",
             "file": "BLINDER 2 PRO.gdtf",
             "mode": "2ch d001"
         },
         "BLINDER 4 PRO": {
             "category": "Blinder",
+            "color": "#B63803",
             "file": "BLINDER 4 PRO.gdtf",
             "mode": "4ch d001"
         },
@@ -28,11 +32,13 @@
         },
         "Beam 201": {
             "category": "Beam",
+            "color": "#FB154F",
             "file": "Sharpy.gdtf",
             "mode": "Vector"
         },
         "Beam201": {
             "category": "Beam",
+            "color": "#FB154F",
             "file": "Sharpy.gdtf",
             "mode": "Vector"
         },
@@ -53,6 +59,7 @@
         },
         "HY B-EYE K15 (Bulb=LED)": {
             "category": "Wash",
+            "color": "#00D200",
             "file": "Aleda B-EYE K10.gdtf",
             "mode": "Shapes"
         },
@@ -72,21 +79,25 @@
         },
         "JNR BLinder 4x100C (Bulb=LED 3200K)": {
             "category": "Blinder",
+            "color": "#B63803",
             "file": "BLINDER 4 PRO.gdtf",
             "mode": "4ch d001"
         },
         "LED-BL4 (Bulb=LED)": {
             "category": "Blinder",
+            "color": "#B63803",
             "file": "BLINDER 4 PRO.gdtf",
             "mode": "4ch d001"
         },
         "LITELEE B-EYE L10R": {
             "category": "Wash",
+            "color": "#00D200",
             "file": "Aleda B-EYE K10.gdtf",
             "mode": "Shapes"
         },
         "LITELEES B-EYE L10R (LIBRERÍA K10)": {
             "category": "Wash",
+            "color": "#00D200",
             "file": "Aleda B-EYE K10.gdtf",
             "mode": "Shapes"
         },
@@ -172,11 +183,13 @@
         },
         "PROLIGHT BLINDER 2 PRO": {
             "category": "Blinder",
+            "color": "#E87400",
             "file": "BLINDER 2 PRO.gdtf",
             "mode": "2ch d001"
         },
         "PROLIGHT BLINDER 4 PRO": {
             "category": "Blinder",
+            "color": "#B63803",
             "file": "BLINDER 4 PRO.gdtf",
             "mode": "4ch d001"
         },
@@ -235,6 +248,7 @@
         },
         "S-K15 LIROLITE": {
             "category": "Wash",
+            "color": "#00D200",
             "file": "Aleda B-EYE K10.gdtf",
             "mode": "Shapes"
         },
@@ -245,6 +259,7 @@
         },
         "Sharpy": {
             "category": "Beam",
+            "color": "#FB154F",
             "file": "Sharpy.gdtf",
             "mode": "Vector"
         },
@@ -320,6 +335,7 @@
         },
         "sharpy": {
             "category": "Beam",
+            "color": "#FB154F",
             "file": "Sharpy.gdtf",
             "mode": "Vector"
         },
