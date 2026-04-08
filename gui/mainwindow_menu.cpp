@@ -920,17 +920,24 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     const wxSize dialogSize(
         std::max(900, static_cast<int>(parentSize.x * 0.85)),
         std::max(700, static_cast<int>(parentSize.y * 0.85)));
-    wxDialog dlg(this, wxID_ANY, "Perastage Help", wxDefaultPosition,
+    wxDialog dlg(this, wxID_ANY, wxString::FromUTF8("Perastage Help"),
+                 wxDefaultPosition,
                  dialogSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX);
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
     wxBoxSizer *langSizer = new wxBoxSizer(wxHORIZONTAL);
-    wxStaticText *langLabel =
-        new wxStaticText(&dlg, wxID_ANY, "Language:");
+    wxStaticText *langLabel = new wxStaticText(
+        &dlg, wxID_ANY, wxString::FromUTF8("Language:"));
     wxChoice *langChoice = new wxChoice(&dlg, wxID_ANY);
-    langChoice->Append("English");
-    langChoice->Append("Español");
+    langChoice->Append(wxString::FromUTF8("English"));
+    langChoice->Append(wxString::FromUTF8("Español"));
     langChoice->SetSelection(0);
+    // Runtime verification aid: make language entries visible in logs so they
+    // can be manually confirmed (e.g., "Español" rendered with proper accent).
+    for (unsigned int i = 0; i < langChoice->GetCount(); ++i) {
+      wxLogMessage("Help language option [%u]: %s", i,
+                   langChoice->GetString(i));
+    }
     langSizer->Add(langLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
     langSizer->Add(langChoice, 0, wxALIGN_CENTER_VERTICAL);
     sizer->Add(langSizer, 0, wxLEFT | wxRIGHT | wxTOP, 8);
@@ -955,7 +962,8 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     dlg.SetSizer(sizer);
     dlg.ShowModal();
   } else {
-    wxMessageBox("help.md file not found", "Perastage Help",
+    wxMessageBox(wxString::FromUTF8("help.md file not found"),
+                 wxString::FromUTF8("Perastage Help"),
                  wxOK | wxICON_ERROR, this);
   }
 }
