@@ -34,9 +34,9 @@ ctest --test-dir build
 - `perastage_stage`: stages runtime files in `out/install/<CONFIG>` for packaging.
 - `perastage_symbols`: collects symbol artifacts on supported Windows environments.
 
-## Optional Peraviz and DMX/Art-Net Integration
+## Future/Experimental: Optional Peraviz and DMX/Art-Net Integration
 
-Perastage can build optional Peraviz components when dependencies are present.
+Perastage can build optional Peraviz components when dependencies are present. This area is **experimental**, in an **early phase**, and **not part of the recommended main Perastage workflow**.
 
 ```bash
 cmake -S . -B build -DPERAVIZ_ENABLE_NATIVE=ON -DPERAVIZ_ENABLE_DMX=ON
@@ -45,7 +45,11 @@ cmake -S . -B build -DPERAVIZ_ENABLE_NATIVE=ON -DPERAVIZ_ENABLE_DMX=ON
 ### Notes
 
 - These options are not required for core Perastage workflows.
+- Treat Peraviz/DMX behavior as experimental and subject to change between revisions.
 - Ensure Python 3 and dependent toolchain pieces are discoverable when enabling native Peraviz builds.
+- See the dedicated docs for details (with the same maturity warning):
+  - [Peraviz DMX Input (Art-Net RX)](DMX_ARTNET.md)
+  - [DMX patch from MVR + Dimmer mapping from GDTF](DMX_PATCH_MVR_GDTF.md)
 
 ## Project File Format
 
