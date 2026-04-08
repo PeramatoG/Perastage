@@ -57,7 +57,8 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     importDisabler.reset();
     if (owner_.GetStatusBar())
       owner_.SetStatusText("MVR import failed.", 0);
-    wxMessageBox("Failed to import MVR file.", "Error", wxICON_ERROR);
+    wxMessageBox("Failed to import MVR file.", "Error", wxOK | wxICON_ERROR,
+                 &owner_);
     if (owner_.consolePanel)
       owner_.consolePanel->AppendMessage("Failed to import " + filePath);
     return false;
@@ -124,7 +125,8 @@ bool MainWindowIoController::OpenPathFromCommandLine(
       return false;
 
     if (!owner_.LoadProjectFromPath(pathUtf8)) {
-      wxMessageBox("Failed to load project.", "Error", wxICON_ERROR);
+      wxMessageBox("Failed to load project.", "Error", wxOK | wxICON_ERROR,
+                   &owner_);
       if (owner_.GetStatusBar())
         owner_.SetStatusText("Project load failed.", 0);
       if (owner_.consolePanel) {
@@ -153,6 +155,6 @@ bool MainWindowIoController::OpenPathFromCommandLine(
   wxMessageBox("Unsupported startup file. Use " +
                    wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION) +
                    " or .mvr files.",
-               "Unsupported file", wxICON_WARNING);
+               "Unsupported file", wxOK | wxICON_WARNING, &owner_);
   return false;
 }
