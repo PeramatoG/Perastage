@@ -164,6 +164,32 @@ Notes:
 | Ctrl + left drag | Rectangle select |
 | Double click a fixture label | Open fixture patch dialog |
 
+## 3D Viewer > Render style
+
+Open it from the **3D Viewer** context menu: right click inside the 3D viewport, then use **Render style**.
+
+Current render styles:
+
+- **Standard**
+- **Sketch mode**
+- **Textured**
+- **Wireframe**
+- **White**
+- **By device type**
+- **By layer**
+- **By universe**
+
+Recommended use by style:
+
+- **Standard**: balanced everyday view for quick scene reading and navigation.
+- **Sketch mode**: flat white model with line emphasis; useful for geometry readability in dense rigs.
+- **Textured**: material-aware look; useful for visual checks of textured assets and scenic context.
+- **Wireframe**: edge-only visualization; useful for technical debugging, overlap inspection, and internal structure checks.
+- **White**: neutral shaded white view; useful for lighting-independent shape review and print-friendly captures.
+- **By device type**: color grouping by fixture/device category; useful for fast visual classification and patch sanity checks.
+- **By layer**: color grouping by layer; useful for validating layer organization and layer-based workflows.
+- **By universe**: color grouping by DMX universe; useful for patch/debug tasks related to universe distribution.
+
 ### 2D Viewer
 
 | Action | Result |
@@ -343,6 +369,32 @@ Notas:
 | Shift/Ctrl + click izquierdo | Alternar selección |
 | Ctrl + arrastrar izquierdo | Selección por rectángulo |
 | Doble click en etiqueta de fixture | Abrir patch de fixture |
+
+## 3D Viewer > Render style
+
+Ábrelo desde el menú contextual del **3D Viewer**: click derecho dentro del visor 3D y luego **Render style**.
+
+Estilos de render actuales:
+
+- **Standard**
+- **Sketch mode**
+- **Textured**
+- **Wireframe**
+- **White**
+- **By device type**
+- **By layer**
+- **By universe**
+
+Uso recomendado por estilo:
+
+- **Standard**: vista equilibrada para lectura visual rápida y navegación diaria.
+- **Sketch mode**: modelo blanco plano con énfasis en líneas; útil para leer geometría en rigs densos.
+- **Textured**: visualización con materiales; útil para revisar assets texturizados y contexto escénico.
+- **Wireframe**: visualización solo de aristas; útil para depuración técnica, revisar solapes y estructura interna.
+- **White**: sombreado blanco neutro; útil para revisar formas sin depender de color/iluminación y para capturas limpias.
+- **By device type**: agrupación por color según tipo de fixture/dispositivo; útil para clasificación visual rápida y checks de patch.
+- **By layer**: agrupación por color por capa; útil para validar organización por capas y flujos layer-based.
+- **By universe**: agrupación por color por universo DMX; útil para tareas de patch y depuración de distribución por universos.
 
 ### Visor 2D
 

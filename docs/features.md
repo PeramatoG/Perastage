@@ -98,6 +98,15 @@ Additional safeguards include:
 
 - OpenGL-based viewer with orbit, pan, zoom, and preset camera views.
 - Selection flows integrate with scene tables and command operations.
+- Context menu includes **Render style** with these options:
+  - **Standard** for general-purpose scene reading.
+  - **Sketch mode** for high-readability geometry outlines.
+  - **Textured** for material-aware scenic validation.
+  - **Wireframe** for technical debugging and overlap checks.
+  - **White** for neutral shape review.
+  - **By device type** for fast fixture-category grouping.
+  - **By layer** for layer-organization validation.
+  - **By universe** for DMX universe distribution checks.
 
 ### 2D Viewer
 
