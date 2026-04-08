@@ -143,10 +143,14 @@ Additional safeguards include:
 - Keyboard/mouse interaction includes viewer navigation, selection, and layout editing actions.
 - Detailed precedence and scope are tracked in [GUI shortcut architecture](gui_shortcut_architecture.md).
 
-## Build-Gated and Experimental Areas
+## Future/Experimental
 
 - Some tools remain Debug-only for production safety in Release builds.
-- Optional Peraviz and DMX/Art-Net integrations are available for advanced setups.
+- **Peraviz (including DMX/Art-Net integration) is experimental and in an early phase.**
+- **Peraviz is not part of the recommended main Perastage production workflow today.**
+- For teams evaluating this area, see:
+  - [Peraviz DMX Input (Art-Net RX)](DMX_ARTNET.md) *(experimental maturity; subject to change)*.
+  - [DMX patch from MVR + Dimmer mapping from GDTF](DMX_PATCH_MVR_GDTF.md) *(experimental maturity; subject to change)*.
 - Large-scene performance and selected advanced workflows continue to be iterated.
 
 ## Related Documents
@@ -155,3 +159,4 @@ Additional safeguards include:
 - [Build and dependency guide](build.md)
 - [Packaging and platform integration](packaging.md)
 - [Build troubleshooting](troubleshooting.md)
+- [Documentation policy and synchronization checklist](documentation_policy.md#documentation-synchronization-checklist)
