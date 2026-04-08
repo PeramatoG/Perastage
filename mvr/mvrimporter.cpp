@@ -1247,10 +1247,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
 
   std::unordered_map<std::string, std::string> resolvedGdtfPathCache;
-  auto resolveGdtfPathCached = [&](const std::string &spec) {
+  const std::string kEmptyResolvedPath;
+  auto resolveGdtfPathCached = [&](const std::string &spec) -> const std::string & {
     const std::string normalized = NormalizeArchivePathValue(spec);
     if (normalized.empty())
-      return std::string{};
+      return kEmptyResolvedPath;
 
     auto it = resolvedGdtfPathCache.find(normalized);
     if (it != resolvedGdtfPathCache.end())
@@ -1259,8 +1260,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     std::string resolved = ResolveGdtfPath(scene.basePath, normalized);
     if (resolved.empty())
       resolved = ToString(ResolveSceneRelativePath(scene.basePath, normalized).u8string());
-    resolvedGdtfPathCache.emplace(normalized, resolved);
-    return resolved;
+    return resolvedGdtfPathCache.emplace(normalized, std::move(resolved)).first->second;
   };
 
   auto normalizeGdtfSpecForScene = [&](const std::string &spec) {
@@ -1277,9 +1277,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     bool hasProperties = false;
   };
   std::unordered_map<std::string, GdtfFixtureMetadata> gdtfFixtureMetadataCache;
-  auto getFixtureMetadata = [&](const std::string &resolvedGdtfPath) {
+  const GdtfFixtureMetadata kEmptyFixtureMetadata{};
+  auto getFixtureMetadata = [&](const std::string &resolvedGdtfPath)
+      -> const GdtfFixtureMetadata & {
     if (resolvedGdtfPath.empty())
-      return GdtfFixtureMetadata{};
+      return kEmptyFixtureMetadata;
 
     auto it = gdtfFixtureMetadataCache.find(resolvedGdtfPath);
     if (it != gdtfFixtureMetadataCache.end())
@@ -1289,8 +1291,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     metadata.fixtureName = Trim(GetGdtfFixtureName(resolvedGdtfPath));
     metadata.hasProperties =
         GetGdtfProperties(resolvedGdtfPath, metadata.weightKg, metadata.powerW);
-    gdtfFixtureMetadataCache.emplace(resolvedGdtfPath, metadata);
-    return metadata;
+    return gdtfFixtureMetadataCache.emplace(resolvedGdtfPath, std::move(metadata))
+        .first->second;
   };
 
   std::unordered_map<std::string, std::optional<Truss>> trussDefinitionCache;
@@ -1530,9 +1532,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
         if (!fixture.gdtfSpec.empty()) {
           fixture.gdtfSpec = RemapArchivePathIfNeeded(fixture.gdtfSpec);
-          const std::string resolvedGdtfPath = resolveGdtfPathCached(fixture.gdtfSpec);
+          const std::string &resolvedGdtfPath = resolveGdtfPathCached(fixture.gdtfSpec);
           fixture.gdtfSpec = normalizeGdtfSpecForScene(fixture.gdtfSpec);
-          const GdtfFixtureMetadata metadata = getFixtureMetadata(resolvedGdtfPath);
+          const GdtfFixtureMetadata &metadata = getFixtureMetadata(resolvedGdtfPath);
           fixture.typeName = metadata.fixtureName;
           if (metadata.hasProperties) {
             if (fixture.weightKg == 0.0f)
