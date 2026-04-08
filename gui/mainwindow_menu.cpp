@@ -925,22 +925,6 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
                  dialogSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX);
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
-    wxBoxSizer *langSizer = new wxBoxSizer(wxHORIZONTAL);
-    wxStaticText *langLabel = new wxStaticText(
-        &dlg, wxID_ANY, wxString::FromUTF8("Language:"));
-    wxChoice *langChoice = new wxChoice(&dlg, wxID_ANY);
-    langChoice->Append(wxString::FromUTF8("English"));
-    langChoice->Append(wxString::FromUTF8("Español"));
-    langChoice->SetSelection(0);
-    // Runtime verification aid: make language entries visible in logs so they
-    // can be manually confirmed (e.g., "Español" rendered with proper accent).
-    for (unsigned int i = 0; i < langChoice->GetCount(); ++i) {
-      wxLogMessage("Help language option [%u]: %s", i,
-                   langChoice->GetString(i));
-    }
-    langSizer->Add(langLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
-    langSizer->Add(langChoice, 0, wxALIGN_CENTER_VERTICAL);
-    sizer->Add(langSizer, 0, wxLEFT | wxRIGHT | wxTOP, 8);
     wxHtmlWindow *htmlWin = new wxHtmlWindow(
         &dlg, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxHW_SCROLLBAR_AUTO);
 
@@ -951,12 +935,6 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     };
 
     setHelpPage(help.english);
-    langChoice->Bind(wxEVT_CHOICE, [&](wxCommandEvent &) {
-      if (langChoice->GetSelection() == 1)
-        setHelpPage(help.spanish);
-      else
-        setHelpPage(help.english);
-    });
 
     sizer->Add(htmlWin, 1, wxEXPAND | wxALL, 5);
     dlg.SetSizer(sizer);
