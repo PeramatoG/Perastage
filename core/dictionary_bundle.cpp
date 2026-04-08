@@ -168,7 +168,8 @@ nlohmann::json BuildFixturesEntriesJson(
 
   for (const auto &name : keys) {
     const auto &entry = dict.at(name);
-    if (entry.path.empty() && entry.mode.empty() && entry.category.empty())
+    if (entry.path.empty() && entry.mode.empty() && entry.category.empty() &&
+        entry.color.empty())
       continue;
 
     nlohmann::json outputEntry = nlohmann::json::object();
@@ -206,6 +207,8 @@ nlohmann::json BuildFixturesEntriesJson(
       outputEntry["mode"] = entry.mode;
     if (!entry.category.empty())
       outputEntry["category"] = entry.category;
+    if (!entry.color.empty())
+      outputEntry["color"] = entry.color;
 
     if (!outputEntry.empty())
       entries[name] = std::move(outputEntry);
