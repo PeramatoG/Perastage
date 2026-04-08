@@ -784,7 +784,8 @@ bool SaveFixturesSnapshotToFile(
   nlohmann::json entries = nlohmann::json::object();
   for (const auto &name : keys) {
     const auto &entry = dict.at(name);
-    if (entry.path.empty() && entry.mode.empty() && entry.category.empty())
+    if (entry.path.empty() && entry.mode.empty() && entry.category.empty() &&
+        entry.color.empty())
       continue;
     nlohmann::json obj;
     if (!entry.path.empty()) {
@@ -809,6 +810,8 @@ bool SaveFixturesSnapshotToFile(
       obj["mode"] = entry.mode;
     if (!entry.category.empty())
       obj["category"] = entry.category;
+    if (!entry.color.empty())
+      obj["color"] = entry.color;
     if (!obj.empty())
       entries[name] = obj;
   }
