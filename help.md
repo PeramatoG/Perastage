@@ -43,6 +43,28 @@ Examples:
 
 Formatting precision depends on UI context (table/label/inspector). See [`docs/ui_unit_systems.md`](docs/ui_unit_systems.md) for complete parsing and rounding rules.
 
+## Tools > Create from text... (quick guide)
+
+Use **Tools > Create from text...** to paste rider text, normalize it, and create scene objects.
+
+Minimal examples:
+
+- Coordinate override in a hang token: `LX1 (0, -1, 9)`
+  - Sets explicit `x, y, z` for that hang/truss target.
+- Hang margin override: `LX1 [0.8]`
+  - Overrides the default distribution margin for that hang.
+- Override precedence when both are present:
+  - Truss-line overrides take precedence over hang-header overrides for the values provided in the truss line (both for `(x, y, z)` and `[margin]`).
+
+**Apply filter** vs **Create**:
+
+- **Apply filter** rewrites the input into normalized text (preview/edit step).
+- **Create** parses the current text in the editor and generates fixtures/trusses/objects.
+- If you use **Apply filter** first, then **Create**, creation uses the filtered text currently shown in the dialog.
+- Coordinate/margin tokens such as `(0, -1, 9)` and `[0.8]` are preserved by the filter step, so their effect remains when creating.
+
+For the full technical contract (all parsing and placement rules), see [`docs/text_to_scene_rules.md`](docs/text_to_scene_rules.md).
+
 ## Build-dependent tools
 
 Some tools are intentionally available only in **Debug** builds:
@@ -263,6 +285,28 @@ Ejemplos:
 - Peso en metric: `120` se interpreta como `120 kg`; en imperial como `120 lb`.
 
 La precisión de redondeo/formato depende del contexto (tabla/label/inspector). Consulta [`docs/ui_unit_systems.md`](docs/ui_unit_systems.md) para reglas completas de parseo y redondeo.
+
+## Tools > Create from text... (guía rápida)
+
+Usa **Tools > Create from text...** para pegar texto de rider, normalizarlo y crear objetos en la escena.
+
+Ejemplos mínimos:
+
+- Override de coordenadas en el token de hang: `LX1 (0, -1, 9)`
+  - Define `x, y, z` explícitos para ese hang/truss objetivo.
+- Override de margen por hang: `LX1 [0.8]`
+  - Sobrescribe el margen por defecto de distribución para ese hang.
+- Precedencia de overrides cuando ambos existen:
+  - Los overrides en la línea de truss tienen prioridad sobre los del header del hang para los valores definidos en la línea de truss (tanto `(x, y, z)` como `[margen]`).
+
+Relación entre **Apply filter** y **Create**:
+
+- **Apply filter** reescribe la entrada a texto normalizado (paso de vista previa/edición).
+- **Create** parsea el texto actual del editor y genera fixtures/trusses/objetos.
+- Si primero usas **Apply filter** y luego **Create**, la creación usa el texto filtrado que quedó visible en el diálogo.
+- Tokens de coordenadas/margen como `(0, -1, 9)` y `[0.8]` se preservan durante el filtrado, así que su efecto se mantiene al crear.
+
+Para el contrato técnico completo (todas las reglas de parseo y placement), consulta [`docs/text_to_scene_rules.md`](docs/text_to_scene_rules.md).
 
 ## Comandos de consola (completo)
 
