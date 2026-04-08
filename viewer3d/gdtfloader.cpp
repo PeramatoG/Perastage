@@ -408,6 +408,55 @@ static tinyxml2::XMLElement* GetFixtureType(tinyxml2::XMLDocument& doc)
     return ft;
 }
 
+static bool ParseXmlWithEscapedControlFallback(const std::string& filePath,
+                                               tinyxml2::XMLDocument& doc)
+{
+    if (doc.LoadFile(filePath.c_str()) == tinyxml2::XML_SUCCESS)
+        return true;
+
+    std::ifstream input(filePath, std::ios::binary);
+    if (!input.is_open())
+        return false;
+
+    std::string raw((std::istreambuf_iterator<char>(input)),
+                    std::istreambuf_iterator<char>());
+    if (raw.empty())
+        return false;
+
+    if (raw.find("\\n") == std::string::npos &&
+        raw.find("\\r") == std::string::npos &&
+        raw.find("\\t") == std::string::npos) {
+        return false;
+    }
+
+    std::string sanitized;
+    sanitized.reserve(raw.size());
+    for (size_t i = 0; i < raw.size(); ++i) {
+        if (raw[i] == '\\' && i + 1 < raw.size()) {
+            const char escaped = raw[i + 1];
+            if (escaped == 'n') {
+                sanitized.push_back('\n');
+                ++i;
+                continue;
+            }
+            if (escaped == 'r') {
+                sanitized.push_back('\r');
+                ++i;
+                continue;
+            }
+            if (escaped == 't') {
+                sanitized.push_back('\t');
+                ++i;
+                continue;
+            }
+        }
+        sanitized.push_back(raw[i]);
+    }
+
+    doc.Clear();
+    return doc.Parse(sanitized.c_str(), sanitized.size()) == tinyxml2::XML_SUCCESS;
+}
+
 static std::string GetFixtureNameFromXml(tinyxml2::XMLElement* ft)
 {
     if (!ft)
@@ -458,20 +507,32 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                 trim(offStr);
                 if (offStr.empty() || offStr == "None")
                     return parsedOffsets;
+                for (char& ch : offStr) {
+                    if (ch == ';' || ch == '|' || ch == '/')
+                        ch = ',';
+                }
                 std::stringstream ss(offStr);
-                std::string token;
-                while (std::getline(ss, token, ',')) {
-                    trim(token);
-                    if (token.empty() || token == "None")
+                std::string group;
+                while (std::getline(ss, group, ',')) {
+                    trim(group);
+                    if (group.empty() || group == "None")
                         continue;
-                    int parsed = 0;
-                    if (TryParseInt(token, parsed)) {
-                        parsedOffsets.push_back(parsed);
-                    } else if (ConsolePanel::Instance()) {
-                        wxString msg = wxString::Format(
-                            "GDTF: invalid DMX channel offset '%s'",
-                            wxString::FromUTF8(token));
-                        ConsolePanel::Instance()->AppendMessage(msg);
+
+                    std::stringstream groupStream(group);
+                    std::string token;
+                    while (groupStream >> token) {
+                        trim(token);
+                        if (token.empty() || token == "None")
+                            continue;
+                        int parsed = 0;
+                        if (TryParseInt(token, parsed)) {
+                            parsedOffsets.push_back(parsed);
+                        } else if (ConsolePanel::Instance()) {
+                            wxString msg = wxString::Format(
+                                "GDTF: invalid DMX channel offset '%s'",
+                                wxString::FromUTF8(token));
+                            ConsolePanel::Instance()->AppendMessage(msg);
+                        }
                     }
                 }
                 return parsedOffsets;
@@ -479,6 +540,11 @@ static void ParseModes(tinyxml2::XMLElement* ft,
             auto extractFunctionName = [](tinyxml2::XMLElement* dmxChannel) {
                 if (!dmxChannel)
                     return std::string{};
+                const char* channelAttr = dmxChannel->Attribute("Attribute");
+                if (!channelAttr)
+                    channelAttr = dmxChannel->Attribute("attribute");
+                if (channelAttr && *channelAttr)
+                    return std::string(channelAttr);
                 for (tinyxml2::XMLElement* lc = dmxChannel->FirstChildElement("LogicalChannel");
                      lc; lc = lc->NextSiblingElement("LogicalChannel")) {
                     for (tinyxml2::XMLElement* cf = lc->FirstChildElement("ChannelFunction");
@@ -686,6 +752,7 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                 info.channel = static_cast<int>(channelsVec.size()) + 1;
                 info.function = baseFunction;
                 channelsVec.push_back(std::move(info));
+                ++count;
             }
         }
 
@@ -922,7 +989,7 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
 
     entry.doc = std::make_unique<tinyxml2::XMLDocument>();
     std::string descPath = entry.extractedDir + "/description.xml";
-    if (entry.doc->LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS) {
+    if (!ParseXmlWithEscapedControlFallback(descPath, *entry.doc)) {
         fs::remove_all(entry.extractedDir, ec);
         g_failedGdtfCache[stableKey] = timestamp;
         setReason("Missing or invalid description.xml inside GDTF file");
@@ -1292,16 +1359,6 @@ bool LoadGdtf(const std::string& gdtfPath,
     if (outObjects.empty()) {
         constexpr const char* kEmptyGeometryReason = "No geometry with models found";
         size_t count = ++entry->emptyGeometryLogCount;
-        std::string extractionDir = entry->extractedDir;
-        auto timestamp = entry->timestamp;
-
-        if (!cacheKey.empty()) {
-            g_failedGdtfCache[cacheKey] = timestamp;
-            g_gdtfFailureReasons[cacheKey] = kEmptyGeometryReason;
-            g_gdtfCache.erase(cacheKey);
-            std::error_code ec;
-            fs::remove_all(extractionDir, ec);
-        }
 
         if (outError)
             *outError = kEmptyGeometryReason;
@@ -1499,7 +1556,7 @@ bool SetGdtfProperties(const std::string& gdtfPath,
 
     const std::string descPath = extraction.Path() + "/description.xml";
     tinyxml2::XMLDocument doc;
-    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
+    if (!ParseXmlWithEscapedControlFallback(descPath, doc))
         return false;
 
     tinyxml2::XMLElement* fixtureType = GdtfMutationAudit::EnsureFixtureType(doc);
