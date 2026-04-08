@@ -11,6 +11,44 @@ The official Windows installer workflow uses Inno Setup:
 - Compile the installer script in Inno Setup.
 - Optional associations can include `.pstg` and `.mvr`.
 
+### Recommended End-to-End Windows Installer Flow
+
+From a Developer PowerShell at repository root:
+
+```powershell
+cmake -S . -B out/build/x64-Release -G "Visual Studio 17 2022" -A x64
+cmake --build out/build/x64-Release --config Release
+cmake --build out/build/x64-Release --config Release --target perastage_stage
+```
+
+Then compile the Inno Setup script:
+
+```powershell
+iscc packaging/windows/Perastage.iss
+```
+
+The generated installer is written to:
+
+- `out/installer/Perastage_<version>_Setup.exe`
+
+### Enabling `.mvr` Association in the Installer
+
+The Inno Setup script already includes an optional task named `assoc_mvr`.
+
+- In interactive installer mode, enable the checkbox:
+  - **Associate .mvr files with Perastage (optional import workflow)**
+- In silent/automated installs, include task selection:
+  - `/TASKS="assoc_pstg,assoc_mvr"` (or only `assoc_mvr` if preferred)
+
+When selected, the installer registers:
+
+- ProgID: `Perastage.MVR`
+- Open command: `"Perastage.exe" "%1"`
+- Extension mapping: `.mvr -> Perastage.MVR`
+
+The uninstall behavior is conservative and removes Perastage-owned registration
+values without aggressively deleting global extension ownership.
+
 ### Association Notes
 
 - Installer writes association entries under `Software\Classes`.
