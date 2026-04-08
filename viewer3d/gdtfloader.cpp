@@ -507,20 +507,32 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                 trim(offStr);
                 if (offStr.empty() || offStr == "None")
                     return parsedOffsets;
+                for (char& ch : offStr) {
+                    if (ch == ';' || ch == '|' || ch == '/')
+                        ch = ',';
+                }
                 std::stringstream ss(offStr);
-                std::string token;
-                while (std::getline(ss, token, ',')) {
-                    trim(token);
-                    if (token.empty() || token == "None")
+                std::string group;
+                while (std::getline(ss, group, ',')) {
+                    trim(group);
+                    if (group.empty() || group == "None")
                         continue;
-                    int parsed = 0;
-                    if (TryParseInt(token, parsed)) {
-                        parsedOffsets.push_back(parsed);
-                    } else if (ConsolePanel::Instance()) {
-                        wxString msg = wxString::Format(
-                            "GDTF: invalid DMX channel offset '%s'",
-                            wxString::FromUTF8(token));
-                        ConsolePanel::Instance()->AppendMessage(msg);
+
+                    std::stringstream groupStream(group);
+                    std::string token;
+                    while (groupStream >> token) {
+                        trim(token);
+                        if (token.empty() || token == "None")
+                            continue;
+                        int parsed = 0;
+                        if (TryParseInt(token, parsed)) {
+                            parsedOffsets.push_back(parsed);
+                        } else if (ConsolePanel::Instance()) {
+                            wxString msg = wxString::Format(
+                                "GDTF: invalid DMX channel offset '%s'",
+                                wxString::FromUTF8(token));
+                            ConsolePanel::Instance()->AppendMessage(msg);
+                        }
                     }
                 }
                 return parsedOffsets;
@@ -528,6 +540,11 @@ static void ParseModes(tinyxml2::XMLElement* ft,
             auto extractFunctionName = [](tinyxml2::XMLElement* dmxChannel) {
                 if (!dmxChannel)
                     return std::string{};
+                const char* channelAttr = dmxChannel->Attribute("Attribute");
+                if (!channelAttr)
+                    channelAttr = dmxChannel->Attribute("attribute");
+                if (channelAttr && *channelAttr)
+                    return std::string(channelAttr);
                 for (tinyxml2::XMLElement* lc = dmxChannel->FirstChildElement("LogicalChannel");
                      lc; lc = lc->NextSiblingElement("LogicalChannel")) {
                     for (tinyxml2::XMLElement* cf = lc->FirstChildElement("ChannelFunction");
@@ -735,6 +752,7 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                 info.channel = static_cast<int>(channelsVec.size()) + 1;
                 info.function = baseFunction;
                 channelsVec.push_back(std::move(info));
+                ++count;
             }
         }
 
