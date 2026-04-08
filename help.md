@@ -263,10 +263,10 @@ Los proyectos de Perastage (`.pstg`) guardan la escena, los layouts y la configu
 
 **File > New / Load / Save / Save As...**
 
-- **Nuevo** crea un proyecto en blanco.
-- **Cargar** abre un `.pstg` existente.
-- **Guardar** guarda los cambios en el proyecto actual.
-- **Guardar como...** guarda el proyecto con otro nombre o en otra ubicación.
+- **New** crea un proyecto en blanco.
+- **Load** abre un `.pstg` existente.
+- **Save** guarda los cambios en el proyecto actual.
+- **Save As...** guarda el proyecto con otro nombre o en otra ubicación.
 
 ## Unidades (Métrico/Imperial)
 
@@ -379,7 +379,7 @@ Notas:
 | Home | Ir al inicio del input (después del prompt) |
 | Izquierda / Retroceso | No permite pasar antes del prompt |
 
-### Visor 3D (teclado)
+### 3D Viewer (teclado)
 
 | Atajo | Acción |
 | --- | --- |
@@ -390,14 +390,14 @@ Notas:
 | Numpad 5 | Resetear cámara |
 | Z | Encuadrar escena (ajustar todo a vista) |
 
-### Visor 2D (teclado)
+### 2D Viewer (teclado)
 
 | Atajo | Acción |
 | --- | --- |
 | Flechas | Desplazar vista |
 | Alt + flechas | Zoom +/- |
 
-### Vista Layout (teclado)
+### Layout View (teclado)
 
 | Atajo | Acción |
 | --- | --- |
@@ -406,7 +406,7 @@ Notas:
 
 ## Atajos de ratón (completo)
 
-### Visor 3D
+### 3D Viewer
 
 | Acción | Resultado |
 | --- | --- |
@@ -420,7 +420,7 @@ Notas:
 
 ## 3D Viewer > Render style
 
-Ábrelo desde el menú contextual del **3D Viewer**: click derecho dentro del visor 3D y luego **Render style**.
+Ábrelo desde el menú contextual del **3D Viewer**: click derecho dentro del **3D Viewer** y luego **Render style**.
 
 Estilos de render actuales:
 
@@ -444,7 +444,7 @@ Uso recomendado por estilo:
 - **By layer**: agrupación por color por capa; útil para validar organización por capas y flujos layer-based.
 - **By universe**: agrupación por color por universo DMX; útil para tareas de patch y depuración de distribución por universos.
 
-### Visor 2D
+### 2D Viewer
 
 | Acción | Resultado |
 | --- | --- |
@@ -455,7 +455,7 @@ Uso recomendado por estilo:
 | Ctrl + arrastrar izquierdo | Selección por rectángulo |
 | Arrastrar selección | Mover selección (se bloquea el eje inicial) |
 
-### Vista Layout
+### Layout View
 
 | Acción | Resultado |
 | --- | --- |
