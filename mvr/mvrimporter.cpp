@@ -1246,6 +1246,74 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return ToSceneRelativePathIfPossible(scene.basePath, resolved);
   };
 
+  std::unordered_map<std::string, std::string> resolvedGdtfPathCache;
+  auto resolveGdtfPathCached = [&](const std::string &spec) {
+    const std::string normalized = NormalizeArchivePathValue(spec);
+    if (normalized.empty())
+      return std::string{};
+
+    auto it = resolvedGdtfPathCache.find(normalized);
+    if (it != resolvedGdtfPathCache.end())
+      return it->second;
+
+    std::string resolved = ResolveGdtfPath(scene.basePath, normalized);
+    if (resolved.empty())
+      resolved = ToString(ResolveSceneRelativePath(scene.basePath, normalized).u8string());
+    resolvedGdtfPathCache.emplace(normalized, resolved);
+    return resolved;
+  };
+
+  auto normalizeGdtfSpecForScene = [&](const std::string &spec) {
+    const std::string normalized = NormalizeArchivePathValue(spec);
+    if (normalized.empty())
+      return std::string{};
+    return ToSceneRelativePathIfPossible(scene.basePath, fs::u8path(resolveGdtfPathCached(normalized)));
+  };
+
+  struct GdtfFixtureMetadata {
+    std::string fixtureName;
+    float weightKg = 0.0f;
+    float powerW = 0.0f;
+    bool hasProperties = false;
+  };
+  std::unordered_map<std::string, GdtfFixtureMetadata> gdtfFixtureMetadataCache;
+  auto getFixtureMetadata = [&](const std::string &resolvedGdtfPath) {
+    if (resolvedGdtfPath.empty())
+      return GdtfFixtureMetadata{};
+
+    auto it = gdtfFixtureMetadataCache.find(resolvedGdtfPath);
+    if (it != gdtfFixtureMetadataCache.end())
+      return it->second;
+
+    GdtfFixtureMetadata metadata;
+    metadata.fixtureName = Trim(GetGdtfFixtureName(resolvedGdtfPath));
+    metadata.hasProperties =
+        GetGdtfProperties(resolvedGdtfPath, metadata.weightKg, metadata.powerW);
+    gdtfFixtureMetadataCache.emplace(resolvedGdtfPath, metadata);
+    return metadata;
+  };
+
+  std::unordered_map<std::string, std::optional<Truss>> trussDefinitionCache;
+  auto loadTrussDefinitionCached = [&](const std::string &resolvedGdtfPath,
+                                       Truss &out) {
+    if (resolvedGdtfPath.empty())
+      return false;
+
+    auto it = trussDefinitionCache.find(resolvedGdtfPath);
+    if (it == trussDefinitionCache.end()) {
+      Truss loaded;
+      if (LoadTrussDefinition(resolvedGdtfPath, loaded))
+        it = trussDefinitionCache.emplace(resolvedGdtfPath, std::move(loaded)).first;
+      else
+        it = trussDefinitionCache.emplace(resolvedGdtfPath, std::nullopt).first;
+    }
+
+    if (!it->second.has_value())
+      return false;
+    out = *it->second;
+    return true;
+  };
+
   auto appendGeometryInstance = [&](std::vector<GeometryInstance> &instances,
                                     const std::string &fileName,
                                     const Matrix &localTransform) {
@@ -1462,20 +1530,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
         if (!fixture.gdtfSpec.empty()) {
           fixture.gdtfSpec = RemapArchivePathIfNeeded(fixture.gdtfSpec);
-          const std::string resolvedGdtfPath =
-              ResolveGdtfPath(scene.basePath, fixture.gdtfSpec);
-          const std::string gdtfPath = resolvedGdtfPath.empty()
-                                           ? fixture.gdtfSpec
-                                           : resolvedGdtfPath;
-          fixture.gdtfSpec = ToSceneRelativePathIfPossible(
-              scene.basePath, fs::u8path(gdtfPath));
-          fixture.typeName = Trim(GetGdtfFixtureName(gdtfPath));
-          float gw = 0.0f, gp = 0.0f;
-          if (GetGdtfProperties(gdtfPath, gw, gp)) {
+          const std::string resolvedGdtfPath = resolveGdtfPathCached(fixture.gdtfSpec);
+          fixture.gdtfSpec = normalizeGdtfSpecForScene(fixture.gdtfSpec);
+          const GdtfFixtureMetadata metadata = getFixtureMetadata(resolvedGdtfPath);
+          fixture.typeName = metadata.fixtureName;
+          if (metadata.hasProperties) {
             if (fixture.weightKg == 0.0f)
-              fixture.weightKg = gw;
+              fixture.weightKg = metadata.weightKg;
             if (fixture.powerConsumptionW == 0.0f)
-              fixture.powerConsumptionW = gp;
+              fixture.powerConsumptionW = metadata.powerW;
           }
         }
 
@@ -1615,15 +1678,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (!truss.gdtfSpec.empty()) {
           truss.sourceRepresentation = Truss::GeometryRepresentation::PublicGdtf;
           truss.gdtfSpec = RemapArchivePathIfNeeded(truss.gdtfSpec);
-          const std::string resolvedGdtfPath =
-              ResolveGdtfPath(scene.basePath, truss.gdtfSpec);
-          const std::string trussGdtfPath = resolvedGdtfPath.empty()
-                                                ? truss.gdtfSpec
-                                                : resolvedGdtfPath;
-          truss.gdtfSpec = ToSceneRelativePathIfPossible(
-              scene.basePath, fs::u8path(trussGdtfPath));
+          const std::string trussGdtfPath = resolveGdtfPathCached(truss.gdtfSpec);
+          truss.gdtfSpec = normalizeGdtfSpecForScene(truss.gdtfSpec);
           Truss gdtfTruss;
-          if (LoadTrussDefinition(trussGdtfPath, gdtfTruss)) {
+          if (loadTrussDefinitionCached(trussGdtfPath, gdtfTruss)) {
             truss.modelFile = gdtfTruss.modelFile;
             if (!gdtfTruss.symbolFile.empty())
               truss.symbolFile = gdtfTruss.symbolFile;
@@ -2148,10 +2206,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (spec.empty())
       return std::string{};
     std::string remapped = RemapArchivePathIfNeeded(spec);
-    std::string resolved = ResolveGdtfPath(scene.basePath, remapped);
-    if (!resolved.empty())
-      return resolved;
-    return ToString(ResolveSceneRelativePath(scene.basePath, remapped).u8string());
+    return resolveGdtfPathCached(remapped);
   };
 
   // After parsing the entire scene, resolve any GDTF conflicts using the

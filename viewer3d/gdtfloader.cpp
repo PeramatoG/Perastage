@@ -408,6 +408,55 @@ static tinyxml2::XMLElement* GetFixtureType(tinyxml2::XMLDocument& doc)
     return ft;
 }
 
+static bool ParseXmlWithEscapedControlFallback(const std::string& filePath,
+                                               tinyxml2::XMLDocument& doc)
+{
+    if (doc.LoadFile(filePath.c_str()) == tinyxml2::XML_SUCCESS)
+        return true;
+
+    std::ifstream input(filePath, std::ios::binary);
+    if (!input.is_open())
+        return false;
+
+    std::string raw((std::istreambuf_iterator<char>(input)),
+                    std::istreambuf_iterator<char>());
+    if (raw.empty())
+        return false;
+
+    if (raw.find("\\n") == std::string::npos &&
+        raw.find("\\r") == std::string::npos &&
+        raw.find("\\t") == std::string::npos) {
+        return false;
+    }
+
+    std::string sanitized;
+    sanitized.reserve(raw.size());
+    for (size_t i = 0; i < raw.size(); ++i) {
+        if (raw[i] == '\\' && i + 1 < raw.size()) {
+            const char escaped = raw[i + 1];
+            if (escaped == 'n') {
+                sanitized.push_back('\n');
+                ++i;
+                continue;
+            }
+            if (escaped == 'r') {
+                sanitized.push_back('\r');
+                ++i;
+                continue;
+            }
+            if (escaped == 't') {
+                sanitized.push_back('\t');
+                ++i;
+                continue;
+            }
+        }
+        sanitized.push_back(raw[i]);
+    }
+
+    doc.Clear();
+    return doc.Parse(sanitized.c_str(), sanitized.size()) == tinyxml2::XML_SUCCESS;
+}
+
 static std::string GetFixtureNameFromXml(tinyxml2::XMLElement* ft)
 {
     if (!ft)
@@ -922,7 +971,7 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
 
     entry.doc = std::make_unique<tinyxml2::XMLDocument>();
     std::string descPath = entry.extractedDir + "/description.xml";
-    if (entry.doc->LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS) {
+    if (!ParseXmlWithEscapedControlFallback(descPath, *entry.doc)) {
         fs::remove_all(entry.extractedDir, ec);
         g_failedGdtfCache[stableKey] = timestamp;
         setReason("Missing or invalid description.xml inside GDTF file");
@@ -1499,7 +1548,7 @@ bool SetGdtfProperties(const std::string& gdtfPath,
 
     const std::string descPath = extraction.Path() + "/description.xml";
     tinyxml2::XMLDocument doc;
-    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
+    if (!ParseXmlWithEscapedControlFallback(descPath, doc))
         return false;
 
     tinyxml2::XMLElement* fixtureType = GdtfMutationAudit::EnsureFixtureType(doc);
