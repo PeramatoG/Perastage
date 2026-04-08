@@ -932,12 +932,6 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     langChoice->Append(wxString::FromUTF8("English"));
     langChoice->Append(wxString::FromUTF8("Español"));
     langChoice->SetSelection(0);
-    // Runtime verification aid: make language entries visible in logs so they
-    // can be manually confirmed (e.g., "Español" rendered with proper accent).
-    for (unsigned int i = 0; i < langChoice->GetCount(); ++i) {
-      wxLogMessage("Help language option [%u]: %s", i,
-                   langChoice->GetString(i));
-    }
     langSizer->Add(langLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
     langSizer->Add(langChoice, 0, wxALIGN_CENTER_VERTICAL);
     sizer->Add(langSizer, 0, wxLEFT | wxRIGHT | wxTOP, 8);
