@@ -8,6 +8,10 @@
 3. Use the table tabs (**Fixtures**, **Trusses**, **Hoists**, **Objects**) to inspect data.
 4. Toggle panes via the **View** menu if any pane is hidden (Console, Layers, Layouts, Summary, Rigging, 2D Viewer, 3D Viewer, and 2D Render Options).
 
+## Documentation synchronization
+
+For maintainers updating user workflows or parser behavior, follow the [Documentation synchronization checklist](docs/documentation_policy.md#documentation-synchronization-checklist) before merging.
+
 ## Project Files
 
 Perastage projects (`.pstg`) store the scene, layouts, and user settings.
