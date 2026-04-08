@@ -965,12 +965,13 @@ void MainWindow::OnShowAbout(wxCommandEvent &WXUNUSED(event)) {
   info.SetName(app::kName);
   info.SetVersion(app::kVersionDisplay);
   wxString description =
-      "High-performance MVR scene viewer with 3D rendering support.\n\n"
+      "MVR viewer/editor with integrated 2D/3D workflows, MVR import/export, "
+      "and Create from text tools.\n\n"
       "This application makes use of the following open-source libraries:\n"
       "  - wxWidgets\n"
       "  - tinyxml2\n"
       "  - nlohmann-json\n"
-      "  - OpenGL (or Vulkan backend)";
+      "  - OpenGL-based 3D rendering";
   info.SetDescription(description);
   info.SetWebSite("https://luismaperamato.com");
   info.AddDeveloper("Luisma Peramato");
