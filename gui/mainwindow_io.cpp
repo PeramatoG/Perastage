@@ -156,7 +156,8 @@ void MainWindow::OnLoad(wxCommandEvent &event) {
   wxString path = dlg.GetPath();
   const std::filesystem::path selectedPath(path.ToStdWstring());
   if (!LoadProjectFromPath(Utf8StringFromPath(selectedPath)))
-    wxMessageBox("Failed to load project.", "Error", wxICON_ERROR);
+    wxMessageBox("Failed to load project.", "Error", wxOK | wxICON_ERROR,
+                 this);
 }
 
 bool MainWindow::OpenPathFromCommandLine(const std::string &path) {
@@ -183,7 +184,8 @@ void MainWindow::OnSave(wxCommandEvent &event) {
   FlushPendingFixtureSymbolLibraryUpdates();
   SaveUserConfigWithViewport2DState();
   if (!cfg.SaveProject(currentProjectPath))
-    wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
+    wxMessageBox("Failed to save project.", "Error", wxOK | wxICON_ERROR,
+                 this);
   else {
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
     if (consolePanel)
