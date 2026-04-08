@@ -701,20 +701,40 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
   std::set<std::string> selectedFixtureSet(selectedFixtureIds.begin(),
                                            selectedFixtureIds.end());
 
-  std::map<std::string, std::string> typeColors;
+  auto buildFixtureGroupKey = [](const auto &fixture) {
+    return fixture.gdtfSpec + "\n" + fixture.gdtfMode;
+  };
+
+  std::map<std::string, std::string> fixtureGroupColors;
   for (auto &[uuid, f] : scene.fixtures) {
     if (hasFixtureSelection && selectedFixtureSet.find(uuid) == selectedFixtureSet.end())
       continue;
 
+    if (hasFixtureSelection) {
+      if (f.gdtfSpec.empty()) {
+        f.color = randHex();
+        continue;
+      }
+      const std::string groupKey = buildFixtureGroupKey(f);
+      auto existing = fixtureGroupColors.find(groupKey);
+      if (existing == fixtureGroupColors.end()) {
+        const auto dictColor = GdtfDictionary::GetDefaultColorForFixture(
+            f.typeName, f.gdtfSpec, f.gdtfMode);
+        const std::string chosenColor = dictColor ? *dictColor : randHex();
+        fixtureGroupColors[groupKey] = chosenColor;
+        f.color = chosenColor;
+      } else {
+        f.color = existing->second;
+      }
+      continue;
+    }
+
     if (!f.gdtfSpec.empty()) {
-      auto it = typeColors.find(f.gdtfSpec);
-      if (it == typeColors.end()) {
-        std::string c =
-            hasFixtureSelection ? randHex()
-                                : ((f.color.empty() || isWhiteColor(f.color))
-                                       ? randHex()
-                                       : f.color);
-        typeColors[f.gdtfSpec] = c;
+      auto it = fixtureGroupColors.find(buildFixtureGroupKey(f));
+      if (it == fixtureGroupColors.end()) {
+        const std::string c =
+            (f.color.empty() || isWhiteColor(f.color)) ? randHex() : f.color;
+        fixtureGroupColors[buildFixtureGroupKey(f)] = c;
         f.color = c;
       } else {
         f.color = it->second;

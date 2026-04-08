@@ -508,6 +508,39 @@ std::optional<Entry> Get(const std::string &type) {
   return it->second;
 }
 
+std::optional<std::string> GetDefaultColorForFixture(
+    const std::string &type, const std::string &gdtfPath,
+    const std::string &mode) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  auto dictOpt = Load();
+  if (!dictOpt)
+    return std::nullopt;
+  const auto &dict = *dictOpt;
+
+  const std::string normalizedType = NormalizeTypeKey(type);
+  if (!normalizedType.empty()) {
+    if (auto keyOpt = FindEquivalentTypeKey(dict, normalizedType)) {
+      auto byType = dict.find(*keyOpt);
+      if (byType != dict.end() && !byType->second.color.empty())
+        return byType->second.color;
+    }
+  }
+
+  std::optional<std::string> matchedColor;
+  std::string matchedKey;
+  for (const auto &[entryType, entry] : dict) {
+    if (entry.color.empty())
+      continue;
+    if (!EntriesShareFixtureFamily(entry, gdtfPath, mode))
+      continue;
+    if (!matchedColor || entryType < matchedKey) {
+      matchedColor = entry.color;
+      matchedKey = entryType;
+    }
+  }
+  return matchedColor;
+}
+
 void Update(const std::string &type, const std::string &gdtfPath, const std::string &mode, const std::string &category) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   const std::string normalizedType = NormalizeTypeKey(type);

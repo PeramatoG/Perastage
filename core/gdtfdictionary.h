@@ -49,6 +49,13 @@ namespace GdtfDictionary {
     // Returns the stored entry for a given type if it exists and file exists.
     // If the file is missing, the entry is removed and std::nullopt returned.
     std::optional<Entry> Get(const std::string& type);
+    // Returns the default color for a fixture when present in dictionary.
+    // Lookup priority:
+    // 1) Explicit fixture type entry.
+    // 2) Any entry sharing the same GDTF file + mode fixture family.
+    std::optional<std::string> GetDefaultColorForFixture(
+        const std::string& type, const std::string& gdtfPath,
+        const std::string& mode);
     // Copies the gdtf file into the fixtures library and updates the dictionary
     void Update(const std::string& type, const std::string& gdtfPath, const std::string& mode = {}, const std::string& category = {});
     void UpdateCategory(const std::string& type, const std::string& category);
