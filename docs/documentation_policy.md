@@ -27,6 +27,30 @@ Use dedicated documents for deeper topics:
 - Use fenced code blocks for commands and snippets.
 - Write all documentation and code comments in English.
 
+## Localization Policy for Spanish Help (ES)
+
+When updating the Spanish block in `help.md` (`<!-- LANG:es -->`), keep UI terminology stable and searchable:
+
+- Do **not** translate exact UI labels for menus, panels, dialogs, tabs, and buttons.
+- Translate only explanatory narrative text around those labels.
+- Keep command names and option labels exactly as shown in the application UI.
+- Reuse the same canonical UI terms across all ES help sections.
+
+Minimum glossary of terms that must remain untranslated:
+
+| Keep in English | Notes |
+| --- | --- |
+| `Fixtures` | Tab/panel label. |
+| `Trusses` | Tab/panel label. |
+| `Hoists` | Tab/panel label. |
+| `Objects` | Tab/panel label. |
+| `Render style` | 3D Viewer context-menu entry. |
+| `Create from text` | Tools workflow entry. |
+| `Apply filter` | Create-from-text action button. |
+| `Create` | Create-from-text action button. |
+| `File`, `Edit`, `View`, `Tools` | Menu names. |
+| `Console`, `Layers`, `Layouts`, `Summary`, `Rigging`, `2D Viewer`, `3D Viewer`, `2D Render Options`, `Layout View` | Panel/view names. |
+
 ## Cross-Linking Rules
 
 - Avoid duplicating large sections across files.
