@@ -1722,6 +1722,9 @@ void DictionaryEditDialog::OnResetDictionary(wxCommandEvent &WXUNUSED(event)) {
 }
 
 bool DictionaryEditDialog::ExportFixturesDictionary() {
+  if (HasFixtureChanges() && !SaveFixtures())
+    return false;
+
   auto dictOpt = GdtfDictionary::Load();
   if (!dictOpt) {
     wxMessageBox("Could not load fixtures dictionary for export.",
@@ -1774,6 +1777,9 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
 }
 
 bool DictionaryEditDialog::ExportTrussesDictionary() {
+  if (HasTrussChanges() && !SaveTrusses())
+    return false;
+
   auto dictOpt = TrussDictionary::Load();
   if (!dictOpt) {
     wxMessageBox("Could not load trusses dictionary for export.",
@@ -1826,6 +1832,9 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
 }
 
 bool DictionaryEditDialog::ExportFixturesPortableBundle() {
+  if (HasFixtureChanges() && !SaveFixtures())
+    return false;
+
   auto dictOpt = GdtfDictionary::Load();
   if (!dictOpt) {
     wxMessageBox("Could not load fixtures dictionary for portable export.",
@@ -1857,6 +1866,9 @@ bool DictionaryEditDialog::ExportFixturesPortableBundle() {
 }
 
 bool DictionaryEditDialog::ExportTrussesPortableBundle() {
+  if (HasTrussChanges() && !SaveTrusses())
+    return false;
+
   auto dictOpt = TrussDictionary::Load();
   if (!dictOpt) {
     wxMessageBox("Could not load trusses dictionary for portable export.",

@@ -71,6 +71,41 @@ std::string NormalizeAsciiKey(std::string value) {
   return value;
 }
 
+std::optional<std::string> NormalizeHexColor(std::string raw) {
+  raw.erase(std::remove_if(raw.begin(), raw.end(),
+                           [](unsigned char ch) {
+                             return std::isspace(ch) != 0;
+                           }),
+            raw.end());
+  if (raw.empty())
+    return std::string();
+  if (raw.front() == '#')
+    raw.erase(raw.begin());
+  if (raw.size() != 6)
+    return std::nullopt;
+  for (char &ch : raw) {
+    if (!std::isxdigit(static_cast<unsigned char>(ch)))
+      return std::nullopt;
+    ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+  }
+  return "#" + raw;
+}
+
+std::optional<std::string> GetObjectStringByNormalizedKey(
+    const nlohmann::json &value, const std::string &key) {
+  if (!value.is_object())
+    return std::nullopt;
+  const std::string normalizedTarget = NormalizeAsciiKey(key);
+  for (auto it = value.begin(); it != value.end(); ++it) {
+    if (!it.value().is_string())
+      continue;
+    if (NormalizeAsciiKey(it.key()) != normalizedTarget)
+      continue;
+    return it.value().get<std::string>();
+  }
+  return std::nullopt;
+}
+
 std::string NormalizeModeKey(const std::string &mode) {
   return NormalizeAsciiKey(mode);
 }
@@ -253,10 +288,11 @@ LoadFromFile(const fs::path &file, std::string &error) {
     }
 
     std::string fname;
-    if (value.contains("file") && value["file"].is_string())
-      fname = value["file"].get<std::string>();
-    else if (value.contains("path") && value["path"].is_string())
-      fname = value["path"].get<std::string>();
+    if (const auto fileName = GetObjectStringByNormalizedKey(value, "file"))
+      fname = *fileName;
+    else if (const auto pathName =
+                 GetObjectStringByNormalizedKey(value, "path"))
+      fname = *pathName;
 
     if (!fname.empty()) {
       fs::path p = ResolveImportedPath(file, fname);
@@ -267,18 +303,26 @@ LoadFromFile(const fs::path &file, std::string &error) {
       }
       entry.path = p.string();
     }
-    if (value.contains("mode") && value["mode"].is_string())
-      entry.mode = value["mode"].get<std::string>();
-    if (value.contains("category") && value["category"].is_string())
-      entry.category = value["category"].get<std::string>();
-    if (value.contains("color") && value["color"].is_string())
-      entry.color = value["color"].get<std::string>();
-    if (value.contains("source") && value["source"].is_string())
-      entry.source = value["source"].get<std::string>();
-    if (value.contains("imported_at") && value["imported_at"].is_string())
-      entry.importedAt = value["imported_at"].get<std::string>();
-    if (value.contains("sha256") && value["sha256"].is_string())
-      entry.sha256 = value["sha256"].get<std::string>();
+    if (const auto modeText = GetObjectStringByNormalizedKey(value, "mode"))
+      entry.mode = *modeText;
+    if (const auto categoryText =
+            GetObjectStringByNormalizedKey(value, "category"))
+      entry.category = *categoryText;
+    if (const auto colorText = GetObjectStringByNormalizedKey(value, "color")) {
+      const auto normalizedColor = NormalizeHexColor(*colorText);
+      if (!normalizedColor.has_value()) {
+        entryError = "color must be #RRGGBB when provided";
+        return false;
+      }
+      entry.color = *normalizedColor;
+    }
+    if (const auto sourceText = GetObjectStringByNormalizedKey(value, "source"))
+      entry.source = *sourceText;
+    if (const auto importedAtText =
+            GetObjectStringByNormalizedKey(value, "imported_at"))
+      entry.importedAt = *importedAtText;
+    if (const auto shaText = GetObjectStringByNormalizedKey(value, "sha256"))
+      entry.sha256 = *shaText;
     if (entry.path.empty() && entry.mode.empty() && entry.category.empty() &&
         entry.color.empty()) {
       entryError =
