@@ -159,3 +159,4 @@ Additional safeguards include:
 - [Build and dependency guide](build.md)
 - [Packaging and platform integration](packaging.md)
 - [Build troubleshooting](troubleshooting.md)
+- [Documentation policy and synchronization checklist](documentation_policy.md#documentation-synchronization-checklist)

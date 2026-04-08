@@ -33,6 +33,51 @@ Use dedicated documents for deeper topics:
 - Link related guides using relative links.
 - When adding a new major workflow, add one short bullet to `README.md` Highlights and place details in the appropriate `docs/*.md` file.
 
+
+## Documentation Synchronization Checklist
+
+Use this checklist in every PR that changes behavior, UX labels, or parsing contracts to keep user help and technical rules aligned.
+
+### 1) User-facing functionality that must be reflected in `help.md`
+
+Update `help.md` when a change is visible to operators in normal workflows, including at least:
+
+- New or removed menu actions, dialogs, toolbar actions, or panel entries.
+- Changes to user-executed workflows (new steps, reordered steps, renamed actions, changed defaults).
+- New or changed keyboard/mouse shortcuts.
+- New or changed console commands, command syntax, or command scope/selection behavior.
+- Build-gated visibility changes that affect what users can access in Debug vs Release.
+- Any user-visible warning, limitation, or prerequisite needed to avoid incorrect usage.
+
+### 2) Detailed rules that remain in `docs/text_to_scene_rules.md`
+
+Keep parser/scene-generation contracts in `docs/text_to_scene_rules.md` as the technical source of truth, including:
+
+- Token grammar and normalization expectations (headers, separators, accepted aliases).
+- Parsing precedence and conflict resolution rules.
+- Placement/distribution algorithms, defaults, fallback behavior, and override hierarchy.
+- Coordinate/unit parsing semantics and value interpretation rules.
+- Error handling, skipped-line policy, and deterministic behavior requirements.
+
+`help.md` should summarize only operator-facing behavior. Avoid duplicating the full parser contract there; link to `docs/text_to_scene_rules.md` for details.
+
+### 3) Criteria for updating both files in the same PR
+
+Update **both** `help.md` and `docs/text_to_scene_rules.md` in the same PR when **any** of the following is true:
+
+- A text-to-scene/rider parsing or scene-generation change is visible to users.
+- The same feature requires both a user workflow explanation and an update to parsing/placement technical rules.
+- UI labels/help examples must change to stay consistent with updated parser behavior.
+
+If the change is purely internal and does not alter user-visible behavior, update only `docs/text_to_scene_rules.md` when the technical contract changes.
+
+### PR self-check (required before merge)
+
+- [ ] I reviewed this checklist and updated `help.md` where user-facing behavior changed.
+- [ ] I updated `docs/text_to_scene_rules.md` where parser/scene-generation rules changed.
+- [ ] I updated both files in the same PR when both criteria applied.
+- [ ] I added cross-links instead of duplicating long rule sections.
+
 ## Assets and Media
 
 - Store screenshots and diagrams under `docs/` or `resources/` as appropriate.
