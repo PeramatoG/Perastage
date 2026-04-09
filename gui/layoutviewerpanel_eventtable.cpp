@@ -162,6 +162,7 @@ void LayoutViewerPanel::OnDeleteEventTable(wxCommandEvent &) {
                                     return entry.id == tableId;
                                   }),
                    tables.end());
+      InvalidateSelectionIndexCache();
       if (selectedElementId == tableId) {
         if (!currentLayout.view2dViews.empty()) {
           selectedElementType = SelectedElementType::View2D;

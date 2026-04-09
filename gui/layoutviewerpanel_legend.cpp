@@ -631,6 +631,7 @@ void LayoutViewerPanel::OnDeleteLegend(wxCommandEvent &) {
                                      return entry.id == legendId;
                                    }),
                     legends.end());
+      InvalidateSelectionIndexCache();
       if (selectedElementId == legendId) {
         if (!currentLayout.view2dViews.empty()) {
           selectedElementType = SelectedElementType::View2D;

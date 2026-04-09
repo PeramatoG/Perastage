@@ -186,6 +186,7 @@ void LayoutViewerPanel::OnDeleteImage(wxCommandEvent &) {
                                     return entry.id == imageId;
                                   }),
                    images.end());
+      InvalidateSelectionIndexCache();
       if (selectedElementId == imageId) {
         if (!currentLayout.view2dViews.empty()) {
           selectedElementType = SelectedElementType::View2D;

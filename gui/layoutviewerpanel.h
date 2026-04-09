@@ -269,6 +269,20 @@ private:
     size_t order = 0;
   };
 
+  struct SelectionIndexCache {
+    bool dirty = true;
+    std::vector<ZOrderedElement> zOrderedElements;
+    std::unordered_map<int, const layouts::Layout2DViewDefinition *> viewById;
+    std::unordered_map<int, const layouts::LayoutLegendDefinition *>
+        legendById;
+    std::unordered_map<int, const layouts::LayoutEventTableDefinition *>
+        eventTableById;
+    std::unordered_map<int, const layouts::LayoutTextDefinition *> textById;
+    std::unordered_map<int, const layouts::LayoutImageDefinition *> imageById;
+  };
+
+  void InvalidateSelectionIndexCache();
+  void EnsureSelectionIndexCache();
   std::vector<ZOrderedElement> BuildZOrderedElements() const;
   std::pair<int, int> GetZIndexRange() const;
   bool IsLayoutEmpty() const;
@@ -318,6 +332,7 @@ private:
   bool legendDataDirty_ = true;
   bool pendingFitOnResize = true;
   bool pendingFrameCommit_ = false;
+  SelectionIndexCache selectionIndexCache_;
 
   wxDECLARE_EVENT_TABLE();
 };

@@ -493,6 +493,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   const bool sameLayoutName =
       !previousLayout.name.empty() && previousLayout.name == layout.name;
   currentLayout = layout;
+  InvalidateSelectionIndexCache();
   auto selectDefaultElement = [this]() {
     if (!currentLayout.view2dViews.empty()) {
       selectedElementType = SelectedElementType::View2D;
@@ -620,6 +621,49 @@ void LayoutViewerPanel::NotifyRenderReady() {
     event.SetEventObject(panel);
     wxPostEvent(panel, event);
   });
+}
+
+void LayoutViewerPanel::InvalidateSelectionIndexCache() {
+  selectionIndexCache_.dirty = true;
+}
+
+void LayoutViewerPanel::EnsureSelectionIndexCache() {
+  if (!selectionIndexCache_.dirty) {
+    return;
+  }
+
+  selectionIndexCache_.zOrderedElements = BuildZOrderedElements();
+
+  auto &viewById = selectionIndexCache_.viewById;
+  auto &legendById = selectionIndexCache_.legendById;
+  auto &eventTableById = selectionIndexCache_.eventTableById;
+  auto &textById = selectionIndexCache_.textById;
+  auto &imageById = selectionIndexCache_.imageById;
+
+  viewById.clear();
+  legendById.clear();
+  eventTableById.clear();
+  textById.clear();
+  imageById.clear();
+
+  viewById.reserve(currentLayout.view2dViews.size());
+  legendById.reserve(currentLayout.legendViews.size());
+  eventTableById.reserve(currentLayout.eventTables.size());
+  textById.reserve(currentLayout.textViews.size());
+  imageById.reserve(currentLayout.imageViews.size());
+
+  for (const auto &view : currentLayout.view2dViews)
+    viewById.emplace(view.id, &view);
+  for (const auto &legend : currentLayout.legendViews)
+    legendById.emplace(legend.id, &legend);
+  for (const auto &table : currentLayout.eventTables)
+    eventTableById.emplace(table.id, &table);
+  for (const auto &text : currentLayout.textViews)
+    textById.emplace(text.id, &text);
+  for (const auto &image : currentLayout.imageViews)
+    imageById.emplace(image.id, &image);
+
+  selectionIndexCache_.dirty = false;
 }
 
 std::vector<LayoutViewerPanel::ZOrderedElement>
@@ -1674,6 +1718,7 @@ void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
     return;
   }
   layoutVersion++;
+  InvalidateSelectionIndexCache();
   renderDirty = true;
   RequestRenderRebuild();
   Refresh();
@@ -1764,6 +1809,7 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
     return;
   }
   layoutVersion++;
+  InvalidateSelectionIndexCache();
   renderDirty = true;
   RequestRenderRebuild();
   Refresh();
@@ -2730,28 +2776,13 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
     Refresh();
   };
 
-  const auto elements = BuildZOrderedElements();
-  std::unordered_map<int, const layouts::Layout2DViewDefinition *> viewById;
-  std::unordered_map<int, const layouts::LayoutLegendDefinition *> legendById;
-  std::unordered_map<int, const layouts::LayoutEventTableDefinition *>
-      eventTableById;
-  std::unordered_map<int, const layouts::LayoutTextDefinition *> textById;
-  std::unordered_map<int, const layouts::LayoutImageDefinition *> imageById;
-  viewById.reserve(currentLayout.view2dViews.size());
-  legendById.reserve(currentLayout.legendViews.size());
-  eventTableById.reserve(currentLayout.eventTables.size());
-  textById.reserve(currentLayout.textViews.size());
-  imageById.reserve(currentLayout.imageViews.size());
-  for (const auto &view : currentLayout.view2dViews)
-    viewById.emplace(view.id, &view);
-  for (const auto &legend : currentLayout.legendViews)
-    legendById.emplace(legend.id, &legend);
-  for (const auto &table : currentLayout.eventTables)
-    eventTableById.emplace(table.id, &table);
-  for (const auto &text : currentLayout.textViews)
-    textById.emplace(text.id, &text);
-  for (const auto &image : currentLayout.imageViews)
-    imageById.emplace(image.id, &image);
+  EnsureSelectionIndexCache();
+  const auto &elements = selectionIndexCache_.zOrderedElements;
+  const auto &viewById = selectionIndexCache_.viewById;
+  const auto &legendById = selectionIndexCache_.legendById;
+  const auto &eventTableById = selectionIndexCache_.eventTableById;
+  const auto &textById = selectionIndexCache_.textById;
+  const auto &imageById = selectionIndexCache_.imageById;
   for (auto it = elements.rbegin(); it != elements.rend(); ++it) {
     if (it->type == SelectedElementType::Legend) {
       auto legendIt = legendById.find(it->id);
