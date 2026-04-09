@@ -343,6 +343,7 @@ func _build_extruded_mesh(polygons: Array[PackedVector2Array], near_radius: floa
 	return st.commit()
 
 func _add_caps(st: SurfaceTool, polygon: PackedVector2Array, near_radius: float, far_radius: float, half_height: float) -> void:
+	st.set_smooth_group(-1)
 	var indices: PackedInt32Array = Geometry2D.triangulate_polygon(polygon)
 	if indices.is_empty():
 		return
@@ -361,6 +362,7 @@ func _add_caps(st: SurfaceTool, polygon: PackedVector2Array, near_radius: float,
 		st.add_vertex(Vector3(a.x * far_radius, -half_height, a.y * far_radius))
 
 func _add_sides(st: SurfaceTool, polygon: PackedVector2Array, near_radius: float, far_radius: float, half_height: float) -> void:
+	st.set_smooth_group(0)
 	var point_count: int = polygon.size()
 	for i in range(point_count):
 		var current: Vector2 = polygon[i]
@@ -375,3 +377,4 @@ func _add_sides(st: SurfaceTool, polygon: PackedVector2Array, near_radius: float
 		st.add_vertex(near_current)
 		st.add_vertex(far_next)
 		st.add_vertex(far_current)
+	st.set_smooth_group(-1)
