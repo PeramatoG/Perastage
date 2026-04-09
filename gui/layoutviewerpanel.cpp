@@ -571,6 +571,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     captureInProgress = false;
     renderDirty = true;
     loadingRequested = true;
+    legendDataDirty_ = true;
     RefreshLegendData();
     InvalidateRenderIfFrameChanged(false);
     if (NeedsRenderRebuild())
@@ -590,6 +591,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     isLoading = false;
     legendItems_.clear();
     legendDataHash = 0;
+    legendDataDirty_ = false;
     pendingFitOnResize = true;
     ResetViewToFit();
     Refresh();
@@ -598,6 +600,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   }
   renderDirty = true;
   loadingRequested = true;
+  legendDataDirty_ = true;
   RefreshLegendData();
   pendingFitOnResize = true;
   ResetViewToFit();
@@ -735,7 +738,8 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       return;
     }
     SetCurrent(*glContext_);
-    RefreshLegendData();
+    if (legendDataDirty_)
+      RefreshLegendData();
     if (!renderPending && NeedsRenderRebuild()) {
       RequestRenderRebuild();
     }

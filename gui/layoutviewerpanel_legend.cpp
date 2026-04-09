@@ -680,6 +680,7 @@ void LayoutViewerPanel::OnEditLegend(wxCommandEvent &) {
   legend->showChannelColumn = dialog.GetShowChannelColumn();
   legend->itemSettings = dialog.GetItemSettings();
   layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name, *legend);
+  legendDataDirty_ = true;
   RefreshLegendData();
   RequestRenderRebuild();
   Refresh();
@@ -752,14 +753,23 @@ void LayoutViewerPanel::DrawLegendElement(
 }
 
 void LayoutViewerPanel::RefreshLegendData() {
-  if (currentLayout.legendViews.empty())
+  if (!legendDataDirty_)
     return;
+  if (currentLayout.legendViews.empty()) {
+    legendItems_.clear();
+    legendDataHash = 0;
+    legendDataDirty_ = false;
+    return;
+  }
   std::vector<LegendItem> items = BuildLegendItems();
   size_t newHash = HashLegendItems(items);
-  if (newHash == legendDataHash)
+  if (newHash == legendDataHash) {
+    legendDataDirty_ = false;
     return;
+  }
   legendItems_ = std::move(items);
   legendDataHash = newHash;
+  legendDataDirty_ = false;
   if (legendItems_.size() == 1 &&
       legendItems_.front().typeName == "No fixtures") {
     return;
