@@ -6,8 +6,10 @@
 #include <wx/filedlg.h>
 #include <wx/filename.h>
 #include <wx/msgdlg.h>
+#include <wx/progdlg.h>
 #include <wx/utils.h>
 
+#include <algorithm>
 #include <memory>
 #include <string>
 
@@ -30,12 +32,15 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
       std::make_unique<wxWindowDisabler>();
   std::unique_ptr<wxBusyInfo> importOverlay =
       std::make_unique<wxBusyInfo>("Importing MVR file...");
+  std::unique_ptr<wxProgressDialog> importProgress;
   wxYieldIfNeeded();
 
   owner_.LockViewportInteraction();
   const bool imported = MvrImporter::ImportAndRegister(
-      pathUtf8, true, true, [&](const std::string &stage) {
+      pathUtf8, true, true, [&](const MvrImporter::ProgressState &progress) {
+        const std::string &stage = progress.stage;
         if (stage == "Conflict dialog:show") {
+          importProgress.reset();
           importOverlay.reset();
           importDisabler.reset();
           return;
@@ -44,15 +49,40 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
         if (stage == "Conflict dialog:hide") {
           importDisabler = std::make_unique<wxWindowDisabler>();
           importOverlay = std::make_unique<wxBusyInfo>("Importing MVR file...");
+          importProgress.reset();
           wxYieldIfNeeded();
           return;
         }
 
+        if (progress.HasCount()) {
+          const wxString title = "MVR import progress";
+          const wxString stageText = wxString::FromUTF8(stage);
+          const int safeTotal = std::max(progress.total, 1);
+          const int clampedCompleted = std::clamp(progress.completed, 0, safeTotal);
+
+          if (!importProgress) {
+            importProgress = std::make_unique<wxProgressDialog>(
+                title, stageText, safeTotal, &owner_,
+                wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);
+          } else {
+            importProgress->SetRange(safeTotal);
+          }
+
+          importProgress->Update(clampedCompleted, stageText);
+          setImportStatus(wxString::Format("MVR import: %s (%d/%d)", stageText,
+                                           clampedCompleted, safeTotal));
+          return;
+        }
+
+        if (importProgress) {
+          importProgress->Pulse(wxString::FromUTF8(stage));
+        }
         setImportStatus("MVR import: " + wxString::FromUTF8(stage));
       });
   owner_.UnlockViewportInteraction();
 
   if (!imported) {
+    importProgress.reset();
     importOverlay.reset();
     importDisabler.reset();
     if (owner_.GetStatusBar())
@@ -73,6 +103,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   owner_.UpdateTitle();
   owner_.RefreshAfterSceneChange();
 
+  importProgress.reset();
   importOverlay.reset();
   importDisabler.reset();
 

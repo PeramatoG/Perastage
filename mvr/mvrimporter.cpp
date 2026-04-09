@@ -727,6 +727,12 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  bool promptConflicts,
                                  bool applyDictionary,
                                  ProgressCallback progressCallback) {
+  auto reportProgress = [&](std::string stage, int completed = 0, int total = 0) {
+    if (!progressCallback)
+      return;
+    progressCallback(ProgressState{std::move(stage), completed, total});
+  };
+
   pathRemap.clear();
   // Treat the incoming path as UTF-8 to preserve any non-ASCII characters
   fs::path path = fs::u8path(filePath);
@@ -735,8 +741,7 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
   std::transform(ext.begin(), ext.end(), ext.begin(),
                  [](unsigned char c) { return std::tolower(c); });
 
-  if (progressCallback)
-    progressCallback("Preparing import...");
+  reportProgress("Preparing import...");
 
   if (!fs::exists(path)) {
     LogMessage("MVR file does not exist: " + filePath);
@@ -747,8 +752,7 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
     return false;
   }
 
-  if (progressCallback)
-    progressCallback("Extracting package resources...");
+  reportProgress("Extracting package resources...");
 
   std::string tempDir = CreateTemporaryDirectory();
   std::string mvrPath = ToString(path.u8string());
@@ -781,8 +785,7 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
   }
 
   std::string scenePath = ToString(sceneFile.u8string());
-  if (progressCallback)
-    progressCallback("Parsing scene data...");
+  reportProgress("Parsing scene data...");
   return ParseSceneXml(scenePath, promptConflicts, applyDictionary, progressCallback);
 }
 
@@ -936,6 +939,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                 bool promptConflicts,
                                 bool applyDictionary,
                                 ProgressCallback progressCallback) {
+  auto reportProgress = [&](std::string stage, int completed = 0, int total = 0) {
+    if (!progressCallback)
+      return;
+    progressCallback(ProgressState{std::move(stage), completed, total});
+  };
+
   tinyxml2::XMLDocument doc;
   tinyxml2::XMLError result = doc.LoadFile(sceneXmlPath.c_str());
   if (result != tinyxml2::XML_SUCCESS) {
@@ -2106,6 +2115,54 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
       };
 
+  tinyxml2::XMLElement *layersNode = sceneNode->FirstChildElement("Layers");
+  if (!layersNode)
+    return true;
+
+  std::function<int(tinyxml2::XMLElement *)> countImportSceneNodes =
+      [&](tinyxml2::XMLElement *childList) {
+        if (!childList)
+          return 0;
+        int count = 0;
+        for (tinyxml2::XMLElement *child = childList->FirstChildElement(); child;
+             child = child->NextSiblingElement()) {
+          const char *name = child->Name();
+          if (!name)
+            continue;
+          const std::string nodeName = name;
+          if (nodeName == "Fixture" || nodeName == "Truss" || nodeName == "Support" ||
+              nodeName == "SceneObject" || nodeName == "GroupObject") {
+            ++count;
+          }
+          if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList"))
+            count += countImportSceneNodes(inner);
+        }
+        return count;
+      };
+
+  int totalImportNodes = 0;
+  for (tinyxml2::XMLElement *cl = layersNode->FirstChildElement("ChildList");
+       cl; cl = cl->NextSiblingElement("ChildList")) {
+    totalImportNodes += countImportSceneNodes(cl);
+  }
+  for (tinyxml2::XMLElement *layer = layersNode->FirstChildElement("Layer");
+       layer; layer = layer->NextSiblingElement("Layer")) {
+    totalImportNodes += countImportSceneNodes(layer->FirstChildElement("ChildList"));
+  }
+
+  int importedNodes = 0;
+  auto reportNodeProgress = [&](const char *nodeKind) {
+    ++importedNodes;
+    if (totalImportNodes <= 0)
+      return;
+    constexpr int kReportEveryNodes = 25;
+    if (importedNodes == 1 || importedNodes == totalImportNodes ||
+        importedNodes % kReportEveryNodes == 0) {
+      reportProgress(std::string("Importing scene objects (") + nodeKind + ")",
+                     importedNodes, totalImportNodes);
+    }
+  };
+
   parseChildList = [&](tinyxml2::XMLElement *cl, const std::string &layerName,
                        const Matrix &parentTransform, const std::string &parentGroupUuid) {
     for (tinyxml2::XMLElement *child = cl->FirstChildElement(); child;
@@ -2121,24 +2178,28 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       std::string nodeName = name;
       if (nodeName == "Fixture") {
         parseFixture(child, layerName, nodeTransform);
+        reportNodeProgress("Fixture");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::Fixture, referenceUuidForNode("Fixture", child, layerName, nodeTransform)});
         }
       } else if (nodeName == "Truss") {
         parseTruss(child, layerName, nodeTransform, local, parentGroupUuid);
+        reportNodeProgress("Truss");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::Truss, referenceUuidForNode("Truss", child, layerName, nodeTransform)});
         }
       } else if (nodeName == "Support") {
         parseSupport(child, layerName, nodeTransform);
+        reportNodeProgress("Support");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::Support, referenceUuidForNode("Support", child, layerName, nodeTransform)});
         }
       } else if (nodeName == "SceneObject") {
         parseSceneObj(child, layerName, nodeTransform, local, parentGroupUuid);
+        reportNodeProgress("SceneObject");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::SceneObject,
@@ -2154,6 +2215,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (const char *nameAttr = child->Attribute("name"))
           group.name = nameAttr;
         scene.groupObjects[group.uuid] = group;
+        reportNodeProgress("GroupObject");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::GroupObject, group.uuid});
@@ -2169,10 +2231,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         parseChildList(inner, layerName, nodeTransform, parentGroupUuid);
     }
   };
-  tinyxml2::XMLElement *layersNode = sceneNode->FirstChildElement("Layers");
-  if (!layersNode)
-    return true;
-
   for (tinyxml2::XMLElement *cl = layersNode->FirstChildElement("ChildList");
        cl; cl = cl->NextSiblingElement("ChildList")) {
     parseChildList(cl, DEFAULT_LAYER_NAME, MatrixUtils::Identity(), "");
@@ -2226,13 +2284,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     }
     if (!gdtfConflicts.empty()) {
       if (promptConflicts) {
-        if (progressCallback)
-          progressCallback("Conflict dialog:show");
+        reportProgress("Conflict dialog:show");
         auto choices = PromptGdtfConflicts(gdtfConflicts);
-        if (progressCallback)
-          progressCallback("Conflict dialog:hide");
-        if (progressCallback)
-          progressCallback("Applying GDTF conflict selection...");
+        reportProgress("Conflict dialog:hide");
+        reportProgress("Applying GDTF conflict selection...");
         for (auto &[uid, f] : scene.fixtures) {
           auto typeKey = f.typeName;
           auto it = choices.find(typeKey);
@@ -2286,8 +2341,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     }
   }
 
-  if (progressCallback)
-    progressCallback("Building fixtures, trusses, and objects...");
+  reportProgress("Building fixtures, trusses, and objects...");
 
   for (auto &[uid, fixture] : scene.fixtures) {
     if (fixture.gdtfSpec.empty())

@@ -25,10 +25,18 @@
 class MvrImporter
 {
 public:
+    struct ProgressState {
+        std::string stage;
+        int completed = 0;
+        int total = 0;
+
+        bool HasCount() const { return total > 0; }
+    };
+
     // Imports and parses a .mvr file and stores the data into ConfigManager
     // Set promptConflicts=false to skip showing the dictionary conflict dialog
     // Set applyDictionary=true to resolve GDTF conflicts using the dictionary
-    using ProgressCallback = std::function<void(const std::string& stage)>;
+    using ProgressCallback = std::function<void(const ProgressState& state)>;
 
     bool ImportFromFile(const std::string& filePath,
                         bool promptConflicts = true,
