@@ -154,6 +154,12 @@ std::string parse_model_filename(tinyxml2::XMLElement *geo_node) {
     if (const char *model = geo_node->Attribute("Model")) {
         return model;
     }
+    if (const char *geometry = geo_node->Attribute("Geometry")) {
+        return geometry;
+    }
+    if (const char *geometry = geo_node->Attribute("geometry")) {
+        return geometry;
+    }
     if (const char *text = child_text_ci(geo_node, "filename")) {
         return text;
     }
@@ -437,7 +443,7 @@ std::unordered_map<std::string, std::vector<SymdefGeometry>> parse_symdefs(tinyx
 
         parse_child_list(child_list, MatrixUtils::Identity());
         if (!geometries.empty()) {
-            symdefs[symdef_id] = std::move(geometries);
+            symdefs[lower_ascii(symdef_id)] = std::move(geometries);
         }
     }
 
@@ -457,72 +463,128 @@ void append_scene_node(SceneModel &scene, SceneNode node) {
     scene.nodes.push_back(std::move(node));
 }
 
+int append_single_geometry(SceneModel &scene, tinyxml2::XMLElement *geo,
+                           const std::string &parent_id, const Matrix &parent_world,
+                           peraviz::ZipAssetCache &mvr_cache, const std::string &prefix,
+                           int &serial) {
+    if (!geo || !is_element_name(geo, "geometry3d")) {
+        return 0;
+    }
+
+    Matrix local = parse_matrix_node(geo);
+    Matrix world = MatrixUtils::Multiply(parent_world, local);
+
+    SceneNode geo_node;
+    geo_node.node_id = prefix + "/geometry#" + std::to_string(serial++);
+    geo_node.parent_id = parent_id;
+    geo_node.name = parse_name(geo, "Geometry3D");
+    geo_node.type = "model_part";
+    geo_node.node_class = "model_part";
+    geo_node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
+    const std::string model_name = normalize_geometry_file_name(parse_model_filename(geo));
+    if (!model_name.empty()) {
+        geo_node.asset_path = mvr_cache.ensure_mvr_model_extracted(model_name);
+    }
+    geo_node.asset_kind = infer_asset_kind_from_path(geo_node.asset_path);
+    scene.nodes.push_back(std::move(geo_node));
+    (void)world;
+    return 1;
+}
+
 void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, const std::string &parent_id,
                               const Matrix &parent_world, peraviz::ZipAssetCache &mvr_cache,
                               const std::unordered_map<std::string, std::vector<SymdefGeometry>> &symdefs,
                               const std::string &prefix, int &serial) {
-    tinyxml2::XMLElement *geometries = first_child_element_ci(node, "geometries");
-    if (!geometries) {
-        return;
-    }
+    int appended_count = 0;
 
-    for (tinyxml2::XMLElement *geo = geometries->FirstChildElement(); geo;
-         geo = geo->NextSiblingElement()) {
-        if (!is_element_name(geo, "geometry3d")) {
-            continue;
-        }
-        Matrix local = parse_matrix_node(geo);
-        Matrix world = MatrixUtils::Multiply(parent_world, local);
-
-        SceneNode geo_node;
-        geo_node.node_id = prefix + "/geometry#" + std::to_string(serial++);
-        geo_node.parent_id = parent_id;
-        geo_node.name = parse_name(geo, "Geometry3D");
-        geo_node.type = "model_part";
-        geo_node.node_class = "model_part";
-        geo_node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
-        const std::string model_name = normalize_geometry_file_name(parse_model_filename(geo));
-        if (!model_name.empty()) {
-            geo_node.asset_path = mvr_cache.ensure_mvr_model_extracted(model_name);
-        }
-        geo_node.asset_kind = infer_asset_kind_from_path(geo_node.asset_path);
-
-        scene.nodes.push_back(std::move(geo_node));
-        (void)world;
-    }
-
-    for (tinyxml2::XMLElement *symbol = geometries->FirstChildElement(); symbol;
-         symbol = symbol->NextSiblingElement()) {
-        if (!is_element_name(symbol, "symbol")) {
-            continue;
-        }
-        const char *symdef_attr = symbol->Attribute("symdef");
-        if (!symdef_attr) {
-            continue;
+    if (tinyxml2::XMLElement *geometries = first_child_element_ci(node, "geometries")) {
+        for (tinyxml2::XMLElement *geo = geometries->FirstChildElement(); geo;
+             geo = geo->NextSiblingElement()) {
+            appended_count += append_single_geometry(scene, geo, parent_id, parent_world,
+                                                     mvr_cache, prefix, serial);
         }
 
-        Matrix symbol_local = parse_matrix_node(symbol);
-        auto sym_it = symdefs.find(symdef_attr);
-        if (sym_it == symdefs.end()) {
-            continue;
-        }
-
-        for (const SymdefGeometry &sym_geo : sym_it->second) {
-            SceneNode symbol_node;
-            symbol_node.node_id = prefix + "/symbol#" + std::to_string(serial++);
-            symbol_node.parent_id = parent_id;
-            symbol_node.name = parse_name(symbol, "Symbol");
-            symbol_node.type = "model_part";
-            symbol_node.node_class = "model_part";
-
-            Matrix local = MatrixUtils::Multiply(symbol_local, sym_geo.transform);
-            symbol_node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
-
-            if (!sym_geo.file_name.empty()) {
-                symbol_node.asset_path = mvr_cache.ensure_mvr_model_extracted(sym_geo.file_name);
+        for (tinyxml2::XMLElement *symbol = geometries->FirstChildElement(); symbol;
+             symbol = symbol->NextSiblingElement()) {
+            if (!is_element_name(symbol, "symbol")) {
+                continue;
             }
-            symbol_node.asset_kind = infer_asset_kind_from_path(symbol_node.asset_path);
-            scene.nodes.push_back(std::move(symbol_node));
+
+            const char *symdef_attr = symbol->Attribute("symdef");
+            if (!symdef_attr) {
+                symdef_attr = symbol->Attribute("SymDef");
+            }
+
+            Matrix symbol_local = parse_matrix_node(symbol);
+            const std::string symdef_lookup = symdef_attr ? lower_ascii(symdef_attr) : "";
+            auto sym_it = symdefs.find(symdef_lookup);
+            if (sym_it != symdefs.end()) {
+                for (const SymdefGeometry &sym_geo : sym_it->second) {
+                    SceneNode symbol_node;
+                    symbol_node.node_id = prefix + "/symbol#" + std::to_string(serial++);
+                    symbol_node.parent_id = parent_id;
+                    symbol_node.name = parse_name(symbol, "Symbol");
+                    symbol_node.type = "model_part";
+                    symbol_node.node_class = "model_part";
+
+                    Matrix local = MatrixUtils::Multiply(symbol_local, sym_geo.transform);
+                    symbol_node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
+
+                    if (!sym_geo.file_name.empty()) {
+                        symbol_node.asset_path = mvr_cache.ensure_mvr_model_extracted(sym_geo.file_name);
+                    }
+                    symbol_node.asset_kind = infer_asset_kind_from_path(symbol_node.asset_path);
+                    scene.nodes.push_back(std::move(symbol_node));
+                    ++appended_count;
+                }
+                continue;
+            }
+
+            // Compatibility fallback for exports that attach a direct model to
+            // Symbol without an AUXData Symdef definition.
+            const std::string fallback_model =
+                normalize_geometry_file_name(parse_model_filename(symbol));
+            if (!fallback_model.empty()) {
+                SceneNode symbol_node;
+                symbol_node.node_id = prefix + "/symbol#" + std::to_string(serial++);
+                symbol_node.parent_id = parent_id;
+                symbol_node.name = parse_name(symbol, "Symbol");
+                symbol_node.type = "model_part";
+                symbol_node.node_class = "model_part";
+                symbol_node.local_transform =
+                    peraviz::coordinate_mapper::to_godot_transform(symbol_local);
+                symbol_node.asset_path = mvr_cache.ensure_mvr_model_extracted(fallback_model);
+                symbol_node.asset_kind = infer_asset_kind_from_path(symbol_node.asset_path);
+                scene.nodes.push_back(std::move(symbol_node));
+                ++appended_count;
+            }
+        }
+    }
+
+    // Some MVR exporters emit Geometry3D directly under the node instead of
+    // wrapping them in Geometries.
+    for (tinyxml2::XMLElement *child = node->FirstChildElement(); child;
+         child = child->NextSiblingElement()) {
+        if (is_element_name(child, "geometry3d")) {
+            appended_count += append_single_geometry(scene, child, parent_id, parent_world,
+                                                     mvr_cache, prefix, serial);
+        }
+    }
+
+    if (appended_count == 0) {
+        const std::string direct_model = normalize_geometry_file_name(parse_model_filename(node));
+        if (!direct_model.empty()) {
+            SceneNode node_model;
+            node_model.node_id = prefix + "/geometry#" + std::to_string(serial++);
+            node_model.parent_id = parent_id;
+            node_model.name = parse_name(node, "Geometry3D");
+            node_model.type = "model_part";
+            node_model.node_class = "model_part";
+            node_model.local_transform =
+                peraviz::coordinate_mapper::to_godot_transform(MatrixUtils::Identity());
+            node_model.asset_path = mvr_cache.ensure_mvr_model_extracted(direct_model);
+            node_model.asset_kind = infer_asset_kind_from_path(node_model.asset_path);
+            scene.nodes.push_back(std::move(node_model));
         }
     }
 }
