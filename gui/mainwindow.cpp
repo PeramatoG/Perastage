@@ -589,7 +589,6 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     } else {
       SplashScreen::SetMessage(message);
     }
-    wxYieldIfNeeded();
   };
 
   if (showBlockingLoadUi) {
