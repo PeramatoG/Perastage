@@ -1304,9 +1304,6 @@ void LayoutViewerPanel::OnShow(wxShowEvent &event) {
 
 void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
   wxPoint currentPos = event.GetPosition();
-  if (dragMode == FrameDragMode::None && !isPanning) {
-    SelectElementAtPosition(currentPos);
-  }
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
   if (GetSelectedFrame(selectedFrame) &&
