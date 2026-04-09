@@ -1488,6 +1488,22 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return DeriveDeterministicUuid(seed);
   };
 
+  std::unordered_map<std::string, std::optional<GdtfDictionary::Entry>>
+      dictionaryEntryByTypeCache;
+  auto getDictionaryEntryCached =
+      [&](const std::string &typeName) -> const std::optional<GdtfDictionary::Entry> & {
+    static const std::optional<GdtfDictionary::Entry> kEmptyEntry = std::nullopt;
+    if (typeName.empty())
+      return kEmptyEntry;
+    auto it = dictionaryEntryByTypeCache.find(typeName);
+    if (it != dictionaryEntryByTypeCache.end())
+      return it->second;
+    return dictionaryEntryByTypeCache.emplace(typeName, GdtfDictionary::Get(typeName))
+        .first->second;
+  };
+
+  std::unordered_map<std::string, GdtfConflict> pendingGdtfConflictByType;
+
   std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)>
       parseFixture = [&](tinyxml2::XMLElement *node,
                          const std::string &layerName,
@@ -1556,10 +1572,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         ReadFixtureCategoryFromUserData(node, fixture);
         const std::string categoryKey =
             !fixture.typeName.empty() ? fixture.typeName : fixture.gdtfSpec;
+        const std::optional<GdtfDictionary::Entry> &dictionaryEntry =
+            getDictionaryEntryCached(fixture.typeName);
 
         if (fixture.category.empty() && !fixture.typeName.empty()) {
-          if (auto entry = GdtfDictionary::Get(fixture.typeName)) {
-            fixture.category = GdtfFixtureCategory::NormalizeCategory(entry->category);
+          if (dictionaryEntry) {
+            fixture.category =
+                GdtfFixtureCategory::NormalizeCategory(dictionaryEntry->category);
           }
           if (!fixture.category.empty()) {
             fixture.categorySource = GdtfFixtureCategory::kManualSource;
@@ -1649,6 +1668,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (tinyxml2::XMLElement *matrix = node->FirstChildElement("Matrix")) {
           if (const char *txt = matrix->GetText())
             fixture.matrixRaw = txt;
+        }
+
+        if (applyDictionary && dictionaryEntry && !fixture.typeName.empty()) {
+          pendingGdtfConflictByType.try_emplace(
+              fixture.typeName,
+              GdtfConflict{fixture.typeName, fixture.gdtfSpec, dictionaryEntry->path});
         }
 
         scene.fixtures[fixture.uuid] = fixture;
@@ -2274,22 +2299,29 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   // are applied to the final scene data.
   if (applyDictionary) {
     std::vector<GdtfConflict> gdtfConflicts;
-    std::unordered_set<std::string> conflictTypes;
-    const int totalFixturesForConflictScan =
-        static_cast<int>(scene.fixtures.size());
-    int scannedFixturesForConflictScan = 0;
-    for (const auto &[uid, f] : scene.fixtures) {
-      ++scannedFixturesForConflictScan;
-      if (totalFixturesForConflictScan > 0 &&
-          (scannedFixturesForConflictScan == 1 ||
-           scannedFixturesForConflictScan == totalFixturesForConflictScan ||
-           scannedFixturesForConflictScan % 50 == 0)) {
-        reportProgress("Preparing GDTF conflict analysis...",
-                       scannedFixturesForConflictScan,
-                       totalFixturesForConflictScan);
-      }
-      if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
-        if (conflictTypes.insert(f.typeName).second) {
+    gdtfConflicts.reserve(pendingGdtfConflictByType.size());
+    for (const auto &[typeName, conflict] : pendingGdtfConflictByType)
+      gdtfConflicts.push_back(conflict);
+
+    if (gdtfConflicts.empty() && !scene.fixtures.empty()) {
+      // Fallback for legacy/edge cases where fixtures were not parsed through
+      // the regular path (e.g. future importer extensions).
+      std::unordered_set<std::string> conflictTypes;
+      const int totalFixturesForConflictScan =
+          static_cast<int>(scene.fixtures.size());
+      int scannedFixturesForConflictScan = 0;
+      for (const auto &[uid, f] : scene.fixtures) {
+        ++scannedFixturesForConflictScan;
+        if (totalFixturesForConflictScan > 0 &&
+            (scannedFixturesForConflictScan == 1 ||
+             scannedFixturesForConflictScan == totalFixturesForConflictScan ||
+             scannedFixturesForConflictScan % 50 == 0)) {
+          reportProgress("Preparing GDTF conflict analysis...",
+                         scannedFixturesForConflictScan,
+                         totalFixturesForConflictScan);
+        }
+        const auto &dictEntry = getDictionaryEntryCached(f.typeName);
+        if (dictEntry && conflictTypes.insert(f.typeName).second) {
           gdtfConflicts.push_back({f.typeName, f.gdtfSpec, dictEntry->path});
         }
       }
@@ -2328,7 +2360,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 Trim(GetGdtfFixtureName(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
             if (!parsed.empty())
               f.typeName = parsed;
-            if (auto dictEntry = GdtfDictionary::Get(typeKey)) {
+            const auto &dictEntry = getDictionaryEntryCached(typeKey);
+            if (dictEntry) {
               if (f.gdtfMode.empty())
                 f.gdtfMode = dictEntry->mode;
             }
@@ -2352,7 +2385,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                            appliedFixturesForDictionaryApply,
                            totalFixturesForDictionaryApply);
           }
-          if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
+          const auto &dictEntry = getDictionaryEntryCached(f.typeName);
+          if (dictEntry) {
             const int previousChannelCount =
                 (!f.gdtfSpec.empty() && !f.gdtfMode.empty())
                     ? GetGdtfModeChannelCount(resolveFixtureGdtfPathForRead(f.gdtfSpec),
