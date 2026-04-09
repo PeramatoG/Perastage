@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 #include <new>
+#include <unordered_map>
 #include <vector>
 #include <wx/weakref.h>
 
@@ -760,64 +761,52 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       capturePanel = Viewer2DPanel::Instance();
     }
 
-    auto findViewById =
-        [this](int viewId) -> const layouts::Layout2DViewDefinition * {
-      for (const auto &view : currentLayout.view2dViews) {
-        if (view.id == viewId)
-          return &view;
-      }
-      return nullptr;
-    };
-    auto findLegendById =
-        [this](int legendId) -> const layouts::LayoutLegendDefinition * {
-      for (const auto &legend : currentLayout.legendViews) {
-        if (legend.id == legendId)
-          return &legend;
-      }
-      return nullptr;
-    };
-    auto findEventTableById =
-        [this](int tableId) -> const layouts::LayoutEventTableDefinition * {
-      for (const auto &table : currentLayout.eventTables) {
-        if (table.id == tableId)
-          return &table;
-      }
-      return nullptr;
-    };
-    auto findTextById =
-        [this](int textId) -> const layouts::LayoutTextDefinition * {
-      for (const auto &text : currentLayout.textViews) {
-        if (text.id == textId)
-          return &text;
-      }
-      return nullptr;
-    };
-    auto findImageById =
-        [this](int imageId) -> const layouts::LayoutImageDefinition * {
-      for (const auto &image : currentLayout.imageViews) {
-        if (image.id == imageId)
-          return &image;
-      }
-      return nullptr;
-    };
+    std::unordered_map<int, const layouts::Layout2DViewDefinition *> viewById;
+    std::unordered_map<int, const layouts::LayoutLegendDefinition *>
+        legendById;
+    std::unordered_map<int, const layouts::LayoutEventTableDefinition *>
+        eventTableById;
+    std::unordered_map<int, const layouts::LayoutTextDefinition *> textById;
+    std::unordered_map<int, const layouts::LayoutImageDefinition *> imageById;
+    viewById.reserve(currentLayout.view2dViews.size());
+    legendById.reserve(currentLayout.legendViews.size());
+    eventTableById.reserve(currentLayout.eventTables.size());
+    textById.reserve(currentLayout.textViews.size());
+    imageById.reserve(currentLayout.imageViews.size());
+    for (const auto &view : currentLayout.view2dViews)
+      viewById.emplace(view.id, &view);
+    for (const auto &legend : currentLayout.legendViews)
+      legendById.emplace(legend.id, &legend);
+    for (const auto &table : currentLayout.eventTables)
+      eventTableById.emplace(table.id, &table);
+    for (const auto &text : currentLayout.textViews)
+      textById.emplace(text.id, &text);
+    for (const auto &image : currentLayout.imageViews)
+      imageById.emplace(image.id, &image);
 
     const auto elements = BuildZOrderedElements();
     for (const auto &element : elements) {
       if (element.type == SelectedElementType::View2D) {
-        if (const auto *view = findViewById(element.id))
-          DrawViewElement(*view, capturePanel, offscreenRenderer, activeViewId);
+        auto it = viewById.find(element.id);
+        if (it != viewById.end())
+          DrawViewElement(*it->second, capturePanel, offscreenRenderer,
+                          activeViewId);
       } else if (element.type == SelectedElementType::Legend) {
-        if (const auto *legend = findLegendById(element.id))
-          DrawLegendElement(*legend, activeLegendId);
+        auto it = legendById.find(element.id);
+        if (it != legendById.end())
+          DrawLegendElement(*it->second, activeLegendId);
       } else if (element.type == SelectedElementType::EventTable) {
-        if (const auto *table = findEventTableById(element.id))
-          DrawEventTableElement(*table);
+        auto it = eventTableById.find(element.id);
+        if (it != eventTableById.end())
+          DrawEventTableElement(*it->second);
       } else if (element.type == SelectedElementType::Text) {
-        if (const auto *text = findTextById(element.id))
-          DrawTextElement(*text, activeTextId);
+        auto it = textById.find(element.id);
+        if (it != textById.end())
+          DrawTextElement(*it->second, activeTextId);
       } else if (element.type == SelectedElementType::Image) {
-        if (const auto *image = findImageById(element.id))
-          DrawImageElement(*image, activeImageId);
+        auto it = imageById.find(element.id);
+        if (it != imageById.end())
+          DrawImageElement(*it->second, activeImageId);
       }
     }
 
@@ -837,30 +826,30 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
         activeElementHasTexture = hasTexture(viewCaches_, selectedViewId);
       }
     } else if (selectedElementType == SelectedElementType::Legend) {
-      const auto *legend = findLegendById(selectedLegendId);
-      if (!legend) {
+      auto it = legendById.find(selectedLegendId);
+      if (it == legendById.end()) {
         activeElementHasTexture = false;
       } else {
         activeElementHasTexture = hasTexture(legendCaches_, selectedLegendId);
       }
     } else if (selectedElementType == SelectedElementType::EventTable) {
-      const auto *table = findEventTableById(selectedEventTableId);
-      if (!table) {
+      auto it = eventTableById.find(selectedEventTableId);
+      if (it == eventTableById.end()) {
         activeElementHasTexture = false;
       } else {
         activeElementHasTexture =
             hasTexture(eventTableCaches_, selectedEventTableId);
       }
     } else if (selectedElementType == SelectedElementType::Text) {
-      const auto *text = findTextById(selectedTextId);
-      if (!text) {
+      auto it = textById.find(selectedTextId);
+      if (it == textById.end()) {
         activeElementHasTexture = false;
       } else {
         activeElementHasTexture = hasTexture(textCaches_, selectedTextId);
       }
     } else if (selectedElementType == SelectedElementType::Image) {
-      const auto *image = findImageById(selectedImageId);
-      if (!image) {
+      auto it = imageById.find(selectedImageId);
+      if (it == imageById.end()) {
         activeElementHasTexture = false;
       } else {
         activeElementHasTexture = hasTexture(imageCaches_, selectedImageId);
@@ -2597,51 +2586,33 @@ bool LayoutViewerPanel::AreTexturesReady() const {
 
 bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
   const auto elements = BuildZOrderedElements();
-  auto findLegendById =
-      [this](int legendId) -> const layouts::LayoutLegendDefinition * {
-    for (const auto &legend : currentLayout.legendViews) {
-      if (legend.id == legendId)
-        return &legend;
-    }
-    return nullptr;
-  };
-  auto findEventTableById =
-      [this](int tableId) -> const layouts::LayoutEventTableDefinition * {
-    for (const auto &table : currentLayout.eventTables) {
-      if (table.id == tableId)
-        return &table;
-    }
-    return nullptr;
-  };
-  auto findTextById =
-      [this](int textId) -> const layouts::LayoutTextDefinition * {
-    for (const auto &text : currentLayout.textViews) {
-      if (text.id == textId)
-        return &text;
-    }
-    return nullptr;
-  };
-  auto findImageById =
-      [this](int imageId) -> const layouts::LayoutImageDefinition * {
-    for (const auto &image : currentLayout.imageViews) {
-      if (image.id == imageId)
-        return &image;
-    }
-    return nullptr;
-  };
-  auto findViewById =
-      [this](int viewId) -> const layouts::Layout2DViewDefinition * {
-    for (const auto &view : currentLayout.view2dViews) {
-      if (view.id == viewId)
-        return &view;
-    }
-    return nullptr;
-  };
+  std::unordered_map<int, const layouts::Layout2DViewDefinition *> viewById;
+  std::unordered_map<int, const layouts::LayoutLegendDefinition *> legendById;
+  std::unordered_map<int, const layouts::LayoutEventTableDefinition *>
+      eventTableById;
+  std::unordered_map<int, const layouts::LayoutTextDefinition *> textById;
+  std::unordered_map<int, const layouts::LayoutImageDefinition *> imageById;
+  viewById.reserve(currentLayout.view2dViews.size());
+  legendById.reserve(currentLayout.legendViews.size());
+  eventTableById.reserve(currentLayout.eventTables.size());
+  textById.reserve(currentLayout.textViews.size());
+  imageById.reserve(currentLayout.imageViews.size());
+  for (const auto &view : currentLayout.view2dViews)
+    viewById.emplace(view.id, &view);
+  for (const auto &legend : currentLayout.legendViews)
+    legendById.emplace(legend.id, &legend);
+  for (const auto &table : currentLayout.eventTables)
+    eventTableById.emplace(table.id, &table);
+  for (const auto &text : currentLayout.textViews)
+    textById.emplace(text.id, &text);
+  for (const auto &image : currentLayout.imageViews)
+    imageById.emplace(image.id, &image);
   for (auto it = elements.rbegin(); it != elements.rend(); ++it) {
     if (it->type == SelectedElementType::Legend) {
-      const auto *legend = findLegendById(it->id);
-      if (!legend)
+      auto legendIt = legendById.find(it->id);
+      if (legendIt == legendById.end())
         continue;
+      const auto *legend = legendIt->second;
       wxRect frameRect;
       if (!GetFrameRect(legend->frame, frameRect))
         continue;
@@ -2659,9 +2630,10 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
     }
 
     if (it->type == SelectedElementType::EventTable) {
-      const auto *table = findEventTableById(it->id);
-      if (!table)
+      auto tableIt = eventTableById.find(it->id);
+      if (tableIt == eventTableById.end())
         continue;
+      const auto *table = tableIt->second;
       wxRect frameRect;
       if (!GetFrameRect(table->frame, frameRect))
         continue;
@@ -2679,9 +2651,10 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
     }
 
     if (it->type == SelectedElementType::Text) {
-      const auto *text = findTextById(it->id);
-      if (!text)
+      auto textIt = textById.find(it->id);
+      if (textIt == textById.end())
         continue;
+      const auto *text = textIt->second;
       wxRect frameRect;
       if (!GetFrameRect(text->frame, frameRect))
         continue;
@@ -2699,9 +2672,10 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
     }
 
     if (it->type == SelectedElementType::Image) {
-      const auto *image = findImageById(it->id);
-      if (!image)
+      auto imageIt = imageById.find(it->id);
+      if (imageIt == imageById.end())
         continue;
+      const auto *image = imageIt->second;
       wxRect frameRect;
       if (!GetFrameRect(image->frame, frameRect))
         continue;
@@ -2719,9 +2693,10 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
     }
 
     if (it->type == SelectedElementType::View2D) {
-      const auto *view = findViewById(it->id);
-      if (!view)
+      auto viewIt = viewById.find(it->id);
+      if (viewIt == viewById.end())
         continue;
+      const auto *view = viewIt->second;
       wxRect frameRect;
       if (!GetFrameRect(view->frame, frameRect))
         continue;
