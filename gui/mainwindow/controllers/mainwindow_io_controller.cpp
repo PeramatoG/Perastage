@@ -111,7 +111,12 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   ownerRef->currentProjectDisplayName = wxFileName(filePath).GetName();
   ProjectUtils::SaveLastProjectPath("");
   ownerRef->UpdateTitle();
-  ownerRef->RefreshAfterSceneChange();
+
+  // Keep import behavior aligned with the existing Tools > Auto color flow:
+  // once the MVR scene is loaded, trigger auto-color so fixture types without
+  // dictionary colors still receive a color by type/group.
+  wxCommandEvent autoColorEvent;
+  ownerRef->OnAutoColor(autoColorEvent);
 
   importProgress.reset();
   importOverlay.reset();
