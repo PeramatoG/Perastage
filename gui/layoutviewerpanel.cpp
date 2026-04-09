@@ -2708,6 +2708,28 @@ bool LayoutViewerPanel::AreTexturesReady() const {
 }
 
 bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
+  const auto applySelectionChange = [&](SelectedElementType newType, int newId,
+                                        bool emitViewSelectionChanged) {
+    const bool selectionOnlyChange =
+        selectedElementType != newType || selectedElementId != newId;
+    const bool renderableContentChanged = false;
+
+    selectedElementType = newType;
+    selectedElementId = newId;
+
+    if (emitViewSelectionChanged) {
+      EmitViewSelectionChanged(newId);
+    }
+
+    if (selectionOnlyChange && !renderableContentChanged) {
+      Refresh();
+      return;
+    }
+
+    RequestRenderRebuild();
+    Refresh();
+  };
+
   const auto elements = BuildZOrderedElements();
   std::unordered_map<int, const layouts::Layout2DViewDefinition *> viewById;
   std::unordered_map<int, const layouts::LayoutLegendDefinition *> legendById;
@@ -2745,10 +2767,8 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
           selectedElementId == legend->id) {
         return true;
       }
-      selectedElementType = SelectedElementType::Legend;
-      selectedElementId = legend->id;
-      RequestRenderRebuild();
-      Refresh();
+      applySelectionChange(SelectedElementType::Legend, legend->id,
+                           /*emitViewSelectionChanged=*/false);
       return true;
     }
 
@@ -2766,10 +2786,8 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
           selectedElementId == table->id) {
         return true;
       }
-      selectedElementType = SelectedElementType::EventTable;
-      selectedElementId = table->id;
-      RequestRenderRebuild();
-      Refresh();
+      applySelectionChange(SelectedElementType::EventTable, table->id,
+                           /*emitViewSelectionChanged=*/false);
       return true;
     }
 
@@ -2787,10 +2805,8 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
           selectedElementId == text->id) {
         return true;
       }
-      selectedElementType = SelectedElementType::Text;
-      selectedElementId = text->id;
-      RequestRenderRebuild();
-      Refresh();
+      applySelectionChange(SelectedElementType::Text, text->id,
+                           /*emitViewSelectionChanged=*/false);
       return true;
     }
 
@@ -2808,10 +2824,8 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
           selectedElementId == image->id) {
         return true;
       }
-      selectedElementType = SelectedElementType::Image;
-      selectedElementId = image->id;
-      RequestRenderRebuild();
-      Refresh();
+      applySelectionChange(SelectedElementType::Image, image->id,
+                           /*emitViewSelectionChanged=*/false);
       return true;
     }
 
@@ -2829,11 +2843,8 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
           selectedElementId == view->id) {
         return true;
       }
-      selectedElementType = SelectedElementType::View2D;
-      selectedElementId = view->id;
-      EmitViewSelectionChanged(view->id);
-      RequestRenderRebuild();
-      Refresh();
+      applySelectionChange(SelectedElementType::View2D, view->id,
+                           /*emitViewSelectionChanged=*/true);
       return true;
     }
   }
