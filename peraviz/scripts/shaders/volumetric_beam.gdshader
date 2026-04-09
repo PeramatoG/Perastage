@@ -35,7 +35,7 @@ instance uniform float beam_intensity : hint_range(0.0, 1.0) = 1.0;
 instance uniform float beam_overdrive : hint_range(0.0, 1.0) = 0.0;
 instance uniform float beam_visibility : hint_range(0.0, 1.0) = 1.0;
 uniform bool gobo_mirror_x = true;
-uniform bool gobo_mirror_y = false;
+uniform bool gobo_mirror_z = false;
 
 
 varying vec3 v_view;
@@ -50,7 +50,7 @@ vec2 project_gobo_uv(vec3 local_pos) {
 	if (gobo_mirror_x) {
 		projected.x = -projected.x;
 	}
-	if (gobo_mirror_y) {
+	if (gobo_mirror_z) {
 		projected.y = -projected.y;
 	}
 	float rotation_rad = radians(gobo_rotation_deg);
