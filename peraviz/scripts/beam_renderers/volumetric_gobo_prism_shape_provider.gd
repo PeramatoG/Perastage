@@ -24,7 +24,8 @@ func apply_shape(beam: MeshInstance3D, light: SpotLight3D, params: Dictionary) -
 	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
 	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
 	var beam_rotation_deg: float = wrapf(gobo_rotation_deg + 180.0, 0.0, 360.0)
-	var prism_mesh: ArrayMesh = _mesh_builder.build_beam_mesh(gobo_texture, lens_radius, bottom_radius, beam_range, gobo_scale, beam_rotation_deg)
+	var beam_shape_rotation_deg: float = wrapf(beam_rotation_deg + 180.0, 0.0, 360.0)
+	var prism_mesh: ArrayMesh = _mesh_builder.build_beam_mesh(gobo_texture, lens_radius, bottom_radius, beam_range, gobo_scale, beam_shape_rotation_deg)
 	if prism_mesh != null:
 		beam.mesh = prism_mesh
 	var lens_offset_m: float = max(float(params.get("lens_offset_m", params.get("near_offset", 0.0))), 0.0)
