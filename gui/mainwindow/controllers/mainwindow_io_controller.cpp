@@ -16,6 +16,7 @@
 #include "consolepanel.h"
 #include "mvrimporter.h"
 #include "projectutils.h"
+#include "splashscreen.h"
 
 bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   const wxString filePath = wxString::FromUTF8(pathUtf8);
@@ -27,6 +28,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   };
 
   setImportStatus("MVR import: preparing...");
+  SplashScreen::Hide();
 
   std::unique_ptr<wxWindowDisabler> importDisabler =
       std::make_unique<wxWindowDisabler>();
@@ -61,6 +63,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           const int clampedCompleted = std::clamp(progress.completed, 0, safeTotal);
 
           if (!importProgress) {
+            importOverlay.reset();
             importProgress = std::make_unique<wxProgressDialog>(
                 title, stageText, safeTotal, &owner_,
                 wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);

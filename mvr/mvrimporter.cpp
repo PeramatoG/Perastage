@@ -2275,7 +2275,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   if (applyDictionary) {
     std::vector<GdtfConflict> gdtfConflicts;
     std::unordered_set<std::string> conflictTypes;
+    const int totalFixturesForConflictScan =
+        static_cast<int>(scene.fixtures.size());
+    int scannedFixturesForConflictScan = 0;
     for (const auto &[uid, f] : scene.fixtures) {
+      ++scannedFixturesForConflictScan;
+      if (totalFixturesForConflictScan > 0 &&
+          (scannedFixturesForConflictScan == 1 ||
+           scannedFixturesForConflictScan == totalFixturesForConflictScan ||
+           scannedFixturesForConflictScan % 50 == 0)) {
+        reportProgress("Preparing GDTF conflict analysis...",
+                       scannedFixturesForConflictScan,
+                       totalFixturesForConflictScan);
+      }
       if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
         if (conflictTypes.insert(f.typeName).second) {
           gdtfConflicts.push_back({f.typeName, f.gdtfSpec, dictEntry->path});
@@ -2288,7 +2300,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         auto choices = PromptGdtfConflicts(gdtfConflicts);
         reportProgress("Conflict dialog:hide");
         reportProgress("Applying GDTF conflict selection...");
+        const int totalFixturesForConflictApply =
+            static_cast<int>(scene.fixtures.size());
+        int appliedFixturesForConflictApply = 0;
         for (auto &[uid, f] : scene.fixtures) {
+          ++appliedFixturesForConflictApply;
+          if (totalFixturesForConflictApply > 0 &&
+              (appliedFixturesForConflictApply == 1 ||
+               appliedFixturesForConflictApply == totalFixturesForConflictApply ||
+               appliedFixturesForConflictApply % 50 == 0)) {
+            reportProgress("Applying GDTF conflict selection...",
+                           appliedFixturesForConflictApply,
+                           totalFixturesForConflictApply);
+          }
           auto typeKey = f.typeName;
           auto it = choices.find(typeKey);
           if (it != choices.end()) {
@@ -2315,7 +2339,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           }
         }
       } else {
+        const int totalFixturesForDictionaryApply =
+            static_cast<int>(scene.fixtures.size());
+        int appliedFixturesForDictionaryApply = 0;
         for (auto &[uid, f] : scene.fixtures) {
+          ++appliedFixturesForDictionaryApply;
+          if (totalFixturesForDictionaryApply > 0 &&
+              (appliedFixturesForDictionaryApply == 1 ||
+               appliedFixturesForDictionaryApply == totalFixturesForDictionaryApply ||
+               appliedFixturesForDictionaryApply % 50 == 0)) {
+            reportProgress("Applying dictionary GDTF mappings...",
+                           appliedFixturesForDictionaryApply,
+                           totalFixturesForDictionaryApply);
+          }
           if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
             const int previousChannelCount =
                 (!f.gdtfSpec.empty() && !f.gdtfMode.empty())
@@ -2343,7 +2379,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   reportProgress("Building fixtures, trusses, and objects...");
 
+  const int totalFixturesForModeResolve =
+      static_cast<int>(scene.fixtures.size());
+  int resolvedFixturesForModeResolve = 0;
   for (auto &[uid, fixture] : scene.fixtures) {
+    ++resolvedFixturesForModeResolve;
+    if (totalFixturesForModeResolve > 0 &&
+        (resolvedFixturesForModeResolve == 1 ||
+         resolvedFixturesForModeResolve == totalFixturesForModeResolve ||
+         resolvedFixturesForModeResolve % 50 == 0)) {
+      reportProgress("Resolving GDTF modes...",
+                     resolvedFixturesForModeResolve,
+                     totalFixturesForModeResolve);
+    }
     if (fixture.gdtfSpec.empty())
       continue;
     const int currentChannelCount =
