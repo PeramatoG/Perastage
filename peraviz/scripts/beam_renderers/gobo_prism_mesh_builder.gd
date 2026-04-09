@@ -17,6 +17,7 @@ const GOBO_VECTOR_POLYGONS_META_KEY: String = "peraviz_gobo_vector_polygons"
 const GOBO_VECTOR_WIDTH_META_KEY: String = "peraviz_gobo_vector_width"
 const GOBO_VECTOR_HEIGHT_META_KEY: String = "peraviz_gobo_vector_height"
 const DEBUG_GOBO_VECTORIZATION: bool = false
+const INCLUDE_BEAM_END_CAPS: bool = false
 
 const GoboPolygonCleanupScript = preload("res://scripts/beam_renderers/gobo_polygon_cleanup.gd")
 
@@ -337,7 +338,8 @@ func _build_extruded_mesh(polygons: Array[PackedVector2Array], near_radius: floa
 	for polygon in polygons:
 		if polygon.size() < 3:
 			continue
-		_add_caps(st, polygon, near_radius, far_radius, half_height)
+		if INCLUDE_BEAM_END_CAPS:
+			_add_caps(st, polygon, near_radius, far_radius, half_height)
 		_add_sides(st, polygon, near_radius, far_radius, half_height)
 	st.generate_normals()
 	return st.commit()
