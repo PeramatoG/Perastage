@@ -106,6 +106,11 @@ void LayoutViewerPanel::UpdateEventTableFrame(
     table->frame.x = frame.x;
     table->frame.y = frame.y;
   }
+  if (updatePosition) {
+    pendingFrameCommit_ = true;
+    Refresh();
+    return;
+  }
   if (!currentLayout.name.empty()) {
     layouts::LayoutManager::Get().UpdateLayoutEventTable(currentLayout.name,
                                                          *table);

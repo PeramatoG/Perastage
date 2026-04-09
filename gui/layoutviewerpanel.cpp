@@ -513,6 +513,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   layoutVersion++;
   viewRenderVersion++;
   captureInProgress = false;
+  pendingFrameCommit_ = false;
   ClearCachedTexture();
   const bool emptyLayout = IsLayoutEmpty();
   if (emptyLayout) {
@@ -1095,6 +1096,7 @@ void LayoutViewerPanel::OnSize(wxSizeEvent &) {
 
 void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
   SetFocus();
+  pendingFrameCommit_ = false;
   deferredResizeFrame_.reset();
   const wxPoint pos = event.GetPosition();
   SelectElementAtPosition(pos);
@@ -1126,6 +1128,9 @@ void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
   if (dragMode != FrameDragMode::None) {
     if (dragMode != FrameDragMode::Move && deferredResizeFrame_.has_value()) {
       ApplyFrameUpdateToSelection(*deferredResizeFrame_, false);
+    }
+    if (dragMode == FrameDragMode::Move) {
+      CommitPendingFrameUpdate();
     }
     deferredResizeFrame_.reset();
     dragMode = FrameDragMode::None;
@@ -1384,6 +1389,7 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
 void LayoutViewerPanel::OnCaptureLost(wxMouseCaptureLostEvent &) {
   isPanning = false;
   deferredResizeFrame_.reset();
+  CommitPendingFrameUpdate();
   if (dragMode != FrameDragMode::None) {
     layouts::LayoutManager::Get().EndBatchUpdate();
   }
@@ -1402,6 +1408,52 @@ void LayoutViewerPanel::ApplyFrameUpdateToSelection(
     UpdateImageFrame(frame, updatePosition);
   } else {
     UpdateFrame(frame, updatePosition);
+  }
+}
+
+void LayoutViewerPanel::CommitPendingFrameUpdate() {
+  if (!pendingFrameCommit_)
+    return;
+  pendingFrameCommit_ = false;
+  if (currentLayout.name.empty())
+    return;
+
+  if (selectedElementType == SelectedElementType::View2D) {
+    if (const auto *view = GetEditableView()) {
+      layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name,
+                                                       *view);
+    }
+    return;
+  }
+
+  if (selectedElementType == SelectedElementType::Legend) {
+    if (const auto *legend = GetSelectedLegend()) {
+      layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name,
+                                                       *legend);
+    }
+    return;
+  }
+
+  if (selectedElementType == SelectedElementType::EventTable) {
+    if (const auto *table = GetSelectedEventTable()) {
+      layouts::LayoutManager::Get().UpdateLayoutEventTable(currentLayout.name,
+                                                           *table);
+    }
+    return;
+  }
+
+  if (selectedElementType == SelectedElementType::Text) {
+    if (const auto *text = GetSelectedText()) {
+      layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *text);
+    }
+    return;
+  }
+
+  if (selectedElementType == SelectedElementType::Image) {
+    if (const auto *image = GetSelectedImage()) {
+      layouts::LayoutManager::Get().UpdateLayoutImage(currentLayout.name,
+                                                      *image);
+    }
   }
 }
 

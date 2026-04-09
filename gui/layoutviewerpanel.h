@@ -184,6 +184,7 @@ private:
                         bool updatePosition);
   void ApplyFrameUpdateToSelection(const layouts::Layout2DViewFrame &frame,
                                    bool updatePosition);
+  void CommitPendingFrameUpdate();
   bool InitGL();
   void RebuildCachedTexture();
   void ClearCachedTexture();
@@ -315,6 +316,7 @@ private:
   std::vector<LegendItem> legendItems_;
   size_t legendDataHash = 0;
   bool pendingFitOnResize = true;
+  bool pendingFrameCommit_ = false;
 
   wxDECLARE_EVENT_TABLE();
 };
