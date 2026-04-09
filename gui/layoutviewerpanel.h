@@ -195,7 +195,7 @@ private:
   bool HasDirtyRenderCaches() const;
   bool NeedsRenderRebuild() const;
   void RequestRenderRebuild();
-  void InvalidateRenderIfFrameChanged();
+  void InvalidateRenderIfFrameChanged(bool includeSceneContent = true);
   size_t ComputeSceneContentHash() const;
   size_t HashViewContent(const layouts::Layout2DViewDefinition &view) const;
   void OnLoadingTimer(wxTimerEvent &event);

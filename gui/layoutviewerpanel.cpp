@@ -866,8 +866,21 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
         activeElementHasTexture = hasTexture(imageCaches_, selectedImageId);
       }
     }
+    const auto hasAnyTexture = [this]() {
+      auto hasAny = [](const auto &map) {
+        for (const auto &entry : map) {
+          if (entry.second.texture != 0)
+            return true;
+        }
+        return false;
+      };
+      return hasAny(viewCaches_) || hasAny(legendCaches_) ||
+             hasAny(eventTableCaches_) || hasAny(textCaches_) ||
+             hasAny(imageCaches_);
+    };
     const bool showLoadingOverlay =
-        !IsLayoutEmpty() && (!texturesReady || !activeElementHasTexture);
+        !IsLayoutEmpty() && isLoading && !hasAnyTexture() &&
+        (!texturesReady || !activeElementHasTexture);
     if (showLoadingOverlay && isReadyToRender_) {
       DrawLoadingOverlay(size);
     }

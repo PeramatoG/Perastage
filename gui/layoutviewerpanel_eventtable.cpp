@@ -110,7 +110,7 @@ void LayoutViewerPanel::UpdateEventTableFrame(
     layouts::LayoutManager::Get().UpdateLayoutEventTable(currentLayout.name,
                                                          *table);
   }
-  InvalidateRenderIfFrameChanged();
+  InvalidateRenderIfFrameChanged(!updatePosition);
   if (NeedsRenderRebuild()) {
     RequestRenderRebuild();
   }

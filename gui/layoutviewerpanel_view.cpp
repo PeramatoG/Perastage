@@ -175,7 +175,7 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
     layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name,
                                                      *view);
   }
-  InvalidateRenderIfFrameChanged();
+  InvalidateRenderIfFrameChanged(!updatePosition);
   if (NeedsRenderRebuild()) {
     RequestRenderRebuild();
   }

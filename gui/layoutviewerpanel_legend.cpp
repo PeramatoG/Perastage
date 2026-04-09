@@ -601,7 +601,7 @@ void LayoutViewerPanel::UpdateLegendFrame(const layouts::Layout2DViewFrame &fram
     layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name,
                                                      *legend);
   }
-  InvalidateRenderIfFrameChanged();
+  InvalidateRenderIfFrameChanged(!updatePosition);
   if (NeedsRenderRebuild()) {
     RequestRenderRebuild();
   }
