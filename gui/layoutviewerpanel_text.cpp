@@ -176,6 +176,7 @@ void LayoutViewerPanel::OnDeleteText(wxCommandEvent &) {
                                    return entry.id == textId;
                                  }),
                   texts.end());
+      InvalidateSelectionIndexCache();
       if (selectedElementId == textId) {
         if (!currentLayout.view2dViews.empty()) {
           selectedElementType = SelectedElementType::View2D;

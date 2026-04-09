@@ -96,6 +96,7 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
                                    return entry.id == viewId;
                                  }),
                   views.end());
+      InvalidateSelectionIndexCache();
       if (selectedElementType == SelectedElementType::View2D &&
           selectedElementId == viewId) {
         if (!views.empty()) {
