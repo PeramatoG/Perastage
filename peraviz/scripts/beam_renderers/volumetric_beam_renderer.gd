@@ -111,6 +111,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		beam_material.set_shader_parameter("use_gobo", false)
 		beam_material.set_shader_parameter("gobo_invert", false)
 		beam_material.set_shader_parameter("gobo_mirror_x", bool(shape_result.get("mirror_x", true)))
+		beam_material.set_shader_parameter("gobo_mirror_z", bool(shape_result.get("mirror_z", false)))
 		beam_material.set_shader_parameter("depth_feather_enabled", false)
 
 func cleanup_beam(light: SpotLight3D) -> void:

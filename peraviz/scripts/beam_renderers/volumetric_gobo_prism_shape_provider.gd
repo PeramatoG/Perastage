@@ -4,6 +4,7 @@ class_name VolumetricGoboPrismShapeProvider
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 const MIRROR_BEAM_SHAPE_X: bool = true
+const MIRROR_BEAM_SHAPE_Z: bool = true
 
 var _mesh_builder: GoboPrismMeshBuilder = GoboPrismMeshBuilder.new()
 
@@ -23,19 +24,21 @@ func apply_shape(beam: MeshInstance3D, light: SpotLight3D, params: Dictionary) -
 	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
 	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
 	var beam_rotation_deg: float = wrapf(gobo_rotation_deg + 180.0, 0.0, 360.0)
-	var prism_mesh: ArrayMesh = _mesh_builder.build_beam_mesh(gobo_texture, lens_radius, bottom_radius, beam_range, gobo_scale, beam_rotation_deg)
+	var beam_shape_rotation_deg: float = wrapf(beam_rotation_deg + 180.0, 0.0, 360.0)
+	var prism_mesh: ArrayMesh = _mesh_builder.build_beam_mesh(gobo_texture, lens_radius, bottom_radius, beam_range, gobo_scale, beam_shape_rotation_deg)
 	if prism_mesh != null:
 		beam.mesh = prism_mesh
 	var lens_offset_m: float = max(float(params.get("lens_offset_m", params.get("near_offset", 0.0))), 0.0)
 	var lens_shift_x: float = float(params.get("lens_shift_x", 0.0))
 	var lens_shift_y: float = float(params.get("lens_shift_y", 0.0))
 	beam.position = Vector3(lens_shift_x, lens_shift_y, -(beam_range * 0.5 + lens_offset_m))
-	beam.scale = Vector3(-1.0 if MIRROR_BEAM_SHAPE_X else 1.0, 1.0, 1.0)
+	beam.scale = Vector3(-1.0 if MIRROR_BEAM_SHAPE_X else 1.0, 1.0, -1.0 if MIRROR_BEAM_SHAPE_Z else 1.0)
 	_apply_beam_axis_rotation(beam, beam_rotation_deg)
 	return {
 		"gobo_projection_radius": max(bottom_radius, 0.001),
 		"beam_rotation_deg": beam_rotation_deg,
 		"mirror_x": MIRROR_BEAM_SHAPE_X,
+		"mirror_z": MIRROR_BEAM_SHAPE_Z,
 	}
 
 func clear_cache() -> void:
