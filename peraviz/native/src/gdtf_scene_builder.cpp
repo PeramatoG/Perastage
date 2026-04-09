@@ -170,7 +170,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
     std::vector<SceneNode> nodes;
 
     ZipAssetCache gdtf_cache(request.gdtf_archive_path);
-    const std::string description_path = gdtf_cache.ensure_extracted("description.xml");
+    const std::string description_path = gdtf_cache.ensure_archive_file_extracted("description.xml");
     if (description_path.empty()) {
         return nodes;
     }
