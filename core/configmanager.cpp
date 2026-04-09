@@ -455,7 +455,8 @@ bool ConfigManager::SaveProject(const std::string &path) {
   return ok;
 }
 
-bool ConfigManager::LoadProject(const std::string &path) {
+bool ConfigManager::LoadProject(const std::string &path,
+                                LoadProjectProgressCallback progressCallback) {
   const bool hasUserView2dDarkMode = HasKey("view2d_dark_mode");
   const float userView2dDarkMode = GetFloat("view2d_dark_mode");
   auto restoreUserPreferences = [this, hasUserView2dDarkMode,
@@ -474,12 +475,24 @@ bool ConfigManager::LoadProject(const std::string &path) {
         }
         return loaded;
       },
-      [](const std::string &scenePath) {
-        const bool imported = MvrImporter::ImportAndRegister(scenePath, false);
+      [progressCallback](const std::string &scenePath) {
+        const bool imported = MvrImporter::ImportAndRegister(
+            scenePath, false, true,
+            [progressCallback](const MvrImporter::ProgressState &state) {
+              if (!progressCallback)
+                return;
+              progressCallback("Scene import: " + state.stage, state.completed,
+                               state.total);
+            });
         if (!imported) {
           std::cerr << "ConfigManager::LoadProject failed to import scene.mvr (check previous MVR extraction/import log lines)." << std::endl;
         }
         return imported;
+      },
+      [progressCallback](const std::string &stage, int completed, int total) {
+        if (!progressCallback)
+          return;
+        progressCallback(stage, completed, total);
       });
 
   if (ok) {

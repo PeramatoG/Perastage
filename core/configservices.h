@@ -131,6 +131,8 @@ public:
   using SaveSceneFn = std::function<bool(const std::string &path)>;
   using LoadConfigFn = std::function<bool(const std::string &path)>;
   using LoadSceneFn = std::function<bool(const std::string &path)>;
+  using LoadProgressFn =
+      std::function<void(const std::string &stage, int completed, int total)>;
 
   MvrScene &GetScene();
   const MvrScene &GetScene() const;
@@ -138,7 +140,8 @@ public:
   bool SaveProject(const std::string &path, const SaveConfigFn &saveConfig,
                    const SaveSceneFn &saveScene) const;
   bool LoadProject(const std::string &path, const LoadConfigFn &loadConfig,
-                   const LoadSceneFn &loadScene);
+                   const LoadSceneFn &loadScene,
+                   const LoadProgressFn &progress = {});
 
   bool IsDirty() const;
   void Touch();

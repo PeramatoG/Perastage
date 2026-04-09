@@ -576,7 +576,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   int projectLoadProgressStep = 0;
   std::unique_ptr<wxProgressDialog> projectLoadProgressDialog;
   auto reportProjectLoadProgress = [&](const wxString &message,
-                                       bool advanceStep = false) {
+                                       bool advanceStep = false,
+                                       int completed = -1, int total = -1) {
     if (advanceStep)
       projectLoadProgressStep =
           std::min(projectLoadProgressStep + 1, kProjectLoadProgressSteps);
@@ -590,7 +591,14 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
             "Project loading", message, kProjectLoadProgressSteps, this,
             wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);
       }
-      projectLoadProgressDialog->Update(projectLoadProgressStep, message);
+      if (total > 0) {
+        const int safeTotal = std::max(total, 1);
+        const int safeCompleted = std::clamp(completed, 0, safeTotal);
+        projectLoadProgressDialog->SetRange(safeTotal);
+        projectLoadProgressDialog->Update(safeCompleted, message);
+      } else {
+        projectLoadProgressDialog->Pulse(message);
+      }
     } else {
       SplashScreen::SetMessage(message);
     }
@@ -609,7 +617,11 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     UnlockViewportInteraction();
   };
 
-  if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(path)) {
+  if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(
+          path, [&](const std::string &stage, int completed, int total) {
+            reportProjectLoadProgress(wxString::FromUTF8(stage), false, completed,
+                                      total);
+          })) {
     projectLoadProgressDialog.reset();
     ClearBlockingProjectLoadUi();
     finishLoad();

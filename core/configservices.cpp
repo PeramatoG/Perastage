@@ -602,9 +602,18 @@ bool ProjectSession::SaveProject(const std::string &path,
 
 bool ProjectSession::LoadProject(const std::string &path,
                                  const LoadConfigFn &loadConfig,
-                                 const LoadSceneFn &loadScene) {
+                                 const LoadSceneFn &loadScene,
+                                 const LoadProgressFn &progress) {
   if (!loadConfig || !loadScene)
     return false;
+
+  auto reportProgress = [&](const std::string &stage, int completed = 0,
+                            int total = 0) {
+    if (progress)
+      progress(stage, completed, total);
+  };
+
+  reportProgress("Opening project package...");
 
   if (!LooksLikeZipFile(path)) {
     if (LooksLikeJsonFile(path))
@@ -625,6 +634,7 @@ bool ProjectSession::LoadProject(const std::string &path,
   fs::path configPath;
   fs::path scenePath;
   bool hasMvrSceneXml = false;
+  int extractedRelevantEntries = 0;
 
   while ((entry.reset(zip.GetNextEntry())), entry) {
     if (entry->IsDir())
@@ -657,6 +667,10 @@ bool ProjectSession::LoadProject(const std::string &path,
       configPath = outPath;
     else
       scenePath = outPath;
+
+    ++extractedRelevantEntries;
+    reportProgress("Extracting project package...", extractedRelevantEntries,
+                   2);
   }
 
   if (configPath.empty() && scenePath.empty()) {
@@ -669,6 +683,7 @@ bool ProjectSession::LoadProject(const std::string &path,
 
   bool ok = true;
   if (!scenePath.empty()) {
+    reportProgress("Importing project scene...");
     const bool sceneOk = loadScene(scenePath.string());
     if (!sceneOk) {
       std::cerr << "ProjectSession::LoadProject failed while loading scene.mvr from extracted project package." << std::endl;
@@ -676,6 +691,7 @@ bool ProjectSession::LoadProject(const std::string &path,
     ok &= sceneOk;
   }
   if (!configPath.empty()) {
+    reportProgress("Loading project configuration...");
     const bool configOk = loadConfig(configPath.string());
     if (!configOk) {
       std::cerr << "ProjectSession::LoadProject failed while loading config.json from extracted project package." << std::endl;
