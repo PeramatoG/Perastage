@@ -26,6 +26,7 @@ const GOBO_WHEEL_MODE_META_KEY: String = "peraviz_gobo_wheel_mode"
 const GOBO_INDEX_MAX_DEG: float = 360.0
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
 const GOBO_ROTATION_DEBUG_DEFAULT: bool = false
+const FALLBACK_VECTOR_CIRCLE_SEGMENTS: int = 128
 
 const GOBO_BEHAVIOR_FIXED: int = 0
 const GOBO_BEHAVIOR_INDEX: int = 1
@@ -407,8 +408,26 @@ func _resolve_vector_fallback_gobo_texture() -> Texture2D:
 			if distance_to_center <= outer_radius:
 				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, 1.0))
 	var texture: ImageTexture = ImageTexture.create_from_image(image)
+	var fallback_polygon: PackedVector2Array = _build_fallback_circle_polygon(
+		FAKE_GOBO_TEXTURE_SIZE,
+		FAKE_GOBO_TEXTURE_SIZE,
+		outer_radius,
+		FALLBACK_VECTOR_CIRCLE_SEGMENTS
+	)
+	texture.set_meta(GOBO_VECTOR_POLYGONS_META_KEY, [fallback_polygon])
+	texture.set_meta(GOBO_VECTOR_WIDTH_META_KEY, FAKE_GOBO_TEXTURE_SIZE)
+	texture.set_meta(GOBO_VECTOR_HEIGHT_META_KEY, FAKE_GOBO_TEXTURE_SIZE)
 	_texture_cache[VECTOR_FALLBACK_GOBO_CACHE_KEY] = texture
 	return texture
+
+func _build_fallback_circle_polygon(width: int, height: int, radius: float, segments: int) -> PackedVector2Array:
+	var polygon := PackedVector2Array()
+	var clamped_segments: int = max(segments, 12)
+	var center := Vector2(float(width - 1), float(height - 1)) * 0.5
+	for i in range(clamped_segments):
+		var angle: float = TAU * float(i) / float(clamped_segments)
+		polygon.append(Vector2(center.x + (cos(angle) * radius), center.y + (sin(angle) * radius)))
+	return polygon
 
 func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 	if textures.is_empty():
