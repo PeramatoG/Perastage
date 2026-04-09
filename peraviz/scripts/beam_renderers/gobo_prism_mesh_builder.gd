@@ -17,6 +17,9 @@ const GOBO_VECTOR_POLYGONS_META_KEY: String = "peraviz_gobo_vector_polygons"
 const GOBO_VECTOR_WIDTH_META_KEY: String = "peraviz_gobo_vector_width"
 const GOBO_VECTOR_HEIGHT_META_KEY: String = "peraviz_gobo_vector_height"
 const DEBUG_GOBO_VECTORIZATION: bool = false
+const CIRCULAR_STDDEV_RATIO_THRESHOLD: float = 0.045
+const CIRCULAR_MAX_DEVIATION_RATIO_THRESHOLD: float = 0.14
+const CIRCULAR_MIN_POINTS: int = 16
 
 const GoboPolygonCleanupScript = preload("res://scripts/beam_renderers/gobo_polygon_cleanup.gd")
 
@@ -119,7 +122,8 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 	var cleaned_output: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons(output, MIN_POLYGON_AREA)
 	if cleaned_output.is_empty():
 		return []
-	return _reduce_polygon_point_count(cleaned_output, MAX_TOTAL_VECTOR_POINTS)
+	var regularized_output: Array[PackedVector2Array] = _regularize_near_circular_polygons(cleaned_output)
+	return _reduce_polygon_point_count(regularized_output, MAX_TOTAL_VECTOR_POINTS)
 
 
 func _vectorize_from_texture_metadata(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_deg: float) -> Array[PackedVector2Array]:
@@ -168,7 +172,73 @@ func _vectorize_from_texture_metadata(gobo_texture: Texture2D, gobo_scale: float
 	var output: Array[PackedVector2Array] = []
 	for item in normalized:
 		output.append(item.get("polygon", PackedVector2Array()) as PackedVector2Array)
-	return GoboPolygonCleanupScript.sanitize_polygons(output, MIN_POLYGON_AREA)
+	var cleaned_output: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons(output, MIN_POLYGON_AREA)
+	return _regularize_near_circular_polygons(cleaned_output)
+
+func _regularize_near_circular_polygons(polygons: Array[PackedVector2Array]) -> Array[PackedVector2Array]:
+	var output: Array[PackedVector2Array] = []
+	for polygon in polygons:
+		if _is_near_circular_polygon(polygon):
+			output.append(_fit_polygon_to_circle(polygon))
+		else:
+			output.append(polygon)
+	return output
+
+func _is_near_circular_polygon(polygon: PackedVector2Array) -> bool:
+	if polygon.size() < CIRCULAR_MIN_POINTS:
+		return false
+	var centroid := Vector2.ZERO
+	for point in polygon:
+		centroid += point
+	centroid /= float(polygon.size())
+
+	var radii: PackedFloat32Array = PackedFloat32Array()
+	radii.resize(polygon.size())
+	var mean_radius: float = 0.0
+	for i in range(polygon.size()):
+		var radius: float = polygon[i].distance_to(centroid)
+		radii[i] = radius
+		mean_radius += radius
+	mean_radius /= float(polygon.size())
+	if mean_radius <= 0.0001:
+		return false
+
+	var variance: float = 0.0
+	var max_deviation: float = 0.0
+	for radius in radii:
+		var deviation: float = abs(radius - mean_radius)
+		variance += deviation * deviation
+		max_deviation = max(max_deviation, deviation)
+	variance /= float(polygon.size())
+	var stddev: float = sqrt(max(variance, 0.0))
+	var stddev_ratio: float = stddev / mean_radius
+	var max_deviation_ratio: float = max_deviation / mean_radius
+	return stddev_ratio <= CIRCULAR_STDDEV_RATIO_THRESHOLD and max_deviation_ratio <= CIRCULAR_MAX_DEVIATION_RATIO_THRESHOLD
+
+func _fit_polygon_to_circle(polygon: PackedVector2Array) -> PackedVector2Array:
+	if polygon.size() < 3:
+		return polygon
+	var centroid := Vector2.ZERO
+	for point in polygon:
+		centroid += point
+	centroid /= float(polygon.size())
+
+	var mean_radius: float = 0.0
+	for point in polygon:
+		mean_radius += point.distance_to(centroid)
+	mean_radius /= float(polygon.size())
+	if mean_radius <= 0.0001:
+		return polygon
+
+	var fitted := PackedVector2Array()
+	for point in polygon:
+		var direction: Vector2 = point - centroid
+		var length: float = direction.length()
+		if length <= 0.000001:
+			fitted.append(point)
+			continue
+		fitted.append(centroid + ((direction / length) * mean_radius))
+	return fitted
 
 func _reduce_polygon_point_count(polygons: Array[PackedVector2Array], max_points: int) -> Array[PackedVector2Array]:
 	if polygons.is_empty():
