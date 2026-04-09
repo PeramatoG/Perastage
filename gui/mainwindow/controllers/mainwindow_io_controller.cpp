@@ -6,36 +6,48 @@
 #include <wx/filedlg.h>
 #include <wx/filename.h>
 #include <wx/msgdlg.h>
+#include <wx/progdlg.h>
 #include <wx/utils.h>
+#include <wx/weakref.h>
 
+#include <algorithm>
 #include <memory>
 #include <string>
 
 #include "consolepanel.h"
 #include "mvrimporter.h"
 #include "projectutils.h"
+#include "splashscreen.h"
 
 bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
+  wxWeakRef<MainWindow> ownerRef(&owner_);
   const wxString filePath = wxString::FromUTF8(pathUtf8);
-  auto setImportStatus = [this](const wxString &message) {
-    if (!owner_.GetStatusBar())
+  auto setImportStatus = [ownerRef](const wxString &message) {
+    if (!ownerRef || !ownerRef->GetStatusBar())
       return;
-    owner_.SetStatusText(message, 0);
-    owner_.GetStatusBar()->Update();
+    ownerRef->SetStatusText(message, 0);
+    ownerRef->GetStatusBar()->Update();
   };
 
   setImportStatus("MVR import: preparing...");
+  SplashScreen::Hide();
 
   std::unique_ptr<wxWindowDisabler> importDisabler =
       std::make_unique<wxWindowDisabler>();
   std::unique_ptr<wxBusyInfo> importOverlay =
       std::make_unique<wxBusyInfo>("Importing MVR file...");
-  wxYieldIfNeeded();
+  std::unique_ptr<wxProgressDialog> importProgress;
 
-  owner_.LockViewportInteraction();
+  if (!ownerRef)
+    return false;
+  ownerRef->LockViewportInteraction();
   const bool imported = MvrImporter::ImportAndRegister(
-      pathUtf8, true, true, [&](const std::string &stage) {
+      pathUtf8, true, true, [&](const MvrImporter::ProgressState &progress) {
+        if (!ownerRef)
+          return;
+        const std::string &stage = progress.stage;
         if (stage == "Conflict dialog:show") {
+          importProgress.reset();
           importOverlay.reset();
           importDisabler.reset();
           return;
@@ -44,41 +56,70 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
         if (stage == "Conflict dialog:hide") {
           importDisabler = std::make_unique<wxWindowDisabler>();
           importOverlay = std::make_unique<wxBusyInfo>("Importing MVR file...");
-          wxYieldIfNeeded();
+          importProgress.reset();
           return;
         }
 
+        if (progress.HasCount()) {
+          const wxString title = "MVR import progress";
+          const wxString stageText = wxString::FromUTF8(stage);
+          const int safeTotal = std::max(progress.total, 1);
+          const int clampedCompleted = std::clamp(progress.completed, 0, safeTotal);
+
+          if (!importProgress) {
+            importOverlay.reset();
+            importProgress = std::make_unique<wxProgressDialog>(
+                title, stageText, safeTotal, ownerRef.get(),
+                wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);
+          } else {
+            importProgress->SetRange(safeTotal);
+          }
+
+          importProgress->Update(clampedCompleted, stageText);
+          setImportStatus(wxString::Format("MVR import: %s (%d/%d)", stageText,
+                                           clampedCompleted, safeTotal));
+          return;
+        }
+
+        if (importProgress) {
+          importProgress->Pulse(wxString::FromUTF8(stage));
+        }
         setImportStatus("MVR import: " + wxString::FromUTF8(stage));
       });
-  owner_.UnlockViewportInteraction();
+  if (ownerRef)
+    ownerRef->UnlockViewportInteraction();
+  if (!ownerRef)
+    return false;
 
   if (!imported) {
+    importProgress.reset();
     importOverlay.reset();
     importDisabler.reset();
-    if (owner_.GetStatusBar())
-      owner_.SetStatusText("MVR import failed.", 0);
+    if (ownerRef->GetStatusBar())
+      ownerRef->SetStatusText("MVR import failed.", 0);
     wxMessageBox("Failed to import MVR file.", "Error", wxOK | wxICON_ERROR,
-                 &owner_);
-    if (owner_.consolePanel)
-      owner_.consolePanel->AppendMessage("Failed to import " + filePath);
+                 ownerRef.get());
+    if (ownerRef->consolePanel)
+      ownerRef->consolePanel->AppendMessage("Failed to import " + filePath);
     return false;
   }
 
   setImportStatus("MVR import: refreshing panels...");
-  if (owner_.consolePanel)
-    owner_.consolePanel->AppendMessage("Imported " + filePath);
-  owner_.currentProjectPath.clear();
-  owner_.currentProjectDisplayName = wxFileName(filePath).GetName();
+  if (ownerRef->consolePanel)
+    ownerRef->consolePanel->AppendMessage("Imported " + filePath);
+  ownerRef->currentProjectPath.clear();
+  ownerRef->currentProjectDisplayName = wxFileName(filePath).GetName();
   ProjectUtils::SaveLastProjectPath("");
-  owner_.UpdateTitle();
-  owner_.RefreshAfterSceneChange();
+  ownerRef->UpdateTitle();
+  ownerRef->RefreshAfterSceneChange();
 
+  importProgress.reset();
   importOverlay.reset();
   importDisabler.reset();
 
-  if (owner_.GetStatusBar()) {
+  if (ownerRef->GetStatusBar()) {
     const wxString fileName = wxFileName(filePath).GetFullName();
-    owner_.SetStatusText("MVR imported: " + fileName, 0);
+    ownerRef->SetStatusText("MVR imported: " + fileName, 0);
   }
   return true;
 }

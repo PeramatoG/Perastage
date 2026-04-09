@@ -52,6 +52,7 @@
 #include <wx/image.h>
 #include <wx/notebook.h>
 #include <wx/numdlg.h>
+#include <wx/progdlg.h>
 #include <wx/statbmp.h>
 #include <wx/stdpaths.h>
 #include <wx/settings.h>
@@ -571,40 +572,75 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
 
 bool MainWindow::LoadProjectFromPath(const std::string &path,
                                      bool showBlockingLoadUi) {
+  constexpr int kProjectLoadProgressSteps = 10;
+  int projectLoadProgressStep = 0;
+  std::unique_ptr<wxProgressDialog> projectLoadProgressDialog;
+  auto reportProjectLoadProgress = [&](const wxString &message,
+                                       bool advanceStep = false,
+                                       int completed = -1, int total = -1) {
+    if (advanceStep)
+      projectLoadProgressStep =
+          std::min(projectLoadProgressStep + 1, kProjectLoadProgressSteps);
+
+    if (GetStatusBar())
+      SetStatusText(message, 0);
+
+    if (showBlockingLoadUi) {
+      if (!projectLoadProgressDialog) {
+        projectLoadProgressDialog = std::make_unique<wxProgressDialog>(
+            "Project loading", message, kProjectLoadProgressSteps, this,
+            wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);
+      }
+      if (total > 0) {
+        const int safeTotal = std::max(total, 1);
+        const int safeCompleted = std::clamp(completed, 0, safeTotal);
+        projectLoadProgressDialog->SetRange(safeTotal);
+        projectLoadProgressDialog->Update(safeCompleted, message);
+      } else {
+        projectLoadProgressDialog->Pulse(message);
+      }
+    } else {
+      SplashScreen::SetMessage(message);
+    }
+  };
+
   if (showBlockingLoadUi) {
     blockingProjectLoadDisabler = std::make_unique<wxWindowDisabler>();
-    blockingProjectLoadOverlay = std::make_unique<wxBusyInfo>("Loading project file...");
-    wxYieldIfNeeded();
+    blockingProjectLoadOverlay.reset();
+  } else {
+    blockingProjectLoadOverlay.reset();
   }
+  reportProjectLoadProgress("Loading project file...");
 
   LockViewportInteraction();
   auto finishLoad = [this]() {
     UnlockViewportInteraction();
   };
 
-  if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(path)) {
+  if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(
+          path, [&](const std::string &stage, int completed, int total) {
+            reportProjectLoadProgress(wxString::FromUTF8(stage), false, completed,
+                                      total);
+          })) {
+    projectLoadProgressDialog.reset();
     ClearBlockingProjectLoadUi();
     finishLoad();
     return false;
   }
 
-  if (showBlockingLoadUi) {
-    blockingProjectLoadOverlay = std::make_unique<wxBusyInfo>("Building scene...");
-    wxYieldIfNeeded();
-  } else {
-    SplashScreen::SetMessage("Building scene...");
-    wxYieldIfNeeded();
-  }
+  reportProjectLoadProgress("Building scene...", true);
   Ensure3DViewport();
 
   currentProjectPath = path;
   currentProjectDisplayName.clear();
   ProjectUtils::SaveLastProjectPath(currentProjectPath);
 
+  reportProjectLoadProgress("Applying saved layout...", true);
   ApplySavedLayout();
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
 
+  reportProjectLoadProgress("Reloading fixture/truss/support tables...", true);
   if (consolePanel)
     consolePanel->AppendMessage("Loaded " + wxString::FromUTF8(path));
   if (fixturePanel)
@@ -615,6 +651,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     hoistPanel->ReloadData();
   if (sceneObjPanel)
     sceneObjPanel->ReloadData();
+
+  reportProjectLoadProgress("Updating 3D viewport...", true);
   if (viewportPanel) {
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     Viewer3DCamera &cam = viewportPanel->GetCamera();
@@ -627,6 +665,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     viewportPanel->UpdateScene();
     viewportPanel->Refresh();
   }
+
+  reportProjectLoadProgress("Updating 2D viewport...", true);
   if (viewport2DPanel) {
     if (!HasActiveLayout2DView())
       viewport2DPanel->LoadViewFromConfig();
@@ -637,23 +677,13 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     viewport2DRenderPanel->ApplyConfig();
   if (layerPanel)
     layerPanel->ReloadLayers();
-  if (showBlockingLoadUi) {
-    blockingProjectLoadOverlay = std::make_unique<wxBusyInfo>("Refreshing panels...");
-    wxYieldIfNeeded();
-  } else {
-    SplashScreen::SetMessage("Refreshing panels...");
-    wxYieldIfNeeded();
-  }
+
+  reportProjectLoadProgress("Refreshing panels...", true);
   RefreshSummary();
+  reportProjectLoadProgress("Refreshing rigging...", true);
   RefreshRigging();
   GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
-  if (showBlockingLoadUi) {
-    blockingProjectLoadOverlay = std::make_unique<wxBusyInfo>("Creating fixture symbols...");
-    wxYieldIfNeeded();
-  } else {
-    SplashScreen::SetMessage("Creating fixture symbols...");
-    wxYieldIfNeeded();
-  }
+  reportProjectLoadProgress("Creating fixture symbols...", true);
 
   if (showBlockingLoadUi) {
     auto previousCompletionCallback = fixtureSymbolAutoUpdateCompletionCallback;
@@ -666,7 +696,11 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   }
 
   StartFixtureSymbolAutoUpdateForLoadedScene();
+  reportProjectLoadProgress("Updating window title...", true);
   UpdateTitle();
+  projectLoadProgressStep = kProjectLoadProgressSteps;
+  reportProjectLoadProgress("Finalizing project load...");
+  projectLoadProgressDialog.reset();
   finishLoad();
   return true;
 }

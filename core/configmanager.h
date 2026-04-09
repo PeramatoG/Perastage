@@ -22,12 +22,15 @@
 #include <unordered_set>
 #include <optional>
 #include <vector>
+#include <functional>
 #include "configservices.h"
 
 // Singleton to manage configuration and MVR scene data globally
 class ConfigManager
 {
 public:
+    using LoadProjectProgressCallback =
+        std::function<void(const std::string& stage, int completed, int total)>;
     // Access singleton instance
     static ConfigManager& Get();
 
@@ -39,7 +42,8 @@ public:
     void ClearValues();
 
     bool SaveProject(const std::string& path);
-    bool LoadProject(const std::string& path);
+    bool LoadProject(const std::string& path,
+                     LoadProjectProgressCallback progressCallback = {});
     // Save/load configuration file (e.g., JSON, INI, TXT…)
     bool LoadFromFile(const std::string& path);
     bool SaveToFile(const std::string& path) const;
