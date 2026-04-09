@@ -302,6 +302,8 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
 }
 
 void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
+  legendDataDirty_ = true;
+  RefreshLegendData();
   viewRenderVersion++;
   captureInProgress = false;
 

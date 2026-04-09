@@ -315,6 +315,7 @@ private:
   std::unordered_map<int, ImageCache> imageCaches_;
   std::vector<LegendItem> legendItems_;
   size_t legendDataHash = 0;
+  bool legendDataDirty_ = true;
   bool pendingFitOnResize = true;
   bool pendingFrameCommit_ = false;
 
