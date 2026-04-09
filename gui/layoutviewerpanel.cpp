@@ -485,6 +485,12 @@ void LayoutViewerPanel::SetLayoutDefinition(
     const layouts::LayoutDefinition &layout) {
   if (IsSameRenderableLayout(currentLayout, layout)) {
     currentLayout.name = layout.name;
+    legendDataDirty_ = true;
+    RefreshLegendData();
+    InvalidateRenderIfFrameChanged(true);
+    if (NeedsRenderRebuild())
+      RequestRenderRebuild();
+    Refresh();
     NotifyRenderReady();
     return;
   }
