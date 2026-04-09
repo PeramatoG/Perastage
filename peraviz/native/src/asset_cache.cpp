@@ -30,6 +30,47 @@ std::string normalize_archive_path(const std::string &raw) {
     return out;
 }
 
+std::string sanitize_path_component_for_fs(std::string component) {
+    for (char &ch : component) {
+        const unsigned char c = static_cast<unsigned char>(ch);
+        const bool is_control = c < 32;
+        const bool is_forbidden =
+            ch == '<' || ch == '>' || ch == ':' || ch == '"' || ch == '|' ||
+            ch == '?' || ch == '*' || ch == '\\' || ch == '/';
+        if (is_control || is_forbidden) {
+            ch = '_';
+        }
+    }
+
+    while (!component.empty() &&
+           (component.back() == ' ' || component.back() == '.')) {
+        component.pop_back();
+    }
+
+    if (component.empty()) {
+        return "_";
+    }
+    return component;
+}
+
+std::filesystem::path cache_safe_relative_path(const std::string &normalized_archive_path) {
+    std::filesystem::path normalized =
+        std::filesystem::u8path(normalized_archive_path).lexically_normal();
+
+    std::filesystem::path safe_path;
+    for (const std::filesystem::path &part : normalized) {
+        const std::string component = part.u8string();
+        if (component.empty() || component == ".") {
+            continue;
+        }
+        if (component == "..") {
+            continue;
+        }
+        safe_path /= std::filesystem::u8path(sanitize_path_component_for_fs(component));
+    }
+    return safe_path;
+}
+
 std::string trim_ascii(std::string value) {
     const auto is_space = [](unsigned char c) {
         return std::isspace(c) != 0;
@@ -131,7 +172,12 @@ std::string ZipAssetCache::ensure_extracted(const std::string &archive_relative_
         return {};
     }
 
-    const std::filesystem::path out_path = cache_dir_ / std::filesystem::u8path(normalized);
+    const std::filesystem::path safe_relative = cache_safe_relative_path(normalized);
+    if (safe_relative.empty()) {
+        return {};
+    }
+
+    const std::filesystem::path out_path = cache_dir_ / safe_relative;
     std::error_code ec;
     std::filesystem::create_directories(out_path.parent_path(), ec);
     if (std::filesystem::exists(out_path)) {
