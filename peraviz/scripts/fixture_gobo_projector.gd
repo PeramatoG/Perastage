@@ -274,14 +274,9 @@ func _apply_gobo_rotation_to_light(light: SpotLight3D, gobo_rotation_deg: float)
 func _set_light_projector_texture(light: SpotLight3D, texture: Texture2D) -> void:
 	if light == null or not is_instance_valid(light):
 		return
-	# Some custom Godot branches expose both `projector` and `light_projector`.
-	# Treat them as alternative API names, not independent projection layers.
-	# Writing both can duplicate the gobo pass and produce mirrored overlays.
+	# Godot custom branches may expose either `projector` or `light_projector`.
 	if _has_property(light, "projector"):
 		light.set("projector", texture)
-		if _has_property(light, "light_projector"):
-			light.set("light_projector", null)
-		return
 	if _has_property(light, "light_projector"):
 		light.set("light_projector", texture)
 

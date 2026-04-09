@@ -36,7 +36,8 @@ func apply_shape(beam: MeshInstance3D, _light: SpotLight3D, params: Dictionary) 
 	return {
 		"gobo_projection_radius": max(bottom_radius, 0.001),
 		"beam_rotation_deg": beam_rotation_deg,
-		"mirror_x": false,
+		"mirror_x": true,
+		"mirror_y": true,
 	}
 
 func _apply_beam_axis_rotation(node: Node3D, beam_rotation_deg: float) -> void:
