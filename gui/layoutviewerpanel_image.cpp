@@ -107,10 +107,15 @@ void LayoutViewerPanel::UpdateImageFrame(const layouts::Layout2DViewFrame &frame
     image->frame.x = frame.x;
     image->frame.y = frame.y;
   }
+  if (updatePosition) {
+    pendingFrameCommit_ = true;
+    Refresh();
+    return;
+  }
   if (!currentLayout.name.empty()) {
     layouts::LayoutManager::Get().UpdateLayoutImage(currentLayout.name, *image);
   }
-  InvalidateRenderIfFrameChanged();
+  InvalidateRenderIfFrameChanged(false);
   if (NeedsRenderRebuild()) {
     RequestRenderRebuild();
   }

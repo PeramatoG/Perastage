@@ -597,11 +597,16 @@ void LayoutViewerPanel::UpdateLegendFrame(const layouts::Layout2DViewFrame &fram
     legend->frame.x = frame.x;
     legend->frame.y = frame.y;
   }
+  if (updatePosition) {
+    pendingFrameCommit_ = true;
+    Refresh();
+    return;
+  }
   if (!currentLayout.name.empty()) {
     layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name,
                                                      *legend);
   }
-  InvalidateRenderIfFrameChanged();
+  InvalidateRenderIfFrameChanged(false);
   if (NeedsRenderRebuild()) {
     RequestRenderRebuild();
   }

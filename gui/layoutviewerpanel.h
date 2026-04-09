@@ -184,6 +184,7 @@ private:
                         bool updatePosition);
   void ApplyFrameUpdateToSelection(const layouts::Layout2DViewFrame &frame,
                                    bool updatePosition);
+  void CommitPendingFrameUpdate();
   bool InitGL();
   void RebuildCachedTexture();
   void ClearCachedTexture();
@@ -195,7 +196,7 @@ private:
   bool HasDirtyRenderCaches() const;
   bool NeedsRenderRebuild() const;
   void RequestRenderRebuild();
-  void InvalidateRenderIfFrameChanged();
+  void InvalidateRenderIfFrameChanged(bool includeSceneContent = true);
   size_t ComputeSceneContentHash() const;
   size_t HashViewContent(const layouts::Layout2DViewDefinition &view) const;
   void OnLoadingTimer(wxTimerEvent &event);
@@ -315,6 +316,7 @@ private:
   std::vector<LegendItem> legendItems_;
   size_t legendDataHash = 0;
   bool pendingFitOnResize = true;
+  bool pendingFrameCommit_ = false;
 
   wxDECLARE_EVENT_TABLE();
 };

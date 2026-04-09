@@ -171,11 +171,16 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
     }
     viewRenderVersion++;
   }
+  if (updatePosition) {
+    pendingFrameCommit_ = true;
+    Refresh();
+    return;
+  }
   if (!currentLayout.name.empty()) {
     layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name,
                                                      *view);
   }
-  InvalidateRenderIfFrameChanged();
+  InvalidateRenderIfFrameChanged(false);
   if (NeedsRenderRebuild()) {
     RequestRenderRebuild();
   }

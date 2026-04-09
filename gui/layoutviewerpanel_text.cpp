@@ -99,10 +99,15 @@ void LayoutViewerPanel::UpdateTextFrame(const layouts::Layout2DViewFrame &frame,
     text->frame.x = frame.x;
     text->frame.y = frame.y;
   }
+  if (updatePosition) {
+    pendingFrameCommit_ = true;
+    Refresh();
+    return;
+  }
   if (!currentLayout.name.empty()) {
     layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *text);
   }
-  InvalidateRenderIfFrameChanged();
+  InvalidateRenderIfFrameChanged(false);
   if (NeedsRenderRebuild()) {
     RequestRenderRebuild();
   }

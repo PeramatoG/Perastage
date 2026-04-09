@@ -162,16 +162,20 @@ size_t LayoutViewerPanel::HashViewContent(
   return seed;
 }
 
-void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
+void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent) {
   const double renderZoom = GetRenderZoom();
   const double pageWidth = currentLayout.pageSetup.PageWidthPt();
   const double pageHeight = currentLayout.pageSetup.PageHeightPt();
   const bool zoomChanged = lastRenderZoom != renderZoom;
   const bool pageChanged =
       lastPageWidthPt != pageWidth || lastPageHeightPt != pageHeight;
-  const size_t sceneContentHash = ComputeSceneContentHash();
-  const bool sceneContentChanged =
-      !hasSceneContentHash || sceneContentHash != lastSceneContentHash;
+  size_t sceneContentHash = lastSceneContentHash;
+  bool sceneContentChanged = false;
+  if (includeSceneContent) {
+    sceneContentHash = ComputeSceneContentHash();
+    sceneContentChanged =
+        !hasSceneContentHash || sceneContentHash != lastSceneContentHash;
+  }
   auto markDirty = [&](bool &cacheDirty) {
     if (cacheDirty)
       return;
@@ -291,8 +295,10 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
   lastRenderZoom = renderZoom;
   lastPageWidthPt = pageWidth;
   lastPageHeightPt = pageHeight;
-  lastSceneContentHash = sceneContentHash;
-  hasSceneContentHash = true;
+  if (includeSceneContent) {
+    lastSceneContentHash = sceneContentHash;
+    hasSceneContentHash = true;
+  }
 }
 
 void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {

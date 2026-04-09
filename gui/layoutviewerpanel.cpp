@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 #include <new>
+#include <unordered_map>
 #include <vector>
 #include <wx/weakref.h>
 
@@ -488,29 +489,96 @@ void LayoutViewerPanel::SetLayoutDefinition(
     return;
   }
 
+  const layouts::LayoutDefinition previousLayout = currentLayout;
+  const bool sameLayoutName =
+      !previousLayout.name.empty() && previousLayout.name == layout.name;
   currentLayout = layout;
-  if (!currentLayout.view2dViews.empty()) {
-    selectedElementType = SelectedElementType::View2D;
-    selectedElementId = currentLayout.view2dViews.front().id;
-    EmitViewSelectionChanged(selectedElementId);
-  } else if (!currentLayout.legendViews.empty()) {
-    selectedElementType = SelectedElementType::Legend;
-    selectedElementId = currentLayout.legendViews.front().id;
-  } else if (!currentLayout.eventTables.empty()) {
-    selectedElementType = SelectedElementType::EventTable;
-    selectedElementId = currentLayout.eventTables.front().id;
-  } else if (!currentLayout.textViews.empty()) {
-    selectedElementType = SelectedElementType::Text;
-    selectedElementId = currentLayout.textViews.front().id;
-  } else if (!currentLayout.imageViews.empty()) {
-    selectedElementType = SelectedElementType::Image;
-    selectedElementId = currentLayout.imageViews.front().id;
-  } else {
-    selectedElementType = SelectedElementType::None;
-    selectedElementId = -1;
+  auto selectDefaultElement = [this]() {
+    if (!currentLayout.view2dViews.empty()) {
+      selectedElementType = SelectedElementType::View2D;
+      selectedElementId = currentLayout.view2dViews.front().id;
+      EmitViewSelectionChanged(selectedElementId);
+    } else if (!currentLayout.legendViews.empty()) {
+      selectedElementType = SelectedElementType::Legend;
+      selectedElementId = currentLayout.legendViews.front().id;
+    } else if (!currentLayout.eventTables.empty()) {
+      selectedElementType = SelectedElementType::EventTable;
+      selectedElementId = currentLayout.eventTables.front().id;
+    } else if (!currentLayout.textViews.empty()) {
+      selectedElementType = SelectedElementType::Text;
+      selectedElementId = currentLayout.textViews.front().id;
+    } else if (!currentLayout.imageViews.empty()) {
+      selectedElementType = SelectedElementType::Image;
+      selectedElementId = currentLayout.imageViews.front().id;
+    } else {
+      selectedElementType = SelectedElementType::None;
+      selectedElementId = -1;
+    }
+  };
+
+  auto hasSelectedElement = [this]() {
+    if (selectedElementId < 0)
+      return false;
+    if (selectedElementType == SelectedElementType::View2D) {
+      return std::any_of(currentLayout.view2dViews.begin(),
+                         currentLayout.view2dViews.end(),
+                         [this](const auto &entry) {
+                           return entry.id == selectedElementId;
+                         });
+    }
+    if (selectedElementType == SelectedElementType::Legend) {
+      return std::any_of(currentLayout.legendViews.begin(),
+                         currentLayout.legendViews.end(),
+                         [this](const auto &entry) {
+                           return entry.id == selectedElementId;
+                         });
+    }
+    if (selectedElementType == SelectedElementType::EventTable) {
+      return std::any_of(currentLayout.eventTables.begin(),
+                         currentLayout.eventTables.end(),
+                         [this](const auto &entry) {
+                           return entry.id == selectedElementId;
+                         });
+    }
+    if (selectedElementType == SelectedElementType::Text) {
+      return std::any_of(currentLayout.textViews.begin(),
+                         currentLayout.textViews.end(),
+                         [this](const auto &entry) {
+                           return entry.id == selectedElementId;
+                         });
+    }
+    if (selectedElementType == SelectedElementType::Image) {
+      return std::any_of(currentLayout.imageViews.begin(),
+                         currentLayout.imageViews.end(),
+                         [this](const auto &entry) {
+                           return entry.id == selectedElementId;
+                         });
+    }
+    return false;
+  };
+
+  if (!hasSelectedElement()) {
+    selectDefaultElement();
   }
   layoutVersion++;
-  viewRenderVersion++;
+  if (!AreEqual(previousLayout.view2dViews, currentLayout.view2dViews)) {
+    viewRenderVersion++;
+    captureInProgress = false;
+  }
+  pendingFrameCommit_ = false;
+
+  if (sameLayoutName) {
+    captureInProgress = false;
+    renderDirty = true;
+    loadingRequested = true;
+    RefreshLegendData();
+    InvalidateRenderIfFrameChanged(false);
+    if (NeedsRenderRebuild())
+      RequestRenderRebuild();
+    Refresh();
+    return;
+  }
+
   captureInProgress = false;
   ClearCachedTexture();
   const bool emptyLayout = IsLayoutEmpty();
@@ -760,64 +828,52 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       capturePanel = Viewer2DPanel::Instance();
     }
 
-    auto findViewById =
-        [this](int viewId) -> const layouts::Layout2DViewDefinition * {
-      for (const auto &view : currentLayout.view2dViews) {
-        if (view.id == viewId)
-          return &view;
-      }
-      return nullptr;
-    };
-    auto findLegendById =
-        [this](int legendId) -> const layouts::LayoutLegendDefinition * {
-      for (const auto &legend : currentLayout.legendViews) {
-        if (legend.id == legendId)
-          return &legend;
-      }
-      return nullptr;
-    };
-    auto findEventTableById =
-        [this](int tableId) -> const layouts::LayoutEventTableDefinition * {
-      for (const auto &table : currentLayout.eventTables) {
-        if (table.id == tableId)
-          return &table;
-      }
-      return nullptr;
-    };
-    auto findTextById =
-        [this](int textId) -> const layouts::LayoutTextDefinition * {
-      for (const auto &text : currentLayout.textViews) {
-        if (text.id == textId)
-          return &text;
-      }
-      return nullptr;
-    };
-    auto findImageById =
-        [this](int imageId) -> const layouts::LayoutImageDefinition * {
-      for (const auto &image : currentLayout.imageViews) {
-        if (image.id == imageId)
-          return &image;
-      }
-      return nullptr;
-    };
+    std::unordered_map<int, const layouts::Layout2DViewDefinition *> viewById;
+    std::unordered_map<int, const layouts::LayoutLegendDefinition *>
+        legendById;
+    std::unordered_map<int, const layouts::LayoutEventTableDefinition *>
+        eventTableById;
+    std::unordered_map<int, const layouts::LayoutTextDefinition *> textById;
+    std::unordered_map<int, const layouts::LayoutImageDefinition *> imageById;
+    viewById.reserve(currentLayout.view2dViews.size());
+    legendById.reserve(currentLayout.legendViews.size());
+    eventTableById.reserve(currentLayout.eventTables.size());
+    textById.reserve(currentLayout.textViews.size());
+    imageById.reserve(currentLayout.imageViews.size());
+    for (const auto &view : currentLayout.view2dViews)
+      viewById.emplace(view.id, &view);
+    for (const auto &legend : currentLayout.legendViews)
+      legendById.emplace(legend.id, &legend);
+    for (const auto &table : currentLayout.eventTables)
+      eventTableById.emplace(table.id, &table);
+    for (const auto &text : currentLayout.textViews)
+      textById.emplace(text.id, &text);
+    for (const auto &image : currentLayout.imageViews)
+      imageById.emplace(image.id, &image);
 
     const auto elements = BuildZOrderedElements();
     for (const auto &element : elements) {
       if (element.type == SelectedElementType::View2D) {
-        if (const auto *view = findViewById(element.id))
-          DrawViewElement(*view, capturePanel, offscreenRenderer, activeViewId);
+        auto it = viewById.find(element.id);
+        if (it != viewById.end())
+          DrawViewElement(*it->second, capturePanel, offscreenRenderer,
+                          activeViewId);
       } else if (element.type == SelectedElementType::Legend) {
-        if (const auto *legend = findLegendById(element.id))
-          DrawLegendElement(*legend, activeLegendId);
+        auto it = legendById.find(element.id);
+        if (it != legendById.end())
+          DrawLegendElement(*it->second, activeLegendId);
       } else if (element.type == SelectedElementType::EventTable) {
-        if (const auto *table = findEventTableById(element.id))
-          DrawEventTableElement(*table);
+        auto it = eventTableById.find(element.id);
+        if (it != eventTableById.end())
+          DrawEventTableElement(*it->second);
       } else if (element.type == SelectedElementType::Text) {
-        if (const auto *text = findTextById(element.id))
-          DrawTextElement(*text, activeTextId);
+        auto it = textById.find(element.id);
+        if (it != textById.end())
+          DrawTextElement(*it->second, activeTextId);
       } else if (element.type == SelectedElementType::Image) {
-        if (const auto *image = findImageById(element.id))
-          DrawImageElement(*image, activeImageId);
+        auto it = imageById.find(element.id);
+        if (it != imageById.end())
+          DrawImageElement(*it->second, activeImageId);
       }
     }
 
@@ -837,37 +893,50 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
         activeElementHasTexture = hasTexture(viewCaches_, selectedViewId);
       }
     } else if (selectedElementType == SelectedElementType::Legend) {
-      const auto *legend = findLegendById(selectedLegendId);
-      if (!legend) {
+      auto it = legendById.find(selectedLegendId);
+      if (it == legendById.end()) {
         activeElementHasTexture = false;
       } else {
         activeElementHasTexture = hasTexture(legendCaches_, selectedLegendId);
       }
     } else if (selectedElementType == SelectedElementType::EventTable) {
-      const auto *table = findEventTableById(selectedEventTableId);
-      if (!table) {
+      auto it = eventTableById.find(selectedEventTableId);
+      if (it == eventTableById.end()) {
         activeElementHasTexture = false;
       } else {
         activeElementHasTexture =
             hasTexture(eventTableCaches_, selectedEventTableId);
       }
     } else if (selectedElementType == SelectedElementType::Text) {
-      const auto *text = findTextById(selectedTextId);
-      if (!text) {
+      auto it = textById.find(selectedTextId);
+      if (it == textById.end()) {
         activeElementHasTexture = false;
       } else {
         activeElementHasTexture = hasTexture(textCaches_, selectedTextId);
       }
     } else if (selectedElementType == SelectedElementType::Image) {
-      const auto *image = findImageById(selectedImageId);
-      if (!image) {
+      auto it = imageById.find(selectedImageId);
+      if (it == imageById.end()) {
         activeElementHasTexture = false;
       } else {
         activeElementHasTexture = hasTexture(imageCaches_, selectedImageId);
       }
     }
+    const auto hasAnyTexture = [this]() {
+      auto hasAny = [](const auto &map) {
+        for (const auto &entry : map) {
+          if (entry.second.texture != 0)
+            return true;
+        }
+        return false;
+      };
+      return hasAny(viewCaches_) || hasAny(legendCaches_) ||
+             hasAny(eventTableCaches_) || hasAny(textCaches_) ||
+             hasAny(imageCaches_);
+    };
     const bool showLoadingOverlay =
-        !IsLayoutEmpty() && (!texturesReady || !activeElementHasTexture);
+        !IsLayoutEmpty() && isLoading && !hasAnyTexture() &&
+        (!texturesReady || !activeElementHasTexture);
     if (showLoadingOverlay && isReadyToRender_) {
       DrawLoadingOverlay(size);
     }
@@ -1093,6 +1162,7 @@ void LayoutViewerPanel::OnSize(wxSizeEvent &) {
 
 void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
   SetFocus();
+  pendingFrameCommit_ = false;
   deferredResizeFrame_.reset();
   const wxPoint pos = event.GetPosition();
   SelectElementAtPosition(pos);
@@ -1123,7 +1193,20 @@ void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
 void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
   if (dragMode != FrameDragMode::None) {
     if (dragMode != FrameDragMode::Move && deferredResizeFrame_.has_value()) {
-      ApplyFrameUpdateToSelection(*deferredResizeFrame_, false);
+      layouts::Layout2DViewFrame finalFrame = *deferredResizeFrame_;
+      finalFrame.width = std::max(kMinFrameSize, SnapToGrid(finalFrame.width));
+      finalFrame.height =
+          std::max(kMinFrameSize, SnapToGrid(finalFrame.height));
+      ApplyFrameUpdateToSelection(finalFrame, false);
+    }
+    if (dragMode == FrameDragMode::Move) {
+      layouts::Layout2DViewFrame finalFrame;
+      if (GetSelectedFrame(finalFrame)) {
+        finalFrame.x = SnapToGrid(finalFrame.x);
+        finalFrame.y = SnapToGrid(finalFrame.y);
+        ApplyFrameUpdateToSelection(finalFrame, true);
+      }
+      CommitPendingFrameUpdate();
     }
     deferredResizeFrame_.reset();
     dragMode = FrameDragMode::None;
@@ -1231,9 +1314,6 @@ void LayoutViewerPanel::OnShow(wxShowEvent &event) {
 
 void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
   wxPoint currentPos = event.GetPosition();
-  if (dragMode == FrameDragMode::None && !isPanning) {
-    SelectElementAtPosition(currentPos);
-  }
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
   if (GetSelectedFrame(selectedFrame) &&
@@ -1254,8 +1334,6 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
     if (dragMode == FrameDragMode::Move) {
       frame.x += logicalDelta.x;
       frame.y += logicalDelta.y;
-      frame.x = SnapToGrid(frame.x);
-      frame.y = SnapToGrid(frame.y);
     } else {
       if (selectedElementType == SelectedElementType::Image) {
         const auto *image = GetSelectedImage();
@@ -1289,12 +1367,12 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
             }
           }
           if (useHeight) {
-            frame.height = std::max(kMinFrameSize, SnapToGrid(frame.height));
+            frame.height = std::max(kMinFrameSize, frame.height);
             frame.width = std::max(
                 kMinFrameSize,
                 static_cast<int>(std::lround(frame.height * ratio)));
           } else {
-            frame.width = std::max(kMinFrameSize, SnapToGrid(frame.width));
+            frame.width = std::max(kMinFrameSize, frame.width);
             frame.height = std::max(
                 kMinFrameSize,
                 static_cast<int>(std::lround(frame.width / ratio)));
@@ -1304,13 +1382,11 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
               dragMode == FrameDragMode::ResizeCorner) {
             frame.width =
                 std::max(kMinFrameSize, dragStartFrame.width + logicalDelta.x);
-            frame.width = std::max(kMinFrameSize, SnapToGrid(frame.width));
           }
           if (dragMode == FrameDragMode::ResizeBottom ||
               dragMode == FrameDragMode::ResizeCorner) {
             frame.height =
                 std::max(kMinFrameSize, dragStartFrame.height + logicalDelta.y);
-            frame.height = std::max(kMinFrameSize, SnapToGrid(frame.height));
           }
         }
       } else {
@@ -1318,13 +1394,11 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
             dragMode == FrameDragMode::ResizeCorner) {
           frame.width =
               std::max(kMinFrameSize, dragStartFrame.width + logicalDelta.x);
-          frame.width = std::max(kMinFrameSize, SnapToGrid(frame.width));
         }
         if (dragMode == FrameDragMode::ResizeBottom ||
             dragMode == FrameDragMode::ResizeCorner) {
           frame.height =
               std::max(kMinFrameSize, dragStartFrame.height + logicalDelta.y);
-          frame.height = std::max(kMinFrameSize, SnapToGrid(frame.height));
         }
       }
     }
@@ -1382,6 +1456,7 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
 void LayoutViewerPanel::OnCaptureLost(wxMouseCaptureLostEvent &) {
   isPanning = false;
   deferredResizeFrame_.reset();
+  CommitPendingFrameUpdate();
   if (dragMode != FrameDragMode::None) {
     layouts::LayoutManager::Get().EndBatchUpdate();
   }
@@ -1400,6 +1475,52 @@ void LayoutViewerPanel::ApplyFrameUpdateToSelection(
     UpdateImageFrame(frame, updatePosition);
   } else {
     UpdateFrame(frame, updatePosition);
+  }
+}
+
+void LayoutViewerPanel::CommitPendingFrameUpdate() {
+  if (!pendingFrameCommit_)
+    return;
+  pendingFrameCommit_ = false;
+  if (currentLayout.name.empty())
+    return;
+
+  if (selectedElementType == SelectedElementType::View2D) {
+    if (const auto *view = GetEditableView()) {
+      layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name,
+                                                       *view);
+    }
+    return;
+  }
+
+  if (selectedElementType == SelectedElementType::Legend) {
+    if (const auto *legend = GetSelectedLegend()) {
+      layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name,
+                                                       *legend);
+    }
+    return;
+  }
+
+  if (selectedElementType == SelectedElementType::EventTable) {
+    if (const auto *table = GetSelectedEventTable()) {
+      layouts::LayoutManager::Get().UpdateLayoutEventTable(currentLayout.name,
+                                                           *table);
+    }
+    return;
+  }
+
+  if (selectedElementType == SelectedElementType::Text) {
+    if (const auto *text = GetSelectedText()) {
+      layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *text);
+    }
+    return;
+  }
+
+  if (selectedElementType == SelectedElementType::Image) {
+    if (const auto *image = GetSelectedImage()) {
+      layouts::LayoutManager::Get().UpdateLayoutImage(currentLayout.name,
+                                                      *image);
+    }
   }
 }
 
@@ -2584,51 +2705,33 @@ bool LayoutViewerPanel::AreTexturesReady() const {
 
 bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
   const auto elements = BuildZOrderedElements();
-  auto findLegendById =
-      [this](int legendId) -> const layouts::LayoutLegendDefinition * {
-    for (const auto &legend : currentLayout.legendViews) {
-      if (legend.id == legendId)
-        return &legend;
-    }
-    return nullptr;
-  };
-  auto findEventTableById =
-      [this](int tableId) -> const layouts::LayoutEventTableDefinition * {
-    for (const auto &table : currentLayout.eventTables) {
-      if (table.id == tableId)
-        return &table;
-    }
-    return nullptr;
-  };
-  auto findTextById =
-      [this](int textId) -> const layouts::LayoutTextDefinition * {
-    for (const auto &text : currentLayout.textViews) {
-      if (text.id == textId)
-        return &text;
-    }
-    return nullptr;
-  };
-  auto findImageById =
-      [this](int imageId) -> const layouts::LayoutImageDefinition * {
-    for (const auto &image : currentLayout.imageViews) {
-      if (image.id == imageId)
-        return &image;
-    }
-    return nullptr;
-  };
-  auto findViewById =
-      [this](int viewId) -> const layouts::Layout2DViewDefinition * {
-    for (const auto &view : currentLayout.view2dViews) {
-      if (view.id == viewId)
-        return &view;
-    }
-    return nullptr;
-  };
+  std::unordered_map<int, const layouts::Layout2DViewDefinition *> viewById;
+  std::unordered_map<int, const layouts::LayoutLegendDefinition *> legendById;
+  std::unordered_map<int, const layouts::LayoutEventTableDefinition *>
+      eventTableById;
+  std::unordered_map<int, const layouts::LayoutTextDefinition *> textById;
+  std::unordered_map<int, const layouts::LayoutImageDefinition *> imageById;
+  viewById.reserve(currentLayout.view2dViews.size());
+  legendById.reserve(currentLayout.legendViews.size());
+  eventTableById.reserve(currentLayout.eventTables.size());
+  textById.reserve(currentLayout.textViews.size());
+  imageById.reserve(currentLayout.imageViews.size());
+  for (const auto &view : currentLayout.view2dViews)
+    viewById.emplace(view.id, &view);
+  for (const auto &legend : currentLayout.legendViews)
+    legendById.emplace(legend.id, &legend);
+  for (const auto &table : currentLayout.eventTables)
+    eventTableById.emplace(table.id, &table);
+  for (const auto &text : currentLayout.textViews)
+    textById.emplace(text.id, &text);
+  for (const auto &image : currentLayout.imageViews)
+    imageById.emplace(image.id, &image);
   for (auto it = elements.rbegin(); it != elements.rend(); ++it) {
     if (it->type == SelectedElementType::Legend) {
-      const auto *legend = findLegendById(it->id);
-      if (!legend)
+      auto legendIt = legendById.find(it->id);
+      if (legendIt == legendById.end())
         continue;
+      const auto *legend = legendIt->second;
       wxRect frameRect;
       if (!GetFrameRect(legend->frame, frameRect))
         continue;
@@ -2646,9 +2749,10 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
     }
 
     if (it->type == SelectedElementType::EventTable) {
-      const auto *table = findEventTableById(it->id);
-      if (!table)
+      auto tableIt = eventTableById.find(it->id);
+      if (tableIt == eventTableById.end())
         continue;
+      const auto *table = tableIt->second;
       wxRect frameRect;
       if (!GetFrameRect(table->frame, frameRect))
         continue;
@@ -2666,9 +2770,10 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
     }
 
     if (it->type == SelectedElementType::Text) {
-      const auto *text = findTextById(it->id);
-      if (!text)
+      auto textIt = textById.find(it->id);
+      if (textIt == textById.end())
         continue;
+      const auto *text = textIt->second;
       wxRect frameRect;
       if (!GetFrameRect(text->frame, frameRect))
         continue;
@@ -2686,9 +2791,10 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
     }
 
     if (it->type == SelectedElementType::Image) {
-      const auto *image = findImageById(it->id);
-      if (!image)
+      auto imageIt = imageById.find(it->id);
+      if (imageIt == imageById.end())
         continue;
+      const auto *image = imageIt->second;
       wxRect frameRect;
       if (!GetFrameRect(image->frame, frameRect))
         continue;
@@ -2706,9 +2812,10 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
     }
 
     if (it->type == SelectedElementType::View2D) {
-      const auto *view = findViewById(it->id);
-      if (!view)
+      auto viewIt = viewById.find(it->id);
+      if (viewIt == viewById.end())
         continue;
+      const auto *view = viewIt->second;
       wxRect frameRect;
       if (!GetFrameRect(view->frame, frameRect))
         continue;
