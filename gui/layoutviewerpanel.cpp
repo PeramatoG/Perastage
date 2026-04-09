@@ -489,31 +489,97 @@ void LayoutViewerPanel::SetLayoutDefinition(
     return;
   }
 
+  const layouts::LayoutDefinition previousLayout = currentLayout;
+  const bool sameLayoutName =
+      !previousLayout.name.empty() && previousLayout.name == layout.name;
   currentLayout = layout;
-  if (!currentLayout.view2dViews.empty()) {
-    selectedElementType = SelectedElementType::View2D;
-    selectedElementId = currentLayout.view2dViews.front().id;
-    EmitViewSelectionChanged(selectedElementId);
-  } else if (!currentLayout.legendViews.empty()) {
-    selectedElementType = SelectedElementType::Legend;
-    selectedElementId = currentLayout.legendViews.front().id;
-  } else if (!currentLayout.eventTables.empty()) {
-    selectedElementType = SelectedElementType::EventTable;
-    selectedElementId = currentLayout.eventTables.front().id;
-  } else if (!currentLayout.textViews.empty()) {
-    selectedElementType = SelectedElementType::Text;
-    selectedElementId = currentLayout.textViews.front().id;
-  } else if (!currentLayout.imageViews.empty()) {
-    selectedElementType = SelectedElementType::Image;
-    selectedElementId = currentLayout.imageViews.front().id;
-  } else {
-    selectedElementType = SelectedElementType::None;
-    selectedElementId = -1;
+  auto selectDefaultElement = [this]() {
+    if (!currentLayout.view2dViews.empty()) {
+      selectedElementType = SelectedElementType::View2D;
+      selectedElementId = currentLayout.view2dViews.front().id;
+      EmitViewSelectionChanged(selectedElementId);
+    } else if (!currentLayout.legendViews.empty()) {
+      selectedElementType = SelectedElementType::Legend;
+      selectedElementId = currentLayout.legendViews.front().id;
+    } else if (!currentLayout.eventTables.empty()) {
+      selectedElementType = SelectedElementType::EventTable;
+      selectedElementId = currentLayout.eventTables.front().id;
+    } else if (!currentLayout.textViews.empty()) {
+      selectedElementType = SelectedElementType::Text;
+      selectedElementId = currentLayout.textViews.front().id;
+    } else if (!currentLayout.imageViews.empty()) {
+      selectedElementType = SelectedElementType::Image;
+      selectedElementId = currentLayout.imageViews.front().id;
+    } else {
+      selectedElementType = SelectedElementType::None;
+      selectedElementId = -1;
+    }
+  };
+
+  auto hasSelectedElement = [this]() {
+    if (selectedElementId < 0)
+      return false;
+    if (selectedElementType == SelectedElementType::View2D) {
+      return std::any_of(currentLayout.view2dViews.begin(),
+                         currentLayout.view2dViews.end(),
+                         [this](const auto &entry) {
+                           return entry.id == selectedElementId;
+                         });
+    }
+    if (selectedElementType == SelectedElementType::Legend) {
+      return std::any_of(currentLayout.legendViews.begin(),
+                         currentLayout.legendViews.end(),
+                         [this](const auto &entry) {
+                           return entry.id == selectedElementId;
+                         });
+    }
+    if (selectedElementType == SelectedElementType::EventTable) {
+      return std::any_of(currentLayout.eventTables.begin(),
+                         currentLayout.eventTables.end(),
+                         [this](const auto &entry) {
+                           return entry.id == selectedElementId;
+                         });
+    }
+    if (selectedElementType == SelectedElementType::Text) {
+      return std::any_of(currentLayout.textViews.begin(),
+                         currentLayout.textViews.end(),
+                         [this](const auto &entry) {
+                           return entry.id == selectedElementId;
+                         });
+    }
+    if (selectedElementType == SelectedElementType::Image) {
+      return std::any_of(currentLayout.imageViews.begin(),
+                         currentLayout.imageViews.end(),
+                         [this](const auto &entry) {
+                           return entry.id == selectedElementId;
+                         });
+    }
+    return false;
+  };
+
+  if (!hasSelectedElement()) {
+    selectDefaultElement();
   }
   layoutVersion++;
-  viewRenderVersion++;
-  captureInProgress = false;
+  if (!AreEqual(previousLayout.view2dViews, currentLayout.view2dViews)) {
+    viewRenderVersion++;
+    captureInProgress = false;
+  }
   pendingFrameCommit_ = false;
+
+  if (sameLayoutName) {
+    captureInProgress = false;
+    renderDirty = true;
+    loadingRequested = true;
+    RefreshLegendData();
+    InvalidateRenderIfFrameChanged();
+    if (NeedsRenderRebuild())
+      RequestRenderRebuild();
+    Refresh();
+    return;
+  }
+
+  captureInProgress = false;
   ClearCachedTexture();
   const bool emptyLayout = IsLayoutEmpty();
   if (emptyLayout) {
