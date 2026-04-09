@@ -572,7 +572,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     renderDirty = true;
     loadingRequested = true;
     RefreshLegendData();
-    InvalidateRenderIfFrameChanged();
+    InvalidateRenderIfFrameChanged(false);
     if (NeedsRenderRebuild())
       RequestRenderRebuild();
     Refresh();
