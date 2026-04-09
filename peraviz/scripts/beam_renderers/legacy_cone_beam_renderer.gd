@@ -18,7 +18,7 @@ const FALLBACK_GOBO_META_KEY: String = "peraviz_is_vector_fallback_gobo"
 const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 const LEGACY_MID_KEY: String = "peraviz_beam_cone_mid"
 const LEGACY_CORE_KEY: String = "peraviz_beam_cone_core"
-const MIRROR_BEAM_SHAPE_X: bool = true
+const MIRROR_BEAM_SHAPE_X: bool = false
 
 var _material_template: ShaderMaterial
 var _mesh_builder: GoboPrismMeshBuilder

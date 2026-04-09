@@ -3,7 +3,7 @@ class_name VolumetricGoboPrismShapeProvider
 
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
-const MIRROR_BEAM_SHAPE_X: bool = true
+const MIRROR_BEAM_SHAPE_X: bool = false
 
 var _mesh_builder: GoboPrismMeshBuilder = GoboPrismMeshBuilder.new()
 
