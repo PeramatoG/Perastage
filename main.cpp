@@ -26,6 +26,7 @@
 #include <atomic>
 #include <cctype>
 #include <cstdlib>
+#include <deque>
 #include <new>
 #include <optional>
 #include <string>
@@ -46,14 +47,18 @@ public:
   int FilterEvent(wxEvent &event) override;
   bool OnExceptionInMainLoop() override;
   void OnUnhandledException() override;
+  void MacOpenFile(const wxString &fileName);
 
 private:
+  void HandleExternalOpenPath(const std::string &pathUtf8);
+  std::optional<std::string> ConsumePendingExternalOpenPath();
   void QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
                                bool loaded, bool clearLastProject,
                                const std::string &path = {});
 
   std::string last_event_summary_;
   std::atomic<bool> project_load_event_sent_{false};
+  std::deque<std::string> pending_external_open_paths_;
 };
 
 namespace {
@@ -175,8 +180,10 @@ bool MyApp::OnInit() {
   // Start maximized so minimize and restore buttons remain available
   mainWindow->Maximize(true);
 
-  const std::optional<std::string> startupPathOpt = GetStartupPathFromArgs(
+  std::optional<std::string> startupPathOpt = GetStartupPathFromArgs(
       argc, argv, launchWorkingDirectoryUtf8);
+  if (!startupPathOpt)
+    startupPathOpt = ConsumePendingExternalOpenPath();
 
   SplashScreen::SetMessage("Loading last project...");
   wxWeakRef<MainWindow> mainWindowRef(mainWindow);
@@ -190,9 +197,13 @@ bool MyApp::OnInit() {
     QueueProjectLoadedEvent(mainWindowRef, false, false, *startupPathOpt);
   } else if (lastPathOpt) {
     std::string lastPath = *lastPathOpt;
-    mainWindow->CallAfter([mainWindowRef, lastPath]() {
+    mainWindow->CallAfter([this, mainWindowRef, lastPath]() {
       if (!mainWindowRef)
         return;
+      if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
+        QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
+        return;
+      }
       mainWindowRef->LoadStartupProjectFromPath(lastPath);
     });
 
@@ -201,6 +212,45 @@ bool MyApp::OnInit() {
   }
 
   return true;
+}
+
+void MyApp::MacOpenFile(const wxString &fileName) {
+  const wxCharBuffer utf8 = fileName.ToUTF8();
+  const std::string pathUtf8 =
+      utf8 ? std::string(utf8.data()) : fileName.ToStdString();
+  HandleExternalOpenPath(pathUtf8);
+}
+
+void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
+  if (pathUtf8.empty())
+    return;
+
+  MainWindow *mainWindow = wxDynamicCast(GetTopWindow(), MainWindow);
+  if (!mainWindow) {
+    pending_external_open_paths_.push_back(pathUtf8);
+    return;
+  }
+
+  const bool startupPending = mainWindow->IsStartupProjectLoadPending();
+  if (startupPending) {
+    pending_external_open_paths_.push_back(pathUtf8);
+    return;
+  }
+
+  mainWindow->CallAfter([windowRef = wxWeakRef<MainWindow>(mainWindow),
+                         pathUtf8]() {
+    if (!windowRef)
+      return;
+    windowRef->OpenPathFromCommandLine(pathUtf8);
+  });
+}
+
+std::optional<std::string> MyApp::ConsumePendingExternalOpenPath() {
+  if (pending_external_open_paths_.empty())
+    return std::nullopt;
+  std::string path = pending_external_open_paths_.front();
+  pending_external_open_paths_.pop_front();
+  return path;
 }
 
 int MyApp::OnExit() {
