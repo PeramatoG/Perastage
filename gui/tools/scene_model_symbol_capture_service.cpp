@@ -188,6 +188,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
       cfg,
       {
           {"grid_show", 0.0f},
+          {"ruler_show", 0.0f},
           {"view2d_dark_mode", 0.0f},
           {"view2d_render_mode", static_cast<float>(Viewer2DRenderMode::ByFixtureType)},
           {"viewer3d_aa_quality", 0.0f},
