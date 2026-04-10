@@ -29,6 +29,7 @@
 #include "gdtfloader.h"
 #include "hoist_load_recalculation_prompt.h"
 #include "layerpanel.h"
+#include "mainwindow.h"
 #include "matrixutils.h"
 #include "patchmanager.h"
 #include "projectutils.h"
@@ -437,6 +438,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
   // Model file column opens file dialog
   if (col == 9) {
+    std::vector<std::string> affectedFixtureUuids;
     wxString fixDir =
         wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
     wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString, "*.gdtf",
@@ -455,6 +457,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
       std::vector<std::string> prevTypes;
       std::unordered_set<std::string> prevTypeSet;
+      std::unordered_set<std::string> affectedFixtureUuidSet;
 
       for (const auto &itSel : selections) {
         int r = table->ItemToRow(itSel);
@@ -474,6 +477,10 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         gdtfPaths[r] = path;
         table->SetValue(wxVariant(fileName), r, 9);
         table->SetValue(wxVariant(typeName), r, 2);
+        if ((size_t)r < rowUuids.size() &&
+            affectedFixtureUuidSet.insert(rowUuids[r]).second) {
+          affectedFixtureUuids.push_back(rowUuids[r]);
+        }
 
         wxString pstr = wxString::Format("%.1f", p);
         wxString wstr = wxString::Format("%.2f", w);
@@ -496,6 +503,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         gdtfPaths[i] = path;
         table->SetValue(wxVariant(fileName), i, 9);
         table->SetValue(wxVariant(typeName), i, 2);
+        if (i < rowUuids.size() &&
+            affectedFixtureUuidSet.insert(rowUuids[i]).second)
+          affectedFixtureUuids.push_back(rowUuids[i]);
 
         wxString pstr = wxString::Format("%.1f", p);
         wxString wstr = wxString::Format("%.2f", w);
@@ -531,6 +541,10 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       Viewer3DPanel::Instance()->Refresh();
     } else if (Viewer2DPanel::Instance()) {
       Viewer2DPanel::Instance()->UpdateScene();
+    }
+    if (MainWindow::Instance()) {
+      MainWindow::Instance()->StartFixtureSymbolAutoUpdateForFixtureUuids(
+          affectedFixtureUuids);
     }
     return;
   }

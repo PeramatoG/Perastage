@@ -112,6 +112,17 @@ std::string MainWindow::BuildFixtureSymbolAutoUpdateSummary() const {
 }
 
 void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  std::vector<std::string> fixtureUuids;
+  fixtureUuids.reserve(cfg.GetScene().fixtures.size());
+  for (const auto &[uuid, fixture] : cfg.GetScene().fixtures)
+    fixtureUuids.push_back(uuid);
+
+  StartFixtureSymbolAutoUpdateForFixtureUuids(fixtureUuids);
+}
+
+void MainWindow::StartFixtureSymbolAutoUpdateForFixtureUuids(
+    const std::vector<std::string> &fixtureUuids) {
   fixtureSymbolAutoUpdateQueue.clear();
   fixtureSymbolAutoUpdateProcessedKeys.clear();
   fixtureSymbolPendingLibrarySyncUuids.clear();
@@ -121,7 +132,12 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
   fixtureSymbolAutoUpdateRunning = false;
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  for (const auto &[uuid, fixture] : cfg.GetScene().fixtures) {
+  for (const std::string &uuid : fixtureUuids) {
+    const auto fixtureIt = cfg.GetScene().fixtures.find(uuid);
+    if (fixtureIt == cfg.GetScene().fixtures.end())
+      continue;
+
+    const Fixture &fixture = fixtureIt->second;
     const std::string key = BuildFixtureAutoUpdateKey(fixture);
     if (key.empty())
       continue;

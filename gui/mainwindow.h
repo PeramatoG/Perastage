@@ -239,6 +239,8 @@ private:
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
   void StartFixtureSymbolAutoUpdateForLoadedScene();
+  void StartFixtureSymbolAutoUpdateForFixtureUuids(
+      const std::vector<std::string> &fixtureUuids);
   void ProcessNextFixtureSymbolAutoUpdate();
   void ClearBlockingProjectLoadUi();
   void CompleteStartupSplashInitialization();
