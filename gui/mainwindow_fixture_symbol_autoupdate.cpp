@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -125,12 +126,20 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
   fixtureSymbolAutoUpdateRunning = false;
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  std::map<std::string, std::string> representativeFixtureByKey;
   for (const auto &[uuid, fixture] : cfg.GetScene().fixtures) {
     const std::string key = BuildFixtureAutoUpdateKey(fixture);
     if (key.empty())
       continue;
-    if (!fixtureSymbolAutoUpdateProcessedKeys.insert(key).second)
-      continue;
+    auto it = representativeFixtureByKey.find(key);
+    if (it == representativeFixtureByKey.end() || uuid < it->second)
+      representativeFixtureByKey[key] = uuid;
+  }
+
+  fixtureSymbolAutoUpdateQueue.clear();
+  fixtureSymbolAutoUpdateQueue.reserve(representativeFixtureByKey.size());
+  for (const auto &[key, uuid] : representativeFixtureByKey) {
+    (void)key;
     fixtureSymbolAutoUpdateQueue.push_back(uuid);
   }
 
