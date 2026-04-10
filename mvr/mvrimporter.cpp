@@ -1388,6 +1388,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
 
   // ---- Helper lambdas for object parsing ----
+  int preservedGroupObjectCount = 0;
   std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const std::string &)>
       parseChildList;
 
@@ -2245,8 +2246,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::GroupObject, group.uuid});
         }
-        LogMessage(Logger::Level::Info,
-                   "MVR import preserved GroupObject uuid='" + group.uuid + "'");
+        ++preservedGroupObjectCount;
         if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList"))
           parseChildList(inner, layerName, nodeTransform, group.uuid);
         continue;
@@ -2285,6 +2285,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       }
       scene.layers[l.uuid] = l;
     }
+  }
+
+  if (preservedGroupObjectCount > 0) {
+    LogMessage(Logger::Level::Info,
+               "MVR import preserved GroupObject count=" +
+                   std::to_string(preservedGroupObjectCount));
   }
 
   auto resolveFixtureGdtfPathForRead = [&](const std::string &spec) {
