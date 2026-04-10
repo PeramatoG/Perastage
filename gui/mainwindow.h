@@ -87,6 +87,7 @@ public:
   void RestoreLayout2DViewState(int viewId);
   void RefreshAfterFixtureSymbolUpdate();
   void RefreshAfterToolSceneUpdate();
+  void RequestFixtureSymbolAutoUpdate();
 
 private:
   void SetupLayout();   // Set up main window layout

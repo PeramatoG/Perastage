@@ -29,6 +29,7 @@
 #include "gdtfloader.h"
 #include "hoist_load_recalculation_prompt.h"
 #include "layerpanel.h"
+#include "mainwindow.h"
 #include "matrixutils.h"
 #include "patchmanager.h"
 #include "projectutils.h"
@@ -531,6 +532,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       Viewer3DPanel::Instance()->Refresh();
     } else if (Viewer2DPanel::Instance()) {
       Viewer2DPanel::Instance()->UpdateScene();
+    }
+    if (MainWindow::Instance()) {
+      MainWindow::Instance()->RequestFixtureSymbolAutoUpdate();
     }
     return;
   }

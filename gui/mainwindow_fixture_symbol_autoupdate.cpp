@@ -111,6 +111,10 @@ std::string MainWindow::BuildFixtureSymbolAutoUpdateSummary() const {
   return summary.str();
 }
 
+void MainWindow::RequestFixtureSymbolAutoUpdate() {
+  StartFixtureSymbolAutoUpdateForLoadedScene();
+}
+
 void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
   fixtureSymbolAutoUpdateQueue.clear();
   fixtureSymbolAutoUpdateProcessedKeys.clear();
