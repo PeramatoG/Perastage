@@ -399,22 +399,29 @@ void LayoutManager::EndBatchUpdate() {
 }
 
 void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
-  auto value = cfg.GetValue(kLayoutsConfigKey);
-  if (!value.has_value()) {
+  auto loadDefaultsOrFallback = [&cfg, this]() {
     if (!LoadDefaultsForNewProject(cfg))
       SaveToConfig(cfg);
+  };
+
+  auto value = cfg.GetValue(kLayoutsConfigKey);
+  if (!value.has_value()) {
+    loadDefaultsOrFallback();
     return;
   }
   nlohmann::json parsed;
   try {
     parsed = nlohmann::json::parse(*value);
   } catch (...) {
+    loadDefaultsOrFallback();
     return;
   }
   std::vector<LayoutDefinition> loaded;
   std::string parseError;
-  if (!FromTemplateDocument(parsed, loaded, &parseError))
+  if (!FromTemplateDocument(parsed, loaded, &parseError) || loaded.empty()) {
+    loadDefaultsOrFallback();
     return;
+  }
 
   for (auto &layout : loaded) {
     EnsureUniqueViewIds(layout);

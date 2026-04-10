@@ -40,5 +40,6 @@ Template loading is applied when:
 - The user uses **New Project**.
 - The active config has no stored `layouts_collection` yet (for example first
   launch with an empty config).
+- The stored `layouts_collection` value exists but is empty/invalid.
 
 If a project already has stored layouts, template files are ignored.

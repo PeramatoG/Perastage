@@ -30,6 +30,31 @@ void WriteTemplateFile(const std::filesystem::path &filePath) {
   assert(out.good());
 }
 
+void SetLibraryEnv(const std::string &value) {
+#ifdef _WIN32
+  const int result = _putenv_s("PERASTAGE_LIBRARY_PATH", value.c_str());
+  assert(result == 0);
+#else
+  const int result = setenv("PERASTAGE_LIBRARY_PATH", value.c_str(), 1);
+  assert(result == 0);
+#endif
+}
+
+void RestoreLibraryEnv(const std::string &previousValue) {
+#ifdef _WIN32
+  const int result = _putenv_s("PERASTAGE_LIBRARY_PATH", previousValue.c_str());
+  assert(result == 0);
+#else
+  if (previousValue.empty()) {
+    const int result = unsetenv("PERASTAGE_LIBRARY_PATH");
+    assert(result == 0);
+    return;
+  }
+  const int result = setenv("PERASTAGE_LIBRARY_PATH", previousValue.c_str(), 1);
+  assert(result == 0);
+#endif
+}
+
 } // namespace
 
 int main() {
@@ -56,19 +81,23 @@ int main() {
       std::getenv("PERASTAGE_LIBRARY_PATH")
           ? std::getenv("PERASTAGE_LIBRARY_PATH")
           : "";
-  setenv("PERASTAGE_LIBRARY_PATH", tempRoot.c_str(), 1);
+  SetLibraryEnv(tempRoot.string());
 
   manager.LoadFromConfig(cfg);
 
-  const auto &layouts = manager.GetLayouts().Items();
+  auto layouts = manager.GetLayouts().Items();
   assert(layouts.size() == 1);
   assert(layouts.front().name == "Plan View");
   assert(cfg.HasKey(kLayoutsConfigKey));
 
-  if (previousEnv.empty())
-    unsetenv("PERASTAGE_LIBRARY_PATH");
-  else
-    setenv("PERASTAGE_LIBRARY_PATH", previousEnv.c_str(), 1);
+  manager.ResetToDefault(cfg);
+  cfg.SetValue(kLayoutsConfigKey, "");
+  manager.LoadFromConfig(cfg);
+  layouts = manager.GetLayouts().Items();
+  assert(layouts.size() == 1);
+  assert(layouts.front().name == "Plan View");
+
+  RestoreLibraryEnv(previousEnv);
 
   std::filesystem::remove_all(tempRoot, ec);
 
