@@ -87,6 +87,8 @@ public:
   void RestoreLayout2DViewState(int viewId);
   void RefreshAfterFixtureSymbolUpdate();
   void RefreshAfterToolSceneUpdate();
+  void StartFixtureSymbolAutoUpdateForFixtureUuids(
+      const std::vector<std::string> &fixtureUuids);
 
 private:
   void SetupLayout();   // Set up main window layout
@@ -239,8 +241,6 @@ private:
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
   void StartFixtureSymbolAutoUpdateForLoadedScene();
-  void StartFixtureSymbolAutoUpdateForFixtureUuids(
-      const std::vector<std::string> &fixtureUuids);
   void ProcessNextFixtureSymbolAutoUpdate();
   void ClearBlockingProjectLoadUi();
   void CompleteStartupSplashInitialization();
