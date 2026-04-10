@@ -351,6 +351,11 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
   createProgress.reset();
   if (consolePanel)
     consolePanel->AppendMessage("[INFO] Imported rider from text.");
+  // Keep behavior aligned with MVR import: assign deterministic colors after
+  // scene creation so fixtures without dictionary colors are still grouped by
+  // fixture type/mode.
+  wxCommandEvent autoColorEvent;
+  OnAutoColor(autoColorEvent);
   if (currentProjectPath.empty() && currentProjectDisplayName.IsEmpty()) {
     const wxString loadedFileTitle = dlg.GetLoadedFileTitle();
     if (!loadedFileTitle.IsEmpty()) {
@@ -360,7 +365,6 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
   }
   if (GetStatusBar())
     SetStatusText("Text import completed.", 0);
-  RefreshAfterSceneChange();
 }
 
 // Handles MVR file selection, import, and updates fixture/truss panels
