@@ -144,6 +144,37 @@ private:
   std::unordered_map<std::string, Support> originalSupports_;
 };
 
+class ScopedViewer2DCaptureState {
+public:
+  explicit ScopedViewer2DCaptureState(Viewer2DPanel &panel) : panel_(panel) {
+    const Viewer2DViewState state = panel_.GetViewState();
+    offsetXPixels_ = state.offsetPixelsX;
+    offsetYPixels_ = state.offsetPixelsY;
+    zoom_ = state.zoom;
+    view_ = state.view;
+    renderMode_ = panel_.GetRenderMode();
+    preferPerastageSvgSymbolsForLayouts_ =
+        panel_.GetPreferPerastageSvgSymbolsForLayouts();
+  }
+
+  ~ScopedViewer2DCaptureState() {
+    panel_.ApplyViewState(offsetXPixels_, offsetYPixels_, zoom_, view_,
+                          renderMode_);
+    panel_.SetPreferPerastageSvgSymbolsForLayouts(
+        preferPerastageSvgSymbolsForLayouts_);
+    panel_.UpdateScene(true);
+  }
+
+private:
+  Viewer2DPanel &panel_;
+  float offsetXPixels_ = 0.0f;
+  float offsetYPixels_ = 0.0f;
+  float zoom_ = 1.0f;
+  Viewer2DView view_ = Viewer2DView::Top;
+  Viewer2DRenderMode renderMode_ = Viewer2DRenderMode::White;
+  bool preferPerastageSvgSymbolsForLayouts_ = false;
+};
+
 void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
   if (render.width <= 0 || render.height <= 0)
     return;
@@ -179,6 +210,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
     return result;
   }
 
+  ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
   ScopedSingleModelSceneOverride isolatedSceneOverride(cfg, target,
                                                        options.alignToLocalAxes);
   ScopedFixtureColorOverride selectedFixtureColorOverride(
@@ -188,6 +220,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
       cfg,
       {
           {"grid_show", 0.0f},
+          {"ruler_show", 0.0f},
           {"view2d_dark_mode", 0.0f},
           {"view2d_render_mode", static_cast<float>(Viewer2DRenderMode::ByFixtureType)},
           {"viewer3d_aa_quality", 0.0f},
@@ -205,10 +238,9 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
           {"label_show_dmx_side", 0.0f},
       });
 
-  const Viewer2DView previousView = capturePanel->GetView();
-
   renderer.SetViewportSize(options.viewportSize);
   renderer.PrepareForCapture();
+  capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
   capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
   capturePanel->UpdateScene(true);
 
@@ -240,6 +272,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
     ScopedFloatConfigOverride topViewOverride(
         cfg, {{"view2d_top_fixtures_inverted", request.topFixturesInverted}});
 
+    capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
     capturePanel->SetView(request.view);
     capturePanel->UpdateScene(true);
     capturePanel->FitViewToScene();
@@ -248,7 +281,6 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
     render.view = request.symbolView;
     const bool ok = capturePanel->RenderToRGBA(render.rgba, render.width, render.height);
     if (!ok || render.width <= 0 || render.height <= 0) {
-      capturePanel->SetView(previousView);
       result.error = "Could not capture all orthographic source images from the 2D viewer.";
       return result;
     }
@@ -256,8 +288,6 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
       MirrorImageHorizontally(render);
     renders.push_back(std::move(render));
   }
-
-  capturePanel->SetView(previousView);
 
   auto symbols = symbols::Symbol2DImageBuilder::BuildFromRenderedImages(renders);
   if (symbols.size() != requests.size()) {
