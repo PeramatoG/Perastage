@@ -764,7 +764,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
   const fs::path projectPath = fs::u8path(path);
   if (!fs::is_regular_file(projectPath, ec)) {
     ProjectUtils::SaveLastProjectPath("");
-    ResetProject();
+    ResetProject(true);
     SetStartupProjectLoadPending(false);
     RequestStartupSplashCompletion();
     return;
@@ -779,7 +779,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
   if (!LoadProjectFromPath(path, false)) {
     fixtureSymbolAutoUpdateCompletionCallback = nullptr;
     ProjectUtils::SaveLastProjectPath("");
-    ResetProject();
+    ResetProject(true);
     RequestStartupSplashCompletion();
   }
 
@@ -1215,7 +1215,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     StartFixtureSymbolAutoUpdateForLoadedScene();
     UpdateTitle();
   } else {
-    ResetProject();
+    ResetProject(true);
     RequestStartupSplashCompletion();
     if (!path.empty()) {
       CallAfter([this, startupPath = path]() {

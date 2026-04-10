@@ -145,6 +145,19 @@ target_link_libraries(layout_template_import_name_collision_test
 add_test(NAME LayoutTemplateImportNameCollision
          COMMAND layout_template_import_name_collision_test)
 
+add_executable(layout_defaults_load_from_empty_config_test
+               layout_defaults_load_from_empty_config_test.cpp
+               configmanager_layoutmanager_stub.cpp
+               ../core/layouts/LayoutManager.cpp
+               ../core/layouts/LayoutDefaultsLoader.cpp
+               ../core/projectutils.cpp
+               ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplateSerializer.cpp)
+target_link_libraries(layout_defaults_load_from_empty_config_test
+                      PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME LayoutDefaultsLoadFromEmptyConfig
+         COMMAND layout_defaults_load_from_empty_config_test)
+
 function(set_library_env TEST_NAME)
     set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT "PERASTAGE_LIBRARY_PATH=${CMAKE_SOURCE_DIR}/library")
 endfunction()
