@@ -9,7 +9,6 @@ public:
 
   virtual bool IsInteracting() const = 0;
   virtual bool UseAdaptiveLineProfile() const = 0;
-  virtual bool UseSymbolCaptureRenderProfile() const = 0;
   virtual bool SkipOutlinesForCurrentFrame() const = 0;
   virtual bool IsSelectionOutlineEnabled2D() const = 0;
   virtual bool IsUuidHighlighted(const std::string &uuid) const = 0;

@@ -95,8 +95,6 @@ public:
                    bool preferPerastageSvgSymbolsForLayouts = false);
 
   void SetDarkMode(bool enabled);
-  void SetForceSymbolCaptureRenderProfile(bool enabled);
-  bool IsForceSymbolCaptureRenderProfileEnabled() const;
   void SetInteracting(bool interacting);
   void SetCameraMoving(bool moving);
   bool IsCameraMoving() const override;
@@ -256,7 +254,6 @@ private:
 
   bool IsInteracting() const override;
   bool UseAdaptiveLineProfile() const override;
-  bool UseSymbolCaptureRenderProfile() const override;
   bool SkipOutlinesForCurrentFrame() const override;
   bool IsSelectionOutlineEnabled2D() const override;
   bool IsUuidHighlighted(const std::string &uuid) const override;

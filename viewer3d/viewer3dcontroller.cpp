@@ -136,7 +136,6 @@ struct Viewer3DController::Impl {
   bool isInteracting = false;
   bool cameraMoving = false;
   bool useAdaptiveLineProfile = true;
-  bool forceSymbolCaptureRenderProfile = false;
   bool skipOutlinesForCurrentFrame = false;
   int updateResourcesCallsPerFrame = 0;
   mutable VisibleSet cachedVisibleSet;
@@ -1252,14 +1251,6 @@ void Viewer3DController::FinalizeRenderFrame() {
 
 void Viewer3DController::SetDarkMode(bool enabled) { m_impl->darkMode = enabled; }
 
-void Viewer3DController::SetForceSymbolCaptureRenderProfile(bool enabled) {
-  m_impl->forceSymbolCaptureRenderProfile = enabled;
-}
-
-bool Viewer3DController::IsForceSymbolCaptureRenderProfileEnabled() const {
-  return m_impl->forceSymbolCaptureRenderProfile;
-}
-
 void Viewer3DController::SetInteracting(bool interacting) {
   const bool wasInteracting = m_impl->isInteracting;
   m_impl->isInteracting = interacting;
@@ -1767,12 +1758,6 @@ bool Viewer3DController::IsInteracting() const { return m_impl->isInteracting; }
 
 bool Viewer3DController::UseAdaptiveLineProfile() const {
   return m_impl->useAdaptiveLineProfile;
-}
-
-bool Viewer3DController::UseSymbolCaptureRenderProfile() const {
-  return m_impl->forceSymbolCaptureRenderProfile ||
-         ConfigManager::Get().GetFloat("viewer3d_symbol_capture_render_profile") >=
-             0.5f;
 }
 
 bool Viewer3DController::SkipOutlinesForCurrentFrame() const {

@@ -106,12 +106,6 @@ public:
   bool GetPreferPerastageSvgSymbolsForLayouts() const {
     return m_preferPerastageSvgSymbolsForLayouts;
   }
-  void SetForceSymbolCaptureRenderProfile(bool enabled) {
-    m_controller.SetForceSymbolCaptureRenderProfile(enabled);
-  }
-  bool IsForceSymbolCaptureRenderProfileEnabled() const {
-    return m_controller.IsForceSymbolCaptureRenderProfileEnabled();
-  }
 
   // Accessor for the last recorded set of drawing commands. The buffer is
   // cleared and re-populated on every requested capture.
