@@ -64,11 +64,24 @@ std::string ToLowerAscii(std::string text) {
   return text;
 }
 
-std::optional<std::string> GetStartupPathFromArgs(int argc, wxChar **argv) {
+std::optional<std::string> GetStartupPathFromArgs(
+    int argc, wxChar **argv, const std::string &launchWorkingDirectoryUtf8) {
   namespace fs = std::filesystem;
   const std::string projectExtension = ToLowerAscii(ProjectUtils::PROJECT_EXTENSION);
+  const fs::path launchWorkingDirectory =
+      launchWorkingDirectoryUtf8.empty()
+          ? fs::path()
+          : fs::u8path(launchWorkingDirectoryUtf8);
+
+  auto toUtf8 = [](const wxString &text) {
+    wxCharBuffer utf8 = text.ToUTF8();
+    if (!utf8)
+      return text.ToStdString();
+    return std::string(utf8.data());
+  };
+
   for (int i = 1; i < argc; ++i) {
-    const std::string rawPath = wxString(argv[i]).ToStdString();
+    const std::string rawPath = toUtf8(wxString(argv[i]));
     if (rawPath.empty())
       continue;
 
@@ -80,7 +93,12 @@ std::optional<std::string> GetStartupPathFromArgs(int argc, wxChar **argv) {
       continue;
 
     std::error_code ec;
-    fs::path absolutePath = fs::absolute(candidate, ec);
+    fs::path absolutePath;
+    if (!candidate.is_absolute() && !launchWorkingDirectory.empty()) {
+      absolutePath = fs::absolute(launchWorkingDirectory / candidate, ec);
+    } else {
+      absolutePath = fs::absolute(candidate, ec);
+    }
     if (ec)
       return rawPath;
     const std::u8string absoluteU8 = absolutePath.u8string();
@@ -115,6 +133,12 @@ bool MyApp::OnInit() {
 #if defined(_MSC_VER) && defined(_DEBUG)
   ConfigureWindowsDebugHeapLeakCheck();
 #endif
+
+  const wxString launchCwdWx = wxFileName::GetCwd();
+  const wxCharBuffer launchCwdUtf8Buffer = launchCwdWx.ToUTF8();
+  const std::string launchWorkingDirectoryUtf8 =
+      launchCwdUtf8Buffer ? std::string(launchCwdUtf8Buffer.data())
+                          : launchCwdWx.ToStdString();
 
   SetAppName(app::kName);
   SetVendorName("Perasoft");
@@ -151,8 +175,8 @@ bool MyApp::OnInit() {
   // Start maximized so minimize and restore buttons remain available
   mainWindow->Maximize(true);
 
-  const std::optional<std::string> startupPathOpt =
-      GetStartupPathFromArgs(argc, argv);
+  const std::optional<std::string> startupPathOpt = GetStartupPathFromArgs(
+      argc, argv, launchWorkingDirectoryUtf8);
 
   SplashScreen::SetMessage("Loading last project...");
   wxWeakRef<MainWindow> mainWindowRef(mainWindow);
