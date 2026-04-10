@@ -130,6 +130,73 @@ bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
   return true;
 }
 
+std::string NormalizePathSeparators(std::string value) {
+  std::replace(value.begin(), value.end(), '\\', '/');
+  return value;
+}
+
+bool IsPathWithinDirectory(const fs::path &path, const fs::path &directory) {
+  if (directory.empty())
+    return false;
+
+  std::error_code ec;
+  const fs::path canonicalPath = fs::weakly_canonical(path, ec);
+  if (ec)
+    return false;
+
+  ec.clear();
+  const fs::path canonicalDir = fs::weakly_canonical(directory, ec);
+  if (ec)
+    return false;
+
+  auto pathIt = canonicalPath.begin();
+  auto dirIt = canonicalDir.begin();
+  for (; dirIt != canonicalDir.end(); ++dirIt, ++pathIt) {
+    if (pathIt == canonicalPath.end() || *pathIt != *dirIt)
+      return false;
+  }
+  return true;
+}
+
+bool EnsureSceneLocalGdtfCopy(const fs::path &sourcePath,
+                              const fs::path &sceneBasePath,
+                              Fixture &fixture,
+                              std::string &scenePathOut,
+                              std::string &errorMessage) {
+  if (sourcePath.empty() || sceneBasePath.empty()) {
+    errorMessage = "Could not prepare a writable fixture GDTF copy in the scene folder.";
+    return false;
+  }
+
+  std::error_code ec;
+  const fs::path sceneFixturesDir = sceneBasePath / "fixtures";
+  fs::create_directories(sceneFixturesDir, ec);
+  if (ec) {
+    errorMessage = "Could not create scene fixtures directory for writable GDTF copy.";
+    return false;
+  }
+
+  const fs::path targetPath = sceneFixturesDir / sourcePath.filename();
+  fs::copy_file(sourcePath, targetPath, fs::copy_options::overwrite_existing, ec);
+  if (ec) {
+    errorMessage = "Could not copy fixture GDTF into the scene folder.";
+    return false;
+  }
+
+  ec.clear();
+  const fs::path relativePath = fs::relative(targetPath, sceneBasePath, ec);
+  if (ec) {
+    errorMessage = "Could not compute scene-relative fixture GDTF path.";
+    return false;
+  }
+
+  const std::string relativeSpec =
+      NormalizePathSeparators(relativePath.string());
+  fixture.gdtfSpec = relativeSpec;
+  scenePathOut = targetPath.string();
+  return true;
+}
+
 std::string ResolveSceneGdtfPath(const Fixture &fixture, const MvrScene &scene) {
   const fs::path specPath = fs::path(fixture.gdtfSpec);
   if (specPath.empty())
@@ -601,14 +668,14 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
   }
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  const auto &fixtures = cfg.GetScene().fixtures;
+  auto &scene = cfg.GetScene();
+  auto &fixtures = scene.fixtures;
   auto fixtureIt = fixtures.find(fixtureUuid);
   if (fixtureIt == fixtures.end()) {
     errorMessage = "Could not resolve the selected fixture in the scene.";
     return false;
   }
 
-  const MvrScene &scene = cfg.GetScene();
   const std::string scenePath = ResolveSceneGdtfPath(fixtureIt->second, scene);
   const std::string libraryPath = ResolveLibraryGdtfPath(fixtureIt->second);
   if (scenePath.empty() && libraryPath.empty()) {
@@ -657,25 +724,50 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     return false;
   }
 
-  if (options.updateSceneCopy && !scenePath.empty()) {
-    if (!RewriteGdtf(scenePath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
+  std::string writableScenePath = scenePath;
+  bool sceneUpdated = false;
+  if (options.updateSceneCopy && !scene.basePath.empty() &&
+      (!scenePath.empty() &&
+       !IsPathWithinDirectory(fs::path(scenePath), fs::path(scene.basePath)))) {
+    if (!EnsureSceneLocalGdtfCopy(fs::path(scenePath), fs::path(scene.basePath),
+                                  fixtureIt->second, writableScenePath,
+                                  errorMessage)) {
+      return false;
+    }
+  }
+
+  if (options.updateSceneCopy && writableScenePath.empty() && !scene.basePath.empty() &&
+      !libraryPath.empty()) {
+    if (!EnsureSceneLocalGdtfCopy(fs::path(libraryPath), fs::path(scene.basePath),
+                                  fixtureIt->second, writableScenePath,
+                                  errorMessage)) {
+      return false;
+    }
+  }
+
+  if (options.updateSceneCopy && !writableScenePath.empty()) {
+    if (!RewriteGdtf(writableScenePath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
                      bottomSvgPath, errorMessage)) {
       return false;
     }
+    sceneUpdated = true;
   }
 
   if (options.updateLibraryCopy && !libraryPath.empty()) {
-    const bool libraryEqualsScene = !scenePath.empty() && libraryPath == scenePath;
+    const bool libraryEqualsScene =
+        !writableScenePath.empty() && libraryPath == writableScenePath;
     if (!libraryEqualsScene &&
         !RewriteGdtf(libraryPath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
                      bottomSvgPath, errorMessage)) {
-      return false;
+      if (!sceneUpdated)
+        return false;
     }
   }
 
-  if (libraryPath.empty() && !scenePath.empty() && !fixtureIt->second.typeName.empty()) {
+  if (libraryPath.empty() && !writableScenePath.empty() &&
+      !fixtureIt->second.typeName.empty()) {
     // Keep dictionary default modes immutable outside dictionary editor.
-    GdtfDictionary::Update(fixtureIt->second.typeName, scenePath);
+    GdtfDictionary::Update(fixtureIt->second.typeName, writableScenePath);
   }
 
   return true;
