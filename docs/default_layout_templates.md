@@ -1,6 +1,6 @@
-# Default layout templates for new projects
+# Default layout templates
 
-Perastage can preload layout templates when creating a **new** project.
+Perastage can preload layout templates from `library/default_layouts/`.
 
 ## Folder
 
@@ -35,5 +35,10 @@ At load time, relative paths are resolved to absolute paths when the file exists
 
 ## Scope
 
-Template loading is only applied when the user uses **New Project**.
-It does not alter loading of existing project files.
+Template loading is applied when:
+
+- The user uses **New Project**.
+- The active config has no stored `layouts_collection` yet (for example first
+  launch with an empty config).
+
+If a project already has stored layouts, template files are ignored.

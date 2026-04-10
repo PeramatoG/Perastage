@@ -401,7 +401,8 @@ void LayoutManager::EndBatchUpdate() {
 void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   auto value = cfg.GetValue(kLayoutsConfigKey);
   if (!value.has_value()) {
-    SaveToConfig(cfg);
+    if (!LoadDefaultsForNewProject(cfg))
+      SaveToConfig(cfg);
     return;
   }
   nlohmann::json parsed;
