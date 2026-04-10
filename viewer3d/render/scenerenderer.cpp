@@ -38,11 +38,6 @@ LineRenderProfile GetLineRenderProfile(bool isInteracting, bool wireframeMode,
   return {wireframeMode ? 1.0f : 2.0f, true};
 }
 
-bool IsSymbolCaptureRenderProfileEnabled() {
-  return ConfigManager::Get().GetFloat("viewer3d_symbol_capture_render_profile") >=
-         0.5f;
-}
-
 std::array<float, 3> NormalizeVector(float x, float y, float z) {
   const float length = std::sqrt(x * x + y * y + z * z);
   if (length <= 1e-6f)
@@ -241,7 +236,8 @@ void SceneRenderer::DrawMeshWithOutline(
                              mode == Viewer2DRenderMode::Wireframe,
                              m_controller.UseAdaptiveLineProfile())
             .lineWidth;
-    const bool symbolCaptureRenderProfile = IsSymbolCaptureRenderProfileEnabled();
+    const bool symbolCaptureRenderProfile =
+        m_controller.UseSymbolCaptureRenderProfile();
     const bool drawOutline =
         !m_controller.SkipOutlinesForCurrentFrame() &&
         m_controller.IsSelectionOutlineEnabled2D() && (highlight || selected);

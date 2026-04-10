@@ -155,6 +155,8 @@ public:
     renderMode_ = panel_.GetRenderMode();
     preferPerastageSvgSymbolsForLayouts_ =
         panel_.GetPreferPerastageSvgSymbolsForLayouts();
+    forceSymbolCaptureRenderProfile_ =
+        panel_.IsForceSymbolCaptureRenderProfileEnabled();
   }
 
   ~ScopedViewer2DCaptureState() {
@@ -162,6 +164,7 @@ public:
                           renderMode_);
     panel_.SetPreferPerastageSvgSymbolsForLayouts(
         preferPerastageSvgSymbolsForLayouts_);
+    panel_.SetForceSymbolCaptureRenderProfile(forceSymbolCaptureRenderProfile_);
     panel_.UpdateScene(true);
   }
 
@@ -173,6 +176,7 @@ private:
   Viewer2DView view_ = Viewer2DView::Top;
   Viewer2DRenderMode renderMode_ = Viewer2DRenderMode::White;
   bool preferPerastageSvgSymbolsForLayouts_ = false;
+  bool forceSymbolCaptureRenderProfile_ = false;
 };
 
 void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
@@ -240,6 +244,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
   renderer.SetViewportSize(options.viewportSize);
   renderer.PrepareForCapture();
+  capturePanel->SetForceSymbolCaptureRenderProfile(true);
   capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
   capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
   capturePanel->UpdateScene(true);
