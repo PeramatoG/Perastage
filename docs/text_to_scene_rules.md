@@ -452,6 +452,16 @@ At the end of import:
 - Auto-patch runs by default.
 - It is skipped only when config `rider_autopatch = 0`.
 
+## Auto-color behavior after text scene creation
+
+After a successful **Tools → Create from text** import:
+
+- The same **Auto color** routine used after MVR import is executed.
+- Fixture/layer colors are normalized immediately, including fallback random
+  colors for fixture groups with no dictionary color.
+- This runs before the final scene refresh, so users see the colored result as
+  soon as text import completes.
+
 ## Config keys that affect import
 
 - `rider_layer_mode` (`position` or `type`)
