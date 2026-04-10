@@ -256,7 +256,7 @@ private:
 
   bool IsInteracting() const override;
   bool UseAdaptiveLineProfile() const override;
-  bool UseSymbolCaptureRenderProfile() const;
+  bool UseSymbolCaptureRenderProfile() const override;
   bool SkipOutlinesForCurrentFrame() const override;
   bool IsSelectionOutlineEnabled2D() const override;
   bool IsUuidHighlighted(const std::string &uuid) const override;
