@@ -1153,7 +1153,13 @@ void MainWindow::SyncLayerVisibilityPanels() {
 void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
   bool loaded = event.GetInt() != 0;
   bool clearLastProject = event.GetExtraLong() != 0;
-  std::string path = event.GetString().ToStdString();
+  std::string path;
+  {
+    const wxString eventPath = event.GetString();
+    const wxCharBuffer eventPathUtf8 = eventPath.ToUTF8();
+    path = eventPathUtf8 ? std::string(eventPathUtf8.data())
+                         : eventPath.ToStdString();
+  }
   Ensure3DViewport();
   if (clearLastProject)
     ProjectUtils::SaveLastProjectPath("");
