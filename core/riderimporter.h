@@ -17,18 +17,31 @@
  */
 #pragma once
 
+#include <functional>
 #include <string>
 
 // Parses simple rider files (.txt/.pdf) to create dummy fixtures and trusses
 class RiderImporter {
 public:
+    struct ProgressState {
+        std::string stage;
+        int completed = 0;
+        int total = 0;
+
+        bool HasCount() const { return total > 0; }
+    };
+
+    using ProgressCallback = std::function<void(const ProgressState&)>;
+
     // Import rider located at path. Returns true on success.
-    static bool Import(const std::string& path);
+    static bool Import(const std::string& path,
+                       ProgressCallback progressCallback = {});
     // Load rider file into text. Returns empty string on failure.
     static std::string LoadText(const std::string& path);
     // Build a filtered text preview that keeps only fixture lines that would be
     // considered during text-to-scene import.
     static std::string BuildFixtureFilterPreview(const std::string& text);
     // Import from raw rider text. Returns true on success.
-    static bool ImportText(const std::string& text);
+    static bool ImportText(const std::string& text,
+                           ProgressCallback progressCallback = {});
 };

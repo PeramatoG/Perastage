@@ -1030,11 +1030,12 @@ std::string RiderImporter::LoadText(const std::string &path) {
   return {};
 }
 
-bool RiderImporter::Import(const std::string &path) {
+bool RiderImporter::Import(const std::string &path,
+                           ProgressCallback progressCallback) {
   std::string text = LoadText(path);
   if (text.empty())
     return false;
-  return ImportText(text);
+  return ImportText(text, std::move(progressCallback));
 }
 
 std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
@@ -1465,15 +1466,23 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
   return preview.str();
 }
 
-bool RiderImporter::ImportText(const std::string &text) {
+bool RiderImporter::ImportText(const std::string &text,
+                               ProgressCallback progressCallback) {
   if (text.empty())
     return false;
+  auto reportProgress = [&](std::string stage, int completed = 0, int total = 0) {
+    if (!progressCallback)
+      return;
+    progressCallback(ProgressState{std::move(stage), completed, total});
+  };
 
+  reportProgress("Filtering text...", 1, 6);
   // Keep scene creation consistent with the dialog preview flow:
   // import always consumes the same normalized text produced by the
   // filter pass used by "Apply filter".
   const std::string filteredText = BuildFixtureFilterPreview(text);
   const std::string &textToImport = filteredText.empty() ? text : filteredText;
+  reportProgress("Parsing lines...", 2, 6);
 
   ConfigManager &cfg = ConfigManager::Get();
   cfg.PushUndoState("import rider");
@@ -2518,6 +2527,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     }
   }
 
+  reportProgress("Resolving rigging data...", 3, 6);
   for (const std::string &uuid : importedTrussUuids) {
     auto trussIt = scene.trusses.find(uuid);
     if (trussIt == scene.trusses.end())
@@ -2630,6 +2640,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     }
   }
 
+  reportProgress("Placing imported scene objects...", 4, 6);
   // Distribute fixtures along their hang positions using available truss
   // information. Fixtures are arranged symmetrically and alternately by type,
   // leaving a configurable margin at the ends of the truss and placing them on
@@ -2928,6 +2939,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     }
   }
 
+  reportProgress("Assigning fixture identities...", 5, 6);
   std::vector<Support *> importedSupports;
   importedSupports.reserve(importedSupportUuids.size());
   for (const std::string &uuid : importedSupportUuids) {
@@ -3296,5 +3308,6 @@ bool RiderImporter::ImportText(const std::string &text) {
   auto autoPref = cfg.GetValue("rider_autopatch");
   if (!autoPref || *autoPref != "0")
     AutoPatcher::AutoPatch(scene);
+  reportProgress("Completed.", 6, 6);
   return true;
 }
