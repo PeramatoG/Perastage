@@ -18,6 +18,7 @@
 #include "mainwindow.h"
 #include "mainwindow_io_controller.h"
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -32,6 +33,7 @@
 #include <wx/busyinfo.h>
 #include <wx/filename.h>
 #include <wx/log.h>
+#include <wx/progdlg.h>
 #include <wx/utils.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
@@ -306,15 +308,47 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
       std::make_unique<wxWindowDisabler>();
   std::unique_ptr<wxBusyInfo> createOverlay =
       std::make_unique<wxBusyInfo>("Generating scene from text...");
+  std::unique_ptr<wxProgressDialog> createProgress;
   wxYieldIfNeeded();
 
-  if (!RiderImporter::ImportText(riderText)) {
+  if (!RiderImporter::ImportText(
+          riderText, [&](const RiderImporter::ProgressState &progress) {
+            if (!GetStatusBar())
+              return;
+            const wxString stageText = wxString::FromUTF8(progress.stage);
+            if (progress.HasCount()) {
+              const int safeTotal = std::max(progress.total, 1);
+              const int clampedCompleted =
+                  std::clamp(progress.completed, 0, safeTotal);
+              if (!createProgress) {
+                createOverlay.reset();
+                createProgress = std::make_unique<wxProgressDialog>(
+                    "Text scene creation progress", stageText, safeTotal, this,
+                    wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);
+              } else {
+                createProgress->SetRange(safeTotal);
+              }
+              createProgress->Update(clampedCompleted, stageText);
+              SetStatusText(
+                  wxString::Format("Text import: %s (%d/%d)", stageText,
+                                   clampedCompleted, safeTotal),
+                  0);
+            } else {
+              if (createProgress)
+                createProgress->Pulse(stageText);
+              SetStatusText("Text import: " + stageText, 0);
+            }
+            GetStatusBar()->Update();
+          })) {
     wxMessageBox("Failed to import rider text.", "Error", wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to import rider from text.");
+    if (GetStatusBar())
+      SetStatusText("Text import failed.", 0);
     return;
   }
 
+  createProgress.reset();
   if (consolePanel)
     consolePanel->AppendMessage("[INFO] Imported rider from text.");
   if (currentProjectPath.empty() && currentProjectDisplayName.IsEmpty()) {
@@ -324,6 +358,8 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
       UpdateTitle();
     }
   }
+  if (GetStatusBar())
+    SetStatusText("Text import completed.", 0);
   RefreshAfterSceneChange();
 }
 
