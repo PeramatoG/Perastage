@@ -204,6 +204,53 @@ wxFont BuildDefaultUiFont() {
   return defaultFont;
 }
 
+const std::vector<std::string> &GetPreferencesDialogConfigKeys() {
+  static const std::vector<std::string> kKeys = {
+      "rider_autopatch",
+      "rider_layer_mode",
+      "ui_distance_unit_system",
+      "ui_weight_unit_system",
+      "viewer3d_render_style",
+      "rider_lx1_height",
+      "rider_lx2_height",
+      "rider_lx3_height",
+      "rider_lx4_height",
+      "rider_lx5_height",
+      "rider_lx6_height",
+      "rider_lx1_pos",
+      "rider_lx2_pos",
+      "rider_lx3_pos",
+      "rider_lx4_pos",
+      "rider_lx5_pos",
+      "rider_lx6_pos",
+      "rider_lx1_margin",
+      "rider_lx2_margin",
+      "rider_lx3_margin",
+      "rider_lx4_margin",
+      "rider_lx5_margin",
+      "rider_lx6_margin",
+  };
+  return kKeys;
+}
+
+std::vector<std::pair<std::string, std::string>>
+CapturePreferencesDialogValues(const IGuiPreferencesService &preferences) {
+  std::vector<std::pair<std::string, std::string>> values;
+  for (const auto &key : GetPreferencesDialogConfigKeys()) {
+    const auto value = preferences.GetValue(key);
+    if (value.has_value())
+      values.emplace_back(key, *value);
+  }
+  return values;
+}
+
+void RestorePreferencesDialogValues(
+    IGuiPreferencesService &preferences,
+    const std::vector<std::pair<std::string, std::string>> &values) {
+  for (const auto &[key, value] : values)
+    preferences.SetValue(key, value);
+}
+
 }
 
 wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
@@ -740,10 +787,14 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
 }
 
 void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
-  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  auto &guiConfigServices = GetDefaultGuiConfigServices();
+  auto &preferences = guiConfigServices.Preferences();
+  const auto preservedPreferences = CapturePreferencesDialogValues(preferences);
+  auto &cfg = guiConfigServices.LegacyConfigManager();
   cfg.Reset();
   if (applyLayoutDefaultsForNewProject)
     layouts::LayoutManager::Get().LoadDefaultsForNewProject(cfg);
+  RestorePreferencesDialogValues(preferences, preservedPreferences);
   cfg.MarkSaved();
   fixtureSymbolAutoUpdateQueue.clear();
   fixtureSymbolAutoUpdateProcessedKeys.clear();
