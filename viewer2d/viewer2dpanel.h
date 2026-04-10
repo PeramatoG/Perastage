@@ -103,6 +103,9 @@ public:
   void SetPreferPerastageSvgSymbolsForLayouts(bool enabled) {
     m_preferPerastageSvgSymbolsForLayouts = enabled;
   }
+  bool GetPreferPerastageSvgSymbolsForLayouts() const {
+    return m_preferPerastageSvgSymbolsForLayouts;
+  }
 
   // Accessor for the last recorded set of drawing commands. The buffer is
   // cleared and re-populated on every requested capture.

@@ -153,11 +153,15 @@ public:
     zoom_ = state.zoom;
     view_ = state.view;
     renderMode_ = panel_.GetRenderMode();
+    preferPerastageSvgSymbolsForLayouts_ =
+        panel_.GetPreferPerastageSvgSymbolsForLayouts();
   }
 
   ~ScopedViewer2DCaptureState() {
     panel_.ApplyViewState(offsetXPixels_, offsetYPixels_, zoom_, view_,
                           renderMode_);
+    panel_.SetPreferPerastageSvgSymbolsForLayouts(
+        preferPerastageSvgSymbolsForLayouts_);
     panel_.UpdateScene(true);
   }
 
@@ -168,6 +172,7 @@ private:
   float zoom_ = 1.0f;
   Viewer2DView view_ = Viewer2DView::Top;
   Viewer2DRenderMode renderMode_ = Viewer2DRenderMode::White;
+  bool preferPerastageSvgSymbolsForLayouts_ = false;
 };
 
 void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
@@ -205,9 +210,9 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
     return result;
   }
 
+  ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
   ScopedSingleModelSceneOverride isolatedSceneOverride(cfg, target,
                                                        options.alignToLocalAxes);
-  ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
   ScopedFixtureColorOverride selectedFixtureColorOverride(
       cfg, target.kind == SceneModelKind::Fixture ? target.uuid : std::string(),
       options.forcedFixtureColor);
@@ -235,6 +240,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
   renderer.SetViewportSize(options.viewportSize);
   renderer.PrepareForCapture();
+  capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
   capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
   capturePanel->UpdateScene(true);
 
