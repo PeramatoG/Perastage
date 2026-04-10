@@ -277,6 +277,8 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
     ScopedFloatConfigOverride topViewOverride(
         cfg, {{"view2d_top_fixtures_inverted", request.topFixturesInverted}});
 
+    capturePanel->SetForceSymbolCaptureRenderProfile(true);
+    capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
     capturePanel->SetView(request.view);
     capturePanel->UpdateScene(true);
     capturePanel->FitViewToScene();
