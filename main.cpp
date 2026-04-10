@@ -183,13 +183,11 @@ bool MyApp::OnInit() {
   auto lastPathOpt = ProjectUtils::LoadLastProjectPath();
 
   if (startupPathOpt && mainWindowRef) {
-    QueueProjectLoadedEvent(mainWindowRef, false, false);
-    const std::string startupPath = *startupPathOpt;
-    mainWindow->CallAfter([mainWindowRef, startupPath]() {
-      if (!mainWindowRef)
-        return;
-      mainWindowRef->OpenPathFromCommandLine(startupPath);
-    });
+    // Route startup file opens through EVT_PROJECT_LOADED so startup-reset and
+    // command-line open cannot race each other. The actual open/import is
+    // deferred by MainWindow::OnProjectLoaded() after startup pending state is
+    // cleared.
+    QueueProjectLoadedEvent(mainWindowRef, false, false, *startupPathOpt);
   } else if (lastPathOpt) {
     std::string lastPath = *lastPathOpt;
     mainWindow->CallAfter([mainWindowRef, lastPath]() {
