@@ -34,9 +34,10 @@ namespace ui {
 
 bool IsFeatureEnabled(FeatureFlag flag) {
   switch (flag) {
+  case FeatureFlag::GenerateFixtureSymbols:
+    return true;
   case FeatureFlag::PrintViewer2DDialog:
   case FeatureFlag::PrintViewer2DElementsDetail:
-  case FeatureFlag::GenerateFixtureSymbols:
   case FeatureFlag::AssignSelectedFixtureCategory:
     return kIsDebugBuild;
   }
