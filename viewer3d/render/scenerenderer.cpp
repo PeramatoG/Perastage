@@ -236,10 +236,14 @@ void SceneRenderer::DrawMeshWithOutline(
                              mode == Viewer2DRenderMode::Wireframe,
                              m_controller.UseAdaptiveLineProfile())
             .lineWidth;
-    const bool symbolCaptureRenderProfile =
+    bool symbolCaptureRenderProfile =
         mode == Viewer2DRenderMode::ByFixtureType ||
         ConfigManager::Get().GetFloat("viewer3d_symbol_capture_render_profile") >=
             0.5f;
+    if (m_controller.GetSymbolCaptureRenderProfileOverride().has_value()) {
+      symbolCaptureRenderProfile =
+          m_controller.GetSymbolCaptureRenderProfileOverride().value();
+    }
     const bool drawOutline =
         !m_controller.SkipOutlinesForCurrentFrame() &&
         m_controller.IsSelectionOutlineEnabled2D() && (highlight || selected);

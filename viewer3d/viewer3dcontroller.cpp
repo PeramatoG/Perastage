@@ -125,6 +125,9 @@ struct Viewer3DController::Impl {
   bool captureIncludeGrid = true;
   bool captureOnly = false;
   bool captureUseSymbols = false;
+  std::optional<bool> forceBottomViewForTopFixturesOverride;
+  std::optional<bool> symbolCaptureRenderProfileOverride;
+  std::optional<bool> symbolCaptureIncludeCoplanarEdgesOverride;
   SymbolCache bottomSymbolCache;
   bool darkMode = false;
   Viewer2DRenderMode activeRenderMode = Viewer2DRenderMode::White;
@@ -1273,6 +1276,60 @@ void Viewer3DController::SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
   m_impl->captureUseSymbols = canvas ? useSymbolInstancing : false;
 }
 
+void Viewer3DController::SetForceBottomViewForTopFixturesOverride(
+    const std::optional<bool> &value) {
+  m_impl->forceBottomViewForTopFixturesOverride = value;
+}
+
+void Viewer3DController::SetSymbolCaptureRenderProfileOverride(
+    const std::optional<bool> &value) {
+  m_impl->symbolCaptureRenderProfileOverride = value;
+}
+
+void Viewer3DController::SetSymbolCaptureIncludeCoplanarEdgesOverride(
+    const std::optional<bool> &value) {
+  if (m_impl->symbolCaptureIncludeCoplanarEdgesOverride == value)
+    return;
+  m_impl->symbolCaptureIncludeCoplanarEdgesOverride = value;
+
+  for (auto &[path, mesh] : m_impl->resourceSyncState.loadedMeshes) {
+    (void)path;
+    ReleaseMeshBuffers(mesh);
+  }
+  for (auto &[path, objects] : m_impl->resourceSyncState.loadedGdtf) {
+    (void)path;
+    for (auto &obj : objects)
+      ReleaseMeshBuffers(obj.mesh);
+  }
+  for (auto &[path, tree] : m_impl->resourceSyncState.loadedGdtfGeometryTrees) {
+    (void)path;
+    for (auto &node : tree.nodes) {
+      if (node.hasMesh)
+        ReleaseMeshBuffers(node.mesh);
+    }
+  }
+}
+
+std::optional<bool>
+Viewer3DController::GetForceBottomViewForTopFixturesOverride() const {
+  return m_impl->forceBottomViewForTopFixturesOverride;
+}
+
+std::optional<bool>
+Viewer3DController::GetSymbolCaptureRenderProfileOverride() const {
+  return m_impl->symbolCaptureRenderProfileOverride;
+}
+
+bool Viewer3DController::IsSymbolCaptureRenderProfileEnabled(
+    Viewer2DRenderMode mode) const {
+  if (m_impl->symbolCaptureRenderProfileOverride.has_value())
+    return m_impl->symbolCaptureRenderProfileOverride.value();
+  if (mode == Viewer2DRenderMode::ByFixtureType)
+    return true;
+  return ConfigManager::Get().GetFloat("viewer3d_symbol_capture_render_profile") >=
+         0.5f;
+}
+
 bool Viewer3DController::IsCameraMoving() const { return m_impl->cameraMoving; }
 
 std::array<float, 3> Viewer3DController::AdjustColor(float r, float g,
@@ -1308,6 +1365,8 @@ void Viewer3DController::DrawWireframeCube(
       GetLineRenderProfile(m_impl->isInteracting, mode == Viewer2DRenderMode::Wireframe,
                            m_impl->useAdaptiveLineProfile)
           .lineWidth;
+  if (IsSymbolCaptureRenderProfileEnabled(mode))
+    lineWidth = 2.0f;
   GLPrimitiveRenderer::DrawWireframeCube(
       size, r, g, b, mode, captureTransform, lineWidth, lineWidthOverride,
       recordCapture, m_impl->captureOnly, m_impl->captureCanvas,
@@ -1328,6 +1387,8 @@ void Viewer3DController::DrawWireframeBox(
       GetLineRenderProfile(m_impl->isInteracting, mode == Viewer2DRenderMode::Wireframe,
                            m_impl->useAdaptiveLineProfile)
           .lineWidth;
+  if (IsSymbolCaptureRenderProfileEnabled(mode))
+    lineWidth = 2.0f;
   GLPrimitiveRenderer::DrawWireframeBox(
       length, height, width, highlight, selected, wireframe, mode,
       captureTransform, m_impl->skipOutlinesForCurrentFrame, m_impl->showSelectionOutline2D,
@@ -1353,6 +1414,8 @@ void Viewer3DController::DrawCubeWithOutline(
       GetLineRenderProfile(m_impl->isInteracting, mode == Viewer2DRenderMode::Wireframe,
                            m_impl->useAdaptiveLineProfile)
           .lineWidth;
+  if (IsSymbolCaptureRenderProfileEnabled(mode))
+    lineWidth = 2.0f;
   GLPrimitiveRenderer::DrawCubeWithOutline(
       size, r, g, b, highlight, selected, wireframe, mode, captureTransform,
       m_impl->skipOutlinesForCurrentFrame, m_impl->showSelectionOutline2D, m_impl->captureOnly,
@@ -1388,9 +1451,13 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   if (mesh.normals.size() < mesh.vertices.size())
     ComputeNormals(mesh);
 
-  const bool includeCoplanarEdgesForCapture =
+  bool includeCoplanarEdgesForCapture =
       ConfigManager::Get().GetFloat(
           "viewer3d_symbol_capture_include_coplanar_edges") >= 0.5f;
+  if (m_impl->symbolCaptureIncludeCoplanarEdgesOverride.has_value()) {
+    includeCoplanarEdgesForCapture =
+        m_impl->symbolCaptureIncludeCoplanarEdgesOverride.value();
+  }
   std::vector<unsigned short> lineIndices = BuildWireframeIndices(
       mesh.vertices, mesh.indices, includeCoplanarEdgesForCapture);
 
