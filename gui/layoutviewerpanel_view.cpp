@@ -224,7 +224,8 @@ void LayoutViewerPanel::DrawViewElement(
         capturePanel, nullptr, cfg, layoutState, nullptr, nullptr, false);
     capturePanel->CaptureFrameNow(
         [this, viewId, stateGuard, fallbackViewportWidth, fallbackViewportHeight,
-         capturePanel](CommandBuffer buffer, Viewer2DViewState state) {
+         capturePanel, captureContentHash](CommandBuffer buffer,
+                                           Viewer2DViewState state) {
           ViewCache &cache = GetViewCache(viewId);
           cache.buffer = std::move(buffer);
           cache.viewState = state;
