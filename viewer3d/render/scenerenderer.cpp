@@ -658,7 +658,27 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
         float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
         const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
         if (len > 0.0f) {
-          glNormal3f(nx / len, ny / len, nz / len);
+          nx /= len;
+          ny /= len;
+          nz /= len;
+          if (hasNormals) {
+            const float avgNx =
+                (normalData[i0 * 3] + normalData[i1 * 3] + normalData[i2 * 3]) /
+                3.0f;
+            const float avgNy = (normalData[i0 * 3 + 1] + normalData[i1 * 3 + 1] +
+                                 normalData[i2 * 3 + 1]) /
+                                3.0f;
+            const float avgNz = (normalData[i0 * 3 + 2] + normalData[i1 * 3 + 2] +
+                                 normalData[i2 * 3 + 2]) /
+                                3.0f;
+            const float alignment = nx * avgNx + ny * avgNy + nz * avgNz;
+            if (alignment < 0.0f) {
+              nx = -nx;
+              ny = -ny;
+              nz = -nz;
+            }
+          }
+          glNormal3f(nx, ny, nz);
         } else {
           glNormal3f(0.0f, 0.0f, 1.0f);
         }
