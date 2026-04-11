@@ -293,10 +293,9 @@ void DrawCubeWithOutline(float size, float r, float g, float b, bool highlight,
           p = captureTransform(p);
       }
       CanvasStroke stroke;
-      stroke.color = {(mode == Viewer2DRenderMode::Wireframe) ? r : 0.0f,
-                      (mode == Viewer2DRenderMode::Wireframe) ? g : 0.0f,
-                      (mode == Viewer2DRenderMode::Wireframe) ? b : 0.0f,
-                      1.0f};
+      // Keep captured stroke color aligned with the primitive color so PDF
+      // export preserves the pre-wireframe-color-change appearance.
+      stroke.color = {r, g, b, 1.0f};
       stroke.width = lineWidth;
       CanvasFill fill;
       fill.color = {r, g, b, 1.0f};
