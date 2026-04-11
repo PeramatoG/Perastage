@@ -192,14 +192,16 @@ void LayoutViewerPanel::DrawViewElement(
     Viewer2DOffscreenRenderer *offscreenRenderer, int activeViewId) {
   ViewCache &cache = GetViewCache(view.id);
   const size_t viewContentHash = HashViewContent(view);
-  const bool needsCapture = !cache.hasCapture || !cache.hasRenderState ||
-                            cache.captureVersion != viewRenderVersion ||
-                            cache.contentHash != viewContentHash;
+  const bool needsCapture =
+      !cache.hasCapture || !cache.hasRenderState ||
+      cache.captureVersion != viewRenderVersion ||
+      !cache.hasCaptureContentHash || cache.captureContentHash != viewContentHash;
   if (!captureInProgress && !cache.captureInProgress && needsCapture &&
       capturePanel) {
     captureInProgress = true;
     cache.captureInProgress = true;
     const int viewId = view.id;
+    const size_t captureContentHash = viewContentHash;
     const int fallbackViewportWidth = view.camera.viewportWidth > 0
                                           ? view.camera.viewportWidth
                                           : view.frame.width;
@@ -239,6 +241,8 @@ void LayoutViewerPanel::DrawViewElement(
             cache.symbols = capturePanel->GetBottomSymbolCacheSnapshot();
           }
           cache.hasCapture = !cache.buffer.commands.empty();
+          cache.captureContentHash = captureContentHash;
+          cache.hasCaptureContentHash = true;
           cache.captureVersion = viewRenderVersion;
           cache.captureInProgress = false;
           captureInProgress = false;

@@ -69,6 +69,8 @@ private:
     Viewer2DViewState viewState;
     viewer2d::Viewer2DState renderState;
     bool hasRenderState = false;
+    size_t captureContentHash = 0;
+    bool hasCaptureContentHash = false;
     std::shared_ptr<const SymbolDefinitionSnapshot> symbols;
     unsigned int texture = 0;
     unsigned int pixelUnpackPbo = 0;
