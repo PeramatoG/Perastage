@@ -170,7 +170,6 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
     } else {
       view->camera.viewportHeight = 0;
     }
-    viewRenderVersion++;
   }
   if (updatePosition) {
     pendingFrameCommit_ = true;
@@ -192,11 +191,17 @@ void LayoutViewerPanel::DrawViewElement(
     const layouts::Layout2DViewDefinition &view, Viewer2DPanel *capturePanel,
     Viewer2DOffscreenRenderer *offscreenRenderer, int activeViewId) {
   ViewCache &cache = GetViewCache(view.id);
-  if (!captureInProgress && !cache.captureInProgress &&
-      cache.captureVersion != viewRenderVersion && capturePanel) {
+  const size_t viewContentHash = HashViewContent(view);
+  const bool needsCapture =
+      !cache.hasCapture || !cache.hasRenderState ||
+      cache.captureVersion != viewRenderVersion ||
+      !cache.hasCaptureContentHash || cache.captureContentHash != viewContentHash;
+  if (!captureInProgress && !cache.captureInProgress && needsCapture &&
+      capturePanel) {
     captureInProgress = true;
     cache.captureInProgress = true;
     const int viewId = view.id;
+    const size_t captureContentHash = viewContentHash;
     const int fallbackViewportWidth = view.camera.viewportWidth > 0
                                           ? view.camera.viewportWidth
                                           : view.frame.width;
@@ -219,7 +224,8 @@ void LayoutViewerPanel::DrawViewElement(
         capturePanel, nullptr, cfg, layoutState, nullptr, nullptr, false);
     capturePanel->CaptureFrameNow(
         [this, viewId, stateGuard, fallbackViewportWidth, fallbackViewportHeight,
-         capturePanel](CommandBuffer buffer, Viewer2DViewState state) {
+         capturePanel, captureContentHash](CommandBuffer buffer,
+                                           Viewer2DViewState state) {
           ViewCache &cache = GetViewCache(viewId);
           cache.buffer = std::move(buffer);
           cache.viewState = state;
@@ -236,6 +242,8 @@ void LayoutViewerPanel::DrawViewElement(
             cache.symbols = capturePanel->GetBottomSymbolCacheSnapshot();
           }
           cache.hasCapture = !cache.buffer.commands.empty();
+          cache.captureContentHash = captureContentHash;
+          cache.hasCaptureContentHash = true;
           cache.captureVersion = viewRenderVersion;
           cache.captureInProgress = false;
           captureInProgress = false;

@@ -569,7 +569,6 @@ void LayoutViewerPanel::SetLayoutDefinition(
   }
   layoutVersion++;
   if (!AreEqual(previousLayout.view2dViews, currentLayout.view2dViews)) {
-    viewRenderVersion++;
     captureInProgress = false;
   }
   pendingFrameCommit_ = false;
