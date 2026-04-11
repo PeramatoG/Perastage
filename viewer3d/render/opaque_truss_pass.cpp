@@ -89,7 +89,7 @@ void OpaqueTrussPass::Render(
       g = 0.95f;
       b = 0.95f;
     }
-    if (mode == Viewer2DRenderMode::ByLayer) {
+    if (wireframe || mode == Viewer2DRenderMode::ByLayer) {
       auto c = getLayerColor(t.layer);
       r = c[0];
       g = c[1];
@@ -135,7 +135,7 @@ void OpaqueTrussPass::Render(
                                            cz, wireframe, mode,
                                            captureTransformFn, false, matrix);
           } else {
-            controller.DrawWireframeBox(trussLen, trussHei, trussWid,
+            controller.DrawWireframeBox(trussLen, trussHei, trussWid, r, g, b,
                                         isHighlighted, isSelected, wireframe,
                                         mode, captureTransformFn);
           }

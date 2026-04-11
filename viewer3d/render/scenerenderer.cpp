@@ -264,14 +264,14 @@ void SceneRenderer::DrawMeshWithOutline(
         DrawMeshWireframe(mesh, scale, captureTransform);
       }
       glLineWidth(symbolCaptureRenderProfile ? 2.0f : lineWidth);
-      m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+      m_controller.SetGLColor(r, g, b);
       DrawMeshWireframe(mesh, scale, captureTransform);
       if (symbolCaptureRenderProfile) {
         glLineWidth(2.0f);
         DrawMeshWireframe(mesh, scale, captureTransform);
       }
       glLineWidth(lineWidth);
-      m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+      m_controller.SetGLColor(r, g, b);
       if (lineSmoothWasEnabled)
         glEnable(GL_LINE_SMOOTH);
       else
@@ -282,7 +282,7 @@ void SceneRenderer::DrawMeshWithOutline(
         glDisable(GL_MULTISAMPLE);
     }
     CanvasStroke stroke;
-    stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
+    stroke.color = {r, g, b, 1.0f};
     stroke.width = lineWidth;
     if (m_controller.IsCaptureOnly())
       DrawMeshWireframe(mesh, scale, captureTransform);

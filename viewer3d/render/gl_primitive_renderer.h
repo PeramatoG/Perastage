@@ -28,8 +28,9 @@ void DrawWireframeCube(float size, float r, float g, float b,
                        bool recordCapture, bool captureOnly, bool captureCanvas,
                        const SetColorFn &setColor, const RecordLineFn &recordLine);
 
-void DrawWireframeBox(float length, float height, float width, bool highlight,
-                      bool selected, bool wireframe, Viewer2DRenderMode mode,
+void DrawWireframeBox(float length, float height, float width, float r, float g,
+                      float b, bool highlight, bool selected, bool wireframe,
+                      Viewer2DRenderMode mode,
                       const CaptureTransform &captureTransform,
                       bool skipOutlinesForCurrentFrame,
                       bool showSelectionOutline2D, bool captureOnly,

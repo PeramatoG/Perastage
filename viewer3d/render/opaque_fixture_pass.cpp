@@ -541,7 +541,12 @@ void OpaqueFixturePass::Render(
       g = 0.2f;
       b = 0.2f;
     }
-    if (mode == Viewer2DRenderMode::ByFixtureType) {
+    if (wireframe) {
+      auto c = getLayerColor(f.layer);
+      r = c[0];
+      g = c[1];
+      b = c[2];
+    } else if (mode == Viewer2DRenderMode::ByFixtureType) {
       auto c = getTypeColor(f.gdtfSpec, f.color);
       r = c[0];
       g = c[1];
