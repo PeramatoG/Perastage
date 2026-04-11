@@ -1298,7 +1298,26 @@ void Viewer3DController::SetSymbolCaptureRenderProfileOverride(
 
 void Viewer3DController::SetSymbolCaptureIncludeCoplanarEdgesOverride(
     const std::optional<bool> &value) {
+  if (m_impl->symbolCaptureIncludeCoplanarEdgesOverride == value)
+    return;
   m_impl->symbolCaptureIncludeCoplanarEdgesOverride = value;
+
+  for (auto &[path, mesh] : m_impl->resourceSyncState.loadedMeshes) {
+    (void)path;
+    ReleaseMeshBuffers(mesh);
+  }
+  for (auto &[path, objects] : m_impl->resourceSyncState.loadedGdtf) {
+    (void)path;
+    for (auto &obj : objects)
+      ReleaseMeshBuffers(obj.mesh);
+  }
+  for (auto &[path, tree] : m_impl->resourceSyncState.loadedGdtfGeometryTrees) {
+    (void)path;
+    for (auto &node : tree.nodes) {
+      if (node.hasMesh)
+        ReleaseMeshBuffers(node.mesh);
+    }
+  }
 }
 
 std::optional<bool>
