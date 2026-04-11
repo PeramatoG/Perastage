@@ -590,7 +590,7 @@ void OpaqueFixturePass::Render(
     const bool captureRecordingActive = controller.m_captureCanvas && !skipCapture;
     const bool preferLayoutSvg =
         context.preferPerastageSvgSymbolsForLayouts && is2DViewer &&
-        !captureRecordingActive;
+        !captureRecordingActive && !wireframe;
     if (preferLayoutSvg && !svgSourcePath.empty()) {
       const Viewer2DView fixtureView =
           isTopView2D && forceBottomViewForTopFixtures ? Viewer2DView::Bottom
@@ -624,6 +624,7 @@ void OpaqueFixturePass::Render(
           controller.m_captureView == Viewer2DView::Top ||
           controller.m_captureView == Viewer2DView::Front ||
           controller.m_captureView == Viewer2DView::Side) &&
+         !wireframe &&
          !highlight && !selected);
     bool placedInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
