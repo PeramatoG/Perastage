@@ -1504,6 +1504,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
 
   std::unordered_map<std::string, GdtfConflict> pendingGdtfConflictByType;
+  int trussSymbolSymdefPreservedCount = 0;
+  std::unordered_map<std::string, int> trussSymbolSymdefPreservedBySymdef;
 
   std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)>
       parseFixture = [&](tinyxml2::XMLElement *node,
@@ -1776,9 +1778,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                                symGeometries.front().transform);
             }
             truss.transform = MatrixUtils::Multiply(nodeTransform, symLocal);
-            LogMessage(Logger::Level::Info,
-                       "MVR import truss preserves Symbol/Symdef representation for uuid='" +
-                           truss.uuid + "', symdef='" + truss.sourceSymdefUuid + "'");
+            ++trussSymbolSymdefPreservedCount;
+            const std::string symdefKey = truss.sourceSymdefUuid.empty()
+                                              ? std::string{"(empty)"}
+                                              : truss.sourceSymdefUuid;
+            ++trussSymbolSymdefPreservedBySymdef[symdefKey];
           }
         }
 
@@ -2477,6 +2481,31 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
     for (const std::string &example : matrixScaleAggregation.suspiciousExamples)
       LogMessage(Logger::Level::Warn, "MVR import suspicious matrix example: " + example);
+  }
+
+  if (trussSymbolSymdefPreservedCount > 0) {
+    std::vector<std::pair<std::string, int>> sortedSymdefCounts(
+        trussSymbolSymdefPreservedBySymdef.begin(),
+        trussSymbolSymdefPreservedBySymdef.end());
+    std::sort(sortedSymdefCounts.begin(), sortedSymdefCounts.end(),
+              [](const auto &lhs, const auto &rhs) {
+                if (lhs.second != rhs.second)
+                  return lhs.second > rhs.second;
+                return lhs.first < rhs.first;
+              });
+
+    std::ostringstream oss;
+    oss << "MVR import truss Symbol/Symdef representation preserved for "
+        << trussSymbolSymdefPreservedCount << " trusses";
+    if (!sortedSymdefCounts.empty()) {
+      oss << ". Symdef counts: ";
+      for (size_t i = 0; i < sortedSymdefCounts.size(); ++i) {
+        if (i > 0)
+          oss << ", ";
+        oss << "'" << sortedSymdefCounts[i].first << "'=" << sortedSymdefCounts[i].second;
+      }
+    }
+    LogMessage(Logger::Level::Info, oss.str());
   }
 
   std::string summary =
