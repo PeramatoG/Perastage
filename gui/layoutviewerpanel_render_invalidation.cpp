@@ -213,6 +213,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
   for (const auto &legend : currentLayout.legendViews) {
     LegendCache &cache = GetLegendCache(legend.id);
     if (sceneContentChanged) {
+      cache.symbols.reset();
       markDirty(cache.renderDirty);
     }
     wxRect frameRect;
@@ -314,8 +315,10 @@ void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
     cache.renderDirty = true;
   }
 
-  for (auto &entry : legendCaches_)
+  for (auto &entry : legendCaches_) {
     entry.second.renderDirty = true;
+    entry.second.symbols.reset();
+  }
 
   renderDirty = true;
   RequestRenderRebuild();

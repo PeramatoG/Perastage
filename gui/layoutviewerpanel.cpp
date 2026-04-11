@@ -1996,15 +1996,26 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       }
     }
     bool needsLegendProcessing = false;
+    bool needsLegendSymbolCapture = false;
     for (const auto &legend : currentLayout.legendViews) {
       const auto cacheIt = legendCaches_.find(legend.id);
-      if (cacheIt == legendCaches_.end() || cacheIt->second.renderDirty ||
-          cacheIt->second.contentHash != legendDataHash) {
+      const bool cacheMissing = cacheIt == legendCaches_.end();
+      const bool contentChanged =
+          !cacheMissing && cacheIt->second.contentHash != legendDataHash;
+      const bool needsTextureRebuild =
+          cacheMissing || cacheIt->second.renderDirty || contentChanged;
+      if (needsTextureRebuild) {
         needsLegendProcessing = true;
+        const bool needsSymbols =
+            cacheMissing || !cacheIt->second.symbols || contentChanged;
+        if (needsSymbols)
+          needsLegendSymbolCapture = true;
+      }
+      if (needsLegendProcessing && needsLegendSymbolCapture) {
         break;
       }
     }
-    const bool needsCapturePanel = hasDirtyViewCache || needsLegendProcessing;
+    const bool needsCapturePanel = hasDirtyViewCache || needsLegendSymbolCapture;
     if (needsCapturePanel) {
       if (auto *mw = MainWindow::Instance()) {
         offscreenRenderer = mw->GetOffscreenRenderer();
@@ -2017,7 +2028,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
 
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
-    if (needsLegendProcessing) {
+    if (needsLegendSymbolCapture) {
       legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
     }
     std::vector<unsigned char> legendPixels;
@@ -2104,11 +2115,13 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   
     for (const auto &legend : currentLayout.legendViews) {
       LegendCache &cache = GetLegendCache(legend.id);
-      if (legendSymbols && cache.symbols != legendSymbols) {
+      const bool contentChanged = cache.contentHash != legendDataHash;
+      const bool requiresSymbolRefresh = !cache.symbols || contentChanged;
+      if (requiresSymbolRefresh && legendSymbols && cache.symbols != legendSymbols) {
         cache.symbols = legendSymbols;
         cache.renderDirty = true;
       }
-      if (cache.contentHash != legendDataHash) {
+      if (contentChanged) {
         cache.renderDirty = true;
       }
       if (!cache.renderDirty)
