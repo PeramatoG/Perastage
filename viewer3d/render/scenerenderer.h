@@ -18,7 +18,8 @@ public:
       bool disableDepthBias = false);
   void DrawMeshWireframe(
       const Mesh &mesh, float scale,
-      const std::function<std::array<float, 3>(const std::array<float, 3> &)> &captureTransform);
+      const std::function<std::array<float, 3>(const std::array<float, 3> &)> &captureTransform,
+      const CanvasStroke *captureStroke = nullptr);
   void DrawMesh(const Mesh &mesh, float scale, const float *modelMatrix,
                 bool useTexture = false);
   void DrawGrid(int style, float r, float g, float b, Viewer2DView view);
