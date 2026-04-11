@@ -166,6 +166,12 @@ std::string ResolveGdtfPath(const std::string &base,
     return relative;
 
   const std::string fileName = fs::path(norm).filename().string();
+  // Prefer project-local GDTFs over the global library to keep exported
+  // symbols aligned with the fixture file currently used by the open project.
+  const std::string projectRecursive = FindFileRecursive(base, fileName);
+  if (!projectRecursive.empty())
+    return projectRecursive;
+
   const std::array<std::string, 1> librarySubdirs = {"fixtures"};
   for (const std::string &subdir : librarySubdirs) {
     const fs::path root = fs::u8path(ProjectUtils::GetDefaultLibraryPath(subdir));
@@ -177,7 +183,7 @@ std::string ResolveGdtfPath(const std::string &base,
       return recursive;
   }
 
-  return FindFileRecursive(base, fileName);
+  return {};
 }
 } // namespace
 
