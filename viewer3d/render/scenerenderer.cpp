@@ -288,8 +288,37 @@ void SceneRenderer::DrawMeshWithOutline(
     CanvasStroke stroke;
     stroke.color = {strokeR, strokeG, strokeB, 1.0f};
     stroke.width = lineWidth;
-    if (m_controller.IsCaptureOnly())
-      DrawMeshWireframe(mesh, scale, captureTransform);
+    if (m_controller.IsCaptureOnly()) {
+      if (mode == Viewer2DRenderMode::Wireframe &&
+          m_controller.GetCaptureCanvas()) {
+        for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+          const unsigned short i0 = mesh.indices[i];
+          const unsigned short i1 = mesh.indices[i + 1];
+          const unsigned short i2 = mesh.indices[i + 2];
+
+          std::array<float, 3> p0 = {mesh.vertices[i0 * 3] * scale,
+                                     mesh.vertices[i0 * 3 + 1] * scale,
+                                     mesh.vertices[i0 * 3 + 2] * scale};
+          std::array<float, 3> p1 = {mesh.vertices[i1 * 3] * scale,
+                                     mesh.vertices[i1 * 3 + 1] * scale,
+                                     mesh.vertices[i1 * 3 + 2] * scale};
+          std::array<float, 3> p2 = {mesh.vertices[i2 * 3] * scale,
+                                     mesh.vertices[i2 * 3 + 1] * scale,
+                                     mesh.vertices[i2 * 3 + 2] * scale};
+          if (captureTransform) {
+            p0 = captureTransform(p0);
+            p1 = captureTransform(p1);
+            p2 = captureTransform(p2);
+          }
+
+          m_controller.RecordLine(p0, p1, stroke);
+          m_controller.RecordLine(p1, p2, stroke);
+          m_controller.RecordLine(p2, p0, stroke);
+        }
+      } else {
+        DrawMeshWireframe(mesh, scale, captureTransform);
+      }
+    }
     if (m_controller.GetCaptureCanvas() && mode != Viewer2DRenderMode::Wireframe) {
       CanvasFill fill;
       fill.color = {r, g, b, 1.0f};
