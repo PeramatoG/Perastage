@@ -251,6 +251,9 @@ void SceneRenderer::DrawMeshWithOutline(
     const float strokeR = useWireframeModeColor ? r : 0.0f;
     const float strokeG = useWireframeModeColor ? g : 0.0f;
     const float strokeB = useWireframeModeColor ? b : 0.0f;
+    CanvasStroke stroke;
+    stroke.color = {strokeR, strokeG, strokeB, 1.0f};
+    stroke.width = lineWidth;
     if (!m_controller.IsCaptureOnly()) {
       const GLboolean lineSmoothWasEnabled = glIsEnabled(GL_LINE_SMOOTH);
       const GLboolean multisampleWasEnabled = glIsEnabled(GL_MULTISAMPLE);
@@ -269,10 +272,10 @@ void SceneRenderer::DrawMeshWithOutline(
       }
       glLineWidth(symbolCaptureRenderProfile ? 2.0f : lineWidth);
       m_controller.SetGLColor(strokeR, strokeG, strokeB);
-      DrawMeshWireframe(mesh, scale, captureTransform);
+      DrawMeshWireframe(mesh, scale, captureTransform, &stroke);
       if (symbolCaptureRenderProfile) {
         glLineWidth(2.0f);
-        DrawMeshWireframe(mesh, scale, captureTransform);
+        DrawMeshWireframe(mesh, scale, captureTransform, &stroke);
       }
       glLineWidth(lineWidth);
       m_controller.SetGLColor(strokeR, strokeG, strokeB);
@@ -285,11 +288,8 @@ void SceneRenderer::DrawMeshWithOutline(
       else
         glDisable(GL_MULTISAMPLE);
     }
-    CanvasStroke stroke;
-    stroke.color = {strokeR, strokeG, strokeB, 1.0f};
-    stroke.width = lineWidth;
     if (m_controller.IsCaptureOnly())
-      DrawMeshWireframe(mesh, scale, captureTransform);
+      DrawMeshWireframe(mesh, scale, captureTransform, &stroke);
     if (m_controller.GetCaptureCanvas() && mode != Viewer2DRenderMode::Wireframe) {
       CanvasFill fill;
       fill.color = {r, g, b, 1.0f};
@@ -472,7 +472,8 @@ void SceneRenderer::DrawMeshWithOutline(
 void SceneRenderer::DrawMeshWireframe(
     const Mesh &mesh, float scale,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
-        captureTransform) {
+        captureTransform,
+    const CanvasStroke *captureStroke) {
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.eboLines) == GL_TRUE &&
                                glIsBuffer(mesh.eboTriangles) == GL_TRUE;
@@ -522,9 +523,11 @@ void SceneRenderer::DrawMeshWireframe(
     glEnd();
   }
   if (m_controller.GetCaptureCanvas()) {
-    CanvasStroke stroke;
-    stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
-    stroke.width = 1.0f;
+    CanvasStroke stroke = captureStroke ? *captureStroke : CanvasStroke{};
+    if (!captureStroke) {
+      stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
+      stroke.width = 1.0f;
+    }
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
       unsigned short i0 = mesh.indices[i];
       unsigned short i1 = mesh.indices[i + 1];
