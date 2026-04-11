@@ -204,16 +204,6 @@ static LineRenderProfile GetLineRenderProfile(bool isInteracting,
   return {wireframeMode ? 1.0f : 2.0f, true};
 }
 
-static bool IsSymbolCaptureRenderProfileEnabled(
-    const Viewer3DController::Impl &impl, Viewer2DRenderMode mode) {
-  if (impl.symbolCaptureRenderProfileOverride.has_value())
-    return impl.symbolCaptureRenderProfileOverride.value();
-  if (mode == Viewer2DRenderMode::ByFixtureType)
-    return true;
-  return ConfigManager::Get().GetFloat("viewer3d_symbol_capture_render_profile") >=
-         0.5f;
-}
-
 // Replace Windows path separators with the platform preferred one
 static std::string NormalizePath(const std::string &p) {
   std::string out = p;
@@ -1330,6 +1320,16 @@ Viewer3DController::GetSymbolCaptureRenderProfileOverride() const {
   return m_impl->symbolCaptureRenderProfileOverride;
 }
 
+bool Viewer3DController::IsSymbolCaptureRenderProfileEnabled(
+    Viewer2DRenderMode mode) const {
+  if (m_impl->symbolCaptureRenderProfileOverride.has_value())
+    return m_impl->symbolCaptureRenderProfileOverride.value();
+  if (mode == Viewer2DRenderMode::ByFixtureType)
+    return true;
+  return ConfigManager::Get().GetFloat("viewer3d_symbol_capture_render_profile") >=
+         0.5f;
+}
+
 bool Viewer3DController::IsCameraMoving() const { return m_impl->cameraMoving; }
 
 std::array<float, 3> Viewer3DController::AdjustColor(float r, float g,
@@ -1365,7 +1365,7 @@ void Viewer3DController::DrawWireframeCube(
       GetLineRenderProfile(m_impl->isInteracting, mode == Viewer2DRenderMode::Wireframe,
                            m_impl->useAdaptiveLineProfile)
           .lineWidth;
-  if (IsSymbolCaptureRenderProfileEnabled(*m_impl, mode))
+  if (IsSymbolCaptureRenderProfileEnabled(mode))
     lineWidth = 2.0f;
   GLPrimitiveRenderer::DrawWireframeCube(
       size, r, g, b, mode, captureTransform, lineWidth, lineWidthOverride,
@@ -1387,7 +1387,7 @@ void Viewer3DController::DrawWireframeBox(
       GetLineRenderProfile(m_impl->isInteracting, mode == Viewer2DRenderMode::Wireframe,
                            m_impl->useAdaptiveLineProfile)
           .lineWidth;
-  if (IsSymbolCaptureRenderProfileEnabled(*m_impl, mode))
+  if (IsSymbolCaptureRenderProfileEnabled(mode))
     lineWidth = 2.0f;
   GLPrimitiveRenderer::DrawWireframeBox(
       length, height, width, highlight, selected, wireframe, mode,
@@ -1414,7 +1414,7 @@ void Viewer3DController::DrawCubeWithOutline(
       GetLineRenderProfile(m_impl->isInteracting, mode == Viewer2DRenderMode::Wireframe,
                            m_impl->useAdaptiveLineProfile)
           .lineWidth;
-  if (IsSymbolCaptureRenderProfileEnabled(*m_impl, mode))
+  if (IsSymbolCaptureRenderProfileEnabled(mode))
     lineWidth = 2.0f;
   GLPrimitiveRenderer::DrawCubeWithOutline(
       size, r, g, b, highlight, selected, wireframe, mode, captureTransform,

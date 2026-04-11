@@ -258,6 +258,7 @@ private:
                           VisibleSet &out) const;
   bool EnsureBoundsComputed(const std::string &uuid, ItemType type,
                             const std::unordered_set<std::string> &hiddenLayers);
+  bool IsSymbolCaptureRenderProfileEnabled(Viewer2DRenderMode mode) const;
 
   bool IsInteracting() const override;
   bool UseAdaptiveLineProfile() const override;
