@@ -247,6 +247,10 @@ void SceneRenderer::DrawMeshWithOutline(
     const bool drawOutline =
         !m_controller.SkipOutlinesForCurrentFrame() &&
         m_controller.IsSelectionOutlineEnabled2D() && (highlight || selected);
+    const bool useWireframeModeColor = mode == Viewer2DRenderMode::Wireframe;
+    const float strokeR = useWireframeModeColor ? r : 0.0f;
+    const float strokeG = useWireframeModeColor ? g : 0.0f;
+    const float strokeB = useWireframeModeColor ? b : 0.0f;
     if (!m_controller.IsCaptureOnly()) {
       const GLboolean lineSmoothWasEnabled = glIsEnabled(GL_LINE_SMOOTH);
       const GLboolean multisampleWasEnabled = glIsEnabled(GL_MULTISAMPLE);
@@ -264,14 +268,14 @@ void SceneRenderer::DrawMeshWithOutline(
         DrawMeshWireframe(mesh, scale, captureTransform);
       }
       glLineWidth(symbolCaptureRenderProfile ? 2.0f : lineWidth);
-      m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+      m_controller.SetGLColor(strokeR, strokeG, strokeB);
       DrawMeshWireframe(mesh, scale, captureTransform);
       if (symbolCaptureRenderProfile) {
         glLineWidth(2.0f);
         DrawMeshWireframe(mesh, scale, captureTransform);
       }
       glLineWidth(lineWidth);
-      m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+      m_controller.SetGLColor(strokeR, strokeG, strokeB);
       if (lineSmoothWasEnabled)
         glEnable(GL_LINE_SMOOTH);
       else
@@ -282,7 +286,7 @@ void SceneRenderer::DrawMeshWithOutline(
         glDisable(GL_MULTISAMPLE);
     }
     CanvasStroke stroke;
-    stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
+    stroke.color = {strokeR, strokeG, strokeB, 1.0f};
     stroke.width = lineWidth;
     if (m_controller.IsCaptureOnly())
       DrawMeshWireframe(mesh, scale, captureTransform);

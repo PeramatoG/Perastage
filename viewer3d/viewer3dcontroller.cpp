@@ -1379,8 +1379,8 @@ void Viewer3DController::DrawWireframeCube(
 // Draws a wireframe box whose origin sits at the left end of the span.
 // The box extends along +X for the given length and is centered in Y/Z.
 void Viewer3DController::DrawWireframeBox(
-    float length, float height, float width, bool highlight, bool selected,
-    bool wireframe, Viewer2DRenderMode mode,
+    float length, float height, float width, float r, float g, float b,
+    bool highlight, bool selected, bool wireframe, Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform) {
   float lineWidth =
@@ -1390,7 +1390,7 @@ void Viewer3DController::DrawWireframeBox(
   if (IsSymbolCaptureRenderProfileEnabled(mode))
     lineWidth = 2.0f;
   GLPrimitiveRenderer::DrawWireframeBox(
-      length, height, width, highlight, selected, wireframe, mode,
+      length, height, width, r, g, b, highlight, selected, wireframe, mode,
       captureTransform, m_impl->skipOutlinesForCurrentFrame, m_impl->showSelectionOutline2D,
       m_impl->captureOnly, m_impl->captureCanvas, lineWidth,
       [this](float cr, float cg, float cb) { SetGLColor(cr, cg, cb); },

@@ -193,6 +193,7 @@ private:
                          float lineWidthOverride = -1.0f,
                          bool recordCapture = true);
   void DrawWireframeBox(float length, float height, float width,
+                        float r = 1.0f, float g = 1.0f, float b = 1.0f,
                         bool highlight = false, bool selected = false,
                         bool wireframe = false,
                         Viewer2DRenderMode mode = Viewer2DRenderMode::White,
