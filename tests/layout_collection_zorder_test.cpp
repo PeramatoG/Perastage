@@ -51,6 +51,14 @@ void TestMoveUpdatesZIndexForCrossElementOrdering() {
   assert(layout->view2dViews.front().zIndex == 6);
   // Sending the legend to back should place it below every element.
   assert(layout->legendViews.front().zIndex == -4);
+
+  // Re-applying move to front/back should be stable when already at boundary.
+  assert(collection.MoveLayout2DView("Z order", 1, true));
+  assert(collection.MoveLayoutLegend("Z order", 2, false));
+  layout = FindLayout(collection, "Z order");
+  assert(layout != nullptr);
+  assert(layout->view2dViews.front().zIndex == 6);
+  assert(layout->legendViews.front().zIndex == -4);
 }
 
 void TestMoveEventTableUpdatesZIndex() {

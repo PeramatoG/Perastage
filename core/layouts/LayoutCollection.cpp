@@ -233,7 +233,15 @@ bool LayoutCollection::MoveLayout2DView(const std::string &name, int viewId,
                              });
       if (it == views.end())
         return false;
-      it->zIndex = toFront ? (MaxZIndex(layout) + 1) : (MinZIndex(layout) - 1);
+      if (toFront) {
+        const int maxZ = MaxZIndex(layout);
+        if (it->zIndex < maxZ)
+          it->zIndex = maxZ + 1;
+      } else {
+        const int minZ = MinZIndex(layout);
+        if (it->zIndex > minZ)
+          it->zIndex = minZ - 1;
+      }
       return true;
     }
   }
@@ -473,7 +481,15 @@ bool LayoutCollection::MoveLayoutLegend(const std::string &name, int legendId,
                              });
       if (it == legends.end())
         return false;
-      it->zIndex = toFront ? (MaxZIndex(layout) + 1) : (MinZIndex(layout) - 1);
+      if (toFront) {
+        const int maxZ = MaxZIndex(layout);
+        if (it->zIndex < maxZ)
+          it->zIndex = maxZ + 1;
+      } else {
+        const int minZ = MinZIndex(layout);
+        if (it->zIndex > minZ)
+          it->zIndex = minZ - 1;
+      }
       return true;
     }
   }
@@ -491,7 +507,15 @@ bool LayoutCollection::MoveLayoutText(const std::string &name, int textId,
                              });
       if (it == texts.end())
         return false;
-      it->zIndex = toFront ? (MaxZIndex(layout) + 1) : (MinZIndex(layout) - 1);
+      if (toFront) {
+        const int maxZ = MaxZIndex(layout);
+        if (it->zIndex < maxZ)
+          it->zIndex = maxZ + 1;
+      } else {
+        const int minZ = MinZIndex(layout);
+        if (it->zIndex > minZ)
+          it->zIndex = minZ - 1;
+      }
       return true;
     }
   }
@@ -509,7 +533,15 @@ bool LayoutCollection::MoveLayoutImage(const std::string &name, int imageId,
                              });
       if (it == images.end())
         return false;
-      it->zIndex = toFront ? (MaxZIndex(layout) + 1) : (MinZIndex(layout) - 1);
+      if (toFront) {
+        const int maxZ = MaxZIndex(layout);
+        if (it->zIndex < maxZ)
+          it->zIndex = maxZ + 1;
+      } else {
+        const int minZ = MinZIndex(layout);
+        if (it->zIndex > minZ)
+          it->zIndex = minZ - 1;
+      }
       return true;
     }
   }
@@ -527,7 +559,15 @@ bool LayoutCollection::MoveLayoutEventTable(const std::string &name, int tableId
                              });
       if (it == tables.end())
         return false;
-      it->zIndex = toFront ? (MaxZIndex(layout) + 1) : (MinZIndex(layout) - 1);
+      if (toFront) {
+        const int maxZ = MaxZIndex(layout);
+        if (it->zIndex < maxZ)
+          it->zIndex = maxZ + 1;
+      } else {
+        const int minZ = MinZIndex(layout);
+        if (it->zIndex > minZ)
+          it->zIndex = minZ - 1;
+      }
       return true;
     }
   }
