@@ -66,6 +66,52 @@ int MaxZIndex(const LayoutDefinition &layout) {
   }
   return hasValue ? maxZ : 0;
 }
+
+int MinZIndex(const LayoutDefinition &layout) {
+  bool hasValue = false;
+  int minZ = 0;
+  for (const auto &view : layout.view2dViews) {
+    if (!hasValue) {
+      minZ = view.zIndex;
+      hasValue = true;
+    } else {
+      minZ = std::min(minZ, view.zIndex);
+    }
+  }
+  for (const auto &legend : layout.legendViews) {
+    if (!hasValue) {
+      minZ = legend.zIndex;
+      hasValue = true;
+    } else {
+      minZ = std::min(minZ, legend.zIndex);
+    }
+  }
+  for (const auto &table : layout.eventTables) {
+    if (!hasValue) {
+      minZ = table.zIndex;
+      hasValue = true;
+    } else {
+      minZ = std::min(minZ, table.zIndex);
+    }
+  }
+  for (const auto &text : layout.textViews) {
+    if (!hasValue) {
+      minZ = text.zIndex;
+      hasValue = true;
+    } else {
+      minZ = std::min(minZ, text.zIndex);
+    }
+  }
+  for (const auto &image : layout.imageViews) {
+    if (!hasValue) {
+      minZ = image.zIndex;
+      hasValue = true;
+    } else {
+      minZ = std::min(minZ, image.zIndex);
+    }
+  }
+  return hasValue ? minZ : 0;
+}
 } // namespace
 
 LayoutCollection::LayoutCollection() { layouts.push_back(DefaultLayout()); }
@@ -187,19 +233,7 @@ bool LayoutCollection::MoveLayout2DView(const std::string &name, int viewId,
                              });
       if (it == views.end())
         return false;
-      if (toFront) {
-        if (std::next(it) != views.end()) {
-          auto moved = std::move(*it);
-          views.erase(it);
-          views.push_back(std::move(moved));
-        }
-      } else {
-        if (it != views.begin()) {
-          auto moved = std::move(*it);
-          views.erase(it);
-          views.insert(views.begin(), std::move(moved));
-        }
-      }
+      it->zIndex = toFront ? (MaxZIndex(layout) + 1) : (MinZIndex(layout) - 1);
       return true;
     }
   }
@@ -439,19 +473,7 @@ bool LayoutCollection::MoveLayoutLegend(const std::string &name, int legendId,
                              });
       if (it == legends.end())
         return false;
-      if (toFront) {
-        if (std::next(it) != legends.end()) {
-          auto moved = std::move(*it);
-          legends.erase(it);
-          legends.push_back(std::move(moved));
-        }
-      } else {
-        if (it != legends.begin()) {
-          auto moved = std::move(*it);
-          legends.erase(it);
-          legends.insert(legends.begin(), std::move(moved));
-        }
-      }
+      it->zIndex = toFront ? (MaxZIndex(layout) + 1) : (MinZIndex(layout) - 1);
       return true;
     }
   }
@@ -469,19 +491,7 @@ bool LayoutCollection::MoveLayoutText(const std::string &name, int textId,
                              });
       if (it == texts.end())
         return false;
-      if (toFront) {
-        if (std::next(it) != texts.end()) {
-          auto moved = std::move(*it);
-          texts.erase(it);
-          texts.push_back(std::move(moved));
-        }
-      } else {
-        if (it != texts.begin()) {
-          auto moved = std::move(*it);
-          texts.erase(it);
-          texts.insert(texts.begin(), std::move(moved));
-        }
-      }
+      it->zIndex = toFront ? (MaxZIndex(layout) + 1) : (MinZIndex(layout) - 1);
       return true;
     }
   }
@@ -499,19 +509,7 @@ bool LayoutCollection::MoveLayoutImage(const std::string &name, int imageId,
                              });
       if (it == images.end())
         return false;
-      if (toFront) {
-        if (std::next(it) != images.end()) {
-          auto moved = std::move(*it);
-          images.erase(it);
-          images.push_back(std::move(moved));
-        }
-      } else {
-        if (it != images.begin()) {
-          auto moved = std::move(*it);
-          images.erase(it);
-          images.insert(images.begin(), std::move(moved));
-        }
-      }
+      it->zIndex = toFront ? (MaxZIndex(layout) + 1) : (MinZIndex(layout) - 1);
       return true;
     }
   }
@@ -529,19 +527,7 @@ bool LayoutCollection::MoveLayoutEventTable(const std::string &name, int tableId
                              });
       if (it == tables.end())
         return false;
-      if (toFront) {
-        if (std::next(it) != tables.end()) {
-          auto moved = std::move(*it);
-          tables.erase(it);
-          tables.push_back(std::move(moved));
-        }
-      } else {
-        if (it != tables.begin()) {
-          auto moved = std::move(*it);
-          tables.erase(it);
-          tables.insert(tables.begin(), std::move(moved));
-        }
-      }
+      it->zIndex = toFront ? (MaxZIndex(layout) + 1) : (MinZIndex(layout) - 1);
       return true;
     }
   }
