@@ -470,6 +470,23 @@ After a successful **Tools → Create from text** import:
 - `rider_lx1_pos` .. `rider_lx6_pos`
 - `rider_lx1_margin` .. `rider_lx6_margin`
 
+## Console transform command rule contract
+
+The console transform parser also defines user-visible behavior that must stay
+stable across releases:
+
+1. `rot x|y|z <values>` keeps per-element rotation behavior (existing contract).
+2. `rot x|y|z <values> --group` and `rot x|y|z <values> --g` rotate the full
+   current selection as one rigid group.
+3. Group rotation default pivot is the center of the selected elements'
+   axis-aligned bounding box (bbox center), computed from selected fixtures,
+   trusses, supports, and scene objects.
+4. If the command ends with `x,y,z`, that triplet is used as pivot override.
+   Coordinates are interpreted in meters (same user-facing unit convention as
+   other console position inputs) and converted to internal millimeters.
+5. For group rotation, element orientation and position are both updated so the
+   selection behaves as a single transformed block around the chosen pivot.
+
 ## Maintenance protocol (mandatory when rules change)
 
 When changing any text-to-scene parsing or placement behavior:
