@@ -148,7 +148,7 @@ void OpaqueTrussPass::Render(
           captureView == Viewer2DView::Top ||
           captureView == Viewer2DView::Front ||
           captureView == Viewer2DView::Side) &&
-         !wireframe &&
+         mode != Viewer2DRenderMode::Wireframe &&
          !highlight && !selected);
     bool placedInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
