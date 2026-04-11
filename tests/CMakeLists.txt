@@ -132,6 +132,11 @@ add_executable(layout_template_serializer_test
                ../core/layouts/LayoutTemplateSerializer.cpp)
 add_test(NAME LayoutTemplateSerializer COMMAND layout_template_serializer_test)
 
+add_executable(layout_collection_zorder_test
+               layout_collection_zorder_test.cpp
+               ../core/layouts/LayoutCollection.cpp)
+add_test(NAME LayoutCollectionZOrder COMMAND layout_collection_zorder_test)
+
 add_executable(layout_template_import_name_collision_test
                layout_template_import_name_collision_test.cpp
                configmanager_layoutmanager_stub.cpp

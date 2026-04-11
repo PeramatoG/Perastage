@@ -66,6 +66,61 @@ int MaxZIndex(const LayoutDefinition &layout) {
   }
   return hasValue ? maxZ : 0;
 }
+
+int MinZIndex(const LayoutDefinition &layout) {
+  bool hasValue = false;
+  int minZ = 0;
+  for (const auto &view : layout.view2dViews) {
+    if (!hasValue) {
+      minZ = view.zIndex;
+      hasValue = true;
+    } else {
+      minZ = std::min(minZ, view.zIndex);
+    }
+  }
+  for (const auto &legend : layout.legendViews) {
+    if (!hasValue) {
+      minZ = legend.zIndex;
+      hasValue = true;
+    } else {
+      minZ = std::min(minZ, legend.zIndex);
+    }
+  }
+  for (const auto &table : layout.eventTables) {
+    if (!hasValue) {
+      minZ = table.zIndex;
+      hasValue = true;
+    } else {
+      minZ = std::min(minZ, table.zIndex);
+    }
+  }
+  for (const auto &text : layout.textViews) {
+    if (!hasValue) {
+      minZ = text.zIndex;
+      hasValue = true;
+    } else {
+      minZ = std::min(minZ, text.zIndex);
+    }
+  }
+  for (const auto &image : layout.imageViews) {
+    if (!hasValue) {
+      minZ = image.zIndex;
+      hasValue = true;
+    } else {
+      minZ = std::min(minZ, image.zIndex);
+    }
+  }
+  return hasValue ? minZ : 0;
+}
+
+bool IsExplicitBoundaryZChange(const LayoutDefinition &layout, int currentZ,
+                               int requestedZ) {
+  if (requestedZ == currentZ)
+    return false;
+  const int maxZ = MaxZIndex(layout);
+  const int minZ = MinZIndex(layout);
+  return requestedZ > maxZ || requestedZ < minZ;
+}
 } // namespace
 
 LayoutCollection::LayoutCollection() { layouts.push_back(DefaultLayout()); }
@@ -136,8 +191,10 @@ bool LayoutCollection::UpdateLayout2DView(const std::string &name,
       bool replaced = false;
       for (auto &entry : layout.view2dViews) {
         if (entry.id == updatedView.id && updatedView.id > 0) {
-          if (updatedView.zIndex == 0 && entry.zIndex != 0)
+          if (!IsExplicitBoundaryZChange(layout, entry.zIndex,
+                                         updatedView.zIndex)) {
             updatedView.zIndex = entry.zIndex;
+          }
           entry = updatedView;
           replaced = true;
           break;
@@ -188,17 +245,13 @@ bool LayoutCollection::MoveLayout2DView(const std::string &name, int viewId,
       if (it == views.end())
         return false;
       if (toFront) {
-        if (std::next(it) != views.end()) {
-          auto moved = std::move(*it);
-          views.erase(it);
-          views.push_back(std::move(moved));
-        }
+        const int maxZ = MaxZIndex(layout);
+        if (it->zIndex < maxZ)
+          it->zIndex = maxZ + 1;
       } else {
-        if (it != views.begin()) {
-          auto moved = std::move(*it);
-          views.erase(it);
-          views.insert(views.begin(), std::move(moved));
-        }
+        const int minZ = MinZIndex(layout);
+        if (it->zIndex > minZ)
+          it->zIndex = minZ - 1;
       }
       return true;
     }
@@ -221,8 +274,10 @@ bool LayoutCollection::UpdateLayoutLegend(
       bool replaced = false;
       for (auto &entry : layout.legendViews) {
         if (entry.id == updatedLegend.id && updatedLegend.id > 0) {
-          if (updatedLegend.zIndex == 0 && entry.zIndex != 0)
+          if (!IsExplicitBoundaryZChange(layout, entry.zIndex,
+                                         updatedLegend.zIndex)) {
             updatedLegend.zIndex = entry.zIndex;
+          }
           entry = updatedLegend;
           replaced = true;
           break;
@@ -258,8 +313,10 @@ bool LayoutCollection::UpdateLayoutEventTable(
       bool replaced = false;
       for (auto &entry : layout.eventTables) {
         if (entry.id == updatedTable.id && updatedTable.id > 0) {
-          if (updatedTable.zIndex == 0 && entry.zIndex != 0)
+          if (!IsExplicitBoundaryZChange(layout, entry.zIndex,
+                                         updatedTable.zIndex)) {
             updatedTable.zIndex = entry.zIndex;
+          }
           entry = updatedTable;
           replaced = true;
           break;
@@ -295,8 +352,10 @@ bool LayoutCollection::UpdateLayoutText(const std::string &name,
       bool replaced = false;
       for (auto &entry : layout.textViews) {
         if (entry.id == updatedText.id && updatedText.id > 0) {
-          if (updatedText.zIndex == 0 && entry.zIndex != 0)
+          if (!IsExplicitBoundaryZChange(layout, entry.zIndex,
+                                         updatedText.zIndex)) {
             updatedText.zIndex = entry.zIndex;
+          }
           entry = updatedText;
           replaced = true;
           break;
@@ -332,8 +391,10 @@ bool LayoutCollection::UpdateLayoutImage(const std::string &name,
       bool replaced = false;
       for (auto &entry : layout.imageViews) {
         if (entry.id == updatedImage.id && updatedImage.id > 0) {
-          if (updatedImage.zIndex == 0 && entry.zIndex != 0)
+          if (!IsExplicitBoundaryZChange(layout, entry.zIndex,
+                                         updatedImage.zIndex)) {
             updatedImage.zIndex = entry.zIndex;
+          }
           entry = updatedImage;
           replaced = true;
           break;
@@ -440,17 +501,13 @@ bool LayoutCollection::MoveLayoutLegend(const std::string &name, int legendId,
       if (it == legends.end())
         return false;
       if (toFront) {
-        if (std::next(it) != legends.end()) {
-          auto moved = std::move(*it);
-          legends.erase(it);
-          legends.push_back(std::move(moved));
-        }
+        const int maxZ = MaxZIndex(layout);
+        if (it->zIndex < maxZ)
+          it->zIndex = maxZ + 1;
       } else {
-        if (it != legends.begin()) {
-          auto moved = std::move(*it);
-          legends.erase(it);
-          legends.insert(legends.begin(), std::move(moved));
-        }
+        const int minZ = MinZIndex(layout);
+        if (it->zIndex > minZ)
+          it->zIndex = minZ - 1;
       }
       return true;
     }
@@ -470,17 +527,13 @@ bool LayoutCollection::MoveLayoutText(const std::string &name, int textId,
       if (it == texts.end())
         return false;
       if (toFront) {
-        if (std::next(it) != texts.end()) {
-          auto moved = std::move(*it);
-          texts.erase(it);
-          texts.push_back(std::move(moved));
-        }
+        const int maxZ = MaxZIndex(layout);
+        if (it->zIndex < maxZ)
+          it->zIndex = maxZ + 1;
       } else {
-        if (it != texts.begin()) {
-          auto moved = std::move(*it);
-          texts.erase(it);
-          texts.insert(texts.begin(), std::move(moved));
-        }
+        const int minZ = MinZIndex(layout);
+        if (it->zIndex > minZ)
+          it->zIndex = minZ - 1;
       }
       return true;
     }
@@ -500,17 +553,13 @@ bool LayoutCollection::MoveLayoutImage(const std::string &name, int imageId,
       if (it == images.end())
         return false;
       if (toFront) {
-        if (std::next(it) != images.end()) {
-          auto moved = std::move(*it);
-          images.erase(it);
-          images.push_back(std::move(moved));
-        }
+        const int maxZ = MaxZIndex(layout);
+        if (it->zIndex < maxZ)
+          it->zIndex = maxZ + 1;
       } else {
-        if (it != images.begin()) {
-          auto moved = std::move(*it);
-          images.erase(it);
-          images.insert(images.begin(), std::move(moved));
-        }
+        const int minZ = MinZIndex(layout);
+        if (it->zIndex > minZ)
+          it->zIndex = minZ - 1;
       }
       return true;
     }
@@ -530,17 +579,13 @@ bool LayoutCollection::MoveLayoutEventTable(const std::string &name, int tableId
       if (it == tables.end())
         return false;
       if (toFront) {
-        if (std::next(it) != tables.end()) {
-          auto moved = std::move(*it);
-          tables.erase(it);
-          tables.push_back(std::move(moved));
-        }
+        const int maxZ = MaxZIndex(layout);
+        if (it->zIndex < maxZ)
+          it->zIndex = maxZ + 1;
       } else {
-        if (it != tables.begin()) {
-          auto moved = std::move(*it);
-          tables.erase(it);
-          tables.insert(tables.begin(), std::move(moved));
-        }
+        const int minZ = MinZIndex(layout);
+        if (it->zIndex > minZ)
+          it->zIndex = minZ - 1;
       }
       return true;
     }
