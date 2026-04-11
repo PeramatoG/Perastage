@@ -382,6 +382,7 @@ void OpaqueObjectPass::Render(
           captureView == Viewer2DView::Top ||
           captureView == Viewer2DView::Front ||
           captureView == Viewer2DView::Side) &&
+         !wireframe &&
          CanUseAffineSymbolInstance(captureTransform, captureView) &&
          !highlight && !selected);
     bool placedInstance = false;
