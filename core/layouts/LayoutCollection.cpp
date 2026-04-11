@@ -112,6 +112,15 @@ int MinZIndex(const LayoutDefinition &layout) {
   }
   return hasValue ? minZ : 0;
 }
+
+bool IsExplicitBoundaryZChange(const LayoutDefinition &layout, int currentZ,
+                               int requestedZ) {
+  if (requestedZ == currentZ)
+    return false;
+  const int maxZ = MaxZIndex(layout);
+  const int minZ = MinZIndex(layout);
+  return requestedZ > maxZ || requestedZ < minZ;
+}
 } // namespace
 
 LayoutCollection::LayoutCollection() { layouts.push_back(DefaultLayout()); }
@@ -182,8 +191,10 @@ bool LayoutCollection::UpdateLayout2DView(const std::string &name,
       bool replaced = false;
       for (auto &entry : layout.view2dViews) {
         if (entry.id == updatedView.id && updatedView.id > 0) {
-          if (updatedView.zIndex == 0 && entry.zIndex != 0)
+          if (!IsExplicitBoundaryZChange(layout, entry.zIndex,
+                                         updatedView.zIndex)) {
             updatedView.zIndex = entry.zIndex;
+          }
           entry = updatedView;
           replaced = true;
           break;
@@ -263,8 +274,10 @@ bool LayoutCollection::UpdateLayoutLegend(
       bool replaced = false;
       for (auto &entry : layout.legendViews) {
         if (entry.id == updatedLegend.id && updatedLegend.id > 0) {
-          if (updatedLegend.zIndex == 0 && entry.zIndex != 0)
+          if (!IsExplicitBoundaryZChange(layout, entry.zIndex,
+                                         updatedLegend.zIndex)) {
             updatedLegend.zIndex = entry.zIndex;
+          }
           entry = updatedLegend;
           replaced = true;
           break;
@@ -300,8 +313,10 @@ bool LayoutCollection::UpdateLayoutEventTable(
       bool replaced = false;
       for (auto &entry : layout.eventTables) {
         if (entry.id == updatedTable.id && updatedTable.id > 0) {
-          if (updatedTable.zIndex == 0 && entry.zIndex != 0)
+          if (!IsExplicitBoundaryZChange(layout, entry.zIndex,
+                                         updatedTable.zIndex)) {
             updatedTable.zIndex = entry.zIndex;
+          }
           entry = updatedTable;
           replaced = true;
           break;
@@ -337,8 +352,10 @@ bool LayoutCollection::UpdateLayoutText(const std::string &name,
       bool replaced = false;
       for (auto &entry : layout.textViews) {
         if (entry.id == updatedText.id && updatedText.id > 0) {
-          if (updatedText.zIndex == 0 && entry.zIndex != 0)
+          if (!IsExplicitBoundaryZChange(layout, entry.zIndex,
+                                         updatedText.zIndex)) {
             updatedText.zIndex = entry.zIndex;
+          }
           entry = updatedText;
           replaced = true;
           break;
@@ -374,8 +391,10 @@ bool LayoutCollection::UpdateLayoutImage(const std::string &name,
       bool replaced = false;
       for (auto &entry : layout.imageViews) {
         if (entry.id == updatedImage.id && updatedImage.id > 0) {
-          if (updatedImage.zIndex == 0 && entry.zIndex != 0)
+          if (!IsExplicitBoundaryZChange(layout, entry.zIndex,
+                                         updatedImage.zIndex)) {
             updatedImage.zIndex = entry.zIndex;
+          }
           entry = updatedImage;
           replaced = true;
           break;

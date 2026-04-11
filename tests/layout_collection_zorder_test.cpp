@@ -84,10 +84,40 @@ void TestMoveEventTableUpdatesZIndex() {
   assert(updated->eventTables.front().zIndex == 11);
 }
 
+void TestRegularUpdateKeepsExistingZIndex() {
+  layouts::LayoutCollection collection;
+  layouts::LayoutDefinition layout;
+  layout.name = "Persist z";
+
+  layouts::Layout2DViewDefinition view;
+  view.id = 10;
+  view.zIndex = 1;
+  view.frame = {0, 0, 100, 100};
+  layout.view2dViews.push_back(view);
+
+  layouts::LayoutTextDefinition text;
+  text.id = 11;
+  text.zIndex = 5;
+  layout.textViews.push_back(text);
+
+  assert(collection.AddLayout(layout));
+
+  layouts::Layout2DViewDefinition editedView = view;
+  editedView.frame.width = 120;
+  editedView.zIndex = 0; // Typical non-z edit payload should preserve current z.
+  assert(collection.UpdateLayout2DView("Persist z", editedView));
+
+  const layouts::LayoutDefinition *updated = FindLayout(collection, "Persist z");
+  assert(updated != nullptr);
+  assert(updated->view2dViews.size() == 1);
+  assert(updated->view2dViews.front().zIndex == 1);
+}
+
 } // namespace
 
 int main() {
   TestMoveUpdatesZIndexForCrossElementOrdering();
   TestMoveEventTableUpdatesZIndex();
+  TestRegularUpdateKeepsExistingZIndex();
   return 0;
 }
