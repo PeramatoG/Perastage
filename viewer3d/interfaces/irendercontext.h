@@ -1,6 +1,7 @@
 #pragma once
 
 #include "canvas2d.h"
+#include <optional>
 #include <string>
 
 class IRenderContext {
@@ -20,6 +21,7 @@ public:
   virtual bool IsSketchRenderStyleEnabled() const = 0;
   virtual bool IsPureWhiteRenderStyleEnabled() const = 0;
   virtual bool IsTexturedRenderStyleEnabled() const = 0;
+  virtual std::optional<bool> GetSymbolCaptureRenderProfileOverride() const = 0;
 
   virtual void SetGLColor(float r, float g, float b) const = 0;
   virtual void RecordLine(const std::array<float, 3> &a,
