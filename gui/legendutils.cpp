@@ -153,6 +153,28 @@ std::string ResolveGdtfPath(const std::string &base,
     return {};
   const std::string cleanSpec = DecodePathEscapes(TrimPathRef(spec));
   const std::string norm = NormalizePath(cleanSpec);
+  const std::string fileName = fs::path(norm).filename().string();
+
+  // Always prefer files belonging to the currently opened project before
+  // taking absolute/library matches. This keeps symbol resolution aligned with
+  // project-local edited GDTFs during legend/PDF generation.
+  if (!base.empty()) {
+    const std::string projectDirect = ResolveExistingPath(fs::path(base) / norm);
+    if (!projectDirect.empty())
+      return projectDirect;
+
+    if (!fileName.empty()) {
+      const std::string projectByName = ResolveExistingPath(fs::path(base) / fileName);
+      if (!projectByName.empty())
+        return projectByName;
+    }
+
+    if (!fileName.empty()) {
+      const std::string projectRecursive = FindFileRecursive(base, fileName);
+      if (!projectRecursive.empty())
+        return projectRecursive;
+    }
+  }
 
   fs::path absolute = fs::path(norm);
   if (absolute.is_absolute()) {
@@ -160,17 +182,6 @@ std::string ResolveGdtfPath(const std::string &base,
     if (!resolved.empty())
       return resolved;
   }
-
-  const std::string relative = ResolveExistingPath(fs::path(base) / absolute);
-  if (!relative.empty())
-    return relative;
-
-  const std::string fileName = fs::path(norm).filename().string();
-  // Prefer project-local GDTFs over the global library to keep exported
-  // symbols aligned with the fixture file currently used by the open project.
-  const std::string projectRecursive = FindFileRecursive(base, fileName);
-  if (!projectRecursive.empty())
-    return projectRecursive;
 
   const std::array<std::string, 1> librarySubdirs = {"fixtures"};
   for (const std::string &subdir : librarySubdirs) {
