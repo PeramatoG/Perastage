@@ -1975,13 +1975,6 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       return;
     Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
     Viewer2DPanel *capturePanel = nullptr;
-    if (auto *mw = MainWindow::Instance()) {
-      offscreenRenderer = mw->GetOffscreenRenderer();
-      capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
-    }
-    if (!capturePanel || !offscreenRenderer) {
-      return;
-    }
     auto stopLoadingRequest = [this]() {
       loadingRequested = false;
       if (loadingTimer_.IsRunning())
@@ -1994,9 +1987,37 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     renderDirty = false;
     stopLoadingRequest();
   
+    bool hasDirtyViewCache = false;
+    for (const auto &view : currentLayout.view2dViews) {
+      const auto cacheIt = viewCaches_.find(view.id);
+      if (cacheIt != viewCaches_.end() && cacheIt->second.renderDirty) {
+        hasDirtyViewCache = true;
+        break;
+      }
+    }
+    bool needsLegendProcessing = false;
+    for (const auto &legend : currentLayout.legendViews) {
+      const auto cacheIt = legendCaches_.find(legend.id);
+      if (cacheIt == legendCaches_.end() || cacheIt->second.renderDirty ||
+          cacheIt->second.contentHash != legendDataHash) {
+        needsLegendProcessing = true;
+        break;
+      }
+    }
+    const bool needsCapturePanel = hasDirtyViewCache || needsLegendProcessing;
+    if (needsCapturePanel) {
+      if (auto *mw = MainWindow::Instance()) {
+        offscreenRenderer = mw->GetOffscreenRenderer();
+        capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+      }
+      if (!capturePanel || !offscreenRenderer) {
+        return;
+      }
+    }
+
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
-    if (!currentLayout.legendViews.empty()) {
+    if (needsLegendProcessing) {
       legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
     }
     std::vector<unsigned char> legendPixels;
@@ -2083,7 +2104,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   
     for (const auto &legend : currentLayout.legendViews) {
       LegendCache &cache = GetLegendCache(legend.id);
-      if (cache.symbols != legendSymbols) {
+      if (legendSymbols && cache.symbols != legendSymbols) {
         cache.symbols = legendSymbols;
         cache.renderDirty = true;
       }
