@@ -50,6 +50,13 @@ struct Viewer2DViewState {
   Viewer2DView view = Viewer2DView::Top;
 };
 
+struct Viewer2DRenderOverrides {
+  std::optional<bool> darkMode;
+  std::optional<bool> showGrid;
+  std::optional<bool> showRuler;
+  std::optional<bool> drawFixtureLabels;
+};
+
 class Viewer2DPanel : public wxGLCanvas {
 public:
   explicit Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender = false,
@@ -132,6 +139,8 @@ public:
   using CursorWorldPositionCallback =
       std::function<void(const std::optional<std::array<float, 3>> &)>;
   void SetCursorWorldPositionCallback(CursorWorldPositionCallback callback);
+  void SetRenderOverrides(
+      const std::optional<Viewer2DRenderOverrides> &overrides);
 
 private:
   enum class DragMode { None, View, Selection, RectSelection };
@@ -248,6 +257,7 @@ private:
   std::optional<wxSize> m_layoutEditViewportSize;
   float m_layoutEditScale = 1.0f;
   bool m_preferPerastageSvgSymbolsForLayouts = false;
+  std::optional<Viewer2DRenderOverrides> m_renderOverrides;
 
   wxDECLARE_EVENT_TABLE();
 };

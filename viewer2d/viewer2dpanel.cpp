@@ -489,6 +489,11 @@ void Viewer2DPanel::SetCursorWorldPositionCallback(
   m_cursorWorldPositionCallback = std::move(callback);
 }
 
+void Viewer2DPanel::SetRenderOverrides(
+    const std::optional<Viewer2DRenderOverrides> &overrides) {
+  m_renderOverrides = overrides;
+}
+
 std::optional<std::array<float, 3>>
 Viewer2DPanel::ComputeWorldPositionFromScreen(const wxPoint &screenPos) const {
   const wxSize size = GetClientSize();
@@ -668,6 +673,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   if (!pauseHeavyTasks)
     m_controller.UpdateResourcesIfDirty();
   bool darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
+  if (m_renderOverrides && m_renderOverrides->darkMode.has_value())
+    darkMode = m_renderOverrides->darkMode.value();
   m_controller.SetDarkMode(darkMode);
   if (darkMode)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -675,12 +682,16 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   bool showGrid = cfg.GetFloat("grid_show") != 0.0f;
+  if (m_renderOverrides && m_renderOverrides->showGrid.has_value())
+    showGrid = m_renderOverrides->showGrid.value();
   int gridStyle = static_cast<int>(cfg.GetFloat("grid_style"));
   float gridR = cfg.GetFloat("grid_color_r");
   float gridG = cfg.GetFloat("grid_color_g");
   float gridB = cfg.GetFloat("grid_color_b");
   bool drawAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
   bool showRuler = cfg.GetFloat("ruler_show") != 0.0f;
+  if (m_renderOverrides && m_renderOverrides->showRuler.has_value())
+    showRuler = m_renderOverrides->showRuler.value();
   const float rulerSmallTickMeters = cfg.GetFloat("ruler_tick_small_m");
   const float rulerLargeTickMeters = cfg.GetFloat("ruler_tick_large_m");
   const float rulerAxisXPosition = cfg.GetFloat("ruler_axis_x_position");
@@ -826,7 +837,10 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   // Draw fixture/hoist labels after all overlays so they remain on top of
   // rulers and other scene elements. Scale with zoom so labels behave like
   // regular scene objects instead of remaining a constant screen size.
-  if (!pauseHeavyTasks)
+  bool drawFixtureLabels = true;
+  if (m_renderOverrides && m_renderOverrides->drawFixtureLabels.has_value())
+    drawFixtureLabels = m_renderOverrides->drawFixtureLabels.value();
+  if (!pauseHeavyTasks && drawFixtureLabels)
     m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom);
 
   if (swapBuffers && m_enableSelection && m_rectSelecting)

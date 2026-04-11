@@ -3,7 +3,6 @@
 #include <array>
 #include <string>
 #include <unordered_map>
-#include <utility>
 
 #include "configmanager.h"
 #include "fixture.h"
@@ -20,28 +19,6 @@ namespace tools {
 namespace {
 
 constexpr float kSymbolRdpEpsilon = 1.0f;
-
-class ScopedFloatConfigOverride {
-public:
-  ScopedFloatConfigOverride(ConfigManager &cfg,
-                            std::initializer_list<std::pair<const char *, float>> values)
-      : cfg_(cfg) {
-    for (const auto &entry : values) {
-      const std::string key(entry.first);
-      previous_[key] = cfg_.GetFloat(key);
-      cfg_.SetFloat(key, entry.second);
-    }
-  }
-
-  ~ScopedFloatConfigOverride() {
-    for (const auto &[key, value] : previous_)
-      cfg_.SetFloat(key, value);
-  }
-
-private:
-  ConfigManager &cfg_;
-  std::unordered_map<std::string, float> previous_;
-};
 
 class ScopedFixtureColorOverride {
 public:
@@ -175,6 +152,20 @@ private:
   bool preferPerastageSvgSymbolsForLayouts_ = false;
 };
 
+class ScopedViewer2DRenderOverrides {
+public:
+  ScopedViewer2DRenderOverrides(Viewer2DPanel &panel,
+                                const Viewer2DRenderOverrides &overrides)
+      : panel_(panel) {
+    panel_.SetRenderOverrides(overrides);
+  }
+
+  ~ScopedViewer2DRenderOverrides() { panel_.SetRenderOverrides(std::nullopt); }
+
+private:
+  Viewer2DPanel &panel_;
+};
+
 void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
   if (render.width <= 0 || render.height <= 0)
     return;
@@ -216,27 +207,13 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   ScopedFixtureColorOverride selectedFixtureColorOverride(
       cfg, target.kind == SceneModelKind::Fixture ? target.uuid : std::string(),
       options.forcedFixtureColor);
-  ScopedFloatConfigOverride displayOverride(
-      cfg,
-      {
-          {"grid_show", 0.0f},
-          {"ruler_show", 0.0f},
-          {"view2d_dark_mode", 0.0f},
-          {"view2d_render_mode", static_cast<float>(Viewer2DRenderMode::ByFixtureType)},
-          {"viewer3d_aa_quality", 0.0f},
-          {"viewer3d_adaptive_line_profile", 0.0f},
-          {"viewer3d_symbol_capture_include_coplanar_edges", 1.0f},
-          {"viewer3d_symbol_capture_render_profile", 1.0f},
-          {"label_show_name_top", 0.0f},
-          {"label_show_name_front", 0.0f},
-          {"label_show_name_side", 0.0f},
-          {"label_show_id_top", 0.0f},
-          {"label_show_id_front", 0.0f},
-          {"label_show_id_side", 0.0f},
-          {"label_show_dmx_top", 0.0f},
-          {"label_show_dmx_front", 0.0f},
-          {"label_show_dmx_side", 0.0f},
-      });
+  Viewer2DRenderOverrides renderOverrides;
+  renderOverrides.darkMode = false;
+  renderOverrides.showGrid = false;
+  renderOverrides.showRuler = false;
+  renderOverrides.drawFixtureLabels = false;
+  ScopedViewer2DRenderOverrides scopedRenderOverrides(*capturePanel,
+                                                      renderOverrides);
 
   renderer.SetViewportSize(options.viewportSize);
   renderer.PrepareForCapture();
@@ -253,25 +230,21 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
   struct CaptureRequest {
     Viewer2DView view = Viewer2DView::Top;
-    float topFixturesInverted = 0.0f;
     bool mirrorSideHorizontally = false;
     symbols::SymbolView symbolView = symbols::SymbolView::Top;
   };
 
   const std::array<CaptureRequest, 4> requests = {
-      CaptureRequest{Viewer2DView::Front, 0.0f, false, symbols::SymbolView::Front},
-      CaptureRequest{Viewer2DView::Top, 0.0f, false, symbols::SymbolView::Top},
-      CaptureRequest{Viewer2DView::Side, 0.0f, true, symbols::SymbolView::Left},
-      CaptureRequest{Viewer2DView::Top, 1.0f, false, symbols::SymbolView::Bottom},
+      CaptureRequest{Viewer2DView::Front, false, symbols::SymbolView::Front},
+      CaptureRequest{Viewer2DView::Top, false, symbols::SymbolView::Top},
+      CaptureRequest{Viewer2DView::Side, true, symbols::SymbolView::Left},
+      CaptureRequest{Viewer2DView::Bottom, false, symbols::SymbolView::Bottom},
   };
 
   std::vector<symbols::RenderedSymbolImage> renders;
   renders.reserve(requests.size());
 
   for (const auto &request : requests) {
-    ScopedFloatConfigOverride topViewOverride(
-        cfg, {{"view2d_top_fixtures_inverted", request.topFixturesInverted}});
-
     capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
     capturePanel->SetView(request.view);
     capturePanel->UpdateScene(true);
