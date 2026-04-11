@@ -170,7 +170,6 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
     } else {
       view->camera.viewportHeight = 0;
     }
-    viewRenderVersion++;
   }
   if (updatePosition) {
     pendingFrameCommit_ = true;
@@ -192,8 +191,12 @@ void LayoutViewerPanel::DrawViewElement(
     const layouts::Layout2DViewDefinition &view, Viewer2DPanel *capturePanel,
     Viewer2DOffscreenRenderer *offscreenRenderer, int activeViewId) {
   ViewCache &cache = GetViewCache(view.id);
-  if (!captureInProgress && !cache.captureInProgress &&
-      cache.captureVersion != viewRenderVersion && capturePanel) {
+  const size_t viewContentHash = HashViewContent(view);
+  const bool needsCapture = !cache.hasCapture || !cache.hasRenderState ||
+                            cache.captureVersion != viewRenderVersion ||
+                            cache.contentHash != viewContentHash;
+  if (!captureInProgress && !cache.captureInProgress && needsCapture &&
+      capturePanel) {
     captureInProgress = true;
     cache.captureInProgress = true;
     const int viewId = view.id;
