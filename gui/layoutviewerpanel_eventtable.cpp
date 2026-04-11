@@ -131,9 +131,13 @@ void LayoutViewerPanel::OnEditEventTable(wxCommandEvent &) {
   LayoutEventTableDialog dialog(this, *table);
   if (dialog.ShowModal() != wxID_OK)
     return;
+  const auto editedFields = dialog.GetFields();
+  if (table->fields == editedFields) {
+    return;
+  }
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   cfg.PushUndoState("edit layout event table");
-  table->fields = dialog.GetFields();
+  table->fields = editedFields;
   if (!currentLayout.name.empty()) {
     layouts::LayoutManager::Get().UpdateLayoutEventTable(currentLayout.name,
                                                          *table);

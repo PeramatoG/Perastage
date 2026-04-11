@@ -27,6 +27,10 @@ LayoutEventTableDialog::LayoutEventTableDialog(
     wxWindow *parent, const layouts::LayoutEventTableDefinition &table)
     : wxDialog(parent, wxID_ANY, "Edit Event Table", wxDefaultPosition,
                wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+  const wxSize minDialogSize(680, 360);
+  SetMinSize(minDialogSize);
+  SetSize(minDialogSize);
+
   wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
   wxFlexGridSizer *grid = new wxFlexGridSizer(2, 8, 10);
   grid->AddGrowableCol(1, 1);
@@ -37,6 +41,7 @@ LayoutEventTableDialog::LayoutEventTableDialog(
     grid->Add(label, 0, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, 5);
 
     wxTextCtrl *field = new wxTextCtrl(this, wxID_ANY);
+    field->SetMinSize(wxSize(420, -1));
     if (idx < table.fields.size()) {
       field->SetValue(wxString::FromUTF8(table.fields[idx]));
     }
