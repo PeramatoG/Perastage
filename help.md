@@ -120,6 +120,8 @@ Selection syntax supports:
 | `rot x <values>` | Set rotation around X (roll). |
 | `rot y <values>` | Set rotation around Y (pitch). |
 | `rot z <values>` | Set rotation around Z (yaw). |
+| `rot x|y|z <values> --group` | Rotate the full selection as one group around a pivot. |
+| `rot x|y|z <values> --g` | Alias of `--group`. |
 
 Notes:
 
@@ -127,6 +129,8 @@ Notes:
 - Provide **two values** to linearly distribute from start to end across the selection.
 - Use `++` / `--` to apply relative offsets (example: `pos x ++ 1.5`, `rot z -- 10`).
 - You can also type a comma-separated triplet like `1, 2, 3` as a shortcut for `pos`.
+- Group rotation (`--group`/`--g`) uses the current selection **bbox center** as default pivot.
+- Add a trailing `x,y,z` triplet (in meters) to override pivot, for example: `rot y ++45 --g -2.5,0,0`.
 
 ## Keyboard Shortcuts (complete)
 
@@ -348,6 +352,8 @@ La sintaxis de selección admite:
 | `rot x <valores>` | Rota alrededor de X (roll). |
 | `rot y <valores>` | Rota alrededor de Y (pitch). |
 | `rot z <valores>` | Rota alrededor de Z (yaw). |
+| `rot x|y|z <valores> --group` | Rota toda la selección como un grupo alrededor de un pivote. |
+| `rot x|y|z <valores> --g` | Alias de `--group`. |
 
 Notas:
 
@@ -355,6 +361,8 @@ Notas:
 - **Dos valores** se distribuyen linealmente de inicio a fin.
 - Usa `++` / `--` para aplicar incrementos relativos (ej.: `pos x ++ 1.5`, `rot z -- 10`).
 - También puedes escribir un triplete separado por comas como `1, 2, 3`.
+- La rotación de grupo (`--group`/`--g`) usa por defecto el **centro del bbox** de la selección.
+- Puedes añadir al final un triplete `x,y,z` (en metros) para forzar pivote, por ejemplo: `rot y ++45 --g -2.5,0,0`.
 
 ## Atajos de teclado (completo)
 

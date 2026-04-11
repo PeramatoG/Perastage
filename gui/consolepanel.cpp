@@ -31,6 +31,7 @@
 #include <charconv>
 #include <cctype>
 #include <exception>
+#include <optional>
 #include <sstream>
 #include <vector>
 #include <wx/filename.h>
@@ -167,11 +168,12 @@ wxString BuildConsoleHelpContent() {
          "- pos x|y|z <values>\n"
          "- pos <x>,<y>,<z>\n"
          "- x|y|z <values>\n"
-         "- rot x|y|z <values>\n"
+         "- rot x|y|z <values> [--group|--g] [pivotX,pivotY,pivotZ]\n"
          "Examples:\n"
          "- f 1-5\n"
          "- pos x 1 4\n"
-         "- rot z -- 10";
+         "- rot z -- 10\n"
+         "- rot y ++45 --g -2.5,0,0";
 }
 
 } // namespace
@@ -752,6 +754,128 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       }
     };
 
+    auto parsePivotToken = [&](const std::string &token,
+                               std::array<float, 3> &pivotMm) {
+      auto parts = split(token, ',');
+      if (parts.size() != 3)
+        return false;
+      for (size_t idx = 0; idx < 3; ++idx) {
+        std::string part = trim(parts[idx]);
+        if (part.empty())
+          return false;
+        std::stringstream parser(part);
+        float valueMeters = 0.0f;
+        parser >> valueMeters;
+        if (!parser || !parser.eof())
+          return false;
+        pivotMm[idx] = valueMeters * 1000.0f;
+      }
+      return true;
+    };
+
+    auto computeSelectionBoundsCenterMm = [&]() -> std::optional<std::array<float, 3>> {
+      auto &scene = cfg.GetScene();
+      bool hasAny = false;
+      std::array<float, 3> minCorner{};
+      std::array<float, 3> maxCorner{};
+      auto expandBounds = [&](const std::array<float, 3> &positionMm) {
+        if (!hasAny) {
+          minCorner = positionMm;
+          maxCorner = positionMm;
+          hasAny = true;
+          return;
+        }
+        for (size_t axis = 0; axis < 3; ++axis) {
+          minCorner[axis] = std::min(minCorner[axis], positionMm[axis]);
+          maxCorner[axis] = std::max(maxCorner[axis], positionMm[axis]);
+        }
+      };
+      for (const auto &uuid : cfg.GetSelectedFixtures()) {
+        auto it = scene.fixtures.find(uuid);
+        if (it != scene.fixtures.end())
+          expandBounds(it->second.transform.o);
+      }
+      for (const auto &uuid : cfg.GetSelectedTrusses()) {
+        auto it = scene.trusses.find(uuid);
+        if (it != scene.trusses.end())
+          expandBounds(it->second.transform.o);
+      }
+      for (const auto &uuid : cfg.GetSelectedSupports()) {
+        auto it = scene.supports.find(uuid);
+        if (it != scene.supports.end())
+          expandBounds(it->second.transform.o);
+      }
+      for (const auto &uuid : cfg.GetSelectedSceneObjects()) {
+        auto it = scene.sceneObjects.find(uuid);
+        if (it != scene.sceneObjects.end())
+          expandBounds(it->second.transform.o);
+      }
+      if (!hasAny)
+        return std::nullopt;
+      return std::array<float, 3>{
+          (minCorner[0] + maxCorner[0]) * 0.5f,
+          (minCorner[1] + maxCorner[1]) * 0.5f,
+          (minCorner[2] + maxCorner[2]) * 0.5f,
+      };
+    };
+
+    auto rotateAroundPivot = [&](const std::vector<std::string> &sel,
+                                 TransformTarget target, int axis,
+                                 float angleDeg,
+                                 const std::array<float, 3> &pivotMm) {
+      if (sel.empty())
+        return;
+      auto &scene = cfg.GetScene();
+      Matrix rotation = MatrixUtils::Identity();
+      if (axis == 0)
+        rotation = MatrixUtils::EulerToMatrix(0.0f, 0.0f, angleDeg);
+      else if (axis == 1)
+        rotation = MatrixUtils::EulerToMatrix(0.0f, angleDeg, 0.0f);
+      else
+        rotation = MatrixUtils::EulerToMatrix(angleDeg, 0.0f, 0.0f);
+
+      auto rotatePosition = [&](std::array<float, 3> &positionMm) {
+        const std::array<float, 3> relative = {
+            positionMm[0] - pivotMm[0],
+            positionMm[1] - pivotMm[1],
+            positionMm[2] - pivotMm[2],
+        };
+        const std::array<float, 3> rotated = {
+            rotation.u[0] * relative[0] + rotation.v[0] * relative[1] +
+                rotation.w[0] * relative[2],
+            rotation.u[1] * relative[0] + rotation.v[1] * relative[1] +
+                rotation.w[1] * relative[2],
+            rotation.u[2] * relative[0] + rotation.v[2] * relative[1] +
+                rotation.w[2] * relative[2],
+        };
+        positionMm = {
+            rotated[0] + pivotMm[0],
+            rotated[1] + pivotMm[1],
+            rotated[2] + pivotMm[2],
+        };
+      };
+
+      for (const auto &uuid : sel) {
+        if (target == TransformTarget::Fixtures) {
+          auto it = scene.fixtures.find(uuid);
+          if (it != scene.fixtures.end())
+            rotatePosition(it->second.transform.o);
+        } else if (target == TransformTarget::Trusses) {
+          auto it = scene.trusses.find(uuid);
+          if (it != scene.trusses.end())
+            rotatePosition(it->second.transform.o);
+        } else if (target == TransformTarget::Supports) {
+          auto it = scene.supports.find(uuid);
+          if (it != scene.supports.end())
+            rotatePosition(it->second.transform.o);
+        } else {
+          auto it = scene.sceneObjects.find(uuid);
+          if (it != scene.sceneObjects.end())
+            rotatePosition(it->second.transform.o);
+        }
+      }
+    };
+
     auto parseVals = [&](const std::string &s, bool &relative) {
       relative = false;
       std::string str = trim(s);
@@ -870,11 +994,37 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       } else if (lw == "pos" || lw == "rot") {
         bool isRot = (lw == "rot");
         cfg.PushUndoState(std::string("cli ") + lw);
+        std::vector<std::string> segmentTokens;
+        for (size_t k = i + 1; k < j; ++k)
+          segmentTokens.push_back(tokens[k]);
+
+        bool useGroupRotation = false;
+        if (isRot) {
+          std::vector<std::string> filteredTokens;
+          filteredTokens.reserve(segmentTokens.size());
+          for (const auto &segmentToken : segmentTokens) {
+            if (segmentToken == "--group" || segmentToken == "--g")
+              useGroupRotation = true;
+            else
+              filteredTokens.push_back(segmentToken);
+          }
+          segmentTokens = std::move(filteredTokens);
+        }
+
+        std::optional<std::array<float, 3>> explicitPivotMm;
+        if (isRot && useGroupRotation && segmentTokens.size() > 1) {
+          std::array<float, 3> parsedPivotMm{};
+          if (parsePivotToken(segmentTokens.back(), parsedPivotMm)) {
+            explicitPivotMm = parsedPivotMm;
+            segmentTokens.pop_back();
+          }
+        }
+
         std::string rest;
-        for (size_t k = i + 1; k < j; ++k) {
-          if (k > i + 1)
+        for (size_t k = 0; k < segmentTokens.size(); ++k) {
+          if (k > 0)
             rest += ' ';
-          rest += tokens[k];
+          rest += segmentTokens[k];
         }
         const auto selFixtures = cfg.GetSelectedFixtures();
         const auto selTrusses = cfg.GetSelectedTrusses();
@@ -924,7 +1074,30 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           valsStr = trim(valsStr);
           bool rel = false;
           auto vals = parseVals(valsStr, rel);
-          if (isRot) {
+          if (isRot && useGroupRotation) {
+            if (!vals.empty()) {
+              const auto pivotMm =
+                  explicitPivotMm.value_or(computeSelectionBoundsCenterMm().value_or(
+                      std::array<float, 3>{0.0f, 0.0f, 0.0f}));
+              const float angleDeg = vals[0];
+              rotateAroundPivot(selFixtures, TransformTarget::Fixtures, axis,
+                                angleDeg, pivotMm);
+              rotateAroundPivot(selTrusses, TransformTarget::Trusses, axis,
+                                angleDeg, pivotMm);
+              rotateAroundPivot(selSupports, TransformTarget::Supports, axis,
+                                angleDeg, pivotMm);
+              rotateAroundPivot(selSceneObjects, TransformTarget::SceneObjects,
+                                axis, angleDeg, pivotMm);
+              applyRot(selFixtures, TransformTarget::Fixtures, axis,
+                       {angleDeg}, true);
+              applyRot(selTrusses, TransformTarget::Trusses, axis, {angleDeg},
+                       true);
+              applyRot(selSupports, TransformTarget::Supports, axis, {angleDeg},
+                       true);
+              applyRot(selSceneObjects, TransformTarget::SceneObjects, axis,
+                       {angleDeg}, true);
+            }
+          } else if (isRot) {
             applyRot(selFixtures, TransformTarget::Fixtures, axis, vals, rel);
             applyRot(selTrusses, TransformTarget::Trusses, axis, vals, rel);
             applyRot(selSupports, TransformTarget::Supports, axis, vals, rel);
