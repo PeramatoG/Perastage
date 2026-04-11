@@ -55,6 +55,9 @@ struct Viewer2DRenderOverrides {
   std::optional<bool> showGrid;
   std::optional<bool> showRuler;
   std::optional<bool> drawFixtureLabels;
+  std::optional<bool> forceBottomViewForTopFixtures;
+  std::optional<bool> symbolCaptureRenderProfile;
+  std::optional<bool> symbolCaptureIncludeCoplanarEdges;
 };
 
 class Viewer2DPanel : public wxGLCanvas {

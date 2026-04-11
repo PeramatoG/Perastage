@@ -33,6 +33,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -146,6 +147,12 @@ public:
   void SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
                         bool includeGrid = true,
                         bool useSymbolInstancing = false);
+  void SetForceBottomViewForTopFixturesOverride(const std::optional<bool> &value);
+  void SetSymbolCaptureRenderProfileOverride(const std::optional<bool> &value);
+  void SetSymbolCaptureIncludeCoplanarEdgesOverride(
+      const std::optional<bool> &value);
+  std::optional<bool> GetForceBottomViewForTopFixturesOverride() const;
+  std::optional<bool> GetSymbolCaptureRenderProfileOverride() const;
 
 private:
   struct Impl;

@@ -125,6 +125,9 @@ struct Viewer3DController::Impl {
   bool captureIncludeGrid = true;
   bool captureOnly = false;
   bool captureUseSymbols = false;
+  std::optional<bool> forceBottomViewForTopFixturesOverride;
+  std::optional<bool> symbolCaptureRenderProfileOverride;
+  std::optional<bool> symbolCaptureIncludeCoplanarEdgesOverride;
   SymbolCache bottomSymbolCache;
   bool darkMode = false;
   Viewer2DRenderMode activeRenderMode = Viewer2DRenderMode::White;
@@ -1273,6 +1276,31 @@ void Viewer3DController::SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
   m_impl->captureUseSymbols = canvas ? useSymbolInstancing : false;
 }
 
+void Viewer3DController::SetForceBottomViewForTopFixturesOverride(
+    const std::optional<bool> &value) {
+  m_impl->forceBottomViewForTopFixturesOverride = value;
+}
+
+void Viewer3DController::SetSymbolCaptureRenderProfileOverride(
+    const std::optional<bool> &value) {
+  m_impl->symbolCaptureRenderProfileOverride = value;
+}
+
+void Viewer3DController::SetSymbolCaptureIncludeCoplanarEdgesOverride(
+    const std::optional<bool> &value) {
+  m_impl->symbolCaptureIncludeCoplanarEdgesOverride = value;
+}
+
+std::optional<bool>
+Viewer3DController::GetForceBottomViewForTopFixturesOverride() const {
+  return m_impl->forceBottomViewForTopFixturesOverride;
+}
+
+std::optional<bool>
+Viewer3DController::GetSymbolCaptureRenderProfileOverride() const {
+  return m_impl->symbolCaptureRenderProfileOverride;
+}
+
 bool Viewer3DController::IsCameraMoving() const { return m_impl->cameraMoving; }
 
 std::array<float, 3> Viewer3DController::AdjustColor(float r, float g,
@@ -1388,9 +1416,13 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   if (mesh.normals.size() < mesh.vertices.size())
     ComputeNormals(mesh);
 
-  const bool includeCoplanarEdgesForCapture =
+  bool includeCoplanarEdgesForCapture =
       ConfigManager::Get().GetFloat(
           "viewer3d_symbol_capture_include_coplanar_edges") >= 0.5f;
+  if (m_impl->symbolCaptureIncludeCoplanarEdgesOverride.has_value()) {
+    includeCoplanarEdgesForCapture =
+        m_impl->symbolCaptureIncludeCoplanarEdgesOverride.value();
+  }
   std::vector<unsigned short> lineIndices = BuildWireframeIndices(
       mesh.vertices, mesh.indices, includeCoplanarEdgesForCapture);
 

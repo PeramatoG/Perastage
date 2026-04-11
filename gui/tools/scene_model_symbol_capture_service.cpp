@@ -212,6 +212,8 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   renderOverrides.showGrid = false;
   renderOverrides.showRuler = false;
   renderOverrides.drawFixtureLabels = false;
+  renderOverrides.symbolCaptureRenderProfile = true;
+  renderOverrides.symbolCaptureIncludeCoplanarEdges = true;
   ScopedViewer2DRenderOverrides scopedRenderOverrides(*capturePanel,
                                                       renderOverrides);
 
@@ -230,21 +232,25 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
   struct CaptureRequest {
     Viewer2DView view = Viewer2DView::Top;
+    bool forceBottomViewForTopFixtures = false;
     bool mirrorSideHorizontally = false;
     symbols::SymbolView symbolView = symbols::SymbolView::Top;
   };
 
   const std::array<CaptureRequest, 4> requests = {
-      CaptureRequest{Viewer2DView::Front, false, symbols::SymbolView::Front},
-      CaptureRequest{Viewer2DView::Top, false, symbols::SymbolView::Top},
-      CaptureRequest{Viewer2DView::Side, true, symbols::SymbolView::Left},
-      CaptureRequest{Viewer2DView::Bottom, false, symbols::SymbolView::Bottom},
+      CaptureRequest{Viewer2DView::Front, false, false, symbols::SymbolView::Front},
+      CaptureRequest{Viewer2DView::Top, false, false, symbols::SymbolView::Top},
+      CaptureRequest{Viewer2DView::Side, false, true, symbols::SymbolView::Left},
+      CaptureRequest{Viewer2DView::Top, true, false, symbols::SymbolView::Bottom},
   };
 
   std::vector<symbols::RenderedSymbolImage> renders;
   renders.reserve(requests.size());
 
   for (const auto &request : requests) {
+    renderOverrides.forceBottomViewForTopFixtures =
+        request.forceBottomViewForTopFixtures;
+    capturePanel->SetRenderOverrides(renderOverrides);
     capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
     capturePanel->SetView(request.view);
     capturePanel->UpdateScene(true);

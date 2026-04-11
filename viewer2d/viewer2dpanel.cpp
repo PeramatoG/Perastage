@@ -709,6 +709,24 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const auto distanceUnitSystem =
       Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
 
+  std::optional<bool> forceBottomViewForTopFixturesOverride;
+  std::optional<bool> symbolCaptureRenderProfileOverride;
+  std::optional<bool> symbolCaptureIncludeCoplanarEdgesOverride;
+  if (m_renderOverrides) {
+    forceBottomViewForTopFixturesOverride =
+        m_renderOverrides->forceBottomViewForTopFixtures;
+    symbolCaptureRenderProfileOverride =
+        m_renderOverrides->symbolCaptureRenderProfile;
+    symbolCaptureIncludeCoplanarEdgesOverride =
+        m_renderOverrides->symbolCaptureIncludeCoplanarEdges;
+  }
+  m_controller.SetForceBottomViewForTopFixturesOverride(
+      forceBottomViewForTopFixturesOverride);
+  m_controller.SetSymbolCaptureRenderProfileOverride(
+      symbolCaptureRenderProfileOverride);
+  m_controller.SetSymbolCaptureIncludeCoplanarEdgesOverride(
+      symbolCaptureIncludeCoplanarEdgesOverride);
+
   std::unique_ptr<ICanvas2D> recordingCanvas;
   if (m_captureNextFrame) {
     m_lastCapturedFrame.Clear();
