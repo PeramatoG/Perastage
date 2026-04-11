@@ -897,44 +897,45 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
     };
 
     auto refreshSelectionAfterTransform = [&]() {
-          const auto selFixtures = cfg.GetSelectedFixtures();
-          const auto selTrusses = cfg.GetSelectedTrusses();
-          const auto selSupports = cfg.GetSelectedSupports();
-          const auto selSceneObjects = cfg.GetSelectedSceneObjects();
+      const auto selFixtures = cfg.GetSelectedFixtures();
+      const auto selTrusses = cfg.GetSelectedTrusses();
+      const auto selSupports = cfg.GetSelectedSupports();
+      const auto selSceneObjects = cfg.GetSelectedSceneObjects();
 
-          if (!selFixtures.empty() && FixtureTablePanel::Instance()) {
-            FixtureTablePanel::Instance()->ReloadData();
-            FixtureTablePanel::Instance()->SelectByUuid(selFixtures);
-          }
-          if (!selTrusses.empty() && TrussTablePanel::Instance()) {
-            TrussTablePanel::Instance()->ReloadData();
-            TrussTablePanel::Instance()->SelectByUuid(selTrusses);
-          }
-          if (!selSupports.empty() && HoistTablePanel::Instance()) {
-            HoistTablePanel::Instance()->ReloadData();
-            HoistTablePanel::Instance()->SelectByUuid(selSupports);
-          }
-          if (!selSceneObjects.empty() && SceneObjectTablePanel::Instance()) {
-            SceneObjectTablePanel::Instance()->ReloadData();
-            SceneObjectTablePanel::Instance()->SelectByUuid(selSceneObjects);
-          }
+      if (!selFixtures.empty() && FixtureTablePanel::Instance()) {
+        FixtureTablePanel::Instance()->ReloadData();
+        FixtureTablePanel::Instance()->SelectByUuid(selFixtures, false);
+      }
+      if (!selTrusses.empty() && TrussTablePanel::Instance()) {
+        TrussTablePanel::Instance()->ReloadData();
+        TrussTablePanel::Instance()->SelectByUuid(selTrusses, false);
+      }
+      if (!selSupports.empty() && HoistTablePanel::Instance()) {
+        HoistTablePanel::Instance()->ReloadData();
+        HoistTablePanel::Instance()->SelectByUuid(selSupports, false);
+      }
+      if (!selSceneObjects.empty() && SceneObjectTablePanel::Instance()) {
+        SceneObjectTablePanel::Instance()->ReloadData();
+        SceneObjectTablePanel::Instance()->SelectByUuid(selSceneObjects, false);
+      }
 
-          std::vector<std::string> primarySelection = selFixtures;
-          if (primarySelection.empty())
-            primarySelection = selTrusses;
-          if (primarySelection.empty())
-            primarySelection = selSupports;
-          if (primarySelection.empty())
-            primarySelection = selSceneObjects;
+      std::vector<std::string> mergedSelection;
+      const auto appendSelection = [&](const std::vector<std::string> &source) {
+        mergedSelection.insert(mergedSelection.end(), source.begin(), source.end());
+      };
+      appendSelection(selFixtures);
+      appendSelection(selTrusses);
+      appendSelection(selSupports);
+      appendSelection(selSceneObjects);
 
-          if (Viewer3DPanel::Instance()) {
-            Viewer3DPanel::Instance()->SetSelectedFixtures(primarySelection);
-            Viewer3DPanel::Instance()->UpdateScene();
-            Viewer3DPanel::Instance()->Refresh();
-          }
-          if (Viewer2DPanel::Instance())
-            Viewer2DPanel::Instance()->SetSelectedUuids(primarySelection);
-        };
+      if (Viewer3DPanel::Instance()) {
+        Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
+        Viewer3DPanel::Instance()->UpdateScene();
+        Viewer3DPanel::Instance()->Refresh();
+      }
+      if (Viewer2DPanel::Instance())
+        Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
+    };
 
     auto isCmd = [](const std::string &tok, bool allowAxis,
                     bool allowRangeSeparator) {
