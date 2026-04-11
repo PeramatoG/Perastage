@@ -165,6 +165,10 @@ void DrawWireframeBox(float length, float height, float width, float r, float g,
   float z0 = 0.0f, z1 = height;
 
   if (wireframe) {
+    const bool useWireframeModeColor = mode == Viewer2DRenderMode::Wireframe;
+    const float strokeR = useWireframeModeColor ? r : 0.0f;
+    const float strokeG = useWireframeModeColor ? g : 0.0f;
+    const float strokeB = useWireframeModeColor ? b : 0.0f;
     const bool drawOutline = !skipOutlinesForCurrentFrame &&
                              showSelectionOutline2D && (highlight || selected);
     if (!captureOnly) {
@@ -178,11 +182,11 @@ void DrawWireframeBox(float length, float height, float width, float r, float g,
         DrawBoxEdges(x0, x1, y0, y1, z0, z1);
       }
       glLineWidth(lineWidth);
-      setColor(r, g, b);
+      setColor(strokeR, strokeG, strokeB);
       DrawBoxEdges(x0, x1, y0, y1, z0, z1);
     }
     CanvasStroke stroke;
-    stroke.color = {r, g, b, 1.0f};
+    stroke.color = {strokeR, strokeG, strokeB, 1.0f};
     stroke.width = lineWidth;
     if (captureCanvas)
       RecordBoxEdges(x0, x1, y0, y1, z0, z1, CaptureTransform{}, stroke,
@@ -273,7 +277,7 @@ void DrawCubeWithOutline(float size, float r, float g, float b, bool highlight,
                           lineWidth, glowWidth, false, captureOnly,
                           captureCanvas, setColor, recordLine);
     }
-    DrawWireframeCube(size, r, g, b, mode, captureTransform, lineWidth,
+    DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode, captureTransform, lineWidth,
                       -1.0f, true, captureOnly, captureCanvas, setColor,
                       recordLine);
     if (captureCanvas) {
@@ -289,7 +293,10 @@ void DrawCubeWithOutline(float size, float r, float g, float b, bool highlight,
           p = captureTransform(p);
       }
       CanvasStroke stroke;
-      stroke.color = {r, g, b, 1.0f};
+      stroke.color = {(mode == Viewer2DRenderMode::Wireframe) ? r : 0.0f,
+                      (mode == Viewer2DRenderMode::Wireframe) ? g : 0.0f,
+                      (mode == Viewer2DRenderMode::Wireframe) ? b : 0.0f,
+                      1.0f};
       stroke.width = lineWidth;
       CanvasFill fill;
       fill.color = {r, g, b, 1.0f};

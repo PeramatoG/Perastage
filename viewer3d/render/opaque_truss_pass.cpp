@@ -89,7 +89,8 @@ void OpaqueTrussPass::Render(
       g = 0.95f;
       b = 0.95f;
     }
-    if (wireframe || mode == Viewer2DRenderMode::ByLayer) {
+    if (mode == Viewer2DRenderMode::Wireframe ||
+        mode == Viewer2DRenderMode::ByLayer) {
       auto c = getLayerColor(t.layer);
       r = c[0];
       g = c[1];
