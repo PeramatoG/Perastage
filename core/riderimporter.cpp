@@ -1538,7 +1538,12 @@ bool RiderImporter::ImportText(const std::string &text,
         std::count(textToImport.begin(), textToImport.end(), '\n'));
     return newlineCount + 1;
   }();
-  constexpr int kParsingProgressReportEveryLines = 40;
+  const int parsingProgressReportEveryLines = [&]() {
+    if (totalInputLines <= 0)
+      return 1;
+    // Keep parsing feedback visibly active by targeting about 30 updates.
+    return std::max(1, totalInputLines / 30);
+  }();
 
   ConfigManager &cfg = ConfigManager::Get();
   cfg.PushUndoState("import rider");
@@ -1810,7 +1815,7 @@ bool RiderImporter::ImportText(const std::string &text,
     ++parsedInputLineCount;
     if (totalInputLines > 0 &&
         (parsedInputLineCount == 1 ||
-         parsedInputLineCount % kParsingProgressReportEveryLines == 0 ||
+         parsedInputLineCount % parsingProgressReportEveryLines == 0 ||
          parsedInputLineCount == totalInputLines)) {
       reportProgress("Parsing lines... (" + std::to_string(parsedInputLineCount) +
                          "/" + std::to_string(totalInputLines) + ")",
