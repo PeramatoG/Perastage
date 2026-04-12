@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "gdtfdictionary.h"
+#include "configmanager.h"
 #include "dictionary_json_contract.h"
 #include "file_import_utils.h"
 #include "json.hpp"
@@ -35,6 +36,68 @@ namespace GdtfDictionary {
 namespace {
 
 LoadStatus g_lastLoadStatus;
+
+
+constexpr const char *kFixturesDictionaryPathConfigKey =
+    "fixtures_dictionary_active_path";
+
+std::string TrimAsciiWhitespace(const std::string &text) {
+  const size_t start = text.find_first_not_of(" \t\r\n");
+  if (start == std::string::npos)
+    return {};
+  const size_t end = text.find_last_not_of(" \t\r\n");
+  return text.substr(start, end - start + 1);
+}
+
+bool IsSupportedDictionaryFile(const fs::path &path) {
+  return path.has_extension() && path.extension() == ".json";
+}
+
+fs::path ResolveConfiguredDictionaryPath(const fs::path &defaultPath,
+                                         const std::string &rawConfiguredPath,
+                                         std::string *warningOut = nullptr) {
+  if (warningOut)
+    warningOut->clear();
+  const std::string trimmedPath = TrimAsciiWhitespace(rawConfiguredPath);
+  if (trimmedPath.empty())
+    return defaultPath;
+
+  fs::path configuredPath = fs::u8path(trimmedPath);
+  if (configuredPath.is_relative()) {
+    configuredPath = defaultPath.parent_path() / configuredPath;
+  }
+
+  if (configuredPath.has_filename() && IsSupportedDictionaryFile(configuredPath)) {
+    std::error_code ec;
+    fs::create_directories(configuredPath.parent_path(), ec);
+    if (!ec)
+      return configuredPath;
+    if (warningOut)
+      *warningOut = "Could not create dictionary directory for configured path: " +
+                    configuredPath.parent_path().string();
+    return defaultPath;
+  }
+
+  if (warningOut)
+    *warningOut = "Configured fixtures dictionary path is invalid. Expected a .json file path.";
+  return defaultPath;
+}
+
+fs::path GetConfiguredUserDictFile(std::string *warningOut = nullptr) {
+  const fs::path defaultPath = GetUserDictFile();
+  if (defaultPath.empty()) {
+    if (warningOut)
+      *warningOut = "Default fixtures dictionary path is empty";
+    return {};
+  }
+
+  const auto configured =
+      ConfigManager::Get().GetValue(kFixturesDictionaryPathConfigKey);
+  if (!configured)
+    return defaultPath;
+  return ResolveConfiguredDictionaryPath(defaultPath, *configured, warningOut);
+}
+
 
 bool PathsMatchForDictionaryEntries(const std::string &lhs,
                                     const std::string &rhs) {
@@ -455,11 +518,99 @@ DictionaryImportSummary MergeDictionaryEntries(
 
 } // namespace
 
+
+std::string GetActiveDictionaryFilePath() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  return GetConfiguredUserDictFile().string();
+}
+
+std::string GetActiveDictionaryFileName() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  const fs::path path = GetConfiguredUserDictFile();
+  if (path.empty())
+    return {};
+  return path.filename().string();
+}
+
+bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut) {
+  if (errorOut)
+    errorOut->clear();
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+
+  const fs::path defaultPath = GetUserDictFile();
+  if (defaultPath.empty()) {
+    if (errorOut)
+      *errorOut = "Default fixtures dictionary path is empty";
+    return false;
+  }
+
+  std::string warning;
+  const fs::path resolvedPath =
+      ResolveConfiguredDictionaryPath(defaultPath, path, &warning);
+  if (!warning.empty() && TrimAsciiWhitespace(path) != TrimAsciiWhitespace(defaultPath.string())) {
+    if (errorOut)
+      *errorOut = warning;
+    return false;
+  }
+
+  const auto previousValue = ConfigManager::Get().GetValue(kFixturesDictionaryPathConfigKey);
+
+  const std::string trimmedInput = TrimAsciiWhitespace(path);
+  if (trimmedInput.empty() || resolvedPath == defaultPath) {
+    ConfigManager::Get().RemoveKey(kFixturesDictionaryPathConfigKey);
+  } else {
+    ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey,
+                                  resolvedPath.string());
+  }
+
+  if (!ConfigManager::Get().SaveUserConfig()) {
+    if (previousValue)
+      ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey, *previousValue);
+    else
+      ConfigManager::Get().RemoveKey(kFixturesDictionaryPathConfigKey);
+    if (errorOut)
+      *errorOut = "Could not persist dictionary selection in user config";
+    return false;
+  }
+
+  if (!fs::exists(resolvedPath)) {
+    if (!RecreateUserDictionaryFromBase(resolvedPath, GetBaseDictFile())) {
+      std::string createError;
+      if (!Save({}, &createError)) {
+        if (previousValue)
+          ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey, *previousValue);
+        else
+          ConfigManager::Get().RemoveKey(kFixturesDictionaryPathConfigKey);
+        ConfigManager::Get().SaveUserConfig();
+        if (errorOut)
+          *errorOut = "Could not create selected fixtures dictionary file: " +
+                      createError;
+        return false;
+      }
+    }
+  }
+
+  std::string loadError;
+  if (!LoadFromFile(resolvedPath, loadError)) {
+    if (previousValue)
+      ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey, *previousValue);
+    else
+      ConfigManager::Get().RemoveKey(kFixturesDictionaryPathConfigKey);
+    ConfigManager::Get().SaveUserConfig();
+    if (errorOut)
+      *errorOut = "Could not load selected fixtures dictionary: " + loadError;
+    return false;
+  }
+
+
+  return true;
+}
+
 std::optional<std::unordered_map<std::string, Entry>> Load() {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   g_lastLoadStatus = {};
 
-  const fs::path userFile = GetUserDictFile();
+  const fs::path userFile = GetConfiguredUserDictFile(&g_lastLoadStatus.error);
   const fs::path baseFile = GetBaseDictFile();
 
   std::string userError;
@@ -505,7 +656,7 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
   if (errorOut)
     errorOut->clear();
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  fs::path file = GetUserDictFile();
+  fs::path file = GetConfiguredUserDictFile(errorOut);
   if (file.empty()) {
     if (errorOut)
       *errorOut = "User fixtures dictionary path is empty";
@@ -635,7 +786,7 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
   const fs::path src = fs::u8path(gdtfPath);
   if (!fs::exists(src))
     return;
-  const fs::path file = GetUserDictFile();
+  const fs::path file = GetConfiguredUserDictFile();
   if (file.empty())
     return;
 

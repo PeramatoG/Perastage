@@ -17,6 +17,7 @@
  */
 #include "trussdictionary.h"
 
+#include "configmanager.h"
 #include "dictionary_json_contract.h"
 #include "file_import_utils.h"
 #include "json.hpp"
@@ -40,6 +41,8 @@ namespace TrussDictionary {
 namespace {
 
 LoadStatus g_lastLoadStatus;
+constexpr const char *kTrussDictionaryPathConfigKey =
+    "trusses_dictionary_active_path";
 
 static std::string ToUtf8String(const fs::path &path) {
   std::u8string utf8 = path.u8string();
@@ -78,6 +81,10 @@ static std::string CollapseAsciiWhitespace(const std::string &text) {
   return collapsed;
 }
 
+static bool IsSupportedDictionaryFile(const fs::path &path) {
+  return path.has_extension() && path.extension() == ".json";
+}
+
 static fs::path GetUserDictFile() {
   fs::path dir = fs::u8path(ProjectUtils::GetWritableLibraryPath("trusses"));
   if (dir.empty())
@@ -87,6 +94,53 @@ static fs::path GetUserDictFile() {
   if (ec)
     return {};
   return dir / "truss_dictionary.json";
+}
+
+static fs::path ResolveConfiguredDictionaryPath(
+    const fs::path &defaultPath, const std::string &rawConfiguredPath,
+    std::string *warningOut = nullptr) {
+  if (warningOut)
+    warningOut->clear();
+  const std::string trimmedPath = TrimAsciiWhitespace(rawConfiguredPath);
+  if (trimmedPath.empty())
+    return defaultPath;
+
+  fs::path configuredPath = fs::u8path(trimmedPath);
+  if (configuredPath.is_relative())
+    configuredPath = defaultPath.parent_path() / configuredPath;
+
+  if (configuredPath.has_filename() && IsSupportedDictionaryFile(configuredPath)) {
+    std::error_code ec;
+    fs::create_directories(configuredPath.parent_path(), ec);
+    if (!ec)
+      return configuredPath;
+    if (warningOut) {
+      *warningOut =
+          "Could not create dictionary directory for configured path: " +
+          configuredPath.parent_path().string();
+    }
+    return defaultPath;
+  }
+
+  if (warningOut)
+    *warningOut =
+        "Configured trusses dictionary path is invalid. Expected a .json file path.";
+  return defaultPath;
+}
+
+static fs::path GetConfiguredUserDictFile(std::string *warningOut = nullptr) {
+  const fs::path defaultPath = GetUserDictFile();
+  if (defaultPath.empty()) {
+    if (warningOut)
+      *warningOut = "Default trusses dictionary path is empty";
+    return {};
+  }
+
+  const auto configured =
+      ConfigManager::Get().GetValue(kTrussDictionaryPathConfigKey);
+  if (!configured)
+    return defaultPath;
+  return ResolveConfiguredDictionaryPath(defaultPath, *configured, warningOut);
 }
 
 static fs::path GetBaseDictFile() {
@@ -398,7 +452,7 @@ bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
     return false;
   }
 
-  fs::path dictFile = GetUserDictFile();
+  fs::path dictFile = GetConfiguredUserDictFile();
   if (dictFile.empty()) {
     error = "Truss dictionary is not available";
     return false;
@@ -421,11 +475,98 @@ bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
   return true;
 }
 
+std::string GetActiveDictionaryFilePath() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  return GetConfiguredUserDictFile().string();
+}
+
+std::string GetActiveDictionaryFileName() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  const fs::path path = GetConfiguredUserDictFile();
+  if (path.empty())
+    return {};
+  return path.filename().string();
+}
+
+bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut) {
+  if (errorOut)
+    errorOut->clear();
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+
+  const fs::path defaultPath = GetUserDictFile();
+  if (defaultPath.empty()) {
+    if (errorOut)
+      *errorOut = "Default trusses dictionary path is empty";
+    return false;
+  }
+
+  std::string warning;
+  const fs::path resolvedPath =
+      ResolveConfiguredDictionaryPath(defaultPath, path, &warning);
+  if (!warning.empty() &&
+      TrimAsciiWhitespace(path) != TrimAsciiWhitespace(defaultPath.string())) {
+    if (errorOut)
+      *errorOut = warning;
+    return false;
+  }
+
+  const auto previousValue =
+      ConfigManager::Get().GetValue(kTrussDictionaryPathConfigKey);
+  const std::string trimmedInput = TrimAsciiWhitespace(path);
+  if (trimmedInput.empty() || resolvedPath == defaultPath) {
+    ConfigManager::Get().RemoveKey(kTrussDictionaryPathConfigKey);
+  } else {
+    ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey,
+                                  resolvedPath.string());
+  }
+
+  if (!ConfigManager::Get().SaveUserConfig()) {
+    if (previousValue)
+      ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey, *previousValue);
+    else
+      ConfigManager::Get().RemoveKey(kTrussDictionaryPathConfigKey);
+    if (errorOut)
+      *errorOut = "Could not persist dictionary selection in user config";
+    return false;
+  }
+
+  if (!fs::exists(resolvedPath)) {
+    if (!RecreateUserDictionaryFromBase(resolvedPath, GetBaseDictFile())) {
+      std::string createError;
+      if (!Save({}, &createError)) {
+        if (previousValue)
+          ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey, *previousValue);
+        else
+          ConfigManager::Get().RemoveKey(kTrussDictionaryPathConfigKey);
+        ConfigManager::Get().SaveUserConfig();
+        if (errorOut)
+          *errorOut = "Could not create selected trusses dictionary file: " +
+                      createError;
+        return false;
+      }
+    }
+  }
+
+  std::string loadError;
+  if (!LoadFromFile(resolvedPath, loadError)) {
+    if (previousValue)
+      ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey, *previousValue);
+    else
+      ConfigManager::Get().RemoveKey(kTrussDictionaryPathConfigKey);
+    ConfigManager::Get().SaveUserConfig();
+    if (errorOut)
+      *errorOut = "Could not load selected trusses dictionary: " + loadError;
+    return false;
+  }
+
+  return true;
+}
+
 std::optional<std::unordered_map<std::string, std::string>> Load() {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   g_lastLoadStatus = {};
 
-  const fs::path userFile = GetUserDictFile();
+  const fs::path userFile = GetConfiguredUserDictFile(&g_lastLoadStatus.error);
   const fs::path baseFile = GetBaseDictFile();
   std::string userError;
   if (auto userDict = LoadFromFile(userFile, userError)) {
@@ -470,7 +611,7 @@ bool Save(const std::unordered_map<std::string, std::string> &dict,
   if (errorOut)
     errorOut->clear();
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  fs::path file = GetUserDictFile();
+  fs::path file = GetConfiguredUserDictFile(errorOut);
   if (file.empty()) {
     if (errorOut)
       *errorOut = "User trusses dictionary path is empty";
