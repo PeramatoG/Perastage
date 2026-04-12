@@ -35,12 +35,14 @@ void UpdateDictionarySelectionControls(const DictionarySelectionControls &contro
                                        const wxString &fileName,
                                        const wxString &fullPath) {
   if (controls.activeFileLabel) {
-    controls.activeFileLabel->SetLabel(fileName.IsEmpty() ? "Dictionary: -"
-                                                          : "Dictionary: " + fileName);
+    controls.activeFileLabel->SetLabel(
+        fileName.IsEmpty() ? wxString("Dictionary: -")
+                           : wxString("Dictionary: ") + fileName);
   }
   if (controls.activePathLabel) {
-    controls.activePathLabel->SetLabel(fullPath.IsEmpty() ? "Path: -"
-                                                          : "Path: " + fullPath);
+    controls.activePathLabel->SetLabel(
+        fullPath.IsEmpty() ? wxString("Path: -")
+                           : wxString("Path: ") + fullPath);
     controls.activePathLabel->SetToolTip(fullPath);
   }
 }

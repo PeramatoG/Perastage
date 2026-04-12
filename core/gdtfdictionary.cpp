@@ -36,6 +36,7 @@ namespace GdtfDictionary {
 namespace {
 
 LoadStatus g_lastLoadStatus;
+fs::path GetUserDictFile();
 
 
 constexpr const char *kFixturesDictionaryPathConfigKey =
