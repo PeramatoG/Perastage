@@ -13,11 +13,11 @@ int main() {
   cfg.Reset();
 
   const std::string riderText =
-      "((Example with inline annotations))\n"
-      "LX1 ((Main front truss))\n"
+      "*(Example with inline annotations)*\n"
+      "LX1 *(Main front truss)*\n"
       "4 Spot *(Main spots)*\n"
       "RIGGING\n"
-      "1 TRUSS 40X40 12m PARA LX1 ((Truss definition))\n";
+      "1 TRUSS 40X40 12m PARA LX1 *(Truss definition)*\n";
 
   const std::string expectedPreview =
       "LX1\n"
