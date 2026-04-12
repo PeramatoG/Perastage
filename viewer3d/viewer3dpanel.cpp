@@ -91,6 +91,10 @@ bool IsFastInteractionModeEnabled()
     return ConfigManager::Get().GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
+bool Is2DDarkModeEnabled() {
+    return ConfigManager::Get().GetFloat("view2d_dark_mode") >= 0.5f;
+}
+
 Viewer3DRenderStyle ResolveRenderStyleFromPreferences() {
     return ResolveViewer3DRenderStyle(ConfigManager::Get());
 }
@@ -144,7 +148,10 @@ void ApplyViewer3DClearColorForStyle(Viewer3DRenderStyle style) {
         return;
     }
     if (style == Viewer3DRenderStyle::Wireframe) {
-        glClearColor(0.95f, 0.95f, 0.95f, 1.0f);
+        if (Is2DDarkModeEnabled())
+            glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+        else
+            glClearColor(0.95f, 0.95f, 0.95f, 1.0f);
         return;
     }
     if (style == Viewer3DRenderStyle::Textured) {
