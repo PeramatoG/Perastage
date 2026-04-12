@@ -3,6 +3,7 @@
 #include <map>
 #include <algorithm>
 #include <string>
+#include <set>
 #include <vector>
 #include <wx/init.h>
 
@@ -261,6 +262,44 @@ int main() {
   assert(lx1SupportCount == 2);
   assert(lx2SupportCount == 2);
   assert(!pollutedLayerNameFound);
+
+  cfg.Reset();
+  const std::string sideHoistsText =
+      "RIGGING\n"
+      "1 TRUSS 40X40 14m FOR LX1\n"
+      "1 TRUSS 40X40 6m FOR SIDES (1, 4)\n"
+      "4 MOTOR 1000Kg FOR SIDES\n";
+  assert(RiderImporter::ImportText(sideHoistsText));
+  const auto &sideHoistsScene = cfg.GetScene();
+  std::map<std::string, int> sideHoistNameCounts;
+  std::vector<float> sideLeftY;
+  std::vector<float> sideRightY;
+  std::set<float> sideXAnchors;
+  for (const auto &[uuid, support] : sideHoistsScene.supports) {
+    (void)uuid;
+    assert(support.positionName == "LX SIDES");
+    sideHoistNameCounts[support.name]++;
+    sideXAnchors.insert(support.transform.o[0]);
+    if (support.transform.o[0] <= 0.0f)
+      sideLeftY.push_back(support.transform.o[1]);
+    else
+      sideRightY.push_back(support.transform.o[1]);
+    assert(std::abs(support.transform.o[2] - 4000.0f) < 0.001f);
+  }
+  assert(sideHoistsScene.supports.size() == 4);
+  assert(sideXAnchors.size() == 2);
+  assert(sideLeftY.size() == 2);
+  assert(sideRightY.size() == 2);
+  std::sort(sideLeftY.begin(), sideLeftY.end());
+  std::sort(sideRightY.begin(), sideRightY.end());
+  assert(std::abs(sideLeftY[0] - 2000.0f) < 0.001f);
+  assert(std::abs(sideLeftY[1] - 6000.0f) < 0.001f);
+  assert(std::abs(sideRightY[0] - 2000.0f) < 0.001f);
+  assert(std::abs(sideRightY[1] - 6000.0f) < 0.001f);
+  assert(sideHoistNameCounts["SIDE L 1"] == 1);
+  assert(sideHoistNameCounts["SIDE L 2"] == 1);
+  assert(sideHoistNameCounts["SIDE R 1"] == 1);
+  assert(sideHoistNameCounts["SIDE R 2"] == 1);
 
   return 0;
 }

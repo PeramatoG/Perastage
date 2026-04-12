@@ -686,6 +686,7 @@ void AssignImportedHoistNames(std::vector<Support *> &supports) {
   };
 
   std::map<std::string, std::vector<Support *>> lxByPosition;
+  std::vector<Support *> lxSidesSupports;
   std::vector<Support *> screenSupports;
   std::vector<Support *> backdropSupports;
   std::vector<Support *> sidefillSupports;
@@ -698,6 +699,8 @@ void AssignImportedHoistNames(std::vector<Support *> &supports) {
     const std::string position = NormalizeHangName(support->positionName);
     if (IsLxHangName(position)) {
       lxByPosition[position].push_back(support);
+    } else if (IsLxSidesHangName(position)) {
+      lxSidesSupports.push_back(support);
     } else if (position == "SCREEN") {
       screenSupports.push_back(support);
     } else if (position == "BACKDROP") {
@@ -722,6 +725,36 @@ void AssignImportedHoistNames(std::vector<Support *> &supports) {
       support->name = position + " " + std::to_string(i + 1);
       support->motorName = support->name;
     }
+  }
+
+  auto sortByYThenX = [](Support *a, Support *b) {
+    if (a->transform.o[1] != b->transform.o[1])
+      return a->transform.o[1] < b->transform.o[1];
+    if (a->transform.o[0] != b->transform.o[0])
+      return a->transform.o[0] < b->transform.o[0];
+    return a->uuid < b->uuid;
+  };
+  std::vector<Support *> sideLeftSupports;
+  std::vector<Support *> sideRightSupports;
+  for (Support *support : lxSidesSupports) {
+    if (!support)
+      continue;
+    if (support->transform.o[0] <= 0.0f)
+      sideLeftSupports.push_back(support);
+    else
+      sideRightSupports.push_back(support);
+  }
+  std::sort(sideLeftSupports.begin(), sideLeftSupports.end(), sortByYThenX);
+  std::sort(sideRightSupports.begin(), sideRightSupports.end(), sortByYThenX);
+  for (size_t i = 0; i < sideLeftSupports.size(); ++i) {
+    Support *support = sideLeftSupports[i];
+    support->name = "SIDE L " + std::to_string(i + 1);
+    support->motorName = support->name;
+  }
+  for (size_t i = 0; i < sideRightSupports.size(); ++i) {
+    Support *support = sideRightSupports[i];
+    support->name = "SIDE R " + std::to_string(i + 1);
+    support->motorName = support->name;
   }
 
   std::sort(screenSupports.begin(), screenSupports.end(), sortByX);
@@ -2684,12 +2717,39 @@ bool RiderImporter::ImportText(const std::string &text,
     bool found = false;
   };
   SideTrussInfo sideTrussInfo;
+  struct SideHoistSpanInfo {
+    float x = 0.0f;
+    float startY = 0.0f;
+    float endY = 0.0f;
+    float z = 0.0f;
+    bool found = false;
+  };
+  SideHoistSpanInfo leftSideHoistSpan;
+  SideHoistSpanInfo rightSideHoistSpan;
   for (const auto &[uuid, t] : scene.trusses) {
     (void)uuid;
     if (IsLxSidesHangName(t.positionName)) {
       const float sideX = t.transform.o[0];
       const float startY = t.transform.o[1];
       const float endY = startY + t.lengthMm;
+      SideHoistSpanInfo &sideSpan =
+          sideX <= 0.0f ? leftSideHoistSpan : rightSideHoistSpan;
+      if (!sideSpan.found) {
+        sideSpan.x = sideX;
+        sideSpan.startY = startY;
+        sideSpan.endY = endY;
+        sideSpan.z = t.transform.o[2];
+        sideSpan.found = true;
+      } else {
+        sideSpan.x = sideX <= 0.0f ? std::min(sideSpan.x, sideX)
+                                   : std::max(sideSpan.x, sideX);
+        const float currentStart = std::min(sideSpan.startY, sideSpan.endY);
+        const float currentEnd = std::max(sideSpan.startY, sideSpan.endY);
+        const float candidateStart = std::min(startY, endY);
+        const float candidateEnd = std::max(startY, endY);
+        sideSpan.startY = std::min(currentStart, candidateStart);
+        sideSpan.endY = std::max(currentEnd, candidateEnd);
+      }
       if (!sideTrussInfo.found) {
         sideTrussInfo.leftX = sideX;
         sideTrussInfo.rightX = sideX;
@@ -2875,6 +2935,47 @@ bool RiderImporter::ImportText(const std::string &text,
                  hoistFunction);
   };
 
+  auto distributeAcrossSides = [&](int quantity, float capacityKg,
+                                   const std::string &hoistFunction) {
+    if (quantity <= 0)
+      return;
+
+    const int leftCount = quantity / 2 + quantity % 2;
+    const int rightCount = quantity / 2;
+    const float sideMarginMm = 1000.0f;
+
+    auto placeOnSide = [&](const SideHoistSpanInfo &sideInfo, int count,
+                           float fallbackX) {
+      if (count <= 0)
+        return;
+      const float sideX = sideInfo.found ? sideInfo.x : fallbackX;
+      float startY = sideInfo.found ? sideInfo.startY : sideTrussInfo.startY;
+      float endY = sideInfo.found ? sideInfo.endY : sideTrussInfo.endY;
+      const float z = sideInfo.found ? sideInfo.z
+                                     : (sideTrussInfo.found ? sideTrussInfo.z
+                                                            : getHangHeight("LX SIDES"));
+      const float direction = endY >= startY ? 1.0f : -1.0f;
+      startY += direction * sideMarginMm;
+      endY -= direction * sideMarginMm;
+      if ((direction > 0.0f && endY < startY) ||
+          (direction < 0.0f && endY > startY)) {
+        const float center = sideInfo.found ? (sideInfo.startY + sideInfo.endY) * 0.5f
+                                            : (startY + endY) * 0.5f;
+        startY = center;
+        endY = center;
+      }
+      const float step =
+          count > 1 ? (endY - startY) / static_cast<float>(count - 1) : 0.0f;
+      for (int i = 0; i < count; ++i) {
+        const float y = startY + step * static_cast<float>(i);
+        placeHoist(sideX, y, z, capacityKg, "LX SIDES", hoistFunction);
+      }
+    };
+
+    placeOnSide(leftSideHoistSpan, leftCount, sideTrussInfo.leftX);
+    placeOnSide(rightSideHoistSpan, rightCount, sideTrussInfo.rightX);
+  };
+
   auto distributePaOrSidefill = [&](const std::string &positionName, int quantity,
                                      float capacityKg, bool sidefill,
                                      const std::string &hoistFunction) {
@@ -2953,6 +3054,10 @@ bool RiderImporter::ImportText(const std::string &text,
         placeHoist(x, y, z, request.capacityKg, "SCREEN", hoistFunction);
       }
     } else {
+      if (IsLxSidesHangName(request.target)) {
+        distributeAcrossSides(request.quantity, request.capacityKg, hoistFunction);
+        continue;
+      }
       const float marginMm = IsLxHangName(request.target) ? 1000.0f : 2000.0f;
       distributeAcrossTruss(request.target, request.quantity, request.capacityKg,
                             marginMm, hoistFunction);
