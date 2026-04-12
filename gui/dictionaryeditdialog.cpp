@@ -1482,6 +1482,51 @@ void DictionaryEditDialog::UpdateFixtureColorForFileAndMode(
   }
 }
 
+void DictionaryEditDialog::SyncFixtureColorForFileAndMode(int row) {
+  if (!fixtureTable || row < 0 || static_cast<size_t>(row) >= fixturePaths.size())
+    return;
+
+  const std::string &targetPath = fixturePaths[static_cast<size_t>(row)];
+  if (targetPath.empty())
+    return;
+
+  wxVariant targetModeVar;
+  fixtureTable->GetValue(targetModeVar, row, kFixtureModeColumn);
+  const std::string targetModeKey =
+      NormalizeFixtureModeKey(std::string(targetModeVar.GetString().ToUTF8()));
+  if (targetModeKey.empty())
+    return;
+
+  const int rowCount = fixtureTable->GetItemCount();
+  for (int i = 0; i < rowCount; ++i) {
+    if (i == row)
+      continue;
+    if (static_cast<size_t>(i) >= fixturePaths.size())
+      continue;
+    if (!FixturePathsMatchForColorFamily(fixturePaths[static_cast<size_t>(i)],
+                                         targetPath)) {
+      continue;
+    }
+
+    wxVariant modeVar;
+    fixtureTable->GetValue(modeVar, i, kFixtureModeColumn);
+    const std::string modeKey =
+        NormalizeFixtureModeKey(std::string(modeVar.GetString().ToUTF8()));
+    if (modeKey != targetModeKey)
+      continue;
+
+    wxVariant colorVar;
+    fixtureTable->GetValue(colorVar, i, kFixtureColorColumn);
+    const std::string color = ExtractFixtureColorText(colorVar);
+    const auto normalizedColor = NormalizeFixtureHexColor(color);
+    if (!normalizedColor.has_value() || normalizedColor->empty())
+      continue;
+
+    SetFixtureColorCell(fixtureTable, row, *normalizedColor);
+    return;
+  }
+}
+
 void DictionaryEditDialog::UpdateFixtureCategoryForFile(
     int row, const std::string &category) {
   if (!fixtureTable || row < 0 || static_cast<size_t>(row) >= fixturePaths.size())
@@ -1980,6 +2025,7 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
         std::string mode = std::string(dlg.GetStringSelection().ToUTF8());
         table->SetValue(wxVariant(wxString::FromUTF8(mode)), row,
                         kFixtureModeColumn);
+        SyncFixtureColorForFileAndMode(row);
       }
       return;
     }
@@ -2054,6 +2100,7 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
     }
     table->SetValue(wxVariant(wxString::FromUTF8(mode)), row,
                     kFixtureModeColumn);
+    SyncFixtureColorForFileAndMode(row);
   } else {
     if (col != 1)
       return;
