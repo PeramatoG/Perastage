@@ -139,6 +139,7 @@ add_test(NAME GdtfDictionaryColorModePropagation
 
 add_executable(dictionary_seed_merge_backup_test
                dictionary_seed_merge_backup_test.cpp
+               mvr_io_stubs.cpp
                ../core/configmanager.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
