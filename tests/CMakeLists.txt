@@ -302,6 +302,7 @@ set_library_env(ProjectSupportUserDataRoundtrip)
 
 add_executable(truss_path_encoding_regression_test
                truss_path_encoding_regression_test.cpp
+               configmanager_layoutmanager_stub.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/trussdictionary.cpp
