@@ -71,7 +71,9 @@ time.
    - `.pdf` is converted to text before parsing.
 2. Parsing is line-based.
 3. Windows carriage returns (`\r`) are removed from each line.
-4. Most keyword matches are case-insensitive.
+4. Inline annotations wrapped as `((...))` are ignored during parsing.
+5. Inline annotations wrapped as `*(...)*` are ignored during parsing.
+6. Most keyword matches are case-insensitive.
 
 ## Section detection rules
 

@@ -133,6 +133,18 @@ std::string Trim(const std::string &s) {
   return s.substr(start, end - start + 1);
 }
 
+std::string StripRiderAnnotations(const std::string &line) {
+  if (line.empty())
+    return {};
+
+  std::string stripped = line;
+  stripped =
+      std::regex_replace(stripped, std::regex("\\(\\([^\\)]*\\)\\)"), " ");
+  stripped = std::regex_replace(stripped, std::regex("\\*\\([^\\)]*\\)\\*"),
+                                " ");
+  return Trim(stripped);
+}
+
 enum class RiggingLineKind { Truss, Pipe };
 
 RiggingLineKind DetectRiggingLineKind(const std::string &line) {
@@ -1107,6 +1119,11 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
 
   while (std::getline(iss, line)) {
     line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+    line = StripRiderAnnotations(line);
+    if (line.empty()) {
+      havePending = false;
+      continue;
+    }
     if (ContainsCaseInsensitive(line, "sonido") ||
         ContainsCaseInsensitive(line, "audio") ||
         ContainsCaseInsensitive(line, "control de p.a.") ||
@@ -1737,6 +1754,11 @@ bool RiderImporter::ImportText(const std::string &text,
     // Remove Windows carriage returns to allow regexes anchored with '$' to
     // match lines extracted from external tools.
     line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+    line = StripRiderAnnotations(line);
+    if (line.empty()) {
+      havePending = false;
+      continue;
+    }
     if (ContainsCaseInsensitive(line, "sonido") ||
         ContainsCaseInsensitive(line, "audio") ||
         ContainsCaseInsensitive(line, "control de p.a.") ||
