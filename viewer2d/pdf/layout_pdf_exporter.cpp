@@ -62,6 +62,7 @@ constexpr double kLegendFontScale =
 constexpr double kPdfLayoutTypographyCompensationScale = 1.45;
 constexpr double kLegendFallbackSymbolScale = 2.0;
 constexpr double kLegendSvgSymbolScale = 0.4;
+constexpr double kSymbolBBoxPaddingPt = 0.25;
 constexpr std::array<const char *, 7> kEventTableLabels = {
     "Venue:", "Location:", "Date:", "Stage:",
     "Version:", "Design:", "Mail:"};
@@ -121,6 +122,16 @@ double ComputeTextLineAdvance(double ascent, double descent) {
 double ApplyLayoutPdfTypographyScale(double baseFontSize,
                                      double layoutScale) {
   return baseFontSize * kPdfLayoutTypographyCompensationScale * layoutScale;
+}
+
+void InflateBBox(double &minX, double &minY, double &maxX, double &maxY,
+                 double padding) {
+  if (padding <= 0.0)
+    return;
+  minX -= padding;
+  minY -= padding;
+  maxX += padding;
+  maxY += padding;
 }
 
 double ComputePdfRunAscent(const PdfFontDefinition *font, double fontSize) {
@@ -227,24 +238,6 @@ std::string RenderCommandsToStream(
   std::vector<size_t> group;
   std::string currentSource;
 
-  auto isFixtureOrSupportLabelSource = [](std::string_view source) {
-    return source.rfind("label:", 0) == 0 ||
-           source.rfind("support-label:", 0) == 0;
-  };
-
-  auto shouldRenderTextSource = [&](std::string_view source) {
-    const bool fixtureOrSupport = isFixtureOrSupportLabelSource(source);
-    switch (options.textLayerMode) {
-    case RenderOptions::TextLayerMode::All:
-      return true;
-    case RenderOptions::TextLayerMode::ExcludeFixtureAndSupportLabels:
-      return !fixtureOrSupport;
-    case RenderOptions::TextLayerMode::OnlyFixtureAndSupportLabels:
-      return fixtureOrSupport;
-    }
-    return true;
-  };
-
   auto flushGroup = [&]() {
     if (group.empty())
       return;
@@ -294,10 +287,6 @@ std::string RenderCommandsToStream(
     } else if constexpr (std::is_same_v<T, TextCommand>) {
       if (!options.includeText)
         return;
-      if (idx >= sources.size())
-        return;
-      if (!shouldRenderTextSource(sources[idx]))
-        return;
       auto pos = MapPointWithTransform(cmd.x, cmd.y, current, mapping);
       if (ShouldTraceLabelOrder()) {
         std::ostringstream trace;
@@ -325,8 +314,6 @@ std::string RenderCommandsToStream(
       AppendText(content, formatter, pos, cmd, cmd.style, mapping.scale,
                  options.fonts);
     } else if constexpr (std::is_same_v<T, PlaceSymbolCommand>) {
-      if (!options.includeGeometry)
-        return;
       if (!options.symbolKeyNames)
         return;
       auto nameIt = options.symbolKeyNames->find(cmd.key);
@@ -335,8 +322,6 @@ std::string RenderCommandsToStream(
       Transform2D local = TransformFromCanvas(cmd.transform);
       AppendSymbolInstance(content, formatter, mapping, local, nameIt->second);
     } else if constexpr (std::is_same_v<T, SymbolInstanceCommand>) {
-      if (!options.includeGeometry)
-        return;
       if (!options.symbolIdNames)
         return;
       auto nameIt = options.symbolIdNames->find(cmd.symbolId);
@@ -372,9 +357,6 @@ std::string RenderCommandsToStream(
                  cmd);
       continue;
     }
-
-    if (!options.includeGeometry)
-      continue;
 
     if (group.empty())
       currentSource = sources[i];
@@ -655,6 +637,7 @@ Viewer2DExportResult ExportViewer2DToPdf(
       std::swap(minX, maxX);
     if (minY > maxY)
       std::swap(minY, maxY);
+    InflateBBox(minX, minY, maxX, maxY, kSymbolBBoxPaddingPt);
     std::ostringstream xobj;
     xobj << "<< /Type /XObject /Subtype /Form /BBox ["
          << formatter.Format(minX) << ' ' << formatter.Format(minY) << ' '
@@ -1177,6 +1160,7 @@ Viewer2DExportResult ExportLayoutToPdf(
       std::swap(minX, maxX);
     if (minY > maxY)
       std::swap(minY, maxY);
+    InflateBBox(minX, minY, maxX, maxY, kSymbolBBoxPaddingPt);
     std::ostringstream xobj;
     xobj << "<< /Type /XObject /Subtype /Form /BBox ["
          << formatter.Format(minX) << ' ' << formatter.Format(minY) << ' '
@@ -1247,16 +1231,19 @@ Viewer2DExportResult ExportLayoutToPdf(
       compressed = PdfDeflater::Compress(symbolStream, compressedSymbol, error);
     }
     const std::string &stream = compressed ? compressedSymbol : symbolStream;
-    const double minX = svg.offsetXmm * symbolScale;
-    const double minY = svg.offsetYmm * symbolScale;
-    const double maxX = (svg.offsetXmm + svg.viewBoxWidth) * symbolScale;
-    const double maxY = (svg.offsetYmm + svg.viewBoxHeight) * symbolScale;
+    double minX = std::min(svg.offsetXmm * symbolScale,
+                           (svg.offsetXmm + svg.viewBoxWidth) * symbolScale);
+    double minY = std::min(svg.offsetYmm * symbolScale,
+                           (svg.offsetYmm + svg.viewBoxHeight) * symbolScale);
+    double maxX = std::max(svg.offsetXmm * symbolScale,
+                           (svg.offsetXmm + svg.viewBoxWidth) * symbolScale);
+    double maxY = std::max(svg.offsetYmm * symbolScale,
+                           (svg.offsetYmm + svg.viewBoxHeight) * symbolScale);
+    InflateBBox(minX, minY, maxX, maxY, kSymbolBBoxPaddingPt);
     std::ostringstream xobj;
     xobj << "<< /Type /XObject /Subtype /Form /BBox ["
-         << formatter.Format(std::min(minX, maxX)) << ' '
-         << formatter.Format(std::min(minY, maxY)) << ' '
-         << formatter.Format(std::max(minX, maxX)) << ' '
-         << formatter.Format(std::max(minY, maxY))
+         << formatter.Format(minX) << ' ' << formatter.Format(minY) << ' '
+         << formatter.Format(maxX) << ' ' << formatter.Format(maxY)
          << "] /Resources << >> /Length " << stream.size();
     if (compressed)
       xobj << " /Filter /FlateDecode";
@@ -1460,9 +1447,6 @@ Viewer2DExportResult ExportLayoutToPdf(
 
     RenderOptions mainOptions{};
     mainOptions.includeText = true;
-    mainOptions.includeGeometry = true;
-    mainOptions.textLayerMode =
-        RenderOptions::TextLayerMode::ExcludeFixtureAndSupportLabels;
     mainOptions.symbolKeyNames = &viewKeyNames;
     mainOptions.symbolIdNames = &viewIdNames;
     mainOptions.fonts = &fontCatalog;
@@ -1480,15 +1464,6 @@ Viewer2DExportResult ExportLayoutToPdf(
                                             group.commands.sources,
                                             group.mapping, formatter,
                                             mainOptions);
-    RenderOptions fixtureLabelOptions = mainOptions;
-    fixtureLabelOptions.includeGeometry = false;
-    fixtureLabelOptions.textLayerMode =
-        RenderOptions::TextLayerMode::OnlyFixtureAndSupportLabels;
-    contentStream << RenderCommandsToStream(group.commands.commands,
-                                            group.commands.metadata,
-                                            group.commands.sources,
-                                            group.mapping, formatter,
-                                            fixtureLabelOptions);
     contentStream << "Q\n";
     if (views[idx].drawFrame) {
       contentStream << "q\n0 0 0 RG 0.5 w "
