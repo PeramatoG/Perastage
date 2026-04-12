@@ -112,6 +112,7 @@ add_test(NAME GdtfFixtureCategoryFallback COMMAND gdtf_fixture_category_test)
 
 add_executable(gdtf_dictionary_color_roundtrip_test
                gdtf_dictionary_color_roundtrip_test.cpp
+               ../core/configmanager.cpp
                ../core/gdtfdictionary.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
@@ -124,6 +125,7 @@ add_test(NAME GdtfDictionaryColorRoundtrip COMMAND gdtf_dictionary_color_roundtr
 
 add_executable(gdtf_dictionary_color_mode_propagation_test
                gdtf_dictionary_color_mode_propagation_test.cpp
+               ../core/configmanager.cpp
                ../core/gdtfdictionary.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
@@ -137,6 +139,7 @@ add_test(NAME GdtfDictionaryColorModePropagation
 
 add_executable(dictionary_seed_merge_backup_test
                dictionary_seed_merge_backup_test.cpp
+               ../core/configmanager.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
