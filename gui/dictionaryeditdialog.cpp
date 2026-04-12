@@ -483,7 +483,7 @@ ImportPathValidationSummary ValidateFixtureImportPaths(const std::string &import
 
   const std::filesystem::path importFilePath = std::filesystem::u8path(importPath);
   const std::filesystem::path libraryDir = std::filesystem::u8path(
-      ProjectUtils::GetDefaultLibraryPath("fixtures"));
+      ProjectUtils::GetWritableLibraryPath("fixtures"));
 
   auto checkEntry = [&](const std::string &entryName, const nlohmann::json &entryJson) {
     if (!entryJson.is_object())
@@ -542,7 +542,7 @@ ImportPathValidationSummary ValidateTrussImportPaths(const std::string &importPa
 
   const std::filesystem::path importFilePath = std::filesystem::u8path(importPath);
   const std::filesystem::path libraryDir =
-      std::filesystem::u8path(ProjectUtils::GetDefaultLibraryPath("trusses"));
+      std::filesystem::u8path(ProjectUtils::GetWritableLibraryPath("trusses"));
 
   auto checkEntry = [&](const std::string &entryName, const nlohmann::json &entryJson) {
     if (!entryJson.is_object())
@@ -644,7 +644,7 @@ CopyToLibrary(wxWindow *parent, const std::string &path, const char *libraryName
     return std::nullopt;
 
   const std::filesystem::path dir =
-      std::filesystem::u8path(ProjectUtils::GetDefaultLibraryPath(libraryName));
+      std::filesystem::u8path(ProjectUtils::GetWritableLibraryPath(libraryName));
   if (dir.empty())
     return CopiedLibraryAsset{path, path, {}};
 
@@ -1358,7 +1358,7 @@ bool DictionaryEditDialog::SaveTrusses() {
 void DictionaryEditDialog::OnAdd(wxCommandEvent &WXUNUSED(event)) {
   if (IsFixturesPage()) {
     wxString fixDir =
-        wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+        wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
     wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString,
                       "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
@@ -1391,7 +1391,7 @@ void DictionaryEditDialog::OnAdd(wxCommandEvent &WXUNUSED(event)) {
     fixturePaths.push_back(fullPath);
   } else {
     wxString trussDir =
-        wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+        wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
     wxFileDialog fdlg(this, "Select Truss file", trussDir, wxEmptyString,
                       "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All files|*.*",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
@@ -1553,7 +1553,7 @@ void DictionaryEditDialog::OnImportDictionary(wxCommandEvent &WXUNUSED(event)) {
 
 bool DictionaryEditDialog::ImportFixturesDictionary() {
   const wxString fixturesDir =
-      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
   wxFileDialog fileDialog(this, "Import fixtures dictionary", fixturesDir,
                           wxEmptyString,
                           "Dictionary files (*.json;*.zip)|*.json;*.zip|JSON files (*.json)|*.json|ZIP files (*.zip)|*.zip",
@@ -1626,7 +1626,7 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
 
 bool DictionaryEditDialog::ImportTrussesDictionary() {
   const wxString trussesDir =
-      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
   wxFileDialog fileDialog(this, "Import trusses dictionary", trussesDir,
                           wxEmptyString,
                           "Dictionary files (*.json;*.zip)|*.json;*.zip|JSON files (*.json)|*.json|ZIP files (*.zip)|*.zip",
@@ -1737,7 +1737,7 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
     return false;
 
   const wxString fixturesDir =
-      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
   wxFileDialog fileDialog(this, "Export fixtures dictionary", fixturesDir,
                           "gdtf_dictionary_snapshot.json",
                           "JSON files (*.json)|*.json",
@@ -1792,7 +1792,7 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
     return false;
 
   const wxString trussesDir =
-      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
   wxFileDialog fileDialog(this, "Export trusses dictionary", trussesDir,
                           "truss_dictionary_snapshot.json",
                           "JSON files (*.json)|*.json",
@@ -1843,7 +1843,7 @@ bool DictionaryEditDialog::ExportFixturesPortableBundle() {
   }
 
   const wxString fixturesDir =
-      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
   wxFileDialog fileDialog(this, "Export portable fixtures bundle", fixturesDir,
                           "gdtf_dictionary_bundle.json",
                           "JSON files (*.json)|*.json",
@@ -1877,7 +1877,7 @@ bool DictionaryEditDialog::ExportTrussesPortableBundle() {
   }
 
   const wxString trussesDir =
-      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
   wxFileDialog fileDialog(this, "Export portable trusses bundle", trussesDir,
                           "truss_dictionary_bundle.json",
                           "JSON files (*.json)|*.json",
@@ -2028,7 +2028,7 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
     if (col != kFixtureFileColumn)
       return;
     wxFileDialog fdlg(this, "Select GDTF file",
-                      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures")),
+                      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures")),
                       wxEmptyString, "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;
@@ -2058,7 +2058,7 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
     if (col != 1)
       return;
     wxFileDialog fdlg(this, "Select Truss file",
-                      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses")),
+                      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses")),
                       wxEmptyString,
                       "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All files|*.*",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
