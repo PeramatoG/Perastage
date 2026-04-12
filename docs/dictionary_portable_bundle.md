@@ -87,8 +87,8 @@ prompted to choose one policy:
 Fixture and truss dictionary entries may include optional provenance/hash
 metadata to aid diagnostics:
 
-- `source`: source path used during import.
 - `sha256`: content hash stored with the entry.
+- `imported_at`: UTC ISO-8601 timestamp of when the entry was imported.
 
 ## `dictionary.json`
 

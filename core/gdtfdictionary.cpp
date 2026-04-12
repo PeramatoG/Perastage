@@ -410,8 +410,6 @@ LoadFromFile(const fs::path &file, std::string &error) {
       }
       entry.color = *normalizedColor;
     }
-    if (const auto sourceText = GetObjectStringByNormalizedKey(value, "source"))
-      entry.source = *sourceText;
     if (const auto importedAtText =
             GetObjectStringByNormalizedKey(value, "imported_at"))
       entry.importedAt = *importedAtText;
@@ -687,8 +685,6 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
       obj["category"] = entry.category;
     if (!entry.color.empty())
       obj["color"] = entry.color;
-    if (!entry.source.empty())
-      obj["source"] = entry.source;
     if (!entry.importedAt.empty())
       obj["imported_at"] = entry.importedAt;
     if (!entry.sha256.empty())
@@ -814,7 +810,6 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
     e.mode = mode;
   if (!category.empty())
     e.category = category;
-  e.source = src.string();
   e.importedAt = FileImportUtils::NowUtcIso8601();
   e.sha256 = copyResult.finalSha256;
 

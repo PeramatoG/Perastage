@@ -641,7 +641,6 @@ bool Save(const std::unordered_map<std::string, std::string> &dict,
 
     nlohmann::json entry;
     entry["file"] = forced.filename().string();
-    entry["source"] = p.string();
     entry["imported_at"] = FileImportUtils::NowUtcIso8601();
     if (const auto sha = FileImportUtils::ComputeFileSha256(forced))
       entry["sha256"] = *sha;
