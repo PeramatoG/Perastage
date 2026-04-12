@@ -243,11 +243,6 @@ void SceneRenderer::DrawMeshWithOutline(
         mode == Viewer2DRenderMode::ByFixtureType ||
         ConfigManager::Get().GetFloat("viewer3d_symbol_capture_render_profile") >=
             0.5f;
-    if (is2DViewer && mode == Viewer2DRenderMode::Wireframe) {
-      // Keep 2D layout wireframe strokes thin both on-screen and in captured
-      // command buffers used by PDF export.
-      symbolCaptureRenderProfile = false;
-    }
     if (m_controller.GetSymbolCaptureRenderProfileOverride().has_value()) {
       symbolCaptureRenderProfile =
           m_controller.GetSymbolCaptureRenderProfileOverride().value();
@@ -278,11 +273,18 @@ void SceneRenderer::DrawMeshWithOutline(
           m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
         DrawMeshWireframe(mesh, scale, captureTransform);
       }
-      glLineWidth(symbolCaptureRenderProfile ? 2.0f : lineWidth);
+      const float wireframeDrawWidthBase =
+          symbolCaptureRenderProfile ? 2.0f : lineWidth;
+      const float wireframeDrawWidth =
+          (is2DViewer && mode == Viewer2DRenderMode::Wireframe &&
+           symbolCaptureRenderProfile)
+              ? wireframeDrawWidthBase * 0.45f
+              : wireframeDrawWidthBase;
+      glLineWidth(wireframeDrawWidth);
       m_controller.SetGLColor(strokeR, strokeG, strokeB);
       DrawMeshWireframe(mesh, scale, captureTransform, &stroke);
       if (symbolCaptureRenderProfile) {
-        glLineWidth(2.0f);
+        glLineWidth(wireframeDrawWidth);
         DrawMeshWireframe(mesh, scale, captureTransform, &stroke);
       }
       glLineWidth(lineWidth);
