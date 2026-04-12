@@ -113,10 +113,17 @@ add_test(NAME GdtfFixtureCategoryFallback COMMAND gdtf_fixture_category_test)
 add_executable(gdtf_dictionary_color_roundtrip_test
                gdtf_dictionary_color_roundtrip_test.cpp
                ../core/configmanager.cpp
+               ../core/configservices.cpp
                ../core/gdtfdictionary.cpp
+               ../core/layouts/LayoutManager.cpp
+               ../core/layouts/LayoutDefaultsLoader.cpp
+               ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplateSerializer.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
-               ../core/logger.cpp)
+               ../core/logger.cpp
+               ../models/mvrscene.cpp
+               mvr_io_stubs.cpp)
 target_include_directories(gdtf_dictionary_color_roundtrip_test PRIVATE
                            . ../core ../third_party)
 target_link_libraries(gdtf_dictionary_color_roundtrip_test PRIVATE
@@ -126,10 +133,17 @@ add_test(NAME GdtfDictionaryColorRoundtrip COMMAND gdtf_dictionary_color_roundtr
 add_executable(gdtf_dictionary_color_mode_propagation_test
                gdtf_dictionary_color_mode_propagation_test.cpp
                ../core/configmanager.cpp
+               ../core/configservices.cpp
                ../core/gdtfdictionary.cpp
+               ../core/layouts/LayoutManager.cpp
+               ../core/layouts/LayoutDefaultsLoader.cpp
+               ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplateSerializer.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
-               ../core/logger.cpp)
+               ../core/logger.cpp
+               ../models/mvrscene.cpp
+               mvr_io_stubs.cpp)
 target_include_directories(gdtf_dictionary_color_mode_propagation_test PRIVATE
                            . ../core ../third_party)
 target_link_libraries(gdtf_dictionary_color_mode_propagation_test PRIVATE
@@ -141,14 +155,20 @@ add_executable(dictionary_seed_merge_backup_test
                dictionary_seed_merge_backup_test.cpp
                mvr_io_stubs.cpp
                ../core/configmanager.cpp
+               ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
+               ../core/layouts/LayoutManager.cpp
+               ../core/layouts/LayoutDefaultsLoader.cpp
+               ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplateSerializer.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/logger.cpp
-               ../models/truss.cpp)
+               ../models/truss.cpp
+               ../models/mvrscene.cpp)
 target_include_directories(dictionary_seed_merge_backup_test PRIVATE
                            . ../core ../models ../third_party)
 target_link_libraries(dictionary_seed_merge_backup_test PRIVATE
