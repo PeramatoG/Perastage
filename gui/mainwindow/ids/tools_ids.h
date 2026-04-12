@@ -17,3 +17,5 @@ constexpr int ID_Tools_ConvertToHoist = ID_Tools_AutoColor + 1;
 constexpr int ID_Tools_GenerateFixtureSymbols = ID_Tools_ConvertToHoist + 1;
 constexpr int ID_Tools_AssignSelectedFixtureCategory =
     ID_Tools_GenerateFixtureSymbols + 1;
+constexpr int ID_Tools_OpenUserLibraryFolder =
+    ID_Tools_AssignSelectedFixtureCategory + 1;

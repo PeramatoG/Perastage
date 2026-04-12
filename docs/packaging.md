@@ -10,6 +10,25 @@ The official Windows installer workflow uses Inno Setup:
 - Build Release and run `perastage_stage` first.
 - Compile the installer script in Inno Setup.
 - Optional associations can include `.pstg` and `.mvr`.
+- Installer binaries target `DefaultDirName={autopf}\Perastage` (standard Program Files install).
+
+### Writable data model for support
+
+Windows packaging follows a split model:
+
+- **Installed tree (`{autopf}\Perastage`)**: binaries and bundled base assets.
+- **User-data tree (`%APPDATA%\Perastage\library`)**: editable fixtures, trusses, scene objects, dictionaries, and related user library content.
+
+Perastage bootstrap/migration behavior on startup is non-destructive:
+
+1. Seed content from the installed library is used as source.
+2. Missing files are copied into the user library.
+3. Existing files in user-data are kept (no overwrite).
+
+Operationally, this means support can tell users:
+
+- “You do not need admin rights to edit your library.”
+- “Use **Tools → Open user library folder** to jump to the editable location.”
 
 ### Recommended End-to-End Windows Installer Flow
 
