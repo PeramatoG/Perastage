@@ -31,3 +31,7 @@ bool ConfigManager::HasKey(const std::string &key) const {
 void ConfigManager::RemoveKey(const std::string &key) { g_values.erase(key); }
 
 void ConfigManager::ClearValues() { g_values.clear(); }
+
+bool ConfigManager::LoadUserConfig() { return true; }
+
+bool ConfigManager::SaveUserConfig() const { return true; }
