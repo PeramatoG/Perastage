@@ -631,6 +631,34 @@ add_test(NAME RiderImportOrder COMMAND rider_import_order_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixture_order.txt)
 set_library_env(RiderImportOrder)
 
+add_executable(rider_import_linear_order_test rider_import_linear_order_test.cpp
+               riderimporter_stubs.cpp
+               gdtfloader_stub.cpp
+               ../core/riderimporter.cpp
+               ../core/units/units.cpp
+               ../core/gdtf_fixture_category.cpp
+               ../core/hoist_weight_distribution.cpp
+               ../core/uuidutils.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
+               ../core/logger.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
+target_include_directories(rider_import_linear_order_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(rider_import_linear_order_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME RiderImportLinearOrder COMMAND rider_import_linear_order_test
+         ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixture_linear_order.txt)
+set_library_env(RiderImportLinearOrder)
+
 add_executable(rider_import_preserve_existing_test rider_import_preserve_existing_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp

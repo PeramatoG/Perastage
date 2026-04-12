@@ -1,0 +1,9 @@
+Iluminacion
+LX1:
+1 MegaPointe
+2 Spiider
+2 MegaPointe
+2 Spiider
+1 MegaPointe
+LX2:
+1 SoloSpot

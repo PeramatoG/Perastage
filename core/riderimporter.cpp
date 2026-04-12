@@ -1672,6 +1672,11 @@ bool RiderImporter::ImportText(const std::string &text,
   std::unordered_set<std::string> seenTypes;
   std::vector<std::string> importedTrussUuids;
   std::vector<std::string> importedFixtureUuids;
+  std::unordered_map<std::string, size_t> importedFixtureOrderByUuid;
+  size_t nextImportedFixtureOrder = 0;
+  std::unordered_map<std::string, std::unordered_set<std::string>>
+      seenFixtureTypesByHangInListing;
+  std::unordered_set<std::string> linearPlacementHangs;
   struct PipeSpanInfo {
     std::string positionName;
     float startX = 0.0f;
@@ -1711,6 +1716,16 @@ bool RiderImporter::ImportText(const std::string &text,
           quantity = baseQuantity;
         part = Trim(pm[2]);
       }
+      std::string placementKey = Trim(part);
+      std::transform(placementKey.begin(), placementKey.end(), placementKey.begin(),
+                     [](unsigned char c) {
+                       return static_cast<char>(std::tolower(c));
+                     });
+      auto &seenTypesForHang = seenFixtureTypesByHangInListing[currentHang];
+      if (!placementKey.empty() && seenTypesForHang.count(placementKey) > 0)
+        linearPlacementHangs.insert(currentHang);
+      else if (!placementKey.empty())
+        seenTypesForHang.insert(placementKey);
       const bool isScreenHang = NormalizeHangName(currentHang) == "SCREEN";
       const bool isScreenDescription =
           ContainsCaseInsensitive(part, "pantalla") ||
@@ -1777,6 +1792,7 @@ bool RiderImporter::ImportText(const std::string &text,
         f.transform.o[2] = getHangHeight(currentHang);
         scene.fixtures[f.uuid] = f;
         importedFixtureUuids.push_back(f.uuid);
+        importedFixtureOrderByUuid[f.uuid] = nextImportedFixtureOrder++;
         addToLayer(f.layer, f.uuid);
       }
     }
@@ -3154,6 +3170,22 @@ bool RiderImporter::ImportText(const std::string &text,
     return ordered;
   };
 
+  auto buildLinearOrder = [&](const std::vector<Fixture *> &fixturesVec) {
+    std::vector<Fixture *> ordered = fixturesVec;
+    std::sort(ordered.begin(), ordered.end(), [&](Fixture *a, Fixture *b) {
+      const size_t orderA = importedFixtureOrderByUuid.count(a->uuid) > 0
+                                ? importedFixtureOrderByUuid.at(a->uuid)
+                                : std::numeric_limits<size_t>::max();
+      const size_t orderB = importedFixtureOrderByUuid.count(b->uuid) > 0
+                                ? importedFixtureOrderByUuid.at(b->uuid)
+                                : std::numeric_limits<size_t>::max();
+      if (orderA != orderB)
+        return orderA < orderB;
+      return a->uuid < b->uuid;
+    });
+    return ordered;
+  };
+
   auto placeFixtureGroup = [&](const std::string &pos,
                                const std::vector<Fixture *> &fixturesVec,
                                const std::function<void(Fixture &, float, float,
@@ -3161,7 +3193,11 @@ bool RiderImporter::ImportText(const std::string &text,
     if (fixturesVec.empty())
       return;
 
-    const std::vector<Fixture *> ordered = buildSymmetricOrder(fixturesVec);
+    const bool useLinearPlacement =
+        linearPlacementHangs.count(pos) > 0 && !fixturesVec.empty();
+    const std::vector<Fixture *> ordered =
+        useLinearPlacement ? buildLinearOrder(fixturesVec)
+                           : buildSymmetricOrder(fixturesVec);
     const int total = static_cast<int>(ordered.size());
     if (total <= 0)
       return;
@@ -3178,8 +3214,17 @@ bool RiderImporter::ImportText(const std::string &text,
     float baseY = info.found ? info.y : getHangPos(pos);
     float baseZ = info.found ? info.z : getHangHeight(pos);
     float width = info.found ? info.width : 400.0f;
-    float step = (total > 1) ? (endX - startX) / (total - 1) : 0.0f;
+    if (total == 1) {
+      Fixture *fixture = ordered.front();
+      if (fixture) {
+        const float centeredX =
+            info.found ? 0.5f * (startX + endX) : 0.0f;
+        applyPlacement(*fixture, centeredX, baseY, baseZ, width);
+      }
+      return;
+    }
 
+    float step = (endX - startX) / static_cast<float>(total - 1);
     for (int i = 0; i < total; ++i) {
       Fixture *f = ordered[static_cast<size_t>(i)];
       if (!f)
