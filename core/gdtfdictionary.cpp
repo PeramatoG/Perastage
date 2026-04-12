@@ -217,6 +217,36 @@ bool RecreateUserDictionaryFromBase(const fs::path &userFile,
   return true;
 }
 
+bool WriteDictionaryBackup(const fs::path &sourceFile) {
+  if (sourceFile.empty() || !fs::exists(sourceFile))
+    return false;
+  fs::path backupFile = sourceFile;
+  backupFile += ".bak";
+  std::error_code ec;
+  fs::copy_file(sourceFile, backupFile, fs::copy_options::overwrite_existing, ec);
+  return !ec;
+}
+
+bool MergeSeedEntriesIntoUserDictionary(
+    std::unordered_map<std::string, Entry> &userDict,
+    const std::unordered_map<std::string, Entry> &baseDict,
+    bool *changedOut = nullptr) {
+  if (changedOut)
+    *changedOut = false;
+
+  bool changed = false;
+  for (const auto &[seedKey, seedEntry] : baseDict) {
+    if (userDict.find(seedKey) != userDict.end())
+      continue;
+    userDict[seedKey] = seedEntry;
+    changed = true;
+  }
+
+  if (changedOut)
+    *changedOut = changed;
+  return true;
+}
+
 fs::path ResolveImportedPath(const fs::path &jsonFile,
                              const std::string &rawPathText) {
   const fs::path parsedPath = fs::u8path(rawPathText);
@@ -433,8 +463,18 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
   const fs::path baseFile = GetBaseDictFile();
 
   std::string userError;
-  if (auto userDict = LoadFromFile(userFile, userError))
+  if (auto userDict = LoadFromFile(userFile, userError)) {
+    bool mergedSeedEntries = false;
+    std::string baseError;
+    if (auto baseDict = LoadFromFile(baseFile, baseError)) {
+      MergeSeedEntriesIntoUserDictionary(*userDict, *baseDict, &mergedSeedEntries);
+      if (mergedSeedEntries) {
+        WriteDictionaryBackup(userFile);
+        Save(*userDict);
+      }
+    }
     return userDict;
+  }
 
   std::cerr << "Warning: failed to load user fixtures dictionary '"
             << userFile.string() << "': " << userError
