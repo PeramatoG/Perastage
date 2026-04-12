@@ -400,7 +400,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
 
     if (col == 2)
     {
-        wxString initialDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("objects"));
+        wxString initialDir = wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("objects"));
         if (row >= 0 && static_cast<size_t>(row) < modelPaths.size() && !modelPaths[static_cast<size_t>(row)].IsEmpty()) {
             wxFileName current(modelPaths[static_cast<size_t>(row)]);
             if (current.DirExists())

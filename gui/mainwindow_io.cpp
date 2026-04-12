@@ -149,7 +149,7 @@ void MainWindow::OnLoad(wxCommandEvent &event) {
         wxString::FromUTF8(std::filesystem::path(*last).parent_path().string());
   else
     projDir =
-        wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("projects"));
+        wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("projects"));
   wxFileDialog dlg(this, "Open Project", projDir, "", filter,
                    wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (dlg.ShowModal() == wxID_CANCEL)
@@ -210,7 +210,7 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
         wxString::FromUTF8(std::filesystem::path(*last).parent_path().string());
   else
     projDir =
-        wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("projects"));
+        wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("projects"));
 
   wxString suggestedProjectName;
   if (!currentProjectPath.empty()) {
@@ -257,7 +257,7 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
 // Import fixtures and trusses from a rider (.txt/.pdf)
 void MainWindow::OnImportRider(wxCommandEvent &event) {
   wxString miscDir =
-      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("misc"));
+      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
   wxFileDialog dlg(this, "Import Rider", miscDir, "",
                    "Rider files (*.txt;*.pdf)|*.txt;*.pdf",
                    wxFD_OPEN | wxFD_FILE_MUST_EXIST);
@@ -376,7 +376,7 @@ void MainWindow::OnImportMVR(wxCommandEvent &event) {
 
 void MainWindow::OnExportMVR(wxCommandEvent &event) {
   wxString miscDir =
-      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("misc"));
+      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
   wxFileDialog saveFileDialog(this, "Export MVR file", miscDir, "",
                               "MVR files (*.mvr)|*.mvr",
                               wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
@@ -426,7 +426,7 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
     return;
 
   wxString trussDir =
-      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
   wxFileDialog saveDlg(this, "Save Truss", trussDir,
                        wxString::FromUTF8(sel) + ".gdtf",
                        "GDTF files (*.gdtf)|*.gdtf",
@@ -547,7 +547,7 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
   }
 
   wxString fixDir =
-      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
   wxFileDialog saveDlg(this, "Save Fixture", fixDir,
                        wxString::FromUTF8(sel) + ".gdtf", "*.gdtf",
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
@@ -661,7 +661,7 @@ void MainWindow::OnExportSceneObject(wxCommandEvent &WXUNUSED(event)) {
   wxString defName =
       wxString::FromUTF8(sel) + wxString(src.extension().string());
   wxString objDir =
-      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("scene_objects"));
+      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("scene_objects"));
   wxFileDialog saveDlg(this, "Save Object", objDir, defName,
                        wxString("*") + wxString(src.extension().string()),
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);

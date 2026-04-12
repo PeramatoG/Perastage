@@ -439,7 +439,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   // Model file column opens file dialog
   if (col == 9) {
     wxString fixDir =
-        wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+        wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
     wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString, "*.gdtf",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() == wxID_OK) {

@@ -423,7 +423,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
     if (col == 2)
     {
         wxString trussDir =
-            wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+            wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
         wxFileDialog fdlg(this, "Select Truss Model", trussDir, wxEmptyString,
                           "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All files|*.*",
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
