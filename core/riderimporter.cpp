@@ -138,8 +138,6 @@ std::string StripRiderAnnotations(const std::string &line) {
     return {};
 
   std::string stripped = line;
-  stripped =
-      std::regex_replace(stripped, std::regex("\\(\\([^\\)]*\\)\\)"), " ");
   stripped = std::regex_replace(stripped, std::regex("\\*\\([^\\)]*\\)\\*"),
                                 " ");
   return Trim(stripped);
