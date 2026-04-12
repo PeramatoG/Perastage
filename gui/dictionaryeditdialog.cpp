@@ -19,10 +19,11 @@
 
 #include "columnutils.h"
 #include "colorfulrenderers.h"
-#include "dictionary_export_conflict_dialog.h"
 #include "colorstore.h"
 #include "dictionary_bundle.h"
+#include "dictionary_export_conflict_dialog.h"
 #include "dictionary_json_contract.h"
+#include "dictionary_selection_controls.h"
 #include "file_import_utils.h"
 #include "gdtfdictionary.h"
 #include "gdtf_fixture_category.h"
@@ -894,6 +895,7 @@ DictionaryEditDialog::DictionaryEditDialog(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, "Dictionary editor", wxDefaultPosition,
                wxSize(1100, 620), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
   BuildLayout();
+  RefreshDictionarySelectionLabels();
   LoadFixtures();
   LoadTrusses();
   ShowDictionaryLoadStatusMessages();
@@ -933,6 +935,13 @@ void DictionaryEditDialog::BuildLayout() {
   fixtureTable->AppendColumn(new wxDataViewColumn(
       "Color", colorRenderer, kFixtureColorColumn, 110, wxALIGN_LEFT, flags));
   ColumnUtils::EnforceMinColumnWidth(fixtureTable);
+  fixturesSelection = BuildDictionarySelectionControls(
+      fixturePanel, fixtureSizer, "Active fixtures dictionary",
+      "Select dictionary...",
+      [this]() {
+        wxCommandEvent dummy;
+        OnSelectFixturesDictionary(dummy);
+      });
   fixtureSizer->Add(fixtureTable, 1, wxEXPAND | wxALL, 8);
   fixturePanel->SetSizer(fixtureSizer);
 
@@ -956,6 +965,13 @@ void DictionaryEditDialog::BuildLayout() {
   trussTable->AppendTextColumn("File", wxDATAVIEW_CELL_INERT, 260,
                                wxALIGN_LEFT, flags);
   ColumnUtils::EnforceMinColumnWidth(trussTable);
+  trussesSelection = BuildDictionarySelectionControls(
+      trussPanel, trussSizer, "Active trusses dictionary",
+      "Select dictionary...",
+      [this]() {
+        wxCommandEvent dummy;
+        OnSelectTrussesDictionary(dummy);
+      });
   trussSizer->Add(trussTable, 1, wxEXPAND | wxALL, 8);
   trussPanel->SetSizer(trussSizer);
 
@@ -1067,6 +1083,7 @@ void DictionaryEditDialog::UpdateMissingFileTooltip(wxDataViewListCtrl *table,
 }
 
 void DictionaryEditDialog::LoadFixtures() {
+  RefreshDictionarySelectionLabels();
   fixtureStore->DeleteAllItems();
   fixturePaths.clear();
   activeFixtureHoverTooltip.clear();
@@ -1107,6 +1124,7 @@ void DictionaryEditDialog::LoadFixtures() {
 }
 
 void DictionaryEditDialog::LoadTrusses() {
+  RefreshDictionarySelectionLabels();
   trussStore->DeleteAllItems();
   trussPaths.clear();
   activeTrussHoverTooltip.clear();
@@ -1241,6 +1259,85 @@ void DictionaryEditDialog::ShowDictionaryLoadStatusMessages() {
         wxICON_WARNING | wxOK,
         this);
   }
+}
+
+void DictionaryEditDialog::RefreshDictionarySelectionLabels() {
+  UpdateDictionarySelectionControls(
+      fixturesSelection,
+      wxString::FromUTF8(GdtfDictionary::GetActiveDictionaryFileName()),
+      wxString::FromUTF8(GdtfDictionary::GetActiveDictionaryFilePath()));
+  UpdateDictionarySelectionControls(
+      trussesSelection,
+      wxString::FromUTF8(TrussDictionary::GetActiveDictionaryFileName()),
+      wxString::FromUTF8(TrussDictionary::GetActiveDictionaryFilePath()));
+}
+
+void DictionaryEditDialog::OnSelectFixturesDictionary(
+    wxCommandEvent &WXUNUSED(event)) {
+  const std::filesystem::path currentPath =
+      std::filesystem::u8path(GdtfDictionary::GetActiveDictionaryFilePath());
+  const wxString initialDir = wxString::FromUTF8(
+      (currentPath.empty() ? std::filesystem::u8path(
+                                 ProjectUtils::GetWritableLibraryPath("fixtures"))
+                           : currentPath.parent_path())
+          .string());
+  const wxString initialFile = currentPath.empty()
+                                   ? wxString("gdtf_dictionary.json")
+                                   : wxString::FromUTF8(currentPath.filename().string());
+  wxFileDialog dialog(this, "Select fixtures dictionary file", initialDir,
+                      initialFile, "JSON files (*.json)|*.json",
+                      wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+  if (dialog.ShowModal() != wxID_OK)
+    return;
+
+  std::string error;
+  std::filesystem::path selectedPath =
+      std::filesystem::u8path(std::string(dialog.GetPath().ToUTF8()));
+  if (!selectedPath.has_extension())
+    selectedPath += ".json";
+  const std::string selected = selectedPath.string();
+  if (!GdtfDictionary::SetActiveDictionaryFilePath(selected, &error)) {
+    wxMessageBox("Could not select fixtures dictionary.\n\n" +
+                     wxString::FromUTF8(error),
+                 "Dictionary selection", wxOK | wxICON_ERROR, this);
+    RefreshDictionarySelectionLabels();
+    return;
+  }
+  LoadFixtures();
+}
+
+void DictionaryEditDialog::OnSelectTrussesDictionary(
+    wxCommandEvent &WXUNUSED(event)) {
+  const std::filesystem::path currentPath =
+      std::filesystem::u8path(TrussDictionary::GetActiveDictionaryFilePath());
+  const wxString initialDir = wxString::FromUTF8(
+      (currentPath.empty() ? std::filesystem::u8path(
+                                 ProjectUtils::GetWritableLibraryPath("trusses"))
+                           : currentPath.parent_path())
+          .string());
+  const wxString initialFile = currentPath.empty()
+                                   ? wxString("truss_dictionary.json")
+                                   : wxString::FromUTF8(currentPath.filename().string());
+  wxFileDialog dialog(this, "Select trusses dictionary file", initialDir,
+                      initialFile, "JSON files (*.json)|*.json",
+                      wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+  if (dialog.ShowModal() != wxID_OK)
+    return;
+
+  std::string error;
+  std::filesystem::path selectedPath =
+      std::filesystem::u8path(std::string(dialog.GetPath().ToUTF8()));
+  if (!selectedPath.has_extension())
+    selectedPath += ".json";
+  const std::string selected = selectedPath.string();
+  if (!TrussDictionary::SetActiveDictionaryFilePath(selected, &error)) {
+    wxMessageBox("Could not select trusses dictionary.\n\n" +
+                     wxString::FromUTF8(error),
+                 "Dictionary selection", wxOK | wxICON_ERROR, this);
+    RefreshDictionarySelectionLabels();
+    return;
+  }
+  LoadTrusses();
 }
 
 bool DictionaryEditDialog::SaveFixtures() {

@@ -32,6 +32,11 @@ struct LoadStatus {
 std::string NormalizeModelKey(const std::string &model);
 std::optional<std::unordered_map<std::string, std::string>> Load();
 LoadStatus GetLastLoadStatus();
+
+std::string GetActiveDictionaryFilePath();
+std::string GetActiveDictionaryFileName();
+bool SetActiveDictionaryFilePath(const std::string &path,
+                                 std::string *errorOut = nullptr);
 bool Save(const std::unordered_map<std::string, std::string> &dict,
           std::string *errorOut = nullptr);
 std::optional<std::string> Get(const std::string &model);

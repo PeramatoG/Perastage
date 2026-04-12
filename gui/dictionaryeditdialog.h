@@ -21,6 +21,8 @@
 #include <wx/notebook.h>
 #include <wx/wx.h>
 
+#include "dictionary_selection_controls.h"
+
 #include <string>
 #include <vector>
 
@@ -53,6 +55,9 @@ private:
                                 ColorfulDataViewListStore *store,
                                 wxString &activeTooltip,
                                 const wxPoint &position);
+  void RefreshDictionarySelectionLabels();
+  void OnSelectFixturesDictionary(wxCommandEvent &event);
+  void OnSelectTrussesDictionary(wxCommandEvent &event);
 
   void OnAdd(wxCommandEvent &event);
   void OnDelete(wxCommandEvent &event);
@@ -86,6 +91,8 @@ private:
   wxButton *resetBtn = nullptr;
   wxButton *okBtn = nullptr;
   wxButton *cancelBtn = nullptr;
+  DictionarySelectionControls fixturesSelection;
+  DictionarySelectionControls trussesSelection;
 
   std::vector<std::string> fixturePaths;
   std::vector<std::string> trussPaths;
