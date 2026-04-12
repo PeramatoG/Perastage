@@ -131,7 +131,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
 
 void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
   wxString miscDir =
-      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("misc"));
+      wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
   wxFileDialog openFileDialog(&owner_, "Import MVR file", miscDir, "",
                               "MVR files (*.mvr)|*.mvr",
                               wxFD_OPEN | wxFD_FILE_MUST_EXIST);

@@ -544,7 +544,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     wxString name = wxString::FromUTF8(searchDlg.GetSelectedName());
 
     wxString fixDir =
-        wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+        wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
     wxFileDialog saveDlg(this, "Save GDTF file", fixDir, name + ".gdtf",
                          "*.gdtf", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     if (saveDlg.ShowModal() == wxID_OK) {
@@ -1162,7 +1162,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
       return;
     if (dlgRes == wxID_OPEN) {
       wxString fixDir =
-          wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+          wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
       wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString,
                         "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
@@ -1186,7 +1186,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
     }
   } else {
     wxString fixDir =
-        wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+        wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
     wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString, "*.gdtf",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
@@ -1300,7 +1300,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
       return;
     if (dlgRes == wxID_OPEN) {
       wxString trussDir =
-          wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+          wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
       wxFileDialog fdlg(this, "Select Truss file", trussDir, wxEmptyString,
                         "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All files|*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
@@ -1317,7 +1317,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     }
   } else {
     wxString trussDir =
-        wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+        wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
     wxFileDialog fdlg(this, "Select Truss file", trussDir, wxEmptyString,
                       "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All files|*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
@@ -1424,7 +1424,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
       return;
     if (dlgRes == wxID_OPEN) {
       wxString objDir = wxString::FromUTF8(
-          ProjectUtils::GetDefaultLibraryPath("scene_objects"));
+          ProjectUtils::GetWritableLibraryPath("scene_objects"));
       wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
                         "*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
@@ -1441,7 +1441,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     }
   } else {
     wxString objDir = wxString::FromUTF8(
-        ProjectUtils::GetDefaultLibraryPath("scene_objects"));
+        ProjectUtils::GetWritableLibraryPath("scene_objects"));
     wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString, "*.*",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
