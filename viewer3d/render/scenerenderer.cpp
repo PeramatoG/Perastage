@@ -243,6 +243,11 @@ void SceneRenderer::DrawMeshWithOutline(
         mode == Viewer2DRenderMode::ByFixtureType ||
         ConfigManager::Get().GetFloat("viewer3d_symbol_capture_render_profile") >=
             0.5f;
+    if (is2DViewer && mode == Viewer2DRenderMode::Wireframe) {
+      // Keep 2D layout wireframe strokes thin both on-screen and in captured
+      // command buffers used by PDF export.
+      symbolCaptureRenderProfile = false;
+    }
     if (m_controller.GetSymbolCaptureRenderProfileOverride().has_value()) {
       symbolCaptureRenderProfile =
           m_controller.GetSymbolCaptureRenderProfileOverride().value();
