@@ -1,350 +1,350 @@
 {
-    "dictionary_type": "fixtures",
-    "entries": {
-        "Aleda B-EYE K10": {
-            "category": "Wash",
-            "color": "#00D200",
-            "file": "Aleda B-EYE K10.gdtf",
-            "mode": "Shapes"
-        },
-        "Aleda K10 B-EYE (Bulb=LED)": {
-            "category": "Wash",
-            "color": "#00D200",
-            "file": "Aleda B-EYE K10.gdtf",
-            "mode": "Shapes"
-        },
-        "BLINDER 2 PRO": {
-            "category": "Blinder",
-            "color": "#E87400",
-            "file": "BLINDER 2 PRO.gdtf",
-            "mode": "2ch d001"
-        },
-        "BLINDER 4 PRO": {
-            "category": "Blinder",
-            "color": "#B63803",
-            "file": "BLINDER 4 PRO.gdtf",
-            "mode": "4ch d001"
-        },
-        "BMFL WashBeam (Bulb=HTI 1700W_PS Lok-it_)": {
-            "category": "Hybrid",
-            "file": "Robin BMFL WashBeam.gdtf",
-            "mode": "Mode 1 - Standard 16 bit"
-        },
-        "Beam 201": {
-            "category": "Beam",
-            "color": "#FB154F",
-            "file": "Sharpy.gdtf",
-            "mode": "Vector"
-        },
-        "Beam201": {
-            "category": "Beam",
-            "color": "#FB154F",
-            "file": "Sharpy.gdtf",
-            "mode": "Vector"
-        },
-        "Blinder 2": {
-            "category": "Blinder",
-            "file": "Sunrise2IP.gdtf",
-            "mode": "STANDARD"
-        },
-        "Chauvet Color Strike M": {
-            "category": "Strobe",
-            "file": "Custom@Light_Instr_Chauvet_Color_Strike_M.gdtf",
-            "mode": "Default"
-        },
-        "Era 800 Performance (Bulb=LED 6500K)": {
-            "category": "Spot",
-            "file": "ERA 800 Performance.gdtf",
-            "mode": "Basic"
-        },
-        "HY B-EYE K15 (Bulb=LED)": {
-            "category": "Wash",
-            "color": "#00D200",
-            "file": "Aleda B-EYE K10.gdtf",
-            "mode": "Shapes"
-        },
-        "Impression X4 Bar 20 (Bulb=LED) (Lens=Standard)": {
-            "file": "impression X4 Bar 20.gdtf",
-            "mode": "Norm"
-        },
-        "Intella Storm 1000 RGB (Bulb=LED)": {
-            "category": "Strobe",
-            "file": "PIXEL STROBE 400 RGB.gdtf",
-            "mode": "8ch"
-        },
-        "JDC-1": {
-            "category": "Strobe",
-            "file": "JDC-1.gdtf",
-            "mode": "DMX Mode 1 (Compressed Pro)"
-        },
-        "JNR BLinder 4x100C (Bulb=LED 3200K)": {
-            "category": "Blinder",
-            "color": "#B63803",
-            "file": "BLINDER 4 PRO.gdtf",
-            "mode": "4ch d001"
-        },
-        "LED-BL4 (Bulb=LED)": {
-            "category": "Blinder",
-            "color": "#B63803",
-            "file": "BLINDER 4 PRO.gdtf",
-            "mode": "4ch d001"
-        },
-        "LITELEE B-EYE L10R": {
-            "category": "Wash",
-            "color": "#00D200",
-            "file": "Aleda B-EYE K10.gdtf",
-            "mode": "Shapes"
-        },
-        "LITELEES B-EYE L10R (LIBRERÍA K10)": {
-            "category": "Wash",
-            "color": "#00D200",
-            "file": "Aleda B-EYE K10.gdtf",
-            "mode": "Shapes"
-        },
-        "MAC Axiom (Bulb=Sirius HRI 440W)": {
-            "category": "Hybrid",
-            "file": "MAC Axiom Hybrid.gdtf",
-            "mode": "Basic"
-        },
-        "MAC Axiom Hybrid": {
-            "category": "Hybrid",
-            "file": "MAC Axiom Hybrid.gdtf",
-            "mode": "Basic"
-        },
-        "MAC Quantum Profile": {
-            "category": "Spot",
-            "file": "MAC Quantum Profile.gdtf",
-            "mode": "Extended"
-        },
-        "MAC Quantum Profile (Bulb=LED)": {
-            "category": "Spot",
-            "file": "MAC Quantum Profile.gdtf",
-            "mode": "Basic"
-        },
-        "MAC Quantum Wash": {
-            "category": "Wash",
-            "file": "MAC Quantum Wash.gdtf",
-            "mode": "Basic"
-        },
-        "MAC Quantum Wash (Bulb=LED)": {
-            "category": "Wash",
-            "file": "MAC Quantum Wash.gdtf",
-            "mode": "Basic"
-        },
-        "MARK BEAM 201": {
-            "category": "Beam",
-            "file": "Sharpy.gdtf",
-            "mode": "Standard"
-        },
-        "MARTIN MAC AXIOM HYBRID": {
-            "category": "Hybrid",
-            "file": "MAC Axiom Hybrid.gdtf",
-            "mode": "Basic"
-        },
-        "MARTIN MAC QUANTUM PROFILE": {
-            "category": "Spot",
-            "file": "MAC Quantum Profile.gdtf",
-            "mode": "Basic"
-        },
-        "MARTIN MAC QUANTUM WASH": {
-            "category": "Wash",
-            "file": "MAC Quantum Wash.gdtf",
-            "mode": "Basic"
-        },
-        "Mac Viper Profile": {
-            "category": "Spot",
-            "file": "MAC Viper Profile.gdtf",
-            "mode": "Basic"
-        },
-        "Martin Professional@MAC Encore Performance CLD": {
-            "category": "Spot",
-            "file": "MAC Encore Performance CLD.gdtf",
-            "mode": "Basic"
-        },
-        "Megapointe": {
-            "category": "Hybrid",
-            "file": "Robin MegaPointe.gdtf",
-            "mode": "Mode 1 - Standard 16 - bit"
-        },
-        "PAR LED PROLIGHT 270 5-IN-1": {
-            "category": "Conventional",
-            "file": "PAR PRO 270 5-in-1.gdtf",
-            "mode": "8ch"
-        },
-        "PAR PRO 270 5-IN-1": {
-            "category": "Conventional",
-            "file": "PAR PRO 270 5-in-1.gdtf",
-            "mode": "8ch"
-        },
-        "PIXEL STROBE 400 RGB": {
-            "category": "Strobe",
-            "file": "PIXEL STROBE 400 RGB.gdtf",
-            "mode": "8ch"
-        },
-        "PROLIGHT BLINDER 2 PRO": {
-            "category": "Blinder",
-            "color": "#E87400",
-            "file": "BLINDER 2 PRO.gdtf",
-            "mode": "2ch d001"
-        },
-        "PROLIGHT BLINDER 4 PRO": {
-            "category": "Blinder",
-            "color": "#B63803",
-            "file": "BLINDER 4 PRO.gdtf",
-            "mode": "4ch d001"
-        },
-        "PROLIGHT PIXEL STROBE 400 RGB": {
-            "category": "Strobe",
-            "file": "PIXEL STROBE 400 RGB.gdtf",
-            "mode": "8ch"
-        },
-        "PROLIGHT X BEAM 17 CMY": {
-            "category": "Hybrid",
-            "file": "XBEAM 17 CMY.gdtf",
-            "mode": "25ch"
-        },
-        "Q-7": {
-            "category": "Strobe",
-            "file": "Q-7.gdtf",
-            "mode": "6 Channel RAW"
-        },
-        "RoHS 18x10 LED Par RGBWA (Bulb=LED) (Lens=30 deg)": {
-            "category": "Conventional",
-            "file": "PAR PRO 270 5-in-1.gdtf",
-            "mode": "8ch"
-        },
-        "Robin MMX Spot": {
-            "category": "Spot",
-            "file": "Robin MMX Spot.gdtf",
-            "mode": "Mode 1 - Standard"
-        },
-        "Robin MMX WashBeam": {
-            "category": "Hybrid",
-            "file": "Robin MMX WashBeam.gdtf",
-            "mode": "Mode 1 - Standard"
-        },
-        "Robin MegaPointe": {
-            "category": "Hybrid",
-            "file": "Robin MegaPointe.gdtf",
-            "mode": "Mode 1 - Standard 16 - bit"
-        },
-        "Robin MegaPointe (Bulb=Sirius HRI 475W)": {
-            "category": "Hybrid",
-            "file": "Robin MegaPointe.gdtf",
-            "mode": "Mode 1 - Standard 16 - bit"
-        },
-        "Robin Spiider": {
-            "category": "Wash",
-            "file": "Robin Spiider.gdtf",
-            "mode": "Mode 3 - Advanced"
-        },
-        "Robin iEsprite": {
-            "file": "Robin iEsprite.gdtf",
-            "mode": "Mode 1 - Standard 16 bit"
-        },
-        "Robin iSpiiderX": {
-            "file": "Robin iSpiiderX.gdtf",
-            "mode": "Mode 3 - Advanced"
-        },
-        "S-K15 LIROLITE": {
-            "category": "Wash",
-            "color": "#00D200",
-            "file": "Aleda B-EYE K10.gdtf",
-            "mode": "Shapes"
-        },
-        "SGM Q7": {
-            "category": "Strobe",
-            "file": "Q-7.gdtf",
-            "mode": "6 Channel RAW"
-        },
-        "Sharpy": {
-            "category": "Beam",
-            "color": "#FB154F",
-            "file": "Sharpy.gdtf",
-            "mode": "Vector"
-        },
-        "Spiider": {
-            "category": "Wash",
-            "file": "Robin Spiider.gdtf",
-            "mode": "Mode 3 - Advanced"
-        },
-        "Spiider (Bulb=LED)": {
-            "category": "Wash",
-            "file": "Robin Spiider.gdtf",
-            "mode": "Mode 3 - Advanced"
-        },
-        "Strike Array 2 (Bulb=LED)": {
-            "category": "Blinder",
-            "file": "BLINDER 2 PRO.gdtf",
-            "mode": "6ch A001"
-        },
-        "SunRise 2IP": {
-            "category": "Blinder",
-            "file": "Sunrise2IP.gdtf",
-            "mode": "UNO"
-        },
-        "Sunrise2IP": {
-            "category": "Blinder",
-            "file": "Sunrise2IP.gdtf",
-            "mode": "UNO"
-        },
-        "TOUR HAZER II": {
-            "category": "Smoke",
-            "file": "Tour Hazer II.gdtf",
-            "mode": "Default"
-        },
-        "TURBINA": {
-            "category": "Smoke",
-            "file": "theFAN.gdtf",
-            "mode": "Mode 1 Channel"
-        },
-        "Tour Hazer 2": {
-            "category": "Smoke",
-            "file": "Tour Hazer II.gdtf",
-            "mode": "Default"
-        },
-        "Tour Hazer II": {
-            "category": "Smoke",
-            "file": "Tour Hazer II.gdtf",
-            "mode": "Default"
-        },
-        "XBEAM 17 CMY": {
-            "category": "Hybrid",
-            "file": "XBEAM 17 CMY.gdtf",
-            "mode": "25ch"
-        },
-        "XBeam 17 CMY (Bulb=Sirius HRI 440W)": {
-            "category": "Hybrid",
-            "file": "XBEAM 17 CMY.gdtf",
-            "mode": "25ch"
-        },
-        "cegadoras": {
-            "category": "Blinder",
-            "file": "Sunrise2IP.gdtf",
-            "mode": "STANDARD"
-        },
-        "quantum spot": {
-            "category": "Spot",
-            "file": "MAC Quantum Profile.gdtf",
-            "mode": "Extended"
-        },
-        "quantum wash": {
-            "category": "Wash",
-            "file": "MAC Quantum Wash.gdtf",
-            "mode": "Basic"
-        },
-        "sharpy": {
-            "category": "Beam",
-            "color": "#FB154F",
-            "file": "Sharpy.gdtf",
-            "mode": "Vector"
-        },
-        "theFAN": {
-            "category": "Smoke",
-            "file": "theFAN.gdtf",
-            "mode": "Mode 1 Channel"
-        }
+  "dictionary_type": "fixtures",
+  "entries": {
+    "Aleda B-EYE K10": {
+      "category": "Wash",
+      "color": "#00D200",
+      "file": "Aleda B-EYE K10.gdtf",
+      "mode": "Shapes"
     },
-    "kind": "perastage.dictionary",
-    "schema_version": 1
+    "Aleda K10 B-EYE (Bulb=LED)": {
+      "category": "Wash",
+      "color": "#00D200",
+      "file": "Aleda B-EYE K10.gdtf",
+      "mode": "Shapes"
+    },
+    "BLINDER 2 PRO": {
+      "category": "Blinder",
+      "color": "#E87400",
+      "file": "BLINDER 2 PRO.gdtf",
+      "mode": "2ch d001"
+    },
+    "BLINDER 4 PRO": {
+      "category": "Blinder",
+      "color": "#B63803",
+      "file": "BLINDER 4 PRO.gdtf",
+      "mode": "4ch d001"
+    },
+    "BMFL WashBeam (Bulb=HTI 1700W_PS Lok-it_)": {
+      "category": "Hybrid",
+      "file": "Robin BMFL WashBeam.gdtf",
+      "mode": "Mode 1 - Standard 16 bit"
+    },
+    "Beam 201": {
+      "category": "Beam",
+      "color": "#FB154F",
+      "file": "Sharpy.gdtf",
+      "mode": "Vector"
+    },
+    "Beam201": {
+      "category": "Beam",
+      "color": "#FB154F",
+      "file": "Sharpy.gdtf",
+      "mode": "Vector"
+    },
+    "Blinder 2": {
+      "category": "Blinder",
+      "file": "Sunrise2IP.gdtf",
+      "mode": "STANDARD"
+    },
+    "Chauvet Color Strike M": {
+      "category": "Strobe",
+      "file": "Custom@Light_Instr_Chauvet_Color_Strike_M.gdtf",
+      "mode": "Default"
+    },
+    "Era 800 Performance (Bulb=LED 6500K)": {
+      "category": "Spot",
+      "file": "ERA 800 Performance.gdtf",
+      "mode": "Basic"
+    },
+    "HY B-EYE K15 (Bulb=LED)": {
+      "category": "Wash",
+      "color": "#00D200",
+      "file": "Aleda B-EYE K10.gdtf",
+      "mode": "Shapes"
+    },
+    "Impression X4 Bar 20 (Bulb=LED) (Lens=Standard)": {
+      "file": "impression X4 Bar 20.gdtf",
+      "mode": "Norm"
+    },
+    "Intella Storm 1000 RGB (Bulb=LED)": {
+      "category": "Strobe",
+      "file": "PIXEL STROBE 400 RGB.gdtf",
+      "mode": "8ch"
+    },
+    "JDC-1": {
+      "category": "Strobe",
+      "file": "JDC-1.gdtf",
+      "mode": "DMX Mode 1 (Compressed Pro)"
+    },
+    "JNR BLinder 4x100C (Bulb=LED 3200K)": {
+      "category": "Blinder",
+      "color": "#B63803",
+      "file": "BLINDER 4 PRO.gdtf",
+      "mode": "4ch d001"
+    },
+    "LED-BL4 (Bulb=LED)": {
+      "category": "Blinder",
+      "color": "#B63803",
+      "file": "BLINDER 4 PRO.gdtf",
+      "mode": "4ch d001"
+    },
+    "LITELEE B-EYE L10R": {
+      "category": "Wash",
+      "color": "#00D200",
+      "file": "Aleda B-EYE K10.gdtf",
+      "mode": "Shapes"
+    },
+    "LITELEES B-EYE L10R (LIBRERÍA K10)": {
+      "category": "Wash",
+      "color": "#00D200",
+      "file": "Aleda B-EYE K10.gdtf",
+      "mode": "Shapes"
+    },
+    "MAC Axiom (Bulb=Sirius HRI 440W)": {
+      "category": "Hybrid",
+      "file": "MAC Axiom Hybrid.gdtf",
+      "mode": "Basic"
+    },
+    "MAC Axiom Hybrid": {
+      "category": "Hybrid",
+      "file": "MAC Axiom Hybrid.gdtf",
+      "mode": "Basic"
+    },
+    "MAC Quantum Profile": {
+      "category": "Spot",
+      "file": "MAC Quantum Profile.gdtf",
+      "mode": "Extended"
+    },
+    "MAC Quantum Profile (Bulb=LED)": {
+      "category": "Spot",
+      "file": "MAC Quantum Profile.gdtf",
+      "mode": "Basic"
+    },
+    "MAC Quantum Wash": {
+      "category": "Wash",
+      "file": "MAC Quantum Wash.gdtf",
+      "mode": "Basic"
+    },
+    "MAC Quantum Wash (Bulb=LED)": {
+      "category": "Wash",
+      "file": "MAC Quantum Wash.gdtf",
+      "mode": "Basic"
+    },
+    "MARK BEAM 201": {
+      "category": "Beam",
+      "file": "Sharpy.gdtf",
+      "mode": "Standard"
+    },
+    "MARTIN MAC AXIOM HYBRID": {
+      "category": "Hybrid",
+      "file": "MAC Axiom Hybrid.gdtf",
+      "mode": "Basic"
+    },
+    "MARTIN MAC QUANTUM PROFILE": {
+      "category": "Spot",
+      "file": "MAC Quantum Profile.gdtf",
+      "mode": "Basic"
+    },
+    "MARTIN MAC QUANTUM WASH": {
+      "category": "Wash",
+      "file": "MAC Quantum Wash.gdtf",
+      "mode": "Basic"
+    },
+    "Mac Viper Profile": {
+      "category": "Spot",
+      "file": "MAC Viper Profile.gdtf",
+      "mode": "Basic"
+    },
+    "Martin Professional@MAC Encore Performance CLD": {
+      "category": "Spot",
+      "file": "MAC Encore Performance CLD.gdtf",
+      "mode": "Basic"
+    },
+    "Megapointe": {
+      "category": "Hybrid",
+      "file": "Robin MegaPointe.gdtf",
+      "mode": "Mode 1 - Standard 16 - bit"
+    },
+    "PAR LED PROLIGHT 270 5-IN-1": {
+      "category": "Conventional",
+      "file": "PAR PRO 270 5-in-1.gdtf",
+      "mode": "8ch"
+    },
+    "PAR PRO 270 5-IN-1": {
+      "category": "Conventional",
+      "file": "PAR PRO 270 5-in-1.gdtf",
+      "mode": "8ch"
+    },
+    "PIXEL STROBE 400 RGB": {
+      "category": "Strobe",
+      "file": "PIXEL STROBE 400 RGB.gdtf",
+      "mode": "8ch"
+    },
+    "PROLIGHT BLINDER 2 PRO": {
+      "category": "Blinder",
+      "color": "#E87400",
+      "file": "BLINDER 2 PRO.gdtf",
+      "mode": "2ch d001"
+    },
+    "PROLIGHT BLINDER 4 PRO": {
+      "category": "Blinder",
+      "color": "#B63803",
+      "file": "BLINDER 4 PRO.gdtf",
+      "mode": "4ch d001"
+    },
+    "PROLIGHT PIXEL STROBE 400 RGB": {
+      "category": "Strobe",
+      "file": "PIXEL STROBE 400 RGB.gdtf",
+      "mode": "8ch"
+    },
+    "PROLIGHT X BEAM 17 CMY": {
+      "category": "Hybrid",
+      "file": "XBEAM 17 CMY.gdtf",
+      "mode": "25ch"
+    },
+    "Q-7": {
+      "category": "Strobe",
+      "file": "Q-7.gdtf",
+      "mode": "6 Channel RAW"
+    },
+    "RoHS 18x10 LED Par RGBWA (Bulb=LED) (Lens=30 deg)": {
+      "category": "Conventional",
+      "file": "PAR PRO 270 5-in-1.gdtf",
+      "mode": "8ch"
+    },
+    "Robin MMX Spot": {
+      "category": "Spot",
+      "file": "Robin MMX Spot.gdtf",
+      "mode": "Mode 1 - Standard"
+    },
+    "Robin MMX WashBeam": {
+      "category": "Hybrid",
+      "file": "Robin MMX WashBeam.gdtf",
+      "mode": "Mode 1 - Standard"
+    },
+    "Robin MegaPointe": {
+      "category": "Hybrid",
+      "file": "Robin MegaPointe.gdtf",
+      "mode": "Mode 1 - Standard 16 - bit"
+    },
+    "Robin MegaPointe (Bulb=Sirius HRI 475W)": {
+      "category": "Hybrid",
+      "file": "Robin MegaPointe.gdtf",
+      "mode": "Mode 1 - Standard 16 - bit"
+    },
+    "Robin Spiider": {
+      "category": "Wash",
+      "file": "Robin Spiider.gdtf",
+      "mode": "Mode 3 - Advanced"
+    },
+    "Robin iEsprite": {
+      "file": "Robin iEsprite.gdtf",
+      "mode": "Mode 1 - Standard 16 bit"
+    },
+    "Robin iSpiiderX": {
+      "file": "Robin iSpiiderX.gdtf",
+      "mode": "Mode 3 - Advanced"
+    },
+    "S-K15 LIROLITE": {
+      "category": "Wash",
+      "color": "#00D200",
+      "file": "Aleda B-EYE K10.gdtf",
+      "mode": "Shapes"
+    },
+    "SGM Q7": {
+      "category": "Strobe",
+      "file": "Q-7.gdtf",
+      "mode": "6 Channel RAW"
+    },
+    "Sharpy": {
+      "category": "Beam",
+      "color": "#FB154F",
+      "file": "Sharpy.gdtf",
+      "mode": "Vector"
+    },
+    "Spiider": {
+      "category": "Wash",
+      "file": "Robin Spiider.gdtf",
+      "mode": "Mode 3 - Advanced"
+    },
+    "Spiider (Bulb=LED)": {
+      "category": "Wash",
+      "file": "Robin Spiider.gdtf",
+      "mode": "Mode 3 - Advanced"
+    },
+    "Strike Array 2 (Bulb=LED)": {
+      "category": "Blinder",
+      "file": "BLINDER 2 PRO.gdtf",
+      "mode": "6ch A001"
+    },
+    "SunRise 2IP": {
+      "category": "Blinder",
+      "file": "Sunrise2IP.gdtf",
+      "mode": "UNO"
+    },
+    "Sunrise2IP": {
+      "category": "Blinder",
+      "file": "Sunrise2IP.gdtf",
+      "mode": "UNO"
+    },
+    "TOUR HAZER II": {
+      "category": "Smoke",
+      "file": "Tour Hazer II.gdtf",
+      "mode": "Default"
+    },
+    "TURBINA": {
+      "category": "Smoke",
+      "file": "theFAN.gdtf",
+      "mode": "Mode 1 Channel"
+    },
+    "Tour Hazer 2": {
+      "category": "Smoke",
+      "file": "Tour Hazer II.gdtf",
+      "mode": "Default"
+    },
+    "Tour Hazer II": {
+      "category": "Smoke",
+      "file": "Tour Hazer II.gdtf",
+      "mode": "Default"
+    },
+    "XBEAM 17 CMY": {
+      "category": "Hybrid",
+      "file": "XBEAM 17 CMY.gdtf",
+      "mode": "25ch"
+    },
+    "XBeam 17 CMY (Bulb=Sirius HRI 440W)": {
+      "category": "Hybrid",
+      "file": "XBEAM 17 CMY.gdtf",
+      "mode": "25ch"
+    },
+    "cegadoras": {
+      "category": "Blinder",
+      "file": "Sunrise2IP.gdtf",
+      "mode": "STANDARD"
+    },
+    "quantum spot": {
+      "category": "Spot",
+      "file": "MAC Quantum Profile.gdtf",
+      "mode": "Extended"
+    },
+    "quantum wash": {
+      "category": "Wash",
+      "file": "MAC Quantum Wash.gdtf",
+      "mode": "Basic"
+    },
+    "sharpy": {
+      "category": "Beam",
+      "color": "#FB154F",
+      "file": "Sharpy.gdtf",
+      "mode": "Vector"
+    },
+    "theFAN": {
+      "category": "Smoke",
+      "file": "theFAN.gdtf",
+      "mode": "Mode 1 Channel"
+    }
+  },
+  "kind": "perastage.dictionary",
+  "schema_version": 1
 }
