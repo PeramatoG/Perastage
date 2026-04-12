@@ -33,6 +33,20 @@ if(NOT DEFINED PERAVIZ_ENABLE_DMX)
     set(PERAVIZ_ENABLE_DMX ON CACHE BOOL "Enable DMX input (Art-Net RX) for Peraviz native")
 endif()
 
+if(UNIX AND NOT APPLE)
+    # Prevent WSL/Linux builds from accidentally loading Windows vcpkg packages
+    # through CMAKE_PREFIX_PATH (for example: /mnt/c/vcpkg/installed/x64-windows).
+    set(_perastage_filtered_prefixes "")
+    foreach(_prefix IN LISTS CMAKE_PREFIX_PATH)
+        if(_prefix MATCHES ".*[\\\\/]vcpkg[\\\\/]installed[\\\\/].*-windows($|[\\\\/].*)")
+            message(STATUS "Ignoring Windows vcpkg prefix on Linux: ${_prefix}")
+        else()
+            list(APPEND _perastage_filtered_prefixes "${_prefix}")
+        endif()
+    endforeach()
+    set(CMAKE_PREFIX_PATH "${_perastage_filtered_prefixes}")
+endif()
+
 # wxWidgets chooses different binary sets based on wxWidgets_USE_DEBUG.
 # - Single-config: we can select debug libs based on CMAKE_BUILD_TYPE.
 # - Multi-config (Visual Studio): do not force wxWidgets_USE_DEBUG unless explicitly requested.
