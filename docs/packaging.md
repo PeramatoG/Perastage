@@ -72,4 +72,5 @@ Perastage app bundles declare `.mvr` document type metadata through bundle setti
 ## Related Documents
 
 - [Build and dependency guide](build.md)
+- [Storage policy (installation vs user profile)](storage_policy.md)
 - [Troubleshooting](troubleshooting.md)
