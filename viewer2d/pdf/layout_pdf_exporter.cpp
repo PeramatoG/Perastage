@@ -227,6 +227,24 @@ std::string RenderCommandsToStream(
   std::vector<size_t> group;
   std::string currentSource;
 
+  auto isFixtureOrSupportLabelSource = [](std::string_view source) {
+    return source.rfind("label:", 0) == 0 ||
+           source.rfind("support-label:", 0) == 0;
+  };
+
+  auto shouldRenderTextSource = [&](std::string_view source) {
+    const bool fixtureOrSupport = isFixtureOrSupportLabelSource(source);
+    switch (options.textLayerMode) {
+    case RenderOptions::TextLayerMode::All:
+      return true;
+    case RenderOptions::TextLayerMode::ExcludeFixtureAndSupportLabels:
+      return !fixtureOrSupport;
+    case RenderOptions::TextLayerMode::OnlyFixtureAndSupportLabels:
+      return fixtureOrSupport;
+    }
+    return true;
+  };
+
   auto flushGroup = [&]() {
     if (group.empty())
       return;
@@ -276,6 +294,10 @@ std::string RenderCommandsToStream(
     } else if constexpr (std::is_same_v<T, TextCommand>) {
       if (!options.includeText)
         return;
+      if (idx >= sources.size())
+        return;
+      if (!shouldRenderTextSource(sources[idx]))
+        return;
       auto pos = MapPointWithTransform(cmd.x, cmd.y, current, mapping);
       if (ShouldTraceLabelOrder()) {
         std::ostringstream trace;
@@ -303,6 +325,8 @@ std::string RenderCommandsToStream(
       AppendText(content, formatter, pos, cmd, cmd.style, mapping.scale,
                  options.fonts);
     } else if constexpr (std::is_same_v<T, PlaceSymbolCommand>) {
+      if (!options.includeGeometry)
+        return;
       if (!options.symbolKeyNames)
         return;
       auto nameIt = options.symbolKeyNames->find(cmd.key);
@@ -311,6 +335,8 @@ std::string RenderCommandsToStream(
       Transform2D local = TransformFromCanvas(cmd.transform);
       AppendSymbolInstance(content, formatter, mapping, local, nameIt->second);
     } else if constexpr (std::is_same_v<T, SymbolInstanceCommand>) {
+      if (!options.includeGeometry)
+        return;
       if (!options.symbolIdNames)
         return;
       auto nameIt = options.symbolIdNames->find(cmd.symbolId);
@@ -346,6 +372,9 @@ std::string RenderCommandsToStream(
                  cmd);
       continue;
     }
+
+    if (!options.includeGeometry)
+      continue;
 
     if (group.empty())
       currentSource = sources[i];
@@ -1431,6 +1460,9 @@ Viewer2DExportResult ExportLayoutToPdf(
 
     RenderOptions mainOptions{};
     mainOptions.includeText = true;
+    mainOptions.includeGeometry = true;
+    mainOptions.textLayerMode =
+        RenderOptions::TextLayerMode::ExcludeFixtureAndSupportLabels;
     mainOptions.symbolKeyNames = &viewKeyNames;
     mainOptions.symbolIdNames = &viewIdNames;
     mainOptions.fonts = &fontCatalog;
@@ -1448,6 +1480,15 @@ Viewer2DExportResult ExportLayoutToPdf(
                                             group.commands.sources,
                                             group.mapping, formatter,
                                             mainOptions);
+    RenderOptions fixtureLabelOptions = mainOptions;
+    fixtureLabelOptions.includeGeometry = false;
+    fixtureLabelOptions.textLayerMode =
+        RenderOptions::TextLayerMode::OnlyFixtureAndSupportLabels;
+    contentStream << RenderCommandsToStream(group.commands.commands,
+                                            group.commands.metadata,
+                                            group.commands.sources,
+                                            group.mapping, formatter,
+                                            fixtureLabelOptions);
     contentStream << "Q\n";
     if (views[idx].drawFrame) {
       contentStream << "q\n0 0 0 RG 0.5 w "

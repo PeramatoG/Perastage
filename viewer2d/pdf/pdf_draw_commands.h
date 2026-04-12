@@ -23,7 +23,15 @@ struct Mapping {
   bool flipY = true;
 };
 struct RenderOptions {
+  enum class TextLayerMode {
+    All,
+    ExcludeFixtureAndSupportLabels,
+    OnlyFixtureAndSupportLabels
+  };
+
   bool includeText = true;
+  bool includeGeometry = true;
+  TextLayerMode textLayerMode = TextLayerMode::All;
   const std::unordered_map<std::string, std::string> *symbolKeyNames = nullptr;
   const std::unordered_map<uint32_t, std::string> *symbolIdNames = nullptr;
   const PdfFontCatalog *fonts = nullptr;
