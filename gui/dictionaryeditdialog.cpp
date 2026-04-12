@@ -645,7 +645,7 @@ CopyToLibrary(wxWindow *parent, const std::string &path, const char *libraryName
   const std::filesystem::path dir =
       std::filesystem::u8path(ProjectUtils::GetWritableLibraryPath(libraryName));
   if (dir.empty())
-    return CopiedLibraryAsset{path, path, {}};
+    return CopiedLibraryAsset{path, {}};
 
   const std::filesystem::path dest = dir / src.filename();
   FileImportUtils::ConflictPolicy policy = FileImportUtils::ConflictPolicy::Overwrite;
