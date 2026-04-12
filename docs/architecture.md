@@ -34,3 +34,4 @@ This document defines the expected directory conventions for Perastage.
 ## GUI architecture references
 
 - Keyboard shortcut routing and scope rules are documented in `docs/gui_shortcut_architecture.md`.
+- Storage source-of-truth and runtime precedence are documented in `docs/storage_policy.md`.
