@@ -45,6 +45,8 @@ If you want to build from source, setup and dependency notes are available in th
 - Open an existing `.mvr` file to inspect its content quickly.
 - Review fixtures, trusses, hoists, objects, and scene structure.
 - Use **Tools → Create from text** to generate elements from rider-style notes.
+- In **Tools → Create from text**, you can annotate templates with comments
+  using inline markers `((...))` or `*(...)*` (ignored by the parser).
 - Use the available tools to adjust and organize scene data more comfortably.
 
 ## Documentation

@@ -175,27 +175,30 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
 
 void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
   const wxString exampleText =
-      "Lx1\n"
-      "8 Blinder 2\n"
+      "((Example notes wrapped with ((...)) are ignored))\n"
+      "\n"
+      "LX1 (0, -2.0, 10.5) [0.6] ((Position and margin override))\n"
+      "8 Blinder 2 *(Front blinders)*\n"
       "8 Spiider\n"
       "6 Megapointe\n"
       "\n"
-      "lx2\n"
+      "LX2 [0.8]\n"
       "6 Megapointe\n"
       "6 Mac Viper Profile\n"
       "6 Spiider\n"
       "4 Q-7\n"
       "\n"
-      "lx3\n"
+      "LX3\n"
       "6 Megapointe\n"
       "6 Mac Viper Profile\n"
       "6 Spiider\n"
       "4 Q-7\n"
       "\n"
-      "rigging\n"
-      "1 truss lx1 14 m\n"
-      "1 truss lx2 12 m\n"
-      "1 truss lx3 12 m\n";
+      "RIGGING\n"
+      "1 TRUSS 40X40 14 m PARA LX1\n"
+      "1 TRUSS 40X40 12 m PARA LX2 (0, 2.5, 10.0)\n"
+      "1 PIPE 12 m PARA LX3 ((Pipe as scene object))\n"
+      "3 MOTOR 500Kg PARA PUENTES LX *(Auto-distribute across LX targets)*\n";
   textCtrl->ChangeValue(exampleText);
   sourceLabel = "Example text";
   sourceLoadedFromFile = false;
