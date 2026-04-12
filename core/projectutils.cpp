@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "projectutils.h"
+#include "library/library_bootstrap.h"
 #include <cstdlib>
 #include <iostream>
 #include <filesystem>
@@ -44,29 +45,6 @@ fs::path WxStringToPath(const wxString& value)
         return fs::u8path(std::string(utf8.data(), utf8.length()));
 
     return fs::path(value.ToStdString());
-}
-
-void CopyLibrarySubdir(const fs::path& source, const fs::path& destination)
-{
-    std::error_code ec;
-    bool sourceExists = fs::exists(source, ec);
-    if (ec || !sourceExists)
-        return;
-
-    bool destinationExists = fs::exists(destination, ec);
-    if (ec || !ProjectUtils::IsDirectoryWritable(destination))
-        return;
-
-    ec.clear();
-    bool destinationEmpty = destinationExists ? fs::is_empty(destination, ec) : true;
-    if (ec)
-        return;
-
-    if (destinationEmpty || !destinationExists) {
-        ec.clear();
-        fs::copy(source, destination,
-                 fs::copy_options::recursive | fs::copy_options::update_existing, ec);
-    }
 }
 
 std::optional<fs::path> FindExistingPath(const fs::path& start,
@@ -117,6 +95,11 @@ std::string ToAbsoluteUtf8(const fs::path& path)
     if (ec)
         return {};
     return ToUtf8String(absolutePath);
+}
+
+fs::path GetBaseLibraryRoot()
+{
+    return GetBaseLibraryPath("");
 }
 
 } // namespace
@@ -277,12 +260,10 @@ std::string GetWritableLibraryPath(const std::string& subdir)
         }
     }
 
-    const fs::path installedPath = GetBaseLibraryPath(subdir);
-
     if (const auto dataDir = ResolveWritableUserDataDir()) {
+        LibraryBootstrap::BootstrapUserLibrary(GetBaseLibraryRoot(), *dataDir);
         fs::path userLib = *dataDir / "library" / subdir;
         if (IsDirectoryWritable(userLib)) {
-            CopyLibrarySubdir(installedPath, userLib);
             return ToAbsoluteUtf8(userLib);
         }
     }
