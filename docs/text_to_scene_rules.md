@@ -324,7 +324,14 @@ Placement defaults:
    - Each per-LX set is placed on that truss at the same `Y/Z`, using a 1 m
      margin from truss ends in `X`.
    - Direct `LX<number>` hoist targets also use a 1 m margin from truss ends.
-4. **SCREEN hoists**
+4. **`LX SIDES` hoists (`SIDES`, `CALLES`)**
+   - Quantity is split between left/right side trusses (`left = ceil(N/2)`,
+     `right = floor(N/2)`).
+   - Each side set is distributed along the side truss length on `Y`, preserving
+     the truss direction (`startY -> endY`) and using a 1 m margin from both ends.
+   - Hoists use each side truss own `X` anchor and `Z` height.
+   - If side trusses are missing, importer falls back to side fixture anchors.
+5. **SCREEN hoists**
    - Distributed using internal truss divisions (for `N` hoists, truss span is
      split into `N+1` equal parts and hoists are placed on internal cuts).
 
@@ -342,6 +349,8 @@ Created hoists:
   - `LX*` targets => `<position> <index>` (`LX1 1`, `LX1 2`, ...).
   - `SCREEN`/video targets => `SCR <index>`.
   - `BACKDROP` targets => `BACKDROP <index>`.
+  - `LX SIDES` targets => `SIDE L <index>`, `SIDE R <index>` (ordered by `Y`
+    inside each side).
   - `SIDEFILL` => `SF L`, `SF R` (adds index when side has more than one hoist).
   - `PA`/`P.A.` => `PA L <index>`, `PA R <index>`.
   - Fallback targets => `RP <index>` (Rigging Point).
