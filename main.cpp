@@ -174,6 +174,9 @@ bool MyApp::OnInit() {
   // Initialize logging system (overwrites log file each launch)
   Logger::Instance();
 
+  SplashScreen::SetMessage("Running library bootstrap...");
+  ProjectUtils::RunStartupLibraryBootstrap();
+
   SplashScreen::SetMessage("Creating main window...");
   MainWindow *mainWindow = new MainWindow(app::kName);
   mainWindow->Show(true);

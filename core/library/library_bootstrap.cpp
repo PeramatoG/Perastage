@@ -1,6 +1,6 @@
 #include "library/library_bootstrap.h"
 
-#include <fstream>
+#include <sstream>
 #include <string>
 
 namespace fs = std::filesystem;
@@ -8,73 +8,101 @@ namespace fs = std::filesystem;
 namespace LibraryBootstrap {
 namespace {
 
-constexpr const char *kBootstrapVersion = "1";
-constexpr const char *kBootstrapStampFilename = ".bootstrap_version";
-
-bool CopyMissingFilesRecursively(const fs::path &sourceRoot, const fs::path &destinationRoot) {
+bool CopyMissingFilesRecursively(const fs::path &sourceRoot, const fs::path &destinationRoot,
+                                 BootstrapResult &result) {
   std::error_code ec;
-  if (!fs::exists(sourceRoot, ec) || ec || !fs::is_directory(sourceRoot, ec) || ec)
+  if (!fs::exists(sourceRoot, ec) || ec || !fs::is_directory(sourceRoot, ec) || ec) {
+    std::ostringstream oss;
+    oss << "Installed library root is not available: " << sourceRoot.string();
+    result.errors.push_back(oss.str());
     return false;
+  }
 
-  fs::create_directories(destinationRoot, ec);
-  if (ec)
+  ec.clear();
+  const bool createdRoot = fs::create_directories(destinationRoot, ec);
+  if (ec) {
+    std::ostringstream oss;
+    oss << "Could not create destination root '" << destinationRoot.string()
+        << "': " << ec.message();
+    result.errors.push_back(oss.str());
     return false;
+  }
+  if (createdRoot)
+    ++result.directoriesCreated;
 
   for (const fs::directory_entry &entry :
        fs::recursive_directory_iterator(sourceRoot, fs::directory_options::skip_permission_denied,
                                         ec)) {
-    if (ec)
+    if (ec) {
+      std::ostringstream oss;
+      oss << "Failed while traversing '" << sourceRoot.string() << "': " << ec.message();
+      result.errors.push_back(oss.str());
       return false;
+    }
 
     const fs::path relative = fs::relative(entry.path(), sourceRoot, ec);
-    if (ec)
+    if (ec) {
+      std::ostringstream oss;
+      oss << "Failed to compute relative path for '" << entry.path().string()
+          << "': " << ec.message();
+      result.errors.push_back(oss.str());
       return false;
+    }
 
     const fs::path destinationPath = destinationRoot / relative;
     if (entry.is_directory()) {
-      fs::create_directories(destinationPath, ec);
-      if (ec)
+      ec.clear();
+      const bool createdDirectory = fs::create_directories(destinationPath, ec);
+      if (ec) {
+        std::ostringstream oss;
+        oss << "Could not create directory '" << destinationPath.string()
+            << "': " << ec.message();
+        result.errors.push_back(oss.str());
         return false;
+      }
+      if (createdDirectory)
+        ++result.directoriesCreated;
       continue;
     }
 
     if (!entry.is_regular_file())
       continue;
 
+    ec.clear();
     if (fs::exists(destinationPath, ec)) {
-      if (ec)
+      if (ec) {
+        std::ostringstream oss;
+        oss << "Could not check existing destination '" << destinationPath.string()
+            << "': " << ec.message();
+        result.errors.push_back(oss.str());
         return false;
+      }
+      ++result.filesSkippedExisting;
       continue;
     }
 
+    ec.clear();
     fs::create_directories(destinationPath.parent_path(), ec);
-    if (ec)
+    if (ec) {
+      std::ostringstream oss;
+      oss << "Could not create parent directory '" << destinationPath.parent_path().string()
+          << "': " << ec.message();
+      result.errors.push_back(oss.str());
       return false;
+    }
 
+    ec.clear();
     fs::copy_file(entry.path(), destinationPath, fs::copy_options::none, ec);
-    if (ec)
+    if (ec) {
+      std::ostringstream oss;
+      oss << "Could not copy '" << entry.path().string() << "' to '" << destinationPath.string()
+          << "': " << ec.message();
+      result.errors.push_back(oss.str());
       return false;
+    }
+    ++result.filesCopied;
   }
 
-  return true;
-}
-
-std::string ReadBootstrapStamp(const fs::path &stampPath) {
-  std::ifstream input(stampPath);
-  if (!input.is_open())
-    return {};
-
-  std::string version;
-  std::getline(input, version);
-  return version;
-}
-
-bool WriteBootstrapStamp(const fs::path &stampPath) {
-  std::ofstream output(stampPath, std::ios::out | std::ios::trunc);
-  if (!output.is_open())
-    return false;
-
-  output << kBootstrapVersion;
   return true;
 }
 
@@ -83,30 +111,32 @@ bool WriteBootstrapStamp(const fs::path &stampPath) {
 BootstrapResult BootstrapUserLibrary(const fs::path &installedLibraryRoot,
                                      const fs::path &userDataDir) {
   BootstrapResult result;
+  result.attempted = true;
 
   std::error_code ec;
-  if (installedLibraryRoot.empty() || userDataDir.empty())
+  if (installedLibraryRoot.empty() || userDataDir.empty()) {
+    result.errors.emplace_back("Bootstrap skipped because installed or user-data path is empty.");
     return result;
+  }
 
   if (!fs::exists(installedLibraryRoot, ec) || ec || !fs::is_directory(installedLibraryRoot, ec) ||
-      ec)
+      ec) {
+    result.errors.emplace_back("Bootstrap skipped because installed library root is missing.");
     return result;
+  }
 
   const fs::path userLibraryRoot = userDataDir / "library";
+  ec.clear();
   fs::create_directories(userLibraryRoot, ec);
-  if (ec)
+  if (ec) {
+    std::ostringstream oss;
+    oss << "Could not create user library root '" << userLibraryRoot.string()
+        << "': " << ec.message();
+    result.errors.push_back(oss.str());
     return result;
+  }
 
-  const fs::path stampPath = userLibraryRoot / kBootstrapStampFilename;
-  const bool needsBootstrap = ReadBootstrapStamp(stampPath) != kBootstrapVersion;
-  if (!needsBootstrap)
-    return result;
-
-  result.attempted = true;
-  if (!CopyMissingFilesRecursively(installedLibraryRoot, userLibraryRoot))
-    return result;
-
-  if (!WriteBootstrapStamp(stampPath))
+  if (!CopyMissingFilesRecursively(installedLibraryRoot, userLibraryRoot, result))
     return result;
 
   result.completed = true;

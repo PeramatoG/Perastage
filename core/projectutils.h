@@ -38,6 +38,10 @@ namespace ProjectUtils {
     // Uses PERASTAGE_LIBRARY_PATH/<subdir> when writable, otherwise user-data/library/<subdir>.
     std::string GetWritableLibraryPath(const std::string& subdir);
 
+    // Runs non-destructive startup bootstrap/migration from installed library
+    // into the user-data library and logs copied/skipped/error details.
+    void RunStartupLibraryBootstrap();
+
     // Path containing the built-in resources shipped with the executable.
     std::filesystem::path GetResourceRoot();
 

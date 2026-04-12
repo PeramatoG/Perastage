@@ -17,11 +17,13 @@
  */
 #include "projectutils.h"
 #include "library/library_bootstrap.h"
+#include "logger.h"
 #include <cstdlib>
 #include <iostream>
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <sstream>
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
 
@@ -100,6 +102,25 @@ std::string ToAbsoluteUtf8(const fs::path& path)
 fs::path GetBaseLibraryRoot()
 {
     return GetBaseLibraryPath("");
+}
+
+void LogBootstrapSummary(const LibraryBootstrap::BootstrapResult& result,
+                         const fs::path& installedRoot,
+                         const fs::path& userDataDir)
+{
+    std::ostringstream summary;
+    summary << "Library bootstrap migration (installed='" << installedRoot.string()
+            << "', userData='" << userDataDir.string()
+            << "') completed=" << (result.completed ? "true" : "false")
+            << ", copied=" << result.filesCopied
+            << ", skipped_existing=" << result.filesSkippedExisting
+            << ", dirs_created=" << result.directoriesCreated
+            << ", errors=" << result.errors.size();
+    Logger::Instance().Log(Logger::Level::Info, summary.str());
+
+    for (const std::string& error : result.errors) {
+        Logger::Instance().Log(Logger::Level::Error, "Library bootstrap migration error: " + error);
+    }
 }
 
 } // namespace
@@ -294,6 +315,21 @@ std::string GetDefaultLibraryPath(const std::string& subdir)
         return {};
     }
     return ToUtf8String(absolutePath);
+}
+
+void RunStartupLibraryBootstrap()
+{
+    const auto dataDir = ResolveWritableUserDataDir();
+    if (!dataDir) {
+        Logger::Instance().Log(Logger::Level::Warn,
+                               "Library bootstrap migration skipped: no writable user-data directory.");
+        return;
+    }
+
+    const fs::path installedRoot = GetBaseLibraryRoot();
+    const LibraryBootstrap::BootstrapResult result =
+        LibraryBootstrap::BootstrapUserLibrary(installedRoot, *dataDir);
+    LogBootstrapSummary(result, installedRoot, *dataDir);
 }
 
 } // namespace ProjectUtils
