@@ -7,6 +7,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <unordered_set>
 
 namespace {
 constexpr float kFitPaddingScale = 1.03f;
@@ -38,7 +39,8 @@ bool FrameSceneInCamera(const ISelectionContext &selectionContext,
   float maxY = std::numeric_limits<float>::lowest();
   float maxZ = std::numeric_limits<float>::lowest();
 
-  auto accumulate = [&](const auto &map) {
+  bool hasBounds = false;
+  auto accumulateAll = [&](const auto &map) {
     for (const auto &[uuid, bounds] : map) {
       (void)uuid;
       minX = std::min(minX, bounds.min[0]);
@@ -47,12 +49,39 @@ bool FrameSceneInCamera(const ISelectionContext &selectionContext,
       maxX = std::max(maxX, bounds.max[0]);
       maxY = std::max(maxY, bounds.max[1]);
       maxZ = std::max(maxZ, bounds.max[2]);
+      hasBounds = true;
     }
   };
 
-  accumulate(selectionContext.GetFixtureBoundsMap());
-  accumulate(selectionContext.GetTrussBoundsMap());
-  accumulate(selectionContext.GetObjectBoundsMap());
+  auto accumulateSelected = [&](const auto &map,
+                                const std::unordered_set<std::string> &selected) {
+    for (const auto &uuid : selected) {
+      const auto it = map.find(uuid);
+      if (it == map.end())
+        continue;
+      const auto &bounds = it->second;
+      minX = std::min(minX, bounds.min[0]);
+      minY = std::min(minY, bounds.min[1]);
+      minZ = std::min(minZ, bounds.min[2]);
+      maxX = std::max(maxX, bounds.max[0]);
+      maxY = std::max(maxY, bounds.max[1]);
+      maxZ = std::max(maxZ, bounds.max[2]);
+      hasBounds = true;
+    }
+  };
+
+  const auto &selected = selectionContext.GetSelectedUuids();
+  if (!selected.empty()) {
+    accumulateSelected(selectionContext.GetFixtureBoundsMap(), selected);
+    accumulateSelected(selectionContext.GetTrussBoundsMap(), selected);
+    accumulateSelected(selectionContext.GetObjectBoundsMap(), selected);
+  }
+
+  if (!hasBounds) {
+    accumulateAll(selectionContext.GetFixtureBoundsMap());
+    accumulateAll(selectionContext.GetTrussBoundsMap());
+    accumulateAll(selectionContext.GetObjectBoundsMap());
+  }
 
   if (minX > maxX || minY > maxY || minZ > maxZ)
     return false;

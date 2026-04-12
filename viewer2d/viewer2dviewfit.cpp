@@ -3,6 +3,7 @@
 #include "iselectioncontext.h"
 #include <algorithm>
 #include <limits>
+#include <unordered_set>
 
 namespace {
 constexpr float kPixelsPerMeter = 25.0f;
@@ -63,16 +64,38 @@ bool ComputeViewFit(const ISelectionContext &selectionContext, Viewer2DView view
   float minB = std::numeric_limits<float>::max();
   float maxB = std::numeric_limits<float>::lowest();
 
-  auto accumulate = [&](const auto &map) {
+  bool hasBounds = false;
+  auto accumulateAll = [&](const auto &map) {
     for (const auto &[uuid, bounds] : map) {
       (void)uuid;
       ExpandProjectedBounds(bounds, view, minA, maxA, minB, maxB);
+      hasBounds = true;
     }
   };
 
-  accumulate(selectionContext.GetFixtureBoundsMap());
-  accumulate(selectionContext.GetTrussBoundsMap());
-  accumulate(selectionContext.GetObjectBoundsMap());
+  auto accumulateSelected = [&](const auto &map,
+                                const std::unordered_set<std::string> &selected) {
+    for (const auto &uuid : selected) {
+      const auto it = map.find(uuid);
+      if (it == map.end())
+        continue;
+      ExpandProjectedBounds(it->second, view, minA, maxA, minB, maxB);
+      hasBounds = true;
+    }
+  };
+
+  const auto &selected = selectionContext.GetSelectedUuids();
+  if (!selected.empty()) {
+    accumulateSelected(selectionContext.GetFixtureBoundsMap(), selected);
+    accumulateSelected(selectionContext.GetTrussBoundsMap(), selected);
+    accumulateSelected(selectionContext.GetObjectBoundsMap(), selected);
+  }
+
+  if (!hasBounds) {
+    accumulateAll(selectionContext.GetFixtureBoundsMap());
+    accumulateAll(selectionContext.GetTrussBoundsMap());
+    accumulateAll(selectionContext.GetObjectBoundsMap());
+  }
 
   if (minA > maxA || minB > maxB)
     return false;

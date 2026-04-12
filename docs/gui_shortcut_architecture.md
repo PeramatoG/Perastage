@@ -75,7 +75,9 @@ This makes shortcut behavior deterministic and keeps one single decision point f
      active `wxGrid` cell editors.
 2. The hook asks `ResolveShortcut(...)` for one decision.
 3. `MainWindow::ApplyShortcutDecision(...)` executes the routed action:
-   - `ApplyFitShortcut()` for focused viewer fit,
+   - `ApplyFitShortcut()` for focused viewer fit (selection-aware: when there is
+     an active selection, fit targets selected fixtures/trusses/scene objects;
+     otherwise it falls back to fitting the full scene),
    - `FocusConsoleForQuickCommand(...)` for CLI-prefill actions,
    - notebook-tab selection commands for `1..4`,
    - `ApplyViewportShortcut(...)` for top/front/side numpad view actions in the active viewer,
