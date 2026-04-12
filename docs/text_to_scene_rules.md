@@ -400,19 +400,27 @@ After parsing, imported fixtures are distributed per hang:
    - Exception for `LX SIDES`: fixtures are still split into left/right groups
      as if side trusses existed, with fallback anchors at `Y = 1.0 m`
      and `500 mm` spacing moving upstage (positive Y).
-4. Ordering alternates fixture types symmetrically:
-   - odd counts place a center fixture,
-   - remaining fixtures are paired left/right.
+4. Ordering mode per hang:
+   - Default mode is **symmetric by type**:
+     - odd counts place a center fixture,
+     - remaining fixtures are paired left/right.
+   - If a fixture type is listed more than once for the same hang in the rider
+     fixture list (for example `MegaPointe ... Spiider ... MegaPointe`), that
+     hang switches to **linear left-to-right mode** and keeps rider list order.
 5. Fixtures are split into placement groups:
    - **Bottom group**: all categories except `Wash`, `Blinder`, `Strobe`.
    - **Bottom-back override**: `Wash` is placed on the back side.
    - **Top-front group**: `Blinder` and `Strobe` are placed on top-front.
    - **Smoke side-floor group**: `Smoke` fixtures are placed using side-style
      mirroring (left/right split along `Y`) at floor level.
-6. `x` spacing is computed independently per group:
+6. `x` spacing is computed independently per group and per ordering mode:
    - Bottom fixtures share one spacing/order pass.
    - Top-front fixtures use a separate spacing/order pass and do not affect bottom spacing.
-7. Final fixture transform by group:
+   - This means bottom and top-front groups can each resolve symmetric vs
+     linear behavior independently while keeping their own list order.
+7. If a group has exactly one fixture, it is placed at the horizontal center of
+   the usable hang span (instead of at a lateral edge).
+8. Final fixture transform by group:
    - Bottom-front:
      - `x`: evenly spaced from start to end (bottom group),
      - `y`: `baseY - trussWidth/2`,
@@ -425,11 +433,11 @@ After parsing, imported fixtures are distributed per hang:
      - `x`: evenly spaced from start to end (top group),
      - `y`: `baseY - trussWidth/2`,
      - `z`: `baseZ + trussWidth/2`.
-8. `LX SIDES` fixture distribution:
+9. `LX SIDES` fixture distribution:
    - Fixtures are split into two symmetric groups (left/right side).
    - Each side group is distributed along `Y` (matching side truss direction).
    - `X` anchors match side-truss anchors (or fallback anchors when no side truss exists).
-9. `Smoke` fixture distribution (all non-`LX SIDES` hangs):
+10. `Smoke` fixture distribution (all non-`LX SIDES` hangs):
    - `Smoke` fixtures are split into two symmetric groups (left/right side),
      distributed along `Y` using side-truss extents when available.
    - Without side trusses, each side uses fallback `Y = 1.0 m` with `500 mm`
