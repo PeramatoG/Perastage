@@ -79,7 +79,7 @@ static std::string CollapseAsciiWhitespace(const std::string &text) {
 }
 
 static fs::path GetUserDictFile() {
-  fs::path dir = fs::u8path(ProjectUtils::GetDefaultLibraryPath("trusses"));
+  fs::path dir = fs::u8path(ProjectUtils::GetWritableLibraryPath("trusses"));
   if (dir.empty())
     return {};
   std::error_code ec;

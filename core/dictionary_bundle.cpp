@@ -497,7 +497,7 @@ PreparedImport PrepareBundleImport(const std::string &importPath, Type expectedT
     return result;
   }
 
-  const fs::path libraryDir = fs::u8path(ProjectUtils::GetDefaultLibraryPath(expectedTypeText));
+  const fs::path libraryDir = fs::u8path(ProjectUtils::GetWritableLibraryPath(expectedTypeText));
   std::error_code ec;
   fs::create_directories(libraryDir, ec);
 

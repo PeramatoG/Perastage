@@ -110,6 +110,15 @@ std::optional<fs::path> ResolveWritableUserDataDir()
     return fs::absolute(fallback, ec);
 }
 
+std::string ToAbsoluteUtf8(const fs::path& path)
+{
+    std::error_code ec;
+    fs::path absolutePath = fs::absolute(path, ec);
+    if (ec)
+        return {};
+    return ToUtf8String(absolutePath);
+}
+
 } // namespace
 
 bool IsDirectoryWritable(const fs::path& dir)
@@ -239,16 +248,17 @@ std::optional<std::string> LoadLastProjectPath()
     return std::nullopt;
 }
 
-std::string GetDefaultLibraryPath(const std::string& subdir)
+std::string GetInstalledLibraryPath(const std::string& subdir)
 {
-    auto absoluteUtf8 = [](const fs::path& path) -> std::string {
-        std::error_code ec;
-        fs::path absolutePath = fs::absolute(path, ec);
-        if (ec)
-            return {};
-        return ToUtf8String(absolutePath);
-    };
+    const fs::path installedPath = GetBaseLibraryPath(subdir);
+    std::error_code ec;
+    if (fs::exists(installedPath, ec) && !ec && fs::is_directory(installedPath, ec) && !ec)
+        return ToAbsoluteUtf8(installedPath);
+    return {};
+}
 
+std::string GetWritableLibraryPath(const std::string& subdir)
+{
     if (const char* envPath = std::getenv("PERASTAGE_LIBRARY_PATH")) {
         if (*envPath != '\0') {
             fs::path envRoot = fs::u8path(envPath);
@@ -258,29 +268,48 @@ std::string GetDefaultLibraryPath(const std::string& subdir)
             if (!ec && envRootExists && envRootIsDir) {
                 fs::path envLibraryPath = envRoot / subdir;
                 if (IsDirectoryWritable(envLibraryPath))
-                    return absoluteUtf8(envLibraryPath);
+                    return ToAbsoluteUtf8(envLibraryPath);
+                std::cerr << "ProjectUtils::GetWritableLibraryPath could not use "
+                             "PERASTAGE_LIBRARY_PATH for subdir '"
+                          << subdir << "' because path is not writable: "
+                          << envLibraryPath.string() << std::endl;
             }
         }
     }
 
-    fs::path baseLib = GetBaseLibraryPath(subdir);
-    std::error_code ec;
-    if (fs::exists(baseLib, ec) && !ec && fs::is_directory(baseLib, ec) && !ec)
-        return absoluteUtf8(baseLib);
+    const fs::path installedPath = GetBaseLibraryPath(subdir);
 
     if (const auto dataDir = ResolveWritableUserDataDir()) {
         fs::path userLib = *dataDir / "library" / subdir;
         if (IsDirectoryWritable(userLib)) {
-            CopyLibrarySubdir(baseLib, userLib);
-            return absoluteUtf8(userLib);
+            CopyLibrarySubdir(installedPath, userLib);
+            return ToAbsoluteUtf8(userLib);
         }
     }
 
-    std::cerr << "ProjectUtils::GetDefaultLibraryPath failed for subdir '" << subdir
-              << "'. Checked PERASTAGE_LIBRARY_PATH, base library path, and user data "
-                 "library fallback."
+    std::cerr << "ProjectUtils::GetWritableLibraryPath failed for subdir '" << subdir
+              << "'. Checked PERASTAGE_LIBRARY_PATH and user-data library fallback."
               << std::endl;
     return {};
+}
+
+std::string GetDefaultLibraryPath(const std::string& subdir)
+{
+    if (std::string installedPath = GetInstalledLibraryPath(subdir); !installedPath.empty())
+        return installedPath;
+
+    if (std::string writablePath = GetWritableLibraryPath(subdir); !writablePath.empty())
+        return writablePath;
+
+    const fs::path fallbackPath = GetBaseLibraryPath(subdir);
+    std::error_code ec;
+    fs::path absolutePath = fs::absolute(fallbackPath, ec);
+    if (ec) {
+        std::cerr << "ProjectUtils::GetDefaultLibraryPath failed for subdir '" << subdir
+                  << "'." << std::endl;
+        return {};
+    }
+    return ToUtf8String(absolutePath);
 }
 
 } // namespace ProjectUtils

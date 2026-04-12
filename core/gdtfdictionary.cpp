@@ -186,7 +186,7 @@ FindEquivalentTypeKey(const std::unordered_map<std::string, Entry> &dict,
 }
 
 fs::path GetUserDictFile() {
-  fs::path dir = fs::u8path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+  fs::path dir = fs::u8path(ProjectUtils::GetWritableLibraryPath("fixtures"));
   if (dir.empty())
     return {};
   std::error_code ec;
