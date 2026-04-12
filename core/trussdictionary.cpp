@@ -41,6 +41,11 @@ namespace {
 
 LoadStatus g_lastLoadStatus;
 
+std::optional<std::unordered_map<std::string, std::string>>
+LoadFromFile(const fs::path &file, std::string &error);
+bool Save(const std::unordered_map<std::string, std::string> &dict,
+          std::string *errorOut = nullptr);
+
 static std::string ToUtf8String(const fs::path &path) {
   std::u8string utf8 = path.u8string();
   return std::string(utf8.begin(), utf8.end());
@@ -106,6 +111,53 @@ static bool RecreateUserDictionaryFromBase(const fs::path &userFile,
     return false;
   create << DictionaryJsonContract::MakeRoot("trusses", nlohmann::json::object())
                 .dump(4);
+  return true;
+}
+
+static bool WriteDictionaryBackup(const fs::path &sourceFile) {
+  if (sourceFile.empty() || !fs::exists(sourceFile))
+    return false;
+  fs::path backupFile = sourceFile;
+  backupFile += ".bak";
+  std::error_code ec;
+  fs::copy_file(sourceFile, backupFile, fs::copy_options::overwrite_existing, ec);
+  return !ec;
+}
+
+static bool MergeSeedEntriesIntoUserDictionary(
+    const fs::path &userFile, const fs::path &baseFile,
+    std::unordered_map<std::string, std::string> &userDict,
+    bool *changedOut = nullptr) {
+  if (changedOut)
+    *changedOut = false;
+  if (userFile.empty() || baseFile.empty())
+    return false;
+
+  std::string baseError;
+  auto baseDictOpt = LoadFromFile(baseFile, baseError);
+  if (!baseDictOpt)
+    return false;
+
+  bool changed = false;
+  for (const auto &[seedKey, seedPath] : *baseDictOpt) {
+    if (userDict.find(seedKey) != userDict.end())
+      continue;
+    userDict[seedKey] = seedPath;
+    changed = true;
+  }
+
+  if (!changed) {
+    if (changedOut)
+      *changedOut = false;
+    return true;
+  }
+
+  WriteDictionaryBackup(userFile);
+  std::string saveError;
+  if (!Save(userDict, &saveError))
+    return false;
+  if (changedOut)
+    *changedOut = true;
   return true;
 }
 
@@ -280,8 +332,10 @@ LoadFromFile(const fs::path &file, std::string &error) {
     }
   }
 
-  if (changed)
+  if (changed) {
+    WriteDictionaryBackup(file);
     Save(dict);
+  }
   return dict;
 }
 
@@ -396,8 +450,11 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
   const fs::path userFile = GetUserDictFile();
   const fs::path baseFile = GetBaseDictFile();
   std::string userError;
-  if (auto userDict = LoadFromFile(userFile, userError))
+  if (auto userDict = LoadFromFile(userFile, userError)) {
+    bool mergedSeedEntries = false;
+    MergeSeedEntriesIntoUserDictionary(userFile, baseFile, *userDict, &mergedSeedEntries);
     return userDict;
+  }
 
   std::cerr << "Warning: failed to load user truss dictionary '" << userFile.string()
             << "': " << userError << ". Falling back to base dictionary."

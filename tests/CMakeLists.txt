@@ -127,6 +127,21 @@ target_link_libraries(gdtf_dictionary_color_mode_propagation_test PRIVATE
 add_test(NAME GdtfDictionaryColorModePropagation
          COMMAND gdtf_dictionary_color_mode_propagation_test)
 
+add_executable(dictionary_seed_merge_backup_test
+               dictionary_seed_merge_backup_test.cpp
+               ../core/projectutils.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/logger.cpp
+               ../models/truss.cpp)
+target_include_directories(dictionary_seed_merge_backup_test PRIVATE
+                           . ../core ../models ../third_party)
+target_link_libraries(dictionary_seed_merge_backup_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME DictionarySeedMergeBackup COMMAND dictionary_seed_merge_backup_test)
+
 add_executable(layout_template_serializer_test
                layout_template_serializer_test.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp)

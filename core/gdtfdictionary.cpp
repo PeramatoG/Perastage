@@ -36,6 +36,11 @@ namespace {
 
 LoadStatus g_lastLoadStatus;
 
+std::optional<std::unordered_map<std::string, Entry>>
+LoadFromFile(const fs::path &file, std::string &error);
+bool Save(const std::unordered_map<std::string, Entry> &dict,
+          std::string *errorOut = nullptr);
+
 bool PathsMatchForDictionaryEntries(const std::string &lhs,
                                     const std::string &rhs) {
   if (lhs.empty() || rhs.empty())
@@ -214,6 +219,53 @@ bool RecreateUserDictionaryFromBase(const fs::path &userFile,
   create << DictionaryJsonContract::MakeRoot("fixtures",
                                              nlohmann::json::object())
                 .dump(4);
+  return true;
+}
+
+bool WriteDictionaryBackup(const fs::path &sourceFile) {
+  if (sourceFile.empty() || !fs::exists(sourceFile))
+    return false;
+  fs::path backupFile = sourceFile;
+  backupFile += ".bak";
+  std::error_code ec;
+  fs::copy_file(sourceFile, backupFile, fs::copy_options::overwrite_existing, ec);
+  return !ec;
+}
+
+bool MergeSeedEntriesIntoUserDictionary(const fs::path &userFile,
+                                        const fs::path &baseFile,
+                                        std::unordered_map<std::string, Entry> &userDict,
+                                        bool *changedOut = nullptr) {
+  if (changedOut)
+    *changedOut = false;
+  if (userFile.empty() || baseFile.empty())
+    return false;
+
+  std::string baseError;
+  auto baseDictOpt = LoadFromFile(baseFile, baseError);
+  if (!baseDictOpt)
+    return false;
+
+  bool changed = false;
+  for (const auto &[seedKey, seedEntry] : *baseDictOpt) {
+    if (userDict.find(seedKey) != userDict.end())
+      continue;
+    userDict[seedKey] = seedEntry;
+    changed = true;
+  }
+
+  if (!changed) {
+    if (changedOut)
+      *changedOut = false;
+    return true;
+  }
+
+  WriteDictionaryBackup(userFile);
+  std::string saveError;
+  if (!Save(userDict, &saveError))
+    return false;
+  if (changedOut)
+    *changedOut = true;
   return true;
 }
 
@@ -433,8 +485,11 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
   const fs::path baseFile = GetBaseDictFile();
 
   std::string userError;
-  if (auto userDict = LoadFromFile(userFile, userError))
+  if (auto userDict = LoadFromFile(userFile, userError)) {
+    bool mergedSeedEntries = false;
+    MergeSeedEntriesIntoUserDictionary(userFile, baseFile, *userDict, &mergedSeedEntries);
     return userDict;
+  }
 
   std::cerr << "Warning: failed to load user fixtures dictionary '"
             << userFile.string() << "': " << userError
