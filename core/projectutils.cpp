@@ -295,8 +295,11 @@ std::string GetWritableLibraryPath(const std::string& subdir)
 
 std::string GetDefaultLibraryPath(const std::string& subdir)
 {
-    if (std::string installedPath = GetInstalledLibraryPath(subdir); !installedPath.empty())
-        return installedPath;
+    if (std::string installedPath = GetInstalledLibraryPath(subdir); !installedPath.empty()) {
+        const fs::path installed = fs::u8path(installedPath);
+        if (IsDirectoryWritable(installed))
+            return installedPath;
+    }
 
     if (std::string writablePath = GetWritableLibraryPath(subdir); !writablePath.empty())
         return writablePath;
