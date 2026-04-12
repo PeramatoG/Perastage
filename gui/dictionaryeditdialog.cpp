@@ -205,7 +205,6 @@ struct FixtureRow {
   std::string mode;
   std::string category;
   std::string color;
-  std::string source;
   std::string sha256;
 };
 
@@ -216,7 +215,6 @@ struct TrussRow {
 
 struct CopiedLibraryAsset {
   std::string path;
-  std::string source;
   std::string sha256;
 };
 
@@ -668,7 +666,7 @@ CopyToLibrary(wxWindow *parent, const std::string &path, const char *libraryName
   if (!copyResult.success)
     return std::nullopt;
 
-  return CopiedLibraryAsset{copyResult.finalPath.string(), src.string(),
+  return CopiedLibraryAsset{copyResult.finalPath.string(),
                             copyResult.finalSha256};
 }
 
@@ -1379,8 +1377,7 @@ bool DictionaryEditDialog::SaveFixtures() {
       return false;
     }
     rows.push_back(
-        {name, copied->path, mode, category, *normalizedColor, copied->source,
-         copied->sha256});
+        {name, copied->path, mode, category, *normalizedColor, copied->sha256});
   }
 
   SortFixtureRows(rows);
@@ -1392,7 +1389,6 @@ bool DictionaryEditDialog::SaveFixtures() {
     entry.mode = row.mode;
     entry.category = row.category;
     entry.color = row.color;
-    entry.source = row.source;
     entry.importedAt = FileImportUtils::NowUtcIso8601();
     if (!row.sha256.empty())
       entry.sha256 = row.sha256;
