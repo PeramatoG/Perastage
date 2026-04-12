@@ -108,6 +108,7 @@ add_executable(gdtf_dictionary_color_roundtrip_test
                gdtf_dictionary_color_roundtrip_test.cpp
                ../core/gdtfdictionary.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp)
 target_include_directories(gdtf_dictionary_color_roundtrip_test PRIVATE
                            . ../core ../third_party)
@@ -119,6 +120,7 @@ add_executable(gdtf_dictionary_color_mode_propagation_test
                gdtf_dictionary_color_mode_propagation_test.cpp
                ../core/gdtfdictionary.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp)
 target_include_directories(gdtf_dictionary_color_mode_propagation_test PRIVATE
                            . ../core ../third_party)
@@ -130,6 +132,7 @@ add_test(NAME GdtfDictionaryColorModePropagation
 add_executable(dictionary_seed_merge_backup_test
                dictionary_seed_merge_backup_test.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -158,6 +161,8 @@ add_executable(layout_template_import_name_collision_test
                ../core/layouts/LayoutManager.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/projectutils.cpp
+               ../core/logger.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp)
 target_link_libraries(layout_template_import_name_collision_test
@@ -171,6 +176,8 @@ add_executable(layout_defaults_load_from_empty_config_test
                ../core/layouts/LayoutManager.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/projectutils.cpp
+               ../core/logger.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp)
 target_link_libraries(layout_defaults_load_from_empty_config_test
@@ -224,6 +231,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
@@ -255,6 +263,7 @@ add_executable(project_support_userdata_roundtrip_test project_support_userdata_
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
@@ -285,6 +294,7 @@ set_library_env(ProjectSupportUserDataRoundtrip)
 add_executable(truss_path_encoding_regression_test
                truss_path_encoding_regression_test.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp
@@ -310,6 +320,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
@@ -339,6 +350,7 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
@@ -368,6 +380,7 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
@@ -400,6 +413,7 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
@@ -431,6 +445,7 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
@@ -462,6 +477,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
@@ -502,6 +518,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
@@ -539,6 +556,7 @@ add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -567,6 +585,7 @@ add_executable(rider_import_order_test rider_import_order_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -594,6 +613,7 @@ add_executable(rider_import_preserve_existing_test rider_import_preserve_existin
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -620,6 +640,7 @@ add_executable(rider_import_category_test rider_import_category_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -646,6 +667,7 @@ add_executable(rider_autopatch_test rider_autopatch_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -673,6 +695,7 @@ add_executable(rider_layer_mode_test rider_layer_mode_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -712,6 +735,7 @@ add_executable(rider_filter_preview_test rider_filter_preview_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -738,6 +762,7 @@ add_executable(rider_floor_default_hang_test rider_floor_default_hang_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -765,6 +790,7 @@ add_executable(rider_led_screen_object_test rider_led_screen_object_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -791,6 +817,7 @@ add_executable(rider_hoist_import_test rider_hoist_import_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../core/dummyprofilelibrary.cpp
                ../models/mvrscene.cpp
@@ -818,6 +845,7 @@ add_executable(rider_lx_sides_import_test rider_lx_sides_import_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -844,6 +872,7 @@ add_executable(rider_pipe_import_test rider_pipe_import_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -871,6 +900,7 @@ add_executable(rider_import_benchmark rider_import_benchmark.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -935,6 +965,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/gdtf_fixture_category.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/uuidutils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -968,6 +999,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/gdtf_mutation_audit.cpp
