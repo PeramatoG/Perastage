@@ -36,11 +36,6 @@ namespace {
 
 LoadStatus g_lastLoadStatus;
 
-std::optional<std::unordered_map<std::string, Entry>>
-LoadFromFile(const fs::path &file, std::string &error);
-bool Save(const std::unordered_map<std::string, Entry> &dict,
-          std::string *errorOut = nullptr);
-
 bool PathsMatchForDictionaryEntries(const std::string &lhs,
                                     const std::string &rhs) {
   if (lhs.empty() || rhs.empty())
@@ -232,40 +227,23 @@ bool WriteDictionaryBackup(const fs::path &sourceFile) {
   return !ec;
 }
 
-bool MergeSeedEntriesIntoUserDictionary(const fs::path &userFile,
-                                        const fs::path &baseFile,
-                                        std::unordered_map<std::string, Entry> &userDict,
-                                        bool *changedOut = nullptr) {
+bool MergeSeedEntriesIntoUserDictionary(
+    std::unordered_map<std::string, Entry> &userDict,
+    const std::unordered_map<std::string, Entry> &baseDict,
+    bool *changedOut = nullptr) {
   if (changedOut)
     *changedOut = false;
-  if (userFile.empty() || baseFile.empty())
-    return false;
-
-  std::string baseError;
-  auto baseDictOpt = LoadFromFile(baseFile, baseError);
-  if (!baseDictOpt)
-    return false;
 
   bool changed = false;
-  for (const auto &[seedKey, seedEntry] : *baseDictOpt) {
+  for (const auto &[seedKey, seedEntry] : baseDict) {
     if (userDict.find(seedKey) != userDict.end())
       continue;
     userDict[seedKey] = seedEntry;
     changed = true;
   }
 
-  if (!changed) {
-    if (changedOut)
-      *changedOut = false;
-    return true;
-  }
-
-  WriteDictionaryBackup(userFile);
-  std::string saveError;
-  if (!Save(userDict, &saveError))
-    return false;
   if (changedOut)
-    *changedOut = true;
+    *changedOut = changed;
   return true;
 }
 
@@ -487,7 +465,14 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
   std::string userError;
   if (auto userDict = LoadFromFile(userFile, userError)) {
     bool mergedSeedEntries = false;
-    MergeSeedEntriesIntoUserDictionary(userFile, baseFile, *userDict, &mergedSeedEntries);
+    std::string baseError;
+    if (auto baseDict = LoadFromFile(baseFile, baseError)) {
+      MergeSeedEntriesIntoUserDictionary(*userDict, *baseDict, &mergedSeedEntries);
+      if (mergedSeedEntries) {
+        WriteDictionaryBackup(userFile);
+        Save(*userDict);
+      }
+    }
     return userDict;
   }
 
