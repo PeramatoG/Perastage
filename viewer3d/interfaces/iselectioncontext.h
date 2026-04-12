@@ -31,6 +31,7 @@ public:
                 bool useFrustumCulling, float minPixels) const = 0;
 
   virtual const std::string &GetHighlightUuid() const = 0;
+  virtual const std::unordered_set<std::string> &GetSelectedUuids() const = 0;
   virtual const std::unordered_map<std::string, BoundingBox> &
   GetFixtureBoundsMap() const = 0;
   virtual const std::unordered_map<std::string, BoundingBox> &

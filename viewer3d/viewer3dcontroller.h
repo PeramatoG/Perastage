@@ -281,6 +281,7 @@ private:
   const BoundingBox *FindTrussBounds(const std::string &uuid) const override;
   const BoundingBox *FindObjectBounds(const std::string &uuid) const override;
   const std::string &GetHighlightUuid() const override;
+  const std::unordered_set<std::string> &GetSelectedUuids() const override;
   const std::unordered_map<std::string, BoundingBox> &
   GetFixtureBoundsMap() const override;
   const std::unordered_map<std::string, BoundingBox> &

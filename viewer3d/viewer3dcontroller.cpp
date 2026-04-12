@@ -1874,6 +1874,11 @@ const std::string &Viewer3DController::GetHighlightUuid() const {
   return m_impl->highlightUuid;
 }
 
+const std::unordered_set<std::string> &
+Viewer3DController::GetSelectedUuids() const {
+  return m_impl->selectedUuids;
+}
+
 const std::unordered_map<std::string, Viewer3DController::BoundingBox> &
 Viewer3DController::GetFixtureBoundsMap() const {
   return m_impl->fixtureBounds;
