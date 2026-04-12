@@ -62,6 +62,7 @@ constexpr double kLegendFontScale =
 constexpr double kPdfLayoutTypographyCompensationScale = 1.45;
 constexpr double kLegendFallbackSymbolScale = 2.0;
 constexpr double kLegendSvgSymbolScale = 0.4;
+constexpr double kSymbolBBoxPaddingPt = 0.25;
 constexpr std::array<const char *, 7> kEventTableLabels = {
     "Venue:", "Location:", "Date:", "Stage:",
     "Version:", "Design:", "Mail:"};
@@ -121,6 +122,16 @@ double ComputeTextLineAdvance(double ascent, double descent) {
 double ApplyLayoutPdfTypographyScale(double baseFontSize,
                                      double layoutScale) {
   return baseFontSize * kPdfLayoutTypographyCompensationScale * layoutScale;
+}
+
+void InflateBBox(double &minX, double &minY, double &maxX, double &maxY,
+                 double padding) {
+  if (padding <= 0.0)
+    return;
+  minX -= padding;
+  minY -= padding;
+  maxX += padding;
+  maxY += padding;
 }
 
 double ComputePdfRunAscent(const PdfFontDefinition *font, double fontSize) {
@@ -626,6 +637,7 @@ Viewer2DExportResult ExportViewer2DToPdf(
       std::swap(minX, maxX);
     if (minY > maxY)
       std::swap(minY, maxY);
+    InflateBBox(minX, minY, maxX, maxY, kSymbolBBoxPaddingPt);
     std::ostringstream xobj;
     xobj << "<< /Type /XObject /Subtype /Form /BBox ["
          << formatter.Format(minX) << ' ' << formatter.Format(minY) << ' '
@@ -1148,6 +1160,7 @@ Viewer2DExportResult ExportLayoutToPdf(
       std::swap(minX, maxX);
     if (minY > maxY)
       std::swap(minY, maxY);
+    InflateBBox(minX, minY, maxX, maxY, kSymbolBBoxPaddingPt);
     std::ostringstream xobj;
     xobj << "<< /Type /XObject /Subtype /Form /BBox ["
          << formatter.Format(minX) << ' ' << formatter.Format(minY) << ' '
@@ -1218,16 +1231,19 @@ Viewer2DExportResult ExportLayoutToPdf(
       compressed = PdfDeflater::Compress(symbolStream, compressedSymbol, error);
     }
     const std::string &stream = compressed ? compressedSymbol : symbolStream;
-    const double minX = svg.offsetXmm * symbolScale;
-    const double minY = svg.offsetYmm * symbolScale;
-    const double maxX = (svg.offsetXmm + svg.viewBoxWidth) * symbolScale;
-    const double maxY = (svg.offsetYmm + svg.viewBoxHeight) * symbolScale;
+    double minX = std::min(svg.offsetXmm * symbolScale,
+                           (svg.offsetXmm + svg.viewBoxWidth) * symbolScale);
+    double minY = std::min(svg.offsetYmm * symbolScale,
+                           (svg.offsetYmm + svg.viewBoxHeight) * symbolScale);
+    double maxX = std::max(svg.offsetXmm * symbolScale,
+                           (svg.offsetXmm + svg.viewBoxWidth) * symbolScale);
+    double maxY = std::max(svg.offsetYmm * symbolScale,
+                           (svg.offsetYmm + svg.viewBoxHeight) * symbolScale);
+    InflateBBox(minX, minY, maxX, maxY, kSymbolBBoxPaddingPt);
     std::ostringstream xobj;
     xobj << "<< /Type /XObject /Subtype /Form /BBox ["
-         << formatter.Format(std::min(minX, maxX)) << ' '
-         << formatter.Format(std::min(minY, maxY)) << ' '
-         << formatter.Format(std::max(minX, maxX)) << ' '
-         << formatter.Format(std::max(minY, maxY))
+         << formatter.Format(minX) << ' ' << formatter.Format(minY) << ' '
+         << formatter.Format(maxX) << ' ' << formatter.Format(maxY)
          << "] /Resources << >> /Length " << stream.size();
     if (compressed)
       xobj << " /Filter /FlateDecode";
