@@ -45,5 +45,6 @@ namespace ProjectUtils {
     bool IsDirectoryWritable(const std::filesystem::path& dir);
 
     // Legacy default path resolver kept for compatibility with existing call sites.
+    // Returns installed path only when writable; otherwise falls back to writable resolver.
     std::string GetDefaultLibraryPath(const std::string& subdir);
 }
