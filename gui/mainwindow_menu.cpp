@@ -408,6 +408,7 @@ void MainWindow::CreateMenuBar() {
   wxMenu *toolsMenu = new wxMenu();
   toolsMenu->Append(ID_Tools_DownloadGdtf, "Download GDTF fixture...");
   toolsMenu->Append(ID_Tools_EditDictionaries, "Edit dictionaries...");
+  toolsMenu->Append(ID_Tools_OpenUserLibraryFolder, "Open user library folder");
   toolsMenu->Append(ID_Tools_ImportRiderText, "Create from text...");
   toolsMenu->Append(ID_Tools_DistributeHoistWeights,
                     "Distribute hoist weights...");
@@ -577,6 +578,25 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 void MainWindow::OnEditDictionaries(wxCommandEvent &WXUNUSED(event)) {
   DictionaryEditDialog dlg(this);
   dlg.ShowModal();
+}
+
+void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
+  const std::string fixturesPath = ProjectUtils::GetWritableLibraryPath("fixtures");
+  if (fixturesPath.empty()) {
+    wxMessageBox("Could not resolve writable user library path.",
+                 "Open user library folder", wxOK | wxICON_ERROR);
+    return;
+  }
+
+  const std::filesystem::path libraryRoot =
+      std::filesystem::u8path(fixturesPath).parent_path();
+  const std::u8string folderPathUtf8 = libraryRoot.u8string();
+  const std::string folderPathBytes(folderPathUtf8.begin(), folderPathUtf8.end());
+  const wxString folderPath = wxString::FromUTF8(folderPathBytes.c_str());
+  if (!wxLaunchDefaultApplication(folderPath)) {
+    wxMessageBox("Could not open the user library folder.",
+                 "Open user library folder", wxOK | wxICON_ERROR);
+  }
 }
 
 void MainWindow::OnAutoPatch(wxCommandEvent &WXUNUSED(event)) {

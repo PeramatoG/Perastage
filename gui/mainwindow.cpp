@@ -308,6 +308,7 @@ EVT_MENU(ID_Tools_ConvertToHoist, MainWindow::OnConvertToHoist)
 EVT_MENU(ID_Tools_GenerateFixtureSymbols, MainWindow::OnGenerateFixtureSymbols)
 EVT_MENU(ID_Tools_AssignSelectedFixtureCategory,
          MainWindow::OnAssignSelectedFixtureCategory)
+EVT_MENU(ID_Tools_OpenUserLibraryFolder, MainWindow::OnOpenUserLibraryFolder)
 EVT_MENU(ID_Tools_ImportRiderText, MainWindow::OnImportRiderText)
 EVT_MENU(ID_Tools_DistributeHoistWeights, MainWindow::OnDistributeHoistWeights)
 EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)

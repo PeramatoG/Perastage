@@ -161,6 +161,7 @@ private:
   void
   OnDownloadGdtf(wxCommandEvent &event);   // Download fixture from GDTF Share
   void OnEditDictionaries(wxCommandEvent &event); // Edit fixture/truss dictionaries
+  void OnOpenUserLibraryFolder(wxCommandEvent &event); // Open writable library folder
   void OnClose(wxCommandEvent &event);     // Handle the Close action
   void OnCloseWindow(wxCloseEvent &event); // Handle window close
   void OnToggleConsole(wxCommandEvent &event);        // Toggle console panel
