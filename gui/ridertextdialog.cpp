@@ -49,7 +49,7 @@ wxEND_EVENT_TABLE()
 RiderTextDialog::RiderTextDialog(wxWindow *parent,
                                  const wxString &initialText,
                                  const wxString &initialSource)
-    : wxDialog(parent, wxID_ANY, "Create rider from text",
+    : wxDialog(parent, wxID_ANY, "Create scene from text",
                wxDefaultPosition, wxSize(720, 520),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       sourceLabel(initialSource) {
@@ -175,30 +175,51 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
 
 void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
   const wxString exampleText =
-      "*(Example notes wrapped with *(...)* are ignored)*\n"
-      "\n"
-      "LX1 (0, -2.0, 10.5) [0.6] *(Position and margin override)*\n"
-      "8 Blinder 2 *(Front blinders)*\n"
+      "LX1 \n"
+      "8 Blinder 2\n"
       "8 Spiider\n"
       "6 Megapointe\n"
       "\n"
-      "LX2 [0.8]\n"
+      "LX2 \n"
       "6 Megapointe\n"
       "6 Mac Viper Profile\n"
       "6 Spiider\n"
       "4 Q-7\n"
       "\n"
       "LX3\n"
+      "6 Spiider\n"
       "6 Megapointe\n"
       "6 Mac Viper Profile\n"
-      "6 Spiider\n"
       "4 Q-7\n"
       "\n"
+      "LX4 \n"
+      "3 Quantum Wash\n"
+      "3 Quantum Spot\n"
+      "3 Quantum Wash\n"
+      "\n"
+      "SIDES\n"
+      "8 Quantum Wash\n"
+      "\n"
+      "FLOOR\n"
+      "4 Tour Hazer 2\n"
+      "\n"
+      "SCREEN\n"
+      "1 Screen 8x5m\n"
+      "\n"
       "RIGGING\n"
-      "1 TRUSS 40X40 14 m PARA LX1\n"
-      "1 TRUSS 40X40 12 m PARA LX2 (0, 2.5, 10.0)\n"
-      "1 PIPE 12 m PARA LX3 *(Pipe as scene object)*\n"
-      "3 MOTOR 500Kg PARA PUENTES LX *(Auto-distribute across LX targets)*\n";
+      "1 TRUSS 40X40 14 m LX1 (-2.0, 10.5) [0.6] *(Position and margin override)*\n"
+      "1 TRUSS 40X40 12 m LX2 [0.8]\n"
+      "1 TRUSS 40X40 12 m LX3 [1]\n"
+      "1 TRUSS 40X40 12 m LX4\n"
+      "1 TRUSS 40X40 6 m SIDES (1, 4) \n"
+      "1 TRUSS 40X40 10 m SCREEN\n"
+      "1 PIPE 12 m BACKDROP *(Pipe as scene object)*\n"
+      "4 MOTOR 500Kg FOR LX1 *(Auto-distribute across LX1 target)*\n"
+      "2 MOTOR 1000Kg FOR LX2\n"
+      "2 MOTOR 1000Kg FOR LX3\n"
+      "2 MOTOR 1000Kg FOR LX4\n"
+      "4 MOTOR 1000Kg FOR SIDES\n"
+      "4 MOTOR 1000Kg FOR SCREEN\n";
   textCtrl->ChangeValue(exampleText);
   sourceLabel = "Example text";
   sourceLoadedFromFile = false;
