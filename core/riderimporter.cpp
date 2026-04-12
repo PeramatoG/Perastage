@@ -1531,6 +1531,19 @@ bool RiderImporter::ImportText(const std::string &text,
   const std::string filteredText = BuildFixtureFilterPreview(text);
   const std::string &textToImport = filteredText.empty() ? text : filteredText;
   reportProgress("Parsing lines...", 2, 6);
+  const int totalInputLines = [&]() {
+    if (textToImport.empty())
+      return 0;
+    const int newlineCount = static_cast<int>(
+        std::count(textToImport.begin(), textToImport.end(), '\n'));
+    return newlineCount + 1;
+  }();
+  const int parsingProgressReportEveryLines = [&]() {
+    if (totalInputLines <= 0)
+      return 1;
+    // Keep parsing feedback visibly active by targeting about 30 updates.
+    return std::max(1, totalInputLines / 30);
+  }();
 
   ConfigManager &cfg = ConfigManager::Get();
   cfg.PushUndoState("import rider");
@@ -1704,6 +1717,7 @@ bool RiderImporter::ImportText(const std::string &text,
   bool havePending = false;
   std::unordered_map<std::string, TrussCoordinateOverride>
       hangCoordinateOverrides;
+  int parsedInputLineCount = 0;
 
   auto addFixtures = [&](int baseQuantity, const std::string &desc) {
     auto parts = SplitPlus(desc);
@@ -1798,6 +1812,15 @@ bool RiderImporter::ImportText(const std::string &text,
     }
   };
   while (std::getline(iss, line)) {
+    ++parsedInputLineCount;
+    if (totalInputLines > 0 &&
+        (parsedInputLineCount == 1 ||
+         parsedInputLineCount % parsingProgressReportEveryLines == 0 ||
+         parsedInputLineCount == totalInputLines)) {
+      reportProgress("Parsing lines... (" + std::to_string(parsedInputLineCount) +
+                         "/" + std::to_string(totalInputLines) + ")",
+                     2, 6);
+    }
     // Remove Windows carriage returns to allow regexes anchored with '$' to
     // match lines extracted from external tools.
     line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
