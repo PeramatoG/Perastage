@@ -213,7 +213,8 @@ void SceneRenderer::DrawMeshWithOutline(
     Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform,
-    bool unlit, const float *modelMatrix, bool disableDepthBias) {
+    bool unlit, const float *modelMatrix, bool is2DViewer,
+    bool disableDepthBias) {
   (void)cx;
   (void)cy;
   (void)cz;
@@ -236,6 +237,8 @@ void SceneRenderer::DrawMeshWithOutline(
                              mode == Viewer2DRenderMode::Wireframe,
                              m_controller.UseAdaptiveLineProfile())
             .lineWidth;
+    if (is2DViewer && mode == Viewer2DRenderMode::Wireframe)
+      lineWidth *= 0.45f;
     bool symbolCaptureRenderProfile =
         mode == Viewer2DRenderMode::ByFixtureType ||
         ConfigManager::Get().GetFloat("viewer3d_symbol_capture_render_profile") >=

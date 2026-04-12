@@ -211,6 +211,7 @@ private:
                                {},
                            bool unlit = false,
                            const float *modelMatrix = nullptr,
+                           bool is2DViewer = false,
                            bool disableDepthBias = false);
   void DrawMeshWireframe(
       const Mesh &mesh, float scale = RENDER_SCALE,

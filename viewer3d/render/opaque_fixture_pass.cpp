@@ -694,7 +694,8 @@ void OpaqueFixturePass::Render(
                   }
                   controller.DrawMeshWithOutline(
                       obj.mesh, partR, partG, partB, RENDER_SCALE, false, false,
-                      0.0f, 0.0f, 0.0f, wireframe, mode, applyCapture, false);
+                      0.0f, 0.0f, 0.0f, wireframe, mode, applyCapture, false,
+                      nullptr, is2DViewer);
                 }
               } else {
                 controller.m_captureCanvas->SetSourceKey(fixtureCaptureKey);
@@ -707,7 +708,7 @@ void OpaqueFixturePass::Render(
                     FallbackFixtureCubeMesh(), r, g, b, 0.2f, false, false,
                     0.0f, 0.0f, 0.0f, fallbackWireframe, mode,
                     [](const std::array<float, 3> &p) { return p; },
-                    fallbackUnlit);
+                    fallbackUnlit, nullptr, is2DViewer);
               }
 
               localCanvas->EndFrame();
@@ -767,7 +768,7 @@ void OpaqueFixturePass::Render(
           controller.DrawMeshWithOutline(obj.mesh, partR, partG, partB,
                                          RENDER_SCALE, highlight, selected, cx,
                                          cy, cz, wireframe, mode, applyCapture,
-                                         drawUnlit, partMatrix);
+                                         drawUnlit, partMatrix, is2DViewer);
           glPopMatrix();
         }
       } else {
@@ -781,7 +782,7 @@ void OpaqueFixturePass::Render(
                                        highlight, selected, cx, cy, cz,
                                        fallbackWireframe, mode,
                                        applyFixtureCapture, fallbackUnlit,
-                                       matrix);
+                                       matrix, is2DViewer);
       }
     };
 
