@@ -1217,12 +1217,10 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     UpdateTitle();
   } else {
     ResetProject(true);
-    RequestStartupSplashCompletion();
     if (!path.empty()) {
-      CallAfter([this, startupPath = path]() {
-        OpenPathFromCommandLine(startupPath);
-      });
+      deferredStartupOpenPath = path;
     }
+    RequestStartupSplashCompletion();
   }
   SetStartupProjectLoadPending(false);
 }
