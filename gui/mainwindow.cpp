@@ -1219,6 +1219,10 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     ResetProject(true);
     if (!path.empty()) {
       deferredStartupOpenPath = path;
+      // When launched by double-click/file association, some platforms may
+      // delay idle processing. Schedule an explicit startup completion pass so
+      // deferred command-line open does not depend exclusively on idle timing.
+      CallAfter([this]() { CompleteStartupSplashInitialization(); });
     }
     RequestStartupSplashCompletion();
   }
