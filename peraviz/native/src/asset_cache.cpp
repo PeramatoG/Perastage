@@ -97,7 +97,23 @@ std::string path_extension_lower(const std::string &normalized_path) {
 
 bool is_supported_model_extension(const std::string &extension_lower) {
     return extension_lower == ".3ds" || extension_lower == ".glb" ||
-           extension_lower == ".gltf";
+           extension_lower == ".gltf" || extension_lower == ".obj";
+}
+
+int model_extension_priority(const std::string &extension_lower) {
+    if (extension_lower == ".glb") {
+        return 0;
+    }
+    if (extension_lower == ".gltf") {
+        return 1;
+    }
+    if (extension_lower == ".obj") {
+        return 2;
+    }
+    if (extension_lower == ".3ds") {
+        return 3;
+    }
+    return 100;
 }
 
 std::string gdtf_lookup_key(const std::string &archive_path) {
@@ -339,12 +355,14 @@ std::string ZipAssetCache::ensure_mvr_model_extracted(const std::string &model_r
         candidates.push_back(normalized);
         candidates.push_back("models/" + ext.substr(1) + "/" + stem + ext);
     } else {
-        candidates.push_back(normalized + ".3ds");
         candidates.push_back(normalized + ".glb");
         candidates.push_back(normalized + ".gltf");
-        candidates.push_back("models/3ds/" + stem + ".3ds");
+        candidates.push_back(normalized + ".obj");
         candidates.push_back("models/glb/" + stem + ".glb");
         candidates.push_back("models/gltf/" + stem + ".gltf");
+        candidates.push_back("models/obj/" + stem + ".obj");
+        candidates.push_back(normalized + ".3ds");
+        candidates.push_back("models/3ds/" + stem + ".3ds");
     }
 
     for (const std::string &candidate : candidates) {
@@ -373,9 +391,11 @@ std::string ZipAssetCache::ensure_mvr_model_extracted(const std::string &model_r
             continue;
         }
 
-        if (!best_entry.has_value() || entry_ext == ".3ds") {
+        if (!best_entry.has_value() ||
+            model_extension_priority(entry_ext) <
+                model_extension_priority(path_extension_lower(*best_entry))) {
             best_entry = entry_name;
-            if (entry_ext == ".3ds") {
+            if (entry_ext == ".glb") {
                 break;
             }
         }
@@ -406,10 +426,14 @@ std::string ZipAssetCache::ensure_gdtf_model_extracted(const std::string &model_
         candidates.push_back(normalized);
         candidates.push_back("models/" + ext.substr(1) + "/" + stem + ext);
     } else {
-        candidates.push_back(normalized + ".3ds");
         candidates.push_back(normalized + ".glb");
+        candidates.push_back(normalized + ".gltf");
+        candidates.push_back(normalized + ".obj");
         candidates.push_back("models/3ds/" + stem + ".3ds");
         candidates.push_back("models/glb/" + stem + ".glb");
+        candidates.push_back("models/gltf/" + stem + ".gltf");
+        candidates.push_back("models/obj/" + stem + ".obj");
+        candidates.push_back(normalized + ".3ds");
     }
 
     for (const std::string &candidate : candidates) {
@@ -435,14 +459,16 @@ std::string ZipAssetCache::ensure_gdtf_model_extracted(const std::string &model_
         }
 
         const std::string entry_ext = path_extension_lower(entry_name);
-        const bool supported = entry_ext == ".3ds" || entry_ext == ".glb";
+        const bool supported = is_supported_model_extension(entry_ext);
         if (!supported) {
             continue;
         }
 
-        if (!best_entry.has_value() || entry_ext == ".3ds") {
+        if (!best_entry.has_value() ||
+            model_extension_priority(entry_ext) <
+                model_extension_priority(path_extension_lower(*best_entry))) {
             best_entry = entry_name;
-            if (entry_ext == ".3ds") {
+            if (entry_ext == ".glb") {
                 break;
             }
         }

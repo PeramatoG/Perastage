@@ -1013,7 +1013,7 @@ func _load_3d_asset(asset_path: String, asset_kind_hint: String = "", flip_orien
 		mesh_instance.set_meta("peraviz_flip_orientation_applied", flip_orientation)
 		return mesh_instance
 
-	if resolved_asset_kind == "scene" or extension == "glb" or extension == "gltf":
+	if resolved_asset_kind == "scene" or extension == "glb" or extension == "gltf" or extension == "obj":
 		var cached_scene_instance: Node3D = _asset_cache.instantiate_scene(asset_path)
 		if cached_scene_instance != null:
 			return cached_scene_instance
@@ -1065,7 +1065,7 @@ func _infer_asset_kind_from_extension(asset_path: String) -> String:
 	var extension: String = asset_path.get_extension().to_lower()
 	if extension == "3ds":
 		return "mesh"
-	if extension == "glb" or extension == "gltf":
+	if extension == "glb" or extension == "gltf" or extension == "obj":
 		return "scene"
 	return "none"
 
@@ -1129,24 +1129,33 @@ func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
 	var sx: float = max(float(data.get("primitive_size_x", 0.1)), 0.001)
 	var sy: float = max(float(data.get("primitive_size_y", 0.1)), 0.001)
 	var sz: float = max(float(data.get("primitive_size_z", 0.1)), 0.001)
+	var primitive_base: String = primitive_type
+	var separator_index: int = primitive_base.find(";")
+	if separator_index >= 0:
+		primitive_base = primitive_base.substr(0, separator_index)
+
 	var mesh_instance := MeshInstance3D.new()
-	if primitive_type.contains("sphere"):
+	if primitive_base.contains("sphere") or primitive_base.contains("head"):
 		var sphere := SphereMesh.new()
 		sphere.radius = max(sx, max(sy, sz)) * 0.5
 		sphere.height = sphere.radius * 2.0
 		mesh_instance.mesh = sphere
-	elif primitive_type.contains("cylinder"):
+	elif primitive_base.contains("cylinder") or primitive_base.contains("yoke") or primitive_base.contains("scanner") or primitive_base.contains("pigtail"):
 		var cylinder := CylinderMesh.new()
 		cylinder.top_radius = max(sx, sy) * 0.5
 		cylinder.bottom_radius = max(sx, sy) * 0.5
 		cylinder.height = sz
 		mesh_instance.mesh = cylinder
-	elif primitive_type.contains("cone"):
+		# GDTF primitives are defined with height on local Z (same convention used
+		# by Perastage primitive builders). Godot's CylinderMesh is Y-up.
+		mesh_instance.rotation_degrees.x = 90.0
+	elif primitive_base.contains("cone"):
 		var cone := CylinderMesh.new()
 		cone.top_radius = 0.0
 		cone.bottom_radius = max(sx, sy) * 0.5
 		cone.height = sz
 		mesh_instance.mesh = cone
+		mesh_instance.rotation_degrees.x = 90.0
 	else:
 		var box := BoxMesh.new()
 		box.size = Vector3(sx, sy, sz)

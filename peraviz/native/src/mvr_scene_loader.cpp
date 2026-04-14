@@ -190,7 +190,7 @@ std::string infer_asset_kind_from_path(const std::string &asset_path) {
     if (extension == ".3ds") {
         return "mesh";
     }
-    if (extension == ".glb" || extension == ".gltf") {
+    if (extension == ".glb" || extension == ".gltf" || extension == ".obj") {
         return "scene";
     }
     return "none";
