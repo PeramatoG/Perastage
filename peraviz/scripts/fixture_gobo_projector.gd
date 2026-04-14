@@ -26,9 +26,12 @@ const GOBO_WHEEL_MODE_META_KEY: String = "peraviz_gobo_wheel_mode"
 const GOBO_APPLIED_STATE_META_KEY: String = "peraviz_gobo_applied_state"
 const GOBO_WHEEL_SHAKE_PHASE_META_KEY: String = "peraviz_gobo_wheel_shake_phase"
 const GOBO_BASE_LIGHT_ROTATION_Y_DEG_META_KEY: String = "peraviz_gobo_base_light_rotation_y_deg"
+const GOBO_BASE_LIGHT_LOCAL_X_META_KEY: String = "peraviz_gobo_base_light_local_x"
 const GOBO_APPLIED_SHAKE_OFFSET_Y_DEG_META_KEY: String = "peraviz_gobo_applied_shake_offset_y_deg"
+const GOBO_APPLIED_SHAKE_OFFSET_X_M_META_KEY: String = "peraviz_gobo_applied_shake_offset_x_m"
 const GOBO_INDEX_MAX_DEG: float = 360.0
 const GOBO_SHAKE_MAX_YAW_DEG: float = 12.0
+const GOBO_SHAKE_MAX_LATERAL_OFFSET_M: float = 0.08
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
 const GOBO_ROTATION_DEBUG_DEFAULT: bool = false
 const GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON: bool = true
@@ -206,23 +209,24 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		var triangle_wave: float = 1.0 - (4.0 * absf(phase_fraction - 0.5))
 		var shake_offset_deg: float = triangle_wave * amplitude_deg
 		var shake_offset_y_deg: float = triangle_wave * amplitude_norm * GOBO_SHAKE_MAX_YAW_DEG
+		var shake_offset_local_x_m: float = triangle_wave * amplitude_norm * GOBO_SHAKE_MAX_LATERAL_OFFSET_M
 		wheel_shake_phase[wheel_key] = phase_cycles
 		light.set_meta(GOBO_WHEEL_SHAKE_PHASE_META_KEY, wheel_shake_phase)
-		_apply_gobo_shake_yaw_to_light(light, shake_offset_y_deg)
+		_apply_gobo_shake_transform_to_light(light, shake_offset_y_deg, shake_offset_local_x_m)
 		shake_yaw_applied = true
 		wheel_spin_state[wheel_key] = 0.0
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
 		resolved_rotation_deg = base_rotation_deg + placement_offset_deg + shake_offset_deg
 
 	elif index_norm >= 0.0 and not has_active_rotation_command:
-		_apply_gobo_shake_yaw_to_light(light, 0.0)
+		_apply_gobo_shake_transform_to_light(light, 0.0, 0.0)
 		wheel_spin_state[wheel_key] = 0.0
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
 		resolved_rotation_deg = base_rotation_deg
 
 	elif supports_rotation and delta_sec > 0.0:
 		if not has_native_speed:
-			_apply_gobo_shake_yaw_to_light(light, 0.0)
+			_apply_gobo_shake_transform_to_light(light, 0.0, 0.0)
 			wheel_spin_state[wheel_key] = 0.0
 			light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
 			resolved_rotation_deg = base_rotation_deg
@@ -238,7 +242,7 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 			resolved_rotation_deg = base_rotation_deg + spin_angle_deg
 
 	elif not supports_rotation:
-		_apply_gobo_shake_yaw_to_light(light, 0.0)
+		_apply_gobo_shake_transform_to_light(light, 0.0, 0.0)
 		wheel_spin_state[wheel_key] = 0.0
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
 		wheel_shake_phase[wheel_key] = 0.0
@@ -254,13 +258,14 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		var debug_amplitude_norm: float = clamp(GOBO_SHAKE_FORCE_DEBUG_AMPLITUDE_NORM, 0.0, 1.0)
 		var debug_shake_offset_deg: float = debug_triangle_wave * debug_amplitude_norm * GOBO_INDEX_MAX_DEG
 		var debug_shake_yaw_deg: float = debug_triangle_wave * debug_amplitude_norm * GOBO_SHAKE_MAX_YAW_DEG
+		var debug_shake_offset_local_x_m: float = debug_triangle_wave * debug_amplitude_norm * GOBO_SHAKE_MAX_LATERAL_OFFSET_M
 		wheel_shake_phase[wheel_key] = debug_phase_cycles
 		light.set_meta(GOBO_WHEEL_SHAKE_PHASE_META_KEY, wheel_shake_phase)
-		_apply_gobo_shake_yaw_to_light(light, debug_shake_yaw_deg)
+		_apply_gobo_shake_transform_to_light(light, debug_shake_yaw_deg, debug_shake_offset_local_x_m)
 		resolved_rotation_deg += debug_shake_offset_deg
 
 	if not shake_yaw_applied and not GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON:
-		_apply_gobo_shake_yaw_to_light(light, 0.0)
+		_apply_gobo_shake_transform_to_light(light, 0.0, 0.0)
 	_log_rotation_debug_if_enabled(wheel, wheel_key, behavior, delta_sec)
 	return resolved_rotation_deg
 
@@ -394,7 +399,7 @@ func _clear_gobo_visuals(light: SpotLight3D) -> void:
 	_apply_gobo_rotation_to_light(light, GOBO_DEFAULT_ROTATION_DEG)
 	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, GOBO_DEFAULT_ROTATION_DEG)
 	light.remove_meta(GOBO_APPLIED_STATE_META_KEY)
-	_apply_gobo_shake_yaw_to_light(light, 0.0)
+	_apply_gobo_shake_transform_to_light(light, 0.0, 0.0)
 	light.remove_meta(GOBO_WHEEL_SPIN_META_KEY)
 	light.remove_meta(GOBO_WHEEL_SHAKE_PHASE_META_KEY)
 	light.remove_meta(GOBO_WHEEL_MODE_META_KEY)
@@ -404,7 +409,7 @@ func _apply_gobo_rotation_only(light: SpotLight3D, projected_rotation_deg: float
 	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, projected_rotation_deg)
 	light.set_meta(GOBO_APPLIED_STATE_META_KEY, applied_state.duplicate(true))
 
-func _apply_gobo_shake_yaw_to_light(light: SpotLight3D, shake_offset_y_deg: float) -> void:
+func _apply_gobo_shake_transform_to_light(light: SpotLight3D, shake_offset_y_deg: float, shake_offset_local_x_m: float = 0.0) -> void:
 	if light == null or not is_instance_valid(light):
 		return
 	var base_rotation_y_deg: float = 0.0
@@ -416,7 +421,17 @@ func _apply_gobo_shake_yaw_to_light(light: SpotLight3D, shake_offset_y_deg: floa
 	var updated_rotation: Vector3 = light.rotation_degrees
 	updated_rotation.y = base_rotation_y_deg + shake_offset_y_deg
 	light.rotation_degrees = updated_rotation
+	var base_local_x: float = 0.0
+	if light.has_meta(GOBO_BASE_LIGHT_LOCAL_X_META_KEY):
+		base_local_x = float(light.get_meta(GOBO_BASE_LIGHT_LOCAL_X_META_KEY))
+	else:
+		base_local_x = light.position.x
+		light.set_meta(GOBO_BASE_LIGHT_LOCAL_X_META_KEY, base_local_x)
+	var updated_position: Vector3 = light.position
+	updated_position.x = base_local_x + shake_offset_local_x_m
+	light.position = updated_position
 	light.set_meta(GOBO_APPLIED_SHAKE_OFFSET_Y_DEG_META_KEY, shake_offset_y_deg)
+	light.set_meta(GOBO_APPLIED_SHAKE_OFFSET_X_M_META_KEY, shake_offset_local_x_m)
 
 func _normalize_shake_amplitude(amplitude_value: float) -> float:
 	if amplitude_value <= 0.0:

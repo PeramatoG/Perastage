@@ -44,8 +44,8 @@ Peraviz runtime applies gobo controls with this behavior:
 4. If the active gobo range behavior is shake (`Gobo(n)SelectShake`), interpret
    physical values as **shake frequency** and apply a constant **triangle-wave**
    oscillation around the indexed/base angle plus an additional angular
-   oscillation on the light local **Y axis**, so footprint and beam show visible
-   shake movement on projected X/Z.
+   oscillation on the light local **Y axis** and a small local **X** lateral
+   displacement, so footprint and beam show visible shake movement on projected X/Z.
 
 For shake, Peraviz also consumes optional `SubPhysicalUnit` data from the
 attribute definition:
