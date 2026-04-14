@@ -407,6 +407,11 @@ std::unordered_map<std::string, std::vector<SymdefGeometry>> parse_symdefs(tinyx
 
     tinyxml2::XMLElement *aux_data = first_child_element_ci(root, "auxdata");
     if (!aux_data) {
+        if (tinyxml2::XMLElement *scene = first_child_element_ci(root, "scene")) {
+            aux_data = first_child_element_ci(scene, "auxdata");
+        }
+    }
+    if (!aux_data) {
         return symdefs;
     }
 
