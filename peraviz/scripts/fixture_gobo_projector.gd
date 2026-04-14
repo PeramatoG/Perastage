@@ -31,6 +31,9 @@ const GOBO_INDEX_MAX_DEG: float = 360.0
 const GOBO_SHAKE_MAX_YAW_DEG: float = 12.0
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
 const GOBO_ROTATION_DEBUG_DEFAULT: bool = false
+const GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON: bool = true
+const GOBO_SHAKE_FORCE_DEBUG_FREQUENCY_HZ: float = 12.0
+const GOBO_SHAKE_FORCE_DEBUG_AMPLITUDE_NORM: float = 1.0
 
 const GOBO_BEHAVIOR_FIXED: int = 0
 const GOBO_BEHAVIOR_INDEX: int = 1
@@ -160,6 +163,8 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 	var supports_index: bool = bool(wheel.get("supports_index", false)) or behavior == GOBO_BEHAVIOR_INDEX
 	var supports_rotation: bool = bool(wheel.get("supports_rotation", false)) or behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE
 	var effect_mode: int = _resolve_wheel_effect_mode(behavior, supports_index, supports_rotation)
+	if GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON:
+		effect_mode = GOBO_BEHAVIOR_SHAKE
 	_handle_wheel_mode_transition(light, wheel_key, effect_mode)
 
 	var index_norm: float = float(wheel.get("index_norm", -1.0))
@@ -183,14 +188,14 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 	var native_is_stop: bool = bool(wheel.get("is_stop", false))
 	var has_active_rotation_command: bool = supports_rotation and has_native_speed and not native_is_stop and absf(native_speed_deg_per_sec) > 0.0001
 	if effect_mode == GOBO_BEHAVIOR_SHAKE:
-		var shake_frequency_hz: float = absf(float(wheel.get("shake_frequency_hz", native_speed_deg_per_sec)))
-		if not has_active_rotation_command:
+		var shake_frequency_hz: float = GOBO_SHAKE_FORCE_DEBUG_FREQUENCY_HZ if GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON else absf(float(wheel.get("shake_frequency_hz", native_speed_deg_per_sec)))
+		if not GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON and not has_active_rotation_command:
 			shake_frequency_hz = 0.0
 		var placement_offset_deg: float = 0.0
 		if bool(wheel.get("has_shake_placement_offset", false)):
 			placement_offset_deg = float(wheel.get("shake_placement_offset_degrees", 0.0))
-		var amplitude_percent: float = 0.0
-		if bool(wheel.get("has_shake_amplitude", false)):
+		var amplitude_percent: float = GOBO_SHAKE_FORCE_DEBUG_AMPLITUDE_NORM if GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON else 0.0
+		if not GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON and bool(wheel.get("has_shake_amplitude", false)):
 			amplitude_percent = maxf(float(wheel.get("shake_amplitude_percent", 0.0)), 0.0)
 		var amplitude_deg: float = clamp(amplitude_percent, 0.0, 1.0) * GOBO_INDEX_MAX_DEG
 		var phase_cycles: float = float(wheel_shake_phase.get(wheel_key, 0.0))
