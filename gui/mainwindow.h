@@ -271,6 +271,7 @@ private:
   bool startupSplashInitializationPending = true;
   bool startupSplashCloseRequested = false;
   bool startupProjectLoadPending = true;
+  std::optional<std::string> deferredStartupOpenPath;
   bool userConfigPersistedOnClose = false;
   int viewportInteractionLockDepth = 0;
   std::unique_ptr<wxWindowDisabler> blockingProjectLoadDisabler;

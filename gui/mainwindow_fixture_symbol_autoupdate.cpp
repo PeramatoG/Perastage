@@ -359,4 +359,10 @@ void MainWindow::CompleteStartupSplashInitialization() {
   startupSplashInitializationPending = false;
   SplashScreen::SetMessage("Ready");
   SplashScreen::Hide();
+
+  if (deferredStartupOpenPath && !deferredStartupOpenPath->empty()) {
+    const std::string startupPath = *deferredStartupOpenPath;
+    deferredStartupOpenPath.reset();
+    CallAfter([this, startupPath]() { OpenPathFromCommandLine(startupPath); });
+  }
 }

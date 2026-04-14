@@ -52,6 +52,7 @@ public:
 private:
   void HandleExternalOpenPath(const std::string &pathUtf8);
   std::optional<std::string> ConsumePendingExternalOpenPath();
+  void SchedulePendingExternalOpenProcessing(const wxWeakRef<MainWindow> &mainWindowRef);
   void QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
                                bool loaded, bool clearLastProject,
                                const std::string &path = {});
@@ -236,7 +237,12 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
 
   const bool startupPending = mainWindow->IsStartupProjectLoadPending();
   if (startupPending) {
+    if (!pending_external_open_paths_.empty() &&
+        pending_external_open_paths_.back() == pathUtf8) {
+      return;
+    }
     pending_external_open_paths_.push_back(pathUtf8);
+    SchedulePendingExternalOpenProcessing(wxWeakRef<MainWindow>(mainWindow));
     return;
   }
 
@@ -245,6 +251,28 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
     if (!windowRef)
       return;
     windowRef->OpenPathFromCommandLine(pathUtf8);
+  });
+}
+
+void MyApp::SchedulePendingExternalOpenProcessing(
+    const wxWeakRef<MainWindow> &mainWindowRef) {
+  if (!mainWindowRef)
+    return;
+
+  mainWindowRef->CallAfter([this, mainWindowRef]() {
+    if (!mainWindowRef)
+      return;
+    if (mainWindowRef->IsStartupProjectLoadPending()) {
+      SchedulePendingExternalOpenProcessing(mainWindowRef);
+      return;
+    }
+
+    auto pendingPath = ConsumePendingExternalOpenPath();
+    if (!pendingPath)
+      return;
+    mainWindowRef->OpenPathFromCommandLine(*pendingPath);
+    if (!pending_external_open_paths_.empty())
+      SchedulePendingExternalOpenProcessing(mainWindowRef);
   });
 }
 
