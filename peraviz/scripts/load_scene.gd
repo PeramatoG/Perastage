@@ -1065,7 +1065,7 @@ func _infer_asset_kind_from_extension(asset_path: String) -> String:
 	var extension: String = asset_path.get_extension().to_lower()
 	if extension == "3ds":
 		return "mesh"
-	if extension == "glb" or extension == "gltf":
+	if extension == "glb" or extension == "gltf" or extension == "obj" or extension == "dae" or extension == "fbx" or extension == "stl":
 		return "scene"
 	return "none"
 
@@ -1126,31 +1126,40 @@ func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
 
 func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
 	var primitive_type: String = str(data.get("primitive_type", "")).to_lower()
-	var sx: float = max(float(data.get("primitive_size_x", 0.1)), 0.001)
-	var sy: float = max(float(data.get("primitive_size_y", 0.1)), 0.001)
-	var sz: float = max(float(data.get("primitive_size_z", 0.1)), 0.001)
+	var primitive_shape: String = _classify_gdtf_primitive_shape(primitive_type)
+	var source_size_x: float = max(float(data.get("primitive_size_x", 0.1)), 0.001)
+	var source_size_y: float = max(float(data.get("primitive_size_y", 0.1)), 0.001)
+	var source_size_z: float = max(float(data.get("primitive_size_z", 0.1)), 0.001)
+	# GDTF dimensions are authored in fixture source axes (X,Y,Z).
+	# Peraviz maps source vectors to Godot as (X, Z, -Y), so primitive dimensions
+	# must be remapped before creating Godot-native meshes.
+	var sx: float = source_size_x
+	var sy: float = source_size_z
+	var sz: float = source_size_y
+	var primitive_scale: Vector3 = Vector3(sx, sy, sz)
 	var mesh_instance := MeshInstance3D.new()
-	if primitive_type.contains("sphere"):
+	if primitive_shape == "sphere":
 		var sphere := SphereMesh.new()
-		sphere.radius = max(sx, max(sy, sz)) * 0.5
-		sphere.height = sphere.radius * 2.0
+		sphere.radius = 0.5
+		sphere.height = 1.0
 		mesh_instance.mesh = sphere
-	elif primitive_type.contains("cylinder"):
+	elif primitive_shape == "cylinder":
 		var cylinder := CylinderMesh.new()
-		cylinder.top_radius = max(sx, sy) * 0.5
-		cylinder.bottom_radius = max(sx, sy) * 0.5
-		cylinder.height = sz
+		cylinder.top_radius = 0.5
+		cylinder.bottom_radius = 0.5
+		cylinder.height = 1.0
 		mesh_instance.mesh = cylinder
-	elif primitive_type.contains("cone"):
+	elif primitive_shape == "cone":
 		var cone := CylinderMesh.new()
 		cone.top_radius = 0.0
-		cone.bottom_radius = max(sx, sy) * 0.5
-		cone.height = sz
+		cone.bottom_radius = 0.5
+		cone.height = 1.0
 		mesh_instance.mesh = cone
 	else:
 		var box := BoxMesh.new()
-		box.size = Vector3(sx, sy, sz)
+		box.size = Vector3.ONE
 		mesh_instance.mesh = box
+	mesh_instance.scale = primitive_scale
 
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(0.2, 0.2, 0.22, 1.0)
@@ -1158,6 +1167,27 @@ func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mesh_instance.material_override = material
 	return mesh_instance
+
+func _classify_gdtf_primitive_shape(primitive_type: String) -> String:
+	var normalized: String = primitive_type.strip_edges().to_lower()
+	if normalized.is_empty() or normalized == "undefined":
+		return "box"
+
+	if normalized.contains("cone"):
+		return "cone"
+	if normalized.contains("cylinder"):
+		return "cylinder"
+	if normalized.contains("sphere"):
+		return "sphere"
+
+	if normalized in ["yoke", "scanner", "scanner1_1", "pigtail"]:
+		return "cylinder"
+	if normalized in ["head"]:
+		return "sphere"
+	if normalized in ["base", "base1_1", "conventional", "conventional1_1", "cube"]:
+		return "box"
+
+	return "box"
 
 func _clear_scene() -> void:
 	_scene_registry.clear("scene_reload")
