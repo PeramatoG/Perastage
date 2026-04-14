@@ -2,12 +2,15 @@
 
 #include "coordinate_mapper.h"
 
+#include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/vector3.hpp>
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -25,6 +28,8 @@ struct MeshData {
     std::vector<float> vertices;
     std::vector<uint32_t> indices;
     std::vector<float> normals;
+    std::vector<float> texcoords;
+    std::string texture_path;
 };
 
 bool read_chunk(std::ifstream &file, Chunk &chunk) {
@@ -186,8 +191,156 @@ void compute_normals(MeshData &mesh) {
     }
 }
 
+std::string to_lower_ascii(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return value;
+}
+
+std::string read_cstring(std::ifstream &file, std::streampos end_pos) {
+    std::string out;
+    char ch = '\0';
+    while (file.tellg() < end_pos && file.read(&ch, 1)) {
+        if (ch == '\0') {
+            break;
+        }
+        out.push_back(ch);
+    }
+    return out;
+}
+
+bool filename_equals_insensitive(const std::filesystem::path &a,
+                                 const std::filesystem::path &b) {
+    return to_lower_ascii(a.filename().u8string()) ==
+           to_lower_ascii(b.filename().u8string());
+}
+
+bool find_texture_by_filename(const std::filesystem::path &root,
+                              const std::filesystem::path &target_name,
+                              std::filesystem::path &out_path) {
+    if (root.empty() || !std::filesystem::exists(root) ||
+        !std::filesystem::is_directory(root)) {
+        return false;
+    }
+
+    constexpr size_t k_max_scanned_entries = 5000;
+    constexpr int k_max_search_depth = 4;
+
+    std::error_code ec;
+    size_t scanned_entries = 0;
+    for (std::filesystem::recursive_directory_iterator it(
+             root, std::filesystem::directory_options::skip_permission_denied, ec);
+         it != std::filesystem::recursive_directory_iterator();
+         it.increment(ec)) {
+        if (ec) {
+            ec.clear();
+            continue;
+        }
+        if (it.depth() > k_max_search_depth) {
+            it.disable_recursion_pending();
+            continue;
+        }
+        if (it->is_symlink(ec)) {
+            continue;
+        }
+        if (ec) {
+            ec.clear();
+            continue;
+        }
+        if (!it->is_regular_file(ec)) {
+            continue;
+        }
+        if (ec) {
+            ec.clear();
+            continue;
+        }
+        if (filename_equals_insensitive(it->path(), target_name)) {
+            out_path = it->path();
+            return true;
+        }
+
+        ++scanned_entries;
+        if (scanned_entries >= k_max_scanned_entries) {
+            break;
+        }
+    }
+    return false;
+}
+
+bool resolve_texture_path(const std::filesystem::path &model_dir,
+                          const std::string &texture_reference,
+                          std::filesystem::path &out_path) {
+    if (texture_reference.empty()) {
+        return false;
+    }
+
+    std::filesystem::path texture_path = std::filesystem::u8path(texture_reference);
+    if (texture_path.is_absolute() && std::filesystem::exists(texture_path)) {
+        out_path = texture_path;
+        return true;
+    }
+
+    const std::filesystem::path direct_candidate = model_dir / texture_path;
+    if (std::filesystem::exists(direct_candidate)) {
+        out_path = direct_candidate;
+        return true;
+    }
+
+    std::filesystem::path current_dir = model_dir;
+    while (!current_dir.empty()) {
+        const std::filesystem::path ancestor_candidate = current_dir / texture_path;
+        if (std::filesystem::exists(ancestor_candidate)) {
+            out_path = ancestor_candidate;
+            return true;
+        }
+        if (current_dir == current_dir.parent_path()) {
+            break;
+        }
+        current_dir = current_dir.parent_path();
+    }
+
+    return find_texture_by_filename(model_dir, texture_path, out_path);
+}
+
+void parse_material_block(std::ifstream &file, std::streampos material_end,
+                          std::string &texture_filename) {
+    while (file.tellg() < material_end) {
+        Chunk chunk;
+        if (!read_chunk(file, chunk)) {
+            break;
+        }
+        const std::streampos data_start = file.tellg();
+        const std::streampos next = data_start + static_cast<std::streamoff>(chunk.length - 6U);
+        if (chunk.id == 0xA000) {
+            read_cstring(file, next);
+        } else if (chunk.id == 0xA200) {
+            while (file.tellg() < next) {
+                Chunk tex_chunk;
+                if (!read_chunk(file, tex_chunk)) {
+                    break;
+                }
+                const std::streampos tex_data_start = file.tellg();
+                const std::streampos tex_next =
+                    tex_data_start + static_cast<std::streamoff>(tex_chunk.length - 6U);
+                if (tex_chunk.id == 0xA300) {
+                    const std::string candidate = read_cstring(file, tex_next);
+                    if (!candidate.empty()) {
+                        texture_filename = candidate;
+                    }
+                }
+                file.seekg(tex_next);
+            }
+        }
+        file.seekg(next);
+    }
+}
+
 void parse_mesh_chunk(std::ifstream &file, std::streampos mesh_end, MeshData &mesh,
-                      size_t vertex_base) {
+                      size_t vertex_base,
+                      std::string &texture_filename) {
+    size_t object_vertex_start = vertex_base;
+    size_t object_vertex_count = 0;
     while (file.good() && file.tellg() < mesh_end) {
         Chunk chunk;
         if (!read_chunk(file, chunk)) {
@@ -205,6 +358,8 @@ void parse_mesh_chunk(std::ifstream &file, std::streampos mesh_end, MeshData &me
             mesh.vertices.resize(start + static_cast<size_t>(count) * 3U);
             file.read(reinterpret_cast<char *>(mesh.vertices.data() + start),
                       static_cast<std::streamsize>(count) * 3 * sizeof(float));
+            object_vertex_start = start / 3U;
+            object_vertex_count = static_cast<size_t>(count);
         } else if (chunk.id == 0x4120) {
             uint16_t count = 0;
             file.read(reinterpret_cast<char *>(&count), sizeof(count));
@@ -230,6 +385,41 @@ void parse_mesh_chunk(std::ifstream &file, std::streampos mesh_end, MeshData &me
                 mesh.indices[idx + 2] =
                     static_cast<uint32_t>(c) + static_cast<uint32_t>(vertex_base);
             }
+            while (file.tellg() < next) {
+                Chunk sub_chunk;
+                if (!read_chunk(file, sub_chunk)) {
+                    break;
+                }
+                const std::streampos sub_data_start = file.tellg();
+                const std::streampos sub_next =
+                    sub_data_start + static_cast<std::streamoff>(sub_chunk.length - 6U);
+                if (sub_chunk.id == 0x4130) {
+                    const std::string material_name = read_cstring(file, sub_next);
+                    uint16_t face_count = 0;
+                    file.read(reinterpret_cast<char *>(&face_count), sizeof(face_count));
+                    (void)material_name;
+                    (void)face_count;
+                }
+                file.seekg(sub_next);
+            }
+        } else if (chunk.id == 0x4140) {
+            uint16_t count = 0;
+            file.read(reinterpret_cast<char *>(&count), sizeof(count));
+            const size_t uv_count = static_cast<size_t>(count);
+            if (object_vertex_count > 0 && uv_count == object_vertex_count) {
+                const size_t required_size = (object_vertex_start + object_vertex_count) * 2U;
+                if (mesh.texcoords.size() < required_size) {
+                    mesh.texcoords.resize(required_size, 0.0F);
+                }
+                for (size_t i = 0; i < uv_count; ++i) {
+                    float u = 0.0F;
+                    float v = 0.0F;
+                    file.read(reinterpret_cast<char *>(&u), sizeof(float));
+                    file.read(reinterpret_cast<char *>(&v), sizeof(float));
+                    mesh.texcoords[(object_vertex_start + i) * 2U] = u;
+                    mesh.texcoords[(object_vertex_start + i) * 2U + 1U] = 1.0F - v;
+                }
+            }
         }
 
         file.seekg(next);
@@ -246,6 +436,11 @@ bool load_3ds(const std::string &path, MeshData &mesh) {
     if (!read_chunk(file, root) || root.id != 0x4D4D) {
         return false;
     }
+
+    std::string texture_filename;
+    const std::filesystem::path model_path = std::filesystem::u8path(path);
+    const std::filesystem::path model_dir =
+        model_path.has_parent_path() ? model_path.parent_path() : std::filesystem::path();
 
     const std::streampos root_end = static_cast<std::streamoff>(root.length);
     while (file.good() && file.tellg() < root_end) {
@@ -283,10 +478,13 @@ bool load_3ds(const std::string &path, MeshData &mesh) {
 
                         if (mesh_chunk.id == 0x4100) {
                             const size_t vertex_base = mesh.vertices.size() / 3;
-                            parse_mesh_chunk(file, mesh_end, mesh, vertex_base);
+                            parse_mesh_chunk(file, mesh_end, mesh, vertex_base,
+                                             texture_filename);
                         }
                         file.seekg(mesh_end);
                     }
+                } else if (sub.id == 0xAFFF) {
+                    parse_material_block(file, sub_end, texture_filename);
                 }
                 file.seekg(sub_end);
             }
@@ -296,6 +494,23 @@ bool load_3ds(const std::string &path, MeshData &mesh) {
 
     if (mesh.vertices.empty() || mesh.indices.empty()) {
         return false;
+    }
+
+    const size_t vertex_count = mesh.vertices.size() / 3U;
+    if (!mesh.texcoords.empty()) {
+        const size_t expected_size = vertex_count * 2U;
+        if (mesh.texcoords.size() < expected_size) {
+            mesh.texcoords.resize(expected_size, 0.0F);
+        } else if (mesh.texcoords.size() > expected_size) {
+            mesh.texcoords.resize(expected_size);
+        }
+    }
+
+    if (!texture_filename.empty()) {
+        std::filesystem::path resolved_texture_path;
+        if (resolve_texture_path(model_dir, texture_filename, resolved_texture_path)) {
+            mesh.texture_path = resolved_texture_path.u8string();
+        }
     }
 
     ensure_godot_clockwise_winding(mesh);
@@ -310,7 +525,9 @@ namespace peraviz {
 bool load_3ds_mesh_data(const godot::String &path,
                         godot::PackedVector3Array &out_vertices,
                         godot::PackedVector3Array &out_normals,
+                        godot::PackedVector2Array &out_texcoords,
                         godot::PackedInt32Array &out_indices,
+                        godot::String &out_texture_path,
                         godot::String &out_error) {
     MeshData mesh;
     const std::string utf8_path(path.utf8().get_data());
@@ -345,6 +562,13 @@ bool load_3ds_mesh_data(const godot::String &path,
     for (int64_t i = 0; i < out_indices.size(); ++i) {
         out_indices.set(i, static_cast<int32_t>(mesh.indices[i]));
     }
+
+    out_texcoords.resize(static_cast<int64_t>(mesh.texcoords.size() / 2U));
+    for (int64_t i = 0; i < out_texcoords.size(); ++i) {
+        out_texcoords.set(i, godot::Vector2(mesh.texcoords[i * 2], mesh.texcoords[i * 2 + 1]));
+    }
+
+    out_texture_path = godot::String(mesh.texture_path.c_str());
 
     return true;
 }

@@ -1073,7 +1073,9 @@ func _infer_asset_kind_from_extension(asset_path: String) -> String:
 func _build_3ds_mesh(mesh_data: Dictionary, flip_orientation: bool = false) -> ArrayMesh:
 	var vertices: PackedVector3Array = mesh_data.get("vertices", PackedVector3Array())
 	var normals: PackedVector3Array = mesh_data.get("normals", PackedVector3Array())
+	var texcoords: PackedVector2Array = mesh_data.get("texcoords", PackedVector2Array())
 	var indices: PackedInt32Array = mesh_data.get("indices", PackedInt32Array())
+	var texture_path: String = str(mesh_data.get("texture_path", ""))
 	if vertices.is_empty() or indices.is_empty():
 		return null
 
@@ -1090,10 +1092,22 @@ func _build_3ds_mesh(mesh_data: Dictionary, flip_orientation: bool = false) -> A
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = vertices
 	arrays[Mesh.ARRAY_NORMAL] = normals
+	if texcoords.size() == vertices.size():
+		arrays[Mesh.ARRAY_TEX_UV] = texcoords
 	arrays[Mesh.ARRAY_INDEX] = indices
 
 	var array_mesh := ArrayMesh.new()
 	array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+
+	if not texture_path.is_empty() and texcoords.size() == vertices.size():
+		var texture: Texture2D = load(texture_path) as Texture2D
+		if texture != null:
+			var material := StandardMaterial3D.new()
+			material.albedo_texture = texture
+			material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			material.cull_mode = BaseMaterial3D.CULL_DISABLED
+			array_mesh.surface_set_material(0, material)
+
 	return array_mesh
 
 
