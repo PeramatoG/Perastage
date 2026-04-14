@@ -53,13 +53,14 @@ bool looks_like_emitter(const std::string &tag_name, const std::string &name,
 }
 
 bool is_supported_geometry_tag(const std::string &tag_name) {
-    return tag_name == "Geometry" || tag_name == "Axis" || tag_name == "Beam" ||
-           tag_name == "GeometryReference" || tag_name == "Laser" ||
-           tag_name == "WiringObject" || tag_name == "Inventory" ||
-           tag_name == "Structure" || tag_name == "Support" ||
-           tag_name == "Magnet" || tag_name == "Display" ||
-           tag_name == "MediaServerLayer" || tag_name == "MediaServerCamera" ||
-           tag_name == "MediaServerMaster" || tag_name.rfind("Filter", 0) == 0;
+    const std::string lower = lower_ascii(tag_name);
+    return lower == "geometry" || lower == "axis" || lower == "beam" ||
+           lower == "geometryreference" || lower == "laser" ||
+           lower == "wiringobject" || lower == "inventory" ||
+           lower == "structure" || lower == "support" ||
+           lower == "magnet" || lower == "display" ||
+           lower == "mediaserverlayer" || lower == "mediaservercamera" ||
+           lower == "mediaservermaster" || lower.rfind("filter", 0) == 0;
 }
 
 std::string infer_asset_kind_from_path(const std::string &asset_path) {
@@ -72,7 +73,8 @@ std::string infer_asset_kind_from_path(const std::string &asset_path) {
     if (extension == ".3ds") {
         return "mesh";
     }
-    if (extension == ".glb" || extension == ".gltf") {
+    if (extension == ".glb" || extension == ".gltf" || extension == ".obj" ||
+        extension == ".dae" || extension == ".fbx" || extension == ".stl") {
         return "scene";
     }
     return "none";
@@ -232,7 +234,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             parse_float_attr(model, "Width", "width", visual.size_y);
             parse_float_attr(model, "Height", "height", visual.size_z);
 
-            model_visual_by_name[name] = visual;
+            model_visual_by_name[lower_ascii(name)] = visual;
         }
     }
 
@@ -325,7 +327,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         }
         Matrix world = MatrixUtils::Multiply(geometry_parent_world, local);
 
-        if (geometry_tag == "GeometryReference") {
+        if (lower_ascii(geometry_tag) == "geometryreference") {
             const char *referenced_geometry_name = geometry->Attribute("Geometry");
             if (!referenced_geometry_name) {
                 referenced_geometry_name = geometry->Attribute("geometry");
@@ -364,7 +366,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         node.is_emitter = looks_like_emitter(geometry->Name(), geometry_name, node.is_lens);
         node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
 
-        if (geometry_tag == "Beam") {
+        if (lower_ascii(geometry_tag) == "beam") {
             node.has_luminous_flux = parse_float_attr(geometry, "LuminousFlux", "luminousflux",
                                                       node.luminous_flux);
             node.has_color_temperature = parse_float_attr(
@@ -401,7 +403,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             model_name = geometry->Attribute("model");
         }
         if (model_name) {
-            auto model_it = model_visual_by_name.find(model_name);
+            auto model_it = model_visual_by_name.find(lower_ascii(model_name));
             if (model_it != model_visual_by_name.end()) {
                 if (!model_it->second.file.empty()) {
                     node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second.file);

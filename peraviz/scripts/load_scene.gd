@@ -1065,7 +1065,7 @@ func _infer_asset_kind_from_extension(asset_path: String) -> String:
 	var extension: String = asset_path.get_extension().to_lower()
 	if extension == "3ds":
 		return "mesh"
-	if extension == "glb" or extension == "gltf":
+	if extension == "glb" or extension == "gltf" or extension == "obj" or extension == "dae" or extension == "fbx" or extension == "stl":
 		return "scene"
 	return "none"
 

@@ -174,9 +174,6 @@ std::string normalize_geometry_file_name(const std::string &file_name) {
         return {};
     }
     std::filesystem::path path = std::filesystem::u8path(file_name);
-    if (!path.has_extension()) {
-        path += ".3ds";
-    }
     return path.u8string();
 }
 
@@ -190,7 +187,8 @@ std::string infer_asset_kind_from_path(const std::string &asset_path) {
     if (extension == ".3ds") {
         return "mesh";
     }
-    if (extension == ".glb" || extension == ".gltf") {
+    if (extension == ".glb" || extension == ".gltf" || extension == ".obj" ||
+        extension == ".dae" || extension == ".fbx" || extension == ".stl") {
         return "scene";
     }
     return "none";
@@ -412,11 +410,6 @@ std::unordered_map<std::string, std::vector<SymdefGeometry>> parse_symdefs(tinyx
             continue;
         }
 
-        tinyxml2::XMLElement *child_list = first_child_element_ci(symdef, "childlist");
-        if (!child_list) {
-            continue;
-        }
-
         std::vector<SymdefGeometry> geometries;
         std::function<void(tinyxml2::XMLElement *, const Matrix &)> parse_child_list;
         parse_child_list = [&](tinyxml2::XMLElement *node, const Matrix &parent_world) {
@@ -441,7 +434,15 @@ std::unordered_map<std::string, std::vector<SymdefGeometry>> parse_symdefs(tinyx
             }
         };
 
-        parse_child_list(child_list, MatrixUtils::Identity());
+        if (tinyxml2::XMLElement *child_list = first_child_element_ci(symdef, "childlist")) {
+            parse_child_list(child_list, MatrixUtils::Identity());
+        }
+
+        if (tinyxml2::XMLElement *geometries_node = first_child_element_ci(symdef, "geometries")) {
+            parse_child_list(geometries_node, MatrixUtils::Identity());
+        }
+
+        parse_child_list(symdef, MatrixUtils::Identity());
         if (!geometries.empty()) {
             symdefs[lower_ascii(symdef_id)] = std::move(geometries);
         }

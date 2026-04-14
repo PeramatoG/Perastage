@@ -97,7 +97,9 @@ std::string path_extension_lower(const std::string &normalized_path) {
 
 bool is_supported_model_extension(const std::string &extension_lower) {
     return extension_lower == ".3ds" || extension_lower == ".glb" ||
-           extension_lower == ".gltf";
+           extension_lower == ".gltf" || extension_lower == ".obj" ||
+           extension_lower == ".dae" || extension_lower == ".fbx" ||
+           extension_lower == ".stl";
 }
 
 std::string gdtf_lookup_key(const std::string &archive_path) {
@@ -342,9 +344,17 @@ std::string ZipAssetCache::ensure_mvr_model_extracted(const std::string &model_r
         candidates.push_back(normalized + ".3ds");
         candidates.push_back(normalized + ".glb");
         candidates.push_back(normalized + ".gltf");
+        candidates.push_back(normalized + ".obj");
+        candidates.push_back(normalized + ".dae");
+        candidates.push_back(normalized + ".fbx");
+        candidates.push_back(normalized + ".stl");
         candidates.push_back("models/3ds/" + stem + ".3ds");
         candidates.push_back("models/glb/" + stem + ".glb");
         candidates.push_back("models/gltf/" + stem + ".gltf");
+        candidates.push_back("models/obj/" + stem + ".obj");
+        candidates.push_back("models/dae/" + stem + ".dae");
+        candidates.push_back("models/fbx/" + stem + ".fbx");
+        candidates.push_back("models/stl/" + stem + ".stl");
     }
 
     for (const std::string &candidate : candidates) {
@@ -402,14 +412,24 @@ std::string ZipAssetCache::ensure_gdtf_model_extracted(const std::string &model_
     const std::string ext = path_extension_lower(normalized);
 
     std::vector<std::string> candidates;
-    if (!ext.empty()) {
+    if (is_supported_model_extension(ext)) {
         candidates.push_back(normalized);
         candidates.push_back("models/" + ext.substr(1) + "/" + stem + ext);
     } else {
         candidates.push_back(normalized + ".3ds");
         candidates.push_back(normalized + ".glb");
+        candidates.push_back(normalized + ".gltf");
+        candidates.push_back(normalized + ".obj");
+        candidates.push_back(normalized + ".dae");
+        candidates.push_back(normalized + ".fbx");
+        candidates.push_back(normalized + ".stl");
         candidates.push_back("models/3ds/" + stem + ".3ds");
         candidates.push_back("models/glb/" + stem + ".glb");
+        candidates.push_back("models/gltf/" + stem + ".gltf");
+        candidates.push_back("models/obj/" + stem + ".obj");
+        candidates.push_back("models/dae/" + stem + ".dae");
+        candidates.push_back("models/fbx/" + stem + ".fbx");
+        candidates.push_back("models/stl/" + stem + ".stl");
     }
 
     for (const std::string &candidate : candidates) {
@@ -435,7 +455,7 @@ std::string ZipAssetCache::ensure_gdtf_model_extracted(const std::string &model_
         }
 
         const std::string entry_ext = path_extension_lower(entry_name);
-        const bool supported = entry_ext == ".3ds" || entry_ext == ".glb";
+        const bool supported = is_supported_model_extension(entry_ext);
         if (!supported) {
             continue;
         }
