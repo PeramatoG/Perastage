@@ -22,9 +22,10 @@ func apply_shape(beam: MeshInstance3D, light: SpotLight3D, params: Dictionary) -
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
-	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
 	var alignment_rotation_deg: float = float(params.get("beam_gobo_alignment_rotation_deg", 0.0))
-	var beam_rotation_deg: float = wrapf(gobo_rotation_deg + alignment_rotation_deg + 180.0, 0.0, 360.0)
+	# The light node already carries gobo wheel/index rotation via FixtureGoboProjector.
+	# Keep only local alignment on the prism node to avoid double-rotating versus the footprint.
+	var beam_rotation_deg: float = wrapf(alignment_rotation_deg + 180.0, 0.0, 360.0)
 	var mirror_x: bool = bool(params.get("beam_gobo_mirror_x", DEFAULT_MIRROR_BEAM_SHAPE_X))
 	var mirror_z: bool = bool(params.get("beam_gobo_mirror_z", DEFAULT_MIRROR_BEAM_SHAPE_Z))
 	var prism_mesh: ArrayMesh = _mesh_builder.build_beam_mesh(gobo_texture, lens_radius, bottom_radius, beam_range, gobo_scale)
