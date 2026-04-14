@@ -1126,6 +1126,7 @@ func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
 
 func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
 	var primitive_type: String = str(data.get("primitive_type", "")).to_lower()
+	var primitive_shape: String = _classify_gdtf_primitive_shape(primitive_type)
 	var source_size_x: float = max(float(data.get("primitive_size_x", 0.1)), 0.001)
 	var source_size_y: float = max(float(data.get("primitive_size_y", 0.1)), 0.001)
 	var source_size_z: float = max(float(data.get("primitive_size_z", 0.1)), 0.001)
@@ -1136,18 +1137,18 @@ func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
 	var sy: float = source_size_z
 	var sz: float = source_size_y
 	var mesh_instance := MeshInstance3D.new()
-	if primitive_type.contains("sphere"):
+	if primitive_shape == "sphere":
 		var sphere := SphereMesh.new()
 		sphere.radius = max(sx, max(sy, sz)) * 0.5
 		sphere.height = sphere.radius * 2.0
 		mesh_instance.mesh = sphere
-	elif primitive_type.contains("cylinder"):
+	elif primitive_shape == "cylinder":
 		var cylinder := CylinderMesh.new()
 		cylinder.top_radius = max(sx, sz) * 0.5
 		cylinder.bottom_radius = max(sx, sz) * 0.5
 		cylinder.height = sy
 		mesh_instance.mesh = cylinder
-	elif primitive_type.contains("cone"):
+	elif primitive_shape == "cone":
 		var cone := CylinderMesh.new()
 		cone.top_radius = 0.0
 		cone.bottom_radius = max(sx, sz) * 0.5
@@ -1164,6 +1165,27 @@ func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mesh_instance.material_override = material
 	return mesh_instance
+
+func _classify_gdtf_primitive_shape(primitive_type: String) -> String:
+	var normalized: String = primitive_type.strip_edges().to_lower()
+	if normalized.is_empty() or normalized == "undefined":
+		return "box"
+
+	if normalized.contains("cone"):
+		return "cone"
+	if normalized.contains("cylinder"):
+		return "cylinder"
+	if normalized.contains("sphere"):
+		return "sphere"
+
+	if normalized in ["yoke", "scanner", "scanner1_1", "pigtail"]:
+		return "cylinder"
+	if normalized in ["head"]:
+		return "sphere"
+	if normalized in ["base", "base1_1", "conventional", "conventional1_1", "cube"]:
+		return "box"
+
+	return "box"
 
 func _clear_scene() -> void:
 	_scene_registry.clear("scene_reload")
