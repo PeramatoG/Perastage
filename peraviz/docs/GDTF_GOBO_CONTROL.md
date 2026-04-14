@@ -52,10 +52,8 @@ attribute definition:
 
 - `Type="PlacementOffset"` + `PhysicalUnit="Angle"` -> center offset in degrees.
 - `Type="Amplitude"` + `PhysicalUnit="Percent"` -> oscillation amplitude.
-
-> Temporary debug override: `fixture_gobo_projector.gd` currently forces shake
-> always-on at maximum speed/amplitude (`GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON=true`)
-> to visually validate motion before re-enabling strict DMX-driven activation.
+  - Runtime accepts both normalized `[0..1]` and percent `[0..100]` encodings
+    and normalizes to `[0..1]` before applying the shake.
 
 Index and rotation are treated as different semantics:
 

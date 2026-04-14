@@ -31,7 +31,7 @@ const GOBO_INDEX_MAX_DEG: float = 360.0
 const GOBO_SHAKE_MAX_YAW_DEG: float = 12.0
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
 const GOBO_ROTATION_DEBUG_DEFAULT: bool = false
-const GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON: bool = true
+const GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON: bool = false
 const GOBO_SHAKE_FORCE_DEBUG_FREQUENCY_HZ: float = 12.0
 const GOBO_SHAKE_FORCE_DEBUG_AMPLITUDE_NORM: float = 1.0
 
@@ -197,14 +197,15 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		var amplitude_percent: float = GOBO_SHAKE_FORCE_DEBUG_AMPLITUDE_NORM if GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON else 0.0
 		if not GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON and bool(wheel.get("has_shake_amplitude", false)):
 			amplitude_percent = maxf(float(wheel.get("shake_amplitude_percent", 0.0)), 0.0)
-		var amplitude_deg: float = clamp(amplitude_percent, 0.0, 1.0) * GOBO_INDEX_MAX_DEG
+		var amplitude_norm: float = _normalize_shake_amplitude(amplitude_percent)
+		var amplitude_deg: float = amplitude_norm * GOBO_INDEX_MAX_DEG
 		var phase_cycles: float = float(wheel_shake_phase.get(wheel_key, 0.0))
 		if shake_frequency_hz > 0.0 and delta_sec > 0.0:
 			phase_cycles = wrapf(phase_cycles + (shake_frequency_hz * delta_sec), -1000.0, 1000.0)
 		var phase_fraction: float = posmod(phase_cycles, 1.0)
 		var triangle_wave: float = 1.0 - (4.0 * absf(phase_fraction - 0.5))
 		var shake_offset_deg: float = triangle_wave * amplitude_deg
-		var shake_offset_y_deg: float = triangle_wave * clamp(amplitude_percent, 0.0, 1.0) * GOBO_SHAKE_MAX_YAW_DEG
+		var shake_offset_y_deg: float = triangle_wave * amplitude_norm * GOBO_SHAKE_MAX_YAW_DEG
 		wheel_shake_phase[wheel_key] = phase_cycles
 		light.set_meta(GOBO_WHEEL_SHAKE_PHASE_META_KEY, wheel_shake_phase)
 		_apply_gobo_shake_yaw_to_light(light, shake_offset_y_deg)
@@ -397,6 +398,13 @@ func _apply_gobo_shake_yaw_to_light(light: SpotLight3D, shake_offset_y_deg: floa
 	updated_rotation.y = base_rotation_y_deg + shake_offset_y_deg
 	light.rotation_degrees = updated_rotation
 	light.set_meta(GOBO_APPLIED_SHAKE_OFFSET_Y_DEG_META_KEY, shake_offset_y_deg)
+
+func _normalize_shake_amplitude(amplitude_value: float) -> float:
+	if amplitude_value <= 0.0:
+		return 0.0
+	if amplitude_value > 1.0:
+		return clamp(amplitude_value / 100.0, 0.0, 1.0)
+	return clamp(amplitude_value, 0.0, 1.0)
 
 func _topology_signature_from_state(applied_state: Dictionary) -> String:
 	if applied_state.is_empty():

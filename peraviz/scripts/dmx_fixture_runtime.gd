@@ -22,6 +22,7 @@ var _bindings: Array = []
 var _unbound: Array = []
 var _fixture_nodes: Dictionary = {}
 var _used_universes: Dictionary = {}
+var _last_universe_frames: Dictionary = {}
 var _gobo_vectorization_cache: GoboVectorizationCache = null
 
 func configure(loader, scene_registry: SceneRegistry) -> void:
@@ -34,6 +35,7 @@ func rebuild(universe_offset: int) -> Dictionary:
 	_unbound.clear()
 	_fixture_nodes.clear()
 	_used_universes.clear()
+	_last_universe_frames.clear()
 
 	if _loader == null or _scene_registry == null:
 		return {
@@ -78,7 +80,12 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 	var universe_frames: Dictionary = {}
 	for universe_key in _used_universes.keys():
 		var universe_id: int = int(universe_key)
-		universe_frames[universe_id] = receiver.get_universe_data(universe_id)
+		var frame: PackedByteArray = receiver.get_universe_data(universe_id)
+		if frame.is_empty() and _last_universe_frames.has(universe_id):
+			frame = _last_universe_frames.get(universe_id, PackedByteArray())
+		elif not frame.is_empty():
+			_last_universe_frames[universe_id] = frame
+		universe_frames[universe_id] = frame
 
 	for binding in _bindings:
 		if binding is not Dictionary:
