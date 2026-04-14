@@ -123,7 +123,7 @@ Dictionary PeravizLoader::load_3ds_mesh_data(const String &path) const {
     PackedInt32Array indices;
     String texture_path;
     bool has_material_base_color = false;
-    Vector3 material_base_color = Vector3.ONE;
+    Vector3 material_base_color(1.0, 1.0, 1.0);
     String error;
 
     Dictionary out;
