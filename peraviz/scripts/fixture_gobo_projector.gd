@@ -190,11 +190,13 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		if bool(wheel.get("has_shake_amplitude", false)):
 			amplitude_percent = maxf(float(wheel.get("shake_amplitude_percent", 0.0)), 0.0)
 		var amplitude_deg: float = clamp(amplitude_percent, 0.0, 1.0) * GOBO_INDEX_MAX_DEG
-		var phase_rad: float = float(wheel_shake_phase.get(wheel_key, 0.0))
+		var phase_cycles: float = float(wheel_shake_phase.get(wheel_key, 0.0))
 		if shake_frequency_hz > 0.0 and delta_sec > 0.0:
-			phase_rad = wrapf(phase_rad + (TAU * shake_frequency_hz * delta_sec), -1000.0 * TAU, 1000.0 * TAU)
-		var shake_offset_deg: float = sin(phase_rad) * amplitude_deg
-		wheel_shake_phase[wheel_key] = phase_rad
+			phase_cycles = wrapf(phase_cycles + (shake_frequency_hz * delta_sec), -1000.0, 1000.0)
+		var phase_fraction: float = posmod(phase_cycles, 1.0)
+		var triangle_wave: float = 1.0 - (4.0 * absf(phase_fraction - 0.5))
+		var shake_offset_deg: float = triangle_wave * amplitude_deg
+		wheel_shake_phase[wheel_key] = phase_cycles
 		light.set_meta(GOBO_WHEEL_SHAKE_PHASE_META_KEY, wheel_shake_phase)
 		wheel_spin_state[wheel_key] = 0.0
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)

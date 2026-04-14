@@ -42,8 +42,8 @@ Peraviz runtime applies gobo controls with this behavior:
 3. If `gobo_rotation`/`rotation` is present (`Gobo(n)PosRotate`), map DMX value
    to **angular speed** (including direction) and integrate over time.
 4. If the active gobo range behavior is shake (`Gobo(n)SelectShake`), interpret
-   physical values as **shake frequency** and apply an oscillation around the
-   indexed/base angle.
+   physical values as **shake frequency** and apply a constant **triangle-wave**
+   oscillation around the indexed/base angle.
 
 For shake, Peraviz also consumes optional `SubPhysicalUnit` data from the
 attribute definition:

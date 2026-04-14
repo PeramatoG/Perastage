@@ -283,7 +283,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var has_rotation_channel: bool = _has_control_channel(item, "rotation_channel_index_0", "rotation_fine_channel_index_0", "rotation_ultra_fine_channel_index_0")
 		var is_rotation_behavior: bool = range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE
 		var uses_range_rotation: bool = is_rotation_behavior and not has_rotation_channel
-		var supports_index: bool = (range_behavior == GOBO_BEHAVIOR_INDEX) or (has_index_channel and not is_rotation_behavior)
+		var supports_index: bool = (range_behavior == GOBO_BEHAVIOR_INDEX) or has_index_channel
 		var supports_rotation: bool = is_rotation_behavior or (has_rotation_channel and range_behavior != GOBO_BEHAVIOR_INDEX)
 		var index_norm: float = -1.0
 		var index_raw: int = -1
