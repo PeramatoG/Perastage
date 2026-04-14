@@ -1126,9 +1126,15 @@ func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
 
 func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
 	var primitive_type: String = str(data.get("primitive_type", "")).to_lower()
-	var sx: float = max(float(data.get("primitive_size_x", 0.1)), 0.001)
-	var sy: float = max(float(data.get("primitive_size_y", 0.1)), 0.001)
-	var sz: float = max(float(data.get("primitive_size_z", 0.1)), 0.001)
+	var source_size_x: float = max(float(data.get("primitive_size_x", 0.1)), 0.001)
+	var source_size_y: float = max(float(data.get("primitive_size_y", 0.1)), 0.001)
+	var source_size_z: float = max(float(data.get("primitive_size_z", 0.1)), 0.001)
+	# GDTF dimensions are authored in fixture source axes (X,Y,Z).
+	# Peraviz maps source vectors to Godot as (X, Z, -Y), so primitive dimensions
+	# must be remapped before creating Godot-native meshes.
+	var sx: float = source_size_x
+	var sy: float = source_size_z
+	var sz: float = source_size_y
 	var mesh_instance := MeshInstance3D.new()
 	if primitive_type.contains("sphere"):
 		var sphere := SphereMesh.new()
@@ -1137,15 +1143,15 @@ func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
 		mesh_instance.mesh = sphere
 	elif primitive_type.contains("cylinder"):
 		var cylinder := CylinderMesh.new()
-		cylinder.top_radius = max(sx, sy) * 0.5
-		cylinder.bottom_radius = max(sx, sy) * 0.5
-		cylinder.height = sz
+		cylinder.top_radius = max(sx, sz) * 0.5
+		cylinder.bottom_radius = max(sx, sz) * 0.5
+		cylinder.height = sy
 		mesh_instance.mesh = cylinder
 	elif primitive_type.contains("cone"):
 		var cone := CylinderMesh.new()
 		cone.top_radius = 0.0
-		cone.bottom_radius = max(sx, sy) * 0.5
-		cone.height = sz
+		cone.bottom_radius = max(sx, sz) * 0.5
+		cone.height = sy
 		mesh_instance.mesh = cone
 	else:
 		var box := BoxMesh.new()

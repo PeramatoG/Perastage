@@ -170,10 +170,20 @@ std::string parse_model_filename(tinyxml2::XMLElement *geo_node) {
 }
 
 std::string normalize_geometry_file_name(const std::string &file_name) {
-    if (file_name.empty()) {
+    std::string normalized = file_name;
+    const auto is_space = [](unsigned char c) {
+        return std::isspace(c) != 0;
+    };
+    while (!normalized.empty() && is_space(static_cast<unsigned char>(normalized.front()))) {
+        normalized.erase(normalized.begin());
+    }
+    while (!normalized.empty() && is_space(static_cast<unsigned char>(normalized.back()))) {
+        normalized.pop_back();
+    }
+    if (normalized.empty()) {
         return {};
     }
-    std::filesystem::path path = std::filesystem::u8path(file_name);
+    std::filesystem::path path = std::filesystem::u8path(normalized);
     return path.u8string();
 }
 
@@ -406,7 +416,8 @@ std::unordered_map<std::string, std::vector<SymdefGeometry>> parse_symdefs(tinyx
             continue;
         }
         const char *symdef_id = symdef->Attribute("uuid");
-        if (!symdef_id) {
+        const std::string symdef_id_normalized = trim_ascii(symdef_id ? symdef_id : "");
+        if (symdef_id_normalized.empty()) {
             continue;
         }
 
@@ -444,7 +455,7 @@ std::unordered_map<std::string, std::vector<SymdefGeometry>> parse_symdefs(tinyx
 
         parse_child_list(symdef, MatrixUtils::Identity());
         if (!geometries.empty()) {
-            symdefs[lower_ascii(symdef_id)] = std::move(geometries);
+            symdefs[lower_ascii(symdef_id_normalized)] = std::move(geometries);
         }
     }
 
@@ -517,7 +528,8 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
             }
 
             Matrix symbol_local = parse_matrix_node(symbol);
-            const std::string symdef_lookup = symdef_attr ? lower_ascii(symdef_attr) : "";
+            const std::string symdef_lookup =
+                symdef_attr ? lower_ascii(trim_ascii(symdef_attr)) : "";
             auto sym_it = symdefs.find(symdef_lookup);
             if (sym_it != symdefs.end()) {
                 for (const SymdefGeometry &sym_geo : sym_it->second) {
