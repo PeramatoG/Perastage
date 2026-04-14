@@ -28,8 +28,17 @@ using peraviz::SceneModel;
 using peraviz::SceneNode;
 
 struct SymdefGeometry {
-    std::string file_name;
+    std::string geometry_reference;
+    std::string primitive_type;
+    float primitive_size_x_m = 0.1F;
+    float primitive_size_y_m = 0.1F;
+    float primitive_size_z_m = 0.1F;
     Matrix transform = MatrixUtils::Identity();
+};
+
+struct PrimitiveToken {
+    bool valid = false;
+    std::string primitive_type;
 };
 
 std::string lower_ascii(std::string text) {
@@ -169,18 +178,12 @@ std::string parse_model_filename(tinyxml2::XMLElement *geo_node) {
     return {};
 }
 
-std::string normalize_geometry_file_name(const std::string &file_name) {
-    if (file_name.empty()) {
-        return {};
+std::string infer_asset_kind_from_path(const std::string &asset_path,
+                                       const PrimitiveToken &primitive_token = {}) {
+    if (primitive_token.valid) {
+        return "primitive";
     }
-    std::filesystem::path path = std::filesystem::u8path(file_name);
-    if (!path.has_extension()) {
-        path += ".3ds";
-    }
-    return path.u8string();
-}
 
-std::string infer_asset_kind_from_path(const std::string &asset_path) {
     if (asset_path.empty()) {
         return "none";
     }
@@ -236,6 +239,101 @@ int parse_int_text(const char *value) {
         return -1;
     }
     return static_cast<int>(parsed);
+}
+
+std::string normalize_geometry_reference(const std::string &reference) {
+    std::string normalized = trim_ascii(reference);
+    if (normalized.empty()) {
+        return {};
+    }
+
+    std::replace(normalized.begin(), normalized.end(), '\\', '/');
+    while (!normalized.empty() && (normalized.front() == '/' || normalized.front() == '.')) {
+        normalized.erase(normalized.begin());
+    }
+    return normalized;
+}
+
+PrimitiveToken parse_primitive_token(const std::string &reference) {
+    const std::string normalized = lower_ascii(trim_ascii(reference));
+    if (normalized.rfind("primitive:", 0) != 0) {
+        return {};
+    }
+
+    PrimitiveToken token;
+    token.valid = true;
+    token.primitive_type = normalized.substr(std::string("primitive:").size());
+    if (token.primitive_type.empty()) {
+        token.primitive_type = "cube";
+    }
+    return token;
+}
+
+bool parse_float_attribute_mm(tinyxml2::XMLElement *node,
+                              std::initializer_list<const char *> names,
+                              float &out_value_mm) {
+    if (!node) {
+        return false;
+    }
+
+    for (const char *name : names) {
+        if (const char *raw = node->Attribute(name)) {
+            char *end = nullptr;
+            const float parsed = std::strtof(raw, &end);
+            if (end != raw) {
+                out_value_mm = parsed;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void fill_primitive_dimensions_from_node(tinyxml2::XMLElement *node,
+                                         SceneNode &scene_node) {
+    float size_x_mm = 100.0F;
+    float size_y_mm = 100.0F;
+    float size_z_mm = 100.0F;
+
+    parse_float_attribute_mm(node, {"SizeX", "sizeX", "Length", "length", "X", "x"}, size_x_mm);
+    parse_float_attribute_mm(node, {"SizeY", "sizeY", "Width", "width", "Y", "y"}, size_y_mm);
+    parse_float_attribute_mm(node, {"SizeZ", "sizeZ", "Height", "height", "Z", "z"}, size_z_mm);
+
+    float radius_mm = 0.0F;
+    if (parse_float_attribute_mm(node, {"Radius", "radius"}, radius_mm) && radius_mm > 0.0F) {
+        const float diameter_mm = radius_mm * 2.0F;
+        size_x_mm = diameter_mm;
+        size_y_mm = diameter_mm;
+    }
+
+    float diameter_mm = 0.0F;
+    if (parse_float_attribute_mm(node, {"Diameter", "diameter"}, diameter_mm) &&
+        diameter_mm > 0.0F) {
+        size_x_mm = diameter_mm;
+        size_y_mm = diameter_mm;
+    }
+
+    scene_node.primitive_size_x = std::max(size_x_mm / 1000.0F, 0.001F);
+    scene_node.primitive_size_y = std::max(size_y_mm / 1000.0F, 0.001F);
+    scene_node.primitive_size_z = std::max(size_z_mm / 1000.0F, 0.001F);
+}
+
+std::string parse_geometry_reference(tinyxml2::XMLElement *geo_node) {
+    if (!geo_node) {
+        return {};
+    }
+
+    const std::string direct_reference = normalize_geometry_reference(parse_model_filename(geo_node));
+    if (!direct_reference.empty()) {
+        return direct_reference;
+    }
+
+    const std::string tag_name = lower_ascii(geo_node->Name() ? geo_node->Name() : "");
+    if (tag_name == "cube" || tag_name == "box" || tag_name == "sphere" ||
+        tag_name == "cone" || tag_name == "cylinder") {
+        return "primitive:" + tag_name;
+    }
+    return {};
 }
 
 bool try_parse_fixture_address_text(const std::string &text,
@@ -425,11 +523,20 @@ std::unordered_map<std::string, std::vector<SymdefGeometry>> parse_symdefs(tinyx
                 Matrix local = parse_matrix_node(child);
                 Matrix world = MatrixUtils::Multiply(parent_world, local);
 
-                if (is_element_name(child, "geometry3d")) {
-                    const std::string model_name = normalize_geometry_file_name(parse_model_filename(child));
-                    if (!model_name.empty()) {
+                if (is_element_name(child, "geometry3d") || is_element_name(child, "cube") ||
+                    is_element_name(child, "box") || is_element_name(child, "sphere") ||
+                    is_element_name(child, "cone") || is_element_name(child, "cylinder")) {
+                    const std::string geometry_reference = parse_geometry_reference(child);
+                    const PrimitiveToken primitive_token = parse_primitive_token(geometry_reference);
+                    if (!geometry_reference.empty() || primitive_token.valid) {
                         SymdefGeometry geometry;
-                        geometry.file_name = model_name;
+                        geometry.geometry_reference = geometry_reference;
+                        geometry.primitive_type = primitive_token.primitive_type;
+                        SceneNode primitive_node;
+                        fill_primitive_dimensions_from_node(child, primitive_node);
+                        geometry.primitive_size_x_m = primitive_node.primitive_size_x;
+                        geometry.primitive_size_y_m = primitive_node.primitive_size_y;
+                        geometry.primitive_size_z_m = primitive_node.primitive_size_z;
                         geometry.transform = world;
                         geometries.push_back(std::move(geometry));
                     }
@@ -467,7 +574,15 @@ int append_single_geometry(SceneModel &scene, tinyxml2::XMLElement *geo,
                            const std::string &parent_id, const Matrix &parent_world,
                            peraviz::ZipAssetCache &mvr_cache, const std::string &prefix,
                            int &serial) {
-    if (!geo || !is_element_name(geo, "geometry3d")) {
+    if (!geo) {
+        return 0;
+    }
+
+    const bool supported_geometry =
+        is_element_name(geo, "geometry3d") || is_element_name(geo, "cube") ||
+        is_element_name(geo, "box") || is_element_name(geo, "sphere") ||
+        is_element_name(geo, "cone") || is_element_name(geo, "cylinder");
+    if (!supported_geometry) {
         return 0;
     }
 
@@ -481,11 +596,18 @@ int append_single_geometry(SceneModel &scene, tinyxml2::XMLElement *geo,
     geo_node.type = "model_part";
     geo_node.node_class = "model_part";
     geo_node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
-    const std::string model_name = normalize_geometry_file_name(parse_model_filename(geo));
-    if (!model_name.empty()) {
-        geo_node.asset_path = mvr_cache.ensure_mvr_model_extracted(model_name);
+    const std::string geometry_reference = parse_geometry_reference(geo);
+    const PrimitiveToken primitive_token = parse_primitive_token(geometry_reference);
+    if (primitive_token.valid) {
+        geo_node.primitive_type = primitive_token.primitive_type;
+        fill_primitive_dimensions_from_node(geo, geo_node);
+    } else if (!geometry_reference.empty()) {
+        geo_node.asset_path = mvr_cache.ensure_mvr_model_extracted(geometry_reference);
     }
-    geo_node.asset_kind = infer_asset_kind_from_path(geo_node.asset_path);
+    geo_node.asset_kind = infer_asset_kind_from_path(geo_node.asset_path, primitive_token);
+    if (geo_node.asset_kind == "none") {
+        return 0;
+    }
     scene.nodes.push_back(std::move(geo_node));
     (void)world;
     return 1;
@@ -530,10 +652,19 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
                     Matrix local = MatrixUtils::Multiply(symbol_local, sym_geo.transform);
                     symbol_node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
 
-                    if (!sym_geo.file_name.empty()) {
-                        symbol_node.asset_path = mvr_cache.ensure_mvr_model_extracted(sym_geo.file_name);
+                    const PrimitiveToken primitive_token =
+                        parse_primitive_token(sym_geo.geometry_reference);
+                    if (primitive_token.valid) {
+                        symbol_node.primitive_type = primitive_token.primitive_type;
+                        symbol_node.primitive_size_x = sym_geo.primitive_size_x_m;
+                        symbol_node.primitive_size_y = sym_geo.primitive_size_y_m;
+                        symbol_node.primitive_size_z = sym_geo.primitive_size_z_m;
+                    } else if (!sym_geo.geometry_reference.empty()) {
+                        symbol_node.asset_path =
+                            mvr_cache.ensure_mvr_model_extracted(sym_geo.geometry_reference);
                     }
-                    symbol_node.asset_kind = infer_asset_kind_from_path(symbol_node.asset_path);
+                    symbol_node.asset_kind =
+                        infer_asset_kind_from_path(symbol_node.asset_path, primitive_token);
                     scene.nodes.push_back(std::move(symbol_node));
                     ++appended_count;
                 }
@@ -542,9 +673,9 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
 
             // Compatibility fallback for exports that attach a direct model to
             // Symbol without an AUXData Symdef definition.
-            const std::string fallback_model =
-                normalize_geometry_file_name(parse_model_filename(symbol));
-            if (!fallback_model.empty()) {
+            const std::string fallback_model = parse_geometry_reference(symbol);
+            const PrimitiveToken primitive_token = parse_primitive_token(fallback_model);
+            if (!fallback_model.empty() || primitive_token.valid) {
                 SceneNode symbol_node;
                 symbol_node.node_id = prefix + "/symbol#" + std::to_string(serial++);
                 symbol_node.parent_id = parent_id;
@@ -553,8 +684,14 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
                 symbol_node.node_class = "model_part";
                 symbol_node.local_transform =
                     peraviz::coordinate_mapper::to_godot_transform(symbol_local);
-                symbol_node.asset_path = mvr_cache.ensure_mvr_model_extracted(fallback_model);
-                symbol_node.asset_kind = infer_asset_kind_from_path(symbol_node.asset_path);
+                if (primitive_token.valid) {
+                    symbol_node.primitive_type = primitive_token.primitive_type;
+                    fill_primitive_dimensions_from_node(symbol, symbol_node);
+                } else {
+                    symbol_node.asset_path = mvr_cache.ensure_mvr_model_extracted(fallback_model);
+                }
+                symbol_node.asset_kind =
+                    infer_asset_kind_from_path(symbol_node.asset_path, primitive_token);
                 scene.nodes.push_back(std::move(symbol_node));
                 ++appended_count;
             }
@@ -565,15 +702,18 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
     // wrapping them in Geometries.
     for (tinyxml2::XMLElement *child = node->FirstChildElement(); child;
          child = child->NextSiblingElement()) {
-        if (is_element_name(child, "geometry3d")) {
+        if (is_element_name(child, "geometry3d") || is_element_name(child, "cube") ||
+            is_element_name(child, "box") || is_element_name(child, "sphere") ||
+            is_element_name(child, "cone") || is_element_name(child, "cylinder")) {
             appended_count += append_single_geometry(scene, child, parent_id, parent_world,
                                                      mvr_cache, prefix, serial);
         }
     }
 
     if (appended_count == 0) {
-        const std::string direct_model = normalize_geometry_file_name(parse_model_filename(node));
-        if (!direct_model.empty()) {
+        const std::string direct_model = parse_geometry_reference(node);
+        const PrimitiveToken primitive_token = parse_primitive_token(direct_model);
+        if (!direct_model.empty() || primitive_token.valid) {
             SceneNode node_model;
             node_model.node_id = prefix + "/geometry#" + std::to_string(serial++);
             node_model.parent_id = parent_id;
@@ -582,8 +722,14 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
             node_model.node_class = "model_part";
             node_model.local_transform =
                 peraviz::coordinate_mapper::to_godot_transform(MatrixUtils::Identity());
-            node_model.asset_path = mvr_cache.ensure_mvr_model_extracted(direct_model);
-            node_model.asset_kind = infer_asset_kind_from_path(node_model.asset_path);
+            if (primitive_token.valid) {
+                node_model.primitive_type = primitive_token.primitive_type;
+                fill_primitive_dimensions_from_node(node, node_model);
+            } else {
+                node_model.asset_path = mvr_cache.ensure_mvr_model_extracted(direct_model);
+            }
+            node_model.asset_kind =
+                infer_asset_kind_from_path(node_model.asset_path, primitive_token);
             scene.nodes.push_back(std::move(node_model));
         }
     }

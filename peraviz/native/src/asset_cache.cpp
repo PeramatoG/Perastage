@@ -100,6 +100,19 @@ bool is_supported_model_extension(const std::string &extension_lower) {
            extension_lower == ".gltf";
 }
 
+int model_extension_priority(const std::string &extension_lower) {
+    if (extension_lower == ".glb") {
+        return 0;
+    }
+    if (extension_lower == ".gltf") {
+        return 1;
+    }
+    if (extension_lower == ".3ds") {
+        return 2;
+    }
+    return 100;
+}
+
 std::string gdtf_lookup_key(const std::string &archive_path) {
     const std::string normalized = trim_ascii(normalize_archive_path(archive_path));
     if (normalized.empty()) {
@@ -339,12 +352,12 @@ std::string ZipAssetCache::ensure_mvr_model_extracted(const std::string &model_r
         candidates.push_back(normalized);
         candidates.push_back("models/" + ext.substr(1) + "/" + stem + ext);
     } else {
-        candidates.push_back(normalized + ".3ds");
         candidates.push_back(normalized + ".glb");
         candidates.push_back(normalized + ".gltf");
-        candidates.push_back("models/3ds/" + stem + ".3ds");
+        candidates.push_back(normalized + ".3ds");
         candidates.push_back("models/glb/" + stem + ".glb");
         candidates.push_back("models/gltf/" + stem + ".gltf");
+        candidates.push_back("models/3ds/" + stem + ".3ds");
     }
 
     for (const std::string &candidate : candidates) {
@@ -362,6 +375,7 @@ std::string ZipAssetCache::ensure_mvr_model_extracted(const std::string &model_r
     wxZipInputStream zip(input);
     std::unique_ptr<wxZipEntry> entry;
     std::optional<std::string> best_entry;
+    int best_priority = 100;
     while ((entry.reset(zip.GetNextEntry())), entry) {
         const std::string entry_name = normalize_archive_path(entry->GetName().ToUTF8().data());
         if (path_stem_lower(entry_name) != stem_lower) {
@@ -373,9 +387,11 @@ std::string ZipAssetCache::ensure_mvr_model_extracted(const std::string &model_r
             continue;
         }
 
-        if (!best_entry.has_value() || entry_ext == ".3ds") {
+        const int priority = model_extension_priority(entry_ext);
+        if (!best_entry.has_value() || priority < best_priority) {
             best_entry = entry_name;
-            if (entry_ext == ".3ds") {
+            best_priority = priority;
+            if (priority == 0) {
                 break;
             }
         }

@@ -521,3 +521,16 @@ Perastage parses rider text by identifying sections, hang positions, fixture lin
 ## Peraviz MVR/GDTF visual fallback rule
 
 When loading MVR/GDTF content in Peraviz, dummy placeholder meshes must only be rendered if no real visual geometry exists for that node subtree. If a valid model (mesh/scene) is present in descendants, placeholder cubes/cones are removed to avoid double drawing.
+
+## Peraviz MVR geometry resolution rule
+
+When loading MVR content in Peraviz:
+
+1. Model references are resolved from the ZIP in a case-insensitive way using
+   normalized slash-separated paths.
+2. If a model has no extension, Peraviz now prefers `.glb`, then `.gltf`, and
+   finally `.3ds`.
+3. Primitive references (`primitive:*`) are treated as real geometry and mapped
+   to `asset_kind="primitive"` instead of forcing a file lookup.
+4. SymDef symbol geometry can emit primitives as well as file-backed
+   geometries, preserving symbol/local matrix composition.

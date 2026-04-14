@@ -1129,6 +1129,14 @@ func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
 	var sx: float = max(float(data.get("primitive_size_x", 0.1)), 0.001)
 	var sy: float = max(float(data.get("primitive_size_y", 0.1)), 0.001)
 	var sz: float = max(float(data.get("primitive_size_z", 0.1)), 0.001)
+	var primitive_axis: String = ""
+	if primitive_type.ends_with("_x"):
+		primitive_axis = "x"
+	elif primitive_type.ends_with("_y"):
+		primitive_axis = "y"
+	elif primitive_type.ends_with("_z"):
+		primitive_axis = "z"
+
 	var mesh_instance := MeshInstance3D.new()
 	if primitive_type.contains("sphere"):
 		var sphere := SphereMesh.new()
@@ -1137,9 +1145,20 @@ func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
 		mesh_instance.mesh = sphere
 	elif primitive_type.contains("cylinder"):
 		var cylinder := CylinderMesh.new()
-		cylinder.top_radius = max(sx, sy) * 0.5
-		cylinder.bottom_radius = max(sx, sy) * 0.5
-		cylinder.height = sz
+		if primitive_axis == "x":
+			cylinder.top_radius = max(sy, sz) * 0.5
+			cylinder.bottom_radius = max(sy, sz) * 0.5
+			cylinder.height = sx
+			mesh_instance.rotation_degrees.z = -90.0
+		elif primitive_axis == "z":
+			cylinder.top_radius = max(sx, sy) * 0.5
+			cylinder.bottom_radius = max(sx, sy) * 0.5
+			cylinder.height = sz
+			mesh_instance.rotation_degrees.x = 90.0
+		else:
+			cylinder.top_radius = max(sx, sz) * 0.5
+			cylinder.bottom_radius = max(sx, sz) * 0.5
+			cylinder.height = sy
 		mesh_instance.mesh = cylinder
 	elif primitive_type.contains("cone"):
 		var cone := CylinderMesh.new()
