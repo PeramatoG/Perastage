@@ -23,18 +23,20 @@ const CIRCULAR_MIN_POINTS: int = 16
 
 const GoboPolygonCleanupScript = preload("res://scripts/beam_renderers/gobo_polygon_cleanup.gd")
 
+var _shape_cache: Dictionary = {}
 var _mesh_cache: Dictionary = {}
 
 func clear_cache() -> void:
+	_shape_cache.clear()
 	_mesh_cache.clear()
 
-func build_beam_mesh(gobo_texture: Texture2D, near_radius: float, far_radius: float, beam_height: float, gobo_scale: float, gobo_rotation_deg: float, apply_edge_mask_correction: bool = true) -> ArrayMesh:
-	var shape_key: String = _shape_cache_key(gobo_texture, gobo_scale, gobo_rotation_deg)
-	var geometry_key: String = "%s_%.4f_%.4f_%.4f_%s" % [shape_key, near_radius, far_radius, beam_height, str(apply_edge_mask_correction)]
+func build_beam_mesh(gobo_texture: Texture2D, near_radius: float, far_radius: float, beam_height: float, gobo_scale: float, apply_edge_mask_correction: bool = true) -> ArrayMesh:
+	var shape_key: String = _shape_cache_key(gobo_texture, gobo_scale, apply_edge_mask_correction)
+	var geometry_key: String = "%s_%.4f_%.4f_%.4f" % [shape_key, near_radius, far_radius, beam_height]
 	if _mesh_cache.has(geometry_key):
 		return _mesh_cache[geometry_key] as ArrayMesh
 
-	var polygons: Array[PackedVector2Array] = _vectorize_gobo(gobo_texture, gobo_scale, gobo_rotation_deg, apply_edge_mask_correction)
+	var polygons: Array[PackedVector2Array] = _get_or_build_shape_base(gobo_texture, gobo_scale, apply_edge_mask_correction)
 	if polygons.is_empty():
 		polygons = [_build_fallback_circle()]
 
@@ -42,17 +44,24 @@ func build_beam_mesh(gobo_texture: Texture2D, near_radius: float, far_radius: fl
 	_mesh_cache[geometry_key] = mesh
 	return mesh
 
+func _get_or_build_shape_base(gobo_texture: Texture2D, gobo_scale: float, apply_edge_mask_correction: bool) -> Array[PackedVector2Array]:
+	var shape_key: String = _shape_cache_key(gobo_texture, gobo_scale, apply_edge_mask_correction)
+	if _shape_cache.has(shape_key):
+		return (_shape_cache[shape_key] as Array).duplicate(true) as Array[PackedVector2Array]
+	var polygons: Array[PackedVector2Array] = _vectorize_gobo(gobo_texture, gobo_scale, apply_edge_mask_correction)
+	_shape_cache[shape_key] = polygons.duplicate(true)
+	return polygons
 
-func _shape_cache_key(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_deg: float) -> String:
+func _shape_cache_key(gobo_texture: Texture2D, gobo_scale: float, apply_edge_mask_correction: bool) -> String:
 	if gobo_texture == null:
-		return "__fallback_shape"
-	return "__shape_%d_%.3f_%.3f" % [gobo_texture.get_rid().get_id(), gobo_scale, wrapf(gobo_rotation_deg, 0.0, 360.0)]
+		return "__fallback_shape_%s" % [str(apply_edge_mask_correction)]
+	return "__shape_%d_%.3f_%s" % [gobo_texture.get_rid().get_id(), gobo_scale, str(apply_edge_mask_correction)]
 
-func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_deg: float, apply_edge_mask_correction: bool = true) -> Array[PackedVector2Array]:
+func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, apply_edge_mask_correction: bool = true) -> Array[PackedVector2Array]:
 	if gobo_texture == null:
 		return []
 
-	var native_polygons: Array[PackedVector2Array] = _vectorize_from_texture_metadata(gobo_texture, gobo_scale, gobo_rotation_deg)
+	var native_polygons: Array[PackedVector2Array] = _vectorize_from_texture_metadata(gobo_texture, gobo_scale)
 	if not native_polygons.is_empty():
 		var cleaned_native: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons(native_polygons, MIN_POLYGON_AREA)
 		if not cleaned_native.is_empty():
@@ -86,9 +95,6 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 	var inv_width: float = 1.0 / max(float(image.get_width()), 1.0)
 	var inv_height: float = 1.0 / max(float(image.get_height()), 1.0)
 	var center := Vector2(0.5, 0.5)
-	var rotation_rad: float = deg_to_rad(wrapf(gobo_rotation_deg, 0.0, 360.0))
-	var cos_r: float = cos(rotation_rad)
-	var sin_r: float = sin(rotation_rad)
 	var safe_scale: float = max(gobo_scale, 0.05)
 
 	for polygon_variant in all_polygons:
@@ -101,11 +107,7 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 		for point in polygon:
 			var uv := Vector2(point.x * inv_width, point.y * inv_height)
 			var local := (uv - center) * (2.0 / safe_scale)
-			var rotated := Vector2(
-				(local.x * cos_r) - (local.y * sin_r),
-				(local.x * sin_r) + (local.y * cos_r)
-			)
-			transformed.append(Vector2(rotated.x, -rotated.y))
+			transformed.append(Vector2(local.x, -local.y))
 		var area: float = abs(_signed_polygon_area(transformed))
 		if area < MIN_POLYGON_AREA:
 			continue
@@ -126,7 +128,7 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 	return _reduce_polygon_point_count(regularized_output, MAX_TOTAL_VECTOR_POINTS)
 
 
-func _vectorize_from_texture_metadata(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_deg: float) -> Array[PackedVector2Array]:
+func _vectorize_from_texture_metadata(gobo_texture: Texture2D, gobo_scale: float) -> Array[PackedVector2Array]:
 	if gobo_texture == null or not gobo_texture.has_meta(GOBO_VECTOR_POLYGONS_META_KEY):
 		return []
 	var raw_polygons: Array = gobo_texture.get_meta(GOBO_VECTOR_POLYGONS_META_KEY, [])
@@ -138,9 +140,6 @@ func _vectorize_from_texture_metadata(gobo_texture: Texture2D, gobo_scale: float
 	var inv_width: float = 1.0 / max(float(source_width), 1.0)
 	var inv_height: float = 1.0 / max(float(source_height), 1.0)
 	var center := Vector2(0.5, 0.5)
-	var rotation_rad: float = deg_to_rad(wrapf(gobo_rotation_deg, 0.0, 360.0))
-	var cos_r: float = cos(rotation_rad)
-	var sin_r: float = sin(rotation_rad)
 	var safe_scale: float = max(gobo_scale, 0.05)
 
 	var normalized: Array[Dictionary] = []
@@ -154,11 +153,7 @@ func _vectorize_from_texture_metadata(gobo_texture: Texture2D, gobo_scale: float
 		for point in polygon:
 			var uv := Vector2(point.x * inv_width, point.y * inv_height)
 			var local := (uv - center) * (2.0 / safe_scale)
-			var rotated := Vector2(
-				(local.x * cos_r) - (local.y * sin_r),
-				(local.x * sin_r) + (local.y * cos_r)
-			)
-			transformed.append(Vector2(rotated.x, -rotated.y))
+			transformed.append(Vector2(local.x, -local.y))
 		var area: float = abs(_signed_polygon_area(transformed))
 		if area < MIN_POLYGON_AREA:
 			continue
