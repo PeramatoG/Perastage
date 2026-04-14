@@ -1121,6 +1121,11 @@ func _build_3ds_mesh(mesh_data: Dictionary, flip_orientation: bool = false) -> A
 		base_color_material.albedo_color = material_base_color
 		base_color_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 		array_mesh.surface_set_material(0, base_color_material)
+	else:
+		var textured_fallback_material := StandardMaterial3D.new()
+		textured_fallback_material.albedo_color = Color(0.2, 0.2, 0.2, 1.0)
+		textured_fallback_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		array_mesh.surface_set_material(0, textured_fallback_material)
 
 	return array_mesh
 
