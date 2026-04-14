@@ -22,6 +22,9 @@ const DEFAULT_SETTINGS := {
 	"haze_density_multiplier": 0.22,
 	"gobo_scale": 1.0,
 	"gobo_rotation_deg": 0.0,
+	"beam_gobo_alignment_rotation_deg": 0.0,
+	"beam_gobo_mirror_x": true,
+	"beam_gobo_mirror_z": false,
 	"lens_offset_m": 0.015,
 	"near_offset": 0.015,
 	"lens_shift_x": 0.0,
@@ -51,8 +54,6 @@ const DEFAULT_SETTINGS := {
 }
 
 var _settings: Dictionary = DEFAULT_SETTINGS.duplicate(true)
-var _ambient_slider: HSlider
-var _ambient_value_label: Label
 var _spot_slider: HSlider
 var _spot_value_label: Label
 var _beam_slider: HSlider
@@ -119,7 +120,6 @@ func _build_ui() -> void:
 	scroll.add_child(container)
 
 	_add_section_label(container, "Renderer")
-	_ambient_slider = _add_slider_row(container, "Ambient light", "ambient_multiplier", 0.0, 3.0, 0.01)
 	_spot_slider = _add_slider_row(container, "Spot intensity", "spot_multiplier", 0.0, 3.0, 0.01)
 	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 100.0, 0.01)
 	_bloom_slider = _add_slider_row(container, "Bloom", "bloom_multiplier", 0.0, 3.0, 0.01)
@@ -207,8 +207,6 @@ func _add_slider_row(parent: VBoxContainer,
 	row.add_child(value_label)
 
 	match key:
-		"ambient_multiplier":
-			_ambient_value_label = value_label
 		"spot_multiplier":
 			_spot_value_label = value_label
 		"beam_multiplier":
@@ -259,7 +257,6 @@ func _add_toggle_row(parent: VBoxContainer, label_text: String, key: String) -> 
 	_toggle_controls[key] = toggle
 
 func _apply_settings_to_controls() -> void:
-	_ambient_slider.value = float(_settings.get("ambient_multiplier", 0.08))
 	_spot_slider.value = float(_settings.get("spot_multiplier", 1.0))
 	_beam_slider.value = float(_settings.get("beam_multiplier", 20.0))
 	_bloom_slider.value = float(_settings.get("bloom_multiplier", 0.0))
@@ -307,7 +304,6 @@ func _on_environment_preset_selected(index: int) -> void:
 	_emit_settings_changed()
 
 func _update_value_labels() -> void:
-	_ambient_value_label.text = "%.2f" % float(_settings.get("ambient_multiplier", 0.08))
 	_spot_value_label.text = "%.2f" % float(_settings.get("spot_multiplier", 1.0))
 	_beam_value_label.text = "%.2f" % float(_settings.get("beam_multiplier", 20.0))
 	_bloom_value_label.text = "%.2f" % float(_settings.get("bloom_multiplier", 0.0))
