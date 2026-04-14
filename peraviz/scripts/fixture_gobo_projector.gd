@@ -23,6 +23,7 @@ const GOBO_WHEEL_SPIN_META_KEY: String = "peraviz_gobo_wheel_spin"
 const GOBO_LAST_UPDATE_MSEC_META_KEY: String = "peraviz_gobo_last_update_msec"
 const GOBO_APPLIED_ROTATION_DEG_META_KEY: String = "peraviz_gobo_applied_rotation_deg"
 const GOBO_WHEEL_MODE_META_KEY: String = "peraviz_gobo_wheel_mode"
+const GOBO_APPLIED_STATE_META_KEY: String = "peraviz_gobo_applied_state"
 const GOBO_INDEX_MAX_DEG: float = 360.0
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
 const GOBO_ROTATION_DEBUG_DEFAULT: bool = false
@@ -42,18 +43,16 @@ func clear_cache() -> void:
 func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	if light == null or not is_instance_valid(light):
 		return false
+	var previous_applied_state: Dictionary = light.get_meta(GOBO_APPLIED_STATE_META_KEY, {})
+	if previous_applied_state is not Dictionary:
+		previous_applied_state = {}
 	var previous_meta_texture: Texture2D = null
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	light.set_meta(FALLBACK_GOBO_META_KEY, false)
-	if not bool(controls.get("has_gobo", false)):
-		var fallback_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
-		_apply_gobo_rotation_to_light(light, fallback_rotation_deg)
-		light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, fallback_rotation_deg)
-		return _apply_vector_fallback_gobo(light, previous_meta_texture, controls)
-
 	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
-	if runtime_bindings.is_empty():
+	var has_runtime_gobo: bool = bool(controls.get("has_gobo", false))
+	if has_runtime_gobo and runtime_bindings.is_empty():
 		var fallback_raw_8bit: int = _resolve_gobo_raw_8bit(controls)
 		runtime_bindings = [{
 			"raw_8bit": fallback_raw_8bit,
@@ -63,41 +62,77 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 
 	var delta_sec: float = _resolve_elapsed_seconds(light, controls)
 	var source_textures: Array[Texture2D] = []
+	var source_texture_cache_keys: PackedStringArray = PackedStringArray()
+	var wheel_slot_state: Dictionary = {}
+	var wheel_mode_state: Dictionary = {}
 	var global_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
 	var projected_rotation_deg: float = global_rotation_deg
 	var has_bound_wheel_rotation: bool = false
 
-	for wheel in runtime_bindings:
-		if wheel is not Dictionary:
-			continue
-		var slot_index: int = int(wheel.get("slot_index", 0))
-		if slot_index <= 0:
-			continue
-		var wheel_controls := {
-			"gobo_slots": wheel.get("slots", []),
-		}
-		var gobo_texture: Texture2D = _resolve_gobo_texture_for_slot(wheel_controls, slot_index)
-		if gobo_texture == null:
-			continue
+	if has_runtime_gobo:
+		for wheel in runtime_bindings:
+			if wheel is not Dictionary:
+				continue
+			var slot_index: int = int(wheel.get("slot_index", 0))
+			if slot_index <= 0:
+				continue
+			var wheel_key: String = _resolve_wheel_cache_key(wheel)
+			wheel_slot_state[wheel_key] = slot_index
+			var wheel_controls := {
+				"gobo_slots": wheel.get("slots", []),
+			}
+			var texture_entry: Dictionary = _resolve_gobo_texture_entry_for_slot(wheel_controls, slot_index)
+			var gobo_texture: Texture2D = texture_entry.get("texture", null) as Texture2D
+			if gobo_texture == null:
+				continue
+			source_texture_cache_keys.append(str(texture_entry.get("cache_key", "")))
 
-		var wheel_rotation_deg: float = _resolve_wheel_rotation_deg(light, controls, wheel, global_rotation_deg, delta_sec)
-		if _wheel_owns_rotation_control(wheel):
-			projected_rotation_deg = wheel_rotation_deg
-			has_bound_wheel_rotation = true
-		elif not has_bound_wheel_rotation:
-			projected_rotation_deg = wheel_rotation_deg
-		source_textures.append(gobo_texture)
+			var wheel_rotation_deg: float = _resolve_wheel_rotation_deg(light, controls, wheel, global_rotation_deg, delta_sec)
+			var behavior: int = int(wheel.get("behavior", GOBO_BEHAVIOR_FIXED))
+			var supports_index: bool = bool(wheel.get("supports_index", false)) or behavior == GOBO_BEHAVIOR_INDEX
+			var supports_rotation: bool = bool(wheel.get("supports_rotation", false)) or behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE
+			wheel_mode_state[wheel_key] = _resolve_wheel_effect_mode(behavior, supports_index, supports_rotation)
+			if _wheel_owns_rotation_control(wheel):
+				projected_rotation_deg = wheel_rotation_deg
+				has_bound_wheel_rotation = true
+			elif not has_bound_wheel_rotation:
+				projected_rotation_deg = wheel_rotation_deg
+			source_textures.append(gobo_texture)
 
+	var composed_texture_cache_key: String = _build_composed_gobo_cache_key(source_texture_cache_keys)
+	var prefer_native_fog_projector: bool = bool(controls.get("prefer_native_fog_projector", true))
+	var has_composed_texture: bool = not source_textures.is_empty()
+	var mode: String = "fallback_vector"
+	if has_runtime_gobo and has_composed_texture:
+		mode = "runtime_slots"
+	var next_applied_state: Dictionary = {
+		"mode": mode,
+		"has_gobo": has_runtime_gobo,
+		"wheel_slot_index_by_wheel": wheel_slot_state,
+		"wheel_mode_by_wheel": wheel_mode_state,
+		"texture_cache_key": composed_texture_cache_key,
+		"gobo_scale": float(controls.get("gobo_scale", GOBO_DEFAULT_SCALE)),
+		"prefer_native_fog_projector": prefer_native_fog_projector,
+		"has_composed_texture": has_composed_texture,
+	}
+	var selection_or_composition_changed: bool = previous_applied_state != next_applied_state
+	if not selection_or_composition_changed:
+		_apply_gobo_rotation_only(light, projected_rotation_deg, next_applied_state)
+		return false
+
+	# Expensive path: texture slot/composition changed.
 	if source_textures.is_empty():
-		return _apply_vector_fallback_gobo(light, previous_meta_texture, controls)
+		_apply_vector_fallback_gobo(light, previous_meta_texture, controls)
+	else:
+		var projected_gobo: Texture2D = _compose_gobo_textures(source_textures, composed_texture_cache_key)
+		_apply_gobo_visuals(light, projected_gobo, controls)
+		light.set_meta(GOBO_TEXTURE_META_KEY, projected_gobo)
+		light.set_meta(FALLBACK_GOBO_META_KEY, false)
 
-	var projected_gobo: Texture2D = _compose_gobo_textures(source_textures)
-	_apply_gobo_visuals(light, projected_gobo, controls)
-	light.set_meta(GOBO_TEXTURE_META_KEY, projected_gobo)
-	light.set_meta(FALLBACK_GOBO_META_KEY, false)
-	_apply_gobo_rotation_to_light(light, projected_rotation_deg)
-	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, projected_rotation_deg)
-	return projected_gobo != previous_meta_texture
+	_apply_gobo_rotation_only(light, projected_rotation_deg, next_applied_state)
+	var previous_topology_signature: String = _topology_signature_from_state(previous_applied_state)
+	var next_topology_signature: String = _topology_signature_from_state(next_applied_state)
+	return previous_topology_signature != next_topology_signature
 
 func _resolve_elapsed_seconds(light: SpotLight3D, controls: Dictionary) -> float:
 	if controls.has("frame_delta_sec"):
@@ -295,8 +330,23 @@ func _clear_gobo_visuals(light: SpotLight3D) -> void:
 	_remove_gobo_plane(light)
 	_apply_gobo_rotation_to_light(light, GOBO_DEFAULT_ROTATION_DEG)
 	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, GOBO_DEFAULT_ROTATION_DEG)
+	light.remove_meta(GOBO_APPLIED_STATE_META_KEY)
 	light.remove_meta(GOBO_WHEEL_SPIN_META_KEY)
 	light.remove_meta(GOBO_WHEEL_MODE_META_KEY)
+
+func _apply_gobo_rotation_only(light: SpotLight3D, projected_rotation_deg: float, applied_state: Dictionary) -> void:
+	_apply_gobo_rotation_to_light(light, projected_rotation_deg)
+	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, projected_rotation_deg)
+	light.set_meta(GOBO_APPLIED_STATE_META_KEY, applied_state.duplicate(true))
+
+func _topology_signature_from_state(applied_state: Dictionary) -> String:
+	if applied_state.is_empty():
+		return ""
+	return "%s|%s|%s" % [
+		str(applied_state.get("mode", "")),
+		str(bool(applied_state.get("prefer_native_fog_projector", true))),
+		str(bool(applied_state.get("has_composed_texture", false))),
+	]
 
 func _ensure_gobo_plane(light: SpotLight3D) -> MeshInstance3D:
 	if light.has_meta(GOBO_PLANE_META_KEY):
@@ -355,7 +405,7 @@ func _resolve_active_gobo_slot_index(controls: Dictionary, gobo_raw_8bit: int) -
 		return -1
 	return int(DmxGoboRangeResolverScript.resolve_active_range(gobo_raw_8bit, gobo_ranges).get("slot_index", -1))
 
-func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Texture2D:
+func _resolve_gobo_texture_entry_for_slot(controls: Dictionary, slot_index: int) -> Dictionary:
 	var gobo_slots: Array = controls.get("gobo_slots", [])
 	for item in gobo_slots:
 		if item is not Dictionary:
@@ -364,20 +414,26 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 			continue
 		var image_path: String = str(item.get("image_path", ""))
 		if image_path.is_empty():
-			return null
+			return {}
 		if _texture_cache.has(image_path):
-			return _texture_cache[image_path] as Texture2D
+			return {
+				"texture": _texture_cache[image_path] as Texture2D,
+				"cache_key": image_path,
+			}
 		var image := Image.new()
 		var load_error: Error = image.load(image_path)
 		if load_error != OK:
-			return null
+			return {}
 		if image.get_format() != Image.FORMAT_RGBA8:
 			image.convert(Image.FORMAT_RGBA8)
 		var texture: ImageTexture = ImageTexture.create_from_image(image)
 		_apply_vector_metadata_from_slot(texture, item)
 		_texture_cache[image_path] = texture
-		return texture
-	return null
+		return {
+			"texture": texture,
+			"cache_key": image_path,
+		}
+	return {}
 
 
 
@@ -410,17 +466,24 @@ func _resolve_vector_fallback_gobo_texture() -> Texture2D:
 	_texture_cache[VECTOR_FALLBACK_GOBO_CACHE_KEY] = texture
 	return texture
 
-func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
+func _build_composed_gobo_cache_key(texture_cache_keys: PackedStringArray) -> String:
+	if texture_cache_keys.is_empty():
+		return ""
+	return "__composed_gobo_" + "_".join(texture_cache_keys)
+
+func _compose_gobo_textures(textures: Array[Texture2D], composed_cache_key: String = "") -> Texture2D:
 	if textures.is_empty():
 		return null
 	if textures.size() == 1:
 		return textures[0]
 
-	var key_parts: PackedStringArray = PackedStringArray()
-	for texture in textures:
-		if texture != null:
-			key_parts.append(str(texture.get_rid().get_id()))
-	var cache_key: String = "__composed_gobo_" + "_".join(key_parts)
+	var cache_key: String = composed_cache_key
+	if cache_key.is_empty():
+		var key_parts: PackedStringArray = PackedStringArray()
+		for texture in textures:
+			if texture != null:
+				key_parts.append(str(texture.get_rid().get_id()))
+		cache_key = "__composed_gobo_" + "_".join(key_parts)
 	if _texture_cache.has(cache_key):
 		return _texture_cache[cache_key] as Texture2D
 

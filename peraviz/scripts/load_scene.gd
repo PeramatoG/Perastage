@@ -1975,13 +1975,13 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	beam_params["use_native_fog_projector_gobos"] = bool(_visual_settings.get("use_native_fog_projector_gobos", true))
 	beam_params["volumetric_fog_density"] = float(_visual_settings.get("volumetric_fog_density", 0.0))
 	beam_params["intensity_max"] = BEAM_INTENSITY_MAX
-	var gobo_projection_changed: bool = false
+	var gobo_topology_changed: bool = false
 	if _fixture_gobo_projector != null:
 		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(controls, _visual_settings, beam_defaults)
-		gobo_projection_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
+		gobo_topology_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
 		var applied_gobo_rotation_deg: float = float(light.get_meta("peraviz_gobo_applied_rotation_deg", beam_params.get("gobo_rotation_deg", 0.0)))
 		beam_params["gobo_rotation_deg"] = applied_gobo_rotation_deg
-	if gobo_projection_changed:
+	if gobo_topology_changed:
 		_cleanup_light_beam_renderers(light)
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 12.0)) * float(_visual_settings.get("haze_density_multiplier", 0.22))
 	_update_beam_for_light(light, beam_params)
