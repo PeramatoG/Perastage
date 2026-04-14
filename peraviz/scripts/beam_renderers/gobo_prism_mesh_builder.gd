@@ -25,10 +25,12 @@ const GoboPolygonCleanupScript = preload("res://scripts/beam_renderers/gobo_poly
 
 var _shape_cache: Dictionary = {}
 var _mesh_cache: Dictionary = {}
+var _normalized_polygon_cache: Dictionary = {}
 
 func clear_cache() -> void:
 	_shape_cache.clear()
 	_mesh_cache.clear()
+	_normalized_polygon_cache.clear()
 
 func build_beam_mesh(gobo_texture: Texture2D, near_radius: float, far_radius: float, beam_height: float, gobo_scale: float, apply_edge_mask_correction: bool = true) -> ArrayMesh:
 	var shape_key: String = _shape_cache_key(gobo_texture, gobo_scale, apply_edge_mask_correction)
@@ -61,14 +63,57 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, apply_edge_mask
 	if gobo_texture == null:
 		return []
 
-	var native_polygons: Array[PackedVector2Array] = _vectorize_from_texture_metadata(gobo_texture, gobo_scale)
+	var native_polygons: Array[PackedVector2Array] = _vectorize_from_texture_metadata(gobo_texture)
 	if not native_polygons.is_empty():
-		var cleaned_native: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons(native_polygons, MIN_POLYGON_AREA)
+		var cleaned_native: Array[PackedVector2Array] = _finalize_vector_polygons(native_polygons, gobo_scale)
 		if not cleaned_native.is_empty():
 			if DEBUG_GOBO_VECTORIZATION:
 				print("[PeravizGoboVectorization] source=metadata polygons=", cleaned_native.size(), " points=", _count_polygon_points(cleaned_native))
-			return _reduce_polygon_point_count(cleaned_native, MAX_TOTAL_VECTOR_POINTS)
+			return cleaned_native
 
+	var normalized_polygons: Array[PackedVector2Array] = _get_or_build_normalized_raster_polygons(gobo_texture, apply_edge_mask_correction)
+	if normalized_polygons.is_empty():
+		return []
+	return _finalize_vector_polygons(normalized_polygons, gobo_scale)
+
+
+func _vectorize_from_texture_metadata(gobo_texture: Texture2D) -> Array[PackedVector2Array]:
+	if gobo_texture == null or not gobo_texture.has_meta(GOBO_VECTOR_POLYGONS_META_KEY):
+		return []
+	var raw_polygons: Array = gobo_texture.get_meta(GOBO_VECTOR_POLYGONS_META_KEY, [])
+	var source_width: int = int(gobo_texture.get_meta(GOBO_VECTOR_WIDTH_META_KEY, 0))
+	var source_height: int = int(gobo_texture.get_meta(GOBO_VECTOR_HEIGHT_META_KEY, 0))
+	if source_width <= 0 or source_height <= 0 or raw_polygons.is_empty():
+		return []
+
+	var inv_width: float = 1.0 / max(float(source_width), 1.0)
+	var inv_height: float = 1.0 / max(float(source_height), 1.0)
+	var normalized: Array[PackedVector2Array] = []
+	for polygon_variant in raw_polygons:
+		if polygon_variant is not PackedVector2Array:
+			continue
+		var polygon: PackedVector2Array = polygon_variant as PackedVector2Array
+		if polygon.size() < 3:
+			continue
+		var normalized_polygon: PackedVector2Array = _normalize_polygon_to_local_space(polygon, inv_width, inv_height)
+		if normalized_polygon.size() >= 3:
+			normalized.append(normalized_polygon)
+	return normalized
+
+func _get_or_build_normalized_raster_polygons(gobo_texture: Texture2D, apply_edge_mask_correction: bool) -> Array[PackedVector2Array]:
+	var normalization_key: String = _normalized_polygon_cache_key(gobo_texture, apply_edge_mask_correction)
+	if _normalized_polygon_cache.has(normalization_key):
+		return (_normalized_polygon_cache[normalization_key] as Array).duplicate(true) as Array[PackedVector2Array]
+	var normalized_polygons: Array[PackedVector2Array] = _vectorize_texture_to_normalized_polygons(gobo_texture, apply_edge_mask_correction)
+	_normalized_polygon_cache[normalization_key] = normalized_polygons.duplicate(true)
+	return normalized_polygons
+
+func _normalized_polygon_cache_key(gobo_texture: Texture2D, apply_edge_mask_correction: bool) -> String:
+	if gobo_texture == null:
+		return "__normalized_fallback_%s_%.3f" % [str(apply_edge_mask_correction), VECTORIZATION_ALPHA_THRESHOLD]
+	return "__normalized_%d_%s_%.3f" % [gobo_texture.get_rid().get_id(), str(apply_edge_mask_correction), VECTORIZATION_ALPHA_THRESHOLD]
+
+func _vectorize_texture_to_normalized_polygons(gobo_texture: Texture2D, apply_edge_mask_correction: bool) -> Array[PackedVector2Array]:
 	var image: Image = gobo_texture.get_image()
 	if image == null:
 		return []
@@ -81,7 +126,6 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, apply_edge_mask
 		image.resize(target_width, target_height, Image.INTERPOLATE_BILINEAR)
 	if apply_edge_mask_correction:
 		_prepare_binary_mask_image(image)
-
 	if DEBUG_GOBO_VECTORIZATION:
 		print("[PeravizGoboVectorization] source=raster texture=", gobo_texture.get_rid().get_id())
 
@@ -90,85 +134,64 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, apply_edge_mask
 	var all_polygons: Array = bitmap.opaque_to_polygons(Rect2i(0, 0, image.get_width(), image.get_height()), VECTORIZATION_EPSILON)
 	if all_polygons.is_empty():
 		return []
-
-	var normalized: Array[Dictionary] = []
 	var inv_width: float = 1.0 / max(float(image.get_width()), 1.0)
 	var inv_height: float = 1.0 / max(float(image.get_height()), 1.0)
-	var center := Vector2(0.5, 0.5)
-	var safe_scale: float = max(gobo_scale, 0.05)
-
+	var normalized: Array[PackedVector2Array] = []
 	for polygon_variant in all_polygons:
 		if polygon_variant is not PackedVector2Array:
 			continue
 		var polygon: PackedVector2Array = polygon_variant as PackedVector2Array
 		if polygon.size() < 3:
 			continue
-		var transformed := PackedVector2Array()
-		for point in polygon:
-			var uv := Vector2(point.x * inv_width, point.y * inv_height)
-			var local := (uv - center) * (2.0 / safe_scale)
-			transformed.append(Vector2(local.x, -local.y))
-		var area: float = abs(_signed_polygon_area(transformed))
-		if area < MIN_POLYGON_AREA:
-			continue
-		normalized.append({"polygon": transformed, "area": area})
+		var normalized_polygon: PackedVector2Array = _normalize_polygon_to_local_space(polygon, inv_width, inv_height)
+		if normalized_polygon.size() >= 3:
+			normalized.append(normalized_polygon)
+	return normalized
 
-	if normalized.is_empty():
+func _normalize_polygon_to_local_space(polygon: PackedVector2Array, inv_width: float, inv_height: float) -> PackedVector2Array:
+	var center := Vector2(0.5, 0.5)
+	var normalized_polygon := PackedVector2Array()
+	for point in polygon:
+		var uv := Vector2(point.x * inv_width, point.y * inv_height)
+		var local := (uv - center) * 2.0
+		normalized_polygon.append(Vector2(local.x, -local.y))
+	return normalized_polygon
+
+func _finalize_vector_polygons(normalized_polygons: Array[PackedVector2Array], gobo_scale: float) -> Array[PackedVector2Array]:
+	if normalized_polygons.is_empty():
 		return []
-	normalized.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return float(a.get("area", 0.0)) > float(b.get("area", 0.0))
-	)
-	var output: Array[PackedVector2Array] = []
-	for item in normalized:
-		output.append(item.get("polygon", PackedVector2Array()) as PackedVector2Array)
-	var cleaned_output: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons(output, MIN_POLYGON_AREA)
+	var safe_scale: float = max(gobo_scale, 0.05)
+	var scaled_polygons: Array[PackedVector2Array] = []
+	for polygon in normalized_polygons:
+		var scaled_polygon := PackedVector2Array()
+		for point in polygon:
+			scaled_polygon.append(point / safe_scale)
+		scaled_polygons.append(scaled_polygon)
+	var cleaned_output: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons(scaled_polygons, MIN_POLYGON_AREA)
 	if cleaned_output.is_empty():
 		return []
 	var regularized_output: Array[PackedVector2Array] = _regularize_near_circular_polygons(cleaned_output)
-	return _reduce_polygon_point_count(regularized_output, MAX_TOTAL_VECTOR_POINTS)
+	var reduced_output: Array[PackedVector2Array] = _reduce_polygon_point_count(regularized_output, MAX_TOTAL_VECTOR_POINTS)
+	return _sort_polygons_by_area_descending(reduced_output)
 
-
-func _vectorize_from_texture_metadata(gobo_texture: Texture2D, gobo_scale: float) -> Array[PackedVector2Array]:
-	if gobo_texture == null or not gobo_texture.has_meta(GOBO_VECTOR_POLYGONS_META_KEY):
+func _sort_polygons_by_area_descending(polygons: Array[PackedVector2Array]) -> Array[PackedVector2Array]:
+	if polygons.is_empty():
 		return []
-	var raw_polygons: Array = gobo_texture.get_meta(GOBO_VECTOR_POLYGONS_META_KEY, [])
-	var source_width: int = int(gobo_texture.get_meta(GOBO_VECTOR_WIDTH_META_KEY, 0))
-	var source_height: int = int(gobo_texture.get_meta(GOBO_VECTOR_HEIGHT_META_KEY, 0))
-	if source_width <= 0 or source_height <= 0 or raw_polygons.is_empty():
-		return []
-
-	var inv_width: float = 1.0 / max(float(source_width), 1.0)
-	var inv_height: float = 1.0 / max(float(source_height), 1.0)
-	var center := Vector2(0.5, 0.5)
-	var safe_scale: float = max(gobo_scale, 0.05)
-
-	var normalized: Array[Dictionary] = []
-	for polygon_variant in raw_polygons:
-		if polygon_variant is not PackedVector2Array:
-			continue
-		var polygon: PackedVector2Array = polygon_variant as PackedVector2Array
-		if polygon.size() < 3:
-			continue
-		var transformed := PackedVector2Array()
-		for point in polygon:
-			var uv := Vector2(point.x * inv_width, point.y * inv_height)
-			var local := (uv - center) * (2.0 / safe_scale)
-			transformed.append(Vector2(local.x, -local.y))
-		var area: float = abs(_signed_polygon_area(transformed))
+	var sorted: Array[Dictionary] = []
+	for polygon in polygons:
+		var area: float = abs(_signed_polygon_area(polygon))
 		if area < MIN_POLYGON_AREA:
 			continue
-		normalized.append({"polygon": transformed, "area": area})
-
-	if normalized.is_empty():
+		sorted.append({"polygon": polygon, "area": area})
+	if sorted.is_empty():
 		return []
-	normalized.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+	sorted.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return float(a.get("area", 0.0)) > float(b.get("area", 0.0))
 	)
 	var output: Array[PackedVector2Array] = []
-	for item in normalized:
+	for item in sorted:
 		output.append(item.get("polygon", PackedVector2Array()) as PackedVector2Array)
-	var cleaned_output: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons(output, MIN_POLYGON_AREA)
-	return _regularize_near_circular_polygons(cleaned_output)
+	return output
 
 func _regularize_near_circular_polygons(polygons: Array[PackedVector2Array]) -> Array[PackedVector2Array]:
 	var output: Array[PackedVector2Array] = []
@@ -249,11 +272,11 @@ func _reduce_polygon_point_count(polygons: Array[PackedVector2Array], max_points
 			var simplified: PackedVector2Array = _simplify_closed_polygon(polygon, epsilon)
 			if simplified.size() < 3:
 				continue
-			var cleaned_simplified: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons([simplified], MIN_POLYGON_AREA)
-			if cleaned_simplified.is_empty():
+			var simplified_area: float = abs(_signed_polygon_area(simplified))
+			if simplified_area < MIN_POLYGON_AREA:
 				iteration.append(polygon)
 				continue
-			iteration.append(cleaned_simplified[0])
+			iteration.append(simplified)
 		reduced = iteration
 		epsilon *= POINT_REDUCTION_EPSILON_MULTIPLIER
 
