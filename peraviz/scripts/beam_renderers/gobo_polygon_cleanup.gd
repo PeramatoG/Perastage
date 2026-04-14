@@ -3,6 +3,7 @@ class_name GoboPolygonCleanup
 
 const NEAR_POINT_EPSILON: float = 0.0005
 const COLLINEAR_EPSILON: float = 0.00005
+const SHORT_EDGE_EPSILON: float = 0.001
 
 static func sanitize_polygons(polygons: Array[PackedVector2Array], min_area: float) -> Array[PackedVector2Array]:
 	var output: Array[PackedVector2Array] = []
@@ -20,7 +21,11 @@ static func _sanitize_single_polygon(polygon: PackedVector2Array, min_area: floa
 	if deduped.size() < 3:
 		return PackedVector2Array()
 
-	var simplified: PackedVector2Array = _remove_collinear_points(deduped)
+	var joined: PackedVector2Array = _collapse_short_edges(deduped)
+	if joined.size() < 3:
+		return PackedVector2Array()
+
+	var simplified: PackedVector2Array = _remove_collinear_points(joined)
 	if simplified.size() < 3:
 		return PackedVector2Array()
 
@@ -61,6 +66,27 @@ static func _remove_collinear_points(polygon: PackedVector2Array) -> PackedVecto
 		if cross > COLLINEAR_EPSILON:
 			cleaned.append(current)
 	return cleaned
+
+static func _collapse_short_edges(polygon: PackedVector2Array) -> PackedVector2Array:
+	if polygon.size() < 4:
+		return polygon
+
+	var collapsed: PackedVector2Array = PackedVector2Array(polygon)
+	var changed: bool = true
+	while changed and collapsed.size() >= 3:
+		changed = false
+		var count: int = collapsed.size()
+		for i in range(count):
+			var next_index: int = (i + 1) % count
+			if collapsed[i].distance_to(collapsed[next_index]) > SHORT_EDGE_EPSILON:
+				continue
+			if next_index == 0:
+				collapsed.remove_at(i)
+			else:
+				collapsed.remove_at(next_index)
+			changed = true
+			break
+	return _remove_near_duplicate_points(collapsed)
 
 static func _has_edge_crossings(polygon: PackedVector2Array) -> bool:
 	var count: int = polygon.size()
