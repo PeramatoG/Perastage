@@ -10,6 +10,7 @@
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_int32_array.hpp>
+#include <godot_cpp/variant/packed_vector2_array.hpp>
 #include <godot_cpp/variant/packed_vector3_array.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/vector3.hpp>
@@ -118,11 +119,17 @@ Array PeravizLoader::load_mvr(const String &path, bool peraviz_debug_baseline,
 Dictionary PeravizLoader::load_3ds_mesh_data(const String &path) const {
     PackedVector3Array vertices;
     PackedVector3Array normals;
+    PackedVector2Array texcoords;
     PackedInt32Array indices;
+    String texture_path;
+    bool has_material_base_color = false;
+    Vector3 material_base_color(1.0, 1.0, 1.0);
     String error;
 
     Dictionary out;
-    const bool ok = peraviz::load_3ds_mesh_data(path, vertices, normals, indices, error);
+    const bool ok = peraviz::load_3ds_mesh_data(path, vertices, normals, texcoords, indices,
+                                                texture_path, has_material_base_color,
+                                                material_base_color, error);
     out["ok"] = ok;
     if (!ok) {
         out["error"] = error;
@@ -131,7 +138,11 @@ Dictionary PeravizLoader::load_3ds_mesh_data(const String &path) const {
 
     out["vertices"] = vertices;
     out["normals"] = normals;
+    out["texcoords"] = texcoords;
     out["indices"] = indices;
+    out["texture_path"] = texture_path;
+    out["has_material_base_color"] = has_material_base_color;
+    out["material_base_color"] = material_base_color;
     return out;
 }
 

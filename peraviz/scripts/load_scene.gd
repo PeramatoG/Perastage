@@ -1073,7 +1073,12 @@ func _infer_asset_kind_from_extension(asset_path: String) -> String:
 func _build_3ds_mesh(mesh_data: Dictionary, flip_orientation: bool = false) -> ArrayMesh:
 	var vertices: PackedVector3Array = mesh_data.get("vertices", PackedVector3Array())
 	var normals: PackedVector3Array = mesh_data.get("normals", PackedVector3Array())
+	var texcoords: PackedVector2Array = mesh_data.get("texcoords", PackedVector2Array())
 	var indices: PackedInt32Array = mesh_data.get("indices", PackedInt32Array())
+	var texture_path: String = str(mesh_data.get("texture_path", ""))
+	var has_material_base_color: bool = bool(mesh_data.get("has_material_base_color", false))
+	var material_base_color_vec: Vector3 = mesh_data.get("material_base_color", Vector3.ONE)
+	var material_base_color: Color = Color(material_base_color_vec.x, material_base_color_vec.y, material_base_color_vec.z, 1.0)
 	if vertices.is_empty() or indices.is_empty():
 		return null
 
@@ -1090,10 +1095,38 @@ func _build_3ds_mesh(mesh_data: Dictionary, flip_orientation: bool = false) -> A
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = vertices
 	arrays[Mesh.ARRAY_NORMAL] = normals
+	if texcoords.size() == vertices.size():
+		arrays[Mesh.ARRAY_TEX_UV] = texcoords
 	arrays[Mesh.ARRAY_INDEX] = indices
 
 	var array_mesh := ArrayMesh.new()
 	array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+
+	if not texture_path.is_empty() and texcoords.size() == vertices.size():
+		var image := Image.new()
+		var image_error: Error = image.load(texture_path)
+		if image_error == OK:
+			if image.get_format() != Image.FORMAT_RGBA8:
+				image.convert(Image.FORMAT_RGBA8)
+			var texture: ImageTexture = ImageTexture.create_from_image(image)
+			var material := StandardMaterial3D.new()
+			material.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
+			material.albedo_texture = texture
+			material.cull_mode = BaseMaterial3D.CULL_DISABLED
+			array_mesh.surface_set_material(0, material)
+		else:
+			push_warning("[Peraviz] Failed to load 3DS texture image: %s (error=%d)" % [texture_path, image_error])
+	elif has_material_base_color:
+		var base_color_material := StandardMaterial3D.new()
+		base_color_material.albedo_color = material_base_color
+		base_color_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		array_mesh.surface_set_material(0, base_color_material)
+	else:
+		var textured_fallback_material := StandardMaterial3D.new()
+		textured_fallback_material.albedo_color = Color(0.2, 0.2, 0.2, 1.0)
+		textured_fallback_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		array_mesh.surface_set_material(0, textured_fallback_material)
+
 	return array_mesh
 
 

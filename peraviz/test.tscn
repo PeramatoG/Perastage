@@ -30,7 +30,7 @@ metallic_specular = 0.45
 roughness = 0.78
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
-size = Vector2(100, 100)
+size = Vector2(20000, 20000)
 
 [node name="Viewer" type="Node3D" unique_id=701090577]
 script = ExtResource("1_script")

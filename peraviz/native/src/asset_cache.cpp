@@ -102,6 +102,15 @@ bool is_supported_model_extension(const std::string &extension_lower) {
            extension_lower == ".stl";
 }
 
+bool is_supported_texture_or_scene_dependency_extension(const std::string &extension_lower) {
+    return extension_lower == ".png" || extension_lower == ".jpg" ||
+           extension_lower == ".jpeg" || extension_lower == ".bmp" ||
+           extension_lower == ".tga" || extension_lower == ".gif" ||
+           extension_lower == ".webp" || extension_lower == ".hdr" ||
+           extension_lower == ".dds" || extension_lower == ".ktx2" ||
+           extension_lower == ".mtl" || extension_lower == ".bin";
+}
+
 std::string gdtf_lookup_key(const std::string &archive_path) {
     const std::string normalized = trim_ascii(normalize_archive_path(archive_path));
     if (normalized.empty()) {
@@ -142,6 +151,19 @@ std::string hash_file_contents(const std::filesystem::path &path) {
     return ss.str();
 }
 
+std::string parent_archive_dir(const std::string &normalized_path) {
+    const std::filesystem::path path = std::filesystem::u8path(normalized_path);
+    const std::filesystem::path parent = path.parent_path();
+    if (parent.empty()) {
+        return {};
+    }
+    std::string value = normalize_archive_path(parent.u8string());
+    if (!value.empty() && value.back() != '/') {
+        value.push_back('/');
+    }
+    return value;
+}
+
 } // namespace
 
 namespace peraviz {
@@ -162,6 +184,44 @@ const std::filesystem::path &ZipAssetCache::cache_dir() const {
 
 int ZipAssetCache::extracted_assets() const {
     return static_cast<int>(extracted_.size());
+}
+
+static void extract_related_model_assets(ZipAssetCache &cache,
+                                         const std::filesystem::path &source_path,
+                                         const std::string &model_archive_path) {
+    const std::string normalized_model_path = normalize_archive_path(model_archive_path);
+    if (normalized_model_path.empty()) {
+        return;
+    }
+
+    const std::string model_dir = parent_archive_dir(normalized_model_path);
+    wxFileInputStream input(wxString::FromUTF8(source_path.u8string().c_str()));
+    if (!input.IsOk()) {
+        return;
+    }
+
+    wxZipInputStream zip(input);
+    std::unique_ptr<wxZipEntry> entry;
+    while ((entry.reset(zip.GetNextEntry())), entry) {
+        const std::string entry_name = normalize_archive_path(entry->GetName().ToUTF8().data());
+        if (entry_name.empty()) {
+            continue;
+        }
+        if (!model_dir.empty()) {
+            if (entry_name.rfind(model_dir, 0) != 0) {
+                continue;
+            }
+        } else if (entry_name.find('/') != std::string::npos) {
+            continue;
+        }
+
+        const std::string extension = path_extension_lower(entry_name);
+        if (!is_supported_texture_or_scene_dependency_extension(extension)) {
+            continue;
+        }
+
+        cache.ensure_extracted(entry_name);
+    }
 }
 
 std::string ZipAssetCache::ensure_extracted(const std::string &archive_relative_path) {
@@ -359,6 +419,7 @@ std::string ZipAssetCache::ensure_mvr_model_extracted(const std::string &model_r
 
     for (const std::string &candidate : candidates) {
         if (const std::string extracted = ensure_extracted(candidate); !extracted.empty()) {
+            extract_related_model_assets(*this, source_path_, candidate);
             return extracted;
         }
     }
@@ -394,6 +455,7 @@ std::string ZipAssetCache::ensure_mvr_model_extracted(const std::string &model_r
     if (!best_entry.has_value()) {
         return {};
     }
+    extract_related_model_assets(*this, source_path_, *best_entry);
     return ensure_extracted(*best_entry);
 }
 
@@ -435,6 +497,7 @@ std::string ZipAssetCache::ensure_gdtf_model_extracted(const std::string &model_
     for (const std::string &candidate : candidates) {
         const std::string extracted = ensure_extracted(candidate);
         if (!extracted.empty()) {
+            extract_related_model_assets(*this, source_path_, candidate);
             return extracted;
         }
     }
@@ -472,6 +535,7 @@ std::string ZipAssetCache::ensure_gdtf_model_extracted(const std::string &model_
         return {};
     }
 
+    extract_related_model_assets(*this, source_path_, *best_entry);
     return ensure_extracted(*best_entry);
 }
 
