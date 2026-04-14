@@ -1076,6 +1076,9 @@ func _build_3ds_mesh(mesh_data: Dictionary, flip_orientation: bool = false) -> A
 	var texcoords: PackedVector2Array = mesh_data.get("texcoords", PackedVector2Array())
 	var indices: PackedInt32Array = mesh_data.get("indices", PackedInt32Array())
 	var texture_path: String = str(mesh_data.get("texture_path", ""))
+	var has_material_base_color: bool = bool(mesh_data.get("has_material_base_color", false))
+	var material_base_color_vec: Vector3 = mesh_data.get("material_base_color", Vector3.ONE)
+	var material_base_color: Color = Color(material_base_color_vec.x, material_base_color_vec.y, material_base_color_vec.z, 1.0)
 	if vertices.is_empty() or indices.is_empty():
 		return null
 
@@ -1113,6 +1116,11 @@ func _build_3ds_mesh(mesh_data: Dictionary, flip_orientation: bool = false) -> A
 			array_mesh.surface_set_material(0, material)
 		else:
 			push_warning("[Peraviz] Failed to load 3DS texture image: %s (error=%d)" % [texture_path, image_error])
+	elif has_material_base_color:
+		var base_color_material := StandardMaterial3D.new()
+		base_color_material.albedo_color = material_base_color
+		base_color_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		array_mesh.surface_set_material(0, base_color_material)
 
 	return array_mesh
 

@@ -122,11 +122,14 @@ Dictionary PeravizLoader::load_3ds_mesh_data(const String &path) const {
     PackedVector2Array texcoords;
     PackedInt32Array indices;
     String texture_path;
+    bool has_material_base_color = false;
+    Vector3 material_base_color = Vector3.ONE;
     String error;
 
     Dictionary out;
     const bool ok = peraviz::load_3ds_mesh_data(path, vertices, normals, texcoords, indices,
-                                                texture_path, error);
+                                                texture_path, has_material_base_color,
+                                                material_base_color, error);
     out["ok"] = ok;
     if (!ok) {
         out["error"] = error;
@@ -138,6 +141,8 @@ Dictionary PeravizLoader::load_3ds_mesh_data(const String &path) const {
     out["texcoords"] = texcoords;
     out["indices"] = indices;
     out["texture_path"] = texture_path;
+    out["has_material_base_color"] = has_material_base_color;
+    out["material_base_color"] = material_base_color;
     return out;
 }
 

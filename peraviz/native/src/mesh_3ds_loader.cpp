@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -30,6 +31,20 @@ struct MeshData {
     std::vector<float> normals;
     std::vector<float> texcoords;
     std::string texture_path;
+    std::array<float, 3> material_base_color = {1.0F, 1.0F, 1.0F};
+    bool has_material_base_color = false;
+};
+
+struct FaceColorAccum {
+    double r = 0.0;
+    double g = 0.0;
+    double b = 0.0;
+    double weight = 0.0;
+};
+
+struct MaterialInfo {
+    std::array<float, 3> color = {1.0F, 1.0F, 1.0F};
+    bool has_color = false;
 };
 
 bool read_chunk(std::ifstream &file, Chunk &chunk) {
@@ -304,7 +319,11 @@ bool resolve_texture_path(const std::filesystem::path &model_dir,
 }
 
 void parse_material_block(std::ifstream &file, std::streampos material_end,
+                          std::unordered_map<std::string, MaterialInfo> &materials,
                           std::string &texture_filename) {
+    std::string material_name;
+    MaterialInfo material_info;
+
     while (file.tellg() < material_end) {
         Chunk chunk;
         if (!read_chunk(file, chunk)) {
@@ -313,7 +332,29 @@ void parse_material_block(std::ifstream &file, std::streampos material_end,
         const std::streampos data_start = file.tellg();
         const std::streampos next = data_start + static_cast<std::streamoff>(chunk.length - 6U);
         if (chunk.id == 0xA000) {
-            read_cstring(file, next);
+            material_name = read_cstring(file, next);
+        } else if (chunk.id == 0xA020) {
+            while (file.tellg() < next) {
+                Chunk color_chunk;
+                if (!read_chunk(file, color_chunk)) {
+                    break;
+                }
+                const std::streampos color_data_start = file.tellg();
+                const std::streampos color_next =
+                    color_data_start + static_cast<std::streamoff>(color_chunk.length - 6U);
+                if (color_chunk.id == 0x0010 || color_chunk.id == 0x0013) {
+                    file.read(reinterpret_cast<char *>(&material_info.color[0]), sizeof(float));
+                    file.read(reinterpret_cast<char *>(&material_info.color[1]), sizeof(float));
+                    file.read(reinterpret_cast<char *>(&material_info.color[2]), sizeof(float));
+                    material_info.has_color = true;
+                } else if (color_chunk.id == 0x0011 || color_chunk.id == 0x0012) {
+                    unsigned char rgb[3] = {255, 255, 255};
+                    file.read(reinterpret_cast<char *>(rgb), 3);
+                    material_info.color = {rgb[0] / 255.0F, rgb[1] / 255.0F, rgb[2] / 255.0F};
+                    material_info.has_color = true;
+                }
+                file.seekg(color_next);
+            }
         } else if (chunk.id == 0xA200) {
             while (file.tellg() < next) {
                 Chunk tex_chunk;
@@ -334,10 +375,16 @@ void parse_material_block(std::ifstream &file, std::streampos material_end,
         }
         file.seekg(next);
     }
+
+    if (!material_name.empty()) {
+        materials[material_name] = material_info;
+    }
 }
 
 void parse_mesh_chunk(std::ifstream &file, std::streampos mesh_end, MeshData &mesh,
                       size_t vertex_base,
+                      const std::unordered_map<std::string, MaterialInfo> &materials,
+                      FaceColorAccum &color_accum,
                       std::string &texture_filename) {
     size_t object_vertex_start = vertex_base;
     size_t object_vertex_count = 0;
@@ -397,8 +444,14 @@ void parse_mesh_chunk(std::ifstream &file, std::streampos mesh_end, MeshData &me
                     const std::string material_name = read_cstring(file, sub_next);
                     uint16_t face_count = 0;
                     file.read(reinterpret_cast<char *>(&face_count), sizeof(face_count));
-                    (void)material_name;
-                    (void)face_count;
+                    auto material_it = materials.find(material_name);
+                    if (material_it != materials.end() && material_it->second.has_color) {
+                        const std::array<float, 3> &c = material_it->second.color;
+                        color_accum.r += static_cast<double>(c[0]) * face_count;
+                        color_accum.g += static_cast<double>(c[1]) * face_count;
+                        color_accum.b += static_cast<double>(c[2]) * face_count;
+                        color_accum.weight += face_count;
+                    }
                 }
                 file.seekg(sub_next);
             }
@@ -438,6 +491,8 @@ bool load_3ds(const std::string &path, MeshData &mesh) {
     }
 
     std::string texture_filename;
+    FaceColorAccum color_accum;
+    std::unordered_map<std::string, MaterialInfo> materials;
     const std::filesystem::path model_path = std::filesystem::u8path(path);
     const std::filesystem::path model_dir =
         model_path.has_parent_path() ? model_path.parent_path() : std::filesystem::path();
@@ -479,12 +534,13 @@ bool load_3ds(const std::string &path, MeshData &mesh) {
                         if (mesh_chunk.id == 0x4100) {
                             const size_t vertex_base = mesh.vertices.size() / 3;
                             parse_mesh_chunk(file, mesh_end, mesh, vertex_base,
+                                             materials, color_accum,
                                              texture_filename);
                         }
                         file.seekg(mesh_end);
                     }
                 } else if (sub.id == 0xAFFF) {
-                    parse_material_block(file, sub_end, texture_filename);
+                    parse_material_block(file, sub_end, materials, texture_filename);
                 }
                 file.seekg(sub_end);
             }
@@ -513,6 +569,15 @@ bool load_3ds(const std::string &path, MeshData &mesh) {
         }
     }
 
+    if (color_accum.weight > 0.0) {
+        mesh.material_base_color = {
+            static_cast<float>(color_accum.r / color_accum.weight),
+            static_cast<float>(color_accum.g / color_accum.weight),
+            static_cast<float>(color_accum.b / color_accum.weight),
+        };
+        mesh.has_material_base_color = true;
+    }
+
     ensure_godot_clockwise_winding(mesh);
     compute_normals(mesh);
     return true;
@@ -528,6 +593,8 @@ bool load_3ds_mesh_data(const godot::String &path,
                         godot::PackedVector2Array &out_texcoords,
                         godot::PackedInt32Array &out_indices,
                         godot::String &out_texture_path,
+                        bool &out_has_material_base_color,
+                        godot::Vector3 &out_material_base_color,
                         godot::String &out_error) {
     MeshData mesh;
     const std::string utf8_path(path.utf8().get_data());
@@ -569,6 +636,10 @@ bool load_3ds_mesh_data(const godot::String &path,
     }
 
     out_texture_path = godot::String(mesh.texture_path.c_str());
+    out_has_material_base_color = mesh.has_material_base_color;
+    out_material_base_color = godot::Vector3(mesh.material_base_color[0],
+                                             mesh.material_base_color[1],
+                                             mesh.material_base_color[2]);
 
     return true;
 }
