@@ -151,51 +151,6 @@ static std::string ExtractDigitSignature(const std::string &text) {
   return digits.substr(firstNonZero);
 }
 
-static std::string ResolveExistingGdtfMode(const std::string &gdtfPath,
-                                           const std::string &requestedMode,
-                                           std::optional<int> channelCountHint) {
-  const std::vector<std::string> modes = GetGdtfModes(gdtfPath);
-  if (modes.empty())
-    return requestedMode;
-
-  const std::string normalizedRequested = ToLowerAscii(Trim(requestedMode));
-  if (!normalizedRequested.empty()) {
-    for (const std::string &mode : modes) {
-      if (ToLowerAscii(Trim(mode)) == normalizedRequested)
-        return mode;
-    }
-  }
-
-  const std::string requestedDigitSignature =
-      ExtractDigitSignature(normalizedRequested);
-  if (!requestedDigitSignature.empty()) {
-    for (const std::string &mode : modes) {
-      const std::string modeDigitSignature =
-          ExtractDigitSignature(ToLowerAscii(Trim(mode)));
-      if (!modeDigitSignature.empty() &&
-          modeDigitSignature == requestedDigitSignature) {
-        return mode;
-      }
-    }
-  }
-
-  if (channelCountHint.has_value() && channelCountHint.value() > 0) {
-    for (const std::string &mode : modes) {
-      const int modeChannelCount = GetGdtfModeChannelCount(gdtfPath, mode);
-      if (modeChannelCount == channelCountHint.value())
-        return mode;
-    }
-  }
-
-  for (const std::string &mode : modes) {
-    const std::string normalized = ToLowerAscii(Trim(mode));
-    if (normalized == "default" || normalized == "standard")
-      return mode;
-  }
-
-  return modes.front();
-}
-
 static bool IsNearlyEqualRelative(float a, float b, float relEps) {
   if (!std::isfinite(a) || !std::isfinite(b))
     return false;
@@ -1256,6 +1211,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
 
   std::unordered_map<std::string, std::string> resolvedGdtfPathCache;
+  std::unordered_map<std::string, std::vector<std::string>> gdtfModesCache;
+  std::unordered_map<std::string, std::unordered_map<std::string, int>>
+      gdtfModeChannelCountCache;
   const std::string kEmptyResolvedPath;
   auto resolveGdtfPathCached = [&](const std::string &spec) -> const std::string & {
     const std::string normalized = NormalizeArchivePathValue(spec);
@@ -1277,6 +1235,71 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (normalized.empty())
       return std::string{};
     return ToSceneRelativePathIfPossible(scene.basePath, fs::u8path(resolveGdtfPathCached(normalized)));
+  };
+
+  auto getGdtfModesCached = [&](const std::string &gdtfPath)
+      -> const std::vector<std::string> & {
+    auto cacheIt = gdtfModesCache.find(gdtfPath);
+    if (cacheIt != gdtfModesCache.end())
+      return cacheIt->second;
+    return gdtfModesCache.emplace(gdtfPath, GetGdtfModes(gdtfPath)).first->second;
+  };
+
+  auto getGdtfModeChannelCountCached = [&](const std::string &gdtfPath,
+                                           const std::string &modeName) {
+    auto &channelCountByMode = gdtfModeChannelCountCache[gdtfPath];
+    auto countIt = channelCountByMode.find(modeName);
+    if (countIt != channelCountByMode.end())
+      return countIt->second;
+    const int count = GetGdtfModeChannelCount(gdtfPath, modeName);
+    channelCountByMode.emplace(modeName, count);
+    return count;
+  };
+
+  auto resolveExistingGdtfModeCached = [&](const std::string &gdtfPath,
+                                           const std::string &requestedMode,
+                                           std::optional<int> channelCountHint) {
+    const std::vector<std::string> &modes = getGdtfModesCached(gdtfPath);
+    if (modes.empty())
+      return requestedMode;
+
+    const std::string normalizedRequested = ToLowerAscii(Trim(requestedMode));
+    if (!normalizedRequested.empty()) {
+      for (const std::string &mode : modes) {
+        if (ToLowerAscii(Trim(mode)) == normalizedRequested)
+          return mode;
+      }
+    }
+
+    const std::string requestedDigitSignature =
+        ExtractDigitSignature(normalizedRequested);
+    if (!requestedDigitSignature.empty()) {
+      for (const std::string &mode : modes) {
+        const std::string modeDigitSignature =
+            ExtractDigitSignature(ToLowerAscii(Trim(mode)));
+        if (!modeDigitSignature.empty() &&
+            modeDigitSignature == requestedDigitSignature) {
+          return mode;
+        }
+      }
+    }
+
+    if (channelCountHint.has_value() && channelCountHint.value() > 0) {
+      for (const std::string &mode : modes) {
+        const int modeChannelCount =
+            getGdtfModeChannelCountCached(gdtfPath, mode);
+        if (modeChannelCount == channelCountHint.value())
+          return mode;
+      }
+    }
+
+    for (const std::string &mode : modes) {
+      const std::string normalized = ToLowerAscii(Trim(mode));
+      if (normalized == "default" || normalized == "standard")
+        return mode;
+    }
+
+    return modes.front();
   };
 
   struct GdtfFixtureMetadata {
@@ -2358,10 +2381,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           auto typeKey = f.typeName;
           auto it = choices.find(typeKey);
           if (it != choices.end()) {
+            const std::string resolvedGdtfPath =
+                resolveFixtureGdtfPathForRead(f.gdtfSpec);
             const int previousChannelCount =
-                (!f.gdtfSpec.empty() && !f.gdtfMode.empty())
-                    ? GetGdtfModeChannelCount(resolveFixtureGdtfPathForRead(f.gdtfSpec),
-                                              f.gdtfMode)
+                (!resolvedGdtfPath.empty() && !f.gdtfMode.empty())
+                    ? getGdtfModeChannelCountCached(resolvedGdtfPath, f.gdtfMode)
                     : -1;
             f.gdtfSpec = it->second;
             f.gdtfSpec = ToSceneRelativePathIfPossible(
@@ -2375,7 +2399,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               if (f.gdtfMode.empty())
                 f.gdtfMode = dictEntry->mode;
             }
-            f.gdtfMode = ResolveExistingGdtfMode(
+            f.gdtfMode = resolveExistingGdtfModeCached(
                 resolveFixtureGdtfPathForRead(f.gdtfSpec), f.gdtfMode,
                 previousChannelCount > 0 ? std::optional<int>(previousChannelCount)
                                          : std::nullopt);
@@ -2397,17 +2421,18 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           }
           const auto &dictEntry = getDictionaryEntryCached(f.typeName);
           if (dictEntry) {
+            const std::string resolvedGdtfPath =
+                resolveFixtureGdtfPathForRead(f.gdtfSpec);
             const int previousChannelCount =
-                (!f.gdtfSpec.empty() && !f.gdtfMode.empty())
-                    ? GetGdtfModeChannelCount(resolveFixtureGdtfPathForRead(f.gdtfSpec),
-                                              f.gdtfMode)
+                (!resolvedGdtfPath.empty() && !f.gdtfMode.empty())
+                    ? getGdtfModeChannelCountCached(resolvedGdtfPath, f.gdtfMode)
                     : -1;
             f.gdtfSpec = dictEntry->path;
             f.gdtfSpec = ToSceneRelativePathIfPossible(
                 scene.basePath, fs::u8path(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
             if (f.gdtfMode.empty())
               f.gdtfMode = dictEntry->mode;
-            f.gdtfMode = ResolveExistingGdtfMode(
+            f.gdtfMode = resolveExistingGdtfModeCached(
                 resolveFixtureGdtfPathForRead(f.gdtfSpec), f.gdtfMode,
                 previousChannelCount > 0 ? std::optional<int>(previousChannelCount)
                                          : std::nullopt);
@@ -2438,13 +2463,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     }
     if (fixture.gdtfSpec.empty())
       continue;
+    const std::string resolvedGdtfPath =
+        resolveFixtureGdtfPathForRead(fixture.gdtfSpec);
     const int currentChannelCount =
-        (!fixture.gdtfMode.empty())
-            ? GetGdtfModeChannelCount(resolveFixtureGdtfPathForRead(fixture.gdtfSpec),
-                                      fixture.gdtfMode)
+        (!fixture.gdtfMode.empty() && !resolvedGdtfPath.empty())
+            ? getGdtfModeChannelCountCached(resolvedGdtfPath, fixture.gdtfMode)
             : -1;
-    fixture.gdtfMode = ResolveExistingGdtfMode(
-        resolveFixtureGdtfPathForRead(fixture.gdtfSpec), fixture.gdtfMode,
+    fixture.gdtfMode = resolveExistingGdtfModeCached(
+        resolvedGdtfPath, fixture.gdtfMode,
         currentChannelCount > 0 ? std::optional<int>(currentChannelCount)
                                 : std::nullopt);
   }
