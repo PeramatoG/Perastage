@@ -10,7 +10,7 @@ const DEFAULT_MASTER_OPTICS := {
 	"gobo_rotation_deg": 0.0,
 	"beam_gobo_alignment_rotation_deg": 0.0,
 	"beam_gobo_mirror_x": true,
-	"beam_gobo_mirror_z": true,
+	"beam_gobo_mirror_z": false,
 	"lens_offset_m": 0.015,
 	"near_offset": 0.015,
 	"lens_shift_x": 0.0,
