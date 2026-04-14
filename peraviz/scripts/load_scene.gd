@@ -1100,13 +1100,19 @@ func _build_3ds_mesh(mesh_data: Dictionary, flip_orientation: bool = false) -> A
 	array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 
 	if not texture_path.is_empty() and texcoords.size() == vertices.size():
-		var texture: Texture2D = load(texture_path) as Texture2D
-		if texture != null:
+		var image := Image.new()
+		var image_error: Error = image.load(texture_path)
+		if image_error == OK:
+			if image.get_format() != Image.FORMAT_RGBA8:
+				image.convert(Image.FORMAT_RGBA8)
+			var texture: ImageTexture = ImageTexture.create_from_image(image)
 			var material := StandardMaterial3D.new()
+			material.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
 			material.albedo_texture = texture
-			material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			material.cull_mode = BaseMaterial3D.CULL_DISABLED
 			array_mesh.surface_set_material(0, material)
+		else:
+			push_warning("[Peraviz] Failed to load 3DS texture image: %s (error=%d)" % [texture_path, image_error])
 
 	return array_mesh
 
