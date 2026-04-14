@@ -1136,28 +1136,30 @@ func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
 	var sx: float = source_size_x
 	var sy: float = source_size_z
 	var sz: float = source_size_y
+	var primitive_scale: Vector3 = Vector3(sx, sy, sz)
 	var mesh_instance := MeshInstance3D.new()
 	if primitive_shape == "sphere":
 		var sphere := SphereMesh.new()
-		sphere.radius = max(sx, max(sy, sz)) * 0.5
-		sphere.height = sphere.radius * 2.0
+		sphere.radius = 0.5
+		sphere.height = 1.0
 		mesh_instance.mesh = sphere
 	elif primitive_shape == "cylinder":
 		var cylinder := CylinderMesh.new()
-		cylinder.top_radius = max(sx, sz) * 0.5
-		cylinder.bottom_radius = max(sx, sz) * 0.5
-		cylinder.height = sy
+		cylinder.top_radius = 0.5
+		cylinder.bottom_radius = 0.5
+		cylinder.height = 1.0
 		mesh_instance.mesh = cylinder
 	elif primitive_shape == "cone":
 		var cone := CylinderMesh.new()
 		cone.top_radius = 0.0
-		cone.bottom_radius = max(sx, sz) * 0.5
-		cone.height = sy
+		cone.bottom_radius = 0.5
+		cone.height = 1.0
 		mesh_instance.mesh = cone
 	else:
 		var box := BoxMesh.new()
-		box.size = Vector3(sx, sy, sz)
+		box.size = Vector3.ONE
 		mesh_instance.mesh = box
+	mesh_instance.scale = primitive_scale
 
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(0.2, 0.2, 0.22, 1.0)
