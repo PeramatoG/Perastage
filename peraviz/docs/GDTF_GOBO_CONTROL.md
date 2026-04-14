@@ -55,6 +55,10 @@ attribute definition:
   - Runtime accepts both normalized `[0..1]` and percent `[0..100]` encodings
     and normalizes to `[0..1]` before applying the shake.
 
+> Temporary debug mode: `GOBO_SHAKE_FORCE_DEBUG_ALWAYS_ON=true` enables a
+> shake layer for active gobo wheels even outside `Gobo(n)SelectShake`, so
+> slot/index/rotation stay active and shake is added on top for visual tuning.
+
 Index and rotation are treated as different semantics:
 
 - **Index**: target angle (static position).
