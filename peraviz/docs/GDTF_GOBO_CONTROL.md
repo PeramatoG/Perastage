@@ -1,4 +1,4 @@
-# GDTF gobo index and rotation mapping in Peraviz
+# GDTF gobo index, rotation, and shake mapping in Peraviz
 
 This note summarizes the GDTF attributes used for gobo wheel control and
 how they are mapped into Peraviz DMX runtime controls.
@@ -11,6 +11,7 @@ For this implementation, the relevant attributes are:
 - `Gobo(n)` for wheel slot selection.
 - `Gobo(n)Pos` for indexed gobo angle.
 - `Gobo(n)PosRotate` for continuous gobo rotation speed/direction.
+- `Gobo(n)SelectShake` for shake slot selection + shake frequency.
 
 ## Runtime mapping
 
@@ -40,11 +41,21 @@ Peraviz runtime applies gobo controls with this behavior:
    **fixed angular position** relative to initial orientation.
 3. If `gobo_rotation`/`rotation` is present (`Gobo(n)PosRotate`), map DMX value
    to **angular speed** (including direction) and integrate over time.
+4. If the active gobo range behavior is shake (`Gobo(n)SelectShake`), interpret
+   physical values as **shake frequency** and apply an oscillation around the
+   indexed/base angle.
+
+For shake, Peraviz also consumes optional `SubPhysicalUnit` data from the
+attribute definition:
+
+- `Type="PlacementOffset"` + `PhysicalUnit="Angle"` -> center offset in degrees.
+- `Type="Amplitude"` + `PhysicalUnit="Percent"` -> oscillation amplitude.
 
 Index and rotation are treated as different semantics:
 
 - **Index**: target angle (static position).
 - **Rotation/Spin**: speed command (continuous motion).
+- **Shake**: periodic oscillation around a center angle at a given frequency.
 
 This keeps backward compatibility for fixtures without explicit
 `Gobo(n)Pos`/`Gobo(n)PosRotate` channels while enabling dedicated controls when

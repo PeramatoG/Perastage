@@ -265,6 +265,10 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
             wheel_item["has_index_physical_limits"] = wheel.has_index_physical_limits;
             wheel_item["index_physical_min"] = wheel.index_physical_min;
             wheel_item["index_physical_max"] = wheel.index_physical_max;
+            wheel_item["has_shake_placement_offset"] = wheel.has_shake_placement_offset;
+            wheel_item["shake_placement_offset_degrees"] = wheel.shake_placement_offset_degrees;
+            wheel_item["has_shake_amplitude"] = wheel.has_shake_amplitude;
+            wheel_item["shake_amplitude_percent"] = wheel.shake_amplitude_percent;
             wheel_item["rotation_source_channel"] = String("select");
             wheel_item["rotation_raw_coarse"] = -1;
             wheel_item["rotation_raw_fine"] = -1;

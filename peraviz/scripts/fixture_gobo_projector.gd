@@ -24,6 +24,7 @@ const GOBO_LAST_UPDATE_MSEC_META_KEY: String = "peraviz_gobo_last_update_msec"
 const GOBO_APPLIED_ROTATION_DEG_META_KEY: String = "peraviz_gobo_applied_rotation_deg"
 const GOBO_WHEEL_MODE_META_KEY: String = "peraviz_gobo_wheel_mode"
 const GOBO_APPLIED_STATE_META_KEY: String = "peraviz_gobo_applied_state"
+const GOBO_WHEEL_SHAKE_PHASE_META_KEY: String = "peraviz_gobo_wheel_shake_phase"
 const GOBO_INDEX_MAX_DEG: float = 360.0
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
 const GOBO_ROTATION_DEBUG_DEFAULT: bool = false
@@ -171,10 +172,33 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 			base_rotation_deg = lerp(0.0, GOBO_INDEX_MAX_DEG, clamp(index_norm, 0.0, 1.0))
 
 	var spin_angle_deg: float = float(wheel_spin_state.get(wheel_key, 0.0))
+	var wheel_shake_phase: Dictionary = light.get_meta(GOBO_WHEEL_SHAKE_PHASE_META_KEY, {})
+	if wheel_shake_phase is not Dictionary:
+		wheel_shake_phase = {}
 	var has_native_speed: bool = bool(wheel.get("has_rotation_physical_value", false))
 	var native_speed_deg_per_sec: float = float(wheel.get("rotation_speed_deg_per_sec", wheel.get("rotation_physical", 0.0)))
 	var native_is_stop: bool = bool(wheel.get("is_stop", false))
 	var has_active_rotation_command: bool = supports_rotation and has_native_speed and not native_is_stop and absf(native_speed_deg_per_sec) > 0.0001
+	if effect_mode == GOBO_BEHAVIOR_SHAKE:
+		var shake_frequency_hz: float = absf(float(wheel.get("shake_frequency_hz", native_speed_deg_per_sec)))
+		if not has_active_rotation_command:
+			shake_frequency_hz = 0.0
+		var placement_offset_deg: float = 0.0
+		if bool(wheel.get("has_shake_placement_offset", false)):
+			placement_offset_deg = float(wheel.get("shake_placement_offset_degrees", 0.0))
+		var amplitude_percent: float = 0.0
+		if bool(wheel.get("has_shake_amplitude", false)):
+			amplitude_percent = maxf(float(wheel.get("shake_amplitude_percent", 0.0)), 0.0)
+		var amplitude_deg: float = clamp(amplitude_percent, 0.0, 1.0) * GOBO_INDEX_MAX_DEG
+		var phase_rad: float = float(wheel_shake_phase.get(wheel_key, 0.0))
+		if shake_frequency_hz > 0.0 and delta_sec > 0.0:
+			phase_rad = wrapf(phase_rad + (TAU * shake_frequency_hz * delta_sec), -1000.0 * TAU, 1000.0 * TAU)
+		var shake_offset_deg: float = sin(phase_rad) * amplitude_deg
+		wheel_shake_phase[wheel_key] = phase_rad
+		light.set_meta(GOBO_WHEEL_SHAKE_PHASE_META_KEY, wheel_shake_phase)
+		wheel_spin_state[wheel_key] = 0.0
+		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
+		return base_rotation_deg + placement_offset_deg + shake_offset_deg
 
 	if index_norm >= 0.0 and not has_active_rotation_command:
 		wheel_spin_state[wheel_key] = 0.0
@@ -198,6 +222,8 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 	if not supports_rotation:
 		wheel_spin_state[wheel_key] = 0.0
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
+		wheel_shake_phase[wheel_key] = 0.0
+		light.set_meta(GOBO_WHEEL_SHAKE_PHASE_META_KEY, wheel_shake_phase)
 		return base_rotation_deg
 
 	_log_rotation_debug_if_enabled(wheel, wheel_key, behavior, delta_sec)
@@ -332,6 +358,7 @@ func _clear_gobo_visuals(light: SpotLight3D) -> void:
 	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, GOBO_DEFAULT_ROTATION_DEG)
 	light.remove_meta(GOBO_APPLIED_STATE_META_KEY)
 	light.remove_meta(GOBO_WHEEL_SPIN_META_KEY)
+	light.remove_meta(GOBO_WHEEL_SHAKE_PHASE_META_KEY)
 	light.remove_meta(GOBO_WHEEL_MODE_META_KEY)
 
 func _apply_gobo_rotation_only(light: SpotLight3D, projected_rotation_deg: float, applied_state: Dictionary) -> void:

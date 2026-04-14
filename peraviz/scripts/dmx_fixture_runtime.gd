@@ -390,6 +390,8 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				prefer_rotation_channel_ranges
 			)
 		var has_resolved_rotation_range: bool = bool(resolved_rotation.get("has_range", false))
+		var resolved_frequency_hz: float = absf(float(resolved_rotation.get("rotation_speed_deg_per_sec", 0.0)))
+		var is_shake_behavior: bool = range_behavior == GOBO_BEHAVIOR_SHAKE
 		var matched_range: Dictionary = resolved_rotation.get("range", {})
 		var rotation_matched_range_start: int = int(matched_range.get("dmx_from", -1))
 		var rotation_matched_range_end: int = int(matched_range.get("dmx_to", -1))
@@ -432,6 +434,12 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"rotation_raw_value": rotation_raw,
 			"rotation_active_range": active_range,
 			"rotation_ranges": rotation_ranges,
+			"is_shake_behavior": is_shake_behavior,
+			"shake_frequency_hz": resolved_frequency_hz,
+			"has_shake_placement_offset": bool(item.get("has_shake_placement_offset", false)),
+			"shake_placement_offset_degrees": float(item.get("shake_placement_offset_degrees", 0.0)),
+			"has_shake_amplitude": bool(item.get("has_shake_amplitude", false)),
+			"shake_amplitude_percent": float(item.get("shake_amplitude_percent", 0.0)),
 			"index_norm": index_norm,
 			"slots": item.get("slots", []),
 			"ranges": ranges,

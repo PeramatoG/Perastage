@@ -146,6 +146,69 @@ std::vector<int> parse_offsets(const char *raw_offset) {
     return offsets;
 }
 
+std::string read_attr_ci(tinyxml2::XMLElement *node, const char *name_a, const char *name_b);
+bool parse_float_attr_ci(tinyxml2::XMLElement *node,
+                         const char *attr_name,
+                         const char *attr_name_alt,
+                         float &out_value);
+
+struct GoboShakeProfile {
+    bool has_placement_offset = false;
+    float placement_offset_degrees = 0.0F;
+    bool has_amplitude = false;
+    float amplitude_percent = 0.0F;
+};
+
+using GoboShakeProfileMap = std::unordered_map<std::string, GoboShakeProfile>;
+
+GoboShakeProfileMap build_gobo_shake_profile_map(tinyxml2::XMLElement *root) {
+    GoboShakeProfileMap profiles;
+    if (!root) {
+        return profiles;
+    }
+
+    const std::vector<tinyxml2::XMLElement *> attributes = collect_elements_by_name(root, "attribute");
+    for (tinyxml2::XMLElement *attribute_node : attributes) {
+        const std::string attribute_name = lower_ascii(trim_ascii(read_attr_ci(attribute_node, "Name", "name")));
+        if (attribute_name.empty() || attribute_name.find("shake") == std::string::npos) {
+            continue;
+        }
+
+        GoboShakeProfile profile;
+        for (tinyxml2::XMLElement *sub_unit = attribute_node->FirstChildElement(); sub_unit;
+             sub_unit = sub_unit->NextSiblingElement()) {
+            if (lower_ascii(sub_unit->Name()) != "subphysicalunit") {
+                continue;
+            }
+
+            const std::string sub_type = lower_ascii(trim_ascii(read_attr_ci(sub_unit, "Type", "type")));
+            float physical_from = 0.0F;
+            float physical_to = 0.0F;
+            const bool has_physical_from =
+                parse_float_attr_ci(sub_unit, "PhysicalFrom", "physicalfrom", physical_from);
+            const bool has_physical_to =
+                parse_float_attr_ci(sub_unit, "PhysicalTo", "physicalto", physical_to);
+            if (!has_physical_from && !has_physical_to) {
+                continue;
+            }
+            const float resolved_value = has_physical_from ? physical_from : physical_to;
+
+            if (sub_type == "placementoffset") {
+                profile.has_placement_offset = true;
+                profile.placement_offset_degrees = resolved_value;
+            } else if (sub_type == "amplitude") {
+                profile.has_amplitude = true;
+                profile.amplitude_percent = resolved_value;
+            }
+        }
+
+        if (profile.has_placement_offset || profile.has_amplitude) {
+            profiles[attribute_name] = profile;
+        }
+    }
+    return profiles;
+}
+
 enum class AttributeRole {
     kUnknown,
     kDimmer,
@@ -166,7 +229,6 @@ struct ParsedAttribute {
     int byte_index = 1;
     int gobo_wheel_number = 0;
 };
-
 
 int parse_gobo_wheel_number(const std::string &leaf) {
     if (leaf.rfind("gobo", 0) != 0 || leaf.size() <= 4) {
@@ -1394,6 +1456,7 @@ void dedupe_and_sort_gobo_wheel(peraviz::dmx::FixtureGoboWheelOffset &wheel) {
 
 void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                              const GoboWheelCatalog &wheel_catalog,
+                             const GoboShakeProfileMap &shake_profiles,
                              peraviz::dmx::FixtureControlOffsets &out_offsets) {
     if (!dmx_channel) {
         return;
@@ -1510,6 +1573,10 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
             }
 
             const ParsedAttribute parsed_attribute = parse_attribute_name(attribute);
+            const std::string attribute_key = lower_ascii(trim_ascii(attribute));
+            const auto shake_profile_it = shake_profiles.find(attribute_key);
+            const GoboShakeProfile *shake_profile =
+                shake_profile_it == shake_profiles.end() ? nullptr : &shake_profile_it->second;
             switch (parsed_attribute.role) {
             case AttributeRole::kDimmer:
                 consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
@@ -1567,6 +1634,12 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                 if (!wheel) {
                     break;
                 }
+                if (shake_profile) {
+                    wheel->has_shake_placement_offset = shake_profile->has_placement_offset;
+                    wheel->shake_placement_offset_degrees = shake_profile->placement_offset_degrees;
+                    wheel->has_shake_amplitude = shake_profile->has_amplitude;
+                    wheel->shake_amplitude_percent = shake_profile->amplitude_percent;
+                }
                 consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
                                 wheel->coarse_offset_1_based,
                                 wheel->fine_offset_1_based,
@@ -1608,6 +1681,12 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                     find_or_create_gobo_wheel_offset(out_offsets, wheel_number, wheel_name);
                 if (!wheel) {
                     break;
+                }
+                if (shake_profile) {
+                    wheel->has_shake_placement_offset = shake_profile->has_placement_offset;
+                    wheel->shake_placement_offset_degrees = shake_profile->placement_offset_degrees;
+                    wheel->has_shake_amplitude = shake_profile->has_amplitude;
+                    wheel->shake_amplitude_percent = shake_profile->amplitude_percent;
                 }
 
                 wheel->supports_rotation = true;
@@ -1725,6 +1804,7 @@ DimmerResolveCacheEntry resolve_uncached(const std::string &gdtf_path,
     }
 
     const GoboWheelCatalog wheel_catalog = build_gobo_wheel_catalog(gdtf_path, root);
+    const GoboShakeProfileMap shake_profiles = build_gobo_shake_profile_map(root);
 
     std::vector<tinyxml2::XMLElement *> dmx_channels = collect_elements_by_name(selected_mode, "dmxchannel");
     if (dmx_channels.empty()) {
@@ -1733,7 +1813,7 @@ DimmerResolveCacheEntry resolve_uncached(const std::string &gdtf_path,
     }
 
     for (tinyxml2::XMLElement *dmx_channel : dmx_channels) {
-        consume_channel_offsets(dmx_channel, wheel_catalog, out.offsets);
+        consume_channel_offsets(dmx_channel, wheel_catalog, shake_profiles, out.offsets);
     }
 
     for (auto &wheel : out.offsets.gobo_wheels) {

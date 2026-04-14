@@ -61,6 +61,10 @@ struct FixtureGoboWheelBinding {
     bool has_index_physical_limits = false;
     float index_physical_min = 0.0F;
     float index_physical_max = 0.0F;
+    bool has_shake_placement_offset = false;
+    float shake_placement_offset_degrees = 0.0F;
+    bool has_shake_amplitude = false;
+    float shake_amplitude_percent = 0.0F;
     std::vector<FixtureGoboRotationRange> rotation_ranges;
     int wheel_number = 0;
     std::string wheel_name;
@@ -118,6 +122,10 @@ struct FixtureGoboWheelOffset {
     bool has_index_physical_limits = false;
     float index_physical_min = 0.0F;
     float index_physical_max = 0.0F;
+    bool has_shake_placement_offset = false;
+    float shake_placement_offset_degrees = 0.0F;
+    bool has_shake_amplitude = false;
+    float shake_amplitude_percent = 0.0F;
     std::vector<FixtureGoboRotationRange> rotation_ranges;
     int wheel_number = 0;
     std::string wheel_name;

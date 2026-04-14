@@ -162,6 +162,10 @@ FixtureBindingBuildResult build_dimmer_bindings(
             wheel_binding.has_index_physical_limits = wheel.has_index_physical_limits;
             wheel_binding.index_physical_min = wheel.index_physical_min;
             wheel_binding.index_physical_max = wheel.index_physical_max;
+            wheel_binding.has_shake_placement_offset = wheel.has_shake_placement_offset;
+            wheel_binding.shake_placement_offset_degrees = wheel.shake_placement_offset_degrees;
+            wheel_binding.has_shake_amplitude = wheel.has_shake_amplitude;
+            wheel_binding.shake_amplitude_percent = wheel.shake_amplitude_percent;
             wheel_binding.rotation_ranges = wheel.rotation_ranges;
             wheel_binding.wheel_number = wheel.wheel_number;
             wheel_binding.wheel_name = wheel.wheel_name;
