@@ -377,7 +377,7 @@ func _refresh_day_night_environment_controller() -> void:
 func _apply_day_night_settings_from_visual_controls() -> void:
 	day_night_environment_controller.enabled = bool(_visual_settings.get("environment_enabled", true))
 	day_night_environment_controller.use_continuous_cycle = bool(_visual_settings.get("environment_use_continuous_cycle", false))
-	day_night_environment_controller.current_preset = int(clamp(int(_visual_settings.get("environment_current_preset", 1)), 0, 4))
+	day_night_environment_controller.current_preset = int(clamp(int(_visual_settings.get("environment_current_preset", 1)), 0, 4)) as DayNightEnvironmentController.EnvironmentPreset
 	day_night_environment_controller.time_of_day = clampf(float(_visual_settings.get("environment_time_of_day", 0.4)), 0.0, 1.0)
 	day_night_environment_controller.auto_advance = bool(_visual_settings.get("environment_auto_advance", false))
 	day_night_environment_controller.cycle_speed = max(float(_visual_settings.get("environment_cycle_speed", 0.02)), 0.0)
