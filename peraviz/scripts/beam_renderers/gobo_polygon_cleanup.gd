@@ -1,7 +1,7 @@
 extends RefCounted
 class_name GoboPolygonCleanup
 
-const NEAR_POINT_EPSILON: float = 0.0005
+const NEAR_POINT_EPSILON: float = 0.001
 const COLLINEAR_EPSILON: float = 0.00005
 const SHORT_EDGE_EPSILON: float = 0.001
 
