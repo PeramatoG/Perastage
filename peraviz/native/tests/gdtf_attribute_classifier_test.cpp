@@ -58,6 +58,21 @@ int main() {
     if (const int rc = expect_parsed("gobo1", peraviz::dmx::AttributeRole::kGobo, false, 1, 1); rc != 0) {
         return rc;
     }
+    if (const int rc = expect_parsed("shutterstrobe", peraviz::dmx::AttributeRole::kStrobe, false, 1, 0); rc != 0) {
+        return rc;
+    }
+    if (const int rc = expect_parsed("prism1pos", peraviz::dmx::AttributeRole::kPrismIndex, false, 1, 0); rc != 0) {
+        return rc;
+    }
+    if (const int rc = expect_parsed("prism1rotate", peraviz::dmx::AttributeRole::kPrismRotation, false, 1, 0); rc != 0) {
+        return rc;
+    }
+    if (const int rc = expect_parsed("colorwheel", peraviz::dmx::AttributeRole::kColorWheel, false, 1, 0); rc != 0) {
+        return rc;
+    }
+    if (const int rc = expect_parsed("animationwheelrotate", peraviz::dmx::AttributeRole::kAnimationWheelRotation, false, 1, 0); rc != 0) {
+        return rc;
+    }
 
     return 0;
 }

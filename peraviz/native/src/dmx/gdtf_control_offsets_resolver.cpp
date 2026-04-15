@@ -129,47 +129,117 @@ struct OffsetWriteTarget {
     int peraviz::dmx::FixtureControlOffsets::*ultra_fine;
 };
 
+enum class ByteDepth : int {
+    kCoarse = 1,
+    kFine = 2,
+    kUltraFine = 3,
+};
+
 using PhysicalRangeConsumer = void (*)(tinyxml2::XMLElement *, peraviz::dmx::FixtureControlOffsets &);
 
 struct AttributeOffsetDescriptor {
     peraviz::dmx::AttributeRole role;
+    ByteDepth byte_depth = ByteDepth::kUltraFine;
     OffsetWriteTarget target;
     PhysicalRangeConsumer consume_physical_range = nullptr;
 };
 
-const std::array<AttributeOffsetDescriptor, 7> &attribute_offset_descriptors() {
-    static const std::array<AttributeOffsetDescriptor, 7> descriptors = {{
+const std::array<AttributeOffsetDescriptor, 15> &attribute_offset_descriptors() {
+    static const std::array<AttributeOffsetDescriptor, 15> descriptors = {{
         {peraviz::dmx::AttributeRole::kDimmer,
+         ByteDepth::kUltraFine,
          {&peraviz::dmx::FixtureControlOffsets::dimmer_coarse_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::dimmer_fine_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::dimmer_ultra_fine_offset_1_based}},
         {peraviz::dmx::AttributeRole::kPan,
+         ByteDepth::kUltraFine,
          {&peraviz::dmx::FixtureControlOffsets::pan_coarse_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::pan_fine_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::pan_ultra_fine_offset_1_based}},
         {peraviz::dmx::AttributeRole::kTilt,
+         ByteDepth::kUltraFine,
          {&peraviz::dmx::FixtureControlOffsets::tilt_coarse_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::tilt_fine_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::tilt_ultra_fine_offset_1_based}},
         {peraviz::dmx::AttributeRole::kZoom,
+         ByteDepth::kUltraFine,
          {&peraviz::dmx::FixtureControlOffsets::zoom_coarse_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::zoom_fine_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::zoom_ultra_fine_offset_1_based},
          &peraviz::dmx::consume_zoom_physical_range},
         {peraviz::dmx::AttributeRole::kCyan,
+         ByteDepth::kUltraFine,
          {&peraviz::dmx::FixtureControlOffsets::cyan_coarse_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::cyan_fine_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::cyan_ultra_fine_offset_1_based}},
         {peraviz::dmx::AttributeRole::kMagenta,
+         ByteDepth::kUltraFine,
          {&peraviz::dmx::FixtureControlOffsets::magenta_coarse_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::magenta_fine_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::magenta_ultra_fine_offset_1_based}},
         {peraviz::dmx::AttributeRole::kYellow,
+         ByteDepth::kUltraFine,
          {&peraviz::dmx::FixtureControlOffsets::yellow_coarse_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::yellow_fine_offset_1_based,
           &peraviz::dmx::FixtureControlOffsets::yellow_ultra_fine_offset_1_based}},
+        {peraviz::dmx::AttributeRole::kStrobe,
+         ByteDepth::kFine,
+         {&peraviz::dmx::FixtureControlOffsets::strobe_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::strobe_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::strobe_ultra_fine_offset_1_based}},
+        {peraviz::dmx::AttributeRole::kPrism,
+         ByteDepth::kFine,
+         {&peraviz::dmx::FixtureControlOffsets::prism_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::prism_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::prism_ultra_fine_offset_1_based}},
+        {peraviz::dmx::AttributeRole::kPrismIndex,
+         ByteDepth::kUltraFine,
+         {&peraviz::dmx::FixtureControlOffsets::prism_index_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::prism_index_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::prism_index_ultra_fine_offset_1_based}},
+        {peraviz::dmx::AttributeRole::kPrismRotation,
+         ByteDepth::kUltraFine,
+         {&peraviz::dmx::FixtureControlOffsets::prism_rotation_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::prism_rotation_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::prism_rotation_ultra_fine_offset_1_based}},
+        {peraviz::dmx::AttributeRole::kColorWheel,
+         ByteDepth::kFine,
+         {&peraviz::dmx::FixtureControlOffsets::color_wheel_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::color_wheel_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::color_wheel_ultra_fine_offset_1_based}},
+        {peraviz::dmx::AttributeRole::kColorWheelRotation,
+         ByteDepth::kUltraFine,
+         {&peraviz::dmx::FixtureControlOffsets::color_wheel_rotation_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::color_wheel_rotation_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::color_wheel_rotation_ultra_fine_offset_1_based}},
+        {peraviz::dmx::AttributeRole::kAnimationWheel,
+         ByteDepth::kFine,
+         {&peraviz::dmx::FixtureControlOffsets::animation_wheel_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::animation_wheel_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::animation_wheel_ultra_fine_offset_1_based}},
+        {peraviz::dmx::AttributeRole::kAnimationWheelRotation,
+         ByteDepth::kUltraFine,
+         {&peraviz::dmx::FixtureControlOffsets::animation_wheel_rotation_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::animation_wheel_rotation_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::animation_wheel_rotation_ultra_fine_offset_1_based}},
     }};
     return descriptors;
+}
+
+void consume_offsets_with_depth(const std::vector<int> &offsets,
+                                bool is_fine,
+                                int byte_index,
+                                ByteDepth byte_depth,
+                                int &coarse,
+                                int &fine,
+                                int &ultra_fine) {
+    consume_offsets(offsets, is_fine, byte_index, coarse, fine, ultra_fine);
+    if (static_cast<int>(byte_depth) < static_cast<int>(ByteDepth::kFine)) {
+        fine = -1;
+    }
+    if (static_cast<int>(byte_depth) < static_cast<int>(ByteDepth::kUltraFine)) {
+        ultra_fine = -1;
+    }
 }
 
 bool apply_descriptor_offsets(const peraviz::dmx::ParsedAttribute &parsed_attribute,
@@ -180,10 +250,11 @@ bool apply_descriptor_offsets(const peraviz::dmx::ParsedAttribute &parsed_attrib
         if (descriptor.role != parsed_attribute.role) {
             continue;
         }
-        consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                        out_offsets.*(descriptor.target.coarse),
-                        out_offsets.*(descriptor.target.fine),
-                        out_offsets.*(descriptor.target.ultra_fine));
+        consume_offsets_with_depth(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                                   descriptor.byte_depth,
+                                   out_offsets.*(descriptor.target.coarse),
+                                   out_offsets.*(descriptor.target.fine),
+                                   out_offsets.*(descriptor.target.ultra_fine));
         if (descriptor.consume_physical_range) {
             descriptor.consume_physical_range(channel_function, out_offsets);
         }
@@ -312,6 +383,94 @@ void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_
                                                      function_mode_to);
 }
 
+struct AttributeContext {
+    const peraviz::dmx::ParsedAttribute &parsed_attribute;
+    const std::vector<int> &offsets;
+    const char *attribute_name = nullptr;
+    tinyxml2::XMLElement *channel_function = nullptr;
+    const peraviz::dmx::GoboWheelCatalog &wheel_catalog;
+    int function_dmx_from = 0;
+    int function_dmx_to = 255;
+    int function_mode_from = 0;
+    int function_mode_to = 255;
+    peraviz::dmx::FixtureControlOffsets &out_offsets;
+};
+
+using AttributeHandler = bool (*)(const AttributeContext &context);
+
+bool handle_with_offset_descriptor(const AttributeContext &context) {
+    return apply_descriptor_offsets(context.parsed_attribute,
+                                    context.offsets,
+                                    context.channel_function,
+                                    context.out_offsets);
+}
+
+bool handle_gobo_select_descriptor(const AttributeContext &context) {
+    if (context.parsed_attribute.role != peraviz::dmx::AttributeRole::kGobo) {
+        return false;
+    }
+    handle_gobo_attribute(context.parsed_attribute,
+                          context.offsets,
+                          context.channel_function,
+                          context.wheel_catalog,
+                          context.function_dmx_from,
+                          context.function_dmx_to,
+                          context.function_mode_from,
+                          context.function_mode_to,
+                          context.out_offsets);
+    return true;
+}
+
+bool handle_gobo_index_descriptor(const AttributeContext &context) {
+    if (context.parsed_attribute.role != peraviz::dmx::AttributeRole::kGoboIndex) {
+        return false;
+    }
+    handle_gobo_index_attribute(context.parsed_attribute,
+                                context.offsets,
+                                context.channel_function,
+                                context.out_offsets);
+    return true;
+}
+
+bool handle_gobo_rotation_descriptor(const AttributeContext &context) {
+    if (context.parsed_attribute.role != peraviz::dmx::AttributeRole::kGoboRotation) {
+        return false;
+    }
+    handle_gobo_rotation_attribute(context.parsed_attribute,
+                                   context.offsets,
+                                   context.attribute_name ? context.attribute_name : "",
+                                   context.channel_function,
+                                   context.function_dmx_from,
+                                   context.function_dmx_to,
+                                   context.function_mode_from,
+                                   context.function_mode_to,
+                                   context.out_offsets);
+    return true;
+}
+
+struct ControlAttributeDescriptor {
+    AttributeHandler handler = nullptr;
+};
+
+const std::array<ControlAttributeDescriptor, 4> &control_attribute_descriptors() {
+    static const std::array<ControlAttributeDescriptor, 4> descriptors = {{
+        {&handle_with_offset_descriptor},
+        {&handle_gobo_select_descriptor},
+        {&handle_gobo_index_descriptor},
+        {&handle_gobo_rotation_descriptor},
+    }};
+    return descriptors;
+}
+
+bool consume_control_attribute(const AttributeContext &context) {
+    for (const ControlAttributeDescriptor &descriptor : control_attribute_descriptors()) {
+        if (descriptor.handler && descriptor.handler(context)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                              const peraviz::dmx::GoboWheelCatalog &wheel_catalog,
                              peraviz::dmx::FixtureControlOffsets &out_offsets) {
@@ -427,34 +586,19 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
             }
 
             const peraviz::dmx::ParsedAttribute parsed_attribute = peraviz::dmx::parse_attribute_name(attribute);
-            if (apply_descriptor_offsets(parsed_attribute, offsets, channel_function, out_offsets)) {
-                continue;
-            }
-
-            switch (parsed_attribute.role) {
-            case peraviz::dmx::AttributeRole::kGobo:
-                handle_gobo_attribute(parsed_attribute, offsets, channel_function, wheel_catalog,
-                                      function_dmx_from, function_dmx_to, function_mode_from, function_mode_to,
-                                      out_offsets);
-                break;
-            case peraviz::dmx::AttributeRole::kGoboIndex:
-                handle_gobo_index_attribute(parsed_attribute, offsets, channel_function, out_offsets);
-                break;
-            case peraviz::dmx::AttributeRole::kGoboRotation:
-                handle_gobo_rotation_attribute(parsed_attribute, offsets, attribute, channel_function,
-                                               function_dmx_from, function_dmx_to,
-                                               function_mode_from, function_mode_to, out_offsets);
-                break;
-            case peraviz::dmx::AttributeRole::kUnknown:
-            case peraviz::dmx::AttributeRole::kDimmer:
-            case peraviz::dmx::AttributeRole::kPan:
-            case peraviz::dmx::AttributeRole::kTilt:
-            case peraviz::dmx::AttributeRole::kZoom:
-            case peraviz::dmx::AttributeRole::kCyan:
-            case peraviz::dmx::AttributeRole::kMagenta:
-            case peraviz::dmx::AttributeRole::kYellow:
-                break;
-            }
+            const AttributeContext context{
+                parsed_attribute,
+                offsets,
+                attribute,
+                channel_function,
+                wheel_catalog,
+                function_dmx_from,
+                function_dmx_to,
+                function_mode_from,
+                function_mode_to,
+                out_offsets,
+            };
+            consume_control_attribute(context);
         }
     }
 }

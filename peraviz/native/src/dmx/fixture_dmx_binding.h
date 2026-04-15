@@ -78,6 +78,14 @@ struct FixtureControlBinding {
     FixtureAttributeChannel cyan;
     FixtureAttributeChannel magenta;
     FixtureAttributeChannel yellow;
+    FixtureAttributeChannel strobe;
+    FixtureAttributeChannel prism;
+    FixtureAttributeChannel prism_index;
+    FixtureAttributeChannel prism_rotation;
+    FixtureAttributeChannel color_wheel;
+    FixtureAttributeChannel color_wheel_rotation;
+    FixtureAttributeChannel animation_wheel;
+    FixtureAttributeChannel animation_wheel_rotation;
     FixtureAttributeChannel gobo;
     FixtureAttributeChannel gobo_index;
     FixtureAttributeChannel gobo_rotation;
@@ -147,6 +155,30 @@ struct FixtureControlOffsets {
     int yellow_coarse_offset_1_based = -1;
     int yellow_fine_offset_1_based = -1;
     int yellow_ultra_fine_offset_1_based = -1;
+    int strobe_coarse_offset_1_based = -1;
+    int strobe_fine_offset_1_based = -1;
+    int strobe_ultra_fine_offset_1_based = -1;
+    int prism_coarse_offset_1_based = -1;
+    int prism_fine_offset_1_based = -1;
+    int prism_ultra_fine_offset_1_based = -1;
+    int prism_index_coarse_offset_1_based = -1;
+    int prism_index_fine_offset_1_based = -1;
+    int prism_index_ultra_fine_offset_1_based = -1;
+    int prism_rotation_coarse_offset_1_based = -1;
+    int prism_rotation_fine_offset_1_based = -1;
+    int prism_rotation_ultra_fine_offset_1_based = -1;
+    int color_wheel_coarse_offset_1_based = -1;
+    int color_wheel_fine_offset_1_based = -1;
+    int color_wheel_ultra_fine_offset_1_based = -1;
+    int color_wheel_rotation_coarse_offset_1_based = -1;
+    int color_wheel_rotation_fine_offset_1_based = -1;
+    int color_wheel_rotation_ultra_fine_offset_1_based = -1;
+    int animation_wheel_coarse_offset_1_based = -1;
+    int animation_wheel_fine_offset_1_based = -1;
+    int animation_wheel_ultra_fine_offset_1_based = -1;
+    int animation_wheel_rotation_coarse_offset_1_based = -1;
+    int animation_wheel_rotation_fine_offset_1_based = -1;
+    int animation_wheel_rotation_ultra_fine_offset_1_based = -1;
     int gobo_coarse_offset_1_based = -1;
     int gobo_fine_offset_1_based = -1;
     int gobo_ultra_fine_offset_1_based = -1;
@@ -169,6 +201,11 @@ struct FixtureControlOffsets {
         return dimmer_coarse_offset_1_based > 0 || pan_coarse_offset_1_based > 0 ||
                tilt_coarse_offset_1_based > 0 || zoom_coarse_offset_1_based > 0 ||
                cyan_coarse_offset_1_based > 0 || magenta_coarse_offset_1_based > 0 ||
+               strobe_coarse_offset_1_based > 0 || prism_coarse_offset_1_based > 0 ||
+               prism_index_coarse_offset_1_based > 0 || prism_rotation_coarse_offset_1_based > 0 ||
+               color_wheel_coarse_offset_1_based > 0 || color_wheel_rotation_coarse_offset_1_based > 0 ||
+               animation_wheel_coarse_offset_1_based > 0 ||
+               animation_wheel_rotation_coarse_offset_1_based > 0 ||
                gobo_coarse_offset_1_based > 0 || gobo_index_coarse_offset_1_based > 0 ||
                gobo_rotation_coarse_offset_1_based > 0 || yellow_coarse_offset_1_based > 0 ||
                !gobo_wheels.empty();

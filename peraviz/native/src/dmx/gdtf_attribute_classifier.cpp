@@ -241,6 +241,67 @@ bool parse_standard_attribute(const std::string &leaf, ParsedAttribute &parsed) 
     return false;
 }
 
+bool token_contains_any(const std::string &leaf,
+                        const std::initializer_list<std::string_view> &tokens) {
+    for (const std::string_view token : tokens) {
+        if (leaf.find(std::string(token)) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void parse_wheel_and_prism_attributes(const std::string &leaf, ParsedAttribute &parsed) {
+    const bool references_prism = token_contains_any(leaf, {"prism"});
+    if (references_prism) {
+        if (token_contains_any(leaf, {"rotation", "rotate", "spin"})) {
+            parsed.role = AttributeRole::kPrismRotation;
+            parsed.byte_index = 1;
+            return;
+        }
+        if (token_contains_any(leaf, {"index", "pos"})) {
+            parsed.role = AttributeRole::kPrismIndex;
+            parsed.byte_index = 1;
+            return;
+        }
+        parsed.role = AttributeRole::kPrism;
+        parsed.byte_index = 1;
+        return;
+    }
+
+    const bool references_animation_wheel =
+        token_contains_any(leaf, {"animationwheel", "animwheel", "animationdisc", "animdisc"});
+    if (references_animation_wheel) {
+        if (token_contains_any(leaf, {"rotation", "rotate", "spin"})) {
+            parsed.role = AttributeRole::kAnimationWheelRotation;
+            parsed.byte_index = 1;
+            return;
+        }
+        parsed.role = AttributeRole::kAnimationWheel;
+        parsed.byte_index = 1;
+        return;
+    }
+
+    const bool references_color_wheel =
+        token_contains_any(leaf, {"colorwheel", "colourwheel", "colwheel", "colorselect"});
+    if (references_color_wheel) {
+        if (token_contains_any(leaf, {"rotation", "rotate", "spin"})) {
+            parsed.role = AttributeRole::kColorWheelRotation;
+            parsed.byte_index = 1;
+            return;
+        }
+        parsed.role = AttributeRole::kColorWheel;
+        parsed.byte_index = 1;
+        return;
+    }
+
+    const bool references_strobe = token_contains_any(leaf, {"strobe", "shutter", "strobe_shutter"});
+    if (references_strobe) {
+        parsed.role = AttributeRole::kStrobe;
+        parsed.byte_index = 1;
+    }
+}
+
 void parse_gobo_attribute(const std::string &leaf, ParsedAttribute &parsed) {
     if (matches_gobo_rotation_attribute(leaf)) {
         parsed.role = AttributeRole::kGoboRotation;
@@ -298,6 +359,10 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
     const std::string leaf = last_attribute_segment(lower);
 
     if (!parse_standard_attribute(leaf, parsed)) {
+        parse_wheel_and_prism_attributes(leaf, parsed);
+    }
+
+    if (parsed.role == AttributeRole::kUnknown) {
         parse_gobo_attribute(leaf, parsed);
     }
 
