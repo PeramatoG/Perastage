@@ -132,6 +132,25 @@ if(BUILD_TESTING)
     )
     target_link_libraries(peraviz_native_dmx_tests PRIVATE tinyxml2::tinyxml2)
     add_test(NAME peraviz_native_dmx_tests COMMAND peraviz_native_dmx_tests)
+
+    add_executable(peraviz_native_dmx_e2e_tests
+        tests/fixture_dmx_binding_e2e_test.cpp
+        src/asset_cache.cpp
+        src/dmx/gdtf_attribute_classifier.cpp
+        src/dmx/gdtf_control_offsets_resolver.cpp
+        src/dmx/gdtf_gobo_catalog.cpp
+        src/dmx/gdtf_physical_ranges.cpp
+        src/dmx/gdtf_xml_reader.cpp
+        src/dmx/fixture_dmx_binding.cpp
+    )
+    target_include_directories(peraviz_native_dmx_e2e_tests PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    )
+    target_link_libraries(peraviz_native_dmx_e2e_tests PRIVATE
+        tinyxml2::tinyxml2
+        ${_peraviz_wx_libs}
+    )
+    add_test(NAME peraviz_native_dmx_e2e_tests COMMAND peraviz_native_dmx_e2e_tests)
 endif()
 
 if(PERAVIZ_GODOT_PROJECT_DIR)

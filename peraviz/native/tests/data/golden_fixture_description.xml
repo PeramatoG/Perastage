@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GDTF>
+  <Wheels>
+    <Wheel Name="Gobo1">
+      <Slot WheelSlotIndex="1" />
+      <Slot WheelSlotIndex="2" />
+      <Slot WheelSlotIndex="3" />
+      <Slot WheelSlotIndex="4" />
+    </Wheel>
+  </Wheels>
+  <DMXModes>
+    <DMXMode Name="Standard">
+      <DMXChannels>
+        <DMXChannel Offset="1,2,3">
+          <LogicalChannel Attribute="Dimmer">
+            <ChannelFunction Attribute="Dimmer" DMXFrom="0" DMXTo="255" />
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="4,5">
+          <LogicalChannel Attribute="Pan">
+            <ChannelFunction Attribute="Pan" DMXFrom="0" DMXTo="255" />
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="6,7">
+          <LogicalChannel Attribute="Tilt">
+            <ChannelFunction Attribute="Tilt" DMXFrom="0" DMXTo="255" />
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="8">
+          <LogicalChannel Attribute="Zoom">
+            <ChannelFunction Attribute="Zoom" DMXFrom="0" DMXTo="255" PhysicalFrom="10" PhysicalTo="40" />
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="9,10">
+          <LogicalChannel Attribute="ShutterStrobe">
+            <ChannelFunction Attribute="ShutterStrobe" DMXFrom="0" DMXTo="255" />
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="11,12">
+          <LogicalChannel Attribute="Prism1">
+            <ChannelFunction Attribute="Prism1" DMXFrom="0" DMXTo="255" />
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="13,14,15">
+          <LogicalChannel Attribute="Prism1Pos">
+            <ChannelFunction Attribute="Prism1Pos" DMXFrom="0" DMXTo="255" />
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="16,17">
+          <LogicalChannel Attribute="Prism1Rotate">
+            <ChannelFunction Attribute="Prism1Rotate" DMXFrom="0" DMXTo="255" />
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="18,19">
+          <LogicalChannel Attribute="ColorWheel">
+            <ChannelFunction Attribute="ColorWheel" DMXFrom="0" DMXTo="255" />
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="20,21">
+          <LogicalChannel Attribute="ColorWheelRotate">
+            <ChannelFunction Attribute="ColorWheelRotate" DMXFrom="0" DMXTo="255" />
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="22,23">
+          <LogicalChannel Attribute="AnimationWheel">
+            <ChannelFunction Attribute="AnimationWheel" DMXFrom="0" DMXTo="255" />
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="24,25">
+          <LogicalChannel Attribute="AnimationWheelRotate">
+            <ChannelFunction Attribute="AnimationWheelRotate" DMXFrom="0" DMXTo="255" />
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="26,27">
+          <LogicalChannel Attribute="Gobo1">
+            <ChannelFunction Attribute="Gobo1" Name="Gobo Select" Wheel="gobo1" DMXFrom="0" DMXTo="255">
+              <ChannelSet Name="Open" WheelSlotIndex="1" DMXFrom="0" DMXTo="63" />
+              <ChannelSet Name="Index" WheelSlotIndex="2" DMXFrom="64" DMXTo="127" />
+              <ChannelSet Name="Spin" WheelSlotIndex="3" DMXFrom="128" DMXTo="191" />
+              <ChannelSet Name="Shake" WheelSlotIndex="4" DMXFrom="192" DMXTo="255" />
+            </ChannelFunction>
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="28,29">
+          <LogicalChannel Attribute="Gobo1Pos">
+            <ChannelFunction Attribute="Gobo1Pos" Wheel="gobo1" DMXFrom="0" DMXTo="255" PhysicalFrom="-180" PhysicalTo="180" />
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="30">
+          <LogicalChannel Attribute="Gobo1PosRotate">
+            <ChannelFunction Attribute="Gobo1PosRotate" Name="Gobo Rotation" Wheel="gobo1" DMXFrom="0" DMXTo="255">
+              <ChannelSet Name="No Rotation" DMXFrom="0" DMXTo="63" />
+              <ChannelSet Name="Clockwise Slow to Fast" DMXFrom="64" DMXTo="127" />
+              <ChannelSet Name="CounterClockwise Fast to Slow" DMXFrom="128" DMXTo="255" />
+            </ChannelFunction>
+          </LogicalChannel>
+        </DMXChannel>
+      </DMXChannels>
+    </DMXMode>
+  </DMXModes>
+</GDTF>
