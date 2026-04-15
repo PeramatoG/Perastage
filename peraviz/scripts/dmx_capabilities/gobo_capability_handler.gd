@@ -9,6 +9,7 @@ const GOBO_SHAKE_CONTROL_TYPE_SAME_CHANNEL_SELECT: int = 0
 const GOBO_SHAKE_CONTROL_TYPE_DEDICATED_CHANNEL: int = 1
 const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MIN_DEG: float = 0.1
 const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MAX_DEG: float = 0.8
+const GOBO_MIN_ACTIVE_SHAKE_FREQUENCY_HZ: float = 0.05
 const GOBO_MAX_SHAKE_FREQUENCY_HZ: float = 7.0
 const GOBO_MAX_SHAKE_AMPLITUDE_DEG: float = 1.0
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
@@ -524,7 +525,7 @@ static func _resolve_shake_runtime(raw_8bit: int, control_norm: float, ranges: A
 						ratio = clamp((control_norm - range_norm_from) / range_norm_span, 0.0, 1.0)
 
 			var shake_frequency_hz: float = lerp(float(range_data.get("physical_from", 0.0)), float(range_data.get("physical_to", 0.0)), ratio)
-			shake_frequency_hz = clamp(absf(shake_frequency_hz), 0.0, GOBO_MAX_SHAKE_FREQUENCY_HZ)
+			shake_frequency_hz = clamp(absf(shake_frequency_hz), GOBO_MIN_ACTIVE_SHAKE_FREQUENCY_HZ, GOBO_MAX_SHAKE_FREQUENCY_HZ)
 
 			var shake_amplitude_deg: float = 0.0
 			if bool(range_data.get("has_explicit_amplitude", false)):
