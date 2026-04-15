@@ -118,7 +118,6 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 		var shake_raw_8bit: int = -1
 		var shake_raw_coarse: int = -1
 		var shake_raw_fine: int = -1
-		var shake_control_norm: float = -1.0
 
 		if has_index_channel and supports_index:
 			var index_value: Dictionary = control_reader.read_optional_control_value(
@@ -232,12 +231,11 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 				)
 			var resolved_dedicated_shake: Dictionary = {}
 			if rotation_source_channel == "rotation":
-				resolved_dedicated_shake = _resolve_shake_runtime(
+				resolved_dedicated_shake = _resolve_dedicated_channel_shake_runtime(
 					rotation_raw_8bit,
 					rotation_control_norm,
 					shake_ranges,
-					mode_master_value_8bit,
-					true
+					mode_master_value_8bit
 				)
 			if bool(resolved_dedicated_shake.get("has_range", false)):
 				resolved_shake = resolved_dedicated_shake
@@ -245,14 +243,12 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 				shake_raw_8bit = rotation_raw_8bit
 				shake_raw_coarse = rotation_raw_coarse
 				shake_raw_fine = rotation_raw_fine
-				shake_control_norm = rotation_control_norm
 			elif bool(resolved_same_channel_shake.get("has_range", false)):
 				resolved_shake = resolved_same_channel_shake
 				shake_source_channel = "select"
 				shake_raw_8bit = select_shake_raw_8bit
 				shake_raw_coarse = raw_8bit
 				shake_raw_fine = -1
-				shake_control_norm = select_shake_norm
 		var matched_range: Dictionary = resolved_rotation.get("range", {})
 		var matched_shake_range: Dictionary = resolved_shake.get("range", {})
 		var shake_active: bool = bool(resolved_shake.get("has_range", false))
@@ -458,6 +454,25 @@ static func _resolve_same_channel_shake_runtime(raw_8bit: int, slot_index: int, 
 			"shake_amplitude_deg": -1.0,
 		}
 	return _resolve_shake_runtime(raw_8bit, -1.0, filtered_ranges, raw_8bit, false)
+
+static func _resolve_dedicated_channel_shake_runtime(raw_8bit: int, control_norm: float, ranges: Array, mode_master_value_8bit: int) -> Dictionary:
+	var dedicated_ranges: Array = []
+	for item in ranges:
+		if item is not Dictionary:
+			continue
+		var range_data: Dictionary = item
+		var control_type: int = int(range_data.get("control_type", GOBO_SHAKE_CONTROL_TYPE_SAME_CHANNEL_SELECT))
+		if control_type != GOBO_SHAKE_CONTROL_TYPE_DEDICATED_CHANNEL:
+			continue
+		dedicated_ranges.append(range_data)
+	if dedicated_ranges.is_empty():
+		return {
+			"has_range": false,
+			"range": {},
+			"shake_frequency_hz": -1.0,
+			"shake_amplitude_deg": -1.0,
+		}
+	return _resolve_shake_runtime(raw_8bit, control_norm, dedicated_ranges, mode_master_value_8bit, true)
 
 static func _resolve_shake_runtime(raw_8bit: int, control_norm: float, ranges: Array, mode_master_value_8bit: int, prefer_dedicated_shake_ranges: bool) -> Dictionary:
 	var fallback_amplitude_min: float = _resolve_shake_fallback_min_amplitude()
