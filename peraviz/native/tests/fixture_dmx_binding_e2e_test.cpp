@@ -261,8 +261,16 @@ int run_test() {
     if (!with_dedicated_wheel) {
         return fail("Expected gobo wheel #2 in dedicated shake mode");
     }
+    if (with_dedicated_wheel->coarse_offset_1_based != 1) {
+        return fail("Expected select channel to keep gobo slot ownership in dedicated shake mode");
+    }
     if (with_dedicated_wheel->rotation_coarse_offset_1_based != 2) {
         return fail("Expected dedicated shake channel to own shake speed offset");
+    }
+    if (with_dedicated_wheel->ranges.size() != 2 ||
+        with_dedicated_wheel->ranges[0].slot_index != 1 ||
+        with_dedicated_wheel->ranges[1].slot_index != 2) {
+        return fail("Expected slot ranges to remain intact when dedicated shake exists");
     }
     if (count_shake_ranges_with_type(*with_dedicated_wheel,
                                      peraviz::dmx::FixtureGoboShakeControlType::kDedicatedShakeChannel) == 0) {
