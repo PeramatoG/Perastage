@@ -7,10 +7,10 @@ const GOBO_BEHAVIOR_ROTATION: int = 2
 const GOBO_BEHAVIOR_SHAKE: int = 3
 const GOBO_SHAKE_CONTROL_TYPE_SAME_CHANNEL_SELECT: int = 0
 const GOBO_SHAKE_CONTROL_TYPE_DEDICATED_CHANNEL: int = 1
-const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MIN_DEG: float = 0.5
-const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MAX_DEG: float = 3.0
-const GOBO_MAX_SHAKE_FREQUENCY_HZ: float = 120.0
-const GOBO_MAX_SHAKE_AMPLITUDE_DEG: float = 45.0
+const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MIN_DEG: float = 0.1
+const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MAX_DEG: float = 0.8
+const GOBO_MAX_SHAKE_FREQUENCY_HZ: float = 7.0
+const GOBO_MAX_SHAKE_AMPLITUDE_DEG: float = 1.0
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
 
 const DmxGoboRangeResolverScript = preload("res://scripts/dmx_gobo_range_resolver.gd")
@@ -214,34 +214,45 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 				prefer_rotation_channel_ranges
 			)
 		if supports_shake and not shake_ranges.is_empty():
+			var slot_index_for_shake: int = int(active_range.get("slot_index", -1))
+			var select_shake_raw_8bit: int = raw_8bit
+			var select_shake_norm: float = normalizer.norm_from_active_range(raw_8bit, active_range)
+			var resolved_same_channel_shake: Dictionary = _resolve_same_channel_shake_runtime(
+				select_shake_raw_8bit,
+				slot_index_for_shake,
+				shake_ranges
+			)
+			if not bool(resolved_same_channel_shake.get("has_range", false)):
+				resolved_same_channel_shake = _resolve_shake_runtime(
+					select_shake_raw_8bit,
+					select_shake_norm,
+					shake_ranges,
+					mode_master_value_8bit,
+					false
+				)
+			var resolved_dedicated_shake: Dictionary = {}
 			if rotation_source_channel == "rotation":
+				resolved_dedicated_shake = _resolve_shake_runtime(
+					rotation_raw_8bit,
+					rotation_control_norm,
+					shake_ranges,
+					mode_master_value_8bit,
+					true
+				)
+			if bool(resolved_dedicated_shake.get("has_range", false)):
+				resolved_shake = resolved_dedicated_shake
 				shake_source_channel = "rotation"
 				shake_raw_8bit = rotation_raw_8bit
 				shake_raw_coarse = rotation_raw_coarse
 				shake_raw_fine = rotation_raw_fine
 				shake_control_norm = rotation_control_norm
-				resolved_shake = _resolve_shake_runtime(
-					shake_raw_8bit,
-					shake_control_norm,
-					shake_ranges,
-					mode_master_value_8bit,
-					true
-				)
-			else:
+			elif bool(resolved_same_channel_shake.get("has_range", false)):
+				resolved_shake = resolved_same_channel_shake
 				shake_source_channel = "select"
-				shake_raw_8bit = raw_8bit
+				shake_raw_8bit = select_shake_raw_8bit
 				shake_raw_coarse = raw_8bit
 				shake_raw_fine = -1
-				shake_control_norm = normalizer.norm_from_active_range(raw_8bit, active_range)
-				resolved_shake = _resolve_same_channel_shake_runtime(shake_raw_8bit, int(active_range.get("slot_index", -1)), shake_ranges)
-				if not bool(resolved_shake.get("has_range", false)):
-					resolved_shake = _resolve_shake_runtime(
-						shake_raw_8bit,
-						shake_control_norm,
-						shake_ranges,
-						mode_master_value_8bit,
-						false
-					)
+				shake_control_norm = select_shake_norm
 		var matched_range: Dictionary = resolved_rotation.get("range", {})
 		var matched_shake_range: Dictionary = resolved_shake.get("range", {})
 		var shake_active: bool = bool(resolved_shake.get("has_range", false))
