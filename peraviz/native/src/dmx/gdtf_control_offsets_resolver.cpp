@@ -318,15 +318,16 @@ void handle_gobo_index_attribute(const peraviz::dmx::ParsedAttribute &parsed_att
                                               wheel->index_physical_max);
 }
 
-void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_attribute,
-                                    const std::vector<int> &offsets,
-                                    const char *attribute,
-                                    tinyxml2::XMLElement *channel_function,
-                                    int function_dmx_from,
-                                    int function_dmx_to,
-                                    int function_mode_from,
-                                    int function_mode_to,
-                                    peraviz::dmx::FixtureControlOffsets &out_offsets) {
+void handle_gobo_rotation_or_shake_attribute(const peraviz::dmx::ParsedAttribute &parsed_attribute,
+                                             const std::vector<int> &offsets,
+                                             const char *attribute,
+                                             tinyxml2::XMLElement *channel_function,
+                                             int function_dmx_from,
+                                             int function_dmx_to,
+                                             int function_mode_from,
+                                             int function_mode_to,
+                                             bool force_shake,
+                                             peraviz::dmx::FixtureControlOffsets &out_offsets) {
     peraviz::dmx::FixtureGoboWheelOffset *wheel =
         resolve_gobo_wheel(out_offsets, parsed_attribute, channel_function);
     if (!wheel) {
@@ -334,7 +335,8 @@ void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_
     }
 
     const std::string attribute_lower = peraviz::dmx::lower_ascii(peraviz::dmx::trim_ascii(attribute));
-    const bool is_shake_attribute = attribute_lower.find("shake") != std::string::npos;
+    const bool is_shake_attribute =
+        force_shake || attribute_lower.find("shake") != std::string::npos;
     if (is_shake_attribute) {
         wheel->supports_shake = true;
     } else {
@@ -359,7 +361,9 @@ void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_
          attribute_lower.find("pos") != std::string::npos &&
          attribute_lower.find("rotate") != std::string::npos);
     int candidate_priority = 0;
-    if (has_mode_master && prefers_position_rotation_channel) {
+    if (is_shake_attribute) {
+        candidate_priority = 4;
+    } else if (has_mode_master && prefers_position_rotation_channel) {
         candidate_priority = 3;
     } else if (has_mode_master) {
         candidate_priority = 2;
@@ -462,15 +466,33 @@ bool handle_gobo_rotation_descriptor(const AttributeContext &context) {
     if (context.parsed_attribute.role != peraviz::dmx::AttributeRole::kGoboRotation) {
         return false;
     }
-    handle_gobo_rotation_attribute(context.parsed_attribute,
-                                   context.offsets,
-                                   context.attribute_name ? context.attribute_name : "",
-                                   context.channel_function,
-                                   context.function_dmx_from,
-                                   context.function_dmx_to,
-                                   context.function_mode_from,
-                                   context.function_mode_to,
-                                   context.out_offsets);
+    handle_gobo_rotation_or_shake_attribute(context.parsed_attribute,
+                                            context.offsets,
+                                            context.attribute_name ? context.attribute_name : "",
+                                            context.channel_function,
+                                            context.function_dmx_from,
+                                            context.function_dmx_to,
+                                            context.function_mode_from,
+                                            context.function_mode_to,
+                                            false,
+                                            context.out_offsets);
+    return true;
+}
+
+bool handle_gobo_shake_descriptor(const AttributeContext &context) {
+    if (context.parsed_attribute.role != peraviz::dmx::AttributeRole::kGoboShake) {
+        return false;
+    }
+    handle_gobo_rotation_or_shake_attribute(context.parsed_attribute,
+                                            context.offsets,
+                                            context.attribute_name ? context.attribute_name : "",
+                                            context.channel_function,
+                                            context.function_dmx_from,
+                                            context.function_dmx_to,
+                                            context.function_mode_from,
+                                            context.function_mode_to,
+                                            true,
+                                            context.out_offsets);
     return true;
 }
 
@@ -478,12 +500,13 @@ struct ControlAttributeDescriptor {
     AttributeHandler handler = nullptr;
 };
 
-const std::array<ControlAttributeDescriptor, 4> &control_attribute_descriptors() {
-    static const std::array<ControlAttributeDescriptor, 4> descriptors = {{
+const std::array<ControlAttributeDescriptor, 5> &control_attribute_descriptors() {
+    static const std::array<ControlAttributeDescriptor, 5> descriptors = {{
         {&handle_with_offset_descriptor},
         {&handle_gobo_select_descriptor},
         {&handle_gobo_index_descriptor},
         {&handle_gobo_rotation_descriptor},
+        {&handle_gobo_shake_descriptor},
     }};
     return descriptors;
 }

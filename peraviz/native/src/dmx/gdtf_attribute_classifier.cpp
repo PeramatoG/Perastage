@@ -177,6 +177,15 @@ bool matches_gobo_rotation_attribute(const std::string &leaf) {
            leaf.find("rotate") != std::string::npos;
 }
 
+bool matches_gobo_shake_attribute(const std::string &leaf) {
+    if (leaf.find("gobo") == std::string::npos) {
+        return false;
+    }
+    return leaf.find("selectshake") != std::string::npos ||
+           leaf.find("shake") != std::string::npos ||
+           leaf.find("shaking") != std::string::npos;
+}
+
 struct AttributeNameDescriptor {
     AttributeRole role;
     std::initializer_list<std::string_view> tokens;
@@ -303,7 +312,9 @@ void parse_wheel_and_prism_attributes(const std::string &leaf, ParsedAttribute &
 }
 
 void parse_gobo_attribute(const std::string &leaf, ParsedAttribute &parsed) {
-    if (matches_gobo_rotation_attribute(leaf)) {
+    if (matches_gobo_shake_attribute(leaf)) {
+        parsed.role = AttributeRole::kGoboShake;
+    } else if (matches_gobo_rotation_attribute(leaf)) {
         parsed.role = AttributeRole::kGoboRotation;
     } else if (matches_gobo_index_attribute(leaf)) {
         parsed.role = AttributeRole::kGoboIndex;

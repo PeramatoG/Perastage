@@ -507,6 +507,9 @@ void dedupe_and_sort_gobo_wheel(FixtureGoboWheelOffset &wheel) {
     std::stable_sort(wheel.shake_ranges.begin(), wheel.shake_ranges.end(),
                      [](const FixtureGoboShakeRange &a,
                         const FixtureGoboShakeRange &b) {
+                         if (a.control_type != b.control_type) {
+                             return a.control_type == FixtureGoboShakeControlType::kDedicatedShakeChannel;
+                         }
                          if (a.dmx_from != b.dmx_from) {
                              return a.dmx_from < b.dmx_from;
                          }
