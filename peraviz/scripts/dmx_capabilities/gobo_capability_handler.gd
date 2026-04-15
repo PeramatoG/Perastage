@@ -11,6 +11,7 @@ const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MIN_DEG: float = 0.5
 const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MAX_DEG: float = 3.0
 const GOBO_MAX_SHAKE_FREQUENCY_HZ: float = 120.0
 const GOBO_MAX_SHAKE_AMPLITUDE_DEG: float = 45.0
+const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
 
 const DmxGoboRangeResolverScript = preload("res://scripts/dmx_gobo_range_resolver.gd")
 
@@ -96,6 +97,8 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 		var uses_range_rotation: bool = is_rotation_behavior and not has_rotation_channel
 		var supports_index: bool = (range_behavior == GOBO_BEHAVIOR_INDEX) or (has_index_channel and not is_rotation_behavior)
 		var supports_rotation: bool = is_rotation_behavior or (has_rotation_channel and range_behavior != GOBO_BEHAVIOR_INDEX)
+		var shake_ranges: Array = item.get("shake_ranges", [])
+		var supports_shake: bool = range_behavior == GOBO_BEHAVIOR_SHAKE or not shake_ranges.is_empty()
 		var index_norm: float = -1.0
 		var index_raw_8bit: int = -1
 		var index_raw_coarse: int = -1
@@ -111,6 +114,11 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 		var resolved_shake: Dictionary = {}
 		var mode_master_value_8bit: int = raw_8bit
 		var rotation_control_norm: float = -1.0
+		var shake_source_channel: String = "none"
+		var shake_raw_8bit: int = -1
+		var shake_raw_coarse: int = -1
+		var shake_raw_fine: int = -1
+		var shake_control_norm: float = -1.0
 
 		if has_index_channel and supports_index:
 			var index_value: Dictionary = control_reader.read_optional_control_value(
@@ -205,17 +213,55 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 				mode_master_value_8bit,
 				prefer_rotation_channel_ranges
 			)
-		var shake_ranges: Array = item.get("shake_ranges", [])
-		if range_behavior == GOBO_BEHAVIOR_SHAKE and not shake_ranges.is_empty():
-			resolved_shake = _resolve_shake_runtime(
-				rotation_raw_8bit,
-				rotation_control_norm,
-				shake_ranges,
-				mode_master_value_8bit,
-				rotation_source_channel == "rotation"
-			)
+		if supports_shake and not shake_ranges.is_empty():
+			if rotation_source_channel == "rotation":
+				shake_source_channel = "rotation"
+				shake_raw_8bit = rotation_raw_8bit
+				shake_raw_coarse = rotation_raw_coarse
+				shake_raw_fine = rotation_raw_fine
+				shake_control_norm = rotation_control_norm
+				resolved_shake = _resolve_shake_runtime(
+					shake_raw_8bit,
+					shake_control_norm,
+					shake_ranges,
+					mode_master_value_8bit,
+					true
+				)
+			else:
+				shake_source_channel = "select"
+				shake_raw_8bit = raw_8bit
+				shake_raw_coarse = raw_8bit
+				shake_raw_fine = -1
+				shake_control_norm = normalizer.norm_from_active_range(raw_8bit, active_range)
+				resolved_shake = _resolve_same_channel_shake_runtime(shake_raw_8bit, int(active_range.get("slot_index", -1)), shake_ranges)
+				if not bool(resolved_shake.get("has_range", false)):
+					resolved_shake = _resolve_shake_runtime(
+						shake_raw_8bit,
+						shake_control_norm,
+						shake_ranges,
+						mode_master_value_8bit,
+						false
+					)
 		var matched_range: Dictionary = resolved_rotation.get("range", {})
 		var matched_shake_range: Dictionary = resolved_shake.get("range", {})
+		var shake_active: bool = bool(resolved_shake.get("has_range", false))
+		var shake_freq_hz: float = float(resolved_shake.get("shake_frequency_hz", -1.0))
+		var shake_amp_deg: float = float(resolved_shake.get("shake_amplitude_deg", -1.0))
+		_debug_log_runtime_state(
+			item,
+			range_behavior,
+			supports_rotation,
+			bool(resolved_rotation.get("has_range", false)),
+			float(resolved_rotation.get("rotation_speed_deg_per_sec", 0.0)),
+			supports_shake,
+			shake_active,
+			shake_freq_hz,
+			shake_amp_deg,
+			rotation_source_channel,
+			shake_source_channel,
+			rotation_raw_8bit,
+			shake_raw_8bit
+		)
 		runtime_bindings.append({
 			"wheel_number": int(item.get("wheel_number", 0)),
 			"wheel_name": str(item.get("wheel_name", "")),
@@ -226,6 +272,7 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 			"behavior": range_behavior,
 			"supports_index": supports_index,
 			"supports_rotation": supports_rotation,
+			"supports_shake": supports_shake,
 			"has_index_physical_limits": bool(item.get("has_index_physical_limits", false)),
 			"index_physical_min": float(item.get("index_physical_min", 0.0)),
 			"index_physical_max": float(item.get("index_physical_max", 0.0)),
@@ -254,6 +301,13 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 			"rotation_ranges": rotation_ranges,
 			"shake_ranges": shake_ranges,
 			"has_shake_runtime_range": bool(resolved_shake.get("has_range", false)),
+			"shake_active": shake_active,
+			"shake_source_channel": shake_source_channel,
+			"shake_raw_coarse": shake_raw_coarse,
+			"shake_raw_fine": shake_raw_fine,
+			"shake_raw_8bit": shake_raw_8bit,
+			"shake_freq_hz": shake_freq_hz,
+			"shake_amp_deg": shake_amp_deg,
 			"shake_frequency_hz": float(resolved_shake.get("shake_frequency_hz", -1.0)),
 			"shake_amplitude_deg": float(resolved_shake.get("shake_amplitude_deg", -1.0)),
 			"shake_matched_range_start": int(matched_shake_range.get("dmx_from", -1)),
@@ -263,6 +317,41 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 			"ranges": ranges,
 		})
 	return runtime_bindings
+
+static func _debug_log_runtime_state(wheel_item: Dictionary,
+		behavior: int,
+		supports_rotation: bool,
+		rotation_active: bool,
+		rotation_speed_deg_per_sec: float,
+		supports_shake: bool,
+		shake_active: bool,
+		shake_freq_hz: float,
+		shake_amp_deg: float,
+		rotation_source_channel: String,
+		shake_source_channel: String,
+		rotation_raw_8bit: int,
+		shake_raw_8bit: int) -> void:
+	if not bool(ProjectSettings.get_setting(GOBO_ROTATION_DEBUG_SETTING_KEY, false)):
+		return
+	var timestamp_ms: int = Time.get_ticks_msec()
+	print("[PeravizGoboRuntime] ts_ms=%d wheel_number=%d wheel_name=%s behavior=%d supports_rotation=%s rotation_active=%s rotation_speed_dps=%.4f rotation_source=%s rotation_raw_8bit=%d supports_shake=%s shake_active=%s shake_freq_hz=%.4f shake_amp_deg=%.4f shake_source=%s shake_raw_8bit=%d overlap_active=%s" % [
+		timestamp_ms,
+		int(wheel_item.get("wheel_number", 0)),
+		str(wheel_item.get("wheel_name", "")),
+		behavior,
+		str(supports_rotation),
+		str(rotation_active),
+		rotation_speed_deg_per_sec,
+		rotation_source_channel,
+		rotation_raw_8bit,
+		str(supports_shake),
+		str(shake_active),
+		shake_freq_hz,
+		shake_amp_deg,
+		shake_source_channel,
+		shake_raw_8bit,
+		str(rotation_active and shake_active),
+	])
 
 static func _resolve_rotation_runtime(raw_8bit: int, control_norm: float, ranges: Array, mode_master_value_8bit: int, prefer_rotation_channel_ranges: bool) -> Dictionary:
 	for pass_index in range(2):
@@ -336,6 +425,28 @@ static func _resolve_rotation_runtime(raw_8bit: int, control_norm: float, ranges
 
 static func _resolve_gobo_range(raw_8bit: int, ranges: Array) -> Dictionary:
 	return DmxGoboRangeResolverScript.resolve_active_range(raw_8bit, ranges)
+
+static func _resolve_same_channel_shake_runtime(raw_8bit: int, slot_index: int, ranges: Array) -> Dictionary:
+	var filtered_ranges: Array = []
+	for item in ranges:
+		if item is not Dictionary:
+			continue
+		var range_data: Dictionary = item
+		var control_type: int = int(range_data.get("control_type", GOBO_SHAKE_CONTROL_TYPE_SAME_CHANNEL_SELECT))
+		if control_type != GOBO_SHAKE_CONTROL_TYPE_SAME_CHANNEL_SELECT:
+			continue
+		var range_slot_index: int = int(range_data.get("slot_index", slot_index))
+		if range_slot_index != slot_index:
+			continue
+		filtered_ranges.append(range_data)
+	if filtered_ranges.is_empty():
+		return {
+			"has_range": false,
+			"range": {},
+			"shake_frequency_hz": -1.0,
+			"shake_amplitude_deg": -1.0,
+		}
+	return _resolve_shake_runtime(raw_8bit, -1.0, filtered_ranges, raw_8bit, false)
 
 static func _resolve_shake_runtime(raw_8bit: int, control_norm: float, ranges: Array, mode_master_value_8bit: int, prefer_dedicated_shake_ranges: bool) -> Dictionary:
 	var fallback_amplitude_min: float = _resolve_shake_fallback_min_amplitude()
