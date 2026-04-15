@@ -266,6 +266,8 @@ Dictionary PeravizLoader::build_fixture_dmx_bindings(int universe_offset) const 
             wheel_item["rotation_ultra_fine_channel_index_0"] = wheel.rotation_channel.ultra_fine_dmx_channel_index_0;
             wheel_item["supports_index"] = wheel.supports_index;
             wheel_item["supports_rotation"] = wheel.supports_rotation;
+            wheel_item["supports_spin_rotation"] = wheel.supports_spin_rotation;
+            wheel_item["supports_shake"] = wheel.supports_shake;
             wheel_item["has_index_physical_limits"] = wheel.has_index_physical_limits;
             wheel_item["index_physical_min"] = wheel.index_physical_min;
             wheel_item["index_physical_max"] = wheel.index_physical_max;
@@ -297,6 +299,23 @@ Dictionary PeravizLoader::build_fixture_dmx_bindings(int universe_offset) const 
                 rotation_ranges[rotation_range_index] = rotation_range_item;
             }
             wheel_item["rotation_ranges"] = rotation_ranges;
+
+            Array shake_ranges;
+            shake_ranges.resize(static_cast<int64_t>(wheel.shake_ranges.size()));
+            for (int64_t shake_range_index = 0; shake_range_index < static_cast<int64_t>(wheel.shake_ranges.size()); ++shake_range_index) {
+                const auto &shake_range = wheel.shake_ranges[static_cast<size_t>(shake_range_index)];
+                Dictionary shake_range_item;
+                shake_range_item["dmx_from"] = shake_range.dmx_from;
+                shake_range_item["dmx_to"] = shake_range.dmx_to;
+                shake_range_item["mode_from_8bit"] = shake_range.mode_from_8bit;
+                shake_range_item["mode_to_8bit"] = shake_range.mode_to_8bit;
+                shake_range_item["physical_from"] = shake_range.physical_from;
+                shake_range_item["physical_to"] = shake_range.physical_to;
+                shake_range_item["slot_index"] = shake_range.slot_index;
+                shake_range_item["control_type"] = static_cast<int>(shake_range.control_type);
+                shake_ranges[shake_range_index] = shake_range_item;
+            }
+            wheel_item["shake_ranges"] = shake_ranges;
 
             Array wheel_slots;
             wheel_slots.resize(static_cast<int64_t>(wheel.slots.size()));

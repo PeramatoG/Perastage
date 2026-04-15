@@ -333,7 +333,14 @@ void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_
         return;
     }
 
-    wheel->supports_rotation = true;
+    const std::string attribute_lower = peraviz::dmx::lower_ascii(peraviz::dmx::trim_ascii(attribute));
+    const bool is_shake_attribute = attribute_lower.find("shake") != std::string::npos;
+    if (is_shake_attribute) {
+        wheel->supports_shake = true;
+    } else {
+        wheel->supports_rotation = true;
+        wheel->supports_spin_rotation = true;
+    }
     int candidate_rotation_coarse = -1;
     int candidate_rotation_fine = -1;
     int candidate_rotation_ultra_fine = -1;
@@ -342,7 +349,6 @@ void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_
                     candidate_rotation_fine,
                     candidate_rotation_ultra_fine);
 
-    const std::string attribute_lower = peraviz::dmx::lower_ascii(peraviz::dmx::trim_ascii(attribute));
     const bool has_mode_master =
         channel_function->Attribute("ModeMaster") != nullptr ||
         channel_function->Attribute("modemaster") != nullptr;
@@ -375,12 +381,32 @@ void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_
         wheel->rotation_channel_priority = candidate_priority;
     }
 
+    std::vector<peraviz::dmx::FixtureGoboRotationRange> parsed_ranges;
     peraviz::dmx::consume_gobo_rotation_channel_sets(channel_function,
-                                                     wheel->rotation_ranges,
+                                                     parsed_ranges,
                                                      function_dmx_from,
                                                      function_dmx_to,
                                                      function_mode_from,
                                                      function_mode_to);
+    if (is_shake_attribute) {
+        wheel->shake_ranges.reserve(wheel->shake_ranges.size() + parsed_ranges.size());
+        for (const peraviz::dmx::FixtureGoboRotationRange &range : parsed_ranges) {
+            peraviz::dmx::FixtureGoboShakeRange shake_range;
+            shake_range.dmx_from = range.dmx_from;
+            shake_range.dmx_to = range.dmx_to;
+            shake_range.mode_from_8bit = range.mode_from_8bit;
+            shake_range.mode_to_8bit = range.mode_to_8bit;
+            shake_range.physical_from = range.physical_from;
+            shake_range.physical_to = range.physical_to;
+            shake_range.slot_index = -1;
+            shake_range.control_type = peraviz::dmx::FixtureGoboShakeControlType::kDedicatedShakeChannel;
+            wheel->shake_ranges.push_back(shake_range);
+        }
+    } else {
+        wheel->rotation_ranges.insert(wheel->rotation_ranges.end(),
+                                      parsed_ranges.begin(),
+                                      parsed_ranges.end());
+    }
 }
 
 struct AttributeContext {

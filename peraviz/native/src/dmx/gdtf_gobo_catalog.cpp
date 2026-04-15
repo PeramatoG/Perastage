@@ -376,7 +376,6 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
 
         if (row.behavior == FixtureGoboRangeBehavior::kRotation ||
             row.behavior == FixtureGoboRangeBehavior::kShake) {
-            out_wheel.supports_rotation = true;
             float rotation_physical_from = row.physical_from;
             float rotation_physical_to = row.physical_to;
             bool has_rotation_physical = row.has_physical;
@@ -417,16 +416,32 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             }
 
             if (has_rotation_physical) {
-                FixtureGoboRotationRange rotation_range;
-                rotation_range.dmx_from = row.dmx_from;
-                rotation_range.dmx_to = row.dmx_to;
-                rotation_range.mode_from_8bit = clamped_mode_from;
-                rotation_range.mode_to_8bit = clamped_mode_to;
-                rotation_range.physical_from = rotation_physical_from;
-                rotation_range.physical_to = rotation_physical_to;
-                rotation_range.is_stop_range = std::fabs(rotation_physical_from) < 0.0001F && std::fabs(rotation_physical_to) < 0.0001F;
-                rotation_range.is_rotation_channel_range = false;
-                out_wheel.rotation_ranges.push_back(rotation_range);
+                if (row.behavior == FixtureGoboRangeBehavior::kShake) {
+                    out_wheel.supports_shake = true;
+                    FixtureGoboShakeRange shake_range;
+                    shake_range.dmx_from = row.dmx_from;
+                    shake_range.dmx_to = row.dmx_to;
+                    shake_range.mode_from_8bit = clamped_mode_from;
+                    shake_range.mode_to_8bit = clamped_mode_to;
+                    shake_range.physical_from = rotation_physical_from;
+                    shake_range.physical_to = rotation_physical_to;
+                    shake_range.slot_index = row.slot_index;
+                    shake_range.control_type = FixtureGoboShakeControlType::kSameChannelSelect;
+                    out_wheel.shake_ranges.push_back(shake_range);
+                } else {
+                    out_wheel.supports_rotation = true;
+                    out_wheel.supports_spin_rotation = true;
+                    FixtureGoboRotationRange rotation_range;
+                    rotation_range.dmx_from = row.dmx_from;
+                    rotation_range.dmx_to = row.dmx_to;
+                    rotation_range.mode_from_8bit = clamped_mode_from;
+                    rotation_range.mode_to_8bit = clamped_mode_to;
+                    rotation_range.physical_from = rotation_physical_from;
+                    rotation_range.physical_to = rotation_physical_to;
+                    rotation_range.is_stop_range = std::fabs(rotation_physical_from) < 0.0001F && std::fabs(rotation_physical_to) < 0.0001F;
+                    rotation_range.is_rotation_channel_range = false;
+                    out_wheel.rotation_ranges.push_back(rotation_range);
+                }
             }
         }
     }
@@ -488,6 +503,28 @@ void dedupe_and_sort_gobo_wheel(FixtureGoboWheelOffset &wheel) {
                                a.is_rotation_channel_range == b.is_rotation_channel_range;
                     }),
         wheel.rotation_ranges.end());
+
+    std::stable_sort(wheel.shake_ranges.begin(), wheel.shake_ranges.end(),
+                     [](const FixtureGoboShakeRange &a,
+                        const FixtureGoboShakeRange &b) {
+                         if (a.dmx_from != b.dmx_from) {
+                             return a.dmx_from < b.dmx_from;
+                         }
+                         return a.dmx_to < b.dmx_to;
+                     });
+    wheel.shake_ranges.erase(
+        std::unique(wheel.shake_ranges.begin(), wheel.shake_ranges.end(),
+                    [](const FixtureGoboShakeRange &a,
+                       const FixtureGoboShakeRange &b) {
+                        return a.dmx_from == b.dmx_from && a.dmx_to == b.dmx_to &&
+                               a.mode_from_8bit == b.mode_from_8bit &&
+                               a.mode_to_8bit == b.mode_to_8bit &&
+                               a.physical_from == b.physical_from &&
+                               a.physical_to == b.physical_to &&
+                               a.slot_index == b.slot_index &&
+                               a.control_type == b.control_type;
+                    }),
+        wheel.shake_ranges.end());
 }
 
 } // namespace peraviz::dmx
