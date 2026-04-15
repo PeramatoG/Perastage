@@ -91,6 +91,10 @@ if(PERAVIZ_ENABLE_DMX)
         src/dmx/artnet_dmx_parser.cpp
         src/dmx/dmx_universe_cache.cpp
         src/dmx/artnet_receiver.cpp
+        src/dmx/gdtf_xml_reader.cpp
+        src/dmx/gdtf_attribute_classifier.cpp
+        src/dmx/gdtf_physical_ranges.cpp
+        src/dmx/gdtf_gobo_catalog.cpp
         src/dmx/gdtf_control_offsets_resolver.cpp
         src/dmx/fixture_dmx_binding.cpp
         src/peraviz_dmx_receiver.cpp
