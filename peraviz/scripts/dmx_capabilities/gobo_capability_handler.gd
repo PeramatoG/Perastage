@@ -445,7 +445,12 @@ static func _resolve_same_channel_shake_runtime(raw_8bit: int, slot_index: int, 
 		var range_slot_index: int = int(range_data.get("slot_index", slot_index))
 		if range_slot_index != slot_index:
 			continue
-		filtered_ranges.append(range_data)
+		var normalized_range: Dictionary = range_data.duplicate(true)
+		# For same-channel select ranges we are already in the active slot window.
+		# Ignore external mode-window gating to avoid dropping valid slow->fast shake rows.
+		normalized_range["mode_from_8bit"] = 0
+		normalized_range["mode_to_8bit"] = 255
+		filtered_ranges.append(normalized_range)
 	if filtered_ranges.is_empty():
 		return {
 			"has_range": false,
