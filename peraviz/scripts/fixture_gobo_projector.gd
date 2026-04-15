@@ -531,23 +531,20 @@ func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
 	return clampi(gobo_raw, 0, 255)
 
 func _resolve_gobo_controls(controls: Dictionary) -> Dictionary:
+	var merged_controls: Dictionary = controls.duplicate(true)
 	var capabilities: Dictionary = controls.get("capabilities", {})
 	if capabilities is Dictionary:
 		var gobo_blocks: Array = capabilities.get("gobo", [])
 		for item in gobo_blocks:
 			if item is Dictionary:
 				var block: Dictionary = item.duplicate(true)
-				if not block.has("gobo_runtime_bindings"):
-					block["gobo_runtime_bindings"] = []
-				if not block.has("gobo_slots"):
-					block["gobo_slots"] = []
-				return block
-	var fallback: Dictionary = controls.duplicate(true)
-	if not fallback.has("gobo_runtime_bindings"):
-		fallback["gobo_runtime_bindings"] = []
-	if not fallback.has("gobo_slots"):
-		fallback["gobo_slots"] = []
-	return fallback
+				merged_controls.merge(block, true)
+				break
+	if not merged_controls.has("gobo_runtime_bindings"):
+		merged_controls["gobo_runtime_bindings"] = []
+	if not merged_controls.has("gobo_slots"):
+		merged_controls["gobo_slots"] = []
+	return merged_controls
 
 func _resolve_active_gobo_slot_index(controls: Dictionary, gobo_raw_8bit: int) -> int:
 	var gobo_ranges: Array = controls.get("gobo_ranges", [])
