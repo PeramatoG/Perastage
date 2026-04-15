@@ -1469,22 +1469,103 @@ func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) 
 		controls["frame_delta_sec"] = get_process_delta_time()
 	else:
 		controls["frame_delta_sec"] = max(float(controls.get("frame_delta_sec", 0.0)), 0.0)
-	if controls.get("has_pan", false) or controls.get("has_tilt", false):
-		var has_pan: bool = bool(controls.get("has_pan", false))
-		var has_tilt: bool = bool(controls.get("has_tilt", false))
+	var pan_tilt_controls: Dictionary = _resolve_pan_tilt_controls(controls)
+	if bool(pan_tilt_controls.get("has_pan", false)) or bool(pan_tilt_controls.get("has_tilt", false)):
+		var has_pan: bool = bool(pan_tilt_controls.get("has_pan", false))
+		var has_tilt: bool = bool(pan_tilt_controls.get("has_tilt", false))
 		var pan_min: float = float(pan_min_input.value)
 		var pan_max: float = float(pan_max_input.value)
 		var tilt_min: float = float(tilt_min_input.value)
 		var tilt_max: float = float(tilt_max_input.value)
-		var pan_degrees: float = lerp(pan_min, pan_max, clamp(float(controls.get("pan_norm", 0.0)), 0.0, 1.0))
-		var tilt_degrees: float = lerp(tilt_min, tilt_max, clamp(float(controls.get("tilt_norm", 0.0)), 0.0, 1.0))
+		var pan_degrees: float = lerp(pan_min, pan_max, clamp(float(pan_tilt_controls.get("pan_norm", 0.0)), 0.0, 1.0))
+		var tilt_degrees: float = lerp(tilt_min, tilt_max, clamp(float(pan_tilt_controls.get("tilt_norm", 0.0)), 0.0, 1.0))
 		_apply_pan_tilt_components_to_fixture(fixture_uuid, has_pan, pan_degrees, has_tilt, tilt_degrees)
 
-	if controls.get("has_dimmer", false) or controls.get("has_zoom", false) or controls.get("has_cyan", false) or controls.get("has_magenta", false) or controls.get("has_yellow", false) or controls.get("has_gobo", false) or controls.get("has_gobo_index", false) or controls.get("has_gobo_rotation", false):
+	if _has_lighting_controls(controls):
 		var dimmer_percent: float = float(MANUAL_DEFAULTS["dimmer"])
-		if controls.get("has_dimmer", false):
-			dimmer_percent = clamp(float(controls.get("dimmer_norm", 0.0)), 0.0, 1.0) * 100.0
+		var dimmer_controls: Dictionary = _resolve_dimmer_controls(controls)
+		if bool(dimmer_controls.get("has_dimmer", false)):
+			dimmer_percent = clamp(float(dimmer_controls.get("dimmer_norm", 0.0)), 0.0, 1.0) * 100.0
 		_apply_dimmer_feedback_to_fixture(fixture_uuid, dimmer_percent, controls)
+
+func _resolve_capability_bucket(controls: Dictionary, capability_type: String) -> Array:
+	var capabilities: Dictionary = controls.get("capabilities", {})
+	if capabilities is Dictionary:
+		var bucket: Array = capabilities.get(capability_type, [])
+		if bucket is Array:
+			return bucket
+	return []
+
+func _resolve_first_capability_block(controls: Dictionary, capability_type: String) -> Dictionary:
+	var bucket: Array = _resolve_capability_bucket(controls, capability_type)
+	for item in bucket:
+		if item is Dictionary:
+			return item
+	return {}
+
+func _resolve_pan_tilt_controls(controls: Dictionary) -> Dictionary:
+	var block: Dictionary = _resolve_first_capability_block(controls, "pan_tilt")
+	if not block.is_empty():
+		return block
+	return {
+		"has_pan": bool(controls.get("has_pan", false)),
+		"pan_norm": float(controls.get("pan_norm", 0.0)),
+		"has_tilt": bool(controls.get("has_tilt", false)),
+		"tilt_norm": float(controls.get("tilt_norm", 0.0)),
+	}
+
+func _resolve_dimmer_controls(controls: Dictionary) -> Dictionary:
+	var block: Dictionary = _resolve_first_capability_block(controls, "dimmer")
+	if not block.is_empty():
+		return block
+	return {
+		"has_dimmer": bool(controls.get("has_dimmer", false)),
+		"dimmer_norm": float(controls.get("dimmer_norm", 0.0)),
+		"has_zoom": bool(controls.get("has_zoom", false)),
+		"zoom_norm": float(controls.get("zoom_norm", 0.0)),
+		"has_zoom_physical_limits": bool(controls.get("has_zoom_physical_limits", false)),
+		"zoom_physical_min_degrees": float(controls.get("zoom_physical_min_degrees", -1.0)),
+		"zoom_physical_max_degrees": float(controls.get("zoom_physical_max_degrees", -1.0)),
+	}
+
+func _resolve_color_wheel_controls(controls: Dictionary) -> Dictionary:
+	var block: Dictionary = _resolve_first_capability_block(controls, "color_wheel")
+	if not block.is_empty():
+		return block
+	return {
+		"has_cyan": bool(controls.get("has_cyan", false)),
+		"cyan_norm": float(controls.get("cyan_norm", 0.0)),
+		"has_magenta": bool(controls.get("has_magenta", false)),
+		"magenta_norm": float(controls.get("magenta_norm", 0.0)),
+		"has_yellow": bool(controls.get("has_yellow", false)),
+		"yellow_norm": float(controls.get("yellow_norm", 0.0)),
+	}
+
+func _resolve_gobo_controls(controls: Dictionary) -> Dictionary:
+	var block: Dictionary = _resolve_first_capability_block(controls, "gobo")
+	if not block.is_empty():
+		return block
+	return {
+		"has_gobo": bool(controls.get("has_gobo", false)),
+		"gobo_norm": float(controls.get("gobo_norm", 0.0)),
+		"has_gobo_index": bool(controls.get("has_gobo_index", false)),
+		"gobo_index_norm": float(controls.get("gobo_index_norm", 0.0)),
+		"has_gobo_rotation": bool(controls.get("has_gobo_rotation", false)),
+		"gobo_rotation_norm": float(controls.get("gobo_rotation_norm", 0.0)),
+		"gobo_slots": controls.get("gobo_slots", []),
+		"gobo_ranges": controls.get("gobo_ranges", []),
+		"gobo_runtime_bindings": controls.get("gobo_runtime_bindings", []),
+	}
+
+func _has_lighting_controls(controls: Dictionary) -> bool:
+	var dimmer_controls: Dictionary = _resolve_dimmer_controls(controls)
+	if bool(dimmer_controls.get("has_dimmer", false)) or bool(dimmer_controls.get("has_zoom", false)):
+		return true
+	var color_controls: Dictionary = _resolve_color_wheel_controls(controls)
+	if bool(color_controls.get("has_cyan", false)) or bool(color_controls.get("has_magenta", false)) or bool(color_controls.get("has_yellow", false)):
+		return true
+	var gobo_controls: Dictionary = _resolve_gobo_controls(controls)
+	return bool(gobo_controls.get("has_gobo", false)) or bool(gobo_controls.get("has_gobo_index", false)) or bool(gobo_controls.get("has_gobo_rotation", false))
 
 func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, controls: Dictionary = {}) -> void:
 	var geometry_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "geometry_nodes"))
@@ -1750,8 +1831,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var luminous_flux: float = max(float(photometric.get("luminous_flux", 10000.0)), 0.0)
 	var beam_angle: float = clamp(float(photometric.get("beam_angle", 25.0)), 0.1, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
 	var field_angle: float = clamp(float(photometric.get("field_angle", beam_angle)), beam_angle, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
-	if bool(controls.get("has_zoom", false)):
-		var zoom_norm: float = clamp(float(controls.get("zoom_norm", 0.0)), 0.0, 1.0)
+	var dimmer_controls: Dictionary = _resolve_dimmer_controls(controls)
+	if bool(dimmer_controls.get("has_zoom", false)):
+		var zoom_norm: float = clamp(float(dimmer_controls.get("zoom_norm", 0.0)), 0.0, 1.0)
 		var zoom_limits: Dictionary = _resolve_zoom_beam_limits(light, controls)
 		var zoom_min_angle: float = float(zoom_limits.get("min_beam_angle", EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG))
 		var zoom_max_angle: float = float(zoom_limits.get("max_beam_angle", EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG))
@@ -1807,7 +1889,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	beam_params["intensity_max"] = BEAM_INTENSITY_MAX
 	var gobo_topology_changed: bool = false
 	if _fixture_gobo_projector != null:
-		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(controls, _visual_settings, beam_defaults)
+		var runtime_controls_for_gobo: Dictionary = controls.duplicate(true)
+		runtime_controls_for_gobo.merge(_resolve_gobo_controls(controls), true)
+		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(runtime_controls_for_gobo, _visual_settings, beam_defaults)
 		gobo_topology_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
 		var applied_gobo_rotation_deg: float = float(light.get_meta("peraviz_gobo_applied_rotation_deg", beam_params.get("gobo_rotation_deg", 0.0)))
 		beam_params["gobo_rotation_deg"] = applied_gobo_rotation_deg
@@ -1820,10 +1904,11 @@ func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dict
 	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).
 	var min_beam_angle: float = EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG
 	var max_beam_angle: float = EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG
+	var dimmer_controls: Dictionary = _resolve_dimmer_controls(controls)
 
-	if bool(controls.get("has_zoom_physical_limits", false)):
-		min_beam_angle = float(controls.get("zoom_physical_min_degrees", min_beam_angle))
-		max_beam_angle = float(controls.get("zoom_physical_max_degrees", max_beam_angle))
+	if bool(dimmer_controls.get("has_zoom_physical_limits", false)):
+		min_beam_angle = float(dimmer_controls.get("zoom_physical_min_degrees", min_beam_angle))
+		max_beam_angle = float(dimmer_controls.get("zoom_physical_max_degrees", max_beam_angle))
 	else:
 		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.0)), 0.0)
 		if lens_radius > 0.0:
@@ -2063,9 +2148,10 @@ func _derive_emitter_color(photometric: Dictionary, controls: Dictionary = {}, c
 	return Color(base_color.r * filter_color.r, base_color.g * filter_color.g, base_color.b * filter_color.b, 1.0)
 
 func _resolve_cmy_filter(controls: Dictionary) -> Dictionary:
-	var cyan: float = clamp(float(controls.get("cyan_norm", 0.0)), 0.0, 1.0)
-	var magenta: float = clamp(float(controls.get("magenta_norm", 0.0)), 0.0, 1.0)
-	var yellow: float = clamp(float(controls.get("yellow_norm", 0.0)), 0.0, 1.0)
+	var color_controls: Dictionary = _resolve_color_wheel_controls(controls)
+	var cyan: float = clamp(float(color_controls.get("cyan_norm", 0.0)), 0.0, 1.0)
+	var magenta: float = clamp(float(color_controls.get("magenta_norm", 0.0)), 0.0, 1.0)
+	var yellow: float = clamp(float(color_controls.get("yellow_norm", 0.0)), 0.0, 1.0)
 	var filter_color := Color(1.0 - cyan, 1.0 - magenta, 1.0 - yellow, 1.0)
 	return {
 		"color": filter_color,
