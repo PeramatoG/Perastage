@@ -599,7 +599,6 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                 out_offsets,
             };
             consume_control_attribute(context);
-            }
         }
     }
 }
