@@ -180,6 +180,12 @@ bool resolve_fixture_control_offsets(const std::string &gdtf_path,
                                      FixtureControlOffsets &out_offsets,
                                      std::string &out_debug_reason);
 
+FixtureBindingBuildResult build_fixture_control_bindings(
+    const std::vector<FixturePatch> &patches,
+    int universe_offset,
+    std::unordered_map<std::string, FixtureControlBinding> &fixture_lookup);
+
+// Deprecated alias kept for temporary backward compatibility.
 FixtureBindingBuildResult build_dimmer_bindings(
     const std::vector<FixturePatch> &patches,
     int universe_offset,

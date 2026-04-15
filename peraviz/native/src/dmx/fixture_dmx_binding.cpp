@@ -41,7 +41,7 @@ void sanitize_channel_binding(FixtureAttributeChannel &channel) {
 
 } // namespace
 
-FixtureBindingBuildResult build_dimmer_bindings(
+FixtureBindingBuildResult build_fixture_control_bindings(
     const std::vector<FixturePatch> &patches,
     int universe_offset,
     std::unordered_map<std::string, FixtureControlBinding> &fixture_lookup) {
@@ -263,6 +263,14 @@ FixtureBindingBuildResult build_dimmer_bindings(
     }
 
     return result;
+}
+
+
+FixtureBindingBuildResult build_dimmer_bindings(
+    const std::vector<FixturePatch> &patches,
+    int universe_offset,
+    std::unordered_map<std::string, FixtureControlBinding> &fixture_lookup) {
+    return build_fixture_control_bindings(patches, universe_offset, fixture_lookup);
 }
 
 } // namespace peraviz::dmx

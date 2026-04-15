@@ -42,7 +42,7 @@ func rebuild(universe_offset: int) -> Dictionary:
 			"unbound_preview": PackedStringArray(),
 		}
 
-	var result: Dictionary = _loader.build_fixture_dimmer_bindings(universe_offset)
+	var result: Dictionary = _loader.build_fixture_dmx_bindings(universe_offset)
 	_bindings = result.get("bindings", [])
 	_unbound = result.get("unbound", [])
 

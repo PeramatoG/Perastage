@@ -43,6 +43,10 @@ void PeravizLoader::_bind_methods() {
     ClassDB::bind_method(D_METHOD("load_mvr", "path", "peraviz_debug_baseline", "peraviz_debug_coords"), &PeravizLoader::load_mvr);
     ClassDB::bind_method(D_METHOD("load_3ds_mesh_data", "path"), &PeravizLoader::load_3ds_mesh_data);
     ClassDB::bind_method(D_METHOD("get_fixtures_patch"), &PeravizLoader::get_fixtures_patch);
+    ClassDB::bind_method(D_METHOD("build_fixture_dmx_bindings", "universe_offset"),
+                         &PeravizLoader::build_fixture_dmx_bindings,
+                         DEFVAL(-1));
+    // Deprecated alias kept for one release to avoid breaking existing scripts/scenes.
     ClassDB::bind_method(D_METHOD("build_fixture_dimmer_bindings", "universe_offset"),
                          &PeravizLoader::build_fixture_dimmer_bindings,
                          DEFVAL(-1));
@@ -150,7 +154,7 @@ Array PeravizLoader::get_fixtures_patch() const {
     return serialize_fixture_patches(last_scene_model_);
 }
 
-Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) const {
+Dictionary PeravizLoader::build_fixture_dmx_bindings(int universe_offset) const {
     Dictionary out;
     out["universe_offset"] = universe_offset;
 
@@ -169,7 +173,7 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
 
     std::unordered_map<std::string, peraviz::dmx::FixtureControlBinding> lookup;
     const peraviz::dmx::FixtureBindingBuildResult result =
-        peraviz::dmx::build_dimmer_bindings(patches, universe_offset, lookup);
+        peraviz::dmx::build_fixture_control_bindings(patches, universe_offset, lookup);
 
     Array bindings;
     bindings.resize(static_cast<int64_t>(result.bindings.size()));
@@ -347,6 +351,11 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
     out["unbound"] = Array();
 #endif
     return out;
+}
+
+Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) const {
+    UtilityFunctions::push_warning("[PeravizNative] build_fixture_dimmer_bindings is deprecated; use build_fixture_dmx_bindings instead.");
+    return build_fixture_dmx_bindings(universe_offset);
 }
 
 } // namespace godot

@@ -21,6 +21,7 @@ public:
                    bool peraviz_debug_coords = false);
     Dictionary load_3ds_mesh_data(const String &path) const;
     Array get_fixtures_patch() const;
+    Dictionary build_fixture_dmx_bindings(int universe_offset = -1) const;
     Dictionary build_fixture_dimmer_bindings(int universe_offset = -1) const;
 
 private:
