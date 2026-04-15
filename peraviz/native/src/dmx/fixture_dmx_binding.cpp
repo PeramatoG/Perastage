@@ -120,6 +120,54 @@ FixtureBindingBuildResult build_fixture_control_bindings(
             to_channel_index_0(patch, offsets.yellow_fine_offset_1_based);
         binding.yellow.ultra_fine_dmx_channel_index_0 =
             to_channel_index_0(patch, offsets.yellow_ultra_fine_offset_1_based);
+        binding.strobe.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.strobe_coarse_offset_1_based);
+        binding.strobe.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.strobe_fine_offset_1_based);
+        binding.strobe.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.strobe_ultra_fine_offset_1_based);
+        binding.prism.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.prism_coarse_offset_1_based);
+        binding.prism.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.prism_fine_offset_1_based);
+        binding.prism.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.prism_ultra_fine_offset_1_based);
+        binding.prism_index.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.prism_index_coarse_offset_1_based);
+        binding.prism_index.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.prism_index_fine_offset_1_based);
+        binding.prism_index.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.prism_index_ultra_fine_offset_1_based);
+        binding.prism_rotation.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.prism_rotation_coarse_offset_1_based);
+        binding.prism_rotation.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.prism_rotation_fine_offset_1_based);
+        binding.prism_rotation.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.prism_rotation_ultra_fine_offset_1_based);
+        binding.color_wheel.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.color_wheel_coarse_offset_1_based);
+        binding.color_wheel.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.color_wheel_fine_offset_1_based);
+        binding.color_wheel.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.color_wheel_ultra_fine_offset_1_based);
+        binding.color_wheel_rotation.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.color_wheel_rotation_coarse_offset_1_based);
+        binding.color_wheel_rotation.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.color_wheel_rotation_fine_offset_1_based);
+        binding.color_wheel_rotation.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.color_wheel_rotation_ultra_fine_offset_1_based);
+        binding.animation_wheel.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.animation_wheel_coarse_offset_1_based);
+        binding.animation_wheel.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.animation_wheel_fine_offset_1_based);
+        binding.animation_wheel.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.animation_wheel_ultra_fine_offset_1_based);
+        binding.animation_wheel_rotation.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.animation_wheel_rotation_coarse_offset_1_based);
+        binding.animation_wheel_rotation.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.animation_wheel_rotation_fine_offset_1_based);
+        binding.animation_wheel_rotation.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.animation_wheel_rotation_ultra_fine_offset_1_based);
         binding.gobo.coarse_dmx_channel_index_0 =
             to_channel_index_0(patch, offsets.gobo_coarse_offset_1_based);
         binding.gobo.fine_dmx_channel_index_0 =
@@ -180,6 +228,17 @@ FixtureBindingBuildResult build_fixture_control_bindings(
         const bool has_cyan = is_valid_channel_index(binding.cyan.coarse_dmx_channel_index_0);
         const bool has_magenta = is_valid_channel_index(binding.magenta.coarse_dmx_channel_index_0);
         const bool has_yellow = is_valid_channel_index(binding.yellow.coarse_dmx_channel_index_0);
+        const bool has_strobe = is_valid_channel_index(binding.strobe.coarse_dmx_channel_index_0);
+        const bool has_prism = is_valid_channel_index(binding.prism.coarse_dmx_channel_index_0);
+        const bool has_prism_index = is_valid_channel_index(binding.prism_index.coarse_dmx_channel_index_0);
+        const bool has_prism_rotation = is_valid_channel_index(binding.prism_rotation.coarse_dmx_channel_index_0);
+        const bool has_color_wheel = is_valid_channel_index(binding.color_wheel.coarse_dmx_channel_index_0);
+        const bool has_color_wheel_rotation =
+            is_valid_channel_index(binding.color_wheel_rotation.coarse_dmx_channel_index_0);
+        const bool has_animation_wheel =
+            is_valid_channel_index(binding.animation_wheel.coarse_dmx_channel_index_0);
+        const bool has_animation_wheel_rotation =
+            is_valid_channel_index(binding.animation_wheel_rotation.coarse_dmx_channel_index_0);
         bool has_gobo = is_valid_channel_index(binding.gobo.coarse_dmx_channel_index_0);
         for (const FixtureGoboWheelBinding &wheel_binding : binding.gobo_wheels) {
             if (is_valid_channel_index(wheel_binding.channel.coarse_dmx_channel_index_0)) {
@@ -187,7 +246,10 @@ FixtureBindingBuildResult build_fixture_control_bindings(
                 break;
             }
         }
-        if (!has_dimmer && !has_pan && !has_tilt && !has_zoom && !has_cyan && !has_magenta && !has_yellow && !has_gobo) {
+        if (!has_dimmer && !has_pan && !has_tilt && !has_zoom && !has_cyan && !has_magenta &&
+            !has_yellow && !has_strobe && !has_prism && !has_prism_index && !has_prism_rotation &&
+            !has_color_wheel && !has_color_wheel_rotation && !has_animation_wheel &&
+            !has_animation_wheel_rotation && !has_gobo) {
             result.unbound.push_back({patch.fixture_uuid,
                                       "resolved DMX channels are out of 0..511 range"});
             continue;
@@ -249,6 +311,14 @@ FixtureBindingBuildResult build_fixture_control_bindings(
             !is_valid_channel_index(binding.yellow.ultra_fine_dmx_channel_index_0)) {
             binding.yellow.ultra_fine_dmx_channel_index_0 = -1;
         }
+        sanitize_channel_binding(binding.strobe);
+        sanitize_channel_binding(binding.prism);
+        sanitize_channel_binding(binding.prism_index);
+        sanitize_channel_binding(binding.prism_rotation);
+        sanitize_channel_binding(binding.color_wheel);
+        sanitize_channel_binding(binding.color_wheel_rotation);
+        sanitize_channel_binding(binding.animation_wheel);
+        sanitize_channel_binding(binding.animation_wheel_rotation);
         sanitize_channel_binding(binding.gobo);
         sanitize_channel_binding(binding.gobo_index);
         sanitize_channel_binding(binding.gobo_rotation);
