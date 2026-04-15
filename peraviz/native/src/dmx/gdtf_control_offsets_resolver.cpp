@@ -391,6 +391,13 @@ void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_
                                                      function_mode_from,
                                                      function_mode_to);
     if (is_shake_attribute) {
+        float shake_attribute_amplitude_from_degrees = 0.0F;
+        float shake_attribute_amplitude_to_degrees = 0.0F;
+        const bool has_shake_attribute_amplitude =
+            peraviz::dmx::resolve_shake_attribute_amplitude_degrees(
+                channel_function,
+                shake_attribute_amplitude_from_degrees,
+                shake_attribute_amplitude_to_degrees);
         wheel->shake_ranges.reserve(wheel->shake_ranges.size() + parsed_ranges.size());
         for (const peraviz::dmx::FixtureGoboRotationRange &range : parsed_ranges) {
             peraviz::dmx::FixtureGoboShakeRange shake_range;
@@ -400,6 +407,11 @@ void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_
             shake_range.mode_to_8bit = range.mode_to_8bit;
             shake_range.physical_from = range.physical_from;
             shake_range.physical_to = range.physical_to;
+            shake_range.has_explicit_amplitude = has_shake_attribute_amplitude;
+            if (has_shake_attribute_amplitude) {
+                shake_range.amplitude_from_degrees = shake_attribute_amplitude_from_degrees;
+                shake_range.amplitude_to_degrees = shake_attribute_amplitude_to_degrees;
+            }
             shake_range.slot_index = -1;
             shake_range.control_type = peraviz::dmx::FixtureGoboShakeControlType::kDedicatedShakeChannel;
             wheel->shake_ranges.push_back(shake_range);

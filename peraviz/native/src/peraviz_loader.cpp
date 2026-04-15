@@ -311,6 +311,9 @@ Dictionary PeravizLoader::build_fixture_dmx_bindings(int universe_offset) const 
                 shake_range_item["mode_to_8bit"] = shake_range.mode_to_8bit;
                 shake_range_item["physical_from"] = shake_range.physical_from;
                 shake_range_item["physical_to"] = shake_range.physical_to;
+                shake_range_item["has_explicit_amplitude"] = shake_range.has_explicit_amplitude;
+                shake_range_item["amplitude_from_degrees"] = shake_range.amplitude_from_degrees;
+                shake_range_item["amplitude_to_degrees"] = shake_range.amplitude_to_degrees;
                 shake_range_item["slot_index"] = shake_range.slot_index;
                 shake_range_item["control_type"] = static_cast<int>(shake_range.control_type);
                 shake_ranges[shake_range_index] = shake_range_item;

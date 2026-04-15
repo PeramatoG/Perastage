@@ -64,6 +64,9 @@ struct FixtureGoboShakeRange {
     int mode_to_8bit = 255;
     float physical_from = 0.0F;
     float physical_to = 0.0F;
+    bool has_explicit_amplitude = false;
+    float amplitude_from_degrees = 0.0F;
+    float amplitude_to_degrees = 0.0F;
     int slot_index = -1;
     FixtureGoboShakeControlType control_type = FixtureGoboShakeControlType::kSameChannelSelect;
 };
