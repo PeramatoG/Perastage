@@ -203,6 +203,16 @@ int run_test() {
 
     const std::string mega_pointe_like_xml = R"(<?xml version="1.0" encoding="UTF-8"?>
 <GDTF>
+  <AttributeDefinitions>
+    <Attributes>
+      <Attribute Name="Gobo2SelectShake">
+        <SubPhysicalUnit Type="Amplitude" PhysicalUnit="Angle" PhysicalFrom="2.0" PhysicalTo="2.0" />
+      </Attribute>
+      <Attribute Name="Gobo2ShakeIndex">
+        <SubPhysicalUnit Type="Amplitude" PhysicalUnit="Percent" PhysicalFrom="1.0" PhysicalTo="2.0" />
+      </Attribute>
+    </Attributes>
+  </AttributeDefinitions>
   <Wheels>
     <Wheel Name="Gobo2">
       <Slot WheelSlotIndex="1" />
@@ -281,16 +291,24 @@ int run_test() {
         return fail("Expected select-channel shake fallback ranges in dedicated shake mode");
     }
     bool has_slot_bound_select_shake = false;
+    bool has_amplitude_from_attribute = false;
     for (const peraviz::dmx::FixtureGoboShakeRange &range : with_dedicated_wheel->shake_ranges) {
         if (range.control_type == peraviz::dmx::FixtureGoboShakeControlType::kSameChannelSelect &&
             range.slot_index > 0 &&
             range.physical_to > range.physical_from) {
             has_slot_bound_select_shake = true;
-            break;
+        }
+        if (range.has_explicit_amplitude &&
+            range.amplitude_from_degrees > 3.5F &&
+            range.amplitude_to_degrees > range.amplitude_from_degrees) {
+            has_amplitude_from_attribute = true;
         }
     }
     if (!has_slot_bound_select_shake) {
         return fail("Expected slot-bound select-shake ranges with physical windows");
+    }
+    if (!has_amplitude_from_attribute) {
+        return fail("Expected shake ranges to include amplitude from SubPhysicalUnit");
     }
 
     peraviz::dmx::FixtureControlOffsets without_dedicated_offsets;

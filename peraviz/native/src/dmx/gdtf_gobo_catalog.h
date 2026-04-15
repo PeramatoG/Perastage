@@ -29,6 +29,10 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
                                int mode_window_from,
                                int mode_window_to);
 
+bool resolve_shake_attribute_amplitude_degrees(tinyxml2::XMLElement *channel_function,
+                                               float &out_amplitude_from_degrees,
+                                               float &out_amplitude_to_degrees);
+
 void dedupe_and_sort_gobo_wheel(FixtureGoboWheelOffset &wheel);
 
 } // namespace peraviz::dmx

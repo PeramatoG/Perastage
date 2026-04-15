@@ -5,6 +5,12 @@ const GOBO_BEHAVIOR_FIXED: int = 0
 const GOBO_BEHAVIOR_INDEX: int = 1
 const GOBO_BEHAVIOR_ROTATION: int = 2
 const GOBO_BEHAVIOR_SHAKE: int = 3
+const GOBO_SHAKE_CONTROL_TYPE_SAME_CHANNEL_SELECT: int = 0
+const GOBO_SHAKE_CONTROL_TYPE_DEDICATED_CHANNEL: int = 1
+const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MIN_DEG: float = 0.5
+const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MAX_DEG: float = 3.0
+const GOBO_MAX_SHAKE_FREQUENCY_HZ: float = 120.0
+const GOBO_MAX_SHAKE_AMPLITUDE_DEG: float = 45.0
 
 const DmxGoboRangeResolverScript = preload("res://scripts/dmx_gobo_range_resolver.gd")
 
@@ -102,6 +108,7 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 		var rotation_has_value: bool = false
 		var rotation_ranges: Array = item.get("rotation_ranges", [])
 		var resolved_rotation: Dictionary = {}
+		var resolved_shake: Dictionary = {}
 		var mode_master_value_8bit: int = raw_8bit
 		var rotation_control_norm: float = -1.0
 
@@ -198,7 +205,17 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 				mode_master_value_8bit,
 				prefer_rotation_channel_ranges
 			)
+		var shake_ranges: Array = item.get("shake_ranges", [])
+		if range_behavior == GOBO_BEHAVIOR_SHAKE and not shake_ranges.is_empty():
+			resolved_shake = _resolve_shake_runtime(
+				rotation_raw_8bit,
+				rotation_control_norm,
+				shake_ranges,
+				mode_master_value_8bit,
+				rotation_source_channel == "rotation"
+			)
 		var matched_range: Dictionary = resolved_rotation.get("range", {})
+		var matched_shake_range: Dictionary = resolved_shake.get("range", {})
 		runtime_bindings.append({
 			"wheel_number": int(item.get("wheel_number", 0)),
 			"wheel_name": str(item.get("wheel_name", "")),
@@ -235,6 +252,12 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 			"rotation_raw_value": rotation_raw,
 			"rotation_active_range": active_range,
 			"rotation_ranges": rotation_ranges,
+			"shake_ranges": shake_ranges,
+			"has_shake_runtime_range": bool(resolved_shake.get("has_range", false)),
+			"shake_frequency_hz": float(resolved_shake.get("shake_frequency_hz", -1.0)),
+			"shake_amplitude_deg": float(resolved_shake.get("shake_amplitude_deg", -1.0)),
+			"shake_matched_range_start": int(matched_shake_range.get("dmx_from", -1)),
+			"shake_matched_range_end": int(matched_shake_range.get("dmx_to", -1)),
 			"index_norm": index_norm,
 			"slots": item.get("slots", []),
 			"ranges": ranges,
@@ -313,3 +336,87 @@ static func _resolve_rotation_runtime(raw_8bit: int, control_norm: float, ranges
 
 static func _resolve_gobo_range(raw_8bit: int, ranges: Array) -> Dictionary:
 	return DmxGoboRangeResolverScript.resolve_active_range(raw_8bit, ranges)
+
+static func _resolve_shake_runtime(raw_8bit: int, control_norm: float, ranges: Array, mode_master_value_8bit: int, prefer_dedicated_shake_ranges: bool) -> Dictionary:
+	var fallback_amplitude_min: float = _resolve_shake_fallback_min_amplitude()
+	var fallback_amplitude_max: float = _resolve_shake_fallback_max_amplitude(fallback_amplitude_min)
+
+	for pass_index in range(2):
+		for item in ranges:
+			if item is not Dictionary:
+				continue
+			var range_data: Dictionary = item
+			var control_type: int = int(range_data.get("control_type", GOBO_SHAKE_CONTROL_TYPE_SAME_CHANNEL_SELECT))
+			var is_dedicated_shake_range: bool = control_type == GOBO_SHAKE_CONTROL_TYPE_DEDICATED_CHANNEL
+			if pass_index == 0 and is_dedicated_shake_range != prefer_dedicated_shake_ranges:
+				continue
+			if pass_index == 1 and is_dedicated_shake_range == prefer_dedicated_shake_ranges:
+				continue
+
+			var range_mode_from: int = int(range_data.get("mode_from_8bit", 0))
+			var range_mode_to: int = int(range_data.get("mode_to_8bit", 255))
+			if range_mode_to < range_mode_from:
+				var mode_swap: int = range_mode_from
+				range_mode_from = range_mode_to
+				range_mode_to = mode_swap
+			if mode_master_value_8bit < range_mode_from or mode_master_value_8bit > range_mode_to:
+				continue
+
+			var dmx_from: int = int(range_data.get("dmx_from", 0))
+			var dmx_to: int = int(range_data.get("dmx_to", dmx_from))
+			if dmx_to < dmx_from:
+				var swap_value: int = dmx_from
+				dmx_from = dmx_to
+				dmx_to = swap_value
+			if raw_8bit < dmx_from or raw_8bit > dmx_to:
+				continue
+
+			var ratio: float = 0.0
+			if dmx_to > dmx_from:
+				ratio = float(raw_8bit - dmx_from) / float(dmx_to - dmx_from)
+				if control_norm >= 0.0:
+					var range_norm_from: float = float(dmx_from) / 255.0
+					var range_norm_to: float = float(dmx_to) / 255.0
+					var range_norm_span: float = range_norm_to - range_norm_from
+					if range_norm_span > 0.0:
+						ratio = clamp((control_norm - range_norm_from) / range_norm_span, 0.0, 1.0)
+
+			var shake_frequency_hz: float = lerp(float(range_data.get("physical_from", 0.0)), float(range_data.get("physical_to", 0.0)), ratio)
+			shake_frequency_hz = clamp(absf(shake_frequency_hz), 0.0, GOBO_MAX_SHAKE_FREQUENCY_HZ)
+
+			var shake_amplitude_deg: float = 0.0
+			if bool(range_data.get("has_explicit_amplitude", false)):
+				shake_amplitude_deg = lerp(float(range_data.get("amplitude_from_degrees", 0.0)), float(range_data.get("amplitude_to_degrees", 0.0)), ratio)
+				shake_amplitude_deg = clamp(absf(shake_amplitude_deg), 0.0, GOBO_MAX_SHAKE_AMPLITUDE_DEG)
+			else:
+				var frequency_edge_a: float = clamp(absf(float(range_data.get("physical_from", 0.0))), 0.0, GOBO_MAX_SHAKE_FREQUENCY_HZ)
+				var frequency_edge_b: float = clamp(absf(float(range_data.get("physical_to", 0.0))), 0.0, GOBO_MAX_SHAKE_FREQUENCY_HZ)
+				var min_frequency_edge: float = minf(frequency_edge_a, frequency_edge_b)
+				var max_frequency_edge: float = maxf(frequency_edge_a, frequency_edge_b)
+				var frequency_ratio: float = 0.0
+				if max_frequency_edge > min_frequency_edge + 0.0001:
+					frequency_ratio = clamp((shake_frequency_hz - min_frequency_edge) / (max_frequency_edge - min_frequency_edge), 0.0, 1.0)
+				elif max_frequency_edge > 0.0001:
+					frequency_ratio = 1.0
+				shake_amplitude_deg = lerp(fallback_amplitude_min, fallback_amplitude_max, frequency_ratio)
+
+			return {
+				"has_range": true,
+				"range": range_data,
+				"shake_frequency_hz": shake_frequency_hz,
+				"shake_amplitude_deg": shake_amplitude_deg,
+			}
+
+	return {
+		"has_range": false,
+		"range": {},
+		"shake_frequency_hz": -1.0,
+		"shake_amplitude_deg": -1.0,
+	}
+
+static func _resolve_shake_fallback_min_amplitude() -> float:
+	return maxf(float(ProjectSettings.get_setting("peraviz/gobo_shake_fallback_amplitude_min_deg", GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MIN_DEG)), 0.0)
+
+static func _resolve_shake_fallback_max_amplitude(fallback_amplitude_min: float) -> float:
+	var configured_max: float = float(ProjectSettings.get_setting("peraviz/gobo_shake_fallback_amplitude_max_deg", GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MAX_DEG))
+	return maxf(configured_max, fallback_amplitude_min)

@@ -53,3 +53,14 @@ Fixtures are listed as unbound when one of these happens:
 - Missing GDTF reference/path.
 - Dimmer/Pan/Tilt attributes not found for the selected mode.
 - Resolved control channel indices outside the 1..512 frame.
+
+## Gobo shake physical mapping (runtime)
+
+- For shake-capable gobo attributes (`...SelectShake`, `...PosShake`, `...WheelShake`), `ChannelSet PhysicalFrom/PhysicalTo` is interpreted as shake **frequency in Hz** (slow→fast or fast→slow).
+- If the attribute definition contains `SubPhysicalUnit Type="Amplitude"`, Peraviz captures it and uses it as runtime shake amplitude.
+  - `PhysicalUnit="Angle"` is used directly in degrees.
+  - `PhysicalUnit="Percent"` is converted to degrees as `% * 360`.
+- If no explicit amplitude exists, runtime uses configurable fallback amplitude limits:
+  - `peraviz/gobo_shake_fallback_amplitude_min_deg` (default `0.5`)
+  - `peraviz/gobo_shake_fallback_amplitude_max_deg` (default `3.0`)
+- Frequency and amplitude are clamped defensively at runtime for malformed/extreme values.

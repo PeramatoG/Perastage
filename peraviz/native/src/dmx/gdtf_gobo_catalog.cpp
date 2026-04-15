@@ -165,6 +165,67 @@ int normalize_gobo_slot_index(int slot_index,
     return -1;
 }
 
+bool parse_float_attr_ci(tinyxml2::XMLElement *node,
+                         const char *name_a,
+                         const char *name_b,
+                         float &out_value) {
+    if (!node) {
+        return false;
+    }
+    return node->QueryFloatAttribute(name_a, &out_value) == tinyxml2::XML_SUCCESS ||
+           node->QueryFloatAttribute(name_b, &out_value) == tinyxml2::XML_SUCCESS;
+}
+
+tinyxml2::XMLElement *find_document_root_element(tinyxml2::XMLElement *node) {
+    if (!node) {
+        return nullptr;
+    }
+    tinyxml2::XMLNode *root = node;
+    while (root->Parent() != nullptr) {
+        root = root->Parent();
+    }
+    tinyxml2::XMLDocument *document = root->ToDocument();
+    return document ? document->RootElement() : nullptr;
+}
+
+bool parse_amplitude_from_attribute_definition(tinyxml2::XMLElement *attribute_definition,
+                                               float &out_amplitude_from_degrees,
+                                               float &out_amplitude_to_degrees) {
+    if (!attribute_definition) {
+        return false;
+    }
+
+    for (tinyxml2::XMLElement *child = attribute_definition->FirstChildElement(); child;
+         child = child->NextSiblingElement()) {
+        if (lower_ascii(child->Name()) != "subphysicalunit") {
+            continue;
+        }
+        if (lower_ascii(read_attr_ci(child, "Type", "type")) != "amplitude") {
+            continue;
+        }
+
+        float raw_from = 0.0F;
+        float raw_to = 0.0F;
+        if (!parse_float_attr_ci(child, "PhysicalFrom", "physicalfrom", raw_from) ||
+            !parse_float_attr_ci(child, "PhysicalTo", "physicalto", raw_to)) {
+            continue;
+        }
+
+        const std::string physical_unit =
+            lower_ascii(read_attr_ci(child, "PhysicalUnit", "physicalunit"));
+        if (physical_unit == "percent") {
+            out_amplitude_from_degrees = std::max(0.0F, raw_from) * 0.01F * 360.0F;
+            out_amplitude_to_degrees = std::max(0.0F, raw_to) * 0.01F * 360.0F;
+        } else {
+            out_amplitude_from_degrees = std::max(0.0F, raw_from);
+            out_amplitude_to_degrees = std::max(0.0F, raw_to);
+        }
+        return true;
+    }
+
+    return false;
+}
+
 } // namespace
 
 GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2::XMLElement *root) {
@@ -216,6 +277,40 @@ GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2
     }
 
     return out;
+}
+
+bool resolve_shake_attribute_amplitude_degrees(tinyxml2::XMLElement *channel_function,
+                                               float &out_amplitude_from_degrees,
+                                               float &out_amplitude_to_degrees) {
+    out_amplitude_from_degrees = 0.0F;
+    out_amplitude_to_degrees = 0.0F;
+    if (!channel_function) {
+        return false;
+    }
+
+    const std::string attribute_name = read_attr_ci(channel_function, "Attribute", "attribute");
+    if (attribute_name.empty()) {
+        return false;
+    }
+
+    tinyxml2::XMLElement *root = find_document_root_element(channel_function);
+    if (!root) {
+        return false;
+    }
+
+    for (tinyxml2::XMLElement *attribute_definition : collect_elements_by_name(root, "attribute")) {
+        if (!attribute_definition) {
+            continue;
+        }
+        if (read_attr_ci(attribute_definition, "Name", "name") != attribute_name) {
+            continue;
+        }
+        return parse_amplitude_from_attribute_definition(attribute_definition,
+                                                         out_amplitude_from_degrees,
+                                                         out_amplitude_to_degrees);
+    }
+
+    return false;
 }
 
 void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
@@ -279,6 +374,12 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         channel_function->QueryFloatAttribute("PhysicalTo", &function_physical_to) == tinyxml2::XML_SUCCESS ||
         channel_function->QueryFloatAttribute("physicalto", &function_physical_to) == tinyxml2::XML_SUCCESS;
     const bool has_function_physical = has_function_physical_from && has_function_physical_to;
+    float shake_attribute_amplitude_from_degrees = 0.0F;
+    float shake_attribute_amplitude_to_degrees = 0.0F;
+    const bool has_shake_attribute_amplitude = resolve_shake_attribute_amplitude_degrees(
+        channel_function,
+        shake_attribute_amplitude_from_degrees,
+        shake_attribute_amplitude_to_degrees);
 
     const auto resolve_channel_set_dmx =
         [clamped_function_from, clamped_function_to](int raw_value) -> int {
@@ -425,6 +526,11 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
                     shake_range.mode_to_8bit = clamped_mode_to;
                     shake_range.physical_from = rotation_physical_from;
                     shake_range.physical_to = rotation_physical_to;
+                    shake_range.has_explicit_amplitude = has_shake_attribute_amplitude;
+                    if (has_shake_attribute_amplitude) {
+                        shake_range.amplitude_from_degrees = shake_attribute_amplitude_from_degrees;
+                        shake_range.amplitude_to_degrees = shake_attribute_amplitude_to_degrees;
+                    }
                     shake_range.slot_index = row.slot_index;
                     shake_range.control_type = FixtureGoboShakeControlType::kSameChannelSelect;
                     out_wheel.shake_ranges.push_back(shake_range);
@@ -524,6 +630,9 @@ void dedupe_and_sort_gobo_wheel(FixtureGoboWheelOffset &wheel) {
                                a.mode_to_8bit == b.mode_to_8bit &&
                                a.physical_from == b.physical_from &&
                                a.physical_to == b.physical_to &&
+                               a.has_explicit_amplitude == b.has_explicit_amplitude &&
+                               a.amplitude_from_degrees == b.amplitude_from_degrees &&
+                               a.amplitude_to_degrees == b.amplitude_to_degrees &&
                                a.slot_index == b.slot_index &&
                                a.control_type == b.control_type;
                     }),
