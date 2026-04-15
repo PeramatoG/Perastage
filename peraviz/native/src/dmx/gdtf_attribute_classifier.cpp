@@ -173,6 +173,8 @@ bool matches_gobo_rotation_attribute(const std::string &leaf) {
            leaf.find("wheelspin") != std::string::npos ||
            leaf.find("wheelrotation") != std::string::npos ||
            leaf.find("rotation") != std::string::npos ||
+           leaf.find("shake") != std::string::npos ||
+           leaf.find("shaking") != std::string::npos ||
            leaf.find("spin") != std::string::npos ||
            leaf.find("rotate") != std::string::npos;
 }

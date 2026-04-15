@@ -359,7 +359,9 @@ void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_
          attribute_lower.find("pos") != std::string::npos &&
          attribute_lower.find("rotate") != std::string::npos);
     int candidate_priority = 0;
-    if (has_mode_master && prefers_position_rotation_channel) {
+    if (is_shake_attribute) {
+        candidate_priority = 4;
+    } else if (has_mode_master && prefers_position_rotation_channel) {
         candidate_priority = 3;
     } else if (has_mode_master) {
         candidate_priority = 2;

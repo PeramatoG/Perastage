@@ -57,6 +57,18 @@ const peraviz::dmx::FixtureGoboWheelOffset *find_wheel(
     return nullptr;
 }
 
+size_t count_shake_ranges_with_type(
+    const peraviz::dmx::FixtureGoboWheelOffset &wheel,
+    peraviz::dmx::FixtureGoboShakeControlType control_type) {
+    size_t count = 0;
+    for (const peraviz::dmx::FixtureGoboShakeRange &range : wheel.shake_ranges) {
+        if (range.control_type == control_type) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 int run_test() {
     const std::filesystem::path repo_root = repo_root_from_source();
     const std::filesystem::path golden_xml_path =
@@ -187,6 +199,121 @@ int run_test() {
     }
     if (binding.strobe.ultra_fine_dmx_channel_index_0 != -1 || binding.prism.ultra_fine_dmx_channel_index_0 != -1) {
         return fail("Expected fine-only channels to keep ultra-fine disabled");
+    }
+
+    const std::string mega_pointe_like_xml = R"(<?xml version="1.0" encoding="UTF-8"?>
+<GDTF>
+  <Wheels>
+    <Wheel Name="Gobo2">
+      <Slot WheelSlotIndex="1" />
+      <Slot WheelSlotIndex="2" />
+    </Wheel>
+  </Wheels>
+  <DMXModes>
+    <DMXMode Name="WithDedicatedShake">
+      <DMXChannels>
+        <DMXChannel Offset="1">
+          <LogicalChannel Attribute="Gobo2SelectShake">
+            <ChannelFunction Attribute="Gobo2SelectShake" Name="Gobo2SelectShake" Wheel="gobo2" DMXFrom="0" DMXTo="127">
+              <ChannelSet Name="Slot 1" WheelSlotIndex="1" DMXFrom="0" DMXTo="63" PhysicalFrom="1" PhysicalTo="4" />
+              <ChannelSet Name="Slot 2" WheelSlotIndex="2" DMXFrom="64" DMXTo="127" PhysicalFrom="5" PhysicalTo="9" />
+            </ChannelFunction>
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="2">
+          <LogicalChannel Attribute="StaticGoboShake">
+            <ChannelFunction Attribute="Gobo2ShakeIndex" Name="StaticGoboShake" Wheel="gobo2" DMXFrom="0" DMXTo="255">
+              <ChannelSet Name="Shake Slow to Fast" DMXFrom="0" DMXTo="127" PhysicalFrom="10" PhysicalTo="35" />
+              <ChannelSet Name="Shake Fast to Slow" DMXFrom="128" DMXTo="255" PhysicalFrom="35" PhysicalTo="10" />
+            </ChannelFunction>
+          </LogicalChannel>
+        </DMXChannel>
+      </DMXChannels>
+    </DMXMode>
+    <DMXMode Name="WithoutDedicatedShake">
+      <DMXChannels>
+        <DMXChannel Offset="1">
+          <LogicalChannel Attribute="Gobo2SelectShake">
+            <ChannelFunction Attribute="Gobo2SelectShake" Name="Gobo2SelectShake" Wheel="gobo2" DMXFrom="0" DMXTo="127">
+              <ChannelSet Name="Slot 1" WheelSlotIndex="1" DMXFrom="0" DMXTo="63" PhysicalFrom="1" PhysicalTo="4" />
+              <ChannelSet Name="Slot 2" WheelSlotIndex="2" DMXFrom="64" DMXTo="127" PhysicalFrom="5" PhysicalTo="9" />
+            </ChannelFunction>
+          </LogicalChannel>
+        </DMXChannel>
+      </DMXChannels>
+    </DMXMode>
+  </DMXModes>
+</GDTF>)";
+
+    const std::filesystem::path mega_pointe_gdtf_path = temp_dir / "mega_pointe_like_fixture.gdtf";
+    if (!write_gdtf_archive(mega_pointe_gdtf_path, mega_pointe_like_xml)) {
+        return fail("Failed to create MegaPointe-like GDTF archive");
+    }
+
+    peraviz::dmx::FixtureControlOffsets with_dedicated_offsets;
+    if (!peraviz::dmx::resolve_fixture_control_offsets(mega_pointe_gdtf_path.string(),
+                                                       "WithDedicatedShake",
+                                                       with_dedicated_offsets,
+                                                       debug_reason)) {
+        return fail("resolve_fixture_control_offsets failed for dedicated shake mode: " + debug_reason);
+    }
+    const peraviz::dmx::FixtureGoboWheelOffset *with_dedicated_wheel = find_wheel(with_dedicated_offsets, 2);
+    if (!with_dedicated_wheel) {
+        return fail("Expected gobo wheel #2 in dedicated shake mode");
+    }
+    if (with_dedicated_wheel->coarse_offset_1_based != 1) {
+        return fail("Expected select channel to keep gobo slot ownership in dedicated shake mode");
+    }
+    if (with_dedicated_wheel->rotation_coarse_offset_1_based != 2) {
+        return fail("Expected dedicated shake channel to own shake speed offset");
+    }
+    if (with_dedicated_wheel->ranges.size() != 2 ||
+        with_dedicated_wheel->ranges[0].slot_index != 1 ||
+        with_dedicated_wheel->ranges[1].slot_index != 2) {
+        return fail("Expected slot ranges to remain intact when dedicated shake exists");
+    }
+    if (count_shake_ranges_with_type(*with_dedicated_wheel,
+                                     peraviz::dmx::FixtureGoboShakeControlType::kDedicatedShakeChannel) == 0) {
+        return fail("Expected dedicated shake ranges in dedicated shake mode");
+    }
+    if (count_shake_ranges_with_type(*with_dedicated_wheel,
+                                     peraviz::dmx::FixtureGoboShakeControlType::kSameChannelSelect) == 0) {
+        return fail("Expected select-channel shake fallback ranges in dedicated shake mode");
+    }
+    bool has_slot_bound_select_shake = false;
+    for (const peraviz::dmx::FixtureGoboShakeRange &range : with_dedicated_wheel->shake_ranges) {
+        if (range.control_type == peraviz::dmx::FixtureGoboShakeControlType::kSameChannelSelect &&
+            range.slot_index > 0 &&
+            range.physical_to > range.physical_from) {
+            has_slot_bound_select_shake = true;
+            break;
+        }
+    }
+    if (!has_slot_bound_select_shake) {
+        return fail("Expected slot-bound select-shake ranges with physical windows");
+    }
+
+    peraviz::dmx::FixtureControlOffsets without_dedicated_offsets;
+    if (!peraviz::dmx::resolve_fixture_control_offsets(mega_pointe_gdtf_path.string(),
+                                                       "WithoutDedicatedShake",
+                                                       without_dedicated_offsets,
+                                                       debug_reason)) {
+        return fail("resolve_fixture_control_offsets failed for fallback shake mode: " + debug_reason);
+    }
+    const peraviz::dmx::FixtureGoboWheelOffset *without_dedicated_wheel = find_wheel(without_dedicated_offsets, 2);
+    if (!without_dedicated_wheel) {
+        return fail("Expected gobo wheel #2 in fallback shake mode");
+    }
+    if (without_dedicated_wheel->rotation_coarse_offset_1_based > 0) {
+        return fail("Did not expect dedicated shake offset in fallback shake mode");
+    }
+    if (count_shake_ranges_with_type(*without_dedicated_wheel,
+                                     peraviz::dmx::FixtureGoboShakeControlType::kDedicatedShakeChannel) != 0) {
+        return fail("Did not expect dedicated shake ranges in fallback shake mode");
+    }
+    if (count_shake_ranges_with_type(*without_dedicated_wheel,
+                                     peraviz::dmx::FixtureGoboShakeControlType::kSameChannelSelect) == 0) {
+        return fail("Expected fallback shake ranges sourced from select channel");
     }
 
     return 0;
