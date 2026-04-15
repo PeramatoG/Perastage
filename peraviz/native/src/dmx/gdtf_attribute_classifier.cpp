@@ -5,6 +5,7 @@
 #include <array>
 #include <cctype>
 #include <cstdlib>
+#include <string_view>
 #include <sstream>
 
 namespace peraviz::dmx {
@@ -176,6 +177,84 @@ bool matches_gobo_rotation_attribute(const std::string &leaf) {
            leaf.find("rotate") != std::string::npos;
 }
 
+struct AttributeNameDescriptor {
+    AttributeRole role;
+    std::initializer_list<std::string_view> tokens;
+};
+
+bool match_descriptor_tokens(const std::string &leaf,
+                             const AttributeNameDescriptor &descriptor,
+                             int &out_byte_index) {
+    for (const std::string_view token : descriptor.tokens) {
+        int candidate_byte_index = 1;
+        if (starts_with_role_token(leaf, std::string(token), candidate_byte_index)) {
+            out_byte_index = candidate_byte_index;
+            return true;
+        }
+    }
+    return false;
+}
+
+const std::array<AttributeNameDescriptor, 7> &attribute_name_descriptors() {
+    static const std::array<AttributeNameDescriptor, 7> descriptors = {{
+        {AttributeRole::kDimmer, {"dimmer", "intensity"}},
+        {AttributeRole::kPan, {"pan"}},
+        {AttributeRole::kTilt, {"tilt"}},
+        {AttributeRole::kZoom, {"zoom", "digitalzoom"}},
+        {AttributeRole::kCyan, {"cyan",
+                                "coloradd_c",
+                                "coloradd_cyan",
+                                "coloradd_coarse",
+                                "colorsub_c",
+                                "colorsub_cyan",
+                                "colorsub_coarse",
+                                "colorrgb_c",
+                                "colorrgb_cyan"}},
+        {AttributeRole::kMagenta, {"magenta",
+                                   "coloradd_m",
+                                   "coloradd_magenta",
+                                   "colorsub_m",
+                                   "colorsub_magenta",
+                                   "colorrgb_m",
+                                   "colorrgb_magenta"}},
+        {AttributeRole::kYellow, {"yellow",
+                                  "coloradd_y",
+                                  "coloradd_yellow",
+                                  "colorsub_y",
+                                  "colorsub_yellow",
+                                  "colorrgb_y",
+                                  "colorrgb_yellow"}},
+    }};
+    return descriptors;
+}
+
+bool parse_standard_attribute(const std::string &leaf, ParsedAttribute &parsed) {
+    for (const AttributeNameDescriptor &descriptor : attribute_name_descriptors()) {
+        int byte_index = 1;
+        if (!match_descriptor_tokens(leaf, descriptor, byte_index)) {
+            continue;
+        }
+        parsed.role = descriptor.role;
+        parsed.byte_index = byte_index;
+        return true;
+    }
+    return false;
+}
+
+void parse_gobo_attribute(const std::string &leaf, ParsedAttribute &parsed) {
+    if (matches_gobo_rotation_attribute(leaf)) {
+        parsed.role = AttributeRole::kGoboRotation;
+    } else if (matches_gobo_index_attribute(leaf)) {
+        parsed.role = AttributeRole::kGoboIndex;
+    } else if (matches_gobo_attribute(leaf)) {
+        parsed.role = AttributeRole::kGobo;
+    } else {
+        return;
+    }
+    parsed.byte_index = 1;
+    parsed.gobo_wheel_number = parse_gobo_wheel_number(leaf);
+}
+
 } // namespace
 
 std::vector<int> parse_offsets(const char *raw_offset) {
@@ -218,62 +297,8 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
 
     const std::string leaf = last_attribute_segment(lower);
 
-    int byte_index = 1;
-    if (starts_with_role_token(leaf, "dimmer", byte_index) ||
-        starts_with_role_token(leaf, "intensity", byte_index)) {
-        parsed.role = AttributeRole::kDimmer;
-        parsed.byte_index = byte_index;
-    } else if (starts_with_role_token(leaf, "pan", byte_index)) {
-        parsed.role = AttributeRole::kPan;
-        parsed.byte_index = byte_index;
-    } else if (starts_with_role_token(leaf, "tilt", byte_index)) {
-        parsed.role = AttributeRole::kTilt;
-        parsed.byte_index = byte_index;
-    } else if (starts_with_role_token(leaf, "zoom", byte_index) ||
-               starts_with_role_token(leaf, "digitalzoom", byte_index)) {
-        parsed.role = AttributeRole::kZoom;
-        parsed.byte_index = byte_index;
-    } else if (starts_with_role_token(leaf, "cyan", byte_index) ||
-               starts_with_role_token(leaf, "coloradd_c", byte_index) ||
-               starts_with_role_token(leaf, "coloradd_cyan", byte_index) ||
-               starts_with_role_token(leaf, "coloradd_coarse", byte_index) ||
-               starts_with_role_token(leaf, "colorsub_c", byte_index) ||
-               starts_with_role_token(leaf, "colorsub_cyan", byte_index) ||
-               starts_with_role_token(leaf, "colorsub_coarse", byte_index) ||
-               starts_with_role_token(leaf, "colorrgb_c", byte_index) ||
-               starts_with_role_token(leaf, "colorrgb_cyan", byte_index)) {
-        parsed.role = AttributeRole::kCyan;
-        parsed.byte_index = byte_index;
-    } else if (starts_with_role_token(leaf, "magenta", byte_index) ||
-               starts_with_role_token(leaf, "coloradd_m", byte_index) ||
-               starts_with_role_token(leaf, "coloradd_magenta", byte_index) ||
-               starts_with_role_token(leaf, "colorsub_m", byte_index) ||
-               starts_with_role_token(leaf, "colorsub_magenta", byte_index) ||
-               starts_with_role_token(leaf, "colorrgb_m", byte_index) ||
-               starts_with_role_token(leaf, "colorrgb_magenta", byte_index)) {
-        parsed.role = AttributeRole::kMagenta;
-        parsed.byte_index = byte_index;
-    } else if (starts_with_role_token(leaf, "yellow", byte_index) ||
-               starts_with_role_token(leaf, "coloradd_y", byte_index) ||
-               starts_with_role_token(leaf, "coloradd_yellow", byte_index) ||
-               starts_with_role_token(leaf, "colorsub_y", byte_index) ||
-               starts_with_role_token(leaf, "colorsub_yellow", byte_index) ||
-               starts_with_role_token(leaf, "colorrgb_y", byte_index) ||
-               starts_with_role_token(leaf, "colorrgb_yellow", byte_index)) {
-        parsed.role = AttributeRole::kYellow;
-        parsed.byte_index = byte_index;
-    } else if (matches_gobo_rotation_attribute(leaf)) {
-        parsed.role = AttributeRole::kGoboRotation;
-        parsed.byte_index = byte_index;
-        parsed.gobo_wheel_number = parse_gobo_wheel_number(leaf);
-    } else if (matches_gobo_index_attribute(leaf)) {
-        parsed.role = AttributeRole::kGoboIndex;
-        parsed.byte_index = byte_index;
-        parsed.gobo_wheel_number = parse_gobo_wheel_number(leaf);
-    } else if (matches_gobo_attribute(leaf)) {
-        parsed.role = AttributeRole::kGobo;
-        parsed.byte_index = byte_index;
-        parsed.gobo_wheel_number = parse_gobo_wheel_number(leaf);
+    if (!parse_standard_attribute(leaf, parsed)) {
+        parse_gobo_attribute(leaf, parsed);
     }
 
     if (parsed.role == AttributeRole::kUnknown) {

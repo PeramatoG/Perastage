@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <array>
 #include <mutex>
 #include <unordered_map>
 #include <utility>
@@ -120,6 +121,195 @@ peraviz::dmx::FixtureGoboWheelOffset *find_or_create_gobo_wheel_offset(
     wheel.wheel_name = wheel_name;
     out_offsets.gobo_wheels.push_back(std::move(wheel));
     return &out_offsets.gobo_wheels.back();
+}
+
+struct OffsetWriteTarget {
+    int peraviz::dmx::FixtureControlOffsets::*coarse;
+    int peraviz::dmx::FixtureControlOffsets::*fine;
+    int peraviz::dmx::FixtureControlOffsets::*ultra_fine;
+};
+
+using PhysicalRangeConsumer = void (*)(tinyxml2::XMLElement *, peraviz::dmx::FixtureControlOffsets &);
+
+struct AttributeOffsetDescriptor {
+    peraviz::dmx::AttributeRole role;
+    OffsetWriteTarget target;
+    PhysicalRangeConsumer consume_physical_range = nullptr;
+};
+
+const std::array<AttributeOffsetDescriptor, 7> &attribute_offset_descriptors() {
+    static const std::array<AttributeOffsetDescriptor, 7> descriptors = {{
+        {peraviz::dmx::AttributeRole::kDimmer,
+         {&peraviz::dmx::FixtureControlOffsets::dimmer_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::dimmer_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::dimmer_ultra_fine_offset_1_based}},
+        {peraviz::dmx::AttributeRole::kPan,
+         {&peraviz::dmx::FixtureControlOffsets::pan_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::pan_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::pan_ultra_fine_offset_1_based}},
+        {peraviz::dmx::AttributeRole::kTilt,
+         {&peraviz::dmx::FixtureControlOffsets::tilt_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::tilt_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::tilt_ultra_fine_offset_1_based}},
+        {peraviz::dmx::AttributeRole::kZoom,
+         {&peraviz::dmx::FixtureControlOffsets::zoom_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::zoom_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::zoom_ultra_fine_offset_1_based},
+         &peraviz::dmx::consume_zoom_physical_range},
+        {peraviz::dmx::AttributeRole::kCyan,
+         {&peraviz::dmx::FixtureControlOffsets::cyan_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::cyan_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::cyan_ultra_fine_offset_1_based}},
+        {peraviz::dmx::AttributeRole::kMagenta,
+         {&peraviz::dmx::FixtureControlOffsets::magenta_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::magenta_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::magenta_ultra_fine_offset_1_based}},
+        {peraviz::dmx::AttributeRole::kYellow,
+         {&peraviz::dmx::FixtureControlOffsets::yellow_coarse_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::yellow_fine_offset_1_based,
+          &peraviz::dmx::FixtureControlOffsets::yellow_ultra_fine_offset_1_based}},
+    }};
+    return descriptors;
+}
+
+bool apply_descriptor_offsets(const peraviz::dmx::ParsedAttribute &parsed_attribute,
+                              const std::vector<int> &offsets,
+                              tinyxml2::XMLElement *channel_function,
+                              peraviz::dmx::FixtureControlOffsets &out_offsets) {
+    for (const AttributeOffsetDescriptor &descriptor : attribute_offset_descriptors()) {
+        if (descriptor.role != parsed_attribute.role) {
+            continue;
+        }
+        consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                        out_offsets.*(descriptor.target.coarse),
+                        out_offsets.*(descriptor.target.fine),
+                        out_offsets.*(descriptor.target.ultra_fine));
+        if (descriptor.consume_physical_range) {
+            descriptor.consume_physical_range(channel_function, out_offsets);
+        }
+        return true;
+    }
+    return false;
+}
+
+peraviz::dmx::FixtureGoboWheelOffset *resolve_gobo_wheel(peraviz::dmx::FixtureControlOffsets &out_offsets,
+                                                          const peraviz::dmx::ParsedAttribute &parsed_attribute,
+                                                          tinyxml2::XMLElement *channel_function) {
+    const std::string wheel_name =
+        peraviz::dmx::lower_ascii(peraviz::dmx::read_attr_ci(channel_function, "Wheel", "wheel"));
+    int wheel_number = parsed_attribute.gobo_wheel_number;
+    if (wheel_number <= 0) {
+        wheel_number = parse_last_number_token(wheel_name);
+    }
+    return find_or_create_gobo_wheel_offset(out_offsets, wheel_number, wheel_name);
+}
+
+void handle_gobo_attribute(const peraviz::dmx::ParsedAttribute &parsed_attribute,
+                           const std::vector<int> &offsets,
+                           tinyxml2::XMLElement *channel_function,
+                           const peraviz::dmx::GoboWheelCatalog &wheel_catalog,
+                           int function_dmx_from,
+                           int function_dmx_to,
+                           int function_mode_from,
+                           int function_mode_to,
+                           peraviz::dmx::FixtureControlOffsets &out_offsets) {
+    peraviz::dmx::FixtureGoboWheelOffset *wheel =
+        resolve_gobo_wheel(out_offsets, parsed_attribute, channel_function);
+    if (!wheel) {
+        return;
+    }
+    consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                    wheel->coarse_offset_1_based,
+                    wheel->fine_offset_1_based,
+                    wheel->ultra_fine_offset_1_based);
+    peraviz::dmx::consume_gobo_channel_sets(channel_function, wheel_catalog, *wheel,
+                                            function_dmx_from, function_dmx_to,
+                                            function_mode_from, function_mode_to);
+}
+
+void handle_gobo_index_attribute(const peraviz::dmx::ParsedAttribute &parsed_attribute,
+                                 const std::vector<int> &offsets,
+                                 tinyxml2::XMLElement *channel_function,
+                                 peraviz::dmx::FixtureControlOffsets &out_offsets) {
+    peraviz::dmx::FixtureGoboWheelOffset *wheel =
+        resolve_gobo_wheel(out_offsets, parsed_attribute, channel_function);
+    if (!wheel) {
+        return;
+    }
+    wheel->supports_index = true;
+    consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                    wheel->index_coarse_offset_1_based,
+                    wheel->index_fine_offset_1_based,
+                    wheel->index_ultra_fine_offset_1_based);
+    peraviz::dmx::consume_gobo_physical_range(channel_function,
+                                              wheel->has_index_physical_limits,
+                                              wheel->index_physical_min,
+                                              wheel->index_physical_max);
+}
+
+void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_attribute,
+                                    const std::vector<int> &offsets,
+                                    const char *attribute,
+                                    tinyxml2::XMLElement *channel_function,
+                                    int function_dmx_from,
+                                    int function_dmx_to,
+                                    int function_mode_from,
+                                    int function_mode_to,
+                                    peraviz::dmx::FixtureControlOffsets &out_offsets) {
+    peraviz::dmx::FixtureGoboWheelOffset *wheel =
+        resolve_gobo_wheel(out_offsets, parsed_attribute, channel_function);
+    if (!wheel) {
+        return;
+    }
+
+    wheel->supports_rotation = true;
+    int candidate_rotation_coarse = -1;
+    int candidate_rotation_fine = -1;
+    int candidate_rotation_ultra_fine = -1;
+    consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                    candidate_rotation_coarse,
+                    candidate_rotation_fine,
+                    candidate_rotation_ultra_fine);
+
+    const std::string attribute_lower = peraviz::dmx::lower_ascii(peraviz::dmx::trim_ascii(attribute));
+    const bool has_mode_master =
+        channel_function->Attribute("ModeMaster") != nullptr ||
+        channel_function->Attribute("modemaster") != nullptr;
+    const bool prefers_position_rotation_channel =
+        attribute_lower.find("posrotate") != std::string::npos ||
+        attribute_lower.find("posrotation") != std::string::npos ||
+        (attribute_lower.find("gobo") != std::string::npos &&
+         attribute_lower.find("pos") != std::string::npos &&
+         attribute_lower.find("rotate") != std::string::npos);
+    int candidate_priority = 0;
+    if (has_mode_master && prefers_position_rotation_channel) {
+        candidate_priority = 3;
+    } else if (has_mode_master) {
+        candidate_priority = 2;
+    } else if (prefers_position_rotation_channel) {
+        candidate_priority = 1;
+    }
+
+    const bool has_valid_candidate_channel = candidate_rotation_coarse > 0;
+    const bool should_replace_rotation_channel =
+        has_valid_candidate_channel &&
+        (wheel->rotation_coarse_offset_1_based <= 0 ||
+         candidate_priority > wheel->rotation_channel_priority ||
+         (candidate_priority == wheel->rotation_channel_priority &&
+          candidate_rotation_coarse < wheel->rotation_coarse_offset_1_based));
+    if (should_replace_rotation_channel) {
+        wheel->rotation_coarse_offset_1_based = candidate_rotation_coarse;
+        wheel->rotation_fine_offset_1_based = candidate_rotation_fine;
+        wheel->rotation_ultra_fine_offset_1_based = candidate_rotation_ultra_fine;
+        wheel->rotation_channel_priority = candidate_priority;
+    }
+
+    peraviz::dmx::consume_gobo_rotation_channel_sets(channel_function,
+                                                     wheel->rotation_ranges,
+                                                     function_dmx_from,
+                                                     function_dmx_to,
+                                                     function_mode_from,
+                                                     function_mode_to);
 }
 
 void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
@@ -237,159 +427,33 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
             }
 
             const peraviz::dmx::ParsedAttribute parsed_attribute = peraviz::dmx::parse_attribute_name(attribute);
+            if (apply_descriptor_offsets(parsed_attribute, offsets, channel_function, out_offsets)) {
+                continue;
+            }
+
             switch (parsed_attribute.role) {
-            case peraviz::dmx::AttributeRole::kDimmer:
-                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                out_offsets.dimmer_coarse_offset_1_based,
-                                out_offsets.dimmer_fine_offset_1_based,
-                                out_offsets.dimmer_ultra_fine_offset_1_based);
+            case peraviz::dmx::AttributeRole::kGobo:
+                handle_gobo_attribute(parsed_attribute, offsets, channel_function, wheel_catalog,
+                                      function_dmx_from, function_dmx_to, function_mode_from, function_mode_to,
+                                      out_offsets);
                 break;
-            case peraviz::dmx::AttributeRole::kPan:
-                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                out_offsets.pan_coarse_offset_1_based,
-                                out_offsets.pan_fine_offset_1_based,
-                                out_offsets.pan_ultra_fine_offset_1_based);
+            case peraviz::dmx::AttributeRole::kGoboIndex:
+                handle_gobo_index_attribute(parsed_attribute, offsets, channel_function, out_offsets);
                 break;
-            case peraviz::dmx::AttributeRole::kTilt:
-                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                out_offsets.tilt_coarse_offset_1_based,
-                                out_offsets.tilt_fine_offset_1_based,
-                                out_offsets.tilt_ultra_fine_offset_1_based);
+            case peraviz::dmx::AttributeRole::kGoboRotation:
+                handle_gobo_rotation_attribute(parsed_attribute, offsets, attribute, channel_function,
+                                               function_dmx_from, function_dmx_to,
+                                               function_mode_from, function_mode_to, out_offsets);
                 break;
             case peraviz::dmx::AttributeRole::kUnknown:
-                break;
+            case peraviz::dmx::AttributeRole::kDimmer:
+            case peraviz::dmx::AttributeRole::kPan:
+            case peraviz::dmx::AttributeRole::kTilt:
             case peraviz::dmx::AttributeRole::kZoom:
-                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                out_offsets.zoom_coarse_offset_1_based,
-                                out_offsets.zoom_fine_offset_1_based,
-                                out_offsets.zoom_ultra_fine_offset_1_based);
-                peraviz::dmx::consume_zoom_physical_range(channel_function, out_offsets);
-                break;
             case peraviz::dmx::AttributeRole::kCyan:
-                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                out_offsets.cyan_coarse_offset_1_based,
-                                out_offsets.cyan_fine_offset_1_based,
-                                out_offsets.cyan_ultra_fine_offset_1_based);
-                break;
             case peraviz::dmx::AttributeRole::kMagenta:
-                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                out_offsets.magenta_coarse_offset_1_based,
-                                out_offsets.magenta_fine_offset_1_based,
-                                out_offsets.magenta_ultra_fine_offset_1_based);
-                break;
             case peraviz::dmx::AttributeRole::kYellow:
-                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                out_offsets.yellow_coarse_offset_1_based,
-                                out_offsets.yellow_fine_offset_1_based,
-                                out_offsets.yellow_ultra_fine_offset_1_based);
                 break;
-            case peraviz::dmx::AttributeRole::kGobo: {
-                const std::string wheel_name =
-                    peraviz::dmx::lower_ascii(peraviz::dmx::read_attr_ci(channel_function, "Wheel", "wheel"));
-                int wheel_number = parsed_attribute.gobo_wheel_number;
-                if (wheel_number <= 0) {
-                    wheel_number = parse_last_number_token(wheel_name);
-                }
-                peraviz::dmx::FixtureGoboWheelOffset *wheel =
-                    find_or_create_gobo_wheel_offset(out_offsets, wheel_number, wheel_name);
-                if (!wheel) {
-                    break;
-                }
-                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                wheel->coarse_offset_1_based,
-                                wheel->fine_offset_1_based,
-                                wheel->ultra_fine_offset_1_based);
-                peraviz::dmx::consume_gobo_channel_sets(channel_function, wheel_catalog, *wheel,
-                                                        function_dmx_from, function_dmx_to,
-                                                        function_mode_from, function_mode_to);
-                break;
-            }
-            case peraviz::dmx::AttributeRole::kGoboIndex: {
-                const std::string wheel_name =
-                    peraviz::dmx::lower_ascii(peraviz::dmx::read_attr_ci(channel_function, "Wheel", "wheel"));
-                int wheel_number = parsed_attribute.gobo_wheel_number;
-                if (wheel_number <= 0) {
-                    wheel_number = parse_last_number_token(wheel_name);
-                }
-                peraviz::dmx::FixtureGoboWheelOffset *wheel =
-                    find_or_create_gobo_wheel_offset(out_offsets, wheel_number, wheel_name);
-                if (!wheel) {
-                    break;
-                }
-                wheel->supports_index = true;
-                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                wheel->index_coarse_offset_1_based,
-                                wheel->index_fine_offset_1_based,
-                                wheel->index_ultra_fine_offset_1_based);
-                peraviz::dmx::consume_gobo_physical_range(channel_function,
-                                                          wheel->has_index_physical_limits,
-                                                          wheel->index_physical_min,
-                                                          wheel->index_physical_max);
-                break;
-            }
-            case peraviz::dmx::AttributeRole::kGoboRotation: {
-                const std::string wheel_name =
-                    peraviz::dmx::lower_ascii(peraviz::dmx::read_attr_ci(channel_function, "Wheel", "wheel"));
-                int wheel_number = parsed_attribute.gobo_wheel_number;
-                if (wheel_number <= 0) {
-                    wheel_number = parse_last_number_token(wheel_name);
-                }
-                peraviz::dmx::FixtureGoboWheelOffset *wheel =
-                    find_or_create_gobo_wheel_offset(out_offsets, wheel_number, wheel_name);
-                if (!wheel) {
-                    break;
-                }
-
-                wheel->supports_rotation = true;
-                int candidate_rotation_coarse = -1;
-                int candidate_rotation_fine = -1;
-                int candidate_rotation_ultra_fine = -1;
-                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                candidate_rotation_coarse,
-                                candidate_rotation_fine,
-                                candidate_rotation_ultra_fine);
-
-                const std::string attribute_lower = peraviz::dmx::lower_ascii(peraviz::dmx::trim_ascii(attribute));
-                const bool has_mode_master =
-                    channel_function->Attribute("ModeMaster") != nullptr ||
-                    channel_function->Attribute("modemaster") != nullptr;
-                const bool prefers_position_rotation_channel =
-                    attribute_lower.find("posrotate") != std::string::npos ||
-                    attribute_lower.find("posrotation") != std::string::npos ||
-                    (attribute_lower.find("gobo") != std::string::npos &&
-                     attribute_lower.find("pos") != std::string::npos &&
-                     attribute_lower.find("rotate") != std::string::npos);
-                int candidate_priority = 0;
-                if (has_mode_master && prefers_position_rotation_channel) {
-                    candidate_priority = 3;
-                } else if (has_mode_master) {
-                    candidate_priority = 2;
-                } else if (prefers_position_rotation_channel) {
-                    candidate_priority = 1;
-                }
-
-                const bool has_valid_candidate_channel = candidate_rotation_coarse > 0;
-                const bool should_replace_rotation_channel =
-                    has_valid_candidate_channel &&
-                    (wheel->rotation_coarse_offset_1_based <= 0 ||
-                     candidate_priority > wheel->rotation_channel_priority ||
-                     (candidate_priority == wheel->rotation_channel_priority &&
-                      candidate_rotation_coarse < wheel->rotation_coarse_offset_1_based));
-                if (should_replace_rotation_channel) {
-                    wheel->rotation_coarse_offset_1_based = candidate_rotation_coarse;
-                    wheel->rotation_fine_offset_1_based = candidate_rotation_fine;
-                    wheel->rotation_ultra_fine_offset_1_based = candidate_rotation_ultra_fine;
-                    wheel->rotation_channel_priority = candidate_priority;
-                }
-
-                peraviz::dmx::consume_gobo_rotation_channel_sets(channel_function,
-                                                                 wheel->rotation_ranges,
-                                                                 function_dmx_from,
-                                                                 function_dmx_to,
-                                                                 function_mode_from,
-                                                                 function_mode_to);
-                break;
-            }
             }
         }
     }

@@ -5,6 +5,7 @@ project(PeravizNative LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+include(CTest)
 
 set(GODOT_CPP_DIR "" CACHE PATH "Path to a local godot-cpp checkout")
 option(PERAVIZ_FETCH_GODOT_CPP "Fetch godot-cpp automatically when GODOT_CPP_DIR is not provided" ON)
@@ -119,6 +120,19 @@ target_link_libraries(peraviz_native PRIVATE
 set_target_properties(peraviz_native PROPERTIES
     OUTPUT_NAME "peraviz_native"
 )
+
+if(BUILD_TESTING)
+    add_executable(peraviz_native_dmx_tests
+        tests/gdtf_attribute_classifier_test.cpp
+        src/dmx/gdtf_attribute_classifier.cpp
+        src/dmx/gdtf_xml_reader.cpp
+    )
+    target_include_directories(peraviz_native_dmx_tests PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    )
+    target_link_libraries(peraviz_native_dmx_tests PRIVATE tinyxml2::tinyxml2)
+    add_test(NAME peraviz_native_dmx_tests COMMAND peraviz_native_dmx_tests)
+endif()
 
 if(PERAVIZ_GODOT_PROJECT_DIR)
     set(_peraviz_bin_dir "${PERAVIZ_GODOT_PROJECT_DIR}/bin")
