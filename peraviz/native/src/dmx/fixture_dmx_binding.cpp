@@ -207,10 +207,13 @@ FixtureBindingBuildResult build_fixture_control_bindings(
                                                                 wheel.rotation_ultra_fine_offset_1_based);
             wheel_binding.supports_index = wheel.supports_index;
             wheel_binding.supports_rotation = wheel.supports_rotation;
+            wheel_binding.supports_spin_rotation = wheel.supports_spin_rotation;
+            wheel_binding.supports_shake = wheel.supports_shake;
             wheel_binding.has_index_physical_limits = wheel.has_index_physical_limits;
             wheel_binding.index_physical_min = wheel.index_physical_min;
             wheel_binding.index_physical_max = wheel.index_physical_max;
             wheel_binding.rotation_ranges = wheel.rotation_ranges;
+            wheel_binding.shake_ranges = wheel.shake_ranges;
             wheel_binding.wheel_number = wheel.wheel_number;
             wheel_binding.wheel_name = wheel.wheel_name;
             wheel_binding.slots = wheel.slots;

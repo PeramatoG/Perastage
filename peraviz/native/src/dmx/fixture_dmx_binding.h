@@ -52,16 +52,35 @@ struct FixtureGoboRotationRange {
     bool is_rotation_channel_range = false;
 };
 
+enum class FixtureGoboShakeControlType {
+    kSameChannelSelect = 0,
+    kDedicatedShakeChannel = 1,
+};
+
+struct FixtureGoboShakeRange {
+    int dmx_from = 0;
+    int dmx_to = 255;
+    int mode_from_8bit = 0;
+    int mode_to_8bit = 255;
+    float physical_from = 0.0F;
+    float physical_to = 0.0F;
+    int slot_index = -1;
+    FixtureGoboShakeControlType control_type = FixtureGoboShakeControlType::kSameChannelSelect;
+};
+
 struct FixtureGoboWheelBinding {
     FixtureAttributeChannel channel;
     FixtureAttributeChannel index_channel;
     FixtureAttributeChannel rotation_channel;
     bool supports_index = false;
     bool supports_rotation = false;
+    bool supports_spin_rotation = false;
+    bool supports_shake = false;
     bool has_index_physical_limits = false;
     float index_physical_min = 0.0F;
     float index_physical_max = 0.0F;
     std::vector<FixtureGoboRotationRange> rotation_ranges;
+    std::vector<FixtureGoboShakeRange> shake_ranges;
     int wheel_number = 0;
     std::string wheel_name;
     std::vector<FixtureGoboSlot> slots;
@@ -123,10 +142,13 @@ struct FixtureGoboWheelOffset {
     int rotation_channel_priority = -1;
     bool supports_index = false;
     bool supports_rotation = false;
+    bool supports_spin_rotation = false;
+    bool supports_shake = false;
     bool has_index_physical_limits = false;
     float index_physical_min = 0.0F;
     float index_physical_max = 0.0F;
     std::vector<FixtureGoboRotationRange> rotation_ranges;
+    std::vector<FixtureGoboShakeRange> shake_ranges;
     int wheel_number = 0;
     std::string wheel_name;
     std::vector<FixtureGoboSlot> slots;
