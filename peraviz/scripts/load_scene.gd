@@ -121,7 +121,6 @@ var _beam_renderers: Dictionary = {}
 var _active_beam_renderer: BeamRendererBase
 var _active_beam_mode: int = -1
 
-
 const DmxMonitorWindowScript = preload("res://scripts/dmx_monitor_window.gd")
 const DmxFixtureRuntimeScript = preload("res://scripts/dmx_fixture_runtime.gd")
 
@@ -130,6 +129,16 @@ const LegacyConeBeamRendererScript = preload("res://scripts/beam_renderers/legac
 const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volumetric_beam_renderer.gd")
 const FixtureGoboProjectorScript = preload("res://scripts/fixture_gobo_projector.gd")
 const BeamOpticsControllerScript = preload("res://scripts/beam_optics_controller.gd")
+
+const SceneImportServiceScript = preload("res://scripts/scene_loading/scene_import_service.gd")
+const NodeFactoryScript = preload("res://scripts/scene_loading/node_factory.gd")
+const FixtureBindingServiceScript = preload("res://scripts/scene_loading/fixture_binding_service.gd")
+const DebugOverlayServiceScript = preload("res://scripts/scene_loading/debug_overlay_service.gd")
+
+var _scene_import_service := SceneImportServiceScript.new()
+var _node_factory := NodeFactoryScript.new()
+var _fixture_binding_service := FixtureBindingServiceScript.new()
+var _debug_overlay_service := DebugOverlayServiceScript.new()
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -469,33 +478,29 @@ func _on_load_pressed() -> void:
 
 func _on_file_selected(path: String) -> void:
 	_clear_scene()
-	var native_path: String = ProjectSettings.globalize_path(path)
-	var peraviz_debug_baseline: bool = bool(ProjectSettings.get_setting("peraviz_debug_baseline", false))
-	var nodes: Array = _loader.load_mvr(native_path, peraviz_debug_baseline, _debug_coords_enabled)
-	print("[Peraviz] Loaded render nodes: ", nodes.size(), " baseline_debug=", peraviz_debug_baseline, " coords_debug=", _debug_coords_enabled)
-	_has_loaded_bounds = false
-	_clear_debug_gizmos()
-
-	_build_node_tree(nodes)
-	_register_fixture_registry(nodes)
-	_refresh_dmx_fixture_bindings()
-	_populate_fixture_list()
-	_sync_selection_state("scene_reload")
-	_rebuild_debug_gizmos()
-	_focus_loaded_scene()
-	if _debug_asset_cache_enabled:
-		var cache_summary: Dictionary = _asset_cache.debug_summary()
-		var hit_by_kind: Dictionary = cache_summary.get("hits_by_kind", {})
-		var miss_by_kind: Dictionary = cache_summary.get("misses_by_kind", {})
-		print("[PeravizAssetCache] summary hits=", cache_summary.get("hits", 0),
-			" misses=", cache_summary.get("misses", 0),
-			" unique=", cache_summary.get("unique_resources", 0),
-			" mesh(hit/miss)=", hit_by_kind.get("mesh", 0), "/", miss_by_kind.get("mesh", 0),
-			" scene(hit/miss)=", hit_by_kind.get("scene", 0), "/", miss_by_kind.get("scene", 0),
-			" material(hit/miss)=", hit_by_kind.get("material", 0), "/", miss_by_kind.get("material", 0))
-	status_label.text = "Nodes: %d (press F to focus, C debug coords)" % nodes.size()
-	_update_debug_legend()
-	_refresh_emitter_light_scalars()
+	_scene_import_service.import_scene(
+		path,
+		_loader,
+		_node_factory,
+		_fixture_binding_service,
+		status_label,
+		_asset_cache,
+		proxies_root,
+		_node_index,
+		Callable(self, "_refresh_dmx_fixture_bindings"),
+		Callable(self, "_populate_fixture_list"),
+		Callable(self, "_sync_selection_state"),
+		Callable(self, "_rebuild_debug_gizmos"),
+		Callable(self, "_focus_loaded_scene"),
+		Callable(self, "_update_debug_legend"),
+		Callable(self, "_refresh_emitter_light_scalars"),
+		Callable(self, "_extract_emitter_photometrics"),
+		Callable(self, "_rebuild_loaded_bounds"),
+		Callable(self, "_set_has_loaded_bounds"),
+		_debug_coords_enabled,
+		_debug_asset_cache_enabled,
+		_scene_registry
+	)
 
 func _on_manual_fixture_toggle(enabled: bool) -> void:
 	_manual_fixture_test_enabled = enabled
@@ -533,38 +538,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _ensure_debug_gizmo_root() -> void:
-	if _debug_gizmos_root != null and is_instance_valid(_debug_gizmos_root):
-		return
-	_debug_gizmos_root = Node3D.new()
-	_debug_gizmos_root.name = "DebugGizmos"
-	_debug_gizmos_root.top_level = true
-	add_child(_debug_gizmos_root)
+	_debug_overlay_service.ensure_debug_gizmo_root(self)
 
 func _clear_debug_gizmos() -> void:
-	_ensure_debug_gizmo_root()
-	for child in _debug_gizmos_root.get_children():
-		child.queue_free()
+	_debug_overlay_service.clear_debug_gizmos(self)
 
 func _rebuild_debug_gizmos() -> void:
-	_clear_debug_gizmos()
-	if not _debug_coords_enabled:
-		return
-
-	_add_debug_gizmo_for_target(proxies_root, "scene_root", Color(1.0, 0.25, 1.0), 0.75)
-	for node in _node_index.values():
-		if node is not Node3D:
-			continue
-		var node3d: Node3D = node
-		var metadata_type: String = str(node3d.get_meta("peraviz_type", ""))
-		var is_axis: bool = bool(node3d.get_meta("peraviz_is_axis", false))
-		var is_emitter: bool = bool(node3d.get_meta("peraviz_is_emitter", false))
-
-		if metadata_type in ["fixture", "truss", "support", "scene_object"]:
-			_add_debug_gizmo_for_target(node3d, "mvr_instance_root", Color(1.0, 0.9, 0.2), 0.55)
-		if is_axis:
-			_add_debug_gizmo_for_target(node3d, "gdtf_axis", Color(0.0, 1.0, 1.0), 0.35)
-		if is_emitter:
-			_add_debug_gizmo_for_target(node3d, "emitter", Color(1.0, 0.55, 0.15), 0.30)
+	_debug_overlay_service.rebuild_debug_gizmos(self, _debug_coords_enabled, proxies_root, _node_index)
 
 
 func _is_basis_valid(candidate_basis: Basis) -> bool:
@@ -686,36 +666,10 @@ func _create_axes_gizmo_node(origin_color: Color, length: float) -> Node3D:
 	return container
 
 func _update_debug_legend() -> void:
-	if not _debug_coords_enabled:
-		print("[PeravizCoordDebugLegend] disabled (press C to enable)")
-		return
-
-	print("[PeravizCoordDebugLegend] X=Red Y=Green Z=Blue scene_root_origin=Magenta mvr_instance_root_origin=Yellow gdtf_axis_origin=Cyan emitter_origin=Orange beam_expected_local=-Y")
+	_debug_overlay_service.print_debug_legend(_debug_coords_enabled)
 
 func _build_node_tree(nodes: Array) -> void:
-	_node_index.clear()
-	for item in nodes:
-		if item is Dictionary:
-			var node_id: String = str(item.get("node_id", ""))
-			if node_id.is_empty():
-				continue
-			_node_index[node_id] = _create_scene_node(item)
-
-	for item in nodes:
-		if item is Dictionary:
-			var node_id: String = str(item.get("node_id", ""))
-			var parent_id: String = str(item.get("parent_id", ""))
-			var node: Node3D = _node_index.get(node_id)
-			if node == null:
-				continue
-			var parent_node: Node3D = proxies_root
-			if not parent_id.is_empty() and _node_index.has(parent_id):
-				parent_node = _node_index[parent_id]
-			parent_node.add_child(node)
-
-	_apply_mesh_orientation_corrections(proxies_root, false)
-	_remove_redundant_dummy_meshes(proxies_root)
-	_rebuild_loaded_bounds()
+	_node_factory.build_node_tree(nodes, proxies_root, _node_index, Callable(self, "_rebuild_loaded_bounds"), _loader, _asset_cache)
 
 func _apply_mesh_orientation_corrections(node: Node3D, inherited_flip: bool) -> void:
 	if node == null:
@@ -800,6 +754,9 @@ func _node_has_real_visual_descendants(root: Node, ignored_nodes: Array[Node]) -
 
 	return false
 
+func _set_has_loaded_bounds(value: bool) -> void:
+	_has_loaded_bounds = value
+
 func _rebuild_loaded_bounds() -> void:
 	_has_loaded_bounds = false
 	for child in proxies_root.get_children():
@@ -807,53 +764,7 @@ func _rebuild_loaded_bounds() -> void:
 			_expand_loaded_bounds_from_node(child)
 
 func _create_scene_node(data: Dictionary) -> Node3D:
-	var item_type: String = str(data.get("type", "scene_object"))
-	var item_class: String = _extract_node_class(data, item_type)
-	var is_fixture: bool = bool(data.get("is_fixture", false))
-	var is_axis: bool = bool(data.get("is_axis", false))
-	var is_emitter: bool = bool(data.get("is_emitter", false))
-	var is_lens: bool = bool(data.get("is_lens", false))
-	var node_name: String = str(data.get("name", item_type))
-	var flip_orientation: bool = false
-
-	var root := Node3D.new()
-	root.name = "%s_%s" % [item_class, node_name]
-	root.set_meta("peraviz_type", item_type)
-	root.set_meta("peraviz_is_axis", is_axis)
-	root.set_meta("peraviz_is_emitter", is_emitter)
-	root.set_meta("peraviz_is_lens", is_lens)
-	var node_position: Vector3 = _safe_position(data.get("pos", Vector3.ZERO), "create_scene_node:" + root.name)
-	if bool(data.get("has_basis", false)):
-		var node_basis: Basis = _safe_basis_from_data(data)
-		if not _is_basis_valid(node_basis):
-			print("[PeravizCoordDebug] event=basis_invalid_fallback node=", root.name)
-			node_basis = Basis.IDENTITY
-		flip_orientation = node_basis.determinant() < 0.0
-		root.transform = Transform3D(node_basis, node_position)
-	else:
-		root.position = node_position
-		root.rotation_degrees = data.get("rot", Vector3.ZERO)
-		root.scale = _safe_scale_from_data(data, "create_scene_node_euler:" + root.name)
-		flip_orientation = root.transform.basis.determinant() < 0.0
-
-	if is_axis:
-		var pivot := Node3D.new()
-		pivot.name = "AxisPivot"
-		root.add_child(pivot)
-
-	if is_emitter:
-		var emitter := Node3D.new()
-		emitter.name = "EmitterMarker"
-		root.add_child(emitter)
-
-	var visual_scale_hint: float = _extract_visual_scale_hint(data)
-	var model_node: Node3D = _build_visual_node(data, item_type, item_class, is_fixture, visual_scale_hint, flip_orientation)
-	if model_node != null:
-		root.add_child(model_node)
-		if item_type == "fixture_geometry":
-			_reparent_fixture_visual_children(root, model_node)
-
-	return root
+	return _node_factory.create_scene_node(data, _loader, _asset_cache)
 
 func _reparent_fixture_visual_children(geometry_node: Node3D, model_root: Node3D) -> void:
 	if geometry_node == null or model_root == null:
@@ -1226,94 +1137,22 @@ func _classify_gdtf_primitive_shape(primitive_type: String) -> String:
 	return "box"
 
 func _clear_scene() -> void:
-	_scene_registry.clear("scene_reload")
-	_clear_selected_fixture("scene_clear")
-	for child in proxies_root.get_children():
-		child.queue_free()
-	_node_index.clear()
-	_asset_cache.clear()
-	_fixture_emissive_cache.clear()
-	_fixture_emitter_light_cache.clear()
-	_fixture_emitter_photometrics.clear()
-	if _fixture_gobo_projector != null:
-		_fixture_gobo_projector.clear_cache()
-	_has_loaded_bounds = false
-	_clear_debug_gizmos()
+	_scene_import_service.clear_scene(
+		_scene_registry,
+		proxies_root,
+		_node_index,
+		_asset_cache,
+		_fixture_emissive_cache,
+		_fixture_emitter_light_cache,
+		_fixture_emitter_photometrics,
+		_fixture_gobo_projector,
+		Callable(self, "_clear_selected_fixture"),
+		Callable(self, "_clear_debug_gizmos"),
+		Callable(self, "_set_has_loaded_bounds")
+	)
 
 func _register_fixture_registry(nodes: Array) -> void:
-	if nodes.is_empty():
-		return
-
-	var parent_lookup: Dictionary = {}
-	var type_lookup: Dictionary = {}
-	for item in nodes:
-		if item is not Dictionary:
-			continue
-		var node_id: String = str(item.get("node_id", ""))
-		if node_id.is_empty():
-			continue
-		parent_lookup[node_id] = str(item.get("parent_id", ""))
-		type_lookup[node_id] = str(item.get("type", ""))
-
-	var fixture_anchors: Dictionary = {}
-	for node_id in type_lookup.keys():
-		if str(type_lookup.get(node_id, "")) != "fixture":
-			continue
-		fixture_anchors[node_id] = {
-			"axis": [],
-			"emitters": [],
-			"lens": [],
-			"geometry_nodes": [],
-		}
-
-	for item in nodes:
-		if item is not Dictionary:
-			continue
-		var node_id: String = str(item.get("node_id", ""))
-		if node_id.is_empty():
-			continue
-
-		var fixture_uuid: String = _resolve_fixture_uuid(node_id, parent_lookup, type_lookup, {})
-		if fixture_uuid.is_empty() or not fixture_anchors.has(fixture_uuid):
-			continue
-
-		if node_id == fixture_uuid:
-			continue
-
-		var node: Node3D = _node_index.get(node_id)
-		if node == null:
-			continue
-
-		var anchors: Dictionary = fixture_anchors[fixture_uuid]
-		if bool(item.get("is_axis", false)):
-			var axis_nodes: Array = anchors.get("axis", [])
-			axis_nodes.append(node)
-			anchors["axis"] = axis_nodes
-		if bool(item.get("is_emitter", false)):
-			var emitter_nodes: Array = anchors.get("emitters", [])
-			emitter_nodes.append(node)
-			anchors["emitters"] = emitter_nodes
-		if str(item.get("type", "")) == "fixture_geometry":
-			var geometry_nodes: Array = anchors.get("geometry_nodes", [])
-			geometry_nodes.append(node)
-			anchors["geometry_nodes"] = geometry_nodes
-			if bool(item.get("is_lens", false)):
-				var lens_nodes: Array = anchors.get("lens", [])
-				lens_nodes.append(node)
-				anchors["lens"] = lens_nodes
-			if bool(item.get("is_emitter", false)):
-				var photometric_entries: Array = anchors.get("emitter_photometrics", [])
-				photometric_entries.append(_extract_emitter_photometrics(item))
-				anchors["emitter_photometrics"] = photometric_entries
-
-	for fixture_uuid in fixture_anchors.keys():
-		var fixture_node: Node3D = _node_index.get(fixture_uuid)
-		if fixture_node == null:
-			print("[PeravizSceneRegistry] register_fixture skipped: fixture node missing uuid=", fixture_uuid)
-			continue
-		var anchors: Dictionary = fixture_anchors[fixture_uuid]
-		_scene_registry.register_fixture(fixture_uuid, fixture_node, anchors)
-		_attach_fixture_pick_colliders(fixture_uuid, fixture_node)
+	_fixture_binding_service.register_fixture_registry(nodes, _node_index, _scene_registry, Callable(self, "_extract_emitter_photometrics"))
 
 func _read_manual_fixture_test_setting() -> bool:
 	var setting_enabled: bool = bool(ProjectSettings.get_setting("peraviz_manual_fixture_test", false))
@@ -1364,19 +1203,10 @@ func _try_select_fixture_from_mouse(mouse_position: Vector2) -> void:
 	_select_fixture_by_uuid(fixture_uuid, "raycast")
 
 func _resolve_fixture_uuid_from_node(node: Node) -> String:
-	var current: Node = node
-	while current != null:
-		if current.has_meta("peraviz_fixture_uuid"):
-			return str(current.get_meta("peraviz_fixture_uuid", ""))
-		current = current.get_parent()
-	return ""
+	return _fixture_binding_service.resolve_fixture_uuid_from_node(node)
 
 func _attach_fixture_pick_colliders(fixture_uuid: String, fixture_node: Node3D) -> void:
-	if fixture_node == null:
-		return
-	fixture_node.set_meta("peraviz_fixture_uuid", fixture_uuid)
-	for child in fixture_node.get_children():
-		_attach_fixture_pick_colliders_recursive(fixture_uuid, child)
+	_fixture_binding_service.attach_fixture_pick_colliders(fixture_uuid, fixture_node)
 
 func _attach_fixture_pick_colliders_recursive(fixture_uuid: String, node: Node) -> void:
 	if node is MeshInstance3D:
