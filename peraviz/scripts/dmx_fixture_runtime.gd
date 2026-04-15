@@ -2,19 +2,17 @@ extends RefCounted
 class_name DmxFixtureRuntime
 
 const MAX_UNBOUND_PREVIEW: int = 8
-const DMX_8BIT_MAX_VALUE: float = 255.0
-const DMX_8BIT_STEPS: int = 256
-const DMX_16BIT_STEPS: int = 65536
-const DMX_24BIT_STEPS: int = 16777216
 const FORCE_COARSE_ONLY_DMX_READ: bool = false
 
-const GOBO_BEHAVIOR_FIXED: int = 0
-const GOBO_BEHAVIOR_INDEX: int = 1
-const GOBO_BEHAVIOR_ROTATION: int = 2
-const GOBO_BEHAVIOR_SHAKE: int = 3
-
 const GoboVectorizationCacheScript = preload("res://scripts/gobo_vectorization/gobo_vectorization_cache.gd")
-const DmxGoboRangeResolverScript = preload("res://scripts/dmx_gobo_range_resolver.gd")
+const ControlReaderScript = preload("res://scripts/dmx_capability_control_reader.gd")
+const CapabilityNormalizerScript = preload("res://scripts/dmx_capability_normalizer.gd")
+const PanTiltCapabilityHandlerScript = preload("res://scripts/dmx_capabilities/pan_tilt_capability_handler.gd")
+const DimmerCapabilityHandlerScript = preload("res://scripts/dmx_capabilities/dimmer_capability_handler.gd")
+const ColorWheelCapabilityHandlerScript = preload("res://scripts/dmx_capabilities/color_wheel_capability_handler.gd")
+const GoboCapabilityHandlerScript = preload("res://scripts/dmx_capabilities/gobo_capability_handler.gd")
+const PrismCapabilityHandlerScript = preload("res://scripts/dmx_capabilities/prism_capability_handler.gd")
+const StrobeCapabilityHandlerScript = preload("res://scripts/dmx_capabilities/strobe_capability_handler.gd")
 
 var _loader = null
 var _scene_registry: SceneRegistry = null
@@ -91,148 +89,48 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 		if frame.is_empty():
 			continue
 
-		var controls := {
-			"has_dimmer": false,
-			"dimmer_norm": 0.0,
-			"has_pan": false,
-			"pan_norm": 0.0,
-			"has_tilt": false,
-			"tilt_norm": 0.0,
-			"has_zoom": false,
-			"zoom_norm": 0.0,
-			"has_cyan": false,
-			"cyan_norm": 0.0,
-			"has_magenta": false,
-			"magenta_norm": 0.0,
-			"has_yellow": false,
-			"yellow_norm": 0.0,
-			"has_gobo": false,
-			"gobo_norm": 0.0,
-			"has_gobo_index": false,
-			"gobo_index_norm": 0.0,
-			"has_gobo_rotation": false,
-			"gobo_rotation_norm": 0.0,
-		}
-
-		_read_control(binding, frame, "dimmer_channel_index_0", "dimmer_fine_channel_index_0", "dimmer_ultra_fine_channel_index_0", controls, "has_dimmer", "dimmer_norm")
-		_read_control(binding, frame, "pan_channel_index_0", "pan_fine_channel_index_0", "pan_ultra_fine_channel_index_0", controls, "has_pan", "pan_norm")
-		_read_control(binding, frame, "tilt_channel_index_0", "tilt_fine_channel_index_0", "tilt_ultra_fine_channel_index_0", controls, "has_tilt", "tilt_norm")
-		_read_control(binding, frame, "zoom_channel_index_0", "zoom_fine_channel_index_0", "zoom_ultra_fine_channel_index_0", controls, "has_zoom", "zoom_norm")
-		_read_control(binding, frame, "cyan_channel_index_0", "cyan_fine_channel_index_0", "cyan_ultra_fine_channel_index_0", controls, "has_cyan", "cyan_norm")
-		_read_control(binding, frame, "magenta_channel_index_0", "magenta_fine_channel_index_0", "magenta_ultra_fine_channel_index_0", controls, "has_magenta", "magenta_norm")
-		_read_control(binding, frame, "yellow_channel_index_0", "yellow_fine_channel_index_0", "yellow_ultra_fine_channel_index_0", controls, "has_yellow", "yellow_norm")
-		_read_control(binding, frame, "gobo1_channel_index_0", "gobo1_fine_channel_index_0", "gobo1_ultra_fine_channel_index_0", controls, "has_gobo", "gobo_norm")
-		if not controls["has_gobo"]:
-			_read_control(binding, frame, "gobo_channel_index_0", "gobo_fine_channel_index_0", "gobo_ultra_fine_channel_index_0", controls, "has_gobo", "gobo_norm")
-
-		_read_control(binding, frame, "gobo_index_channel_index_0", "gobo_index_fine_channel_index_0", "gobo_index_ultra_fine_channel_index_0", controls, "has_gobo_index", "gobo_index_norm")
-		_read_control(binding, frame, "gobo_rotation_channel_index_0", "gobo_rotation_fine_channel_index_0", "gobo_rotation_ultra_fine_channel_index_0", controls, "has_gobo_rotation", "gobo_rotation_norm")
-
-		if controls["has_zoom"]:
-			controls["has_zoom_physical_limits"] = bool(binding.get("has_zoom_physical_limits", false))
-			controls["zoom_physical_min_degrees"] = float(binding.get("zoom_physical_min_degrees", -1.0))
-			controls["zoom_physical_max_degrees"] = float(binding.get("zoom_physical_max_degrees", -1.0))
-
-		if controls["has_gobo"]:
-			controls["gobo_slots"] = binding.get("gobo1_slots", binding.get("gobo_slots", []))
-			controls["gobo_ranges"] = binding.get("gobo1_ranges", binding.get("gobo_ranges", []))
-			controls["gobo_wheel_name"] = str(binding.get("gobo1_wheel_name", binding.get("gobo_wheel_name", "")))
-			controls["gobo_wheel_number"] = int(binding.get("gobo_wheel_number", 0))
-
-		var gobo_runtime_bindings: Array = _build_runtime_gobo_bindings(binding, frame)
-		if not gobo_runtime_bindings.is_empty():
-			controls["has_gobo"] = true
-			controls["gobo_runtime_bindings"] = gobo_runtime_bindings
-
-		if not controls["has_dimmer"] and not controls["has_pan"] and not controls["has_tilt"] and not controls["has_zoom"] and not controls["has_cyan"] and not controls["has_magenta"] and not controls["has_yellow"] and not controls["has_gobo"] and not controls["has_gobo_index"] and not controls["has_gobo_rotation"]:
+		var controls: Dictionary = _build_controls(binding, frame)
+		if not _has_any_capability(controls):
 			continue
 		apply_fixture_callback.call(fixture_uuid, controls)
 
-func _read_control(binding: Dictionary,
-					   frame: PackedByteArray,
-					   coarse_key: String,
-					   fine_key: String,
-					   ultra_fine_key: String,
-					   controls: Dictionary,
-					   has_key: String,
-					   value_key: String) -> void:
-	var coarse_index: int = int(binding.get(coarse_key, -1))
-	var fine_index: int = int(binding.get(fine_key, -1))
-	var ultra_fine_index: int = int(binding.get(ultra_fine_key, -1))
-	var resolved_indices: Dictionary = _resolve_control_indices(frame, coarse_index, fine_index, ultra_fine_index)
-	if not bool(resolved_indices.get("has_value", false)):
-		return
-
-	var value: Dictionary = _read_control_value(
-		frame,
-		int(resolved_indices.get("coarse", -1)),
-		int(resolved_indices.get("fine", -1)),
-		int(resolved_indices.get("ultra_fine", -1))
-	)
-
-	controls[has_key] = true
-	controls[value_key] = value.get("norm", 0.0)
-
-	var debug_prefix: String = value_key.trim_suffix("_norm")
-	controls["%s_raw_value" % debug_prefix] = value.get("raw", 0)
-	controls["%s_resolution_bits" % debug_prefix] = value.get("resolution_bits", 8)
-	controls["%s_bytes" % debug_prefix] = value.get("bytes", PackedInt32Array())
-
-func _read_control_value(frame: PackedByteArray,
-						 coarse_index: int,
-						 fine_index: int,
-						 ultra_fine_index: int) -> Dictionary:
-	var coarse: int = int(frame[coarse_index])
-
-	if FORCE_COARSE_ONLY_DMX_READ:
-		return {
-			"raw": coarse,
-			"norm": float(coarse) / DMX_8BIT_MAX_VALUE,
-			"resolution_bits": 8,
-			"bytes": PackedInt32Array([coarse]),
-		}
-
-	if _is_valid_channel_index(frame, fine_index) and _is_valid_channel_index(frame, ultra_fine_index):
-		var fine: int = int(frame[fine_index])
-		var ultra_fine: int = int(frame[ultra_fine_index])
-		var raw_value_24: int = _resolve_24bit_raw_value(coarse, fine, ultra_fine)
-		return {
-			"raw": raw_value_24,
-			"norm": float(raw_value_24) / float(DMX_24BIT_STEPS - 1),
-			"resolution_bits": 24,
-			"bytes": PackedInt32Array([coarse, fine, ultra_fine]),
-		}
-
-	if _is_valid_channel_index(frame, fine_index):
-		var fine: int = int(frame[fine_index])
-		var raw_value_16: int = _resolve_16bit_raw_value(coarse, fine)
-		return {
-			"raw": raw_value_16,
-			"norm": float(raw_value_16) / float(DMX_16BIT_STEPS - 1),
-			"resolution_bits": 16,
-			"bytes": PackedInt32Array([coarse, fine]),
-		}
-
+func _build_controls(binding: Dictionary, frame: PackedByteArray) -> Dictionary:
+	var capabilities := {
+		"pan_tilt": [],
+		"dimmer": [],
+		"color_wheel": [],
+		"gobo": [],
+		"prism": [],
+		"strobe": [],
+	}
+	_append_capabilities(capabilities, "pan_tilt", PanTiltCapabilityHandlerScript.collect(binding, frame, ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ))
+	_append_capabilities(capabilities, "dimmer", DimmerCapabilityHandlerScript.collect(binding, frame, ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ))
+	_append_capabilities(capabilities, "color_wheel", ColorWheelCapabilityHandlerScript.collect(binding, frame, ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ))
+	_append_capabilities(capabilities, "gobo", GoboCapabilityHandlerScript.collect(binding, frame, ControlReaderScript, CapabilityNormalizerScript, FORCE_COARSE_ONLY_DMX_READ))
+	_append_capabilities(capabilities, "prism", PrismCapabilityHandlerScript.collect(binding, frame, ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ))
+	_append_capabilities(capabilities, "strobe", StrobeCapabilityHandlerScript.collect(binding, frame, ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ))
 	return {
-		"raw": coarse,
-		"norm": float(coarse) / DMX_8BIT_MAX_VALUE,
-		"resolution_bits": 8,
-		"bytes": PackedInt32Array([coarse]),
+		"capabilities": capabilities,
 	}
 
-func _is_valid_channel_index(frame: PackedByteArray, channel_index_0: int) -> bool:
-	return channel_index_0 >= 0 and channel_index_0 < frame.size()
+func _append_capabilities(capabilities: Dictionary, capability_type: String, blocks: Array) -> void:
+	if blocks.is_empty():
+		return
+	if not capabilities.has(capability_type):
+		capabilities[capability_type] = []
+	var bucket: Array = capabilities.get(capability_type, [])
+	for block in blocks:
+		if block is Dictionary:
+			bucket.append(block)
+	capabilities[capability_type] = bucket
 
-func _resolve_16bit_raw_value(coarse: int, fine: int) -> int:
-	var safe_coarse: int = clampi(coarse, 0, int(DMX_8BIT_MAX_VALUE))
-	var safe_fine: int = clampi(fine, 0, int(DMX_8BIT_MAX_VALUE))
-	return (safe_coarse * DMX_8BIT_STEPS) + safe_fine
-
-func _resolve_24bit_raw_value(coarse: int, fine: int, ultra_fine: int) -> int:
-	var safe_coarse: int = clampi(coarse, 0, int(DMX_8BIT_MAX_VALUE))
-	var safe_fine: int = clampi(fine, 0, int(DMX_8BIT_MAX_VALUE))
-	var safe_ultra_fine: int = clampi(ultra_fine, 0, int(DMX_8BIT_MAX_VALUE))
-	return (safe_coarse * DMX_16BIT_STEPS) + (safe_fine * DMX_8BIT_STEPS) + safe_ultra_fine
+func _has_any_capability(controls: Dictionary) -> bool:
+	var capabilities: Dictionary = controls.get("capabilities", {})
+	for key in capabilities.keys():
+		var items: Array = capabilities.get(key, [])
+		if not items.is_empty():
+			return true
+	return false
 
 func get_bound_count() -> int:
 	return _fixture_nodes.size()
@@ -254,341 +152,3 @@ func _build_summary(universe_offset: int) -> Dictionary:
 		"unbound_preview": get_unbound_preview(),
 		"universe_offset": universe_offset,
 	}
-
-func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -> Array:
-	var runtime_bindings: Array = []
-	var raw_wheels: Array = binding.get("gobo_wheels", [])
-	for item in raw_wheels:
-		if item is not Dictionary:
-			continue
-		var coarse_index: int = int(item.get("channel_index_0", -1))
-		var fine_index: int = int(item.get("fine_channel_index_0", -1))
-		var ultra_fine_index: int = int(item.get("ultra_fine_channel_index_0", -1))
-		var resolved_indices: Dictionary = _resolve_control_indices(frame, coarse_index, fine_index, ultra_fine_index)
-		if not bool(resolved_indices.get("has_value", false)):
-			continue
-		var value: Dictionary = _read_control_value(
-			frame,
-			int(resolved_indices.get("coarse", -1)),
-			int(resolved_indices.get("fine", -1)),
-			int(resolved_indices.get("ultra_fine", -1))
-		)
-		var raw_8bit: int = _resolve_raw_to_8bit(int(value.get("raw", 0)), int(value.get("resolution_bits", 8)))
-		var ranges: Array = item.get("ranges", [])
-		var active_range: Dictionary = _resolve_gobo_range(raw_8bit, ranges)
-		# GDTF ChannelSet ranges define the active wheel function (fixed/index/spin/shake)
-		# for the current DMX value on the gobo select channel.
-		var range_behavior: int = int(active_range.get("behavior", GOBO_BEHAVIOR_FIXED))
-		var has_index_channel: bool = _has_control_channel(item, "index_channel_index_0", "index_fine_channel_index_0", "index_ultra_fine_channel_index_0")
-		var has_rotation_channel: bool = _has_control_channel(item, "rotation_channel_index_0", "rotation_fine_channel_index_0", "rotation_ultra_fine_channel_index_0")
-		var is_rotation_behavior: bool = range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE
-		var uses_range_rotation: bool = is_rotation_behavior and not has_rotation_channel
-		var supports_index: bool = (range_behavior == GOBO_BEHAVIOR_INDEX) or (has_index_channel and not is_rotation_behavior)
-		var supports_rotation: bool = is_rotation_behavior or (has_rotation_channel and range_behavior != GOBO_BEHAVIOR_INDEX)
-		var index_norm: float = -1.0
-		var index_raw: int = -1
-		var index_raw_8bit: int = -1
-		var index_raw_coarse: int = -1
-		var index_raw_fine: int = -1
-		var rotation_raw: int = raw_8bit
-		var rotation_raw_coarse: int = raw_8bit
-		var rotation_raw_fine: int = -1
-		var rotation_raw_8bit: int = raw_8bit
-		var rotation_source_channel: String = "select"
-		var rotation_has_value: bool = false
-		var rotation_ranges: Array = item.get("rotation_ranges", [])
-		var resolved_rotation: Dictionary = {}
-		var mode_master_value_8bit: int = raw_8bit
-		var rotation_control_norm: float = -1.0
-
-		if has_index_channel and supports_index:
-			var index_coarse_index: int = int(item.get("index_channel_index_0", -1))
-			var index_fine_index: int = int(item.get("index_fine_channel_index_0", -1))
-			var index_ultra_fine_index: int = int(item.get("index_ultra_fine_channel_index_0", -1))
-			var index_value: Dictionary = _read_optional_control_value(frame, index_coarse_index, index_fine_index, index_ultra_fine_index)
-			if not index_value.is_empty():
-				index_norm = clamp(float(index_value.get("norm", 0.0)), 0.0, 1.0)
-				index_raw = int(index_value.get("raw", 0))
-				index_raw_8bit = _resolve_raw_to_8bit(index_raw, int(index_value.get("resolution_bits", 8)))
-				index_raw_coarse = int(frame[index_coarse_index]) if _is_valid_channel_index(frame, index_coarse_index) else index_raw_8bit
-				index_raw_fine = int(frame[index_fine_index]) if _is_valid_channel_index(frame, index_fine_index) else -1
-
-		var rotation_value_available: bool = false
-		var rotation_value_norm: float = -1.0
-		if has_rotation_channel and (supports_rotation or (supports_index and not has_index_channel)):
-			var rotation_coarse_index: int = int(item.get("rotation_channel_index_0", -1))
-			var rotation_fine_index: int = int(item.get("rotation_fine_channel_index_0", -1))
-			var rotation_ultra_fine_index: int = int(item.get("rotation_ultra_fine_channel_index_0", -1))
-			var rotation_value: Dictionary = _read_optional_control_value(frame, rotation_coarse_index, rotation_fine_index, rotation_ultra_fine_index)
-			if not rotation_value.is_empty():
-				rotation_value_available = true
-				rotation_value_norm = clamp(float(rotation_value.get("norm", 0.0)), 0.0, 1.0)
-				rotation_raw_8bit = _resolve_raw_to_8bit(int(rotation_value.get("raw", 0)), int(rotation_value.get("resolution_bits", 8)))
-				rotation_raw = rotation_raw_8bit
-				rotation_source_channel = "rotation"
-				rotation_raw_coarse = int(frame[rotation_coarse_index]) if _is_valid_channel_index(frame, rotation_coarse_index) else rotation_raw_8bit
-				rotation_raw_fine = int(frame[rotation_fine_index]) if _is_valid_channel_index(frame, rotation_fine_index) else -1
-				rotation_control_norm = rotation_value_norm
-
-		if supports_index and index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
-			if not has_index_channel and rotation_value_available:
-				index_norm = rotation_value_norm
-				index_raw_8bit = rotation_raw_8bit
-				index_raw_coarse = rotation_raw_coarse
-				index_raw_fine = rotation_raw_fine
-			else:
-				index_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
-
-		if supports_rotation:
-			if has_rotation_channel and rotation_value_available:
-				rotation_has_value = true
-			elif not has_rotation_channel and has_index_channel and is_rotation_behavior and index_norm >= 0.0:
-				rotation_raw_8bit = index_raw_8bit if index_raw_8bit >= 0 else raw_8bit
-				rotation_raw = rotation_raw_8bit
-				rotation_source_channel = "index"
-				rotation_raw_coarse = index_raw_coarse if index_raw_coarse >= 0 else rotation_raw_8bit
-				rotation_raw_fine = index_raw_fine
-				rotation_has_value = true
-				rotation_control_norm = clamp(index_norm, 0.0, 1.0)
-			elif uses_range_rotation:
-				rotation_raw = raw_8bit
-				rotation_raw_8bit = raw_8bit
-				rotation_source_channel = "select"
-				rotation_raw_coarse = raw_8bit
-				rotation_raw_fine = -1
-				rotation_has_value = true
-				rotation_control_norm = float(rotation_raw_8bit) / 255.0
-
-		var dedicated_rotation_ranges: Array = []
-		var non_dedicated_rotation_ranges: Array = []
-		for rotation_range in rotation_ranges:
-			if rotation_range is not Dictionary:
-				continue
-			if bool(rotation_range.get("is_rotation_channel_range", false)):
-				dedicated_rotation_ranges.append(rotation_range)
-			else:
-				non_dedicated_rotation_ranges.append(rotation_range)
-
-		# Dedicated gobo rotation channels (e.g. Gobo2PosRotate mode-mastered by
-		# Gobo2 selector windows) must drive speed only from their own ranges.
-		# Falling back to selector-derived ranges can make selected gobos alter
-		# rotation speed, which is incorrect when a dedicated control exists.
-		var resolver_ranges: Array = rotation_ranges
-		var prefer_rotation_channel_ranges: bool = rotation_source_channel == "rotation"
-		if prefer_rotation_channel_ranges and not dedicated_rotation_ranges.is_empty():
-			resolver_ranges = dedicated_rotation_ranges
-			prefer_rotation_channel_ranges = false
-		elif prefer_rotation_channel_ranges and non_dedicated_rotation_ranges.is_empty():
-			prefer_rotation_channel_ranges = false
-
-		if rotation_has_value and not resolver_ranges.is_empty():
-			resolved_rotation = _resolve_rotation_runtime(
-				rotation_raw_8bit,
-				rotation_control_norm,
-				resolver_ranges,
-				mode_master_value_8bit,
-				prefer_rotation_channel_ranges
-			)
-		var has_resolved_rotation_range: bool = bool(resolved_rotation.get("has_range", false))
-		var matched_range: Dictionary = resolved_rotation.get("range", {})
-		var rotation_matched_range_start: int = int(matched_range.get("dmx_from", -1))
-		var rotation_matched_range_end: int = int(matched_range.get("dmx_to", -1))
-		var rotation_matched_physical_from: float = float(matched_range.get("physical_from", 0.0))
-		var rotation_matched_physical_to: float = float(matched_range.get("physical_to", 0.0))
-		var rotation_is_stop_range: bool = bool(matched_range.get("is_stop_range", false))
-		runtime_bindings.append({
-			"wheel_number": int(item.get("wheel_number", 0)),
-			"wheel_name": str(item.get("wheel_name", "")),
-			"raw_8bit": raw_8bit,
-			"slot_index": int(active_range.get("slot_index", 0)),
-			"mode_from_8bit": int(active_range.get("mode_from_8bit", 0)),
-			"mode_to_8bit": int(active_range.get("mode_to_8bit", 255)),
-			"behavior": range_behavior,
-			"supports_index": supports_index,
-			"supports_rotation": supports_rotation,
-			"has_index_physical_limits": bool(item.get("has_index_physical_limits", false)),
-			"index_physical_min": float(item.get("index_physical_min", 0.0)),
-			"index_physical_max": float(item.get("index_physical_max", 0.0)),
-			"has_rotation_physical_ranges": not rotation_ranges.is_empty(),
-			"has_rotation_physical_value": has_resolved_rotation_range,
-			"rotation_physical": float(resolved_rotation.get("rotation_speed_deg_per_sec", 0.0)),
-			"rotation_speed_deg_per_sec": float(resolved_rotation.get("rotation_speed_deg_per_sec", 0.0)),
-			"rotation_direction_sign": int(resolved_rotation.get("direction_sign", 0)),
-			"is_stop": bool(resolved_rotation.get("is_stop", true)),
-			"has_resolved_rotation_range": has_resolved_rotation_range,
-			"rotation_resolved_range": resolved_rotation.get("range", {}),
-			"rotation_source_channel": rotation_source_channel,
-			"rotation_raw_coarse": rotation_raw_coarse,
-			"rotation_raw_fine": rotation_raw_fine,
-			"rotation_raw_8bit": rotation_raw_8bit,
-			"rotation_mode_window_from": mode_master_value_8bit,
-			"rotation_mode_window_to": mode_master_value_8bit,
-			"rotation_matched_range_start": rotation_matched_range_start,
-			"rotation_matched_range_end": rotation_matched_range_end,
-			"rotation_matched_physical_from": rotation_matched_physical_from,
-			"rotation_matched_physical_to": rotation_matched_physical_to,
-			"rotation_is_stop_range": rotation_is_stop_range,
-			"rotation_raw": rotation_raw,
-			"rotation_raw_value": rotation_raw,
-			"rotation_active_range": active_range,
-			"rotation_ranges": rotation_ranges,
-			"index_norm": index_norm,
-			"slots": item.get("slots", []),
-			"ranges": ranges,
-		})
-	return runtime_bindings
-
-func _has_control_channel(binding: Dictionary, coarse_key: String, fine_key: String, ultra_fine_key: String) -> bool:
-	return int(binding.get(coarse_key, -1)) >= 0 or int(binding.get(fine_key, -1)) >= 0 or int(binding.get(ultra_fine_key, -1)) >= 0
-
-func _resolve_norm_from_active_range(raw_8bit: int, active_range: Dictionary) -> float:
-	var dmx_from: int = int(active_range.get("dmx_from", 0))
-	var dmx_to: int = int(active_range.get("dmx_to", dmx_from))
-	if dmx_to < dmx_from:
-		var swap_value: int = dmx_from
-		dmx_from = dmx_to
-		dmx_to = swap_value
-	if dmx_to <= dmx_from:
-		return 0.0
-	var clamped_raw: int = clampi(raw_8bit, dmx_from, dmx_to)
-	return float(clamped_raw - dmx_from) / float(dmx_to - dmx_from)
-
-
-func _resolve_rotation_runtime(raw_8bit: int, control_norm: float, ranges: Array, mode_master_value_8bit: int, prefer_rotation_channel_ranges: bool) -> Dictionary:
-	for pass_index in range(2):
-		for item in ranges:
-			if item is not Dictionary:
-				continue
-			var range_data: Dictionary = item
-			var is_rotation_channel_range: bool = bool(range_data.get("is_rotation_channel_range", false))
-			if pass_index == 0 and is_rotation_channel_range != prefer_rotation_channel_ranges:
-				continue
-			if pass_index == 1 and is_rotation_channel_range == prefer_rotation_channel_ranges:
-				continue
-
-			var range_mode_from: int = int(range_data.get("mode_from_8bit", 0))
-			var range_mode_to: int = int(range_data.get("mode_to_8bit", 255))
-			if range_mode_to < range_mode_from:
-				var mode_swap: int = range_mode_from
-				range_mode_from = range_mode_to
-				range_mode_to = mode_swap
-			if mode_master_value_8bit < range_mode_from or mode_master_value_8bit > range_mode_to:
-				continue
-
-			var dmx_from: int = int(range_data.get("dmx_from", 0))
-			var dmx_to: int = int(range_data.get("dmx_to", dmx_from))
-			if dmx_to < dmx_from:
-				var swap_value: int = dmx_from
-				dmx_from = dmx_to
-				dmx_to = swap_value
-			if raw_8bit < dmx_from or raw_8bit > dmx_to:
-				continue
-
-			var is_stop: bool = bool(range_data.get("is_stop_range", false))
-			var speed_deg_per_sec: float = 0.0
-			if not is_stop:
-				if dmx_to <= dmx_from:
-					speed_deg_per_sec = float(range_data.get("physical_to", range_data.get("physical_from", 0.0)))
-				else:
-					var ratio: float = float(raw_8bit - dmx_from) / float(dmx_to - dmx_from)
-					if control_norm >= 0.0:
-						var range_norm_from: float = float(dmx_from) / 255.0
-						var range_norm_to: float = float(dmx_to) / 255.0
-						var range_norm_span: float = range_norm_to - range_norm_from
-						if range_norm_span > 0.0:
-							ratio = clamp((control_norm - range_norm_from) / range_norm_span, 0.0, 1.0)
-					speed_deg_per_sec = lerp(float(range_data.get("physical_from", 0.0)), float(range_data.get("physical_to", 0.0)), ratio)
-			if absf(speed_deg_per_sec) <= 0.0001:
-				is_stop = true
-				speed_deg_per_sec = 0.0
-
-			var direction_sign: int = 0
-			if speed_deg_per_sec > 0.0:
-				direction_sign = 1
-			elif speed_deg_per_sec < 0.0:
-				direction_sign = -1
-
-			return {
-				"has_range": true,
-				"range": range_data,
-				"rotation_speed_deg_per_sec": speed_deg_per_sec,
-				"direction_sign": direction_sign,
-				"is_stop": is_stop,
-			}
-
-	return {
-		"has_range": false,
-		"range": {},
-		"rotation_speed_deg_per_sec": 0.0,
-		"direction_sign": 0,
-		"is_stop": true,
-	}
-
-
-
-func _read_optional_control_value(frame: PackedByteArray, coarse_index: int, fine_index: int, ultra_fine_index: int) -> Dictionary:
-	var resolved_indices: Dictionary = _resolve_control_indices(frame, coarse_index, fine_index, ultra_fine_index)
-	if not bool(resolved_indices.get("has_value", false)):
-		return {}
-	return _read_control_value(
-		frame,
-		int(resolved_indices.get("coarse", -1)),
-		int(resolved_indices.get("fine", -1)),
-		int(resolved_indices.get("ultra_fine", -1))
-	)
-
-func _read_optional_control_norm(frame: PackedByteArray, coarse_index: int, fine_index: int, ultra_fine_index: int) -> float:
-	var resolved_indices: Dictionary = _resolve_control_indices(frame, coarse_index, fine_index, ultra_fine_index)
-	if not bool(resolved_indices.get("has_value", false)):
-		return -1.0
-	var value: Dictionary = _read_control_value(
-		frame,
-		int(resolved_indices.get("coarse", -1)),
-		int(resolved_indices.get("fine", -1)),
-		int(resolved_indices.get("ultra_fine", -1))
-	)
-	return clamp(float(value.get("norm", 0.0)), 0.0, 1.0)
-
-func _resolve_control_indices(frame: PackedByteArray, coarse_index: int, fine_index: int, ultra_fine_index: int) -> Dictionary:
-	if _is_valid_channel_index(frame, coarse_index):
-		return {
-			"has_value": true,
-			"coarse": coarse_index,
-			"fine": fine_index,
-			"ultra_fine": ultra_fine_index,
-		}
-
-	if _is_valid_channel_index(frame, fine_index):
-		return {
-			"has_value": true,
-			"coarse": fine_index,
-			"fine": ultra_fine_index,
-			"ultra_fine": -1,
-		}
-
-	if _is_valid_channel_index(frame, ultra_fine_index):
-		return {
-			"has_value": true,
-			"coarse": ultra_fine_index,
-			"fine": -1,
-			"ultra_fine": -1,
-		}
-
-	return {
-		"has_value": false,
-	}
-
-func _resolve_raw_to_8bit(raw_value: int, resolution_bits: int) -> int:
-	if resolution_bits >= 32:
-		return clampi(raw_value >> 24, 0, 255)
-	if resolution_bits >= 24:
-		return clampi(raw_value >> 16, 0, 255)
-	if resolution_bits >= 16:
-		return clampi(raw_value >> 8, 0, 255)
-	return clampi(raw_value, 0, 255)
-
-func _resolve_gobo_range(raw_8bit: int, ranges: Array) -> Dictionary:
-	return DmxGoboRangeResolverScript.resolve_active_range(raw_8bit, ranges)
-
-func _resolve_gobo_slot_from_ranges(raw_8bit: int, ranges: Array) -> int:
-	return int(_resolve_gobo_range(raw_8bit, ranges).get("slot_index", 0))

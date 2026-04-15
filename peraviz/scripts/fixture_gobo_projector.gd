@@ -50,14 +50,15 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	light.set_meta(FALLBACK_GOBO_META_KEY, false)
-	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
-	var has_runtime_gobo: bool = bool(controls.get("has_gobo", false))
+	var gobo_controls: Dictionary = _resolve_gobo_controls(controls)
+	var runtime_bindings: Array = gobo_controls.get("gobo_runtime_bindings", [])
+	var has_runtime_gobo: bool = bool(gobo_controls.get("has_gobo", false))
 	if has_runtime_gobo and runtime_bindings.is_empty():
-		var fallback_raw_8bit: int = _resolve_gobo_raw_8bit(controls)
+		var fallback_raw_8bit: int = _resolve_gobo_raw_8bit(gobo_controls)
 		runtime_bindings = [{
 			"raw_8bit": fallback_raw_8bit,
-			"slot_index": _resolve_active_gobo_slot_index(controls, fallback_raw_8bit),
-			"slots": controls.get("gobo_slots", []),
+			"slot_index": _resolve_active_gobo_slot_index(gobo_controls, fallback_raw_8bit),
+			"slots": gobo_controls.get("gobo_slots", []),
 		}]
 
 	var delta_sec: float = _resolve_elapsed_seconds(light, controls)
@@ -87,7 +88,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 				continue
 			source_texture_cache_keys.append(str(texture_entry.get("cache_key", "")))
 
-			var wheel_rotation_deg: float = _resolve_wheel_rotation_deg(light, controls, wheel, global_rotation_deg, delta_sec)
+			var wheel_rotation_deg: float = _resolve_wheel_rotation_deg(light, gobo_controls, wheel, global_rotation_deg, delta_sec)
 			var behavior: int = int(wheel.get("behavior", GOBO_BEHAVIOR_FIXED))
 			var supports_index: bool = bool(wheel.get("supports_index", false)) or behavior == GOBO_BEHAVIOR_INDEX
 			var supports_rotation: bool = bool(wheel.get("supports_rotation", false)) or behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE
@@ -122,10 +123,10 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 
 	# Expensive path: texture slot/composition changed.
 	if source_textures.is_empty():
-		_apply_vector_fallback_gobo(light, previous_meta_texture, controls)
+		_apply_vector_fallback_gobo(light, previous_meta_texture, gobo_controls)
 	else:
 		var projected_gobo: Texture2D = _compose_gobo_textures(source_textures, composed_texture_cache_key)
-		_apply_gobo_visuals(light, projected_gobo, controls)
+		_apply_gobo_visuals(light, projected_gobo, gobo_controls)
 		light.set_meta(GOBO_TEXTURE_META_KEY, projected_gobo)
 		light.set_meta(FALLBACK_GOBO_META_KEY, false)
 
@@ -398,6 +399,25 @@ func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
 		else:
 			gobo_raw = raw_value
 	return clampi(gobo_raw, 0, 255)
+
+func _resolve_gobo_controls(controls: Dictionary) -> Dictionary:
+	var capabilities: Dictionary = controls.get("capabilities", {})
+	if capabilities is Dictionary:
+		var gobo_blocks: Array = capabilities.get("gobo", [])
+		for item in gobo_blocks:
+			if item is Dictionary:
+				var block: Dictionary = item.duplicate(true)
+				if not block.has("gobo_runtime_bindings"):
+					block["gobo_runtime_bindings"] = []
+				if not block.has("gobo_slots"):
+					block["gobo_slots"] = []
+				return block
+	var fallback: Dictionary = controls.duplicate(true)
+	if not fallback.has("gobo_runtime_bindings"):
+		fallback["gobo_runtime_bindings"] = []
+	if not fallback.has("gobo_slots"):
+		fallback["gobo_slots"] = []
+	return fallback
 
 func _resolve_active_gobo_slot_index(controls: Dictionary, gobo_raw_8bit: int) -> int:
 	var gobo_ranges: Array = controls.get("gobo_ranges", [])
