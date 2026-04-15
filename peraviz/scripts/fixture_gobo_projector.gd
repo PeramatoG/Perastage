@@ -30,6 +30,15 @@ const GOBO_INDEX_MAX_DEG: float = 360.0
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
 const GOBO_ROTATION_DEBUG_DEFAULT: bool = false
 const GOBO_DEFAULT_SHAKE_AMPLITUDE_DEG: float = 12.0
+const GOBO_DEFAULT_SHAKE_FREQUENCY_HZ: float = 1.0
+
+const GOBO_DEBUG_COMPARISON_ROTATION_AND_SHAKE: int = 0
+const GOBO_DEBUG_COMPARISON_ROTATION_ONLY: int = 1
+const GOBO_DEBUG_COMPARISON_SHAKE_ONLY: int = 2
+
+const GOBO_SHAKE_WAVE_TRIANGLE: int = 0
+const GOBO_SHAKE_WAVE_SINE: int = 1
+const GOBO_SHAKE_WAVE_SQUARE: int = 2
 
 const GOBO_BEHAVIOR_FIXED: int = 0
 const GOBO_BEHAVIOR_INDEX: int = 1
@@ -190,6 +199,7 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 	var native_is_stop: bool = bool(wheel.get("is_stop", false))
 	var has_active_rotation_command: bool = supports_rotation and has_native_speed and not native_is_stop and absf(native_speed_deg_per_sec) > 0.0001
 	var shake_offset_deg: float = 0.0
+	var debug_override: Dictionary = _resolve_debug_rotation_override(controls)
 
 	if index_norm >= 0.0 and not has_active_rotation_command:
 		wheel_spin_state[wheel_key] = 0.0
@@ -212,6 +222,11 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 				light.set_meta(GOBO_WHEEL_SHAKE_RANGE_META_KEY, shake_range_state)
 			return base_rotation_deg + shake_offset_deg
 		var speed_deg_per_sec: float = native_speed_deg_per_sec
+		if debug_override.get("enabled", false):
+			if not bool(debug_override.get("rotation_enabled", true)):
+				speed_deg_per_sec = 0.0
+			elif bool(debug_override.get("force_rotation_speed", false)):
+				speed_deg_per_sec = float(debug_override.get("rotation_speed_deg_per_sec", native_speed_deg_per_sec))
 		var is_stop: bool = bool(wheel.get("is_stop", false))
 		if is_stop:
 			spin_angle_deg = 0.0
@@ -238,9 +253,18 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 			shake_phase = 0.0
 		var shake_amplitude_deg: float = max(float(wheel.get("shake_amplitude_deg", controls.get("gobo_shake_amplitude_deg", GOBO_DEFAULT_SHAKE_AMPLITUDE_DEG))), 0.0)
 		var shake_frequency_hz: float = _resolve_shake_frequency_hz(native_speed_deg_per_sec, wheel, controls)
+		var shake_waveform: int = GOBO_SHAKE_WAVE_TRIANGLE
+		if debug_override.get("enabled", false):
+			if not bool(debug_override.get("shake_enabled", true)):
+				shake_amplitude_deg = 0.0
+				shake_frequency_hz = 0.0
+			else:
+				shake_amplitude_deg = max(float(debug_override.get("shake_amplitude_deg", shake_amplitude_deg)), 0.0)
+				shake_frequency_hz = max(float(debug_override.get("shake_frequency_hz", shake_frequency_hz)), 0.0)
+				shake_waveform = int(debug_override.get("shake_waveform", GOBO_SHAKE_WAVE_TRIANGLE))
 		if shake_amplitude_deg > 0.0001 and shake_frequency_hz > 0.0001:
 			shake_phase = wrapf(shake_phase + (shake_frequency_hz * max(delta_sec, 0.0)), 0.0, 1.0)
-			shake_offset_deg = shake_amplitude_deg * _triangle_wave_centered_zero(shake_phase)
+			shake_offset_deg = shake_amplitude_deg * _shake_wave_centered_zero(shake_phase, shake_waveform)
 		else:
 			shake_phase = 0.0
 			shake_offset_deg = 0.0
@@ -257,7 +281,22 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 	_log_rotation_debug_if_enabled(wheel, wheel_key, behavior, delta_sec)
 	return base_rotation_deg + shake_offset_deg
 
-
+func _resolve_debug_rotation_override(controls: Dictionary) -> Dictionary:
+	if not OS.is_debug_build():
+		return {"enabled": false}
+	if not bool(controls.get("gobo_debug_override_enabled", false)):
+		return {"enabled": false}
+	var comparison_mode: int = int(controls.get("gobo_debug_comparison_mode", GOBO_DEBUG_COMPARISON_ROTATION_AND_SHAKE))
+	var rotation_enabled: bool = comparison_mode != GOBO_DEBUG_COMPARISON_SHAKE_ONLY
+	var shake_enabled: bool = comparison_mode != GOBO_DEBUG_COMPARISON_ROTATION_ONLY and bool(controls.get("gobo_debug_shake_enabled", false))
+	return {
+		"enabled": true,
+		"rotation_enabled": rotation_enabled,
+		"shake_enabled": shake_enabled,
+		"shake_amplitude_deg": max(float(controls.get("gobo_debug_shake_amplitude_deg", GOBO_DEFAULT_SHAKE_AMPLITUDE_DEG)), 0.0),
+		"shake_frequency_hz": max(float(controls.get("gobo_debug_shake_frequency_hz", GOBO_DEFAULT_SHAKE_FREQUENCY_HZ)), 0.0),
+		"shake_waveform": int(clamp(int(controls.get("gobo_debug_shake_waveform", GOBO_SHAKE_WAVE_TRIANGLE)), GOBO_SHAKE_WAVE_TRIANGLE, GOBO_SHAKE_WAVE_SQUARE)),
+	}
 
 func _log_rotation_debug_if_enabled(wheel: Dictionary, wheel_key: String, behavior: int, delta_sec: float) -> void:
 	if not bool(ProjectSettings.get_setting(GOBO_ROTATION_DEBUG_SETTING_KEY, GOBO_ROTATION_DEBUG_DEFAULT)):
@@ -328,6 +367,15 @@ func _handle_wheel_mode_transition(light: SpotLight3D, wheel_key: String, effect
 func _triangle_wave_centered_zero(phase: float) -> float:
 	var wrapped_phase: float = wrapf(phase, 0.0, 1.0)
 	return 1.0 - (4.0 * absf(wrapped_phase - 0.5))
+
+func _shake_wave_centered_zero(phase: float, waveform: int) -> float:
+	match waveform:
+		GOBO_SHAKE_WAVE_SINE:
+			return sin(TAU * wrapf(phase, 0.0, 1.0))
+		GOBO_SHAKE_WAVE_SQUARE:
+			return -1.0 if wrapf(phase, 0.0, 1.0) < 0.5 else 1.0
+		_:
+			return _triangle_wave_centered_zero(phase)
 
 func _resolve_shake_frequency_hz(native_speed_deg_per_sec: float, wheel: Dictionary, controls: Dictionary) -> float:
 	var explicit_frequency_hz: float = float(wheel.get("shake_frequency_hz", controls.get("gobo_shake_frequency_hz", -1.0)))

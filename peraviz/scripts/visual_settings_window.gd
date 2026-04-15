@@ -51,6 +51,12 @@ const DEFAULT_SETTINGS := {
 	"environment_ambient_energy_night": 0.008,
 	"environment_horizon_warmth": 0.6,
 	"environment_horizon_intensity": 1.0,
+	"gobo_debug_override_enabled": false,
+	"gobo_debug_comparison_mode": 0,
+	"gobo_debug_shake_enabled": false,
+	"gobo_debug_shake_amplitude_deg": 12.0,
+	"gobo_debug_shake_frequency_hz": 1.0,
+	"gobo_debug_shake_waveform": 0,
 }
 
 var _settings: Dictionary = DEFAULT_SETTINGS.duplicate(true)
@@ -74,6 +80,10 @@ var _environment_time_slider: HSlider
 var _environment_time_value_label: Label
 var _environment_cycle_speed_slider: HSlider
 var _environment_cycle_speed_value_label: Label
+var _gobo_debug_shake_amplitude_value_label: Label
+var _gobo_debug_shake_frequency_value_label: Label
+var _gobo_debug_comparison_option: OptionButton
+var _gobo_debug_waveform_option: OptionButton
 var _toggle_controls: Dictionary = {}
 
 func _init() -> void:
@@ -146,6 +156,7 @@ func _build_ui() -> void:
 	_add_slider_row(container, "Ambient night energy", "environment_ambient_energy_night", 0.0, 0.1, 0.001)
 	_add_slider_row(container, "Horizon warmth", "environment_horizon_warmth", 0.0, 1.0, 0.01)
 	_add_slider_row(container, "Horizon intensity", "environment_horizon_intensity", 0.0, 2.0, 0.01)
+	_add_debug_gobo_section(container)
 
 	var background_row: HBoxContainer = HBoxContainer.new()
 	background_row.add_theme_constant_override("separation", 8)
@@ -223,6 +234,10 @@ func _add_slider_row(parent: VBoxContainer,
 			_environment_time_value_label = value_label
 		"environment_cycle_speed":
 			_environment_cycle_speed_value_label = value_label
+		"gobo_debug_shake_amplitude_deg":
+			_gobo_debug_shake_amplitude_value_label = value_label
+		"gobo_debug_shake_frequency_hz":
+			_gobo_debug_shake_frequency_value_label = value_label
 
 	return slider
 
@@ -256,6 +271,18 @@ func _add_toggle_row(parent: VBoxContainer, label_text: String, key: String) -> 
 	parent.add_child(toggle)
 	_toggle_controls[key] = toggle
 
+
+func _add_debug_gobo_section(parent: VBoxContainer) -> void:
+	if not OS.is_debug_build():
+		return
+	_add_section_label(parent, "Debug · Gobo rotation/shake")
+	_add_toggle_row(parent, "Enable gobo debug overrides", "gobo_debug_override_enabled")
+	_gobo_debug_comparison_option = _add_option_row(parent, "Comparison", ["Rotation + Shake", "Rotation only", "Shake only"], _on_gobo_debug_comparison_mode_selected)
+	_add_toggle_row(parent, "Enable shake", "gobo_debug_shake_enabled")
+	_add_slider_row(parent, "Shake amplitude (deg)", "gobo_debug_shake_amplitude_deg", 0.0, 90.0, 0.1)
+	_add_slider_row(parent, "Shake frequency (Hz)", "gobo_debug_shake_frequency_hz", 0.0, 20.0, 0.05)
+	_gobo_debug_waveform_option = _add_option_row(parent, "Shake waveform", ["Triangle", "Sine", "Square"], _on_gobo_debug_waveform_selected)
+
 func _apply_settings_to_controls() -> void:
 	_spot_slider.value = float(_settings.get("spot_multiplier", 1.0))
 	_beam_slider.value = float(_settings.get("beam_multiplier", 20.0))
@@ -268,6 +295,10 @@ func _apply_settings_to_controls() -> void:
 	_environment_preset_option.select(clamp(int(_settings.get("environment_current_preset", 1)), 0, 4))
 	_environment_time_slider.value = clamp(float(_settings.get("environment_time_of_day", 0.4)), 0.0, 1.0)
 	_environment_cycle_speed_slider.value = max(float(_settings.get("environment_cycle_speed", 0.02)), 0.0)
+	if _gobo_debug_comparison_option != null:
+		_gobo_debug_comparison_option.select(clamp(int(_settings.get("gobo_debug_comparison_mode", 0)), 0, 2))
+	if _gobo_debug_waveform_option != null:
+		_gobo_debug_waveform_option.select(clamp(int(_settings.get("gobo_debug_shake_waveform", 0)), 0, 2))
 	for key in _toggle_controls.keys():
 		var toggle: CheckBox = _toggle_controls[key]
 		if toggle != null:
@@ -303,6 +334,14 @@ func _on_environment_preset_selected(index: int) -> void:
 	_settings["environment_current_preset"] = clamp(index, 0, 4)
 	_emit_settings_changed()
 
+func _on_gobo_debug_comparison_mode_selected(index: int) -> void:
+	_settings["gobo_debug_comparison_mode"] = clamp(index, 0, 2)
+	_emit_settings_changed()
+
+func _on_gobo_debug_waveform_selected(index: int) -> void:
+	_settings["gobo_debug_shake_waveform"] = clamp(index, 0, 2)
+	_emit_settings_changed()
+
 func _update_value_labels() -> void:
 	_spot_value_label.text = "%.2f" % float(_settings.get("spot_multiplier", 1.0))
 	_beam_value_label.text = "%.2f" % float(_settings.get("beam_multiplier", 20.0))
@@ -312,6 +351,10 @@ func _update_value_labels() -> void:
 	_light_fog_energy_value_label.text = "%.2f" % float(_settings.get("light_volumetric_fog_energy", 12.0))
 	_environment_time_value_label.text = "%.3f" % float(_settings.get("environment_time_of_day", 0.4))
 	_environment_cycle_speed_value_label.text = "%.4f" % float(_settings.get("environment_cycle_speed", 0.02))
+	if _gobo_debug_shake_amplitude_value_label != null:
+		_gobo_debug_shake_amplitude_value_label.text = "%.1f" % float(_settings.get("gobo_debug_shake_amplitude_deg", 12.0))
+	if _gobo_debug_shake_frequency_value_label != null:
+		_gobo_debug_shake_frequency_value_label.text = "%.2f" % float(_settings.get("gobo_debug_shake_frequency_hz", 1.0))
 
 func _emit_settings_changed() -> void:
 	settings_changed.emit(_settings.duplicate(true))

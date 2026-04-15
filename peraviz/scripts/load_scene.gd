@@ -105,6 +105,12 @@ var _visual_settings := {
 	"environment_ambient_energy_night": 0.008,
 	"environment_horizon_warmth": 0.6,
 	"environment_horizon_intensity": 1.0,
+	"gobo_debug_override_enabled": false,
+	"gobo_debug_comparison_mode": 0,
+	"gobo_debug_shake_enabled": false,
+	"gobo_debug_shake_amplitude_deg": 12.0,
+	"gobo_debug_shake_frequency_hz": 1.0,
+	"gobo_debug_shake_waveform": 0,
 }
 
 var _dmx_receiver = null
