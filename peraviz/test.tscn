@@ -3,23 +3,35 @@
 [ext_resource type="Script" uid="uid://dk2vq6261dj54" path="res://scripts/load_scene.gd" id="1_script"]
 [ext_resource type="Script" uid="uid://c1syjijru4ah" path="res://scripts/editor_camera.gd" id="2_camera_script"]
 [ext_resource type="Script" uid="uid://bq8n5oubm8j8u" path="res://scripts/visual_settings_window.gd" id="3_visual_settings"]
-[ext_resource type="Script" path="res://scripts/day_night_environment_controller.gd" id="4_day_night_environment"]
+[ext_resource type="Script" uid="uid://cqjoqw1c2pare" path="res://scripts/day_night_environment_controller.gd" id="4_day_night_environment"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_ppyta"]
+sky_top_color = Color(0.3, 0.52, 0.83, 1)
+sky_horizon_color = Color(0.7, 0.82, 0.98, 1)
+sky_curve = 0.18
+ground_bottom_color = Color(0.09, 0.1, 0.13, 1)
+ground_horizon_color = Color(0.02, 0.02, 0.02, 1)
+ground_curve = 0.2
+sun_curve = 0.015
+
+[sub_resource type="Sky" id="Sky_ykrsh"]
+sky_material = SubResource("ProceduralSkyMaterial_ppyta")
 
 [sub_resource type="Environment" id="Environment_viewer"]
-background_mode = 1
+background_mode = 2
 background_color = Color(0.129412, 0.137255, 0.156863, 1)
+sky = SubResource("Sky_ykrsh")
 ambient_light_source = 2
-ambient_light_color = Color(0.176471, 0.188235, 0.211765, 1)
+ambient_light_color = Color(1, 1, 1, 1)
+ambient_light_sky_contribution = 0.0
 ambient_light_energy = 0.08
 tonemap_mode = 3
 tonemap_white = 8.0
 ssao_enabled = true
-ssao_radius = 0.7
-ssao_intensity = 0.35
-glow_enabled = true
-glow_intensity = 0.55
-glow_strength = 0.55
-glow_bloom = 0.0
+ssao_intensity = 0.5
+glow_intensity = 0.0
+glow_strength = 0.0
+volumetric_fog_density = 0.0
 adjustment_enabled = true
 adjustment_contrast = 1.05
 adjustment_saturation = 1.05
@@ -44,9 +56,9 @@ current = true
 script = ExtResource("2_camera_script")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=426373555]
-visible = false
-light_energy = 0.0
-transform = Transform3D(0.8480481, -0.41758206, 0.32625088, 0, 0.6156615, 0.7880107, -0.52991927, -0.668271, 0.5221106, 0, 0, 0)
+transform = Transform3D(0.70710677, 0.5572077, -0.4353384, 0, 0.6156615, 0.7880107, 0.70710677, -0.5572077, 0.4353384, 0, 0, 0)
+light_color = Color(1, 0.98, 0.95, 1)
+light_energy = 0.7
 light_angular_distance = 0.35
 shadow_enabled = true
 shadow_bias = 0.015
@@ -59,22 +71,6 @@ directional_shadow_max_distance = 72.0
 
 [node name="DayNightEnvironmentController" type="Node3D" parent="." unique_id=364114672]
 script = ExtResource("4_day_night_environment")
-use_continuous_cycle = false
-current_preset = 1
-time_of_day = 0.4
-auto_advance = false
-cycle_speed = 0.02
-day_light_intensity = 0.7
-dusk_light_intensity = 0.18
-night_light_intensity = 0.02
-moon_light_intensity = 0.012
-ambient_energy_day = 0.08
-ambient_energy_night = 0.008
-horizon_warmth = 0.6
-horizon_intensity = 1.0
-allow_blackout_night = true
-world_environment_path = NodePath("../WorldEnvironment")
-directional_light_path = NodePath("../DirectionalLight3D")
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=168744331]
 material_override = SubResource("StandardMaterial3D_ground")
@@ -105,7 +101,7 @@ offset_right = -20.0
 offset_bottom = -20.0
 grow_horizontal = 0
 grow_vertical = 0
-text = "Status"
+text = "Select a .mvr file"
 horizontal_alignment = 2
 
 [node name="ManualFixtureToggle" type="CheckButton" parent="HUD" unique_id=1323885867]
@@ -127,8 +123,9 @@ text = "Visual settings"
 [node name="VisualSettingsWindow" type="Window" parent="HUD" unique_id=362544277]
 oversampling_override = 1.0
 mode = 1
-position = Vector2i(0, 126)
-size = Vector2i(377, 161)
+title = "Visual Settings"
+position = Vector2i(0, 36)
+size = Vector2i(560, 760)
 script = ExtResource("3_visual_settings")
 
 [node name="FixtureDebugPanel" type="PanelContainer" parent="HUD" unique_id=876760691]
@@ -261,4 +258,5 @@ layout_mode = 2
 [node name="FileDialog" type="FileDialog" parent="HUD" unique_id=2124310720]
 title = "Open a File"
 file_mode = 0
+access = 2
 filters = PackedStringArray("*.mvr ; MVR")
