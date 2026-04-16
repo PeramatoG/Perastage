@@ -10,8 +10,9 @@ const GOBO_SHAKE_CONTROL_TYPE_DEDICATED_CHANNEL: int = 1
 const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MIN_DEG: float = 0.1
 const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MAX_DEG: float = 0.8
 const GOBO_MIN_ACTIVE_SHAKE_FREQUENCY_HZ: float = 0.05
-const GOBO_MAX_SHAKE_FREQUENCY_HZ: float = 7.0
-const GOBO_MAX_SHAKE_AMPLITUDE_DEG: float = 1.0
+const GoboShakeLimitsScript = preload("res://scripts/gobo_shake_limits.gd")
+const GOBO_MAX_SHAKE_FREQUENCY_HZ: float = GoboShakeLimitsScript.MAX_SHAKE_FREQUENCY_HZ
+const GOBO_MAX_SHAKE_AMPLITUDE_DEG: float = GoboShakeLimitsScript.MAX_SHAKE_AMPLITUDE_DEG
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
 
 const DmxGoboRangeResolverScript = preload("res://scripts/dmx_gobo_range_resolver.gd")
@@ -533,7 +534,7 @@ static func _resolve_shake_runtime(raw_8bit: int, control_norm: float, ranges: A
 			var shake_amplitude_deg: float = 0.0
 			if bool(range_data.get("has_explicit_amplitude", false)):
 				shake_amplitude_deg = lerp(float(range_data.get("amplitude_from_degrees", 0.0)), float(range_data.get("amplitude_to_degrees", 0.0)), ratio)
-				shake_amplitude_deg = clamp(absf(shake_amplitude_deg), 0.0, GOBO_MAX_SHAKE_AMPLITUDE_DEG)
+				shake_amplitude_deg = GoboShakeLimitsScript.clamp_amplitude_deg(shake_amplitude_deg)
 			else:
 				var frequency_edge_a: float = clamp(absf(float(range_data.get("physical_from", 0.0))), 0.0, GOBO_MAX_SHAKE_FREQUENCY_HZ)
 				var frequency_edge_b: float = clamp(absf(float(range_data.get("physical_to", 0.0))), 0.0, GOBO_MAX_SHAKE_FREQUENCY_HZ)

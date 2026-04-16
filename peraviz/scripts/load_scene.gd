@@ -108,7 +108,7 @@ var _visual_settings := {
 	"gobo_debug_override_enabled": false,
 	"gobo_debug_comparison_mode": 0,
 	"gobo_debug_shake_enabled": false,
-	"gobo_debug_shake_amplitude_deg": 12.0,
+	"gobo_debug_shake_amplitude_deg": 1.0,
 	"gobo_debug_shake_frequency_hz": 1.0,
 	"gobo_debug_shake_waveform": 0,
 }
