@@ -353,6 +353,68 @@ int run_test() {
         return fail("Expected fallback shake ranges sourced from select channel");
     }
 
+    const std::string select_shake_static_like_xml = R"(<?xml version="1.0" encoding="UTF-8"?>
+<GDTF>
+  <Wheels>
+    <Wheel Name="Gobo1">
+      <Slot WheelSlotIndex="1" />
+      <Slot WheelSlotIndex="2" />
+    </Wheel>
+  </Wheels>
+  <DMXModes>
+    <DMXMode Name="SelectShakeStaticLike">
+      <DMXChannels>
+        <DMXChannel Offset="1">
+          <LogicalChannel Attribute="StaticGoboShake">
+            <ChannelFunction Attribute="StaticGoboShake" Name="Gobo1SelectShake" Wheel="gobo1" DMXFrom="0" DMXTo="255">
+              <ChannelSet Name="Gobo 1" WheelSlotIndex="1" DMXFrom="0" DMXTo="127" />
+              <ChannelSet Name="Gobo 2" WheelSlotIndex="2" DMXFrom="128" DMXTo="255" />
+            </ChannelFunction>
+          </LogicalChannel>
+        </DMXChannel>
+      </DMXChannels>
+    </DMXMode>
+  </DMXModes>
+</GDTF>)";
+
+    const std::filesystem::path select_shake_static_like_gdtf_path =
+        temp_dir / "select_shake_static_like_fixture.gdtf";
+    if (!write_gdtf_archive(select_shake_static_like_gdtf_path,
+                            select_shake_static_like_xml)) {
+        return fail("Failed to create select-shake static-like GDTF archive");
+    }
+
+    peraviz::dmx::FixtureControlOffsets select_shake_static_like_offsets;
+    if (!peraviz::dmx::resolve_fixture_control_offsets(
+            select_shake_static_like_gdtf_path.string(),
+            "SelectShakeStaticLike",
+            select_shake_static_like_offsets,
+            debug_reason)) {
+        return fail("resolve_fixture_control_offsets failed for select-shake static-like mode: " +
+                    debug_reason);
+    }
+    const peraviz::dmx::FixtureGoboWheelOffset *select_shake_static_like_wheel =
+        find_wheel(select_shake_static_like_offsets, 1);
+    if (!select_shake_static_like_wheel) {
+        return fail("Expected gobo wheel #1 in select-shake static-like mode");
+    }
+    if (select_shake_static_like_wheel->ranges.size() != 2) {
+        return fail("Expected two gobo ranges in select-shake static-like mode");
+    }
+    bool has_fixed_behavior = false;
+    for (const peraviz::dmx::FixtureGoboRange &range :
+         select_shake_static_like_wheel->ranges) {
+        if (range.behavior == peraviz::dmx::FixtureGoboRangeBehavior::kFixed) {
+            has_fixed_behavior = true;
+        }
+        if (range.behavior != peraviz::dmx::FixtureGoboRangeBehavior::kShake) {
+            return fail("Expected select-shake static-like ranges to force shake behavior");
+        }
+    }
+    if (has_fixed_behavior) {
+        return fail("Did not expect select-shake static-like ranges to degrade to fixed behavior");
+    }
+
     const std::filesystem::path canonical_mega_pointe_path =
         repo_root / "library/fixtures/Robin MegaPointe.gdtf";
     if (!std::filesystem::exists(canonical_mega_pointe_path)) {
