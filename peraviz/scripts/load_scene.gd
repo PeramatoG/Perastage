@@ -2,32 +2,35 @@
 extends Node3D
 
 @onready var proxies_root: Node3D = $Proxies
-@onready var status_label: Label = $HUD/StatusLabel
-@onready var picker: FileDialog = $HUD/FileDialog
+@onready var status_label: Label = $UIRoot/RootVBox/TopBar/TopBarMargin/TopBarRow/StatusLabel
+@onready var picker: FileDialog = $UIRoot/FileDialog
 @onready var camera: Camera3D = $Camera3D
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var day_night_environment_controller: DayNightEnvironmentController = $DayNightEnvironmentController
-@onready var manual_fixture_toggle: CheckButton = $HUD/ManualFixtureToggle
-@onready var fixture_debug_panel: PanelContainer = $HUD/FixtureDebugPanel
-@onready var fixture_list: ItemList = $HUD/FixtureDebugPanel/Margin/VBox/FixtureList
-@onready var fixture_selected_label: Label = $HUD/FixtureDebugPanel/Margin/VBox/SelectedFixtureLabel
-@onready var fixture_axis_label: Label = $HUD/FixtureDebugPanel/Margin/VBox/AxisAnchorsLabel
-@onready var fixture_emitter_label: Label = $HUD/FixtureDebugPanel/Margin/VBox/EmitterAnchorsLabel
-@onready var pan_min_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanMin
-@onready var pan_max_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanMax
-@onready var pan_value_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanValue
-@onready var tilt_min_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltMin
-@onready var tilt_max_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltMax
-@onready var tilt_value_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltValue
-@onready var dimmer_min_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerMin
-@onready var dimmer_max_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerMax
-@onready var dimmer_value_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerValue
-@onready var pan_slider: HSlider = $HUD/FixtureDebugPanel/Margin/VBox/PanSlider
-@onready var tilt_slider: HSlider = $HUD/FixtureDebugPanel/Margin/VBox/TiltSlider
-@onready var dimmer_slider: HSlider = $HUD/FixtureDebugPanel/Margin/VBox/DimmerSlider
-@onready var quick_reset_button: Button = $HUD/FixtureDebugPanel/Margin/VBox/QuickResetButton
-@onready var visual_settings_button: Button = $HUD/VisualSettingsButton
-@onready var visual_settings_window: VisualSettingsWindow = $HUD/VisualSettingsWindow
+@onready var manual_fixture_toggle: CheckButton = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/ManualFixtureToggle
+@onready var fixture_debug_panel: PanelContainer = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel
+@onready var fixture_list: ItemList = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/FixtureList
+@onready var fixture_selected_label: Label = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/SelectedFixtureLabel
+@onready var fixture_axis_label: Label = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/AxisAnchorsLabel
+@onready var fixture_emitter_label: Label = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/EmitterAnchorsLabel
+@onready var pan_min_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanMin
+@onready var pan_max_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanMax
+@onready var pan_value_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanValue
+@onready var tilt_min_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltMin
+@onready var tilt_max_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltMax
+@onready var tilt_value_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltValue
+@onready var dimmer_min_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerMin
+@onready var dimmer_max_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerMax
+@onready var dimmer_value_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerValue
+@onready var pan_slider: HSlider = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/PanSlider
+@onready var tilt_slider: HSlider = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/TiltSlider
+@onready var dimmer_slider: HSlider = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/DimmerSlider
+@onready var quick_reset_button: Button = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/QuickResetButton
+@onready var visual_settings_button: Button = $UIRoot/RootVBox/TopBar/TopBarMargin/TopBarRow/VisualSettingsButton
+@onready var visual_settings_window: VisualSettingsWindow = $UIRoot/VisualSettingsWindow
+@onready var app_shell: AppShell = $UIRoot/AppShell
+@onready var load_button: Button = $UIRoot/RootVBox/TopBar/TopBarMargin/TopBarRow/LoadButton
+@onready var dmx_controls_mount: VBoxContainer = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/DMXControlsMount
 
 var _loader := PeravizLoader.new()
 var _scene_registry := SceneRegistry.new()
@@ -120,6 +123,7 @@ var _dmx_monitor_window: Window
 var _dmx_timer: Timer
 var _dmx_universe_offset_input: SpinBox
 var _dmx_unbound_preview_label: Label
+var _dmx_controls_panel: PanelContainer
 var _dmx_fixture_runtime = null
 var _last_dmx_tick_msec: int = 0
 
@@ -239,7 +243,7 @@ const ENVIRONMENT_QUALITY_PRESETS := {
 func _ready() -> void:
 	_apply_imported_content_scale()
 	_scene_registry.configure(proxies_root)
-	$HUD/LoadButton.pressed.connect(_on_load_pressed)
+	load_button.pressed.connect(_on_load_pressed)
 	picker.file_selected.connect(_on_file_selected)
 	manual_fixture_toggle.toggled.connect(_on_manual_fixture_toggle)
 	fixture_list.item_selected.connect(_on_fixture_list_item_selected)
@@ -2359,43 +2363,56 @@ func _focus_loaded_scene() -> void:
 func _setup_dmx_controls() -> void:
 	if _dmx_toggle_button != null and is_instance_valid(_dmx_toggle_button):
 		return
-	var hud_root: CanvasLayer = $HUD
+	var controls_host: Control = _resolve_dmx_controls_host()
+	if controls_host == null:
+		return
+	_dmx_controls_panel = PanelContainer.new()
+	_dmx_controls_panel.name = "DMXControlsPanel"
+	controls_host.add_child(_dmx_controls_panel)
+	var controls_margin := MarginContainer.new()
+	controls_margin.add_theme_constant_override("margin_left", 8)
+	controls_margin.add_theme_constant_override("margin_top", 8)
+	controls_margin.add_theme_constant_override("margin_right", 8)
+	controls_margin.add_theme_constant_override("margin_bottom", 8)
+	_dmx_controls_panel.add_child(controls_margin)
+	var controls_vbox := VBoxContainer.new()
+	controls_margin.add_child(controls_vbox)
+	var controls_header := Label.new()
+	controls_header.text = "DMX"
+	controls_vbox.add_child(controls_header)
+	var controls_row := HBoxContainer.new()
+	controls_vbox.add_child(controls_row)
 	_dmx_toggle_button = Button.new()
 	_dmx_toggle_button.text = "DMX OFF"
 	_dmx_toggle_button.toggle_mode = true
-	_dmx_toggle_button.position = Vector2(540, 20)
-	hud_root.add_child(_dmx_toggle_button)
+	controls_row.add_child(_dmx_toggle_button)
 	_dmx_toggle_button.pressed.connect(_on_dmx_toggle_pressed)
 	_update_dmx_toggle_color(false, false)
 
 	_dmx_monitor_button = Button.new()
 	_dmx_monitor_button.text = "DMX Monitor"
-	_dmx_monitor_button.position = Vector2(650, 20)
 	_dmx_monitor_button.disabled = true
-	hud_root.add_child(_dmx_monitor_button)
+	controls_row.add_child(_dmx_monitor_button)
 	_dmx_monitor_button.pressed.connect(_on_dmx_monitor_pressed)
 
 	_dmx_universe_offset_input = SpinBox.new()
-	_dmx_universe_offset_input.position = Vector2(770, 20)
 	_dmx_universe_offset_input.custom_minimum_size = Vector2(90, 24)
 	_dmx_universe_offset_input.min_value = -32
 	_dmx_universe_offset_input.max_value = 32
 	_dmx_universe_offset_input.step = 1
 	_dmx_universe_offset_input.value = -1
-	hud_root.add_child(_dmx_universe_offset_input)
+	controls_row.add_child(_dmx_universe_offset_input)
 	_dmx_universe_offset_input.value_changed.connect(_on_dmx_universe_offset_changed)
 
 	_dmx_unbound_preview_label = Label.new()
-	_dmx_unbound_preview_label.position = Vector2(540, 50)
-	_dmx_unbound_preview_label.size = Vector2(500, 120)
 	_dmx_unbound_preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_dmx_unbound_preview_label.visible = false
-	hud_root.add_child(_dmx_unbound_preview_label)
+	controls_vbox.add_child(_dmx_unbound_preview_label)
 
 	_dmx_timer = Timer.new()
 	_dmx_timer.wait_time = 0.03
 	_dmx_timer.autostart = true
-	hud_root.add_child(_dmx_timer)
+	add_child(_dmx_timer)
 	_dmx_timer.timeout.connect(_on_dmx_timer_timeout)
 
 	if ClassDB.class_exists("PeravizDmxReceiver"):
@@ -2404,6 +2421,31 @@ func _setup_dmx_controls() -> void:
 	else:
 		_dmx_toggle_button.disabled = true
 		_dmx_toggle_button.tooltip_text = "DMX unavailable (build without PERAVIZ_ENABLE_DMX)"
+
+func _resolve_dmx_controls_host() -> Control:
+	if dmx_controls_mount != null and is_instance_valid(dmx_controls_mount):
+		return dmx_controls_mount
+	if app_shell != null and app_shell.has_method("get_modules_container"):
+		return app_shell.get_modules_container() as Control
+	return null
+
+func bridge_set_side_panel_open(is_open: bool) -> void:
+	if app_shell != null:
+		app_shell.set_side_panel_open(is_open)
+
+func bridge_set_active_section(section_name: StringName) -> void:
+	if app_shell != null:
+		app_shell.set_active_section(section_name)
+
+func bridge_register_section(section_name: StringName, section_node: CanvasItem) -> void:
+	if app_shell != null:
+		app_shell.register_section(section_name, section_node)
+
+func bridge_get_dmx_controls_host() -> Control:
+	return _resolve_dmx_controls_host()
+
+func bridge_setup_dmx_controls() -> void:
+	_setup_dmx_controls()
 
 func _setup_dmx_fixture_runtime() -> void:
 	_dmx_fixture_runtime = DmxFixtureRuntimeScript.new()
