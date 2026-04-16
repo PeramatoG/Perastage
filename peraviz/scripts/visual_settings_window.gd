@@ -6,6 +6,7 @@ class_name VisualSettingsWindow
 signal settings_changed(settings: Dictionary)
 
 const GoboShakeLimitsScript = preload("res://scripts/gobo_shake_limits.gd")
+const UiVisibilityPolicyScript = preload("res://scripts/ui/ui_visibility_policy.gd")
 
 const DEFAULT_SETTINGS := {
 	"ambient_multiplier": 0.08,
@@ -87,6 +88,7 @@ var _gobo_debug_shake_frequency_value_label: Label
 var _gobo_debug_comparison_option: OptionButton
 var _gobo_debug_waveform_option: OptionButton
 var _toggle_controls: Dictionary = {}
+var _ui_visibility_policy = UiVisibilityPolicyScript
 
 func _init() -> void:
 	title = "Visual Settings"
@@ -106,6 +108,10 @@ func configure(initial_settings: Dictionary) -> void:
 			_settings[key] = initial_settings[key]
 	if is_node_ready():
 		_apply_settings_to_controls()
+
+func set_ui_visibility_policy(policy_script: Variant) -> void:
+	if policy_script != null:
+		_ui_visibility_policy = policy_script
 
 func popup_settings() -> void:
 	popup_centered()
@@ -275,7 +281,9 @@ func _add_toggle_row(parent: VBoxContainer, label_text: String, key: String) -> 
 
 
 func _add_debug_gobo_section(parent: VBoxContainer) -> void:
-	if not OS.is_debug_build():
+	if _ui_visibility_policy == null:
+		return
+	if not _ui_visibility_policy.is_module_visible(_ui_visibility_policy.MODULE_DEBUG):
 		return
 	_add_section_label(parent, "Debug · Gobo rotation/shake")
 	_add_toggle_row(parent, "Enable gobo debug overrides", "gobo_debug_override_enabled")

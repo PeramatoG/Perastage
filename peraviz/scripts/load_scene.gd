@@ -7,30 +7,34 @@ extends Node3D
 @onready var camera: Camera3D = $Camera3D
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var day_night_environment_controller: DayNightEnvironmentController = $DayNightEnvironmentController
-@onready var manual_fixture_toggle: CheckButton = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/ManualFixtureToggle
-@onready var fixture_debug_panel: PanelContainer = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel
-@onready var fixture_list: ItemList = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/FixtureList
-@onready var fixture_selected_label: Label = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/SelectedFixtureLabel
-@onready var fixture_axis_label: Label = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/AxisAnchorsLabel
-@onready var fixture_emitter_label: Label = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/EmitterAnchorsLabel
-@onready var pan_min_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanMin
-@onready var pan_max_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanMax
-@onready var pan_value_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanValue
-@onready var tilt_min_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltMin
-@onready var tilt_max_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltMax
-@onready var tilt_value_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltValue
-@onready var dimmer_min_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerMin
-@onready var dimmer_max_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerMax
-@onready var dimmer_value_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerValue
-@onready var pan_slider: HSlider = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/PanSlider
-@onready var tilt_slider: HSlider = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/TiltSlider
-@onready var dimmer_slider: HSlider = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/DimmerSlider
-@onready var quick_reset_button: Button = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/FixtureDebugPanel/Margin/VBox/QuickResetButton
+@onready var user_module: VBoxContainer = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/User
+@onready var advanced_module: VBoxContainer = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Advanced
+@onready var debug_module: VBoxContainer = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug
+@onready var manual_fixture_toggle: CheckButton = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/ManualFixtureToggle
+@onready var fixture_debug_panel: PanelContainer = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel
+@onready var fixture_list: ItemList = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/FixtureList
+@onready var fixture_selected_label: Label = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/SelectedFixtureLabel
+@onready var fixture_axis_label: Label = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/AxisAnchorsLabel
+@onready var fixture_emitter_label: Label = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/EmitterAnchorsLabel
+@onready var pan_min_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanMin
+@onready var pan_max_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanMax
+@onready var pan_value_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanValue
+@onready var tilt_min_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltMin
+@onready var tilt_max_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltMax
+@onready var tilt_value_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltValue
+@onready var dimmer_min_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerMin
+@onready var dimmer_max_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerMax
+@onready var dimmer_value_input: SpinBox = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerValue
+@onready var pan_slider: HSlider = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/PanSlider
+@onready var tilt_slider: HSlider = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/TiltSlider
+@onready var dimmer_slider: HSlider = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/DimmerSlider
+@onready var quick_reset_button: Button = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/Debug/FixtureDebugPanel/Margin/VBox/QuickResetButton
 @onready var visual_settings_button: Button = $UIRoot/RootVBox/TopBar/TopBarMargin/TopBarRow/VisualSettingsButton
+@onready var show_advanced_controls_toggle: CheckButton = $UIRoot/RootVBox/TopBar/TopBarMargin/TopBarRow/ShowAdvancedControlsToggle
 @onready var visual_settings_window: VisualSettingsWindow = $UIRoot/VisualSettingsWindow
 @onready var app_shell: AppShell = $UIRoot/AppShell
 @onready var load_button: Button = $UIRoot/RootVBox/TopBar/TopBarMargin/TopBarRow/LoadButton
-@onready var dmx_controls_mount: VBoxContainer = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/DMXControlsMount
+@onready var dmx_controls_mount: VBoxContainer = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/User/DMXControlsMount
 
 var _loader := PeravizLoader.new()
 var _scene_registry := SceneRegistry.new()
@@ -139,6 +143,7 @@ const LegacyConeBeamRendererScript = preload("res://scripts/beam_renderers/legac
 const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volumetric_beam_renderer.gd")
 const FixtureGoboProjectorScript = preload("res://scripts/fixture_gobo_projector.gd")
 const BeamOpticsControllerScript = preload("res://scripts/beam_optics_controller.gd")
+const UiVisibilityPolicyScript = preload("res://scripts/ui/ui_visibility_policy.gd")
 
 const SceneImportServiceScript = preload("res://scripts/scene_loading/scene_import_service.gd")
 const NodeFactoryScript = preload("res://scripts/scene_loading/node_factory.gd")
@@ -261,6 +266,7 @@ func _ready() -> void:
 	dimmer_max_input.value_changed.connect(_on_limit_changed)
 	quick_reset_button.pressed.connect(_on_quick_reset_pressed)
 	visual_settings_button.pressed.connect(_on_visual_settings_pressed)
+	show_advanced_controls_toggle.toggled.connect(_on_show_advanced_controls_toggled)
 	if visual_settings_window != null and visual_settings_window.has_signal("settings_changed"):
 		visual_settings_window.connect("settings_changed", Callable(self, "_on_visual_settings_changed"))
 	else:
@@ -271,6 +277,8 @@ func _ready() -> void:
 	_debug_asset_cache_enabled = bool(ProjectSettings.get_setting("peraviz_debug_asset_cache", false))
 	_manual_fixture_test_enabled = _read_manual_fixture_test_setting()
 	manual_fixture_toggle.button_pressed = _manual_fixture_test_enabled
+	show_advanced_controls_toggle.button_pressed = UiVisibilityPolicyScript.is_advanced_controls_enabled()
+	_refresh_ui_module_visibility()
 	_asset_cache.configure_debug_logging(_debug_asset_cache_enabled, 100)
 	_ensure_debug_gizmo_root()
 	_update_debug_legend()
@@ -285,6 +293,8 @@ func _ready() -> void:
 	_fixture_gobo_projector = FixtureGoboProjectorScript.new()
 	if visual_settings_window != null and visual_settings_window.has_method("configure"):
 		visual_settings_window.call("configure", _visual_settings)
+		if visual_settings_window.has_method("set_ui_visibility_policy"):
+			visual_settings_window.call("set_ui_visibility_policy", UiVisibilityPolicyScript)
 	else:
 		push_warning("VisualSettingsWindow is not ready for configure(); initial visual settings not pushed.")
 	_apply_visual_settings(_visual_settings)
@@ -516,6 +526,20 @@ func _on_manual_fixture_toggle(enabled: bool) -> void:
 	_manual_fixture_test_enabled = enabled
 	ProjectSettings.set_setting("peraviz_manual_fixture_test", _manual_fixture_test_enabled)
 	_refresh_fixture_debug_panel()
+
+func _on_show_advanced_controls_toggled(enabled: bool) -> void:
+	UiVisibilityPolicyScript.set_advanced_controls_enabled(enabled)
+	_refresh_ui_module_visibility()
+
+func _refresh_ui_module_visibility() -> void:
+	if user_module != null:
+		user_module.visible = UiVisibilityPolicyScript.is_module_visible(UiVisibilityPolicyScript.MODULE_USER)
+	if advanced_module != null:
+		advanced_module.visible = UiVisibilityPolicyScript.is_module_visible(UiVisibilityPolicyScript.MODULE_ADVANCED)
+	if debug_module != null:
+		debug_module.visible = UiVisibilityPolicyScript.is_module_visible(UiVisibilityPolicyScript.MODULE_DEBUG)
+	if show_advanced_controls_toggle != null:
+		show_advanced_controls_toggle.button_pressed = UiVisibilityPolicyScript.is_advanced_controls_enabled()
 
 func _on_fixture_list_item_selected(index: int) -> void:
 	if index < 0 or index >= fixture_list.get_item_count():
