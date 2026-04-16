@@ -7,6 +7,9 @@ signal settings_changed(settings: Dictionary)
 
 const GoboShakeLimitsScript = preload("res://scripts/gobo_shake_limits.gd")
 const UiVisibilityPolicyScript = preload("res://scripts/ui/ui_visibility_policy.gd")
+const RendererSettingsPanelScript = preload("res://scripts/ui/visual/renderer_settings_panel.gd")
+const EnvironmentSettingsPanelScript = preload("res://scripts/ui/visual/environment_settings_panel.gd")
+const DebugGoboSettingsPanelScript = preload("res://scripts/ui/visual/debug_gobo_settings_panel.gd")
 
 const DEFAULT_SETTINGS := {
 	"ambient_multiplier": 0.08,
@@ -62,37 +65,47 @@ const DEFAULT_SETTINGS := {
 	"gobo_debug_shake_waveform": 0,
 }
 
+const QUICK_PRESETS := {
+	"Preview": {
+		"beam_quality": 0,
+		"beam_multiplier": 12.0,
+		"spot_multiplier": 0.8,
+		"bloom_multiplier": 0.0,
+		"volumetric_fog_density": 0.0015,
+		"light_volumetric_fog_energy": 8.0,
+		"environment_current_preset": 1,
+	},
+	"Balanced": {
+		"beam_quality": 1,
+		"beam_multiplier": 20.0,
+		"spot_multiplier": 1.0,
+		"bloom_multiplier": 0.25,
+		"volumetric_fog_density": 0.003,
+		"light_volumetric_fog_energy": 12.0,
+		"environment_current_preset": 2,
+	},
+	"Quality": {
+		"beam_quality": 2,
+		"beam_multiplier": 26.0,
+		"spot_multiplier": 1.1,
+		"bloom_multiplier": 0.4,
+		"volumetric_fog_density": 0.004,
+		"light_volumetric_fog_energy": 16.0,
+		"environment_current_preset": 1,
+	},
+}
+
 var _settings: Dictionary = DEFAULT_SETTINGS.duplicate(true)
-var _spot_slider: HSlider
-var _spot_value_label: Label
-var _beam_slider: HSlider
-var _beam_value_label: Label
-var _bloom_slider: HSlider
-var _bloom_value_label: Label
-var _fog_density_slider: HSlider
-var _fog_density_value_label: Label
-var _fog_fade_slider: HSlider
-var _fog_fade_value_label: Label
-var _light_fog_energy_slider: HSlider
-var _light_fog_energy_value_label: Label
-var _background_picker: ColorPickerButton
-var _beam_render_mode_option: OptionButton
-var _beam_quality_option: OptionButton
-var _environment_preset_option: OptionButton
-var _environment_time_slider: HSlider
-var _environment_time_value_label: Label
-var _environment_cycle_speed_slider: HSlider
-var _environment_cycle_speed_value_label: Label
-var _gobo_debug_shake_amplitude_value_label: Label
-var _gobo_debug_shake_frequency_value_label: Label
-var _gobo_debug_comparison_option: OptionButton
-var _gobo_debug_waveform_option: OptionButton
-var _toggle_controls: Dictionary = {}
 var _ui_visibility_policy = UiVisibilityPolicyScript
+var _tabs: TabContainer
+var _advanced_mode_toggle: CheckBox
+var _renderer_panel: RendererSettingsPanel
+var _environment_panel: EnvironmentSettingsPanel
+var _debug_panel: DebugGoboSettingsPanel
 
 func _init() -> void:
 	title = "Visual Settings"
-	size = Vector2i(560, 760)
+	size = Vector2i(620, 760)
 	unresizable = false
 
 func _ready() -> void:
@@ -112,6 +125,8 @@ func configure(initial_settings: Dictionary) -> void:
 func set_ui_visibility_policy(policy_script: Variant) -> void:
 	if policy_script != null:
 		_ui_visibility_policy = policy_script
+	if is_node_ready() and _debug_panel != null:
+		_debug_panel.visible = _is_debug_visible()
 
 func popup_settings() -> void:
 	popup_centered()
@@ -126,248 +141,109 @@ func _build_ui() -> void:
 	root.add_theme_constant_override("margin_bottom", 12)
 	add_child(root)
 
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root.add_child(scroll)
+	var layout: VBoxContainer = VBoxContainer.new()
+	layout.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	layout.add_theme_constant_override("separation", 10)
+	root.add_child(layout)
 
-	var container: VBoxContainer = VBoxContainer.new()
-	container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	container.add_theme_constant_override("separation", 10)
-	scroll.add_child(container)
+	var mode_row: HBoxContainer = HBoxContainer.new()
+	mode_row.add_theme_constant_override("separation", 8)
+	layout.add_child(mode_row)
 
-	_add_section_label(container, "Renderer")
-	_spot_slider = _add_slider_row(container, "Spot intensity", "spot_multiplier", 0.0, 3.0, 0.01)
-	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 100.0, 0.01)
-	_bloom_slider = _add_slider_row(container, "Bloom", "bloom_multiplier", 0.0, 3.0, 0.01)
-	_add_slider_row(container, "Ambient fog density", "ambient_fog_density", 0.0, 0.05, 0.001)
-	_fog_density_slider = _add_slider_row(container, "Volumetric fog density", "volumetric_fog_density", 0.0, 0.01, 0.0001)
-	_fog_fade_slider = _add_slider_row(container, "Volumetric fog fade", "volumetric_fog_fade", 0.0, 0.2, 0.005)
-	_light_fog_energy_slider = _add_slider_row(container, "Light fog energy", "light_volumetric_fog_energy", 0.0, 100.0, 0.5)
-	_beam_render_mode_option = _add_option_row(container, "Beam rendering", ["Volumetric (default)", "Lightweight (legacy)"], _on_beam_render_mode_selected)
-	_beam_quality_option = _add_option_row(container, "Beam quality", ["Low", "Medium", "High"], _on_beam_quality_selected)
+	_advanced_mode_toggle = CheckBox.new()
+	_advanced_mode_toggle.text = "Advanced mode"
+	_advanced_mode_toggle.button_pressed = false
+	_advanced_mode_toggle.toggled.connect(_on_advanced_mode_toggled)
+	mode_row.add_child(_advanced_mode_toggle)
 
-	_add_section_label(container, "Environment")
-	_add_toggle_row(container, "Enable environment controller", "environment_enabled")
-	_add_toggle_row(container, "Use continuous cycle", "environment_use_continuous_cycle")
-	_environment_preset_option = _add_option_row(container, "Environment preset", ["Dawn", "Day", "Dusk", "Night", "BlackoutNight"], _on_environment_preset_selected)
-	_environment_time_slider = _add_slider_row(container, "Time of day", "environment_time_of_day", 0.0, 1.0, 0.001)
-	_add_toggle_row(container, "Auto advance cycle", "environment_auto_advance")
-	_environment_cycle_speed_slider = _add_slider_row(container, "Cycle speed", "environment_cycle_speed", 0.0, 0.2, 0.0005)
-	_add_toggle_row(container, "Allow blackout night", "environment_allow_blackout_night")
-	_add_slider_row(container, "Day light intensity", "environment_day_light_intensity", 0.0, 2.0, 0.01)
-	_add_slider_row(container, "Dusk light intensity", "environment_dusk_light_intensity", 0.0, 1.0, 0.01)
-	_add_slider_row(container, "Night light intensity", "environment_night_light_intensity", 0.0, 0.3, 0.001)
-	_add_slider_row(container, "Moon light intensity", "environment_moon_light_intensity", 0.0, 0.2, 0.001)
-	_add_slider_row(container, "Ambient day energy", "environment_ambient_energy_day", 0.0, 0.3, 0.001)
-	_add_slider_row(container, "Ambient night energy", "environment_ambient_energy_night", 0.0, 0.1, 0.001)
-	_add_slider_row(container, "Horizon warmth", "environment_horizon_warmth", 0.0, 1.0, 0.01)
-	_add_slider_row(container, "Horizon intensity", "environment_horizon_intensity", 0.0, 2.0, 0.01)
-	_add_debug_gobo_section(container)
+	var presets_label: Label = Label.new()
+	presets_label.text = "Quick presets"
+	mode_row.add_child(presets_label)
 
-	var background_row: HBoxContainer = HBoxContainer.new()
-	background_row.add_theme_constant_override("separation", 8)
-	container.add_child(background_row)
+	for preset_name in ["Preview", "Balanced", "Quality"]:
+		var preset_button: Button = Button.new()
+		preset_button.text = preset_name
+		preset_button.pressed.connect(func() -> void:
+			_apply_quick_preset(preset_name)
+		)
+		mode_row.add_child(preset_button)
 
-	var background_label: Label = Label.new()
-	background_label.text = "Background color"
-	background_label.custom_minimum_size = Vector2(170, 0)
-	background_row.add_child(background_label)
+	_tabs = TabContainer.new()
+	_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	layout.add_child(_tabs)
 
-	_background_picker = ColorPickerButton.new()
-	_background_picker.custom_minimum_size = Vector2(180, 30)
-	_background_picker.color_changed.connect(_on_background_color_changed)
-	background_row.add_child(_background_picker)
+	_renderer_panel = RendererSettingsPanelScript.new()
+	_renderer_panel.name = "Renderer"
+	_renderer_panel.setting_changed.connect(_on_panel_setting_changed)
+	_tabs.add_child(_renderer_panel)
+
+	_environment_panel = EnvironmentSettingsPanelScript.new()
+	_environment_panel.name = "Environment"
+	_environment_panel.setting_changed.connect(_on_panel_setting_changed)
+	_tabs.add_child(_environment_panel)
+
+	_debug_panel = DebugGoboSettingsPanelScript.new()
+	_debug_panel.name = "Diagnostics"
+	_debug_panel.setting_changed.connect(_on_panel_setting_changed)
+	_debug_panel.visible = _is_debug_visible()
+	_tabs.add_child(_debug_panel)
 
 	var actions_row: HBoxContainer = HBoxContainer.new()
 	actions_row.alignment = BoxContainer.ALIGNMENT_END
-	container.add_child(actions_row)
+	layout.add_child(actions_row)
 
 	var reset_button: Button = Button.new()
 	reset_button.text = "Reset"
 	reset_button.pressed.connect(_on_reset_pressed)
 	actions_row.add_child(reset_button)
 
-func _add_section_label(parent: VBoxContainer, title_text: String) -> void:
-	var section_label: Label = Label.new()
-	section_label.text = title_text
-	section_label.add_theme_font_size_override("font_size", 16)
-	parent.add_child(section_label)
-
-func _add_slider_row(parent: VBoxContainer,
-		label_text: String,
-		key: String,
-		min_value: float,
-		max_value: float,
-		step: float) -> HSlider:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	parent.add_child(row)
-
-	var setting_label: Label = Label.new()
-	setting_label.text = label_text
-	setting_label.custom_minimum_size = Vector2(170, 0)
-	row.add_child(setting_label)
-
-	var slider: HSlider = HSlider.new()
-	slider.min_value = min_value
-	slider.max_value = max_value
-	slider.step = step
-	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slider.value_changed.connect(func(value: float) -> void:
-		_on_slider_changed(key, value)
-	)
-	row.add_child(slider)
-
-	var value_label: Label = Label.new()
-	value_label.custom_minimum_size = Vector2(64, 0)
-	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(value_label)
-
-	match key:
-		"spot_multiplier":
-			_spot_value_label = value_label
-		"beam_multiplier":
-			_beam_value_label = value_label
-		"bloom_multiplier":
-			_bloom_value_label = value_label
-		"volumetric_fog_density":
-			_fog_density_value_label = value_label
-		"volumetric_fog_fade":
-			_fog_fade_value_label = value_label
-		"light_volumetric_fog_energy":
-			_light_fog_energy_value_label = value_label
-		"environment_time_of_day":
-			_environment_time_value_label = value_label
-		"environment_cycle_speed":
-			_environment_cycle_speed_value_label = value_label
-		"gobo_debug_shake_amplitude_deg":
-			_gobo_debug_shake_amplitude_value_label = value_label
-		"gobo_debug_shake_frequency_hz":
-			_gobo_debug_shake_frequency_value_label = value_label
-
-	return slider
-
-func _add_option_row(parent: VBoxContainer, label_text: String, options: Array[String], on_selected: Callable) -> OptionButton:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	parent.add_child(row)
-
-	var setting_label: Label = Label.new()
-	setting_label.text = label_text
-	setting_label.custom_minimum_size = Vector2(170, 0)
-	row.add_child(setting_label)
-
-	var option_button: OptionButton = OptionButton.new()
-	option_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for option_text in options:
-		option_button.add_item(option_text)
-	option_button.item_selected.connect(on_selected)
-	row.add_child(option_button)
-
-	return option_button
-
-func _add_toggle_row(parent: VBoxContainer, label_text: String, key: String) -> void:
-	var toggle: CheckBox = CheckBox.new()
-	toggle.text = label_text
-	toggle.button_pressed = bool(_settings.get(key, false))
-	toggle.toggled.connect(func(value: bool) -> void:
-		_settings[key] = value
-		_emit_settings_changed()
-	)
-	parent.add_child(toggle)
-	_toggle_controls[key] = toggle
-
-
-func _add_debug_gobo_section(parent: VBoxContainer) -> void:
-	if _ui_visibility_policy == null:
-		return
-	if not _ui_visibility_policy.is_module_visible(_ui_visibility_policy.MODULE_DEBUG):
-		return
-	_add_section_label(parent, "Debug · Gobo rotation/shake")
-	_add_toggle_row(parent, "Enable gobo debug overrides", "gobo_debug_override_enabled")
-	_gobo_debug_comparison_option = _add_option_row(parent, "Comparison", ["Rotation + Shake", "Rotation only", "Shake only"], _on_gobo_debug_comparison_mode_selected)
-	_add_toggle_row(parent, "Enable shake", "gobo_debug_shake_enabled")
-	_add_slider_row(parent, "Shake amplitude (deg)", "gobo_debug_shake_amplitude_deg", 0.0, GoboShakeLimitsScript.MAX_SHAKE_AMPLITUDE_DEG, 0.01)
-	_add_slider_row(parent, "Shake frequency (Hz)", "gobo_debug_shake_frequency_hz", 0.0, GoboShakeLimitsScript.MAX_SHAKE_FREQUENCY_HZ, 0.05)
-	_gobo_debug_waveform_option = _add_option_row(parent, "Shake waveform", ["Triangle", "Sine", "Square"], _on_gobo_debug_waveform_selected)
-
 func _apply_settings_to_controls() -> void:
-	_spot_slider.value = float(_settings.get("spot_multiplier", 1.0))
-	_beam_slider.value = float(_settings.get("beam_multiplier", 20.0))
-	_bloom_slider.value = float(_settings.get("bloom_multiplier", 0.0))
-	_fog_density_slider.value = float(_settings.get("volumetric_fog_density", 0.0))
-	_fog_fade_slider.value = float(_settings.get("volumetric_fog_fade", 0.02))
-	_light_fog_energy_slider.value = float(_settings.get("light_volumetric_fog_energy", 12.0))
-	_beam_render_mode_option.select(clamp(int(_settings.get("beam_render_mode", 0)), 0, 1))
-	_beam_quality_option.select(clamp(int(_settings.get("beam_quality", 1)), 0, 2))
-	_environment_preset_option.select(clamp(int(_settings.get("environment_current_preset", 1)), 0, 4))
-	_environment_time_slider.value = clamp(float(_settings.get("environment_time_of_day", 0.4)), 0.0, 1.0)
-	_environment_cycle_speed_slider.value = max(float(_settings.get("environment_cycle_speed", 0.02)), 0.0)
-	if _gobo_debug_comparison_option != null:
-		_gobo_debug_comparison_option.select(clamp(int(_settings.get("gobo_debug_comparison_mode", 0)), 0, 2))
-	if _gobo_debug_waveform_option != null:
-		_gobo_debug_waveform_option.select(clamp(int(_settings.get("gobo_debug_shake_waveform", 0)), 0, 2))
-	for key in _toggle_controls.keys():
-		var toggle: CheckBox = _toggle_controls[key]
-		if toggle != null:
-			toggle.button_pressed = bool(_settings.get(key, false))
-	_background_picker.color = _settings.get("background_color", DEFAULT_SETTINGS["background_color"])
-	_update_value_labels()
+	if _renderer_panel != null:
+		_renderer_panel.apply_settings(_settings)
+	if _environment_panel != null:
+		_environment_panel.apply_settings(_settings)
+	if _debug_panel != null:
+		_debug_panel.apply_settings(_settings)
+	_apply_mode_to_panels()
 
-func _on_slider_changed(key: String, value: float) -> void:
-	if key == "volumetric_fog_fade":
-		value = max(value, 0.005)
+func _apply_mode_to_panels() -> void:
+	var advanced_enabled: bool = _advanced_mode_toggle != null and _advanced_mode_toggle.button_pressed
+	if _renderer_panel != null:
+		_renderer_panel.set_advanced_mode(advanced_enabled)
+	if _environment_panel != null:
+		_environment_panel.set_advanced_mode(advanced_enabled)
+	if _debug_panel != null:
+		_debug_panel.set_advanced_mode(advanced_enabled)
+
+func _apply_quick_preset(preset_name: String) -> void:
+	if not QUICK_PRESETS.has(preset_name):
+		return
+	var preset_values: Dictionary = QUICK_PRESETS[preset_name]
+	for key in preset_values.keys():
+		_settings[key] = preset_values[key]
+	_apply_settings_to_controls()
+	_emit_settings_changed()
+
+func _on_panel_setting_changed(key: String, value: Variant) -> void:
 	_settings[key] = value
-	_update_value_labels()
 	_emit_settings_changed()
 
-func _on_background_color_changed(color: Color) -> void:
-	_settings["background_color"] = color
-	_emit_settings_changed()
+func _on_advanced_mode_toggled(_enabled: bool) -> void:
+	_apply_mode_to_panels()
 
 func _on_reset_pressed() -> void:
 	_settings = DEFAULT_SETTINGS.duplicate(true)
 	_apply_settings_to_controls()
 	_emit_settings_changed()
 
-func _on_beam_render_mode_selected(index: int) -> void:
-	_settings["beam_render_mode"] = clamp(index, 0, 1)
-	_emit_settings_changed()
-
-func _on_beam_quality_selected(index: int) -> void:
-	_settings["beam_quality"] = clamp(index, 0, 2)
-	_emit_settings_changed()
-
-func _on_environment_preset_selected(index: int) -> void:
-	_settings["environment_current_preset"] = clamp(index, 0, 4)
-	_emit_settings_changed()
-
-func _on_gobo_debug_comparison_mode_selected(index: int) -> void:
-	_settings["gobo_debug_comparison_mode"] = clamp(index, 0, 2)
-	_emit_settings_changed()
-
-func _on_gobo_debug_waveform_selected(index: int) -> void:
-	_settings["gobo_debug_shake_waveform"] = clamp(index, 0, 2)
-	_emit_settings_changed()
-
-func _update_value_labels() -> void:
-	_spot_value_label.text = "%.2f" % float(_settings.get("spot_multiplier", 1.0))
-	_beam_value_label.text = "%.2f" % float(_settings.get("beam_multiplier", 20.0))
-	_bloom_value_label.text = "%.2f" % float(_settings.get("bloom_multiplier", 0.0))
-	_fog_density_value_label.text = "%.4f" % float(_settings.get("volumetric_fog_density", 0.0))
-	_fog_fade_value_label.text = "%.3f" % float(_settings.get("volumetric_fog_fade", 0.02))
-	_light_fog_energy_value_label.text = "%.2f" % float(_settings.get("light_volumetric_fog_energy", 12.0))
-	_environment_time_value_label.text = "%.3f" % float(_settings.get("environment_time_of_day", 0.4))
-	_environment_cycle_speed_value_label.text = "%.4f" % float(_settings.get("environment_cycle_speed", 0.02))
-	if _gobo_debug_shake_amplitude_value_label != null:
-		_gobo_debug_shake_amplitude_value_label.text = "%.2f" % float(_settings.get("gobo_debug_shake_amplitude_deg", GoboShakeLimitsScript.DEFAULT_DEBUG_SHAKE_AMPLITUDE_DEG))
-	if _gobo_debug_shake_frequency_value_label != null:
-		_gobo_debug_shake_frequency_value_label.text = "%.2f" % float(_settings.get("gobo_debug_shake_frequency_hz", 1.0))
-
 func _emit_settings_changed() -> void:
 	settings_changed.emit(_settings.duplicate(true))
+
+func _is_debug_visible() -> bool:
+	return _ui_visibility_policy != null and _ui_visibility_policy.is_module_visible(_ui_visibility_policy.MODULE_DEBUG)
 
 func _on_close_requested() -> void:
 	hide()
