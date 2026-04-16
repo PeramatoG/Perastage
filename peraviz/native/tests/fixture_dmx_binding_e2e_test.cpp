@@ -70,25 +70,10 @@ size_t count_shake_ranges_with_type(
     return count;
 }
 
-int gobo_behavior_priority(peraviz::dmx::FixtureGoboRangeBehavior behavior) {
-    switch (behavior) {
-    case peraviz::dmx::FixtureGoboRangeBehavior::kShake:
-        return 3;
-    case peraviz::dmx::FixtureGoboRangeBehavior::kRotation:
-        return 2;
-    case peraviz::dmx::FixtureGoboRangeBehavior::kIndex:
-        return 1;
-    case peraviz::dmx::FixtureGoboRangeBehavior::kFixed:
-    default:
-        return 0;
-    }
-}
-
-const peraviz::dmx::FixtureGoboRange *resolve_active_gobo_range_with_runtime_precedence(
+const peraviz::dmx::FixtureGoboRange *resolve_active_gobo_range(
     const peraviz::dmx::FixtureGoboWheelOffset &wheel,
     int raw_8bit) {
     const peraviz::dmx::FixtureGoboRange *active_range = nullptr;
-    int active_priority = -1;
     for (const peraviz::dmx::FixtureGoboRange &range : wheel.ranges) {
         int from = range.dmx_from;
         int to = range.dmx_to;
@@ -98,12 +83,7 @@ const peraviz::dmx::FixtureGoboRange *resolve_active_gobo_range_with_runtime_pre
         if (raw_8bit < from || raw_8bit > to) {
             continue;
         }
-        const int candidate_priority = gobo_behavior_priority(range.behavior);
-        if (active_range && candidate_priority < active_priority) {
-            continue;
-        }
         active_range = &range;
-        active_priority = candidate_priority;
     }
     return active_range;
 }
@@ -404,12 +384,33 @@ int run_test() {
     const std::array<int, 5> gobo1_shake_probe_values = {88, 96, 128, 160, 201};
     for (const int raw_8bit : gobo1_shake_probe_values) {
         const peraviz::dmx::FixtureGoboRange *active_range =
-            resolve_active_gobo_range_with_runtime_precedence(*mega_pointe_gobo1, raw_8bit);
+            resolve_active_gobo_range(*mega_pointe_gobo1, raw_8bit);
         if (!active_range) {
             return fail("Expected active gobo1 range for canonical MegaPointe shake probe DMX value");
         }
-        if (active_range->behavior != peraviz::dmx::FixtureGoboRangeBehavior::kShake) {
-            return fail("Expected canonical MegaPointe gobo1 shake probe DMX value to resolve as shake behavior");
+        if (active_range->slot_index <= 0) {
+            return fail("Expected active gobo1 range for canonical MegaPointe shake probe DMX value to keep slot selection");
+        }
+
+        bool found_matching_select_shake_range = false;
+        for (const peraviz::dmx::FixtureGoboShakeRange &shake_range : mega_pointe_gobo1->shake_ranges) {
+            if (shake_range.control_type != peraviz::dmx::FixtureGoboShakeControlType::kSameChannelSelect) {
+                continue;
+            }
+            int shake_from = shake_range.dmx_from;
+            int shake_to = shake_range.dmx_to;
+            if (shake_to < shake_from) {
+                std::swap(shake_from, shake_to);
+            }
+            if (shake_range.slot_index == active_range->slot_index &&
+                raw_8bit >= shake_from &&
+                raw_8bit <= shake_to) {
+                found_matching_select_shake_range = true;
+                break;
+            }
+        }
+        if (!found_matching_select_shake_range) {
+            return fail("Expected canonical MegaPointe gobo1 shake probe DMX value to have matching same-channel shake range");
         }
     }
 
