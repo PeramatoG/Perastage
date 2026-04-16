@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <array>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -67,6 +68,44 @@ size_t count_shake_ranges_with_type(
         }
     }
     return count;
+}
+
+int gobo_behavior_priority(peraviz::dmx::FixtureGoboRangeBehavior behavior) {
+    switch (behavior) {
+    case peraviz::dmx::FixtureGoboRangeBehavior::kShake:
+        return 3;
+    case peraviz::dmx::FixtureGoboRangeBehavior::kRotation:
+        return 2;
+    case peraviz::dmx::FixtureGoboRangeBehavior::kIndex:
+        return 1;
+    case peraviz::dmx::FixtureGoboRangeBehavior::kFixed:
+    default:
+        return 0;
+    }
+}
+
+const peraviz::dmx::FixtureGoboRange *resolve_active_gobo_range_with_runtime_precedence(
+    const peraviz::dmx::FixtureGoboWheelOffset &wheel,
+    int raw_8bit) {
+    const peraviz::dmx::FixtureGoboRange *active_range = nullptr;
+    int active_priority = -1;
+    for (const peraviz::dmx::FixtureGoboRange &range : wheel.ranges) {
+        int from = range.dmx_from;
+        int to = range.dmx_to;
+        if (to < from) {
+            std::swap(from, to);
+        }
+        if (raw_8bit < from || raw_8bit > to) {
+            continue;
+        }
+        const int candidate_priority = gobo_behavior_priority(range.behavior);
+        if (active_range && candidate_priority < active_priority) {
+            continue;
+        }
+        active_range = &range;
+        active_priority = candidate_priority;
+    }
+    return active_range;
 }
 
 int run_test() {
@@ -332,6 +371,60 @@ int run_test() {
     if (count_shake_ranges_with_type(*without_dedicated_wheel,
                                      peraviz::dmx::FixtureGoboShakeControlType::kSameChannelSelect) == 0) {
         return fail("Expected fallback shake ranges sourced from select channel");
+    }
+
+    const std::filesystem::path canonical_mega_pointe_path =
+        repo_root / "library/fixtures/Robin MegaPointe.gdtf";
+    if (!std::filesystem::exists(canonical_mega_pointe_path)) {
+        return fail("Expected canonical fixture at library/fixtures/Robin MegaPointe.gdtf");
+    }
+
+    peraviz::dmx::FixtureControlOffsets mega_pointe_offsets;
+    if (!peraviz::dmx::resolve_fixture_control_offsets(canonical_mega_pointe_path.string(),
+                                                       "Mode 1 - Standard 16 - bit",
+                                                       mega_pointe_offsets,
+                                                       debug_reason)) {
+        return fail("resolve_fixture_control_offsets failed for canonical MegaPointe fixture: " + debug_reason);
+    }
+
+    const peraviz::dmx::FixtureGoboWheelOffset *mega_pointe_gobo1 =
+        find_wheel(mega_pointe_offsets, 1);
+    if (!mega_pointe_gobo1) {
+        return fail("Expected gobo wheel #1 in canonical MegaPointe fixture");
+    }
+    if (mega_pointe_gobo1->shake_ranges.empty()) {
+        return fail("Expected canonical MegaPointe gobo1 shake ranges to be non-empty");
+    }
+    for (const peraviz::dmx::FixtureGoboShakeRange &shake_range : mega_pointe_gobo1->shake_ranges) {
+        if (shake_range.control_type != peraviz::dmx::FixtureGoboShakeControlType::kSameChannelSelect) {
+            return fail("Expected canonical MegaPointe gobo1 shake ranges to use same-channel control type");
+        }
+    }
+
+    const std::array<int, 5> gobo1_shake_probe_values = {88, 96, 128, 160, 201};
+    for (const int raw_8bit : gobo1_shake_probe_values) {
+        const peraviz::dmx::FixtureGoboRange *active_range =
+            resolve_active_gobo_range_with_runtime_precedence(*mega_pointe_gobo1, raw_8bit);
+        if (!active_range) {
+            return fail("Expected active gobo1 range for canonical MegaPointe shake probe DMX value");
+        }
+        if (active_range->behavior != peraviz::dmx::FixtureGoboRangeBehavior::kShake) {
+            return fail("Expected canonical MegaPointe gobo1 shake probe DMX value to resolve as shake behavior");
+        }
+    }
+
+    const peraviz::dmx::FixtureGoboWheelOffset *mega_pointe_gobo2 =
+        find_wheel(mega_pointe_offsets, 2);
+    if (!mega_pointe_gobo2) {
+        return fail("Expected gobo wheel #2 in canonical MegaPointe fixture");
+    }
+    if (mega_pointe_gobo2->shake_ranges.empty()) {
+        return fail("Expected canonical MegaPointe gobo2 shake ranges to be non-empty");
+    }
+    for (const peraviz::dmx::FixtureGoboShakeRange &shake_range : mega_pointe_gobo2->shake_ranges) {
+        if (shake_range.control_type != peraviz::dmx::FixtureGoboShakeControlType::kSameChannelSelect) {
+            return fail("Expected canonical MegaPointe gobo2 shake ranges to use same-channel control type");
+        }
     }
 
     return 0;
