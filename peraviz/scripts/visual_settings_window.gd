@@ -5,6 +5,8 @@ class_name VisualSettingsWindow
 
 signal settings_changed(settings: Dictionary)
 
+const GoboShakeLimitsScript = preload("res://scripts/gobo_shake_limits.gd")
+
 const DEFAULT_SETTINGS := {
 	"ambient_multiplier": 0.08,
 	"spot_multiplier": 1.0,
@@ -54,7 +56,7 @@ const DEFAULT_SETTINGS := {
 	"gobo_debug_override_enabled": false,
 	"gobo_debug_comparison_mode": 0,
 	"gobo_debug_shake_enabled": false,
-	"gobo_debug_shake_amplitude_deg": 12.0,
+	"gobo_debug_shake_amplitude_deg": GoboShakeLimitsScript.DEFAULT_DEBUG_SHAKE_AMPLITUDE_DEG,
 	"gobo_debug_shake_frequency_hz": 1.0,
 	"gobo_debug_shake_waveform": 0,
 }
@@ -279,8 +281,8 @@ func _add_debug_gobo_section(parent: VBoxContainer) -> void:
 	_add_toggle_row(parent, "Enable gobo debug overrides", "gobo_debug_override_enabled")
 	_gobo_debug_comparison_option = _add_option_row(parent, "Comparison", ["Rotation + Shake", "Rotation only", "Shake only"], _on_gobo_debug_comparison_mode_selected)
 	_add_toggle_row(parent, "Enable shake", "gobo_debug_shake_enabled")
-	_add_slider_row(parent, "Shake amplitude (deg)", "gobo_debug_shake_amplitude_deg", 0.0, 90.0, 0.1)
-	_add_slider_row(parent, "Shake frequency (Hz)", "gobo_debug_shake_frequency_hz", 0.0, 20.0, 0.05)
+	_add_slider_row(parent, "Shake amplitude (deg)", "gobo_debug_shake_amplitude_deg", 0.0, GoboShakeLimitsScript.MAX_SHAKE_AMPLITUDE_DEG, 0.01)
+	_add_slider_row(parent, "Shake frequency (Hz)", "gobo_debug_shake_frequency_hz", 0.0, GoboShakeLimitsScript.MAX_SHAKE_FREQUENCY_HZ, 0.05)
 	_gobo_debug_waveform_option = _add_option_row(parent, "Shake waveform", ["Triangle", "Sine", "Square"], _on_gobo_debug_waveform_selected)
 
 func _apply_settings_to_controls() -> void:
@@ -352,7 +354,7 @@ func _update_value_labels() -> void:
 	_environment_time_value_label.text = "%.3f" % float(_settings.get("environment_time_of_day", 0.4))
 	_environment_cycle_speed_value_label.text = "%.4f" % float(_settings.get("environment_cycle_speed", 0.02))
 	if _gobo_debug_shake_amplitude_value_label != null:
-		_gobo_debug_shake_amplitude_value_label.text = "%.1f" % float(_settings.get("gobo_debug_shake_amplitude_deg", 12.0))
+		_gobo_debug_shake_amplitude_value_label.text = "%.2f" % float(_settings.get("gobo_debug_shake_amplitude_deg", GoboShakeLimitsScript.DEFAULT_DEBUG_SHAKE_AMPLITUDE_DEG))
 	if _gobo_debug_shake_frequency_value_label != null:
 		_gobo_debug_shake_frequency_value_label.text = "%.2f" % float(_settings.get("gobo_debug_shake_frequency_hz", 1.0))
 

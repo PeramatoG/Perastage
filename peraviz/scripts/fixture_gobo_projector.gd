@@ -30,8 +30,9 @@ const GOBO_APPLIED_STATE_META_KEY: String = "peraviz_gobo_applied_state"
 const GOBO_INDEX_MAX_DEG: float = 360.0
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
 const GOBO_ROTATION_DEBUG_DEFAULT: bool = false
-const GOBO_DEFAULT_SHAKE_AMPLITUDE_DEG: float = 12.0
-const GOBO_DEFAULT_SHAKE_FREQUENCY_HZ: float = 1.0
+const GoboShakeLimitsScript = preload("res://scripts/gobo_shake_limits.gd")
+const GOBO_DEFAULT_SHAKE_AMPLITUDE_DEG: float = GoboShakeLimitsScript.DEFAULT_DEBUG_SHAKE_AMPLITUDE_DEG
+const GOBO_DEFAULT_SHAKE_FREQUENCY_HZ: float = GoboShakeLimitsScript.DEFAULT_DEBUG_SHAKE_FREQUENCY_HZ
 
 const GOBO_DEBUG_COMPARISON_ROTATION_AND_SHAKE: int = 0
 const GOBO_DEBUG_COMPARISON_ROTATION_ONLY: int = 1
@@ -261,7 +262,7 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		var shake_phase: float = float(shake_phase_state.get(wheel_key, 0.0))
 		if current_shake_range_signature != previous_shake_range_signature:
 			shake_phase = 0.0
-		var shake_amplitude_deg: float = max(float(wheel.get("shake_amplitude_deg", controls.get("gobo_shake_amplitude_deg", GOBO_DEFAULT_SHAKE_AMPLITUDE_DEG))), 0.0)
+		var shake_amplitude_deg: float = GoboShakeLimitsScript.clamp_amplitude_deg(float(wheel.get("shake_amplitude_deg", controls.get("gobo_shake_amplitude_deg", GOBO_DEFAULT_SHAKE_AMPLITUDE_DEG))))
 		var shake_frequency_hz: float = _resolve_shake_frequency_hz(native_speed_deg_per_sec, wheel, controls)
 		var shake_waveform: int = GOBO_SHAKE_WAVE_TRIANGLE
 		if debug_override.get("enabled", false):
@@ -269,8 +270,8 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 				shake_amplitude_deg = 0.0
 				shake_frequency_hz = 0.0
 			else:
-				shake_amplitude_deg = max(float(debug_override.get("shake_amplitude_deg", shake_amplitude_deg)), 0.0)
-				shake_frequency_hz = max(float(debug_override.get("shake_frequency_hz", shake_frequency_hz)), 0.0)
+				shake_amplitude_deg = GoboShakeLimitsScript.clamp_amplitude_deg(float(debug_override.get("shake_amplitude_deg", shake_amplitude_deg)))
+				shake_frequency_hz = GoboShakeLimitsScript.clamp_frequency_hz(float(debug_override.get("shake_frequency_hz", shake_frequency_hz)))
 				shake_waveform = int(debug_override.get("shake_waveform", GOBO_SHAKE_WAVE_TRIANGLE))
 		if shake_amplitude_deg > 0.0001 and shake_frequency_hz > 0.0001:
 			shake_phase = wrapf(shake_phase + (shake_frequency_hz * max(delta_sec, 0.0)), 0.0, 1.0)
@@ -303,8 +304,8 @@ func _resolve_debug_rotation_override(controls: Dictionary) -> Dictionary:
 		"enabled": true,
 		"rotation_enabled": rotation_enabled,
 		"shake_enabled": shake_enabled,
-		"shake_amplitude_deg": max(float(controls.get("gobo_debug_shake_amplitude_deg", GOBO_DEFAULT_SHAKE_AMPLITUDE_DEG)), 0.0),
-		"shake_frequency_hz": max(float(controls.get("gobo_debug_shake_frequency_hz", GOBO_DEFAULT_SHAKE_FREQUENCY_HZ)), 0.0),
+		"shake_amplitude_deg": GoboShakeLimitsScript.clamp_amplitude_deg(float(controls.get("gobo_debug_shake_amplitude_deg", GOBO_DEFAULT_SHAKE_AMPLITUDE_DEG))),
+		"shake_frequency_hz": GoboShakeLimitsScript.clamp_frequency_hz(float(controls.get("gobo_debug_shake_frequency_hz", GOBO_DEFAULT_SHAKE_FREQUENCY_HZ))),
 		"shake_waveform": int(clamp(int(controls.get("gobo_debug_shake_waveform", GOBO_SHAKE_WAVE_TRIANGLE)), GOBO_SHAKE_WAVE_TRIANGLE, GOBO_SHAKE_WAVE_SQUARE)),
 	}
 

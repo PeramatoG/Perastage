@@ -1,6 +1,8 @@
 extends RefCounted
 class_name BeamOpticsController
 
+const GoboShakeLimitsScript = preload("res://scripts/gobo_shake_limits.gd")
+
 const DEFAULT_MASTER_OPTICS := {
 	"beam_softness": 0.32,
 	"beam_radial_falloff": 1.25,
@@ -70,7 +72,7 @@ static func BuildGoboControls(controls: Dictionary, visual_settings: Dictionary,
 		gobo_controls["gobo_debug_override_enabled"] = bool(visual_settings.get("gobo_debug_override_enabled", false))
 		gobo_controls["gobo_debug_comparison_mode"] = int(visual_settings.get("gobo_debug_comparison_mode", 0))
 		gobo_controls["gobo_debug_shake_enabled"] = bool(visual_settings.get("gobo_debug_shake_enabled", false))
-		gobo_controls["gobo_debug_shake_amplitude_deg"] = float(visual_settings.get("gobo_debug_shake_amplitude_deg", 12.0))
-		gobo_controls["gobo_debug_shake_frequency_hz"] = float(visual_settings.get("gobo_debug_shake_frequency_hz", 1.0))
+		gobo_controls["gobo_debug_shake_amplitude_deg"] = GoboShakeLimitsScript.clamp_amplitude_deg(float(visual_settings.get("gobo_debug_shake_amplitude_deg", GoboShakeLimitsScript.DEFAULT_DEBUG_SHAKE_AMPLITUDE_DEG)))
+		gobo_controls["gobo_debug_shake_frequency_hz"] = GoboShakeLimitsScript.clamp_frequency_hz(float(visual_settings.get("gobo_debug_shake_frequency_hz", GoboShakeLimitsScript.DEFAULT_DEBUG_SHAKE_FREQUENCY_HZ)))
 		gobo_controls["gobo_debug_shake_waveform"] = int(visual_settings.get("gobo_debug_shake_waveform", 0))
 	return gobo_controls
