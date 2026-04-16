@@ -252,9 +252,13 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 				shake_raw_fine = -1
 		var matched_range: Dictionary = resolved_rotation.get("range", {})
 		var matched_shake_range: Dictionary = resolved_shake.get("range", {})
-		var shake_active: bool = bool(resolved_shake.get("has_range", false))
+		var shake_active: bool = bool(resolved_shake.get("has_range", false)) or range_behavior == GOBO_BEHAVIOR_SHAKE
 		var shake_freq_hz: float = float(resolved_shake.get("shake_frequency_hz", -1.0))
 		var shake_amp_deg: float = float(resolved_shake.get("shake_amplitude_deg", -1.0))
+		if shake_active and shake_freq_hz <= 0.0001:
+			shake_freq_hz = GOBO_MIN_ACTIVE_SHAKE_FREQUENCY_HZ
+		if shake_active and shake_amp_deg <= 0.0001:
+			shake_amp_deg = _resolve_shake_fallback_min_amplitude()
 		_debug_log_runtime_state(
 			item,
 			range_behavior,
@@ -316,8 +320,8 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 			"shake_raw_8bit": shake_raw_8bit,
 			"shake_freq_hz": shake_freq_hz,
 			"shake_amp_deg": shake_amp_deg,
-			"shake_frequency_hz": float(resolved_shake.get("shake_frequency_hz", -1.0)),
-			"shake_amplitude_deg": float(resolved_shake.get("shake_amplitude_deg", -1.0)),
+			"shake_frequency_hz": shake_freq_hz,
+			"shake_amplitude_deg": shake_amp_deg,
 			"shake_matched_range_start": int(matched_shake_range.get("dmx_from", -1)),
 			"shake_matched_range_end": int(matched_shake_range.get("dmx_to", -1)),
 			"index_norm": index_norm,
