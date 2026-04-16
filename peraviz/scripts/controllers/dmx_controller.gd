@@ -86,7 +86,7 @@ func setup_controls() -> void:
 		_dmx_toggle_button.disabled = true
 		_dmx_toggle_button.tooltip_text = "DMX unavailable (build without PERAVIZ_ENABLE_DMX)"
 
-func setup_fixture_runtime(loader: Resource, scene_registry: SceneRegistry) -> void:
+func setup_fixture_runtime(loader: Variant, scene_registry: SceneRegistry) -> void:
 	_dmx_fixture_runtime = DmxFixtureRuntimeScript.new()
 	_dmx_fixture_runtime.configure(loader, scene_registry)
 
