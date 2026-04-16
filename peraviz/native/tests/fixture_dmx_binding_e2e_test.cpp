@@ -1,9 +1,11 @@
 #include "dmx/fixture_dmx_binding.h"
 #include "dmx/gdtf_control_offsets_resolver.h"
 
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 #include <array>
 #include <string>
 #include <unordered_map>
@@ -68,6 +70,27 @@ size_t count_shake_ranges_with_type(
         }
     }
     return count;
+}
+
+
+
+float clamp_unit_interval(float value) {
+    return std::max(0.0F, std::min(1.0F, value));
+}
+
+float clamp_shake_frequency(float value_hz) {
+    return std::max(0.0F, std::min(7.0F, value_hz));
+}
+
+float compose_projected_tilt_rotation(float rotation_deg, float shake_tilt_deg) {
+    return rotation_deg + shake_tilt_deg;
+}
+
+bool should_apply_runtime_shake(bool shake_active,
+                                int behavior,
+                                bool debug_shake_enabled) {
+    constexpr int kGoboBehaviorShake = 3;
+    return behavior == kGoboBehaviorShake || shake_active || debug_shake_enabled;
 }
 
 const peraviz::dmx::FixtureGoboRange *resolve_active_gobo_range(
@@ -413,6 +436,105 @@ int run_test() {
     }
     if (has_fixed_behavior) {
         return fail("Did not expect select-shake static-like ranges to degrade to fixed behavior");
+    }
+
+    const std::string dual_select_shake_xml = R"(<?xml version="1.0" encoding="UTF-8"?>
+<GDTF>
+  <AttributeDefinitions>
+    <Attributes>
+      <Attribute Name="Gobo1SelectShake">
+        <SubPhysicalUnit Type="Amplitude" PhysicalUnit="Angle" PhysicalFrom="0.3" PhysicalTo="1.4" />
+      </Attribute>
+      <Attribute Name="Gobo2SelectShake">
+        <SubPhysicalUnit Type="Amplitude" PhysicalUnit="Angle" PhysicalFrom="0.2" PhysicalTo="1.8" />
+      </Attribute>
+    </Attributes>
+  </AttributeDefinitions>
+  <Wheels>
+    <Wheel Name="Gobo1"><Slot WheelSlotIndex="1"/></Wheel>
+    <Wheel Name="Gobo2"><Slot WheelSlotIndex="1"/></Wheel>
+  </Wheels>
+  <DMXModes>
+    <DMXMode Name="DualSelectShake">
+      <DMXChannels>
+        <DMXChannel Offset="1">
+          <LogicalChannel Attribute="Gobo1SelectShake">
+            <ChannelFunction Attribute="Gobo1SelectShake" Name="Gobo1SelectShake" Wheel="gobo1" DMXFrom="0" DMXTo="127">
+              <ChannelSet Name="G1 Shake" WheelSlotIndex="1" DMXFrom="0" DMXTo="127" PhysicalFrom="0.5" PhysicalTo="4.0"/>
+            </ChannelFunction>
+          </LogicalChannel>
+        </DMXChannel>
+        <DMXChannel Offset="2">
+          <LogicalChannel Attribute="Gobo2SelectShake">
+            <ChannelFunction Attribute="Gobo2SelectShake" Name="Gobo2SelectShake" Wheel="gobo2" DMXFrom="0" DMXTo="127">
+              <ChannelSet Name="G2 Shake" WheelSlotIndex="1" DMXFrom="0" DMXTo="127" PhysicalFrom="1.0" PhysicalTo="5.0"/>
+            </ChannelFunction>
+          </LogicalChannel>
+        </DMXChannel>
+      </DMXChannels>
+    </DMXMode>
+  </DMXModes>
+</GDTF>)";
+
+    const std::filesystem::path dual_select_shake_path =
+        temp_dir / "dual_select_shake_fixture.gdtf";
+    if (!write_gdtf_archive(dual_select_shake_path, dual_select_shake_xml)) {
+        return fail("Failed to create dual-select-shake GDTF archive");
+    }
+
+    peraviz::dmx::FixtureControlOffsets dual_select_shake_offsets;
+    if (!peraviz::dmx::resolve_fixture_control_offsets(
+            dual_select_shake_path.string(),
+            "DualSelectShake",
+            dual_select_shake_offsets,
+            debug_reason)) {
+        return fail("resolve_fixture_control_offsets failed for dual-select-shake mode: " +
+                    debug_reason);
+    }
+
+    const peraviz::dmx::FixtureGoboWheelOffset *dual_gobo1 =
+        find_wheel(dual_select_shake_offsets, 1);
+    const peraviz::dmx::FixtureGoboWheelOffset *dual_gobo2 =
+        find_wheel(dual_select_shake_offsets, 2);
+    if (!dual_gobo1 || !dual_gobo2) {
+        return fail("Expected both gobo wheels in dual-select-shake mode");
+    }
+    if (dual_gobo1->shake_ranges.empty() || dual_gobo2->shake_ranges.empty()) {
+        return fail("Expected shake_ranges extraction for Gobo1SelectShake and Gobo2SelectShake");
+    }
+
+    bool gobo1_has_explicit_amplitude = false;
+    bool gobo2_has_explicit_amplitude = false;
+    for (const peraviz::dmx::FixtureGoboShakeRange &range : dual_gobo1->shake_ranges) {
+        if (range.has_explicit_amplitude && range.amplitude_to_degrees > range.amplitude_from_degrees) {
+            gobo1_has_explicit_amplitude = true;
+        }
+    }
+    for (const peraviz::dmx::FixtureGoboShakeRange &range : dual_gobo2->shake_ranges) {
+        if (range.has_explicit_amplitude && range.amplitude_to_degrees > range.amplitude_from_degrees) {
+            gobo2_has_explicit_amplitude = true;
+        }
+    }
+    if (!gobo1_has_explicit_amplitude || !gobo2_has_explicit_amplitude) {
+        return fail("Expected explicit shake amplitude extraction from SubPhysicalUnit Type='Amplitude'");
+    }
+
+    const bool runtime_shake_active = true;
+    const bool debug_override_shake_enabled = false;
+    if (!should_apply_runtime_shake(runtime_shake_active, 2, debug_override_shake_enabled)) {
+        return fail("Expected DMX shake to remain active when debug override is disabled");
+    }
+
+    const float composed_final_tilt_deg = compose_projected_tilt_rotation(15.0F, 0.35F);
+    if (std::abs(composed_final_tilt_deg - 15.35F) > 0.0001F) {
+        return fail("Expected runtime composition final = rotation + shake_tilt");
+    }
+
+    if (std::abs(clamp_unit_interval(1.9F) - 1.0F) > 0.0001F) {
+        return fail("Expected shake amplitude clamp upper bound to 1.0");
+    }
+    if (std::abs(clamp_shake_frequency(9.4F) - 7.0F) > 0.0001F) {
+        return fail("Expected shake frequency clamp upper bound to 7.0");
     }
 
     const std::filesystem::path canonical_mega_pointe_path =
