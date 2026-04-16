@@ -1,7 +1,7 @@
 extends RefCounted
 class_name StatusPresenter
 
-enum SceneState {
+enum PresenterState {
 	IDLE,
 	LOADING,
 	LOADED,
@@ -32,23 +32,23 @@ func configure(owner: Node,
 	set_render_mode_badge("Volumetric")
 
 func set_scene_state_idle() -> void:
-	_set_status(SceneState.IDLE, "Idle · Load MVR")
+	_set_status(PresenterState.IDLE, "Idle · Load MVR")
 	_set_badge("MVR", "Idle")
 
 func set_scene_state_loading(path: String) -> void:
-	_set_status(SceneState.LOADING, "Loading · %s" % path.get_file())
+	_set_status(PresenterState.LOADING, "Loading · %s" % path.get_file())
 	_set_badge("MVR", "Loading")
 
 func set_scene_state_loaded(node_count: int) -> void:
-	_set_status(SceneState.LOADED, "Loaded · %d nodes" % node_count)
+	_set_status(PresenterState.LOADED, "Loaded · %d nodes" % node_count)
 	_set_badge("MVR", "Loaded")
 
 func set_scene_state_warning_unbound(unbound_count: int) -> void:
-	_set_status(SceneState.WARNING, "Warning · %d fixtures unbound" % unbound_count)
+	_set_status(PresenterState.WARNING, "Warning · %d fixtures unbound" % unbound_count)
 	_set_badge("MVR", "Warning")
 
 func set_scene_state_load_error(message: String) -> void:
-	_set_status(SceneState.WARNING, "Load error")
+	_set_status(PresenterState.WARNING, "Load error")
 	show_toast("Load failed: %s" % message)
 	_set_badge("MVR", "Error")
 
@@ -77,13 +77,13 @@ func _set_status(state: int, text: String) -> void:
 		return
 	_status_label.text = text
 	match state:
-		SceneState.IDLE:
+		PresenterState.IDLE:
 			_status_label.modulate = Color(0.8, 0.82, 0.86)
-		SceneState.LOADING:
+		PresenterState.LOADING:
 			_status_label.modulate = Color(0.95, 0.85, 0.45)
-		SceneState.LOADED:
+		PresenterState.LOADED:
 			_status_label.modulate = Color(0.7, 0.95, 0.7)
-		SceneState.WARNING:
+		PresenterState.WARNING:
 			_status_label.modulate = Color(1.0, 0.75, 0.45)
 
 func _ensure_badges(load_button: Button, show_advanced_controls_toggle: CheckButton) -> void:
