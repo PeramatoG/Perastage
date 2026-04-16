@@ -45,14 +45,13 @@ var _asset_cache := PeravizRuntimeAssetCache.new()
 var _debug_coords_enabled: bool = false
 var _debug_asset_cache_enabled: bool = false
 var _debug_gizmos_root: Node3D
-var _manual_fixture_test_enabled: bool = false
-var _selected_fixture_uuid: String = ""
-var _fixture_manual_values: Dictionary = {}
 var _fixture_emissive_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
 var _fixture_gobo_projector: FixtureGoboProjector = null
-var _updating_fixture_controls: bool = false
+var _ui_controller: UiController
+var _dmx_controller: DmxController
+var _fixture_debug_controller: FixtureDebugController
 var _visual_environment_baseline := {
 	"ambient_light_energy": 0.2,
 	"ambient_light_sky_contribution": 0.0,
@@ -120,23 +119,10 @@ var _visual_settings := {
 	"gobo_debug_shake_waveform": 0,
 }
 
-var _dmx_receiver = null
-var _dmx_toggle_button: Button
-var _dmx_monitor_button: Button
-var _dmx_monitor_window: Window
-var _dmx_timer: Timer
-var _dmx_universe_offset_input: SpinBox
-var _dmx_unbound_preview_label: Label
-var _dmx_controls_panel: PanelContainer
-var _dmx_fixture_runtime = null
-var _last_dmx_tick_msec: int = 0
 
 var _beam_renderers: Dictionary = {}
 var _active_beam_renderer: BeamRendererBase
 var _active_beam_mode: int = -1
-
-const DmxMonitorWindowScript = preload("res://scripts/dmx_monitor_window.gd")
-const DmxFixtureRuntimeScript = preload("res://scripts/dmx_fixture_runtime.gd")
 
 const BeamRendererBaseScript = preload("res://scripts/beam_renderers/beam_renderer_base.gd")
 const LegacyConeBeamRendererScript = preload("res://scripts/beam_renderers/legacy_cone_beam_renderer.gd")
@@ -144,6 +130,9 @@ const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volum
 const FixtureGoboProjectorScript = preload("res://scripts/fixture_gobo_projector.gd")
 const BeamOpticsControllerScript = preload("res://scripts/beam_optics_controller.gd")
 const UiVisibilityPolicyScript = preload("res://scripts/ui/ui_visibility_policy.gd")
+const UiControllerScript = preload("res://scripts/controllers/ui_controller.gd")
+const DmxControllerScript = preload("res://scripts/controllers/dmx_controller.gd")
+const FixtureDebugControllerScript = preload("res://scripts/controllers/fixture_debug_controller.gd")
 
 const SceneImportServiceScript = preload("res://scripts/scene_loading/scene_import_service.gd")
 const NodeFactoryScript = preload("res://scripts/scene_loading/node_factory.gd")
@@ -157,14 +146,6 @@ var _debug_overlay_service := DebugOverlayServiceScript.new()
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
-const MANUAL_DEFAULTS := {
-	"pan": 0.0,
-	"tilt": 0.0,
-	"dimmer": 100.0,
-}
-const DIMMER_PERCENT_MIN: float = 0.0
-const DIMMER_PERCENT_MAX: float = 100.0
-
 const DEFAULT_EMITTER_PHOTOMETRICS := {
 	"luminous_flux": 10000.0,
 	"color_temperature": 6000.0,
@@ -248,35 +229,61 @@ const ENVIRONMENT_QUALITY_PRESETS := {
 func _ready() -> void:
 	_apply_imported_content_scale()
 	_scene_registry.configure(proxies_root)
-	load_button.pressed.connect(_on_load_pressed)
-	picker.file_selected.connect(_on_file_selected)
 	manual_fixture_toggle.toggled.connect(_on_manual_fixture_toggle)
-	fixture_list.item_selected.connect(_on_fixture_list_item_selected)
-	pan_slider.value_changed.connect(_on_pan_slider_changed)
-	tilt_slider.value_changed.connect(_on_tilt_slider_changed)
-	dimmer_slider.value_changed.connect(_on_dimmer_slider_changed)
-	pan_value_input.value_changed.connect(_on_pan_input_changed)
-	tilt_value_input.value_changed.connect(_on_tilt_input_changed)
-	dimmer_value_input.value_changed.connect(_on_dimmer_input_changed)
-	pan_min_input.value_changed.connect(_on_limit_changed)
-	pan_max_input.value_changed.connect(_on_limit_changed)
-	tilt_min_input.value_changed.connect(_on_limit_changed)
-	tilt_max_input.value_changed.connect(_on_limit_changed)
-	dimmer_min_input.value_changed.connect(_on_limit_changed)
-	dimmer_max_input.value_changed.connect(_on_limit_changed)
-	quick_reset_button.pressed.connect(_on_quick_reset_pressed)
-	visual_settings_button.pressed.connect(_on_visual_settings_pressed)
 	show_advanced_controls_toggle.toggled.connect(_on_show_advanced_controls_toggled)
 	if visual_settings_window != null and visual_settings_window.has_signal("settings_changed"):
 		visual_settings_window.connect("settings_changed", Callable(self, "_on_visual_settings_changed"))
 	else:
 		push_warning("VisualSettingsWindow is missing signal 'settings_changed'; live visual updates disabled.")
+	_ui_controller = UiControllerScript.new()
+	_ui_controller.configure(
+		load_button,
+		visual_settings_button,
+		picker,
+		Callable(self, "_on_file_selected"),
+		Callable(self, "_open_visual_settings_window")
+	)
+	_fixture_debug_controller = FixtureDebugControllerScript.new()
+	_fixture_debug_controller.configure(
+		self,
+		_scene_registry,
+		camera,
+		{
+			"manual_fixture_toggle": manual_fixture_toggle,
+			"fixture_debug_panel": fixture_debug_panel,
+			"fixture_list": fixture_list,
+			"fixture_selected_label": fixture_selected_label,
+			"fixture_axis_label": fixture_axis_label,
+			"fixture_emitter_label": fixture_emitter_label,
+			"pan_min_input": pan_min_input,
+			"pan_max_input": pan_max_input,
+			"pan_value_input": pan_value_input,
+			"tilt_min_input": tilt_min_input,
+			"tilt_max_input": tilt_max_input,
+			"tilt_value_input": tilt_value_input,
+			"dimmer_min_input": dimmer_min_input,
+			"dimmer_max_input": dimmer_max_input,
+			"dimmer_value_input": dimmer_value_input,
+			"pan_slider": pan_slider,
+			"tilt_slider": tilt_slider,
+			"dimmer_slider": dimmer_slider,
+			"quick_reset_button": quick_reset_button,
+		},
+		Callable(self, "_resolve_fixture_uuid_from_node"),
+		Callable(self, "_apply_fixture_controls_from_debug")
+	)
+	_dmx_controller = DmxControllerScript.new()
+	_dmx_controller.configure(
+		self,
+		Callable(self, "_resolve_dmx_controls_host"),
+		Callable(self, "_apply_dmx_controls_to_fixture")
+	)
 	picker.access = FileDialog.ACCESS_FILESYSTEM
 	status_label.text = "Select a .mvr file"
 	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
 	_debug_asset_cache_enabled = bool(ProjectSettings.get_setting("peraviz_debug_asset_cache", false))
-	_manual_fixture_test_enabled = _read_manual_fixture_test_setting()
-	manual_fixture_toggle.button_pressed = _manual_fixture_test_enabled
+	var manual_fixture_test_enabled: bool = _read_manual_fixture_test_setting()
+	_fixture_debug_controller.set_manual_fixture_test_enabled(manual_fixture_test_enabled)
 	show_advanced_controls_toggle.button_pressed = UiVisibilityPolicyScript.is_advanced_controls_enabled()
 	_refresh_ui_module_visibility()
 	_asset_cache.configure_debug_logging(_debug_asset_cache_enabled, 100)
@@ -484,7 +491,7 @@ func _update_beam_for_light(light: SpotLight3D, beam_params: Dictionary) -> void
 	_active_beam_renderer.ensure_beam(light)
 	_active_beam_renderer.update_beam(light, beam_params)
 
-func _on_visual_settings_pressed() -> void:
+func _open_visual_settings_window() -> void:
 	if visual_settings_window != null and visual_settings_window.has_method("popup_settings"):
 		visual_settings_window.call("popup_settings")
 	else:
@@ -492,9 +499,6 @@ func _on_visual_settings_pressed() -> void:
 
 func _on_visual_settings_changed(settings: Dictionary) -> void:
 	_apply_visual_settings(settings)
-
-func _on_load_pressed() -> void:
-	picker.popup_centered_ratio(0.7)
 
 func _on_file_selected(path: String) -> void:
 	_clear_scene()
@@ -523,8 +527,7 @@ func _on_file_selected(path: String) -> void:
 	)
 
 func _on_manual_fixture_toggle(enabled: bool) -> void:
-	_manual_fixture_test_enabled = enabled
-	ProjectSettings.set_setting("peraviz_manual_fixture_test", _manual_fixture_test_enabled)
+	ProjectSettings.set_setting("peraviz_manual_fixture_test", enabled)
 	_refresh_fixture_debug_panel()
 
 func _on_show_advanced_controls_toggled(enabled: bool) -> void:
@@ -540,12 +543,6 @@ func _refresh_ui_module_visibility() -> void:
 		debug_module.visible = UiVisibilityPolicyScript.is_module_visible(UiVisibilityPolicyScript.MODULE_DEBUG)
 	if show_advanced_controls_toggle != null:
 		show_advanced_controls_toggle.button_pressed = UiVisibilityPolicyScript.is_advanced_controls_enabled()
-
-func _on_fixture_list_item_selected(index: int) -> void:
-	if index < 0 or index >= fixture_list.get_item_count():
-		return
-	var fixture_uuid: String = fixture_list.get_item_metadata(index)
-	_select_fixture_by_uuid(fixture_uuid, "list")
 
 func _unhandled_input(event: InputEvent) -> void:
 	_sync_selection_state("input")
@@ -564,10 +561,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	if _manual_fixture_test_enabled and event is InputEventMouseButton:
+	if _is_manual_fixture_test_enabled() and event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
 		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
-			_try_select_fixture_from_mouse(mouse_event.position)
+			_fixture_debug_controller.try_select_fixture_from_mouse(mouse_event.position)
 			get_viewport().set_input_as_handled()
 
 
@@ -1195,46 +1192,7 @@ func _read_manual_fixture_test_setting() -> bool:
 	return OS.get_cmdline_args().has(MANUAL_TEST_FLAG)
 
 func _populate_fixture_list() -> void:
-	fixture_list.clear()
-	for fixture_uuid in _scene_registry.list_fixture_uuids():
-		var index: int = fixture_list.get_item_count()
-		fixture_list.add_item(fixture_uuid)
-		fixture_list.set_item_metadata(index, fixture_uuid)
-	if not _selected_fixture_uuid.is_empty():
-		var selected_index: int = _find_fixture_list_index(_selected_fixture_uuid)
-		if selected_index >= 0:
-			fixture_list.select(selected_index)
-
-func _find_fixture_list_index(fixture_uuid: String) -> int:
-	for index in range(fixture_list.get_item_count()):
-		var list_uuid: String = fixture_list.get_item_metadata(index)
-		if list_uuid == fixture_uuid:
-			return index
-	return -1
-
-func _try_select_fixture_from_mouse(mouse_position: Vector2) -> void:
-	var world_3d: World3D = get_world_3d()
-	if world_3d == null:
-		return
-
-	var query := PhysicsRayQueryParameters3D.create(
-		camera.project_ray_origin(mouse_position),
-		camera.project_ray_origin(mouse_position) + camera.project_ray_normal(mouse_position) * 1000.0
-	)
-	query.collide_with_areas = false
-	query.collide_with_bodies = true
-	var result: Dictionary = world_3d.direct_space_state.intersect_ray(query)
-	if result.is_empty():
-		return
-
-	var collider: Object = result.get("collider")
-	if collider == null or not (collider is Node):
-		return
-
-	var fixture_uuid: String = _resolve_fixture_uuid_from_node(collider as Node)
-	if fixture_uuid.is_empty():
-		return
-	_select_fixture_by_uuid(fixture_uuid, "raycast")
+	_fixture_debug_controller.populate_fixture_list()
 
 func _resolve_fixture_uuid_from_node(node: Node) -> String:
 	return _fixture_binding_service.resolve_fixture_uuid_from_node(node)
@@ -1269,193 +1227,25 @@ func _attach_pick_collider_to_mesh(mesh_instance: MeshInstance3D, fixture_uuid: 
 	collision.position = mesh_bounds.get_center()
 	static_body.add_child(collision)
 
-func _select_fixture_by_uuid(fixture_uuid: String, source: String) -> void:
-	if fixture_uuid.is_empty() or not _scene_registry.has_fixture(fixture_uuid):
-		return
-	_selected_fixture_uuid = fixture_uuid
-	_ensure_fixture_manual_values(fixture_uuid)
-	var selected_index: int = _find_fixture_list_index(fixture_uuid)
-	if selected_index >= 0:
-		fixture_list.select(selected_index)
-	print("[PeravizFixtureTest] selected uuid=", fixture_uuid, " source=", source)
-	_apply_selected_fixture_controls("select")
-	_refresh_fixture_debug_panel()
-
 func _clear_selected_fixture(reason: String) -> void:
-	if _selected_fixture_uuid.is_empty():
-		_refresh_fixture_debug_panel()
-		return
-	print("[PeravizFixtureTest] clear selection uuid=", _selected_fixture_uuid, " reason=", reason)
-	_selected_fixture_uuid = ""
-	fixture_list.deselect_all()
-	_refresh_fixture_debug_panel()
+	_fixture_debug_controller.clear_selected_fixture(reason)
 
 func _sync_selection_state(reason: String) -> void:
-	if _selected_fixture_uuid.is_empty():
-		_refresh_fixture_debug_panel()
-		return
-	if _scene_registry.has_fixture(_selected_fixture_uuid):
-		_refresh_fixture_debug_panel()
-		return
-	_clear_selected_fixture(reason)
+	_fixture_debug_controller.sync_selection_state(reason)
 
 func _refresh_fixture_debug_panel() -> void:
-	manual_fixture_toggle.button_pressed = _manual_fixture_test_enabled
-	fixture_debug_panel.visible = _manual_fixture_test_enabled
-	if not _manual_fixture_test_enabled:
-		return
+	_fixture_debug_controller.refresh_fixture_debug_panel()
 
-	var selected_text: String = "Selected fixture: <none>"
-	var axis_text: String = "Axis anchors: 0"
-	var emitter_text: String = "Emitter anchors: 0"
-	if not _selected_fixture_uuid.is_empty() and _scene_registry.has_fixture(_selected_fixture_uuid):
-		selected_text = "Selected fixture: %s" % _selected_fixture_uuid
-		var axis_anchors: Variant = _scene_registry.get_anchor(_selected_fixture_uuid, "axis")
-		var emitter_anchors: Variant = _scene_registry.get_anchor(_selected_fixture_uuid, "emitters")
-		axis_text = "Axis anchors: %d" % _count_valid_nodes(axis_anchors)
-		emitter_text = "Emitter anchors: %d" % _count_valid_nodes(emitter_anchors)
+func _is_manual_fixture_test_enabled() -> bool:
+	return manual_fixture_toggle.button_pressed
 
-	fixture_selected_label.text = selected_text
-	fixture_axis_label.text = axis_text
-	fixture_emitter_label.text = emitter_text
-	_sync_controls_from_selected_fixture()
-
-func _ensure_fixture_manual_values(fixture_uuid: String) -> void:
-	if fixture_uuid.is_empty():
-		return
-	if _fixture_manual_values.has(fixture_uuid):
-		return
-	_fixture_manual_values[fixture_uuid] = {
-		"pan": float(MANUAL_DEFAULTS["pan"]),
-		"tilt": float(MANUAL_DEFAULTS["tilt"]),
-		"dimmer": float(MANUAL_DEFAULTS["dimmer"]),
-	}
-
-func _sync_controls_from_selected_fixture() -> void:
-	if not _manual_fixture_test_enabled:
-		return
-
-	_sync_slider_ranges_from_limits()
-	var values: Dictionary = _get_selected_fixture_values()
-	_updating_fixture_controls = true
-	pan_slider.value = float(values.get("pan", MANUAL_DEFAULTS["pan"]))
-	tilt_slider.value = float(values.get("tilt", MANUAL_DEFAULTS["tilt"]))
-	dimmer_slider.value = float(values.get("dimmer", MANUAL_DEFAULTS["dimmer"]))
-	pan_value_input.value = pan_slider.value
-	tilt_value_input.value = tilt_slider.value
-	dimmer_value_input.value = dimmer_slider.value
-	var controls_enabled: bool = not _selected_fixture_uuid.is_empty() and _scene_registry.has_fixture(_selected_fixture_uuid)
-	pan_slider.editable = controls_enabled
-	tilt_slider.editable = controls_enabled
-	dimmer_slider.editable = controls_enabled
-	pan_value_input.editable = controls_enabled
-	tilt_value_input.editable = controls_enabled
-	dimmer_value_input.editable = controls_enabled
-	quick_reset_button.disabled = not controls_enabled
-	_updating_fixture_controls = false
-
-func _sync_slider_ranges_from_limits() -> void:
-	var pan_min: float = min(pan_min_input.value, pan_max_input.value)
-	var pan_max: float = max(pan_min_input.value, pan_max_input.value)
-	var tilt_min: float = min(tilt_min_input.value, tilt_max_input.value)
-	var tilt_max: float = max(tilt_min_input.value, tilt_max_input.value)
-	var dimmer_min: float = DIMMER_PERCENT_MIN
-	var dimmer_max: float = DIMMER_PERCENT_MAX
-	dimmer_min_input.value = dimmer_min
-	dimmer_max_input.value = dimmer_max
-
-	pan_slider.min_value = pan_min
-	pan_slider.max_value = pan_max
-	tilt_slider.min_value = tilt_min
-	tilt_slider.max_value = tilt_max
-	dimmer_slider.min_value = dimmer_min
-	dimmer_slider.max_value = dimmer_max
-
-	pan_value_input.min_value = pan_min
-	pan_value_input.max_value = pan_max
-	tilt_value_input.min_value = tilt_min
-	tilt_value_input.max_value = tilt_max
-	dimmer_value_input.min_value = dimmer_min
-	dimmer_value_input.max_value = dimmer_max
-
-func _get_selected_fixture_values() -> Dictionary:
-	if _selected_fixture_uuid.is_empty():
-		return MANUAL_DEFAULTS.duplicate(true)
-	_ensure_fixture_manual_values(_selected_fixture_uuid)
-	return _fixture_manual_values.get(_selected_fixture_uuid, MANUAL_DEFAULTS.duplicate(true))
-
-func _store_selected_fixture_values(values: Dictionary) -> void:
-	if _selected_fixture_uuid.is_empty():
-		return
-	_ensure_fixture_manual_values(_selected_fixture_uuid)
-	_fixture_manual_values[_selected_fixture_uuid] = {
-		"pan": float(values.get("pan", MANUAL_DEFAULTS["pan"])),
-		"tilt": float(values.get("tilt", MANUAL_DEFAULTS["tilt"])),
-		"dimmer": clamp(float(values.get("dimmer", MANUAL_DEFAULTS["dimmer"])), DIMMER_PERCENT_MIN, DIMMER_PERCENT_MAX),
-	}
-
-func _on_pan_slider_changed(value: float) -> void:
-	if _updating_fixture_controls:
-		return
-	pan_value_input.value = value
-	_update_selected_fixture_value("pan", value)
-
-func _on_tilt_slider_changed(value: float) -> void:
-	if _updating_fixture_controls:
-		return
-	tilt_value_input.value = value
-	_update_selected_fixture_value("tilt", value)
-
-func _on_dimmer_slider_changed(value: float) -> void:
-	if _updating_fixture_controls:
-		return
-	dimmer_value_input.value = value
-	_update_selected_fixture_value("dimmer", value)
-
-func _on_pan_input_changed(value: float) -> void:
-	if _updating_fixture_controls:
-		return
-	pan_slider.value = value
-
-func _on_tilt_input_changed(value: float) -> void:
-	if _updating_fixture_controls:
-		return
-	tilt_slider.value = value
-
-func _on_dimmer_input_changed(value: float) -> void:
-	if _updating_fixture_controls:
-		return
-	dimmer_slider.value = value
-
-func _on_limit_changed(_value: float) -> void:
-	_sync_controls_from_selected_fixture()
-
-func _on_quick_reset_pressed() -> void:
-	if _selected_fixture_uuid.is_empty() or not _scene_registry.has_fixture(_selected_fixture_uuid):
-		return
-	_store_selected_fixture_values(MANUAL_DEFAULTS)
-	_sync_controls_from_selected_fixture()
-	_apply_selected_fixture_controls("quick_reset")
-
-func _update_selected_fixture_value(key: String, value: float) -> void:
-	if _selected_fixture_uuid.is_empty() or not _scene_registry.has_fixture(_selected_fixture_uuid):
-		return
-	var values: Dictionary = _get_selected_fixture_values()
-	values[key] = value
-	_store_selected_fixture_values(values)
-	_apply_selected_fixture_controls("control_%s" % key)
-
-func _apply_selected_fixture_controls(reason: String) -> void:
-	if _selected_fixture_uuid.is_empty() or not _scene_registry.has_fixture(_selected_fixture_uuid):
-		return
-	var values: Dictionary = _get_selected_fixture_values()
-	var pan: float = float(values.get("pan", MANUAL_DEFAULTS["pan"]))
-	var tilt: float = float(values.get("tilt", MANUAL_DEFAULTS["tilt"]))
-	var dimmer: float = float(values.get("dimmer", MANUAL_DEFAULTS["dimmer"]))
-
-	_apply_pan_tilt_to_fixture(_selected_fixture_uuid, pan, tilt)
-	_apply_dimmer_feedback_to_fixture(_selected_fixture_uuid, dimmer)
-	_print_emitter_debug_vectors(_selected_fixture_uuid, reason, pan, tilt, dimmer)
+func _apply_fixture_controls_from_debug(fixture_uuid: String, values: Dictionary, reason: String) -> void:
+	var pan: float = float(values.get("pan", 0.0))
+	var tilt: float = float(values.get("tilt", 0.0))
+	var dimmer: float = float(values.get("dimmer", 100.0))
+	_apply_pan_tilt_to_fixture(fixture_uuid, pan, tilt)
+	_apply_dimmer_feedback_to_fixture(fixture_uuid, dimmer)
+	_print_emitter_debug_vectors(fixture_uuid, reason, pan, tilt, dimmer)
 
 func _apply_pan_tilt_to_fixture(fixture_uuid: String, pan_degrees: float, tilt_degrees: float) -> void:
 	_apply_pan_tilt_components_to_fixture(fixture_uuid, true, pan_degrees, true, tilt_degrees)
@@ -1516,7 +1306,7 @@ func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) 
 		_apply_pan_tilt_components_to_fixture(fixture_uuid, has_pan, pan_degrees, has_tilt, tilt_degrees)
 
 	if _has_lighting_controls(controls):
-		var dimmer_percent: float = float(MANUAL_DEFAULTS["dimmer"])
+		var dimmer_percent: float = 100.0
 		var dimmer_controls: Dictionary = _resolve_dimmer_controls(controls)
 		if bool(dimmer_controls.get("has_dimmer", false)):
 			dimmer_percent = clamp(float(dimmer_controls.get("dimmer_norm", 0.0)), 0.0, 1.0) * 100.0
@@ -2385,66 +2175,7 @@ func _focus_loaded_scene() -> void:
 
 
 func _setup_dmx_controls() -> void:
-	if _dmx_toggle_button != null and is_instance_valid(_dmx_toggle_button):
-		return
-	var controls_host: Control = _resolve_dmx_controls_host()
-	if controls_host == null:
-		return
-	_dmx_controls_panel = PanelContainer.new()
-	_dmx_controls_panel.name = "DMXControlsPanel"
-	controls_host.add_child(_dmx_controls_panel)
-	var controls_margin := MarginContainer.new()
-	controls_margin.add_theme_constant_override("margin_left", 8)
-	controls_margin.add_theme_constant_override("margin_top", 8)
-	controls_margin.add_theme_constant_override("margin_right", 8)
-	controls_margin.add_theme_constant_override("margin_bottom", 8)
-	_dmx_controls_panel.add_child(controls_margin)
-	var controls_vbox := VBoxContainer.new()
-	controls_margin.add_child(controls_vbox)
-	var controls_header := Label.new()
-	controls_header.text = "DMX"
-	controls_vbox.add_child(controls_header)
-	var controls_row := HBoxContainer.new()
-	controls_vbox.add_child(controls_row)
-	_dmx_toggle_button = Button.new()
-	_dmx_toggle_button.text = "DMX OFF"
-	_dmx_toggle_button.toggle_mode = true
-	controls_row.add_child(_dmx_toggle_button)
-	_dmx_toggle_button.pressed.connect(_on_dmx_toggle_pressed)
-	_update_dmx_toggle_color(false, false)
-
-	_dmx_monitor_button = Button.new()
-	_dmx_monitor_button.text = "DMX Monitor"
-	_dmx_monitor_button.disabled = true
-	controls_row.add_child(_dmx_monitor_button)
-	_dmx_monitor_button.pressed.connect(_on_dmx_monitor_pressed)
-
-	_dmx_universe_offset_input = SpinBox.new()
-	_dmx_universe_offset_input.custom_minimum_size = Vector2(90, 24)
-	_dmx_universe_offset_input.min_value = -32
-	_dmx_universe_offset_input.max_value = 32
-	_dmx_universe_offset_input.step = 1
-	_dmx_universe_offset_input.value = -1
-	controls_row.add_child(_dmx_universe_offset_input)
-	_dmx_universe_offset_input.value_changed.connect(_on_dmx_universe_offset_changed)
-
-	_dmx_unbound_preview_label = Label.new()
-	_dmx_unbound_preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_dmx_unbound_preview_label.visible = false
-	controls_vbox.add_child(_dmx_unbound_preview_label)
-
-	_dmx_timer = Timer.new()
-	_dmx_timer.wait_time = 0.03
-	_dmx_timer.autostart = true
-	add_child(_dmx_timer)
-	_dmx_timer.timeout.connect(_on_dmx_timer_timeout)
-
-	if ClassDB.class_exists("PeravizDmxReceiver"):
-		_dmx_receiver = ClassDB.instantiate("PeravizDmxReceiver")
-		_dmx_monitor_button.disabled = false
-	else:
-		_dmx_toggle_button.disabled = true
-		_dmx_toggle_button.tooltip_text = "DMX unavailable (build without PERAVIZ_ENABLE_DMX)"
+	_dmx_controller.setup_controls()
 
 func _resolve_dmx_controls_host() -> Control:
 	if dmx_controls_mount != null and is_instance_valid(dmx_controls_mount):
@@ -2472,103 +2203,11 @@ func bridge_setup_dmx_controls() -> void:
 	_setup_dmx_controls()
 
 func _setup_dmx_fixture_runtime() -> void:
-	_dmx_fixture_runtime = DmxFixtureRuntimeScript.new()
-	_dmx_fixture_runtime.configure(_loader, _scene_registry)
+	_dmx_controller.setup_fixture_runtime(_loader, _scene_registry)
 
 func _refresh_dmx_fixture_bindings() -> void:
-	if _dmx_fixture_runtime == null:
-		return
-	var summary: Dictionary = _dmx_fixture_runtime.rebuild(int(_dmx_universe_offset_input.value))
-	var unbound_preview: PackedStringArray = summary.get("unbound_preview", PackedStringArray())
-	_dmx_unbound_preview_label.visible = unbound_preview.size() > 0
-	_dmx_unbound_preview_label.text = "Unbound fixtures:\n" + "\n".join(unbound_preview)
-
-func _on_dmx_universe_offset_changed(_value: float) -> void:
-	_refresh_dmx_fixture_bindings()
-
-func _on_dmx_toggle_pressed() -> void:
-	if _dmx_receiver == null:
-		_dmx_toggle_button.button_pressed = false
-		return
-	if _dmx_toggle_button.button_pressed:
-		# Defensive restart: ensure stale sockets are released before retrying bind.
-		_dmx_receiver.stop()
-		var started: bool = _dmx_receiver.start("0.0.0.0", 6454)
-		if not started:
-			_dmx_receiver.stop()
-			started = _dmx_receiver.start("0.0.0.0", 6454)
-		if not started:
-			_dmx_toggle_button.button_pressed = false
-			_dmx_toggle_button.text = "DMX OFF"
-			_update_dmx_toggle_color(false, false)
-			var startup_error: String = ""
-			if _dmx_receiver.has_method("get_last_error"):
-				startup_error = str(_dmx_receiver.get_last_error())
-			if startup_error.is_empty():
-				_dmx_toggle_button.tooltip_text = "DMX failed to start"
-			else:
-				_dmx_toggle_button.tooltip_text = "DMX failed to start: %s" % startup_error
-			return
-		_dmx_toggle_button.text = "DMX ON"
-		_dmx_toggle_button.tooltip_text = ""
-	else:
-		_dmx_receiver.stop()
-		_dmx_toggle_button.text = "DMX OFF"
-		_update_dmx_toggle_color(false, false)
-		_refresh_dmx_monitor_window(false)
-
-func _on_dmx_monitor_pressed() -> void:
-	if _dmx_receiver == null:
-		return
-	if _dmx_monitor_window == null or not is_instance_valid(_dmx_monitor_window):
-		_dmx_monitor_window = DmxMonitorWindowScript.new()
-		add_child(_dmx_monitor_window)
-		_dmx_monitor_window.configure(_dmx_receiver)
-	_dmx_monitor_window.popup_centered_ratio(0.75)
-	_refresh_dmx_monitor_window(_dmx_receiver.is_running())
-
-func _on_dmx_timer_timeout() -> void:
-	if _dmx_receiver == null:
-		return
-	if not _dmx_receiver.is_running():
-		if _dmx_toggle_button != null and not _dmx_toggle_button.button_pressed:
-			_update_dmx_toggle_color(false, false)
-		_refresh_dmx_monitor_window(false)
-		return
-
-	var now_msec: int = Time.get_ticks_msec()
-	var delta_sec: float = 0.0
-	if _last_dmx_tick_msec > 0:
-		delta_sec = max(float(now_msec - _last_dmx_tick_msec) * 0.001, 0.0)
-	_last_dmx_tick_msec = now_msec
-
-	if _dmx_fixture_runtime != null:
-		_dmx_fixture_runtime.apply_dmx(_dmx_receiver, func(fixture_uuid: String, controls: Dictionary) -> void:
-			controls["frame_delta_sec"] = delta_sec
-			_apply_dmx_controls_to_fixture(fixture_uuid, controls)
-		)
-
-	var stats: Dictionary = _dmx_receiver.get_stats()
-	var active_universes: PackedInt32Array = _dmx_receiver.get_active_universes(2000)
-	var last_ms: int = int(stats.get("last_packet_ms_ago", -1))
-	var receiving: bool = active_universes.size() > 0 and last_ms >= 0 and last_ms <= 2000
-	_update_dmx_toggle_color(true, receiving)
-	_refresh_dmx_monitor_window(true)
-
-
-func _update_dmx_toggle_color(enabled: bool, receiving_signal: bool) -> void:
-	if _dmx_toggle_button == null:
-		return
-	if not enabled:
-		_dmx_toggle_button.modulate = Color(0.75, 0.75, 0.75)
-		return
-	_dmx_toggle_button.modulate = Color(0.25, 0.95, 0.25) if receiving_signal else Color(0.95, 0.25, 0.25)
-
-func _refresh_dmx_monitor_window(running: bool) -> void:
-	if _dmx_monitor_window == null or not is_instance_valid(_dmx_monitor_window):
-		return
-	_dmx_monitor_window.refresh(running)
+	_dmx_controller.refresh_fixture_bindings()
 
 func _exit_tree() -> void:
-	if _dmx_receiver != null:
-		_dmx_receiver.stop()
+	if _dmx_controller != null:
+		_dmx_controller.exit_tree()
