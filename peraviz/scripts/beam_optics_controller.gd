@@ -66,4 +66,11 @@ static func BuildGoboControls(controls: Dictionary, visual_settings: Dictionary,
 	gobo_controls["prefer_native_fog_projector"] = bool(visual_settings.get("use_native_fog_projector_gobos", true))
 	gobo_controls["gobo_scale"] = float(visual_settings.get("gobo_scale", merged_defaults.get("gobo_scale", 1.0)))
 	gobo_controls["gobo_rotation_deg"] = float(visual_settings.get("gobo_rotation_deg", merged_defaults.get("gobo_rotation_deg", 0.0)))
+	if OS.is_debug_build():
+		gobo_controls["gobo_debug_override_enabled"] = bool(visual_settings.get("gobo_debug_override_enabled", false))
+		gobo_controls["gobo_debug_comparison_mode"] = int(visual_settings.get("gobo_debug_comparison_mode", 0))
+		gobo_controls["gobo_debug_shake_enabled"] = bool(visual_settings.get("gobo_debug_shake_enabled", false))
+		gobo_controls["gobo_debug_shake_amplitude_deg"] = float(visual_settings.get("gobo_debug_shake_amplitude_deg", 12.0))
+		gobo_controls["gobo_debug_shake_frequency_hz"] = float(visual_settings.get("gobo_debug_shake_frequency_hz", 1.0))
+		gobo_controls["gobo_debug_shake_waveform"] = int(visual_settings.get("gobo_debug_shake_waveform", 0))
 	return gobo_controls

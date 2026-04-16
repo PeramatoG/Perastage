@@ -7,10 +7,11 @@ const GOBO_BEHAVIOR_ROTATION: int = 2
 const GOBO_BEHAVIOR_SHAKE: int = 3
 const GOBO_SHAKE_CONTROL_TYPE_SAME_CHANNEL_SELECT: int = 0
 const GOBO_SHAKE_CONTROL_TYPE_DEDICATED_CHANNEL: int = 1
-const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MIN_DEG: float = 0.5
-const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MAX_DEG: float = 3.0
-const GOBO_MAX_SHAKE_FREQUENCY_HZ: float = 120.0
-const GOBO_MAX_SHAKE_AMPLITUDE_DEG: float = 45.0
+const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MIN_DEG: float = 0.1
+const GOBO_DEFAULT_SHAKE_FALLBACK_AMPLITUDE_MAX_DEG: float = 0.8
+const GOBO_MIN_ACTIVE_SHAKE_FREQUENCY_HZ: float = 0.05
+const GOBO_MAX_SHAKE_FREQUENCY_HZ: float = 7.0
+const GOBO_MAX_SHAKE_AMPLITUDE_DEG: float = 1.0
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
 
 const DmxGoboRangeResolverScript = preload("res://scripts/dmx_gobo_range_resolver.gd")
@@ -118,7 +119,6 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 		var shake_raw_8bit: int = -1
 		var shake_raw_coarse: int = -1
 		var shake_raw_fine: int = -1
-		var shake_control_norm: float = -1.0
 
 		if has_index_channel and supports_index:
 			var index_value: Dictionary = control_reader.read_optional_control_value(
@@ -214,39 +214,51 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 				prefer_rotation_channel_ranges
 			)
 		if supports_shake and not shake_ranges.is_empty():
+			var slot_index_for_shake: int = int(active_range.get("slot_index", -1))
+			var select_shake_raw_8bit: int = raw_8bit
+			var select_shake_norm: float = normalizer.norm_from_active_range(raw_8bit, active_range)
+			var resolved_same_channel_shake: Dictionary = _resolve_same_channel_shake_runtime(
+				select_shake_raw_8bit,
+				slot_index_for_shake,
+				shake_ranges
+			)
+			if not bool(resolved_same_channel_shake.get("has_range", false)):
+				resolved_same_channel_shake = _resolve_shake_runtime(
+					select_shake_raw_8bit,
+					select_shake_norm,
+					shake_ranges,
+					mode_master_value_8bit,
+					false
+				)
+			var resolved_dedicated_shake: Dictionary = {}
 			if rotation_source_channel == "rotation":
+				resolved_dedicated_shake = _resolve_dedicated_channel_shake_runtime(
+					rotation_raw_8bit,
+					rotation_control_norm,
+					shake_ranges,
+					mode_master_value_8bit
+				)
+			if bool(resolved_dedicated_shake.get("has_range", false)):
+				resolved_shake = resolved_dedicated_shake
 				shake_source_channel = "rotation"
 				shake_raw_8bit = rotation_raw_8bit
 				shake_raw_coarse = rotation_raw_coarse
 				shake_raw_fine = rotation_raw_fine
-				shake_control_norm = rotation_control_norm
-				resolved_shake = _resolve_shake_runtime(
-					shake_raw_8bit,
-					shake_control_norm,
-					shake_ranges,
-					mode_master_value_8bit,
-					true
-				)
-			else:
+			elif bool(resolved_same_channel_shake.get("has_range", false)):
+				resolved_shake = resolved_same_channel_shake
 				shake_source_channel = "select"
-				shake_raw_8bit = raw_8bit
+				shake_raw_8bit = select_shake_raw_8bit
 				shake_raw_coarse = raw_8bit
 				shake_raw_fine = -1
-				shake_control_norm = normalizer.norm_from_active_range(raw_8bit, active_range)
-				resolved_shake = _resolve_same_channel_shake_runtime(shake_raw_8bit, int(active_range.get("slot_index", -1)), shake_ranges)
-				if not bool(resolved_shake.get("has_range", false)):
-					resolved_shake = _resolve_shake_runtime(
-						shake_raw_8bit,
-						shake_control_norm,
-						shake_ranges,
-						mode_master_value_8bit,
-						false
-					)
 		var matched_range: Dictionary = resolved_rotation.get("range", {})
 		var matched_shake_range: Dictionary = resolved_shake.get("range", {})
-		var shake_active: bool = bool(resolved_shake.get("has_range", false))
+		var shake_active: bool = bool(resolved_shake.get("has_range", false)) or range_behavior == GOBO_BEHAVIOR_SHAKE
 		var shake_freq_hz: float = float(resolved_shake.get("shake_frequency_hz", -1.0))
 		var shake_amp_deg: float = float(resolved_shake.get("shake_amplitude_deg", -1.0))
+		if shake_active and shake_freq_hz <= 0.0001:
+			shake_freq_hz = GOBO_MIN_ACTIVE_SHAKE_FREQUENCY_HZ
+		if shake_active and shake_amp_deg <= 0.0001:
+			shake_amp_deg = _resolve_shake_fallback_min_amplitude()
 		_debug_log_runtime_state(
 			item,
 			range_behavior,
@@ -308,8 +320,8 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 			"shake_raw_8bit": shake_raw_8bit,
 			"shake_freq_hz": shake_freq_hz,
 			"shake_amp_deg": shake_amp_deg,
-			"shake_frequency_hz": float(resolved_shake.get("shake_frequency_hz", -1.0)),
-			"shake_amplitude_deg": float(resolved_shake.get("shake_amplitude_deg", -1.0)),
+			"shake_frequency_hz": shake_freq_hz,
+			"shake_amplitude_deg": shake_amp_deg,
 			"shake_matched_range_start": int(matched_shake_range.get("dmx_from", -1)),
 			"shake_matched_range_end": int(matched_shake_range.get("dmx_to", -1)),
 			"index_norm": index_norm,
@@ -428,6 +440,7 @@ static func _resolve_gobo_range(raw_8bit: int, ranges: Array) -> Dictionary:
 
 static func _resolve_same_channel_shake_runtime(raw_8bit: int, slot_index: int, ranges: Array) -> Dictionary:
 	var filtered_ranges: Array = []
+	var fallback_same_channel_ranges: Array = []
 	for item in ranges:
 		if item is not Dictionary:
 			continue
@@ -435,18 +448,40 @@ static func _resolve_same_channel_shake_runtime(raw_8bit: int, slot_index: int, 
 		var control_type: int = int(range_data.get("control_type", GOBO_SHAKE_CONTROL_TYPE_SAME_CHANNEL_SELECT))
 		if control_type != GOBO_SHAKE_CONTROL_TYPE_SAME_CHANNEL_SELECT:
 			continue
+		var normalized_range: Dictionary = range_data.duplicate(true)
+		# For same-channel select ranges we are already in the active slot window.
+		# Ignore external mode-window gating to avoid dropping valid slow->fast shake rows.
+		normalized_range["mode_from_8bit"] = 0
+		normalized_range["mode_to_8bit"] = 255
+		fallback_same_channel_ranges.append(normalized_range)
 		var range_slot_index: int = int(range_data.get("slot_index", slot_index))
 		if range_slot_index != slot_index:
 			continue
-		filtered_ranges.append(range_data)
+		filtered_ranges.append(normalized_range)
 	if filtered_ranges.is_empty():
+		filtered_ranges = fallback_same_channel_ranges
+	if filtered_ranges.is_empty():
+		return {"has_range": false, "range": {}, "shake_frequency_hz": -1.0, "shake_amplitude_deg": -1.0}
+	return _resolve_shake_runtime(raw_8bit, -1.0, filtered_ranges, raw_8bit, false)
+
+static func _resolve_dedicated_channel_shake_runtime(raw_8bit: int, control_norm: float, ranges: Array, mode_master_value_8bit: int) -> Dictionary:
+	var dedicated_ranges: Array = []
+	for item in ranges:
+		if item is not Dictionary:
+			continue
+		var range_data: Dictionary = item
+		var control_type: int = int(range_data.get("control_type", GOBO_SHAKE_CONTROL_TYPE_SAME_CHANNEL_SELECT))
+		if control_type != GOBO_SHAKE_CONTROL_TYPE_DEDICATED_CHANNEL:
+			continue
+		dedicated_ranges.append(range_data)
+	if dedicated_ranges.is_empty():
 		return {
 			"has_range": false,
 			"range": {},
 			"shake_frequency_hz": -1.0,
 			"shake_amplitude_deg": -1.0,
 		}
-	return _resolve_shake_runtime(raw_8bit, -1.0, filtered_ranges, raw_8bit, false)
+	return _resolve_shake_runtime(raw_8bit, control_norm, dedicated_ranges, mode_master_value_8bit, true)
 
 static func _resolve_shake_runtime(raw_8bit: int, control_norm: float, ranges: Array, mode_master_value_8bit: int, prefer_dedicated_shake_ranges: bool) -> Dictionary:
 	var fallback_amplitude_min: float = _resolve_shake_fallback_min_amplitude()
@@ -493,7 +528,7 @@ static func _resolve_shake_runtime(raw_8bit: int, control_norm: float, ranges: A
 						ratio = clamp((control_norm - range_norm_from) / range_norm_span, 0.0, 1.0)
 
 			var shake_frequency_hz: float = lerp(float(range_data.get("physical_from", 0.0)), float(range_data.get("physical_to", 0.0)), ratio)
-			shake_frequency_hz = clamp(absf(shake_frequency_hz), 0.0, GOBO_MAX_SHAKE_FREQUENCY_HZ)
+			shake_frequency_hz = clamp(absf(shake_frequency_hz), GOBO_MIN_ACTIVE_SHAKE_FREQUENCY_HZ, GOBO_MAX_SHAKE_FREQUENCY_HZ)
 
 			var shake_amplitude_deg: float = 0.0
 			if bool(range_data.get("has_explicit_amplitude", false)):

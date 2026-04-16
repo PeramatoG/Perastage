@@ -105,6 +105,12 @@ var _visual_settings := {
 	"environment_ambient_energy_night": 0.008,
 	"environment_horizon_warmth": 0.6,
 	"environment_horizon_intensity": 1.0,
+	"gobo_debug_override_enabled": false,
+	"gobo_debug_comparison_mode": 0,
+	"gobo_debug_shake_enabled": false,
+	"gobo_debug_shake_amplitude_deg": 12.0,
+	"gobo_debug_shake_frequency_hz": 1.0,
+	"gobo_debug_shake_waveform": 0,
 }
 
 var _dmx_receiver = null
@@ -1542,9 +1548,31 @@ func _resolve_color_wheel_controls(controls: Dictionary) -> Dictionary:
 	}
 
 func _resolve_gobo_controls(controls: Dictionary) -> Dictionary:
-	var block: Dictionary = _resolve_first_capability_block(controls, "gobo")
-	if not block.is_empty():
-		return block
+	var capabilities: Dictionary = controls.get("capabilities", {})
+	if capabilities is Dictionary:
+		var gobo_blocks: Array = capabilities.get("gobo", [])
+		if not gobo_blocks.is_empty():
+			var aggregated: Dictionary = {}
+			var aggregated_bindings: Array = []
+			var aggregated_slots: Array = []
+			var has_any_gobo: bool = false
+			for item in gobo_blocks:
+				if item is not Dictionary:
+					continue
+				var block: Dictionary = item as Dictionary
+				if aggregated.is_empty():
+					aggregated = block.duplicate(true)
+				if bool(block.get("has_gobo", false)):
+					has_any_gobo = true
+				for runtime_binding in block.get("gobo_runtime_bindings", []):
+					aggregated_bindings.append(runtime_binding)
+				for slot_item in block.get("gobo_slots", []):
+					aggregated_slots.append(slot_item)
+			if not aggregated.is_empty():
+				aggregated["has_gobo"] = has_any_gobo or not aggregated_bindings.is_empty()
+				aggregated["gobo_runtime_bindings"] = aggregated_bindings
+				aggregated["gobo_slots"] = aggregated_slots
+				return aggregated
 	return {
 		"has_gobo": bool(controls.get("has_gobo", false)),
 		"gobo_norm": float(controls.get("gobo_norm", 0.0)),
