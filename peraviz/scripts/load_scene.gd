@@ -35,6 +35,7 @@ extends Node3D
 @onready var app_shell: AppShell = $UIRoot/AppShell
 @onready var load_button: Button = $UIRoot/RootVBox/TopBar/TopBarMargin/TopBarRow/LoadButton
 @onready var dmx_controls_mount: VBoxContainer = $UIRoot/RootVBox/ContentRow/SidePanel/SidePanelMargin/ModulesVBox/User/DMXControlsMount
+@onready var topbar_row: HBoxContainer = $UIRoot/RootVBox/TopBar/TopBarMargin/TopBarRow
 
 var _loader := PeravizLoader.new()
 var _scene_registry := SceneRegistry.new()
@@ -133,6 +134,7 @@ const UiVisibilityPolicyScript = preload("res://scripts/ui/ui_visibility_policy.
 const UiControllerScript = preload("res://scripts/controllers/ui_controller.gd")
 const DmxControllerScript = preload("res://scripts/controllers/dmx_controller.gd")
 const FixtureDebugControllerScript = preload("res://scripts/controllers/fixture_debug_controller.gd")
+const StatusPresenterScript = preload("res://scripts/ui/status_presenter.gd")
 
 const SceneImportServiceScript = preload("res://scripts/scene_loading/scene_import_service.gd")
 const NodeFactoryScript = preload("res://scripts/scene_loading/node_factory.gd")
@@ -143,6 +145,7 @@ var _scene_import_service := SceneImportServiceScript.new()
 var _node_factory := NodeFactoryScript.new()
 var _fixture_binding_service := FixtureBindingServiceScript.new()
 var _debug_overlay_service := DebugOverlayServiceScript.new()
+var _status_presenter: StatusPresenter
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -278,8 +281,14 @@ func _ready() -> void:
 		Callable(self, "_resolve_dmx_controls_host"),
 		Callable(self, "_apply_dmx_controls_to_fixture")
 	)
+	_dmx_controller.set_status_callbacks(
+		Callable(self, "_on_dmx_status_changed"),
+		Callable(self, "_on_dmx_start_failed")
+	)
+	_status_presenter = StatusPresenterScript.new()
+	_status_presenter.configure(self, status_label, topbar_row, load_button, show_advanced_controls_toggle)
 	picker.access = FileDialog.ACCESS_FILESYSTEM
-	status_label.text = "Select a .mvr file"
+	_status_presenter.set_scene_state_idle()
 	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
 	_debug_asset_cache_enabled = bool(ProjectSettings.get_setting("peraviz_debug_asset_cache", false))
 	var manual_fixture_test_enabled: bool = _read_manual_fixture_test_setting()
@@ -445,6 +454,9 @@ func _update_beam_renderer_mode(force_refresh: bool) -> void:
 
 	_active_beam_mode = requested_mode
 	_active_beam_renderer = requested_renderer
+	if _status_presenter != null:
+		var render_mode_label: String = "Volumetric" if _active_beam_mode == BEAM_RENDER_MODE_VOLUMETRIC else "Legacy"
+		_status_presenter.set_render_mode_badge(render_mode_label)
 	for renderer in _beam_renderers.values():
 		if renderer is BeamRendererBase:
 			renderer.configure(camera, _visual_settings)
@@ -501,13 +513,14 @@ func _on_visual_settings_changed(settings: Dictionary) -> void:
 	_apply_visual_settings(settings)
 
 func _on_file_selected(path: String) -> void:
+	if _status_presenter != null:
+		_status_presenter.set_scene_state_loading(path)
 	_clear_scene()
-	_scene_import_service.import_scene(
+	var import_result: Dictionary = _scene_import_service.import_scene(
 		path,
 		_loader,
 		_node_factory,
 		_fixture_binding_service,
-		status_label,
 		_asset_cache,
 		proxies_root,
 		_node_index,
@@ -525,6 +538,12 @@ func _on_file_selected(path: String) -> void:
 		_debug_asset_cache_enabled,
 		_scene_registry
 	)
+	if _status_presenter != null:
+		if bool(import_result.get("ok", false)):
+			_status_presenter.set_scene_state_loaded(int(import_result.get("node_count", 0)))
+		else:
+			var error_message: String = str(import_result.get("error", "unknown error"))
+			_status_presenter.set_scene_state_load_error(error_message)
 
 func _on_manual_fixture_toggle(enabled: bool) -> void:
 	ProjectSettings.set_setting("peraviz_manual_fixture_test", enabled)
@@ -546,6 +565,7 @@ func _refresh_ui_module_visibility() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	_sync_selection_state("input")
+	_update_selected_fixture_badge()
 
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
 		_focus_loaded_scene()
@@ -2206,8 +2226,32 @@ func _setup_dmx_fixture_runtime() -> void:
 	_dmx_controller.setup_fixture_runtime(_loader, _scene_registry)
 
 func _refresh_dmx_fixture_bindings() -> void:
-	_dmx_controller.refresh_fixture_bindings()
+	var summary: Dictionary = _dmx_controller.refresh_fixture_bindings()
+	var unbound_count: int = int(summary.get("unbound", 0))
+	if _status_presenter != null and unbound_count > 0:
+		_status_presenter.set_scene_state_warning_unbound(unbound_count)
 
 func _exit_tree() -> void:
 	if _dmx_controller != null:
 		_dmx_controller.exit_tree()
+
+func _process(_delta: float) -> void:
+	_update_selected_fixture_badge()
+
+func _update_selected_fixture_badge() -> void:
+	if _status_presenter == null or _fixture_debug_controller == null:
+		return
+	_status_presenter.set_selected_fixture_badge(_fixture_debug_controller.get_selected_fixture_uuid())
+
+func _on_dmx_status_changed(running: bool, receiving_signal: bool) -> void:
+	if _status_presenter == null:
+		return
+	_status_presenter.set_dmx_badge(running, receiving_signal)
+
+func _on_dmx_start_failed(error_message: String) -> void:
+	if _status_presenter == null:
+		return
+	var message: String = "DMX start failed"
+	if not error_message.is_empty():
+		message = "%s (%s)" % [message, error_message]
+	_status_presenter.show_toast(message)

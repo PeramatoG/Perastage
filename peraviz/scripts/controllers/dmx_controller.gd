@@ -18,11 +18,17 @@ var _dmx_unbound_preview_label: Label
 var _dmx_controls_panel: PanelContainer
 var _dmx_fixture_runtime = null
 var _last_dmx_tick_msec: int = 0
+var _dmx_status_changed_callback: Callable
+var _dmx_start_failed_callback: Callable
 
 func configure(owner: Node, get_controls_host_callback: Callable, apply_dmx_controls_callback: Callable) -> void:
 	_owner = owner
 	_get_controls_host_callback = get_controls_host_callback
 	_apply_dmx_controls_callback = apply_dmx_controls_callback
+
+func set_status_callbacks(dmx_status_changed_callback: Callable, dmx_start_failed_callback: Callable) -> void:
+	_dmx_status_changed_callback = dmx_status_changed_callback
+	_dmx_start_failed_callback = dmx_start_failed_callback
 
 func setup_controls() -> void:
 	if _dmx_toggle_button != null and is_instance_valid(_dmx_toggle_button):
@@ -90,13 +96,14 @@ func setup_fixture_runtime(loader: Variant, scene_registry: SceneRegistry) -> vo
 	_dmx_fixture_runtime = DmxFixtureRuntimeScript.new()
 	_dmx_fixture_runtime.configure(loader, scene_registry)
 
-func refresh_fixture_bindings() -> void:
+func refresh_fixture_bindings() -> Dictionary:
 	if _dmx_fixture_runtime == null or _dmx_universe_offset_input == null:
-		return
+		return {}
 	var summary: Dictionary = _dmx_fixture_runtime.rebuild(int(_dmx_universe_offset_input.value))
 	var unbound_preview: PackedStringArray = summary.get("unbound_preview", PackedStringArray())
 	_dmx_unbound_preview_label.visible = unbound_preview.size() > 0
 	_dmx_unbound_preview_label.text = "Unbound fixtures:\n" + "\n".join(unbound_preview)
+	return summary
 
 func resolve_controls_host() -> Control:
 	if not _get_controls_host_callback.is_valid():
@@ -113,6 +120,7 @@ func _on_dmx_universe_offset_changed(_value: float) -> void:
 func _on_dmx_toggle_pressed() -> void:
 	if _dmx_receiver == null:
 		_dmx_toggle_button.button_pressed = false
+		_emit_dmx_status(false, false)
 		return
 	if _dmx_toggle_button.button_pressed:
 		_dmx_receiver.stop()
@@ -128,14 +136,18 @@ func _on_dmx_toggle_pressed() -> void:
 			if _dmx_receiver.has_method("get_last_error"):
 				startup_error = str(_dmx_receiver.get_last_error())
 			_dmx_toggle_button.tooltip_text = "DMX failed to start" if startup_error.is_empty() else "DMX failed to start: %s" % startup_error
+			_emit_dmx_start_failed(startup_error)
+			_emit_dmx_status(false, false)
 			return
 		_dmx_toggle_button.text = "DMX ON"
 		_dmx_toggle_button.tooltip_text = ""
+		_emit_dmx_status(true, false)
 	else:
 		_dmx_receiver.stop()
 		_dmx_toggle_button.text = "DMX OFF"
 		_update_dmx_toggle_color(false, false)
 		_refresh_dmx_monitor_window(false)
+		_emit_dmx_status(false, false)
 
 func _on_dmx_monitor_pressed() -> void:
 	if _dmx_receiver == null:
@@ -174,6 +186,7 @@ func _on_dmx_timer_timeout() -> void:
 	var receiving: bool = active_universes.size() > 0 and last_ms >= 0 and last_ms <= 2000
 	_update_dmx_toggle_color(true, receiving)
 	_refresh_dmx_monitor_window(true)
+	_emit_dmx_status(true, receiving)
 
 func _update_dmx_toggle_color(enabled: bool, receiving_signal: bool) -> void:
 	if _dmx_toggle_button == null:
@@ -187,3 +200,11 @@ func _refresh_dmx_monitor_window(running: bool) -> void:
 	if _dmx_monitor_window == null or not is_instance_valid(_dmx_monitor_window):
 		return
 	_dmx_monitor_window.refresh(running)
+
+func _emit_dmx_status(running: bool, receiving_signal: bool) -> void:
+	if _dmx_status_changed_callback.is_valid():
+		_dmx_status_changed_callback.call(running, receiving_signal)
+
+func _emit_dmx_start_failed(error_message: String) -> void:
+	if _dmx_start_failed_callback.is_valid():
+		_dmx_start_failed_callback.call(error_message)
