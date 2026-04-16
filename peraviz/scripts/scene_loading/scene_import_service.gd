@@ -30,7 +30,6 @@ func import_scene(path: String,
 		loader: PeravizLoader,
 		node_factory: NodeFactory,
 		fixture_binding_service: FixtureBindingService,
-		status_label: Label,
 		asset_cache: PeravizRuntimeAssetCache,
 		proxies_root: Node3D,
 		node_index: Dictionary,
@@ -46,10 +45,28 @@ func import_scene(path: String,
 		set_has_loaded_bounds: Callable,
 		debug_coords_enabled: bool,
 		debug_asset_cache_enabled: bool,
-		scene_registry: SceneRegistry) -> void:
+		scene_registry: SceneRegistry) -> Dictionary:
+	if path.is_empty():
+		return {
+			"ok": false,
+			"error": "empty file path",
+			"node_count": 0,
+		}
+	if not FileAccess.file_exists(path):
+		return {
+			"ok": false,
+			"error": "file does not exist",
+			"node_count": 0,
+		}
 	var native_path: String = ProjectSettings.globalize_path(path)
 	var peraviz_debug_baseline: bool = bool(ProjectSettings.get_setting("peraviz_debug_baseline", false))
 	var nodes: Array = loader.load_mvr(native_path, peraviz_debug_baseline, debug_coords_enabled)
+	if nodes.is_empty():
+		return {
+			"ok": false,
+			"error": "MVR returned no nodes",
+			"node_count": 0,
+		}
 	print("[Peraviz] Loaded render nodes: ", nodes.size(), " baseline_debug=", peraviz_debug_baseline, " coords_debug=", debug_coords_enabled)
 	set_has_loaded_bounds.call(false)
 
@@ -62,9 +79,13 @@ func import_scene(path: String,
 	focus_loaded_scene.call()
 	if debug_asset_cache_enabled:
 		_print_asset_cache_summary(asset_cache)
-	status_label.text = "Nodes: %d (press F to focus, C debug coords)" % nodes.size()
 	update_debug_legend.call()
 	refresh_emitter_light_scalars.call()
+	return {
+		"ok": true,
+		"error": "",
+		"node_count": nodes.size(),
+	}
 
 func _print_asset_cache_summary(asset_cache: PeravizRuntimeAssetCache) -> void:
 	var cache_summary: Dictionary = asset_cache.debug_summary()
