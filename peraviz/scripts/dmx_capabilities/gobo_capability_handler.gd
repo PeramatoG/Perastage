@@ -436,6 +436,7 @@ static func _resolve_gobo_range(raw_8bit: int, ranges: Array) -> Dictionary:
 
 static func _resolve_same_channel_shake_runtime(raw_8bit: int, slot_index: int, ranges: Array) -> Dictionary:
 	var filtered_ranges: Array = []
+	var fallback_same_channel_ranges: Array = []
 	for item in ranges:
 		if item is not Dictionary:
 			continue
@@ -443,22 +444,20 @@ static func _resolve_same_channel_shake_runtime(raw_8bit: int, slot_index: int, 
 		var control_type: int = int(range_data.get("control_type", GOBO_SHAKE_CONTROL_TYPE_SAME_CHANNEL_SELECT))
 		if control_type != GOBO_SHAKE_CONTROL_TYPE_SAME_CHANNEL_SELECT:
 			continue
-		var range_slot_index: int = int(range_data.get("slot_index", slot_index))
-		if range_slot_index != slot_index:
-			continue
 		var normalized_range: Dictionary = range_data.duplicate(true)
 		# For same-channel select ranges we are already in the active slot window.
 		# Ignore external mode-window gating to avoid dropping valid slow->fast shake rows.
 		normalized_range["mode_from_8bit"] = 0
 		normalized_range["mode_to_8bit"] = 255
+		fallback_same_channel_ranges.append(normalized_range)
+		var range_slot_index: int = int(range_data.get("slot_index", slot_index))
+		if range_slot_index != slot_index:
+			continue
 		filtered_ranges.append(normalized_range)
 	if filtered_ranges.is_empty():
-		return {
-			"has_range": false,
-			"range": {},
-			"shake_frequency_hz": -1.0,
-			"shake_amplitude_deg": -1.0,
-		}
+		filtered_ranges = fallback_same_channel_ranges
+	if filtered_ranges.is_empty():
+		return {"has_range": false, "range": {}, "shake_frequency_hz": -1.0, "shake_amplitude_deg": -1.0}
 	return _resolve_shake_runtime(raw_8bit, -1.0, filtered_ranges, raw_8bit, false)
 
 static func _resolve_dedicated_channel_shake_runtime(raw_8bit: int, control_norm: float, ranges: Array, mode_master_value_8bit: int) -> Dictionary:
