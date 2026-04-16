@@ -554,14 +554,29 @@ func _resolve_gobo_controls(controls: Dictionary) -> Dictionary:
 	var capabilities: Dictionary = controls.get("capabilities", {})
 	if capabilities is Dictionary:
 		var gobo_blocks: Array = capabilities.get("gobo", [])
+		var first_gobo_block: Dictionary = {}
+		var aggregated_runtime_bindings: Array = []
+		var aggregated_slots: Array = []
+		var has_any_gobo: bool = false
 		for item in gobo_blocks:
 			if item is Dictionary:
 				var block: Dictionary = item.duplicate(true)
-				merged_controls.merge(block, true)
-				break
-	if not merged_controls.has("gobo_runtime_bindings"):
+				if first_gobo_block.is_empty():
+					first_gobo_block = block
+				if bool(block.get("has_gobo", false)):
+					has_any_gobo = true
+				for runtime_binding in block.get("gobo_runtime_bindings", []):
+					aggregated_runtime_bindings.append(runtime_binding)
+				for slot_item in block.get("gobo_slots", []):
+					aggregated_slots.append(slot_item)
+		if not first_gobo_block.is_empty():
+			merged_controls.merge(first_gobo_block, true)
+		merged_controls["has_gobo"] = has_any_gobo or not aggregated_runtime_bindings.is_empty()
+		merged_controls["gobo_runtime_bindings"] = aggregated_runtime_bindings
+		merged_controls["gobo_slots"] = aggregated_slots
+	if not merged_controls.has("gobo_runtime_bindings") or merged_controls.get("gobo_runtime_bindings", []) == null:
 		merged_controls["gobo_runtime_bindings"] = []
-	if not merged_controls.has("gobo_slots"):
+	if not merged_controls.has("gobo_slots") or merged_controls.get("gobo_slots", []) == null:
 		merged_controls["gobo_slots"] = []
 	return merged_controls
 
