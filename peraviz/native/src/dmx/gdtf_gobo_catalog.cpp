@@ -37,8 +37,14 @@ FixtureGoboRangeBehavior parse_gobo_range_behavior(const std::string &channel_se
     return FixtureGoboRangeBehavior::kFixed;
 }
 
-bool is_select_shake_function_name(const std::string &function_name) {
-    return lower_ascii(function_name).find("selectshake") != std::string::npos;
+bool is_select_shake_function(const std::string &function_name,
+                              const std::string &function_attribute) {
+    const std::string lowered_function_name = lower_ascii(function_name);
+    if (lowered_function_name.find("selectshake") != std::string::npos) {
+        return true;
+    }
+    const std::string lowered_function_attribute = lower_ascii(function_attribute);
+    return lowered_function_attribute.find("selectshake") != std::string::npos;
 }
 
 int parse_positive_int(const char *raw) {
@@ -340,7 +346,9 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
 
     out_wheel.wheel_name = wheel_name;
     const std::string function_name = read_attr_ci(channel_function, "Name", "name");
-    const bool function_forces_select_shake = is_select_shake_function_name(function_name);
+    const std::string function_attribute = read_attr_ci(channel_function, "Attribute", "attribute");
+    const bool function_forces_select_shake =
+        is_select_shake_function(function_name, function_attribute);
     const FixtureGoboRangeBehavior function_behavior_hint =
         parse_gobo_range_behavior(function_name);
 

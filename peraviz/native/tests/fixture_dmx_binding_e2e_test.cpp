@@ -366,7 +366,7 @@ int run_test() {
       <DMXChannels>
         <DMXChannel Offset="1">
           <LogicalChannel Attribute="StaticGoboShake">
-            <ChannelFunction Attribute="StaticGoboShake" Name="Gobo1SelectShake" Wheel="gobo1" DMXFrom="0" DMXTo="255">
+            <ChannelFunction Attribute="Gobo1SelectShake" Name="Gobo1ShakeIndex" Wheel="gobo1" DMXFrom="0" DMXTo="255">
               <ChannelSet Name="Gobo 1" WheelSlotIndex="1" DMXFrom="0" DMXTo="127" />
               <ChannelSet Name="Gobo 2" WheelSlotIndex="2" DMXFrom="128" DMXTo="255" />
             </ChannelFunction>
