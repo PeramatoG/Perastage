@@ -17,6 +17,7 @@ const GOBO_DEFAULT_SCALE: float = 1.0
 const GOBO_DEFAULT_ROTATION_DEG: float = 0.0
 const GOBO_WHEEL_TRANSITION_STEPS: int = 32
 const GOBO_SPIN_STOP_EPSILON_DPS: float = 0.5
+const GOBO_NO_GOBO_TEXTURE_CACHE_KEY: String = "__nogobo_slot_texture"
 const VECTOR_FALLBACK_GOBO_CACHE_KEY: String = "__vector_fallback_gobo"
 const GOBO_VECTOR_POLYGONS_META_KEY: String = "peraviz_gobo_vector_polygons"
 const GOBO_VECTOR_WIDTH_META_KEY: String = "peraviz_gobo_vector_width"
@@ -560,21 +561,14 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 
 func _collect_renderable_slot_indices_from_slots(slots: Array) -> Array:
 	var renderable_indices: Array = []
-	var fallback_indices: Array = []
 	for slot_item in slots:
 		if slot_item is not Dictionary:
 			continue
 		var slot_index: int = int(slot_item.get("slot_index", -1))
 		if slot_index <= 0:
 			continue
-		fallback_indices.append(slot_index)
-		var image_path: String = str(slot_item.get("image_path", ""))
-		if image_path.is_empty():
-			continue
 		renderable_indices.append(slot_index)
-	if not renderable_indices.is_empty():
-		return renderable_indices
-	return fallback_indices
+	return renderable_indices
 
 func _slot_index_position(slot_index: int, renderable_slot_indices: Array) -> int:
 	var fallback_position: int = 0
@@ -931,7 +925,13 @@ func _resolve_gobo_texture_entry_for_slot(controls: Dictionary, slot_index: int)
 			continue
 		var image_path: String = str(item.get("image_path", ""))
 		if image_path.is_empty():
-			return {}
+			var no_gobo_texture: Texture2D = _resolve_no_gobo_slot_texture()
+			if no_gobo_texture == null:
+				return {}
+			return {
+				"texture": no_gobo_texture,
+				"cache_key": "%s_%d" % [GOBO_NO_GOBO_TEXTURE_CACHE_KEY, slot_index],
+			}
 		if _texture_cache.has(image_path):
 			return {
 				"texture": _texture_cache[image_path] as Texture2D,
@@ -951,6 +951,14 @@ func _resolve_gobo_texture_entry_for_slot(controls: Dictionary, slot_index: int)
 			"cache_key": image_path,
 		}
 	return {}
+
+func _resolve_no_gobo_slot_texture() -> Texture2D:
+	if _texture_cache.has(GOBO_NO_GOBO_TEXTURE_CACHE_KEY):
+		return _texture_cache[GOBO_NO_GOBO_TEXTURE_CACHE_KEY] as Texture2D
+	var no_gobo_texture: Texture2D = _resolve_vector_fallback_gobo_texture()
+	if no_gobo_texture != null:
+		_texture_cache[GOBO_NO_GOBO_TEXTURE_CACHE_KEY] = no_gobo_texture
+	return no_gobo_texture
 
 
 
