@@ -15,7 +15,7 @@ const GOBO_MAX_SCALE: float = 6.4
 const GOBO_APERTURE_SCALE: float = 1.05
 const GOBO_DEFAULT_SCALE: float = 1.0
 const GOBO_DEFAULT_ROTATION_DEG: float = 0.0
-const GOBO_WHEEL_TRANSITION_STEPS: int = 16
+const GOBO_WHEEL_TRANSITION_STEPS: int = 32
 const VECTOR_FALLBACK_GOBO_CACHE_KEY: String = "__vector_fallback_gobo"
 const GOBO_VECTOR_POLYGONS_META_KEY: String = "peraviz_gobo_vector_polygons"
 const GOBO_VECTOR_WIDTH_META_KEY: String = "peraviz_gobo_vector_width"
@@ -497,7 +497,7 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 	base_slot_zero_index = posmod(base_slot_zero_index, slot_count)
 	var movement_direction_sign: int = 0
 	var spin_speed_signed: float = signed_wheel_spin_speed_deg_per_sec
-	if absf(spin_speed_signed) > 0.0001:
+	if has_active_spin and absf(spin_speed_signed) > 0.0001:
 		movement_direction_sign = 1 if spin_speed_signed > 0.0 else -1
 	elif absf(stepping_sign) > 0.0001:
 		movement_direction_sign = 1 if stepping_sign > 0.0 else -1
@@ -581,23 +581,24 @@ func _compose_wheel_motion_texture(outgoing_texture: Texture2D, incoming_texture
 	var signed_direction: float = float(movement_direction_sign)
 	var outgoing_offset_px: float = progress * float(FAKE_GOBO_TEXTURE_SIZE) * signed_direction
 	var incoming_offset_px: float = (progress - 1.0) * float(FAKE_GOBO_TEXTURE_SIZE) * signed_direction
-	for y in range(FAKE_GOBO_TEXTURE_SIZE):
-		for x in range(FAKE_GOBO_TEXTURE_SIZE):
-			var outgoing_sample_x: int = int(round(float(x) - outgoing_offset_px))
-			var incoming_sample_x: int = int(round(float(x) - incoming_offset_px))
-			var outgoing_luma: float = 0.0
-			var incoming_luma: float = 0.0
-			if outgoing_sample_x >= 0 and outgoing_sample_x < FAKE_GOBO_TEXTURE_SIZE:
-				var outgoing_color: Color = outgoing_image.get_pixel(outgoing_sample_x, y)
-				outgoing_luma = ((outgoing_color.r + outgoing_color.g + outgoing_color.b) / 3.0) * outgoing_color.a
-			if incoming_sample_x >= 0 and incoming_sample_x < FAKE_GOBO_TEXTURE_SIZE:
-				var incoming_color: Color = incoming_image.get_pixel(incoming_sample_x, y)
-				incoming_luma = ((incoming_color.r + incoming_color.g + incoming_color.b) / 3.0) * incoming_color.a
-			var output_luma: float = clamp(maxf(outgoing_luma, incoming_luma), 0.0, 1.0)
-			result_image.set_pixel(x, y, Color(output_luma, output_luma, output_luma, output_luma))
+	_blend_shifted_gobo_image(result_image, outgoing_image, int(round(outgoing_offset_px)))
+	_blend_shifted_gobo_image(result_image, incoming_image, int(round(incoming_offset_px)))
 	var result_texture: ImageTexture = ImageTexture.create_from_image(result_image)
 	_texture_cache[cache_key] = result_texture
 	return result_texture
+
+func _blend_shifted_gobo_image(destination: Image, source: Image, offset_x: int) -> void:
+	if destination == null or source == null:
+		return
+	if offset_x >= FAKE_GOBO_TEXTURE_SIZE or offset_x <= -FAKE_GOBO_TEXTURE_SIZE:
+		return
+	var src_from_x: int = max(0, -offset_x)
+	var dst_from_x: int = max(0, offset_x)
+	var copy_width: int = FAKE_GOBO_TEXTURE_SIZE - abs(offset_x)
+	if copy_width <= 0:
+		return
+	var src_rect: Rect2i = Rect2i(src_from_x, 0, copy_width, FAKE_GOBO_TEXTURE_SIZE)
+	destination.blend_rect(source, src_rect, Vector2i(dst_from_x, 0))
 
 func _triangle_wave_centered_zero(phase: float) -> float:
 	var wrapped_phase: float = wrapf(phase, 0.0, 1.0)
