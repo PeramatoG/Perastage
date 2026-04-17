@@ -15,6 +15,7 @@ const GOBO_MAX_SCALE: float = 6.4
 const GOBO_APERTURE_SCALE: float = 1.05
 const GOBO_DEFAULT_SCALE: float = 1.0
 const GOBO_DEFAULT_ROTATION_DEG: float = 0.0
+const GOBO_WHEEL_TRANSITION_STEPS: int = 16
 const VECTOR_FALLBACK_GOBO_CACHE_KEY: String = "__vector_fallback_gobo"
 const GOBO_VECTOR_POLYGONS_META_KEY: String = "peraviz_gobo_vector_polygons"
 const GOBO_VECTOR_WIDTH_META_KEY: String = "peraviz_gobo_vector_width"
@@ -83,6 +84,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var source_textures: Array[Texture2D] = []
 	var source_texture_cache_keys: PackedStringArray = PackedStringArray()
 	var wheel_slot_state: Dictionary = {}
+	var wheel_transition_state: Dictionary = {}
 	var wheel_mode_state: Dictionary = {}
 	var global_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
 	var projected_rotation_deg: float = global_rotation_deg
@@ -103,10 +105,11 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			var wheel_controls := {
 				"gobo_slots": wheel.get("slots", []),
 			}
-			var texture_entry: Dictionary = _resolve_gobo_texture_entry_for_slot(wheel_controls, visible_slot_index)
+			var texture_entry: Dictionary = _resolve_wheel_motion_texture_entry(wheel_controls, slot_resolution)
 			var gobo_texture: Texture2D = texture_entry.get("texture", null) as Texture2D
 			if gobo_texture == null:
 				continue
+			wheel_transition_state[wheel_key] = texture_entry.get("transition_key", "")
 			source_texture_cache_keys.append(str(texture_entry.get("cache_key", "")))
 
 			var wheel_motion: Dictionary = _resolve_wheel_rotation_deg(light, gobo_controls, wheel, global_rotation_deg, delta_sec)
@@ -135,6 +138,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		"mode": mode,
 		"has_gobo": has_runtime_gobo,
 		"wheel_slot_index_by_wheel": wheel_slot_state,
+		"wheel_transition_by_wheel": wheel_transition_state,
 		"wheel_mode_by_wheel": wheel_mode_state,
 		"texture_cache_key": composed_texture_cache_key,
 		"gobo_scale": float(controls.get("gobo_scale", GOBO_DEFAULT_SCALE)),
@@ -449,8 +453,10 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 	var target_center_deg: float = (float(normalized_target_slot - 1) + 0.5) * (360.0 / float(slot_count))
 	var wheel_spin_speed_deg_per_sec: float = absf(float(wheel.get("wheel_spin_speed_deg_per_sec", 0.0)))
 	var step_speed_deg_per_sec: float = maxf(wheel_spin_speed_deg_per_sec, 180.0)
+	var stepping_sign: float = 0.0
 	if delta_sec > 0.0:
 		var delta_to_target_deg: float = wrapf(target_center_deg - current_angle_deg, -180.0, 180.0)
+		stepping_sign = signf(delta_to_target_deg)
 		var max_step_deg: float = step_speed_deg_per_sec * delta_sec
 		if absf(delta_to_target_deg) <= max_step_deg:
 			current_angle_deg = target_center_deg
@@ -464,15 +470,113 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 	light.set_meta(GOBO_WHEEL_TARGET_SLOT_META_KEY, target_slot_state)
 	light.set_meta(GOBO_WHEEL_MOVEMENT_STATE_META_KEY, movement_state)
 	var slot_window_deg: float = 360.0 / float(slot_count)
-	var visible_slot_index: int = int(floor(current_angle_deg / slot_window_deg)) + 1
-	if visible_slot_index > slot_count:
-		visible_slot_index = 1
+	var normalized_position: float = current_angle_deg / slot_window_deg
+	var base_slot_zero_index: int = int(floor(normalized_position))
+	var fractional_progress: float = normalized_position - floor(normalized_position)
+	base_slot_zero_index = posmod(base_slot_zero_index, slot_count)
+	var movement_direction_sign: int = 0
+	var spin_speed_signed: float = float(wheel.get("wheel_spin_speed_deg_per_sec", 0.0))
+	if absf(spin_speed_signed) > 0.0001:
+		movement_direction_sign = 1 if spin_speed_signed > 0.0 else -1
+	elif absf(stepping_sign) > 0.0001:
+		movement_direction_sign = 1 if stepping_sign > 0.0 else -1
+	var outgoing_slot_index: int = base_slot_zero_index + 1
+	var incoming_slot_index: int = outgoing_slot_index
+	var motion_progress: float = 0.0
+	if movement_direction_sign > 0:
+		incoming_slot_index = ((base_slot_zero_index + 1) % slot_count) + 1
+		motion_progress = clamp(fractional_progress, 0.0, 1.0)
+	elif movement_direction_sign < 0:
+		incoming_slot_index = ((base_slot_zero_index - 1 + slot_count) % slot_count) + 1
+		motion_progress = clamp(1.0 - fractional_progress, 0.0, 1.0)
+	var visible_slot_index: int = outgoing_slot_index if motion_progress < 0.5 else incoming_slot_index
 	return {
 		"visible_slot_index": clampi(visible_slot_index, 1, slot_count),
 		"wheel_angle_deg": current_angle_deg,
 		"target_slot_index": normalized_target_slot,
 		"movement_state": str(movement_state.get(wheel_key, "")),
+		"movement_direction_sign": movement_direction_sign,
+		"outgoing_slot_index": outgoing_slot_index,
+		"incoming_slot_index": incoming_slot_index,
+		"motion_progress": motion_progress,
 	}
+
+func _resolve_wheel_motion_texture_entry(controls: Dictionary, slot_resolution: Dictionary) -> Dictionary:
+	var outgoing_slot_index: int = int(slot_resolution.get("outgoing_slot_index", slot_resolution.get("visible_slot_index", -1)))
+	var incoming_slot_index: int = int(slot_resolution.get("incoming_slot_index", outgoing_slot_index))
+	var movement_direction_sign: int = int(slot_resolution.get("movement_direction_sign", 0))
+	var motion_progress: float = clamp(float(slot_resolution.get("motion_progress", 0.0)), 0.0, 1.0)
+	var outgoing_entry: Dictionary = _resolve_gobo_texture_entry_for_slot(controls, outgoing_slot_index)
+	if outgoing_entry.is_empty():
+		return {}
+	if movement_direction_sign == 0 or incoming_slot_index == outgoing_slot_index or motion_progress <= 0.001:
+		outgoing_entry["transition_key"] = "slot_%d_static" % outgoing_slot_index
+		return outgoing_entry
+	var incoming_entry: Dictionary = _resolve_gobo_texture_entry_for_slot(controls, incoming_slot_index)
+	if incoming_entry.is_empty():
+		outgoing_entry["transition_key"] = "slot_%d_no_incoming" % outgoing_slot_index
+		return outgoing_entry
+	var quantized_step: int = clampi(int(round(motion_progress * float(GOBO_WHEEL_TRANSITION_STEPS))), 0, GOBO_WHEEL_TRANSITION_STEPS)
+	var cache_key: String = "__wheel_motion_%s_%s_%d_%d" % [
+		str(outgoing_entry.get("cache_key", "")),
+		str(incoming_entry.get("cache_key", "")),
+		movement_direction_sign,
+		quantized_step,
+	]
+	var quantized_progress: float = float(quantized_step) / float(max(GOBO_WHEEL_TRANSITION_STEPS, 1))
+	var transition_texture: Texture2D = _compose_wheel_motion_texture(
+		outgoing_entry.get("texture", null) as Texture2D,
+		incoming_entry.get("texture", null) as Texture2D,
+		quantized_progress,
+		movement_direction_sign,
+		cache_key
+	)
+	if transition_texture == null:
+		outgoing_entry["transition_key"] = "slot_%d_transition_fallback" % outgoing_slot_index
+		return outgoing_entry
+	return {
+		"texture": transition_texture,
+		"cache_key": cache_key,
+		"transition_key": "slot_%d_to_%d_dir_%d_step_%d" % [outgoing_slot_index, incoming_slot_index, movement_direction_sign, quantized_step],
+	}
+
+func _compose_wheel_motion_texture(outgoing_texture: Texture2D, incoming_texture: Texture2D, progress: float, movement_direction_sign: int, cache_key: String) -> Texture2D:
+	if outgoing_texture == null:
+		return null
+	if incoming_texture == null or movement_direction_sign == 0 or progress <= 0.001:
+		return outgoing_texture
+	if _texture_cache.has(cache_key):
+		return _texture_cache[cache_key] as Texture2D
+	var outgoing_image: Image = outgoing_texture.get_image()
+	var incoming_image: Image = incoming_texture.get_image()
+	if outgoing_image == null or incoming_image == null:
+		return outgoing_texture
+	if outgoing_image.get_width() != FAKE_GOBO_TEXTURE_SIZE or outgoing_image.get_height() != FAKE_GOBO_TEXTURE_SIZE:
+		outgoing_image.resize(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, Image.INTERPOLATE_LANCZOS)
+	if incoming_image.get_width() != FAKE_GOBO_TEXTURE_SIZE or incoming_image.get_height() != FAKE_GOBO_TEXTURE_SIZE:
+		incoming_image.resize(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, Image.INTERPOLATE_LANCZOS)
+	var result_image: Image = Image.create(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
+	result_image.fill(Color(0.0, 0.0, 0.0, 1.0))
+	var signed_direction: float = float(movement_direction_sign)
+	var outgoing_offset_px: float = progress * float(FAKE_GOBO_TEXTURE_SIZE) * signed_direction
+	var incoming_offset_px: float = (progress - 1.0) * float(FAKE_GOBO_TEXTURE_SIZE) * signed_direction
+	for y in range(FAKE_GOBO_TEXTURE_SIZE):
+		for x in range(FAKE_GOBO_TEXTURE_SIZE):
+			var outgoing_sample_x: int = int(round(float(x) - outgoing_offset_px))
+			var incoming_sample_x: int = int(round(float(x) - incoming_offset_px))
+			var outgoing_luma: float = 0.0
+			var incoming_luma: float = 0.0
+			if outgoing_sample_x >= 0 and outgoing_sample_x < FAKE_GOBO_TEXTURE_SIZE:
+				var outgoing_color: Color = outgoing_image.get_pixel(outgoing_sample_x, y)
+				outgoing_luma = ((outgoing_color.r + outgoing_color.g + outgoing_color.b) / 3.0) * outgoing_color.a
+			if incoming_sample_x >= 0 and incoming_sample_x < FAKE_GOBO_TEXTURE_SIZE:
+				var incoming_color: Color = incoming_image.get_pixel(incoming_sample_x, y)
+				incoming_luma = ((incoming_color.r + incoming_color.g + incoming_color.b) / 3.0) * incoming_color.a
+			var output_luma: float = clamp(maxf(outgoing_luma, incoming_luma), 0.0, 1.0)
+			result_image.set_pixel(x, y, Color(output_luma, output_luma, output_luma, output_luma))
+	var result_texture: ImageTexture = ImageTexture.create_from_image(result_image)
+	_texture_cache[cache_key] = result_texture
+	return result_texture
 
 func _triangle_wave_centered_zero(phase: float) -> float:
 	var wrapped_phase: float = wrapf(phase, 0.0, 1.0)
