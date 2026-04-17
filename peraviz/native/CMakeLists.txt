@@ -157,18 +157,27 @@ if(PERAVIZ_GODOT_PROJECT_DIR)
     set(_peraviz_bin_dir "${PERAVIZ_GODOT_PROJECT_DIR}/bin")
     file(MAKE_DIRECTORY "${_peraviz_bin_dir}")
 
-    set_target_properties(peraviz_native PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${_peraviz_bin_dir}"
-        LIBRARY_OUTPUT_DIRECTORY "${_peraviz_bin_dir}"
-    )
-
-    foreach(config Debug Release RelWithDebInfo MinSizeRel)
-        string(TOUPPER "${config}" config_upper)
-        set_target_properties(peraviz_native PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY_${config_upper} "${_peraviz_bin_dir}"
-            LIBRARY_OUTPUT_DIRECTORY_${config_upper} "${_peraviz_bin_dir}"
+    if(WIN32)
+        add_custom_command(TARGET peraviz_native POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:peraviz_native>
+                "${_peraviz_bin_dir}/$<TARGET_FILE_NAME:peraviz_native>"
+            COMMENT "Copying peraviz_native to ${_peraviz_bin_dir}"
         )
-    endforeach()
+    else()
+        set_target_properties(peraviz_native PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${_peraviz_bin_dir}"
+            LIBRARY_OUTPUT_DIRECTORY "${_peraviz_bin_dir}"
+        )
+
+        foreach(config Debug Release RelWithDebInfo MinSizeRel)
+            string(TOUPPER "${config}" config_upper)
+            set_target_properties(peraviz_native PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY_${config_upper} "${_peraviz_bin_dir}"
+                LIBRARY_OUTPUT_DIRECTORY_${config_upper} "${_peraviz_bin_dir}"
+            )
+        endforeach()
+    endif()
 
     if(WIN32)
         add_custom_command(TARGET peraviz_native POST_BUILD
