@@ -145,4 +145,6 @@ More detailed notes live under `peraviz/docs/`:
 - `BASELINE_MVR_RENDER.md` – baseline comparison workflow
 - `BEAM_RENDERING_MODES.md` – beam modes and performance guidance
 - `LIGHT_INTENSITY_INTERPRETATION.md` – interpreting intensity/exposure in the viewer
+- `UI_ARCHITECTURE.md` – UI module map, visibility tiers, naming, and ownership rules
+- `UI_GROWTH_CHECKLIST.md` – pre-feature UI checklist, including clean-screen default gate
 - `README_gobos.md` – gobo parsing and runtime projection notes
