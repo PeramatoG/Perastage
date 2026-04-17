@@ -135,6 +135,7 @@ const UiControllerScript = preload("res://scripts/controllers/ui_controller.gd")
 const DmxControllerScript = preload("res://scripts/controllers/dmx_controller.gd")
 const FixtureDebugControllerScript = preload("res://scripts/controllers/fixture_debug_controller.gd")
 const StatusPresenterScript = preload("res://scripts/ui/status_presenter.gd")
+const UserPreferencesScript = preload("res://scripts/ui/user_preferences.gd")
 
 const SceneImportServiceScript = preload("res://scripts/scene_loading/scene_import_service.gd")
 const NodeFactoryScript = preload("res://scripts/scene_loading/node_factory.gd")
@@ -146,6 +147,7 @@ var _node_factory := NodeFactoryScript.new()
 var _fixture_binding_service := FixtureBindingServiceScript.new()
 var _debug_overlay_service := DebugOverlayServiceScript.new()
 var _status_presenter: StatusPresenter
+var _user_preferences: UserPreferences
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -293,7 +295,7 @@ func _ready() -> void:
 	_debug_asset_cache_enabled = bool(ProjectSettings.get_setting("peraviz_debug_asset_cache", false))
 	var manual_fixture_test_enabled: bool = _read_manual_fixture_test_setting()
 	_fixture_debug_controller.set_manual_fixture_test_enabled(manual_fixture_test_enabled)
-	show_advanced_controls_toggle.button_pressed = UiVisibilityPolicyScript.is_advanced_controls_enabled()
+	_load_user_preferences()
 	_refresh_ui_module_visibility()
 	_asset_cache.configure_debug_logging(_debug_asset_cache_enabled, 100)
 	_ensure_debug_gizmo_root()
@@ -311,6 +313,7 @@ func _ready() -> void:
 		visual_settings_window.call("configure", _visual_settings)
 		if visual_settings_window.has_method("set_ui_visibility_policy"):
 			visual_settings_window.call("set_ui_visibility_policy", UiVisibilityPolicyScript)
+		_apply_visual_settings_preferences_to_window()
 	else:
 		push_warning("VisualSettingsWindow is not ready for configure(); initial visual settings not pushed.")
 	_apply_visual_settings(_visual_settings)
@@ -545,21 +548,60 @@ func _on_file_selected(path: String) -> void:
 			var error_message: String = str(import_result.get("error", "unknown error"))
 			_status_presenter.set_scene_state_load_error(error_message)
 
+func _load_user_preferences() -> void:
+	_user_preferences = UserPreferencesScript.new()
+	_user_preferences.load_from_disk()
+	UiVisibilityPolicyScript.set_advanced_controls_enabled(_user_preferences.advanced_mode)
+	if show_advanced_controls_toggle != null:
+		show_advanced_controls_toggle.button_pressed = _user_preferences.advanced_mode
+	if app_shell != null:
+		app_shell.set_side_panel_open(_user_preferences.sidebar_open)
+
+func _apply_visual_settings_preferences_to_window() -> void:
+	if _user_preferences == null or visual_settings_window == null:
+		return
+	if visual_settings_window.has_method("set_advanced_mode_enabled"):
+		visual_settings_window.call("set_advanced_mode_enabled", _user_preferences.advanced_mode)
+	if visual_settings_window.has_method("set_active_tab_index"):
+		visual_settings_window.call("set_active_tab_index", _user_preferences.last_settings_tab)
+
+func _save_user_preferences() -> void:
+	if _user_preferences == null:
+		return
+	if app_shell != null:
+		_user_preferences.sidebar_open = app_shell.is_side_panel_open()
+	_user_preferences.advanced_mode = UiVisibilityPolicyScript.is_advanced_controls_enabled()
+	if visual_settings_window != null and visual_settings_window.has_method("get_active_tab_index"):
+		_user_preferences.last_settings_tab = int(visual_settings_window.call("get_active_tab_index"))
+	_user_preferences.set_module_visible(UiVisibilityPolicyScript.MODULE_USER, user_module != null and user_module.visible)
+	_user_preferences.set_module_visible(UiVisibilityPolicyScript.MODULE_ADVANCED, advanced_module != null and advanced_module.visible)
+	_user_preferences.set_module_visible(UiVisibilityPolicyScript.MODULE_DEBUG, debug_module != null and debug_module.visible)
+	_user_preferences.save_to_disk()
+
 func _on_manual_fixture_toggle(enabled: bool) -> void:
 	ProjectSettings.set_setting("peraviz_manual_fixture_test", enabled)
 	_refresh_fixture_debug_panel()
 
 func _on_show_advanced_controls_toggled(enabled: bool) -> void:
 	UiVisibilityPolicyScript.set_advanced_controls_enabled(enabled)
+	if visual_settings_window != null and visual_settings_window.has_method("set_advanced_mode_enabled"):
+		visual_settings_window.call("set_advanced_mode_enabled", enabled)
 	_refresh_ui_module_visibility()
 
 func _refresh_ui_module_visibility() -> void:
+	var user_visible: bool = UiVisibilityPolicyScript.is_module_visible(UiVisibilityPolicyScript.MODULE_USER)
+	var advanced_visible: bool = UiVisibilityPolicyScript.is_module_visible(UiVisibilityPolicyScript.MODULE_ADVANCED)
+	var debug_visible: bool = UiVisibilityPolicyScript.is_module_visible(UiVisibilityPolicyScript.MODULE_DEBUG)
+	if _user_preferences != null:
+		user_visible = user_visible and _user_preferences.get_module_visible(UiVisibilityPolicyScript.MODULE_USER, true)
+		advanced_visible = advanced_visible and _user_preferences.get_module_visible(UiVisibilityPolicyScript.MODULE_ADVANCED, false)
+		debug_visible = debug_visible and _user_preferences.get_module_visible(UiVisibilityPolicyScript.MODULE_DEBUG, false)
 	if user_module != null:
-		user_module.visible = UiVisibilityPolicyScript.is_module_visible(UiVisibilityPolicyScript.MODULE_USER)
+		user_module.visible = user_visible
 	if advanced_module != null:
-		advanced_module.visible = UiVisibilityPolicyScript.is_module_visible(UiVisibilityPolicyScript.MODULE_ADVANCED)
+		advanced_module.visible = advanced_visible
 	if debug_module != null:
-		debug_module.visible = UiVisibilityPolicyScript.is_module_visible(UiVisibilityPolicyScript.MODULE_DEBUG)
+		debug_module.visible = debug_visible
 	if show_advanced_controls_toggle != null:
 		show_advanced_controls_toggle.button_pressed = UiVisibilityPolicyScript.is_advanced_controls_enabled()
 
@@ -2232,6 +2274,7 @@ func _refresh_dmx_fixture_bindings() -> void:
 		_status_presenter.set_scene_state_warning_unbound(unbound_count)
 
 func _exit_tree() -> void:
+	_save_user_preferences()
 	if _dmx_controller != null:
 		_dmx_controller.exit_tree()
 

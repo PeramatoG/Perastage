@@ -218,6 +218,28 @@ func _apply_mode_to_panels() -> void:
 	if _debug_panel != null:
 		_debug_panel.set_advanced_mode(advanced_enabled)
 
+
+func set_advanced_mode_enabled(enabled: bool) -> void:
+	if _advanced_mode_toggle == null:
+		return
+	_advanced_mode_toggle.button_pressed = enabled
+	_apply_mode_to_panels()
+
+func is_advanced_mode_enabled() -> bool:
+	return _advanced_mode_toggle != null and _advanced_mode_toggle.button_pressed
+
+func set_active_tab_index(tab_index: int) -> void:
+	if _tabs == null:
+		return
+	if _tabs.get_tab_count() <= 0:
+		return
+	_tabs.current_tab = clampi(tab_index, 0, _tabs.get_tab_count() - 1)
+
+func get_active_tab_index() -> int:
+	if _tabs == null:
+		return 0
+	return _tabs.current_tab
+
 func _apply_quick_preset(preset_name: String) -> void:
 	if not QUICK_PRESETS.has(preset_name):
 		return
