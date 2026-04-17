@@ -3,6 +3,7 @@ class_name DmxController
 
 const DmxMonitorWindowScript = preload("res://scripts/dmx_monitor_window.gd")
 const DmxFixtureRuntimeScript = preload("res://scripts/dmx_fixture_runtime.gd")
+const DmxQuickPanelScript = preload("res://scripts/ui/dmx_quick_panel.gd")
 
 var _owner: Node
 var _get_controls_host_callback: Callable
@@ -12,6 +13,7 @@ var _dmx_receiver = null
 var _dmx_toggle_button: Button
 var _dmx_monitor_button: Button
 var _dmx_monitor_window: Window
+var _dmx_quick_panel: DmxQuickPanel
 var _dmx_timer: Timer
 var _dmx_universe_offset_input: SpinBox
 var _dmx_unbound_preview_label: Label
@@ -20,6 +22,7 @@ var _dmx_fixture_runtime = null
 var _last_dmx_tick_msec: int = 0
 var _dmx_status_changed_callback: Callable
 var _dmx_start_failed_callback: Callable
+var _fixture_binding_summary: Dictionary = {}
 
 func configure(owner: Node, get_controls_host_callback: Callable, apply_dmx_controls_callback: Callable) -> void:
 	_owner = owner
@@ -60,7 +63,7 @@ func setup_controls() -> void:
 	_update_dmx_toggle_color(false, false)
 
 	_dmx_monitor_button = Button.new()
-	_dmx_monitor_button.text = "DMX Monitor"
+	_dmx_monitor_button.text = "Open Technical Monitor"
 	_dmx_monitor_button.disabled = true
 	controls_row.add_child(_dmx_monitor_button)
 	_dmx_monitor_button.pressed.connect(_on_dmx_monitor_pressed)
@@ -79,6 +82,11 @@ func setup_controls() -> void:
 	_dmx_unbound_preview_label.visible = false
 	controls_vbox.add_child(_dmx_unbound_preview_label)
 
+	_dmx_quick_panel = DmxQuickPanelScript.new()
+	controls_vbox.add_child(_dmx_quick_panel)
+	_dmx_quick_panel.open_technical_monitor_requested.connect(_on_dmx_monitor_pressed)
+	_dmx_quick_panel.set_monitor_available(false)
+
 	_dmx_timer = Timer.new()
 	_dmx_timer.wait_time = 0.03
 	_dmx_timer.autostart = true
@@ -88,9 +96,13 @@ func setup_controls() -> void:
 	if ClassDB.class_exists("PeravizDmxReceiver"):
 		_dmx_receiver = ClassDB.instantiate("PeravizDmxReceiver")
 		_dmx_monitor_button.disabled = false
+		_dmx_quick_panel.set_monitor_available(true)
 	else:
 		_dmx_toggle_button.disabled = true
 		_dmx_toggle_button.tooltip_text = "DMX unavailable (build without PERAVIZ_ENABLE_DMX)"
+		_dmx_quick_panel.set_monitor_available(false)
+
+	_refresh_dmx_quick_panel(false, false, PackedInt32Array(), -1)
 
 func setup_fixture_runtime(loader: Variant, scene_registry: SceneRegistry) -> void:
 	_dmx_fixture_runtime = DmxFixtureRuntimeScript.new()
@@ -100,9 +112,11 @@ func refresh_fixture_bindings() -> Dictionary:
 	if _dmx_fixture_runtime == null or _dmx_universe_offset_input == null:
 		return {}
 	var summary: Dictionary = _dmx_fixture_runtime.rebuild(int(_dmx_universe_offset_input.value))
+	_fixture_binding_summary = summary
 	var unbound_preview: PackedStringArray = summary.get("unbound_preview", PackedStringArray())
 	_dmx_unbound_preview_label.visible = unbound_preview.size() > 0
 	_dmx_unbound_preview_label.text = "Unbound fixtures:\n" + "\n".join(unbound_preview)
+	_refresh_dmx_quick_panel(false, false, PackedInt32Array(), -1)
 	return summary
 
 func resolve_controls_host() -> Control:
@@ -137,6 +151,7 @@ func _on_dmx_toggle_pressed() -> void:
 				startup_error = str(_dmx_receiver.get_last_error())
 			_dmx_toggle_button.tooltip_text = "DMX failed to start" if startup_error.is_empty() else "DMX failed to start: %s" % startup_error
 			_emit_dmx_start_failed(startup_error)
+			_refresh_dmx_quick_panel(false, false, PackedInt32Array(), -1)
 			_emit_dmx_status(false, false)
 			return
 		_dmx_toggle_button.text = "DMX ON"
@@ -147,6 +162,7 @@ func _on_dmx_toggle_pressed() -> void:
 		_dmx_toggle_button.text = "DMX OFF"
 		_update_dmx_toggle_color(false, false)
 		_refresh_dmx_monitor_window(false)
+		_refresh_dmx_quick_panel(false, false, PackedInt32Array(), -1)
 		_emit_dmx_status(false, false)
 
 func _on_dmx_monitor_pressed() -> void:
@@ -166,6 +182,7 @@ func _on_dmx_timer_timeout() -> void:
 		if _dmx_toggle_button != null and not _dmx_toggle_button.button_pressed:
 			_update_dmx_toggle_color(false, false)
 		_refresh_dmx_monitor_window(false)
+		_refresh_dmx_quick_panel(false, false, PackedInt32Array(), -1)
 		return
 
 	var now_msec: int = Time.get_ticks_msec()
@@ -186,6 +203,7 @@ func _on_dmx_timer_timeout() -> void:
 	var receiving: bool = active_universes.size() > 0 and last_ms >= 0 and last_ms <= 2000
 	_update_dmx_toggle_color(true, receiving)
 	_refresh_dmx_monitor_window(true)
+	_refresh_dmx_quick_panel(true, receiving, active_universes, last_ms)
 	_emit_dmx_status(true, receiving)
 
 func _update_dmx_toggle_color(enabled: bool, receiving_signal: bool) -> void:
@@ -200,6 +218,13 @@ func _refresh_dmx_monitor_window(running: bool) -> void:
 	if _dmx_monitor_window == null or not is_instance_valid(_dmx_monitor_window):
 		return
 	_dmx_monitor_window.refresh(running)
+
+func _refresh_dmx_quick_panel(running: bool, receiving_signal: bool, active_universes: PackedInt32Array, last_packet_ms: int) -> void:
+	if _dmx_quick_panel == null or not is_instance_valid(_dmx_quick_panel):
+		return
+	var linked_fixtures: int = int(_fixture_binding_summary.get("bound", 0))
+	var unlinked_fixtures: int = int(_fixture_binding_summary.get("unbound", 0))
+	_dmx_quick_panel.refresh(running, receiving_signal, active_universes, last_packet_ms, linked_fixtures, unlinked_fixtures)
 
 func _emit_dmx_status(running: bool, receiving_signal: bool) -> void:
 	if _dmx_status_changed_callback.is_valid():
