@@ -9,12 +9,14 @@ var _selected_universe: int = -1
 var _universe_buttons: Dictionary = {}
 var _channel_panels: Array[PanelContainer] = []
 var _channel_labels: Array[Label] = []
+var _channel_values: PackedInt32Array = PackedInt32Array()
+var _show_only_active_channels: bool = false
 
 var _state_label: Label
 var _universes_flow: FlowContainer
 
 func _init() -> void:
-	title = "DMX Monitor"
+	title = "Technical Monitor"
 	size = Vector2i(1040, 680)
 	unresizable = false
 
@@ -31,6 +33,15 @@ func _ready() -> void:
 	_state_label = Label.new()
 	_state_label.text = "DMX monitor inactive"
 	root.add_child(_state_label)
+
+	var filters_row: HBoxContainer = HBoxContainer.new()
+	filters_row.add_theme_constant_override("separation", 8)
+	root.add_child(filters_row)
+
+	var active_channels_toggle: CheckBox = CheckBox.new()
+	active_channels_toggle.text = "Show only active channels"
+	active_channels_toggle.toggled.connect(_on_active_channels_toggled)
+	filters_row.add_child(active_channels_toggle)
 
 	var universe_scroll: ScrollContainer = ScrollContainer.new()
 	universe_scroll.custom_minimum_size = Vector2(0, 100)
@@ -70,6 +81,7 @@ func _ready() -> void:
 
 		_channel_panels.append(panel)
 		_channel_labels.append(label)
+		_channel_values.append(0)
 
 		_update_channel_cell(channel_idx, 0)
 
@@ -152,7 +164,15 @@ func _update_channel_cell(channel_idx: int, channel_value: int) -> void:
 
 	_channel_panels[channel_idx].add_theme_stylebox_override("panel", style)
 	_channel_labels[channel_idx].text = "%03d:%03d" % [channel_idx + 1, channel_value]
+	_channel_values[channel_idx] = channel_value
+	_channel_panels[channel_idx].visible = (channel_value > 0) if _show_only_active_channels else true
 
 
 func _on_close_requested() -> void:
 	hide()
+
+func _on_active_channels_toggled(enabled: bool) -> void:
+	_show_only_active_channels = enabled
+	for channel_idx in range(CHANNEL_COUNT):
+		var channel_value: int = int(_channel_values[channel_idx])
+		_channel_panels[channel_idx].visible = (channel_value > 0) if _show_only_active_channels else true
