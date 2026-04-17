@@ -16,6 +16,7 @@ const GOBO_APERTURE_SCALE: float = 1.05
 const GOBO_DEFAULT_SCALE: float = 1.0
 const GOBO_DEFAULT_ROTATION_DEG: float = 0.0
 const GOBO_WHEEL_TRANSITION_STEPS: int = 32
+const GOBO_SPIN_STOP_EPSILON_DPS: float = 0.5
 const VECTOR_FALLBACK_GOBO_CACHE_KEY: String = "__vector_fallback_gobo"
 const GOBO_VECTOR_POLYGONS_META_KEY: String = "peraviz_gobo_vector_polygons"
 const GOBO_VECTOR_WIDTH_META_KEY: String = "peraviz_gobo_vector_width"
@@ -462,16 +463,22 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 		movement_state = {}
 
 	var slots: Array = wheel.get("slots", [])
-	var slot_count: int = slots.size()
+	var renderable_slot_indices: Array = _collect_renderable_slot_indices_from_slots(slots)
+	var slot_count: int = renderable_slot_indices.size()
 	if slot_count <= 0:
 		return {"visible_slot_index": target_slot_index}
 	var current_angle_deg: float = float(wheel_angle_state.get(wheel_key, 0.0))
-	var previous_target_slot: int = int(target_slot_state.get(wheel_key, 1))
-	var normalized_target_slot: int = clampi(target_slot_index, 1, slot_count) if target_slot_index > 0 else clampi(previous_target_slot, 1, slot_count)
-	var target_center_deg: float = (float(normalized_target_slot - 1) + 0.5) * (360.0 / float(slot_count))
+	var previous_target_slot: int = int(target_slot_state.get(wheel_key, renderable_slot_indices[0]))
+	var normalized_target_slot: int = _resolve_renderable_target_slot_index(
+		target_slot_index,
+		previous_target_slot,
+		renderable_slot_indices
+	)
+	var target_position_index: int = _slot_index_position(normalized_target_slot, renderable_slot_indices)
+	var target_center_deg: float = (float(target_position_index) + 0.5) * (360.0 / float(slot_count))
 	var signed_wheel_spin_speed_deg_per_sec: float = float(wheel.get("wheel_spin_speed_deg_per_sec", 0.0))
 	var wheel_spin_speed_deg_per_sec: float = absf(signed_wheel_spin_speed_deg_per_sec)
-	var has_active_spin: bool = bool(wheel.get("wheel_spin_has_physical_value", false)) and not bool(wheel.get("wheel_spin_is_stop", false)) and wheel_spin_speed_deg_per_sec > 0.0001
+	var has_active_spin: bool = bool(wheel.get("wheel_spin_has_physical_value", false)) and not bool(wheel.get("wheel_spin_is_stop", false)) and wheel_spin_speed_deg_per_sec > GOBO_SPIN_STOP_EPSILON_DPS
 	if target_slot_index <= 0 and not has_active_spin:
 		target_slot_state[wheel_key] = clampi(previous_target_slot, 1, slot_count)
 		movement_state[wheel_key] = "open"
@@ -505,23 +512,11 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 			"incoming_slot_index": normalized_target_slot,
 			"motion_progress": 0.0,
 		}
-	var step_speed_deg_per_sec: float = maxf(wheel_spin_speed_deg_per_sec, 180.0)
 	var stepping_sign: float = 0.0
 	if delta_sec > 0.0:
-		if has_active_spin:
-			current_angle_deg = wrapf(current_angle_deg + (signed_wheel_spin_speed_deg_per_sec * delta_sec), 0.0, 360.0)
-			stepping_sign = signf(signed_wheel_spin_speed_deg_per_sec)
-			movement_state[wheel_key] = "spinning"
-		else:
-			var delta_to_target_deg: float = wrapf(target_center_deg - current_angle_deg, -180.0, 180.0)
-			stepping_sign = signf(delta_to_target_deg)
-			var max_step_deg: float = step_speed_deg_per_sec * delta_sec
-			if absf(delta_to_target_deg) <= max_step_deg:
-				current_angle_deg = target_center_deg
-				movement_state[wheel_key] = "aligned"
-			else:
-				current_angle_deg = wrapf(current_angle_deg + signf(delta_to_target_deg) * max_step_deg, 0.0, 360.0)
-				movement_state[wheel_key] = "stepping"
+		current_angle_deg = wrapf(current_angle_deg + (signed_wheel_spin_speed_deg_per_sec * delta_sec), 0.0, 360.0)
+		stepping_sign = signf(signed_wheel_spin_speed_deg_per_sec)
+		movement_state[wheel_key] = "spinning"
 	wheel_angle_state[wheel_key] = current_angle_deg
 	target_slot_state[wheel_key] = normalized_target_slot
 	light.set_meta(GOBO_WHEEL_ANGLE_META_KEY, wheel_angle_state)
@@ -529,16 +524,15 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 	light.set_meta(GOBO_WHEEL_MOVEMENT_STATE_META_KEY, movement_state)
 	var slot_window_deg: float = 360.0 / float(slot_count)
 	var normalized_position: float = current_angle_deg / slot_window_deg
-	var base_slot_zero_index: int = int(floor(normalized_position))
+	var base_slot_zero_index: int = posmod(int(floor(normalized_position)), slot_count)
 	var fractional_progress: float = normalized_position - floor(normalized_position)
-	base_slot_zero_index = posmod(base_slot_zero_index, slot_count)
 	var movement_direction_sign: int = 0
 	var spin_speed_signed: float = signed_wheel_spin_speed_deg_per_sec
 	if has_active_spin and absf(spin_speed_signed) > 0.0001:
 		movement_direction_sign = 1 if spin_speed_signed > 0.0 else -1
 	elif absf(stepping_sign) > 0.0001:
 		movement_direction_sign = 1 if stepping_sign > 0.0 else -1
-	var outgoing_slot_index: int = base_slot_zero_index + 1
+	var outgoing_slot_index: int = int(renderable_slot_indices[base_slot_zero_index])
 	var incoming_slot_index: int = outgoing_slot_index
 	var motion_progress: float = 0.0
 	if not has_active_spin and str(movement_state.get(wheel_key, "")) == "aligned":
@@ -547,10 +541,10 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 		movement_direction_sign = 0
 		motion_progress = 0.0
 	if movement_direction_sign > 0:
-		incoming_slot_index = ((base_slot_zero_index + 1) % slot_count) + 1
+		incoming_slot_index = int(renderable_slot_indices[(base_slot_zero_index + 1) % slot_count])
 		motion_progress = clamp(fractional_progress, 0.0, 1.0)
 	elif movement_direction_sign < 0:
-		incoming_slot_index = ((base_slot_zero_index - 1 + slot_count) % slot_count) + 1
+		incoming_slot_index = int(renderable_slot_indices[(base_slot_zero_index - 1 + slot_count) % slot_count])
 		motion_progress = clamp(1.0 - fractional_progress, 0.0, 1.0)
 	var visible_slot_index: int = outgoing_slot_index if motion_progress < 0.5 else incoming_slot_index
 	return {
@@ -563,6 +557,47 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 		"incoming_slot_index": incoming_slot_index,
 		"motion_progress": motion_progress,
 	}
+
+func _collect_renderable_slot_indices_from_slots(slots: Array) -> Array:
+	var renderable_indices: Array = []
+	var fallback_indices: Array = []
+	for slot_item in slots:
+		if slot_item is not Dictionary:
+			continue
+		var slot_index: int = int(slot_item.get("slot_index", -1))
+		if slot_index <= 0:
+			continue
+		fallback_indices.append(slot_index)
+		var image_path: String = str(slot_item.get("image_path", ""))
+		if image_path.is_empty():
+			continue
+		renderable_indices.append(slot_index)
+	if not renderable_indices.is_empty():
+		return renderable_indices
+	return fallback_indices
+
+func _slot_index_position(slot_index: int, renderable_slot_indices: Array) -> int:
+	var fallback_position: int = 0
+	for index in range(renderable_slot_indices.size()):
+		var candidate: int = int(renderable_slot_indices[index])
+		if candidate == slot_index:
+			return index
+		if candidate <= slot_index:
+			fallback_position = index
+	return fallback_position
+
+func _resolve_renderable_target_slot_index(target_slot_index: int, previous_target_slot: int, renderable_slot_indices: Array) -> int:
+	if renderable_slot_indices.is_empty():
+		return target_slot_index
+	if target_slot_index > 0:
+		for candidate in renderable_slot_indices:
+			if int(candidate) == target_slot_index:
+				return target_slot_index
+	var safe_previous: int = previous_target_slot if previous_target_slot > 0 else int(renderable_slot_indices[0])
+	for candidate in renderable_slot_indices:
+		if int(candidate) == safe_previous:
+			return safe_previous
+	return int(renderable_slot_indices[0])
 
 func _resolve_wheel_motion_texture_entry(controls: Dictionary, slot_resolution: Dictionary, allow_shader_transition: bool) -> Dictionary:
 	var outgoing_slot_index: int = int(slot_resolution.get("outgoing_slot_index", slot_resolution.get("visible_slot_index", -1)))
