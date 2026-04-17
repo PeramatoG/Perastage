@@ -7,9 +7,9 @@ const MODULE_DEBUG: StringName = &"Debug"
 
 const SETTINGS_FILE_PATH: String = "user://ui_visibility_policy.cfg"
 const SETTINGS_SECTION: String = "ui_visibility"
-const SETTING_SHOW_ADVANCED: String = "show_advanced_controls"
 const SETTING_FORCE_DEBUG: String = "force_debug_controls"
 
+static var _advanced_controls_enabled: bool = false
 static var _cached_settings: Dictionary = {}
 
 static func is_module_visible(module_name: StringName) -> bool:
@@ -24,10 +24,10 @@ static func is_module_visible(module_name: StringName) -> bool:
 			return false
 
 static func is_advanced_controls_enabled() -> bool:
-	return bool(_get_setting(SETTING_SHOW_ADVANCED, false))
+	return _advanced_controls_enabled
 
 static func set_advanced_controls_enabled(enabled: bool) -> void:
-	_set_setting(SETTING_SHOW_ADVANCED, enabled)
+	_advanced_controls_enabled = enabled
 
 static func is_debug_controls_forced() -> bool:
 	return bool(_get_setting(SETTING_FORCE_DEBUG, false))
@@ -51,7 +51,6 @@ static func _ensure_settings_loaded() -> void:
 	if config.load(SETTINGS_FILE_PATH) != OK:
 		_cached_settings = {}
 		return
-	_cached_settings[SETTING_SHOW_ADVANCED] = bool(config.get_value(SETTINGS_SECTION, SETTING_SHOW_ADVANCED, false))
 	_cached_settings[SETTING_FORCE_DEBUG] = bool(config.get_value(SETTINGS_SECTION, SETTING_FORCE_DEBUG, false))
 
 static func _save_settings() -> void:
