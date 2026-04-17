@@ -97,6 +97,8 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 		var has_rotation_channel: bool = control_reader.has_control_channel(item, "rotation_channel_index_0", "rotation_fine_channel_index_0", "rotation_ultra_fine_channel_index_0")
 		var has_wheel_spin_channel: bool = control_reader.has_control_channel(item, "wheel_spin_channel_index_0", "wheel_spin_fine_channel_index_0", "wheel_spin_ultra_fine_channel_index_0")
 		var has_slot_rotation_channel: bool = control_reader.has_control_channel(item, "slot_rotation_channel_index_0", "slot_rotation_fine_channel_index_0", "slot_rotation_ultra_fine_channel_index_0")
+		var supports_wheel_spin_control: bool = has_wheel_spin_channel or bool(item.get("supports_wheel_spin", false))
+		var supports_slot_rotation_control: bool = has_slot_rotation_channel or bool(item.get("supports_slot_rotation", false))
 		var is_rotation_behavior: bool = range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE
 		var uses_range_rotation: bool = is_rotation_behavior and not has_rotation_channel
 		var supports_index: bool = (range_behavior == GOBO_BEHAVIOR_INDEX) or (has_index_channel and not is_rotation_behavior)
@@ -254,17 +256,17 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 				mode_master_value_8bit,
 				prefer_rotation_channel_ranges
 			)
-		if wheel_spin_raw_8bit < 0:
+		if wheel_spin_raw_8bit < 0 and supports_wheel_spin_control:
 			wheel_spin_raw_8bit = rotation_raw_8bit
 			wheel_spin_raw_coarse = rotation_raw_coarse
 			wheel_spin_raw_fine = rotation_raw_fine
 			wheel_spin_control_norm = rotation_control_norm
-		if slot_rotation_raw_8bit < 0:
+		if slot_rotation_raw_8bit < 0 and supports_slot_rotation_control:
 			slot_rotation_raw_8bit = rotation_raw_8bit
 			slot_rotation_raw_coarse = rotation_raw_coarse
 			slot_rotation_raw_fine = rotation_raw_fine
 			slot_rotation_control_norm = rotation_control_norm
-		if not wheel_spin_ranges.is_empty() and wheel_spin_raw_8bit >= 0:
+		if supports_wheel_spin_control and not wheel_spin_ranges.is_empty() and wheel_spin_raw_8bit >= 0:
 			resolved_wheel_spin = _resolve_rotation_runtime(
 				wheel_spin_raw_8bit,
 				wheel_spin_control_norm,
@@ -272,7 +274,7 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 				mode_master_value_8bit,
 				has_wheel_spin_channel
 			)
-		if not slot_rotation_ranges.is_empty() and slot_rotation_raw_8bit >= 0:
+		if supports_slot_rotation_control and not slot_rotation_ranges.is_empty() and slot_rotation_raw_8bit >= 0:
 			resolved_slot_rotation = _resolve_rotation_runtime(
 				slot_rotation_raw_8bit,
 				slot_rotation_control_norm,
@@ -380,14 +382,14 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 			"rotation_ranges": rotation_ranges,
 			"wheel_spin_ranges": wheel_spin_ranges,
 			"slot_rotation_ranges": slot_rotation_ranges,
-			"wheel_spin_has_physical_value": bool(resolved_wheel_spin.get("has_range", false)),
+			"wheel_spin_has_physical_value": supports_wheel_spin_control and bool(resolved_wheel_spin.get("has_range", false)),
 			"wheel_spin_speed_deg_per_sec": float(resolved_wheel_spin.get("rotation_speed_deg_per_sec", float(resolved_rotation.get("rotation_speed_deg_per_sec", 0.0)))),
 			"wheel_spin_direction_sign": int(resolved_wheel_spin.get("direction_sign", int(resolved_rotation.get("direction_sign", 0)))),
 			"wheel_spin_is_stop": bool(resolved_wheel_spin.get("is_stop", bool(resolved_rotation.get("is_stop", true)))),
 			"wheel_spin_raw_8bit": wheel_spin_raw_8bit,
 			"wheel_spin_raw_coarse": wheel_spin_raw_coarse,
 			"wheel_spin_raw_fine": wheel_spin_raw_fine,
-			"slot_rotation_has_physical_value": bool(resolved_slot_rotation.get("has_range", false)),
+			"slot_rotation_has_physical_value": supports_slot_rotation_control and bool(resolved_slot_rotation.get("has_range", false)),
 			"slot_rotation_speed_deg_per_sec": float(resolved_slot_rotation.get("rotation_speed_deg_per_sec", float(resolved_rotation.get("rotation_speed_deg_per_sec", 0.0)))),
 			"slot_rotation_direction_sign": int(resolved_slot_rotation.get("direction_sign", int(resolved_rotation.get("direction_sign", 0)))),
 			"slot_rotation_is_stop": bool(resolved_slot_rotation.get("is_stop", bool(resolved_rotation.get("is_stop", true)))),

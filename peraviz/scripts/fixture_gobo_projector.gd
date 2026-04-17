@@ -504,6 +504,11 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 	var outgoing_slot_index: int = base_slot_zero_index + 1
 	var incoming_slot_index: int = outgoing_slot_index
 	var motion_progress: float = 0.0
+	if not has_active_spin and str(movement_state.get(wheel_key, "")) == "aligned":
+		outgoing_slot_index = normalized_target_slot
+		incoming_slot_index = normalized_target_slot
+		movement_direction_sign = 0
+		motion_progress = 0.0
 	if movement_direction_sign > 0:
 		incoming_slot_index = ((base_slot_zero_index + 1) % slot_count) + 1
 		motion_progress = clamp(fractional_progress, 0.0, 1.0)
