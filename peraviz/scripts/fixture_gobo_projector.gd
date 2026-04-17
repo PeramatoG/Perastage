@@ -96,8 +96,6 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			if wheel is not Dictionary:
 				continue
 			var slot_index: int = int(wheel.get("slot_index", 0))
-			if slot_index <= 0:
-				continue
 			var wheel_key: String = _resolve_wheel_cache_key(wheel)
 			var slot_resolution: Dictionary = _resolve_visible_slot_index(light, wheel, slot_index, delta_sec)
 			var visible_slot_index: int = int(slot_resolution.get("visible_slot_index", slot_index))
@@ -449,21 +447,44 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 	if slot_count <= 0:
 		return {"visible_slot_index": target_slot_index}
 	var current_angle_deg: float = float(wheel_angle_state.get(wheel_key, 0.0))
-	var normalized_target_slot: int = clampi(target_slot_index, 1, slot_count)
+	var previous_target_slot: int = int(target_slot_state.get(wheel_key, 1))
+	var normalized_target_slot: int = clampi(target_slot_index, 1, slot_count) if target_slot_index > 0 else clampi(previous_target_slot, 1, slot_count)
 	var target_center_deg: float = (float(normalized_target_slot - 1) + 0.5) * (360.0 / float(slot_count))
-	var wheel_spin_speed_deg_per_sec: float = absf(float(wheel.get("wheel_spin_speed_deg_per_sec", 0.0)))
+	var signed_wheel_spin_speed_deg_per_sec: float = float(wheel.get("wheel_spin_speed_deg_per_sec", 0.0))
+	var wheel_spin_speed_deg_per_sec: float = absf(signed_wheel_spin_speed_deg_per_sec)
+	var has_active_spin: bool = bool(wheel.get("wheel_spin_has_physical_value", false)) and not bool(wheel.get("wheel_spin_is_stop", false)) and wheel_spin_speed_deg_per_sec > 0.0001
+	if target_slot_index <= 0 and not has_active_spin:
+		target_slot_state[wheel_key] = clampi(previous_target_slot, 1, slot_count)
+		movement_state[wheel_key] = "open"
+		light.set_meta(GOBO_WHEEL_TARGET_SLOT_META_KEY, target_slot_state)
+		light.set_meta(GOBO_WHEEL_MOVEMENT_STATE_META_KEY, movement_state)
+		return {
+			"visible_slot_index": -1,
+			"wheel_angle_deg": current_angle_deg,
+			"target_slot_index": int(target_slot_state[wheel_key]),
+			"movement_state": "open",
+			"movement_direction_sign": 0,
+			"outgoing_slot_index": -1,
+			"incoming_slot_index": -1,
+			"motion_progress": 0.0,
+		}
 	var step_speed_deg_per_sec: float = maxf(wheel_spin_speed_deg_per_sec, 180.0)
 	var stepping_sign: float = 0.0
 	if delta_sec > 0.0:
-		var delta_to_target_deg: float = wrapf(target_center_deg - current_angle_deg, -180.0, 180.0)
-		stepping_sign = signf(delta_to_target_deg)
-		var max_step_deg: float = step_speed_deg_per_sec * delta_sec
-		if absf(delta_to_target_deg) <= max_step_deg:
-			current_angle_deg = target_center_deg
-			movement_state[wheel_key] = "aligned"
+		if has_active_spin:
+			current_angle_deg = wrapf(current_angle_deg + (signed_wheel_spin_speed_deg_per_sec * delta_sec), 0.0, 360.0)
+			stepping_sign = signf(signed_wheel_spin_speed_deg_per_sec)
+			movement_state[wheel_key] = "spinning"
 		else:
-			current_angle_deg = wrapf(current_angle_deg + signf(delta_to_target_deg) * max_step_deg, 0.0, 360.0)
-			movement_state[wheel_key] = "stepping"
+			var delta_to_target_deg: float = wrapf(target_center_deg - current_angle_deg, -180.0, 180.0)
+			stepping_sign = signf(delta_to_target_deg)
+			var max_step_deg: float = step_speed_deg_per_sec * delta_sec
+			if absf(delta_to_target_deg) <= max_step_deg:
+				current_angle_deg = target_center_deg
+				movement_state[wheel_key] = "aligned"
+			else:
+				current_angle_deg = wrapf(current_angle_deg + signf(delta_to_target_deg) * max_step_deg, 0.0, 360.0)
+				movement_state[wheel_key] = "stepping"
 	wheel_angle_state[wheel_key] = current_angle_deg
 	target_slot_state[wheel_key] = normalized_target_slot
 	light.set_meta(GOBO_WHEEL_ANGLE_META_KEY, wheel_angle_state)
@@ -475,7 +496,7 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 	var fractional_progress: float = normalized_position - floor(normalized_position)
 	base_slot_zero_index = posmod(base_slot_zero_index, slot_count)
 	var movement_direction_sign: int = 0
-	var spin_speed_signed: float = float(wheel.get("wheel_spin_speed_deg_per_sec", 0.0))
+	var spin_speed_signed: float = signed_wheel_spin_speed_deg_per_sec
 	if absf(spin_speed_signed) > 0.0001:
 		movement_direction_sign = 1 if spin_speed_signed > 0.0 else -1
 	elif absf(stepping_sign) > 0.0001:
