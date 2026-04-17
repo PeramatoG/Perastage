@@ -463,8 +463,7 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 	if movement_state is not Dictionary:
 		movement_state = {}
 
-	var slots: Array = wheel.get("slots", [])
-	var renderable_slot_indices: Array = _collect_renderable_slot_indices_from_slots(slots)
+	var renderable_slot_indices: Array = _collect_ordered_slot_indices_from_wheel(wheel)
 	var slot_count: int = renderable_slot_indices.size()
 	if slot_count <= 0:
 		return {"visible_slot_index": target_slot_index}
@@ -559,16 +558,30 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 		"motion_progress": motion_progress,
 	}
 
-func _collect_renderable_slot_indices_from_slots(slots: Array) -> Array:
-	var renderable_indices: Array = []
+func _collect_ordered_slot_indices_from_wheel(wheel: Dictionary) -> Array:
+	var ordered_indices: Array = []
+	var seen: Dictionary = {}
+	var ranges: Array = wheel.get("ranges", [])
+	var sorted_ranges: Array = ranges.duplicate(true)
+	sorted_ranges.sort_custom(func(a, b): return int(a.get("dmx_from", 0)) < int(b.get("dmx_from", 0)))
+	for range_item in sorted_ranges:
+		if range_item is not Dictionary:
+			continue
+		var slot_index: int = int(range_item.get("slot_index", -1))
+		if slot_index <= 0 or seen.has(slot_index):
+			continue
+		seen[slot_index] = true
+		ordered_indices.append(slot_index)
+	var slots: Array = wheel.get("slots", [])
 	for slot_item in slots:
 		if slot_item is not Dictionary:
 			continue
 		var slot_index: int = int(slot_item.get("slot_index", -1))
-		if slot_index <= 0:
+		if slot_index <= 0 or seen.has(slot_index):
 			continue
-		renderable_indices.append(slot_index)
-	return renderable_indices
+		seen[slot_index] = true
+		ordered_indices.append(slot_index)
+	return ordered_indices
 
 func _slot_index_position(slot_index: int, renderable_slot_indices: Array) -> int:
 	var fallback_position: int = 0
@@ -955,9 +968,10 @@ func _resolve_gobo_texture_entry_for_slot(controls: Dictionary, slot_index: int)
 func _resolve_no_gobo_slot_texture() -> Texture2D:
 	if _texture_cache.has(GOBO_NO_GOBO_TEXTURE_CACHE_KEY):
 		return _texture_cache[GOBO_NO_GOBO_TEXTURE_CACHE_KEY] as Texture2D
-	var no_gobo_texture: Texture2D = _resolve_vector_fallback_gobo_texture()
-	if no_gobo_texture != null:
-		_texture_cache[GOBO_NO_GOBO_TEXTURE_CACHE_KEY] = no_gobo_texture
+	var image := Image.create(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
+	image.fill(Color(1.0, 1.0, 1.0, 1.0))
+	var no_gobo_texture: ImageTexture = ImageTexture.create_from_image(image)
+	_texture_cache[GOBO_NO_GOBO_TEXTURE_CACHE_KEY] = no_gobo_texture
 	return no_gobo_texture
 
 
