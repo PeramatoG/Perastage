@@ -33,15 +33,15 @@ func is_side_panel_open() -> bool:
 func get_modules_container() -> Control:
 	return _modules_container
 
-func register_section(name: StringName, section_node: CanvasItem) -> void:
-	_sections[name] = section_node
+func register_section(section_id: StringName, section_node: CanvasItem) -> void:
+	_sections[section_id] = section_node
 	if _active_section == &"":
-		set_active_section(name)
+		set_active_section(section_id)
 	else:
-		section_node.visible = (name == _active_section)
+		section_node.visible = (section_id == _active_section)
 
-func set_active_section(name: StringName) -> void:
-	_active_section = name
+func set_active_section(section_id: StringName) -> void:
+	_active_section = section_id
 	for section_name in _sections.keys():
 		var section_node: CanvasItem = _sections[section_name]
 		if section_node != null:
