@@ -85,6 +85,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var source_texture_cache_keys: PackedStringArray = PackedStringArray()
 	var wheel_slot_state: Dictionary = {}
 	var wheel_transition_state: Dictionary = {}
+	var shader_transition_state: Dictionary = {}
 	var wheel_mode_state: Dictionary = {}
 	var global_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
 	var projected_rotation_deg: float = global_rotation_deg
@@ -92,6 +93,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var has_bound_wheel_rotation: bool = false
 
 	if has_runtime_gobo:
+		var can_use_shader_transition: bool = runtime_bindings.size() == 1
 		for wheel in runtime_bindings:
 			if wheel is not Dictionary:
 				continue
@@ -103,11 +105,18 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			var wheel_controls := {
 				"gobo_slots": wheel.get("slots", []),
 			}
-			var texture_entry: Dictionary = _resolve_wheel_motion_texture_entry(wheel_controls, slot_resolution)
+			var texture_entry: Dictionary = _resolve_wheel_motion_texture_entry(wheel_controls, slot_resolution, can_use_shader_transition)
 			var gobo_texture: Texture2D = texture_entry.get("texture", null) as Texture2D
 			if gobo_texture == null:
 				continue
 			wheel_transition_state[wheel_key] = texture_entry.get("transition_key", "")
+			if bool(texture_entry.get("shader_transition_enabled", false)):
+				shader_transition_state = {
+					"enabled": true,
+					"secondary_texture": texture_entry.get("secondary_texture", null),
+					"progress": float(texture_entry.get("shader_transition_progress", 0.0)),
+					"direction": float(texture_entry.get("shader_transition_direction", 1.0)),
+				}
 			source_texture_cache_keys.append(str(texture_entry.get("cache_key", "")))
 
 			var wheel_motion: Dictionary = _resolve_wheel_rotation_deg(light, gobo_controls, wheel, global_rotation_deg, delta_sec)
@@ -128,6 +137,8 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 
 	var composed_texture_cache_key: String = _build_composed_gobo_cache_key(source_texture_cache_keys)
 	var prefer_native_fog_projector: bool = bool(controls.get("prefer_native_fog_projector", true))
+	if bool(shader_transition_state.get("enabled", false)):
+		prefer_native_fog_projector = false
 	var has_composed_texture: bool = not source_textures.is_empty()
 	var mode: String = "fallback_vector"
 	if has_runtime_gobo and has_composed_texture:
@@ -137,6 +148,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		"has_gobo": has_runtime_gobo,
 		"wheel_slot_index_by_wheel": wheel_slot_state,
 		"wheel_transition_by_wheel": wheel_transition_state,
+		"shader_transition": shader_transition_state,
 		"wheel_mode_by_wheel": wheel_mode_state,
 		"texture_cache_key": composed_texture_cache_key,
 		"gobo_scale": float(controls.get("gobo_scale", GOBO_DEFAULT_SCALE)),
@@ -154,7 +166,14 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		_apply_vector_fallback_gobo(light, previous_meta_texture, gobo_controls)
 	else:
 		var projected_gobo: Texture2D = _compose_gobo_textures(source_textures, composed_texture_cache_key)
-		_apply_gobo_visuals(light, projected_gobo, gobo_controls)
+		var visual_controls: Dictionary = gobo_controls.duplicate(true)
+		if bool(shader_transition_state.get("enabled", false)):
+			visual_controls["gobo_shader_transition_enabled"] = true
+			visual_controls["gobo_shader_transition_secondary_texture"] = shader_transition_state.get("secondary_texture", null)
+			visual_controls["gobo_shader_transition_progress"] = float(shader_transition_state.get("progress", 0.0))
+			visual_controls["gobo_shader_transition_direction"] = float(shader_transition_state.get("direction", 1.0))
+			visual_controls["prefer_native_fog_projector"] = false
+		_apply_gobo_visuals(light, projected_gobo, visual_controls)
 		light.set_meta(GOBO_TEXTURE_META_KEY, projected_gobo)
 		light.set_meta(FALLBACK_GOBO_META_KEY, false)
 
@@ -468,6 +487,24 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 			"incoming_slot_index": -1,
 			"motion_progress": 0.0,
 		}
+	if not has_active_spin:
+		current_angle_deg = target_center_deg
+		wheel_angle_state[wheel_key] = current_angle_deg
+		target_slot_state[wheel_key] = normalized_target_slot
+		movement_state[wheel_key] = "aligned"
+		light.set_meta(GOBO_WHEEL_ANGLE_META_KEY, wheel_angle_state)
+		light.set_meta(GOBO_WHEEL_TARGET_SLOT_META_KEY, target_slot_state)
+		light.set_meta(GOBO_WHEEL_MOVEMENT_STATE_META_KEY, movement_state)
+		return {
+			"visible_slot_index": normalized_target_slot,
+			"wheel_angle_deg": current_angle_deg,
+			"target_slot_index": normalized_target_slot,
+			"movement_state": "aligned",
+			"movement_direction_sign": 0,
+			"outgoing_slot_index": normalized_target_slot,
+			"incoming_slot_index": normalized_target_slot,
+			"motion_progress": 0.0,
+		}
 	var step_speed_deg_per_sec: float = maxf(wheel_spin_speed_deg_per_sec, 180.0)
 	var stepping_sign: float = 0.0
 	if delta_sec > 0.0:
@@ -527,7 +564,7 @@ func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_s
 		"motion_progress": motion_progress,
 	}
 
-func _resolve_wheel_motion_texture_entry(controls: Dictionary, slot_resolution: Dictionary) -> Dictionary:
+func _resolve_wheel_motion_texture_entry(controls: Dictionary, slot_resolution: Dictionary, allow_shader_transition: bool) -> Dictionary:
 	var outgoing_slot_index: int = int(slot_resolution.get("outgoing_slot_index", slot_resolution.get("visible_slot_index", -1)))
 	var incoming_slot_index: int = int(slot_resolution.get("incoming_slot_index", outgoing_slot_index))
 	var movement_direction_sign: int = int(slot_resolution.get("movement_direction_sign", 0))
@@ -542,6 +579,16 @@ func _resolve_wheel_motion_texture_entry(controls: Dictionary, slot_resolution: 
 	if incoming_entry.is_empty():
 		outgoing_entry["transition_key"] = "slot_%d_no_incoming" % outgoing_slot_index
 		return outgoing_entry
+	if allow_shader_transition:
+		return {
+			"texture": outgoing_entry.get("texture", null),
+			"secondary_texture": incoming_entry.get("texture", null),
+			"cache_key": str(outgoing_entry.get("cache_key", "")),
+			"transition_key": "shader_%d_to_%d_%d_%.4f" % [outgoing_slot_index, incoming_slot_index, movement_direction_sign, motion_progress],
+			"shader_transition_enabled": true,
+			"shader_transition_progress": motion_progress,
+			"shader_transition_direction": float(movement_direction_sign),
+		}
 	var quantized_step: int = clampi(int(round(motion_progress * float(GOBO_WHEEL_TRANSITION_STEPS))), 0, GOBO_WHEEL_TRANSITION_STEPS)
 	var cache_key: String = "__wheel_motion_%s_%s_%d_%d" % [
 		str(outgoing_entry.get("cache_key", "")),
@@ -663,6 +710,25 @@ func _apply_gobo_visuals(light: SpotLight3D, gobo_texture: Texture2D, controls: 
 	if gobo_plane.material_override is ShaderMaterial:
 		var gobo_material: ShaderMaterial = gobo_plane.material_override as ShaderMaterial
 		gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
+		var transition_enabled: bool = bool(controls.get("gobo_shader_transition_enabled", false))
+		gobo_material.set_shader_parameter("gobo_transition_enabled", transition_enabled)
+		if transition_enabled:
+			gobo_material.set_shader_parameter(
+				"gobo_texture_secondary",
+				controls.get("gobo_shader_transition_secondary_texture", gobo_texture)
+			)
+			gobo_material.set_shader_parameter(
+				"gobo_transition_progress",
+				clamp(float(controls.get("gobo_shader_transition_progress", 0.0)), 0.0, 1.0)
+			)
+			gobo_material.set_shader_parameter(
+				"gobo_transition_direction",
+				1.0 if float(controls.get("gobo_shader_transition_direction", 1.0)) >= 0.0 else -1.0
+			)
+		else:
+			gobo_material.set_shader_parameter("gobo_texture_secondary", gobo_texture)
+			gobo_material.set_shader_parameter("gobo_transition_progress", 0.0)
+			gobo_material.set_shader_parameter("gobo_transition_direction", 1.0)
 	_update_gobo_plane_scale(light, gobo_plane)
 
 
