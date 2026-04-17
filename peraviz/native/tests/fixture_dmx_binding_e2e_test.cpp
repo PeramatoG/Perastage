@@ -612,6 +612,48 @@ int run_test() {
         }
     }
 
+    if (mega_pointe_gobo1->wheel_spin_ranges.empty() || mega_pointe_gobo2->wheel_spin_ranges.empty()) {
+        return fail("Expected canonical MegaPointe wheel spin ranges for both gobo wheels");
+    }
+    const auto validate_wheel_spin_ranges = [](const peraviz::dmx::FixtureGoboWheelOffset &wheel,
+                                               const std::string &wheel_label) -> int {
+        bool has_high_window_range = false;
+        bool has_negative_segment = false;
+        bool has_positive_segment = false;
+        bool has_center_stop = false;
+        for (const peraviz::dmx::FixtureGoboRotationRange &range : wheel.wheel_spin_ranges) {
+            if (range.dmx_from >= 202 || range.dmx_to >= 202) {
+                has_high_window_range = true;
+            }
+            if (range.physical_from < 0.0F || range.physical_to < 0.0F) {
+                has_negative_segment = true;
+            }
+            if (range.physical_from > 0.0F || range.physical_to > 0.0F) {
+                has_positive_segment = true;
+            }
+            if (range.is_stop_range && range.dmx_from <= 128 && range.dmx_to >= 127) {
+                has_center_stop = true;
+            }
+        }
+        if (!has_high_window_range) {
+            return fail("Expected " + wheel_label + " wheel-spin ranges to include DMX window 202+");
+        }
+        if (!has_negative_segment || !has_positive_segment) {
+            return fail("Expected " + wheel_label + " wheel-spin ranges to include negative and positive physical values");
+        }
+        if (!has_center_stop) {
+            return fail("Expected " + wheel_label + " wheel-spin ranges to include near-center stop window");
+        }
+        return 0;
+    };
+
+    if (const int rc = validate_wheel_spin_ranges(*mega_pointe_gobo1, "gobo1"); rc != 0) {
+        return rc;
+    }
+    if (const int rc = validate_wheel_spin_ranges(*mega_pointe_gobo2, "gobo2"); rc != 0) {
+        return rc;
+    }
+
     return 0;
 }
 

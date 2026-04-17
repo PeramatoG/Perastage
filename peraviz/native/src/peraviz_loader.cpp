@@ -212,6 +212,12 @@ Dictionary PeravizLoader::build_fixture_dmx_bindings(int universe_offset) const 
         item["gobo_rotation_channel_index_0"] = binding.gobo_rotation.coarse_dmx_channel_index_0;
         item["gobo_rotation_fine_channel_index_0"] = binding.gobo_rotation.fine_dmx_channel_index_0;
         item["gobo_rotation_ultra_fine_channel_index_0"] = binding.gobo_rotation.ultra_fine_dmx_channel_index_0;
+        item["gobo_wheel_spin_channel_index_0"] = binding.gobo_wheel_spin.coarse_dmx_channel_index_0;
+        item["gobo_wheel_spin_fine_channel_index_0"] = binding.gobo_wheel_spin.fine_dmx_channel_index_0;
+        item["gobo_wheel_spin_ultra_fine_channel_index_0"] = binding.gobo_wheel_spin.ultra_fine_dmx_channel_index_0;
+        item["gobo_slot_rotation_channel_index_0"] = binding.gobo_slot_rotation.coarse_dmx_channel_index_0;
+        item["gobo_slot_rotation_fine_channel_index_0"] = binding.gobo_slot_rotation.fine_dmx_channel_index_0;
+        item["gobo_slot_rotation_ultra_fine_channel_index_0"] = binding.gobo_slot_rotation.ultra_fine_dmx_channel_index_0;
         item["gobo_wheel_number"] = binding.gobo_wheel_number;
         item["gobo_wheel_name"] = String(binding.gobo_wheel_name.c_str());
 
@@ -264,9 +270,17 @@ Dictionary PeravizLoader::build_fixture_dmx_bindings(int universe_offset) const 
             wheel_item["rotation_channel_index_0"] = wheel.rotation_channel.coarse_dmx_channel_index_0;
             wheel_item["rotation_fine_channel_index_0"] = wheel.rotation_channel.fine_dmx_channel_index_0;
             wheel_item["rotation_ultra_fine_channel_index_0"] = wheel.rotation_channel.ultra_fine_dmx_channel_index_0;
+            wheel_item["wheel_spin_channel_index_0"] = wheel.wheel_spin_channel.coarse_dmx_channel_index_0;
+            wheel_item["wheel_spin_fine_channel_index_0"] = wheel.wheel_spin_channel.fine_dmx_channel_index_0;
+            wheel_item["wheel_spin_ultra_fine_channel_index_0"] = wheel.wheel_spin_channel.ultra_fine_dmx_channel_index_0;
+            wheel_item["slot_rotation_channel_index_0"] = wheel.slot_rotation_channel.coarse_dmx_channel_index_0;
+            wheel_item["slot_rotation_fine_channel_index_0"] = wheel.slot_rotation_channel.fine_dmx_channel_index_0;
+            wheel_item["slot_rotation_ultra_fine_channel_index_0"] = wheel.slot_rotation_channel.ultra_fine_dmx_channel_index_0;
             wheel_item["supports_index"] = wheel.supports_index;
             wheel_item["supports_rotation"] = wheel.supports_rotation;
             wheel_item["supports_spin_rotation"] = wheel.supports_spin_rotation;
+            wheel_item["supports_wheel_spin"] = wheel.supports_wheel_spin;
+            wheel_item["supports_slot_rotation"] = wheel.supports_slot_rotation;
             wheel_item["supports_shake"] = wheel.supports_shake;
             wheel_item["has_index_physical_limits"] = wheel.has_index_physical_limits;
             wheel_item["index_physical_min"] = wheel.index_physical_min;
@@ -299,6 +313,40 @@ Dictionary PeravizLoader::build_fixture_dmx_bindings(int universe_offset) const 
                 rotation_ranges[rotation_range_index] = rotation_range_item;
             }
             wheel_item["rotation_ranges"] = rotation_ranges;
+
+            Array wheel_spin_ranges;
+            wheel_spin_ranges.resize(static_cast<int64_t>(wheel.wheel_spin_ranges.size()));
+            for (int64_t rotation_range_index = 0; rotation_range_index < static_cast<int64_t>(wheel.wheel_spin_ranges.size()); ++rotation_range_index) {
+                const auto &rotation_range = wheel.wheel_spin_ranges[static_cast<size_t>(rotation_range_index)];
+                Dictionary rotation_range_item;
+                rotation_range_item["dmx_from"] = rotation_range.dmx_from;
+                rotation_range_item["dmx_to"] = rotation_range.dmx_to;
+                rotation_range_item["mode_from_8bit"] = rotation_range.mode_from_8bit;
+                rotation_range_item["mode_to_8bit"] = rotation_range.mode_to_8bit;
+                rotation_range_item["physical_from"] = rotation_range.physical_from;
+                rotation_range_item["physical_to"] = rotation_range.physical_to;
+                rotation_range_item["is_stop_range"] = rotation_range.is_stop_range;
+                rotation_range_item["is_rotation_channel_range"] = rotation_range.is_rotation_channel_range;
+                wheel_spin_ranges[rotation_range_index] = rotation_range_item;
+            }
+            wheel_item["wheel_spin_ranges"] = wheel_spin_ranges;
+
+            Array slot_rotation_ranges;
+            slot_rotation_ranges.resize(static_cast<int64_t>(wheel.slot_rotation_ranges.size()));
+            for (int64_t rotation_range_index = 0; rotation_range_index < static_cast<int64_t>(wheel.slot_rotation_ranges.size()); ++rotation_range_index) {
+                const auto &rotation_range = wheel.slot_rotation_ranges[static_cast<size_t>(rotation_range_index)];
+                Dictionary rotation_range_item;
+                rotation_range_item["dmx_from"] = rotation_range.dmx_from;
+                rotation_range_item["dmx_to"] = rotation_range.dmx_to;
+                rotation_range_item["mode_from_8bit"] = rotation_range.mode_from_8bit;
+                rotation_range_item["mode_to_8bit"] = rotation_range.mode_to_8bit;
+                rotation_range_item["physical_from"] = rotation_range.physical_from;
+                rotation_range_item["physical_to"] = rotation_range.physical_to;
+                rotation_range_item["is_stop_range"] = rotation_range.is_stop_range;
+                rotation_range_item["is_rotation_channel_range"] = rotation_range.is_rotation_channel_range;
+                slot_rotation_ranges[rotation_range_index] = rotation_range_item;
+            }
+            wheel_item["slot_rotation_ranges"] = slot_rotation_ranges;
 
             Array shake_ranges;
             shake_ranges.resize(static_cast<int64_t>(wheel.shake_ranges.size()));

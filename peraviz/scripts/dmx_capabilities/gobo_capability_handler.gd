@@ -95,6 +95,8 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 		var range_behavior: int = int(active_range.get("behavior", GOBO_BEHAVIOR_FIXED))
 		var has_index_channel: bool = control_reader.has_control_channel(item, "index_channel_index_0", "index_fine_channel_index_0", "index_ultra_fine_channel_index_0")
 		var has_rotation_channel: bool = control_reader.has_control_channel(item, "rotation_channel_index_0", "rotation_fine_channel_index_0", "rotation_ultra_fine_channel_index_0")
+		var has_wheel_spin_channel: bool = control_reader.has_control_channel(item, "wheel_spin_channel_index_0", "wheel_spin_fine_channel_index_0", "wheel_spin_ultra_fine_channel_index_0")
+		var has_slot_rotation_channel: bool = control_reader.has_control_channel(item, "slot_rotation_channel_index_0", "slot_rotation_fine_channel_index_0", "slot_rotation_ultra_fine_channel_index_0")
 		var is_rotation_behavior: bool = range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE
 		var uses_range_rotation: bool = is_rotation_behavior and not has_rotation_channel
 		var supports_index: bool = (range_behavior == GOBO_BEHAVIOR_INDEX) or (has_index_channel and not is_rotation_behavior)
@@ -112,7 +114,11 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 		var rotation_source_channel: String = "select"
 		var rotation_has_value: bool = false
 		var rotation_ranges: Array = item.get("rotation_ranges", [])
+		var wheel_spin_ranges: Array = item.get("wheel_spin_ranges", rotation_ranges)
+		var slot_rotation_ranges: Array = item.get("slot_rotation_ranges", rotation_ranges)
 		var resolved_rotation: Dictionary = {}
+		var resolved_wheel_spin: Dictionary = {}
+		var resolved_slot_rotation: Dictionary = {}
 		var resolved_shake: Dictionary = {}
 		var mode_master_value_8bit: int = raw_8bit
 		var rotation_control_norm: float = -1.0
@@ -139,6 +145,14 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 
 		var rotation_value_available: bool = false
 		var rotation_value_norm: float = -1.0
+		var wheel_spin_raw_8bit: int = -1
+		var wheel_spin_raw_coarse: int = -1
+		var wheel_spin_raw_fine: int = -1
+		var wheel_spin_control_norm: float = -1.0
+		var slot_rotation_raw_8bit: int = -1
+		var slot_rotation_raw_coarse: int = -1
+		var slot_rotation_raw_fine: int = -1
+		var slot_rotation_control_norm: float = -1.0
 		if has_rotation_channel and (supports_rotation or (supports_index and not has_index_channel)):
 			var rotation_coarse_index: int = int(item.get("rotation_channel_index_0", -1))
 			var rotation_fine_index: int = int(item.get("rotation_fine_channel_index_0", -1))
@@ -158,6 +172,32 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 				rotation_raw_coarse = int(frame[rotation_coarse_index]) if control_reader.is_valid_channel_index(frame, rotation_coarse_index) else rotation_raw_8bit
 				rotation_raw_fine = int(frame[rotation_fine_index]) if control_reader.is_valid_channel_index(frame, rotation_fine_index) else -1
 				rotation_control_norm = rotation_value_norm
+		if has_wheel_spin_channel:
+			var wheel_spin_value: Dictionary = control_reader.read_optional_control_value(
+				frame,
+				int(item.get("wheel_spin_channel_index_0", -1)),
+				int(item.get("wheel_spin_fine_channel_index_0", -1)),
+				int(item.get("wheel_spin_ultra_fine_channel_index_0", -1)),
+				force_coarse_only
+			)
+			if not wheel_spin_value.is_empty():
+				wheel_spin_control_norm = normalizer.clamp_norm(float(wheel_spin_value.get("norm", 0.0)))
+				wheel_spin_raw_8bit = normalizer.raw_to_8bit(int(wheel_spin_value.get("raw", 0)), int(wheel_spin_value.get("resolution_bits", 8)))
+				wheel_spin_raw_coarse = wheel_spin_raw_8bit
+				wheel_spin_raw_fine = -1
+		if has_slot_rotation_channel:
+			var slot_rotation_value: Dictionary = control_reader.read_optional_control_value(
+				frame,
+				int(item.get("slot_rotation_channel_index_0", -1)),
+				int(item.get("slot_rotation_fine_channel_index_0", -1)),
+				int(item.get("slot_rotation_ultra_fine_channel_index_0", -1)),
+				force_coarse_only
+			)
+			if not slot_rotation_value.is_empty():
+				slot_rotation_control_norm = normalizer.clamp_norm(float(slot_rotation_value.get("norm", 0.0)))
+				slot_rotation_raw_8bit = normalizer.raw_to_8bit(int(slot_rotation_value.get("raw", 0)), int(slot_rotation_value.get("resolution_bits", 8)))
+				slot_rotation_raw_coarse = slot_rotation_raw_8bit
+				slot_rotation_raw_fine = -1
 
 		if supports_index and index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
 			if not has_index_channel and rotation_value_available:
@@ -213,6 +253,32 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 				resolver_ranges,
 				mode_master_value_8bit,
 				prefer_rotation_channel_ranges
+			)
+		if wheel_spin_raw_8bit < 0:
+			wheel_spin_raw_8bit = rotation_raw_8bit
+			wheel_spin_raw_coarse = rotation_raw_coarse
+			wheel_spin_raw_fine = rotation_raw_fine
+			wheel_spin_control_norm = rotation_control_norm
+		if slot_rotation_raw_8bit < 0:
+			slot_rotation_raw_8bit = rotation_raw_8bit
+			slot_rotation_raw_coarse = rotation_raw_coarse
+			slot_rotation_raw_fine = rotation_raw_fine
+			slot_rotation_control_norm = rotation_control_norm
+		if not wheel_spin_ranges.is_empty() and wheel_spin_raw_8bit >= 0:
+			resolved_wheel_spin = _resolve_rotation_runtime(
+				wheel_spin_raw_8bit,
+				wheel_spin_control_norm,
+				wheel_spin_ranges,
+				mode_master_value_8bit,
+				has_wheel_spin_channel
+			)
+		if not slot_rotation_ranges.is_empty() and slot_rotation_raw_8bit >= 0:
+			resolved_slot_rotation = _resolve_rotation_runtime(
+				slot_rotation_raw_8bit,
+				slot_rotation_control_norm,
+				slot_rotation_ranges,
+				mode_master_value_8bit,
+				has_slot_rotation_channel
 			)
 		if supports_shake and not shake_ranges.is_empty():
 			var slot_index_for_shake: int = int(active_range.get("slot_index", -1))
@@ -312,6 +378,22 @@ static func _build_runtime_gobo_bindings(binding: Dictionary,
 			"rotation_raw_value": rotation_raw,
 			"rotation_active_range": active_range,
 			"rotation_ranges": rotation_ranges,
+			"wheel_spin_ranges": wheel_spin_ranges,
+			"slot_rotation_ranges": slot_rotation_ranges,
+			"wheel_spin_has_physical_value": bool(resolved_wheel_spin.get("has_range", false)),
+			"wheel_spin_speed_deg_per_sec": float(resolved_wheel_spin.get("rotation_speed_deg_per_sec", float(resolved_rotation.get("rotation_speed_deg_per_sec", 0.0)))),
+			"wheel_spin_direction_sign": int(resolved_wheel_spin.get("direction_sign", int(resolved_rotation.get("direction_sign", 0)))),
+			"wheel_spin_is_stop": bool(resolved_wheel_spin.get("is_stop", bool(resolved_rotation.get("is_stop", true)))),
+			"wheel_spin_raw_8bit": wheel_spin_raw_8bit,
+			"wheel_spin_raw_coarse": wheel_spin_raw_coarse,
+			"wheel_spin_raw_fine": wheel_spin_raw_fine,
+			"slot_rotation_has_physical_value": bool(resolved_slot_rotation.get("has_range", false)),
+			"slot_rotation_speed_deg_per_sec": float(resolved_slot_rotation.get("rotation_speed_deg_per_sec", float(resolved_rotation.get("rotation_speed_deg_per_sec", 0.0)))),
+			"slot_rotation_direction_sign": int(resolved_slot_rotation.get("direction_sign", int(resolved_rotation.get("direction_sign", 0)))),
+			"slot_rotation_is_stop": bool(resolved_slot_rotation.get("is_stop", bool(resolved_rotation.get("is_stop", true)))),
+			"slot_rotation_raw_8bit": slot_rotation_raw_8bit,
+			"slot_rotation_raw_coarse": slot_rotation_raw_coarse,
+			"slot_rotation_raw_fine": slot_rotation_raw_fine,
 			"shake_ranges": shake_ranges,
 			"has_shake_runtime_range": bool(resolved_shake.get("has_range", false)),
 			"shake_active": shake_active,

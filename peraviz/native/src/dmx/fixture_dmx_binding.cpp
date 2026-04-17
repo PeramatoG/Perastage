@@ -186,6 +186,18 @@ FixtureBindingBuildResult build_fixture_control_bindings(
             to_channel_index_0(patch, offsets.gobo_rotation_fine_offset_1_based);
         binding.gobo_rotation.ultra_fine_dmx_channel_index_0 =
             to_channel_index_0(patch, offsets.gobo_rotation_ultra_fine_offset_1_based);
+        binding.gobo_wheel_spin.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_wheel_spin_coarse_offset_1_based);
+        binding.gobo_wheel_spin.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_wheel_spin_fine_offset_1_based);
+        binding.gobo_wheel_spin.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_wheel_spin_ultra_fine_offset_1_based);
+        binding.gobo_slot_rotation.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_slot_rotation_coarse_offset_1_based);
+        binding.gobo_slot_rotation.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_slot_rotation_fine_offset_1_based);
+        binding.gobo_slot_rotation.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_slot_rotation_ultra_fine_offset_1_based);
         binding.gobo_wheel_number = offsets.gobo_wheel_number;
         binding.gobo_wheel_name = offsets.gobo_wheel_name;
         binding.gobo_slots = offsets.gobo_slots;
@@ -205,13 +217,25 @@ FixtureBindingBuildResult build_fixture_control_bindings(
                                                                 wheel.rotation_coarse_offset_1_based,
                                                                 wheel.rotation_fine_offset_1_based,
                                                                 wheel.rotation_ultra_fine_offset_1_based);
+            wheel_binding.wheel_spin_channel = to_channel_binding(patch,
+                                                                  wheel.wheel_spin_coarse_offset_1_based,
+                                                                  wheel.wheel_spin_fine_offset_1_based,
+                                                                  wheel.wheel_spin_ultra_fine_offset_1_based);
+            wheel_binding.slot_rotation_channel = to_channel_binding(patch,
+                                                                     wheel.slot_rotation_coarse_offset_1_based,
+                                                                     wheel.slot_rotation_fine_offset_1_based,
+                                                                     wheel.slot_rotation_ultra_fine_offset_1_based);
             wheel_binding.supports_index = wheel.supports_index;
             wheel_binding.supports_rotation = wheel.supports_rotation;
             wheel_binding.supports_spin_rotation = wheel.supports_spin_rotation;
+            wheel_binding.supports_wheel_spin = wheel.supports_wheel_spin;
+            wheel_binding.supports_slot_rotation = wheel.supports_slot_rotation;
             wheel_binding.supports_shake = wheel.supports_shake;
             wheel_binding.has_index_physical_limits = wheel.has_index_physical_limits;
             wheel_binding.index_physical_min = wheel.index_physical_min;
             wheel_binding.index_physical_max = wheel.index_physical_max;
+            wheel_binding.wheel_spin_ranges = wheel.wheel_spin_ranges;
+            wheel_binding.slot_rotation_ranges = wheel.slot_rotation_ranges;
             wheel_binding.rotation_ranges = wheel.rotation_ranges;
             wheel_binding.shake_ranges = wheel.shake_ranges;
             wheel_binding.wheel_number = wheel.wheel_number;
@@ -325,10 +349,14 @@ FixtureBindingBuildResult build_fixture_control_bindings(
         sanitize_channel_binding(binding.gobo);
         sanitize_channel_binding(binding.gobo_index);
         sanitize_channel_binding(binding.gobo_rotation);
+        sanitize_channel_binding(binding.gobo_wheel_spin);
+        sanitize_channel_binding(binding.gobo_slot_rotation);
         for (FixtureGoboWheelBinding &wheel_binding : binding.gobo_wheels) {
             sanitize_channel_binding(wheel_binding.channel);
             sanitize_channel_binding(wheel_binding.index_channel);
             sanitize_channel_binding(wheel_binding.rotation_channel);
+            sanitize_channel_binding(wheel_binding.wheel_spin_channel);
+            sanitize_channel_binding(wheel_binding.slot_rotation_channel);
         }
 
         result.bindings.push_back(binding);

@@ -179,6 +179,35 @@ bool matches_gobo_rotation_attribute(const std::string &leaf) {
            leaf.find("rotate") != std::string::npos;
 }
 
+bool matches_gobo_wheel_spin_attribute(const std::string &leaf) {
+    if (leaf.find("gobo") == std::string::npos) {
+        return false;
+    }
+    if (matches_gobo_select_with_embedded_motion(leaf)) {
+        return false;
+    }
+    return leaf.find("wheelspin") != std::string::npos ||
+           leaf.find("wheelrotation") != std::string::npos ||
+           (leaf.find("wheel") != std::string::npos &&
+            (leaf.find("spin") != std::string::npos || leaf.find("rotate") != std::string::npos));
+}
+
+bool matches_gobo_slot_rotation_attribute(const std::string &leaf) {
+    if (leaf.find("gobo") == std::string::npos) {
+        return false;
+    }
+    if (matches_gobo_select_with_embedded_motion(leaf)) {
+        return false;
+    }
+    return leaf.find("posrotate") != std::string::npos ||
+           leaf.find("posrot") != std::string::npos ||
+           leaf.find("posrotation") != std::string::npos ||
+           (leaf.find("slot") != std::string::npos &&
+            (leaf.find("spin") != std::string::npos || leaf.find("rotate") != std::string::npos)) ||
+           (leaf.find("index") != std::string::npos &&
+            (leaf.find("spin") != std::string::npos || leaf.find("rotate") != std::string::npos));
+}
+
 struct AttributeNameDescriptor {
     AttributeRole role;
     std::initializer_list<std::string_view> tokens;
@@ -305,7 +334,11 @@ void parse_wheel_and_prism_attributes(const std::string &leaf, ParsedAttribute &
 }
 
 void parse_gobo_attribute(const std::string &leaf, ParsedAttribute &parsed) {
-    if (matches_gobo_rotation_attribute(leaf)) {
+    if (matches_gobo_wheel_spin_attribute(leaf)) {
+        parsed.role = AttributeRole::kGoboWheelSpin;
+    } else if (matches_gobo_slot_rotation_attribute(leaf)) {
+        parsed.role = AttributeRole::kGoboSlotRotation;
+    } else if (matches_gobo_rotation_attribute(leaf)) {
         parsed.role = AttributeRole::kGoboRotation;
     } else if (matches_gobo_index_attribute(leaf)) {
         parsed.role = AttributeRole::kGoboIndex;

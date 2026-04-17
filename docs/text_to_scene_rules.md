@@ -521,3 +521,32 @@ Perastage parses rider text by identifying sections, hang positions, fixture lin
 ## Peraviz MVR/GDTF visual fallback rule
 
 When loading MVR/GDTF content in Peraviz, dummy placeholder meshes must only be rendered if no real visual geometry exists for that node subtree. If a valid model (mesh/scene) is present in descendants, placeholder cubes/cones are removed to avoid double drawing.
+
+## Peraviz gobo wheel spin vs slot rotation semantics
+
+Peraviz now keeps separate semantics for:
+
+- `Gobo(n)WheelSpin`: wheel-level spin (physical wheel movement speed/direction).
+- `Gobo(n)PosRotate`: slot/pattern rotation for the selected gobo slot.
+
+Compatibility behavior:
+
+- Legacy gobo rotation attributes are still accepted through the existing
+  compatibility lane.
+- If a fixture provides only one of the two controls, runtime mirrors that
+  value so older fixtures remain functional.
+
+Runtime precedence:
+
+1. Resolve gobo slot selection/index first.
+2. Resolve wheel spin independently (`wheel_spin_*` fields).
+3. Resolve slot rotation independently (`slot_rotation_*` fields).
+4. Fallback to legacy `rotation_*` fields when explicit split controls are not
+   available.
+
+Physical step behavior:
+
+- In indexed/step mode, wheel movement advances with continuous angle until the
+  target slot is reached (no instant jump).
+- Visible slot selection is resolved from the current wheel angle window.
+- Open/hole slots (slot index `0`) are treated as open windows when present.

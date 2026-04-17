@@ -552,6 +552,8 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
                 } else {
                     out_wheel.supports_rotation = true;
                     out_wheel.supports_spin_rotation = true;
+                    out_wheel.supports_wheel_spin = true;
+                    out_wheel.supports_slot_rotation = true;
                     FixtureGoboRotationRange rotation_range;
                     rotation_range.dmx_from = row.dmx_from;
                     rotation_range.dmx_to = row.dmx_to;
@@ -624,6 +626,12 @@ void dedupe_and_sort_gobo_wheel(FixtureGoboWheelOffset &wheel) {
                                a.is_rotation_channel_range == b.is_rotation_channel_range;
                     }),
         wheel.rotation_ranges.end());
+    if (wheel.wheel_spin_ranges.empty()) {
+        wheel.wheel_spin_ranges = wheel.rotation_ranges;
+    }
+    if (wheel.slot_rotation_ranges.empty()) {
+        wheel.slot_rotation_ranges = wheel.rotation_ranges;
+    }
 
     std::stable_sort(wheel.shake_ranges.begin(), wheel.shake_ranges.end(),
                      [](const FixtureGoboShakeRange &a,

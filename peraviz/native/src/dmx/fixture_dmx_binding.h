@@ -75,13 +75,19 @@ struct FixtureGoboWheelBinding {
     FixtureAttributeChannel channel;
     FixtureAttributeChannel index_channel;
     FixtureAttributeChannel rotation_channel;
+    FixtureAttributeChannel wheel_spin_channel;
+    FixtureAttributeChannel slot_rotation_channel;
     bool supports_index = false;
     bool supports_rotation = false;
     bool supports_spin_rotation = false;
+    bool supports_wheel_spin = false;
+    bool supports_slot_rotation = false;
     bool supports_shake = false;
     bool has_index_physical_limits = false;
     float index_physical_min = 0.0F;
     float index_physical_max = 0.0F;
+    std::vector<FixtureGoboRotationRange> wheel_spin_ranges;
+    std::vector<FixtureGoboRotationRange> slot_rotation_ranges;
     std::vector<FixtureGoboRotationRange> rotation_ranges;
     std::vector<FixtureGoboShakeRange> shake_ranges;
     int wheel_number = 0;
@@ -111,6 +117,8 @@ struct FixtureControlBinding {
     FixtureAttributeChannel gobo;
     FixtureAttributeChannel gobo_index;
     FixtureAttributeChannel gobo_rotation;
+    FixtureAttributeChannel gobo_wheel_spin;
+    FixtureAttributeChannel gobo_slot_rotation;
     int gobo_wheel_number = 0;
     std::string gobo_wheel_name;
     std::vector<FixtureGoboSlot> gobo_slots;
@@ -143,13 +151,25 @@ struct FixtureGoboWheelOffset {
     int rotation_fine_offset_1_based = -1;
     int rotation_ultra_fine_offset_1_based = -1;
     int rotation_channel_priority = -1;
+    int wheel_spin_coarse_offset_1_based = -1;
+    int wheel_spin_fine_offset_1_based = -1;
+    int wheel_spin_ultra_fine_offset_1_based = -1;
+    int slot_rotation_coarse_offset_1_based = -1;
+    int slot_rotation_fine_offset_1_based = -1;
+    int slot_rotation_ultra_fine_offset_1_based = -1;
+    int wheel_spin_channel_priority = -1;
+    int slot_rotation_channel_priority = -1;
     bool supports_index = false;
     bool supports_rotation = false;
     bool supports_spin_rotation = false;
+    bool supports_wheel_spin = false;
+    bool supports_slot_rotation = false;
     bool supports_shake = false;
     bool has_index_physical_limits = false;
     float index_physical_min = 0.0F;
     float index_physical_max = 0.0F;
+    std::vector<FixtureGoboRotationRange> wheel_spin_ranges;
+    std::vector<FixtureGoboRotationRange> slot_rotation_ranges;
     std::vector<FixtureGoboRotationRange> rotation_ranges;
     std::vector<FixtureGoboShakeRange> shake_ranges;
     int wheel_number = 0;
@@ -213,6 +233,12 @@ struct FixtureControlOffsets {
     int gobo_rotation_coarse_offset_1_based = -1;
     int gobo_rotation_fine_offset_1_based = -1;
     int gobo_rotation_ultra_fine_offset_1_based = -1;
+    int gobo_wheel_spin_coarse_offset_1_based = -1;
+    int gobo_wheel_spin_fine_offset_1_based = -1;
+    int gobo_wheel_spin_ultra_fine_offset_1_based = -1;
+    int gobo_slot_rotation_coarse_offset_1_based = -1;
+    int gobo_slot_rotation_fine_offset_1_based = -1;
+    int gobo_slot_rotation_ultra_fine_offset_1_based = -1;
     int gobo_wheel_number = 0;
     std::string gobo_wheel_name;
     std::vector<FixtureGoboSlot> gobo_slots;
@@ -232,7 +258,8 @@ struct FixtureControlOffsets {
                animation_wheel_coarse_offset_1_based > 0 ||
                animation_wheel_rotation_coarse_offset_1_based > 0 ||
                gobo_coarse_offset_1_based > 0 || gobo_index_coarse_offset_1_based > 0 ||
-               gobo_rotation_coarse_offset_1_based > 0 || yellow_coarse_offset_1_based > 0 ||
+               gobo_rotation_coarse_offset_1_based > 0 || gobo_wheel_spin_coarse_offset_1_based > 0 ||
+               gobo_slot_rotation_coarse_offset_1_based > 0 || yellow_coarse_offset_1_based > 0 ||
                !gobo_wheels.empty();
     }
 };

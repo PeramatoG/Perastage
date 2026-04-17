@@ -25,6 +25,8 @@ enum class AttributeRole {
     kGobo,
     kGoboIndex,
     kGoboRotation,
+    kGoboWheelSpin,
+    kGoboSlotRotation,
 };
 
 struct ParsedAttribute {

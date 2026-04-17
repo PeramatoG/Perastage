@@ -49,7 +49,13 @@ int main() {
     if (const int rc = expect_parsed("panfine", peraviz::dmx::AttributeRole::kPan, true, 1, 0); rc != 0) {
         return rc;
     }
-    if (const int rc = expect_parsed("gobo1posrotate", peraviz::dmx::AttributeRole::kGoboRotation, false, 1, 1); rc != 0) {
+    if (const int rc = expect_parsed("gobo1posrotate", peraviz::dmx::AttributeRole::kGoboSlotRotation, false, 1, 1); rc != 0) {
+        return rc;
+    }
+    if (const int rc = expect_parsed("gobo2wheelspin", peraviz::dmx::AttributeRole::kGoboWheelSpin, false, 1, 2); rc != 0) {
+        return rc;
+    }
+    if (const int rc = expect_parsed("gobo2wheelrotate", peraviz::dmx::AttributeRole::kGoboWheelSpin, false, 1, 2); rc != 0) {
         return rc;
     }
     if (const int rc = expect_parsed("gobo2index", peraviz::dmx::AttributeRole::kGoboIndex, false, 1, 2); rc != 0) {

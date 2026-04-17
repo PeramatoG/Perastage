@@ -20,6 +20,9 @@ const GOBO_VECTOR_POLYGONS_META_KEY: String = "peraviz_gobo_vector_polygons"
 const GOBO_VECTOR_WIDTH_META_KEY: String = "peraviz_gobo_vector_width"
 const GOBO_VECTOR_HEIGHT_META_KEY: String = "peraviz_gobo_vector_height"
 const GOBO_WHEEL_SPIN_META_KEY: String = "peraviz_gobo_wheel_spin"
+const GOBO_WHEEL_ANGLE_META_KEY: String = "peraviz_gobo_wheel_angle_deg"
+const GOBO_WHEEL_TARGET_SLOT_META_KEY: String = "peraviz_gobo_target_slot"
+const GOBO_WHEEL_MOVEMENT_STATE_META_KEY: String = "peraviz_gobo_wheel_movement_state"
 const GOBO_WHEEL_SHAKE_PHASE_META_KEY: String = "peraviz_gobo_wheel_shake_phase"
 const GOBO_WHEEL_SHAKE_RANGE_META_KEY: String = "peraviz_gobo_wheel_shake_range"
 const GOBO_LAST_UPDATE_MSEC_META_KEY: String = "peraviz_gobo_last_update_msec"
@@ -94,11 +97,13 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			if slot_index <= 0:
 				continue
 			var wheel_key: String = _resolve_wheel_cache_key(wheel)
-			wheel_slot_state[wheel_key] = slot_index
+			var slot_resolution: Dictionary = _resolve_visible_slot_index(light, wheel, slot_index, delta_sec)
+			var visible_slot_index: int = int(slot_resolution.get("visible_slot_index", slot_index))
+			wheel_slot_state[wheel_key] = visible_slot_index
 			var wheel_controls := {
 				"gobo_slots": wheel.get("slots", []),
 			}
-			var texture_entry: Dictionary = _resolve_gobo_texture_entry_for_slot(wheel_controls, slot_index)
+			var texture_entry: Dictionary = _resolve_gobo_texture_entry_for_slot(wheel_controls, visible_slot_index)
 			var gobo_texture: Texture2D = texture_entry.get("texture", null) as Texture2D
 			if gobo_texture == null:
 				continue
@@ -203,9 +208,9 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 			base_rotation_deg = lerp(0.0, GOBO_INDEX_MAX_DEG, clamp(index_norm, 0.0, 1.0))
 
 	var spin_angle_deg: float = float(wheel_spin_state.get(wheel_key, 0.0))
-	var has_native_speed: bool = bool(wheel.get("has_rotation_physical_value", false))
-	var native_speed_deg_per_sec: float = float(wheel.get("rotation_speed_deg_per_sec", wheel.get("rotation_physical", 0.0)))
-	var native_is_stop: bool = bool(wheel.get("is_stop", false))
+	var has_native_speed: bool = bool(wheel.get("wheel_spin_has_physical_value", wheel.get("has_rotation_physical_value", false)))
+	var native_speed_deg_per_sec: float = float(wheel.get("wheel_spin_speed_deg_per_sec", wheel.get("rotation_speed_deg_per_sec", wheel.get("rotation_physical", 0.0))))
+	var native_is_stop: bool = bool(wheel.get("wheel_spin_is_stop", wheel.get("is_stop", false)))
 	var has_active_rotation_command: bool = supports_rotation and has_native_speed and not native_is_stop and absf(native_speed_deg_per_sec) > 0.0001
 	var shake_offset_deg: float = 0.0
 	var debug_override: Dictionary = _resolve_debug_rotation_override(controls)
@@ -271,7 +276,10 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 			light.set_meta(GOBO_WHEEL_SHAKE_RANGE_META_KEY, shake_range_state)
 			return {"rotation_deg": base_rotation_deg, "shake_tilt_deg": shake_offset_deg}
 
-	base_rotation_deg += spin_angle_deg
+	var slot_rotation_deg: float = 0.0
+	if bool(wheel.get("slot_rotation_has_physical_value", false)) and not bool(wheel.get("slot_rotation_is_stop", false)):
+		slot_rotation_deg = float(wheel.get("slot_rotation_speed_deg_per_sec", 0.0)) * max(delta_sec, 0.0)
+	base_rotation_deg += spin_angle_deg + slot_rotation_deg
 	if should_apply_shake_effect:
 		var current_shake_range_signature: String = _resolve_shake_range_signature(wheel)
 		var previous_shake_range_signature: String = str(shake_range_state.get(wheel_key, ""))
@@ -420,6 +428,52 @@ func _handle_wheel_mode_transition(light: SpotLight3D, wheel_key: String, effect
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
 	return true
 
+func _resolve_visible_slot_index(light: SpotLight3D, wheel: Dictionary, target_slot_index: int, delta_sec: float) -> Dictionary:
+	var wheel_key: String = _resolve_wheel_cache_key(wheel)
+	var wheel_angle_state: Dictionary = light.get_meta(GOBO_WHEEL_ANGLE_META_KEY, {})
+	if wheel_angle_state is not Dictionary:
+		wheel_angle_state = {}
+	var target_slot_state: Dictionary = light.get_meta(GOBO_WHEEL_TARGET_SLOT_META_KEY, {})
+	if target_slot_state is not Dictionary:
+		target_slot_state = {}
+	var movement_state: Dictionary = light.get_meta(GOBO_WHEEL_MOVEMENT_STATE_META_KEY, {})
+	if movement_state is not Dictionary:
+		movement_state = {}
+
+	var slots: Array = wheel.get("slots", [])
+	var slot_count: int = slots.size()
+	if slot_count <= 0:
+		return {"visible_slot_index": target_slot_index}
+	var current_angle_deg: float = float(wheel_angle_state.get(wheel_key, 0.0))
+	var normalized_target_slot: int = clampi(target_slot_index, 1, slot_count)
+	var target_center_deg: float = (float(normalized_target_slot - 1) + 0.5) * (360.0 / float(slot_count))
+	var wheel_spin_speed_deg_per_sec: float = absf(float(wheel.get("wheel_spin_speed_deg_per_sec", 0.0)))
+	var step_speed_deg_per_sec: float = maxf(wheel_spin_speed_deg_per_sec, 180.0)
+	if delta_sec > 0.0:
+		var delta_to_target_deg: float = wrapf(target_center_deg - current_angle_deg, -180.0, 180.0)
+		var max_step_deg: float = step_speed_deg_per_sec * delta_sec
+		if absf(delta_to_target_deg) <= max_step_deg:
+			current_angle_deg = target_center_deg
+			movement_state[wheel_key] = "aligned"
+		else:
+			current_angle_deg = wrapf(current_angle_deg + signf(delta_to_target_deg) * max_step_deg, 0.0, 360.0)
+			movement_state[wheel_key] = "stepping"
+	wheel_angle_state[wheel_key] = current_angle_deg
+	target_slot_state[wheel_key] = normalized_target_slot
+	light.set_meta(GOBO_WHEEL_ANGLE_META_KEY, wheel_angle_state)
+	light.set_meta(GOBO_WHEEL_TARGET_SLOT_META_KEY, target_slot_state)
+	light.set_meta(GOBO_WHEEL_MOVEMENT_STATE_META_KEY, movement_state)
+	var slot_window_deg: float = 360.0 / float(slot_count)
+	var visible_slot_index: int = int(floor(current_angle_deg / slot_window_deg)) + 1
+	if visible_slot_index > slot_count:
+		visible_slot_index = 1
+	return {
+		"visible_slot_index": clampi(visible_slot_index, 1, slot_count),
+		"wheel_angle_deg": current_angle_deg,
+		"target_slot_index": normalized_target_slot,
+		"movement_state": str(movement_state.get(wheel_key, "")),
+	}
+
 func _triangle_wave_centered_zero(phase: float) -> float:
 	var wrapped_phase: float = wrapf(phase, 0.0, 1.0)
 	return 1.0 - (4.0 * absf(wrapped_phase - 0.5))
@@ -524,6 +578,9 @@ func _clear_gobo_visuals(light: SpotLight3D) -> void:
 	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, GOBO_DEFAULT_ROTATION_DEG)
 	light.remove_meta(GOBO_APPLIED_STATE_META_KEY)
 	light.remove_meta(GOBO_WHEEL_SPIN_META_KEY)
+	light.remove_meta(GOBO_WHEEL_ANGLE_META_KEY)
+	light.remove_meta(GOBO_WHEEL_TARGET_SLOT_META_KEY)
+	light.remove_meta(GOBO_WHEEL_MOVEMENT_STATE_META_KEY)
 	light.remove_meta(GOBO_WHEEL_MODE_META_KEY)
 	light.remove_meta(GOBO_WHEEL_SHAKE_PHASE_META_KEY)
 	light.remove_meta(GOBO_WHEEL_SHAKE_RANGE_META_KEY)

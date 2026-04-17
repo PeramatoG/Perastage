@@ -318,6 +318,12 @@ void handle_gobo_index_attribute(const peraviz::dmx::ParsedAttribute &parsed_att
                                               wheel->index_physical_max);
 }
 
+enum class GoboRotationKind {
+    kLegacy = 0,
+    kWheelSpin = 1,
+    kSlotRotation = 2,
+};
+
 void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_attribute,
                                     const std::vector<int> &offsets,
                                     const char *attribute,
@@ -326,6 +332,7 @@ void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_
                                     int function_dmx_to,
                                     int function_mode_from,
                                     int function_mode_to,
+                                    GoboRotationKind rotation_kind,
                                     peraviz::dmx::FixtureControlOffsets &out_offsets) {
     peraviz::dmx::FixtureGoboWheelOffset *wheel =
         resolve_gobo_wheel(out_offsets, parsed_attribute, channel_function);
@@ -340,6 +347,12 @@ void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_
     } else {
         wheel->supports_rotation = true;
         wheel->supports_spin_rotation = true;
+        if (rotation_kind == GoboRotationKind::kWheelSpin || rotation_kind == GoboRotationKind::kLegacy) {
+            wheel->supports_wheel_spin = true;
+        }
+        if (rotation_kind == GoboRotationKind::kSlotRotation || rotation_kind == GoboRotationKind::kLegacy) {
+            wheel->supports_slot_rotation = true;
+        }
     }
     int candidate_rotation_coarse = -1;
     int candidate_rotation_fine = -1;
@@ -370,17 +383,37 @@ void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_
     }
 
     const bool has_valid_candidate_channel = candidate_rotation_coarse > 0;
+    int &resolved_coarse = rotation_kind == GoboRotationKind::kWheelSpin
+        ? wheel->wheel_spin_coarse_offset_1_based
+        : (rotation_kind == GoboRotationKind::kSlotRotation
+            ? wheel->slot_rotation_coarse_offset_1_based
+            : wheel->rotation_coarse_offset_1_based);
+    int &resolved_fine = rotation_kind == GoboRotationKind::kWheelSpin
+        ? wheel->wheel_spin_fine_offset_1_based
+        : (rotation_kind == GoboRotationKind::kSlotRotation
+            ? wheel->slot_rotation_fine_offset_1_based
+            : wheel->rotation_fine_offset_1_based);
+    int &resolved_ultra_fine = rotation_kind == GoboRotationKind::kWheelSpin
+        ? wheel->wheel_spin_ultra_fine_offset_1_based
+        : (rotation_kind == GoboRotationKind::kSlotRotation
+            ? wheel->slot_rotation_ultra_fine_offset_1_based
+            : wheel->rotation_ultra_fine_offset_1_based);
+    int &resolved_priority = rotation_kind == GoboRotationKind::kWheelSpin
+        ? wheel->wheel_spin_channel_priority
+        : (rotation_kind == GoboRotationKind::kSlotRotation
+            ? wheel->slot_rotation_channel_priority
+            : wheel->rotation_channel_priority);
     const bool should_replace_rotation_channel =
         has_valid_candidate_channel &&
-        (wheel->rotation_coarse_offset_1_based <= 0 ||
-         candidate_priority > wheel->rotation_channel_priority ||
-         (candidate_priority == wheel->rotation_channel_priority &&
-          candidate_rotation_coarse < wheel->rotation_coarse_offset_1_based));
+        (resolved_coarse <= 0 ||
+         candidate_priority > resolved_priority ||
+         (candidate_priority == resolved_priority &&
+          candidate_rotation_coarse < resolved_coarse));
     if (should_replace_rotation_channel) {
-        wheel->rotation_coarse_offset_1_based = candidate_rotation_coarse;
-        wheel->rotation_fine_offset_1_based = candidate_rotation_fine;
-        wheel->rotation_ultra_fine_offset_1_based = candidate_rotation_ultra_fine;
-        wheel->rotation_channel_priority = candidate_priority;
+        resolved_coarse = candidate_rotation_coarse;
+        resolved_fine = candidate_rotation_fine;
+        resolved_ultra_fine = candidate_rotation_ultra_fine;
+        resolved_priority = candidate_priority;
     }
 
     std::vector<peraviz::dmx::FixtureGoboRotationRange> parsed_ranges;
@@ -417,9 +450,13 @@ void handle_gobo_rotation_attribute(const peraviz::dmx::ParsedAttribute &parsed_
             wheel->shake_ranges.push_back(shake_range);
         }
     } else {
-        wheel->rotation_ranges.insert(wheel->rotation_ranges.end(),
-                                      parsed_ranges.begin(),
-                                      parsed_ranges.end());
+        wheel->rotation_ranges.insert(wheel->rotation_ranges.end(), parsed_ranges.begin(), parsed_ranges.end());
+        if (rotation_kind == GoboRotationKind::kWheelSpin || rotation_kind == GoboRotationKind::kLegacy) {
+            wheel->wheel_spin_ranges.insert(wheel->wheel_spin_ranges.end(), parsed_ranges.begin(), parsed_ranges.end());
+        }
+        if (rotation_kind == GoboRotationKind::kSlotRotation || rotation_kind == GoboRotationKind::kLegacy) {
+            wheel->slot_rotation_ranges.insert(wheel->slot_rotation_ranges.end(), parsed_ranges.begin(), parsed_ranges.end());
+        }
     }
 }
 
@@ -473,8 +510,16 @@ bool handle_gobo_index_descriptor(const AttributeContext &context) {
 }
 
 bool handle_gobo_rotation_descriptor(const AttributeContext &context) {
-    if (context.parsed_attribute.role != peraviz::dmx::AttributeRole::kGoboRotation) {
+    if (context.parsed_attribute.role != peraviz::dmx::AttributeRole::kGoboRotation &&
+        context.parsed_attribute.role != peraviz::dmx::AttributeRole::kGoboWheelSpin &&
+        context.parsed_attribute.role != peraviz::dmx::AttributeRole::kGoboSlotRotation) {
         return false;
+    }
+    GoboRotationKind rotation_kind = GoboRotationKind::kLegacy;
+    if (context.parsed_attribute.role == peraviz::dmx::AttributeRole::kGoboWheelSpin) {
+        rotation_kind = GoboRotationKind::kWheelSpin;
+    } else if (context.parsed_attribute.role == peraviz::dmx::AttributeRole::kGoboSlotRotation) {
+        rotation_kind = GoboRotationKind::kSlotRotation;
     }
     handle_gobo_rotation_attribute(context.parsed_attribute,
                                    context.offsets,
@@ -484,6 +529,7 @@ bool handle_gobo_rotation_descriptor(const AttributeContext &context) {
                                    context.function_dmx_to,
                                    context.function_mode_from,
                                    context.function_mode_to,
+                                   rotation_kind,
                                    context.out_offsets);
     return true;
 }
@@ -716,6 +762,42 @@ DimmerResolveCacheEntry resolve_uncached(const std::string &gdtf_path,
 
     for (auto &wheel : out.offsets.gobo_wheels) {
         peraviz::dmx::dedupe_and_sort_gobo_wheel(wheel);
+        if (wheel.wheel_spin_coarse_offset_1_based <= 0 && wheel.rotation_coarse_offset_1_based > 0) {
+            wheel.wheel_spin_coarse_offset_1_based = wheel.rotation_coarse_offset_1_based;
+            wheel.wheel_spin_fine_offset_1_based = wheel.rotation_fine_offset_1_based;
+            wheel.wheel_spin_ultra_fine_offset_1_based = wheel.rotation_ultra_fine_offset_1_based;
+        }
+        if (wheel.slot_rotation_coarse_offset_1_based <= 0 && wheel.rotation_coarse_offset_1_based > 0) {
+            wheel.slot_rotation_coarse_offset_1_based = wheel.rotation_coarse_offset_1_based;
+            wheel.slot_rotation_fine_offset_1_based = wheel.rotation_fine_offset_1_based;
+            wheel.slot_rotation_ultra_fine_offset_1_based = wheel.rotation_ultra_fine_offset_1_based;
+        }
+        if (wheel.wheel_spin_ranges.empty()) {
+            wheel.wheel_spin_ranges = wheel.rotation_ranges;
+        }
+        if (wheel.slot_rotation_ranges.empty()) {
+            wheel.slot_rotation_ranges = wheel.rotation_ranges;
+        }
+        if (wheel.rotation_coarse_offset_1_based <= 0) {
+            wheel.rotation_coarse_offset_1_based = wheel.slot_rotation_coarse_offset_1_based > 0
+                ? wheel.slot_rotation_coarse_offset_1_based
+                : wheel.wheel_spin_coarse_offset_1_based;
+            wheel.rotation_fine_offset_1_based = wheel.slot_rotation_fine_offset_1_based > 0
+                ? wheel.slot_rotation_fine_offset_1_based
+                : wheel.wheel_spin_fine_offset_1_based;
+            wheel.rotation_ultra_fine_offset_1_based = wheel.slot_rotation_ultra_fine_offset_1_based > 0
+                ? wheel.slot_rotation_ultra_fine_offset_1_based
+                : wheel.wheel_spin_ultra_fine_offset_1_based;
+        }
+        if (wheel.rotation_ranges.empty()) {
+            wheel.rotation_ranges = !wheel.slot_rotation_ranges.empty()
+                ? wheel.slot_rotation_ranges
+                : wheel.wheel_spin_ranges;
+        }
+        wheel.supports_wheel_spin = wheel.supports_wheel_spin || wheel.wheel_spin_coarse_offset_1_based > 0 ||
+                                    !wheel.wheel_spin_ranges.empty();
+        wheel.supports_slot_rotation = wheel.supports_slot_rotation || wheel.slot_rotation_coarse_offset_1_based > 0 ||
+                                       !wheel.slot_rotation_ranges.empty();
     }
     out.offsets.gobo_wheels.erase(
         std::remove_if(out.offsets.gobo_wheels.begin(), out.offsets.gobo_wheels.end(),
@@ -747,15 +829,36 @@ DimmerResolveCacheEntry resolve_uncached(const std::string &gdtf_path,
         primary_wheel = &out.offsets.gobo_wheels.front();
     }
     if (primary_wheel) {
+        const int legacy_rotation_coarse = primary_wheel->rotation_coarse_offset_1_based > 0
+            ? primary_wheel->rotation_coarse_offset_1_based
+            : (primary_wheel->slot_rotation_coarse_offset_1_based > 0
+                ? primary_wheel->slot_rotation_coarse_offset_1_based
+                : primary_wheel->wheel_spin_coarse_offset_1_based);
+        const int legacy_rotation_fine = primary_wheel->rotation_fine_offset_1_based > 0
+            ? primary_wheel->rotation_fine_offset_1_based
+            : (primary_wheel->slot_rotation_fine_offset_1_based > 0
+                ? primary_wheel->slot_rotation_fine_offset_1_based
+                : primary_wheel->wheel_spin_fine_offset_1_based);
+        const int legacy_rotation_ultra_fine = primary_wheel->rotation_ultra_fine_offset_1_based > 0
+            ? primary_wheel->rotation_ultra_fine_offset_1_based
+            : (primary_wheel->slot_rotation_ultra_fine_offset_1_based > 0
+                ? primary_wheel->slot_rotation_ultra_fine_offset_1_based
+                : primary_wheel->wheel_spin_ultra_fine_offset_1_based);
         out.offsets.gobo_coarse_offset_1_based = primary_wheel->coarse_offset_1_based;
         out.offsets.gobo_fine_offset_1_based = primary_wheel->fine_offset_1_based;
         out.offsets.gobo_ultra_fine_offset_1_based = primary_wheel->ultra_fine_offset_1_based;
         out.offsets.gobo_index_coarse_offset_1_based = primary_wheel->index_coarse_offset_1_based;
         out.offsets.gobo_index_fine_offset_1_based = primary_wheel->index_fine_offset_1_based;
         out.offsets.gobo_index_ultra_fine_offset_1_based = primary_wheel->index_ultra_fine_offset_1_based;
-        out.offsets.gobo_rotation_coarse_offset_1_based = primary_wheel->rotation_coarse_offset_1_based;
-        out.offsets.gobo_rotation_fine_offset_1_based = primary_wheel->rotation_fine_offset_1_based;
-        out.offsets.gobo_rotation_ultra_fine_offset_1_based = primary_wheel->rotation_ultra_fine_offset_1_based;
+        out.offsets.gobo_rotation_coarse_offset_1_based = legacy_rotation_coarse;
+        out.offsets.gobo_rotation_fine_offset_1_based = legacy_rotation_fine;
+        out.offsets.gobo_rotation_ultra_fine_offset_1_based = legacy_rotation_ultra_fine;
+        out.offsets.gobo_wheel_spin_coarse_offset_1_based = primary_wheel->wheel_spin_coarse_offset_1_based;
+        out.offsets.gobo_wheel_spin_fine_offset_1_based = primary_wheel->wheel_spin_fine_offset_1_based;
+        out.offsets.gobo_wheel_spin_ultra_fine_offset_1_based = primary_wheel->wheel_spin_ultra_fine_offset_1_based;
+        out.offsets.gobo_slot_rotation_coarse_offset_1_based = primary_wheel->slot_rotation_coarse_offset_1_based;
+        out.offsets.gobo_slot_rotation_fine_offset_1_based = primary_wheel->slot_rotation_fine_offset_1_based;
+        out.offsets.gobo_slot_rotation_ultra_fine_offset_1_based = primary_wheel->slot_rotation_ultra_fine_offset_1_based;
         out.offsets.gobo_wheel_number = primary_wheel->wheel_number;
         out.offsets.gobo_wheel_name = primary_wheel->wheel_name;
         out.offsets.gobo_slots = primary_wheel->slots;
