@@ -67,6 +67,7 @@ struct GdtfModelInfo {
 struct GdtfChannelInfo {
     int channel = 0;           // DMX channel number (coarse)
     std::string function;      // Associated function/attribute
+    bool isVirtual = false;    // True when Offset is omitted/None in GDTF
 };
 
 // Loads the models defined in a GDTF file. Returns true on success.
@@ -89,8 +90,8 @@ int GetGdtfModeChannelCount(const std::string& gdtfPath,
                             const std::string& modeName);
 
 // Returns the list of DMX channels and their functions for a mode in a GDTF
-// file. The channel number corresponds to the first Offset value when
-// available, otherwise the sequential index is used.
+// file. Real channels use the first Offset value as channel number. Virtual
+// channels (Offset=None/missing) set isVirtual=true and channel=0.
 std::vector<GdtfChannelInfo> GetGdtfModeChannels(
     const std::string& gdtfPath,
     const std::string& modeName);

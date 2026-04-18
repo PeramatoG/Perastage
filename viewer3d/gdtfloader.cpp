@@ -505,7 +505,17 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                     return parsedOffsets;
                 std::string offStr = rawOffset;
                 trim(offStr);
-                if (offStr.empty() || offStr == "None")
+                if (offStr.empty())
+                    return parsedOffsets;
+                auto toLower = [](std::string value) {
+                    std::transform(value.begin(), value.end(), value.begin(),
+                                   [](unsigned char ch) {
+                                       return static_cast<char>(std::tolower(ch));
+                                   });
+                    return value;
+                };
+                const std::string offStrLower = toLower(offStr);
+                if (offStrLower == "none")
                     return parsedOffsets;
                 for (char& ch : offStr) {
                     if (ch == ';' || ch == '|' || ch == '/')
@@ -515,14 +525,14 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                 std::string group;
                 while (std::getline(ss, group, ',')) {
                     trim(group);
-                    if (group.empty() || group == "None")
+                    if (group.empty() || toLower(group) == "none")
                         continue;
 
                     std::stringstream groupStream(group);
                     std::string token;
                     while (groupStream >> token) {
                         trim(token);
-                        if (token.empty() || token == "None")
+                        if (token.empty() || toLower(token) == "none")
                             continue;
                         int parsed = 0;
                         if (TryParseInt(token, parsed)) {
@@ -749,10 +759,10 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                 }
 
                 GdtfChannelInfo info;
-                info.channel = static_cast<int>(channelsVec.size()) + 1;
+                info.channel = 0;
                 info.function = baseFunction;
+                info.isVirtual = true;
                 channelsVec.push_back(std::move(info));
-                ++count;
             }
         }
 
