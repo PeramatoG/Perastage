@@ -25,6 +25,7 @@ struct GdtfObject { Mesh mesh; Matrix transform; };
 struct GdtfChannelInfo {
     int channel = 0;
     std::string function;
+    bool isVirtual = false;
 };
 
 bool LoadGdtf(const std::string&, std::vector<GdtfObject>&, std::string*) {

@@ -778,7 +778,10 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
     func.Trim(true).Trim(false);
     if (func.empty())
       func = "-";
-    msg += wxString::Format("%d: ", ch.channel) + func + "\n";
+    const wxString channelLabel = ch.isVirtual
+                                   ? wxString("V")
+                                   : wxString::Format("%d", ch.channel);
+    msg += channelLabel + ": " + func + "\n";
   }
   channelList->SetValue(msg);
   int chCount = GetGdtfModeChannelCount(std::string(gdtfPath.ToUTF8()),
