@@ -4,14 +4,44 @@
 
 #include <wx/log.h>
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
+
 RenderSize ResolveRenderSize(wxWindow *window) {
   if (window == nullptr) {
     return RenderSize{0, 0, "null-window"};
   }
 
-  const wxSize clientSize = window->GetClientSize();
-  return RenderSize{clientSize.GetWidth(), clientSize.GetHeight(),
-                    "window-client-size"};
+  const wxSize logicalClientSize = window->GetClientSize();
+  const int logicalWidth = std::max(0, logicalClientSize.GetWidth());
+  const int logicalHeight = std::max(0, logicalClientSize.GetHeight());
+
+  const double contentScale =
+      static_cast<double>(window->GetContentScaleFactor());
+  if (!std::isfinite(contentScale) || contentScale <= 0.0) {
+    return RenderSize{0, 0, "invalid-content-scale"};
+  }
+
+  const double physicalWidthDouble =
+      static_cast<double>(logicalWidth) * contentScale;
+  const double physicalHeightDouble =
+      static_cast<double>(logicalHeight) * contentScale;
+  if (!std::isfinite(physicalWidthDouble) ||
+      !std::isfinite(physicalHeightDouble)) {
+    return RenderSize{0, 0, "invalid-framebuffer-size"};
+  }
+
+  const long roundedWidth = std::lround(physicalWidthDouble);
+  const long roundedHeight = std::lround(physicalHeightDouble);
+  const long clampedWidth =
+      std::clamp(roundedWidth, 0L, static_cast<long>(std::numeric_limits<int>::max()));
+  const long clampedHeight =
+      std::clamp(roundedHeight, 0L, static_cast<long>(std::numeric_limits<int>::max()));
+
+  return RenderSize{static_cast<int>(clampedWidth),
+                    static_cast<int>(clampedHeight),
+                    "window-framebuffer-scaled"};
 }
 
 void ValidateRenderSizeContract(const char *panelName, unsigned long long frameId,

@@ -834,12 +834,12 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     const wxSize size(resolvedSize.width, resolvedSize.height);
     glstate::ApplyKnownBaseOnscreenState(size.GetWidth(), size.GetHeight());
     const RenderSize viewportSize{size.GetWidth(), size.GetHeight(),
-                                  "glstate::ApplyKnownBaseOnscreenState"};
+                                  "glstate::ApplyKnownBaseOnscreenState(framebuffer-px)"};
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0.0, size.GetWidth(), size.GetHeight(), 0.0, -1.0, 1.0);
     const RenderSize projectionSize{size.GetWidth(), size.GetHeight(),
-                                    "LayoutViewerPanel::OnPaint::ortho"};
+                                    "LayoutViewerPanel::OnPaint::ortho(framebuffer-px)"};
     ++s_renderFrameId;
     ValidateRenderSizeContract("LayoutViewerPanel", s_renderFrameId,
                                resolvedSize, viewportSize, projectionSize);

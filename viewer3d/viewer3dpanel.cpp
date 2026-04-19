@@ -641,13 +641,13 @@ void Viewer3DPanel::Render(const RenderSize& renderSize)
     const int width = renderSize.width;
     const int height = renderSize.height;
     glstate::ApplyKnownBaseOnscreenState(width, height);
-    const RenderSize viewportSize{width, height, "glstate::ApplyKnownBaseOnscreenState"};
+    const RenderSize viewportSize{width, height, "glstate::ApplyKnownBaseOnscreenState(framebuffer-px)"};
 
     const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
     ApplyViewer3DClearColorForStyle(renderStyle);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     ApplyCameraMatrices(renderSize);
-    const RenderSize projectionSize{width, height, "ApplyCameraMatrices::projection"};
+    const RenderSize projectionSize{width, height, "ApplyCameraMatrices::projection(framebuffer-px)"};
 
     ++s_renderFrameId;
     ValidateRenderSizeContract("Viewer3DPanel", s_renderFrameId, renderSize,
