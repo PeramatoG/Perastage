@@ -23,7 +23,7 @@
 
 class RiderTextAutocompleteProvider {
 public:
-  enum class SuggestionKind { Keyword, Dictionary, ColorName, ColorHex, ColorRgb };
+  enum class SuggestionKind { Keyword, Dictionary };
 
   struct Suggestion {
     std::string displayText;

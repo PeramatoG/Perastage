@@ -27,39 +27,11 @@
 #include "trussdictionary.h"
 
 namespace {
-struct NamedColor {
-  const char *name;
-  const char *hex;
-};
-
 constexpr std::array<const char *, 21> kRiderKeywords = {
     "rigging", "lx1",   "lx2",    "lx3",      "lx4",    "sides",
     "floor",   "screen", "backdrop", "truss",   "pipe",   "motor",
     "for",     "kg",    "m",      "primitive:cube",
     "primitive:cylinder", "led screen", "apply filter", "hazer", "fan"};
-
-constexpr std::array<NamedColor, 20> kNamedColors = {{
-    {"red", "#FF0000"},
-    {"green", "#00FF00"},
-    {"blue", "#0000FF"},
-    {"amber", "#FFBF00"},
-    {"warm white", "#FFD7A3"},
-    {"cool white", "#F3F8FF"},
-    {"white", "#FFFFFF"},
-    {"cyan", "#00FFFF"},
-    {"magenta", "#FF00FF"},
-    {"yellow", "#FFFF00"},
-    {"orange", "#FF7F00"},
-    {"pink", "#FF69B4"},
-    {"purple", "#8F00FF"},
-    {"lavender", "#C7A3C7"},
-    {"lime", "#BFFF00"},
-    {"indigo", "#4B0082"},
-    {"teal", "#008080"},
-    {"gold", "#FFD700"},
-    {"ctb", "#B8D8FF"},
-    {"cto", "#FFB347"},
-}};
 
 int ComputeSubsequenceGapScore(std::string_view text, std::string_view needle) {
   if (needle.empty())
@@ -97,36 +69,6 @@ void RiderTextAutocompleteProvider::BuildStaticEntries() {
     entry.kind = SuggestionKind::Keyword;
     entry.baseScore = 10;
     staticEntries.push_back(std::move(entry));
-  }
-
-  for (const NamedColor &namedColor : kNamedColors) {
-    Entry byName;
-    byName.displayText = std::string(namedColor.name) + " (" + namedColor.hex + ")";
-    byName.insertText = namedColor.name;
-    byName.normalizedToken = ToLower(namedColor.name);
-    byName.kind = SuggestionKind::ColorName;
-    byName.baseScore = 18;
-    staticEntries.push_back(std::move(byName));
-
-    Entry byHex;
-    byHex.displayText = std::string(namedColor.name) + " " + namedColor.hex;
-    byHex.insertText = namedColor.hex;
-    byHex.normalizedToken = ToLower(namedColor.hex);
-    byHex.kind = SuggestionKind::ColorHex;
-    byHex.baseScore = 16;
-    staticEntries.push_back(std::move(byHex));
-
-    Entry byRgb;
-    const unsigned int r = std::stoul(std::string(namedColor.hex + 1, 2), nullptr, 16);
-    const unsigned int g = std::stoul(std::string(namedColor.hex + 3, 2), nullptr, 16);
-    const unsigned int b = std::stoul(std::string(namedColor.hex + 5, 2), nullptr, 16);
-    byRgb.displayText = std::string("rgb(") + std::to_string(r) + "," +
-                        std::to_string(g) + "," + std::to_string(b) + ")";
-    byRgb.insertText = byRgb.displayText;
-    byRgb.normalizedToken = ToLower(byRgb.insertText);
-    byRgb.kind = SuggestionKind::ColorRgb;
-    byRgb.baseScore = 12;
-    staticEntries.push_back(std::move(byRgb));
   }
 }
 
@@ -181,11 +123,6 @@ RiderTextAutocompleteProvider::Query(const std::string &fullText,
   if (currentToken.empty())
     return {};
 
-  const bool colorLikeToken =
-      !currentToken.empty() &&
-      (currentToken[0] == '#' || currentToken.rfind("rgb", 0) == 0 ||
-       currentToken.rfind("col", 0) == 0 || currentToken.rfind("red", 0) == 0);
-
   std::vector<Suggestion> matches;
   matches.reserve(24);
 
@@ -202,13 +139,6 @@ RiderTextAutocompleteProvider::Query(const std::string &fullText,
       if (fuzzy <= 0)
         return;
       score += fuzzy;
-    }
-
-    if (colorLikeToken &&
-        (entry.kind == SuggestionKind::ColorName ||
-         entry.kind == SuggestionKind::ColorHex ||
-         entry.kind == SuggestionKind::ColorRgb)) {
-      score += 90;
     }
 
     matches.push_back({entry.displayText, entry.insertText, entry.kind, score});
