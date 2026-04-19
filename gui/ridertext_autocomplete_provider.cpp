@@ -33,6 +33,18 @@ constexpr std::array<const char *, 21> kRiderKeywords = {
     "for",     "kg",    "m",      "primitive:cube",
     "primitive:cylinder", "led screen", "apply filter", "hazer", "fan"};
 
+constexpr std::array<const char *, 7> kPositionKeywords = {
+    "lx1", "lx2", "lx3", "lx4", "sides", "floor", "screen"};
+
+constexpr std::array<const char *, 6> kTypeKeywords = {
+    "truss", "pipe", "motor", "primitive:cube", "primitive:cylinder", "led screen"};
+
+template <size_t N>
+bool ArrayContains(const std::array<const char *, N> &items,
+                   const std::string &needle) {
+  return std::find(items.begin(), items.end(), needle) != items.end();
+}
+
 int ComputeSubsequenceGapScore(std::string_view text, std::string_view needle) {
   if (needle.empty())
     return 0;
@@ -62,12 +74,18 @@ void RiderTextAutocompleteProvider::BuildStaticEntries() {
   staticEntries.clear();
 
   for (const char *keyword : kRiderKeywords) {
+    const std::string normalized = ToLower(keyword);
     Entry entry;
     entry.displayText = keyword;
     entry.insertText = keyword;
-    entry.normalizedToken = ToLower(keyword);
+    entry.normalizedToken = normalized;
     entry.kind = SuggestionKind::Keyword;
     entry.baseScore = 10;
+    if (ArrayContains(kPositionKeywords, normalized)) {
+      entry.semantic = EntrySemantic::Position;
+    } else if (ArrayContains(kTypeKeywords, normalized)) {
+      entry.semantic = EntrySemantic::Type;
+    }
     staticEntries.push_back(std::move(entry));
   }
 }
@@ -90,6 +108,7 @@ void RiderTextAutocompleteProvider::RefreshDynamicTerms() {
       entry.normalizedToken = normalized;
       entry.kind = SuggestionKind::Dictionary;
       entry.baseScore = 25;
+      entry.semantic = EntrySemantic::Type;
       dynamicEntries.push_back(std::move(entry));
     }
   }
@@ -108,9 +127,28 @@ void RiderTextAutocompleteProvider::RefreshDynamicTerms() {
       entry.normalizedToken = normalized;
       entry.kind = SuggestionKind::Dictionary;
       entry.baseScore = 23;
+      entry.semantic = EntrySemantic::Type;
       dynamicEntries.push_back(std::move(entry));
     }
   }
+}
+
+void RiderTextAutocompleteProvider::RegisterAcceptedSuggestion(
+    const std::string &insertText) {
+  const std::string normalized = ToLower(insertText);
+  if (normalized.empty())
+    return;
+  ++recentUseTickCounter;
+  recentUseTicksByToken[normalized] = recentUseTickCounter;
+}
+
+void RiderTextAutocompleteProvider::SetRankingWeights(const RankingWeights &newWeights) {
+  weights = newWeights;
+}
+
+const RiderTextAutocompleteProvider::RankingWeights &
+RiderTextAutocompleteProvider::GetRankingWeights() const {
+  return weights;
 }
 
 std::vector<RiderTextAutocompleteProvider::Suggestion>
@@ -119,6 +157,7 @@ RiderTextAutocompleteProvider::Query(const std::string &fullText,
                                      const size_t maxItems) const {
   const std::string currentToken =
       ToLower(ExtractCurrentToken(fullText, cursorByteOffset));
+  const QueryContext context = DetectContext(fullText, cursorByteOffset);
 
   if (currentToken.empty())
     return {};
@@ -129,16 +168,33 @@ RiderTextAutocompleteProvider::Query(const std::string &fullText,
   auto matchEntry = [&](const Entry &entry) {
     int score = entry.baseScore;
     if (entry.normalizedToken == currentToken) {
-      score += 300;
+      score += weights.exactMatch;
     } else if (entry.normalizedToken.rfind(currentToken, 0) == 0) {
-      score += 220;
+      score += weights.prefixMatch;
     } else if (entry.normalizedToken.find(currentToken) != std::string::npos) {
-      score += 130;
+      score += weights.substringMatch;
     } else {
       const int fuzzy = ComputeSubsequenceGapScore(entry.normalizedToken, currentToken);
       if (fuzzy <= 0)
         return;
-      score += fuzzy;
+      score += (fuzzy * std::max(0, weights.fuzzyScale));
+    }
+
+    if (context == QueryContext::ExpectPosition &&
+        entry.semantic == EntrySemantic::Position) {
+      score += weights.contextPositionBoost;
+    } else if (context == QueryContext::ExpectType &&
+               entry.semantic == EntrySemantic::Type) {
+      score += weights.contextTypeBoost;
+    }
+
+    const auto recentIt = recentUseTicksByToken.find(entry.normalizedToken);
+    if (recentIt != recentUseTicksByToken.end()) {
+      const uint64_t age = recentUseTickCounter - recentIt->second;
+      if (age < 1024) {
+        const int decay = static_cast<int>(age / 4);
+        score += std::max(0, weights.recentUseBoost - decay);
+      }
     }
 
     matches.push_back({entry.displayText, entry.insertText, entry.kind, score});
@@ -168,6 +224,68 @@ RiderTextAutocompleteProvider::Query(const std::string &fullText,
   }
 
   return unique;
+}
+
+RiderTextAutocompleteProvider::QueryContext
+RiderTextAutocompleteProvider::DetectContext(const std::string &fullText,
+                                             const size_t cursorByteOffset) {
+  const std::string previousToken = ToLower(ExtractPreviousToken(fullText, cursorByteOffset));
+  if (previousToken == "for")
+    return QueryContext::ExpectPosition;
+  if (IsNumericToken(previousToken))
+    return QueryContext::ExpectType;
+  return QueryContext::Generic;
+}
+
+std::string RiderTextAutocompleteProvider::ExtractPreviousToken(
+    const std::string &text, const size_t cursorByteOffset) {
+  if (text.empty() || cursorByteOffset == 0)
+    return {};
+
+  const size_t clampedCursor = std::min(cursorByteOffset, text.size());
+  size_t pos = clampedCursor;
+  while (pos > 0 && IsTokenDelimiter(text[pos - 1]))
+    --pos;
+  if (pos == 0)
+    return {};
+
+  size_t tokenStart = pos;
+  while (tokenStart > 0 && !IsTokenDelimiter(text[tokenStart - 1]))
+    --tokenStart;
+
+  const std::string currentToken = ExtractCurrentToken(text, clampedCursor);
+  if (tokenStart < clampedCursor && !currentToken.empty()) {
+    const std::string candidate = text.substr(tokenStart, pos - tokenStart);
+    if (candidate == currentToken) {
+      size_t previousEnd = tokenStart;
+      while (previousEnd > 0 && IsTokenDelimiter(text[previousEnd - 1]))
+        --previousEnd;
+      if (previousEnd == 0)
+        return {};
+      size_t previousStart = previousEnd;
+      while (previousStart > 0 && !IsTokenDelimiter(text[previousStart - 1]))
+        --previousStart;
+      return text.substr(previousStart, previousEnd - previousStart);
+    }
+  }
+
+  return text.substr(tokenStart, pos - tokenStart);
+}
+
+bool RiderTextAutocompleteProvider::IsNumericToken(const std::string &token) {
+  if (token.empty())
+    return false;
+  bool sawDigit = false;
+  for (const unsigned char ch : token) {
+    if (std::isdigit(ch) != 0) {
+      sawDigit = true;
+      continue;
+    }
+    if (ch == '.' || ch == ',')
+      continue;
+    return false;
+  }
+  return sawDigit;
 }
 
 std::string RiderTextAutocompleteProvider::ToLower(std::string value) {

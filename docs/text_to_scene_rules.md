@@ -64,6 +64,39 @@ After applying the filter, users can manually adjust the filtered text and then
 press **Create**; the same normalization rules are still applied at creation
 time.
 
+## Autocomplete keywords and ranking in "Create from text"
+
+The multiline editor in **Tools → Create from text** exposes autocomplete to
+speed up rider authoring/editing before import.
+
+Supported built-in keywords currently include:
+
+- Position/section terms: `RIGGING`, `LX1`, `LX2`, `LX3`, `LX4`, `SIDES`,
+  `FLOOR`, `SCREEN`, `BACKDROP`.
+- Rigging/object terms: `TRUSS`, `PIPE`, `MOTOR`, `FOR`, `KG`, `M`,
+  `LED SCREEN`, `PRIMITIVE:CUBE`, `PRIMITIVE:CYLINDER`.
+- Utility terms used by the dialog flow: `APPLY FILTER`, `HAZER`, `FAN`.
+
+Autocomplete also includes dynamic dictionary terms loaded from:
+
+- Fixture dictionary type names (GDTF dictionary entries).
+- Truss dictionary model names.
+
+Ranking order is relevance-based (not alphabetical-only):
+
+1. Exact token match.
+2. Prefix match.
+3. Substring/fuzzy match.
+4. Recent accepted suggestions get a recency boost.
+5. Context boost:
+   - after `FOR`, position labels (`LX*`, `SIDES`, `FLOOR`, `SCREEN`) are
+     prioritized.
+   - after a numeric token (for example `8`), type/model terms are prioritized.
+
+Ranking is configurable through autocomplete ranking weights in code
+(`RiderTextAutocompleteProvider::RankingWeights`), allowing score tuning
+without changing matching logic.
+
 ## Input normalization
 
 1. File type:

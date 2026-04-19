@@ -123,8 +123,13 @@ is visible in the multiline text box:
 - `Enter` or `Tab`: accept the selected suggestion and replace the active token.
 - `Esc`: close suggestions without inserting.
 
+The dialog also shows this shortcut help inline under the editor so users can
+discover the local autocomplete controls without leaving the workflow.
+
 Priority and focus impact:
 
 - These keys are consumed only when the dropdown is open.
 - Outside that state, the text box keeps its standard free-text editing behavior.
 - Global shortcut routing is unchanged because the dialog key handling stays local.
+- Suggestion ordering uses local relevance ranking (exact/prefix/fuzzy + recent
+  usage + syntax context), but key routing/priority rules above remain unchanged.

@@ -48,6 +48,7 @@ private:
   void OnTextKeyDown(wxKeyEvent &event);
   void OnAutocompleteTimer(wxTimerEvent &event);
   void OnSuggestionClick(wxCommandEvent &event);
+  void OnDialogCharHook(wxKeyEvent &event);
   void RefreshAutocompleteSuggestions();
   void HideSuggestionPopup();
   bool AcceptCurrentSuggestion();

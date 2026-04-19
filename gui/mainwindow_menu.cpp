@@ -304,9 +304,9 @@ void MainWindow::CreateToolBars() {
   toolsToolBar->AddTool(ID_Tools_DownloadGdtf, "Download GDTF",
                         loadToolbarIcon("cloud-download", wxART_MISSING_IMAGE),
                         "Download GDTF");
-  toolsToolBar->AddTool(ID_Tools_ImportRiderText, "Create by text",
+  toolsToolBar->AddTool(ID_Tools_ImportRiderText, "Create from text",
                         loadToolbarIcon("notepad-text", wxART_TIP),
-                        "Create by text");
+                        "Create from text");
   toolsToolBar->Realize();
   auiManager->AddPane(
       toolsToolBar, wxAuiPaneInfo()
