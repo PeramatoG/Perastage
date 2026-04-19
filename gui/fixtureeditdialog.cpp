@@ -521,7 +521,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   rightSizer->Add(imageSizer, 0, wxEXPAND | wxBOTTOM, 5);
   rightSizer->SetMinSize(wxSize(280, -1));
 
-  hSizer->Add(rightSizer, 1, wxTOP | wxBOTTOM | wxRIGHT | wxEXPAND, 10);
+  hSizer->Add(rightSizer, 0, wxTOP | wxBOTTOM | wxRIGHT | wxEXPAND, 10);
 
   topSizer->Add(hSizer, 1, wxEXPAND);
 
