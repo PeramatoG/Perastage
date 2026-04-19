@@ -18,6 +18,7 @@
 #include "consolepanel.h"
 #include "configmanager.h"
 #include "fixturetablepanel.h"
+#include "guiconfigservices.h"
 #include "hoisttablepanel.h"
 #include "layerpanel.h"
 #include "LayoutManager.h"
