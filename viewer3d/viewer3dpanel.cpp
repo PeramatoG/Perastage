@@ -120,6 +120,19 @@ bool Is2DDarkModeEnabled() {
     return ConfigManager::Get().GetFloat("view2d_dark_mode") >= 0.5f;
 }
 
+wxPoint ToFramebufferPoint(wxWindow* window, const wxPoint& logicalPoint) {
+    if (window == nullptr)
+        return logicalPoint;
+    const double contentScale =
+        static_cast<double>(window->GetContentScaleFactor());
+    if (!std::isfinite(contentScale) || contentScale <= 0.0)
+        return logicalPoint;
+    return wxPoint(static_cast<int>(std::lround(
+                       static_cast<double>(logicalPoint.x) * contentScale)),
+                   static_cast<int>(std::lround(
+                       static_cast<double>(logicalPoint.y) * contentScale)));
+}
+
 Viewer3DRenderStyle ResolveRenderStyleFromPreferences() {
     return ResolveViewer3DRenderStyle(ConfigManager::Get());
 }
@@ -540,7 +553,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     if (!skipLabelWork && shouldUpdateHoverQuery &&
         FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
-        found = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
+        const wxPoint pickPos = ToFramebufferPoint(this, m_lastMousePos);
+        found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y,
             w, h, newLabel, newPos, &newUuid);
         hoverQueryRan = true;
         if (found) {
@@ -552,7 +566,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     else if (!skipLabelWork && shouldUpdateHoverQuery &&
              TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
-        found = m_controller.GetTrussLabelAt(m_lastMousePos.x, m_lastMousePos.y,
+        const wxPoint pickPos = ToFramebufferPoint(this, m_lastMousePos);
+        found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y,
             w, h, newLabel, newPos, &newUuid);
         hoverQueryRan = true;
         if (found) {
@@ -564,7 +579,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     else if (!skipLabelWork && shouldUpdateHoverQuery &&
              SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
-        found = m_controller.GetSceneObjectLabelAt(m_lastMousePos.x, m_lastMousePos.y,
+        const wxPoint pickPos = ToFramebufferPoint(this, m_lastMousePos);
+        found = m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y,
             w, h, newLabel, newPos, &newUuid);
         hoverQueryRan = true;
         if (found) {
@@ -872,22 +888,26 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
 
     if (event.LeftUp() && !m_draggedSincePress)
     {
-        int w, h;
-        GetClientSize(&w, &h);
+        const RenderSize renderSize = ResolveRenderSize(this);
+        const int w = renderSize.width;
+        const int h = renderSize.height;
         if (!IsShownOnScreen()) {
             return;
         }
+        if (!renderSize.IsValid())
+            return;
         SetCurrent(*m_glContext);
         wxString label;
         wxPoint pos;
         std::string uuid;
+        const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
         bool found = false;
         if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
-            found = m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label, pos, &uuid);
+            found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, label, pos, &uuid);
         else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
-            found = m_controller.GetTrussLabelAt(event.GetX(), event.GetY(), w, h, label, pos, &uuid);
+            found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h, label, pos, &uuid);
         else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
-            found = m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w, h, label, pos, &uuid);
+            found = m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h, label, pos, &uuid);
 
         ConfigManager& cfg = ConfigManager::Get();
         if (found)
@@ -998,8 +1018,9 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     if (m_draggedSincePress)
         return;
 
-    int w, h;
-    GetClientSize(&w, &h);
+    const RenderSize renderSize = ResolveRenderSize(this);
+    const int w = renderSize.width;
+    const int h = renderSize.height;
     if (w <= 0 || h <= 0 || !IsShownOnScreen()) {
         event.Skip();
         return;
@@ -1017,7 +1038,8 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
         wxString label;
         wxPoint pos;
         std::string hitUuid;
-        if (!m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label, pos,
+        const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
+        if (!m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, label, pos,
                                             &hitUuid)) {
             for (const auto& [uuid, fixture] : scene.fixtures) {
                 if (!fixture.typeName.empty())
@@ -1213,8 +1235,9 @@ void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
 void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
                                             const wxPoint& end)
 {
-    int w, h;
-    GetClientSize(&w, &h);
+    const RenderSize renderSize = ResolveRenderSize(this);
+    const int w = renderSize.width;
+    const int h = renderSize.height;
     if (w <= 0 || h <= 0 || !IsShownOnScreen()) {
         return;
     }
@@ -1222,14 +1245,16 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
     SetCurrent(*m_glContext);
 
     ConfigManager& cfg = ConfigManager::Get();
+    const wxPoint pickStart = ToFramebufferPoint(this, start);
+    const wxPoint pickEnd = ToFramebufferPoint(this, end);
     if (m_rectSelectionAcrossAllTables)
     {
         const auto fixtures = m_controller.GetFixturesInScreenRect(
-            start.x, start.y, end.x, end.y, w, h);
+            pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
         const auto trusses = m_controller.GetTrussesInScreenRect(
-            start.x, start.y, end.x, end.y, w, h);
+            pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
         const auto sceneObjects = m_controller.GetSceneObjectsInScreenRect(
-            start.x, start.y, end.x, end.y, w, h);
+            pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
 
         const bool selectionChanged =
             fixtures != cfg.GetSelectedFixtures() ||
@@ -1272,7 +1297,8 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
 
     if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
     {
-        auto selection = m_controller.GetFixturesInScreenRect(start.x, start.y, end.x, end.y, w, h);
+        auto selection = m_controller.GetFixturesInScreenRect(
+            pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
         if (selection != cfg.GetSelectedFixtures()) {
             cfg.PushUndoState("fixture selection");
             cfg.SetSelectedFixtures(selection);
@@ -1285,7 +1311,8 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
     }
     else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
     {
-        auto selection = m_controller.GetTrussesInScreenRect(start.x, start.y, end.x, end.y, w, h);
+        auto selection = m_controller.GetTrussesInScreenRect(
+            pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
         if (selection != cfg.GetSelectedTrusses()) {
             cfg.PushUndoState("truss selection");
             cfg.SetSelectedTrusses(selection);
@@ -1299,7 +1326,8 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
     else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
     {
         auto selection =
-            m_controller.GetSceneObjectsInScreenRect(start.x, start.y, end.x, end.y, w, h);
+            m_controller.GetSceneObjectsInScreenRect(
+                pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
         if (selection != cfg.GetSelectedSceneObjects()) {
             cfg.PushUndoState("scene object selection");
             cfg.SetSelectedSceneObjects(selection);
@@ -1318,11 +1346,14 @@ void Viewer3DPanel::DrawSelectionRectangle(int width, int height)
     int right = std::max(m_rectSelectStart.x, m_rectSelectEnd.x);
     int top = std::min(m_rectSelectStart.y, m_rectSelectEnd.y);
     int bottom = std::max(m_rectSelectStart.y, m_rectSelectEnd.y);
+    const wxPoint physicalTopLeft = ToFramebufferPoint(this, wxPoint(left, top));
+    const wxPoint physicalBottomRight =
+        ToFramebufferPoint(this, wxPoint(right, bottom));
 
-    float glLeft = static_cast<float>(left);
-    float glRight = static_cast<float>(right);
-    float glBottom = static_cast<float>(height - bottom);
-    float glTop = static_cast<float>(height - top);
+    float glLeft = static_cast<float>(physicalTopLeft.x);
+    float glRight = static_cast<float>(physicalBottomRight.x);
+    float glBottom = static_cast<float>(height - physicalBottomRight.y);
+    float glTop = static_cast<float>(height - physicalTopLeft.y);
 
     GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
     if (depthEnabled)
@@ -1431,12 +1462,16 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
 
 void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
 {
-    int w, h;
-    GetClientSize(&w, &h);
+    const RenderSize renderSize = ResolveRenderSize(this);
+    const int w = renderSize.width;
+    const int h = renderSize.height;
+    if (!renderSize.IsValid())
+        return;
     SetCurrent(*m_glContext);
     wxString label;
     wxPoint pos;
     std::string uuid;
+    const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
     const bool cameraWasMoving = m_cameraMoving;
     if (cameraWasMoving)
         m_controller.SetCameraMoving(false);
@@ -1446,12 +1481,12 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
         SceneObjectTablePanel::Instance()->IsActivePage();
 
     const bool foundSceneObject = sceneObjectsActive &&
-        m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w, h,
+        m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h,
                                            label, pos, &uuid);
 
     bool found = foundSceneObject;
     if (!found)
-        found = m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h,
+        found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h,
                                                label, pos, &uuid);
 
     if (cameraWasMoving)
