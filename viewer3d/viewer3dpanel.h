@@ -27,6 +27,7 @@
 #include <wx/glcanvas.h>
 #include "viewer3dcamera.h"
 #include "viewer3dcontroller.h"
+#include "ui_render_size.h"
 #include <memory>
 #include <string>
 #include <thread>
@@ -119,8 +120,8 @@ private:
     void DrawSelectionRectangle(int width, int height);
 
     // Renders the full scene
-    void Render();
-    void ApplyCameraMatrices(int width, int height, double fovYDegrees = 45.0);
+    void Render(const RenderSize& renderSize);
+    void ApplyCameraMatrices(const RenderSize& renderSize, double fovYDegrees = 45.0);
     bool ExportCurrentViewToPng();
 
     // Hovered fixture label state

@@ -52,6 +52,7 @@
 #include "viewer3dviewfit.h"
 #include "viewer3d_render_style.h"
 #include "gl_state_guard.h"
+#include "ui_render_size.h"
 #include <wx/dcclient.h>
 #include <wx/debug.h>
 #include <wx/event.h>
@@ -510,13 +511,18 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     s_lastCameraUpdate = now;
     m_camera.Update(dt);
 
-    Render();
+    const RenderSize renderSize = ResolveRenderSize(this);
+    if (!renderSize.IsValid()) {
+        return;
+    }
+
+    Render(renderSize);
 
     // Ensure the OpenGL context is current before drawing overlays
     SetCurrent(*m_glContext);
 
-    int w, h;
-    GetClientSize(&w, &h);
+    const int w = renderSize.width;
+    const int h = renderSize.height;
 
     wxString newLabel;
     wxPoint newPos;
@@ -624,21 +630,28 @@ void Viewer3DPanel::OnResize(wxSizeEvent& event)
 }
 
 // Renders the full 3D scene
-void Viewer3DPanel::Render()
+void Viewer3DPanel::Render(const RenderSize& renderSize)
 {
     if (!IsShownOnScreen()) {
         return;
     }
     SetCurrent(*m_glContext);
 
-    int width, height;
-    GetClientSize(&width, &height);
+    static unsigned long long s_renderFrameId = 0;
+    const int width = renderSize.width;
+    const int height = renderSize.height;
     glstate::ApplyKnownBaseOnscreenState(width, height);
+    const RenderSize viewportSize{width, height, "glstate::ApplyKnownBaseOnscreenState"};
 
     const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
     ApplyViewer3DClearColorForStyle(renderStyle);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    ApplyCameraMatrices(width, height);
+    ApplyCameraMatrices(renderSize);
+    const RenderSize projectionSize{width, height, "ApplyCameraMatrices::projection"};
+
+    ++s_renderFrameId;
+    ValidateRenderSizeContract("Viewer3DPanel", s_renderFrameId, renderSize,
+                               viewportSize, projectionSize, &renderSize);
     if (renderStyle == Viewer3DRenderStyle::Textured) {
         DrawTexturedStyleBackgroundGradient(ComputeGridPlaneHorizonNdcY());
         DrawTexturedGroundPlaneBackdrop();
@@ -678,9 +691,9 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
         return false;
     }
 
-    int sourceWidth = 0;
-    int sourceHeight = 0;
-    GetClientSize(&sourceWidth, &sourceHeight);
+    const RenderSize sourceRenderSize = ResolveRenderSize(this);
+    int sourceWidth = sourceRenderSize.width;
+    int sourceHeight = sourceRenderSize.height;
     const double exportFovYDegrees =
         ComputeExpandedFovYDegrees(sourceWidth, sourceHeight, kExportImageWidth,
                                    kExportImageHeight);
@@ -724,7 +737,8 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
     const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
     ApplyViewer3DClearColorForStyle(renderStyle);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    ApplyCameraMatrices(kExportImageWidth, kExportImageHeight, exportFovYDegrees);
+    const RenderSize exportRenderSize{kExportImageWidth, kExportImageHeight, "export-fbo"};
+    ApplyCameraMatrices(exportRenderSize, exportFovYDegrees);
     if (renderStyle == Viewer3DRenderStyle::Textured) {
         DrawTexturedStyleBackgroundGradient(ComputeGridPlaneHorizonNdcY());
         DrawTexturedGroundPlaneBackdrop();
@@ -772,8 +786,10 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
     return true;
 }
 
-void Viewer3DPanel::ApplyCameraMatrices(int width, int height, double fovYDegrees)
+void Viewer3DPanel::ApplyCameraMatrices(const RenderSize& renderSize, double fovYDegrees)
 {
+    const int width = renderSize.width;
+    const int height = renderSize.height;
     glViewport(0, 0, width, height);
 
     glMatrixMode(GL_PROJECTION);

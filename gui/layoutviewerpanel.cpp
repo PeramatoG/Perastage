@@ -69,6 +69,7 @@
 #include "mainwindow.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
+#include "ui_render_size.h"
 
 namespace {
 constexpr double kMinZoom = 0.25;
@@ -806,6 +807,7 @@ bool LayoutViewerPanel::IsLayoutEmpty() const {
 }
 
 void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
+  static unsigned long long s_renderFrameId = 0;
   wxPaintDC dc(this);
   try {
     if (!IsShownOnScreen()) {
@@ -825,11 +827,22 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       RequestRenderRebuild();
     }
 
-    wxSize size = GetClientSize();
+    const RenderSize resolvedSize = ResolveRenderSize(this);
+    if (!resolvedSize.IsValid()) {
+      return;
+    }
+    const wxSize size(resolvedSize.width, resolvedSize.height);
     glstate::ApplyKnownBaseOnscreenState(size.GetWidth(), size.GetHeight());
+    const RenderSize viewportSize{size.GetWidth(), size.GetHeight(),
+                                  "glstate::ApplyKnownBaseOnscreenState"};
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0.0, size.GetWidth(), size.GetHeight(), 0.0, -1.0, 1.0);
+    const RenderSize projectionSize{size.GetWidth(), size.GetHeight(),
+                                    "LayoutViewerPanel::OnPaint::ortho"};
+    ++s_renderFrameId;
+    ValidateRenderSizeContract("LayoutViewerPanel", s_renderFrameId,
+                               resolvedSize, viewportSize, projectionSize);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     glDisable(GL_DEPTH_TEST);
