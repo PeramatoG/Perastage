@@ -76,6 +76,12 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   textCtrl->SetMinSize(wxSize(680, 360));
   mainSizer->Add(textCtrl, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
+  wxStaticText *autocompleteHelp = new wxStaticText(
+      this, wxID_ANY,
+      "Autocomplete: ↑/↓ move, Enter/Tab accept, Esc close. "
+      "Ranking: exact > prefix > fuzzy + recent use + context.");
+  mainSizer->Add(autocompleteHelp, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
+
   suggestionPopup = new wxPopupTransientWindow(this, wxBORDER_SIMPLE);
   wxBoxSizer *popupSizer = new wxBoxSizer(wxVERTICAL);
   suggestionList = new wxListBox(suggestionPopup, wxID_ANY);
@@ -401,6 +407,8 @@ bool RiderTextDialog::AcceptCurrentSuggestion() {
   }
 
   ReplaceCurrentToken(currentSuggestions[static_cast<size_t>(selection)].insertText);
+  autocompleteProvider.RegisterAcceptedSuggestion(
+      currentSuggestions[static_cast<size_t>(selection)].insertText);
   HideSuggestionPopup();
   return true;
 }
