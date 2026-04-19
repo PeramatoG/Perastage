@@ -665,7 +665,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     return;
 
   glstate::ApplyKnownBaseOnscreenState(w, h);
-  const RenderSize viewportSize{w, h, "glstate::ApplyKnownBaseOnscreenState"};
+  const RenderSize viewportSize{w, h, "glstate::ApplyKnownBaseOnscreenState(framebuffer-px)"};
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
@@ -676,7 +676,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   float offY = m_offsetY / PIXELS_PER_METER;
   glOrtho(-halfW - offX, halfW - offX, -halfH - offY, halfH - offY, -100.0f,
           100.0f);
-  const RenderSize projectionSize{w, h, "RenderInternal::world-projection"};
+  const RenderSize projectionSize{w, h, "RenderInternal::world-projection(framebuffer-px)"};
 
   ++s_renderFrameId;
   ValidateRenderSizeContract("Viewer2DPanel", s_renderFrameId, resolvedSize,
