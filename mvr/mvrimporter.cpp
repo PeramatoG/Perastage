@@ -73,6 +73,7 @@
 // wxWidgets zip support
 #include <wx/wfstream.h>
 #include <wx/wx.h>
+#include <wx/richtext/richtextctrl.h>
 class wxZipStreamLink;
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
@@ -2715,17 +2716,25 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             }
 
             if (loginOk && loginHttpCode == 200) {
-              wxDialog downloadInfoDialog(nullptr, wxID_ANY, "GDTF download queue",
-                                          wxDefaultPosition, wxSize(720, 420));
+              wxWindow *dialogParent =
+                  wxTheApp ? wxDynamicCast(wxTheApp->GetTopWindow(), wxWindow)
+                           : nullptr;
+              wxDialog downloadInfoDialog(dialogParent, wxID_ANY, "GDTF download queue",
+                                          wxDefaultPosition, wxSize(760, 460));
               wxBoxSizer *infoSizer = new wxBoxSizer(wxVERTICAL);
-              wxTextCtrl *downloadInfoLog = new wxTextCtrl(
+              wxRichTextCtrl *downloadInfoLog = new wxRichTextCtrl(
                   &downloadInfoDialog, wxID_ANY, "", wxDefaultPosition,
-                  wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
+                  wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY | wxVSCROLL);
               infoSizer->Add(downloadInfoLog, 1, wxEXPAND | wxALL, 8);
               wxButton *ackButton = new wxButton(&downloadInfoDialog, wxID_OK, "OK");
               ackButton->Disable();
               infoSizer->Add(ackButton, 0, wxALIGN_RIGHT | wxLEFT | wxRIGHT | wxBOTTOM, 8);
               downloadInfoDialog.SetSizer(infoSizer);
+              if (dialogParent) {
+                downloadInfoDialog.CentreOnParent();
+              } else {
+                downloadInfoDialog.CentreOnScreen();
+              }
               bool canCloseDownloadInfoDialog = false;
               downloadInfoDialog.Bind(wxEVT_CLOSE_WINDOW,
                                       [&](wxCloseEvent &closeEvent) {
@@ -2739,14 +2748,25 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 canCloseDownloadInfoDialog = true;
                 downloadInfoDialog.Close();
               });
+              auto appendLine = [&](const wxString &text) {
+                downloadInfoLog->AppendText(text + "\n");
+              };
+              auto appendStatusLine = [&](const wxString &prefix, const wxColour &color,
+                                          const wxString &text) {
+                downloadInfoLog->BeginTextColour(color);
+                downloadInfoLog->AppendText(prefix + " " + text + "\n");
+                downloadInfoLog->EndTextColour();
+              };
+
               downloadInfoDialog.Show();
               wxYieldIfNeeded();
-              downloadInfoLog->AppendText("Selected fixture types for download:\n");
+              appendLine("Selected fixture types for download:");
               for (const GdtfConflict &req : downloadRequests) {
-                downloadInfoLog->AppendText(" - " + wxString::FromUTF8(req.type) +
-                                            " -> pending\n");
+                appendStatusLine("•", wxColour(120, 170, 255),
+                                 wxString::FromUTF8(req.type) + " -> pending");
               }
-              downloadInfoLog->AppendText("\nStarting download process...\n");
+              appendLine("");
+              appendLine("Starting download process...");
               wxYieldIfNeeded();
 
               std::string listPayload;
@@ -2756,9 +2776,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   listHttpCode == 200) {
                 const std::vector<GdtfCatalogEntry> catalogEntries =
                     ParseGdtfCatalogEntries(listPayload);
-                downloadInfoLog->AppendText(
-                    "Catalog loaded. Entries: " +
-                    wxString::Format("%zu\n", catalogEntries.size()));
+                appendLine("Catalog loaded. Entries: " +
+                           wxString::Format("%zu", catalogEntries.size()));
                 for (GdtfConflict req : downloadRequests) {
                   reportProgress("Downloading selected GDTFs: matching " + req.type + "...");
                   if (req.footprint <= 0)
@@ -2794,9 +2813,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   }
 
                   if (!bestMatch.found || bestMatch.rid.empty()) {
-                    downloadInfoLog->AppendText(
-                        "• " + wxString::FromUTF8(req.type) +
-                        " -> no catalog match found. Keeping MVR original.\n");
+                    appendStatusLine(
+                        "⚠", wxColour(232, 150, 50),
+                        wxString::FromUTF8(req.type) +
+                            " -> no catalog match found. Keeping MVR original.");
                     wxYieldIfNeeded();
                     continue;
                   }
@@ -2815,8 +2835,23 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   const std::string filePath =
                       (fs::path(baseFixturesPath) / (req.type + ".gdtf")).string();
                   long downloadHttpCode = 0;
-                  downloadInfoLog->AppendText(
-                      "• " + wxString::FromUTF8(req.type) + " -> downloading...\n");
+                  wxString selectedFixtureName = wxString::FromUTF8(req.type);
+                  for (const auto &entry : catalogEntries) {
+                    if (entry.rid == bestMatch.rid) {
+                      wxString manufacturer = wxString::FromUTF8(entry.manufacturer);
+                      wxString fixtureName = wxString::FromUTF8(entry.fixtureName);
+                      if (!manufacturer.empty() && !fixtureName.empty()) {
+                        selectedFixtureName = manufacturer + " / " + fixtureName;
+                      } else if (!fixtureName.empty()) {
+                        selectedFixtureName = fixtureName;
+                      }
+                      break;
+                    }
+                  }
+                  appendStatusLine("•", wxColour(120, 170, 255),
+                                   wxString::FromUTF8(req.type) +
+                                       " -> downloading selected GDTF: " +
+                                       selectedFixtureName + "...");
                   reportProgress("Downloading selected GDTFs: downloading " + req.type + "...");
                   if (GdtfDownload(bestMatch.rid, filePath, cookieFile,
                                    downloadHttpCode) &&
@@ -2824,20 +2859,27 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     selectedPathByType[req.type] = filePath;
                     if (!bestMatch.modeName.empty())
                       selectedModeByType[req.type] = bestMatch.modeName;
-                    downloadInfoLog->AppendText("• " + wxString::FromUTF8(req.type) +
-                                                " -> downloaded and assigned.\n");
+                    wxString successText = wxString::FromUTF8(req.type) +
+                                           " -> downloaded and assigned.";
+                    if (!bestMatch.modeName.empty()) {
+                      successText +=
+                          " Mode: " + wxString::FromUTF8(bestMatch.modeName);
+                    }
+                    appendStatusLine("✔", wxColour(60, 170, 85), successText);
                   } else {
-                    downloadInfoLog->AppendText(
-                        "• " + wxString::FromUTF8(req.type) +
-                        " -> download failed. Keeping MVR original.\n");
+                    appendStatusLine(
+                        "✖", wxColour(210, 70, 70),
+                        wxString::FromUTF8(req.type) +
+                            " -> download failed. Keeping MVR original.");
                   }
                   wxYieldIfNeeded();
                 }
               } else {
-                downloadInfoLog->AppendText("Failed to load catalog list from API.\n");
+                appendStatusLine("✖", wxColour(210, 70, 70),
+                                 "Failed to load catalog list from API.");
               }
-              downloadInfoLog->AppendText(
-                  "\nDownload queue finished. Review the results and click OK to continue.\n");
+              appendLine("");
+              appendStatusLine("✔", wxColour(60, 170, 85), "Download queue finished.");
               canCloseDownloadInfoDialog = true;
               ackButton->Enable();
               ackButton->SetFocus();
