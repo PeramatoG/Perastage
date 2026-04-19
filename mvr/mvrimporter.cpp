@@ -2750,12 +2750,18 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               summaryFont.SetWeight(wxFONTWEIGHT_BOLD);
               summaryText->SetFont(summaryFont);
               infoSizer->Add(summaryText, 0, wxLEFT | wxRIGHT | wxTOP, 8);
+              wxStaticText *progressPhaseText =
+                  new wxStaticText(&downloadInfoDialog, wxID_ANY,
+                                   "Preparing download queue...");
+              progressPhaseText->SetForegroundColour(wxColour(140, 140, 140));
+              infoSizer->Add(progressPhaseText, 0, wxLEFT | wxRIGHT | wxTOP, 8);
               wxGauge *progressGauge =
                   new wxGauge(&downloadInfoDialog, wxID_ANY,
-                              std::max(1, static_cast<int>(downloadRequests.size())),
+                              100,
                               wxDefaultPosition, wxSize(-1, 6),
                               wxGA_HORIZONTAL | wxGA_SMOOTH);
               progressGauge->SetForegroundColour(wxColour(80, 145, 90));
+              progressGauge->SetBackgroundColour(wxColour(52, 52, 52));
               progressGauge->SetValue(0);
               infoSizer->Add(progressGauge, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 8);
 
@@ -2833,6 +2839,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 rowStateByType[typeKey] = state;
                 refreshFooterSummary();
               };
+              auto updateProgressGauge = [&](int processedCount, int totalCount) {
+                const int safeTotal = std::max(1, totalCount);
+                const int clampedProcessed =
+                    std::max(0, std::min(processedCount, safeTotal));
+                const int value = 25 + (clampedProcessed * 75) / safeTotal;
+                progressGauge->SetValue(std::max(0, std::min(value, 100)));
+              };
 
               downloadInfoDialog.Show();
               wxYieldIfNeeded();
@@ -2847,6 +2860,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 rowStateByType[req.type] = DownloadRowState::Pending;
               }
               refreshFooterSummary();
+              progressGauge->SetValue(5);
+              progressPhaseText->SetLabel("Loading GDTF catalog...");
               wxYieldIfNeeded();
 
               std::string listPayload;
@@ -2859,6 +2874,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 summaryText->SetLabel(wxString::Format(
                     "Selected fixture types for download (catalog entries: %zu)",
                     catalogEntries.size()));
+                progressGauge->SetValue(25);
+                progressPhaseText->SetLabel("Downloading selected fixtures...");
+                int processedDownloads = 0;
+                const int totalDownloads = static_cast<int>(downloadRequests.size());
                 for (GdtfConflict req : downloadRequests) {
                   reportProgress("Downloading selected GDTFs: matching " + req.type + "...");
                   if (req.footprint <= 0)
@@ -2896,7 +2915,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   if (!bestMatch.found || bestMatch.rid.empty()) {
                     updateStatusRow(req.type, "-", "Fallback to MVR",
                                     "No catalog match found", DownloadRowState::Fallback);
-                    progressGauge->SetValue(progressGauge->GetValue() + 1);
+                    ++processedDownloads;
+                    updateProgressGauge(processedDownloads, totalDownloads);
                     wxYieldIfNeeded();
                     continue;
                   }
@@ -2947,7 +2967,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     updateStatusRow(req.type, selectedFixtureName, "Fallback to MVR",
                                     "Download failed", DownloadRowState::Fallback);
                   }
-                  progressGauge->SetValue(progressGauge->GetValue() + 1);
+                  ++processedDownloads;
+                  updateProgressGauge(processedDownloads, totalDownloads);
                   wxYieldIfNeeded();
                 }
               } else {
@@ -2956,9 +2977,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   updateStatusRow(req.type, "-", "Fallback to MVR",
                                   "Failed to load catalog list", DownloadRowState::Fallback);
                 }
-                progressGauge->SetValue(progressGauge->GetRange());
+                progressGauge->SetValue(100);
+                progressPhaseText->SetLabel("Catalog load failed. Keeping MVR originals.");
               }
               isDownloadInfoFinished = true;
+              if (listHttpCode == 200) {
+                progressPhaseText->SetLabel("Queue finished.");
+              }
               summaryText->SetLabel(summaryText->GetLabel() + " - queue finished");
               ackButton->Enable();
               ackButton->SetFocus();
