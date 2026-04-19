@@ -24,9 +24,12 @@
 #include <wx/popupwin.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
+#include <wx/statline.h>
 #include <wx/strconv.h>
 #include <wx/textctrl.h>
 #include <wx/listbox.h>
+#include <wx/settings.h>
+#include <wx/font.h>
 #include <exception>
 #include <filesystem>
 
@@ -55,32 +58,55 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
                wxDefaultPosition, wxSize(720, 520),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       sourceLabel(initialSource) {
+  SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
+
   wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
 
-  wxBoxSizer *headerSizer = new wxBoxSizer(wxHORIZONTAL);
+  wxStaticText *titleText = new wxStaticText(this, wxID_ANY, "Create scene from text");
+  wxFont titleFont = titleText->GetFont();
+  titleFont.MakeBold();
+  titleFont.SetPointSize(titleFont.GetPointSize() + 2);
+  titleText->SetFont(titleFont);
+  mainSizer->Add(titleText, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 12);
+
+  wxStaticText *subtitleText = new wxStaticText(
+      this, wxID_ANY,
+      "Paste rider content or load a .txt/.pdf file, then refine before creating the scene.");
+  subtitleText->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+  mainSizer->Add(subtitleText, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 6);
+  mainSizer->Add(new wxStaticLine(this, wxID_ANY), 0,
+                 wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
+
+  wxStaticBoxSizer *sourceSizer =
+      new wxStaticBoxSizer(wxHORIZONTAL, this, "Source");
   const wxString sourceTextLabel =
       sourceLabel.empty() ? wxString("No source loaded.")
                           : wxString("Loaded: ") + sourceLabel;
-  sourceText = new wxStaticText(this, wxID_ANY, sourceTextLabel);
-  headerSizer->Add(sourceText, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+  sourceText = new wxStaticText(sourceSizer->GetStaticBox(), wxID_ANY, sourceTextLabel);
+  sourceSizer->Add(sourceText, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
   wxButton *loadButton = new wxButton(this, ID_RiderText_Load, "Load rider...");
-  headerSizer->Add(loadButton, 0);
+  sourceSizer->Add(loadButton, 0);
   wxButton *exampleButton =
       new wxButton(this, ID_RiderText_Example, "Use example");
-  headerSizer->Add(exampleButton, 0, wxLEFT, 8);
-  mainSizer->Add(headerSizer, 0, wxEXPAND | wxALL, 8);
+  sourceSizer->Add(exampleButton, 0, wxLEFT, 8);
+  mainSizer->Add(sourceSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
 
-  textCtrl = new wxTextCtrl(this, wxID_ANY, initialText,
+  wxStaticBoxSizer *editorSizer =
+      new wxStaticBoxSizer(wxVERTICAL, this, "Rider text");
+  textCtrl = new wxTextCtrl(editorSizer->GetStaticBox(), wxID_ANY, initialText,
                             wxDefaultPosition, wxDefaultSize,
                             wxTE_MULTILINE | wxTE_RICH2);
   textCtrl->SetMinSize(wxSize(680, 360));
-  mainSizer->Add(textCtrl, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
+  editorSizer->Add(textCtrl, 1, wxEXPAND | wxALL, 8);
 
   wxStaticText *autocompleteHelp = new wxStaticText(
-      this, wxID_ANY,
-      "Autocomplete: ↑/↓ move, Enter/Tab accept, Esc close. "
+      editorSizer->GetStaticBox(), wxID_ANY,
+      "Autocomplete: Up/Down move, Enter/Tab accept, Esc closes suggestions. "
       "Ranking: exact > prefix > fuzzy + recent use + context.");
-  mainSizer->Add(autocompleteHelp, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
+  autocompleteHelp->SetForegroundColour(
+      wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+  editorSizer->Add(autocompleteHelp, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
+  mainSizer->Add(editorSizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
 
   suggestionPopup = new wxPopupTransientWindow(this, wxBORDER_SIMPLE);
   wxBoxSizer *popupSizer = new wxBoxSizer(wxVERTICAL);
@@ -99,6 +125,7 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   }
   autocompleteTimer.SetOwner(this);
   Bind(wxEVT_TIMER, &RiderTextDialog::OnAutocompleteTimer, this);
+  Bind(wxEVT_CHAR_HOOK, &RiderTextDialog::OnDialogCharHook, this);
 
   wxBoxSizer *buttonSizer = new wxBoxSizer(wxHORIZONTAL);
   wxButton *filterButton =
@@ -109,9 +136,10 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   buttonSizer->Add(filterButton, 0, wxRIGHT, 8);
   buttonSizer->Add(applyButton, 0, wxRIGHT, 8);
   buttonSizer->Add(cancelButton, 0);
-  mainSizer->Add(buttonSizer, 0, wxEXPAND | wxALL, 8);
+  mainSizer->Add(buttonSizer, 0, wxEXPAND | wxALL, 10);
 
   SetSizer(mainSizer);
+  SetMinSize(wxSize(720, 520));
   Layout();
   Centre();
 }
@@ -341,6 +369,14 @@ void RiderTextDialog::OnAutocompleteTimer(wxTimerEvent &WXUNUSED(event)) {
 
 void RiderTextDialog::OnSuggestionClick(wxCommandEvent &WXUNUSED(event)) {
   AcceptCurrentSuggestion();
+}
+
+void RiderTextDialog::OnDialogCharHook(wxKeyEvent &event) {
+  if (event.GetKeyCode() == WXK_ESCAPE && IsSuggestionPopupVisible()) {
+    HideSuggestionPopup();
+    return;
+  }
+  event.Skip();
 }
 
 void RiderTextDialog::RefreshAutocompleteSuggestions() {
