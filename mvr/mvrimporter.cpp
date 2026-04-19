@@ -17,6 +17,7 @@
  */
 #include "mvrimporter.h"
 #include "configmanager.h"
+#include "credentialstore.h"
 #include "dummyprofilelibrary.h"
 #include "gdtfdictionary.h"
 #include "gdtfnet.h"
@@ -32,6 +33,7 @@
 #include "trussloader.h"
 
 #include "consolepanel.h"
+#include "logindialog.h"
 #include "logger.h"
 #include "json.hpp"
 #include <algorithm>
@@ -2638,22 +2640,45 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             };
 
             reportProgress("Conflict dialog:show");
-            wxTextEntryDialog userDlg(nullptr, "GDTF Share username:",
-                                      "GDTF Share login");
-            if (userDlg.ShowModal() == wxID_OK &&
-                !Trim(userDlg.GetValue().ToStdString()).empty()) {
-              wxTextEntryDialog passDlg(nullptr, "GDTF Share password:",
-                                        "GDTF Share login", "",
-                                        wxTextEntryDialogStyle | wxTE_PASSWORD);
-              if (passDlg.ShowModal() == wxID_OK) {
-                const std::string username = Trim(userDlg.GetValue().ToStdString());
-                const std::string password = passDlg.GetValue().ToStdString();
-                wxString cookieFileWx =
-                    wxFileName::CreateTempFileName("gdtf_mvr_import_");
-                const std::string cookieFile = cookieFileWx.ToStdString();
-                long loginHttpCode = 0;
-                if (GdtfLogin(username, password, cookieFile, loginHttpCode) &&
-                    loginHttpCode == 200) {
+            std::optional<CredentialStore::Credentials> activeCredentials =
+                CredentialStore::Load();
+            auto requestCredentials = [&]() -> bool {
+              const std::string initialUser =
+                  activeCredentials ? activeCredentials->username : std::string();
+              const std::string initialPass =
+                  activeCredentials ? activeCredentials->password : std::string();
+              GdtfLoginDialog loginDlg(nullptr, initialUser, initialPass);
+              if (loginDlg.ShowModal() != wxID_OK)
+                return false;
+              CredentialStore::Credentials entered;
+              entered.username = Trim(loginDlg.GetUsername());
+              entered.password = loginDlg.GetPassword();
+              if (entered.username.empty() || entered.password.empty())
+                return false;
+              CredentialStore::Save(entered);
+              activeCredentials = entered;
+              return true;
+            };
+
+            auto tryLogin = [&](long &httpCode, const std::string &cookieFile) {
+              if (!activeCredentials || activeCredentials->username.empty() ||
+                  activeCredentials->password.empty()) {
+                return false;
+              }
+              return GdtfLogin(activeCredentials->username,
+                               activeCredentials->password, cookieFile, httpCode);
+            };
+
+            wxString cookieFileWx = wxFileName::CreateTempFileName("gdtf_mvr_import_");
+            const std::string cookieFile = cookieFileWx.ToStdString();
+            long loginHttpCode = 0;
+            bool loginOk = tryLogin(loginHttpCode, cookieFile);
+            if (!loginOk || loginHttpCode == 401 || loginHttpCode == 403) {
+              if (requestCredentials())
+                loginOk = tryLogin(loginHttpCode, cookieFile);
+            }
+
+            if (loginOk && loginHttpCode == 200) {
                   std::string listData;
                   long listHttpCode = 0;
                   if (GdtfGetList(cookieFile, listData, &listHttpCode) &&
@@ -2766,9 +2791,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     downloadInfoDialog.Destroy();
                   }
                 }
-                wxRemoveFile(cookieFileWx);
-              }
             }
+            wxRemoveFile(cookieFileWx);
             reportProgress("Conflict dialog:hide");
           }
 
