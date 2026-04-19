@@ -64,9 +64,13 @@ public:
 private:
     void ParseList(const std::string& listData);
     void UpdateResults();
+    void RenderCurrentPage(const std::string& previouslySelectedRid);
+    void UpdatePaginationControls();
     void OnSearch(wxCommandEvent& evt);
     void OnSearchTextChanged(wxCommandEvent& evt);
     void OnSearchDebounceTimer(wxTimerEvent& evt);
+    void OnPrevPage(wxCommandEvent& evt);
+    void OnNextPage(wxCommandEvent& evt);
     void OnDownload(wxCommandEvent& evt);
     void OnDialogShown(wxShowEvent& evt);
     void TriggerAutoRefreshOnce();
@@ -78,8 +82,14 @@ private:
     wxTextCtrl* fixtureCtrl = nullptr;
     wxDataViewListCtrl* resultTable = nullptr;
     wxStaticText* statusLabel = nullptr;
+    wxButton* prevPageButton = nullptr;
+    wxButton* nextPageButton = nullptr;
+    wxStaticText* pageInfoLabel = nullptr;
     std::vector<GdtfEntry> entries;
+    std::vector<int> filteredIndices;
     std::vector<int> visible;
+    size_t currentPage = 0;
+    size_t pageSize = 500;
     int selectedIndex = -1;
     std::string currentListData;
     std::string lastUpdatedAt;

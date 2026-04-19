@@ -17,6 +17,7 @@
  */
 #include "gdtfsearchdialog.h"
 #include "columnutils.h"
+#include <algorithm>
 #include <mutex>
 #include <wx/datetime.h>
 
@@ -133,8 +134,8 @@ wxString FormatTimestamp(const std::string& ts)
     return wxString::FromUTF8(ts);
 }
 
-constexpr size_t kVirtualizationThreshold = 10000;
 constexpr int kSearchDebounceMs = 180;
+constexpr size_t kDefaultPageSize = 500;
 } // namespace
 
 GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData,
@@ -148,6 +149,7 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
       refreshCatalogFn(std::move(refreshCatalogFnIn)),
       searchDebounceTimer(this)
 {
+    pageSize = kDefaultPageSize;
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
     wxBoxSizer* searchSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -163,6 +165,16 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
 
     statusLabel = new wxStaticText(this, wxID_ANY, "");
     sizer->Add(statusLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+
+    wxBoxSizer* pageSizer = new wxBoxSizer(wxHORIZONTAL);
+    prevPageButton = new wxButton(this, wxID_ANY, "< Prev");
+    nextPageButton = new wxButton(this, wxID_ANY, "Next >");
+    pageInfoLabel = new wxStaticText(this, wxID_ANY, "Page 1/1");
+    pageSizer->Add(prevPageButton, 0, wxRIGHT, 8);
+    pageSizer->Add(nextPageButton, 0, wxRIGHT, 10);
+    pageSizer->Add(pageInfoLabel, 0, wxALIGN_CENTER_VERTICAL);
+    pageSizer->AddStretchSpacer(1);
+    sizer->Add(pageSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     resultTable = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                          wxDefaultSize, wxDV_ROW_LINES);
@@ -207,6 +219,8 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     manufacturerCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnSearchTextChanged, this);
     fixtureCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnSearchTextChanged, this);
     downloadBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnDownload, this);
+    prevPageButton->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnPrevPage, this);
+    nextPageButton->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnNextPage, this);
     resultTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                       &GdtfSearchDialog::OnDownload, this);
     Bind(wxEVT_SHOW, &GdtfSearchDialog::OnDialogShown, this);
@@ -239,8 +253,11 @@ void GdtfSearchDialog::ParseList(const std::string& listData)
 
 void GdtfSearchDialog::UpdateResults()
 {
+    if (searchDebounceTimer.IsRunning())
+        searchDebounceTimer.Stop();
+
     const std::string previouslySelectedRid = GetSelectedId();
-    resultTable->DeleteAllItems();
+    filteredIndices.clear();
     visible.clear();
     selectedIndex = -1;
 
@@ -255,7 +272,43 @@ void GdtfSearchDialog::UpdateResults()
             (!fixtureSearch.empty() &&
              entry.fixtureNorm.find(fixtureSearch) == std::string::npos))
             continue;
-        visible.push_back(static_cast<int>(i));
+        filteredIndices.push_back(static_cast<int>(i));
+    }
+
+    currentPage = 0;
+    RenderCurrentPage(previouslySelectedRid);
+}
+
+void GdtfSearchDialog::OnSearch(wxCommandEvent& WXUNUSED(evt))
+{
+    UpdateResults();
+}
+
+void GdtfSearchDialog::OnSearchTextChanged(wxCommandEvent& evt)
+{
+    evt.Skip();
+    searchDebounceTimer.StartOnce(kSearchDebounceMs);
+}
+
+void GdtfSearchDialog::OnSearchDebounceTimer(wxTimerEvent& WXUNUSED(evt))
+{
+    UpdateResults();
+}
+
+void GdtfSearchDialog::RenderCurrentPage(const std::string& previouslySelectedRid)
+{
+    resultTable->Freeze();
+    resultTable->DeleteAllItems();
+    visible.clear();
+    selectedIndex = -1;
+
+    const size_t begin = currentPage * pageSize;
+    const size_t end = std::min(begin + pageSize, filteredIndices.size());
+    for (size_t pos = begin; pos < end; ++pos) {
+        const int entryIndex = filteredIndices[pos];
+        const GdtfEntry& entry = entries[entryIndex];
+        visible.push_back(entryIndex);
+
         wxVector<wxVariant> row;
         row.push_back(wxString::FromUTF8(entry.manufacturer));
         row.push_back(wxString::FromUTF8(entry.fixture));
@@ -275,33 +328,43 @@ void GdtfSearchDialog::UpdateResults()
             wxDataViewItem rowItem = resultTable->RowToItem(rowIndex);
             if (rowItem.IsOk()) {
                 resultTable->Select(rowItem);
-                selectedIndex = static_cast<int>(i);
+                selectedIndex = entryIndex;
             }
         }
     }
-
-    if (entries.size() > kVirtualizationThreshold) {
-        wxLogWarning(
-            "GDTF catalog has %zu rows; consider pagination or a virtual data model "
-            "to avoid full-table repaints.",
-            entries.size());
-    }
+    resultTable->Thaw();
+    UpdatePaginationControls();
 }
 
-void GdtfSearchDialog::OnSearch(wxCommandEvent& WXUNUSED(evt))
+void GdtfSearchDialog::UpdatePaginationControls()
 {
-    UpdateResults();
+    const size_t totalRows = filteredIndices.size();
+    const size_t pageCount = totalRows == 0 ? 1 : ((totalRows - 1) / pageSize) + 1;
+    if (currentPage >= pageCount)
+        currentPage = pageCount - 1;
+
+    prevPageButton->Enable(currentPage > 0);
+    nextPageButton->Enable((currentPage + 1) < pageCount);
+    pageInfoLabel->SetLabel(wxString::Format("Page %zu/%zu (%zu results)",
+                                             currentPage + 1, pageCount, totalRows));
 }
 
-void GdtfSearchDialog::OnSearchTextChanged(wxCommandEvent& evt)
+void GdtfSearchDialog::OnPrevPage(wxCommandEvent& WXUNUSED(evt))
 {
-    evt.Skip();
-    searchDebounceTimer.StartOnce(kSearchDebounceMs);
+    if (currentPage == 0)
+        return;
+    --currentPage;
+    RenderCurrentPage({});
 }
 
-void GdtfSearchDialog::OnSearchDebounceTimer(wxTimerEvent& WXUNUSED(evt))
+void GdtfSearchDialog::OnNextPage(wxCommandEvent& WXUNUSED(evt))
 {
-    UpdateResults();
+    const size_t totalRows = filteredIndices.size();
+    const size_t pageCount = totalRows == 0 ? 1 : ((totalRows - 1) / pageSize) + 1;
+    if ((currentPage + 1) >= pageCount)
+        return;
+    ++currentPage;
+    RenderCurrentPage({});
 }
 
 void GdtfSearchDialog::OnDownload(wxCommandEvent& WXUNUSED(evt))
