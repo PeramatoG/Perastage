@@ -17,9 +17,12 @@
  */
 #include "gdtfsearchdialog.h"
 #include "columnutils.h"
+#include "ui_feature_flags.h"
 #include <algorithm>
+#include <chrono>
 #include <mutex>
 #include <wx/datetime.h>
+#include <wx/log.h>
 
 using json = nlohmann::json;
 wxDEFINE_EVENT(EVT_GDTF_REFRESH_DONE, wxThreadEvent);
@@ -241,6 +244,7 @@ GdtfSearchDialog::~GdtfSearchDialog()
 
 void GdtfSearchDialog::ParseList(const std::string& listData)
 {
+    const auto parseStart = std::chrono::steady_clock::now();
     std::lock_guard<std::mutex> lock(g_cachedCatalogMutex);
     if (listData == g_cachedCatalogPayload) {
         entries = g_cachedCatalogEntries;
@@ -249,10 +253,18 @@ void GdtfSearchDialog::ParseList(const std::string& listData)
         g_cachedCatalogPayload = listData;
         g_cachedCatalogEntries = entries;
     }
+    lastParseMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::steady_clock::now() - parseStart)
+                      .count();
+    MaybeLogVerboseCatalogTrace(
+        wxString::Format("ParseList size=%zu parsed_entries=%zu parse_ms=%lld",
+                         listData.size(), entries.size(),
+                         static_cast<long long>(lastParseMs)));
 }
 
 void GdtfSearchDialog::UpdateResults()
 {
+    const auto filterStart = std::chrono::steady_clock::now();
     if (searchDebounceTimer.IsRunning())
         searchDebounceTimer.Stop();
 
@@ -274,6 +286,14 @@ void GdtfSearchDialog::UpdateResults()
             continue;
         filteredIndices.push_back(static_cast<int>(i));
     }
+
+    lastFilterMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       std::chrono::steady_clock::now() - filterStart)
+                       .count();
+    MaybeLogVerboseCatalogTrace(wxString::Format(
+        "Filtering manufacturer='%s' fixture='%s' matches=%zu filter_ms=%lld",
+        manufacturerCtrl->GetValue(), fixtureCtrl->GetValue(),
+        filteredIndices.size(), static_cast<long long>(lastFilterMs)));
 
     currentPage = 0;
     RenderCurrentPage(previouslySelectedRid);
@@ -297,6 +317,7 @@ void GdtfSearchDialog::OnSearchDebounceTimer(wxTimerEvent& WXUNUSED(evt))
 
 void GdtfSearchDialog::RenderCurrentPage(const std::string& previouslySelectedRid)
 {
+    const auto renderStart = std::chrono::steady_clock::now();
     resultTable->Freeze();
     resultTable->DeleteAllItems();
     visible.clear();
@@ -333,6 +354,12 @@ void GdtfSearchDialog::RenderCurrentPage(const std::string& previouslySelectedRi
         }
     }
     resultTable->Thaw();
+    lastRenderMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       std::chrono::steady_clock::now() - renderStart)
+                       .count();
+    MaybeLogVerboseCatalogTrace(wxString::Format(
+        "Visible results page=%zu visible=%zu render_ms=%lld",
+        currentPage + 1, visible.size(), static_cast<long long>(lastRenderMs)));
     UpdatePaginationControls();
 }
 
@@ -420,9 +447,19 @@ void GdtfSearchDialog::TriggerAutoRefreshOnce()
     UpdateStatusMessage(true);
 
     autoRefreshThread = std::thread([this, refreshFn = refreshCatalogFn]() {
+        const auto refreshStart = std::chrono::steady_clock::now();
         RefreshResult result = refreshFn();
+        result.refreshMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                               std::chrono::steady_clock::now() - refreshStart)
+                               .count();
         if (result.success && !result.listData.empty())
+        {
+            const auto parseStart = std::chrono::steady_clock::now();
             result.parsedEntries = ParseEntriesFromListData(result.listData);
+            result.parseMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                 std::chrono::steady_clock::now() - parseStart)
+                                 .count();
+        }
         wxThreadEvent* event = new wxThreadEvent(EVT_GDTF_REFRESH_DONE);
         event->SetPayload(result);
         wxQueueEvent(this, event);
@@ -436,6 +473,12 @@ void GdtfSearchDialog::OnAutoRefreshThreadEvent(wxThreadEvent& evt)
 
 void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
 {
+    wxLogMessage("GDTF metrics: refresh_ms=%lld parse_ms=%lld ui_parse_ms=%lld filter_ms=%lld render_ms=%lld",
+                 static_cast<long long>(result.refreshMs),
+                 static_cast<long long>(result.parseMs),
+                 static_cast<long long>(lastParseMs),
+                 static_cast<long long>(lastFilterMs),
+                 static_cast<long long>(lastRenderMs));
     if (result.success && !result.listData.empty() && !result.parsedEntries.empty()) {
         currentListData = result.listData;
         lastUpdatedAt = result.updatedAt;
@@ -454,6 +497,13 @@ void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
     UpdateStatusMessage(false,
                         "Showing local catalog (last updated: " +
                             wxString::FromUTF8(lastUpdatedAt) + ")");
+}
+
+void GdtfSearchDialog::MaybeLogVerboseCatalogTrace(const wxString& message) const
+{
+    if (!ui::IsFeatureEnabled(ui::FeatureFlag::GdtfVerboseCatalogLogs))
+        return;
+    wxLogDebug("[GDTF] %s", message);
 }
 
 void GdtfSearchDialog::UpdateStatusMessage(bool refreshing, const wxString& details)
