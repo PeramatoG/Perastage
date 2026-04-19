@@ -112,6 +112,33 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   ProjectUtils::SaveLastProjectPath("");
   ownerRef->UpdateTitle();
 
+  if (ownerRef->layoutPanel)
+    ownerRef->layoutPanel->ReloadLayouts();
+  if (ownerRef->fixturePanel)
+    ownerRef->fixturePanel->ReloadData();
+  if (ownerRef->trussPanel)
+    ownerRef->trussPanel->ReloadData();
+  if (ownerRef->hoistPanel)
+    ownerRef->hoistPanel->ReloadData();
+  if (ownerRef->sceneObjPanel)
+    ownerRef->sceneObjPanel->ReloadData();
+  if (ownerRef->viewportPanel) {
+    ownerRef->viewportPanel->UpdateScene();
+    ownerRef->viewportPanel->Refresh();
+  }
+  if (ownerRef->viewport2DPanel) {
+    if (!ownerRef->HasActiveLayout2DView())
+      ownerRef->viewport2DPanel->LoadViewFromConfig();
+    ownerRef->viewport2DPanel->UpdateScene();
+    ownerRef->viewport2DPanel->Refresh();
+  }
+  if (ownerRef->viewport2DRenderPanel)
+    ownerRef->viewport2DRenderPanel->ApplyConfig();
+  if (ownerRef->layerPanel)
+    ownerRef->layerPanel->ReloadLayers();
+  ownerRef->RefreshSummary();
+  ownerRef->RefreshRigging();
+
   // Keep import behavior aligned with the existing Tools > Auto color flow:
   // once the MVR scene is loaded, trigger auto-color so fixture types without
   // dictionary colors still receive a color by type/group.
