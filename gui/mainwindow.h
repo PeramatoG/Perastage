@@ -199,6 +199,8 @@ private:
   void OnUndo(wxCommandEvent &event);           // Undo action placeholder
   void OnRedo(wxCommandEvent &event);           // Redo action placeholder
   void OnAddFixture(wxCommandEvent &event);     // Add fixture from GDTF
+  void AddFixtureFromGdtfPath(const std::string &gdtfPath,
+                              const std::string &suggestedName = "");
   void OnAddTruss(wxCommandEvent &event);       // Add truss from library
   void OnAddSceneObject(wxCommandEvent &event); // Add generic scene object
   void OnAddPrimitiveSphere(wxCommandEvent &event); // Add primitive sphere
