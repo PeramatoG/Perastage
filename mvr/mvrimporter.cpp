@@ -25,7 +25,6 @@
 #include "primitive_model_resources.h"
 #include "projectutils.h"
 #include "sceneobject.h"
-#include "simplecrypt.h"
 #include "support.h"
 #include "groupobject.h"
 #include "uuidutils.h"
@@ -2667,9 +2666,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
             std::string username =
                 ConfigManager::Get().GetValue("gdtf_username").value_or("");
-            std::string encodedPassword =
+            std::string password =
                 ConfigManager::Get().GetValue("gdtf_password").value_or("");
-            std::string password = SimpleCrypt::Decode(encodedPassword);
             if (username.empty() || password.empty()) {
               wxTextEntryDialog userDlg(nullptr, "GDTF Share username:",
                                         "GDTF Share login");
