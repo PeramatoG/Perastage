@@ -15,9 +15,18 @@
 #include <string>
 
 #include "consolepanel.h"
+#include "fixturetablepanel.h"
+#include "hoisttablepanel.h"
+#include "layerpanel.h"
+#include "layoutpanel.h"
 #include "mvrimporter.h"
 #include "projectutils.h"
+#include "sceneobjecttablepanel.h"
 #include "splashscreen.h"
+#include "trusstablepanel.h"
+#include "viewer2dpanel.h"
+#include "viewer2drenderpanel.h"
+#include "viewer3dpanel.h"
 
 bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   wxWeakRef<MainWindow> ownerRef(&owner_);
