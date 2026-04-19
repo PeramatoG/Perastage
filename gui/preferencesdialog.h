@@ -22,6 +22,8 @@
 
 wxDECLARE_EVENT(EVT_UI_UNITS_CHANGED, wxCommandEvent);
 
+class GdtfCredentialsPanel;
+
 class PreferencesDialog : public wxDialog {
 public:
   PreferencesDialog(wxWindow *parent);
@@ -53,4 +55,5 @@ private:
   wxChoice *weightUnitChoice = nullptr;
   wxString initialDistanceUnit;
   wxString initialWeightUnit;
+  GdtfCredentialsPanel *gdtfCredentialsPanel = nullptr;
 };
