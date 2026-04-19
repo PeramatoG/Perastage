@@ -559,12 +559,16 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         if (consolePanel)
           consolePanel->AppendMessage(
               wxString::Format("[INFO] Download HTTP code: %ld", dlCode));
-        if (ok && dlCode == 200)
-          wxMessageBox("GDTF downloaded.", "Success",
-                       wxOK | wxICON_INFORMATION);
-        else
+        if (ok && dlCode == 200) {
+          int addNow = wxMessageBox(
+              "GDTF downloaded successfully. Do you want to add it to the project now?",
+              "Success", wxYES_NO | wxICON_QUESTION, this);
+          if (addNow == wxYES)
+            AddFixtureFromGdtfPath(WxToUtf8(dest));
+        } else {
           wxMessageBox("Failed to download GDTF.", "Error",
                        wxOK | wxICON_ERROR);
+        }
       } else {
         wxMessageBox("Download information missing.", "Error",
                      wxOK | wxICON_ERROR);
@@ -1144,7 +1148,6 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
   auto &scene = cfg.GetScene();
 
   std::string gdtfPath;
-  std::string defaultName;
 
   if (!scene.fixtures.empty()) {
     std::map<std::string, std::string> typeToSpec;
@@ -1167,22 +1170,21 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
                         "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
         return;
-      wxString gdtfPathWx = fdlg.GetPath();
-      gdtfPath = WxToUtf8(gdtfPathWx);
-      defaultName = GetGdtfFixtureName(gdtfPath);
-      if (defaultName.empty())
-        defaultName = WxToUtf8(wxFileName(gdtfPathWx).GetName());
+      AddFixtureFromGdtfPath(WxToUtf8(fdlg.GetPath()));
+      return;
     } else {
       int sel = chooseDlg.GetSelection();
       if (sel < 0 || sel >= static_cast<int>(types.size()))
         return;
-      defaultName = types[sel];
+      std::string defaultName = types[sel];
       std::string spec = typeToSpec[defaultName];
       namespace fs = std::filesystem;
       if (fs::path(spec).is_absolute())
         gdtfPath = spec;
       else
         gdtfPath = (fs::path(scene.basePath) / spec).string();
+      AddFixtureFromGdtfPath(gdtfPath, defaultName);
+      return;
     }
   } else {
     wxString fixDir =
@@ -1191,90 +1193,9 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;
-    wxString gdtfPathWx = fdlg.GetPath();
-    gdtfPath = WxToUtf8(gdtfPathWx);
-    defaultName = GetGdtfFixtureName(gdtfPath);
-    if (defaultName.empty())
-      defaultName = WxToUtf8(wxFileName(gdtfPathWx).GetName());
-  }
-
-  std::vector<std::string> modes = GetGdtfModes(gdtfPath);
-  AddFixtureDialog dlg(this, wxString::FromUTF8(defaultName), modes);
-  if (dlg.ShowModal() != wxID_OK)
+    AddFixtureFromGdtfPath(WxToUtf8(fdlg.GetPath()));
     return;
-
-  float weight = 0.0f, power = 0.0f;
-  GetGdtfProperties(gdtfPath, weight, power);
-  std::string defaultColor = GetGdtfModelColor(gdtfPath);
-  if (auto dictEntry = GdtfDictionary::Get(defaultName)) {
-    if (!dictEntry->color.empty())
-      defaultColor = dictEntry->color;
   }
-
-  int count = dlg.GetUnitCount();
-  std::string name = dlg.GetFixtureName();
-  int startId = dlg.GetFixtureId();
-  std::string mode = dlg.GetMode();
-
-  namespace fs = std::filesystem;
-  cfg.PushUndoState("add fixture");
-  auto &sceneRef = cfg.GetScene();
-  std::string base = sceneRef.basePath;
-  std::string spec = gdtfPath;
-  if (!base.empty()) {
-    fs::path abs = fs::absolute(gdtfPath);
-    fs::path b = fs::absolute(base);
-    if (abs.string().rfind(b.string(), 0) == 0)
-      spec = fs::relative(abs, b).string();
-  }
-
-  auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
-  std::string layerName = cfg.GetCurrentLayer();
-  bool hasLayer = false;
-  for (const auto &[uid, layer] : sceneRef.layers) {
-    if (layer.name == layerName) {
-      hasLayer = true;
-      break;
-    }
-  }
-  if (!hasLayer) {
-    Layer layer;
-    layer.uuid = wxString::Format("layer_%lld", static_cast<long long>(baseId))
-                     .ToStdString();
-    layer.name = layerName;
-    sceneRef.layers[layer.uuid] = layer;
-  }
-
-  int maxId = 0;
-  for (const auto &[uuid, fix] : sceneRef.fixtures)
-    if (fix.fixtureId > maxId)
-      maxId = fix.fixtureId;
-  if (startId <= 0)
-    startId = maxId + 1;
-
-  for (int i = 0; i < count; ++i) {
-    Fixture f;
-    f.uuid = wxString::Format("uuid_%lld_%d", static_cast<long long>(baseId), i)
-                 .ToStdString();
-    f.instanceName = name;
-    f.typeName = defaultName;
-    f.fixtureId = startId + i;
-    f.gdtfSpec = spec;
-    f.gdtfMode = mode;
-    f.layer = layerName;
-    f.weightKg = weight;
-    f.powerConsumptionW = power;
-    f.color = defaultColor;
-    sceneRef.fixtures[f.uuid] = f;
-  }
-
-  if (fixturePanel)
-    fixturePanel->ReloadData();
-  if (viewportPanel) {
-    viewportPanel->UpdateScene();
-    viewportPanel->Refresh();
-  }
-  RefreshSummary();
 }
 
 void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
