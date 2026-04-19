@@ -562,6 +562,14 @@ void MainWindow::ApplySavedLayout() {
   }
   if (!preset)
     preset = LayoutViewPresetRegistry::GetPreset("3d_layout_view");
+
+  if (preset) {
+    if (preset->name == "2d_layout_view")
+      Ensure2DViewport();
+    else if (preset->name == "3d_layout_view")
+      Ensure3DViewport();
+  }
+
   const bool savedLayoutMode = preset && preset->name == "layout_mode_view";
   bool usedSavedPerspective = false;
   if (preset && perspective) {
