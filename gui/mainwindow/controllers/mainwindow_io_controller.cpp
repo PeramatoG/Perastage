@@ -34,12 +34,15 @@
 
 bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   constexpr const char *kLayoutsConfigKey = "layouts_collection";
+  constexpr const char *kViewer3DRenderStyleConfigKey = "viewer3d_render_style";
   wxWeakRef<MainWindow> ownerRef(&owner_);
   const wxString filePath = wxString::FromUTF8(pathUtf8);
   ConfigManager &cfg =
       owner_.guiConfigServices->LegacyConfigManager();
   const std::optional<std::string> preservedLayoutsConfig =
       cfg.GetValue(kLayoutsConfigKey);
+  const std::optional<std::string> preservedViewer3DRenderStyle =
+      cfg.GetValue(kViewer3DRenderStyleConfigKey);
   auto setImportStatus = [ownerRef](const wxString &message) {
     if (!ownerRef || !ownerRef->GetStatusBar())
       return;
@@ -140,6 +143,8 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     cfg.SetValue(kLayoutsConfigKey, *preservedLayoutsConfig);
   else
     cfg.RemoveKey(kLayoutsConfigKey);
+  if (preservedViewer3DRenderStyle.has_value())
+    cfg.SetValue(kViewer3DRenderStyleConfigKey, *preservedViewer3DRenderStyle);
   layouts::LayoutManager::Get().LoadFromConfig(cfg);
 
   if (ownerRef->layoutPanel)
