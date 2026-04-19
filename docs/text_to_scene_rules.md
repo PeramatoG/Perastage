@@ -64,6 +64,32 @@ After applying the filter, users can manually adjust the filtered text and then
 press **Create**; the same normalization rules are still applied at creation
 time.
 
+### Autocomplete and color validation behavior in the text dialog
+
+The `Create scene from text` editor includes predictive autocomplete with
+context-aware ranking:
+
+- Ranking priority: exact match > prefix > contains > fuzzy subsequence.
+- Suggestions accepted frequently in the current dialog session are boosted.
+- Context boosts:
+  - color suggestions after `color`, `colour`, `col`, `#...`, `rgb...`
+  - position suggestions after `for`
+  - dictionary fixture type suggestions after quantity tokens.
+
+When users confirm **Create**, the dialog validates explicit color directives
+written as `color ...`, `colour ...`, or `col ...`:
+
+- Accepted formats:
+  - `#RRGGBB`
+  - `rgb(r,g,b)` with `0..255`
+  - supported named colors from autocomplete.
+- Accepted values are normalized to lowercase `#rrggbb` before parsing.
+- Invalid values show a clear line-numbered error and scene creation is
+  cancelled until fixed.
+
+This validation is intentionally scoped to explicit color directives so legacy
+rider text without color directives keeps previous behavior.
+
 ## Input normalization
 
 1. File type:

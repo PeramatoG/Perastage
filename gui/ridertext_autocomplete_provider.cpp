@@ -20,6 +20,8 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
+#include <optional>
 #include <string_view>
 #include <unordered_set>
 
@@ -61,6 +63,9 @@ constexpr std::array<NamedColor, 20> kNamedColors = {{
     {"cto", "#FFB347"},
 }};
 
+constexpr std::array<const char *, 8> kPositionTokens = {
+    "lx1", "lx2", "lx3", "lx4", "sides", "floor", "screen", "backdrop"};
+
 int ComputeSubsequenceGapScore(std::string_view text, std::string_view needle) {
   if (needle.empty())
     return 0;
@@ -77,6 +82,19 @@ int ComputeSubsequenceGapScore(std::string_view text, std::string_view needle) {
 
   const int penalty = static_cast<int>(std::min<size_t>(gap, 80));
   return std::max(0, 80 - penalty);
+}
+
+bool IsPositionToken(const std::string &token) {
+  return std::find(kPositionTokens.begin(), kPositionTokens.end(), token) !=
+         kPositionTokens.end();
+}
+
+bool LooksLikeFixtureCountToken(const std::string &token) {
+  if (token.empty())
+    return false;
+  return std::all_of(token.begin(), token.end(), [](unsigned char c) {
+    return std::isdigit(c) != 0;
+  });
 }
 
 } // namespace
@@ -171,6 +189,24 @@ void RiderTextAutocompleteProvider::RefreshDynamicTerms() {
   }
 }
 
+void RiderTextAutocompleteProvider::RecordSuggestionAccepted(
+    const std::string &insertText) {
+  const std::string key = ToLower(insertText);
+  if (key.empty())
+    return;
+  usageCountByToken[key] += 1;
+}
+
+void RiderTextAutocompleteProvider::SetRankingWeights(
+    const RankingWeights &weights) {
+  rankingWeights = weights;
+}
+
+RiderTextAutocompleteProvider::RankingWeights
+RiderTextAutocompleteProvider::GetRankingWeights() const {
+  return rankingWeights;
+}
+
 std::vector<RiderTextAutocompleteProvider::Suggestion>
 RiderTextAutocompleteProvider::Query(const std::string &fullText,
                                      const size_t cursorByteOffset,
@@ -185,6 +221,8 @@ RiderTextAutocompleteProvider::Query(const std::string &fullText,
       !currentToken.empty() &&
       (currentToken[0] == '#' || currentToken.rfind("rgb", 0) == 0 ||
        currentToken.rfind("col", 0) == 0 || currentToken.rfind("red", 0) == 0);
+  const std::optional<std::string> contextToken =
+      DetectContextToken(fullText, cursorByteOffset);
 
   std::vector<Suggestion> matches;
   matches.reserve(24);
@@ -192,11 +230,11 @@ RiderTextAutocompleteProvider::Query(const std::string &fullText,
   auto matchEntry = [&](const Entry &entry) {
     int score = entry.baseScore;
     if (entry.normalizedToken == currentToken) {
-      score += 300;
+      score += rankingWeights.exactMatchBoost;
     } else if (entry.normalizedToken.rfind(currentToken, 0) == 0) {
-      score += 220;
+      score += rankingWeights.prefixBoost;
     } else if (entry.normalizedToken.find(currentToken) != std::string::npos) {
-      score += 130;
+      score += rankingWeights.containsBoost;
     } else {
       const int fuzzy = ComputeSubsequenceGapScore(entry.normalizedToken, currentToken);
       if (fuzzy <= 0)
@@ -208,10 +246,32 @@ RiderTextAutocompleteProvider::Query(const std::string &fullText,
         (entry.kind == SuggestionKind::ColorName ||
          entry.kind == SuggestionKind::ColorHex ||
          entry.kind == SuggestionKind::ColorRgb)) {
-      score += 90;
+      score += rankingWeights.colorContextBoost;
     }
 
-    matches.push_back({entry.displayText, entry.insertText, entry.kind, score});
+    if (contextToken.has_value()) {
+      if (*contextToken == "for" && IsPositionToken(entry.normalizedToken))
+        score += rankingWeights.positionContextBoost;
+      if (LooksLikeFixtureCountToken(*contextToken) &&
+          entry.kind == SuggestionKind::Dictionary) {
+        score += rankingWeights.fixtureContextBoost;
+      }
+      if ((*contextToken == "color" || *contextToken == "colour" ||
+           *contextToken == "col") &&
+          (entry.kind == SuggestionKind::ColorName ||
+           entry.kind == SuggestionKind::ColorHex ||
+           entry.kind == SuggestionKind::ColorRgb)) {
+        score += rankingWeights.colorContextBoost;
+      }
+    }
+
+    const auto usageIt = usageCountByToken.find(ToLower(entry.insertText));
+    if (usageIt != usageCountByToken.end())
+      score += usageIt->second * rankingWeights.recentUseMultiplier;
+
+    matches.push_back(
+        {entry.displayText, entry.insertText, entry.kind, score,
+         ParseColorHexFromToken(entry).value_or(std::string())});
   };
 
   for (const Entry &entry : dynamicEntries)
@@ -287,4 +347,56 @@ std::string RiderTextAutocompleteProvider::ExtractCurrentToken(
     return {};
 
   return text.substr(start, end - start);
+}
+
+std::optional<std::string>
+RiderTextAutocompleteProvider::ParseColorHexFromToken(const Entry &entry) {
+  if (entry.kind != SuggestionKind::ColorName &&
+      entry.kind != SuggestionKind::ColorHex &&
+      entry.kind != SuggestionKind::ColorRgb) {
+    return std::nullopt;
+  }
+
+  if (entry.kind == SuggestionKind::ColorHex)
+    return entry.insertText;
+
+  const size_t hashPos = entry.displayText.find('#');
+  if (hashPos == std::string::npos)
+    return std::nullopt;
+
+  if (hashPos + 7 > entry.displayText.size())
+    return std::nullopt;
+
+  const std::string hex = entry.displayText.substr(hashPos, 7);
+  if (hex.size() != 7 || hex[0] != '#')
+    return std::nullopt;
+
+  for (size_t i = 1; i < hex.size(); ++i) {
+    if (!std::isxdigit(static_cast<unsigned char>(hex[i])))
+      return std::nullopt;
+  }
+  return ToLower(hex);
+}
+
+std::optional<std::string> RiderTextAutocompleteProvider::DetectContextToken(
+    const std::string &fullText, const size_t cursorByteOffset) {
+  const size_t clampedCursor = std::min(cursorByteOffset, fullText.size());
+  if (clampedCursor == 0)
+    return std::nullopt;
+
+  size_t index = clampedCursor;
+  while (index > 0 && IsTokenDelimiter(fullText[index - 1]))
+    --index;
+
+  if (index == 0)
+    return std::nullopt;
+
+  size_t end = index;
+  while (end > 0 && !IsTokenDelimiter(fullText[end - 1]))
+    --end;
+
+  if (end >= index)
+    return std::nullopt;
+
+  return ToLower(fullText.substr(end, index - end));
 }

@@ -18,7 +18,9 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 class RiderTextAutocompleteProvider {
@@ -30,11 +32,25 @@ public:
     std::string insertText;
     SuggestionKind kind = SuggestionKind::Keyword;
     int score = 0;
+    std::string colorHex;
+  };
+
+  struct RankingWeights {
+    int exactMatchBoost = 300;
+    int prefixBoost = 220;
+    int containsBoost = 130;
+    int colorContextBoost = 90;
+    int positionContextBoost = 80;
+    int fixtureContextBoost = 60;
+    int recentUseMultiplier = 25;
   };
 
   RiderTextAutocompleteProvider();
 
   void RefreshDynamicTerms();
+  void RecordSuggestionAccepted(const std::string &insertText);
+  void SetRankingWeights(const RankingWeights &weights);
+  RankingWeights GetRankingWeights() const;
   std::vector<Suggestion> Query(const std::string &fullText,
                                 size_t cursorByteOffset,
                                 size_t maxItems = 10) const;
@@ -52,7 +68,12 @@ private:
   static std::string ToLower(std::string value);
   static bool IsTokenDelimiter(char c);
   static std::string ExtractCurrentToken(const std::string &text, size_t cursorByteOffset);
+  static std::optional<std::string> ParseColorHexFromToken(const Entry &entry);
+  static std::optional<std::string> DetectContextToken(const std::string &fullText,
+                                                       size_t cursorByteOffset);
 
   std::vector<Entry> staticEntries;
   std::vector<Entry> dynamicEntries;
+  std::unordered_map<std::string, int> usageCountByToken;
+  RankingWeights rankingWeights;
 };

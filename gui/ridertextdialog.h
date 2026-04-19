@@ -20,13 +20,14 @@
 #include <string>
 #include <vector>
 
+#include <wx/dataview.h>
 #include <wx/dialog.h>
 #include <wx/timer.h>
 
 class wxTextCtrl;
 class wxStaticText;
-class wxListBox;
 class wxPopupTransientWindow;
+class wxDataViewListCtrl;
 
 #include "ridertext_autocomplete_provider.h"
 
@@ -47,18 +48,20 @@ private:
   void OnTextChanged(wxCommandEvent &event);
   void OnTextKeyDown(wxKeyEvent &event);
   void OnAutocompleteTimer(wxTimerEvent &event);
-  void OnSuggestionClick(wxCommandEvent &event);
+  void OnSuggestionClick(wxDataViewEvent &event);
   void RefreshAutocompleteSuggestions();
   void HideSuggestionPopup();
   bool AcceptCurrentSuggestion();
   bool IsSuggestionPopupVisible() const;
   void ReplaceCurrentToken(const std::string &replacement);
+  bool ValidateAndNormalizeText(std::string &text);
+  static bool TryNormalizeColorToken(const std::string &token, std::string &normalizedHex);
   static bool IsTokenDelimiter(wxUniChar c);
 
   wxTextCtrl *textCtrl = nullptr;
   wxStaticText *sourceText = nullptr;
   wxPopupTransientWindow *suggestionPopup = nullptr;
-  wxListBox *suggestionList = nullptr;
+  wxDataViewListCtrl *suggestionList = nullptr;
   wxString sourceLabel;
   bool sourceLoadedFromFile = false;
   std::string selectedRiderTextUtf8;
@@ -66,6 +69,7 @@ private:
   std::vector<RiderTextAutocompleteProvider::Suggestion> currentSuggestions;
   wxTimer autocompleteTimer;
   bool suppressAutocompleteTextEvent = false;
+  std::string lastValidationError;
 
   wxDECLARE_EVENT_TABLE();
 };

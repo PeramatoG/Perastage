@@ -20,15 +20,23 @@
 #include <wx/button.h>
 #include <wx/filedlg.h>
 #include <wx/filename.h>
+#include <wx/dataview.h>
 #include <wx/msgdlg.h>
 #include <wx/popupwin.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/strconv.h>
 #include <wx/textctrl.h>
-#include <wx/listbox.h>
+#include <wx/bitmap.h>
+#include <wx/dcmemory.h>
+#include <algorithm>
+#include <cstdio>
 #include <exception>
 #include <filesystem>
+#include <optional>
+#include <regex>
+#include <sstream>
+#include <unordered_map>
 
 #include "projectutils.h"
 #include "consolepanel.h"
@@ -78,7 +86,13 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
 
   suggestionPopup = new wxPopupTransientWindow(this, wxBORDER_SIMPLE);
   wxBoxSizer *popupSizer = new wxBoxSizer(wxVERTICAL);
-  suggestionList = new wxListBox(suggestionPopup, wxID_ANY);
+  suggestionList = new wxDataViewListCtrl(
+      suggestionPopup, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+      wxDV_ROW_LINES | wxDV_NO_HEADER);
+  suggestionList->AppendIconTextColumn("Suggestion", wxDATAVIEW_CELL_INERT, 220,
+                                       wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
+  suggestionList->AppendTextColumn("Value", wxDATAVIEW_CELL_INERT, 120,
+                                   wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
   popupSizer->Add(suggestionList, 1, wxEXPAND);
   suggestionPopup->SetSizerAndFit(popupSizer);
   suggestionPopup->Hide();
@@ -88,7 +102,7 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
     textCtrl->Bind(wxEVT_KEY_DOWN, &RiderTextDialog::OnTextKeyDown, this);
   }
   if (suggestionList) {
-    suggestionList->Bind(wxEVT_LISTBOX_DCLICK,
+    suggestionList->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                          &RiderTextDialog::OnSuggestionClick, this);
   }
   autocompleteTimer.SetOwner(this);
@@ -282,6 +296,11 @@ void RiderTextDialog::OnApply(wxCommandEvent &WXUNUSED(event)) {
     wxMessageBox("Rider text is empty.", "Error", wxICON_ERROR);
     return;
   }
+  if (!ValidateAndNormalizeText(text)) {
+    wxMessageBox(wxString::FromUTF8(lastValidationError), "Validation error",
+                 wxICON_ERROR | wxOK, this);
+    return;
+  }
   selectedRiderTextUtf8 = std::move(text);
   EndModal(wxID_OK);
 }
@@ -296,19 +315,20 @@ void RiderTextDialog::OnTextKeyDown(wxKeyEvent &event) {
   if (IsSuggestionPopupVisible()) {
     switch (event.GetKeyCode()) {
     case WXK_UP:
-      if (suggestionList && suggestionList->GetCount() > 0) {
-        const int nextSelection =
-            std::max(0, suggestionList->GetSelection() - 1);
-        suggestionList->SetSelection(nextSelection);
+      if (suggestionList && suggestionList->GetItemCount() > 0) {
+        const int nextSelection = std::max(
+            0, static_cast<int>(suggestionList->GetSelectedRow()) - 1);
+        suggestionList->SelectRow(nextSelection);
         return;
       }
       break;
     case WXK_DOWN:
-      if (suggestionList && suggestionList->GetCount() > 0) {
-        const int maxIndex = static_cast<int>(suggestionList->GetCount()) - 1;
+      if (suggestionList && suggestionList->GetItemCount() > 0) {
+        const int maxIndex =
+            static_cast<int>(suggestionList->GetItemCount()) - 1;
         const int nextSelection =
-            std::min(maxIndex, suggestionList->GetSelection() + 1);
-        suggestionList->SetSelection(nextSelection);
+            std::min(maxIndex, static_cast<int>(suggestionList->GetSelectedRow()) + 1);
+        suggestionList->SelectRow(nextSelection);
         return;
       }
       break;
@@ -333,7 +353,7 @@ void RiderTextDialog::OnAutocompleteTimer(wxTimerEvent &WXUNUSED(event)) {
   RefreshAutocompleteSuggestions();
 }
 
-void RiderTextDialog::OnSuggestionClick(wxCommandEvent &WXUNUSED(event)) {
+void RiderTextDialog::OnSuggestionClick(wxDataViewEvent &WXUNUSED(event)) {
   AcceptCurrentSuggestion();
 }
 
@@ -362,12 +382,35 @@ void RiderTextDialog::RefreshAutocompleteSuggestions() {
     return;
   }
 
-  suggestionList->Clear();
+  suggestionList->DeleteAllItems();
   for (const RiderTextAutocompleteProvider::Suggestion &suggestion :
        currentSuggestions) {
-    suggestionList->Append(wxString::FromUTF8(suggestion.displayText));
+    wxVector<wxVariant> row;
+    wxBitmap chip(14, 14);
+    if (!suggestion.colorHex.empty()) {
+      const wxString hex = wxString::FromUTF8(suggestion.colorHex);
+      wxColour fill(hex);
+      if (!fill.IsOk())
+        fill = *wxLIGHT_GREY;
+      const double luminance =
+          0.299 * fill.Red() + 0.587 * fill.Green() + 0.114 * fill.Blue();
+      const wxColour border =
+          luminance < 85.0 ? wxColour(220, 220, 220) : wxColour(60, 60, 60);
+      wxMemoryDC dc(chip);
+      dc.SetBackground(*wxTRANSPARENT_BRUSH);
+      dc.Clear();
+      dc.SetBrush(wxBrush(fill));
+      dc.SetPen(wxPen(border, 1));
+      dc.DrawRectangle(1, 1, 12, 12);
+      dc.SelectObject(wxNullBitmap);
+    }
+
+    row.push_back(wxVariant(wxDataViewIconText(
+        wxString::FromUTF8(suggestion.displayText), chip)));
+    row.push_back(wxVariant(wxString::FromUTF8(suggestion.insertText)));
+    suggestionList->AppendItem(row);
   }
-  suggestionList->SetSelection(0);
+  suggestionList->SelectRow(0);
 
   wxPoint popupAnchor = textCtrl->ClientToScreen(wxPoint(8, 8));
   const wxPoint cursorPos = textCtrl->PositionToCoords(insertionPoint);
@@ -376,7 +419,7 @@ void RiderTextDialog::RefreshAutocompleteSuggestions() {
         wxPoint(cursorPos.x, cursorPos.y + textCtrl->GetCharHeight() + 6));
   }
 
-  const int visibleRows = std::min<int>(6, suggestionList->GetCount());
+  const int visibleRows = std::min<int>(6, static_cast<int>(suggestionList->GetItemCount()));
   const wxSize popupSize(std::max(280, textCtrl->GetSize().GetWidth() / 2),
                          std::max(120, visibleRows * (textCtrl->GetCharHeight() + 8)));
   suggestionPopup->SetSize(popupAnchor.x, popupAnchor.y, popupSize.GetWidth(),
@@ -393,14 +436,17 @@ bool RiderTextDialog::AcceptCurrentSuggestion() {
   if (!suggestionList || !IsSuggestionPopupVisible())
     return false;
 
-  const int selection = suggestionList->GetSelection();
+  const int selection = static_cast<int>(suggestionList->GetSelectedRow());
   if (selection == wxNOT_FOUND || selection < 0 ||
       static_cast<size_t>(selection) >= currentSuggestions.size()) {
     HideSuggestionPopup();
     return false;
   }
 
-  ReplaceCurrentToken(currentSuggestions[static_cast<size_t>(selection)].insertText);
+  const RiderTextAutocompleteProvider::Suggestion &selected =
+      currentSuggestions[static_cast<size_t>(selection)];
+  ReplaceCurrentToken(selected.insertText);
+  autocompleteProvider.RecordSuggestionAccepted(selected.insertText);
   HideSuggestionPopup();
   return true;
 }
@@ -454,4 +500,107 @@ bool RiderTextDialog::IsTokenDelimiter(wxUniChar c) {
   default:
     return false;
   }
+}
+
+bool RiderTextDialog::TryNormalizeColorToken(const std::string &token,
+                                             std::string &normalizedHex) {
+  const auto toLower = [](std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    return value;
+  };
+  const auto trim = [](const std::string &value) {
+    const size_t start = value.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos)
+      return std::string();
+    const size_t end = value.find_last_not_of(" \t\r\n");
+    return value.substr(start, end - start + 1);
+  };
+
+  const std::string trimmed = trim(token);
+  if (trimmed.empty())
+    return false;
+
+  static const std::unordered_map<std::string, std::string> kColorAliases = {
+      {"red", "#ff0000"},       {"green", "#00ff00"},    {"blue", "#0000ff"},
+      {"amber", "#ffbf00"},     {"warm white", "#ffd7a3"},{"cool white", "#f3f8ff"},
+      {"white", "#ffffff"},     {"cyan", "#00ffff"},     {"magenta", "#ff00ff"},
+      {"yellow", "#ffff00"},    {"orange", "#ff7f00"},   {"pink", "#ff69b4"},
+      {"purple", "#8f00ff"},    {"lavender", "#c7a3c7"}, {"lime", "#bfff00"},
+      {"indigo", "#4b0082"},    {"teal", "#008080"},     {"gold", "#ffd700"},
+      {"ctb", "#b8d8ff"},       {"cto", "#ffb347"}};
+
+  if (trimmed.size() == 7 && trimmed[0] == '#') {
+    if (std::all_of(trimmed.begin() + 1, trimmed.end(), [](unsigned char c) {
+          return std::isxdigit(c) != 0;
+        })) {
+      normalizedHex = toLower(trimmed);
+      return true;
+    }
+    return false;
+  }
+
+  std::smatch rgbMatch;
+  if (std::regex_match(trimmed, rgbMatch,
+                       std::regex("^rgb\\(\\s*(\\d{1,3})\\s*,\\s*(\\d{1,3})\\s*,\\s*(\\d{1,3})\\s*\\)$",
+                                  std::regex::icase))) {
+    const int r = std::stoi(rgbMatch[1].str());
+    const int g = std::stoi(rgbMatch[2].str());
+    const int b = std::stoi(rgbMatch[3].str());
+    if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255)
+      return false;
+    char hexBuffer[8];
+    std::snprintf(hexBuffer, sizeof(hexBuffer), "#%02x%02x%02x", r, g, b);
+    normalizedHex = hexBuffer;
+    return true;
+  }
+
+  const auto aliasIt = kColorAliases.find(toLower(trimmed));
+  if (aliasIt != kColorAliases.end()) {
+    normalizedHex = aliasIt->second;
+    return true;
+  }
+
+  return false;
+}
+
+bool RiderTextDialog::ValidateAndNormalizeText(std::string &text) {
+  lastValidationError.clear();
+  if (text.empty())
+    return true;
+
+  const std::regex colorDirectiveRe(
+      "\\b(?:colou?r|col)\\s*[:=]?\\s*([^,;\\n]+)", std::regex::icase);
+
+  std::stringstream input(text);
+  std::string line;
+  std::vector<std::string> normalizedLines;
+  int lineNumber = 0;
+  while (std::getline(input, line)) {
+    ++lineNumber;
+    line = std::regex_replace(line, std::regex("\\s+"), " ");
+    std::smatch match;
+    if (std::regex_search(line, match, colorDirectiveRe) && match.size() > 1) {
+      const std::string colorToken = match[1].str();
+      std::string normalizedHex;
+      if (!TryNormalizeColorToken(colorToken, normalizedHex)) {
+        lastValidationError = "Invalid color format on line " +
+                              std::to_string(lineNumber) + ": '" + colorToken +
+                              "'. Use #RRGGBB, rgb(r,g,b), or a supported name.";
+        return false;
+      }
+      const std::string replacement = "color " + normalizedHex;
+      line.replace(static_cast<size_t>(match.position(0)),
+                   static_cast<size_t>(match.length(0)), replacement);
+    }
+    normalizedLines.push_back(line);
+  }
+
+  text.clear();
+  for (size_t i = 0; i < normalizedLines.size(); ++i) {
+    text.append(normalizedLines[i]);
+    if (i + 1 < normalizedLines.size())
+      text.push_back('\n');
+  }
+  return true;
 }
