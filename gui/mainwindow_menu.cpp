@@ -59,6 +59,7 @@
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "gdtfnet.h"
+#include "gdtf_catalog_cache.h"
 #include "gdtfsearchdialog.h"
 #include "hoist_weight_distribution.h"
 #include "hoisttablepanel.h"
@@ -460,14 +461,24 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   wxString cookieFileWx = wxFileName::GetTempDir() + "/gdtf_session.txt";
   std::string cookieFile = WxToUtf8(cookieFileWx);
 
-  const std::string listData = configManager.GetValue("gdtf_fixture_list").value_or("{}");
-  const std::string cachedUpdatedAt =
-      configManager.GetValue("gdtf_fixture_list_last_update").value_or("unknown");
+  const auto cacheLoadStart = std::chrono::steady_clock::now();
+  const std::optional<GdtfCatalogCacheEntry> cachedCatalog =
+      LoadGdtfCatalogCache();
+  const auto cacheLoadElapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - cacheLoadStart)
+                                      .count();
+
+  const std::string listData =
+      cachedCatalog ? cachedCatalog->listData : std::string("{}");
+  const std::string cachedUpdatedAt = cachedCatalog
+                                          ? cachedCatalog->updatedAt
+                                          : std::string("unknown");
 
   std::string effectiveListData = listData;
   std::string effectiveUpdatedAt = cachedUpdatedAt;
 
   {
+    const auto onlineRefreshStart = std::chrono::steady_clock::now();
     std::unique_ptr<wxWindowDisabler> refreshDisabler =
         std::make_unique<wxWindowDisabler>();
     std::unique_ptr<wxBusyInfo> refreshOverlay =
@@ -488,12 +499,25 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
           effectiveListData = std::move(onlineListData);
           effectiveUpdatedAt = WxToUtf8(wxDateTime::Now().FormatISOCombined(' '));
           if (effectiveListData != listData) {
-            configManager.SetValue("gdtf_fixture_list", effectiveListData);
-            configManager.SetValue("gdtf_fixture_list_last_update",
-                                   effectiveUpdatedAt);
+            GdtfCatalogCacheEntry cacheEntry;
+            cacheEntry.listData = effectiveListData;
+            cacheEntry.updatedAt = effectiveUpdatedAt;
+            cacheEntry.compressed = false;
+            SaveGdtfCatalogCache(cacheEntry);
           }
         }
       }
+    }
+
+    const auto onlineRefreshElapsedMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - onlineRefreshStart)
+            .count();
+    if (consolePanel) {
+      consolePanel->AppendMessage(wxString::Format(
+          "[METRIC] GDTF cache_load_ms=%lld online_refresh_ms=%lld",
+          static_cast<long long>(cacheLoadElapsedMs),
+          static_cast<long long>(onlineRefreshElapsedMs)));
     }
   }
 

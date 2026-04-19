@@ -28,6 +28,7 @@ enum class FeatureFlag {
   PrintViewer2DElementsDetail,
   GenerateFixtureSymbols,
   AssignSelectedFixtureCategory,
+  GdtfVerboseCatalogLogs,
 };
 
 bool IsFeatureEnabled(FeatureFlag flag);

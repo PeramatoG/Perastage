@@ -50,6 +50,8 @@ public:
         std::string listData;
         std::string updatedAt;
         std::vector<GdtfEntry> parsedEntries;
+        long long refreshMs = 0;
+        long long parseMs = 0;
     };
     using RefreshCatalogFn = std::function<RefreshResult()>;
 
@@ -77,6 +79,7 @@ private:
     void OnAutoRefreshThreadEvent(wxThreadEvent& evt);
     void OnAutoRefreshFinished(const RefreshResult& result);
     void UpdateStatusMessage(bool refreshing, const wxString& details = {});
+    void MaybeLogVerboseCatalogTrace(const wxString& message) const;
 
     wxTextCtrl* manufacturerCtrl = nullptr;
     wxTextCtrl* fixtureCtrl = nullptr;
@@ -97,4 +100,7 @@ private:
     bool autoRefreshTriggered = false;
     std::thread autoRefreshThread;
     wxTimer searchDebounceTimer;
+    long long lastParseMs = 0;
+    long long lastFilterMs = 0;
+    long long lastRenderMs = 0;
 };

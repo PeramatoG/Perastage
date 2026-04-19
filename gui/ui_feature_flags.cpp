@@ -39,6 +39,7 @@ bool IsFeatureEnabled(FeatureFlag flag) {
   case FeatureFlag::PrintViewer2DDialog:
   case FeatureFlag::PrintViewer2DElementsDetail:
   case FeatureFlag::AssignSelectedFixtureCategory:
+  case FeatureFlag::GdtfVerboseCatalogLogs:
     return kIsDebugBuild;
   }
 
