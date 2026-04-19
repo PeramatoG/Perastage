@@ -2720,7 +2720,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   wxTheApp ? wxDynamicCast(wxTheApp->GetTopWindow(), wxWindow)
                            : nullptr;
               wxDialog downloadInfoDialog(dialogParent, wxID_ANY, "GDTF download queue",
-                                          wxDefaultPosition, wxSize(980, 580));
+                                          wxDefaultPosition, wxSize(1140, 580));
               wxBoxSizer *infoSizer = new wxBoxSizer(wxVERTICAL);
               enum class DownloadRowState {
                 Pending,
@@ -2755,16 +2755,17 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                               std::max(1, static_cast<int>(downloadRequests.size())),
                               wxDefaultPosition, wxSize(-1, 6),
                               wxGA_HORIZONTAL | wxGA_SMOOTH);
+              progressGauge->SetForegroundColour(wxColour(80, 145, 90));
               progressGauge->SetValue(0);
               infoSizer->Add(progressGauge, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 8);
 
               wxListCtrl *downloadInfoList = new wxListCtrl(
                   &downloadInfoDialog, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                   wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES);
-              downloadInfoList->InsertColumn(0, "Fixture type", wxLIST_FORMAT_LEFT, 250);
-              downloadInfoList->InsertColumn(1, "Selected GDTF", wxLIST_FORMAT_LEFT, 380);
+              downloadInfoList->InsertColumn(0, "Fixture type", wxLIST_FORMAT_LEFT, 260);
+              downloadInfoList->InsertColumn(1, "Selected GDTF", wxLIST_FORMAT_LEFT, 460);
               downloadInfoList->InsertColumn(2, "Status", wxLIST_FORMAT_LEFT, 170);
-              downloadInfoList->InsertColumn(3, "Details", wxLIST_FORMAT_LEFT, 360);
+              downloadInfoList->InsertColumn(3, "Details", wxLIST_FORMAT_LEFT, 180);
               infoSizer->Add(downloadInfoList, 1, wxEXPAND | wxALL, 8);
               wxStaticText *footerSummary =
                   new wxStaticText(&downloadInfoDialog, wxID_ANY,
