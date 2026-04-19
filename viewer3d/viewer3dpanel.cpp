@@ -51,7 +51,9 @@
 #include "viewer2dpanel.h"
 #include "viewer3dviewfit.h"
 #include "viewer3d_render_style.h"
+#include "gl_state_guard.h"
 #include <wx/dcclient.h>
+#include <wx/debug.h>
 #include <wx/event.h>
 #include <wx/filedlg.h>
 #include <wx/log.h>
@@ -85,6 +87,28 @@ constexpr auto kPauseDelay = std::chrono::milliseconds(200);
 constexpr int kExportImageWidth = 1920;
 constexpr int kExportImageHeight = 1080;
 constexpr double kDefaultFovYDegrees = 45.0;
+
+void ValidateGlStateAfterRender(const char* stage, int expectedWidth,
+                                int expectedHeight) {
+    GLint framebuffer = 0;
+    GLint viewport[4] = {0, 0, 0, 0};
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &framebuffer);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    const bool validFramebuffer = framebuffer == 0;
+    const bool validViewport =
+        viewport[0] == 0 && viewport[1] == 0 &&
+        viewport[2] == expectedWidth && viewport[3] == expectedHeight;
+    if (!validFramebuffer || !validViewport) {
+        wxLogTrace("viewer3d_gl_state",
+                   "%s left unexpected GL state (fbo=%d viewport=%d,%d,%d,%d expected=0,0,%d,%d).",
+                   stage, framebuffer, viewport[0], viewport[1], viewport[2],
+                   viewport[3], expectedWidth, expectedHeight);
+    }
+    wxASSERT_MSG(validFramebuffer,
+                 "Unexpected non-default framebuffer after 3D render.");
+    wxASSERT_MSG(validViewport, "Unexpected viewport after 3D render.");
+}
 
 bool IsFastInteractionModeEnabled()
 {
@@ -609,6 +633,7 @@ void Viewer3DPanel::Render()
 
     int width, height;
     GetClientSize(&width, &height);
+    glstate::ApplyKnownBaseOnscreenState(width, height);
 
     const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
     ApplyViewer3DClearColorForStyle(renderStyle);
@@ -624,6 +649,7 @@ void Viewer3DPanel::Render()
                              ToSceneRenderMode(renderStyle));
 
     glFlush();
+    ValidateGlStateAfterRender("Viewer3DPanel::Render", width, height);
 }
 
 bool Viewer3DPanel::ExportCurrentViewToPng() {
@@ -666,12 +692,11 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
     glGenTextures(1, &colorTex);
     glGenRenderbuffers(1, &depthRb);
 
-    GLint previousFbo = 0;
-    GLint previousViewport[4] = {0, 0, 0, 0};
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFbo);
-    glGetIntegerv(GL_VIEWPORT, previousViewport);
+    glstate::ScopedFramebufferViewportScissorState stateGuard;
 
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glDisable(GL_SCISSOR_TEST);
+    glViewport(0, 0, kExportImageWidth, kExportImageHeight);
 
     glBindTexture(GL_TEXTURE_2D, colorTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, kExportImageWidth, kExportImageHeight,
@@ -688,9 +713,6 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
                               GL_RENDERBUFFER, depthRb);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        glBindFramebuffer(GL_FRAMEBUFFER, previousFbo);
-        glViewport(previousViewport[0], previousViewport[1], previousViewport[2],
-                   previousViewport[3]);
         glDeleteRenderbuffers(1, &depthRb);
         glDeleteTextures(1, &colorTex);
         glDeleteFramebuffers(1, &fbo);
@@ -721,9 +743,6 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
     glReadPixels(0, 0, kExportImageWidth, kExportImageHeight, GL_RGBA,
                  GL_UNSIGNED_BYTE, rgba.data());
 
-    glBindFramebuffer(GL_FRAMEBUFFER, previousFbo);
-    glViewport(previousViewport[0], previousViewport[1], previousViewport[2],
-               previousViewport[3]);
     glDeleteRenderbuffers(1, &depthRb);
     glDeleteTextures(1, &colorTex);
     glDeleteFramebuffers(1, &fbo);

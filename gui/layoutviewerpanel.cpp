@@ -43,6 +43,9 @@
 #endif
 
 #include "layoutviewerpanel.h"
+#include "gl_state_guard.h"
+#include <wx/debug.h>
+#include <wx/log.h>
 
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
@@ -100,6 +103,28 @@ constexpr int kToggleTextFrameMenuId = wxID_HIGHEST + 503;
 constexpr int kToggleTextTransparentBackgroundMenuId = wxID_HIGHEST + 504;
 constexpr int kToggleViewFrameMenuId = wxID_HIGHEST + 506;
 constexpr int kLoadingOverlayDelayMs = 150;
+
+void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
+                                int expectedHeight) {
+  GLint framebuffer = 0;
+  GLint viewport[4] = {0, 0, 0, 0};
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &framebuffer);
+  glGetIntegerv(GL_VIEWPORT, viewport);
+  const bool validFramebuffer = framebuffer == 0;
+  const bool validViewport =
+      viewport[0] == 0 && viewport[1] == 0 && viewport[2] == expectedWidth &&
+      viewport[3] == expectedHeight;
+  if (!validFramebuffer || !validViewport) {
+    wxLogTrace("layoutviewer_gl_state",
+               "%s left unexpected GL state (fbo=%d viewport=%d,%d,%d,%d "
+               "expected=0,0,%d,%d).",
+               stage, framebuffer, viewport[0], viewport[1], viewport[2],
+               viewport[3], expectedWidth, expectedHeight);
+  }
+  wxASSERT_MSG(validFramebuffer,
+               "Unexpected non-default framebuffer after layout render.");
+  wxASSERT_MSG(validViewport, "Unexpected viewport after layout render.");
+}
 
 double GetMaxZoomForFrame(const layouts::Layout2DViewFrame &frame) {
   if (frame.width <= 0 || frame.height <= 0)
@@ -794,7 +819,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     }
 
     wxSize size = GetClientSize();
-    glViewport(0, 0, size.GetWidth(), size.GetHeight());
+    glstate::ApplyKnownBaseOnscreenState(size.GetWidth(), size.GetHeight());
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0.0, size.GetWidth(), size.GetHeight(), 0.0, -1.0, 1.0);
@@ -995,6 +1020,8 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     }
 
     glFlush();
+    ValidateGlStateAfterRender("LayoutViewerPanel::OnPaint", size.GetWidth(),
+                               size.GetHeight());
     SwapBuffers();
   } catch (const std::exception &ex) {
     Logger::Instance().Log(

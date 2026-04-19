@@ -57,8 +57,11 @@
 #include "viewer2drenderpanel.h"
 #include "viewer2d_ruler_overlay.h"
 #include "viewer2dviewfit.h"
+#include "gl_state_guard.h"
 #include "units/units.h"
 #include <wx/app.h>
+#include <wx/debug.h>
+#include <wx/log.h>
 #include <wx/utils.h>
 #include <algorithm>
 #include <chrono>
@@ -76,6 +79,28 @@ static constexpr float PIXELS_PER_METER = 25.0f;
 namespace {
 constexpr size_t kMaxCapturePixels = 8192u * 8192u;
 constexpr size_t kMaxCaptureBytes = 64u * 1024u * 1024u;
+
+void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
+                                int expectedHeight) {
+  GLint framebuffer = 0;
+  GLint viewport[4] = {0, 0, 0, 0};
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &framebuffer);
+  glGetIntegerv(GL_VIEWPORT, viewport);
+  const bool validFramebuffer = framebuffer == 0;
+  const bool validViewport =
+      viewport[0] == 0 && viewport[1] == 0 && viewport[2] == expectedWidth &&
+      viewport[3] == expectedHeight;
+  if (!validFramebuffer || !validViewport) {
+    wxLogTrace("viewer2d_gl_state",
+               "%s left unexpected GL state (fbo=%d viewport=%d,%d,%d,%d "
+               "expected=0,0,%d,%d).",
+               stage, framebuffer, viewport[0], viewport[1], viewport[2],
+               viewport[3], expectedWidth, expectedHeight);
+  }
+  wxASSERT_MSG(validFramebuffer,
+               "Unexpected non-default framebuffer after 2D render.");
+  wxASSERT_MSG(validViewport, "Unexpected viewport after 2D render.");
+}
 
 bool TryAllocateCaptureBuffer(std::vector<unsigned char> &pixels, int width,
                               int height) {
@@ -636,7 +661,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   if (w <= 0 || h <= 0)
     return;
 
-  glViewport(0, 0, w, h);
+  glstate::ApplyKnownBaseOnscreenState(w, h);
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
@@ -895,6 +920,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   }
 
   glFlush();
+  ValidateGlStateAfterRender("Viewer2DPanel::RenderInternal", w, h);
   if (swapBuffers)
     SwapBuffers();
 }
@@ -919,6 +945,7 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
     m_forceOffscreenRender = previousForce;
     return false;
   }
+  glstate::ScopedFramebufferViewportScissorState stateGuard;
   RenderInternal(false);
 
   glReadBuffer(GL_BACK);
