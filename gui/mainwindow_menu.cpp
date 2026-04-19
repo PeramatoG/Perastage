@@ -464,6 +464,9 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   const std::string cachedUpdatedAt =
       configManager.GetValue("gdtf_fixture_list_last_update").value_or("desconocida");
 
+  std::unique_ptr<wxBusyInfo> preparingCatalogOverlay =
+      std::make_unique<wxBusyInfo>("Loading GDTF catalog...");
+  wxYieldIfNeeded();
   GdtfSearchDialog searchDlg(
       this, listData, cachedUpdatedAt, [activeCredentials, cookieFile]() {
         GdtfSearchDialog::RefreshResult result;
@@ -490,6 +493,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         result.updatedAt = WxToUtf8(wxDateTime::Now().FormatISOCombined(' '));
         return result;
       });
+  preparingCatalogOverlay.reset();
 
   const int searchDialogResult = searchDlg.ShowModal();
   const std::string updatedListData = searchDlg.GetCurrentListData();

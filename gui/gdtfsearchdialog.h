@@ -44,6 +44,7 @@ public:
         bool success = false;
         std::string listData;
         std::string updatedAt;
+        std::vector<GdtfEntry> parsedEntries;
     };
     using RefreshCatalogFn = std::function<RefreshResult()>;
 
