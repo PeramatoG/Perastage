@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <vector>
 #include <wx/weakref.h>
+#include <wx/window.h>
 
 #ifdef _WIN32
 #  define WIN32_LEAN_AND_MEAN
@@ -262,6 +263,30 @@ bool AreEqual(const std::vector<T> &lhs, const std::vector<T> &rhs) {
       return false;
   }
   return true;
+}
+
+wxSize GetLogicalClientSize(const wxWindow *window) {
+  if (window == nullptr) {
+    return wxSize(0, 0);
+  }
+  return window->GetClientSize();
+}
+
+wxPoint GetLogicalMousePosition(const wxMouseEvent &event) {
+  return event.GetPosition();
+}
+
+wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint) {
+  if (window == nullptr) {
+    return wxPoint(0, 0);
+  }
+  const double contentScale =
+      static_cast<double>(window->GetContentScaleFactor());
+  if (!std::isfinite(contentScale) || contentScale <= 0.0) {
+    return wxPoint(0, 0);
+  }
+  return wxPoint(static_cast<int>(std::lround(logicalPoint.x * contentScale)),
+                 static_cast<int>(std::lround(logicalPoint.y * contentScale)));
 }
 
 bool IsSameRenderableLayout(const layouts::LayoutDefinition &lhs,
@@ -827,19 +852,30 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       RequestRenderRebuild();
     }
 
+    const wxSize logicalSize = GetLogicalClientSize(this);
+    if (logicalSize.GetWidth() <= 0 || logicalSize.GetHeight() <= 0) {
+      return;
+    }
     const RenderSize resolvedSize = ResolveRenderSize(this);
     if (!resolvedSize.IsValid()) {
       return;
     }
-    const wxSize size(resolvedSize.width, resolvedSize.height);
-    glstate::ApplyKnownBaseOnscreenState(size.GetWidth(), size.GetHeight());
-    const RenderSize viewportSize{size.GetWidth(), size.GetHeight(),
+    const wxSize framebufferSize(resolvedSize.width, resolvedSize.height);
+    glstate::ApplyKnownBaseOnscreenState(framebufferSize.GetWidth(),
+                                         framebufferSize.GetHeight());
+    const RenderSize viewportSize{framebufferSize.GetWidth(),
+                                  framebufferSize.GetHeight(),
                                   "glstate::ApplyKnownBaseOnscreenState(framebuffer-px)"};
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(0.0, size.GetWidth(), size.GetHeight(), 0.0, -1.0, 1.0);
-    const RenderSize projectionSize{size.GetWidth(), size.GetHeight(),
-                                    "LayoutViewerPanel::OnPaint::ortho(framebuffer-px)"};
+    glOrtho(0.0, logicalSize.GetWidth(), logicalSize.GetHeight(), 0.0, -1.0,
+            1.0);
+    const wxPoint projectionFramebufferPoint =
+        ToFramebufferPoint(this,
+                           wxPoint(logicalSize.GetWidth(), logicalSize.GetHeight()));
+    const RenderSize projectionSize{
+        projectionFramebufferPoint.x, projectionFramebufferPoint.y,
+        "LayoutViewerPanel::OnPaint::ortho(logical-dip mapped to framebuffer-px)"};
     ++s_renderFrameId;
     ValidateRenderSizeContract("LayoutViewerPanel", s_renderFrameId,
                                resolvedSize, viewportSize, projectionSize);
@@ -855,7 +891,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     const double scaledWidth = pageWidth * zoom;
     const double scaledHeight = pageHeight * zoom;
 
-    const wxPoint center(size.GetWidth() / 2, size.GetHeight() / 2);
+    const wxPoint center(logicalSize.GetWidth() / 2, logicalSize.GetHeight() / 2);
     const wxPoint topLeft(center.x - static_cast<int>(scaledWidth / 2.0) +
                               panOffset.x,
                           center.y - static_cast<int>(scaledHeight / 2.0) +
@@ -1036,12 +1072,13 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
         !IsLayoutEmpty() && isLoading && !hasAnyTexture() &&
         (!texturesReady || !activeElementHasTexture);
     if (showLoadingOverlay && isReadyToRender_) {
-      DrawLoadingOverlay(size);
+      DrawLoadingOverlay(logicalSize);
     }
 
     glFlush();
-    ValidateGlStateAfterRender("LayoutViewerPanel::OnPaint", size.GetWidth(),
-                               size.GetHeight());
+    ValidateGlStateAfterRender("LayoutViewerPanel::OnPaint",
+                               framebufferSize.GetWidth(),
+                               framebufferSize.GetHeight());
     SwapBuffers();
   } catch (const std::exception &ex) {
     Logger::Instance().Log(
@@ -1249,7 +1286,7 @@ void LayoutViewerPanel::DrawSelectionHandles(const wxRect &frameRect) const {
 }
 
 void LayoutViewerPanel::OnSize(wxSizeEvent &) {
-  wxSize size = GetClientSize();
+  wxSize size = GetLogicalClientSize(this);
   if (pendingFitOnResize && size.GetWidth() > 0 && size.GetHeight() > 0) {
     ResetViewToFit();
     pendingFitOnResize = false;
@@ -1264,7 +1301,7 @@ void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
   SetFocus();
   pendingFrameCommit_ = false;
   deferredResizeFrame_.reset();
-  const wxPoint pos = event.GetPosition();
+  const wxPoint pos = GetLogicalMousePosition(event);
   SelectElementAtPosition(pos);
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
@@ -1323,7 +1360,7 @@ void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
 }
 
 void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
-  const wxPoint pos = event.GetPosition();
+  const wxPoint pos = GetLogicalMousePosition(event);
   SelectElementAtPosition(pos);
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
@@ -1413,7 +1450,7 @@ void LayoutViewerPanel::OnShow(wxShowEvent &event) {
 }
 
 void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
-  wxPoint currentPos = event.GetPosition();
+  wxPoint currentPos = GetLogicalMousePosition(event);
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
   if (GetSelectedFrame(selectedFrame) &&
@@ -1537,9 +1574,9 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
   if (std::abs(newZoom - zoom) < 1e-6)
     return;
 
-  wxSize size = GetClientSize();
+  wxSize size = GetLogicalClientSize(this);
   wxPoint center(size.GetWidth() / 2, size.GetHeight() / 2);
-  wxPoint mousePos = event.GetPosition();
+  wxPoint mousePos = GetLogicalMousePosition(event);
 
   wxPoint relative = mousePos - center - panOffset;
   const double scale = newZoom / zoom;
@@ -1626,7 +1663,7 @@ void LayoutViewerPanel::CommitPendingFrameUpdate() {
 
 void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
   SetFocus();
-  const wxPoint pos = event.GetPosition();
+  const wxPoint pos = GetLogicalMousePosition(event);
   if (!SelectElementAtPosition(pos)) {
     event.Skip();
     return;
@@ -1868,7 +1905,7 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
 }
 
 void LayoutViewerPanel::ResetViewToFit() {
-  wxSize size = GetClientSize();
+  wxSize size = GetLogicalClientSize(this);
   const double pageWidth = currentLayout.pageSetup.PageWidthPt();
   const double pageHeight = currentLayout.pageSetup.PageHeightPt();
 
@@ -1889,7 +1926,7 @@ void LayoutViewerPanel::ResetViewToFit() {
 }
 
 wxRect LayoutViewerPanel::GetPageRect() const {
-  wxSize size = GetClientSize();
+  wxSize size = GetLogicalClientSize(this);
   const double pageWidth = currentLayout.pageSetup.PageWidthPt();
   const double pageHeight = currentLayout.pageSetup.PageHeightPt();
   const double scaledWidth = pageWidth * zoom;
