@@ -485,10 +485,13 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
 
   wxBoxSizer *formSizer = new wxBoxSizer(wxHORIZONTAL);
   wxBoxSizer *leftColumnSizer = new wxBoxSizer(wxVERTICAL);
+  leftColumnSizer->SetMinSize(wxSize(320, -1));
   leftColumnSizer->Add(metadataSizer, 0, wxEXPAND | wxBOTTOM, 8);
   leftColumnSizer->Add(fixtureSpecificSizer, 1, wxEXPAND);
+  gdtfGeneralSizer->SetMinSize(wxSize(320, -1));
   formSizer->Add(leftColumnSizer, 1, wxRIGHT | wxEXPAND, 8);
   formSizer->Add(gdtfGeneralSizer, 1, wxLEFT | wxEXPAND, 8);
+  formSizer->SetMinSize(wxSize(680, -1));
   hSizer->Add(formSizer, 3, wxALL | wxEXPAND, 10);
 
   wxBoxSizer *rightSizer = new wxBoxSizer(wxVERTICAL);
@@ -537,6 +540,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   Bind(wxEVT_BUTTON, &FixtureEditDialog::OnCancel, this, wxID_CANCEL);
 
   SetSizerAndFit(topSizer);
+  SetMinSize(GetSize());
   UpdateChannels(false);
   UpdateVisualizers();
   UpdateMetadataSummary();

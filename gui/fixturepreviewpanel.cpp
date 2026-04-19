@@ -43,26 +43,21 @@
 static constexpr float RENDER_SCALE = 0.001f;
 
 // Helper to transform a point with our Matrix structure
-static std::array<float, 3>
-TransformPoint(const Matrix &m, const std::array<float, 3> &p,
-               float translationScale = 1.0f)
+static std::array<float,3> TransformPoint(const Matrix& m, const std::array<float,3>& p)
 {
     return {
-        m.u[0]*p[0] + m.v[0]*p[1] + m.w[0]*p[2] + m.o[0] * translationScale,
-        m.u[1]*p[0] + m.v[1]*p[1] + m.w[1]*p[2] + m.o[1] * translationScale,
-        m.u[2]*p[0] + m.v[2]*p[1] + m.w[2]*p[2] + m.o[2] * translationScale
+        m.u[0]*p[0] + m.v[0]*p[1] + m.w[0]*p[2] + m.o[0],
+        m.u[1]*p[0] + m.v[1]*p[1] + m.w[1]*p[2] + m.o[1],
+        m.u[2]*p[0] + m.v[2]*p[1] + m.w[2]*p[2] + m.o[2]
     };
 }
 
-static void MatrixToArray(const Matrix& m, float out[16],
-                          float translationScale = 1.0f)
+static void MatrixToArray(const Matrix& m, float out[16])
 {
     out[0] = m.u[0];  out[1] = m.u[1];  out[2] = m.u[2];  out[3] = 0.0f;
     out[4] = m.v[0];  out[5] = m.v[1];  out[6] = m.v[2];  out[7] = 0.0f;
     out[8] = m.w[0];  out[9] = m.w[1];  out[10] = m.w[2]; out[11] = 0.0f;
-    out[12] = m.o[0] * translationScale;
-    out[13] = m.o[1] * translationScale;
-    out[14] = m.o[2] * translationScale;
+    out[12] = m.o[0]; out[13] = m.o[1]; out[14] = m.o[2];
     out[15] = 1.0f;
 }
 
@@ -217,7 +212,7 @@ void FixturePreviewPanel::LoadFixture(const std::string& gdtfPath)
                     obj.mesh.vertices[vi+1]*RENDER_SCALE,
                     obj.mesh.vertices[vi+2]*RENDER_SCALE
                 };
-                p = TransformPoint(obj.transform, p, RENDER_SCALE);
+                p = TransformPoint(obj.transform, p);
                 for(int j=0;j<3;++j){
                     m_bbMin[j] = std::min(m_bbMin[j], p[j]);
                     m_bbMax[j] = std::max(m_bbMax[j], p[j]);
@@ -270,7 +265,7 @@ void FixturePreviewPanel::Render()
         for(const auto& obj : m_objects){
             glPushMatrix();
             float m[16];
-            MatrixToArray(obj.transform, m, RENDER_SCALE);
+            MatrixToArray(obj.transform,m);
             glMultMatrixf(m);
             DrawMesh(obj.mesh, RENDER_SCALE);
             glPopMatrix();
