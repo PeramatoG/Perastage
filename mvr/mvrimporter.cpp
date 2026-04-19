@@ -2722,7 +2722,23 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   &downloadInfoDialog, wxID_ANY, "", wxDefaultPosition,
                   wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
               infoSizer->Add(downloadInfoLog, 1, wxEXPAND | wxALL, 8);
+              wxButton *ackButton = new wxButton(&downloadInfoDialog, wxID_OK, "OK");
+              ackButton->Disable();
+              infoSizer->Add(ackButton, 0, wxALIGN_RIGHT | wxLEFT | wxRIGHT | wxBOTTOM, 8);
               downloadInfoDialog.SetSizer(infoSizer);
+              bool canCloseDownloadInfoDialog = false;
+              downloadInfoDialog.Bind(wxEVT_CLOSE_WINDOW,
+                                      [&](wxCloseEvent &closeEvent) {
+                                        if (!canCloseDownloadInfoDialog) {
+                                          closeEvent.Veto();
+                                          return;
+                                        }
+                                        closeEvent.Skip();
+                                      });
+              ackButton->Bind(wxEVT_BUTTON, [&](wxCommandEvent &) {
+                canCloseDownloadInfoDialog = true;
+                downloadInfoDialog.Close();
+              });
               downloadInfoDialog.Show();
               wxYieldIfNeeded();
               downloadInfoLog->AppendText("Selected fixture types for download:\n");
@@ -2819,6 +2835,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 }
               } else {
                 downloadInfoLog->AppendText("Failed to load catalog list from API.\n");
+              }
+              downloadInfoLog->AppendText(
+                  "\nDownload queue finished. Review the results and click OK to continue.\n");
+              canCloseDownloadInfoDialog = true;
+              ackButton->Enable();
+              ackButton->SetFocus();
+              while (downloadInfoDialog.IsShown()) {
+                wxMilliSleep(10);
+                wxYieldIfNeeded();
               }
               downloadInfoDialog.Destroy();
             } else {
