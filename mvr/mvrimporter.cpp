@@ -31,6 +31,7 @@
 
 #include "consolepanel.h"
 #include "logger.h"
+#include "LayoutManager.h"
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -914,6 +915,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   }
 
   ConfigManager::Get().Reset();
+  layouts::LayoutManager::Get().LoadDefaultsForNewProject(ConfigManager::Get());
   auto &scene = ConfigManager::Get().GetScene();
   scene.basePath = ToString(fs::u8path(sceneXmlPath).parent_path().u8string());
 
