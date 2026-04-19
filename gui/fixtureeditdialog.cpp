@@ -752,8 +752,10 @@ void FixtureEditDialog::UpdateMetadataSummary() {
       metadataDescriptionCtrl->ShowPosition(0);
       continue;
     }
-    if (metadataValueLabels[i])
+    if (metadataValueLabels[i]) {
       metadataValueLabels[i]->SetLabel(values[i]);
+      metadataValueLabels[i]->Wrap(360);
+    }
   }
   Layout();
 }
