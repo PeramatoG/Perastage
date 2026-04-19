@@ -55,7 +55,7 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
                                  const wxString &initialText,
                                  const wxString &initialSource)
     : wxDialog(parent, wxID_ANY, "Create scene from text",
-               wxDefaultPosition, wxSize(720, 520),
+               wxDefaultPosition, wxSize(900, 700),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       sourceLabel(initialSource) {
   SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
@@ -84,10 +84,11 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
                           : wxString("Loaded: ") + sourceLabel;
   sourceText = new wxStaticText(sourceSizer->GetStaticBox(), wxID_ANY, sourceTextLabel);
   sourceSizer->Add(sourceText, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
-  wxButton *loadButton = new wxButton(this, ID_RiderText_Load, "Load rider...");
+  wxButton *loadButton =
+      new wxButton(sourceSizer->GetStaticBox(), ID_RiderText_Load, "Load rider...");
   sourceSizer->Add(loadButton, 0);
   wxButton *exampleButton =
-      new wxButton(this, ID_RiderText_Example, "Use example");
+      new wxButton(sourceSizer->GetStaticBox(), ID_RiderText_Example, "Use example");
   sourceSizer->Add(exampleButton, 0, wxLEFT, 8);
   mainSizer->Add(sourceSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
 
@@ -105,6 +106,7 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
       "Ranking: exact > prefix > fuzzy + recent use + context.");
   autocompleteHelp->SetForegroundColour(
       wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+  autocompleteHelp->Wrap(820);
   editorSizer->Add(autocompleteHelp, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
   mainSizer->Add(editorSizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
 
@@ -139,9 +141,9 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   mainSizer->Add(buttonSizer, 0, wxEXPAND | wxALL, 10);
 
   SetSizer(mainSizer);
-  SetMinSize(wxSize(720, 520));
+  SetMinSize(wxSize(900, 700));
   Layout();
-  Centre();
+  CentreOnScreen();
 }
 
 const std::string &RiderTextDialog::GetRiderTextUtf8() const {
