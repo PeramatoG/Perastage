@@ -43,7 +43,8 @@ wxString FormatTimestamp(const std::string& ts)
 }
 } // namespace
 
-GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData)
+GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData,
+                                   const wxString& statusMessage)
     : wxDialog(parent, wxID_ANY, "Search GDTF", wxDefaultPosition,
                wxSize(1000,700),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
@@ -60,6 +61,10 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
                                  wxDefaultSize, wxTE_PROCESS_ENTER);
     searchSizer->Add(fixtureCtrl, 1);
     sizer->Add(searchSizer, 0, wxEXPAND | wxALL, 10);
+
+    statusLabel = new wxStaticText(this, wxID_ANY, statusMessage);
+    statusLabel->Wrap(900);
+    sizer->Add(statusLabel, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 10);
 
     resultTable = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                          wxDefaultSize, wxDV_ROW_LINES);
@@ -88,9 +93,11 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     sizer->Add(resultTable, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
+    wxButton* refreshBtn = new wxButton(this, wxID_ANY, "Actualizar catálogo");
     wxButton* downloadBtn = new wxButton(this, wxID_OK, "Download");
     wxButton* cancelBtn = new wxButton(this, wxID_CANCEL, "Cancel");
     btnSizer->AddStretchSpacer(1);
+    btnSizer->Add(refreshBtn, 0, wxRIGHT, 5);
     btnSizer->Add(downloadBtn, 0, wxRIGHT, 5);
     btnSizer->Add(cancelBtn, 0);
     sizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
@@ -101,6 +108,7 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
 
     manufacturerCtrl->Bind(wxEVT_TEXT_ENTER, &GdtfSearchDialog::OnSearch, this);
     fixtureCtrl->Bind(wxEVT_TEXT_ENTER, &GdtfSearchDialog::OnSearch, this);
+    refreshBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnRefreshCatalog, this);
     downloadBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnDownload, this);
     resultTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                       &GdtfSearchDialog::OnDownload, this);
@@ -252,6 +260,11 @@ void GdtfSearchDialog::OnDownload(wxCommandEvent& WXUNUSED(evt))
         selectedIndex = visible[row];
         EndModal(wxID_OK);
     }
+}
+
+void GdtfSearchDialog::OnRefreshCatalog(wxCommandEvent& WXUNUSED(evt))
+{
+    EndModal(kRefreshResultCode);
 }
 
 std::string GdtfSearchDialog::GetSelectedId() const

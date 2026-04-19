@@ -35,6 +35,7 @@
 #include <wx/busyinfo.h>
 #include <wx/choice.h>
 #include <wx/choicdlg.h>
+#include <wx/datetime.h>
 #include <wx/filename.h>
 #include <wx/filefn.h>
 #include <wx/html/htmlwin.h>
@@ -56,6 +57,7 @@
 #include "fixture.h"
 #include "fixturetablepanel.h"
 #include "gdtfdictionary.h"
+#include "gdtf_catalog_cache.h"
 #include "gdtfloader.h"
 #include "gdtfnet.h"
 #include "gdtfsearchdialog.h"
@@ -451,10 +453,18 @@ void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
-  // Flow overview: reuse stored credentials to reduce friction, authenticate,
-  // and persist the session before requesting the list and downloading.
-  // The order matters because the list needs a valid cookie; we also save
-  // credentials early so a later network failure doesn't discard user input.
+  std::string listData;
+  std::string cacheLastUpdate;
+  std::string cacheSource;
+  std::string cacheVersion;
+
+  if (auto cache = LoadGdtfCatalogCache()) {
+    listData = cache->listData;
+    cacheLastUpdate = cache->lastUpdate;
+    cacheSource = cache->source;
+    cacheVersion = cache->version;
+  }
+
   std::string savedUser;
   std::string savedPass;
   if (auto creds = CredentialStore::Load()) {
@@ -467,83 +477,133 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     savedPass = SimpleCrypt::Decode(savedPassEnc);
   }
 
-  GdtfLoginDialog loginDlg(this, savedUser, savedPass);
-  if (loginDlg.ShowModal() != wxID_OK)
-    return;
+  wxString cookieFileWx = wxFileName::GetTempDir() + "/gdtf_session.txt";
+  std::string cookieFile = WxToUtf8(cookieFileWx);
+  bool hasAuthenticatedSession = false;
 
-  std::unique_ptr<wxWindowDisabler> gdtfDownloadDisabler =
-      std::make_unique<wxWindowDisabler>();
-  std::unique_ptr<wxBusyInfo> gdtfDownloadBusyOverlay;
-  auto updateGdtfDownloadBusyOverlay = [&](const wxString &message) {
-    gdtfDownloadBusyOverlay = std::make_unique<wxBusyInfo>(message);
-    wxYieldIfNeeded();
+  auto buildCatalogStatus = [&]() -> wxString {
+    if (listData.empty())
+      return "Sin catálogo local. Pulsa Actualizar.";
+
+    wxString status = "Catálogo local cargado.";
+    if (!cacheLastUpdate.empty())
+      status += " Última actualización: " + wxString::FromUTF8(cacheLastUpdate);
+    if (!cacheSource.empty())
+      status += " | Origen: " + wxString::FromUTF8(cacheSource);
+    if (!cacheVersion.empty())
+      status += " | Versión: " + wxString::FromUTF8(cacheVersion);
+    return status;
   };
-  auto showGdtfDownloadError = [&](const wxString &message,
-                                   const wxString &caption) {
-    gdtfDownloadBusyOverlay.reset();
-    gdtfDownloadDisabler.reset();
+
+  auto showNetworkError = [&](const wxString &message, const wxString &caption) {
     wxMessageBox(message, caption, wxOK | wxICON_ERROR, this);
   };
 
-  updateGdtfDownloadBusyOverlay("Connecting to GDTF Share...");
-  wxString username =
-      wxString::FromUTF8(loginDlg.GetUsername()).Trim(true).Trim(false);
-  wxString password = wxString::FromUTF8(loginDlg.GetPassword());
-  GetDefaultGuiConfigServices().LegacyConfigManager().SetValue("gdtf_username",
-                                WxToUtf8(username));
-  GetDefaultGuiConfigServices().LegacyConfigManager().SetValue(
-      "gdtf_password", SimpleCrypt::Encode(WxToUtf8(password)));
-  CredentialStore::Save(
-      {WxToUtf8(username), WxToUtf8(password)});
+  auto ensureAuthenticatedSession = [&]() -> bool {
+    if (hasAuthenticatedSession)
+      return true;
 
-  if (!currentProjectPath.empty())
-    GetDefaultGuiConfigServices().LegacyConfigManager().SaveProject(currentProjectPath);
+    GdtfLoginDialog loginDlg(this, savedUser, savedPass);
+    if (loginDlg.ShowModal() != wxID_OK)
+      return false;
 
-  wxString cookieFileWx = wxFileName::GetTempDir() + "/gdtf_session.txt";
-  std::string cookieFile = WxToUtf8(cookieFileWx);
-  long httpCode = 0;
-  if (consolePanel)
-    consolePanel->AppendMessage("[INFO] Logging into GDTF Share using libcurl");
-  updateGdtfDownloadBusyOverlay("Logging in to GDTF Share...");
-  if (!GdtfLogin(WxToUtf8(username), WxToUtf8(password),
-                 cookieFile, httpCode)) {
-    showGdtfDownloadError("Failed to connect to GDTF Share.", "Login Error");
+    std::unique_ptr<wxWindowDisabler> gdtfDownloadDisabler =
+        std::make_unique<wxWindowDisabler>();
+    std::unique_ptr<wxBusyInfo> gdtfDownloadBusyOverlay =
+        std::make_unique<wxBusyInfo>("Logging in to GDTF Share...");
+    wxYieldIfNeeded();
+
+    wxString username =
+        wxString::FromUTF8(loginDlg.GetUsername()).Trim(true).Trim(false);
+    wxString password = wxString::FromUTF8(loginDlg.GetPassword());
+    savedUser = WxToUtf8(username);
+    savedPass = WxToUtf8(password);
+
+    GetDefaultGuiConfigServices().LegacyConfigManager().SetValue("gdtf_username",
+                                  savedUser);
+    GetDefaultGuiConfigServices().LegacyConfigManager().SetValue(
+        "gdtf_password", SimpleCrypt::Encode(savedPass));
+    CredentialStore::Save({savedUser, savedPass});
+
+    if (!currentProjectPath.empty())
+      GetDefaultGuiConfigServices().LegacyConfigManager().SaveProject(currentProjectPath);
+
+    long httpCode = 0;
     if (consolePanel)
-      consolePanel->AppendMessage("[ERROR] Login connection failed");
-    return;
-  }
-  if (consolePanel)
-    consolePanel->AppendMessage(wxString::Format("[INFO] Login HTTP code: %ld",
-                                                 httpCode));
-  if (httpCode != 200) {
-    showGdtfDownloadError("Login failed.", "Login Error");
+      consolePanel->AppendMessage("[INFO] Logging into GDTF Share using libcurl");
+    if (!GdtfLogin(savedUser, savedPass, cookieFile, httpCode)) {
+      gdtfDownloadBusyOverlay.reset();
+      gdtfDownloadDisabler.reset();
+      showNetworkError("Failed to connect to GDTF Share.", "Login Error");
+      if (consolePanel)
+        consolePanel->AppendMessage("[ERROR] Login connection failed");
+      return false;
+    }
+
     if (consolePanel)
-      consolePanel->AppendMessage("[ERROR] Login failed with code " +
-                                  wxString::Format("%ld", httpCode));
-    return;
-  }
+      consolePanel->AppendMessage(wxString::Format("[INFO] Login HTTP code: %ld",
+                                                   httpCode));
+    if (httpCode != 200) {
+      gdtfDownloadBusyOverlay.reset();
+      gdtfDownloadDisabler.reset();
+      showNetworkError("Login failed.", "Login Error");
+      if (consolePanel)
+        consolePanel->AppendMessage("[ERROR] Login failed with code " +
+                                    wxString::Format("%ld", httpCode));
+      return false;
+    }
 
-  if (consolePanel)
-    consolePanel->AppendMessage("[INFO] Retrieving fixture list via libcurl");
-  updateGdtfDownloadBusyOverlay("Retrieving fixture list...");
-  std::string listData;
-  if (!GdtfGetList(cookieFile, listData)) {
-    showGdtfDownloadError("Failed to retrieve fixture list.", "Error");
-    return;
-  }
+    hasAuthenticatedSession = true;
+    return true;
+  };
 
-  if (consolePanel)
-    consolePanel->AppendMessage(wxString::Format(
-        "[INFO] Retrieved list size: %zu bytes", listData.size()));
+  auto refreshCatalogOnline = [&]() -> bool {
+    if (!ensureAuthenticatedSession())
+      return false;
 
-  GetDefaultGuiConfigServices().LegacyConfigManager().SetValue("gdtf_fixture_list", listData);
+    std::unique_ptr<wxWindowDisabler> gdtfDownloadDisabler =
+        std::make_unique<wxWindowDisabler>();
+    std::unique_ptr<wxBusyInfo> gdtfDownloadBusyOverlay =
+        std::make_unique<wxBusyInfo>("Retrieving fixture list...");
+    wxYieldIfNeeded();
 
-  // open search dialog
-  updateGdtfDownloadBusyOverlay("Preparing fixture search...");
-  GdtfSearchDialog searchDlg(this, listData);
-  gdtfDownloadBusyOverlay.reset();
-  gdtfDownloadDisabler.reset();
-  if (searchDlg.ShowModal() == wxID_OK) {
+    if (consolePanel)
+      consolePanel->AppendMessage("[INFO] Retrieving fixture list via libcurl");
+
+    std::string refreshedListData;
+    if (!GdtfGetList(cookieFile, refreshedListData)) {
+      gdtfDownloadBusyOverlay.reset();
+      gdtfDownloadDisabler.reset();
+      showNetworkError("Failed to retrieve fixture list.", "Error");
+      return false;
+    }
+
+    if (consolePanel) {
+      consolePanel->AppendMessage(wxString::Format(
+          "[INFO] Retrieved list size: %zu bytes", refreshedListData.size()));
+    }
+
+    listData = std::move(refreshedListData);
+    cacheLastUpdate = WxToUtf8(wxDateTime::Now().FormatISOCombined(' '));
+    cacheSource = "gdtf-share.com";
+    cacheVersion = "1";
+
+    SaveGdtfCatalogCache(
+        {listData, cacheLastUpdate, cacheSource, cacheVersion});
+    GetDefaultGuiConfigServices().LegacyConfigManager().SetValue("gdtf_fixture_list", listData);
+    return true;
+  };
+
+  while (true) {
+    GdtfSearchDialog searchDlg(this, listData, buildCatalogStatus());
+    const int dialogResult = searchDlg.ShowModal();
+    if (dialogResult == GdtfSearchDialog::kRefreshResultCode) {
+      refreshCatalogOnline();
+      continue;
+    }
+    if (dialogResult != wxID_OK)
+      break;
+
     wxString rid = wxString::FromUTF8(searchDlg.GetSelectedId());
     wxString name = wxString::FromUTF8(searchDlg.GetSelectedName());
 
@@ -551,33 +611,39 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
     wxFileDialog saveDlg(this, "Save GDTF file", fixDir, name + ".gdtf",
                          "*.gdtf", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-    if (saveDlg.ShowModal() == wxID_OK) {
-      wxString dest = saveDlg.GetPath();
-      if (!rid.empty()) {
-        if (consolePanel)
-          consolePanel->AppendMessage("[INFO] Downloading via libcurl rid=" +
-                                      rid);
-        long dlCode = 0;
-        bool ok = GdtfDownload(WxToUtf8(rid),
-                               WxToUtf8(dest), cookieFile, dlCode);
-        if (consolePanel)
-          consolePanel->AppendMessage(
-              wxString::Format("[INFO] Download HTTP code: %ld", dlCode));
-        if (ok && dlCode == 200) {
-          int addNow = wxMessageBox(
-              "GDTF downloaded successfully. Do you want to add it to the project now?",
-              "Success", wxYES_NO | wxICON_QUESTION, this);
-          if (addNow == wxYES)
-            AddFixtureFromGdtfPath(WxToUtf8(dest));
-        } else {
-          wxMessageBox("Failed to download GDTF.", "Error",
-                       wxOK | wxICON_ERROR);
-        }
-      } else {
-        wxMessageBox("Download information missing.", "Error",
-                     wxOK | wxICON_ERROR);
-      }
+    if (saveDlg.ShowModal() != wxID_OK)
+      continue;
+
+    if (rid.empty()) {
+      wxMessageBox("Download information missing.", "Error",
+                   wxOK | wxICON_ERROR, this);
+      continue;
     }
+
+    if (!ensureAuthenticatedSession())
+      continue;
+
+    wxString dest = saveDlg.GetPath();
+    if (consolePanel)
+      consolePanel->AppendMessage("[INFO] Downloading via libcurl rid=" + rid);
+
+    long dlCode = 0;
+    const bool ok = GdtfDownload(WxToUtf8(rid), WxToUtf8(dest), cookieFile, dlCode);
+    if (consolePanel) {
+      consolePanel->AppendMessage(
+          wxString::Format("[INFO] Download HTTP code: %ld", dlCode));
+    }
+
+    if (ok && dlCode == 200) {
+      int addNow = wxMessageBox(
+          "GDTF downloaded successfully. Do you want to add it to the project now?",
+          "Success", wxYES_NO | wxICON_QUESTION, this);
+      if (addNow == wxYES)
+        AddFixtureFromGdtfPath(WxToUtf8(dest));
+      break;
+    }
+
+    wxMessageBox("Failed to download GDTF.", "Error", wxOK | wxICON_ERROR, this);
   }
 
   wxRemoveFile(cookieFileWx);
