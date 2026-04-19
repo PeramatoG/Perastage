@@ -20,7 +20,6 @@
 #include "dummyprofilelibrary.h"
 #include "credentialstore.h"
 #include "gdtfdictionary.h"
-#include "gdtfnet.h"
 #include "gdtfloader.h"
 #include "gdtf_fixture_category.h"
 #include "matrixutils.h"
@@ -62,6 +61,7 @@
 
 // TinyXML2
 #include <tinyxml2.h>
+#include <curl/curl.h>
 
 // wxWidgets zip support
 #include <wx/wfstream.h>
@@ -686,6 +686,113 @@ ParseGdtfCatalogEntries(const std::string &listData) {
 
 static std::optional<CredentialStore::Credentials> LoadGdtfCredentials() {
   return CredentialStore::Load();
+}
+
+static size_t WriteCurlPayloadToString(void *contents, size_t size, size_t nmemb,
+                                       void *userp) {
+  std::string *target = static_cast<std::string *>(userp);
+  const size_t total = size * nmemb;
+  target->append(static_cast<const char *>(contents), total);
+  return total;
+}
+
+static size_t WriteCurlPayloadToFile(void *contents, size_t size, size_t nmemb,
+                                     void *userp) {
+  std::ofstream *target = static_cast<std::ofstream *>(userp);
+  const size_t total = size * nmemb;
+  target->write(static_cast<const char *>(contents), static_cast<std::streamsize>(total));
+  return total;
+}
+
+static bool MvrGdtfLogin(const std::string &user, const std::string &password,
+                         const std::string &cookieFile, long &httpCode) {
+  CURL *curl = curl_easy_init();
+  if (!curl)
+    return false;
+
+  std::string payload = "{\"user\":\"" + user + "\",\"password\":\"" + password + "\"}";
+  struct curl_slist *headers = nullptr;
+  headers = curl_slist_append(headers, "Content-Type: application/json");
+  std::string response;
+
+  curl_easy_setopt(curl, CURLOPT_URL, "https://gdtf-share.com/apis/public/login.php");
+  curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload.c_str());
+  curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+  curl_easy_setopt(curl, CURLOPT_COOKIEJAR, cookieFile.c_str());
+  curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCurlPayloadToString);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+  const CURLcode result = curl_easy_perform(curl);
+  if (result != CURLE_OK) {
+    curl_easy_cleanup(curl);
+    curl_slist_free_all(headers);
+    return false;
+  }
+
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+  curl_easy_cleanup(curl);
+  curl_slist_free_all(headers);
+  return true;
+}
+
+static bool MvrGdtfGetList(const std::string &cookieFile, std::string &listData,
+                           long *httpCode) {
+  CURL *curl = curl_easy_init();
+  if (!curl)
+    return false;
+
+  curl_easy_setopt(curl, CURLOPT_URL, "https://gdtf-share.com/apis/public/getList.php");
+  curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookieFile.c_str());
+  curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCurlPayloadToString);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &listData);
+
+  const CURLcode result = curl_easy_perform(curl);
+  if (result != CURLE_OK) {
+    curl_easy_cleanup(curl);
+    return false;
+  }
+  if (httpCode)
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, httpCode);
+  curl_easy_cleanup(curl);
+  return true;
+}
+
+static bool MvrGdtfDownload(const std::string &rid, const std::string &destFile,
+                            const std::string &cookieFile, long &httpCode) {
+  CURL *curl = curl_easy_init();
+  if (!curl)
+    return false;
+
+  std::ofstream out(destFile, std::ios::binary);
+  if (!out.is_open()) {
+    curl_easy_cleanup(curl);
+    return false;
+  }
+
+  const std::string url =
+      "https://gdtf-share.com/apis/public/downloadFile.php?rid=" + rid;
+  curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookieFile.c_str());
+  curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCurlPayloadToFile);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &out);
+
+  const CURLcode result = curl_easy_perform(curl);
+  if (result != CURLE_OK) {
+    out.close();
+    curl_easy_cleanup(curl);
+    return false;
+  }
+
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+  out.close();
+  curl_easy_cleanup(curl);
+  return true;
 }
 
 
@@ -2632,12 +2739,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             wxString cookieFileWx = wxFileName::CreateTempFileName("gdtf_mvr_import_");
             const std::string cookieFile = cookieFileWx.ToStdString();
             long loginHttpCode = 0;
-            bool loginOk = GdtfLogin(credentials->username, credentials->password,
+            bool loginOk = MvrGdtfLogin(credentials->username, credentials->password,
                                      cookieFile, loginHttpCode);
             if (loginOk && loginHttpCode == 200) {
               std::string listData;
               long listHttpCode = 0;
-              if (GdtfGetList(cookieFile, listData, &listHttpCode) && listHttpCode == 200) {
+              if (MvrGdtfGetList(cookieFile, listData, &listHttpCode) && listHttpCode == 200) {
                 const std::vector<GdtfCatalogEntry> catalogEntries =
                     ParseGdtfCatalogEntries(listData);
                 if (!catalogEntries.empty()) {
@@ -2732,7 +2839,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
                     long downloadHttpCode = 0;
                     const bool downloaded =
-                        GdtfDownload(bestMatch.rid, destinationPath.string(), cookieFile,
+                        MvrGdtfDownload(bestMatch.rid, destinationPath.string(), cookieFile,
                                      downloadHttpCode);
                     if (downloaded && downloadHttpCode == 200) {
                       selectedPathByType[req.type] = destinationPath.string();
