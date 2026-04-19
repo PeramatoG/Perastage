@@ -18,6 +18,8 @@
 #pragma once
 #include <wx/wx.h>
 #include <wx/dataview.h>
+#include <functional>
+#include <thread>
 #include <vector>
 #include "json.hpp"
 
@@ -38,20 +40,43 @@ struct GdtfEntry {
 
 class GdtfSearchDialog : public wxDialog {
 public:
-    GdtfSearchDialog(wxWindow* parent, const std::string& listData);
+    struct RefreshResult {
+        bool success = false;
+        std::string listData;
+        std::string updatedAt;
+        std::vector<GdtfEntry> parsedEntries;
+    };
+    using RefreshCatalogFn = std::function<RefreshResult()>;
+
+    GdtfSearchDialog(wxWindow* parent, const std::string& listData,
+                     const std::string& cachedUpdatedAt,
+                     RefreshCatalogFn refreshCatalogFn);
+    ~GdtfSearchDialog() override;
     std::string GetSelectedId() const;
     std::string GetSelectedUrl() const;
     std::string GetSelectedName() const;
+    std::string GetCurrentListData() const;
 private:
     void ParseList(const std::string& listData);
     void UpdateResults();
     void OnSearch(wxCommandEvent& evt);
     void OnDownload(wxCommandEvent& evt);
+    void OnDialogShown(wxShowEvent& evt);
+    void TriggerAutoRefreshOnce();
+    void OnAutoRefreshThreadEvent(wxThreadEvent& evt);
+    void OnAutoRefreshFinished(const RefreshResult& result);
+    void UpdateStatusMessage(bool refreshing, const wxString& details = {});
 
     wxTextCtrl* manufacturerCtrl = nullptr;
     wxTextCtrl* fixtureCtrl = nullptr;
     wxDataViewListCtrl* resultTable = nullptr;
+    wxStaticText* statusLabel = nullptr;
     std::vector<GdtfEntry> entries;
     std::vector<int> visible;
     int selectedIndex = -1;
+    std::string currentListData;
+    std::string lastUpdatedAt;
+    RefreshCatalogFn refreshCatalogFn;
+    bool autoRefreshTriggered = false;
+    std::thread autoRefreshThread;
 };

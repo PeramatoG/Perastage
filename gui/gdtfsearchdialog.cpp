@@ -17,12 +17,89 @@
  */
 #include "gdtfsearchdialog.h"
 #include "columnutils.h"
-#include "consolepanel.h"
+#include <mutex>
 #include <wx/datetime.h>
 
 using json = nlohmann::json;
+wxDEFINE_EVENT(EVT_GDTF_REFRESH_DONE, wxThreadEvent);
 
 namespace {
+std::vector<GdtfEntry> ParseEntriesFromListData(const std::string& listData)
+{
+    std::vector<GdtfEntry> parsedEntries;
+    json j = json::parse(listData, nullptr, false);
+    if (j.is_discarded())
+        return parsedEntries;
+
+    if (j.is_object()) {
+        if (j.contains("data"))
+            j = j["data"];
+        if (j.contains("fixtures"))
+            j = j["fixtures"];
+        if (j.contains("list"))
+            j = j["list"];
+    }
+    if (!j.is_array())
+        return parsedEntries;
+
+    auto jsonToString = [](const json& v) -> std::string {
+        if (v.is_string())
+            return v.get<std::string>();
+        if (v.is_number())
+            return v.dump();
+        if (v.is_array()) {
+            std::string result;
+            for (size_t i = 0; i < v.size(); ++i) {
+                if (i > 0)
+                    result += ", ";
+                const auto& el = v[i];
+                if (el.is_string())
+                    result += el.get<std::string>();
+                else if (el.is_object() && el.contains("name") && el["name"].is_string())
+                    result += el["name"].get<std::string>();
+                else
+                    result += el.dump();
+            }
+            return result;
+        }
+        if (v.is_object())
+            return v.dump();
+        return {};
+    };
+
+    auto getValue = [&](const json& obj, std::initializer_list<const char*> keys) -> std::string {
+        for (const char* k : keys) {
+            auto it = obj.find(k);
+            if (it != obj.end())
+                return jsonToString(*it);
+        }
+        return {};
+    };
+
+    parsedEntries.reserve(j.size());
+    for (const auto& item : j) {
+        GdtfEntry e;
+        e.manufacturer = getValue(item, {"manufacturer", "brand", "mfr"});
+        e.fixture = getValue(item, {"fixture", "name", "model"});
+        e.rid = getValue(item, {"rid", "revisionId"});
+        e.url = getValue(item, {"url", "download", "downloadUrl"});
+        e.modes = getValue(item, {"modes", "mode", "modeCount"});
+        e.creator = getValue(item, {"creator", "user", "userName"});
+        e.uploader = getValue(item, {"uploader"});
+        e.creationDate = getValue(item, {"creationDate"});
+        e.revision = getValue(item, {"revision"});
+        e.lastModified = getValue(item, {"lastModified"});
+        e.version = getValue(item, {"version"});
+        e.rating = getValue(item, {"rating"});
+        parsedEntries.push_back(std::move(e));
+    }
+    return parsedEntries;
+}
+
+std::mutex g_cachedCatalogMutex;
+std::string g_cachedCatalogPayload;
+std::vector<GdtfEntry> g_cachedCatalogEntries;
+
 wxString FormatTimestamp(const std::string& ts)
 {
     if (ts.empty())
@@ -43,10 +120,15 @@ wxString FormatTimestamp(const std::string& ts)
 }
 } // namespace
 
-GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData)
+GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData,
+                                   const std::string& cachedUpdatedAt,
+                                   RefreshCatalogFn refreshCatalogFnIn)
     : wxDialog(parent, wxID_ANY, "Search GDTF", wxDefaultPosition,
                wxSize(1000,700),
-               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+      currentListData(listData),
+      lastUpdatedAt(cachedUpdatedAt),
+      refreshCatalogFn(std::move(refreshCatalogFnIn))
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
@@ -60,6 +142,9 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
                                  wxDefaultSize, wxTE_PROCESS_ENTER);
     searchSizer->Add(fixtureCtrl, 1);
     sizer->Add(searchSizer, 0, wxEXPAND | wxALL, 10);
+
+    statusLabel = new wxStaticText(this, wxID_ANY, "");
+    sizer->Add(statusLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     resultTable = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                          wxDefaultSize, wxDV_ROW_LINES);
@@ -104,98 +189,38 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     downloadBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnDownload, this);
     resultTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                       &GdtfSearchDialog::OnDownload, this);
+    Bind(wxEVT_SHOW, &GdtfSearchDialog::OnDialogShown, this);
+    Bind(EVT_GDTF_REFRESH_DONE, &GdtfSearchDialog::OnAutoRefreshThreadEvent, this);
 
-    ParseList(listData);
+    ParseList(currentListData);
     UpdateResults();
+    UpdateStatusMessage(false);
+}
+
+GdtfSearchDialog::~GdtfSearchDialog()
+{
+    if (autoRefreshThread.joinable())
+        autoRefreshThread.join();
 }
 
 void GdtfSearchDialog::ParseList(const std::string& listData)
 {
-    entries.clear();
-    if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("Parse list: %zu bytes", listData.size());
-        ConsolePanel::Instance()->AppendMessage(msg);
-    }
-    json j = json::parse(listData, nullptr, false);
-    if (j.is_discarded()) {
-        if (ConsolePanel::Instance()) {
-            ConsolePanel::Instance()->AppendMessage("JSON parse error");
-            wxString sample = wxString::FromUTF8(listData.substr(0, 200));
-            ConsolePanel::Instance()->AppendMessage("Sample: " + sample);
-        }
-        return;
-    }
-    if (j.is_object()) {
-        if (j.contains("data"))
-            j = j["data"];
-        if (j.contains("fixtures"))
-            j = j["fixtures"];
-        if (j.contains("list"))
-            j = j["list"];
-    }
-    if (!j.is_array())
-        return;
-
-    auto jsonToString = [](const json& v) -> std::string {
-        if (v.is_string())
-            return v.get<std::string>();
-        if (v.is_number())
-            return v.dump();
-        if (v.is_array()) {
-            std::string result;
-            for (size_t i = 0; i < v.size(); ++i) {
-                if (i > 0)
-                    result += ", ";
-                const auto& el = v[i];
-                if (el.is_string())
-                    result += el.get<std::string>();
-                else if (el.is_object() && el.contains("name") && el["name"].is_string())
-                    result += el["name"].get<std::string>();
-                else
-                    result += el.dump();
-            }
-            return result;
-        }
-        if (v.is_object())
-            return v.dump();
-        return {};
-    };
-
-    auto getValue = [&](const json& obj, std::initializer_list<const char*> keys) -> std::string {
-        for (const char* k : keys) {
-            auto it = obj.find(k);
-            if (it != obj.end())
-                return jsonToString(*it);
-        }
-        return {};
-    };
-
-    for (const auto& item : j) {
-        GdtfEntry e;
-        e.manufacturer = getValue(item, {"manufacturer", "brand", "mfr"});
-        e.fixture = getValue(item, {"fixture", "name", "model"});
-        e.rid = getValue(item, {"rid", "revisionId"});
-        e.url = getValue(item, {"url", "download", "downloadUrl"});
-        e.modes = getValue(item, {"modes", "mode", "modeCount"});
-        e.creator = getValue(item, {"creator", "user", "userName"});
-        e.uploader = getValue(item, {"uploader"});
-        e.creationDate = getValue(item, {"creationDate"});
-        e.revision = getValue(item, {"revision"});
-        e.lastModified = getValue(item, {"lastModified"});
-        e.version = getValue(item, {"version"});
-        e.rating = getValue(item, {"rating"});
-        entries.push_back(e);
-    }
-    if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("Parsed %zu entries", entries.size());
-        ConsolePanel::Instance()->AppendMessage(msg);
+    std::lock_guard<std::mutex> lock(g_cachedCatalogMutex);
+    if (listData == g_cachedCatalogPayload) {
+        entries = g_cachedCatalogEntries;
+    } else {
+        entries = ParseEntriesFromListData(listData);
+        g_cachedCatalogPayload = listData;
+        g_cachedCatalogEntries = entries;
     }
 }
 
 void GdtfSearchDialog::UpdateResults()
 {
+    const std::string previouslySelectedRid = GetSelectedId();
     resultTable->DeleteAllItems();
     visible.clear();
+    selectedIndex = -1;
 
     auto normalize = [](wxString s) {
         s = s.Lower();
@@ -206,10 +231,6 @@ void GdtfSearchDialog::UpdateResults()
 
     wxString b = normalize(manufacturerCtrl->GetValue());
     wxString m = normalize(fixtureCtrl->GetValue());
-    if (ConsolePanel::Instance()) {
-        wxString msg = "Filtering manufacturer='" + b + "' fixture='" + m + "'";
-        ConsolePanel::Instance()->AppendMessage(msg);
-    }
     for (size_t i = 0; i < entries.size(); ++i) {
         wxString manuOrig = wxString::FromUTF8(entries[i].manufacturer);
         wxString fixOrig = wxString::FromUTF8(entries[i].fixture);
@@ -230,17 +251,21 @@ void GdtfSearchDialog::UpdateResults()
         row.push_back(wxString::FromUTF8(entries[i].version));
         row.push_back(wxString::FromUTF8(entries[i].rating));
         resultTable->AppendItem(row);
-    }
-    if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("Visible results: %zu", visible.size());
-        ConsolePanel::Instance()->AppendMessage(msg);
+
+        if (!previouslySelectedRid.empty() && entries[i].rid == previouslySelectedRid) {
+            const unsigned int rowIndex =
+                static_cast<unsigned int>(resultTable->GetItemCount() - 1);
+            wxDataViewItem rowItem = resultTable->RowToItem(rowIndex);
+            if (rowItem.IsOk()) {
+                resultTable->Select(rowItem);
+                selectedIndex = static_cast<int>(i);
+            }
+        }
     }
 }
 
 void GdtfSearchDialog::OnSearch(wxCommandEvent& WXUNUSED(evt))
 {
-    if (ConsolePanel::Instance())
-        ConsolePanel::Instance()->AppendMessage("Search triggered");
     UpdateResults();
 }
 
@@ -273,4 +298,81 @@ std::string GdtfSearchDialog::GetSelectedName() const
     if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size()))
         return entries[selectedIndex].fixture;
     return {};
+}
+
+std::string GdtfSearchDialog::GetCurrentListData() const
+{
+    return currentListData;
+}
+
+void GdtfSearchDialog::OnDialogShown(wxShowEvent& evt)
+{
+    evt.Skip();
+    if (!evt.IsShown())
+        return;
+
+    TriggerAutoRefreshOnce();
+}
+
+void GdtfSearchDialog::TriggerAutoRefreshOnce()
+{
+    if (autoRefreshTriggered || !refreshCatalogFn)
+        return;
+    autoRefreshTriggered = true;
+    UpdateStatusMessage(true);
+
+    autoRefreshThread = std::thread([this, refreshFn = refreshCatalogFn]() {
+        RefreshResult result = refreshFn();
+        if (result.success && !result.listData.empty())
+            result.parsedEntries = ParseEntriesFromListData(result.listData);
+        wxThreadEvent* event = new wxThreadEvent(EVT_GDTF_REFRESH_DONE);
+        event->SetPayload(result);
+        wxQueueEvent(this, event);
+    });
+}
+
+void GdtfSearchDialog::OnAutoRefreshThreadEvent(wxThreadEvent& evt)
+{
+    OnAutoRefreshFinished(evt.GetPayload<RefreshResult>());
+}
+
+void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
+{
+    if (result.success && !result.listData.empty() && !result.parsedEntries.empty()) {
+        currentListData = result.listData;
+        lastUpdatedAt = result.updatedAt;
+
+        {
+            std::lock_guard<std::mutex> lock(g_cachedCatalogMutex);
+            g_cachedCatalogPayload = currentListData;
+            g_cachedCatalogEntries = result.parsedEntries;
+        }
+        entries = result.parsedEntries;
+        UpdateResults();
+        UpdateStatusMessage(false);
+        return;
+    }
+
+    UpdateStatusMessage(false,
+                        "Showing local catalog (last updated: " +
+                            wxString::FromUTF8(lastUpdatedAt) + ")");
+}
+
+void GdtfSearchDialog::UpdateStatusMessage(bool refreshing, const wxString& details)
+{
+    if (refreshing) {
+        statusLabel->SetLabel("Updating online catalog...");
+        return;
+    }
+
+    if (!details.empty()) {
+        statusLabel->SetLabel(details);
+        return;
+    }
+
+    if (lastUpdatedAt.empty())
+        statusLabel->SetLabel("Showing local catalog.");
+    else
+        statusLabel->SetLabel("Showing local catalog (last updated: " +
+                              wxString::FromUTF8(lastUpdatedAt) + ")");
 }
