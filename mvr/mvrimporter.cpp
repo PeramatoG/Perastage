@@ -2617,8 +2617,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             std::unordered_map<std::string, std::set<int>> addressesByType;
             for (const auto &[fixtureUuid, fixture] : scene.fixtures) {
               (void)fixtureUuid;
-              const int absoluteChannel =
-                  parseAddressToAbsoluteChannel(fixture.address);
+              const int absoluteChannel = parseAddressToAbsoluteChannel(fixture.address);
               if (absoluteChannel > 0)
                 addressesByType[fixture.typeName].insert(absoluteChannel);
             }
@@ -2659,7 +2658,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               activeCredentials = entered;
               return true;
             };
-
             auto tryLogin = [&](long &httpCode, const std::string &cookieFile) {
               if (!activeCredentials || activeCredentials->username.empty() ||
                   activeCredentials->password.empty()) {
@@ -2679,119 +2677,119 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             }
 
             if (loginOk && loginHttpCode == 200) {
-                  std::string listData;
-                  long listHttpCode = 0;
-                  if (GdtfGetList(cookieFile, listData, &listHttpCode) &&
-                      listHttpCode == 200) {
-                    const std::vector<GdtfCatalogEntry> catalogEntries =
-                        ParseGdtfCatalogEntries(listData);
-                    wxDialog downloadInfoDialog(nullptr, wxID_ANY,
-                                                "GDTF download queue",
-                                                wxDefaultPosition,
-                                                wxSize(720, 420));
-                    wxBoxSizer *infoSizer = new wxBoxSizer(wxVERTICAL);
-                    wxTextCtrl *downloadInfoLog = new wxTextCtrl(
-                        &downloadInfoDialog, wxID_ANY, "", wxDefaultPosition,
-                        wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
-                    infoSizer->Add(downloadInfoLog, 1, wxEXPAND | wxALL, 8);
-                    downloadInfoDialog.SetSizer(infoSizer);
-                    downloadInfoDialog.Show();
-                    wxYieldIfNeeded();
-                    for (GdtfConflict req : downloadRequests) {
-                      if (req.footprint <= 0)
-                        req.footprint = inferFootprintFromAddresses(req.type);
-                      const std::string targetFixture =
-                          NormalizeForGdtfMatch(req.fixtureName.empty()
-                                                    ? req.type
-                                                    : req.fixtureName);
-                      const std::string targetManufacturer =
-                          NormalizeForGdtfMatch(req.manufacturer);
-                      double bestScore = -1.0;
-                      GdtfDownloadMatch bestMatch;
-                      for (const auto &entry : catalogEntries) {
-                        if (NormalizeForGdtfMatch(entry.fixtureName) != targetFixture)
-                          continue;
-                        if (!targetManufacturer.empty() &&
-                            NormalizeForGdtfMatch(entry.manufacturer) !=
-                                targetManufacturer) {
-                          continue;
-                        }
-                        int baseScore = 50;
-                        std::string matchedModeName;
-                        if (req.footprint > 0) {
-                          baseScore = 0;
-                          for (const auto &mode : entry.modes) {
-                            if (mode.footprint == req.footprint) {
-                              baseScore = 100;
-                              matchedModeName = mode.name;
-                              break;
-                            }
-                          }
-                        }
-                        const double timeBonus =
-                            static_cast<double>(entry.lastModifiedUnix) /
-                            (86400.0 * 30.0);
-                        const double ratingBonus =
-                            static_cast<double>(entry.rating) * 2.0;
-                        const double total = static_cast<double>(baseScore) +
-                                             timeBonus + ratingBonus;
-                        if (total > bestScore) {
-                          bestScore = total;
-                          bestMatch.found = true;
-                          bestMatch.rid = entry.rid;
-                          bestMatch.modeName = matchedModeName;
-                        }
-                      }
+              std::string listData;
+              long listHttpCode = 0;
+              if (GdtfGetList(cookieFile, listData, &listHttpCode) &&
+                  listHttpCode == 200) {
+                const std::vector<GdtfCatalogEntry> catalogEntries =
+                    ParseGdtfCatalogEntries(listData);
+                wxDialog downloadInfoDialog(nullptr, wxID_ANY, "GDTF download queue",
+                                            wxDefaultPosition, wxSize(720, 420));
+                wxBoxSizer *infoSizer = new wxBoxSizer(wxVERTICAL);
+                wxTextCtrl *downloadInfoLog =
+                    new wxTextCtrl(&downloadInfoDialog, wxID_ANY, "",
+                                   wxDefaultPosition, wxDefaultSize,
+                                   wxTE_MULTILINE | wxTE_READONLY);
+                infoSizer->Add(downloadInfoLog, 1, wxEXPAND | wxALL, 8);
+                downloadInfoDialog.SetSizer(infoSizer);
+                downloadInfoDialog.Show();
+                wxYieldIfNeeded();
 
-                      if (!bestMatch.found || bestMatch.rid.empty()) {
-                        downloadInfoLog->AppendText(
-                            "• " + wxString::FromUTF8(req.type) +
-                            " -> no catalog match found. Keeping MVR original.\n");
-                        continue;
-                      }
-
-                      fs::path destinationDir;
-#ifdef NDEBUG
-                      destinationDir = fs::u8path(
-                          ProjectUtils::GetWritableLibraryPath("fixtures"));
-#else
-                      destinationDir = fs::u8path(
-                                           wxStandardPaths::Get()
-                                               .GetExecutablePath()
-                                               .ToStdString())
-                                           .parent_path() /
-                                       "library" / "fixtures";
-                      std::error_code ec;
-                      fs::create_directories(destinationDir, ec);
-#endif
-                      std::string fileName = req.type;
-                      std::replace(fileName.begin(), fileName.end(), '/', '_');
-                      std::replace(fileName.begin(), fileName.end(), '\\', '_');
-                      fs::path destinationPath = destinationDir / (fileName + ".gdtf");
-                      if (fs::exists(destinationPath))
-                        destinationPath = destinationDir /
-                                          (fileName + "_" + bestMatch.rid + ".gdtf");
-                      long dlCode = 0;
-                      if (GdtfDownload(bestMatch.rid, destinationPath.string(),
-                                       cookieFile, dlCode) &&
-                          dlCode == 200) {
-                        selectedPathByType[req.type] = destinationPath.string();
-                        if (!bestMatch.modeName.empty())
-                          selectedModeByType[req.type] = bestMatch.modeName;
-                        downloadInfoLog->AppendText(
-                            "• " + wxString::FromUTF8(req.type) +
-                            " -> downloaded and assigned.\n");
-                      } else {
-                        downloadInfoLog->AppendText(
-                            "• " + wxString::FromUTF8(req.type) +
-                            " -> download failed. Keeping MVR original.\n");
-                      }
-                      wxYieldIfNeeded();
+                for (GdtfConflict req : downloadRequests) {
+                  if (req.footprint <= 0)
+                    req.footprint = inferFootprintFromAddresses(req.type);
+                  const std::string targetFixture =
+                      NormalizeForGdtfMatch(req.fixtureName.empty() ? req.type
+                                                                    : req.fixtureName);
+                  const std::string targetManufacturer =
+                      NormalizeForGdtfMatch(req.manufacturer);
+                  double bestScore = -1.0;
+                  GdtfDownloadMatch bestMatch;
+                  for (const auto &entry : catalogEntries) {
+                    if (NormalizeForGdtfMatch(entry.fixtureName) != targetFixture)
+                      continue;
+                    if (!targetManufacturer.empty() &&
+                        NormalizeForGdtfMatch(entry.manufacturer) !=
+                            targetManufacturer) {
+                      continue;
                     }
-                    downloadInfoDialog.Destroy();
+
+                    int baseScore = 50;
+                    std::string matchedModeName;
+                    if (req.footprint > 0) {
+                      baseScore = 0;
+                      for (const auto &mode : entry.modes) {
+                        if (mode.footprint == req.footprint) {
+                          baseScore = 100;
+                          matchedModeName = mode.name;
+                          break;
+                        }
+                      }
+                    }
+                    const double timeBonus =
+                        static_cast<double>(entry.lastModifiedUnix) /
+                        (86400.0 * 30.0);
+                    const double ratingBonus =
+                        static_cast<double>(entry.rating) * 2.0;
+                    const double total = static_cast<double>(baseScore) + timeBonus +
+                                         ratingBonus;
+                    if (total > bestScore) {
+                      bestScore = total;
+                      bestMatch.found = true;
+                      bestMatch.rid = entry.rid;
+                      bestMatch.modeName = matchedModeName;
+                    }
                   }
+
+                  if (!bestMatch.found || bestMatch.rid.empty()) {
+                    downloadInfoLog->AppendText(
+                        "• " + wxString::FromUTF8(req.type) +
+                        " -> no catalog match found. Keeping MVR original.\n");
+                    continue;
+                  }
+
+                  fs::path destinationDir;
+#ifdef NDEBUG
+                  destinationDir =
+                      fs::u8path(ProjectUtils::GetWritableLibraryPath("fixtures"));
+#else
+                  destinationDir =
+                      fs::u8path(
+                          wxStandardPaths::Get().GetExecutablePath().ToStdString())
+                          .parent_path() /
+                      "library" / "fixtures";
+                  std::error_code ec;
+                  fs::create_directories(destinationDir, ec);
+#endif
+
+                  std::string fileName = req.type;
+                  std::replace(fileName.begin(), fileName.end(), '/', '_');
+                  std::replace(fileName.begin(), fileName.end(), '\\', '_');
+                  fs::path destinationPath = destinationDir / (fileName + ".gdtf");
+                  if (fs::exists(destinationPath))
+                    destinationPath =
+                        destinationDir / (fileName + "_" + bestMatch.rid + ".gdtf");
+                  long dlCode = 0;
+                  if (GdtfDownload(bestMatch.rid, destinationPath.string(),
+                                   cookieFile, dlCode) &&
+                      dlCode == 200) {
+                    selectedPathByType[req.type] = destinationPath.string();
+                    if (!bestMatch.modeName.empty())
+                      selectedModeByType[req.type] = bestMatch.modeName;
+                    downloadInfoLog->AppendText(
+                        "• " + wxString::FromUTF8(req.type) +
+                        " -> downloaded and assigned.\n");
+                  } else {
+                    downloadInfoLog->AppendText(
+                        "• " + wxString::FromUTF8(req.type) +
+                        " -> download failed. Keeping MVR original.\n");
+                  }
+                  wxYieldIfNeeded();
                 }
+                downloadInfoDialog.Destroy();
+              }
             }
+
             wxRemoveFile(cookieFileWx);
             reportProgress("Conflict dialog:hide");
           }
