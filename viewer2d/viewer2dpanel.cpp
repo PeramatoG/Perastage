@@ -950,9 +950,9 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
 
 bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
                                  int &height) {
-  int w = 0;
-  int h = 0;
-  GetClientSize(&w, &h);
+  const RenderSize renderSize = ResolveRenderSize(this);
+  const int w = renderSize.width;
+  const int h = renderSize.height;
   if (w <= 0 || h <= 0)
     return false;
 
