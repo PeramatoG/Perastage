@@ -21,6 +21,7 @@
 #include <wx/datetime.h>
 
 using json = nlohmann::json;
+wxDEFINE_EVENT(EVT_GDTF_REFRESH_DONE, wxThreadEvent);
 
 namespace {
 wxString FormatTimestamp(const std::string& ts)
@@ -43,10 +44,15 @@ wxString FormatTimestamp(const std::string& ts)
 }
 } // namespace
 
-GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData)
+GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData,
+                                   const std::string& cachedUpdatedAt,
+                                   RefreshCatalogFn refreshCatalogFnIn)
     : wxDialog(parent, wxID_ANY, "Search GDTF", wxDefaultPosition,
                wxSize(1000,700),
-               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+      currentListData(listData),
+      lastUpdatedAt(cachedUpdatedAt),
+      refreshCatalogFn(std::move(refreshCatalogFnIn))
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
@@ -60,6 +66,9 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
                                  wxDefaultSize, wxTE_PROCESS_ENTER);
     searchSizer->Add(fixtureCtrl, 1);
     sizer->Add(searchSizer, 0, wxEXPAND | wxALL, 10);
+
+    statusLabel = new wxStaticText(this, wxID_ANY, "");
+    sizer->Add(statusLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     resultTable = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                          wxDefaultSize, wxDV_ROW_LINES);
@@ -104,9 +113,18 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     downloadBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnDownload, this);
     resultTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                       &GdtfSearchDialog::OnDownload, this);
+    Bind(wxEVT_SHOW, &GdtfSearchDialog::OnDialogShown, this);
+    Bind(EVT_GDTF_REFRESH_DONE, &GdtfSearchDialog::OnAutoRefreshThreadEvent, this);
 
-    ParseList(listData);
+    ParseList(currentListData);
     UpdateResults();
+    UpdateStatusMessage(false);
+}
+
+GdtfSearchDialog::~GdtfSearchDialog()
+{
+    if (autoRefreshThread.joinable())
+        autoRefreshThread.join();
 }
 
 void GdtfSearchDialog::ParseList(const std::string& listData)
@@ -194,8 +212,10 @@ void GdtfSearchDialog::ParseList(const std::string& listData)
 
 void GdtfSearchDialog::UpdateResults()
 {
+    const std::string previouslySelectedRid = GetSelectedId();
     resultTable->DeleteAllItems();
     visible.clear();
+    selectedIndex = -1;
 
     auto normalize = [](wxString s) {
         s = s.Lower();
@@ -230,6 +250,16 @@ void GdtfSearchDialog::UpdateResults()
         row.push_back(wxString::FromUTF8(entries[i].version));
         row.push_back(wxString::FromUTF8(entries[i].rating));
         resultTable->AppendItem(row);
+
+        if (!previouslySelectedRid.empty() && entries[i].rid == previouslySelectedRid) {
+            const unsigned int rowIndex =
+                static_cast<unsigned int>(resultTable->GetItemCount() - 1);
+            wxDataViewItem rowItem = resultTable->RowToItem(rowIndex);
+            if (rowItem.IsOk()) {
+                resultTable->Select(rowItem);
+                selectedIndex = static_cast<int>(i);
+            }
+        }
     }
     if (ConsolePanel::Instance()) {
         wxString msg = wxString::Format("Visible results: %zu", visible.size());
@@ -273,4 +303,73 @@ std::string GdtfSearchDialog::GetSelectedName() const
     if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size()))
         return entries[selectedIndex].fixture;
     return {};
+}
+
+std::string GdtfSearchDialog::GetCurrentListData() const
+{
+    return currentListData;
+}
+
+void GdtfSearchDialog::OnDialogShown(wxShowEvent& evt)
+{
+    evt.Skip();
+    if (!evt.IsShown())
+        return;
+
+    TriggerAutoRefreshOnce();
+}
+
+void GdtfSearchDialog::TriggerAutoRefreshOnce()
+{
+    if (autoRefreshTriggered || !refreshCatalogFn)
+        return;
+    autoRefreshTriggered = true;
+    UpdateStatusMessage(true);
+
+    autoRefreshThread = std::thread([this, refreshFn = refreshCatalogFn]() {
+        const RefreshResult result = refreshFn();
+        wxThreadEvent* event = new wxThreadEvent(EVT_GDTF_REFRESH_DONE);
+        event->SetPayload(result);
+        wxQueueEvent(this, event);
+    });
+}
+
+void GdtfSearchDialog::OnAutoRefreshThreadEvent(wxThreadEvent& evt)
+{
+    OnAutoRefreshFinished(evt.GetPayload<RefreshResult>());
+}
+
+void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
+{
+    if (result.success && !result.listData.empty()) {
+        currentListData = result.listData;
+        lastUpdatedAt = result.updatedAt;
+        ParseList(currentListData);
+        UpdateResults();
+        UpdateStatusMessage(false);
+        return;
+    }
+
+    UpdateStatusMessage(false,
+                        "Mostrando catálogo local (última actualización: " +
+                            wxString::FromUTF8(lastUpdatedAt) + ")");
+}
+
+void GdtfSearchDialog::UpdateStatusMessage(bool refreshing, const wxString& details)
+{
+    if (refreshing) {
+        statusLabel->SetLabel("Actualizando catálogo online...");
+        return;
+    }
+
+    if (!details.empty()) {
+        statusLabel->SetLabel(details);
+        return;
+    }
+
+    if (lastUpdatedAt.empty())
+        statusLabel->SetLabel("Mostrando catálogo local.");
+    else
+        statusLabel->SetLabel("Mostrando catálogo local (última actualización: " +
+                              wxString::FromUTF8(lastUpdatedAt) + ")");
 }
