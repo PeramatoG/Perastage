@@ -454,15 +454,9 @@ void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
 
 void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   std::string listData;
-  std::string cacheLastUpdate;
-  std::string cacheSource;
-  std::string cacheVersion;
 
   if (auto cache = LoadGdtfCatalogCache()) {
     listData = cache->listData;
-    cacheLastUpdate = cache->lastUpdate;
-    cacheSource = cache->source;
-    cacheVersion = cache->version;
   }
 
   std::string savedUser;
@@ -480,20 +474,6 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   wxString cookieFileWx = wxFileName::GetTempDir() + "/gdtf_session.txt";
   std::string cookieFile = WxToUtf8(cookieFileWx);
   bool hasAuthenticatedSession = false;
-
-  auto buildCatalogStatus = [&]() -> wxString {
-    if (listData.empty())
-      return "Sin catálogo local. Pulsa Actualizar.";
-
-    wxString status = "Catálogo local cargado.";
-    if (!cacheLastUpdate.empty())
-      status += " Última actualización: " + wxString::FromUTF8(cacheLastUpdate);
-    if (!cacheSource.empty())
-      status += " | Origen: " + wxString::FromUTF8(cacheSource);
-    if (!cacheVersion.empty())
-      status += " | Versión: " + wxString::FromUTF8(cacheVersion);
-    return status;
-  };
 
   auto showNetworkError = [&](const wxString &message, const wxString &caption) {
     wxMessageBox(message, caption, wxOK | wxICON_ERROR, this);
@@ -584,9 +564,10 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     }
 
     listData = std::move(refreshedListData);
-    cacheLastUpdate = WxToUtf8(wxDateTime::Now().FormatISOCombined(' '));
-    cacheSource = "gdtf-share.com";
-    cacheVersion = "1";
+    const std::string cacheLastUpdate =
+        WxToUtf8(wxDateTime::Now().FormatISOCombined(' '));
+    const std::string cacheSource = "gdtf-share.com";
+    const std::string cacheVersion = "1";
 
     SaveGdtfCatalogCache(
         {listData, cacheLastUpdate, cacheSource, cacheVersion});
@@ -594,16 +575,18 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     return true;
   };
 
-  while (true) {
-    GdtfSearchDialog searchDlg(this, listData, buildCatalogStatus());
-    const int dialogResult = searchDlg.ShowModal();
-    if (dialogResult == GdtfSearchDialog::kRefreshResultCode) {
-      refreshCatalogOnline();
-      continue;
+  if (!refreshCatalogOnline()) {
+    if (listData.empty()) {
+      wxRemoveFile(cookieFileWx);
+      return;
     }
-    if (dialogResult != wxID_OK)
-      break;
+    wxMessageBox(
+        "Failed to refresh the online catalog. Showing the last local catalog.",
+        "Catalog refresh", wxOK | wxICON_WARNING, this);
+  }
 
+  GdtfSearchDialog searchDlg(this, listData);
+  if (searchDlg.ShowModal() == wxID_OK) {
     wxString rid = wxString::FromUTF8(searchDlg.GetSelectedId());
     wxString name = wxString::FromUTF8(searchDlg.GetSelectedName());
 
@@ -611,39 +594,41 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
     wxFileDialog saveDlg(this, "Save GDTF file", fixDir, name + ".gdtf",
                          "*.gdtf", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-    if (saveDlg.ShowModal() != wxID_OK)
-      continue;
+    if (saveDlg.ShowModal() == wxID_OK) {
+      if (rid.empty()) {
+        wxMessageBox("Download information missing.", "Error",
+                     wxOK | wxICON_ERROR, this);
+      } else {
+        if (!ensureAuthenticatedSession()) {
+          wxRemoveFile(cookieFileWx);
+          return;
+        }
 
-    if (rid.empty()) {
-      wxMessageBox("Download information missing.", "Error",
-                   wxOK | wxICON_ERROR, this);
-      continue;
+        wxString dest = saveDlg.GetPath();
+        if (consolePanel)
+          consolePanel->AppendMessage("[INFO] Downloading via libcurl rid=" +
+                                      rid);
+
+        long dlCode = 0;
+        const bool ok =
+            GdtfDownload(WxToUtf8(rid), WxToUtf8(dest), cookieFile, dlCode);
+        if (consolePanel) {
+          consolePanel->AppendMessage(
+              wxString::Format("[INFO] Download HTTP code: %ld", dlCode));
+        }
+
+        if (ok && dlCode == 200) {
+          int addNow = wxMessageBox(
+              "GDTF downloaded successfully. Do you want to add it to the project now?",
+              "Success", wxYES_NO | wxICON_QUESTION, this);
+          if (addNow == wxYES)
+            AddFixtureFromGdtfPath(WxToUtf8(dest));
+        } else {
+          wxMessageBox("Failed to download GDTF.", "Error",
+                       wxOK | wxICON_ERROR, this);
+        }
+      }
     }
-
-    if (!ensureAuthenticatedSession())
-      continue;
-
-    wxString dest = saveDlg.GetPath();
-    if (consolePanel)
-      consolePanel->AppendMessage("[INFO] Downloading via libcurl rid=" + rid);
-
-    long dlCode = 0;
-    const bool ok = GdtfDownload(WxToUtf8(rid), WxToUtf8(dest), cookieFile, dlCode);
-    if (consolePanel) {
-      consolePanel->AppendMessage(
-          wxString::Format("[INFO] Download HTTP code: %ld", dlCode));
-    }
-
-    if (ok && dlCode == 200) {
-      int addNow = wxMessageBox(
-          "GDTF downloaded successfully. Do you want to add it to the project now?",
-          "Success", wxYES_NO | wxICON_QUESTION, this);
-      if (addNow == wxYES)
-        AddFixtureFromGdtfPath(WxToUtf8(dest));
-      break;
-    }
-
-    wxMessageBox("Failed to download GDTF.", "Error", wxOK | wxICON_ERROR, this);
   }
 
   wxRemoveFile(cookieFileWx);

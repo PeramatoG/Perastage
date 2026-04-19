@@ -38,10 +38,7 @@ struct GdtfEntry {
 
 class GdtfSearchDialog : public wxDialog {
 public:
-    static constexpr int kRefreshResultCode = wxID_HIGHEST + 170;
-
-    GdtfSearchDialog(wxWindow* parent, const std::string& listData,
-                     const wxString& statusMessage = wxString());
+    GdtfSearchDialog(wxWindow* parent, const std::string& listData);
     std::string GetSelectedId() const;
     std::string GetSelectedUrl() const;
     std::string GetSelectedName() const;
@@ -50,11 +47,9 @@ private:
     void UpdateResults();
     void OnSearch(wxCommandEvent& evt);
     void OnDownload(wxCommandEvent& evt);
-    void OnRefreshCatalog(wxCommandEvent& evt);
 
     wxTextCtrl* manufacturerCtrl = nullptr;
     wxTextCtrl* fixtureCtrl = nullptr;
-    wxStaticText* statusLabel = nullptr;
     wxDataViewListCtrl* resultTable = nullptr;
     std::vector<GdtfEntry> entries;
     std::vector<int> visible;
