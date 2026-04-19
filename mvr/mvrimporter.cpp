@@ -2512,39 +2512,54 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   // dictionary only if requested. This occurs before rendering so user choices
   // are applied to the final scene data.
   if (applyDictionary) {
-    std::vector<GdtfConflict> gdtfConflicts;
-    gdtfConflicts.reserve(pendingGdtfConflictByType.size());
-    for (const auto &[typeName, conflict] : pendingGdtfConflictByType)
-      gdtfConflicts.push_back(conflict);
-
-    if (gdtfConflicts.empty() && !scene.fixtures.empty()) {
-      // Fallback for legacy/edge cases where fixtures were not parsed through
-      // the regular path (e.g. future importer extensions).
-      std::unordered_set<std::string> conflictTypes;
-      const int totalFixturesForConflictScan =
-          static_cast<int>(scene.fixtures.size());
-      int scannedFixturesForConflictScan = 0;
-      for (const auto &[uid, f] : scene.fixtures) {
-        ++scannedFixturesForConflictScan;
-        if (totalFixturesForConflictScan > 0 &&
-            (scannedFixturesForConflictScan == 1 ||
-             scannedFixturesForConflictScan == totalFixturesForConflictScan ||
-             scannedFixturesForConflictScan % 50 == 0)) {
-          reportProgress("Preparing GDTF conflict analysis...",
-                         scannedFixturesForConflictScan,
-                         totalFixturesForConflictScan);
-        }
-        const auto &dictEntry = getDictionaryEntryCached(f.typeName);
-        if (dictEntry && conflictTypes.insert(f.typeName).second) {
-          const std::string resolvedGdtfPath = resolveFixtureGdtfPathForRead(f.gdtfSpec);
-          const int footprint =
-              (!resolvedGdtfPath.empty() && !f.gdtfMode.empty())
-                  ? getGdtfModeChannelCountCached(resolvedGdtfPath, f.gdtfMode)
-                  : 0;
-          gdtfConflicts.push_back({f.typeName, f.gdtfSpec, dictEntry->path, "",
-                                   f.typeName, f.gdtfMode, footprint});
-        }
+    std::unordered_map<std::string, GdtfConflict> gdtfConflictByType =
+        pendingGdtfConflictByType;
+    const int totalFixturesForConflictScan =
+        static_cast<int>(scene.fixtures.size());
+    int scannedFixturesForConflictScan = 0;
+    for (const auto &[uid, f] : scene.fixtures) {
+      (void)uid;
+      ++scannedFixturesForConflictScan;
+      if (totalFixturesForConflictScan > 0 &&
+          (scannedFixturesForConflictScan == 1 ||
+           scannedFixturesForConflictScan == totalFixturesForConflictScan ||
+           scannedFixturesForConflictScan % 50 == 0)) {
+        reportProgress("Preparing GDTF conflict analysis...",
+                       scannedFixturesForConflictScan,
+                       totalFixturesForConflictScan);
       }
+      if (f.typeName.empty())
+        continue;
+      GdtfConflict &conflict = gdtfConflictByType[f.typeName];
+      conflict.type = f.typeName;
+      if (conflict.mvrPath.empty())
+        conflict.mvrPath = f.gdtfSpec;
+      if (conflict.fixtureName.empty())
+        conflict.fixtureName = f.typeName;
+      if (conflict.modeName.empty())
+        conflict.modeName = f.gdtfMode;
+      if (conflict.footprint <= 0) {
+        const std::string resolvedGdtfPath = resolveFixtureGdtfPathForRead(f.gdtfSpec);
+        if (!resolvedGdtfPath.empty() && !f.gdtfMode.empty())
+          conflict.footprint =
+              getGdtfModeChannelCountCached(resolvedGdtfPath, f.gdtfMode);
+      }
+
+      const auto &dictEntry = getDictionaryEntryCached(f.typeName);
+      if (dictEntry) {
+        conflict.appPath = dictEntry->path;
+      } else if (conflict.appPath.empty()) {
+        conflict.appPath = conflict.mvrPath;
+      }
+    }
+
+    std::vector<GdtfConflict> gdtfConflicts;
+    gdtfConflicts.reserve(gdtfConflictByType.size());
+    for (const auto &[typeName, conflict] : gdtfConflictByType) {
+      (void)typeName;
+      if (conflict.type.empty())
+        continue;
+      gdtfConflicts.push_back(conflict);
     }
     if (!gdtfConflicts.empty()) {
       if (promptConflicts) {
@@ -2569,12 +2584,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           }
 
           if (!downloadRequests.empty()) {
-            wxString message =
-                "Automatic GDTF download is not available in this build target.\n\n";
-            message +=
-                "Selected fixtures will keep their original MVR GDTF assignment for now.";
-            wxMessageBox(message, "GDTF download unavailable",
-                         wxOK | wxICON_INFORMATION);
+            reportProgress("Automatic GDTF download is unavailable in this target.");
           }
 
           reportProgress("Applying GDTF conflict selection...");
