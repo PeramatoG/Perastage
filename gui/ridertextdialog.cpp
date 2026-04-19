@@ -58,6 +58,7 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
                wxDefaultPosition, wxSize(900, 700),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       sourceLabel(initialSource) {
+  SetTitle("Create from text");
   SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
 
   wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
