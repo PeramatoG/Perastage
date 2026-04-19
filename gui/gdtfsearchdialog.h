@@ -18,6 +18,7 @@
 #pragma once
 #include <wx/wx.h>
 #include <wx/dataview.h>
+#include <wx/timer.h>
 #include <functional>
 #include <thread>
 #include <vector>
@@ -26,14 +27,18 @@
 struct GdtfEntry {
     std::string manufacturer;
     std::string fixture;
+    std::string manufacturerNorm;
+    std::string fixtureNorm;
     std::string rid;
     std::string url;
     std::string modes;
     std::string creator;
     std::string uploader;
     std::string creationDate;
+    std::string creationDateDisplay;
     std::string revision;
     std::string lastModified;
+    std::string lastModifiedDisplay;
     std::string version;
     std::string rating;
 };
@@ -59,7 +64,13 @@ public:
 private:
     void ParseList(const std::string& listData);
     void UpdateResults();
+    void RenderCurrentPage(const std::string& previouslySelectedRid);
+    void UpdatePaginationControls();
     void OnSearch(wxCommandEvent& evt);
+    void OnSearchTextChanged(wxCommandEvent& evt);
+    void OnSearchDebounceTimer(wxTimerEvent& evt);
+    void OnPrevPage(wxCommandEvent& evt);
+    void OnNextPage(wxCommandEvent& evt);
     void OnDownload(wxCommandEvent& evt);
     void OnDialogShown(wxShowEvent& evt);
     void TriggerAutoRefreshOnce();
@@ -71,12 +82,19 @@ private:
     wxTextCtrl* fixtureCtrl = nullptr;
     wxDataViewListCtrl* resultTable = nullptr;
     wxStaticText* statusLabel = nullptr;
+    wxButton* prevPageButton = nullptr;
+    wxButton* nextPageButton = nullptr;
+    wxStaticText* pageInfoLabel = nullptr;
     std::vector<GdtfEntry> entries;
+    std::vector<int> filteredIndices;
     std::vector<int> visible;
+    size_t currentPage = 0;
+    size_t pageSize = 500;
     int selectedIndex = -1;
     std::string currentListData;
     std::string lastUpdatedAt;
     RefreshCatalogFn refreshCatalogFn;
     bool autoRefreshTriggered = false;
     std::thread autoRefreshThread;
+    wxTimer searchDebounceTimer;
 };
