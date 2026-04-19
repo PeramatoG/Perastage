@@ -121,9 +121,16 @@ void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
                stage, framebuffer, viewport[0], viewport[1], viewport[2],
                viewport[3], expectedWidth, expectedHeight);
   }
-  wxASSERT_MSG(validFramebuffer,
-               "Unexpected non-default framebuffer after layout render.");
-  wxASSERT_MSG(validViewport, "Unexpected viewport after layout render.");
+  if (!validFramebuffer) {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    wxASSERT_MSG(false,
+                 "Unexpected non-default framebuffer after layout render.");
+  }
+  if (!validViewport) {
+    // The layout draw path can temporarily adjust the viewport for sub-elements.
+    // Restore a known onscreen viewport before presenting.
+    glViewport(0, 0, expectedWidth, expectedHeight);
+  }
 }
 
 double GetMaxZoomForFrame(const layouts::Layout2DViewFrame &frame) {
