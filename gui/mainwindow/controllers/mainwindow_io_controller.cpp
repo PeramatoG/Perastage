@@ -12,16 +12,34 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "consolepanel.h"
+#include "configmanager.h"
+#include "fixturetablepanel.h"
+#include "guiconfigservices.h"
+#include "hoisttablepanel.h"
+#include "layerpanel.h"
+#include "LayoutManager.h"
+#include "layoutpanel.h"
 #include "mvrimporter.h"
 #include "projectutils.h"
+#include "sceneobjecttablepanel.h"
 #include "splashscreen.h"
+#include "trusstablepanel.h"
+#include "viewer2dpanel.h"
+#include "viewer2drenderpanel.h"
+#include "viewer3dpanel.h"
 
 bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
+  constexpr const char *kLayoutsConfigKey = "layouts_collection";
   wxWeakRef<MainWindow> ownerRef(&owner_);
   const wxString filePath = wxString::FromUTF8(pathUtf8);
+  ConfigManager &cfg =
+      owner_.guiConfigServices->LegacyConfigManager();
+  const std::optional<std::string> preservedLayoutsConfig =
+      cfg.GetValue(kLayoutsConfigKey);
   auto setImportStatus = [ownerRef](const wxString &message) {
     if (!ownerRef || !ownerRef->GetStatusBar())
       return;
@@ -92,6 +110,12 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     return false;
 
   if (!imported) {
+    if (preservedLayoutsConfig.has_value())
+      cfg.SetValue(kLayoutsConfigKey, *preservedLayoutsConfig);
+    else
+      cfg.RemoveKey(kLayoutsConfigKey);
+    layouts::LayoutManager::Get().LoadFromConfig(cfg);
+
     importProgress.reset();
     importOverlay.reset();
     importDisabler.reset();
@@ -111,6 +135,39 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   ownerRef->currentProjectDisplayName = wxFileName(filePath).GetName();
   ProjectUtils::SaveLastProjectPath("");
   ownerRef->UpdateTitle();
+
+  if (preservedLayoutsConfig.has_value())
+    cfg.SetValue(kLayoutsConfigKey, *preservedLayoutsConfig);
+  else
+    cfg.RemoveKey(kLayoutsConfigKey);
+  layouts::LayoutManager::Get().LoadFromConfig(cfg);
+
+  if (ownerRef->layoutPanel)
+    ownerRef->layoutPanel->ReloadLayouts();
+  if (ownerRef->fixturePanel)
+    ownerRef->fixturePanel->ReloadData();
+  if (ownerRef->trussPanel)
+    ownerRef->trussPanel->ReloadData();
+  if (ownerRef->hoistPanel)
+    ownerRef->hoistPanel->ReloadData();
+  if (ownerRef->sceneObjPanel)
+    ownerRef->sceneObjPanel->ReloadData();
+  if (ownerRef->viewportPanel) {
+    ownerRef->viewportPanel->UpdateScene();
+    ownerRef->viewportPanel->Refresh();
+  }
+  if (ownerRef->viewport2DPanel) {
+    if (!ownerRef->HasActiveLayout2DView())
+      ownerRef->viewport2DPanel->LoadViewFromConfig();
+    ownerRef->viewport2DPanel->UpdateScene();
+    ownerRef->viewport2DPanel->Refresh();
+  }
+  if (ownerRef->viewport2DRenderPanel)
+    ownerRef->viewport2DRenderPanel->ApplyConfig();
+  if (ownerRef->layerPanel)
+    ownerRef->layerPanel->ReloadLayers();
+  ownerRef->RefreshSummary();
+  ownerRef->RefreshRigging();
 
   // Keep import behavior aligned with the existing Tools > Auto color flow:
   // once the MVR scene is loaded, trigger auto-color so fixture types without
