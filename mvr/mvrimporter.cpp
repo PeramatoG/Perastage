@@ -23,7 +23,9 @@
 #include "gdtf_fixture_category.h"
 #include "matrixutils.h"
 #include "primitive_model_resources.h"
+#include "projectutils.h"
 #include "sceneobject.h"
+#include "simplecrypt.h"
 #include "support.h"
 #include "groupobject.h"
 #include "uuidutils.h"
@@ -38,6 +40,7 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream> // Required for std::ofstream
@@ -64,6 +67,7 @@
 #include <wx/wx.h>
 class wxZipStreamLink;
 #include <wx/filename.h>
+#include <wx/stdpaths.h>
 #include <wx/zipstrm.h>
 
 namespace fs = std::filesystem;
@@ -2598,7 +2602,198 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           }
 
           if (!downloadRequests.empty()) {
-            reportProgress("Automatic GDTF download is unavailable in this target.");
+            auto parseAddressToAbsoluteChannel = [](const std::string &address) {
+              const std::string trimmed = Trim(address);
+              const size_t dotPos = trimmed.find('.');
+              if (dotPos == std::string::npos)
+                return -1;
+              const int universe = std::atoi(trimmed.substr(0, dotPos).c_str());
+              const int channel = std::atoi(trimmed.substr(dotPos + 1).c_str());
+              if (universe <= 0 || channel <= 0)
+                return -1;
+              return (universe - 1) * 512 + channel;
+            };
+            auto quoteShell = [](const std::string &value) {
+              std::string escaped = "\"";
+              for (char c : value) {
+                if (c == '"' || c == '\\')
+                  escaped.push_back('\\');
+                escaped.push_back(c);
+              }
+              escaped.push_back('"');
+              return escaped;
+            };
+            auto runCommandCapture = [](const std::string &command,
+                                        std::string &output) {
+#ifdef _WIN32
+              FILE *pipe = _popen(command.c_str(), "r");
+#else
+              FILE *pipe = popen(command.c_str(), "r");
+#endif
+              if (!pipe)
+                return false;
+              char buffer[512];
+              output.clear();
+              while (fgets(buffer, sizeof(buffer), pipe))
+                output += buffer;
+#ifdef _WIN32
+              const int code = _pclose(pipe);
+#else
+              const int code = pclose(pipe);
+#endif
+              return code == 0;
+            };
+            auto inferFootprintFromAddresses = [&](const std::string &typeName) {
+              std::vector<int> channels;
+              for (const auto &[fixtureUuid, fixture] : scene.fixtures) {
+                (void)fixtureUuid;
+                if (fixture.typeName != typeName)
+                  continue;
+                const int absolute = parseAddressToAbsoluteChannel(fixture.address);
+                if (absolute > 0)
+                  channels.push_back(absolute);
+              }
+              if (channels.size() < 2)
+                return 0;
+              std::sort(channels.begin(), channels.end());
+              int best = 0;
+              for (size_t i = 1; i < channels.size(); ++i) {
+                const int diff = channels[i] - channels[i - 1];
+                if (diff > 0 && (best == 0 || diff < best))
+                  best = diff;
+              }
+              return best;
+            };
+
+            std::string username =
+                ConfigManager::Get().GetValue("gdtf_username").value_or("");
+            std::string encodedPassword =
+                ConfigManager::Get().GetValue("gdtf_password").value_or("");
+            std::string password = SimpleCrypt::Decode(encodedPassword);
+            if (username.empty() || password.empty()) {
+              wxTextEntryDialog userDlg(nullptr, "GDTF Share username:",
+                                        "GDTF Share login");
+              if (userDlg.ShowModal() == wxID_OK)
+                username = Trim(userDlg.GetValue().ToStdString());
+              wxTextEntryDialog passDlg(nullptr, "GDTF Share password:",
+                                        "GDTF Share login", "",
+                                        wxTextEntryDialogStyle | wxTE_PASSWORD);
+              if (passDlg.ShowModal() == wxID_OK)
+                password = passDlg.GetValue().ToStdString();
+            }
+
+            if (!username.empty() && !password.empty()) {
+              wxDialog downloadInfoDialog(nullptr, wxID_ANY, "GDTF download queue",
+                                          wxDefaultPosition, wxSize(720, 420));
+              wxBoxSizer *infoSizer = new wxBoxSizer(wxVERTICAL);
+              wxTextCtrl *downloadInfoLog = new wxTextCtrl(
+                  &downloadInfoDialog, wxID_ANY, "", wxDefaultPosition,
+                  wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
+              infoSizer->Add(downloadInfoLog, 1, wxEXPAND | wxALL, 8);
+              downloadInfoDialog.SetSizer(infoSizer);
+              downloadInfoDialog.Show();
+              wxYieldIfNeeded();
+
+              wxString cookieFileWx = wxFileName::CreateTempFileName("gdtf_mvr_import_");
+              const std::string cookieFile = cookieFileWx.ToStdString();
+              std::string loginOutput;
+              const std::string loginJson =
+                  "{\"user\":\"" + username + "\",\"password\":\"" + password + "\"}";
+              const std::string loginCmd =
+                  "curl -s -L -c " + quoteShell(cookieFile) +
+                  " -H \"Content-Type: application/json\" --data " +
+                  quoteShell(loginJson) +
+                  " -o " +
+#ifdef _WIN32
+                  "NUL"
+#else
+                  "/dev/null"
+#endif
+                  " -w \"%{http_code}\" https://gdtf-share.com/apis/public/login.php";
+              if (runCommandCapture(loginCmd, loginOutput) &&
+                  loginOutput.find("200") != std::string::npos) {
+                std::string listOutput;
+                const std::string listCmd =
+                    "curl -s -L -b " + quoteShell(cookieFile) +
+                    " -w \"\\n%{http_code}\" https://gdtf-share.com/apis/public/getList.php";
+                if (runCommandCapture(listCmd, listOutput)) {
+                  const size_t codePos = listOutput.rfind('\n');
+                  const std::string payload =
+                      codePos == std::string::npos ? listOutput
+                                                   : listOutput.substr(0, codePos);
+                  const std::vector<GdtfCatalogEntry> catalogEntries =
+                      ParseGdtfCatalogEntries(payload);
+                  for (GdtfConflict req : downloadRequests) {
+                    if (req.footprint <= 0)
+                      req.footprint = inferFootprintFromAddresses(req.type);
+                    GdtfDownloadMatch bestMatch;
+                    double bestScore = -1.0;
+                    for (const auto &entry : catalogEntries) {
+                      if (NormalizeForGdtfMatch(entry.fixtureName) !=
+                          NormalizeForGdtfMatch(req.fixtureName.empty() ? req.type
+                                                                         : req.fixtureName)) {
+                        continue;
+                      }
+                      int baseScore = 50;
+                      std::string matchedMode;
+                      if (req.footprint > 0) {
+                        baseScore = 0;
+                        for (const auto &mode : entry.modes) {
+                          if (mode.footprint == req.footprint) {
+                            baseScore = 100;
+                            matchedMode = mode.name;
+                            break;
+                          }
+                        }
+                      }
+                      const double total = static_cast<double>(baseScore) +
+                                           static_cast<double>(entry.rating) * 2.0 +
+                                           static_cast<double>(entry.lastModifiedUnix) /
+                                               (86400.0 * 30.0);
+                      if (total > bestScore) {
+                        bestScore = total;
+                        bestMatch = {true, entry.rid, matchedMode};
+                      }
+                    }
+                    if (!bestMatch.found || bestMatch.rid.empty()) {
+                      downloadInfoLog->AppendText(
+                          "• " + wxString::FromUTF8(req.type) +
+                          " -> no catalog match found. Keeping MVR original.\n");
+                      continue;
+                    }
+                    const std::string baseFixturesPath =
+#ifdef NDEBUG
+                        ProjectUtils::GetWritableLibraryPath("fixtures");
+#else
+                        (fs::u8path(
+                             wxStandardPaths::Get().GetExecutablePath().ToStdString())
+                             .parent_path() /
+                         "library" / "fixtures")
+                            .string();
+#endif
+                    fs::create_directories(baseFixturesPath);
+                    const std::string filePath =
+                        (fs::path(baseFixturesPath) / (req.type + ".gdtf")).string();
+                    std::string downloadOutput;
+                    const std::string downloadCmd =
+                        "curl -s -L -b " + quoteShell(cookieFile) + " -o " +
+                        quoteShell(filePath) + " -w \"%{http_code}\" " +
+                        quoteShell("https://gdtf-share.com/apis/public/downloadFile.php?rid=" +
+                                   bestMatch.rid);
+                    if (runCommandCapture(downloadCmd, downloadOutput) &&
+                        downloadOutput.find("200") != std::string::npos) {
+                      selectedPathByType[req.type] = filePath;
+                      if (!bestMatch.modeName.empty())
+                        selectedModeByType[req.type] = bestMatch.modeName;
+                      downloadInfoLog->AppendText("• " + wxString::FromUTF8(req.type) +
+                                                  " -> downloaded and assigned.\n");
+                    }
+                  }
+                }
+              }
+              wxRemoveFile(cookieFileWx);
+              downloadInfoDialog.Destroy();
+            }
           }
 
           reportProgress("Applying GDTF conflict selection...");
