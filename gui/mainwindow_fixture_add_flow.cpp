@@ -32,6 +32,7 @@
 #include "fixturetablepanel.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
+#include "guiconfigservices.h"
 #include "viewer3dpanel.h"
 
 namespace {
