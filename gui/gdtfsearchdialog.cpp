@@ -354,14 +354,14 @@ void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
     }
 
     UpdateStatusMessage(false,
-                        "Mostrando catálogo local (última actualización: " +
+                        "Showing local catalog (last updated: " +
                             wxString::FromUTF8(lastUpdatedAt) + ")");
 }
 
 void GdtfSearchDialog::UpdateStatusMessage(bool refreshing, const wxString& details)
 {
     if (refreshing) {
-        statusLabel->SetLabel("Actualizando catálogo online...");
+        statusLabel->SetLabel("Updating online catalog...");
         return;
     }
 
@@ -371,8 +371,8 @@ void GdtfSearchDialog::UpdateStatusMessage(bool refreshing, const wxString& deta
     }
 
     if (lastUpdatedAt.empty())
-        statusLabel->SetLabel("Mostrando catálogo local.");
+        statusLabel->SetLabel("Showing local catalog.");
     else
-        statusLabel->SetLabel("Mostrando catálogo local (última actualización: " +
+        statusLabel->SetLabel("Showing local catalog (last updated: " +
                               wxString::FromUTF8(lastUpdatedAt) + ")");
 }

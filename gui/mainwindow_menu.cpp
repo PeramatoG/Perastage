@@ -462,47 +462,49 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
   const std::string listData = configManager.GetValue("gdtf_fixture_list").value_or("{}");
   const std::string cachedUpdatedAt =
-      configManager.GetValue("gdtf_fixture_list_last_update").value_or("desconocida");
+      configManager.GetValue("gdtf_fixture_list_last_update").value_or("unknown");
+
+  std::string effectiveListData = listData;
+  std::string effectiveUpdatedAt = cachedUpdatedAt;
+
+  {
+    std::unique_ptr<wxWindowDisabler> refreshDisabler =
+        std::make_unique<wxWindowDisabler>();
+    std::unique_ptr<wxBusyInfo> refreshOverlay =
+        std::make_unique<wxBusyInfo>("Updating GDTF catalog...");
+    wxYieldIfNeeded();
+
+    if (activeCredentials && !activeCredentials->username.empty() &&
+        !activeCredentials->password.empty()) {
+      long loginHttpCode = 0;
+      const bool loginOk = GdtfLogin(activeCredentials->username,
+                                     activeCredentials->password, cookieFile,
+                                     loginHttpCode);
+      if (loginOk && loginHttpCode == 200) {
+        std::string onlineListData;
+        long listHttpCode = 0;
+        if (GdtfGetList(cookieFile, onlineListData, &listHttpCode) &&
+            listHttpCode == 200 && !onlineListData.empty()) {
+          effectiveListData = std::move(onlineListData);
+          effectiveUpdatedAt = WxToUtf8(wxDateTime::Now().FormatISOCombined(' '));
+          if (effectiveListData != listData) {
+            configManager.SetValue("gdtf_fixture_list", effectiveListData);
+            configManager.SetValue("gdtf_fixture_list_last_update",
+                                   effectiveUpdatedAt);
+          }
+        }
+      }
+    }
+  }
 
   std::unique_ptr<wxBusyInfo> preparingCatalogOverlay =
       std::make_unique<wxBusyInfo>("Loading GDTF catalog...");
   wxYieldIfNeeded();
-  GdtfSearchDialog searchDlg(
-      this, listData, cachedUpdatedAt, [activeCredentials, cookieFile]() {
-        GdtfSearchDialog::RefreshResult result;
-        if (!activeCredentials || activeCredentials->username.empty() ||
-            activeCredentials->password.empty()) {
-          return result;
-        }
-
-        long loginHttpCode = 0;
-        if (!GdtfLogin(activeCredentials->username, activeCredentials->password,
-                       cookieFile, loginHttpCode) ||
-            loginHttpCode != 200) {
-          return result;
-        }
-
-        long listHttpCode = 0;
-        if (!GdtfGetList(cookieFile, result.listData, &listHttpCode) ||
-            listHttpCode != 200 || result.listData.empty()) {
-          result.listData.clear();
-          return result;
-        }
-
-        result.success = true;
-        result.updatedAt = WxToUtf8(wxDateTime::Now().FormatISOCombined(' '));
-        return result;
-      });
+  GdtfSearchDialog searchDlg(this, effectiveListData, effectiveUpdatedAt,
+                             GdtfSearchDialog::RefreshCatalogFn());
   preparingCatalogOverlay.reset();
 
   const int searchDialogResult = searchDlg.ShowModal();
-  const std::string updatedListData = searchDlg.GetCurrentListData();
-  if (!updatedListData.empty() && updatedListData != listData) {
-    configManager.SetValue("gdtf_fixture_list", updatedListData);
-    configManager.SetValue(
-        "gdtf_fixture_list_last_update",
-        WxToUtf8(wxDateTime::Now().FormatISOCombined(' ')));
-  }
 
   if (searchDialogResult == wxID_OK) {
 
