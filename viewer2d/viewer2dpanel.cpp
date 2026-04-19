@@ -59,6 +59,7 @@
 #include "viewer2dviewfit.h"
 #include "gl_state_guard.h"
 #include "units/units.h"
+#include "ui_render_size.h"
 #include <wx/app.h>
 #include <wx/debug.h>
 #include <wx/log.h>
@@ -652,16 +653,19 @@ void Viewer2DPanel::InitGL() {
 void Viewer2DPanel::Render() { RenderInternal(true); }
 
 void Viewer2DPanel::RenderInternal(bool swapBuffers) {
+  static unsigned long long s_renderFrameId = 0;
   if (!m_glInitialized) {
     return;
   }
   const bool pauseHeavyTasks = m_enableSelection && ShouldPauseHeavyTasks();
-  int w, h;
-  GetClientSize(&w, &h);
-  if (w <= 0 || h <= 0)
+  const RenderSize resolvedSize = ResolveRenderSize(this);
+  const int w = resolvedSize.width;
+  const int h = resolvedSize.height;
+  if (!resolvedSize.IsValid())
     return;
 
   glstate::ApplyKnownBaseOnscreenState(w, h);
+  const RenderSize viewportSize{w, h, "glstate::ApplyKnownBaseOnscreenState"};
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
@@ -672,6 +676,11 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   float offY = m_offsetY / PIXELS_PER_METER;
   glOrtho(-halfW - offX, halfW - offX, -halfH - offY, halfH - offY, -100.0f,
           100.0f);
+  const RenderSize projectionSize{w, h, "RenderInternal::world-projection"};
+
+  ++s_renderFrameId;
+  ValidateRenderSizeContract("Viewer2DPanel", s_renderFrameId, resolvedSize,
+                             viewportSize, projectionSize);
 
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
