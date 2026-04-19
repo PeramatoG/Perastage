@@ -511,14 +511,17 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     std::unique_ptr<wxWindowDisabler> gdtfDownloadDisabler =
         std::make_unique<wxWindowDisabler>();
     std::unique_ptr<wxBusyInfo> gdtfDownloadBusyOverlay;
+    auto clearGdtfDownloadBlockingUi = [&]() {
+      gdtfDownloadBusyOverlay.reset();
+      gdtfDownloadDisabler.reset();
+    };
     auto updateGdtfDownloadBusyOverlay = [&](const wxString &message) {
       gdtfDownloadBusyOverlay = std::make_unique<wxBusyInfo>(message);
       wxYieldIfNeeded();
     };
     auto showGdtfDownloadError = [&](const wxString &message,
                                      const wxString &caption) {
-      gdtfDownloadBusyOverlay.reset();
-      gdtfDownloadDisabler.reset();
+      clearGdtfDownloadBlockingUi();
       wxMessageBox(message, caption, wxOK | wxICON_ERROR, this);
     };
     auto requestCredentialsFromDialog = [&]() -> bool {
@@ -527,8 +530,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
       const std::string initialPassword =
           activeCredentials ? activeCredentials->password : std::string();
 
-      gdtfDownloadBusyOverlay.reset();
-      gdtfDownloadDisabler.reset();
+      clearGdtfDownloadBlockingUi();
       GdtfLoginDialog loginDlg(this, initialUser, initialPassword);
       if (loginDlg.ShowModal() != wxID_OK)
         return false;
@@ -586,13 +588,17 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
     wxFileDialog saveDlg(this, "Save GDTF file", fixDir, name + ".gdtf",
                          "*.gdtf", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    clearGdtfDownloadBlockingUi();
     if (saveDlg.ShowModal() == wxID_OK) {
       wxString dest = saveDlg.GetPath();
       if (!rid.empty()) {
+        gdtfDownloadDisabler = std::make_unique<wxWindowDisabler>();
+        updateGdtfDownloadBusyOverlay("Downloading GDTF from GDTF Share...");
         if (consolePanel)
           consolePanel->AppendMessage("[INFO] Downloading via libcurl rid=" + rid);
         long dlCode = 0;
         bool ok = GdtfDownload(WxToUtf8(rid), WxToUtf8(dest), cookieFile, dlCode);
+        clearGdtfDownloadBlockingUi();
         if (consolePanel)
           consolePanel->AppendMessage(
               wxString::Format("[INFO] Download HTTP code: %ld", dlCode));
