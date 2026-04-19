@@ -133,6 +133,20 @@ CanvasStroke MakeGridStroke(float r, float g, float b) {
   return stroke;
 }
 
+wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint) {
+  if (window == nullptr)
+    return logicalPoint;
+  const double contentScale =
+      static_cast<double>(window->GetContentScaleFactor());
+  if (!std::isfinite(contentScale) || contentScale <= 0.0)
+    return logicalPoint;
+  return wxPoint(
+      static_cast<int>(
+          std::lround(static_cast<double>(logicalPoint.x) * contentScale)),
+      static_cast<int>(
+          std::lround(static_cast<double>(logicalPoint.y) * contentScale)));
+}
+
 // Emit grid primitives to a canvas so the command buffer records the same
 // visual information shown by the OpenGL renderer. Coordinates are expressed in
 // the 2D world space after the camera orientation has been applied.
@@ -984,8 +998,12 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   // Ensure the OpenGL context is current before hit-testing selections.
   SetCurrent(*m_glContext);
 
-  int w, h;
-  GetClientSize(&w, &h);
+  const RenderSize renderSize = ResolveRenderSize(this);
+  const int w = renderSize.width;
+  const int h = renderSize.height;
+  if (!renderSize.IsValid())
+    return;
+  const wxPoint pickPos = ToFramebufferPoint(this, m_lastMousePos);
 
   wxString newLabel;
   wxPoint newPos;
@@ -996,8 +1014,8 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
 
   if (!skipLabelWork && FixtureTablePanel::Instance() &&
       FixtureTablePanel::Instance()->IsActivePage()) {
-    found = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
-                                           w, h, newLabel, newPos, &newUuid);
+    found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, newLabel,
+                                           newPos, &newUuid);
     if (found) {
       if (TrussTablePanel::Instance())
         TrussTablePanel::Instance()->HighlightTruss(std::string());
@@ -1006,8 +1024,8 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
     }
   } else if (!skipLabelWork && TrussTablePanel::Instance() &&
              TrussTablePanel::Instance()->IsActivePage()) {
-    found = m_controller.GetTrussLabelAt(m_lastMousePos.x, m_lastMousePos.y, w,
-                                         h, newLabel, newPos, &newUuid);
+    found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h, newLabel,
+                                         newPos, &newUuid);
     if (found) {
       if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -1018,8 +1036,8 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
              HoistTablePanel::Instance()->IsActivePage()) {
     const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
     found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
-        m_lastMousePos.x, m_lastMousePos.y, h, ConfigManager::Get().GetScene(),
-        hiddenLayers, newUuid, newPos, newLabel);
+        pickPos.x, pickPos.y, h, ConfigManager::Get().GetScene(), hiddenLayers,
+        newUuid, newPos, newLabel);
     if (found) {
       if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -1030,8 +1048,8 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
     }
   } else if (!skipLabelWork && SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage()) {
-    found = m_controller.GetSceneObjectLabelAt(m_lastMousePos.x,
-                                               m_lastMousePos.y, w, h, newLabel,
+    found = m_controller.GetSceneObjectLabelAt(pickPos.x,
+                                               pickPos.y, w, h, newLabel,
                                                newPos, &newUuid);
     if (found) {
       if (FixtureTablePanel::Instance())
@@ -1176,25 +1194,29 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
   if (!IsShownOnScreen())
     return;
 
-  int w = 0;
-  int h = 0;
-  GetClientSize(&w, &h);
+  const RenderSize renderSize = ResolveRenderSize(this);
+  const int w = renderSize.width;
+  const int h = renderSize.height;
   if (w <= 0 || h <= 0)
     return;
 
   SetCurrent(*m_glContext);
+  const wxPoint pickStart = ToFramebufferPoint(this, start);
+  const wxPoint pickEnd = ToFramebufferPoint(this, end);
 
   ConfigManager &cfg = ConfigManager::Get();
   if (selectAcrossAllTables) {
     const auto fixtures =
-        m_controller.GetFixturesInScreenRect(start.x, start.y, end.x, end.y, w, h);
+        m_controller.GetFixturesInScreenRect(pickStart.x, pickStart.y, pickEnd.x,
+                                             pickEnd.y, w, h);
     const auto trusses =
-        m_controller.GetTrussesInScreenRect(start.x, start.y, end.x, end.y, w, h);
+        m_controller.GetTrussesInScreenRect(pickStart.x, pickStart.y, pickEnd.x,
+                                            pickEnd.y, w, h);
     const auto supports = Viewer2DSupportSelection::GetHoistsInScreenRect(
-        start.x, start.y, end.x, end.y, w, h, cfg.GetScene(),
+        pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h, cfg.GetScene(),
         cfg.GetHiddenLayers());
     const auto sceneObjects = m_controller.GetSceneObjectsInScreenRect(
-        start.x, start.y, end.x, end.y, w, h);
+        pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
 
     const bool selectionChanged =
         fixtures != cfg.GetSelectedFixtures() ||
@@ -1249,7 +1271,7 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
   if (FixtureTablePanel::Instance() &&
       FixtureTablePanel::Instance()->IsActivePage()) {
     auto selection = m_controller.GetFixturesInScreenRect(
-        start.x, start.y, end.x, end.y, w, h);
+        pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
     if (selection != cfg.GetSelectedFixtures()) {
       cfg.PushUndoState("fixture selection");
       cfg.SetSelectedFixtures(selection);
@@ -1264,7 +1286,8 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
   } else if (TrussTablePanel::Instance() &&
              TrussTablePanel::Instance()->IsActivePage()) {
     auto selection =
-        m_controller.GetTrussesInScreenRect(start.x, start.y, end.x, end.y, w,
+        m_controller.GetTrussesInScreenRect(pickStart.x, pickStart.y, pickEnd.x,
+                                            pickEnd.y, w,
                                             h);
     if (selection != cfg.GetSelectedTrusses()) {
       cfg.PushUndoState("truss selection");
@@ -1278,7 +1301,7 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
   } else if (HoistTablePanel::Instance() &&
              HoistTablePanel::Instance()->IsActivePage()) {
     auto selection = Viewer2DSupportSelection::GetHoistsInScreenRect(
-        start.x, start.y, end.x, end.y, w, h, cfg.GetScene(),
+        pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h, cfg.GetScene(),
         cfg.GetHiddenLayers());
     if (selection != cfg.GetSelectedSupports()) {
       cfg.PushUndoState("support selection");
@@ -1292,7 +1315,7 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
   } else if (SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage()) {
     auto selection = m_controller.GetSceneObjectsInScreenRect(
-        start.x, start.y, end.x, end.y, w, h);
+        pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
     if (selection != cfg.GetSelectedSceneObjects()) {
       cfg.PushUndoState("scene object selection");
       cfg.SetSelectedSceneObjects(selection);
@@ -1314,11 +1337,14 @@ void Viewer2DPanel::DrawSelectionRectangle(int width, int height,
   int right = std::max(m_rectSelectStart.x, m_rectSelectEnd.x);
   int top = std::min(m_rectSelectStart.y, m_rectSelectEnd.y);
   int bottom = std::max(m_rectSelectStart.y, m_rectSelectEnd.y);
+  const wxPoint physicalTopLeft = ToFramebufferPoint(this, wxPoint(left, top));
+  const wxPoint physicalBottomRight =
+      ToFramebufferPoint(this, wxPoint(right, bottom));
 
-  float glLeft = static_cast<float>(left);
-  float glRight = static_cast<float>(right);
-  float glBottom = static_cast<float>(height - bottom);
-  float glTop = static_cast<float>(height - top);
+  float glLeft = static_cast<float>(physicalTopLeft.x);
+  float glRight = static_cast<float>(physicalBottomRight.x);
+  float glBottom = static_cast<float>(height - physicalBottomRight.y);
+  float glTop = static_cast<float>(height - physicalTopLeft.y);
 
   GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
   if (depthEnabled)
@@ -1591,8 +1617,9 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
       return;
     }
 
-    int w, h;
-    GetClientSize(&w, &h);
+    const RenderSize renderSize = ResolveRenderSize(this);
+    const int w = renderSize.width;
+    const int h = renderSize.height;
     if (w <= 0 || h <= 0)
       return;
 
@@ -1600,27 +1627,28 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     wxString label;
     wxPoint pos;
     std::string uuid;
+    const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
     bool found = false;
     DragTarget target = DragTarget::None;
     if (FixtureTablePanel::Instance() &&
         FixtureTablePanel::Instance()->IsActivePage()) {
-      found = m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h,
+      found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h,
                                              label, pos, &uuid);
       target = DragTarget::Fixtures;
     } else if (TrussTablePanel::Instance() &&
                TrussTablePanel::Instance()->IsActivePage()) {
-      found = m_controller.GetTrussLabelAt(event.GetX(), event.GetY(), w, h,
+      found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h,
                                            label, pos, &uuid);
       target = DragTarget::Trusses;
     } else if (HoistTablePanel::Instance() &&
                HoistTablePanel::Instance()->IsActivePage()) {
       found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
-          event.GetX(), event.GetY(), h, ConfigManager::Get().GetScene(),
+          pickPos.x, pickPos.y, h, ConfigManager::Get().GetScene(),
           ConfigManager::Get().GetHiddenLayers(), uuid, pos, label);
       target = DragTarget::Supports;
     } else if (SceneObjectTablePanel::Instance() &&
                SceneObjectTablePanel::Instance()->IsActivePage()) {
-      found = m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w,
+      found = m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w,
                                                  h, label, pos, &uuid);
       target = DragTarget::SceneObjects;
     }
@@ -1687,8 +1715,9 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
 }
 
 void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
-  int w, h;
-  GetClientSize(&w, &h);
+  const RenderSize renderSize = ResolveRenderSize(this);
+  const int w = renderSize.width;
+  const int h = renderSize.height;
   if (w <= 0 || h <= 0 || !IsShownOnScreen())
     return;
 
@@ -1696,13 +1725,14 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
   wxString label;
   wxPoint pos;
   std::string uuid;
+  const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
   ConfigManager &cfg = ConfigManager::Get();
 
   const bool sceneObjectsActive =
       SceneObjectTablePanel::Instance() &&
       SceneObjectTablePanel::Instance()->IsActivePage();
   if (sceneObjectsActive &&
-      m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w, h,
+      m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h,
                                          label, pos, &uuid)) {
     const bool edited = scene_object_primitives::EditPrimitiveObjectByUuid(
         this, cfg, uuid);
@@ -1723,7 +1753,7 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
     return;
   }
 
-  if (!m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label,
+  if (!m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, label,
                                       pos, &uuid))
     return;
 
@@ -1796,32 +1826,36 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
   }
 
   if (event.LeftUp() && !m_draggedSincePress) {
-    int w, h;
-    GetClientSize(&w, &h);
+    const RenderSize renderSize = ResolveRenderSize(this);
+    const int w = renderSize.width;
+    const int h = renderSize.height;
     if (!IsShownOnScreen()) {
       return;
     }
+    if (!renderSize.IsValid())
+      return;
     SetCurrent(*m_glContext);
     wxString label;
     wxPoint pos;
     std::string uuid;
+    const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
     bool found = false;
     if (FixtureTablePanel::Instance() &&
         FixtureTablePanel::Instance()->IsActivePage())
-      found = m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h,
+      found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h,
                                              label, pos, &uuid);
     else if (TrussTablePanel::Instance() &&
              TrussTablePanel::Instance()->IsActivePage())
-      found = m_controller.GetTrussLabelAt(event.GetX(), event.GetY(), w, h,
+      found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h,
                                            label, pos, &uuid);
     else if (HoistTablePanel::Instance() &&
              HoistTablePanel::Instance()->IsActivePage())
       found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
-          event.GetX(), event.GetY(), h, ConfigManager::Get().GetScene(),
+          pickPos.x, pickPos.y, h, ConfigManager::Get().GetScene(),
           ConfigManager::Get().GetHiddenLayers(), uuid, pos, label);
     else if (SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage())
-      found = m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w,
+      found = m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w,
                                                  h, label, pos, &uuid);
 
     ConfigManager &cfg = ConfigManager::Get();
@@ -1949,8 +1983,9 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
     return;
   }
 
-  int w, h;
-  GetClientSize(&w, &h);
+  const RenderSize renderSize = ResolveRenderSize(this);
+  const int w = renderSize.width;
+  const int h = renderSize.height;
   if (w <= 0 || h <= 0 || !IsShownOnScreen()) {
     event.Skip();
     return;
@@ -1960,7 +1995,8 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
   wxString label;
   wxPoint pos;
   std::string hitUuid;
-  if (m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label,
+  const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
+  if (m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, label,
                                      pos, &hitUuid)) {
     event.Skip();
     return;
