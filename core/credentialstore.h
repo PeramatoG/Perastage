@@ -27,4 +27,5 @@ namespace CredentialStore {
 
     bool Save(const Credentials& cred);
     std::optional<Credentials> Load();
+    bool Clear();
 }

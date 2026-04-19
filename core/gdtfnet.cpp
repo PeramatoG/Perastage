@@ -66,7 +66,8 @@ bool GdtfLogin(const std::string& user,
 }
 
 bool GdtfGetList(const std::string& cookieFile,
-                 std::string& listData)
+                 std::string& listData,
+                 long* httpCode)
 {
     CURL* curl = curl_easy_init();
     if (!curl)
@@ -84,6 +85,9 @@ bool GdtfGetList(const std::string& cookieFile,
         curl_easy_cleanup(curl);
         return false;
     }
+
+    if (httpCode)
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, httpCode);
 
     curl_easy_cleanup(curl);
     return true;

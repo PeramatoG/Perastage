@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "preferencesdialog.h"
+#include "preferences/gdtf_credentials_panel.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "units/units.h"
@@ -148,6 +149,11 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   unitsPanel->SetSizer(unitsSizer);
   book->AddPage(unitsPanel, "Units");
 
+  // GDTF page
+  gdtfCredentialsPanel = new GdtfCredentialsPanel(book);
+  gdtfCredentialsPanel->LoadCredentials();
+  book->AddPage(gdtfCredentialsPanel, "GDTF");
+
   // 3D Viewer page
   wxPanel *viewer3dPanel = new wxPanel(book);
   wxBoxSizer *viewer3dSizer = new wxBoxSizer(wxVERTICAL);
@@ -261,6 +267,10 @@ bool PreferencesDialog::ApplyPreferences() {
   else if (viewer3dByUniverseRenderRadio && viewer3dByUniverseRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::ByUniverse;
   cfg.SetValue("viewer3d_render_style", ToConfigValue(renderStyle));
+
+  if (gdtfCredentialsPanel)
+    gdtfCredentialsPanel->ApplyCredentials();
+
   return cfg.SaveUserConfig();
 }
 

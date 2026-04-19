@@ -26,7 +26,8 @@ bool GdtfLogin(const std::string& user,
                long& httpCode);
 
 bool GdtfGetList(const std::string& cookieFile,
-                 std::string& listData);
+                 std::string& listData,
+                 long* httpCode = nullptr);
 
 bool GdtfDownload(const std::string& rid,
                   const std::string& destFile,

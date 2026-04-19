@@ -80,4 +80,17 @@ std::optional<Credentials> Load()
     return c;
 }
 
+
+bool Clear()
+{
+    const std::string credFile = GetCredFile();
+    if (credFile.empty())
+        return false;
+    std::error_code ec;
+    if (!fs::exists(credFile, ec))
+        return true;
+    fs::remove(credFile, ec);
+    return !ec;
+}
+
 } // namespace CredentialStore
