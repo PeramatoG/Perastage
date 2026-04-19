@@ -485,14 +485,18 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
 
   wxBoxSizer *formSizer = new wxBoxSizer(wxHORIZONTAL);
   wxBoxSizer *leftColumnSizer = new wxBoxSizer(wxVERTICAL);
+  leftColumnSizer->SetMinSize(wxSize(320, -1));
   leftColumnSizer->Add(metadataSizer, 0, wxEXPAND | wxBOTTOM, 8);
   leftColumnSizer->Add(fixtureSpecificSizer, 1, wxEXPAND);
+  gdtfGeneralSizer->SetMinSize(wxSize(320, -1));
   formSizer->Add(leftColumnSizer, 1, wxRIGHT | wxEXPAND, 8);
   formSizer->Add(gdtfGeneralSizer, 1, wxLEFT | wxEXPAND, 8);
+  formSizer->SetMinSize(wxSize(680, -1));
   hSizer->Add(formSizer, 3, wxALL | wxEXPAND, 10);
 
   wxBoxSizer *rightSizer = new wxBoxSizer(wxVERTICAL);
   preview = new FixturePreviewPanel(this);
+  preview->SetMinSize(wxSize(240, 220));
   rightSizer->Add(preview, 1, wxEXPAND | wxBOTTOM, 5);
 
   wxStaticBoxSizer *symbolSizer =
@@ -518,8 +522,9 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       new wxStaticBitmap(this, wxID_ANY, wxBitmap(220, 220));
   imageSizer->Add(fixtureImagePreview, 0, wxALIGN_CENTER | wxALL, 4);
   rightSizer->Add(imageSizer, 0, wxEXPAND | wxBOTTOM, 5);
+  rightSizer->SetMinSize(wxSize(280, -1));
 
-  hSizer->Add(rightSizer, 1, wxTOP | wxBOTTOM | wxRIGHT | wxEXPAND, 10);
+  hSizer->Add(rightSizer, 0, wxTOP | wxBOTTOM | wxRIGHT | wxEXPAND, 10);
 
   topSizer->Add(hSizer, 1, wxEXPAND);
 
@@ -535,6 +540,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   Bind(wxEVT_BUTTON, &FixtureEditDialog::OnCancel, this, wxID_CANCEL);
 
   SetSizerAndFit(topSizer);
+  SetMinSize(GetSize());
   UpdateChannels(false);
   UpdateVisualizers();
   UpdateMetadataSummary();
@@ -680,7 +686,11 @@ void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
 }
 
 void FixtureEditDialog::UpdateVisualizers() {
-  const wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  if (gdtfPath.empty() && panel && row >= 0 &&
+      static_cast<size_t>(row) < panel->gdtfPaths.size()) {
+    gdtfPath = panel->gdtfPaths[row];
+  }
   const std::string path = std::string(gdtfPath.ToUTF8());
   const std::array<SymbolViewKind, 3> views = {SymbolViewKind::Bottom,
                                                 SymbolViewKind::Front,
@@ -716,7 +726,11 @@ void FixtureEditDialog::UpdateVisualizers() {
 }
 
 void FixtureEditDialog::UpdateMetadataSummary() {
-  const wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  if (gdtfPath.empty() && panel && row >= 0 &&
+      static_cast<size_t>(row) < panel->gdtfPaths.size()) {
+    gdtfPath = panel->gdtfPaths[row];
+  }
   const std::string path = std::string(gdtfPath.ToUTF8());
   GdtfMetadataSummary metadata;
   const bool loaded = LoadGdtfMetadataSummary(path, metadata);
@@ -738,14 +752,20 @@ void FixtureEditDialog::UpdateMetadataSummary() {
       metadataDescriptionCtrl->ShowPosition(0);
       continue;
     }
-    if (metadataValueLabels[i])
+    if (metadataValueLabels[i]) {
       metadataValueLabels[i]->SetLabel(values[i]);
+      metadataValueLabels[i]->Wrap(360);
+    }
   }
   Layout();
 }
 
 void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
   wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  if (gdtfPath.empty() && panel && row >= 0 &&
+      static_cast<size_t>(row) < panel->gdtfPaths.size()) {
+    gdtfPath = panel->gdtfPaths[row];
+  }
   wxString mode = modeChoice ? modeChoice->GetStringSelection() : wxString();
   if (preview)
     preview->LoadFixture(std::string(gdtfPath.ToUTF8()));

@@ -57,7 +57,8 @@ static void MatrixToArray(const Matrix& m, float out[16])
     out[0] = m.u[0];  out[1] = m.u[1];  out[2] = m.u[2];  out[3] = 0.0f;
     out[4] = m.v[0];  out[5] = m.v[1];  out[6] = m.v[2];  out[7] = 0.0f;
     out[8] = m.w[0];  out[9] = m.w[1];  out[10] = m.w[2]; out[11] = 0.0f;
-    out[12] = m.o[0]; out[13] = m.o[1]; out[14] = m.o[2]; out[15] = 1.0f;
+    out[12] = m.o[0]; out[13] = m.o[1]; out[14] = m.o[2];
+    out[15] = 1.0f;
 }
 
 // Simple cube rendering when no model is available
