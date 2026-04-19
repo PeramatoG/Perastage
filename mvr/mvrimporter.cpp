@@ -515,13 +515,40 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
     }
   };
 
-  wxDialog dlg(nullptr, wxID_ANY, "GDTF conflicts");
+  wxDialog dlg(nullptr, wxID_ANY, "Resolve GDTF source conflicts");
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
-  wxFlexGridSizer *grid = new wxFlexGridSizer(4, 5, 5);
-  grid->Add(new wxStaticText(&dlg, wxID_ANY, "Type"));
-  grid->Add(new wxStaticText(&dlg, wxID_ANY, "MVR"));
-  grid->Add(new wxStaticText(&dlg, wxID_ANY, "App"));
-  grid->Add(new wxStaticText(&dlg, wxID_ANY, "Download GDTF"));
+  wxStaticText *subtitle = new wxStaticText(
+      &dlg, wxID_ANY,
+      "Choose which source to keep for each fixture type.");
+  subtitle->SetForegroundColour(wxColour(145, 145, 145));
+  topSizer->Add(subtitle, 0, wxLEFT | wxRIGHT | wxTOP, 10);
+
+  wxFlexGridSizer *grid = new wxFlexGridSizer(4, 8, 10);
+  grid->AddGrowableCol(0, 1);
+
+  wxStaticText *typeHeader = new wxStaticText(&dlg, wxID_ANY, "Type");
+  wxStaticText *mvrHeader = new wxStaticText(&dlg, wxID_ANY, "MVR");
+  wxStaticText *appHeader = new wxStaticText(&dlg, wxID_ANY, "App");
+  wxStaticText *downloadHeader =
+      new wxStaticText(&dlg, wxID_ANY, "Download GDTF");
+  wxFont headerFont = typeHeader->GetFont();
+  headerFont.SetWeight(wxFONTWEIGHT_BOLD);
+  typeHeader->SetFont(headerFont);
+  mvrHeader->SetFont(headerFont);
+  appHeader->SetFont(headerFont);
+  downloadHeader->SetFont(headerFont);
+  grid->Add(typeHeader, 0, wxALIGN_CENTER_VERTICAL);
+  grid->Add(mvrHeader, 0, wxALIGN_CENTER_HORIZONTAL);
+  grid->Add(appHeader, 0, wxALIGN_CENTER_HORIZONTAL);
+  grid->Add(downloadHeader, 0, wxALIGN_CENTER_HORIZONTAL);
+
+  wxButton *selectAllMvrButton = new wxButton(&dlg, wxID_ANY, "Select all");
+  wxButton *selectAllAppButton = new wxButton(&dlg, wxID_ANY, "Select all");
+  wxButton *selectAllDownloadButton = new wxButton(&dlg, wxID_ANY, "Select all");
+  grid->Add(new wxStaticText(&dlg, wxID_ANY, wxEmptyString));
+  grid->Add(selectAllMvrButton, 0, wxALIGN_CENTER_HORIZONTAL);
+  grid->Add(selectAllAppButton, 0, wxALIGN_CENTER_HORIZONTAL);
+  grid->Add(selectAllDownloadButton, 0, wxALIGN_CENTER_HORIZONTAL);
 
   std::vector<wxRadioButton *> mvrBtns;
   std::vector<wxRadioButton *> appBtns;
@@ -547,11 +574,6 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
     downloadBtns.push_back(download);
   }
 
-  wxBoxSizer *batchSelectionSizer = new wxBoxSizer(wxHORIZONTAL);
-  wxButton *selectAllMvrButton = new wxButton(&dlg, wxID_ANY, "Select all MVR");
-  wxButton *selectAllAppButton = new wxButton(&dlg, wxID_ANY, "Select all App");
-  wxButton *selectAllDownloadButton =
-      new wxButton(&dlg, wxID_ANY, "Select all Download");
   selectAllAppButton->Bind(wxEVT_BUTTON,
                            [&appBtns, &selectAll](wxCommandEvent &) {
                              std::vector<wxRadioButton *> existing;
@@ -569,12 +591,7 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
                                 [&downloadBtns, &selectAll](wxCommandEvent &) {
                                   selectAll(downloadBtns);
                                 });
-  batchSelectionSizer->Add(selectAllMvrButton, 0, wxRIGHT, 5);
-  batchSelectionSizer->Add(selectAllAppButton, 0, wxRIGHT, 5);
-  batchSelectionSizer->Add(selectAllDownloadButton, 0);
-
-  topSizer->Add(batchSelectionSizer, 0, wxLEFT | wxRIGHT | wxTOP, 10);
-  topSizer->Add(grid, 1, wxALL, 10);
+  topSizer->Add(grid, 1, wxEXPAND | wxALL, 10);
   topSizer->Add(dlg.CreateSeparatedButtonSizer(wxOK | wxCANCEL), 0,
                 wxEXPAND | wxALL, 10);
   dlg.SetSizerAndFit(topSizer);
