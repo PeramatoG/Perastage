@@ -2722,10 +2722,54 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               wxDialog downloadInfoDialog(dialogParent, wxID_ANY, "GDTF download queue",
                                           wxDefaultPosition, wxSize(760, 460));
               wxBoxSizer *infoSizer = new wxBoxSizer(wxVERTICAL);
+              enum class DownloadRowState {
+                Pending,
+                Downloading,
+                Downloaded,
+                Fallback
+              };
+
+              auto rowBackgroundColor = [](DownloadRowState state) -> wxColour {
+                switch (state) {
+                case DownloadRowState::Downloaded:
+                  return wxColour(237, 247, 237);
+                case DownloadRowState::Fallback:
+                  return wxColour(255, 248, 225);
+                case DownloadRowState::Downloading:
+                  return wxColour(230, 242, 255);
+                case DownloadRowState::Pending:
+                default:
+                  return *wxWHITE;
+                }
+              };
+              auto rowTextColor = [](DownloadRowState state) -> wxColour {
+                switch (state) {
+                case DownloadRowState::Downloaded:
+                  return wxColour(30, 120, 60);
+                case DownloadRowState::Fallback:
+                  return wxColour(150, 100, 0);
+                case DownloadRowState::Downloading:
+                  return wxColour(20, 80, 160);
+                case DownloadRowState::Pending:
+                default:
+                  return wxColour(80, 80, 80);
+                }
+              };
+
               wxStaticText *summaryText =
                   new wxStaticText(&downloadInfoDialog, wxID_ANY,
                                    "Selected fixture types for download");
+              wxFont summaryFont = summaryText->GetFont();
+              summaryFont.SetWeight(wxFONTWEIGHT_BOLD);
+              summaryText->SetFont(summaryFont);
               infoSizer->Add(summaryText, 0, wxLEFT | wxRIGHT | wxTOP, 8);
+              wxGauge *progressGauge =
+                  new wxGauge(&downloadInfoDialog, wxID_ANY,
+                              std::max(1, static_cast<int>(downloadRequests.size())),
+                              wxDefaultPosition, wxSize(-1, 6),
+                              wxGA_HORIZONTAL | wxGA_SMOOTH);
+              progressGauge->SetValue(0);
+              infoSizer->Add(progressGauge, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 8);
 
               wxListCtrl *downloadInfoList = new wxListCtrl(
                   &downloadInfoDialog, wxID_ANY, wxDefaultPosition, wxDefaultSize,
@@ -2733,8 +2777,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               downloadInfoList->InsertColumn(0, "Fixture type", wxLIST_FORMAT_LEFT, 230);
               downloadInfoList->InsertColumn(1, "Selected GDTF", wxLIST_FORMAT_LEFT, 320);
               downloadInfoList->InsertColumn(2, "Status", wxLIST_FORMAT_LEFT, 150);
-              downloadInfoList->InsertColumn(3, "Details", wxLIST_FORMAT_LEFT, 320);
+              downloadInfoList->InsertColumn(3, "Details", wxLIST_FORMAT_LEFT, 260);
               infoSizer->Add(downloadInfoList, 1, wxEXPAND | wxALL, 8);
+              wxStaticText *footerSummary =
+                  new wxStaticText(&downloadInfoDialog, wxID_ANY,
+                                   "0 processed  |  0 downloaded  |  0 fallback");
+              footerSummary->SetForegroundColour(wxColour(100, 100, 100));
+              infoSizer->Add(footerSummary, 0, wxLEFT | wxRIGHT, 8);
               wxButton *ackButton = new wxButton(&downloadInfoDialog, wxID_OK, "OK");
               ackButton->Disable();
               infoSizer->Add(ackButton, 0, wxALIGN_RIGHT | wxLEFT | wxRIGHT | wxBOTTOM, 8);
@@ -2745,32 +2794,46 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 downloadInfoDialog.CentreOnScreen();
               }
               bool isDownloadInfoFinished = false;
+              bool isDownloadInfoAcknowledged = false;
               downloadInfoDialog.Bind(wxEVT_CLOSE_WINDOW,
                                       [&](wxCloseEvent &closeEvent) {
                                         if (!isDownloadInfoFinished) {
                                           closeEvent.Veto();
                                           return;
                                         }
-                                        if (downloadInfoDialog.IsModal()) {
-                                          downloadInfoDialog.EndModal(wxID_CANCEL);
-                                          return;
-                                        }
-                                        closeEvent.Skip();
+                                        isDownloadInfoAcknowledged = true;
+                                        downloadInfoDialog.Hide();
                                       });
               ackButton->Bind(wxEVT_BUTTON, [&](wxCommandEvent &) {
-                if (downloadInfoDialog.IsModal()) {
-                  downloadInfoDialog.EndModal(wxID_OK);
-                  return;
-                }
+                isDownloadInfoAcknowledged = true;
                 downloadInfoDialog.Hide();
               });
 
               std::unordered_map<std::string, long> rowByType;
+              std::unordered_map<std::string, DownloadRowState> rowStateByType;
+              auto refreshFooterSummary = [&]() {
+                int downloaded = 0;
+                int fallback = 0;
+                int processed = 0;
+                for (const auto &[typeKey, state] : rowStateByType) {
+                  (void)typeKey;
+                  if (state == DownloadRowState::Downloaded) {
+                    ++downloaded;
+                    ++processed;
+                  } else if (state == DownloadRowState::Fallback) {
+                    ++fallback;
+                    ++processed;
+                  }
+                }
+                footerSummary->SetLabel(
+                    wxString::Format("%d/%zu processed  |  %d downloaded  |  %d fallback",
+                                     processed, rowStateByType.size(), downloaded, fallback));
+              };
               auto updateStatusRow = [&](const std::string &typeKey,
                                          const wxString &selectedGdtf,
                                          const wxString &status,
                                          const wxString &details,
-                                         const wxColour &color) {
+                                         DownloadRowState state) {
                 const auto rowIt = rowByType.find(typeKey);
                 if (rowIt == rowByType.end())
                   return;
@@ -2778,7 +2841,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 downloadInfoList->SetItem(row, 1, selectedGdtf);
                 downloadInfoList->SetItem(row, 2, status);
                 downloadInfoList->SetItem(row, 3, details);
-                downloadInfoList->SetItemTextColour(row, color);
+                downloadInfoList->SetItemTextColour(row, rowTextColor(state));
+                downloadInfoList->SetItemBackgroundColour(row, rowBackgroundColor(state));
+                rowStateByType[typeKey] = state;
+                refreshFooterSummary();
               };
 
               downloadInfoDialog.Show();
@@ -2789,9 +2855,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 downloadInfoList->SetItem(row, 1, "-");
                 downloadInfoList->SetItem(row, 2, "Pending");
                 downloadInfoList->SetItem(row, 3, "Waiting to match catalog entry");
-                downloadInfoList->SetItemTextColour(row, wxColour(120, 170, 255));
+                downloadInfoList->SetItemTextColour(row, rowTextColor(DownloadRowState::Pending));
+                downloadInfoList->SetItemBackgroundColour(
+                    row, rowBackgroundColor(DownloadRowState::Pending));
                 rowByType[req.type] = row;
+                rowStateByType[req.type] = DownloadRowState::Pending;
               }
+              refreshFooterSummary();
               wxYieldIfNeeded();
 
               std::string listPayload;
@@ -2840,7 +2910,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
                   if (!bestMatch.found || bestMatch.rid.empty()) {
                     updateStatusRow(req.type, "-", "Fallback to MVR",
-                                    "No catalog match found", wxColour(232, 150, 50));
+                                    "No catalog match found", DownloadRowState::Fallback);
+                    progressGauge->SetValue(progressGauge->GetValue() + 1);
                     wxYieldIfNeeded();
                     continue;
                   }
@@ -2873,7 +2944,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     }
                   }
                   updateStatusRow(req.type, selectedFixtureName, "Downloading",
-                                  "Fetching fixture package", wxColour(120, 170, 255));
+                                  "Fetching fixture package",
+                                  DownloadRowState::Downloading);
                   reportProgress("Downloading selected GDTFs: downloading " + req.type + "...");
                   if (GdtfDownload(bestMatch.rid, filePath, cookieFile,
                                    downloadHttpCode) &&
@@ -2885,25 +2957,30 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     if (!bestMatch.modeName.empty())
                       details += " (Mode: " + wxString::FromUTF8(bestMatch.modeName) + ")";
                     updateStatusRow(req.type, selectedFixtureName, "Success", details,
-                                    wxColour(60, 170, 85));
+                                    DownloadRowState::Downloaded);
                   } else {
                     updateStatusRow(req.type, selectedFixtureName, "Fallback to MVR",
-                                    "Download failed", wxColour(210, 70, 70));
+                                    "Download failed", DownloadRowState::Fallback);
                   }
+                  progressGauge->SetValue(progressGauge->GetValue() + 1);
                   wxYieldIfNeeded();
                 }
               } else {
                 summaryText->SetLabel("Selected fixture types for download (catalog load failed)");
                 for (const GdtfConflict &req : downloadRequests) {
                   updateStatusRow(req.type, "-", "Fallback to MVR",
-                                  "Failed to load catalog list", wxColour(210, 70, 70));
+                                  "Failed to load catalog list", DownloadRowState::Fallback);
                 }
+                progressGauge->SetValue(progressGauge->GetRange());
               }
               isDownloadInfoFinished = true;
-              summaryText->SetLabel(summaryText->GetLabel() + " — queue finished");
+              summaryText->SetLabel(summaryText->GetLabel() + " - queue finished");
               ackButton->Enable();
               ackButton->SetFocus();
-              (void)downloadInfoDialog.ShowModal();
+              while (!isDownloadInfoAcknowledged) {
+                wxMilliSleep(10);
+                wxYieldIfNeeded();
+              }
             } else {
               wxMessageBox("Login failed. Verify credentials in Preferences.",
                            "GDTF Share login", wxOK | wxICON_WARNING);
