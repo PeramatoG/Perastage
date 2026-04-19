@@ -86,6 +86,39 @@ static std::string Trim(const std::string &s) {
   return s.substr(start, end - start + 1);
 }
 
+static std::string DecodeLegacyCredentialValue(const std::string &encoded) {
+  constexpr unsigned char kKey = 0x5A;
+  std::string out;
+  out.reserve(encoded.size() / 2);
+  for (size_t i = 0; i + 1 < encoded.size(); i += 2) {
+    unsigned int value = 0;
+    std::istringstream iss(encoded.substr(i, 2));
+    iss >> std::hex >> value;
+    out.push_back(static_cast<char>((static_cast<unsigned char>(value)) ^ kKey));
+  }
+  return out;
+}
+
+static std::optional<std::pair<std::string, std::string>>
+LoadStoredGdtfShareCredentials() {
+  const fs::path credPath =
+      fs::path(wxStandardPaths::Get().GetUserDataDir().ToStdString()) /
+      "gdtf_credentials.json";
+  std::ifstream in(credPath);
+  if (!in.is_open())
+    return std::nullopt;
+
+  nlohmann::json j = nlohmann::json::parse(in, nullptr, false);
+  if (j.is_discarded())
+    return std::nullopt;
+
+  const std::string username = j.value("username", "");
+  const std::string encodedPassword = j.value("password", "");
+  if (username.empty())
+    return std::nullopt;
+  return std::make_pair(username, DecodeLegacyCredentialValue(encodedPassword));
+}
+
 
 static std::string ToLowerCopy(std::string s) {
   std::transform(s.begin(), s.end(), s.begin(),
@@ -2664,10 +2697,18 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               return best;
             };
 
-            std::string username =
-                ConfigManager::Get().GetValue("gdtf_username").value_or("");
-            std::string password =
-                ConfigManager::Get().GetValue("gdtf_password").value_or("");
+            reportProgress("Conflict dialog:show");
+            reportProgress("Trying to download selected GDTFs...");
+            std::string username;
+            std::string password;
+            if (const auto storedCredentials = LoadStoredGdtfShareCredentials();
+                storedCredentials.has_value()) {
+              username = storedCredentials->first;
+              password = storedCredentials->second;
+            } else {
+              username = ConfigManager::Get().GetValue("gdtf_username").value_or("");
+              password = ConfigManager::Get().GetValue("gdtf_password").value_or("");
+            }
             if (username.empty() || password.empty()) {
               wxTextEntryDialog userDlg(nullptr, "GDTF Share username:",
                                         "GDTF Share login");
@@ -2792,6 +2833,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               wxRemoveFile(cookieFileWx);
               downloadInfoDialog.Destroy();
             }
+            reportProgress("Conflict dialog:hide");
           }
 
           reportProgress("Applying GDTF conflict selection...");
