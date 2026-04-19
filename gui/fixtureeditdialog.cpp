@@ -35,6 +35,7 @@
 #include <wx/mstream.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
+#include <wx/filefn.h>
 #include <tinyxml2.h>
 #include <unordered_map>
 #include <set>
@@ -493,6 +494,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
 
   wxBoxSizer *rightSizer = new wxBoxSizer(wxVERTICAL);
   preview = new FixturePreviewPanel(this);
+  preview->SetMinSize(wxSize(240, 220));
   rightSizer->Add(preview, 1, wxEXPAND | wxBOTTOM, 5);
 
   wxStaticBoxSizer *symbolSizer =
@@ -518,6 +520,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       new wxStaticBitmap(this, wxID_ANY, wxBitmap(220, 220));
   imageSizer->Add(fixtureImagePreview, 0, wxALIGN_CENTER | wxALL, 4);
   rightSizer->Add(imageSizer, 0, wxEXPAND | wxBOTTOM, 5);
+  rightSizer->SetMinSize(wxSize(280, -1));
 
   hSizer->Add(rightSizer, 1, wxTOP | wxBOTTOM | wxRIGHT | wxEXPAND, 10);
 
@@ -534,7 +537,12 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   Bind(wxEVT_BUTTON, &FixtureEditDialog::OnOk, this, wxID_OK);
   Bind(wxEVT_BUTTON, &FixtureEditDialog::OnCancel, this, wxID_CANCEL);
 
-  SetSizerAndFit(topSizer);
+  SetSizer(topSizer);
+  topSizer->SetSizeHints(this);
+  SetMinSize(wxSize(980, 740));
+  SetSize(wxSize(980, 740));
+  if (modelCtrl && modelCtrl->GetValue().IsEmpty())
+    modelCtrl->SetValue(ResolveEffectiveGdtfPath());
   UpdateChannels(false);
   UpdateVisualizers();
   UpdateMetadataSummary();
@@ -595,6 +603,39 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
 }
 
 void FixtureEditDialog::OnModeChanged(wxCommandEvent &) { UpdateChannels(true); }
+
+wxString FixtureEditDialog::ResolveEffectiveGdtfPath() const {
+  if (modelCtrl && !modelCtrl->GetValue().IsEmpty())
+    return modelCtrl->GetValue();
+
+  if (panel && row >= 0 && static_cast<size_t>(row) < panel->gdtfPaths.size()) {
+    const wxString path = panel->gdtfPaths[row];
+    if (!path.IsEmpty())
+      return path;
+  }
+
+  std::string fixtureType;
+  if (ctrls.size() > 2) {
+    if (auto *typeCtrl = wxDynamicCast(ctrls[2], wxTextCtrl))
+      fixtureType = std::string(typeCtrl->GetValue().ToUTF8());
+  }
+  if (fixtureType.empty() && panel && panel->table && row >= 0) {
+    wxVariant typeValue;
+    panel->table->GetValue(typeValue, row, 2);
+    fixtureType = std::string(typeValue.GetString().ToUTF8());
+  }
+  if (fixtureType.empty())
+    return {};
+
+  const auto dictionaryEntry = GdtfDictionary::Get(fixtureType);
+  if (!dictionaryEntry || dictionaryEntry->path.empty())
+    return {};
+
+  const wxString dictionaryPath = wxString::FromUTF8(dictionaryEntry->path);
+  if (wxFileExists(dictionaryPath))
+    return dictionaryPath;
+  return {};
+}
 
 void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
   wxPanel *panelWindow = wxDynamicCast(evt.GetEventObject(), wxPanel);
@@ -680,7 +721,7 @@ void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
 }
 
 void FixtureEditDialog::UpdateVisualizers() {
-  const wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  const wxString gdtfPath = ResolveEffectiveGdtfPath();
   const std::string path = std::string(gdtfPath.ToUTF8());
   const std::array<SymbolViewKind, 3> views = {SymbolViewKind::Bottom,
                                                 SymbolViewKind::Front,
@@ -716,7 +757,7 @@ void FixtureEditDialog::UpdateVisualizers() {
 }
 
 void FixtureEditDialog::UpdateMetadataSummary() {
-  const wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  const wxString gdtfPath = ResolveEffectiveGdtfPath();
   const std::string path = std::string(gdtfPath.ToUTF8());
   GdtfMetadataSummary metadata;
   const bool loaded = LoadGdtfMetadataSummary(path, metadata);
@@ -745,7 +786,7 @@ void FixtureEditDialog::UpdateMetadataSummary() {
 }
 
 void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
-  wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  wxString gdtfPath = ResolveEffectiveGdtfPath();
   wxString mode = modeChoice ? modeChoice->GetStringSelection() : wxString();
   if (preview)
     preview->LoadFixture(std::string(gdtfPath.ToUTF8()));

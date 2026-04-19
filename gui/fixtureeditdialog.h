@@ -42,6 +42,7 @@ private:
     void OnBrowse(wxCommandEvent& evt);
     void OnModeChanged(wxCommandEvent& evt);
     void OnSymbolPreviewPaint(wxPaintEvent& evt);
+    wxString ResolveEffectiveGdtfPath() const;
     void UpdateChannels(bool markChannelCountDirty = false);
     void UpdateVisualizers();
     void UpdateMetadataSummary();
