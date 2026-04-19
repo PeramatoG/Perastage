@@ -34,6 +34,7 @@
 
 #include <wx/wx.h>
 #include "fixturepreviewpanel.h"
+#include "ui_render_size.h"
 #include <cfloat>
 #include <array>
 #include <algorithm>
@@ -236,12 +237,18 @@ void FixturePreviewPanel::LoadFixture(const std::string& gdtfPath)
 
 void FixturePreviewPanel::Render()
 {
-    int w,h; GetClientSize(&w,&h);
+    const RenderSize renderSize = ResolveRenderSize(this);
+    const int w = renderSize.width;
+    const int h = renderSize.height;
+    if (!renderSize.IsValid()) {
+        return;
+    }
+
     glViewport(0,0,w,h);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(45.0,(double)w/h,0.1,100.0);
+    gluPerspective(45.0, static_cast<double>(w) / static_cast<double>(h), 0.1, 100.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     m_camera.Update(0.0f);
