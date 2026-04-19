@@ -478,6 +478,12 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     gdtfDownloadBusyOverlay = std::make_unique<wxBusyInfo>(message);
     wxYieldIfNeeded();
   };
+  auto showGdtfDownloadError = [&](const wxString &message,
+                                   const wxString &caption) {
+    gdtfDownloadBusyOverlay.reset();
+    gdtfDownloadDisabler.reset();
+    wxMessageBox(message, caption, wxOK | wxICON_ERROR, this);
+  };
 
   updateGdtfDownloadBusyOverlay("Connecting to GDTF Share...");
   wxString username =
@@ -501,8 +507,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   updateGdtfDownloadBusyOverlay("Logging in to GDTF Share...");
   if (!GdtfLogin(WxToUtf8(username), WxToUtf8(password),
                  cookieFile, httpCode)) {
-    wxMessageBox("Failed to connect to GDTF Share.", "Login Error",
-                 wxOK | wxICON_ERROR);
+    showGdtfDownloadError("Failed to connect to GDTF Share.", "Login Error");
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Login connection failed");
     return;
@@ -511,7 +516,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     consolePanel->AppendMessage(wxString::Format("[INFO] Login HTTP code: %ld",
                                                  httpCode));
   if (httpCode != 200) {
-    wxMessageBox("Login failed.", "Login Error", wxOK | wxICON_ERROR);
+    showGdtfDownloadError("Login failed.", "Login Error");
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Login failed with code " +
                                   wxString::Format("%ld", httpCode));
@@ -523,8 +528,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   updateGdtfDownloadBusyOverlay("Retrieving fixture list...");
   std::string listData;
   if (!GdtfGetList(cookieFile, listData)) {
-    wxMessageBox("Failed to retrieve fixture list.", "Error",
-                 wxOK | wxICON_ERROR);
+    showGdtfDownloadError("Failed to retrieve fixture list.", "Error");
     return;
   }
 
