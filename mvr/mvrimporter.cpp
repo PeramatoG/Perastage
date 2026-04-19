@@ -2657,23 +2657,17 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             };
             auto runCommandCapture = [](const std::string &command,
                                         std::string &output) {
-#ifdef _WIN32
-              FILE *pipe = _popen(command.c_str(), "r");
-#else
-              FILE *pipe = popen(command.c_str(), "r");
-#endif
-              if (!pipe)
-                return false;
-              char buffer[512];
+              wxArrayString outLines;
+              wxArrayString errLines;
+              const long exitCode = wxExecute(wxString::FromUTF8(command),
+                                              outLines, errLines,
+                                              wxEXEC_SYNC | wxEXEC_HIDE_CONSOLE);
               output.clear();
-              while (fgets(buffer, sizeof(buffer), pipe))
-                output += buffer;
-#ifdef _WIN32
-              const int code = _pclose(pipe);
-#else
-              const int code = pclose(pipe);
-#endif
-              return code == 0;
+              for (const wxString &line : outLines) {
+                output += line.ToStdString();
+                output += '\n';
+              }
+              return exitCode == 0;
             };
             auto inferFootprintFromAddresses = [&](const std::string &typeName) {
               std::vector<int> channels;
@@ -2732,6 +2726,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               downloadInfoDialog.SetSizer(infoSizer);
               downloadInfoDialog.Show();
               wxYieldIfNeeded();
+              downloadInfoLog->AppendText("Selected fixture types for download:\n");
+              for (const GdtfConflict &req : downloadRequests) {
+                downloadInfoLog->AppendText(" - " + wxString::FromUTF8(req.type) +
+                                            " -> pending\n");
+              }
+              downloadInfoLog->AppendText("\nStarting download process...\n");
+              wxYieldIfNeeded();
 
               wxString cookieFileWx = wxFileName::CreateTempFileName("gdtf_mvr_import_");
               const std::string cookieFile = cookieFileWx.ToStdString();
@@ -2749,12 +2750,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   "/dev/null"
 #endif
                   " -w \"%{http_code}\" https://gdtf-share.com/apis/public/login.php";
+              reportProgress("Downloading selected GDTFs: logging into GDTF Share...");
               if (runCommandCapture(loginCmd, loginOutput) &&
                   loginOutput.find("200") != std::string::npos) {
                 std::string listOutput;
                 const std::string listCmd =
                     "curl -s -L -b " + quoteShell(cookieFile) +
                     " -w \"\\n%{http_code}\" https://gdtf-share.com/apis/public/getList.php";
+                reportProgress("Downloading selected GDTFs: loading catalog...");
                 if (runCommandCapture(listCmd, listOutput)) {
                   const size_t codePos = listOutput.rfind('\n');
                   const std::string payload =
@@ -2762,7 +2765,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                                    : listOutput.substr(0, codePos);
                   const std::vector<GdtfCatalogEntry> catalogEntries =
                       ParseGdtfCatalogEntries(payload);
+                  downloadInfoLog->AppendText(
+                      "Catalog loaded. Entries: " +
+                      wxString::Format("%zu\n", catalogEntries.size()));
                   for (GdtfConflict req : downloadRequests) {
+                    reportProgress("Downloading selected GDTFs: matching " + req.type + "...");
                     if (req.footprint <= 0)
                       req.footprint = inferFootprintFromAddresses(req.type);
                     GdtfDownloadMatch bestMatch;
@@ -2798,6 +2805,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                       downloadInfoLog->AppendText(
                           "• " + wxString::FromUTF8(req.type) +
                           " -> no catalog match found. Keeping MVR original.\n");
+                      wxYieldIfNeeded();
                       continue;
                     }
                     const std::string baseFixturesPath =
@@ -2819,6 +2827,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                         quoteShell(filePath) + " -w \"%{http_code}\" " +
                         quoteShell("https://gdtf-share.com/apis/public/downloadFile.php?rid=" +
                                    bestMatch.rid);
+                    downloadInfoLog->AppendText(
+                        "• " + wxString::FromUTF8(req.type) + " -> downloading...\n");
+                    reportProgress("Downloading selected GDTFs: downloading " + req.type + "...");
                     if (runCommandCapture(downloadCmd, downloadOutput) &&
                         downloadOutput.find("200") != std::string::npos) {
                       selectedPathByType[req.type] = filePath;
@@ -2826,9 +2837,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                         selectedModeByType[req.type] = bestMatch.modeName;
                       downloadInfoLog->AppendText("• " + wxString::FromUTF8(req.type) +
                                                   " -> downloaded and assigned.\n");
+                    } else {
+                      downloadInfoLog->AppendText(
+                          "• " + wxString::FromUTF8(req.type) +
+                          " -> download failed. Keeping MVR original.\n");
                     }
+                    wxYieldIfNeeded();
                   }
+                } else {
+                  downloadInfoLog->AppendText("Failed to load catalog list from API.\n");
                 }
+              } else {
+                downloadInfoLog->AppendText(
+                    "Login failed. Verify credentials in Preferences.\n");
               }
               wxRemoveFile(cookieFileWx);
               downloadInfoDialog.Destroy();
