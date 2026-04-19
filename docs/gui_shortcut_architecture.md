@@ -113,3 +113,18 @@ represent equivalent actions:
 - `Ctrl + Shift + Left Drag`:
   transversal rectangle selection across all selectable object tables in both
   `Viewer2D` and `Viewer3D`.
+
+## Local shortcuts in "Create scene from text" autocomplete
+
+`RiderTextDialog` adds local key handling only while the autocomplete dropdown
+is visible in the multiline text box:
+
+- `↑` / `↓`: move the active suggestion.
+- `Enter` or `Tab`: accept the selected suggestion and replace the active token.
+- `Esc`: close suggestions without inserting.
+
+Priority and focus impact:
+
+- These keys are consumed only when the dropdown is open.
+- Outside that state, the text box keeps its standard free-text editing behavior.
+- Global shortcut routing is unchanged because the dialog key handling stays local.

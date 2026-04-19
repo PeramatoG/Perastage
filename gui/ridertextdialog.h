@@ -18,11 +18,17 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include <wx/dialog.h>
+#include <wx/timer.h>
 
 class wxTextCtrl;
 class wxStaticText;
+class wxListBox;
+class wxPopupTransientWindow;
+
+#include "ridertext_autocomplete_provider.h"
 
 class RiderTextDialog : public wxDialog {
 public:
@@ -38,12 +44,28 @@ private:
   void OnLoadExample(wxCommandEvent &event);
   void OnApplyFilter(wxCommandEvent &event);
   void OnApply(wxCommandEvent &event);
+  void OnTextChanged(wxCommandEvent &event);
+  void OnTextKeyDown(wxKeyEvent &event);
+  void OnAutocompleteTimer(wxTimerEvent &event);
+  void OnSuggestionClick(wxCommandEvent &event);
+  void RefreshAutocompleteSuggestions();
+  void HideSuggestionPopup();
+  bool AcceptCurrentSuggestion();
+  bool IsSuggestionPopupVisible() const;
+  void ReplaceCurrentToken(const std::string &replacement);
+  static bool IsTokenDelimiter(wxUniChar c);
 
   wxTextCtrl *textCtrl = nullptr;
   wxStaticText *sourceText = nullptr;
+  wxPopupTransientWindow *suggestionPopup = nullptr;
+  wxListBox *suggestionList = nullptr;
   wxString sourceLabel;
   bool sourceLoadedFromFile = false;
   std::string selectedRiderTextUtf8;
+  RiderTextAutocompleteProvider autocompleteProvider;
+  std::vector<RiderTextAutocompleteProvider::Suggestion> currentSuggestions;
+  wxTimer autocompleteTimer;
+  bool suppressAutocompleteTextEvent = false;
 
   wxDECLARE_EVENT_TABLE();
 };

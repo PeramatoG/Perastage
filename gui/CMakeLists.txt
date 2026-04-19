@@ -71,6 +71,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_object_primitive_dialogs.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_object_primitive_editing.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ridertextdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ridertext_autocomplete_provider.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/riggingpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/sceneobjecttablepanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shortcut_registry.cpp
