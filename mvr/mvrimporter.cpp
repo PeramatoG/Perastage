@@ -2646,14 +2646,26 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               return (universe - 1) * 512 + channel;
             };
             auto quoteShell = [](const std::string &value) {
+#ifdef _WIN32
               std::string escaped = "\"";
               for (char c : value) {
-                if (c == '"' || c == '\\')
-                  escaped.push_back('\\');
+                if (c == '"')
+                  escaped.push_back('"');
                 escaped.push_back(c);
               }
               escaped.push_back('"');
               return escaped;
+#else
+              std::string escaped = "'";
+              for (char c : value) {
+                if (c == '\'')
+                  escaped += "'\\''";
+                else
+                  escaped.push_back(c);
+              }
+              escaped.push_back('\'');
+              return escaped;
+#endif
             };
             auto runCommandCapture = [](const std::string &command,
                                         std::string &output) {
@@ -2739,10 +2751,17 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               std::string loginOutput;
               const std::string loginJson =
                   "{\"user\":\"" + username + "\",\"password\":\"" + password + "\"}";
+              wxString loginPayloadWx =
+                  wxFileName::CreateTempFileName("gdtf_mvr_payload_");
+              const std::string loginPayloadPath = loginPayloadWx.ToStdString();
+              {
+                std::ofstream payloadOut(loginPayloadPath, std::ios::binary);
+                payloadOut << loginJson;
+              }
               const std::string loginCmd =
                   "curl -s -L -c " + quoteShell(cookieFile) +
-                  " -H \"Content-Type: application/json\" --data " +
-                  quoteShell(loginJson) +
+                  " -H \"Content-Type: application/json\" --data-binary @" +
+                  quoteShell(loginPayloadPath) +
                   " -o " +
 #ifdef _WIN32
                   "NUL"
@@ -2851,6 +2870,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 downloadInfoLog->AppendText(
                     "Login failed. Verify credentials in Preferences.\n");
               }
+              wxRemoveFile(loginPayloadWx);
               wxRemoveFile(cookieFileWx);
               downloadInfoDialog.Destroy();
             }
