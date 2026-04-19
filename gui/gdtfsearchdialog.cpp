@@ -24,6 +24,16 @@ using json = nlohmann::json;
 wxDEFINE_EVENT(EVT_GDTF_REFRESH_DONE, wxThreadEvent);
 
 namespace {
+wxString FormatTimestamp(const std::string& ts);
+
+std::string NormalizeSearchToken(const std::string& text)
+{
+    wxString normalized = wxString::FromUTF8(text).Lower();
+    normalized.Replace(" ", "");
+    normalized.Replace("-", "");
+    return normalized.ToStdString();
+}
+
 std::vector<GdtfEntry> ParseEntriesFromListData(const std::string& listData)
 {
     std::vector<GdtfEntry> parsedEntries;
@@ -81,14 +91,18 @@ std::vector<GdtfEntry> ParseEntriesFromListData(const std::string& listData)
         GdtfEntry e;
         e.manufacturer = getValue(item, {"manufacturer", "brand", "mfr"});
         e.fixture = getValue(item, {"fixture", "name", "model"});
+        e.manufacturerNorm = NormalizeSearchToken(e.manufacturer);
+        e.fixtureNorm = NormalizeSearchToken(e.fixture);
         e.rid = getValue(item, {"rid", "revisionId"});
         e.url = getValue(item, {"url", "download", "downloadUrl"});
         e.modes = getValue(item, {"modes", "mode", "modeCount"});
         e.creator = getValue(item, {"creator", "user", "userName"});
         e.uploader = getValue(item, {"uploader"});
         e.creationDate = getValue(item, {"creationDate"});
+        e.creationDateDisplay = FormatTimestamp(e.creationDate).ToStdString();
         e.revision = getValue(item, {"revision"});
         e.lastModified = getValue(item, {"lastModified"});
+        e.lastModifiedDisplay = FormatTimestamp(e.lastModified).ToStdString();
         e.version = getValue(item, {"version"});
         e.rating = getValue(item, {"rating"});
         parsedEntries.push_back(std::move(e));
@@ -118,6 +132,9 @@ wxString FormatTimestamp(const std::string& ts)
     }
     return wxString::FromUTF8(ts);
 }
+
+constexpr size_t kVirtualizationThreshold = 10000;
+constexpr int kSearchDebounceMs = 180;
 } // namespace
 
 GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData,
@@ -128,7 +145,8 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       currentListData(listData),
       lastUpdatedAt(cachedUpdatedAt),
-      refreshCatalogFn(std::move(refreshCatalogFnIn))
+      refreshCatalogFn(std::move(refreshCatalogFnIn)),
+      searchDebounceTimer(this)
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
@@ -186,11 +204,15 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
 
     manufacturerCtrl->Bind(wxEVT_TEXT_ENTER, &GdtfSearchDialog::OnSearch, this);
     fixtureCtrl->Bind(wxEVT_TEXT_ENTER, &GdtfSearchDialog::OnSearch, this);
+    manufacturerCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnSearchTextChanged, this);
+    fixtureCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnSearchTextChanged, this);
     downloadBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnDownload, this);
     resultTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                       &GdtfSearchDialog::OnDownload, this);
     Bind(wxEVT_SHOW, &GdtfSearchDialog::OnDialogShown, this);
     Bind(EVT_GDTF_REFRESH_DONE, &GdtfSearchDialog::OnAutoRefreshThreadEvent, this);
+    Bind(wxEVT_TIMER, &GdtfSearchDialog::OnSearchDebounceTimer, this,
+         searchDebounceTimer.GetId());
 
     ParseList(currentListData);
     UpdateResults();
@@ -222,37 +244,32 @@ void GdtfSearchDialog::UpdateResults()
     visible.clear();
     selectedIndex = -1;
 
-    auto normalize = [](wxString s) {
-        s = s.Lower();
-        s.Replace(" ", "");
-        s.Replace("-", "");
-        return s;
-    };
-
-    wxString b = normalize(manufacturerCtrl->GetValue());
-    wxString m = normalize(fixtureCtrl->GetValue());
+    const std::string manufacturerSearch =
+        NormalizeSearchToken(manufacturerCtrl->GetValue().ToStdString());
+    const std::string fixtureSearch =
+        NormalizeSearchToken(fixtureCtrl->GetValue().ToStdString());
     for (size_t i = 0; i < entries.size(); ++i) {
-        wxString manuOrig = wxString::FromUTF8(entries[i].manufacturer);
-        wxString fixOrig = wxString::FromUTF8(entries[i].fixture);
-        wxString manu = normalize(manuOrig);
-        wxString fix = normalize(fixOrig);
-        if ((!b.empty() && !manu.Contains(b)) || (!m.empty() && !fix.Contains(m)))
+        const GdtfEntry& entry = entries[i];
+        if ((!manufacturerSearch.empty() &&
+             entry.manufacturerNorm.find(manufacturerSearch) == std::string::npos) ||
+            (!fixtureSearch.empty() &&
+             entry.fixtureNorm.find(fixtureSearch) == std::string::npos))
             continue;
         visible.push_back(static_cast<int>(i));
         wxVector<wxVariant> row;
-        row.push_back(manuOrig);
-        row.push_back(fixOrig);
-        row.push_back(wxString::FromUTF8(entries[i].modes));
-        row.push_back(wxString::FromUTF8(entries[i].creator));
-        row.push_back(wxString::FromUTF8(entries[i].uploader));
-        row.push_back(FormatTimestamp(entries[i].creationDate));
-        row.push_back(wxString::FromUTF8(entries[i].revision));
-        row.push_back(FormatTimestamp(entries[i].lastModified));
-        row.push_back(wxString::FromUTF8(entries[i].version));
-        row.push_back(wxString::FromUTF8(entries[i].rating));
+        row.push_back(wxString::FromUTF8(entry.manufacturer));
+        row.push_back(wxString::FromUTF8(entry.fixture));
+        row.push_back(wxString::FromUTF8(entry.modes));
+        row.push_back(wxString::FromUTF8(entry.creator));
+        row.push_back(wxString::FromUTF8(entry.uploader));
+        row.push_back(wxString::FromUTF8(entry.creationDateDisplay));
+        row.push_back(wxString::FromUTF8(entry.revision));
+        row.push_back(wxString::FromUTF8(entry.lastModifiedDisplay));
+        row.push_back(wxString::FromUTF8(entry.version));
+        row.push_back(wxString::FromUTF8(entry.rating));
         resultTable->AppendItem(row);
 
-        if (!previouslySelectedRid.empty() && entries[i].rid == previouslySelectedRid) {
+        if (!previouslySelectedRid.empty() && entry.rid == previouslySelectedRid) {
             const unsigned int rowIndex =
                 static_cast<unsigned int>(resultTable->GetItemCount() - 1);
             wxDataViewItem rowItem = resultTable->RowToItem(rowIndex);
@@ -262,9 +279,27 @@ void GdtfSearchDialog::UpdateResults()
             }
         }
     }
+
+    if (entries.size() > kVirtualizationThreshold) {
+        wxLogWarning(
+            "GDTF catalog has %zu rows; consider pagination or a virtual data model "
+            "to avoid full-table repaints.",
+            entries.size());
+    }
 }
 
 void GdtfSearchDialog::OnSearch(wxCommandEvent& WXUNUSED(evt))
+{
+    UpdateResults();
+}
+
+void GdtfSearchDialog::OnSearchTextChanged(wxCommandEvent& evt)
+{
+    evt.Skip();
+    searchDebounceTimer.StartOnce(kSearchDebounceMs);
+}
+
+void GdtfSearchDialog::OnSearchDebounceTimer(wxTimerEvent& WXUNUSED(evt))
 {
     UpdateResults();
 }

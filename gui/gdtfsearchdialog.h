@@ -18,6 +18,7 @@
 #pragma once
 #include <wx/wx.h>
 #include <wx/dataview.h>
+#include <wx/timer.h>
 #include <functional>
 #include <thread>
 #include <vector>
@@ -26,14 +27,18 @@
 struct GdtfEntry {
     std::string manufacturer;
     std::string fixture;
+    std::string manufacturerNorm;
+    std::string fixtureNorm;
     std::string rid;
     std::string url;
     std::string modes;
     std::string creator;
     std::string uploader;
     std::string creationDate;
+    std::string creationDateDisplay;
     std::string revision;
     std::string lastModified;
+    std::string lastModifiedDisplay;
     std::string version;
     std::string rating;
 };
@@ -60,6 +65,8 @@ private:
     void ParseList(const std::string& listData);
     void UpdateResults();
     void OnSearch(wxCommandEvent& evt);
+    void OnSearchTextChanged(wxCommandEvent& evt);
+    void OnSearchDebounceTimer(wxTimerEvent& evt);
     void OnDownload(wxCommandEvent& evt);
     void OnDialogShown(wxShowEvent& evt);
     void TriggerAutoRefreshOnce();
@@ -79,4 +86,5 @@ private:
     RefreshCatalogFn refreshCatalogFn;
     bool autoRefreshTriggered = false;
     std::thread autoRefreshThread;
+    wxTimer searchDebounceTimer;
 };
