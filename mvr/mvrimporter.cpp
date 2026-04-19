@@ -18,11 +18,14 @@
 #include "mvrimporter.h"
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
+#include "credentialstore.h"
 #include "gdtfdictionary.h"
+#include "gdtfnet.h"
 #include "gdtfloader.h"
 #include "gdtf_fixture_category.h"
 #include "matrixutils.h"
 #include "primitive_model_resources.h"
+#include "projectutils.h"
 #include "sceneobject.h"
 #include "support.h"
 #include "groupobject.h"
@@ -30,7 +33,9 @@
 #include "trussloader.h"
 
 #include "consolepanel.h"
+#include "logindialog.h"
 #include "logger.h"
+#include "json.hpp"
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -45,6 +50,7 @@
 #include <iostream>
 #include <optional>
 #include <random>
+#include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -441,11 +447,21 @@ struct GdtfConflict {
   std::string type;
   std::string mvrPath;
   std::string appPath;
+  std::string manufacturer;
+  std::string fixtureName;
+  std::string modeName;
+  int footprint = 0;
 };
 
-static std::unordered_map<std::string, std::string>
+enum class GdtfConflictChoice { Mvr, App, Download };
+
+struct GdtfConflictSelection {
+  GdtfConflictChoice choice = GdtfConflictChoice::App;
+};
+
+static std::unordered_map<std::string, GdtfConflictSelection>
 PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
-  std::unordered_map<std::string, std::string> chosen;
+  std::unordered_map<std::string, GdtfConflictSelection> chosen;
   if (conflicts.empty())
     return chosen;
 
@@ -458,29 +474,36 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
 
   wxDialog dlg(nullptr, wxID_ANY, "GDTF conflicts");
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
-  wxFlexGridSizer *grid = new wxFlexGridSizer(3, 5, 5);
+  wxFlexGridSizer *grid = new wxFlexGridSizer(4, 5, 5);
   grid->Add(new wxStaticText(&dlg, wxID_ANY, "Type"));
   grid->Add(new wxStaticText(&dlg, wxID_ANY, "MVR"));
   grid->Add(new wxStaticText(&dlg, wxID_ANY, "App"));
+  grid->Add(new wxStaticText(&dlg, wxID_ANY, "Download GDTF"));
 
   std::vector<wxRadioButton *> mvrBtns;
   std::vector<wxRadioButton *> appBtns;
+  std::vector<wxRadioButton *> downloadBtns;
   for (const auto &c : conflicts) {
     grid->Add(
         new wxStaticText(&dlg, wxID_ANY, wxString::FromUTF8(c.type.c_str())));
     wxRadioButton *mvr = new wxRadioButton(
         &dlg, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
     wxRadioButton *app = new wxRadioButton(&dlg, wxID_ANY, "");
+    wxRadioButton *download = new wxRadioButton(&dlg, wxID_ANY, "");
     app->SetValue(true);
     grid->Add(mvr, 0, wxALIGN_CENTER);
     grid->Add(app, 0, wxALIGN_CENTER);
+    grid->Add(download, 0, wxALIGN_CENTER);
     mvrBtns.push_back(mvr);
     appBtns.push_back(app);
+    downloadBtns.push_back(download);
   }
 
   wxBoxSizer *batchSelectionSizer = new wxBoxSizer(wxHORIZONTAL);
   wxButton *selectAllMvrButton = new wxButton(&dlg, wxID_ANY, "Select all MVR");
   wxButton *selectAllAppButton = new wxButton(&dlg, wxID_ANY, "Select all App");
+  wxButton *selectAllDownloadButton =
+      new wxButton(&dlg, wxID_ANY, "Select all Download");
   selectAllAppButton->Bind(wxEVT_BUTTON,
                            [&appBtns, &selectAll](wxCommandEvent &) {
                              selectAll(appBtns);
@@ -489,8 +512,13 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
                            [&mvrBtns, &selectAll](wxCommandEvent &) {
                              selectAll(mvrBtns);
                            });
+  selectAllDownloadButton->Bind(wxEVT_BUTTON,
+                                [&downloadBtns, &selectAll](wxCommandEvent &) {
+                                  selectAll(downloadBtns);
+                                });
   batchSelectionSizer->Add(selectAllMvrButton, 0, wxRIGHT, 5);
-  batchSelectionSizer->Add(selectAllAppButton, 0);
+  batchSelectionSizer->Add(selectAllAppButton, 0, wxRIGHT, 5);
+  batchSelectionSizer->Add(selectAllDownloadButton, 0);
 
   topSizer->Add(batchSelectionSizer, 0, wxLEFT | wxRIGHT | wxTOP, 10);
   topSizer->Add(grid, 1, wxALL, 10);
@@ -504,11 +532,160 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
 
   for (size_t i = 0; i < conflicts.size(); ++i) {
     const auto &c = conflicts[i];
-    chosen[c.type] = mvrBtns[i]->GetValue() ? c.mvrPath : c.appPath;
+    GdtfConflictSelection selection;
+    if (mvrBtns[i]->GetValue()) {
+      selection.choice = GdtfConflictChoice::Mvr;
+    } else if (downloadBtns[i]->GetValue()) {
+      selection.choice = GdtfConflictChoice::Download;
+    } else {
+      selection.choice = GdtfConflictChoice::App;
+    }
+    chosen[c.type] = selection;
   }
   return chosen;
 }
 
+struct GdtfCatalogModeCandidate {
+  std::string name;
+  int footprint = 0;
+};
+
+struct GdtfCatalogEntry {
+  std::string rid;
+  std::string manufacturer;
+  std::string fixtureName;
+  std::vector<GdtfCatalogModeCandidate> modes;
+  long long lastModifiedUnix = 0;
+  float rating = 0.0f;
+};
+
+struct GdtfDownloadMatch {
+  bool found = false;
+  std::string rid;
+  std::string modeName;
+};
+
+static std::string NormalizeForGdtfMatch(const std::string &text) {
+  static const std::array<std::string, 16> kSuffixes = {
+      " lighting", " light", " gmbh",   " ltd",         " inc", " corp",
+      " co",       " llc",   " electronics", " ag",     " sa",  " sl",
+      " bv",       " nv",    " s.a.",   " s.l."};
+  std::string normalized = ToLowerAscii(Trim(text));
+  bool removed = false;
+  do {
+    removed = false;
+    for (const auto &suffix : kSuffixes) {
+      if (normalized.size() >= suffix.size() &&
+          normalized.rfind(suffix) == normalized.size() - suffix.size()) {
+        normalized = Trim(normalized.substr(0, normalized.size() - suffix.size()));
+        removed = true;
+      }
+    }
+  } while (removed);
+
+  std::string compact;
+  compact.reserve(normalized.size());
+  for (unsigned char ch : normalized) {
+    if (std::isalnum(ch))
+      compact.push_back(static_cast<char>(ch));
+  }
+  return compact;
+}
+
+static std::vector<GdtfCatalogEntry>
+ParseGdtfCatalogEntries(const std::string &listData) {
+  using json = nlohmann::json;
+  std::vector<GdtfCatalogEntry> entries;
+  json j = json::parse(listData, nullptr, false);
+  if (j.is_discarded())
+    return entries;
+
+  if (j.is_object()) {
+    if (j.contains("data"))
+      j = j["data"];
+    if (j.contains("fixtures"))
+      j = j["fixtures"];
+    if (j.contains("list"))
+      j = j["list"];
+  }
+  if (!j.is_array())
+    return entries;
+
+  auto jsonToString = [](const json &v) -> std::string {
+    if (v.is_string())
+      return v.get<std::string>();
+    if (v.is_number())
+      return v.dump();
+    return {};
+  };
+  auto jsonToLongLong = [](const json &v) -> long long {
+    if (v.is_number_integer())
+      return v.get<long long>();
+    if (v.is_number())
+      return static_cast<long long>(v.get<double>());
+    if (v.is_string()) {
+      long long parsed = 0;
+      auto begin = v.get_ref<const std::string &>().data();
+      auto end = begin + v.get_ref<const std::string &>().size();
+      std::from_chars_result result = std::from_chars(begin, end, parsed);
+      if (result.ec == std::errc{})
+        return parsed;
+    }
+    return 0;
+  };
+  auto jsonToFloat = [](const json &v) -> float {
+    if (v.is_number())
+      return static_cast<float>(v.get<double>());
+    if (v.is_string()) {
+      try {
+        return std::stof(v.get<std::string>());
+      } catch (...) {
+      }
+    }
+    return 0.0f;
+  };
+  auto parseModes = [&](const json &item) {
+    std::vector<GdtfCatalogModeCandidate> modes;
+    if (item.contains("dmxModes") && item["dmxModes"].is_array()) {
+      for (const auto &mode : item["dmxModes"]) {
+        GdtfCatalogModeCandidate parsed;
+        if (mode.is_object()) {
+          parsed.name = jsonToString(mode.value("name", json{}));
+          parsed.footprint =
+              static_cast<int>(jsonToLongLong(mode.value("dmxFootprint", json{})));
+        }
+        if (!parsed.name.empty() || parsed.footprint > 0)
+          modes.push_back(std::move(parsed));
+      }
+    }
+    return modes;
+  };
+
+  for (const auto &item : j) {
+    if (!item.is_object())
+      continue;
+    GdtfCatalogEntry entry;
+    entry.rid = jsonToString(item.value("rid", json{}));
+    if (entry.rid.empty())
+      entry.rid = jsonToString(item.value("revisionId", json{}));
+    entry.manufacturer = jsonToString(item.value("manufacturer", json{}));
+    if (entry.manufacturer.empty())
+      entry.manufacturer = jsonToString(item.value("brand", json{}));
+    entry.fixtureName = jsonToString(item.value("fixture", json{}));
+    if (entry.fixtureName.empty())
+      entry.fixtureName = jsonToString(item.value("name", json{}));
+    entry.lastModifiedUnix = jsonToLongLong(item.value("lastModified", json{}));
+    entry.rating = jsonToFloat(item.value("rating", json{}));
+    entry.modes = parseModes(item);
+    if (!entry.rid.empty())
+      entries.push_back(std::move(entry));
+  }
+  return entries;
+}
+
+static std::optional<CredentialStore::Credentials> LoadGdtfCredentials() {
+  return CredentialStore::Load();
+}
 
 
 static void ApplySupportHoistInfoDefaults(Support &support) {
@@ -1581,9 +1758,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               fixture.weightKg = parsed;
           }
         }
+        std::string resolvedGdtfPathForFixture;
         if (!fixture.gdtfSpec.empty()) {
           fixture.gdtfSpec = RemapArchivePathIfNeeded(fixture.gdtfSpec);
           const std::string &resolvedGdtfPath = resolveGdtfPathCached(fixture.gdtfSpec);
+          resolvedGdtfPathForFixture = resolvedGdtfPath;
           fixture.gdtfSpec = normalizeGdtfSpecForScene(fixture.gdtfSpec);
           const GdtfFixtureMetadata &metadata = getFixtureMetadata(resolvedGdtfPath);
           fixture.typeName = metadata.fixtureName;
@@ -1697,9 +1876,20 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
 
         if (applyDictionary && dictionaryEntry && !fixture.typeName.empty()) {
+          int footprint = 0;
+          if (!resolvedGdtfPathForFixture.empty() && !fixture.gdtfMode.empty()) {
+            footprint = getGdtfModeChannelCountCached(resolvedGdtfPathForFixture,
+                                                      fixture.gdtfMode);
+          }
           pendingGdtfConflictByType.try_emplace(
               fixture.typeName,
-              GdtfConflict{fixture.typeName, fixture.gdtfSpec, dictionaryEntry->path});
+              GdtfConflict{fixture.typeName,
+                           fixture.gdtfSpec,
+                           dictionaryEntry->path,
+                           "",
+                           fixture.typeName,
+                           fixture.gdtfMode,
+                           footprint});
         }
 
         scene.fixtures[fixture.uuid] = fixture;
@@ -2355,7 +2545,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
         const auto &dictEntry = getDictionaryEntryCached(f.typeName);
         if (dictEntry && conflictTypes.insert(f.typeName).second) {
-          gdtfConflicts.push_back({f.typeName, f.gdtfSpec, dictEntry->path});
+          const std::string resolvedGdtfPath = resolveFixtureGdtfPathForRead(f.gdtfSpec);
+          const int footprint =
+              (!resolvedGdtfPath.empty() && !f.gdtfMode.empty())
+                  ? getGdtfModeChannelCountCached(resolvedGdtfPath, f.gdtfMode)
+                  : 0;
+          gdtfConflicts.push_back({f.typeName, f.gdtfSpec, dictEntry->path, "",
+                                   f.typeName, f.gdtfMode, footprint});
         }
       }
     }
@@ -2364,11 +2560,206 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         reportProgress("Conflict dialog:show");
         auto choices = PromptGdtfConflicts(gdtfConflicts);
         reportProgress("Conflict dialog:hide");
-        reportProgress("Applying GDTF conflict selection...");
-        const int totalFixturesForConflictApply =
-            static_cast<int>(scene.fixtures.size());
-        int appliedFixturesForConflictApply = 0;
-        for (auto &[uid, f] : scene.fixtures) {
+        if (!choices.empty()) {
+          std::unordered_map<std::string, std::string> selectedPathByType;
+          std::unordered_map<std::string, std::string> selectedModeByType;
+          std::vector<GdtfConflict> downloadRequests;
+          for (const auto &conflict : gdtfConflicts) {
+            const auto it = choices.find(conflict.type);
+            if (it == choices.end() ||
+                it->second.choice == GdtfConflictChoice::App) {
+              selectedPathByType[conflict.type] = conflict.appPath;
+            } else if (it->second.choice == GdtfConflictChoice::Mvr) {
+              selectedPathByType[conflict.type] = conflict.mvrPath;
+            } else {
+              downloadRequests.push_back(conflict);
+              selectedPathByType[conflict.type] = conflict.mvrPath;
+            }
+          }
+
+          if (!downloadRequests.empty()) {
+          auto parseAddressToAbsoluteChannel = [](const std::string &address) {
+            const std::string trimmed = Trim(address);
+            const size_t dotPos = trimmed.find('.');
+            if (dotPos == std::string::npos)
+              return -1;
+            int universe = std::atoi(trimmed.substr(0, dotPos).c_str());
+            int channel = std::atoi(trimmed.substr(dotPos + 1).c_str());
+            if (universe <= 0 || channel <= 0)
+              return -1;
+            return (universe - 1) * 512 + channel;
+          };
+          std::unordered_map<std::string, std::set<int>> addressesByType;
+          for (const auto &[fixtureUuid, fixture] : scene.fixtures) {
+            (void)fixtureUuid;
+            const int absoluteChannel = parseAddressToAbsoluteChannel(fixture.address);
+            if (absoluteChannel > 0)
+              addressesByType[fixture.typeName].insert(absoluteChannel);
+          }
+          auto inferFootprintFromAddresses = [&](const std::string &typeName) {
+            auto it = addressesByType.find(typeName);
+            if (it == addressesByType.end() || it->second.size() < 2)
+              return 0;
+            int best = 0;
+            int previous = -1;
+            for (int value : it->second) {
+              if (previous > 0) {
+                const int diff = value - previous;
+                if (diff > 0 && (best == 0 || diff < best))
+                  best = diff;
+              }
+              previous = value;
+            }
+            return best;
+          };
+
+          std::optional<CredentialStore::Credentials> credentials = LoadGdtfCredentials();
+          if (!credentials || credentials->username.empty() || credentials->password.empty()) {
+            GdtfLoginDialog loginDlg(nullptr, "", "");
+            if (loginDlg.ShowModal() == wxID_OK) {
+              CredentialStore::Credentials entered;
+              entered.username = Trim(loginDlg.GetUsername());
+              entered.password = loginDlg.GetPassword();
+              if (!entered.username.empty() && !entered.password.empty()) {
+                CredentialStore::Save(entered);
+                credentials = entered;
+              }
+            }
+          }
+
+          if (credentials && !credentials->username.empty() && !credentials->password.empty()) {
+            wxString cookieFileWx = wxFileName::CreateTempFileName("gdtf_mvr_import_");
+            const std::string cookieFile = cookieFileWx.ToStdString();
+            long loginHttpCode = 0;
+            bool loginOk = GdtfLogin(credentials->username, credentials->password,
+                                     cookieFile, loginHttpCode);
+            if (loginOk && loginHttpCode == 200) {
+              std::string listData;
+              long listHttpCode = 0;
+              if (GdtfGetList(cookieFile, listData, &listHttpCode) && listHttpCode == 200) {
+                const std::vector<GdtfCatalogEntry> catalogEntries =
+                    ParseGdtfCatalogEntries(listData);
+                if (!catalogEntries.empty()) {
+                  wxDialog downloadInfoDialog(nullptr, wxID_ANY,
+                                              "GDTF download queue",
+                                              wxDefaultPosition, wxSize(720, 420));
+                  wxBoxSizer *infoSizer = new wxBoxSizer(wxVERTICAL);
+                  wxTextCtrl *downloadInfoLog = new wxTextCtrl(
+                      &downloadInfoDialog, wxID_ANY, "",
+                      wxDefaultPosition, wxDefaultSize,
+                      wxTE_MULTILINE | wxTE_READONLY);
+                  infoSizer->Add(downloadInfoLog, 1, wxEXPAND | wxALL, 8);
+                  downloadInfoDialog.SetSizer(infoSizer);
+                  downloadInfoDialog.Show();
+                  wxYieldIfNeeded();
+                  wxProgressDialog progressDialog(
+                      "Downloading GDTFs",
+                      "Preparing automatic GDTF match...",
+                      static_cast<int>(downloadRequests.size()), nullptr,
+                      wxPD_APP_MODAL | wxPD_AUTO_HIDE | wxPD_ELAPSED_TIME);
+                  for (size_t i = 0; i < downloadRequests.size(); ++i) {
+                    GdtfConflict req = downloadRequests[i];
+                    if (req.footprint <= 0)
+                      req.footprint = inferFootprintFromAddresses(req.type);
+                    const std::string targetManufacturer =
+                        NormalizeForGdtfMatch(req.manufacturer);
+                    const std::string targetFixture =
+                        NormalizeForGdtfMatch(req.fixtureName.empty() ? req.type
+                                                                      : req.fixtureName);
+                    double bestScore = -1.0;
+                    GdtfDownloadMatch bestMatch;
+                    for (const auto &entry : catalogEntries) {
+                      const std::string catalogFixture =
+                          NormalizeForGdtfMatch(entry.fixtureName);
+                      if (catalogFixture != targetFixture)
+                        continue;
+                      const std::string catalogManufacturer =
+                          NormalizeForGdtfMatch(entry.manufacturer);
+                      if (!targetManufacturer.empty() &&
+                          catalogManufacturer != targetManufacturer) {
+                        continue;
+                      }
+
+                      int baseScore = 50;
+                      std::string matchedModeName;
+                      if (req.footprint > 0) {
+                        baseScore = 0;
+                        for (const auto &mode : entry.modes) {
+                          if (mode.footprint == req.footprint) {
+                            baseScore = 100;
+                            matchedModeName = mode.name;
+                            break;
+                          }
+                        }
+                      }
+                      const double timeBonus =
+                          static_cast<double>(entry.lastModifiedUnix) /
+                          (86400.0 * 30.0);
+                      const double ratingBonus = static_cast<double>(entry.rating) * 2.0;
+                      const double total = static_cast<double>(baseScore) + timeBonus +
+                                           ratingBonus;
+                      if (total > bestScore) {
+                        bestScore = total;
+                        bestMatch.found = true;
+                        bestMatch.rid = entry.rid;
+                        bestMatch.modeName = matchedModeName;
+                      }
+                    }
+
+                    wxString progressMessage = wxString::Format(
+                        "Resolving %s (%zu/%zu)...",
+                        wxString::FromUTF8(req.type), i + 1, downloadRequests.size());
+                    progressDialog.Update(static_cast<int>(i), progressMessage);
+                    wxYieldIfNeeded();
+                    if (!bestMatch.found || bestMatch.rid.empty()) {
+                      downloadInfoLog->AppendText(wxString::Format(
+                          "• %s -> no catalog match found. Keeping MVR original.\n",
+                          wxString::FromUTF8(req.type)));
+                      wxYieldIfNeeded();
+                      continue;
+                    }
+
+                    fs::path destinationDir =
+                        fs::u8path(ProjectUtils::GetWritableLibraryPath("fixtures"));
+                    std::string fileName = req.type;
+                    std::replace(fileName.begin(), fileName.end(), '/', '_');
+                    std::replace(fileName.begin(), fileName.end(), '\\', '_');
+                    fs::path destinationPath = destinationDir / (fileName + ".gdtf");
+                    if (fs::exists(destinationPath))
+                      destinationPath = destinationDir /
+                                        (fileName + "_" + bestMatch.rid + ".gdtf");
+
+                    long downloadHttpCode = 0;
+                    const bool downloaded =
+                        GdtfDownload(bestMatch.rid, destinationPath.string(), cookieFile,
+                                     downloadHttpCode);
+                    if (downloaded && downloadHttpCode == 200) {
+                      selectedPathByType[req.type] = destinationPath.string();
+                      if (!bestMatch.modeName.empty())
+                        selectedModeByType[req.type] = bestMatch.modeName;
+                      downloadInfoLog->AppendText(wxString::Format(
+                          "• %s -> downloaded and assigned.\n",
+                          wxString::FromUTF8(req.type)));
+                    } else {
+                      downloadInfoLog->AppendText(wxString::Format(
+                          "• %s -> download failed (HTTP %ld). Keeping MVR original.\n",
+                          wxString::FromUTF8(req.type), downloadHttpCode));
+                    }
+                    wxYieldIfNeeded();
+                  }
+                  downloadInfoDialog.Destroy();
+                }
+              }
+            }
+            wxRemoveFile(cookieFileWx);
+          }
+          }
+
+          reportProgress("Applying GDTF conflict selection...");
+          const int totalFixturesForConflictApply =
+              static_cast<int>(scene.fixtures.size());
+          int appliedFixturesForConflictApply = 0;
+          for (auto &[uid, f] : scene.fixtures) {
           ++appliedFixturesForConflictApply;
           if (totalFixturesForConflictApply > 0 &&
               (appliedFixturesForConflictApply == 1 ||
@@ -2378,16 +2769,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                            appliedFixturesForConflictApply,
                            totalFixturesForConflictApply);
           }
-          auto typeKey = f.typeName;
-          auto it = choices.find(typeKey);
-          if (it != choices.end()) {
+            auto typeKey = f.typeName;
+            auto it = choices.find(typeKey);
+            if (it != choices.end()) {
             const std::string resolvedGdtfPath =
                 resolveFixtureGdtfPathForRead(f.gdtfSpec);
             const int previousChannelCount =
                 (!resolvedGdtfPath.empty() && !f.gdtfMode.empty())
                     ? getGdtfModeChannelCountCached(resolvedGdtfPath, f.gdtfMode)
                     : -1;
-            f.gdtfSpec = it->second;
+              const auto selectedPathIt = selectedPathByType.find(typeKey);
+              if (selectedPathIt == selectedPathByType.end())
+                continue;
+              f.gdtfSpec = selectedPathIt->second;
             f.gdtfSpec = ToSceneRelativePathIfPossible(
                 scene.basePath, fs::u8path(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
             std::string parsed =
@@ -2399,10 +2793,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               if (f.gdtfMode.empty())
                 f.gdtfMode = dictEntry->mode;
             }
-            f.gdtfMode = resolveExistingGdtfModeCached(
-                resolveFixtureGdtfPathForRead(f.gdtfSpec), f.gdtfMode,
-                previousChannelCount > 0 ? std::optional<int>(previousChannelCount)
-                                         : std::nullopt);
+              const auto selectedModeIt = selectedModeByType.find(typeKey);
+              if (selectedModeIt != selectedModeByType.end())
+                f.gdtfMode = selectedModeIt->second;
+              f.gdtfMode = resolveExistingGdtfModeCached(
+                  resolveFixtureGdtfPathForRead(f.gdtfSpec), f.gdtfMode,
+                  previousChannelCount > 0 ? std::optional<int>(previousChannelCount)
+                                           : std::nullopt);
+            }
           }
         }
       } else {
