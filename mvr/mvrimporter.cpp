@@ -2720,7 +2720,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   wxTheApp ? wxDynamicCast(wxTheApp->GetTopWindow(), wxWindow)
                            : nullptr;
               wxDialog downloadInfoDialog(dialogParent, wxID_ANY, "GDTF download queue",
-                                          wxDefaultPosition, wxSize(760, 460));
+                                          wxDefaultPosition, wxSize(980, 580));
               wxBoxSizer *infoSizer = new wxBoxSizer(wxVERTICAL);
               enum class DownloadRowState {
                 Pending,
@@ -2729,19 +2729,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 Fallback
               };
 
-              auto rowBackgroundColor = [](DownloadRowState state) -> wxColour {
-                switch (state) {
-                case DownloadRowState::Downloaded:
-                  return wxColour(237, 247, 237);
-                case DownloadRowState::Fallback:
-                  return wxColour(255, 248, 225);
-                case DownloadRowState::Downloading:
-                  return wxColour(230, 242, 255);
-                case DownloadRowState::Pending:
-                default:
-                  return *wxWHITE;
-                }
-              };
               auto rowTextColor = [](DownloadRowState state) -> wxColour {
                 switch (state) {
                 case DownloadRowState::Downloaded:
@@ -2774,10 +2761,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               wxListCtrl *downloadInfoList = new wxListCtrl(
                   &downloadInfoDialog, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                   wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES);
-              downloadInfoList->InsertColumn(0, "Fixture type", wxLIST_FORMAT_LEFT, 230);
-              downloadInfoList->InsertColumn(1, "Selected GDTF", wxLIST_FORMAT_LEFT, 320);
-              downloadInfoList->InsertColumn(2, "Status", wxLIST_FORMAT_LEFT, 150);
-              downloadInfoList->InsertColumn(3, "Details", wxLIST_FORMAT_LEFT, 260);
+              downloadInfoList->InsertColumn(0, "Fixture type", wxLIST_FORMAT_LEFT, 250);
+              downloadInfoList->InsertColumn(1, "Selected GDTF", wxLIST_FORMAT_LEFT, 380);
+              downloadInfoList->InsertColumn(2, "Status", wxLIST_FORMAT_LEFT, 170);
+              downloadInfoList->InsertColumn(3, "Details", wxLIST_FORMAT_LEFT, 360);
               infoSizer->Add(downloadInfoList, 1, wxEXPAND | wxALL, 8);
               wxStaticText *footerSummary =
                   new wxStaticText(&downloadInfoDialog, wxID_ANY,
@@ -2842,7 +2829,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 downloadInfoList->SetItem(row, 2, status);
                 downloadInfoList->SetItem(row, 3, details);
                 downloadInfoList->SetItemTextColour(row, rowTextColor(state));
-                downloadInfoList->SetItemBackgroundColour(row, rowBackgroundColor(state));
                 rowStateByType[typeKey] = state;
                 refreshFooterSummary();
               };
@@ -2856,8 +2842,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 downloadInfoList->SetItem(row, 2, "Pending");
                 downloadInfoList->SetItem(row, 3, "Waiting to match catalog entry");
                 downloadInfoList->SetItemTextColour(row, rowTextColor(DownloadRowState::Pending));
-                downloadInfoList->SetItemBackgroundColour(
-                    row, rowBackgroundColor(DownloadRowState::Pending));
                 rowByType[req.type] = row;
                 rowStateByType[req.type] = DownloadRowState::Pending;
               }
