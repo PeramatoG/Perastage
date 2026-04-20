@@ -3499,7 +3499,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (totalFixturesForCategoryApply > 0 &&
         (appliedFixturesForCategoryApply == 1 ||
          appliedFixturesForCategoryApply == totalFixturesForCategoryApply ||
-         appliedFixturesForCategoryApply % 50 == 0)) {
+         appliedFixturesForCategoryApply % 10 == 0)) {
       reportProgress("Applying fixture categories...",
                      appliedFixturesForCategoryApply,
                      totalFixturesForCategoryApply);

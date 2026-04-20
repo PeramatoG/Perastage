@@ -97,6 +97,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           }
 
           importProgress->Update(clampedCompleted, stageText);
+          wxYieldIfNeeded();
           setImportStatus(wxString::Format("MVR import: %s (%d/%d)", stageText,
                                            clampedCompleted, safeTotal));
           return;
@@ -104,6 +105,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
 
         if (importProgress) {
           importProgress->Pulse(wxString::FromUTF8(stage));
+          wxYieldIfNeeded();
         }
         setImportStatus("MVR import: " + wxString::FromUTF8(stage));
       });
