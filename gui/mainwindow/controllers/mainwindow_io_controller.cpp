@@ -92,6 +92,12 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
             importProgress = std::make_unique<wxProgressDialog>(
                 title, stageText, safeTotal + 1, ownerRef.get(),
                 wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);
+            importProgress->Bind(wxEVT_CLOSE_WINDOW, [](wxCloseEvent &event) {
+              event.Veto();
+            });
+#if wxCHECK_VERSION(3, 1, 0)
+            importProgress->EnableCloseButton(false);
+#endif
           } else {
             importProgress->SetRange(safeTotal + 1);
           }
