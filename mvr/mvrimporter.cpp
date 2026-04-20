@@ -26,6 +26,7 @@
 #include "gdtfnet.h"
 #endif
 #include "gdtfloader.h"
+#include "gdtf_catalog_service.h"
 #include "gdtf_fixture_category.h"
 #include "matrixutils.h"
 #include "primitive_model_resources.h"
@@ -2884,8 +2885,31 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               std::string listPayload;
               long listHttpCode = 0;
               reportProgress("Downloading selected GDTFs: loading catalog...");
-              if (GdtfGetList(cookieFile, listPayload, &listHttpCode) &&
-                  listHttpCode == 200) {
+
+              GdtfCatalogService catalogService;
+              const std::string refreshNowUtc =
+                  wxDateTime::UNow().FormatISOCombined(' ').ToStdString();
+              const GdtfCatalogRefreshResult catalogResult =
+                  catalogService.RefreshCatalogIfStale(
+                      [&](std::string &onlineListData) {
+                        return GdtfGetList(cookieFile, onlineListData,
+                                           &listHttpCode) &&
+                               listHttpCode == 200;
+                      },
+                      refreshNowUtc);
+              if (catalogResult.snapshot) {
+                listPayload = catalogResult.snapshot->listData;
+              }
+              reportProgress(
+                  wxString::Format("[METRIC] GDTF import catalog cache_hit=%d cache_miss=%d cache_age_s=%lld refresh_attempted=%d refresh_succeeded=%d",
+                                   catalogResult.metrics.cacheHit ? 1 : 0,
+                                   catalogResult.metrics.cacheMiss ? 1 : 0,
+                                   static_cast<long long>(catalogResult.metrics.cacheAgeSeconds),
+                                   catalogResult.metrics.refreshAttempted ? 1 : 0,
+                                   catalogResult.metrics.refreshSucceeded ? 1 : 0)
+                      .ToStdString());
+
+              if (!listPayload.empty()) {
                 const std::vector<GdtfCatalogEntry> catalogEntries =
                     ParseGdtfCatalogEntries(listPayload);
                 summaryText->SetLabel(wxString::Format(
@@ -2998,7 +3022,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 progressPhaseText->SetLabel("Catalog load failed. Keeping MVR originals.");
               }
               isDownloadInfoFinished = true;
-              if (listHttpCode == 200) {
+              if (!listPayload.empty()) {
                 progressPhaseText->SetLabel("Queue finished.");
               }
               summaryText->SetLabel(summaryText->GetLabel() + " - queue finished");
