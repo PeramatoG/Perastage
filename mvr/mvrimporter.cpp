@@ -748,6 +748,24 @@ ParseGdtfCatalogEntries(const std::string &listData) {
       return v.get<std::string>();
     if (v.is_number())
       return v.dump();
+    if (v.is_array()) {
+      std::string result;
+      for (size_t i = 0; i < v.size(); ++i) {
+        if (i > 0)
+          result += ", ";
+        const auto &el = v[i];
+        if (el.is_string())
+          result += el.get<std::string>();
+        else if (el.is_object() && el.contains("name") &&
+                 el["name"].is_string())
+          result += el["name"].get<std::string>();
+        else
+          result += el.dump();
+      }
+      return result;
+    }
+    if (v.is_object())
+      return v.dump();
     return {};
   };
   auto jsonToLongLong = [](const json &v) -> long long {
@@ -776,6 +794,16 @@ ParseGdtfCatalogEntries(const std::string &listData) {
     }
     return 0.0f;
   };
+  auto getValue = [&](const json &item,
+                      std::initializer_list<const char *> keys) -> std::string {
+    for (const char *key : keys) {
+      auto it = item.find(key);
+      if (it != item.end())
+        return jsonToString(*it);
+    }
+    return {};
+  };
+
   auto parseModes = [&](const json &item) {
     std::vector<GdtfCatalogModeCandidate> modes;
     if (item.contains("dmxModes") && item["dmxModes"].is_array()) {
@@ -797,15 +825,9 @@ ParseGdtfCatalogEntries(const std::string &listData) {
     if (!item.is_object())
       continue;
     GdtfCatalogEntry entry;
-    entry.rid = jsonToString(item.value("rid", json{}));
-    if (entry.rid.empty())
-      entry.rid = jsonToString(item.value("revisionId", json{}));
-    entry.manufacturer = jsonToString(item.value("manufacturer", json{}));
-    if (entry.manufacturer.empty())
-      entry.manufacturer = jsonToString(item.value("brand", json{}));
-    entry.fixtureName = jsonToString(item.value("fixture", json{}));
-    if (entry.fixtureName.empty())
-      entry.fixtureName = jsonToString(item.value("name", json{}));
+    entry.rid = getValue(item, {"rid", "revisionId"});
+    entry.manufacturer = getValue(item, {"manufacturer", "brand", "mfr"});
+    entry.fixtureName = getValue(item, {"fixture", "name", "model"});
     entry.lastModifiedUnix = jsonToLongLong(item.value("lastModified", json{}));
     entry.rating = jsonToFloat(item.value("rating", json{}));
     entry.modes = parseModes(item);
