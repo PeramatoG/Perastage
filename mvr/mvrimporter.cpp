@@ -665,6 +665,65 @@ static std::string NormalizeForGdtfMatch(const std::string &text) {
   return compact;
 }
 
+static std::string StripParenthesizedSections(const std::string &text) {
+  std::string stripped;
+  stripped.reserve(text.size());
+  int depth = 0;
+  for (char ch : text) {
+    if (ch == '(') {
+      ++depth;
+      continue;
+    }
+    if (ch == ')') {
+      if (depth > 0)
+        --depth;
+      continue;
+    }
+    if (depth == 0)
+      stripped.push_back(ch);
+  }
+  return Trim(stripped);
+}
+
+static bool IsLikelyFixtureNameMatch(const std::string &catalogFixtureName,
+                                     const std::string &requestedFixtureName) {
+  const std::string catalogNormalized =
+      NormalizeForGdtfMatch(catalogFixtureName);
+  const std::string requestedNormalized =
+      NormalizeForGdtfMatch(requestedFixtureName);
+
+  if (catalogNormalized.empty() || requestedNormalized.empty())
+    return false;
+  if (catalogNormalized == requestedNormalized)
+    return true;
+
+  const std::string catalogNoParentheses =
+      NormalizeForGdtfMatch(StripParenthesizedSections(catalogFixtureName));
+  const std::string requestedNoParentheses =
+      NormalizeForGdtfMatch(StripParenthesizedSections(requestedFixtureName));
+  if (!catalogNoParentheses.empty() && !requestedNoParentheses.empty() &&
+      catalogNoParentheses == requestedNoParentheses) {
+    return true;
+  }
+
+  const bool containsMatch =
+      (catalogNormalized.size() >= 6 &&
+       requestedNormalized.find(catalogNormalized) != std::string::npos) ||
+      (requestedNormalized.size() >= 6 &&
+       catalogNormalized.find(requestedNormalized) != std::string::npos);
+  if (!containsMatch)
+    return false;
+
+  const std::string catalogDigits = ExtractDigitSignature(catalogNormalized);
+  const std::string requestedDigits = ExtractDigitSignature(requestedNormalized);
+  if (!catalogDigits.empty() && !requestedDigits.empty() &&
+      catalogDigits != requestedDigits) {
+    return false;
+  }
+
+  return true;
+}
+
 static std::vector<GdtfCatalogEntry>
 ParseGdtfCatalogEntries(const std::string &listData) {
   using json = nlohmann::json;
@@ -2953,9 +3012,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   GdtfDownloadMatch bestMatch;
                   double bestScore = -1.0;
                   for (const auto &entry : catalogEntries) {
-                    if (NormalizeForGdtfMatch(entry.fixtureName) !=
-                        NormalizeForGdtfMatch(req.fixtureName.empty() ? req.type
-                                                                       : req.fixtureName)) {
+                    const std::string requestedFixtureName =
+                        req.fixtureName.empty() ? req.type : req.fixtureName;
+                    if (!IsLikelyFixtureNameMatch(entry.fixtureName,
+                                                  requestedFixtureName)) {
                       continue;
                     }
                     int baseScore = 50;
