@@ -91,7 +91,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
             importOverlay.reset();
             importProgress = std::make_unique<wxProgressDialog>(
                 title, stageText, safeTotal, ownerRef.get(),
-                wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);
+                wxPD_SMOOTH | wxPD_APP_MODAL);
           } else {
             importProgress->SetRange(safeTotal);
           }
@@ -132,6 +132,11 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
       ownerRef->consolePanel->AppendMessage("Failed to import " + filePath);
     return false;
   }
+
+  // The blocking import feedback should end once the scene has been created.
+  importProgress.reset();
+  importOverlay.reset();
+  importDisabler.reset();
 
   setImportStatus("MVR import: refreshing panels...");
   if (ownerRef->consolePanel)
@@ -181,10 +186,6 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   // dictionary colors still receive a color by type/group.
   wxCommandEvent autoColorEvent;
   ownerRef->OnAutoColor(autoColorEvent);
-
-  importProgress.reset();
-  importOverlay.reset();
-  importDisabler.reset();
 
   if (ownerRef->GetStatusBar()) {
     const wxString fileName = wxFileName(filePath).GetFullName();
