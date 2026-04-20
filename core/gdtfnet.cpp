@@ -18,6 +18,7 @@
 #include "gdtfnet.h"
 #include <curl/curl.h>
 #include <fstream>
+#include <utility>
 
 namespace {
 size_t WriteToString(void* contents, size_t size, size_t nmemb, void* userp) {
@@ -99,17 +100,51 @@ size_t WriteToFile(void* contents, size_t size, size_t nmemb, void* userp) {
     ofs->write(static_cast<char*>(contents), size * nmemb);
     return size * nmemb;
 }
+
+struct DownloadProgressContext {
+    std::function<void(const GdtfDownloadProgress&)> progressCallback;
+    std::function<bool()> shouldCancelCallback;
+};
+
+int ReportDownloadProgress(void* clientp,
+                           curl_off_t dltotal,
+                           curl_off_t dlnow,
+                           curl_off_t /*ultotal*/,
+                           curl_off_t /*ulnow*/) {
+    DownloadProgressContext* ctx = static_cast<DownloadProgressContext*>(clientp);
+    if (!ctx)
+        return 0;
+
+    if (ctx->shouldCancelCallback && ctx->shouldCancelCallback()) {
+        return 1;
+    }
+
+    if (ctx->progressCallback) {
+        GdtfDownloadProgress progress;
+        progress.downloadedBytes = static_cast<long long>(dlnow);
+        progress.totalBytes = static_cast<long long>(dltotal);
+        if (dltotal > 0) {
+            progress.percentage = (static_cast<double>(dlnow) * 100.0) /
+                                  static_cast<double>(dltotal);
+        }
+        ctx->progressCallback(progress);
+    }
+    return 0;
+}
 }
 
 bool GdtfDownload(const std::string& rid,
                   const std::string& destFile,
                   const std::string& cookieFile,
-                  long& httpCode)
+                  long& httpCode,
+                  std::function<void(const GdtfDownloadProgress&)> progressCallback,
+                  std::function<bool()> shouldCancelCallback)
 {
     CURL* curl = curl_easy_init();
     if (!curl)
         return false;
 
+    httpCode = 0;
     std::string url = "https://gdtf-share.com/apis/public/downloadFile.php?rid=" + rid;
     std::ofstream ofs(destFile, std::ios::binary);
     if (!ofs.is_open()) {
@@ -123,15 +158,20 @@ bool GdtfDownload(const std::string& rid,
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteToFile);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ofs);
+    DownloadProgressContext progressContext{
+        std::move(progressCallback),
+        std::move(shouldCancelCallback)};
+    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, ReportDownloadProgress);
+    curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &progressContext);
+    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
 
     CURLcode res = curl_easy_perform(curl);
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
     if (res != CURLE_OK) {
         ofs.close();
         curl_easy_cleanup(curl);
         return false;
     }
-
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
 
     ofs.close();
     curl_easy_cleanup(curl);
