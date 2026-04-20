@@ -708,11 +708,22 @@ static int ComputeFixtureNameMatchScore(const std::string &catalogFixtureName,
     return 9000;
   }
 
+  const auto hasContainsMatch = [](const std::string &lhs,
+                                   const std::string &rhs) -> bool {
+    if (lhs.empty() || rhs.empty())
+      return false;
+    return (lhs.size() >= 4 && rhs.find(lhs) != std::string::npos) ||
+           (rhs.size() >= 4 && lhs.find(rhs) != std::string::npos);
+  };
+
   const bool containsMatch =
       (catalogNormalized.size() >= 5 &&
        requestedNormalized.find(catalogNormalized) != std::string::npos) ||
       (requestedNormalized.size() >= 5 &&
-       catalogNormalized.find(requestedNormalized) != std::string::npos);
+       catalogNormalized.find(requestedNormalized) != std::string::npos) ||
+      hasContainsMatch(catalogNoParentheses, requestedNoParentheses) ||
+      hasContainsMatch(catalogNormalized, requestedNoParentheses) ||
+      hasContainsMatch(catalogNoParentheses, requestedNormalized);
   if (!containsMatch)
     return 0;
 
