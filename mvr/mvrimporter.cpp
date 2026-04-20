@@ -2909,9 +2909,36 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                    catalogResult.metrics.refreshSucceeded ? 1 : 0)
                       .ToStdString());
 
+              std::vector<GdtfCatalogEntry> catalogEntries;
               if (!listPayload.empty()) {
-                const std::vector<GdtfCatalogEntry> catalogEntries =
-                    ParseGdtfCatalogEntries(listPayload);
+                catalogEntries = ParseGdtfCatalogEntries(listPayload);
+              }
+
+              if (catalogEntries.empty()) {
+                reportProgress(
+                    "[INFO] Cached catalog did not provide usable entries; forcing online refresh.");
+                const GdtfCatalogRefreshResult forcedCatalogResult =
+                    catalogService.RefreshCatalogIfStale(
+                        [&](std::string &onlineListData) {
+                          return GdtfGetList(cookieFile, onlineListData,
+                                             &listHttpCode) &&
+                                 listHttpCode == 200;
+                        },
+                        refreshNowUtc,
+                        0);
+                if (forcedCatalogResult.snapshot) {
+                  listPayload = forcedCatalogResult.snapshot->listData;
+                  catalogEntries = ParseGdtfCatalogEntries(listPayload);
+                }
+                reportProgress(
+                    wxString::Format("[METRIC] GDTF import forced_refresh attempted=%d succeeded=%d entries=%zu",
+                                     forcedCatalogResult.metrics.refreshAttempted ? 1 : 0,
+                                     forcedCatalogResult.metrics.refreshSucceeded ? 1 : 0,
+                                     catalogEntries.size())
+                        .ToStdString());
+              }
+
+              if (!catalogEntries.empty()) {
                 summaryText->SetLabel(wxString::Format(
                     "Selected fixture types for download (catalog entries: %zu)",
                     catalogEntries.size()));
