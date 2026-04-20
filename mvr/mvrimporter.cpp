@@ -3056,9 +3056,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     hasUnknownTotal = true;
                   }
                 }
-                wxString label =
-                    formatBytes(downloaded) + " / " +
-                    (hasUnknownTotal ? "? B" : formatBytes(knownTotal));
+                const wxString totalLabel =
+                    hasUnknownTotal ? wxString("? B") : formatBytes(knownTotal);
+                wxString label = formatBytes(downloaded) + " / " + totalLabel;
                 const auto elapsed =
                     std::chrono::duration_cast<std::chrono::seconds>(
                         std::chrono::steady_clock::now() - queueStartTime)
@@ -3291,12 +3291,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   }
 
                   if (!bestMatch.found || bestMatch.rid.empty()) {
+                    const wxString progressText =
+                        rowProgressByType[req.type].totalBytes > 0
+                            ? formatBytes(rowProgressByType[req.type].downloadedBytes) +
+                                  " / " +
+                                  formatBytes(rowProgressByType[req.type].totalBytes)
+                            : wxString("0 B / ? B");
                     updateStatusRow(req.type, "-", "Fallback to MVR",
-                                    rowProgressByType[req.type].totalBytes > 0
-                                        ? formatBytes(rowProgressByType[req.type].downloadedBytes) +
-                                              " / " +
-                                              formatBytes(rowProgressByType[req.type].totalBytes)
-                                        : "0 B / ? B",
+                                    progressText,
                                     "No catalog match found", DownloadRowState::Fallback);
                     updateProgressGauge();
                     wxYieldIfNeeded();
@@ -3337,9 +3339,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   reportProgress("Downloading selected GDTFs: downloading " + req.type + "...");
                   auto formatRowProgress = [&](const DownloadProgressStats &stats,
                                                double percent) -> wxString {
-                    wxString bytesText = formatBytes(stats.downloadedBytes) + " / " +
-                                         (stats.totalBytes > 0 ? formatBytes(stats.totalBytes)
-                                                               : "? B");
+                    wxString totalText =
+                        stats.totalBytes > 0 ? formatBytes(stats.totalBytes)
+                                             : wxString("? B");
+                    wxString bytesText =
+                        formatBytes(stats.downloadedBytes) + " / " + totalText;
                     if (stats.totalBytes > 0) {
                       bytesText += wxString::Format(" (%.0f%%)", std::clamp(percent, 0.0, 100.0));
                     }
@@ -3382,22 +3386,24 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                     details,
                                     DownloadRowState::Downloaded);
                   } else if (cancelRequested.load()) {
+                    const wxString totalText =
+                        rowProgressByType[req.type].totalBytes > 0
+                            ? formatBytes(rowProgressByType[req.type].totalBytes)
+                            : wxString("? B");
                     updateStatusRow(req.type, selectedFixtureName, "Canceled",
                                     formatBytes(rowProgressByType[req.type].downloadedBytes) +
-                                        " / " +
-                                        (rowProgressByType[req.type].totalBytes > 0
-                                             ? formatBytes(rowProgressByType[req.type].totalBytes)
-                                             : "? B"),
+                                        " / " + totalText,
                                     "Canceled by user",
                                     DownloadRowState::Canceled);
                     break;
                   } else {
+                    const wxString totalText =
+                        rowProgressByType[req.type].totalBytes > 0
+                            ? formatBytes(rowProgressByType[req.type].totalBytes)
+                            : wxString("? B");
                     updateStatusRow(req.type, selectedFixtureName, "Fallback to MVR",
                                     formatBytes(rowProgressByType[req.type].downloadedBytes) +
-                                        " / " +
-                                        (rowProgressByType[req.type].totalBytes > 0
-                                             ? formatBytes(rowProgressByType[req.type].totalBytes)
-                                             : "? B"),
+                                        " / " + totalText,
                                     "Download failed", DownloadRowState::Fallback);
                   }
                   updateProgressGauge();
