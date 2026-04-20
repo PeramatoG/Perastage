@@ -707,9 +707,9 @@ static bool IsLikelyFixtureNameMatch(const std::string &catalogFixtureName,
   }
 
   const bool containsMatch =
-      (catalogNormalized.size() >= 6 &&
+      (catalogNormalized.size() >= 5 &&
        requestedNormalized.find(catalogNormalized) != std::string::npos) ||
-      (requestedNormalized.size() >= 6 &&
+      (requestedNormalized.size() >= 5 &&
        catalogNormalized.find(requestedNormalized) != std::string::npos);
   if (!containsMatch)
     return false;

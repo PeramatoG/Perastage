@@ -460,6 +460,10 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
   wxString cookieFileWx = wxFileName::GetTempDir() + "/gdtf_session.txt";
   std::string cookieFile = WxToUtf8(cookieFileWx);
+  auto removeCookieFileIfPresent = [&]() {
+    if (wxFileExists(cookieFileWx))
+      wxRemoveFile(cookieFileWx);
+  };
 
   const auto catalogResolveStart = std::chrono::steady_clock::now();
   GdtfCatalogService catalogService;
@@ -591,13 +595,13 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     bool loginConnected = tryLogin(loginHttpCode);
     if (!loginConnected || IsAuthenticationFailureHttpCode(loginHttpCode)) {
       if (!requestCredentialsFromDialog()) {
-        wxRemoveFile(cookieFileWx);
+        removeCookieFileIfPresent();
         return;
       }
       loginConnected = tryLogin(loginHttpCode);
       if (!loginConnected || loginHttpCode != 200) {
         showGdtfDownloadError("Login failed.", "Login Error");
-        wxRemoveFile(cookieFileWx);
+        removeCookieFileIfPresent();
         return;
       }
     }
@@ -638,7 +642,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     }
   }
 
-  wxRemoveFile(cookieFileWx);
+  removeCookieFileIfPresent();
 }
 
 void MainWindow::OnEditDictionaries(wxCommandEvent &WXUNUSED(event)) {
