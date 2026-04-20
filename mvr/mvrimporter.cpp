@@ -687,6 +687,51 @@ static std::string StripParenthesizedSections(const std::string &text) {
   return Trim(stripped);
 }
 
+static bool IsLikelyVersionToken(const std::string &token) {
+  if (token.empty())
+    return false;
+  const bool allDigits = std::all_of(token.begin(), token.end(),
+                                     [](unsigned char ch) { return std::isdigit(ch); });
+  if (allDigits)
+    return true;
+
+  if (token.size() <= 6) {
+    const std::string roman = ToLowerAscii(token);
+    const bool allRoman = std::all_of(roman.begin(), roman.end(), [](unsigned char ch) {
+      return ch == 'i' || ch == 'v' || ch == 'x' || ch == 'l' || ch == 'c' ||
+             ch == 'd' || ch == 'm';
+    });
+    if (allRoman)
+      return true;
+  }
+  return false;
+}
+
+static std::string BuildCoreFixtureNameKey(const std::string &text) {
+  const std::string stripped = StripParenthesizedSections(text);
+  const std::string lower = ToLowerAscii(stripped);
+  std::vector<std::string> tokens;
+  std::string current;
+  for (unsigned char ch : lower) {
+    if (std::isalnum(ch)) {
+      current.push_back(static_cast<char>(ch));
+    } else if (!current.empty()) {
+      tokens.push_back(current);
+      current.clear();
+    }
+  }
+  if (!current.empty())
+    tokens.push_back(current);
+
+  std::string compact;
+  for (const auto &token : tokens) {
+    if (IsLikelyVersionToken(token))
+      continue;
+    compact += token;
+  }
+  return compact;
+}
+
 static int ComputeFixtureNameMatchScore(const std::string &catalogFixtureName,
                                         const std::string &requestedFixtureName) {
   const std::string catalogNormalized =
@@ -708,6 +753,14 @@ static int ComputeFixtureNameMatchScore(const std::string &catalogFixtureName,
     return 9000;
   }
 
+  const std::string catalogCoreName = BuildCoreFixtureNameKey(catalogFixtureName);
+  const std::string requestedCoreName =
+      BuildCoreFixtureNameKey(requestedFixtureName);
+  if (!catalogCoreName.empty() && !requestedCoreName.empty() &&
+      catalogCoreName == requestedCoreName) {
+    return 8500;
+  }
+
   const auto hasContainsMatch = [](const std::string &lhs,
                                    const std::string &rhs) -> bool {
     if (lhs.empty() || rhs.empty())
@@ -721,6 +774,7 @@ static int ComputeFixtureNameMatchScore(const std::string &catalogFixtureName,
        requestedNormalized.find(catalogNormalized) != std::string::npos) ||
       (requestedNormalized.size() >= 5 &&
        catalogNormalized.find(requestedNormalized) != std::string::npos) ||
+      hasContainsMatch(catalogCoreName, requestedCoreName) ||
       hasContainsMatch(catalogNoParentheses, requestedNoParentheses) ||
       hasContainsMatch(catalogNormalized, requestedNoParentheses) ||
       hasContainsMatch(catalogNoParentheses, requestedNormalized);
