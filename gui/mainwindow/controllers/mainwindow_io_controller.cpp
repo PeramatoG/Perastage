@@ -90,13 +90,16 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           if (!importProgress) {
             importOverlay.reset();
             importProgress = std::make_unique<wxProgressDialog>(
-                title, stageText, safeTotal, ownerRef.get(),
+                title, stageText, safeTotal + 1, ownerRef.get(),
                 wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);
           } else {
-            importProgress->SetRange(safeTotal);
+            importProgress->SetRange(safeTotal + 1);
           }
 
-          importProgress->Update(clampedCompleted, stageText);
+          const int dialogProgressValue =
+              std::clamp(clampedCompleted, 0, std::max(1, safeTotal));
+          importProgress->Update(dialogProgressValue, stageText);
+          wxYieldIfNeeded();
           setImportStatus(wxString::Format("MVR import: %s (%d/%d)", stageText,
                                            clampedCompleted, safeTotal));
           return;
@@ -104,6 +107,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
 
         if (importProgress) {
           importProgress->Pulse(wxString::FromUTF8(stage));
+          wxYieldIfNeeded();
         }
         setImportStatus("MVR import: " + wxString::FromUTF8(stage));
       });

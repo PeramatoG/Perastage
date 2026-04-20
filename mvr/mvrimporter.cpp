@@ -1993,59 +1993,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
 
         ReadFixtureCategoryFromUserData(node, fixture);
-        const std::string categoryKey =
-            !fixture.typeName.empty() ? fixture.typeName : fixture.gdtfSpec;
         const std::optional<GdtfDictionary::Entry> &dictionaryEntry =
             getDictionaryEntryCached(fixture.typeName);
-
-        if (fixture.category.empty() && !fixture.typeName.empty()) {
-          if (dictionaryEntry) {
-            fixture.category =
-                GdtfFixtureCategory::NormalizeCategory(dictionaryEntry->category);
-          }
-          if (!fixture.category.empty()) {
-            fixture.categorySource = GdtfFixtureCategory::kManualSource;
-            fixture.categorySourceReason.clear();
-          }
-        }
-
-        if (fixture.category.empty() && !categoryKey.empty()) {
-          auto cacheIt = categoryByTypeKey.find(categoryKey);
-          if (cacheIt != categoryByTypeKey.end()) {
-            fixture.category = cacheIt->second.category;
-            fixture.categorySource = cacheIt->second.source;
-            fixture.categorySourceReason = cacheIt->second.reason;
-          }
-        }
-
-        if (fixture.category.empty() && !fixture.gdtfSpec.empty()) {
-          const auto inferred = GdtfFixtureCategory::InferFromGdtf(
-              ResolveScenePathForRead(scene.basePath, fixture.gdtfSpec));
-          fixture.category = GdtfFixtureCategory::NormalizeCategory(inferred.category);
-          if (fixture.category.empty())
-            fixture.category = GdtfFixtureCategory::kUnknown;
-          fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
-          fixture.categorySourceReason = inferred.reason;
-          if (!categoryKey.empty()) {
-            categoryByTypeKey[categoryKey] =
-                {fixture.category, fixture.categorySource, inferred.reason};
-          }
-          LogMessage(Logger::Level::Info,
-                     "Auto category fallback: " + fixture.instanceName + " -> " +
-                         fixture.category + " [" + inferred.reason + "]");
-        } else if (!fixture.category.empty() && !categoryKey.empty()) {
-          categoryByTypeKey[categoryKey] =
-              {fixture.category, fixture.categorySource.empty()
-                                     ? GdtfFixtureCategory::kManualSource
-                                     : fixture.categorySource,
-               fixture.categorySourceReason.empty() ? "cached"
-                                                   : fixture.categorySourceReason};
-        }
-
-        if (!fixture.category.empty() && !fixture.typeName.empty() &&
-            fixture.categorySource == GdtfFixtureCategory::kManualSource) {
-          GdtfDictionary::UpdateCategory(fixture.typeName, fixture.category);
-        }
         auto posIt = scene.positions.find(fixture.position);
         if (posIt != scene.positions.end())
           fixture.positionName = posIt->second;
@@ -3537,6 +3486,76 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           }
         }
       }
+    }
+  }
+
+  reportProgress("Applying fixture categories...");
+  const int totalFixturesForCategoryApply = static_cast<int>(scene.fixtures.size());
+  int appliedFixturesForCategoryApply = 0;
+  categoryByTypeKey.clear();
+  for (auto &[uid, fixture] : scene.fixtures) {
+    (void)uid;
+    ++appliedFixturesForCategoryApply;
+    if (totalFixturesForCategoryApply > 0 &&
+        (appliedFixturesForCategoryApply == 1 ||
+         appliedFixturesForCategoryApply == totalFixturesForCategoryApply ||
+         appliedFixturesForCategoryApply % 10 == 0)) {
+      reportProgress("Applying fixture categories...",
+                     appliedFixturesForCategoryApply,
+                     totalFixturesForCategoryApply);
+    }
+
+    const std::string categoryKey =
+        !fixture.typeName.empty() ? fixture.typeName : fixture.gdtfSpec;
+
+    if (fixture.category.empty() && !fixture.typeName.empty()) {
+      const auto &dictionaryEntry = getDictionaryEntryCached(fixture.typeName);
+      if (dictionaryEntry) {
+        fixture.category =
+            GdtfFixtureCategory::NormalizeCategory(dictionaryEntry->category);
+      }
+      if (!fixture.category.empty()) {
+        fixture.categorySource = GdtfFixtureCategory::kManualSource;
+        fixture.categorySourceReason.clear();
+      }
+    }
+
+    if (fixture.category.empty() && !categoryKey.empty()) {
+      auto cacheIt = categoryByTypeKey.find(categoryKey);
+      if (cacheIt != categoryByTypeKey.end()) {
+        fixture.category = cacheIt->second.category;
+        fixture.categorySource = cacheIt->second.source;
+        fixture.categorySourceReason = cacheIt->second.reason;
+      }
+    }
+
+    if (fixture.category.empty() && !fixture.gdtfSpec.empty()) {
+      const auto inferred = GdtfFixtureCategory::InferFromGdtf(
+          ResolveScenePathForRead(scene.basePath, fixture.gdtfSpec));
+      fixture.category = GdtfFixtureCategory::NormalizeCategory(inferred.category);
+      if (fixture.category.empty())
+        fixture.category = GdtfFixtureCategory::kUnknown;
+      fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
+      fixture.categorySourceReason = inferred.reason;
+      if (!categoryKey.empty()) {
+        categoryByTypeKey[categoryKey] =
+            {fixture.category, fixture.categorySource, inferred.reason};
+      }
+      LogMessage(Logger::Level::Info,
+                 "Auto category fallback: " + fixture.instanceName + " -> " +
+                     fixture.category + " [" + inferred.reason + "]");
+    } else if (!fixture.category.empty() && !categoryKey.empty()) {
+      categoryByTypeKey[categoryKey] = {
+          fixture.category,
+          fixture.categorySource.empty() ? GdtfFixtureCategory::kManualSource
+                                         : fixture.categorySource,
+          fixture.categorySourceReason.empty() ? "cached"
+                                               : fixture.categorySourceReason};
+    }
+
+    if (!fixture.category.empty() && !fixture.typeName.empty() &&
+        fixture.categorySource == GdtfFixtureCategory::kManualSource) {
+      GdtfDictionary::UpdateCategory(fixture.typeName, fixture.category);
     }
   }
 
