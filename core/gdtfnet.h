@@ -18,7 +18,14 @@
 #ifndef GDTFNET_H
 #define GDTFNET_H
 
+#include <functional>
 #include <string>
+
+struct GdtfDownloadProgress {
+    long long downloadedBytes = 0;
+    long long totalBytes = 0;
+    double percentage = 0.0;
+};
 
 bool GdtfLogin(const std::string& user,
                const std::string& password,
@@ -32,6 +39,8 @@ bool GdtfGetList(const std::string& cookieFile,
 bool GdtfDownload(const std::string& rid,
                   const std::string& destFile,
                   const std::string& cookieFile,
-                  long& httpCode);
+                  long& httpCode,
+                  std::function<void(const GdtfDownloadProgress&)> progressCallback = {},
+                  std::function<bool()> shouldCancelCallback = {});
 
 #endif // GDTFNET_H

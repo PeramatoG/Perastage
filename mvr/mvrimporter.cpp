@@ -45,6 +45,7 @@
 #include "json.hpp"
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cctype>
 #include <charconv>
 #include <chrono>
@@ -2892,7 +2893,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 Pending,
                 Downloading,
                 Downloaded,
-                Fallback
+                Fallback,
+                Canceled
               };
 
               auto rowTextColor = [](DownloadRowState state) -> wxColour {
@@ -2901,6 +2903,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   return wxColour(30, 120, 60);
                 case DownloadRowState::Fallback:
                   return wxColour(150, 100, 0);
+                case DownloadRowState::Canceled:
+                  return wxColour(130, 130, 130);
                 case DownloadRowState::Downloading:
                   return wxColour(20, 80, 160);
                 case DownloadRowState::Pending:
@@ -2937,16 +2941,27 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               downloadInfoList->InsertColumn(0, "Fixture type", wxLIST_FORMAT_LEFT, 260);
               downloadInfoList->InsertColumn(1, "Selected GDTF", wxLIST_FORMAT_LEFT, 460);
               downloadInfoList->InsertColumn(2, "Status", wxLIST_FORMAT_LEFT, 170);
-              downloadInfoList->InsertColumn(3, "Details", wxLIST_FORMAT_LEFT, 180);
+              downloadInfoList->InsertColumn(3, "Progress", wxLIST_FORMAT_LEFT, 220);
+              downloadInfoList->InsertColumn(4, "Details", wxLIST_FORMAT_LEFT, 180);
               infoSizer->Add(downloadInfoList, 1, wxEXPAND | wxALL, 8);
               wxStaticText *footerSummary =
                   new wxStaticText(&downloadInfoDialog, wxID_ANY,
                                    "0 processed  |  0 downloaded  |  0 fallback");
               footerSummary->SetForegroundColour(wxColour(100, 100, 100));
               infoSizer->Add(footerSummary, 0, wxLEFT | wxRIGHT, 8);
+              wxStaticText *bytesSummary =
+                  new wxStaticText(&downloadInfoDialog, wxID_ANY, "0 B / ? B");
+              bytesSummary->SetForegroundColour(wxColour(110, 110, 110));
+              infoSizer->Add(bytesSummary, 0, wxLEFT | wxRIGHT | wxTOP, 8);
+              wxBoxSizer *actionSizer = new wxBoxSizer(wxHORIZONTAL);
+              wxButton *cancelButton =
+                  new wxButton(&downloadInfoDialog, wxID_CANCEL, "Cancel");
               wxButton *ackButton = new wxButton(&downloadInfoDialog, wxID_OK, "OK");
               ackButton->Disable();
-              infoSizer->Add(ackButton, 0, wxALIGN_RIGHT | wxLEFT | wxRIGHT | wxBOTTOM, 8);
+              actionSizer->Add(cancelButton, 0, wxRIGHT, 8);
+              actionSizer->Add(ackButton, 0);
+              infoSizer->Add(actionSizer, 0,
+                             wxALIGN_RIGHT | wxLEFT | wxRIGHT | wxBOTTOM, 8);
               downloadInfoDialog.SetSizer(infoSizer);
               if (dialogParent) {
                 downloadInfoDialog.CentreOnParent();
@@ -2955,15 +2970,22 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               }
               bool isDownloadInfoFinished = false;
               bool isDownloadInfoAcknowledged = false;
+              std::atomic<bool> cancelRequested{false};
               downloadInfoDialog.Bind(wxEVT_CLOSE_WINDOW,
                                       [&](wxCloseEvent &closeEvent) {
                                         if (!isDownloadInfoFinished) {
+                                          cancelRequested.store(true);
                                           closeEvent.Veto();
                                           return;
                                         }
                                         isDownloadInfoAcknowledged = true;
                                         downloadInfoDialog.Hide();
                                       });
+              cancelButton->Bind(wxEVT_BUTTON, [&](wxCommandEvent &) {
+                cancelRequested.store(true);
+                cancelButton->Disable();
+                progressPhaseText->SetLabel("Cancel requested. Finishing current transfer...");
+              });
               ackButton->Bind(wxEVT_BUTTON, [&](wxCommandEvent &) {
                 isDownloadInfoAcknowledged = true;
                 downloadInfoDialog.Hide();
@@ -2971,9 +2993,37 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
               std::unordered_map<std::string, long> rowByType;
               std::unordered_map<std::string, DownloadRowState> rowStateByType;
+              struct DownloadProgressStats {
+                long long downloadedBytes = 0;
+                long long totalBytes = -1;
+              };
+              std::unordered_map<std::string, DownloadProgressStats> rowProgressByType;
+              const auto queueStartTime = std::chrono::steady_clock::now();
+              auto formatBytes = [](long long bytes) -> wxString {
+                if (bytes < 0)
+                  return "? B";
+                static const char *kUnits[] = {"B", "KB", "MB", "GB", "TB"};
+                double value = static_cast<double>(bytes);
+                size_t unitIndex = 0;
+                while (value >= 1024.0 && unitIndex < 4) {
+                  value /= 1024.0;
+                  ++unitIndex;
+                }
+                if (unitIndex == 0)
+                  return wxString::Format("%lld %s", bytes, kUnits[unitIndex]);
+                return wxString::Format("%.1f %s", value, kUnits[unitIndex]);
+              };
+              auto formatEta = [](long long seconds) -> wxString {
+                if (seconds < 0)
+                  return "ETA --:--";
+                const long long mins = seconds / 60;
+                const long long secs = seconds % 60;
+                return wxString::Format("ETA %02lld:%02lld", mins, secs);
+              };
               auto refreshFooterSummary = [&]() {
                 int downloaded = 0;
                 int fallback = 0;
+                int canceled = 0;
                 int processed = 0;
                 for (const auto &[typeKey, state] : rowStateByType) {
                   (void)typeKey;
@@ -2983,15 +3033,52 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   } else if (state == DownloadRowState::Fallback) {
                     ++fallback;
                     ++processed;
+                  } else if (state == DownloadRowState::Canceled) {
+                    ++canceled;
+                    ++processed;
                   }
                 }
                 footerSummary->SetLabel(
-                    wxString::Format("%d/%zu processed  |  %d downloaded  |  %d fallback",
-                                     processed, rowStateByType.size(), downloaded, fallback));
+                    wxString::Format("%d/%zu processed  |  %d downloaded  |  %d fallback  |  %d canceled",
+                                     processed, rowStateByType.size(), downloaded, fallback,
+                                     canceled));
+              };
+              auto refreshBytesSummary = [&]() {
+                long long downloaded = 0;
+                long long knownTotal = 0;
+                bool hasUnknownTotal = false;
+                for (const auto &[typeKey, progress] : rowProgressByType) {
+                  (void)typeKey;
+                  downloaded += std::max<long long>(0, progress.downloadedBytes);
+                  if (progress.totalBytes > 0) {
+                    knownTotal += progress.totalBytes;
+                  } else {
+                    hasUnknownTotal = true;
+                  }
+                }
+                const wxString totalLabel =
+                    hasUnknownTotal ? wxString("? B") : formatBytes(knownTotal);
+                wxString label = formatBytes(downloaded) + " / " + totalLabel;
+                const auto elapsed =
+                    std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::steady_clock::now() - queueStartTime)
+                        .count();
+                if (!hasUnknownTotal && knownTotal > downloaded && elapsed > 0 &&
+                    downloaded > 0) {
+                  const double speed =
+                      static_cast<double>(downloaded) / static_cast<double>(elapsed);
+                  if (speed > 0.0) {
+                    const long long remainingSeconds = static_cast<long long>(
+                        static_cast<double>(knownTotal - downloaded) / speed);
+                    label += "  |  " + formatEta(remainingSeconds);
+                  }
+                }
+                bytesSummary->SetLabel(label);
               };
               auto updateStatusRow = [&](const std::string &typeKey,
                                          const wxString &selectedGdtf,
                                          const wxString &status,
+                                         const wxString &progressText,
                                          const wxString &details,
                                          DownloadRowState state) {
                 const auto rowIt = rowByType.find(typeKey);
@@ -3000,17 +3087,46 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 const long row = rowIt->second;
                 downloadInfoList->SetItem(row, 1, selectedGdtf);
                 downloadInfoList->SetItem(row, 2, status);
-                downloadInfoList->SetItem(row, 3, details);
+                downloadInfoList->SetItem(row, 3, progressText);
+                downloadInfoList->SetItem(row, 4, details);
                 downloadInfoList->SetItemTextColour(row, rowTextColor(state));
                 rowStateByType[typeKey] = state;
                 refreshFooterSummary();
+                refreshBytesSummary();
               };
-              auto updateProgressGauge = [&](int processedCount, int totalCount) {
-                const int safeTotal = std::max(1, totalCount);
-                const int clampedProcessed =
-                    std::max(0, std::min(processedCount, safeTotal));
-                const int value = 25 + (clampedProcessed * 75) / safeTotal;
-                progressGauge->SetValue(std::max(0, std::min(value, 100)));
+              auto updateProgressGauge = [&]() {
+                long long downloaded = 0;
+                long long knownTotal = 0;
+                bool hasUnknownTotal = false;
+                for (const auto &[typeKey, progress] : rowProgressByType) {
+                  (void)typeKey;
+                  downloaded += std::max<long long>(0, progress.downloadedBytes);
+                  if (progress.totalBytes > 0) {
+                    knownTotal += progress.totalBytes;
+                  } else {
+                    hasUnknownTotal = true;
+                  }
+                }
+                if (!hasUnknownTotal && knownTotal > 0) {
+                  const int value = static_cast<int>(
+                      std::clamp((static_cast<double>(downloaded) * 100.0) /
+                                     static_cast<double>(knownTotal),
+                                 0.0, 100.0));
+                  progressGauge->SetValue(value);
+                  return;
+                }
+                const int total = static_cast<int>(rowStateByType.size());
+                int finished = 0;
+                for (const auto &[typeKey, state] : rowStateByType) {
+                  (void)typeKey;
+                  if (state == DownloadRowState::Downloaded ||
+                      state == DownloadRowState::Fallback ||
+                      state == DownloadRowState::Canceled) {
+                    ++finished;
+                  }
+                }
+                const int safeTotal = std::max(1, total);
+                progressGauge->SetValue((finished * 100) / safeTotal);
               };
 
               downloadInfoDialog.Show();
@@ -3020,13 +3136,16 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     downloadInfoList->GetItemCount(), wxString::FromUTF8(req.type));
                 downloadInfoList->SetItem(row, 1, "-");
                 downloadInfoList->SetItem(row, 2, "Pending");
-                downloadInfoList->SetItem(row, 3, "Waiting to match catalog entry");
+                downloadInfoList->SetItem(row, 3, "0 B / ? B");
+                downloadInfoList->SetItem(row, 4, "Waiting to match catalog entry");
                 downloadInfoList->SetItemTextColour(row, rowTextColor(DownloadRowState::Pending));
                 rowByType[req.type] = row;
                 rowStateByType[req.type] = DownloadRowState::Pending;
+                rowProgressByType[req.type] = DownloadProgressStats{};
               }
               refreshFooterSummary();
-              progressGauge->SetValue(5);
+              refreshBytesSummary();
+              updateProgressGauge();
               progressPhaseText->SetLabel("Loading GDTF catalog...");
               wxYieldIfNeeded();
 
@@ -3092,9 +3211,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     catalogEntries.size()));
                 progressGauge->SetValue(25);
                 progressPhaseText->SetLabel("Downloading selected fixtures...");
-                int processedDownloads = 0;
-                const int totalDownloads = static_cast<int>(downloadRequests.size());
                 for (GdtfConflict req : downloadRequests) {
+                  if (cancelRequested.load()) {
+                    break;
+                  }
                   reportProgress("Downloading selected GDTFs: matching " + req.type + "...");
                   if (req.footprint <= 0)
                     req.footprint = inferFootprintFromAddresses(req.type);
@@ -3171,10 +3291,16 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   }
 
                   if (!bestMatch.found || bestMatch.rid.empty()) {
+                    const wxString progressText =
+                        rowProgressByType[req.type].totalBytes > 0
+                            ? formatBytes(rowProgressByType[req.type].downloadedBytes) +
+                                  " / " +
+                                  formatBytes(rowProgressByType[req.type].totalBytes)
+                            : wxString("0 B / ? B");
                     updateStatusRow(req.type, "-", "Fallback to MVR",
+                                    progressText,
                                     "No catalog match found", DownloadRowState::Fallback);
-                    ++processedDownloads;
-                    updateProgressGauge(processedDownloads, totalDownloads);
+                    updateProgressGauge();
                     wxYieldIfNeeded();
                     continue;
                   }
@@ -3207,11 +3333,41 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     }
                   }
                   updateStatusRow(req.type, selectedFixtureName, "Downloading",
+                                  "0 B / ? B",
                                   "Fetching fixture package",
                                   DownloadRowState::Downloading);
                   reportProgress("Downloading selected GDTFs: downloading " + req.type + "...");
+                  auto formatRowProgress = [&](const DownloadProgressStats &stats,
+                                               double percent) -> wxString {
+                    wxString totalText =
+                        stats.totalBytes > 0 ? formatBytes(stats.totalBytes)
+                                             : wxString("? B");
+                    wxString bytesText =
+                        formatBytes(stats.downloadedBytes) + " / " + totalText;
+                    if (stats.totalBytes > 0) {
+                      bytesText += wxString::Format(" (%.0f%%)", std::clamp(percent, 0.0, 100.0));
+                    }
+                    return bytesText;
+                  };
                   if (GdtfDownload(bestMatch.rid, filePath, cookieFile,
-                                   downloadHttpCode) &&
+                                   downloadHttpCode,
+                                   [&](const GdtfDownloadProgress &progress) {
+                                     auto &stats = rowProgressByType[req.type];
+                                     stats.downloadedBytes = std::max<long long>(
+                                         0, progress.downloadedBytes);
+                                     stats.totalBytes = progress.totalBytes > 0
+                                                            ? progress.totalBytes
+                                                            : -1;
+                                     updateStatusRow(req.type, selectedFixtureName,
+                                                     "Downloading",
+                                                     formatRowProgress(stats,
+                                                                       progress.percentage),
+                                                     "Fetching fixture package",
+                                                     DownloadRowState::Downloading);
+                                     updateProgressGauge();
+                                     wxYieldIfNeeded();
+                                   },
+                                   [&]() { return cancelRequested.load(); }) &&
                       downloadHttpCode == 200) {
                     selectedPathByType[req.type] = filePath;
                     if (!bestMatch.modeName.empty())
@@ -3221,29 +3377,62 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                       details += " (Mode: " + wxString::FromUTF8(bestMatch.modeName) + ")";
                     if (!bestMatch.selectionReason.empty())
                       details += " [" + wxString::FromUTF8(bestMatch.selectionReason) + "]";
-                    updateStatusRow(req.type, selectedFixtureName, "Success", details,
+                    auto &stats = rowProgressByType[req.type];
+                    if (stats.totalBytes > 0) {
+                      stats.downloadedBytes = stats.totalBytes;
+                    }
+                    updateStatusRow(req.type, selectedFixtureName, "Success",
+                                    formatRowProgress(rowProgressByType[req.type], 100.0),
+                                    details,
                                     DownloadRowState::Downloaded);
+                  } else if (cancelRequested.load()) {
+                    const wxString totalText =
+                        rowProgressByType[req.type].totalBytes > 0
+                            ? formatBytes(rowProgressByType[req.type].totalBytes)
+                            : wxString("? B");
+                    updateStatusRow(req.type, selectedFixtureName, "Canceled",
+                                    formatBytes(rowProgressByType[req.type].downloadedBytes) +
+                                        " / " + totalText,
+                                    "Canceled by user",
+                                    DownloadRowState::Canceled);
+                    break;
                   } else {
+                    const wxString totalText =
+                        rowProgressByType[req.type].totalBytes > 0
+                            ? formatBytes(rowProgressByType[req.type].totalBytes)
+                            : wxString("? B");
                     updateStatusRow(req.type, selectedFixtureName, "Fallback to MVR",
+                                    formatBytes(rowProgressByType[req.type].downloadedBytes) +
+                                        " / " + totalText,
                                     "Download failed", DownloadRowState::Fallback);
                   }
-                  ++processedDownloads;
-                  updateProgressGauge(processedDownloads, totalDownloads);
+                  updateProgressGauge();
                   wxYieldIfNeeded();
+                }
+                if (cancelRequested.load()) {
+                  for (const GdtfConflict &req : downloadRequests) {
+                    if (rowStateByType[req.type] == DownloadRowState::Pending) {
+                      updateStatusRow(req.type, "-", "Canceled", "0 B / ? B",
+                                      "Canceled before download start",
+                                      DownloadRowState::Canceled);
+                    }
+                  }
+                  progressPhaseText->SetLabel("Queue canceled. Keeping downloaded fixtures.");
+                } else {
+                  progressPhaseText->SetLabel("Queue finished.");
                 }
               } else {
                 summaryText->SetLabel("Selected fixture types for download (catalog load failed)");
                 for (const GdtfConflict &req : downloadRequests) {
                   updateStatusRow(req.type, "-", "Fallback to MVR",
+                                  "0 B / ? B",
                                   "Failed to load catalog list", DownloadRowState::Fallback);
                 }
-                progressGauge->SetValue(100);
+                updateProgressGauge();
                 progressPhaseText->SetLabel("Catalog load failed. Keeping MVR originals.");
               }
               isDownloadInfoFinished = true;
-              if (!listPayload.empty()) {
-                progressPhaseText->SetLabel("Queue finished.");
-              }
+              cancelButton->Disable();
               summaryText->SetLabel(summaryText->GetLabel() + " - queue finished");
               ackButton->Enable();
               ackButton->SetFocus();
