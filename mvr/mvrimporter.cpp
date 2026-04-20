@@ -56,6 +56,7 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <random>
 #include <set>
@@ -636,6 +637,7 @@ struct GdtfDownloadMatch {
   bool found = false;
   std::string rid;
   std::string modeName;
+  std::string selectionReason;
 };
 
 static std::string NormalizeForGdtfMatch(const std::string &text) {
@@ -685,17 +687,17 @@ static std::string StripParenthesizedSections(const std::string &text) {
   return Trim(stripped);
 }
 
-static bool IsLikelyFixtureNameMatch(const std::string &catalogFixtureName,
-                                     const std::string &requestedFixtureName) {
+static int ComputeFixtureNameMatchScore(const std::string &catalogFixtureName,
+                                        const std::string &requestedFixtureName) {
   const std::string catalogNormalized =
       NormalizeForGdtfMatch(catalogFixtureName);
   const std::string requestedNormalized =
       NormalizeForGdtfMatch(requestedFixtureName);
 
   if (catalogNormalized.empty() || requestedNormalized.empty())
-    return false;
+    return 0;
   if (catalogNormalized == requestedNormalized)
-    return true;
+    return 10000;
 
   const std::string catalogNoParentheses =
       NormalizeForGdtfMatch(StripParenthesizedSections(catalogFixtureName));
@@ -703,7 +705,7 @@ static bool IsLikelyFixtureNameMatch(const std::string &catalogFixtureName,
       NormalizeForGdtfMatch(StripParenthesizedSections(requestedFixtureName));
   if (!catalogNoParentheses.empty() && !requestedNoParentheses.empty() &&
       catalogNoParentheses == requestedNoParentheses) {
-    return true;
+    return 9000;
   }
 
   const bool containsMatch =
@@ -712,16 +714,16 @@ static bool IsLikelyFixtureNameMatch(const std::string &catalogFixtureName,
       (requestedNormalized.size() >= 5 &&
        catalogNormalized.find(requestedNormalized) != std::string::npos);
   if (!containsMatch)
-    return false;
+    return 0;
 
   const std::string catalogDigits = ExtractDigitSignature(catalogNormalized);
   const std::string requestedDigits = ExtractDigitSignature(requestedNormalized);
   if (!catalogDigits.empty() && !requestedDigits.empty() &&
       catalogDigits != requestedDigits) {
-    return false;
+    return 0;
   }
 
-  return true;
+  return 8000;
 }
 
 static std::vector<GdtfCatalogEntry>
@@ -3032,33 +3034,74 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   if (req.footprint <= 0)
                     req.footprint = inferFootprintFromAddresses(req.type);
                   GdtfDownloadMatch bestMatch;
-                  double bestScore = -1.0;
+                  int bestPrimaryScore = std::numeric_limits<int>::min();
+                  long long bestRecency = std::numeric_limits<long long>::min();
+                  bool bestManufacturerMatch = false;
+                  float bestRating = -1.0f;
+                  bool bestUsedRecencyTiebreak = false;
                   for (const auto &entry : catalogEntries) {
                     const std::string requestedFixtureName =
                         req.fixtureName.empty() ? req.type : req.fixtureName;
-                    if (!IsLikelyFixtureNameMatch(entry.fixtureName,
-                                                  requestedFixtureName)) {
+                    const int nameScore = ComputeFixtureNameMatchScore(
+                        entry.fixtureName, requestedFixtureName);
+                    if (nameScore <= 0) {
                       continue;
                     }
-                    int baseScore = 50;
                     std::string matchedMode;
+                    bool footprintMatch = false;
                     if (req.footprint > 0) {
-                      baseScore = 0;
                       for (const auto &mode : entry.modes) {
                         if (mode.footprint == req.footprint) {
-                          baseScore = 100;
+                          footprintMatch = true;
                           matchedMode = mode.name;
                           break;
                         }
                       }
                     }
-                    const double total = static_cast<double>(baseScore) +
-                                         static_cast<double>(entry.rating) * 2.0 +
-                                         static_cast<double>(entry.lastModifiedUnix) /
-                                             (86400.0 * 30.0);
-                    if (total > bestScore) {
-                      bestScore = total;
-                      bestMatch = {true, entry.rid, matchedMode};
+                    const bool manufacturerMatch =
+                        !req.manufacturer.empty() && !entry.manufacturer.empty() &&
+                        NormalizeForGdtfMatch(req.manufacturer) ==
+                            NormalizeForGdtfMatch(entry.manufacturer);
+                    const int footprintBonus = footprintMatch ? 3000 : 0;
+                    const int manufacturerBonus = manufacturerMatch ? 40 : 0;
+                    const int primaryScore =
+                        nameScore + footprintBonus + manufacturerBonus;
+
+                    bool isBetter = false;
+                    bool decidedByRecency = false;
+                    if (primaryScore > bestPrimaryScore) {
+                      isBetter = true;
+                    } else if (primaryScore == bestPrimaryScore) {
+                      if (entry.lastModifiedUnix > bestRecency) {
+                        isBetter = true;
+                        decidedByRecency = true;
+                      } else if (entry.lastModifiedUnix == bestRecency) {
+                        if (manufacturerMatch && !bestManufacturerMatch) {
+                          isBetter = true;
+                        } else if (manufacturerMatch == bestManufacturerMatch &&
+                                   entry.rating > bestRating) {
+                          isBetter = true;
+                        }
+                      }
+                    }
+
+                    if (isBetter) {
+                      bestPrimaryScore = primaryScore;
+                      bestRecency = entry.lastModifiedUnix;
+                      bestManufacturerMatch = manufacturerMatch;
+                      bestRating = entry.rating;
+                      bestUsedRecencyTiebreak = decidedByRecency;
+                      std::string selectionReason = "name";
+                      if (footprintMatch) {
+                        selectionReason = "name+footprint";
+                      } else if (bestUsedRecencyTiebreak) {
+                        selectionReason = "name+recency";
+                      } else if (manufacturerMatch) {
+                        selectionReason = "name+manufacturer";
+                      } else if (entry.rating > 0.0f) {
+                        selectionReason = "name+rating";
+                      }
+                      bestMatch = {true, entry.rid, matchedMode, selectionReason};
                     }
                   }
 
@@ -3111,6 +3154,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     wxString details = "Downloaded and assigned";
                     if (!bestMatch.modeName.empty())
                       details += " (Mode: " + wxString::FromUTF8(bestMatch.modeName) + ")";
+                    if (!bestMatch.selectionReason.empty())
+                      details += " [" + wxString::FromUTF8(bestMatch.selectionReason) + "]";
                     updateStatusRow(req.type, selectedFixtureName, "Success", details,
                                     DownloadRowState::Downloaded);
                   } else {
