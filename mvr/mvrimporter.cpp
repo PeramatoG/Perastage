@@ -26,6 +26,7 @@
 #include "gdtfnet.h"
 #endif
 #include "gdtfloader.h"
+#include "gdtf_catalog_service.h"
 #include "gdtf_fixture_category.h"
 #include "matrixutils.h"
 #include "primitive_model_resources.h"
@@ -664,6 +665,65 @@ static std::string NormalizeForGdtfMatch(const std::string &text) {
   return compact;
 }
 
+static std::string StripParenthesizedSections(const std::string &text) {
+  std::string stripped;
+  stripped.reserve(text.size());
+  int depth = 0;
+  for (char ch : text) {
+    if (ch == '(') {
+      ++depth;
+      continue;
+    }
+    if (ch == ')') {
+      if (depth > 0)
+        --depth;
+      continue;
+    }
+    if (depth == 0)
+      stripped.push_back(ch);
+  }
+  return Trim(stripped);
+}
+
+static bool IsLikelyFixtureNameMatch(const std::string &catalogFixtureName,
+                                     const std::string &requestedFixtureName) {
+  const std::string catalogNormalized =
+      NormalizeForGdtfMatch(catalogFixtureName);
+  const std::string requestedNormalized =
+      NormalizeForGdtfMatch(requestedFixtureName);
+
+  if (catalogNormalized.empty() || requestedNormalized.empty())
+    return false;
+  if (catalogNormalized == requestedNormalized)
+    return true;
+
+  const std::string catalogNoParentheses =
+      NormalizeForGdtfMatch(StripParenthesizedSections(catalogFixtureName));
+  const std::string requestedNoParentheses =
+      NormalizeForGdtfMatch(StripParenthesizedSections(requestedFixtureName));
+  if (!catalogNoParentheses.empty() && !requestedNoParentheses.empty() &&
+      catalogNoParentheses == requestedNoParentheses) {
+    return true;
+  }
+
+  const bool containsMatch =
+      (catalogNormalized.size() >= 5 &&
+       requestedNormalized.find(catalogNormalized) != std::string::npos) ||
+      (requestedNormalized.size() >= 5 &&
+       catalogNormalized.find(requestedNormalized) != std::string::npos);
+  if (!containsMatch)
+    return false;
+
+  const std::string catalogDigits = ExtractDigitSignature(catalogNormalized);
+  const std::string requestedDigits = ExtractDigitSignature(requestedNormalized);
+  if (!catalogDigits.empty() && !requestedDigits.empty() &&
+      catalogDigits != requestedDigits) {
+    return false;
+  }
+
+  return true;
+}
+
 static std::vector<GdtfCatalogEntry>
 ParseGdtfCatalogEntries(const std::string &listData) {
   using json = nlohmann::json;
@@ -687,6 +747,24 @@ ParseGdtfCatalogEntries(const std::string &listData) {
     if (v.is_string())
       return v.get<std::string>();
     if (v.is_number())
+      return v.dump();
+    if (v.is_array()) {
+      std::string result;
+      for (size_t i = 0; i < v.size(); ++i) {
+        if (i > 0)
+          result += ", ";
+        const auto &el = v[i];
+        if (el.is_string())
+          result += el.get<std::string>();
+        else if (el.is_object() && el.contains("name") &&
+                 el["name"].is_string())
+          result += el["name"].get<std::string>();
+        else
+          result += el.dump();
+      }
+      return result;
+    }
+    if (v.is_object())
       return v.dump();
     return {};
   };
@@ -716,6 +794,16 @@ ParseGdtfCatalogEntries(const std::string &listData) {
     }
     return 0.0f;
   };
+  auto getValue = [&](const json &item,
+                      std::initializer_list<const char *> keys) -> std::string {
+    for (const char *key : keys) {
+      auto it = item.find(key);
+      if (it != item.end())
+        return jsonToString(*it);
+    }
+    return {};
+  };
+
   auto parseModes = [&](const json &item) {
     std::vector<GdtfCatalogModeCandidate> modes;
     if (item.contains("dmxModes") && item["dmxModes"].is_array()) {
@@ -737,15 +825,9 @@ ParseGdtfCatalogEntries(const std::string &listData) {
     if (!item.is_object())
       continue;
     GdtfCatalogEntry entry;
-    entry.rid = jsonToString(item.value("rid", json{}));
-    if (entry.rid.empty())
-      entry.rid = jsonToString(item.value("revisionId", json{}));
-    entry.manufacturer = jsonToString(item.value("manufacturer", json{}));
-    if (entry.manufacturer.empty())
-      entry.manufacturer = jsonToString(item.value("brand", json{}));
-    entry.fixtureName = jsonToString(item.value("fixture", json{}));
-    if (entry.fixtureName.empty())
-      entry.fixtureName = jsonToString(item.value("name", json{}));
+    entry.rid = getValue(item, {"rid", "revisionId"});
+    entry.manufacturer = getValue(item, {"manufacturer", "brand", "mfr"});
+    entry.fixtureName = getValue(item, {"fixture", "name", "model"});
     entry.lastModifiedUnix = jsonToLongLong(item.value("lastModified", json{}));
     entry.rating = jsonToFloat(item.value("rating", json{}));
     entry.modes = parseModes(item);
@@ -2884,10 +2966,60 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               std::string listPayload;
               long listHttpCode = 0;
               reportProgress("Downloading selected GDTFs: loading catalog...");
-              if (GdtfGetList(cookieFile, listPayload, &listHttpCode) &&
-                  listHttpCode == 200) {
-                const std::vector<GdtfCatalogEntry> catalogEntries =
-                    ParseGdtfCatalogEntries(listPayload);
+
+              GdtfCatalogService catalogService;
+              const std::string refreshNowUtc =
+                  wxDateTime::UNow().FormatISOCombined(' ').ToStdString();
+              const GdtfCatalogRefreshResult catalogResult =
+                  catalogService.RefreshCatalogIfStale(
+                      [&](std::string &onlineListData) {
+                        return GdtfGetList(cookieFile, onlineListData,
+                                           &listHttpCode) &&
+                               listHttpCode == 200;
+                      },
+                      refreshNowUtc);
+              if (catalogResult.snapshot) {
+                listPayload = catalogResult.snapshot->listData;
+              }
+              reportProgress(
+                  wxString::Format("[METRIC] GDTF import catalog cache_hit=%d cache_miss=%d cache_age_s=%lld refresh_attempted=%d refresh_succeeded=%d",
+                                   catalogResult.metrics.cacheHit ? 1 : 0,
+                                   catalogResult.metrics.cacheMiss ? 1 : 0,
+                                   static_cast<long long>(catalogResult.metrics.cacheAgeSeconds),
+                                   catalogResult.metrics.refreshAttempted ? 1 : 0,
+                                   catalogResult.metrics.refreshSucceeded ? 1 : 0)
+                      .ToStdString());
+
+              std::vector<GdtfCatalogEntry> catalogEntries;
+              if (!listPayload.empty()) {
+                catalogEntries = ParseGdtfCatalogEntries(listPayload);
+              }
+
+              if (catalogEntries.empty()) {
+                reportProgress(
+                    "[INFO] Cached catalog did not provide usable entries; forcing online refresh.");
+                const GdtfCatalogRefreshResult forcedCatalogResult =
+                    catalogService.RefreshCatalogIfStale(
+                        [&](std::string &onlineListData) {
+                          return GdtfGetList(cookieFile, onlineListData,
+                                             &listHttpCode) &&
+                                 listHttpCode == 200;
+                        },
+                        refreshNowUtc,
+                        0);
+                if (forcedCatalogResult.snapshot) {
+                  listPayload = forcedCatalogResult.snapshot->listData;
+                  catalogEntries = ParseGdtfCatalogEntries(listPayload);
+                }
+                reportProgress(
+                    wxString::Format("[METRIC] GDTF import forced_refresh attempted=%d succeeded=%d entries=%zu",
+                                     forcedCatalogResult.metrics.refreshAttempted ? 1 : 0,
+                                     forcedCatalogResult.metrics.refreshSucceeded ? 1 : 0,
+                                     catalogEntries.size())
+                        .ToStdString());
+              }
+
+              if (!catalogEntries.empty()) {
                 summaryText->SetLabel(wxString::Format(
                     "Selected fixture types for download (catalog entries: %zu)",
                     catalogEntries.size()));
@@ -2902,9 +3034,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   GdtfDownloadMatch bestMatch;
                   double bestScore = -1.0;
                   for (const auto &entry : catalogEntries) {
-                    if (NormalizeForGdtfMatch(entry.fixtureName) !=
-                        NormalizeForGdtfMatch(req.fixtureName.empty() ? req.type
-                                                                       : req.fixtureName)) {
+                    const std::string requestedFixtureName =
+                        req.fixtureName.empty() ? req.type : req.fixtureName;
+                    if (!IsLikelyFixtureNameMatch(entry.fixtureName,
+                                                  requestedFixtureName)) {
                       continue;
                     }
                     int baseScore = 50;
@@ -2998,7 +3131,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 progressPhaseText->SetLabel("Catalog load failed. Keeping MVR originals.");
               }
               isDownloadInfoFinished = true;
-              if (listHttpCode == 200) {
+              if (!listPayload.empty()) {
                 progressPhaseText->SetLabel("Queue finished.");
               }
               summaryText->SetLabel(summaryText->GetLabel() + " - queue finished");

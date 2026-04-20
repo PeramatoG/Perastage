@@ -59,7 +59,7 @@
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "gdtfnet.h"
-#include "gdtf_catalog_cache.h"
+#include "gdtf_catalog_service.h"
 #include "gdtfsearchdialog.h"
 #include "hoist_weight_distribution.h"
 #include "hoisttablepanel.h"
@@ -460,65 +460,66 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
   wxString cookieFileWx = wxFileName::GetTempDir() + "/gdtf_session.txt";
   std::string cookieFile = WxToUtf8(cookieFileWx);
+  auto removeCookieFileIfPresent = [&]() {
+    if (wxFileExists(cookieFileWx))
+      wxRemoveFile(cookieFileWx);
+  };
 
-  const auto cacheLoadStart = std::chrono::steady_clock::now();
-  const std::optional<GdtfCatalogCacheEntry> cachedCatalog =
-      LoadGdtfCatalogCache();
-  const auto cacheLoadElapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::steady_clock::now() - cacheLoadStart)
-                                      .count();
+  const auto catalogResolveStart = std::chrono::steady_clock::now();
+  GdtfCatalogService catalogService;
+  const std::string nowUtc = WxToUtf8(wxDateTime::UNow().FormatISOCombined(' '));
 
-  const std::string listData =
-      cachedCatalog ? cachedCatalog->listData : std::string("{}");
-  const std::string cachedUpdatedAt = cachedCatalog
-                                          ? cachedCatalog->updatedAt
-                                          : std::string("unknown");
+  std::unique_ptr<wxWindowDisabler> refreshDisabler =
+      std::make_unique<wxWindowDisabler>();
+  std::unique_ptr<wxBusyInfo> refreshOverlay =
+      std::make_unique<wxBusyInfo>("Updating GDTF catalog...");
+  wxYieldIfNeeded();
 
-  std::string effectiveListData = listData;
-  std::string effectiveUpdatedAt = cachedUpdatedAt;
+  const GdtfCatalogRefreshResult catalogResult =
+      catalogService.RefreshCatalogIfStale(
+          [&](std::string &onlineListData) {
+            if (!activeCredentials || activeCredentials->username.empty() ||
+                activeCredentials->password.empty()) {
+              return false;
+            }
 
-  {
-    const auto onlineRefreshStart = std::chrono::steady_clock::now();
-    std::unique_ptr<wxWindowDisabler> refreshDisabler =
-        std::make_unique<wxWindowDisabler>();
-    std::unique_ptr<wxBusyInfo> refreshOverlay =
-        std::make_unique<wxBusyInfo>("Updating GDTF catalog...");
-    wxYieldIfNeeded();
+            long loginHttpCode = 0;
+            const bool loginOk =
+                GdtfLogin(activeCredentials->username,
+                         activeCredentials->password, cookieFile,
+                         loginHttpCode);
+            if (!loginOk || loginHttpCode != 200)
+              return false;
 
-    if (activeCredentials && !activeCredentials->username.empty() &&
-        !activeCredentials->password.empty()) {
-      long loginHttpCode = 0;
-      const bool loginOk = GdtfLogin(activeCredentials->username,
-                                     activeCredentials->password, cookieFile,
-                                     loginHttpCode);
-      if (loginOk && loginHttpCode == 200) {
-        std::string onlineListData;
-        long listHttpCode = 0;
-        if (GdtfGetList(cookieFile, onlineListData, &listHttpCode) &&
-            listHttpCode == 200 && !onlineListData.empty()) {
-          effectiveListData = std::move(onlineListData);
-          effectiveUpdatedAt = WxToUtf8(wxDateTime::Now().FormatISOCombined(' '));
-          if (effectiveListData != listData) {
-            GdtfCatalogCacheEntry cacheEntry;
-            cacheEntry.listData = effectiveListData;
-            cacheEntry.updatedAt = effectiveUpdatedAt;
-            cacheEntry.compressed = false;
-            SaveGdtfCatalogCache(cacheEntry);
-          }
-        }
-      }
-    }
+            long listHttpCode = 0;
+            return GdtfGetList(cookieFile, onlineListData, &listHttpCode) &&
+                   listHttpCode == 200 && !onlineListData.empty();
+          },
+          nowUtc);
 
-    const auto onlineRefreshElapsedMs =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - onlineRefreshStart)
-            .count();
-    if (consolePanel) {
-      consolePanel->AppendMessage(wxString::Format(
-          "[METRIC] GDTF cache_load_ms=%lld online_refresh_ms=%lld",
-          static_cast<long long>(cacheLoadElapsedMs),
-          static_cast<long long>(onlineRefreshElapsedMs)));
-    }
+  refreshOverlay.reset();
+  refreshDisabler.reset();
+
+  const auto catalogResolveElapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - catalogResolveStart)
+                                            .count();
+
+  std::string effectiveListData = "{}";
+  std::string effectiveUpdatedAt = "unknown";
+  if (catalogResult.snapshot) {
+    effectiveListData = catalogResult.snapshot->listData;
+    effectiveUpdatedAt = catalogResult.snapshot->updatedAt;
+  }
+
+  if (consolePanel) {
+    consolePanel->AppendMessage(wxString::Format(
+        "[METRIC] GDTF catalog cache_hit=%d cache_miss=%d cache_age_s=%lld refresh_attempted=%d refresh_succeeded=%d resolve_ms=%lld",
+        catalogResult.metrics.cacheHit ? 1 : 0,
+        catalogResult.metrics.cacheMiss ? 1 : 0,
+        static_cast<long long>(catalogResult.metrics.cacheAgeSeconds),
+        catalogResult.metrics.refreshAttempted ? 1 : 0,
+        catalogResult.metrics.refreshSucceeded ? 1 : 0,
+        static_cast<long long>(catalogResolveElapsedMs)));
   }
 
   std::unique_ptr<wxBusyInfo> preparingCatalogOverlay =
@@ -594,13 +595,13 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     bool loginConnected = tryLogin(loginHttpCode);
     if (!loginConnected || IsAuthenticationFailureHttpCode(loginHttpCode)) {
       if (!requestCredentialsFromDialog()) {
-        wxRemoveFile(cookieFileWx);
+        removeCookieFileIfPresent();
         return;
       }
       loginConnected = tryLogin(loginHttpCode);
       if (!loginConnected || loginHttpCode != 200) {
         showGdtfDownloadError("Login failed.", "Login Error");
-        wxRemoveFile(cookieFileWx);
+        removeCookieFileIfPresent();
         return;
       }
     }
@@ -641,7 +642,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     }
   }
 
-  wxRemoveFile(cookieFileWx);
+  removeCookieFileIfPresent();
 }
 
 void MainWindow::OnEditDictionaries(wxCommandEvent &WXUNUSED(event)) {
