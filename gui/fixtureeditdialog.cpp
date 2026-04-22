@@ -25,6 +25,7 @@
 #include "gdtf_fixture_category.h"
 #include "symbolcache.h"
 #include "symbols/PerastageSvgSymbol.h"
+#include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <wx/datetime.h>
 #include <wx/filedlg.h>
@@ -958,12 +959,32 @@ void FixtureEditDialog::ApplyChanges() {
     }
   }
   panel->ResyncRows(oldOrder, selectedUuids);
-  panel->UpdateSceneData();
-  panel->HighlightDuplicateFixtureIds();
+  bool renamedOnly = modifiedColumns.size() > 1 && modifiedColumns[1];
+  if (renamedOnly) {
+    for (size_t i = 0; i < modifiedColumns.size(); ++i) {
+      if (i == 1 || !modifiedColumns[i])
+        continue;
+      renamedOnly = false;
+      break;
+    }
+  }
+  const auto updateType =
+      renamedOnly ? FixtureTablePanel::SceneDataUpdateType::kVisualLabelOnly
+                  : FixtureTablePanel::SceneDataUpdateType::kGeneral;
+  panel->UpdateSceneData(true, updateType);
   applied = true;
   if (Viewer3DPanel::Instance()) {
-    Viewer3DPanel::Instance()->UpdateScene();
-    Viewer3DPanel::Instance()->Refresh();
+    if (updateType == FixtureTablePanel::SceneDataUpdateType::kVisualLabelOnly) {
+      Viewer3DPanel::Instance()->Refresh();
+    } else {
+      Viewer3DPanel::Instance()->UpdateScene();
+      Viewer3DPanel::Instance()->Refresh();
+    }
+  } else if (Viewer2DPanel::Instance()) {
+    if (updateType == FixtureTablePanel::SceneDataUpdateType::kVisualLabelOnly)
+      Viewer2DPanel::Instance()->UpdateScene(false);
+    else
+      Viewer2DPanel::Instance()->UpdateScene();
   }
   std::fill(modifiedColumns.begin(), modifiedColumns.end(), false);
 }
