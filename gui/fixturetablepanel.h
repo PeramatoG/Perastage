@@ -34,7 +34,7 @@ class FixtureTablePanel : public wxPanel
 public:
     enum class SceneDataUpdateType {
         kGeneral,
-        kNameOnly
+        kVisualLabelOnly
     };
 
     explicit FixtureTablePanel(wxWindow* parent, IGuiConfigServices* services = nullptr);

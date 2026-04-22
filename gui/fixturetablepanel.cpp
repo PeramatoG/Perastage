@@ -86,6 +86,25 @@ public:
   }
 };
 
+void RefreshViewersForFixtureUpdate(
+    FixtureTablePanel::SceneDataUpdateType updateType) {
+  const bool labelOnlyUpdate =
+      updateType == FixtureTablePanel::SceneDataUpdateType::kVisualLabelOnly;
+  if (Viewer3DPanel::Instance()) {
+    if (labelOnlyUpdate) {
+      Viewer3DPanel::Instance()->Refresh();
+    } else {
+      Viewer3DPanel::Instance()->UpdateScene();
+      Viewer3DPanel::Instance()->Refresh();
+    }
+  } else if (Viewer2DPanel::Instance()) {
+    if (labelOnlyUpdate)
+      Viewer2DPanel::Instance()->UpdateScene(false);
+    else
+      Viewer2DPanel::Instance()->UpdateScene();
+  }
+}
+
 bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
   if (!store || row < 0 || col < 0)
     return false;
@@ -981,18 +1000,11 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   }
   FixtureTableEditService::PropagateTypeValues(table, selections, col);
   const SceneDataUpdateType updateType =
-      (col == 1) ? SceneDataUpdateType::kNameOnly
+      (col == 1) ? SceneDataUpdateType::kVisualLabelOnly
                  : SceneDataUpdateType::kGeneral;
   ResyncRows(oldOrder, selectedUuids);
   UpdateSceneData(true, updateType);
-  if (updateType != SceneDataUpdateType::kNameOnly)
-    HighlightDuplicateFixtureIds();
-  if (Viewer3DPanel::Instance()) {
-    Viewer3DPanel::Instance()->UpdateScene();
-    Viewer3DPanel::Instance()->Refresh();
-  } else if (Viewer2DPanel::Instance()) {
-    Viewer2DPanel::Instance()->UpdateScene();
-  }
+  RefreshViewersForFixtureUpdate(updateType);
 }
 
 static FixtureTablePanel *s_instance = nullptr;
@@ -1452,13 +1464,14 @@ void FixtureTablePanel::UpdateSceneData(bool logChanges,
   HoistLoadRecalculationPrompt::PromptAndApply(
       guiConfigServices->LegacyConfigManager(), this, changedWeightPositions);
 
-  if (updateType != SceneDataUpdateType::kNameOnly)
+  if (updateType != SceneDataUpdateType::kVisualLabelOnly)
     HighlightDuplicateFixtureIds();
 
   if (RiggingPanel::Instance())
     RiggingPanel::Instance()->RefreshData();
 
-  if (SummaryPanel::Instance() && IsActivePage())
+  if (SummaryPanel::Instance() && IsActivePage() &&
+      updateType != SceneDataUpdateType::kVisualLabelOnly)
     SummaryPanel::Instance()->ShowFixtureSummary();
 }
 
