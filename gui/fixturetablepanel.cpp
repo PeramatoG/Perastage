@@ -545,7 +545,6 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
-    HighlightDuplicateFixtureIds();
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
@@ -610,7 +609,6 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
-    HighlightDuplicateFixtureIds();
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
@@ -640,7 +638,6 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     PropagateTypeValues(selections, col);
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
-    HighlightDuplicateFixtureIds();
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
@@ -708,7 +705,6 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
-    HighlightDuplicateFixtureIds();
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
@@ -761,7 +757,6 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
-    HighlightDuplicateFixtureIds();
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
@@ -800,7 +795,6 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     PropagateTypeValues(selections, col);
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
-    HighlightDuplicateFixtureIds();
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
