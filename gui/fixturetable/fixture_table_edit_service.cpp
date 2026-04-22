@@ -23,75 +23,63 @@ constexpr const char *kUnassignedPosition = "Unassigned";
 std::string NormalizePositionName(const std::string &positionName) {
   return positionName.empty() ? kUnassignedPosition : positionName;
 }
-}
 
-std::vector<int> BuildOrderedRows(const std::vector<int> &selectedRows,
-                                  const std::vector<int> &selectionOrder) {
-  std::vector<int> orderedRows;
-  for (int idx : selectionOrder)
-    if (std::find(selectedRows.begin(), selectedRows.end(), idx) !=
-        selectedRows.end())
-      orderedRows.push_back(idx);
-  for (int idx : selectedRows)
-    if (std::find(orderedRows.begin(), orderedRows.end(), idx) ==
-        orderedRows.end())
-      orderedRows.push_back(idx);
-  return orderedRows;
-}
+struct SceneUpdateTracking {
+  size_t updatedCount = 0;
+  wxString firstName;
+  wxString firstUuid;
+  bool anyChanged = false;
+  bool undoPushed = false;
+};
 
-void PropagateTypeValues(wxDataViewListCtrl *table,
-                         const wxDataViewItemArray &selections, int col) {
-  if (col != 16 && col != 17 && col != 18 && col != 19)
+void AppendChangeLogIfNeeded(SceneUpdateTracking &tracking, bool logChanges) {
+  if (!tracking.anyChanged || !logChanges)
     return;
 
-  if (col == 19)
+  ConsolePanel *console = ConsolePanel::Instance();
+  if (!console)
     return;
 
-  std::unordered_map<std::string, wxString> typeValues;
-  for (const auto &it : selections) {
-    int r = table->ItemToRow(it);
-    if (r == wxNOT_FOUND)
-      continue;
-    wxVariant vType, vVal;
-    table->GetValue(vType, r, 2);
-    table->GetValue(vVal, r, col);
-    typeValues[std::string(vType.GetString().ToUTF8())] = vVal.GetString();
-  }
+  wxString msg;
+  if (tracking.updatedCount == 1)
+    msg = "Updated fixture " + tracking.firstName + " (UUID " + tracking.firstUuid + ")";
+  else if (tracking.updatedCount > 1)
+    msg = wxString::Format("Updated %zu fixtures", tracking.updatedCount);
+  if (!msg.empty())
+    console->AppendMessage(msg);
+}
 
-  unsigned int rowCount = table->GetItemCount();
-  for (unsigned int i = 0; i < rowCount; ++i) {
-    wxVariant vType;
-    table->GetValue(vType, i, 2);
-    auto it = typeValues.find(std::string(vType.GetString().ToUTF8()));
-    if (it != typeValues.end())
-      table->SetValue(wxVariant(it->second), i, col);
+void TrackUpdatedFixture(const Fixture &fixture, SceneUpdateTracking &tracking,
+                        bool logChanges) {
+  tracking.anyChanged = true;
+  if (!logChanges || !ConsolePanel::Instance())
+    return;
+
+  ++tracking.updatedCount;
+  if (tracking.updatedCount == 1) {
+    tracking.firstName = wxString::FromUTF8(fixture.instanceName.c_str());
+    tracking.firstUuid = wxString::FromUTF8(fixture.uuid.c_str());
   }
 }
 
-void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
-                     const std::vector<std::string> &rowUuids,
-                     const std::vector<wxString> &gdtfPaths,
-                     const std::unordered_set<std::string> *manualCategoryUuids,
-                     std::unordered_set<std::string> *changedWeightPositions,
-                     bool logChanges) {
-  // Ensure in-place cell editors commit pending values before reading table rows.
-  if (table)
-    DataViewEditCommit::CommitPendingEdit(table);
+void PushUndoIfNeeded(FixtureTableEditService::ISceneAdapter &adapter,
+                      SceneUpdateTracking &tracking) {
+  if (tracking.undoPushed)
+    return;
+  adapter.PushUndoState("edit fixture");
+  tracking.undoPushed = true;
+}
 
+void ApplyFullRowChanges(
+    FixtureTableEditService::ISceneAdapter &adapter, wxDataViewListCtrl *table,
+    const std::vector<std::string> &rowUuids, const std::vector<wxString> &gdtfPaths,
+    const std::unordered_set<std::string> *manualCategoryUuids,
+    std::unordered_set<std::string> *changedWeightPositions, bool logChanges) {
   auto &scene = adapter.GetScene();
   const auto distanceUnitSystem = adapter.GetDistanceUnitSystem();
   const auto weightUnitSystem = adapter.GetWeightUnitSystem();
 
-  size_t updatedCount = 0;
-  wxString firstName, firstUuid;
-  bool anyChanged = false;
-  bool undoPushed = false;
-  auto pushUndoIfNeeded = [&]() {
-    if (!undoPushed) {
-      adapter.PushUndoState("edit fixture");
-      undoPushed = true;
-    }
-  };
+  SceneUpdateTracking tracking;
 
   size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
   // Keep scene writes and undo states limited to rows with real changes.
@@ -182,12 +170,9 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
 
     const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
     const bool transformChanged =
-        !Units::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm,
-                                                     0.5) ||
-        !Units::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm,
-                                                     0.5) ||
-        !Units::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm,
-                                                     0.5) ||
+        !Units::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm, 0.5) ||
+        !Units::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm, 0.5) ||
+        !Units::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm, 0.5) ||
         std::abs(static_cast<double>(currentEuler[2]) - roll) > 0.05 ||
         std::abs(static_cast<double>(currentEuler[1]) - pitch) > 0.05 ||
         std::abs(static_cast<double>(currentEuler[0]) - yaw) > 0.05;
@@ -249,7 +234,7 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                                 transformChanged ||
                                 old.powerConsumptionW != next.powerConsumptionW ||
                                 !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg,
-                                                                 0.001) ||
+                                                                   0.001) ||
                                 old.category != next.category ||
                                 old.categorySource != next.categorySource ||
                                 old.categorySourceReason != next.categorySourceReason ||
@@ -257,8 +242,7 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     if (!fixtureChanged)
       continue;
 
-    pushUndoIfNeeded();
-    anyChanged = true;
+    PushUndoIfNeeded(adapter, tracking);
     if (weightChanged && changedWeightPositions) {
       changedWeightPositions->insert(NormalizePositionName(old.positionName));
       changedWeightPositions->insert(NormalizePositionName(next.positionName));
@@ -272,30 +256,99 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     if (!it->second.position.empty())
       scene.positions[it->second.position] = it->second.positionName;
 
-    if (logChanges && ConsolePanel::Instance()) {
-      ++updatedCount;
-      if (updatedCount == 1) {
-        firstName = wxString::FromUTF8(it->second.instanceName.c_str());
-        firstUuid = wxString::FromUTF8(it->second.uuid.c_str());
-      }
-    }
+    TrackUpdatedFixture(it->second, tracking, logChanges);
   }
 
-  if (!anyChanged)
+  AppendChangeLogIfNeeded(tracking, logChanges);
+}
+}
+
+std::vector<int> BuildOrderedRows(const std::vector<int> &selectedRows,
+                                  const std::vector<int> &selectionOrder) {
+  std::vector<int> orderedRows;
+  for (int idx : selectionOrder)
+    if (std::find(selectedRows.begin(), selectedRows.end(), idx) !=
+        selectedRows.end())
+      orderedRows.push_back(idx);
+  for (int idx : selectedRows)
+    if (std::find(orderedRows.begin(), orderedRows.end(), idx) ==
+        orderedRows.end())
+      orderedRows.push_back(idx);
+  return orderedRows;
+}
+
+void PropagateTypeValues(wxDataViewListCtrl *table,
+                         const wxDataViewItemArray &selections, int col) {
+  if (col != 16 && col != 17 && col != 18 && col != 19)
     return;
 
-  if (logChanges) {
-    ConsolePanel *console = ConsolePanel::Instance();
-    if (console) {
-      wxString msg;
-      if (updatedCount == 1)
-        msg = "Updated fixture " + firstName + " (UUID " + firstUuid + ")";
-      else if (updatedCount > 1)
-        msg = wxString::Format("Updated %zu fixtures", updatedCount);
-      if (!msg.empty())
-        console->AppendMessage(msg);
-    }
+  if (col == 19)
+    return;
+
+  std::unordered_map<std::string, wxString> typeValues;
+  for (const auto &it : selections) {
+    int r = table->ItemToRow(it);
+    if (r == wxNOT_FOUND)
+      continue;
+    wxVariant vType, vVal;
+    table->GetValue(vType, r, 2);
+    table->GetValue(vVal, r, col);
+    typeValues[std::string(vType.GetString().ToUTF8())] = vVal.GetString();
   }
+
+  unsigned int rowCount = table->GetItemCount();
+  for (unsigned int i = 0; i < rowCount; ++i) {
+    wxVariant vType;
+    table->GetValue(vType, i, 2);
+    auto it = typeValues.find(std::string(vType.GetString().ToUTF8()));
+    if (it != typeValues.end())
+      table->SetValue(wxVariant(it->second), i, col);
+  }
+}
+
+void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
+                     const std::vector<std::string> &rowUuids,
+                     const std::vector<wxString> &gdtfPaths,
+                     const std::unordered_set<std::string> *manualCategoryUuids,
+                     std::unordered_set<std::string> *changedWeightPositions,
+                     bool logChanges) {
+  // Ensure in-place cell editors commit pending values before reading table rows.
+  if (table)
+    DataViewEditCommit::CommitPendingEdit(table);
+  ApplyFullRowChanges(adapter, table, rowUuids, gdtfPaths, manualCategoryUuids,
+                      changedWeightPositions, logChanges);
+}
+
+void ApplyNameChanges(ISceneAdapter &adapter, wxDataViewListCtrl *table,
+                      const std::vector<std::string> &rowUuids,
+                      const std::vector<int> &selectedRows, bool logChanges) {
+  if (table)
+    DataViewEditCommit::CommitPendingEdit(table);
+
+  auto &scene = adapter.GetScene();
+  SceneUpdateTracking tracking;
+  for (int row : selectedRows) {
+    if (row < 0 || static_cast<size_t>(row) >= rowUuids.size() ||
+        static_cast<size_t>(row) >= table->GetItemCount())
+      continue;
+
+    auto it = scene.fixtures.find(rowUuids[static_cast<size_t>(row)]);
+    if (it == scene.fixtures.end())
+      continue;
+
+    const Fixture old = it->second;
+    wxVariant v;
+    table->GetValue(v, row, 1);
+    const std::string nextInstanceName = std::string(v.GetString().ToUTF8());
+    if (old.instanceName == nextInstanceName)
+      continue;
+
+    PushUndoIfNeeded(adapter, tracking);
+    it->second.instanceName = nextInstanceName;
+    TrackUpdatedFixture(it->second, tracking, logChanges);
+  }
+
+  AppendChangeLogIfNeeded(tracking, logChanges);
 }
 
 } // namespace FixtureTableEditService

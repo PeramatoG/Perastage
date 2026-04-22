@@ -1003,7 +1003,20 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       (col == 1) ? SceneDataUpdateType::kVisualLabelOnly
                  : SceneDataUpdateType::kGeneral;
   ResyncRows(oldOrder, selectedUuids);
-  UpdateSceneData(true, updateType);
+  if (col == 1) {
+    std::vector<int> selectedRows;
+    selectedRows.reserve(selections.size());
+    for (const auto &it : selections) {
+      int r = table->ItemToRow(it);
+      if (r != wxNOT_FOUND)
+        selectedRows.push_back(r);
+    }
+    ConfigManagerSceneAdapter adapter;
+    FixtureTableEditService::ApplyNameChanges(adapter, table, rowUuids,
+                                              selectedRows, true);
+  } else {
+    UpdateSceneData(true, updateType);
+  }
   RefreshViewersForFixtureUpdate(updateType);
 }
 
