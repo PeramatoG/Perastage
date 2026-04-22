@@ -1615,11 +1615,14 @@ void FixtureTablePanel::ResyncRows(
   rowUuids.swap(newOrder);
   gdtfPaths.swap(newPaths);
 
-  table->UnselectAll();
-  for (const auto &uuid : selectedUuids) {
-    auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
-    if (pos != rowUuids.end())
-      table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
+  {
+    wxEventBlocker selectionBlocker(table, wxEVT_DATAVIEW_SELECTION_CHANGED);
+    table->UnselectAll();
+    for (const auto &uuid : selectedUuids) {
+      auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
+      if (pos != rowUuids.end())
+        table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
+    }
   }
   UpdateSelectionHighlight();
 }
