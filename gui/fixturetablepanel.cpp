@@ -1480,7 +1480,8 @@ void FixtureTablePanel::UpdateSceneData(bool logChanges,
   if (updateType != SceneDataUpdateType::kVisualLabelOnly)
     HighlightDuplicateFixtureIds();
 
-  if (RiggingPanel::Instance())
+  if (updateType != SceneDataUpdateType::kVisualLabelOnly &&
+      RiggingPanel::Instance())
     RiggingPanel::Instance()->RefreshData();
 
   if (SummaryPanel::Instance() && IsActivePage() &&
