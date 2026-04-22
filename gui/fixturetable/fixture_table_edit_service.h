@@ -33,4 +33,9 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                      std::unordered_set<std::string> *changedWeightPositions = nullptr,
                      bool logChanges = true);
 
+void ApplyNameChanges(ISceneAdapter &adapter, wxDataViewListCtrl *table,
+                      const std::vector<std::string> &rowUuids,
+                      const std::vector<int> &selectedRows,
+                      bool logChanges = true);
+
 } // namespace FixtureTableEditService
