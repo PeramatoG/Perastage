@@ -980,9 +980,13 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
   }
   FixtureTableEditService::PropagateTypeValues(table, selections, col);
+  const SceneDataUpdateType updateType =
+      (col == 1) ? SceneDataUpdateType::kNameOnly
+                 : SceneDataUpdateType::kGeneral;
   ResyncRows(oldOrder, selectedUuids);
-  UpdateSceneData();
-  HighlightDuplicateFixtureIds();
+  UpdateSceneData(true, updateType);
+  if (updateType != SceneDataUpdateType::kNameOnly)
+    HighlightDuplicateFixtureIds();
   if (Viewer3DPanel::Instance()) {
     Viewer3DPanel::Instance()->UpdateScene();
     Viewer3DPanel::Instance()->Refresh();
@@ -1435,7 +1439,8 @@ void FixtureTablePanel::PropagateTypeValues(
   FixtureTableEditService::PropagateTypeValues(table, selections, col);
 }
 
-void FixtureTablePanel::UpdateSceneData(bool logChanges) {
+void FixtureTablePanel::UpdateSceneData(bool logChanges,
+                                        SceneDataUpdateType updateType) {
   ConfigManagerSceneAdapter adapter;
   std::unordered_set<std::string> changedWeightPositions;
   FixtureTableEditService::UpdateSceneData(adapter, table, rowUuids, gdtfPaths,
@@ -1447,7 +1452,8 @@ void FixtureTablePanel::UpdateSceneData(bool logChanges) {
   HoistLoadRecalculationPrompt::PromptAndApply(
       guiConfigServices->LegacyConfigManager(), this, changedWeightPositions);
 
-  HighlightDuplicateFixtureIds();
+  if (updateType != SceneDataUpdateType::kNameOnly)
+    HighlightDuplicateFixtureIds();
 
   if (RiggingPanel::Instance())
     RiggingPanel::Instance()->RefreshData();

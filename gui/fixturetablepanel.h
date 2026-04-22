@@ -32,6 +32,11 @@ class IGuiConfigServices;
 class FixtureTablePanel : public wxPanel
 {
 public:
+    enum class SceneDataUpdateType {
+        kGeneral,
+        kNameOnly
+    };
+
     explicit FixtureTablePanel(wxWindow* parent, IGuiConfigServices* services = nullptr);
     ~FixtureTablePanel();
     void ReloadData(); // Refresh content from ConfigManager
@@ -49,7 +54,9 @@ public:
     static FixtureTablePanel* Instance();
     static void SetInstance(FixtureTablePanel* panel);
 
-    void UpdateSceneData(bool logChanges = true);
+    void UpdateSceneData(
+        bool logChanges = true,
+        SceneDataUpdateType updateType = SceneDataUpdateType::kGeneral);
 
 private:
     friend class FixtureEditDialog; // allow dialog to access internals
