@@ -1609,6 +1609,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   std::unordered_map<std::string, std::vector<std::string>> gdtfModesCache;
   std::unordered_map<std::string, std::unordered_map<std::string, int>>
       gdtfModeChannelCountCache;
+  std::unordered_map<std::string, GdtfFixtureCategory::InferenceResult>
+      categoryInferenceByResolvedPath;
   const std::string kEmptyResolvedPath;
   auto resolveGdtfPathCached = [&](const std::string &spec) -> const std::string & {
     const std::string normalized = NormalizeArchivePathValue(spec);
@@ -3531,8 +3533,29 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     }
 
     if (fixture.category.empty() && !fixture.gdtfSpec.empty()) {
-      const auto inferred = GdtfFixtureCategory::InferFromGdtf(
-          ResolveScenePathForRead(scene.basePath, fixture.gdtfSpec));
+      std::string resolvedCategoryPath = resolveFixtureGdtfPathForRead(fixture.gdtfSpec);
+      if (!resolvedCategoryPath.empty()) {
+        resolvedCategoryPath =
+            ResolveScenePathForRead(scene.basePath, resolvedCategoryPath);
+      } else {
+        resolvedCategoryPath =
+            ResolveScenePathForRead(scene.basePath, fixture.gdtfSpec);
+      }
+
+      GdtfFixtureCategory::InferenceResult inferred;
+      if (!resolvedCategoryPath.empty()) {
+        auto inferenceCacheIt =
+            categoryInferenceByResolvedPath.find(resolvedCategoryPath);
+        if (inferenceCacheIt != categoryInferenceByResolvedPath.end()) {
+          inferred = inferenceCacheIt->second;
+        } else {
+          inferred = GdtfFixtureCategory::InferFromGdtf(resolvedCategoryPath);
+          categoryInferenceByResolvedPath.emplace(resolvedCategoryPath, inferred);
+        }
+      } else {
+        inferred = GdtfFixtureCategory::InferFromGdtf(resolvedCategoryPath);
+      }
+
       fixture.category = GdtfFixtureCategory::NormalizeCategory(inferred.category);
       if (fixture.category.empty())
         fixture.category = GdtfFixtureCategory::kUnknown;
