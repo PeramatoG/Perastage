@@ -29,7 +29,8 @@ Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
   panel_ = new Viewer2DPanel(host_, true, false, false);
   panel_->SetSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
   panel_->SetClientSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
-  ApplySymbolCaptureDefaults();
+  panel_->SetRenderOverrides(std::nullopt);
+  panel_->UpdateScene(true);
 }
 
 Viewer2DOffscreenRenderer::~Viewer2DOffscreenRenderer() {
@@ -52,6 +53,7 @@ void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
 void Viewer2DOffscreenRenderer::PrepareForCapture() {
   if (!panel_)
     return;
+  panel_->SetRenderOverrides(std::nullopt);
   panel_->UpdateScene(true);
 }
 
