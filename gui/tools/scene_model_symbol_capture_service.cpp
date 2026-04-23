@@ -212,16 +212,15 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   renderOverrides.showGrid = false;
   renderOverrides.showRuler = false;
   renderOverrides.drawFixtureLabels = false;
+  renderOverrides.forceBottomViewForTopFixtures = false;
   renderOverrides.symbolCaptureRenderProfile = true;
   renderOverrides.symbolCaptureIncludeCoplanarEdges = true;
   ScopedViewer2DRenderOverrides scopedRenderOverrides(*capturePanel,
                                                       renderOverrides);
 
   renderer.SetViewportSize(options.viewportSize);
+  renderer.ApplySymbolCaptureDefaults();
   renderer.PrepareForCapture();
-  capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
-  capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
-  capturePanel->UpdateScene(true);
 
   {
     std::vector<unsigned char> warmupPixels;

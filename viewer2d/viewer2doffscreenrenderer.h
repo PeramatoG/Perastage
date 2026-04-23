@@ -29,6 +29,7 @@ public:
   Viewer2DPanel *GetPanel() const { return panel_; }
   void SetViewportSize(const wxSize &size);
   void PrepareForCapture();
+  void ApplySymbolCaptureDefaults();
 
 private:
   wxPanel *host_ = nullptr;
