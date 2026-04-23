@@ -19,6 +19,7 @@
 
 #include "dictionary_import.h"
 
+#include <cstddef>
 #include <string>
 #include <optional>
 #include <unordered_map>
@@ -65,6 +66,8 @@ namespace GdtfDictionary {
     void UpdateCategory(const std::string& type, const std::string& category);
     void UpdateCategoryForFile(const std::string& type, const std::string& gdtfPath,
                                const std::string& category);
+    void UpdateCategoriesBulk(
+        const std::unordered_map<std::string, std::string>& categoriesByType);
     void UpdateColor(const std::string& type, const std::string& color);
     void UpdateColorForFile(const std::string& type, const std::string& gdtfPath,
                             const std::string& mode,
@@ -73,4 +76,7 @@ namespace GdtfDictionary {
         const std::string &filePath, DictionaryImportPolicy policy);
     DictionaryImportSummary ApplyImportFromFile(
         const std::string &filePath, DictionaryImportPolicy policy);
+
+    size_t GetSaveCallCountForTesting();
+    void ResetSaveCallCountForTesting();
 }

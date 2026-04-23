@@ -72,6 +72,19 @@ int main() {
     assert(textOnlyEntry.has_value());
     assert(textOnlyEntry->category == "Spot");
     assert(textOnlyEntry->path.empty());
+    std::unordered_map<std::string, GdtfDictionary::Entry> categoryPropagationDict;
+    categoryPropagationDict["Type A"] = {
+        (tempDir / "shared.gdtf").string(), "Mode A", "OldA", "", "", ""};
+    categoryPropagationDict["Type B"] = {
+        (tempDir / "subdir" / "shared.gdtf").string(), "Mode B", "OldB", "", "", ""};
+    assert(GdtfDictionary::Save(categoryPropagationDict));
+    GdtfDictionary::UpdateCategoriesBulk({{"Type A", "Wash"}});
+    const auto categoryPropagationA = GdtfDictionary::Get("Type A");
+    const auto categoryPropagationB = GdtfDictionary::Get("Type B");
+    assert(categoryPropagationA.has_value());
+    assert(categoryPropagationB.has_value());
+    assert(categoryPropagationA->category == "Wash");
+    assert(categoryPropagationB->category == "Wash");
 
     Fixture f; f.uuid = "fx1"; f.instanceName = "Fixture"; f.layer = layer.name; f.typeName = "FixtureType"; f.gdtfSpec = "orig.gdtf"; f.color = "#445566"; f.fixtureIdText = "S101A"; f.fixtureIdNumeric = 101; f.fixtureId = 101; scene.fixtures[f.uuid] = f;
     Fixture f2; f2.uuid = "fx2"; f2.instanceName = "Fixture 2"; f2.layer = layer.name; f2.typeName = "FixtureType"; f2.gdtfSpec = "orig.gdtf"; f2.fixtureIdText = "S101B"; f2.fixtureIdNumeric = 101; f2.fixtureId = 101; scene.fixtures[f2.uuid] = f2;
