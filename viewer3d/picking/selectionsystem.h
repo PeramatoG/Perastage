@@ -50,12 +50,16 @@ public:
     };
 
     struct HoverGridIndex {
+      struct SegmentationCell {
+        int candidateIndex = -1;
+        double minDepth = 1.0;
+      };
       bool valid = false;
       const ISelectionContext::VisibleSet *sourceVisibleSet = nullptr;
       size_t sourceCount = 0;
       int viewportWidth = 0;
       int viewportHeight = 0;
-      std::unordered_map<long long, std::vector<int>> cells;
+      std::unordered_map<long long, SegmentationCell> cells;
       std::vector<HoverCandidate> candidates;
     };
 

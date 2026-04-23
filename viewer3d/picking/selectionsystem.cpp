@@ -76,12 +76,25 @@ std::vector<int> QueryHoverGridCandidates(
     return {};
   }
 
-  const int cellX = mouseX / kHoverGridCellSizePx;
-  const int cellY = mouseY / kHoverGridCellSizePx;
-  const auto cellIt = index.cells.find(MakeHoverGridKey(cellX, cellY));
-  if (cellIt == index.cells.end())
-    return {};
-  return cellIt->second;
+  const int baseCellX = mouseX / kHoverGridCellSizePx;
+  const int baseCellY = mouseY / kHoverGridCellSizePx;
+  std::vector<int> result;
+  result.reserve(9);
+  for (int offsetY = -1; offsetY <= 1; ++offsetY) {
+    for (int offsetX = -1; offsetX <= 1; ++offsetX) {
+      const int cellX = baseCellX + offsetX;
+      const int cellY = baseCellY + offsetY;
+      if (cellX < 0 || cellY < 0)
+        continue;
+      const auto cellIt = index.cells.find(MakeHoverGridKey(cellX, cellY));
+      if (cellIt == index.cells.end() || cellIt->second.candidateIndex < 0)
+        continue;
+      const int candidateIndex = cellIt->second.candidateIndex;
+      if (std::find(result.begin(), result.end(), candidateIndex) == result.end())
+        result.push_back(candidateIndex);
+    }
+  }
+  return result;
 }
 
 void BuildHoverGridIndex(
@@ -104,7 +117,8 @@ void BuildHoverGridIndex(
       continue;
 
     ScreenRect rect;
-    if (!ProjectBoundingBox(*bbPtr, projection, screenHeight, rect))
+    double minDepth = 1.0;
+    if (!ProjectBoundingBox(*bbPtr, projection, screenHeight, rect, &minDepth))
       continue;
 
     rect.minX = std::clamp(rect.minX, 0.0, static_cast<double>(screenWidth - 1));
@@ -128,8 +142,14 @@ void BuildHoverGridIndex(
     const int minCellY = static_cast<int>(rect.minY) / kHoverGridCellSizePx;
     const int maxCellY = static_cast<int>(rect.maxY) / kHoverGridCellSizePx;
     for (int cellY = minCellY; cellY <= maxCellY; ++cellY) {
-      for (int cellX = minCellX; cellX <= maxCellX; ++cellX)
-        index.cells[MakeHoverGridKey(cellX, cellY)].push_back(candidateIndex);
+      for (int cellX = minCellX; cellX <= maxCellX; ++cellX) {
+        const long long key = MakeHoverGridKey(cellX, cellY);
+        auto &segCell = index.cells[key];
+        if (segCell.candidateIndex < 0 || minDepth <= segCell.minDepth) {
+          segCell.candidateIndex = candidateIndex;
+          segCell.minDepth = minDepth;
+        }
+      }
     }
   }
 
