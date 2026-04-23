@@ -7,6 +7,7 @@ class LabelRenderSystem {
 public:
   explicit LabelRenderSystem(ISelectionContext &controller)
       : m_controller(controller) {}
+  ~LabelRenderSystem();
 
   void DrawFixtureLabels(int width, int height);
   void DrawTrussLabels(int width, int height);

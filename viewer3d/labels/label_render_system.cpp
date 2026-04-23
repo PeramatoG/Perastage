@@ -30,6 +30,9 @@
 #include <cfloat>
 #include <cstdlib>
 #include <iomanip>
+#include <chrono>
+#include <optional>
+#include <unordered_map>
 #include <nanovg.h>
 #include <sstream>
 #include <wx/tokenzr.h>
@@ -53,6 +56,166 @@ struct SupportLabelText {
   std::string capacity;
   std::string load;
 };
+
+
+struct FixtureLayoutLine {
+  std::string text;
+  float baseSize = 0.0f;
+  std::string fontFamily;
+  bool useBoldFont = false;
+};
+
+struct FixtureLayoutKey {
+  std::string uuid;
+  std::string instanceName;
+  std::string address;
+  int fixtureId = 0;
+  bool showName = false;
+  bool showId = false;
+  bool showDmx = false;
+  float nameSize = 0.0f;
+  float idSize = 0.0f;
+  float dmxSize = 0.0f;
+  float labelDist = 0.0f;
+  float labelAngle = 0.0f;
+  Viewer2DView view = Viewer2DView::Top;
+  bool interactive = false;
+
+  bool operator==(const FixtureLayoutKey &other) const {
+    return uuid == other.uuid && instanceName == other.instanceName &&
+           address == other.address && fixtureId == other.fixtureId &&
+           showName == other.showName && showId == other.showId &&
+           showDmx == other.showDmx && nameSize == other.nameSize &&
+           idSize == other.idSize && dmxSize == other.dmxSize &&
+           labelDist == other.labelDist && labelAngle == other.labelAngle &&
+           view == other.view && interactive == other.interactive;
+  }
+};
+
+struct FixtureLayoutCacheEntry {
+  FixtureLayoutKey key;
+  std::vector<FixtureLayoutLine> lines;
+  float offX = 0.0f;
+  float offY = 0.0f;
+  float offZ = 0.0f;
+};
+
+struct FixtureLabelOverridesCache {
+  std::optional<std::string> serialized;
+  viewer2d::FixtureLabelOverrideMap overrides;
+};
+
+struct FixtureLabelLayoutCacheState {
+  std::unordered_map<std::string, FixtureLayoutCacheEntry> fixtureLayoutByUuid;
+  FixtureLabelOverridesCache overridesCache;
+};
+
+std::unordered_map<LabelRenderSystem *, FixtureLabelLayoutCacheState>
+    &FixtureLayoutCacheByOwner() {
+  static std::unordered_map<LabelRenderSystem *, FixtureLabelLayoutCacheState>
+      cacheByOwner;
+  return cacheByOwner;
+}
+
+FixtureLabelLayoutCacheState &GetFixtureLayoutCacheState(LabelRenderSystem *owner) {
+  return FixtureLayoutCacheByOwner()[owner];
+}
+
+void EraseFixtureLayoutCacheState(LabelRenderSystem *owner) {
+  FixtureLayoutCacheByOwner().erase(owner);
+}
+
+const viewer2d::FixtureLabelOverrideMap &GetCachedFixtureLabelOverrides(
+    FixtureLabelLayoutCacheState &cacheState, const ConfigManager &cfg) {
+  const std::optional<std::string> serialized =
+      cfg.GetValue("label_fixture_overrides");
+  if (!cacheState.overridesCache.serialized.has_value() ||
+      cacheState.overridesCache.serialized != serialized) {
+    cacheState.overridesCache.serialized = serialized;
+    cacheState.overridesCache.overrides = viewer2d::LoadFixtureLabelOverrides(cfg);
+  }
+  return cacheState.overridesCache.overrides;
+}
+
+FixtureLayoutCacheEntry BuildFixtureLayoutEntry(const FixtureLayoutKey &layoutKey,
+                                                int regularFont,
+                                                int boldFont) {
+  constexpr const char *kRegularFamily = "sans";
+  constexpr const char *kBoldFamily = "sans-bold";
+  FixtureLayoutCacheEntry entry;
+  entry.key = layoutKey;
+
+  constexpr float deg2rad = 3.14159265358979323846f / 180.0f;
+  const float angRad = layoutKey.labelAngle * deg2rad;
+  switch (layoutKey.view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    entry.offX = layoutKey.labelDist * std::sin(angRad);
+    entry.offY = layoutKey.labelDist * std::cos(angRad);
+    break;
+  case Viewer2DView::Front:
+    entry.offX = layoutKey.labelDist * std::sin(angRad);
+    entry.offZ = layoutKey.labelDist * std::cos(angRad);
+    break;
+  case Viewer2DView::Side:
+    entry.offY = -layoutKey.labelDist * std::sin(angRad);
+    entry.offZ = layoutKey.labelDist * std::cos(angRad);
+    break;
+  }
+
+  if (layoutKey.showName) {
+    wxString baseName = layoutKey.instanceName.empty()
+                            ? wxString::FromUTF8(layoutKey.uuid)
+                            : wxString::FromUTF8(layoutKey.instanceName);
+    if (layoutKey.interactive) {
+      auto utf8 = baseName.ToUTF8();
+      entry.lines.push_back(
+          {std::string(utf8.data(), utf8.length()), layoutKey.nameSize,
+           kRegularFamily, false});
+    } else {
+      wxString wrapped = WrapEveryTwoWords(baseName);
+      wxStringTokenizer nameLines(wrapped, "\n");
+      while (nameLines.HasMoreTokens()) {
+        wxString line = nameLines.GetNextToken();
+        auto utf8 = line.ToUTF8();
+        entry.lines.push_back(
+            {std::string(utf8.data(), utf8.length()), layoutKey.nameSize,
+             kRegularFamily, false});
+      }
+    }
+  }
+
+  if (layoutKey.showId) {
+    wxString idLine = "ID: " + wxString::Format("%d", layoutKey.fixtureId);
+    auto utf8 = idLine.ToUTF8();
+    entry.lines.push_back(
+        {std::string(utf8.data(), utf8.length()), layoutKey.idSize, kRegularFamily,
+         false});
+  }
+
+  if (layoutKey.showDmx && !layoutKey.address.empty()) {
+    wxString addrLine = wxString::FromUTF8(layoutKey.address);
+    auto utf8 = addrLine.ToUTF8();
+    entry.lines.push_back(
+        {std::string(utf8.data(), utf8.length()), layoutKey.dmxSize, kBoldFamily,
+         boldFont >= 0 && boldFont != regularFont});
+  }
+
+  return entry;
+}
+
+std::vector<LabelLine2D> BuildDrawableLines(const FixtureLayoutCacheEntry &entry,
+                                            float zoom, int regularFont,
+                                            int boldFont) {
+  std::vector<LabelLine2D> lines;
+  lines.reserve(entry.lines.size());
+  for (const auto &line : entry.lines) {
+    const int font = line.useBoldFont ? boldFont : regularFont;
+    lines.push_back(
+        {font, line.text, line.baseSize * zoom, line.fontFamily});
+  }
+  return lines;
+}
 
 struct CullingSettings {
   bool enabled = true;
@@ -403,6 +566,8 @@ bool ShouldTraceLabelOrder() {
 
 } // namespace
 
+LabelRenderSystem::~LabelRenderSystem() { EraseFixtureLayoutCacheState(this); }
+
 void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
   ConfigManager &cfg = ConfigManager::Get();
   ProjectionContext projection;
@@ -484,7 +649,9 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
 
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const int viewIdx = static_cast<int>(view);
-  const auto fixtureOverrides = viewer2d::LoadFixtureLabelOverrides(cfg);
+  auto &layoutCacheState = GetFixtureLayoutCacheState(this);
+  const auto &fixtureOverrides =
+      GetCachedFixtureLabelOverrides(layoutCacheState, cfg);
 
   const CullingSettings culling = GetCullingSettings(cfg);
   const float minLabelPixels = culling.minPixels2D;
@@ -495,6 +662,16 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
                                    ? 0
                                    : GetLabelLimit(cfg, "label_max_fixtures");
 
+  constexpr float kDefaultBuildBudgetMs = 2.0f;
+  const float configuredBudgetMs = cfg.GetFloat("label_layout_build_budget_ms");
+  const float buildBudgetMs =
+      configuredBudgetMs > 0.0f ? configuredBudgetMs : kDefaultBuildBudgetMs;
+  const auto buildBudget =
+      std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+          std::chrono::duration<float, std::milli>(buildBudgetMs));
+  const auto buildStart = std::chrono::steady_clock::now();
+  bool buildBudgetExceeded = false;
+
   struct FixtureLabelCandidate {
     const std::string *uuid = nullptr;
     const Fixture *fixture = nullptr;
@@ -504,10 +681,14 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   candidates.reserve(fixtures.size());
+  std::unordered_set<std::string> visibleFixtureUuids;
+  visibleFixtureUuids.reserve(fixtures.size());
   for (const auto &[uuid, f] : fixtures) {
     if (!IsLayerVisibleCached(hiddenLayers, f.layer) ||
         !cfg.IsFixtureTypeVisible(f.typeName))
       continue;
+
+    visibleFixtureUuids.insert(uuid);
 
     auto bit = m_controller.GetFixtureBoundsMap().find(uuid);
     if (useLabelOptimizations && culling.enabled &&
@@ -526,6 +707,15 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     } else {
       candidates.push_back({&uuid, &f, 0.0});
     }
+  }
+
+  for (auto it = layoutCacheState.fixtureLayoutByUuid.begin();
+       it != layoutCacheState.fixtureLayoutByUuid.end();) {
+    if (visibleFixtureUuids.find(it->first) == visibleFixtureUuids.end()) {
+      it = layoutCacheState.fixtureLayoutByUuid.erase(it);
+      continue;
+    }
+    ++it;
   }
 
   if (useLabelOptimizations && maxFixtureLabels > 0 &&
@@ -553,89 +743,67 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     if (!showName && !showId && !showDmx)
       continue;
 
-    const float nameSize =
-        viewer2d::ResolveLabelFontSizeName(cfg, overrideSettings) * zoom;
-    const float idSize =
-        viewer2d::ResolveLabelFontSizeId(cfg, overrideSettings) * zoom;
-    const float dmxSize =
-        viewer2d::ResolveLabelFontSizeDmx(cfg, overrideSettings) * zoom;
-    const float labelDist =
+    FixtureLayoutKey desiredKey;
+    desiredKey.uuid = uuid;
+    desiredKey.instanceName = f.instanceName;
+    desiredKey.address = f.address;
+    desiredKey.fixtureId = f.fixtureId;
+    desiredKey.showName = showName;
+    desiredKey.showId = showId;
+    desiredKey.showDmx = showDmx;
+    desiredKey.nameSize =
+        viewer2d::ResolveLabelFontSizeName(cfg, overrideSettings);
+    desiredKey.idSize = viewer2d::ResolveLabelFontSizeId(cfg, overrideSettings);
+    desiredKey.dmxSize = viewer2d::ResolveLabelFontSizeDmx(cfg, overrideSettings);
+    desiredKey.labelDist =
         viewer2d::ResolveLabelOffsetDistance(cfg, overrideSettings, viewIdx);
-    const float labelAngle =
+    desiredKey.labelAngle =
         viewer2d::ResolveLabelOffsetAngle(cfg, overrideSettings, viewIdx);
+    desiredKey.view = view;
+    desiredKey.interactive = interactiveLabelMode;
 
-    constexpr float deg2rad = 3.14159265358979323846f / 180.0f;
-    const float angRad = labelAngle * deg2rad;
-    float offX = 0.0f;
-    float offY = 0.0f;
-    float offZ = 0.0f;
-    switch (view) {
-    case Viewer2DView::Top:
-    case Viewer2DView::Bottom:
-      offX = labelDist * std::sin(angRad);
-      offY = labelDist * std::cos(angRad);
-      break;
-    case Viewer2DView::Front:
-      offX = labelDist * std::sin(angRad);
-      offZ = labelDist * std::cos(angRad);
-      break;
-    case Viewer2DView::Side:
-      offY = -labelDist * std::sin(angRad);
-      offZ = labelDist * std::cos(angRad);
-      break;
+    auto cacheIt = layoutCacheState.fixtureLayoutByUuid.find(uuid);
+    const bool needsRebuild =
+        cacheIt == layoutCacheState.fixtureLayoutByUuid.end() ||
+        !(cacheIt->second.key == desiredKey);
+    if (needsRebuild) {
+      if (buildBudgetExceeded) {
+        continue;
+      }
+      cacheIt =
+          layoutCacheState.fixtureLayoutByUuid
+              .insert_or_assign(
+                  uuid,
+                  BuildFixtureLayoutEntry(desiredKey, m_controller.GetLabelFont(),
+                                          m_controller.GetLabelBoldFont()))
+              .first;
+      if (std::chrono::steady_clock::now() - buildStart > buildBudget)
+        buildBudgetExceeded = true;
     }
+
+    const FixtureLayoutCacheEntry &layout = cacheIt->second;
+    if (layout.lines.empty())
+      continue;
 
     auto bit = m_controller.GetFixtureBoundsMap().find(uuid);
     const ISelectionContext::BoundingBox *bounds =
         bit != m_controller.GetFixtureBoundsMap().end() ? &bit->second : nullptr;
 
     const auto anchor = ResolveAnchor(bounds, f.transform.o, true, view);
-    const double wx = anchor[0] + offX;
-    const double wy = anchor[1] + offY;
-    const double wz = anchor[2] + offZ;
+    const double wx = anchor[0] + layout.offX;
+    const double wy = anchor[1] + layout.offY;
+    const double wz = anchor[2] + layout.offZ;
 
     int x = 0;
     int y = 0;
     if (!ProjectLabelAnchor(projection, wx, wy, wz, x, y))
       continue;
 
-    constexpr const char *kRegularFamily = "sans";
-    constexpr const char *kBoldFamily = "sans-bold";
-    std::vector<LabelLine2D> lines;
-    if (showName) {
-      wxString baseName = f.instanceName.empty() ? wxString::FromUTF8(uuid)
-                                                 : wxString::FromUTF8(f.instanceName);
-      if (interactiveLabelMode) {
-        auto utf8 = baseName.ToUTF8();
-        lines.push_back({m_controller.GetLabelFont(),
-                         std::string(utf8.data(), utf8.length()), nameSize,
-                         kRegularFamily});
-      } else {
-        wxString wrapped = WrapEveryTwoWords(baseName);
-        wxStringTokenizer nameLines(wrapped, "\n");
-        while (nameLines.HasMoreTokens()) {
-          wxString line = nameLines.GetNextToken();
-          auto utf8 = line.ToUTF8();
-          lines.push_back({m_controller.GetLabelFont(),
-                           std::string(utf8.data(), utf8.length()), nameSize,
-                           kRegularFamily});
-        }
-      }
-    }
-    if (showId) {
-      wxString idLine = "ID: " + wxString::Format("%d", f.fixtureId);
-      auto utf8 = idLine.ToUTF8();
-      lines.push_back({m_controller.GetLabelFont(), std::string(utf8.data(), utf8.length()),
-                       idSize, kRegularFamily});
-    }
-    if (showDmx && !f.address.empty()) {
-      int dmxFont = m_controller.GetLabelBoldFont() >= 0 ? m_controller.GetLabelBoldFont()
-                                                 : m_controller.GetLabelFont();
-      wxString addrLine = wxString::FromUTF8(f.address);
-      auto utf8 = addrLine.ToUTF8();
-      lines.push_back(
-          {dmxFont, std::string(utf8.data(), utf8.length()), dmxSize, kBoldFamily});
-    }
+    std::vector<LabelLine2D> lines =
+        BuildDrawableLines(layout, zoom, m_controller.GetLabelFont(),
+                           m_controller.GetLabelBoldFont() >= 0
+                               ? m_controller.GetLabelBoldFont()
+                               : m_controller.GetLabelFont());
     if (lines.empty())
       continue;
 
@@ -727,10 +895,10 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
 
     NVGcolor textColor =
         m_controller.IsDarkMode() ? nvgRGBAf(1.f, 1.f, 1.f, 1.f)
-                                : nvgRGBAf(0.f, 0.f, 0.f, 1.f);
+                                  : nvgRGBAf(0.f, 0.f, 0.f, 1.f);
     NVGcolor outlineColor =
         m_controller.IsDarkMode() ? nvgRGBAf(0.f, 0.f, 0.f, 1.f)
-                                : nvgRGBAf(1.f, 1.f, 1.f, 1.f);
+                                  : nvgRGBAf(1.f, 1.f, 1.f, 1.f);
     DrawLabelLines2D(m_controller.GetNanoVGContext(), lines, x, y, NVG_ALIGN_CENTER,
                      textColor, outlineColor, true);
   }
