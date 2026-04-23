@@ -1698,24 +1698,28 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
   }
 
   const std::string oldHoverUuid = m_hoverUuid;
+  const bool oldHasHover = m_hasHover;
   if (found) {
+    const bool hoverChanged = !m_hasHover || m_hoverUuid != newUuid;
     m_hasHover = true;
     m_hoverUuid = newUuid;
-    m_controller.SetHighlightUuid(m_hoverUuid);
-    if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
-      FixtureTablePanel::Instance()->HighlightFixture(std::string(m_hoverUuid));
-    else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
-      TrussTablePanel::Instance()->HighlightTruss(std::string(m_hoverUuid));
-    else if (HoistTablePanel::Instance() && HoistTablePanel::Instance()->IsActivePage())
-      HoistTablePanel::Instance()->HighlightHoist(std::string(m_hoverUuid));
-    else if (SceneObjectTablePanel::Instance() &&
-             SceneObjectTablePanel::Instance()->IsActivePage())
-      SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
+    if (hoverChanged) {
+      m_controller.SetHighlightUuid(m_hoverUuid);
+      if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
+        FixtureTablePanel::Instance()->HighlightFixture(std::string(m_hoverUuid));
+      else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+        TrussTablePanel::Instance()->HighlightTruss(std::string(m_hoverUuid));
+      else if (HoistTablePanel::Instance() && HoistTablePanel::Instance()->IsActivePage())
+        HoistTablePanel::Instance()->HighlightHoist(std::string(m_hoverUuid));
+      else if (SceneObjectTablePanel::Instance() &&
+               SceneObjectTablePanel::Instance()->IsActivePage())
+        SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
+    }
   } else {
     ClearHoverState(false);
   }
 
-  if (oldHoverUuid != m_hoverUuid)
+  if (oldHasHover != m_hasHover || oldHoverUuid != m_hoverUuid)
     RequestRepaint();
 }
 

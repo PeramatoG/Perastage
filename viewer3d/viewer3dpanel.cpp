@@ -550,8 +550,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     const bool skipLabelWork = m_cameraMoving &&
         (IsFastInteractionModeEnabled() || skipLabelsWhenMoving);
 
-    const bool shouldUpdateHoverQuery =
-        m_mouseMoved || m_isInteracting || m_cameraMoving || !m_hasHover;
+    const bool shouldUpdateHoverQuery = m_mouseMoved || !m_hasHover;
 
     if (!skipLabelWork && shouldUpdateHoverQuery &&
         FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
@@ -594,17 +593,20 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
 
     if (hoverQueryRan && found) {
+        const bool hoverChanged = !m_hasHover || m_hoverUuid != newUuid;
         m_hasHover = true;
         m_hoverText = newLabel;
         m_hoverPos = newPos;
         m_hoverUuid = newUuid;
-        m_controller.SetHighlightUuid(m_hoverUuid);
-        if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
-            FixtureTablePanel::Instance()->HighlightFixture(std::string(m_hoverUuid));
-        else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
-            TrussTablePanel::Instance()->HighlightTruss(std::string(m_hoverUuid));
-        else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
-            SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
+        if (hoverChanged) {
+            m_controller.SetHighlightUuid(m_hoverUuid);
+            if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
+                FixtureTablePanel::Instance()->HighlightFixture(std::string(m_hoverUuid));
+            else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+                TrussTablePanel::Instance()->HighlightTruss(std::string(m_hoverUuid));
+            else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
+                SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
+        }
     }
     else if (hoverQueryRan && !skipLabelWork) {
         m_hasHover = false;
