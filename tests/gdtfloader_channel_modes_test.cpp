@@ -43,6 +43,13 @@ std::string MakeGdtf()
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         "<GDTF DataVersion=\"1.2\">"
         "<FixtureType Name=\"ModeSummaryFixture\">"
+        "<Geometries>"
+        "<Geometry Name=\"Base\">"
+        "<GeometryReference Name=\"Set 1\" Geometry=\"Pixel\"><Break DMXBreak=\"1\" DMXOffset=\"5\"/></GeometryReference>"
+        "<GeometryReference Name=\"Set 2\" Geometry=\"Pixel\"><Break DMXBreak=\"1\" DMXOffset=\"15\"/></GeometryReference>"
+        "</Geometry>"
+        "<Beam Name=\"Pixel\"/>"
+        "</Geometries>"
         "<DMXModes>"
         "<DMXMode Name=\"Standard\">"
         "<DMXChannels>"
@@ -71,6 +78,12 @@ std::string MakeGdtf()
         "<DMXChannel Offset=\"None\">"
         "<LogicalChannel Attribute=\"Dimmer\"/>"
         "</DMXChannel>"
+        "</DMXChannels>"
+        "</DMXMode>"
+        "<DMXMode Name=\"GeometryExpanded\" Geometry=\"Base\">"
+        "<DMXChannels>"
+        "<DMXChannel Offset=\"1\" Geometry=\"Pixel\"><LogicalChannel Attribute=\"ColorAdd_R\"/></DMXChannel>"
+        "<DMXChannel Offset=\"2\" Geometry=\"Pixel\"><LogicalChannel Attribute=\"ColorAdd_G\"/></DMXChannel>"
         "</DMXChannels>"
         "</DMXMode>"
         "</DMXModes>"
@@ -104,6 +117,15 @@ int main()
     const std::string& dedicatedSummary = channels[1].function;
     assert(dedicatedSummary.find("Gobo2PosRotate") != std::string::npos);
     assert(dedicatedSummary.find("mode master: Gobo2 128-255") != std::string::npos);
+
+    const std::vector<GdtfChannelInfo> expandedChannels =
+        GetGdtfModeChannels(gdtfPath, "GeometryExpanded");
+    assert(GetGdtfModeChannelCount(gdtfPath, "GeometryExpanded") == 16);
+    assert(expandedChannels.size() == 4);
+    assert(expandedChannels[0].channel == 5);
+    assert(expandedChannels[1].channel == 6);
+    assert(expandedChannels[2].channel == 15);
+    assert(expandedChannels[3].channel == 16);
 
     std::error_code ec;
     std::filesystem::remove(gdtfPath, ec);
