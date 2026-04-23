@@ -106,6 +106,56 @@ void RefreshViewersForFixtureUpdate(
   }
 }
 
+FixtureTablePanel::SceneDataUpdateType UpdateTypeForColumnImpl(int column) {
+  using SceneDataUpdateType = FixtureTablePanel::SceneDataUpdateType;
+  switch (column) {
+  case 1:
+    return SceneDataUpdateType::kVisualLabelOnly;
+  case 5:
+  case 6:
+  case 8:
+    return SceneDataUpdateType::kPatchOnly;
+  case 10:
+  case 11:
+  case 12:
+  case 13:
+  case 14:
+  case 15:
+    return SceneDataUpdateType::kTransformOnly;
+  case 16:
+  case 17:
+    return SceneDataUpdateType::kWeightOrPosition;
+  case 18:
+    return SceneDataUpdateType::kCategoryOnly;
+  case 19:
+    return SceneDataUpdateType::kAppearanceOnly;
+  case 0:
+  case 2:
+  case 3:
+  case 4:
+  case 7:
+  case 9:
+    return SceneDataUpdateType::kMetadataOnly;
+  default:
+    return SceneDataUpdateType::kGeneral;
+  }
+}
+
+FixtureTablePanel::SceneDataUpdateType CombineUpdateTypesImpl(
+    FixtureTablePanel::SceneDataUpdateType lhs,
+    FixtureTablePanel::SceneDataUpdateType rhs) {
+  using SceneDataUpdateType = FixtureTablePanel::SceneDataUpdateType;
+  if (lhs == rhs)
+    return lhs;
+  if (lhs == SceneDataUpdateType::kGeneral || rhs == SceneDataUpdateType::kGeneral)
+    return SceneDataUpdateType::kGeneral;
+  if (lhs == SceneDataUpdateType::kVisualLabelOnly)
+    return rhs;
+  if (rhs == SceneDataUpdateType::kVisualLabelOnly)
+    return lhs;
+  return SceneDataUpdateType::kGeneral;
+}
+
 bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
   if (!store || row < 0 || col < 0)
     return false;
@@ -545,13 +595,10 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       }
     }
     ResyncRows(oldOrder, selectedUuids);
-    UpdateSceneData();
-    if (Viewer3DPanel::Instance()) {
-      Viewer3DPanel::Instance()->UpdateScene();
-      Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
-      Viewer2DPanel::Instance()->UpdateScene();
-    }
+    const auto updateType = CombineUpdateTypes(
+        UpdateTypeForColumn(9), UpdateTypeForColumn(16));
+    UpdateSceneData(true, updateType);
+    RefreshViewersForFixtureUpdate(updateType);
     if (MainWindow::Instance()) {
       MainWindow::Instance()->RequestFixtureSymbolAutoUpdate();
     }
@@ -609,13 +656,10 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     ApplyModeForGdtf(gdtfPath, sel);
 
     ResyncRows(oldOrder, selectedUuids);
-    UpdateSceneData();
-    if (Viewer3DPanel::Instance()) {
-      Viewer3DPanel::Instance()->UpdateScene();
-      Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
-      Viewer2DPanel::Instance()->UpdateScene();
-    }
+    const auto updateType = CombineUpdateTypes(
+        UpdateTypeForColumn(7), UpdateTypeForColumn(8));
+    UpdateSceneData(true, updateType);
+    RefreshViewersForFixtureUpdate(updateType);
     return;
   }
 
@@ -638,13 +682,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
     PropagateTypeValues(selections, col);
     ResyncRows(oldOrder, selectedUuids);
-    UpdateSceneData();
-    if (Viewer3DPanel::Instance()) {
-      Viewer3DPanel::Instance()->UpdateScene();
-      Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
-      Viewer2DPanel::Instance()->UpdateScene();
-    }
+    const auto updateType = UpdateTypeForColumn(col);
+    UpdateSceneData(true, updateType);
+    RefreshViewersForFixtureUpdate(updateType);
     return;
   }
 
@@ -705,13 +745,10 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
 
     ResyncRows(oldOrder, selectedUuids);
-    UpdateSceneData();
-    if (Viewer3DPanel::Instance()) {
-      Viewer3DPanel::Instance()->UpdateScene();
-      Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
-      Viewer2DPanel::Instance()->UpdateScene();
-    }
+    const auto updateType = CombineUpdateTypes(
+        UpdateTypeForColumn(5), UpdateTypeForColumn(6));
+    UpdateSceneData(true, updateType);
+    RefreshViewersForFixtureUpdate(updateType);
     return;
   }
 
@@ -757,13 +794,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         manualCategoryUuidsPending.insert(rowUuids[row]);
     }
     ResyncRows(oldOrder, selectedUuids);
-    UpdateSceneData();
-    if (Viewer3DPanel::Instance()) {
-      Viewer3DPanel::Instance()->UpdateScene();
-      Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
-      Viewer2DPanel::Instance()->UpdateScene();
-    }
+    const auto updateType = UpdateTypeForColumn(col);
+    UpdateSceneData(true, updateType);
+    RefreshViewersForFixtureUpdate(updateType);
     return;
   }
 
@@ -795,13 +828,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
     PropagateTypeValues(selections, col);
     ResyncRows(oldOrder, selectedUuids);
-    UpdateSceneData();
-    if (Viewer3DPanel::Instance()) {
-      Viewer3DPanel::Instance()->UpdateScene();
-      Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
-      Viewer2DPanel::Instance()->UpdateScene();
-    }
+    const auto updateType = UpdateTypeForColumn(col);
+    UpdateSceneData(true, updateType);
+    RefreshViewersForFixtureUpdate(updateType);
     return;
   }
 
@@ -994,9 +1023,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
   }
   FixtureTableEditService::PropagateTypeValues(table, selections, col);
-  const SceneDataUpdateType updateType =
-      (col == 1) ? SceneDataUpdateType::kVisualLabelOnly
-                 : SceneDataUpdateType::kGeneral;
+  const SceneDataUpdateType updateType = UpdateTypeForColumn(col);
   ResyncRows(oldOrder, selectedUuids);
   if (col == 1) {
     std::vector<int> selectedRows;
@@ -1021,6 +1048,16 @@ FixtureTablePanel *FixtureTablePanel::Instance() { return s_instance; }
 
 void FixtureTablePanel::SetInstance(FixtureTablePanel *panel) {
   s_instance = panel;
+}
+
+FixtureTablePanel::SceneDataUpdateType
+FixtureTablePanel::UpdateTypeForColumn(int column) {
+  return UpdateTypeForColumnImpl(column);
+}
+
+FixtureTablePanel::SceneDataUpdateType FixtureTablePanel::CombineUpdateTypes(
+    SceneDataUpdateType lhs, SceneDataUpdateType rhs) {
+  return CombineUpdateTypesImpl(lhs, rhs);
 }
 
 bool FixtureTablePanel::IsActivePage() const {

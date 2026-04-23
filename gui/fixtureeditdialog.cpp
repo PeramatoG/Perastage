@@ -959,18 +959,17 @@ void FixtureEditDialog::ApplyChanges() {
     }
   }
   panel->ResyncRows(oldOrder, selectedUuids);
-  bool renamedOnly = modifiedColumns.size() > 1 && modifiedColumns[1];
-  if (renamedOnly) {
-    for (size_t i = 0; i < modifiedColumns.size(); ++i) {
-      if (i == 1 || !modifiedColumns[i])
-        continue;
-      renamedOnly = false;
-      break;
-    }
+  auto updateType = FixtureTablePanel::SceneDataUpdateType::kVisualLabelOnly;
+  bool hasAnyChange = false;
+  for (size_t i = 0; i < modifiedColumns.size(); ++i) {
+    if (!modifiedColumns[i])
+      continue;
+    hasAnyChange = true;
+    updateType = FixtureTablePanel::CombineUpdateTypes(
+        updateType, FixtureTablePanel::UpdateTypeForColumn(static_cast<int>(i)));
   }
-  const auto updateType =
-      renamedOnly ? FixtureTablePanel::SceneDataUpdateType::kVisualLabelOnly
-                  : FixtureTablePanel::SceneDataUpdateType::kGeneral;
+  if (!hasAnyChange)
+    updateType = FixtureTablePanel::SceneDataUpdateType::kGeneral;
   panel->UpdateSceneData(true, updateType);
   applied = true;
   if (Viewer3DPanel::Instance()) {
