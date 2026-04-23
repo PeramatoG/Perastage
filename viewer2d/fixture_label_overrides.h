@@ -29,6 +29,7 @@ using FixtureLabelOverrideMap =
 FixtureLabelOverrideMap LoadFixtureLabelOverrides(const ConfigManager &cfg);
 void SaveFixtureLabelOverrides(ConfigManager &cfg,
                                const FixtureLabelOverrideMap &overrides);
+void ReconcileFixtureLabelOverridesWithScene(ConfigManager &cfg);
 
 float ResolveLabelFontSizeName(const ConfigManager &cfg,
                                const FixtureLabelOverride *overrideSettings);

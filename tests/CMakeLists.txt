@@ -57,6 +57,27 @@ add_executable(pdf_font_metrics_test
                ../viewer2d/pdf/font_metrics.cpp)
 add_test(NAME PdfFontMetricsEncoding COMMAND pdf_font_metrics_test)
 
+add_executable(fixture_label_overrides_reconcile_test
+               fixture_label_overrides_reconcile_test.cpp
+               ../viewer2d/fixture_label_overrides.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/layouts/LayoutManager.cpp
+               ../core/layouts/LayoutDefaultsLoader.cpp
+               ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplateSerializer.cpp
+               ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
+               ../core/logger.cpp
+               ../models/mvrscene.cpp
+               mvr_io_stubs.cpp)
+target_include_directories(fixture_label_overrides_reconcile_test PRIVATE
+                           . ../core ../third_party)
+target_link_libraries(fixture_label_overrides_reconcile_test PRIVATE
+                      ${wxWidgets_LIBRARIES})
+add_test(NAME FixtureLabelOverridesReconcile
+         COMMAND fixture_label_overrides_reconcile_test)
+
 add_executable(pdf_writer_test
                pdf_writer_test.cpp
                ../viewer2d/pdf/pdf_draw_commands.cpp

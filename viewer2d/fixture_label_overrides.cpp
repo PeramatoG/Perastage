@@ -164,6 +164,26 @@ void SaveFixtureLabelOverrides(ConfigManager &cfg,
   cfg.SetValue(kFixtureOverridesKey, root.dump());
 }
 
+void ReconcileFixtureLabelOverridesWithScene(ConfigManager &cfg) {
+  FixtureLabelOverrideMap overrides = LoadFixtureLabelOverrides(cfg);
+  if (overrides.empty())
+    return;
+
+  const auto &fixtures = cfg.GetScene().fixtures;
+  bool changed = false;
+  for (auto it = overrides.begin(); it != overrides.end();) {
+    if (fixtures.count(it->first) == 0) {
+      it = overrides.erase(it);
+      changed = true;
+      continue;
+    }
+    ++it;
+  }
+
+  if (changed)
+    SaveFixtureLabelOverrides(cfg, overrides);
+}
+
 float ResolveLabelFontSizeName(const ConfigManager &cfg,
                                const FixtureLabelOverride *overrideSettings) {
   if (overrideSettings && overrideSettings->labelFontSizeName.has_value())
