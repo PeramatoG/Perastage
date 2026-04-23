@@ -32,9 +32,24 @@ class IGuiConfigServices;
 class FixtureTablePanel : public wxPanel
 {
 public:
+    // SceneDataUpdateType groups edits by likely subsystem impact:
+    // - kVisualLabelOnly: fixture naming/labels (viewer refresh, no scene rebuild).
+    // - kPatchOnly: DMX addressing/patching (patch conflict checks, scene + rigging refresh).
+    // - kAppearanceOnly: visual look (fixture color/swatch and related rendering refresh).
+    // - kCategoryOnly: fixture classification/category-dependent UI summaries.
+    // - kTransformOnly: orientation/transform values (viewer scene transforms).
+    // - kWeightOrPosition: physical load/position values (hoist/rigging recalculation).
+    // - kMetadataOnly: fixture descriptive metadata (type, mode, layer, model, hang position).
+    // - kGeneral: mixed or broad edits spanning multiple categories.
     enum class SceneDataUpdateType {
         kGeneral,
-        kVisualLabelOnly
+        kVisualLabelOnly,
+        kPatchOnly,
+        kAppearanceOnly,
+        kCategoryOnly,
+        kTransformOnly,
+        kWeightOrPosition,
+        kMetadataOnly
     };
 
     explicit FixtureTablePanel(wxWindow* parent, IGuiConfigServices* services = nullptr);
@@ -53,6 +68,9 @@ public:
 
     static FixtureTablePanel* Instance();
     static void SetInstance(FixtureTablePanel* panel);
+    static SceneDataUpdateType UpdateTypeForColumn(int column);
+    static SceneDataUpdateType CombineUpdateTypes(SceneDataUpdateType lhs,
+                                                  SceneDataUpdateType rhs);
 
     void UpdateSceneData(
         bool logChanges = true,
