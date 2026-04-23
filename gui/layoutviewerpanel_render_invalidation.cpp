@@ -325,6 +325,10 @@ void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
   Refresh();
 }
 
+void LayoutViewerPanel::RefreshAfterSelectionOnlyUpdate() {
+  Refresh();
+}
+
 void LayoutViewerPanel::RefreshAfterFixtureSymbolUpdate() {
   RefreshAfterSceneContentUpdate();
 }

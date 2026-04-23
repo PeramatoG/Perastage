@@ -2891,7 +2891,7 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
     }
 
     if (selectionOnlyChange && !renderableContentChanged) {
-      Refresh();
+      RefreshAfterSelectionOnlyUpdate();
       return;
     }
 
