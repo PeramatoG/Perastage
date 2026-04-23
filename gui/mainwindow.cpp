@@ -1289,7 +1289,7 @@ void MainWindow::RefreshAfterUnitSystemChange() {
   RefreshAfterSceneChange();
   if (layoutViewerPanel) {
     layoutViewerPanel->RefreshLegendData();
-    layoutViewerPanel->Refresh();
+    layoutViewerPanel->RefreshAfterSelectionOnlyUpdate();
   }
   ClearCursorWorldPositionInStatusBar();
 }
