@@ -3494,6 +3494,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   reportProgress("Applying fixture categories...");
   const int totalFixturesForCategoryApply = static_cast<int>(scene.fixtures.size());
   int appliedFixturesForCategoryApply = 0;
+  int autoFallbackAppliedCount = 0;
+  std::unordered_map<std::string, int> autoFallbackReasons;
+  std::unordered_map<std::string, int> autoFallbackCategories;
   categoryByTypeKey.clear();
   std::unordered_map<std::string, std::string> pendingCategoryUpdatesByType;
   for (auto &[uid, fixture] : scene.fixtures) {
@@ -3561,11 +3564,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         fixture.category = GdtfFixtureCategory::kUnknown;
       fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
       fixture.categorySourceReason = inferred.reason;
+      ++autoFallbackAppliedCount;
+      ++autoFallbackReasons[inferred.reason.empty() ? "unknown" : inferred.reason];
+      ++autoFallbackCategories[fixture.category];
       if (!categoryKey.empty()) {
         categoryByTypeKey[categoryKey] =
             {fixture.category, fixture.categorySource, inferred.reason};
       }
-      LogMessage(Logger::Level::Info,
+      LogMessage(Logger::Level::Debug,
                  "Auto category fallback: " + fixture.instanceName + " -> " +
                      fixture.category + " [" + inferred.reason + "]");
     } else if (!fixture.category.empty() && !categoryKey.empty()) {
@@ -3582,6 +3588,32 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       pendingCategoryUpdatesByType[fixture.typeName] = fixture.category;
     }
   }
+  auto formatBreakdown = [](const std::unordered_map<std::string, int> &counts) {
+    if (counts.empty())
+      return std::string("none");
+    std::vector<std::pair<std::string, int>> sortedCounts(counts.begin(), counts.end());
+    std::sort(sortedCounts.begin(), sortedCounts.end(),
+              [](const auto &lhs, const auto &rhs) {
+                if (lhs.second != rhs.second)
+                  return lhs.second > rhs.second;
+                return lhs.first < rhs.first;
+              });
+
+    std::ostringstream oss;
+    bool first = true;
+    for (const auto &[label, count] : sortedCounts) {
+      if (!first)
+        oss << ", ";
+      first = false;
+      oss << label << "=" << count;
+    }
+    return oss.str();
+  };
+  LogMessage(Logger::Level::Info,
+             "Auto category fallback applied to " +
+                 std::to_string(autoFallbackAppliedCount) + " fixtures; reasons: " +
+                 formatBreakdown(autoFallbackReasons) + "; categories: " +
+                 formatBreakdown(autoFallbackCategories));
   GdtfDictionary::UpdateCategoriesBulk(pendingCategoryUpdatesByType);
 
   reportProgress("Building fixtures, trusses, and objects...");
