@@ -82,10 +82,9 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
                           GdtfGeometryTree& outTree,
                           std::string* outError = nullptr);
 
-// Returns the number of DMX addresses used by the given mode in a GDTF file.
-// Channels using more than one byte contribute multiple addresses to this
-// count. Returns -1 when the mode cannot be found or the file cannot be
-// parsed.
+// Returns the DMX footprint (highest occupied offset) of the given mode in a
+// GDTF file for DMX break 1 style addressing. Returns -1 when the mode cannot
+// be found or the file cannot be parsed.
 int GetGdtfModeChannelCount(const std::string& gdtfPath,
                             const std::string& modeName);
 
