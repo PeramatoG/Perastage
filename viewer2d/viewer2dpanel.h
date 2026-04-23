@@ -188,6 +188,10 @@ private:
   bool ShouldPauseHeavyTasks();
   void MarkInteractionActivity();
   void OnInteractionPauseTimer(wxTimerEvent &event);
+  void OnHoverHitTestTimer(wxTimerEvent &event);
+  void ScheduleHoverHitTest(const wxPoint &screenPos, bool forceNow = false);
+  void RunHoverHitTest(const wxPoint &screenPos);
+  void ClearHoverState(bool requestRepaint);
 
   struct DragTablePositionSnapshot {
     std::string uuid;
@@ -204,6 +208,8 @@ private:
 
   static constexpr long kSelectionDragDelayMs = 150;
   static constexpr int kDragTableUpdateIntervalMs = 50;
+  static constexpr int kHoverHitTestIntervalMs = 40;
+  static constexpr int kHoverMoveThresholdPx = 3;
   static constexpr std::chrono::milliseconds kPauseDelay{200};
 
   DragMode m_dragMode = DragMode::None;
@@ -227,12 +233,17 @@ private:
   float m_offsetY = 0.0f;
   float m_zoom = 1.0f;
   bool m_mouseInside = false;
-  bool m_mouseMoved = false;
   bool m_hasHover = false;
   std::chrono::steady_clock::time_point m_lastInteractionTime{};
   bool m_isInteracting = false;
   bool m_interactiveLabelMode = false;
   wxTimer m_interactionResumeTimer;
+  wxTimer m_hoverHitTestTimer;
+  wxPoint m_pendingHoverScreenPos;
+  wxPoint m_lastHoverQueryScreenPos;
+  bool m_hoverQueryHasPos = false;
+  bool m_hoverHitTestPending = false;
+  std::chrono::steady_clock::time_point m_lastHoverHitTestTime{};
   bool m_enableSelection = true;
   std::string m_hoverUuid;
   CursorWorldPositionCallback m_cursorWorldPositionCallback;
