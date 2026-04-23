@@ -106,6 +106,24 @@ void RefreshViewersForFixtureUpdate(
   }
 }
 
+bool RequiresRiggingRefresh(
+    FixtureTablePanel::SceneDataUpdateType updateType) {
+  using SceneDataUpdateType = FixtureTablePanel::SceneDataUpdateType;
+  switch (updateType) {
+  case SceneDataUpdateType::kWeightOrPosition:
+  case SceneDataUpdateType::kGeneral:
+    return true;
+  case SceneDataUpdateType::kVisualLabelOnly:
+  case SceneDataUpdateType::kPatchOnly:
+  case SceneDataUpdateType::kAppearanceOnly:
+  case SceneDataUpdateType::kCategoryOnly:
+  case SceneDataUpdateType::kTransformOnly:
+  case SceneDataUpdateType::kMetadataOnly:
+    return false;
+  }
+  return true;
+}
+
 FixtureTablePanel::SceneDataUpdateType UpdateTypeForColumnImpl(int column) {
   using SceneDataUpdateType = FixtureTablePanel::SceneDataUpdateType;
   switch (column) {
@@ -1525,7 +1543,7 @@ void FixtureTablePanel::UpdateSceneData(bool logChanges,
   if (updateType != SceneDataUpdateType::kVisualLabelOnly)
     HighlightDuplicateFixtureIds();
 
-  if (updateType != SceneDataUpdateType::kVisualLabelOnly &&
+  if (RequiresRiggingRefresh(updateType) &&
       RiggingPanel::Instance())
     RiggingPanel::Instance()->RefreshData();
 
