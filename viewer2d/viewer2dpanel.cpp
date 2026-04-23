@@ -81,6 +81,21 @@ namespace {
 constexpr size_t kMaxCapturePixels = 8192u * 8192u;
 constexpr size_t kMaxCaptureBytes = 64u * 1024u * 1024u;
 
+wxRect BuildSelectionRectDirtyRegion(const wxPoint &a, const wxPoint &b) {
+  const int x = std::min(a.x, b.x);
+  const int y = std::min(a.y, b.y);
+  const int w = std::max(1, std::abs(a.x - b.x) + 1);
+  const int h = std::max(1, std::abs(a.y - b.y) + 1);
+  wxRect rect(x, y, w, h);
+  rect.Inflate(2);
+  return rect;
+}
+
+wxRect BuildPointDirtyRegion(const wxPoint &point, int radius) {
+  const int size = std::max(1, radius * 2);
+  return wxRect(point.x - radius, point.y - radius, size, size);
+}
+
 void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
                                 int expectedHeight) {
   GLint framebuffer = 0;
@@ -373,6 +388,45 @@ Viewer2DPanel *Viewer2DPanel::Instance() { return g_instance; }
 
 void Viewer2DPanel::SetInstance(Viewer2DPanel *panel) { g_instance = panel; }
 
+void Viewer2DPanel::RequestRepaint() {
+  if (m_fullRepaintQueued)
+    return;
+  m_repaintQueued = true;
+  m_fullRepaintQueued = true;
+  TrackRefreshTelemetry();
+  Refresh(false);
+}
+
+void Viewer2DPanel::RequestRepaint(const wxRect &dirtyRect) {
+  if (!dirtyRect.IsEmpty() && !m_fullRepaintQueued && !m_repaintQueued) {
+    m_repaintQueued = true;
+    TrackRefreshTelemetry();
+    RefreshRect(dirtyRect, false);
+    return;
+  }
+  RequestRepaint();
+}
+
+void Viewer2DPanel::ResetRepaintCoalescing() {
+  m_repaintQueued = false;
+  m_fullRepaintQueued = false;
+}
+
+void Viewer2DPanel::TrackRefreshTelemetry() {
+#ifndef NDEBUG
+  const auto now = std::chrono::steady_clock::now();
+  if (m_refreshTelemetryWindowStart.time_since_epoch().count() == 0)
+    m_refreshTelemetryWindowStart = now;
+  ++m_refreshesInCurrentWindow;
+  const auto elapsed = now - m_refreshTelemetryWindowStart;
+  if (elapsed >= std::chrono::seconds(1)) {
+    wxLogDebug("Viewer2DPanel refreshes/s: %d", m_refreshesInCurrentWindow);
+    m_refreshTelemetryWindowStart = now;
+    m_refreshesInCurrentWindow = 0;
+  }
+#endif
+}
+
 void Viewer2DPanel::UpdateScene(bool reload) {
   if (reload && m_enableSelection && ShouldPauseHeavyTasks())
     return;
@@ -383,17 +437,17 @@ void Viewer2DPanel::UpdateScene(bool reload) {
     ConfigManager &cfg = ConfigManager::Get();
     m_controller.SetSelectedUuids(BuildCombinedSelection(cfg));
   }
-  Refresh();
+  RequestRepaint();
 }
 
 void Viewer2DPanel::SetRenderMode(Viewer2DRenderMode mode) {
   m_renderMode = mode;
-  Refresh();
+  RequestRepaint();
 }
 
 void Viewer2DPanel::SetView(Viewer2DView view) {
   m_view = view;
-  Refresh();
+  RequestRepaint();
 }
 
 void Viewer2DPanel::SetSelectedUuids(
@@ -401,7 +455,7 @@ void Viewer2DPanel::SetSelectedUuids(
   if (!m_enableSelection)
     return;
   m_controller.SetSelectedUuids(selection);
-  Refresh();
+  RequestRepaint();
 }
 
 void Viewer2DPanel::SetLayerColor(const std::string &layer,
@@ -458,7 +512,7 @@ bool Viewer2DPanel::FitViewToScene() {
     m_zoom = 0.1f;
   if (m_persistViewState)
     SaveViewToConfig();
-  Refresh();
+  RequestRepaint();
   return true;
 }
 
@@ -477,7 +531,7 @@ void Viewer2DPanel::CaptureFrameAsync(
   }
   m_captureIncludeGrid = includeGridInCapture;
   RequestFrameCapture();
-  Refresh();
+  RequestRepaint();
 }
 
 void Viewer2DPanel::CaptureFrameNow(
@@ -514,14 +568,14 @@ void Viewer2DPanel::SetLayoutEditOverlay(std::optional<float> aspectRatio,
     m_layoutEditBaseSize.reset();
   }
   m_layoutEditScale = 1.0f;
-  Refresh();
+  RequestRepaint();
 }
 
 void Viewer2DPanel::SetLayoutEditOverlayScale(float scale) {
   if (!m_layoutEditAspect)
     return;
   m_layoutEditScale = std::clamp(scale, 0.1f, 10.0f);
-  Refresh();
+  RequestRepaint();
 }
 
 void Viewer2DPanel::SetCursorWorldPositionCallback(
@@ -989,6 +1043,7 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
 
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
+  ResetRepaintCoalescing();
   InitGL();
 
   const bool wasInteracting = m_isInteracting;
@@ -1107,7 +1162,7 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   m_mouseMoved = false;
 
   if (highlightChanged)
-    Refresh();
+    RequestRepaint();
 }
 
 std::array<float, 3> Viewer2DPanel::MapDragDelta(float dxMeters,
@@ -1595,7 +1650,7 @@ void Viewer2DPanel::MarkInteractionActivity() {
 
 void Viewer2DPanel::OnInteractionPauseTimer(wxTimerEvent &WXUNUSED(event)) {
   if (!ShouldPauseHeavyTasks())
-    Refresh(false);
+    RequestRepaint();
 }
 
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
@@ -1761,7 +1816,7 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
     }
-    Refresh();
+    RequestRepaint();
     return;
   }
 
@@ -1790,11 +1845,13 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
     FixtureTablePanel::Instance()->ReloadData();
 
   UpdateScene(false);
-  Refresh();
+  RequestRepaint();
 }
 
 void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
   if (event.LeftUp() && m_dragMode == DragMode::RectSelection) {
+    const wxRect dirtyRect =
+        BuildSelectionRectDirtyRegion(m_rectSelectStart, m_rectSelectEnd);
     if (HasCapture())
       ReleaseMouse();
     if (m_rectSelecting)
@@ -1812,7 +1869,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     m_dragSceneObjectUuids.clear();
     m_dragSelectionMoved = false;
     m_draggedSincePress = false;
-    Refresh();
+    RequestRepaint(dirtyRect);
     return;
   }
 
@@ -1838,6 +1895,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
   }
 
   if (event.LeftUp() && !m_draggedSincePress) {
+    const bool oldHasHover = m_hasHover;
+    const std::string oldHoverUuid = m_hoverUuid;
     const RenderSize renderSize = ResolveRenderSize(this);
     const int w = renderSize.width;
     const int h = renderSize.height;
@@ -1871,7 +1930,11 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
                                                  h, label, pos, &uuid);
 
     ConfigManager &cfg = ConfigManager::Get();
+    bool selectionChanged = false;
     if (found) {
+      m_hasHover = true;
+      m_hoverUuid = uuid;
+      m_controller.SetHighlightUuid(m_hoverUuid);
       bool additive = event.ShiftDown() || event.ControlDown();
       std::vector<std::string> selection;
       if (FixtureTablePanel::Instance() &&
@@ -1890,6 +1953,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
         if (selection != cfg.GetSelectedFixtures()) {
           cfg.PushUndoState("fixture selection");
           cfg.SetSelectedFixtures(selection);
+          selectionChanged = true;
           if (Viewer2DRenderPanel::Instance())
             Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
         }
@@ -1911,6 +1975,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
         if (selection != cfg.GetSelectedTrusses()) {
           cfg.PushUndoState("truss selection");
           cfg.SetSelectedTrusses(selection);
+          selectionChanged = true;
         }
         m_controller.SetSelectedUuids(selection);
         TrussTablePanel::Instance()->SelectByUuid(selection);
@@ -1930,6 +1995,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
         if (selection != cfg.GetSelectedSupports()) {
           cfg.PushUndoState("support selection");
           cfg.SetSelectedSupports(selection);
+          selectionChanged = true;
         }
         m_controller.SetSelectedUuids(selection);
         HoistTablePanel::Instance()->SelectByUuid(selection);
@@ -1949,11 +2015,15 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
         if (selection != cfg.GetSelectedSceneObjects()) {
           cfg.PushUndoState("scene object selection");
           cfg.SetSelectedSceneObjects(selection);
+          selectionChanged = true;
         }
         m_controller.SetSelectedUuids(selection);
         SceneObjectTablePanel::Instance()->SelectByUuid(selection);
       }
     } else {
+      m_hasHover = false;
+      m_hoverUuid.clear();
+      m_controller.SetHighlightUuid("");
       const bool hasAnySelection =
           !cfg.GetSelectedFixtures().empty() || !cfg.GetSelectedTrusses().empty() ||
           !cfg.GetSelectedSupports().empty() || !cfg.GetSelectedSceneObjects().empty();
@@ -1963,6 +2033,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
         cfg.SetSelectedTrusses({});
         cfg.SetSelectedSupports({});
         cfg.SetSelectedSceneObjects({});
+        selectionChanged = true;
         if (Viewer2DRenderPanel::Instance())
           Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
       }
@@ -1978,7 +2049,10 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
       if (SceneObjectTablePanel::Instance())
         SceneObjectTablePanel::Instance()->ClearSelection();
     }
-    Refresh();
+    const bool highlightChanged = oldHasHover != m_hasHover ||
+                                  oldHoverUuid != m_hoverUuid;
+    if (selectionChanged || highlightChanged)
+      RequestRepaint();
   }
   m_draggedSincePress = false;
 }
@@ -2071,7 +2145,7 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
   if (selectedId == kSelectTypeAllId) {
     ApplyFixtureSelectionToUi(BuildFixtureSelectionByType(scene, ""),
                               m_controller);
-    Refresh();
+    RequestRepaint();
     return;
   }
 
@@ -2080,7 +2154,7 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
     const size_t idx = static_cast<size_t>(selectedId - kSelectTypeBaseId);
     ApplyFixtureSelectionToUi(BuildFixtureSelectionByType(scene, orderedTypes[idx]),
                               m_controller);
-    Refresh();
+    RequestRepaint();
     return;
   }
 
@@ -2091,7 +2165,7 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
       ApplyFixtureSelectionToUi(
           BuildFixtureSelectionByPosition(scene, "", true), m_controller);
     }
-    Refresh();
+    RequestRepaint();
     return;
   }
 
@@ -2102,7 +2176,7 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
     ApplyFixtureSelectionToUi(
         BuildFixtureSelectionByPosition(scene, orderedPositions[idx], false),
         m_controller);
-    Refresh();
+    RequestRepaint();
     return;
   }
 }
@@ -2126,10 +2200,14 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   NotifyCursorWorldPosition(pos);
 
   if (m_dragMode == DragMode::RectSelection && event.Dragging()) {
+    const wxRect oldRect =
+        BuildSelectionRectDirtyRegion(m_rectSelectStart, m_rectSelectEnd);
     m_rectSelectEnd = pos;
     m_draggedSincePress = true;
     MarkInteractionActivity();
-    Refresh();
+    const wxRect newRect =
+        BuildSelectionRectDirtyRegion(m_rectSelectStart, m_rectSelectEnd);
+    RequestRepaint(oldRect.Union(newRect));
     return;
   }
 
@@ -2167,7 +2245,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
           m_draggedSincePress = true;
           MarkInteractionActivity();
           m_dragSelectionMoved = true;
-          Refresh();
+          RequestRepaint();
         }
       }
     }
@@ -2179,6 +2257,8 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   if (m_dragMode == DragMode::View && event.Dragging()) {
     int dx = pos.x - m_lastMousePos.x;
     int dy = pos.y - m_lastMousePos.y;
+    if (dx == 0 && dy == 0)
+      return;
     m_offsetX += dx / m_zoom;
     m_offsetY += dy / m_zoom;
     m_lastMousePos = pos;
@@ -2186,14 +2266,18 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     MarkInteractionActivity();
     if (m_persistViewState)
       SaveViewToConfig();
-    Refresh();
+    RequestRepaint();
     return;
   }
 
   if (m_enableSelection) {
+    if (pos == m_lastMousePos)
+      return;
+    const wxRect dirtyRect =
+        BuildPointDirtyRegion(m_lastMousePos, 24).Union(BuildPointDirtyRegion(pos, 24));
     m_mouseMoved = true;
     m_lastMousePos = pos;
-    Refresh();
+    RequestRepaint(dirtyRect);
   }
 }
 
@@ -2211,7 +2295,7 @@ void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
     m_zoom = 0.1f;
   if (m_persistViewState)
     SaveViewToConfig();
-  Refresh();
+  RequestRepaint();
 }
 
 void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
@@ -2271,7 +2355,7 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
     m_zoom = 0.1f;
   if (m_persistViewState)
     SaveViewToConfig();
-  Refresh();
+  RequestRepaint();
 }
 
 void Viewer2DPanel::OnMouseEnter(wxMouseEvent &event) {
@@ -2296,7 +2380,7 @@ void Viewer2DPanel::OnMouseLeave(wxMouseEvent &event) {
       HoistTablePanel::Instance()->HighlightHoist(std::string());
     if (SceneObjectTablePanel::Instance())
       SceneObjectTablePanel::Instance()->HighlightObject(std::string());
-    Refresh();
+    RequestRepaint(BuildPointDirtyRegion(m_lastMousePos, 24));
   }
   event.Skip();
 }
@@ -2305,6 +2389,6 @@ void Viewer2DPanel::OnResize(wxSizeEvent &event) {
   if (m_layoutEditAspect && !m_layoutEditViewportSize) {
     m_layoutEditBaseSize.reset();
   }
-  Refresh();
+  RequestRepaint();
   event.Skip();
 }
