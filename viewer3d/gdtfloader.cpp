@@ -493,7 +493,7 @@ static void ParseModes(tinyxml2::XMLElement* ft,
         modes.push_back(name);
 
         std::vector<GdtfChannelInfo> channelsVec;
-        int count = 0;
+        int footprint = 0;
         if (tinyxml2::XMLElement* channels = m->FirstChildElement("DMXChannels")) {
             auto trim = [](std::string& value) {
                 value.erase(0, value.find_first_not_of(" \t\r\n"));
@@ -753,7 +753,8 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                         if (!info.function.empty() && i > 0)
                             info.function += suffixForByte(i);
                         channelsVec.push_back(std::move(info));
-                        ++count;
+                        if (offsets[i] > footprint)
+                            footprint = offsets[i];
                     }
                     continue;
                 }
@@ -767,7 +768,7 @@ static void ParseModes(tinyxml2::XMLElement* ft,
         }
 
         modeChannels.emplace(name, std::move(channelsVec));
-        modeChannelCounts[name] = count;
+        modeChannelCounts[name] = footprint;
     }
 }
 

@@ -65,6 +65,9 @@ std::string MakeGdtf()
         "ModeMaster=\"Gobo2Rotate\" ModeFrom=\"128/1\" ModeTo=\"255/1\"/>"
         "</LogicalChannel>"
         "</DMXChannel>"
+        "<DMXChannel Offset=\"5\">"
+        "<LogicalChannel Attribute=\"Prism1\"/>"
+        "</DMXChannel>"
         "<DMXChannel Offset=\"None\">"
         "<LogicalChannel Attribute=\"Dimmer\"/>"
         "</DMXChannel>"
@@ -85,12 +88,13 @@ int main()
     const std::string gdtfPath = MakeGdtf();
     const std::vector<GdtfChannelInfo> channels =
         GetGdtfModeChannels(gdtfPath, "Standard");
-    assert(GetGdtfModeChannelCount(gdtfPath, "Standard") == 2);
-    assert(channels.size() == 3);
+    assert(GetGdtfModeChannelCount(gdtfPath, "Standard") == 5);
+    assert(channels.size() == 4);
     assert(channels[0].channel == 1);
     assert(channels[1].channel == 2);
-    assert(channels[2].isVirtual);
-    assert(channels[2].channel == 0);
+    assert(channels[2].channel == 5);
+    assert(channels[3].isVirtual);
+    assert(channels[3].channel == 0);
 
     const std::string& goboSummary = channels[0].function;
     assert(goboSummary.find("Gobo2") != std::string::npos);
