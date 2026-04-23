@@ -50,7 +50,7 @@
 #include "logger.h"
 #include "positionvalueupdate.h"
 #include "scene_object_primitive_editing.h"
-#include "selection_origin_token.h"
+#include "gui/selection_origin_token.h"
 #include "sceneobjecttablepanel.h"
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"

@@ -46,7 +46,7 @@
 #include "trusstablepanel.h"
 #include "sceneobjecttablepanel.h"
 #include "scene_object_primitive_editing.h"
-#include "selection_origin_token.h"
+#include "gui/selection_origin_token.h"
 #include "configmanager.h"
 #include "fixturepatchdialog.h"
 #include "viewer2dpanel.h"
