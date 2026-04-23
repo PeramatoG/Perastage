@@ -4,6 +4,7 @@
 #include <array>
 #include <chrono>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include <wx/gdicmn.h>
@@ -40,6 +41,24 @@ public:
 
 public:
   struct QueryCache {
+    struct HoverCandidate {
+      std::string uuid;
+      double minX = 0.0;
+      double minY = 0.0;
+      double maxX = 0.0;
+      double maxY = 0.0;
+    };
+
+    struct HoverGridIndex {
+      bool valid = false;
+      const ISelectionContext::VisibleSet *sourceVisibleSet = nullptr;
+      size_t sourceCount = 0;
+      int viewportWidth = 0;
+      int viewportHeight = 0;
+      std::unordered_map<long long, std::vector<int>> cells;
+      std::vector<HoverCandidate> candidates;
+    };
+
     bool valid = false;
     int viewport[4]{};
     std::array<double, 16> model{};
@@ -52,6 +71,9 @@ public:
     int depthMouseX = -1;
     int depthMouseY = -1;
     int depthHeight = -1;
+    HoverGridIndex fixtureHoverIndex;
+    HoverGridIndex trussHoverIndex;
+    HoverGridIndex objectHoverIndex;
   };
 
   struct QueryMetrics {

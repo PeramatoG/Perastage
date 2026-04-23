@@ -21,9 +21,11 @@
 #include <algorithm>
 #include <array>
 #include <cfloat>
+#include <cstdint>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <unordered_set>
 #include <wx/log.h>
 
@@ -47,15 +49,95 @@ struct Ray {
   std::array<double, 3> direction{0.0, 0.0, 1.0};
 };
 
-std::unordered_set<std::string> SnapshotHiddenLayers(const ConfigManager &cfg) {
-  return cfg.GetHiddenLayers();
+constexpr int kHoverGridCellSizePx = 96;
+
+void InvalidateHoverGrid(SelectionSystem::QueryCache::HoverGridIndex &index) {
+  index.valid = false;
+  index.sourceVisibleSet = nullptr;
+  index.sourceCount = 0;
+  index.viewportWidth = 0;
+  index.viewportHeight = 0;
+  index.cells.clear();
+  index.candidates.clear();
 }
 
-bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
-                         const std::string &layer) {
-  if (layer.empty())
-    return hidden.find(DEFAULT_LAYER_NAME) == hidden.end();
-  return hidden.find(layer) == hidden.end();
+long long MakeHoverGridKey(int cellX, int cellY) {
+  return (static_cast<long long>(cellX) << 32) ^
+         static_cast<unsigned int>(cellY);
+}
+
+std::vector<int> QueryHoverGridCandidates(
+    const SelectionSystem::QueryCache::HoverGridIndex &index, int mouseX,
+    int mouseY) {
+  if (!index.valid || index.viewportWidth <= 0 || index.viewportHeight <= 0)
+    return {};
+  if (mouseX < 0 || mouseY < 0 || mouseX >= index.viewportWidth ||
+      mouseY >= index.viewportHeight) {
+    return {};
+  }
+
+  const int cellX = mouseX / kHoverGridCellSizePx;
+  const int cellY = mouseY / kHoverGridCellSizePx;
+  const auto cellIt = index.cells.find(MakeHoverGridKey(cellX, cellY));
+  if (cellIt == index.cells.end())
+    return {};
+  return cellIt->second;
+}
+
+void BuildHoverGridIndex(
+    const std::vector<std::string> &uuids, const ProjectionSnapshot &projection,
+    int screenWidth, int screenHeight,
+    const std::function<const ISelectionContext::BoundingBox *(
+        const std::string &)> &findBounds,
+    SelectionSystem::QueryCache::HoverGridIndex &index) {
+  InvalidateHoverGrid(index);
+  if (screenWidth <= 0 || screenHeight <= 0 || uuids.empty())
+    return;
+
+  index.viewportWidth = screenWidth;
+  index.viewportHeight = screenHeight;
+  index.candidates.reserve(uuids.size());
+
+  for (const auto &uuid : uuids) {
+    const ISelectionContext::BoundingBox *bbPtr = findBounds(uuid);
+    if (!bbPtr)
+      continue;
+
+    ScreenRect rect;
+    if (!ProjectBoundingBox(*bbPtr, projection, screenHeight, rect))
+      continue;
+
+    rect.minX = std::clamp(rect.minX, 0.0, static_cast<double>(screenWidth - 1));
+    rect.maxX = std::clamp(rect.maxX, 0.0, static_cast<double>(screenWidth - 1));
+    rect.minY = std::clamp(rect.minY, 0.0, static_cast<double>(screenHeight - 1));
+    rect.maxY = std::clamp(rect.maxY, 0.0, static_cast<double>(screenHeight - 1));
+    if (rect.minX > rect.maxX || rect.minY > rect.maxY)
+      continue;
+
+    SelectionSystem::QueryCache::HoverCandidate candidate;
+    candidate.uuid = uuid;
+    candidate.minX = rect.minX;
+    candidate.minY = rect.minY;
+    candidate.maxX = rect.maxX;
+    candidate.maxY = rect.maxY;
+    const int candidateIndex = static_cast<int>(index.candidates.size());
+    index.candidates.push_back(std::move(candidate));
+
+    const int minCellX = static_cast<int>(rect.minX) / kHoverGridCellSizePx;
+    const int maxCellX = static_cast<int>(rect.maxX) / kHoverGridCellSizePx;
+    const int minCellY = static_cast<int>(rect.minY) / kHoverGridCellSizePx;
+    const int maxCellY = static_cast<int>(rect.maxY) / kHoverGridCellSizePx;
+    for (int cellY = minCellY; cellY <= maxCellY; ++cellY) {
+      for (int cellX = minCellX; cellX <= maxCellX; ++cellX)
+        index.cells[MakeHoverGridKey(cellX, cellY)].push_back(candidateIndex);
+    }
+  }
+
+  index.valid = true;
+}
+
+std::unordered_set<std::string> SnapshotHiddenLayers(const ConfigManager &cfg) {
+  return cfg.GetHiddenLayers();
 }
 
 bool IsFastInteractionModeEnabled(const ConfigManager &cfg) {
@@ -295,6 +377,9 @@ void CacheProjectionSnapshot(const ProjectionSnapshot &projection,
             cache.projection.begin());
   cache.frustum = BuildFrustumSnapshot(projection);
   cache.visibleSet = nullptr;
+  InvalidateHoverGrid(cache.fixtureHoverIndex);
+  InvalidateHoverGrid(cache.trussHoverIndex);
+  InvalidateHoverGrid(cache.objectHoverIndex);
 }
 
 void LogQueryMetrics(const char *label, const SelectionSystem::QueryMetrics &metrics,
@@ -391,17 +476,39 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
                                     true, 0.0f);
   }
   const ISelectionContext::VisibleSet &visibleSet = *m_queryCache.visibleSet;
+  if (!m_queryCache.fixtureHoverIndex.valid ||
+      m_queryCache.fixtureHoverIndex.sourceVisibleSet != &visibleSet ||
+      m_queryCache.fixtureHoverIndex.sourceCount != visibleSet.fixtureUuids.size() ||
+      m_queryCache.fixtureHoverIndex.viewportWidth != width ||
+      m_queryCache.fixtureHoverIndex.viewportHeight != height) {
+    BuildHoverGridIndex(
+        visibleSet.fixtureUuids, projection, width, height,
+        [this](const std::string &uuid) { return m_controller.FindFixtureBounds(uuid); },
+        m_queryCache.fixtureHoverIndex);
+    m_queryCache.fixtureHoverIndex.sourceVisibleSet = &visibleSet;
+    m_queryCache.fixtureHoverIndex.sourceCount = visibleSet.fixtureUuids.size();
+  }
+  const std::vector<int> candidateIndices =
+      QueryHoverGridCandidates(m_queryCache.fixtureHoverIndex, mouseX, mouseY);
 
   const auto candidateLoopStart = std::chrono::steady_clock::now();
-  for (const auto &uuid : visibleSet.fixtureUuids) {
-    auto fixtureIt = fixtures.find(uuid);
+  for (const int candidateIndex : candidateIndices) {
+    if (candidateIndex < 0 ||
+        candidateIndex >=
+            static_cast<int>(m_queryCache.fixtureHoverIndex.candidates.size())) {
+      continue;
+    }
+    const auto &candidate = m_queryCache.fixtureHoverIndex.candidates[candidateIndex];
+    if (mouseX < candidate.minX || mouseX > candidate.maxX || mouseY < candidate.minY ||
+        mouseY > candidate.maxY)
+      continue;
+
+    auto fixtureIt = fixtures.find(candidate.uuid);
     if (fixtureIt == fixtures.end())
       continue;
     const auto &f = fixtureIt->second;
-    if (!IsLayerVisibleCached(hiddenLayers, f.layer))
-      continue;
     const ISelectionContext::BoundingBox *bbPtr =
-        m_controller.FindFixtureBounds(uuid);
+        m_controller.FindFixtureBounds(candidate.uuid);
     if (!bbPtr)
       continue;
 
@@ -422,7 +529,7 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
     if (candidateScore < bestHitDistance) {
       wxString label;
       if (showName)
-        label = f.instanceName.empty() ? wxString::FromUTF8(uuid)
+        label = f.instanceName.empty() ? wxString::FromUTF8(candidate.uuid)
                                        : wxString::FromUTF8(f.instanceName);
       if (showId) {
         if (!label.empty())
@@ -444,7 +551,7 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
       bestHitDistance = candidateScore;
       bestPos = projectedCenter;
       bestLabel = label;
-      bestUuid = uuid;
+      bestUuid = candidate.uuid;
       found = true;
     }
   }
@@ -516,21 +623,43 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
                                     true, 0.0f);
   }
   const ISelectionContext::VisibleSet &visibleSet = *m_queryCache.visibleSet;
+  if (!m_queryCache.trussHoverIndex.valid ||
+      m_queryCache.trussHoverIndex.sourceVisibleSet != &visibleSet ||
+      m_queryCache.trussHoverIndex.sourceCount != visibleSet.trussUuids.size() ||
+      m_queryCache.trussHoverIndex.viewportWidth != width ||
+      m_queryCache.trussHoverIndex.viewportHeight != height) {
+    BuildHoverGridIndex(
+        visibleSet.trussUuids, projection, width, height,
+        [this](const std::string &uuid) { return m_controller.FindTrussBounds(uuid); },
+        m_queryCache.trussHoverIndex);
+    m_queryCache.trussHoverIndex.sourceVisibleSet = &visibleSet;
+    m_queryCache.trussHoverIndex.sourceCount = visibleSet.trussUuids.size();
+  }
+  const std::vector<int> candidateIndices =
+      QueryHoverGridCandidates(m_queryCache.trussHoverIndex, mouseX, mouseY);
   bool found = false;
   double bestHitDistance = DBL_MAX;
   wxString bestLabel;
   wxPoint bestPos;
   std::string bestUuid;
   const auto candidateLoopStart = std::chrono::steady_clock::now();
-  for (const auto &uuid : visibleSet.trussUuids) {
-    auto trussIt = trusses.find(uuid);
+  for (const int candidateIndex : candidateIndices) {
+    if (candidateIndex < 0 ||
+        candidateIndex >=
+            static_cast<int>(m_queryCache.trussHoverIndex.candidates.size())) {
+      continue;
+    }
+    const auto &candidate = m_queryCache.trussHoverIndex.candidates[candidateIndex];
+    if (mouseX < candidate.minX || mouseX > candidate.maxX || mouseY < candidate.minY ||
+        mouseY > candidate.maxY)
+      continue;
+
+    auto trussIt = trusses.find(candidate.uuid);
     if (trussIt == trusses.end())
       continue;
     const auto &t = trussIt->second;
-    if (!IsLayerVisibleCached(hiddenLayers, t.layer))
-      continue;
     const ISelectionContext::BoundingBox *bbPtr =
-        m_controller.FindTrussBounds(uuid);
+        m_controller.FindTrussBounds(candidate.uuid);
     if (!bbPtr)
       continue;
 
@@ -555,12 +684,12 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
 
       bestHitDistance = candidateScore;
       bestPos = projectedCenter;
-      bestLabel = t.name.empty() ? wxString::FromUTF8(uuid)
+      bestLabel = t.name.empty() ? wxString::FromUTF8(candidate.uuid)
                                  : wxString::FromUTF8(t.name);
       float baseHeight = t.transform.o[2] - t.heightMm * 0.5f;
       std::string hStr = FormatMeters(baseHeight);
       bestLabel += wxString::Format("\nh = %s m", hStr.c_str());
-      bestUuid = uuid;
+      bestUuid = candidate.uuid;
       found = true;
     }
   }
@@ -632,21 +761,43 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
                                     true, 0.0f);
   }
   const ISelectionContext::VisibleSet &visibleSet = *m_queryCache.visibleSet;
+  if (!m_queryCache.objectHoverIndex.valid ||
+      m_queryCache.objectHoverIndex.sourceVisibleSet != &visibleSet ||
+      m_queryCache.objectHoverIndex.sourceCount != visibleSet.objectUuids.size() ||
+      m_queryCache.objectHoverIndex.viewportWidth != width ||
+      m_queryCache.objectHoverIndex.viewportHeight != height) {
+    BuildHoverGridIndex(
+        visibleSet.objectUuids, projection, width, height,
+        [this](const std::string &uuid) { return m_controller.FindObjectBounds(uuid); },
+        m_queryCache.objectHoverIndex);
+    m_queryCache.objectHoverIndex.sourceVisibleSet = &visibleSet;
+    m_queryCache.objectHoverIndex.sourceCount = visibleSet.objectUuids.size();
+  }
+  const std::vector<int> candidateIndices =
+      QueryHoverGridCandidates(m_queryCache.objectHoverIndex, mouseX, mouseY);
   bool found = false;
   double bestHitDistance = DBL_MAX;
   wxString bestLabel;
   wxPoint bestPos;
   std::string bestUuid;
   const auto candidateLoopStart = std::chrono::steady_clock::now();
-  for (const auto &uuid : visibleSet.objectUuids) {
-    auto objectIt = objs.find(uuid);
+  for (const int candidateIndex : candidateIndices) {
+    if (candidateIndex < 0 ||
+        candidateIndex >=
+            static_cast<int>(m_queryCache.objectHoverIndex.candidates.size())) {
+      continue;
+    }
+    const auto &candidate = m_queryCache.objectHoverIndex.candidates[candidateIndex];
+    if (mouseX < candidate.minX || mouseX > candidate.maxX || mouseY < candidate.minY ||
+        mouseY > candidate.maxY)
+      continue;
+
+    auto objectIt = objs.find(candidate.uuid);
     if (objectIt == objs.end())
       continue;
     const auto &o = objectIt->second;
-    if (!IsLayerVisibleCached(hiddenLayers, o.layer))
-      continue;
     const ISelectionContext::BoundingBox *bbPtr =
-        m_controller.FindObjectBounds(uuid);
+        m_controller.FindObjectBounds(candidate.uuid);
     if (!bbPtr)
       continue;
 
@@ -671,9 +822,9 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
 
       bestHitDistance = candidateScore;
       bestPos = projectedCenter;
-      bestLabel = o.name.empty() ? wxString::FromUTF8(uuid)
+      bestLabel = o.name.empty() ? wxString::FromUTF8(candidate.uuid)
                                  : wxString::FromUTF8(o.name);
-      bestUuid = uuid;
+      bestUuid = candidate.uuid;
       found = true;
     }
   }
