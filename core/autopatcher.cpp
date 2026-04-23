@@ -20,12 +20,73 @@
 #include "patchmanager.h"
 #include <algorithm>
 #include <filesystem>
+#include <optional>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace fs = std::filesystem;
 
 namespace AutoPatcher {
+namespace {
+
+std::optional<PatchManager::PatchAddress>
+ParsePatchAddress(const std::string &address) {
+  const size_t dotPos = address.find('.');
+  if (dotPos == std::string::npos || dotPos == 0 || dotPos + 1 >= address.size())
+    return std::nullopt;
+
+  try {
+    const int universe = std::stoi(address.substr(0, dotPos));
+    const int channel = std::stoi(address.substr(dotPos + 1));
+    if (universe < 1 || channel < 1 || channel > 512)
+      return std::nullopt;
+    return PatchManager::PatchAddress{universe, channel};
+  } catch (...) {
+    return std::nullopt;
+  }
+}
+
+int ResolveFixtureChannelCount(const MvrScene &scene, const Fixture &fixture) {
+  std::string fullPath;
+  if (!fixture.gdtfSpec.empty()) {
+    fs::path p = scene.basePath.empty()
+                     ? fs::path(fixture.gdtfSpec)
+                     : fs::path(scene.basePath) / fixture.gdtfSpec;
+    fullPath = p.string();
+  }
+  int channelCount = GetGdtfModeChannelCount(fullPath, fixture.gdtfMode);
+  return channelCount > 0 ? channelCount : 1;
+}
+
+std::optional<PatchManager::PatchAddress>
+FindNextAddressAfterHighestPatchedFixture(const MvrScene &scene,
+                                          const std::unordered_set<std::string> &ignoredUuids) {
+  int highestAbsoluteEnd = 0;
+
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    if (ignoredUuids.contains(uuid))
+      continue;
+    const std::optional<PatchManager::PatchAddress> startAddress =
+        ParsePatchAddress(fixture.address);
+    if (!startAddress)
+      continue;
+
+    const int channelCount = ResolveFixtureChannelCount(scene, fixture);
+    const int absoluteStart = (startAddress->universe - 1) * 512 + startAddress->channel;
+    const int absoluteEnd = absoluteStart + channelCount - 1;
+    highestAbsoluteEnd = std::max(highestAbsoluteEnd, absoluteEnd);
+  }
+
+  if (highestAbsoluteEnd <= 0)
+    return PatchManager::PatchAddress{1, 1};
+
+  const int nextAbsolute = highestAbsoluteEnd + 1;
+  const int universe = ((nextAbsolute - 1) / 512) + 1;
+  const int channel = ((nextAbsolute - 1) % 512) + 1;
+  return PatchManager::PatchAddress{universe, channel};
+}
+} // namespace
 
 void AutoPatch(MvrScene &scene, int startUniverse, int startChannel) {
   struct FixtureInfo {
@@ -120,6 +181,57 @@ void AutoPatch(MvrScene &scene, int startUniverse, int startChannel) {
         ch = 1;
       }
     }
+  }
+}
+
+void AutoPatchSelection(MvrScene &scene,
+                        const std::vector<std::string> &selectionOrder) {
+  if (selectionOrder.empty())
+    return;
+
+  std::unordered_set<std::string> uniqueSelection(selectionOrder.begin(),
+                                                  selectionOrder.end());
+
+  for (const auto &uuid : uniqueSelection) {
+    auto fixtureIt = scene.fixtures.find(uuid);
+    if (fixtureIt != scene.fixtures.end())
+      fixtureIt->second.address.clear();
+  }
+
+  const auto nextStart =
+      FindNextAddressAfterHighestPatchedFixture(scene, uniqueSelection);
+  if (!nextStart)
+    return;
+
+  std::vector<int> channelCounts;
+  std::vector<std::string> orderedFixtureUuids;
+  channelCounts.reserve(selectionOrder.size());
+  orderedFixtureUuids.reserve(selectionOrder.size());
+
+  std::unordered_set<std::string> seen;
+  for (const auto &uuid : selectionOrder) {
+    if (!seen.insert(uuid).second)
+      continue;
+
+    const auto fixtureIt = scene.fixtures.find(uuid);
+    if (fixtureIt == scene.fixtures.end())
+      continue;
+
+    orderedFixtureUuids.push_back(uuid);
+    channelCounts.push_back(ResolveFixtureChannelCount(scene, fixtureIt->second));
+  }
+
+  if (orderedFixtureUuids.empty())
+    return;
+
+  const std::vector<PatchManager::PatchAddress> addresses =
+      PatchManager::SequentialPatch(channelCounts, nextStart->universe,
+                                    nextStart->channel);
+
+  for (size_t i = 0; i < orderedFixtureUuids.size() && i < addresses.size(); ++i) {
+    const auto &patch = addresses[i];
+    scene.fixtures[orderedFixtureUuids[i]].address =
+        std::to_string(patch.universe) + "." + std::to_string(patch.channel);
   }
 }
 

@@ -672,7 +672,11 @@ void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
 void MainWindow::OnAutoPatch(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   cfg.PushUndoState("auto patch");
-  AutoPatcher::AutoPatch(cfg.GetScene());
+  const std::vector<std::string> selectedFixtureUuids = cfg.GetSelectedFixtures();
+  if (!selectedFixtureUuids.empty())
+    AutoPatcher::AutoPatchSelection(cfg.GetScene(), selectedFixtureUuids);
+  else
+    AutoPatcher::AutoPatch(cfg.GetScene());
   RefreshAfterSceneChange();
 }
 
