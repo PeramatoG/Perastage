@@ -115,13 +115,16 @@ public:
 
   bool GetFixtureLabelAt(int mouseX, int mouseY, int width, int height,
                          wxString &outLabel, wxPoint &outPos,
-                         std::string *outUuid = nullptr);
+                         std::string *outUuid = nullptr,
+                         bool confirmDepth = false);
   bool GetTrussLabelAt(int mouseX, int mouseY, int width, int height,
                        wxString &outLabel, wxPoint &outPos,
-                       std::string *outUuid = nullptr);
+                       std::string *outUuid = nullptr,
+                       bool confirmDepth = false);
   bool GetSceneObjectLabelAt(int mouseX, int mouseY, int width, int height,
                              wxString &outLabel, wxPoint &outPos,
-                             std::string *outUuid = nullptr);
+                             std::string *outUuid = nullptr,
+                             bool confirmDepth = false);
 
   const VisibleSet &
   GetVisibleSet(const ViewFrustumSnapshot &frustum,

@@ -1,7 +1,10 @@
 #pragma once
 
 #include "iselectioncontext.h"
+#include <array>
+#include <chrono>
 #include <string>
+#include <unordered_set>
 #include <vector>
 #include <wx/gdicmn.h>
 #include <wx/string.h>
@@ -14,13 +17,16 @@ public:
   void SetSelectedUuids(const std::vector<std::string> &uuids);
   bool GetFixtureLabelAt(int mouseX, int mouseY, int width, int height,
                          wxString &outLabel, wxPoint &outPos,
-                         std::string *outUuid = nullptr);
+                         std::string *outUuid = nullptr,
+                         bool confirmDepth = false);
   bool GetTrussLabelAt(int mouseX, int mouseY, int width, int height,
                        wxString &outLabel, wxPoint &outPos,
-                       std::string *outUuid = nullptr);
+                       std::string *outUuid = nullptr,
+                       bool confirmDepth = false);
   bool GetSceneObjectLabelAt(int mouseX, int mouseY, int width, int height,
                              wxString &outLabel, wxPoint &outPos,
-                             std::string *outUuid = nullptr);
+                             std::string *outUuid = nullptr,
+                             bool confirmDepth = false);
   std::vector<std::string> GetFixturesInScreenRect(int x1, int y1, int x2,
                                                    int y2, int width,
                                                    int height) const;
@@ -31,6 +37,31 @@ public:
                                                        int x2, int y2,
                                                        int width,
                                                        int height) const;
+
+public:
+  struct QueryCache {
+    bool valid = false;
+    int viewport[4]{};
+    std::array<double, 16> model{};
+    std::array<double, 16> projection{};
+    ISelectionContext::ViewFrustumSnapshot frustum{};
+    std::unordered_set<std::string> hiddenLayers;
+    const ISelectionContext::VisibleSet *visibleSet = nullptr;
+    bool hasDepthWorldPoint = false;
+    std::array<double, 3> depthWorldPoint{0.0, 0.0, 0.0};
+    int depthMouseX = -1;
+    int depthMouseY = -1;
+    int depthHeight = -1;
+  };
+
+  struct QueryMetrics {
+    std::chrono::microseconds projection{0};
+    std::chrono::microseconds depthRead{0};
+    std::chrono::microseconds candidateLoop{0};
+  };
+
+  mutable QueryCache m_queryCache;
+  mutable int m_queryCounter = 0;
 
 private:
   ISelectionContext &m_controller;

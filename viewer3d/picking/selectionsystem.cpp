@@ -23,7 +23,9 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <unordered_set>
+#include <wx/log.h>
 
 namespace {
 
@@ -266,6 +268,52 @@ std::string FormatMeters(float mm) {
   return std::string(buffer);
 }
 
+bool ProjectionMatchesCache(const ProjectionSnapshot &projection,
+                            const SelectionSystem::QueryCache &cache) {
+  if (!cache.valid)
+    return false;
+  if (!std::equal(std::begin(projection.viewport), std::end(projection.viewport),
+                  std::begin(cache.viewport))) {
+    return false;
+  }
+  if (!std::equal(std::begin(projection.model), std::end(projection.model),
+                  cache.model.begin())) {
+    return false;
+  }
+  return std::equal(std::begin(projection.projection),
+                    std::end(projection.projection), cache.projection.begin());
+}
+
+void CacheProjectionSnapshot(const ProjectionSnapshot &projection,
+                             SelectionSystem::QueryCache &cache) {
+  cache.valid = true;
+  std::copy(std::begin(projection.viewport), std::end(projection.viewport),
+            std::begin(cache.viewport));
+  std::copy(std::begin(projection.model), std::end(projection.model),
+            cache.model.begin());
+  std::copy(std::begin(projection.projection), std::end(projection.projection),
+            cache.projection.begin());
+  cache.frustum = BuildFrustumSnapshot(projection);
+  cache.visibleSet = nullptr;
+}
+
+void LogQueryMetrics(const char *label, const SelectionSystem::QueryMetrics &metrics,
+                     int queryCounter) {
+#ifndef NDEBUG
+  if (queryCounter % 60 == 0) {
+    wxLogDebug(
+        "SelectionSystem metrics [%s] projection=%lldus depth=%lldus candidate=%lldus",
+        label, static_cast<long long>(metrics.projection.count()),
+        static_cast<long long>(metrics.depthRead.count()),
+        static_cast<long long>(metrics.candidateLoop.count()));
+  }
+#else
+  (void)label;
+  (void)metrics;
+  (void)queryCounter;
+#endif
+}
+
 } // namespace
 
 void SelectionSystem::SetHighlightUuid(const std::string &uuid) {
@@ -279,19 +327,52 @@ void SelectionSystem::SetSelectedUuids(const std::vector<std::string> &uuids) {
 bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
                                         int height, wxString &outLabel,
                                         wxPoint &outPos,
-                                        std::string *outUuid) {
+                                        std::string *outUuid,
+                                        bool confirmDepth) {
   ConfigManager &cfg = ConfigManager::Get();
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
 
+  QueryMetrics metrics;
+  const auto projectionStart = std::chrono::steady_clock::now();
   const ProjectionSnapshot projection = CaptureProjectionSnapshot();
+  const bool projectionChanged = !ProjectionMatchesCache(projection, m_queryCache);
+  if (projectionChanged) {
+    CacheProjectionSnapshot(projection, m_queryCache);
+    m_queryCache.hiddenLayers.clear();
+  }
+  metrics.projection = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - projectionStart);
+
   Ray mouseRay;
   if (!BuildMouseRay(mouseX, mouseY, height, projection, mouseRay))
     return false;
-  std::array<double, 3> depthWorldPoint{};
-  const bool hasDepthWorldPoint =
-      ReadWorldPointFromDepth(mouseX, mouseY, height, projection, depthWorldPoint);
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  if (projectionChanged || hiddenLayers != m_queryCache.hiddenLayers) {
+    m_queryCache.hiddenLayers = hiddenLayers;
+    m_queryCache.visibleSet = nullptr;
+  }
+  const auto depthReadStart = std::chrono::steady_clock::now();
+  bool hasDepthWorldPoint = false;
+  std::array<double, 3> depthWorldPoint{};
+  const bool shouldReadDepth = confirmDepth &&
+                               (projectionChanged || m_queryCache.depthMouseX != mouseX ||
+                                m_queryCache.depthMouseY != mouseY ||
+                                m_queryCache.depthHeight != height);
+  if (shouldReadDepth) {
+    m_queryCache.hasDepthWorldPoint =
+        ReadWorldPointFromDepth(mouseX, mouseY, height, projection,
+                                m_queryCache.depthWorldPoint);
+    m_queryCache.depthMouseX = mouseX;
+    m_queryCache.depthMouseY = mouseY;
+    m_queryCache.depthHeight = height;
+  }
+  if (confirmDepth) {
+    hasDepthWorldPoint = m_queryCache.hasDepthWorldPoint;
+    depthWorldPoint = m_queryCache.depthWorldPoint;
+  }
+  metrics.depthRead = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - depthReadStart);
   bool showName = cfg.GetFloat("label_show_name") != 0.0f;
   bool showId = cfg.GetFloat("label_show_id") != 0.0f;
   bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
@@ -304,11 +385,14 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   wxPoint bestPos;
   std::string bestUuid;
 
-  const ISelectionContext::ViewFrustumSnapshot frustum =
-      BuildFrustumSnapshot(projection);
-  const ISelectionContext::VisibleSet &visibleSet =
-      m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
+  if (!m_queryCache.visibleSet) {
+    m_queryCache.visibleSet =
+        &m_controller.GetVisibleSet(m_queryCache.frustum, m_queryCache.hiddenLayers,
+                                    true, 0.0f);
+  }
+  const ISelectionContext::VisibleSet &visibleSet = *m_queryCache.visibleSet;
 
+  const auto candidateLoopStart = std::chrono::steady_clock::now();
   for (const auto &uuid : visibleSet.fixtureUuids) {
     auto fixtureIt = fixtures.find(uuid);
     if (fixtureIt == fixtures.end())
@@ -364,6 +448,9 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
       found = true;
     }
   }
+  metrics.candidateLoop = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - candidateLoopStart);
+  LogQueryMetrics("fixture", metrics, ++m_queryCounter);
 
   if (found) {
     outPos = bestPos;
@@ -377,30 +464,64 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
 bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
                                       int height, wxString &outLabel,
                                       wxPoint &outPos,
-                                      std::string *outUuid) {
+                                      std::string *outUuid,
+                                      bool confirmDepth) {
   ConfigManager &cfg = ConfigManager::Get();
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
 
+  QueryMetrics metrics;
+  const auto projectionStart = std::chrono::steady_clock::now();
   const ProjectionSnapshot projection = CaptureProjectionSnapshot();
+  const bool projectionChanged = !ProjectionMatchesCache(projection, m_queryCache);
+  if (projectionChanged) {
+    CacheProjectionSnapshot(projection, m_queryCache);
+    m_queryCache.hiddenLayers.clear();
+  }
+  metrics.projection = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - projectionStart);
   Ray mouseRay;
   if (!BuildMouseRay(mouseX, mouseY, height, projection, mouseRay))
     return false;
-  std::array<double, 3> depthWorldPoint{};
-  const bool hasDepthWorldPoint =
-      ReadWorldPointFromDepth(mouseX, mouseY, height, projection, depthWorldPoint);
-
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  if (projectionChanged || hiddenLayers != m_queryCache.hiddenLayers) {
+    m_queryCache.hiddenLayers = hiddenLayers;
+    m_queryCache.visibleSet = nullptr;
+  }
+  const auto depthReadStart = std::chrono::steady_clock::now();
+  bool hasDepthWorldPoint = false;
+  std::array<double, 3> depthWorldPoint{};
+  const bool shouldReadDepth = confirmDepth &&
+                               (projectionChanged || m_queryCache.depthMouseX != mouseX ||
+                                m_queryCache.depthMouseY != mouseY ||
+                                m_queryCache.depthHeight != height);
+  if (shouldReadDepth) {
+    m_queryCache.hasDepthWorldPoint =
+        ReadWorldPointFromDepth(mouseX, mouseY, height, projection,
+                                m_queryCache.depthWorldPoint);
+    m_queryCache.depthMouseX = mouseX;
+    m_queryCache.depthMouseY = mouseY;
+    m_queryCache.depthHeight = height;
+  }
+  if (confirmDepth) {
+    hasDepthWorldPoint = m_queryCache.hasDepthWorldPoint;
+    depthWorldPoint = m_queryCache.depthWorldPoint;
+  }
+  metrics.depthRead = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - depthReadStart);
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
-  const ISelectionContext::ViewFrustumSnapshot frustum =
-      BuildFrustumSnapshot(projection);
-  const ISelectionContext::VisibleSet &visibleSet =
-      m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
+  if (!m_queryCache.visibleSet) {
+    m_queryCache.visibleSet =
+        &m_controller.GetVisibleSet(m_queryCache.frustum, m_queryCache.hiddenLayers,
+                                    true, 0.0f);
+  }
+  const ISelectionContext::VisibleSet &visibleSet = *m_queryCache.visibleSet;
   bool found = false;
   double bestHitDistance = DBL_MAX;
   wxString bestLabel;
   wxPoint bestPos;
   std::string bestUuid;
+  const auto candidateLoopStart = std::chrono::steady_clock::now();
   for (const auto &uuid : visibleSet.trussUuids) {
     auto trussIt = trusses.find(uuid);
     if (trussIt == trusses.end())
@@ -443,6 +564,9 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
       found = true;
     }
   }
+  metrics.candidateLoop = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - candidateLoopStart);
+  LogQueryMetrics("truss", metrics, ++m_queryCounter);
 
   if (found) {
     outPos = bestPos;
@@ -456,30 +580,64 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
 bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
                                             int height, wxString &outLabel,
                                             wxPoint &outPos,
-                                            std::string *outUuid) {
+                                            std::string *outUuid,
+                                            bool confirmDepth) {
   ConfigManager &cfg = ConfigManager::Get();
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
 
+  QueryMetrics metrics;
+  const auto projectionStart = std::chrono::steady_clock::now();
   const ProjectionSnapshot projection = CaptureProjectionSnapshot();
+  const bool projectionChanged = !ProjectionMatchesCache(projection, m_queryCache);
+  if (projectionChanged) {
+    CacheProjectionSnapshot(projection, m_queryCache);
+    m_queryCache.hiddenLayers.clear();
+  }
+  metrics.projection = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - projectionStart);
   Ray mouseRay;
   if (!BuildMouseRay(mouseX, mouseY, height, projection, mouseRay))
     return false;
-  std::array<double, 3> depthWorldPoint{};
-  const bool hasDepthWorldPoint =
-      ReadWorldPointFromDepth(mouseX, mouseY, height, projection, depthWorldPoint);
-
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  if (projectionChanged || hiddenLayers != m_queryCache.hiddenLayers) {
+    m_queryCache.hiddenLayers = hiddenLayers;
+    m_queryCache.visibleSet = nullptr;
+  }
+  const auto depthReadStart = std::chrono::steady_clock::now();
+  bool hasDepthWorldPoint = false;
+  std::array<double, 3> depthWorldPoint{};
+  const bool shouldReadDepth = confirmDepth &&
+                               (projectionChanged || m_queryCache.depthMouseX != mouseX ||
+                                m_queryCache.depthMouseY != mouseY ||
+                                m_queryCache.depthHeight != height);
+  if (shouldReadDepth) {
+    m_queryCache.hasDepthWorldPoint =
+        ReadWorldPointFromDepth(mouseX, mouseY, height, projection,
+                                m_queryCache.depthWorldPoint);
+    m_queryCache.depthMouseX = mouseX;
+    m_queryCache.depthMouseY = mouseY;
+    m_queryCache.depthHeight = height;
+  }
+  if (confirmDepth) {
+    hasDepthWorldPoint = m_queryCache.hasDepthWorldPoint;
+    depthWorldPoint = m_queryCache.depthWorldPoint;
+  }
+  metrics.depthRead = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - depthReadStart);
   const auto &objs = SceneDataManager::Instance().GetSceneObjects();
-  const ISelectionContext::ViewFrustumSnapshot frustum =
-      BuildFrustumSnapshot(projection);
-  const ISelectionContext::VisibleSet &visibleSet =
-      m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
+  if (!m_queryCache.visibleSet) {
+    m_queryCache.visibleSet =
+        &m_controller.GetVisibleSet(m_queryCache.frustum, m_queryCache.hiddenLayers,
+                                    true, 0.0f);
+  }
+  const ISelectionContext::VisibleSet &visibleSet = *m_queryCache.visibleSet;
   bool found = false;
   double bestHitDistance = DBL_MAX;
   wxString bestLabel;
   wxPoint bestPos;
   std::string bestUuid;
+  const auto candidateLoopStart = std::chrono::steady_clock::now();
   for (const auto &uuid : visibleSet.objectUuids) {
     auto objectIt = objs.find(uuid);
     if (objectIt == objs.end())
@@ -519,6 +677,9 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
       found = true;
     }
   }
+  metrics.candidateLoop = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - candidateLoopStart);
+  LogQueryMetrics("object", metrics, ++m_queryCounter);
 
   if (found) {
     outPos = bestPos;

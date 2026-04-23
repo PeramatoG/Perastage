@@ -337,6 +337,8 @@ std::vector<std::string> BuildCombinedSelection(const ConfigManager &cfg) {
 
 namespace {
 Viewer2DPanel *g_instance = nullptr;
+constexpr int kInteractionPauseTimerId = wxID_HIGHEST + 220;
+constexpr int kHoverHitTestTimerId = wxID_HIGHEST + 221;
 }
 
 wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
@@ -349,7 +351,10 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
                 EVT_ENTER_WINDOW(Viewer2DPanel::OnMouseEnter)
                     EVT_LEAVE_WINDOW(Viewer2DPanel::OnMouseLeave)
                         EVT_MOUSE_CAPTURE_LOST(Viewer2DPanel::OnCaptureLost)
-                            EVT_TIMER(wxID_ANY, Viewer2DPanel::OnInteractionPauseTimer)
+                            EVT_TIMER(kInteractionPauseTimerId,
+                                      Viewer2DPanel::OnInteractionPauseTimer)
+                            EVT_TIMER(kHoverHitTestTimerId,
+                                      Viewer2DPanel::OnHoverHitTestTimer)
                             EVT_SIZE(Viewer2DPanel::OnResize) wxEND_EVENT_TABLE()
 
 Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
@@ -357,7 +362,8 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize,
                  wxFULL_REPAINT_ON_RESIZE),
       m_allowOffscreenRender(allowOffscreenRender),
-      m_interactionResumeTimer(this),
+      m_interactionResumeTimer(this, kInteractionPauseTimerId),
+      m_hoverHitTestTimer(this, kHoverHitTestTimerId),
       m_persistViewState(persistViewState),
       m_enableSelection(enableSelection) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
@@ -380,6 +386,7 @@ Viewer2DPanel::~Viewer2DPanel() {
   m_dragSelectionMoved = false;
   m_rectSelecting = false;
   m_interactionResumeTimer.Stop();
+  m_hoverHitTestTimer.Stop();
   StopDragTableUpdateWorker();
   delete m_glContext;
 }
@@ -1054,115 +1061,6 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   }
 
   Render();
-
-  if (!m_enableSelection || !IsShownOnScreen())
-    return;
-
-  // Ensure the OpenGL context is current before hit-testing selections.
-  SetCurrent(*m_glContext);
-
-  const RenderSize renderSize = ResolveRenderSize(this);
-  const int w = renderSize.width;
-  const int h = renderSize.height;
-  if (!renderSize.IsValid())
-    return;
-  const wxPoint pickPos = ToFramebufferPoint(this, m_lastMousePos);
-
-  wxString newLabel;
-  wxPoint newPos;
-  std::string newUuid;
-  bool found = false;
-  const bool skipLabelWork =
-      wasInteracting && (m_dragMode == DragMode::View || m_dragMode == DragMode::None);
-
-  if (!skipLabelWork && FixtureTablePanel::Instance() &&
-      FixtureTablePanel::Instance()->IsActivePage()) {
-    found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, newLabel,
-                                           newPos, &newUuid);
-    if (found) {
-      if (TrussTablePanel::Instance())
-        TrussTablePanel::Instance()->HighlightTruss(std::string());
-      if (SceneObjectTablePanel::Instance())
-        SceneObjectTablePanel::Instance()->HighlightObject(std::string());
-    }
-  } else if (!skipLabelWork && TrussTablePanel::Instance() &&
-             TrussTablePanel::Instance()->IsActivePage()) {
-    found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h, newLabel,
-                                         newPos, &newUuid);
-    if (found) {
-      if (FixtureTablePanel::Instance())
-        FixtureTablePanel::Instance()->HighlightFixture(std::string());
-      if (SceneObjectTablePanel::Instance())
-        SceneObjectTablePanel::Instance()->HighlightObject(std::string());
-    }
-  } else if (!skipLabelWork && HoistTablePanel::Instance() &&
-             HoistTablePanel::Instance()->IsActivePage()) {
-    const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
-    found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
-        pickPos.x, pickPos.y, h, ConfigManager::Get().GetScene(), hiddenLayers,
-        newUuid, newPos, newLabel);
-    if (found) {
-      if (FixtureTablePanel::Instance())
-        FixtureTablePanel::Instance()->HighlightFixture(std::string());
-      if (TrussTablePanel::Instance())
-        TrussTablePanel::Instance()->HighlightTruss(std::string());
-      if (SceneObjectTablePanel::Instance())
-        SceneObjectTablePanel::Instance()->HighlightObject(std::string());
-    }
-  } else if (!skipLabelWork && SceneObjectTablePanel::Instance() &&
-             SceneObjectTablePanel::Instance()->IsActivePage()) {
-    found = m_controller.GetSceneObjectLabelAt(pickPos.x,
-                                               pickPos.y, w, h, newLabel,
-                                               newPos, &newUuid);
-    if (found) {
-      if (FixtureTablePanel::Instance())
-        FixtureTablePanel::Instance()->HighlightFixture(std::string());
-      if (TrussTablePanel::Instance())
-        TrussTablePanel::Instance()->HighlightTruss(std::string());
-    }
-  }
-
-  bool highlightChanged = false;
-  if (found) {
-    highlightChanged = (m_hoverUuid != newUuid);
-    m_hasHover = true;
-    m_hoverUuid = newUuid;
-    m_controller.SetHighlightUuid(m_hoverUuid);
-    if (FixtureTablePanel::Instance() &&
-        FixtureTablePanel::Instance()->IsActivePage())
-      FixtureTablePanel::Instance()->HighlightFixture(std::string(m_hoverUuid));
-    else if (TrussTablePanel::Instance() &&
-             TrussTablePanel::Instance()->IsActivePage())
-      TrussTablePanel::Instance()->HighlightTruss(std::string(m_hoverUuid));
-    else if (HoistTablePanel::Instance() &&
-             HoistTablePanel::Instance()->IsActivePage())
-      HoistTablePanel::Instance()->HighlightHoist(std::string(m_hoverUuid));
-    else if (SceneObjectTablePanel::Instance() &&
-             SceneObjectTablePanel::Instance()->IsActivePage())
-      SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
-  } else if (!skipLabelWork && (!m_hasHover || m_mouseMoved)) {
-    highlightChanged = m_hasHover;
-    m_hasHover = false;
-    m_hoverUuid.clear();
-    m_controller.SetHighlightUuid("");
-    if (FixtureTablePanel::Instance())
-      FixtureTablePanel::Instance()->HighlightFixture(std::string());
-    if (TrussTablePanel::Instance())
-      TrussTablePanel::Instance()->HighlightTruss(std::string());
-    if (HoistTablePanel::Instance())
-      HoistTablePanel::Instance()->HighlightHoist(std::string());
-    if (SceneObjectTablePanel::Instance())
-      SceneObjectTablePanel::Instance()->HighlightObject(std::string());
-  } else if (skipLabelWork) {
-    highlightChanged = m_hasHover;
-    m_hasHover = false;
-    m_hoverUuid.clear();
-    m_controller.SetHighlightUuid("");
-  }
-  m_mouseMoved = false;
-
-  if (highlightChanged)
-    RequestRepaint();
 }
 
 std::array<float, 3> Viewer2DPanel::MapDragDelta(float dxMeters,
@@ -1653,6 +1551,155 @@ void Viewer2DPanel::OnInteractionPauseTimer(wxTimerEvent &WXUNUSED(event)) {
     RequestRepaint();
 }
 
+void Viewer2DPanel::OnHoverHitTestTimer(wxTimerEvent &WXUNUSED(event)) {
+  if (!m_hoverHitTestPending)
+    return;
+  RunHoverHitTest(m_pendingHoverScreenPos);
+}
+
+void Viewer2DPanel::ScheduleHoverHitTest(const wxPoint &screenPos, bool forceNow) {
+  if (!m_enableSelection || !IsShownOnScreen() || m_dragMode != DragMode::None)
+    return;
+
+  m_pendingHoverScreenPos = screenPos;
+  m_hoverHitTestPending = true;
+
+  const auto now = std::chrono::steady_clock::now();
+  if (!forceNow && m_hoverQueryHasPos) {
+    const int manhattanMoved =
+        std::abs(screenPos.x - m_lastHoverQueryScreenPos.x) +
+        std::abs(screenPos.y - m_lastHoverQueryScreenPos.y);
+    const auto elapsedMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now -
+                                                              m_lastHoverHitTestTime)
+            .count();
+    if (manhattanMoved < kHoverMoveThresholdPx && elapsedMs < kHoverHitTestIntervalMs)
+      return;
+  }
+
+  const auto elapsedMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(now - m_lastHoverHitTestTime)
+          .count();
+  if (forceNow || elapsedMs >= kHoverHitTestIntervalMs) {
+    m_hoverHitTestTimer.Stop();
+    RunHoverHitTest(screenPos);
+    return;
+  }
+
+  const int delayMs = std::max(1, kHoverHitTestIntervalMs - static_cast<int>(elapsedMs));
+  m_hoverHitTestTimer.StartOnce(delayMs);
+}
+
+void Viewer2DPanel::ClearHoverState(bool requestRepaint) {
+  const bool hadHover = m_hasHover;
+  m_hasHover = false;
+  m_hoverUuid.clear();
+  m_controller.SetHighlightUuid("");
+  if (FixtureTablePanel::Instance())
+    FixtureTablePanel::Instance()->HighlightFixture(std::string());
+  if (TrussTablePanel::Instance())
+    TrussTablePanel::Instance()->HighlightTruss(std::string());
+  if (HoistTablePanel::Instance())
+    HoistTablePanel::Instance()->HighlightHoist(std::string());
+  if (SceneObjectTablePanel::Instance())
+    SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+  if (requestRepaint && hadHover)
+    RequestRepaint();
+}
+
+void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
+  if (!m_enableSelection || !IsShownOnScreen())
+    return;
+
+  m_hoverHitTestPending = false;
+  m_lastHoverHitTestTime = std::chrono::steady_clock::now();
+  m_lastHoverQueryScreenPos = screenPos;
+  m_hoverQueryHasPos = true;
+
+  const bool skipLabelWork = ShouldPauseHeavyTasks();
+  if (skipLabelWork) {
+    ClearHoverState(true);
+    return;
+  }
+
+  const RenderSize renderSize = ResolveRenderSize(this);
+  const int w = renderSize.width;
+  const int h = renderSize.height;
+  if (!renderSize.IsValid())
+    return;
+
+  SetCurrent(*m_glContext);
+  const wxPoint pickPos = ToFramebufferPoint(this, screenPos);
+  wxString newLabel;
+  wxPoint newPos;
+  std::string newUuid;
+  bool found = false;
+
+  if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
+    found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, newLabel,
+                                           newPos, &newUuid, false);
+    if (found) {
+      if (TrussTablePanel::Instance())
+        TrussTablePanel::Instance()->HighlightTruss(std::string());
+      if (SceneObjectTablePanel::Instance())
+        SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+    }
+  } else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
+    found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h, newLabel, newPos,
+                                         &newUuid, false);
+    if (found) {
+      if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->HighlightFixture(std::string());
+      if (SceneObjectTablePanel::Instance())
+        SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+    }
+  } else if (HoistTablePanel::Instance() && HoistTablePanel::Instance()->IsActivePage()) {
+    const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
+    found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
+        pickPos.x, pickPos.y, h, ConfigManager::Get().GetScene(), hiddenLayers, newUuid,
+        newPos, newLabel);
+    if (found) {
+      if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->HighlightFixture(std::string());
+      if (TrussTablePanel::Instance())
+        TrussTablePanel::Instance()->HighlightTruss(std::string());
+      if (SceneObjectTablePanel::Instance())
+        SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+    }
+  } else if (SceneObjectTablePanel::Instance() &&
+             SceneObjectTablePanel::Instance()->IsActivePage()) {
+    found = m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h, newLabel,
+                                               newPos, &newUuid, false);
+    if (found) {
+      if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->HighlightFixture(std::string());
+      if (TrussTablePanel::Instance())
+        TrussTablePanel::Instance()->HighlightTruss(std::string());
+    }
+  }
+
+  const std::string oldHoverUuid = m_hoverUuid;
+  if (found) {
+    m_hasHover = true;
+    m_hoverUuid = newUuid;
+    m_controller.SetHighlightUuid(m_hoverUuid);
+    if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
+      FixtureTablePanel::Instance()->HighlightFixture(std::string(m_hoverUuid));
+    else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+      TrussTablePanel::Instance()->HighlightTruss(std::string(m_hoverUuid));
+    else if (HoistTablePanel::Instance() && HoistTablePanel::Instance()->IsActivePage())
+      HoistTablePanel::Instance()->HighlightHoist(std::string(m_hoverUuid));
+    else if (SceneObjectTablePanel::Instance() &&
+             SceneObjectTablePanel::Instance()->IsActivePage())
+      SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
+  } else {
+    ClearHoverState(false);
+  }
+
+  if (oldHoverUuid != m_hoverUuid)
+    RequestRepaint();
+}
+
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   if (event.LeftDown()) {
     CaptureMouse();
@@ -1671,6 +1718,8 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     m_rectSelectionAcrossAllTables = false;
     m_lastMousePos = event.GetPosition();
     MarkInteractionActivity();
+    m_hoverHitTestTimer.Stop();
+    m_hoverHitTestPending = false;
 
     if (!m_enableSelection || !IsShownOnScreen())
       return;
@@ -1914,11 +1963,11 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     if (FixtureTablePanel::Instance() &&
         FixtureTablePanel::Instance()->IsActivePage())
       found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h,
-                                             label, pos, &uuid);
+                                             label, pos, &uuid, true);
     else if (TrussTablePanel::Instance() &&
              TrussTablePanel::Instance()->IsActivePage())
       found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h,
-                                           label, pos, &uuid);
+                                           label, pos, &uuid, true);
     else if (HoistTablePanel::Instance() &&
              HoistTablePanel::Instance()->IsActivePage())
       found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
@@ -1927,7 +1976,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     else if (SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage())
       found = m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w,
-                                                 h, label, pos, &uuid);
+                                                 h, label, pos, &uuid, true);
 
     ConfigManager &cfg = ConfigManager::Get();
     bool selectionChanged = false;
@@ -2083,7 +2132,7 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
   std::string hitUuid;
   const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
   if (m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, label,
-                                     pos, &hitUuid)) {
+                                     pos, &hitUuid, true)) {
     event.Skip();
     return;
   }
@@ -2273,11 +2322,8 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   if (m_enableSelection) {
     if (pos == m_lastMousePos)
       return;
-    const wxRect dirtyRect =
-        BuildPointDirtyRegion(m_lastMousePos, 24).Union(BuildPointDirtyRegion(pos, 24));
-    m_mouseMoved = true;
     m_lastMousePos = pos;
-    RequestRepaint(dirtyRect);
+    ScheduleHoverHitTest(pos, false);
   }
 }
 
@@ -2369,18 +2415,9 @@ void Viewer2DPanel::OnMouseLeave(wxMouseEvent &event) {
   m_mouseInside = false;
   ClearCursorWorldPosition();
   if (m_enableSelection) {
-    m_hasHover = false;
-    m_hoverUuid.clear();
-    m_controller.SetHighlightUuid("");
-    if (FixtureTablePanel::Instance())
-      FixtureTablePanel::Instance()->HighlightFixture(std::string());
-    if (TrussTablePanel::Instance())
-      TrussTablePanel::Instance()->HighlightTruss(std::string());
-    if (HoistTablePanel::Instance())
-      HoistTablePanel::Instance()->HighlightHoist(std::string());
-    if (SceneObjectTablePanel::Instance())
-      SceneObjectTablePanel::Instance()->HighlightObject(std::string());
-    RequestRepaint(BuildPointDirtyRegion(m_lastMousePos, 24));
+    m_hoverHitTestTimer.Stop();
+    m_hoverHitTestPending = false;
+    ClearHoverState(true);
   }
   event.Skip();
 }

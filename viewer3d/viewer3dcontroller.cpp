@@ -1782,27 +1782,32 @@ void Viewer3DController::SetupMaterialFromRGB(float r, float g, float b) {
 bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
                                            int height, wxString &outLabel,
                                            wxPoint &outPos,
-                                           std::string *outUuid) {
+                                           std::string *outUuid,
+                                           bool confirmDepth) {
   return m_impl->selectionSystem->GetFixtureLabelAt(mouseX, mouseY, width, height,
-                                              outLabel, outPos, outUuid);
+                                                     outLabel, outPos, outUuid,
+                                                     confirmDepth);
 }
 
 bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
                                          int height, wxString &outLabel,
                                          wxPoint &outPos,
-                                         std::string *outUuid) {
+                                         std::string *outUuid,
+                                         bool confirmDepth) {
   return m_impl->selectionSystem->GetTrussLabelAt(mouseX, mouseY, width, height,
-                                            outLabel, outPos, outUuid);
+                                                   outLabel, outPos, outUuid,
+                                                   confirmDepth);
 }
 
 bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
                                                 int width, int height,
                                                 wxString &outLabel,
                                                 wxPoint &outPos,
-                                                std::string *outUuid) {
+                                                std::string *outUuid,
+                                                bool confirmDepth) {
   return m_impl->selectionSystem->GetSceneObjectLabelAt(mouseX, mouseY, width,
-                                                  height, outLabel, outPos,
-                                                  outUuid);
+                                                         height, outLabel, outPos,
+                                                         outUuid, confirmDepth);
 }
 
 std::vector<std::string> Viewer3DController::GetFixturesInScreenRect(
