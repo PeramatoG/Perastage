@@ -1658,8 +1658,10 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 // drawn tag roughly matches the fixture size, and the optional zoom parameter
 // scales the label like regular geometry when zooming the 2D view.
 void Viewer3DController::DrawAllFixtureLabels(int width, int height,
-                                              Viewer2DView view, float zoom) {
-  m_impl->labelRenderSystem->DrawAllFixtureLabels(width, height, view, zoom);
+                                              Viewer2DView view, float zoom,
+                                              bool interactiveLabelMode) {
+  m_impl->labelRenderSystem->DrawAllFixtureLabels(width, height, view, zoom,
+                                                  interactiveLabelMode);
 }
 
 void Viewer3DController::DrawOverlayTextLabels(

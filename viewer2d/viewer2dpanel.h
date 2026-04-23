@@ -227,6 +227,7 @@ private:
   bool m_hasHover = false;
   std::chrono::steady_clock::time_point m_lastInteractionTime{};
   bool m_isInteracting = false;
+  bool m_interactiveLabelMode = false;
   wxTimer m_interactionResumeTimer;
   bool m_enableSelection = true;
   std::string m_hoverUuid;

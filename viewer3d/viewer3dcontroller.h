@@ -108,7 +108,8 @@ public:
   void DrawTrussLabels(int width, int height);
   void DrawSceneObjectLabels(int width, int height);
   void DrawAllFixtureLabels(int width, int height, Viewer2DView view,
-                            float zoom = 1.0f);
+                            float zoom = 1.0f,
+                            bool interactiveLabelMode = false);
   void DrawOverlayTextLabels(const std::vector<OverlayTextLabel> &labels,
                              bool darkMode, bool outline = true);
 
