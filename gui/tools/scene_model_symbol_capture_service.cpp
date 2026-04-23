@@ -130,6 +130,7 @@ public:
     zoom_ = state.zoom;
     view_ = state.view;
     renderMode_ = panel_.GetRenderMode();
+    renderOverrides_ = panel_.GetRenderOverrides();
     preferPerastageSvgSymbolsForLayouts_ =
         panel_.GetPreferPerastageSvgSymbolsForLayouts();
   }
@@ -137,6 +138,7 @@ public:
   ~ScopedViewer2DCaptureState() {
     panel_.ApplyViewState(offsetXPixels_, offsetYPixels_, zoom_, view_,
                           renderMode_);
+    panel_.SetRenderOverrides(renderOverrides_);
     panel_.SetPreferPerastageSvgSymbolsForLayouts(
         preferPerastageSvgSymbolsForLayouts_);
     panel_.UpdateScene(true);
@@ -149,6 +151,7 @@ private:
   float zoom_ = 1.0f;
   Viewer2DView view_ = Viewer2DView::Top;
   Viewer2DRenderMode renderMode_ = Viewer2DRenderMode::White;
+  std::optional<Viewer2DRenderOverrides> renderOverrides_;
   bool preferPerastageSvgSymbolsForLayouts_ = false;
 };
 
@@ -212,6 +215,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   renderOverrides.showGrid = false;
   renderOverrides.showRuler = false;
   renderOverrides.drawFixtureLabels = false;
+  renderOverrides.forceBottomViewForTopFixtures = false;
   renderOverrides.symbolCaptureRenderProfile = true;
   renderOverrides.symbolCaptureIncludeCoplanarEdges = true;
   ScopedViewer2DRenderOverrides scopedRenderOverrides(*capturePanel,
@@ -219,9 +223,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
   renderer.SetViewportSize(options.viewportSize);
   renderer.PrepareForCapture();
-  capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
-  capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
-  capturePanel->UpdateScene(true);
+  renderer.ApplySymbolCaptureDefaults();
 
   {
     std::vector<unsigned char> warmupPixels;

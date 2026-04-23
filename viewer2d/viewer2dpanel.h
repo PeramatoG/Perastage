@@ -144,6 +144,9 @@ public:
   void SetCursorWorldPositionCallback(CursorWorldPositionCallback callback);
   void SetRenderOverrides(
       const std::optional<Viewer2DRenderOverrides> &overrides);
+  std::optional<Viewer2DRenderOverrides> GetRenderOverrides() const {
+    return m_renderOverrides;
+  }
 
 private:
   enum class DragMode { None, View, Selection, RectSelection };

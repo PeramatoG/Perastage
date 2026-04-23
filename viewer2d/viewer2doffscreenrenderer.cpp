@@ -29,7 +29,7 @@ Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
   panel_ = new Viewer2DPanel(host_, true, false, false);
   panel_->SetSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
   panel_->SetClientSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
-  panel_->LoadViewFromConfig();
+  panel_->SetRenderOverrides(std::nullopt);
   panel_->UpdateScene(true);
 }
 
@@ -53,6 +53,26 @@ void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
 void Viewer2DOffscreenRenderer::PrepareForCapture() {
   if (!panel_)
     return;
-  panel_->LoadViewFromConfig();
+  panel_->SetRenderOverrides(std::nullopt);
+  panel_->UpdateScene(true);
+}
+
+void Viewer2DOffscreenRenderer::ApplySymbolCaptureDefaults() {
+  if (!panel_)
+    return;
+
+  Viewer2DRenderOverrides overrides;
+  overrides.darkMode = false;
+  overrides.showGrid = false;
+  overrides.showRuler = false;
+  overrides.drawFixtureLabels = false;
+  overrides.forceBottomViewForTopFixtures = false;
+  overrides.symbolCaptureRenderProfile = true;
+  overrides.symbolCaptureIncludeCoplanarEdges = true;
+
+  panel_->SetRenderOverrides(overrides);
+  panel_->SetPreferPerastageSvgSymbolsForLayouts(false);
+  panel_->ApplyViewState(0.0f, 0.0f, 1.0f, Viewer2DView::Top,
+                         Viewer2DRenderMode::ByFixtureType);
   panel_->UpdateScene(true);
 }
