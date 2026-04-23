@@ -212,6 +212,42 @@ std::vector<LabelLine2D> BuildDrawableLines(const FixtureLayoutCacheEntry &entry
   return lines;
 }
 
+struct FixtureLabelCandidate {
+  const std::string *uuid = nullptr;
+  const Fixture *fixture = nullptr;
+  double area = 0.0;
+};
+
+struct PreparedFixtureLabelLayout {
+  const std::string *uuid = nullptr;
+  const Fixture *fixture = nullptr;
+  const FixtureLayoutCacheEntry *cachedLayout = nullptr;
+  std::optional<FixtureLayoutCacheEntry> transientLayout;
+};
+
+FixtureLayoutKey BuildFixtureLayoutKey(
+    const std::string &uuid, const Fixture &fixture,
+    const viewer2d::FixtureLabelOverride *overrideSettings,
+    const ConfigManager &cfg, Viewer2DView view, int viewIdx) {
+  FixtureLayoutKey key;
+  key.uuid = uuid;
+  key.instanceName = fixture.instanceName;
+  key.address = fixture.address;
+  key.fixtureId = fixture.fixtureId;
+  key.showName = viewer2d::ResolveShowLabelName(cfg, overrideSettings, viewIdx);
+  key.showId = viewer2d::ResolveShowLabelId(cfg, overrideSettings, viewIdx);
+  key.showDmx = viewer2d::ResolveShowLabelDmx(cfg, overrideSettings, viewIdx);
+  key.nameSize = viewer2d::ResolveLabelFontSizeName(cfg, overrideSettings);
+  key.idSize = viewer2d::ResolveLabelFontSizeId(cfg, overrideSettings);
+  key.dmxSize = viewer2d::ResolveLabelFontSizeDmx(cfg, overrideSettings);
+  key.labelDist =
+      viewer2d::ResolveLabelOffsetDistance(cfg, overrideSettings, viewIdx);
+  key.labelAngle =
+      viewer2d::ResolveLabelOffsetAngle(cfg, overrideSettings, viewIdx);
+  key.view = view;
+  return key;
+}
+
 struct CullingSettings {
   bool enabled = true;
   float minPixels3D = 2.0f;
@@ -667,23 +703,14 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   const auto buildStart = std::chrono::steady_clock::now();
   bool buildBudgetExceeded = false;
 
-  struct FixtureLabelCandidate {
-    const std::string *uuid = nullptr;
-    const Fixture *fixture = nullptr;
-    double area = 0.0;
-  };
   std::vector<FixtureLabelCandidate> candidates;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   candidates.reserve(fixtures.size());
-  std::unordered_set<std::string> visibleFixtureUuids;
-  visibleFixtureUuids.reserve(fixtures.size());
   for (const auto &[uuid, f] : fixtures) {
     if (!IsLayerVisibleCached(hiddenLayers, f.layer) ||
         !cfg.IsFixtureTypeVisible(f.typeName))
       continue;
-
-    visibleFixtureUuids.insert(uuid);
 
     auto bit = m_controller.GetFixtureBoundsMap().find(uuid);
     if (useLabelOptimizations && culling.enabled &&
@@ -706,7 +733,7 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
 
   for (auto it = layoutCacheState.fixtureLayoutByUuid.begin();
        it != layoutCacheState.fixtureLayoutByUuid.end();) {
-    if (visibleFixtureUuids.find(it->first) == visibleFixtureUuids.end()) {
+    if (fixtures.find(it->first) == fixtures.end()) {
       it = layoutCacheState.fixtureLayoutByUuid.erase(it);
       continue;
     }
@@ -722,6 +749,10 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     candidates.resize(maxFixtureLabels);
   }
 
+  std::vector<PreparedFixtureLabelLayout> preparedLayouts;
+  preparedLayouts.reserve(candidates.size());
+
+  // Phase 1: build/cache fixture label layout on CPU.
   for (const auto &candidate : candidates) {
     const std::string &uuid = *candidate.uuid;
     const Fixture &f = *candidate.fixture;
@@ -729,61 +760,55 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     if (auto oit = fixtureOverrides.find(uuid); oit != fixtureOverrides.end())
       overrideSettings = &oit->second;
 
-    const bool showName =
-        viewer2d::ResolveShowLabelName(cfg, overrideSettings, viewIdx);
-    const bool showId =
-        viewer2d::ResolveShowLabelId(cfg, overrideSettings, viewIdx);
-    const bool showDmx =
-        viewer2d::ResolveShowLabelDmx(cfg, overrideSettings, viewIdx);
-    if (!showName && !showId && !showDmx)
+    const FixtureLayoutKey desiredKey =
+        BuildFixtureLayoutKey(uuid, f, overrideSettings, cfg, view, viewIdx);
+    if (!desiredKey.showName && !desiredKey.showId && !desiredKey.showDmx)
       continue;
 
-    FixtureLayoutKey desiredKey;
-    desiredKey.uuid = uuid;
-    desiredKey.instanceName = f.instanceName;
-    desiredKey.address = f.address;
-    desiredKey.fixtureId = f.fixtureId;
-    desiredKey.showName = showName;
-    desiredKey.showId = showId;
-    desiredKey.showDmx = showDmx;
-    desiredKey.nameSize =
-        viewer2d::ResolveLabelFontSizeName(cfg, overrideSettings);
-    desiredKey.idSize = viewer2d::ResolveLabelFontSizeId(cfg, overrideSettings);
-    desiredKey.dmxSize = viewer2d::ResolveLabelFontSizeDmx(cfg, overrideSettings);
-    desiredKey.labelDist =
-        viewer2d::ResolveLabelOffsetDistance(cfg, overrideSettings, viewIdx);
-    desiredKey.labelAngle =
-        viewer2d::ResolveLabelOffsetAngle(cfg, overrideSettings, viewIdx);
-    desiredKey.view = view;
     auto cacheIt = layoutCacheState.fixtureLayoutByUuid.find(uuid);
     const bool needsRebuild =
         cacheIt == layoutCacheState.fixtureLayoutByUuid.end() ||
         !(cacheIt->second.key == desiredKey);
 
-    std::optional<FixtureLayoutCacheEntry> frameLocalLayout;
+    PreparedFixtureLabelLayout prepared;
+    prepared.uuid = &uuid;
+    prepared.fixture = &f;
+
     if (needsRebuild) {
       if (buildBudgetExceeded) {
-        // Keep labels visible even when the cache rebuild budget is exhausted.
-        // This avoids dropping labels from rendering during heavy rebuild frames.
-        frameLocalLayout = BuildFixtureLayoutEntry(
+        // Keep labels visible for this frame, even if budget is exhausted.
+        prepared.transientLayout = BuildFixtureLayoutEntry(
             desiredKey, m_controller.GetLabelFont(), m_controller.GetLabelBoldFont());
       } else {
-        cacheIt =
-            layoutCacheState.fixtureLayoutByUuid
-                .insert_or_assign(
-                    uuid,
-                    BuildFixtureLayoutEntry(desiredKey, m_controller.GetLabelFont(),
-                                            m_controller.GetLabelBoldFont()))
-                .first;
+        cacheIt = layoutCacheState.fixtureLayoutByUuid
+                      .insert_or_assign(uuid, BuildFixtureLayoutEntry(
+                                                  desiredKey,
+                                                  m_controller.GetLabelFont(),
+                                                  m_controller.GetLabelBoldFont()))
+                      .first;
+        prepared.cachedLayout = &cacheIt->second;
         if (std::chrono::steady_clock::now() - buildStart > buildBudget)
           buildBudgetExceeded = true;
       }
+    } else {
+      prepared.cachedLayout = &cacheIt->second;
     }
 
     const FixtureLayoutCacheEntry &layout =
-        frameLocalLayout.has_value() ? *frameLocalLayout : cacheIt->second;
+        prepared.transientLayout.has_value() ? *prepared.transientLayout
+                                             : *prepared.cachedLayout;
     if (layout.lines.empty())
       continue;
+    preparedLayouts.push_back(std::move(prepared));
+  }
+
+  // Phase 2: project and draw using the current frame state.
+  for (const auto &prepared : preparedLayouts) {
+    const std::string &uuid = *prepared.uuid;
+    const Fixture &f = *prepared.fixture;
+    const FixtureLayoutCacheEntry &layout =
+        prepared.transientLayout.has_value() ? *prepared.transientLayout
+                                             : *prepared.cachedLayout;
 
     auto bit = m_controller.GetFixtureBoundsMap().find(uuid);
     const ISelectionContext::BoundingBox *bounds =
