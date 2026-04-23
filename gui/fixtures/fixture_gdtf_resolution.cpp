@@ -1,7 +1,10 @@
 #include "fixtures/fixture_gdtf_resolution.h"
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <sstream>
+#include <string>
 
 #include <wx/log.h>
 
@@ -14,12 +17,54 @@ namespace {
 
 std::string BuildLogPrefix(const Fixture &fixture,
                            const MvrScene &scene,
-                           const fs::path &specPath) {
+                           const fs::path &specPath,
+                           const std::string &traceContext) {
   std::ostringstream out;
-  out << "[FixtureGdtfResolution] uuid='" << fixture.uuid << "'"
+  out << "[FixtureGdtfResolution]";
+  if (!traceContext.empty())
+    out << " context='" << traceContext << "'";
+  out << " uuid='" << fixture.uuid << "'"
       << " scene.basePath='" << scene.basePath << "'"
       << " gdtfSpec='" << specPath.string() << "'";
   return out.str();
+}
+
+std::string DecodePathEscapes(const std::string &value) {
+  std::string out;
+  out.reserve(value.size());
+  for (size_t i = 0; i < value.size(); ++i) {
+    if (i + 2 < value.size() && value[i] == '%' && value[i + 1] == '2' &&
+        value[i + 2] == '0') {
+      out.push_back(' ');
+      i += 2;
+      continue;
+    }
+    out.push_back(value[i]);
+  }
+  return out;
+}
+
+std::string TrimPathRef(std::string value) {
+  auto isTrim = [](unsigned char c) {
+    return std::isspace(c) != 0 || c == '\r' || c == '\n' || c == '\t';
+  };
+
+  while (!value.empty() && isTrim(static_cast<unsigned char>(value.front())))
+    value.erase(value.begin());
+  while (!value.empty() && isTrim(static_cast<unsigned char>(value.back())))
+    value.pop_back();
+
+  if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
+    return value.substr(1, value.size() - 2);
+  return value;
+}
+
+std::string NormalizePathSeparators(std::string value) {
+  std::replace(value.begin(), value.end(), '\\',
+               static_cast<char>(fs::path::preferred_separator));
+  std::replace(value.begin(), value.end(), '/',
+               static_cast<char>(fs::path::preferred_separator));
+  return value;
 }
 
 void LogDiscardReason(const std::string &prefix,
@@ -35,11 +80,15 @@ void LogDiscardReason(const std::string &prefix,
 bool ResolveFixtureGdtfDeterministic(const Fixture &fixture,
                                      const MvrScene &scene,
                                      FixtureGdtfResolution &resolution,
-                                     std::string &errorMessage) {
+                                     std::string &errorMessage,
+                                     const std::string &traceContext) {
   resolution = {};
 
-  const fs::path specPath = fs::path(fixture.gdtfSpec);
-  const std::string logPrefix = BuildLogPrefix(fixture, scene, specPath);
+  const std::string sanitizedSpec =
+      NormalizePathSeparators(DecodePathEscapes(TrimPathRef(fixture.gdtfSpec)));
+  const fs::path specPath = fs::path(sanitizedSpec);
+  const std::string logPrefix =
+      BuildLogPrefix(fixture, scene, specPath, traceContext);
 
   if (specPath.empty()) {
     errorMessage = "Fixture gdtfSpec is empty; deterministic resolution requires a valid path or file name.";

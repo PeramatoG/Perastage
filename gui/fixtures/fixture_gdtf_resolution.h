@@ -16,6 +16,7 @@ struct FixtureGdtfResolution {
 bool ResolveFixtureGdtfDeterministic(const Fixture &fixture,
                                      const MvrScene &scene,
                                      FixtureGdtfResolution &resolution,
-                                     std::string &errorMessage);
+                                     std::string &errorMessage,
+                                     const std::string &traceContext = {});
 
 } // namespace gui::fixtures
