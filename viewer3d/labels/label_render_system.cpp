@@ -110,6 +110,8 @@ struct FixtureLabelLayoutCacheState {
   FixtureLabelOverridesCache overridesCache;
 };
 
+wxString WrapEveryTwoWords(const wxString &text);
+
 std::unordered_map<LabelRenderSystem *, FixtureLabelLayoutCacheState>
     &FixtureLayoutCacheByOwner() {
   static std::unordered_map<LabelRenderSystem *, FixtureLabelLayoutCacheState>
