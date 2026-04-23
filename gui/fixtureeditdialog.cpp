@@ -960,16 +960,12 @@ void FixtureEditDialog::ApplyChanges() {
   }
   panel->ResyncRows(oldOrder, selectedUuids);
   auto updateType = FixtureTablePanel::SceneDataUpdateType::kVisualLabelOnly;
-  bool hasAnyChange = false;
   for (size_t i = 0; i < modifiedColumns.size(); ++i) {
     if (!modifiedColumns[i])
       continue;
-    hasAnyChange = true;
     updateType = FixtureTablePanel::CombineUpdateTypes(
         updateType, FixtureTablePanel::UpdateTypeForColumn(static_cast<int>(i)));
   }
-  if (!hasAnyChange)
-    updateType = FixtureTablePanel::SceneDataUpdateType::kGeneral;
   panel->UpdateSceneData(true, updateType);
   applied = true;
   if (Viewer3DPanel::Instance()) {
