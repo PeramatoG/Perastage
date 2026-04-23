@@ -36,6 +36,7 @@ namespace GdtfDictionary {
 namespace {
 
 LoadStatus g_lastLoadStatus;
+size_t g_saveCallCountForTesting = 0;
 fs::path GetUserDictFile();
 
 
@@ -247,6 +248,40 @@ FindEquivalentTypeKey(const std::unordered_map<std::string, Entry> &dict,
       return existingType;
   }
   return std::nullopt;
+}
+
+bool ApplyCategoryUpdateForFile(
+    std::unordered_map<std::string, Entry> &dict, const std::string &type,
+    const std::string &gdtfPath, const std::string &category) {
+  const std::string normalizedType = NormalizeTypeKey(type);
+  if (normalizedType.empty())
+    return false;
+
+  std::string keyToUse = type;
+  if (auto existingKey = FindEquivalentTypeKey(dict, normalizedType))
+    keyToUse = *existingKey;
+  auto it = dict.find(keyToUse);
+  if (it == dict.end()) {
+    Entry e;
+    e.category = category;
+    dict[keyToUse] = e;
+    return true;
+  }
+
+  std::string sharedPath = it->second.path;
+  if (sharedPath.empty() && !gdtfPath.empty())
+    sharedPath = gdtfPath;
+  it->second.category = category;
+  for (auto &[entryType, entry] : dict) {
+    if (entryType == keyToUse)
+      continue;
+    const bool samePath = PathsMatchForDictionaryEntries(entry.path, sharedPath);
+    const bool sameFileName = PathsShareFileName(entry.path, sharedPath);
+    if (!samePath && !sameFileName)
+      continue;
+    entry.category = category;
+  }
+  return true;
 }
 
 fs::path GetUserDictFile() {
@@ -716,6 +751,7 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
                   file.string();
     return false;
   }
+  ++g_saveCallCountForTesting;
   return true;
 }
 
@@ -825,36 +861,32 @@ void UpdateCategory(const std::string &type, const std::string &category) {
 void UpdateCategoryForFile(const std::string &type, const std::string &gdtfPath,
                            const std::string &category) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  const std::string normalizedType = NormalizeTypeKey(type);
-  if (normalizedType.empty())
+  auto dictOpt = Load();
+  if (!dictOpt)
+    return;
+  auto &dict = *dictOpt;
+  if (!ApplyCategoryUpdateForFile(dict, type, gdtfPath, category))
+    return;
+  Save(dict);
+}
+
+void UpdateCategoriesBulk(
+    const std::unordered_map<std::string, std::string> &categoriesByType) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  if (categoriesByType.empty())
     return;
   auto dictOpt = Load();
   if (!dictOpt)
     return;
   auto &dict = *dictOpt;
-  std::string keyToUse = type;
-  if (auto existingKey = FindEquivalentTypeKey(dict, normalizedType))
-    keyToUse = *existingKey;
-  auto it = dict.find(keyToUse);
-  if (it == dict.end()) {
-    Entry e;
-    e.category = category;
-    dict[keyToUse] = e;
-  } else {
-    std::string sharedPath = it->second.path;
-    if (sharedPath.empty() && !gdtfPath.empty())
-      sharedPath = gdtfPath;
-    it->second.category = category;
-    for (auto &[entryType, entry] : dict) {
-      if (entryType == keyToUse)
-        continue;
-      const bool samePath = PathsMatchForDictionaryEntries(entry.path, sharedPath);
-      const bool sameFileName = PathsShareFileName(entry.path, sharedPath);
-      if (!samePath && !sameFileName)
-        continue;
-      entry.category = category;
-    }
+  bool hasValidUpdate = false;
+  for (const auto &[type, category] : categoriesByType) {
+    if (!ApplyCategoryUpdateForFile(dict, type, {}, category))
+      continue;
+    hasValidUpdate = true;
   }
+  if (!hasValidUpdate)
+    return;
   Save(dict);
 }
 
@@ -967,6 +999,16 @@ DictionaryImportSummary ApplyImportFromFile(const std::string &filePath,
   if (!Save(current, &saveError))
     summary.errors.push_back("Failed to save current dictionary: " + saveError);
   return summary;
+}
+
+size_t GetSaveCallCountForTesting() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  return g_saveCallCountForTesting;
+}
+
+void ResetSaveCallCountForTesting() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  g_saveCallCountForTesting = 0;
 }
 
 } // namespace GdtfDictionary

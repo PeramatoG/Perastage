@@ -3493,6 +3493,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   const int totalFixturesForCategoryApply = static_cast<int>(scene.fixtures.size());
   int appliedFixturesForCategoryApply = 0;
   categoryByTypeKey.clear();
+  std::unordered_map<std::string, std::string> pendingCategoryUpdatesByType;
   for (auto &[uid, fixture] : scene.fixtures) {
     (void)uid;
     ++appliedFixturesForCategoryApply;
@@ -3555,9 +3556,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
     if (!fixture.category.empty() && !fixture.typeName.empty() &&
         fixture.categorySource == GdtfFixtureCategory::kManualSource) {
-      GdtfDictionary::UpdateCategory(fixture.typeName, fixture.category);
+      pendingCategoryUpdatesByType[fixture.typeName] = fixture.category;
     }
   }
+  GdtfDictionary::UpdateCategoriesBulk(pendingCategoryUpdatesByType);
 
   reportProgress("Building fixtures, trusses, and objects...");
 
