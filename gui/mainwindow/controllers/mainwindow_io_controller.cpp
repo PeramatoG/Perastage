@@ -18,6 +18,7 @@
 #include "consolepanel.h"
 #include "configmanager.h"
 #include "fixturetablepanel.h"
+#include "fixture_label_overrides.h"
 #include "guiconfigservices.h"
 #include "hoisttablepanel.h"
 #include "layerpanel.h"
@@ -136,6 +137,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   }
 
   setImportStatus("MVR import: refreshing panels...");
+  viewer2d::ReconcileFixtureLabelOverridesWithScene(cfg);
   if (ownerRef->consolePanel)
     ownerRef->consolePanel->AppendMessage("Imported " + filePath);
   ownerRef->currentProjectPath.clear();

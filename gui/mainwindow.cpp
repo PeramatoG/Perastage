@@ -80,6 +80,7 @@ using json = nlohmann::json;
 #include "exportobjectdialog.h"
 #include "exporttrussdialog.h"
 #include "fixture.h"
+#include "fixture_label_overrides.h"
 #include "fixturetablepanel.h"
 #include "gdtfloader.h"
 #include "gdtfnet.h"
@@ -675,6 +676,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     finishLoad();
     return false;
   }
+  viewer2d::ReconcileFixtureLabelOverridesWithScene(
+      GetDefaultGuiConfigServices().LegacyConfigManager());
 
   reportProjectLoadProgress("Building scene...", true);
   Ensure3DViewport();

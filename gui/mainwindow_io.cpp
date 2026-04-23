@@ -45,6 +45,7 @@
 #include "exportobjectdialog.h"
 #include "exporttrussdialog.h"
 #include "fixture.h"
+#include "fixture_label_overrides.h"
 #include "fixturetablepanel.h"
 #include "gdtf_mutation_audit.h"
 #include "hoisttablepanel.h"
@@ -280,6 +281,8 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to import " + dlg.GetPath());
   } else {
+    viewer2d::ReconcileFixtureLabelOverridesWithScene(
+        GetDefaultGuiConfigServices().LegacyConfigManager());
     importOverlay.reset();
     importDisabler.reset();
     if (consolePanel)
@@ -349,6 +352,8 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
   }
 
   createProgress.reset();
+  viewer2d::ReconcileFixtureLabelOverridesWithScene(
+      GetDefaultGuiConfigServices().LegacyConfigManager());
   if (consolePanel)
     consolePanel->AppendMessage("[INFO] Imported rider from text.");
   // Keep behavior aligned with MVR import: assign deterministic colors after
