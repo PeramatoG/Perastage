@@ -166,6 +166,10 @@ private:
   void OnMouseLeave(wxMouseEvent &event);
   void OnResize(wxSizeEvent &event);
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
+  void RequestRepaint();
+  void RequestRepaint(const wxRect &dirtyRect);
+  void ResetRepaintCoalescing();
+  void TrackRefreshTelemetry();
 
   std::array<float, 3> MapDragDelta(float dxMeters, float dyMeters) const;
   std::optional<std::array<float, 3>>
@@ -262,6 +266,12 @@ private:
   float m_layoutEditScale = 1.0f;
   bool m_preferPerastageSvgSymbolsForLayouts = false;
   std::optional<Viewer2DRenderOverrides> m_renderOverrides;
+  bool m_repaintQueued = false;
+  bool m_fullRepaintQueued = false;
+#ifndef NDEBUG
+  std::chrono::steady_clock::time_point m_refreshTelemetryWindowStart{};
+  int m_refreshesInCurrentWindow = 0;
+#endif
 
   wxDECLARE_EVENT_TABLE();
 };
