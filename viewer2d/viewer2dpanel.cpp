@@ -50,6 +50,7 @@
 #include "logger.h"
 #include "positionvalueupdate.h"
 #include "scene_object_primitive_editing.h"
+#include "../gui/selection_origin_token.h"
 #include "sceneobjecttablepanel.h"
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
@@ -307,11 +308,12 @@ void ApplyFixtureSelectionToUi(const std::vector<std::string> &selection,
       Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
   }
   controller.SetSelectedUuids(selection);
+  selection::ScopedOrigin selectionOrigin(selection::Origin::Viewer2D);
   if (FixtureTablePanel::Instance()) {
     if (selection.empty())
       FixtureTablePanel::Instance()->ClearSelection();
     else
-      FixtureTablePanel::Instance()->SelectByUuid(selection);
+      FixtureTablePanel::Instance()->SelectByUuid(selection, false);
   }
 }
 
@@ -461,6 +463,9 @@ void Viewer2DPanel::SetSelectedUuids(
     const std::vector<std::string> &selection) {
   if (!m_enableSelection)
     return;
+  if (selection == m_lastAppliedSelectionUuids)
+    return;
+  m_lastAppliedSelectionUuids = selection;
   m_controller.SetSelectedUuids(selection);
   RequestRepaint();
 }
@@ -1243,7 +1248,7 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
     if (selection.empty())
       FixtureTablePanel::Instance()->ClearSelection();
     else
-      FixtureTablePanel::Instance()->SelectByUuid(selection);
+      FixtureTablePanel::Instance()->SelectByUuid(selection, false);
   } else if (TrussTablePanel::Instance() &&
              TrussTablePanel::Instance()->IsActivePage()) {
     auto selection =
@@ -1258,7 +1263,7 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
     if (selection.empty())
       TrussTablePanel::Instance()->ClearSelection();
     else
-      TrussTablePanel::Instance()->SelectByUuid(selection);
+      TrussTablePanel::Instance()->SelectByUuid(selection, false);
   } else if (HoistTablePanel::Instance() &&
              HoistTablePanel::Instance()->IsActivePage()) {
     auto selection = Viewer2DSupportSelection::GetHoistsInScreenRect(
@@ -1272,7 +1277,7 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
     if (selection.empty())
       HoistTablePanel::Instance()->ClearSelection();
     else
-      HoistTablePanel::Instance()->SelectByUuid(selection);
+      HoistTablePanel::Instance()->SelectByUuid(selection, false);
   } else if (SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage()) {
     auto selection = m_controller.GetSceneObjectsInScreenRect(
@@ -1285,7 +1290,7 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
     if (selection.empty())
       SceneObjectTablePanel::Instance()->ClearSelection();
     else
-      SceneObjectTablePanel::Instance()->SelectByUuid(selection);
+      SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
   }
 }
 
@@ -1857,7 +1862,7 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
 
     if (SceneObjectTablePanel::Instance()) {
       SceneObjectTablePanel::Instance()->ReloadData();
-      SceneObjectTablePanel::Instance()->SelectByUuid({uuid});
+      SceneObjectTablePanel::Instance()->SelectByUuid({uuid}, false);
     }
 
     UpdateScene(false);
@@ -2007,7 +2012,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
             Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
         }
         m_controller.SetSelectedUuids(selection);
-        FixtureTablePanel::Instance()->SelectByUuid(selection);
+        FixtureTablePanel::Instance()->SelectByUuid(selection, false);
       } else if (TrussTablePanel::Instance() &&
                  TrussTablePanel::Instance()->IsActivePage()) {
         if (additive)
@@ -2027,7 +2032,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
           selectionChanged = true;
         }
         m_controller.SetSelectedUuids(selection);
-        TrussTablePanel::Instance()->SelectByUuid(selection);
+        TrussTablePanel::Instance()->SelectByUuid(selection, false);
       } else if (HoistTablePanel::Instance() &&
                  HoistTablePanel::Instance()->IsActivePage()) {
         if (additive)
@@ -2047,7 +2052,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
           selectionChanged = true;
         }
         m_controller.SetSelectedUuids(selection);
-        HoistTablePanel::Instance()->SelectByUuid(selection);
+        HoistTablePanel::Instance()->SelectByUuid(selection, false);
       } else if (SceneObjectTablePanel::Instance() &&
                  SceneObjectTablePanel::Instance()->IsActivePage()) {
         if (additive)
@@ -2067,7 +2072,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
           selectionChanged = true;
         }
         m_controller.SetSelectedUuids(selection);
-        SceneObjectTablePanel::Instance()->SelectByUuid(selection);
+        SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
       }
     } else {
       m_hasHover = false;

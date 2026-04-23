@@ -18,6 +18,7 @@
 #include "fixturetablepanel.h"
 #include "addressdialog.h"
 #include "configmanager.h"
+#include "selection_origin_token.h"
 #include "guiconfigservices.h"
 #include "consolepanel.h"
 #include "fixtureeditdialog.h"
@@ -1347,6 +1348,14 @@ void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
 }
 
 void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
+  const selection::Origin origin = selection::CurrentOrigin();
+  if (origin == selection::Origin::Viewer2D ||
+      origin == selection::Origin::Viewer3D) {
+    UpdateSelectionHighlight();
+    evt.Skip();
+    return;
+  }
+
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   std::vector<int> currentRows;
@@ -1388,6 +1397,7 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
   appendSelection(cfg.GetSelectedTrusses());
   appendSelection(cfg.GetSelectedSupports());
   appendSelection(cfg.GetSelectedSceneObjects());
+  selection::ScopedOrigin selectionOrigin(selection::Origin::Table);
   if (Viewer3DPanel::Instance())
     Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
   if (Viewer2DPanel::Instance())
