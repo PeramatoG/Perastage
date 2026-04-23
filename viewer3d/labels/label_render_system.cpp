@@ -472,7 +472,8 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
 }
 
 void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
-                                             Viewer2DView view, float zoom) {
+                                             Viewer2DView view, float zoom,
+                                             bool interactiveLabelMode) {
   ConfigManager &cfg = ConfigManager::Get();
   const auto distanceUnitSystem =
       Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
@@ -488,8 +489,11 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   const CullingSettings culling = GetCullingSettings(cfg);
   const float minLabelPixels = culling.minPixels2D;
   const bool useLabelOptimizations =
-      cfg.GetFloat("label_optimizations_enabled") >= 0.5f;
-  const int maxFixtureLabels = GetLabelLimit(cfg, "label_max_fixtures");
+      !interactiveLabelMode &&
+      (cfg.GetFloat("label_optimizations_enabled") >= 0.5f);
+  const int maxFixtureLabels = interactiveLabelMode
+                                   ? 0
+                                   : GetLabelLimit(cfg, "label_max_fixtures");
 
   struct FixtureLabelCandidate {
     const std::string *uuid = nullptr;
@@ -601,14 +605,21 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     if (showName) {
       wxString baseName = f.instanceName.empty() ? wxString::FromUTF8(uuid)
                                                  : wxString::FromUTF8(f.instanceName);
-      wxString wrapped = WrapEveryTwoWords(baseName);
-      wxStringTokenizer nameLines(wrapped, "\n");
-      while (nameLines.HasMoreTokens()) {
-        wxString line = nameLines.GetNextToken();
-        auto utf8 = line.ToUTF8();
+      if (interactiveLabelMode) {
+        auto utf8 = baseName.ToUTF8();
         lines.push_back({m_controller.GetLabelFont(),
                          std::string(utf8.data(), utf8.length()), nameSize,
                          kRegularFamily});
+      } else {
+        wxString wrapped = WrapEveryTwoWords(baseName);
+        wxStringTokenizer nameLines(wrapped, "\n");
+        while (nameLines.HasMoreTokens()) {
+          wxString line = nameLines.GetNextToken();
+          auto utf8 = line.ToUTF8();
+          lines.push_back({m_controller.GetLabelFont(),
+                           std::string(utf8.data(), utf8.length()), nameSize,
+                           kRegularFamily});
+        }
       }
     }
     if (showId) {
@@ -628,7 +639,7 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     if (lines.empty())
       continue;
 
-    if (m_controller.GetCaptureCanvas()) {
+    if (!interactiveLabelMode && m_controller.GetCaptureCanvas()) {
       std::string labelSourceKey = "label:" + uuid;
       m_controller.GetCaptureCanvas()->SetSourceKey(labelSourceKey);
 

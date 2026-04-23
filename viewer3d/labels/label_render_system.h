@@ -12,7 +12,7 @@ public:
   void DrawTrussLabels(int width, int height);
   void DrawSceneObjectLabels(int width, int height);
   void DrawAllFixtureLabels(int width, int height, Viewer2DView view,
-                            float zoom);
+                            float zoom, bool interactiveLabelMode = false);
 
 private:
   ISelectionContext &m_controller;

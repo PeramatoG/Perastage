@@ -671,7 +671,13 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   if (!m_glInitialized) {
     return;
   }
+  // Interaction policy:
+  // - Keep throttling expensive synchronization while the user is dragging,
+  //   panning or selecting.
+  // - Keep fixture labels visible using an explicit interactive mode so the
+  //   overlay does not flicker/disappear during interaction.
   const bool pauseHeavyTasks = m_enableSelection && ShouldPauseHeavyTasks();
+  m_interactiveLabelMode = m_enableSelection && pauseHeavyTasks;
   const RenderSize resolvedSize = ResolveRenderSize(this);
   const int w = resolvedSize.width;
   const int h = resolvedSize.height;
@@ -906,8 +912,10 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   bool drawFixtureLabels = true;
   if (m_renderOverrides && m_renderOverrides->drawFixtureLabels.has_value())
     drawFixtureLabels = m_renderOverrides->drawFixtureLabels.value();
-  if (!pauseHeavyTasks && drawFixtureLabels)
-    m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom);
+  if (drawFixtureLabels) {
+    m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom,
+                                      m_interactiveLabelMode);
+  }
 
   if (swapBuffers && m_enableSelection && m_rectSelecting)
     DrawSelectionRectangle(w, h, darkMode);
@@ -1563,6 +1571,10 @@ void Viewer2DPanel::QueueDragTableUpdate(DragTarget target,
 }
 
 bool Viewer2DPanel::ShouldPauseHeavyTasks() {
+  // Returns true while recent input activity is still within the debounce
+  // window. Callers should throttle only expensive synchronization work
+  // (scene/resource updates, heavy snapshots). Visual overlays such as labels
+  // should stay on-screen through an interactive lightweight rendering path.
   if (!m_isInteracting)
     return false;
 
