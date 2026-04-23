@@ -19,6 +19,7 @@
 #include "columnutils.h"
 #include "colorfulrenderers.h"
 #include "configmanager.h"
+#include "selection_origin_token.h"
 #include "guiconfigservices.h"
 #include "consolepanel.h"
 #include "hoist_load_recalculation_prompt.h"
@@ -711,6 +712,14 @@ void TrussTablePanel::OnMouseMove(wxMouseEvent& evt)
 
 void TrussTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
 {
+    const selection::Origin origin = selection::CurrentOrigin();
+    if (origin == selection::Origin::Viewer2D ||
+        origin == selection::Origin::Viewer3D) {
+        UpdateSelectionHighlight();
+        evt.Skip();
+        return;
+    }
+
     wxDataViewItemArray selections;
     table->GetSelections(selections);
     std::vector<std::string> uuids;
@@ -734,6 +743,7 @@ void TrussTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
     appendSelection(cfg.GetSelectedTrusses());
     appendSelection(cfg.GetSelectedSupports());
     appendSelection(cfg.GetSelectedSceneObjects());
+    selection::ScopedOrigin selectionOrigin(selection::Origin::Table);
     if (Viewer3DPanel::Instance())
         Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
     if (Viewer2DPanel::Instance())

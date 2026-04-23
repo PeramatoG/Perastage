@@ -46,6 +46,7 @@
 #include "trusstablepanel.h"
 #include "sceneobjecttablepanel.h"
 #include "scene_object_primitive_editing.h"
+#include "selection_origin_token.h"
 #include "configmanager.h"
 #include "fixturepatchdialog.h"
 #include "viewer2dpanel.h"
@@ -365,13 +366,14 @@ void ApplyFixtureSelectionToUi(const std::vector<std::string>& selection,
         cfg.SetSelectedFixtures(selection);
     }
     controller.SetSelectedUuids(selection);
+    selection::ScopedOrigin selectionOrigin(selection::Origin::Viewer3D);
     if (panel)
         panel->SetSelectedFixtures(selection);
     if (FixtureTablePanel::Instance()) {
         if (selection.empty())
             FixtureTablePanel::Instance()->ClearSelection();
         else
-            FixtureTablePanel::Instance()->SelectByUuid(selection);
+            FixtureTablePanel::Instance()->SelectByUuid(selection, false);
     }
 }
 
@@ -933,7 +935,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                     cfg.SetSelectedFixtures(selection);
                 }
                 SetSelectedFixtures(selection);
-                FixtureTablePanel::Instance()->SelectByUuid(selection);
+                FixtureTablePanel::Instance()->SelectByUuid(selection, false);
             }
             else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
             {
@@ -954,7 +956,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                     cfg.SetSelectedTrusses(selection);
                 }
                 SetSelectedFixtures(selection);
-                TrussTablePanel::Instance()->SelectByUuid(selection);
+                TrussTablePanel::Instance()->SelectByUuid(selection, false);
             }
             else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
             {
@@ -975,7 +977,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                     cfg.SetSelectedSceneObjects(selection);
                 }
                 SetSelectedFixtures(selection);
-                SceneObjectTablePanel::Instance()->SelectByUuid(selection);
+                SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
             }
         }
         else
@@ -1278,19 +1280,19 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
             if (fixtures.empty())
                 FixtureTablePanel::Instance()->ClearSelection();
             else
-                FixtureTablePanel::Instance()->SelectByUuid(fixtures);
+                FixtureTablePanel::Instance()->SelectByUuid(fixtures, false);
         }
         if (TrussTablePanel::Instance()) {
             if (trusses.empty())
                 TrussTablePanel::Instance()->ClearSelection();
             else
-                TrussTablePanel::Instance()->SelectByUuid(trusses);
+                TrussTablePanel::Instance()->SelectByUuid(trusses, false);
         }
         if (SceneObjectTablePanel::Instance()) {
             if (sceneObjects.empty())
                 SceneObjectTablePanel::Instance()->ClearSelection();
             else
-                SceneObjectTablePanel::Instance()->SelectByUuid(sceneObjects);
+                SceneObjectTablePanel::Instance()->SelectByUuid(sceneObjects, false);
         }
         return;
     }
@@ -1307,7 +1309,7 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
         if (selection.empty())
             FixtureTablePanel::Instance()->ClearSelection();
         else
-            FixtureTablePanel::Instance()->SelectByUuid(selection);
+            FixtureTablePanel::Instance()->SelectByUuid(selection, false);
     }
     else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
     {
@@ -1321,7 +1323,7 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
         if (selection.empty())
             TrussTablePanel::Instance()->ClearSelection();
         else
-            TrussTablePanel::Instance()->SelectByUuid(selection);
+            TrussTablePanel::Instance()->SelectByUuid(selection, false);
     }
     else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
     {
@@ -1336,7 +1338,7 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
         if (selection.empty())
             SceneObjectTablePanel::Instance()->ClearSelection();
         else
-            SceneObjectTablePanel::Instance()->SelectByUuid(selection);
+            SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
     }
 }
 
@@ -1506,7 +1508,7 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
 
         if (SceneObjectTablePanel::Instance()) {
             SceneObjectTablePanel::Instance()->ReloadData();
-            SceneObjectTablePanel::Instance()->SelectByUuid({uuid});
+            SceneObjectTablePanel::Instance()->SelectByUuid({uuid}, false);
         }
 
         UpdateScene();
@@ -1681,6 +1683,9 @@ void Viewer3DPanel::UpdateScene()
 
 void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string>& uuids)
 {
+    if (uuids == m_lastAppliedSelectionUuids)
+        return;
+    m_lastAppliedSelectionUuids = uuids;
     m_controller.SetSelectedUuids(uuids);
     Refresh();
 }

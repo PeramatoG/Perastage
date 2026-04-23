@@ -245,6 +245,7 @@ private:
   bool m_hoverHitTestPending = false;
   std::chrono::steady_clock::time_point m_lastHoverHitTestTime{};
   bool m_enableSelection = true;
+  std::vector<std::string> m_lastAppliedSelectionUuids;
   std::string m_hoverUuid;
   CursorWorldPositionCallback m_cursorWorldPositionCallback;
 
