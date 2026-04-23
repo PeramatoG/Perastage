@@ -91,6 +91,49 @@ bool FixtureLabelOverride::HasAnyValue() const {
          labelFontSizeId.has_value() || labelFontSizeDmx.has_value();
 }
 
+size_t RemapFixtureLabelOverrideKeys(
+    ConfigManager &cfg,
+    const std::unordered_map<std::string, std::string> &fixtureUuidRemap,
+    size_t *collisionCount) {
+  if (collisionCount)
+    *collisionCount = 0;
+  if (fixtureUuidRemap.empty())
+    return 0;
+
+  auto overrides = LoadFixtureLabelOverrides(cfg);
+  if (overrides.empty())
+    return 0;
+
+  size_t migratedCount = 0;
+  std::vector<std::pair<std::string, std::string>> remapPairs(
+      fixtureUuidRemap.begin(), fixtureUuidRemap.end());
+  std::sort(remapPairs.begin(), remapPairs.end(),
+            [](const auto &lhs, const auto &rhs) { return lhs.first < rhs.first; });
+
+  for (const auto &[oldUuid, newUuid] : remapPairs) {
+    if (oldUuid.empty() || newUuid.empty() || oldUuid == newUuid)
+      continue;
+
+    auto sourceIt = overrides.find(oldUuid);
+    if (sourceIt == overrides.end())
+      continue;
+
+    if (overrides.contains(newUuid)) {
+      if (collisionCount)
+        ++(*collisionCount);
+      continue;
+    }
+
+    overrides.emplace(newUuid, sourceIt->second);
+    overrides.erase(sourceIt);
+    ++migratedCount;
+  }
+
+  if (migratedCount > 0)
+    SaveFixtureLabelOverrides(cfg, overrides);
+  return migratedCount;
+}
+
 FixtureLabelOverrideMap LoadFixtureLabelOverrides(const ConfigManager &cfg) {
   FixtureLabelOverrideMap overrides;
   const auto raw = cfg.GetValue(kFixtureOverridesKey);

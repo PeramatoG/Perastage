@@ -28,6 +28,8 @@
 #include "sceneobject.h"
 #include "layer.h"
 #include "support.h"
+#include "fixture_label_overrides.h"
+#include "uuidutils.h"
 
 int main() {
     wxInitializer initializer;
@@ -88,6 +90,9 @@ int main() {
 
     Fixture f; f.uuid = "fx1"; f.instanceName = "Fixture"; f.layer = layer.name; f.typeName = "FixtureType"; f.gdtfSpec = "orig.gdtf"; f.color = "#445566"; f.fixtureIdText = "S101A"; f.fixtureIdNumeric = 101; f.fixtureId = 101; scene.fixtures[f.uuid] = f;
     Fixture f2; f2.uuid = "fx2"; f2.instanceName = "Fixture 2"; f2.layer = layer.name; f2.typeName = "FixtureType"; f2.gdtfSpec = "orig.gdtf"; f2.fixtureIdText = "S101B"; f2.fixtureIdNumeric = 101; f2.fixtureId = 101; scene.fixtures[f2.uuid] = f2;
+    const std::string nonCanonicalFixtureUuid = "A0B1C2D3-E4F5-4678-9ABC-DEF012345678";
+    Fixture f3; f3.uuid = nonCanonicalFixtureUuid; f3.instanceName = "Fixture 3"; f3.layer = layer.name; f3.typeName = "FixtureType"; f3.gdtfSpec = "orig.gdtf"; f3.fixtureIdText = "S101C"; f3.fixtureIdNumeric = 101; f3.fixtureId = 101; scene.fixtures[f3.uuid] = f3;
+    viewer2d::ApplyShowLabelNameOverride(cfg, {nonCanonicalFixtureUuid}, 0, true);
     Truss t; t.uuid = "tr1"; t.name = "Truss"; t.layer = layer.name; scene.trusses[t.uuid] = t;
     SceneObject o; o.uuid = "obj1"; o.name = "Object"; o.layer = layer.name; scene.sceneObjects[o.uuid] = o;
     SceneObject cylinderObj;
@@ -131,7 +136,7 @@ int main() {
     assert(cfg.LoadProject(temp.string()));
 
     const auto &scene2 = cfg.GetScene();
-    assert(scene2.fixtures.size() == 2);
+    assert(scene2.fixtures.size() == 3);
     assert(scene2.trusses.size() == 1);
     assert(scene2.sceneObjects.size() == 3);
     assert(scene2.supports.size() == 2);
@@ -152,6 +157,14 @@ int main() {
     assert(scene2.fixtures.at("fx1").fixtureIdNumeric == 101);
     assert(scene2.fixtures.at("fx2").fixtureIdText == "S101B");
     assert(scene2.fixtures.at("fx2").fixtureIdNumeric == 101);
+    const std::string canonicalFixtureUuid = CanonicalizeUuid(nonCanonicalFixtureUuid);
+    assert(!canonicalFixtureUuid.empty());
+    assert(scene2.fixtures.count(canonicalFixtureUuid) == 1);
+    const auto fixtureOverrides = viewer2d::LoadFixtureLabelOverrides(cfg);
+    assert(fixtureOverrides.count(canonicalFixtureUuid) == 1);
+    const auto &fixture3Override = fixtureOverrides.at(canonicalFixtureUuid);
+    assert(fixture3Override.showLabelName[0].has_value());
+    assert(*fixture3Override.showLabelName[0]);
     assert(scene2.layers.at("layer1").color == "#112233");
 
     const auto &loadedManual = scene2.supports.at("sup-manual");

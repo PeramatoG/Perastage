@@ -26,6 +26,11 @@ struct FixtureLabelOverride {
 using FixtureLabelOverrideMap =
     std::unordered_map<std::string, FixtureLabelOverride>;
 
+size_t RemapFixtureLabelOverrideKeys(
+    ConfigManager &cfg,
+    const std::unordered_map<std::string, std::string> &fixtureUuidRemap,
+    size_t *collisionCount = nullptr);
+
 FixtureLabelOverrideMap LoadFixtureLabelOverrides(const ConfigManager &cfg);
 void SaveFixtureLabelOverrides(ConfigManager &cfg,
                                const FixtureLabelOverrideMap &overrides);

@@ -36,6 +36,7 @@
 #include "groupobject.h"
 #include "uuidutils.h"
 #include "trussloader.h"
+#include "fixture_label_overrides.h"
 
 #include "consolepanel.h"
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
@@ -1084,6 +1085,7 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
   };
 
   pathRemap.clear();
+  fixtureUuidRemap.clear();
   // Treat the incoming path as UTF-8 to preserve any non-ASCII characters
   fs::path path = fs::u8path(filePath);
 
@@ -1932,8 +1934,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                          const std::string &layerName,
                          const Matrix &nodeTransform) {
         Fixture fixture;
+        const char *rawUuidAttr = node->Attribute("uuid");
+        const std::string rawFixtureUuid =
+            rawUuidAttr ? Trim(rawUuidAttr) : std::string{};
         fixture.uuid =
             resolveStableUuid("Fixture", node, layerName, nodeTransform);
+        if (!rawFixtureUuid.empty() && rawFixtureUuid != fixture.uuid)
+          fixtureUuidRemap[rawFixtureUuid] = fixture.uuid;
         fixture.layer = layerName;
         fixture.transform = nodeTransform;
 
@@ -3718,6 +3725,22 @@ bool MvrImporter::ImportAndRegister(const std::string &filePath,
                                     bool applyDictionary,
                                     ProgressCallback progressCallback) {
   MvrImporter importer;
-  return importer.ImportFromFile(filePath, promptConflicts, applyDictionary,
-                                 progressCallback);
+  const bool imported = importer.ImportFromFile(
+      filePath, promptConflicts, applyDictionary, progressCallback);
+  if (!imported)
+    return false;
+
+  size_t collisionCount = 0;
+  const size_t migratedCount = viewer2d::RemapFixtureLabelOverrideKeys(
+      ConfigManager::Get(), importer.fixtureUuidRemap, &collisionCount);
+  if (!importer.fixtureUuidRemap.empty()) {
+    std::ostringstream oss;
+    oss << "MVR import fixture label override migration: remapped "
+        << migratedCount << " fixture override entries from "
+        << importer.fixtureUuidRemap.size() << " fixture UUID changes";
+    if (collisionCount > 0)
+      oss << " (" << collisionCount << " collisions skipped)";
+    LogMessage(Logger::Level::Info, oss.str());
+  }
+  return true;
 }

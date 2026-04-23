@@ -53,6 +53,7 @@ public:
 
 private:
     std::unordered_map<std::string, std::string> pathRemap;
+    std::unordered_map<std::string, std::string> fixtureUuidRemap;
 
     // Creates a temporary directory for extracting the contents of the MVR archive
     std::string CreateTemporaryDirectory();

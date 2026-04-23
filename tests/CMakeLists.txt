@@ -270,6 +270,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -302,6 +303,7 @@ add_executable(project_support_userdata_roundtrip_test project_support_userdata_
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -359,6 +361,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -390,6 +393,7 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../viewer2d/fixture_label_overrides.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
@@ -420,6 +424,7 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -453,6 +458,7 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -485,6 +491,7 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -517,6 +524,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -557,6 +565,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -1068,6 +1077,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
                ../mvr/mvrimporter.cpp
+               ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -1105,6 +1115,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
                ../mvr/mvrimporter.cpp
+               ../viewer2d/fixture_label_overrides.cpp
                consolepanel_stub.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(mvr_patched_gdtf_export_test PRIVATE
