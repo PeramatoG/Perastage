@@ -591,7 +591,8 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
 
   gui::fixtures::FixtureGdtfResolution resolution;
   if (!gui::fixtures::ResolveFixtureGdtfDeterministic(fixtureIt->second, scene,
-                                                      resolution, errorMessage)) {
+                                                      resolution, errorMessage,
+                                                      "apply")) {
     return false;
   }
   const std::string scenePath = resolution.scenePath;
@@ -696,7 +697,7 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
 
   gui::fixtures::FixtureGdtfResolution resolution;
   if (!gui::fixtures::ResolveFixtureGdtfDeterministic(fixture, scene, resolution,
-                                                      errorMessage)) {
+                                                      errorMessage, "inspect")) {
     result.scenePath = resolution.scenePath;
     result.libraryPath = resolution.libraryPath;
     return false;
@@ -795,7 +796,7 @@ bool SyncFixtureGdtfToLibrary(const Fixture &fixture,
                               std::string &errorMessage) {
   gui::fixtures::FixtureGdtfResolution resolution;
   if (!gui::fixtures::ResolveFixtureGdtfDeterministic(fixture, scene, resolution,
-                                                      errorMessage)) {
+                                                      errorMessage, "sync")) {
     return false;
   }
   const std::string scenePath = resolution.scenePath;
