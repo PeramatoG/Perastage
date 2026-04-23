@@ -22,10 +22,10 @@
 #include <wx/zipstrm.h>
 
 #include "configmanager.h"
+#include "fixtures/fixture_gdtf_resolution.h"
 #include "guiconfigservices.h"
 #include "gdtfdictionary.h"
 #include "gdtf_mutation_audit.h"
-#include "projectutils.h"
 #include "windows/symbol_preview_exporter.h"
 
 namespace fs = std::filesystem;
@@ -195,93 +195,6 @@ bool EnsureSceneLocalGdtfCopy(const fs::path &sourcePath,
   fixture.gdtfSpec = relativeSpec;
   scenePathOut = targetPath.string();
   return true;
-}
-
-std::string ResolveSceneGdtfPath(const Fixture &fixture, const MvrScene &scene) {
-  const fs::path specPath = fs::path(fixture.gdtfSpec);
-  if (specPath.empty())
-    return {};
-
-  std::error_code ec;
-  if (specPath.is_absolute() && fs::exists(specPath, ec) && !ec)
-    return specPath.string();
-
-  if (!scene.basePath.empty()) {
-    ec.clear();
-    const fs::path fromScene = fs::path(scene.basePath) / specPath;
-    if (fs::exists(fromScene, ec) && !ec)
-      return fromScene.string();
-  }
-
-  ec.clear();
-  const fs::path fromCwd = fs::current_path(ec) / specPath;
-  if (!ec && fs::exists(fromCwd, ec) && !ec)
-    return fromCwd.string();
-
-  return {};
-}
-
-std::string ResolveLibraryGdtfPath(const Fixture &fixture) {
-  const fs::path specPath = fs::path(fixture.gdtfSpec);
-  const std::string specFileName = specPath.filename().string();
-
-  std::error_code ec;
-  const fs::path fixturesLibrary =
-      fs::path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
-
-  if (specPath.is_absolute()) {
-    ec.clear();
-    if (fs::exists(specPath, ec) && !ec)
-      return specPath.string();
-  }
-
-  if (!specFileName.empty()) {
-    ec.clear();
-    const fs::path exactPath = fixturesLibrary / specFileName;
-    if (fs::exists(exactPath, ec) && !ec)
-      return exactPath.string();
-  }
-
-  auto dictOpt = GdtfDictionary::Load();
-  if (dictOpt) {
-    const auto &dict = *dictOpt;
-    auto findByKey = [&](const std::string &key) -> std::string {
-      if (key.empty())
-        return {};
-      auto it = dict.find(key);
-      if (it == dict.end() || it->second.path.empty())
-        return {};
-      std::error_code localEc;
-      if (!fs::exists(it->second.path, localEc) || localEc)
-        return {};
-      return it->second.path;
-    };
-
-    if (std::string byType = findByKey(fixture.typeName); !byType.empty()) {
-      if (specFileName.empty())
-        return byType;
-      if (fs::path(byType).filename() == specFileName)
-        return byType;
-    }
-
-    if (!specFileName.empty()) {
-      for (const auto &[type, entry] : dict) {
-        (void)type;
-        if (entry.path.empty())
-          continue;
-
-        const fs::path entryPath = fs::path(entry.path);
-        if (entryPath.filename() != specFileName)
-          continue;
-
-        std::error_code localEc;
-        if (fs::exists(entryPath, localEc) && !localEc)
-          return entryPath.string();
-      }
-    }
-  }
-
-  return {};
 }
 
 
@@ -676,14 +589,15 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     return false;
   }
 
-  const std::string scenePath = ResolveSceneGdtfPath(fixtureIt->second, scene);
-  const std::string libraryPath = ResolveLibraryGdtfPath(fixtureIt->second);
-  if (scenePath.empty() && libraryPath.empty()) {
-    errorMessage = "Could not resolve fixture GDTF path in scene or fixtures library.";
+  gui::fixtures::FixtureGdtfResolution resolution;
+  if (!gui::fixtures::ResolveFixtureGdtfDeterministic(fixtureIt->second, scene,
+                                                      resolution, errorMessage)) {
     return false;
   }
+  const std::string scenePath = resolution.scenePath;
+  const std::string libraryPath = resolution.libraryPath;
 
-  const std::string inspectPath = scenePath.empty() ? libraryPath : scenePath;
+  const std::string inspectPath = resolution.selectedPath;
   std::string modelSvgBase = ResolveModelSvgBasename(inspectPath, errorMessage);
   if (modelSvgBase.empty())
     return false;
@@ -780,14 +694,16 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
                                std::string &errorMessage) {
   result = {};
 
-  const std::string scenePath = ResolveSceneGdtfPath(fixture, scene);
-  const std::string libraryPath = ResolveLibraryGdtfPath(fixture);
-  result.scenePath = scenePath;
-  result.libraryPath = libraryPath;
-
-  std::string inspectPath = scenePath.empty() ? libraryPath : scenePath;
-  if (inspectPath.empty())
-    return true;
+  gui::fixtures::FixtureGdtfResolution resolution;
+  if (!gui::fixtures::ResolveFixtureGdtfDeterministic(fixture, scene, resolution,
+                                                      errorMessage)) {
+    result.scenePath = resolution.scenePath;
+    result.libraryPath = resolution.libraryPath;
+    return false;
+  }
+  result.scenePath = resolution.scenePath;
+  result.libraryPath = resolution.libraryPath;
+  std::string inspectPath = resolution.selectedPath;
 
   result.hasResolvableGdtf = true;
 
@@ -877,8 +793,13 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
 bool SyncFixtureGdtfToLibrary(const Fixture &fixture,
                               const MvrScene &scene,
                               std::string &errorMessage) {
-  const std::string scenePath = ResolveSceneGdtfPath(fixture, scene);
-  const std::string libraryPath = ResolveLibraryGdtfPath(fixture);
+  gui::fixtures::FixtureGdtfResolution resolution;
+  if (!gui::fixtures::ResolveFixtureGdtfDeterministic(fixture, scene, resolution,
+                                                      errorMessage)) {
+    return false;
+  }
+  const std::string scenePath = resolution.scenePath;
+  const std::string libraryPath = resolution.libraryPath;
   if (scenePath.empty() || libraryPath.empty() || scenePath == libraryPath)
     return true;
 

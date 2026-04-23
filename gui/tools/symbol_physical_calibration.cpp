@@ -3,16 +3,12 @@
 #include <algorithm>
 #include <array>
 #include <cfloat>
-#include <filesystem>
 #include <unordered_map>
 
 #include "configmanager.h"
-#include "gdtfdictionary.h"
-#include "projectutils.h"
+#include "fixtures/fixture_gdtf_resolution.h"
 #include "types.h"
 #include "gdtfloader.h"
-
-namespace fs = std::filesystem;
 
 namespace tools {
 namespace {
@@ -45,74 +41,6 @@ void ExtendBounds(Bounds3D &bounds, const std::array<float, 3> &p) {
   bounds.max[1] = std::max(bounds.max[1], p[1]);
   bounds.max[2] = std::max(bounds.max[2], p[2]);
   bounds.valid = true;
-}
-
-std::string ResolveFixtureGdtfPath(const Fixture &fixture, const MvrScene &scene) {
-  const fs::path specPath = fs::path(fixture.gdtfSpec);
-  if (specPath.empty())
-    return {};
-
-  std::error_code ec;
-  if (specPath.is_absolute() && fs::exists(specPath, ec) && !ec)
-    return specPath.string();
-
-  if (!scene.basePath.empty()) {
-    ec.clear();
-    const fs::path fromScene = fs::path(scene.basePath) / specPath;
-    if (fs::exists(fromScene, ec) && !ec)
-      return fromScene.string();
-  }
-
-  ec.clear();
-  const fs::path fromCwd = fs::current_path(ec) / specPath;
-  if (!ec && fs::exists(fromCwd, ec) && !ec)
-    return fromCwd.string();
-
-  const std::string specFileName = specPath.filename().string();
-  const fs::path fixturesLibrary =
-      fs::path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
-
-  auto dictOpt = GdtfDictionary::Load();
-  if (dictOpt) {
-    const auto &dict = *dictOpt;
-    auto findByKey = [&](const std::string &key) -> std::string {
-      if (key.empty())
-        return {};
-      auto it = dict.find(key);
-      if (it == dict.end() || it->second.path.empty())
-        return {};
-      std::error_code localEc;
-      if (!fs::exists(it->second.path, localEc) || localEc)
-        return {};
-      return it->second.path;
-    };
-
-    if (std::string byType = findByKey(fixture.typeName); !byType.empty())
-      return byType;
-
-    if (!specFileName.empty()) {
-      for (const auto &[type, entry] : dict) {
-        (void)type;
-        if (entry.path.empty())
-          continue;
-        const fs::path entryPath = fs::path(entry.path);
-        if (entryPath.filename() != specFileName)
-          continue;
-        std::error_code localEc;
-        if (fs::exists(entryPath, localEc) && !localEc)
-          return entryPath.string();
-      }
-    }
-  }
-
-  if (!specFileName.empty()) {
-    ec.clear();
-    const fs::path exactPath = fixturesLibrary / specFileName;
-    if (fs::exists(exactPath, ec) && !ec)
-      return exactPath.string();
-  }
-
-  return {};
 }
 
 bool ComputeFixtureBoundsMm(const std::string &gdtfPath, Bounds3D &bounds,
@@ -212,11 +140,12 @@ bool CalibrateFixtureSymbolsToPhysicalUnits(ConfigManager &cfg,
     return false;
   }
 
-  const std::string gdtfPath = ResolveFixtureGdtfPath(fixtureIt->second, cfg.GetScene());
-  if (gdtfPath.empty()) {
-    errorMessage = "Could not resolve fixture GDTF path for symbol calibration.";
+  gui::fixtures::FixtureGdtfResolution resolution;
+  if (!gui::fixtures::ResolveFixtureGdtfDeterministic(
+          fixtureIt->second, cfg.GetScene(), resolution, errorMessage)) {
     return false;
   }
+  const std::string gdtfPath = resolution.selectedPath;
 
   Bounds3D fixtureBounds;
   if (!ComputeFixtureBoundsMm(gdtfPath, fixtureBounds, errorMessage))
