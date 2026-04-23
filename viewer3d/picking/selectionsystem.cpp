@@ -49,6 +49,10 @@ struct Ray {
   std::array<double, 3> direction{0.0, 0.0, 1.0};
 };
 
+bool ProjectBoundingBox(const ISelectionContext::BoundingBox &bb,
+                        const ProjectionSnapshot &projection, int screenHeight,
+                        ScreenRect &outRect, double *outMinDepth);
+
 constexpr int kHoverGridCellSizePx = 96;
 
 void InvalidateHoverGrid(SelectionSystem::QueryCache::HoverGridIndex &index) {
