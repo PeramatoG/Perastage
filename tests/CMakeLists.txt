@@ -1073,6 +1073,7 @@ set_library_env(GdtfLoaderSetPropertiesMutation)
 
 add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test.cpp
                ../gui/windows/symbol_fixture_applier.cpp
+               ../gui/fixtures/fixture_gdtf_resolution.cpp
                ../gui/windows/symbol_preview_exporter.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
