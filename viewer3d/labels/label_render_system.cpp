@@ -768,22 +768,29 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     const bool needsRebuild =
         cacheIt == layoutCacheState.fixtureLayoutByUuid.end() ||
         !(cacheIt->second.key == desiredKey);
+
+    std::optional<FixtureLayoutCacheEntry> frameLocalLayout;
     if (needsRebuild) {
       if (buildBudgetExceeded) {
-        continue;
+        // Keep labels visible even when the cache rebuild budget is exhausted.
+        // This avoids dropping labels from rendering during heavy rebuild frames.
+        frameLocalLayout = BuildFixtureLayoutEntry(
+            desiredKey, m_controller.GetLabelFont(), m_controller.GetLabelBoldFont());
+      } else {
+        cacheIt =
+            layoutCacheState.fixtureLayoutByUuid
+                .insert_or_assign(
+                    uuid,
+                    BuildFixtureLayoutEntry(desiredKey, m_controller.GetLabelFont(),
+                                            m_controller.GetLabelBoldFont()))
+                .first;
+        if (std::chrono::steady_clock::now() - buildStart > buildBudget)
+          buildBudgetExceeded = true;
       }
-      cacheIt =
-          layoutCacheState.fixtureLayoutByUuid
-              .insert_or_assign(
-                  uuid,
-                  BuildFixtureLayoutEntry(desiredKey, m_controller.GetLabelFont(),
-                                          m_controller.GetLabelBoldFont()))
-              .first;
-      if (std::chrono::steady_clock::now() - buildStart > buildBudget)
-        buildBudgetExceeded = true;
     }
 
-    const FixtureLayoutCacheEntry &layout = cacheIt->second;
+    const FixtureLayoutCacheEntry &layout =
+        frameLocalLayout.has_value() ? *frameLocalLayout : cacheIt->second;
     if (layout.lines.empty())
       continue;
 
