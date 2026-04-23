@@ -192,6 +192,7 @@ private:
   void ScheduleHoverHitTest(const wxPoint &screenPos, bool forceNow = false);
   void RunHoverHitTest(const wxPoint &screenPos);
   void ClearHoverState(bool requestRepaint);
+  bool IsExpensiveVisualInteractionActive() const;
 
   struct DragTablePositionSnapshot {
     std::string uuid;

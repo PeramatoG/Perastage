@@ -79,7 +79,6 @@ struct FixtureLayoutKey {
   float labelDist = 0.0f;
   float labelAngle = 0.0f;
   Viewer2DView view = Viewer2DView::Top;
-  bool interactive = false;
 
   bool operator==(const FixtureLayoutKey &other) const {
     return uuid == other.uuid && instanceName == other.instanceName &&
@@ -88,7 +87,7 @@ struct FixtureLayoutKey {
            showDmx == other.showDmx && nameSize == other.nameSize &&
            idSize == other.idSize && dmxSize == other.dmxSize &&
            labelDist == other.labelDist && labelAngle == other.labelAngle &&
-           view == other.view && interactive == other.interactive;
+           view == other.view;
   }
 };
 
@@ -166,24 +165,18 @@ FixtureLayoutCacheEntry BuildFixtureLayoutEntry(const FixtureLayoutKey &layoutKe
   }
 
   if (layoutKey.showName) {
+    // selection must not alter label text layout.
     wxString baseName = layoutKey.instanceName.empty()
                             ? wxString::FromUTF8(layoutKey.uuid)
                             : wxString::FromUTF8(layoutKey.instanceName);
-    if (layoutKey.interactive) {
-      auto utf8 = baseName.ToUTF8();
+    wxString wrapped = WrapEveryTwoWords(baseName);
+    wxStringTokenizer nameLines(wrapped, "\n");
+    while (nameLines.HasMoreTokens()) {
+      wxString line = nameLines.GetNextToken();
+      auto utf8 = line.ToUTF8();
       entry.lines.push_back(
           {std::string(utf8.data(), utf8.length()), layoutKey.nameSize,
            kRegularFamily, false});
-    } else {
-      wxString wrapped = WrapEveryTwoWords(baseName);
-      wxStringTokenizer nameLines(wrapped, "\n");
-      while (nameLines.HasMoreTokens()) {
-        wxString line = nameLines.GetNextToken();
-        auto utf8 = line.ToUTF8();
-        entry.lines.push_back(
-            {std::string(utf8.data(), utf8.length()), layoutKey.nameSize,
-             kRegularFamily, false});
-      }
     }
   }
 
@@ -762,8 +755,6 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     desiredKey.labelAngle =
         viewer2d::ResolveLabelOffsetAngle(cfg, overrideSettings, viewIdx);
     desiredKey.view = view;
-    desiredKey.interactive = interactiveLabelMode;
-
     auto cacheIt = layoutCacheState.fixtureLayoutByUuid.find(uuid);
     const bool needsRebuild =
         cacheIt == layoutCacheState.fixtureLayoutByUuid.end() ||

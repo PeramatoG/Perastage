@@ -738,12 +738,13 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     return;
   }
   // Interaction policy:
-  // - Keep throttling expensive synchronization while the user is dragging,
-  //   panning or selecting.
-  // - Keep fixture labels visible using an explicit interactive mode so the
-  //   overlay does not flicker/disappear during interaction.
+  // - Keep throttling expensive synchronization while recent interaction is
+  //   active.
+  // - Use interactive label mode only for visually expensive interaction
+  //   paths. Simple selection clicks must not toggle it.
   const bool pauseHeavyTasks = m_enableSelection && ShouldPauseHeavyTasks();
-  m_interactiveLabelMode = m_enableSelection && pauseHeavyTasks;
+  m_interactiveLabelMode =
+      m_enableSelection && IsExpensiveVisualInteractionActive();
   const RenderSize resolvedSize = ResolveRenderSize(this);
   const int w = resolvedSize.width;
   const int h = resolvedSize.height;
@@ -1542,6 +1543,19 @@ bool Viewer2DPanel::ShouldPauseHeavyTasks() {
 
   m_isInteracting = false;
   return false;
+}
+
+bool Viewer2DPanel::IsExpensiveVisualInteractionActive() const {
+  if (!m_enableSelection)
+    return false;
+
+  if (m_rectSelecting || m_dragMode == DragMode::RectSelection)
+    return true;
+
+  if (m_dragMode == DragMode::View)
+    return true;
+
+  return m_dragMode == DragMode::Selection && m_dragSelectionMoved;
 }
 
 void Viewer2DPanel::MarkInteractionActivity() {
