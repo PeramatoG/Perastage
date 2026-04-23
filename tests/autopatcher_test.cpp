@@ -27,35 +27,67 @@ int GetGdtfModeChannelCount(const std::string &, const std::string &mode) {
 }
 
 int main() {
-  MvrScene scene;
+  {
+    MvrScene scene;
 
-  Fixture a;
-  a.uuid = "a";
-  a.typeName = "Spot";
-  a.transform.o[0] = 0.0f;
-  a.transform.o[1] = 0.0f;
-  scene.fixtures[a.uuid] = a;
+    Fixture a;
+    a.uuid = "a";
+    a.typeName = "Spot";
+    a.transform.o[0] = 0.0f;
+    a.transform.o[1] = 0.0f;
+    scene.fixtures[a.uuid] = a;
 
-  Fixture b;
-  b.uuid = "b";
-  b.typeName = "Wash";
-  b.transform.o[0] = 1.0f;
-  b.transform.o[1] = 0.0f;
-  scene.fixtures[b.uuid] = b;
+    Fixture b;
+    b.uuid = "b";
+    b.typeName = "Wash";
+    b.transform.o[0] = 1.0f;
+    b.transform.o[1] = 0.0f;
+    scene.fixtures[b.uuid] = b;
 
-  Fixture c;
-  c.uuid = "c";
-  c.typeName = "Spot";
-  c.transform.o[0] = 2.0f;
-  c.transform.o[1] = 0.0f;
-  scene.fixtures[c.uuid] = c;
+    Fixture c;
+    c.uuid = "c";
+    c.typeName = "Spot";
+    c.transform.o[0] = 2.0f;
+    c.transform.o[1] = 0.0f;
+    scene.fixtures[c.uuid] = c;
 
-  AutoPatcher::AutoPatch(scene);
+    AutoPatcher::AutoPatch(scene);
 
-  // Spot fixtures should be patched first and consecutively
-  assert(scene.fixtures["a"].address == "1.1");
-  assert(scene.fixtures["c"].address == "1.2");
-  assert(scene.fixtures["b"].address == "1.3");
+    // Spot fixtures should be patched first and consecutively
+    assert(scene.fixtures["a"].address == "1.1");
+    assert(scene.fixtures["c"].address == "1.2");
+    assert(scene.fixtures["b"].address == "1.3");
+  }
+
+  {
+    MvrScene scene;
+
+    Fixture base;
+    base.uuid = "base";
+    base.gdtfMode = "5";
+    base.address = "1.10";
+    scene.fixtures[base.uuid] = base;
+
+    Fixture selA;
+    selA.uuid = "selA";
+    selA.gdtfMode = "4";
+    selA.address = "1.100";
+    scene.fixtures[selA.uuid] = selA;
+
+    Fixture selB;
+    selB.uuid = "selB";
+    selB.gdtfMode = "3";
+    selB.address = "1.200";
+    scene.fixtures[selB.uuid] = selB;
+
+    AutoPatcher::AutoPatchSelection(scene, {"selB", "selA"});
+
+    // Selection is patched in user selection order, starting after the
+    // highest non-selected patched fixture.
+    assert(scene.fixtures["base"].address == "1.10");
+    assert(scene.fixtures["selB"].address == "1.15");
+    assert(scene.fixtures["selA"].address == "1.18");
+  }
 
   return 0;
 }

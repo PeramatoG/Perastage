@@ -1351,13 +1351,10 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
   table->GetSelections(selections);
   std::vector<int> currentRows;
   currentRows.reserve(selections.size());
-  std::vector<std::string> uuids;
-  uuids.reserve(selections.size());
   for (const auto &it : selections) {
     int r = table->ItemToRow(it);
     if (r != wxNOT_FOUND && (size_t)r < rowUuids.size()) {
       currentRows.push_back(r);
-      uuids.push_back(rowUuids[r]);
     }
   }
   // Preserve existing order but drop unselected rows
@@ -1371,10 +1368,17 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
     if (std::find(newOrder.begin(), newOrder.end(), r) == newOrder.end())
       newOrder.push_back(r);
   selectionOrder.swap(newOrder);
+
+  std::vector<std::string> orderedUuids;
+  orderedUuids.reserve(selectionOrder.size());
+  for (int rowIndex : selectionOrder) {
+    if (rowIndex >= 0 && static_cast<size_t>(rowIndex) < rowUuids.size())
+      orderedUuids.push_back(rowUuids[static_cast<size_t>(rowIndex)]);
+  }
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
-  if (uuids != cfg.GetSelectedFixtures()) {
+  if (orderedUuids != cfg.GetSelectedFixtures()) {
     cfg.PushUndoState("fixture selection");
-    cfg.SetSelectedFixtures(uuids);
+    cfg.SetSelectedFixtures(orderedUuids);
   }
   std::vector<std::string> mergedSelection;
   const auto appendSelection = [&](const std::vector<std::string> &source) {

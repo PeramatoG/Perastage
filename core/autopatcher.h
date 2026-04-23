@@ -18,6 +18,8 @@
 #pragma once
 
 #include "mvrscene.h"
+#include <string>
+#include <vector>
 
 namespace AutoPatcher {
 // Automatically assign DMX addresses to fixtures in the scene.
@@ -27,4 +29,11 @@ namespace AutoPatcher {
 // split. The order is front-to-back (Y axis), then by hang position, then by
 // type, and finally left-to-right (X axis).
 void AutoPatch(MvrScene &scene, int startUniverse = 1, int startChannel = 1);
+
+// Re-patch only the selected fixtures in the exact order provided by
+// selectionOrder. Existing patch values for the selected fixtures are cleared
+// before re-patching. The new patch starts at the next free channel after the
+// highest already-patched fixture that remains in the scene.
+void AutoPatchSelection(MvrScene &scene,
+                        const std::vector<std::string> &selectionOrder);
 } // namespace AutoPatcher
