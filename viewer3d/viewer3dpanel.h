@@ -186,6 +186,7 @@ private:
 
     // Multisample anti-aliasing availability negotiated at context creation.
     bool m_hasSampleBuffers = false;
+    int m_defaultFramebufferSamples = 0;
 
     Viewer3DController m_controller;
 

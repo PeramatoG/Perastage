@@ -550,6 +550,7 @@ void Viewer3DPanel::InitGL()
         GLint sampleBuffers = 0;
         glGetIntegerv(GL_SAMPLE_BUFFERS, &sampleBuffers);
         m_hasSampleBuffers = sampleBuffers > 0;
+        glGetIntegerv(GL_SAMPLES, &m_defaultFramebufferSamples);
 
         m_controller.InitializeGL();
         m_glInitialized = true;
@@ -929,9 +930,7 @@ bool Viewer3DPanel::EnsureBaseCacheFramebuffer(const RenderSize& renderSize)
     glGenRenderbuffers(1, &m_baseCacheColorRb);
     glBindRenderbuffer(GL_RENDERBUFFER, m_baseCacheColorRb);
     if (m_hasSampleBuffers) {
-        GLint defaultSamples = 0;
-        glGetIntegerv(GL_SAMPLES, &defaultSamples);
-        const GLint samples = std::max(1, defaultSamples);
+        const GLint samples = std::max(1, m_defaultFramebufferSamples);
         glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_RGBA8, width, height);
     } else {
         glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, width, height);
@@ -942,9 +941,7 @@ bool Viewer3DPanel::EnsureBaseCacheFramebuffer(const RenderSize& renderSize)
     glGenRenderbuffers(1, &m_baseCacheDepthRb);
     glBindRenderbuffer(GL_RENDERBUFFER, m_baseCacheDepthRb);
     if (m_hasSampleBuffers) {
-        GLint defaultSamples = 0;
-        glGetIntegerv(GL_SAMPLES, &defaultSamples);
-        const GLint samples = std::max(1, defaultSamples);
+        const GLint samples = std::max(1, m_defaultFramebufferSamples);
         glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_DEPTH_COMPONENT24,
                                          width, height);
     } else {
