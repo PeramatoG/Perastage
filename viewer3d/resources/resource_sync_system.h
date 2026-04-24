@@ -72,6 +72,9 @@ class ResourceSyncSystem {
 public:
   static ResourceSyncResult
   Sync(const std::string &basePath,
+       const std::vector<const std::pair<const std::string, Truss> *> &sceneTrusses,
+       const std::vector<const std::pair<const std::string, SceneObject> *> &sceneObjects,
+       const std::vector<const std::pair<const std::string, Fixture> *> &sceneFixtures,
        const std::vector<const std::pair<const std::string, Truss> *> &visibleTrusses,
        const std::vector<const std::pair<const std::string, SceneObject> *> &visibleObjects,
        const std::vector<const std::pair<const std::string, Fixture> *> &visibleFixtures,
