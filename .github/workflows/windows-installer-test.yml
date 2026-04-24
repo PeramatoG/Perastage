@@ -2,6 +2,9 @@ name: Windows Installer Test
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ci/windows-installer
 
 jobs:
   smoke-test:
