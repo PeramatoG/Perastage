@@ -724,7 +724,6 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         table->SetValue(wxVariant(val), r, col);
     }
     PropagateTypeValues(selections, col);
-    ResyncRows(oldOrder, selectedUuids);
     const auto updateType = UpdateTypeForColumn(col);
     UpdateSceneData(true, updateType);
     return;
@@ -850,7 +849,6 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         manualCategoryUuidsPending.insert(rowUuids[row]);
     }
 
-    ResyncRows(oldOrder, selectedUuids);
     const auto updateType = UpdateTypeForColumn(col);
     UpdateSceneData(true, updateType);
     return;
@@ -1615,7 +1613,8 @@ void FixtureTablePanel::UpdateSceneData(bool logChanges,
   HoistLoadRecalculationPrompt::PromptAndApply(
       guiConfigServices->LegacyConfigManager(), this, changedWeightPositions);
 
-  if (updateType != SceneDataUpdateType::kVisualLabelOnly)
+  if (updateType != SceneDataUpdateType::kVisualLabelOnly &&
+      updateType != SceneDataUpdateType::kCategoryOnly)
     RunValidationHighlights(updateType);
 
   if (RequiresRiggingRefresh(updateType) &&
