@@ -24,11 +24,55 @@
 #include <sstream>
 #include <vector>
 
+namespace {
+void DrawBoundsSolid(const Viewer3DBoundingBox &bb) {
+  glBegin(GL_QUADS);
+  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
+  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
+  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
+  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
+  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
+  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
+  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
+  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
+  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
+  glEnd();
+}
+} // namespace
+
 void OpaqueTrussPass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
     const Viewer3DVisibleSet &visibleSet,
     const std::function<std::array<float, 3>(const std::string &)> &getLayerColor,
-    const std::function<SymbolViewKind(Viewer2DView)> &resolveSymbolView) {
+    const std::function<SymbolViewKind(Viewer2DView)> &resolveSymbolView,
+    const std::function<std::array<float, 3>(const std::string &)> &getPickColor) {
+  if (context.idOnlyPass) {
+    glShadeModel(GL_FLAT);
+    for (const auto &uuid : visibleSet.trussUuids) {
+      auto bbIt = controller.m_trussBounds.find(uuid);
+      if (bbIt == controller.m_trussBounds.end())
+        continue;
+      const auto pickColor = getPickColor(uuid);
+      glColor3f(pickColor[0], pickColor[1], pickColor[2]);
+      DrawBoundsSolid(bbIt->second);
+    }
+    return;
+  }
   const bool wireframe = context.wireframe;
   const Viewer2DRenderMode mode = context.mode;
   const bool skipCapture = context.skipCapture;

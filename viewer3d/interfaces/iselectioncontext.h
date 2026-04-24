@@ -2,6 +2,7 @@
 
 #include "viewer3d_types.h"
 #include "canvas2d.h"
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -45,4 +46,7 @@ public:
   virtual ICanvas2D *GetCaptureCanvas() const = 0;
   virtual void RecordText(float x, float y, const std::string &text,
                           const CanvasTextStyle &style) const = 0;
+  virtual bool ReadPickUuidAt(int mouseX, int mouseY, int width, int height,
+                              const std::unordered_set<std::string> &hiddenLayers,
+                              std::string &outUuid) = 0;
 };

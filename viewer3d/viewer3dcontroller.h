@@ -45,6 +45,7 @@ class Mesh;
 class SceneRenderer;
 class VisibilitySystem;
 class SelectionSystem;
+class IdPickPass;
 class LabelRenderSystem;
 class OpaqueFixturePass;
 class OpaqueTrussPass;
@@ -249,6 +250,9 @@ private:
                      const CanvasFill *fill) const override;
   void RecordText(float x, float y, const std::string &text,
                   const CanvasTextStyle &style) const override;
+  bool ReadPickUuidAt(int mouseX, int mouseY, int width, int height,
+                      const std::unordered_set<std::string> &hiddenLayers,
+                      std::string &outUuid) override;
   void SetupMeshBuffers(Mesh &mesh);
   void ReleaseMeshBuffers(Mesh &mesh);
   void DrawMesh(const Mesh &mesh, float scale = RENDER_SCALE,
