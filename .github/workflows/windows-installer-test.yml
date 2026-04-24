@@ -48,3 +48,9 @@ jobs:
             -DPERAVIZ_ENABLE_NATIVE=OFF `
             -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE\vcpkg\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows
+
+      # Build project
+      - name: Build project
+        shell: pwsh
+        run: |
+          cmake --build build --config Release
