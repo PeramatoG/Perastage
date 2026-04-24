@@ -585,7 +585,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         !m_forceHoverQuery;
     const size_t cameraFingerprint = ComputeCameraFingerprint(m_camera);
     const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
-    const size_t sceneVersion = m_controller.GetSceneVersion();
+    const size_t sceneVersion = m_controller.GetSceneVersionSnapshot();
 
     m_controller.ResetDebugPerFrameCounters();
     m_controller.UpdateFrameStateLightweight();
