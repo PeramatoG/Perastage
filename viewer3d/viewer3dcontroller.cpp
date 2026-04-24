@@ -1820,6 +1820,10 @@ bool Viewer3DController::GetPickUuidAt(
   return ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers, outUuid);
 }
 
+size_t Viewer3DController::GetSceneVersionSnapshot() const {
+  return m_impl->sceneVersion;
+}
+
 std::vector<std::string> Viewer3DController::GetFixturesInScreenRect(
     int x1, int y1, int x2, int y2, int width, int height) const {
   return m_impl->selectionSystem->GetFixturesInScreenRect(x1, y1, x2, y2, width,

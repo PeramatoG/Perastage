@@ -174,6 +174,7 @@ private:
     bool m_hasSampleBuffers = false;
 
     Viewer3DController m_controller;
+    std::unique_ptr<class BasePassFramebufferCache> m_basePassCache;
 
     std::atomic<bool> m_threadRunning{false};
     std::atomic<bool> m_shuttingDown{false};

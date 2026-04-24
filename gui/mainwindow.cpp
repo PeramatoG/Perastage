@@ -382,6 +382,11 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 }
 
 MainWindow::~MainWindow() {
+  cursorStatusCallbackLifetimeToken.reset();
+  if (viewport2DPanel)
+    viewport2DPanel->SetCursorWorldPositionCallback({});
+  if (layout2DViewEditPanel)
+    layout2DViewEditPanel->SetCursorWorldPositionCallback({});
   if (!userConfigPersistedOnClose)
     SaveUserConfigWithViewport2DState();
   if (auiManager) {
@@ -389,6 +394,7 @@ MainWindow::~MainWindow() {
     delete auiManager;
     auiManager = nullptr;
   }
+  SetInstance(nullptr);
   ProjectUtils::SaveLastProjectPath(currentProjectPath);
 }
 
@@ -422,8 +428,12 @@ void MainWindow::Ensure2DViewport() {
     return;
   int halfWidth = GetClientSize().GetWidth() / 2;
   viewport2DPanel = new Viewer2DPanel(this);
+  std::weak_ptr<int> lifetimeToken = cursorStatusCallbackLifetimeToken;
   viewport2DPanel->SetCursorWorldPositionCallback(
-      [this](const std::optional<std::array<float, 3>> &positionMeters) {
+      [this, lifetimeToken](
+          const std::optional<std::array<float, 3>> &positionMeters) {
+        if (lifetimeToken.expired() || !GetStatusBar())
+          return;
         UpdateCursorWorldPositionInStatusBar(positionMeters);
       });
   Viewer2DPanel::SetInstance(viewport2DPanel);

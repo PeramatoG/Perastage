@@ -134,6 +134,8 @@ private:
   std::unique_ptr<MainWindowLayoutController> layoutController;
   std::unique_ptr<MainWindowPrintController> printController;
   std::unique_ptr<MainWindowViewController> viewController;
+  std::shared_ptr<int> cursorStatusCallbackLifetimeToken =
+      std::make_shared<int>(0);
 
   void OnNew(wxCommandEvent &event);    // Start new project
   void OnLoad(wxCommandEvent &event);   // Load project

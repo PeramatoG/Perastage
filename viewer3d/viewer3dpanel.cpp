@@ -52,6 +52,7 @@
 #include "viewer2dpanel.h"
 #include "viewer3dviewfit.h"
 #include "viewer3d_render_style.h"
+#include "base_pass_framebuffer_cache.h"
 #include "gl_state_guard.h"
 #include "ui_render_size.h"
 #include <wx/dcclient.h>
@@ -505,6 +506,7 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
     Bind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this, wxEVT_VIEWER_REFRESH);
     m_threadRunning = true;
     m_lastResourceSyncCheck = std::chrono::steady_clock::now();
+    m_basePassCache = std::make_unique<BasePassFramebufferCache>();
     m_refreshThread = std::thread(&Viewer3DPanel::RefreshLoop, this);
 }
 
@@ -516,6 +518,13 @@ Viewer3DPanel::~Viewer3DPanel()
     if (HasCapture())
         ReleaseMouse();
     StopRefreshThread();
+    if (m_basePassCache && m_glContext && IsShownOnScreen()) {
+        SetCurrent(*m_glContext);
+        m_basePassCache.reset();
+    } else if (m_basePassCache) {
+        m_basePassCache->AbandonResources();
+        m_basePassCache.reset();
+    }
     delete m_glContext;
     m_glContext = nullptr;
     SetInstance(nullptr);
@@ -577,6 +586,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         !m_isInteracting &&
         !m_mouseMoved &&
         !m_forceHoverQuery;
+    const size_t cameraFingerprint = ComputeCameraFingerprint(m_camera);
+    const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
+    const size_t sceneVersion = m_controller.GetSceneVersionSnapshot();
 
     m_controller.ResetDebugPerFrameCounters();
     m_controller.UpdateFrameStateLightweight();
@@ -600,10 +612,14 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         return;
     }
 
-    if (highlightOnlyRefresh) {
-        // Keep the previously rendered scene and apply only lightweight
-        // highlight/overlay updates before swapping buffers.
-    } else {
+    bool reusedBasePass = false;
+    if (highlightOnlyRefresh && m_basePassCache) {
+        reusedBasePass = m_basePassCache->RestoreToDefaultFramebuffer(
+            renderSize.width, renderSize.height, cameraFingerprint,
+            hiddenLayers, sceneVersion);
+    }
+
+    if (!reusedBasePass) {
         const auto fullRenderStart = std::chrono::steady_clock::now();
         Render(renderSize);
         const auto fullRenderElapsedMs =
@@ -612,6 +628,11 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                 .count();
         m_fullRenderMsAccumInCurrentWindow += fullRenderElapsedMs;
         ++m_fullRenderSamplesInCurrentWindow;
+        if (m_basePassCache) {
+            m_basePassCache->CaptureFromDefaultFramebuffer(
+                renderSize.width, renderSize.height, cameraFingerprint,
+                hiddenLayers, sceneVersion);
+        }
     }
 
     // Ensure the OpenGL context is current before drawing overlays
@@ -633,13 +654,11 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     const bool skipLabelWork = m_cameraMoving &&
         (IsFastInteractionModeEnabled() || skipLabelsWhenMoving);
 
-    const size_t cameraFingerprint = ComputeCameraFingerprint(m_camera);
     if (cameraFingerprint != m_lastCameraFingerprint) {
         ++m_cameraRevision;
         m_lastCameraFingerprint = cameraFingerprint;
     }
 
-    const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
     size_t hiddenLayersFingerprint = 0;
     for (const std::string& layer : hiddenLayers)
         HashCombine(hiddenLayersFingerprint, layer);
@@ -783,7 +802,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     if (m_rectSelecting)
         DrawSelectionRectangle(w, h);
 
-    if (highlightOnlyRefresh)
+    if (reusedBasePass)
         ++m_highlightRefreshesInCurrentWindow;
     else
         ++m_fullRefreshesInCurrentWindow;
@@ -824,7 +843,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_highlightUpdateSamplesInCurrentWindow = 0;
     }
 
-    if (highlightOnlyRefresh)
+    if (reusedBasePass)
         m_highlightRefreshPending = false;
     if (m_selectionRefreshPending)
         m_selectionRefreshPending = false;

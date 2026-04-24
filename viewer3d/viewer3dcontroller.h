@@ -136,6 +136,7 @@ public:
   bool GetPickUuidAt(int mouseX, int mouseY, int width, int height,
                      const std::unordered_set<std::string> &hiddenLayers,
                      std::string &outUuid);
+  size_t GetSceneVersionSnapshot() const;
 
   const VisibleSet &
   GetVisibleSet(const ViewFrustumSnapshot &frustum,

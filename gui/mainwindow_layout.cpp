@@ -912,8 +912,12 @@ void MainWindow::BeginLayout2DViewEdit() {
   layout2DViewEditPanel = dialog.GetViewerPanel();
   layout2DViewEditRenderPanel = dialog.GetRenderPanel();
   if (layout2DViewEditPanel) {
+    std::weak_ptr<int> lifetimeToken = cursorStatusCallbackLifetimeToken;
     layout2DViewEditPanel->SetCursorWorldPositionCallback(
-        [this](const std::optional<std::array<float, 3>> &positionMeters) {
+        [this, lifetimeToken](
+            const std::optional<std::array<float, 3>> &positionMeters) {
+          if (lifetimeToken.expired() || !GetStatusBar())
+            return;
           UpdateCursorWorldPositionInStatusBar(positionMeters);
         });
   }
