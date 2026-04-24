@@ -119,6 +119,7 @@ bool RequiresRiggingRefresh(
   case SceneDataUpdateType::kCategoryOnly:
   case SceneDataUpdateType::kTransformOnly:
   case SceneDataUpdateType::kMetadataOnly:
+  case SceneDataUpdateType::kFixtureIdOnly:
     return false;
   }
   return true;
@@ -148,6 +149,7 @@ FixtureTablePanel::SceneDataUpdateType UpdateTypeForColumnImpl(int column) {
   case 19:
     return SceneDataUpdateType::kAppearanceOnly;
   case 0:
+    return SceneDataUpdateType::kFixtureIdOnly;
   case 2:
   case 3:
   case 4:
@@ -496,7 +498,7 @@ void FixtureTablePanel::ReloadData() {
   if (Viewer3DPanel::Instance())
     Viewer3DPanel::Instance()->SetSelectedFixtures({});
 
-  HighlightDuplicateFixtureIds();
+  RunValidationHighlights(SceneDataUpdateType::kGeneral);
 
   // Let wxDataViewListCtrl manage column headers and sorting
   if (LayerPanel::Instance())
@@ -1249,7 +1251,7 @@ void FixtureTablePanel::DeleteSelected(bool pushUndoState) {
     }
   }
 
-  HighlightDuplicateFixtureIds();
+  RunValidationHighlights(SceneDataUpdateType::kGeneral);
 
   std::vector<std::string> mergedSelection;
   const auto appendSelection = [&](const std::vector<std::string> &source) {
@@ -1541,7 +1543,7 @@ void FixtureTablePanel::UpdateSceneData(bool logChanges,
       guiConfigServices->LegacyConfigManager(), this, changedWeightPositions);
 
   if (updateType != SceneDataUpdateType::kVisualLabelOnly)
-    HighlightDuplicateFixtureIds();
+    RunValidationHighlights(updateType);
 
   if (RequiresRiggingRefresh(updateType) &&
       RiggingPanel::Instance())
@@ -1633,9 +1635,32 @@ void FixtureTablePanel::HighlightDuplicateFixtureIds() {
         store->SetCellTextColour(r, 0, *wxRED);
     }
   }
+}
 
-  HighlightPatchConflicts();
-  HighlightAutoFallbackCategories();
+void FixtureTablePanel::RunValidationHighlights(SceneDataUpdateType updateType) {
+  switch (updateType) {
+  case SceneDataUpdateType::kPatchOnly:
+    HighlightPatchConflicts();
+    break;
+  case SceneDataUpdateType::kCategoryOnly:
+    HighlightAutoFallbackCategories();
+    break;
+  case SceneDataUpdateType::kFixtureIdOnly:
+    HighlightDuplicateFixtureIds();
+    break;
+  case SceneDataUpdateType::kVisualLabelOnly:
+    return;
+  case SceneDataUpdateType::kAppearanceOnly:
+  case SceneDataUpdateType::kTransformOnly:
+  case SceneDataUpdateType::kWeightOrPosition:
+  case SceneDataUpdateType::kMetadataOnly:
+  case SceneDataUpdateType::kGeneral:
+    HighlightDuplicateFixtureIds();
+    HighlightPatchConflicts();
+    HighlightAutoFallbackCategories();
+    break;
+  }
+
   table->Refresh();
 }
 
