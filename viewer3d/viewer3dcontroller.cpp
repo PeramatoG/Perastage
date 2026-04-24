@@ -1825,6 +1825,12 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
                                                          outUuid, confirmDepth);
 }
 
+bool Viewer3DController::GetPickUuidAt(
+    int mouseX, int mouseY, int width, int height,
+    const std::unordered_set<std::string> &hiddenLayers, std::string &outUuid) {
+  return ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers, outUuid);
+}
+
 std::vector<std::string> Viewer3DController::GetFixturesInScreenRect(
     int x1, int y1, int x2, int y2, int width, int height) const {
   return m_impl->selectionSystem->GetFixturesInScreenRect(x1, y1, x2, y2, width,
