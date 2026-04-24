@@ -95,9 +95,7 @@ private:
     std::chrono::steady_clock::time_point m_lastInteractionTime{};
     bool m_isInteracting = false;
     bool m_cameraMoving = false;
-    // True when scene/resource synchronization must run as soon as possible,
-    // even if the panel is currently in interaction throttling mode.
-    bool m_sceneSyncPending = false;
+    std::chrono::steady_clock::time_point m_lastResourceSyncCheck{};
     std::vector<std::string> m_lastAppliedSelectionUuids;
 
     // Initializes OpenGL settings

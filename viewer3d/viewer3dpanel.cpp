@@ -88,6 +88,7 @@ wxEND_EVENT_TABLE()
 namespace {
 constexpr auto kPauseDelay = std::chrono::milliseconds(200);
 constexpr auto kHoverQueryInterval = std::chrono::milliseconds(40);
+constexpr auto kResourceSyncInterval = std::chrono::milliseconds(250);
 constexpr int kExportImageWidth = 1920;
 constexpr int kExportImageHeight = 1080;
 constexpr double kDefaultFovYDegrees = 45.0;
@@ -503,6 +504,7 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
     Bind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this, wxEVT_VIEWER_REFRESH);
     m_threadRunning = true;
+    m_lastResourceSyncCheck = std::chrono::steady_clock::now();
     m_refreshThread = std::thread(&Viewer3DPanel::RefreshLoop, this);
 }
 
@@ -569,7 +571,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
     const bool highlightOnlyRefresh =
         m_highlightRefreshPending &&
-        !m_sceneSyncPending &&
+        !m_controller.IsResourceSyncPending() &&
         !m_selectionRefreshPending &&
         !m_cameraMoving &&
         !m_isInteracting &&
@@ -578,12 +580,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     m_controller.ResetDebugPerFrameCounters();
     m_controller.UpdateFrameStateLightweight();
-    if (m_sceneSyncPending) {
-        m_controller.UpdateResourcesIfDirty();
-        m_sceneSyncPending = false;
-    } else if (!highlightOnlyRefresh && !pauseHeavyTasks && !m_cameraMoving) {
-        m_controller.UpdateResourcesIfDirty();
-    }
 
     const int updateResourcesCallsPerFrame =
         m_controller.GetDebugUpdateResourcesCallsPerFrame();
@@ -1816,13 +1812,14 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
 void Viewer3DPanel::UpdateScene()
 {
     ++m_sceneRevision;
-    m_sceneSyncPending = true;
+    m_controller.MarkResourceSyncPending();
 
     if (ShouldPauseHeavyTasks() || m_cameraMoving)
         return;
 
-    m_controller.UpdateResourcesIfDirty();
-    m_sceneSyncPending = false;
+    SetCurrent(*m_glContext);
+    if (m_controller.ConsumeResourceSyncPending())
+        m_controller.UpdateResourcesIfDirty();
     if (Viewer2DPanel::Instance())
         Viewer2DPanel::Instance()->UpdateScene();
 }
@@ -1894,7 +1891,7 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
 
     const bool hasRelevantVisualChange =
         cameraChanged ||
-        m_sceneSyncPending ||
+        m_controller.IsResourceSyncPending() ||
         m_selectionRefreshPending ||
         m_highlightRefreshPending ||
         m_mouseMoved ||
@@ -1905,6 +1902,18 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
         m_cameraMoving;
     if (!hasRelevantVisualChange)
         return;
+
+    if (m_controller.IsResourceSyncPending() && !m_cameraMoving && !m_isInteracting) {
+        const auto now = std::chrono::steady_clock::now();
+        const bool syncCadenceDue =
+            (now - m_lastResourceSyncCheck) >= kResourceSyncInterval;
+        if (syncCadenceDue) {
+            SetCurrent(*m_glContext);
+            m_lastResourceSyncCheck = now;
+            if (m_controller.ConsumeResourceSyncPending())
+                m_controller.UpdateResourcesIfDirty();
+        }
+    }
 
     Refresh();
 }
@@ -1932,8 +1941,7 @@ bool Viewer3DPanel::ShouldPauseHeavyTasks()
     const bool fastInteractionMode = IsFastInteractionModeEnabled();
 
     if (fastInteractionMode) {
-        m_controller.UpdateResourcesIfDirty();
-        m_sceneSyncPending = false;
+        m_controller.MarkResourceSyncPending();
         m_mouseMoved = true;
     }
 

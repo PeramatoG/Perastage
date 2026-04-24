@@ -86,6 +86,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <atomic>
 
 namespace fs = std::filesystem;
 
@@ -108,6 +109,7 @@ struct Viewer3DController::Impl {
   std::vector<const std::pair<const std::string, Truss> *> visibleSortedTrusses;
   std::vector<const std::pair<const std::string, SceneObject> *> visibleSortedObjects;
   std::unordered_set<std::string> lastHiddenLayers;
+  std::unordered_set<std::string> lastHiddenFixtureTypes;
   size_t hiddenLayersVersion = 0;
   bool sortedListsDirty = true;
   bool sortedListsLastWas2D = false;
@@ -141,6 +143,7 @@ struct Viewer3DController::Impl {
   bool useAdaptiveLineProfile = true;
   bool skipOutlinesForCurrentFrame = false;
   int updateResourcesCallsPerFrame = 0;
+  std::atomic<bool> resourceSyncPending{true};
   mutable VisibleSet cachedVisibleSet;
   mutable VisibleSet cachedLayerVisibleCandidates;
   mutable size_t layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
@@ -797,10 +800,29 @@ void Viewer3DController::Update() {
 void Viewer3DController::UpdateFrameStateLightweight() {
   ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  const auto hiddenFixtureTypes = cfg.GetHiddenFixtureTypes();
   if (hiddenLayers != m_impl->lastHiddenLayers) {
     Logger::Instance().Log("visibility dirty reason: hidden layers changed vs last frame snapshot");
     m_impl->visibilityChangedDirty = true;
+    MarkResourceSyncPending();
   }
+  if (hiddenFixtureTypes != m_impl->lastHiddenFixtureTypes) {
+    Logger::Instance().Log("visibility dirty reason: hidden fixture types changed vs last frame snapshot");
+    m_impl->visibilityChangedDirty = true;
+    MarkResourceSyncPending();
+  }
+}
+
+void Viewer3DController::MarkResourceSyncPending() {
+  m_impl->resourceSyncPending.store(true, std::memory_order_relaxed);
+}
+
+bool Viewer3DController::IsResourceSyncPending() const {
+  return m_impl->resourceSyncPending.load(std::memory_order_relaxed);
+}
+
+bool Viewer3DController::ConsumeResourceSyncPending() {
+  return m_impl->resourceSyncPending.exchange(false, std::memory_order_relaxed);
 }
 
 void Viewer3DController::ResetDebugPerFrameCounters() {
@@ -891,6 +913,7 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   BoundsCacheSystem::RebuildIfDirty(boundsContext, hiddenLayers, trusses,
                                     objects, fixtures);
   m_impl->lastHiddenLayers = hiddenLayers;
+  m_impl->lastHiddenFixtureTypes = cfg.GetHiddenFixtureTypes();
 }
 
 
@@ -1216,10 +1239,7 @@ void Viewer3DController::FinalizeRenderFrame() {
 void Viewer3DController::SetDarkMode(bool enabled) { m_impl->darkMode = enabled; }
 
 void Viewer3DController::SetInteracting(bool interacting) {
-  const bool wasInteracting = m_impl->isInteracting;
   m_impl->isInteracting = interacting;
-  if (wasInteracting && !m_impl->isInteracting)
-    UpdateResourcesIfDirty();
 }
 
 void Viewer3DController::SetCameraMoving(bool moving) { m_impl->cameraMoving = moving; }
@@ -1269,6 +1289,7 @@ void Viewer3DController::SetSymbolCaptureIncludeCoplanarEdgesOverride(
         ReleaseMeshBuffers(node.mesh);
     }
   }
+  MarkResourceSyncPending();
 }
 
 std::optional<bool>
