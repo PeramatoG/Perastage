@@ -14,5 +14,6 @@ public:
       Viewer3DController &controller, const RenderFrameContext &context,
       const Viewer3DVisibleSet &visibleSet,
       const std::function<std::array<float, 3>(const std::string &)> &getLayerColor,
-      const std::function<SymbolViewKind(Viewer2DView)> &resolveSymbolView);
+      const std::function<SymbolViewKind(Viewer2DView)> &resolveSymbolView,
+      const std::function<std::array<float, 3>(const std::string &)> &getPickColor);
 };

@@ -64,6 +64,7 @@
 #include "visibilitysystem.h"
 #include "label_render_system.h"
 #include "selectionsystem.h"
+#include "id_pick_pass.h"
 #include "gl_primitive_renderer.h"
 #include "lighting_profile.h"
 #include "viewer3d_render_style.h"
@@ -155,6 +156,7 @@ struct Viewer3DController::Impl {
   std::unique_ptr<SceneRenderer> sceneRenderer;
   std::unique_ptr<VisibilitySystem> visibilitySystem;
   std::unique_ptr<SelectionSystem> selectionSystem;
+  std::unique_ptr<IdPickPass> idPickPass;
   std::unique_ptr<LabelRenderSystem> labelRenderSystem;
   size_t logicalSceneSignature = 0;
   bool hasLogicalSceneSignature = false;
@@ -672,6 +674,15 @@ void Viewer3DController::RecordText(float x, float y, const std::string &text,
   m_impl->captureCanvas->DrawText(x, y, text, style);
 }
 
+bool Viewer3DController::ReadPickUuidAt(
+    int mouseX, int mouseY, int width, int height,
+    const std::unordered_set<std::string> &hiddenLayers, std::string &outUuid) {
+  if (!m_impl->idPickPass)
+    return false;
+  return m_impl->idPickPass->ReadUuidAt(mouseX, mouseY, width, height,
+                                        hiddenLayers, outUuid);
+}
+
 Viewer3DController::Viewer3DController()
     : m_impl(std::make_unique<Impl>()),
       m_resourceSyncState(m_impl->resourceSyncState),
@@ -689,6 +700,7 @@ Viewer3DController::Viewer3DController()
   m_impl->sceneRenderer = std::make_unique<SceneRenderer>(*this);
   m_impl->visibilitySystem = std::make_unique<VisibilitySystem>(*this);
   m_impl->selectionSystem = std::make_unique<SelectionSystem>(*this);
+  m_impl->idPickPass = std::make_unique<IdPickPass>(*this);
   m_impl->labelRenderSystem = std::make_unique<LabelRenderSystem>(*this);
   // Actual initialization of OpenGL-dependent resources is delayed
   // until a valid context is available.
@@ -1221,13 +1233,16 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
       return SymbolViewKind::Bottom;
     }
   };
+  auto getPickColor = [](const std::string &) {
+    return std::array<float, 3>{1.0f, 1.0f, 1.0f};
+  };
 
   OpaqueObjectPass::Render(*this, context, visibleSet, getLayerColor,
-                           resolveSymbolView);
+                           resolveSymbolView, getPickColor);
   OpaqueTrussPass::Render(*this, context, visibleSet, getLayerColor,
-                          resolveSymbolView);
+                          resolveSymbolView, getPickColor);
   OpaqueFixturePass::Render(*this, context, visibleSet, getTypeColor,
-                            getLayerColor, resolveSymbolView);
+                            getLayerColor, resolveSymbolView, getPickColor);
   HoistSymbolRenderer::Render(*this, context);
 }
 

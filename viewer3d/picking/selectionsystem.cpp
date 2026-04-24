@@ -332,6 +332,43 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   ConfigManager &cfg = ConfigManager::Get();
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  std::string pickedUuid;
+  if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
+                                  pickedUuid)) {
+    const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+    auto fixtureIt = fixtures.find(pickedUuid);
+    if (fixtureIt != fixtures.end()) {
+      const auto bbIt = m_controller.GetFixtureBoundsMap().find(pickedUuid);
+      if (bbIt != m_controller.GetFixtureBoundsMap().end()) {
+        const ProjectionSnapshot projection = CaptureProjectionSnapshot();
+        if (ProjectBoundingBoxCenter(bbIt->second, projection, height, outPos)) {
+          const auto &f = fixtureIt->second;
+          bool showName = cfg.GetFloat("label_show_name") != 0.0f;
+          bool showId = cfg.GetFloat("label_show_id") != 0.0f;
+          bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
+          wxString label;
+          if (showName)
+            label = f.instanceName.empty() ? wxString::FromUTF8(pickedUuid)
+                                           : wxString::FromUTF8(f.instanceName);
+          if (showId) {
+            if (!label.empty())
+              label += "\n";
+            label += "ID: " + wxString::Format("%d", f.fixtureId);
+          }
+          if (showDmx && !f.address.empty()) {
+            if (!label.empty())
+              label += "\n";
+            label += wxString::FromUTF8(f.address);
+          }
+          outLabel = label;
+          if (outUuid)
+            *outUuid = pickedUuid;
+          return true;
+        }
+      }
+    }
+  }
 
   QueryMetrics metrics;
   const auto projectionStart = std::chrono::steady_clock::now();
@@ -347,7 +384,6 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   Ray mouseRay;
   if (!BuildMouseRay(mouseX, mouseY, height, projection, mouseRay))
     return false;
-  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   if (projectionChanged || hiddenLayers != m_queryCache.hiddenLayers) {
     m_queryCache.hiddenLayers = hiddenLayers;
     m_queryCache.visibleSet = nullptr;
@@ -469,6 +505,27 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
   ConfigManager &cfg = ConfigManager::Get();
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  std::string pickedUuid;
+  if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
+                                  pickedUuid)) {
+    const auto &trusses = SceneDataManager::Instance().GetTrusses();
+    auto trussIt = trusses.find(pickedUuid);
+    if (trussIt != trusses.end()) {
+      const auto bbIt = m_controller.GetTrussBoundsMap().find(pickedUuid);
+      if (bbIt != m_controller.GetTrussBoundsMap().end()) {
+        const ProjectionSnapshot projection = CaptureProjectionSnapshot();
+        if (ProjectBoundingBoxCenter(bbIt->second, projection, height, outPos)) {
+          const auto &t = trussIt->second;
+          wxString label = wxString::FromUTF8(t.name);
+          outLabel = label;
+          if (outUuid)
+            *outUuid = pickedUuid;
+          return true;
+        }
+      }
+    }
+  }
 
   QueryMetrics metrics;
   const auto projectionStart = std::chrono::steady_clock::now();
@@ -483,7 +540,6 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
   Ray mouseRay;
   if (!BuildMouseRay(mouseX, mouseY, height, projection, mouseRay))
     return false;
-  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   if (projectionChanged || hiddenLayers != m_queryCache.hiddenLayers) {
     m_queryCache.hiddenLayers = hiddenLayers;
     m_queryCache.visibleSet = nullptr;
@@ -585,6 +641,25 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
   ConfigManager &cfg = ConfigManager::Get();
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  std::string pickedUuid;
+  if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
+                                  pickedUuid)) {
+    const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
+    auto objectIt = sceneObjects.find(pickedUuid);
+    if (objectIt != sceneObjects.end()) {
+      const auto bbIt = m_controller.GetObjectBoundsMap().find(pickedUuid);
+      if (bbIt != m_controller.GetObjectBoundsMap().end()) {
+        const ProjectionSnapshot projection = CaptureProjectionSnapshot();
+        if (ProjectBoundingBoxCenter(bbIt->second, projection, height, outPos)) {
+          outLabel = wxString::FromUTF8(objectIt->second.name);
+          if (outUuid)
+            *outUuid = pickedUuid;
+          return true;
+        }
+      }
+    }
+  }
 
   QueryMetrics metrics;
   const auto projectionStart = std::chrono::steady_clock::now();
@@ -599,7 +674,6 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
   Ray mouseRay;
   if (!BuildMouseRay(mouseX, mouseY, height, projection, mouseRay))
     return false;
-  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   if (projectionChanged || hiddenLayers != m_queryCache.hiddenLayers) {
     m_queryCache.hiddenLayers = hiddenLayers;
     m_queryCache.visibleSet = nullptr;
