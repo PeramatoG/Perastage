@@ -193,6 +193,9 @@ private:
   void OnInteractionPauseTimer(wxTimerEvent &event);
   void OnHoverHitTestTimer(wxTimerEvent &event);
   void ScheduleHoverHitTest(const wxPoint &screenPos, bool forceNow = false);
+  int GetHoverHitTestIntervalMs() const;
+  int GetHoverMoveThresholdPx() const;
+  void TrackHoverHitTestTelemetry(std::chrono::microseconds duration);
   void ScheduleHoverLabelRefresh(const wxPoint &screenPos);
   bool TryUpdateHoverHighlightFast(const wxPoint &screenPos);
   void RunHoverHitTest(const wxPoint &screenPos);
@@ -215,8 +218,10 @@ private:
 
   static constexpr long kSelectionDragDelayMs = 150;
   static constexpr int kDragTableUpdateIntervalMs = 50;
-  static constexpr int kHoverHitTestIntervalMs = 40;
+  static constexpr int kHoverHitTestIdleIntervalMs = 10;
+  static constexpr int kHoverHitTestInteractingIntervalMs = 35;
   static constexpr int kHoverMoveThresholdPx = 3;
+  static constexpr int kHoverIdleMoveThresholdPx = 0;
   static constexpr std::chrono::milliseconds kPauseDelay{200};
 
   DragMode m_dragMode = DragMode::None;
@@ -253,6 +258,7 @@ private:
   bool m_hoverQueryHasPos = false;
   bool m_hoverHitTestPending = false;
   std::chrono::steady_clock::time_point m_lastHoverHitTestTime{};
+  bool m_viewMotionSinceLastHoverHitTest = false;
   bool m_enableSelection = true;
   std::vector<std::string> m_lastAppliedSelectionUuids;
   std::string m_hoverUuid;
@@ -292,6 +298,9 @@ private:
 #ifndef NDEBUG
   std::chrono::steady_clock::time_point m_refreshTelemetryWindowStart{};
   int m_refreshesInCurrentWindow = 0;
+  std::chrono::steady_clock::time_point m_hoverTelemetryWindowStart{};
+  int m_hoverQueriesInCurrentWindow = 0;
+  std::chrono::microseconds m_hoverTotalResolveTimeInCurrentWindow{0};
 #endif
 
   wxDECLARE_EVENT_TABLE();
