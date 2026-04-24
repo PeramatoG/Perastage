@@ -364,6 +364,10 @@ void FixtureTablePanel::InitializeTable() {
 }
 
 void FixtureTablePanel::ReloadData() {
+  if (!table || !store)
+    return;
+  wxWindowUpdateLocker locker(table);
+
   auto &cfg = guiConfigServices->LegacyConfigManager();
   const auto distanceUnit = Units::ParseDistanceUnitSystem(
       cfg.GetValue("ui_distance_unit_system"));
