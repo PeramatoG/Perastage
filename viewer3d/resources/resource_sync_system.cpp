@@ -357,7 +357,39 @@ size_t HashMatrix(const Matrix &m) {
   return hash;
 }
 
+size_t HashGeometryTreeVersion(const GdtfGeometryTree &tree) {
+  size_t hash = HashCombine(HashString("nodes"), tree.nodes.size());
+  for (const GdtfNode3D &node : tree.nodes) {
+    hash = HashCombine(hash, HashString(node.stableName));
+    hash = HashCombine(hash, static_cast<size_t>(node.type));
+    hash = HashCombine(hash, static_cast<size_t>(node.parentIndex + 1));
+    hash = HashCombine(hash, HashMatrix(node.localTransform));
+    hash = HashCombine(hash, HashMatrix(node.worldTransform));
+    hash = HashCombine(hash, static_cast<size_t>(node.isLens ? 1 : 0));
+    hash = HashCombine(hash, static_cast<size_t>(node.hasMesh ? 1 : 0));
+  }
 
+  hash = HashCombine(hash, HashString("axis"));
+  for (int nodeIndex : tree.axisNodeIndices)
+    hash = HashCombine(hash, static_cast<size_t>(nodeIndex + 1));
+
+  hash = HashCombine(hash, HashString("emitters"));
+  for (int nodeIndex : tree.emitterNodeIndices)
+    hash = HashCombine(hash, static_cast<size_t>(nodeIndex + 1));
+
+  return hash;
+}
+
+size_t BuildFixtureRegistrySignature(const std::string &uuid,
+                                     const std::string &resolvedGdtfPath,
+                                     const Matrix &fixtureTransform,
+                                     size_t geometryTreeVersion) {
+  size_t signature = HashString(uuid);
+  signature = HashCombine(signature, HashString(resolvedGdtfPath));
+  signature = HashCombine(signature, HashMatrix(fixtureTransform));
+  signature = HashCombine(signature, geometryTreeVersion);
+  return signature;
+}
 
 FixtureSceneNode BuildInstancedFixtureNode(const GdtfNode3D &templateNode,
                                           const Matrix &fixtureTransform,
@@ -443,6 +475,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     state.loadedGdtfGeometryTrees.clear();
     state.fixtureNodeRegistry.clear();
     state.fixtureAnchorRegistry.clear();
+    state.fixtureRegistrySignatureByUuid.clear();
+    state.geometryTreeVersionByResolvedGdtfPath.clear();
     state.failedGdtfReasons.clear();
     state.failedGdtfAttemptCounts.clear();
     state.reportedGdtfFailureCounts.clear();
@@ -639,7 +673,11 @@ ResourceSyncResult ResourceSyncSystem::Sync(
         GdtfGeometryTree geometryTree;
         std::string geometryTreeError;
         if (LoadGdtfGeometryTree(gdtfPath, geometryTree, &geometryTreeError)) {
+          const size_t geometryTreeVersion = HashGeometryTreeVersion(geometryTree);
           state.loadedGdtfGeometryTrees[gdtfPath] = std::move(geometryTree);
+          state.geometryTreeVersionByResolvedGdtfPath[gdtfPath] = geometryTreeVersion;
+        } else {
+          state.geometryTreeVersionByResolvedGdtfPath.erase(gdtfPath);
         }
 
         result.assetsChanged = true;
@@ -654,20 +692,63 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     }
   }
 
-  state.fixtureNodeRegistry.clear();
-  state.fixtureAnchorRegistry.clear();
+  std::unordered_set<std::string> visibleFixtureUuids;
+  visibleFixtureUuids.reserve(visibleFixtures.size());
+  for (const auto *entry : visibleFixtures)
+    visibleFixtureUuids.insert(entry->first);
+
+  for (auto it = state.fixtureNodeRegistry.begin();
+       it != state.fixtureNodeRegistry.end();) {
+    if (visibleFixtureUuids.find(it->first) != visibleFixtureUuids.end()) {
+      ++it;
+      continue;
+    }
+    const std::string uuidToRemove = it->first;
+    it = state.fixtureNodeRegistry.erase(it);
+    state.fixtureAnchorRegistry.erase(uuidToRemove);
+    state.fixtureRegistrySignatureByUuid.erase(uuidToRemove);
+  }
+
   for (const auto *entry : visibleFixtures) {
     const auto &[uuid, fixture] = *entry;
-    if (fixture.gdtfSpec.empty())
+    if (fixture.gdtfSpec.empty()) {
+      state.fixtureNodeRegistry.erase(uuid);
+      state.fixtureAnchorRegistry.erase(uuid);
+      state.fixtureRegistrySignatureByUuid.erase(uuid);
       continue;
+    }
 
     auto gdtfPathIt = state.resolvedGdtfSpecs.find(ResolveCacheKey(fixture.gdtfSpec));
     if (gdtfPathIt == state.resolvedGdtfSpecs.end() || !gdtfPathIt->second.attempted ||
-        gdtfPathIt->second.resolvedPath.empty())
+        gdtfPathIt->second.resolvedPath.empty()) {
+      state.fixtureNodeRegistry.erase(uuid);
+      state.fixtureAnchorRegistry.erase(uuid);
+      state.fixtureRegistrySignatureByUuid.erase(uuid);
       continue;
+    }
 
     auto treeIt = state.loadedGdtfGeometryTrees.find(gdtfPathIt->second.resolvedPath);
-    if (treeIt == state.loadedGdtfGeometryTrees.end())
+    if (treeIt == state.loadedGdtfGeometryTrees.end()) {
+      state.fixtureNodeRegistry.erase(uuid);
+      state.fixtureAnchorRegistry.erase(uuid);
+      state.fixtureRegistrySignatureByUuid.erase(uuid);
+      continue;
+    }
+
+    auto versionIt = state.geometryTreeVersionByResolvedGdtfPath.find(
+        gdtfPathIt->second.resolvedPath);
+    const size_t geometryTreeVersion = versionIt != state.geometryTreeVersionByResolvedGdtfPath.end()
+                                           ? versionIt->second
+                                           : HashGeometryTreeVersion(treeIt->second);
+    const size_t fixtureSignature = BuildFixtureRegistrySignature(
+        uuid, gdtfPathIt->second.resolvedPath, fixture.transform, geometryTreeVersion);
+
+    auto signatureIt = state.fixtureRegistrySignatureByUuid.find(uuid);
+    const bool hasStableRegistry = signatureIt != state.fixtureRegistrySignatureByUuid.end() &&
+                                   signatureIt->second == fixtureSignature &&
+                                   state.fixtureNodeRegistry.find(uuid) != state.fixtureNodeRegistry.end() &&
+                                   state.fixtureAnchorRegistry.find(uuid) != state.fixtureAnchorRegistry.end();
+    if (hasStableRegistry)
       continue;
 
     std::vector<FixtureSceneNode> instancedNodes;
@@ -694,6 +775,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
 
     state.fixtureNodeRegistry[uuid] = std::move(instancedNodes);
     state.fixtureAnchorRegistry[uuid] = std::move(anchors);
+    state.fixtureRegistrySignatureByUuid[uuid] = fixtureSignature;
   }
 
   if (callbacks.appendConsoleMessage) {
