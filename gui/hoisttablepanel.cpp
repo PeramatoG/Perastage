@@ -316,7 +316,11 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
   SetSizer(sizer);
 }
 
-HoistTablePanel::~HoistTablePanel() { store = nullptr; }
+HoistTablePanel::~HoistTablePanel() {
+  if (s_instance == this)
+    s_instance = nullptr;
+  store = nullptr;
+}
 
 void HoistTablePanel::InitializeTable() {
   const auto distanceUnit = ResolveDistanceUnitSystem();
@@ -1144,8 +1148,20 @@ HoistTablePanel *HoistTablePanel::Instance() { return s_instance; }
 void HoistTablePanel::SetInstance(HoistTablePanel *panel) { s_instance = panel; }
 
 bool HoistTablePanel::IsActivePage() const {
-  auto *nb = dynamic_cast<wxNotebook *>(GetParent());
-  return nb && nb->GetPage(nb->GetSelection()) == this;
+  if (IsBeingDeleted())
+    return false;
+  wxWindow *parent = GetParent();
+  if (!parent || parent->IsBeingDeleted())
+    return false;
+  auto *nb = dynamic_cast<wxNotebook *>(parent);
+  if (!nb || nb->IsBeingDeleted())
+    return false;
+  const int selection = nb->GetSelection();
+  if (selection == wxNOT_FOUND ||
+      selection < 0 ||
+      selection >= static_cast<int>(nb->GetPageCount()))
+    return false;
+  return nb->GetPage(static_cast<size_t>(selection)) == this;
 }
 
 void HoistTablePanel::HighlightHoist(const std::string &uuid) {
