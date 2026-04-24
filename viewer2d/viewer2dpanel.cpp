@@ -456,6 +456,7 @@ void Viewer2DPanel::SetRenderMode(Viewer2DRenderMode mode) {
 
 void Viewer2DPanel::SetView(Viewer2DView view) {
   m_view = view;
+  m_viewMotionSinceLastHoverHitTest = true;
   RequestRepaint();
 }
 
@@ -1590,12 +1591,28 @@ void Viewer2DPanel::ScheduleHoverLabelRefresh(const wxPoint &screenPos) {
   ScheduleHoverHitTest(screenPos, false);
 }
 
+int Viewer2DPanel::GetHoverHitTestIntervalMs() const {
+  const bool isDragging = m_dragMode != DragMode::None;
+  const bool interacting = m_isInteracting || m_viewMotionSinceLastHoverHitTest;
+  if (isDragging || interacting)
+    return kHoverHitTestInteractingIntervalMs;
+  return kHoverHitTestIdleIntervalMs;
+}
+
+int Viewer2DPanel::GetHoverMoveThresholdPx() const {
+  if (m_dragMode != DragMode::None)
+    return kHoverMoveThresholdPx;
+  return kHoverIdleMoveThresholdPx;
+}
+
 void Viewer2DPanel::ScheduleHoverHitTest(const wxPoint &screenPos, bool forceNow) {
-  if (!m_enableSelection || !IsShownOnScreen() || m_dragMode != DragMode::None)
+  if (!m_enableSelection || !IsShownOnScreen())
     return;
 
   m_pendingHoverScreenPos = screenPos;
   m_hoverHitTestPending = true;
+  const int hitTestIntervalMs = GetHoverHitTestIntervalMs();
+  const int moveThresholdPx = GetHoverMoveThresholdPx();
 
   const auto now = std::chrono::steady_clock::now();
   if (!forceNow && m_hoverQueryHasPos) {
@@ -1606,20 +1623,20 @@ void Viewer2DPanel::ScheduleHoverHitTest(const wxPoint &screenPos, bool forceNow
         std::chrono::duration_cast<std::chrono::milliseconds>(now -
                                                               m_lastHoverHitTestTime)
             .count();
-    if (manhattanMoved < kHoverMoveThresholdPx && elapsedMs < kHoverHitTestIntervalMs)
+    if (manhattanMoved < moveThresholdPx && elapsedMs < hitTestIntervalMs)
       return;
   }
 
   const auto elapsedMs =
       std::chrono::duration_cast<std::chrono::milliseconds>(now - m_lastHoverHitTestTime)
           .count();
-  if (forceNow || elapsedMs >= kHoverHitTestIntervalMs) {
+  if (forceNow || elapsedMs >= hitTestIntervalMs) {
     m_hoverHitTestTimer.Stop();
     RunHoverHitTest(screenPos);
     return;
   }
 
-  const int delayMs = std::max(1, kHoverHitTestIntervalMs - static_cast<int>(elapsedMs));
+  const int delayMs = std::max(1, hitTestIntervalMs - static_cast<int>(elapsedMs));
   m_hoverHitTestTimer.StartOnce(delayMs);
 }
 
@@ -1710,6 +1727,7 @@ bool Viewer2DPanel::TryUpdateHoverHighlightFast(const wxPoint &screenPos) {
 }
 
 void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
+  const auto queryStartTime = std::chrono::steady_clock::now();
   if (!m_enableSelection || !IsShownOnScreen())
     return;
 
@@ -1717,6 +1735,7 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
   m_lastHoverHitTestTime = std::chrono::steady_clock::now();
   m_lastHoverQueryScreenPos = screenPos;
   m_hoverQueryHasPos = true;
+  m_viewMotionSinceLastHoverHitTest = false;
 
   const bool skipLabelWork = ShouldPauseHeavyTasks();
   if (skipLabelWork) {
@@ -1785,6 +1804,36 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
   } else {
     ApplyHoverUuid("", true);
   }
+
+  const auto resolveDuration = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - queryStartTime);
+  TrackHoverHitTestTelemetry(resolveDuration);
+}
+
+void Viewer2DPanel::TrackHoverHitTestTelemetry(std::chrono::microseconds duration) {
+#ifndef NDEBUG
+  const auto now = std::chrono::steady_clock::now();
+  if (m_hoverTelemetryWindowStart.time_since_epoch().count() == 0)
+    m_hoverTelemetryWindowStart = now;
+  ++m_hoverQueriesInCurrentWindow;
+  m_hoverTotalResolveTimeInCurrentWindow += duration;
+  const auto elapsed = now - m_hoverTelemetryWindowStart;
+  if (elapsed >= std::chrono::seconds(1)) {
+    const double avgResolveMs =
+        m_hoverQueriesInCurrentWindow > 0
+            ? static_cast<double>(m_hoverTotalResolveTimeInCurrentWindow.count()) /
+                  static_cast<double>(m_hoverQueriesInCurrentWindow) /
+                  1000.0
+            : 0.0;
+    wxLogDebug("Viewer2DPanel hover queries/s: %d avg resolve: %.2f ms",
+               m_hoverQueriesInCurrentWindow, avgResolveMs);
+    m_hoverTelemetryWindowStart = now;
+    m_hoverQueriesInCurrentWindow = 0;
+    m_hoverTotalResolveTimeInCurrentWindow = std::chrono::microseconds{0};
+  }
+#else
+  (void)duration;
+#endif
 }
 
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
@@ -2397,6 +2446,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
       return;
     m_offsetX += dx / m_zoom;
     m_offsetY += dy / m_zoom;
+    m_viewMotionSinceLastHoverHitTest = true;
     m_lastMousePos = pos;
     m_draggedSincePress = true;
     MarkInteractionActivity();
@@ -2430,6 +2480,7 @@ void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
     steps = static_cast<float>(rotation) / static_cast<float>(deltaWheel);
   float factor = std::pow(1.1f, steps);
   m_zoom *= factor;
+  m_viewMotionSinceLastHoverHitTest = true;
   if (m_zoom < 0.1f)
     m_zoom = 0.1f;
   if (m_persistViewState)
