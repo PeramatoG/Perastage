@@ -825,11 +825,28 @@ void Viewer3DPanel::Render(const RenderSize& renderSize, bool highlightOnlyRefre
     const auto overlayStart = std::chrono::steady_clock::now();
     if (!highlightOnlyRefresh || !IsBaseCacheValidForCurrentFrame()) {
         const auto baseStart = std::chrono::steady_clock::now();
-        RenderBasePassToCache(renderSize);
+        const bool renderedToCache = RenderBasePassToCache(renderSize);
         const auto baseEnd = std::chrono::steady_clock::now();
         m_basePassTimeAccum +=
             std::chrono::duration_cast<std::chrono::microseconds>(baseEnd - baseStart);
         ++m_basePassSamplesInCurrentWindow;
+        if (!renderedToCache) {
+            glstate::ApplyKnownBaseOnscreenState(width, height);
+            const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
+            ApplyViewer3DClearColorForStyle(renderStyle);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            ApplyCameraMatrices(renderSize);
+            if (renderStyle == Viewer3DRenderStyle::Textured) {
+                DrawTexturedStyleBackgroundGradient(ComputeGridPlaneHorizonNdcY());
+                DrawTexturedGroundPlaneBackdrop();
+            }
+            m_controller.SetCameraMoving(m_cameraMoving);
+            m_controller.RenderScene(IsWireframeRenderStyle(renderStyle),
+                                     ToSceneRenderMode(renderStyle));
+            glFlush();
+            ValidateGlStateAfterRender("Viewer3DPanel::RenderFallback", width, height);
+            return;
+        }
     }
 
     BlitBaseCacheToDefaultFramebuffer(renderSize);
@@ -842,12 +859,12 @@ void Viewer3DPanel::Render(const RenderSize& renderSize, bool highlightOnlyRefre
     ValidateGlStateAfterRender("Viewer3DPanel::Render", width, height);
 }
 
-void Viewer3DPanel::RenderBasePassToCache(const RenderSize& renderSize)
+bool Viewer3DPanel::RenderBasePassToCache(const RenderSize& renderSize)
 {
     const int width = renderSize.width;
     const int height = renderSize.height;
     if (!EnsureBaseCacheFramebuffer(renderSize))
-        return;
+        return false;
 
     glBindFramebuffer(GL_FRAMEBUFFER, m_baseCacheFbo);
     glstate::ApplyKnownBaseOnscreenState(width, height);
@@ -880,6 +897,7 @@ void Viewer3DPanel::RenderBasePassToCache(const RenderSize& renderSize)
     m_baseCacheCameraRevision = m_cameraRevision;
     m_baseCacheHiddenLayersRevision = m_hiddenLayersRevision;
     m_baseCacheSceneRevision = m_sceneRevision;
+    return true;
 }
 
 void Viewer3DPanel::RenderHighlightOverlayPass(const RenderSize& renderSize)

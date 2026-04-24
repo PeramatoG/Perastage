@@ -1193,7 +1193,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
 void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
                                            const VisibleSet &visibleSet) {
   RenderFrameContext baseContext = context;
-  baseContext.suppressSelectionEmphasis = true;
+  baseContext.suppressSelectionEmphasis = !context.is2DViewer;
 
   const bool wireframe = baseContext.wireframe;
   const Viewer2DRenderMode mode = baseContext.mode;
@@ -1259,7 +1259,8 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
 
 void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
                                             const VisibleSet &visibleSet) {
-  SelectionOverlayPass::Render(*this, context, visibleSet);
+  if (!context.is2DViewer)
+    SelectionOverlayPass::Render(*this, context, visibleSet);
   if (context.drawGridAfterScene) {
     glDisable(GL_DEPTH_TEST);
     DrawGrid(context.gridStyle, context.gridR, context.gridG, context.gridB,

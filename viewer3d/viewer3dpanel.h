@@ -123,7 +123,7 @@ private:
 
     // Renders the full scene
     void Render(const RenderSize& renderSize, bool highlightOnlyRefresh);
-    void RenderBasePassToCache(const RenderSize& renderSize);
+    bool RenderBasePassToCache(const RenderSize& renderSize);
     void RenderHighlightOverlayPass(const RenderSize& renderSize);
     bool EnsureBaseCacheFramebuffer(const RenderSize& renderSize);
     void BlitBaseCacheToDefaultFramebuffer(const RenderSize& renderSize);
