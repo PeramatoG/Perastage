@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cctype>
 #include <cmath>
 #include <filesystem>
@@ -16,6 +17,56 @@
 namespace fs = std::filesystem;
 
 namespace {
+using RetryClock = std::chrono::steady_clock;
+
+RetryClock::time_point CurrentRetryTime() { return RetryClock::now(); }
+
+std::chrono::seconds ResolutionRetryDelayForAttempt(size_t attemptCount) {
+  static constexpr std::array<int, 4> kBackoffSeconds = {1, 5, 30, 120};
+  if (attemptCount == 0)
+    return std::chrono::seconds(0);
+  const size_t index = std::min(attemptCount, kBackoffSeconds.size()) - 1;
+  return std::chrono::seconds(kBackoffSeconds[index]);
+}
+
+bool HasValidResolvedPath(const ResourceSyncState::PathResolutionEntry &entry) {
+  return !entry.resolvedPath.empty() && fs::exists(fs::u8path(entry.resolvedPath));
+}
+
+bool ShouldSkipResolveAttempt(const ResourceSyncState::PathResolutionEntry &entry,
+                              RetryClock::time_point now) {
+  return entry.attempted && entry.attemptCount > 0 && now < entry.nextRetryTime;
+}
+
+void MarkResolutionSuccess(ResourceSyncState::PathResolutionEntry &entry,
+                           const std::string &resolvedPath,
+                           RetryClock::time_point now) {
+  entry.resolvedPath = resolvedPath;
+  entry.attempted = true;
+  entry.lastAttemptTime = now;
+  entry.attemptCount = 0;
+  entry.nextRetryTime = RetryClock::time_point{};
+}
+
+void MarkResolutionFailure(ResourceSyncState::PathResolutionEntry &entry,
+                           RetryClock::time_point now) {
+  entry.resolvedPath.clear();
+  entry.attempted = true;
+  entry.lastAttemptTime = now;
+  ++entry.attemptCount;
+  entry.nextRetryTime = now + ResolutionRetryDelayForAttempt(entry.attemptCount);
+}
+
+void InvalidateNegativeResolutionCache(
+    std::unordered_map<std::string, ResourceSyncState::PathResolutionEntry> &cache) {
+  for (auto it = cache.begin(); it != cache.end();) {
+    if (it->second.attemptCount > 0) {
+      it = cache.erase(it);
+      continue;
+    }
+    ++it;
+  }
+}
 
 bool MatchesFileNameWithExtensionTolerance(const fs::path &candidate,
                                            const std::string &fileName);
@@ -441,6 +492,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     state.failedGdtfAttemptCounts.clear();
     state.reportedGdtfFailureCounts.clear();
     state.reportedGdtfFailureReasons.clear();
+    InvalidateNegativeResolutionCache(state.resolvedGdtfSpecs);
+    InvalidateNegativeResolutionCache(state.resolvedModelRefs);
   }
   result.sceneSignature = state.lastSceneSignature;
   result.hasSceneSignature = state.hasSceneSignature;
@@ -452,11 +505,19 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     const std::string key = ResolveCacheKey(cleanSpec);
     auto [it, inserted] =
         state.resolvedGdtfSpecs.try_emplace(key, ResourceSyncState::PathResolutionEntry{});
-    if (!inserted && it->second.attempted && !it->second.resolvedPath.empty() &&
-        fs::exists(fs::u8path(it->second.resolvedPath)))
+    if (!inserted && HasValidResolvedPath(it->second))
       return;
-    it->second.resolvedPath = ResolveGdtfPath(basePath, cleanSpec, true);
-    it->second.attempted = true;
+
+    const RetryClock::time_point now = CurrentRetryTime();
+    if (ShouldSkipResolveAttempt(it->second, now))
+      return;
+
+    const std::string resolvedPath = ResolveGdtfPath(basePath, cleanSpec, true);
+    if (!resolvedPath.empty() && fs::exists(fs::u8path(resolvedPath))) {
+      MarkResolutionSuccess(it->second, resolvedPath, now);
+      return;
+    }
+    MarkResolutionFailure(it->second, now);
   };
 
   auto ensureModelResolvedPath = [&](const std::string &modelRef) {
@@ -466,11 +527,19 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     const std::string key = ResolveCacheKey(cleanModelRef);
     auto [it, inserted] =
         state.resolvedModelRefs.try_emplace(key, ResourceSyncState::PathResolutionEntry{});
-    if (!inserted && it->second.attempted && !it->second.resolvedPath.empty() &&
-        fs::exists(fs::u8path(it->second.resolvedPath)))
+    if (!inserted && HasValidResolvedPath(it->second))
       return;
-    it->second.resolvedPath = ResolveModelPath(basePath, cleanModelRef, true);
-    it->second.attempted = true;
+
+    const RetryClock::time_point now = CurrentRetryTime();
+    if (ShouldSkipResolveAttempt(it->second, now))
+      return;
+
+    const std::string resolvedPath = ResolveModelPath(basePath, cleanModelRef, true);
+    if (!resolvedPath.empty() && fs::exists(fs::u8path(resolvedPath))) {
+      MarkResolutionSuccess(it->second, resolvedPath, now);
+      return;
+    }
+    MarkResolutionFailure(it->second, now);
   };
 
   for (const auto *entry : visibleTrusses)

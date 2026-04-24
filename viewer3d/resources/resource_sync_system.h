@@ -7,6 +7,7 @@
 #include "truss.h"
 
 #include <functional>
+#include <chrono>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -31,6 +32,9 @@ struct ResourceSyncState {
   struct PathResolutionEntry {
     std::string resolvedPath;
     bool attempted = false;
+    std::chrono::steady_clock::time_point lastAttemptTime{};
+    size_t attemptCount = 0;
+    std::chrono::steady_clock::time_point nextRetryTime{};
   };
 
   std::unordered_map<std::string, Mesh> loadedMeshes;
