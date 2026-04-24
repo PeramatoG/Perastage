@@ -1,0 +1,19 @@
+name: Windows Installer Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Print test message
+        shell: pwsh
+        run: |
+          Write-Host "GitHub Actions is working for Perastage."
+          Write-Host "Current branch: $env:GITHUB_REF_NAME"
+
