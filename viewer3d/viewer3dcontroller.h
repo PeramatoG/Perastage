@@ -126,6 +126,9 @@ public:
                              wxString &outLabel, wxPoint &outPos,
                              std::string *outUuid = nullptr,
                              bool confirmDepth = false);
+  bool GetPickUuidAt(int mouseX, int mouseY, int width, int height,
+                     const std::unordered_set<std::string> &hiddenLayers,
+                     std::string &outUuid);
 
   const VisibleSet &
   GetVisibleSet(const ViewFrustumSnapshot &frustum,

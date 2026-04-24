@@ -193,7 +193,10 @@ private:
   void OnInteractionPauseTimer(wxTimerEvent &event);
   void OnHoverHitTestTimer(wxTimerEvent &event);
   void ScheduleHoverHitTest(const wxPoint &screenPos, bool forceNow = false);
+  void ScheduleHoverLabelRefresh(const wxPoint &screenPos);
+  bool TryUpdateHoverHighlightFast(const wxPoint &screenPos);
   void RunHoverHitTest(const wxPoint &screenPos);
+  bool ApplyHoverUuid(const std::string &newUuid, bool requestRepaint);
   void ClearHoverState(bool requestRepaint);
   bool IsExpensiveVisualInteractionActive() const;
 
@@ -245,6 +248,8 @@ private:
   wxTimer m_hoverHitTestTimer;
   wxPoint m_pendingHoverScreenPos;
   wxPoint m_lastHoverQueryScreenPos;
+  wxPoint m_lastFastHoverScreenPos;
+  bool m_fastHoverHasPos = false;
   bool m_hoverQueryHasPos = false;
   bool m_hoverHitTestPending = false;
   std::chrono::steady_clock::time_point m_lastHoverHitTestTime{};
