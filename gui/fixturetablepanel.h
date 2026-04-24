@@ -72,6 +72,7 @@ public:
     static SceneDataUpdateType UpdateTypeForColumn(int column);
     static SceneDataUpdateType CombineUpdateTypes(SceneDataUpdateType lhs,
                                                   SceneDataUpdateType rhs);
+    static bool RequiresFullViewerSceneUpdate(SceneDataUpdateType updateType);
 
     void UpdateSceneData(
         bool logChanges = true,
