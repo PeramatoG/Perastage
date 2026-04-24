@@ -384,6 +384,45 @@ void ApplyFixtureSelectionToUi(const std::vector<std::string>& selection,
     }
 }
 
+Viewer3DPanel::HoverTargetTable ResolveActiveHoverTargetTable()
+{
+    if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
+        return Viewer3DPanel::HoverTargetTable::Fixtures;
+    if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+        return Viewer3DPanel::HoverTargetTable::Trusses;
+    if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
+        return Viewer3DPanel::HoverTargetTable::SceneObjects;
+    return Viewer3DPanel::HoverTargetTable::None;
+}
+
+Viewer3DController::HoverPickTarget ToHoverPickTarget(Viewer3DPanel::HoverTargetTable target)
+{
+    switch (target) {
+    case Viewer3DPanel::HoverTargetTable::Fixtures:
+        return Viewer3DController::HoverPickTarget::Fixture;
+    case Viewer3DPanel::HoverTargetTable::Trusses:
+        return Viewer3DController::HoverPickTarget::Truss;
+    case Viewer3DPanel::HoverTargetTable::SceneObjects:
+        return Viewer3DController::HoverPickTarget::SceneObject;
+    case Viewer3DPanel::HoverTargetTable::None:
+    default:
+        return Viewer3DController::HoverPickTarget::Fixture;
+    }
+}
+
+bool QueryHoverUuid(Viewer3DController& controller,
+                    Viewer3DPanel::HoverTargetTable target,
+                    int mouseX, int mouseY, int width, int height,
+                    std::string& outUuid,
+                    bool confirmDepth = false)
+{
+    if (target == Viewer3DPanel::HoverTargetTable::None)
+        return false;
+    return controller.GetHoverUuidAt(mouseX, mouseY, width, height,
+                                     ToHoverPickTarget(target), outUuid,
+                                     confirmDepth);
+}
+
 struct GlCanvasSelection {
     const int* attribs = nullptr;
 };
@@ -585,13 +624,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_lastHiddenLayersFingerprint = hiddenLayersFingerprint;
     }
 
-    HoverTargetTable activeTable = HoverTargetTable::None;
-    if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
-        activeTable = HoverTargetTable::Fixtures;
-    else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
-        activeTable = HoverTargetTable::Trusses;
-    else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
-        activeTable = HoverTargetTable::SceneObjects;
+    const HoverTargetTable activeTable = ResolveActiveHoverTargetTable();
 
     if (activeTable != m_lastHoverTargetTable) {
         m_forceHoverQuery = true;
@@ -621,37 +654,41 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         activeTable != HoverTargetTable::None &&
         (m_forceHoverQuery || hoverStateChanged);
 
-    if (shouldRunHoverQuery && activeTable == HoverTargetTable::Fixtures) {
-        found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y,
-            w, h, newLabel, newPos, &newUuid);
+    if (shouldRunHoverQuery) {
+        found = QueryHoverUuid(m_controller, activeTable, pickPos.x, pickPos.y,
+                               w, h, newUuid);
         hoverQueryRan = true;
         if (found) {
-            if (TrussTablePanel::Instance())
-                TrussTablePanel::Instance()->HighlightTruss(std::string());
-            if (SceneObjectTablePanel::Instance())
-                SceneObjectTablePanel::Instance()->HighlightObject(std::string());
-        }
-    }
-    else if (shouldRunHoverQuery && activeTable == HoverTargetTable::Trusses) {
-        found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y,
-            w, h, newLabel, newPos, &newUuid);
-        hoverQueryRan = true;
-        if (found) {
-            if (FixtureTablePanel::Instance())
+            if (activeTable != HoverTargetTable::Fixtures &&
+                FixtureTablePanel::Instance()) {
                 FixtureTablePanel::Instance()->HighlightFixture(std::string());
-            if (SceneObjectTablePanel::Instance())
-                SceneObjectTablePanel::Instance()->HighlightObject(std::string());
-        }
-    }
-    else if (shouldRunHoverQuery && activeTable == HoverTargetTable::SceneObjects) {
-        found = m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y,
-            w, h, newLabel, newPos, &newUuid);
-        hoverQueryRan = true;
-        if (found) {
-            if (FixtureTablePanel::Instance())
-                FixtureTablePanel::Instance()->HighlightFixture(std::string());
-            if (TrussTablePanel::Instance())
+            }
+            if (activeTable != HoverTargetTable::Trusses &&
+                TrussTablePanel::Instance()) {
                 TrussTablePanel::Instance()->HighlightTruss(std::string());
+            }
+            if (activeTable != HoverTargetTable::SceneObjects &&
+                SceneObjectTablePanel::Instance()) {
+                SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+            }
+            if (!skipLabelWork) {
+                wxString tooltipLabel;
+                wxPoint tooltipPos;
+                if (activeTable == HoverTargetTable::Fixtures) {
+                    m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y,
+                        w, h, tooltipLabel, tooltipPos, nullptr);
+                } else if (activeTable == HoverTargetTable::Trusses) {
+                    m_controller.GetTrussLabelAt(pickPos.x, pickPos.y,
+                        w, h, tooltipLabel, tooltipPos, nullptr);
+                } else if (activeTable == HoverTargetTable::SceneObjects) {
+                    m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y,
+                        w, h, tooltipLabel, tooltipPos, nullptr);
+                }
+                newLabel = tooltipLabel;
+                newPos = tooltipPos;
+            } else {
+                newLabel.clear();
+            }
         }
     }
 
@@ -971,24 +1008,19 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         if (!renderSize.IsValid())
             return;
         SetCurrent(*m_glContext);
-        wxString label;
-        wxPoint pos;
         std::string uuid;
         const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
-        bool found = false;
-        if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
-            found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, label, pos, &uuid);
-        else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
-            found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h, label, pos, &uuid);
-        else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
-            found = m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h, label, pos, &uuid);
+        const HoverTargetTable activeTable = ResolveActiveHoverTargetTable();
+        const bool found = QueryHoverUuid(m_controller, activeTable, pickPos.x,
+                                          pickPos.y, w, h, uuid, true);
 
         ConfigManager& cfg = ConfigManager::Get();
         if (found)
         {
             bool additive = event.ShiftDown() || event.ControlDown();
             std::vector<std::string> selection;
-            if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
+            if (activeTable == HoverTargetTable::Fixtures &&
+                FixtureTablePanel::Instance())
             {
                 if (additive)
                     selection = FixtureTablePanel::Instance()->GetSelectedUuids();
@@ -1009,7 +1041,8 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                 SetSelectedFixtures(selection);
                 FixtureTablePanel::Instance()->SelectByUuid(selection, false);
             }
-            else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+            else if (activeTable == HoverTargetTable::Trusses &&
+                     TrussTablePanel::Instance())
             {
                 if (additive)
                     selection = TrussTablePanel::Instance()->GetSelectedUuids();
@@ -1030,7 +1063,8 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                 SetSelectedFixtures(selection);
                 TrussTablePanel::Instance()->SelectByUuid(selection, false);
             }
-            else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
+            else if (activeTable == HoverTargetTable::SceneObjects &&
+                     SceneObjectTablePanel::Instance())
             {
                 if (additive)
                     selection = SceneObjectTablePanel::Instance()->GetSelectedUuids();
@@ -1109,12 +1143,10 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     bool showSelectionSubmenus = false;
     if (fixturePageActive && !scene.fixtures.empty()) {
         SetCurrent(*m_glContext);
-        wxString label;
-        wxPoint pos;
         std::string hitUuid;
         const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
-        if (!m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, label, pos,
-                                            &hitUuid)) {
+        if (!QueryHoverUuid(m_controller, HoverTargetTable::Fixtures, pickPos.x,
+                            pickPos.y, w, h, hitUuid)) {
             for (const auto& [uuid, fixture] : scene.fixtures) {
                 if (!fixture.typeName.empty())
                     typeNames.insert(fixture.typeName);
@@ -1543,8 +1575,6 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
     if (!renderSize.IsValid())
         return;
     SetCurrent(*m_glContext);
-    wxString label;
-    wxPoint pos;
     std::string uuid;
     const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
     const bool cameraWasMoving = m_cameraMoving;
@@ -1556,13 +1586,13 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
         SceneObjectTablePanel::Instance()->IsActivePage();
 
     const bool foundSceneObject = sceneObjectsActive &&
-        m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h,
-                                           label, pos, &uuid);
+        QueryHoverUuid(m_controller, HoverTargetTable::SceneObjects,
+                       pickPos.x, pickPos.y, w, h, uuid);
 
     bool found = foundSceneObject;
     if (!found)
-        found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h,
-                                               label, pos, &uuid);
+        found = QueryHoverUuid(m_controller, HoverTargetTable::Fixtures,
+                               pickPos.x, pickPos.y, w, h, uuid);
 
     if (cameraWasMoving)
         m_controller.SetCameraMoving(true);

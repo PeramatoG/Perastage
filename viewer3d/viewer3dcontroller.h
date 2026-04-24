@@ -73,6 +73,7 @@ public:
   using VisibleSet = Viewer3DVisibleSet;
   using ViewFrustumSnapshot = Viewer3DViewFrustumSnapshot;
   using BoundingBox = Viewer3DBoundingBox;
+  enum class HoverPickTarget { Fixture, Truss, SceneObject };
 
   Viewer3DController();
   ~Viewer3DController();
@@ -126,6 +127,9 @@ public:
                              wxString &outLabel, wxPoint &outPos,
                              std::string *outUuid = nullptr,
                              bool confirmDepth = false);
+  bool GetHoverUuidAt(int mouseX, int mouseY, int width, int height,
+                      HoverPickTarget target, std::string &outUuid,
+                      bool confirmDepth = false);
   bool GetPickUuidAt(int mouseX, int mouseY, int width, int height,
                      const std::unordered_set<std::string> &hiddenLayers,
                      std::string &outUuid);

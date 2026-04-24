@@ -305,6 +305,73 @@ void CacheProjectionSnapshot(const ProjectionSnapshot &projection,
   cache.visibleSet = nullptr;
 }
 
+bool IsUuidValidForTarget(const std::string &uuid,
+                          SelectionSystem::HoverPickTarget target,
+                          const std::unordered_set<std::string> &hiddenLayers,
+                          const ISelectionContext &controller,
+                          const ISelectionContext::BoundingBox **outBounds) {
+  switch (target) {
+  case SelectionSystem::HoverPickTarget::Fixture: {
+    const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+    auto fixtureIt = fixtures.find(uuid);
+    if (fixtureIt == fixtures.end() ||
+        !IsLayerVisibleCached(hiddenLayers, fixtureIt->second.layer)) {
+      return false;
+    }
+    const ISelectionContext::BoundingBox *bbPtr =
+        controller.FindFixtureBounds(uuid);
+    if (!bbPtr)
+      return false;
+    if (outBounds)
+      *outBounds = bbPtr;
+    return true;
+  }
+  case SelectionSystem::HoverPickTarget::Truss: {
+    const auto &trusses = SceneDataManager::Instance().GetTrusses();
+    auto trussIt = trusses.find(uuid);
+    if (trussIt == trusses.end() ||
+        !IsLayerVisibleCached(hiddenLayers, trussIt->second.layer)) {
+      return false;
+    }
+    const ISelectionContext::BoundingBox *bbPtr = controller.FindTrussBounds(uuid);
+    if (!bbPtr)
+      return false;
+    if (outBounds)
+      *outBounds = bbPtr;
+    return true;
+  }
+  case SelectionSystem::HoverPickTarget::SceneObject: {
+    const auto &objects = SceneDataManager::Instance().GetSceneObjects();
+    auto objectIt = objects.find(uuid);
+    if (objectIt == objects.end() ||
+        !IsLayerVisibleCached(hiddenLayers, objectIt->second.layer)) {
+      return false;
+    }
+    const ISelectionContext::BoundingBox *bbPtr = controller.FindObjectBounds(uuid);
+    if (!bbPtr)
+      return false;
+    if (outBounds)
+      *outBounds = bbPtr;
+    return true;
+  }
+  }
+  return false;
+}
+
+const std::vector<std::string> &VisibleUuidsForTarget(
+    const ISelectionContext::VisibleSet &visibleSet,
+    SelectionSystem::HoverPickTarget target) {
+  switch (target) {
+  case SelectionSystem::HoverPickTarget::Fixture:
+    return visibleSet.fixtureUuids;
+  case SelectionSystem::HoverPickTarget::Truss:
+    return visibleSet.trussUuids;
+  case SelectionSystem::HoverPickTarget::SceneObject:
+    return visibleSet.objectUuids;
+  }
+  return visibleSet.fixtureUuids;
+}
+
 void LogQueryMetrics(const char *label, const SelectionSystem::QueryMetrics &metrics,
                      const SelectionSystem::QueryTelemetry &telemetry,
                      int queryCounter) {
@@ -335,6 +402,133 @@ void SelectionSystem::SetHighlightUuid(const std::string &uuid) {
 
 void SelectionSystem::SetSelectedUuids(const std::vector<std::string> &uuids) {
   m_controller.ReplaceSelectedUuids(uuids);
+}
+
+bool SelectionSystem::GetHoverUuidAt(int mouseX, int mouseY, int width,
+                                     int height, HoverPickTarget target,
+                                     std::string &outUuid,
+                                     bool confirmDepth) {
+  const auto queryStart = std::chrono::steady_clock::now();
+  ConfigManager &cfg = ConfigManager::Get();
+  if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
+    return false;
+
+  const bool cameraMoving = m_controller.IsCameraMoving();
+  const bool useIdBuffer = IsIdBufferPickingEnabled(cfg);
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  QueryMetrics metrics;
+  std::string bestUuid;
+
+  if (useIdBuffer) {
+    std::string pickedUuid;
+    if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
+                                    pickedUuid) &&
+        IsUuidValidForTarget(pickedUuid, target, hiddenLayers, m_controller,
+                             nullptr)) {
+      metrics.usedIdPath = true;
+      if (cameraMoving || !IsAmbiguousDepthConfirmEnabled(cfg) || !confirmDepth) {
+        outUuid = pickedUuid;
+        metrics.total = std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now() - queryStart);
+        LogQueryMetrics("hover_uuid(id)", metrics, m_queryTelemetry,
+                        ++m_queryCounter);
+        return true;
+      }
+    }
+  }
+
+  const auto projectionStart = std::chrono::steady_clock::now();
+  const ProjectionSnapshot projection = CaptureProjectionSnapshot();
+  const bool projectionChanged = !ProjectionMatchesCache(projection, m_queryCache);
+  if (projectionChanged) {
+    CacheProjectionSnapshot(projection, m_queryCache);
+    m_queryCache.hiddenLayers.clear();
+  }
+  metrics.reprojected = projectionChanged;
+  metrics.projection = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - projectionStart);
+
+  Ray mouseRay;
+  if (!BuildMouseRay(mouseX, mouseY, height, projection, mouseRay))
+    return false;
+
+  if (projectionChanged || hiddenLayers != m_queryCache.hiddenLayers) {
+    m_queryCache.hiddenLayers = hiddenLayers;
+    m_queryCache.visibleSet = nullptr;
+  }
+
+  const auto depthReadStart = std::chrono::steady_clock::now();
+  bool hasDepthWorldPoint = false;
+  std::array<double, 3> depthWorldPoint{};
+  const bool shouldReadDepth = confirmDepth &&
+                               (projectionChanged || m_queryCache.depthMouseX != mouseX ||
+                                m_queryCache.depthMouseY != mouseY ||
+                                m_queryCache.depthHeight != height);
+  if (shouldReadDepth) {
+    m_queryCache.hasDepthWorldPoint =
+        ReadWorldPointFromDepth(mouseX, mouseY, height, projection,
+                                m_queryCache.depthWorldPoint);
+    m_queryCache.depthMouseX = mouseX;
+    m_queryCache.depthMouseY = mouseY;
+    m_queryCache.depthHeight = height;
+  }
+  if (confirmDepth) {
+    hasDepthWorldPoint = m_queryCache.hasDepthWorldPoint;
+    depthWorldPoint = m_queryCache.depthWorldPoint;
+  }
+  metrics.depthRead = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - depthReadStart);
+
+  if (!m_queryCache.visibleSet) {
+    m_queryCache.visibleSet =
+        &m_controller.GetVisibleSet(m_queryCache.frustum, m_queryCache.hiddenLayers,
+                                    true, 0.0f);
+  }
+  const ISelectionContext::VisibleSet &visibleSet = *m_queryCache.visibleSet;
+  const std::vector<std::string> &candidateUuids =
+      VisibleUuidsForTarget(visibleSet, target);
+
+  double bestHitDistance = DBL_MAX;
+  bool found = false;
+  const auto candidateLoopStart = std::chrono::steady_clock::now();
+  for (const auto &uuid : candidateUuids) {
+    const ISelectionContext::BoundingBox *bbPtr = nullptr;
+    if (!IsUuidValidForTarget(uuid, target, hiddenLayers, m_controller, &bbPtr))
+      continue;
+
+    const bool depthContainsPoint =
+        hasDepthWorldPoint && PointInAabb(depthWorldPoint, *bbPtr);
+    if (hasDepthWorldPoint && !depthContainsPoint)
+      continue;
+
+    double hitDistance = DBL_MAX;
+    if (!IntersectRayWithAabb(mouseRay, *bbPtr, hitDistance))
+      continue;
+
+    const double candidateScore = hasDepthWorldPoint
+                                      ? DistanceSquaredToAabbCenter(depthWorldPoint,
+                                                                    *bbPtr)
+                                      : hitDistance;
+    if (candidateScore < bestHitDistance) {
+      bestHitDistance = candidateScore;
+      bestUuid = uuid;
+      found = true;
+    }
+  }
+  metrics.candidateLoop = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - candidateLoopStart);
+  metrics.usedFallbackPath = true;
+  metrics.total = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - queryStart);
+  LogQueryMetrics("hover_uuid(fallback)", metrics, m_queryTelemetry,
+                  ++m_queryCounter);
+
+  if (found) {
+    outUuid = bestUuid;
+    return true;
+  }
+  outUuid.clear();
+  return false;
 }
 
 bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,

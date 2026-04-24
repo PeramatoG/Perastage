@@ -1825,6 +1825,28 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
                                                          outUuid, confirmDepth);
 }
 
+bool Viewer3DController::GetHoverUuidAt(int mouseX, int mouseY, int width,
+                                        int height, HoverPickTarget target,
+                                        std::string &outUuid,
+                                        bool confirmDepth) {
+  SelectionSystem::HoverPickTarget selectionTarget =
+      SelectionSystem::HoverPickTarget::Fixture;
+  switch (target) {
+  case HoverPickTarget::Fixture:
+    selectionTarget = SelectionSystem::HoverPickTarget::Fixture;
+    break;
+  case HoverPickTarget::Truss:
+    selectionTarget = SelectionSystem::HoverPickTarget::Truss;
+    break;
+  case HoverPickTarget::SceneObject:
+    selectionTarget = SelectionSystem::HoverPickTarget::SceneObject;
+    break;
+  }
+  return m_impl->selectionSystem->GetHoverUuidAt(mouseX, mouseY, width, height,
+                                                  selectionTarget, outUuid,
+                                                  confirmDepth);
+}
+
 bool Viewer3DController::GetPickUuidAt(
     int mouseX, int mouseY, int width, int height,
     const std::unordered_set<std::string> &hiddenLayers, std::string &outUuid) {

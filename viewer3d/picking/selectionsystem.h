@@ -11,6 +11,8 @@
 
 class SelectionSystem {
 public:
+  enum class HoverPickTarget { Fixture, Truss, SceneObject };
+
   explicit SelectionSystem(ISelectionContext &controller) : m_controller(controller) {}
 
   void SetHighlightUuid(const std::string &uuid);
@@ -27,6 +29,9 @@ public:
                              wxString &outLabel, wxPoint &outPos,
                              std::string *outUuid = nullptr,
                              bool confirmDepth = false);
+  bool GetHoverUuidAt(int mouseX, int mouseY, int width, int height,
+                      HoverPickTarget target, std::string &outUuid,
+                      bool confirmDepth = false);
   std::vector<std::string> GetFixturesInScreenRect(int x1, int y1, int x2,
                                                    int y2, int width,
                                                    int height) const;
