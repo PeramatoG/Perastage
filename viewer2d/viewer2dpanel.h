@@ -31,6 +31,7 @@
 #include <array>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -152,6 +153,14 @@ private:
   enum class DragMode { None, View, Selection, RectSelection };
   enum class DragAxis { None, Horizontal, Vertical };
   enum class DragTarget { None, Fixtures, Trusses, Supports, SceneObjects };
+  enum class PickQueryKind {
+    None,
+    FixtureLabel,
+    TrussLabel,
+    HoistLabel,
+    SceneObjectLabel,
+    PickUuid
+  };
 
   void InitGL();
   void Render();
@@ -199,6 +208,23 @@ private:
   void ScheduleHoverLabelRefresh(const wxPoint &screenPos);
   bool TryUpdateHoverHighlightFast(const wxPoint &screenPos);
   void RunHoverHitTest(const wxPoint &screenPos);
+  bool TryResolvePickUuidWithCache(const wxPoint &framebufferPos, int viewportWidth,
+                                   int viewportHeight, size_t hiddenLayersHash,
+                                   std::string &uuidOut);
+  bool TryResolvePickLabelWithCache(PickQueryKind queryKind,
+                                    const wxPoint &framebufferPos,
+                                    int viewportWidth, int viewportHeight,
+                                    size_t hiddenLayersHash, bool clickSelection,
+                                    std::string &uuidOut);
+  void StorePickCache(PickQueryKind queryKind, const wxPoint &framebufferPos,
+                      int viewportWidth, int viewportHeight,
+                      size_t hiddenLayersHash, bool clickSelection, bool found,
+                      const std::string &uuid);
+  void InvalidatePickCache();
+  size_t BuildHiddenLayersHash();
+  bool IsPickCacheReusable(PickQueryKind queryKind, const wxPoint &framebufferPos,
+                           int viewportWidth, int viewportHeight,
+                           size_t hiddenLayersHash, bool clickSelection) const;
   bool ApplyHoverUuid(const std::string &newUuid, bool requestRepaint);
   void ClearHoverState(bool requestRepaint);
   bool IsExpensiveVisualInteractionActive() const;
@@ -223,6 +249,22 @@ private:
   static constexpr int kHoverMoveThresholdPx = 3;
   static constexpr int kHoverIdleMoveThresholdPx = 0;
   static constexpr std::chrono::milliseconds kPauseDelay{200};
+  static constexpr int kPickCacheReuseDistancePx = 3;
+
+  struct PickCacheEntry {
+    bool valid = false;
+    PickQueryKind queryKind = PickQueryKind::None;
+    wxPoint framebufferPos;
+    int viewportWidth = 0;
+    int viewportHeight = 0;
+    Viewer2DView view = Viewer2DView::Top;
+    size_t hiddenLayersHash = 0;
+    bool clickSelection = false;
+    uint64_t sceneGeneration = 0;
+    std::chrono::steady_clock::time_point timestamp{};
+    bool found = false;
+    std::string uuid;
+  };
 
   DragMode m_dragMode = DragMode::None;
   DragAxis m_dragAxis = DragAxis::None;
@@ -259,6 +301,8 @@ private:
   bool m_hoverHitTestPending = false;
   std::chrono::steady_clock::time_point m_lastHoverHitTestTime{};
   bool m_viewMotionSinceLastHoverHitTest = false;
+  PickCacheEntry m_pickCache;
+  uint64_t m_pickCacheSceneGeneration = 0;
   bool m_enableSelection = true;
   std::vector<std::string> m_lastAppliedSelectionUuids;
   std::string m_hoverUuid;
