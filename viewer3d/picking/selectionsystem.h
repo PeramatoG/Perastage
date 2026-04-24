@@ -55,13 +55,32 @@ public:
   };
 
   struct QueryMetrics {
+    std::chrono::microseconds total{0};
     std::chrono::microseconds projection{0};
     std::chrono::microseconds depthRead{0};
     std::chrono::microseconds candidateLoop{0};
+    bool usedIdPath = false;
+    bool usedFallbackPath = false;
+    bool reprojected = false;
+  };
+
+  struct QueryTelemetry {
+    int totalQueries = 0;
+    int idPathQueries = 0;
+    int fallbackQueries = 0;
+    int reprojections = 0;
+    int repaintEstimates = 0;
+    bool hadFixtureResult = false;
+    bool hadTrussResult = false;
+    bool hadObjectResult = false;
+    std::string lastFixtureUuid;
+    std::string lastTrussUuid;
+    std::string lastObjectUuid;
   };
 
   mutable QueryCache m_queryCache;
   mutable int m_queryCounter = 0;
+  mutable QueryTelemetry m_queryTelemetry;
 
 private:
   ISelectionContext &m_controller;
