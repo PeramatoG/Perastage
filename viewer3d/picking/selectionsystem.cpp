@@ -349,11 +349,12 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
           bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
           wxString label;
           if (showName)
-            label += wxString::FromUTF8(f.name);
-          if (showId && !f.fixtureId.empty()) {
+            label = f.instanceName.empty() ? wxString::FromUTF8(pickedUuid)
+                                           : wxString::FromUTF8(f.instanceName);
+          if (showId) {
             if (!label.empty())
               label += "\n";
-            label += wxString::FromUTF8(f.fixtureId);
+            label += "ID: " + wxString::Format("%d", f.fixtureId);
           }
           if (showDmx && !f.address.empty()) {
             if (!label.empty())
