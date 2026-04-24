@@ -128,6 +128,23 @@ void HashCombine(size_t& seed, const T& value) {
     seed ^= std::hash<T>{}(value) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
 }
 
+size_t ComputeCameraFingerprint(const Viewer3DCamera& camera) {
+    size_t cameraFingerprint = 0;
+    HashCombine(cameraFingerprint, camera.GetYaw());
+    HashCombine(cameraFingerprint, camera.GetPitch());
+    HashCombine(cameraFingerprint, camera.GetDistance());
+    HashCombine(cameraFingerprint, camera.GetTargetX());
+    HashCombine(cameraFingerprint, camera.GetTargetY());
+    HashCombine(cameraFingerprint, camera.GetTargetZ());
+    HashCombine(cameraFingerprint, camera.targetYaw);
+    HashCombine(cameraFingerprint, camera.targetPitch);
+    HashCombine(cameraFingerprint, camera.targetDistance);
+    HashCombine(cameraFingerprint, camera.targetTargetX);
+    HashCombine(cameraFingerprint, camera.targetTargetY);
+    HashCombine(cameraFingerprint, camera.targetTargetZ);
+    return cameraFingerprint;
+}
+
 wxPoint ToFramebufferPoint(wxWindow* window, const wxPoint& logicalPoint) {
     if (window == nullptr)
         return logicalPoint;
@@ -550,12 +567,21 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     InitGL();
 
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
+    const bool highlightOnlyRefresh =
+        m_highlightRefreshPending &&
+        !m_sceneSyncPending &&
+        !m_selectionRefreshPending &&
+        !m_cameraMoving &&
+        !m_isInteracting &&
+        !m_mouseMoved &&
+        !m_forceHoverQuery;
+
     m_controller.ResetDebugPerFrameCounters();
     m_controller.UpdateFrameStateLightweight();
     if (m_sceneSyncPending) {
         m_controller.UpdateResourcesIfDirty();
         m_sceneSyncPending = false;
-    } else if (!pauseHeavyTasks && !m_cameraMoving) {
+    } else if (!highlightOnlyRefresh && !pauseHeavyTasks && !m_cameraMoving) {
         m_controller.UpdateResourcesIfDirty();
     }
 
@@ -589,6 +615,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     wxString newLabel;
     wxPoint newPos;
     std::string newUuid;
+    const std::string oldHoverUuid = m_hoverUuid;
+    const bool oldHasHover = m_hasHover;
     bool found = false;
     bool hoverQueryRan = false;
 
@@ -597,19 +625,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     const bool skipLabelWork = m_cameraMoving &&
         (IsFastInteractionModeEnabled() || skipLabelsWhenMoving);
 
-    size_t cameraFingerprint = 0;
-    HashCombine(cameraFingerprint, m_camera.GetYaw());
-    HashCombine(cameraFingerprint, m_camera.GetPitch());
-    HashCombine(cameraFingerprint, m_camera.GetDistance());
-    HashCombine(cameraFingerprint, m_camera.GetTargetX());
-    HashCombine(cameraFingerprint, m_camera.GetTargetY());
-    HashCombine(cameraFingerprint, m_camera.GetTargetZ());
-    HashCombine(cameraFingerprint, m_camera.targetYaw);
-    HashCombine(cameraFingerprint, m_camera.targetPitch);
-    HashCombine(cameraFingerprint, m_camera.targetDistance);
-    HashCombine(cameraFingerprint, m_camera.targetTargetX);
-    HashCombine(cameraFingerprint, m_camera.targetTargetY);
-    HashCombine(cameraFingerprint, m_camera.targetTargetZ);
+    const size_t cameraFingerprint = ComputeCameraFingerprint(m_camera);
     if (cameraFingerprint != m_lastCameraFingerprint) {
         ++m_cameraRevision;
         m_lastCameraFingerprint = cameraFingerprint;
@@ -659,18 +675,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                                w, h, newUuid);
         hoverQueryRan = true;
         if (found) {
-            if (activeTable != HoverTargetTable::Fixtures &&
-                FixtureTablePanel::Instance()) {
-                FixtureTablePanel::Instance()->HighlightFixture(std::string());
-            }
-            if (activeTable != HoverTargetTable::Trusses &&
-                TrussTablePanel::Instance()) {
-                TrussTablePanel::Instance()->HighlightTruss(std::string());
-            }
-            if (activeTable != HoverTargetTable::SceneObjects &&
-                SceneObjectTablePanel::Instance()) {
-                SceneObjectTablePanel::Instance()->HighlightObject(std::string());
-            }
             if (!skipLabelWork) {
                 wxString tooltipLabel;
                 wxPoint tooltipPos;
@@ -701,38 +705,51 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     if (hoverQueryRan && found) {
         m_hasHover = true;
-        m_hoverText = newLabel;
-        m_hoverPos = newPos;
         m_hoverUuid = newUuid;
-        m_controller.SetHighlightUuid(m_hoverUuid);
-        if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
-            FixtureTablePanel::Instance()->HighlightFixture(std::string(m_hoverUuid));
-        else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
-            TrussTablePanel::Instance()->HighlightTruss(std::string(m_hoverUuid));
-        else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
-            SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
+        if (!skipLabelWork) {
+            m_hoverText = newLabel;
+            m_hoverPos = newPos;
+        } else {
+            m_hoverText.clear();
+        }
     }
     else if (hoverQueryRan && !skipLabelWork) {
         m_hasHover = false;
         m_hoverUuid.clear();
         m_hoverText.clear();
-        m_controller.SetHighlightUuid("");
-        if (FixtureTablePanel::Instance())
-            FixtureTablePanel::Instance()->HighlightFixture(std::string());
-        if (TrussTablePanel::Instance())
-            TrussTablePanel::Instance()->HighlightTruss(std::string());
-        if (SceneObjectTablePanel::Instance())
-            SceneObjectTablePanel::Instance()->HighlightObject(std::string());
     } else if (skipLabelWork) {
         m_hasHover = false;
         m_hoverUuid.clear();
         m_hoverText.clear();
-        m_controller.SetHighlightUuid("");
+    }
+
+    if (oldHoverUuid != m_hoverUuid || oldHasHover != m_hasHover) {
+        ++m_highlightRevision;
+        m_highlightRefreshPending = true;
+        m_controller.SetHighlightUuid(m_hoverUuid);
+        if (FixtureTablePanel::Instance()) {
+            FixtureTablePanel::Instance()->HighlightFixture(
+                FixtureTablePanel::Instance()->IsActivePage()
+                    ? std::string(m_hoverUuid)
+                    : std::string());
+        }
+        if (TrussTablePanel::Instance()) {
+            TrussTablePanel::Instance()->HighlightTruss(
+                TrussTablePanel::Instance()->IsActivePage()
+                    ? std::string(m_hoverUuid)
+                    : std::string());
+        }
+        if (SceneObjectTablePanel::Instance()) {
+            SceneObjectTablePanel::Instance()->HighlightObject(
+                SceneObjectTablePanel::Instance()->IsActivePage()
+                    ? std::string(m_hoverUuid)
+                    : std::string());
+        }
     }
     m_mouseMoved = false;
 
     // Draw labels before swapping buffers to avoid losing them.
-    if (!pauseHeavyTasks && !skipLabelWork) {
+    if (!highlightOnlyRefresh && !pauseHeavyTasks && !skipLabelWork) {
         if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
             m_controller.DrawFixtureLabels(w, h);
         else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
@@ -743,6 +760,29 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     if (m_rectSelecting)
         DrawSelectionRectangle(w, h);
+
+    if (highlightOnlyRefresh)
+        ++m_highlightRefreshesInCurrentWindow;
+    else
+        ++m_fullRefreshesInCurrentWindow;
+
+    const auto telemetryNow = std::chrono::steady_clock::now();
+    if (m_refreshTelemetryWindowStart.time_since_epoch().count() == 0)
+        m_refreshTelemetryWindowStart = telemetryNow;
+    const auto telemetryElapsed = telemetryNow - m_refreshTelemetryWindowStart;
+    if (telemetryElapsed >= std::chrono::seconds(1)) {
+        wxLogDebug("Viewer3DPanel refreshes/s full=%d highlight=%d",
+                   m_fullRefreshesInCurrentWindow,
+                   m_highlightRefreshesInCurrentWindow);
+        m_refreshTelemetryWindowStart = telemetryNow;
+        m_fullRefreshesInCurrentWindow = 0;
+        m_highlightRefreshesInCurrentWindow = 0;
+    }
+
+    if (highlightOnlyRefresh)
+        m_highlightRefreshPending = false;
+    if (m_selectionRefreshPending)
+        m_selectionRefreshPending = false;
 
     SwapBuffers(); // Swap after drawing labels to ensure they are visible
 }
@@ -1759,6 +1799,8 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
     m_mouseInside = false;
     m_hasHover = false;
     m_hoverUuid.clear();
+    ++m_highlightRevision;
+    m_highlightRefreshPending = true;
     m_controller.SetHighlightUuid("");
     if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -1790,6 +1832,8 @@ void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string>& uuids)
     if (uuids == m_lastAppliedSelectionUuids)
         return;
     m_lastAppliedSelectionUuids = uuids;
+    ++m_selectionRevision;
+    m_selectionRefreshPending = true;
     m_controller.SetSelectedUuids(uuids);
     Refresh();
 }
@@ -1838,6 +1882,30 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
 {
     if (m_shuttingDown || m_modalDialogActive || !m_glContext || IsBeingDeleted())
         return;
+
+    const size_t cameraFingerprint = ComputeCameraFingerprint(m_camera);
+    const bool cameraChanged =
+        !m_hasLastThreadCameraFingerprint ||
+        cameraFingerprint != m_lastThreadCameraFingerprint;
+    if (cameraChanged) {
+        m_lastThreadCameraFingerprint = cameraFingerprint;
+        m_hasLastThreadCameraFingerprint = true;
+    }
+
+    const bool hasRelevantVisualChange =
+        cameraChanged ||
+        m_sceneSyncPending ||
+        m_selectionRefreshPending ||
+        m_highlightRefreshPending ||
+        m_mouseMoved ||
+        m_forceHoverQuery ||
+        m_rectSelecting ||
+        m_dragging ||
+        m_isInteracting ||
+        m_cameraMoving;
+    if (!hasRelevantVisualChange)
+        return;
+
     Refresh();
 }
 
