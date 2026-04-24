@@ -834,14 +834,16 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         affectedRows.push_back(row);
     }
 
-    wxWindowUpdateLocker locker(table);
-    for (const auto row : affectedRows) {
-      wxVariant currentValue;
-      table->GetValue(currentValue, row, col);
-      if (currentValue.GetString() == value)
-        continue;
+    {
+      wxWindowUpdateLocker locker(table);
+      for (const auto row : affectedRows) {
+        wxVariant currentValue;
+        table->GetValue(currentValue, row, col);
+        if (currentValue.GetString() == value)
+          continue;
 
-      table->SetValue(wxVariant(value), row, col);
+        table->SetValue(wxVariant(value), row, col);
+      }
     }
 
     for (const auto row : affectedRows) {
@@ -851,6 +853,22 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
     const auto updateType = UpdateTypeForColumn(col);
     UpdateSceneData(true, updateType);
+
+    auto &fixtures = guiConfigServices->LegacyConfigManager().GetScene().fixtures;
+    for (const auto row : affectedRows) {
+      if (row >= table->GetItemCount())
+        continue;
+      store->ClearCellTextColour(row, 18);
+      if (row >= rowUuids.size())
+        continue;
+      const auto itFixture = fixtures.find(rowUuids[row]);
+      if (itFixture == fixtures.end())
+        continue;
+      if (itFixture->second.categorySource ==
+          GdtfFixtureCategory::kAutoFallbackSource) {
+        store->SetCellTextColour(row, 18, *wxRED);
+      }
+    }
     return;
   }
 
