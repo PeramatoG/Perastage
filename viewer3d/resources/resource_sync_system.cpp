@@ -457,6 +457,9 @@ void ReleaseGdtfMeshBuffers(ResourceSyncState &state,
 
 ResourceSyncResult ResourceSyncSystem::Sync(
     const std::string &basePath,
+    const std::vector<const std::pair<const std::string, Truss> *> &sceneTrusses,
+    const std::vector<const std::pair<const std::string, SceneObject> *> &sceneObjects,
+    const std::vector<const std::pair<const std::string, Fixture> *> &sceneFixtures,
     const std::vector<const std::pair<const std::string, Truss> *> &visibleTrusses,
     const std::vector<const std::pair<const std::string, SceneObject> *> &visibleObjects,
     const std::vector<const std::pair<const std::string, Fixture> *> &visibleFixtures,
@@ -488,7 +491,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
   }
 
   size_t sceneSignature = HashString(basePath);
-  for (const auto *entry : visibleTrusses) {
+  for (const auto *entry : sceneTrusses) {
     const auto &[uuid, t] = *entry;
     sceneSignature = HashCombine(sceneSignature, HashString(uuid));
     sceneSignature = HashCombine(sceneSignature, HashString(t.symbolFile));
@@ -497,7 +500,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     sceneSignature = HashCombine(sceneSignature, HashFloat(t.widthMm));
     sceneSignature = HashCombine(sceneSignature, HashFloat(t.heightMm));
   }
-  for (const auto *entry : visibleObjects) {
+  for (const auto *entry : sceneObjects) {
     const auto &[uuid, o] = *entry;
     sceneSignature = HashCombine(sceneSignature, HashString(uuid));
     sceneSignature = HashCombine(sceneSignature, HashString(o.modelFile));
@@ -507,7 +510,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       sceneSignature = HashCombine(sceneSignature, HashMatrix(g.localTransform));
     }
   }
-  for (const auto *entry : visibleFixtures) {
+  for (const auto *entry : sceneFixtures) {
     const auto &[uuid, f] = *entry;
     sceneSignature = HashCombine(sceneSignature, HashString(uuid));
     sceneSignature = HashCombine(sceneSignature, HashString(f.gdtfSpec));
