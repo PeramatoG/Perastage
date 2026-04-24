@@ -366,6 +366,7 @@ void FixtureTablePanel::InitializeTable() {
 void FixtureTablePanel::ReloadData() {
   if (!table || !store)
     return;
+  table->Freeze();
   wxWindowUpdateLocker locker(table);
 
   auto &cfg = guiConfigServices->LegacyConfigManager();
@@ -526,6 +527,7 @@ void FixtureTablePanel::ReloadData() {
     LayerPanel::Instance()->ReloadLayers();
   if (SummaryPanel::Instance() && IsActivePage())
     SummaryPanel::Instance()->ShowFixtureSummary();
+  table->Thaw();
 }
 
 void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
@@ -725,7 +727,6 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     ResyncRows(oldOrder, selectedUuids);
     const auto updateType = UpdateTypeForColumn(col);
     UpdateSceneData(true, updateType);
-    RefreshViewersForFixtureUpdate(updateType);
     return;
   }
 
@@ -852,7 +853,6 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     ResyncRows(oldOrder, selectedUuids);
     const auto updateType = UpdateTypeForColumn(col);
     UpdateSceneData(true, updateType);
-    RefreshViewersForFixtureUpdate(updateType);
     return;
   }
 
