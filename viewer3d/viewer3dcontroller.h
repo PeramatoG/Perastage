@@ -82,6 +82,9 @@ public:
   void Update();
   void UpdateResourcesIfDirty();
   void UpdateFrameStateLightweight();
+  void MarkResourceSyncPending();
+  bool IsResourceSyncPending() const;
+  bool ConsumeResourceSyncPending();
   void ResetDebugPerFrameCounters();
   int GetDebugUpdateResourcesCallsPerFrame() const;
 
