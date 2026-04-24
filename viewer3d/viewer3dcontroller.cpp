@@ -755,6 +755,15 @@ void Viewer3DController::SetSelectedUuids(
   m_impl->selectionSystem->SetSelectedUuids(uuids);
 }
 
+const std::string &Viewer3DController::GetOverlayHighlightUuid() const {
+  return m_impl->highlightUuid;
+}
+
+const std::unordered_set<std::string> &
+Viewer3DController::GetOverlaySelectedUuids() const {
+  return m_impl->selectedUuids;
+}
+
 void Viewer3DController::ApplyHighlightUuid(const std::string &uuid) {
   m_impl->highlightUuid = uuid;
 }

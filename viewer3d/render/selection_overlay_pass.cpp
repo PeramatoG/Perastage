@@ -1,7 +1,5 @@
 #include "selection_overlay_pass.h"
 
-#include "configmanager.h"
-#include "opaque_pass_utils.h"
 #include "opaque_fixture_pass.h"
 #include "opaque_object_pass.h"
 #include "opaque_truss_pass.h"
@@ -21,11 +19,12 @@ namespace {
 Viewer3DVisibleSet BuildOverlayVisibleSet(const Viewer3DController &controller,
                                           const Viewer3DVisibleSet &visibleSet) {
   Viewer3DVisibleSet overlayVisibleSet;
-  const std::string &highlightUuid = controller.GetHighlightUuid();
+  const std::string &highlightUuid = controller.GetOverlayHighlightUuid();
+  const auto &selectedUuids = controller.GetOverlaySelectedUuids();
 
   auto appendIfTarget = [&](const std::string &uuid,
                             std::vector<std::string> &output) {
-    if (controller.IsUuidSelected(uuid) ||
+    if (selectedUuids.find(uuid) != selectedUuids.end() ||
         (!highlightUuid.empty() && uuid == highlightUuid)) {
       output.push_back(uuid);
     }
@@ -51,9 +50,7 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
     return;
 
   if (context.useLighting)
-    controller.SetupBasicLighting(context.useAmbientOcclusion,
-                                  context.ambientOcclusionStrength,
-                                  context.whiteModelStyle);
+    glEnable(GL_LIGHTING);
   else
     glDisable(GL_LIGHTING);
 
@@ -61,26 +58,11 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
   glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskEnabled);
   glDepthMask(GL_FALSE);
 
-  auto getTypeColor = [&](const std::string &key, const std::string &hex) {
-    std::array<float, 3> c;
-    if (!hex.empty() && HexToRGB(hex, c[0], c[1], c[2])) {
-      controller.m_typeColors[key] = c;
-      return c;
-    }
-    c = MakeDeterministicColor("type:" + key);
-    controller.m_typeColors[key] = c;
-    return c;
+  auto getTypeColor = [](const std::string &, const std::string &) {
+    return std::array<float, 3>{1.0f, 1.0f, 1.0f};
   };
-  auto getLayerColor = [&](const std::string &key) {
-    std::array<float, 3> c;
-    auto opt = ConfigManager::Get().GetLayerColor(key);
-    if (opt && HexToRGB(*opt, c[0], c[1], c[2])) {
-      controller.m_layerColors[key] = c;
-      return c;
-    }
-    c = MakeDeterministicColor("layer:" + key);
-    controller.m_layerColors[key] = c;
-    return c;
+  auto getLayerColor = [](const std::string &) {
+    return std::array<float, 3>{1.0f, 1.0f, 1.0f};
   };
   auto resolveSymbolView = [](Viewer2DView viewKind) {
     switch (viewKind) {

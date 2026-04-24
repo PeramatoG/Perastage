@@ -112,6 +112,8 @@ public:
 
   void SetHighlightUuid(const std::string &uuid);
   void SetSelectedUuids(const std::vector<std::string> &uuids);
+  const std::string &GetOverlayHighlightUuid() const;
+  const std::unordered_set<std::string> &GetOverlaySelectedUuids() const;
 
   void DrawFixtureLabels(int width, int height);
   void DrawTrussLabels(int width, int height);
