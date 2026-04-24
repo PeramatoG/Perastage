@@ -47,6 +47,13 @@ void UpdateCategoryForRows(
     const std::unordered_set<std::string> *manualCategoryUuids = nullptr,
     bool logChanges = true);
 
+void UpdateCategoryForRows(
+    ISceneAdapter &adapter, wxDataViewListCtrl *table,
+    const std::vector<std::string> &rowUuids,
+    const std::vector<unsigned int> &targetRows,
+    const std::unordered_set<std::string> *manualCategoryUuids = nullptr,
+    bool logChanges = true);
+
 void UpdateFullRowData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                        const std::vector<std::string> &rowUuids,
                        const std::vector<wxString> &gdtfPaths,
