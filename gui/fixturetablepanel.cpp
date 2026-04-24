@@ -824,14 +824,18 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       selectedTypes.insert(std::string(typeValue.GetString().ToUTF8()));
     }
 
-    wxWindowUpdateLocker locker(table);
+    std::vector<unsigned int> affectedRows;
+    affectedRows.reserve(table->GetItemCount());
     for (unsigned int row = 0; row < table->GetItemCount(); ++row) {
       wxVariant typeValue;
       table->GetValue(typeValue, row, 2);
       const std::string typeName = std::string(typeValue.GetString().ToUTF8());
-      if (selectedTypes.find(typeName) == selectedTypes.end())
-        continue;
+      if (selectedTypes.find(typeName) != selectedTypes.end())
+        affectedRows.push_back(row);
+    }
 
+    wxWindowUpdateLocker locker(table);
+    for (const auto row : affectedRows) {
       wxVariant currentValue;
       table->GetValue(currentValue, row, col);
       if (currentValue.GetString() == value)
@@ -840,15 +844,11 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       table->SetValue(wxVariant(value), row, col);
     }
 
-    for (unsigned int row = 0; row < table->GetItemCount() &&
-                               row < rowUuids.size();
-         ++row) {
-      wxVariant typeValue;
-      table->GetValue(typeValue, row, 2);
-      const std::string typeName = std::string(typeValue.GetString().ToUTF8());
-      if (selectedTypes.find(typeName) != selectedTypes.end())
+    for (const auto row : affectedRows) {
+      if (row < rowUuids.size())
         manualCategoryUuidsPending.insert(rowUuids[row]);
     }
+
     ResyncRows(oldOrder, selectedUuids);
     const auto updateType = UpdateTypeForColumn(col);
     UpdateSceneData(true, updateType);

@@ -371,7 +371,18 @@ void ApplyCategoryChanges(
     const std::unordered_set<std::string> *manualCategoryUuids, bool logChanges) {
   auto &scene = adapter.GetScene();
   SceneUpdateTracking tracking;
-  const auto targetRows = ResolveTargetRows(table, rowUuids);
+  auto targetRows = ResolveTargetRows(table, rowUuids);
+  if (table && manualCategoryUuids) {
+    const size_t count =
+        std::min(static_cast<size_t>(table->GetItemCount()), rowUuids.size());
+    for (size_t row = 0; row < count; ++row) {
+      if (manualCategoryUuids->find(rowUuids[row]) != manualCategoryUuids->end())
+        targetRows.push_back(row);
+    }
+    std::sort(targetRows.begin(), targetRows.end());
+    targetRows.erase(std::unique(targetRows.begin(), targetRows.end()),
+                     targetRows.end());
+  }
   std::unordered_map<std::string, std::string> manualCategoriesByType;
 
   for (size_t row : targetRows) {
