@@ -68,6 +68,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <functional>
 #include <iomanip>
 #include <map>
 #include <new>
@@ -335,6 +336,16 @@ std::vector<std::string> BuildCombinedSelection(const ConfigManager &cfg) {
 
   return combined;
 }
+
+template <typename StringContainer>
+size_t HashStringContainer(const StringContainer &items) {
+  size_t hash = 0;
+  for (const auto &item : items) {
+    const size_t itemHash = std::hash<std::string>{}(item);
+    hash ^= itemHash + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+  }
+  return hash;
+}
 } // namespace
 
 namespace {
@@ -446,6 +457,7 @@ void Viewer2DPanel::UpdateScene(bool reload) {
     ConfigManager &cfg = ConfigManager::Get();
     m_controller.SetSelectedUuids(BuildCombinedSelection(cfg));
   }
+  InvalidatePickCache();
   RequestRepaint();
 }
 
@@ -457,6 +469,7 @@ void Viewer2DPanel::SetRenderMode(Viewer2DRenderMode mode) {
 void Viewer2DPanel::SetView(Viewer2DView view) {
   m_view = view;
   m_viewMotionSinceLastHoverHitTest = true;
+  InvalidatePickCache();
   RequestRepaint();
 }
 
@@ -476,6 +489,7 @@ void Viewer2DPanel::SetLayerColor(const std::string &layer,
   // Forward the updated color to the shared controller so the 2D view
   // reflects the user's choice immediately.
   m_controller.SetLayerColor(layer, hex);
+  InvalidatePickCache();
 }
 
 void Viewer2DPanel::LoadViewFromConfig() {
@@ -508,6 +522,7 @@ void Viewer2DPanel::ApplyViewState(float offsetX, float offsetY, float zoom,
   m_zoom = zoom;
   m_view = view;
   m_renderMode = renderMode;
+  InvalidatePickCache();
 }
 
 bool Viewer2DPanel::FitViewToScene() {
@@ -525,6 +540,7 @@ bool Viewer2DPanel::FitViewToScene() {
     m_zoom = 0.1f;
   if (m_persistViewState)
     SaveViewToConfig();
+  InvalidatePickCache();
   RequestRepaint();
   return true;
 }
@@ -1680,6 +1696,139 @@ void Viewer2DPanel::ClearHoverState(bool requestRepaint) {
   ApplyHoverUuid("", requestRepaint);
 }
 
+void Viewer2DPanel::InvalidatePickCache() {
+  m_pickCache.valid = false;
+  ++m_pickCacheSceneGeneration;
+}
+
+size_t Viewer2DPanel::BuildHiddenLayersHash() {
+  const size_t hash = HashStringContainer(ConfigManager::Get().GetHiddenLayers());
+  if (m_pickCache.valid && m_pickCache.hiddenLayersHash != hash)
+    InvalidatePickCache();
+  return hash;
+}
+
+bool Viewer2DPanel::IsPickCacheReusable(PickQueryKind queryKind,
+                                        const wxPoint &framebufferPos,
+                                        int viewportWidth, int viewportHeight,
+                                        size_t hiddenLayersHash,
+                                        bool clickSelection) const {
+  if (!m_pickCache.valid || m_pickCache.queryKind != queryKind)
+    return false;
+  if (m_pickCache.viewportWidth != viewportWidth ||
+      m_pickCache.viewportHeight != viewportHeight)
+    return false;
+  if (m_pickCache.view != m_view)
+    return false;
+  if (m_pickCache.hiddenLayersHash != hiddenLayersHash)
+    return false;
+  if (m_pickCache.clickSelection != clickSelection)
+    return false;
+  if (m_pickCache.sceneGeneration != m_pickCacheSceneGeneration)
+    return false;
+  const int dx = framebufferPos.x - m_pickCache.framebufferPos.x;
+  const int dy = framebufferPos.y - m_pickCache.framebufferPos.y;
+  return (dx * dx + dy * dy) <=
+         (kPickCacheReuseDistancePx * kPickCacheReuseDistancePx);
+}
+
+void Viewer2DPanel::StorePickCache(PickQueryKind queryKind,
+                                   const wxPoint &framebufferPos,
+                                   int viewportWidth, int viewportHeight,
+                                   size_t hiddenLayersHash, bool clickSelection,
+                                   bool found,
+                                   const std::string &uuid) {
+  m_pickCache.valid = true;
+  m_pickCache.queryKind = queryKind;
+  m_pickCache.framebufferPos = framebufferPos;
+  m_pickCache.viewportWidth = viewportWidth;
+  m_pickCache.viewportHeight = viewportHeight;
+  m_pickCache.view = m_view;
+  m_pickCache.hiddenLayersHash = hiddenLayersHash;
+  m_pickCache.clickSelection = clickSelection;
+  m_pickCache.sceneGeneration = m_pickCacheSceneGeneration;
+  m_pickCache.timestamp = std::chrono::steady_clock::now();
+  m_pickCache.found = found;
+  m_pickCache.uuid = uuid;
+}
+
+bool Viewer2DPanel::TryResolvePickUuidWithCache(const wxPoint &framebufferPos,
+                                                int viewportWidth,
+                                                int viewportHeight,
+                                                size_t hiddenLayersHash,
+                                                std::string &uuidOut) {
+  if (IsPickCacheReusable(PickQueryKind::PickUuid, framebufferPos, viewportWidth,
+                          viewportHeight, hiddenLayersHash, false)) {
+    uuidOut = m_pickCache.uuid;
+    return m_pickCache.found;
+  }
+
+  std::string pickedUuid;
+  const bool found = m_controller.GetPickUuidAt(
+      framebufferPos.x, framebufferPos.y, viewportWidth, viewportHeight,
+      ConfigManager::Get().GetHiddenLayers(), pickedUuid);
+  StorePickCache(PickQueryKind::PickUuid, framebufferPos, viewportWidth,
+                 viewportHeight, hiddenLayersHash, false, found, pickedUuid);
+  if (!found)
+    uuidOut.clear();
+  else
+    uuidOut = pickedUuid;
+  return found;
+}
+
+bool Viewer2DPanel::TryResolvePickLabelWithCache(PickQueryKind queryKind,
+                                                 const wxPoint &framebufferPos,
+                                                 int viewportWidth,
+                                                 int viewportHeight,
+                                                 size_t hiddenLayersHash,
+                                                 bool clickSelection,
+                                                 std::string &uuidOut) {
+  if (IsPickCacheReusable(queryKind, framebufferPos, viewportWidth,
+                          viewportHeight, hiddenLayersHash, clickSelection)) {
+    uuidOut = m_pickCache.uuid;
+    return m_pickCache.found;
+  }
+
+  wxString label;
+  wxPoint pos;
+  std::string pickedUuid;
+  bool found = false;
+  switch (queryKind) {
+  case PickQueryKind::FixtureLabel:
+    found = m_controller.GetFixtureLabelAt(framebufferPos.x, framebufferPos.y,
+                                           viewportWidth, viewportHeight, label,
+                                           pos, &pickedUuid, clickSelection);
+    break;
+  case PickQueryKind::TrussLabel:
+    found = m_controller.GetTrussLabelAt(framebufferPos.x, framebufferPos.y,
+                                         viewportWidth, viewportHeight, label, pos,
+                                         &pickedUuid, clickSelection);
+    break;
+  case PickQueryKind::HoistLabel:
+    found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
+        framebufferPos.x, framebufferPos.y, viewportHeight,
+        ConfigManager::Get().GetScene(), ConfigManager::Get().GetHiddenLayers(),
+        pickedUuid, pos, label);
+    break;
+  case PickQueryKind::SceneObjectLabel:
+    found = m_controller.GetSceneObjectLabelAt(framebufferPos.x, framebufferPos.y,
+                                               viewportWidth, viewportHeight, label,
+                                               pos, &pickedUuid, clickSelection);
+    break;
+  case PickQueryKind::None:
+  case PickQueryKind::PickUuid:
+    break;
+  }
+
+  StorePickCache(queryKind, framebufferPos, viewportWidth, viewportHeight,
+                 hiddenLayersHash, clickSelection, found, pickedUuid);
+  if (!found)
+    uuidOut.clear();
+  else
+    uuidOut = pickedUuid;
+  return found;
+}
+
 bool Viewer2DPanel::TryUpdateHoverHighlightFast(const wxPoint &screenPos) {
   if (!m_enableSelection || !IsShownOnScreen() || m_dragMode != DragMode::None)
     return false;
@@ -1700,10 +1849,10 @@ bool Viewer2DPanel::TryUpdateHoverHighlightFast(const wxPoint &screenPos) {
     return false;
 
   const wxPoint pickPos = ToFramebufferPoint(this, screenPos);
-  const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
+  const size_t hiddenLayersHash = BuildHiddenLayersHash();
   std::string pickedUuid;
-  if (!m_controller.GetPickUuidAt(pickPos.x, pickPos.y, renderSize.width,
-                                  renderSize.height, hiddenLayers, pickedUuid)) {
+  if (!TryResolvePickUuidWithCache(pickPos, renderSize.width, renderSize.height,
+                                   hiddenLayersHash, pickedUuid)) {
     const bool changed = ApplyHoverUuid("", true);
     if (changed)
       ScheduleHoverLabelRefresh(screenPos);
@@ -1751,14 +1900,13 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
 
   SetCurrent(*m_glContext);
   const wxPoint pickPos = ToFramebufferPoint(this, screenPos);
-  wxString newLabel;
-  wxPoint newPos;
+  const size_t hiddenLayersHash = BuildHiddenLayersHash();
   std::string newUuid;
   bool found = false;
 
   if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
-    found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, newLabel,
-                                           newPos, &newUuid, false);
+    found = TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos, w, h,
+                                         hiddenLayersHash, false, newUuid);
     if (found) {
       if (TrussTablePanel::Instance())
         TrussTablePanel::Instance()->HighlightTruss(std::string());
@@ -1766,8 +1914,8 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
         SceneObjectTablePanel::Instance()->HighlightObject(std::string());
     }
   } else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
-    found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h, newLabel, newPos,
-                                         &newUuid, false);
+    found = TryResolvePickLabelWithCache(PickQueryKind::TrussLabel, pickPos, w, h,
+                                         hiddenLayersHash, false, newUuid);
     if (found) {
       if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -1775,10 +1923,8 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
         SceneObjectTablePanel::Instance()->HighlightObject(std::string());
     }
   } else if (HoistTablePanel::Instance() && HoistTablePanel::Instance()->IsActivePage()) {
-    const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
-    found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
-        pickPos.x, pickPos.y, h, ConfigManager::Get().GetScene(), hiddenLayers, newUuid,
-        newPos, newLabel);
+    found = TryResolvePickLabelWithCache(PickQueryKind::HoistLabel, pickPos, w, h,
+                                         hiddenLayersHash, false, newUuid);
     if (found) {
       if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -1789,8 +1935,8 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
     }
   } else if (SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage()) {
-    found = m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h, newLabel,
-                                               newPos, &newUuid, false);
+    found = TryResolvePickLabelWithCache(PickQueryKind::SceneObjectLabel, pickPos,
+                                         w, h, hiddenLayersHash, false, newUuid);
     if (found) {
       if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -1876,32 +2022,30 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
       return;
 
     SetCurrent(*m_glContext);
-    wxString label;
-    wxPoint pos;
     std::string uuid;
     const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
+    const size_t hiddenLayersHash = BuildHiddenLayersHash();
     bool found = false;
     DragTarget target = DragTarget::None;
     if (FixtureTablePanel::Instance() &&
         FixtureTablePanel::Instance()->IsActivePage()) {
-      found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h,
-                                             label, pos, &uuid);
+      found = TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos, w,
+                                           h, hiddenLayersHash, false, uuid);
       target = DragTarget::Fixtures;
     } else if (TrussTablePanel::Instance() &&
                TrussTablePanel::Instance()->IsActivePage()) {
-      found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h,
-                                           label, pos, &uuid);
+      found = TryResolvePickLabelWithCache(PickQueryKind::TrussLabel, pickPos, w, h,
+                                           hiddenLayersHash, false, uuid);
       target = DragTarget::Trusses;
     } else if (HoistTablePanel::Instance() &&
                HoistTablePanel::Instance()->IsActivePage()) {
-      found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
-          pickPos.x, pickPos.y, h, ConfigManager::Get().GetScene(),
-          ConfigManager::Get().GetHiddenLayers(), uuid, pos, label);
+      found = TryResolvePickLabelWithCache(PickQueryKind::HoistLabel, pickPos, w, h,
+                                           hiddenLayersHash, false, uuid);
       target = DragTarget::Supports;
     } else if (SceneObjectTablePanel::Instance() &&
                SceneObjectTablePanel::Instance()->IsActivePage()) {
-      found = m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w,
-                                                 h, label, pos, &uuid);
+      found = TryResolvePickLabelWithCache(PickQueryKind::SceneObjectLabel, pickPos,
+                                           w, h, hiddenLayersHash, false, uuid);
       target = DragTarget::SceneObjects;
     }
 
@@ -2091,28 +2235,26 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     if (!renderSize.IsValid())
       return;
     SetCurrent(*m_glContext);
-    wxString label;
-    wxPoint pos;
     std::string uuid;
     const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
+    const size_t hiddenLayersHash = BuildHiddenLayersHash();
     bool found = false;
     if (FixtureTablePanel::Instance() &&
         FixtureTablePanel::Instance()->IsActivePage())
-      found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h,
-                                             label, pos, &uuid, true);
+      found = TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos, w,
+                                           h, hiddenLayersHash, true, uuid);
     else if (TrussTablePanel::Instance() &&
              TrussTablePanel::Instance()->IsActivePage())
-      found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h,
-                                           label, pos, &uuid, true);
+      found = TryResolvePickLabelWithCache(PickQueryKind::TrussLabel, pickPos, w, h,
+                                           hiddenLayersHash, true, uuid);
     else if (HoistTablePanel::Instance() &&
              HoistTablePanel::Instance()->IsActivePage())
-      found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
-          pickPos.x, pickPos.y, h, ConfigManager::Get().GetScene(),
-          ConfigManager::Get().GetHiddenLayers(), uuid, pos, label);
+      found = TryResolvePickLabelWithCache(PickQueryKind::HoistLabel, pickPos, w, h,
+                                           hiddenLayersHash, true, uuid);
     else if (SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage())
-      found = m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w,
-                                                 h, label, pos, &uuid, true);
+      found = TryResolvePickLabelWithCache(PickQueryKind::SceneObjectLabel, pickPos,
+                                           w, h, hiddenLayersHash, true, uuid);
 
     ConfigManager &cfg = ConfigManager::Get();
     bool selectionChanged = false;
@@ -2447,6 +2589,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     m_offsetX += dx / m_zoom;
     m_offsetY += dy / m_zoom;
     m_viewMotionSinceLastHoverHitTest = true;
+    InvalidatePickCache();
     m_lastMousePos = pos;
     m_draggedSincePress = true;
     MarkInteractionActivity();
@@ -2483,6 +2626,7 @@ void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
   m_viewMotionSinceLastHoverHitTest = true;
   if (m_zoom < 0.1f)
     m_zoom = 0.1f;
+  InvalidatePickCache();
   if (m_persistViewState)
     SaveViewToConfig();
   RequestRepaint();
@@ -2543,6 +2687,7 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
 
   if (m_zoom < 0.1f)
     m_zoom = 0.1f;
+  InvalidatePickCache();
   if (m_persistViewState)
     SaveViewToConfig();
   RequestRepaint();
@@ -2572,6 +2717,7 @@ void Viewer2DPanel::OnResize(wxSizeEvent &event) {
   if (m_layoutEditAspect && !m_layoutEditViewportSize) {
     m_layoutEditBaseSize.reset();
   }
+  InvalidatePickCache();
   RequestRepaint();
   event.Skip();
 }
