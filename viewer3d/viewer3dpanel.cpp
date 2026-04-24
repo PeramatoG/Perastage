@@ -600,9 +600,12 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         return;
     }
 
-    const auto fullRenderStart = std::chrono::steady_clock::now();
-    Render(renderSize);
-    if (!highlightOnlyRefresh) {
+    if (highlightOnlyRefresh) {
+        // Keep the previously rendered scene and apply only lightweight
+        // highlight/overlay updates before swapping buffers.
+    } else {
+        const auto fullRenderStart = std::chrono::steady_clock::now();
+        Render(renderSize);
         const auto fullRenderElapsedMs =
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - fullRenderStart)
