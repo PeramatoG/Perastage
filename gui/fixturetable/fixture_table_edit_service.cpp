@@ -372,6 +372,7 @@ void ApplyCategoryChanges(
   auto &scene = adapter.GetScene();
   SceneUpdateTracking tracking;
   const auto targetRows = ResolveTargetRows(table, rowUuids);
+  std::unordered_map<std::string, std::string> manualCategoriesByType;
 
   for (size_t row : targetRows) {
     auto it = scene.fixtures.find(rowUuids[row]);
@@ -406,12 +407,12 @@ void ApplyCategoryChanges(
     it->second.categorySourceReason = next.categorySourceReason;
     if (!next.typeName.empty() && !next.category.empty() &&
         next.categorySource == GdtfFixtureCategory::kManualSource) {
-      GdtfDictionary::UpdateCategoryForFile(next.typeName, next.gdtfSpec,
-                                            next.category);
+      manualCategoriesByType[next.typeName] = next.category;
     }
     TrackUpdatedFixture(it->second, tracking, logChanges);
   }
 
+  GdtfDictionary::UpdateCategoriesBulk(manualCategoriesByType);
   AppendChangeLogIfNeeded(tracking, logChanges);
 }
 }
