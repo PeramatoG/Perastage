@@ -157,6 +157,12 @@ private:
     std::chrono::steady_clock::time_point m_refreshTelemetryWindowStart{};
     int m_fullRefreshesInCurrentWindow = 0;
     int m_highlightRefreshesInCurrentWindow = 0;
+    double m_fullRenderMsAccumInCurrentWindow = 0.0;
+    int m_fullRenderSamplesInCurrentWindow = 0;
+    double m_hoverQueryMsAccumInCurrentWindow = 0.0;
+    int m_hoverQuerySamplesInCurrentWindow = 0;
+    double m_highlightUpdateMsAccumInCurrentWindow = 0.0;
+    int m_highlightUpdateSamplesInCurrentWindow = 0;
 
     // True when the mouse moved since the last paint
     bool m_mouseMoved = false;

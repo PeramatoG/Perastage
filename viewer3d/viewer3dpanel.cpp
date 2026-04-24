@@ -600,7 +600,16 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         return;
     }
 
+    const auto fullRenderStart = std::chrono::steady_clock::now();
     Render(renderSize);
+    if (!highlightOnlyRefresh) {
+        const auto fullRenderElapsedMs =
+            std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - fullRenderStart)
+                .count();
+        m_fullRenderMsAccumInCurrentWindow += fullRenderElapsedMs;
+        ++m_fullRenderSamplesInCurrentWindow;
+    }
 
     // Ensure the OpenGL context is current before drawing overlays
     SetCurrent(*m_glContext);
@@ -667,8 +676,15 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         (m_forceHoverQuery || hoverStateChanged);
 
     if (shouldRunHoverQuery) {
+        const auto hoverQueryStart = std::chrono::steady_clock::now();
         found = QueryHoverUuid(m_controller, activeTable, pickPos.x, pickPos.y,
                                w, h, newUuid);
+        const auto hoverQueryElapsedMs =
+            std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - hoverQueryStart)
+                .count();
+        m_hoverQueryMsAccumInCurrentWindow += hoverQueryElapsedMs;
+        ++m_hoverQuerySamplesInCurrentWindow;
         hoverQueryRan = true;
         if (found) {
             if (!skipLabelWork) {
@@ -720,6 +736,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
 
     if (oldHoverUuid != m_hoverUuid || oldHasHover != m_hasHover) {
+        const auto highlightUpdateStart = std::chrono::steady_clock::now();
         ++m_highlightRevision;
         m_highlightRefreshPending = true;
         m_controller.SetHighlightUuid(m_hoverUuid);
@@ -741,6 +758,12 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                     ? std::string(m_hoverUuid)
                     : std::string());
         }
+        const auto highlightUpdateElapsedMs =
+            std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - highlightUpdateStart)
+                .count();
+        m_highlightUpdateMsAccumInCurrentWindow += highlightUpdateElapsedMs;
+        ++m_highlightUpdateSamplesInCurrentWindow;
     }
     m_mouseMoved = false;
 
@@ -767,12 +790,35 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_refreshTelemetryWindowStart = telemetryNow;
     const auto telemetryElapsed = telemetryNow - m_refreshTelemetryWindowStart;
     if (telemetryElapsed >= std::chrono::seconds(1)) {
-        wxLogDebug("Viewer3DPanel refreshes/s full=%d highlight=%d",
+        const double avgFullRenderMs = m_fullRenderSamplesInCurrentWindow > 0
+            ? (m_fullRenderMsAccumInCurrentWindow /
+               static_cast<double>(m_fullRenderSamplesInCurrentWindow))
+            : 0.0;
+        const double avgHoverQueryMs = m_hoverQuerySamplesInCurrentWindow > 0
+            ? (m_hoverQueryMsAccumInCurrentWindow /
+               static_cast<double>(m_hoverQuerySamplesInCurrentWindow))
+            : 0.0;
+        const double avgHighlightUpdateMs =
+            m_highlightUpdateSamplesInCurrentWindow > 0
+                ? (m_highlightUpdateMsAccumInCurrentWindow /
+                   static_cast<double>(m_highlightUpdateSamplesInCurrentWindow))
+                : 0.0;
+        wxLogDebug(
+            "Viewer3DPanel refreshes/s full=%d highlight=%d full_render_ms=%.3f hover_query_ms=%.3f highlight_update_ms=%.3f hover_samples=%d highlight_samples=%d",
                    m_fullRefreshesInCurrentWindow,
-                   m_highlightRefreshesInCurrentWindow);
+                   m_highlightRefreshesInCurrentWindow, avgFullRenderMs,
+                   avgHoverQueryMs, avgHighlightUpdateMs,
+                   m_hoverQuerySamplesInCurrentWindow,
+                   m_highlightUpdateSamplesInCurrentWindow);
         m_refreshTelemetryWindowStart = telemetryNow;
         m_fullRefreshesInCurrentWindow = 0;
         m_highlightRefreshesInCurrentWindow = 0;
+        m_fullRenderMsAccumInCurrentWindow = 0.0;
+        m_fullRenderSamplesInCurrentWindow = 0;
+        m_hoverQueryMsAccumInCurrentWindow = 0.0;
+        m_hoverQuerySamplesInCurrentWindow = 0;
+        m_highlightUpdateMsAccumInCurrentWindow = 0.0;
+        m_highlightUpdateSamplesInCurrentWindow = 0;
     }
 
     if (highlightOnlyRefresh)
