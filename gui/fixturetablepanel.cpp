@@ -852,7 +852,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
 
     const auto updateType = UpdateTypeForColumn(col);
-    UpdateSceneData(true, updateType);
+    UpdateSceneData(true, updateType, &affectedRows);
 
     auto &fixtures = guiConfigServices->LegacyConfigManager().GetScene().fixtures;
     for (const auto row : affectedRows) {
@@ -1603,7 +1603,8 @@ void FixtureTablePanel::PropagateTypeValues(
 }
 
 void FixtureTablePanel::UpdateSceneData(bool logChanges,
-                                        SceneDataUpdateType updateType) {
+                                        SceneDataUpdateType updateType,
+                                        const std::vector<unsigned int> *targetRows) {
   ConfigManagerSceneAdapter adapter;
   std::unordered_set<std::string> changedWeightPositions;
 
@@ -1617,8 +1618,14 @@ void FixtureTablePanel::UpdateSceneData(bool logChanges,
                                                      logChanges);
     break;
   case SceneDataUpdateType::kCategoryOnly:
-    FixtureTableEditService::UpdateCategoryForRows(
-        adapter, table, rowUuids, &manualCategoryUuidsPending, logChanges);
+    if (targetRows) {
+      FixtureTableEditService::UpdateCategoryForRows(
+          adapter, table, rowUuids, *targetRows, &manualCategoryUuidsPending,
+          logChanges);
+    } else {
+      FixtureTableEditService::UpdateCategoryForRows(
+          adapter, table, rowUuids, &manualCategoryUuidsPending, logChanges);
+    }
     break;
   default:
     FixtureTableEditService::UpdateFullRowData(

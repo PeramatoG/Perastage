@@ -98,6 +98,28 @@ std::vector<size_t> ResolveTargetRows(wxDataViewListCtrl *table,
   return rows;
 }
 
+std::vector<size_t> ResolveTargetRows(
+    wxDataViewListCtrl *table, const std::vector<std::string> &rowUuids,
+    const std::vector<unsigned int> *explicitTargetRows) {
+  if (!explicitTargetRows)
+    return ResolveTargetRows(table, rowUuids);
+
+  std::vector<size_t> rows;
+  if (!table)
+    return rows;
+
+  const size_t count = std::min(static_cast<size_t>(table->GetItemCount()),
+                                rowUuids.size());
+  rows.reserve(explicitTargetRows->size());
+  for (const unsigned int row : *explicitTargetRows) {
+    if (static_cast<size_t>(row) < count)
+      rows.push_back(static_cast<size_t>(row));
+  }
+  std::sort(rows.begin(), rows.end());
+  rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+  return rows;
+}
+
 void ApplyFullRowChanges(
     FixtureTableEditService::ISceneAdapter &adapter, wxDataViewListCtrl *table,
     const std::vector<std::string> &rowUuids, const std::vector<wxString> &gdtfPaths,
@@ -368,10 +390,11 @@ void ApplyAppearanceChanges(FixtureTableEditService::ISceneAdapter &adapter,
 void ApplyCategoryChanges(
     FixtureTableEditService::ISceneAdapter &adapter, wxDataViewListCtrl *table,
     const std::vector<std::string> &rowUuids,
-    const std::unordered_set<std::string> *manualCategoryUuids, bool logChanges) {
+    const std::unordered_set<std::string> *manualCategoryUuids, bool logChanges,
+    const std::vector<unsigned int> *explicitTargetRows = nullptr) {
   auto &scene = adapter.GetScene();
   SceneUpdateTracking tracking;
-  auto targetRows = ResolveTargetRows(table, rowUuids);
+  auto targetRows = ResolveTargetRows(table, rowUuids, explicitTargetRows);
   if (table && manualCategoryUuids) {
     const size_t count =
         std::min(static_cast<size_t>(table->GetItemCount()), rowUuids.size());
@@ -514,6 +537,18 @@ void UpdateCategoryForRows(
     DataViewEditCommit::CommitPendingEdit(table);
   ApplyCategoryChanges(adapter, table, rowUuids, manualCategoryUuids,
                        logChanges);
+}
+
+void UpdateCategoryForRows(
+    ISceneAdapter &adapter, wxDataViewListCtrl *table,
+    const std::vector<std::string> &rowUuids,
+    const std::vector<unsigned int> &targetRows,
+    const std::unordered_set<std::string> *manualCategoryUuids,
+    bool logChanges) {
+  if (table)
+    DataViewEditCommit::CommitPendingEdit(table);
+  ApplyCategoryChanges(adapter, table, rowUuids, manualCategoryUuids,
+                       logChanges, &targetRows);
 }
 
 void UpdateFullRowData(ISceneAdapter &adapter, wxDataViewListCtrl *table,

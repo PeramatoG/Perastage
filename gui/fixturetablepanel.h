@@ -76,7 +76,8 @@ public:
 
     void UpdateSceneData(
         bool logChanges = true,
-        SceneDataUpdateType updateType = SceneDataUpdateType::kGeneral);
+        SceneDataUpdateType updateType = SceneDataUpdateType::kGeneral,
+        const std::vector<unsigned int> *targetRows = nullptr);
 
 private:
     friend class FixtureEditDialog; // allow dialog to access internals
