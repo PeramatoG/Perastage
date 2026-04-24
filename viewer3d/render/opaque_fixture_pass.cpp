@@ -18,7 +18,6 @@
 #endif
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <optional>
@@ -39,69 +38,12 @@
 namespace {
 namespace fs = std::filesystem;
 
-std::string FindFileRecursive(const std::string &baseDir,
-                              const std::string &fileName) {
-  if (baseDir.empty() || fileName.empty())
-    return {};
-  std::error_code ec;
-  fs::recursive_directory_iterator it(
-      baseDir, fs::directory_options::skip_permission_denied, ec);
-  fs::recursive_directory_iterator end;
-  if (ec)
-    return {};
-  for (; it != end; it.increment(ec)) {
-    if (ec) {
-      ec.clear();
-      continue;
-    }
-    if (!it->is_regular_file(ec) || ec) {
-      ec.clear();
-      continue;
-    }
-    if (it->path().filename() == fileName)
-      return it->path().string();
-  }
-  return {};
-}
-
-
 std::string NormalizePathSeparators(const std::string &path) {
   std::string out = path;
   const char sep = static_cast<char>(fs::path::preferred_separator);
   std::replace(out.begin(), out.end(), '\\', sep);
   std::replace(out.begin(), out.end(), '/', sep);
   return out;
-}
-
-std::string DecodePathEscapes(const std::string &input) {
-  std::string out;
-  out.reserve(input.size());
-  for (size_t i = 0; i < input.size(); ++i) {
-    if (i + 2 < input.size() && input[i] == '%' && input[i + 1] == '2' &&
-        input[i + 2] == '0') {
-      out.push_back(' ');
-      i += 2;
-      continue;
-    }
-    out.push_back(input[i]);
-  }
-  return out;
-}
-
-std::string TrimPathRef(std::string value) {
-  auto isTrim = [](unsigned char c) {
-    return std::isspace(c) != 0 || c == '\r' || c == '\n' || c == '\t';
-  };
-
-  while (!value.empty() && isTrim(static_cast<unsigned char>(value.front())))
-    value.erase(value.begin());
-  while (!value.empty() && isTrim(static_cast<unsigned char>(value.back())))
-    value.pop_back();
-
-  if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
-    return value.substr(1, value.size() - 2);
-
-  return value;
 }
 
 std::string NormalizeModelKeyPath(const std::string &path) {
@@ -112,38 +54,9 @@ std::string NormalizeModelKeyPath(const std::string &path) {
   return NormalizePathSeparators(normalized.string());
 }
 
-std::string ResolveFixtureSymbolKeyPath(const Fixture &fixture,
-                                        const std::string &basePath) {
-  if (fixture.gdtfSpec.empty())
-    return {};
-
-  const std::string cleanedSpec =
-      NormalizePathSeparators(DecodePathEscapes(TrimPathRef(fixture.gdtfSpec)));
-  if (cleanedSpec.empty())
-    return {};
-
-  const fs::path specPath = fs::path(cleanedSpec);
-  const fs::path candidate = basePath.empty() ? specPath : (fs::path(basePath) / specPath);
-  std::error_code ec;
-  if (fs::exists(candidate, ec) && !ec)
-    return NormalizeModelKeyPath(candidate.string());
-
-  if (!basePath.empty()) {
-    const std::string recursive =
-        FindFileRecursive(basePath, specPath.filename().string());
-    if (!recursive.empty())
-      return NormalizeModelKeyPath(recursive);
-  }
-
-  return NormalizeModelKeyPath(cleanedSpec);
-}
-
 std::string BuildFixtureSymbolModelKey(const Fixture &fixture,
-                                       const std::string &basePath,
                                        const std::string &resolvedGdtfPath) {
   std::string modelKey = NormalizeModelKeyPath(resolvedGdtfPath);
-  if (modelKey.empty())
-    modelKey = ResolveFixtureSymbolKeyPath(fixture, basePath);
   if (modelKey.empty() && !fixture.typeName.empty())
     modelKey = fixture.typeName;
   if (modelKey.empty())
@@ -616,17 +529,10 @@ void OpaqueFixturePass::Render(
       return TransformPoint(fixtureTransform, p);
     };
 
-    const std::string sceneBasePath = ConfigManager::Get().GetScene().basePath;
+    const std::string normalizedGdtfPath = NormalizeModelKeyPath(gdtfPath);
     const std::string modelKey =
-        BuildFixtureSymbolModelKey(f, sceneBasePath, gdtfPath);
-
-    std::string svgSourcePath;
-    std::error_code sourcePathError;
-    if (fs::exists(fs::path(modelKey), sourcePathError) && !sourcePathError) {
-      svgSourcePath = modelKey;
-    } else if (!gdtfPath.empty()) {
-      svgSourcePath = NormalizeModelKeyPath(gdtfPath);
-    }
+        BuildFixtureSymbolModelKey(f, normalizedGdtfPath);
+    const std::string svgSourcePath = normalizedGdtfPath;
 
     auto itg = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
 
