@@ -73,6 +73,8 @@ public:
     bool ResetCameraToIsometric();
     void SetModalDialogActive(bool active);
 
+    enum class HoverTargetTable { None, Fixtures, Trusses, SceneObjects };
+
 private:
     wxGLContext* m_glContext;
     Viewer3DCamera m_camera;
@@ -132,7 +134,6 @@ private:
     wxString m_hoverText;
     std::string m_hoverUuid;
 
-    enum class HoverTargetTable { None, Fixtures, Trusses, SceneObjects };
     struct HoverQueryState {
         wxPoint mouseFramebufferPos;
         uint64_t cameraRevision = 0;
