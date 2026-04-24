@@ -60,6 +60,7 @@
 #include "hoist_symbol_renderer.h"
 #include "opaque_object_pass.h"
 #include "opaque_truss_pass.h"
+#include "selection_overlay_pass.h"
 #include "bounds_cache_system.h"
 #include "visibilitysystem.h"
 #include "label_render_system.h"
@@ -1212,6 +1213,7 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
                           resolveSymbolView, getPickColor);
   OpaqueFixturePass::Render(*this, context, visibleSet, getTypeColor,
                             getLayerColor, resolveSymbolView, getPickColor);
+  SelectionOverlayPass::Render(*this, context, visibleSet);
   HoistSymbolRenderer::Render(*this, context);
 }
 

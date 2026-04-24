@@ -81,18 +81,7 @@ void OpaqueTrussPass::Render(
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
 
   glShadeModel(GL_SMOOTH);
-  std::vector<std::string> drawTrussUuids = visibleSet.trussUuids;
-  if (!controller.m_highlightUuid.empty()) {
-    const bool highlightAlreadyVisible =
-        std::find(drawTrussUuids.begin(), drawTrussUuids.end(),
-                  controller.m_highlightUuid) != drawTrussUuids.end();
-    if (!highlightAlreadyVisible &&
-        trusses.find(controller.m_highlightUuid) != trusses.end()) {
-      drawTrussUuids.push_back(controller.m_highlightUuid);
-    }
-  }
-
-  for (const auto &uuid : drawTrussUuids) {
+  for (const auto &uuid : visibleSet.trussUuids) {
     auto trussIt = trusses.find(uuid);
     if (trussIt == trusses.end())
       continue;
@@ -107,10 +96,8 @@ void OpaqueTrussPass::Render(
       controller.m_captureCanvas->SetSourceKey(trussCaptureKey);
     }
 
-    bool highlight = (!controller.m_highlightUuid.empty() &&
-                      uuid == controller.m_highlightUuid);
-    bool selected = (controller.m_selectedUuids.find(uuid) !=
-                     controller.m_selectedUuids.end());
+    const bool highlight = false;
+    const bool selected = false;
 
     float matrix[16];
     MatrixToArray(t.transform, matrix);

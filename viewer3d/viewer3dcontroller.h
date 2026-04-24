@@ -50,6 +50,7 @@ class LabelRenderSystem;
 class OpaqueFixturePass;
 class OpaqueTrussPass;
 class OpaqueObjectPass;
+class SelectionOverlayPass;
 class RenderPipeline;
 
 struct OverlayTextLabel {
@@ -341,6 +342,7 @@ private:
   friend class OpaqueFixturePass;
   friend class OpaqueTrussPass;
   friend class OpaqueObjectPass;
+  friend class SelectionOverlayPass;
   friend class IdPickPass;
   friend class RenderPipeline;
 };
