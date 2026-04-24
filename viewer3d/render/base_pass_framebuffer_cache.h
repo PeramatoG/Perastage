@@ -18,6 +18,7 @@ public:
       const std::unordered_set<std::string> &hiddenLayers,
       size_t sceneVersion);
   void Invalidate();
+  void AbandonResources();
 
 private:
   void EnsureFramebufferSize(int width, int height);

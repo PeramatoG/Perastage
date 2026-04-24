@@ -518,8 +518,11 @@ Viewer3DPanel::~Viewer3DPanel()
     if (HasCapture())
         ReleaseMouse();
     StopRefreshThread();
-    if (m_glContext) {
+    if (m_basePassCache && m_glContext && IsShownOnScreen()) {
         SetCurrent(*m_glContext);
+        m_basePassCache.reset();
+    } else if (m_basePassCache) {
+        m_basePassCache->AbandonResources();
         m_basePassCache.reset();
     }
     delete m_glContext;

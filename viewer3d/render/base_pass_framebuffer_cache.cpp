@@ -19,6 +19,15 @@ BasePassFramebufferCache::~BasePassFramebufferCache() {
 
 void BasePassFramebufferCache::Invalidate() { m_hasSnapshot = false; }
 
+void BasePassFramebufferCache::AbandonResources() {
+  m_fbo = 0;
+  m_colorTexture = 0;
+  m_depthRenderbuffer = 0;
+  m_width = 0;
+  m_height = 0;
+  m_hasSnapshot = false;
+}
+
 void BasePassFramebufferCache::EnsureFramebufferSize(int width, int height) {
   if (width <= 0 || height <= 0)
     return;
