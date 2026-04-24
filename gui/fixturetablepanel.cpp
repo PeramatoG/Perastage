@@ -125,6 +125,25 @@ bool RequiresRiggingRefresh(
   return true;
 }
 
+bool ShouldRefreshFixtureSummary(
+    FixtureTablePanel::SceneDataUpdateType updateType) {
+  using SceneDataUpdateType = FixtureTablePanel::SceneDataUpdateType;
+  switch (updateType) {
+  case SceneDataUpdateType::kGeneral:
+  case SceneDataUpdateType::kCategoryOnly:
+  case SceneDataUpdateType::kWeightOrPosition:
+  case SceneDataUpdateType::kMetadataOnly:
+    return true;
+  case SceneDataUpdateType::kVisualLabelOnly:
+  case SceneDataUpdateType::kPatchOnly:
+  case SceneDataUpdateType::kAppearanceOnly:
+  case SceneDataUpdateType::kTransformOnly:
+  case SceneDataUpdateType::kFixtureIdOnly:
+    return false;
+  }
+  return true;
+}
+
 FixtureTablePanel::SceneDataUpdateType UpdateTypeForColumnImpl(int column) {
   using SceneDataUpdateType = FixtureTablePanel::SceneDataUpdateType;
   switch (column) {
@@ -1566,7 +1585,7 @@ void FixtureTablePanel::UpdateSceneData(bool logChanges,
     RiggingPanel::Instance()->RefreshData();
 
   if (SummaryPanel::Instance() && IsActivePage() &&
-      updateType != SceneDataUpdateType::kVisualLabelOnly)
+      ShouldRefreshFixtureSummary(updateType))
     SummaryPanel::Instance()->ShowFixtureSummary();
 }
 
