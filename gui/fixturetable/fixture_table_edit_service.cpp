@@ -371,7 +371,18 @@ void ApplyCategoryChanges(
     const std::unordered_set<std::string> *manualCategoryUuids, bool logChanges) {
   auto &scene = adapter.GetScene();
   SceneUpdateTracking tracking;
-  const auto targetRows = ResolveTargetRows(table, rowUuids);
+  auto targetRows = ResolveTargetRows(table, rowUuids);
+  if (table && manualCategoryUuids) {
+    const size_t count =
+        std::min(static_cast<size_t>(table->GetItemCount()), rowUuids.size());
+    for (size_t row = 0; row < count; ++row) {
+      if (manualCategoryUuids->find(rowUuids[row]) != manualCategoryUuids->end())
+        targetRows.push_back(row);
+    }
+    std::sort(targetRows.begin(), targetRows.end());
+    targetRows.erase(std::unique(targetRows.begin(), targetRows.end()),
+                     targetRows.end());
+  }
   std::unordered_map<std::string, std::string> manualCategoriesByType;
 
   for (size_t row : targetRows) {
@@ -455,8 +466,15 @@ void PropagateTypeValues(wxDataViewListCtrl *table,
     wxVariant vType;
     table->GetValue(vType, i, 2);
     auto it = typeValues.find(std::string(vType.GetString().ToUTF8()));
-    if (it != typeValues.end())
-      table->SetValue(wxVariant(it->second), i, col);
+    if (it == typeValues.end())
+      continue;
+
+    wxVariant currentValue;
+    table->GetValue(currentValue, i, col);
+    if (currentValue.GetString() == it->second)
+      continue;
+
+    table->SetValue(wxVariant(it->second), i, col);
   }
 }
 

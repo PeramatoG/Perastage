@@ -364,6 +364,11 @@ void FixtureTablePanel::InitializeTable() {
 }
 
 void FixtureTablePanel::ReloadData() {
+  if (!table || !store)
+    return;
+  table->Freeze();
+  wxWindowUpdateLocker locker(table);
+
   auto &cfg = guiConfigServices->LegacyConfigManager();
   const auto distanceUnit = Units::ParseDistanceUnitSystem(
       cfg.GetValue("ui_distance_unit_system"));
@@ -522,6 +527,7 @@ void FixtureTablePanel::ReloadData() {
     LayerPanel::Instance()->ReloadLayers();
   if (SummaryPanel::Instance() && IsActivePage())
     SummaryPanel::Instance()->ShowFixtureSummary();
+  table->Thaw();
 }
 
 void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
@@ -718,10 +724,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         table->SetValue(wxVariant(val), r, col);
     }
     PropagateTypeValues(selections, col);
-    ResyncRows(oldOrder, selectedUuids);
     const auto updateType = UpdateTypeForColumn(col);
     UpdateSceneData(true, updateType);
-    RefreshViewersForFixtureUpdate(updateType);
     return;
   }
 
@@ -813,27 +817,58 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     std::unordered_set<std::string> selectedTypes;
     for (const auto &it : selections) {
       int r = table->ItemToRow(it);
-      if (r != wxNOT_FOUND) {
-        table->SetValue(wxVariant(value), r, col);
-        wxVariant typeValue;
-        table->GetValue(typeValue, r, 2);
-        selectedTypes.insert(std::string(typeValue.GetString().ToUTF8()));
-      }
+      if (r == wxNOT_FOUND)
+        continue;
+      wxVariant typeValue;
+      table->GetValue(typeValue, r, 2);
+      selectedTypes.insert(std::string(typeValue.GetString().ToUTF8()));
     }
-    PropagateTypeValues(selections, col);
-    for (unsigned int row = 0; row < table->GetItemCount() &&
-                               row < rowUuids.size();
-         ++row) {
+
+    std::vector<unsigned int> affectedRows;
+    affectedRows.reserve(table->GetItemCount());
+    for (unsigned int row = 0; row < table->GetItemCount(); ++row) {
       wxVariant typeValue;
       table->GetValue(typeValue, row, 2);
       const std::string typeName = std::string(typeValue.GetString().ToUTF8());
       if (selectedTypes.find(typeName) != selectedTypes.end())
+        affectedRows.push_back(row);
+    }
+
+    {
+      wxWindowUpdateLocker locker(table);
+      for (const auto row : affectedRows) {
+        wxVariant currentValue;
+        table->GetValue(currentValue, row, col);
+        if (currentValue.GetString() == value)
+          continue;
+
+        table->SetValue(wxVariant(value), row, col);
+      }
+    }
+
+    for (const auto row : affectedRows) {
+      if (row < rowUuids.size())
         manualCategoryUuidsPending.insert(rowUuids[row]);
     }
-    ResyncRows(oldOrder, selectedUuids);
+
     const auto updateType = UpdateTypeForColumn(col);
     UpdateSceneData(true, updateType);
-    RefreshViewersForFixtureUpdate(updateType);
+
+    auto &fixtures = guiConfigServices->LegacyConfigManager().GetScene().fixtures;
+    for (const auto row : affectedRows) {
+      if (row >= table->GetItemCount())
+        continue;
+      store->ClearCellTextColour(row, 18);
+      if (row >= rowUuids.size())
+        continue;
+      const auto itFixture = fixtures.find(rowUuids[row]);
+      if (itFixture == fixtures.end())
+        continue;
+      if (itFixture->second.categorySource ==
+          GdtfFixtureCategory::kAutoFallbackSource) {
+        store->SetCellTextColour(row, 18, *wxRED);
+      }
+    }
     return;
   }
 
@@ -1059,7 +1094,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       }
     }
   }
-  FixtureTableEditService::PropagateTypeValues(table, selections, col);
+  PropagateTypeValues(selections, col);
   const SceneDataUpdateType updateType = UpdateTypeForColumn(col);
   ResyncRows(oldOrder, selectedUuids);
   if (col == 1) {
@@ -1561,6 +1596,9 @@ void FixtureTablePanel::ApplyPositionValueUpdates(
 
 void FixtureTablePanel::PropagateTypeValues(
     const wxDataViewItemArray &selections, int col) {
+  if (!table)
+    return;
+  wxWindowUpdateLocker locker(table);
   FixtureTableEditService::PropagateTypeValues(table, selections, col);
 }
 
@@ -1593,7 +1631,8 @@ void FixtureTablePanel::UpdateSceneData(bool logChanges,
   HoistLoadRecalculationPrompt::PromptAndApply(
       guiConfigServices->LegacyConfigManager(), this, changedWeightPositions);
 
-  if (updateType != SceneDataUpdateType::kVisualLabelOnly)
+  if (updateType != SceneDataUpdateType::kVisualLabelOnly &&
+      updateType != SceneDataUpdateType::kCategoryOnly)
     RunValidationHighlights(updateType);
 
   if (RequiresRiggingRefresh(updateType) &&
