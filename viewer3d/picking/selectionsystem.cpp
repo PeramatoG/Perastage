@@ -62,6 +62,14 @@ bool IsFastInteractionModeEnabled(const ConfigManager &cfg) {
   return cfg.GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
+bool IsIdBufferPickingEnabled(const ConfigManager &cfg) {
+  return cfg.GetFloat("viewer3d_pick_use_id_buffer") >= 0.5f;
+}
+
+bool IsAmbiguousDepthConfirmEnabled(const ConfigManager &cfg) {
+  return cfg.GetFloat("viewer3d_pick_confirm_depth_ambiguous") >= 0.5f;
+}
+
 ProjectionSnapshot CaptureProjectionSnapshot() {
   ProjectionSnapshot snapshot;
   glGetDoublev(GL_MODELVIEW_MATRIX, snapshot.model);
@@ -298,18 +306,23 @@ void CacheProjectionSnapshot(const ProjectionSnapshot &projection,
 }
 
 void LogQueryMetrics(const char *label, const SelectionSystem::QueryMetrics &metrics,
+                     const SelectionSystem::QueryTelemetry &telemetry,
                      int queryCounter) {
 #ifndef NDEBUG
   if (queryCounter % 60 == 0) {
     wxLogDebug(
-        "SelectionSystem metrics [%s] projection=%lldus depth=%lldus candidate=%lldus",
-        label, static_cast<long long>(metrics.projection.count()),
+        "SelectionSystem metrics [%s] total=%lldus projection=%lldus depth=%lldus candidate=%lldus idPath=%d fallback=%d reproj=%d repaints=%d",
+        label, static_cast<long long>(metrics.total.count()),
+        static_cast<long long>(metrics.projection.count()),
         static_cast<long long>(metrics.depthRead.count()),
-        static_cast<long long>(metrics.candidateLoop.count()));
+        static_cast<long long>(metrics.candidateLoop.count()),
+        telemetry.idPathQueries, telemetry.fallbackQueries,
+        telemetry.reprojections, telemetry.repaintEstimates);
   }
 #else
   (void)label;
   (void)metrics;
+  (void)telemetry;
   (void)queryCounter;
 #endif
 }
@@ -329,48 +342,76 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
                                         wxPoint &outPos,
                                         std::string *outUuid,
                                         bool confirmDepth) {
+  const auto queryStart = std::chrono::steady_clock::now();
   ConfigManager &cfg = ConfigManager::Get();
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
+  const bool cameraMoving = m_controller.IsCameraMoving();
+  const bool useIdBuffer = IsIdBufferPickingEnabled(cfg);
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
-  std::string pickedUuid;
-  if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
-                                  pickedUuid)) {
-    const auto &fixtures = SceneDataManager::Instance().GetFixtures();
-    auto fixtureIt = fixtures.find(pickedUuid);
-    if (fixtureIt != fixtures.end()) {
-      const auto bbIt = m_controller.GetFixtureBoundsMap().find(pickedUuid);
-      if (bbIt != m_controller.GetFixtureBoundsMap().end()) {
-        const ProjectionSnapshot projection = CaptureProjectionSnapshot();
-        if (ProjectBoundingBoxCenter(bbIt->second, projection, height, outPos)) {
-          const auto &f = fixtureIt->second;
-          bool showName = cfg.GetFloat("label_show_name") != 0.0f;
-          bool showId = cfg.GetFloat("label_show_id") != 0.0f;
-          bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
-          wxString label;
-          if (showName)
-            label = f.instanceName.empty() ? wxString::FromUTF8(pickedUuid)
-                                           : wxString::FromUTF8(f.instanceName);
-          if (showId) {
-            if (!label.empty())
-              label += "\n";
-            label += "ID: " + wxString::Format("%d", f.fixtureId);
+  QueryMetrics metrics;
+  bool found = false;
+  std::string bestUuid;
+
+  if (useIdBuffer) {
+    std::string pickedUuid;
+    if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
+                                    pickedUuid)) {
+      const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+      auto fixtureIt = fixtures.find(pickedUuid);
+      if (fixtureIt != fixtures.end()) {
+        const auto bbIt = m_controller.GetFixtureBoundsMap().find(pickedUuid);
+        if (bbIt != m_controller.GetFixtureBoundsMap().end()) {
+          const ProjectionSnapshot projection = CaptureProjectionSnapshot();
+          if (ProjectBoundingBoxCenter(bbIt->second, projection, height, outPos)) {
+            const auto &f = fixtureIt->second;
+            bool showName = cfg.GetFloat("label_show_name") != 0.0f;
+            bool showId = cfg.GetFloat("label_show_id") != 0.0f;
+            bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
+            wxString label;
+            if (showName)
+              label = f.instanceName.empty() ? wxString::FromUTF8(pickedUuid)
+                                             : wxString::FromUTF8(f.instanceName);
+            if (showId) {
+              if (!label.empty())
+                label += "\n";
+              label += "ID: " + wxString::Format("%d", f.fixtureId);
+            }
+            if (showDmx && !f.address.empty()) {
+              if (!label.empty())
+                label += "\n";
+              label += wxString::FromUTF8(f.address);
+            }
+            outLabel = label;
+            bestUuid = pickedUuid;
+            if (outUuid)
+              *outUuid = pickedUuid;
+            found = true;
+            metrics.usedIdPath = true;
+            if (!cameraMoving && IsAmbiguousDepthConfirmEnabled(cfg) &&
+                confirmDepth) {
+              found = false;
+            }
           }
-          if (showDmx && !f.address.empty()) {
-            if (!label.empty())
-              label += "\n";
-            label += wxString::FromUTF8(f.address);
-          }
-          outLabel = label;
-          if (outUuid)
-            *outUuid = pickedUuid;
-          return true;
         }
       }
     }
+    if (found) {
+      m_queryTelemetry.totalQueries++;
+      m_queryTelemetry.idPathQueries++;
+      if (!m_queryTelemetry.hadFixtureResult ||
+          m_queryTelemetry.lastFixtureUuid != bestUuid) {
+        m_queryTelemetry.repaintEstimates++;
+      }
+      m_queryTelemetry.hadFixtureResult = true;
+      m_queryTelemetry.lastFixtureUuid = bestUuid;
+      metrics.total = std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::steady_clock::now() - queryStart);
+      LogQueryMetrics("fixture", metrics, m_queryTelemetry, ++m_queryCounter);
+      return true;
+    }
   }
 
-  QueryMetrics metrics;
   const auto projectionStart = std::chrono::steady_clock::now();
   const ProjectionSnapshot projection = CaptureProjectionSnapshot();
   const bool projectionChanged = !ProjectionMatchesCache(projection, m_queryCache);
@@ -378,6 +419,7 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
     CacheProjectionSnapshot(projection, m_queryCache);
     m_queryCache.hiddenLayers.clear();
   }
+  metrics.reprojected = projectionChanged;
   metrics.projection = std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::steady_clock::now() - projectionStart);
 
@@ -415,11 +457,9 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
-  bool found = false;
   double bestHitDistance = DBL_MAX;
   wxString bestLabel;
   wxPoint bestPos;
-  std::string bestUuid;
 
   if (!m_queryCache.visibleSet) {
     m_queryCache.visibleSet =
@@ -486,14 +526,32 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   }
   metrics.candidateLoop = std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::steady_clock::now() - candidateLoopStart);
-  LogQueryMetrics("fixture", metrics, ++m_queryCounter);
+  metrics.usedFallbackPath = true;
+  metrics.total = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - queryStart);
+  m_queryTelemetry.totalQueries++;
+  m_queryTelemetry.fallbackQueries++;
+  if (projectionChanged)
+    m_queryTelemetry.reprojections++;
 
   if (found) {
     outPos = bestPos;
     outLabel = bestLabel;
     if (outUuid)
       *outUuid = bestUuid;
+    if (!m_queryTelemetry.hadFixtureResult ||
+        m_queryTelemetry.lastFixtureUuid != bestUuid) {
+      m_queryTelemetry.repaintEstimates++;
+    }
+    m_queryTelemetry.hadFixtureResult = true;
+    m_queryTelemetry.lastFixtureUuid = bestUuid;
+  } else {
+    if (m_queryTelemetry.hadFixtureResult)
+      m_queryTelemetry.repaintEstimates++;
+    m_queryTelemetry.hadFixtureResult = false;
+    m_queryTelemetry.lastFixtureUuid.clear();
   }
+  LogQueryMetrics("fixture", metrics, m_queryTelemetry, ++m_queryCounter);
   return found;
 }
 
@@ -502,32 +560,58 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
                                       wxPoint &outPos,
                                       std::string *outUuid,
                                       bool confirmDepth) {
+  const auto queryStart = std::chrono::steady_clock::now();
   ConfigManager &cfg = ConfigManager::Get();
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
+  const bool cameraMoving = m_controller.IsCameraMoving();
+  const bool useIdBuffer = IsIdBufferPickingEnabled(cfg);
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
-  std::string pickedUuid;
-  if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
-                                  pickedUuid)) {
-    const auto &trusses = SceneDataManager::Instance().GetTrusses();
-    auto trussIt = trusses.find(pickedUuid);
-    if (trussIt != trusses.end()) {
-      const auto bbIt = m_controller.GetTrussBoundsMap().find(pickedUuid);
-      if (bbIt != m_controller.GetTrussBoundsMap().end()) {
-        const ProjectionSnapshot projection = CaptureProjectionSnapshot();
-        if (ProjectBoundingBoxCenter(bbIt->second, projection, height, outPos)) {
-          const auto &t = trussIt->second;
-          wxString label = wxString::FromUTF8(t.name);
-          outLabel = label;
-          if (outUuid)
-            *outUuid = pickedUuid;
-          return true;
+  QueryMetrics metrics;
+  bool found = false;
+  std::string bestUuid;
+  if (useIdBuffer) {
+    std::string pickedUuid;
+    if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
+                                    pickedUuid)) {
+      const auto &trusses = SceneDataManager::Instance().GetTrusses();
+      auto trussIt = trusses.find(pickedUuid);
+      if (trussIt != trusses.end()) {
+        const auto bbIt = m_controller.GetTrussBoundsMap().find(pickedUuid);
+        if (bbIt != m_controller.GetTrussBoundsMap().end()) {
+          const ProjectionSnapshot projection = CaptureProjectionSnapshot();
+          if (ProjectBoundingBoxCenter(bbIt->second, projection, height, outPos)) {
+            const auto &t = trussIt->second;
+            outLabel = wxString::FromUTF8(t.name);
+            bestUuid = pickedUuid;
+            if (outUuid)
+              *outUuid = pickedUuid;
+            found = true;
+            metrics.usedIdPath = true;
+            if (!cameraMoving && IsAmbiguousDepthConfirmEnabled(cfg) &&
+                confirmDepth) {
+              found = false;
+            }
+          }
         }
       }
     }
+    if (found) {
+      m_queryTelemetry.totalQueries++;
+      m_queryTelemetry.idPathQueries++;
+      if (!m_queryTelemetry.hadTrussResult ||
+          m_queryTelemetry.lastTrussUuid != bestUuid) {
+        m_queryTelemetry.repaintEstimates++;
+      }
+      m_queryTelemetry.hadTrussResult = true;
+      m_queryTelemetry.lastTrussUuid = bestUuid;
+      metrics.total = std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::steady_clock::now() - queryStart);
+      LogQueryMetrics("truss", metrics, m_queryTelemetry, ++m_queryCounter);
+      return true;
+    }
   }
 
-  QueryMetrics metrics;
   const auto projectionStart = std::chrono::steady_clock::now();
   const ProjectionSnapshot projection = CaptureProjectionSnapshot();
   const bool projectionChanged = !ProjectionMatchesCache(projection, m_queryCache);
@@ -535,6 +619,7 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
     CacheProjectionSnapshot(projection, m_queryCache);
     m_queryCache.hiddenLayers.clear();
   }
+  metrics.reprojected = projectionChanged;
   metrics.projection = std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::steady_clock::now() - projectionStart);
   Ray mouseRay;
@@ -572,11 +657,9 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
                                     true, 0.0f);
   }
   const ISelectionContext::VisibleSet &visibleSet = *m_queryCache.visibleSet;
-  bool found = false;
   double bestHitDistance = DBL_MAX;
   wxString bestLabel;
   wxPoint bestPos;
-  std::string bestUuid;
   const auto candidateLoopStart = std::chrono::steady_clock::now();
   for (const auto &uuid : visibleSet.trussUuids) {
     auto trussIt = trusses.find(uuid);
@@ -622,14 +705,32 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
   }
   metrics.candidateLoop = std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::steady_clock::now() - candidateLoopStart);
-  LogQueryMetrics("truss", metrics, ++m_queryCounter);
+  metrics.usedFallbackPath = true;
+  metrics.total = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - queryStart);
+  m_queryTelemetry.totalQueries++;
+  m_queryTelemetry.fallbackQueries++;
+  if (projectionChanged)
+    m_queryTelemetry.reprojections++;
 
   if (found) {
     outPos = bestPos;
     outLabel = bestLabel;
     if (outUuid)
       *outUuid = bestUuid;
+    if (!m_queryTelemetry.hadTrussResult ||
+        m_queryTelemetry.lastTrussUuid != bestUuid) {
+      m_queryTelemetry.repaintEstimates++;
+    }
+    m_queryTelemetry.hadTrussResult = true;
+    m_queryTelemetry.lastTrussUuid = bestUuid;
+  } else {
+    if (m_queryTelemetry.hadTrussResult)
+      m_queryTelemetry.repaintEstimates++;
+    m_queryTelemetry.hadTrussResult = false;
+    m_queryTelemetry.lastTrussUuid.clear();
   }
+  LogQueryMetrics("truss", metrics, m_queryTelemetry, ++m_queryCounter);
   return found;
 }
 
@@ -638,30 +739,57 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
                                             wxPoint &outPos,
                                             std::string *outUuid,
                                             bool confirmDepth) {
+  const auto queryStart = std::chrono::steady_clock::now();
   ConfigManager &cfg = ConfigManager::Get();
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
+  const bool cameraMoving = m_controller.IsCameraMoving();
+  const bool useIdBuffer = IsIdBufferPickingEnabled(cfg);
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
-  std::string pickedUuid;
-  if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
-                                  pickedUuid)) {
-    const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
-    auto objectIt = sceneObjects.find(pickedUuid);
-    if (objectIt != sceneObjects.end()) {
-      const auto bbIt = m_controller.GetObjectBoundsMap().find(pickedUuid);
-      if (bbIt != m_controller.GetObjectBoundsMap().end()) {
-        const ProjectionSnapshot projection = CaptureProjectionSnapshot();
-        if (ProjectBoundingBoxCenter(bbIt->second, projection, height, outPos)) {
-          outLabel = wxString::FromUTF8(objectIt->second.name);
-          if (outUuid)
-            *outUuid = pickedUuid;
-          return true;
+  QueryMetrics metrics;
+  bool found = false;
+  std::string bestUuid;
+  if (useIdBuffer) {
+    std::string pickedUuid;
+    if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
+                                    pickedUuid)) {
+      const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
+      auto objectIt = sceneObjects.find(pickedUuid);
+      if (objectIt != sceneObjects.end()) {
+        const auto bbIt = m_controller.GetObjectBoundsMap().find(pickedUuid);
+        if (bbIt != m_controller.GetObjectBoundsMap().end()) {
+          const ProjectionSnapshot projection = CaptureProjectionSnapshot();
+          if (ProjectBoundingBoxCenter(bbIt->second, projection, height, outPos)) {
+            outLabel = wxString::FromUTF8(objectIt->second.name);
+            bestUuid = pickedUuid;
+            if (outUuid)
+              *outUuid = pickedUuid;
+            found = true;
+            metrics.usedIdPath = true;
+            if (!cameraMoving && IsAmbiguousDepthConfirmEnabled(cfg) &&
+                confirmDepth) {
+              found = false;
+            }
+          }
         }
       }
     }
+    if (found) {
+      m_queryTelemetry.totalQueries++;
+      m_queryTelemetry.idPathQueries++;
+      if (!m_queryTelemetry.hadObjectResult ||
+          m_queryTelemetry.lastObjectUuid != bestUuid) {
+        m_queryTelemetry.repaintEstimates++;
+      }
+      m_queryTelemetry.hadObjectResult = true;
+      m_queryTelemetry.lastObjectUuid = bestUuid;
+      metrics.total = std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::steady_clock::now() - queryStart);
+      LogQueryMetrics("object", metrics, m_queryTelemetry, ++m_queryCounter);
+      return true;
+    }
   }
 
-  QueryMetrics metrics;
   const auto projectionStart = std::chrono::steady_clock::now();
   const ProjectionSnapshot projection = CaptureProjectionSnapshot();
   const bool projectionChanged = !ProjectionMatchesCache(projection, m_queryCache);
@@ -669,6 +797,7 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
     CacheProjectionSnapshot(projection, m_queryCache);
     m_queryCache.hiddenLayers.clear();
   }
+  metrics.reprojected = projectionChanged;
   metrics.projection = std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::steady_clock::now() - projectionStart);
   Ray mouseRay;
@@ -706,11 +835,9 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
                                     true, 0.0f);
   }
   const ISelectionContext::VisibleSet &visibleSet = *m_queryCache.visibleSet;
-  bool found = false;
   double bestHitDistance = DBL_MAX;
   wxString bestLabel;
   wxPoint bestPos;
-  std::string bestUuid;
   const auto candidateLoopStart = std::chrono::steady_clock::now();
   for (const auto &uuid : visibleSet.objectUuids) {
     auto objectIt = objs.find(uuid);
@@ -753,14 +880,32 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
   }
   metrics.candidateLoop = std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::steady_clock::now() - candidateLoopStart);
-  LogQueryMetrics("object", metrics, ++m_queryCounter);
+  metrics.usedFallbackPath = true;
+  metrics.total = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - queryStart);
+  m_queryTelemetry.totalQueries++;
+  m_queryTelemetry.fallbackQueries++;
+  if (projectionChanged)
+    m_queryTelemetry.reprojections++;
 
   if (found) {
     outPos = bestPos;
     outLabel = bestLabel;
     if (outUuid)
       *outUuid = bestUuid;
+    if (!m_queryTelemetry.hadObjectResult ||
+        m_queryTelemetry.lastObjectUuid != bestUuid) {
+      m_queryTelemetry.repaintEstimates++;
+    }
+    m_queryTelemetry.hadObjectResult = true;
+    m_queryTelemetry.lastObjectUuid = bestUuid;
+  } else {
+    if (m_queryTelemetry.hadObjectResult)
+      m_queryTelemetry.repaintEstimates++;
+    m_queryTelemetry.hadObjectResult = false;
+    m_queryTelemetry.lastObjectUuid.clear();
   }
+  LogQueryMetrics("object", metrics, m_queryTelemetry, ++m_queryCounter);
   return found;
 }
 

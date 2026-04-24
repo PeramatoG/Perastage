@@ -187,6 +187,9 @@ ConfigManager::ConfigManager() {
                    1.0f);
   RegisterVariable("viewer3d_fast_interaction_mode", "float", 1.0f, 0.0f,
                    1.0f);
+  RegisterVariable("viewer3d_pick_use_id_buffer", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("viewer3d_pick_confirm_depth_ambiguous", "float", 1.0f,
+                   0.0f, 1.0f);
   RegisterVariable("viewer3d_ambient_occlusion", "float", 1.0f, 0.0f,
                    1.0f);
   RegisterVariable("viewer3d_ambient_occlusion_strength", "float", 1.0f,
