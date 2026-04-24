@@ -148,8 +148,17 @@ private:
     uint64_t m_cameraRevision = 0;
     uint64_t m_hiddenLayersRevision = 0;
     uint64_t m_sceneRevision = 0;
+    uint64_t m_selectionRevision = 0;
+    uint64_t m_highlightRevision = 0;
     size_t m_lastCameraFingerprint = 0;
     size_t m_lastHiddenLayersFingerprint = 0;
+    size_t m_lastThreadCameraFingerprint = 0;
+    bool m_hasLastThreadCameraFingerprint = false;
+    bool m_selectionRefreshPending = false;
+    bool m_highlightRefreshPending = false;
+    std::chrono::steady_clock::time_point m_refreshTelemetryWindowStart{};
+    int m_fullRefreshesInCurrentWindow = 0;
+    int m_highlightRefreshesInCurrentWindow = 0;
 
     // True when the mouse moved since the last paint
     bool m_mouseMoved = false;
