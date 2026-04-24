@@ -813,14 +813,29 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     std::unordered_set<std::string> selectedTypes;
     for (const auto &it : selections) {
       int r = table->ItemToRow(it);
-      if (r != wxNOT_FOUND) {
-        table->SetValue(wxVariant(value), r, col);
-        wxVariant typeValue;
-        table->GetValue(typeValue, r, 2);
-        selectedTypes.insert(std::string(typeValue.GetString().ToUTF8()));
-      }
+      if (r == wxNOT_FOUND)
+        continue;
+      wxVariant typeValue;
+      table->GetValue(typeValue, r, 2);
+      selectedTypes.insert(std::string(typeValue.GetString().ToUTF8()));
     }
-    PropagateTypeValues(selections, col);
+
+    wxWindowUpdateLocker locker(table);
+    for (unsigned int row = 0; row < table->GetItemCount(); ++row) {
+      wxVariant typeValue;
+      table->GetValue(typeValue, row, 2);
+      const std::string typeName = std::string(typeValue.GetString().ToUTF8());
+      if (selectedTypes.find(typeName) == selectedTypes.end())
+        continue;
+
+      wxVariant currentValue;
+      table->GetValue(currentValue, row, col);
+      if (currentValue.GetString() == value)
+        continue;
+
+      table->SetValue(wxVariant(value), row, col);
+    }
+
     for (unsigned int row = 0; row < table->GetItemCount() &&
                                row < rowUuids.size();
          ++row) {
@@ -1059,7 +1074,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       }
     }
   }
-  FixtureTableEditService::PropagateTypeValues(table, selections, col);
+  PropagateTypeValues(selections, col);
   const SceneDataUpdateType updateType = UpdateTypeForColumn(col);
   ResyncRows(oldOrder, selectedUuids);
   if (col == 1) {
@@ -1561,6 +1576,9 @@ void FixtureTablePanel::ApplyPositionValueUpdates(
 
 void FixtureTablePanel::PropagateTypeValues(
     const wxDataViewItemArray &selections, int col) {
+  if (!table)
+    return;
+  wxWindowUpdateLocker locker(table);
   FixtureTableEditService::PropagateTypeValues(table, selections, col);
 }
 

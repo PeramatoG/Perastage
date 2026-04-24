@@ -455,8 +455,15 @@ void PropagateTypeValues(wxDataViewListCtrl *table,
     wxVariant vType;
     table->GetValue(vType, i, 2);
     auto it = typeValues.find(std::string(vType.GetString().ToUTF8()));
-    if (it != typeValues.end())
-      table->SetValue(wxVariant(it->second), i, col);
+    if (it == typeValues.end())
+      continue;
+
+    wxVariant currentValue;
+    table->GetValue(currentValue, i, col);
+    if (currentValue.GetString() == it->second)
+      continue;
+
+    table->SetValue(wxVariant(it->second), i, col);
   }
 }
 
