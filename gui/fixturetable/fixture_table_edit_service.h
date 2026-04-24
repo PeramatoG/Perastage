@@ -33,6 +33,27 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                      std::unordered_set<std::string> *changedWeightPositions = nullptr,
                      bool logChanges = true);
 
+void UpdatePatchForRows(ISceneAdapter &adapter, wxDataViewListCtrl *table,
+                        const std::vector<std::string> &rowUuids,
+                        bool logChanges = true);
+
+void UpdateAppearanceForRows(ISceneAdapter &adapter, wxDataViewListCtrl *table,
+                             const std::vector<std::string> &rowUuids,
+                             bool logChanges = true);
+
+void UpdateCategoryForRows(
+    ISceneAdapter &adapter, wxDataViewListCtrl *table,
+    const std::vector<std::string> &rowUuids,
+    const std::unordered_set<std::string> *manualCategoryUuids = nullptr,
+    bool logChanges = true);
+
+void UpdateFullRowData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
+                       const std::vector<std::string> &rowUuids,
+                       const std::vector<wxString> &gdtfPaths,
+                       const std::unordered_set<std::string> *manualCategoryUuids = nullptr,
+                       std::unordered_set<std::string> *changedWeightPositions = nullptr,
+                       bool logChanges = true);
+
 void ApplyNameChanges(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                       const std::vector<std::string> &rowUuids,
                       const std::vector<int> &selectedRows,
