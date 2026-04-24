@@ -66,6 +66,7 @@
 #include <memory>
 #include <cmath>
 #include <set>
+#include <cstdint>
 
 wxDEFINE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
 wxBEGIN_EVENT_TABLE(Viewer3DPanel, wxGLCanvas)
@@ -86,6 +87,7 @@ wxEND_EVENT_TABLE()
 
 namespace {
 constexpr auto kPauseDelay = std::chrono::milliseconds(200);
+constexpr auto kHoverQueryInterval = std::chrono::milliseconds(40);
 constexpr int kExportImageWidth = 1920;
 constexpr int kExportImageHeight = 1080;
 constexpr double kDefaultFovYDegrees = 45.0;
@@ -119,6 +121,11 @@ bool IsFastInteractionModeEnabled()
 
 bool Is2DDarkModeEnabled() {
     return ConfigManager::Get().GetFloat("view2d_dark_mode") >= 0.5f;
+}
+
+template <typename T>
+void HashCombine(size_t& seed, const T& value) {
+    seed ^= std::hash<T>{}(value) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
 }
 
 wxPoint ToFramebufferPoint(wxWindow* window, const wxPoint& logicalPoint) {
@@ -428,6 +435,7 @@ GlCanvasSelection SelectGlCanvasAttributes()
         return {attrs2x};
     return {attrsNoMsaa};
 }
+
 }
 
 Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
@@ -550,12 +558,70 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     const bool skipLabelWork = m_cameraMoving &&
         (IsFastInteractionModeEnabled() || skipLabelsWhenMoving);
 
-    const bool shouldUpdateHoverQuery =
-        m_mouseMoved || m_isInteracting || m_cameraMoving || !m_hasHover;
+    size_t cameraFingerprint = 0;
+    HashCombine(cameraFingerprint, m_camera.GetYaw());
+    HashCombine(cameraFingerprint, m_camera.GetPitch());
+    HashCombine(cameraFingerprint, m_camera.GetDistance());
+    HashCombine(cameraFingerprint, m_camera.GetTargetX());
+    HashCombine(cameraFingerprint, m_camera.GetTargetY());
+    HashCombine(cameraFingerprint, m_camera.GetTargetZ());
+    HashCombine(cameraFingerprint, m_camera.targetYaw);
+    HashCombine(cameraFingerprint, m_camera.targetPitch);
+    HashCombine(cameraFingerprint, m_camera.targetDistance);
+    HashCombine(cameraFingerprint, m_camera.targetTargetX);
+    HashCombine(cameraFingerprint, m_camera.targetTargetY);
+    HashCombine(cameraFingerprint, m_camera.targetTargetZ);
+    if (cameraFingerprint != m_lastCameraFingerprint) {
+        ++m_cameraRevision;
+        m_lastCameraFingerprint = cameraFingerprint;
+    }
 
-    if (!skipLabelWork && shouldUpdateHoverQuery &&
-        FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
-        const wxPoint pickPos = ToFramebufferPoint(this, m_lastMousePos);
+    const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
+    size_t hiddenLayersFingerprint = 0;
+    for (const std::string& layer : hiddenLayers)
+        HashCombine(hiddenLayersFingerprint, layer);
+    if (hiddenLayersFingerprint != m_lastHiddenLayersFingerprint) {
+        ++m_hiddenLayersRevision;
+        m_lastHiddenLayersFingerprint = hiddenLayersFingerprint;
+    }
+
+    HoverTargetTable activeTable = HoverTargetTable::None;
+    if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
+        activeTable = HoverTargetTable::Fixtures;
+    else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+        activeTable = HoverTargetTable::Trusses;
+    else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
+        activeTable = HoverTargetTable::SceneObjects;
+
+    if (activeTable != m_lastHoverTargetTable) {
+        m_forceHoverQuery = true;
+        m_lastHoverTargetTable = activeTable;
+    }
+
+    const wxPoint pickPos = ToFramebufferPoint(this, m_lastMousePos);
+    const HoverQueryState currentHoverQueryState{
+        pickPos,
+        m_cameraRevision,
+        m_hiddenLayersRevision,
+        m_sceneRevision
+    };
+    const bool hoverStateChanged = !m_hasLastHoverQueryState ||
+        currentHoverQueryState.mouseFramebufferPos != m_lastHoverQueryState.mouseFramebufferPos ||
+        currentHoverQueryState.cameraRevision != m_lastHoverQueryState.cameraRevision ||
+        currentHoverQueryState.hiddenLayersRevision != m_lastHoverQueryState.hiddenLayersRevision ||
+        currentHoverQueryState.sceneRevision != m_lastHoverQueryState.sceneRevision;
+    const bool shouldUpdateHoverQuery =
+        m_forceHoverQuery || m_mouseMoved || hoverStateChanged || !m_hasHover;
+    const auto nowForHover = std::chrono::steady_clock::now();
+    const bool hoverCadenceDue = m_forceHoverQuery ||
+        (nowForHover - m_lastHoverQueryTime) >= kHoverQueryInterval;
+    const bool shouldRunHoverQuery =
+        (!skipLabelWork || m_forceHoverQuery) &&
+        shouldUpdateHoverQuery && hoverCadenceDue &&
+        activeTable != HoverTargetTable::None &&
+        (m_forceHoverQuery || hoverStateChanged);
+
+    if (shouldRunHoverQuery && activeTable == HoverTargetTable::Fixtures) {
         found = m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y,
             w, h, newLabel, newPos, &newUuid);
         hoverQueryRan = true;
@@ -566,9 +632,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                 SceneObjectTablePanel::Instance()->HighlightObject(std::string());
         }
     }
-    else if (!skipLabelWork && shouldUpdateHoverQuery &&
-             TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
-        const wxPoint pickPos = ToFramebufferPoint(this, m_lastMousePos);
+    else if (shouldRunHoverQuery && activeTable == HoverTargetTable::Trusses) {
         found = m_controller.GetTrussLabelAt(pickPos.x, pickPos.y,
             w, h, newLabel, newPos, &newUuid);
         hoverQueryRan = true;
@@ -579,9 +643,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                 SceneObjectTablePanel::Instance()->HighlightObject(std::string());
         }
     }
-    else if (!skipLabelWork && shouldUpdateHoverQuery &&
-             SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
-        const wxPoint pickPos = ToFramebufferPoint(this, m_lastMousePos);
+    else if (shouldRunHoverQuery && activeTable == HoverTargetTable::SceneObjects) {
         found = m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y,
             w, h, newLabel, newPos, &newUuid);
         hoverQueryRan = true;
@@ -591,6 +653,13 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
             if (TrussTablePanel::Instance())
                 TrussTablePanel::Instance()->HighlightTruss(std::string());
         }
+    }
+
+    if (hoverQueryRan) {
+        m_lastHoverQueryState = currentHoverQueryState;
+        m_hasLastHoverQueryState = true;
+        m_lastHoverQueryTime = nowForHover;
+        m_forceHoverQuery = false;
     }
 
     if (hoverQueryRan && found) {
@@ -871,6 +940,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         m_lastInteractionTime = std::chrono::steady_clock::now();
         m_mode = InteractionMode::None;
         m_draggedSincePress = false;
+        m_forceHoverQuery = true;
         Refresh();
         return;
     }
@@ -885,11 +955,13 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         m_mode = InteractionMode::None;
         if (HasCapture())
             ReleaseMouse();
+        m_forceHoverQuery = true;
         Refresh();
     }
 
     if (event.LeftUp() && !m_draggedSincePress)
     {
+        m_forceHoverQuery = true;
         const RenderSize renderSize = ResolveRenderSize(this);
         const int w = renderSize.width;
         const int h = renderSize.height;
@@ -1434,6 +1506,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 
     // Mark that the mouse has moved so OnPaint can update hover info
     m_mouseMoved = true;
+    m_forceHoverQuery = true;
 
     Refresh();
 }
@@ -1670,6 +1743,7 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
 // Updates the controller with current scene data
 void Viewer3DPanel::UpdateScene()
 {
+    ++m_sceneRevision;
     m_sceneSyncPending = true;
 
     if (ShouldPauseHeavyTasks() || m_cameraMoving)
