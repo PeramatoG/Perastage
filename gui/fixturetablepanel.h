@@ -49,7 +49,8 @@ public:
         kCategoryOnly,
         kTransformOnly,
         kWeightOrPosition,
-        kMetadataOnly
+        kMetadataOnly,
+        kFixtureIdOnly
     };
 
     explicit FixtureTablePanel(wxWindow* parent, IGuiConfigServices* services = nullptr);
@@ -112,6 +113,7 @@ private:
     void HighlightDuplicateFixtureIds();
     void HighlightPatchConflicts();
     void HighlightAutoFallbackCategories();
+    void RunValidationHighlights(SceneDataUpdateType updateType);
 
     wxString activeHoverTooltip;
 };
