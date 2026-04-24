@@ -1,3 +1,6 @@
+# Windows installer workflow for Perastage
+# Installs vcpkg dependencies and configures CMake in Release mode.
+
 name: Windows Installer Test
 
 on:
@@ -9,20 +12,39 @@ on:
 jobs:
   smoke-test:
     runs-on: windows-latest
-
     steps:
+      # Checkout the repository contents
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Print a simple message to verify the workflow starts correctly
       - name: Print test message
         shell: pwsh
         run: |
           Write-Host "GitHub Actions is working for Perastage."
           Write-Host "Current branch: $env:GITHUB_REF_NAME"
 
+      # Clone vcpkg, bootstrap it and install required packages
+      - name: Set up vcpkg dependencies
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$env:GITHUB_WORKSPACE\vcpkg"
+          & "$env:GITHUB_WORKSPACE\vcpkg\bootstrap-vcpkg.bat"
+          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install `
+            wxwidgets:x64-windows `
+            tinyxml2:x64-windows `
+            glew:x64-windows `
+            curl:x64-windows `
+            zlib:x64-windows `
+            nanovg:x64-windows `
+            podofo:x64-windows
+
+      # Configure the CMake project using the vcpkg toolchain
       - name: Configure CMake
         shell: pwsh
         run: |
           cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
             -DCMAKE_BUILD_TYPE=Release `
-            -DPERAVIZ_ENABLE_NATIVE=OFF
+            -DPERAVIZ_ENABLE_NATIVE=OFF `
+            -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE\vcpkg\scripts\buildsystems\vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows
