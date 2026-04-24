@@ -22,6 +22,7 @@
 #include <unordered_set>
 
 #include <wx/notebook.h>
+#include <wx/weakref.h>
 
 #include "app_version.h"
 #include "configmanager.h"
@@ -912,9 +913,15 @@ void MainWindow::BeginLayout2DViewEdit() {
   layout2DViewEditPanel = dialog.GetViewerPanel();
   layout2DViewEditRenderPanel = dialog.GetRenderPanel();
   if (layout2DViewEditPanel) {
+    wxWeakRef<MainWindow> weakWindow(this);
     layout2DViewEditPanel->SetCursorWorldPositionCallback(
-        [this](const std::optional<std::array<float, 3>> &positionMeters) {
-          UpdateCursorWorldPositionInStatusBar(positionMeters);
+        [weakWindow](const std::optional<std::array<float, 3>> &positionMeters) {
+          if (!weakWindow)
+            return;
+          MainWindow *window = weakWindow.get();
+          if (!window || !window->GetStatusBar())
+            return;
+          window->UpdateCursorWorldPositionInStatusBar(positionMeters);
         });
   }
 

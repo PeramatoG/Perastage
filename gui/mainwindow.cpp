@@ -59,6 +59,7 @@
 #include <wx/textctrl.h>
 #include <wx/tokenzr.h>
 #include <wx/utils.h>
+#include <wx/weakref.h>
 #include <wx/wfstream.h>
 class wxZipStreamLink;
 #include <wx/log.h>
@@ -382,6 +383,10 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 }
 
 MainWindow::~MainWindow() {
+  if (viewport2DPanel)
+    viewport2DPanel->SetCursorWorldPositionCallback({});
+  if (layout2DViewEditPanel)
+    layout2DViewEditPanel->SetCursorWorldPositionCallback({});
   if (!userConfigPersistedOnClose)
     SaveUserConfigWithViewport2DState();
   if (auiManager) {
@@ -422,9 +427,15 @@ void MainWindow::Ensure2DViewport() {
     return;
   int halfWidth = GetClientSize().GetWidth() / 2;
   viewport2DPanel = new Viewer2DPanel(this);
+  wxWeakRef<MainWindow> weakWindow(this);
   viewport2DPanel->SetCursorWorldPositionCallback(
-      [this](const std::optional<std::array<float, 3>> &positionMeters) {
-        UpdateCursorWorldPositionInStatusBar(positionMeters);
+      [weakWindow](const std::optional<std::array<float, 3>> &positionMeters) {
+        if (!weakWindow)
+          return;
+        MainWindow *window = weakWindow.get();
+        if (!window || !window->GetStatusBar())
+          return;
+        window->UpdateCursorWorldPositionInStatusBar(positionMeters);
       });
   Viewer2DPanel::SetInstance(viewport2DPanel);
   viewport2DPanel->LoadViewFromConfig();
