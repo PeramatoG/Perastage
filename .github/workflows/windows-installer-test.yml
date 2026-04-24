@@ -2,6 +2,9 @@ name: Windows Installer Test
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ci/windows-installer
 
 jobs:
   smoke-test:
@@ -17,3 +20,9 @@ jobs:
           Write-Host "GitHub Actions is working for Perastage."
           Write-Host "Current branch: $env:GITHUB_REF_NAME"
 
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DPERAVIZ_ENABLE_NATIVE=OFF
