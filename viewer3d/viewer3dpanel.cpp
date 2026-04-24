@@ -516,7 +516,7 @@ Viewer3DPanel::~Viewer3DPanel()
     if (HasCapture())
         ReleaseMouse();
     StopRefreshThread();
-    if (m_glContext) {
+    if (m_glContext && m_glInitialized) {
         SetCurrent(*m_glContext);
         DestroyBaseCacheFramebuffer();
     }
@@ -819,7 +819,6 @@ void Viewer3DPanel::Render(const RenderSize& renderSize, bool highlightOnlyRefre
     }
     SetCurrent(*m_glContext);
 
-    static unsigned long long s_renderFrameId = 0;
     const int width = renderSize.width;
     const int height = renderSize.height;
     const auto overlayStart = std::chrono::steady_clock::now();
@@ -927,18 +926,30 @@ bool Viewer3DPanel::EnsureBaseCacheFramebuffer(const RenderSize& renderSize)
     glGenFramebuffers(1, &m_baseCacheFbo);
     glBindFramebuffer(GL_FRAMEBUFFER, m_baseCacheFbo);
 
-    glGenTextures(1, &m_baseCacheColorTex);
-    glBindTexture(GL_TEXTURE_2D, m_baseCacheColorTex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, nullptr);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                           m_baseCacheColorTex, 0);
+    glGenRenderbuffers(1, &m_baseCacheColorRb);
+    glBindRenderbuffer(GL_RENDERBUFFER, m_baseCacheColorRb);
+    if (m_hasSampleBuffers) {
+        GLint defaultSamples = 0;
+        glGetIntegerv(GL_SAMPLES, &defaultSamples);
+        const GLint samples = std::max(1, defaultSamples);
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_RGBA8, width, height);
+    } else {
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, width, height);
+    }
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
+                              m_baseCacheColorRb);
 
     glGenRenderbuffers(1, &m_baseCacheDepthRb);
     glBindRenderbuffer(GL_RENDERBUFFER, m_baseCacheDepthRb);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
+    if (m_hasSampleBuffers) {
+        GLint defaultSamples = 0;
+        glGetIntegerv(GL_SAMPLES, &defaultSamples);
+        const GLint samples = std::max(1, defaultSamples);
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_DEPTH_COMPONENT24,
+                                         width, height);
+    } else {
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
+    }
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,
                               m_baseCacheDepthRb);
 
@@ -991,12 +1002,12 @@ void Viewer3DPanel::DestroyBaseCacheFramebuffer()
 {
     if (m_baseCacheDepthRb != 0)
         glDeleteRenderbuffers(1, &m_baseCacheDepthRb);
-    if (m_baseCacheColorTex != 0)
-        glDeleteTextures(1, &m_baseCacheColorTex);
+    if (m_baseCacheColorRb != 0)
+        glDeleteRenderbuffers(1, &m_baseCacheColorRb);
     if (m_baseCacheFbo != 0)
         glDeleteFramebuffers(1, &m_baseCacheFbo);
     m_baseCacheDepthRb = 0;
-    m_baseCacheColorTex = 0;
+    m_baseCacheColorRb = 0;
     m_baseCacheFbo = 0;
     m_baseCacheWidth = 0;
     m_baseCacheHeight = 0;

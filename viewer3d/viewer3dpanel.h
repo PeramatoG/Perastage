@@ -175,7 +175,7 @@ private:
     uint64_t m_baseCacheHiddenLayersRevision = 0;
     uint64_t m_baseCacheSceneRevision = 0;
     unsigned int m_baseCacheFbo = 0;
-    unsigned int m_baseCacheColorTex = 0;
+    unsigned int m_baseCacheColorRb = 0;
     unsigned int m_baseCacheDepthRb = 0;
 
     // True when the mouse moved since the last paint
