@@ -99,6 +99,10 @@ public:
                    bool gridOnTop = false,
                    bool is2DViewer = false,
                    bool preferPerastageSvgSymbolsForLayouts = false);
+  void RenderHighlightOverlayScene(
+      bool wireframe = false,
+      Viewer2DRenderMode mode = Viewer2DRenderMode::White,
+      Viewer2DView view = Viewer2DView::Top);
 
   void SetDarkMode(bool enabled);
   void SetInteracting(bool interacting);

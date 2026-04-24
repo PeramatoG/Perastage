@@ -76,6 +76,7 @@ struct RenderFrameContext {
   bool skipCapture = false;
   bool skipOutlinesForCurrentFrame = false;
   bool idOnlyPass = false;
+  bool suppressSelectionEmphasis = false;
 
   bool colorByFixtureType = false;
   bool colorByLayer = false;

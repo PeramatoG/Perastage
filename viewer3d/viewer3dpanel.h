@@ -122,7 +122,14 @@ private:
     void DrawSelectionRectangle(int width, int height);
 
     // Renders the full scene
-    void Render(const RenderSize& renderSize);
+    void Render(const RenderSize& renderSize, bool highlightOnlyRefresh);
+    void RenderBasePassToCache(const RenderSize& renderSize);
+    void RenderHighlightOverlayPass(const RenderSize& renderSize);
+    bool EnsureBaseCacheFramebuffer(const RenderSize& renderSize);
+    void BlitBaseCacheToDefaultFramebuffer(const RenderSize& renderSize);
+    void InvalidateBaseCache();
+    bool IsBaseCacheValidForCurrentFrame() const;
+    void DestroyBaseCacheFramebuffer();
     void ApplyCameraMatrices(const RenderSize& renderSize, double fovYDegrees = 45.0);
     bool ExportCurrentViewToPng();
 
@@ -157,6 +164,19 @@ private:
     std::chrono::steady_clock::time_point m_refreshTelemetryWindowStart{};
     int m_fullRefreshesInCurrentWindow = 0;
     int m_highlightRefreshesInCurrentWindow = 0;
+    std::chrono::microseconds m_basePassTimeAccum{0};
+    std::chrono::microseconds m_overlayPassTimeAccum{0};
+    int m_basePassSamplesInCurrentWindow = 0;
+    int m_overlayPassSamplesInCurrentWindow = 0;
+    bool m_baseCacheValid = false;
+    int m_baseCacheWidth = 0;
+    int m_baseCacheHeight = 0;
+    uint64_t m_baseCacheCameraRevision = 0;
+    uint64_t m_baseCacheHiddenLayersRevision = 0;
+    uint64_t m_baseCacheSceneRevision = 0;
+    unsigned int m_baseCacheFbo = 0;
+    unsigned int m_baseCacheColorTex = 0;
+    unsigned int m_baseCacheDepthRb = 0;
 
     // True when the mouse moved since the last paint
     bool m_mouseMoved = false;

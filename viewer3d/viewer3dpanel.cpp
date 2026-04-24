@@ -516,6 +516,10 @@ Viewer3DPanel::~Viewer3DPanel()
     if (HasCapture())
         ReleaseMouse();
     StopRefreshThread();
+    if (m_glContext) {
+        SetCurrent(*m_glContext);
+        DestroyBaseCacheFramebuffer();
+    }
     delete m_glContext;
     m_glContext = nullptr;
     SetInstance(nullptr);
@@ -600,7 +604,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         return;
     }
 
-    Render(renderSize);
+    Render(renderSize, highlightOnlyRefresh);
 
     // Ensure the OpenGL context is current before drawing overlays
     SetCurrent(*m_glContext);
@@ -745,7 +749,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     m_mouseMoved = false;
 
     // Draw labels before swapping buffers to avoid losing them.
-    if (!highlightOnlyRefresh && !pauseHeavyTasks && !skipLabelWork) {
+    if (!pauseHeavyTasks && !skipLabelWork) {
         if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
             m_controller.DrawFixtureLabels(w, h);
         else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
@@ -767,12 +771,29 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_refreshTelemetryWindowStart = telemetryNow;
     const auto telemetryElapsed = telemetryNow - m_refreshTelemetryWindowStart;
     if (telemetryElapsed >= std::chrono::seconds(1)) {
+        const double baseMs =
+            std::chrono::duration<double, std::milli>(m_basePassTimeAccum).count();
+        const double overlayMs =
+            std::chrono::duration<double, std::milli>(m_overlayPassTimeAccum).count();
+        const double baseAvgMs = m_basePassSamplesInCurrentWindow > 0
+            ? baseMs / static_cast<double>(m_basePassSamplesInCurrentWindow)
+            : 0.0;
+        const double overlayAvgMs = m_overlayPassSamplesInCurrentWindow > 0
+            ? overlayMs / static_cast<double>(m_overlayPassSamplesInCurrentWindow)
+            : 0.0;
         wxLogDebug("Viewer3DPanel refreshes/s full=%d highlight=%d",
                    m_fullRefreshesInCurrentWindow,
                    m_highlightRefreshesInCurrentWindow);
+        wxLogTrace("viewer3d_perf",
+                   "Viewer3DPanel pass timings avg_ms base=%.3f overlay=%.3f",
+                   baseAvgMs, overlayAvgMs);
         m_refreshTelemetryWindowStart = telemetryNow;
         m_fullRefreshesInCurrentWindow = 0;
         m_highlightRefreshesInCurrentWindow = 0;
+        m_basePassTimeAccum = std::chrono::microseconds{0};
+        m_overlayPassTimeAccum = std::chrono::microseconds{0};
+        m_basePassSamplesInCurrentWindow = 0;
+        m_overlayPassSamplesInCurrentWindow = 0;
     }
 
     if (highlightOnlyRefresh)
@@ -786,11 +807,12 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 // Resize event handler
 void Viewer3DPanel::OnResize(wxSizeEvent& event)
 {
+    InvalidateBaseCache();
     Refresh();
 }
 
 // Renders the full 3D scene
-void Viewer3DPanel::Render(const RenderSize& renderSize)
+void Viewer3DPanel::Render(const RenderSize& renderSize, bool highlightOnlyRefresh)
 {
     if (!IsShownOnScreen()) {
         return;
@@ -800,6 +822,34 @@ void Viewer3DPanel::Render(const RenderSize& renderSize)
     static unsigned long long s_renderFrameId = 0;
     const int width = renderSize.width;
     const int height = renderSize.height;
+    const auto overlayStart = std::chrono::steady_clock::now();
+    if (!highlightOnlyRefresh || !IsBaseCacheValidForCurrentFrame()) {
+        const auto baseStart = std::chrono::steady_clock::now();
+        RenderBasePassToCache(renderSize);
+        const auto baseEnd = std::chrono::steady_clock::now();
+        m_basePassTimeAccum +=
+            std::chrono::duration_cast<std::chrono::microseconds>(baseEnd - baseStart);
+        ++m_basePassSamplesInCurrentWindow;
+    }
+
+    BlitBaseCacheToDefaultFramebuffer(renderSize);
+    RenderHighlightOverlayPass(renderSize);
+
+    const auto overlayEnd = std::chrono::steady_clock::now();
+    m_overlayPassTimeAccum +=
+        std::chrono::duration_cast<std::chrono::microseconds>(overlayEnd - overlayStart);
+    ++m_overlayPassSamplesInCurrentWindow;
+    ValidateGlStateAfterRender("Viewer3DPanel::Render", width, height);
+}
+
+void Viewer3DPanel::RenderBasePassToCache(const RenderSize& renderSize)
+{
+    const int width = renderSize.width;
+    const int height = renderSize.height;
+    if (!EnsureBaseCacheFramebuffer(renderSize))
+        return;
+
+    glBindFramebuffer(GL_FRAMEBUFFER, m_baseCacheFbo);
     glstate::ApplyKnownBaseOnscreenState(width, height);
     const RenderSize viewportSize{width, height, "glstate::ApplyKnownBaseOnscreenState(framebuffer-px)"};
 
@@ -809,6 +859,7 @@ void Viewer3DPanel::Render(const RenderSize& renderSize)
     ApplyCameraMatrices(renderSize);
     const RenderSize projectionSize{width, height, "ApplyCameraMatrices::projection(framebuffer-px)"};
 
+    static unsigned long long s_renderFrameId = 0;
     ++s_renderFrameId;
     ValidateRenderSizeContract("Viewer3DPanel", s_renderFrameId, renderSize,
                                viewportSize, projectionSize, &renderSize);
@@ -820,9 +871,118 @@ void Viewer3DPanel::Render(const RenderSize& renderSize)
     m_controller.SetCameraMoving(m_cameraMoving);
     m_controller.RenderScene(IsWireframeRenderStyle(renderStyle),
                              ToSceneRenderMode(renderStyle));
-
     glFlush();
-    ValidateGlStateAfterRender("Viewer3DPanel::Render", width, height);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glstate::ApplyKnownBaseOnscreenState(width, height);
+
+    m_baseCacheValid = true;
+    m_baseCacheCameraRevision = m_cameraRevision;
+    m_baseCacheHiddenLayersRevision = m_hiddenLayersRevision;
+    m_baseCacheSceneRevision = m_sceneRevision;
+}
+
+void Viewer3DPanel::RenderHighlightOverlayPass(const RenderSize& renderSize)
+{
+    const int width = renderSize.width;
+    const int height = renderSize.height;
+    glstate::ApplyKnownBaseOnscreenState(width, height);
+    ApplyCameraMatrices(renderSize);
+
+    const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
+    m_controller.SetCameraMoving(m_cameraMoving);
+    m_controller.RenderHighlightOverlayScene(
+        IsWireframeRenderStyle(renderStyle), ToSceneRenderMode(renderStyle));
+}
+
+bool Viewer3DPanel::EnsureBaseCacheFramebuffer(const RenderSize& renderSize)
+{
+    const int width = renderSize.width;
+    const int height = renderSize.height;
+    if (width <= 0 || height <= 0)
+        return false;
+    if (m_baseCacheFbo != 0 && m_baseCacheWidth == width && m_baseCacheHeight == height)
+        return true;
+
+    DestroyBaseCacheFramebuffer();
+
+    glGenFramebuffers(1, &m_baseCacheFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_baseCacheFbo);
+
+    glGenTextures(1, &m_baseCacheColorTex);
+    glBindTexture(GL_TEXTURE_2D, m_baseCacheColorTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                           m_baseCacheColorTex, 0);
+
+    glGenRenderbuffers(1, &m_baseCacheDepthRb);
+    glBindRenderbuffer(GL_RENDERBUFFER, m_baseCacheDepthRb);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,
+                              m_baseCacheDepthRb);
+
+    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        wxLogTrace("viewer3d_perf",
+                   "Viewer3DPanel base cache framebuffer incomplete: 0x%x",
+                   static_cast<unsigned int>(status));
+        DestroyBaseCacheFramebuffer();
+        return false;
+    }
+
+    m_baseCacheWidth = width;
+    m_baseCacheHeight = height;
+    m_baseCacheValid = false;
+    return true;
+}
+
+void Viewer3DPanel::BlitBaseCacheToDefaultFramebuffer(const RenderSize& renderSize)
+{
+    if (m_baseCacheFbo == 0)
+        return;
+    const int width = renderSize.width;
+    const int height = renderSize.height;
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_baseCacheFbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height,
+                      GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glstate::ApplyKnownBaseOnscreenState(width, height);
+}
+
+void Viewer3DPanel::InvalidateBaseCache()
+{
+    m_baseCacheValid = false;
+}
+
+bool Viewer3DPanel::IsBaseCacheValidForCurrentFrame() const
+{
+    return m_baseCacheValid &&
+           m_baseCacheWidth > 0 &&
+           m_baseCacheHeight > 0 &&
+           m_baseCacheCameraRevision == m_cameraRevision &&
+           m_baseCacheHiddenLayersRevision == m_hiddenLayersRevision &&
+           m_baseCacheSceneRevision == m_sceneRevision;
+}
+
+void Viewer3DPanel::DestroyBaseCacheFramebuffer()
+{
+    if (m_baseCacheDepthRb != 0)
+        glDeleteRenderbuffers(1, &m_baseCacheDepthRb);
+    if (m_baseCacheColorTex != 0)
+        glDeleteTextures(1, &m_baseCacheColorTex);
+    if (m_baseCacheFbo != 0)
+        glDeleteFramebuffers(1, &m_baseCacheFbo);
+    m_baseCacheDepthRb = 0;
+    m_baseCacheColorTex = 0;
+    m_baseCacheFbo = 0;
+    m_baseCacheWidth = 0;
+    m_baseCacheHeight = 0;
+    m_baseCacheValid = false;
 }
 
 bool Viewer3DPanel::ExportCurrentViewToPng() {

@@ -434,7 +434,7 @@ void OpaqueFixturePass::Render(
       glDisable(GL_DEPTH_TEST);
   }
   std::vector<std::string> drawFixtureUuids = visibleSet.fixtureUuids;
-  if (!controller.m_highlightUuid.empty()) {
+  if (!context.suppressSelectionEmphasis && !controller.m_highlightUuid.empty()) {
     const bool highlightAlreadyVisible =
         std::find(drawFixtureUuids.begin(), drawFixtureUuids.end(),
                   controller.m_highlightUuid) != drawFixtureUuids.end();
@@ -459,9 +459,11 @@ void OpaqueFixturePass::Render(
       controller.m_captureCanvas->SetSourceKey(fixtureCaptureKey);
     }
 
-    bool highlight = (!controller.m_highlightUuid.empty() &&
+    bool highlight = !context.suppressSelectionEmphasis &&
+                     (!controller.m_highlightUuid.empty() &&
                       uuid == controller.m_highlightUuid);
-    bool selected = (controller.m_selectedUuids.find(uuid) !=
+    bool selected = !context.suppressSelectionEmphasis &&
+                    (controller.m_selectedUuids.find(uuid) !=
                      controller.m_selectedUuids.end());
 
     float matrix[16];

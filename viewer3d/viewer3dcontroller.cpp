@@ -55,7 +55,7 @@
 #include "logger.h"
 #include "projectutils.h"
 #include "scenerenderer.h"
-#include "render_pipeline.h"
+#include "selection_overlay_pass.h"
 #include "opaque_fixture_pass.h"
 #include "hoist_symbol_renderer.h"
 #include "opaque_object_pass.h"
@@ -1052,8 +1052,38 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   context.hiddenLayers = hiddenLayers;
 
-  RenderPipeline pipeline(*this);
-  pipeline.Execute(context);
+  ViewFrustumSnapshot frustum{};
+  const auto &visibleSet = PrepareRenderFrame(context, frustum);
+  RenderOpaqueFrame(context, visibleSet);
+  RenderOverlayFrame(context, visibleSet);
+  FinalizeRenderFrame();
+}
+
+void Viewer3DController::RenderHighlightOverlayScene(bool wireframe,
+                                                     Viewer2DRenderMode mode,
+                                                     Viewer2DView view) {
+  ConfigManager &cfg = ConfigManager::Get();
+  RenderFrameContext context;
+  context.wireframe = wireframe;
+  context.mode = mode;
+  context.view = view;
+  context.showGrid = false;
+  context.gridOnTop = false;
+  context.showAxes = false;
+  context.is2DViewer = false;
+  context.hiddenLayers = SnapshotHiddenLayers(cfg);
+  context.useFrustumCulling = false;
+  context.minCullingPixels = 0.0f;
+  context.useLighting = !context.wireframe;
+  context.useAmbientOcclusion =
+      cfg.GetFloat("viewer3d_ambient_occlusion") >= 0.5f;
+  context.ambientOcclusionStrength =
+      cfg.GetFloat("viewer3d_ambient_occlusion_strength");
+
+  ViewFrustumSnapshot frustum{};
+  const auto &visibleSet = PrepareRenderFrame(context, frustum);
+  RenderOverlayFrame(context, visibleSet);
+  FinalizeRenderFrame();
 }
 
 const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
@@ -1153,19 +1183,22 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
 
 void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
                                            const VisibleSet &visibleSet) {
-  const bool wireframe = context.wireframe;
-  const Viewer2DRenderMode mode = context.mode;
-  const Viewer2DView view = context.view;
+  RenderFrameContext baseContext = context;
+  baseContext.suppressSelectionEmphasis = true;
 
-  if (context.useLighting)
-    SetupBasicLighting(context.useAmbientOcclusion,
-                      context.ambientOcclusionStrength,
-                      context.whiteModelStyle);
+  const bool wireframe = baseContext.wireframe;
+  const Viewer2DRenderMode mode = baseContext.mode;
+  const Viewer2DView view = baseContext.view;
+
+  if (baseContext.useLighting)
+    SetupBasicLighting(baseContext.useAmbientOcclusion,
+                      baseContext.ambientOcclusionStrength,
+                      baseContext.whiteModelStyle);
   else
     glDisable(GL_LIGHTING);
 
-  if (context.drawGridBeforeScene)
-    DrawGrid(context.gridStyle, context.gridR, context.gridG, context.gridB,
+  if (baseContext.drawGridBeforeScene)
+    DrawGrid(baseContext.gridStyle, baseContext.gridR, baseContext.gridG, baseContext.gridB,
              view);
 
   auto getTypeColor = [&](const std::string &key, const std::string &hex) {
@@ -1206,18 +1239,18 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
     return std::array<float, 3>{1.0f, 1.0f, 1.0f};
   };
 
-  OpaqueObjectPass::Render(*this, context, visibleSet, getLayerColor,
+  OpaqueObjectPass::Render(*this, baseContext, visibleSet, getLayerColor,
                            resolveSymbolView, getPickColor);
-  OpaqueTrussPass::Render(*this, context, visibleSet, getLayerColor,
+  OpaqueTrussPass::Render(*this, baseContext, visibleSet, getLayerColor,
                           resolveSymbolView, getPickColor);
-  OpaqueFixturePass::Render(*this, context, visibleSet, getTypeColor,
+  OpaqueFixturePass::Render(*this, baseContext, visibleSet, getTypeColor,
                             getLayerColor, resolveSymbolView, getPickColor);
-  HoistSymbolRenderer::Render(*this, context);
+  HoistSymbolRenderer::Render(*this, baseContext);
 }
 
 void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
                                             const VisibleSet &visibleSet) {
-  (void)visibleSet;
+  SelectionOverlayPass::Render(*this, context, visibleSet);
   if (context.drawGridAfterScene) {
     glDisable(GL_DEPTH_TEST);
     DrawGrid(context.gridStyle, context.gridR, context.gridG, context.gridB,
