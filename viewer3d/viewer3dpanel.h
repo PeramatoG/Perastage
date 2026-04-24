@@ -33,6 +33,7 @@
 #include <thread>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <wx/thread.h>
 #include <vector>
 
@@ -130,6 +131,24 @@ private:
     wxPoint m_hoverPos;
     wxString m_hoverText;
     std::string m_hoverUuid;
+
+    enum class HoverTargetTable { None, Fixtures, Trusses, SceneObjects };
+    struct HoverQueryState {
+        wxPoint mouseFramebufferPos;
+        uint64_t cameraRevision = 0;
+        uint64_t hiddenLayersRevision = 0;
+        uint64_t sceneRevision = 0;
+    };
+    HoverQueryState m_lastHoverQueryState{};
+    bool m_hasLastHoverQueryState = false;
+    std::chrono::steady_clock::time_point m_lastHoverQueryTime{};
+    bool m_forceHoverQuery = false;
+    HoverTargetTable m_lastHoverTargetTable = HoverTargetTable::None;
+    uint64_t m_cameraRevision = 0;
+    uint64_t m_hiddenLayersRevision = 0;
+    uint64_t m_sceneRevision = 0;
+    size_t m_lastCameraFingerprint = 0;
+    size_t m_lastHiddenLayersFingerprint = 0;
 
     // True when the mouse moved since the last paint
     bool m_mouseMoved = false;
