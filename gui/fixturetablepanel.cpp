@@ -89,20 +89,18 @@ public:
 
 void RefreshViewersForFixtureUpdate(
     FixtureTablePanel::SceneDataUpdateType updateType) {
-  const bool labelOnlyUpdate =
-      updateType == FixtureTablePanel::SceneDataUpdateType::kVisualLabelOnly;
+  const bool requiresFullSceneUpdate =
+      FixtureTablePanel::RequiresFullViewerSceneUpdate(updateType);
   if (Viewer3DPanel::Instance()) {
-    if (labelOnlyUpdate) {
-      Viewer3DPanel::Instance()->Refresh();
-    } else {
+    if (requiresFullSceneUpdate) {
       Viewer3DPanel::Instance()->UpdateScene();
-      Viewer3DPanel::Instance()->Refresh();
     }
+    Viewer3DPanel::Instance()->Refresh();
   } else if (Viewer2DPanel::Instance()) {
-    if (labelOnlyUpdate)
-      Viewer2DPanel::Instance()->UpdateScene(false);
-    else
+    if (requiresFullSceneUpdate)
       Viewer2DPanel::Instance()->UpdateScene();
+    else
+      Viewer2DPanel::Instance()->UpdateScene(false);
   }
 }
 
@@ -1097,6 +1095,24 @@ FixtureTablePanel::UpdateTypeForColumn(int column) {
 FixtureTablePanel::SceneDataUpdateType FixtureTablePanel::CombineUpdateTypes(
     SceneDataUpdateType lhs, SceneDataUpdateType rhs) {
   return CombineUpdateTypesImpl(lhs, rhs);
+}
+
+bool FixtureTablePanel::RequiresFullViewerSceneUpdate(
+    SceneDataUpdateType updateType) {
+  switch (updateType) {
+  case SceneDataUpdateType::kPatchOnly:
+  case SceneDataUpdateType::kTransformOnly:
+  case SceneDataUpdateType::kWeightOrPosition:
+  case SceneDataUpdateType::kGeneral:
+    return true;
+  case SceneDataUpdateType::kVisualLabelOnly:
+  case SceneDataUpdateType::kAppearanceOnly:
+  case SceneDataUpdateType::kCategoryOnly:
+  case SceneDataUpdateType::kMetadataOnly:
+  case SceneDataUpdateType::kFixtureIdOnly:
+    return false;
+  }
+  return true;
 }
 
 bool FixtureTablePanel::IsActivePage() const {

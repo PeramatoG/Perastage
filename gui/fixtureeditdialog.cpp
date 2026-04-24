@@ -968,18 +968,18 @@ void FixtureEditDialog::ApplyChanges() {
   }
   panel->UpdateSceneData(true, updateType);
   applied = true;
+  const bool requiresFullSceneUpdate =
+      FixtureTablePanel::RequiresFullViewerSceneUpdate(updateType);
   if (Viewer3DPanel::Instance()) {
-    if (updateType == FixtureTablePanel::SceneDataUpdateType::kVisualLabelOnly) {
-      Viewer3DPanel::Instance()->Refresh();
-    } else {
+    if (requiresFullSceneUpdate) {
       Viewer3DPanel::Instance()->UpdateScene();
-      Viewer3DPanel::Instance()->Refresh();
     }
+    Viewer3DPanel::Instance()->Refresh();
   } else if (Viewer2DPanel::Instance()) {
-    if (updateType == FixtureTablePanel::SceneDataUpdateType::kVisualLabelOnly)
-      Viewer2DPanel::Instance()->UpdateScene(false);
-    else
+    if (requiresFullSceneUpdate)
       Viewer2DPanel::Instance()->UpdateScene();
+    else
+      Viewer2DPanel::Instance()->UpdateScene(false);
   }
   std::fill(modifiedColumns.begin(), modifiedColumns.end(), false);
 }
