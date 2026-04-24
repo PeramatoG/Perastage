@@ -48,6 +48,8 @@ struct ResourceSyncState {
   std::unordered_map<std::string, PathResolutionEntry> resolvedModelRefs;
   std::unordered_map<std::string, std::vector<FixtureSceneNode>> fixtureNodeRegistry;
   std::unordered_map<std::string, FixtureAnchorRegistryEntry> fixtureAnchorRegistry;
+  std::unordered_map<std::string, size_t> fixtureRegistrySignatureByUuid;
+  std::unordered_map<std::string, size_t> geometryTreeVersionByResolvedGdtfPath;
   std::string lastSceneBasePath;
   size_t lastSceneSignature = 0;
   bool hasSceneSignature = false;
