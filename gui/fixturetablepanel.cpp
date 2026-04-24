@@ -1533,10 +1533,26 @@ void FixtureTablePanel::UpdateSceneData(bool logChanges,
                                         SceneDataUpdateType updateType) {
   ConfigManagerSceneAdapter adapter;
   std::unordered_set<std::string> changedWeightPositions;
-  FixtureTableEditService::UpdateSceneData(adapter, table, rowUuids, gdtfPaths,
-                                           &manualCategoryUuidsPending,
-                                           &changedWeightPositions,
-                                           logChanges);
+
+  switch (updateType) {
+  case SceneDataUpdateType::kPatchOnly:
+    FixtureTableEditService::UpdatePatchForRows(adapter, table, rowUuids,
+                                                logChanges);
+    break;
+  case SceneDataUpdateType::kAppearanceOnly:
+    FixtureTableEditService::UpdateAppearanceForRows(adapter, table, rowUuids,
+                                                     logChanges);
+    break;
+  case SceneDataUpdateType::kCategoryOnly:
+    FixtureTableEditService::UpdateCategoryForRows(
+        adapter, table, rowUuids, &manualCategoryUuidsPending, logChanges);
+    break;
+  default:
+    FixtureTableEditService::UpdateFullRowData(
+        adapter, table, rowUuids, gdtfPaths, &manualCategoryUuidsPending,
+        &changedWeightPositions, logChanges);
+    break;
+  }
   manualCategoryUuidsPending.clear();
 
   HoistLoadRecalculationPrompt::PromptAndApply(
