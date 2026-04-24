@@ -59,7 +59,6 @@
 #include <wx/textctrl.h>
 #include <wx/tokenzr.h>
 #include <wx/utils.h>
-#include <wx/weakref.h>
 #include <wx/wfstream.h>
 class wxZipStreamLink;
 #include <wx/log.h>
@@ -383,6 +382,7 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 }
 
 MainWindow::~MainWindow() {
+  cursorStatusCallbackLifetimeToken.reset();
   if (viewport2DPanel)
     viewport2DPanel->SetCursorWorldPositionCallback({});
   if (layout2DViewEditPanel)
@@ -394,6 +394,7 @@ MainWindow::~MainWindow() {
     delete auiManager;
     auiManager = nullptr;
   }
+  SetInstance(nullptr);
   ProjectUtils::SaveLastProjectPath(currentProjectPath);
 }
 
@@ -427,15 +428,13 @@ void MainWindow::Ensure2DViewport() {
     return;
   int halfWidth = GetClientSize().GetWidth() / 2;
   viewport2DPanel = new Viewer2DPanel(this);
-  wxWeakRef<MainWindow> weakWindow(this);
+  std::weak_ptr<int> lifetimeToken = cursorStatusCallbackLifetimeToken;
   viewport2DPanel->SetCursorWorldPositionCallback(
-      [weakWindow](const std::optional<std::array<float, 3>> &positionMeters) {
-        if (!weakWindow)
+      [this, lifetimeToken](
+          const std::optional<std::array<float, 3>> &positionMeters) {
+        if (lifetimeToken.expired() || !GetStatusBar())
           return;
-        MainWindow *window = weakWindow.get();
-        if (!window || !window->GetStatusBar())
-          return;
-        window->UpdateCursorWorldPositionInStatusBar(positionMeters);
+        UpdateCursorWorldPositionInStatusBar(positionMeters);
       });
   Viewer2DPanel::SetInstance(viewport2DPanel);
   viewport2DPanel->LoadViewFromConfig();
