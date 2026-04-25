@@ -146,6 +146,8 @@ The second XML node is the mandatory GeneralSceneDescription node. The attribute
 
 The current version of MVR reflected by this document is 1.6.
 
+Perastage exporter policy: `providerVersion` maps to the Perastage app version (`app::kVersion`), while custom `UserData/Data@ver` values version Perastage-owned payload schemas.
+
 
 ##### Table 3 — *GeneralSceneDescription Node Children*
 
@@ -181,6 +183,8 @@ Node name: `Data`
 | -------------- | --------------------------------------- | --------------------------- | ------------------------------------------------------------------------- |
 | provider       | [String](#user-content-attrtype-string) | Not Optional                | Specifies the name of the provider application that created this data.    |
 | ver            | [String](#user-content-attrtype-string) | 1                           | Version information of the data as specified by the provider application. |
+
+Perastage exporter policy: for Perastage-owned metadata blocks, `ver` is a schema version (currently `1.0`) and does not track application releases.
 
 
 ## Node Definition: Scene
@@ -1790,4 +1794,3 @@ UUIDs are randomly generated numbers which are, practically speaking, unique and
 One of the most important aspects of UUIDs in MVR is that they are persistent. A UUID should identify an item throughout its entire life cycle. This means that if a document is exported, then objects should have the same UUID every time an export is performed.
 One use case for UUIDs is importing or merging MVRs into an existing document. This is one reason that persistent UUIDs are valuable. If you export an MVR from one program, open it in another, and make modifications, then you may want to incorporate those changes into the original document. By cross referencing UUIDs, you can avoid creating duplicate objects and instead update existing ones.
 UUIDs are also used inside of the MVR file format as a form of reference. For example, a symbol instance shall refer to a symbol definition. Because the symbol definition is given a UUID, the symbol instance can reference its symbol through the use of this UUID.
-

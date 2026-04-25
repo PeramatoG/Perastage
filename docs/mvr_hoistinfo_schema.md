@@ -6,7 +6,7 @@ This document defines the canonical Perastage payload for support hoist metadata
 
 - `Support/UserData/Data` with attributes:
   - `provider="Perastage"`
-  - `ver="1.0"`
+  - `ver="1.0"` (Perastage user-data schema version, not the app version)
 - Canonical payload node: `HoistInfo`
 - Legacy payload node accepted on import: `MotorInfo`
 
@@ -39,3 +39,8 @@ On import, Perastage reads both canonical and compatibility aliases with this pr
 2. `ValueSource`, fallback `DataSource`
 
 Legacy `MotorInfo` payload blocks are still parsed and migrated internally to the canonical support fields.
+
+## Versioning policy
+
+- `GeneralSceneDescription@providerVersion` is exported from `app::kVersion` and identifies the Perastage application build that created the MVR file.
+- `UserData/Data@ver` stays on the Perastage user-data schema version (`1.0`) and only changes when the Perastage custom payload schema changes.

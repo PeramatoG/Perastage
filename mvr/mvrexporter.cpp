@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvrexporter.h"
+#include "app_version.h"
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
 #include "gdtf_mutation_audit.h"
@@ -102,7 +103,7 @@ static bool IsCanonicalUuidString(const std::string &value);
 static void LogLegacyPositionUuidWarning(const std::string &message);
 
 static constexpr const char *kMvrProvider = "Perastage";
-static constexpr const char *kMvrProviderVersion = "1.0";
+static constexpr const char *kPerastageUserDataSchemaVersion = "1.0";
 static constexpr const char *kDummyFallbackFixtureGdtfFileName = "Dummy 1ch.gdtf";
 static constexpr const char *kLegacyFallbackFixtureGdtfFileName = "Generic 1ch.gdtf";
 
@@ -896,7 +897,7 @@ static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument
 
   tinyxml2::XMLElement *data = doc.NewElement("Data");
   data->SetAttribute("provider", kMvrProvider);
-  data->SetAttribute("ver", kMvrProviderVersion);
+  data->SetAttribute("ver", kPerastageUserDataSchemaVersion);
   ud->InsertEndChild(data);
   return data;
 }
@@ -1536,7 +1537,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   root->SetAttribute("verMinor", 6);
   root->SetAttribute("provider", scene.provider.empty() ? kMvrProvider : scene.provider.c_str());
   root->SetAttribute("providerVersion",
-                     scene.providerVersion.empty() ? kMvrProviderVersion
+                     scene.providerVersion.empty() ? app::kVersion
                                                    : scene.providerVersion.c_str());
   doc.InsertEndChild(root);
 
@@ -1771,8 +1772,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
     tinyxml2::XMLElement *ud = doc.NewElement("UserData");
     tinyxml2::XMLElement *data = doc.NewElement("Data");
-    data->SetAttribute("provider", "Perastage");
-    data->SetAttribute("ver", "1.0");
+    data->SetAttribute("provider", kMvrProvider);
+    data->SetAttribute("ver", kPerastageUserDataSchemaVersion);
     tinyxml2::XMLElement *info = doc.NewElement("FixtureInfo");
     info->SetAttribute("uuid", stableUuid.c_str());
 
@@ -1965,8 +1966,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (hasMeta) {
       tinyxml2::XMLElement *ud = doc.NewElement("UserData");
       tinyxml2::XMLElement *data = doc.NewElement("Data");
-      data->SetAttribute("provider", "Perastage");
-      data->SetAttribute("ver", "1.0");
+      data->SetAttribute("provider", kMvrProvider);
+      data->SetAttribute("ver", kPerastageUserDataSchemaVersion);
       tinyxml2::XMLElement *info = doc.NewElement("TrussInfo");
       info->SetAttribute("uuid", t.uuid.c_str());
       auto addTxt = [&](const char *n, const std::string &v) {
@@ -2234,7 +2235,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       if (!primitiveGeometryModelRefs.empty()) {
         tinyxml2::XMLElement *ud = doc.NewElement("UserData");
         tinyxml2::XMLElement *data = doc.NewElement("Data");
-        data->SetAttribute("provider", "Perastage");
+        data->SetAttribute("provider", kMvrProvider);
         tinyxml2::XMLElement *map = doc.NewElement("PrimitiveGeometryMap");
         for (const auto &[archiveFileName, modelRef] : primitiveGeometryModelRefs) {
           tinyxml2::XMLElement *entry = doc.NewElement("Entry");
@@ -2501,8 +2502,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   if (!trussArchiveByTypeKey.empty()) {
     tinyxml2::XMLElement *rootUserData = doc.NewElement("UserData");
     tinyxml2::XMLElement *data = doc.NewElement("Data");
-    data->SetAttribute("provider", "Perastage");
-    data->SetAttribute("ver", "1.0");
+    data->SetAttribute("provider", kMvrProvider);
+    data->SetAttribute("ver", kPerastageUserDataSchemaVersion);
     tinyxml2::XMLElement *manifest = doc.NewElement("TrussSidecarManifest");
     for (const auto &[typeKey, archivePath] : trussArchiveByTypeKey) {
       tinyxml2::XMLElement *typeNode = doc.NewElement("Type");
