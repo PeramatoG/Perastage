@@ -236,7 +236,12 @@ void SceneRenderer::DrawMeshWithOutline(
       const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
       if (lightingWasEnabled)
         glDisable(GL_LIGHTING);
-      m_controller.SetGLColor(1.0f, 1.0f, 1.0f);
+      if (highlight)
+        m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
+      else if (selected)
+        m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
+      else
+        m_controller.SetGLColor(1.0f, 1.0f, 1.0f);
       DrawMesh(mesh, scale, modelMatrix);
       if (lightingWasEnabled)
         glEnable(GL_LIGHTING);

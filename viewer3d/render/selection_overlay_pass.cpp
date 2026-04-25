@@ -63,8 +63,7 @@ bool HexToRGB(const std::string &hex, float &r, float &g, float &b) {
   return true;
 }
 
-bool ContainsUuid(const std::vector<std::string> &uuids,
-                  const std::string &uuid) {
+bool ContainsUuid(const std::vector<std::string> &uuids, const std::string &uuid) {
   return std::find(uuids.begin(), uuids.end(), uuid) != uuids.end();
 }
 
@@ -76,18 +75,15 @@ void AppendUuidIfRenderable(const std::string &uuid,
   if (uuid.empty())
     return;
 
-  if (fixtures.find(uuid) != fixtures.end() &&
-      !ContainsUuid(overlaySet.fixtureUuids, uuid)) {
+  if (fixtures.find(uuid) != fixtures.end() && !ContainsUuid(overlaySet.fixtureUuids, uuid)) {
     overlaySet.fixtureUuids.push_back(uuid);
     return;
   }
-  if (trusses.find(uuid) != trusses.end() &&
-      !ContainsUuid(overlaySet.trussUuids, uuid)) {
+  if (trusses.find(uuid) != trusses.end() && !ContainsUuid(overlaySet.trussUuids, uuid)) {
     overlaySet.trussUuids.push_back(uuid);
     return;
   }
-  if (objects.find(uuid) != objects.end() &&
-      !ContainsUuid(overlaySet.objectUuids, uuid)) {
+  if (objects.find(uuid) != objects.end() && !ContainsUuid(overlaySet.objectUuids, uuid)) {
     overlaySet.objectUuids.push_back(uuid);
     return;
   }
@@ -99,7 +95,6 @@ struct ScreenSpaceOutlineResources {
   GLuint depthBuffer = 0;
   GLuint program = 0;
   GLint texelSizeUniform = -1;
-  GLint outlineColorUniform = -1;
   GLint fillAlphaUniform = -1;
   GLint outlineAlphaUniform = -1;
   int width = 0;
@@ -173,9 +168,9 @@ struct ScreenSpaceOutlineResources {
     if (infoLogLength > 1) {
       std::string infoLog(static_cast<size_t>(infoLogLength), '\0');
       glGetShaderInfoLog(shader, infoLogLength, nullptr, infoLog.data());
-      Logger::Instance().Log(
-          Logger::Level::Warn,
-          std::string("Selection outline shader compilation failed: ") + infoLog);
+      Logger::Instance().Log(Logger::Level::Warn,
+                             std::string("Selection outline shader compilation failed: ") +
+                                 infoLog);
     }
 
     glDeleteShader(shader);
@@ -198,29 +193,40 @@ struct ScreenSpaceOutlineResources {
         "#version 120\n"
         "uniform sampler2D uMask;\n"
         "uniform vec2 uTexelSize;\n"
-        "uniform vec3 uOutlineColor;\n"
         "uniform float uFillAlpha;\n"
         "uniform float uOutlineAlpha;\n"
         "varying vec2 vTexCoord;\n"
-        "float sampleMask(vec2 uv) {\n"
-        "  return texture2D(uMask, uv).r;\n"
+        "float maskStrength(vec3 c) {\n"
+        "  return max(c.r, max(c.g, c.b));\n"
         "}\n"
         "void main() {\n"
-        "  float center = sampleMask(vTexCoord);\n"
-        "  float edge = 0.0;\n"
-        "  edge = max(edge, sampleMask(vTexCoord + vec2(uTexelSize.x, 0.0)));\n"
-        "  edge = max(edge, sampleMask(vTexCoord - vec2(uTexelSize.x, 0.0)));\n"
-        "  edge = max(edge, sampleMask(vTexCoord + vec2(0.0, uTexelSize.y)));\n"
-        "  edge = max(edge, sampleMask(vTexCoord - vec2(0.0, uTexelSize.y)));\n"
-        "  edge = max(edge, sampleMask(vTexCoord + uTexelSize));\n"
-        "  edge = max(edge, sampleMask(vTexCoord - uTexelSize));\n"
-        "  edge = max(edge, sampleMask(vTexCoord + vec2(uTexelSize.x, -uTexelSize.y)));\n"
-        "  edge = max(edge, sampleMask(vTexCoord + vec2(-uTexelSize.x, uTexelSize.y)));\n"
-        "  float outline = max(0.0, edge - center);\n"
+        "  vec3 centerColor = texture2D(uMask, vTexCoord).rgb;\n"
+        "  float center = maskStrength(centerColor);\n"
+        "  float neighborMax = 0.0;\n"
+        "  vec3 neighborColor = vec3(0.0);\n"
+        "  vec2 offsets[8];\n"
+        "  offsets[0] = vec2(uTexelSize.x, 0.0);\n"
+        "  offsets[1] = vec2(-uTexelSize.x, 0.0);\n"
+        "  offsets[2] = vec2(0.0, uTexelSize.y);\n"
+        "  offsets[3] = vec2(0.0, -uTexelSize.y);\n"
+        "  offsets[4] = vec2(uTexelSize.x, uTexelSize.y);\n"
+        "  offsets[5] = vec2(-uTexelSize.x, -uTexelSize.y);\n"
+        "  offsets[6] = vec2(uTexelSize.x, -uTexelSize.y);\n"
+        "  offsets[7] = vec2(-uTexelSize.x, uTexelSize.y);\n"
+        "  for (int i = 0; i < 8; ++i) {\n"
+        "    vec3 sampleColor = texture2D(uMask, vTexCoord + offsets[i]).rgb;\n"
+        "    float sampleMask = maskStrength(sampleColor);\n"
+        "    if (sampleMask > neighborMax) {\n"
+        "      neighborMax = sampleMask;\n"
+        "      neighborColor = sampleColor;\n"
+        "    }\n"
+        "  }\n"
+        "  float outline = max(0.0, neighborMax - center);\n"
         "  float alpha = max(center * uFillAlpha, outline * uOutlineAlpha);\n"
         "  if (alpha <= 0.001)\n"
         "    discard;\n"
-        "  gl_FragColor = vec4(uOutlineColor, alpha);\n"
+        "  vec3 color = center > 0.01 ? centerColor : neighborColor;\n"
+        "  gl_FragColor = vec4(color, alpha);\n"
         "}\n";
 
     const GLuint vertex = CompileShader(GL_VERTEX_SHADER, kVertexShader);
@@ -249,9 +255,9 @@ struct ScreenSpaceOutlineResources {
       if (infoLogLength > 1) {
         std::string infoLog(static_cast<size_t>(infoLogLength), '\0');
         glGetProgramInfoLog(program, infoLogLength, nullptr, infoLog.data());
-        Logger::Instance().Log(
-            Logger::Level::Warn,
-            std::string("Selection outline shader link failed: ") + infoLog);
+        Logger::Instance().Log(Logger::Level::Warn,
+                               std::string("Selection outline shader link failed: ") +
+                                   infoLog);
       }
       glDeleteProgram(program);
       program = 0;
@@ -259,11 +265,10 @@ struct ScreenSpaceOutlineResources {
     }
 
     texelSizeUniform = glGetUniformLocation(program, "uTexelSize");
-    outlineColorUniform = glGetUniformLocation(program, "uOutlineColor");
     fillAlphaUniform = glGetUniformLocation(program, "uFillAlpha");
     outlineAlphaUniform = glGetUniformLocation(program, "uOutlineAlpha");
-    return texelSizeUniform >= 0 && outlineColorUniform >= 0 &&
-           fillAlphaUniform >= 0 && outlineAlphaUniform >= 0;
+    return texelSizeUniform >= 0 && fillAlphaUniform >= 0 &&
+           outlineAlphaUniform >= 0;
   }
 };
 
@@ -272,17 +277,8 @@ ScreenSpaceOutlineResources &OutlineResources() {
   return resources;
 }
 
-struct OverlaySelectionSets {
-  Viewer3DVisibleSet highlightSet;
-  Viewer3DVisibleSet selectedSet;
-
-  bool Empty() const {
-    return highlightSet.Empty() && selectedSet.Empty();
-  }
-};
-
-OverlaySelectionSets BuildOverlaySets(Viewer3DController &controller,
-                                      const Viewer3DVisibleSet &visibleSet) {
+Viewer3DVisibleSet BuildOverlaySet(Viewer3DController &controller,
+                                   const Viewer3DVisibleSet &visibleSet) {
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
@@ -290,34 +286,26 @@ OverlaySelectionSets BuildOverlaySets(Viewer3DController &controller,
   const std::string &highlightUuid = controller.GetOverlayHighlightUuid();
   const auto &selectedUuids = controller.GetOverlaySelectedUuids();
 
-  OverlaySelectionSets sets;
-  const auto appendFromVisibility =
-      [&](const std::vector<std::string> &sourceUuids,
-          std::vector<std::string> &highlightTarget,
-          std::vector<std::string> &selectedTarget) {
-        for (const auto &uuid : sourceUuids) {
-          if (uuid == highlightUuid)
-            highlightTarget.push_back(uuid);
-          else if (selectedUuids.find(uuid) != selectedUuids.end())
-            selectedTarget.push_back(uuid);
-        }
-      };
+  Viewer3DVisibleSet overlaySet;
+  const auto appendFromVisibility = [&](const std::vector<std::string> &sourceUuids,
+                                        std::vector<std::string> &targetUuids) {
+    for (const auto &uuid : sourceUuids) {
+      if (uuid == highlightUuid ||
+          selectedUuids.find(uuid) != selectedUuids.end()) {
+        targetUuids.push_back(uuid);
+      }
+    }
+  };
 
-  appendFromVisibility(visibleSet.fixtureUuids, sets.highlightSet.fixtureUuids,
-                       sets.selectedSet.fixtureUuids);
-  appendFromVisibility(visibleSet.trussUuids, sets.highlightSet.trussUuids,
-                       sets.selectedSet.trussUuids);
-  appendFromVisibility(visibleSet.objectUuids, sets.highlightSet.objectUuids,
-                       sets.selectedSet.objectUuids);
+  appendFromVisibility(visibleSet.fixtureUuids, overlaySet.fixtureUuids);
+  appendFromVisibility(visibleSet.trussUuids, overlaySet.trussUuids);
+  appendFromVisibility(visibleSet.objectUuids, overlaySet.objectUuids);
 
-  AppendUuidIfRenderable(highlightUuid, fixtures, trusses, objects,
-                         sets.highlightSet);
-  for (const auto &uuid : selectedUuids) {
-    if (uuid != highlightUuid)
-      AppendUuidIfRenderable(uuid, fixtures, trusses, objects, sets.selectedSet);
-  }
+  AppendUuidIfRenderable(highlightUuid, fixtures, trusses, objects, overlaySet);
+  for (const auto &uuid : selectedUuids)
+    AppendUuidIfRenderable(uuid, fixtures, trusses, objects, overlaySet);
 
-  return sets;
+  return overlaySet;
 }
 
 void RenderSelectedGeometry(Viewer3DController &controller,
@@ -376,19 +364,15 @@ void RenderLegacyOverlay(Viewer3DController &controller,
   glDepthFunc(static_cast<GLenum>(previousDepthFunc));
 }
 
-bool UseScreenSpaceOverlay(const RenderFrameContext &context) {
-  if (context.is2DViewer)
-    return false;
+bool UseScreenSpaceOverlay() {
   return ConfigManager::Get().GetFloat("viewer3d_selection_outline_screenspace") >=
          0.5f;
 }
 
 void RenderMask(Viewer3DController &controller, const RenderFrameContext &context,
                 const Viewer3DVisibleSet &overlaySet, int width, int height) {
-  if (overlaySet.Empty())
-    return;
-
   glViewport(0, 0, width, height);
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
   glClear(GL_COLOR_BUFFER_BIT);
 
@@ -397,7 +381,7 @@ void RenderMask(Viewer3DController &controller, const RenderFrameContext &contex
 
   RenderFrameContext maskContext = context;
   maskContext.skipCapture = true;
-  maskContext.selectionOverlayPass = false;
+  maskContext.selectionOverlayPass = true;
   maskContext.selectionMaskPass = true;
   maskContext.wireframe = false;
 
@@ -407,18 +391,15 @@ void RenderMask(Viewer3DController &controller, const RenderFrameContext &contex
 }
 
 void CompositeMaskToCurrentFramebuffer(const ScreenSpaceOutlineResources &resources,
-                                       int width, int height, float colorR,
-                                       float colorG, float colorB,
-                                       float fillAlpha, float outlineAlpha) {
+                                       int width, int height) {
   glUseProgram(resources.program);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, resources.colorTexture);
   glUniform1i(glGetUniformLocation(resources.program, "uMask"), 0);
   glUniform2f(resources.texelSizeUniform, 1.0f / static_cast<float>(width),
               1.0f / static_cast<float>(height));
-  glUniform3f(resources.outlineColorUniform, colorR, colorG, colorB);
-  glUniform1f(resources.fillAlphaUniform, fillAlpha);
-  glUniform1f(resources.outlineAlphaUniform, outlineAlpha);
+  glUniform1f(resources.fillAlphaUniform, 0.24f);
+  glUniform1f(resources.outlineAlphaUniform, 1.0f);
 
   glBegin(GL_QUADS);
   glTexCoord2f(0.0f, 0.0f);
@@ -434,7 +415,7 @@ void CompositeMaskToCurrentFramebuffer(const ScreenSpaceOutlineResources &resour
 
 void RenderScreenSpaceOverlay(Viewer3DController &controller,
                               const RenderFrameContext &context,
-                              const OverlaySelectionSets &overlaySets) {
+                              const Viewer3DVisibleSet &overlaySet) {
   static bool loggedFramebufferFallback = false;
   static bool loggedShaderFallback = false;
 
@@ -443,8 +424,7 @@ void RenderScreenSpaceOverlay(Viewer3DController &controller,
   const int width = viewport[2];
   const int height = viewport[3];
   if (width <= 0 || height <= 0) {
-    RenderLegacyOverlay(controller, context, overlaySets.selectedSet);
-    RenderLegacyOverlay(controller, context, overlaySets.highlightSet);
+    RenderLegacyOverlay(controller, context, overlaySet);
     return;
   }
 
@@ -456,8 +436,7 @@ void RenderScreenSpaceOverlay(Viewer3DController &controller,
           "Selection outline screen-space disabled: failed to initialize mask framebuffer; using legacy fallback");
       loggedFramebufferFallback = true;
     }
-    RenderLegacyOverlay(controller, context, overlaySets.selectedSet);
-    RenderLegacyOverlay(controller, context, overlaySets.highlightSet);
+    RenderLegacyOverlay(controller, context, overlaySet);
     return;
   }
   if (!resources.EnsureProgram()) {
@@ -467,8 +446,7 @@ void RenderScreenSpaceOverlay(Viewer3DController &controller,
           "Selection outline screen-space disabled: failed to initialize shader program; using legacy fallback");
       loggedShaderFallback = true;
     }
-    RenderLegacyOverlay(controller, context, overlaySets.selectedSet);
-    RenderLegacyOverlay(controller, context, overlaySets.highlightSet);
+    RenderLegacyOverlay(controller, context, overlaySet);
     return;
   }
 
@@ -479,6 +457,9 @@ void RenderScreenSpaceOverlay(Viewer3DController &controller,
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resources.fbo);
   glBlitFramebuffer(0, 0, width, height, 0, 0, width, height,
                     GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, resources.fbo);
+  RenderMask(controller, context, overlaySet, width, height);
 
   glBindFramebuffer(GL_FRAMEBUFFER, drawFramebuffer);
   glViewport(viewport[0], viewport[1], width, height);
@@ -499,20 +480,7 @@ void RenderScreenSpaceOverlay(Viewer3DController &controller,
   if (!textureWasEnabled)
     glEnable(GL_TEXTURE_2D);
 
-  glBindFramebuffer(GL_FRAMEBUFFER, resources.fbo);
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  RenderMask(controller, context, overlaySets.selectedSet, width, height);
-
-  glBindFramebuffer(GL_FRAMEBUFFER, drawFramebuffer);
-  CompositeMaskToCurrentFramebuffer(resources, width, height, 0.0f, 1.0f, 1.0f,
-                                    0.20f, 1.0f);
-
-  glBindFramebuffer(GL_FRAMEBUFFER, resources.fbo);
-  RenderMask(controller, context, overlaySets.highlightSet, width, height);
-
-  glBindFramebuffer(GL_FRAMEBUFFER, drawFramebuffer);
-  CompositeMaskToCurrentFramebuffer(resources, width, height, 0.0f, 1.0f, 0.0f,
-                                    0.32f, 1.0f);
+  CompositeMaskToCurrentFramebuffer(resources, width, height);
 
   glUseProgram(activeProgram);
   glBindTexture(GL_TEXTURE_2D, 0);
@@ -541,15 +509,14 @@ void RenderScreenSpaceOverlay(Viewer3DController &controller,
 void SelectionOverlayPass::Render(Viewer3DController &controller,
                                   const RenderFrameContext &context,
                                   const Viewer3DVisibleSet &visibleSet) {
-  OverlaySelectionSets overlaySets = BuildOverlaySets(controller, visibleSet);
-  if (overlaySets.Empty())
+  Viewer3DVisibleSet overlaySet = BuildOverlaySet(controller, visibleSet);
+  if (overlaySet.Empty())
     return;
 
-  if (UseScreenSpaceOverlay(context)) {
-    RenderScreenSpaceOverlay(controller, context, overlaySets);
+  if (UseScreenSpaceOverlay()) {
+    RenderScreenSpaceOverlay(controller, context, overlaySet);
     return;
   }
 
-  RenderLegacyOverlay(controller, context, overlaySets.selectedSet);
-  RenderLegacyOverlay(controller, context, overlaySets.highlightSet);
+  RenderLegacyOverlay(controller, context, overlaySet);
 }
