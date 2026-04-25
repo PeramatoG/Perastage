@@ -43,12 +43,24 @@ cmake --build out/build/x64-Release --config Release --target perastage_stage
 Then compile the Inno Setup script:
 
 ```powershell
-iscc packaging/windows/Perastage.iss
+$version = (cmake -P packaging/windows/get_project_version.cmake |
+  Select-String -Pattern '-- ([0-9]+\.[0-9]+\.[0-9]+)$').Matches[0].Groups[1].Value
+iscc /DMyAppVersion=$version packaging/windows/Perastage.iss
 ```
 
 The generated installer is written to:
 
 - `out/installer/Perastage_<version>_Setup.exe`
+
+### Version Source of Truth
+
+Perastage version is defined in one place:
+
+- `CMakeLists.txt` in the root `project(Perastage VERSION X.Y.Z ...)` declaration.
+
+When you want a new global version for generated artifacts, update that line only.
+The helper script `packaging/windows/get_project_version.cmake` reads that value and
+passes it to Inno Setup (`/DMyAppVersion=...`).
 
 ### Enabling `.mvr` Association in the Installer
 
