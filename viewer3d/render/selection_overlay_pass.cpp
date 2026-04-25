@@ -364,7 +364,11 @@ void RenderLegacyOverlay(Viewer3DController &controller,
   glDepthFunc(static_cast<GLenum>(previousDepthFunc));
 }
 
-bool UseScreenSpaceOverlay() {
+bool UseScreenSpaceOverlay(const RenderFrameContext &context) {
+  // Keep 2D on legacy until a dedicated screen-space path is tuned for it.
+  // Current priority is stable and clear highlight behavior in the 3D viewer.
+  if (context.is2DViewer)
+    return false;
   return ConfigManager::Get().GetFloat("viewer3d_selection_outline_screenspace") >=
          0.5f;
 }
@@ -398,8 +402,8 @@ void CompositeMaskToCurrentFramebuffer(const ScreenSpaceOutlineResources &resour
   glUniform1i(glGetUniformLocation(resources.program, "uMask"), 0);
   glUniform2f(resources.texelSizeUniform, 1.0f / static_cast<float>(width),
               1.0f / static_cast<float>(height));
-  glUniform1f(resources.fillAlphaUniform, 0.24f);
-  glUniform1f(resources.outlineAlphaUniform, 1.0f);
+  glUniform1f(resources.fillAlphaUniform, 0.80f);
+  glUniform1f(resources.outlineAlphaUniform, 0.20f);
 
   glBegin(GL_QUADS);
   glTexCoord2f(0.0f, 0.0f);
@@ -513,7 +517,7 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
   if (overlaySet.Empty())
     return;
 
-  if (UseScreenSpaceOverlay()) {
+  if (UseScreenSpaceOverlay(context)) {
     RenderScreenSpaceOverlay(controller, context, overlaySet);
     return;
   }
