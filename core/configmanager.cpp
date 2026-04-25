@@ -194,6 +194,8 @@ ConfigManager::ConfigManager() {
                    1.0f);
   RegisterVariable("viewer3d_ambient_occlusion_strength", "float", 1.0f,
                    0.0f, 1.0f);
+  RegisterVariable("viewer3d_selection_outline_screenspace", "float", 1.0f,
+                   0.0f, 1.0f);
   RegisterVariable("render_culling_enabled", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("render_culling_min_pixels_3d", "float", 2.0f, 0.0f,
                    64.0f);

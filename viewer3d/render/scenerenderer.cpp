@@ -213,7 +213,8 @@ void SceneRenderer::DrawMeshWithOutline(
     Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform,
-    bool unlit, const float *modelMatrix, bool disableDepthBias) {
+    bool unlit, const float *modelMatrix, bool selectionMaskPass,
+    bool disableDepthBias) {
   (void)cx;
   (void)cy;
   (void)cz;
@@ -229,6 +230,25 @@ void SceneRenderer::DrawMeshWithOutline(
     if (forceDisableTexture && texture2DWasEnabled)
       glEnable(GL_TEXTURE_2D);
   };
+
+  if (selectionMaskPass) {
+    if (!m_controller.IsCaptureOnly()) {
+      const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+      if (lightingWasEnabled)
+        glDisable(GL_LIGHTING);
+      if (highlight)
+        m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
+      else if (selected)
+        m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
+      else
+        m_controller.SetGLColor(1.0f, 1.0f, 1.0f);
+      DrawMesh(mesh, scale, modelMatrix);
+      if (lightingWasEnabled)
+        glEnable(GL_LIGHTING);
+    }
+    restoreTextureState();
+    return;
+  }
 
   if (wireframe) {
     float lineWidth =

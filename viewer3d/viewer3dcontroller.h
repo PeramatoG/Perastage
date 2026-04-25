@@ -160,6 +160,8 @@ public:
   std::shared_ptr<const SymbolDefinitionSnapshot>
   GetBottomSymbolCacheSnapshot() const;
   void ClearBottomSymbolCache();
+  const std::string &GetOverlayHighlightUuid() const;
+  const std::unordered_set<std::string> &GetOverlaySelectedUuids() const;
 
   void SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
                         bool includeGrid = true,
@@ -228,6 +230,7 @@ private:
                                {},
                            bool unlit = false,
                            const float *modelMatrix = nullptr,
+                           bool selectionMaskPass = false,
                            bool disableDepthBias = false);
   void DrawMeshWireframe(
       const Mesh &mesh, float scale = RENDER_SCALE,
