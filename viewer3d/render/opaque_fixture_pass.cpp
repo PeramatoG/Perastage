@@ -708,8 +708,7 @@ void OpaqueFixturePass::Render(
           controller.DrawMeshWithOutline(obj.mesh, partR, partG, partB,
                                          RENDER_SCALE, highlight, selected, cx,
                                          cy, cz, wireframe, mode, applyCapture,
-                                         drawUnlit, partMatrix,
-                                         context.selectionMaskPass);
+                                         drawUnlit, partMatrix);
           glPopMatrix();
         }
       } else {
@@ -723,7 +722,7 @@ void OpaqueFixturePass::Render(
                                        highlight, selected, cx, cy, cz,
                                        fallbackWireframe, mode,
                                        applyFixtureCapture, fallbackUnlit,
-                                       matrix, context.selectionMaskPass);
+                                       matrix);
       }
     };
 
