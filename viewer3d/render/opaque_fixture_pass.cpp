@@ -92,35 +92,6 @@ const Mesh &FallbackFixtureCubeMesh() {
   return mesh;
 }
 
-void DrawBoundsSolid(const Viewer3DBoundingBox &bb) {
-  glBegin(GL_QUADS);
-  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
-  glEnd();
-}
-
 struct SvgSymbolCacheKey {
   std::string gdtfPath;
   SymbolViewKind viewKind = SymbolViewKind::Top;
