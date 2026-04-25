@@ -17,6 +17,7 @@
 #include <wx/zipstrm.h>
 
 #include "configmanager.h"
+#include "app_version.h"
 #include "fixture.h"
 #include "matrixutils.h"
 #include "mvrexporter.h"
@@ -27,6 +28,7 @@
 #include "uuidutils.h"
 
 namespace fs = std::filesystem;
+static constexpr const char *kPerastageUserDataSchemaVersion = "1.0";
 
 static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
   std::string content;
@@ -307,7 +309,7 @@ int main() {
   assert(root->IntAttribute("verMajor") == 1);
   assert(root->IntAttribute("verMinor") == 6);
   assert(std::string(root->Attribute("provider")) == "Perastage");
-  assert(std::string(root->Attribute("providerVersion")) == "1.0");
+  assert(std::string(root->Attribute("providerVersion")) == app::kVersion);
 
   std::unordered_set<int> numericIds;
   std::unordered_map<std::string, int> gdtfCount;
@@ -723,8 +725,11 @@ int main() {
     wxZipOutputStream legacyZip(legacyOut);
     const std::string legacyXml =
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-        "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" provider=\"Perastage\" providerVersion=\"1.0\">"
-        "<UserData><Data provider=\"Perastage\" ver=\"1.0\"><TrussSidecarManifest/></Data></UserData>"
+        "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" provider=\"Perastage\" providerVersion=\"" +
+        std::string(app::kVersion) + "\">"
+        "<UserData><Data provider=\"Perastage\" ver=\"" +
+        std::string(kPerastageUserDataSchemaVersion) +
+        "\"><TrussSidecarManifest/></Data></UserData>"
         "<Scene>"
         "<AUXData><Position uuid=\"LX1\" name=\"LX 1\"/></AUXData>"
         "<Layers><Layer name=\"Default\"><ChildList>"
