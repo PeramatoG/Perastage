@@ -10,11 +10,13 @@
 
 #include <algorithm>
 #include <array>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 
 #include "configmanager.h"
+#include "logger.h"
 #include "opaque_fixture_pass.h"
 #include "opaque_object_pass.h"
 #include "opaque_truss_pass.h"
@@ -160,6 +162,16 @@ struct ScreenSpaceOutlineResources {
     if (compileOk == GL_TRUE)
       return shader;
 
+    GLint infoLogLength = 0;
+    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLogLength);
+    if (infoLogLength > 1) {
+      std::string infoLog(static_cast<size_t>(infoLogLength), '\0');
+      glGetShaderInfoLog(shader, infoLogLength, nullptr, infoLog.data());
+      Logger::Instance().Log(Logger::Level::Warn,
+                             std::string("Selection outline shader compilation failed: ") +
+                                 infoLog);
+    }
+
     glDeleteShader(shader);
     return 0;
   }
@@ -223,6 +235,15 @@ struct ScreenSpaceOutlineResources {
     GLint linkOk = GL_FALSE;
     glGetProgramiv(program, GL_LINK_STATUS, &linkOk);
     if (linkOk != GL_TRUE) {
+      GLint infoLogLength = 0;
+      glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLogLength);
+      if (infoLogLength > 1) {
+        std::string infoLog(static_cast<size_t>(infoLogLength), '\0');
+        glGetProgramInfoLog(program, infoLogLength, nullptr, infoLog.data());
+        Logger::Instance().Log(Logger::Level::Warn,
+                               std::string("Selection outline shader link failed: ") +
+                                   infoLog);
+      }
       glDeleteProgram(program);
       program = 0;
       return false;
@@ -333,6 +354,9 @@ bool UseScreenSpaceOverlay() {
 void RenderScreenSpaceOverlay(Viewer3DController &controller,
                               const RenderFrameContext &context,
                               const Viewer3DVisibleSet &overlaySet) {
+  static bool loggedFramebufferFallback = false;
+  static bool loggedShaderFallback = false;
+
   GLint viewport[4] = {0, 0, 0, 0};
   glGetIntegerv(GL_VIEWPORT, viewport);
   const int width = viewport[2];
@@ -343,7 +367,23 @@ void RenderScreenSpaceOverlay(Viewer3DController &controller,
   }
 
   auto &resources = OutlineResources();
-  if (!resources.EnsureFramebuffer(width, height) || !resources.EnsureProgram()) {
+  if (!resources.EnsureFramebuffer(width, height)) {
+    if (!loggedFramebufferFallback) {
+      Logger::Instance().Log(
+          Logger::Level::Warn,
+          "Selection outline screen-space disabled: failed to initialize mask framebuffer; using legacy fallback");
+      loggedFramebufferFallback = true;
+    }
+    RenderLegacyOverlay(controller, context, overlaySet);
+    return;
+  }
+  if (!resources.EnsureProgram()) {
+    if (!loggedShaderFallback) {
+      Logger::Instance().Log(
+          Logger::Level::Warn,
+          "Selection outline screen-space disabled: failed to initialize shader program; using legacy fallback");
+      loggedShaderFallback = true;
+    }
     RenderLegacyOverlay(controller, context, overlaySet);
     return;
   }
