@@ -1,5 +1,13 @@
 #include "selection_overlay_pass.h"
 
+#include <GL/glew.h>
+#ifdef __APPLE__
+#define GL_SILENCE_DEPRECATION
+#include <OpenGL/gl.h>
+#else
+#include <GL/gl.h>
+#endif
+
 #include <algorithm>
 #include <array>
 #include <string_view>
@@ -145,10 +153,14 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
   RenderFrameContext overlayContext = context;
   overlayContext.skipCapture = true;
   overlayContext.selectionOverlayPass = true;
+  GLint previousDepthFunc = GL_LESS;
+  glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+  glDepthFunc(GL_LEQUAL);
   OpaqueObjectPass::Render(controller, overlayContext, overlaySet, getLayerColor,
                            resolveSymbolView, getPickColor);
   OpaqueTrussPass::Render(controller, overlayContext, overlaySet, getLayerColor,
                           resolveSymbolView, getPickColor);
   OpaqueFixturePass::Render(controller, overlayContext, overlaySet, getTypeColor,
                             getLayerColor, resolveSymbolView, getPickColor);
+  glDepthFunc(static_cast<GLenum>(previousDepthFunc));
 }
