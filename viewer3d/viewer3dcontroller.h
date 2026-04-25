@@ -193,6 +193,7 @@ private:
 
   const VisibleSet &PrepareRenderFrame(const RenderFrameContext &context,
                                        ViewFrustumSnapshot &frustum);
+  const ViewFrustumSnapshot *GetLastFrameFrustumSnapshot() const;
   void RenderOpaqueFrame(const RenderFrameContext &context,
                          const VisibleSet &visibleSet);
   void RenderOverlayFrame(const RenderFrameContext &context,

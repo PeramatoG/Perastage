@@ -187,6 +187,12 @@ ConfigManager::ConfigManager() {
                    1.0f);
   RegisterVariable("viewer3d_fast_interaction_mode", "float", 1.0f, 0.0f,
                    1.0f);
+  RegisterVariable("viewer3d_interaction_proxy_lod_enabled", "float", 1.0f,
+                   0.0f, 1.0f);
+  RegisterVariable("viewer3d_interaction_proxy_min_pixels", "float", 8.0f,
+                   0.0f, 64.0f);
+  RegisterVariable("viewer3d_interaction_proxy_heavy_triangles", "float",
+                   12000.0f, 0.0f, 500000.0f);
   RegisterVariable("viewer3d_pick_use_id_buffer", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("viewer3d_pick_confirm_depth_ambiguous", "float", 1.0f,
                    0.0f, 1.0f);

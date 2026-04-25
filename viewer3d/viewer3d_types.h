@@ -73,6 +73,9 @@ struct RenderFrameContext {
 
   bool fastInteractionMode = false;
   bool skipOptionalWork = false;
+  bool useInteractionProxyLod = false;
+  float interactionProxyMinPixels = 4.0f;
+  int interactionProxyHeavyTriangleThreshold = 4000;
   bool skipCapture = false;
   bool skipOutlinesForCurrentFrame = false;
   bool idOnlyPass = false;

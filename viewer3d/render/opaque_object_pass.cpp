@@ -16,6 +16,7 @@
 #endif
 
 #include "matrixutils.h"
+#include "interaction_lod_policy.h"
 #include "mesh.h"
 #include "meshprimitives.h"
 #include "opaque_pass_utils.h"
@@ -113,6 +114,10 @@ bool IsScreenSceneObject(const SceneObject &object) {
                  });
   return lowerName.find("screen") != std::string::npos ||
          lowerName.find("pantalla") != std::string::npos;
+}
+
+size_t CountMeshTriangles(const Mesh &mesh) {
+  return mesh.indices.size() / 3;
 }
 
 bool CanUseAffineSymbolInstance(const Matrix &transform, Viewer2DView view) {
@@ -257,6 +262,8 @@ void OpaqueObjectPass::Render(
       cz -= m.transform.o[2] * RENDER_SCALE;
     }
 
+    size_t triangleCount = 0;
+
     float r = 1.0f, g = 1.0f, b = 1.0f;
     if (context.whiteModelStyle && !wireframe) {
       r = 0.95f;
@@ -290,6 +297,7 @@ void OpaqueObjectPass::Render(
         if (const Mesh *primitiveMesh =
                 TryGetPrimitiveSceneObjectMesh(geo.modelFile);
             primitiveMesh != nullptr) {
+          triangleCount += CountMeshTriangles(*primitiveMesh);
           SceneObjectMeshPart part;
           part.mesh = primitiveMesh;
           part.localTransform = geo.localTransform;
@@ -311,6 +319,7 @@ void OpaqueObjectPass::Render(
 
         SceneObjectMeshPart part;
         part.mesh = &it->second;
+        triangleCount += CountMeshTriangles(*part.mesh);
         part.localTransform = geo.localTransform;
         part.modelKey = NormalizeModelKey(objectPath);
         objectMeshParts.push_back(std::move(part));
@@ -327,10 +336,29 @@ void OpaqueObjectPass::Render(
         if (it != controller.m_resourceSyncState.loadedMeshes.end()) {
           SceneObjectMeshPart part;
           part.mesh = &it->second;
+          triangleCount += CountMeshTriangles(*part.mesh);
           part.modelKey = NormalizeModelKey(objectPath);
           objectMeshParts.push_back(std::move(part));
         }
       }
+    }
+
+    const InteractionLodPolicy interactionLodPolicy{
+        context.useInteractionProxyLod, context.interactionProxyMinPixels,
+        static_cast<size_t>(std::max(
+            0, context.interactionProxyHeavyTriangleThreshold))};
+    const bool useInteractionProxy = ShouldUseInteractionProxy(
+        interactionLodPolicy, controller.GetLastFrameFrustumSnapshot(),
+        obit != controller.m_objectBounds.end() ? &obit->second : nullptr,
+        triangleCount);
+    if (useInteractionProxy) {
+      glPopMatrix();
+      if (obit != controller.m_objectBounds.end()) {
+        controller.SetupMaterialFromRGB(r, g, b);
+        glColor3f(r, g, b);
+        DrawBoundsSolid(obit->second);
+      }
+      continue;
     }
 
     auto drawSceneObjectGeometry =

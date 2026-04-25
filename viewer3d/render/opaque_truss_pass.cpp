@@ -16,6 +16,7 @@
 #endif
 
 #include "matrixutils.h"
+#include "interaction_lod_policy.h"
 #include "opaque_pass_utils.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
@@ -153,6 +154,26 @@ void OpaqueTrussPass::Render(
         if (it != controller.m_resourceSyncState.loadedMeshes.end())
           trussMesh = &it->second;
       }
+    }
+
+    const size_t triangleCount =
+        trussMesh ? (trussMesh->indices.size() / 3) : 0;
+    const InteractionLodPolicy interactionLodPolicy{
+        context.useInteractionProxyLod, context.interactionProxyMinPixels,
+        static_cast<size_t>(std::max(
+            0, context.interactionProxyHeavyTriangleThreshold))};
+    const bool useInteractionProxy = ShouldUseInteractionProxy(
+        interactionLodPolicy, controller.GetLastFrameFrustumSnapshot(),
+        tbit != controller.m_trussBounds.end() ? &tbit->second : nullptr,
+        triangleCount);
+    if (useInteractionProxy) {
+      glPopMatrix();
+      if (tbit != controller.m_trussBounds.end()) {
+        controller.SetupMaterialFromRGB(r, g, b);
+        glColor3f(r, g, b);
+        DrawBoundsSolid(tbit->second);
+      }
+      continue;
     }
 
     float trussLen = t.lengthMm * RENDER_SCALE;

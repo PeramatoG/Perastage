@@ -26,6 +26,7 @@
 
 #include "matrixutils.h"
 #include "configmanager.h"
+#include "interaction_lod_policy.h"
 #include "mesh.h"
 #include "opaque_pass_utils.h"
 #include "universe_color.h"
@@ -89,6 +90,35 @@ const Mesh &FallbackFixtureCubeMesh() {
     return cube;
   }();
   return mesh;
+}
+
+void DrawBoundsSolid(const Viewer3DBoundingBox &bb) {
+  glBegin(GL_QUADS);
+  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
+  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
+  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
+  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
+  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
+  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
+  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
+  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
+  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
+  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
+  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
+  glEnd();
 }
 
 struct SvgSymbolCacheKey {
@@ -526,6 +556,30 @@ void OpaqueFixturePass::Render(
     const std::string svgSourcePath = normalizedGdtfPath;
 
     auto itg = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
+    size_t triangleCount = 0;
+    if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
+      for (const auto &part : itg->second)
+        triangleCount += part.mesh.indices.size() / 3;
+    }
+    const InteractionLodPolicy interactionLodPolicy{
+        context.useInteractionProxyLod, context.interactionProxyMinPixels,
+        static_cast<size_t>(std::max(
+            0, context.interactionProxyHeavyTriangleThreshold))};
+    const bool useInteractionProxy = ShouldUseInteractionProxy(
+        interactionLodPolicy, controller.GetLastFrameFrustumSnapshot(),
+        fbit != controller.m_fixtureBounds.end() ? &fbit->second : nullptr,
+        triangleCount);
+    if (useInteractionProxy) {
+      glPopMatrix();
+      if (fbit != controller.m_fixtureBounds.end()) {
+        controller.SetupMaterialFromRGB(r, g, b);
+        glColor3f(r, g, b);
+        DrawBoundsSolid(fbit->second);
+      }
+      if (controller.m_captureCanvas && !skipCapture)
+        controller.m_captureCanvas->SetSourceKey("unknown");
+      continue;
+    }
 
     bool renderedPerastageSvg = false;
     const bool captureRecordingActive = controller.m_captureCanvas && !skipCapture;

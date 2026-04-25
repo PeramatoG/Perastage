@@ -161,6 +161,8 @@ struct Viewer3DController::Impl {
   std::unique_ptr<SelectionSystem> selectionSystem;
   std::unique_ptr<IdPickPass> idPickPass;
   std::unique_ptr<LabelRenderSystem> labelRenderSystem;
+  ViewFrustumSnapshot lastFrameFrustum{};
+  bool hasLastFrameFrustum = false;
 };
 
 struct LineRenderProfile {
@@ -977,6 +979,13 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       cfg.GetFloat("viewer3d_skip_outlines_when_moving") >= 0.5f;
   const bool skipCaptureWhenMoving =
       cfg.GetFloat("viewer3d_skip_capture_when_moving") >= 0.5f;
+  const bool interactionProxyLodEnabled =
+      cfg.GetFloat("viewer3d_interaction_proxy_lod_enabled") >= 0.5f;
+  const float interactionProxyMinPixels = std::max(
+      0.0f, cfg.GetFloat("viewer3d_interaction_proxy_min_pixels"));
+  const int interactionProxyHeavyTriangleThreshold = std::max(
+      0, static_cast<int>(std::lround(
+             cfg.GetFloat("viewer3d_interaction_proxy_heavy_triangles"))));
 
   context.fastInteractionMode = IsFastInteractionModeEnabled(cfg);
 
@@ -984,6 +993,12 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   // scene and camera updates, but defer optional CPU/GPU work until the
   // interaction grace period ends in Viewer3DPanel::ShouldPauseHeavyTasks().
   context.skipOptionalWork = m_impl->cameraMoving && context.fastInteractionMode;
+  context.useInteractionProxyLod =
+      context.fastInteractionMode && interactionProxyLodEnabled &&
+      (m_impl->cameraMoving || m_impl->isInteracting);
+  context.interactionProxyMinPixels = interactionProxyMinPixels;
+  context.interactionProxyHeavyTriangleThreshold =
+      interactionProxyHeavyTriangleThreshold;
   context.skipCapture = context.skipOptionalWork && skipCaptureWhenMoving;
   context.skipOutlinesForCurrentFrame =
       context.skipOptionalWork && skipOutlinesWhenMoving;
@@ -1147,9 +1162,18 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
+  m_impl->lastFrameFrustum = frustum;
+  m_impl->hasLastFrameFrustum = true;
 
   return GetVisibleSet(frustum, context.hiddenLayers, context.useFrustumCulling,
                        context.minCullingPixels);
+}
+
+const Viewer3DController::ViewFrustumSnapshot *
+Viewer3DController::GetLastFrameFrustumSnapshot() const {
+  if (!m_impl->hasLastFrameFrustum)
+    return nullptr;
+  return &m_impl->lastFrameFrustum;
 }
 
 void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
