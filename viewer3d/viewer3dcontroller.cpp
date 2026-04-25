@@ -1729,27 +1729,16 @@ void Viewer3DController::ClearBottomSymbolCache() {
   m_impl->bottomSymbolCache.Clear();
 }
 
-const std::string &Viewer3DController::GetOverlayHighlightUuid() const {
-  return m_impl->highlightUuid;
-}
-
-const std::unordered_set<std::string> &
-Viewer3DController::GetOverlaySelectedUuids() const {
-  return m_impl->selectedUuids;
-}
-
 void Viewer3DController::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
     bool selected, float cx, float cy, float cz, bool wireframe,
     Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform,
-    bool unlit, const float *modelMatrix, bool selectionMaskPass,
-    bool disableDepthBias) {
+    bool unlit, const float *modelMatrix, bool disableDepthBias) {
   m_impl->sceneRenderer->DrawMeshWithOutline(mesh, r, g, b, scale, highlight,
                                        selected, cx, cy, cz, wireframe, mode,
                                        captureTransform, unlit, modelMatrix,
-                                       selectionMaskPass,
                                        disableDepthBias);
 }
 
