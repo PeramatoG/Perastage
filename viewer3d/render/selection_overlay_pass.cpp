@@ -245,12 +245,15 @@ Viewer3DVisibleSet BuildOverlaySet(Viewer3DController &controller,
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
 
+  const std::string &highlightUuid = controller.GetHighlightUuid();
+  const auto &selectedUuids = controller.GetSelectedUuids();
+
   Viewer3DVisibleSet overlaySet;
   const auto appendFromVisibility = [&](const std::vector<std::string> &sourceUuids,
                                         std::vector<std::string> &targetUuids) {
     for (const auto &uuid : sourceUuids) {
-      if (uuid == controller.m_highlightUuid ||
-          controller.m_selectedUuids.find(uuid) != controller.m_selectedUuids.end()) {
+      if (uuid == highlightUuid ||
+          selectedUuids.find(uuid) != selectedUuids.end()) {
         targetUuids.push_back(uuid);
       }
     }
@@ -260,10 +263,9 @@ Viewer3DVisibleSet BuildOverlaySet(Viewer3DController &controller,
   appendFromVisibility(visibleSet.trussUuids, overlaySet.trussUuids);
   appendFromVisibility(visibleSet.objectUuids, overlaySet.objectUuids);
 
-  AppendUuidIfRenderable(controller.m_highlightUuid, fixtures, trusses, objects,
-                         overlaySet);
+  AppendUuidIfRenderable(highlightUuid, fixtures, trusses, objects, overlaySet);
 
-  for (const auto &uuid : controller.m_selectedUuids)
+  for (const auto &uuid : selectedUuids)
     AppendUuidIfRenderable(uuid, fixtures, trusses, objects, overlaySet);
 
   return overlaySet;
