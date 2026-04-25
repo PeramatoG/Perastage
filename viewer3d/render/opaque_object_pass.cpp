@@ -220,18 +220,7 @@ void OpaqueObjectPass::Render(
   const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
 
   glShadeModel((context.texturedStyle && !wireframe) ? GL_SMOOTH : GL_FLAT);
-  std::vector<std::string> drawObjectUuids = visibleSet.objectUuids;
-  if (!controller.m_highlightUuid.empty()) {
-    const bool highlightAlreadyVisible =
-        std::find(drawObjectUuids.begin(), drawObjectUuids.end(),
-                  controller.m_highlightUuid) != drawObjectUuids.end();
-    if (!highlightAlreadyVisible &&
-        sceneObjects.find(controller.m_highlightUuid) != sceneObjects.end()) {
-      drawObjectUuids.push_back(controller.m_highlightUuid);
-    }
-  }
-
-  for (const auto &uuid : drawObjectUuids) {
+  for (const auto &uuid : visibleSet.objectUuids) {
     auto sceneIt = sceneObjects.find(uuid);
     if (sceneIt == sceneObjects.end())
       continue;
@@ -246,10 +235,12 @@ void OpaqueObjectPass::Render(
       controller.m_captureCanvas->SetSourceKey(objectCaptureKey);
     }
 
-    bool highlight = (!controller.m_highlightUuid.empty() &&
-                      uuid == controller.m_highlightUuid);
-    bool selected = (controller.m_selectedUuids.find(uuid) !=
-                     controller.m_selectedUuids.end());
+    const bool highlight =
+        context.selectionOverlayPass && !controller.m_highlightUuid.empty() &&
+        uuid == controller.m_highlightUuid;
+    const bool selected = context.selectionOverlayPass &&
+                          controller.m_selectedUuids.find(uuid) !=
+                              controller.m_selectedUuids.end();
 
     float matrix[16];
     MatrixToArray(m.transform, matrix);
