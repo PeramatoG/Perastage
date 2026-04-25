@@ -245,8 +245,8 @@ Viewer3DVisibleSet BuildOverlaySet(Viewer3DController &controller,
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
 
-  const std::string &highlightUuid = controller.GetHighlightUuid();
-  const auto &selectedUuids = controller.GetSelectedUuids();
+  const std::string &highlightUuid = controller.GetOverlayHighlightUuid();
+  const auto &selectedUuids = controller.GetOverlaySelectedUuids();
 
   Viewer3DVisibleSet overlaySet;
   const auto appendFromVisibility = [&](const std::vector<std::string> &sourceUuids,

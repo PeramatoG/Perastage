@@ -1729,6 +1729,15 @@ void Viewer3DController::ClearBottomSymbolCache() {
   m_impl->bottomSymbolCache.Clear();
 }
 
+const std::string &Viewer3DController::GetOverlayHighlightUuid() const {
+  return m_impl->highlightUuid;
+}
+
+const std::unordered_set<std::string> &
+Viewer3DController::GetOverlaySelectedUuids() const {
+  return m_impl->selectedUuids;
+}
+
 void Viewer3DController::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
     bool selected, float cx, float cy, float cz, bool wireframe,
