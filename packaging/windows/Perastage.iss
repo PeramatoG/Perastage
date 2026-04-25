@@ -4,7 +4,9 @@
 ; generated installer next to the repository folder, not inside it.
 
 #define MyAppName "Perastage"
-#define MyAppVersion "1.0.0"
+#ifndef MyAppVersion
+  #error "MyAppVersion is not defined. Pass /DMyAppVersion=<version> to ISCC using PROJECT_VERSION from CMakeLists.txt."
+#endif
 #define MyAppPublisher "Perasoft"
 #define MyAppURL "https://github.com/PeramatoG/Perastage"
 #define MyAppExeName "Perastage.exe"
