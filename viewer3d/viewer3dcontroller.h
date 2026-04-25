@@ -228,6 +228,7 @@ private:
                                {},
                            bool unlit = false,
                            const float *modelMatrix = nullptr,
+                           bool selectionMaskPass = false,
                            bool disableDepthBias = false);
   void DrawMeshWireframe(
       const Mesh &mesh, float scale = RENDER_SCALE,
