@@ -144,6 +144,7 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
 
   RenderFrameContext overlayContext = context;
   overlayContext.skipCapture = true;
+  overlayContext.selectionOverlayPass = true;
   OpaqueObjectPass::Render(controller, overlayContext, overlaySet, getLayerColor,
                            resolveSymbolView, getPickColor);
   OpaqueTrussPass::Render(controller, overlayContext, overlaySet, getLayerColor,

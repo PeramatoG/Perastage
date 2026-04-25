@@ -448,8 +448,12 @@ void OpaqueFixturePass::Render(
       controller.m_captureCanvas->SetSourceKey(fixtureCaptureKey);
     }
 
-    const bool highlight = false;
-    const bool selected = false;
+    const bool highlight =
+        context.selectionOverlayPass && !controller.m_highlightUuid.empty() &&
+        uuid == controller.m_highlightUuid;
+    const bool selected = context.selectionOverlayPass &&
+                          controller.m_selectedUuids.find(uuid) !=
+                              controller.m_selectedUuids.end();
 
     float matrix[16];
     MatrixToArray(f.transform, matrix);
