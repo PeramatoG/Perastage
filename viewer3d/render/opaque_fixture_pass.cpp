@@ -220,6 +220,16 @@ const Mesh &ResolveMovingProxyMesh(const Mesh &source) {
         simplified.data(), proxy.indices.data(), indexCount, proxy.vertices.data(),
         vertexCount, sizeof(float) * 3, targetIndexCount, kProxySimplifyError, 0,
         nullptr);
+    // Some dense/non-manifold fixtures (often 32-bit/high-poly assets) can be
+    // too constrained for the strict simplifier and end up almost unchanged.
+    // Fall back to sloppy simplification so moving-camera proxies are produced
+    // for those heavy fixtures as well.
+    if (simplifiedCount < 3 || simplifiedCount >= indexCount * 95 / 100) {
+      simplifiedCount = meshopt_simplifySloppy(
+          simplified.data(), proxy.indices.data(), indexCount, proxy.vertices.data(),
+          vertexCount, sizeof(float) * 3, targetIndexCount, kProxySimplifyError,
+          nullptr);
+    }
     if (simplifiedCount < 3)
       simplifiedCount = indexCount;
     simplified.resize(simplifiedCount);
