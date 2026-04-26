@@ -847,6 +847,19 @@ void OpaqueFixturePass::Render(
       continue;
     }
 
+    if (context.skipOptionalWork) {
+      ++frameMetrics.fallbackFixtures;
+      glPopMatrix();
+      auto bbIt = controller.m_fixtureBounds.find(uuid);
+      if (bbIt != controller.m_fixtureBounds.end()) {
+        glColor3f(r, g, b);
+        DrawBoundsSolid(bbIt->second);
+      }
+      if (controller.m_captureCanvas && !skipCapture)
+        controller.m_captureCanvas->SetSourceKey("unknown");
+      continue;
+    }
+
     const bool eligibleForFixtureInstancedBatch =
         !highlight && !selected && !captureRecordingActive;
     if (eligibleForFixtureInstancedBatch) {
