@@ -513,6 +513,8 @@ void OpaqueFixturePass::Render(
           const auto &key = entry.first;
           const auto &draws = entry.second;
           for (const auto &draw : draws) {
+            glPushMatrix();
+            controller.ApplyTransform(draw.modelMatrix.data(), true);
             const uint32_t color = key.colorStyle;
             const float r = static_cast<float>((color >> 16) & 0xFFu) / 255.0f;
             const float g = static_cast<float>((color >> 8) & 0xFFu) / 255.0f;
@@ -522,6 +524,7 @@ void OpaqueFixturePass::Render(
                 draw.cz, key.wireframe, key.mode,
                 [](const std::array<float, 3> &p) { return p; }, key.unlit,
                 draw.modelMatrix.data());
+            glPopMatrix();
             ++drawCalls;
           }
         }
