@@ -839,6 +839,39 @@ void OpaqueFixturePass::Render(
       return drawCalls;
     };
 
+    auto drawFixtureProxyGeometry = [&]() {
+      if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
+        const auto &parts = itg->second;
+        const bool reversePartOrder = drawRealTopInTopView;
+        for (size_t offset = 0; offset < parts.size(); ++offset) {
+          const size_t partIndex =
+              reversePartOrder ? (parts.size() - 1 - offset) : offset;
+          const auto &obj = parts[partIndex];
+          glPushMatrix();
+          float m2[16];
+          MatrixToArray(obj.transform, m2);
+          controller.ApplyTransform(m2, false);
+          float partR = r;
+          float partG = g;
+          float partB = b;
+          if (!is2DViewer && obj.isLens) {
+            const bool isWhiteRenderMode =
+                controller.IsPureWhiteRenderStyleEnabled();
+            partR = 1.0f;
+            partG = isWhiteRenderMode ? 1.0f : 0.78f;
+            partB = isWhiteRenderMode ? 1.0f : 0.35f;
+          }
+          controller.SetGLColor(partR, partG, partB);
+          controller.DrawMesh(obj.mesh, RENDER_SCALE);
+          glPopMatrix();
+        }
+        return;
+      }
+
+      controller.SetGLColor(r, g, b);
+      controller.DrawMesh(FallbackFixtureCubeMesh(), 0.2f);
+    };
+
     if (renderedPerastageSvg) {
       ++frameMetrics.fallbackFixtures;
       glPopMatrix();
@@ -849,12 +882,8 @@ void OpaqueFixturePass::Render(
 
     if (context.skipOptionalWork) {
       ++frameMetrics.fallbackFixtures;
+      drawFixtureProxyGeometry();
       glPopMatrix();
-      auto bbIt = controller.m_fixtureBounds.find(uuid);
-      if (bbIt != controller.m_fixtureBounds.end()) {
-        glColor3f(r, g, b);
-        DrawBoundsSolid(bbIt->second);
-      }
       if (controller.m_captureCanvas && !skipCapture)
         controller.m_captureCanvas->SetSourceKey("unknown");
       continue;
