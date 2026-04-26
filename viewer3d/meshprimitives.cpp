@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdint>
 #include <string_view>
 
 namespace {
@@ -85,8 +86,8 @@ Mesh BuildCylinderMesh(float topRadius, float bottomRadius, float height, int se
     bottomRadius = std::max(bottomRadius, 0.0f);
 
     const float halfH = height * 0.5f;
-    const unsigned short topCenter = 0;
-    const unsigned short bottomCenter = 1;
+    const uint32_t topCenter = 0;
+    const uint32_t bottomCenter = 1;
     AddVertex(mesh, 0.0f, 0.0f, halfH);
     AddVertex(mesh, 0.0f, 0.0f, -halfH);
 
@@ -99,10 +100,10 @@ Mesh BuildCylinderMesh(float topRadius, float bottomRadius, float height, int se
     }
 
     for (int i = 0; i < segments; ++i) {
-        unsigned short top0 = static_cast<unsigned short>(2 + i * 2);
-        unsigned short bot0 = static_cast<unsigned short>(top0 + 1);
-        unsigned short top1 = static_cast<unsigned short>(2 + ((i + 1) % segments) * 2);
-        unsigned short bot1 = static_cast<unsigned short>(top1 + 1);
+        uint32_t top0 = static_cast<uint32_t>(2 + i * 2);
+        uint32_t bot0 = static_cast<uint32_t>(top0 + 1);
+        uint32_t top1 = static_cast<uint32_t>(2 + ((i + 1) % segments) * 2);
+        uint32_t bot1 = static_cast<uint32_t>(top1 + 1);
 
         mesh.indices.push_back(topCenter);
         mesh.indices.push_back(top0);
@@ -145,10 +146,10 @@ Mesh BuildSphereMesh(float radius, int rings, int segments)
 
     for (int r = 0; r < rings; ++r) {
         for (int s = 0; s < segments; ++s) {
-            unsigned short i0 = static_cast<unsigned short>(r * (segments + 1) + s);
-            unsigned short i1 = static_cast<unsigned short>(i0 + segments + 1);
-            unsigned short i2 = static_cast<unsigned short>(i0 + 1);
-            unsigned short i3 = static_cast<unsigned short>(i1 + 1);
+            uint32_t i0 = static_cast<uint32_t>(r * (segments + 1) + s);
+            uint32_t i1 = static_cast<uint32_t>(i0 + segments + 1);
+            uint32_t i2 = static_cast<uint32_t>(i0 + 1);
+            uint32_t i3 = static_cast<uint32_t>(i1 + 1);
 
             mesh.indices.push_back(i0);
             mesh.indices.push_back(i1);
