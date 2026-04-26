@@ -180,14 +180,15 @@ bool IsBoundingSphereOutsideFrustum(const Viewer3DBoundingBox &bb,
   return false;
 }
 
-std::array<float, 16> BuildInstancedModelMatrix(const Matrix &worldMatrix) {
+std::array<float, 16> BuildInstancedModelMatrix(const Matrix &fixtureTransform,
+                                                const Matrix &partTransform) {
+  Matrix scaledFixture = fixtureTransform;
+  scaledFixture.o[0] *= RENDER_SCALE;
+  scaledFixture.o[1] *= RENDER_SCALE;
+  scaledFixture.o[2] *= RENDER_SCALE;
+  const Matrix worldMatrix = MatrixUtils::Multiply(scaledFixture, partTransform);
   float matrix[16];
   MatrixToArray(worldMatrix, matrix);
-  // Positions in MVR/GDTF are authored in millimeters; convert translation
-  // to meters so the instanced shader can scale vertices consistently.
-  matrix[12] *= RENDER_SCALE;
-  matrix[13] *= RENDER_SCALE;
-  matrix[14] *= RENDER_SCALE;
   std::array<float, 16> out{};
   std::copy(std::begin(matrix), std::end(matrix), out.begin());
   return out;
@@ -664,7 +665,10 @@ void OpaqueFixturePass::Render(
         lodDecision == InteractionLodDecision::ProxyBounds &&
         !controller.m_captureOnly;
 
-    if (canUseHardwareInstancing && !highlight && !selected &&
+    // Keep proxy LOD meshes on the regular DrawMeshWithOutline path so they
+    // preserve the same visual treatment (lighting/outlines/style) as normal
+    // fixture rendering. Instancing is reserved for full meshes.
+    if (canUseHardwareInstancing && !useInteractionLodMesh && !highlight && !selected &&
         itg != controller.m_resourceSyncState.loadedGdtf.end()) {
       for (const auto &obj : itg->second) {
         float partR = r;
@@ -685,9 +689,9 @@ void OpaqueFixturePass::Render(
         if (!meshForPart.buffersReady || meshForPart.triangleIndexCount <= 0)
           continue;
 
-        Matrix worldMatrix = MatrixUtils::Multiply(f.transform, obj.transform);
         FixtureInstanceDrawData instanceData;
-        instanceData.modelMatrix = BuildInstancedModelMatrix(worldMatrix);
+        instanceData.modelMatrix =
+            BuildInstancedModelMatrix(f.transform, obj.transform);
         instanceData.color = {partR, partG, partB};
         instancedBatches[&meshForPart].push_back(std::move(instanceData));
       }
