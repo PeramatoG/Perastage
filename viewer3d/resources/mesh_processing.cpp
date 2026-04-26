@@ -7,6 +7,7 @@
 #include <limits>
 #include <vector>
 
+#define MESHOPTIMIZER_IMPLEMENTATION
 #include <meshoptimizer.h>
 
 namespace fs = std::filesystem;
