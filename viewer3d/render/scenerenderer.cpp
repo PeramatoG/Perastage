@@ -579,6 +579,9 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.vboNormals) == GL_TRUE &&
                                glIsBuffer(mesh.eboTriangles) == GL_TRUE;
+  const bool flatGpuHandlesValid =
+      glIsBuffer(mesh.vboFlatVertices) == GL_TRUE &&
+      glIsBuffer(mesh.vboFlatNormals) == GL_TRUE;
   const bool requiresCpuDrawPath = flipWinding;
   const bool canUseGpuTriangles =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
@@ -589,26 +592,30 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
   glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
   const bool useFaceNormals = (shadeModel == GL_FLAT);
 
-  // Flat shading expects per-face normals. The indexed VBO path uses shared
-  // per-vertex normals, which can produce alternating triangle brightness on
-  // coplanar surfaces. Force the immediate path in GL_FLAT so each triangle
-  // emits its own geometric normal.
-  const bool allowGpuTriangles = canUseGpuTriangles && !useFaceNormals;
+  const bool canUseGpuFlatTriangles =
+      mesh.buffersReady && mesh.vao != 0 && mesh.vboFlatVertices != 0 &&
+      mesh.vboFlatNormals != 0 && mesh.flatVertexCount > 0 &&
+      flatGpuHandlesValid && !requiresCpuDrawPath;
 
-  if (!m_controller.IsCaptureOnly() && allowGpuTriangles) {
+  const bool allowGpuTriangles = canUseGpuTriangles && !useFaceNormals;
+  const bool allowGpuFlatTriangles = canUseGpuFlatTriangles && useFaceNormals;
+
+  if (!m_controller.IsCaptureOnly() && (allowGpuTriangles || allowGpuFlatTriangles)) {
     const bool textureEnabled =
-        useTexture && mesh.textureId != 0 &&
+        allowGpuTriangles && useTexture && mesh.textureId != 0 &&
         mesh.vboTexCoords != 0 &&
         mesh.texcoords.size() >= (mesh.vertices.size() / 3u) * 2u;
     glBindVertexArray(mesh.vao);
     glPushMatrix();
     glScalef(scale, scale, scale);
 
-    glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
+    glBindBuffer(GL_ARRAY_BUFFER,
+                 allowGpuFlatTriangles ? mesh.vboFlatVertices : mesh.vboVertices);
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(3, GL_FLOAT, 0, nullptr);
 
-    glBindBuffer(GL_ARRAY_BUFFER, mesh.vboNormals);
+    glBindBuffer(GL_ARRAY_BUFFER,
+                 allowGpuFlatTriangles ? mesh.vboFlatNormals : mesh.vboNormals);
     glEnableClientState(GL_NORMAL_ARRAY);
     glNormalPointer(GL_FLOAT, 0, nullptr);
 
@@ -620,9 +627,14 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       glTexCoordPointer(2, GL_FLOAT, 0, nullptr);
     }
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
-    glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_SHORT,
-                   nullptr);
+    if (allowGpuFlatTriangles) {
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+      glDrawArrays(GL_TRIANGLES, 0, mesh.flatVertexCount);
+    } else {
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
+      glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_SHORT,
+                     nullptr);
+    }
 
     if (textureEnabled) {
       glDisableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -631,6 +643,7 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     }
     glDisableClientState(GL_NORMAL_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glPopMatrix();
   } else if (!m_controller.IsCaptureOnly()) {
