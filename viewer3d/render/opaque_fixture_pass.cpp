@@ -188,7 +188,14 @@ bool SphereOutsideFrustum(const FrustumPlanes &frustum, float x, float y, float 
   return false;
 }
 
-const Mesh &ResolveMovingProxyMesh(const Mesh &source) {
+const Mesh &ResolveMovingProxyMesh(const Mesh &source,
+                                   Viewer3DController &controller) {
+  const size_t sourceTriangleCount = source.indices.size() / 3;
+  // Do not proxy very small meshes; simplification artifacts are more visible
+  // than the potential performance gain for tiny triangle counts.
+  if (sourceTriangleCount <= 500)
+    return source;
+
   static std::unordered_map<const Mesh *, Mesh> proxyCache;
   auto it = proxyCache.find(&source);
   if (it != proxyCache.end())
@@ -265,6 +272,10 @@ const Mesh &ResolveMovingProxyMesh(const Mesh &source) {
                              kProxyOverdrawThreshold);
     proxy.indices = std::move(overdrawOptimized);
   }
+
+  // Upload proxy mesh once so moving-camera rendering stays on the GPU path
+  // instead of falling back to immediate-mode CPU submission.
+  controller.SetupMeshBuffers(proxy);
 
   return proxyCache.emplace(&source, std::move(proxy)).first->second;
 }
@@ -1030,7 +1041,7 @@ void OpaqueFixturePass::Render(
             partB = isWhiteRenderMode ? 1.0f : 0.35f;
           }
           const bool drawUnlit = !is2DViewer && obj.isLens;
-          const Mesh &proxyMesh = ResolveMovingProxyMesh(obj.mesh);
+          const Mesh &proxyMesh = ResolveMovingProxyMesh(obj.mesh, controller);
           AddFixtureInstancedDraw(fixtureInstancedBatches, proxyMesh, partR, partG,
                                   partB, drawUnlit, wireframe, mode, RENDER_SCALE,
                                   cx, cy, cz, matrix, localMatrix, worldMatrixArray);
