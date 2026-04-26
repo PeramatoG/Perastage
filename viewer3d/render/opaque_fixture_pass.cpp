@@ -849,16 +849,27 @@ void OpaqueFixturePass::Render(
 
     if (context.skipOptionalWork) {
       ++frameMetrics.instancedFixtures;
-      float proxyScale = 0.2f;
-      if (fbit != controller.m_fixtureBounds.end()) {
-        const float dx = std::max(0.0f, fbit->second.max[0] - fbit->second.min[0]);
-        const float dy = std::max(0.0f, fbit->second.max[1] - fbit->second.min[1]);
-        const float dz = std::max(0.0f, fbit->second.max[2] - fbit->second.min[2]);
-        proxyScale = std::max({dx, dy, dz, 0.05f});
+      if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
+        const auto &parts = itg->second;
+        const bool reversePartOrder = drawRealTopInTopView;
+        for (size_t offset = 0; offset < parts.size(); ++offset) {
+          const size_t partIndex =
+              reversePartOrder ? (parts.size() - 1 - offset) : offset;
+          const auto &obj = parts[partIndex];
+          float localMatrix[16];
+          MatrixToArray(obj.transform, localMatrix);
+          Matrix worldMatrix = MatrixUtils::Multiply(f.transform, obj.transform);
+          float worldMatrixArray[16];
+          MatrixToArray(worldMatrix, worldMatrixArray);
+          AddFixtureInstancedDraw(fixtureInstancedBatches, obj.mesh, r, g, b, false,
+                                  wireframe, mode, RENDER_SCALE, cx, cy, cz,
+                                  matrix, localMatrix, worldMatrixArray);
+        }
+      } else {
+        AddFixtureInstancedDraw(fixtureInstancedBatches, FallbackFixtureCubeMesh(),
+                                r, g, b, false, wireframe, mode, 0.2f, cx, cy,
+                                cz, matrix, nullptr, matrix);
       }
-      AddFixtureInstancedDraw(fixtureInstancedBatches, FallbackFixtureCubeMesh(),
-                              r, g, b, false, wireframe, mode, proxyScale, cx,
-                              cy, cz, matrix, nullptr, matrix);
       glPopMatrix();
       if (controller.m_captureCanvas && !skipCapture)
         controller.m_captureCanvas->SetSourceKey("unknown");
