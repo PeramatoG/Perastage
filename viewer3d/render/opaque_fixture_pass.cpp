@@ -27,7 +27,6 @@
 
 #include "matrixutils.h"
 #include "configmanager.h"
-#include "fixture_instanced_renderer.h"
 #include "interaction_lod_policy.h"
 #include "mesh.h"
 #include "opaque_pass_utils.h"
@@ -178,20 +177,6 @@ bool IsBoundingSphereOutsideFrustum(const Viewer3DBoundingBox &bb,
       return true;
   }
   return false;
-}
-
-std::array<float, 16> BuildInstancedModelMatrix(const Matrix &fixtureTransform,
-                                                const Matrix &partTransform) {
-  Matrix scaledFixture = fixtureTransform;
-  scaledFixture.o[0] *= RENDER_SCALE;
-  scaledFixture.o[1] *= RENDER_SCALE;
-  scaledFixture.o[2] *= RENDER_SCALE;
-  const Matrix worldMatrix = MatrixUtils::Multiply(scaledFixture, partTransform);
-  float matrix[16];
-  MatrixToArray(worldMatrix, matrix);
-  std::array<float, 16> out{};
-  std::copy(std::begin(matrix), std::end(matrix), out.begin());
-  return out;
 }
 
 struct SvgSymbolCacheKeyHasher {
@@ -533,14 +518,7 @@ void OpaqueFixturePass::Render(
       glDisable(GL_DEPTH_TEST);
   }
 
-  // Hardware instancing is enabled for all 3D styles during interaction.
-  // The instanced renderer receives style flags to preserve per-mode look.
-  const bool canUseHardwareInstancing =
-      !context.selectionOverlayPass && !wireframe && !is2DViewer &&
-      context.useInteractionProxyLod &&
-      !controller.m_captureOnly &&
-      controller.m_captureCanvas == nullptr;
-  FixtureInstancedBatches instancedBatches;
+  // Interaction proxies follow the regular fixture rendering pipeline.
 
   for (const auto &uuid : visibleSet.fixtureUuids) {
     auto fixtureIt = fixtures.find(uuid);
@@ -665,45 +643,7 @@ void OpaqueFixturePass::Render(
       continue;
     }
     const bool useInteractionLodMesh =
-        lodDecision == InteractionLodDecision::ProxyBounds &&
-        !controller.m_captureOnly;
-
-    // Keep proxy LOD meshes on the regular DrawMeshWithOutline path so they
-    // preserve the same visual treatment (lighting/outlines/style) as normal
-    // fixture rendering. Instancing is reserved for full meshes.
-    if (canUseHardwareInstancing && !useInteractionLodMesh && !highlight && !selected &&
-        itg != controller.m_resourceSyncState.loadedGdtf.end()) {
-      for (const auto &obj : itg->second) {
-        float partR = r;
-        float partG = g;
-        float partB = b;
-        if (!is2DViewer && obj.isLens) {
-          const bool isWhiteRenderMode =
-              controller.IsPureWhiteRenderStyleEnabled();
-          partR = 1.0f;
-          partG = isWhiteRenderMode ? 1.0f : 0.78f;
-          partB = isWhiteRenderMode ? 1.0f : 0.35f;
-        }
-
-        const Mesh &meshForPart =
-            (useInteractionLodMesh && obj.hasInteractionLodMesh)
-                ? obj.interactionLodMesh
-                : obj.mesh;
-        if (!meshForPart.buffersReady || meshForPart.triangleIndexCount <= 0)
-          continue;
-
-        FixtureInstanceDrawData instanceData;
-        instanceData.modelMatrix =
-            BuildInstancedModelMatrix(f.transform, obj.transform);
-        instanceData.color = {partR, partG, partB};
-        instancedBatches[&meshForPart].push_back(std::move(instanceData));
-      }
-
-      glPopMatrix();
-      if (controller.m_captureCanvas && !skipCapture)
-        controller.m_captureCanvas->SetSourceKey("unknown");
-      continue;
-    }
+        context.useInteractionProxyLod && !controller.m_captureOnly;
 
     bool renderedPerastageSvg = false;
     const bool captureRecordingActive = controller.m_captureCanvas && !skipCapture;
@@ -935,14 +875,6 @@ void OpaqueFixturePass::Render(
 
     if (controller.m_captureCanvas && !skipCapture)
       controller.m_captureCanvas->SetSourceKey("unknown");
-  }
-  if (canUseHardwareInstancing && !instancedBatches.empty()) {
-    // Dedicated instancing path: draws grouped fixture parts with per-instance
-    // transform/color attributes using glDrawElementsInstanced.
-    FixtureInstancedRenderOptions options;
-    options.texturedStyle = context.texturedStyle;
-    options.whiteModelStyle = context.whiteModelStyle;
-    RenderFixtureInstancedBatches(instancedBatches, options);
   }
   if (forceFixturesOnTop && depthEnabled)
     glEnable(GL_DEPTH_TEST);

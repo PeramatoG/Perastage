@@ -464,8 +464,12 @@ void EnsureInteractionLodMeshes(const std::string &gdtfPath,
       object.interactionLodMesh = std::move(lodMesh);
       object.hasInteractionLodMesh = true;
     } else {
-      object.interactionLodMesh = Mesh{};
-      object.hasInteractionLodMesh = false;
+      // Keep a deterministic proxy path for every fixture part even when
+      // simplification cannot reduce this specific mesh any further.
+      // This avoids format-dependent fallbacks (e.g. different 3DS/GLB assets)
+      // where some fixtures would bypass the interaction LOD branch entirely.
+      object.interactionLodMesh = object.mesh;
+      object.hasInteractionLodMesh = true;
     }
   }
 
