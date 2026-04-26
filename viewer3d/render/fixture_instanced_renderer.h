@@ -14,4 +14,11 @@ struct FixtureInstanceDrawData {
 using FixtureInstancedBatches =
     std::unordered_map<const Mesh *, std::vector<FixtureInstanceDrawData>>;
 
-bool RenderFixtureInstancedBatches(const FixtureInstancedBatches &batches);
+struct FixtureInstancedRenderOptions {
+  bool texturedStyle = false;
+  bool whiteModelStyle = false;
+};
+
+bool RenderFixtureInstancedBatches(
+    const FixtureInstancedBatches &batches,
+    const FixtureInstancedRenderOptions &options);

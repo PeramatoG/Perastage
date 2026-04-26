@@ -533,12 +533,11 @@ void OpaqueFixturePass::Render(
       glDisable(GL_DEPTH_TEST);
   }
 
-  // Instanced path currently uses a lightweight shader optimized for motion.
-  // Keep it scoped to textured style so Standard/Sketch retain their original
-  // visual pipeline (lighting/profile treatment) during interaction.
+  // Hardware instancing is enabled for all 3D styles during interaction.
+  // The instanced renderer receives style flags to preserve per-mode look.
   const bool canUseHardwareInstancing =
       !context.selectionOverlayPass && !wireframe && !is2DViewer &&
-      context.useInteractionProxyLod && context.texturedStyle &&
+      context.useInteractionProxyLod &&
       !controller.m_captureOnly &&
       controller.m_captureCanvas == nullptr;
   FixtureInstancedBatches instancedBatches;
@@ -940,7 +939,10 @@ void OpaqueFixturePass::Render(
   if (canUseHardwareInstancing && !instancedBatches.empty()) {
     // Dedicated instancing path: draws grouped fixture parts with per-instance
     // transform/color attributes using glDrawElementsInstanced.
-    RenderFixtureInstancedBatches(instancedBatches);
+    FixtureInstancedRenderOptions options;
+    options.texturedStyle = context.texturedStyle;
+    options.whiteModelStyle = context.whiteModelStyle;
+    RenderFixtureInstancedBatches(instancedBatches, options);
   }
   if (forceFixturesOnTop && depthEnabled)
     glEnable(GL_DEPTH_TEST);

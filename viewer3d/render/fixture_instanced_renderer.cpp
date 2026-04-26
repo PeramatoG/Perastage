@@ -16,6 +16,7 @@
 
 #include <array>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -61,32 +62,53 @@ GLuint GetInstancingProgram() {
   const char *vs = R"(
     #version 330 core
     layout(location = 0) in vec3 aPosition;
+    layout(location = 1) in vec3 aNormal;
     layout(location = 2) in vec4 aModelCol0;
     layout(location = 3) in vec4 aModelCol1;
     layout(location = 4) in vec4 aModelCol2;
     layout(location = 5) in vec4 aModelCol3;
     layout(location = 6) in vec4 aColor;
+    layout(location = 7) in vec2 aTexCoord;
 
     uniform mat4 uViewProj;
     uniform float uMeshScale;
 
     out vec4 vColor;
+    out vec3 vNormal;
+    out vec2 vTexCoord;
 
     void main() {
       mat4 model = mat4(aModelCol0, aModelCol1, aModelCol2, aModelCol3);
       vec4 world = model * vec4(aPosition * uMeshScale, 1.0);
       gl_Position = uViewProj * world;
       vColor = aColor;
+      vNormal = normalize(mat3(model) * aNormal);
+      vTexCoord = aTexCoord;
     }
   )";
 
   const char *fs = R"(
     #version 330 core
     in vec4 vColor;
+    in vec3 vNormal;
+    in vec2 vTexCoord;
     out vec4 fragColor;
 
+    uniform bool uUseTexture;
+    uniform bool uWhiteModelStyle;
+    uniform sampler2D uTexture;
+
     void main() {
-      fragColor = vColor;
+      vec3 baseColor = vColor.rgb;
+      if (uUseTexture)
+        baseColor *= texture(uTexture, vTexCoord).rgb;
+      if (uWhiteModelStyle)
+        baseColor = vec3(0.95);
+
+      vec3 lightDir = normalize(vec3(0.4, 0.6, 0.7));
+      float diffuse = max(dot(normalize(vNormal), lightDir), 0.0);
+      float lighting = 0.35 + diffuse * 0.65;
+      fragColor = vec4(baseColor * lighting, vColor.a);
     }
   )";
 
@@ -118,7 +140,9 @@ GLuint GetInstancingProgram() {
 
 } // namespace
 
-bool RenderFixtureInstancedBatches(const FixtureInstancedBatches &batches) {
+bool RenderFixtureInstancedBatches(
+    const FixtureInstancedBatches &batches,
+    const FixtureInstancedRenderOptions &options) {
   if (batches.empty())
     return false;
 
@@ -148,6 +172,9 @@ bool RenderFixtureInstancedBatches(const FixtureInstancedBatches &batches) {
   glUniformMatrix4fv(glGetUniformLocation(program, "uViewProj"), 1, GL_FALSE,
                      viewProj);
   glUniform1f(glGetUniformLocation(program, "uMeshScale"), 0.001f);
+  glUniform1i(glGetUniformLocation(program, "uTexture"), 0);
+  glUniform1i(glGetUniformLocation(program, "uWhiteModelStyle"),
+              options.whiteModelStyle ? 1 : 0);
 
   bool renderedAny = false;
   for (const auto &[mesh, instances] : batches) {
@@ -171,6 +198,19 @@ bool RenderFixtureInstancedBatches(const FixtureInstancedBatches &batches) {
     glBindBuffer(GL_ARRAY_BUFFER, mesh->vboVertices);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+    glBindBuffer(GL_ARRAY_BUFFER, mesh->vboNormals);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+    if (mesh->vboTexCoords != 0) {
+      glBindBuffer(GL_ARRAY_BUFFER, mesh->vboTexCoords);
+      glEnableVertexAttribArray(7);
+      glVertexAttribPointer(7, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+    } else {
+      glDisableVertexAttribArray(7);
+      glVertexAttrib2f(7, 0.0f, 0.0f);
+    }
 
     glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
     glBufferData(GL_ARRAY_BUFFER,
@@ -201,9 +241,21 @@ bool RenderFixtureInstancedBatches(const FixtureInstancedBatches &batches) {
     glVertexAttribDivisor(6, 1);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->eboTriangles);
+    const bool useTexture =
+        options.texturedStyle && mesh->textureId != 0 && mesh->vboTexCoords != 0;
+    glUniform1i(glGetUniformLocation(program, "uUseTexture"),
+                useTexture ? 1 : 0);
+    if (useTexture) {
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, mesh->textureId);
+    }
+
     glDrawElementsInstanced(GL_TRIANGLES, mesh->triangleIndexCount,
                             GL_UNSIGNED_SHORT, nullptr,
                             static_cast<GLsizei>(instances.size()));
+
+    if (useTexture)
+      glBindTexture(GL_TEXTURE_2D, 0);
 
     glVertexAttribDivisor(2, 0);
     glVertexAttribDivisor(3, 0);
@@ -215,6 +267,8 @@ bool RenderFixtureInstancedBatches(const FixtureInstancedBatches &batches) {
     glDisableVertexAttribArray(4);
     glDisableVertexAttribArray(5);
     glDisableVertexAttribArray(6);
+    glDisableVertexAttribArray(7);
+    glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(0);
 
     renderedAny = true;
