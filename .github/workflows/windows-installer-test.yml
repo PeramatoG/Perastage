@@ -54,3 +54,10 @@ jobs:
         shell: pwsh
         run: |
           cmake --build build --config Release
+
+      # Create distribution folders and files
+      - name: Stage distribution folder
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --target perastage_stage
+          Get-ChildItem out\install\Release
