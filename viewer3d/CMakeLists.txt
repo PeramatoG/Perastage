@@ -7,6 +7,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/loader3ds.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/loaderglb.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/meshprimitives.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mesh_processing_cache.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/picking/selectionsystem.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/picking/id_pick_pass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/gl_primitive_renderer.cpp
@@ -27,6 +28,26 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcontroller.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dviewfit.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/allocator.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/clusterizer.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/indexanalyzer.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/indexcodec.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/indexgenerator.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/meshletcodec.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/meshletutils.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/opacitymap.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/overdrawoptimizer.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/partition.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/quantization.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/rasterizer.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/simplifier.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/spatialorder.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/stripifier.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/tangentspace.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/vcacheoptimizer.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/vertexcodec.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/vertexfilter.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src/vfetchoptimizer.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

@@ -20,6 +20,7 @@
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "matrixutils.h"
+#include "mesh_processing_cache.h"
 #include "meshprimitives.h"
 #include "consolepanel.h"
 
@@ -180,6 +181,8 @@ bool IsLikelyLensGeometry(tinyxml2::XMLElement* node,
 struct GdtfCacheEntry
 {
     fs::file_time_type timestamp;
+    uint64_t gdtfContentHash = 0;
+    std::string sourcePath;
     std::string extractedDir;
     std::unique_ptr<tinyxml2::XMLDocument> doc;
     tinyxml2::XMLElement* fixtureType = nullptr;
@@ -1099,6 +1102,8 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
 
     GdtfCacheEntry entry;
     entry.timestamp = timestamp;
+    entry.gdtfContentHash = hash;
+    entry.sourcePath = absPath.string();
     TempExtraction extraction(absPath.string());
     if (!extraction.IsValid()) {
         g_failedGdtfCache[stableKey] = timestamp;
@@ -1143,6 +1148,7 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
 static void ParseGeometry(tinyxml2::XMLElement* node,
                           const Matrix& parent,
                           const std::unordered_map<std::string, GdtfModelInfo>& models,
+                          const MeshProcessingCacheContext& cacheContext,
                           const std::string& baseDir,
                           const std::unordered_map<std::string, tinyxml2::XMLElement*>& geomMap,
                           std::unordered_map<std::string, Mesh>& meshCache,
@@ -1188,7 +1194,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             auto it = geomMap.find(refName);
             if (it != geomMap.end()) {
                 const char* m = node->Attribute("Model");
-                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache,
+                ParseGeometry(it->second, transform, models, cacheContext, baseDir, geomMap, meshCache,
                               outTree, missingModels, failedModelLoads, parentNodeIndex,
                               m ? m : overrideModel, parentIsLens);
             }
@@ -1228,10 +1234,15 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                         bool alreadyFailed = failedModelLoads && failedModelLoads->find(path) != failedModelLoads->end();
                         if (!alreadyFailed) {
                             bool loaded = false;
-                            if (HasExtension(path, ".3ds"))
-                                loaded = Load3DS(path, mesh);
-                            else if (HasExtension(path, ".glb"))
-                                loaded = LoadGLB(path, mesh);
+                            loaded = LoadOrBuildOptimizedMesh(
+                                path, cacheContext, mesh,
+                                [](const std::string& sourcePath, Mesh& outMesh) {
+                                    if (HasExtension(sourcePath, ".3ds"))
+                                        return Load3DS(sourcePath, outMesh);
+                                    if (HasExtension(sourcePath, ".glb"))
+                                        return LoadGLB(sourcePath, outMesh);
+                                    return false;
+                                });
 
                             if (loaded) {
                                 ApplyModelDimensions(mesh, modelInfo);
@@ -1287,7 +1298,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
     for (tinyxml2::XMLElement* child = node->FirstChildElement(); child; child = child->NextSiblingElement()) {
         std::string n = child->Name();
         if (kGeometryNodeTypes.find(n) != kGeometryNodeTypes.end() || n.rfind("Filter",0)==0) {
-            ParseGeometry(child, transform, models, baseDir, geomMap, meshCache, outTree,
+            ParseGeometry(child, transform, models, cacheContext, baseDir, geomMap, meshCache, outTree,
                           missingModels, failedModelLoads, currentNodeIndex, nullptr,
                           isLensGeometry);
         }
@@ -1351,6 +1362,11 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
     std::unordered_set<std::string>* missingModels = &entry->missingModelsLogged;
     std::unordered_set<std::string>* failedModelLoads = &entry->failedModelLoads;
 
+    MeshProcessingCacheContext cacheContext;
+    cacheContext.gdtfPath = entry->sourcePath;
+    cacheContext.gdtfContentHash = entry->gdtfContentHash;
+    cacheContext.gdtfTimestamp = entry->timestamp;
+
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
         std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g;
@@ -1360,7 +1376,7 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
         }
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g;
              g = g->NextSiblingElement()) {
-            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir,
+            ParseGeometry(g, MatrixUtils::Identity(), models, cacheContext, entry->extractedDir,
                           geomMap, meshCache, outTree, missingModels, failedModelLoads,
                           -1, nullptr, false);
         }
@@ -1453,6 +1469,11 @@ bool LoadGdtf(const std::string& gdtfPath,
     std::unordered_set<std::string>* missingModels = &entry->missingModelsLogged;
     std::unordered_set<std::string>* failedModelLoads = &entry->failedModelLoads;
     GdtfGeometryTree geometryTree;
+    MeshProcessingCacheContext cacheContext;
+    cacheContext.gdtfPath = entry->sourcePath;
+    cacheContext.gdtfContentHash = entry->gdtfContentHash;
+    cacheContext.gdtfTimestamp = entry->timestamp;
+
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
         std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
@@ -1460,7 +1481,7 @@ bool LoadGdtf(const std::string& gdtfPath,
                 geomMap[n] = g;
         }
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
-            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap,
+            ParseGeometry(g, MatrixUtils::Identity(), models, cacheContext, entry->extractedDir, geomMap,
                           meshCache, geometryTree, missingModels, failedModelLoads, -1);
         }
     }

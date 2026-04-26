@@ -69,6 +69,66 @@ struct CullingSettings {
   float minPixels2D = 1.0f;
 };
 
+struct FrustumPlane {
+  float a = 0.0f;
+  float b = 0.0f;
+  float c = 0.0f;
+  float d = 0.0f;
+};
+
+using FrustumPlanes = std::array<FrustumPlane, 6>;
+
+static FrustumPlanes BuildFrustumPlanes(const double model[16],
+                                        const double proj[16]) {
+  // Build clip-space planes from Projection*ModelView. Fixtures are culled
+  // against these planes using bounding spheres before they are sent to the
+  // renderer.
+  double mvp[16]{};
+  for (int r = 0; r < 4; ++r) {
+    for (int c = 0; c < 4; ++c) {
+      mvp[c * 4 + r] = proj[0 * 4 + r] * model[c * 4 + 0] +
+                       proj[1 * 4 + r] * model[c * 4 + 1] +
+                       proj[2 * 4 + r] * model[c * 4 + 2] +
+                       proj[3 * 4 + r] * model[c * 4 + 3];
+    }
+  }
+
+  auto makePlane = [&](double a, double b, double c, double d) {
+    const double len = std::sqrt(a * a + b * b + c * c);
+    if (len <= 1e-9)
+      return FrustumPlane{};
+    return FrustumPlane{static_cast<float>(a / len), static_cast<float>(b / len),
+                        static_cast<float>(c / len), static_cast<float>(d / len)};
+  };
+
+  FrustumPlanes planes{};
+  planes[0] = makePlane(mvp[3] + mvp[0], mvp[7] + mvp[4], mvp[11] + mvp[8], mvp[15] + mvp[12]); // left
+  planes[1] = makePlane(mvp[3] - mvp[0], mvp[7] - mvp[4], mvp[11] - mvp[8], mvp[15] - mvp[12]); // right
+  planes[2] = makePlane(mvp[3] + mvp[1], mvp[7] + mvp[5], mvp[11] + mvp[9], mvp[15] + mvp[13]); // bottom
+  planes[3] = makePlane(mvp[3] - mvp[1], mvp[7] - mvp[5], mvp[11] - mvp[9], mvp[15] - mvp[13]); // top
+  planes[4] = makePlane(mvp[3] + mvp[2], mvp[7] + mvp[6], mvp[11] + mvp[10], mvp[15] + mvp[14]); // near
+  planes[5] = makePlane(mvp[3] - mvp[2], mvp[7] - mvp[6], mvp[11] - mvp[10], mvp[15] - mvp[14]); // far
+  return planes;
+}
+
+static bool IsBoundingSphereOutsideFrustum(
+    const IVisibilityContext::BoundingBox &bb, const FrustumPlanes &planes) {
+  const float cx = (bb.min[0] + bb.max[0]) * 0.5f;
+  const float cy = (bb.min[1] + bb.max[1]) * 0.5f;
+  const float cz = (bb.min[2] + bb.max[2]) * 0.5f;
+  const float ex = (bb.max[0] - bb.min[0]) * 0.5f;
+  const float ey = (bb.max[1] - bb.min[1]) * 0.5f;
+  const float ez = (bb.max[2] - bb.min[2]) * 0.5f;
+  const float radius = std::sqrt(ex * ex + ey * ey + ez * ez);
+
+  for (const auto &p : planes) {
+    const float distance = p.a * cx + p.b * cy + p.c * cz + p.d;
+    if (distance < -radius)
+      return true;
+  }
+  return false;
+}
+
 static CullingSettings GetCullingSettings3D(const ConfigManager &cfg) {
   CullingSettings s{};
   s.enabled = cfg.GetFloat("render_culling_enabled") >= 0.5f;
@@ -579,10 +639,16 @@ bool VisibilitySystem::TryBuildVisibleSet(
   }
 
   out.fixtureUuids.reserve(layerVisibleCandidates.fixtureUuids.size());
+  const FrustumPlanes fixtureFrustumPlanes =
+      BuildFrustumPlanes(frustum.model, frustum.projection);
   for (const auto &uuid : layerVisibleCandidates.fixtureUuids) {
     if (useFrustumCulling) {
       auto bit = m_controller.GetFixtureBounds().find(uuid);
       if (bit == m_controller.GetFixtureBounds().end())
+        continue;
+      // Early fixture culling by bounding sphere to avoid dispatching fully
+      // invisible fixtures to later rendering stages.
+      if (IsBoundingSphereOutsideFrustum(bit->second, fixtureFrustumPlanes))
         continue;
       ScreenRect rect;
       bool anyDepthVisible = false;

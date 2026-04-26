@@ -430,6 +430,228 @@ struct FixtureRenderMetrics {
   size_t fallbackDrawCalls = 0;
 };
 
+struct FixtureInstancedProgram {
+  GLuint program = 0;
+  GLint position = -1;
+  GLint normal = -1;
+  GLint instanceCol0 = -1;
+  GLint instanceCol1 = -1;
+  GLint instanceCol2 = -1;
+  GLint instanceCol3 = -1;
+  GLint viewProjection = -1;
+  GLint color = -1;
+  GLint unlit = -1;
+  GLint lightDir = -1;
+  GLint scale = -1;
+};
+
+GLuint CompileFixtureShader(GLenum type, const char *source) {
+  const GLuint shader = glCreateShader(type);
+  if (shader == 0)
+    return 0;
+  glShaderSource(shader, 1, &source, nullptr);
+  glCompileShader(shader);
+  GLint compiled = GL_FALSE;
+  glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+  if (compiled != GL_TRUE) {
+    glDeleteShader(shader);
+    return 0;
+  }
+  return shader;
+}
+
+const FixtureInstancedProgram &GetFixtureInstancedProgram() {
+  static const FixtureInstancedProgram program = []() {
+    FixtureInstancedProgram p;
+    static constexpr const char *kVs = R"glsl(
+      #version 120
+      attribute vec3 aPosition;
+      attribute vec3 aNormal;
+      attribute vec4 aInstanceCol0;
+      attribute vec4 aInstanceCol1;
+      attribute vec4 aInstanceCol2;
+      attribute vec4 aInstanceCol3;
+      uniform mat4 uViewProjection;
+      uniform float uScale;
+      varying vec3 vNormal;
+      void main() {
+        mat4 instance = mat4(aInstanceCol0, aInstanceCol1, aInstanceCol2, aInstanceCol3);
+        vec4 worldPos = instance * vec4(aPosition * uScale, 1.0);
+        gl_Position = uViewProjection * worldPos;
+        vNormal = mat3(instance) * aNormal;
+      }
+    )glsl";
+    static constexpr const char *kFs = R"glsl(
+      #version 120
+      uniform vec3 uColor;
+      uniform float uUnlit;
+      uniform vec3 uLightDir;
+      varying vec3 vNormal;
+      void main() {
+        float ndotl = max(dot(normalize(vNormal), normalize(uLightDir)), 0.0);
+        float lightFactor = mix(0.25, 1.0, ndotl);
+        vec3 shaded = mix(uColor * lightFactor, uColor, uUnlit);
+        gl_FragColor = vec4(shaded, 1.0);
+      }
+    )glsl";
+
+    const GLuint vs = CompileFixtureShader(GL_VERTEX_SHADER, kVs);
+    const GLuint fs = CompileFixtureShader(GL_FRAGMENT_SHADER, kFs);
+    if (vs == 0 || fs == 0) {
+      if (vs != 0)
+        glDeleteShader(vs);
+      if (fs != 0)
+        glDeleteShader(fs);
+      return p;
+    }
+    p.program = glCreateProgram();
+    if (p.program == 0) {
+      glDeleteShader(vs);
+      glDeleteShader(fs);
+      return p;
+    }
+    glAttachShader(p.program, vs);
+    glAttachShader(p.program, fs);
+    glBindAttribLocation(p.program, 0, "aPosition");
+    glBindAttribLocation(p.program, 1, "aNormal");
+    glBindAttribLocation(p.program, 2, "aInstanceCol0");
+    glBindAttribLocation(p.program, 3, "aInstanceCol1");
+    glBindAttribLocation(p.program, 4, "aInstanceCol2");
+    glBindAttribLocation(p.program, 5, "aInstanceCol3");
+    glLinkProgram(p.program);
+    GLint linked = GL_FALSE;
+    glGetProgramiv(p.program, GL_LINK_STATUS, &linked);
+    glDeleteShader(vs);
+    glDeleteShader(fs);
+    if (linked != GL_TRUE) {
+      glDeleteProgram(p.program);
+      p.program = 0;
+      return p;
+    }
+    p.position = glGetAttribLocation(p.program, "aPosition");
+    p.normal = glGetAttribLocation(p.program, "aNormal");
+    p.instanceCol0 = glGetAttribLocation(p.program, "aInstanceCol0");
+    p.instanceCol1 = glGetAttribLocation(p.program, "aInstanceCol1");
+    p.instanceCol2 = glGetAttribLocation(p.program, "aInstanceCol2");
+    p.instanceCol3 = glGetAttribLocation(p.program, "aInstanceCol3");
+    p.viewProjection = glGetUniformLocation(p.program, "uViewProjection");
+    p.color = glGetUniformLocation(p.program, "uColor");
+    p.unlit = glGetUniformLocation(p.program, "uUnlit");
+    p.lightDir = glGetUniformLocation(p.program, "uLightDir");
+    p.scale = glGetUniformLocation(p.program, "uScale");
+    return p;
+  }();
+  return program;
+}
+
+bool TryRenderBatchInstanced(const FixtureInstancedBatchKey &key,
+                             const std::vector<FixtureInstancedDrawCall> &draws) {
+  if (draws.empty() || key.wireframe || key.mode == Viewer2DRenderMode::Wireframe)
+    return false;
+  const Mesh &mesh = *key.mesh;
+  if (!mesh.buffersReady || mesh.vao == 0 || mesh.vboVertices == 0 ||
+      mesh.vboNormals == 0 || mesh.eboTriangles == 0 || mesh.triangleIndexCount <= 0)
+    return false;
+  if (!(GLEW_VERSION_3_1 || GLEW_ARB_draw_instanced) ||
+      !(GLEW_VERSION_3_3 || GLEW_ARB_instanced_arrays))
+    return false;
+
+  const FixtureInstancedProgram &program = GetFixtureInstancedProgram();
+  if (program.program == 0 || program.position < 0 || program.normal < 0 ||
+      program.instanceCol0 < 0 || program.instanceCol1 < 0 ||
+      program.instanceCol2 < 0 || program.instanceCol3 < 0)
+    return false;
+
+  std::vector<float> instanceMatrices;
+  instanceMatrices.reserve(draws.size() * 16);
+  for (const auto &draw : draws)
+    instanceMatrices.insert(instanceMatrices.end(), draw.worldMatrix.begin(),
+                            draw.worldMatrix.end());
+
+  float modelView[16];
+  float projection[16];
+  glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
+  glGetFloatv(GL_PROJECTION_MATRIX, projection);
+  float viewProjection[16]{};
+  for (int r = 0; r < 4; ++r) {
+    for (int c = 0; c < 4; ++c) {
+      viewProjection[c * 4 + r] = projection[0 * 4 + r] * modelView[c * 4 + 0] +
+                                  projection[1 * 4 + r] * modelView[c * 4 + 1] +
+                                  projection[2 * 4 + r] * modelView[c * 4 + 2] +
+                                  projection[3 * 4 + r] * modelView[c * 4 + 3];
+    }
+  }
+
+  GLuint instanceBuffer = 0;
+  glGenBuffers(1, &instanceBuffer);
+  glBindBuffer(GL_ARRAY_BUFFER, instanceBuffer);
+  glBufferData(GL_ARRAY_BUFFER, instanceMatrices.size() * sizeof(float),
+               instanceMatrices.data(), GL_STREAM_DRAW);
+
+  const uint32_t color = key.colorStyle;
+  const float r = static_cast<float>((color >> 16) & 0xFFu) / 255.0f;
+  const float g = static_cast<float>((color >> 8) & 0xFFu) / 255.0f;
+  const float b = static_cast<float>(color & 0xFFu) / 255.0f;
+
+  GLint previousProgram = 0;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
+  glUseProgram(program.program);
+  glUniformMatrix4fv(program.viewProjection, 1, GL_FALSE, viewProjection);
+  glUniform3f(program.color, r, g, b);
+  glUniform1f(program.unlit, key.unlit ? 1.0f : 0.0f);
+  glUniform3f(program.lightDir, 0.35f, -0.55f, 1.0f);
+  glUniform1f(program.scale, key.scale);
+
+  glBindVertexArray(mesh.vao);
+  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
+  glEnableVertexAttribArray(static_cast<GLuint>(program.position));
+  glVertexAttribPointer(static_cast<GLuint>(program.position), 3, GL_FLOAT,
+                        GL_FALSE, 0, nullptr);
+  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboNormals);
+  glEnableVertexAttribArray(static_cast<GLuint>(program.normal));
+  glVertexAttribPointer(static_cast<GLuint>(program.normal), 3, GL_FLOAT, GL_FALSE,
+                        0, nullptr);
+
+  glBindBuffer(GL_ARRAY_BUFFER, instanceBuffer);
+  constexpr GLsizei kStride = sizeof(float) * 16;
+  glEnableVertexAttribArray(static_cast<GLuint>(program.instanceCol0));
+  glEnableVertexAttribArray(static_cast<GLuint>(program.instanceCol1));
+  glEnableVertexAttribArray(static_cast<GLuint>(program.instanceCol2));
+  glEnableVertexAttribArray(static_cast<GLuint>(program.instanceCol3));
+  glVertexAttribPointer(static_cast<GLuint>(program.instanceCol0), 4, GL_FLOAT,
+                        GL_FALSE, kStride, reinterpret_cast<void *>(0));
+  glVertexAttribPointer(static_cast<GLuint>(program.instanceCol1), 4, GL_FLOAT,
+                        GL_FALSE, kStride, reinterpret_cast<void *>(sizeof(float) * 4));
+  glVertexAttribPointer(static_cast<GLuint>(program.instanceCol2), 4, GL_FLOAT,
+                        GL_FALSE, kStride, reinterpret_cast<void *>(sizeof(float) * 8));
+  glVertexAttribPointer(static_cast<GLuint>(program.instanceCol3), 4, GL_FLOAT,
+                        GL_FALSE, kStride, reinterpret_cast<void *>(sizeof(float) * 12));
+  glVertexAttribDivisor(static_cast<GLuint>(program.instanceCol0), 1);
+  glVertexAttribDivisor(static_cast<GLuint>(program.instanceCol1), 1);
+  glVertexAttribDivisor(static_cast<GLuint>(program.instanceCol2), 1);
+  glVertexAttribDivisor(static_cast<GLuint>(program.instanceCol3), 1);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
+  glDrawElementsInstanced(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
+                          nullptr, static_cast<GLsizei>(draws.size()));
+
+  glVertexAttribDivisor(static_cast<GLuint>(program.instanceCol0), 0);
+  glVertexAttribDivisor(static_cast<GLuint>(program.instanceCol1), 0);
+  glVertexAttribDivisor(static_cast<GLuint>(program.instanceCol2), 0);
+  glVertexAttribDivisor(static_cast<GLuint>(program.instanceCol3), 0);
+  glDisableVertexAttribArray(static_cast<GLuint>(program.instanceCol3));
+  glDisableVertexAttribArray(static_cast<GLuint>(program.instanceCol2));
+  glDisableVertexAttribArray(static_cast<GLuint>(program.instanceCol1));
+  glDisableVertexAttribArray(static_cast<GLuint>(program.instanceCol0));
+  glDisableVertexAttribArray(static_cast<GLuint>(program.normal));
+  glDisableVertexAttribArray(static_cast<GLuint>(program.position));
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  glDeleteBuffers(1, &instanceBuffer);
+  glUseProgram(static_cast<GLuint>(previousProgram));
+  return true;
+}
+
 void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
                              float r, float g, float b, bool unlit,
                              bool wireframe, Viewer2DRenderMode mode,
@@ -524,6 +746,13 @@ void OpaqueFixturePass::Render(
         for (const auto &entry : batches) {
           const auto &key = entry.first;
           const auto &draws = entry.second;
+          // True GPU instancing path: when possible, render all fixtures that
+          // share the same mesh/material state in a single
+          // glDrawElementsInstanced call.
+          if (!context.texturedStyle && TryRenderBatchInstanced(key, draws)) {
+            ++drawCalls;
+            continue;
+          }
           for (const auto &draw : draws) {
             glPushMatrix();
             controller.ApplyTransform(draw.fixtureMatrix.data(), true);
