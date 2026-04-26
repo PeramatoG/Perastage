@@ -937,9 +937,20 @@ void OpaqueFixturePass::Render(
           Matrix worldMatrix = MatrixUtils::Multiply(f.transform, obj.transform);
           float worldMatrixArray[16];
           MatrixToArray(worldMatrix, worldMatrixArray);
-          AddFixtureInstancedDraw(fixtureInstancedBatches, obj.mesh, r, g, b, false,
-                                  wireframe, mode, RENDER_SCALE, cx, cy, cz,
-                                  matrix, localMatrix, worldMatrixArray);
+          float partR = r;
+          float partG = g;
+          float partB = b;
+          if (!is2DViewer && obj.isLens) {
+            const bool isWhiteRenderMode =
+                controller.IsPureWhiteRenderStyleEnabled();
+            partR = 1.0f;
+            partG = isWhiteRenderMode ? 1.0f : 0.78f;
+            partB = isWhiteRenderMode ? 1.0f : 0.35f;
+          }
+          const bool drawUnlit = !is2DViewer && obj.isLens;
+          AddFixtureInstancedDraw(fixtureInstancedBatches, obj.mesh, partR, partG,
+                                  partB, drawUnlit, wireframe, mode, RENDER_SCALE,
+                                  cx, cy, cz, matrix, localMatrix, worldMatrixArray);
         }
       } else {
         AddFixtureInstancedDraw(fixtureInstancedBatches, FallbackFixtureCubeMesh(),
@@ -952,8 +963,12 @@ void OpaqueFixturePass::Render(
       continue;
     }
 
+    // Proxy/instanced fixture batching is reserved for the fast-interaction
+    // path while the camera is moving. When the camera is static we draw full
+    // geometry directly to avoid persistent proxy rendering.
     const bool eligibleForFixtureInstancedBatch =
-        !highlight && !selected && !captureRecordingActive;
+        context.skipOptionalWork && !highlight && !selected &&
+        !captureRecordingActive;
     if (eligibleForFixtureInstancedBatch) {
       ++frameMetrics.instancedFixtures;
       if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
