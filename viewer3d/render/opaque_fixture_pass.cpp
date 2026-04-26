@@ -27,6 +27,7 @@
 
 #include "matrixutils.h"
 #include "configmanager.h"
+#include "fixture_instanced_renderer.h"
 #include "interaction_lod_policy.h"
 #include "mesh.h"
 #include "opaque_pass_utils.h"
@@ -177,6 +178,19 @@ bool IsBoundingSphereOutsideFrustum(const Viewer3DBoundingBox &bb,
       return true;
   }
   return false;
+}
+
+std::array<float, 16> BuildInstancedModelMatrix(const Matrix &worldMatrix) {
+  float matrix[16];
+  MatrixToArray(worldMatrix, matrix);
+  // Positions in MVR/GDTF are authored in millimeters; convert translation
+  // to meters so the instanced shader can scale vertices consistently.
+  matrix[12] *= RENDER_SCALE;
+  matrix[13] *= RENDER_SCALE;
+  matrix[14] *= RENDER_SCALE;
+  std::array<float, 16> out{};
+  std::copy(std::begin(matrix), std::end(matrix), out.begin());
+  return out;
 }
 
 struct SvgSymbolCacheKeyHasher {
@@ -517,6 +531,13 @@ void OpaqueFixturePass::Render(
     if (depthEnabled)
       glDisable(GL_DEPTH_TEST);
   }
+
+  const bool canUseHardwareInstancing =
+      !context.selectionOverlayPass && !wireframe && !is2DViewer &&
+      context.useInteractionProxyLod && !controller.m_captureOnly &&
+      controller.m_captureCanvas == nullptr;
+  FixtureInstancedBatches instancedBatches;
+
   for (const auto &uuid : visibleSet.fixtureUuids) {
     auto fixtureIt = fixtures.find(uuid);
     if (fixtureIt == fixtures.end())
@@ -642,6 +663,40 @@ void OpaqueFixturePass::Render(
     const bool useInteractionLodMesh =
         lodDecision == InteractionLodDecision::ProxyBounds &&
         !controller.m_captureOnly;
+
+    if (canUseHardwareInstancing && !highlight && !selected &&
+        itg != controller.m_resourceSyncState.loadedGdtf.end()) {
+      for (const auto &obj : itg->second) {
+        float partR = r;
+        float partG = g;
+        float partB = b;
+        if (!is2DViewer && obj.isLens) {
+          const bool isWhiteRenderMode =
+              controller.IsPureWhiteRenderStyleEnabled();
+          partR = 1.0f;
+          partG = isWhiteRenderMode ? 1.0f : 0.78f;
+          partB = isWhiteRenderMode ? 1.0f : 0.35f;
+        }
+
+        const Mesh &meshForPart =
+            (useInteractionLodMesh && obj.hasInteractionLodMesh)
+                ? obj.interactionLodMesh
+                : obj.mesh;
+        if (!meshForPart.buffersReady || meshForPart.triangleIndexCount <= 0)
+          continue;
+
+        Matrix worldMatrix = MatrixUtils::Multiply(f.transform, obj.transform);
+        FixtureInstanceDrawData instanceData;
+        instanceData.modelMatrix = BuildInstancedModelMatrix(worldMatrix);
+        instanceData.color = {partR, partG, partB};
+        instancedBatches[&meshForPart].push_back(std::move(instanceData));
+      }
+
+      glPopMatrix();
+      if (controller.m_captureCanvas && !skipCapture)
+        controller.m_captureCanvas->SetSourceKey("unknown");
+      continue;
+    }
 
     bool renderedPerastageSvg = false;
     const bool captureRecordingActive = controller.m_captureCanvas && !skipCapture;
@@ -873,6 +928,11 @@ void OpaqueFixturePass::Render(
 
     if (controller.m_captureCanvas && !skipCapture)
       controller.m_captureCanvas->SetSourceKey("unknown");
+  }
+  if (canUseHardwareInstancing && !instancedBatches.empty()) {
+    // Dedicated instancing path: draws grouped fixture parts with per-instance
+    // transform/color attributes using glDrawElementsInstanced.
+    RenderFixtureInstancedBatches(instancedBatches);
   }
   if (forceFixturesOnTop && depthEnabled)
     glEnable(GL_DEPTH_TEST);

@@ -12,6 +12,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/render/gl_primitive_renderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/base_pass_framebuffer_cache.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/hoist_symbol_renderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/render/fixture_instanced_renderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/interaction_lod_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/lighting_profile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/opaque_fixture_pass.cpp
