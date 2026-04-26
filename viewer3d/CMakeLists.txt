@@ -22,6 +22,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/render/render_pipeline.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/viewer3d_render_style.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/scenerenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/mesh_processing.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/resource_sync_system.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcamera.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcontroller.cpp
