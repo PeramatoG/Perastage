@@ -30,6 +30,36 @@ struct LineRenderProfile {
   bool enableLineSmoothing = false;
 };
 
+enum class SketchInteractionWireframeMode {
+  FullQuality = 0,
+  Sparse = 1,
+  FillOnly = 2,
+  HighlightSelectedOnly = 3
+};
+
+SketchInteractionWireframeMode ReadSketchInteractionWireframeMode() {
+  const float rawValue =
+      ConfigManager::Get().GetFloat("viewer3d_sketch_interaction_wireframe_mode");
+  const int mode = static_cast<int>(std::lround(rawValue));
+  switch (mode) {
+  case 1:
+    return SketchInteractionWireframeMode::Sparse;
+  case 2:
+    return SketchInteractionWireframeMode::FillOnly;
+  case 3:
+    return SketchInteractionWireframeMode::HighlightSelectedOnly;
+  default:
+    return SketchInteractionWireframeMode::FullQuality;
+  }
+}
+
+int ReadSketchInteractionWireframeStep() {
+  const float rawStep =
+      ConfigManager::Get().GetFloat("viewer3d_sketch_interaction_wireframe_step");
+  const int step = static_cast<int>(std::lround(rawStep));
+  return std::clamp(step, 1, 12);
+}
+
 LineRenderProfile GetLineRenderProfile(bool isInteracting, bool wireframeMode,
                                        bool adaptiveEnabled) {
   (void)isInteracting;
@@ -654,6 +684,23 @@ void SceneRenderer::DrawMeshWithOutline(
       const bool drawOutline =
           !m_controller.SkipOutlinesForCurrentFrame() &&
           m_controller.IsSelectionOutlineEnabled2D() && (highlight || selected);
+      const bool interactiveSketchMode =
+          m_controller.IsSketchRenderStyleEnabled() && m_controller.IsInteracting();
+      const SketchInteractionWireframeMode interactionMode =
+          interactiveSketchMode ? ReadSketchInteractionWireframeMode()
+                                : SketchInteractionWireframeMode::FullQuality;
+      bool drawBaseWireframe = true;
+      int wireframeTriangleStep = 1;
+      if (interactiveSketchMode) {
+        if (interactionMode == SketchInteractionWireframeMode::Sparse) {
+          wireframeTriangleStep = ReadSketchInteractionWireframeStep();
+        } else if (interactionMode == SketchInteractionWireframeMode::FillOnly) {
+          drawBaseWireframe = false;
+        } else if (interactionMode ==
+                   SketchInteractionWireframeMode::HighlightSelectedOnly) {
+          drawBaseWireframe = highlight || selected;
+        }
+      }
 
       if (!m_controller.IsCaptureOnly()) {
         if (drawOutline) {
@@ -662,10 +709,15 @@ void SceneRenderer::DrawMeshWithOutline(
           setHighlightOrSelectionColor();
           DrawMeshWireframe(mesh, scale, captureTransform);
         }
-        glLineWidth(lineWidth);
-        m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+        if (drawBaseWireframe) {
+          glLineWidth(lineWidth);
+          m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+        }
       }
-      DrawMeshWireframe(mesh, scale, captureTransform);
+      if (drawBaseWireframe) {
+        DrawMeshWireframe(mesh, scale, captureTransform, nullptr,
+                          wireframeTriangleStep);
+      }
       glLineWidth(1.0f);
 
       if (!disableDepthBias) {
@@ -764,13 +816,16 @@ void SceneRenderer::DrawMeshWireframe(
     const Mesh &mesh, float scale,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform,
-    const CanvasStroke *captureStroke) {
+    const CanvasStroke *captureStroke, int triangleStep) {
+  const size_t triangleAdvance =
+      static_cast<size_t>(std::max(1, triangleStep)) * 3u;
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.eboLines) == GL_TRUE &&
                                glIsBuffer(mesh.eboTriangles) == GL_TRUE;
   const bool canUseGpuWireframe =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
-      mesh.eboLines != 0 && mesh.eboTriangles != 0 && gpuHandlesValid;
+      mesh.eboLines != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
+      triangleAdvance == 3u;
 
   if (!m_controller.IsCaptureOnly() && canUseGpuWireframe) {
     glBindVertexArray(mesh.vao);
@@ -791,7 +846,7 @@ void SceneRenderer::DrawMeshWireframe(
     glPopMatrix();
   } else if (!m_controller.IsCaptureOnly()) {
     glBegin(GL_LINES);
-    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += triangleAdvance) {
       const unsigned short i0 = mesh.indices[i];
       const unsigned short i1 = mesh.indices[i + 1];
       const unsigned short i2 = mesh.indices[i + 2];
@@ -819,7 +874,7 @@ void SceneRenderer::DrawMeshWireframe(
       stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
       stroke.width = 1.0f;
     }
-    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += triangleAdvance) {
       unsigned short i0 = mesh.indices[i];
       unsigned short i1 = mesh.indices[i + 1];
       unsigned short i2 = mesh.indices[i + 2];
