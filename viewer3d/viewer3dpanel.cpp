@@ -262,6 +262,8 @@ float ComputeGridPlaneHorizonNdcY() {
 }
 
 void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
+    GLint previousShadeModel = GL_SMOOTH;
+    glGetIntegerv(GL_SHADE_MODEL, &previousShadeModel);
     const GLboolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
     const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
     const GLboolean cullFaceWasEnabled = glIsEnabled(GL_CULL_FACE);
@@ -271,6 +273,7 @@ void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
     glDisable(GL_LIGHTING);
     glDisable(GL_CULL_FACE);
     glDisable(GL_TEXTURE_2D);
+    glShadeModel(GL_SMOOTH);
 
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
@@ -312,6 +315,7 @@ void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
         glEnable(GL_CULL_FACE);
     if (texture2DWasEnabled)
         glEnable(GL_TEXTURE_2D);
+    glShadeModel(previousShadeModel);
 }
 
 void DrawTexturedGroundPlaneBackdrop() {
