@@ -642,6 +642,17 @@ void OpaqueFixturePass::Render(
         controller.m_captureCanvas->SetSourceKey("unknown");
       continue;
     }
+    if (lodDecision == InteractionLodDecision::ProxyBounds) {
+      glPopMatrix();
+      if (fbit != controller.m_fixtureBounds.end()) {
+        controller.SetupMaterialFromRGB(r, g, b);
+        glColor3f(r, g, b);
+        DrawBoundsSolid(fbit->second);
+      }
+      if (controller.m_captureCanvas && !skipCapture)
+        controller.m_captureCanvas->SetSourceKey("unknown");
+      continue;
+    }
     const bool useInteractionLodMesh =
         context.useInteractionProxyLod && !controller.m_captureOnly;
 
@@ -752,7 +763,8 @@ void OpaqueFixturePass::Render(
                     partB = isWhiteRenderMode ? 1.0f : 0.35f;
                   }
                   const Mesh &meshForPart =
-                      (useInteractionLodMesh && obj.hasInteractionLodMesh)
+                      (useInteractionLodMesh && obj.hasInteractionLodMesh &&
+                       !obj.isLens)
                           ? obj.interactionLodMesh
                           : obj.mesh;
                   controller.DrawMeshWithOutline(
@@ -828,7 +840,8 @@ void OpaqueFixturePass::Render(
           }
           const bool drawUnlit = !is2DViewer && obj.isLens;
           const Mesh &meshForPart =
-              (useInteractionLodMesh && obj.hasInteractionLodMesh)
+              (useInteractionLodMesh && obj.hasInteractionLodMesh &&
+               !obj.isLens)
                   ? obj.interactionLodMesh
                   : obj.mesh;
           controller.DrawMeshWithOutline(meshForPart, partR, partG, partB,
