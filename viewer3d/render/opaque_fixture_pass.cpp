@@ -412,7 +412,10 @@ struct FixtureInstancedDrawCall {
   float cx = 0.0f;
   float cy = 0.0f;
   float cz = 0.0f;
-  std::array<float, 16> modelMatrix{};
+  std::array<float, 16> fixtureMatrix{};
+  std::array<float, 16> localMatrix{};
+  bool hasLocalMatrix = false;
+  std::array<float, 16> worldMatrix{};
 };
 
 using FixtureInstancedBatches =
@@ -420,11 +423,20 @@ using FixtureInstancedBatches =
                        std::vector<FixtureInstancedDrawCall>,
                        FixtureInstancedBatchKeyHasher>;
 
+struct FixtureRenderMetrics {
+  size_t instancedFixtures = 0;
+  size_t fallbackFixtures = 0;
+  size_t instancedDrawCalls = 0;
+  size_t fallbackDrawCalls = 0;
+};
+
 void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
                              float r, float g, float b, bool unlit,
                              bool wireframe, Viewer2DRenderMode mode,
                              float scale, float cx, float cy, float cz,
-                             const float *modelMatrix) {
+                             const float *fixtureMatrix,
+                             const float *localMatrix,
+                             const float *worldMatrix) {
   FixtureInstancedBatchKey key;
   key.mesh = &mesh;
   key.colorStyle = BuildFixtureSymbolStyleVersion(r, g, b);
@@ -437,8 +449,15 @@ void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
   draw.cx = cx;
   draw.cy = cy;
   draw.cz = cz;
-  for (size_t i = 0; i < draw.modelMatrix.size(); ++i)
-    draw.modelMatrix[i] = modelMatrix[i];
+  for (size_t i = 0; i < draw.fixtureMatrix.size(); ++i)
+    draw.fixtureMatrix[i] = fixtureMatrix[i];
+  if (localMatrix) {
+    draw.hasLocalMatrix = true;
+    for (size_t i = 0; i < draw.localMatrix.size(); ++i)
+      draw.localMatrix[i] = localMatrix[i];
+  }
+  for (size_t i = 0; i < draw.worldMatrix.size(); ++i)
+    draw.worldMatrix[i] = worldMatrix[i];
 
   batches[key].push_back(std::move(draw));
 }
@@ -498,14 +517,18 @@ void OpaqueFixturePass::Render(
       glDisable(GL_DEPTH_TEST);
   }
   FixtureInstancedBatches fixtureInstancedBatches;
-  size_t diagnosticsFallbackFixtures = 0;
-  size_t diagnosticsInstancedFixtures = 0;
+  FixtureRenderMetrics frameMetrics;
   auto RenderFixtureInstancedBatches =
       [&](const FixtureInstancedBatches &batches) {
+        size_t drawCalls = 0;
         for (const auto &entry : batches) {
           const auto &key = entry.first;
           const auto &draws = entry.second;
           for (const auto &draw : draws) {
+            glPushMatrix();
+            controller.ApplyTransform(draw.fixtureMatrix.data(), true);
+            if (draw.hasLocalMatrix)
+              controller.ApplyTransform(draw.localMatrix.data(), false);
             const uint32_t color = key.colorStyle;
             const float r = static_cast<float>((color >> 16) & 0xFFu) / 255.0f;
             const float g = static_cast<float>((color >> 8) & 0xFFu) / 255.0f;
@@ -514,9 +537,12 @@ void OpaqueFixturePass::Render(
                 *key.mesh, r, g, b, key.scale, false, false, draw.cx, draw.cy,
                 draw.cz, key.wireframe, key.mode,
                 [](const std::array<float, 3> &p) { return p; }, key.unlit,
-                draw.modelMatrix.data());
+                draw.worldMatrix.data());
+            glPopMatrix();
+            ++drawCalls;
           }
         }
+        return drawCalls;
       };
   for (const auto &uuid : visibleSet.fixtureUuids) {
     auto fixtureIt = fixtures.find(uuid);
@@ -652,7 +678,6 @@ void OpaqueFixturePass::Render(
           controller.m_captureView == Viewer2DView::Side) &&
          mode != Viewer2DRenderMode::Wireframe &&
          !highlight && !selected);
-    bool placedInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
       if (!modelKey.empty()) {
         const Viewer2DView fixtureCaptureView =
@@ -750,11 +775,11 @@ void OpaqueFixturePass::Render(
             BuildInstanceTransform2D(fixtureTransform, fixtureCaptureView);
         controller.m_captureCanvas->PlaceSymbolInstance(symbol.symbolId,
                                                         instanceTransform);
-        placedInstance = true;
       }
     }
 
     auto drawFixtureGeometry = [&]() {
+      size_t drawCalls = 0;
       if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
         const auto &parts = itg->second;
         const bool reversePartOrder = drawRealTopInTopView;
@@ -794,6 +819,7 @@ void OpaqueFixturePass::Render(
                                          RENDER_SCALE, highlight, selected, cx,
                                          cy, cz, wireframe, mode, applyCapture,
                                          drawUnlit, partMatrix);
+          ++drawCalls;
           glPopMatrix();
         }
       } else {
@@ -808,19 +834,23 @@ void OpaqueFixturePass::Render(
                                        fallbackWireframe, mode,
                                        applyFixtureCapture, fallbackUnlit,
                                        matrix);
+        ++drawCalls;
       }
+      return drawCalls;
     };
 
     if (renderedPerastageSvg) {
-      ++diagnosticsFallbackFixtures;
+      ++frameMetrics.fallbackFixtures;
       glPopMatrix();
       if (controller.m_captureCanvas && !skipCapture)
         controller.m_captureCanvas->SetSourceKey("unknown");
       continue;
     }
 
-    if (placedInstance) {
-      ++diagnosticsInstancedFixtures;
+    const bool eligibleForFixtureInstancedBatch =
+        !highlight && !selected && !captureRecordingActive;
+    if (eligibleForFixtureInstancedBatch) {
+      ++frameMetrics.instancedFixtures;
       if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
         const auto &parts = itg->second;
         const bool reversePartOrder = drawRealTopInTopView;
@@ -828,9 +858,11 @@ void OpaqueFixturePass::Render(
           const size_t partIndex =
               reversePartOrder ? (parts.size() - 1 - offset) : offset;
           const auto &obj = parts[partIndex];
+          float localMatrix[16];
+          MatrixToArray(obj.transform, localMatrix);
           Matrix worldMatrix = MatrixUtils::Multiply(f.transform, obj.transform);
-          float partMatrix[16];
-          MatrixToArray(worldMatrix, partMatrix);
+          float worldMatrixArray[16];
+          MatrixToArray(worldMatrix, worldMatrixArray);
 
           float partR = r;
           float partG = g;
@@ -845,16 +877,17 @@ void OpaqueFixturePass::Render(
           const bool drawUnlit = !is2DViewer && obj.isLens;
           AddFixtureInstancedDraw(fixtureInstancedBatches, obj.mesh, partR,
                                   partG, partB, drawUnlit, wireframe, mode,
-                                  RENDER_SCALE, cx, cy, cz, partMatrix);
+                                  RENDER_SCALE, cx, cy, cz, matrix, localMatrix,
+                                  worldMatrixArray);
         }
       } else {
         AddFixtureInstancedDraw(fixtureInstancedBatches, FallbackFixtureCubeMesh(),
                                 r, g, b, false, wireframe, mode, 0.2f, cx, cy,
-                                cz, matrix);
+                                cz, matrix, nullptr, matrix);
       }
     } else {
-      ++diagnosticsFallbackFixtures;
-      drawFixtureGeometry();
+      ++frameMetrics.fallbackFixtures;
+      frameMetrics.fallbackDrawCalls += drawFixtureGeometry();
     }
 
     glPopMatrix();
@@ -867,20 +900,19 @@ void OpaqueFixturePass::Render(
     bool prevCaptureOnly = controller.m_captureOnly;
     controller.m_captureCanvas = nullptr;
     controller.m_captureOnly = false;
-    RenderFixtureInstancedBatches(fixtureInstancedBatches);
+    frameMetrics.instancedDrawCalls =
+        RenderFixtureInstancedBatches(fixtureInstancedBatches);
     controller.m_captureCanvas = prevCanvas;
     controller.m_captureOnly = prevCaptureOnly;
   }
-  size_t diagnosticsBatchCount = fixtureInstancedBatches.size();
-  size_t diagnosticsInstancedDraws = 0;
-  for (const auto &entry : fixtureInstancedBatches)
-    diagnosticsInstancedDraws += entry.second.size();
   Logger::Instance().Log(
-      "fixture instancing diagnostics: batches=" +
-      std::to_string(diagnosticsBatchCount) + ", instances=" +
-      std::to_string(diagnosticsInstancedFixtures) + ", fallbackFixtures=" +
-      std::to_string(diagnosticsFallbackFixtures) + ", instancedDraws=" +
-      std::to_string(diagnosticsInstancedDraws));
+      "fixture render metrics: instancedFixtures=" +
+      std::to_string(frameMetrics.instancedFixtures) + ", fallbackFixtures=" +
+      std::to_string(frameMetrics.fallbackFixtures) +
+      ", instancedDrawCalls=" +
+      std::to_string(frameMetrics.instancedDrawCalls) +
+      ", fallbackDrawCalls=" +
+      std::to_string(frameMetrics.fallbackDrawCalls));
   if (forceFixturesOnTop && depthEnabled)
     glEnable(GL_DEPTH_TEST);
 }
