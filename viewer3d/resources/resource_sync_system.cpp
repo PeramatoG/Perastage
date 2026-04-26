@@ -321,11 +321,34 @@ bool BuildInteractionLodMesh(const Mesh &source, Mesh &outLodMesh) {
       simplified.data(), indices32.data(), indices32.size(), source.vertices.data(),
       vertexCount, sizeof(float) * 3, targetIndexCount, kInteractionLodMaxError,
       0u, &resultError);
-  if (simplifiedCount < 3)
-    return false;
-
   simplified.resize((simplifiedCount / 3) * 3);
-  if (simplified.empty())
+
+  if (simplified.size() < 3 ||
+      simplified.size() >= indices32.size()) {
+    // Fallback decimation path for meshes where robust simplification cannot
+    // produce a reduced index set (common in some dense/non-manifold assets).
+    // Keep deterministic triangle subsampling so all fixtures still follow the
+    // same interaction-proxy pipeline.
+    const size_t sourceTriangles = indices32.size() / 3;
+    const size_t targetTriangles = std::max<size_t>(1, targetIndexCount / 3);
+    const size_t step = std::max<size_t>(1, sourceTriangles / targetTriangles);
+    std::vector<unsigned int> fallback;
+    fallback.reserve(targetTriangles * 3);
+    for (size_t tri = 0; tri < sourceTriangles; tri += step) {
+      const size_t base = tri * 3;
+      if (base + 2 >= indices32.size())
+        break;
+      fallback.push_back(indices32[base + 0]);
+      fallback.push_back(indices32[base + 1]);
+      fallback.push_back(indices32[base + 2]);
+      if (fallback.size() >= targetTriangles * 3)
+        break;
+    }
+    if (fallback.size() >= 3)
+      simplified = std::move(fallback);
+  }
+
+  if (simplified.size() < 3)
     return false;
 
   // Improve post-transform vertex cache locality for the simplified mesh.
