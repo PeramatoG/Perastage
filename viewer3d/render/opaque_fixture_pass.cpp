@@ -847,6 +847,35 @@ void OpaqueFixturePass::Render(
       continue;
     }
 
+    if (context.skipOptionalWork) {
+      ++frameMetrics.instancedFixtures;
+      if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
+        const auto &parts = itg->second;
+        const bool reversePartOrder = drawRealTopInTopView;
+        for (size_t offset = 0; offset < parts.size(); ++offset) {
+          const size_t partIndex =
+              reversePartOrder ? (parts.size() - 1 - offset) : offset;
+          const auto &obj = parts[partIndex];
+          float localMatrix[16];
+          MatrixToArray(obj.transform, localMatrix);
+          Matrix worldMatrix = MatrixUtils::Multiply(f.transform, obj.transform);
+          float worldMatrixArray[16];
+          MatrixToArray(worldMatrix, worldMatrixArray);
+          AddFixtureInstancedDraw(fixtureInstancedBatches, obj.mesh, r, g, b, false,
+                                  wireframe, mode, RENDER_SCALE, cx, cy, cz,
+                                  matrix, localMatrix, worldMatrixArray);
+        }
+      } else {
+        AddFixtureInstancedDraw(fixtureInstancedBatches, FallbackFixtureCubeMesh(),
+                                r, g, b, false, wireframe, mode, 0.2f, cx, cy,
+                                cz, matrix, nullptr, matrix);
+      }
+      glPopMatrix();
+      if (controller.m_captureCanvas && !skipCapture)
+        controller.m_captureCanvas->SetSourceKey("unknown");
+      continue;
+    }
+
     const bool eligibleForFixtureInstancedBatch =
         !highlight && !selected && !captureRecordingActive;
     if (eligibleForFixtureInstancedBatch) {
