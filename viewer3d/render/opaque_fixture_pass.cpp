@@ -18,6 +18,7 @@
 #endif
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <filesystem>
 #include <optional>
@@ -100,6 +101,83 @@ struct SvgSymbolCacheKey {
     return gdtfPath == other.gdtfPath && viewKind == other.viewKind;
   }
 };
+
+struct FrustumPlane {
+  std::array<double, 3> normal = {0.0, 0.0, 0.0};
+  double d = 0.0;
+};
+
+using FrustumPlanes = std::array<FrustumPlane, 6>;
+
+FrustumPlanes BuildFrustumPlanes(const Viewer3DViewFrustumSnapshot &frustum) {
+  std::array<double, 16> clip{};
+  const double *m = frustum.model;
+  const double *p = frustum.projection;
+
+  for (int row = 0; row < 4; ++row) {
+    for (int col = 0; col < 4; ++col) {
+      clip[row * 4 + col] = m[row * 4 + 0] * p[0 * 4 + col] +
+                            m[row * 4 + 1] * p[1 * 4 + col] +
+                            m[row * 4 + 2] * p[2 * 4 + col] +
+                            m[row * 4 + 3] * p[3 * 4 + col];
+    }
+  }
+
+  auto makePlane = [&](double nx, double ny, double nz, double d) {
+    FrustumPlane plane{};
+    plane.normal = {nx, ny, nz};
+    plane.d = d;
+    const double len =
+        std::sqrt(plane.normal[0] * plane.normal[0] +
+                  plane.normal[1] * plane.normal[1] +
+                  plane.normal[2] * plane.normal[2]);
+    if (len > 1e-8) {
+      plane.normal[0] /= len;
+      plane.normal[1] /= len;
+      plane.normal[2] /= len;
+      plane.d /= len;
+    }
+    return plane;
+  };
+
+  FrustumPlanes planes{};
+  planes[0] = makePlane(clip[3] + clip[0], clip[7] + clip[4], clip[11] + clip[8],
+                        clip[15] + clip[12]); // left
+  planes[1] = makePlane(clip[3] - clip[0], clip[7] - clip[4], clip[11] - clip[8],
+                        clip[15] - clip[12]); // right
+  planes[2] = makePlane(clip[3] + clip[1], clip[7] + clip[5], clip[11] + clip[9],
+                        clip[15] + clip[13]); // bottom
+  planes[3] = makePlane(clip[3] - clip[1], clip[7] - clip[5], clip[11] - clip[9],
+                        clip[15] - clip[13]); // top
+  planes[4] = makePlane(clip[3] + clip[2], clip[7] + clip[6], clip[11] + clip[10],
+                        clip[15] + clip[14]); // near
+  planes[5] = makePlane(clip[3] - clip[2], clip[7] - clip[6], clip[11] - clip[10],
+                        clip[15] - clip[14]); // far
+  return planes;
+}
+
+bool IsBoundingSphereOutsideFrustum(const Viewer3DBoundingBox &bb,
+                                    const FrustumPlanes &planes) {
+  const std::array<double, 3> center = {
+      (static_cast<double>(bb.min[0]) + static_cast<double>(bb.max[0])) * 0.5,
+      (static_cast<double>(bb.min[1]) + static_cast<double>(bb.max[1])) * 0.5,
+      (static_cast<double>(bb.min[2]) + static_cast<double>(bb.max[2])) * 0.5};
+  const std::array<double, 3> halfExtent = {
+      (static_cast<double>(bb.max[0]) - static_cast<double>(bb.min[0])) * 0.5,
+      (static_cast<double>(bb.max[1]) - static_cast<double>(bb.min[1])) * 0.5,
+      (static_cast<double>(bb.max[2]) - static_cast<double>(bb.min[2])) * 0.5};
+  const double radius =
+      std::sqrt(halfExtent[0] * halfExtent[0] + halfExtent[1] * halfExtent[1] +
+                halfExtent[2] * halfExtent[2]);
+  for (const auto &plane : planes) {
+    const double signedDistance = plane.normal[0] * center[0] +
+                                  plane.normal[1] * center[1] +
+                                  plane.normal[2] * center[2] + plane.d;
+    if (signedDistance < -radius)
+      return true;
+  }
+  return false;
+}
 
 struct SvgSymbolCacheKeyHasher {
   size_t operator()(const SvgSymbolCacheKey &key) const {
@@ -425,6 +503,11 @@ void OpaqueFixturePass::Render(
   const bool drawRealTopInTopView = isTopView2D && !forceBottomViewForTopFixtures;
 
   glShadeModel((context.texturedStyle && !wireframe) ? GL_SMOOTH : GL_FLAT);
+  const Viewer3DViewFrustumSnapshot *frustumSnapshot =
+      controller.GetLastFrameFrustumSnapshot();
+  std::optional<FrustumPlanes> frustumPlanes;
+  if (frustumSnapshot && !context.is2DViewer)
+    frustumPlanes = BuildFrustumPlanes(*frustumSnapshot);
   // Keep 2D wireframe fixture overlays unchanged, but in the real 3D wireframe
   // viewer fixtures must respect depth like all other geometry.
   const bool forceFixturesOnTop = wireframe && is2DViewer;
@@ -469,6 +552,13 @@ void OpaqueFixturePass::Render(
       cx -= f.transform.o[0] * RENDER_SCALE;
       cy -= f.transform.o[1] * RENDER_SCALE;
       cz -= f.transform.o[2] * RENDER_SCALE;
+    }
+    if (frustumPlanes && fbit != controller.m_fixtureBounds.end() &&
+        IsBoundingSphereOutsideFrustum(fbit->second, *frustumPlanes)) {
+      glPopMatrix();
+      if (controller.m_captureCanvas && !skipCapture)
+        controller.m_captureCanvas->SetSourceKey("unknown");
+      continue;
     }
 
     std::string gdtfPath;
@@ -536,22 +626,22 @@ void OpaqueFixturePass::Render(
         context.useInteractionProxyLod, context.interactionProxyMinPixels,
         static_cast<size_t>(std::max(
             0, context.interactionProxyHeavyTriangleThreshold))};
-    const InteractionLodDecision lodDecision = EvaluateInteractionLod(
-        interactionLodPolicy, controller.GetLastFrameFrustumSnapshot(),
-        fbit != controller.m_fixtureBounds.end() ? &fbit->second : nullptr,
-        triangleCount);
-    if (lodDecision != InteractionLodDecision::None) {
+    InteractionLodDecision lodDecision = InteractionLodDecision::None;
+    if (!controller.m_captureOnly) {
+      lodDecision = EvaluateInteractionLod(
+          interactionLodPolicy, frustumSnapshot,
+          fbit != controller.m_fixtureBounds.end() ? &fbit->second : nullptr,
+          triangleCount);
+    }
+    if (lodDecision == InteractionLodDecision::Skip) {
       glPopMatrix();
-      if (lodDecision == InteractionLodDecision::ProxyBounds &&
-          fbit != controller.m_fixtureBounds.end()) {
-        controller.SetupMaterialFromRGB(r, g, b);
-        glColor3f(r, g, b);
-        DrawBoundsSolid(fbit->second);
-      }
       if (controller.m_captureCanvas && !skipCapture)
         controller.m_captureCanvas->SetSourceKey("unknown");
       continue;
     }
+    const bool useInteractionLodMesh =
+        lodDecision == InteractionLodDecision::ProxyBounds &&
+        !controller.m_captureOnly;
 
     bool renderedPerastageSvg = false;
     const bool captureRecordingActive = controller.m_captureCanvas && !skipCapture;
@@ -659,8 +749,12 @@ void OpaqueFixturePass::Render(
                     partG = isWhiteRenderMode ? 1.0f : 0.78f;
                     partB = isWhiteRenderMode ? 1.0f : 0.35f;
                   }
+                  const Mesh &meshForPart =
+                      (useInteractionLodMesh && obj.hasInteractionLodMesh)
+                          ? obj.interactionLodMesh
+                          : obj.mesh;
                   controller.DrawMeshWithOutline(
-                      obj.mesh, partR, partG, partB, RENDER_SCALE, false, false,
+                      meshForPart, partR, partG, partB, RENDER_SCALE, false, false,
                       0.0f, 0.0f, 0.0f, wireframe, mode, applyCapture, false);
                 }
               } else {
@@ -731,7 +825,11 @@ void OpaqueFixturePass::Render(
             partB = isWhiteRenderMode ? 1.0f : 0.35f;
           }
           const bool drawUnlit = !is2DViewer && obj.isLens;
-          controller.DrawMeshWithOutline(obj.mesh, partR, partG, partB,
+          const Mesh &meshForPart =
+              (useInteractionLodMesh && obj.hasInteractionLodMesh)
+                  ? obj.interactionLodMesh
+                  : obj.mesh;
+          controller.DrawMeshWithOutline(meshForPart, partR, partG, partB,
                                          RENDER_SCALE, highlight, selected, cx,
                                          cy, cz, wireframe, mode, applyCapture,
                                          drawUnlit, partMatrix);

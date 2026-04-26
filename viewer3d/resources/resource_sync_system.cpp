@@ -4,6 +4,7 @@
 #include "loaderglb.h"
 #include "matrixutils.h"
 #include "projectutils.h"
+#include "meshoptimizer.h"
 
 #include <algorithm>
 #include <array>
@@ -13,6 +14,8 @@
 #include <filesystem>
 #include <vector>
 #include <string_view>
+#include <fstream>
+#include <cstdint>
 
 namespace fs = std::filesystem;
 
@@ -278,6 +281,197 @@ std::string ResolveCacheKey(const std::string &pathRef) {
   return NormalizeModelKey(TrimPathRef(pathRef));
 }
 
+constexpr uint32_t kLodCacheMagic = 0x504C4F44u; // "PLOD"
+constexpr uint32_t kLodCacheVersion = 1u;
+constexpr float kInteractionLodTargetRatio = 0.1f;
+constexpr float kInteractionLodMaxError = 0.01f;
+constexpr float kInteractionLodOverdrawThreshold = 1.05f;
+
+std::string BuildInteractionLodCachePath(const std::string &gdtfPath) {
+  if (gdtfPath.empty())
+    return {};
+  return gdtfPath + ".mesh_lod.cache";
+}
+
+int64_t ReadFileTimestampTicks(const std::string &path) {
+  std::error_code ec;
+  const auto writeTime = fs::last_write_time(fs::u8path(path), ec);
+  if (ec)
+    return 0;
+  return writeTime.time_since_epoch().count();
+}
+
+bool BuildInteractionLodMesh(const Mesh &source, Mesh &outLodMesh) {
+  if (source.indices.size() < 12 || source.vertices.size() < 9)
+    return false;
+
+  const size_t vertexCount = source.vertices.size() / 3;
+  const size_t targetIndexCount = std::max<size_t>(
+      3, (static_cast<size_t>(source.indices.size() * kInteractionLodTargetRatio) / 3) * 3);
+  if (targetIndexCount >= source.indices.size())
+    return false;
+
+  std::vector<unsigned int> indices32(source.indices.begin(), source.indices.end());
+  std::vector<unsigned int> simplified(indices32.size());
+  float resultError = 0.0f;
+
+  // Build a coarse proxy mesh during interaction by simplifying the original
+  // triangle set to ~10% with bounded geometric error.
+  const size_t simplifiedCount = meshopt_simplify(
+      simplified.data(), indices32.data(), indices32.size(), source.vertices.data(),
+      vertexCount, sizeof(float) * 3, targetIndexCount, kInteractionLodMaxError,
+      0u, &resultError);
+  if (simplifiedCount < 3)
+    return false;
+
+  simplified.resize((simplifiedCount / 3) * 3);
+  if (simplified.empty())
+    return false;
+
+  // Improve post-transform vertex cache locality for the simplified mesh.
+  std::vector<unsigned int> cacheOptimized(simplified.size());
+  meshopt_optimizeVertexCache(cacheOptimized.data(), simplified.data(),
+                              simplified.size(), vertexCount);
+
+  // Reorder triangles to reduce pixel overdraw while preserving topology.
+  std::vector<unsigned int> overdrawOptimized(cacheOptimized.size());
+  meshopt_optimizeOverdraw(overdrawOptimized.data(), cacheOptimized.data(),
+                           cacheOptimized.size(), source.vertices.data(),
+                           vertexCount, sizeof(float) * 3,
+                           kInteractionLodOverdrawThreshold);
+
+  if (*std::max_element(overdrawOptimized.begin(), overdrawOptimized.end()) > 65535u)
+    return false;
+
+  outLodMesh = source;
+  outLodMesh.indices.resize(overdrawOptimized.size());
+  std::transform(overdrawOptimized.begin(), overdrawOptimized.end(),
+                 outLodMesh.indices.begin(), [](unsigned int idx) {
+                   return static_cast<unsigned short>(idx);
+                 });
+  outLodMesh.buffersReady = false;
+  outLodMesh.vao = 0;
+  outLodMesh.vboVertices = 0;
+  outLodMesh.vboNormals = 0;
+  outLodMesh.vboTexCoords = 0;
+  outLodMesh.eboTriangles = 0;
+  outLodMesh.eboLines = 0;
+  outLodMesh.flippedIndicesCache.clear();
+  return true;
+}
+
+bool TryLoadInteractionLodCache(const std::string &gdtfPath,
+                                std::vector<GdtfObject> &objects) {
+  if (gdtfPath.empty() || objects.empty())
+    return false;
+
+  std::ifstream in(BuildInteractionLodCachePath(gdtfPath), std::ios::binary);
+  if (!in)
+    return false;
+
+  uint32_t magic = 0;
+  uint32_t version = 0;
+  int64_t sourceTimestamp = 0;
+  uint32_t objectCount = 0;
+  in.read(reinterpret_cast<char *>(&magic), sizeof(magic));
+  in.read(reinterpret_cast<char *>(&version), sizeof(version));
+  in.read(reinterpret_cast<char *>(&sourceTimestamp), sizeof(sourceTimestamp));
+  in.read(reinterpret_cast<char *>(&objectCount), sizeof(objectCount));
+  if (!in || magic != kLodCacheMagic || version != kLodCacheVersion ||
+      objectCount != objects.size() ||
+      sourceTimestamp != ReadFileTimestampTicks(gdtfPath)) {
+    return false;
+  }
+
+  for (auto &object : objects) {
+    uint8_t hasLod = 0;
+    uint32_t indexCount = 0;
+    in.read(reinterpret_cast<char *>(&hasLod), sizeof(hasLod));
+    in.read(reinterpret_cast<char *>(&indexCount), sizeof(indexCount));
+    if (!in)
+      return false;
+    if (!hasLod || indexCount == 0) {
+      object.hasInteractionLodMesh = false;
+      continue;
+    }
+
+    Mesh lodMesh = object.mesh;
+    lodMesh.indices.resize(indexCount);
+    in.read(reinterpret_cast<char *>(lodMesh.indices.data()),
+            sizeof(unsigned short) * indexCount);
+    if (!in)
+      return false;
+    lodMesh.buffersReady = false;
+    lodMesh.vao = 0;
+    lodMesh.vboVertices = 0;
+    lodMesh.vboNormals = 0;
+    lodMesh.vboTexCoords = 0;
+    lodMesh.eboTriangles = 0;
+    lodMesh.eboLines = 0;
+    lodMesh.flippedIndicesCache.clear();
+
+    object.interactionLodMesh = std::move(lodMesh);
+    object.hasInteractionLodMesh = true;
+  }
+
+  return true;
+}
+
+void SaveInteractionLodCache(const std::string &gdtfPath,
+                             const std::vector<GdtfObject> &objects) {
+  if (gdtfPath.empty() || objects.empty())
+    return;
+
+  std::ofstream out(BuildInteractionLodCachePath(gdtfPath),
+                    std::ios::binary | std::ios::trunc);
+  if (!out)
+    return;
+
+  const uint32_t objectCount = static_cast<uint32_t>(objects.size());
+  const int64_t sourceTimestamp = ReadFileTimestampTicks(gdtfPath);
+  out.write(reinterpret_cast<const char *>(&kLodCacheMagic), sizeof(kLodCacheMagic));
+  out.write(reinterpret_cast<const char *>(&kLodCacheVersion),
+            sizeof(kLodCacheVersion));
+  out.write(reinterpret_cast<const char *>(&sourceTimestamp),
+            sizeof(sourceTimestamp));
+  out.write(reinterpret_cast<const char *>(&objectCount), sizeof(objectCount));
+
+  for (const auto &object : objects) {
+    const uint8_t hasLod = object.hasInteractionLodMesh ? 1u : 0u;
+    const uint32_t indexCount =
+        object.hasInteractionLodMesh
+            ? static_cast<uint32_t>(object.interactionLodMesh.indices.size())
+            : 0u;
+    out.write(reinterpret_cast<const char *>(&hasLod), sizeof(hasLod));
+    out.write(reinterpret_cast<const char *>(&indexCount), sizeof(indexCount));
+    if (hasLod && indexCount > 0) {
+      out.write(reinterpret_cast<const char *>(object.interactionLodMesh.indices.data()),
+                sizeof(unsigned short) * indexCount);
+    }
+  }
+}
+
+void EnsureInteractionLodMeshes(const std::string &gdtfPath,
+                                std::vector<GdtfObject> &objects) {
+  if (objects.empty())
+    return;
+  if (TryLoadInteractionLodCache(gdtfPath, objects))
+    return;
+
+  for (auto &object : objects) {
+    Mesh lodMesh;
+    if (BuildInteractionLodMesh(object.mesh, lodMesh)) {
+      object.interactionLodMesh = std::move(lodMesh);
+      object.hasInteractionLodMesh = true;
+    } else {
+      object.interactionLodMesh = Mesh{};
+      object.hasInteractionLodMesh = false;
+    }
+  }
+
+  SaveInteractionLodCache(gdtfPath, objects);
+}
+
 std::string ResolveGdtfPath(const std::string &base, const std::string &spec,
                             bool allowRecursiveFallback = false) {
   const std::string cleanSpec = DecodePathEscapes(TrimPathRef(spec));
@@ -437,8 +631,11 @@ void SetupGdtfMeshBuffers(std::vector<GdtfObject> &objects,
   if (!callbacks.setupMeshBuffers)
     return;
 
-  for (auto &object : objects)
+  for (auto &object : objects) {
     callbacks.setupMeshBuffers(object.mesh);
+    if (object.hasInteractionLodMesh)
+      callbacks.setupMeshBuffers(object.interactionLodMesh);
+  }
 }
 
 void ReleaseGdtfMeshBuffers(ResourceSyncState &state,
@@ -448,8 +645,11 @@ void ReleaseGdtfMeshBuffers(ResourceSyncState &state,
 
   for (auto &[path, objects] : state.loadedGdtf) {
     (void)path;
-    for (auto &object : objects)
+    for (auto &object : objects) {
       callbacks.releaseMeshBuffers(object.mesh);
+      if (object.hasInteractionLodMesh)
+        callbacks.releaseMeshBuffers(object.interactionLodMesh);
+    }
   }
 }
 
@@ -669,6 +869,9 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       std::vector<GdtfObject> objs;
       std::string gdtfError;
       if (LoadGdtf(gdtfPath, objs, &gdtfError)) {
+        // Generate and cache simplified interaction meshes once per GDTF.
+        // Cached payload is invalidated automatically when source timestamp changes.
+        EnsureInteractionLodMeshes(gdtfPath, objs);
         SetupGdtfMeshBuffers(objs, callbacks);
         state.loadedGdtf[gdtfPath] = std::move(objs);
         state.failedGdtfAttemptCounts.erase(gdtfPath);

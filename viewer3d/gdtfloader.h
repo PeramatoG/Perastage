@@ -25,6 +25,8 @@
 
 struct GdtfObject {
     Mesh mesh;
+    Mesh interactionLodMesh;
+    bool hasInteractionLodMesh = false;
     Matrix transform; // local transform relative to fixture
     bool isLens = false;
 };

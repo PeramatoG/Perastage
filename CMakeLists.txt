@@ -80,6 +80,19 @@ endif()
 find_package(OpenGL REQUIRED)
 find_package(CURL REQUIRED)
 find_package(GLEW REQUIRED)
+find_package(meshoptimizer CONFIG QUIET)
+if(NOT meshoptimizer_FOUND)
+    find_path(MESHOPTIMIZER_INCLUDE_DIR meshoptimizer.h)
+    find_library(MESHOPTIMIZER_LIBRARY meshoptimizer)
+    if(NOT MESHOPTIMIZER_INCLUDE_DIR OR NOT MESHOPTIMIZER_LIBRARY)
+        message(FATAL_ERROR "meshoptimizer not found. Install via vcpkg (meshoptimizer) or provide meshoptimizerConfig.cmake.")
+    endif()
+    add_library(meshoptimizer::meshoptimizer UNKNOWN IMPORTED)
+    set_target_properties(meshoptimizer::meshoptimizer PROPERTIES
+        IMPORTED_LOCATION "${MESHOPTIMIZER_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${MESHOPTIMIZER_INCLUDE_DIR}"
+    )
+endif()
 if(WIN32)
     find_package(nanovg CONFIG REQUIRED)
     find_package(podofo CONFIG REQUIRED)
@@ -238,6 +251,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     CURL::libcurl
     nanovg::nanovg
     podofo::podofo
+    meshoptimizer::meshoptimizer
     ZLIB::ZLIB
     ${_wx_libs}
 )
