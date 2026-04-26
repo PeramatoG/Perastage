@@ -203,9 +203,10 @@ Viewer3DRenderStyle ResolveRenderStyleForContext(const ConfigManager &cfg,
 static LineRenderProfile GetLineRenderProfile(bool isInteracting,
                                               bool wireframeMode,
                                               bool adaptiveEnabled) {
-  (void)isInteracting;
   if (!adaptiveEnabled)
     return {wireframeMode ? 1.0f : 2.0f, false};
+  if (isInteracting)
+    return {1.0f, false};
   return {wireframeMode ? 1.0f : 2.0f, true};
 }
 
@@ -1040,6 +1041,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       cfg.GetFloat("viewer3d_ambient_occlusion") >= 0.5f;
   context.ambientOcclusionStrength =
       cfg.GetFloat("viewer3d_ambient_occlusion_strength");
+  if (context.skipOptionalWork)
+    context.useAmbientOcclusion = false;
 
   const bool shouldDrawGrid = context.showGrid;
   const bool shouldDrawGridBeforeScene = shouldDrawGrid && !context.gridOnTop;

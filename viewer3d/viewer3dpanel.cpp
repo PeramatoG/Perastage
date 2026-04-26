@@ -577,8 +577,13 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     InitGL();
 
+    const Viewer3DRenderStyle currentRenderStyle =
+        ResolveRenderStyleFromPreferences();
+    const bool allowBasePassReuse =
+        currentRenderStyle != Viewer3DRenderStyle::Textured;
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
     const bool highlightOnlyRefresh =
+        allowBasePassReuse &&
         m_highlightRefreshPending &&
         !m_controller.IsResourceSyncPending() &&
         !m_selectionRefreshPending &&
