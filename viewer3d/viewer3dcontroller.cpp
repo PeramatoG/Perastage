@@ -1267,6 +1267,10 @@ void Viewer3DController::SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
   m_impl->captureUseSymbols = canvas ? useSymbolInstancing : false;
 }
 
+void Viewer3DController::EnsureMeshGpuBuffers(Mesh &mesh) {
+  SetupMeshBuffers(mesh);
+}
+
 void Viewer3DController::SetForceBottomViewForTopFixturesOverride(
     const std::optional<bool> &value) {
   m_impl->forceBottomViewForTopFixturesOverride = value;

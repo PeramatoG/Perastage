@@ -275,7 +275,7 @@ const Mesh &ResolveMovingProxyMesh(const Mesh &source,
 
   // Upload proxy mesh once so moving-camera rendering stays on the GPU path
   // instead of falling back to immediate-mode CPU submission.
-  controller.SetupMeshBuffers(proxy);
+  controller.EnsureMeshGpuBuffers(proxy);
 
   return proxyCache.emplace(&source, std::move(proxy)).first->second;
 }
