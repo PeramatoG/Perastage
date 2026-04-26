@@ -26,6 +26,7 @@
 
 #include "matrixutils.h"
 #include "configmanager.h"
+#include "logger.h"
 #include "mesh.h"
 #include "opaque_pass_utils.h"
 #include "universe_color.h"
@@ -379,6 +380,69 @@ void DrawBoundsSolid(const Viewer3DBoundingBox &bb) {
   glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
   glEnd();
 }
+
+struct FixtureInstancedBatchKey {
+  const Mesh *mesh = nullptr;
+  uint32_t colorStyle = 0;
+  bool unlit = false;
+  bool wireframe = false;
+  Viewer2DRenderMode mode = Viewer2DRenderMode::White;
+  float scale = RENDER_SCALE;
+
+  bool operator==(const FixtureInstancedBatchKey &other) const {
+    return mesh == other.mesh && colorStyle == other.colorStyle &&
+           unlit == other.unlit && wireframe == other.wireframe &&
+           mode == other.mode && scale == other.scale;
+  }
+};
+
+struct FixtureInstancedBatchKeyHasher {
+  size_t operator()(const FixtureInstancedBatchKey &key) const {
+    size_t h = std::hash<const Mesh *>{}(key.mesh);
+    h ^= (static_cast<size_t>(key.colorStyle) << 1);
+    h ^= (static_cast<size_t>(key.unlit) << 8);
+    h ^= (static_cast<size_t>(key.wireframe) << 9);
+    h ^= (static_cast<size_t>(key.mode) << 10);
+    h ^= (std::hash<float>{}(key.scale) << 11);
+    return h;
+  }
+};
+
+struct FixtureInstancedDrawCall {
+  float cx = 0.0f;
+  float cy = 0.0f;
+  float cz = 0.0f;
+  std::array<float, 16> modelMatrix{};
+};
+
+using FixtureInstancedBatches =
+    std::unordered_map<FixtureInstancedBatchKey,
+                       std::vector<FixtureInstancedDrawCall>,
+                       FixtureInstancedBatchKeyHasher>;
+
+void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
+                             float r, float g, float b, bool unlit,
+                             bool wireframe, Viewer2DRenderMode mode,
+                             float scale, float cx, float cy, float cz,
+                             const float *modelMatrix) {
+  FixtureInstancedBatchKey key;
+  key.mesh = &mesh;
+  key.colorStyle = BuildFixtureSymbolStyleVersion(r, g, b);
+  key.unlit = unlit;
+  key.wireframe = wireframe;
+  key.mode = mode;
+  key.scale = scale;
+
+  FixtureInstancedDrawCall draw;
+  draw.cx = cx;
+  draw.cy = cy;
+  draw.cz = cz;
+  for (size_t i = 0; i < draw.modelMatrix.size(); ++i)
+    draw.modelMatrix[i] = modelMatrix[i];
+
+  batches[key].push_back(std::move(draw));
+}
+
 } // namespace
 
 void OpaqueFixturePass::Render(
@@ -433,6 +497,27 @@ void OpaqueFixturePass::Render(
     if (depthEnabled)
       glDisable(GL_DEPTH_TEST);
   }
+  FixtureInstancedBatches fixtureInstancedBatches;
+  size_t diagnosticsFallbackFixtures = 0;
+  size_t diagnosticsInstancedFixtures = 0;
+  auto RenderFixtureInstancedBatches =
+      [&](const FixtureInstancedBatches &batches) {
+        for (const auto &entry : batches) {
+          const auto &key = entry.first;
+          const auto &draws = entry.second;
+          for (const auto &draw : draws) {
+            const uint32_t color = key.colorStyle;
+            const float r = static_cast<float>((color >> 16) & 0xFFu) / 255.0f;
+            const float g = static_cast<float>((color >> 8) & 0xFFu) / 255.0f;
+            const float b = static_cast<float>(color & 0xFFu) / 255.0f;
+            controller.DrawMeshWithOutline(
+                *key.mesh, r, g, b, key.scale, false, false, draw.cx, draw.cy,
+                draw.cz, key.wireframe, key.mode,
+                [](const std::array<float, 3> &p) { return p; }, key.unlit,
+                draw.modelMatrix.data());
+          }
+        }
+      };
   for (const auto &uuid : visibleSet.fixtureUuids) {
     auto fixtureIt = fixtures.find(uuid);
     if (fixtureIt == fixtures.end())
@@ -727,6 +812,7 @@ void OpaqueFixturePass::Render(
     };
 
     if (renderedPerastageSvg) {
+      ++diagnosticsFallbackFixtures;
       glPopMatrix();
       if (controller.m_captureCanvas && !skipCapture)
         controller.m_captureCanvas->SetSourceKey("unknown");
@@ -734,14 +820,40 @@ void OpaqueFixturePass::Render(
     }
 
     if (placedInstance) {
-      ICanvas2D *prevCanvas = controller.m_captureCanvas;
-      bool prevCaptureOnly = controller.m_captureOnly;
-      controller.m_captureCanvas = nullptr;
-      controller.m_captureOnly = false;
-      drawFixtureGeometry();
-      controller.m_captureCanvas = prevCanvas;
-      controller.m_captureOnly = prevCaptureOnly;
+      ++diagnosticsInstancedFixtures;
+      if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
+        const auto &parts = itg->second;
+        const bool reversePartOrder = drawRealTopInTopView;
+        for (size_t offset = 0; offset < parts.size(); ++offset) {
+          const size_t partIndex =
+              reversePartOrder ? (parts.size() - 1 - offset) : offset;
+          const auto &obj = parts[partIndex];
+          Matrix worldMatrix = MatrixUtils::Multiply(f.transform, obj.transform);
+          float partMatrix[16];
+          MatrixToArray(worldMatrix, partMatrix);
+
+          float partR = r;
+          float partG = g;
+          float partB = b;
+          if (!is2DViewer && obj.isLens) {
+            const bool isWhiteRenderMode =
+                controller.IsPureWhiteRenderStyleEnabled();
+            partR = 1.0f;
+            partG = isWhiteRenderMode ? 1.0f : 0.78f;
+            partB = isWhiteRenderMode ? 1.0f : 0.35f;
+          }
+          const bool drawUnlit = !is2DViewer && obj.isLens;
+          AddFixtureInstancedDraw(fixtureInstancedBatches, obj.mesh, partR,
+                                  partG, partB, drawUnlit, wireframe, mode,
+                                  RENDER_SCALE, cx, cy, cz, partMatrix);
+        }
+      } else {
+        AddFixtureInstancedDraw(fixtureInstancedBatches, FallbackFixtureCubeMesh(),
+                                r, g, b, false, wireframe, mode, 0.2f, cx, cy,
+                                cz, matrix);
+      }
     } else {
+      ++diagnosticsFallbackFixtures;
       drawFixtureGeometry();
     }
 
@@ -750,6 +862,25 @@ void OpaqueFixturePass::Render(
     if (controller.m_captureCanvas && !skipCapture)
       controller.m_captureCanvas->SetSourceKey("unknown");
   }
+  if (!fixtureInstancedBatches.empty()) {
+    ICanvas2D *prevCanvas = controller.m_captureCanvas;
+    bool prevCaptureOnly = controller.m_captureOnly;
+    controller.m_captureCanvas = nullptr;
+    controller.m_captureOnly = false;
+    RenderFixtureInstancedBatches(fixtureInstancedBatches);
+    controller.m_captureCanvas = prevCanvas;
+    controller.m_captureOnly = prevCaptureOnly;
+  }
+  size_t diagnosticsBatchCount = fixtureInstancedBatches.size();
+  size_t diagnosticsInstancedDraws = 0;
+  for (const auto &entry : fixtureInstancedBatches)
+    diagnosticsInstancedDraws += entry.second.size();
+  Logger::Instance().Log(
+      "fixture instancing diagnostics: batches=" +
+      std::to_string(diagnosticsBatchCount) + ", instances=" +
+      std::to_string(diagnosticsInstancedFixtures) + ", fallbackFixtures=" +
+      std::to_string(diagnosticsFallbackFixtures) + ", instancedDraws=" +
+      std::to_string(diagnosticsInstancedDraws));
   if (forceFixturesOnTop && depthEnabled)
     glEnable(GL_DEPTH_TEST);
 }
