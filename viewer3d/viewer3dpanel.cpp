@@ -268,11 +268,13 @@ void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
     const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
     const GLboolean cullFaceWasEnabled = glIsEnabled(GL_CULL_FACE);
     const GLboolean texture2DWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+    const GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_LIGHTING);
     glDisable(GL_CULL_FACE);
     glDisable(GL_TEXTURE_2D);
+    glDisable(GL_BLEND);
     glShadeModel(GL_SMOOTH);
 
     glMatrixMode(GL_PROJECTION);
@@ -315,6 +317,8 @@ void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
         glEnable(GL_CULL_FACE);
     if (texture2DWasEnabled)
         glEnable(GL_TEXTURE_2D);
+    if (blendWasEnabled)
+        glEnable(GL_BLEND);
     glShadeModel(previousShadeModel);
 }
 
