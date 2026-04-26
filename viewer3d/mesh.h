@@ -55,6 +55,9 @@ struct Mesh {
     // Optional CPU cache for flat-shading ready triangle streams.
     std::vector<float> flatVertices;
     std::vector<float> flatNormals;
+    // Optional CPU cache for mirrored instances rendered in flat mode.
+    mutable std::vector<float> flippedFlatVertices;
+    mutable std::vector<float> flippedFlatNormals;
 };
 
 // Attempts to detect meshes whose triangle winding is globally inverted and
@@ -218,6 +221,8 @@ inline void BuildFlatShadingBuffers(Mesh& mesh)
 {
     mesh.flatVertices.clear();
     mesh.flatNormals.clear();
+    mesh.flippedFlatVertices.clear();
+    mesh.flippedFlatNormals.clear();
 
     if (mesh.vertices.empty() || mesh.indices.empty())
         return;

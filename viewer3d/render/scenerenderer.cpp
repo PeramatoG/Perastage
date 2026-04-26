@@ -106,6 +106,49 @@ InkColor QuantizeInkTone(float diffuseFactor) {
   return {1.0f, 1.0f, 1.0f};
 }
 
+void EnsureFlippedFlatCache(const Mesh &mesh) {
+  if (!mesh.flippedFlatVertices.empty() && !mesh.flippedFlatNormals.empty())
+    return;
+
+  mesh.flippedFlatVertices.clear();
+  mesh.flippedFlatNormals.clear();
+  if (mesh.vertices.empty() || mesh.indices.empty())
+    return;
+
+  mesh.flippedFlatVertices.reserve(mesh.indices.size() * 3);
+  mesh.flippedFlatNormals.reserve(mesh.indices.size() * 3);
+
+  for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+    const unsigned short i0 = mesh.indices[i];
+    const unsigned short i1 = mesh.indices[i + 2];
+    const unsigned short i2 = mesh.indices[i + 1];
+
+    const float v0x = mesh.vertices[i0 * 3];
+    const float v0y = mesh.vertices[i0 * 3 + 1];
+    const float v0z = mesh.vertices[i0 * 3 + 2];
+    const float v1x = mesh.vertices[i1 * 3];
+    const float v1y = mesh.vertices[i1 * 3 + 1];
+    const float v1z = mesh.vertices[i1 * 3 + 2];
+    const float v2x = mesh.vertices[i2 * 3];
+    const float v2y = mesh.vertices[i2 * 3 + 1];
+    const float v2z = mesh.vertices[i2 * 3 + 2];
+
+    const std::array<float, 3> faceNormal = NormalizeVector(
+        (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y),
+        (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z),
+        (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x));
+
+    mesh.flippedFlatVertices.insert(
+        mesh.flippedFlatVertices.end(),
+        {v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z});
+    for (int v = 0; v < 3; ++v) {
+      mesh.flippedFlatNormals.push_back(faceNormal[0]);
+      mesh.flippedFlatNormals.push_back(faceNormal[1]);
+      mesh.flippedFlatNormals.push_back(faceNormal[2]);
+    }
+  }
+}
+
 void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatrix) {
   std::array<float, 3> lightDir = NormalizeVector(0.35f, -0.55f, 1.0f);
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
@@ -582,11 +625,10 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
   const bool flatGpuHandlesValid =
       glIsBuffer(mesh.vboFlatVertices) == GL_TRUE &&
       glIsBuffer(mesh.vboFlatNormals) == GL_TRUE;
-  const bool requiresCpuDrawPath = flipWinding;
   const bool canUseGpuTriangles =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
       mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
-      !requiresCpuDrawPath;
+      mesh.triangleIndexCount > 0;
 
   GLint shadeModel = GL_SMOOTH;
   glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
@@ -595,12 +637,29 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
   const bool canUseGpuFlatTriangles =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboFlatVertices != 0 &&
       mesh.vboFlatNormals != 0 && mesh.flatVertexCount > 0 &&
-      flatGpuHandlesValid && !requiresCpuDrawPath;
+      flatGpuHandlesValid;
 
-  const bool allowGpuTriangles = canUseGpuTriangles && !useFaceNormals;
+  const bool canUseGpuVertexArrays =
+      mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
+      mesh.vboNormals != 0 && gpuHandlesValid;
+
+  const bool hasFlippedFlatCache = [&]() {
+    if (!flipWinding)
+      return false;
+    EnsureFlippedFlatCache(mesh);
+    return !mesh.flippedFlatVertices.empty() && !mesh.flippedFlatNormals.empty();
+  }();
+
+  const bool allowGpuTriangles =
+      canUseGpuTriangles && (!useFaceNormals || !canUseGpuFlatTriangles);
   const bool allowGpuFlatTriangles = canUseGpuFlatTriangles && useFaceNormals;
+  const bool allowCachedFlatTriangles = useFaceNormals && hasFlippedFlatCache;
+  const bool allowDrawElementsWithCpuIndices =
+      canUseGpuVertexArrays && !useFaceNormals && flipWinding;
 
-  if (!m_controller.IsCaptureOnly() && (allowGpuTriangles || allowGpuFlatTriangles)) {
+  if (!m_controller.IsCaptureOnly() &&
+      (allowGpuTriangles || allowGpuFlatTriangles || allowCachedFlatTriangles ||
+       allowDrawElementsWithCpuIndices)) {
     const bool textureEnabled =
         allowGpuTriangles && useTexture && mesh.textureId != 0 &&
         mesh.vboTexCoords != 0 &&
@@ -627,9 +686,22 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       glTexCoordPointer(2, GL_FLOAT, 0, nullptr);
     }
 
-    if (allowGpuFlatTriangles) {
+    if (allowCachedFlatTriangles) {
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glVertexPointer(3, GL_FLOAT, 0, mesh.flippedFlatVertices.data());
+      glNormalPointer(GL_FLOAT, 0, mesh.flippedFlatNormals.data());
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+      glDrawArrays(
+          GL_TRIANGLES, 0,
+          static_cast<GLsizei>(mesh.flippedFlatVertices.size() / 3));
+    } else if (allowGpuFlatTriangles) {
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
       glDrawArrays(GL_TRIANGLES, 0, mesh.flatVertexCount);
+    } else if (allowDrawElementsWithCpuIndices) {
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+      glDrawElements(
+          GL_TRIANGLES, static_cast<GLsizei>(triangleIndices->size()),
+          GL_UNSIGNED_SHORT, triangleIndices->data());
     } else {
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
       glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_SHORT,
