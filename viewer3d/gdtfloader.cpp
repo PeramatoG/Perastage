@@ -1466,8 +1466,13 @@ bool LoadGdtf(const std::string& gdtfPath,
     }
 
     for (const GdtfNode3D& node : geometryTree.nodes) {
-        if (node.hasMesh)
-            outObjects.push_back({node.mesh, node.worldTransform, node.isLens});
+        if (node.hasMesh) {
+            GdtfObject object;
+            object.mesh = node.mesh;
+            object.transform = node.worldTransform;
+            object.isLens = node.isLens;
+            outObjects.push_back(std::move(object));
+        }
     }
 
     if (ConsolePanel::Instance() && !fromCache) {
