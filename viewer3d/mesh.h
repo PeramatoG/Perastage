@@ -38,10 +38,13 @@ struct Mesh {
     uint32_t vboVertices = 0;
     uint32_t vboNormals = 0;
     uint32_t vboTexCoords = 0;
+    uint32_t vboFlatVertices = 0;
+    uint32_t vboFlatNormals = 0;
     uint32_t eboTriangles = 0;
     uint32_t eboLines = 0;
     uint32_t textureId = 0;
     int triangleIndexCount = 0;
+    int flatVertexCount = 0;
     int lineIndexCount = 0;
     bool buffersReady = false;
     // Optional cached triangle index order for mirrored instances.
@@ -49,6 +52,9 @@ struct Mesh {
     // True once we have evaluated/fixed triangle winding for compatibility
     // with assets coming from heterogeneous DCC/export pipelines.
     bool windingChecked = false;
+    // Optional CPU cache for flat-shading ready triangle streams.
+    std::vector<float> flatVertices;
+    std::vector<float> flatNormals;
 };
 
 // Attempts to detect meshes whose triangle winding is globally inverted and
@@ -202,6 +208,66 @@ inline void ComputeNormals(Mesh& mesh)
             mesh.normals[i * 3]     = nx / len;
             mesh.normals[i * 3 + 1] = ny / len;
             mesh.normals[i * 3 + 2] = nz / len;
+        }
+    }
+}
+
+// Builds a triangle stream with duplicated vertices and per-face normals so
+// GL_FLAT can be rendered through the GPU path without immediate mode.
+inline void BuildFlatShadingBuffers(Mesh& mesh)
+{
+    mesh.flatVertices.clear();
+    mesh.flatNormals.clear();
+
+    if (mesh.vertices.empty() || mesh.indices.empty())
+        return;
+
+    mesh.flatVertices.reserve(mesh.indices.size() * 3);
+    mesh.flatNormals.reserve(mesh.indices.size() * 3);
+
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+        const unsigned short i0 = mesh.indices[i];
+        const unsigned short i1 = mesh.indices[i + 1];
+        const unsigned short i2 = mesh.indices[i + 2];
+
+        const float v0x = mesh.vertices[i0 * 3];
+        const float v0y = mesh.vertices[i0 * 3 + 1];
+        const float v0z = mesh.vertices[i0 * 3 + 2];
+        const float v1x = mesh.vertices[i1 * 3];
+        const float v1y = mesh.vertices[i1 * 3 + 1];
+        const float v1z = mesh.vertices[i1 * 3 + 2];
+        const float v2x = mesh.vertices[i2 * 3];
+        const float v2y = mesh.vertices[i2 * 3 + 1];
+        const float v2z = mesh.vertices[i2 * 3 + 2];
+
+        float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
+        float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
+        float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
+        const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+        if (len > 0.0f) {
+            nx /= len;
+            ny /= len;
+            nz /= len;
+        } else {
+            nx = 0.0f;
+            ny = 0.0f;
+            nz = 1.0f;
+        }
+
+        mesh.flatVertices.push_back(v0x);
+        mesh.flatVertices.push_back(v0y);
+        mesh.flatVertices.push_back(v0z);
+        mesh.flatVertices.push_back(v1x);
+        mesh.flatVertices.push_back(v1y);
+        mesh.flatVertices.push_back(v1z);
+        mesh.flatVertices.push_back(v2x);
+        mesh.flatVertices.push_back(v2y);
+        mesh.flatVertices.push_back(v2z);
+
+        for (int v = 0; v < 3; ++v) {
+            mesh.flatNormals.push_back(nx);
+            mesh.flatNormals.push_back(ny);
+            mesh.flatNormals.push_back(nz);
         }
     }
 }

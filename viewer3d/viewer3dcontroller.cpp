@@ -1434,6 +1434,7 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
 
   if (mesh.normals.size() < mesh.vertices.size())
     ComputeNormals(mesh);
+  BuildFlatShadingBuffers(mesh);
 
   bool includeCoplanarEdgesForCapture =
       ConfigManager::Get().GetFloat(
@@ -1465,6 +1466,18 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
                  mesh.texcoords.data(), GL_STATIC_DRAW);
   }
 
+  if (!mesh.flatVertices.empty() && !mesh.flatNormals.empty()) {
+    glGenBuffers(1, &mesh.vboFlatVertices);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vboFlatVertices);
+    glBufferData(GL_ARRAY_BUFFER, mesh.flatVertices.size() * sizeof(float),
+                 mesh.flatVertices.data(), GL_STATIC_DRAW);
+
+    glGenBuffers(1, &mesh.vboFlatNormals);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vboFlatNormals);
+    glBufferData(GL_ARRAY_BUFFER, mesh.flatNormals.size() * sizeof(float),
+                 mesh.flatNormals.data(), GL_STATIC_DRAW);
+  }
+
   glGenBuffers(1, &mesh.eboTriangles);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
@@ -1489,6 +1502,8 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
       glIsBuffer(mesh.vboVertices) == GL_TRUE &&
       glIsBuffer(mesh.vboNormals) == GL_TRUE &&
       (mesh.vboTexCoords == 0 || glIsBuffer(mesh.vboTexCoords) == GL_TRUE) &&
+      (mesh.vboFlatVertices == 0 || glIsBuffer(mesh.vboFlatVertices) == GL_TRUE) &&
+      (mesh.vboFlatNormals == 0 || glIsBuffer(mesh.vboFlatNormals) == GL_TRUE) &&
       glIsBuffer(mesh.eboTriangles) == GL_TRUE &&
       glIsBuffer(mesh.eboLines) == GL_TRUE;
 
@@ -1497,6 +1512,8 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
     mesh.vboVertices = 0;
     mesh.vboNormals = 0;
     mesh.vboTexCoords = 0;
+    mesh.vboFlatVertices = 0;
+    mesh.vboFlatNormals = 0;
     mesh.eboTriangles = 0;
     mesh.eboLines = 0;
     mesh.triangleIndexCount = 0;
@@ -1506,6 +1523,7 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   }
 
   mesh.triangleIndexCount = static_cast<int>(mesh.indices.size());
+  mesh.flatVertexCount = static_cast<int>(mesh.flatVertices.size() / 3);
   mesh.lineIndexCount = static_cast<int>(lineIndices.size());
   mesh.buffersReady = true;
 
@@ -1544,6 +1562,14 @@ void Viewer3DController::ReleaseMeshBuffers(Mesh &mesh) {
     glDeleteBuffers(1, &mesh.vboTexCoords);
     mesh.vboTexCoords = 0;
   }
+  if (mesh.vboFlatNormals != 0) {
+    glDeleteBuffers(1, &mesh.vboFlatNormals);
+    mesh.vboFlatNormals = 0;
+  }
+  if (mesh.vboFlatVertices != 0) {
+    glDeleteBuffers(1, &mesh.vboFlatVertices);
+    mesh.vboFlatVertices = 0;
+  }
   if (mesh.vboVertices != 0) {
     glDeleteBuffers(1, &mesh.vboVertices);
     mesh.vboVertices = 0;
@@ -1554,6 +1580,7 @@ void Viewer3DController::ReleaseMeshBuffers(Mesh &mesh) {
   }
 
   mesh.triangleIndexCount = 0;
+  mesh.flatVertexCount = 0;
   mesh.lineIndexCount = 0;
   mesh.buffersReady = false;
 }
