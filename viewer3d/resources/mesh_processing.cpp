@@ -17,8 +17,6 @@ namespace {
 constexpr uint32_t kMeshCacheMagic = 0x4843534Du; // MSCH
 constexpr uint32_t kGdtfCacheMagic = 0x48434747u; // GGCH
 constexpr uint32_t kCacheVersion = 1u;
-constexpr float kSimplifyTargetRatio = 0.1f;
-constexpr float kSimplifyTargetError = 0.01f;
 constexpr float kOverdrawThreshold = 1.05f;
 
 struct CacheHeader {
@@ -125,29 +123,14 @@ void OptimizeIndices(Mesh &mesh) {
     return;
 
   const size_t vertexCount = mesh.vertices.size() / 3;
-  const size_t indexCount = mesh.indices.size();
-  std::vector<uint32_t> simplified(indexCount);
-
-  // 1) Decimation: keep around 10% of triangles with bounded geometric error.
-  const size_t targetIndexCount =
-      std::max<size_t>(3, (static_cast<size_t>(indexCount * kSimplifyTargetRatio) / 3) * 3);
-  const size_t simplifiedCount = meshopt_simplify(
-      simplified.data(), mesh.indices.data(), indexCount, mesh.vertices.data(),
-      vertexCount, sizeof(float) * 3, targetIndexCount, kSimplifyTargetError,
-      0, nullptr);
-
-  if (simplifiedCount >= 3)
-    simplified.resize(simplifiedCount);
-  else
-    simplified = mesh.indices;
-
-  std::vector<uint32_t> cacheOptimized(simplified.size());
-  // 2) Vertex cache optimization improves post-transform cache hits.
-  meshopt_optimizeVertexCache(cacheOptimized.data(), simplified.data(),
-                              simplified.size(), vertexCount);
+  std::vector<uint32_t> cacheOptimized(mesh.indices.size());
+  // Runtime/base meshes keep full geometry and only reorder triangles to
+  // improve GPU locality without changing visual fidelity.
+  meshopt_optimizeVertexCache(cacheOptimized.data(), mesh.indices.data(),
+                              mesh.indices.size(), vertexCount);
 
   std::vector<uint32_t> overdrawOptimized(cacheOptimized.size());
-  // 3) Overdraw optimization with conservative threshold.
+  // Overdraw optimization with conservative threshold.
   meshopt_optimizeOverdraw(overdrawOptimized.data(), cacheOptimized.data(),
                            cacheOptimized.size(), mesh.vertices.data(),
                            vertexCount, sizeof(float) * 3, kOverdrawThreshold);

@@ -36,6 +36,7 @@
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer3dcontroller.h"
 #include "gdtfloader.h"
+#include <meshoptimizer.h>
 
 namespace {
 namespace fs = std::filesystem;
@@ -185,6 +186,57 @@ bool SphereOutsideFrustum(const FrustumPlanes &frustum, float x, float y, float 
       return true;
   }
   return false;
+}
+
+const Mesh &ResolveMovingProxyMesh(const Mesh &source) {
+  static std::unordered_map<const Mesh *, Mesh> proxyCache;
+  auto it = proxyCache.find(&source);
+  if (it != proxyCache.end())
+    return it->second;
+
+  Mesh proxy = source;
+  proxy.buffersReady = false;
+  proxy.vao = 0;
+  proxy.vboVertices = 0;
+  proxy.vboNormals = 0;
+  proxy.vboTexCoords = 0;
+  proxy.vboFlatVertices = 0;
+  proxy.vboFlatNormals = 0;
+  proxy.eboTriangles = 0;
+  proxy.eboLines = 0;
+
+  const size_t vertexCount = proxy.vertices.size() / 3;
+  if (vertexCount >= 3 && proxy.indices.size() >= 3) {
+    constexpr float kProxySimplifyRatio = 0.1f;
+    constexpr float kProxySimplifyError = 0.01f;
+    constexpr float kProxyOverdrawThreshold = 1.05f;
+
+    const size_t indexCount = proxy.indices.size();
+    const size_t targetIndexCount =
+        std::max<size_t>(3, (static_cast<size_t>(indexCount * kProxySimplifyRatio) / 3) * 3);
+
+    std::vector<uint32_t> simplified(indexCount);
+    size_t simplifiedCount = meshopt_simplify(
+        simplified.data(), proxy.indices.data(), indexCount, proxy.vertices.data(),
+        vertexCount, sizeof(float) * 3, targetIndexCount, kProxySimplifyError, 0,
+        nullptr);
+    if (simplifiedCount < 3)
+      simplifiedCount = indexCount;
+    simplified.resize(simplifiedCount);
+
+    std::vector<uint32_t> cacheOptimized(simplified.size());
+    meshopt_optimizeVertexCache(cacheOptimized.data(), simplified.data(),
+                                simplified.size(), vertexCount);
+
+    std::vector<uint32_t> overdrawOptimized(cacheOptimized.size());
+    meshopt_optimizeOverdraw(overdrawOptimized.data(), cacheOptimized.data(),
+                             cacheOptimized.size(), proxy.vertices.data(),
+                             vertexCount, sizeof(float) * 3,
+                             kProxyOverdrawThreshold);
+    proxy.indices = std::move(overdrawOptimized);
+  }
+
+  return proxyCache.emplace(&source, std::move(proxy)).first->second;
 }
 
 struct SvgTessellationContext {
@@ -948,7 +1000,8 @@ void OpaqueFixturePass::Render(
             partB = isWhiteRenderMode ? 1.0f : 0.35f;
           }
           const bool drawUnlit = !is2DViewer && obj.isLens;
-          AddFixtureInstancedDraw(fixtureInstancedBatches, obj.mesh, partR, partG,
+          const Mesh &proxyMesh = ResolveMovingProxyMesh(obj.mesh);
+          AddFixtureInstancedDraw(fixtureInstancedBatches, proxyMesh, partR, partG,
                                   partB, drawUnlit, wireframe, mode, RENDER_SCALE,
                                   cx, cy, cz, matrix, localMatrix, worldMatrixArray);
         }
