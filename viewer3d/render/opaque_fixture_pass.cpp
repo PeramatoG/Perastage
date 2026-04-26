@@ -443,24 +443,6 @@ void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
   batches[key].push_back(std::move(draw));
 }
 
-void RenderFixtureInstancedBatches(Viewer3DController &controller,
-                                   const FixtureInstancedBatches &batches) {
-  for (const auto &entry : batches) {
-    const auto &key = entry.first;
-    const auto &draws = entry.second;
-    for (const auto &draw : draws) {
-      const uint32_t color = key.colorStyle;
-      const float r = static_cast<float>((color >> 16) & 0xFFu) / 255.0f;
-      const float g = static_cast<float>((color >> 8) & 0xFFu) / 255.0f;
-      const float b = static_cast<float>(color & 0xFFu) / 255.0f;
-      controller.DrawMeshWithOutline(
-          *key.mesh, r, g, b, key.scale, false, false, draw.cx, draw.cy, draw.cz,
-          key.wireframe, key.mode,
-          [](const std::array<float, 3> &p) { return p; }, key.unlit,
-          draw.modelMatrix.data());
-    }
-  }
-}
 } // namespace
 
 void OpaqueFixturePass::Render(
@@ -518,6 +500,24 @@ void OpaqueFixturePass::Render(
   FixtureInstancedBatches fixtureInstancedBatches;
   size_t diagnosticsFallbackFixtures = 0;
   size_t diagnosticsInstancedFixtures = 0;
+  auto RenderFixtureInstancedBatches =
+      [&](const FixtureInstancedBatches &batches) {
+        for (const auto &entry : batches) {
+          const auto &key = entry.first;
+          const auto &draws = entry.second;
+          for (const auto &draw : draws) {
+            const uint32_t color = key.colorStyle;
+            const float r = static_cast<float>((color >> 16) & 0xFFu) / 255.0f;
+            const float g = static_cast<float>((color >> 8) & 0xFFu) / 255.0f;
+            const float b = static_cast<float>(color & 0xFFu) / 255.0f;
+            controller.DrawMeshWithOutline(
+                *key.mesh, r, g, b, key.scale, false, false, draw.cx, draw.cy,
+                draw.cz, key.wireframe, key.mode,
+                [](const std::array<float, 3> &p) { return p; }, key.unlit,
+                draw.modelMatrix.data());
+          }
+        }
+      };
   for (const auto &uuid : visibleSet.fixtureUuids) {
     auto fixtureIt = fixtures.find(uuid);
     if (fixtureIt == fixtures.end())
@@ -867,7 +867,7 @@ void OpaqueFixturePass::Render(
     bool prevCaptureOnly = controller.m_captureOnly;
     controller.m_captureCanvas = nullptr;
     controller.m_captureOnly = false;
-    RenderFixtureInstancedBatches(controller, fixtureInstancedBatches);
+    RenderFixtureInstancedBatches(fixtureInstancedBatches);
     controller.m_captureCanvas = prevCanvas;
     controller.m_captureOnly = prevCaptureOnly;
   }
