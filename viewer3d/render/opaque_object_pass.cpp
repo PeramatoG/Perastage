@@ -347,12 +347,14 @@ void OpaqueObjectPass::Render(
         context.useInteractionProxyLod, context.interactionProxyMinPixels,
         static_cast<size_t>(std::max(
             0, context.interactionProxyHeavyTriangleThreshold))};
-    const bool useInteractionProxy = ShouldUseInteractionProxy(
+    const InteractionLodDecision lodDecision = EvaluateInteractionLod(
         interactionLodPolicy, controller.GetLastFrameFrustumSnapshot(),
         obit != controller.m_objectBounds.end() ? &obit->second : nullptr,
         triangleCount);
-    if (useInteractionProxy) {
+    if (lodDecision != InteractionLodDecision::None) {
       glPopMatrix();
+      if (lodDecision == InteractionLodDecision::Skip)
+        continue;
       if (obit != controller.m_objectBounds.end()) {
         controller.SetupMaterialFromRGB(r, g, b);
         glColor3f(r, g, b);

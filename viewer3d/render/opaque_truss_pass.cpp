@@ -162,12 +162,14 @@ void OpaqueTrussPass::Render(
         context.useInteractionProxyLod, context.interactionProxyMinPixels,
         static_cast<size_t>(std::max(
             0, context.interactionProxyHeavyTriangleThreshold))};
-    const bool useInteractionProxy = ShouldUseInteractionProxy(
+    const InteractionLodDecision lodDecision = EvaluateInteractionLod(
         interactionLodPolicy, controller.GetLastFrameFrustumSnapshot(),
         tbit != controller.m_trussBounds.end() ? &tbit->second : nullptr,
         triangleCount);
-    if (useInteractionProxy) {
+    if (lodDecision != InteractionLodDecision::None) {
       glPopMatrix();
+      if (lodDecision == InteractionLodDecision::Skip)
+        continue;
       if (tbit != controller.m_trussBounds.end()) {
         controller.SetupMaterialFromRGB(r, g, b);
         glColor3f(r, g, b);

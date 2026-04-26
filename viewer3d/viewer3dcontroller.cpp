@@ -995,7 +995,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.skipOptionalWork = m_impl->cameraMoving && context.fastInteractionMode;
   context.useInteractionProxyLod =
       context.fastInteractionMode && interactionProxyLodEnabled &&
-      (m_impl->cameraMoving || m_impl->isInteracting);
+      m_impl->cameraMoving;
   context.interactionProxyMinPixels = interactionProxyMinPixels;
   context.interactionProxyHeavyTriangleThreshold =
       interactionProxyHeavyTriangleThreshold;

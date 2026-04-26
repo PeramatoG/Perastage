@@ -10,7 +10,13 @@ struct InteractionLodPolicy {
   size_t heavyMeshTriangleThreshold = 4000;
 };
 
-bool ShouldUseInteractionProxy(
+enum class InteractionLodDecision {
+  None = 0,
+  Skip,
+  ProxyBounds
+};
+
+InteractionLodDecision EvaluateInteractionLod(
     const InteractionLodPolicy &policy,
     const Viewer3DViewFrustumSnapshot *frustum,
     const Viewer3DBoundingBox *worldBounds,

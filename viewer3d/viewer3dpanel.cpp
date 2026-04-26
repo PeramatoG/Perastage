@@ -1640,13 +1640,6 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 
     m_lastMousePos = pos;
 
-    // Continuous hover updates can saturate dense scenes similarly to camera
-    // movement. Treat pointer movement as lightweight interaction so the
-    // fast-interaction pipeline can keep frame pacing stable.
-    m_controller.SetInteracting(true);
-    m_isInteracting = true;
-    m_lastInteractionTime = std::chrono::steady_clock::now();
-
     // Mark that the mouse has moved so OnPaint can update hover info
     m_mouseMoved = true;
     m_forceHoverQuery = true;

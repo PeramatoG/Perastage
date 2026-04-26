@@ -536,13 +536,14 @@ void OpaqueFixturePass::Render(
         context.useInteractionProxyLod, context.interactionProxyMinPixels,
         static_cast<size_t>(std::max(
             0, context.interactionProxyHeavyTriangleThreshold))};
-    const bool useInteractionProxy = ShouldUseInteractionProxy(
+    const InteractionLodDecision lodDecision = EvaluateInteractionLod(
         interactionLodPolicy, controller.GetLastFrameFrustumSnapshot(),
         fbit != controller.m_fixtureBounds.end() ? &fbit->second : nullptr,
         triangleCount);
-    if (useInteractionProxy) {
+    if (lodDecision != InteractionLodDecision::None) {
       glPopMatrix();
-      if (fbit != controller.m_fixtureBounds.end()) {
+      if (lodDecision == InteractionLodDecision::ProxyBounds &&
+          fbit != controller.m_fixtureBounds.end()) {
         controller.SetupMaterialFromRGB(r, g, b);
         glColor3f(r, g, b);
         DrawBoundsSolid(fbit->second);

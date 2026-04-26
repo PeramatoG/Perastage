@@ -68,21 +68,23 @@ bool ProjectBoundingBoxToScreen(const Viewer3DBoundingBox &bb,
 
 } // namespace
 
-bool ShouldUseInteractionProxy(
+InteractionLodDecision EvaluateInteractionLod(
     const InteractionLodPolicy &policy,
     const Viewer3DViewFrustumSnapshot *frustum,
     const Viewer3DBoundingBox *worldBounds,
     size_t triangleCount) {
   if (!policy.enabled)
-    return false;
+    return InteractionLodDecision::None;
 
   const bool isHeavy = triangleCount >= policy.heavyMeshTriangleThreshold;
   if (!frustum || !worldBounds)
-    return isHeavy;
+    return isHeavy ? InteractionLodDecision::ProxyBounds
+                   : InteractionLodDecision::None;
 
   ScreenRect rect;
   if (!ProjectBoundingBoxToScreen(*worldBounds, *frustum, rect))
-    return isHeavy;
+    return isHeavy ? InteractionLodDecision::ProxyBounds
+                   : InteractionLodDecision::None;
 
   const double widthPixels = std::max(0.0, rect.maxX - rect.minX);
   const double heightPixels = std::max(0.0, rect.maxY - rect.minY);
@@ -90,5 +92,9 @@ bool ShouldUseInteractionProxy(
       widthPixels < policy.minScreenPixels &&
       heightPixels < policy.minScreenPixels;
 
-  return isHeavy || tinyOnScreen;
+  if (tinyOnScreen)
+    return InteractionLodDecision::Skip;
+  if (isHeavy)
+    return InteractionLodDecision::ProxyBounds;
+  return InteractionLodDecision::None;
 }
