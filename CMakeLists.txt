@@ -313,8 +313,10 @@ if(WIN32)
             CONFIGURATIONS Release RelWithDebInfo MinSizeRel
             DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
             PRE_EXCLUDE_REGEXES
-                "api-ms-.*"
-                "ext-ms-.*"
+                "^[Aa]pi-[Mm]s-.*\\.dll$"
+                "^[Ee]xt-[Mm]s-.*\\.dll$"
+                "^[Ww]paxholder\\.dll$"
+                "^[Ww]tdccm\\.dll$"
             POST_EXCLUDE_REGEXES
                 ".*[Ww]indows[\\/].*"
                 ".*[Ss]ystem32[\\/].*"
@@ -330,8 +332,10 @@ if(WIN32)
             DESTINATION .
             DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
             PRE_EXCLUDE_REGEXES
-                "api-ms-.*"
-                "ext-ms-.*"
+                "^[Aa]pi-[Mm]s-.*\\.dll$"
+                "^[Ee]xt-[Mm]s-.*\\.dll$"
+                "^[Ww]paxholder\\.dll$"
+                "^[Ww]tdccm\\.dll$"
             POST_EXCLUDE_REGEXES
                 ".*[Ww]indows[\\/].*"
                 ".*[Ss]ystem32[\\/].*"
