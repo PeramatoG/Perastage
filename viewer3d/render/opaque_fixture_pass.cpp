@@ -533,9 +533,13 @@ void OpaqueFixturePass::Render(
       glDisable(GL_DEPTH_TEST);
   }
 
+  // Instanced path currently uses a lightweight shader optimized for motion.
+  // Keep it scoped to textured style so Standard/Sketch retain their original
+  // visual pipeline (lighting/profile treatment) during interaction.
   const bool canUseHardwareInstancing =
       !context.selectionOverlayPass && !wireframe && !is2DViewer &&
-      context.useInteractionProxyLod && !controller.m_captureOnly &&
+      context.useInteractionProxyLod && context.texturedStyle &&
+      !controller.m_captureOnly &&
       controller.m_captureCanvas == nullptr;
   FixtureInstancedBatches instancedBatches;
 
