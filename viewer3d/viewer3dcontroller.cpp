@@ -224,8 +224,8 @@ static std::string NormalizeModelKey(const std::string &p) {
 }
 
 struct EdgeKey {
-  unsigned short a = 0;
-  unsigned short b = 0;
+  uint32_t a = 0;
+  uint32_t b = 0;
 
   bool operator==(const EdgeKey &other) const {
     return a == other.a && b == other.b;
@@ -234,7 +234,7 @@ struct EdgeKey {
 
 struct EdgeKeyHash {
   size_t operator()(const EdgeKey &key) const {
-    return (static_cast<size_t>(key.a) << 16u) ^ static_cast<size_t>(key.b);
+    return (static_cast<size_t>(key.a) << 32u) ^ static_cast<size_t>(key.b);
   }
 };
 
@@ -245,9 +245,9 @@ struct EdgeInfo {
 };
 
 static std::array<float, 3> BuildFaceNormal(const std::vector<float> &vertices,
-                                            unsigned short i0,
-                                            unsigned short i1,
-                                            unsigned short i2) {
+                                            uint32_t i0,
+                                            uint32_t i1,
+                                            uint32_t i2) {
   const size_t p0 = static_cast<size_t>(i0) * 3u;
   const size_t p1 = static_cast<size_t>(i1) * 3u;
   const size_t p2 = static_cast<size_t>(i2) * 3u;
@@ -275,9 +275,9 @@ static std::array<float, 3> BuildFaceNormal(const std::vector<float> &vertices,
   return {nx, ny, nz};
 }
 
-static std::vector<unsigned short>
+static std::vector<uint32_t>
 BuildWireframeIndices(const std::vector<float> &vertices,
-                      const std::vector<unsigned short> &triangleIndices,
+                      const std::vector<uint32_t> &triangleIndices,
                       bool includeCoplanarEdges) {
   static constexpr float kCreaseAngleDeg = 5.0f;
   static constexpr float kPi = 3.14159265358979323846f;
@@ -287,7 +287,7 @@ BuildWireframeIndices(const std::vector<float> &vertices,
   std::unordered_map<EdgeKey, EdgeInfo, EdgeKeyHash> edges;
   edges.reserve(triangleIndices.size());
 
-  auto registerEdge = [&](unsigned short i, unsigned short j,
+  auto registerEdge = [&](uint32_t i, uint32_t j,
                           const std::array<float, 3> &faceNormal) {
     const EdgeKey key = {std::min(i, j), std::max(i, j)};
     EdgeInfo &info = edges[key];
@@ -299,9 +299,9 @@ BuildWireframeIndices(const std::vector<float> &vertices,
   };
 
   for (size_t i = 0; i + 2 < triangleIndices.size(); i += 3) {
-    const unsigned short i0 = triangleIndices[i];
-    const unsigned short i1 = triangleIndices[i + 1];
-    const unsigned short i2 = triangleIndices[i + 2];
+    const uint32_t i0 = triangleIndices[i];
+    const uint32_t i1 = triangleIndices[i + 1];
+    const uint32_t i2 = triangleIndices[i + 2];
     const std::array<float, 3> faceNormal = BuildFaceNormal(vertices, i0, i1, i2);
 
     registerEdge(i0, i1, faceNormal);
@@ -309,7 +309,7 @@ BuildWireframeIndices(const std::vector<float> &vertices,
     registerEdge(i2, i0, faceNormal);
   }
 
-  std::vector<unsigned short> lineIndices;
+  std::vector<uint32_t> lineIndices;
   lineIndices.reserve(edges.size() * 2u);
   for (const auto &[edge, info] : edges) {
     if (info.count == 1) {
@@ -1443,7 +1443,7 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
     includeCoplanarEdgesForCapture =
         m_impl->symbolCaptureIncludeCoplanarEdgesOverride.value();
   }
-  std::vector<unsigned short> lineIndices = BuildWireframeIndices(
+  std::vector<uint32_t> lineIndices = BuildWireframeIndices(
       mesh.vertices, mesh.indices, includeCoplanarEdgesForCapture);
 
   glGenVertexArrays(1, &mesh.vao);
@@ -1481,13 +1481,13 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   glGenBuffers(1, &mesh.eboTriangles);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-               mesh.indices.size() * sizeof(unsigned short),
+               mesh.indices.size() * sizeof(uint32_t),
                mesh.indices.data(), GL_STATIC_DRAW);
 
   glGenBuffers(1, &mesh.eboLines);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboLines);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-               lineIndices.size() * sizeof(unsigned short),
+               lineIndices.size() * sizeof(uint32_t),
                lineIndices.data(), GL_STATIC_DRAW);
 
   // Restore the triangle index buffer while the VAO is bound so the VAO keeps

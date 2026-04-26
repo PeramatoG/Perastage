@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include "configmanager.h"
 
 namespace {
@@ -362,7 +363,7 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale) {
                         GL_FALSE, 0, nullptr);
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
-  glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_SHORT,
+  glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
                  nullptr);
 
   glDisableVertexAttribArray(static_cast<GLuint>(program.normalAttrib));
@@ -391,9 +392,9 @@ void EnsureFlippedFlatCache(const Mesh &mesh) {
   mesh.flippedFlatNormals.reserve(mesh.indices.size() * 3);
 
   for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-    const unsigned short i0 = mesh.indices[i];
-    const unsigned short i1 = mesh.indices[i + 2];
-    const unsigned short i2 = mesh.indices[i + 1];
+    const uint32_t i0 = mesh.indices[i];
+    const uint32_t i1 = mesh.indices[i + 2];
+    const uint32_t i2 = mesh.indices[i + 1];
 
     const float v0x = mesh.vertices[i0 * 3];
     const float v0y = mesh.vertices[i0 * 3 + 1];
@@ -433,7 +434,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
   const bool flipWinding =
       (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
-  const std::vector<unsigned short> *triangleIndices = &mesh.indices;
+  const std::vector<uint32_t> *triangleIndices = &mesh.indices;
   if (flipWinding) {
     if (mesh.flippedIndicesCache.size() != mesh.indices.size()) {
       mesh.flippedIndicesCache = mesh.indices;
@@ -450,7 +451,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
 
   glBegin(GL_TRIANGLES);
   for (size_t i = 0; i + 2 < triangleIndices->size(); i += 3) {
-    const unsigned short tri[3] = {(*triangleIndices)[i], (*triangleIndices)[i + 1],
+    const uint32_t tri[3] = {(*triangleIndices)[i], (*triangleIndices)[i + 1],
                                    (*triangleIndices)[i + 2]};
     const float v0x = mesh.vertices[tri[0] * 3];
     const float v0y = mesh.vertices[tri[0] * 3 + 1];
@@ -485,7 +486,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
             (p1World[1] - p0World[1]) * (p2World[0] - p0World[0]));
 
     for (int v = 0; v < 3; ++v) {
-      const unsigned short idx = tri[v];
+      const uint32_t idx = tri[v];
       const float vx = mesh.vertices[idx * 3] * scale;
       const float vy = mesh.vertices[idx * 3 + 1] * scale;
       const float vz = mesh.vertices[idx * 3 + 2] * scale;
@@ -615,9 +616,9 @@ void SceneRenderer::DrawMeshWithOutline(
       CanvasFill fill;
       fill.color = {r, g, b, 1.0f};
       for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-        unsigned short i0 = mesh.indices[i];
-        unsigned short i1 = mesh.indices[i + 1];
-        unsigned short i2 = mesh.indices[i + 2];
+        uint32_t i0 = mesh.indices[i];
+        uint32_t i1 = mesh.indices[i + 1];
+        uint32_t i2 = mesh.indices[i + 2];
         std::vector<std::array<float, 3>> pts = {
             {mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
              mesh.vertices[i0 * 3 + 2] * scale},
@@ -792,9 +793,9 @@ void SceneRenderer::DrawMeshWithOutline(
     CanvasFill fill;
     fill.color = {r, g, b, 1.0f};
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-      unsigned short i0 = mesh.indices[i];
-      unsigned short i1 = mesh.indices[i + 1];
-      unsigned short i2 = mesh.indices[i + 2];
+      uint32_t i0 = mesh.indices[i];
+      uint32_t i1 = mesh.indices[i + 1];
+      uint32_t i2 = mesh.indices[i + 2];
       std::vector<std::array<float, 3>> pts = {
           {mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
            mesh.vertices[i0 * 3 + 2] * scale},
@@ -837,7 +838,7 @@ void SceneRenderer::DrawMeshWireframe(
     glVertexPointer(3, GL_FLOAT, 0, nullptr);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboLines);
-    glDrawElements(GL_LINES, mesh.lineIndexCount, GL_UNSIGNED_SHORT, nullptr);
+    glDrawElements(GL_LINES, mesh.lineIndexCount, GL_UNSIGNED_INT, nullptr);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
 
@@ -847,9 +848,9 @@ void SceneRenderer::DrawMeshWireframe(
   } else if (!m_controller.IsCaptureOnly()) {
     glBegin(GL_LINES);
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += triangleAdvance) {
-      const unsigned short i0 = mesh.indices[i];
-      const unsigned short i1 = mesh.indices[i + 1];
-      const unsigned short i2 = mesh.indices[i + 2];
+      const uint32_t i0 = mesh.indices[i];
+      const uint32_t i1 = mesh.indices[i + 1];
+      const uint32_t i2 = mesh.indices[i + 2];
 
       glVertex3f(mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
                  mesh.vertices[i0 * 3 + 2] * scale);
@@ -875,9 +876,9 @@ void SceneRenderer::DrawMeshWireframe(
       stroke.width = 1.0f;
     }
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += triangleAdvance) {
-      unsigned short i0 = mesh.indices[i];
-      unsigned short i1 = mesh.indices[i + 1];
-      unsigned short i2 = mesh.indices[i + 2];
+      uint32_t i0 = mesh.indices[i];
+      uint32_t i1 = mesh.indices[i + 1];
+      uint32_t i2 = mesh.indices[i + 2];
 
       std::array<float, 3> p0 = {mesh.vertices[i0 * 3] * scale,
                                  mesh.vertices[i0 * 3 + 1] * scale,
@@ -910,7 +911,7 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
   const bool flipWinding =
       (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
 
-  const std::vector<unsigned short> *triangleIndices = &mesh.indices;
+  const std::vector<uint32_t> *triangleIndices = &mesh.indices;
   if (flipWinding) {
     if (mesh.flippedIndicesCache.size() != mesh.indices.size()) {
       mesh.flippedIndicesCache = mesh.indices;
@@ -1004,10 +1005,10 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
       glDrawElements(
           GL_TRIANGLES, static_cast<GLsizei>(triangleIndices->size()),
-          GL_UNSIGNED_SHORT, triangleIndices->data());
+          GL_UNSIGNED_INT, triangleIndices->data());
     } else {
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
-      glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_SHORT,
+      glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
                      nullptr);
     }
 
@@ -1031,9 +1032,9 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     }
     glBegin(GL_TRIANGLES);
     for (size_t i = 0; i + 2 < triangleIndices->size(); i += 3) {
-      const unsigned short i0 = (*triangleIndices)[i];
-      const unsigned short i1 = (*triangleIndices)[i + 1];
-      const unsigned short i2 = (*triangleIndices)[i + 2];
+      const uint32_t i0 = (*triangleIndices)[i];
+      const uint32_t i1 = (*triangleIndices)[i + 1];
+      const uint32_t i2 = (*triangleIndices)[i + 2];
 
       const float v0x = mesh.vertices[i0 * 3] * scale;
       const float v0y = mesh.vertices[i0 * 3 + 1] * scale;

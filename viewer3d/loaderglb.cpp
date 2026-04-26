@@ -22,6 +22,7 @@
 #include <fstream>
 #include <vector>
 #include <algorithm>
+#include <cstdint>
 #include <functional>
 #include <wx/wx.h>
 #include <wx/image.h>
@@ -587,7 +588,7 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
             } else {
                 return false;
             }
-            outMesh.indices[outMesh.indices.size()-idxCount+i] = static_cast<unsigned short>(v + base);
+            outMesh.indices[outMesh.indices.size()-idxCount+i] = static_cast<uint32_t>(v + base);
         }
         applyPrimitiveBaseColorTexture(prim);
         return true;

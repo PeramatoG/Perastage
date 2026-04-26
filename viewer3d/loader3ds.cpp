@@ -43,6 +43,13 @@ struct FaceColorAccum {
     double weight = 0.0;
 };
 
+struct MeshTransform3ds {
+    std::array<float, 3> xAxis = {1.0f, 0.0f, 0.0f};
+    std::array<float, 3> yAxis = {0.0f, 1.0f, 0.0f};
+    std::array<float, 3> zAxis = {0.0f, 0.0f, 1.0f};
+    std::array<float, 3> origin = {0.0f, 0.0f, 0.0f};
+};
+
 static bool EnsureImageHandlersInitialized()
 {
     static bool imageHandlersInitialized = false;
@@ -240,6 +247,10 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
 {
     size_t objectVertexStart = vertexBase;
     size_t objectVertexCount = 0;
+    MeshTransform3ds localTransform;
+    bool hasLocalTransform = false;
+    std::array<float, 3> pivot = {0.0f, 0.0f, 0.0f};
+    bool hasPivot = false;
     while(file.tellg() < endPos) {
         Chunk ch; if(!readChunk(file, ch)) return;
         long dataStart = file.tellg();
@@ -272,9 +283,9 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
                     file.read(reinterpret_cast<char*>(&c), 2);
                     file.read(reinterpret_cast<char*>(&flag), 2);
 
-                    mesh.indices[start + i * 3] = static_cast<unsigned short>(a + vertexBase);
-                    mesh.indices[start + i * 3 + 1] = static_cast<unsigned short>(b + vertexBase);
-                    mesh.indices[start + i * 3 + 2] = static_cast<unsigned short>(c + vertexBase);
+                    mesh.indices[start + i * 3] = static_cast<uint32_t>(a + vertexBase);
+                    mesh.indices[start + i * 3 + 1] = static_cast<uint32_t>(b + vertexBase);
+                    mesh.indices[start + i * 3 + 2] = static_cast<uint32_t>(c + vertexBase);
                 }
                 while (file.tellg() < next) {
                     Chunk sub;
@@ -321,8 +332,62 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
                 }
                 break;
             }
+            case 0x4160: {
+                // Local coordinates system (3DS 0x4160): x/y/z axes and origin.
+                // We apply it after optional pivot compensation so object parts
+                // are positioned/oriented correctly in world/object space.
+                file.read(reinterpret_cast<char*>(localTransform.xAxis.data()), sizeof(float) * 3);
+                file.read(reinterpret_cast<char*>(localTransform.yAxis.data()), sizeof(float) * 3);
+                file.read(reinterpret_cast<char*>(localTransform.zAxis.data()), sizeof(float) * 3);
+                file.read(reinterpret_cast<char*>(localTransform.origin.data()), sizeof(float) * 3);
+                hasLocalTransform = true;
+                break;
+            }
+            case 0x4165: {
+                // Pivot point (3DS 0x4165): subtract before local transform.
+                file.read(reinterpret_cast<char*>(pivot.data()), sizeof(float) * 3);
+                hasPivot = true;
+                break;
+            }
             default:
                 file.seekg(next);
+        }
+    }
+
+    if (objectVertexCount > 0 && (hasLocalTransform || hasPivot)) {
+        for (size_t i = 0; i < objectVertexCount; ++i) {
+            const size_t index = (objectVertexStart + i) * 3;
+            float x = mesh.vertices[index];
+            float y = mesh.vertices[index + 1];
+            float z = mesh.vertices[index + 2];
+
+            if (hasPivot) {
+                x -= pivot[0];
+                y -= pivot[1];
+                z -= pivot[2];
+            }
+
+            if (hasLocalTransform) {
+                const float tx = localTransform.origin[0] +
+                                 localTransform.xAxis[0] * x +
+                                 localTransform.yAxis[0] * y +
+                                 localTransform.zAxis[0] * z;
+                const float ty = localTransform.origin[1] +
+                                 localTransform.xAxis[1] * x +
+                                 localTransform.yAxis[1] * y +
+                                 localTransform.zAxis[1] * z;
+                const float tz = localTransform.origin[2] +
+                                 localTransform.xAxis[2] * x +
+                                 localTransform.yAxis[2] * y +
+                                 localTransform.zAxis[2] * z;
+                mesh.vertices[index] = tx;
+                mesh.vertices[index + 1] = ty;
+                mesh.vertices[index + 2] = tz;
+            } else {
+                mesh.vertices[index] = x;
+                mesh.vertices[index + 1] = y;
+                mesh.vertices[index + 2] = z;
+            }
         }
     }
 }

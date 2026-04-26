@@ -24,7 +24,9 @@
 
 struct Mesh {
     std::vector<float> vertices; // x,y,z order in mm
-    std::vector<unsigned short> indices; // 3 indices per triangle
+    // 32-bit indices avoid overflow when concatenated 3DS objects exceed
+    // 65,535 vertices in total.
+    std::vector<uint32_t> indices; // 3 indices per triangle
     std::vector<float> normals;  // optional per-vertex normals
     std::vector<float> texcoords; // optional per-vertex UVs (u,v)
     std::vector<unsigned char> textureRgba; // optional texture pixels RGBA8
@@ -48,7 +50,7 @@ struct Mesh {
     int lineIndexCount = 0;
     bool buffersReady = false;
     // Optional cached triangle index order for mirrored instances.
-    mutable std::vector<unsigned short> flippedIndicesCache;
+    mutable std::vector<uint32_t> flippedIndicesCache;
     // True once we have evaluated/fixed triangle winding for compatibility
     // with assets coming from heterogeneous DCC/export pipelines.
     bool windingChecked = false;
@@ -91,9 +93,9 @@ inline void EnsureOutwardWinding(Mesh& mesh)
     double totalArea = 0.0;
 
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-        const unsigned short i0 = mesh.indices[i];
-        const unsigned short i1 = mesh.indices[i + 1];
-        const unsigned short i2 = mesh.indices[i + 2];
+        const uint32_t i0 = mesh.indices[i];
+        const uint32_t i1 = mesh.indices[i + 1];
+        const uint32_t i2 = mesh.indices[i + 2];
 
         const float v0x = mesh.vertices[i0 * 3];
         const float v0y = mesh.vertices[i0 * 3 + 1];
@@ -163,9 +165,9 @@ inline void ComputeNormals(Mesh& mesh)
     mesh.normals.assign(vcount * 3, 0.0f);
 
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-        unsigned short i0 = mesh.indices[i];
-        unsigned short i1 = mesh.indices[i + 1];
-        unsigned short i2 = mesh.indices[i + 2];
+        uint32_t i0 = mesh.indices[i];
+        uint32_t i1 = mesh.indices[i + 1];
+        uint32_t i2 = mesh.indices[i + 2];
 
         float v0x = mesh.vertices[i0 * 3];
         float v0y = mesh.vertices[i0 * 3 + 1];
@@ -231,9 +233,9 @@ inline void BuildFlatShadingBuffers(Mesh& mesh)
     mesh.flatNormals.reserve(mesh.indices.size() * 3);
 
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-        const unsigned short i0 = mesh.indices[i];
-        const unsigned short i1 = mesh.indices[i + 1];
-        const unsigned short i2 = mesh.indices[i + 2];
+        const uint32_t i0 = mesh.indices[i];
+        const uint32_t i1 = mesh.indices[i + 1];
+        const uint32_t i2 = mesh.indices[i + 2];
 
         const float v0x = mesh.vertices[i0 * 3];
         const float v0y = mesh.vertices[i0 * 3 + 1];
