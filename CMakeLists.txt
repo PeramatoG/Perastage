@@ -317,6 +317,10 @@ if(WIN32)
                 ".*ext-ms-win-.*\\.dll$"
                 ".*api-ms-.*\\.dll$"
                 ".*ext-ms-.*\\.dll$"
+                "(?i).*AzureAttest.*\\.dll$"
+                "(?i).*HvsiFileTrust.*\\.dll$"
+                "(?i).*PdmUtilities.*\\.dll$"
+                "(?i).*WTDSENSOR.*\\.dll$"
                 ".*[Ww]paxholder\\.dll$"
                 ".*[Ww]tdccm\\.dll$"
             POST_EXCLUDE_REGEXES
@@ -338,6 +342,10 @@ if(WIN32)
                 ".*ext-ms-win-.*\\.dll$"
                 ".*api-ms-.*\\.dll$"
                 ".*ext-ms-.*\\.dll$"
+                "(?i).*AzureAttest.*\\.dll$"
+                "(?i).*HvsiFileTrust.*\\.dll$"
+                "(?i).*PdmUtilities.*\\.dll$"
+                "(?i).*WTDSENSOR.*\\.dll$"
                 ".*[Ww]paxholder\\.dll$"
                 ".*[Ww]tdccm\\.dll$"
             POST_EXCLUDE_REGEXES
