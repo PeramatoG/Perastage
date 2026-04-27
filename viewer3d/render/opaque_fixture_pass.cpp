@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
+#include <cstddef>
 #include <filesystem>
 #include <optional>
 #include <unordered_map>
@@ -246,19 +247,44 @@ const Mesh &ResolveMovingProxyMesh(const Mesh &source,
         simplified.data(), proxy.indices.data(), indexCount, proxy.vertices.data(),
         vertexCount, sizeof(float) * 3, targetIndexCount, kProxySimplifyError, 0,
         nullptr);
-    // Some dense/non-manifold fixtures (often 32-bit/high-poly assets) can be
-    // too constrained for the strict simplifier and end up almost unchanged.
-    // Fall back to sloppy simplification so moving-camera proxies are produced
-    // for those heavy fixtures as well.
-    if (simplifiedCount < 3 || simplifiedCount >= indexCount * 95 / 100) {
-      simplifiedCount = meshopt_simplifySloppy(
-          simplified.data(), proxy.indices.data(), indexCount, proxy.vertices.data(),
-          vertexCount, sizeof(float) * 3, targetIndexCount, kProxySimplifyError,
-          nullptr);
-    }
     const size_t acceptableUpperBound = std::max(
         targetIndexCount + targetIndexCount / 4,
         std::min(indexCount, indexCount * 4 / 5));
+
+    // Some dense/non-manifold fixtures (often 32-bit/high-poly assets) can be
+    // too constrained for a strict low-error pass. Escalate sloppy simplify
+    // error in steps before using coarse subsampling to avoid odd artifacts.
+    if (simplifiedCount < 3 || simplifiedCount > acceptableUpperBound) {
+      const std::vector<float> sloppyErrors = {kProxySimplifyError, 0.02f, 0.05f,
+                                               0.10f, 0.20f};
+      std::vector<uint32_t> sloppyCandidate(indexCount);
+      size_t bestCount = 0;
+      std::vector<uint32_t> bestIndices;
+
+      for (float sloppyError : sloppyErrors) {
+        size_t candidateCount = meshopt_simplifySloppy(
+            sloppyCandidate.data(), proxy.indices.data(), indexCount,
+            proxy.vertices.data(), vertexCount, sizeof(float) * 3,
+            targetIndexCount, sloppyError, nullptr);
+        if (candidateCount < 3)
+          continue;
+
+        if (bestCount == 0 || candidateCount < bestCount) {
+          bestCount = candidateCount;
+          bestIndices.assign(sloppyCandidate.begin(),
+                             sloppyCandidate.begin() +
+                                 static_cast<std::ptrdiff_t>(candidateCount));
+        }
+
+        if (candidateCount <= acceptableUpperBound)
+          break;
+      }
+
+      if (bestCount >= 3) {
+        simplifiedCount = bestCount;
+        simplified = std::move(bestIndices);
+      }
+    }
     if (simplifiedCount < 3 || simplifiedCount >= indexCount * 95 / 100 ||
         simplifiedCount > acceptableUpperBound) {
       // Safety net for very large/complex 32-bit meshes where meshoptimizer
