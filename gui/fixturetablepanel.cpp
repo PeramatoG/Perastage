@@ -1418,12 +1418,7 @@ void FixtureTablePanel::OnLeftDown(wxMouseEvent &evt) {
   wxDataViewColumn *col;
   table->HitTest(evt.GetPosition(), item, col);
   startRow = table->ItemToRow(item);
-  if (startRow != wxNOT_FOUND) {
-    dragSelecting = true;
-    table->UnselectAll();
-    table->SelectRow(startRow);
-    CaptureMouse();
-  }
+  dragSelecting = false;
   evt.Skip();
 }
 
@@ -1433,17 +1428,19 @@ void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) {
     if (HasCapture())
       ReleaseMouse();
   }
+  startRow = wxNOT_FOUND;
   evt.Skip();
 }
 
 void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
   dragSelecting = false;
+  startRow = wxNOT_FOUND;
 }
 
 void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
   UpdateHoverTooltip(NormalizeMousePositionForTable(table, evt));
 
-  if (!dragSelecting || !evt.Dragging()) {
+  if (!evt.Dragging() || startRow == wxNOT_FOUND) {
     evt.Skip();
     return;
   }
@@ -1453,6 +1450,13 @@ void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
   table->HitTest(evt.GetPosition(), item, col);
   int row = table->ItemToRow(item);
   if (row != wxNOT_FOUND) {
+    if (!dragSelecting) {
+      dragSelecting = true;
+      table->UnselectAll();
+      table->SelectRow(startRow);
+      if (!HasCapture())
+        CaptureMouse();
+    }
     int minRow = std::min(startRow, row);
     int maxRow = std::max(startRow, row);
     table->UnselectAll();

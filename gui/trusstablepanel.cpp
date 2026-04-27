@@ -663,13 +663,7 @@ void TrussTablePanel::OnLeftDown(wxMouseEvent& evt)
     wxDataViewColumn* col;
     table->HitTest(evt.GetPosition(), item, col);
     startRow = table->ItemToRow(item);
-    if (startRow != wxNOT_FOUND)
-    {
-        dragSelecting = true;
-        table->UnselectAll();
-        table->SelectRow(startRow);
-        CaptureMouse();
-    }
+    dragSelecting = false;
     evt.Skip();
 }
 
@@ -678,19 +672,22 @@ void TrussTablePanel::OnLeftUp(wxMouseEvent& evt)
     if (dragSelecting)
     {
         dragSelecting = false;
-        ReleaseMouse();
+        if (HasCapture())
+            ReleaseMouse();
     }
+    startRow = wxNOT_FOUND;
     evt.Skip();
 }
 
 void TrussTablePanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(evt))
 {
     dragSelecting = false;
+    startRow = wxNOT_FOUND;
 }
 
 void TrussTablePanel::OnMouseMove(wxMouseEvent& evt)
 {
-    if (!dragSelecting || !evt.Dragging())
+    if (!evt.Dragging() || startRow == wxNOT_FOUND)
     {
         evt.Skip();
         return;
@@ -701,6 +698,14 @@ void TrussTablePanel::OnMouseMove(wxMouseEvent& evt)
     int row = table->ItemToRow(item);
     if (row != wxNOT_FOUND)
     {
+        if (!dragSelecting)
+        {
+            dragSelecting = true;
+            table->UnselectAll();
+            table->SelectRow(startRow);
+            if (!HasCapture())
+                CaptureMouse();
+        }
         int minRow = std::min(startRow, row);
         int maxRow = std::max(startRow, row);
         table->UnselectAll();
