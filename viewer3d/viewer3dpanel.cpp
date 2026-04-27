@@ -1234,7 +1234,9 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
 
 void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
 {
-    if (m_draggedSincePress)
+    const bool draggedDuringPress = m_draggedSincePress;
+    OnMouseUp(event);
+    if (draggedDuringPress)
         return;
 
     const RenderSize renderSize = ResolveRenderSize(this);
