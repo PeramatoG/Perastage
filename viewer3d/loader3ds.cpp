@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <algorithm>
 #include <filesystem>
+#include <cmath>
 #include "consolepanel.h"
 #include <wx/wx.h>
 #include <wx/image.h>
@@ -49,6 +50,23 @@ struct MeshTransform3ds {
     std::array<float, 3> zAxis = {0.0f, 0.0f, 1.0f};
     std::array<float, 3> origin = {0.0f, 0.0f, 0.0f};
 };
+
+static bool IsIdentityBasis(const MeshTransform3ds& transform)
+{
+    constexpr float kEpsilon = 1e-5f;
+    auto almostEqual = [](float a, float b) {
+        return std::abs(a - b) <= kEpsilon;
+    };
+    return almostEqual(transform.xAxis[0], 1.0f) &&
+           almostEqual(transform.xAxis[1], 0.0f) &&
+           almostEqual(transform.xAxis[2], 0.0f) &&
+           almostEqual(transform.yAxis[0], 0.0f) &&
+           almostEqual(transform.yAxis[1], 1.0f) &&
+           almostEqual(transform.yAxis[2], 0.0f) &&
+           almostEqual(transform.zAxis[0], 0.0f) &&
+           almostEqual(transform.zAxis[1], 0.0f) &&
+           almostEqual(transform.zAxis[2], 1.0f);
+}
 
 static bool EnsureImageHandlersInitialized()
 {
@@ -354,7 +372,8 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
         }
     }
 
-    if (objectVertexCount > 0 && (hasLocalTransform || hasPivot)) {
+    const bool shouldApplyLocalBasis = hasLocalTransform && !IsIdentityBasis(localTransform);
+    if (objectVertexCount > 0 && (shouldApplyLocalBasis || hasPivot)) {
         for (size_t i = 0; i < objectVertexCount; ++i) {
             const size_t index = (objectVertexStart + i) * 3;
             float x = mesh.vertices[index];
@@ -367,7 +386,7 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
                 z -= pivot[2];
             }
 
-            if (hasLocalTransform) {
+            if (shouldApplyLocalBasis) {
                 const float tx = localTransform.origin[0] +
                                  localTransform.xAxis[0] * x +
                                  localTransform.yAxis[0] * y +
