@@ -104,6 +104,7 @@ private:
 
     // Handles paint events
     void OnPaint(wxPaintEvent& event);
+    void OnEraseBackground(wxEraseEvent& event);
 
     // Handles resize events
     void OnResize(wxSizeEvent& event);

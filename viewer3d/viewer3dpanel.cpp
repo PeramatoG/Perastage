@@ -72,6 +72,7 @@
 wxDEFINE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
 wxBEGIN_EVENT_TABLE(Viewer3DPanel, wxGLCanvas)
 EVT_PAINT(Viewer3DPanel::OnPaint)
+EVT_ERASE_BACKGROUND(Viewer3DPanel::OnEraseBackground)
 EVT_SIZE(Viewer3DPanel::OnResize)
 EVT_LEFT_DOWN(Viewer3DPanel::OnMouseDown)
 EVT_LEFT_UP(Viewer3DPanel::OnMouseUp)
@@ -856,6 +857,14 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_selectionRefreshPending = false;
 
     SwapBuffers(); // Swap after drawing labels to ensure they are visible
+}
+
+void Viewer3DPanel::OnEraseBackground(wxEraseEvent& WXUNUSED(event))
+{
+    // Prevent wxWidgets from clearing the native window background between
+    // interaction events. The 3D pipeline always owns background painting
+    // (including textured sky gradient), so OS-level erase can cause
+    // transient flat-color flicker.
 }
 
 // Resize event handler
