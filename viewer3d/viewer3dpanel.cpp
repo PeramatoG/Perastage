@@ -1810,6 +1810,11 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
             return;
     }
 
+    m_controller.SetInteracting(true);
+    m_isInteracting = true;
+    m_cameraMoving = true;
+    m_lastInteractionTime = std::chrono::steady_clock::now();
+
     Refresh();
 }
 
@@ -1994,12 +1999,15 @@ void Viewer3DPanel::SetModalDialogActive(bool active)
 
 bool Viewer3DPanel::ShouldPauseHeavyTasks()
 {
-    if (!m_isInteracting)
-        return false;
-
     const auto now = std::chrono::steady_clock::now();
-    if ((now - m_lastInteractionTime) < kPauseDelay)
+    const bool interactionGraceActive =
+        (now - m_lastInteractionTime) < kPauseDelay;
+
+    if (interactionGraceActive && (m_isInteracting || m_cameraMoving))
         return true;
+
+    if (!m_isInteracting && !m_cameraMoving)
+        return false;
 
     m_isInteracting = false;
     m_cameraMoving = false;
