@@ -116,19 +116,22 @@ represent equivalent actions:
 
 ## Local shortcuts in "Create scene from text" autocomplete
 
-`RiderTextDialog` adds local key handling only while the autocomplete dropdown
-is visible in the multiline text box:
+`RiderTextDialog` adds local key handling in the multiline text box for
+autocomplete navigation, and keeps `Esc` scoped to autocomplete behavior:
 
 - `↑` / `↓`: move the active suggestion.
 - `Enter` or `Tab`: accept the selected suggestion and replace the active token.
-- `Esc`: close suggestions without inserting.
+- `Esc`: if suggestions are open, close them without inserting; if suggestions
+  are closed, keep focus in the dialog editor (do not close the dialog).
 
 The dialog also shows this shortcut help inline under the editor so users can
 discover the local autocomplete controls without leaving the workflow.
 
 Priority and focus impact:
 
-- These keys are consumed only when the dropdown is open.
+- `Esc` is always consumed by the dialog to avoid accidental window close while
+  editing rider text.
+- Navigation/accept keys are consumed only when the dropdown is open.
 - Outside that state, the text box keeps its standard free-text editing behavior.
 - Global shortcut routing is unchanged because the dialog key handling stays local.
 - Suggestion ordering uses local relevance ranking (exact/prefix/fuzzy + recent
