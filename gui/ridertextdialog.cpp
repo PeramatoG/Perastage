@@ -129,6 +129,8 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   if (textCtrl) {
     textCtrl->Bind(wxEVT_TEXT, &RiderTextDialog::OnTextChanged, this);
     textCtrl->Bind(wxEVT_KEY_DOWN, &RiderTextDialog::OnTextKeyDown, this);
+    textCtrl->Bind(wxEVT_LEFT_DOWN, &RiderTextDialog::OnTextMouseDown, this);
+    textCtrl->Bind(wxEVT_RIGHT_DOWN, &RiderTextDialog::OnTextMouseDown, this);
   }
   if (suggestionList) {
     suggestionList->Bind(wxEVT_LISTBOX_DCLICK,
@@ -338,6 +340,12 @@ void RiderTextDialog::OnTextChanged(wxCommandEvent &event) {
 }
 
 void RiderTextDialog::OnTextKeyDown(wxKeyEvent &event) {
+  if (event.ControlDown() || event.CmdDown() || event.AltDown()) {
+    HideSuggestionPopup();
+    event.Skip();
+    return;
+  }
+
   if (IsSuggestionPopupVisible()) {
     switch (event.GetKeyCode()) {
     case WXK_UP:
@@ -378,6 +386,11 @@ void RiderTextDialog::OnAutocompleteTimer(wxTimerEvent &WXUNUSED(event)) {
   RefreshAutocompleteSuggestions();
 }
 
+void RiderTextDialog::OnTextMouseDown(wxMouseEvent &event) {
+  HideSuggestionPopup();
+  event.Skip();
+}
+
 void RiderTextDialog::OnSuggestionClick(wxCommandEvent &WXUNUSED(event)) {
   AcceptCurrentSuggestion();
 }
@@ -395,7 +408,19 @@ void RiderTextDialog::RefreshAutocompleteSuggestions() {
   if (!textCtrl || !suggestionPopup || !suggestionList)
     return;
 
-  autocompleteProvider.RefreshDynamicTerms();
+  if (wxWindow::FindFocus() != textCtrl) {
+    HideSuggestionPopup();
+    return;
+  }
+
+  long selectionFrom = 0;
+  long selectionTo = 0;
+  textCtrl->GetSelection(&selectionFrom, &selectionTo);
+  if (selectionFrom != selectionTo) {
+    HideSuggestionPopup();
+    return;
+  }
+
   const wxString currentText = textCtrl->GetValue();
   const wxScopedCharBuffer utf8Text = currentText.ToUTF8();
   const std::string textUtf8 =

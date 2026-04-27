@@ -22,6 +22,7 @@
 
 #include <wx/dialog.h>
 #include <wx/timer.h>
+#include <wx/event.h>
 
 class wxTextCtrl;
 class wxStaticText;
@@ -46,6 +47,7 @@ private:
   void OnApply(wxCommandEvent &event);
   void OnTextChanged(wxCommandEvent &event);
   void OnTextKeyDown(wxKeyEvent &event);
+  void OnTextMouseDown(wxMouseEvent &event);
   void OnAutocompleteTimer(wxTimerEvent &event);
   void OnSuggestionClick(wxCommandEvent &event);
   void OnDialogCharHook(wxKeyEvent &event);
