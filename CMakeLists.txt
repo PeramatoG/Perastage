@@ -298,59 +298,85 @@ if(WIN32)
     list(REMOVE_DUPLICATES PERASTAGE_VCPKG_BIN_DIRS)
     list(REMOVE_DUPLICATES PERASTAGE_VCPKG_DEBUG_BIN_DIRS)
 
+    # Use install(CODE) with file(GET_RUNTIME_DEPENDENCIES) for full control.
+    # install(RUNTIME_DEPENDENCY_SET) with PRE_EXCLUDE_REGEXES is unreliable
+    # on Windows multi-config generators because it treats unresolved virtual
+    # API-set DLLs as fatal errors regardless of the exclusion patterns.
+    # file(GET_RUNTIME_DEPENDENCIES) puts unresolved deps in a separate variable
+    # that we can simply ignore, which is the correct behaviour for system DLLs.
     if(CMAKE_CONFIGURATION_TYPES)
-        install(TARGETS ${PROJECT_NAME}
-            RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
-            CONFIGURATIONS Release RelWithDebInfo MinSizeRel
-        )
-        install(RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
-            DESTINATION .
-            CONFIGURATIONS Release RelWithDebInfo MinSizeRel
-            DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
-            PRE_EXCLUDE_REGEXES
-                # Windows API-set virtual DLLs (case-insensitive via bracket notation)
-                ".*[Aa][Pp][Ii]-[Mm][Ss]-.*\\.dll$"
-                ".*[Ee][Xx][Tt]-[Mm][Ss]-.*\\.dll$"
-                # Azure Attestation DLLs
-                ".*[Aa]zure[Aa]ttest.*\\.dll$"
-                # Other unresolvable Windows system DLLs
-                ".*[Hh]vsi[Ff]ile[Tt]rust\\.dll$"
-                ".*[Pp]dm[Uu]tilities\\.dll$"
-                ".*[Ww][Tt][Dd][Ss]ensor\\.dll$"
-                ".*[Ww]pax[Hh]older\\.dll$"
-                ".*[Ww][Tt][Dd][Cc][Cc][Mm]\\.dll$"
-            POST_EXCLUDE_REGEXES
-                ".*[Ww]indows[\\/].*"
-                ".*[Ss]ystem32[\\/].*"
-                ".*ud_.*\\.dll$"
-                ".*d_.*\\.dll$"
-                ".*d\\.dll$"
+        install(CODE "
+            set(_vcpkg_dirs \"${PERASTAGE_VCPKG_BIN_DIRS}\")
+            set(_exe \"\${CMAKE_INSTALL_PREFIX}/Perastage.exe\")
+            message(STATUS \"Resolving runtime dependencies for: \${_exe}\")
+            file(GET_RUNTIME_DEPENDENCIES
+                EXECUTABLES \"\${_exe}\"
+                RESOLVED_DEPENDENCIES_VAR   _resolved
+                UNRESOLVED_DEPENDENCIES_VAR _unresolved
+                CONFLICTING_DEPENDENCIES_PREFIX _conflicting
+                DIRECTORIES \${_vcpkg_dirs}
+                PRE_EXCLUDE_REGEXES
+                    \"api-ms-.*\"
+                    \"ext-ms-.*\"
+                    \"AzureAttest.*\"
+                    \"HvsiFileTrust.*\"
+                    \"PdmUtilities.*\"
+                    \"WTDSENSOR.*\"
+                    \"wpaxholder.*\"
+                    \"wtdccm.*\"
+                POST_EXCLUDE_REGEXES
+                    \".*[Ww][Ii][Nn][Dd][Oo][Ww][Ss][\\\\/].*\"
+                    \".*[Ss][Yy][Ss][Tt][Ee][Mm]32[\\\\/].*\"
+            )
+            foreach(_dep IN LISTS _resolved)
+                # Skip debug-variant DLLs in release installs
+                if(_dep MATCHES \".*(ud_|d_)[^/\\\\\\\\]*\\\\.dll$\")
+                    continue()
+                endif()
+                message(STATUS \"Staging: \${_dep}\")
+                file(INSTALL \"\${_dep}\" DESTINATION \"\${CMAKE_INSTALL_PREFIX}\")
+            endforeach()
+            if(_unresolved)
+                message(STATUS \"Skipped unresolvable system DLLs (expected on Windows): \${_unresolved}\")
+            endif()
+        "
+        CONFIGURATIONS Release RelWithDebInfo MinSizeRel
         )
     elseif(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-        install(TARGETS ${PROJECT_NAME}
-            RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
-        )
-        install(RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
-            DESTINATION .
-            DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
-            PRE_EXCLUDE_REGEXES
-                # Windows API-set virtual DLLs (case-insensitive via bracket notation)
-                ".*[Aa][Pp][Ii]-[Mm][Ss]-.*\\.dll$"
-                ".*[Ee][Xx][Tt]-[Mm][Ss]-.*\\.dll$"
-                # Azure Attestation DLLs
-                ".*[Aa]zure[Aa]ttest.*\\.dll$"
-                # Other unresolvable Windows system DLLs
-                ".*[Hh]vsi[Ff]ile[Tt]rust\\.dll$"
-                ".*[Pp]dm[Uu]tilities\\.dll$"
-                ".*[Ww][Tt][Dd][Ss]ensor\\.dll$"
-                ".*[Ww]pax[Hh]older\\.dll$"
-                ".*[Ww][Tt][Dd][Cc][Cc][Mm]\\.dll$"
-            POST_EXCLUDE_REGEXES
-                ".*[Ww]indows[\\/].*"
-                ".*[Ss]ystem32[\\/].*"
-                ".*ud_.*\\.dll$"
-                ".*d_.*\\.dll$"
-                ".*d\\.dll$"
+        install(CODE "
+            set(_vcpkg_dirs \"${PERASTAGE_VCPKG_BIN_DIRS}\")
+            set(_exe \"\${CMAKE_INSTALL_PREFIX}/Perastage.exe\")
+            message(STATUS \"Resolving runtime dependencies for: \${_exe}\")
+            file(GET_RUNTIME_DEPENDENCIES
+                EXECUTABLES \"\${_exe}\"
+                RESOLVED_DEPENDENCIES_VAR   _resolved
+                UNRESOLVED_DEPENDENCIES_VAR _unresolved
+                CONFLICTING_DEPENDENCIES_PREFIX _conflicting
+                DIRECTORIES \${_vcpkg_dirs}
+                PRE_EXCLUDE_REGEXES
+                    \"api-ms-.*\"
+                    \"ext-ms-.*\"
+                    \"AzureAttest.*\"
+                    \"HvsiFileTrust.*\"
+                    \"PdmUtilities.*\"
+                    \"WTDSENSOR.*\"
+                    \"wpaxholder.*\"
+                    \"wtdccm.*\"
+                POST_EXCLUDE_REGEXES
+                    \".*[Ww][Ii][Nn][Dd][Oo][Ww][Ss][\\\\/].*\"
+                    \".*[Ss][Yy][Ss][Tt][Ee][Mm]32[\\\\/].*\"
+            )
+            foreach(_dep IN LISTS _resolved)
+                if(_dep MATCHES \".*(ud_|d_)[^/\\\\\\\\]*\\\\.dll$\")
+                    continue()
+                endif()
+                message(STATUS \"Staging: \${_dep}\")
+                file(INSTALL \"\${_dep}\" DESTINATION \"\${CMAKE_INSTALL_PREFIX}\")
+            endforeach()
+            if(_unresolved)
+                message(STATUS \"Skipped unresolvable system DLLs (expected on Windows): \${_unresolved}\")
+            endif()
+        "
         )
     endif()
 
