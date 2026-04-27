@@ -196,6 +196,18 @@ const Mesh &ResolveMovingProxyMesh(const Mesh &source,
   if (sourceTriangleCount <= 500)
     return source;
 
+  auto computeProxyRatio = [](size_t triangleCount) {
+    if (triangleCount <= 2'000)
+      return 0.60f;
+    if (triangleCount <= 10'000)
+      return 0.35f;
+    if (triangleCount <= 50'000)
+      return 0.20f;
+    if (triangleCount <= 200'000)
+      return 0.10f;
+    return 0.05f;
+  };
+
   static std::unordered_map<const Mesh *, Mesh> proxyCache;
   auto it = proxyCache.find(&source);
   if (it != proxyCache.end())
@@ -214,13 +226,20 @@ const Mesh &ResolveMovingProxyMesh(const Mesh &source,
 
   const size_t vertexCount = proxy.vertices.size() / 3;
   if (vertexCount >= 3 && proxy.indices.size() >= 3) {
-    constexpr float kProxySimplifyRatio = 0.1f;
     constexpr float kProxySimplifyError = 0.01f;
     constexpr float kProxyOverdrawThreshold = 1.05f;
+    constexpr size_t kProxyMinTriangles = 300;
+    constexpr size_t kProxyMaxTriangles = 25'000;
 
     const size_t indexCount = proxy.indices.size();
-    const size_t targetIndexCount =
-        std::max<size_t>(3, (static_cast<size_t>(indexCount * kProxySimplifyRatio) / 3) * 3);
+    const float proxyRatio = computeProxyRatio(sourceTriangleCount);
+    const size_t requestedTriangles =
+        static_cast<size_t>(static_cast<float>(sourceTriangleCount) * proxyRatio);
+    const size_t targetTriangles = std::clamp(
+        requestedTriangles,
+        std::min(kProxyMinTriangles, sourceTriangleCount),
+        std::min(kProxyMaxTriangles, sourceTriangleCount));
+    const size_t targetIndexCount = std::max<size_t>(3, targetTriangles * 3);
 
     std::vector<uint32_t> simplified(indexCount);
     size_t simplifiedCount = meshopt_simplify(
