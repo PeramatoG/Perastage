@@ -233,7 +233,15 @@ static bool IsPrimitiveTypeDefined(const std::string& primitiveType)
     return ToLower(primitiveType) != "undefined";
 }
 
-static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
+enum class ModelScalingMode
+{
+    PerAxis,
+    UniformPreserveAspect
+};
+
+static void ApplyModelDimensions(Mesh& mesh,
+                                 const GdtfModelInfo& modelInfo,
+                                 ModelScalingMode scalingMode)
 {
     if (mesh.vertices.empty())
         return;
@@ -255,24 +263,47 @@ static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
     float targetX = modelInfo.length * 1000.0f; // meters -> mm
     float targetY = modelInfo.width  * 1000.0f;
     float targetZ = modelInfo.height * 1000.0f;
-    float sx = (targetX > 0.0f && sizeX > 0.0f) ? targetX / sizeX : 0.0f;
-    float sy = (targetY > 0.0f && sizeY > 0.0f) ? targetY / sizeY : 0.0f;
-    float sz = (targetZ > 0.0f && sizeZ > 0.0f) ? targetZ / sizeZ : 0.0f;
+    float sx = (targetX > 0.0f && sizeX > 0.0f) ? targetX / sizeX : 1.0f;
+    float sy = (targetY > 0.0f && sizeY > 0.0f) ? targetY / sizeY : 1.0f;
+    float sz = (targetZ > 0.0f && sizeZ > 0.0f) ? targetZ / sizeZ : 1.0f;
 
-    float sumScale = 0.0f;
-    int validScaleCount = 0;
-    if (sx > 0.0f) { sumScale += sx; ++validScaleCount; }
-    if (sy > 0.0f) { sumScale += sy; ++validScaleCount; }
-    if (sz > 0.0f) { sumScale += sz; ++validScaleCount; }
-
-    if (validScaleCount > 0) {
-        const float uniformScale = sumScale / static_cast<float>(validScaleCount);
-        if (uniformScale != 1.0f) {
+    if (scalingMode == ModelScalingMode::PerAxis) {
+        if (sx != 1.0f || sy != 1.0f || sz != 1.0f) {
             for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
-                mesh.vertices[vi]     *= uniformScale;
-                mesh.vertices[vi + 1] *= uniformScale;
-                mesh.vertices[vi + 2] *= uniformScale;
+                mesh.vertices[vi]     *= sx;
+                mesh.vertices[vi + 1] *= sy;
+                mesh.vertices[vi + 2] *= sz;
             }
+        }
+        return;
+    }
+
+    struct ScaleCandidate {
+        float target = 0.0f;
+        float scale = 1.0f;
+        bool valid = false;
+    };
+
+    ScaleCandidate candidates[3] = {
+        { targetX, sx, targetX > 0.0f && sizeX > 0.0f },
+        { targetY, sy, targetY > 0.0f && sizeY > 0.0f },
+        { targetZ, sz, targetZ > 0.0f && sizeZ > 0.0f }
+    };
+
+    const ScaleCandidate* best = nullptr;
+    for (const auto& candidate : candidates) {
+        if (!candidate.valid)
+            continue;
+        if (!best || candidate.target > best->target)
+            best = &candidate;
+    }
+
+    if (best && best->scale != 1.0f) {
+        const float uniformScale = best->scale;
+        for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
+            mesh.vertices[vi]     *= uniformScale;
+            mesh.vertices[vi + 1] *= uniformScale;
+            mesh.vertices[vi + 2] *= uniformScale;
         }
     }
 }
@@ -1244,7 +1275,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                                 loaded = LoadGLB(path, mesh);
 
                             if (loaded) {
-                                ApplyModelDimensions(mesh, modelInfo);
+                                ApplyModelDimensions(mesh, modelInfo, ModelScalingMode::UniformPreserveAspect);
                                 mit = meshCache.emplace(path, std::move(mesh)).first;
                             } else {
                                 bool shouldLog = true;
@@ -1276,7 +1307,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
 
             if (!haveMesh && IsPrimitiveTypeDefined(modelInfo.primitiveType)) {
                 if (BuildPrimitiveMesh(modelInfo.primitiveType, mesh)) {
-                    ApplyModelDimensions(mesh, modelInfo);
+                    ApplyModelDimensions(mesh, modelInfo, ModelScalingMode::PerAxis);
                     haveMesh = true;
                 }
             }
