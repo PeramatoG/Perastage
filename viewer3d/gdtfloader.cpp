@@ -258,6 +258,7 @@ static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
     float sx = (targetX > 0.0f && sizeX > 0.0f) ? targetX / sizeX : 1.0f;
     float sy = (targetY > 0.0f && sizeY > 0.0f) ? targetY / sizeY : 1.0f;
     float sz = (targetZ > 0.0f && sizeZ > 0.0f) ? targetZ / sizeZ : 1.0f;
+
     if (sx != 1.0f || sy != 1.0f || sz != 1.0f) {
         for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
             mesh.vertices[vi]     *= sx;
