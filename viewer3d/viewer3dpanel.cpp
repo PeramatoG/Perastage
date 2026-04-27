@@ -72,7 +72,6 @@
 wxDEFINE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
 wxBEGIN_EVENT_TABLE(Viewer3DPanel, wxGLCanvas)
 EVT_PAINT(Viewer3DPanel::OnPaint)
-EVT_ERASE_BACKGROUND(Viewer3DPanel::OnEraseBackground)
 EVT_SIZE(Viewer3DPanel::OnResize)
 EVT_LEFT_DOWN(Viewer3DPanel::OnMouseDown)
 EVT_LEFT_UP(Viewer3DPanel::OnMouseUp)
@@ -163,22 +162,7 @@ wxPoint ToFramebufferPoint(wxWindow* window, const wxPoint& logicalPoint) {
 }
 
 Viewer3DRenderStyle ResolveRenderStyleFromPreferences() {
-    static Viewer3DRenderStyle s_lastResolvedStyle =
-        Viewer3DRenderStyle::Standard;
-    const ConfigManager& cfg = ConfigManager::Get();
-    const auto styleValue = cfg.GetValue("viewer3d_render_style");
-    if (!styleValue.has_value())
-        return s_lastResolvedStyle;
-
-    const Viewer3DRenderStyle resolved = ResolveViewer3DRenderStyle(cfg);
-    const bool unknownStyleValue =
-        resolved == Viewer3DRenderStyle::Standard &&
-        *styleValue != ToConfigValue(Viewer3DRenderStyle::Standard);
-    if (unknownStyleValue)
-        return s_lastResolvedStyle;
-
-    s_lastResolvedStyle = resolved;
-    return resolved;
+    return ResolveViewer3DRenderStyle(ConfigManager::Get());
 }
 
 bool IsWireframeRenderStyle(Viewer3DRenderStyle style) {
@@ -243,51 +227,20 @@ void ApplyViewer3DClearColorForStyle(Viewer3DRenderStyle style) {
     glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
 }
 
-float ComputeGridPlaneHorizonNdcY() {
-    GLdouble model[16] = {0.0};
-    GLdouble projection[16] = {0.0};
-    GLint viewport[4] = {0, 0, 0, 0};
-    glGetDoublev(GL_MODELVIEW_MATRIX, model);
-    glGetDoublev(GL_PROJECTION_MATRIX, projection);
-    glGetIntegerv(GL_VIEWPORT, viewport);
-
-    if (viewport[3] <= 0)
-        return -0.05f;
-
-    constexpr int kSamples = 48;
-    constexpr double kProbeRadius = 2000.0;
-    bool found = false;
-    double topMostY = -1e9;
-    for (int i = 0; i < kSamples; ++i) {
-        const double angle = (static_cast<double>(i) / static_cast<double>(kSamples)) *
-                             2.0 * 3.14159265358979323846;
-        const double x = std::cos(angle) * kProbeRadius;
-        const double y = std::sin(angle) * kProbeRadius;
-        GLdouble sx = 0.0, sy = 0.0, sz = 0.0;
-        if (gluProject(x, y, 0.0, model, projection, viewport, &sx, &sy, &sz) == GL_TRUE &&
-            sz >= 0.0 && sz <= 1.0) {
-            topMostY = std::max(topMostY, sy);
-            found = true;
-        }
-    }
-
-    if (!found)
-        return -0.05f;
-
-    const double ndcY = (topMostY / static_cast<double>(viewport[3])) * 2.0 - 1.0;
-    return static_cast<float>(std::clamp(ndcY, -0.85, 0.85));
-}
-
-void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
+void DrawTexturedStyleBackgroundGradient(unsigned int gradientTextureId) {
     const GLboolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
     const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
     const GLboolean cullFaceWasEnabled = glIsEnabled(GL_CULL_FACE);
     const GLboolean texture2DWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+    GLint textureEnvMode = GL_MODULATE;
+    glGetTexEnviv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, &textureEnvMode);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_LIGHTING);
     glDisable(GL_CULL_FACE);
-    glDisable(GL_TEXTURE_2D);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, gradientTextureId);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
@@ -297,24 +250,17 @@ void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
     glPushMatrix();
     glLoadIdentity();
 
-    const std::array<std::pair<float, std::array<float, 3>>, 6> bands = {{
-        {1.0f, {0.02f, 0.05f, 0.18f}},
-        {0.55f, {0.10f, 0.20f, 0.40f}},
-        {horizonNdcY + 0.16f, {0.42f, 0.28f, 0.48f}},
-        {horizonNdcY, {0.96f, 0.56f, 0.26f}},
-        {horizonNdcY - 0.28f, {0.62f, 0.28f, 0.19f}},
-        {-1.0f, {0.18f, 0.09f, 0.11f}},
-    }};
-    for (size_t i = 0; i + 1 < bands.size(); ++i) {
-        glBegin(GL_QUADS);
-        glColor3f(bands[i].second[0], bands[i].second[1], bands[i].second[2]);
-        glVertex2f(-1.0f, bands[i].first);
-        glVertex2f(1.0f, bands[i].first);
-        glColor3f(bands[i + 1].second[0], bands[i + 1].second[1], bands[i + 1].second[2]);
-        glVertex2f(1.0f, bands[i + 1].first);
-        glVertex2f(-1.0f, bands[i + 1].first);
-        glEnd();
-    }
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(-1.0f, 1.0f);
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f(1.0f, 1.0f);
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(1.0f, -1.0f);
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(-1.0f, -1.0f);
+    glEnd();
 
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
@@ -327,8 +273,11 @@ void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
         glEnable(GL_DEPTH_TEST);
     if (cullFaceWasEnabled)
         glEnable(GL_CULL_FACE);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, textureEnvMode);
     if (texture2DWasEnabled)
         glEnable(GL_TEXTURE_2D);
+    else
+        glDisable(GL_TEXTURE_2D);
 }
 
 void DrawTexturedGroundPlaneBackdrop() {
@@ -543,6 +492,10 @@ Viewer3DPanel::~Viewer3DPanel()
     StopRefreshThread();
     if (m_basePassCache && m_glContext && IsShownOnScreen()) {
         SetCurrent(*m_glContext);
+        if (m_texturedSkyGradientTextureId != 0) {
+            glDeleteTextures(1, &m_texturedSkyGradientTextureId);
+            m_texturedSkyGradientTextureId = 0;
+        }
         m_basePassCache.reset();
     } else if (m_basePassCache) {
         m_basePassCache->AbandonResources();
@@ -591,6 +544,62 @@ void Viewer3DPanel::InitGL()
     ApplyViewer3DClearColorForStyle(ResolveRenderStyleFromPreferences());
 }
 
+void Viewer3DPanel::EnsureTexturedSkyGradientTexture()
+{
+    if (m_texturedSkyGradientTextureId != 0)
+        return;
+
+    constexpr int kTextureHeight = 256;
+    std::vector<unsigned char> rgba(static_cast<size_t>(kTextureHeight) * 4u);
+    const std::array<std::pair<float, std::array<float, 3>>, 6> bands = {{
+        {1.00f, {0.02f, 0.05f, 0.18f}},
+        {0.58f, {0.10f, 0.20f, 0.40f}},
+        {0.28f, {0.42f, 0.28f, 0.48f}},
+        {0.14f, {0.96f, 0.56f, 0.26f}},
+        {-0.08f, {0.62f, 0.28f, 0.19f}},
+        {-1.00f, {0.18f, 0.09f, 0.11f}},
+    }};
+
+    for (int y = 0; y < kTextureHeight; ++y) {
+        const float t = static_cast<float>(y) /
+                        static_cast<float>(kTextureHeight - 1);
+        const float ndcY = -1.0f + 2.0f * t;
+
+        std::array<float, 3> color = bands.back().second;
+        for (size_t i = 0; i + 1 < bands.size(); ++i) {
+            const float yTop = bands[i].first;
+            const float yBottom = bands[i + 1].first;
+            if (ndcY <= yTop && ndcY >= yBottom) {
+                const float span = std::max(1e-5f, yTop - yBottom);
+                const float alpha = (ndcY - yBottom) / span;
+                for (int c = 0; c < 3; ++c) {
+                    color[c] = bands[i + 1].second[c] * (1.0f - alpha) +
+                               bands[i].second[c] * alpha;
+                }
+                break;
+            }
+        }
+
+        const size_t idx = static_cast<size_t>(y) * 4u;
+        rgba[idx + 0u] = static_cast<unsigned char>(
+            std::clamp(color[0], 0.0f, 1.0f) * 255.0f);
+        rgba[idx + 1u] = static_cast<unsigned char>(
+            std::clamp(color[1], 0.0f, 1.0f) * 255.0f);
+        rgba[idx + 2u] = static_cast<unsigned char>(
+            std::clamp(color[2], 0.0f, 1.0f) * 255.0f);
+        rgba[idx + 3u] = 255u;
+    }
+
+    glGenTextures(1, &m_texturedSkyGradientTextureId);
+    glBindTexture(GL_TEXTURE_2D, m_texturedSkyGradientTextureId);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, kTextureHeight, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, rgba.data());
+}
+
 // Paint event handler
 void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 {
@@ -601,8 +610,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     InitGL();
 
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
-    const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
-    const size_t renderSignature = static_cast<size_t>(renderStyle);
     const bool highlightOnlyRefresh =
         m_highlightRefreshPending &&
         !m_controller.IsResourceSyncPending() &&
@@ -641,7 +648,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     if (highlightOnlyRefresh && m_basePassCache) {
         reusedBasePass = m_basePassCache->RestoreToDefaultFramebuffer(
             renderSize.width, renderSize.height, cameraFingerprint,
-            renderSignature,
             hiddenLayers, sceneVersion);
     }
 
@@ -657,7 +663,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         if (m_basePassCache) {
             m_basePassCache->CaptureFromDefaultFramebuffer(
                 renderSize.width, renderSize.height, cameraFingerprint,
-                renderSignature,
                 hiddenLayers, sceneVersion);
         }
     }
@@ -878,14 +883,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     SwapBuffers(); // Swap after drawing labels to ensure they are visible
 }
 
-void Viewer3DPanel::OnEraseBackground(wxEraseEvent& WXUNUSED(event))
-{
-    // Prevent wxWidgets from clearing the native window background between
-    // interaction events. The 3D pipeline always owns background painting
-    // (including textured sky gradient), so OS-level erase can cause
-    // transient flat-color flicker.
-}
-
 // Resize event handler
 void Viewer3DPanel::OnResize(wxSizeEvent& event)
 {
@@ -916,7 +913,8 @@ void Viewer3DPanel::Render(const RenderSize& renderSize)
     ValidateRenderSizeContract("Viewer3DPanel", s_renderFrameId, renderSize,
                                viewportSize, projectionSize, &renderSize);
     if (renderStyle == Viewer3DRenderStyle::Textured) {
-        DrawTexturedStyleBackgroundGradient(ComputeGridPlaneHorizonNdcY());
+        EnsureTexturedSkyGradientTexture();
+        DrawTexturedStyleBackgroundGradient(m_texturedSkyGradientTextureId);
         DrawTexturedGroundPlaneBackdrop();
     }
 
@@ -1003,7 +1001,8 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
     const RenderSize exportRenderSize{kExportImageWidth, kExportImageHeight, "export-fbo"};
     ApplyCameraMatrices(exportRenderSize, exportFovYDegrees);
     if (renderStyle == Viewer3DRenderStyle::Textured) {
-        DrawTexturedStyleBackgroundGradient(ComputeGridPlaneHorizonNdcY());
+        EnsureTexturedSkyGradientTexture();
+        DrawTexturedStyleBackgroundGradient(m_texturedSkyGradientTextureId);
         DrawTexturedGroundPlaneBackdrop();
     }
 
@@ -1131,7 +1130,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         m_mode = InteractionMode::None;
         if (HasCapture())
             ReleaseMouse();
-        m_forceHoverQuery = !m_draggedSincePress;
+        m_forceHoverQuery = true;
         Refresh();
     }
 
@@ -1262,9 +1261,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
 
 void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
 {
-    const bool draggedDuringPress = m_draggedSincePress;
-    OnMouseUp(event);
-    if (draggedDuringPress)
+    if (m_draggedSincePress)
         return;
 
     const RenderSize renderSize = ResolveRenderSize(this);

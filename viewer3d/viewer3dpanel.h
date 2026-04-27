@@ -104,7 +104,6 @@ private:
 
     // Handles paint events
     void OnPaint(wxPaintEvent& event);
-    void OnEraseBackground(wxEraseEvent& event);
 
     // Handles resize events
     void OnResize(wxSizeEvent& event);
@@ -127,6 +126,7 @@ private:
     void Render(const RenderSize& renderSize);
     void ApplyCameraMatrices(const RenderSize& renderSize, double fovYDegrees = 45.0);
     bool ExportCurrentViewToPng();
+    void EnsureTexturedSkyGradientTexture();
 
     // Hovered fixture label state
     bool m_hasHover = false;
@@ -177,6 +177,7 @@ private:
 
     Viewer3DController m_controller;
     std::unique_ptr<class BasePassFramebufferCache> m_basePassCache;
+    unsigned int m_texturedSkyGradientTextureId = 0;
 
     std::atomic<bool> m_threadRunning{false};
     std::atomic<bool> m_shuttingDown{false};

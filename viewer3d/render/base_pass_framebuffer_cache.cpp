@@ -64,7 +64,7 @@ void BasePassFramebufferCache::EnsureFramebufferSize(int width, int height) {
 }
 
 bool BasePassFramebufferCache::RestoreToDefaultFramebuffer(
-    int width, int height, size_t cameraFingerprint, size_t renderSignature,
+    int width, int height, size_t cameraFingerprint,
     const std::unordered_set<std::string> &hiddenLayers,
     size_t sceneVersion) const {
   if (!m_hasSnapshot || m_fbo == 0 || width <= 0 || height <= 0)
@@ -72,10 +72,9 @@ bool BasePassFramebufferCache::RestoreToDefaultFramebuffer(
 
   const bool viewportChanged = m_width != width || m_height != height;
   const bool cameraChanged = m_lastCameraFingerprint != cameraFingerprint;
-  const bool renderChanged = m_lastRenderSignature != renderSignature;
   const bool layersChanged = m_lastHiddenLayers != hiddenLayers;
   const bool sceneChanged = m_lastSceneVersion != sceneVersion;
-  if (viewportChanged || cameraChanged || renderChanged || layersChanged || sceneChanged)
+  if (viewportChanged || cameraChanged || layersChanged || sceneChanged)
     return false;
 
   glBindFramebuffer(GL_READ_FRAMEBUFFER, m_fbo);
@@ -88,7 +87,7 @@ bool BasePassFramebufferCache::RestoreToDefaultFramebuffer(
 }
 
 void BasePassFramebufferCache::CaptureFromDefaultFramebuffer(
-    int width, int height, size_t cameraFingerprint, size_t renderSignature,
+    int width, int height, size_t cameraFingerprint,
     const std::unordered_set<std::string> &hiddenLayers,
     size_t sceneVersion) {
   EnsureFramebufferSize(width, height);
@@ -103,7 +102,6 @@ void BasePassFramebufferCache::CaptureFromDefaultFramebuffer(
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
   m_lastCameraFingerprint = cameraFingerprint;
-  m_lastRenderSignature = renderSignature;
   m_lastHiddenLayers = hiddenLayers;
   m_lastSceneVersion = sceneVersion;
   m_hasSnapshot = true;
