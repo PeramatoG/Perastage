@@ -255,14 +255,24 @@ static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
     float targetX = modelInfo.length * 1000.0f; // meters -> mm
     float targetY = modelInfo.width  * 1000.0f;
     float targetZ = modelInfo.height * 1000.0f;
-    float sx = (targetX > 0.0f && sizeX > 0.0f) ? targetX / sizeX : 1.0f;
-    float sy = (targetY > 0.0f && sizeY > 0.0f) ? targetY / sizeY : 1.0f;
-    float sz = (targetZ > 0.0f && sizeZ > 0.0f) ? targetZ / sizeZ : 1.0f;
-    if (sx != 1.0f || sy != 1.0f || sz != 1.0f) {
-        for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
-            mesh.vertices[vi]     *= sx;
-            mesh.vertices[vi + 1] *= sy;
-            mesh.vertices[vi + 2] *= sz;
+    float sx = (targetX > 0.0f && sizeX > 0.0f) ? targetX / sizeX : 0.0f;
+    float sy = (targetY > 0.0f && sizeY > 0.0f) ? targetY / sizeY : 0.0f;
+    float sz = (targetZ > 0.0f && sizeZ > 0.0f) ? targetZ / sizeZ : 0.0f;
+
+    float sumScale = 0.0f;
+    int validScaleCount = 0;
+    if (sx > 0.0f) { sumScale += sx; ++validScaleCount; }
+    if (sy > 0.0f) { sumScale += sy; ++validScaleCount; }
+    if (sz > 0.0f) { sumScale += sz; ++validScaleCount; }
+
+    if (validScaleCount > 0) {
+        const float uniformScale = sumScale / static_cast<float>(validScaleCount);
+        if (uniformScale != 1.0f) {
+            for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
+                mesh.vertices[vi]     *= uniformScale;
+                mesh.vertices[vi + 1] *= uniformScale;
+                mesh.vertices[vi + 2] *= uniformScale;
+            }
         }
     }
 }
