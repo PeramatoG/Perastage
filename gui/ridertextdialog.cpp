@@ -105,7 +105,7 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
       new wxStaticBoxSizer(wxVERTICAL, this, "Rider text");
   textCtrl = new wxTextCtrl(editorSizer->GetStaticBox(), wxID_ANY, initialText,
                             wxDefaultPosition, wxDefaultSize,
-                            wxTE_MULTILINE | wxTE_RICH2);
+                            wxTE_MULTILINE | wxTE_RICH2 | wxTE_NOHIDESEL);
   textCtrl->SetMinSize(wxSize(680, 360));
   editorSizer->Add(textCtrl, 1, wxEXPAND | wxALL, 8);
 
