@@ -11,10 +11,12 @@ public:
 
   bool RestoreToDefaultFramebuffer(
       int width, int height, size_t cameraFingerprint,
+      size_t renderSignature,
       const std::unordered_set<std::string> &hiddenLayers,
       size_t sceneVersion) const;
   void CaptureFromDefaultFramebuffer(
       int width, int height, size_t cameraFingerprint,
+      size_t renderSignature,
       const std::unordered_set<std::string> &hiddenLayers,
       size_t sceneVersion);
   void Invalidate();
@@ -31,6 +33,7 @@ private:
 
   bool m_hasSnapshot = false;
   size_t m_lastCameraFingerprint = 0;
+  size_t m_lastRenderSignature = 0;
   std::unordered_set<std::string> m_lastHiddenLayers;
   size_t m_lastSceneVersion = static_cast<size_t>(-1);
 };

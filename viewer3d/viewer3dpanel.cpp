@@ -586,6 +586,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     InitGL();
 
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
+    const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
+    const size_t renderSignature = static_cast<size_t>(renderStyle);
     const bool highlightOnlyRefresh =
         m_highlightRefreshPending &&
         !m_controller.IsResourceSyncPending() &&
@@ -624,6 +626,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     if (highlightOnlyRefresh && m_basePassCache) {
         reusedBasePass = m_basePassCache->RestoreToDefaultFramebuffer(
             renderSize.width, renderSize.height, cameraFingerprint,
+            renderSignature,
             hiddenLayers, sceneVersion);
     }
 
@@ -639,6 +642,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         if (m_basePassCache) {
             m_basePassCache->CaptureFromDefaultFramebuffer(
                 renderSize.width, renderSize.height, cameraFingerprint,
+                renderSignature,
                 hiddenLayers, sceneVersion);
         }
     }
