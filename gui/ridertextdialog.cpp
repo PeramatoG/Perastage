@@ -37,6 +37,14 @@
 #include "consolepanel.h"
 #include "riderimporter.h"
 
+namespace {
+
+bool StartsWithInsensitive(const wxString &text, const wxString &prefix) {
+  return text.Lower().StartsWith(prefix.Lower());
+}
+
+} // namespace
+
 enum {
   ID_RiderText_Load = wxID_HIGHEST + 4200,
   ID_RiderText_Example,
@@ -462,12 +470,42 @@ void RiderTextDialog::ReplaceCurrentToken(const std::string &replacement) {
     return;
 
   const wxString text = textCtrl->GetValue();
+  const wxString replacementText = wxString::FromUTF8(replacement);
   long insertionPoint = textCtrl->GetInsertionPoint();
   insertionPoint = std::max<long>(0, std::min<long>(insertionPoint, text.length()));
 
   long tokenStart = insertionPoint;
   while (tokenStart > 0 && !IsTokenDelimiter(text[tokenStart - 1]))
     --tokenStart;
+
+  if (replacementText.Find(' ') != wxNOT_FOUND) {
+    long bestStart = tokenStart;
+    long candidateStart = tokenStart;
+    while (candidateStart > 0) {
+      long previousTokenEnd = candidateStart;
+      while (previousTokenEnd > 0 && IsTokenDelimiter(text[previousTokenEnd - 1]))
+        --previousTokenEnd;
+      if (previousTokenEnd == 0)
+        break;
+
+      long previousTokenStart = previousTokenEnd;
+      while (previousTokenStart > 0 &&
+             !IsTokenDelimiter(text[previousTokenStart - 1])) {
+        --previousTokenStart;
+      }
+
+      const wxString typedFragment =
+          text.Mid(previousTokenStart, insertionPoint - previousTokenStart);
+      if (typedFragment.empty() ||
+          !StartsWithInsensitive(replacementText, typedFragment)) {
+        break;
+      }
+
+      bestStart = previousTokenStart;
+      candidateStart = previousTokenStart;
+    }
+    tokenStart = bestStart;
+  }
 
   long tokenEnd = insertionPoint;
   while (tokenEnd < static_cast<long>(text.length()) &&
@@ -476,7 +514,6 @@ void RiderTextDialog::ReplaceCurrentToken(const std::string &replacement) {
   }
 
   suppressAutocompleteTextEvent = true;
-  const wxString replacementText = wxString::FromUTF8(replacement);
   textCtrl->Replace(tokenStart, tokenEnd, replacementText);
   textCtrl->SetInsertionPoint(tokenStart + replacementText.length());
   suppressAutocompleteTextEvent = false;
