@@ -13,6 +13,7 @@
 #include "opaque_truss_pass.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
+#include "core/gl_state_guard.h"
 
 #include <algorithm>
 
@@ -117,6 +118,17 @@ void IdPickPass::RebuildIfNeeded(
   if (!m_dirty && !cameraChanged && !layersChanged && !sceneChanged)
     return;
 
+  glstate::ScopedFramebufferViewportScissorState framebufferStateGuard;
+  const GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+  const GLboolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+  const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+  const GLboolean texture2DWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+  const GLboolean cullFaceWasEnabled = glIsEnabled(GL_CULL_FACE);
+  GLfloat clearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+  glGetFloatv(GL_COLOR_CLEAR_VALUE, clearColor);
+  GLint matrixMode = GL_MODELVIEW;
+  glGetIntegerv(GL_MATRIX_MODE, &matrixMode);
+
   glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
   glViewport(0, 0, width, height);
   glDisable(GL_BLEND);
@@ -169,9 +181,28 @@ void IdPickPass::RebuildIfNeeded(
   glMatrixMode(GL_PROJECTION);
   glPopMatrix();
   glMatrixMode(GL_MODELVIEW);
-
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+  glMatrixMode(matrixMode);
+  glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
+  if (blendWasEnabled)
+    glEnable(GL_BLEND);
+  else
+    glDisable(GL_BLEND);
+  if (depthTestWasEnabled)
+    glEnable(GL_DEPTH_TEST);
+  else
+    glDisable(GL_DEPTH_TEST);
+  if (lightingWasEnabled)
+    glEnable(GL_LIGHTING);
+  else
+    glDisable(GL_LIGHTING);
+  if (texture2DWasEnabled)
+    glEnable(GL_TEXTURE_2D);
+  else
+    glDisable(GL_TEXTURE_2D);
+  if (cullFaceWasEnabled)
+    glEnable(GL_CULL_FACE);
+  else
+    glDisable(GL_CULL_FACE);
 
   m_lastViewport = currentViewport;
   m_lastModel = currentModel;

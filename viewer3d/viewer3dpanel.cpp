@@ -1103,7 +1103,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         m_mode = InteractionMode::None;
         if (HasCapture())
             ReleaseMouse();
-        m_forceHoverQuery = true;
+        m_forceHoverQuery = !m_draggedSincePress;
         Refresh();
     }
 
