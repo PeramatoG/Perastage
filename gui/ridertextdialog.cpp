@@ -375,8 +375,9 @@ void RiderTextDialog::OnSuggestionClick(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void RiderTextDialog::OnDialogCharHook(wxKeyEvent &event) {
-  if (event.GetKeyCode() == WXK_ESCAPE && IsSuggestionPopupVisible()) {
-    HideSuggestionPopup();
+  if (event.GetKeyCode() == WXK_ESCAPE) {
+    if (IsSuggestionPopupVisible())
+      HideSuggestionPopup();
     return;
   }
   event.Skip();
