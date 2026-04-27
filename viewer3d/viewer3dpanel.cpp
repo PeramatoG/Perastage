@@ -163,7 +163,22 @@ wxPoint ToFramebufferPoint(wxWindow* window, const wxPoint& logicalPoint) {
 }
 
 Viewer3DRenderStyle ResolveRenderStyleFromPreferences() {
-    return ResolveViewer3DRenderStyle(ConfigManager::Get());
+    static Viewer3DRenderStyle s_lastResolvedStyle =
+        Viewer3DRenderStyle::Standard;
+    const ConfigManager& cfg = ConfigManager::Get();
+    const auto styleValue = cfg.GetValue("viewer3d_render_style");
+    if (!styleValue.has_value())
+        return s_lastResolvedStyle;
+
+    const Viewer3DRenderStyle resolved = ResolveViewer3DRenderStyle(cfg);
+    const bool unknownStyleValue =
+        resolved == Viewer3DRenderStyle::Standard &&
+        *styleValue != ToConfigValue(Viewer3DRenderStyle::Standard);
+    if (unknownStyleValue)
+        return s_lastResolvedStyle;
+
+    s_lastResolvedStyle = resolved;
+    return resolved;
 }
 
 bool IsWireframeRenderStyle(Viewer3DRenderStyle style) {
