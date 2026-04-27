@@ -292,14 +292,9 @@ if(WIN32)
         endif()
     endif()
 
-    foreach(_prefix IN LISTS CMAKE_PREFIX_PATH)
-        if(EXISTS "${_prefix}/bin")
-            list(APPEND PERASTAGE_VCPKG_BIN_DIRS "${_prefix}/bin")
-        endif()
-        if(EXISTS "${_prefix}/debug/bin")
-            list(APPEND PERASTAGE_VCPKG_DEBUG_BIN_DIRS "${_prefix}/debug/bin")
-        endif()
-    endforeach()
+    # Do not append CMAKE_PREFIX_PATH directories on Windows.
+    # They may include Visual Studio and Windows SDK paths that introduce
+    # API-set/system DLLs that must not be staged as runtime dependencies.
     list(REMOVE_DUPLICATES PERASTAGE_VCPKG_BIN_DIRS)
     list(REMOVE_DUPLICATES PERASTAGE_VCPKG_DEBUG_BIN_DIRS)
 
@@ -313,16 +308,14 @@ if(WIN32)
             CONFIGURATIONS Release RelWithDebInfo MinSizeRel
             DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
             PRE_EXCLUDE_REGEXES
-                ".*api-ms-win-.*\\.dll$"
-                ".*ext-ms-win-.*\\.dll$"
-                ".*api-ms-.*\\.dll$"
-                ".*ext-ms-.*\\.dll$"
-                "(?i).*AzureAttest.*\\.dll$"
-                "(?i).*HvsiFileTrust.*\\.dll$"
-                "(?i).*PdmUtilities.*\\.dll$"
-                "(?i).*WTDSENSOR.*\\.dll$"
-                ".*[Ww]paxholder\\.dll$"
-                ".*[Ww]tdccm\\.dll$"
+                "(?i).*api-ms-.*\\.dll$"
+                "(?i).*ext-ms-.*\\.dll$"
+                "(?i).*azureattest.*\\.dll$"
+                "(?i).*hvsifiletrust.*\\.dll$"
+                "(?i).*pdmutilities.*\\.dll$"
+                "(?i).*wtdsensor.*\\.dll$"
+                "(?i).*wpaxholder\\.dll$"
+                "(?i).*wtdccm\\.dll$"
             POST_EXCLUDE_REGEXES
                 ".*[Ww]indows[\\/].*"
                 ".*[Ss]ystem32[\\/].*"
@@ -338,16 +331,14 @@ if(WIN32)
             DESTINATION .
             DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
             PRE_EXCLUDE_REGEXES
-                ".*api-ms-win-.*\\.dll$"
-                ".*ext-ms-win-.*\\.dll$"
-                ".*api-ms-.*\\.dll$"
-                ".*ext-ms-.*\\.dll$"
-                "(?i).*AzureAttest.*\\.dll$"
-                "(?i).*HvsiFileTrust.*\\.dll$"
-                "(?i).*PdmUtilities.*\\.dll$"
-                "(?i).*WTDSENSOR.*\\.dll$"
-                ".*[Ww]paxholder\\.dll$"
-                ".*[Ww]tdccm\\.dll$"
+                "(?i).*api-ms-.*\\.dll$"
+                "(?i).*ext-ms-.*\\.dll$"
+                "(?i).*azureattest.*\\.dll$"
+                "(?i).*hvsifiletrust.*\\.dll$"
+                "(?i).*pdmutilities.*\\.dll$"
+                "(?i).*wtdsensor.*\\.dll$"
+                "(?i).*wpaxholder\\.dll$"
+                "(?i).*wtdccm\\.dll$"
             POST_EXCLUDE_REGEXES
                 ".*[Ww]indows[\\/].*"
                 ".*[Ss]ystem32[\\/].*"
