@@ -635,7 +635,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                 .count();
         m_fullRenderMsAccumInCurrentWindow += fullRenderElapsedMs;
         ++m_fullRenderSamplesInCurrentWindow;
-        if (m_basePassCache) {
+        if (m_basePassCache && !m_cameraMoving && !m_isInteracting) {
             m_basePassCache->CaptureFromDefaultFramebuffer(
                 renderSize.width, renderSize.height, cameraFingerprint,
                 hiddenLayers, sceneVersion);
