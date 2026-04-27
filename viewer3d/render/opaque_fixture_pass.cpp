@@ -256,10 +256,15 @@ const Mesh &ResolveMovingProxyMesh(const Mesh &source,
           vertexCount, sizeof(float) * 3, targetIndexCount, kProxySimplifyError,
           nullptr);
     }
-    if (simplifiedCount < 3 || simplifiedCount >= indexCount * 95 / 100) {
+    const size_t acceptableUpperBound = std::max(
+        targetIndexCount + targetIndexCount / 4,
+        std::min(indexCount, indexCount * 4 / 5));
+    if (simplifiedCount < 3 || simplifiedCount >= indexCount * 95 / 100 ||
+        simplifiedCount > acceptableUpperBound) {
       // Safety net for very large/complex 32-bit meshes where meshoptimizer
-      // cannot reduce enough: force a coarse triangle subsample so every heavy
-      // fixture still gets a lighter proxy while moving the camera.
+      // cannot reduce enough towards the requested budget: force a coarse
+      // triangle subsample so every heavy fixture still gets a lighter proxy
+      // while moving the camera.
       const size_t sourceTriangles = indexCount / 3;
       const size_t targetTriangles =
           std::max<size_t>(1, targetIndexCount / 3);
