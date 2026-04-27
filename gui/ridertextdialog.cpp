@@ -119,7 +119,7 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   editorSizer->Add(autocompleteHelp, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
   mainSizer->Add(editorSizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
 
-  suggestionPopup = new wxPopupTransientWindow(this, wxBORDER_SIMPLE);
+  suggestionPopup = new wxPopupWindow(this, wxBORDER_SIMPLE);
   wxBoxSizer *popupSizer = new wxBoxSizer(wxVERTICAL);
   suggestionList = new wxListBox(suggestionPopup, wxID_ANY);
   popupSizer->Add(suggestionList, 1, wxEXPAND);
@@ -458,14 +458,14 @@ void RiderTextDialog::RefreshAutocompleteSuggestions() {
   const int visibleRows = std::min<int>(6, suggestionList->GetCount());
   const wxSize popupSize(std::max(280, textCtrl->GetSize().GetWidth() / 2),
                          std::max(120, visibleRows * (textCtrl->GetCharHeight() + 8)));
-  suggestionPopup->SetSize(popupAnchor.x, popupAnchor.y, popupSize.GetWidth(),
-                           popupSize.GetHeight());
-  suggestionPopup->Popup(textCtrl);
+  suggestionPopup->SetSize(popupSize.GetWidth(), popupSize.GetHeight());
+  suggestionPopup->Position(popupAnchor, wxSize(0, 0));
+  suggestionPopup->Show();
 }
 
 void RiderTextDialog::HideSuggestionPopup() {
   if (suggestionPopup && suggestionPopup->IsShown())
-    suggestionPopup->Dismiss();
+    suggestionPopup->Hide();
 }
 
 bool RiderTextDialog::AcceptCurrentSuggestion() {

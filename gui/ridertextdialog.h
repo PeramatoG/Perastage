@@ -27,7 +27,7 @@
 class wxTextCtrl;
 class wxStaticText;
 class wxListBox;
-class wxPopupTransientWindow;
+class wxPopupWindow;
 
 #include "ridertext_autocomplete_provider.h"
 
@@ -60,7 +60,7 @@ private:
 
   wxTextCtrl *textCtrl = nullptr;
   wxStaticText *sourceText = nullptr;
-  wxPopupTransientWindow *suggestionPopup = nullptr;
+  wxPopupWindow *suggestionPopup = nullptr;
   wxListBox *suggestionList = nullptr;
   wxString sourceLabel;
   bool sourceLoadedFromFile = false;
