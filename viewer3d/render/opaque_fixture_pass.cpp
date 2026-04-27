@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cfloat>
 #include <filesystem>
 #include <optional>
 #include <unordered_map>
@@ -35,6 +36,7 @@
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer3dcontroller.h"
 #include "gdtfloader.h"
+#include <meshoptimizer.h>
 
 namespace {
 namespace fs = std::filesystem;
@@ -127,6 +129,175 @@ std::vector<SymbolViewKind> BuildSymbolViewCandidates(SymbolViewKind requested) 
 }
 
 std::array<float, 3> BuildSvgVertexForView(float x, float y, Viewer2DView view);
+
+struct FrustumPlanes {
+  std::array<std::array<float, 4>, 6> planes{};
+};
+
+FrustumPlanes BuildCurrentFrustumPlanes() {
+  std::array<float, 16> model{};
+  std::array<float, 16> projection{};
+  glGetFloatv(GL_MODELVIEW_MATRIX, model.data());
+  glGetFloatv(GL_PROJECTION_MATRIX, projection.data());
+
+  std::array<float, 16> clip{};
+  for (int row = 0; row < 4; ++row) {
+    for (int col = 0; col < 4; ++col) {
+      clip[row * 4 + col] = model[row * 4 + 0] * projection[0 * 4 + col] +
+                            model[row * 4 + 1] * projection[1 * 4 + col] +
+                            model[row * 4 + 2] * projection[2 * 4 + col] +
+                            model[row * 4 + 3] * projection[3 * 4 + col];
+    }
+  }
+
+  FrustumPlanes out;
+  out.planes[0] = {clip[3] - clip[0], clip[7] - clip[4], clip[11] - clip[8],
+                   clip[15] - clip[12]}; // right
+  out.planes[1] = {clip[3] + clip[0], clip[7] + clip[4], clip[11] + clip[8],
+                   clip[15] + clip[12]}; // left
+  out.planes[2] = {clip[3] + clip[1], clip[7] + clip[5], clip[11] + clip[9],
+                   clip[15] + clip[13]}; // bottom
+  out.planes[3] = {clip[3] - clip[1], clip[7] - clip[5], clip[11] - clip[9],
+                   clip[15] - clip[13]}; // top
+  out.planes[4] = {clip[3] - clip[2], clip[7] - clip[6], clip[11] - clip[10],
+                   clip[15] - clip[14]}; // far
+  out.planes[5] = {clip[3] + clip[2], clip[7] + clip[6], clip[11] + clip[10],
+                   clip[15] + clip[14]}; // near
+
+  for (auto &plane : out.planes) {
+    const float length =
+        std::sqrt(plane[0] * plane[0] + plane[1] * plane[1] + plane[2] * plane[2]);
+    if (length > FLT_EPSILON) {
+      plane[0] /= length;
+      plane[1] /= length;
+      plane[2] /= length;
+      plane[3] /= length;
+    }
+  }
+  return out;
+}
+
+bool SphereOutsideFrustum(const FrustumPlanes &frustum, float x, float y, float z,
+                          float radius) {
+  for (const auto &plane : frustum.planes) {
+    const float distance =
+        plane[0] * x + plane[1] * y + plane[2] * z + plane[3];
+    if (distance < -radius)
+      return true;
+  }
+  return false;
+}
+
+const Mesh &ResolveMovingProxyMesh(const Mesh &source,
+                                   Viewer3DController &controller) {
+  const size_t sourceTriangleCount = source.indices.size() / 3;
+  // Do not proxy very small meshes; simplification artifacts are more visible
+  // than the potential performance gain for tiny triangle counts.
+  if (sourceTriangleCount <= 500)
+    return source;
+
+  auto computeProxyRatio = [](size_t triangleCount) {
+    if (triangleCount <= 2'000)
+      return 0.60f;
+    if (triangleCount <= 10'000)
+      return 0.35f;
+    if (triangleCount <= 50'000)
+      return 0.20f;
+    if (triangleCount <= 200'000)
+      return 0.10f;
+    return 0.05f;
+  };
+
+  static std::unordered_map<const Mesh *, Mesh> proxyCache;
+  auto it = proxyCache.find(&source);
+  if (it != proxyCache.end())
+    return it->second;
+
+  Mesh proxy = source;
+  proxy.buffersReady = false;
+  proxy.vao = 0;
+  proxy.vboVertices = 0;
+  proxy.vboNormals = 0;
+  proxy.vboTexCoords = 0;
+  proxy.vboFlatVertices = 0;
+  proxy.vboFlatNormals = 0;
+  proxy.eboTriangles = 0;
+  proxy.eboLines = 0;
+
+  const size_t vertexCount = proxy.vertices.size() / 3;
+  if (vertexCount >= 3 && proxy.indices.size() >= 3) {
+    constexpr float kProxySimplifyError = 0.01f;
+    constexpr float kProxyOverdrawThreshold = 1.05f;
+    constexpr size_t kProxyMinTriangles = 300;
+    constexpr size_t kProxyMaxTriangles = 25'000;
+
+    const size_t indexCount = proxy.indices.size();
+    const float proxyRatio = computeProxyRatio(sourceTriangleCount);
+    const size_t requestedTriangles =
+        static_cast<size_t>(static_cast<float>(sourceTriangleCount) * proxyRatio);
+    const size_t targetTriangles = std::clamp(
+        requestedTriangles,
+        std::min(kProxyMinTriangles, sourceTriangleCount),
+        std::min(kProxyMaxTriangles, sourceTriangleCount));
+    const size_t targetIndexCount = std::max<size_t>(3, targetTriangles * 3);
+
+    std::vector<uint32_t> simplified(indexCount);
+    size_t simplifiedCount = meshopt_simplify(
+        simplified.data(), proxy.indices.data(), indexCount, proxy.vertices.data(),
+        vertexCount, sizeof(float) * 3, targetIndexCount, kProxySimplifyError, 0,
+        nullptr);
+    // Some dense/non-manifold fixtures (often 32-bit/high-poly assets) can be
+    // too constrained for the strict simplifier and end up almost unchanged.
+    // Fall back to sloppy simplification so moving-camera proxies are produced
+    // for those heavy fixtures as well.
+    if (simplifiedCount < 3 || simplifiedCount >= indexCount * 95 / 100) {
+      simplifiedCount = meshopt_simplifySloppy(
+          simplified.data(), proxy.indices.data(), indexCount, proxy.vertices.data(),
+          vertexCount, sizeof(float) * 3, targetIndexCount, kProxySimplifyError,
+          nullptr);
+    }
+    if (simplifiedCount < 3 || simplifiedCount >= indexCount * 95 / 100) {
+      // Safety net for very large/complex 32-bit meshes where meshoptimizer
+      // cannot reduce enough: force a coarse triangle subsample so every heavy
+      // fixture still gets a lighter proxy while moving the camera.
+      const size_t sourceTriangles = indexCount / 3;
+      const size_t targetTriangles =
+          std::max<size_t>(1, targetIndexCount / 3);
+      simplified.clear();
+      simplified.reserve(targetTriangles * 3);
+      for (size_t t = 0; t < targetTriangles; ++t) {
+        const size_t sourceTri = (t * sourceTriangles) / targetTriangles;
+        const size_t base = sourceTri * 3;
+        if (base + 2 >= proxy.indices.size())
+          break;
+        simplified.push_back(proxy.indices[base]);
+        simplified.push_back(proxy.indices[base + 1]);
+        simplified.push_back(proxy.indices[base + 2]);
+      }
+      simplifiedCount = simplified.size();
+    }
+    if (simplifiedCount < 3)
+      simplifiedCount = indexCount;
+    simplified.resize(simplifiedCount);
+
+    std::vector<uint32_t> cacheOptimized(simplified.size());
+    meshopt_optimizeVertexCache(cacheOptimized.data(), simplified.data(),
+                                simplified.size(), vertexCount);
+
+    std::vector<uint32_t> overdrawOptimized(cacheOptimized.size());
+    meshopt_optimizeOverdraw(overdrawOptimized.data(), cacheOptimized.data(),
+                             cacheOptimized.size(), proxy.vertices.data(),
+                             vertexCount, sizeof(float) * 3,
+                             kProxyOverdrawThreshold);
+    proxy.indices = std::move(overdrawOptimized);
+  }
+
+  // Upload proxy mesh once so moving-camera rendering stays on the GPU path
+  // instead of falling back to immediate-mode CPU submission.
+  controller.EnsureMeshGpuBuffers(proxy);
+
+  return proxyCache.emplace(&source, std::move(proxy)).first->second;
+}
 
 struct SvgTessellationContext {
   std::vector<std::array<GLdouble, 3>> generatedVertices;
@@ -518,6 +689,9 @@ void OpaqueFixturePass::Render(
   }
   FixtureInstancedBatches fixtureInstancedBatches;
   FixtureRenderMetrics frameMetrics;
+  // Build once per pass and reject fixtures whose bounding sphere is fully
+  // outside the camera frustum before issuing GPU work.
+  const FrustumPlanes frustumPlanes = BuildCurrentFrustumPlanes();
   auto RenderFixtureInstancedBatches =
       [&](const FixtureInstancedBatches &batches) {
         size_t drawCalls = 0;
@@ -549,6 +723,20 @@ void OpaqueFixturePass::Render(
     if (fixtureIt == fixtures.end())
       continue;
     const auto &f = fixtureIt->second;
+
+    auto fbit = controller.m_fixtureBounds.find(uuid);
+    if (fbit != controller.m_fixtureBounds.end()) {
+      const float sx = (fbit->second.min[0] + fbit->second.max[0]) * 0.5f;
+      const float sy = (fbit->second.min[1] + fbit->second.max[1]) * 0.5f;
+      const float sz = (fbit->second.min[2] + fbit->second.max[2]) * 0.5f;
+      const float dx = fbit->second.max[0] - sx;
+      const float dy = fbit->second.max[1] - sy;
+      const float dz = fbit->second.max[2] - sz;
+      const float radius = std::sqrt(dx * dx + dy * dy + dz * dz);
+      if (SphereOutsideFrustum(frustumPlanes, sx, sy, sz, radius))
+        continue;
+    }
+
     glPushMatrix();
 
     std::string fixtureCaptureKey;
@@ -571,7 +759,7 @@ void OpaqueFixturePass::Render(
     controller.ApplyTransform(matrix, true);
 
     float cx = 0.0f, cy = 0.0f, cz = 0.0f;
-    auto fbit = controller.m_fixtureBounds.find(uuid);
+    fbit = controller.m_fixtureBounds.find(uuid);
     if (fbit != controller.m_fixtureBounds.end()) {
       cx = (fbit->second.min[0] + fbit->second.max[0]) * 0.5f;
       cy = (fbit->second.min[1] + fbit->second.max[1]) * 0.5f;
@@ -861,9 +1049,21 @@ void OpaqueFixturePass::Render(
           Matrix worldMatrix = MatrixUtils::Multiply(f.transform, obj.transform);
           float worldMatrixArray[16];
           MatrixToArray(worldMatrix, worldMatrixArray);
-          AddFixtureInstancedDraw(fixtureInstancedBatches, obj.mesh, r, g, b, false,
-                                  wireframe, mode, RENDER_SCALE, cx, cy, cz,
-                                  matrix, localMatrix, worldMatrixArray);
+          float partR = r;
+          float partG = g;
+          float partB = b;
+          if (!is2DViewer && obj.isLens) {
+            const bool isWhiteRenderMode =
+                controller.IsPureWhiteRenderStyleEnabled();
+            partR = 1.0f;
+            partG = isWhiteRenderMode ? 1.0f : 0.78f;
+            partB = isWhiteRenderMode ? 1.0f : 0.35f;
+          }
+          const bool drawUnlit = !is2DViewer && obj.isLens;
+          const Mesh &proxyMesh = ResolveMovingProxyMesh(obj.mesh, controller);
+          AddFixtureInstancedDraw(fixtureInstancedBatches, proxyMesh, partR, partG,
+                                  partB, drawUnlit, wireframe, mode, RENDER_SCALE,
+                                  cx, cy, cz, matrix, localMatrix, worldMatrixArray);
         }
       } else {
         AddFixtureInstancedDraw(fixtureInstancedBatches, FallbackFixtureCubeMesh(),
@@ -876,8 +1076,12 @@ void OpaqueFixturePass::Render(
       continue;
     }
 
+    // Proxy/instanced fixture batching is reserved for the fast-interaction
+    // path while the camera is moving. When the camera is static we draw full
+    // geometry directly to avoid persistent proxy rendering.
     const bool eligibleForFixtureInstancedBatch =
-        !highlight && !selected && !captureRecordingActive;
+        context.skipOptionalWork && !highlight && !selected &&
+        !captureRecordingActive;
     if (eligibleForFixtureInstancedBatch) {
       ++frameMetrics.instancedFixtures;
       if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {

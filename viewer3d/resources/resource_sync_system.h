@@ -2,11 +2,13 @@
 
 #include "mesh.h"
 #include "gdtfloader.h"
+#include "mesh_processing.h"
 #include "fixture.h"
 #include "sceneobject.h"
 #include "truss.h"
 
 #include <functional>
+#include <optional>
 #include <chrono>
 #include <string>
 #include <unordered_map>
@@ -59,6 +61,7 @@ struct ResourceSyncCallbacks {
   std::function<void(Mesh &)> setupMeshBuffers;
   std::function<void(Mesh &)> releaseMeshBuffers;
   std::function<void(const std::string &)> appendConsoleMessage;
+  std::optional<viewer3d::resources::MeshProcessingOptions> meshProcessingOptions;
 };
 
 struct ResourceSyncResult {

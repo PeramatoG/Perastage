@@ -164,6 +164,7 @@ public:
   void SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
                         bool includeGrid = true,
                         bool useSymbolInstancing = false);
+  void EnsureMeshGpuBuffers(Mesh &mesh);
   void SetForceBottomViewForTopFixturesOverride(const std::optional<bool> &value);
   void SetSymbolCaptureRenderProfileOverride(const std::optional<bool> &value);
   void SetSymbolCaptureIncludeCoplanarEdgesOverride(

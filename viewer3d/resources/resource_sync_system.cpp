@@ -1,4 +1,5 @@
 #include "resource_sync_system.h"
+#include "mesh_processing.h"
 
 #include "loader3ds.h"
 #include "loaderglb.h"
@@ -408,19 +409,34 @@ FixtureSceneNode BuildInstancedFixtureNode(const GdtfNode3D &templateNode,
 
 void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
                        const ResourceSyncCallbacks &callbacks,
+                       const viewer3d::resources::MeshProcessingOptions &meshProcessingOptions,
                        bool &assetsChanged) {
   if (path.empty() || state.loadedMeshes.find(path) != state.loadedMeshes.end())
     return;
 
   Mesh mesh;
   bool loaded = false;
+
+  if (meshProcessingOptions.enableDiskCache &&
+      viewer3d::resources::TryLoadMeshCache(path, mesh)) {
+    loaded = true;
+  }
+
   std::string ext = fs::path(path).extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-  if (ext == ".3ds")
-    loaded = Load3DS(path, mesh);
-  else if (ext == ".glb")
-    loaded = LoadGLB(path, mesh);
+  if (!loaded) {
+    if (ext == ".3ds")
+      loaded = Load3DS(path, mesh);
+    else if (ext == ".glb")
+      loaded = LoadGLB(path, mesh);
+
+    if (loaded && meshProcessingOptions.enableMeshOptimization)
+      viewer3d::resources::OptimizeMeshForRuntime(mesh);
+
+    if (loaded && meshProcessingOptions.enableDiskCache)
+      viewer3d::resources::TrySaveMeshCache(path, mesh);
+  }
 
   if (loaded) {
     if (callbacks.setupMeshBuffers)
@@ -465,6 +481,10 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     const std::vector<const std::pair<const std::string, Fixture> *> &visibleFixtures,
     ResourceSyncState &state, const ResourceSyncCallbacks &callbacks) {
   ResourceSyncResult result;
+
+  const viewer3d::resources::MeshProcessingOptions meshProcessingOptions =
+      callbacks.meshProcessingOptions.value_or(
+          viewer3d::resources::MeshProcessingOptions{});
 
   if (state.lastSceneBasePath != basePath) {
     for (auto &[path, mesh] : state.loadedMeshes) {
@@ -602,7 +622,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
         (pathIt != state.resolvedModelRefs.end() && pathIt->second.attempted)
             ? pathIt->second.resolvedPath
             : std::string();
-    EnsureModelLoaded(path, state, callbacks, result.assetsChanged);
+    EnsureModelLoaded(path, state, callbacks, meshProcessingOptions, result.assetsChanged);
   }
 
   for (const auto *entry : visibleObjects) {
@@ -614,7 +634,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
             (pathIt != state.resolvedModelRefs.end() && pathIt->second.attempted)
                 ? pathIt->second.resolvedPath
                 : std::string();
-        EnsureModelLoaded(path, state, callbacks, result.assetsChanged);
+        EnsureModelLoaded(path, state, callbacks, meshProcessingOptions, result.assetsChanged);
       }
       continue;
     }
@@ -624,7 +644,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
         (pathIt != state.resolvedModelRefs.end() && pathIt->second.attempted)
             ? pathIt->second.resolvedPath
             : std::string();
-    EnsureModelLoaded(path, state, callbacks, result.assetsChanged);
+    EnsureModelLoaded(path, state, callbacks, meshProcessingOptions, result.assetsChanged);
   }
 
   std::unordered_map<std::string, size_t> gdtfErrorCounts;
@@ -668,7 +688,16 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     if (state.loadedGdtf.find(gdtfPath) == state.loadedGdtf.end()) {
       std::vector<GdtfObject> objs;
       std::string gdtfError;
-      if (LoadGdtf(gdtfPath, objs, &gdtfError)) {
+      if (meshProcessingOptions.enableDiskCache &&
+          viewer3d::resources::TryLoadGdtfCache(gdtfPath, objs)) {
+      } else if (LoadGdtf(gdtfPath, objs, &gdtfError)) {
+        if (meshProcessingOptions.enableMeshOptimization)
+          viewer3d::resources::OptimizeGdtfObjectsForRuntime(objs);
+        if (meshProcessingOptions.enableDiskCache)
+          viewer3d::resources::TrySaveGdtfCache(gdtfPath, objs);
+      }
+
+      if (!objs.empty()) {
         SetupGdtfMeshBuffers(objs, callbacks);
         state.loadedGdtf[gdtfPath] = std::move(objs);
         state.failedGdtfAttemptCounts.erase(gdtfPath);

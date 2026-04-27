@@ -80,6 +80,7 @@ endif()
 find_package(OpenGL REQUIRED)
 find_package(CURL REQUIRED)
 find_package(GLEW REQUIRED)
+find_package(meshoptimizer CONFIG REQUIRED)
 if(WIN32)
     find_package(nanovg CONFIG REQUIRED)
     find_package(podofo CONFIG REQUIRED)
@@ -236,6 +237,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     OpenGL::GLU
     GLEW::GLEW
     CURL::libcurl
+    meshoptimizer::meshoptimizer
     nanovg::nanovg
     podofo::podofo
     ZLIB::ZLIB
