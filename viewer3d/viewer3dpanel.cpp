@@ -267,8 +267,11 @@ void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
     const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
     const GLboolean cullFaceWasEnabled = glIsEnabled(GL_CULL_FACE);
     const GLboolean texture2DWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+    GLint shadeModel = GL_SMOOTH;
+    glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
 
     glDisable(GL_DEPTH_TEST);
+    glShadeModel(GL_SMOOTH);
     glDisable(GL_LIGHTING);
     glDisable(GL_CULL_FACE);
     glDisable(GL_TEXTURE_2D);
@@ -313,6 +316,7 @@ void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
         glEnable(GL_CULL_FACE);
     if (texture2DWasEnabled)
         glEnable(GL_TEXTURE_2D);
+    glShadeModel(shadeModel);
 }
 
 void DrawTexturedGroundPlaneBackdrop() {
@@ -320,8 +324,11 @@ void DrawTexturedGroundPlaneBackdrop() {
     const GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
     const GLboolean cullFaceWasEnabled = glIsEnabled(GL_CULL_FACE);
     const GLboolean texture2DWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+    GLint shadeModel = GL_SMOOTH;
+    glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
 
     glDisable(GL_DEPTH_TEST);
+    glShadeModel(GL_SMOOTH);
     glDisable(GL_LIGHTING);
     glDisable(GL_CULL_FACE);
     glDisable(GL_TEXTURE_2D);
@@ -351,6 +358,7 @@ void DrawTexturedGroundPlaneBackdrop() {
         glEnable(GL_CULL_FACE);
     if (texture2DWasEnabled)
         glEnable(GL_TEXTURE_2D);
+    glShadeModel(shadeModel);
 }
 
 std::vector<std::string> BuildFixtureSelectionByType(
@@ -635,7 +643,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                 .count();
         m_fullRenderMsAccumInCurrentWindow += fullRenderElapsedMs;
         ++m_fullRenderSamplesInCurrentWindow;
-        if (m_basePassCache) {
+        if (m_basePassCache && !m_cameraMoving && !m_isInteracting) {
             m_basePassCache->CaptureFromDefaultFramebuffer(
                 renderSize.width, renderSize.height, cameraFingerprint,
                 hiddenLayers, sceneVersion);
