@@ -340,6 +340,7 @@ void SceneObjectTablePanel::ReloadData()
 
 void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
 {
+    EnsureRowMappingsSynced();
     wxDataViewItem item = event.GetItem();
     int col = event.GetColumn();
     if (!item.IsOk() || col < 0)
@@ -651,6 +652,7 @@ void SceneObjectTablePanel::OnMouseMove(wxMouseEvent& evt)
 
 void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
 {
+    EnsureRowMappingsSynced();
     const selection::Origin origin = selection::CurrentOrigin();
     if (origin == selection::Origin::Viewer2D ||
         origin == selection::Origin::Viewer3D) {
@@ -943,6 +945,7 @@ std::vector<std::string> SceneObjectTablePanel::GetSelectedUuids() const {
 
 void SceneObjectTablePanel::SelectByUuid(const std::vector<std::string>& uuids,
                                          bool notifySelectionChanged) {
+    EnsureRowMappingsSynced();
     std::unique_ptr<wxEventBlocker> selectionBlocker;
     if (!notifySelectionChanged) {
         selectionBlocker = std::make_unique<wxEventBlocker>(
@@ -964,6 +967,7 @@ void SceneObjectTablePanel::SelectByUuid(const std::vector<std::string>& uuids,
 
 void SceneObjectTablePanel::DeleteSelected(bool pushUndoState)
 {
+    EnsureRowMappingsSynced();
     wxDataViewItemArray selections;
     table->GetSelections(selections);
     if (selections.empty())
@@ -1056,6 +1060,34 @@ void SceneObjectTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
             table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
     }
     UpdateSelectionHighlight();
+}
+
+void SceneObjectTablePanel::EnsureRowMappingsSynced()
+{
+    if (!table || !store)
+        return;
+
+    const unsigned int count = table->GetItemCount();
+    if (count == 0 || rowUuids.empty())
+        return;
+
+    const std::vector<std::string> oldOrder = rowUuids;
+    const std::vector<wxString> oldPaths = modelPaths;
+    std::vector<std::string> newOrder(count);
+    std::vector<wxString> newPaths(count);
+
+    for (unsigned int i = 0; i < count; ++i) {
+        wxDataViewItem it = table->RowToItem(i);
+        const unsigned long idx = store->GetItemData(it);
+        if (idx < oldOrder.size())
+            newOrder[i] = oldOrder[idx];
+        if (idx < oldPaths.size())
+            newPaths[i] = oldPaths[idx];
+        store->SetItemData(it, i);
+    }
+
+    rowUuids.swap(newOrder);
+    modelPaths.swap(newPaths);
 }
 
 void SceneObjectTablePanel::OnColumnSorted(wxDataViewEvent& event)

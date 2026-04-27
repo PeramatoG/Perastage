@@ -557,6 +557,7 @@ void FixtureTablePanel::ReloadData() {
 }
 
 void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
+  EnsureRowMappingsSynced();
   wxDataViewItem item = event.GetItem();
   int col = event.GetColumn();
   if (!item.IsOk() || col < 0)
@@ -1283,6 +1284,7 @@ std::vector<std::string> FixtureTablePanel::GetSelectedUuids() const {
 
 void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
                                      bool notifySelectionChanged) {
+  EnsureRowMappingsSynced();
   std::unique_ptr<wxEventBlocker> selectionBlocker;
   if (!notifySelectionChanged)
     selectionBlocker = std::make_unique<wxEventBlocker>(table, wxEVT_DATAVIEW_SELECTION_CHANGED);
@@ -1303,6 +1305,7 @@ void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
 }
 
 void FixtureTablePanel::DeleteSelected(bool pushUndoState) {
+  EnsureRowMappingsSynced();
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   if (selections.empty())
@@ -1505,6 +1508,7 @@ void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
 }
 
 void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
+  EnsureRowMappingsSynced();
   const selection::Origin origin = selection::CurrentOrigin();
   if (origin == selection::Origin::Viewer2D ||
       origin == selection::Origin::Viewer3D) {
@@ -1841,6 +1845,34 @@ void FixtureTablePanel::ResyncRows(
     }
   }
   UpdateSelectionHighlight();
+}
+
+void FixtureTablePanel::EnsureRowMappingsSynced() {
+  if (!table || !store)
+    return;
+
+  const unsigned int count = table->GetItemCount();
+  if (count == 0 || rowUuids.empty())
+    return;
+
+  const std::vector<std::string> oldOrder = rowUuids;
+  const std::vector<wxString> oldPaths = gdtfPaths;
+  std::vector<std::string> newOrder(count);
+  std::vector<wxString> newPaths(count);
+
+  for (unsigned int i = 0; i < count; ++i) {
+    const wxDataViewItem it = table->RowToItem(i);
+    const unsigned long idx = store->GetItemData(it);
+    if (idx < oldOrder.size())
+      newOrder[i] = oldOrder[idx];
+    if (idx < oldPaths.size())
+      newPaths[i] = oldPaths[idx];
+    store->SetItemData(it, i);
+  }
+
+  rowUuids.swap(newOrder);
+  gdtfPaths.swap(newPaths);
+  selectionOrder = ReindexSelectionOrder(selectionOrder, oldOrder, rowUuids);
 }
 
 void FixtureTablePanel::OnColumnSorted(wxDataViewEvent &event) {
