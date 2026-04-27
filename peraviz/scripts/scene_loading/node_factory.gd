@@ -321,10 +321,15 @@ func _load_3d_asset(asset_path: String, loader: PeravizLoader, asset_cache: Pera
 			return cached_mesh_instance
 		var mesh_data: Dictionary = loader.load_3ds_mesh_data(asset_path)
 		if not bool(mesh_data.get("ok", false)):
+			var parse_error: String = str(mesh_data.get("error", "unknown 3DS parse error"))
+			push_warning("[Peraviz] Failed to parse 3DS mesh: %s (%s)" % [asset_path, parse_error])
 			asset_cache.mark_failed(asset_path)
 			return null
 		var mesh: ArrayMesh = _build_3ds_mesh(mesh_data, flip_orientation)
 		if mesh == null:
+			var vertex_count: int = int((mesh_data.get("vertices", PackedVector3Array()) as PackedVector3Array).size())
+			var index_count: int = int((mesh_data.get("indices", PackedInt32Array()) as PackedInt32Array).size())
+			push_warning("[Peraviz] Failed to build ArrayMesh from 3DS data: %s (vertices=%d indices=%d)" % [asset_path, vertex_count, index_count])
 			asset_cache.mark_failed(asset_path)
 			return null
 		asset_cache.store_mesh(mesh_cache_key, mesh)

@@ -479,14 +479,16 @@ void parse_mesh_chunk(std::ifstream &file, std::streampos mesh_end, MeshData &me
     }
 }
 
-bool load_3ds(const std::string &path, MeshData &mesh) {
+bool load_3ds(const std::string &path, MeshData &mesh, std::string &error_message) {
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
+        error_message = "Could not open file";
         return false;
     }
 
     Chunk root;
     if (!read_chunk(file, root) || root.id != 0x4D4D) {
+        error_message = "Invalid 3DS root chunk";
         return false;
     }
 
@@ -549,6 +551,7 @@ bool load_3ds(const std::string &path, MeshData &mesh) {
     }
 
     if (mesh.vertices.empty() || mesh.indices.empty()) {
+        error_message = "3DS parsed but mesh had no triangles";
         return false;
     }
 
@@ -580,6 +583,7 @@ bool load_3ds(const std::string &path, MeshData &mesh) {
 
     ensure_godot_clockwise_winding(mesh);
     compute_normals(mesh);
+    error_message.clear();
     return true;
 }
 
@@ -598,8 +602,12 @@ bool load_3ds_mesh_data(const godot::String &path,
                         godot::String &out_error) {
     MeshData mesh;
     const std::string utf8_path(path.utf8().get_data());
-    if (!load_3ds(utf8_path, mesh)) {
-        out_error = godot::String("Failed to parse 3DS mesh");
+    std::string parse_error;
+    if (!load_3ds(utf8_path, mesh, parse_error)) {
+        if (parse_error.empty()) {
+            parse_error = "Failed to parse 3DS mesh";
+        }
+        out_error = godot::String(parse_error.c_str());
         return false;
     }
 
