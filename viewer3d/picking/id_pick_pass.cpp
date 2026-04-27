@@ -13,7 +13,7 @@
 #include "opaque_truss_pass.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
-#include "core/gl_state_guard.h"
+#include "gl_state_guard.h"
 
 #include <algorithm>
 
