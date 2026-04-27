@@ -105,7 +105,7 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
       new wxStaticBoxSizer(wxVERTICAL, this, "Rider text");
   textCtrl = new wxTextCtrl(editorSizer->GetStaticBox(), wxID_ANY, initialText,
                             wxDefaultPosition, wxDefaultSize,
-                            wxTE_MULTILINE | wxTE_RICH2);
+                            wxTE_MULTILINE | wxTE_RICH2 | wxTE_NOHIDESEL);
   textCtrl->SetMinSize(wxSize(680, 360));
   editorSizer->Add(textCtrl, 1, wxEXPAND | wxALL, 8);
 
@@ -119,7 +119,7 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   editorSizer->Add(autocompleteHelp, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
   mainSizer->Add(editorSizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
 
-  suggestionPopup = new wxPopupTransientWindow(this, wxBORDER_SIMPLE);
+  suggestionPopup = new wxPopupWindow(this, wxBORDER_SIMPLE);
   wxBoxSizer *popupSizer = new wxBoxSizer(wxVERTICAL);
   suggestionList = new wxListBox(suggestionPopup, wxID_ANY);
   popupSizer->Add(suggestionList, 1, wxEXPAND);
@@ -129,6 +129,8 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   if (textCtrl) {
     textCtrl->Bind(wxEVT_TEXT, &RiderTextDialog::OnTextChanged, this);
     textCtrl->Bind(wxEVT_KEY_DOWN, &RiderTextDialog::OnTextKeyDown, this);
+    textCtrl->Bind(wxEVT_LEFT_DOWN, &RiderTextDialog::OnTextMouseDown, this);
+    textCtrl->Bind(wxEVT_RIGHT_DOWN, &RiderTextDialog::OnTextMouseDown, this);
   }
   if (suggestionList) {
     suggestionList->Bind(wxEVT_LISTBOX_DCLICK,
@@ -338,6 +340,12 @@ void RiderTextDialog::OnTextChanged(wxCommandEvent &event) {
 }
 
 void RiderTextDialog::OnTextKeyDown(wxKeyEvent &event) {
+  if (event.ControlDown() || event.CmdDown() || event.AltDown()) {
+    HideSuggestionPopup();
+    event.Skip();
+    return;
+  }
+
   if (IsSuggestionPopupVisible()) {
     switch (event.GetKeyCode()) {
     case WXK_UP:
@@ -378,6 +386,11 @@ void RiderTextDialog::OnAutocompleteTimer(wxTimerEvent &WXUNUSED(event)) {
   RefreshAutocompleteSuggestions();
 }
 
+void RiderTextDialog::OnTextMouseDown(wxMouseEvent &event) {
+  HideSuggestionPopup();
+  event.Skip();
+}
+
 void RiderTextDialog::OnSuggestionClick(wxCommandEvent &WXUNUSED(event)) {
   AcceptCurrentSuggestion();
 }
@@ -395,7 +408,19 @@ void RiderTextDialog::RefreshAutocompleteSuggestions() {
   if (!textCtrl || !suggestionPopup || !suggestionList)
     return;
 
-  autocompleteProvider.RefreshDynamicTerms();
+  if (wxWindow::FindFocus() != textCtrl) {
+    HideSuggestionPopup();
+    return;
+  }
+
+  long selectionFrom = 0;
+  long selectionTo = 0;
+  textCtrl->GetSelection(&selectionFrom, &selectionTo);
+  if (selectionFrom != selectionTo) {
+    HideSuggestionPopup();
+    return;
+  }
+
   const wxString currentText = textCtrl->GetValue();
   const wxScopedCharBuffer utf8Text = currentText.ToUTF8();
   const std::string textUtf8 =
@@ -433,14 +458,14 @@ void RiderTextDialog::RefreshAutocompleteSuggestions() {
   const int visibleRows = std::min<int>(6, suggestionList->GetCount());
   const wxSize popupSize(std::max(280, textCtrl->GetSize().GetWidth() / 2),
                          std::max(120, visibleRows * (textCtrl->GetCharHeight() + 8)));
-  suggestionPopup->SetSize(popupAnchor.x, popupAnchor.y, popupSize.GetWidth(),
-                           popupSize.GetHeight());
-  suggestionPopup->Popup(textCtrl);
+  suggestionPopup->SetSize(popupSize.GetWidth(), popupSize.GetHeight());
+  suggestionPopup->Position(popupAnchor, wxSize(0, 0));
+  suggestionPopup->Show();
 }
 
 void RiderTextDialog::HideSuggestionPopup() {
   if (suggestionPopup && suggestionPopup->IsShown())
-    suggestionPopup->Dismiss();
+    suggestionPopup->Hide();
 }
 
 bool RiderTextDialog::AcceptCurrentSuggestion() {

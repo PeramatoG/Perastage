@@ -22,11 +22,12 @@
 
 #include <wx/dialog.h>
 #include <wx/timer.h>
+#include <wx/event.h>
 
 class wxTextCtrl;
 class wxStaticText;
 class wxListBox;
-class wxPopupTransientWindow;
+class wxPopupWindow;
 
 #include "ridertext_autocomplete_provider.h"
 
@@ -46,6 +47,7 @@ private:
   void OnApply(wxCommandEvent &event);
   void OnTextChanged(wxCommandEvent &event);
   void OnTextKeyDown(wxKeyEvent &event);
+  void OnTextMouseDown(wxMouseEvent &event);
   void OnAutocompleteTimer(wxTimerEvent &event);
   void OnSuggestionClick(wxCommandEvent &event);
   void OnDialogCharHook(wxKeyEvent &event);
@@ -58,7 +60,7 @@ private:
 
   wxTextCtrl *textCtrl = nullptr;
   wxStaticText *sourceText = nullptr;
-  wxPopupTransientWindow *suggestionPopup = nullptr;
+  wxPopupWindow *suggestionPopup = nullptr;
   wxListBox *suggestionList = nullptr;
   wxString sourceLabel;
   bool sourceLoadedFromFile = false;
