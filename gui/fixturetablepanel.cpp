@@ -66,6 +66,32 @@ const wxString &DegreeSymbol() {
   return kDegreeSymbol;
 }
 
+std::vector<int> ReindexSelectionOrder(
+    const std::vector<int> &selectionOrder,
+    const std::vector<std::string> &oldOrder,
+    const std::vector<std::string> &newOrder) {
+  std::unordered_map<std::string, int> rowByUuid;
+  rowByUuid.reserve(newOrder.size());
+  for (size_t row = 0; row < newOrder.size(); ++row) {
+    rowByUuid.emplace(newOrder[row], static_cast<int>(row));
+  }
+
+  std::vector<int> remappedOrder;
+  remappedOrder.reserve(selectionOrder.size());
+  std::unordered_set<int> seenRows;
+  seenRows.reserve(selectionOrder.size());
+  for (const int oldRow : selectionOrder) {
+    if (oldRow < 0 || static_cast<size_t>(oldRow) >= oldOrder.size())
+      continue;
+    const auto itRow = rowByUuid.find(oldOrder[static_cast<size_t>(oldRow)]);
+    if (itRow == rowByUuid.end())
+      continue;
+    if (seenRows.insert(itRow->second).second)
+      remappedOrder.push_back(itRow->second);
+  }
+  return remappedOrder;
+}
+
 class ConfigManagerSceneAdapter : public FixtureTableEditService::ISceneAdapter {
 public:
   void PushUndoState(const std::string &description) override {
@@ -1799,6 +1825,7 @@ void FixtureTablePanel::ResyncRows(
   }
   rowUuids.swap(newOrder);
   gdtfPaths.swap(newPaths);
+  selectionOrder = ReindexSelectionOrder(selectionOrder, oldOrder, rowUuids);
 
   {
     wxEventBlocker selectionBlocker(table, wxEVT_DATAVIEW_SELECTION_CHANGED);
