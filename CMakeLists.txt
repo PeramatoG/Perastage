@@ -308,14 +308,17 @@ if(WIN32)
             CONFIGURATIONS Release RelWithDebInfo MinSizeRel
             DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
             PRE_EXCLUDE_REGEXES
-                "(?i).*api-ms-.*\\.dll$"
-                "(?i).*ext-ms-.*\\.dll$"
-                "(?i).*azureattest.*\\.dll$"
-                "(?i).*hvsifiletrust.*\\.dll$"
-                "(?i).*pdmutilities.*\\.dll$"
-                "(?i).*wtdsensor.*\\.dll$"
-                "(?i).*wpaxholder\\.dll$"
-                "(?i).*wtdccm\\.dll$"
+                # Windows API-set virtual DLLs (case-insensitive via bracket notation)
+                ".*[Aa][Pp][Ii]-[Mm][Ss]-.*\\.dll$"
+                ".*[Ee][Xx][Tt]-[Mm][Ss]-.*\\.dll$"
+                # Azure Attestation DLLs
+                ".*[Aa]zure[Aa]ttest.*\\.dll$"
+                # Other unresolvable Windows system DLLs
+                ".*[Hh]vsi[Ff]ile[Tt]rust\\.dll$"
+                ".*[Pp]dm[Uu]tilities\\.dll$"
+                ".*[Ww][Tt][Dd][Ss]ensor\\.dll$"
+                ".*[Ww]pax[Hh]older\\.dll$"
+                ".*[Ww][Tt][Dd][Cc][Cc][Mm]\\.dll$"
             POST_EXCLUDE_REGEXES
                 ".*[Ww]indows[\\/].*"
                 ".*[Ss]ystem32[\\/].*"
@@ -331,14 +334,17 @@ if(WIN32)
             DESTINATION .
             DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
             PRE_EXCLUDE_REGEXES
-                "(?i).*api-ms-.*\\.dll$"
-                "(?i).*ext-ms-.*\\.dll$"
-                "(?i).*azureattest.*\\.dll$"
-                "(?i).*hvsifiletrust.*\\.dll$"
-                "(?i).*pdmutilities.*\\.dll$"
-                "(?i).*wtdsensor.*\\.dll$"
-                "(?i).*wpaxholder\\.dll$"
-                "(?i).*wtdccm\\.dll$"
+                # Windows API-set virtual DLLs (case-insensitive via bracket notation)
+                ".*[Aa][Pp][Ii]-[Mm][Ss]-.*\\.dll$"
+                ".*[Ee][Xx][Tt]-[Mm][Ss]-.*\\.dll$"
+                # Azure Attestation DLLs
+                ".*[Aa]zure[Aa]ttest.*\\.dll$"
+                # Other unresolvable Windows system DLLs
+                ".*[Hh]vsi[Ff]ile[Tt]rust\\.dll$"
+                ".*[Pp]dm[Uu]tilities\\.dll$"
+                ".*[Ww][Tt][Dd][Ss]ensor\\.dll$"
+                ".*[Ww]pax[Hh]older\\.dll$"
+                ".*[Ww][Tt][Dd][Cc][Cc][Mm]\\.dll$"
             POST_EXCLUDE_REGEXES
                 ".*[Ww]indows[\\/].*"
                 ".*[Ss]ystem32[\\/].*"
