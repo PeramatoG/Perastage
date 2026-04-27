@@ -88,6 +88,7 @@ wxEND_EVENT_TABLE()
 
 namespace {
 constexpr auto kPauseDelay = std::chrono::milliseconds(200);
+constexpr int kZoomInteractionTimeoutMs = 260;
 constexpr auto kHoverQueryInterval = std::chrono::milliseconds(40);
 constexpr auto kResourceSyncInterval = std::chrono::milliseconds(250);
 constexpr int kExportImageWidth = 1920;
@@ -504,6 +505,9 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
 {
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
     Bind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this, wxEVT_VIEWER_REFRESH);
+    m_zoomInteractionTimer.SetOwner(this);
+    Bind(wxEVT_TIMER, &Viewer3DPanel::OnZoomInteractionTimeout, this,
+         m_zoomInteractionTimer.GetId());
     m_threadRunning = true;
     m_lastResourceSyncCheck = std::chrono::steady_clock::now();
     m_basePassCache = std::make_unique<BasePassFramebufferCache>();
@@ -514,6 +518,9 @@ Viewer3DPanel::~Viewer3DPanel()
 {
     m_shuttingDown = true;
     Unbind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this, wxEVT_VIEWER_REFRESH);
+    Unbind(wxEVT_TIMER, &Viewer3DPanel::OnZoomInteractionTimeout, this,
+           m_zoomInteractionTimer.GetId());
+    m_zoomInteractionTimer.Stop();
     DeletePendingEvents();
     if (HasCapture())
         ReleaseMouse();
@@ -1667,6 +1674,7 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
     m_lastInteractionTime = std::chrono::steady_clock::now();
 
     m_camera.Zoom(steps);
+    ArmZoomInteractionTimeout();
 
     Refresh();
 }
@@ -1761,38 +1769,43 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
 
     bool shift = event.ShiftDown();
     bool alt = event.AltDown();
+    bool zoomTriggered = false;
 
     switch (event.GetKeyCode()) {
         case WXK_LEFT:
             if (shift)
                 m_camera.Pan(-0.1f, 0.0f);
-            else if (alt)
+            else if (alt) {
                 m_camera.Zoom(-1.0f);
-            else
+                zoomTriggered = true;
+            } else
                 m_camera.targetYaw += -5.0f;
             break;
         case WXK_RIGHT:
             if (shift)
                 m_camera.Pan(0.1f, 0.0f);
-            else if (alt)
+            else if (alt) {
                 m_camera.Zoom(1.0f);
-            else
+                zoomTriggered = true;
+            } else
                 m_camera.targetYaw += 5.0f;
             break;
         case WXK_UP:
             if (shift)
                 m_camera.Pan(0.0f, 0.1f);
-            else if (alt)
+            else if (alt) {
                 m_camera.Zoom(-1.0f);
-            else
+                zoomTriggered = true;
+            } else
                 m_camera.targetPitch = std::clamp(m_camera.targetPitch + 5.0f, -89.0f, 89.0f);
             break;
         case WXK_DOWN:
             if (shift)
                 m_camera.Pan(0.0f, -0.1f);
-            else if (alt)
+            else if (alt) {
                 m_camera.Zoom(1.0f);
-            else
+                zoomTriggered = true;
+            } else
                 m_camera.targetPitch = std::clamp(m_camera.targetPitch - 5.0f, -89.0f, 89.0f);
             break;
         case WXK_DELETE:
@@ -1809,6 +1822,13 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
             event.Skip();
             return;
     }
+
+    m_controller.SetInteracting(true);
+    m_isInteracting = true;
+    m_cameraMoving = true;
+    m_lastInteractionTime = std::chrono::steady_clock::now();
+    if (zoomTriggered)
+        ArmZoomInteractionTimeout();
 
     Refresh();
 }
@@ -1994,12 +2014,15 @@ void Viewer3DPanel::SetModalDialogActive(bool active)
 
 bool Viewer3DPanel::ShouldPauseHeavyTasks()
 {
-    if (!m_isInteracting)
-        return false;
-
     const auto now = std::chrono::steady_clock::now();
-    if ((now - m_lastInteractionTime) < kPauseDelay)
+    const bool interactionGraceActive =
+        (now - m_lastInteractionTime) < kPauseDelay;
+
+    if (interactionGraceActive && (m_isInteracting || m_cameraMoving))
         return true;
+
+    if (!m_isInteracting && !m_cameraMoving)
+        return false;
 
     m_isInteracting = false;
     m_cameraMoving = false;
@@ -2014,6 +2037,28 @@ bool Viewer3DPanel::ShouldPauseHeavyTasks()
     }
 
     return false;
+}
+
+void Viewer3DPanel::ArmZoomInteractionTimeout()
+{
+    m_zoomInteractionTimer.StartOnce(kZoomInteractionTimeoutMs);
+}
+
+void Viewer3DPanel::OnZoomInteractionTimeout(wxTimerEvent& event)
+{
+    (void)event;
+
+    if (m_dragging || m_rectSelecting)
+        return;
+
+    m_isInteracting = false;
+    m_cameraMoving = false;
+    m_controller.SetInteracting(false);
+    m_controller.SetCameraMoving(false);
+    m_controller.MarkResourceSyncPending();
+    m_mouseMoved = true;
+    m_forceHoverQuery = true;
+    Refresh();
 }
 
 void Viewer3DPanel::LoadCameraFromConfig()

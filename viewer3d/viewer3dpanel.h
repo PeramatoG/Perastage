@@ -35,6 +35,7 @@
 #include <chrono>
 #include <cstdint>
 #include <wx/thread.h>
+#include <wx/timer.h>
 #include <vector>
 
 wxDECLARE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
@@ -182,6 +183,9 @@ private:
     std::thread m_refreshThread;
     void RefreshLoop();
     void OnThreadRefresh(wxThreadEvent& event);
+    void OnZoomInteractionTimeout(wxTimerEvent& event);
+    void ArmZoomInteractionTimeout();
 
     wxDECLARE_EVENT_TABLE();
+    wxTimer m_zoomInteractionTimer;
 };
