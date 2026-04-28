@@ -1,4 +1,8 @@
 #include "scene_object_primitive_dialogs.h"
+#include "configmanager.h"
+#include "guiconfigservices.h"
+#include "ui_unit_utils.h"
+#include "units/units.h"
 
 #include <algorithm>
 #include <cmath>
@@ -13,6 +17,32 @@
 namespace scene_object_primitives {
 namespace {
 
+constexpr double kMetersToMillimeters = 1000.0;
+
+Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  return UiUnitUtils::ParseDistanceUnitSystem(
+      cfg.GetValue("ui_distance_unit_system"));
+}
+
+double MetersToDisplayDistance(double meters, Units::DistanceUnitSystem unitSystem) {
+  return UiUnitUtils::DistanceMillimetersToDisplay(meters * kMetersToMillimeters,
+                                                   unitSystem);
+}
+
+double DisplayDistanceToMeters(double displayValue,
+                               Units::DistanceUnitSystem unitSystem) {
+  return UiUnitUtils::DistanceDisplayToMillimeters(displayValue, unitSystem) /
+         kMetersToMillimeters;
+}
+
+wxString DistanceLabel(const char *baseLabel,
+                       Units::DistanceUnitSystem unitSystem) {
+  const std::string suffix = UiUnitUtils::DistanceUnitSuffix(unitSystem);
+  return wxString::Format("%s (%s):", baseLabel,
+                          suffix.c_str());
+}
+
 class SphereDialog : public wxDialog {
 public:
   SphereDialog(wxWindow *parent, const wxString &title,
@@ -20,17 +50,20 @@ public:
       : wxDialog(parent, wxID_ANY, title, wxDefaultPosition,
                  wxDefaultSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
-        includeQuantity_(includeQuantity) {
+        includeQuantity_(includeQuantity),
+        unitSystem_(ResolveDistanceUnitSystem()) {
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(2, 2, 8, 8);
 
-    grid->Add(new wxStaticText(this, wxID_ANY, "Radius (m):"),
+    grid->Add(new wxStaticText(this, wxID_ANY, DistanceLabel("Radius", unitSystem_)),
               0, wxALIGN_CENTER_VERTICAL);
     radiusCtrl_ = new wxSpinCtrlDouble(this, wxID_ANY);
-    radiusCtrl_->SetRange(0.01, 1000.0);
+    radiusCtrl_->SetRange(MetersToDisplayDistance(0.01, unitSystem_),
+                          MetersToDisplayDistance(1000.0, unitSystem_));
     radiusCtrl_->SetIncrement(0.1);
     radiusCtrl_->SetDigits(2);
-    radiusCtrl_->SetValue(initialRequest.radiusMeters);
+    radiusCtrl_->SetValue(
+        MetersToDisplayDistance(initialRequest.radiusMeters, unitSystem_));
     grid->Add(radiusCtrl_, 1, wxEXPAND);
 
     if (includeQuantity_) {
@@ -52,7 +85,8 @@ public:
 
   SphereRequest Request() const {
     SphereRequest request;
-    request.radiusMeters = radiusCtrl_->GetValue();
+    request.radiusMeters = std::max(
+        DisplayDistanceToMeters(radiusCtrl_->GetValue(), unitSystem_), 0.01);
     request.quantity = includeQuantity_ ? quantityCtrl_->GetValue() : 1;
     return request;
   }
@@ -61,6 +95,7 @@ private:
   wxSpinCtrlDouble *radiusCtrl_ = nullptr;
   wxSpinCtrl *quantityCtrl_ = nullptr;
   bool includeQuantity_ = true;
+  Units::DistanceUnitSystem unitSystem_ = Units::DistanceUnitSystem::Metric;
 };
 
 class CubeDialog : public wxDialog {
@@ -70,13 +105,14 @@ public:
       : wxDialog(parent, wxID_ANY, title, wxDefaultPosition,
                  wxDefaultSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
-        includeQuantity_(includeQuantity) {
+        includeQuantity_(includeQuantity),
+        unitSystem_(ResolveDistanceUnitSystem()) {
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(4, 2, 8, 8);
 
-    lengthCtrl_ = AddDimensionRow(grid, "Length (m):", initialRequest.lengthMeters);
-    heightCtrl_ = AddDimensionRow(grid, "Height (m):", initialRequest.heightMeters);
-    widthCtrl_ = AddDimensionRow(grid, "Width (m):", initialRequest.widthMeters);
+    lengthCtrl_ = AddDimensionRow(grid, "Length", initialRequest.lengthMeters);
+    heightCtrl_ = AddDimensionRow(grid, "Height", initialRequest.heightMeters);
+    widthCtrl_ = AddDimensionRow(grid, "Width", initialRequest.widthMeters);
 
     if (includeQuantity_) {
       grid->Add(new wxStaticText(this, wxID_ANY, "Units:"),
@@ -97,9 +133,12 @@ public:
 
   CubeRequest Request() const {
     CubeRequest request;
-    request.lengthMeters = lengthCtrl_->GetValue();
-    request.heightMeters = heightCtrl_->GetValue();
-    request.widthMeters = widthCtrl_->GetValue();
+    request.lengthMeters = std::max(
+        DisplayDistanceToMeters(lengthCtrl_->GetValue(), unitSystem_), 0.01);
+    request.heightMeters = std::max(
+        DisplayDistanceToMeters(heightCtrl_->GetValue(), unitSystem_), 0.01);
+    request.widthMeters = std::max(
+        DisplayDistanceToMeters(widthCtrl_->GetValue(), unitSystem_), 0.01);
     request.quantity = includeQuantity_ ? quantityCtrl_->GetValue() : 1;
     return request;
   }
@@ -107,13 +146,14 @@ public:
 private:
   wxSpinCtrlDouble *AddDimensionRow(wxFlexGridSizer *grid, const char *label,
                                     double defaultValue) {
-    grid->Add(new wxStaticText(this, wxID_ANY, label),
+    grid->Add(new wxStaticText(this, wxID_ANY, DistanceLabel(label, unitSystem_)),
               0, wxALIGN_CENTER_VERTICAL);
     auto *ctrl = new wxSpinCtrlDouble(this, wxID_ANY);
-    ctrl->SetRange(0.01, 1000.0);
+    ctrl->SetRange(MetersToDisplayDistance(0.01, unitSystem_),
+                   MetersToDisplayDistance(1000.0, unitSystem_));
     ctrl->SetIncrement(0.1);
     ctrl->SetDigits(2);
-    ctrl->SetValue(defaultValue);
+    ctrl->SetValue(MetersToDisplayDistance(defaultValue, unitSystem_));
     grid->Add(ctrl, 1, wxEXPAND);
     return ctrl;
   }
@@ -123,6 +163,7 @@ private:
   wxSpinCtrlDouble *widthCtrl_ = nullptr;
   wxSpinCtrl *quantityCtrl_ = nullptr;
   bool includeQuantity_ = true;
+  Units::DistanceUnitSystem unitSystem_ = Units::DistanceUnitSystem::Metric;
 };
 
 class CylinderDialog : public wxDialog {
@@ -131,15 +172,16 @@ public:
                  const CylinderRequest &initialRequest, bool includeQuantity)
       : wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
-        includeQuantity_(includeQuantity) {
+        includeQuantity_(includeQuantity),
+        unitSystem_(ResolveDistanceUnitSystem()) {
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(4, 2, 8, 8);
 
     topRadiusCtrl_ =
-        AddDimensionRow(grid, "Top radius (m):", initialRequest.topRadiusMeters);
+        AddDimensionRow(grid, "Top radius", initialRequest.topRadiusMeters);
     bottomRadiusCtrl_ = AddDimensionRow(
-        grid, "Bottom radius (m):", initialRequest.bottomRadiusMeters);
-    heightCtrl_ = AddDimensionRow(grid, "Height (m):", initialRequest.heightMeters);
+        grid, "Bottom radius", initialRequest.bottomRadiusMeters);
+    heightCtrl_ = AddDimensionRow(grid, "Height", initialRequest.heightMeters);
 
     if (includeQuantity_) {
       grid->Add(new wxStaticText(this, wxID_ANY, "Units:"),
@@ -159,9 +201,12 @@ public:
 
   CylinderRequest Request() const {
     CylinderRequest request;
-    request.topRadiusMeters = topRadiusCtrl_->GetValue();
-    request.bottomRadiusMeters = bottomRadiusCtrl_->GetValue();
-    request.heightMeters = heightCtrl_->GetValue();
+    request.topRadiusMeters = std::max(
+        DisplayDistanceToMeters(topRadiusCtrl_->GetValue(), unitSystem_), 0.01);
+    request.bottomRadiusMeters = std::max(
+        DisplayDistanceToMeters(bottomRadiusCtrl_->GetValue(), unitSystem_), 0.01);
+    request.heightMeters = std::max(
+        DisplayDistanceToMeters(heightCtrl_->GetValue(), unitSystem_), 0.01);
     request.quantity = includeQuantity_ ? quantityCtrl_->GetValue() : 1;
     return request;
   }
@@ -169,12 +214,14 @@ public:
 private:
   wxSpinCtrlDouble *AddDimensionRow(wxFlexGridSizer *grid, const char *label,
                                     double defaultValue) {
-    grid->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALIGN_CENTER_VERTICAL);
+    grid->Add(new wxStaticText(this, wxID_ANY, DistanceLabel(label, unitSystem_)),
+              0, wxALIGN_CENTER_VERTICAL);
     auto *ctrl = new wxSpinCtrlDouble(this, wxID_ANY);
-    ctrl->SetRange(0.01, 1000.0);
+    ctrl->SetRange(MetersToDisplayDistance(0.01, unitSystem_),
+                   MetersToDisplayDistance(1000.0, unitSystem_));
     ctrl->SetIncrement(0.1);
     ctrl->SetDigits(2);
-    ctrl->SetValue(defaultValue);
+    ctrl->SetValue(MetersToDisplayDistance(defaultValue, unitSystem_));
     grid->Add(ctrl, 1, wxEXPAND);
     return ctrl;
   }
@@ -184,6 +231,7 @@ private:
   wxSpinCtrlDouble *heightCtrl_ = nullptr;
   wxSpinCtrl *quantityCtrl_ = nullptr;
   bool includeQuantity_ = true;
+  Units::DistanceUnitSystem unitSystem_ = Units::DistanceUnitSystem::Metric;
 };
 
 class ScreenEditDialog : public wxDialog {
@@ -264,7 +312,6 @@ private:
   wxSpinCtrlDouble *lengthCtrl_ = nullptr;
 };
 
-constexpr double kMetersToMillimeters = 1000.0;
 constexpr double kPrimitiveCubeSizeMillimeters = 1000.0;
 constexpr double kPrimitiveSphereDiameterMillimeters = 1000.0;
 constexpr double kPrimitiveCylinderDiameterMillimeters = 1000.0;
