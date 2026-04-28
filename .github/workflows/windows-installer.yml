@@ -22,9 +22,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            vcpkg/downloads
-            vcpkg/installed
-            vcpkg/packages
+            .vcpkg-cache/downloads
+            .vcpkg-cache/installed
+            .vcpkg-cache/packages
           key: ${{ runner.os }}-vcpkg-x64-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/windows-installer.yml') }}
           restore-keys: |
             ${{ runner.os }}-vcpkg-x64-windows-
@@ -43,19 +43,23 @@ jobs:
         run: |
           $vcpkgDir = "$env:GITHUB_WORKSPACE\vcpkg"
           if (Test-Path "$vcpkgDir\.git") {
-            Write-Host "Existing vcpkg repository found in cache. Updating checkout..."
+            Write-Host "Existing vcpkg repository found. Updating checkout..."
             git -C $vcpkgDir fetch --depth 1 origin master
             git -C $vcpkgDir checkout --force FETCH_HEAD
-          } elseif (Test-Path $vcpkgDir) {
-            Write-Host "Cached vcpkg directory exists without .git metadata. Recreating..."
-            Remove-Item -Path $vcpkgDir -Recurse -Force
-            git clone --depth 1 https://github.com/microsoft/vcpkg.git $vcpkgDir
           } else {
+            if (Test-Path $vcpkgDir) {
+              Remove-Item -Path $vcpkgDir -Recurse -Force
+            }
             git clone --depth 1 https://github.com/microsoft/vcpkg.git $vcpkgDir
           }
 
-          & "$env:GITHUB_WORKSPACE\vcpkg\bootstrap-vcpkg.bat"
-          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install `
+          $cacheRoot = "$env:GITHUB_WORKSPACE\.vcpkg-cache"
+          New-Item -ItemType Directory -Path "$cacheRoot\downloads" -Force | Out-Null
+          New-Item -ItemType Directory -Path "$cacheRoot\installed" -Force | Out-Null
+          New-Item -ItemType Directory -Path "$cacheRoot\packages" -Force | Out-Null
+
+          & "$vcpkgDir\bootstrap-vcpkg.bat"
+          & "$vcpkgDir\vcpkg.exe" install `
             wxwidgets:x64-windows `
             tinyxml2:x64-windows `
             glew:x64-windows `
@@ -63,7 +67,10 @@ jobs:
             zlib:x64-windows `
             nanovg:x64-windows `
             podofo:x64-windows `
-            meshoptimizer:x64-windows
+            meshoptimizer:x64-windows `
+            --x-install-root="$cacheRoot\installed" `
+            --x-packages-root="$cacheRoot\packages" `
+            --downloads-root="$cacheRoot\downloads"
 
       # Configure the CMake project using the vcpkg toolchain
       - name: Configure CMake
