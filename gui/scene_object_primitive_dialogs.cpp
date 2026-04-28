@@ -1,4 +1,5 @@
 #include "scene_object_primitive_dialogs.h"
+#include "configmanager.h"
 #include "guiconfigservices.h"
 #include "ui_unit_utils.h"
 #include "units/units.h"
