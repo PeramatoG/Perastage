@@ -30,6 +30,21 @@ public:
   bool selectionBackgroundEnabled = false;
   bool selectionForegroundEnabled = false;
 
+  int Compare(const wxDataViewItem &item1, const wxDataViewItem &item2,
+              unsigned int col, bool ascending) const override {
+    (void)ascending;
+    const int result =
+        wxDataViewListStore::Compare(item1, item2, col, ascending);
+    if (result != 0)
+      return result;
+
+    const wxUIntPtr key1 = GetItemData(item1);
+    const wxUIntPtr key2 = GetItemData(item2);
+    if (key1 == key2)
+      return 0;
+    return key1 < key2 ? -1 : 1;
+  }
+
   bool GetAttrByRow(unsigned row, unsigned col,
                     wxDataViewItemAttr &attr) const override {
     bool hasAttr = false;
