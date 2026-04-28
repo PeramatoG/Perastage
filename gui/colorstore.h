@@ -194,6 +194,7 @@ public:
 
   int Compare(const wxDataViewItem &item1, const wxDataViewItem &item2,
               unsigned int column, bool ascending) const override {
+    int res = 0;
     if (column == 1) {
       wxVariant v1, v2;
       const_cast<ColorfulDataViewListStore *>(this)->GetValue(v1, item1,
@@ -216,7 +217,6 @@ public:
       long n1 = 0, n2 = 0;
       bool ok1 = parse(s1, p1, n1);
       bool ok2 = parse(s2, p2, n2);
-      int res;
       if (ok1 && ok2 && p1 == p2) {
         if (n1 < n2)
           res = -1;
@@ -227,8 +227,19 @@ public:
       } else {
         res = s1.Cmp(s2);
       }
-      return ascending ? res : -res;
+    } else {
+      res = wxDataViewListStore::Compare(item1, item2, column, true);
     }
-    return wxDataViewListStore::Compare(item1, item2, column, ascending);
+
+    if (res == 0) {
+      const wxUIntPtr key1 = GetItemData(item1);
+      const wxUIntPtr key2 = GetItemData(item2);
+      if (key1 < key2)
+        res = -1;
+      else if (key1 > key2)
+        res = 1;
+    }
+
+    return ascending ? res : -res;
   }
 };

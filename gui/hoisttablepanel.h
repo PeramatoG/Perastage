@@ -20,6 +20,7 @@
 #include <wx/dataview.h>
 #include <wx/wx.h>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "colorstore.h"
 #include "hoist_load_limit_utils.h"
@@ -54,6 +55,9 @@ private:
   std::vector<wxString> columnLabels;
   std::vector<std::string> rowUuids;
   std::vector<HoistLoadLimitUtils::LoadLimitState> rowLoadStates;
+  std::unordered_map<wxUIntPtr, std::string> rowUuidByKey;
+  std::unordered_map<wxUIntPtr, HoistLoadLimitUtils::LoadLimitState> loadStateByKey;
+  wxUIntPtr nextRowKey = 1;
   wxString activeHoverTooltip;
   bool dragSelecting = false;
   int startRow = -1;
@@ -63,6 +67,10 @@ private:
   void OnSelectionChanged(wxDataViewEvent &evt);
   void OnContextMenu(wxDataViewEvent &event);
   void OnColumnSorted(wxDataViewEvent &event);
+  void RebuildRowCachesFromRowKeys();
+  std::string UuidForItem(const wxDataViewItem &item) const;
+  void SetLoadStateForRow(unsigned int row,
+                          const HoistLoadLimitUtils::LoadLimitState &state);
   void ResyncRows(const std::vector<std::string> &oldOrder,
                   const std::vector<std::string> &selectedUuids);
   void OnLeftDown(wxMouseEvent &evt);

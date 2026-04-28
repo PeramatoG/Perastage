@@ -365,6 +365,9 @@ void HoistTablePanel::ReloadData() {
   table->DeleteAllItems();
   rowUuids.clear();
   rowLoadStates.clear();
+  rowUuidByKey.clear();
+  loadStateByKey.clear();
+  nextRowKey = 1;
   const MvrScene &scene = guiConfigServices->LegacyConfigManager().GetScene();
   auto &supports = guiConfigServices->LegacyConfigManager().GetScene().supports;
 
@@ -460,7 +463,8 @@ void HoistTablePanel::ReloadData() {
     row.push_back(weight);
     row.push_back(load);
 
-    store->AppendItem(row, rowUuids.size());
+    const wxUIntPtr rowKey = nextRowKey++;
+    store->AppendItem(row, rowKey);
     const unsigned int rowIndex = static_cast<unsigned int>(rowUuids.size());
     if (HoistLoadLimitUtils::IsCritical(loadState))
       store->SetCellTextColour(rowIndex, 18, *wxRED);
@@ -468,6 +472,8 @@ void HoistTablePanel::ReloadData() {
       store->ClearCellTextColour(rowIndex, 18);
     rowUuids.push_back(uuid);
     rowLoadStates.push_back(loadState);
+    rowUuidByKey[rowKey] = uuid;
+    loadStateByKey[rowKey] = loadState;
     ++hoistId;
   }
 
@@ -500,9 +506,9 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
   std::vector<std::string> selectedUuids;
   for (const auto &it : selections) {
-    int r = table->ItemToRow(it);
-    if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
-      selectedUuids.push_back(rowUuids[r]);
+    const std::string uuid = UuidForItem(it);
+    if (!uuid.empty())
+      selectedUuids.push_back(uuid);
   }
   std::vector<std::string> oldOrder = rowUuids;
 
@@ -841,6 +847,7 @@ void HoistTablePanel::UpdateHoverTooltip(const wxPoint &position) {
 }
 
 void HoistTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
+  RebuildRowCachesFromRowKeys();
   const selection::Origin origin = selection::CurrentOrigin();
   if (origin == selection::Origin::Viewer2D ||
       origin == selection::Origin::Viewer3D) {
@@ -854,9 +861,9 @@ void HoistTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
   std::vector<std::string> uuids;
   uuids.reserve(selections.size());
   for (const auto &it : selections) {
-    int r = table->ItemToRow(it);
-    if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
-      uuids.push_back(rowUuids[r]);
+    const std::string uuid = UuidForItem(it);
+    if (!uuid.empty())
+      uuids.push_back(uuid);
   }
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
   if (uuids != cfg.GetSelectedSupports()) {
@@ -1187,15 +1194,17 @@ std::vector<std::string> HoistTablePanel::GetSelectedUuids() const {
   std::vector<std::string> uuids;
   uuids.reserve(selections.size());
   for (const auto &it : selections) {
-    int r = table->ItemToRow(it);
-    if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
-      uuids.push_back(rowUuids[r]);
+    const wxUIntPtr rowKey = store->GetItemData(it);
+    auto keyIt = rowUuidByKey.find(rowKey);
+    if (keyIt != rowUuidByKey.end())
+      uuids.push_back(keyIt->second);
   }
   return uuids;
 }
 
 void HoistTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
                                    bool notifySelectionChanged) {
+  RebuildRowCachesFromRowKeys();
   std::unique_ptr<wxEventBlocker> selectionBlocker;
   if (!notifySelectionChanged) {
     selectionBlocker =
@@ -1216,6 +1225,7 @@ void HoistTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
 }
 
 void HoistTablePanel::DeleteSelected(bool pushUndoState) {
+  RebuildRowCachesFromRowKeys();
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   if (selections.empty())
@@ -1239,8 +1249,14 @@ void HoistTablePanel::DeleteSelected(bool pushUndoState) {
   auto &scene = cfg.GetScene();
   for (int r : rows) {
     if ((size_t)r < rowUuids.size()) {
+      wxDataViewItem rowItem = table->RowToItem(static_cast<unsigned int>(r));
+      const wxUIntPtr rowKey = store->GetItemData(rowItem);
       scene.supports.erase(rowUuids[r]);
       rowUuids.erase(rowUuids.begin() + r);
+      if ((size_t)r < rowLoadStates.size())
+        rowLoadStates.erase(rowLoadStates.begin() + r);
+      rowUuidByKey.erase(rowKey);
+      loadStateByKey.erase(rowKey);
       table->DeleteItem(r);
     }
   }
@@ -1275,16 +1291,8 @@ void HoistTablePanel::DeleteSelected(bool pushUndoState) {
 
 void HoistTablePanel::ResyncRows(const std::vector<std::string> &oldOrder,
                                  const std::vector<std::string> &selectedUuids) {
-  unsigned int count = table->GetItemCount();
-  std::vector<std::string> newOrder(count);
-  for (unsigned int i = 0; i < count; ++i) {
-    wxDataViewItem it = table->RowToItem(i);
-    unsigned long idx = store->GetItemData(it);
-    if (idx < oldOrder.size())
-      newOrder[i] = oldOrder[idx];
-    store->SetItemData(it, i);
-  }
-  rowUuids.swap(newOrder);
+  (void)oldOrder;
+  RebuildRowCachesFromRowKeys();
 
   table->UnselectAll();
   for (const auto &uuid : selectedUuids) {
@@ -1295,14 +1303,56 @@ void HoistTablePanel::ResyncRows(const std::vector<std::string> &oldOrder,
   UpdateSelectionHighlight();
 }
 
+void HoistTablePanel::RebuildRowCachesFromRowKeys() {
+  if (!table || !store)
+    return;
+  const unsigned int count = table->GetItemCount();
+  rowUuids.assign(count, std::string());
+  rowLoadStates.assign(count, HoistLoadLimitUtils::LoadLimitState::Normal);
+  for (unsigned int row = 0; row < count; ++row) {
+    wxDataViewItem item = table->RowToItem(row);
+    const wxUIntPtr rowKey = store->GetItemData(item);
+    auto uuidIt = rowUuidByKey.find(rowKey);
+    if (uuidIt != rowUuidByKey.end())
+      rowUuids[row] = uuidIt->second;
+    auto loadIt = loadStateByKey.find(rowKey);
+    if (loadIt != loadStateByKey.end())
+      rowLoadStates[row] = loadIt->second;
+  }
+}
+
+std::string HoistTablePanel::UuidForItem(const wxDataViewItem &item) const {
+  if (!store || !item.IsOk())
+    return {};
+  const wxUIntPtr rowKey = store->GetItemData(item);
+  auto it = rowUuidByKey.find(rowKey);
+  if (it == rowUuidByKey.end())
+    return {};
+  return it->second;
+}
+
+void HoistTablePanel::SetLoadStateForRow(
+    unsigned int row, const HoistLoadLimitUtils::LoadLimitState &state) {
+  if (!table || !store || row >= table->GetItemCount())
+    return;
+  if (row >= rowLoadStates.size())
+    rowLoadStates.resize(table->GetItemCount(),
+                         HoistLoadLimitUtils::LoadLimitState::Normal);
+  rowLoadStates[row] = state;
+  wxDataViewItem item = table->RowToItem(row);
+  const wxUIntPtr rowKey = store->GetItemData(item);
+  loadStateByKey[rowKey] = state;
+}
+
 void HoistTablePanel::OnColumnSorted(wxDataViewEvent &event) {
+  RebuildRowCachesFromRowKeys();
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   std::vector<std::string> selectedUuids;
   for (const auto &it : selections) {
-    int r = table->ItemToRow(it);
-    if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
-      selectedUuids.push_back(rowUuids[r]);
+    const std::string uuid = UuidForItem(it);
+    if (!uuid.empty())
+      selectedUuids.push_back(uuid);
   }
   std::vector<std::string> oldOrder = rowUuids;
   ResyncRows(oldOrder, selectedUuids);

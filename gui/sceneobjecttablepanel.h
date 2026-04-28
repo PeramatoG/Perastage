@@ -22,6 +22,7 @@
 #include <wx/time.h>
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include "colorstore.h"
 #include "positionvalueupdate.h"
 
@@ -55,6 +56,9 @@ private:
     std::vector<wxString> columnLabels;
     std::vector<wxString> modelPaths;
     std::vector<std::string> rowUuids;
+    std::unordered_map<wxUIntPtr, std::string> rowUuidByKey;
+    std::unordered_map<wxUIntPtr, wxString> modelPathByKey;
+    wxUIntPtr nextRowKey = 1;
     std::string highlightedUuid;
     bool dragSelecting = false;
     int startRow = -1;
@@ -63,6 +67,9 @@ private:
     void OnSelectionChanged(wxDataViewEvent& evt);
     void OnContextMenu(wxDataViewEvent& event);
     void OnColumnSorted(wxDataViewEvent& event);
+    void RebuildRowCachesFromRowKeys();
+    std::string UuidForItem(const wxDataViewItem& item) const;
+    void SetModelPathForRow(unsigned int row, const wxString& modelPath);
     void OnItemActivated(wxDataViewEvent& event);
     void ResyncRows(const std::vector<std::string>& oldOrder,
                     const std::vector<std::string>& selectedUuids);

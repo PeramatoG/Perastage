@@ -22,6 +22,7 @@
 #include <wx/time.h>
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include "colorstore.h"
 #include "positionvalueupdate.h"
@@ -87,6 +88,9 @@ private:
     std::vector<wxString> columnLabels;
     std::vector<wxString> gdtfPaths; // Stores full GDTF paths per row
     std::vector<std::string> rowUuids;
+    std::unordered_map<wxUIntPtr, std::string> rowUuidByKey;
+    std::unordered_map<wxUIntPtr, wxString> gdtfPathByKey;
+    wxUIntPtr nextRowKey = 1;
     std::string highlightedUuid;
 
     bool dragSelecting = false;
@@ -99,6 +103,9 @@ private:
     void OnContextMenu(wxDataViewEvent& event);
     void OnItemActivated(wxDataViewEvent& event);
     void OnColumnSorted(wxDataViewEvent& event);
+    void RebuildRowCachesFromRowKeys();
+    std::string UuidForItem(const wxDataViewItem& item) const;
+    void SetGdtfPathForRow(unsigned int row, const wxString& path);
     void ResyncRows(const std::vector<std::string>& oldOrder,
                     const std::vector<std::string>& selectedUuids,
                     const std::vector<wxString>* oldPaths = nullptr);

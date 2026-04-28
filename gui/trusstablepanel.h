@@ -22,6 +22,7 @@
 #include <wx/time.h>
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include "colorstore.h"
 #include "positionvalueupdate.h"
 
@@ -54,6 +55,10 @@ private:
     wxDataViewListCtrl* table;
     std::vector<wxString> columnLabels;
     std::vector<std::string> rowUuids;
+    std::unordered_map<wxUIntPtr, std::string> rowUuidByKey;
+    std::unordered_map<wxUIntPtr, wxString> modelPathByKey;
+    std::unordered_map<wxUIntPtr, wxString> symbolPathByKey;
+    wxUIntPtr nextRowKey = 1;
     std::string highlightedUuid;
     std::vector<wxString> modelPaths;  // Displayed model file paths (.gtruss if any)
     std::vector<wxString> symbolPaths; // Resolved geometry file paths
@@ -64,6 +69,10 @@ private:
     void OnSelectionChanged(wxDataViewEvent& evt);
     void OnContextMenu(wxDataViewEvent& event);
     void OnColumnSorted(wxDataViewEvent& event);
+    void RebuildRowCachesFromRowKeys();
+    std::string UuidForItem(const wxDataViewItem& item) const;
+    void SetModelPathsForRow(unsigned int row, const wxString& modelPath,
+                             const wxString& symbolPath);
     void ResyncRows(const std::vector<std::string>& oldOrder,
                     const std::vector<std::string>& selectedUuids);
     void OnLeftDown(wxMouseEvent& evt);
