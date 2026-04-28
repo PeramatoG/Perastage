@@ -23,7 +23,9 @@
 #define RepoRoot "..\\.."
 #define StageDir RepoRoot + "\\out\\install\\Release"
 #define RepoResourcesDir RepoRoot + "\\resources"
-#define OutputParentDir RepoRoot + "\\.."
+; Write the installer directly into the staged output so the CI step can find
+; it reliably under out\install\Release without searching the whole drive.
+#define OutputParentDir RepoRoot + "\\out\\installer"
 
 [Setup]
 AppId={{1A0AC65C-067C-41ED-9A73-5B324ADDD0D8}
@@ -46,7 +48,9 @@ OutputDir={#OutputParentDir}
 OutputBaseFilename=Perastage_{#MyAppVersion}_Setup
 SetupIconFile={#RepoResourcesDir}\Perastage.ico
 SolidCompression=yes
-WizardStyle=modern dark
+; WizardStyle=modern dark is not supported by standard Inno Setup builds.
+; Use "modern" only (dark theme requires a custom ISS skin, not available in CI).
+WizardStyle=modern
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
