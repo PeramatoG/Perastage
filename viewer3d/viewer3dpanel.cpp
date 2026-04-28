@@ -458,6 +458,27 @@ bool QueryHoverUuid(Viewer3DController& controller,
                                      confirmDepth);
 }
 
+bool QueryDragLabelUuid(Viewer3DController& controller,
+                        Viewer3DPanel::HoverTargetTable target, int mouseX,
+                        int mouseY, int width, int height, std::string& outUuid) {
+    wxString label;
+    wxPoint labelPos;
+    switch (target) {
+    case Viewer3DPanel::HoverTargetTable::Fixtures:
+        return controller.GetFixtureLabelAt(mouseX, mouseY, width, height, label,
+                                            labelPos, &outUuid);
+    case Viewer3DPanel::HoverTargetTable::Trusses:
+        return controller.GetTrussLabelAt(mouseX, mouseY, width, height, label,
+                                          labelPos, &outUuid);
+    case Viewer3DPanel::HoverTargetTable::SceneObjects:
+        return controller.GetSceneObjectLabelAt(mouseX, mouseY, width, height,
+                                                label, labelPos, &outUuid);
+    case Viewer3DPanel::HoverTargetTable::None:
+    default:
+        return false;
+    }
+}
+
 std::array<float, 3> AxisVectorFromSelectionDragAxis(
     viewer3d::SelectionDragAxis axis) {
     switch (axis) {
@@ -1742,8 +1763,8 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
         return false;
 
     std::string uuid;
-    if (!QueryHoverUuid(m_controller, target, pickPos.x, pickPos.y, renderSize.width,
-                        renderSize.height, uuid, true)) {
+    if (!QueryDragLabelUuid(m_controller, target, pickPos.x, pickPos.y,
+                            renderSize.width, renderSize.height, uuid)) {
         return false;
     }
 
@@ -1755,25 +1776,32 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
         selection = cfg.GetSelectedTrusses();
     else if (target == HoverTargetTable::SceneObjects)
         selection = cfg.GetSelectedSceneObjects();
-    if (selection.empty())
-        return false;
-
-    if (std::find(selection.begin(), selection.end(), uuid) == selection.end())
-        return false;
+    const auto hitSelectionIt = std::find(selection.begin(), selection.end(), uuid);
+    const bool dragCurrentSelection = hitSelectionIt != selection.end();
+    if (selection.size() > 1 || dragCurrentSelection)
+        m_dragSelectionUuids = selection;
+    else
+        m_dragSelectionUuids = {uuid};
 
     m_selectionDragTarget = target;
-    m_dragSelectionUuids = selection;
     m_dragFixtureUuids.clear();
     m_dragTrussUuids.clear();
     m_dragSceneObjectUuids.clear();
-    if (target == HoverTargetTable::Fixtures)
-        m_dragFixtureUuids = selection;
-    else if (target == HoverTargetTable::Trusses)
-        m_dragTrussUuids = selection;
-    else if (target == HoverTargetTable::SceneObjects)
-        m_dragSceneObjectUuids = selection;
+    if (dragCurrentSelection) {
+        m_dragFixtureUuids = cfg.GetSelectedFixtures();
+        m_dragTrussUuids = cfg.GetSelectedTrusses();
+        m_dragSceneObjectUuids = cfg.GetSelectedSceneObjects();
+    } else {
+        if (target == HoverTargetTable::Fixtures)
+            m_dragFixtureUuids = {uuid};
+        else if (target == HoverTargetTable::Trusses)
+            m_dragTrussUuids = {uuid};
+        else if (target == HoverTargetTable::SceneObjects)
+            m_dragSceneObjectUuids = {uuid};
+    }
 
-    m_selectionDragAnchorMeters = ComputeSelectionCenterMeters(selection, target);
+    m_selectionDragAnchorMeters =
+        ComputeSelectionCenterMeters(m_dragSelectionUuids, target);
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
     m_selectionDragArmed = true;
     m_selectionDragMoved = false;
