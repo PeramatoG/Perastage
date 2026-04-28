@@ -194,6 +194,12 @@ void MainWindow::OnSave(wxCommandEvent &event) {
     if (consolePanel)
       consolePanel->AppendMessage("[INFO] Saved " +
                                   wxString::FromUTF8(currentProjectPath));
+    saveOverlay.reset();
+    saveDisabler.reset();
+    if (viewportPanel) {
+      viewportPanel->UpdateScene();
+      viewportPanel->Refresh();
+    }
   }
 }
 
@@ -251,6 +257,12 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
     if (consolePanel)
       consolePanel->AppendMessage("[INFO] Saved " +
                                   wxString::FromUTF8(currentProjectPath));
+    saveOverlay.reset();
+    saveDisabler.reset();
+    if (viewportPanel) {
+      viewportPanel->UpdateScene();
+      viewportPanel->Refresh();
+    }
   }
   UpdateTitle();
 }
