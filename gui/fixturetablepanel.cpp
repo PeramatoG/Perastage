@@ -306,8 +306,6 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *servi
   const wxColour selectionBackground(0, 255, 255);
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
-  table->Bind(wxEVT_LEFT_DOWN, &FixtureTablePanel::OnLeftDown, this);
-  table->Bind(wxEVT_LEFT_UP, &FixtureTablePanel::OnLeftUp, this);
   BindTableHoverEvents(table, this, &FixtureTablePanel::OnMouseMove,
                        &FixtureTablePanel::OnMouseLeave);
   table->CallAfter([this]() {
@@ -323,8 +321,6 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *servi
               &FixtureTablePanel::OnItemActivated, this);
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &FixtureTablePanel::OnColumnSorted,
               this);
-
-  Bind(wxEVT_MOUSE_CAPTURE_LOST, &FixtureTablePanel::OnCaptureLost, this);
 
   InitializeTable();
   ReloadData();
@@ -1398,51 +1394,20 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
 }
 
 void FixtureTablePanel::OnLeftDown(wxMouseEvent &evt) {
-  wxDataViewItem item;
-  wxDataViewColumn *col;
-  table->HitTest(evt.GetPosition(), item, col);
-  startRow = table->ItemToRow(item);
-  if (startRow != wxNOT_FOUND) {
-    dragSelecting = true;
-    table->UnselectAll();
-    table->SelectRow(startRow);
-    CaptureMouse();
-  }
   evt.Skip();
 }
 
 void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) {
-  if (dragSelecting) {
-    dragSelecting = false;
-    if (HasCapture())
-      ReleaseMouse();
-  }
   evt.Skip();
 }
 
 void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
   dragSelecting = false;
+  startRow = wxNOT_FOUND;
 }
 
 void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
   UpdateHoverTooltip(NormalizeMousePositionForTable(table, evt));
-
-  if (!dragSelecting || !evt.Dragging()) {
-    evt.Skip();
-    return;
-  }
-
-  wxDataViewItem item;
-  wxDataViewColumn *col;
-  table->HitTest(evt.GetPosition(), item, col);
-  int row = table->ItemToRow(item);
-  if (row != wxNOT_FOUND) {
-    int minRow = std::min(startRow, row);
-    int maxRow = std::max(startRow, row);
-    table->UnselectAll();
-    for (int r = minRow; r <= maxRow; ++r)
-      table->SelectRow(r);
-  }
   evt.Skip();
 }
 
