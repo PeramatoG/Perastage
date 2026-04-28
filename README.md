@@ -40,6 +40,8 @@ The recommended way to install Perastage is to download the latest release from 
 
 If you want to build from source, setup and dependency notes are available in the documentation under `docs/`.
 
+Recent 3D optimization updates depend on `meshoptimizer`; if you prepare dependencies manually, include it in your toolchain setup (see `docs/build.md` and `setup_windows.ps1`).
+
 ## Basic usage
 
 - Open an existing `.mvr` file to inspect its content quickly.
