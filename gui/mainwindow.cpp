@@ -321,6 +321,7 @@ EVT_MENU(ID_Select_Objects, MainWindow::OnSelectObjects)
 EVT_MENU(ID_Edit_Preferences, MainWindow::OnPreferences)
 EVT_COMMAND(wxID_ANY, EVT_PROJECT_LOADED, MainWindow::OnProjectLoaded)
 EVT_COMMAND(wxID_ANY, EVT_UI_UNITS_CHANGED, MainWindow::OnUiUnitsChanged)
+EVT_COMMAND(wxID_ANY, EVT_UI_PREFERENCES_APPLIED, MainWindow::OnPreferencesApplied)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_SELECTED, MainWindow::OnLayoutSelected)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_VIEW_EDIT, MainWindow::OnLayoutViewEdit)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_VIEW_SELECTED, MainWindow::OnLayoutViewSelected)
@@ -1244,6 +1245,13 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
 
 void MainWindow::OnUiUnitsChanged(wxCommandEvent &WXUNUSED(event)) {
   RefreshAfterUnitSystemChange();
+}
+
+void MainWindow::OnPreferencesApplied(wxCommandEvent &WXUNUSED(event)) {
+  if (viewportPanel)
+    viewportPanel->Refresh();
+  if (viewport2DPanel)
+    viewport2DPanel->Refresh();
 }
 
 void MainWindow::OnNotebookPageChanged(wxBookCtrlEvent &event) {

@@ -27,6 +27,7 @@
 #include <wx/radiobut.h>
 
 wxDEFINE_EVENT(EVT_UI_UNITS_CHANGED, wxCommandEvent);
+wxDEFINE_EVENT(EVT_UI_PREFERENCES_APPLIED, wxCommandEvent);
 
 namespace {
 
@@ -212,14 +213,23 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
 
   SetSizerAndFit(topSizer);
 
-  Bind(wxEVT_BUTTON, [this](wxCommandEvent &evt) {
-    if (evt.GetId() == wxID_OK || evt.GetId() == wxID_APPLY) {
-      if (ApplyPreferences()) {
-        NotifyUnitsChanged();
-      }
-    }
-    evt.Skip();
-  });
+  Bind(wxEVT_BUTTON, &PreferencesDialog::OnApplyButton, this, wxID_APPLY);
+  Bind(wxEVT_BUTTON, &PreferencesDialog::OnOkButton, this, wxID_OK);
+}
+
+void PreferencesDialog::OnApplyButton(wxCommandEvent &WXUNUSED(event)) {
+  if (!ApplyPreferences())
+    return;
+  NotifyUnitsChanged();
+  NotifyPreferencesApplied();
+}
+
+void PreferencesDialog::OnOkButton(wxCommandEvent &WXUNUSED(event)) {
+  if (!ApplyPreferences())
+    return;
+  NotifyUnitsChanged();
+  NotifyPreferencesApplied();
+  EndModal(wxID_OK);
 }
 
 bool PreferencesDialog::ApplyPreferences() {
@@ -322,5 +332,10 @@ void PreferencesDialog::NotifyUnitsChanged() {
   initialDistanceUnit = currentDistanceUnit;
   initialWeightUnit = currentWeightUnit;
   wxCommandEvent event(EVT_UI_UNITS_CHANGED);
+  wxPostEvent(GetParent(), event);
+}
+
+void PreferencesDialog::NotifyPreferencesApplied() {
+  wxCommandEvent event(EVT_UI_PREFERENCES_APPLIED);
   wxPostEvent(GetParent(), event);
 }
