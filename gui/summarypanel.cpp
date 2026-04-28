@@ -31,6 +31,16 @@
 
 static SummaryPanel* s_instance = nullptr;
 
+namespace {
+bool IsRefreshTargetAlive(wxWindow* window) {
+    return window && !window->IsBeingDeleted();
+}
+
+bool IsRefreshTargetRenderable(wxWindow* window) {
+    return IsRefreshTargetAlive(window) && window->IsShownOnScreen();
+}
+} // namespace
+
 SummaryPanel::SummaryPanel(wxWindow* parent, ConfigManager* visibilityConfig,
                            ConfigManager* colorConfig)
     : wxPanel(parent, wxID_ANY),
@@ -367,11 +377,11 @@ void SummaryPanel::RefreshVisibleViewers() const {
     Viewer3DPanel* viewer3D = visibleRefreshViewer3D
                                   ? visibleRefreshViewer3D
                                   : Viewer3DPanel::Instance();
-    if (viewer2D) {
+    if (IsRefreshTargetAlive(viewer2D)) {
         viewer2D->UpdateScene(false);
         viewer2D->Refresh();
     }
-    if (viewer3D) {
+    if (IsRefreshTargetRenderable(viewer3D)) {
         viewer3D->UpdateScene();
         viewer3D->Refresh();
     }
