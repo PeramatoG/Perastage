@@ -25,9 +25,11 @@
 #pragma once
 
 #include <wx/glcanvas.h>
+#include "interaction/selection_drag_math.h"
 #include "viewer3dcamera.h"
 #include "viewer3dcontroller.h"
 #include "ui_render_size.h"
+#include <array>
 #include <memory>
 #include <string>
 #include <thread>
@@ -89,6 +91,18 @@ private:
     bool m_rectSelectionAcrossAllTables = false;
     wxPoint m_rectSelectStart;
     wxPoint m_rectSelectEnd;
+    bool m_selectionDragArmed = false;
+    bool m_selectionDragMoved = false;
+    bool m_selectionDragUndoPushed = false;
+    wxLongLong m_selectionDragPressTime = 0;
+    HoverTargetTable m_selectionDragTarget = HoverTargetTable::None;
+    std::vector<std::string> m_dragSelectionUuids;
+    std::vector<std::string> m_dragFixtureUuids;
+    std::vector<std::string> m_dragTrussUuids;
+    std::vector<std::string> m_dragSceneObjectUuids;
+    std::array<float, 3> m_selectionDragAnchorMeters{0.0f, 0.0f, 0.0f};
+    viewer3d::SelectionDragAxis m_selectionDragAxis =
+        viewer3d::SelectionDragAxis::None;
 
     // Type of interaction currently active (Orbit or Pan)
     enum class InteractionMode { None, Orbit, Pan };
@@ -121,6 +135,15 @@ private:
     void OnCaptureLost(wxMouseCaptureLostEvent& event);
     void ApplyRectangleSelection(const wxPoint& start, const wxPoint& end);
     void DrawSelectionRectangle(int width, int height);
+    void ResetSelectionDragState();
+    bool PrepareSelectionDrag(const wxPoint& mousePos);
+    std::array<float, 3> ComputeSelectionCenterMeters(
+        const std::vector<std::string>& uuids, HoverTargetTable target) const;
+    std::array<viewer3d::ProjectedAxis, 3> BuildProjectedDragAxes(
+        const RenderSize& renderSize) const;
+    void ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters);
+    void FinalizeSelectionDrag();
+    void DrawSelectionDragGizmo(const RenderSize& renderSize);
 
     // Renders the full scene
     void Render(const RenderSize& renderSize);

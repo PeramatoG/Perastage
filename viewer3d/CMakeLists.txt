@@ -3,6 +3,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/culling/primitive_bounds_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/culling/visibilitysystem.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfloader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/interaction/selection_drag_math.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/labels/label_render_system.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/loader3ds.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/loaderglb.cpp
