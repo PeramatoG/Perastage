@@ -1,5 +1,6 @@
 #include "scene_object_primitive_dialogs.h"
 #include "guiconfigservices.h"
+#include "ui_unit_utils.h"
 #include "units/units.h"
 
 #include <algorithm>
@@ -15,27 +16,28 @@
 namespace scene_object_primitives {
 namespace {
 
-constexpr double kMetersToMillimetersForUi = 1000.0;
+constexpr double kMetersToMillimeters = 1000.0;
 
 Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  return Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+  return UiUnitUtils::ParseDistanceUnitSystem(
+      cfg.GetValue("ui_distance_unit_system"));
 }
 
 double MetersToDisplayDistance(double meters, Units::DistanceUnitSystem unitSystem) {
-  return Units::DistanceMillimetersToDisplay(meters * kMetersToMillimetersForUi,
-                                             unitSystem);
+  return UiUnitUtils::DistanceMillimetersToDisplay(meters * kMetersToMillimeters,
+                                                   unitSystem);
 }
 
 double DisplayDistanceToMeters(double displayValue,
                                Units::DistanceUnitSystem unitSystem) {
-  return Units::DistanceDisplayToMillimeters(displayValue, unitSystem) /
-         kMetersToMillimetersForUi;
+  return UiUnitUtils::DistanceDisplayToMillimeters(displayValue, unitSystem) /
+         kMetersToMillimeters;
 }
 
 wxString DistanceLabel(const char *baseLabel,
                        Units::DistanceUnitSystem unitSystem) {
-  const std::string suffix = Units::DistanceUnitSuffix(unitSystem);
+  const std::string suffix = UiUnitUtils::DistanceUnitSuffix(unitSystem);
   return wxString::Format("%s (%s):", baseLabel,
                           suffix.c_str());
 }
@@ -309,7 +311,6 @@ private:
   wxSpinCtrlDouble *lengthCtrl_ = nullptr;
 };
 
-constexpr double kMetersToMillimeters = 1000.0;
 constexpr double kPrimitiveCubeSizeMillimeters = 1000.0;
 constexpr double kPrimitiveSphereDiameterMillimeters = 1000.0;
 constexpr double kPrimitiveCylinderDiameterMillimeters = 1000.0;
