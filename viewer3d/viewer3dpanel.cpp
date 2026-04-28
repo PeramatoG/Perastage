@@ -2001,7 +2001,7 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
     if (!hasRelevantVisualChange)
         return;
 
-    if (m_controller.IsResourceSyncPending() && !m_cameraMoving && !m_isInteracting) {
+    if (m_controller.IsResourceSyncPending() && !m_cameraMoving) {
         const auto now = std::chrono::steady_clock::now();
         const bool syncCadenceDue =
             (now - m_lastResourceSyncCheck) >= kResourceSyncInterval;

@@ -404,6 +404,8 @@ void SummaryPanel::OnItemValueChanged(wxDataViewEvent& event) {
         hiddenFixtureTypes.insert(typeName);
     (*visibilityConfigManager).SetHiddenFixtureTypes(hiddenFixtureTypes);
     CallAfter([this]() {
+        if (table)
+            table->UnselectAll();
         RefreshFixtureVisibilityStyles();
         RefreshVisibleViewers();
     });
