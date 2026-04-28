@@ -97,7 +97,13 @@ jobs:
         run: |
           # Ensure the output directory exists before ISCC runs
           New-Item -ItemType Directory -Path "$env:GITHUB_WORKSPACE\out\installer" -Force | Out-Null
-          ISCC "$env:GITHUB_WORKSPACE\packaging\windows\Perastage.iss"
+          $version = (cmake -P "$env:GITHUB_WORKSPACE\packaging\windows\get_project_version.cmake" |
+            Select-String -Pattern '-- ([0-9]+\.[0-9]+\.[0-9]+)$').Matches[0].Groups[1].Value
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            throw "Could not determine PROJECT_VERSION from CMakeLists.txt"
+          }
+          Write-Host "Using installer version: $version"
+          ISCC "/DMyAppVersion=$version" "$env:GITHUB_WORKSPACE\packaging\windows\Perastage.iss"
 
       # Copy installer into a dedicated folder for upload
       - name: Collect Windows installer
