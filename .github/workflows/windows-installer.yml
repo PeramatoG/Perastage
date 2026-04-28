@@ -51,7 +51,8 @@ jobs:
             curl:x64-windows `
             zlib:x64-windows `
             nanovg:x64-windows `
-            podofo:x64-windows
+            podofo:x64-windows `
+            meshoptimizer:x64-windows
 
       # Configure the CMake project using the vcpkg toolchain
       - name: Configure CMake
