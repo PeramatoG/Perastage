@@ -1,7 +1,7 @@
 # Windows installer workflow for Perastage
 # Builds, stages and packages the Windows installer with Inno Setup.
 
-name: Windows Installer Test
+name: Windows Installer Build
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ on:
       - ci/windows-installer
 
 jobs:
-  smoke-test:
+  build-windows-installer:
     runs-on: windows-latest
     steps:
       # Checkout the repository contents
