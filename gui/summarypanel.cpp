@@ -35,10 +35,6 @@ namespace {
 bool IsRefreshTargetAlive(wxWindow* window) {
     return window && !window->IsBeingDeleted();
 }
-
-bool IsRefreshTargetRenderable(wxWindow* window) {
-    return IsRefreshTargetAlive(window) && window->IsShownOnScreen();
-}
 } // namespace
 
 SummaryPanel::SummaryPanel(wxWindow* parent, ConfigManager* visibilityConfig,
@@ -381,7 +377,7 @@ void SummaryPanel::RefreshVisibleViewers() const {
         viewer2D->UpdateScene(false);
         viewer2D->Refresh();
     }
-    if (IsRefreshTargetRenderable(viewer3D)) {
+    if (IsRefreshTargetAlive(viewer3D)) {
         viewer3D->UpdateScene();
         viewer3D->Refresh();
     }
@@ -394,8 +390,9 @@ void SummaryPanel::OnItemValueChanged(wxDataViewEvent& event) {
     if (row == wxNOT_FOUND)
         return;
 
-    wxVariant value;
-    table->GetValue(value, row, 0);
+    wxVariant value = event.GetValue();
+    if (!value.IsType("bool"))
+        table->GetValue(value, row, 0);
     const bool visible = value.GetBool();
     const std::string typeName = table->GetTextValue(row, 2).ToStdString();
 
