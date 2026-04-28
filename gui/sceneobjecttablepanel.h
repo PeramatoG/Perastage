@@ -63,7 +63,6 @@ private:
     void OnSelectionChanged(wxDataViewEvent& evt);
     void OnContextMenu(wxDataViewEvent& event);
     void OnColumnSorted(wxDataViewEvent& event);
-    void EnsureRowMappingsSynced();
     void OnItemActivated(wxDataViewEvent& event);
     void ResyncRows(const std::vector<std::string>& oldOrder,
                     const std::vector<std::string>& selectedUuids);

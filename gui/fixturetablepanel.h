@@ -99,7 +99,8 @@ private:
     void OnContextMenu(wxDataViewEvent& event);
     void OnItemActivated(wxDataViewEvent& event);
     void OnColumnSorted(wxDataViewEvent& event);
-    void EnsureRowMappingsSynced();
+    void RebuildRowCachesFromHiddenColumns();
+    std::string UuidForItem(const wxDataViewItem& item) const;
     void ResyncRows(const std::vector<std::string>& oldOrder,
                     const std::vector<std::string>& selectedUuids,
                     const std::vector<wxString>* oldPaths = nullptr);

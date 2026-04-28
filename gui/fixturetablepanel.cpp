@@ -60,6 +60,8 @@
 namespace fs = std::filesystem;
 
 namespace {
+constexpr unsigned int kHiddenUuidColumn = 20;
+constexpr unsigned int kHiddenGdtfPathColumn = 21;
 
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
@@ -387,6 +389,12 @@ void FixtureTablePanel::InitializeTable() {
   columnLabels[17] = wxString::FromUTF8(
       Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
   FixtureTableColumns::ConfigureColumns(table, columnLabels);
+  auto *uuidColumn = table->AppendTextColumn("UUID");
+  auto *pathColumn = table->AppendTextColumn("GDTF Path");
+  if (uuidColumn)
+    uuidColumn->SetHidden(true);
+  if (pathColumn)
+    pathColumn->SetHidden(true);
 }
 
 void FixtureTablePanel::ReloadData() {
@@ -538,6 +546,8 @@ void FixtureTablePanel::ReloadData() {
       var << wxDataViewIconText();
       row.push_back(var);
     }
+    row.push_back(wxString::FromUTF8(uuid));
+    row.push_back(gdtfFull);
 
     store->AppendItem(row, rowUuids.size());
     rowUuids.push_back(uuid);
@@ -557,7 +567,6 @@ void FixtureTablePanel::ReloadData() {
 }
 
 void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
-  EnsureRowMappingsSynced();
   wxDataViewItem item = event.GetItem();
   int col = event.GetColumn();
   if (!item.IsOk() || col < 0)
@@ -570,9 +579,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
   std::vector<std::string> selectedUuids;
   for (const auto &itSel : selections) {
-    int r = table->ItemToRow(itSel);
-    if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
-      selectedUuids.push_back(rowUuids[r]);
+    const std::string uuid = UuidForItem(itSel);
+    if (!uuid.empty())
+      selectedUuids.push_back(uuid);
   }
   std::vector<std::string> oldOrder = rowUuids;
 
@@ -613,6 +622,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
           gdtfPaths.resize(table->GetItemCount());
 
         gdtfPaths[r] = path;
+        table->SetValue(wxVariant(path), r, kHiddenGdtfPathColumn);
         table->SetValue(wxVariant(fileName), r, 9);
         table->SetValue(wxVariant(typeName), r, 2);
 
@@ -635,6 +645,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
           gdtfPaths.resize(table->GetItemCount());
 
         gdtfPaths[i] = path;
+        table->SetValue(wxVariant(path), i, kHiddenGdtfPathColumn);
         table->SetValue(wxVariant(fileName), i, 9);
         table->SetValue(wxVariant(typeName), i, 2);
 
@@ -1275,16 +1286,15 @@ std::vector<std::string> FixtureTablePanel::GetSelectedUuids() const {
   std::vector<std::string> uuids;
   uuids.reserve(selections.size());
   for (const auto &it : selections) {
-    int r = table->ItemToRow(it);
-    if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
-      uuids.push_back(rowUuids[r]);
+    const std::string uuid = UuidForItem(it);
+    if (!uuid.empty())
+      uuids.push_back(uuid);
   }
   return uuids;
 }
 
 void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
                                      bool notifySelectionChanged) {
-  EnsureRowMappingsSynced();
   std::unique_ptr<wxEventBlocker> selectionBlocker;
   if (!notifySelectionChanged)
     selectionBlocker = std::make_unique<wxEventBlocker>(table, wxEVT_DATAVIEW_SELECTION_CHANGED);
@@ -1305,7 +1315,6 @@ void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
 }
 
 void FixtureTablePanel::DeleteSelected(bool pushUndoState) {
-  EnsureRowMappingsSynced();
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   if (selections.empty())
@@ -1421,7 +1430,12 @@ void FixtureTablePanel::OnLeftDown(wxMouseEvent &evt) {
   wxDataViewColumn *col;
   table->HitTest(evt.GetPosition(), item, col);
   startRow = table->ItemToRow(item);
-  dragSelecting = false;
+  if (startRow != wxNOT_FOUND) {
+    dragSelecting = true;
+    table->UnselectAll();
+    table->SelectRow(startRow);
+    CaptureMouse();
+  }
   evt.Skip();
 }
 
@@ -1431,19 +1445,17 @@ void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) {
     if (HasCapture())
       ReleaseMouse();
   }
-  startRow = wxNOT_FOUND;
   evt.Skip();
 }
 
 void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
   dragSelecting = false;
-  startRow = wxNOT_FOUND;
 }
 
 void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
   UpdateHoverTooltip(NormalizeMousePositionForTable(table, evt));
 
-  if (!evt.Dragging() || startRow == wxNOT_FOUND) {
+  if (!dragSelecting || !evt.Dragging()) {
     evt.Skip();
     return;
   }
@@ -1453,13 +1465,6 @@ void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
   table->HitTest(evt.GetPosition(), item, col);
   int row = table->ItemToRow(item);
   if (row != wxNOT_FOUND) {
-    if (!dragSelecting) {
-      dragSelecting = true;
-      table->UnselectAll();
-      table->SelectRow(startRow);
-      if (!HasCapture())
-        CaptureMouse();
-    }
     int minRow = std::min(startRow, row);
     int maxRow = std::max(startRow, row);
     table->UnselectAll();
@@ -1508,7 +1513,7 @@ void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
 }
 
 void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
-  EnsureRowMappingsSynced();
+  RebuildRowCachesFromHiddenColumns();
   const selection::Origin origin = selection::CurrentOrigin();
   if (origin == selection::Origin::Viewer2D ||
       origin == selection::Origin::Viewer3D) {
@@ -1817,22 +1822,9 @@ void FixtureTablePanel::ResyncRows(
     const std::vector<std::string> &oldOrder,
     const std::vector<std::string> &selectedUuids,
     const std::vector<wxString> *oldPaths) {
-  unsigned int count = table->GetItemCount();
-  std::vector<std::string> newOrder(count);
-  std::vector<wxString> newPaths(count);
-  const auto &paths = oldPaths ? *oldPaths : gdtfPaths;
-  for (unsigned int i = 0; i < count; ++i) {
-    wxDataViewItem it = table->RowToItem(i);
-    unsigned long idx = store->GetItemData(it);
-    if (idx < oldOrder.size()) {
-      newOrder[i] = oldOrder[idx];
-      if (idx < paths.size())
-        newPaths[i] = paths[idx];
-    }
-    store->SetItemData(it, i);
-  }
-  rowUuids.swap(newOrder);
-  gdtfPaths.swap(newPaths);
+  (void)oldOrder;
+  (void)oldPaths;
+  RebuildRowCachesFromHiddenColumns();
   selectionOrder = ReindexSelectionOrder(selectionOrder, oldOrder, rowUuids);
 
   {
@@ -1847,42 +1839,44 @@ void FixtureTablePanel::ResyncRows(
   UpdateSelectionHighlight();
 }
 
-void FixtureTablePanel::EnsureRowMappingsSynced() {
-  if (!table || !store)
+void FixtureTablePanel::RebuildRowCachesFromHiddenColumns() {
+  if (!table)
     return;
 
   const unsigned int count = table->GetItemCount();
-  if (count == 0 || rowUuids.empty())
-    return;
+  rowUuids.assign(count, std::string());
+  gdtfPaths.assign(count, wxString());
+  for (unsigned int row = 0; row < count; ++row) {
+    wxVariant uuidValue;
+    table->GetValue(uuidValue, row, kHiddenUuidColumn);
+    rowUuids[row] = std::string(uuidValue.GetString().ToUTF8());
 
-  const std::vector<std::string> oldOrder = rowUuids;
-  const std::vector<wxString> oldPaths = gdtfPaths;
-  std::vector<std::string> newOrder(count);
-  std::vector<wxString> newPaths(count);
-
-  for (unsigned int i = 0; i < count; ++i) {
-    const wxDataViewItem it = table->RowToItem(i);
-    const unsigned long idx = store->GetItemData(it);
-    if (idx < oldOrder.size())
-      newOrder[i] = oldOrder[idx];
-    if (idx < oldPaths.size())
-      newPaths[i] = oldPaths[idx];
-    store->SetItemData(it, i);
+    wxVariant pathValue;
+    table->GetValue(pathValue, row, kHiddenGdtfPathColumn);
+    gdtfPaths[row] = pathValue.GetString();
   }
+}
 
-  rowUuids.swap(newOrder);
-  gdtfPaths.swap(newPaths);
-  selectionOrder = ReindexSelectionOrder(selectionOrder, oldOrder, rowUuids);
+std::string FixtureTablePanel::UuidForItem(const wxDataViewItem &item) const {
+  if (!table || !item.IsOk())
+    return {};
+  const int row = table->ItemToRow(item);
+  if (row == wxNOT_FOUND)
+    return {};
+  wxVariant uuidValue;
+  table->GetValue(uuidValue, static_cast<unsigned int>(row), kHiddenUuidColumn);
+  return std::string(uuidValue.GetString().ToUTF8());
 }
 
 void FixtureTablePanel::OnColumnSorted(wxDataViewEvent &event) {
+  RebuildRowCachesFromHiddenColumns();
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   std::vector<std::string> selectedUuids;
   for (const auto &it : selections) {
-    int r = table->ItemToRow(it);
-    if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
-      selectedUuids.push_back(rowUuids[r]);
+    const std::string uuid = UuidForItem(it);
+    if (!uuid.empty())
+      selectedUuids.push_back(uuid);
   }
   std::vector<std::string> oldOrder = rowUuids;
   ResyncRows(oldOrder, selectedUuids);
