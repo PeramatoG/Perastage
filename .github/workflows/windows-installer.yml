@@ -23,9 +23,8 @@ jobs:
         with:
           path: |
             vcpkg/downloads
-            vcpkg/buildtrees
-            vcpkg/packages
             vcpkg/installed
+            vcpkg/packages
           key: ${{ runner.os }}-vcpkg-x64-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/windows-installer.yml') }}
           restore-keys: |
             ${{ runner.os }}-vcpkg-x64-windows-
@@ -42,7 +41,19 @@ jobs:
       - name: Set up vcpkg dependencies
         shell: pwsh
         run: |
-          git clone https://github.com/microsoft/vcpkg.git "$env:GITHUB_WORKSPACE\vcpkg"
+          $vcpkgDir = "$env:GITHUB_WORKSPACE\vcpkg"
+          if (Test-Path "$vcpkgDir\.git") {
+            Write-Host "Existing vcpkg repository found in cache. Updating checkout..."
+            git -C $vcpkgDir fetch --depth 1 origin master
+            git -C $vcpkgDir checkout --force FETCH_HEAD
+          } elseif (Test-Path $vcpkgDir) {
+            Write-Host "Cached vcpkg directory exists without .git metadata. Recreating..."
+            Remove-Item -Path $vcpkgDir -Recurse -Force
+            git clone --depth 1 https://github.com/microsoft/vcpkg.git $vcpkgDir
+          } else {
+            git clone --depth 1 https://github.com/microsoft/vcpkg.git $vcpkgDir
+          }
+
           & "$env:GITHUB_WORKSPACE\vcpkg\bootstrap-vcpkg.bat"
           & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install `
             wxwidgets:x64-windows `
