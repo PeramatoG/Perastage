@@ -55,6 +55,7 @@ private:
   wxRadioButton *viewer3dByDeviceTypeRenderRadio = nullptr;
   wxRadioButton *viewer3dByLayerRenderRadio = nullptr;
   wxRadioButton *viewer3dByUniverseRenderRadio = nullptr;
+  wxCheckBox *viewer3dInvertOrbitCheck = nullptr;
   wxChoice *distanceUnitChoice = nullptr;
   wxChoice *weightUnitChoice = nullptr;
   wxString initialDistanceUnit;

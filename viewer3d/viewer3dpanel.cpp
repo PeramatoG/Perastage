@@ -122,6 +122,12 @@ bool IsFastInteractionModeEnabled()
     return ConfigManager::Get().GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
+bool IsOrbitInversionEnabled()
+{
+    const auto value = ConfigManager::Get().GetValue("viewer3d_invert_orbit");
+    return value && *value == "1";
+}
+
 bool Is2DDarkModeEnabled() {
     return ConfigManager::Get().GetFloat("view2d_dark_mode") >= 0.5f;
 }
@@ -1650,8 +1656,9 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
         if (m_mode == InteractionMode::Orbit &&
             (event.LeftIsDown() || event.RightIsDown()))
         {
+            const float orbitPitchDirection = IsOrbitInversionEnabled() ? 1.0f : -1.0f;
             m_camera.targetYaw += dx * 0.5f;
-            m_camera.targetPitch += -dy * 0.5f;
+            m_camera.targetPitch += orbitPitchDirection * static_cast<float>(dy) * 0.5f;
             m_camera.targetPitch = std::clamp(m_camera.targetPitch, -89.0f, 89.0f);
         }
         else if (m_mode == InteractionMode::Pan &&

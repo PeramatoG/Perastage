@@ -23,8 +23,11 @@
 #include "viewer3d_render_style.h"
 #include <wx/checkbox.h>
 #include <wx/choice.h>
+#include <wx/font.h>
 #include <wx/notebook.h>
 #include <wx/radiobut.h>
+#include <wx/settings.h>
+#include <wx/statline.h>
 
 wxDEFINE_EVENT(EVT_UI_UNITS_CHANGED, wxCommandEvent);
 wxDEFINE_EVENT(EVT_UI_PREFERENCES_APPLIED, wxCommandEvent);
@@ -157,26 +160,66 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
 
   // 3D Viewer page
   wxPanel *viewer3dPanel = new wxPanel(book);
+  viewer3dPanel->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
   wxBoxSizer *viewer3dSizer = new wxBoxSizer(wxVERTICAL);
-  viewer3dSizer->Add(new wxStaticText(viewer3dPanel, wxID_ANY, "Render mode:"),
-                     0, wxLEFT | wxRIGHT | wxTOP, 10);
+  wxStaticText *viewer3dTitle =
+      new wxStaticText(viewer3dPanel, wxID_ANY, "3D Viewer");
+  wxFont viewer3dTitleFont = viewer3dTitle->GetFont();
+  viewer3dTitleFont.MakeBold();
+  viewer3dTitleFont.SetPointSize(viewer3dTitleFont.GetPointSize() + 2);
+  viewer3dTitle->SetFont(viewer3dTitleFont);
+  viewer3dSizer->Add(viewer3dTitle, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 12);
+
+  wxStaticText *viewer3dSubtitle = new wxStaticText(
+      viewer3dPanel, wxID_ANY,
+      "Customize camera interaction and visualize the current navigation shortcuts.");
+  viewer3dSubtitle->SetForegroundColour(
+      wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+  viewer3dSubtitle->Wrap(760);
+  viewer3dSizer->Add(viewer3dSubtitle, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 6);
+  viewer3dSizer->Add(new wxStaticLine(viewer3dPanel, wxID_ANY), 0,
+                     wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
+
+  wxStaticBoxSizer *viewer3dNavigationSizer =
+      new wxStaticBoxSizer(wxVERTICAL, viewer3dPanel, "Navigation");
+  viewer3dInvertOrbitCheck = new wxCheckBox(
+      viewer3dNavigationSizer->GetStaticBox(), wxID_ANY,
+      "Invert orbit/rotate vertical direction");
+  const auto viewer3dInvertOrbitValue = cfg.GetValue("viewer3d_invert_orbit");
+  viewer3dInvertOrbitCheck->SetValue(viewer3dInvertOrbitValue &&
+                                     *viewer3dInvertOrbitValue == "1");
+  viewer3dNavigationSizer->Add(viewer3dInvertOrbitCheck, 0, wxALL, 8);
+
+  wxStaticText *viewer3dNavigationHint = new wxStaticText(
+      viewer3dNavigationSizer->GetStaticBox(), wxID_ANY,
+      "Disabled by default to preserve the current behavior.");
+  viewer3dNavigationHint->SetForegroundColour(
+      wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+  viewer3dNavigationHint->Wrap(740);
+  viewer3dNavigationSizer->Add(viewer3dNavigationHint, 0,
+                               wxLEFT | wxRIGHT | wxBOTTOM, 8);
+  viewer3dSizer->Add(viewer3dNavigationSizer, 0,
+                     wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
+
+  wxStaticBoxSizer *viewer3dRenderSizer =
+      new wxStaticBoxSizer(wxVERTICAL, viewer3dPanel, "Render mode");
   viewer3dStandardRenderRadio = new wxRadioButton(
-      viewer3dPanel, wxID_ANY, "Standard", wxDefaultPosition,
+      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, "Standard", wxDefaultPosition,
       wxDefaultSize, wxRB_GROUP);
   viewer3dWhiteRenderRadio = new wxRadioButton(
-      viewer3dPanel, wxID_ANY, "White");
+      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, "White");
   viewer3dWhiteModelRenderRadio = new wxRadioButton(
-      viewer3dPanel, wxID_ANY, "Sketch mode");
+      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, "Sketch mode");
   viewer3dTexturedRenderRadio = new wxRadioButton(
-      viewer3dPanel, wxID_ANY, "Textured");
+      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, "Textured");
   viewer3dWireframeRenderRadio = new wxRadioButton(
-      viewer3dPanel, wxID_ANY, "Wireframe");
+      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, "Wireframe");
   viewer3dByDeviceTypeRenderRadio = new wxRadioButton(
-      viewer3dPanel, wxID_ANY, "By device type");
+      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, "By device type");
   viewer3dByLayerRenderRadio = new wxRadioButton(
-      viewer3dPanel, wxID_ANY, "By layer");
+      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, "By layer");
   viewer3dByUniverseRenderRadio = new wxRadioButton(
-      viewer3dPanel, wxID_ANY, "By universe");
+      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, "By universe");
 
   const Viewer3DRenderStyle renderStyle = ResolveViewer3DRenderStyle(cfg);
   viewer3dStandardRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::Standard);
@@ -188,22 +231,46 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   viewer3dByLayerRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::ByLayer);
   viewer3dByUniverseRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::ByUniverse);
 
-  viewer3dSizer->Add(viewer3dStandardRenderRadio, 0,
-                     wxLEFT | wxRIGHT | wxTOP, 10);
-  viewer3dSizer->Add(viewer3dWhiteModelRenderRadio, 0,
-                     wxLEFT | wxRIGHT | wxTOP, 10);
-  viewer3dSizer->Add(viewer3dTexturedRenderRadio, 0,
-                     wxLEFT | wxRIGHT | wxTOP, 10);
-  viewer3dSizer->Add(viewer3dWireframeRenderRadio, 0,
-                     wxLEFT | wxRIGHT | wxTOP, 10);
-  viewer3dSizer->Add(viewer3dWhiteRenderRadio, 0,
-                     wxLEFT | wxRIGHT | wxTOP, 10);
-  viewer3dSizer->Add(viewer3dByDeviceTypeRenderRadio, 0,
-                     wxLEFT | wxRIGHT | wxTOP, 10);
-  viewer3dSizer->Add(viewer3dByLayerRenderRadio, 0,
-                     wxLEFT | wxRIGHT | wxTOP, 10);
-  viewer3dSizer->Add(viewer3dByUniverseRenderRadio, 0,
-                     wxLEFT | wxRIGHT | wxTOP | wxBOTTOM, 10);
+  viewer3dRenderSizer->Add(viewer3dStandardRenderRadio, 0,
+                           wxLEFT | wxRIGHT | wxTOP, 8);
+  viewer3dRenderSizer->Add(viewer3dWhiteModelRenderRadio, 0,
+                           wxLEFT | wxRIGHT | wxTOP, 6);
+  viewer3dRenderSizer->Add(viewer3dTexturedRenderRadio, 0,
+                           wxLEFT | wxRIGHT | wxTOP, 6);
+  viewer3dRenderSizer->Add(viewer3dWireframeRenderRadio, 0,
+                           wxLEFT | wxRIGHT | wxTOP, 6);
+  viewer3dRenderSizer->Add(viewer3dWhiteRenderRadio, 0,
+                           wxLEFT | wxRIGHT | wxTOP, 6);
+  viewer3dRenderSizer->Add(viewer3dByDeviceTypeRenderRadio, 0,
+                           wxLEFT | wxRIGHT | wxTOP, 6);
+  viewer3dRenderSizer->Add(viewer3dByLayerRenderRadio, 0,
+                           wxLEFT | wxRIGHT | wxTOP, 6);
+  viewer3dRenderSizer->Add(viewer3dByUniverseRenderRadio, 0,
+                           wxLEFT | wxRIGHT | wxTOP | wxBOTTOM, 8);
+  viewer3dSizer->Add(viewer3dRenderSizer, 0,
+                     wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
+
+  wxStaticBoxSizer *viewer3dShortcutsSizer = new wxStaticBoxSizer(
+      wxVERTICAL, viewer3dPanel, "Current mouse and keyboard shortcuts");
+  wxStaticText *viewer3dShortcutsInfo = new wxStaticText(
+      viewer3dShortcutsSizer->GetStaticBox(), wxID_ANY,
+      "Orbit: Left drag or Right drag.\n"
+      "Pan: Middle drag, Shift + drag, or Shift + Left drag.\n"
+      "Zoom: Mouse wheel.\n"
+      "Selection rectangle: Ctrl + Left drag.");
+  viewer3dShortcutsInfo->Wrap(740);
+  viewer3dShortcutsSizer->Add(viewer3dShortcutsInfo, 0, wxALL, 8);
+
+  wxStaticText *viewer3dShortcutsHint = new wxStaticText(
+      viewer3dShortcutsSizer->GetStaticBox(), wxID_ANY,
+      "Informational only: shortcut remapping is not available yet.");
+  viewer3dShortcutsHint->SetForegroundColour(
+      wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+  viewer3dShortcutsHint->Wrap(740);
+  viewer3dShortcutsSizer->Add(viewer3dShortcutsHint, 0,
+                              wxLEFT | wxRIGHT | wxBOTTOM, 8);
+  viewer3dSizer->Add(viewer3dShortcutsSizer, 0,
+                     wxEXPAND | wxLEFT | wxRIGHT | wxTOP | wxBOTTOM, 10);
   viewer3dPanel->SetSizer(viewer3dSizer);
   book->AddPage(viewer3dPanel, "3D Viewer");
 
@@ -277,6 +344,10 @@ bool PreferencesDialog::ApplyPreferences() {
   else if (viewer3dByUniverseRenderRadio && viewer3dByUniverseRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::ByUniverse;
   cfg.SetValue("viewer3d_render_style", ToConfigValue(renderStyle));
+  cfg.SetValue("viewer3d_invert_orbit",
+               viewer3dInvertOrbitCheck && viewer3dInvertOrbitCheck->GetValue()
+                   ? "1"
+                   : "0");
 
   if (gdtfCredentialsPanel)
     gdtfCredentialsPanel->ApplyCredentials();
