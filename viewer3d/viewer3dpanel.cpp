@@ -1912,7 +1912,7 @@ void Viewer3DPanel::UpdateScene()
 
     if (ShouldPauseHeavyTasks() || m_cameraMoving)
         return;
-    if (!IsShownOnScreen())
+    if (!IsShown())
         return;
 
     SetCurrent(*m_glContext);
@@ -2006,7 +2006,7 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
         const bool syncCadenceDue =
             (now - m_lastResourceSyncCheck) >= kResourceSyncInterval;
         if (syncCadenceDue) {
-            if (!IsShownOnScreen())
+            if (!IsShown())
                 return;
             SetCurrent(*m_glContext);
             m_lastResourceSyncCheck = now;

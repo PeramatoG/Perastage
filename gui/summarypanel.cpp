@@ -374,7 +374,7 @@ void SummaryPanel::RefreshVisibleViewers() const {
                                   ? visibleRefreshViewer3D
                                   : Viewer3DPanel::Instance();
     if (IsRefreshTargetAlive(viewer2D)) {
-        viewer2D->UpdateScene(false);
+        viewer2D->UpdateScene(true);
         viewer2D->Refresh();
     }
     if (IsRefreshTargetAlive(viewer3D)) {
@@ -403,8 +403,10 @@ void SummaryPanel::OnItemValueChanged(wxDataViewEvent& event) {
     else
         hiddenFixtureTypes.insert(typeName);
     (*visibilityConfigManager).SetHiddenFixtureTypes(hiddenFixtureTypes);
-    RefreshFixtureVisibilityStyles();
-    RefreshVisibleViewers();
+    CallAfter([this]() {
+        RefreshFixtureVisibilityStyles();
+        RefreshVisibleViewers();
+    });
 }
 
 void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
