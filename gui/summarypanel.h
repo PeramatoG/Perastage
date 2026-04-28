@@ -22,6 +22,8 @@
 
 class ColorfulDataViewListStore;
 class ConfigManager;
+class Viewer2DPanel;
+class Viewer3DPanel;
 
 // Panel that shows a summary count of items by type/model/name
 class SummaryPanel : public wxPanel {
@@ -33,6 +35,7 @@ public:
     void ShowTrussSummary();
     void ShowHoistSummary();
     void ShowSceneObjectSummary();
+    void SetVisibleRefreshTargets(Viewer2DPanel* viewer2D, Viewer3DPanel* viewer3D);
 
     static SummaryPanel* Instance();
     static void SetInstance(SummaryPanel* panel);
@@ -54,6 +57,8 @@ private:
     ColorfulDataViewListStore* store = nullptr;
     ConfigManager* visibilityConfigManager = nullptr;
     ConfigManager* colorConfigManager = nullptr;
+    Viewer2DPanel* visibleRefreshViewer2D = nullptr;
+    Viewer3DPanel* visibleRefreshViewer3D = nullptr;
     SummaryMode mode = SummaryMode::Generic;
     wxString activeHoverTooltip;
 

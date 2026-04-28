@@ -516,6 +516,14 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
     m_zoomInteractionTimer.SetOwner(this);
     Bind(wxEVT_TIMER, &Viewer3DPanel::OnZoomInteractionTimeout, this,
          m_zoomInteractionTimer.GetId());
+    Bind(wxEVT_SHOW, [this](wxShowEvent& event) {
+        if (event.IsShown()) {
+            m_controller.MarkResourceSyncPending();
+            UpdateScene();
+            Refresh();
+        }
+        event.Skip();
+    });
     m_threadRunning = true;
     m_lastResourceSyncCheck = std::chrono::steady_clock::now();
     m_basePassCache = std::make_unique<BasePassFramebufferCache>();
@@ -1912,6 +1920,8 @@ void Viewer3DPanel::UpdateScene()
 
     if (ShouldPauseHeavyTasks() || m_cameraMoving)
         return;
+    if (!IsShown())
+        return;
 
     SetCurrent(*m_glContext);
     if (m_controller.ConsumeResourceSyncPending())
@@ -1999,11 +2009,13 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
     if (!hasRelevantVisualChange)
         return;
 
-    if (m_controller.IsResourceSyncPending() && !m_cameraMoving && !m_isInteracting) {
+    if (m_controller.IsResourceSyncPending() && !m_cameraMoving) {
         const auto now = std::chrono::steady_clock::now();
         const bool syncCadenceDue =
             (now - m_lastResourceSyncCheck) >= kResourceSyncInterval;
         if (syncCadenceDue) {
+            if (!IsShown())
+                return;
             SetCurrent(*m_glContext);
             m_lastResourceSyncCheck = now;
             if (m_controller.ConsumeResourceSyncPending())

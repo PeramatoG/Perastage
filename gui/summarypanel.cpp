@@ -31,6 +31,12 @@
 
 static SummaryPanel* s_instance = nullptr;
 
+namespace {
+bool IsRefreshTargetAlive(wxWindow* window) {
+    return window && !window->IsBeingDeleted();
+}
+} // namespace
+
 SummaryPanel::SummaryPanel(wxWindow* parent, ConfigManager* visibilityConfig,
                            ConfigManager* colorConfig)
     : wxPanel(parent, wxID_ANY),
@@ -72,6 +78,12 @@ SummaryPanel* SummaryPanel::Instance()
 void SummaryPanel::SetInstance(SummaryPanel* panel)
 {
     s_instance = panel;
+}
+
+void SummaryPanel::SetVisibleRefreshTargets(Viewer2DPanel* viewer2D,
+                                            Viewer3DPanel* viewer3D) {
+    visibleRefreshViewer2D = viewer2D;
+    visibleRefreshViewer3D = viewer3D;
 }
 
 
@@ -355,13 +367,19 @@ void SummaryPanel::RefreshFixtureVisibilityStyles() {
 }
 
 void SummaryPanel::RefreshVisibleViewers() const {
-    if (Viewer2DPanel::Instance()) {
-        Viewer2DPanel::Instance()->UpdateScene(false);
-        Viewer2DPanel::Instance()->Refresh();
+    Viewer2DPanel* viewer2D = visibleRefreshViewer2D
+                                  ? visibleRefreshViewer2D
+                                  : Viewer2DPanel::Instance();
+    Viewer3DPanel* viewer3D = visibleRefreshViewer3D
+                                  ? visibleRefreshViewer3D
+                                  : Viewer3DPanel::Instance();
+    if (IsRefreshTargetAlive(viewer2D)) {
+        viewer2D->UpdateScene(true);
+        viewer2D->Refresh();
     }
-    if (Viewer3DPanel::Instance()) {
-        Viewer3DPanel::Instance()->UpdateScene();
-        Viewer3DPanel::Instance()->Refresh();
+    if (IsRefreshTargetAlive(viewer3D)) {
+        viewer3D->UpdateScene();
+        viewer3D->Refresh();
     }
 }
 
@@ -372,8 +390,9 @@ void SummaryPanel::OnItemValueChanged(wxDataViewEvent& event) {
     if (row == wxNOT_FOUND)
         return;
 
-    wxVariant value;
-    table->GetValue(value, row, 0);
+    wxVariant value = event.GetValue();
+    if (!value.IsType("bool"))
+        table->GetValue(value, row, 0);
     const bool visible = value.GetBool();
     const std::string typeName = table->GetTextValue(row, 2).ToStdString();
 
@@ -384,8 +403,12 @@ void SummaryPanel::OnItemValueChanged(wxDataViewEvent& event) {
     else
         hiddenFixtureTypes.insert(typeName);
     (*visibilityConfigManager).SetHiddenFixtureTypes(hiddenFixtureTypes);
-    RefreshFixtureVisibilityStyles();
-    RefreshVisibleViewers();
+    CallAfter([this]() {
+        if (table)
+            table->UnselectAll();
+        RefreshFixtureVisibilityStyles();
+        RefreshVisibleViewers();
+    });
 }
 
 void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {

@@ -606,10 +606,13 @@ const IVisibilityContext::VisibleSet &VisibilitySystem::GetVisibleSet(
     const IVisibilityContext::ViewFrustumSnapshot &frustum,
     const std::unordered_set<std::string> &hiddenLayers,
     bool useFrustumCulling, float minPixels) const {
+  const auto hiddenFixtureTypes = ConfigManager::Get().GetHiddenFixtureTypes();
   const bool layerCandidatesCacheValid =
       (m_controller.GetLayerVisibleCandidatesSceneVersion() ==
        m_controller.GetSceneVersion()) &&
-      (m_controller.GetLayerVisibleCandidatesHiddenLayers() == hiddenLayers);
+      (m_controller.GetLayerVisibleCandidatesHiddenLayers() == hiddenLayers) &&
+      (m_controller.GetLayerVisibleCandidatesHiddenFixtureTypes() ==
+       hiddenFixtureTypes);
 
   if (!layerCandidatesCacheValid) {
     IVisibilityContext::VisibleSet builtCandidates;
@@ -618,6 +621,8 @@ const IVisibilityContext::VisibleSet &VisibilitySystem::GetVisibleSet(
       m_controller.GetLayerVisibleCandidatesSceneVersion() =
           m_controller.GetSceneVersion();
       m_controller.GetLayerVisibleCandidatesHiddenLayers() = hiddenLayers;
+      m_controller.GetLayerVisibleCandidatesHiddenFixtureTypes() =
+          hiddenFixtureTypes;
       ++m_controller.GetLayerVisibleCandidatesRevision();
     }
   }

@@ -332,6 +332,8 @@ private:
   size_t &GetLayerVisibleCandidatesSceneVersion() const override;
   std::unordered_set<std::string> &
   GetLayerVisibleCandidatesHiddenLayers() const override;
+  std::unordered_set<std::string> &
+  GetLayerVisibleCandidatesHiddenFixtureTypes() const override;
   size_t &GetLayerVisibleCandidatesRevision() const override;
   size_t &GetVisibleSetLayerCandidatesRevision() const override;
   bool &GetVisibleSetFrustumCulling() const override;

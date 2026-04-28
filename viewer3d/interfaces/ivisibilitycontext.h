@@ -39,6 +39,8 @@ public:
   virtual size_t &GetLayerVisibleCandidatesSceneVersion() const = 0;
   virtual std::unordered_set<std::string> &
   GetLayerVisibleCandidatesHiddenLayers() const = 0;
+  virtual std::unordered_set<std::string> &
+  GetLayerVisibleCandidatesHiddenFixtureTypes() const = 0;
   virtual size_t &GetLayerVisibleCandidatesRevision() const = 0;
   virtual size_t &GetVisibleSetLayerCandidatesRevision() const = 0;
   virtual bool &GetVisibleSetFrustumCulling() const = 0;
