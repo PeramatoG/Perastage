@@ -1920,7 +1920,7 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
 
     glLineWidth(2.0f);
     glDisable(GL_DEPTH_TEST);
-    const float gizmoLength = std::max(0.4f, m_camera.distance * 0.08f);
+    const float gizmoLength = std::max(0.4f, m_camera.GetDistance() * 0.08f);
     const bool xActive = m_selectionDragAxis == viewer3d::SelectionDragAxis::X;
     const bool yActive = m_selectionDragAxis == viewer3d::SelectionDragAxis::Y;
     const bool zActive = m_selectionDragAxis == viewer3d::SelectionDragAxis::Z;
