@@ -422,6 +422,9 @@ void MainWindow::Ensure3DViewport() {
   if (defaultLayoutPerspective.empty()) {
     defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
   }
+
+  if (summaryPanel)
+    summaryPanel->SetVisibleRefreshTargets(viewport2DPanel, viewportPanel);
 }
 
 void MainWindow::Ensure2DViewport() {
@@ -467,6 +470,9 @@ void MainWindow::Ensure2DViewport() {
                                                  .MaximizeButton(true)
                                                  .PaneBorder(true)
                                                  .Hide());
+
+  if (summaryPanel)
+    summaryPanel->SetVisibleRefreshTargets(viewport2DPanel, viewportPanel);
 
   auiManager->Update();
 

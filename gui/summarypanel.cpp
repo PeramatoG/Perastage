@@ -74,6 +74,12 @@ void SummaryPanel::SetInstance(SummaryPanel* panel)
     s_instance = panel;
 }
 
+void SummaryPanel::SetVisibleRefreshTargets(Viewer2DPanel* viewer2D,
+                                            Viewer3DPanel* viewer3D) {
+    visibleRefreshViewer2D = viewer2D;
+    visibleRefreshViewer3D = viewer3D;
+}
+
 
 void SummaryPanel::UpdatePaneCaption(const wxString& suffix) {
     wxAuiManager* manager = wxAuiManager::GetManager(this);
@@ -355,13 +361,19 @@ void SummaryPanel::RefreshFixtureVisibilityStyles() {
 }
 
 void SummaryPanel::RefreshVisibleViewers() const {
-    if (Viewer2DPanel::Instance()) {
-        Viewer2DPanel::Instance()->UpdateScene(false);
-        Viewer2DPanel::Instance()->Refresh();
+    Viewer2DPanel* viewer2D = visibleRefreshViewer2D
+                                  ? visibleRefreshViewer2D
+                                  : Viewer2DPanel::Instance();
+    Viewer3DPanel* viewer3D = visibleRefreshViewer3D
+                                  ? visibleRefreshViewer3D
+                                  : Viewer3DPanel::Instance();
+    if (viewer2D) {
+        viewer2D->UpdateScene(false);
+        viewer2D->Refresh();
     }
-    if (Viewer3DPanel::Instance()) {
-        Viewer3DPanel::Instance()->UpdateScene();
-        Viewer3DPanel::Instance()->Refresh();
+    if (viewer3D) {
+        viewer3D->UpdateScene();
+        viewer3D->Refresh();
     }
 }
 
