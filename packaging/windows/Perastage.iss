@@ -25,7 +25,9 @@
 #define RepoRoot "..\\.."
 #define StageDir RepoRoot + "\\out\\install\\Release"
 #define RepoResourcesDir RepoRoot + "\\resources"
-#define OutputParentDir RepoRoot + "\\.."
+; Write the installer directly into the staged output so the CI step can find
+; it reliably under out\install\Release without searching the whole drive.
+#define OutputParentDir RepoRoot + "\\out\\installer"
 
 [Setup]
 AppId={{1A0AC65C-067C-41ED-9A73-5B324ADDD0D8}

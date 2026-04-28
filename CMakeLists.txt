@@ -281,6 +281,7 @@ if(WIN32)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
     include(InstallRequiredSystemLibraries)
 
+    # Collect vcpkg release and debug bin directories.
     set(PERASTAGE_VCPKG_BIN_DIRS "")
     set(PERASTAGE_VCPKG_DEBUG_BIN_DIRS "")
     if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
@@ -293,54 +294,36 @@ if(WIN32)
             list(APPEND PERASTAGE_VCPKG_DEBUG_BIN_DIRS "${_perastage_vcpkg_debug_bin}")
         endif()
     endif()
-
-    foreach(_prefix IN LISTS CMAKE_PREFIX_PATH)
-        if(EXISTS "${_prefix}/bin")
-            list(APPEND PERASTAGE_VCPKG_BIN_DIRS "${_prefix}/bin")
-        endif()
-        if(EXISTS "${_prefix}/debug/bin")
-            list(APPEND PERASTAGE_VCPKG_DEBUG_BIN_DIRS "${_prefix}/debug/bin")
-        endif()
-    endforeach()
     list(REMOVE_DUPLICATES PERASTAGE_VCPKG_BIN_DIRS)
     list(REMOVE_DUPLICATES PERASTAGE_VCPKG_DEBUG_BIN_DIRS)
 
-    if(CMAKE_CONFIGURATION_TYPES)
-        install(TARGETS ${PROJECT_NAME}
-            RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
-            CONFIGURATIONS Release RelWithDebInfo MinSizeRel
-        )
-        install(RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
-            DESTINATION .
-            CONFIGURATIONS Release RelWithDebInfo MinSizeRel
-            DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
-            PRE_EXCLUDE_REGEXES
-                "api-ms-.*"
-                "ext-ms-.*"
-            POST_EXCLUDE_REGEXES
-                ".*[Ww]indows[\\/].*"
-                ".*[Ss]ystem32[\\/].*"
-                ".*ud_.*\\.dll$"
-                ".*d_.*\\.dll$"
-                ".*d\\.dll$"
-        )
-    elseif(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-        install(TARGETS ${PROJECT_NAME}
-            RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
-        )
-        install(RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
-            DESTINATION .
-            DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
-            PRE_EXCLUDE_REGEXES
-                "api-ms-.*"
-                "ext-ms-.*"
-            POST_EXCLUDE_REGEXES
-                ".*[Ww]indows[\\/].*"
-                ".*[Ss]ystem32[\\/].*"
-                ".*ud_.*\\.dll$"
-                ".*d_.*\\.dll$"
-                ".*d\\.dll$"
-        )
+    # Stage all DLLs from vcpkg/bin directly via glob.
+    # This is simpler and more reliable than file(GET_RUNTIME_DEPENDENCIES),
+    # which struggles with virtual Windows API-set DLLs that have no physical
+    # file on disk. vcpkg/bin contains only the third-party runtime DLLs we
+    # need — no Windows system DLLs — so a plain glob is safe here.
+    set(PERASTAGE_VCPKG_RELEASE_DLLS "")
+    set(PERASTAGE_VCPKG_DEBUG_DLLS "")
+    foreach(_vcpkg_bin IN LISTS PERASTAGE_VCPKG_BIN_DIRS)
+        file(GLOB _vcpkg_bin_dlls CONFIGURE_DEPENDS "${_vcpkg_bin}/*.dll")
+        list(APPEND PERASTAGE_VCPKG_RELEASE_DLLS ${_vcpkg_bin_dlls})
+    endforeach()
+    foreach(_vcpkg_debug_bin IN LISTS PERASTAGE_VCPKG_DEBUG_BIN_DIRS)
+        file(GLOB _vcpkg_debug_bin_dlls CONFIGURE_DEPENDS "${_vcpkg_debug_bin}/*.dll")
+        list(APPEND PERASTAGE_VCPKG_DEBUG_DLLS ${_vcpkg_debug_bin_dlls})
+    endforeach()
+    list(REMOVE_DUPLICATES PERASTAGE_VCPKG_RELEASE_DLLS)
+    list(REMOVE_DUPLICATES PERASTAGE_VCPKG_DEBUG_DLLS)
+
+    if(PERASTAGE_VCPKG_RELEASE_DLLS)
+        if(CMAKE_CONFIGURATION_TYPES)
+            install(FILES ${PERASTAGE_VCPKG_RELEASE_DLLS} DESTINATION . CONFIGURATIONS Release RelWithDebInfo MinSizeRel)
+            install(FILES ${PERASTAGE_VCPKG_DEBUG_DLLS}   DESTINATION . CONFIGURATIONS Debug)
+        elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            install(FILES ${PERASTAGE_VCPKG_DEBUG_DLLS} DESTINATION .)
+        else()
+            install(FILES ${PERASTAGE_VCPKG_RELEASE_DLLS} DESTINATION .)
+        endif()
     endif()
 
     # wxWidgets libraries may not appear in TARGET_RUNTIME_DLLS when discovered

@@ -1,0 +1,101 @@
+# Windows installer workflow for Perastage
+# Builds, stages and packages the Windows installer with Inno Setup.
+
+name: Windows Installer Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ci/windows-installer
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+    steps:
+      # Checkout the repository contents
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Print a simple message to verify the workflow starts correctly
+      - name: Print test message
+        shell: pwsh
+        run: |
+          Write-Host "GitHub Actions is working for Perastage."
+          Write-Host "Current branch: $env:GITHUB_REF_NAME"
+
+      # Clone vcpkg, bootstrap it and install required packages
+      - name: Set up vcpkg dependencies
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$env:GITHUB_WORKSPACE\vcpkg"
+          & "$env:GITHUB_WORKSPACE\vcpkg\bootstrap-vcpkg.bat"
+          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install `
+            wxwidgets:x64-windows `
+            tinyxml2:x64-windows `
+            glew:x64-windows `
+            curl:x64-windows `
+            zlib:x64-windows `
+            nanovg:x64-windows `
+            podofo:x64-windows
+
+      # Configure the CMake project using the vcpkg toolchain
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DPERAVIZ_ENABLE_NATIVE=OFF `
+            -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE\vcpkg\scripts\buildsystems\vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows
+
+      # Build project
+      - name: Build project
+        shell: pwsh
+        run: |
+          cmake --build build --config Release
+
+      # Create distribution folders and files
+      - name: Stage distribution folder
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --target perastage_stage
+          Get-ChildItem out\install\Release
+
+      # Upload staged build as artifact
+      - name: Upload staged distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-windows-staged
+          path: out/install/Release
+
+      # Install Inno Setup compiler to build the Windows installer
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup -y
+
+      # Build the Windows installer using the repository-relative Inno Setup script.
+      # The script writes the installer to out\installer (relative to the repo root).
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          # Ensure the output directory exists before ISCC runs
+          New-Item -ItemType Directory -Path "$env:GITHUB_WORKSPACE\out\installer" -Force | Out-Null
+          ISCC "$env:GITHUB_WORKSPACE\packaging\windows\Perastage.iss"
+
+      # Copy installer into a dedicated folder for upload
+      - name: Collect Windows installer
+        shell: pwsh
+        run: |
+          $installerDir = "$env:GITHUB_WORKSPACE\out\installer"
+          $exe = Get-ChildItem -Path $installerDir -Filter "Perastage_*_Setup.exe" | Select-Object -First 1
+          if ($null -eq $exe) { throw "Installer not found in $installerDir" }
+          Write-Host "Found installer: $($exe.FullName)"
+
+      # Upload the generated installer as a workflow artifact
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-windows-installer
+          path: out/installer
