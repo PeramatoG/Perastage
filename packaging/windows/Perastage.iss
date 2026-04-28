@@ -48,9 +48,7 @@ OutputDir={#OutputParentDir}
 OutputBaseFilename=Perastage_{#MyAppVersion}_Setup
 SetupIconFile={#RepoResourcesDir}\Perastage.ico
 SolidCompression=yes
-; WizardStyle=modern dark is not supported by standard Inno Setup builds.
-; Use "modern" only (dark theme requires a custom ISS skin, not available in CI).
-WizardStyle=modern
+WizardStyle=modern dark
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
