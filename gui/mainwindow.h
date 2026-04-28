@@ -102,6 +102,7 @@ private:
   void Ensure2DViewport();
   void OnProjectLoaded(wxCommandEvent &event);
   void OnUiUnitsChanged(wxCommandEvent &event);
+  void OnPreferencesApplied(wxCommandEvent &event);
 
   std::string currentProjectPath;
   wxString currentProjectDisplayName;

@@ -21,6 +21,7 @@
 #include <wx/wx.h>
 
 wxDECLARE_EVENT(EVT_UI_UNITS_CHANGED, wxCommandEvent);
+wxDECLARE_EVENT(EVT_UI_PREFERENCES_APPLIED, wxCommandEvent);
 
 class GdtfCredentialsPanel;
 
@@ -29,6 +30,9 @@ public:
   PreferencesDialog(wxWindow *parent);
 
 private:
+  void OnApplyButton(wxCommandEvent &event);
+  void OnOkButton(wxCommandEvent &event);
+  void NotifyPreferencesApplied();
   bool ApplyPreferences();
   void NotifyUnitsChanged();
   void RefreshRiderImportDistanceLabels();
