@@ -91,6 +91,7 @@ constexpr auto kPauseDelay = std::chrono::milliseconds(200);
 constexpr int kZoomInteractionTimeoutMs = 260;
 constexpr auto kHoverQueryInterval = std::chrono::milliseconds(40);
 constexpr auto kResourceSyncInterval = std::chrono::milliseconds(250);
+constexpr int kSelectionDragDelayMs = 120;
 constexpr int kExportImageWidth = 1920;
 constexpr int kExportImageHeight = 1080;
 constexpr double kDefaultFovYDegrees = 45.0;
@@ -455,6 +456,21 @@ bool QueryHoverUuid(Viewer3DController& controller,
     return controller.GetHoverUuidAt(mouseX, mouseY, width, height,
                                      ToHoverPickTarget(target), outUuid,
                                      confirmDepth);
+}
+
+std::array<float, 3> AxisVectorFromSelectionDragAxis(
+    viewer3d::SelectionDragAxis axis) {
+    switch (axis) {
+    case viewer3d::SelectionDragAxis::X:
+        return {1.0f, 0.0f, 0.0f};
+    case viewer3d::SelectionDragAxis::Y:
+        return {0.0f, 1.0f, 0.0f};
+    case viewer3d::SelectionDragAxis::Z:
+        return {0.0f, 0.0f, 1.0f};
+    case viewer3d::SelectionDragAxis::None:
+    default:
+        return {0.0f, 0.0f, 0.0f};
+    }
 }
 
 struct GlCanvasSelection {
@@ -830,6 +846,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     if (m_rectSelecting)
         DrawSelectionRectangle(w, h);
+    if (m_selectionDragArmed)
+        DrawSelectionDragGizmo(renderSize);
 
     if (reusedBasePass)
         ++m_highlightRefreshesInCurrentWindow;
@@ -1064,6 +1082,7 @@ void Viewer3DPanel::ApplyCameraMatrices(const RenderSize& renderSize, double fov
 // Handles mouse button press
 void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
 {
+    ResetSelectionDragState();
     if (event.LeftDown() || event.MiddleDown() || event.RightDown())
     {
         if (event.LeftDown() && event.ControlDown()) {
@@ -1078,6 +1097,18 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
             m_draggedSincePress = false;
             CaptureMouse();
             return;
+        }
+
+        if (event.LeftDown() && !event.ShiftDown() && !event.MiddleDown() &&
+            !event.RightDown()) {
+            if (PrepareSelectionDrag(event.GetPosition())) {
+                m_lastMousePos = event.GetPosition();
+                m_draggedSincePress = false;
+                SetFocus();
+                CaptureMouse();
+                Refresh();
+                return;
+            }
         }
 
         if (event.ShiftDown() || event.MiddleDown())
@@ -1113,6 +1144,23 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         m_forceHoverQuery = true;
         Refresh();
         return;
+    }
+
+    if (event.LeftUp() && m_selectionDragArmed)
+    {
+        if (HasCapture())
+            ReleaseMouse();
+        if (m_selectionDragMoved) {
+            FinalizeSelectionDrag();
+            m_draggedSincePress = true;
+        }
+        ResetSelectionDragState();
+        m_forceHoverQuery = true;
+        Refresh();
+        if (m_draggedSincePress) {
+            m_draggedSincePress = false;
+            return;
+        }
     }
 
     if (m_dragging && (event.LeftUp() || event.MiddleUp() || event.RightUp()))
@@ -1469,6 +1517,7 @@ void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
     m_mode = InteractionMode::None;
     m_rectSelecting = false;
     m_rectSelectionAcrossAllTables = false;
+    ResetSelectionDragState();
 }
 
 void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
@@ -1630,6 +1679,279 @@ void Viewer3DPanel::DrawSelectionRectangle(int width, int height)
         glEnable(GL_DEPTH_TEST);
 }
 
+void Viewer3DPanel::ResetSelectionDragState()
+{
+    m_selectionDragArmed = false;
+    m_selectionDragMoved = false;
+    m_selectionDragUndoPushed = false;
+    m_selectionDragPressTime = 0;
+    m_selectionDragTarget = HoverTargetTable::None;
+    m_dragSelectionUuids.clear();
+    m_dragFixtureUuids.clear();
+    m_dragTrussUuids.clear();
+    m_dragSceneObjectUuids.clear();
+    m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
+}
+
+std::array<float, 3> Viewer3DPanel::ComputeSelectionCenterMeters(
+    const std::vector<std::string>& uuids, HoverTargetTable target) const
+{
+    std::array<float, 3> center{0.0f, 0.0f, 0.0f};
+    if (uuids.empty())
+        return center;
+
+    const auto& scene = ConfigManager::Get().GetScene();
+    size_t count = 0;
+    auto accumulateCenter = [&](const auto& items) {
+        for (const std::string& uuid : uuids) {
+            auto it = items.find(uuid);
+            if (it == items.end())
+                continue;
+            center[0] += it->second.transform.o[0] / 1000.0f;
+            center[1] += it->second.transform.o[1] / 1000.0f;
+            center[2] += it->second.transform.o[2] / 1000.0f;
+            ++count;
+        }
+    };
+
+    if (target == HoverTargetTable::Fixtures)
+        accumulateCenter(scene.fixtures);
+    else if (target == HoverTargetTable::Trusses)
+        accumulateCenter(scene.trusses);
+    else if (target == HoverTargetTable::SceneObjects)
+        accumulateCenter(scene.sceneObjects);
+
+    if (count == 0)
+        return {0.0f, 0.0f, 0.0f};
+    center[0] /= static_cast<float>(count);
+    center[1] /= static_cast<float>(count);
+    center[2] /= static_cast<float>(count);
+    return center;
+}
+
+bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
+{
+    const RenderSize renderSize = ResolveRenderSize(this);
+    if (!renderSize.IsValid() || !IsShownOnScreen())
+        return false;
+
+    SetCurrent(*m_glContext);
+    const wxPoint pickPos = ToFramebufferPoint(this, mousePos);
+    const HoverTargetTable target = ResolveActiveHoverTargetTable();
+    if (target == HoverTargetTable::None)
+        return false;
+
+    std::string uuid;
+    if (!QueryHoverUuid(m_controller, target, pickPos.x, pickPos.y, renderSize.width,
+                        renderSize.height, uuid, true)) {
+        return false;
+    }
+
+    ConfigManager& cfg = ConfigManager::Get();
+    std::vector<std::string> selection;
+    if (target == HoverTargetTable::Fixtures)
+        selection = cfg.GetSelectedFixtures();
+    else if (target == HoverTargetTable::Trusses)
+        selection = cfg.GetSelectedTrusses();
+    else if (target == HoverTargetTable::SceneObjects)
+        selection = cfg.GetSelectedSceneObjects();
+    if (selection.empty())
+        return false;
+
+    if (std::find(selection.begin(), selection.end(), uuid) == selection.end())
+        return false;
+
+    m_selectionDragTarget = target;
+    m_dragSelectionUuids = selection;
+    m_dragFixtureUuids.clear();
+    m_dragTrussUuids.clear();
+    m_dragSceneObjectUuids.clear();
+    if (target == HoverTargetTable::Fixtures)
+        m_dragFixtureUuids = selection;
+    else if (target == HoverTargetTable::Trusses)
+        m_dragTrussUuids = selection;
+    else if (target == HoverTargetTable::SceneObjects)
+        m_dragSceneObjectUuids = selection;
+
+    m_selectionDragAnchorMeters = ComputeSelectionCenterMeters(selection, target);
+    m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
+    m_selectionDragArmed = true;
+    m_selectionDragMoved = false;
+    m_selectionDragUndoPushed = false;
+    m_selectionDragPressTime = wxGetLocalTimeMillis();
+    return true;
+}
+
+std::array<viewer3d::ProjectedAxis, 3>
+Viewer3DPanel::BuildProjectedDragAxes(const RenderSize& renderSize) const
+{
+    std::array<viewer3d::ProjectedAxis, 3> axes{};
+    if (!renderSize.IsValid())
+        return axes;
+
+    GLdouble modelview[16] = {};
+    GLdouble projection[16] = {};
+    GLint viewport[4] = {0, 0, 0, 0};
+    glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+    glGetDoublev(GL_PROJECTION_MATRIX, projection);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    GLdouble originX = 0.0;
+    GLdouble originY = 0.0;
+    GLdouble originZ = 0.0;
+    if (gluProject(m_selectionDragAnchorMeters[0], m_selectionDragAnchorMeters[1],
+                   m_selectionDragAnchorMeters[2], modelview, projection, viewport,
+                   &originX, &originY, &originZ) != GL_TRUE) {
+        return axes;
+    }
+
+    const std::array<std::array<float, 3>, 3> axisWorldVectors{{
+        {1.0f, 0.0f, 0.0f},
+        {0.0f, 1.0f, 0.0f},
+        {0.0f, 0.0f, 1.0f},
+    }};
+
+    for (size_t i = 0; i < axisWorldVectors.size(); ++i) {
+        GLdouble tipX = 0.0;
+        GLdouble tipY = 0.0;
+        GLdouble tipZ = 0.0;
+        const auto& worldAxis = axisWorldVectors[i];
+        if (gluProject(m_selectionDragAnchorMeters[0] + worldAxis[0],
+                       m_selectionDragAnchorMeters[1] + worldAxis[1],
+                       m_selectionDragAnchorMeters[2] + worldAxis[2], modelview,
+                       projection, viewport, &tipX, &tipY, &tipZ) != GL_TRUE) {
+            continue;
+        }
+
+        auto& projectedAxis = axes[i];
+        projectedAxis.screenDx = tipX - originX;
+        projectedAxis.screenDy = tipY - originY;
+        projectedAxis.pixelsPerMeter =
+            std::sqrt(projectedAxis.screenDx * projectedAxis.screenDx +
+                      projectedAxis.screenDy * projectedAxis.screenDy);
+        projectedAxis.valid = projectedAxis.pixelsPerMeter > 1e-4;
+    }
+
+    return axes;
+}
+
+void Viewer3DPanel::ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters)
+{
+    const float dxMm = deltaMeters[0] * 1000.0f;
+    const float dyMm = deltaMeters[1] * 1000.0f;
+    const float dzMm = deltaMeters[2] * 1000.0f;
+    if (dxMm == 0.0f && dyMm == 0.0f && dzMm == 0.0f)
+        return;
+
+    ConfigManager& cfg = ConfigManager::Get();
+    if (!m_selectionDragUndoPushed) {
+        cfg.PushUndoState("move selection");
+        m_selectionDragUndoPushed = true;
+    }
+
+    auto& scene = cfg.GetScene();
+    auto applyDelta = [&](const auto& uuids, auto& items) {
+        for (const std::string& uuid : uuids) {
+            auto it = items.find(uuid);
+            if (it == items.end())
+                continue;
+            it->second.transform.o[0] += dxMm;
+            it->second.transform.o[1] += dyMm;
+            it->second.transform.o[2] += dzMm;
+        }
+    };
+
+    applyDelta(m_dragFixtureUuids, scene.fixtures);
+    applyDelta(m_dragTrussUuids, scene.trusses);
+    applyDelta(m_dragSceneObjectUuids, scene.sceneObjects);
+    m_selectionDragAnchorMeters[0] += deltaMeters[0];
+    m_selectionDragAnchorMeters[1] += deltaMeters[1];
+    m_selectionDragAnchorMeters[2] += deltaMeters[2];
+}
+
+void Viewer3DPanel::FinalizeSelectionDrag()
+{
+    if (!m_selectionDragMoved)
+        return;
+
+    ConfigManager& cfg = ConfigManager::Get();
+    if (!m_dragFixtureUuids.empty() && FixtureTablePanel::Instance()) {
+        auto selection = cfg.GetSelectedFixtures();
+        FixtureTablePanel::Instance()->ReloadData();
+        FixtureTablePanel::Instance()->SelectByUuid(selection, false);
+    }
+    if (!m_dragTrussUuids.empty() && TrussTablePanel::Instance()) {
+        auto selection = cfg.GetSelectedTrusses();
+        TrussTablePanel::Instance()->ReloadData();
+        TrussTablePanel::Instance()->SelectByUuid(selection, false);
+    }
+    if (!m_dragSceneObjectUuids.empty() && SceneObjectTablePanel::Instance()) {
+        auto selection = cfg.GetSelectedSceneObjects();
+        SceneObjectTablePanel::Instance()->ReloadData();
+        SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
+    }
+    UpdateScene();
+    if (Viewer2DPanel::Instance()) {
+        Viewer2DPanel::Instance()->UpdateScene();
+        Viewer2DPanel::Instance()->Refresh();
+    }
+}
+
+void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
+{
+    if (!m_selectionDragArmed || m_dragSelectionUuids.empty() ||
+        !renderSize.IsValid()) {
+        return;
+    }
+
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    constexpr double kNearPlane = 0.05;
+    constexpr double kFarPlane = 2000.0;
+    gluPerspective(kDefaultFovYDegrees,
+                   static_cast<double>(renderSize.width) / renderSize.height,
+                   kNearPlane, kFarPlane);
+
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    m_camera.Apply();
+
+    glLineWidth(2.0f);
+    glDisable(GL_DEPTH_TEST);
+    const float gizmoLength = std::max(0.4f, m_camera.distance * 0.08f);
+    const bool xActive = m_selectionDragAxis == viewer3d::SelectionDragAxis::X;
+    const bool yActive = m_selectionDragAxis == viewer3d::SelectionDragAxis::Y;
+    const bool zActive = m_selectionDragAxis == viewer3d::SelectionDragAxis::Z;
+    const std::array<std::array<float, 4>, 3> colors{{
+        {xActive ? 1.0f : 0.95f, 0.25f, 0.25f, 1.0f},
+        {0.25f, yActive ? 1.0f : 0.95f, 0.25f, 1.0f},
+        {0.25f, 0.45f, zActive ? 1.0f : 0.95f, 1.0f},
+    }};
+
+    glBegin(GL_LINES);
+    for (size_t i = 0; i < colors.size(); ++i) {
+        const auto axis = AxisVectorFromSelectionDragAxis(
+            i == 0 ? viewer3d::SelectionDragAxis::X
+                   : i == 1 ? viewer3d::SelectionDragAxis::Y
+                            : viewer3d::SelectionDragAxis::Z);
+        glColor4f(colors[i][0], colors[i][1], colors[i][2], colors[i][3]);
+        glVertex3f(m_selectionDragAnchorMeters[0], m_selectionDragAnchorMeters[1],
+                   m_selectionDragAnchorMeters[2]);
+        glVertex3f(m_selectionDragAnchorMeters[0] + axis[0] * gizmoLength,
+                   m_selectionDragAnchorMeters[1] + axis[1] * gizmoLength,
+                   m_selectionDragAnchorMeters[2] + axis[2] * gizmoLength);
+    }
+    glEnd();
+    glEnable(GL_DEPTH_TEST);
+
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+}
+
 // Handles mouse movement (orbit or pan)
 void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 {
@@ -1639,6 +1961,50 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
     {
         m_rectSelectEnd = pos;
         m_draggedSincePress = true;
+        Refresh();
+        return;
+    }
+
+    if (m_selectionDragArmed && event.Dragging() && event.LeftIsDown())
+    {
+        if ((wxGetLocalTimeMillis() - m_selectionDragPressTime).ToLong() <
+            kSelectionDragDelayMs) {
+            m_lastMousePos = pos;
+            return;
+        }
+
+        const int dx = pos.x - m_lastMousePos.x;
+        const int dy = pos.y - m_lastMousePos.y;
+        if (dx != 0 || dy != 0) {
+            const RenderSize renderSize = ResolveRenderSize(this);
+            if (renderSize.IsValid()) {
+                SetCurrent(*m_glContext);
+                ApplyCameraMatrices(renderSize);
+                const auto projectedAxes = BuildProjectedDragAxes(renderSize);
+                if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None) {
+                    m_selectionDragAxis = viewer3d::SelectDragAxisFromMouseDelta(
+                        dx, -dy, projectedAxes);
+                }
+
+                const double axisDeltaMeters = viewer3d::ComputeDragMetersOnAxis(
+                    dx, -dy, m_selectionDragAxis, projectedAxes);
+                if (axisDeltaMeters != 0.0) {
+                    const auto axisVector =
+                        AxisVectorFromSelectionDragAxis(m_selectionDragAxis);
+                    const std::array<float, 3> worldDelta{
+                        axisVector[0] * static_cast<float>(axisDeltaMeters),
+                        axisVector[1] * static_cast<float>(axisDeltaMeters),
+                        axisVector[2] * static_cast<float>(axisDeltaMeters)};
+                    ApplySelectionDragDelta(worldDelta);
+                    m_selectionDragMoved = true;
+                    m_draggedSincePress = true;
+                }
+            }
+        }
+
+        m_lastMousePos = pos;
+        m_mouseMoved = true;
+        m_forceHoverQuery = true;
         Refresh();
         return;
     }
