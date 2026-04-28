@@ -61,3 +61,10 @@ jobs:
         run: |
           cmake --build build --config Release --target perastage_stage
           Get-ChildItem out\install\Release
+
+      # Upload staged build as artifact
+      - name: Upload staged distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-windows-staged
+          path: out/install/Release
