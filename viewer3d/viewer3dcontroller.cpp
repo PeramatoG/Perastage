@@ -149,6 +149,7 @@ struct Viewer3DController::Impl {
   mutable VisibleSet cachedLayerVisibleCandidates;
   mutable size_t layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
   mutable std::unordered_set<std::string> layerVisibleCandidatesHiddenLayers;
+  mutable std::unordered_set<std::string> layerVisibleCandidatesHiddenFixtureTypes;
   mutable size_t layerVisibleCandidatesRevision = 0;
   mutable size_t visibleSetLayerCandidatesRevision = static_cast<size_t>(-1);
   mutable bool visibleSetFrustumCulling = false;
@@ -2025,6 +2026,11 @@ size_t &Viewer3DController::GetLayerVisibleCandidatesSceneVersion() const {
 std::unordered_set<std::string> &
 Viewer3DController::GetLayerVisibleCandidatesHiddenLayers() const {
   return m_impl->layerVisibleCandidatesHiddenLayers;
+}
+
+std::unordered_set<std::string> &
+Viewer3DController::GetLayerVisibleCandidatesHiddenFixtureTypes() const {
+  return m_impl->layerVisibleCandidatesHiddenFixtureTypes;
 }
 
 size_t &Viewer3DController::GetLayerVisibleCandidatesRevision() const {
