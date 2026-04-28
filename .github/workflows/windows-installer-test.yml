@@ -68,3 +68,22 @@ jobs:
         with:
           name: Perastage-windows-staged
           path: out/install/Release
+
+      # Install Inno Setup compiler to build the Windows installer
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup -y
+
+      # Build the Windows installer using the repository-relative Inno Setup script
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          ISCC packaging/windows/Perastage.iss
+
+      # Upload the generated installer as a workflow artifact
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-windows-installer
+          path: ../Perastage_*_Setup.exe
