@@ -207,6 +207,14 @@ std::string ResolveFromLibrarySuffix(const std::string &base,
   if (!base.empty())
     roots.push_back(fs::path(base));
 
+  const fs::path installedLibraryRoot = ProjectUtils::GetBaseLibraryPath("");
+  if (!installedLibraryRoot.empty() && !ContainsPath(roots, installedLibraryRoot))
+    roots.push_back(installedLibraryRoot);
+
+  const fs::path writableLibraryRoot = fs::u8path(ProjectUtils::GetWritableLibraryPath(""));
+  if (!writableLibraryRoot.empty() && !ContainsPath(roots, writableLibraryRoot))
+    roots.push_back(writableLibraryRoot);
+
   const fs::path cwd = fs::current_path(ec);
   if (!ec && !cwd.empty() && !ContainsPath(roots, cwd))
     roots.push_back(cwd);
