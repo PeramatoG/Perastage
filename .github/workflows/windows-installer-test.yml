@@ -75,22 +75,23 @@ jobs:
         run: |
           choco install innosetup -y
 
-      # Build the Windows installer using the repository-relative Inno Setup script
+      # Build the Windows installer using the repository-relative Inno Setup script.
+      # The script writes the installer to out\installer (relative to the repo root).
       - name: Build Windows installer
         shell: pwsh
         run: |
-          ISCC packaging/windows/Perastage.iss
+          # Ensure the output directory exists before ISCC runs
+          New-Item -ItemType Directory -Path "$env:GITHUB_WORKSPACE\out\installer" -Force | Out-Null
+          ISCC "$env:GITHUB_WORKSPACE\packaging\windows\Perastage.iss"
 
-      # Copy installer into workspace so GitHub can upload it
+      # Copy installer into a dedicated folder for upload
       - name: Collect Windows installer
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path out\installer -Force | Out-Null
-
-          $exe = Get-ChildItem -Path "$env:GITHUB_WORKSPACE\.." -Filter "Perastage_*_Setup.exe" -Recurse | Select-Object -First 1
-          if ($null -eq $exe) { throw "Installer not found" }
-
-          Copy-Item $exe.FullName -Destination out\installer
+          $installerDir = "$env:GITHUB_WORKSPACE\out\installer"
+          $exe = Get-ChildItem -Path $installerDir -Filter "Perastage_*_Setup.exe" | Select-Object -First 1
+          if ($null -eq $exe) { throw "Installer not found in $installerDir" }
+          Write-Host "Found installer: $($exe.FullName)"
 
       # Upload the generated installer as a workflow artifact
       - name: Upload Windows installer
