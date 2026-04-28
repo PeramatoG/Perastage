@@ -212,6 +212,7 @@ const std::vector<std::string> &GetPreferencesDialogConfigKeys() {
       "ui_distance_unit_system",
       "ui_weight_unit_system",
       "viewer3d_render_style",
+      "viewer3d_invert_orbit",
       "rider_lx1_height",
       "rider_lx2_height",
       "rider_lx3_height",
