@@ -16,6 +16,20 @@ jobs:
       # Checkout the repository contents
       - name: Checkout repository
         uses: actions/checkout@v4
+        
+      # Cache vcpkg directories to speed up dependency builds across runs
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            vcpkg/downloads
+            vcpkg/buildtrees
+            vcpkg/packages
+            vcpkg/installed
+          key: ${{ runner.os }}-vcpkg-x64-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/windows-installer.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-x64-windows-
+            ${{ runner.os }}-vcpkg-        
 
       # Print a simple message to verify the workflow starts correctly
       - name: Print test message
