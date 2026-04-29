@@ -12,54 +12,61 @@ on:
 jobs:
   build-windows-installer:
     runs-on: windows-latest
+
+    env:
+      # Single source of truth for all vcpkg paths used across steps.
+      VCPKG_ROOT:         ${{ github.workspace }}\vcpkg
+      VCPKG_INSTALLED:    ${{ github.workspace }}\.vcpkg-cache\installed
+      VCPKG_DOWNLOADS:    ${{ github.workspace }}\.vcpkg-cache\downloads
+      VCPKG_PACKAGES:     ${{ github.workspace }}\.vcpkg-cache\packages
+
     steps:
-      # Checkout the repository contents
+      # ── 1. Checkout ────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
-        
-      # Cache vcpkg directories to speed up dependency builds across runs
+
+      # ── 2. Cache vcpkg installed tree + downloads ───────────────────────────
+      # The cache key includes the workflow file itself so a change in the
+      # package list busts the cache automatically.
       - name: Cache vcpkg
         uses: actions/cache@v4
+        id: vcpkg-cache
         with:
           path: |
-            .vcpkg-cache/downloads
-            .vcpkg-cache/installed
-            .vcpkg-cache/packages
-          key: ${{ runner.os }}-vcpkg-x64-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/windows-installer.yml') }}
+            .vcpkg-cache\downloads
+            .vcpkg-cache\installed
+            .vcpkg-cache\packages
+          key: ${{ runner.os }}-vcpkg-x64-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/windows-installer.yml') }}
           restore-keys: |
-            ${{ runner.os }}-vcpkg-x64-windows-
-            ${{ runner.os }}-vcpkg-        
+            ${{ runner.os }}-vcpkg-x64-
 
-      # Print a simple message to verify the workflow starts correctly
-      - name: Print test message
+      # ── 3. Bootstrap vcpkg (always needed; the binary is never cached) ──────
+      - name: Bootstrap vcpkg
         shell: pwsh
         run: |
-          Write-Host "GitHub Actions is working for Perastage."
-          Write-Host "Current branch: $env:GITHUB_REF_NAME"
-
-      # Clone vcpkg, bootstrap it and install required packages
-      - name: Set up vcpkg dependencies
-        shell: pwsh
-        run: |
-          $vcpkgDir = "$env:GITHUB_WORKSPACE\vcpkg"
+          $vcpkgDir = $env:VCPKG_ROOT
           if (Test-Path "$vcpkgDir\.git") {
-            Write-Host "Existing vcpkg repository found. Updating checkout..."
+            Write-Host "Updating existing vcpkg checkout..."
             git -C $vcpkgDir fetch --depth 1 origin master
             git -C $vcpkgDir checkout --force FETCH_HEAD
           } else {
-            if (Test-Path $vcpkgDir) {
-              Remove-Item -Path $vcpkgDir -Recurse -Force
-            }
+            if (Test-Path $vcpkgDir) { Remove-Item $vcpkgDir -Recurse -Force }
             git clone --depth 1 https://github.com/microsoft/vcpkg.git $vcpkgDir
           }
+          & "$vcpkgDir\bootstrap-vcpkg.bat" -disableMetrics
 
-          $cacheRoot = "$env:GITHUB_WORKSPACE\.vcpkg-cache"
-          New-Item -ItemType Directory -Path "$cacheRoot\downloads" -Force | Out-Null
-          New-Item -ItemType Directory -Path "$cacheRoot\installed" -Force | Out-Null
-          New-Item -ItemType Directory -Path "$cacheRoot\packages" -Force | Out-Null
+      # ── 4. Install vcpkg packages (skipped automatically when cache hits) ───
+      # vcpkg detects that packages are already installed and does nothing when
+      # .vcpkg-cache\installed is restored from cache, so this step is fast on
+      # cache hits and only does real work on the first run or after a cache bust.
+      - name: Install vcpkg packages
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path $env:VCPKG_DOWNLOADS  -Force | Out-Null
+          New-Item -ItemType Directory -Path $env:VCPKG_INSTALLED   -Force | Out-Null
+          New-Item -ItemType Directory -Path $env:VCPKG_PACKAGES    -Force | Out-Null
 
-          & "$vcpkgDir\bootstrap-vcpkg.bat"
-          & "$vcpkgDir\vcpkg.exe" install `
+          & "$env:VCPKG_ROOT\vcpkg.exe" install `
             wxwidgets:x64-windows `
             tinyxml2:x64-windows `
             glew:x64-windows `
@@ -68,62 +75,67 @@ jobs:
             nanovg:x64-windows `
             podofo:x64-windows `
             meshoptimizer:x64-windows `
-            --x-install-root="$cacheRoot\installed" `
-            --x-packages-root="$cacheRoot\packages" `
-            --downloads-root="$cacheRoot\downloads"
+            --x-install-root="$env:VCPKG_INSTALLED" `
+            --x-packages-root="$env:VCPKG_PACKAGES" `
+            --downloads-root="$env:VCPKG_DOWNLOADS"
 
-      # Configure the CMake project using the vcpkg toolchain
+      # ── 5. Configure CMake ──────────────────────────────────────────────────
+      # VCPKG_INSTALLED_DIR tells the vcpkg toolchain where to find the
+      # installed packages. Without it, CMake looks in vcpkg/installed (the
+      # default) and fails to find wxWidgets because we redirected the install
+      # root to .vcpkg-cache/installed in the step above.
       - name: Configure CMake
         shell: pwsh
         run: |
           cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
             -DCMAKE_BUILD_TYPE=Release `
             -DPERAVIZ_ENABLE_NATIVE=OFF `
-            -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE\vcpkg\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows `
+            -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED"
 
-      # Build project
+      # ── 6. Build ────────────────────────────────────────────────────────────
       - name: Build project
         shell: pwsh
         run: |
           cmake --build build --config Release
 
-      # Create distribution folders and files
+      # ── 7. Stage distribution folder ────────────────────────────────────────
       - name: Stage distribution folder
         shell: pwsh
         run: |
           cmake --build build --config Release --target perastage_stage
           Get-ChildItem out\install\Release
 
-      # Upload staged build as artifact
+      # ── 8. Upload staged build ───────────────────────────────────────────────
       - name: Upload staged distribution
         uses: actions/upload-artifact@v4
         with:
           name: Perastage-windows-staged
           path: out/install/Release
 
-      # Install Inno Setup compiler to build the Windows installer
+      # ── 9. Install Inno Setup ────────────────────────────────────────────────
       - name: Install Inno Setup
         shell: pwsh
         run: |
           choco install innosetup -y
 
-      # Build the Windows installer using the repository-relative Inno Setup script.
-      # The script writes the installer to out\installer (relative to the repo root).
+      # ── 10. Build Windows installer ─────────────────────────────────────────
       - name: Build Windows installer
         shell: pwsh
         run: |
-          # Ensure the output directory exists before ISCC runs
           New-Item -ItemType Directory -Path "$env:GITHUB_WORKSPACE\out\installer" -Force | Out-Null
-          $version = (cmake -P "$env:GITHUB_WORKSPACE\packaging\windows\get_project_version.cmake" |
-            Select-String -Pattern '-- ([0-9]+\.[0-9]+\.[0-9]+)$').Matches[0].Groups[1].Value
+
+          # Extract version from CMakeLists.txt via the helper cmake script
+          $versionRaw = cmake -P "$env:GITHUB_WORKSPACE\packaging\windows\get_project_version.cmake" 2>&1
+          $version = ($versionRaw | Select-String -Pattern '(\d+\.\d+\.\d+)').Matches[0].Groups[1].Value
           if ([string]::IsNullOrWhiteSpace($version)) {
             throw "Could not determine PROJECT_VERSION from CMakeLists.txt"
           }
           Write-Host "Using installer version: $version"
           ISCC "/DMyAppVersion=$version" "$env:GITHUB_WORKSPACE\packaging\windows\Perastage.iss"
 
-      # Copy installer into a dedicated folder for upload
+      # ── 11. Verify installer was created ─────────────────────────────────────
       - name: Collect Windows installer
         shell: pwsh
         run: |
@@ -132,7 +144,7 @@ jobs:
           if ($null -eq $exe) { throw "Installer not found in $installerDir" }
           Write-Host "Found installer: $($exe.FullName)"
 
-      # Upload the generated installer as a workflow artifact
+      # ── 12. Upload installer artifact ────────────────────────────────────────
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
