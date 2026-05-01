@@ -1877,19 +1877,17 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	beam_params["intensity_max"] = BEAM_INTENSITY_MAX
 	var gobo_topology_changed: bool = false
 	if _fixture_gobo_projector != null:
-		var runtime_controls_for_gobo: Dictionary = controls
+		var runtime_controls_for_gobo: Dictionary = controls.duplicate(true)
 		if state != null:
-			runtime_controls_for_gobo = {
-				"has_gobo": state.has_gobo,
-				"gobo_norm": state.gobo_norm,
-				"has_gobo_index": state.has_gobo_index,
-				"gobo_index_norm": state.gobo_index_norm,
-				"has_gobo_rotation": state.has_gobo_rotation,
-				"gobo_rotation_norm": state.gobo_rotation_norm,
-				"gobo_slots": state.gobo_slots,
-				"gobo_ranges": state.gobo_ranges,
-				"gobo_runtime_bindings": state.gobo_runtime_bindings,
-			}
+			runtime_controls_for_gobo["has_gobo"] = state.has_gobo
+			runtime_controls_for_gobo["gobo_norm"] = state.gobo_norm
+			runtime_controls_for_gobo["has_gobo_index"] = state.has_gobo_index
+			runtime_controls_for_gobo["gobo_index_norm"] = state.gobo_index_norm
+			runtime_controls_for_gobo["has_gobo_rotation"] = state.has_gobo_rotation
+			runtime_controls_for_gobo["gobo_rotation_norm"] = state.gobo_rotation_norm
+			runtime_controls_for_gobo["gobo_slots"] = state.gobo_slots
+			runtime_controls_for_gobo["gobo_ranges"] = state.gobo_ranges
+			runtime_controls_for_gobo["gobo_runtime_bindings"] = state.gobo_runtime_bindings
 		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(runtime_controls_for_gobo, _visual_settings, beam_defaults)
 		gobo_topology_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
 		var applied_gobo_rotation_deg: float = float(light.get_meta("peraviz_gobo_applied_rotation_deg", beam_params.get("gobo_rotation_deg", 0.0)))
