@@ -24,7 +24,6 @@ var _fixture_snapshot_cache: Dictionary = {}
 var _fixture_apply_plans: Dictionary = {}
 var _used_universes: Dictionary = {}
 var _universe_last_counters: Dictionary = {}
-var _universe_last_frames: Dictionary = {}
 var _fixture_time_tick_flags: Dictionary = {}
 var _time_tick_fixture_ids := PackedStringArray()
 var _gobo_vectorization_cache: GoboVectorizationCache = null
@@ -44,7 +43,6 @@ func rebuild(universe_offset: int) -> Dictionary:
 	_fixture_apply_plans.clear()
 	_used_universes.clear()
 	_universe_last_counters.clear()
-	_universe_last_frames.clear()
 	_fixture_time_tick_flags.clear()
 	_time_tick_fixture_ids = PackedStringArray()
 
@@ -161,9 +159,7 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> Dictionary:
 			unchanged_universes[universe_id] = true
 			continue
 		_universe_last_counters[universe_id] = frame_counter
-		var updated_frame: PackedByteArray = universe_frame.get("data", PackedByteArray())
-		_universe_last_frames[universe_id] = updated_frame
-		universe_frames[universe_id] = updated_frame
+		universe_frames[universe_id] = universe_frame.get("data", PackedByteArray())
 
 	var updated: int = 0
 	var skipped: int = 0
@@ -178,13 +174,10 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> Dictionary:
 			fixture_plan = _build_fixture_apply_plan(binding)
 			_fixture_apply_plans[fixture_uuid] = fixture_plan
 		var universe_id: int = int(binding.get("artnet_universe_id", -1))
-		var requires_time_tick: bool = bool(_fixture_time_tick_flags.get(fixture_uuid, false))
-		if unchanged_universes.has(universe_id) and not requires_time_tick:
+		if unchanged_universes.has(universe_id):
 			skipped += 1
 			continue
 		var frame: PackedByteArray = universe_frames.get(universe_id, PackedByteArray())
-		if frame.is_empty() and requires_time_tick:
-			frame = _universe_last_frames.get(universe_id, PackedByteArray())
 		if frame.is_empty():
 			continue
 		var snapshot: PackedByteArray = _extract_snapshot_for_fixture(fixture_uuid, frame)
