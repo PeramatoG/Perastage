@@ -124,6 +124,41 @@ var _visual_settings := {
 var _beam_renderers: Dictionary = {}
 var _active_beam_renderer: BeamRendererBase
 var _active_beam_mode: int = -1
+var _dmx_fixture_profile_accum_usec: int = 0
+var _dmx_fixture_profile_count: int = 0
+var _dmx_fixture_profile_frame_counter: int = 0
+const DMX_PROFILE_LOG_EVERY_FRAMES: int = 120
+
+class FixtureRuntimeDmxState extends RefCounted:
+	var fixture_uuid: String = ""
+	var frame_delta_sec: float = 0.0
+	var has_pan: bool = false
+	var pan_norm: float = 0.0
+	var has_tilt: bool = false
+	var tilt_norm: float = 0.0
+	var has_dimmer: bool = false
+	var dimmer_norm: float = 0.0
+	var has_zoom: bool = false
+	var zoom_norm: float = 0.0
+	var has_zoom_physical_limits: bool = false
+	var zoom_physical_min_degrees: float = -1.0
+	var zoom_physical_max_degrees: float = -1.0
+	var has_cyan: bool = false
+	var cyan_norm: float = 0.0
+	var has_magenta: bool = false
+	var magenta_norm: float = 0.0
+	var has_yellow: bool = false
+	var yellow_norm: float = 0.0
+	var has_gobo: bool = false
+	var gobo_norm: float = 0.0
+	var has_gobo_index: bool = false
+	var gobo_index_norm: float = 0.0
+	var has_gobo_rotation: bool = false
+	var gobo_rotation_norm: float = 0.0
+	var gobo_slots: Array = []
+	var gobo_ranges: Array = []
+	var gobo_runtime_bindings: Array = []
+	var source_controls: Dictionary = {}
 
 const BeamRendererBaseScript = preload("res://scripts/beam_renderers/beam_renderer_base.gd")
 const LegacyConeBeamRendererScript = preload("res://scripts/beam_renderers/legacy_cone_beam_renderer.gd")
@@ -1350,29 +1385,73 @@ func _find_axis_for_role(axis_nodes: Array, role: String) -> Node3D:
 	return axis_nodes[0]
 
 func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) -> void:
-	controls["fixture_uuid"] = fixture_uuid
-	if not controls.has("frame_delta_sec"):
-		controls["frame_delta_sec"] = get_process_delta_time()
-	else:
-		controls["frame_delta_sec"] = max(float(controls.get("frame_delta_sec", 0.0)), 0.0)
-	var pan_tilt_controls: Dictionary = _resolve_pan_tilt_controls(controls)
-	if bool(pan_tilt_controls.get("has_pan", false)) or bool(pan_tilt_controls.get("has_tilt", false)):
-		var has_pan: bool = bool(pan_tilt_controls.get("has_pan", false))
-		var has_tilt: bool = bool(pan_tilt_controls.get("has_tilt", false))
+	var profile_start_usec: int = Time.get_ticks_usec()
+	var state: FixtureRuntimeDmxState = _build_fixture_runtime_dmx_state(fixture_uuid, controls)
+	if state.has_pan or state.has_tilt:
 		var pan_min: float = float(pan_min_input.value)
 		var pan_max: float = float(pan_max_input.value)
 		var tilt_min: float = float(tilt_min_input.value)
 		var tilt_max: float = float(tilt_max_input.value)
-		var pan_degrees: float = lerp(pan_min, pan_max, clamp(float(pan_tilt_controls.get("pan_norm", 0.0)), 0.0, 1.0))
-		var tilt_degrees: float = lerp(tilt_min, tilt_max, clamp(float(pan_tilt_controls.get("tilt_norm", 0.0)), 0.0, 1.0))
-		_apply_pan_tilt_components_to_fixture(fixture_uuid, has_pan, pan_degrees, has_tilt, tilt_degrees)
+		var pan_degrees: float = lerp(pan_min, pan_max, clamp(state.pan_norm, 0.0, 1.0))
+		var tilt_degrees: float = lerp(tilt_min, tilt_max, clamp(state.tilt_norm, 0.0, 1.0))
+		_apply_pan_tilt_components_to_fixture(fixture_uuid, state.has_pan, pan_degrees, state.has_tilt, tilt_degrees)
 
-	if _has_lighting_controls(controls):
+	if _has_lighting_controls_state(state):
 		var dimmer_percent: float = 100.0
-		var dimmer_controls: Dictionary = _resolve_dimmer_controls(controls)
-		if bool(dimmer_controls.get("has_dimmer", false)):
-			dimmer_percent = clamp(float(dimmer_controls.get("dimmer_norm", 0.0)), 0.0, 1.0) * 100.0
-		_apply_dimmer_feedback_to_fixture(fixture_uuid, dimmer_percent, controls)
+		if state.has_dimmer:
+			dimmer_percent = clamp(state.dimmer_norm, 0.0, 1.0) * 100.0
+		_apply_dimmer_feedback_to_fixture(fixture_uuid, dimmer_percent, state)
+	_dmx_fixture_profile_accum_usec += (Time.get_ticks_usec() - profile_start_usec)
+	_dmx_fixture_profile_count += 1
+	_dmx_fixture_profile_frame_counter += 1
+	if _dmx_fixture_profile_frame_counter >= DMX_PROFILE_LOG_EVERY_FRAMES:
+		var avg_usec: float = 0.0
+		if _dmx_fixture_profile_count > 0:
+			avg_usec = float(_dmx_fixture_profile_accum_usec) / float(_dmx_fixture_profile_count)
+		print("[DMXProfile] fixtures=%d total_usec=%d avg_usec=%.2f frames=%d" % [_dmx_fixture_profile_count, _dmx_fixture_profile_accum_usec, avg_usec, _dmx_fixture_profile_frame_counter])
+		_dmx_fixture_profile_accum_usec = 0
+		_dmx_fixture_profile_count = 0
+		_dmx_fixture_profile_frame_counter = 0
+
+func _build_fixture_runtime_dmx_state(fixture_uuid: String, controls: Dictionary) -> FixtureRuntimeDmxState:
+	var state := FixtureRuntimeDmxState.new()
+	state.fixture_uuid = fixture_uuid
+	state.frame_delta_sec = max(float(controls.get("frame_delta_sec", get_process_delta_time())), 0.0)
+	state.source_controls = controls
+	var pan_tilt_controls: Dictionary = _resolve_pan_tilt_controls(controls)
+	state.has_pan = bool(pan_tilt_controls.get("has_pan", false))
+	state.pan_norm = float(pan_tilt_controls.get("pan_norm", 0.0))
+	state.has_tilt = bool(pan_tilt_controls.get("has_tilt", false))
+	state.tilt_norm = float(pan_tilt_controls.get("tilt_norm", 0.0))
+	var dimmer_controls: Dictionary = _resolve_dimmer_controls(controls)
+	state.has_dimmer = bool(dimmer_controls.get("has_dimmer", false))
+	state.dimmer_norm = float(dimmer_controls.get("dimmer_norm", 0.0))
+	state.has_zoom = bool(dimmer_controls.get("has_zoom", false))
+	state.zoom_norm = float(dimmer_controls.get("zoom_norm", 0.0))
+	state.has_zoom_physical_limits = bool(dimmer_controls.get("has_zoom_physical_limits", false))
+	state.zoom_physical_min_degrees = float(dimmer_controls.get("zoom_physical_min_degrees", -1.0))
+	state.zoom_physical_max_degrees = float(dimmer_controls.get("zoom_physical_max_degrees", -1.0))
+	var color_controls: Dictionary = _resolve_color_wheel_controls(controls)
+	state.has_cyan = bool(color_controls.get("has_cyan", false))
+	state.cyan_norm = float(color_controls.get("cyan_norm", 0.0))
+	state.has_magenta = bool(color_controls.get("has_magenta", false))
+	state.magenta_norm = float(color_controls.get("magenta_norm", 0.0))
+	state.has_yellow = bool(color_controls.get("has_yellow", false))
+	state.yellow_norm = float(color_controls.get("yellow_norm", 0.0))
+	var gobo_controls: Dictionary = _resolve_gobo_controls(controls)
+	state.has_gobo = bool(gobo_controls.get("has_gobo", false))
+	state.gobo_norm = float(gobo_controls.get("gobo_norm", 0.0))
+	state.has_gobo_index = bool(gobo_controls.get("has_gobo_index", false))
+	state.gobo_index_norm = float(gobo_controls.get("gobo_index_norm", 0.0))
+	state.has_gobo_rotation = bool(gobo_controls.get("has_gobo_rotation", false))
+	state.gobo_rotation_norm = float(gobo_controls.get("gobo_rotation_norm", 0.0))
+	state.gobo_slots = gobo_controls.get("gobo_slots", [])
+	state.gobo_ranges = gobo_controls.get("gobo_ranges", [])
+	state.gobo_runtime_bindings = gobo_controls.get("gobo_runtime_bindings", [])
+	return state
+
+func _has_lighting_controls_state(state: FixtureRuntimeDmxState) -> bool:
+	return state.has_dimmer or state.has_zoom or state.has_cyan or state.has_magenta or state.has_yellow or state.has_gobo or state.has_gobo_index or state.has_gobo_rotation
 
 func _resolve_capability_bucket(controls: Dictionary, capability_type: String) -> Array:
 	var capabilities: Dictionary = controls.get("capabilities", {})
@@ -1475,7 +1554,7 @@ func _has_lighting_controls(controls: Dictionary) -> bool:
 	var gobo_controls: Dictionary = _resolve_gobo_controls(controls)
 	return bool(gobo_controls.get("has_gobo", false)) or bool(gobo_controls.get("has_gobo_index", false)) or bool(gobo_controls.get("has_gobo_rotation", false))
 
-func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, controls: Dictionary = {}) -> void:
+func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, state: FixtureRuntimeDmxState = null) -> void:
 	var geometry_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "geometry_nodes"))
 	var emitter_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "emitters"))
 	if geometry_nodes.is_empty() and emitter_nodes.is_empty():
@@ -1484,7 +1563,8 @@ func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, cont
 	var dimmer_percent: float = clamp(dimmer, 0.0, 100.0)
 	var normalized_dimmer: float = dimmer_percent / 100.0
 	var emitter_photometrics: Array = _get_fixture_emitter_photometrics(fixture_uuid)
-	var beam_color: Color = _resolve_fixture_beam_color(emitter_photometrics, controls)
+	var source_controls: Dictionary = state.source_controls if state != null else {}
+	var beam_color: Color = _resolve_fixture_beam_color(emitter_photometrics, source_controls)
 	var emissive_materials: Array = _collect_fixture_emissive_materials(fixture_uuid, geometry_nodes)
 	var energy_multiplier: float = lerp(0.0, 4.0, normalized_dimmer)
 	for material in emissive_materials:
@@ -1501,7 +1581,7 @@ func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, cont
 		var photometric: Dictionary = DEFAULT_EMITTER_PHOTOMETRICS.duplicate(true)
 		if index < emitter_photometrics.size() and emitter_photometrics[index] is Dictionary:
 			photometric.merge(emitter_photometrics[index], true)
-		_apply_emitter_light_state(light, photometric, normalized_dimmer, controls)
+		_apply_emitter_light_state(light, photometric, normalized_dimmer, state)
 
 func _collect_fixture_emissive_materials(fixture_uuid: String, geometry_nodes: Array) -> Array:
 	if _fixture_emissive_cache.has(fixture_uuid):
@@ -1735,14 +1815,14 @@ func _extract_emitter_photometrics(item: Dictionary) -> Dictionary:
 		data["dominant_wavelength"] = float(item.get("dominant_wavelength", 0.0))
 	return data
 
-func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, normalized_dimmer: float, controls: Dictionary = {}) -> void:
+func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, normalized_dimmer: float, state: FixtureRuntimeDmxState = null) -> void:
+	var controls: Dictionary = state.source_controls if state != null else {}
 	var luminous_flux: float = max(float(photometric.get("luminous_flux", 10000.0)), 0.0)
 	var beam_angle: float = clamp(float(photometric.get("beam_angle", 25.0)), 0.1, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
 	var field_angle: float = clamp(float(photometric.get("field_angle", beam_angle)), beam_angle, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
-	var dimmer_controls: Dictionary = _resolve_dimmer_controls(controls)
-	if bool(dimmer_controls.get("has_zoom", false)):
-		var zoom_norm: float = clamp(float(dimmer_controls.get("zoom_norm", 0.0)), 0.0, 1.0)
-		var zoom_limits: Dictionary = _resolve_zoom_beam_limits(light, controls)
+	if state != null and state.has_zoom:
+		var zoom_norm: float = clamp(state.zoom_norm, 0.0, 1.0)
+		var zoom_limits: Dictionary = _resolve_zoom_beam_limits(light, state)
 		var zoom_min_angle: float = float(zoom_limits.get("min_beam_angle", EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG))
 		var zoom_max_angle: float = float(zoom_limits.get("max_beam_angle", EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG))
 		beam_angle = lerp(zoom_min_angle, zoom_max_angle, zoom_norm)
@@ -1797,8 +1877,19 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	beam_params["intensity_max"] = BEAM_INTENSITY_MAX
 	var gobo_topology_changed: bool = false
 	if _fixture_gobo_projector != null:
-		var runtime_controls_for_gobo: Dictionary = controls.duplicate(true)
-		runtime_controls_for_gobo.merge(_resolve_gobo_controls(controls), true)
+		var runtime_controls_for_gobo: Dictionary = controls
+		if state != null:
+			runtime_controls_for_gobo = {
+				"has_gobo": state.has_gobo,
+				"gobo_norm": state.gobo_norm,
+				"has_gobo_index": state.has_gobo_index,
+				"gobo_index_norm": state.gobo_index_norm,
+				"has_gobo_rotation": state.has_gobo_rotation,
+				"gobo_rotation_norm": state.gobo_rotation_norm,
+				"gobo_slots": state.gobo_slots,
+				"gobo_ranges": state.gobo_ranges,
+				"gobo_runtime_bindings": state.gobo_runtime_bindings,
+			}
 		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(runtime_controls_for_gobo, _visual_settings, beam_defaults)
 		gobo_topology_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
 		var applied_gobo_rotation_deg: float = float(light.get_meta("peraviz_gobo_applied_rotation_deg", beam_params.get("gobo_rotation_deg", 0.0)))
@@ -1808,15 +1899,13 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 12.0)) * float(_visual_settings.get("haze_density_multiplier", 0.22))
 	_update_beam_for_light(light, beam_params)
 
-func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
+func _resolve_zoom_beam_limits(light: SpotLight3D, state: FixtureRuntimeDmxState = null) -> Dictionary:
 	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).
 	var min_beam_angle: float = EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG
 	var max_beam_angle: float = EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG
-	var dimmer_controls: Dictionary = _resolve_dimmer_controls(controls)
-
-	if bool(dimmer_controls.get("has_zoom_physical_limits", false)):
-		min_beam_angle = float(dimmer_controls.get("zoom_physical_min_degrees", min_beam_angle))
-		max_beam_angle = float(dimmer_controls.get("zoom_physical_max_degrees", max_beam_angle))
+	if state != null and state.has_zoom_physical_limits:
+		min_beam_angle = state.zoom_physical_min_degrees
+		max_beam_angle = state.zoom_physical_max_degrees
 	else:
 		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.0)), 0.0)
 		if lens_radius > 0.0:
