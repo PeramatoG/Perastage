@@ -276,7 +276,8 @@ func _is_time_animated_controls(controls: Dictionary) -> bool:
 			continue
 		var has_speed: bool = bool(item.get("has_rotation_physical_value", false))
 		var speed: float = float(item.get("rotation_speed_deg_per_sec", item.get("rotation_physical", 0.0)))
-		if has_speed and absf(speed) > 0.0001 and not bool(item.get("is_stop", false)):
+		var supports_rotation: bool = bool(item.get("supports_rotation", false)) or bool(item.get("has_gobo_rotation", false))
+		if supports_rotation and (not bool(item.get("is_stop", false))) and (has_speed or absf(speed) > 0.0001):
 			return true
 		if bool(item.get("shake_active", false)) or bool(item.get("supports_shake", false)):
 			return true
