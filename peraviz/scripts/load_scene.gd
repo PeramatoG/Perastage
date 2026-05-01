@@ -50,6 +50,7 @@ var _fixture_emissive_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_last_state: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
+var _fixture_last_dmx_controls: Dictionary = {}
 var _fixture_gobo_projector: FixtureGoboProjector = null
 var _ui_controller: UiController
 var _dmx_controller: DmxController
@@ -1370,22 +1371,33 @@ func _apply_time_animated_fixtures(delta_sec: float, fixture_ids: PackedStringAr
 		})
 
 func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) -> void:
+	var time_tick_only: bool = bool(controls.get("time_tick_only", false))
+	if time_tick_only and not _has_lighting_controls(controls):
+		var cached_controls: Dictionary = _fixture_last_dmx_controls.get(fixture_uuid, {})
+		if cached_controls is Dictionary and not cached_controls.is_empty():
+			controls = cached_controls.duplicate(true)
+			controls["time_tick_only"] = true
 	controls["fixture_uuid"] = fixture_uuid
 	if not controls.has("frame_delta_sec"):
 		controls["frame_delta_sec"] = get_process_delta_time()
 	else:
 		controls["frame_delta_sec"] = max(float(controls.get("frame_delta_sec", 0.0)), 0.0)
-	var pan_tilt_controls: Dictionary = _resolve_pan_tilt_controls(controls)
-	if bool(pan_tilt_controls.get("has_pan", false)) or bool(pan_tilt_controls.get("has_tilt", false)):
-		var has_pan: bool = bool(pan_tilt_controls.get("has_pan", false))
-		var has_tilt: bool = bool(pan_tilt_controls.get("has_tilt", false))
-		var pan_min: float = float(pan_min_input.value)
-		var pan_max: float = float(pan_max_input.value)
-		var tilt_min: float = float(tilt_min_input.value)
-		var tilt_max: float = float(tilt_max_input.value)
-		var pan_degrees: float = lerp(pan_min, pan_max, clamp(float(pan_tilt_controls.get("pan_norm", 0.0)), 0.0, 1.0))
-		var tilt_degrees: float = lerp(tilt_min, tilt_max, clamp(float(pan_tilt_controls.get("tilt_norm", 0.0)), 0.0, 1.0))
-		_apply_pan_tilt_components_to_fixture(fixture_uuid, has_pan, pan_degrees, has_tilt, tilt_degrees)
+
+	if not time_tick_only:
+		_fixture_last_dmx_controls[fixture_uuid] = controls.duplicate(true)
+
+	if not time_tick_only:
+		var pan_tilt_controls: Dictionary = _resolve_pan_tilt_controls(controls)
+		if bool(pan_tilt_controls.get("has_pan", false)) or bool(pan_tilt_controls.get("has_tilt", false)):
+			var has_pan: bool = bool(pan_tilt_controls.get("has_pan", false))
+			var has_tilt: bool = bool(pan_tilt_controls.get("has_tilt", false))
+			var pan_min: float = float(pan_min_input.value)
+			var pan_max: float = float(pan_max_input.value)
+			var tilt_min: float = float(tilt_min_input.value)
+			var tilt_max: float = float(tilt_max_input.value)
+			var pan_degrees: float = lerp(pan_min, pan_max, clamp(float(pan_tilt_controls.get("pan_norm", 0.0)), 0.0, 1.0))
+			var tilt_degrees: float = lerp(tilt_min, tilt_max, clamp(float(pan_tilt_controls.get("tilt_norm", 0.0)), 0.0, 1.0))
+			_apply_pan_tilt_components_to_fixture(fixture_uuid, has_pan, pan_degrees, has_tilt, tilt_degrees)
 
 	if _has_lighting_controls(controls):
 		var dimmer_percent: float = 100.0
