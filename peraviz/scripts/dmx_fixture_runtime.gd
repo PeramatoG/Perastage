@@ -193,52 +193,57 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> Dictionary:
 	return {"updated": updated, "skipped": skipped}
 
 func _build_fixture_apply_plan(binding: Dictionary) -> Dictionary:
+	var handler_scripts: Dictionary = {
+		"pan_tilt": {
+			"script": PanTiltCapabilityHandlerScript,
+			"normalizer": null,
+		},
+		"dimmer": {
+			"script": DimmerCapabilityHandlerScript,
+			"normalizer": null,
+		},
+		"color_wheel": {
+			"script": ColorWheelCapabilityHandlerScript,
+			"normalizer": null,
+		},
+		"gobo": {
+			"script": GoboCapabilityHandlerScript,
+			"normalizer": CapabilityNormalizerScript,
+		},
+		"prism": {
+			"script": PrismCapabilityHandlerScript,
+			"normalizer": null,
+		},
+		"strobe": {
+			"script": StrobeCapabilityHandlerScript,
+			"normalizer": null,
+		},
+	}
 	return {
 		"binding": binding,
-		"handlers": {
-			"pan_tilt": {
-				"active": _handler_is_active(binding, PanTiltCapabilityHandlerScript, false),
-				"script": PanTiltCapabilityHandlerScript,
-				"normalizer": null,
-			},
-			"dimmer": {
-				"active": _handler_is_active(binding, DimmerCapabilityHandlerScript, false),
-				"script": DimmerCapabilityHandlerScript,
-				"normalizer": null,
-			},
-			"color_wheel": {
-				"active": _handler_is_active(binding, ColorWheelCapabilityHandlerScript, false),
-				"script": ColorWheelCapabilityHandlerScript,
-				"normalizer": null,
-			},
-			"gobo": {
-				"active": _handler_is_active(binding, GoboCapabilityHandlerScript, true),
-				"script": GoboCapabilityHandlerScript,
-				"normalizer": CapabilityNormalizerScript,
-			},
-			"prism": {
-				"active": _handler_is_active(binding, PrismCapabilityHandlerScript, false),
-				"script": PrismCapabilityHandlerScript,
-				"normalizer": null,
-			},
-			"strobe": {
-				"active": _handler_is_active(binding, StrobeCapabilityHandlerScript, false),
-				"script": StrobeCapabilityHandlerScript,
-				"normalizer": null,
-			},
-		},
+		"handlers": _build_active_handlers_for_plan(binding, handler_scripts),
 		"metadata": binding.get("metadata", {}),
 	}
 
-func _handler_is_active(binding: Dictionary, handler_script, uses_normalizer: bool) -> bool:
-	if handler_script == null:
-		return false
-	var blocks: Array = []
-	if uses_normalizer:
-		blocks = handler_script.collect(binding, PackedByteArray(), ControlReaderScript, CapabilityNormalizerScript, FORCE_COARSE_ONLY_DMX_READ)
-	else:
-		blocks = handler_script.collect(binding, PackedByteArray(), ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ)
-	return not blocks.is_empty()
+func _build_active_handlers_for_plan(binding: Dictionary, handler_scripts: Dictionary) -> Dictionary:
+	var active_handlers: Dictionary = {}
+	var empty_frame := PackedByteArray()
+	for capability_type in handler_scripts.keys():
+		var definition: Dictionary = handler_scripts.get(capability_type, {})
+		var script = definition.get("script", null)
+		var normalizer = definition.get("normalizer", null)
+		var blocks: Array = []
+		if script == null:
+			continue
+		if normalizer != null:
+			blocks = script.collect(binding, empty_frame, ControlReaderScript, normalizer, FORCE_COARSE_ONLY_DMX_READ)
+		else:
+			blocks = script.collect(binding, empty_frame, ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ)
+		if not blocks.is_empty():
+			active_handlers[capability_type] = definition
+	if active_handlers.is_empty():
+		return handler_scripts.duplicate(true)
+	return active_handlers
 
 func _build_controls_for_plan(fixture_plan: Dictionary, frame: PackedByteArray) -> Dictionary:
 	var capabilities := {
@@ -265,8 +270,6 @@ func _append_capability_from_plan(capabilities: Dictionary, capability_type: Str
 	if not handlers.has(capability_type):
 		return
 	var handler_plan: Dictionary = handlers.get(capability_type, {})
-	if not bool(handler_plan.get("active", false)):
-		return
 	var script = handler_plan.get("script", null)
 	if script == null:
 		return
