@@ -250,7 +250,7 @@ func _apply_fixture_time_tick(delta_sec: float) -> void:
 		return
 	if _dmx_fixture_runtime == null or not _apply_dmx_controls_callback.is_valid():
 		return
-	for fixture_uuid in _dmx_fixture_runtime.get_bound_fixture_ids():
+	for fixture_uuid in _dmx_fixture_runtime.get_time_tick_fixture_ids():
 		_apply_dmx_controls_callback.call(str(fixture_uuid), {
 			"frame_delta_sec": delta_sec,
 			"time_tick_only": true,
