@@ -1370,10 +1370,31 @@ func _apply_time_animated_fixtures(delta_sec: float, fixture_ids: PackedStringAr
 	if delta_sec <= 0.0 or fixture_ids.is_empty():
 		return
 	for fixture_uuid in fixture_ids:
-		_apply_dmx_controls_to_fixture(str(fixture_uuid), {
-			"frame_delta_sec": delta_sec,
-			"time_tick_only": true,
-		})
+		_tick_fixture_gobo_animation_only(str(fixture_uuid), delta_sec)
+
+func _tick_fixture_gobo_animation_only(fixture_uuid: String, delta_sec: float) -> void:
+	if _fixture_gobo_projector == null:
+		return
+	var cached_controls: Dictionary = _fixture_last_dmx_controls.get(fixture_uuid, {})
+	if cached_controls.is_empty():
+		return
+	var gobo_controls_base: Dictionary = _resolve_gobo_controls(cached_controls)
+	if not bool(gobo_controls_base.get("has_gobo", false)):
+		return
+	var emitter_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "emitters"))
+	if emitter_nodes.is_empty():
+		return
+	var emitter_lights: Array = _collect_fixture_emitter_lights(fixture_uuid, emitter_nodes)
+	var beam_defaults: Dictionary = BeamOpticsControllerScript.BuildDefaultMasterOptics()
+	for light_item in emitter_lights:
+		var light: SpotLight3D = light_item as SpotLight3D
+		if light == null or not is_instance_valid(light):
+			continue
+		var gobo_source_controls: Dictionary = cached_controls.duplicate(true)
+		gobo_source_controls["frame_delta_sec"] = delta_sec
+		gobo_source_controls.merge(gobo_controls_base, true)
+		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(gobo_source_controls, _visual_settings, beam_defaults)
+		_fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
 
 func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) -> void:
 	var time_tick_only: bool = bool(controls.get("time_tick_only", false))
