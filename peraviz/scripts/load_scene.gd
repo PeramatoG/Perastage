@@ -123,6 +123,7 @@ var _visual_settings := {
 
 
 var _beam_renderers: Dictionary = {}
+var _fixture_light_apply_service: FixtureLightApplyService
 var _active_beam_renderer: BeamRendererBase
 var _active_beam_mode: int = -1
 
@@ -131,6 +132,7 @@ const LegacyConeBeamRendererScript = preload("res://scripts/beam_renderers/legac
 const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volumetric_beam_renderer.gd")
 const FixtureGoboProjectorScript = preload("res://scripts/fixture_gobo_projector.gd")
 const BeamOpticsControllerScript = preload("res://scripts/beam_optics_controller.gd")
+const FixtureLightApplyServiceScript = preload("res://scripts/runtime/fixture_light_apply_service.gd")
 const UiVisibilityPolicyScript = preload("res://scripts/ui/ui_visibility_policy.gd")
 const UiControllerScript = preload("res://scripts/controllers/ui_controller.gd")
 const DmxControllerScript = preload("res://scripts/controllers/dmx_controller.gd")
@@ -152,6 +154,8 @@ var _user_preferences: UserPreferences
 var _debug_properties_applied: int = 0
 var _debug_properties_skipped: int = 0
 var _selected_fixture_badge_uuid: String = ""
+var _emitter_mesh_rebuild_count: int = 0
+var _emitter_parametric_update_count: int = 0
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -315,6 +319,7 @@ func _ready() -> void:
 	_load_visual_settings_from_project()
 	_initialize_beam_renderers()
 	_fixture_gobo_projector = FixtureGoboProjectorScript.new()
+	_fixture_light_apply_service = FixtureLightApplyServiceScript.new()
 	if visual_settings_window != null and visual_settings_window.has_method("configure"):
 		visual_settings_window.call("configure", _visual_settings)
 		if visual_settings_window.has_method("set_ui_visibility_policy"):
@@ -503,7 +508,10 @@ func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 	beam_params["scaled_intensity"] = clamp(base_intensity * beam_multiplier, 0.0, BEAM_INTENSITY_MAX)
 	beam_params["beam_quality"] = int(_visual_settings.get("beam_quality", 1))
 	beam_params["intensity_max"] = BEAM_INTENSITY_MAX
+	var beam_phase_start: int = Time.get_ticks_usec()
 	_update_beam_for_light(light, beam_params)
+	if _fixture_light_apply_service != null:
+		_fixture_light_apply_service._track_phase("beam_update", beam_phase_start)
 
 func _update_beam_for_light(light: SpotLight3D, beam_params: Dictionary) -> void:
 	if _active_beam_renderer == null:
@@ -1359,158 +1367,33 @@ func _find_axis_for_role(axis_nodes: Array, role: String) -> Node3D:
 	return axis_nodes[0]
 
 func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) -> void:
-	controls["fixture_uuid"] = fixture_uuid
-	if not controls.has("frame_delta_sec"):
-		controls["frame_delta_sec"] = get_process_delta_time()
-	else:
-		controls["frame_delta_sec"] = max(float(controls.get("frame_delta_sec", 0.0)), 0.0)
-	var pan_tilt_controls: Dictionary = _resolve_pan_tilt_controls(controls)
-	if bool(pan_tilt_controls.get("has_pan", false)) or bool(pan_tilt_controls.get("has_tilt", false)):
-		var has_pan: bool = bool(pan_tilt_controls.get("has_pan", false))
-		var has_tilt: bool = bool(pan_tilt_controls.get("has_tilt", false))
-		var pan_min: float = float(pan_min_input.value)
-		var pan_max: float = float(pan_max_input.value)
-		var tilt_min: float = float(tilt_min_input.value)
-		var tilt_max: float = float(tilt_max_input.value)
-		var pan_degrees: float = lerp(pan_min, pan_max, clamp(float(pan_tilt_controls.get("pan_norm", 0.0)), 0.0, 1.0))
-		var tilt_degrees: float = lerp(tilt_min, tilt_max, clamp(float(pan_tilt_controls.get("tilt_norm", 0.0)), 0.0, 1.0))
-		_apply_pan_tilt_components_to_fixture(fixture_uuid, has_pan, pan_degrees, has_tilt, tilt_degrees)
-
-	if _has_lighting_controls(controls):
-		var dimmer_percent: float = 100.0
-		var dimmer_controls: Dictionary = _resolve_dimmer_controls(controls)
-		if bool(dimmer_controls.get("has_dimmer", false)):
-			dimmer_percent = clamp(float(dimmer_controls.get("dimmer_norm", 0.0)), 0.0, 1.0) * 100.0
-		_apply_dimmer_feedback_to_fixture(fixture_uuid, dimmer_percent, controls)
+	if _fixture_light_apply_service == null:
+		_fixture_light_apply_service = FixtureLightApplyServiceScript.new()
+	_fixture_light_apply_service.apply_dmx_controls_to_fixture(self, fixture_uuid, controls)
 
 func _resolve_capability_bucket(controls: Dictionary, capability_type: String) -> Array:
-	var capabilities: Dictionary = controls.get("capabilities", {})
-	if capabilities is Dictionary:
-		var bucket: Array = capabilities.get(capability_type, [])
-		if bucket is Array:
-			return bucket
-	return []
+	return _fixture_light_apply_service.resolve_capability_bucket(controls, capability_type)
 
 func _resolve_first_capability_block(controls: Dictionary, capability_type: String) -> Dictionary:
-	var bucket: Array = _resolve_capability_bucket(controls, capability_type)
-	for item in bucket:
-		if item is Dictionary:
-			return item
-	return {}
+	return _fixture_light_apply_service.resolve_first_capability_block(controls, capability_type)
 
 func _resolve_pan_tilt_controls(controls: Dictionary) -> Dictionary:
-	var block: Dictionary = _resolve_first_capability_block(controls, "pan_tilt")
-	if not block.is_empty():
-		return block
-	return {
-		"has_pan": bool(controls.get("has_pan", false)),
-		"pan_norm": float(controls.get("pan_norm", 0.0)),
-		"has_tilt": bool(controls.get("has_tilt", false)),
-		"tilt_norm": float(controls.get("tilt_norm", 0.0)),
-	}
+	return _fixture_light_apply_service.resolve_pan_tilt_controls(controls)
 
 func _resolve_dimmer_controls(controls: Dictionary) -> Dictionary:
-	var block: Dictionary = _resolve_first_capability_block(controls, "dimmer")
-	if not block.is_empty():
-		return block
-	return {
-		"has_dimmer": bool(controls.get("has_dimmer", false)),
-		"dimmer_norm": float(controls.get("dimmer_norm", 0.0)),
-		"has_zoom": bool(controls.get("has_zoom", false)),
-		"zoom_norm": float(controls.get("zoom_norm", 0.0)),
-		"has_zoom_physical_limits": bool(controls.get("has_zoom_physical_limits", false)),
-		"zoom_physical_min_degrees": float(controls.get("zoom_physical_min_degrees", -1.0)),
-		"zoom_physical_max_degrees": float(controls.get("zoom_physical_max_degrees", -1.0)),
-	}
+	return _fixture_light_apply_service.resolve_dimmer_controls(controls)
 
 func _resolve_color_wheel_controls(controls: Dictionary) -> Dictionary:
-	var block: Dictionary = _resolve_first_capability_block(controls, "color_wheel")
-	if not block.is_empty():
-		return block
-	return {
-		"has_cyan": bool(controls.get("has_cyan", false)),
-		"cyan_norm": float(controls.get("cyan_norm", 0.0)),
-		"has_magenta": bool(controls.get("has_magenta", false)),
-		"magenta_norm": float(controls.get("magenta_norm", 0.0)),
-		"has_yellow": bool(controls.get("has_yellow", false)),
-		"yellow_norm": float(controls.get("yellow_norm", 0.0)),
-	}
+	return _fixture_light_apply_service.resolve_color_wheel_controls(controls)
 
 func _resolve_gobo_controls(controls: Dictionary) -> Dictionary:
-	var capabilities: Dictionary = controls.get("capabilities", {})
-	if capabilities is Dictionary:
-		var gobo_blocks: Array = capabilities.get("gobo", [])
-		if not gobo_blocks.is_empty():
-			var aggregated: Dictionary = {}
-			var aggregated_bindings: Array = []
-			var aggregated_slots: Array = []
-			var has_any_gobo: bool = false
-			for item in gobo_blocks:
-				if item is not Dictionary:
-					continue
-				var block: Dictionary = item as Dictionary
-				if aggregated.is_empty():
-					aggregated = block.duplicate(true)
-				if bool(block.get("has_gobo", false)):
-					has_any_gobo = true
-				for runtime_binding in block.get("gobo_runtime_bindings", []):
-					aggregated_bindings.append(runtime_binding)
-				for slot_item in block.get("gobo_slots", []):
-					aggregated_slots.append(slot_item)
-			if not aggregated.is_empty():
-				aggregated["has_gobo"] = has_any_gobo or not aggregated_bindings.is_empty()
-				aggregated["gobo_runtime_bindings"] = aggregated_bindings
-				aggregated["gobo_slots"] = aggregated_slots
-				return aggregated
-	return {
-		"has_gobo": bool(controls.get("has_gobo", false)),
-		"gobo_norm": float(controls.get("gobo_norm", 0.0)),
-		"has_gobo_index": bool(controls.get("has_gobo_index", false)),
-		"gobo_index_norm": float(controls.get("gobo_index_norm", 0.0)),
-		"has_gobo_rotation": bool(controls.get("has_gobo_rotation", false)),
-		"gobo_rotation_norm": float(controls.get("gobo_rotation_norm", 0.0)),
-		"gobo_slots": controls.get("gobo_slots", []),
-		"gobo_ranges": controls.get("gobo_ranges", []),
-		"gobo_runtime_bindings": controls.get("gobo_runtime_bindings", []),
-	}
+	return _fixture_light_apply_service.resolve_gobo_controls(controls)
 
 func _has_lighting_controls(controls: Dictionary) -> bool:
-	var dimmer_controls: Dictionary = _resolve_dimmer_controls(controls)
-	if bool(dimmer_controls.get("has_dimmer", false)) or bool(dimmer_controls.get("has_zoom", false)):
-		return true
-	var color_controls: Dictionary = _resolve_color_wheel_controls(controls)
-	if bool(color_controls.get("has_cyan", false)) or bool(color_controls.get("has_magenta", false)) or bool(color_controls.get("has_yellow", false)):
-		return true
-	var gobo_controls: Dictionary = _resolve_gobo_controls(controls)
-	return bool(gobo_controls.get("has_gobo", false)) or bool(gobo_controls.get("has_gobo_index", false)) or bool(gobo_controls.get("has_gobo_rotation", false))
+	return _fixture_light_apply_service.has_lighting_controls(controls)
 
 func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, controls: Dictionary = {}) -> void:
-	var geometry_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "geometry_nodes"))
-	var emitter_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "emitters"))
-	if geometry_nodes.is_empty() and emitter_nodes.is_empty():
-		return
-
-	var dimmer_percent: float = clamp(dimmer, 0.0, 100.0)
-	var normalized_dimmer: float = dimmer_percent / 100.0
-	var emitter_photometrics: Array = _get_fixture_emitter_photometrics(fixture_uuid)
-	var beam_color: Color = _resolve_fixture_beam_color(emitter_photometrics, controls)
-	var emissive_materials: Array = _collect_fixture_emissive_materials(fixture_uuid, geometry_nodes)
-	var energy_multiplier: float = lerp(0.0, 4.0, normalized_dimmer)
-	for material in emissive_materials:
-		if material is BaseMaterial3D:
-			material.emission_enabled = true
-			material.emission = beam_color
-			material.emission_energy_multiplier = energy_multiplier
-
-	var emitter_lights: Array = _collect_fixture_emitter_lights(fixture_uuid, emitter_nodes)
-	for index in range(emitter_lights.size()):
-		var light: SpotLight3D = emitter_lights[index]
-		if light == null or not is_instance_valid(light):
-			continue
-		var photometric: Dictionary = DEFAULT_EMITTER_PHOTOMETRICS.duplicate(true)
-		if index < emitter_photometrics.size() and emitter_photometrics[index] is Dictionary:
-			photometric.merge(emitter_photometrics[index], true)
-		_apply_emitter_light_state(light, photometric, normalized_dimmer, controls)
+	_fixture_light_apply_service.apply_dimmer_feedback_to_fixture(self, fixture_uuid, dimmer, controls)
 
 func _collect_fixture_emissive_materials(fixture_uuid: String, geometry_nodes: Array) -> Array:
 	if _fixture_emissive_cache.has(fixture_uuid):
@@ -1808,17 +1691,52 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	beam_params["intensity_max"] = BEAM_INTENSITY_MAX
 	var gobo_topology_changed: bool = false
 	if _fixture_gobo_projector != null:
-		var gobo_source_controls: Dictionary = controls
-		gobo_source_controls.merge(_resolve_gobo_controls(controls), true)
+		var resolved_gobo_controls: Dictionary = _resolve_gobo_controls(controls)
+		var gobo_source_controls: Dictionary = {
+			"capabilities": controls.get("capabilities", {}),
+			"gobo_norm": controls.get("gobo_norm", 0.0),
+			"gobo_raw_value": controls.get("gobo_raw_value", 0),
+			"gobo_resolution_bits": controls.get("gobo_resolution_bits", 8),
+			"gobo_index_norm": controls.get("gobo_index_norm", 0.0),
+			"has_gobo_index": controls.get("has_gobo_index", false),
+			"gobo_rotation_deg": controls.get("gobo_rotation_deg", 0.0),
+			"gobo_debug_override_enabled": controls.get("gobo_debug_override_enabled", false),
+			"gobo_debug_comparison_mode": controls.get("gobo_debug_comparison_mode", 0),
+			"gobo_debug_shake_enabled": controls.get("gobo_debug_shake_enabled", false),
+			"gobo_debug_shake_amplitude_deg": controls.get("gobo_debug_shake_amplitude_deg", 0.0),
+			"gobo_debug_shake_frequency_hz": controls.get("gobo_debug_shake_frequency_hz", 0.0),
+			"gobo_debug_shake_waveform": controls.get("gobo_debug_shake_waveform", 0),
+			"frame_delta_sec": controls.get("frame_delta_sec", 0.0),
+			"prefer_native_fog_projector": controls.get("prefer_native_fog_projector", true),
+			"gobo_scale": controls.get("gobo_scale", 1.0),
+			"gobo_slots": resolved_gobo_controls.get("gobo_slots", []),
+			"gobo_runtime_bindings": resolved_gobo_controls.get("gobo_runtime_bindings", []),
+			"has_gobo": resolved_gobo_controls.get("has_gobo", false),
+			"gobo_ranges": resolved_gobo_controls.get("gobo_ranges", controls.get("gobo_ranges", [])),
+		}
 		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(gobo_source_controls, _visual_settings, beam_defaults)
+		var gobo_phase_start: int = Time.get_ticks_usec()
 		gobo_topology_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
+		if _fixture_light_apply_service != null:
+			_fixture_light_apply_service._track_phase("gobo_update", gobo_phase_start)
 		_set_light_meta_variant(light, "peraviz_last_gobo_key", str(gobo_controls.get("key", "")), last_state)
 		var applied_gobo_rotation_deg: float = float(light.get_meta("peraviz_gobo_applied_rotation_deg", beam_params.get("gobo_rotation_deg", 0.0)))
 		beam_params["gobo_rotation_deg"] = applied_gobo_rotation_deg
 	if gobo_topology_changed:
+		_emitter_mesh_rebuild_count += 1
 		_cleanup_light_beam_renderers(light)
 	_set_light_property_float(light, "light_volumetric_fog_energy", float(_visual_settings.get("light_volumetric_fog_energy", 12.0)) * float(_visual_settings.get("haze_density_multiplier", 0.22)), last_state)
+	var beam_phase_start: int = Time.get_ticks_usec()
 	_update_beam_for_light(light, beam_params)
+	if _fixture_light_apply_service != null:
+		_fixture_light_apply_service._track_phase("beam_update", beam_phase_start)
+	_emitter_parametric_update_count += 1
+	if _fixture_gobo_projector != null:
+		light.set_meta("peraviz_gobo_debug_counters", _fixture_gobo_projector.get_debug_counters())
+	light.set_meta("peraviz_emitter_debug_counters", {
+		"mesh_rebuilds": _emitter_mesh_rebuild_count,
+		"parametric_updates": _emitter_parametric_update_count,
+	})
 
 func _get_or_create_emitter_last_state(light: SpotLight3D) -> Dictionary:
 	var key: int = light.get_instance_id()
@@ -2377,3 +2295,13 @@ func _on_dmx_start_failed(error_message: String) -> void:
 	if not error_message.is_empty():
 		message = "%s (%s)" % [message, error_message]
 	_status_presenter.show_toast(message)
+
+func bridge_get_fixture_light_phase_metrics() -> Dictionary:
+	if _fixture_light_apply_service == null:
+		return {}
+	return _fixture_light_apply_service.get_phase_metrics()
+
+func bridge_record_dmx_decode_phase(elapsed_usec: int) -> void:
+	if _fixture_light_apply_service == null:
+		_fixture_light_apply_service = FixtureLightApplyServiceScript.new()
+	_fixture_light_apply_service.record_dmx_decode_elapsed(elapsed_usec)

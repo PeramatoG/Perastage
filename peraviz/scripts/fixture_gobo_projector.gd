@@ -27,6 +27,7 @@ const GOBO_APPLIED_ROTATION_DEG_META_KEY: String = "peraviz_gobo_applied_rotatio
 const GOBO_APPLIED_SHAKE_TILT_DEG_META_KEY: String = "peraviz_gobo_applied_shake_tilt_deg"
 const GOBO_WHEEL_MODE_META_KEY: String = "peraviz_gobo_wheel_mode"
 const GOBO_APPLIED_STATE_META_KEY: String = "peraviz_gobo_applied_state"
+const GOBO_APPLIED_STATE_KEY_META_KEY: String = "peraviz_gobo_applied_state_key"
 const GOBO_DEBUG_OVERRIDE_STATE_META_KEY: String = "peraviz_gobo_debug_override_state"
 const GOBO_INDEX_MAX_DEG: float = 360.0
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
@@ -51,13 +52,22 @@ const GOBO_BEHAVIOR_SHAKE: int = 3
 const DmxGoboRangeResolverScript = preload("res://scripts/dmx_gobo_range_resolver.gd")
 
 var _texture_cache: Dictionary = {}
+var _texture_composition_count: int = 0
+var _parametric_update_count: int = 0
 
 func clear_cache() -> void:
 	_texture_cache.clear()
 
+func get_debug_counters() -> Dictionary:
+	return {
+		"texture_compositions": _texture_composition_count,
+		"parametric_updates": _parametric_update_count,
+	}
+
 func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	if light == null or not is_instance_valid(light):
 		return false
+	var previous_applied_state_key: String = str(light.get_meta(GOBO_APPLIED_STATE_KEY_META_KEY, ""))
 	var previous_applied_state: Dictionary = light.get_meta(GOBO_APPLIED_STATE_META_KEY, {})
 	if previous_applied_state is not Dictionary:
 		previous_applied_state = {}
@@ -126,19 +136,26 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var mode: String = "fallback_vector"
 	if has_runtime_gobo and has_composed_texture:
 		mode = "runtime_slots"
-	var next_applied_state: Dictionary = {
+	var topology_state: Dictionary = {
 		"mode": mode,
-		"has_gobo": has_runtime_gobo,
-		"wheel_slot_index_by_wheel": wheel_slot_state,
-		"wheel_mode_by_wheel": wheel_mode_state,
-		"texture_cache_key": composed_texture_cache_key,
-		"gobo_scale": float(controls.get("gobo_scale", GOBO_DEFAULT_SCALE)),
-		"gobo_shake_tilt_deg": projected_shake_tilt_deg,
 		"prefer_native_fog_projector": prefer_native_fog_projector,
 		"has_composed_texture": has_composed_texture,
+		"texture_cache_key": composed_texture_cache_key,
+		"wheel_slot_index_by_wheel": wheel_slot_state,
+		"wheel_mode_by_wheel": wheel_mode_state,
 	}
-	var selection_or_composition_changed: bool = previous_applied_state != next_applied_state
+	var parametric_state: Dictionary = {
+		"gobo_scale": float(controls.get("gobo_scale", GOBO_DEFAULT_SCALE)),
+		"gobo_shake_tilt_deg": projected_shake_tilt_deg,
+	}
+	var next_applied_state: Dictionary = {
+		"topology": topology_state,
+		"parametric": parametric_state,
+	}
+	var next_applied_state_key: String = _build_applied_state_key(topology_state)
+	var selection_or_composition_changed: bool = previous_applied_state_key != next_applied_state_key
 	if not selection_or_composition_changed:
+		_parametric_update_count += 1
 		_apply_gobo_rotation_only(light, projected_rotation_deg, next_applied_state)
 		return false
 
@@ -523,6 +540,7 @@ func _clear_gobo_visuals(light: SpotLight3D) -> void:
 	_apply_gobo_shake_tilt_to_light(light, 0.0)
 	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, GOBO_DEFAULT_ROTATION_DEG)
 	light.remove_meta(GOBO_APPLIED_STATE_META_KEY)
+	light.remove_meta(GOBO_APPLIED_STATE_KEY_META_KEY)
 	light.remove_meta(GOBO_WHEEL_SPIN_META_KEY)
 	light.remove_meta(GOBO_WHEEL_MODE_META_KEY)
 	light.remove_meta(GOBO_WHEEL_SHAKE_PHASE_META_KEY)
@@ -532,17 +550,35 @@ func _clear_gobo_visuals(light: SpotLight3D) -> void:
 
 func _apply_gobo_rotation_only(light: SpotLight3D, projected_rotation_deg: float, applied_state: Dictionary) -> void:
 	_apply_gobo_rotation_to_light(light, projected_rotation_deg)
-	_apply_gobo_shake_tilt_to_light(light, float(applied_state.get("gobo_shake_tilt_deg", 0.0)))
+	var parametric_state: Dictionary = applied_state.get("parametric", {})
+	_apply_gobo_shake_tilt_to_light(light, float(parametric_state.get("gobo_shake_tilt_deg", 0.0)))
 	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, projected_rotation_deg)
-	light.set_meta(GOBO_APPLIED_STATE_META_KEY, applied_state.duplicate(true))
+	light.set_meta(GOBO_APPLIED_STATE_META_KEY, applied_state)
+	var topology_state: Dictionary = applied_state.get("topology", {})
+	light.set_meta(GOBO_APPLIED_STATE_KEY_META_KEY, _build_applied_state_key(topology_state))
 
 func _topology_signature_from_state(applied_state: Dictionary) -> String:
 	if applied_state.is_empty():
 		return ""
+	var topology_state: Dictionary = applied_state.get("topology", {})
+	if topology_state.is_empty():
+		return ""
 	return "%s|%s|%s" % [
-		str(applied_state.get("mode", "")),
-		str(bool(applied_state.get("prefer_native_fog_projector", true))),
-		str(bool(applied_state.get("has_composed_texture", false))),
+		str(topology_state.get("mode", "")),
+		str(bool(topology_state.get("prefer_native_fog_projector", true))),
+		str(bool(topology_state.get("has_composed_texture", false))),
+	]
+
+func _build_applied_state_key(topology_state: Dictionary) -> String:
+	var texture_key: String = str(topology_state.get("texture_cache_key", ""))
+	var wheel_slot_key: String = JSON.stringify(topology_state.get("wheel_slot_index_by_wheel", {}))
+	var wheel_mode_key: String = JSON.stringify(topology_state.get("wheel_mode_by_wheel", {}))
+	return "%s|%s|%s|%s|%s" % [
+		str(topology_state.get("mode", "")),
+		str(bool(topology_state.get("prefer_native_fog_projector", true))),
+		str(bool(topology_state.get("has_composed_texture", false))),
+		texture_key,
+		wheel_slot_key + "|" + wheel_mode_key,
 	]
 
 func _ensure_gobo_plane(light: SpotLight3D) -> MeshInstance3D:
@@ -736,6 +772,7 @@ func _compose_gobo_textures(textures: Array[Texture2D], composed_cache_key: Stri
 				composed.set_pixel(x, y, Color(out_luma, out_luma, out_luma, out_luma))
 
 	var out_texture: ImageTexture = ImageTexture.create_from_image(composed)
+	_texture_composition_count += 1
 	if textures.size() == 1:
 		_copy_vector_metadata(out_texture, textures[0])
 	_texture_cache[cache_key] = out_texture
