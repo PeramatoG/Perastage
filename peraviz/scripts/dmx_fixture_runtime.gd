@@ -21,6 +21,7 @@ var _unbound: Array = []
 var _fixture_nodes: Dictionary = {}
 var _fixture_channel_offsets: Dictionary = {}
 var _fixture_snapshot_cache: Dictionary = {}
+var _fixture_apply_plans: Dictionary = {}
 var _used_universes: Dictionary = {}
 var _fixture_time_tick_flags: Dictionary = {}
 var _time_tick_fixture_ids := PackedStringArray()
@@ -38,6 +39,7 @@ func rebuild(universe_offset: int) -> Dictionary:
 	_fixture_nodes.clear()
 	_fixture_channel_offsets.clear()
 	_fixture_snapshot_cache.clear()
+	_fixture_apply_plans.clear()
 	_used_universes.clear()
 	_fixture_time_tick_flags.clear()
 	_time_tick_fixture_ids = PackedStringArray()
@@ -70,6 +72,7 @@ func rebuild(universe_offset: int) -> Dictionary:
 			})
 			continue
 		_fixture_nodes[fixture_uuid] = fixture_node
+		_fixture_apply_plans[fixture_uuid] = _build_fixture_apply_plan(binding)
 		_fixture_channel_offsets[fixture_uuid] = _collect_used_channel_offsets(binding)
 		var requires_time_tick: bool = _binding_requires_time_tick(binding)
 		_fixture_time_tick_flags[fixture_uuid] = requires_time_tick
@@ -156,16 +159,20 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> Dictionary:
 		var fixture_uuid: String = str(binding.get("fixture_uuid", ""))
 		if fixture_uuid.is_empty() or not _fixture_nodes.has(fixture_uuid):
 			continue
+		var fixture_plan: Dictionary = _fixture_apply_plans.get(fixture_uuid, {})
+		if fixture_plan.is_empty():
+			fixture_plan = _build_fixture_apply_plan(binding)
+			_fixture_apply_plans[fixture_uuid] = fixture_plan
 		var universe_id: int = int(binding.get("artnet_universe_id", -1))
 		var frame: PackedByteArray = universe_frames.get(universe_id, PackedByteArray())
 		if frame.is_empty():
 			continue
 		var snapshot: PackedByteArray = _extract_snapshot_for_fixture(fixture_uuid, frame)
 		if snapshot.is_empty():
-			var controls_without_cache: Dictionary = _build_controls(binding, frame)
+			var controls_without_cache: Dictionary = _build_controls_for_plan(fixture_plan, frame)
 			if not _has_any_capability(controls_without_cache):
 				continue
-			apply_fixture_callback.call(fixture_uuid, controls_without_cache)
+			_apply_fixture_with_compatibility_adapter(apply_fixture_callback, fixture_uuid, controls_without_cache)
 			updated += 1
 			continue
 		var snapshot_hash: int = _compute_snapshot_hash(snapshot)
@@ -174,16 +181,111 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> Dictionary:
 			skipped += 1
 			continue
 
-		var controls: Dictionary = _build_controls(binding, frame)
+		var controls: Dictionary = _build_controls_for_plan(fixture_plan, frame)
 		if not _has_any_capability(controls):
 			continue
 		_fixture_snapshot_cache[fixture_uuid] = {
 			"hash": snapshot_hash,
 			"snapshot": snapshot,
 		}
-		apply_fixture_callback.call(fixture_uuid, controls)
+		_apply_fixture_with_compatibility_adapter(apply_fixture_callback, fixture_uuid, controls)
 		updated += 1
 	return {"updated": updated, "skipped": skipped}
+
+func _build_fixture_apply_plan(binding: Dictionary) -> Dictionary:
+	var handler_scripts: Dictionary = {
+		"pan_tilt": {
+			"script": PanTiltCapabilityHandlerScript,
+			"normalizer": null,
+		},
+		"dimmer": {
+			"script": DimmerCapabilityHandlerScript,
+			"normalizer": null,
+		},
+		"color_wheel": {
+			"script": ColorWheelCapabilityHandlerScript,
+			"normalizer": null,
+		},
+		"gobo": {
+			"script": GoboCapabilityHandlerScript,
+			"normalizer": CapabilityNormalizerScript,
+		},
+		"prism": {
+			"script": PrismCapabilityHandlerScript,
+			"normalizer": null,
+		},
+		"strobe": {
+			"script": StrobeCapabilityHandlerScript,
+			"normalizer": null,
+		},
+	}
+	return {
+		"binding": binding,
+		"handlers": _build_active_handlers_for_plan(binding, handler_scripts),
+		"metadata": binding.get("metadata", {}),
+	}
+
+func _build_active_handlers_for_plan(binding: Dictionary, handler_scripts: Dictionary) -> Dictionary:
+	var active_handlers: Dictionary = {}
+	var empty_frame := PackedByteArray()
+	for capability_type in handler_scripts.keys():
+		var definition: Dictionary = handler_scripts.get(capability_type, {})
+		var script = definition.get("script", null)
+		var normalizer = definition.get("normalizer", null)
+		var blocks: Array = []
+		if script == null:
+			continue
+		if normalizer != null:
+			blocks = script.collect(binding, empty_frame, ControlReaderScript, normalizer, FORCE_COARSE_ONLY_DMX_READ)
+		else:
+			blocks = script.collect(binding, empty_frame, ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ)
+		if not blocks.is_empty():
+			active_handlers[capability_type] = definition
+	if active_handlers.is_empty():
+		return handler_scripts.duplicate(true)
+	return active_handlers
+
+func _build_controls_for_plan(fixture_plan: Dictionary, frame: PackedByteArray) -> Dictionary:
+	var capabilities := {
+		"pan_tilt": [],
+		"dimmer": [],
+		"color_wheel": [],
+		"gobo": [],
+		"prism": [],
+		"strobe": [],
+	}
+	var handlers: Dictionary = fixture_plan.get("handlers", {})
+	_append_capability_from_plan(capabilities, "pan_tilt", fixture_plan, handlers, frame)
+	_append_capability_from_plan(capabilities, "dimmer", fixture_plan, handlers, frame)
+	_append_capability_from_plan(capabilities, "color_wheel", fixture_plan, handlers, frame)
+	_append_capability_from_plan(capabilities, "gobo", fixture_plan, handlers, frame)
+	_append_capability_from_plan(capabilities, "prism", fixture_plan, handlers, frame)
+	_append_capability_from_plan(capabilities, "strobe", fixture_plan, handlers, frame)
+	return {
+		"capabilities": capabilities,
+		"metadata": fixture_plan.get("metadata", {}),
+	}
+
+func _append_capability_from_plan(capabilities: Dictionary, capability_type: String, fixture_plan: Dictionary, handlers: Dictionary, frame: PackedByteArray) -> void:
+	if not handlers.has(capability_type):
+		return
+	var handler_plan: Dictionary = handlers.get(capability_type, {})
+	var script = handler_plan.get("script", null)
+	if script == null:
+		return
+	var blocks: Array = []
+	var normalizer = handler_plan.get("normalizer", null)
+	if normalizer != null:
+		blocks = script.collect(fixture_plan.get("binding", {}), frame, ControlReaderScript, normalizer, FORCE_COARSE_ONLY_DMX_READ)
+	else:
+		blocks = script.collect(fixture_plan.get("binding", {}), frame, ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ)
+	_append_capabilities(capabilities, capability_type, blocks)
+
+func _apply_fixture_with_compatibility_adapter(apply_fixture_callback: Callable, fixture_uuid: String, controls: Dictionary) -> void:
+	# Temporary compatibility adapter for incremental migration.
+	# Old callback contract receives (fixture_uuid, controls).
+	# New contract may receive a precompiled output envelope.
+	apply_fixture_callback.call(fixture_uuid, controls)
 
 func _snapshot_is_unchanged(previous_state: Dictionary, snapshot_hash: int, snapshot: PackedByteArray) -> bool:
 	if previous_state.is_empty():
@@ -227,25 +329,6 @@ func _collect_used_channel_offsets(binding: Dictionary) -> PackedInt32Array:
 	for offset in sorted_offsets:
 		offsets.append(int(offset))
 	return offsets
-
-func _build_controls(binding: Dictionary, frame: PackedByteArray) -> Dictionary:
-	var capabilities := {
-		"pan_tilt": [],
-		"dimmer": [],
-		"color_wheel": [],
-		"gobo": [],
-		"prism": [],
-		"strobe": [],
-	}
-	_append_capabilities(capabilities, "pan_tilt", PanTiltCapabilityHandlerScript.collect(binding, frame, ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ))
-	_append_capabilities(capabilities, "dimmer", DimmerCapabilityHandlerScript.collect(binding, frame, ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ))
-	_append_capabilities(capabilities, "color_wheel", ColorWheelCapabilityHandlerScript.collect(binding, frame, ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ))
-	_append_capabilities(capabilities, "gobo", GoboCapabilityHandlerScript.collect(binding, frame, ControlReaderScript, CapabilityNormalizerScript, FORCE_COARSE_ONLY_DMX_READ))
-	_append_capabilities(capabilities, "prism", PrismCapabilityHandlerScript.collect(binding, frame, ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ))
-	_append_capabilities(capabilities, "strobe", StrobeCapabilityHandlerScript.collect(binding, frame, ControlReaderScript, FORCE_COARSE_ONLY_DMX_READ))
-	return {
-		"capabilities": capabilities,
-	}
 
 func _append_capabilities(capabilities: Dictionary, capability_type: String, blocks: Array) -> void:
 	if blocks.is_empty():
