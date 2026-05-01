@@ -1379,7 +1379,10 @@ func _tick_fixture_gobo_animation_only(fixture_uuid: String, delta_sec: float) -
 	if cached_controls.is_empty():
 		return
 	var gobo_controls_base: Dictionary = _resolve_gobo_controls(cached_controls)
-	if not bool(gobo_controls_base.get("has_gobo", false)):
+	var has_gobo: bool = bool(gobo_controls_base.get("has_gobo", false))
+	var has_rotation: bool = bool(gobo_controls_base.get("has_gobo_rotation", false))
+	var runtime_bindings: Array = gobo_controls_base.get("gobo_runtime_bindings", [])
+	if not has_gobo and not has_rotation and runtime_bindings.is_empty():
 		return
 	var emitter_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "emitters"))
 	if emitter_nodes.is_empty():

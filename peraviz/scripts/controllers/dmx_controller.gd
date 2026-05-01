@@ -94,7 +94,7 @@ func setup_controls() -> void:
 	_dmx_quick_panel.set_monitor_available(false)
 
 	_dmx_timer = Timer.new()
-	_dmx_timer.wait_time = 0.03
+	_dmx_timer.wait_time = 0.01
 	_dmx_timer.autostart = true
 	_owner.add_child(_dmx_timer)
 	_dmx_timer.timeout.connect(_on_dmx_timer_timeout)
