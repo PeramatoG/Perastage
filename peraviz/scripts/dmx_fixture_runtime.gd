@@ -22,6 +22,8 @@ var _fixture_nodes: Dictionary = {}
 var _fixture_channel_offsets: Dictionary = {}
 var _fixture_snapshot_cache: Dictionary = {}
 var _used_universes: Dictionary = {}
+var _fixture_time_tick_flags: Dictionary = {}
+var _time_tick_fixture_ids := PackedStringArray()
 var _gobo_vectorization_cache: GoboVectorizationCache = null
 var _debug_force_full_apply: bool = false
 
@@ -37,6 +39,8 @@ func rebuild(universe_offset: int) -> Dictionary:
 	_fixture_channel_offsets.clear()
 	_fixture_snapshot_cache.clear()
 	_used_universes.clear()
+	_fixture_time_tick_flags.clear()
+	_time_tick_fixture_ids = PackedStringArray()
 
 	if _loader == null or _scene_registry == null:
 		return {
@@ -67,6 +71,10 @@ func rebuild(universe_offset: int) -> Dictionary:
 			continue
 		_fixture_nodes[fixture_uuid] = fixture_node
 		_fixture_channel_offsets[fixture_uuid] = _collect_used_channel_offsets(binding)
+		var requires_time_tick: bool = _binding_requires_time_tick(binding)
+		_fixture_time_tick_flags[fixture_uuid] = requires_time_tick
+		if requires_time_tick:
+			_time_tick_fixture_ids.append(fixture_uuid)
 		var universe_id: int = int(binding.get("artnet_universe_id", -1))
 		if universe_id >= 0:
 			_used_universes[universe_id] = true
@@ -81,6 +89,53 @@ func get_bound_fixture_ids() -> PackedStringArray:
 	for fixture_uuid in _fixture_nodes.keys():
 		fixture_ids.append(str(fixture_uuid))
 	return fixture_ids
+
+
+func get_time_tick_fixture_ids() -> PackedStringArray:
+	return _time_tick_fixture_ids
+
+func _binding_requires_time_tick(binding: Dictionary) -> bool:
+	var channel_bindings: Array = binding.get("channel_bindings", [])
+	for channel_binding in channel_bindings:
+		if _value_contains_time_tick_signal(channel_binding):
+			return true
+	if _value_contains_time_tick_signal(binding.get("capabilities", [])):
+		return true
+	return false
+
+func _value_contains_time_tick_signal(value: Variant) -> bool:
+	if value is Dictionary:
+		var row: Dictionary = value
+		for key in row.keys():
+			if _string_requires_time_tick(str(key)):
+				return true
+			if _value_contains_time_tick_signal(row.get(key, null)):
+				return true
+		return false
+	if value is Array:
+		for item in value:
+			if _value_contains_time_tick_signal(item):
+				return true
+		return false
+	if value is String:
+		return _string_requires_time_tick(str(value))
+	return false
+
+func _string_requires_time_tick(value: String) -> bool:
+	var normalized: String = value.to_lower()
+	if normalized.find("strobe") >= 0:
+		return true
+	if normalized.find("shake") >= 0:
+		return true
+	if normalized.find("rotation") >= 0:
+		return true
+	if normalized.find("rotate") >= 0:
+		return true
+	if normalized.find("continuous") >= 0:
+		return true
+	if normalized.find("speed") >= 0:
+		return true
+	return false
 
 func apply_dmx(receiver, apply_fixture_callback: Callable) -> Dictionary:
 	if receiver == null or not receiver.is_running():
