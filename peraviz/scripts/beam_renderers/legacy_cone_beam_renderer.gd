@@ -164,24 +164,24 @@ func _update_prism_material(light: SpotLight3D, prism: MeshInstance3D, beam_colo
 		_set_material_shader_parameter_if_changed(light, prism_material, "gobo_invert", false)
 
 
-func _set_instance_shader_parameter_if_changed(light: SpotLight3D, instance: GeometryInstance3D, name: String, value: Variant) -> void:
+func _set_instance_shader_parameter_if_changed(light: SpotLight3D, instance: GeometryInstance3D, name: String, value: Variant, force_update: bool = false) -> void:
 	if instance == null:
 		return
 	var uniforms := _ensure_last_uniforms_meta(light)
 	var key: String = "legacy::" + name
 	var previous: Variant = uniforms.get(key, null)
-	if _uniform_values_equal(previous, value):
+	if not force_update and _uniform_values_equal(previous, value):
 		return
 	instance.set_instance_shader_parameter(name, value)
 	uniforms[key] = value
 
-func _set_material_shader_parameter_if_changed(light: SpotLight3D, material: ShaderMaterial, name: String, value: Variant) -> void:
+func _set_material_shader_parameter_if_changed(light: SpotLight3D, material: ShaderMaterial, name: String, value: Variant, force_update: bool = false) -> void:
 	if material == null:
 		return
 	var uniforms := _ensure_last_uniforms_meta(light)
 	var key: String = "legacy_material::" + name
 	var previous: Variant = uniforms.get(key, null)
-	if _uniform_values_equal(previous, value):
+	if not force_update and _uniform_values_equal(previous, value):
 		return
 	material.set_shader_parameter(name, value)
 	uniforms[key] = value

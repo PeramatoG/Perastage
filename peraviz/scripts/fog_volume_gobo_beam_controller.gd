@@ -26,26 +26,26 @@ func update_for_light(light: SpotLight3D, beam_params: Dictionary, gobo_texture:
 	var fog_material: ShaderMaterial = fog_volume.material as ShaderMaterial
 	if fog_material == null:
 		return
-	_set_fog_shader_parameter_if_changed(light, fog_material, "gobo_texture", gobo_texture)
+	_set_fog_shader_parameter_if_changed(light, fog_material, "gobo_texture", gobo_texture, true)
 	_set_fog_shader_parameter_if_changed(light, fog_material, "light_color", Color(beam_params.get("beam_color", Color.WHITE)))
 	var haze_density: float = max(float(beam_params.get("haze_density_multiplier", 0.22)), 0.01)
 	_set_fog_shader_parameter_if_changed(light, fog_material, "density_scale", float(visual_settings.get("fog_volume_density_scale", 0.9)) * haze_density)
 	_set_fog_shader_parameter_if_changed(light, fog_material, "emission_strength", float(visual_settings.get("fog_volume_emission_strength", 0.55)))
 	_set_fog_shader_parameter_if_changed(light, fog_material, "edge_softness", float(visual_settings.get("fog_volume_edge_softness", 0.72)))
 	_set_fog_shader_parameter_if_changed(light, fog_material, "invert_gobo", bool(visual_settings.get("fog_volume_invert_gobo", false)))
-	_set_fog_shader_parameter_if_changed(light, fog_material, "gobo_scale", max(float(beam_params.get("gobo_scale", 1.0)), 0.05))
-	_set_fog_shader_parameter_if_changed(light, fog_material, "gobo_rotation_deg", float(beam_params.get("gobo_rotation_deg", 0.0)))
+	_set_fog_shader_parameter_if_changed(light, fog_material, "gobo_scale", max(float(beam_params.get("gobo_scale", 1.0)), 0.05), true)
+	_set_fog_shader_parameter_if_changed(light, fog_material, "gobo_rotation_deg", float(beam_params.get("gobo_rotation_deg", 0.0)), true)
 	_set_fog_shader_parameter_if_changed(light, fog_material, "radial_falloff", max(float(beam_params.get("beam_radial_falloff", 1.25)), 0.05))
 	_set_fog_shader_parameter_if_changed(light, fog_material, "longitudinal_falloff", max(float(beam_params.get("beam_longitudinal_falloff", 1.1)), 0.05))
 
 
-func _set_fog_shader_parameter_if_changed(light: SpotLight3D, material: ShaderMaterial, name: String, value: Variant) -> void:
+func _set_fog_shader_parameter_if_changed(light: SpotLight3D, material: ShaderMaterial, name: String, value: Variant, force_update: bool = false) -> void:
 	if material == null:
 		return
 	var uniforms := _ensure_last_uniforms_meta(light)
 	var key: String = "fog::" + name
 	var previous: Variant = uniforms.get(key, null)
-	if _uniform_values_equal(previous, value):
+	if not force_update and _uniform_values_equal(previous, value):
 		return
 	material.set_shader_parameter(name, value)
 	uniforms[key] = value

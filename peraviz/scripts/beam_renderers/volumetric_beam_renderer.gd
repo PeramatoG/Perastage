@@ -97,8 +97,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	_set_instance_shader_parameter_if_changed(light, beam, "radial_falloff", max(float(params.get("beam_radial_falloff", 1.1)), 0.05))
 	_set_instance_shader_parameter_if_changed(light, beam, "longitudinal_falloff", max(float(params.get("beam_longitudinal_falloff", 1.0)), 0.05))
 	_set_instance_shader_parameter_if_changed(light, beam, "beam_softness", clamp(float(params.get("beam_softness", 0.35)), 0.02, 1.0))
-	_set_instance_shader_parameter_if_changed(light, beam, "gobo_scale", max(float(params.get("gobo_scale", 1.0)), 0.05))
-	_set_instance_shader_parameter_if_changed(light, beam, "gobo_rotation_deg", beam_rotation_deg)
+	_set_instance_shader_parameter_if_changed(light, beam, "gobo_scale", max(float(params.get("gobo_scale", 1.0)), 0.05), true)
+	_set_instance_shader_parameter_if_changed(light, beam, "gobo_rotation_deg", beam_rotation_deg, true)
 	_set_instance_shader_parameter_if_changed(light, beam, "cone_height", max(beam_range, 0.001))
 	_set_instance_shader_parameter_if_changed(light, beam, "gobo_projection_radius", gobo_projection_radius)
 	_set_instance_shader_parameter_if_changed(light, beam, "beam_intensity", perceptual_intensity)
@@ -111,28 +111,28 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		_set_material_shader_parameter_if_changed(light, beam_material, "far_fade_end", far_fade_end)
 		_set_material_shader_parameter_if_changed(light, beam_material, "use_gobo", false)
 		_set_material_shader_parameter_if_changed(light, beam_material, "gobo_invert", false)
-		_set_material_shader_parameter_if_changed(light, beam_material, "gobo_mirror_x", bool(shape_result.get("mirror_x", true)))
-		_set_material_shader_parameter_if_changed(light, beam_material, "gobo_mirror_z", bool(shape_result.get("mirror_z", false)))
+		_set_material_shader_parameter_if_changed(light, beam_material, "gobo_mirror_x", bool(shape_result.get("mirror_x", true)), true)
+		_set_material_shader_parameter_if_changed(light, beam_material, "gobo_mirror_z", bool(shape_result.get("mirror_z", false)), true)
 		_set_material_shader_parameter_if_changed(light, beam_material, "depth_feather_enabled", false)
 
 
-func _set_instance_shader_parameter_if_changed(light: SpotLight3D, instance: GeometryInstance3D, name: String, value: Variant) -> void:
+func _set_instance_shader_parameter_if_changed(light: SpotLight3D, instance: GeometryInstance3D, name: String, value: Variant, force_update: bool = false) -> void:
 	if instance == null:
 		return
 	var uniforms := _ensure_last_uniforms_meta(light)
 	var previous: Variant = uniforms.get(name, null)
-	if _uniform_values_equal(previous, value):
+	if not force_update and _uniform_values_equal(previous, value):
 		return
 	instance.set_instance_shader_parameter(name, value)
 	uniforms[name] = value
 
-func _set_material_shader_parameter_if_changed(light: SpotLight3D, material: ShaderMaterial, name: String, value: Variant) -> void:
+func _set_material_shader_parameter_if_changed(light: SpotLight3D, material: ShaderMaterial, name: String, value: Variant, force_update: bool = false) -> void:
 	if material == null:
 		return
 	var uniforms := _ensure_last_uniforms_meta(light)
 	var key: String = "material::" + name
 	var previous: Variant = uniforms.get(key, null)
-	if _uniform_values_equal(previous, value):
+	if not force_update and _uniform_values_equal(previous, value):
 		return
 	material.set_shader_parameter(name, value)
 	uniforms[key] = value
