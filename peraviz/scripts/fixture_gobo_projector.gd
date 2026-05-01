@@ -97,7 +97,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var projected_shake_tilt_deg: float = 0.0
 	var has_bound_wheel_rotation: bool = false
 
-	if has_runtime_gobo:
+	if not runtime_bindings.is_empty():
 		for wheel in runtime_bindings:
 			if wheel is not Dictionary:
 				continue

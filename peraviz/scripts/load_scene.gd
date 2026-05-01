@@ -247,6 +247,7 @@ func _process(delta: float) -> void:
 	_fixture_gobo_projector.advance_runtime_animations(self, delta)
 
 func _ready() -> void:
+	set_process(true)
 	_apply_imported_content_scale()
 	_scene_registry.configure(proxies_root)
 	manual_fixture_toggle.toggled.connect(_on_manual_fixture_toggle)
