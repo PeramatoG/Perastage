@@ -151,6 +151,7 @@ var _status_presenter: StatusPresenter
 var _user_preferences: UserPreferences
 var _debug_properties_applied: int = 0
 var _debug_properties_skipped: int = 0
+var _selected_fixture_badge_uuid: String = ""
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -612,7 +613,7 @@ func _refresh_ui_module_visibility() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	_sync_selection_state("input")
-	_update_selected_fixture_badge()
+	_sync_selected_fixture_badge()
 
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
 		_focus_loaded_scene()
@@ -632,6 +633,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		var mouse_event := event as InputEventMouseButton
 		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
 			_fixture_debug_controller.try_select_fixture_from_mouse(mouse_event.position)
+			_sync_selected_fixture_badge()
 			get_viewport().set_input_as_handled()
 
 
@@ -1296,9 +1298,11 @@ func _attach_pick_collider_to_mesh(mesh_instance: MeshInstance3D, fixture_uuid: 
 
 func _clear_selected_fixture(reason: String) -> void:
 	_fixture_debug_controller.clear_selected_fixture(reason)
+	_sync_selected_fixture_badge()
 
 func _sync_selection_state(reason: String) -> void:
 	_fixture_debug_controller.sync_selection_state(reason)
+	_sync_selected_fixture_badge()
 
 func _refresh_fixture_debug_panel() -> void:
 	_fixture_debug_controller.refresh_fixture_debug_panel()
@@ -2352,13 +2356,14 @@ func _exit_tree() -> void:
 	if _dmx_controller != null:
 		_dmx_controller.exit_tree()
 
-func _process(_delta: float) -> void:
-	_update_selected_fixture_badge()
-
-func _update_selected_fixture_badge() -> void:
+func _sync_selected_fixture_badge() -> void:
 	if _status_presenter == null or _fixture_debug_controller == null:
 		return
-	_status_presenter.set_selected_fixture_badge(_fixture_debug_controller.get_selected_fixture_uuid())
+	var selected_fixture_uuid: String = _fixture_debug_controller.get_selected_fixture_uuid()
+	if selected_fixture_uuid == _selected_fixture_badge_uuid:
+		return
+	_selected_fixture_badge_uuid = selected_fixture_uuid
+	_status_presenter.set_selected_fixture_badge(selected_fixture_uuid)
 
 func _on_dmx_status_changed(running: bool, receiving_signal: bool) -> void:
 	if _status_presenter == null:

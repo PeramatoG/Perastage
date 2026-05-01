@@ -14,8 +14,12 @@ var _status_label: Label
 var _topbar_row: HBoxContainer
 var _badge_row: HBoxContainer
 var _badge_labels: Dictionary = {}
+var _badge_values: Dictionary = {}
 var _toast_label: Label
 var _toast_timer: Timer
+var _last_dmx_running: bool = false
+var _last_dmx_receiving_signal: bool = false
+var _has_dmx_state: bool = false
 
 func configure(owner: Node,
 		status_label: Label,
@@ -53,6 +57,11 @@ func set_scene_state_load_error(message: String) -> void:
 	_set_badge("MVR", "Error")
 
 func set_dmx_badge(is_running: bool, receiving_signal: bool) -> void:
+	if _has_dmx_state and is_running == _last_dmx_running and receiving_signal == _last_dmx_receiving_signal:
+		return
+	_last_dmx_running = is_running
+	_last_dmx_receiving_signal = receiving_signal
+	_has_dmx_state = true
 	if not is_running:
 		_set_badge("DMX", "OFF")
 		return
@@ -133,6 +142,9 @@ func _create_badge(name: String) -> void:
 func _set_badge(name: String, value: String) -> void:
 	if not _badge_labels.has(name):
 		return
+	if str(_badge_values.get(name, "")) == value:
+		return
+	_badge_values[name] = value
 	var badge: Label = _badge_labels[name]
 	badge.text = "%s: %s" % [name, value]
 
