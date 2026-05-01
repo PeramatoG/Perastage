@@ -20,7 +20,6 @@ var _dmx_universe_offset_input: SpinBox
 var _dmx_unbound_preview_label: Label
 var _dmx_controls_panel: PanelContainer
 var _dmx_fixture_runtime = null
-var _last_dmx_tick_msec: int = 0
 var _dmx_status_changed_callback: Callable
 var _dmx_start_failed_callback: Callable
 var _fixture_binding_summary: Dictionary = {}
@@ -206,15 +205,9 @@ func _on_dmx_timer_timeout() -> void:
 		_refresh_dmx_quick_panel(false, false, PackedInt32Array(), -1)
 		return
 
-	var now_msec: int = Time.get_ticks_msec()
-	var delta_sec: float = 0.0
-	if _last_dmx_tick_msec > 0:
-		delta_sec = max(float(now_msec - _last_dmx_tick_msec) * 0.001, 0.0)
-	_last_dmx_tick_msec = now_msec
-
 	if _dmx_fixture_runtime != null and _apply_dmx_controls_callback.is_valid():
 		var apply_stats: Dictionary = _dmx_fixture_runtime.apply_dmx(_dmx_receiver, func(fixture_uuid: String, controls: Dictionary) -> void:
-			controls["frame_delta_sec"] = delta_sec
+			controls["frame_delta_sec"] = 0.0
 			_apply_dmx_controls_callback.call(fixture_uuid, controls)
 			_track_time_animated_fixture(fixture_uuid, controls)
 		)
