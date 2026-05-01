@@ -19,8 +19,11 @@ var _scene_registry: SceneRegistry = null
 var _bindings: Array = []
 var _unbound: Array = []
 var _fixture_nodes: Dictionary = {}
+var _fixture_channel_offsets: Dictionary = {}
+var _fixture_snapshot_cache: Dictionary = {}
 var _used_universes: Dictionary = {}
 var _gobo_vectorization_cache: GoboVectorizationCache = null
+var _debug_force_full_apply: bool = false
 
 func configure(loader, scene_registry: SceneRegistry) -> void:
 	_loader = loader
@@ -31,6 +34,8 @@ func rebuild(universe_offset: int) -> Dictionary:
 	_bindings.clear()
 	_unbound.clear()
 	_fixture_nodes.clear()
+	_fixture_channel_offsets.clear()
+	_fixture_snapshot_cache.clear()
 	_used_universes.clear()
 
 	if _loader == null or _scene_registry == null:
@@ -61,23 +66,35 @@ func rebuild(universe_offset: int) -> Dictionary:
 			})
 			continue
 		_fixture_nodes[fixture_uuid] = fixture_node
+		_fixture_channel_offsets[fixture_uuid] = _collect_used_channel_offsets(binding)
 		var universe_id: int = int(binding.get("artnet_universe_id", -1))
 		if universe_id >= 0:
 			_used_universes[universe_id] = true
 
 	return _build_summary(universe_offset)
 
-func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
+func set_debug_force_full_apply(enabled: bool) -> void:
+	_debug_force_full_apply = enabled
+
+func get_bound_fixture_ids() -> PackedStringArray:
+	var fixture_ids := PackedStringArray()
+	for fixture_uuid in _fixture_nodes.keys():
+		fixture_ids.append(str(fixture_uuid))
+	return fixture_ids
+
+func apply_dmx(receiver, apply_fixture_callback: Callable) -> Dictionary:
 	if receiver == null or not receiver.is_running():
-		return
+		return {"updated": 0, "skipped": 0}
 	if apply_fixture_callback.is_null():
-		return
+		return {"updated": 0, "skipped": 0}
 
 	var universe_frames: Dictionary = {}
 	for universe_key in _used_universes.keys():
 		var universe_id: int = int(universe_key)
 		universe_frames[universe_id] = receiver.get_universe_data(universe_id)
 
+	var updated: int = 0
+	var skipped: int = 0
 	for binding in _bindings:
 		if binding is not Dictionary:
 			continue
@@ -88,11 +105,73 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 		var frame: PackedByteArray = universe_frames.get(universe_id, PackedByteArray())
 		if frame.is_empty():
 			continue
+		var snapshot: PackedByteArray = _extract_snapshot_for_fixture(fixture_uuid, frame)
+		if snapshot.is_empty():
+			var controls_without_cache: Dictionary = _build_controls(binding, frame)
+			if not _has_any_capability(controls_without_cache):
+				continue
+			apply_fixture_callback.call(fixture_uuid, controls_without_cache)
+			updated += 1
+			continue
+		var snapshot_hash: int = _compute_snapshot_hash(snapshot)
+		var previous_state: Dictionary = _fixture_snapshot_cache.get(fixture_uuid, {})
+		if not _debug_force_full_apply and _snapshot_is_unchanged(previous_state, snapshot_hash, snapshot):
+			skipped += 1
+			continue
 
 		var controls: Dictionary = _build_controls(binding, frame)
 		if not _has_any_capability(controls):
 			continue
+		_fixture_snapshot_cache[fixture_uuid] = {
+			"hash": snapshot_hash,
+			"snapshot": snapshot,
+		}
 		apply_fixture_callback.call(fixture_uuid, controls)
+		updated += 1
+	return {"updated": updated, "skipped": skipped}
+
+func _snapshot_is_unchanged(previous_state: Dictionary, snapshot_hash: int, snapshot: PackedByteArray) -> bool:
+	if previous_state.is_empty():
+		return false
+	if int(previous_state.get("hash", -1)) != snapshot_hash:
+		return false
+	var previous_snapshot: PackedByteArray = previous_state.get("snapshot", PackedByteArray())
+	return previous_snapshot == snapshot
+
+func _extract_snapshot_for_fixture(fixture_uuid: String, frame: PackedByteArray) -> PackedByteArray:
+	var offsets: PackedInt32Array = _fixture_channel_offsets.get(fixture_uuid, PackedInt32Array())
+	var snapshot := PackedByteArray()
+	for offset in offsets:
+		if offset < 0 or offset >= frame.size():
+			snapshot.append(0)
+		else:
+			snapshot.append(frame[offset])
+	return snapshot
+
+func _compute_snapshot_hash(snapshot: PackedByteArray) -> int:
+	var hash_value: int = 2166136261
+	for value in snapshot:
+		hash_value = int((hash_value ^ int(value)) * 16777619)
+	return hash_value
+
+func _collect_used_channel_offsets(binding: Dictionary) -> PackedInt32Array:
+	var offsets := PackedInt32Array()
+	var used_offsets := {}
+	var channel_bindings: Array = binding.get("channel_bindings", [])
+	for channel_binding in channel_bindings:
+		if channel_binding is not Dictionary:
+			continue
+		var offset: int = int(channel_binding.get("dmx_offset", -1))
+		var fine_offset: int = int(channel_binding.get("dmx_fine_offset", -1))
+		if offset >= 0:
+			used_offsets[offset] = true
+		if fine_offset >= 0:
+			used_offsets[fine_offset] = true
+	var sorted_offsets: Array = used_offsets.keys()
+	sorted_offsets.sort()
+	for offset in sorted_offsets:
+		offsets.append(int(offset))
+	return offsets
 
 func _build_controls(binding: Dictionary, frame: PackedByteArray) -> Dictionary:
 	var capabilities := {
