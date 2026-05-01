@@ -1827,7 +1827,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 			"gobo_debug_shake_waveform": controls.get("gobo_debug_shake_waveform", 0),
 			"frame_delta_sec": controls.get("frame_delta_sec", 0.0),
 			"prefer_native_fog_projector": controls.get("prefer_native_fog_projector", true),
-			"gobo_scale": controls.get("gobo_scale", GOBO_DEFAULT_SCALE),
+			"gobo_scale": controls.get("gobo_scale", 1.0),
 			"gobo_slots": resolved_gobo_controls.get("gobo_slots", []),
 			"gobo_runtime_bindings": resolved_gobo_controls.get("gobo_runtime_bindings", []),
 			"has_gobo": resolved_gobo_controls.get("has_gobo", false),
