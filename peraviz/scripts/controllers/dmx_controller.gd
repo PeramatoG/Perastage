@@ -23,6 +23,9 @@ var _last_dmx_tick_msec: int = 0
 var _dmx_status_changed_callback: Callable
 var _dmx_start_failed_callback: Callable
 var _fixture_binding_summary: Dictionary = {}
+var _last_updated_fixtures: int = 0
+var _last_skipped_fixtures: int = 0
+var _debug_force_full_apply: bool = false
 
 func configure(owner: Node, get_controls_host_callback: Callable, apply_dmx_controls_callback: Callable) -> void:
 	_owner = owner
@@ -107,6 +110,12 @@ func setup_controls() -> void:
 func setup_fixture_runtime(loader: Variant, scene_registry: SceneRegistry) -> void:
 	_dmx_fixture_runtime = DmxFixtureRuntimeScript.new()
 	_dmx_fixture_runtime.configure(loader, scene_registry)
+	_dmx_fixture_runtime.set_debug_force_full_apply(_debug_force_full_apply)
+
+func set_debug_force_full_apply(enabled: bool) -> void:
+	_debug_force_full_apply = enabled
+	if _dmx_fixture_runtime != null:
+		_dmx_fixture_runtime.set_debug_force_full_apply(enabled)
 
 func refresh_fixture_bindings() -> Dictionary:
 	if _dmx_fixture_runtime == null or _dmx_universe_offset_input == null:
@@ -162,6 +171,8 @@ func _on_dmx_toggle_pressed() -> void:
 		_dmx_toggle_button.text = "DMX OFF"
 		_update_dmx_toggle_color(false, false)
 		_refresh_dmx_monitor_window(false)
+		_last_updated_fixtures = 0
+		_last_skipped_fixtures = 0
 		_refresh_dmx_quick_panel(false, false, PackedInt32Array(), -1)
 		_emit_dmx_status(false, false)
 
@@ -182,6 +193,8 @@ func _on_dmx_timer_timeout() -> void:
 		if _dmx_toggle_button != null and not _dmx_toggle_button.button_pressed:
 			_update_dmx_toggle_color(false, false)
 		_refresh_dmx_monitor_window(false)
+		_last_updated_fixtures = 0
+		_last_skipped_fixtures = 0
 		_refresh_dmx_quick_panel(false, false, PackedInt32Array(), -1)
 		return
 
@@ -192,10 +205,13 @@ func _on_dmx_timer_timeout() -> void:
 	_last_dmx_tick_msec = now_msec
 
 	if _dmx_fixture_runtime != null and _apply_dmx_controls_callback.is_valid():
-		_dmx_fixture_runtime.apply_dmx(_dmx_receiver, func(fixture_uuid: String, controls: Dictionary) -> void:
+		var apply_stats: Dictionary = _dmx_fixture_runtime.apply_dmx(_dmx_receiver, func(fixture_uuid: String, controls: Dictionary) -> void:
 			controls["frame_delta_sec"] = delta_sec
 			_apply_dmx_controls_callback.call(fixture_uuid, controls)
 		)
+		_last_updated_fixtures = int(apply_stats.get("updated", 0))
+		_last_skipped_fixtures = int(apply_stats.get("skipped", 0))
+		_apply_fixture_time_tick(delta_sec)
 
 	var stats: Dictionary = _dmx_receiver.get_stats()
 	var active_universes: PackedInt32Array = _dmx_receiver.get_active_universes(2000)
@@ -224,7 +240,18 @@ func _refresh_dmx_quick_panel(running: bool, receiving_signal: bool, active_univ
 		return
 	var linked_fixtures: int = int(_fixture_binding_summary.get("bound", 0))
 	var unlinked_fixtures: int = int(_fixture_binding_summary.get("unbound", 0))
-	_dmx_quick_panel.refresh(running, receiving_signal, active_universes, last_packet_ms, linked_fixtures, unlinked_fixtures)
+	_dmx_quick_panel.refresh(running, receiving_signal, active_universes, last_packet_ms, linked_fixtures, unlinked_fixtures, _last_updated_fixtures, _last_skipped_fixtures)
+
+func _apply_fixture_time_tick(delta_sec: float) -> void:
+	if delta_sec <= 0.0:
+		return
+	if _dmx_fixture_runtime == null or not _apply_dmx_controls_callback.is_valid():
+		return
+	for fixture_uuid in _dmx_fixture_runtime.get_bound_fixture_ids():
+		_apply_dmx_controls_callback.call(str(fixture_uuid), {
+			"frame_delta_sec": delta_sec,
+			"time_tick_only": true,
+		})
 
 func _emit_dmx_status(running: bool, receiving_signal: bool) -> void:
 	if _dmx_status_changed_callback.is_valid():

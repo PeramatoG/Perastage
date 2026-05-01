@@ -8,6 +8,7 @@ var _status_value_label: Label
 var _universes_value_label: Label
 var _last_packet_value_label: Label
 var _fixtures_value_label: Label
+var _dmx_tick_value_label: Label
 var _open_monitor_button: Button
 var _monitor_available: bool = false
 var _running: bool = false
@@ -16,6 +17,8 @@ var _active_universes: PackedInt32Array = PackedInt32Array()
 var _last_packet_ms: int = -1
 var _linked_fixtures: int = 0
 var _unlinked_fixtures: int = 0
+var _updated_fixtures: int = 0
+var _skipped_fixtures: int = 0
 
 func _ready() -> void:
 	var margin := MarginContainer.new()
@@ -37,6 +40,7 @@ func _ready() -> void:
 	_universes_value_label = _add_metric_row(layout, "Active universes", "0")
 	_last_packet_value_label = _add_metric_row(layout, "Last packet", "n/a")
 	_fixtures_value_label = _add_metric_row(layout, "Fixtures", "0 linked / 0 unlinked")
+	_dmx_tick_value_label = _add_metric_row(layout, "DMX tick", "0 updated / 0 skipped")
 
 	_open_monitor_button = Button.new()
 	_open_monitor_button.text = "Open Technical Monitor"
@@ -48,13 +52,15 @@ func set_monitor_available(available: bool) -> void:
 	_monitor_available = available
 	_apply_state()
 
-func refresh(running: bool, receiving_signal: bool, active_universes: PackedInt32Array, last_packet_ms: int, linked_fixtures: int, unlinked_fixtures: int) -> void:
+func refresh(running: bool, receiving_signal: bool, active_universes: PackedInt32Array, last_packet_ms: int, linked_fixtures: int, unlinked_fixtures: int, updated_fixtures: int, skipped_fixtures: int) -> void:
 	_running = running
 	_receiving_signal = receiving_signal
 	_active_universes = active_universes
 	_last_packet_ms = last_packet_ms
 	_linked_fixtures = max(linked_fixtures, 0)
 	_unlinked_fixtures = max(unlinked_fixtures, 0)
+	_updated_fixtures = max(updated_fixtures, 0)
+	_skipped_fixtures = max(skipped_fixtures, 0)
 	_apply_state()
 
 func _add_metric_row(parent: VBoxContainer, label_text: String, initial_value: String) -> Label:
@@ -94,3 +100,5 @@ func _apply_state() -> void:
 	_universes_value_label.text = _format_universes(_active_universes)
 	_last_packet_value_label.text = "%d ms" % _last_packet_ms if _last_packet_ms >= 0 else "n/a"
 	_fixtures_value_label.text = "%d linked / %d unlinked" % [_linked_fixtures, _unlinked_fixtures]
+	if _dmx_tick_value_label != null:
+		_dmx_tick_value_label.text = "%d updated / %d skipped" % [_updated_fixtures, _skipped_fixtures]
