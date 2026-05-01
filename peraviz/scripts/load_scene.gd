@@ -48,6 +48,7 @@ var _debug_asset_cache_enabled: bool = false
 var _debug_gizmos_root: Node3D
 var _fixture_emissive_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
+var _fixture_emitter_last_state: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
 var _fixture_gobo_projector: FixtureGoboProjector = null
 var _ui_controller: UiController
@@ -148,6 +149,8 @@ var _fixture_binding_service := FixtureBindingServiceScript.new()
 var _debug_overlay_service := DebugOverlayServiceScript.new()
 var _status_presenter: StatusPresenter
 var _user_preferences: UserPreferences
+var _debug_properties_applied: int = 0
+var _debug_properties_skipped: int = 0
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -196,6 +199,8 @@ const BEAM_INTENSITY_MAX: float = 100.0
 const FIXED_VOLUMETRIC_FOG_VOLUME_SIZE: int = 1024
 const FIXED_VOLUMETRIC_FOG_VOLUME_DEPTH: int = 256
 const FIXED_VOLUMETRIC_FOG_USE_FILTER: bool = true
+const EMITTER_LIGHT_STATE_EPSILON: float = 0.0001
+const EMITTER_LIGHT_COLOR_EPSILON: float = 0.001
 
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "high"
@@ -1736,6 +1741,7 @@ func _extract_emitter_photometrics(item: Dictionary) -> Dictionary:
 	return data
 
 func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, normalized_dimmer: float, controls: Dictionary = {}) -> void:
+	var last_state: Dictionary = _get_or_create_emitter_last_state(light)
 	var luminous_flux: float = max(float(photometric.get("luminous_flux", 10000.0)), 0.0)
 	var beam_angle: float = clamp(float(photometric.get("beam_angle", 25.0)), 0.1, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
 	var field_angle: float = clamp(float(photometric.get("field_angle", beam_angle)), beam_angle, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
@@ -1749,14 +1755,14 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		field_angle = max(field_angle, beam_angle)
 	var beam_radius_m: float = max(float(photometric.get("beam_radius", 0.05)), 0.001)
 
-	light.visible = normalized_dimmer > 0.0001
+	_set_light_property_bool(light, "visible", normalized_dimmer > 0.0001, last_state)
 	var base_light_energy: float = luminous_flux * normalized_dimmer * EMITTER_LIGHT_ENERGY_SCALE
-	light.set_meta("peraviz_base_light_energy", base_light_energy)
-	light.light_energy = base_light_energy * float(_visual_settings.get("spot_multiplier", 1.0))
+	_set_light_meta_float(light, "peraviz_base_light_energy", base_light_energy, last_state)
+	_set_light_property_float(light, "light_energy", base_light_energy * float(_visual_settings.get("spot_multiplier", 1.0)), last_state)
 	var beam_half_angle_deg: float = beam_angle * 0.5
 	# Godot 4.2 SpotLight3D.spot_angle behaves as cone half-angle in degrees.
 	# Keep zoom/beam limits as full GDTF aperture, and convert here for light projection.
-	light.spot_angle = beam_half_angle_deg
+	_set_light_property_float(light, "spot_angle", beam_half_angle_deg, last_state)
 	var spot_attenuation: float = clamp(beam_angle / max(field_angle, 0.1), EMITTER_LIGHT_SPOT_ATTENUATION_MIN, EMITTER_LIGHT_SPOT_ATTENUATION_MAX)
 	var beam_slope: float = tan(deg_to_rad(beam_half_angle_deg))
 	var nominal_spot_range: float = beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER * EMITTER_BEAM_LENGTH_SCALE
@@ -1766,17 +1772,18 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var cone_range: float = clamp(min(nominal_spot_range, max_spot_range_from_footprint), EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	# SpotLight3D footprint follows transform by default in Godot; this extension only
 	# avoids early floor clipping on steep tilt while keeping cone visuals unchanged.
-	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
-	light.spot_attenuation = spot_attenuation
-	light.light_color = _derive_emitter_color(photometric, controls)
+	_set_light_property_float(light, "spot_range", clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M), last_state)
+	_set_light_property_float(light, "spot_attenuation", spot_attenuation, last_state)
+	var light_color: Color = _derive_emitter_color(photometric, controls)
+	_set_light_property_color(light, "light_color", light_color, last_state)
 	var beam_color: Color = _derive_emitter_color(photometric, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
 	var source_beam_radius: float = beam_radius_m if beam_radius_from_gdtf else -1.0
 	var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
 	if source_beam_radius > 0.0:
 		lens_radius = max(source_beam_radius, 0.005)
-	light.set_meta("peraviz_beam_base_intensity", clamp(normalized_dimmer, 0.0, 1.0))
-	light.set_meta("peraviz_beam_angle_source", "gdtf_full_angle_deg")
+	_set_light_meta_float(light, "peraviz_beam_base_intensity", clamp(normalized_dimmer, 0.0, 1.0), last_state)
+	_set_light_meta_variant(light, "peraviz_beam_angle_source", "gdtf_full_angle_deg", last_state)
 	var scaled_intensity: float = clamp(normalized_dimmer * float(_visual_settings.get("beam_multiplier", 20.0)), 0.0, BEAM_INTENSITY_MAX)
 	var beam_defaults: Dictionary = BeamOpticsControllerScript.BuildDefaultMasterOptics()
 	var beam_params: Dictionary = BeamOpticsControllerScript.BuildBeamParams(
@@ -1797,16 +1804,83 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	beam_params["intensity_max"] = BEAM_INTENSITY_MAX
 	var gobo_topology_changed: bool = false
 	if _fixture_gobo_projector != null:
-		var runtime_controls_for_gobo: Dictionary = controls.duplicate(true)
-		runtime_controls_for_gobo.merge(_resolve_gobo_controls(controls), true)
-		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(runtime_controls_for_gobo, _visual_settings, beam_defaults)
+		var gobo_source_controls: Dictionary = controls
+		gobo_source_controls.merge(_resolve_gobo_controls(controls), true)
+		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(gobo_source_controls, _visual_settings, beam_defaults)
 		gobo_topology_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
+		_set_light_meta_variant(light, "peraviz_last_gobo_key", str(gobo_controls.get("key", "")), last_state)
 		var applied_gobo_rotation_deg: float = float(light.get_meta("peraviz_gobo_applied_rotation_deg", beam_params.get("gobo_rotation_deg", 0.0)))
 		beam_params["gobo_rotation_deg"] = applied_gobo_rotation_deg
 	if gobo_topology_changed:
 		_cleanup_light_beam_renderers(light)
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 12.0)) * float(_visual_settings.get("haze_density_multiplier", 0.22))
+	_set_light_property_float(light, "light_volumetric_fog_energy", float(_visual_settings.get("light_volumetric_fog_energy", 12.0)) * float(_visual_settings.get("haze_density_multiplier", 0.22)), last_state)
 	_update_beam_for_light(light, beam_params)
+
+func _get_or_create_emitter_last_state(light: SpotLight3D) -> Dictionary:
+	var key: int = light.get_instance_id()
+	if not _fixture_emitter_last_state.has(key):
+		_fixture_emitter_last_state[key] = {}
+	return _fixture_emitter_last_state.get(key, {})
+
+func _is_close_float(a: float, b: float, epsilon: float = EMITTER_LIGHT_STATE_EPSILON) -> bool:
+	return abs(a - b) < epsilon
+
+func _is_close_color(a: Color, b: Color, epsilon: float = EMITTER_LIGHT_COLOR_EPSILON) -> bool:
+	return _is_close_float(a.r, b.r, epsilon) and _is_close_float(a.g, b.g, epsilon) and _is_close_float(a.b, b.b, epsilon) and _is_close_float(a.a, b.a, epsilon)
+
+func _track_property_change(applied: bool) -> void:
+	if applied:
+		_debug_properties_applied += 1
+	else:
+		_debug_properties_skipped += 1
+
+func _set_light_property_float(light: SpotLight3D, property_name: String, value: float, last_state: Dictionary) -> void:
+	var cache_key: String = "prop:" + property_name
+	var previous: float = float(last_state.get(cache_key, INF))
+	if _is_close_float(previous, value):
+		_track_property_change(false)
+		return
+	last_state[cache_key] = value
+	light.set(property_name, value)
+	_track_property_change(true)
+
+func _set_light_property_bool(light: SpotLight3D, property_name: String, value: bool, last_state: Dictionary) -> void:
+	var cache_key: String = "prop:" + property_name
+	var has_previous: bool = last_state.has(cache_key)
+	if has_previous and bool(last_state.get(cache_key, false)) == value:
+		_track_property_change(false)
+		return
+	last_state[cache_key] = value
+	light.set(property_name, value)
+	_track_property_change(true)
+
+func _set_light_property_color(light: SpotLight3D, property_name: String, value: Color, last_state: Dictionary) -> void:
+	var cache_key: String = "prop:" + property_name
+	if last_state.has(cache_key) and _is_close_color(last_state.get(cache_key, Color.BLACK), value):
+		_track_property_change(false)
+		return
+	last_state[cache_key] = value
+	light.set(property_name, value)
+	_track_property_change(true)
+
+func _set_light_meta_float(light: SpotLight3D, meta_key: String, value: float, last_state: Dictionary) -> void:
+	var cache_key: String = "meta:" + meta_key
+	var previous: float = float(last_state.get(cache_key, INF))
+	if _is_close_float(previous, value):
+		_track_property_change(false)
+		return
+	last_state[cache_key] = value
+	light.set_meta(meta_key, value)
+	_track_property_change(true)
+
+func _set_light_meta_variant(light: SpotLight3D, meta_key: String, value: Variant, last_state: Dictionary) -> void:
+	var cache_key: String = "meta:" + meta_key
+	if last_state.has(cache_key) and last_state[cache_key] == value:
+		_track_property_change(false)
+		return
+	last_state[cache_key] = value
+	light.set_meta(meta_key, value)
+	_track_property_change(true)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
 	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).
