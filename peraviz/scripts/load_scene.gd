@@ -241,6 +241,11 @@ const ENVIRONMENT_QUALITY_PRESETS := {
 	},
 }
 
+func _process(delta: float) -> void:
+	if _fixture_gobo_projector == null:
+		return
+	_fixture_gobo_projector.advance_runtime_animations(self, delta)
+
 func _ready() -> void:
 	_apply_imported_content_scale()
 	_scene_registry.configure(proxies_root)
