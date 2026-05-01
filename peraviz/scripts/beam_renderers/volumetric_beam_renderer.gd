@@ -8,6 +8,7 @@ const VOLUMETRIC_INTENSITY_RESPONSE_EXPONENT: float = 2.2
 const INTENSITY_REFERENCE_MAX: float = 20.0
 const VOLUMETRIC_OVERDRIVE_BRIGHTNESS_MAX: float = 30.0
 const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
+const LAST_UNIFORMS_META_KEY: String = "peraviz_last_beam_uniforms"
 const SHAPE_MODE_GOBO_PRISM: String = "gobo_prism"
 const SHAPE_MODE_CONE: String = "cone"
 
@@ -62,7 +63,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	if not bool(params.get("is_visible", true)) or intensity <= threshold:
 		beam.visible = false
-		beam.set_instance_shader_parameter("beam_visibility", 0.0)
+		_set_instance_shader_parameter_if_changed(light, beam, "beam_visibility", 0.0)
 		var hidden_axis: MeshInstance3D = _ensure_debug_axis(light)
 		if hidden_axis != null:
 			hidden_axis.visible = false
@@ -82,37 +83,99 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	beam.visible = true
 
 	var intensity_alpha: float = clamp((intensity / reference_max) * VOLUMETRIC_INTENSITY_SCALE, 0.0, 3.6)
-	beam.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
-	beam.set_instance_shader_parameter("beam_visibility", 1.0)
+	_set_instance_shader_parameter_if_changed(light, beam, "base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
+	_set_instance_shader_parameter_if_changed(light, beam, "beam_visibility", 1.0)
 	var overdrive_brightness_gain: float = lerp(1.0, VOLUMETRIC_OVERDRIVE_BRIGHTNESS_MAX, overdrive_norm)
-	beam.set_instance_shader_parameter("max_brightness", lerp(8.0, 120.0, beam_intensity_norm) * overdrive_brightness_gain)
-	beam.set_instance_shader_parameter("beam_noise_amount", float(_settings.get("beam_noise_amount", 0.06)))
-	beam.set_instance_shader_parameter("beam_noise_scale", float(_settings.get("beam_noise_scale", 1.4)))
+	_set_instance_shader_parameter_if_changed(light, beam, "max_brightness", lerp(8.0, 120.0, beam_intensity_norm) * overdrive_brightness_gain)
+	_set_instance_shader_parameter_if_changed(light, beam, "beam_noise_amount", float(_settings.get("beam_noise_amount", 0.06)))
+	_set_instance_shader_parameter_if_changed(light, beam, "beam_noise_scale", float(_settings.get("beam_noise_scale", 1.4)))
 	var haze_density: float = max(float(params.get("haze_density", params.get("haze_density_multiplier", 0.22))), 0.01)
-	beam.set_instance_shader_parameter("beam_haze_density", float(_settings.get("beam_haze_density", 0.17)) * haze_density)
-	beam.set_instance_shader_parameter("haze_density", max(haze_density, 0.2))
-	beam.set_instance_shader_parameter("beam_anisotropy", float(_settings.get("beam_anisotropy", 0.62)))
-	beam.set_instance_shader_parameter("beam_quality", int(_settings.get("beam_quality", 1)))
-	beam.set_instance_shader_parameter("radial_falloff", max(float(params.get("beam_radial_falloff", 1.1)), 0.05))
-	beam.set_instance_shader_parameter("longitudinal_falloff", max(float(params.get("beam_longitudinal_falloff", 1.0)), 0.05))
-	beam.set_instance_shader_parameter("beam_softness", clamp(float(params.get("beam_softness", 0.35)), 0.02, 1.0))
-	beam.set_instance_shader_parameter("gobo_scale", max(float(params.get("gobo_scale", 1.0)), 0.05))
-	beam.set_instance_shader_parameter("gobo_rotation_deg", beam_rotation_deg)
-	beam.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
-	beam.set_instance_shader_parameter("gobo_projection_radius", gobo_projection_radius)
-	beam.set_instance_shader_parameter("beam_intensity", perceptual_intensity)
-	beam.set_instance_shader_parameter("beam_overdrive", overdrive_norm)
+	_set_instance_shader_parameter_if_changed(light, beam, "beam_haze_density", float(_settings.get("beam_haze_density", 0.17)) * haze_density)
+	_set_instance_shader_parameter_if_changed(light, beam, "haze_density", max(haze_density, 0.2))
+	_set_instance_shader_parameter_if_changed(light, beam, "beam_anisotropy", float(_settings.get("beam_anisotropy", 0.62)))
+	_set_instance_shader_parameter_if_changed(light, beam, "beam_quality", int(_settings.get("beam_quality", 1)))
+	_set_instance_shader_parameter_if_changed(light, beam, "radial_falloff", max(float(params.get("beam_radial_falloff", 1.1)), 0.05))
+	_set_instance_shader_parameter_if_changed(light, beam, "longitudinal_falloff", max(float(params.get("beam_longitudinal_falloff", 1.0)), 0.05))
+	_set_instance_shader_parameter_if_changed(light, beam, "beam_softness", clamp(float(params.get("beam_softness", 0.35)), 0.02, 1.0))
+	_set_instance_shader_parameter_if_changed(light, beam, "gobo_scale", max(float(params.get("gobo_scale", 1.0)), 0.05))
+	_set_instance_shader_parameter_if_changed(light, beam, "gobo_rotation_deg", beam_rotation_deg)
+	_set_instance_shader_parameter_if_changed(light, beam, "cone_height", max(beam_range, 0.001))
+	_set_instance_shader_parameter_if_changed(light, beam, "gobo_projection_radius", gobo_projection_radius)
+	_set_instance_shader_parameter_if_changed(light, beam, "beam_intensity", perceptual_intensity)
+	_set_instance_shader_parameter_if_changed(light, beam, "beam_overdrive", overdrive_norm)
 	var far_fade_end: float = max(400.0, beam_range * 12.0)
 	var beam_material: ShaderMaterial = beam.material_override as ShaderMaterial
 	if beam_material != null:
-		beam_material.set_shader_parameter("near_fade_end", max(2.0, beam_range * 0.2))
-		beam_material.set_shader_parameter("far_fade_start", far_fade_end * 0.6)
-		beam_material.set_shader_parameter("far_fade_end", far_fade_end)
-		beam_material.set_shader_parameter("use_gobo", false)
-		beam_material.set_shader_parameter("gobo_invert", false)
-		beam_material.set_shader_parameter("gobo_mirror_x", bool(shape_result.get("mirror_x", true)))
-		beam_material.set_shader_parameter("gobo_mirror_z", bool(shape_result.get("mirror_z", false)))
-		beam_material.set_shader_parameter("depth_feather_enabled", false)
+		_set_material_shader_parameter_if_changed(light, beam_material, "near_fade_end", max(2.0, beam_range * 0.2))
+		_set_material_shader_parameter_if_changed(light, beam_material, "far_fade_start", far_fade_end * 0.6)
+		_set_material_shader_parameter_if_changed(light, beam_material, "far_fade_end", far_fade_end)
+		_set_material_shader_parameter_if_changed(light, beam_material, "use_gobo", false)
+		_set_material_shader_parameter_if_changed(light, beam_material, "gobo_invert", false)
+		_set_material_shader_parameter_if_changed(light, beam_material, "gobo_mirror_x", bool(shape_result.get("mirror_x", true)))
+		_set_material_shader_parameter_if_changed(light, beam_material, "gobo_mirror_z", bool(shape_result.get("mirror_z", false)))
+		_set_material_shader_parameter_if_changed(light, beam_material, "depth_feather_enabled", false)
+
+
+func _set_instance_shader_parameter_if_changed(light: SpotLight3D, instance: GeometryInstance3D, name: String, value: Variant) -> void:
+	if instance == null:
+		return
+	var uniforms := _ensure_last_uniforms_meta(light)
+	var previous: Variant = uniforms.get(name, null)
+	if _uniform_values_equal(previous, value):
+		return
+	instance.set_instance_shader_parameter(name, value)
+	uniforms[name] = value
+
+func _set_material_shader_parameter_if_changed(light: SpotLight3D, material: ShaderMaterial, name: String, value: Variant) -> void:
+	if material == null:
+		return
+	var uniforms := _ensure_last_uniforms_meta(light)
+	var key: String = "material::" + name
+	var previous: Variant = uniforms.get(key, null)
+	if _uniform_values_equal(previous, value):
+		return
+	material.set_shader_parameter(name, value)
+	uniforms[key] = value
+
+func _ensure_last_uniforms_meta(light: SpotLight3D) -> Dictionary:
+	if light == null:
+		return {}
+	if light.has_meta(LAST_UNIFORMS_META_KEY):
+		var existing: Variant = light.get_meta(LAST_UNIFORMS_META_KEY)
+		if existing is Dictionary:
+			return existing as Dictionary
+	var created: Dictionary = {}
+	light.set_meta(LAST_UNIFORMS_META_KEY, created)
+	return created
+
+func _uniform_values_equal(previous: Variant, current: Variant) -> bool:
+	if previous == null and current == null:
+		return true
+	if previous == null or current == null:
+		return false
+	if previous is float and current is float:
+		return is_equal_approx(previous, current)
+	if previous is Color and current is Color:
+		return _color_equal_approx(previous, current)
+	if previous is Vector2 and current is Vector2:
+		return _vector2_equal_approx(previous, current)
+	if previous is Vector3 and current is Vector3:
+		return _vector3_equal_approx(previous, current)
+	if previous is Vector4 and current is Vector4:
+		return _vector4_equal_approx(previous, current)
+	return previous == current
+
+func _color_equal_approx(a: Color, b: Color) -> bool:
+	return is_equal_approx(a.r, b.r) and is_equal_approx(a.g, b.g) and is_equal_approx(a.b, b.b) and is_equal_approx(a.a, b.a)
+
+func _vector2_equal_approx(a: Vector2, b: Vector2) -> bool:
+	return is_equal_approx(a.x, b.x) and is_equal_approx(a.y, b.y)
+
+func _vector3_equal_approx(a: Vector3, b: Vector3) -> bool:
+	return is_equal_approx(a.x, b.x) and is_equal_approx(a.y, b.y) and is_equal_approx(a.z, b.z)
+
+func _vector4_equal_approx(a: Vector4, b: Vector4) -> bool:
+	return is_equal_approx(a.x, b.x) and is_equal_approx(a.y, b.y) and is_equal_approx(a.z, b.z) and is_equal_approx(a.w, b.w)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(BEAM_META_KEY):

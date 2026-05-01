@@ -20,6 +20,7 @@ const LEGACY_MID_KEY: String = "peraviz_beam_cone_mid"
 const LEGACY_CORE_KEY: String = "peraviz_beam_cone_core"
 const DEFAULT_MIRROR_BEAM_SHAPE_X: bool = true
 const DEFAULT_MIRROR_BEAM_SHAPE_Z: bool = true
+const LAST_UNIFORMS_META_KEY: String = "peraviz_last_beam_uniforms"
 
 var _material_template: ShaderMaterial
 var _mesh_builder: GoboPrismMeshBuilder
@@ -92,7 +93,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var radial_falloff: float = max(float(params.get("beam_radial_falloff", 1.1)), 0.05)
 	var longitudinal_falloff: float = max(float(params.get("beam_longitudinal_falloff", 1.0)), 0.05)
 	var haze_density: float = max(float(params.get("haze_density", params.get("haze_density_multiplier", 0.22))), 0.01)
-	_update_prism_material(prism, color_alpha, scaled_intensity, intensity_max, beam_range, bottom_radius, beam_softness, radial_falloff, longitudinal_falloff, haze_density)
+	_update_prism_material(light, prism, color_alpha, scaled_intensity, intensity_max, beam_range, bottom_radius, beam_softness, radial_falloff, longitudinal_falloff, haze_density)
 
 
 func _apply_beam_axis_rotation(node: Node3D, beam_rotation_deg: float) -> void:
@@ -133,7 +134,7 @@ func _create_prism(prism_name: String) -> MeshInstance3D:
 	prism.visible = false
 	return prism
 
-func _update_prism_material(prism: MeshInstance3D, beam_color: Color, scaled_intensity: float, intensity_max: float, beam_range: float, gobo_projection_radius: float, lateral_softness: float, radial_falloff: float, longitudinal_falloff: float, haze_density: float) -> void:
+func _update_prism_material(light: SpotLight3D, prism: MeshInstance3D, beam_color: Color, scaled_intensity: float, intensity_max: float, beam_range: float, gobo_projection_radius: float, lateral_softness: float, radial_falloff: float, longitudinal_falloff: float, haze_density: float) -> void:
 	if prism == null:
 		return
 	var reference_max: float = max(INTENSITY_REFERENCE_MAX, 0.01)
@@ -143,24 +144,85 @@ func _update_prism_material(prism: MeshInstance3D, beam_color: Color, scaled_int
 	if intensity_max > reference_max:
 		overdrive_norm = clamp((scaled_intensity - reference_max) / (intensity_max - reference_max), 0.0, 1.0)
 	var overdrive_gain: float = lerp(1.0, LEGACY_OVERDRIVE_GAIN_MAX, overdrive_norm)
-	prism.set_instance_shader_parameter("beam_color", beam_color)
-	prism.set_instance_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, perceptual_intensity) * overdrive_gain)
-	prism.set_instance_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, perceptual_intensity) * overdrive_gain)
-	prism.set_instance_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, perceptual_intensity) * overdrive_gain)
-	prism.set_instance_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, perceptual_intensity) * overdrive_gain)
-	prism.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
-	prism.set_instance_shader_parameter("gobo_projection_radius", max(gobo_projection_radius, 0.001))
-	prism.set_instance_shader_parameter("fade_end_ratio", EMITTER_CONE_FADE_END_RATIO)
-	prism.set_instance_shader_parameter("lateral_softness", clamp(lateral_softness, 0.02, 1.0))
-	prism.set_instance_shader_parameter("lateral_emission_boost", 0.22)
-	prism.set_instance_shader_parameter("volumetric_noise_strength", 0.06)
-	prism.set_instance_shader_parameter("radial_falloff", radial_falloff)
-	prism.set_instance_shader_parameter("longitudinal_falloff", longitudinal_falloff)
-	prism.set_instance_shader_parameter("haze_density", haze_density)
+	_set_instance_shader_parameter_if_changed(light, prism, "beam_color", beam_color)
+	_set_instance_shader_parameter_if_changed(light, prism, "near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, perceptual_intensity) * overdrive_gain)
+	_set_instance_shader_parameter_if_changed(light, prism, "far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, perceptual_intensity) * overdrive_gain)
+	_set_instance_shader_parameter_if_changed(light, prism, "near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, perceptual_intensity) * overdrive_gain)
+	_set_instance_shader_parameter_if_changed(light, prism, "far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, perceptual_intensity) * overdrive_gain)
+	_set_instance_shader_parameter_if_changed(light, prism, "cone_height", max(beam_range, 0.001))
+	_set_instance_shader_parameter_if_changed(light, prism, "gobo_projection_radius", max(gobo_projection_radius, 0.001))
+	_set_instance_shader_parameter_if_changed(light, prism, "fade_end_ratio", EMITTER_CONE_FADE_END_RATIO)
+	_set_instance_shader_parameter_if_changed(light, prism, "lateral_softness", clamp(lateral_softness, 0.02, 1.0))
+	_set_instance_shader_parameter_if_changed(light, prism, "lateral_emission_boost", 0.22)
+	_set_instance_shader_parameter_if_changed(light, prism, "volumetric_noise_strength", 0.06)
+	_set_instance_shader_parameter_if_changed(light, prism, "radial_falloff", radial_falloff)
+	_set_instance_shader_parameter_if_changed(light, prism, "longitudinal_falloff", longitudinal_falloff)
+	_set_instance_shader_parameter_if_changed(light, prism, "haze_density", haze_density)
 	var prism_material: ShaderMaterial = prism.material_override as ShaderMaterial
 	if prism_material != null:
-		prism_material.set_shader_parameter("use_gobo", false)
-		prism_material.set_shader_parameter("gobo_invert", false)
+		_set_material_shader_parameter_if_changed(light, prism_material, "use_gobo", false)
+		_set_material_shader_parameter_if_changed(light, prism_material, "gobo_invert", false)
+
+
+func _set_instance_shader_parameter_if_changed(light: SpotLight3D, instance: GeometryInstance3D, name: String, value: Variant) -> void:
+	if instance == null:
+		return
+	var uniforms := _ensure_last_uniforms_meta(light)
+	var key: String = "legacy::" + name
+	var previous: Variant = uniforms.get(key, null)
+	if _uniform_values_equal(previous, value):
+		return
+	instance.set_instance_shader_parameter(name, value)
+	uniforms[key] = value
+
+func _set_material_shader_parameter_if_changed(light: SpotLight3D, material: ShaderMaterial, name: String, value: Variant) -> void:
+	if material == null:
+		return
+	var uniforms := _ensure_last_uniforms_meta(light)
+	var key: String = "legacy_material::" + name
+	var previous: Variant = uniforms.get(key, null)
+	if _uniform_values_equal(previous, value):
+		return
+	material.set_shader_parameter(name, value)
+	uniforms[key] = value
+
+func _ensure_last_uniforms_meta(light: SpotLight3D) -> Dictionary:
+	if light.has_meta(LAST_UNIFORMS_META_KEY):
+		var existing: Variant = light.get_meta(LAST_UNIFORMS_META_KEY)
+		if existing is Dictionary:
+			return existing as Dictionary
+	var created: Dictionary = {}
+	light.set_meta(LAST_UNIFORMS_META_KEY, created)
+	return created
+
+func _uniform_values_equal(previous: Variant, current: Variant) -> bool:
+	if previous == null and current == null:
+		return true
+	if previous == null or current == null:
+		return false
+	if previous is float and current is float:
+		return is_equal_approx(previous, current)
+	if previous is Color and current is Color:
+		return _color_equal_approx(previous, current)
+	if previous is Vector2 and current is Vector2:
+		return _vector2_equal_approx(previous, current)
+	if previous is Vector3 and current is Vector3:
+		return _vector3_equal_approx(previous, current)
+	if previous is Vector4 and current is Vector4:
+		return _vector4_equal_approx(previous, current)
+	return previous == current
+
+func _color_equal_approx(a: Color, b: Color) -> bool:
+	return is_equal_approx(a.r, b.r) and is_equal_approx(a.g, b.g) and is_equal_approx(a.b, b.b) and is_equal_approx(a.a, b.a)
+
+func _vector2_equal_approx(a: Vector2, b: Vector2) -> bool:
+	return is_equal_approx(a.x, b.x) and is_equal_approx(a.y, b.y)
+
+func _vector3_equal_approx(a: Vector3, b: Vector3) -> bool:
+	return is_equal_approx(a.x, b.x) and is_equal_approx(a.y, b.y) and is_equal_approx(a.z, b.z)
+
+func _vector4_equal_approx(a: Vector4, b: Vector4) -> bool:
+	return is_equal_approx(a.x, b.x) and is_equal_approx(a.y, b.y) and is_equal_approx(a.z, b.z) and is_equal_approx(a.w, b.w)
 
 func _ensure_debug_axis(light: SpotLight3D) -> MeshInstance3D:
 	if light.has_meta(DEBUG_AXIS_KEY):
