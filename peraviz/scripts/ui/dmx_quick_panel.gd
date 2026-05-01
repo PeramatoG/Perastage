@@ -19,6 +19,7 @@ var _linked_fixtures: int = 0
 var _unlinked_fixtures: int = 0
 var _updated_fixtures: int = 0
 var _skipped_fixtures: int = 0
+var _animated_fixtures: int = 0
 
 func _ready() -> void:
 	var margin := MarginContainer.new()
@@ -52,7 +53,7 @@ func set_monitor_available(available: bool) -> void:
 	_monitor_available = available
 	_apply_state()
 
-func refresh(running: bool, receiving_signal: bool, active_universes: PackedInt32Array, last_packet_ms: int, linked_fixtures: int, unlinked_fixtures: int, updated_fixtures: int, skipped_fixtures: int) -> void:
+func refresh(running: bool, receiving_signal: bool, active_universes: PackedInt32Array, last_packet_ms: int, linked_fixtures: int, unlinked_fixtures: int, updated_fixtures: int, skipped_fixtures: int, animated_fixtures: int) -> void:
 	_running = running
 	_receiving_signal = receiving_signal
 	_active_universes = active_universes
@@ -61,6 +62,7 @@ func refresh(running: bool, receiving_signal: bool, active_universes: PackedInt3
 	_unlinked_fixtures = max(unlinked_fixtures, 0)
 	_updated_fixtures = max(updated_fixtures, 0)
 	_skipped_fixtures = max(skipped_fixtures, 0)
+	_animated_fixtures = max(animated_fixtures, 0)
 	_apply_state()
 
 func _add_metric_row(parent: VBoxContainer, label_text: String, initial_value: String) -> Label:
@@ -101,4 +103,4 @@ func _apply_state() -> void:
 	_last_packet_value_label.text = "%d ms" % _last_packet_ms if _last_packet_ms >= 0 else "n/a"
 	_fixtures_value_label.text = "%d linked / %d unlinked" % [_linked_fixtures, _unlinked_fixtures]
 	if _dmx_tick_value_label != null:
-		_dmx_tick_value_label.text = "%d updated / %d skipped" % [_updated_fixtures, _skipped_fixtures]
+		_dmx_tick_value_label.text = "%d DMX / %d skipped / %d animated" % [_updated_fixtures, _skipped_fixtures, _animated_fixtures]

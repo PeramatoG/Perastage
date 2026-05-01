@@ -287,7 +287,8 @@ func _ready() -> void:
 	_dmx_controller.configure(
 		self,
 		Callable(self, "_resolve_dmx_controls_host"),
-		Callable(self, "_apply_dmx_controls_to_fixture")
+		Callable(self, "_apply_dmx_controls_to_fixture"),
+		Callable(self, "_apply_time_animated_fixtures")
 	)
 	_dmx_controller.set_status_callbacks(
 		Callable(self, "_on_dmx_status_changed"),
@@ -1357,6 +1358,16 @@ func _find_axis_for_role(axis_nodes: Array, role: String) -> Node3D:
 	if role == "tilt" and axis_nodes.size() > 1:
 		return axis_nodes[1]
 	return axis_nodes[0]
+
+
+func _apply_time_animated_fixtures(delta_sec: float, fixture_ids: PackedStringArray) -> void:
+	if delta_sec <= 0.0 or fixture_ids.is_empty():
+		return
+	for fixture_uuid in fixture_ids:
+		_apply_dmx_controls_to_fixture(str(fixture_uuid), {
+			"frame_delta_sec": delta_sec,
+			"time_tick_only": true,
+		})
 
 func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) -> void:
 	controls["fixture_uuid"] = fixture_uuid
