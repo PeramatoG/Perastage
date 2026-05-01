@@ -328,6 +328,11 @@ func _ready() -> void:
 	_refresh_day_night_environment_controller()
 
 
+
+func _process(delta: float) -> void:
+	if _dmx_controller != null:
+		_dmx_controller.advance_visual_animations(max(delta, 0.0))
+
 func _apply_imported_content_scale() -> void:
 	if proxies_root == null:
 		return

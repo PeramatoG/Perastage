@@ -220,7 +220,6 @@ func _on_dmx_timer_timeout() -> void:
 		)
 		_last_updated_fixtures = int(apply_stats.get("updated", 0))
 		_last_skipped_fixtures = int(apply_stats.get("skipped", 0))
-		_apply_time_animations_tick(delta_sec)
 
 	var stats: Dictionary = _dmx_receiver.get_stats()
 	var active_universes: PackedInt32Array = _dmx_receiver.get_active_universes(2000)
@@ -230,6 +229,9 @@ func _on_dmx_timer_timeout() -> void:
 	_refresh_dmx_monitor_window(true)
 	_refresh_dmx_quick_panel(true, receiving, active_universes, last_ms)
 	_emit_dmx_status(true, receiving)
+
+func advance_visual_animations(delta_sec: float) -> void:
+	_apply_time_animations_tick(delta_sec)
 
 func _update_dmx_toggle_color(enabled: bool, receiving_signal: bool) -> void:
 	if _dmx_toggle_button == null:
