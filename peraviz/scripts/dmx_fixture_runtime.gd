@@ -106,7 +106,7 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> Dictionary:
 		if frame.is_empty():
 			continue
 		var snapshot: PackedByteArray = _extract_snapshot_for_fixture(fixture_uuid, frame)
-		var snapshot_hash: int = snapshot.hash()
+		var snapshot_hash: int = _compute_snapshot_hash(snapshot)
 		var previous_state: Dictionary = _fixture_snapshot_cache.get(fixture_uuid, {})
 		if not _debug_force_full_apply and _snapshot_is_unchanged(previous_state, snapshot_hash, snapshot):
 			skipped += 1
@@ -140,6 +140,12 @@ func _extract_snapshot_for_fixture(fixture_uuid: String, frame: PackedByteArray)
 		else:
 			snapshot.append(frame[offset])
 	return snapshot
+
+func _compute_snapshot_hash(snapshot: PackedByteArray) -> int:
+	var hash_value: int = 2166136261
+	for value in snapshot:
+		hash_value = int((hash_value ^ int(value)) * 16777619)
+	return hash_value
 
 func _collect_used_channel_offsets(binding: Dictionary) -> PackedInt32Array:
 	var offsets := PackedInt32Array()
