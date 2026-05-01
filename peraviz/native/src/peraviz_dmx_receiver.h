@@ -31,6 +31,7 @@ public:
     PackedInt32Array get_active_universes(int active_window_ms = 2000) const;
     Dictionary get_stats() const;
     PackedByteArray get_universe_data(int universe_id) const;
+    Dictionary get_universe_frame(int universe_id) const;
 
 private:
     static uint64_t now_microseconds();

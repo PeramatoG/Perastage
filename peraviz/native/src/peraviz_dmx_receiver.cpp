@@ -13,6 +13,7 @@ void PeravizDmxReceiver::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_active_universes", "active_window_ms"), &PeravizDmxReceiver::get_active_universes, DEFVAL(2000));
     ClassDB::bind_method(D_METHOD("get_stats"), &PeravizDmxReceiver::get_stats);
     ClassDB::bind_method(D_METHOD("get_universe_data", "universe_id"), &PeravizDmxReceiver::get_universe_data);
+    ClassDB::bind_method(D_METHOD("get_universe_frame", "universe_id"), &PeravizDmxReceiver::get_universe_frame);
 }
 
 PeravizDmxReceiver::PeravizDmxReceiver()
@@ -85,6 +86,32 @@ PackedByteArray PeravizDmxReceiver::get_universe_data(int universe_id) const {
         bytes[i] = frame.data[static_cast<size_t>(i)];
     }
     return bytes;
+}
+
+Dictionary PeravizDmxReceiver::get_universe_frame(int universe_id) const {
+    Dictionary out;
+    PackedByteArray bytes;
+    out["data"] = bytes;
+    out["counter"] = static_cast<int64_t>(0);
+    out["length"] = static_cast<int64_t>(0);
+
+    if (universe_id < 0 || universe_id > 32767) {
+        return out;
+    }
+
+    peraviz::dmx::DmxFrame frame;
+    if (!receiver_->try_get_frame(static_cast<uint16_t>(universe_id), frame)) {
+        return out;
+    }
+
+    bytes.resize(frame.length);
+    for (int64_t i = 0; i < frame.length; ++i) {
+        bytes[i] = frame.data[static_cast<size_t>(i)];
+    }
+    out["data"] = bytes;
+    out["counter"] = static_cast<int64_t>(frame.counter);
+    out["length"] = static_cast<int64_t>(frame.length);
+    return out;
 }
 
 uint64_t PeravizDmxReceiver::now_microseconds() {

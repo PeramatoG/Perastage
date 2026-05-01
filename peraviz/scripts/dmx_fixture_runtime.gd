@@ -23,6 +23,7 @@ var _fixture_channel_offsets: Dictionary = {}
 var _fixture_snapshot_cache: Dictionary = {}
 var _fixture_apply_plans: Dictionary = {}
 var _used_universes: Dictionary = {}
+var _universe_last_counters: Dictionary = {}
 var _fixture_time_tick_flags: Dictionary = {}
 var _time_tick_fixture_ids := PackedStringArray()
 var _gobo_vectorization_cache: GoboVectorizationCache = null
@@ -41,6 +42,7 @@ func rebuild(universe_offset: int) -> Dictionary:
 	_fixture_snapshot_cache.clear()
 	_fixture_apply_plans.clear()
 	_used_universes.clear()
+	_universe_last_counters.clear()
 	_fixture_time_tick_flags.clear()
 	_time_tick_fixture_ids = PackedStringArray()
 
@@ -147,9 +149,17 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> Dictionary:
 		return {"updated": 0, "skipped": 0}
 
 	var universe_frames: Dictionary = {}
+	var unchanged_universes: Dictionary = {}
 	for universe_key in _used_universes.keys():
 		var universe_id: int = int(universe_key)
-		universe_frames[universe_id] = receiver.get_universe_data(universe_id)
+		var universe_frame: Dictionary = receiver.get_universe_frame(universe_id)
+		var frame_counter: int = int(universe_frame.get("counter", 0))
+		var previous_counter: int = int(_universe_last_counters.get(universe_id, -1))
+		if not _debug_force_full_apply and previous_counter == frame_counter:
+			unchanged_universes[universe_id] = true
+			continue
+		_universe_last_counters[universe_id] = frame_counter
+		universe_frames[universe_id] = universe_frame.get("data", PackedByteArray())
 
 	var updated: int = 0
 	var skipped: int = 0
@@ -164,6 +174,9 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> Dictionary:
 			fixture_plan = _build_fixture_apply_plan(binding)
 			_fixture_apply_plans[fixture_uuid] = fixture_plan
 		var universe_id: int = int(binding.get("artnet_universe_id", -1))
+		if unchanged_universes.has(universe_id):
+			skipped += 1
+			continue
 		var frame: PackedByteArray = universe_frames.get(universe_id, PackedByteArray())
 		if frame.is_empty():
 			continue
