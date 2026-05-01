@@ -205,12 +205,15 @@ func _on_dmx_timer_timeout() -> void:
 	_last_dmx_tick_msec = now_msec
 
 	if _dmx_fixture_runtime != null and _apply_dmx_controls_callback.is_valid():
+		var decode_phase_start: int = Time.get_ticks_usec()
 		var apply_stats: Dictionary = _dmx_fixture_runtime.apply_dmx(_dmx_receiver, func(fixture_uuid: String, controls: Dictionary) -> void:
 			controls["frame_delta_sec"] = delta_sec
 			_apply_dmx_controls_callback.call(fixture_uuid, controls)
 		)
 		_last_updated_fixtures = int(apply_stats.get("updated", 0))
 		_last_skipped_fixtures = int(apply_stats.get("skipped", 0))
+		if _owner != null and _owner.has_method("bridge_record_dmx_decode_phase"):
+			_owner.bridge_record_dmx_decode_phase(max(Time.get_ticks_usec() - decode_phase_start, 0))
 		_apply_fixture_time_tick(delta_sec)
 
 	var stats: Dictionary = _dmx_receiver.get_stats()
