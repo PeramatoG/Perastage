@@ -106,6 +106,13 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> Dictionary:
 		if frame.is_empty():
 			continue
 		var snapshot: PackedByteArray = _extract_snapshot_for_fixture(fixture_uuid, frame)
+		if snapshot.is_empty():
+			var controls_without_cache: Dictionary = _build_controls(binding, frame)
+			if not _has_any_capability(controls_without_cache):
+				continue
+			apply_fixture_callback.call(fixture_uuid, controls_without_cache)
+			updated += 1
+			continue
 		var snapshot_hash: int = _compute_snapshot_hash(snapshot)
 		var previous_state: Dictionary = _fixture_snapshot_cache.get(fixture_uuid, {})
 		if not _debug_force_full_apply and _snapshot_is_unchanged(previous_state, snapshot_hash, snapshot):
