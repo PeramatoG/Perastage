@@ -152,6 +152,8 @@ var _user_preferences: UserPreferences
 var _debug_properties_applied: int = 0
 var _debug_properties_skipped: int = 0
 var _selected_fixture_badge_uuid: String = ""
+var _emitter_mesh_rebuild_count: int = 0
+var _emitter_parametric_update_count: int = 0
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -1808,17 +1810,46 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	beam_params["intensity_max"] = BEAM_INTENSITY_MAX
 	var gobo_topology_changed: bool = false
 	if _fixture_gobo_projector != null:
-		var gobo_source_controls: Dictionary = controls
-		gobo_source_controls.merge(_resolve_gobo_controls(controls), true)
+		var resolved_gobo_controls: Dictionary = _resolve_gobo_controls(controls)
+		var gobo_source_controls: Dictionary = {
+			"capabilities": controls.get("capabilities", {}),
+			"gobo_norm": controls.get("gobo_norm", 0.0),
+			"gobo_raw_value": controls.get("gobo_raw_value", 0),
+			"gobo_resolution_bits": controls.get("gobo_resolution_bits", 8),
+			"gobo_index_norm": controls.get("gobo_index_norm", 0.0),
+			"has_gobo_index": controls.get("has_gobo_index", false),
+			"gobo_rotation_deg": controls.get("gobo_rotation_deg", 0.0),
+			"gobo_debug_override_enabled": controls.get("gobo_debug_override_enabled", false),
+			"gobo_debug_comparison_mode": controls.get("gobo_debug_comparison_mode", 0),
+			"gobo_debug_shake_enabled": controls.get("gobo_debug_shake_enabled", false),
+			"gobo_debug_shake_amplitude_deg": controls.get("gobo_debug_shake_amplitude_deg", 0.0),
+			"gobo_debug_shake_frequency_hz": controls.get("gobo_debug_shake_frequency_hz", 0.0),
+			"gobo_debug_shake_waveform": controls.get("gobo_debug_shake_waveform", 0),
+			"frame_delta_sec": controls.get("frame_delta_sec", 0.0),
+			"prefer_native_fog_projector": controls.get("prefer_native_fog_projector", true),
+			"gobo_scale": controls.get("gobo_scale", GOBO_DEFAULT_SCALE),
+			"gobo_slots": resolved_gobo_controls.get("gobo_slots", []),
+			"gobo_runtime_bindings": resolved_gobo_controls.get("gobo_runtime_bindings", []),
+			"has_gobo": resolved_gobo_controls.get("has_gobo", false),
+			"gobo_ranges": resolved_gobo_controls.get("gobo_ranges", controls.get("gobo_ranges", [])),
+		}
 		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(gobo_source_controls, _visual_settings, beam_defaults)
 		gobo_topology_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
 		_set_light_meta_variant(light, "peraviz_last_gobo_key", str(gobo_controls.get("key", "")), last_state)
 		var applied_gobo_rotation_deg: float = float(light.get_meta("peraviz_gobo_applied_rotation_deg", beam_params.get("gobo_rotation_deg", 0.0)))
 		beam_params["gobo_rotation_deg"] = applied_gobo_rotation_deg
 	if gobo_topology_changed:
+		_emitter_mesh_rebuild_count += 1
 		_cleanup_light_beam_renderers(light)
 	_set_light_property_float(light, "light_volumetric_fog_energy", float(_visual_settings.get("light_volumetric_fog_energy", 12.0)) * float(_visual_settings.get("haze_density_multiplier", 0.22)), last_state)
 	_update_beam_for_light(light, beam_params)
+	_emitter_parametric_update_count += 1
+	if _fixture_gobo_projector != null:
+		light.set_meta("peraviz_gobo_debug_counters", _fixture_gobo_projector.get_debug_counters())
+	light.set_meta("peraviz_emitter_debug_counters", {
+		"mesh_rebuilds": _emitter_mesh_rebuild_count,
+		"parametric_updates": _emitter_parametric_update_count,
+	})
 
 func _get_or_create_emitter_last_state(light: SpotLight3D) -> Dictionary:
 	var key: int = light.get_instance_id()
