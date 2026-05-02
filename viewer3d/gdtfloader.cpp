@@ -243,6 +243,14 @@ static bool IsPrimitiveTypeDefined(const std::string& primitiveType)
     return ToLower(primitiveType) != "undefined";
 }
 
+static std::string BuildMeshCacheKey(const std::string& resolvedModelPath)
+{
+    // Bump when mesh import semantics change so already-cached meshes don't
+    // mask geometry/rotation fixes during runtime.
+    constexpr const char* kMeshImportRevision = "mesh-import-v2";
+    return resolvedModelPath + "|" + kMeshImportRevision;
+}
+
 static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
 {
     if (mesh.vertices.empty())
@@ -1250,7 +1258,8 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             if (!modelInfo.file.empty()) {
                 std::string path = FindModelFile(baseDir, modelInfo.file);
                 if (!path.empty()) {
-                    auto mit = meshCache.find(path);
+                    const std::string meshCacheKey = BuildMeshCacheKey(path);
+                    auto mit = meshCache.find(meshCacheKey);
                     if (mit == meshCache.end()) {
                         bool alreadyFailed = failedModelLoads && failedModelLoads->find(path) != failedModelLoads->end();
                         if (!alreadyFailed) {
@@ -1262,7 +1271,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
 
                             if (loaded) {
                                 ApplyModelDimensions(mesh, modelInfo);
-                                mit = meshCache.emplace(path, std::move(mesh)).first;
+                                mit = meshCache.emplace(meshCacheKey, std::move(mesh)).first;
                             } else {
                                 bool shouldLog = true;
                                 if (failedModelLoads)
