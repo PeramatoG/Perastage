@@ -214,6 +214,7 @@ func _on_dmx_timer_timeout() -> void:
 		_last_skipped_fixtures = int(apply_stats.get("skipped", 0))
 		if _owner != null and _owner.has_method("bridge_record_dmx_decode_phase"):
 			_owner.bridge_record_dmx_decode_phase(max(Time.get_ticks_usec() - decode_phase_start, 0))
+		_apply_fixture_time_tick(delta_sec)
 
 	var stats: Dictionary = _dmx_receiver.get_stats()
 	var active_universes: PackedInt32Array = _dmx_receiver.get_active_universes(2000)
@@ -243,6 +244,17 @@ func _refresh_dmx_quick_panel(running: bool, receiving_signal: bool, active_univ
 	var linked_fixtures: int = int(_fixture_binding_summary.get("bound", 0))
 	var unlinked_fixtures: int = int(_fixture_binding_summary.get("unbound", 0))
 	_dmx_quick_panel.refresh(running, receiving_signal, active_universes, last_packet_ms, linked_fixtures, unlinked_fixtures, _last_updated_fixtures, _last_skipped_fixtures)
+
+func _apply_fixture_time_tick(delta_sec: float) -> void:
+	if delta_sec <= 0.0:
+		return
+	if _dmx_fixture_runtime == null or not _apply_dmx_controls_callback.is_valid():
+		return
+	for fixture_uuid in _dmx_fixture_runtime.get_time_tick_fixture_ids():
+		_apply_dmx_controls_callback.call(str(fixture_uuid), {
+			"frame_delta_sec": delta_sec,
+			"time_tick_only": true,
+		})
 
 func _emit_dmx_status(running: bool, receiving_signal: bool) -> void:
 	if _dmx_status_changed_callback.is_valid():

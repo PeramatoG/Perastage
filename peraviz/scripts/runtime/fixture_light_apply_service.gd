@@ -4,6 +4,7 @@ class_name FixtureLightApplyService
 var _fixture_emissive_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_last_state: Dictionary = {}
+var _fixture_last_dmx_controls: Dictionary = {}
 var _phase_metrics: Dictionary = {
 	"dmx_decode": {"calls": 0, "total_usec": 0},
 	"fixture_apply": {"calls": 0, "total_usec": 0},
@@ -13,11 +14,17 @@ var _phase_metrics: Dictionary = {
 
 func apply_dmx_controls_to_fixture(loader: Node, fixture_uuid: String, controls: Dictionary) -> void:
 	var phase_start: int = Time.get_ticks_usec()
+	var is_time_tick_only: bool = bool(controls.get("time_tick_only", false))
+	if is_time_tick_only:
+		_apply_time_tick_only(loader, fixture_uuid, controls)
+		_track_phase("fixture_apply", phase_start)
+		return
 	controls["fixture_uuid"] = fixture_uuid
 	if not controls.has("frame_delta_sec"):
 		controls["frame_delta_sec"] = loader.get_process_delta_time()
 	else:
 		controls["frame_delta_sec"] = max(float(controls.get("frame_delta_sec", 0.0)), 0.0)
+	_fixture_last_dmx_controls[fixture_uuid] = controls.duplicate(true)
 	var pan_tilt_controls: Dictionary = resolve_pan_tilt_controls(controls)
 	if bool(pan_tilt_controls.get("has_pan", false)) or bool(pan_tilt_controls.get("has_tilt", false)):
 		var has_pan: bool = bool(pan_tilt_controls.get("has_pan", false))
@@ -37,6 +44,22 @@ func apply_dmx_controls_to_fixture(loader: Node, fixture_uuid: String, controls:
 			dimmer_percent = clamp(float(dimmer_controls.get("dimmer_norm", 0.0)), 0.0, 1.0) * 100.0
 		apply_dimmer_feedback_to_fixture(loader, fixture_uuid, dimmer_percent, controls)
 	_track_phase("fixture_apply", phase_start)
+
+func _apply_time_tick_only(loader: Node, fixture_uuid: String, controls: Dictionary) -> void:
+	var cached_controls: Dictionary = _fixture_last_dmx_controls.get(fixture_uuid, {})
+	if cached_controls.is_empty():
+		return
+	if not has_lighting_controls(cached_controls):
+		return
+	var tick_controls: Dictionary = cached_controls.duplicate(true)
+	tick_controls["fixture_uuid"] = fixture_uuid
+	tick_controls["time_tick_only"] = true
+	tick_controls["frame_delta_sec"] = max(float(controls.get("frame_delta_sec", loader.get_process_delta_time())), 0.0)
+	var dimmer_controls: Dictionary = resolve_dimmer_controls(tick_controls)
+	var dimmer_percent: float = 100.0
+	if bool(dimmer_controls.get("has_dimmer", false)):
+		dimmer_percent = clamp(float(dimmer_controls.get("dimmer_norm", 0.0)), 0.0, 1.0) * 100.0
+	apply_dimmer_feedback_to_fixture(loader, fixture_uuid, dimmer_percent, tick_controls)
 
 func resolve_capability_bucket(controls: Dictionary, capability_type: String) -> Array:
 	var capabilities: Dictionary = controls.get("capabilities", {})
