@@ -282,7 +282,8 @@ static void ApplyPrimitiveAnchorOffset(Mesh& mesh,
     // meshes, so we nudge known fixture-part primitives to keep assembly
     // distances consistent with Geometry Position offsets.
     if (primitive == "base" || primitive == "base1_1" ||
-        primitive == "conventional" || primitive == "conventional1_1") {
+        primitive == "conventional" || primitive == "conventional1_1" ||
+        primitive == "yoke" || primitive == "head") {
         offsetZ = modelInfo.height * 1000.0f * 0.5f;
     }
 
