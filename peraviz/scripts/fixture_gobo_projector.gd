@@ -101,6 +101,16 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		for wheel in runtime_bindings:
 			if wheel is not Dictionary:
 				continue
+			var wheel_motion: Dictionary = _resolve_wheel_rotation_deg(light, gobo_controls, wheel, global_rotation_deg, delta_sec)
+			var wheel_rotation_deg: float = float(wheel_motion.get("rotation_deg", global_rotation_deg))
+			var wheel_shake_tilt_deg: float = float(wheel_motion.get("shake_tilt_deg", 0.0))
+			if _wheel_owns_rotation_control(wheel):
+				projected_rotation_deg = wheel_rotation_deg
+				projected_shake_tilt_deg = wheel_shake_tilt_deg
+				has_bound_wheel_rotation = true
+			elif not has_bound_wheel_rotation:
+				projected_rotation_deg = wheel_rotation_deg
+				projected_shake_tilt_deg = wheel_shake_tilt_deg
 			var slot_index: int = int(wheel.get("slot_index", 0))
 			if slot_index <= 0:
 				continue
@@ -115,20 +125,10 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 				continue
 			source_texture_cache_keys.append(str(texture_entry.get("cache_key", "")))
 
-			var wheel_motion: Dictionary = _resolve_wheel_rotation_deg(light, gobo_controls, wheel, global_rotation_deg, delta_sec)
-			var wheel_rotation_deg: float = float(wheel_motion.get("rotation_deg", global_rotation_deg))
-			var wheel_shake_tilt_deg: float = float(wheel_motion.get("shake_tilt_deg", 0.0))
 			var behavior: int = int(wheel.get("behavior", GOBO_BEHAVIOR_FIXED))
 			var supports_index: bool = bool(wheel.get("supports_index", false)) or behavior == GOBO_BEHAVIOR_INDEX
 			var supports_rotation: bool = bool(wheel.get("supports_rotation", false)) or behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE
 			wheel_mode_state[wheel_key] = _resolve_wheel_effect_mode(behavior, supports_index, supports_rotation)
-			if _wheel_owns_rotation_control(wheel):
-				projected_rotation_deg = wheel_rotation_deg
-				projected_shake_tilt_deg = wheel_shake_tilt_deg
-				has_bound_wheel_rotation = true
-			elif not has_bound_wheel_rotation:
-				projected_rotation_deg = wheel_rotation_deg
-				projected_shake_tilt_deg = wheel_shake_tilt_deg
 			source_textures.append(gobo_texture)
 
 	light.set_meta(GOBO_RUNTIME_ANIMATION_STATE_META_KEY, {
