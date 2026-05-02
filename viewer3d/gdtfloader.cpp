@@ -221,6 +221,16 @@ static std::string ToLower(const std::string& s)
     return t;
 }
 
+static bool IsVisualPlaceholderDummyGeometry(const char* geometryName,
+                                             const char* modelName)
+{
+    if (!geometryName || !modelName)
+        return false;
+    const std::string geom = ToLower(geometryName);
+    const std::string model = ToLower(modelName);
+    return geom.rfind("dummy", 0) == 0 && model == "dummy";
+}
+
 static bool HasExtension(const fs::path& p, const std::string& ext)
 {
     return ToLower(p.extension().string()) == ToLower(ext);
@@ -1159,7 +1169,6 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
         "MediaServerMaster", "Display", "GeometryReference", "Laser",
         "WiringObject", "Inventory", "Structure", "Support", "Magnet"
     };
-
     auto makeStableNodeName = [&](GdtfNodeType nodeType, tinyxml2::XMLElement* currentNode) {
         const char* nameAttr = currentNode ? currentNode->Attribute("Name") : nullptr;
         std::string stableToken = (nameAttr && !IsBlank(nameAttr))
@@ -1214,7 +1223,10 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
     node3d.worldTransform = transform;
     node3d.isLens = isLensGeometry;
 
-    if (modelName) {
+    const char* geometryName = node->Attribute("Name");
+    const bool skipDummyMesh = IsVisualPlaceholderDummyGeometry(geometryName, modelName);
+
+    if (modelName && !skipDummyMesh) {
         auto it = models.find(modelName);
         if (it != models.end()) {
             const GdtfModelInfo& modelInfo = it->second;
