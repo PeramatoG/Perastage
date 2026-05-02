@@ -268,6 +268,31 @@ static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
     }
 }
 
+static void ApplyPrimitiveAnchorOffset(Mesh& mesh,
+                                       const GdtfModelInfo& modelInfo)
+{
+    if (mesh.vertices.empty())
+        return;
+
+    const std::string primitive = ToLower(modelInfo.primitiveType);
+    float offsetZ = 0.0f;
+
+    // GDTF primitives are expected to be positioned around their own
+    // suspension/rotation points. The generic mesh builders create centered
+    // meshes, so we nudge known fixture-part primitives to keep assembly
+    // distances consistent with Geometry Position offsets.
+    if (primitive == "base" || primitive == "base1_1" ||
+        primitive == "conventional" || primitive == "conventional1_1") {
+        offsetZ = modelInfo.height * 1000.0f * 0.5f;
+    }
+
+    if (offsetZ == 0.0f)
+        return;
+
+    for (size_t vi = 2; vi < mesh.vertices.size(); vi += 3)
+        mesh.vertices[vi] += offsetZ;
+}
+
 static std::string FindModelFile(const std::string& baseDir,
                                  const std::string& fileName)
 {
@@ -1268,6 +1293,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             if (!haveMesh && IsPrimitiveTypeDefined(modelInfo.primitiveType)) {
                 if (BuildPrimitiveMesh(modelInfo.primitiveType, mesh)) {
                     ApplyModelDimensions(mesh, modelInfo);
+                    ApplyPrimitiveAnchorOffset(mesh, modelInfo);
                     haveMesh = true;
                 }
             }
