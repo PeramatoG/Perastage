@@ -213,6 +213,8 @@ struct MissingModelLog
 };
 
 static bool ExtractZip(const std::string& zipPath, const std::string& destDir);
+static void NormalizeWysiwygAxisGeometry(tinyxml2::XMLElement* fixtureType,
+                                         tinyxml2::XMLDocument& doc);
 
 static std::string ToLower(const std::string& s)
 {
@@ -324,6 +326,97 @@ static std::string CreateTempDir()
     fs::path full = base / folderName;
     fs::create_directory(full);
     return full.string();
+}
+
+static bool IsLikelyWysiwygExport(tinyxml2::XMLElement* fixtureType)
+{
+    if (!fixtureType)
+        return false;
+    if (tinyxml2::XMLElement* revisions = fixtureType->FirstChildElement("Revisions")) {
+        for (tinyxml2::XMLElement* revision = revisions->FirstChildElement("Revision");
+             revision; revision = revision->NextSiblingElement("Revision")) {
+            const char* text = revision->Attribute("Text");
+            if (text && ToLower(text).find("wysiwyg") != std::string::npos)
+                return true;
+        }
+    }
+    return false;
+}
+
+static void SetPureTranslationMatrix(tinyxml2::XMLElement* node, float zMeters)
+{
+    if (!node)
+        return;
+    const wxString matrix = wxString::Format(
+        "{1.000000,0.000000,0.000000,0.000000}"
+        "{0.000000,1.000000,0.000000,0.000000}"
+        "{0.000000,0.000000,1.000000,%.6f}"
+        "{0,0,0,1}",
+        zMeters);
+    node->SetAttribute("Position", matrix.ToStdString().c_str());
+}
+
+static void NormalizeWysiwygAxisGeometry(tinyxml2::XMLElement* fixtureType,
+                                         tinyxml2::XMLDocument& doc)
+{
+    if (!IsLikelyWysiwygExport(fixtureType))
+        return;
+    tinyxml2::XMLElement* geometries = fixtureType->FirstChildElement("Geometries");
+    tinyxml2::XMLElement* models = fixtureType->FirstChildElement("Models");
+    if (!geometries || !models)
+        return;
+
+    std::unordered_map<std::string, float> modelHeights;
+    for (tinyxml2::XMLElement* model = models->FirstChildElement("Model");
+         model; model = model->NextSiblingElement("Model")) {
+        const char* name = model->Attribute("Name");
+        if (!name)
+            continue;
+        float height = 0.0f;
+        model->QueryFloatAttribute("Height", &height);
+        modelHeights[name] = height;
+    }
+
+    tinyxml2::XMLElement* base = geometries->FirstChildElement("Geometry");
+    if (!base)
+        return;
+
+    auto ensureGeometryTag = [&](tinyxml2::XMLElement* axisNode) -> tinyxml2::XMLElement* {
+        if (!axisNode || std::string(axisNode->Name()) != "Axis")
+            return axisNode;
+        tinyxml2::XMLElement* replacement = doc.NewElement("Geometry");
+        for (const tinyxml2::XMLAttribute* a = axisNode->FirstAttribute(); a; a = a->Next())
+            replacement->SetAttribute(a->Name(), a->Value());
+        while (tinyxml2::XMLNode* child = axisNode->FirstChild())
+            replacement->InsertEndChild(child);
+        axisNode->Parent()->InsertAfterChild(axisNode, replacement);
+        axisNode->Parent()->DeleteChild(axisNode);
+        return replacement;
+    };
+
+    const char* baseModel = base->Attribute("Model");
+    const float baseHeight = baseModel ? modelHeights[baseModel] : 0.0f;
+    for (tinyxml2::XMLElement* child = base->FirstChildElement(); child;
+         child = child->NextSiblingElement()) {
+        tinyxml2::XMLElement* yoke = ensureGeometryTag(child);
+        if (!yoke)
+            continue;
+        const char* yokeModel = yoke->Attribute("Model");
+        const float yokeHeight = yokeModel ? modelHeights[yokeModel] : 0.0f;
+        if (yokeHeight > 0.0f && baseHeight > 0.0f)
+            SetPureTranslationMatrix(yoke, -0.5f * (baseHeight + yokeHeight));
+
+        for (tinyxml2::XMLElement* yokeChild = yoke->FirstChildElement(); yokeChild;
+             yokeChild = yokeChild->NextSiblingElement()) {
+            tinyxml2::XMLElement* head = ensureGeometryTag(yokeChild);
+            if (!head)
+                continue;
+            const char* headModel = head->Attribute("Model");
+            const float headHeight = headModel ? modelHeights[headModel] : 0.0f;
+            if (headHeight > 0.0f && yokeHeight > 0.0f)
+                SetPureTranslationMatrix(head, -0.5f * (yokeHeight + headHeight));
+        }
+    }
 }
 
 struct TempExtraction
@@ -1132,6 +1225,7 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
         g_gdtfFailureReasons[stableKey] = failureReason ? *failureReason : "unknown error";
         return nullptr;
     }
+    NormalizeWysiwygAxisGeometry(entry.fixtureType, *entry.doc);
 
     entry.fixtureName = GetFixtureNameFromXml(entry.fixtureType);
     ParseModes(entry.fixtureType, entry.modes, entry.modeChannels, entry.modeChannelCounts);
