@@ -58,5 +58,20 @@ int main() {
     }
   }
 
+  {
+    Matrix m;
+    const std::string text =
+        "{1,0,0,0}{0,1,0,0}{0,0,1,0}{100,200,300,1}";
+    if (!MatrixUtils::ParseMatrix(text, m)) {
+      std::cerr << "ParseMatrix rejected 4x4 row-translation input\n";
+      return 1;
+    }
+
+    if (!Near(m.o[0], 100.0f) || !Near(m.o[1], 200.0f) || !Near(m.o[2], 300.0f)) {
+      std::cerr << "ParseMatrix row translation fallback mismatch\n";
+      return 1;
+    }
+  }
+
   return 0;
 }
