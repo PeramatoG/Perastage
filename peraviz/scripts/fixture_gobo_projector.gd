@@ -234,8 +234,10 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 			base_rotation_deg = lerp(0.0, GOBO_INDEX_MAX_DEG, clamp(index_norm, 0.0, 1.0))
 
 	var spin_angle_deg: float = float(wheel_spin_state.get(wheel_key, 0.0))
-	var has_native_speed: bool = bool(wheel.get("has_rotation_physical_value", false))
 	var native_speed_deg_per_sec: float = float(wheel.get("rotation_speed_deg_per_sec", wheel.get("rotation_physical", 0.0)))
+	var has_native_speed: bool = bool(wheel.get("has_rotation_physical_value", false)) \
+		or wheel.has("rotation_speed_deg_per_sec") \
+		or wheel.has("rotation_physical")
 	var native_is_stop: bool = bool(wheel.get("is_stop", false))
 	var has_active_rotation_command: bool = supports_rotation and has_native_speed and not native_is_stop and absf(native_speed_deg_per_sec) > 0.0001
 	var shake_offset_deg: float = 0.0
