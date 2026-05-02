@@ -100,11 +100,25 @@ func get_time_tick_fixture_ids() -> PackedStringArray:
 	return _time_tick_fixture_ids
 
 func _binding_requires_time_tick(binding: Dictionary) -> bool:
+	var capabilities: Array = binding.get("capabilities", [])
+	for capability in capabilities:
+		if capability is not Dictionary:
+			continue
+		var row: Dictionary = capability
+		var capability_type: String = str(row.get("type", "")).to_lower()
+		if capability_type == "gobo":
+			return true
+		if bool(row.get("supports_rotation", false)) or bool(row.get("supports_shake", false)):
+			return true
+		if bool(row.get("has_rotation_physical_value", false)):
+			return true
+		if row.has("rotation_speed_deg_per_sec") or row.has("rotation_physical"):
+			return true
 	var channel_bindings: Array = binding.get("channel_bindings", [])
 	for channel_binding in channel_bindings:
 		if _value_contains_time_tick_signal(channel_binding):
 			return true
-	if _value_contains_time_tick_signal(binding.get("capabilities", [])):
+	if _value_contains_time_tick_signal(capabilities):
 		return true
 	return false
 
