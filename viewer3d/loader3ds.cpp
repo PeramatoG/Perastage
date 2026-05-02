@@ -51,6 +51,27 @@ struct MeshTransform3ds {
     std::array<float, 3> origin = {0.0f, 0.0f, 0.0f};
 };
 
+static std::array<float, 3> TransformPointWithInverseBasis(const MeshTransform3ds& transform,
+                                                            float x,
+                                                            float y,
+                                                            float z)
+{
+    // 3DS local coordinate chunk (0x4160) stores object axis vectors and
+    // origin. Some assets encode this as object-space basis metadata rather
+    // than a direct transform to apply to vertices. Converting via inverse
+    // basis keeps fixture sub-part orientation/assembly aligned with parent
+    // GDTF transforms.
+    const float px = x - transform.origin[0];
+    const float py = y - transform.origin[1];
+    const float pz = z - transform.origin[2];
+
+    return {
+        transform.xAxis[0] * px + transform.xAxis[1] * py + transform.xAxis[2] * pz,
+        transform.yAxis[0] * px + transform.yAxis[1] * py + transform.yAxis[2] * pz,
+        transform.zAxis[0] * px + transform.zAxis[1] * py + transform.zAxis[2] * pz
+    };
+}
+
 static bool IsIdentityBasis(const MeshTransform3ds& transform)
 {
     constexpr float kEpsilon = 1e-5f;
@@ -387,21 +408,10 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
             }
 
             if (shouldApplyLocalBasis) {
-                const float tx = localTransform.origin[0] +
-                                 localTransform.xAxis[0] * x +
-                                 localTransform.yAxis[0] * y +
-                                 localTransform.zAxis[0] * z;
-                const float ty = localTransform.origin[1] +
-                                 localTransform.xAxis[1] * x +
-                                 localTransform.yAxis[1] * y +
-                                 localTransform.zAxis[1] * z;
-                const float tz = localTransform.origin[2] +
-                                 localTransform.xAxis[2] * x +
-                                 localTransform.yAxis[2] * y +
-                                 localTransform.zAxis[2] * z;
-                mesh.vertices[index] = tx;
-                mesh.vertices[index + 1] = ty;
-                mesh.vertices[index + 2] = tz;
+                const auto converted = TransformPointWithInverseBasis(localTransform, x, y, z);
+                mesh.vertices[index] = converted[0];
+                mesh.vertices[index + 1] = converted[1];
+                mesh.vertices[index + 2] = converted[2];
             } else {
                 mesh.vertices[index] = x;
                 mesh.vertices[index + 1] = y;
