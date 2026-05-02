@@ -78,6 +78,12 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	light.set_meta(FALLBACK_GOBO_META_KEY, false)
 	var gobo_controls: Dictionary = _resolve_gobo_controls(controls)
 	var runtime_bindings: Array = gobo_controls.get("gobo_runtime_bindings", [])
+	if runtime_bindings.is_empty():
+		var previous_runtime_state: Dictionary = light.get_meta(GOBO_RUNTIME_ANIMATION_STATE_META_KEY, {})
+		if previous_runtime_state is Dictionary:
+			var previous_runtime_bindings: Array = previous_runtime_state.get("runtime_bindings", [])
+			if not previous_runtime_bindings.is_empty():
+				runtime_bindings = previous_runtime_bindings.duplicate(true)
 	var has_runtime_gobo: bool = bool(gobo_controls.get("has_gobo", false))
 	if has_runtime_gobo and runtime_bindings.is_empty():
 		var fallback_raw_8bit: int = _resolve_gobo_raw_8bit(gobo_controls)
@@ -131,11 +137,12 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			wheel_mode_state[wheel_key] = _resolve_wheel_effect_mode(behavior, supports_index, supports_rotation)
 			source_textures.append(gobo_texture)
 
-	light.set_meta(GOBO_RUNTIME_ANIMATION_STATE_META_KEY, {
-		"gobo_controls": gobo_controls,
-		"runtime_bindings": runtime_bindings,
-		"global_rotation_deg": global_rotation_deg,
-	})
+	if not runtime_bindings.is_empty():
+		light.set_meta(GOBO_RUNTIME_ANIMATION_STATE_META_KEY, {
+			"gobo_controls": gobo_controls,
+			"runtime_bindings": runtime_bindings,
+			"global_rotation_deg": global_rotation_deg,
+		})
 
 	var composed_texture_cache_key: String = _build_composed_gobo_cache_key(source_texture_cache_keys)
 	var prefer_native_fog_projector: bool = bool(controls.get("prefer_native_fog_projector", true))
