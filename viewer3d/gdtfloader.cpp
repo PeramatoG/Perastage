@@ -278,6 +278,20 @@ static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
     }
 }
 
+static bool RequiresHangingOrientationFlip(const std::string& primitiveType)
+{
+    const std::string type = ToLower(primitiveType);
+    return type == "yoke" || type == "head" || type == "scanner" || type == "scanner1_1";
+}
+
+static void RotateMeshAroundXAxis180(Mesh& mesh)
+{
+    for (size_t i = 0; i + 2 < mesh.vertices.size(); i += 3) {
+        mesh.vertices[i + 1] = -mesh.vertices[i + 1];
+        mesh.vertices[i + 2] = -mesh.vertices[i + 2];
+    }
+}
+
 static std::string FindModelFile(const std::string& baseDir,
                                  const std::string& fileName)
 {
@@ -1279,6 +1293,8 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
 
             if (!haveMesh && IsPrimitiveTypeDefined(modelInfo.primitiveType)) {
                 if (BuildPrimitiveMesh(modelInfo.primitiveType, mesh)) {
+                    if (RequiresHangingOrientationFlip(modelInfo.primitiveType))
+                        RotateMeshAroundXAxis180(mesh);
                     ApplyModelDimensions(mesh, modelInfo);
                     haveMesh = true;
                 }
