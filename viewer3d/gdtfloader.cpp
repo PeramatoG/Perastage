@@ -343,7 +343,7 @@ static bool IsLikelyWysiwygExport(tinyxml2::XMLElement* fixtureType)
     return false;
 }
 
-static void SetPureTranslationMatrix(tinyxml2::XMLElement* node, float zMeters)
+static void SetPureTranslationMatrix(tinyxml2::XMLElement* node, float zMillimeters)
 {
     if (!node)
         return;
@@ -352,7 +352,7 @@ static void SetPureTranslationMatrix(tinyxml2::XMLElement* node, float zMeters)
         "{0.000000,1.000000,0.000000,0.000000}"
         "{0.000000,0.000000,1.000000,%.6f}"
         "{0,0,0,1}",
-        zMeters);
+        zMillimeters);
     node->SetAttribute("Position", matrix.ToStdString().c_str());
 }
 
@@ -406,8 +406,13 @@ static void NormalizeWysiwygAxisGeometry(tinyxml2::XMLElement* fixtureType,
         }
         const char* yokeModel = yoke->Attribute("Model");
         const float yokeHeight = yokeModel ? modelHeights[yokeModel] : 0.0f;
-        if (yokeHeight > 0.0f && baseHeight > 0.0f)
-            SetPureTranslationMatrix(yoke, -0.5f * (baseHeight + yokeHeight));
+        if (yokeHeight > 0.0f && baseHeight > 0.0f) {
+            // GDTF model dimensions are later scaled to mm in ApplyModelDimensions.
+            // Keep geometry offsets in the same unit system to make the
+            // normalization visually effective.
+            SetPureTranslationMatrix(yoke,
+                                     -0.5f * (baseHeight + yokeHeight) * 1000.0f);
+        }
 
         for (tinyxml2::XMLElement* yokeChild = yoke->FirstChildElement(); yokeChild;) {
             tinyxml2::XMLElement* nextYokeChild = yokeChild->NextSiblingElement();
@@ -420,7 +425,8 @@ static void NormalizeWysiwygAxisGeometry(tinyxml2::XMLElement* fixtureType,
             const char* headModel = head->Attribute("Model");
             const float headHeight = headModel ? modelHeights[headModel] : 0.0f;
             if (headHeight > 0.0f && yokeHeight > 0.0f)
-                SetPureTranslationMatrix(head, -0.5f * (yokeHeight + headHeight));
+                SetPureTranslationMatrix(head,
+                                         -0.5f * (yokeHeight + headHeight) * 1000.0f);
             yokeChild = nextYokeChild;
         }
         child = nextChild;
