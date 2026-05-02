@@ -65,10 +65,51 @@ static std::array<float, 3> TransformPointWithInverseBasis(const MeshTransform3d
     const float py = y - transform.origin[1];
     const float pz = z - transform.origin[2];
 
+    const float m00 = transform.xAxis[0];
+    const float m01 = transform.yAxis[0];
+    const float m02 = transform.zAxis[0];
+    const float m10 = transform.xAxis[1];
+    const float m11 = transform.yAxis[1];
+    const float m12 = transform.zAxis[1];
+    const float m20 = transform.xAxis[2];
+    const float m21 = transform.yAxis[2];
+    const float m22 = transform.zAxis[2];
+
+    const float c00 = (m11 * m22) - (m12 * m21);
+    const float c01 = -((m10 * m22) - (m12 * m20));
+    const float c02 = (m10 * m21) - (m11 * m20);
+    const float c10 = -((m01 * m22) - (m02 * m21));
+    const float c11 = (m00 * m22) - (m02 * m20);
+    const float c12 = -((m00 * m21) - (m01 * m20));
+    const float c20 = (m01 * m12) - (m02 * m11);
+    const float c21 = -((m00 * m12) - (m02 * m10));
+    const float c22 = (m00 * m11) - (m01 * m10);
+    const float det = (m00 * c00) + (m01 * c01) + (m02 * c02);
+
+    constexpr float kMinDet = 1e-8f;
+    if (std::abs(det) <= kMinDet) {
+        return {
+            transform.xAxis[0] * px + transform.xAxis[1] * py + transform.xAxis[2] * pz,
+            transform.yAxis[0] * px + transform.yAxis[1] * py + transform.yAxis[2] * pz,
+            transform.zAxis[0] * px + transform.zAxis[1] * py + transform.zAxis[2] * pz
+        };
+    }
+
+    const float invDet = 1.0f / det;
+    const float i00 = c00 * invDet;
+    const float i01 = c10 * invDet;
+    const float i02 = c20 * invDet;
+    const float i10 = c01 * invDet;
+    const float i11 = c11 * invDet;
+    const float i12 = c21 * invDet;
+    const float i20 = c02 * invDet;
+    const float i21 = c12 * invDet;
+    const float i22 = c22 * invDet;
+
     return {
-        transform.xAxis[0] * px + transform.xAxis[1] * py + transform.xAxis[2] * pz,
-        transform.yAxis[0] * px + transform.yAxis[1] * py + transform.yAxis[2] * pz,
-        transform.zAxis[0] * px + transform.zAxis[1] * py + transform.zAxis[2] * pz
+        (i00 * px) + (i01 * py) + (i02 * pz),
+        (i10 * px) + (i11 * py) + (i12 * pz),
+        (i20 * px) + (i21 * py) + (i22 * pz)
     };
 }
 
