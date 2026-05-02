@@ -248,6 +248,43 @@ static bool IsLikelyWysiwygExport(tinyxml2::XMLElement* fixtureType)
     return false;
 }
 
+static std::unordered_set<std::string> CollectMotionAxisNames(
+    tinyxml2::XMLElement* fixtureType)
+{
+    std::unordered_set<std::string> names;
+    if (!fixtureType)
+        return names;
+    if (tinyxml2::XMLElement* dmxModes = fixtureType->FirstChildElement("DMXModes")) {
+        for (tinyxml2::XMLElement* mode = dmxModes->FirstChildElement("DMXMode"); mode;
+             mode = mode->NextSiblingElement("DMXMode")) {
+            if (tinyxml2::XMLElement* channels = mode->FirstChildElement("DMXChannels")) {
+                for (tinyxml2::XMLElement* ch = channels->FirstChildElement("DMXChannel"); ch;
+                     ch = ch->NextSiblingElement("DMXChannel")) {
+                    const char* geoName = ch->Attribute("Geometry");
+                    if (!geoName || IsBlank(geoName))
+                        continue;
+                    bool controlsPanTilt = false;
+                    for (tinyxml2::XMLElement* logical = ch->FirstChildElement("LogicalChannel");
+                         logical; logical = logical->NextSiblingElement("LogicalChannel")) {
+                        const char* attr = logical->Attribute("Attribute");
+                        if (!attr)
+                            continue;
+                        const std::string lowered = ToLower(attr);
+                        if (lowered.find("pan") != std::string::npos ||
+                            lowered.find("tilt") != std::string::npos) {
+                            controlsPanTilt = true;
+                            break;
+                        }
+                    }
+                    if (controlsPanTilt)
+                        names.insert(geoName);
+                }
+            }
+        }
+    }
+    return names;
+}
+
 static void ApplyWysiwygModelOrientationCorrection(Mesh& mesh,
                                                    const GdtfModelInfo& modelInfo)
 {
@@ -1184,6 +1221,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                           const std::unordered_map<std::string, GdtfModelInfo>& models,
                           const std::string& baseDir,
                           const std::unordered_map<std::string, tinyxml2::XMLElement*>& geomMap,
+                          const std::unordered_set<std::string>& motionAxisNames,
                           std::unordered_map<std::string, Mesh>& meshCache,
                           GdtfGeometryTree& outTree,
                           std::unordered_set<std::string>* missingModels,
@@ -1229,7 +1267,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             if (it != geomMap.end()) {
                 const char* m = node->Attribute("Model");
                 ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache,
-                              outTree, missingModels, failedModelLoads, parentNodeIndex,
+                              motionAxisNames, outTree, missingModels, failedModelLoads, parentNodeIndex,
                               applyWysiwygCorrections,
                               m ? m : overrideModel, parentIsLens);
             }
@@ -1240,8 +1278,11 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
     const char* modelName = overrideModel ? overrideModel : node->Attribute("Model");
     bool isLensGeometry = IsLikelyLensGeometry(node, models, modelName, parentIsLens);
     GdtfNodeType parsedNodeType = GdtfNodeType::Geometry;
-    if (nodeType == "Axis")
-        parsedNodeType = GdtfNodeType::Axis;
+    if (nodeType == "Axis") {
+        const char* nodeName = node->Attribute("Name");
+        const bool isMotionAxis = nodeName && motionAxisNames.find(nodeName) != motionAxisNames.end();
+        parsedNodeType = isMotionAxis ? GdtfNodeType::Axis : GdtfNodeType::Geometry;
+    }
     else if (nodeType == "Beam" || isLensGeometry)
         parsedNodeType = GdtfNodeType::Emitter;
 
@@ -1330,7 +1371,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
     for (tinyxml2::XMLElement* child = node->FirstChildElement(); child; child = child->NextSiblingElement()) {
         std::string n = child->Name();
         if (kGeometryNodeTypes.find(n) != kGeometryNodeTypes.end() || n.rfind("Filter",0)==0) {
-            ParseGeometry(child, transform, models, baseDir, geomMap, meshCache, outTree,
+            ParseGeometry(child, transform, models, baseDir, geomMap, motionAxisNames, meshCache, outTree,
                           missingModels, failedModelLoads, currentNodeIndex,
                           applyWysiwygCorrections, nullptr,
                           isLensGeometry);
@@ -1396,6 +1437,7 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
     std::unordered_set<std::string>* failedModelLoads = &entry->failedModelLoads;
 
     const bool applyWysiwygCorrections = IsLikelyWysiwygExport(ft);
+    const std::unordered_set<std::string> motionAxisNames = CollectMotionAxisNames(ft);
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
         std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g;
@@ -1406,7 +1448,7 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g;
              g = g->NextSiblingElement()) {
             ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir,
-                          geomMap, meshCache, outTree, missingModels, failedModelLoads,
+                          geomMap, motionAxisNames, meshCache, outTree, missingModels, failedModelLoads,
                           -1, applyWysiwygCorrections, nullptr, false);
         }
     }
@@ -1499,6 +1541,7 @@ bool LoadGdtf(const std::string& gdtfPath,
     std::unordered_set<std::string>* failedModelLoads = &entry->failedModelLoads;
     GdtfGeometryTree geometryTree;
     const bool applyWysiwygCorrections = IsLikelyWysiwygExport(ft);
+    const std::unordered_set<std::string> motionAxisNames = CollectMotionAxisNames(ft);
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
         std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
@@ -1506,7 +1549,7 @@ bool LoadGdtf(const std::string& gdtfPath,
                 geomMap[n] = g;
         }
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
-            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap,
+            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap, motionAxisNames,
                           meshCache, geometryTree, missingModels, failedModelLoads, -1,
                           applyWysiwygCorrections);
         }
@@ -1764,3 +1807,4 @@ bool SetGdtfProperties(const std::string& gdtfPath,
     g_gdtfCache.erase(gdtfPath);
     return true;
 }
+
