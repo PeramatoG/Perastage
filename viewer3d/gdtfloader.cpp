@@ -396,26 +396,34 @@ static void NormalizeWysiwygAxisGeometry(tinyxml2::XMLElement* fixtureType,
 
     const char* baseModel = base->Attribute("Model");
     const float baseHeight = baseModel ? modelHeights[baseModel] : 0.0f;
-    for (tinyxml2::XMLElement* child = base->FirstChildElement(); child;
-         child = child->NextSiblingElement()) {
+    for (tinyxml2::XMLElement* child = base->FirstChildElement(); child;) {
+        tinyxml2::XMLElement* nextChild = child->NextSiblingElement();
         tinyxml2::XMLElement* yoke = ensureGeometryTag(child);
         if (!yoke)
+        {
+            child = nextChild;
             continue;
+        }
         const char* yokeModel = yoke->Attribute("Model");
         const float yokeHeight = yokeModel ? modelHeights[yokeModel] : 0.0f;
         if (yokeHeight > 0.0f && baseHeight > 0.0f)
             SetPureTranslationMatrix(yoke, -0.5f * (baseHeight + yokeHeight));
 
-        for (tinyxml2::XMLElement* yokeChild = yoke->FirstChildElement(); yokeChild;
-             yokeChild = yokeChild->NextSiblingElement()) {
+        for (tinyxml2::XMLElement* yokeChild = yoke->FirstChildElement(); yokeChild;) {
+            tinyxml2::XMLElement* nextYokeChild = yokeChild->NextSiblingElement();
             tinyxml2::XMLElement* head = ensureGeometryTag(yokeChild);
             if (!head)
+            {
+                yokeChild = nextYokeChild;
                 continue;
+            }
             const char* headModel = head->Attribute("Model");
             const float headHeight = headModel ? modelHeights[headModel] : 0.0f;
             if (headHeight > 0.0f && yokeHeight > 0.0f)
                 SetPureTranslationMatrix(head, -0.5f * (yokeHeight + headHeight));
+            yokeChild = nextYokeChild;
         }
+        child = nextChild;
     }
 }
 
