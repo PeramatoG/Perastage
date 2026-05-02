@@ -276,17 +276,20 @@ static std::string FindModelFile(const std::string& baseDir,
         return {};
 
     fs::path namePath = fileName;
+    std::string originalName = namePath.filename().string();
     std::string stem = namePath.stem().string();
     std::string ext = ToLower(namePath.extension().string());
+    const bool hasKnownModelExt = ext == ".3ds" || ext == ".glb";
+    const std::string bareName = hasKnownModelExt ? stem : originalName;
 
     auto tryExt = [&](const std::string& e) -> std::string {
-        fs::path d = modelsDir / e.substr(1) / (stem + e);
+        fs::path d = modelsDir / e.substr(1) / (bareName + e);
         if(fs::exists(d))
             return d.string();
         return {};
     };
 
-    if(!ext.empty()) {
+    if(hasKnownModelExt) {
         std::string res = tryExt(ext);
         if(!res.empty()) return res;
     } else {
@@ -299,13 +302,15 @@ static std::string FindModelFile(const std::string& baseDir,
     for (auto& p : fs::recursive_directory_iterator(modelsDir)) {
         if (!p.is_regular_file())
             continue;
-        if (p.path().stem() != stem)
-            continue;
-        if(ext.empty()) {
-            if(HasExtension(p.path(), ".3ds") || HasExtension(p.path(), ".glb"))
-                return p.path().string();
-        } else if(HasExtension(p.path(), ext)) {
+        const std::string candidateName = p.path().filename().string();
+        const std::string candidateStem = p.path().stem().string();
+        if(hasKnownModelExt) {
+            if (candidateStem != stem || !HasExtension(p.path(), ext))
+                continue;
             return p.path().string();
+        } else {
+            if ((candidateName == bareName + ".3ds") || (candidateName == bareName + ".glb"))
+                return p.path().string();
         }
     }
     return {};

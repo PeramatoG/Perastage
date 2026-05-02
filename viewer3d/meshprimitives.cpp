@@ -40,15 +40,6 @@ void AddVertex(Mesh& mesh, float x, float y, float z)
     mesh.vertices.push_back(y);
     mesh.vertices.push_back(z);
 }
-
-void TranslateMesh(Mesh& mesh, float tx, float ty, float tz)
-{
-    for (size_t i = 0; i + 2 < mesh.vertices.size(); i += 3) {
-        mesh.vertices[i] += tx;
-        mesh.vertices[i + 1] += ty;
-        mesh.vertices[i + 2] += tz;
-    }
-}
 }
 
 Mesh BuildCubeMesh(float sizeX, float sizeY, float sizeZ)
@@ -195,15 +186,9 @@ bool BuildPrimitiveMesh(const std::string& primitiveType, Mesh& outMesh)
         }
     };
 
-    if (type == "cube" ||
+    if (type == "cube" || type == "base" || type == "base1_1" ||
         type == "conventional" || type == "conventional1_1") {
         outMesh = BuildCubeMesh(1000.0f, 1000.0f, 1000.0f);
-        return true;
-    }
-
-    if (type == "base" || type == "base1_1") {
-        outMesh = BuildCubeMesh(1000.0f, 1000.0f, 1000.0f);
-        TranslateMesh(outMesh, 0.0f, 0.0f, -500.0f);
         return true;
     }
 
@@ -222,13 +207,7 @@ bool BuildPrimitiveMesh(const std::string& primitiveType, Mesh& outMesh)
         return true;
     }
 
-    if (type == "head") {
-        outMesh = BuildSphereMesh(500.0f);
-        TranslateMesh(outMesh, 0.0f, 0.0f, -500.0f);
-        return true;
-    }
-
-    if (type == "sphere") {
+    if (type == "sphere" || type == "head") {
         outMesh = BuildSphereMesh(500.0f);
         return true;
     }
