@@ -301,6 +301,7 @@ static std::string FindModelFile(const std::string& baseDir,
         return {};
 
     fs::path namePath = fileName;
+    const std::string originalName = namePath.filename().string();
     std::string stem = namePath.stem().string();
     std::string ext = ToLower(namePath.extension().string());
 
@@ -311,7 +312,9 @@ static std::string FindModelFile(const std::string& baseDir,
         return {};
     };
 
-    if(!ext.empty()) {
+    const bool extensionLooksLikeMesh = (ext == ".3ds" || ext == ".glb");
+
+    if (extensionLooksLikeMesh) {
         std::string res = tryExt(ext);
         if(!res.empty()) return res;
     } else {
@@ -319,6 +322,17 @@ static std::string FindModelFile(const std::string& baseDir,
         if(!res.empty()) return res;
         res = tryExt(".glb");
         if(!res.empty()) return res;
+
+        // Some exporters use dotted tokens (e.g. "primitivetype_base_1.1")
+        // that are not real file extensions. Retry using the full token as
+        // stem so we still resolve models/<ext>/<token>.<ext>.
+        if (!originalName.empty() && originalName != stem) {
+            stem = originalName;
+            res = tryExt(".3ds");
+            if(!res.empty()) return res;
+            res = tryExt(".glb");
+            if(!res.empty()) return res;
+        }
     }
 
     for (auto& p : fs::recursive_directory_iterator(modelsDir)) {
@@ -326,7 +340,7 @@ static std::string FindModelFile(const std::string& baseDir,
             continue;
         if (p.path().stem() != stem)
             continue;
-        if(ext.empty()) {
+        if(!extensionLooksLikeMesh) {
             if(HasExtension(p.path(), ".3ds") || HasExtension(p.path(), ".glb"))
                 return p.path().string();
         } else if(HasExtension(p.path(), ext)) {
