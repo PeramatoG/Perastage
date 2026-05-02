@@ -80,25 +80,11 @@ namespace MatrixUtils {
             values.push_back(v);
 
         if (values.size() == 16) {
-            // GDTF 4x4 matrix. Different producers serialize translation either
-            // in the fourth column or in the fourth row. Support both layouts.
+            // GDTF 4x4 matrix. Translation is stored in the fourth column
             outMatrix.u = std::array<float, 3>{ values[0], values[4], values[8] };
             outMatrix.v = std::array<float, 3>{ values[1], values[5], values[9] };
             outMatrix.w = std::array<float, 3>{ values[2], values[6], values[10] };
-
-            const bool hasColumnTranslation =
-                std::fabs(values[3]) > 1e-6f ||
-                std::fabs(values[7]) > 1e-6f ||
-                std::fabs(values[11]) > 1e-6f;
-            const bool hasRowTranslation =
-                std::fabs(values[12]) > 1e-6f ||
-                std::fabs(values[13]) > 1e-6f ||
-                std::fabs(values[14]) > 1e-6f;
-
-            if (hasColumnTranslation || !hasRowTranslation)
-                outMatrix.o = std::array<float, 3>{ values[3], values[7], values[11] };
-            else
-                outMatrix.o = std::array<float, 3>{ values[12], values[13], values[14] };
+            outMatrix.o = std::array<float, 3>{ values[3], values[7], values[11] };
             return true;
         } else if (values.size() == 12) {
             // MVR 4x3 matrix in column-major order

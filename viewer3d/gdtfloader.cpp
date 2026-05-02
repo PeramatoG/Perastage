@@ -213,8 +213,6 @@ struct MissingModelLog
 };
 
 static bool ExtractZip(const std::string& zipPath, const std::string& destDir);
-static void NormalizeWysiwygAxisGeometry(tinyxml2::XMLElement* fixtureType,
-                                         tinyxml2::XMLDocument& doc);
 
 static std::string ToLower(const std::string& s)
 {
@@ -233,6 +231,44 @@ static bool IsPrimitiveTypeDefined(const std::string& primitiveType)
     if (primitiveType.empty())
         return false;
     return ToLower(primitiveType) != "undefined";
+}
+
+static bool IsLikelyWysiwygExport(tinyxml2::XMLElement* fixtureType)
+{
+    if (!fixtureType)
+        return false;
+    if (tinyxml2::XMLElement* revisions = fixtureType->FirstChildElement("Revisions")) {
+        for (tinyxml2::XMLElement* revision = revisions->FirstChildElement("Revision");
+             revision; revision = revision->NextSiblingElement("Revision")) {
+            const char* text = revision->Attribute("Text");
+            if (text && ToLower(text).find("wysiwyg") != std::string::npos)
+                return true;
+        }
+    }
+    return false;
+}
+
+static void ApplyWysiwygModelOrientationCorrection(Mesh& mesh,
+                                                   const GdtfModelInfo& modelInfo)
+{
+    const std::string loweredFile = ToLower(modelInfo.file);
+    const std::string loweredPrimitive = ToLower(modelInfo.primitiveType);
+    const bool isYokeLike =
+        loweredFile.find("yoke") != std::string::npos ||
+        loweredPrimitive == "yoke";
+    if (!isYokeLike)
+        return;
+
+    // Wysiwyg exports can encode the yoke with inverted facing compared to
+    // the rest of the GDTF hierarchy. Rotate 180° around Z to align it.
+    for (size_t i = 0; i + 2 < mesh.vertices.size(); i += 3) {
+        mesh.vertices[i] = -mesh.vertices[i];
+        mesh.vertices[i + 1] = -mesh.vertices[i + 1];
+    }
+    for (size_t i = 0; i + 2 < mesh.normals.size(); i += 3) {
+        mesh.normals[i] = -mesh.normals[i];
+        mesh.normals[i + 1] = -mesh.normals[i + 1];
+    }
 }
 
 static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
@@ -278,20 +314,17 @@ static std::string FindModelFile(const std::string& baseDir,
         return {};
 
     fs::path namePath = fileName;
-    std::string originalName = namePath.filename().string();
     std::string stem = namePath.stem().string();
     std::string ext = ToLower(namePath.extension().string());
-    const bool hasKnownModelExt = ext == ".3ds" || ext == ".glb";
-    const std::string bareName = hasKnownModelExt ? stem : originalName;
 
     auto tryExt = [&](const std::string& e) -> std::string {
-        fs::path d = modelsDir / e.substr(1) / (bareName + e);
+        fs::path d = modelsDir / e.substr(1) / (stem + e);
         if(fs::exists(d))
             return d.string();
         return {};
     };
 
-    if(hasKnownModelExt) {
+    if(!ext.empty()) {
         std::string res = tryExt(ext);
         if(!res.empty()) return res;
     } else {
@@ -304,15 +337,13 @@ static std::string FindModelFile(const std::string& baseDir,
     for (auto& p : fs::recursive_directory_iterator(modelsDir)) {
         if (!p.is_regular_file())
             continue;
-        const std::string candidateName = p.path().filename().string();
-        const std::string candidateStem = p.path().stem().string();
-        if(hasKnownModelExt) {
-            if (candidateStem != stem || !HasExtension(p.path(), ext))
-                continue;
-            return p.path().string();
-        } else {
-            if ((candidateName == bareName + ".3ds") || (candidateName == bareName + ".glb"))
+        if (p.path().stem() != stem)
+            continue;
+        if(ext.empty()) {
+            if(HasExtension(p.path(), ".3ds") || HasExtension(p.path(), ".glb"))
                 return p.path().string();
+        } else if(HasExtension(p.path(), ext)) {
+            return p.path().string();
         }
     }
     return {};
@@ -326,105 +357,6 @@ static std::string CreateTempDir()
     fs::path full = base / folderName;
     fs::create_directory(full);
     return full.string();
-}
-
-static bool IsLikelyWysiwygExport(tinyxml2::XMLElement* fixtureType)
-{
-    if (!fixtureType)
-        return false;
-    if (tinyxml2::XMLElement* revisions = fixtureType->FirstChildElement("Revisions")) {
-        for (tinyxml2::XMLElement* revision = revisions->FirstChildElement("Revision");
-             revision; revision = revision->NextSiblingElement("Revision")) {
-            const char* text = revision->Attribute("Text");
-            if (text && ToLower(text).find("wysiwyg") != std::string::npos)
-                return true;
-        }
-    }
-    return false;
-}
-
-static void SetPureTranslationMatrix(tinyxml2::XMLElement* node, float zMeters)
-{
-    if (!node)
-        return;
-    const wxString matrix = wxString::Format(
-        "{1.000000,0.000000,0.000000,0.000000}"
-        "{0.000000,1.000000,0.000000,0.000000}"
-        "{0.000000,0.000000,1.000000,%.6f}"
-        "{0,0,0,1}",
-        zMeters);
-    node->SetAttribute("Position", matrix.ToStdString().c_str());
-}
-
-static void NormalizeWysiwygAxisGeometry(tinyxml2::XMLElement* fixtureType,
-                                         tinyxml2::XMLDocument& doc)
-{
-    if (!IsLikelyWysiwygExport(fixtureType))
-        return;
-    tinyxml2::XMLElement* geometries = fixtureType->FirstChildElement("Geometries");
-    tinyxml2::XMLElement* models = fixtureType->FirstChildElement("Models");
-    if (!geometries || !models)
-        return;
-
-    std::unordered_map<std::string, float> modelHeights;
-    for (tinyxml2::XMLElement* model = models->FirstChildElement("Model");
-         model; model = model->NextSiblingElement("Model")) {
-        const char* name = model->Attribute("Name");
-        if (!name)
-            continue;
-        float height = 0.0f;
-        model->QueryFloatAttribute("Height", &height);
-        modelHeights[name] = height;
-    }
-
-    tinyxml2::XMLElement* base = geometries->FirstChildElement("Geometry");
-    if (!base)
-        return;
-
-    auto ensureGeometryTag = [&](tinyxml2::XMLElement* axisNode) -> tinyxml2::XMLElement* {
-        if (!axisNode || std::string(axisNode->Name()) != "Axis")
-            return axisNode;
-        tinyxml2::XMLElement* replacement = doc.NewElement("Geometry");
-        for (const tinyxml2::XMLAttribute* a = axisNode->FirstAttribute(); a; a = a->Next())
-            replacement->SetAttribute(a->Name(), a->Value());
-        while (tinyxml2::XMLNode* child = axisNode->FirstChild())
-            replacement->InsertEndChild(child);
-        axisNode->Parent()->InsertAfterChild(axisNode, replacement);
-        axisNode->Parent()->DeleteChild(axisNode);
-        return replacement;
-    };
-
-    const char* baseModel = base->Attribute("Model");
-    const float baseHeight = baseModel ? modelHeights[baseModel] : 0.0f;
-    for (tinyxml2::XMLElement* child = base->FirstChildElement(); child;) {
-        tinyxml2::XMLElement* nextChild = child->NextSiblingElement();
-        tinyxml2::XMLElement* yoke = ensureGeometryTag(child);
-        if (!yoke)
-        {
-            child = nextChild;
-            continue;
-        }
-        const char* yokeModel = yoke->Attribute("Model");
-        const float yokeHeight = yokeModel ? modelHeights[yokeModel] : 0.0f;
-        if (yokeHeight > 0.0f && baseHeight > 0.0f)
-            SetPureTranslationMatrix(yoke, -0.5f * (baseHeight + yokeHeight));
-
-        for (tinyxml2::XMLElement* yokeChild = yoke->FirstChildElement(); yokeChild;) {
-            tinyxml2::XMLElement* nextYokeChild = yokeChild->NextSiblingElement();
-            tinyxml2::XMLElement* head = ensureGeometryTag(yokeChild);
-            if (!head)
-            {
-                yokeChild = nextYokeChild;
-                continue;
-            }
-            const char* headModel = head->Attribute("Model");
-            const float headHeight = headModel ? modelHeights[headModel] : 0.0f;
-            if (headHeight > 0.0f && yokeHeight > 0.0f)
-                SetPureTranslationMatrix(head, -0.5f * (yokeHeight + headHeight));
-            yokeChild = nextYokeChild;
-        }
-        child = nextChild;
-    }
 }
 
 struct TempExtraction
@@ -1233,7 +1165,6 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
         g_gdtfFailureReasons[stableKey] = failureReason ? *failureReason : "unknown error";
         return nullptr;
     }
-    NormalizeWysiwygAxisGeometry(entry.fixtureType, *entry.doc);
 
     entry.fixtureName = GetFixtureNameFromXml(entry.fixtureType);
     ParseModes(entry.fixtureType, entry.modes, entry.modeChannels, entry.modeChannelCounts);
@@ -1258,6 +1189,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                           std::unordered_set<std::string>* missingModels,
                           std::unordered_set<std::string>* failedModelLoads,
                           int parentNodeIndex,
+                          bool applyWysiwygCorrections,
                           const char* overrideModel = nullptr,
                           bool parentIsLens = false)
 {
@@ -1298,6 +1230,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                 const char* m = node->Attribute("Model");
                 ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache,
                               outTree, missingModels, failedModelLoads, parentNodeIndex,
+                              applyWysiwygCorrections,
                               m ? m : overrideModel, parentIsLens);
             }
         }
@@ -1342,6 +1275,8 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                                 loaded = LoadGLB(path, mesh);
 
                             if (loaded) {
+                                if (applyWysiwygCorrections)
+                                    ApplyWysiwygModelOrientationCorrection(mesh, modelInfo);
                                 ApplyModelDimensions(mesh, modelInfo);
                                 mit = meshCache.emplace(path, std::move(mesh)).first;
                             } else {
@@ -1396,7 +1331,8 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
         std::string n = child->Name();
         if (kGeometryNodeTypes.find(n) != kGeometryNodeTypes.end() || n.rfind("Filter",0)==0) {
             ParseGeometry(child, transform, models, baseDir, geomMap, meshCache, outTree,
-                          missingModels, failedModelLoads, currentNodeIndex, nullptr,
+                          missingModels, failedModelLoads, currentNodeIndex,
+                          applyWysiwygCorrections, nullptr,
                           isLensGeometry);
         }
     }
@@ -1459,6 +1395,7 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
     std::unordered_set<std::string>* missingModels = &entry->missingModelsLogged;
     std::unordered_set<std::string>* failedModelLoads = &entry->failedModelLoads;
 
+    const bool applyWysiwygCorrections = IsLikelyWysiwygExport(ft);
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
         std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g;
@@ -1470,7 +1407,7 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
              g = g->NextSiblingElement()) {
             ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir,
                           geomMap, meshCache, outTree, missingModels, failedModelLoads,
-                          -1, nullptr, false);
+                          -1, applyWysiwygCorrections, nullptr, false);
         }
     }
 
@@ -1561,6 +1498,7 @@ bool LoadGdtf(const std::string& gdtfPath,
     std::unordered_set<std::string>* missingModels = &entry->missingModelsLogged;
     std::unordered_set<std::string>* failedModelLoads = &entry->failedModelLoads;
     GdtfGeometryTree geometryTree;
+    const bool applyWysiwygCorrections = IsLikelyWysiwygExport(ft);
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
         std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
@@ -1569,7 +1507,8 @@ bool LoadGdtf(const std::string& gdtfPath,
         }
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
             ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap,
-                          meshCache, geometryTree, missingModels, failedModelLoads, -1);
+                          meshCache, geometryTree, missingModels, failedModelLoads, -1,
+                          applyWysiwygCorrections);
         }
     }
 

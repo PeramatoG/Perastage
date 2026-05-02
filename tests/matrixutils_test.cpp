@@ -11,21 +11,6 @@ int main() {
   {
     Matrix m;
     const std::string text =
-        "{1,0,0,0}{0,1,0,0}{0,0,1,0}{0.5,-0.25,1.75,1}";
-    if (!MatrixUtils::ParseMatrix(text, m)) {
-      std::cerr << "ParseMatrix rejected 4x4 row-translation input\n";
-      return 1;
-    }
-
-    if (!Near(m.o[0], 0.5f) || !Near(m.o[1], -0.25f) || !Near(m.o[2], 1.75f)) {
-      std::cerr << "ParseMatrix row-translation values mismatch\n";
-      return 1;
-    }
-  }
-
-  {
-    Matrix m;
-    const std::string text =
         "{0.035,0,8.53590478e-08}{0,0.035,0}{-8.53590478e-08,0,0.035}{1000,-2000,3000}";
     if (!MatrixUtils::ParseMatrix(text, m)) {
       std::cerr << "ParseMatrix rejected scientific notation input\n";
