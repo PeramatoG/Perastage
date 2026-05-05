@@ -68,6 +68,14 @@ static bool IsIdentityBasis(const MeshTransform3ds& transform)
            almostEqual(transform.zAxis[2], 1.0f);
 }
 
+static bool IsZeroVector(const std::array<float, 3>& vector)
+{
+    constexpr float kEpsilon = 1e-5f;
+    return std::abs(vector[0]) <= kEpsilon &&
+           std::abs(vector[1]) <= kEpsilon &&
+           std::abs(vector[2]) <= kEpsilon;
+}
+
 static bool EnsureImageHandlersInitialized()
 {
     static bool imageHandlersInitialized = false;
@@ -373,7 +381,8 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
     }
 
     const bool shouldApplyLocalBasis = hasLocalTransform && !IsIdentityBasis(localTransform);
-    if (objectVertexCount > 0 && (shouldApplyLocalBasis || hasPivot)) {
+    const bool hasOriginTranslation = hasLocalTransform && !IsZeroVector(localTransform.origin);
+    if (objectVertexCount > 0 && (shouldApplyLocalBasis || hasOriginTranslation || hasPivot)) {
         for (size_t i = 0; i < objectVertexCount; ++i) {
             const size_t index = (objectVertexStart + i) * 3;
             float x = mesh.vertices[index];
@@ -402,6 +411,10 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
                 mesh.vertices[index] = tx;
                 mesh.vertices[index + 1] = ty;
                 mesh.vertices[index + 2] = tz;
+            } else if (hasOriginTranslation) {
+                mesh.vertices[index] = x + localTransform.origin[0];
+                mesh.vertices[index + 1] = y + localTransform.origin[1];
+                mesh.vertices[index + 2] = z + localTransform.origin[2];
             } else {
                 mesh.vertices[index] = x;
                 mesh.vertices[index + 1] = y;
