@@ -6,7 +6,11 @@ This document covers baseline and advanced build behavior for Perastage. It is t
 
 - CMake 3.21 or newer.
 - C++20-capable compiler/toolchain.
-- Required libraries include wxWidgets, tinyxml2, OpenGL/GLU, GLEW, CURL, nanovg, and PoDoFo.
+- Required libraries include wxWidgets, tinyxml2, OpenGL/GLU, GLEW, CURL, nanovg, PoDoFo, and meshoptimizer.
+
+### Dependency note for vcpkg users
+
+If you install dependencies with vcpkg (classic mode), make sure `meshoptimizer` is included in the package list together with the existing Perastage dependencies.
 
 ## Quick Build (All Platforms)
 
