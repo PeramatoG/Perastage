@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 // Convert a 1-based universe and channel into the MVR absolute DMX address.
 int ComputeAbsoluteDmx(int universe1Based, int address1Based);
@@ -28,4 +29,6 @@ class MvrExporter
 public:
     // Serialize the scene and write a .mvr archive at the given path
     bool ExportToFile(const std::string& filePath);
+    // Serialize the scene into an in-memory .mvr archive buffer.
+    bool ExportToBuffer(std::vector<uint8_t>& outputBuffer);
 };
