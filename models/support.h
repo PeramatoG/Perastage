@@ -20,7 +20,8 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
-#include <charconv>
+#include <cerrno>
+#include <cstdlib>
 #include <optional>
 #include <string>
 
@@ -73,6 +74,23 @@ inline const std::array<std::string, 5> &GetHoistFunctionOptions() {
     return options;
 }
 
+// Parses a full string as a double using std::strtod and rejects partial parses.
+inline bool TryParseFullDouble(const std::string &text, double &outValue) {
+    if (text.empty())
+        return false;
+
+    errno = 0;
+    char *endPtr = nullptr;
+    const double parsed = std::strtod(text.c_str(), &endPtr);
+    if (endPtr != text.c_str() + text.size())
+        return false;
+    if (errno == ERANGE)
+        return false;
+    outValue = parsed;
+    return true;
+}
+
+// Normalizes hoist function values to canonical options while preserving unknown text.
 inline std::string NormalizeHoistFunction(const std::string &rawValue) {
     auto trimmed = rawValue;
     auto trimSpaces = [](std::string &s) {
@@ -86,10 +104,7 @@ inline std::string NormalizeHoistFunction(const std::string &rawValue) {
         return "Lighting";
 
     double parsed = 0.0;
-    auto begin = trimmed.data();
-    auto end = trimmed.data() + trimmed.size();
-    auto result = std::from_chars(begin, end, parsed);
-    if (result.ec == std::errc{} && result.ptr == end) {
+    if (TryParseFullDouble(trimmed, parsed)) {
         if (parsed == 0.0)
             return "Lighting";
     }

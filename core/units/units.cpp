@@ -1,9 +1,10 @@
 #include "units.h"
 
 #include <algorithm>
-#include <charconv>
+#include <cerrno>
 #include <cmath>
 #include <cctype>
+#include <cstdlib>
 #include <iomanip>
 #include <sstream>
 
@@ -53,16 +54,16 @@ std::string ToLower(std::string value) {
   return value;
 }
 
+// Parses a fully-consumed double value from a trimmed string using std::strtod.
 std::optional<double> ParseDouble(const std::string &rawValue) {
   const std::string trimmed = Trim(rawValue);
   if (trimmed.empty())
     return std::nullopt;
 
-  double value = 0.0;
-  const char *start = trimmed.data();
-  const char *finish = trimmed.data() + trimmed.size();
-  const auto result = std::from_chars(start, finish, value);
-  if (result.ec != std::errc() || result.ptr != finish)
+  errno = 0;
+  char *endPtr = nullptr;
+  const double value = std::strtod(trimmed.c_str(), &endPtr);
+  if (endPtr != trimmed.c_str() + trimmed.size() || errno == ERANGE)
     return std::nullopt;
   return value;
 }

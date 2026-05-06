@@ -24,7 +24,9 @@
 #include "consolepanel.h"
 
 #include <cctype>
+#include <cerrno>
 #include <charconv>
+#include <cstdlib>
 #include <string_view>
 #include <tinyxml2.h>
 #include <wx/wx.h>
@@ -52,6 +54,7 @@ class wxZipStreamLink;
 namespace fs = std::filesystem;
 
 namespace {
+// Parses a trimmed float token and succeeds only when the whole token is numeric.
 bool TryParseFloat(const std::string& text, float& out)
 {
     if (text.empty())
@@ -67,12 +70,12 @@ bool TryParseFloat(const std::string& text, float& out)
     }).base();
     std::string_view trimmed(&(*first), static_cast<size_t>(last - first));
 
-    float value = 0.0f;
-    auto begin = trimmed.data();
-    auto end = trimmed.data() + trimmed.size();
-    auto result = std::from_chars(begin, end, value);
-    if (result.ec == std::errc{} && result.ptr == end) {
-        out = value;
+    errno = 0;
+    std::string trimmedText(trimmed);
+    char* endPtr = nullptr;
+    const double parsed = std::strtod(trimmedText.c_str(), &endPtr);
+    if (endPtr == trimmedText.c_str() + trimmedText.size() && errno != ERANGE) {
+        out = static_cast<float>(parsed);
         return true;
     }
     return false;

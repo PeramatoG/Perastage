@@ -19,9 +19,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <cctype>
 #include <charconv>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -370,6 +372,7 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
     fixture.categorySourceReason.clear();
 }
 
+// Parses a trimmed float token and accepts only full-token numeric input.
 bool TryParseFloat(const std::string &text, float &out) {
   if (text.empty())
     return false;
@@ -386,12 +389,12 @@ bool TryParseFloat(const std::string &text, float &out) {
       }).base();
   std::string_view trimmed(&(*first), static_cast<size_t>(last - first));
 
-  float value = 0.0f;
-  auto begin = trimmed.data();
-  auto end = trimmed.data() + trimmed.size();
-  auto result = std::from_chars(begin, end, value);
-  if (result.ec == std::errc{} && result.ptr == end) {
-    out = value;
+  errno = 0;
+  std::string trimmedText(trimmed);
+  char *endPtr = nullptr;
+  const double parsed = std::strtod(trimmedText.c_str(), &endPtr);
+  if (endPtr == trimmedText.c_str() + trimmedText.size() && errno != ERANGE) {
+    out = static_cast<float>(parsed);
     return true;
   }
   return false;

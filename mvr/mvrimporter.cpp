@@ -48,7 +48,9 @@
 #include <array>
 #include <atomic>
 #include <cctype>
+#include <cerrno>
 #include <charconv>
+#include <cstdlib>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -261,6 +263,7 @@ static bool IsPathLikelyTooLong(const fs::path &path) {
 #endif
 }
 
+// Parses a trimmed float token and accepts only full-token numeric input.
 static bool TryParseFloat(const std::string &text, float &out) {
   if (text.empty())
     return false;
@@ -277,12 +280,12 @@ static bool TryParseFloat(const std::string &text, float &out) {
       }).base();
   std::string_view trimmed(&(*first), static_cast<size_t>(last - first));
 
-  float value = 0.0f;
-  auto begin = trimmed.data();
-  auto end = trimmed.data() + trimmed.size();
-  auto result = std::from_chars(begin, end, value);
-  if (result.ec == std::errc{} && result.ptr == end) {
-    out = value;
+  errno = 0;
+  std::string trimmedText(trimmed);
+  char *endPtr = nullptr;
+  const double parsed = std::strtod(trimmedText.c_str(), &endPtr);
+  if (endPtr == trimmedText.c_str() + trimmedText.size() && errno != ERANGE) {
+    out = static_cast<float>(parsed);
     return true;
   }
   return false;
