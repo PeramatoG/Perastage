@@ -27,7 +27,6 @@
 #include <windows.h>
 #endif
 
-#include <GL/glew.h>
 #ifdef __APPLE__
 #  include <OpenGL/gl.h>
 #  include <OpenGL/glu.h>
@@ -51,7 +50,7 @@ struct QuadVertex {
   float v;
 };
 
-// Draws one quad using a VBO/VAO path with a compatibility fallback to immediate mode.
+// Draws one quad using a vertex-array draw call path with a compatibility fallback to immediate mode.
 void DrawQuadWithCompatibilityPath(const QuadVertex (&vertices)[4],
                                    bool textured) {
   if (!ui::IsFeatureEnabled(ui::FeatureFlag::LayoutQuadVboPath)) {
@@ -65,13 +64,6 @@ void DrawQuadWithCompatibilityPath(const QuadVertex (&vertices)[4],
     return;
   }
 
-  GLuint vao = 0;
-  GLuint vbo = 0;
-  glGenVertexArrays(1, &vao);
-  glGenBuffers(1, &vbo);
-  glBindVertexArray(vao);
-  glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
   glEnableClientState(GL_VERTEX_ARRAY);
   glVertexPointer(2, GL_FLOAT, sizeof(QuadVertex),
                   reinterpret_cast<const void *>(offsetof(QuadVertex, x)));
@@ -84,10 +76,6 @@ void DrawQuadWithCompatibilityPath(const QuadVertex (&vertices)[4],
   if (textured)
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
   glDisableClientState(GL_VERTEX_ARRAY);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
-  glDeleteBuffers(1, &vbo);
-  glDeleteVertexArrays(1, &vao);
 }
 } // namespace
 
