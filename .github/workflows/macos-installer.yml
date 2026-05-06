@@ -98,7 +98,7 @@ jobs:
       # ── 8. Build project ────────────────────────────────────────────────────
       - name: Build project
         run: |
-          cmake --build build --config Release --parallel
+          cmake --build build --config Release --parallel 2 --verbose
 
       # ── 9. Stage distribution folder ────────────────────────────────────────
       - name: Stage distribution folder
