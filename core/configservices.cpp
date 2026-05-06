@@ -13,6 +13,7 @@
 #include <memory>
 #include <sstream>
 #include <string_view>
+#include <iterator>
 
 #include <wx/stdpaths.h>
 #include <wx/wfstream.h>
@@ -328,14 +329,20 @@ bool UserPreferencesStore::LoadFromFile(const std::string &path) {
   return true;
 }
 
+// Saves the current preference key-value map to a JSON file on disk.
 bool UserPreferencesStore::SaveToFile(const std::string &path) const {
   std::ofstream file(PathFromUtf8(path), std::ios::binary);
   if (!file.is_open())
     return false;
 
+  return SaveToStream(file);
+}
+
+// Serializes the current preference key-value map as pretty JSON into a stream.
+bool UserPreferencesStore::SaveToStream(std::ostream &out) const {
   nlohmann::json j(configData);
-  file << j.dump(4);
-  return true;
+  out << j.dump(4);
+  return out.good();
 }
 
 std::string UserPreferencesStore::GetUserConfigFile() {
@@ -559,6 +566,71 @@ MvrScene &ProjectSession::GetScene() { return scene; }
 
 const MvrScene &ProjectSession::GetScene() const { return scene; }
 
+// Saves a project package by serializing config and scene directly into ZIP entries.
+bool ProjectSession::SaveProject(
+    const std::string &path, const SaveConfigToStreamFn &saveConfigToStream,
+    const SaveSceneToBufferFn &saveSceneToBuffer) const {
+  if (!saveConfigToStream || !saveSceneToBuffer)
+    return false;
+
+  const auto stageStart = std::chrono::steady_clock::now();
+  wxFileOutputStream out(WxStringFromPath(PathFromUtf8(path)));
+  if (!out.IsOk())
+    return false;
+  wxZipOutputStream zip(out);
+
+  const auto configStart = std::chrono::steady_clock::now();
+  auto *configEntry = new wxZipEntry("config.json");
+  configEntry->SetMethod(wxZIP_METHOD_DEFLATE);
+  if (!zip.PutNextEntry(configEntry))
+    return false;
+  wxStdOutputStream configOut(zip);
+  if (!saveConfigToStream(configOut)) {
+    zip.CloseEntry();
+    return false;
+  }
+  if (!zip.CloseEntry())
+    return false;
+  const auto configEnd = std::chrono::steady_clock::now();
+
+  const auto sceneStart = std::chrono::steady_clock::now();
+  std::vector<uint8_t> sceneBytes;
+  if (!saveSceneToBuffer(sceneBytes))
+    return false;
+  auto *sceneEntry = new wxZipEntry("scene.mvr");
+  sceneEntry->SetMethod(wxZIP_METHOD_DEFLATE);
+  if (!zip.PutNextEntry(sceneEntry))
+    return false;
+  if (!sceneBytes.empty()) {
+    zip.Write(sceneBytes.data(), sceneBytes.size());
+    if (!zip.IsOk()) {
+      zip.CloseEntry();
+      return false;
+    }
+  }
+  if (!zip.CloseEntry())
+    return false;
+  const auto sceneEnd = std::chrono::steady_clock::now();
+
+  const auto finalizeStart = std::chrono::steady_clock::now();
+  if (!zip.Close())
+    return false;
+  const auto finalizeEnd = std::chrono::steady_clock::now();
+
+  auto elapsedMs = [](const auto &start, const auto &end) {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+        .count();
+  };
+  std::cout << "ProjectSession::SaveProject timings [ms] config="
+            << elapsedMs(configStart, configEnd)
+            << ", scene=" << elapsedMs(sceneStart, sceneEnd)
+            << ", finalize=" << elapsedMs(finalizeStart, finalizeEnd)
+            << ", total=" << elapsedMs(stageStart, finalizeEnd) << std::endl;
+
+  return true;
+}
+
+// Saves a project package using legacy file-path callbacks for backward compatibility.
 bool ProjectSession::SaveProject(const std::string &path,
                                  const SaveConfigFn &saveConfig,
                                  const SaveSceneFn &saveScene) const {
@@ -569,35 +641,27 @@ bool ProjectSession::SaveProject(const std::string &path,
   if (!tempDir.Valid())
     return false;
 
-  fs::path configPath = tempDir.Path() / "config.json";
-  fs::path scenePath = tempDir.Path() / "scene.mvr";
-  if (!saveConfig(configPath.string()) || !saveScene(scenePath.string()))
-    return false;
-
-  wxFileOutputStream out(WxStringFromPath(PathFromUtf8(path)));
-  if (!out.IsOk())
-    return false;
-  wxZipOutputStream zip(out);
-
-  auto addFile = [&](const fs::path &source, const std::string &entryName) {
-    auto *entry = new wxZipEntry(entryName);
-    entry->SetMethod(wxZIP_METHOD_DEFLATE);
-    zip.PutNextEntry(entry);
-    std::ifstream in(source, std::ios::binary);
-    char buf[4096];
-    while (in.good()) {
-      in.read(buf, sizeof(buf));
-      std::streamsize s = in.gcount();
-      if (s > 0)
-        zip.Write(buf, s);
-    }
-    zip.CloseEntry();
-  };
-
-  addFile(configPath, "config.json");
-  addFile(scenePath, "scene.mvr");
-  zip.Close();
-  return true;
+  return SaveProject(
+      path,
+      [&](std::ostream &out) {
+        const fs::path configPath = tempDir.Path() / "config.json";
+        if (!saveConfig(configPath.string()))
+          return false;
+        std::ifstream in(configPath, std::ios::binary);
+        out << in.rdbuf();
+        return in.good() || in.eof();
+      },
+      [&](std::vector<uint8_t> &out) {
+        const fs::path scenePath = tempDir.Path() / "scene.mvr";
+        if (!saveScene(scenePath.string()))
+          return false;
+        std::ifstream in(scenePath, std::ios::binary);
+        if (!in.is_open())
+          return false;
+        out.assign(std::istreambuf_iterator<char>(in),
+                   std::istreambuf_iterator<char>());
+        return in.good() || in.eof();
+      });
 }
 
 bool ProjectSession::LoadProject(const std::string &path,
