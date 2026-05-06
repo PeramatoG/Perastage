@@ -778,6 +778,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     return;
   }
 
+  MaybePrewarmOnLayoutModeEntry(previousLayout);
   captureInProgress = false;
   ClearCachedTexture();
   const bool emptyLayout = IsLayoutEmpty();
@@ -806,6 +807,82 @@ void LayoutViewerPanel::SetLayoutDefinition(
   ResetViewToFit();
   RequestRenderRebuild();
   Refresh();
+}
+
+// Prewarms reusable legend symbols and view render states when switching into a new layout context.
+void LayoutViewerPanel::MaybePrewarmOnLayoutModeEntry(const layouts::LayoutDefinition &previousLayout) {
+  if (currentLayout.name.empty())
+    return;
+  const bool likelyModeEntryFrom2Dor3D =
+      previousLayout.name.empty() || previousLayout.name != currentLayout.name;
+  if (!likelyModeEntryFrom2Dor3D)
+    return;
+
+  const std::string prewarmKey =
+      currentLayout.name + "#" + std::to_string(layoutVersion);
+  PrewarmedLayoutArtifacts artifacts;
+  artifacts.layoutVersion = layoutVersion;
+  artifacts.contentHash = BuildLayoutPrewarmContentHash();
+  for (const auto &view : currentLayout.view2dViews) {
+    viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(view);
+    state.renderOptions.darkMode = false;
+    artifacts.viewRenderStates.emplace(view.id, std::move(state));
+  }
+
+  Viewer2DPanel *capturePanel = nullptr;
+  if (auto *mw = MainWindow::Instance()) {
+    if (auto *offscreenRenderer = mw->GetOffscreenRenderer())
+      capturePanel = offscreenRenderer->GetPanel();
+  }
+  if (!capturePanel)
+    capturePanel = Viewer2DPanel::Instance();
+  if (capturePanel) {
+    ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+    artifacts.legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
+  }
+
+  prewarmedArtifactsByLayout_[prewarmKey] = std::move(artifacts);
+  ApplyPrewarmedArtifactsIfAvailable();
+}
+
+// Applies prewarmed artifacts to current caches when layout identity and content hash still match.
+void LayoutViewerPanel::ApplyPrewarmedArtifactsIfAvailable() {
+  const std::string prewarmKey =
+      currentLayout.name + "#" + std::to_string(layoutVersion);
+  auto it = prewarmedArtifactsByLayout_.find(prewarmKey);
+  if (it == prewarmedArtifactsByLayout_.end())
+    return;
+  const PrewarmedLayoutArtifacts &artifacts = it->second;
+  if (artifacts.layoutVersion != layoutVersion ||
+      artifacts.contentHash != BuildLayoutPrewarmContentHash()) {
+    prewarmedArtifactsByLayout_.erase(it);
+    return;
+  }
+
+  for (const auto &view : currentLayout.view2dViews) {
+    auto stateIt = artifacts.viewRenderStates.find(view.id);
+    if (stateIt == artifacts.viewRenderStates.end())
+      continue;
+    ViewCache &cache = GetViewCache(view.id);
+    cache.renderState = stateIt->second;
+    cache.hasRenderState = true;
+  }
+  if (artifacts.legendSymbols) {
+    for (const auto &legend : currentLayout.legendViews) {
+      LegendCache &cache = GetLegendCache(legend.id);
+      cache.symbols = artifacts.legendSymbols;
+      cache.renderDirty = true;
+    }
+  }
+}
+
+// Builds a stable invalidation hash used to discard prewarm entries after layout name/content/version changes.
+size_t LayoutViewerPanel::BuildLayoutPrewarmContentHash() const {
+  size_t seed = std::hash<std::string>{}(currentLayout.name);
+  const size_t sceneHash = ComputeSceneContentHash();
+  seed ^= sceneHash + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+  seed ^= std::hash<int>{}(layoutVersion) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+  return seed;
 }
 
 void LayoutViewerPanel::NotifyRenderReady() {
