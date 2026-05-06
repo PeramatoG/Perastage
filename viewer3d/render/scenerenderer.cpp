@@ -1144,8 +1144,9 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
 // Draw the 2D reference grid using the configured world-space span and style.
 void SceneRenderer::DrawGrid(int style, float r, float g, float b,
                              Viewer2DView view) {
-  const float size = std::max(1.0f, ConfigManager::Get().GetFloat("grid_size_m"));
-  const float step = 1.0f;
+  const float step = std::max(0.01f, ConfigManager::Get().GetFloat("grid_spacing_m"));
+  const float halfCellCount = 300.0f;
+  const float size = step * halfCellCount;
 
   const LineRenderProfile profile =
       GetLineRenderProfile(m_controller.IsInteracting(), true,

@@ -131,7 +131,7 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
                                       {"gridColorG", options.gridColorG},
                                       {"gridColorB", options.gridColorB},
                                       {"gridDrawAbove", options.gridDrawAbove},
-                                      {"gridSizeMeters", options.gridSizeMeters},
+                                      {"gridSpacingMeters", options.gridSpacingMeters},
                                       {"showRuler", options.showRuler},
                                       {"rulerColorR", options.rulerColorR},
                                       {"rulerColorG", options.rulerColorG},
@@ -332,9 +332,13 @@ void ReadRenderOptions(const nlohmann::json &obj,
                                     "renderOptions.gridColorB");
   if (auto it = obj.find("gridDrawAbove"); it != obj.end() && it->is_boolean())
     options.gridDrawAbove = it->get<bool>();
-  if (auto it = obj.find("gridSizeMeters"); it != obj.end() && it->is_number())
-    options.gridSizeMeters = ClampValue(it->get<float>(), 1.0f, 10000.0f, ctx,
-                                        "renderOptions.gridSizeMeters");
+  if (auto it = obj.find("gridSpacingMeters"); it != obj.end() && it->is_number())
+    options.gridSpacingMeters = ClampValue(it->get<float>(), 0.01f, 1000.0f, ctx,
+                                           "renderOptions.gridSpacingMeters");
+  if (auto legacy = obj.find("gridSizeMeters");
+      legacy != obj.end() && legacy->is_number())
+    options.gridSpacingMeters = ClampValue(legacy->get<float>(), 0.01f, 1000.0f,
+                                           ctx, "renderOptions.gridSizeMeters");
   if (auto it = obj.find("showRuler"); it != obj.end() && it->is_boolean())
     options.showRuler = it->get<bool>();
   ReadFloatArray(obj, "rulerColorR", options.rulerColorR, kColorMin, kColorMax,
