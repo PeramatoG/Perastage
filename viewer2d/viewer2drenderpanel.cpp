@@ -895,6 +895,7 @@ void Viewer2DRenderPanel::OnTextChange(wxCommandEvent &evt) {
   evt.Skip();
 }
 
+// Commit typed numeric values when Enter is pressed and refresh the 2D view.
 void Viewer2DRenderPanel::OnTextEnter(wxCommandEvent &evt) {
   ConfigManager &cfg = ConfigManager::Get();
   if (evt.GetEventObject() == m_labelNameSize) {
@@ -947,11 +948,17 @@ void Viewer2DRenderPanel::OnTextEnter(wxCommandEvent &evt) {
     cfg.SetFloat("ruler_axis_y_position", CurrentSpinDoubleValue(m_rulerAxisYPosition));
   } else if (evt.GetEventObject() == m_rulerAxisZPosition) {
     cfg.SetFloat("ruler_axis_z_position", CurrentSpinDoubleValue(m_rulerAxisZPosition));
+  } else if (evt.GetEventObject() == m_gridSpacing) {
+    const auto unitSystem = ResolveDistanceUnitSystem(cfg);
+    const double gridSpacingMeters =
+        DisplayDistanceToMeters(CurrentSpinDoubleValue(m_gridSpacing), unitSystem);
+    cfg.SetFloat("grid_spacing_m", static_cast<float>(gridSpacingMeters));
   }
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   if (auto *mw = MainWindow::Instance())
     mw->EnableShortcuts(true);
+  SetFocus();
   evt.Skip();
 }
 
