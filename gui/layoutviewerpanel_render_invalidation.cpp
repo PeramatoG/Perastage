@@ -17,20 +17,24 @@
  */
 #include "layoutviewerpanel.h"
 
+#include <algorithm>
 #include <functional>
 
 #include "configmanager.h"
 #include "guiconfigservices.h"
 
 namespace {
+// Combines hash values into a single rolling seed.
 void HashCombine(size_t &seed, size_t value) {
   seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
+// Hashes a float value and merges it into a hash seed.
 void HashCombineFloat(size_t &seed, float value) {
   HashCombine(seed, std::hash<float>{}(value));
 }
 
+// Computes a deterministic hash for a Matrix transform value.
 size_t HashMatrixValue(const Matrix &matrix) {
   size_t hash = 0;
   HashCombineFloat(hash, matrix.u[0]);
@@ -48,6 +52,7 @@ size_t HashMatrixValue(const Matrix &matrix) {
   return hash;
 }
 
+// Computes a deterministic hash for a SceneObject payload.
 size_t HashSceneObjectValue(const SceneObject &object) {
   size_t hash = std::hash<std::string>{}(object.layer);
   HashCombine(hash, std::hash<std::string>{}(object.name));
@@ -61,6 +66,7 @@ size_t HashSceneObjectValue(const SceneObject &object) {
   return hash;
 }
 
+// Computes a deterministic hash for a Fixture payload.
 size_t HashFixtureValue(const Fixture &fixture) {
   size_t hash = std::hash<std::string>{}(fixture.layer);
   HashCombine(hash, std::hash<std::string>{}(fixture.instanceName));
@@ -72,6 +78,7 @@ size_t HashFixtureValue(const Fixture &fixture) {
   return hash;
 }
 
+// Computes a deterministic hash for a Truss payload.
 size_t HashTrussValue(const Truss &truss) {
   size_t hash = std::hash<std::string>{}(truss.layer);
   HashCombine(hash, std::hash<std::string>{}(truss.name));
@@ -81,6 +88,7 @@ size_t HashTrussValue(const Truss &truss) {
   return hash;
 }
 
+// Computes a deterministic hash for a Support payload.
 size_t HashSupportValue(const Support &support) {
   size_t hash = std::hash<std::string>{}(support.layer);
   HashCombine(hash, std::hash<std::string>{}(support.name));
@@ -89,6 +97,7 @@ size_t HashSupportValue(const Support &support) {
   return hash;
 }
 
+// Aggregates a stable hash for UUID-keyed scene maps.
 template <typename TMap, typename ValueHasher>
 size_t HashSceneMapWithValues(const TMap &items, ValueHasher hasher) {
   size_t aggregate = std::hash<size_t>{}(items.size());
@@ -99,8 +108,18 @@ size_t HashSceneMapWithValues(const TMap &items, ValueHasher hasher) {
   }
   return aggregate;
 }
+// Returns whether zoom delta is large enough to require raster regeneration.
+bool NeedsTextureRebuildForZoom(double previousZoom, double targetZoom) {
+  if (previousZoom <= 0.0 || targetZoom <= 0.0)
+    return true;
+  constexpr double kZoomRebuildThreshold = 1.15;
+  const double ratio = std::max(previousZoom, targetZoom) /
+                       std::min(previousZoom, targetZoom);
+  return ratio >= kZoomRebuildThreshold;
+}
 } // namespace
 
+// Computes a hash snapshot for scene entities used by layout rendering.
 size_t LayoutViewerPanel::ComputeSceneContentHash() const {
   const auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
   size_t hash = 0;
@@ -111,6 +130,7 @@ size_t LayoutViewerPanel::ComputeSceneContentHash() const {
   return hash;
 }
 
+// Computes a content hash for a 2D view definition.
 size_t LayoutViewerPanel::HashViewContent(
     const layouts::Layout2DViewDefinition &view) const {
   size_t seed = std::hash<int>{}(view.id);
@@ -162,6 +182,7 @@ size_t LayoutViewerPanel::HashViewContent(
   return seed;
 }
 
+// Marks content and presentation invalidation for cached frame resources.
 void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent) {
   const double renderZoom = GetRenderZoom();
   const double pageWidth = currentLayout.pageSetup.PageWidthPt();
@@ -187,11 +208,13 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
     const size_t contentHash = HashViewContent(view);
     if (cache.contentHash != 0 && cache.contentHash != contentHash) {
       markDirty(cache.renderDirty);
+      contentDirty = true;
     }
     if (sceneContentChanged) {
       cache.captureVersion = -1;
       cache.captureInProgress = false;
       markDirty(cache.renderDirty);
+      contentDirty = true;
     }
     wxRect frameRect;
     if (!GetFrameRect(view.frame, frameRect)) {
@@ -204,9 +227,12 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
       continue;
     }
     const wxSize renderSize = GetFrameSizeForZoom(view.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
+    if (renderSize != cache.textureSize ||
+        NeedsTextureRebuildForZoom(cache.renderZoom, renderZoom)) {
       markDirty(cache.renderDirty);
+      contentDirty = true;
+    } else if (cache.renderZoom != renderZoom) {
+      presentationDirty = true;
     }
   }
 
@@ -215,6 +241,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
     if (sceneContentChanged) {
       cache.symbols.reset();
       markDirty(cache.renderDirty);
+      contentDirty = true;
     }
     wxRect frameRect;
     if (!GetFrameRect(legend.frame, frameRect)) {
@@ -227,9 +254,12 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
       continue;
     }
     const wxSize renderSize = GetFrameSizeForZoom(legend.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
+    if (renderSize != cache.textureSize ||
+        NeedsTextureRebuildForZoom(cache.renderZoom, renderZoom)) {
       markDirty(cache.renderDirty);
+      contentDirty = true;
+    } else if (cache.renderZoom != renderZoom) {
+      presentationDirty = true;
     }
   }
 
@@ -246,9 +276,12 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
       continue;
     }
     const wxSize renderSize = GetFrameSizeForZoom(table.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
+    if (renderSize != cache.textureSize ||
+        NeedsTextureRebuildForZoom(cache.renderZoom, renderZoom)) {
       markDirty(cache.renderDirty);
+      contentDirty = true;
+    } else if (cache.renderZoom != renderZoom) {
+      presentationDirty = true;
     }
   }
 
@@ -265,9 +298,12 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
       continue;
     }
     const wxSize renderSize = GetFrameSizeForZoom(text.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
+    if (renderSize != cache.textureSize ||
+        NeedsTextureRebuildForZoom(cache.renderZoom, renderZoom)) {
       markDirty(cache.renderDirty);
+      contentDirty = true;
+    } else if (cache.renderZoom != renderZoom) {
+      presentationDirty = true;
     }
   }
 
@@ -284,15 +320,19 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
       continue;
     }
     const wxSize renderSize = GetFrameSizeForZoom(image.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
+    if (renderSize != cache.textureSize ||
+        NeedsTextureRebuildForZoom(cache.renderZoom, renderZoom)) {
       markDirty(cache.renderDirty);
+      contentDirty = true;
+    } else if (cache.renderZoom != renderZoom) {
+      presentationDirty = true;
     }
   }
 
-  if (zoomChanged || pageChanged || sceneContentChanged) {
-    renderDirty = true;
-  }
+  if (sceneContentChanged)
+    contentDirty = true;
+  if (zoomChanged || pageChanged)
+    presentationDirty = true;
   lastRenderZoom = renderZoom;
   lastPageWidthPt = pageWidth;
   lastPageHeightPt = pageHeight;
@@ -302,6 +342,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
   }
 }
 
+// Refreshes caches after scene data changes and schedules a full rebuild.
 void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
   legendDataDirty_ = true;
   RefreshLegendData();
@@ -320,15 +361,18 @@ void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
     entry.second.symbols.reset();
   }
 
-  renderDirty = true;
+  contentDirty = true;
+  presentationDirty = true;
   RequestRenderRebuild();
   Refresh();
 }
 
+// Triggers a light refresh for selection-only updates.
 void LayoutViewerPanel::RefreshAfterSelectionOnlyUpdate() {
   Refresh();
 }
 
+// Refreshes caches after fixture-symbol updates.
 void LayoutViewerPanel::RefreshAfterFixtureSymbolUpdate() {
   RefreshAfterSceneContentUpdate();
 }

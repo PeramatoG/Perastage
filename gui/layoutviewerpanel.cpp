@@ -648,7 +648,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
 
   if (sameLayoutName) {
     captureInProgress = false;
-    renderDirty = true;
+    contentDirty = true;
     loadingRequested = true;
     legendDataDirty_ = true;
     RefreshLegendData();
@@ -666,6 +666,8 @@ void LayoutViewerPanel::SetLayoutDefinition(
     selectedElementType = SelectedElementType::None;
     selectedElementId = -1;
     renderDirty = false;
+    contentDirty = false;
+    presentationDirty = false;
     loadingRequested = false;
     isLoading = false;
     legendItems_.clear();
@@ -677,7 +679,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     NotifyRenderReady();
     return;
   }
-  renderDirty = true;
+  contentDirty = true;
   loadingRequested = true;
   legendDataDirty_ = true;
   RefreshLegendData();
@@ -1823,7 +1825,7 @@ void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
   }
   layoutVersion++;
   InvalidateSelectionIndexCache();
-  renderDirty = true;
+  contentDirty = true;
   RequestRenderRebuild();
   Refresh();
 }
@@ -1914,7 +1916,7 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
   }
   layoutVersion++;
   InvalidateSelectionIndexCache();
-  renderDirty = true;
+  contentDirty = true;
   RequestRenderRebuild();
   Refresh();
 }
@@ -2084,7 +2086,8 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       isLoading = false;
     };
 
-    renderDirty = false;
+    contentDirty = false;
+    presentationDirty = false;
     StartRebuildTickBudget();
 
     bool needsLegendProcessing = false;
@@ -2551,7 +2554,7 @@ bool LayoutViewerPanel::HasDirtyRenderCaches() const {
 }
 
 bool LayoutViewerPanel::NeedsRenderRebuild() const {
-  return renderDirty || HasDirtyRenderCaches();
+  return renderDirty || contentDirty || HasDirtyRenderCaches();
 }
 
 void LayoutViewerPanel::RequestRenderRebuild() {
@@ -2851,7 +2854,7 @@ void LayoutViewerPanel::EmitViewSelectionChanged(int viewId) {
 LayoutViewerPanel::ViewCache &LayoutViewerPanel::GetViewCache(int viewId) {
   auto [it, inserted] = viewCaches_.try_emplace(viewId, ViewCache{});
   if (inserted) {
-    renderDirty = true;
+    contentDirty = true;
   }
   return it->second;
 }
@@ -2859,7 +2862,7 @@ LayoutViewerPanel::ViewCache &LayoutViewerPanel::GetViewCache(int viewId) {
 LayoutViewerPanel::LegendCache &LayoutViewerPanel::GetLegendCache(int legendId) {
   auto [it, inserted] = legendCaches_.try_emplace(legendId, LegendCache{});
   if (inserted) {
-    renderDirty = true;
+    contentDirty = true;
   }
   return it->second;
 }
@@ -2869,7 +2872,7 @@ LayoutViewerPanel::GetEventTableCache(int tableId) {
   auto [it, inserted] =
       eventTableCaches_.try_emplace(tableId, EventTableCache{});
   if (inserted) {
-    renderDirty = true;
+    contentDirty = true;
   }
   return it->second;
 }
@@ -2877,7 +2880,7 @@ LayoutViewerPanel::GetEventTableCache(int tableId) {
 LayoutViewerPanel::TextCache &LayoutViewerPanel::GetTextCache(int textId) {
   auto [it, inserted] = textCaches_.try_emplace(textId, TextCache{});
   if (inserted) {
-    renderDirty = true;
+    contentDirty = true;
   }
   return it->second;
 }
@@ -2885,7 +2888,7 @@ LayoutViewerPanel::TextCache &LayoutViewerPanel::GetTextCache(int textId) {
 LayoutViewerPanel::ImageCache &LayoutViewerPanel::GetImageCache(int imageId) {
   auto [it, inserted] = imageCaches_.try_emplace(imageId, ImageCache{});
   if (inserted) {
-    renderDirty = true;
+    contentDirty = true;
   }
   return it->second;
 }
