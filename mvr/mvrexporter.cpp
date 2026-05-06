@@ -1203,13 +1203,17 @@ public:
 // Implements an archive sink backed by a filesystem output stream.
 class FileMvrArchiveSink final : public MvrArchiveSink {
 public:
+  // Initializes a file-backed archive sink that writes ZIP output to the requested path.
   explicit FileMvrArchiveSink(const std::string &archivePath)
       : archivePath_(archivePath), output_(archivePath) {}
 
+  // Reports whether the underlying file output stream is ready for writing.
   bool IsOk() const { return output_.IsOk(); }
 
+  // Returns the stream that receives serialized archive bytes.
   wxOutputStream &Stream() override { return output_; }
 
+  // Provides the archive file path for file-size metrics logging.
   const std::string *ArchiveFilePath() const override { return &archivePath_; }
 
 private:
@@ -1220,10 +1224,13 @@ private:
 // Implements an archive sink backed by an in-memory output stream.
 class MemoryMvrArchiveSink final : public MvrArchiveSink {
 public:
+  // Returns the in-memory stream that receives serialized archive bytes.
   wxOutputStream &Stream() override { return output_; }
 
+  // Indicates that this sink has no filesystem archive path metadata.
   const std::string *ArchiveFilePath() const override { return nullptr; }
 
+  // Copies the in-memory archive bytes into the caller-provided output buffer.
   bool ToBuffer(std::vector<unsigned char> &outputBuffer) {
     const size_t archiveSize = output_.GetSize();
     outputBuffer.resize(archiveSize);
