@@ -132,7 +132,7 @@ class ProjectSession {
 public:
   using SaveConfigFn = std::function<bool(const std::string &path)>;
   using SaveSceneFn = std::function<bool(const std::string &path)>;
-  using SaveConfigToStreamFn = std::function<bool(std::ostream &out)>;
+  using SaveConfigToBufferFn = std::function<bool(std::vector<uint8_t> &out)>;
   using SaveSceneToBufferFn = std::function<bool(std::vector<uint8_t> &out)>;
   using LoadConfigFn = std::function<bool(const std::string &path)>;
   using LoadSceneFn = std::function<bool(const std::string &path)>;
@@ -145,7 +145,7 @@ public:
   bool SaveProject(const std::string &path, const SaveConfigFn &saveConfig,
                    const SaveSceneFn &saveScene) const;
   bool SaveProject(const std::string &path,
-                   const SaveConfigToStreamFn &saveConfigToStream,
+                   const SaveConfigToBufferFn &saveConfigToBuffer,
                    const SaveSceneToBufferFn &saveSceneToBuffer) const;
   bool LoadProject(const std::string &path, const LoadConfigFn &loadConfig,
                    const LoadSceneFn &loadScene,

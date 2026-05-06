@@ -449,8 +449,13 @@ bool ConfigManager::SaveProject(const std::string &path) {
   SetValue(kHiddenFixtureTypesConfigKey,
            SerializeStringSet(GetHiddenFixtureTypes()));
   bool ok = projectSession.SaveProject(
-      path, [this](std::ostream &configOut) {
-        return preferencesStore.SaveToStream(configOut);
+      path, [this](std::vector<uint8_t> &configBytes) {
+        std::ostringstream configOut;
+        if (!preferencesStore.SaveToStream(configOut))
+          return false;
+        const std::string serializedConfig = configOut.str();
+        configBytes.assign(serializedConfig.begin(), serializedConfig.end());
+        return true;
       },
       [](std::vector<uint8_t> &sceneBytes) {
         std::error_code ec;

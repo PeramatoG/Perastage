@@ -568,9 +568,9 @@ const MvrScene &ProjectSession::GetScene() const { return scene; }
 
 // Saves a project package by serializing config and scene directly into ZIP entries.
 bool ProjectSession::SaveProject(
-    const std::string &path, const SaveConfigToStreamFn &saveConfigToStream,
+    const std::string &path, const SaveConfigToBufferFn &saveConfigToBuffer,
     const SaveSceneToBufferFn &saveSceneToBuffer) const {
-  if (!saveConfigToStream || !saveSceneToBuffer)
+  if (!saveConfigToBuffer || !saveSceneToBuffer)
     return false;
 
   const auto stageStart = std::chrono::steady_clock::now();
@@ -580,14 +580,19 @@ bool ProjectSession::SaveProject(
   wxZipOutputStream zip(out);
 
   const auto configStart = std::chrono::steady_clock::now();
+  std::vector<uint8_t> configBytes;
+  if (!saveConfigToBuffer(configBytes))
+    return false;
   auto *configEntry = new wxZipEntry("config.json");
   configEntry->SetMethod(wxZIP_METHOD_DEFLATE);
   if (!zip.PutNextEntry(configEntry))
     return false;
-  wxStdOutputStream configOut(zip);
-  if (!saveConfigToStream(configOut)) {
-    zip.CloseEntry();
-    return false;
+  if (!configBytes.empty()) {
+    zip.Write(configBytes.data(), configBytes.size());
+    if (!zip.IsOk()) {
+      zip.CloseEntry();
+      return false;
+    }
   }
   if (!zip.CloseEntry())
     return false;
@@ -643,12 +648,15 @@ bool ProjectSession::SaveProject(const std::string &path,
 
   return SaveProject(
       path,
-      [&](std::ostream &out) {
+      [&](std::vector<uint8_t> &out) {
         const fs::path configPath = tempDir.Path() / "config.json";
         if (!saveConfig(configPath.string()))
           return false;
         std::ifstream in(configPath, std::ios::binary);
-        out << in.rdbuf();
+        if (!in.is_open())
+          return false;
+        out.assign(std::istreambuf_iterator<char>(in),
+                   std::istreambuf_iterator<char>());
         return in.good() || in.eof();
       },
       [&](std::vector<uint8_t> &out) {
