@@ -18,6 +18,7 @@
 #include "configmanager.h"
 #include "json.hpp"
 #include "LayoutManager.h"
+#include "logger.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include <filesystem>
@@ -458,8 +459,18 @@ bool ConfigManager::SaveProject(const std::string &path) {
         return true;
       },
       [](std::vector<uint8_t> &sceneBytes) {
+        const auto sceneExportStart = std::chrono::steady_clock::now();
         MvrExporter exporter;
-        return exporter.ExportToBuffer(sceneBytes);
+        const bool exported = exporter.ExportToBuffer(sceneBytes);
+        const auto sceneExportEnd = std::chrono::steady_clock::now();
+        Logger::Instance().Log(
+            Logger::Level::Info,
+            "Project save scene serialization duration_ms=" +
+                std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   sceneExportEnd - sceneExportStart)
+                                   .count()) +
+                " scene_bytes=" + std::to_string(sceneBytes.size()));
+        return exported;
       });
   if (ok)
     projectSession.MarkSaved();

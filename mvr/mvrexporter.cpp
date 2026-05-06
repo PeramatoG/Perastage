@@ -29,6 +29,7 @@
 #include "truss_gdtf_builder.h"
 
 #include <wx/wfstream.h>
+#include <wx/mstream.h>
 #include <wx/wx.h>
 class wxZipStreamLink;
 #include <wx/filename.h>
@@ -1191,8 +1192,9 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
   return outPath;
 }
 
-// Exports the current scene into an MVR package with resolved and validated resources.
-bool MvrExporter::ExportToFile(const std::string &filePath) {
+// Serializes the current scene into an MVR archive written to the provided output stream.
+static bool ExportMvrArchiveToStream(wxOutputStream &output,
+                                     const std::string *archiveFilePath = nullptr) {
   const auto exportStart = std::chrono::steady_clock::now();
   const auto &scene = ConfigManager::Get().GetScene();
   const TrussGeometryAuthority trussGeometryAuthority = GetTrussGeometryAuthoritySetting();
@@ -1316,10 +1318,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     }
     return {};
   };
-
-  wxFileOutputStream output(filePath);
-  if (!output.IsOk())
-    return false;
 
   wxZipOutputStream zip(output);
 
@@ -2659,7 +2657,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   zip.Close();
   const auto exportEnd = std::chrono::steady_clock::now();
   std::error_code archiveEc;
-  const auto archiveSize = fs::file_size(filePath, archiveEc);
+  std::uintmax_t archiveSize = 0;
+  if (archiveFilePath != nullptr) {
+    archiveSize = fs::file_size(*archiveFilePath, archiveEc);
+  } else {
+    const wxFileOffset streamPos = output.TellO();
+    if (streamPos != wxInvalidOffset)
+      archiveSize = static_cast<std::uintmax_t>(streamPos);
+  }
   std::uintmax_t sourceBytes = xmlData.size();
   for (const auto &resource : resourceEntries) {
     if (!fs::exists(resource.sourcePath))
@@ -2680,24 +2685,25 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   return true;
 }
 
+// Exports the current scene into an MVR package with resolved and validated resources.
+bool MvrExporter::ExportToFile(const std::string &filePath) {
+  wxFileOutputStream output(filePath);
+  if (!output.IsOk())
+    return false;
+  return ExportMvrArchiveToStream(output, &filePath);
+}
+
 // Exports the current scene into an in-memory MVR package byte buffer.
 bool MvrExporter::ExportToBuffer(std::vector<unsigned char> &outputBuffer) {
-  std::error_code ec;
-  const auto stamp = std::chrono::system_clock::now().time_since_epoch().count();
-  const fs::path scenePath =
-      fs::temp_directory_path(ec) / ("psp_scene_" + std::to_string(stamp) + ".mvr");
-  if (ec)
+  wxMemoryOutputStream memoryStream;
+  if (!ExportMvrArchiveToStream(memoryStream))
     return false;
-  if (!ExportToFile(scenePath.string()))
-    return false;
-  std::ifstream in(scenePath, std::ios::binary);
-  if (!in.is_open()) {
-    fs::remove(scenePath, ec);
-    return false;
-  }
-  outputBuffer.assign(std::istreambuf_iterator<char>(in),
-                      std::istreambuf_iterator<char>());
-  const bool readOk = in.good() || in.eof();
-  fs::remove(scenePath, ec);
-  return readOk;
+
+  const size_t archiveSize = memoryStream.GetSize();
+  outputBuffer.resize(archiveSize);
+  if (archiveSize == 0)
+    return true;
+
+  memoryStream.CopyTo(outputBuffer.data(), archiveSize);
+  return true;
 }
