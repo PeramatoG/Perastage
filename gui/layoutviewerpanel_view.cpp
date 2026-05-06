@@ -38,6 +38,7 @@
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "LayoutManager.h"
+#include "logger.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
 
