@@ -391,6 +391,7 @@ bool IsPixelUnpackPboSupported() {
   return hasPboExtension;
 }
 
+// Ensures the pixel-unpack PBO exists and has enough storage for the upload.
 bool EnsurePboCapacity(unsigned int &pbo, size_t &capacity, size_t bytesNeeded) {
   if (bytesNeeded == 0)
     return false;
@@ -408,6 +409,18 @@ bool EnsurePboCapacity(unsigned int &pbo, size_t &capacity, size_t bytesNeeded) 
   return true;
 }
 
+// Returns whether this runtime should use PBO-based texture uploads.
+bool ShouldUsePboTextureUpload() {
+#if defined(__linux__)
+  // Linux AppImage GPU/driver combinations have shown intermittent blank
+  // layout view textures when PBO uploads are enabled, so prefer direct uploads.
+  return false;
+#else
+  return true;
+#endif
+}
+
+// Uploads RGBA pixels into the currently bound texture and reallocates if needed.
 bool UploadRgbaToTexture(unsigned int texture, int width, int height,
                          const unsigned char *data,
                          const wxSize &currentTextureSize, bool allowPbo) {
@@ -427,7 +440,8 @@ bool UploadRgbaToTexture(unsigned int texture, int width, int height,
       static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
   bool uploaded = false;
 
-  if (allowPbo && IsPixelUnpackPboSupported() && gActivePixelUnpackPbo &&
+  if (allowPbo && ShouldUsePboTextureUpload() && IsPixelUnpackPboSupported() &&
+      gActivePixelUnpackPbo &&
       gActivePixelUnpackPboBytes &&
       EnsurePboCapacity(*gActivePixelUnpackPbo, *gActivePixelUnpackPboBytes,
                         bytesNeeded)) {
@@ -463,6 +477,7 @@ bool UploadRgbaToTexture(unsigned int texture, int width, int height,
   return uploaded;
 }
 
+// Snaps an integer coordinate to the configured layout grid step.
 int SnapToGrid(int value) {
   if (kLayoutGridStep <= 1)
     return value;
