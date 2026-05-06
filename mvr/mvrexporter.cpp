@@ -1080,6 +1080,28 @@ static bool ZipDir(const std::string &srcDir, const std::string &dstZip) {
   return true;
 }
 
+// Builds a deterministic cache key for a patched GDTF variant from source path and overrides.
+static std::string BuildPatchedGdtfCacheKey(const std::string &gdtfPath,
+                                            const GdtfOverrides &ov) {
+  std::ostringstream key;
+  key << "path=" << gdtfPath
+      << "|color=" << ov.color
+      << "|hasWeightKg=" << ov.hasWeightKg
+      << "|weightKg=" << ov.weightKg
+      << "|hasPowerW=" << ov.hasPowerW
+      << "|powerW=" << ov.powerW
+      << "|hasLengthMm=" << ov.hasLengthMm
+      << "|lengthMm=" << ov.lengthMm
+      << "|hasWidthMm=" << ov.hasWidthMm
+      << "|widthMm=" << ov.widthMm
+      << "|hasHeightMm=" << ov.hasHeightMm
+      << "|heightMm=" << ov.heightMm
+      << "|manufacturer=" << ov.manufacturer
+      << "|model=" << ov.model;
+  return key.str();
+}
+
+// Creates a temporary patched GDTF archive that applies export-time fixture overrides.
 static std::string CreatePatchedGdtf(const std::string &gdtfPath,
                                      const GdtfOverrides &ov) {
   std::string tempDir = CreateTempDir();
@@ -1154,6 +1176,7 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
   return outPath;
 }
 
+// Exports the current scene into an MVR package with resolved and validated resources.
 bool MvrExporter::ExportToFile(const std::string &filePath) {
   const auto &scene = ConfigManager::Get().GetScene();
   const TrussGeometryAuthority trussGeometryAuthority = GetTrussGeometryAuthoritySetting();
@@ -2534,18 +2557,38 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   std::unordered_map<std::string, int> plannedArchiveEntries;
   plannedArchiveEntries["GeneralSceneDescription.xml"] = 1;
+  std::unordered_map<std::string, std::string> patchedGdtfPathByCacheKey;
+  int patchedGdtfGenerated = 0;
+  int patchedGdtfReused = 0;
 
   for (auto &entry : resourceEntries) {
     if (!fs::exists(entry.sourcePath))
       continue;
     auto cit = gdtfOverrides.find(entry.archivePath);
     if (cit != gdtfOverrides.end()) {
-      std::string tmp = CreatePatchedGdtf(entry.sourcePath.string(), cit->second);
-      if (!tmp.empty())
-        entry.sourcePath = fs::path(tmp);
+      const std::string cacheKey =
+          BuildPatchedGdtfCacheKey(entry.sourcePath.string(), cit->second);
+      auto cacheIt = patchedGdtfPathByCacheKey.find(cacheKey);
+      if (cacheIt != patchedGdtfPathByCacheKey.end()) {
+        entry.sourcePath = fs::path(cacheIt->second);
+        ++patchedGdtfReused;
+      } else {
+        std::string tmp = CreatePatchedGdtf(entry.sourcePath.string(), cit->second);
+        if (!tmp.empty()) {
+          patchedGdtfPathByCacheKey.emplace(cacheKey, tmp);
+          entry.sourcePath = fs::path(tmp);
+          ++patchedGdtfGenerated;
+        }
+      }
     }
     ++plannedArchiveEntries[entry.archivePath];
   }
+
+  Logger::Instance().Log(
+      Logger::Level::Info,
+      wxString::Format("MVR export patched_gdtf_generated=%d patched_gdtf_reused=%d",
+                       patchedGdtfGenerated, patchedGdtfReused)
+          .ToStdString());
 
   if (!ValidateMvr16Export(doc, gdtfArchiveByObjectUuid, plannedArchiveEntries)) {
     zip.Close();
