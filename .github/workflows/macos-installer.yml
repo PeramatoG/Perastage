@@ -129,10 +129,26 @@ jobs:
         run: |
           xattr -cr "out/install/Release/Perastage.app" || true
 
-      - name: Ad-hoc sign staged app bundle
+      - name: Re-sign staged app bundle for Gatekeeper compatibility
         run: |
-          codesign --force --deep --sign - "out/install/Release/Perastage.app"
-          codesign --verify --deep --strict --verbose=2 "out/install/Release/Perastage.app"
+          APP_PATH="out/install/Release/Perastage.app"
+
+          # Re-sign every embedded Mach-O binary to avoid broken nested signatures.
+          while IFS= read -r file_path; do
+            if file "$file_path" | grep -q "Mach-O"; then
+              codesign --force --sign - --timestamp=none "$file_path"
+            fi
+          done < <(find "$APP_PATH" -type f)
+
+          # Re-sign every embedded framework bundle after signing its binaries.
+          while IFS= read -r framework_path; do
+            codesign --force --sign - --timestamp=none "$framework_path"
+          done < <(find "$APP_PATH/Contents/Frameworks" -type d -name "*.framework" 2>/dev/null || true)
+
+          # Re-sign the full .app bundle once all nested content has stable signatures.
+          codesign --force --sign - --timestamp=none "$APP_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          spctl --assess --type execute --verbose=4 "$APP_PATH" || true
 
       # ── 11. Upload staged build ─────────────────────────────────────────────
       - name: Upload staged distribution
@@ -157,6 +173,7 @@ jobs:
           fi
 
           MOUNT_DIR="$(mktemp -d)"
+          # Detach the mounted DMG and remove the temporary mount directory.
           cleanup() {
             hdiutil detach "$MOUNT_DIR" >/dev/null 2>&1 || true
             rmdir "$MOUNT_DIR" >/dev/null 2>&1 || true
