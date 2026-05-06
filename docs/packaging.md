@@ -100,6 +100,56 @@ During `cmake --install`, cache refresh commands may run to expose new associati
 
 Perastage app bundles declare `.mvr` document type metadata through bundle settings so Finder can route files to the application.
 
+## macOS DMG Packaging (Unsigned Builds)
+
+Perastage macOS CI currently produces an unsigned/not-notarized `.app` and `.dmg` because there is no Apple Developer ID certificate configured for this project.
+
+### What CI validates
+
+The macOS installer workflow validates that:
+
+- `Perastage.app` is staged with expected bundle layout (`Contents/Info.plist`, executable, and `.icns` files).
+- The executable keeps its executable bit.
+- `Info.plist` passes `plutil -lint`.
+- The app is ad-hoc signed (`codesign --sign -`) and verified for internal signature consistency.
+- Quarantine metadata is cleared from the staged app and collected DMG in CI.
+- The generated DMG mounts successfully and contains a launchable `Perastage.app` bundle.
+
+### Expected first-run behavior on end-user macOS systems
+
+When users download builds from the internet, macOS can add quarantine metadata again, even if CI removed it during packaging.
+
+Because the app is unsigned/not notarized, users may see messages such as:
+
+- `"Perastage" is damaged and can't be opened.`
+- `"Perastage" cannot be opened because the developer cannot be verified.`
+
+This is expected for non-notarized internet downloads. The long-term production fix is Developer ID signing + notarization.
+
+### User workaround for quarantine blocking
+
+If the app is copied to `/Applications`:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Perastage.app
+```
+
+If running from Downloads:
+
+```bash
+xattr -dr com.apple.quarantine ~/Downloads/Perastage.app
+```
+
+GUI alternative:
+
+1. Open **System Settings**.
+2. Go to **Privacy & Security**.
+3. Use the **Allow/Open anyway** option shown for the blocked app.
+
+### Distribution note
+
+GitHub Actions artifacts are downloaded as ZIP files, which may preserve or add quarantine metadata. For public releases, prefer attaching the `.dmg` directly as a GitHub Release asset.
+
 ## Related Documents
 
 - [Build and dependency guide](build.md)
