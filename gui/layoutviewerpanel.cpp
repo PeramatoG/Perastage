@@ -109,6 +109,7 @@ constexpr int kToggleTextTransparentBackgroundMenuId = wxID_HIGHEST + 504;
 constexpr int kToggleViewFrameMenuId = wxID_HIGHEST + 506;
 constexpr int kLoadingOverlayDelayMs = 150;
 constexpr size_t kImageBitmapLruCapacity = 64;
+constexpr size_t kImageBitmapLruMaxBytes = 128u * 1024u * 1024u;
 
 struct ImageBitmapCacheKey {
   std::string imagePath;
@@ -137,6 +138,7 @@ struct ImageBitmapCacheKeyHasher {
 struct ImageBitmapCacheEntry {
   ImageBitmapCacheKey key;
   wxImage bitmap;
+  size_t byteSize = 0;
 };
 
 // Returns the image file modification time and reports false when it cannot be read.
@@ -147,6 +149,16 @@ bool TryGetImageFileMtime(const std::string &imagePath,
   return !ec;
 }
 
+// Estimates the RGBA memory footprint used by a scaled image cache entry.
+size_t EstimateImageCacheEntryBytes(const wxImage &image) {
+  const int width = image.GetWidth();
+  const int height = image.GetHeight();
+  if (width <= 0 || height <= 0) {
+    return 0;
+  }
+  return static_cast<size_t>(width) * static_cast<size_t>(height) * 4u;
+}
+
 // Returns a mirrored and alpha-ready scaled bitmap from a process-local LRU cache.
 const wxImage *GetOrCreateScaledImageBitmap(const std::string &imagePath,
                                             int targetWidth, int targetHeight,
@@ -155,6 +167,7 @@ const wxImage *GetOrCreateScaledImageBitmap(const std::string &imagePath,
   static CacheList cacheEntries;
   static std::unordered_map<ImageBitmapCacheKey, CacheList::iterator, ImageBitmapCacheKeyHasher>
       cacheIndex;
+  static size_t cacheBytes = 0;
 
   const ImageBitmapCacheKey key{imagePath, targetWidth, targetHeight, fileMtime};
   auto it = cacheIndex.find(key);
@@ -178,10 +191,14 @@ const wxImage *GetOrCreateScaledImageBitmap(const std::string &imagePath,
     scaled.InitAlpha();
   }
 
-  cacheEntries.push_front({key, scaled});
+  const size_t scaledBytes = EstimateImageCacheEntryBytes(scaled);
+  cacheEntries.push_front({key, scaled, scaledBytes});
   cacheIndex[key] = cacheEntries.begin();
-  if (cacheEntries.size() > kImageBitmapLruCapacity) {
+  cacheBytes += scaledBytes;
+  while (cacheEntries.size() > kImageBitmapLruCapacity ||
+         cacheBytes > kImageBitmapLruMaxBytes) {
     auto tail = std::prev(cacheEntries.end());
+    cacheBytes -= tail->byteSize;
     cacheIndex.erase(tail->key);
     cacheEntries.pop_back();
   }
