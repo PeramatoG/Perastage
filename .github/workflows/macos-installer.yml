@@ -138,7 +138,9 @@ jobs:
           # Move non-executable license text files out of Contents/MacOS to keep bundle layout signable.
           if [ -d "$MACOS_DIR/licenses" ]; then
             mkdir -p "$RESOURCES_LICENSES_DIR"
-            find "$MACOS_DIR/licenses" -type f -name "*.txt" -exec mv {} "$RESOURCES_LICENSES_DIR/" \;
+            while IFS= read -r license_file; do
+              mv "$license_file" "$RESOURCES_LICENSES_DIR/"
+            done < <(find "$MACOS_DIR/licenses" -type f -name "*.txt")
             rmdir "$MACOS_DIR/licenses" 2>/dev/null || true
           fi
 
