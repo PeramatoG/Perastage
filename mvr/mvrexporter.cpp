@@ -2679,3 +2679,25 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           .ToStdString());
   return true;
 }
+
+// Exports the current scene into an in-memory MVR package buffer.
+bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outputBuffer) {
+  std::error_code ec;
+  const auto stamp = std::chrono::system_clock::now().time_since_epoch().count();
+  const fs::path scenePath =
+      fs::temp_directory_path(ec) / ("psp_scene_" + std::to_string(stamp) + ".mvr");
+  if (ec)
+    return false;
+  if (!ExportToFile(scenePath.string()))
+    return false;
+  std::ifstream in(scenePath, std::ios::binary);
+  if (!in.is_open()) {
+    fs::remove(scenePath, ec);
+    return false;
+  }
+  outputBuffer.assign(std::istreambuf_iterator<char>(in),
+                      std::istreambuf_iterator<char>());
+  const bool readOk = in.good() || in.eof();
+  fs::remove(scenePath, ec);
+  return readOk;
+}
