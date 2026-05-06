@@ -2341,7 +2341,6 @@ bool LayoutViewerPanel::ProcessDirty2DViews(Viewer2DOffscreenRenderer *offscreen
     if (!cache.renderDirty)
       continue;
     cache.renderDirty = false;
-    wxRect frameRect;
     if (!cache.hasCapture || !cache.hasRenderState || !GetFrameRect(view.frame, frameRect)) {
       ClearCachedTexture(cache);
       cache.textureSize = wxSize(0, 0);
