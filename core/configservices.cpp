@@ -144,6 +144,18 @@ std::string ToLowerCopy(std::string text) {
                  [](unsigned char c) { return std::tolower(c); });
   return text;
 }
+
+// Chooses ZIP compression mode from entry extension and payload size heuristics.
+int SelectZipCompressionMethod(const std::string &entryName, size_t payloadSize) {
+  const std::string ext = fs::path(ToLowerCopy(entryName)).extension().string();
+  if (ext == ".mvr" || ext == ".gdtf" || ext == ".png" || ext == ".jpg" ||
+      ext == ".jpeg" || ext == ".zip" || ext == ".gz" || ext == ".7z" ||
+      ext == ".pdf")
+    return wxZIP_METHOD_STORE;
+  if (payloadSize < 96)
+    return wxZIP_METHOD_STORE;
+  return wxZIP_METHOD_DEFLATE;
+}
 } // namespace
 
 void UserPreferencesStore::SetValue(const std::string &key,
@@ -584,7 +596,8 @@ bool ProjectSession::SaveProject(
   if (!saveConfigToBuffer(configBytes))
     return false;
   auto *configEntry = new wxZipEntry("config.json");
-  configEntry->SetMethod(wxZIP_METHOD_DEFLATE);
+  configEntry->SetMethod(
+      SelectZipCompressionMethod("config.json", configBytes.size()));
   if (!zip.PutNextEntry(configEntry))
     return false;
   if (!configBytes.empty()) {
@@ -603,7 +616,8 @@ bool ProjectSession::SaveProject(
   if (!saveSceneToBuffer(sceneBytes))
     return false;
   auto *sceneEntry = new wxZipEntry("scene.mvr");
-  sceneEntry->SetMethod(wxZIP_METHOD_DEFLATE);
+  sceneEntry->SetMethod(
+      SelectZipCompressionMethod("scene.mvr", sceneBytes.size()));
   if (!zip.PutNextEntry(sceneEntry))
     return false;
   if (!sceneBytes.empty()) {
@@ -621,6 +635,7 @@ bool ProjectSession::SaveProject(
   if (!zip.Close())
     return false;
   const auto finalizeEnd = std::chrono::steady_clock::now();
+  const std::uintmax_t archiveBytes = fs::file_size(PathFromUtf8(path));
 
   auto elapsedMs = [](const auto &start, const auto &end) {
     return std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
@@ -630,7 +645,10 @@ bool ProjectSession::SaveProject(
             << elapsedMs(configStart, configEnd)
             << ", scene=" << elapsedMs(sceneStart, sceneEnd)
             << ", finalize=" << elapsedMs(finalizeStart, finalizeEnd)
-            << ", total=" << elapsedMs(stageStart, finalizeEnd) << std::endl;
+            << ", total=" << elapsedMs(stageStart, finalizeEnd)
+            << " | sizes [bytes] input="
+            << (configBytes.size() + sceneBytes.size())
+            << ", archive=" << archiveBytes << std::endl;
 
   return true;
 }
