@@ -19,10 +19,17 @@
 #include "mvrimporter.h"
 #include "mvrexporter.h"
 
+// Returns false because MVR import is intentionally disabled in this stub.
 bool MvrImporter::ImportAndRegister(const std::string &, bool, bool, ProgressCallback) {
   return false;
 }
 
+// Returns false because file-based MVR export is intentionally disabled in this stub.
 bool MvrExporter::ExportToFile(const std::string &) {
+  return false;
+}
+
+// Returns false because buffer-based MVR export is intentionally disabled in this stub.
+bool MvrExporter::ExportToBuffer(std::vector<unsigned char> &) {
   return false;
 }
