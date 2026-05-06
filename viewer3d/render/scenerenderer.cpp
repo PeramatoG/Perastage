@@ -1141,9 +1141,10 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     glEnable(GL_CULL_FACE);
 }
 
+// Draw the 2D reference grid using the configured world-space span and style.
 void SceneRenderer::DrawGrid(int style, float r, float g, float b,
                              Viewer2DView view) {
-  const float size = 20.0f;
+  const float size = std::max(1.0f, ConfigManager::Get().GetFloat("grid_size_m"));
   const float step = 1.0f;
 
   const LineRenderProfile profile =

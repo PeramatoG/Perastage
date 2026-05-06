@@ -20,6 +20,7 @@
 #include "configmanager.h"
 #include "fixture_label_overrides.h"
 #include "mainwindow.h"
+#include "units/units.h"
 #include <algorithm>
 #include <array>
 #include <wx/settings.h>
@@ -43,6 +44,27 @@ const std::array<const char *, 3> DMX_KEYS = {"label_show_dmx_top",
 
 constexpr int kRulerAxisPositionWidth = 72;
 constexpr int kRulerAxisColorSwatchSize = 36;
+constexpr double kMetersToMillimeters = 1000.0;
+
+// Return the current UI distance unit system from persisted configuration.
+Units::DistanceUnitSystem ResolveDistanceUnitSystem(const ConfigManager &cfg) {
+  return Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+}
+
+// Convert a meters value into the active UI distance unit display value.
+double MetersToDisplayDistance(double meters, Units::DistanceUnitSystem unitSystem) {
+  return Units::DistanceMillimetersToDisplay(meters * kMetersToMillimeters, unitSystem);
+}
+
+// Convert a UI distance display value into meters for internal persistence.
+double DisplayDistanceToMeters(double value, Units::DistanceUnitSystem unitSystem) {
+  return Units::DistanceDisplayToMillimeters(value, unitSystem) / kMetersToMillimeters;
+}
+
+// Build a localized grid-size label including the active unit suffix.
+wxString BuildGridSizeLabel(Units::DistanceUnitSystem unitSystem) {
+  return wxString::Format("Grid size (%s)", Units::DistanceUnitSuffix(unitSystem));
+}
 
 wxColour BuildColorFromConfig(const ConfigManager &cfg, const char *rKey,
                               const char *gKey, const char *bKey) {
@@ -135,7 +157,30 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
 
   m_drawAbove = new wxCheckBox(gridBoxParent, wxID_ANY, "Draw grid on top");
   m_drawAbove->SetValue(cfg.GetFloat("grid_draw_above") != 0.0f);
+  if (m_gridSize) {
+    const auto unitSystem = ResolveDistanceUnitSystem(cfg);
+    m_gridSize->SetRange(MetersToDisplayDistance(1.0, unitSystem),
+                         MetersToDisplayDistance(10000.0, unitSystem));
+    m_gridSize->SetValue(MetersToDisplayDistance(cfg.GetFloat("grid_size_m"),
+                                                 unitSystem));
+  }
   m_drawAbove->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnDrawAbove, this);
+
+  const auto distanceUnitSystem = ResolveDistanceUnitSystem(cfg);
+  m_gridSize = new wxSpinCtrlDouble(
+      gridBoxParent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
+      wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER);
+  m_gridSize->SetDigits(2);
+  m_gridSize->SetIncrement(0.1);
+  m_gridSize->SetRange(MetersToDisplayDistance(1.0, distanceUnitSystem),
+                       MetersToDisplayDistance(10000.0, distanceUnitSystem));
+  m_gridSize->SetValue(MetersToDisplayDistance(cfg.GetFloat("grid_size_m"),
+                                               distanceUnitSystem));
+  m_gridSize->Bind(wxEVT_SPINCTRLDOUBLE, &Viewer2DRenderPanel::OnGridSize, this);
+  m_gridSize->Bind(wxEVT_SET_FOCUS, &Viewer2DRenderPanel::OnBeginTextEdit, this);
+  m_gridSize->Bind(wxEVT_KILL_FOCUS, &Viewer2DRenderPanel::OnEndTextEdit, this);
+  m_gridSize->Bind(wxEVT_TEXT, &Viewer2DRenderPanel::OnTextChange, this);
+  m_gridSize->Bind(wxEVT_TEXT_ENTER, &Viewer2DRenderPanel::OnTextEnter, this);
 
   auto *rulerBox = new wxStaticBoxSizer(wxVERTICAL, this, "Ruler");
   wxWindow *rulerBoxParent = rulerBox->GetStaticBox();
@@ -348,6 +393,12 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   colorSizer->Add(m_gridColor, 0);
   gridBox->Add(colorSizer, 0, wxALL, 5);
   gridBox->Add(m_drawAbove, 0, wxALL, 5);
+  auto *gridSizeSizer = new wxBoxSizer(wxHORIZONTAL);
+  gridSizeSizer->Add(new wxStaticText(gridBoxParent, wxID_ANY,
+                                      BuildGridSizeLabel(distanceUnitSystem)),
+                     0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+  gridSizeSizer->Add(m_gridSize, 0);
+  gridBox->Add(gridSizeSizer, 0, wxALL, 5);
   sizer->Add(gridBox, 0, wxEXPAND | wxALL, 5);
 
   rulerBox->Add(m_showRuler, 0, wxALL, 5);
@@ -500,6 +551,13 @@ void Viewer2DRenderPanel::ApplyConfig() {
   int bb = static_cast<int>(cfg.GetFloat("grid_color_b") * 255.0f);
   m_gridColor->SetColour(wxColour(rr, gg, bb));
   m_drawAbove->SetValue(cfg.GetFloat("grid_draw_above") != 0.0f);
+  if (m_gridSize) {
+    const auto unitSystem = ResolveDistanceUnitSystem(cfg);
+    m_gridSize->SetRange(MetersToDisplayDistance(1.0, unitSystem),
+                         MetersToDisplayDistance(10000.0, unitSystem));
+    m_gridSize->SetValue(MetersToDisplayDistance(cfg.GetFloat("grid_size_m"),
+                                                 unitSystem));
+  }
   m_showRuler->SetValue(cfg.GetFloat("ruler_show") != 0.0f);
   m_rulerAxisXPosition->SetValue(cfg.GetFloat("ruler_axis_x_position"));
   m_rulerAxisYPosition->SetValue(cfg.GetFloat("ruler_axis_y_position"));
@@ -581,6 +639,19 @@ void Viewer2DRenderPanel::OnGridColor(wxColourPickerEvent &evt) {
 void Viewer2DRenderPanel::OnDrawAbove(wxCommandEvent &evt) {
   ConfigManager::Get().SetFloat("grid_draw_above",
                                 m_drawAbove->GetValue() ? 1.0f : 0.0f);
+  if (auto *vp = Viewer2DPanel::Instance())
+    vp->UpdateScene(false);
+  evt.Skip();
+}
+
+
+// Persist the user-configured grid size using the active distance unit system.
+void Viewer2DRenderPanel::OnGridSize(wxSpinDoubleEvent &evt) {
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto unitSystem = ResolveDistanceUnitSystem(cfg);
+  const double gridSizeMeters =
+      DisplayDistanceToMeters(CurrentSpinDoubleValue(m_gridSize), unitSystem);
+  cfg.SetFloat("grid_size_m", static_cast<float>(gridSizeMeters));
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();

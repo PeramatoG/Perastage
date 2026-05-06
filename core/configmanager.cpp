@@ -129,6 +129,7 @@ ConfigManager::ConfigManager() {
   RegisterVariable("grid_color_g", "float", 0.35f, 0.0f, 1.0f);
   RegisterVariable("grid_color_b", "float", 0.35f, 0.0f, 1.0f);
   RegisterVariable("grid_draw_above", "float", 0.0f, 0.0f, 1.0f);
+  RegisterVariable("grid_size_m", "float", 20.0f, 1.0f, 10000.0f);
   RegisterVariable("ruler_show", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("ruler_tick_small_m", "float", 0.1f, 0.01f, 10.0f);
   RegisterVariable("ruler_tick_large_m", "float", 0.2f, 0.01f, 10.0f);
