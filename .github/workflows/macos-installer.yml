@@ -144,6 +144,18 @@ jobs:
             rmdir "$MACOS_DIR/licenses" 2>/dev/null || true
           fi
 
+          # Move legacy resource payloads out of Contents/MacOS to prevent nested-signing failures.
+          if [ -d "$MACOS_DIR/resources" ]; then
+            mkdir -p "$APP_PATH/Contents/Resources/resources"
+            while IFS= read -r resource_file; do
+              rel_path="${resource_file#"$MACOS_DIR/resources/"}"
+              target_dir="$APP_PATH/Contents/Resources/resources/$(dirname "$rel_path")"
+              mkdir -p "$target_dir"
+              mv "$resource_file" "$target_dir/"
+            done < <(find "$MACOS_DIR/resources" -type f)
+            find "$MACOS_DIR/resources" -type d -empty -delete
+          fi
+
           # Re-sign every embedded Mach-O binary to avoid broken nested signatures.
           while IFS= read -r file_path; do
             if file "$file_path" | grep -q "Mach-O"; then
