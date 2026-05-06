@@ -1,80 +1,109 @@
-name: macOS Installer
+# macOS installer workflow for Perastage
+# Builds and stages the macOS application using vcpkg and CMake.
+
+name: macOS Installer Build
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ci/macos-installer
 
 jobs:
-  build-macos:
+  build-macos-installer:
     runs-on: macos-latest
 
     env:
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
-      VCPKG_DEFAULT_TRIPLET: x64-osx
+      # Single source of truth for all vcpkg paths used across steps.
+      VCPKG_ROOT:        ${{ github.workspace }}/vcpkg
+      VCPKG_INSTALLED:   ${{ github.workspace }}/.vcpkg-cache/installed
+      VCPKG_DOWNLOADS:   ${{ github.workspace }}/.vcpkg-cache/downloads
+      VCPKG_PACKAGES:    ${{ github.workspace }}/.vcpkg-cache/packages
+      VCPKG_TRIPLET:     arm64-osx
 
     steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ── 2. Install macOS build tools ────────────────────────────────────────
+      # Some vcpkg ports require autotools during the build on macOS.
+      - name: Install macOS build tools
+        run: |
+          brew update
+          brew install autoconf autoconf-archive automake libtool
+
+      # ── 3. Cache vcpkg installed tree + downloads ───────────────────────────
       - name: Cache vcpkg
         uses: actions/cache@v4
+        id: vcpkg-cache
         with:
           path: |
-            vcpkg/downloads
-            vcpkg/buildtrees
-            vcpkg/packages
-            vcpkg/installed
-          key: ${{ runner.os }}-vcpkg-x64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/macos-installer.yml') }}
+            .vcpkg-cache/downloads
+            .vcpkg-cache/installed
+            .vcpkg-cache/packages
+          key: ${{ runner.os }}-vcpkg-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/macos-installer.yml') }}
           restore-keys: |
-            ${{ runner.os }}-vcpkg-x64-osx-
+            ${{ runner.os }}-vcpkg-arm64-osx-
             ${{ runner.os }}-vcpkg-
 
+      # ── 4. Bootstrap vcpkg ──────────────────────────────────────────────────
       - name: Bootstrap vcpkg
         run: |
-          git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
-          "$VCPKG_ROOT/bootstrap-vcpkg.sh"
+          if [ -d "$VCPKG_ROOT/.git" ]; then
+            echo "Updating existing vcpkg checkout..."
+            git -C "$VCPKG_ROOT" fetch --depth 1 origin master
+            git -C "$VCPKG_ROOT" checkout --force FETCH_HEAD
+          else
+            rm -rf "$VCPKG_ROOT"
+            git clone --depth 1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+          fi
 
-      - name: Install dependencies
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+
+      # ── 5. Install vcpkg packages ───────────────────────────────────────────
+      - name: Install vcpkg packages
         run: |
-          "$VCPKG_ROOT/vcpkg" install \
-            wxwidgets:x64-osx \
-            tinyxml2:x64-osx \
-            glew:x64-osx \
-            curl:x64-osx \
-            zlib:x64-osx \
-            nanovg:x64-osx \
-            podofo:x64-osx \
-            meshoptimizer:x64-osx
+          mkdir -p "$VCPKG_DOWNLOADS"
+          mkdir -p "$VCPKG_INSTALLED"
+          mkdir -p "$VCPKG_PACKAGES"
 
+          "$VCPKG_ROOT/vcpkg" install \
+            wxwidgets:$VCPKG_TRIPLET \
+            tinyxml2:$VCPKG_TRIPLET \
+            glew:$VCPKG_TRIPLET \
+            curl:$VCPKG_TRIPLET \
+            zlib:$VCPKG_TRIPLET \
+            nanovg:$VCPKG_TRIPLET \
+            podofo:$VCPKG_TRIPLET \
+            meshoptimizer:$VCPKG_TRIPLET \
+            --x-install-root="$VCPKG_INSTALLED" \
+            --x-packages-root="$VCPKG_PACKAGES" \
+            --downloads-root="$VCPKG_DOWNLOADS"
+
+      # ── 6. Configure CMake ──────────────────────────────────────────────────
       - name: Configure CMake
         run: |
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
+            -DPERAVIZ_ENABLE_NATIVE=OFF \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
-            -DVCPKG_TARGET_TRIPLET=x64-osx
+            -DVCPKG_TARGET_TRIPLET="$VCPKG_TRIPLET" \
+            -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"
 
-      - name: Build Perastage
+      # ── 7. Build project ────────────────────────────────────────────────────
+      - name: Build project
         run: |
           cmake --build build --config Release --parallel
 
-      - name: Generate staging folder
+      # ── 8. Stage distribution folder ────────────────────────────────────────
+      - name: Stage distribution folder
         run: |
           cmake --build build --config Release --target perastage_stage
+          find out/install/Release -maxdepth 4 -print || true
 
-      - name: Inspect staging output
-        run: |
-          echo "Current directory:"
-          pwd
-
-          echo "Repository root:"
-          ls -la
-
-          echo "Build folder:"
-          ls -la build || true
-
-          echo "Install output:"
-          find out -maxdepth 5 -print || true
-
-      - name: Upload macOS staged artifact
+      # ── 9. Upload staged build ──────────────────────────────────────────────
+      - name: Upload staged distribution
         uses: actions/upload-artifact@v4
         with:
           name: Perastage-macos-staged
