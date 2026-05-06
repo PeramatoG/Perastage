@@ -28,6 +28,8 @@
 #include <string_view>
 #include <cctype>
 #include <algorithm>
+#include <chrono>
+#include <iterator>
 #include <wx/stdpaths.h>
 
 
@@ -439,6 +441,7 @@ bool ConfigManager::SaveToFile(const std::string &path) const {
   return preferencesStore.SaveToFile(path);
 }
 
+// Saves the current project state as a packaged archive with config and scene content.
 bool ConfigManager::SaveProject(const std::string &path) {
   layouts::LayoutManager::Get().SaveToConfig(*this);
   SetValue(kHiddenLayersConfigKey,
@@ -446,12 +449,33 @@ bool ConfigManager::SaveProject(const std::string &path) {
   SetValue(kHiddenFixtureTypesConfigKey,
            SerializeStringSet(GetHiddenFixtureTypes()));
   bool ok = projectSession.SaveProject(
-      path, [this](const std::string &configPath) {
-        return SaveToFile(configPath);
+      path, [this](std::vector<uint8_t> &configBytes) {
+        std::ostringstream configOut;
+        if (!preferencesStore.SaveToStream(configOut))
+          return false;
+        const std::string serializedConfig = configOut.str();
+        configBytes.assign(serializedConfig.begin(), serializedConfig.end());
+        return true;
       },
-      [](const std::string &scenePath) {
+      [](std::vector<uint8_t> &sceneBytes) {
+        std::error_code ec;
+        const auto stamp =
+            std::chrono::system_clock::now().time_since_epoch().count();
+        const std::filesystem::path scenePath =
+            std::filesystem::temp_directory_path(ec) /
+            ("psp_scene_" + std::to_string(stamp) + ".mvr");
+        if (ec)
+          return false;
         MvrExporter exporter;
-        return exporter.ExportToFile(scenePath);
+        if (!exporter.ExportToFile(scenePath.string()))
+          return false;
+        std::ifstream in(scenePath, std::ios::binary);
+        if (!in.is_open())
+          return false;
+        sceneBytes.assign(std::istreambuf_iterator<char>(in),
+                          std::istreambuf_iterator<char>());
+        std::filesystem::remove(scenePath, ec);
+        return in.good() || in.eof();
       });
   if (ok)
     projectSession.MarkSaved();

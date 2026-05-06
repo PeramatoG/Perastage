@@ -1,6 +1,8 @@
 #pragma once
 
 #include <optional>
+#include <ostream>
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -29,6 +31,7 @@ public:
 
   bool LoadFromFile(const std::string &path);
   bool SaveToFile(const std::string &path) const;
+  bool SaveToStream(std::ostream &out) const;
   static std::string GetUserConfigFile();
   bool LoadUserConfig();
   bool SaveUserConfig() const;
@@ -129,6 +132,8 @@ class ProjectSession {
 public:
   using SaveConfigFn = std::function<bool(const std::string &path)>;
   using SaveSceneFn = std::function<bool(const std::string &path)>;
+  using SaveConfigToBufferFn = std::function<bool(std::vector<uint8_t> &out)>;
+  using SaveSceneToBufferFn = std::function<bool(std::vector<uint8_t> &out)>;
   using LoadConfigFn = std::function<bool(const std::string &path)>;
   using LoadSceneFn = std::function<bool(const std::string &path)>;
   using LoadProgressFn =
@@ -139,6 +144,9 @@ public:
 
   bool SaveProject(const std::string &path, const SaveConfigFn &saveConfig,
                    const SaveSceneFn &saveScene) const;
+  bool SaveProject(const std::string &path,
+                   const SaveConfigToBufferFn &saveConfigToBuffer,
+                   const SaveSceneToBufferFn &saveSceneToBuffer) const;
   bool LoadProject(const std::string &path, const LoadConfigFn &loadConfig,
                    const LoadSceneFn &loadScene,
                    const LoadProgressFn &progress = {});
