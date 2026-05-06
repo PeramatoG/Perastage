@@ -1,0 +1,81 @@
+name: macOS Installer
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_DEFAULT_TRIPLET: x64-osx
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            vcpkg/downloads
+            vcpkg/buildtrees
+            vcpkg/packages
+            vcpkg/installed
+          key: ${{ runner.os }}-vcpkg-x64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/macos-installer.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-x64-osx-
+            ${{ runner.os }}-vcpkg-
+
+      - name: Bootstrap vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh"
+
+      - name: Install dependencies
+        run: |
+          "$VCPKG_ROOT/vcpkg" install \
+            wxwidgets:x64-osx \
+            tinyxml2:x64-osx \
+            glew:x64-osx \
+            curl:x64-osx \
+            zlib:x64-osx \
+            nanovg:x64-osx \
+            podofo:x64-osx \
+            meshoptimizer:x64-osx
+
+      - name: Configure CMake
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET=x64-osx
+
+      - name: Build Perastage
+        run: |
+          cmake --build build --config Release --parallel
+
+      - name: Generate staging folder
+        run: |
+          cmake --build build --config Release --target perastage_stage
+
+      - name: Inspect staging output
+        run: |
+          echo "Current directory:"
+          pwd
+
+          echo "Repository root:"
+          ls -la
+
+          echo "Build folder:"
+          ls -la build || true
+
+          echo "Install output:"
+          find out -maxdepth 5 -print || true
+
+      - name: Upload macOS staged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-macos-staged
+          path: out/install/Release
