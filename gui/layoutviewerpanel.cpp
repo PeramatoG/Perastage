@@ -665,6 +665,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   if (emptyLayout) {
     selectedElementType = SelectedElementType::None;
     selectedElementId = -1;
+    renderDirty = false;
     contentDirty = false;
     presentationDirty = false;
     loadingRequested = false;
@@ -2553,7 +2554,7 @@ bool LayoutViewerPanel::HasDirtyRenderCaches() const {
 }
 
 bool LayoutViewerPanel::NeedsRenderRebuild() const {
-  return contentDirty || HasDirtyRenderCaches();
+  return renderDirty || contentDirty || HasDirtyRenderCaches();
 }
 
 void LayoutViewerPanel::RequestRenderRebuild() {

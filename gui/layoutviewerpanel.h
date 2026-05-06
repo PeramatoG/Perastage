@@ -342,6 +342,7 @@ private:
   wxGLContext *glContext_ = nullptr;
   bool glInitialized_ = false;
   bool isReadyToRender_ = false;
+  bool renderDirty = true;
   bool contentDirty = true;
   bool presentationDirty = true;
   double lastRenderZoom = 0.0;
