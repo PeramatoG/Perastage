@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -190,6 +191,35 @@ private:
   void CommitPendingFrameUpdate();
   bool InitGL();
   void RebuildCachedTexture();
+  bool EnsureRebuildResourcesReady(bool &needsLegendProcessing,
+                                   bool &needsLegendSymbolCapture,
+                                   Viewer2DOffscreenRenderer *&offscreenRenderer,
+                                   Viewer2DPanel *&capturePanel);
+  bool PrepareLegendSymbolsIfNeeded(
+      bool needsLegendSymbolCapture, Viewer2DPanel *capturePanel,
+      ConfigManager &cfg,
+      std::shared_ptr<const SymbolDefinitionSnapshot> &legendSymbols);
+  bool ProcessDirty2DViews(Viewer2DOffscreenRenderer *offscreenRenderer,
+                           Viewer2DPanel *capturePanel, ConfigManager &cfg,
+                           double renderZoom, int maxItems,
+                           bool &timeBudgetExpired);
+  bool ProcessDirtyLegends(
+      double renderZoom, int maxItems,
+      const std::shared_ptr<const SymbolDefinitionSnapshot> &legendSymbols,
+      std::vector<unsigned char> &legendPixels, bool &timeBudgetExpired);
+  bool ProcessDirtyEventTables(double renderZoom, int maxItems,
+                               std::vector<unsigned char> &eventTablePixels,
+                               bool &timeBudgetExpired);
+  bool ProcessDirtyTexts(double renderZoom, int maxItems,
+                         std::vector<unsigned char> &textPixels,
+                         bool &timeBudgetExpired);
+  bool ProcessDirtyImages(double renderZoom, int maxItems,
+                          std::vector<unsigned char> &imagePixels,
+                          bool &timeBudgetExpired);
+  bool IsRebuildTimeBudgetExpired() const;
+  void StartRebuildTickBudget();
+  void LogRebuildStageMetrics(const char *stageName, int processedCount,
+                              std::chrono::steady_clock::duration elapsed) const;
   void ClearCachedTexture();
   void ClearCachedTexture(ViewCache &cache);
   void ClearCachedTexture(LegendCache &cache);
@@ -336,6 +366,13 @@ private:
   bool pendingFitOnResize = true;
   bool pendingFrameCommit_ = false;
   SelectionIndexCache selectionIndexCache_;
+  size_t rebuildViewCursor_ = 0;
+  size_t rebuildLegendCursor_ = 0;
+  size_t rebuildEventTableCursor_ = 0;
+  size_t rebuildTextCursor_ = 0;
+  size_t rebuildImageCursor_ = 0;
+  std::chrono::steady_clock::time_point rebuildTickStart_;
+  std::chrono::milliseconds rebuildTickBudget_{6};
 
   wxDECLARE_EVENT_TABLE();
 };
