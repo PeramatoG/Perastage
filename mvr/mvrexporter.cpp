@@ -1054,6 +1054,20 @@ static bool ExtractZip(const std::string &zipPath, const std::string &destDir) {
   return true;
 }
 
+// Chooses ZIP compression mode from entry extension and source size heuristics.
+static int SelectZipCompressionMethod(const std::string &entryName,
+                                      std::uintmax_t sourceSize) {
+  const std::string ext = ToLowerAscii(fs::path(entryName).extension().string());
+  if (ext == ".mvr" || ext == ".gdtf" || ext == ".png" || ext == ".jpg" ||
+      ext == ".jpeg" || ext == ".zip" || ext == ".gz" || ext == ".7z" ||
+      ext == ".pdf")
+    return wxZIP_METHOD_STORE;
+  if (sourceSize < 96)
+    return wxZIP_METHOD_STORE;
+  return wxZIP_METHOD_DEFLATE;
+}
+
+// Packs a directory recursively into a ZIP archive using per-entry compression heuristics.
 static bool ZipDir(const std::string &srcDir, const std::string &dstZip) {
   wxFileOutputStream output(dstZip);
   if (!output.IsOk())
@@ -1064,7 +1078,8 @@ static bool ZipDir(const std::string &srcDir, const std::string &dstZip) {
       continue;
     fs::path rel = fs::relative(p.path(), srcDir);
     auto *e = new wxZipEntry(rel.generic_string());
-    e->SetMethod(wxZIP_METHOD_DEFLATE);
+    const auto sourceSize = p.file_size();
+    e->SetMethod(SelectZipCompressionMethod(rel.generic_string(), sourceSize));
     zip.PutNextEntry(e);
     std::ifstream in(p.path(), std::ios::binary);
     char buf[4096];
@@ -1178,6 +1193,7 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
 
 // Exports the current scene into an MVR package with resolved and validated resources.
 bool MvrExporter::ExportToFile(const std::string &filePath) {
+  const auto exportStart = std::chrono::steady_clock::now();
   const auto &scene = ConfigManager::Get().GetScene();
   const TrussGeometryAuthority trussGeometryAuthority = GetTrussGeometryAuthoritySetting();
   std::unordered_map<std::string, std::string> positions;
@@ -2608,7 +2624,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       return false;
     }
     auto *entry = new wxZipEntry("GeneralSceneDescription.xml");
-    entry->SetMethod(wxZIP_METHOD_DEFLATE);
+    entry->SetMethod(
+        SelectZipCompressionMethod("GeneralSceneDescription.xml", xmlData.size()));
     zip.PutNextEntry(entry);
     zip.Write(xmlData.c_str(), xmlData.size());
     zip.CloseEntry();
@@ -2623,7 +2640,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       return false;
     }
     auto *e = new wxZipEntry(resource.archivePath);
-    e->SetMethod(wxZIP_METHOD_DEFLATE);
+    std::error_code ec;
+    const auto sourceSize = fs::file_size(resource.sourcePath, ec);
+    e->SetMethod(
+        SelectZipCompressionMethod(resource.archivePath, ec ? 0 : sourceSize));
     zip.PutNextEntry(e);
     std::ifstream in(resource.sourcePath, std::ios::binary);
     char buf[4096];
@@ -2637,5 +2657,25 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   }
 
   zip.Close();
+  const auto exportEnd = std::chrono::steady_clock::now();
+  std::error_code archiveEc;
+  const auto archiveSize = fs::file_size(filePath, archiveEc);
+  std::uintmax_t sourceBytes = xmlData.size();
+  for (const auto &resource : resourceEntries) {
+    if (!fs::exists(resource.sourcePath))
+      continue;
+    std::error_code sizeEc;
+    sourceBytes += fs::file_size(resource.sourcePath, sizeEc);
+  }
+  Logger::Instance().Log(
+      Logger::Level::Info,
+      wxString::Format(
+          "MVR export metrics duration_ms=%lld source_bytes=%llu archive_bytes=%llu",
+          static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     exportEnd - exportStart)
+                                     .count()),
+          static_cast<unsigned long long>(sourceBytes),
+          static_cast<unsigned long long>(archiveEc ? 0 : archiveSize))
+          .ToStdString());
   return true;
 }
