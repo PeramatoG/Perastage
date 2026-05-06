@@ -2561,7 +2561,8 @@ bool LayoutViewerPanel::ProcessDirty2DViews(Viewer2DOffscreenRenderer *offscreen
         renderState.camera.viewportWidth = renderSize.GetWidth();
         renderState.camera.viewportHeight = renderSize.GetHeight();
         auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-            capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
+            capturePanel, nullptr, cfg, renderState, capturePanel, nullptr,
+            false);
         std::vector<unsigned char> pixels;
         int width = 0;
         int height = 0;
