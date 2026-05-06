@@ -51,6 +51,7 @@ struct MeshTransform3ds {
     std::array<float, 3> origin = {0.0f, 0.0f, 0.0f};
 };
 
+// Returns whether a 3DS local basis is effectively an identity basis.
 static bool IsIdentityBasis(const MeshTransform3ds& transform)
 {
     constexpr float kEpsilon = 1e-5f;
@@ -259,9 +260,10 @@ static std::array<float, 3> readColorChunk(std::ifstream& file, long endPos, boo
     return c;
 }
 
+// Parses one TRIANGULAR MESH chunk and appends its geometry into the output mesh.
 static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t vertexBase,
                       const std::unordered_map<std::string, std::array<float, 3>>& materials,
-                      FaceColorAccum& colorAccum)
+                      FaceColorAccum& colorAccum, bool applyObjectLocalTransform)
 {
     size_t objectVertexStart = vertexBase;
     size_t objectVertexCount = 0;
@@ -372,15 +374,17 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
         }
     }
 
-    const bool shouldApplyLocalBasis = hasLocalTransform && !IsIdentityBasis(localTransform);
-    if (objectVertexCount > 0 && (shouldApplyLocalBasis || hasPivot)) {
+    const bool shouldApplyLocalBasis = applyObjectLocalTransform &&
+                                       hasLocalTransform &&
+                                       !IsIdentityBasis(localTransform);
+    if (objectVertexCount > 0 && (shouldApplyLocalBasis || (applyObjectLocalTransform && hasPivot))) {
         for (size_t i = 0; i < objectVertexCount; ++i) {
             const size_t index = (objectVertexStart + i) * 3;
             float x = mesh.vertices[index];
             float y = mesh.vertices[index + 1];
             float z = mesh.vertices[index + 2];
 
-            if (hasPivot) {
+            if (applyObjectLocalTransform && hasPivot) {
                 x -= pivot[0];
                 y -= pivot[1];
                 z -= pivot[2];
@@ -411,7 +415,8 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
     }
 }
 
-bool Load3DS(const std::string& path, Mesh& outMesh)
+// Loads mesh/object data from a 3DS file, with optional local transform application.
+bool Load3DS(const std::string& path, Mesh& outMesh, bool applyObjectLocalTransform)
 {
     std::ifstream file(path, std::ios::binary);
     if(!file.is_open())
@@ -446,7 +451,8 @@ bool Load3DS(const std::string& path, Mesh& outMesh)
                         long me = md + mc.length - 6;
                         if(mc.id == 0x4100) {
                             size_t base = outMesh.vertices.size() / 3;
-                            parseMesh(file, me, outMesh, base, materials, colorAccum);
+                            parseMesh(file, me, outMesh, base, materials, colorAccum,
+                                      applyObjectLocalTransform);
                         } else {
                             file.seekg(me);
                         }

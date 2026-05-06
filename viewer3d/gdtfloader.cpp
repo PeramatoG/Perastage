@@ -1230,7 +1230,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                         if (!alreadyFailed) {
                             bool loaded = false;
                             if (HasExtension(path, ".3ds"))
-                                loaded = Load3DS(path, mesh);
+                                loaded = Load3DS(path, mesh, false);
                             else if (HasExtension(path, ".glb"))
                                 loaded = LoadGLB(path, mesh);
 
