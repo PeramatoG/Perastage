@@ -4,54 +4,120 @@
 <dict>
   <key>CFBundleDisplayName</key>
   <string>Perastage</string>
+
   <key>CFBundleExecutable</key>
   <string>${EXECUTABLE_NAME}</string>
+
   <key>CFBundleIdentifier</key>
   <string>com.perastage.app</string>
+
   <key>CFBundleName</key>
   <string>Perastage</string>
+
+  <key>CFBundleIconFile</key>
+  <string>Perastage.icns</string>
+
   <key>CFBundlePackageType</key>
   <string>APPL</string>
+
   <key>CFBundleShortVersionString</key>
   <string>${PERASTAGE_VERSION}</string>
+
   <key>CFBundleVersion</key>
   <string>${PERASTAGE_VERSION}</string>
+
   <key>CFBundleDocumentTypes</key>
   <array>
     <dict>
       <key>CFBundleTypeName</key>
       <string>MVR Scene</string>
+
       <key>CFBundleTypeRole</key>
       <string>Editor</string>
+
+      <key>CFBundleTypeIconFile</key>
+      <string>PerastageMVR.icns</string>
+
       <key>LSItemContentTypes</key>
       <array>
         <string>com.perastage.mvr</string>
       </array>
+
       <key>CFBundleTypeExtensions</key>
       <array>
         <string>mvr</string>
       </array>
     </dict>
+
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>Perastage Project</string>
+
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+
+      <key>CFBundleTypeIconFile</key>
+      <string>PerastageProject.icns</string>
+
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>com.perastage.project</string>
+      </array>
+
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>pstg</string>
+      </array>
+    </dict>
   </array>
+
   <key>UTExportedTypeDeclarations</key>
   <array>
     <dict>
       <key>UTTypeIdentifier</key>
       <string>com.perastage.mvr</string>
+
       <key>UTTypeDescription</key>
       <string>MVR Scene</string>
+
       <key>UTTypeConformsTo</key>
       <array>
         <string>public.data</string>
       </array>
+
       <key>UTTypeTagSpecification</key>
       <dict>
         <key>public.filename-extension</key>
         <array>
           <string>mvr</string>
         </array>
+
         <key>public.mime-type</key>
         <string>application/x-perastage-mvr</string>
+      </dict>
+    </dict>
+
+    <dict>
+      <key>UTTypeIdentifier</key>
+      <string>com.perastage.project</string>
+
+      <key>UTTypeDescription</key>
+      <string>Perastage Project</string>
+
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.data</string>
+      </array>
+
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>pstg</string>
+        </array>
+
+        <key>public.mime-type</key>
+        <string>application/x-perastage-project</string>
       </dict>
     </dict>
   </array>
