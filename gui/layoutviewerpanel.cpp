@@ -20,6 +20,8 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <list>
+#include <filesystem>
 #include <new>
 #include <unordered_map>
 #include <vector>
@@ -105,6 +107,85 @@ constexpr int kToggleTextFrameMenuId = wxID_HIGHEST + 503;
 constexpr int kToggleTextTransparentBackgroundMenuId = wxID_HIGHEST + 504;
 constexpr int kToggleViewFrameMenuId = wxID_HIGHEST + 506;
 constexpr int kLoadingOverlayDelayMs = 150;
+constexpr size_t kImageBitmapLruCapacity = 64;
+
+struct ImageBitmapCacheKey {
+  std::string imagePath;
+  int targetWidth = 0;
+  int targetHeight = 0;
+  std::filesystem::file_time_type fileMtime{};
+
+  bool operator==(const ImageBitmapCacheKey &other) const {
+    return imagePath == other.imagePath && targetWidth == other.targetWidth &&
+           targetHeight == other.targetHeight && fileMtime == other.fileMtime;
+  }
+};
+
+struct ImageBitmapCacheKeyHasher {
+  size_t operator()(const ImageBitmapCacheKey &key) const {
+    const auto mtimeTicks =
+        static_cast<long long>(key.fileMtime.time_since_epoch().count());
+    size_t seed = std::hash<std::string>{}(key.imagePath);
+    seed ^= std::hash<int>{}(key.targetWidth) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    seed ^= std::hash<int>{}(key.targetHeight) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    seed ^= std::hash<long long>{}(mtimeTicks) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    return seed;
+  }
+};
+
+struct ImageBitmapCacheEntry {
+  ImageBitmapCacheKey key;
+  wxImage bitmap;
+};
+
+// Returns the image file modification time and reports false when it cannot be read.
+bool TryGetImageFileMtime(const std::string &imagePath,
+                          std::filesystem::file_time_type &outMtime) {
+  std::error_code ec;
+  outMtime = std::filesystem::last_write_time(std::filesystem::path(imagePath), ec);
+  return !ec;
+}
+
+// Returns a mirrored and alpha-ready scaled bitmap from a process-local LRU cache.
+const wxImage *GetOrCreateScaledImageBitmap(const std::string &imagePath,
+                                            int targetWidth, int targetHeight,
+                                            std::filesystem::file_time_type fileMtime) {
+  using CacheList = std::list<ImageBitmapCacheEntry>;
+  static CacheList cacheEntries;
+  static std::unordered_map<ImageBitmapCacheKey, CacheList::iterator, ImageBitmapCacheKeyHasher>
+      cacheIndex;
+
+  const ImageBitmapCacheKey key{imagePath, targetWidth, targetHeight, fileMtime};
+  auto it = cacheIndex.find(key);
+  if (it != cacheIndex.end()) {
+    cacheEntries.splice(cacheEntries.begin(), cacheEntries, it->second);
+    return &it->second->bitmap;
+  }
+
+  wxImage sourceBitmap;
+  if (!sourceBitmap.LoadFile(wxString::FromUTF8(imagePath)) ||
+      sourceBitmap.GetWidth() <= 0 || sourceBitmap.GetHeight() <= 0) {
+    return nullptr;
+  }
+
+  wxImage scaled = sourceBitmap.Scale(targetWidth, targetHeight, wxIMAGE_QUALITY_HIGH);
+  if (!scaled.IsOk()) {
+    return nullptr;
+  }
+  scaled = scaled.Mirror(false);
+  if (!scaled.HasAlpha()) {
+    scaled.InitAlpha();
+  }
+
+  cacheEntries.push_front({key, scaled});
+  cacheIndex[key] = cacheEntries.begin();
+  if (cacheEntries.size() > kImageBitmapLruCapacity) {
+    auto tail = std::prev(cacheEntries.end());
+    cacheIndex.erase(tail->key);
+    cacheEntries.pop_back();
+  }
+  return &cacheEntries.front().bitmap;
+}
 
 void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
                                 int expectedHeight) {
@@ -2376,7 +2457,7 @@ bool LayoutViewerPanel::ProcessDirtyTexts(double renderZoom, int maxItems, std::
 // Processes dirty image textures in bounded batches to progressively refresh bitmap overlays.
 bool LayoutViewerPanel::ProcessDirtyImages(double renderZoom, int maxItems, std::vector<unsigned char> &imagePixels, bool &timeBudgetExpired) {
   const auto stageStart = std::chrono::steady_clock::now(); int processedCount = 0; const size_t total = currentLayout.imageViews.size();
-  for (size_t scanned = 0; scanned < total; ++scanned) { const size_t idx = (rebuildImageCursor_ + scanned) % total; const auto &image = currentLayout.imageViews[idx]; ImageCache &cache = GetImageCache(image.id); size_t dataHash = HashImageContent(image); if (cache.contentHash != dataHash) cache.renderDirty = true; if (!cache.renderDirty) continue; cache.renderDirty = false; const wxSize renderSize = GetFrameSizeForZoom(image.frame, renderZoom); if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0 || image.imagePath.empty()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { wxImage bitmap; if (!bitmap.LoadFile(wxString::FromUTF8(image.imagePath)) || bitmap.GetWidth()<=0 || bitmap.GetHeight()<=0) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { wxImage scaled = bitmap.Scale(renderSize.GetWidth(), renderSize.GetHeight(), wxIMAGE_QUALITY_HIGH); if (!scaled.IsOk()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { scaled = scaled.Mirror(false); if (!scaled.HasAlpha()) scaled.InitAlpha(); const int width=scaled.GetWidth(), height=scaled.GetHeight(); const unsigned char *rgb=scaled.GetData(), *alpha=scaled.GetAlpha(); if (!rgb || width<=0 || height<=0 || !TryAllocatePixelBuffer(imagePixels,width,height,"image")) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { for (int i=0;i<width*height;++i){ imagePixels[(size_t)i*4]=rgb[i*3]; imagePixels[(size_t)i*4+1]=rgb[i*3+1]; imagePixels[(size_t)i*4+2]=rgb[i*3+2]; imagePixels[(size_t)i*4+3]=alpha?alpha[i]:255; } if (!InitGL()) return false; if (cache.texture==0) glGenTextures(1,&cache.texture); glBindTexture(GL_TEXTURE_2D, cache.texture); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glPixelStorei(GL_UNPACK_ALIGNMENT, 1); ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes); if (!UploadRgbaToTexture(cache.texture,width,height,imagePixels.data(),cache.textureSize,true)) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { cache.textureSize = wxSize(width,height); cache.renderZoom = renderZoom; cache.contentHash = dataHash; } imagePixels.clear(); } } } }
+  for (size_t scanned = 0; scanned < total; ++scanned) { const size_t idx = (rebuildImageCursor_ + scanned) % total; const auto &image = currentLayout.imageViews[idx]; ImageCache &cache = GetImageCache(image.id); size_t dataHash = HashImageContent(image); if (cache.contentHash != dataHash) cache.renderDirty = true; if (!cache.renderDirty) continue; cache.renderDirty = false; const wxSize renderSize = GetFrameSizeForZoom(image.frame, renderZoom); if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0 || image.imagePath.empty()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { std::filesystem::file_time_type fileMtime{}; const bool hasMtime = TryGetImageFileMtime(image.imagePath, fileMtime); if (!hasMtime) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { const wxImage *scaled = GetOrCreateScaledImageBitmap(image.imagePath, renderSize.GetWidth(), renderSize.GetHeight(), fileMtime); if (!scaled || !scaled->IsOk()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { const int width=scaled->GetWidth(), height=scaled->GetHeight(); const unsigned char *rgb=scaled->GetData(), *alpha=scaled->GetAlpha(); if (!rgb || width<=0 || height<=0 || !TryAllocatePixelBuffer(imagePixels,width,height,"image")) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { for (int i=0;i<width*height;++i){ imagePixels[(size_t)i*4]=rgb[i*3]; imagePixels[(size_t)i*4+1]=rgb[i*3+1]; imagePixels[(size_t)i*4+2]=rgb[i*3+2]; imagePixels[(size_t)i*4+3]=alpha?alpha[i]:255; } if (!InitGL()) return false; if (cache.texture==0) glGenTextures(1,&cache.texture); glBindTexture(GL_TEXTURE_2D, cache.texture); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glPixelStorei(GL_UNPACK_ALIGNMENT, 1); ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes); if (!UploadRgbaToTexture(cache.texture,width,height,imagePixels.data(),cache.textureSize,true)) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { cache.textureSize = wxSize(width,height); cache.renderZoom = renderZoom; cache.contentHash = dataHash; } imagePixels.clear(); } } } }
     processedCount++; rebuildImageCursor_=(idx+1)%total; if (processedCount>=maxItems || IsRebuildTimeBudgetExpired()) { timeBudgetExpired=true; break; }
   }
   LogRebuildStageMetrics("images", processedCount, std::chrono::steady_clock::now()-stageStart); return true;
