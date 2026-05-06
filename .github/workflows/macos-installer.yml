@@ -133,13 +133,20 @@ jobs:
         run: |
           APP_PATH="out/install/Release/Perastage.app"
 
-          # Re-sign embedded framework bundles so dependency signatures stay consistent.
+          # Re-sign every embedded Mach-O binary to avoid broken nested signatures.
+          while IFS= read -r file_path; do
+            if file "$file_path" | grep -q "Mach-O"; then
+              codesign --force --sign - --timestamp=none "$file_path"
+            fi
+          done < <(find "$APP_PATH" -type f)
+
+          # Re-sign every embedded framework bundle after signing its binaries.
           while IFS= read -r framework_path; do
             codesign --force --sign - --timestamp=none "$framework_path"
           done < <(find "$APP_PATH/Contents/Frameworks" -type d -name "*.framework" 2>/dev/null || true)
 
-          # Re-sign the full .app with deep traversal to sign nested code in one pass.
-          codesign --force --deep --sign - --timestamp=none "$APP_PATH"
+          # Re-sign the full .app bundle once all nested content has stable signatures.
+          codesign --force --sign - --timestamp=none "$APP_PATH"
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
           spctl --assess --type execute --verbose=4 "$APP_PATH" || true
 
