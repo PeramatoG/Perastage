@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <future>
 #include <list>
 #include <filesystem>
 #include <new>
@@ -472,6 +473,41 @@ bool IsPixelUnpackPboSupported() {
   return hasPboExtension;
 }
 
+
+// Represents an immutable CPU-produced RGBA payload ready for GPU upload.
+struct PreparedRgbaPayload {
+  bool valid = false;
+  int width = 0;
+  int height = 0;
+  std::vector<unsigned char> pixels;
+};
+
+// Converts a wxImage into RGBA bytes that can be uploaded on the render thread.
+PreparedRgbaPayload PrepareRgbaPayloadFromImage(wxImage image, const char *context) {
+  PreparedRgbaPayload payload;
+  if (!image.IsOk())
+    return payload;
+  image = image.Mirror(false);
+  if (!image.HasAlpha())
+    image.InitAlpha();
+  const int width = image.GetWidth();
+  const int height = image.GetHeight();
+  const unsigned char *rgb = image.GetData();
+  const unsigned char *alpha = image.GetAlpha();
+  if (!rgb || width <= 0 || height <= 0 || !TryAllocatePixelBuffer(payload.pixels, width, height, context))
+    return payload;
+  for (int i = 0; i < width * height; ++i) {
+    payload.pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
+    payload.pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
+    payload.pixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
+    payload.pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
+  }
+  payload.width = width;
+  payload.height = height;
+  payload.valid = true;
+  return payload;
+}
+
 // Ensures the pixel-unpack PBO exists and has enough storage for the upload.
 bool EnsurePboCapacity(unsigned int &pbo, size_t &capacity, size_t bytesNeeded) {
   if (bytesNeeded == 0)
@@ -637,6 +673,8 @@ LayoutViewerPanel::~LayoutViewerPanel() {
 
 void LayoutViewerPanel::SetLayoutDefinition(
     const layouts::LayoutDefinition &layout) {
+  // Advances the render epoch so pending worker payloads from older layouts are discarded.
+  NextRenderEpoch();
   if (IsSameRenderableLayout(currentLayout, layout)) {
     currentLayout.name = layout.name;
     legendDataDirty_ = true;
@@ -2303,7 +2341,6 @@ bool LayoutViewerPanel::ProcessDirty2DViews(Viewer2DOffscreenRenderer *offscreen
     if (!cache.renderDirty)
       continue;
     cache.renderDirty = false;
-    wxRect frameRect;
     if (!cache.hasCapture || !cache.hasRenderState || !GetFrameRect(view.frame, frameRect)) {
       ClearCachedTexture(cache);
       cache.textureSize = wxSize(0, 0);
@@ -2481,7 +2518,8 @@ bool LayoutViewerPanel::ProcessDirtyEventTables(double renderZoom, int maxItems,
 // Processes dirty text textures in bounded batches to progressively refresh text overlays.
 bool LayoutViewerPanel::ProcessDirtyTexts(double renderZoom, int maxItems, std::vector<unsigned char> &textPixels, bool &timeBudgetExpired) {
   const auto stageStart = std::chrono::steady_clock::now(); int processedCount = 0; const size_t total = currentLayout.textViews.size();
-  for (int pass = 0; pass < 2; ++pass) { for (size_t scanned = 0; scanned < total; ++scanned) { const size_t idx = (rebuildTextCursor_ + scanned) % total; const auto &text = currentLayout.textViews[idx]; wxRect frameRect; const bool isVisible = GetFrameRect(text.frame, frameRect) && frameRect.Intersects(wxRect(wxPoint(0, 0), GetClientSize())); const bool isSelected = selectedElementType == SelectedElementType::Text && selectedElementId == text.id; const bool isPriority = isVisible || isSelected; if ((pass == 0 && !isPriority) || (pass == 1 && isPriority)) continue; TextCache &cache = GetTextCache(text.id); size_t dataHash = HashTextContent(text); if (cache.contentHash != dataHash) cache.renderDirty = true; if (!cache.renderDirty) continue; cache.renderDirty = false; const wxSize renderSize = GetFrameSizeForZoom(text.frame, renderZoom); if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { wxImage image = BuildTextImage(renderSize, wxSize(text.frame.width, text.frame.height), renderZoom, text); if (!image.IsOk()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { image = image.Mirror(false); if (!image.HasAlpha()) image.InitAlpha(); const int width=image.GetWidth(), height=image.GetHeight(); const unsigned char *rgb=image.GetData(), *alpha=image.GetAlpha(); if (!rgb || width<=0 || height<=0 || !TryAllocatePixelBuffer(textPixels,width,height,"text")) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { for (int i=0;i<width*height;++i){ const unsigned char a=alpha?alpha[i]:255; textPixels[(size_t)i*4]=rgb[i*3]; textPixels[(size_t)i*4+1]=rgb[i*3+1]; textPixels[(size_t)i*4+2]=rgb[i*3+2]; textPixels[(size_t)i*4+3]=a; } if (!InitGL()) return false; if (cache.texture==0) glGenTextures(1,&cache.texture); glBindTexture(GL_TEXTURE_2D, cache.texture); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glPixelStorei(GL_UNPACK_ALIGNMENT,1); ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes); if (!UploadRgbaToTexture(cache.texture,width,height,textPixels.data(),cache.textureSize,true)) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { cache.textureSize = wxSize(width,height); cache.renderZoom = renderZoom; cache.contentHash = dataHash; } textPixels.clear(); } } } processedCount++; rebuildTextCursor_=(idx+1)%total; if (processedCount>=maxItems || IsRebuildTimeBudgetExpired()) { timeBudgetExpired=true; break; } } if (timeBudgetExpired) break; }
+  const uint64_t epoch = renderEpoch_.load();
+  for (int pass = 0; pass < 2; ++pass) { for (size_t scanned = 0; scanned < total; ++scanned) { const size_t idx = (rebuildTextCursor_ + scanned) % total; const auto &text = currentLayout.textViews[idx]; wxRect frameRect; const bool isVisible = GetFrameRect(text.frame, frameRect) && frameRect.Intersects(wxRect(wxPoint(0, 0), GetClientSize())); const bool isSelected = selectedElementType == SelectedElementType::Text && selectedElementId == text.id; const bool isPriority = isVisible || isSelected; if ((pass == 0 && !isPriority) || (pass == 1 && isPriority)) continue; TextCache &cache = GetTextCache(text.id); size_t dataHash = HashTextContent(text); if (cache.contentHash != dataHash) cache.renderDirty = true; if (!cache.renderDirty) continue; cache.renderDirty = false; const wxSize renderSize = GetFrameSizeForZoom(text.frame, renderZoom); if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { auto task = std::async(std::launch::async, [this, text, renderSize, renderZoom]() { return PrepareRgbaPayloadFromImage(BuildTextImage(renderSize, wxSize(text.frame.width, text.frame.height), renderZoom, text), "text"); }); PreparedRgbaPayload payload = task.get(); if (epoch != renderEpoch_.load()) return true; if (!payload.valid) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { if (!InitGL()) return false; if (cache.texture==0) glGenTextures(1,&cache.texture); glBindTexture(GL_TEXTURE_2D, cache.texture); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glPixelStorei(GL_UNPACK_ALIGNMENT,1); ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes); if (!UploadRgbaToTexture(cache.texture,payload.width,payload.height,payload.pixels.data(),cache.textureSize,true)) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { cache.textureSize = wxSize(payload.width,payload.height); cache.renderZoom = renderZoom; cache.contentHash = dataHash; } } } processedCount++; rebuildTextCursor_=(idx+1)%total; if (processedCount>=maxItems || IsRebuildTimeBudgetExpired()) { timeBudgetExpired=true; break; } } if (timeBudgetExpired) break; }
   LogRebuildStageMetrics("texts", processedCount, std::chrono::steady_clock::now()-stageStart); return true;
 }
 
@@ -2670,6 +2708,8 @@ bool LayoutViewerPanel::NeedsRenderRebuild() const {
 }
 
 void LayoutViewerPanel::RequestRenderRebuild() {
+  // Advances the render epoch to cancel stale payloads queued before this rebuild request.
+  NextRenderEpoch();
   if (IsLayoutEmpty()) {
     renderPending = false;
     loadingRequested = false;
@@ -2714,6 +2754,9 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     panel->renderDelayTimer_.StartOnce(kLoadingOverlayDelayMs);
   });
 }
+
+// Returns a new render epoch value used to guard asynchronous CPU payload tasks.
+uint64_t LayoutViewerPanel::NextRenderEpoch() { return ++renderEpoch_; }
 
 void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
   if (!loadingRequested)
