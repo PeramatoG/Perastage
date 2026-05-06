@@ -2195,12 +2195,189 @@ bool LayoutViewerPanel::PrepareLegendSymbolsIfNeeded(bool needsLegendSymbolCaptu
   return true;
 }
 
-// Processes a bounded number of dirty entries for a rebuild stage and keeps progressive scheduling active.
-bool LayoutViewerPanel::ProcessDirty2DViews(Viewer2DOffscreenRenderer *, Viewer2DPanel *, ConfigManager &, double, int, bool &) { return true; }
-bool LayoutViewerPanel::ProcessDirtyLegends(double, int, const std::shared_ptr<const SymbolDefinitionSnapshot> &, std::vector<unsigned char> &, bool &) { return true; }
-bool LayoutViewerPanel::ProcessDirtyEventTables(double, int, std::vector<unsigned char> &, bool &) { return true; }
-bool LayoutViewerPanel::ProcessDirtyTexts(double, int, std::vector<unsigned char> &, bool &) { return true; }
-bool LayoutViewerPanel::ProcessDirtyImages(double, int, std::vector<unsigned char> &, bool &) { return true; }
+// Processes dirty 2D view textures in bounded batches and uploads each successful render to GPU.
+bool LayoutViewerPanel::ProcessDirty2DViews(Viewer2DOffscreenRenderer *offscreenRenderer, Viewer2DPanel *capturePanel, ConfigManager &cfg, double renderZoom, int maxItems, bool &timeBudgetExpired) {
+  if (!offscreenRenderer || !capturePanel)
+    return true;
+  const auto stageStart = std::chrono::steady_clock::now();
+  int processedCount = 0;
+  if (currentLayout.view2dViews.empty())
+    return true;
+  const size_t total = currentLayout.view2dViews.size();
+  for (size_t scanned = 0; scanned < total; ++scanned) {
+    const size_t idx = (rebuildViewCursor_ + scanned) % total;
+    const auto &view = currentLayout.view2dViews[idx];
+    ViewCache &cache = GetViewCache(view.id);
+    if (!cache.renderDirty)
+      continue;
+    cache.renderDirty = false;
+    wxRect frameRect;
+    if (!cache.hasCapture || !cache.hasRenderState || !GetFrameRect(view.frame, frameRect)) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+    } else {
+      const wxSize renderSize = GetFrameSizeForZoom(view.frame, renderZoom);
+      if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+      } else {
+        offscreenRenderer->SetViewportSize(renderSize);
+        offscreenRenderer->PrepareForCapture();
+        viewer2d::Viewer2DState renderState = cache.renderState;
+        if (renderZoom != 1.0)
+          renderState.camera.zoom *= static_cast<float>(renderZoom);
+        renderState.camera.viewportWidth = renderSize.GetWidth();
+        renderState.camera.viewportHeight = renderSize.GetHeight();
+        auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+            capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
+        std::vector<unsigned char> pixels;
+        int width = 0;
+        int height = 0;
+        capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
+        const bool rendered = capturePanel->RenderToRGBA(pixels, width, height);
+        capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
+        if (!rendered || width <= 0 || height <= 0) {
+          ClearCachedTexture(cache);
+          cache.textureSize = wxSize(0, 0);
+          cache.renderZoom = 0.0;
+        } else {
+          if (!InitGL())
+            return false;
+          if (cache.texture == 0)
+            glGenTextures(1, &cache.texture);
+          glBindTexture(GL_TEXTURE_2D, cache.texture);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+          glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+          ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes);
+          if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(), cache.textureSize, true)) {
+            ClearCachedTexture(cache);
+            cache.textureSize = wxSize(0, 0);
+            cache.renderZoom = 0.0;
+          } else {
+            cache.textureSize = wxSize(width, height);
+            cache.renderZoom = renderZoom;
+            cache.contentHash = HashViewContent(view);
+          }
+        }
+      }
+    }
+    processedCount++;
+    rebuildViewCursor_ = (idx + 1) % total;
+    if (processedCount >= maxItems || IsRebuildTimeBudgetExpired()) {
+      timeBudgetExpired = true;
+      break;
+    }
+  }
+  LogRebuildStageMetrics("2d_views", processedCount, std::chrono::steady_clock::now() - stageStart);
+  return true;
+}
+
+// Processes dirty legend textures in bounded batches and refreshes symbol snapshots when needed.
+bool LayoutViewerPanel::ProcessDirtyLegends(double renderZoom, int maxItems, const std::shared_ptr<const SymbolDefinitionSnapshot> &legendSymbols, std::vector<unsigned char> &legendPixels, bool &timeBudgetExpired) {
+  const auto stageStart = std::chrono::steady_clock::now();
+  int processedCount = 0;
+  if (currentLayout.legendViews.empty())
+    return true;
+  const size_t total = currentLayout.legendViews.size();
+  for (size_t scanned = 0; scanned < total; ++scanned) {
+    const size_t idx = (rebuildLegendCursor_ + scanned) % total;
+    const auto &legend = currentLayout.legendViews[idx];
+    LegendCache &cache = GetLegendCache(legend.id);
+    const bool contentChanged = cache.contentHash != legendDataHash;
+    const bool requiresSymbolRefresh = !cache.symbols || contentChanged;
+    if (requiresSymbolRefresh && legendSymbols && cache.symbols != legendSymbols) { cache.symbols = legendSymbols; cache.renderDirty = true; }
+    if (contentChanged) cache.renderDirty = true;
+    if (!cache.renderDirty) continue;
+    cache.renderDirty = false;
+    const wxSize renderSize = GetFrameSizeForZoom(legend.frame, renderZoom);
+    if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) { ClearCachedTexture(cache); cache.textureSize = wxSize(0, 0); cache.renderZoom = 0.0; }
+    else {
+      wxImage image = BuildLegendImage(renderSize, wxSize(legend.frame.width, legend.frame.height), renderZoom, legendItems_, cache.symbols.get());
+      if (!image.IsOk()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0, 0); cache.renderZoom = 0.0; }
+      else {
+        image = image.Mirror(false); if (!image.HasAlpha()) image.InitAlpha();
+        const int width = image.GetWidth(), height = image.GetHeight(); const unsigned char *rgb = image.GetData(); const unsigned char *alpha = image.GetAlpha();
+        if (!rgb || width <= 0 || height <= 0 || !TryAllocatePixelBuffer(legendPixels, width, height, "legend")) { ClearCachedTexture(cache); cache.textureSize = wxSize(0, 0); cache.renderZoom = 0.0; }
+        else {
+          for (int i = 0; i < width * height; ++i) { legendPixels[static_cast<size_t>(i) * 4] = rgb[i * 3]; legendPixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1]; legendPixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2]; legendPixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255; }
+          if (!InitGL()) return false;
+          if (cache.texture == 0) glGenTextures(1, &cache.texture);
+          glBindTexture(GL_TEXTURE_2D, cache.texture); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+          ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes);
+          if (!UploadRgbaToTexture(cache.texture, width, height, legendPixels.data(), cache.textureSize, true)) { ClearCachedTexture(cache); cache.textureSize = wxSize(0, 0); cache.renderZoom = 0.0; }
+          else { cache.textureSize = wxSize(width, height); cache.renderZoom = renderZoom; cache.contentHash = legendDataHash; }
+          legendPixels.clear();
+        }
+      }
+    }
+    processedCount++; rebuildLegendCursor_ = (idx + 1) % total;
+    if (processedCount >= maxItems || IsRebuildTimeBudgetExpired()) { timeBudgetExpired = true; break; }
+  }
+  LogRebuildStageMetrics("legends", processedCount, std::chrono::steady_clock::now() - stageStart);
+  return true;
+}
+
+// Processes dirty event table textures in bounded batches to progressively refresh overlay tables.
+bool LayoutViewerPanel::ProcessDirtyEventTables(double renderZoom, int maxItems, std::vector<unsigned char> &eventTablePixels, bool &timeBudgetExpired) {
+  const auto stageStart = std::chrono::steady_clock::now();
+  int processedCount = 0;
+  const size_t total = currentLayout.eventTables.size();
+  for (size_t scanned = 0; scanned < total; ++scanned) {
+    const size_t idx = (rebuildEventTableCursor_ + scanned) % total;
+    const auto &table = currentLayout.eventTables[idx];
+    EventTableCache &cache = GetEventTableCache(table.id);
+    size_t dataHash = HashEventTableFields(table);
+    if (cache.contentHash != dataHash) cache.renderDirty = true;
+    if (!cache.renderDirty) continue;
+    cache.renderDirty = false;
+    const wxSize renderSize = GetFrameSizeForZoom(table.frame, renderZoom);
+    if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; }
+    else {
+      wxImage image = BuildEventTableImage(renderSize, wxSize(table.frame.width, table.frame.height), renderZoom, table);
+      if (!image.IsOk()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; }
+      else {
+        image = image.Mirror(false); if (!image.HasAlpha()) image.InitAlpha();
+        const int width=image.GetWidth(), height=image.GetHeight(); const unsigned char *rgb=image.GetData(), *alpha=image.GetAlpha();
+        if (!rgb || width<=0 || height<=0 || !TryAllocatePixelBuffer(eventTablePixels,width,height,"event table")) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; }
+        else {
+          for (int i=0;i<width*height;++i){ const unsigned char a=alpha?alpha[i]:255; eventTablePixels[(size_t)i*4]=rgb[i*3]; eventTablePixels[(size_t)i*4+1]=rgb[i*3+1]; eventTablePixels[(size_t)i*4+2]=rgb[i*3+2]; eventTablePixels[(size_t)i*4+3]=a; }
+          if (!InitGL()) return false;
+          if (cache.texture==0) glGenTextures(1,&cache.texture);
+          glBindTexture(GL_TEXTURE_2D, cache.texture); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+          ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes);
+          if (!UploadRgbaToTexture(cache.texture,width,height,eventTablePixels.data(),cache.textureSize,true)) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; }
+          else { cache.textureSize = wxSize(width,height); cache.renderZoom = renderZoom; cache.contentHash = dataHash; }
+          eventTablePixels.clear();
+        }
+      }
+    }
+    processedCount++; rebuildEventTableCursor_=(idx+1)%total;
+    if (processedCount>=maxItems || IsRebuildTimeBudgetExpired()) { timeBudgetExpired=true; break; }
+  }
+  LogRebuildStageMetrics("event_tables", processedCount, std::chrono::steady_clock::now()-stageStart);
+  return true;
+}
+
+// Processes dirty text textures in bounded batches to progressively refresh text overlays.
+bool LayoutViewerPanel::ProcessDirtyTexts(double renderZoom, int maxItems, std::vector<unsigned char> &textPixels, bool &timeBudgetExpired) {
+  const auto stageStart = std::chrono::steady_clock::now(); int processedCount = 0; const size_t total = currentLayout.textViews.size();
+  for (size_t scanned = 0; scanned < total; ++scanned) { const size_t idx = (rebuildTextCursor_ + scanned) % total; const auto &text = currentLayout.textViews[idx]; TextCache &cache = GetTextCache(text.id); size_t dataHash = HashTextContent(text); if (cache.contentHash != dataHash) cache.renderDirty = true; if (!cache.renderDirty) continue; cache.renderDirty = false; const wxSize renderSize = GetFrameSizeForZoom(text.frame, renderZoom); if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { wxImage image = BuildTextImage(renderSize, wxSize(text.frame.width, text.frame.height), renderZoom, text); if (!image.IsOk()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { image = image.Mirror(false); if (!image.HasAlpha()) image.InitAlpha(); const int width=image.GetWidth(), height=image.GetHeight(); const unsigned char *rgb=image.GetData(), *alpha=image.GetAlpha(); if (!rgb || width<=0 || height<=0 || !TryAllocatePixelBuffer(textPixels,width,height,"text")) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { for (int i=0;i<width*height;++i){ const unsigned char a=alpha?alpha[i]:255; textPixels[(size_t)i*4]=rgb[i*3]; textPixels[(size_t)i*4+1]=rgb[i*3+1]; textPixels[(size_t)i*4+2]=rgb[i*3+2]; textPixels[(size_t)i*4+3]=a; } if (!InitGL()) return false; if (cache.texture==0) glGenTextures(1,&cache.texture); glBindTexture(GL_TEXTURE_2D, cache.texture); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glPixelStorei(GL_UNPACK_ALIGNMENT,1); ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes); if (!UploadRgbaToTexture(cache.texture,width,height,textPixels.data(),cache.textureSize,true)) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { cache.textureSize = wxSize(width,height); cache.renderZoom = renderZoom; cache.contentHash = dataHash; } textPixels.clear(); } } } processedCount++; rebuildTextCursor_=(idx+1)%total; if (processedCount>=maxItems || IsRebuildTimeBudgetExpired()) { timeBudgetExpired=true; break; } }
+  LogRebuildStageMetrics("texts", processedCount, std::chrono::steady_clock::now()-stageStart); return true;
+}
+
+// Processes dirty image textures in bounded batches to progressively refresh bitmap overlays.
+bool LayoutViewerPanel::ProcessDirtyImages(double renderZoom, int maxItems, std::vector<unsigned char> &imagePixels, bool &timeBudgetExpired) {
+  const auto stageStart = std::chrono::steady_clock::now(); int processedCount = 0; const size_t total = currentLayout.imageViews.size();
+  for (size_t scanned = 0; scanned < total; ++scanned) { const size_t idx = (rebuildImageCursor_ + scanned) % total; const auto &image = currentLayout.imageViews[idx]; ImageCache &cache = GetImageCache(image.id); size_t dataHash = HashImageContent(image); if (cache.contentHash != dataHash) cache.renderDirty = true; if (!cache.renderDirty) continue; cache.renderDirty = false; const wxSize renderSize = GetFrameSizeForZoom(image.frame, renderZoom); if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0 || image.imagePath.empty()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { wxImage bitmap; if (!bitmap.LoadFile(wxString::FromUTF8(image.imagePath)) || bitmap.GetWidth()<=0 || bitmap.GetHeight()<=0) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { wxImage scaled = bitmap.Scale(renderSize.GetWidth(), renderSize.GetHeight(), wxIMAGE_QUALITY_HIGH); if (!scaled.IsOk()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { scaled = scaled.Mirror(false); if (!scaled.HasAlpha()) scaled.InitAlpha(); const int width=scaled.GetWidth(), height=scaled.GetHeight(); const unsigned char *rgb=scaled.GetData(), *alpha=scaled.GetAlpha(); if (!rgb || width<=0 || height<=0 || !TryAllocatePixelBuffer(imagePixels,width,height,"image")) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { for (int i=0;i<width*height;++i){ imagePixels[(size_t)i*4]=rgb[i*3]; imagePixels[(size_t)i*4+1]=rgb[i*3+1]; imagePixels[(size_t)i*4+2]=rgb[i*3+2]; imagePixels[(size_t)i*4+3]=alpha?alpha[i]:255; } if (!InitGL()) return false; if (cache.texture==0) glGenTextures(1,&cache.texture); glBindTexture(GL_TEXTURE_2D, cache.texture); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glPixelStorei(GL_UNPACK_ALIGNMENT, 1); ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes); if (!UploadRgbaToTexture(cache.texture,width,height,imagePixels.data(),cache.textureSize,true)) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { cache.textureSize = wxSize(width,height); cache.renderZoom = renderZoom; cache.contentHash = dataHash; } imagePixels.clear(); } } } }
+    processedCount++; rebuildImageCursor_=(idx+1)%total; if (processedCount>=maxItems || IsRebuildTimeBudgetExpired()) { timeBudgetExpired=true; break; }
+  }
+  LogRebuildStageMetrics("images", processedCount, std::chrono::steady_clock::now()-stageStart); return true;
+}
 
 void LayoutViewerPanel::ClearCachedTexture() {
   for (auto &entry : viewCaches_) {
