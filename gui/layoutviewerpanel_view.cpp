@@ -187,6 +187,7 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
   Refresh();
 }
 
+// Draws a 2D view element and triggers recapture only when its relevant cached content changed.
 void LayoutViewerPanel::DrawViewElement(
     const layouts::Layout2DViewDefinition &view, Viewer2DPanel *capturePanel,
     Viewer2DOffscreenRenderer *offscreenRenderer, int activeViewId) {
@@ -222,6 +223,7 @@ void LayoutViewerPanel::DrawViewElement(
     }
     auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
         capturePanel, nullptr, cfg, layoutState, nullptr, nullptr, false);
+    Logger::Instance().Log("LayoutViewerPanel view recapture triggered for view ID: " + std::to_string(viewId));
     capturePanel->CaptureFrameNow(
         [this, viewId, stateGuard, fallbackViewportWidth, fallbackViewportHeight,
          capturePanel, captureContentHash](CommandBuffer buffer,

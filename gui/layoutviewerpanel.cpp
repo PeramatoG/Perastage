@@ -2258,12 +2258,30 @@ bool LayoutViewerPanel::EnsureRebuildResourcesReady(bool &needsLegendProcessing,
     if (cacheIt != viewCaches_.end() && cacheIt->second.renderDirty) { hasDirtyViewCache = true; break; }
   }
   needsLegendProcessing = false; needsLegendSymbolCapture = false;
+  std::vector<int> legendIdsNeedingSymbolRefresh;
   for (const auto &legend : currentLayout.legendViews) {
     const auto cacheIt = legendCaches_.find(legend.id);
     const bool cacheMissing = cacheIt == legendCaches_.end();
     const bool contentChanged = !cacheMissing && cacheIt->second.contentHash != legendDataHash;
+    const size_t expectedSymbolSetHash = HashLegendItems(BuildLegendItemsForDefinition(legend));
+    const bool symbolSetChanged = !cacheMissing && cacheIt->second.symbolSetHash != expectedSymbolSetHash;
     const bool needsTextureRebuild = cacheMissing || cacheIt->second.renderDirty || contentChanged;
-    if (needsTextureRebuild) { needsLegendProcessing = true; const bool needsSymbols = cacheMissing || !cacheIt->second.symbols || contentChanged; if (needsSymbols) needsLegendSymbolCapture = true; }
+    if (needsTextureRebuild) {
+      needsLegendProcessing = true;
+      const bool needsSymbols = cacheMissing || !cacheIt->second.symbols || symbolSetChanged;
+      if (needsSymbols) {
+        needsLegendSymbolCapture = true;
+        legendIdsNeedingSymbolRefresh.push_back(legend.id);
+      }
+    }
+  }
+  if (!legendIdsNeedingSymbolRefresh.empty()) {
+    std::string ids;
+    for (size_t i = 0; i < legendIdsNeedingSymbolRefresh.size(); ++i) {
+      if (i > 0) ids += ",";
+      ids += std::to_string(legendIdsNeedingSymbolRefresh[i]);
+    }
+    Logger::Instance().Log("LayoutViewerPanel legend symbol recapture triggered for legend IDs: " + ids);
   }
   const bool needsCapturePanel = hasDirtyViewCache || needsLegendSymbolCapture;
   if (!needsCapturePanel) return true;
@@ -2373,8 +2391,14 @@ bool LayoutViewerPanel::ProcessDirtyLegends(double renderZoom, int maxItems, con
     const auto &legend = currentLayout.legendViews[idx];
     LegendCache &cache = GetLegendCache(legend.id);
     const bool contentChanged = cache.contentHash != legendDataHash;
-    const bool requiresSymbolRefresh = !cache.symbols || contentChanged;
+    const size_t expectedSymbolSetHash = HashLegendItems(BuildLegendItemsForDefinition(legend));
+    const bool symbolSetChanged = cache.symbolSetHash != expectedSymbolSetHash;
+    const bool requiresSymbolRefresh = !cache.symbols || symbolSetChanged;
     if (requiresSymbolRefresh && legendSymbols && cache.symbols != legendSymbols) { cache.symbols = legendSymbols; cache.renderDirty = true; }
+    if (requiresSymbolRefresh) {
+      cache.symbolSetHash = expectedSymbolSetHash;
+      Logger::Instance().Log("LayoutViewerPanel legend recapture queued for legend ID: " + std::to_string(legend.id));
+    }
     if (contentChanged) cache.renderDirty = true;
     if (!cache.renderDirty) continue;
     cache.renderDirty = false;

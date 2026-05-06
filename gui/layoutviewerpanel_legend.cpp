@@ -845,8 +845,70 @@ LayoutViewerPanel::BuildLegendItems() const {
   return items;
 }
 
+// Builds legend rows using a specific legend definition instead of the active selection.
+std::vector<LayoutViewerPanel::LegendItem>
+LayoutViewerPanel::BuildLegendItemsForDefinition(
+    const layouts::LayoutLegendDefinition &legend) const {
+  std::vector<SharedLayoutLegendItem> sharedItems = BuildSharedLayoutLegendItems();
+  std::unordered_map<std::string, layouts::LayoutLegendDefinition::ItemSettings> settingsByType;
+  settingsByType.reserve(legend.itemSettings.size());
+  for (const auto &settings : legend.itemSettings)
+    settingsByType[settings.typeName] = settings;
+
+  std::unordered_map<std::string, SharedLayoutLegendItem> availableByType;
+  availableByType.reserve(sharedItems.size());
+  for (const auto &shared : sharedItems)
+    availableByType.emplace(shared.typeName, shared);
+
+  std::vector<LegendItem> items;
+  items.reserve(sharedItems.size());
+  auto appendItem = [&](const SharedLayoutLegendItem &shared) {
+    LegendItem item;
+    item.typeName = shared.typeName;
+    item.displayName = shared.typeName;
+    item.count = shared.count;
+    item.channelCount = shared.channelCount;
+    item.symbolKey = shared.symbolKey;
+    item.symbolFillHex = shared.symbolFillHex;
+    if (const auto it = settingsByType.find(shared.typeName); it != settingsByType.end()) {
+      item.showBottomSymbol = it->second.showBottomSymbol;
+      item.showFrontSymbol = it->second.showFrontSymbol;
+      item.showSideSymbol = it->second.showSideSymbol;
+      if (!it->second.customName.empty())
+        item.displayName = it->second.customName;
+      if (!it->second.visible)
+        return;
+    }
+    items.push_back(std::move(item));
+  };
+
+  std::unordered_set<std::string> usedTypes;
+  usedTypes.reserve(legend.itemSettings.size());
+  for (const auto &settings : legend.itemSettings) {
+    const auto it = availableByType.find(settings.typeName);
+    if (it == availableByType.end())
+      continue;
+    appendItem(it->second);
+    usedTypes.insert(settings.typeName);
+  }
+  for (const auto &shared : sharedItems) {
+    if (usedTypes.find(shared.typeName) != usedTypes.end())
+      continue;
+    appendItem(shared);
+  }
+  return items;
+}
+
+// Computes a stable hash for legend rows using the currently selected legend context.
 size_t LayoutViewerPanel::HashLegendItems(
     const std::vector<LegendItem> &items) const {
+  return HashLegendItems(items, GetSelectedLegend());
+}
+
+// Computes a stable hash for legend rows using an explicit legend definition context.
+size_t LayoutViewerPanel::HashLegendItems(
+    const std::vector<LegendItem> &items,
+    const layouts::LayoutLegendDefinition *legend) const {
   size_t hash = items.size();
   std::hash<std::string> strHasher;
   std::hash<int> intHasher;
@@ -865,7 +927,6 @@ size_t LayoutViewerPanel::HashLegendItems(
     hash ^= intHasher(item.showSideSymbol ? 1 : 0) + 0x9e3779b9 + (hash << 6) +
             (hash >> 2);
   }
-  const auto *legend = GetSelectedLegend();
   hash ^= intHasher((legend && legend->showChannelColumn) ? 1 : 0) +
           0x9e3779b9 + (hash << 6) + (hash >> 2);
   return hash;

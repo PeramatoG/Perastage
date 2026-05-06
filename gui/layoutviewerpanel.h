@@ -91,6 +91,7 @@ private:
     double renderZoom = 0.0;
     bool renderDirty = true;
     size_t contentHash = 0;
+    size_t symbolSetHash = 0;
     std::shared_ptr<const SymbolDefinitionSnapshot> symbols;
   };
 
@@ -259,7 +260,12 @@ private:
   TextCache &GetTextCache(int textId);
   ImageCache &GetImageCache(int imageId);
   std::vector<LegendItem> BuildLegendItems() const;
+  std::vector<LegendItem> BuildLegendItemsForDefinition(
+      const layouts::LayoutLegendDefinition &legend) const;
   size_t HashLegendItems(const std::vector<LegendItem> &items) const;
+  size_t HashLegendItems(
+      const std::vector<LegendItem> &items,
+      const layouts::LayoutLegendDefinition *legend) const;
   wxImage BuildLegendImage(const wxSize &size, const wxSize &logicalSize,
                            double renderZoom,
                            const std::vector<LegendItem> &items,
