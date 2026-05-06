@@ -47,7 +47,8 @@ public:
   int FilterEvent(wxEvent &event) override;
   bool OnExceptionInMainLoop() override;
   void OnUnhandledException() override;
-  void MacOpenFile(const wxString &fileName);
+  void MacOpenFiles(const wxArrayString &fileNames) override;
+  void MacOpenFile(const wxString &fileName) override;
 
 private:
   void HandleExternalOpenPath(const std::string &pathUtf8);
@@ -218,11 +219,19 @@ bool MyApp::OnInit() {
   return true;
 }
 
+// Routes macOS single-file open requests to the external open pipeline.
 void MyApp::MacOpenFile(const wxString &fileName) {
   const wxCharBuffer utf8 = fileName.ToUTF8();
   const std::string pathUtf8 =
       utf8 ? std::string(utf8.data()) : fileName.ToStdString();
   HandleExternalOpenPath(pathUtf8);
+}
+
+// Routes macOS multi-file open requests to the external open pipeline in order.
+void MyApp::MacOpenFiles(const wxArrayString &fileNames) {
+  for (const wxString &fileName : fileNames) {
+    MacOpenFile(fileName);
+  }
 }
 
 void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
