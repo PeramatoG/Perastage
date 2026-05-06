@@ -3,9 +3,10 @@
 #include "json.hpp"
 
 #include <algorithm>
-#include <charconv>
 #include <cctype>
+#include <cerrno>
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -65,6 +66,7 @@ std::string JoinCSV(const std::vector<std::string> &items) {
   return out;
 }
 
+// Parses a trimmed string into a float and requires full consumption without range errors.
 bool TryParseFloat(const std::string &text, float &out) {
   if (text.empty())
     return false;
@@ -81,11 +83,15 @@ bool TryParseFloat(const std::string &text, float &out) {
       }).base();
   std::string_view trimmed(&(*first), static_cast<size_t>(last - first));
 
-  auto *begin = trimmed.data();
-  auto *end = trimmed.data() + trimmed.size();
-
-  auto result = std::from_chars(begin, end, out);
-  return result.ec == std::errc{} && result.ptr == end;
+  errno = 0;
+  std::string trimmedText(trimmed);
+  char *endPtr = nullptr;
+  const double parsed = std::strtod(trimmedText.c_str(), &endPtr);
+  if (endPtr == trimmedText.c_str() + trimmedText.size() && errno != ERANGE) {
+    out = static_cast<float>(parsed);
+    return true;
+  }
+  return false;
 }
 
 class TempDir {
