@@ -30,7 +30,7 @@ jobs:
       - name: Install macOS build tools
         run: |
           brew update
-          brew install autoconf autoconf-archive automake libtool
+          brew install autoconf autoconf-archive automake libtool ninja dylibbundler
 
       # ── 3. Cache vcpkg installed tree + downloads ───────────────────────────
       - name: Cache vcpkg
@@ -129,14 +129,26 @@ jobs:
         run: |
           xattr -cr "out/install/Release/Perastage.app" || true
 
-      - name: Re-sign staged app bundle for Gatekeeper compatibility
+      - name: Bundle dylibs and ad-hoc sign staged app
         run: |
           APP_PATH="out/install/Release/Perastage.app"
+          BIN_PATH="$APP_PATH/Contents/MacOS/Perastage"
+          FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
+
+          mkdir -p "$FRAMEWORKS_PATH"
+
+          dylibbundler \
+            -od -b \
+            -x "$BIN_PATH" \
+            -d "$FRAMEWORKS_PATH" \
+            -p "@executable_path/../Frameworks/" \
+            -s "$VCPKG_INSTALLED/lib" \
+            -s "$VCPKG_INSTALLED/tools"
 
           # Sign nested dynamic libraries and helper binaries before signing the bundle.
           while IFS= read -r file_path; do
             if file "$file_path" | grep -q "Mach-O"; then
-              if [ "$file_path" != "$APP_PATH/Contents/MacOS/Perastage" ]; then
+              if [ "$file_path" != "$BIN_PATH" ]; then
                 codesign --force --sign - --timestamp=none "$file_path"
               fi
             fi
@@ -150,15 +162,22 @@ jobs:
           # Sign the full app bundle with deep signing.
           codesign --force --deep --sign - --timestamp=none "$APP_PATH"
 
-          # Enforce strict signature verification only for Developer ID signatures.
-          if codesign -dv --verbose=4 "$APP_PATH" 2>&1 | grep -q "Developer ID Application"; then
-            codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-            spctl --assess --type execute --verbose=4 "$APP_PATH"
-          else
-            echo "Using relaxed codesign/spctl checks for ad-hoc signature (expected on CI without Apple certificate)."
-            codesign --verify --deep --verbose=2 "$APP_PATH" || true
-            spctl --assess --type execute --verbose=4 "$APP_PATH" || true
-          fi
+          # Validate ad-hoc signature integrity.
+          codesign --verify --deep --verbose=2 "$APP_PATH"
+
+          # Fail on missing non-system runtime dependencies.
+          MISSING_DEPS=0
+          while IFS= read -r dep_line; do
+            dep_path="$(echo "$dep_line" | awk '{print $1}')"
+            case "$dep_path" in
+              @executable_path/*|@loader_path/*|/System/*|/usr/lib/*) ;;
+              *)
+                echo "Unexpected runtime dependency: $dep_path"
+                MISSING_DEPS=1
+                ;;
+            esac
+          done < <(otool -L "$BIN_PATH" | tail -n +2)
+          test "$MISSING_DEPS" -eq 0
 
       # ── 11. Upload staged build ─────────────────────────────────────────────
       - name: Upload staged distribution
@@ -170,13 +189,30 @@ jobs:
       # ── 12. Build DMG package ───────────────────────────────────────────────
       - name: Build macOS DMG
         run: |
-          cmake --build build --config Release --target package --verbose
-          find build -name "*.dmg" -print || true
+          APP_PATH="out/install/Release/Perastage.app"
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Contents/Info.plist")"
+          DMG_NAME="Perastage-${VERSION}-macos-arm64.dmg"
+          DMG_ROOT="$(mktemp -d)"
+
+          cp -R "$APP_PATH" "$DMG_ROOT/Perastage.app"
+          ln -s /Applications "$DMG_ROOT/Applications"
+
+          mkdir -p out/installer
+          hdiutil create \
+            -volname "Perastage" \
+            -srcfolder "$DMG_ROOT" \
+            -ov \
+            -format UDZO \
+            "out/installer/$DMG_NAME"
+
+          xattr -c "out/installer/$DMG_NAME" || true
+          rm -rf "$DMG_ROOT"
+          find out/installer -name "*.dmg" -print
 
       # ── 13. Validate generated DMG ───────────────────────────────────────────
       - name: Validate generated DMG
         run: |
-          DMG_FILE="$(find build -name "*.dmg" -print -quit)"
+          DMG_FILE="$(find out/installer -name "*.dmg" -print -quit)"
           if [ -z "$DMG_FILE" ]; then
             echo "DMG not found"
             exit 1
@@ -195,27 +231,19 @@ jobs:
           test -d "$MOUNT_DIR/Perastage.app"
           test -x "$MOUNT_DIR/Perastage.app/Contents/MacOS/Perastage"
           plutil -lint "$MOUNT_DIR/Perastage.app/Contents/Info.plist"
-          if codesign -dv --verbose=4 "$MOUNT_DIR/Perastage.app" 2>&1 | grep -q "Developer ID Application"; then
-            codesign --verify --deep --strict --verbose=2 "$MOUNT_DIR/Perastage.app"
-            spctl --assess --type execute --verbose=4 "$MOUNT_DIR/Perastage.app"
-          else
-            echo "Using relaxed DMG codesign/spctl checks for ad-hoc signature."
-            codesign --verify --deep --verbose=2 "$MOUNT_DIR/Perastage.app" || true
-            spctl --assess --type execute --verbose=4 "$MOUNT_DIR/Perastage.app" || true
-          fi
+          codesign --verify --deep --verbose=2 "$MOUNT_DIR/Perastage.app"
 
       # ── 14. Collect DMG package ─────────────────────────────────────────────
       - name: Collect macOS DMG
         run: |
           mkdir -p out/installer
-          dmg_file="$(find build -name "*.dmg" -print -quit)"
+          dmg_file="$(find out/installer -name "*.dmg" -print -quit)"
           if [ -z "$dmg_file" ]; then
             echo "DMG not found under build/"
             exit 1
           fi
           echo "Using DMG: $dmg_file"
-          cp "$dmg_file" out/installer/
-          xattr -c out/installer/*.dmg || true
+          xattr -c "$dmg_file" || true
           find out/installer -maxdepth 2 -name "*.dmg" -print
 
       # ── 15. Upload DMG package ──────────────────────────────────────────────
