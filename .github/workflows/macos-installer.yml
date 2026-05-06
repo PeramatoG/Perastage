@@ -133,28 +133,18 @@ jobs:
         run: |
           APP_PATH="out/install/Release/Perastage.app"
           MACOS_DIR="$APP_PATH/Contents/MacOS"
-          RESOURCES_LICENSES_DIR="$APP_PATH/Contents/Resources/licenses"
 
-          # Move non-executable license text files out of Contents/MacOS to keep bundle layout signable.
-          if [ -d "$MACOS_DIR/licenses" ]; then
-            mkdir -p "$RESOURCES_LICENSES_DIR"
-            while IFS= read -r license_file; do
-              mv "$license_file" "$RESOURCES_LICENSES_DIR/"
-            done < <(find "$MACOS_DIR/licenses" -type f -name "*.txt")
-            rmdir "$MACOS_DIR/licenses" 2>/dev/null || true
-          fi
-
-          # Move legacy resource payloads out of Contents/MacOS to prevent nested-signing failures.
-          if [ -d "$MACOS_DIR/resources" ]; then
-            mkdir -p "$APP_PATH/Contents/Resources/resources"
-            while IFS= read -r resource_file; do
-              rel_path="${resource_file#"$MACOS_DIR/resources/"}"
-              target_dir="$APP_PATH/Contents/Resources/resources/$(dirname "$rel_path")"
+          # Move non-Mach-O payloads out of Contents/MacOS so codesign only sees executable content there.
+          MACOS_PAYLOAD_DIR="$APP_PATH/Contents/Resources/macos_payload"
+          mkdir -p "$MACOS_PAYLOAD_DIR"
+          while IFS= read -r staged_file; do
+            if ! file "$staged_file" | grep -q "Mach-O"; then
+              rel_path="${staged_file#"$MACOS_DIR/"}"
+              target_dir="$MACOS_PAYLOAD_DIR/$(dirname "$rel_path")"
               mkdir -p "$target_dir"
-              mv "$resource_file" "$target_dir/"
-            done < <(find "$MACOS_DIR/resources" -type f)
-            find "$MACOS_DIR/resources" -type d -empty -delete
-          fi
+              mv "$staged_file" "$target_dir/"
+            fi
+          done < <(find "$MACOS_DIR" -type f ! -name "Perastage")
 
           # Re-sign every embedded Mach-O binary to avoid broken nested signatures.
           while IFS= read -r file_path; do
