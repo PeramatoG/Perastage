@@ -18,6 +18,7 @@
 #pragma once
 
 #include <chrono>
+#include <atomic>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -228,6 +229,7 @@ private:
   void ClearCachedTexture(ImageCache &cache);
   bool HasDirtyRenderCaches() const;
   bool NeedsRenderRebuild() const;
+  uint64_t NextRenderEpoch();
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged(bool includeSceneContent = true);
   size_t ComputeSceneContentHash() const;
@@ -353,6 +355,7 @@ private:
   bool renderPending = false;
   bool isLoading = false;
   bool loadingRequested = false;
+  std::atomic<uint64_t> renderEpoch_{1};
   wxTimer loadingTimer_;
   wxTimer renderDelayTimer_;
   unsigned int loadingTextTexture_ = 0;
