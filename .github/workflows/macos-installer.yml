@@ -104,7 +104,12 @@ jobs:
       - name: Stage distribution folder
         run: |
           cmake --build build --config Release --target perastage_stage
-          find out/install/Release -maxdepth 4 -print || true
+          find out/install/Release -maxdepth 6 -print || true
+          test -d out/install/Release/Perastage.app
+          test -f out/install/Release/Perastage.app/Contents/Info.plist
+          test -f out/install/Release/Perastage.app/Contents/Resources/Perastage.icns
+          test -f out/install/Release/Perastage.app/Contents/Resources/PerastageProject.icns
+          test -f out/install/Release/Perastage.app/Contents/Resources/PerastageMVR.icns
 
       # ── 10. Upload staged build ─────────────────────────────────────────────
       - name: Upload staged distribution
@@ -112,3 +117,29 @@ jobs:
         with:
           name: Perastage-macos-staged
           path: out/install/Release
+
+      # ── 11. Build DMG package ───────────────────────────────────────────────
+      - name: Build macOS DMG
+        run: |
+          cmake --build build --config Release --target package --verbose
+          find build -name "*.dmg" -print || true
+
+      # ── 12. Collect DMG package ─────────────────────────────────────────────
+      - name: Collect macOS DMG
+        run: |
+          mkdir -p out/installer
+          dmg_file="$(find build -name "*.dmg" -print -quit)"
+          if [ -z "$dmg_file" ]; then
+            echo "DMG not found under build/"
+            exit 1
+          fi
+          echo "Using DMG: $dmg_file"
+          cp "$dmg_file" out/installer/
+          find out/installer -maxdepth 2 -name "*.dmg" -print
+
+      # ── 13. Upload DMG package ──────────────────────────────────────────────
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-macos-dmg
+          path: out/installer/*.dmg

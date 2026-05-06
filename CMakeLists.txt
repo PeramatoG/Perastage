@@ -489,4 +489,10 @@ if(WIN32)
     endif()
 endif()
 
+if(APPLE)
+    set(CPACK_GENERATOR "DragNDrop")
+    set(CPACK_DMG_VOLUME_NAME "Perastage")
+    set(CPACK_PACKAGE_FILE_NAME "Perastage-${PROJECT_VERSION}-macOS-arm64")
+endif()
+
 include(CPack)
