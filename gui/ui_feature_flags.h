@@ -29,6 +29,7 @@ enum class FeatureFlag {
   GenerateFixtureSymbols,
   AssignSelectedFixtureCategory,
   GdtfVerboseCatalogLogs,
+  LayoutQuadVboPath,
 };
 
 bool IsFeatureEnabled(FeatureFlag flag);

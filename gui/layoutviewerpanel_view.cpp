@@ -27,6 +27,7 @@
 #include <windows.h>
 #endif
 
+#include <GL/glew.h>
 #ifdef __APPLE__
 #  include <OpenGL/gl.h>
 #  include <OpenGL/glu.h>
@@ -38,9 +39,59 @@
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "LayoutManager.h"
+#include "ui_feature_flags.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
 
+namespace {
+struct QuadVertex {
+  float x;
+  float y;
+  float u;
+  float v;
+};
+
+// Draws one quad using a VBO/VAO path with a compatibility fallback to immediate mode.
+void DrawQuadWithCompatibilityPath(const QuadVertex (&vertices)[4],
+                                   bool textured) {
+  if (!ui::IsFeatureEnabled(ui::FeatureFlag::LayoutQuadVboPath)) {
+    glBegin(GL_QUADS);
+    for (const QuadVertex &vertex : vertices) {
+      if (textured)
+        glTexCoord2f(vertex.u, vertex.v);
+      glVertex2f(vertex.x, vertex.y);
+    }
+    glEnd();
+    return;
+  }
+
+  GLuint vao = 0;
+  GLuint vbo = 0;
+  glGenVertexArrays(1, &vao);
+  glGenBuffers(1, &vbo);
+  glBindVertexArray(vao);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glVertexPointer(2, GL_FLOAT, sizeof(QuadVertex),
+                  reinterpret_cast<const void *>(offsetof(QuadVertex, x)));
+  if (textured) {
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(QuadVertex),
+                      reinterpret_cast<const void *>(offsetof(QuadVertex, u)));
+  }
+  glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+  if (textured)
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+  glDisableClientState(GL_VERTEX_ARRAY);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+  glDeleteBuffers(1, &vbo);
+  glDeleteVertexArrays(1, &vao);
+}
+} // namespace
+
+// Returns the currently editable 2D view and normalizes selection when needed.
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
   if (currentLayout.view2dViews.empty())
     return nullptr;
@@ -56,6 +107,7 @@ layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
   return &currentLayout.view2dViews.front();
 }
 
+// Returns the currently editable 2D view in const contexts.
 const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
     const {
   if (currentLayout.view2dViews.empty())
@@ -72,12 +124,14 @@ const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
   return nullptr;
 }
 
+// Triggers the 2D view edit dialog for the selected item.
 void LayoutViewerPanel::OnEditView(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::View2D)
     return;
   EmitEditViewRequest();
 }
 
+// Removes the selected 2D view and updates caches and selection.
 void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::View2D)
     return;
@@ -129,6 +183,7 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
   Refresh();
 }
 
+// Toggles the border rendering flag for the selected 2D view.
 void LayoutViewerPanel::OnToggleViewFrame(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::View2D)
     return;
@@ -146,6 +201,7 @@ void LayoutViewerPanel::OnToggleViewFrame(wxCommandEvent &) {
   Refresh();
 }
 
+// Applies frame updates to the selected 2D view and persists if required.
 void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
                                     bool updatePosition) {
   layouts::Layout2DViewDefinition *view = GetEditableView();
@@ -187,6 +243,7 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
   Refresh();
 }
 
+// Draws a 2D view element using cached texture content or a placeholder quad.
 void LayoutViewerPanel::DrawViewElement(
     const layouts::Layout2DViewDefinition &view, Viewer2DPanel *capturePanel,
     Viewer2DOffscreenRenderer *offscreenRenderer, int activeViewId) {
@@ -269,33 +326,29 @@ void LayoutViewerPanel::DrawViewElement(
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, cache.texture);
     glColor4ub(255, 255, 255, 255);
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0f, 1.0f);
-    glVertex2f(static_cast<float>(frameRect.GetLeft()),
-               static_cast<float>(frameRect.GetTop()));
-    glTexCoord2f(1.0f, 1.0f);
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameRect.GetTop()));
-    glTexCoord2f(1.0f, 0.0f);
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameBottom));
-    glTexCoord2f(0.0f, 0.0f);
-    glVertex2f(static_cast<float>(frameRect.GetLeft()),
-               static_cast<float>(frameRect.GetBottom()));
-    glEnd();
+    const QuadVertex texturedQuad[4] = {
+        {static_cast<float>(frameRect.GetLeft()),
+         static_cast<float>(frameRect.GetTop()), 0.0f, 1.0f},
+        {static_cast<float>(frameRight), static_cast<float>(frameRect.GetTop()),
+         1.0f, 1.0f},
+        {static_cast<float>(frameRight), static_cast<float>(frameBottom), 1.0f,
+         0.0f},
+        {static_cast<float>(frameRect.GetLeft()),
+         static_cast<float>(frameRect.GetBottom()), 0.0f, 0.0f}};
+    DrawQuadWithCompatibilityPath(texturedQuad, true);
     glDisable(GL_TEXTURE_2D);
   } else {
     glColor4ub(240, 240, 240, 255);
-    glBegin(GL_QUADS);
-    glVertex2f(static_cast<float>(frameRect.GetLeft()),
-               static_cast<float>(frameRect.GetTop()));
-    glVertex2f(static_cast<float>(frameRect.GetRight()),
-               static_cast<float>(frameRect.GetTop()));
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameBottom));
-    glVertex2f(static_cast<float>(frameRect.GetLeft()),
-               static_cast<float>(frameRect.GetBottom()));
-    glEnd();
+    const QuadVertex solidQuad[4] = {
+        {static_cast<float>(frameRect.GetLeft()),
+         static_cast<float>(frameRect.GetTop()), 0.0f, 0.0f},
+        {static_cast<float>(frameRect.GetRight()),
+         static_cast<float>(frameRect.GetTop()), 0.0f, 0.0f},
+        {static_cast<float>(frameRight), static_cast<float>(frameBottom), 0.0f,
+         0.0f},
+        {static_cast<float>(frameRect.GetLeft()),
+         static_cast<float>(frameRect.GetBottom()), 0.0f, 0.0f}};
+    DrawQuadWithCompatibilityPath(solidQuad, false);
   }
 
   if (view.drawFrame || view.id == activeViewId) {
