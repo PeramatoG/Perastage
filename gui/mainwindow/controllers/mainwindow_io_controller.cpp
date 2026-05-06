@@ -33,16 +33,20 @@
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
 
+// Stores a weak owner reference to prevent dereferencing MainWindow after destruction.
+MainWindowIoController::MainWindowIoController(MainWindow &owner)
+    : ownerRef_(&owner) {}
+
 // Imports an MVR file from disk, preserving selected UI config keys and refreshing dependent panels.
 bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   constexpr const char *kLayoutsConfigKey = "layouts_collection";
   constexpr const char *kViewer3DRenderStyleConfigKey = "viewer3d_render_style";
-  wxWeakRef<MainWindow> ownerRef(&owner_);
+  wxWeakRef<MainWindow> ownerRef = ownerRef_;
   if (!ownerRef || ownerRef->guiConfigServices == nullptr)
     return false;
   const wxString filePath = wxString::FromUTF8(pathUtf8);
   ConfigManager &cfg =
-      owner_.guiConfigServices->LegacyConfigManager();
+      ownerRef->guiConfigServices->LegacyConfigManager();
   const std::optional<std::string> preservedLayoutsConfig =
       cfg.GetValue(kLayoutsConfigKey);
   const std::optional<std::string> preservedViewer3DRenderStyle =
@@ -204,7 +208,10 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
 void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
-  wxFileDialog openFileDialog(&owner_, "Import MVR file", miscDir, "",
+  if (!ownerRef_)
+    return;
+
+  wxFileDialog openFileDialog(ownerRef_.get(), "Import MVR file", miscDir, "",
                               "MVR files (*.mvr)|*.mvr",
                               wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 
@@ -220,7 +227,7 @@ void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
 // Applies the official MVR-open policy by confirming unsaved changes before importing the file.
 bool MainWindowIoController::ImportMvrWithOfficialPolicy(
     const std::string &pathUtf8) {
-  if (!owner_.ConfirmSaveIfDirty(kMvrOpenAction, kMvrOpenTitle))
+  if (!ownerRef_ || !ownerRef_->ConfirmSaveIfDirty(kMvrOpenAction, kMvrOpenTitle))
     return false;
 
   // Official policy for .mvr open/import actions:
@@ -232,6 +239,10 @@ bool MainWindowIoController::ImportMvrWithOfficialPolicy(
 // Routes startup file paths to the corresponding project or MVR open workflow.
 bool MainWindowIoController::OpenPathFromCommandLine(
     const std::string &pathUtf8) {
+  if (!ownerRef_)
+    return false;
+
+  MainWindow *owner = ownerRef_.get();
   std::string extension = wxFileName(wxString::FromUTF8(pathUtf8)).GetExt()
                               .Lower()
                               .ToStdString();
@@ -241,24 +252,24 @@ bool MainWindowIoController::OpenPathFromCommandLine(
                                      .ToStdString();
 
   if (extension == projectExtension) {
-    if (!owner_.ConfirmSaveIfDirty("loading a project", "Open Project"))
+    if (!owner->ConfirmSaveIfDirty("loading a project", "Open Project"))
       return false;
 
-    if (!owner_.LoadProjectFromPath(pathUtf8)) {
+    if (!owner->LoadProjectFromPath(pathUtf8)) {
       wxMessageBox("Failed to load project.", "Error", wxOK | wxICON_ERROR,
-                   &owner_);
-      if (owner_.GetStatusBar())
-        owner_.SetStatusText("Project load failed.", 0);
-      if (owner_.consolePanel) {
-        owner_.consolePanel->AppendMessage("Failed to load " +
+                   owner);
+      if (owner->GetStatusBar())
+        owner->SetStatusText("Project load failed.", 0);
+      if (owner->consolePanel) {
+        owner->consolePanel->AppendMessage("Failed to load " +
                                            wxString::FromUTF8(pathUtf8));
       }
       return false;
     }
 
-    if (owner_.GetStatusBar()) {
+    if (owner->GetStatusBar()) {
       wxFileName fileInfo(wxString::FromUTF8(pathUtf8));
-      owner_.SetStatusText("Project loaded: " + fileInfo.GetFullName(), 0);
+      owner->SetStatusText("Project loaded: " + fileInfo.GetFullName(), 0);
     }
     return true;
   }
@@ -266,15 +277,15 @@ bool MainWindowIoController::OpenPathFromCommandLine(
   if (extension == "mvr")
     return ImportMvrWithOfficialPolicy(pathUtf8);
 
-  if (owner_.GetStatusBar())
-    owner_.SetStatusText("Unsupported startup file format.", 0);
-  if (owner_.consolePanel) {
-    owner_.consolePanel->AppendMessage("Unsupported startup file: " +
+  if (owner->GetStatusBar())
+    owner->SetStatusText("Unsupported startup file format.", 0);
+  if (owner->consolePanel) {
+    owner->consolePanel->AppendMessage("Unsupported startup file: " +
                                        wxString::FromUTF8(pathUtf8));
   }
   wxMessageBox("Unsupported startup file. Use " +
                    wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION) +
                    " or .mvr files.",
-               "Unsupported file", wxOK | wxICON_WARNING, &owner_);
+               "Unsupported file", wxOK | wxICON_WARNING, owner);
   return false;
 }
