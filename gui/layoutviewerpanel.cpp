@@ -74,6 +74,7 @@
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
 #include "ui_render_size.h"
+#include "ui_feature_flags.h"
 
 namespace {
 constexpr double kMinZoom = 0.25;
@@ -148,6 +149,7 @@ bool TryGetImageFileMtime(const std::string &imagePath,
   outMtime = std::filesystem::last_write_time(std::filesystem::path(imagePath), ec);
   return !ec;
 }
+
 
 // Estimates the RGBA memory footprint used by a scaled image cache entry.
 size_t EstimateImageCacheEntryBytes(const wxImage &image) {
@@ -620,6 +622,111 @@ int SnapToGrid(int value) {
       kLayoutGridStep);
 }
 } // namespace
+
+// Queues a textured quad for deferred VBO/VAO submission while preserving draw order by texture runs.
+void LayoutViewerPanel::QueueTexturedQuad(GLuint texture,
+                                          const wxRect &frameRect) {
+  if (texture == 0)
+    return;
+  const int frameRight = frameRect.GetLeft() + frameRect.GetWidth();
+  const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
+  TexturedQuadBatch *batch = nullptr;
+  if (!texturedQuadBatches_.empty() &&
+      texturedQuadBatches_.back().texture == texture) {
+    batch = &texturedQuadBatches_.back();
+  } else {
+    texturedQuadBatches_.push_back(TexturedQuadBatch{});
+    texturedQuadBatches_.back().texture = texture;
+    batch = &texturedQuadBatches_.back();
+  }
+  batch->vertices.push_back({static_cast<float>(frameRect.GetLeft()),
+                             static_cast<float>(frameRect.GetTop()), 0.0f,
+                             1.0f});
+  batch->vertices.push_back({static_cast<float>(frameRight),
+                             static_cast<float>(frameRect.GetTop()), 1.0f,
+                             1.0f});
+  batch->vertices.push_back({static_cast<float>(frameRight),
+                             static_cast<float>(frameBottom), 1.0f, 0.0f});
+  batch->vertices.push_back({static_cast<float>(frameRect.GetLeft()),
+                             static_cast<float>(frameRect.GetBottom()), 0.0f,
+                             0.0f});
+}
+
+// Draws one textured quad using legacy immediate mode as the compatibility fallback path.
+void LayoutViewerPanel::DrawTexturedQuadImmediate(GLuint texture,
+                                                  const wxRect &frameRect) const {
+  const int frameRight = frameRect.GetLeft() + frameRect.GetWidth();
+  const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  glColor4ub(255, 255, 255, 255);
+  glBegin(GL_QUADS);
+  glTexCoord2f(0.0f, 1.0f);
+  glVertex2f(static_cast<float>(frameRect.GetLeft()),
+             static_cast<float>(frameRect.GetTop()));
+  glTexCoord2f(1.0f, 1.0f);
+  glVertex2f(static_cast<float>(frameRight),
+             static_cast<float>(frameRect.GetTop()));
+  glTexCoord2f(1.0f, 0.0f);
+  glVertex2f(static_cast<float>(frameRight), static_cast<float>(frameBottom));
+  glTexCoord2f(0.0f, 0.0f);
+  glVertex2f(static_cast<float>(frameRect.GetLeft()),
+             static_cast<float>(frameRect.GetBottom()));
+  glEnd();
+  glDisable(GL_TEXTURE_2D);
+}
+
+// Flushes queued textured quads using a VBO/VAO path and falls back to immediate mode when unavailable.
+void LayoutViewerPanel::FlushQueuedTexturedQuads() {
+  if (texturedQuadBatches_.empty())
+    return;
+  if (texturedQuadVao_ == 0)
+    glGenVertexArrays(1, &texturedQuadVao_);
+  if (texturedQuadVbo_ == 0)
+    glGenBuffers(1, &texturedQuadVbo_);
+  const bool canUseVboVao = texturedQuadVao_ != 0 && texturedQuadVbo_ != 0;
+  if (!canUseVboVao) {
+    for (const auto &batch : texturedQuadBatches_) {
+      for (size_t i = 0; i + 3 < batch.vertices.size(); i += 4) {
+        wxRect r(static_cast<int>(batch.vertices[i].x),
+                 static_cast<int>(batch.vertices[i].y),
+                 static_cast<int>(batch.vertices[i + 1].x -
+                                  batch.vertices[i].x),
+                 static_cast<int>(batch.vertices[i + 2].y -
+                                  batch.vertices[i].y));
+        DrawTexturedQuadImmediate(batch.texture, r);
+      }
+    }
+    texturedQuadBatches_.clear();
+    return;
+  }
+  glEnable(GL_TEXTURE_2D);
+  glColor4ub(255, 255, 255, 255);
+  glBindVertexArray(texturedQuadVao_);
+  glBindBuffer(GL_ARRAY_BUFFER, texturedQuadVbo_);
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+  for (const auto &batch : texturedQuadBatches_) {
+    glBindTexture(GL_TEXTURE_2D, batch.texture);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(batch.vertices.size() *
+                                         sizeof(TexturedQuadVertex)),
+                 batch.vertices.data(), GL_STREAM_DRAW);
+    glVertexPointer(2, GL_FLOAT, sizeof(TexturedQuadVertex),
+                    reinterpret_cast<const void *>(
+                        offsetof(TexturedQuadVertex, x)));
+    glTexCoordPointer(2, GL_FLOAT, sizeof(TexturedQuadVertex),
+                      reinterpret_cast<const void *>(
+                          offsetof(TexturedQuadVertex, u)));
+    glDrawArrays(GL_QUADS, 0, static_cast<GLsizei>(batch.vertices.size()));
+  }
+  glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+  glDisableClientState(GL_VERTEX_ARRAY);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+  glDisable(GL_TEXTURE_2D);
+  texturedQuadBatches_.clear();
+}
 
 wxDEFINE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 
