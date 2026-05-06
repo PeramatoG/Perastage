@@ -21,16 +21,36 @@ if(PERASTAGE_ENABLE_COMPILER_CACHE)
 endif()
 
 # NARM macOS
-if(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
-    set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
-endif()
+if(APPLE)
+    set(PERASTAGE_MACOS_INFO_PLIST "${CMAKE_BINARY_DIR}/PerastageInfo.plist")
+    set(EXECUTABLE_NAME "${PROJECT_NAME}")
+    set(PERASTAGE_VERSION "${PROJECT_VERSION}")
 
-include(CTest)
+    set(PERASTAGE_MACOS_RESOURCES
+        "${CMAKE_SOURCE_DIR}/resources/Perastage.icns"
+        "${CMAKE_SOURCE_DIR}/resources/PerastageProject.icns"
+        "${CMAKE_SOURCE_DIR}/resources/PerastageMVR.icns"
+    )
 
-option(PERAVIZ_ENABLE_NATIVE "Build Peraviz Godot GDExtension target" ON)
+    target_sources(${PROJECT_NAME} PRIVATE
+        ${PERASTAGE_MACOS_RESOURCES}
+    )
 
-if(NOT DEFINED PERAVIZ_ENABLE_DMX)
-    set(PERAVIZ_ENABLE_DMX ON CACHE BOOL "Enable DMX input (Art-Net RX) for Peraviz native")
+    set_source_files_properties(${PERASTAGE_MACOS_RESOURCES} PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources"
+    )
+
+    configure_file(
+        "${CMAKE_SOURCE_DIR}/cmake/PerastageInfo.plist.in"
+        "${PERASTAGE_MACOS_INFO_PLIST}"
+        @ONLY
+    )
+
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST "${PERASTAGE_MACOS_INFO_PLIST}"
+        RESOURCE "${PERASTAGE_MACOS_RESOURCES}"
+    )
 endif()
 
 # wxWidgets chooses different binary sets based on wxWidgets_USE_DEBUG.
