@@ -33,10 +33,13 @@
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
 
+// Imports an MVR file from disk, preserving selected UI config keys and refreshing dependent panels.
 bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   constexpr const char *kLayoutsConfigKey = "layouts_collection";
   constexpr const char *kViewer3DRenderStyleConfigKey = "viewer3d_render_style";
   wxWeakRef<MainWindow> ownerRef(&owner_);
+  if (!ownerRef || ownerRef->guiConfigServices == nullptr)
+    return false;
   const wxString filePath = wxString::FromUTF8(pathUtf8);
   ConfigManager &cfg =
       owner_.guiConfigServices->LegacyConfigManager();
@@ -197,6 +200,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   return true;
 }
 
+// Opens a file picker and imports the selected MVR file using the official open policy.
 void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
@@ -213,6 +217,7 @@ void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
 }
 
 
+// Applies the official MVR-open policy by confirming unsaved changes before importing the file.
 bool MainWindowIoController::ImportMvrWithOfficialPolicy(
     const std::string &pathUtf8) {
   if (!owner_.ConfirmSaveIfDirty(kMvrOpenAction, kMvrOpenTitle))
@@ -224,6 +229,7 @@ bool MainWindowIoController::ImportMvrWithOfficialPolicy(
   return ImportMvrFromPath(pathUtf8);
 }
 
+// Routes startup file paths to the corresponding project or MVR open workflow.
 bool MainWindowIoController::OpenPathFromCommandLine(
     const std::string &pathUtf8) {
   std::string extension = wxFileName(wxString::FromUTF8(pathUtf8)).GetExt()
