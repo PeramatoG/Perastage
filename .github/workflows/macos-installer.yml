@@ -111,20 +111,66 @@ jobs:
           test -f out/install/Release/Perastage.app/Contents/Resources/PerastageProject.icns
           test -f out/install/Release/Perastage.app/Contents/Resources/PerastageMVR.icns
 
-      # ── 10. Upload staged build ─────────────────────────────────────────────
+      # ── 10. Validate and prepare staged macOS app bundle ─────────────────────
+      - name: Validate staged app bundle
+        run: |
+          test -d out/install/Release/Perastage.app
+          test -f out/install/Release/Perastage.app/Contents/Info.plist
+          test -f out/install/Release/Perastage.app/Contents/MacOS/Perastage
+          test -x out/install/Release/Perastage.app/Contents/MacOS/Perastage
+          test -f out/install/Release/Perastage.app/Contents/Resources/Perastage.icns
+          test -f out/install/Release/Perastage.app/Contents/Resources/PerastageProject.icns
+          test -f out/install/Release/Perastage.app/Contents/Resources/PerastageMVR.icns
+          ls -l out/install/Release/Perastage.app/Contents/MacOS/
+          plutil -lint out/install/Release/Perastage.app/Contents/Info.plist
+          codesign -dv --verbose=4 out/install/Release/Perastage.app || true
+
+      - name: Remove quarantine from staged app bundle
+        run: |
+          xattr -cr "out/install/Release/Perastage.app" || true
+
+      - name: Ad-hoc sign staged app bundle
+        run: |
+          codesign --force --deep --sign - "out/install/Release/Perastage.app"
+          codesign --verify --deep --strict --verbose=2 "out/install/Release/Perastage.app"
+
+      # ── 11. Upload staged build ─────────────────────────────────────────────
       - name: Upload staged distribution
         uses: actions/upload-artifact@v4
         with:
           name: Perastage-macos-staged
           path: out/install/Release
 
-      # ── 11. Build DMG package ───────────────────────────────────────────────
+      # ── 12. Build DMG package ───────────────────────────────────────────────
       - name: Build macOS DMG
         run: |
           cmake --build build --config Release --target package --verbose
           find build -name "*.dmg" -print || true
 
-      # ── 12. Collect DMG package ─────────────────────────────────────────────
+      # ── 13. Validate generated DMG ───────────────────────────────────────────
+      - name: Validate generated DMG
+        run: |
+          DMG_FILE="$(find build -name "*.dmg" -print -quit)"
+          if [ -z "$DMG_FILE" ]; then
+            echo "DMG not found"
+            exit 1
+          fi
+
+          MOUNT_DIR="$(mktemp -d)"
+          cleanup() {
+            hdiutil detach "$MOUNT_DIR" >/dev/null 2>&1 || true
+            rmdir "$MOUNT_DIR" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          hdiutil attach "$DMG_FILE" -mountpoint "$MOUNT_DIR" -nobrowse -readonly
+
+          test -d "$MOUNT_DIR/Perastage.app"
+          test -x "$MOUNT_DIR/Perastage.app/Contents/MacOS/Perastage"
+          plutil -lint "$MOUNT_DIR/Perastage.app/Contents/Info.plist"
+          codesign --verify --deep --strict --verbose=2 "$MOUNT_DIR/Perastage.app" || true
+
+      # ── 14. Collect DMG package ─────────────────────────────────────────────
       - name: Collect macOS DMG
         run: |
           mkdir -p out/installer
@@ -135,9 +181,10 @@ jobs:
           fi
           echo "Using DMG: $dmg_file"
           cp "$dmg_file" out/installer/
+          xattr -c out/installer/*.dmg || true
           find out/installer -maxdepth 2 -name "*.dmg" -print
 
-      # ── 13. Upload DMG package ──────────────────────────────────────────────
+      # ── 15. Upload DMG package ──────────────────────────────────────────────
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
