@@ -1141,10 +1141,12 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     glEnable(GL_CULL_FACE);
 }
 
+// Draw the 2D reference grid with configurable spacing and a moderate centered extent.
 void SceneRenderer::DrawGrid(int style, float r, float g, float b,
                              Viewer2DView view) {
-  const float size = 20.0f;
-  const float step = 1.0f;
+  const float step = std::max(0.01f, ConfigManager::Get().GetFloat("grid_spacing_m"));
+  const float halfCellCount = 40.0f;
+  const float size = step * halfCellCount;
 
   const LineRenderProfile profile =
       GetLineRenderProfile(m_controller.IsInteracting(), true,
