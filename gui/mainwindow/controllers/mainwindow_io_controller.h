@@ -2,12 +2,14 @@
 
 #include <string>
 
+#include <wx/weakref.h>
+
 class MainWindow;
 class wxCommandEvent;
 
 class MainWindowIoController {
 public:
-  explicit MainWindowIoController(MainWindow &owner) : owner_(owner) {}
+  explicit MainWindowIoController(MainWindow &owner);
   void OnImportMVR(wxCommandEvent &event);
   bool OpenPathFromCommandLine(const std::string &pathUtf8);
 
@@ -17,5 +19,5 @@ private:
 
   bool ImportMvrFromPath(const std::string &pathUtf8);
   bool ImportMvrWithOfficialPolicy(const std::string &pathUtf8);
-  MainWindow &owner_;
+  wxWeakRef<MainWindow> ownerRef_;
 };
