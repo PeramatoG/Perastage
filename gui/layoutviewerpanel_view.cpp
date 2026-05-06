@@ -40,7 +40,9 @@
 #include "LayoutManager.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
+#include "ui_feature_flags.h"
 
+// Returns the selected editable 2D view and keeps selection consistent.
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
   if (currentLayout.view2dViews.empty())
     return nullptr;
@@ -56,6 +58,7 @@ layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
   return &currentLayout.view2dViews.front();
 }
 
+// Returns the selected editable 2D view as a read-only pointer.
 const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
     const {
   if (currentLayout.view2dViews.empty())
@@ -72,12 +75,14 @@ const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
   return nullptr;
 }
 
+// Emits the edit-view action when the current selection is a 2D view.
 void LayoutViewerPanel::OnEditView(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::View2D)
     return;
   EmitEditViewRequest();
 }
 
+// Removes the selected 2D view from the current layout and updates selection.
 void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::View2D)
     return;
@@ -129,6 +134,7 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
   Refresh();
 }
 
+// Toggles the visibility of the selected 2D view frame and persists the change.
 void LayoutViewerPanel::OnToggleViewFrame(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::View2D)
     return;
@@ -146,6 +152,7 @@ void LayoutViewerPanel::OnToggleViewFrame(wxCommandEvent &) {
   Refresh();
 }
 
+// Updates the selected 2D view frame and triggers the needed render refresh path.
 void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
                                     bool updatePosition) {
   layouts::Layout2DViewDefinition *view = GetEditableView();
@@ -187,6 +194,7 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
   Refresh();
 }
 
+// Draws the 2D view cache texture and frame while refreshing stale captures asynchronously.
 void LayoutViewerPanel::DrawViewElement(
     const layouts::Layout2DViewDefinition &view, Viewer2DPanel *capturePanel,
     Viewer2DOffscreenRenderer *offscreenRenderer, int activeViewId) {
@@ -266,24 +274,12 @@ void LayoutViewerPanel::DrawViewElement(
   const wxSize renderSize = GetFrameSizeForZoom(view.frame, cache.renderZoom);
   if (cache.texture != 0 && renderSize.GetWidth() > 0 &&
       renderSize.GetHeight() > 0 && cache.textureSize == renderSize) {
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, cache.texture);
-    glColor4ub(255, 255, 255, 255);
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0f, 1.0f);
-    glVertex2f(static_cast<float>(frameRect.GetLeft()),
-               static_cast<float>(frameRect.GetTop()));
-    glTexCoord2f(1.0f, 1.0f);
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameRect.GetTop()));
-    glTexCoord2f(1.0f, 0.0f);
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameBottom));
-    glTexCoord2f(0.0f, 0.0f);
-    glVertex2f(static_cast<float>(frameRect.GetLeft()),
-               static_cast<float>(frameRect.GetBottom()));
-    glEnd();
-    glDisable(GL_TEXTURE_2D);
+    if (ui::IsFeatureEnabled(ui::FeatureFlag::LayoutViewerVboQuadBatch)) {
+      QueueTexturedQuad(cache.texture, frameRect);
+      FlushQueuedTexturedQuads();
+    } else {
+      DrawTexturedQuadImmediate(cache.texture, frameRect);
+    }
   } else {
     glColor4ub(240, 240, 240, 255);
     glBegin(GL_QUADS);

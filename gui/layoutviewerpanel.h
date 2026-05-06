@@ -124,6 +124,16 @@ private:
     bool renderDirty = true;
     size_t contentHash = 0;
   };
+  struct TexturedQuadVertex {
+    float x;
+    float y;
+    float u;
+    float v;
+  };
+  struct TexturedQuadBatch {
+    GLuint texture = 0;
+    std::vector<TexturedQuadVertex> vertices;
+  };
 
   void NotifyRenderReady();
   void OnPaint(wxPaintEvent &event);
@@ -165,6 +175,9 @@ private:
                        int activeTextId);
   void DrawImageElement(const layouts::LayoutImageDefinition &image,
                         int activeImageId);
+  void QueueTexturedQuad(GLuint texture, const wxRect &frameRect);
+  void FlushQueuedTexturedQuads();
+  void DrawTexturedQuadImmediate(GLuint texture, const wxRect &frameRect) const;
   void DrawDeferredResizeOverlay();
   void DrawLoadingOverlay(const wxSize &size);
   void EnsureLoadingTextTexture();
@@ -368,6 +381,9 @@ private:
   std::unordered_map<int, EventTableCache> eventTableCaches_;
   std::unordered_map<int, TextCache> textCaches_;
   std::unordered_map<int, ImageCache> imageCaches_;
+  std::vector<TexturedQuadBatch> texturedQuadBatches_;
+  GLuint texturedQuadVao_ = 0;
+  GLuint texturedQuadVbo_ = 0;
   std::vector<LegendItem> legendItems_;
   size_t legendDataHash = 0;
   bool legendDataDirty_ = true;
