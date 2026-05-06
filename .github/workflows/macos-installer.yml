@@ -27,7 +27,6 @@ jobs:
         uses: actions/checkout@v4
 
       # ── 2. Install macOS build tools ────────────────────────────────────────
-      # Some vcpkg ports require autotools during the build on macOS.
       - name: Install macOS build tools
         run: |
           brew update
@@ -47,7 +46,16 @@ jobs:
             ${{ runner.os }}-vcpkg-arm64-osx-
             ${{ runner.os }}-vcpkg-
 
-      # ── 4. Bootstrap vcpkg ──────────────────────────────────────────────────
+      # ── 4. Prepare vcpkg cache folders ──────────────────────────────────────
+      # These folders must exist before bootstrap because VCPKG_DOWNLOADS is
+      # already visible to vcpkg during bootstrap.
+      - name: Prepare vcpkg folders
+        run: |
+          mkdir -p "$VCPKG_DOWNLOADS"
+          mkdir -p "$VCPKG_INSTALLED"
+          mkdir -p "$VCPKG_PACKAGES"
+
+      # ── 5. Bootstrap vcpkg ──────────────────────────────────────────────────
       - name: Bootstrap vcpkg
         run: |
           if [ -d "$VCPKG_ROOT/.git" ]; then
@@ -61,13 +69,9 @@ jobs:
 
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
 
-      # ── 5. Install vcpkg packages ───────────────────────────────────────────
+      # ── 6. Install vcpkg packages ───────────────────────────────────────────
       - name: Install vcpkg packages
         run: |
-          mkdir -p "$VCPKG_DOWNLOADS"
-          mkdir -p "$VCPKG_INSTALLED"
-          mkdir -p "$VCPKG_PACKAGES"
-
           "$VCPKG_ROOT/vcpkg" install \
             wxwidgets:$VCPKG_TRIPLET \
             tinyxml2:$VCPKG_TRIPLET \
@@ -81,7 +85,7 @@ jobs:
             --x-packages-root="$VCPKG_PACKAGES" \
             --downloads-root="$VCPKG_DOWNLOADS"
 
-      # ── 6. Configure CMake ──────────────────────────────────────────────────
+      # ── 7. Configure CMake ──────────────────────────────────────────────────
       - name: Configure CMake
         run: |
           cmake -S . -B build \
@@ -91,18 +95,18 @@ jobs:
             -DVCPKG_TARGET_TRIPLET="$VCPKG_TRIPLET" \
             -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"
 
-      # ── 7. Build project ────────────────────────────────────────────────────
+      # ── 8. Build project ────────────────────────────────────────────────────
       - name: Build project
         run: |
           cmake --build build --config Release --parallel
 
-      # ── 8. Stage distribution folder ────────────────────────────────────────
+      # ── 9. Stage distribution folder ────────────────────────────────────────
       - name: Stage distribution folder
         run: |
           cmake --build build --config Release --target perastage_stage
           find out/install/Release -maxdepth 4 -print || true
 
-      # ── 9. Upload staged build ──────────────────────────────────────────────
+      # ── 10. Upload staged build ─────────────────────────────────────────────
       - name: Upload staged distribution
         uses: actions/upload-artifact@v4
         with:
