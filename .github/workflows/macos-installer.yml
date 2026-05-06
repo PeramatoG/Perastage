@@ -132,6 +132,15 @@ jobs:
       - name: Re-sign staged app bundle for Gatekeeper compatibility
         run: |
           APP_PATH="out/install/Release/Perastage.app"
+          MACOS_DIR="$APP_PATH/Contents/MacOS"
+          RESOURCES_LICENSES_DIR="$APP_PATH/Contents/Resources/licenses"
+
+          # Move non-executable license text files out of Contents/MacOS to keep bundle layout signable.
+          if [ -d "$MACOS_DIR/licenses" ]; then
+            mkdir -p "$RESOURCES_LICENSES_DIR"
+            find "$MACOS_DIR/licenses" -type f -name "*.txt" -exec mv {} "$RESOURCES_LICENSES_DIR/" \\;
+            rmdir "$MACOS_DIR/licenses" 2>/dev/null || true
+          fi
 
           # Re-sign every embedded Mach-O binary to avoid broken nested signatures.
           while IFS= read -r file_path; do
