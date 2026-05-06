@@ -136,7 +136,9 @@ jobs:
           # Sign nested dynamic libraries and helper binaries before signing the bundle.
           while IFS= read -r file_path; do
             if file "$file_path" | grep -q "Mach-O"; then
-              codesign --force --sign - --timestamp=none "$file_path"
+              if [ "$file_path" != "$APP_PATH/Contents/MacOS/Perastage" ]; then
+                codesign --force --sign - --timestamp=none "$file_path"
+              fi
             fi
           done < <(find "$APP_PATH/Contents" -type f)
 
@@ -145,8 +147,8 @@ jobs:
             codesign --force --sign - --timestamp=none "$framework_path"
           done < <(find "$APP_PATH/Contents/Frameworks" -type d -name "*.framework" 2>/dev/null || true)
 
-          # Sign the full app bundle and fail fast if Gatekeeper-style checks fail.
-          codesign --force --sign - --timestamp=none "$APP_PATH"
+          # Sign the full app bundle with deep signing and fail fast on Gatekeeper-style checks.
+          codesign --force --deep --sign - --timestamp=none "$APP_PATH"
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
           spctl --assess --type execute --verbose=4 "$APP_PATH"
 
