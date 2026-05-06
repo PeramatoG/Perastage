@@ -1192,16 +1192,55 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
   return outPath;
 }
 
-// Defines a generic sink contract for writing MVR archive bytes.
-struct MvrArchiveSink {
-  wxOutputStream &stream;
-  const std::string *archiveFilePath = nullptr;
+// Defines an abstract sink that receives ZIP archive bytes and optional file metadata.
+class MvrArchiveSink {
+public:
+  virtual ~MvrArchiveSink() = default;
+  virtual wxOutputStream &Stream() = 0;
+  virtual const std::string *ArchiveFilePath() const = 0;
+};
+
+// Implements an archive sink backed by a filesystem output stream.
+class FileMvrArchiveSink final : public MvrArchiveSink {
+public:
+  explicit FileMvrArchiveSink(const std::string &archivePath)
+      : archivePath_(archivePath), output_(archivePath) {}
+
+  bool IsOk() const { return output_.IsOk(); }
+
+  wxOutputStream &Stream() override { return output_; }
+
+  const std::string *ArchiveFilePath() const override { return &archivePath_; }
+
+private:
+  std::string archivePath_;
+  wxFileOutputStream output_;
+};
+
+// Implements an archive sink backed by an in-memory output stream.
+class MemoryMvrArchiveSink final : public MvrArchiveSink {
+public:
+  wxOutputStream &Stream() override { return output_; }
+
+  const std::string *ArchiveFilePath() const override { return nullptr; }
+
+  bool ToBuffer(std::vector<unsigned char> &outputBuffer) {
+    const size_t archiveSize = output_.GetSize();
+    outputBuffer.resize(archiveSize);
+    if (archiveSize == 0)
+      return true;
+    output_.CopyTo(outputBuffer.data(), archiveSize);
+    return true;
+  }
+
+private:
+  wxMemoryOutputStream output_;
 };
 
 // Serializes the current scene into an MVR archive through an abstract sink.
-static bool ExportMvrArchiveToSink(const MvrArchiveSink &sink) {
-  wxOutputStream &output = sink.stream;
-  const std::string *archiveFilePath = sink.archiveFilePath;
+static bool ExportMvrArchiveToSink(MvrArchiveSink &sink) {
+  wxOutputStream &output = sink.Stream();
+  const std::string *archiveFilePath = sink.ArchiveFilePath();
   const auto exportStart = std::chrono::steady_clock::now();
   const auto &scene = ConfigManager::Get().GetScene();
   const TrussGeometryAuthority trussGeometryAuthority = GetTrussGeometryAuthoritySetting();
@@ -2692,25 +2731,18 @@ static bool ExportMvrArchiveToSink(const MvrArchiveSink &sink) {
   return true;
 }
 
-// Exports the current scene into an MVR package with resolved and validated resources.
+// Exports the current scene into an MVR package written through the file-backed sink.
 bool MvrExporter::ExportToFile(const std::string &filePath) {
-  wxFileOutputStream output(filePath);
-  if (!output.IsOk())
+  FileMvrArchiveSink sink(filePath);
+  if (!sink.IsOk())
     return false;
-  return ExportMvrArchiveToSink(MvrArchiveSink{output, &filePath});
+  return ExportMvrArchiveToSink(sink);
 }
 
-// Exports the current scene into an in-memory MVR package byte buffer.
+// Exports the current scene into an in-memory MVR package without filesystem staging.
 bool MvrExporter::ExportToBuffer(std::vector<unsigned char> &outputBuffer) {
-  wxMemoryOutputStream memoryStream;
-  if (!ExportMvrArchiveToSink(MvrArchiveSink{memoryStream, nullptr}))
+  MemoryMvrArchiveSink sink;
+  if (!ExportMvrArchiveToSink(sink))
     return false;
-
-  const size_t archiveSize = memoryStream.GetSize();
-  outputBuffer.resize(archiveSize);
-  if (archiveSize == 0)
-    return true;
-
-  memoryStream.CopyTo(outputBuffer.data(), archiveSize);
-  return true;
+  return sink.ToBuffer(outputBuffer);
 }
