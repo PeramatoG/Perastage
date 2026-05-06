@@ -2680,8 +2680,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   return true;
 }
 
-// Exports the current scene into an in-memory MVR package buffer.
-bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outputBuffer) {
+// Exports the current scene into an in-memory MVR package byte buffer.
+bool MvrExporter::ExportToBuffer(std::vector<unsigned char> &outputBuffer) {
   std::error_code ec;
   const auto stamp = std::chrono::system_clock::now().time_since_epoch().count();
   const fs::path scenePath =
