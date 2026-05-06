@@ -317,6 +317,9 @@ private:
   };
 
   void InvalidateSelectionIndexCache();
+  void MaybePrewarmOnLayoutModeEntry(const layouts::LayoutDefinition &previousLayout);
+  void ApplyPrewarmedArtifactsIfAvailable();
+  size_t BuildLayoutPrewarmContentHash() const;
   void EnsureSelectionIndexCache();
   std::vector<ZOrderedElement> BuildZOrderedElements() const;
   std::pair<int, int> GetZIndexRange() const;
@@ -371,6 +374,13 @@ private:
   bool pendingFitOnResize = true;
   bool pendingFrameCommit_ = false;
   SelectionIndexCache selectionIndexCache_;
+  struct PrewarmedLayoutArtifacts {
+    int layoutVersion = 0;
+    size_t contentHash = 0;
+    std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
+    std::unordered_map<int, viewer2d::Viewer2DState> viewRenderStates;
+  };
+  std::unordered_map<std::string, PrewarmedLayoutArtifacts> prewarmedArtifactsByLayout_;
   size_t rebuildViewCursor_ = 0;
   size_t rebuildLegendCursor_ = 0;
   size_t rebuildEventTableCursor_ = 0;
