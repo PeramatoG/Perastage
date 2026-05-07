@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
+#include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <optional>
@@ -632,9 +633,18 @@ struct FixtureRenderMetrics {
   size_t fallbackDrawCalls = 0;
 };
 
-// Returns true when the fixture metrics differ from the previous rendered frame.
+// Returns true when fixture metrics should be emitted without flooding per-frame logs.
 bool ShouldLogFixtureRenderMetrics(const FixtureRenderMetrics &metrics) {
   static std::optional<FixtureRenderMetrics> lastLoggedMetrics;
+  static auto lastLogTime = std::chrono::steady_clock::time_point{};
+  constexpr auto kMinLogInterval = std::chrono::milliseconds(1000);
+
+  const auto now = std::chrono::steady_clock::now();
+  if (lastLogTime != std::chrono::steady_clock::time_point{} &&
+      now - lastLogTime < kMinLogInterval) {
+    return false;
+  }
+
   if (lastLoggedMetrics.has_value() &&
       lastLoggedMetrics->instancedFixtures == metrics.instancedFixtures &&
       lastLoggedMetrics->fallbackFixtures == metrics.fallbackFixtures &&
@@ -642,7 +652,9 @@ bool ShouldLogFixtureRenderMetrics(const FixtureRenderMetrics &metrics) {
       lastLoggedMetrics->fallbackDrawCalls == metrics.fallbackDrawCalls) {
     return false;
   }
+
   lastLoggedMetrics = metrics;
+  lastLogTime = now;
   return true;
 }
 
