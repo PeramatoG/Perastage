@@ -163,8 +163,9 @@ void MainWindow::OnLoad(wxCommandEvent &event) {
                  this);
 }
 
+// Delegates startup/open-file requests to the IO controller when it is still available.
 bool MainWindow::OpenPathFromCommandLine(const std::string &path) {
-  if (!ioController)
+  if (!ioController || IsBeingDeleted())
     return false;
   return ioController->OpenPathFromCommandLine(path);
 }
