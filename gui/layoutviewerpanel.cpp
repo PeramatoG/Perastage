@@ -2487,6 +2487,8 @@ bool LayoutViewerPanel::IsRebuildTimeBudgetExpired() const { return std::chrono:
 // Logs per-stage rebuild metrics for visibility into expensive texture categories.
 void LayoutViewerPanel::LogRebuildStageMetrics(const char *stageName, int processedCount, std::chrono::steady_clock::duration elapsed) const {
   const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+  if (processedCount == 0 && elapsedMs == 0)
+    return;
   Logger::Instance().Log(std::string("LayoutViewerPanel rebuild stage ") + stageName + ": count=" + std::to_string(processedCount) + ", ms=" + std::to_string(elapsedMs));
 }
 
