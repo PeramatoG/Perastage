@@ -1111,7 +1111,8 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
 #elif defined(__WXOSX__) || defined(__APPLE__)
   if (!fs::exists(path)) {
     wxFileName finderPath(wxString::FromUTF8(filePath));
-    if (!finderPath.FileExists()) {
+    wxFileInputStream stream(finderPath.GetFullPath());
+    if (!finderPath.FileExists() && !stream.IsOk()) {
       LogMessage("MVR file does not exist: " + filePath);
       return false;
     }
