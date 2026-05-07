@@ -1247,7 +1247,6 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       CallAfter([this]() { CompleteStartupSplashInitialization(); });
     }
     SetStartupProjectLoadPending(false);
-    ProcessDeferredStartupOpenPath();
     RequestStartupSplashCompletion();
     return;
   }
