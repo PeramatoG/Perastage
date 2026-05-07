@@ -62,8 +62,7 @@ jobs:
             libcairo2-dev \
             libgdk-pixbuf-2.0-dev \
             libxkbcommon-dev \
-            libwayland-dev \
-            libegl1-mesa-dev \
+            # Omit Wayland/EGL dev packages to avoid building wxWidgets against Wayland/EGL, which can lead to missing GLX. \
             libgl1-mesa-dev \
             libglu1-mesa-dev \
             libgpg-error0 \
@@ -181,6 +180,8 @@ jobs:
             'set -e' \
             '' \
             'APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' \
+            'export GDK_BACKEND=x11' \
+            'export QT_QPA_PLATFORM=xcb' \
             'export LD_LIBRARY_PATH="$APPDIR/usr/lib:$APPDIR/usr/bin:${LD_LIBRARY_PATH:-}"' \
             'cd "$APPDIR/usr/bin"' \
             'exec "$APPDIR/usr/bin/Perastage" "$@"' > "$APPDIR/AppRun"
