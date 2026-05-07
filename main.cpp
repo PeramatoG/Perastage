@@ -326,11 +326,11 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
 
   Logger::Instance().Log(
       "HandleExternalOpenPath dispatching to OpenPathFromCommandLine().");
-  mainWindow->CallAfter([this, windowRef = wxWeakRef<MainWindow>(mainWindow),
+  mainWindow->CallAfter([windowRef = wxWeakRef<MainWindow>(mainWindow),
                          pathUtf8]() {
     if (!windowRef)
       return;
-    windowRef->EnqueueExternalOpenPath(pathUtf8);
+    windowRef->OpenPathFromCommandLine(pathUtf8);
   });
 }
 
