@@ -19,6 +19,7 @@
 #include <curl/curl.h>
 #include <fstream>
 #include <utility>
+#include "json.hpp"
 
 namespace {
 size_t WriteToString(void* contents, size_t size, size_t nmemb, void* userp) {
@@ -27,8 +28,21 @@ size_t WriteToString(void* contents, size_t size, size_t nmemb, void* userp) {
     s->append(static_cast<char*>(contents), total);
     return total;
 }
+
+
+bool ParseResultFlag(const std::string& response, bool& resultValue) {
+    nlohmann::json root = nlohmann::json::parse(response, nullptr, false);
+    if (root.is_discarded() || !root.is_object())
+        return false;
+    auto it = root.find("result");
+    if (it == root.end() || !it->is_boolean())
+        return false;
+    resultValue = it->get<bool>();
+    return true;
+}
 }
 
+// Authenticates a GDTF Share user and persists the session cookie for follow-up requests.
 bool GdtfLogin(const std::string& user,
                const std::string& password,
                const std::string& cookieFile,
@@ -46,6 +60,7 @@ bool GdtfLogin(const std::string& user,
     curl_easy_setopt(curl, CURLOPT_URL, "https://gdtf-share.com/apis/public/login.php");
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonData.c_str());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookieFile.c_str());
     curl_easy_setopt(curl, CURLOPT_COOKIEJAR, cookieFile.c_str());
     curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
@@ -63,9 +78,14 @@ bool GdtfLogin(const std::string& user,
 
     curl_easy_cleanup(curl);
     curl_slist_free_all(headers);
-    return true;
+
+    bool apiResult = false;
+    if (!ParseResultFlag(response, apiResult))
+        return httpCode == 200;
+    return httpCode == 200 && apiResult;
 }
 
+// Fetches the authenticated GDTF revision catalog using the provided session cookie file.
 bool GdtfGetList(const std::string& cookieFile,
                  std::string& listData,
                  long* httpCode)
@@ -91,7 +111,11 @@ bool GdtfGetList(const std::string& cookieFile,
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, httpCode);
 
     curl_easy_cleanup(curl);
-    return true;
+
+    bool apiResult = false;
+    if (!ParseResultFlag(listData, apiResult))
+        return httpCode ? (*httpCode == 200) : true;
+    return (httpCode ? (*httpCode == 200) : true) && apiResult;
 }
 
 namespace {
