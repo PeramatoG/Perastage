@@ -1239,13 +1239,12 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     UpdateTitle();
   } else {
     ResetProject(true);
-    if (!path.empty()) {
+    if (!path.empty())
       QueueDeferredStartupOpenPath(path);
-      // When launched by double-click/file association, some platforms may
-      // delay idle processing. Schedule an explicit startup completion pass so
-      // deferred command-line open does not depend exclusively on idle timing.
-      CallAfter([this]() { CompleteStartupSplashInitialization(); });
-    }
+    // Some platforms can delay or skip idle delivery during startup.
+    // Force an explicit completion pass so deferred startup open paths
+    // can be processed deterministically after startup reset.
+    CallAfter([this]() { CompleteStartupSplashInitialization(); });
     SetStartupProjectLoadPending(false);
     RequestStartupSplashCompletion();
     return;
