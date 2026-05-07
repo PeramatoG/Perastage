@@ -73,7 +73,7 @@ std::string NormalizeExternalOpenPath(const std::string &rawPathUtf8) {
   wxString wxPath = wxString::FromUTF8(rawPathUtf8);
   if (wxPath.StartsWith("file://")) {
     wxURI uri(wxPath);
-    if (uri.IsReference() && uri.HasPath()) {
+    if (uri.HasPath()) {
       wxString unescaped = wxURI::Unescape(uri.GetPath());
       if (!unescaped.empty())
         wxPath = unescaped;
@@ -100,6 +100,7 @@ std::string ToLowerAscii(std::string text) {
   return text;
 }
 
+// Returns the first startup-open candidate from CLI arguments as a normalized absolute UTF-8 path.
 std::optional<std::string> GetStartupPathFromArgs(
     int argc, wxChar **argv, const std::string &launchWorkingDirectoryUtf8) {
   namespace fs = std::filesystem;
@@ -117,11 +118,18 @@ std::optional<std::string> GetStartupPathFromArgs(
   };
 
   for (int i = 1; i < argc; ++i) {
-    const std::string rawPath = toUtf8(wxString(argv[i]));
+    wxString argumentText(argv[i]);
+    if ((argumentText.StartsWith("\"") && argumentText.EndsWith("\"")) ||
+        (argumentText.StartsWith("'") && argumentText.EndsWith("'"))) {
+      argumentText = argumentText.Mid(1, argumentText.length() - 2);
+    }
+
+    const std::string rawPath = toUtf8(argumentText);
     if (rawPath.empty())
       continue;
 
-    const fs::path candidate = fs::u8path(rawPath);
+    const std::string normalizedRawPath = NormalizeExternalOpenPath(rawPath);
+    const fs::path candidate = fs::u8path(normalizedRawPath);
     const std::u8string extensionU8 = candidate.extension().u8string();
     const std::string extension(extensionU8.begin(), extensionU8.end());
     const std::string normalizedExtension = ToLowerAscii(extension);
@@ -136,10 +144,10 @@ std::optional<std::string> GetStartupPathFromArgs(
       absolutePath = fs::absolute(candidate, ec);
     }
     if (ec)
-      return rawPath;
+      return normalizedRawPath;
     const std::u8string absoluteU8 = absolutePath.u8string();
     if (absoluteU8.empty())
-      return rawPath;
+      return normalizedRawPath;
     return std::string(absoluteU8.begin(), absoluteU8.end());
   }
   return std::nullopt;
