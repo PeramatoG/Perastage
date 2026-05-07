@@ -453,6 +453,7 @@ void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
   ResetProject(true);
 }
 
+// Opens the GDTF search flow, refreshing the remote catalog when credentials are available.
 void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &configManager =
       GetDefaultGuiConfigServices().LegacyConfigManager();
@@ -526,8 +527,30 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   std::unique_ptr<wxBusyInfo> preparingCatalogOverlay =
       std::make_unique<wxBusyInfo>("Loading GDTF catalog...");
   wxYieldIfNeeded();
-  GdtfSearchDialog searchDlg(this, effectiveListData, effectiveUpdatedAt,
-                             GdtfSearchDialog::RefreshCatalogFn());
+  GdtfSearchDialog searchDlg(
+      this, effectiveListData, effectiveUpdatedAt,
+      [&]() -> GdtfSearchDialog::RefreshResult {
+        GdtfSearchDialog::RefreshResult refreshResult;
+        refreshResult.updatedAt = WxToUtf8(wxDateTime::UNow().FormatISOCombined(' '));
+        if (!activeCredentials || activeCredentials->username.empty() ||
+            activeCredentials->password.empty()) {
+          return refreshResult;
+        }
+
+        long loginHttpCode = 0;
+        const bool loginOk = GdtfLogin(activeCredentials->username,
+                                       activeCredentials->password,
+                                       cookieFile, loginHttpCode);
+        if (!loginOk || loginHttpCode != 200)
+          return refreshResult;
+
+        long listHttpCode = 0;
+        if (GdtfGetList(cookieFile, refreshResult.listData, &listHttpCode) &&
+            listHttpCode == 200 && !refreshResult.listData.empty()) {
+          refreshResult.success = true;
+        }
+        return refreshResult;
+      });
   preparingCatalogOverlay.reset();
 
   const int searchDialogResult = searchDlg.ShowModal();
