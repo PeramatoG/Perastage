@@ -232,7 +232,14 @@ void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
 // Applies the official MVR-open policy by confirming unsaved changes before importing the file.
 bool MainWindowIoController::ImportMvrWithOfficialPolicy(
     const std::string &pathUtf8) {
-  if (!ownerRef_ || !ownerRef_->ConfirmSaveIfDirty(kMvrOpenAction, kMvrOpenTitle))
+  if (!ownerRef_)
+    return false;
+
+  const bool shouldSkipDirtyConfirmation =
+      ownerRef_->IsStartupProjectLoadPending() ||
+      ownerRef_->IsStartupInitializationPending();
+  if (!shouldSkipDirtyConfirmation &&
+      !ownerRef_->ConfirmSaveIfDirty(kMvrOpenAction, kMvrOpenTitle))
     return false;
 
   // Official policy for .mvr open/import actions:
@@ -257,7 +264,11 @@ bool MainWindowIoController::OpenPathFromCommandLine(
                                      .ToStdString();
 
   if (extension == projectExtension) {
-    if (!owner->ConfirmSaveIfDirty("loading a project", "Open Project"))
+    const bool shouldSkipDirtyConfirmation =
+        owner->IsStartupProjectLoadPending() ||
+        owner->IsStartupInitializationPending();
+    if (!shouldSkipDirtyConfirmation &&
+        !owner->ConfirmSaveIfDirty("loading a project", "Open Project"))
       return false;
 
     if (!owner->LoadProjectFromPath(pathUtf8)) {
@@ -282,7 +293,7 @@ bool MainWindowIoController::OpenPathFromCommandLine(
   if (extension == "mvr")
   {
     Logger::Instance().Log("Opening MVR from external request: " + pathUtf8);
-    const bool imported = ImportMvrWithOfficialPolicy(pathUtf8);
+    const bool imported = ImportMvrFromPath(pathUtf8);
     wxFileName fileInfo(wxString::FromUTF8(pathUtf8));
     if (imported) {
       Logger::Instance().Log("MVR imported: " + fileInfo.GetFullName().ToStdString());

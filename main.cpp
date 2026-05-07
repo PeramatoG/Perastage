@@ -61,7 +61,6 @@ public:
 private:
   void HandleExternalOpenPath(const std::string &pathUtf8);
   std::optional<std::string> ConsumePendingExternalOpenPath();
-  void SchedulePendingExternalOpenProcessing(const wxWeakRef<MainWindow> &mainWindowRef);
   void QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
                                bool loaded, bool clearLastProject,
                                const std::string &path = {});
@@ -258,7 +257,18 @@ bool MyApp::OnInit() {
         QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
         return;
       }
-      mainWindowRef->LoadStartupProjectFromPath(lastPath);
+
+      // Give macOS open-document events one additional UI tick to arrive
+      // before committing to loading the last project path by default.
+      mainWindowRef->CallAfter([this, mainWindowRef, lastPath]() {
+        if (!mainWindowRef)
+          return;
+        if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
+          QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
+          return;
+        }
+        mainWindowRef->LoadStartupProjectFromPath(lastPath);
+      });
     });
 
   } else if (mainWindowRef) {
@@ -309,51 +319,21 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
     return;
   }
 
-  const bool startupPending = mainWindow->IsStartupProjectLoadPending();
-  if (startupPending) {
-    if (!pending_external_open_paths_.empty() &&
-        pending_external_open_paths_.back() == pathUtf8) {
-      return;
-    }
+  bool startupEventAlreadySent = project_load_event_sent_.load();
+  if (!startupEventAlreadySent) {
     Logger::Instance().Log(
-        "HandleExternalOpenPath queued: startup load is pending.");
-    pending_external_open_paths_.push_back(pathUtf8);
-    SchedulePendingExternalOpenProcessing(wxWeakRef<MainWindow>(mainWindow));
+        "HandleExternalOpenPath routing through startup project-loaded pipeline.");
+    QueueProjectLoadedEvent(wxWeakRef<MainWindow>(mainWindow), false, true, pathUtf8);
     return;
   }
 
   Logger::Instance().Log(
-      "HandleExternalOpenPath dispatching to OpenPathFromCommandLine().");
-  mainWindow->CallAfter([this, windowRef = wxWeakRef<MainWindow>(mainWindow),
+      "HandleExternalOpenPath routing through MainWindow deferred-open pipeline.");
+  mainWindow->CallAfter([windowRef = wxWeakRef<MainWindow>(mainWindow),
                          pathUtf8]() {
     if (!windowRef)
       return;
     windowRef->EnqueueExternalOpenPath(pathUtf8);
-  });
-}
-
-// Re-schedules pending external-open processing until startup loading completes.
-void MyApp::SchedulePendingExternalOpenProcessing(
-    const wxWeakRef<MainWindow> &mainWindowRef) {
-  if (!mainWindowRef)
-    return;
-
-  mainWindowRef->CallAfter([this, mainWindowRef]() {
-    if (!mainWindowRef)
-      return;
-    if (mainWindowRef->IsStartupProjectLoadPending()) {
-      SchedulePendingExternalOpenProcessing(mainWindowRef);
-      return;
-    }
-
-    auto pendingPath = ConsumePendingExternalOpenPath();
-    if (!pendingPath)
-      return;
-    Logger::Instance().Log(
-        "SchedulePendingExternalOpenProcessing consuming queued path.");
-    mainWindowRef->EnqueueExternalOpenPath(*pendingPath);
-    if (!pending_external_open_paths_.empty())
-      SchedulePendingExternalOpenProcessing(mainWindowRef);
   });
 }
 
