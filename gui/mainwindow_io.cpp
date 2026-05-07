@@ -170,6 +170,12 @@ bool MainWindow::OpenPathFromCommandLine(const std::string &path) {
   return ioController->OpenPathFromCommandLine(path);
 }
 
+// Queues external open requests so they run through the startup-safe deferred open pipeline.
+void MainWindow::EnqueueExternalOpenPath(const std::string &path) {
+  QueueDeferredStartupOpenPath(path);
+  ProcessDeferredStartupOpenPath();
+}
+
 void MainWindow::OnSave(wxCommandEvent &event) {
   if (currentProjectPath.empty()) {
     OnSaveAs(event);
