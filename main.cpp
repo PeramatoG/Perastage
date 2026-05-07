@@ -328,14 +328,7 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
                          pathUtf8]() {
     if (!windowRef)
       return;
-    if (windowRef->OpenPathFromCommandLine(pathUtf8))
-      return;
-
-    Logger::Instance().Log(
-        "HandleExternalOpenPath deferred retry: OpenPathFromCommandLine() "
-        "returned false.");
-    pending_external_open_paths_.push_back(pathUtf8);
-    SchedulePendingExternalOpenProcessing(windowRef);
+    windowRef->EnqueueExternalOpenPath(pathUtf8);
   });
 }
 
@@ -358,7 +351,7 @@ void MyApp::SchedulePendingExternalOpenProcessing(
       return;
     Logger::Instance().Log(
         "SchedulePendingExternalOpenProcessing consuming queued path.");
-    mainWindowRef->OpenPathFromCommandLine(*pendingPath);
+    mainWindowRef->EnqueueExternalOpenPath(*pendingPath);
     if (!pending_external_open_paths_.empty())
       SchedulePendingExternalOpenProcessing(mainWindowRef);
   });

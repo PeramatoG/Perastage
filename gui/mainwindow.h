@@ -69,6 +69,7 @@ public:
   bool LoadProjectFromPath(const std::string &path,
                            bool showBlockingLoadUi = true); // Load given project
   void LoadStartupProjectFromPath(const std::string &path);
+  void EnqueueExternalOpenPath(const std::string &path);
   bool OpenPathFromCommandLine(const std::string &path);
   void ResetProject(bool applyLayoutDefaultsForNewProject = false); // Clear current project
   bool IsStartupProjectLoadPending() const { return startupProjectLoadPending; }
