@@ -135,20 +135,6 @@ struct FrustumPlanes {
   std::array<std::array<float, 4>, 6> planes{};
 };
 
-// Returns true when the fixture metrics differ from the previous rendered frame.
-bool ShouldLogFixtureRenderMetrics(const FixtureRenderMetrics &metrics) {
-  static std::optional<FixtureRenderMetrics> lastLoggedMetrics;
-  if (lastLoggedMetrics.has_value() &&
-      lastLoggedMetrics->instancedFixtures == metrics.instancedFixtures &&
-      lastLoggedMetrics->fallbackFixtures == metrics.fallbackFixtures &&
-      lastLoggedMetrics->instancedDrawCalls == metrics.instancedDrawCalls &&
-      lastLoggedMetrics->fallbackDrawCalls == metrics.fallbackDrawCalls) {
-    return false;
-  }
-  lastLoggedMetrics = metrics;
-  return true;
-}
-
 FrustumPlanes BuildCurrentFrustumPlanes() {
   std::array<float, 16> model{};
   std::array<float, 16> projection{};
@@ -645,6 +631,20 @@ struct FixtureRenderMetrics {
   size_t instancedDrawCalls = 0;
   size_t fallbackDrawCalls = 0;
 };
+
+// Returns true when the fixture metrics differ from the previous rendered frame.
+bool ShouldLogFixtureRenderMetrics(const FixtureRenderMetrics &metrics) {
+  static std::optional<FixtureRenderMetrics> lastLoggedMetrics;
+  if (lastLoggedMetrics.has_value() &&
+      lastLoggedMetrics->instancedFixtures == metrics.instancedFixtures &&
+      lastLoggedMetrics->fallbackFixtures == metrics.fallbackFixtures &&
+      lastLoggedMetrics->instancedDrawCalls == metrics.instancedDrawCalls &&
+      lastLoggedMetrics->fallbackDrawCalls == metrics.fallbackDrawCalls) {
+    return false;
+  }
+  lastLoggedMetrics = metrics;
+  return true;
+}
 
 void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
                              float r, float g, float b, bool unlit,
