@@ -518,6 +518,12 @@ void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
     if (!result.failureDetails.empty())
         fallbackDetails += " - " + wxString::FromUTF8(result.failureDetails);
     UpdateStatusMessage(false, fallbackDetails);
+
+    if (entries.empty() && !result.failureDetails.empty()) {
+        wxMessageBox("Online GDTF catalog refresh failed.\n" +
+                         wxString::FromUTF8(result.failureDetails),
+                     "GDTF catalog refresh", wxOK | wxICON_WARNING, this);
+    }
 }
 
 void GdtfSearchDialog::MaybeLogVerboseCatalogTrace(const wxString& message) const

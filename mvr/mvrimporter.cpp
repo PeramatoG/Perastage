@@ -3161,6 +3161,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                       .ToStdString());
 
               std::vector<GdtfCatalogEntry> catalogEntries;
+              std::string catalogFailureReason;
               if (!listPayload.empty()) {
                 catalogEntries = ParseGdtfCatalogEntries(listPayload);
               }
@@ -3192,11 +3193,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               if (catalogEntries.empty()) {
                 const std::string preview =
                     listPayload.substr(0, std::min<size_t>(listPayload.size(), 180));
-                reportProgress(
-                    wxString::Format(
-                        "[WARN] GDTF catalog parse produced 0 entries (list_http=%ld payload_bytes=%zu)",
-                        listHttpCode, listPayload.size())
-                        .ToStdString());
+                catalogFailureReason =
+                    wxString::Format("Catalog fetch/parsing failed (HTTP %ld, bytes=%zu)",
+                                     listHttpCode, listPayload.size())
+                        .ToStdString();
+                reportProgress("[WARN] " + catalogFailureReason);
                 if (!preview.empty()) {
                   reportProgress("[WARN] GDTF catalog payload preview: " + preview);
                 }
@@ -3419,14 +3420,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   progressPhaseText->SetLabel("Queue finished.");
                 }
               } else {
-                summaryText->SetLabel("Selected fixture types for download (catalog load failed)");
+                if (catalogFailureReason.empty())
+                  catalogFailureReason = "Catalog fetch/parsing failed.";
+                summaryText->SetLabel("Selected fixture types for download (catalog load failed: " +
+                                      wxString::FromUTF8(catalogFailureReason) + ")");
                 for (const GdtfConflict &req : downloadRequests) {
                   updateStatusRow(req.type, "-", "Fallback to MVR",
                                   "0 B / ? B",
                                   "Failed to load catalog list", DownloadRowState::Fallback);
                 }
                 updateProgressGauge();
-                progressPhaseText->SetLabel("Catalog load failed. Keeping MVR originals.");
+                progressPhaseText->SetLabel("Catalog load failed. " +
+                                            wxString::FromUTF8(catalogFailureReason) +
+                                            ". Keeping MVR originals.");
               }
               isDownloadInfoFinished = true;
               cancelButton->Disable();
