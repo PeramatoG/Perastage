@@ -135,6 +135,20 @@ struct FrustumPlanes {
   std::array<std::array<float, 4>, 6> planes{};
 };
 
+// Returns true when the fixture metrics differ from the previous rendered frame.
+bool ShouldLogFixtureRenderMetrics(const FixtureRenderMetrics &metrics) {
+  static std::optional<FixtureRenderMetrics> lastLoggedMetrics;
+  if (lastLoggedMetrics.has_value() &&
+      lastLoggedMetrics->instancedFixtures == metrics.instancedFixtures &&
+      lastLoggedMetrics->fallbackFixtures == metrics.fallbackFixtures &&
+      lastLoggedMetrics->instancedDrawCalls == metrics.instancedDrawCalls &&
+      lastLoggedMetrics->fallbackDrawCalls == metrics.fallbackDrawCalls) {
+    return false;
+  }
+  lastLoggedMetrics = metrics;
+  return true;
+}
+
 FrustumPlanes BuildCurrentFrustumPlanes() {
   std::array<float, 16> model{};
   std::array<float, 16> projection{};
@@ -666,6 +680,7 @@ void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
 
 } // namespace
 
+// Renders visible fixtures using instanced paths when possible and fallback draws otherwise.
 void OpaqueFixturePass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
     const Viewer3DVisibleSet &visibleSet,
@@ -1169,14 +1184,16 @@ void OpaqueFixturePass::Render(
     controller.m_captureCanvas = prevCanvas;
     controller.m_captureOnly = prevCaptureOnly;
   }
-  Logger::Instance().Log(
-      "fixture render metrics: instancedFixtures=" +
-      std::to_string(frameMetrics.instancedFixtures) + ", fallbackFixtures=" +
-      std::to_string(frameMetrics.fallbackFixtures) +
-      ", instancedDrawCalls=" +
-      std::to_string(frameMetrics.instancedDrawCalls) +
-      ", fallbackDrawCalls=" +
-      std::to_string(frameMetrics.fallbackDrawCalls));
+  if (ShouldLogFixtureRenderMetrics(frameMetrics)) {
+    Logger::Instance().Log(
+        "fixture render metrics: instancedFixtures=" +
+        std::to_string(frameMetrics.instancedFixtures) + ", fallbackFixtures=" +
+        std::to_string(frameMetrics.fallbackFixtures) +
+        ", instancedDrawCalls=" +
+        std::to_string(frameMetrics.instancedDrawCalls) +
+        ", fallbackDrawCalls=" +
+        std::to_string(frameMetrics.fallbackDrawCalls));
+  }
   if (forceFixturesOnTop && depthEnabled)
     glEnable(GL_DEPTH_TEST);
 }
