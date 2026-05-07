@@ -324,11 +324,18 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
 
   Logger::Instance().Log(
       "HandleExternalOpenPath dispatching to OpenPathFromCommandLine().");
-  mainWindow->CallAfter([windowRef = wxWeakRef<MainWindow>(mainWindow),
+  mainWindow->CallAfter([this, windowRef = wxWeakRef<MainWindow>(mainWindow),
                          pathUtf8]() {
     if (!windowRef)
       return;
-    windowRef->OpenPathFromCommandLine(pathUtf8);
+    if (windowRef->OpenPathFromCommandLine(pathUtf8))
+      return;
+
+    Logger::Instance().Log(
+        "HandleExternalOpenPath deferred retry: OpenPathFromCommandLine() "
+        "returned false.");
+    pending_external_open_paths_.push_back(pathUtf8);
+    SchedulePendingExternalOpenProcessing(windowRef);
   });
 }
 
