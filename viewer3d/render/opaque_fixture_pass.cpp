@@ -20,10 +20,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
-#include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <optional>
+#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -633,29 +633,13 @@ struct FixtureRenderMetrics {
   size_t fallbackDrawCalls = 0;
 };
 
-// Returns true when fixture metrics should be emitted without flooding per-frame logs.
+// Returns true only for fixture metric combinations that have not been logged before.
 bool ShouldLogFixtureRenderMetrics(const FixtureRenderMetrics &metrics) {
-  static std::optional<FixtureRenderMetrics> lastLoggedMetrics;
-  static auto lastLogTime = std::chrono::steady_clock::time_point{};
-  constexpr auto kMinLogInterval = std::chrono::milliseconds(1000);
-
-  const auto now = std::chrono::steady_clock::now();
-  if (lastLogTime != std::chrono::steady_clock::time_point{} &&
-      now - lastLogTime < kMinLogInterval) {
-    return false;
-  }
-
-  if (lastLoggedMetrics.has_value() &&
-      lastLoggedMetrics->instancedFixtures == metrics.instancedFixtures &&
-      lastLoggedMetrics->fallbackFixtures == metrics.fallbackFixtures &&
-      lastLoggedMetrics->instancedDrawCalls == metrics.instancedDrawCalls &&
-      lastLoggedMetrics->fallbackDrawCalls == metrics.fallbackDrawCalls) {
-    return false;
-  }
-
-  lastLoggedMetrics = metrics;
-  lastLogTime = now;
-  return true;
+  using MetricsKey = std::array<size_t, 4>;
+  static std::set<MetricsKey> loggedMetricKeys;
+  const MetricsKey key = {metrics.instancedFixtures, metrics.fallbackFixtures,
+                          metrics.instancedDrawCalls, metrics.fallbackDrawCalls};
+  return loggedMetricKeys.insert(key).second;
 }
 
 void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
