@@ -50,7 +50,7 @@ jobs:
             libx11-dev \
             libxau-dev \
             libxdmcp-dev \
-            xorgproto
+            xorgproto-dev
 
 
       # ── 3. Cache vcpkg installed tree + downloads ─────────────────────────
