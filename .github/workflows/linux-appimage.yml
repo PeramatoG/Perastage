@@ -1,0 +1,210 @@
+name: Linux AppImage Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ci/linux-appimage
+
+jobs:
+  build-linux-appimage:
+    runs-on: ubuntu-latest
+
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_INSTALLED: ${{ github.workspace }}/.vcpkg-cache/installed
+      VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-cache/downloads
+      VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            pkg-config \
+            autoconf \
+            autoconf-archive \
+            automake \
+            libtool \
+            curl \
+            unzip \
+            zip \
+            patchelf
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            .vcpkg-cache/downloads
+            .vcpkg-cache/installed
+            .vcpkg-cache/packages
+          key: ${{ runner.os }}-vcpkg-x64-linux-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/linux-appimage.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-x64-linux-
+            ${{ runner.os }}-vcpkg-
+
+      - name: Prepare vcpkg folders
+        run: |
+          mkdir -p "$VCPKG_DOWNLOADS" "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"
+
+      - name: Bootstrap vcpkg
+        run: |
+          if [ -d "$VCPKG_ROOT/.git" ]; then
+            git -C "$VCPKG_ROOT" fetch --depth 1 origin master
+            git -C "$VCPKG_ROOT" checkout --force FETCH_HEAD
+          else
+            rm -rf "$VCPKG_ROOT"
+            git clone --depth 1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+          fi
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+
+      - name: Install vcpkg packages
+        run: |
+          "$VCPKG_ROOT/vcpkg" install \
+            wxwidgets:x64-linux \
+            tinyxml2:x64-linux \
+            glew:x64-linux \
+            curl:x64-linux \
+            zlib:x64-linux \
+            nanovg:x64-linux \
+            podofo:x64-linux \
+            meshoptimizer:x64-linux \
+            --x-install-root="$VCPKG_INSTALLED" \
+            --x-packages-root="$VCPKG_PACKAGES" \
+            --downloads-root="$VCPKG_DOWNLOADS"
+
+      - name: Configure CMake (Linux preset)
+        run: |
+          cmake --preset wsl-x64-release \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET=x64-linux \
+            -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"
+
+      - name: Build staged distribution
+        run: |
+          cmake --build --preset wsl-release-stage
+          test -f out/install/Release/Perastage || { echo "Missing staged executable: out/install/Release/Perastage"; exit 1; }
+          test -x out/install/Release/Perastage || { echo "Staged executable is not executable"; exit 1; }
+
+      - name: Upload staged distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-linux-staged
+          path: out/install/Release
+
+      - name: Build AppDir and AppImage
+        run: |
+          set -euo pipefail
+
+          APPDIR="Perastage.AppDir"
+          STAGE_DIR="out/install/Release"
+
+          VERSION="$(sed -nE 's/^project\(Perastage VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt | head -n1)"
+          if [ -z "$VERSION" ]; then
+            echo "Failed to extract project version from CMakeLists.txt"
+            exit 1
+          fi
+
+          test -f "$STAGE_DIR/Perastage" || { echo "Missing staged executable: $STAGE_DIR/Perastage"; exit 1; }
+          test -d "$STAGE_DIR/resources" || { echo "Missing staged resources directory"; exit 1; }
+          test -d "$STAGE_DIR/library" || { echo "Missing staged library directory"; exit 1; }
+          test -d "$STAGE_DIR/licenses" || { echo "Missing staged licenses directory"; exit 1; }
+          test -d "$STAGE_DIR/docs" || { echo "Missing staged docs directory"; exit 1; }
+          test -f "resources/Perastage_logo_1024.png" || { echo "Missing icon: resources/Perastage_logo_1024.png"; exit 1; }
+          test -f "packaging/linux/perastage-mime.xml" || { echo "Missing MIME metadata file"; exit 1; }
+
+          rm -rf "$APPDIR"
+          mkdir -p "$APPDIR/usr/bin"
+          mkdir -p "$APPDIR/usr/share/applications"
+          mkdir -p "$APPDIR/usr/share/icons/hicolor/1024x1024/apps"
+          mkdir -p "$APPDIR/usr/share/mime/packages"
+
+          cp "$STAGE_DIR/Perastage" "$APPDIR/usr/bin/Perastage"
+          cp -a "$STAGE_DIR/resources" "$APPDIR/usr/bin/"
+          cp -a "$STAGE_DIR/library" "$APPDIR/usr/bin/"
+          cp -a "$STAGE_DIR/licenses" "$APPDIR/usr/bin/"
+          cp -a "$STAGE_DIR/docs" "$APPDIR/usr/bin/"
+
+          cat > "$APPDIR/AppRun" <<'EOF'
+#!/usr/bin/env bash
+set -e
+
+APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$APPDIR/usr/bin"
+exec "$APPDIR/usr/bin/Perastage" "$@"
+EOF
+          chmod +x "$APPDIR/AppRun"
+
+          cat > "$APPDIR/Perastage.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Perastage
+Comment=Lighting plot editor and MVR viewer
+Exec=Perastage %f
+Icon=Perastage
+Terminal=false
+Categories=Graphics;Utility;
+MimeType=application/x-perastage-mvr;application/x-perastage-project;
+StartupNotify=true
+EOF
+
+          cp "$APPDIR/Perastage.desktop" "$APPDIR/usr/share/applications/Perastage.desktop"
+          cp resources/Perastage_logo_1024.png "$APPDIR/Perastage.png"
+          cp resources/Perastage_logo_1024.png "$APPDIR/usr/share/icons/hicolor/1024x1024/apps/Perastage.png"
+          cp packaging/linux/perastage-mime.xml "$APPDIR/usr/share/mime/packages/perastage-mime.xml"
+
+          test -f "$APPDIR/AppRun" || { echo "Missing AppRun"; exit 1; }
+          test -x "$APPDIR/AppRun" || { echo "AppRun is not executable"; exit 1; }
+          test -f "$APPDIR/Perastage.desktop" || { echo "Missing root desktop file"; exit 1; }
+          test -f "$APPDIR/Perastage.png" || { echo "Missing root icon"; exit 1; }
+          test -f "$APPDIR/usr/bin/Perastage" || { echo "Missing bundled executable"; exit 1; }
+          test -f "$APPDIR/usr/share/mime/packages/perastage-mime.xml" || { echo "Missing bundled MIME metadata"; exit 1; }
+          grep -q '^Exec=Perastage %f$' "$APPDIR/Perastage.desktop" || { echo "Desktop Exec entry is invalid"; exit 1; }
+          grep -q '^Icon=Perastage$' "$APPDIR/Perastage.desktop" || { echo "Desktop Icon entry is invalid"; exit 1; }
+
+          curl -L -o linuxdeploy-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+          ./linuxdeploy-x86_64.AppImage --appimage-extract
+          mv squashfs-root linuxdeploy-root
+
+          curl -L -o appimagetool-x86_64.AppImage \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage --appimage-extract
+          mv squashfs-root appimagetool-root
+
+          ./linuxdeploy-root/AppRun --appdir "$APPDIR" --desktop-file "$APPDIR/Perastage.desktop" --icon-file "$APPDIR/Perastage.png"
+
+          export ARCH=x86_64
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          APPIMAGE_NAME="Perastage-${VERSION}-x86_64.AppImage"
+          ./appimagetool-root/AppRun "$APPDIR" "$APPIMAGE_NAME"
+
+          test -f "$APPIMAGE_NAME" || { echo "AppImage was not created"; exit 1; }
+          test -x "$APPIMAGE_NAME" || { echo "AppImage is not executable"; exit 1; }
+
+          rm -rf squashfs-root
+          ./$APPIMAGE_NAME --appimage-extract
+
+          test -f squashfs-root/AppRun || { echo "Extracted AppRun is missing"; exit 1; }
+          test -x squashfs-root/AppRun || { echo "Extracted AppRun is not executable"; exit 1; }
+          test -f squashfs-root/Perastage.desktop || { echo "Extracted desktop file is missing"; exit 1; }
+          test -f squashfs-root/Perastage.png || { echo "Extracted icon is missing"; exit 1; }
+          test -f squashfs-root/usr/bin/Perastage || { echo "Extracted executable is missing"; exit 1; }
+          test -f squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "Extracted MIME metadata is missing"; exit 1; }
+          grep -q 'application/x-perastage-mvr' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .mvr is missing"; exit 1; }
+          grep -q 'application/x-perastage-project' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .pstg is missing"; exit 1; }
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-linux-appimage
+          path: Perastage-*-x86_64.AppImage
