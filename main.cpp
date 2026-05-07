@@ -319,9 +319,22 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
     return;
   }
 
+  bool startupEventAlreadySent = project_load_event_sent_.load();
+  if (!startupEventAlreadySent) {
+    Logger::Instance().Log(
+        "HandleExternalOpenPath routing through startup project-loaded pipeline.");
+    QueueProjectLoadedEvent(wxWeakRef<MainWindow>(mainWindow), false, true, pathUtf8);
+    return;
+  }
+
   Logger::Instance().Log(
-      "HandleExternalOpenPath routing through startup project-loaded pipeline.");
-  QueueProjectLoadedEvent(wxWeakRef<MainWindow>(mainWindow), false, true, pathUtf8);
+      "HandleExternalOpenPath routing through MainWindow deferred-open pipeline.");
+  mainWindow->CallAfter([windowRef = wxWeakRef<MainWindow>(mainWindow),
+                         pathUtf8]() {
+    if (!windowRef)
+      return;
+    windowRef->EnqueueExternalOpenPath(pathUtf8);
+  });
 }
 
 // Pops and returns the next queued external-open path, if any.
