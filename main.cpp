@@ -69,6 +69,7 @@ private:
   std::string last_event_summary_;
   std::atomic<bool> project_load_event_sent_{false};
   std::deque<std::string> pending_external_open_paths_;
+  bool pending_external_open_processing_scheduled_ = false;
 };
 
 namespace {
@@ -336,13 +337,18 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
 // Re-schedules pending external-open processing until startup loading completes.
 void MyApp::SchedulePendingExternalOpenProcessing(
     const wxWeakRef<MainWindow> &mainWindowRef) {
-  if (!mainWindowRef)
+  if (!mainWindowRef || pending_external_open_processing_scheduled_)
     return;
 
+  pending_external_open_processing_scheduled_ = true;
   mainWindowRef->CallAfter([this, mainWindowRef]() {
+    pending_external_open_processing_scheduled_ = false;
     if (!mainWindowRef)
       return;
-    if (mainWindowRef->IsStartupProjectLoadPending()) {
+
+    const bool startupPending = mainWindowRef->IsStartupProjectLoadPending() ||
+                                mainWindowRef->IsStartupInitializationPending();
+    if (startupPending) {
       SchedulePendingExternalOpenProcessing(mainWindowRef);
       return;
     }
