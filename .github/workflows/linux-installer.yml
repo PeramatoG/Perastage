@@ -39,6 +39,9 @@ jobs:
             autoconf-archive \
             automake \
             libtool \
+            gettext \
+            autopoint \
+            m4 \
             curl \
             unzip \
             zip \
