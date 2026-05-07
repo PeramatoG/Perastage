@@ -1077,6 +1077,7 @@ static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
     }
   }
 }
+// Imports an MVR file from disk by validating the path, extracting its package, and parsing the scene XML.
 bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  bool promptConflicts,
                                  bool applyDictionary,
@@ -1098,10 +1099,29 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
 
   reportProgress("Preparing import...");
 
+  // macOS Finder can treat .mvr ZIP archives as packages, and in that case
+  // std::filesystem::exists() may report false for a valid double-click path.
+  // Keep the strict filesystem check on Windows, but on macOS fall back to
+  // wxFileName::FileExists() before aborting so Finder-opened MVR imports work.
+#if defined(__WXMSW__)
   if (!fs::exists(path)) {
     LogMessage("MVR file does not exist: " + filePath);
     return false;
   }
+#elif defined(__WXOSX__) || defined(__APPLE__)
+  if (!fs::exists(path)) {
+    wxFileName finderPath(wxString::FromUTF8(filePath));
+    if (!finderPath.FileExists()) {
+      LogMessage("MVR file does not exist: " + filePath);
+      return false;
+    }
+  }
+#else
+  if (!fs::exists(path)) {
+    LogMessage("MVR file does not exist: " + filePath);
+    return false;
+  }
+#endif
   if (ext != ".mvr") {
     LogMessage("MVR file has invalid extension: " + ext);
     return false;
