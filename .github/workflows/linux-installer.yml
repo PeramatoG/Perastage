@@ -66,6 +66,8 @@ jobs:
             libegl1-mesa-dev \
             libgl1-mesa-dev \
             libglu1-mesa-dev \
+            libgpg-error0 \
+            libgcrypt20 \
             imagemagick
 
       # 3. Cache vcpkg downloads, installed packages, and package build trees.
@@ -157,7 +159,7 @@ jobs:
           test -f "resources/Perastage_logo_1024.png" || { echo "Missing icon: resources/Perastage_logo_1024.png"; exit 1; }
           test -f "packaging/linux/perastage-mime.xml" || { echo "Missing MIME metadata file"; exit 1; }
 
-          # Create a package-safe icon because linuxdeploy rejects 1024x1024 icons.
+          # Downscale the 1024x1024 icon to 512x512 to satisfy linuxdeploy requirements.
           convert resources/Perastage_logo_1024.png -resize 512x512 Perastage_logo_512.png
 
           rm -rf "$APPDIR"
@@ -179,6 +181,7 @@ jobs:
             'set -e' \
             '' \
             'APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' \
+            'export LD_LIBRARY_PATH="$APPDIR/usr/lib:$APPDIR/usr/bin:${LD_LIBRARY_PATH:-}"' \
             'cd "$APPDIR/usr/bin"' \
             'exec "$APPDIR/usr/bin/Perastage" "$@"' > "$APPDIR/AppRun"
           chmod +x "$APPDIR/AppRun"
@@ -200,6 +203,21 @@ jobs:
           cp Perastage_logo_512.png "$APPDIR/Perastage.png"
           cp Perastage_logo_512.png "$APPDIR/usr/share/icons/hicolor/512x512/apps/Perastage.png"
           cp packaging/linux/perastage-mime.xml "$APPDIR/usr/share/mime/packages/perastage-mime.xml"
+
+          # Bundle runtime libraries that linuxdeploy does not bundle automatically.
+          mkdir -p "$APPDIR/usr/lib"
+          for LIB_NAME in libgpg-error.so.0 libgcrypt.so.20; do
+            LIB_PATH="$(ldconfig -p | awk -v name="$LIB_NAME" '$1 == name { print $NF; exit }')"
+            if [ -z "$LIB_PATH" ]; then
+              echo "Missing runtime library on runner: $LIB_NAME"
+              exit 1
+            fi
+            cp -L "$LIB_PATH" "$APPDIR/usr/lib/$LIB_NAME"
+          done
+
+          # Verify the required runtime libraries were bundled.
+          test -f "$APPDIR/usr/lib/libgpg-error.so.0" || { echo "Missing bundled libgpg-error.so.0"; exit 1; }
+          test -f "$APPDIR/usr/lib/libgcrypt.so.20" || { echo "Missing bundled libgcrypt.so.20"; exit 1; }
 
           test -f "$APPDIR/AppRun" || { echo "Missing AppRun"; exit 1; }
           test -x "$APPDIR/AppRun" || { echo "AppRun is not executable"; exit 1; }
@@ -243,6 +261,10 @@ jobs:
           test -f squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "Extracted MIME metadata is missing"; exit 1; }
           grep -q 'application/x-perastage-mvr' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .mvr is missing"; exit 1; }
           grep -q 'application/x-perastage-project' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .pstg is missing"; exit 1; }
+
+          # Ensure the required runtime libraries are present in the extracted AppImage.
+          test -f squashfs-root/usr/lib/libgpg-error.so.0 || { echo "Extracted libgpg-error.so.0 is missing"; exit 1; }
+          test -f squashfs-root/usr/lib/libgcrypt.so.20 || { echo "Extracted libgcrypt.so.20 is missing"; exit 1; }
 
       # 11. Upload the final AppImage artifact.
       - name: Upload AppImage artifact
