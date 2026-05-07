@@ -74,6 +74,7 @@ public:
   void ResetProject(bool applyLayoutDefaultsForNewProject = false); // Clear current project
   bool IsStartupProjectLoadPending() const { return startupProjectLoadPending; }
   bool IsStartupInitializationPending() const { return startupSplashInitializationPending; }
+  bool CanProcessExternalOpenPath() const;
 
   static MainWindow *Instance();
   static void SetInstance(MainWindow *inst);

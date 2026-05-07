@@ -310,8 +310,10 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
     return;
   }
 
-  const bool startupPending = mainWindow->IsStartupProjectLoadPending() ||
-                              mainWindow->IsStartupInitializationPending();
+  const bool startupPending =
+      mainWindow->IsStartupProjectLoadPending() ||
+      mainWindow->IsStartupInitializationPending() ||
+      !mainWindow->CanProcessExternalOpenPath();
   if (startupPending) {
     if (!pending_external_open_paths_.empty() &&
         pending_external_open_paths_.back() == pathUtf8) {
@@ -346,8 +348,10 @@ void MyApp::SchedulePendingExternalOpenProcessing(
     if (!mainWindowRef)
       return;
 
-    const bool startupPending = mainWindowRef->IsStartupProjectLoadPending() ||
-                                mainWindowRef->IsStartupInitializationPending();
+    const bool startupPending =
+        mainWindowRef->IsStartupProjectLoadPending() ||
+        mainWindowRef->IsStartupInitializationPending() ||
+        !mainWindowRef->CanProcessExternalOpenPath();
     if (startupPending) {
       SchedulePendingExternalOpenProcessing(mainWindowRef);
       return;

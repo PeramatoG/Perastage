@@ -163,18 +163,15 @@ void MainWindow::OnLoad(wxCommandEvent &event) {
                  this);
 }
 
+// Reports whether external-open requests can be processed immediately by the IO controller.
+bool MainWindow::CanProcessExternalOpenPath() const {
+  return ioController != nullptr && !IsBeingDeleted();
+}
+
 // Delegates startup/open-file requests to the IO controller when it is still available.
 bool MainWindow::OpenPathFromCommandLine(const std::string &path) {
-  if (IsBeingDeleted())
+  if (!CanProcessExternalOpenPath())
     return false;
-
-  if (!ioController) {
-    if (!path.empty())
-      QueueDeferredStartupOpenPath(path);
-    CallAfter([this]() { ProcessDeferredStartupOpenPath(); });
-    return true;
-  }
-
   return ioController->OpenPathFromCommandLine(path);
 }
 
