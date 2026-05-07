@@ -358,7 +358,14 @@ void MyApp::SchedulePendingExternalOpenProcessing(
       return;
     Logger::Instance().Log(
         "SchedulePendingExternalOpenProcessing consuming queued path.");
-    mainWindowRef->OpenPathFromCommandLine(*pendingPath);
+    if (!mainWindowRef->OpenPathFromCommandLine(*pendingPath)) {
+      Logger::Instance().Log(
+          "SchedulePendingExternalOpenProcessing deferred retry: "
+          "OpenPathFromCommandLine() returned false.");
+      pending_external_open_paths_.push_front(*pendingPath);
+      SchedulePendingExternalOpenProcessing(mainWindowRef);
+      return;
+    }
     if (!pending_external_open_paths_.empty())
       SchedulePendingExternalOpenProcessing(mainWindowRef);
   });
