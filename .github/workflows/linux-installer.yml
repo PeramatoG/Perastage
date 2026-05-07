@@ -1,4 +1,7 @@
-name: Linux Ubuntu Installer Build
+# Linux installer workflow for Perastage
+# Builds, stages, and packages the Linux AppImage using vcpkg and CMake.
+
+name: Linux Ubuntu Intaller Build
 
 on:
   workflow_dispatch:
@@ -11,15 +14,19 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
+      # Single source of truth for all vcpkg paths used across steps.
       VCPKG_ROOT: ${{ github.workspace }}/vcpkg
       VCPKG_INSTALLED: ${{ github.workspace }}/.vcpkg-cache/installed
       VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-cache/downloads
       VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
 
     steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
+
+      # ── 2. Install Linux build dependencies ───────────────────────────────
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
@@ -37,6 +44,8 @@ jobs:
             zip \
             patchelf
 
+
+      # ── 3. Cache vcpkg installed tree + downloads ─────────────────────────
       - name: Cache vcpkg
         uses: actions/cache@v4
         with:
@@ -49,10 +58,14 @@ jobs:
             ${{ runner.os }}-vcpkg-x64-linux-
             ${{ runner.os }}-vcpkg-
 
+
+      # ── 4. Prepare vcpkg cache folders ────────────────────────────────────
       - name: Prepare vcpkg folders
         run: |
           mkdir -p "$VCPKG_DOWNLOADS" "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"
 
+
+      # ── 5. Bootstrap vcpkg ────────────────────────────────────────────────
       - name: Bootstrap vcpkg
         run: |
           if [ -d "$VCPKG_ROOT/.git" ]; then
@@ -64,6 +77,8 @@ jobs:
           fi
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
 
+
+      # ── 6. Install vcpkg packages ─────────────────────────────────────────
       - name: Install vcpkg packages
         run: |
           "$VCPKG_ROOT/vcpkg" install \
@@ -79,6 +94,8 @@ jobs:
             --x-packages-root="$VCPKG_PACKAGES" \
             --downloads-root="$VCPKG_DOWNLOADS"
 
+
+      # ── 7. Configure CMake ────────────────────────────────────────────────
       - name: Configure CMake (Linux preset)
         run: |
           cmake --preset wsl-x64-release \
@@ -86,18 +103,24 @@ jobs:
             -DVCPKG_TARGET_TRIPLET=x64-linux \
             -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"
 
+
+      # ── 8. Build staged distribution ──────────────────────────────────────
       - name: Build staged distribution
         run: |
           cmake --build --preset wsl-release-stage
           test -f out/install/Release/Perastage || { echo "Missing staged executable: out/install/Release/Perastage"; exit 1; }
           test -x out/install/Release/Perastage || { echo "Staged executable is not executable"; exit 1; }
 
+
+      # ── 9. Upload staged distribution ─────────────────────────────────────
       - name: Upload staged distribution
         uses: actions/upload-artifact@v4
         with:
           name: Perastage-linux-staged
           path: out/install/Release
 
+
+      # ── 10. Build AppDir and AppImage ─────────────────────────────────────
       - name: Build AppDir and AppImage
         run: |
           set -euo pipefail
@@ -131,29 +154,27 @@ jobs:
           cp -a "$STAGE_DIR/licenses" "$APPDIR/usr/bin/"
           cp -a "$STAGE_DIR/docs" "$APPDIR/usr/bin/"
 
-          cat > "$APPDIR/AppRun" <<'EOF'
-#!/usr/bin/env bash
-set -e
-
-APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$APPDIR/usr/bin"
-exec "$APPDIR/usr/bin/Perastage" "$@"
-EOF
+          printf '%s\n' \
+            '#!/usr/bin/env bash' \
+            'set -e' \
+            '' \
+            'APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' \
+            'cd "$APPDIR/usr/bin"' \
+            'exec "$APPDIR/usr/bin/Perastage" "$@"' > "$APPDIR/AppRun"
           chmod +x "$APPDIR/AppRun"
 
-          cat > "$APPDIR/Perastage.desktop" <<'EOF'
-[Desktop Entry]
-Type=Application
-Version=1.0
-Name=Perastage
-Comment=Lighting plot editor and MVR viewer
-Exec=Perastage %f
-Icon=Perastage
-Terminal=false
-Categories=Graphics;Utility;
-MimeType=application/x-perastage-mvr;application/x-perastage-project;
-StartupNotify=true
-EOF
+          printf '%s\n' \
+            '[Desktop Entry]' \
+            'Type=Application' \
+            'Version=1.0' \
+            'Name=Perastage' \
+            'Comment=Lighting plot editor and MVR viewer' \
+            'Exec=Perastage %f' \
+            'Icon=Perastage' \
+            'Terminal=false' \
+            'Categories=Graphics;Utility;' \
+            'MimeType=application/x-perastage-mvr;application/x-perastage-project;' \
+            'StartupNotify=true' > "$APPDIR/Perastage.desktop"
 
           cp "$APPDIR/Perastage.desktop" "$APPDIR/usr/share/applications/Perastage.desktop"
           cp resources/Perastage_logo_1024.png "$APPDIR/Perastage.png"
@@ -203,6 +224,8 @@ EOF
           grep -q 'application/x-perastage-mvr' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .mvr is missing"; exit 1; }
           grep -q 'application/x-perastage-project' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .pstg is missing"; exit 1; }
 
+
+      # ── 11. Upload AppImage artifact ──────────────────────────────────────
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
         with:
