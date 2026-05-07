@@ -48,8 +48,9 @@ public:
   int FilterEvent(wxEvent &event) override;
   bool OnExceptionInMainLoop() override;
   void OnUnhandledException() override;
-  void MacOpenFiles(const wxArrayString &fileNames);
-  void MacOpenFile(const wxString &fileName);
+  void MacOpenFiles(const wxArrayString &fileNames) override;
+  void MacOpenFile(const wxString &fileName) override;
+  void MacOpenURL(const wxString &url) override;
 
 private:
   void HandleExternalOpenPath(const std::string &pathUtf8);
@@ -173,6 +174,7 @@ void ConfigureWindowsDebugHeapLeakCheck() {
 
 wxIMPLEMENT_APP(MyApp);
 
+// Initializes the application, creates the main window, and routes startup open requests.
 bool MyApp::OnInit() {
 #if defined(_MSC_VER) && defined(_DEBUG)
   ConfigureWindowsDebugHeapLeakCheck();
@@ -271,6 +273,16 @@ void MyApp::MacOpenFiles(const wxArrayString &fileNames) {
   }
 }
 
+
+// Routes macOS URL open requests (Finder/LaunchServices) to the shared external-open handler.
+void MyApp::MacOpenURL(const wxString &url) {
+  const wxCharBuffer utf8 = url.ToUTF8();
+  const std::string rawUrlUtf8 =
+      utf8 ? std::string(utf8.data()) : url.ToStdString();
+  HandleExternalOpenPath(NormalizeExternalOpenPath(rawUrlUtf8));
+}
+
+// Handles external file-open requests by deferring them until startup loading is safe.
 void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
   if (pathUtf8.empty())
     return;
@@ -300,6 +312,7 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
   });
 }
 
+// Re-schedules pending external-open processing until startup loading completes.
 void MyApp::SchedulePendingExternalOpenProcessing(
     const wxWeakRef<MainWindow> &mainWindowRef) {
   if (!mainWindowRef)
@@ -322,6 +335,7 @@ void MyApp::SchedulePendingExternalOpenProcessing(
   });
 }
 
+// Pops and returns the next queued external-open path, if any.
 std::optional<std::string> MyApp::ConsumePendingExternalOpenPath() {
   if (pending_external_open_paths_.empty())
     return std::nullopt;
@@ -330,6 +344,7 @@ std::optional<std::string> MyApp::ConsumePendingExternalOpenPath() {
   return path;
 }
 
+// Releases application-level resources before process shutdown.
 int MyApp::OnExit() {
   // Release application-level singletons before CRT leak reporting runs in
   // debug builds on Windows.
@@ -339,6 +354,7 @@ int MyApp::OnExit() {
   return wxApp::OnExit();
 }
 
+// Queues a single startup project-loaded event to avoid duplicate startup routing.
 void MyApp::QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
                                     bool loaded, bool clearLastProject,
                                     const std::string &path) {
@@ -355,6 +371,7 @@ void MyApp::QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
   wxQueueEvent(mainWindowRef.get(), evt.Clone());
 }
 
+// Captures the latest event metadata to improve crash diagnostics.
 int MyApp::FilterEvent(wxEvent &event) {
   const wxClassInfo *eventInfo = event.GetClassInfo();
   wxString eventClassName =
@@ -377,6 +394,7 @@ int MyApp::FilterEvent(wxEvent &event) {
 }
 
 namespace {
+// Logs an exception message and an optional platform stack trace for diagnostics.
 void LogExceptionWithStack(const std::exception &ex,
                            const char *contextMessage) {
   Logger::Instance().Log(std::string(contextMessage) + ex.what());
@@ -413,6 +431,7 @@ void LogExceptionWithStack(const std::exception &ex,
 }
 } // namespace
 
+// Logs recoverable main-loop exceptions and keeps the app running when possible.
 bool MyApp::OnExceptionInMainLoop() {
   try {
     throw;
@@ -436,6 +455,7 @@ bool MyApp::OnExceptionInMainLoop() {
   return false;
 }
 
+// Logs non-recoverable unhandled exceptions for post-mortem diagnostics.
 void MyApp::OnUnhandledException() {
   try {
     throw;
