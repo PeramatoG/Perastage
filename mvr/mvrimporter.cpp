@@ -2852,7 +2852,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             wxString cookieFileWx = wxFileName::CreateTempFileName("gdtf_mvr_import_");
             if (wxFileExists(cookieFileWx))
               wxRemoveFile(cookieFileWx);
-            const std::string cookieFile = WxToUtf8(cookieFileWx);
+            const std::string cookieFile = cookieFileWx.ToStdString();
             long loginHttpCode = 0;
             bool loginOk = activeCredentials.has_value() &&
                            GdtfLogin(activeCredentials->username,
@@ -3428,12 +3428,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               wxMessageBox("Login failed. Verify credentials in Preferences.",
                            "GDTF Share login", wxOK | wxICON_WARNING);
             }
+            if (wxFileExists(cookieFileWx))
+              wxRemoveFile(cookieFileWx);
 #else
             wxMessageBox("GDTF Share download is unavailable in this build target.",
                          "GDTF Share download", wxOK | wxICON_WARNING);
 #endif
-            if (wxFileExists(cookieFileWx))
-              wxRemoveFile(cookieFileWx);
             reportProgress("Conflict dialog:hide");
           }
 
