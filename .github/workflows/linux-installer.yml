@@ -65,7 +65,8 @@ jobs:
             libwayland-dev \
             libegl1-mesa-dev \
             libgl1-mesa-dev \
-            libglu1-mesa-dev
+            libglu1-mesa-dev \
+            imagemagick
 
       # 3. Cache vcpkg downloads, installed packages, and package build trees.
       - name: Cache vcpkg
@@ -156,10 +157,13 @@ jobs:
           test -f "resources/Perastage_logo_1024.png" || { echo "Missing icon: resources/Perastage_logo_1024.png"; exit 1; }
           test -f "packaging/linux/perastage-mime.xml" || { echo "Missing MIME metadata file"; exit 1; }
 
+          # Create a package-safe icon because linuxdeploy rejects 1024x1024 icons.
+          convert resources/Perastage_logo_1024.png -resize 512x512 Perastage_logo_512.png
+
           rm -rf "$APPDIR"
           mkdir -p "$APPDIR/usr/bin"
           mkdir -p "$APPDIR/usr/share/applications"
-          mkdir -p "$APPDIR/usr/share/icons/hicolor/1024x1024/apps"
+          mkdir -p "$APPDIR/usr/share/icons/hicolor/512x512/apps"
           mkdir -p "$APPDIR/usr/share/mime/packages"
 
           cp "$STAGE_DIR/Perastage" "$APPDIR/usr/bin/Perastage"
@@ -193,8 +197,8 @@ jobs:
             'StartupNotify=true' > "$APPDIR/Perastage.desktop"
 
           cp "$APPDIR/Perastage.desktop" "$APPDIR/usr/share/applications/Perastage.desktop"
-          cp resources/Perastage_logo_1024.png "$APPDIR/Perastage.png"
-          cp resources/Perastage_logo_1024.png "$APPDIR/usr/share/icons/hicolor/1024x1024/apps/Perastage.png"
+          cp Perastage_logo_512.png "$APPDIR/Perastage.png"
+          cp Perastage_logo_512.png "$APPDIR/usr/share/icons/hicolor/512x512/apps/Perastage.png"
           cp packaging/linux/perastage-mime.xml "$APPDIR/usr/share/mime/packages/perastage-mime.xml"
 
           test -f "$APPDIR/AppRun" || { echo "Missing AppRun"; exit 1; }
