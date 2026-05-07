@@ -320,13 +320,8 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
   }
 
   Logger::Instance().Log(
-      "HandleExternalOpenPath queuing path in MainWindow deferred-open state.");
-  mainWindow->CallAfter([windowRef = wxWeakRef<MainWindow>(mainWindow),
-                         pathUtf8]() {
-    if (!windowRef)
-      return;
-    windowRef->EnqueueExternalOpenPath(pathUtf8);
-  });
+      "HandleExternalOpenPath routing through startup project-loaded pipeline.");
+  QueueProjectLoadedEvent(wxWeakRef<MainWindow>(mainWindow), false, true, pathUtf8);
 }
 
 // Pops and returns the next queued external-open path, if any.
