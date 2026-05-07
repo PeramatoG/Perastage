@@ -46,7 +46,11 @@ jobs:
             curl \
             unzip \
             zip \
-            patchelf
+            patchelf \
+            libx11-dev \
+            libxau-dev \
+            libxdmcp-dev \
+            xorgproto
 
 
       # ── 3. Cache vcpkg installed tree + downloads ─────────────────────────
