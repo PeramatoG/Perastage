@@ -71,20 +71,33 @@ private:
 };
 
 namespace {
+// Converts a file:// URI into a local path while handling encoded characters and localhost-style authorities.
+wxString DecodeFileUriToPath(const wxString &fileUri) {
+  wxURI uri(fileUri);
+  if (!uri.IsReference() && uri.GetScheme().CmpNoCase("file") == 0 &&
+      uri.HasPath()) {
+    wxString path = wxURI::Unescape(uri.GetPath());
+#if defined(__WXOSX__)
+    if (path.StartsWith("//")) {
+      while (path.StartsWith("//"))
+        path = path.Mid(1);
+      path.Prepend("/");
+    }
+#endif
+    if (!path.empty())
+      return path;
+  }
+  return fileUri;
+}
+
 // Converts macOS file URLs or raw paths into a normalized UTF-8 filesystem path when possible.
 std::string NormalizeExternalOpenPath(const std::string &rawPathUtf8) {
   if (rawPathUtf8.empty())
     return {};
 
   wxString wxPath = wxString::FromUTF8(rawPathUtf8);
-  if (wxPath.StartsWith("file://")) {
-    wxURI uri(wxPath);
-    if (uri.HasPath()) {
-      wxString unescaped = wxURI::Unescape(uri.GetPath());
-      if (!unescaped.empty())
-        wxPath = unescaped;
-    }
-  }
+  if (wxPath.StartsWith("file://"))
+    wxPath = DecodeFileUriToPath(wxPath);
 
   wxFileName fileName(wxPath);
   if (fileName.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_TILDE |
