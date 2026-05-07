@@ -449,7 +449,7 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/licenses ${PERASTAGE_RUNTIME_ASSET_DIR}/licenses
 )
 
-set(LIBRARY_SUBDIRS fixtures trusses misc scene_objects projects)
+set(LIBRARY_SUBDIRS fixtures trusses misc scene_objects projects default_layouts hoists)
 foreach(subdir IN LISTS LIBRARY_SUBDIRS)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_RUNTIME_ASSET_DIR}/library/${subdir}"
