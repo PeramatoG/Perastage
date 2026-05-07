@@ -334,15 +334,14 @@ void MainWindow::FlushPendingFixtureSymbolLibraryUpdates() {
   }
   fixtureSymbolPendingLibrarySyncUuids.clear();
 }
-
-
-
+// Requests deferred closure of the startup splash once initialization prerequisites are complete.
 void MainWindow::RequestStartupSplashCompletion() {
   if (!startupSplashInitializationPending)
     return;
   startupSplashCloseRequested = true;
 }
 
+// Processes startup splash closure during idle once a close request has been queued.
 void MainWindow::OnStartupSplashCloseIdle(wxIdleEvent &event) {
   event.Skip();
   if (!startupSplashCloseRequested)
@@ -352,6 +351,7 @@ void MainWindow::OnStartupSplashCloseIdle(wxIdleEvent &event) {
   CompleteStartupSplashInitialization();
 }
 
+// Completes startup splash teardown and then processes any deferred startup open path.
 void MainWindow::CompleteStartupSplashInitialization() {
   if (!startupSplashInitializationPending)
     return;
@@ -359,10 +359,22 @@ void MainWindow::CompleteStartupSplashInitialization() {
   startupSplashInitializationPending = false;
   SplashScreen::SetMessage("Ready");
   SplashScreen::Hide();
+  ProcessDeferredStartupOpenPath();
+}
 
-  if (deferredStartupOpenPath && !deferredStartupOpenPath->empty()) {
-    const std::string startupPath = *deferredStartupOpenPath;
-    deferredStartupOpenPath.reset();
-    CallAfter([this, startupPath]() { OpenPathFromCommandLine(startupPath); });
-  }
+// Stores a deferred startup-open path that must be processed after startup pending state clears.
+void MainWindow::QueueDeferredStartupOpenPath(const std::string &path) {
+  if (path.empty())
+    return;
+  deferredStartupOpenPath = path;
+}
+
+// Dispatches any deferred startup-open path through the shared command-line open workflow.
+void MainWindow::ProcessDeferredStartupOpenPath() {
+  if (!deferredStartupOpenPath || deferredStartupOpenPath->empty())
+    return;
+
+  const std::string startupPath = *deferredStartupOpenPath;
+  deferredStartupOpenPath.reset();
+  CallAfter([this, startupPath]() { OpenPathFromCommandLine(startupPath); });
 }

@@ -250,6 +250,8 @@ private:
   void ClearBlockingProjectLoadUi();
   void CompleteStartupSplashInitialization();
   void RequestStartupSplashCompletion();
+  void QueueDeferredStartupOpenPath(const std::string &path);
+  void ProcessDeferredStartupOpenPath();
   void OnStartupSplashCloseIdle(wxIdleEvent &event);
   void FlushPendingFixtureSymbolLibraryUpdates();
   std::string BuildFixtureSymbolAutoUpdateSummary() const;

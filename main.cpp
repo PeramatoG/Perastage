@@ -48,9 +48,15 @@ public:
   int FilterEvent(wxEvent &event) override;
   bool OnExceptionInMainLoop() override;
   void OnUnhandledException() override;
+#if defined(__WXOSX__)
+  void MacOpenFiles(const wxArrayString &fileNames) override;
+  void MacOpenFile(const wxString &fileName) override;
+  void MacOpenURL(const wxString &url) override;
+#else
   void MacOpenFiles(const wxArrayString &fileNames);
   void MacOpenFile(const wxString &fileName);
   void MacOpenURL(const wxString &url);
+#endif
 
 private:
   void HandleExternalOpenPath(const std::string &pathUtf8);
@@ -88,9 +94,13 @@ std::string NormalizeExternalOpenPath(const std::string &rawPathUtf8) {
   }
 
   wxCharBuffer utf8 = wxPath.ToUTF8();
-  if (utf8)
-    return std::string(utf8.data());
-  return rawPathUtf8;
+  const std::string normalizedPath =
+      utf8 ? std::string(utf8.data()) : rawPathUtf8;
+  if (normalizedPath != rawPathUtf8) {
+    Logger::Instance().Log("NormalizeExternalOpenPath normalized '" +
+                           rawPathUtf8 + "' -> '" + normalizedPath + "'");
+  }
+  return normalizedPath;
 }
 
 // Converts an ASCII string to lowercase.
@@ -263,11 +273,14 @@ void MyApp::MacOpenFile(const wxString &fileName) {
   const wxCharBuffer utf8 = fileName.ToUTF8();
   const std::string rawPathUtf8 =
       utf8 ? std::string(utf8.data()) : fileName.ToStdString();
+  Logger::Instance().Log("MacOpenFile received: " + rawPathUtf8);
   HandleExternalOpenPath(NormalizeExternalOpenPath(rawPathUtf8));
 }
 
 // Routes macOS multi-file open requests to the external open pipeline in order.
 void MyApp::MacOpenFiles(const wxArrayString &fileNames) {
+  Logger::Instance().Log("MacOpenFiles received count: " +
+                         std::to_string(fileNames.GetCount()));
   for (const wxString &fileName : fileNames) {
     MacOpenFile(fileName);
   }
@@ -279,6 +292,7 @@ void MyApp::MacOpenURL(const wxString &url) {
   const wxCharBuffer utf8 = url.ToUTF8();
   const std::string rawUrlUtf8 =
       utf8 ? std::string(utf8.data()) : url.ToStdString();
+  Logger::Instance().Log("MacOpenURL received: " + rawUrlUtf8);
   HandleExternalOpenPath(NormalizeExternalOpenPath(rawUrlUtf8));
 }
 
@@ -289,6 +303,8 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
 
   MainWindow *mainWindow = wxDynamicCast(GetTopWindow(), MainWindow);
   if (!mainWindow) {
+    Logger::Instance().Log(
+        "HandleExternalOpenPath queued: MainWindow is not ready.");
     pending_external_open_paths_.push_back(pathUtf8);
     return;
   }
@@ -299,11 +315,15 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
         pending_external_open_paths_.back() == pathUtf8) {
       return;
     }
+    Logger::Instance().Log(
+        "HandleExternalOpenPath queued: startup load is pending.");
     pending_external_open_paths_.push_back(pathUtf8);
     SchedulePendingExternalOpenProcessing(wxWeakRef<MainWindow>(mainWindow));
     return;
   }
 
+  Logger::Instance().Log(
+      "HandleExternalOpenPath dispatching to OpenPathFromCommandLine().");
   mainWindow->CallAfter([windowRef = wxWeakRef<MainWindow>(mainWindow),
                          pathUtf8]() {
     if (!windowRef)
@@ -329,6 +349,8 @@ void MyApp::SchedulePendingExternalOpenProcessing(
     auto pendingPath = ConsumePendingExternalOpenPath();
     if (!pendingPath)
       return;
+    Logger::Instance().Log(
+        "SchedulePendingExternalOpenProcessing consuming queued path.");
     mainWindowRef->OpenPathFromCommandLine(*pendingPath);
     if (!pending_external_open_paths_.empty())
       SchedulePendingExternalOpenProcessing(mainWindowRef);
