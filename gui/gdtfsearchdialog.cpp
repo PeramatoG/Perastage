@@ -513,9 +513,11 @@ void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
         return;
     }
 
-    UpdateStatusMessage(false,
-                        "Showing local catalog (last updated: " +
-                            wxString::FromUTF8(lastUpdatedAt) + ")");
+    wxString fallbackDetails = "Showing local catalog (last updated: " +
+                               wxString::FromUTF8(lastUpdatedAt) + ")";
+    if (!result.failureDetails.empty())
+        fallbackDetails += " - " + wxString::FromUTF8(result.failureDetails);
+    UpdateStatusMessage(false, fallbackDetails);
 }
 
 void GdtfSearchDialog::MaybeLogVerboseCatalogTrace(const wxString& message) const

@@ -535,6 +535,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         refreshResult.updatedAt = WxToUtf8(wxDateTime::UNow().FormatISOCombined(' '));
         if (!activeCredentials || activeCredentials->username.empty() ||
             activeCredentials->password.empty()) {
+          refreshResult.failureDetails = "No stored GDTF credentials configured.";
           return refreshResult;
         }
 
@@ -542,13 +543,20 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         const bool loginOk = GdtfLogin(activeCredentials->username,
                                        activeCredentials->password,
                                        cookieFile, loginHttpCode);
-        if (!loginOk || loginHttpCode != 200)
+        if (!loginOk || loginHttpCode != 200) {
+          refreshResult.failureDetails = wxString::Format("Login failed (HTTP %ld).", loginHttpCode).ToStdString();
           return refreshResult;
+        }
 
         long listHttpCode = 0;
         if (GdtfGetList(cookieFile, refreshResult.listData, &listHttpCode) &&
             listHttpCode == 200 && !refreshResult.listData.empty()) {
           refreshResult.success = true;
+        } else {
+          refreshResult.failureDetails =
+              wxString::Format("Catalog request failed (HTTP %ld, bytes=%zu).",
+                               listHttpCode, refreshResult.listData.size())
+                  .ToStdString();
         }
         return refreshResult;
       });

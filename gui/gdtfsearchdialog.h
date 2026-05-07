@@ -50,6 +50,7 @@ public:
         std::string listData;
         std::string updatedAt;
         std::vector<GdtfEntry> parsedEntries;
+        std::string failureDetails;
         long long refreshMs = 0;
         long long parseMs = 0;
     };

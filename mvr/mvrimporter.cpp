@@ -3189,6 +3189,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                         .ToStdString());
               }
 
+              if (catalogEntries.empty()) {
+                const std::string preview =
+                    listPayload.substr(0, std::min<size_t>(listPayload.size(), 180));
+                reportProgress(
+                    wxString::Format(
+                        "[WARN] GDTF catalog parse produced 0 entries (list_http=%ld payload_bytes=%zu)",
+                        listHttpCode, listPayload.size())
+                        .ToStdString());
+                if (!preview.empty()) {
+                  reportProgress("[WARN] GDTF catalog payload preview: " + preview);
+                }
+              }
+
               if (!catalogEntries.empty()) {
                 summaryText->SetLabel(wxString::Format(
                     "Selected fixture types for download (catalog entries: %zu)",
