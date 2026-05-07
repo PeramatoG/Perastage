@@ -24,6 +24,7 @@
 #include "layerpanel.h"
 #include "LayoutManager.h"
 #include "layoutpanel.h"
+#include "logger.h"
 #include "mvrimporter.h"
 #include "projectutils.h"
 #include "sceneobjecttablepanel.h"
@@ -275,7 +276,17 @@ bool MainWindowIoController::OpenPathFromCommandLine(
   }
 
   if (extension == "mvr")
-    return ImportMvrWithOfficialPolicy(pathUtf8);
+  {
+    Logger::Instance().Log("Opening MVR from external request: " + pathUtf8);
+    const bool imported = ImportMvrWithOfficialPolicy(pathUtf8);
+    wxFileName fileInfo(wxString::FromUTF8(pathUtf8));
+    if (imported) {
+      Logger::Instance().Log("MVR imported: " + fileInfo.GetFullName().ToStdString());
+    } else {
+      Logger::Instance().Log("MVR import failed: " + pathUtf8);
+    }
+    return imported;
+  }
 
   if (owner->GetStatusBar())
     owner->SetStatusText("Unsupported startup file format.", 0);

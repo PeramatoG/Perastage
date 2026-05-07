@@ -1172,6 +1172,7 @@ void MainWindow::SyncLayerVisibilityPanels() {
   }
 }
 
+// Handles startup project-load completion and queues deferred external file opens when needed.
 void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
   bool loaded = event.GetInt() != 0;
   bool clearLastProject = event.GetExtraLong() != 0;
@@ -1239,13 +1240,16 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
   } else {
     ResetProject(true);
     if (!path.empty()) {
-      deferredStartupOpenPath = path;
+      QueueDeferredStartupOpenPath(path);
       // When launched by double-click/file association, some platforms may
       // delay idle processing. Schedule an explicit startup completion pass so
       // deferred command-line open does not depend exclusively on idle timing.
       CallAfter([this]() { CompleteStartupSplashInitialization(); });
     }
+    SetStartupProjectLoadPending(false);
+    ProcessDeferredStartupOpenPath();
     RequestStartupSplashCompletion();
+    return;
   }
   SetStartupProjectLoadPending(false);
 }
