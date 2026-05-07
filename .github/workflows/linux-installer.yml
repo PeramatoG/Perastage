@@ -50,7 +50,10 @@ jobs:
             x11proto-dev \
             libxi-dev \
             libxtst-dev \
-            libxrender-dev
+            # Required by vcpkg ports such as cairo and glew
+            libxrender-dev \
+            libgl1-mesa-dev \
+            libglu1-mesa-dev
 
       - name: Cache vcpkg
         uses: actions/cache@v4
