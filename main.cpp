@@ -257,7 +257,18 @@ bool MyApp::OnInit() {
         QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
         return;
       }
-      mainWindowRef->LoadStartupProjectFromPath(lastPath);
+
+      // Give macOS open-document events one additional UI tick to arrive
+      // before committing to loading the last project path by default.
+      mainWindowRef->CallAfter([this, mainWindowRef, lastPath]() {
+        if (!mainWindowRef)
+          return;
+        if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
+          QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
+          return;
+        }
+        mainWindowRef->LoadStartupProjectFromPath(lastPath);
+      });
     });
 
   } else if (mainWindowRef) {
