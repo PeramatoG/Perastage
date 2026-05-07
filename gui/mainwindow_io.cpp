@@ -175,9 +175,12 @@ bool MainWindow::OpenPathFromCommandLine(const std::string &path) {
   return ioController->OpenPathFromCommandLine(path);
 }
 
-// Queues external open requests so they run through the startup-safe deferred open pipeline.
+// Queues an external open path and processes it immediately only when startup is fully ready.
 void MainWindow::EnqueueExternalOpenPath(const std::string &path) {
   QueueDeferredStartupOpenPath(path);
+  if (IsStartupProjectLoadPending() || IsStartupInitializationPending() ||
+      !CanProcessExternalOpenPath())
+    return;
   ProcessDeferredStartupOpenPath();
 }
 
