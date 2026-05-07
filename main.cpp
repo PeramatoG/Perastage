@@ -309,7 +309,8 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
     return;
   }
 
-  const bool startupPending = mainWindow->IsStartupProjectLoadPending();
+  const bool startupPending = mainWindow->IsStartupProjectLoadPending() ||
+                              mainWindow->IsStartupInitializationPending();
   if (startupPending) {
     if (!pending_external_open_paths_.empty() &&
         pending_external_open_paths_.back() == pathUtf8) {

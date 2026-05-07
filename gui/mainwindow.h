@@ -73,6 +73,7 @@ public:
   bool OpenPathFromCommandLine(const std::string &path);
   void ResetProject(bool applyLayoutDefaultsForNewProject = false); // Clear current project
   bool IsStartupProjectLoadPending() const { return startupProjectLoadPending; }
+  bool IsStartupInitializationPending() const { return startupSplashInitializationPending; }
 
   static MainWindow *Instance();
   static void SetInstance(MainWindow *inst);
