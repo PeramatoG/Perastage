@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "mainwindow/controllers/mainwindow_io_controller.h"
 #include "mainwindow_view_controller.h"
 
 #include <algorithm>
