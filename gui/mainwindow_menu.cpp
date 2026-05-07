@@ -936,6 +936,7 @@ void MainWindow::OnClose(wxCommandEvent &event) {
   Close(false);
 }
 
+// Persists state, stops live workers, and detaches IO callbacks before destroying the main window.
 void MainWindow::OnCloseWindow(wxCloseEvent &event) {
   SaveUserConfigWithViewport2DState();
   if (!ConfirmSaveIfDirty("exiting", "Exit")) {
@@ -948,6 +949,7 @@ void MainWindow::OnCloseWindow(wxCloseEvent &event) {
   if (viewportPanel)
     viewportPanel->StopRefreshThread();
   viewportPanel = nullptr;
+  ioController.reset();
 
   Destroy();
 }
