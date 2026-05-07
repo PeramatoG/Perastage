@@ -48,9 +48,9 @@ public:
   int FilterEvent(wxEvent &event) override;
   bool OnExceptionInMainLoop() override;
   void OnUnhandledException() override;
-  void MacOpenFiles(const wxArrayString &fileNames) override;
-  void MacOpenFile(const wxString &fileName) override;
-  void MacOpenURL(const wxString &url) override;
+  void MacOpenFiles(const wxArrayString &fileNames);
+  void MacOpenFile(const wxString &fileName);
+  void MacOpenURL(const wxString &url);
 
 private:
   void HandleExternalOpenPath(const std::string &pathUtf8);
