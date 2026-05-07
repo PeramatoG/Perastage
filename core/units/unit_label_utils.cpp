@@ -2,6 +2,7 @@
 
 namespace Units {
 
+// Builds a display label by appending the unit suffix in parentheses.
 std::string LabelWithUnit(const std::string &label, const std::string &unitSuffix) {
   return label + " (" + unitSuffix + ")";
 }
