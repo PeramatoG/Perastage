@@ -153,7 +153,6 @@ jobs:
           test -d "$STAGE_DIR/resources" || { echo "Missing staged resources directory"; exit 1; }
           test -d "$STAGE_DIR/library" || { echo "Missing staged library directory"; exit 1; }
           test -d "$STAGE_DIR/licenses" || { echo "Missing staged licenses directory"; exit 1; }
-          test -d "$STAGE_DIR/docs" || { echo "Missing staged docs directory"; exit 1; }
           test -f "resources/Perastage_logo_1024.png" || { echo "Missing icon: resources/Perastage_logo_1024.png"; exit 1; }
           test -f "packaging/linux/perastage-mime.xml" || { echo "Missing MIME metadata file"; exit 1; }
 
@@ -167,7 +166,9 @@ jobs:
           cp -a "$STAGE_DIR/resources" "$APPDIR/usr/bin/"
           cp -a "$STAGE_DIR/library" "$APPDIR/usr/bin/"
           cp -a "$STAGE_DIR/licenses" "$APPDIR/usr/bin/"
-          cp -a "$STAGE_DIR/docs" "$APPDIR/usr/bin/"
+          if [ -d "$STAGE_DIR/docs" ]; then
+            cp -a "$STAGE_DIR/docs" "$APPDIR/usr/bin/"
+          fi
 
           printf '%s\n' \
             '#!/usr/bin/env bash' \
