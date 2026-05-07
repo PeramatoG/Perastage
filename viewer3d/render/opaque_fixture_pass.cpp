@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <optional>
+#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -632,18 +633,13 @@ struct FixtureRenderMetrics {
   size_t fallbackDrawCalls = 0;
 };
 
-// Returns true when the fixture metrics differ from the previous rendered frame.
+// Returns true only for fixture metric combinations that have not been logged before.
 bool ShouldLogFixtureRenderMetrics(const FixtureRenderMetrics &metrics) {
-  static std::optional<FixtureRenderMetrics> lastLoggedMetrics;
-  if (lastLoggedMetrics.has_value() &&
-      lastLoggedMetrics->instancedFixtures == metrics.instancedFixtures &&
-      lastLoggedMetrics->fallbackFixtures == metrics.fallbackFixtures &&
-      lastLoggedMetrics->instancedDrawCalls == metrics.instancedDrawCalls &&
-      lastLoggedMetrics->fallbackDrawCalls == metrics.fallbackDrawCalls) {
-    return false;
-  }
-  lastLoggedMetrics = metrics;
-  return true;
+  using MetricsKey = std::array<size_t, 4>;
+  static std::set<MetricsKey> loggedMetricKeys;
+  const MetricsKey key = {metrics.instancedFixtures, metrics.fallbackFixtures,
+                          metrics.instancedDrawCalls, metrics.fallbackDrawCalls};
+  return loggedMetricKeys.insert(key).second;
 }
 
 void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
