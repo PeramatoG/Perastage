@@ -497,7 +497,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
             return GdtfGetList(cookieFile, onlineListData, &listHttpCode) &&
                    listHttpCode == 200 && !onlineListData.empty();
           },
-          nowUtc);
+          nowUtc,
+          0);
 
   refreshOverlay.reset();
   refreshDisabler.reset();
