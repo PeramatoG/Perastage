@@ -50,7 +50,6 @@ jobs:
             x11proto-dev \
             libxi-dev \
             libxtst-dev \
-            # Required by vcpkg ports such as cairo and glew
             libxrender-dev \
             libgl1-mesa-dev \
             libglu1-mesa-dev
