@@ -21,19 +21,11 @@ jobs:
       VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
 
     steps:
-      # ── 1. Checkout ────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Install Linux build dependencies ───────────────────────────────
       - name: Install Linux build dependencies
         run: |
-          # Update package lists and install the toolchain and libraries needed
-          # for building Perastage.  The previous list included `xorgproto-dev`,
-          # which is no longer provided on modern Ubuntu releases (such as
-          # 24.04), causing apt to fail.  The X11 protocol headers are shipped
-          # via `x11proto-dev` instead, so install that package along with the
-          # rest of the build requirements.
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
@@ -55,9 +47,10 @@ jobs:
             libx11-dev \
             libxau-dev \
             libxdmcp-dev \
-            x11proto-dev
+            x11proto-dev \
+            libxi-dev \
+            libxtst-dev
 
-      # ── 3. Cache vcpkg installed tree + downloads ─────────────────────────
       - name: Cache vcpkg
         uses: actions/cache@v4
         with:
@@ -70,12 +63,10 @@ jobs:
             ${{ runner.os }}-vcpkg-x64-linux-
             ${{ runner.os }}-vcpkg-
 
-      # ── 4. Prepare vcpkg cache folders ────────────────────────────────────
       - name: Prepare vcpkg folders
         run: |
           mkdir -p "$VCPKG_DOWNLOADS" "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"
 
-      # ── 5. Bootstrap vcpkg ────────────────────────────────────────────────
       - name: Bootstrap vcpkg
         run: |
           if [ -d "$VCPKG_ROOT/.git" ]; then
@@ -87,7 +78,6 @@ jobs:
           fi
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
 
-      # ── 6. Install vcpkg packages ─────────────────────────────────────────
       - name: Install vcpkg packages
         run: |
           "$VCPKG_ROOT/vcpkg" install \
@@ -103,29 +93,25 @@ jobs:
             --x-packages-root="$VCPKG_PACKAGES" \
             --downloads-root="$VCPKG_DOWNLOADS"
 
-      # ── 7. Configure CMake ────────────────────────────────────────────────
-      - name: Configure CMake (Linux preset)
+      - name: Configure CMake
         run: |
           cmake --preset wsl-x64-release \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET=x64-linux \
             -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"
 
-      # ── 8. Build staged distribution ──────────────────────────────────────
       - name: Build staged distribution
         run: |
           cmake --build --preset wsl-release-stage
           test -f out/install/Release/Perastage || { echo "Missing staged executable: out/install/Release/Perastage"; exit 1; }
           test -x out/install/Release/Perastage || { echo "Staged executable is not executable"; exit 1; }
 
-      # ── 9. Upload staged distribution ─────────────────────────────────────
       - name: Upload staged distribution
         uses: actions/upload-artifact@v4
         with:
           name: Perastage-linux-staged
           path: out/install/Release
 
-      # ── 10. Build AppDir and AppImage ─────────────────────────────────────
       - name: Build AppDir and AppImage
         run: |
           set -euo pipefail
@@ -229,7 +215,6 @@ jobs:
           grep -q 'application/x-perastage-mvr' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .mvr is missing"; exit 1; }
           grep -q 'application/x-perastage-project' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .pstg is missing"; exit 1; }
 
-      # ── 11. Upload AppImage artifact ──────────────────────────────────────
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
         with:
