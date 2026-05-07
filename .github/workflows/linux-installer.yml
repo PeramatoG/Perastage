@@ -55,6 +55,15 @@ jobs:
             libxi-dev \
             libxtst-dev \
             libxrender-dev \
+            libgtk-3-dev \
+            libglib2.0-dev \
+            libpango1.0-dev \
+            libatk1.0-dev \
+            libcairo2-dev \
+            libgdk-pixbuf-2.0-dev \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libegl1-mesa-dev \
             libgl1-mesa-dev \
             libglu1-mesa-dev
 
@@ -66,7 +75,7 @@ jobs:
             .vcpkg-cache/downloads
             .vcpkg-cache/installed
             .vcpkg-cache/packages
-          key: ${{ runner.os }}-vcpkg-x64-linux-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/linux-appimage.yml') }}
+          key: ${{ runner.os }}-vcpkg-x64-linux-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/linux-installer.yml') }}
           restore-keys: |
             ${{ runner.os }}-vcpkg-x64-linux-
             ${{ runner.os }}-vcpkg-
