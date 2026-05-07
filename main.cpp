@@ -35,6 +35,7 @@
 #endif
 #include <wx/stackwalk.h>
 #include <wx/sysopt.h>
+#include <wx/uri.h>
 #include <wx/weakref.h>
 #include <wx/wx.h>
 #include <wx/filename.h>
@@ -64,6 +65,34 @@ private:
 };
 
 namespace {
+// Converts macOS file URLs or raw paths into a normalized UTF-8 filesystem path when possible.
+std::string NormalizeExternalOpenPath(const std::string &rawPathUtf8) {
+  if (rawPathUtf8.empty())
+    return {};
+
+  wxString wxPath = wxString::FromUTF8(rawPathUtf8);
+  if (wxPath.StartsWith("file://")) {
+    wxURI uri(wxPath);
+    if (uri.IsReference() && uri.HasPath()) {
+      wxString unescaped = wxURI::Unescape(uri.GetPath());
+      if (!unescaped.empty())
+        wxPath = unescaped;
+    }
+  }
+
+  wxFileName fileName(wxPath);
+  if (fileName.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_TILDE |
+                         wxPATH_NORM_ABSOLUTE)) {
+    wxPath = fileName.GetFullPath();
+  }
+
+  wxCharBuffer utf8 = wxPath.ToUTF8();
+  if (utf8)
+    return std::string(utf8.data());
+  return rawPathUtf8;
+}
+
+// Converts an ASCII string to lowercase.
 std::string ToLowerAscii(std::string text) {
   std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
     return static_cast<char>(std::tolower(c));
@@ -219,12 +248,12 @@ bool MyApp::OnInit() {
   return true;
 }
 
-// Routes macOS single-file open requests to the external open pipeline.
+// Routes a single macOS file-open request to the shared external-open handler.
 void MyApp::MacOpenFile(const wxString &fileName) {
   const wxCharBuffer utf8 = fileName.ToUTF8();
-  const std::string pathUtf8 =
+  const std::string rawPathUtf8 =
       utf8 ? std::string(utf8.data()) : fileName.ToStdString();
-  HandleExternalOpenPath(pathUtf8);
+  HandleExternalOpenPath(NormalizeExternalOpenPath(rawPathUtf8));
 }
 
 // Routes macOS multi-file open requests to the external open pipeline in order.
