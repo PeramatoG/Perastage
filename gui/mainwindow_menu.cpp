@@ -1036,7 +1036,7 @@ void MainWindow::OnToggleRigging(wxCommandEvent &event) {
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
   const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
   const wxString helpFullPath =
-      wxString::FromUTF8((resourceRoot / "help.md").u8string());
+      wxString::FromUTF8((resourceRoot / "help.md").string());
   wxFileName helpPath(helpFullPath);
   if (helpPath.Exists()) {
     // Read the file contents.
@@ -1116,8 +1116,8 @@ void MainWindow::OnShowAbout(wxCommandEvent &WXUNUSED(event)) {
   wxIconBundle bundle;
   const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
   const wxString iconPaths[] = {
-      wxString::FromUTF8((resourceRoot / "Perastage.ico").u8string()),
-      wxString::FromUTF8((resourceRoot / "Perastage_logo.png").u8string())};
+      wxString::FromUTF8((resourceRoot / "Perastage.ico").string()),
+      wxString::FromUTF8((resourceRoot / "Perastage_logo.png").string())};
   for (const wxString &path : iconPaths) {
     if (wxFileExists(path)) {
       if (path.EndsWith(".ico"))
