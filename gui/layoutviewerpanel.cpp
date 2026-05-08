@@ -2360,6 +2360,7 @@ bool LayoutViewerPanel::GetSelectedFrame(
   return true;
 }
 
+// Initializes layout-viewer OpenGL resources and filters non-fatal Wayland GLX probing errors.
 bool LayoutViewerPanel::InitGL() {
   if (!glContext_)
     return false;
@@ -2370,7 +2371,10 @@ bool LayoutViewerPanel::InitGL() {
 
   if (!glInitialized_) {
     glewExperimental = GL_TRUE;
-    const GLenum glewResult = glewInit();
+    GLenum glewResult = glewInit();
+    // On Wayland/WSLg, GLX probing can fail even when the active OpenGL context is valid.
+    if (glewResult == GLEW_ERROR_NO_GLX_DISPLAY)
+      glewResult = GLEW_OK;
     if (glewResult != GLEW_OK) {
       Logger::Instance().Log(
           std::string("LayoutViewerPanel: GLEW init failed: ") +

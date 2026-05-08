@@ -729,6 +729,7 @@ void Viewer2DPanel::InvalidateBottomSymbolCache() {
   m_controller.ClearBottomSymbolCache();
 }
 
+// Initializes the 2D OpenGL context and tolerates Wayland GLX probing failures.
 void Viewer2DPanel::InitGL() {
   if (!IsShownOnScreen() && !m_forceOffscreenRender &&
       !m_allowOffscreenRender) {
@@ -739,7 +740,15 @@ void Viewer2DPanel::InitGL() {
   }
   if (!m_glInitialized) {
     glewExperimental = GL_TRUE;
-    glewInit();
+    GLenum err = glewInit();
+    // On Wayland/WSLg, GLX probing can fail even when the active OpenGL context is valid.
+    if (err == GLEW_ERROR_NO_GLX_DISPLAY)
+      err = GLEW_OK;
+    if (err != GLEW_OK) {
+      wxLogError("GLEW initialization failed: %s",
+                 reinterpret_cast<const char *>(glewGetErrorString(err)));
+      return;
+    }
     m_controller.InitializeGL();
     glEnable(GL_DEPTH_TEST);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);

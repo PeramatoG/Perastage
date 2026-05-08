@@ -177,6 +177,7 @@ FixturePreviewPanel::~FixturePreviewPanel()
     delete m_glContext;
 }
 
+// Initializes the fixture preview OpenGL state while ignoring Wayland-only GLX probe failures.
 void FixturePreviewPanel::InitGL()
 {
     if(!IsShownOnScreen()){
@@ -185,7 +186,16 @@ void FixturePreviewPanel::InitGL()
     SetCurrent(*m_glContext);
     if(!m_glInitialized){
         glewExperimental = GL_TRUE;
-        glewInit();
+        GLenum err = glewInit();
+        // On Wayland/WSLg, GLX probing can fail even when the active OpenGL context is valid.
+        if (err == GLEW_ERROR_NO_GLX_DISPLAY) {
+            err = GLEW_OK;
+        }
+        if (err != GLEW_OK) {
+            wxLogError("GLEW initialization failed: %s",
+                       reinterpret_cast<const char*>(glewGetErrorString(err)));
+            return;
+        }
         m_glInitialized = true;
     }
     glEnable(GL_DEPTH_TEST);
