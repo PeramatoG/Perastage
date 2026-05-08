@@ -83,11 +83,10 @@ void ApplyRoundedShape(wxFrame *frame, int radius) {
 // Builds the splash logo bitmap from packaged resources with safe fallbacks.
 wxBitmap BuildSplashBitmap() {
   wxBitmap logoBmp;
-  const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
   const std::filesystem::path splashLogoPath =
-      resourceRoot / "Perastage_logo.png";
+      ProjectUtils::ResolveResourcePath("Perastage_logo.png");
   std::error_code ec;
-  if (!resourceRoot.empty() && std::filesystem::exists(splashLogoPath, ec)) {
+  if (!splashLogoPath.empty() && std::filesystem::exists(splashLogoPath, ec)) {
     logoBmp.LoadFile(PathToWxString(splashLogoPath), wxBITMAP_TYPE_PNG);
   }
 
@@ -96,9 +95,8 @@ wxBitmap BuildSplashBitmap() {
                        ? std::filesystem::path("resources/Perastage_logo.png")
                        : splashLogoPath);
 
-    std::filesystem::path iconPath;
-    if (!resourceRoot.empty())
-      iconPath = resourceRoot / "Perastage.ico";
+    const std::filesystem::path iconPath =
+        ProjectUtils::ResolveResourcePath("Perastage.ico");
     wxIconBundle bundle;
     if (!iconPath.empty() && std::filesystem::exists(iconPath, ec)) {
       bundle.AddIcon(PathToWxString(iconPath), wxBITMAP_TYPE_ICO);

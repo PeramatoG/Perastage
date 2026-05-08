@@ -170,8 +170,8 @@ void MainWindow::CreateToolBars() {
 
   const auto loadToolbarIcon = [](const std::string &name,
                                   const wxArtID &fallbackArtId) {
-    auto svgPath = ProjectUtils::GetResourceRoot() / "icons" / "outline" /
-                   (name + ".svg");
+    auto svgPath = ProjectUtils::ResolveResourcePath(
+        std::filesystem::path("icons") / "outline" / (name + ".svg"));
     if (std::filesystem::exists(svgPath)) {
       wxBitmapBundle bundle =
           wxBitmapBundle::FromSVGFile(svgPath.string(), wxSize(16, 16));
@@ -184,8 +184,8 @@ void MainWindow::CreateToolBars() {
   };
   const auto loadToolbarDisabledIcon = [&](const std::string &name,
                                            const wxArtID &fallbackArtId) {
-    auto svgPath = ProjectUtils::GetResourceRoot() / "icons" / "outline" /
-                   (name + "-disabled.svg");
+    auto svgPath = ProjectUtils::ResolveResourcePath(
+        std::filesystem::path("icons") / "outline" / (name + "-disabled.svg"));
     if (std::filesystem::exists(svgPath)) {
       wxBitmapBundle bundle =
           wxBitmapBundle::FromSVGFile(svgPath.string(), wxSize(16, 16));

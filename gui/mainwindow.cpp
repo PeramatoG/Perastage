@@ -341,10 +341,8 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
   if (defaultUiFont.IsOk())
     SetFont(defaultUiFont);
   wxIcon icon;
-  const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
-  std::filesystem::path iconPath;
-  if (!resourceRoot.empty())
-    iconPath = resourceRoot / "Perastage.ico";
+  const std::filesystem::path iconPath =
+      ProjectUtils::ResolveResourcePath("Perastage.ico");
   std::error_code ec;
   if (!iconPath.empty() && std::filesystem::exists(iconPath, ec)) {
     icon.LoadFile(PathToWxString(iconPath), wxBITMAP_TYPE_ICO);

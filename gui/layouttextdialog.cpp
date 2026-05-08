@@ -174,8 +174,8 @@ bool LayoutTextDialog::GetDrawFrame() const {
 }
 
 wxBitmapBundle LayoutTextDialog::LoadIcon(const std::string &name) const {
-  auto svgPath = ProjectUtils::GetResourceRoot() / "icons" / "outline" /
-                 (name + ".svg");
+  auto svgPath = ProjectUtils::ResolveResourcePath(
+      std::filesystem::path("icons") / "outline" / (name + ".svg"));
   if (std::filesystem::exists(svgPath)) {
     wxBitmapBundle bundle =
         wxBitmapBundle::FromSVGFile(svgPath.string(),

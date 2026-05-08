@@ -193,6 +193,39 @@ fs::path GetResourceRoot()
     return {};
 }
 
+// Resolves a relative resource path by checking nested and base resource roots with compatibility fallbacks.
+fs::path ResolveResourcePath(const fs::path& relativePath)
+{
+    if (relativePath.empty() || relativePath.is_absolute())
+        return {};
+
+    std::error_code ec;
+    const fs::path root = GetResourceRoot();
+    if (!root.empty()) {
+        const fs::path directCandidate = root / relativePath;
+        if (fs::exists(directCandidate, ec) && !ec)
+            return directCandidate;
+        ec.clear();
+
+        if (root.filename() == "resources") {
+            const fs::path parentCandidate = root.parent_path() / relativePath;
+            if (fs::exists(parentCandidate, ec) && !ec)
+                return parentCandidate;
+            ec.clear();
+        }
+    }
+
+    const wxString resourcesDir = wxStandardPaths::Get().GetResourcesDir();
+    if (!resourcesDir.empty()) {
+        const fs::path resourcesPath = WxStringToPath(resourcesDir);
+        const fs::path baseCandidate = resourcesPath / relativePath;
+        if (fs::exists(baseCandidate, ec) && !ec)
+            return baseCandidate;
+    }
+
+    return {};
+}
+
 std::string GetLastProjectPathFile()
 {
     const auto dataDir = ResolveWritableUserDataDir();
