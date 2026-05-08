@@ -232,8 +232,9 @@ jobs:
           curl -L -o linuxdeploy-x86_64.AppImage \
             https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
-          ./linuxdeploy-x86_64.AppImage --appimage-extract
-          mv squashfs-root linuxdeploy-root
+          curl -L -o linuxdeploy-plugin-gtk.sh \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/latest/download/linuxdeploy-plugin-gtk.sh
+          chmod +x linuxdeploy-plugin-gtk.sh
 
           curl -L -o appimagetool-x86_64.AppImage \
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
@@ -241,7 +242,7 @@ jobs:
           ./appimagetool-x86_64.AppImage --appimage-extract
           mv squashfs-root appimagetool-root
 
-          ./linuxdeploy-root/AppRun --appdir "$APPDIR" --desktop-file "$APPDIR/Perastage.desktop" --icon-file "$APPDIR/Perastage.png"
+          ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --appdir "$APPDIR" --plugin gtk --desktop-file "$APPDIR/Perastage.desktop" --icon-file "$APPDIR/Perastage.png"
 
           export ARCH=x86_64
           export APPIMAGE_EXTRACT_AND_RUN=1

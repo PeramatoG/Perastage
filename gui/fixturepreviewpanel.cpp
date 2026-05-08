@@ -22,6 +22,7 @@
 #endif
 
 #include <GL/glew.h>
+#include "glew_init_utils.h"
 // macOS ships OpenGL headers via the framework; use conditional includes for portability.
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -177,24 +178,21 @@ FixturePreviewPanel::~FixturePreviewPanel()
     delete m_glContext;
 }
 
-// Initializes the fixture preview OpenGL state while ignoring Wayland-only GLX probe failures.
+// Initializes fixture preview OpenGL state only after centralized GLEW/context validation.
 void FixturePreviewPanel::InitGL()
 {
     if(!IsShownOnScreen()){
         return;
     }
-    SetCurrent(*m_glContext);
     if(!m_glInitialized){
-        glewExperimental = GL_TRUE;
-        GLenum err = glewInit();
-        // On Wayland/WSLg, GLX probing can fail even when the active OpenGL context is valid.
-        if (err == GLEW_ERROR_NO_GLX_DISPLAY) {
-            err = GLEW_OK;
-        }
-        if (err != GLEW_OK) {
-            wxLogError("GLEW initialization failed: %s",
-                       reinterpret_cast<const char*>(glewGetErrorString(err)));
+        const GLEWInitResult initResult =
+            InitializeGlewForCurrentContext(*this, *m_glContext, "FixturePreviewPanel");
+        if (!initResult.success) {
+            wxLogError("%s", initResult.message);
             return;
+        }
+        if (initResult.isWarningOnly) {
+            wxLogWarning("%s", initResult.message);
         }
         m_glInitialized = true;
     }

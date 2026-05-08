@@ -29,6 +29,7 @@
 #endif
 
 #include <GL/glew.h>
+#include "glew_init_utils.h"
 // macOS uses the OpenGL framework headers; guard includes for cross-platform builds.
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -729,25 +730,21 @@ void Viewer2DPanel::InvalidateBottomSymbolCache() {
   m_controller.ClearBottomSymbolCache();
 }
 
-// Initializes the 2D OpenGL context and tolerates Wayland GLX probing failures.
+// Initializes 2D OpenGL state only when GLEW/context validation succeeds.
 void Viewer2DPanel::InitGL() {
   if (!IsShownOnScreen() && !m_forceOffscreenRender &&
       !m_allowOffscreenRender) {
     return;
   }
-  if (!SetCurrent(*m_glContext)) {
-    return;
-  }
   if (!m_glInitialized) {
-    glewExperimental = GL_TRUE;
-    GLenum err = glewInit();
-    // On Wayland/WSLg, GLX probing can fail even when the active OpenGL context is valid.
-    if (err == GLEW_ERROR_NO_GLX_DISPLAY)
-      err = GLEW_OK;
-    if (err != GLEW_OK) {
-      wxLogError("GLEW initialization failed: %s",
-                 reinterpret_cast<const char *>(glewGetErrorString(err)));
+    const GLEWInitResult initResult =
+        InitializeGlewForCurrentContext(*this, *m_glContext, "Viewer2DPanel");
+    if (!initResult.success) {
+      wxLogError("%s", initResult.message);
       return;
+    }
+    if (initResult.isWarningOnly) {
+      wxLogWarning("%s", initResult.message);
     }
     m_controller.InitializeGL();
     glEnable(GL_DEPTH_TEST);
