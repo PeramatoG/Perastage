@@ -20,18 +20,21 @@ wxStaticText *g_label = nullptr;
 constexpr int kSplashCornerRadius = 16;
 constexpr int kSplashLogoMaxSize = 180;
 
+// Converts a filesystem path into a UTF-8 wxString suitable for wxWidgets APIs.
 wxString PathToWxString(const std::filesystem::path &path) {
   const std::u8string utf8 = path.u8string();
   const std::string utf8Str(utf8.begin(), utf8.end());
   return wxString::FromUTF8(utf8Str.c_str());
 }
 
+// Logs a warning when a splash-related icon asset cannot be found on disk.
 void LogMissingIcon(const std::filesystem::path &path) {
   const wxString message =
       "Splash icon not found at '" + PathToWxString(path) + "'";
   Logger::Instance().Log(Logger::Level::Warn, message.ToStdString());
 }
 
+// Downscales a bitmap proportionally so the largest side does not exceed maxSize.
 wxBitmap ScaleDownBitmap(const wxBitmap &bitmap, int maxSize) {
   if (!bitmap.IsOk() || maxSize <= 0)
     return bitmap;
@@ -55,6 +58,7 @@ wxBitmap ScaleDownBitmap(const wxBitmap &bitmap, int maxSize) {
   return wxBitmap(scaled);
 }
 
+// Applies a rounded-corner shape mask to the splash frame when dimensions are valid.
 void ApplyRoundedShape(wxFrame *frame, int radius) {
   if (!frame)
     return;
@@ -76,6 +80,7 @@ void ApplyRoundedShape(wxFrame *frame, int radius) {
   frame->SetShape(region);
 }
 
+// Builds the splash logo bitmap from packaged resources with safe fallbacks.
 wxBitmap BuildSplashBitmap() {
   wxBitmap logoBmp;
   const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
@@ -102,9 +107,11 @@ wxBitmap BuildSplashBitmap() {
           iconPath.empty() ? std::filesystem::path("resources/Perastage.ico")
                            : iconPath);
     }
-    wxIcon icon = bundle.GetIcon(wxSize(256, 256));
-    if (icon.IsOk()) {
-      logoBmp = wxBitmap(icon);
+    if (!bundle.IsEmpty()) {
+      wxIcon icon = bundle.GetIcon(wxSize(256, 256));
+      if (icon.IsOk()) {
+        logoBmp = wxBitmap(icon);
+      }
     }
   }
 
@@ -117,6 +124,7 @@ wxBitmap BuildSplashBitmap() {
 }
 }
 
+// Creates and displays the splash screen window with version and loading status text.
 void SplashScreen::Show() {
   if (g_splash)
     return;
@@ -160,6 +168,7 @@ void SplashScreen::Show() {
   g_splash->Update();
 }
 
+// Updates the splash status label and refreshes layout to display progress changes.
 void SplashScreen::SetMessage(const wxString &msg) {
   if (g_label) {
     g_label->SetLabel(msg);
@@ -169,6 +178,7 @@ void SplashScreen::SetMessage(const wxString &msg) {
   }
 }
 
+// Destroys the splash window and clears associated global widget pointers.
 void SplashScreen::Hide() {
   if (g_splash) {
     g_splash->Destroy();
