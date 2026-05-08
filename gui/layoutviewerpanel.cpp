@@ -2911,6 +2911,7 @@ bool LayoutViewerPanel::NeedsRenderRebuild() const {
   return renderDirty || contentDirty || HasDirtyRenderCaches();
 }
 
+// Schedules a deferred layout texture rebuild when content is dirty and rendering is available.
 void LayoutViewerPanel::RequestRenderRebuild() {
   // Advances the render epoch to cancel stale payloads queued before this rebuild request.
   NextRenderEpoch();
@@ -2945,8 +2946,6 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     panel->isLoading = true;
     panel->Refresh();
     panel->Update();
-    if (wxTheApp && wxTheApp->IsMainLoopRunning())
-      wxTheApp->Yield(true);
     if (!weakThis)
       return;
     panel = weakThis.get();
