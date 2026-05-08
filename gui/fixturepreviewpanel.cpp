@@ -192,7 +192,7 @@ void FixturePreviewPanel::InitGL()
             return;
         }
         if (initResult.isWarningOnly) {
-            wxLogWarning("%s", initResult.message);
+            wxLogDebug("%s", initResult.message);
         }
         m_glInitialized = true;
     }
