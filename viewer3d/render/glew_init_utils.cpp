@@ -1,6 +1,5 @@
-#include "glew_init_utils.h"
-
 #include <GL/glew.h>
+#include "glew_init_utils.h"
 
 #include <cstdlib>
 #include <string>
@@ -21,7 +20,7 @@ void LogLinuxBackendDiagnosticsOnce(const char *panelName) {
   const char *display = std::getenv("DISPLAY");
   const char *sessionType = std::getenv("XDG_SESSION_TYPE");
   const char *qtQpaPlatform = std::getenv("QT_QPA_PLATFORM");
-  wxLogMessage(
+  wxLogDebug(
       "%s backend diagnostics: GDK_BACKEND=%s WAYLAND_DISPLAY=%s DISPLAY=%s "
       "XDG_SESSION_TYPE=%s QT_QPA_PLATFORM=%s",
       panelName, gdkBackend ? gdkBackend : "<unset>",
@@ -50,8 +49,8 @@ GLEWInitResult InitializeGlewForCurrentContext(wxGLCanvas &canvas,
   const GLenum glewResult = glewInit();
   const GLubyte *glVersionRaw = glGetString(GL_VERSION);
   const bool hasGlVersion = glVersionRaw != nullptr;
-  wxLogMessage("%s GL context status: GL_VERSION %s", panelName,
-               hasGlVersion ? "available" : "missing");
+  wxLogDebug("%s GL context status: GL_VERSION %s", panelName,
+             hasGlVersion ? "available" : "missing");
 
   if (glewResult == GLEW_OK) {
     result.success = true;
