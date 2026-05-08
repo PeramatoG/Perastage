@@ -18,6 +18,7 @@
 #include "projectutils.h"
 #include "library/library_bootstrap.h"
 #include "logger.h"
+#include <array>
 #include <cstdlib>
 #include <iostream>
 #include <filesystem>
@@ -66,6 +67,15 @@ std::optional<fs::path> FindExistingPath(const fs::path& start,
             break;
         current = current.parent_path();
     }
+    return std::nullopt;
+}
+
+// Returns a candidate directory if it exists and is a directory.
+std::optional<fs::path> ExistingDirectory(const fs::path& candidate)
+{
+    std::error_code ec;
+    if (fs::exists(candidate, ec) && !ec && fs::is_directory(candidate, ec) && !ec)
+        return candidate;
     return std::nullopt;
 }
 
@@ -166,22 +176,17 @@ fs::path GetBaseLibraryPath(const std::string& subdir)
     const wxString resourcesDir = wxStandardPaths::Get().GetResourcesDir();
     if (!resourcesDir.empty()) {
         fs::path resourcesPath = WxStringToPath(resourcesDir);
-        fs::path resourcesLibrary = resourcesPath / "library" / subdir;
-        std::error_code ec;
-        if (fs::exists(resourcesLibrary, ec) && !ec &&
-            fs::is_directory(resourcesLibrary, ec) && !ec) {
-            return resourcesLibrary;
+        const fs::path bundleResources = exeBase.parent_path() / "Resources";
+        const std::array<fs::path, 3> candidates = {
+            resourcesPath / "library" / subdir,
+            bundleResources / "library" / subdir,
+            resourcesPath.parent_path() / "Resources" / "library" / subdir
+        };
+        for (const fs::path& candidate : candidates) {
+            if (auto existing = ExistingDirectory(candidate))
+                return *existing;
         }
     }
-#ifdef __APPLE__
-    const fs::path bundleResources = exeBase.parent_path() / "Resources";
-    std::error_code ec;
-    const fs::path bundleLibrary = bundleResources / "library" / subdir;
-    if (fs::exists(bundleLibrary, ec) && !ec &&
-        fs::is_directory(bundleLibrary, ec) && !ec) {
-        return bundleLibrary;
-    }
-#endif
     return exeBase / suffix;
 }
 
@@ -198,25 +203,19 @@ fs::path GetResourceRoot()
     const wxString resourcesDir = wxStandardPaths::Get().GetResourcesDir();
     if (!resourcesDir.empty()) {
         fs::path resourcesPath = WxStringToPath(resourcesDir);
-        std::error_code ec;
-        const fs::path nestedResources = resourcesPath / "resources";
-        if (fs::exists(nestedResources, ec) && !ec &&
-            fs::is_directory(nestedResources, ec) && !ec)
-            return nestedResources;
-        if (fs::exists(resourcesPath, ec) && !ec)
-            return resourcesPath;
+        const fs::path bundleResources = exeBase.parent_path() / "Resources";
+        const std::array<fs::path, 5> candidates = {
+            resourcesPath / "resources",
+            resourcesPath,
+            bundleResources / "resources",
+            bundleResources,
+            resourcesPath.parent_path() / "Resources"
+        };
+        for (const fs::path& candidate : candidates) {
+            if (auto existing = ExistingDirectory(candidate))
+                return *existing;
+        }
     }
-#ifdef __APPLE__
-    const fs::path bundleResources = exeBase.parent_path() / "Resources";
-    std::error_code ec;
-    const fs::path nestedResources = bundleResources / "resources";
-    if (fs::exists(nestedResources, ec) && !ec &&
-        fs::is_directory(nestedResources, ec) && !ec)
-        return nestedResources;
-    if (fs::exists(bundleResources, ec) && !ec &&
-        fs::is_directory(bundleResources, ec) && !ec)
-        return bundleResources;
-#endif
     return {};
 }
 
