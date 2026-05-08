@@ -270,9 +270,10 @@ jobs:
           echo "linuxdeploy information:"
           ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --version || true
           echo "GTK plugin information:"
-          ./linuxdeploy-plugin-gtk.sh --plugin-api-version
+          DEPLOY_GTK_VERSION=3 ./linuxdeploy-plugin-gtk.sh --plugin-api-version
 
           export ARCH=x86_64
+          export DEPLOY_GTK_VERSION=3
 
           # Extract appimagetool with the AppImage runtime option only.
           # Do not combine this with --appimage-extract-and-run, because that forwards
@@ -281,7 +282,7 @@ jobs:
           ./appimagetool-x86_64.AppImage --appimage-extract
           mv squashfs-root appimagetool-root
 
-          APPIMAGE_EXTRACT_AND_RUN=1 ./linuxdeploy-x86_64.AppImage \
+          APPIMAGE_EXTRACT_AND_RUN=1 DEPLOY_GTK_VERSION=3 ./linuxdeploy-x86_64.AppImage \
             --appdir "$APPDIR" \
             --plugin gtk \
             --desktop-file "$APPDIR/Perastage.desktop" \
