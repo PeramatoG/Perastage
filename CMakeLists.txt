@@ -268,12 +268,14 @@ endif()
 if(APPLE)
     # Keep runtime assets inside the app bundle so packaged macOS builds resolve resources correctly.
     set(PERASTAGE_INSTALL_ASSET_DEST "${PROJECT_NAME}.app/Contents/Resources")
+    set(PERASTAGE_INSTALL_RESOURCE_DEST "${PROJECT_NAME}.app/Contents/Resources")
 else()
     # Keep runtime assets next to the executable on non-macOS platforms.
     set(PERASTAGE_INSTALL_ASSET_DEST ".")
+    set(PERASTAGE_INSTALL_RESOURCE_DEST "${PERASTAGE_INSTALL_ASSET_DEST}")
 endif()
 
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${PERASTAGE_INSTALL_ASSET_DEST})
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources/ DESTINATION ${PERASTAGE_INSTALL_RESOURCE_DEST})
 if(EXISTS "${CMAKE_SOURCE_DIR}/library")
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/library DESTINATION ${PERASTAGE_INSTALL_ASSET_DEST})
 endif()
@@ -440,10 +442,24 @@ endif()
 
 # Copy runtime resources to the platform runtime asset directory.
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_SOURCE_DIR}/resources
-            ${PERASTAGE_RUNTIME_ASSET_DIR}/resources
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PERASTAGE_RUNTIME_ASSET_DIR}
 )
+
+if(APPLE)
+    # Copy resource files directly into Contents/Resources for macOS bundle consistency.
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${CMAKE_SOURCE_DIR}/resources
+                ${PERASTAGE_RUNTIME_ASSET_DIR}
+    )
+else()
+    # Copy resource files into a dedicated resources/ directory on non-macOS platforms.
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${CMAKE_SOURCE_DIR}/resources
+                ${PERASTAGE_RUNTIME_ASSET_DIR}/resources
+    )
+endif()
 
 # Copy help documentation to the platform runtime asset directory.
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
