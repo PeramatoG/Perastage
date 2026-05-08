@@ -758,7 +758,13 @@ void Viewer2DPanel::InitGL() {
   }
 }
 
-void Viewer2DPanel::Render() { RenderInternal(true); }
+// Renders one interactive frame after making the panel GL context current when available.
+void Viewer2DPanel::Render() {
+  if (m_glContext) {
+    SetCurrent(*m_glContext);
+  }
+  RenderInternal(true);
+}
 
 void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   static unsigned long long s_renderFrameId = 0;
@@ -1092,6 +1098,7 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   return true;
 }
 
+// Handles paint events by initializing GL state and drawing the current 2D frame.
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
   ResetRepaintCoalescing();
