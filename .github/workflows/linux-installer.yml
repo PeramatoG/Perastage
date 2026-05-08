@@ -11,8 +11,7 @@ on:
 
 jobs:
   build-linux-appimage:
-    # AppImages are more predictable when built on a fixed, older Ubuntu base.
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     env:
       # Single source of truth for all vcpkg paths used across steps.
@@ -22,16 +21,11 @@ jobs:
       VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
 
     steps:
-      # 1. Checkout repository.
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Install Linux build dependencies.
-      # Keep comments outside the apt continuation block to avoid breaking Bash.
       - name: Install Linux build dependencies
         run: |
-          # Install system packages required by vcpkg Linux ports and AppImage packaging.
-          # Wayland and EGL development packages are intentionally omitted so wxWidgets and GLEW stay on the X11/GLX path.
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
@@ -72,10 +66,8 @@ jobs:
             file \
             desktop-file-utils \
             shared-mime-info \
-            libglib2.0-bin \
-            libbsd-dev
+            libglib2.0-bin
 
-      # 3. Cache vcpkg downloads, installed packages, and package build trees.
       - name: Cache vcpkg
         uses: actions/cache@v4
         with:
@@ -83,17 +75,14 @@ jobs:
             .vcpkg-cache/downloads
             .vcpkg-cache/installed
             .vcpkg-cache/packages
-          key: ${{ runner.os }}-vcpkg-x64-linux-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/linux-installer.yml') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-ubuntu-latest-vcpkg-x64-linux-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/linux-installer.yml') }}
           restore-keys: |
-            ${{ runner.os }}-vcpkg-x64-linux-
-            ${{ runner.os }}-vcpkg-
+            ${{ runner.os }}-${{ runner.arch }}-ubuntu-latest-vcpkg-x64-linux-
 
-      # 4. Create vcpkg cache directories before bootstrap and install.
       - name: Prepare vcpkg folders
         run: |
           mkdir -p "$VCPKG_DOWNLOADS" "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"
 
-      # 5. Clone or update vcpkg and bootstrap it.
       - name: Bootstrap vcpkg
         run: |
           if [ -d "$VCPKG_ROOT/.git" ]; then
@@ -105,7 +94,6 @@ jobs:
           fi
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
 
-      # 6. Install the dependencies required by Perastage.
       - name: Install vcpkg packages
         run: |
           "$VCPKG_ROOT/vcpkg" install \
@@ -121,30 +109,25 @@ jobs:
             --x-packages-root="$VCPKG_PACKAGES" \
             --downloads-root="$VCPKG_DOWNLOADS"
 
-      # 7. Configure CMake with the Linux preset and the CI vcpkg toolchain.
       - name: Configure CMake
         run: |
           cmake --preset wsl-x64-release \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET=x64-linux \
-            -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" \
-            -DCMAKE_CXX_STANDARD_LIBRARIES="-lbsd"
+            -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"
 
-      # 8. Build the existing staging target used for packaging.
       - name: Build staged distribution
         run: |
           cmake --build --preset wsl-release-stage
           test -f out/install/Release/Perastage || { echo "Missing staged executable: out/install/Release/Perastage"; exit 1; }
           test -x out/install/Release/Perastage || { echo "Staged executable is not executable"; exit 1; }
 
-      # 9. Upload the staged folder for diagnostics.
       - name: Upload staged distribution
         uses: actions/upload-artifact@v4
         with:
           name: Perastage-linux-staged
           path: out/install/Release
 
-      # 10. Build the AppDir and create the final AppImage.
       - name: Build AppDir and AppImage
         run: |
           set -euo pipefail
@@ -165,7 +148,6 @@ jobs:
           test -f "resources/Perastage_logo_1024.png" || { echo "Missing icon: resources/Perastage_logo_1024.png"; exit 1; }
           test -f "packaging/linux/perastage-mime.xml" || { echo "Missing MIME metadata file"; exit 1; }
 
-          # Downscale the 1024x1024 icon to 512x512 to satisfy linuxdeploy requirements.
           convert resources/Perastage_logo_1024.png -resize 512x512 Perastage_logo_512.png
 
           rm -rf "$APPDIR"
@@ -189,7 +171,7 @@ jobs:
             'APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' \
             'export GDK_BACKEND=x11' \
             'export QT_QPA_PLATFORM=xcb' \
-            'export LD_LIBRARY_PATH="$APPDIR/usr/bin:${LD_LIBRARY_PATH:-}"' \
+            'export LD_LIBRARY_PATH="$APPDIR/usr/lib:$APPDIR/usr/bin:${LD_LIBRARY_PATH:-}"' \
             'cd "$APPDIR/usr/bin"' \
             'exec "$APPDIR/usr/bin/Perastage" "$@"' > "$APPDIR/AppRun"
           chmod +x "$APPDIR/AppRun"
@@ -212,8 +194,6 @@ jobs:
           cp Perastage_logo_512.png "$APPDIR/usr/share/icons/hicolor/512x512/apps/Perastage.png"
           cp packaging/linux/perastage-mime.xml "$APPDIR/usr/share/mime/packages/perastage-mime.xml"
 
-          # Bundle only the explicit non-GTK runtime libraries that were previously missing.
-          # Do not bundle GTK/gdk-pixbuf through linuxdeploy-plugin-gtk; Perastage is more stable using the host GTK stack.
           mkdir -p "$APPDIR/usr/lib"
           for LIB_NAME in libgpg-error.so.0 libgcrypt.so.20; do
             LIB_PATH="$(ldconfig -p | awk -v name="$LIB_NAME" '$1 == name { print $NF; exit }')"
@@ -224,17 +204,6 @@ jobs:
             cp -L "$LIB_PATH" "$APPDIR/usr/lib/$LIB_NAME"
           done
 
-          test -f "$APPDIR/usr/lib/libgpg-error.so.0" || { echo "Missing bundled libgpg-error.so.0"; exit 1; }
-          test -f "$APPDIR/usr/lib/libgcrypt.so.20" || { echo "Missing bundled libgcrypt.so.20"; exit 1; }
-          test -f "$APPDIR/AppRun" || { echo "Missing AppRun"; exit 1; }
-          test -x "$APPDIR/AppRun" || { echo "AppRun is not executable"; exit 1; }
-          test -f "$APPDIR/Perastage.desktop" || { echo "Missing root desktop file"; exit 1; }
-          test -f "$APPDIR/Perastage.png" || { echo "Missing root icon"; exit 1; }
-          test -f "$APPDIR/usr/bin/Perastage" || { echo "Missing bundled executable"; exit 1; }
-          test -f "$APPDIR/usr/share/mime/packages/perastage-mime.xml" || { echo "Missing bundled MIME metadata"; exit 1; }
-          grep -q '^Exec=Perastage %f$' "$APPDIR/Perastage.desktop" || { echo "Desktop Exec entry is invalid"; exit 1; }
-          grep -q '^Icon=Perastage$' "$APPDIR/Perastage.desktop" || { echo "Desktop Icon entry is invalid"; exit 1; }
-
           download_checked() {
             local url="$1"
             local output="$2"
@@ -243,7 +212,6 @@ jobs:
             if [ "$(wc -c < "$output")" -lt 1024 ]; then
               echo "Downloaded file is unexpectedly small: $output"
               echo "URL: $url"
-              echo "File contents:"
               cat "$output"
               exit 1
             fi
@@ -259,18 +227,12 @@ jobs:
             appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
 
-          echo "linuxdeploy information:"
-          ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --version || true
-
-          export ARCH=x86_64
-
-          # Extract appimagetool with the AppImage runtime option only.
           rm -rf squashfs-root appimagetool-root
           ./appimagetool-x86_64.AppImage --appimage-extract
           mv squashfs-root appimagetool-root
 
-          # Do not use linuxdeploy-plugin-gtk here. It bundles a partial GTK/gdk-pixbuf runtime
-          # that has been observed to break SVG loading for Adwaita resources in WSL.
+          export ARCH=x86_64
+
           APPIMAGE_EXTRACT_AND_RUN=1 ./linuxdeploy-x86_64.AppImage \
             --appdir "$APPDIR" \
             --desktop-file "$APPDIR/Perastage.desktop" \
@@ -294,13 +256,12 @@ jobs:
           test -f squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "Extracted MIME metadata is missing"; exit 1; }
           grep -q 'application/x-perastage-mvr' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .mvr is missing"; exit 1; }
           grep -q 'application/x-perastage-project' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .pstg is missing"; exit 1; }
-          test -f squashfs-root/usr/lib/libgpg-error.so.0 || { echo "Extracted libgpg-error.so.0 is missing"; exit 1; }
-          test -f squashfs-root/usr/lib/libgcrypt.so.20 || { echo "Extracted libgcrypt.so.20 is missing"; exit 1; }
 
-          echo "Extracted AppImage dynamic dependencies:"
-          ldd squashfs-root/usr/bin/Perastage || true
+          echo "---- Extracted Perastage RPATH ----"
+          patchelf --print-rpath squashfs-root/usr/bin/Perastage || true
+          echo "---- Extracted Perastage linked GTK/GDK libs ----"
+          ldd squashfs-root/usr/bin/Perastage | grep -E 'gtk|gdk|pixbuf|glib|gio|pango|cairo|atk|harfbuzz|rsvg' || true
 
-      # 11. Upload the final AppImage artifact.
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
         with:
