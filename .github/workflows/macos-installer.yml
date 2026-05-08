@@ -110,6 +110,8 @@ jobs:
           test -f out/install/Release/Perastage.app/Contents/Resources/Perastage.icns
           test -f out/install/Release/Perastage.app/Contents/Resources/PerastageProject.icns
           test -f out/install/Release/Perastage.app/Contents/Resources/PerastageMVR.icns
+          test -f out/install/Release/Perastage.app/Contents/Resources/resources/Perastage_logo.png
+          test -d out/install/Release/Perastage.app/Contents/Resources/resources/icons
 
       # ── 10. Validate and prepare staged macOS app bundle ─────────────────────
       - name: Validate staged app bundle
@@ -121,6 +123,8 @@ jobs:
           test -f out/install/Release/Perastage.app/Contents/Resources/Perastage.icns
           test -f out/install/Release/Perastage.app/Contents/Resources/PerastageProject.icns
           test -f out/install/Release/Perastage.app/Contents/Resources/PerastageMVR.icns
+          test -f out/install/Release/Perastage.app/Contents/Resources/resources/Perastage_logo.png
+          test -d out/install/Release/Perastage.app/Contents/Resources/resources/icons
           ls -l out/install/Release/Perastage.app/Contents/MacOS/
           plutil -lint out/install/Release/Perastage.app/Contents/Info.plist
           codesign -dv --verbose=4 out/install/Release/Perastage.app || true
@@ -230,6 +234,8 @@ jobs:
 
           test -d "$MOUNT_DIR/Perastage.app"
           test -x "$MOUNT_DIR/Perastage.app/Contents/MacOS/Perastage"
+          test -f "$MOUNT_DIR/Perastage.app/Contents/Resources/resources/Perastage_logo.png"
+          test -d "$MOUNT_DIR/Perastage.app/Contents/Resources/resources/icons"
           plutil -lint "$MOUNT_DIR/Perastage.app/Contents/Info.plist"
           codesign --verify --deep --verbose=2 "$MOUNT_DIR/Perastage.app"
 
