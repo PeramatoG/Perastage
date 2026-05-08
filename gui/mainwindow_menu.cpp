@@ -1091,6 +1091,7 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
   }
 }
 
+// Shows the About dialog and loads an app icon from resolved runtime resource locations.
 void MainWindow::OnShowAbout(wxCommandEvent &WXUNUSED(event)) {
   wxAboutDialogInfo info;
   info.SetName(app::kName);
@@ -1109,18 +1110,41 @@ void MainWindow::OnShowAbout(wxCommandEvent &WXUNUSED(event)) {
   info.SetLicence(
       "This software is licensed under the GNU General Public License v3.0.");
 
-  // Load the largest available icon
+  // Load the largest available icon from runtime resource locations.
   wxIconBundle bundle;
-  const wxString iconPaths[] = {"resources/Perastage.ico",
-                                "../resources/Perastage.ico",
-                                "../../resources/Perastage.ico"};
-  for (const wxString &path : iconPaths) {
-    if (wxFileExists(path))
-      bundle.AddIcon(path, wxBITMAP_TYPE_ICO);
+  std::vector<wxString> iconPaths;
+  const fs::path resourceRoot = ProjectUtils::GetResourceRoot();
+  if (!resourceRoot.empty()) {
+    const fs::path icoPath = resourceRoot / "Perastage.ico";
+    const fs::path pngPath = resourceRoot / "Perastage_logo_1024.png";
+    const fs::path icnsPath = resourceRoot / "Perastage.icns";
+    iconPaths.push_back(wxString::FromUTF8(icoPath.u8string()));
+    iconPaths.push_back(wxString::FromUTF8(pngPath.u8string()));
+    iconPaths.push_back(wxString::FromUTF8(icnsPath.u8string()));
   }
-  wxIcon icon = bundle.GetIcon(wxSize(256, 256));
-  if (icon.IsOk())
-    info.SetIcon(icon);
+  iconPaths.push_back("resources/Perastage.ico");
+  iconPaths.push_back("../resources/Perastage.ico");
+  iconPaths.push_back("../../resources/Perastage.ico");
+
+  bool hasIcon = false;
+  for (const wxString &path : iconPaths) {
+    if (wxFileExists(path)) {
+      wxFileName fileName(path);
+      wxBitmapType type = wxBITMAP_TYPE_ANY;
+      const wxString ext = fileName.GetExt().Lower();
+      if (ext == "ico")
+        type = wxBITMAP_TYPE_ICO;
+      else if (ext == "png")
+        type = wxBITMAP_TYPE_PNG;
+      bundle.AddIcon(path, type);
+      hasIcon = true;
+    }
+  }
+  if (hasIcon) {
+    wxIcon icon = bundle.GetIcon(wxSize(256, 256));
+    if (icon.IsOk())
+      info.SetIcon(icon);
+  }
 
   wxAboutBox(info, this);
 }
