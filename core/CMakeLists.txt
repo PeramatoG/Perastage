@@ -11,6 +11,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_mutation_audit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfnet.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/glew_init_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/geometry/RdpSimplifier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/guiconfigservices.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hoistpresetlibrary.cpp

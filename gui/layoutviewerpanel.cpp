@@ -36,6 +36,7 @@
 #endif
 
 #include <GL/glew.h>
+#include "core/glew_init_utils.h"
 // Include GLEW or other OpenGL loader first if present
 #ifdef __APPLE__
 #  define GL_SILENCE_DEPRECATION
@@ -2371,10 +2372,7 @@ bool LayoutViewerPanel::InitGL() {
 
   if (!glInitialized_) {
     glewExperimental = GL_TRUE;
-    GLenum glewResult = glewInit();
-    // On Wayland/WSLg, GLX probing can fail even when the active OpenGL context is valid.
-    if (glewResult == GLEW_ERROR_NO_GLX_DISPLAY)
-      glewResult = GLEW_OK;
+    GLenum glewResult = NormalizeGlewInitResultForLinux(glewInit());
     if (glewResult != GLEW_OK) {
       Logger::Instance().Log(
           std::string("LayoutViewerPanel: GLEW init failed: ") +
