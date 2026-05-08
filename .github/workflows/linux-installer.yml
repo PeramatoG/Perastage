@@ -187,9 +187,26 @@ jobs:
             'set -e' \
             '' \
             'APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' \
+            'PIXBUF_DIR="$APPDIR/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders"' \
+            'PIXBUF_CACHE="$APPDIR/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"' \
+            'RUNTIME_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/perastage"' \
+            'RUNTIME_PIXBUF_CACHE="$RUNTIME_CACHE_DIR/gdk-pixbuf-loaders.cache"' \
+            '' \
             'export GDK_BACKEND=x11' \
             'export QT_QPA_PLATFORM=xcb' \
             'export LD_LIBRARY_PATH="$APPDIR/usr/lib:$APPDIR/usr/bin:${LD_LIBRARY_PATH:-}"' \
+            '' \
+            '# Force gdk-pixbuf to use the bundled loaders. Some linuxdeploy GTK cache entries are relative paths,' \
+            '# and they can resolve incorrectly once AppRun changes the working directory.' \
+            'if [ -d "$PIXBUF_DIR" ]; then' \
+            '  export GDK_PIXBUF_MODULEDIR="$PIXBUF_DIR"' \
+            '  if [ -f "$PIXBUF_CACHE" ]; then' \
+            '    mkdir -p "$RUNTIME_CACHE_DIR"' \
+            '    sed -E "s#\"([^\"]*/)?libpixbufloader-#\"$PIXBUF_DIR/libpixbufloader-#g; s#\"\.\./libpixbufloader-#\"$PIXBUF_DIR/libpixbufloader-#g" "$PIXBUF_CACHE" > "$RUNTIME_PIXBUF_CACHE"' \
+            '    export GDK_PIXBUF_MODULE_FILE="$RUNTIME_PIXBUF_CACHE"' \
+            '  fi' \
+            'fi' \
+            '' \
             'cd "$APPDIR/usr/bin"' \
             'exec "$APPDIR/usr/bin/Perastage" "$@"' > "$APPDIR/AppRun"
           chmod +x "$APPDIR/AppRun"
@@ -310,6 +327,8 @@ jobs:
           # Ensure the required runtime libraries are present in the extracted AppImage.
           test -f squashfs-root/usr/lib/libgpg-error.so.0 || { echo "Extracted libgpg-error.so.0 is missing"; exit 1; }
           test -f squashfs-root/usr/lib/libgcrypt.so.20 || { echo "Extracted libgcrypt.so.20 is missing"; exit 1; }
+          test -f squashfs-root/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/libpixbufloader-svg.so || { echo "Extracted gdk-pixbuf SVG loader is missing"; exit 1; }
+          test -f squashfs-root/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache || { echo "Extracted gdk-pixbuf loaders.cache is missing"; exit 1; }
 
       # 11. Upload the final AppImage artifact.
       - name: Upload AppImage artifact
