@@ -11,7 +11,8 @@ on:
 
 jobs:
   build-linux-appimage:
-    runs-on: ubuntu-latest
+    # AppImages are more predictable when built on a fixed, older Ubuntu base.
+    runs-on: ubuntu-22.04
 
     env:
       # Single source of truth for all vcpkg paths used across steps.
@@ -71,10 +72,7 @@ jobs:
             file \
             desktop-file-utils \
             shared-mime-info \
-            libglib2.0-bin \
-            librsvg2-dev \
-            gobject-introspection \
-            libgirepository1.0-dev
+            libglib2.0-bin
 
       # 3. Cache vcpkg downloads, installed packages, and package build trees.
       - name: Cache vcpkg
@@ -187,26 +185,9 @@ jobs:
             'set -e' \
             '' \
             'APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' \
-            'PIXBUF_DIR="$APPDIR/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders"' \
-            'PIXBUF_CACHE="$APPDIR/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"' \
-            'RUNTIME_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/perastage"' \
-            'RUNTIME_PIXBUF_CACHE="$RUNTIME_CACHE_DIR/gdk-pixbuf-loaders.cache"' \
-            '' \
             'export GDK_BACKEND=x11' \
             'export QT_QPA_PLATFORM=xcb' \
-            'export LD_LIBRARY_PATH="$APPDIR/usr/lib:$APPDIR/usr/bin:${LD_LIBRARY_PATH:-}"' \
-            '' \
-            '# Force gdk-pixbuf to use the bundled loaders. Some linuxdeploy GTK cache entries are relative paths,' \
-            '# and they can resolve incorrectly once AppRun changes the working directory.' \
-            'if [ -d "$PIXBUF_DIR" ]; then' \
-            '  export GDK_PIXBUF_MODULEDIR="$PIXBUF_DIR"' \
-            '  if [ -f "$PIXBUF_CACHE" ]; then' \
-            '    mkdir -p "$RUNTIME_CACHE_DIR"' \
-            '    sed -E "s#\"([^\"]*/)?libpixbufloader-#\"$PIXBUF_DIR/libpixbufloader-#g; s#\"\.\./libpixbufloader-#\"$PIXBUF_DIR/libpixbufloader-#g" "$PIXBUF_CACHE" > "$RUNTIME_PIXBUF_CACHE"' \
-            '    export GDK_PIXBUF_MODULE_FILE="$RUNTIME_PIXBUF_CACHE"' \
-            '  fi' \
-            'fi' \
-            '' \
+            'export LD_LIBRARY_PATH="$APPDIR/usr/bin:${LD_LIBRARY_PATH:-}"' \
             'cd "$APPDIR/usr/bin"' \
             'exec "$APPDIR/usr/bin/Perastage" "$@"' > "$APPDIR/AppRun"
           chmod +x "$APPDIR/AppRun"
@@ -229,7 +210,8 @@ jobs:
           cp Perastage_logo_512.png "$APPDIR/usr/share/icons/hicolor/512x512/apps/Perastage.png"
           cp packaging/linux/perastage-mime.xml "$APPDIR/usr/share/mime/packages/perastage-mime.xml"
 
-          # Bundle runtime libraries that linuxdeploy does not bundle automatically.
+          # Bundle only the explicit non-GTK runtime libraries that were previously missing.
+          # Do not bundle GTK/gdk-pixbuf through linuxdeploy-plugin-gtk; Perastage is more stable using the host GTK stack.
           mkdir -p "$APPDIR/usr/lib"
           for LIB_NAME in libgpg-error.so.0 libgcrypt.so.20; do
             LIB_PATH="$(ldconfig -p | awk -v name="$LIB_NAME" '$1 == name { print $NF; exit }')"
@@ -240,10 +222,8 @@ jobs:
             cp -L "$LIB_PATH" "$APPDIR/usr/lib/$LIB_NAME"
           done
 
-          # Verify the required runtime libraries were bundled.
           test -f "$APPDIR/usr/lib/libgpg-error.so.0" || { echo "Missing bundled libgpg-error.so.0"; exit 1; }
           test -f "$APPDIR/usr/lib/libgcrypt.so.20" || { echo "Missing bundled libgcrypt.so.20"; exit 1; }
-
           test -f "$APPDIR/AppRun" || { echo "Missing AppRun"; exit 1; }
           test -x "$APPDIR/AppRun" || { echo "AppRun is not executable"; exit 1; }
           test -f "$APPDIR/Perastage.desktop" || { echo "Missing root desktop file"; exit 1; }
@@ -272,13 +252,6 @@ jobs:
             linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
 
-          # The GTK plugin repository does not publish GitHub release assets.
-          # Download the script from the official repository instead of /releases/latest/.
-          download_checked \
-            https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh \
-            linuxdeploy-plugin-gtk.sh
-          chmod +x linuxdeploy-plugin-gtk.sh
-
           download_checked \
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage \
             appimagetool-x86_64.AppImage
@@ -286,36 +259,20 @@ jobs:
 
           echo "linuxdeploy information:"
           ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --version || true
-          echo "GTK plugin information:"
-          DEPLOY_GTK_VERSION=3 ./linuxdeploy-plugin-gtk.sh --plugin-api-version
 
           export ARCH=x86_64
-          export DEPLOY_GTK_VERSION=3
 
           # Extract appimagetool with the AppImage runtime option only.
-          # Do not combine this with --appimage-extract-and-run, because that forwards
-          # --appimage-extract to appimagetool itself instead of extracting the AppImage.
           rm -rf squashfs-root appimagetool-root
           ./appimagetool-x86_64.AppImage --appimage-extract
           mv squashfs-root appimagetool-root
 
-          APPIMAGE_EXTRACT_AND_RUN=1 DEPLOY_GTK_VERSION=3 ./linuxdeploy-x86_64.AppImage \
+          # Do not use linuxdeploy-plugin-gtk here. It bundles a partial GTK/gdk-pixbuf runtime
+          # that has been observed to break SVG loading for Adwaita resources in WSL.
+          APPIMAGE_EXTRACT_AND_RUN=1 ./linuxdeploy-x86_64.AppImage \
             --appdir "$APPDIR" \
-            --plugin gtk \
             --desktop-file "$APPDIR/Perastage.desktop" \
             --icon-file "$APPDIR/Perastage.png"
-
-          # The GTK plugin can leave gdk-pixbuf loader cache entries as bare filenames.
-          # In some environments, GTK resolves those entries relative to usr/bin/..,
-          # so provide compatibility symlinks directly under usr/ as well.
-          PIXBUF_DIR="$APPDIR/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders"
-          if [ -d "$PIXBUF_DIR" ]; then
-            for LOADER in "$PIXBUF_DIR"/libpixbufloader-*.so; do
-              test -f "$LOADER" || continue
-              LOADER_NAME="$(basename "$LOADER")"
-              ln -sf "lib/gdk-pixbuf-2.0/2.10.0/loaders/$LOADER_NAME" "$APPDIR/usr/$LOADER_NAME"
-            done
-          fi
 
           APPIMAGE_NAME="Perastage-${VERSION}-x86_64.AppImage"
           ./appimagetool-root/AppRun "$APPDIR" "$APPIMAGE_NAME"
@@ -335,13 +292,11 @@ jobs:
           test -f squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "Extracted MIME metadata is missing"; exit 1; }
           grep -q 'application/x-perastage-mvr' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .mvr is missing"; exit 1; }
           grep -q 'application/x-perastage-project' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .pstg is missing"; exit 1; }
-
-          # Ensure the required runtime libraries are present in the extracted AppImage.
           test -f squashfs-root/usr/lib/libgpg-error.so.0 || { echo "Extracted libgpg-error.so.0 is missing"; exit 1; }
           test -f squashfs-root/usr/lib/libgcrypt.so.20 || { echo "Extracted libgcrypt.so.20 is missing"; exit 1; }
-          test -f squashfs-root/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/libpixbufloader-svg.so || { echo "Extracted gdk-pixbuf SVG loader is missing"; exit 1; }
-          test -f squashfs-root/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache || { echo "Extracted gdk-pixbuf loaders.cache is missing"; exit 1; }
-          test -e squashfs-root/usr/libpixbufloader-svg.so || { echo "Extracted compatibility SVG loader symlink is missing"; exit 1; }
+
+          echo "Extracted AppImage dynamic dependencies:"
+          ldd squashfs-root/usr/bin/Perastage || true
 
       # 11. Upload the final AppImage artifact.
       - name: Upload AppImage artifact
