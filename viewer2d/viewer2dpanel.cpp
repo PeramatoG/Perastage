@@ -744,7 +744,7 @@ void Viewer2DPanel::InitGL() {
       return;
     }
     if (initResult.isWarningOnly) {
-      wxLogWarning("%s", initResult.message);
+      wxLogDebug("%s", initResult.message);
     }
     m_controller.InitializeGL();
     glEnable(GL_DEPTH_TEST);
