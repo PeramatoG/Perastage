@@ -19,6 +19,7 @@
 #include "columnutils.h"
 #include "ui_feature_flags.h"
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <mutex>
 #include <wx/datetime.h>
@@ -38,6 +39,30 @@ std::string NormalizeSearchToken(const std::string& text)
     return normalized.ToStdString();
 }
 
+// Finds the first JSON array node that looks like a fixture catalog payload.
+const json* FindFixtureArrayNode(const json& node)
+{
+    if (node.is_array())
+        return &node;
+    if (!node.is_object())
+        return nullptr;
+
+    static const std::array<const char*, 8> kArrayKeys = {
+        "data", "fixtures", "list", "results", "items", "docs", "rows", "catalog"
+    };
+    for (const char* key : kArrayKeys) {
+        auto it = node.find(key);
+        if (it == node.end())
+            continue;
+        if (it->is_array())
+            return &(*it);
+        if (const json* nested = FindFixtureArrayNode(*it))
+            return nested;
+    }
+    return nullptr;
+}
+
+// Parses raw catalog JSON text into normalized GDTF search entries.
 std::vector<GdtfEntry> ParseEntriesFromListData(const std::string& listData)
 {
     std::vector<GdtfEntry> parsedEntries;
@@ -45,15 +70,8 @@ std::vector<GdtfEntry> ParseEntriesFromListData(const std::string& listData)
     if (j.is_discarded())
         return parsedEntries;
 
-    if (j.is_object()) {
-        if (j.contains("data"))
-            j = j["data"];
-        if (j.contains("fixtures"))
-            j = j["fixtures"];
-        if (j.contains("list"))
-            j = j["list"];
-    }
-    if (!j.is_array())
+    const json* payloadArray = FindFixtureArrayNode(j);
+    if (!payloadArray)
         return parsedEntries;
 
     auto jsonToString = [](const json& v) -> std::string {
@@ -90,8 +108,8 @@ std::vector<GdtfEntry> ParseEntriesFromListData(const std::string& listData)
         return {};
     };
 
-    parsedEntries.reserve(j.size());
-    for (const auto& item : j) {
+    parsedEntries.reserve(payloadArray->size());
+    for (const auto& item : *payloadArray) {
         GdtfEntry e;
         e.manufacturer = getValue(item, {"manufacturer", "brand", "mfr"});
         e.fixture = getValue(item, {"fixture", "name", "model"});
@@ -471,9 +489,10 @@ void GdtfSearchDialog::OnAutoRefreshThreadEvent(wxThreadEvent& evt)
     OnAutoRefreshFinished(evt.GetPayload<RefreshResult>());
 }
 
+// Applies refreshed catalog data and updates status text after the background refresh completes.
 void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
 {
-    wxLogMessage("GDTF metrics: refresh_ms=%lld parse_ms=%lld ui_parse_ms=%lld filter_ms=%lld render_ms=%lld",
+    wxLogTrace("gdtf", "GDTF metrics: refresh_ms=%lld parse_ms=%lld ui_parse_ms=%lld filter_ms=%lld render_ms=%lld",
                  static_cast<long long>(result.refreshMs),
                  static_cast<long long>(result.parseMs),
                  static_cast<long long>(lastParseMs),
@@ -494,9 +513,17 @@ void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
         return;
     }
 
-    UpdateStatusMessage(false,
-                        "Showing local catalog (last updated: " +
-                            wxString::FromUTF8(lastUpdatedAt) + ")");
+    wxString fallbackDetails = "Showing local catalog (last updated: " +
+                               wxString::FromUTF8(lastUpdatedAt) + ")";
+    if (!result.failureDetails.empty())
+        fallbackDetails += " - " + wxString::FromUTF8(result.failureDetails);
+    UpdateStatusMessage(false, fallbackDetails);
+
+    if (entries.empty() && !result.failureDetails.empty()) {
+        wxMessageBox("Online GDTF catalog refresh failed.\n" +
+                         wxString::FromUTF8(result.failureDetails),
+                     "GDTF catalog refresh", wxOK | wxICON_WARNING, this);
+    }
 }
 
 void GdtfSearchDialog::MaybeLogVerboseCatalogTrace(const wxString& message) const

@@ -2850,6 +2850,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             };
 
             wxString cookieFileWx = wxFileName::CreateTempFileName("gdtf_mvr_import_");
+            if (wxFileExists(cookieFileWx))
+              wxRemoveFile(cookieFileWx);
             const std::string cookieFile = cookieFileWx.ToStdString();
             long loginHttpCode = 0;
             bool loginOk = activeCredentials.has_value() &&
@@ -3159,6 +3161,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                       .ToStdString());
 
               std::vector<GdtfCatalogEntry> catalogEntries;
+              std::string catalogFailureReason;
               if (!listPayload.empty()) {
                 catalogEntries = ParseGdtfCatalogEntries(listPayload);
               }
@@ -3185,6 +3188,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                      forcedCatalogResult.metrics.refreshSucceeded ? 1 : 0,
                                      catalogEntries.size())
                         .ToStdString());
+              }
+
+              if (catalogEntries.empty()) {
+                const std::string preview =
+                    listPayload.substr(0, std::min<size_t>(listPayload.size(), 180));
+                catalogFailureReason =
+                    wxString::Format("Catalog fetch/parsing failed (HTTP %ld, bytes=%zu)",
+                                     listHttpCode, listPayload.size())
+                        .ToStdString();
+                reportProgress("[WARN] " + catalogFailureReason);
+                if (!preview.empty()) {
+                  reportProgress("[WARN] GDTF catalog payload preview: " + preview);
+                }
               }
 
               if (!catalogEntries.empty()) {
@@ -3404,14 +3420,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   progressPhaseText->SetLabel("Queue finished.");
                 }
               } else {
-                summaryText->SetLabel("Selected fixture types for download (catalog load failed)");
+                if (catalogFailureReason.empty())
+                  catalogFailureReason = "Catalog fetch/parsing failed.";
+                summaryText->SetLabel("Selected fixture types for download (catalog load failed: " +
+                                      wxString::FromUTF8(catalogFailureReason) + ")");
                 for (const GdtfConflict &req : downloadRequests) {
                   updateStatusRow(req.type, "-", "Fallback to MVR",
                                   "0 B / ? B",
                                   "Failed to load catalog list", DownloadRowState::Fallback);
                 }
                 updateProgressGauge();
-                progressPhaseText->SetLabel("Catalog load failed. Keeping MVR originals.");
+                progressPhaseText->SetLabel("Catalog load failed. " +
+                                            wxString::FromUTF8(catalogFailureReason) +
+                                            ". Keeping MVR originals.");
               }
               isDownloadInfoFinished = true;
               cancelButton->Disable();
@@ -3426,6 +3447,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               wxMessageBox("Login failed. Verify credentials in Preferences.",
                            "GDTF Share login", wxOK | wxICON_WARNING);
             }
+            if (wxFileExists(cookieFileWx))
+              wxRemoveFile(cookieFileWx);
 #else
             wxMessageBox("GDTF Share download is unavailable in this build target.",
                          "GDTF Share download", wxOK | wxICON_WARNING);
