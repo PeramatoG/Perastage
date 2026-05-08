@@ -67,7 +67,14 @@ jobs:
             libglu1-mesa-dev \
             libgpg-error0 \
             libgcrypt20 \
-            imagemagick
+            imagemagick \
+            file \
+            desktop-file-utils \
+            shared-mime-info \
+            libglib2.0-bin \
+            librsvg2-dev \
+            gobject-introspection \
+            libgirepository1.0-dev
 
       # 3. Cache vcpkg downloads, installed packages, and package build trees.
       - name: Cache vcpkg
@@ -229,23 +236,57 @@ jobs:
           grep -q '^Exec=Perastage %f$' "$APPDIR/Perastage.desktop" || { echo "Desktop Exec entry is invalid"; exit 1; }
           grep -q '^Icon=Perastage$' "$APPDIR/Perastage.desktop" || { echo "Desktop Icon entry is invalid"; exit 1; }
 
-          curl -L -o linuxdeploy-x86_64.AppImage \
-            https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
+          download_checked() {
+            local url="$1"
+            local output="$2"
+            curl -fL --retry 3 --retry-delay 2 -o "$output" "$url"
+            test -s "$output" || { echo "Downloaded file is empty: $output"; exit 1; }
+            if [ "$(wc -c < "$output")" -lt 1024 ]; then
+              echo "Downloaded file is unexpectedly small: $output"
+              echo "URL: $url"
+              echo "File contents:"
+              cat "$output"
+              exit 1
+            fi
+          }
+
+          download_checked \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
+            linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
-          curl -L -o linuxdeploy-plugin-gtk.sh \
-            https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/latest/download/linuxdeploy-plugin-gtk.sh
+
+          # The GTK plugin repository does not publish GitHub release assets.
+          # Download the script from the official repository instead of /releases/latest/.
+          download_checked \
+            https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh \
+            linuxdeploy-plugin-gtk.sh
           chmod +x linuxdeploy-plugin-gtk.sh
 
-          curl -L -o appimagetool-x86_64.AppImage \
-            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          download_checked \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage \
+            appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
+
+          echo "linuxdeploy information:"
+          ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --version || true
+          echo "GTK plugin information:"
+          ./linuxdeploy-plugin-gtk.sh --plugin-api-version
+
+          export ARCH=x86_64
+
+          # Extract appimagetool with the AppImage runtime option only.
+          # Do not combine this with --appimage-extract-and-run, because that forwards
+          # --appimage-extract to appimagetool itself instead of extracting the AppImage.
+          rm -rf squashfs-root appimagetool-root
           ./appimagetool-x86_64.AppImage --appimage-extract
           mv squashfs-root appimagetool-root
 
-          ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --appdir "$APPDIR" --plugin gtk --desktop-file "$APPDIR/Perastage.desktop" --icon-file "$APPDIR/Perastage.png"
+          APPIMAGE_EXTRACT_AND_RUN=1 ./linuxdeploy-x86_64.AppImage \
+            --appdir "$APPDIR" \
+            --plugin gtk \
+            --desktop-file "$APPDIR/Perastage.desktop" \
+            --icon-file "$APPDIR/Perastage.png"
 
-          export ARCH=x86_64
-          export APPIMAGE_EXTRACT_AND_RUN=1
           APPIMAGE_NAME="Perastage-${VERSION}-x86_64.AppImage"
           ./appimagetool-root/AppRun "$APPDIR" "$APPIMAGE_NAME"
 
@@ -253,6 +294,7 @@ jobs:
           test -x "$APPIMAGE_NAME" || { echo "AppImage is not executable"; exit 1; }
 
           rm -rf squashfs-root
+          unset APPIMAGE_EXTRACT_AND_RUN || true
           ./$APPIMAGE_NAME --appimage-extract
 
           test -f squashfs-root/AppRun || { echo "Extracted AppRun is missing"; exit 1; }
