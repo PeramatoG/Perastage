@@ -305,6 +305,18 @@ jobs:
             --desktop-file "$APPDIR/Perastage.desktop" \
             --icon-file "$APPDIR/Perastage.png"
 
+          # The GTK plugin can leave gdk-pixbuf loader cache entries as bare filenames.
+          # In some environments, GTK resolves those entries relative to usr/bin/..,
+          # so provide compatibility symlinks directly under usr/ as well.
+          PIXBUF_DIR="$APPDIR/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders"
+          if [ -d "$PIXBUF_DIR" ]; then
+            for LOADER in "$PIXBUF_DIR"/libpixbufloader-*.so; do
+              test -f "$LOADER" || continue
+              LOADER_NAME="$(basename "$LOADER")"
+              ln -sf "lib/gdk-pixbuf-2.0/2.10.0/loaders/$LOADER_NAME" "$APPDIR/usr/$LOADER_NAME"
+            done
+          fi
+
           APPIMAGE_NAME="Perastage-${VERSION}-x86_64.AppImage"
           ./appimagetool-root/AppRun "$APPDIR" "$APPIMAGE_NAME"
 
@@ -329,6 +341,7 @@ jobs:
           test -f squashfs-root/usr/lib/libgcrypt.so.20 || { echo "Extracted libgcrypt.so.20 is missing"; exit 1; }
           test -f squashfs-root/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/libpixbufloader-svg.so || { echo "Extracted gdk-pixbuf SVG loader is missing"; exit 1; }
           test -f squashfs-root/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache || { echo "Extracted gdk-pixbuf loaders.cache is missing"; exit 1; }
+          test -e squashfs-root/usr/libpixbufloader-svg.so || { echo "Extracted compatibility SVG loader symlink is missing"; exit 1; }
 
       # 11. Upload the final AppImage artifact.
       - name: Upload AppImage artifact
