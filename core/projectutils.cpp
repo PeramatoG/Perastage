@@ -169,6 +169,7 @@ fs::path GetBaseLibraryPath(const std::string& subdir)
     return exeBase / suffix;
 }
 
+// Resolves the runtime resources root by checking executable-relative paths and platform bundle locations.
 fs::path GetResourceRoot()
 {
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
@@ -182,7 +183,11 @@ fs::path GetResourceRoot()
     if (!resourcesDir.empty()) {
         fs::path resourcesPath = WxStringToPath(resourcesDir);
         std::error_code ec;
-        if (fs::exists(resourcesPath, ec))
+        const fs::path nestedResources = resourcesPath / "resources";
+        if (fs::exists(nestedResources, ec) && !ec &&
+            fs::is_directory(nestedResources, ec) && !ec)
+            return nestedResources;
+        if (fs::exists(resourcesPath, ec) && !ec)
             return resourcesPath;
     }
     return {};
