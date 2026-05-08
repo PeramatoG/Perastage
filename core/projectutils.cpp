@@ -33,13 +33,14 @@ namespace ProjectUtils {
 
 namespace {
 
+// Converts a filesystem path to a UTF-8 encoded std::string.
 std::string ToUtf8String(const fs::path& path)
 {
     std::u8string utf8 = path.u8string();
     return std::string(utf8.begin(), utf8.end());
 }
 
-
+// Converts a wxString value into a filesystem path preserving UTF-8 characters.
 fs::path WxStringToPath(const wxString& value)
 {
     const wxScopedCharBuffer utf8 = value.ToUTF8();
@@ -49,6 +50,7 @@ fs::path WxStringToPath(const wxString& value)
     return fs::path(value.ToStdString());
 }
 
+// Searches for an existing suffix path while walking parent directories up to maxDepth.
 std::optional<fs::path> FindExistingPath(const fs::path& start,
                                          const fs::path& suffix,
                                          int maxDepth = 3)
@@ -67,6 +69,7 @@ std::optional<fs::path> FindExistingPath(const fs::path& start,
     return std::nullopt;
 }
 
+// Resolves a writable user data directory with a temp-directory fallback.
 std::optional<fs::path> ResolveWritableUserDataDir()
 {
     wxString dir = wxStandardPaths::Get().GetUserDataDir();
@@ -90,6 +93,7 @@ std::optional<fs::path> ResolveWritableUserDataDir()
     return fs::absolute(fallback, ec);
 }
 
+// Returns an absolute UTF-8 path string when path canonicalization succeeds.
 std::string ToAbsoluteUtf8(const fs::path& path)
 {
     std::error_code ec;
@@ -99,11 +103,13 @@ std::string ToAbsoluteUtf8(const fs::path& path)
     return ToUtf8String(absolutePath);
 }
 
+// Returns the discovered root folder for installed library content.
 fs::path GetBaseLibraryRoot()
 {
     return GetBaseLibraryPath("");
 }
 
+// Logs a summary of library bootstrap migration results and collected errors.
 void LogBootstrapSummary(const LibraryBootstrap::BootstrapResult& result,
                          const fs::path& installedRoot,
                          const fs::path& userDataDir)
@@ -125,6 +131,7 @@ void LogBootstrapSummary(const LibraryBootstrap::BootstrapResult& result,
 
 } // namespace
 
+// Checks whether a directory can be created and written to by creating a probe file.
 bool IsDirectoryWritable(const fs::path& dir)
 {
     if (dir.empty())
@@ -166,6 +173,15 @@ fs::path GetBaseLibraryPath(const std::string& subdir)
             return resourcesLibrary;
         }
     }
+#ifdef __APPLE__
+    const fs::path bundleResources = exeBase.parent_path() / "Resources";
+    std::error_code ec;
+    const fs::path bundleLibrary = bundleResources / "library" / subdir;
+    if (fs::exists(bundleLibrary, ec) && !ec &&
+        fs::is_directory(bundleLibrary, ec) && !ec) {
+        return bundleLibrary;
+    }
+#endif
     return exeBase / suffix;
 }
 
@@ -190,9 +206,21 @@ fs::path GetResourceRoot()
         if (fs::exists(resourcesPath, ec) && !ec)
             return resourcesPath;
     }
+#ifdef __APPLE__
+    const fs::path bundleResources = exeBase.parent_path() / "Resources";
+    std::error_code ec;
+    const fs::path nestedResources = bundleResources / "resources";
+    if (fs::exists(nestedResources, ec) && !ec &&
+        fs::is_directory(nestedResources, ec) && !ec)
+        return nestedResources;
+    if (fs::exists(bundleResources, ec) && !ec &&
+        fs::is_directory(bundleResources, ec) && !ec)
+        return bundleResources;
+#endif
     return {};
 }
 
+// Returns the persistent file path used to store the last opened project path.
 std::string GetLastProjectPathFile()
 {
     const auto dataDir = ResolveWritableUserDataDir();
@@ -207,6 +235,7 @@ std::string GetLastProjectPathFile()
     return p.string();
 }
 
+// Stores the last opened project path as an absolute UTF-8 path when possible.
 bool SaveLastProjectPath(const std::string& path)
 {
     const std::string pathFile = GetLastProjectPathFile();
@@ -228,6 +257,7 @@ bool SaveLastProjectPath(const std::string& path)
     return true;
 }
 
+// Loads the last opened project path and validates that the referenced file still exists.
 std::optional<std::string> LoadLastProjectPath()
 {
     const std::string pathFile = GetLastProjectPathFile();
@@ -268,6 +298,7 @@ std::optional<std::string> LoadLastProjectPath()
     return std::nullopt;
 }
 
+// Returns the installed library subdirectory path when it exists on disk.
 std::string GetInstalledLibraryPath(const std::string& subdir)
 {
     const fs::path installedPath = GetBaseLibraryPath(subdir);
@@ -277,6 +308,7 @@ std::string GetInstalledLibraryPath(const std::string& subdir)
     return {};
 }
 
+// Resolves a writable library subdirectory preferring environment override then user-data bootstrap.
 std::string GetWritableLibraryPath(const std::string& subdir)
 {
     if (const char* envPath = std::getenv("PERASTAGE_LIBRARY_PATH")) {
@@ -311,6 +343,7 @@ std::string GetWritableLibraryPath(const std::string& subdir)
     return {};
 }
 
+// Returns the best available library path using installed, writable, then executable-relative fallback.
 std::string GetDefaultLibraryPath(const std::string& subdir)
 {
     if (std::string installedPath = GetInstalledLibraryPath(subdir); !installedPath.empty()) {
@@ -333,6 +366,7 @@ std::string GetDefaultLibraryPath(const std::string& subdir)
     return ToUtf8String(absolutePath);
 }
 
+// Runs startup migration to bootstrap user library content from installed assets.
 void RunStartupLibraryBootstrap()
 {
     const auto dataDir = ResolveWritableUserDataDir();
