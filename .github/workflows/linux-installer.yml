@@ -273,12 +273,15 @@ jobs:
           ./linuxdeploy-plugin-gtk.sh --plugin-api-version
 
           export ARCH=x86_64
-          export APPIMAGE_EXTRACT_AND_RUN=1
 
-          ./appimagetool-x86_64.AppImage --appimage-extract-and-run --appimage-extract
+          # Extract appimagetool with the AppImage runtime option only.
+          # Do not combine this with --appimage-extract-and-run, because that forwards
+          # --appimage-extract to appimagetool itself instead of extracting the AppImage.
+          rm -rf squashfs-root appimagetool-root
+          ./appimagetool-x86_64.AppImage --appimage-extract
           mv squashfs-root appimagetool-root
 
-          ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run \
+          APPIMAGE_EXTRACT_AND_RUN=1 ./linuxdeploy-x86_64.AppImage \
             --appdir "$APPDIR" \
             --plugin gtk \
             --desktop-file "$APPDIR/Perastage.desktop" \
@@ -291,6 +294,7 @@ jobs:
           test -x "$APPIMAGE_NAME" || { echo "AppImage is not executable"; exit 1; }
 
           rm -rf squashfs-root
+          unset APPIMAGE_EXTRACT_AND_RUN || true
           ./$APPIMAGE_NAME --appimage-extract
 
           test -f squashfs-root/AppRun || { echo "Extracted AppRun is missing"; exit 1; }
