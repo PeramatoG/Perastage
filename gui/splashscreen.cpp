@@ -20,18 +20,21 @@ wxStaticText *g_label = nullptr;
 constexpr int kSplashCornerRadius = 16;
 constexpr int kSplashLogoMaxSize = 180;
 
+// Converts a filesystem path into a UTF-8 wxString suitable for wxWidgets APIs.
 wxString PathToWxString(const std::filesystem::path &path) {
   const std::u8string utf8 = path.u8string();
   const std::string utf8Str(utf8.begin(), utf8.end());
   return wxString::FromUTF8(utf8Str.c_str());
 }
 
+// Logs a warning message when an icon resource cannot be found on disk.
 void LogMissingIcon(const std::filesystem::path &path) {
   const wxString message =
       "Splash icon not found at '" + PathToWxString(path) + "'";
   Logger::Instance().Log(Logger::Level::Warn, message.ToStdString());
 }
 
+// Scales a bitmap down to fit within a maximum size while preserving aspect ratio.
 wxBitmap ScaleDownBitmap(const wxBitmap &bitmap, int maxSize) {
   if (!bitmap.IsOk() || maxSize <= 0)
     return bitmap;
@@ -55,6 +58,7 @@ wxBitmap ScaleDownBitmap(const wxBitmap &bitmap, int maxSize) {
   return wxBitmap(scaled);
 }
 
+// Applies a rounded-corner window region to the splash frame.
 void ApplyRoundedShape(wxFrame *frame, int radius) {
   if (!frame)
     return;
@@ -76,6 +80,7 @@ void ApplyRoundedShape(wxFrame *frame, int radius) {
   frame->SetShape(region);
 }
 
+// Builds the splash logo bitmap from resources with safe fallbacks for missing assets.
 wxBitmap BuildSplashBitmap() {
   wxBitmap logoBmp;
   const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
@@ -94,17 +99,16 @@ wxBitmap BuildSplashBitmap() {
     std::filesystem::path iconPath;
     if (!resourceRoot.empty())
       iconPath = resourceRoot / "Perastage.ico";
-    wxIconBundle bundle;
     if (!iconPath.empty() && std::filesystem::exists(iconPath, ec)) {
-      bundle.AddIcon(PathToWxString(iconPath), wxBITMAP_TYPE_ICO);
+      wxIcon icon;
+      icon.LoadFile(PathToWxString(iconPath), wxBITMAP_TYPE_ICO);
+      if (icon.IsOk()) {
+        logoBmp = wxBitmap(icon);
+      }
     } else {
       LogMissingIcon(
           iconPath.empty() ? std::filesystem::path("resources/Perastage.ico")
                            : iconPath);
-    }
-    wxIcon icon = bundle.GetIcon(wxSize(256, 256));
-    if (icon.IsOk()) {
-      logoBmp = wxBitmap(icon);
     }
   }
 
@@ -117,6 +121,7 @@ wxBitmap BuildSplashBitmap() {
 }
 }
 
+// Creates and displays the splash window with app branding and loading status text.
 void SplashScreen::Show() {
   if (g_splash)
     return;
@@ -160,6 +165,7 @@ void SplashScreen::Show() {
   g_splash->Update();
 }
 
+// Updates the splash loading message and refreshes the label in place.
 void SplashScreen::SetMessage(const wxString &msg) {
   if (g_label) {
     g_label->SetLabel(msg);
@@ -169,6 +175,7 @@ void SplashScreen::SetMessage(const wxString &msg) {
   }
 }
 
+// Closes and destroys the splash window, clearing retained global pointers.
 void SplashScreen::Hide() {
   if (g_splash) {
     g_splash->Destroy();
