@@ -265,19 +265,27 @@ if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION .)
+if(APPLE)
+    # Keep runtime assets inside the app bundle so packaged macOS builds resolve resources correctly.
+    set(PERASTAGE_INSTALL_ASSET_DEST "${PROJECT_NAME}.app/Contents/Resources")
+else()
+    # Keep runtime assets next to the executable on non-macOS platforms.
+    set(PERASTAGE_INSTALL_ASSET_DEST ".")
+endif()
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${PERASTAGE_INSTALL_ASSET_DEST})
 if(EXISTS "${CMAKE_SOURCE_DIR}/library")
-    install(DIRECTORY ${CMAKE_SOURCE_DIR}/library DESTINATION .)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/library DESTINATION ${PERASTAGE_INSTALL_ASSET_DEST})
 endif()
 if(EXISTS "${CMAKE_SOURCE_DIR}/licenses")
-    install(DIRECTORY ${CMAKE_SOURCE_DIR}/licenses DESTINATION .)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/licenses DESTINATION ${PERASTAGE_INSTALL_ASSET_DEST})
 endif()
 
 install(FILES
     ${CMAKE_SOURCE_DIR}/LICENSE.txt
     ${CMAKE_SOURCE_DIR}/THIRD_PARTY_LICENSES.md
     ${CMAKE_SOURCE_DIR}/help.md
-    DESTINATION .
+    DESTINATION ${PERASTAGE_INSTALL_ASSET_DEST}
     OPTIONAL
 )
 
