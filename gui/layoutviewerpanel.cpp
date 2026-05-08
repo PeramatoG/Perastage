@@ -36,6 +36,7 @@
 #endif
 
 #include <GL/glew.h>
+#include "glew_init_utils.h"
 // Include GLEW or other OpenGL loader first if present
 #ifdef __APPLE__
 #  define GL_SILENCE_DEPRECATION
@@ -2360,28 +2361,23 @@ bool LayoutViewerPanel::GetSelectedFrame(
   return true;
 }
 
-// Initializes layout-viewer OpenGL resources and filters non-fatal Wayland GLX probing errors.
+// Initializes layout viewer OpenGL resources through centralized GLEW/context validation.
 bool LayoutViewerPanel::InitGL() {
   if (!glContext_)
     return false;
   if (!IsShownOnScreen())
     return false;
-  if (!SetCurrent(*glContext_))
-    return false;
-
   if (!glInitialized_) {
-    glewExperimental = GL_TRUE;
-    GLenum glewResult = glewInit();
-    // On Wayland/WSLg, GLX probing can fail even when the active OpenGL context is valid.
-    if (glewResult == GLEW_ERROR_NO_GLX_DISPLAY)
-      glewResult = GLEW_OK;
-    if (glewResult != GLEW_OK) {
-      Logger::Instance().Log(
-          std::string("LayoutViewerPanel: GLEW init failed: ") +
-          reinterpret_cast<const char *>(glewGetErrorString(glewResult)));
+    const GLEWInitResult initResult =
+        InitializeGlewForCurrentContext(*this, *glContext_, "LayoutViewerPanel");
+    if (!initResult.success) {
+      isReadyToRender_ = false;
+      Logger::Instance().Log(initResult.message);
       return false;
     }
-    glGetError();
+    if (initResult.isWarningOnly) {
+      Logger::Instance().Log(initResult.message);
+    }
     glInitialized_ = true;
   }
 

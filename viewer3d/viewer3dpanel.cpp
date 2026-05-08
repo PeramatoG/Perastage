@@ -28,6 +28,7 @@
 #include <windows.h>
 #endif
 #include <GL/glew.h>
+#include "glew_init_utils.h"
 // macOS ships OpenGL headers in the framework; include them conditionally.
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -603,23 +604,21 @@ void Viewer3DPanel::StopRefreshThread()
         m_refreshThread.join();
 }
 
-// Initializes the 3D OpenGL state and ignores non-fatal Wayland GLX probing failures.
+// Initializes 3D OpenGL state only after centralized GLEW/context validation.
 void Viewer3DPanel::InitGL()
 {
     if (!IsShownOnScreen()) {
         return;
     }
-    SetCurrent(*m_glContext);
     if (!m_glInitialized) {
-        glewExperimental = GL_TRUE;
-        GLenum err = glewInit();
-        // On Wayland/WSLg, GLX probing can fail even when the active OpenGL context is valid.
-        if (err == GLEW_ERROR_NO_GLX_DISPLAY) {
-            err = GLEW_OK;
+        const GLEWInitResult initResult =
+            InitializeGlewForCurrentContext(*this, *m_glContext, "Viewer3DPanel");
+        if (!initResult.success) {
+            wxLogError("%s", initResult.message);
+            return;
         }
-        if (err != GLEW_OK) {
-            wxLogError("GLEW initialization failed: %s",
-                       reinterpret_cast<const char*>(glewGetErrorString(err)));
+        if (initResult.isWarningOnly) {
+            wxLogWarning("%s", initResult.message);
         }
 
         GLint sampleBuffers = 0;
