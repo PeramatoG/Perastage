@@ -12,6 +12,7 @@
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "legendutils.h"
+#include "layoutviewerpanel_shared.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer2dcommandrenderer.h"
 
@@ -332,6 +333,33 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
   }
 }
 
+// Draws a text command with basic alignment and shared font fallback.
+void DrawTextCommand(wxGCDC &dc, const viewer2d::Viewer2DRenderPoint &anchor,
+                     const TextCommand &text, double scale) {
+  const double scaledFont = std::max(1.0, text.style.fontSize * scale);
+  const int fontPx = static_cast<int>(std::lround(scaledFont));
+  wxFont font = layoutviewerpanel::detail::MakeSharedFont(
+      fontPx, wxFONTWEIGHT_NORMAL);
+  dc.SetFont(font);
+  dc.SetTextForeground(ToWxColor(text.style.color));
+  wxString label = wxString::FromUTF8(text.text);
+  wxCoord width = 0;
+  wxCoord height = 0;
+  dc.GetTextExtent(label, &width, &height);
+  double x = anchor.x;
+  double y = anchor.y;
+  if (text.style.hAlign == CanvasTextStyle::HorizontalAlign::Center)
+    x -= static_cast<double>(width) * 0.5;
+  else if (text.style.hAlign == CanvasTextStyle::HorizontalAlign::Right)
+    x -= static_cast<double>(width);
+  if (text.style.vAlign == CanvasTextStyle::VerticalAlign::Middle)
+    y -= static_cast<double>(height) * 0.5;
+  else if (text.style.vAlign == CanvasTextStyle::VerticalAlign::Top)
+    y -= static_cast<double>(height);
+  dc.DrawText(label, static_cast<wxCoord>(std::lround(x)),
+              static_cast<wxCoord>(std::lround(y)));
+}
+
 
 void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
                          const viewer2d::Viewer2DRenderMapping &mapping,
@@ -418,6 +446,24 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
                                       rect->x + rect->w, rect->y + rect->h, rect->x,
                                       rect->y + rect->h};
       drawPolygon(pts, rect->stroke, rect->hasFill ? &rect->fill : nullptr);
+    } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
+      if (renderSvgSymbolsOnly)
+        continue;
+      const auto center = mapTransformedPoint(circle->cx, circle->cy);
+      const int radius = std::max(1, static_cast<int>(std::lround(
+                                     circle->radius * currentTransform.scale *
+                                     mapping.scale)));
+      dc.SetPen(wxPen(ToWxColor(circle->stroke.color),
+                      std::max(1, static_cast<int>(std::lround(
+                                      circle->stroke.width * mapping.scale)))));
+      dc.SetBrush(circle->hasFill ? wxBrush(ToWxColor(circle->fill.color))
+                                  : *wxTRANSPARENT_BRUSH);
+      dc.DrawCircle(ToWxPoint(center), radius);
+    } else if (const auto *text = std::get_if<TextCommand>(&cmd)) {
+      if (renderSvgSymbolsOnly)
+        continue;
+      const auto anchor = mapTransformedPoint(text->x, text->y);
+      DrawTextCommand(dc, anchor, *text, mapping.scale);
     } else if (const auto *instance = std::get_if<SymbolInstanceCommand>(&cmd)) {
       if (debugInfo)
         debugInfo->symbolInstanceCommands += 1;
