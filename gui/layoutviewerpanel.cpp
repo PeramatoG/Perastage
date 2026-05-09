@@ -2487,7 +2487,7 @@ void LayoutViewerPanel::LogRebuildStageMetrics(const char *stageName, int proces
   Logger::Instance().Log(std::string("LayoutViewerPanel rebuild stage ") + stageName + ": count=" + std::to_string(processedCount) + ", ms=" + std::to_string(elapsedMs));
 }
 
-// Collects rebuild prerequisites and lazily resolves offscreen rendering dependencies.
+// Collects rebuild prerequisites and best-effort resolves offscreen rendering dependencies.
 bool LayoutViewerPanel::EnsureRebuildResourcesReady(bool &needsLegendProcessing, bool &needsLegendSymbolCapture, Viewer2DOffscreenRenderer *&offscreenRenderer, Viewer2DPanel *&capturePanel) {
   bool hasDirtyViewCache = false;
   for (const auto &view : currentLayout.view2dViews) {
@@ -2505,13 +2505,13 @@ bool LayoutViewerPanel::EnsureRebuildResourcesReady(bool &needsLegendProcessing,
   const bool needsCapturePanel = hasDirtyViewCache || needsLegendSymbolCapture;
   if (!needsCapturePanel) return true;
   if (auto *mw = MainWindow::Instance()) { offscreenRenderer = mw->GetOffscreenRenderer(); capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr; }
-  return capturePanel && offscreenRenderer;
+  return true;
 }
 
-// Captures legend symbol snapshots only when required by dirty legend caches.
+// Captures legend symbol snapshots when possible and gracefully skips if capture resources are unavailable.
 bool LayoutViewerPanel::PrepareLegendSymbolsIfNeeded(bool needsLegendSymbolCapture, Viewer2DPanel *capturePanel, ConfigManager &cfg, std::shared_ptr<const SymbolDefinitionSnapshot> &legendSymbols) {
   if (!needsLegendSymbolCapture) return true;
-  if (!capturePanel) return false;
+  if (!capturePanel) return true;
   legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
   return true;
 }
