@@ -35,8 +35,9 @@ namespace ui {
 bool IsFeatureEnabled(FeatureFlag flag) {
   switch (flag) {
   case FeatureFlag::GenerateFixtureSymbols:
-  case FeatureFlag::LayoutViewerVboQuadBatch:
     return true;
+  case FeatureFlag::LayoutViewerVboQuadBatch:
+    return false;
   case FeatureFlag::PrintViewer2DDialog:
   case FeatureFlag::PrintViewer2DElementsDetail:
   case FeatureFlag::AssignSelectedFixtureCategory:
