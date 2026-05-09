@@ -2362,6 +2362,8 @@ bool LayoutViewerPanel::InitGL() {
     return false;
   if (!IsShownOnScreen())
     return false;
+  if (!SetCurrent(*glContext_))
+    return false;
   if (!glInitialized_) {
     const GLEWInitResult initResult =
         InitializeGlewForCurrentContext(*this, *glContext_, "LayoutViewerPanel");
