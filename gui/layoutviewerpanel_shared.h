@@ -28,15 +28,18 @@ namespace detail {
 // on-screen rendering matches exported PDFs.
 inline const std::vector<const char *> kSharedFontFaceNames = {
 #ifdef _WIN32
+    "Noto Sans",
     "Arial",
+    "Segoe UI",
 #elif defined(__APPLE__)
+    "Noto Sans",
     "Helvetica",
     "Arial",
     "SF Pro Text",
 #else
+    "Noto Sans",
     "DejaVu Sans",
     "Liberation Sans",
-    "Noto Sans",
 #endif
 };
 
