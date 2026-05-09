@@ -45,6 +45,7 @@ namespace layouttext {
 namespace {
 enum class RichTextOpStatus { kSuccess, kNoHandler, kFailure };
 
+// Creates a UTF-8-capable layout text font using the shared sans-serif face policy.
 wxFont MakeRenderFont(int sizePx, bool bold, bool italic,
                       const wxString &faceName) {
   const wxFontWeight weight =
@@ -55,14 +56,7 @@ wxFont MakeRenderFont(int sizePx, bool bold, bool italic,
   if (!faceName.empty()) {
     font = wxFont(sizePx, wxFONTFAMILY_SWISS, style, weight, false, faceName);
   } else {
-    wxFont testFont(sizePx, wxFONTFAMILY_SWISS, style, weight, false,
-                    wxString::FromUTF8("Arial"));
-    if (testFont.IsOk() &&
-        testFont.GetFaceName().CmpNoCase("Arial") == 0) {
-      font = testFont;
-    } else {
-      font = wxFont(sizePx, wxFONTFAMILY_SWISS, style, weight);
-    }
+    font = wxFont(sizePx, wxFONTFAMILY_SWISS, style, weight);
   }
   if (wxFontMapper::Get() &&
       wxFontMapper::Get()->IsEncodingAvailable(wxFONTENCODING_UTF8)) {

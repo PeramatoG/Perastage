@@ -208,11 +208,15 @@ std::filesystem::path FindFontPath(bool bold) {
   struct FontCandidate { const char *regularPath; const char *boldPath; };
   const std::vector<FontCandidate> candidates = {
 #ifdef _WIN32
+      {"C:/Windows/Fonts/NotoSans-Regular.ttf", "C:/Windows/Fonts/NotoSans-Bold.ttf"},
+      {"C:/Windows/Fonts/segoeui.ttf", "C:/Windows/Fonts/segoeuib.ttf"},
       {"C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/arialbd.ttf"},
 #elif defined(__APPLE__)
+      {"/Library/Fonts/NotoSans-Regular.ttf", "/Library/Fonts/NotoSans-Bold.ttf"},
       {"/Library/Fonts/Arial.ttf", "/Library/Fonts/Arial Bold.ttf"},
       {"/System/Library/Fonts/Supplemental/Arial.ttf", "/System/Library/Fonts/Supplemental/Arial Bold.ttf"},
 #else
+      {"/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf", "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf"},
       {"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"},
       {"/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"},
 #endif

@@ -168,19 +168,10 @@ void LogMissingIcon(const std::filesystem::path &path) {
   Logger::Instance().Log(Logger::Level::Warn, message.ToStdString());
 }
 
+// Builds the default UI font with shared sans-serif face resolution and UTF-8 encoding.
 wxFont BuildDefaultUiFont() {
   wxFont defaultFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
-  const wxString faceName =
-      layoutviewerpanel::detail::ResolveSharedFontFaceName();
-  wxString resolvedFaceName = faceName;
-  if (resolvedFaceName.empty()) {
-    wxFont testFont(10, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
-                    wxFONTWEIGHT_NORMAL, false, wxString::FromUTF8("Arial"));
-    if (testFont.IsOk() &&
-        testFont.GetFaceName().CmpNoCase("Arial") == 0) {
-      resolvedFaceName = testFont.GetFaceName();
-    }
-  }
+  wxString resolvedFaceName = layoutviewerpanel::detail::ResolveSharedFontFaceName();
   if (!resolvedFaceName.empty()) {
     defaultFont.SetFaceName(resolvedFaceName);
   }
@@ -191,12 +182,14 @@ wxFont BuildDefaultUiFont() {
   if (!defaultFont.IsOk()) {
     const int fallbackSize =
         defaultFont.IsOk() ? defaultFont.GetPointSize() : 10;
-    wxString fallbackFace =
-        resolvedFaceName.empty() ? wxString::FromUTF8("Arial")
-                                 : resolvedFaceName;
-    defaultFont = wxFont(fallbackSize, wxFONTFAMILY_SWISS,
-                         wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false,
-                         fallbackFace);
+    if (resolvedFaceName.empty()) {
+      defaultFont = wxFont(fallbackSize, wxFONTFAMILY_SWISS,
+                           wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+    } else {
+      defaultFont = wxFont(fallbackSize, wxFONTFAMILY_SWISS,
+                           wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false,
+                           resolvedFaceName);
+    }
     if (wxFontMapper::Get() &&
         wxFontMapper::Get()->IsEncodingAvailable(wxFONTENCODING_UTF8)) {
       defaultFont.SetEncoding(wxFONTENCODING_UTF8);

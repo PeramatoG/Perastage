@@ -548,13 +548,8 @@ bool EnsurePboCapacity(unsigned int &pbo, size_t &capacity, size_t bytesNeeded) 
 
 // Returns whether this runtime should use PBO-based texture uploads.
 bool ShouldUsePboTextureUpload() {
-#if defined(__linux__)
-  // Linux AppImage GPU/driver combinations have shown intermittent blank
-  // layout view textures when PBO uploads are enabled, so prefer direct uploads.
+  // Disables PBO uploads globally to avoid driver-specific blank textures and debug heap instability.
   return false;
-#else
-  return true;
-#endif
 }
 
 // Uploads RGBA pixels into the currently bound texture and reallocates if needed.
