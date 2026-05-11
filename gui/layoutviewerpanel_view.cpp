@@ -273,7 +273,8 @@ void LayoutViewerPanel::DrawViewElement(
 
   const wxSize renderSize = GetFrameSizeForZoom(view.frame, cache.renderZoom);
   if (cache.texture != 0 && renderSize.GetWidth() > 0 &&
-      renderSize.GetHeight() > 0 && cache.textureSize == renderSize) {
+      renderSize.GetHeight() > 0 && cache.textureSize.GetWidth() > 0 &&
+      cache.textureSize.GetHeight() > 0) {
     if (ui::IsFeatureEnabled(ui::FeatureFlag::LayoutViewerVboQuadBatch)) {
       QueueTexturedQuad(cache.texture, frameRect);
       FlushQueuedTexturedQuads();
