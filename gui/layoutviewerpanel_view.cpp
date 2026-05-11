@@ -230,7 +230,6 @@ void LayoutViewerPanel::DrawViewElement(
     }
     auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
         capturePanel, nullptr, cfg, layoutState, nullptr, nullptr, false);
-    capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
     capturePanel->CaptureFrameNow(
         [this, viewId, stateGuard, fallbackViewportWidth, fallbackViewportHeight,
          capturePanel, captureContentHash](CommandBuffer buffer,
@@ -249,7 +248,6 @@ void LayoutViewerPanel::DrawViewElement(
           cache.symbols.reset();
           if (capturePanel) {
             cache.symbols = capturePanel->GetBottomSymbolCacheSnapshot();
-            capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
           }
           cache.hasCapture = !cache.buffer.commands.empty();
           cache.captureContentHash = captureContentHash;
