@@ -74,15 +74,11 @@ static bool ShouldTraceLabelOrder() {
 
 
 
+// Returns whether a legend symbol key is eligible for lazy GDTF SVG loading.
 bool ShouldLoadLegendSvgFromKey(const std::string &symbolKey) {
-  if (symbolKey.empty())
-    return false;
-
-  std::filesystem::path symbolPath(symbolKey);
-  std::string extension = symbolPath.extension().string();
-  std::transform(extension.begin(), extension.end(), extension.begin(),
-                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-  return extension == ".gdtf";
+  // Keep PDF legend SVG lookup aligned with on-screen legend rendering, which
+  // accepts both absolute GDTF paths and model-key aliases cached in symbol snapshots.
+  return !symbolKey.empty();
 }
 std::array<double, 3> ResolveLegendSvgFillRgb(
     const std::optional<std::string> &hexColor) {
