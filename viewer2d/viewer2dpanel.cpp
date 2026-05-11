@@ -99,7 +99,6 @@ wxRect BuildPointDirtyRegion(const wxPoint &point, int radius) {
   return wxRect(point.x - radius, point.y - radius, size, size);
 }
 
-// Verifies framebuffer/viewport postconditions after rendering and restores a safe viewport when needed.
 void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
                                 int expectedHeight) {
   GLint framebuffer = 0;
@@ -119,11 +118,7 @@ void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
   }
   wxASSERT_MSG(validFramebuffer,
                "Unexpected non-default framebuffer after 2D render.");
-  if (!validViewport) {
-    // High-DPI backends (notably macOS) may leave a scaled viewport after
-    // context switches; restore the logical viewport expected by this panel.
-    glViewport(0, 0, expectedWidth, expectedHeight);
-  }
+  wxASSERT_MSG(validViewport, "Unexpected viewport after 2D render.");
 }
 
 bool TryAllocateCaptureBuffer(std::vector<unsigned char> &pixels, int width,
@@ -749,7 +744,7 @@ void Viewer2DPanel::InitGL() {
       return;
     }
     if (initResult.isWarningOnly) {
-      wxLogDebug("%s", initResult.message);
+      wxLogWarning("%s", initResult.message);
     }
     m_controller.InitializeGL();
     glEnable(GL_DEPTH_TEST);
@@ -758,13 +753,7 @@ void Viewer2DPanel::InitGL() {
   }
 }
 
-// Renders one interactive frame after making the panel GL context current when available.
-void Viewer2DPanel::Render() {
-  if (m_glContext) {
-    SetCurrent(*m_glContext);
-  }
-  RenderInternal(true);
-}
+void Viewer2DPanel::Render() { RenderInternal(true); }
 
 void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   static unsigned long long s_renderFrameId = 0;
@@ -1098,7 +1087,6 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   return true;
 }
 
-// Handles paint events by initializing GL state and drawing the current 2D frame.
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
   ResetRepaintCoalescing();

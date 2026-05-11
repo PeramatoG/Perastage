@@ -28,16 +28,10 @@ namespace detail {
 // on-screen rendering matches exported PDFs.
 inline const std::vector<const char *> kSharedFontFaceNames = {
 #ifdef _WIN32
-    "Noto Sans",
     "Arial",
-    "Segoe UI",
 #elif defined(__APPLE__)
-    "Noto Sans",
-    "Helvetica",
     "Arial",
-    "SF Pro Text",
 #else
-    "Noto Sans",
     "DejaVu Sans",
     "Liberation Sans",
 #endif
@@ -46,7 +40,6 @@ inline const std::vector<const char *> kSharedFontFaceNames = {
 constexpr double kTextRenderScale = 96.0 / 72.0;
 constexpr int kTextDefaultFontSize = 12;
 
-// Resolves a platform-available sans-serif font face for layout text drawing.
 inline wxString ResolveSharedFontFaceName() {
   static wxString faceName;
   static bool initialized = false;
@@ -56,7 +49,8 @@ inline wxString ResolveSharedFontFaceName() {
     wxFont testFont(10, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
                     wxFONTWEIGHT_NORMAL, false,
                     wxString::FromUTF8(candidate));
-    if (testFont.IsOk()) {
+    if (testFont.IsOk() &&
+        testFont.GetFaceName().CmpNoCase(candidate) == 0) {
       faceName = testFont.GetFaceName();
       break;
     }
@@ -65,7 +59,6 @@ inline wxString ResolveSharedFontFaceName() {
   return faceName;
 }
 
-// Builds a shared font instance used by layout text and legends.
 inline wxFont MakeSharedFont(int sizePx, wxFontWeight weight) {
   wxString faceName = ResolveSharedFontFaceName();
   if (!faceName.empty()) {
