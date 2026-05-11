@@ -22,15 +22,9 @@ constexpr int kDefaultViewportWidth = 1600;
 constexpr int kDefaultViewportHeight = 900;
 }
 
-// Builds the offscreen 2D renderer host and initializes its capture panel state.
 Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
   host_ = new wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(1, 1));
-#ifdef __APPLE__
-  host_->SetPosition(wxPoint(-20000, -20000));
-  host_->Show();
-#else
   host_->Hide();
-#endif
 
   panel_ = new Viewer2DPanel(host_, true, false, false);
   panel_->SetSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
@@ -39,7 +33,6 @@ Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
   panel_->UpdateScene(true);
 }
 
-// Destroys the host panel and releases the offscreen renderer resources.
 Viewer2DOffscreenRenderer::~Viewer2DOffscreenRenderer() {
   if (host_) {
     host_->Destroy();
@@ -48,7 +41,6 @@ Viewer2DOffscreenRenderer::~Viewer2DOffscreenRenderer() {
   }
 }
 
-// Updates the capture panel viewport size used by offscreen rendering.
 void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
   if (!panel_)
     return;
@@ -58,7 +50,6 @@ void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
   panel_->SetClientSize(size);
 }
 
-// Resets overrides and refreshes scene data before an offscreen capture pass.
 void Viewer2DOffscreenRenderer::PrepareForCapture() {
   if (!panel_)
     return;
@@ -66,7 +57,6 @@ void Viewer2DOffscreenRenderer::PrepareForCapture() {
   panel_->UpdateScene(true);
 }
 
-// Applies deterministic rendering defaults for legend-symbol capture output.
 void Viewer2DOffscreenRenderer::ApplySymbolCaptureDefaults() {
   if (!panel_)
     return;

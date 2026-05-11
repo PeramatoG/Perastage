@@ -17,8 +17,6 @@
  */
 #pragma once
 
-#include <chrono>
-#include <atomic>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -124,16 +122,6 @@ private:
     bool renderDirty = true;
     size_t contentHash = 0;
   };
-  struct TexturedQuadVertex {
-    float x;
-    float y;
-    float u;
-    float v;
-  };
-  struct TexturedQuadBatch {
-    GLuint texture = 0;
-    std::vector<TexturedQuadVertex> vertices;
-  };
 
   void NotifyRenderReady();
   void OnPaint(wxPaintEvent &event);
@@ -175,9 +163,6 @@ private:
                        int activeTextId);
   void DrawImageElement(const layouts::LayoutImageDefinition &image,
                         int activeImageId);
-  void QueueTexturedQuad(GLuint texture, const wxRect &frameRect);
-  void FlushQueuedTexturedQuads();
-  void DrawTexturedQuadImmediate(GLuint texture, const wxRect &frameRect) const;
   void DrawDeferredResizeOverlay();
   void DrawLoadingOverlay(const wxSize &size);
   void EnsureLoadingTextTexture();
@@ -205,35 +190,6 @@ private:
   void CommitPendingFrameUpdate();
   bool InitGL();
   void RebuildCachedTexture();
-  bool EnsureRebuildResourcesReady(bool &needsLegendProcessing,
-                                   bool &needsLegendSymbolCapture,
-                                   Viewer2DOffscreenRenderer *&offscreenRenderer,
-                                   Viewer2DPanel *&capturePanel);
-  bool PrepareLegendSymbolsIfNeeded(
-      bool needsLegendSymbolCapture, Viewer2DPanel *capturePanel,
-      ConfigManager &cfg,
-      std::shared_ptr<const SymbolDefinitionSnapshot> &legendSymbols);
-  bool ProcessDirty2DViews(Viewer2DOffscreenRenderer *offscreenRenderer,
-                           Viewer2DPanel *capturePanel, ConfigManager &cfg,
-                           double renderZoom, int maxItems,
-                           bool &timeBudgetExpired);
-  bool ProcessDirtyLegends(
-      double renderZoom, int maxItems,
-      const std::shared_ptr<const SymbolDefinitionSnapshot> &legendSymbols,
-      std::vector<unsigned char> &legendPixels, bool &timeBudgetExpired);
-  bool ProcessDirtyEventTables(double renderZoom, int maxItems,
-                               std::vector<unsigned char> &eventTablePixels,
-                               bool &timeBudgetExpired);
-  bool ProcessDirtyTexts(double renderZoom, int maxItems,
-                         std::vector<unsigned char> &textPixels,
-                         bool &timeBudgetExpired);
-  bool ProcessDirtyImages(double renderZoom, int maxItems,
-                          std::vector<unsigned char> &imagePixels,
-                          bool &timeBudgetExpired);
-  bool IsRebuildTimeBudgetExpired() const;
-  void StartRebuildTickBudget();
-  void LogRebuildStageMetrics(const char *stageName, int processedCount,
-                              std::chrono::steady_clock::duration elapsed) const;
   void ClearCachedTexture();
   void ClearCachedTexture(ViewCache &cache);
   void ClearCachedTexture(LegendCache &cache);
@@ -242,7 +198,6 @@ private:
   void ClearCachedTexture(ImageCache &cache);
   bool HasDirtyRenderCaches() const;
   bool NeedsRenderRebuild() const;
-  uint64_t NextRenderEpoch();
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged(bool includeSceneContent = true);
   size_t ComputeSceneContentHash() const;
@@ -330,9 +285,6 @@ private:
   };
 
   void InvalidateSelectionIndexCache();
-  void MaybePrewarmOnLayoutModeEntry(const layouts::LayoutDefinition &previousLayout);
-  void ApplyPrewarmedArtifactsIfAvailable();
-  size_t BuildLayoutPrewarmContentHash() const;
   void EnsureSelectionIndexCache();
   std::vector<ZOrderedElement> BuildZOrderedElements() const;
   std::pair<int, int> GetZIndexRange() const;
@@ -361,8 +313,6 @@ private:
   bool glInitialized_ = false;
   bool isReadyToRender_ = false;
   bool renderDirty = true;
-  bool contentDirty = true;
-  bool presentationDirty = true;
   double lastRenderZoom = 0.0;
   double lastPageWidthPt = 0.0;
   double lastPageHeightPt = 0.0;
@@ -371,7 +321,6 @@ private:
   bool renderPending = false;
   bool isLoading = false;
   bool loadingRequested = false;
-  std::atomic<uint64_t> renderEpoch_{1};
   wxTimer loadingTimer_;
   wxTimer renderDelayTimer_;
   unsigned int loadingTextTexture_ = 0;
@@ -381,29 +330,12 @@ private:
   std::unordered_map<int, EventTableCache> eventTableCaches_;
   std::unordered_map<int, TextCache> textCaches_;
   std::unordered_map<int, ImageCache> imageCaches_;
-  std::vector<TexturedQuadBatch> texturedQuadBatches_;
-  GLuint texturedQuadVao_ = 0;
-  GLuint texturedQuadVbo_ = 0;
   std::vector<LegendItem> legendItems_;
   size_t legendDataHash = 0;
   bool legendDataDirty_ = true;
   bool pendingFitOnResize = true;
   bool pendingFrameCommit_ = false;
   SelectionIndexCache selectionIndexCache_;
-  struct PrewarmedLayoutArtifacts {
-    int layoutVersion = 0;
-    size_t contentHash = 0;
-    std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
-    std::unordered_map<int, viewer2d::Viewer2DState> viewRenderStates;
-  };
-  std::unordered_map<std::string, PrewarmedLayoutArtifacts> prewarmedArtifactsByLayout_;
-  size_t rebuildViewCursor_ = 0;
-  size_t rebuildLegendCursor_ = 0;
-  size_t rebuildEventTableCursor_ = 0;
-  size_t rebuildTextCursor_ = 0;
-  size_t rebuildImageCursor_ = 0;
-  std::chrono::steady_clock::time_point rebuildTickStart_;
-  std::chrono::milliseconds rebuildTickBudget_{6};
 
   wxDECLARE_EVENT_TABLE();
 };

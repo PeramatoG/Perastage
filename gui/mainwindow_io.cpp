@@ -184,6 +184,27 @@ void MainWindow::EnqueueExternalOpenPath(const std::string &path) {
   ProcessDeferredStartupOpenPath();
 }
 
+// Stores the latest deferred startup-open request so it can be processed when startup is ready.
+void MainWindow::QueueDeferredStartupOpenPath(const std::string &path) {
+  if (path.empty())
+    return;
+  deferredStartupOpenPath = path;
+}
+
+// Executes the deferred startup-open request when startup state and IO controller allow it.
+void MainWindow::ProcessDeferredStartupOpenPath() {
+  if (!deferredStartupOpenPath.has_value())
+    return;
+  if (IsStartupProjectLoadPending() || IsStartupInitializationPending() ||
+      !CanProcessExternalOpenPath())
+    return;
+
+  const std::string path = *deferredStartupOpenPath;
+  deferredStartupOpenPath.reset();
+  if (!OpenPathFromCommandLine(path))
+    deferredStartupOpenPath = path;
+}
+
 void MainWindow::OnSave(wxCommandEvent &event) {
   if (currentProjectPath.empty()) {
     OnSaveAs(event);

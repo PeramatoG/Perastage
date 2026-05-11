@@ -45,7 +45,7 @@ namespace ProjectUtils {
     // Path containing the built-in resources shipped with the executable.
     std::filesystem::path GetResourceRoot();
 
-    // Resolves a resource relative path against known runtime roots and returns an existing file when found.
+    // Resolves a relative resource path against known runtime roots and returns an existing file when found.
     std::filesystem::path ResolveResourcePath(const std::filesystem::path& relativePath);
 
     // Returns true when a directory exists (or can be created) and accepts writes.

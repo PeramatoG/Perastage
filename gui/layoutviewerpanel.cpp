@@ -20,9 +20,6 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
-#include <future>
-#include <list>
-#include <filesystem>
 #include <new>
 #include <unordered_map>
 #include <vector>
@@ -36,7 +33,6 @@
 #endif
 
 #include <GL/glew.h>
-#include "glew_init_utils.h"
 // Include GLEW or other OpenGL loader first if present
 #ifdef __APPLE__
 #  define GL_SILENCE_DEPRECATION
@@ -75,7 +71,6 @@
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
 #include "ui_render_size.h"
-#include "ui_feature_flags.h"
 
 namespace {
 constexpr double kMinZoom = 0.25;
@@ -110,103 +105,6 @@ constexpr int kToggleTextFrameMenuId = wxID_HIGHEST + 503;
 constexpr int kToggleTextTransparentBackgroundMenuId = wxID_HIGHEST + 504;
 constexpr int kToggleViewFrameMenuId = wxID_HIGHEST + 506;
 constexpr int kLoadingOverlayDelayMs = 150;
-constexpr size_t kImageBitmapLruCapacity = 64;
-constexpr size_t kImageBitmapLruMaxBytes = 128u * 1024u * 1024u;
-
-struct ImageBitmapCacheKey {
-  std::string imagePath;
-  int targetWidth = 0;
-  int targetHeight = 0;
-  std::filesystem::file_time_type fileMtime{};
-
-  bool operator==(const ImageBitmapCacheKey &other) const {
-    return imagePath == other.imagePath && targetWidth == other.targetWidth &&
-           targetHeight == other.targetHeight && fileMtime == other.fileMtime;
-  }
-};
-
-struct ImageBitmapCacheKeyHasher {
-  size_t operator()(const ImageBitmapCacheKey &key) const {
-    const auto mtimeTicks =
-        static_cast<long long>(key.fileMtime.time_since_epoch().count());
-    size_t seed = std::hash<std::string>{}(key.imagePath);
-    seed ^= std::hash<int>{}(key.targetWidth) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-    seed ^= std::hash<int>{}(key.targetHeight) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-    seed ^= std::hash<long long>{}(mtimeTicks) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-    return seed;
-  }
-};
-
-struct ImageBitmapCacheEntry {
-  ImageBitmapCacheKey key;
-  wxImage bitmap;
-  size_t byteSize = 0;
-};
-
-// Returns the image file modification time and reports false when it cannot be read.
-bool TryGetImageFileMtime(const std::string &imagePath,
-                          std::filesystem::file_time_type &outMtime) {
-  std::error_code ec;
-  outMtime = std::filesystem::last_write_time(std::filesystem::path(imagePath), ec);
-  return !ec;
-}
-
-
-// Estimates the RGBA memory footprint used by a scaled image cache entry.
-size_t EstimateImageCacheEntryBytes(const wxImage &image) {
-  const int width = image.GetWidth();
-  const int height = image.GetHeight();
-  if (width <= 0 || height <= 0) {
-    return 0;
-  }
-  return static_cast<size_t>(width) * static_cast<size_t>(height) * 4u;
-}
-
-// Returns a mirrored and alpha-ready scaled bitmap from a process-local LRU cache.
-const wxImage *GetOrCreateScaledImageBitmap(const std::string &imagePath,
-                                            int targetWidth, int targetHeight,
-                                            std::filesystem::file_time_type fileMtime) {
-  using CacheList = std::list<ImageBitmapCacheEntry>;
-  static CacheList cacheEntries;
-  static std::unordered_map<ImageBitmapCacheKey, CacheList::iterator, ImageBitmapCacheKeyHasher>
-      cacheIndex;
-  static size_t cacheBytes = 0;
-
-  const ImageBitmapCacheKey key{imagePath, targetWidth, targetHeight, fileMtime};
-  auto it = cacheIndex.find(key);
-  if (it != cacheIndex.end()) {
-    cacheEntries.splice(cacheEntries.begin(), cacheEntries, it->second);
-    return &it->second->bitmap;
-  }
-
-  wxImage sourceBitmap;
-  if (!sourceBitmap.LoadFile(wxString::FromUTF8(imagePath)) ||
-      sourceBitmap.GetWidth() <= 0 || sourceBitmap.GetHeight() <= 0) {
-    return nullptr;
-  }
-
-  wxImage scaled = sourceBitmap.Scale(targetWidth, targetHeight, wxIMAGE_QUALITY_HIGH);
-  if (!scaled.IsOk()) {
-    return nullptr;
-  }
-  scaled = scaled.Mirror(false);
-  if (!scaled.HasAlpha()) {
-    scaled.InitAlpha();
-  }
-
-  const size_t scaledBytes = EstimateImageCacheEntryBytes(scaled);
-  cacheEntries.push_front({key, scaled, scaledBytes});
-  cacheIndex[key] = cacheEntries.begin();
-  cacheBytes += scaledBytes;
-  while (cacheEntries.size() > kImageBitmapLruCapacity ||
-         cacheBytes > kImageBitmapLruMaxBytes) {
-    auto tail = std::prev(cacheEntries.end());
-    cacheBytes -= tail->byteSize;
-    cacheIndex.erase(tail->key);
-    cacheEntries.pop_back();
-  }
-  return &cacheEntries.front().bitmap;
-}
 
 void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
                                 int expectedHeight) {
@@ -493,42 +391,6 @@ bool IsPixelUnpackPboSupported() {
   return hasPboExtension;
 }
 
-
-// Represents an immutable CPU-produced RGBA payload ready for GPU upload.
-struct PreparedRgbaPayload {
-  bool valid = false;
-  int width = 0;
-  int height = 0;
-  std::vector<unsigned char> pixels;
-};
-
-// Converts a wxImage into RGBA bytes that can be uploaded on the render thread.
-PreparedRgbaPayload PrepareRgbaPayloadFromImage(wxImage image, const char *context) {
-  PreparedRgbaPayload payload;
-  if (!image.IsOk())
-    return payload;
-  image = image.Mirror(false);
-  if (!image.HasAlpha())
-    image.InitAlpha();
-  const int width = image.GetWidth();
-  const int height = image.GetHeight();
-  const unsigned char *rgb = image.GetData();
-  const unsigned char *alpha = image.GetAlpha();
-  if (!rgb || width <= 0 || height <= 0 || !TryAllocatePixelBuffer(payload.pixels, width, height, context))
-    return payload;
-  for (int i = 0; i < width * height; ++i) {
-    payload.pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
-    payload.pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
-    payload.pixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
-    payload.pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
-  }
-  payload.width = width;
-  payload.height = height;
-  payload.valid = true;
-  return payload;
-}
-
-// Ensures the pixel-unpack PBO exists and has enough storage for the upload.
 bool EnsurePboCapacity(unsigned int &pbo, size_t &capacity, size_t bytesNeeded) {
   if (bytesNeeded == 0)
     return false;
@@ -546,13 +408,6 @@ bool EnsurePboCapacity(unsigned int &pbo, size_t &capacity, size_t bytesNeeded) 
   return true;
 }
 
-// Returns whether this runtime should use PBO-based texture uploads.
-bool ShouldUsePboTextureUpload() {
-  // Disables PBO uploads globally to avoid driver-specific blank textures and debug heap instability.
-  return false;
-}
-
-// Uploads RGBA pixels into the currently bound texture and reallocates if needed.
 bool UploadRgbaToTexture(unsigned int texture, int width, int height,
                          const unsigned char *data,
                          const wxSize &currentTextureSize, bool allowPbo) {
@@ -572,8 +427,7 @@ bool UploadRgbaToTexture(unsigned int texture, int width, int height,
       static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
   bool uploaded = false;
 
-  if (allowPbo && ShouldUsePboTextureUpload() && IsPixelUnpackPboSupported() &&
-      gActivePixelUnpackPbo &&
+  if (allowPbo && IsPixelUnpackPboSupported() && gActivePixelUnpackPbo &&
       gActivePixelUnpackPboBytes &&
       EnsurePboCapacity(*gActivePixelUnpackPbo, *gActivePixelUnpackPboBytes,
                         bytesNeeded)) {
@@ -609,7 +463,6 @@ bool UploadRgbaToTexture(unsigned int texture, int width, int height,
   return uploaded;
 }
 
-// Snaps an integer coordinate to the configured layout grid step.
 int SnapToGrid(int value) {
   if (kLayoutGridStep <= 1)
     return value;
@@ -618,111 +471,6 @@ int SnapToGrid(int value) {
       kLayoutGridStep);
 }
 } // namespace
-
-// Queues a textured quad for deferred VBO/VAO submission while preserving draw order by texture runs.
-void LayoutViewerPanel::QueueTexturedQuad(GLuint texture,
-                                          const wxRect &frameRect) {
-  if (texture == 0)
-    return;
-  const int frameRight = frameRect.GetLeft() + frameRect.GetWidth();
-  const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
-  TexturedQuadBatch *batch = nullptr;
-  if (!texturedQuadBatches_.empty() &&
-      texturedQuadBatches_.back().texture == texture) {
-    batch = &texturedQuadBatches_.back();
-  } else {
-    texturedQuadBatches_.push_back(TexturedQuadBatch{});
-    texturedQuadBatches_.back().texture = texture;
-    batch = &texturedQuadBatches_.back();
-  }
-  batch->vertices.push_back({static_cast<float>(frameRect.GetLeft()),
-                             static_cast<float>(frameRect.GetTop()), 0.0f,
-                             1.0f});
-  batch->vertices.push_back({static_cast<float>(frameRight),
-                             static_cast<float>(frameRect.GetTop()), 1.0f,
-                             1.0f});
-  batch->vertices.push_back({static_cast<float>(frameRight),
-                             static_cast<float>(frameBottom), 1.0f, 0.0f});
-  batch->vertices.push_back({static_cast<float>(frameRect.GetLeft()),
-                             static_cast<float>(frameRect.GetBottom()), 0.0f,
-                             0.0f});
-}
-
-// Draws one textured quad using legacy immediate mode as the compatibility fallback path.
-void LayoutViewerPanel::DrawTexturedQuadImmediate(GLuint texture,
-                                                  const wxRect &frameRect) const {
-  const int frameRight = frameRect.GetLeft() + frameRect.GetWidth();
-  const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
-  glEnable(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, texture);
-  glColor4ub(255, 255, 255, 255);
-  glBegin(GL_QUADS);
-  glTexCoord2f(0.0f, 1.0f);
-  glVertex2f(static_cast<float>(frameRect.GetLeft()),
-             static_cast<float>(frameRect.GetTop()));
-  glTexCoord2f(1.0f, 1.0f);
-  glVertex2f(static_cast<float>(frameRight),
-             static_cast<float>(frameRect.GetTop()));
-  glTexCoord2f(1.0f, 0.0f);
-  glVertex2f(static_cast<float>(frameRight), static_cast<float>(frameBottom));
-  glTexCoord2f(0.0f, 0.0f);
-  glVertex2f(static_cast<float>(frameRect.GetLeft()),
-             static_cast<float>(frameRect.GetBottom()));
-  glEnd();
-  glDisable(GL_TEXTURE_2D);
-}
-
-// Flushes queued textured quads using a VBO/VAO path and falls back to immediate mode when unavailable.
-void LayoutViewerPanel::FlushQueuedTexturedQuads() {
-  if (texturedQuadBatches_.empty())
-    return;
-  if (texturedQuadVao_ == 0)
-    glGenVertexArrays(1, &texturedQuadVao_);
-  if (texturedQuadVbo_ == 0)
-    glGenBuffers(1, &texturedQuadVbo_);
-  const bool canUseVboVao = texturedQuadVao_ != 0 && texturedQuadVbo_ != 0;
-  if (!canUseVboVao) {
-    for (const auto &batch : texturedQuadBatches_) {
-      for (size_t i = 0; i + 3 < batch.vertices.size(); i += 4) {
-        wxRect r(static_cast<int>(batch.vertices[i].x),
-                 static_cast<int>(batch.vertices[i].y),
-                 static_cast<int>(batch.vertices[i + 1].x -
-                                  batch.vertices[i].x),
-                 static_cast<int>(batch.vertices[i + 2].y -
-                                  batch.vertices[i].y));
-        DrawTexturedQuadImmediate(batch.texture, r);
-      }
-    }
-    texturedQuadBatches_.clear();
-    return;
-  }
-  glEnable(GL_TEXTURE_2D);
-  glColor4ub(255, 255, 255, 255);
-  glBindVertexArray(texturedQuadVao_);
-  glBindBuffer(GL_ARRAY_BUFFER, texturedQuadVbo_);
-  glEnableClientState(GL_VERTEX_ARRAY);
-  glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-  for (const auto &batch : texturedQuadBatches_) {
-    glBindTexture(GL_TEXTURE_2D, batch.texture);
-    glBufferData(GL_ARRAY_BUFFER,
-                 static_cast<GLsizeiptr>(batch.vertices.size() *
-                                         sizeof(TexturedQuadVertex)),
-                 batch.vertices.data(), GL_STREAM_DRAW);
-    glVertexPointer(2, GL_FLOAT, sizeof(TexturedQuadVertex),
-                    reinterpret_cast<const void *>(
-                        offsetof(TexturedQuadVertex, x)));
-    glTexCoordPointer(2, GL_FLOAT, sizeof(TexturedQuadVertex),
-                      reinterpret_cast<const void *>(
-                          offsetof(TexturedQuadVertex, u)));
-    glDrawArrays(GL_QUADS, 0, static_cast<GLsizei>(batch.vertices.size()));
-  }
-  glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-  glDisableClientState(GL_VERTEX_ARRAY);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
-  glDisable(GL_TEXTURE_2D);
-  texturedQuadBatches_.clear();
-}
 
 wxDEFINE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 
@@ -793,8 +541,6 @@ LayoutViewerPanel::~LayoutViewerPanel() {
 
 void LayoutViewerPanel::SetLayoutDefinition(
     const layouts::LayoutDefinition &layout) {
-  // Advances the render epoch so pending worker payloads from older layouts are discarded.
-  NextRenderEpoch();
   if (IsSameRenderableLayout(currentLayout, layout)) {
     currentLayout.name = layout.name;
     legendDataDirty_ = true;
@@ -887,7 +633,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
 
   if (sameLayoutName) {
     captureInProgress = false;
-    contentDirty = true;
+    renderDirty = true;
     loadingRequested = true;
     legendDataDirty_ = true;
     RefreshLegendData();
@@ -898,7 +644,6 @@ void LayoutViewerPanel::SetLayoutDefinition(
     return;
   }
 
-  MaybePrewarmOnLayoutModeEntry(previousLayout);
   captureInProgress = false;
   ClearCachedTexture();
   const bool emptyLayout = IsLayoutEmpty();
@@ -906,8 +651,6 @@ void LayoutViewerPanel::SetLayoutDefinition(
     selectedElementType = SelectedElementType::None;
     selectedElementId = -1;
     renderDirty = false;
-    contentDirty = false;
-    presentationDirty = false;
     loadingRequested = false;
     isLoading = false;
     legendItems_.clear();
@@ -919,7 +662,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     NotifyRenderReady();
     return;
   }
-  contentDirty = true;
+  renderDirty = true;
   loadingRequested = true;
   legendDataDirty_ = true;
   RefreshLegendData();
@@ -927,82 +670,6 @@ void LayoutViewerPanel::SetLayoutDefinition(
   ResetViewToFit();
   RequestRenderRebuild();
   Refresh();
-}
-
-// Prewarms reusable legend symbols and view render states when switching into a new layout context.
-void LayoutViewerPanel::MaybePrewarmOnLayoutModeEntry(const layouts::LayoutDefinition &previousLayout) {
-  if (currentLayout.name.empty())
-    return;
-  const bool likelyModeEntryFrom2Dor3D =
-      previousLayout.name.empty() || previousLayout.name != currentLayout.name;
-  if (!likelyModeEntryFrom2Dor3D)
-    return;
-
-  const std::string prewarmKey =
-      currentLayout.name + "#" + std::to_string(layoutVersion);
-  PrewarmedLayoutArtifacts artifacts;
-  artifacts.layoutVersion = layoutVersion;
-  artifacts.contentHash = BuildLayoutPrewarmContentHash();
-  for (const auto &view : currentLayout.view2dViews) {
-    viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(view);
-    state.renderOptions.darkMode = false;
-    artifacts.viewRenderStates.emplace(view.id, std::move(state));
-  }
-
-  Viewer2DPanel *capturePanel = nullptr;
-  if (auto *mw = MainWindow::Instance()) {
-    if (auto *offscreenRenderer = mw->GetOffscreenRenderer())
-      capturePanel = offscreenRenderer->GetPanel();
-  }
-  if (!capturePanel)
-    capturePanel = Viewer2DPanel::Instance();
-  if (capturePanel) {
-    ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    artifacts.legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
-  }
-
-  prewarmedArtifactsByLayout_[prewarmKey] = std::move(artifacts);
-  ApplyPrewarmedArtifactsIfAvailable();
-}
-
-// Applies prewarmed artifacts to current caches when layout identity and content hash still match.
-void LayoutViewerPanel::ApplyPrewarmedArtifactsIfAvailable() {
-  const std::string prewarmKey =
-      currentLayout.name + "#" + std::to_string(layoutVersion);
-  auto it = prewarmedArtifactsByLayout_.find(prewarmKey);
-  if (it == prewarmedArtifactsByLayout_.end())
-    return;
-  const PrewarmedLayoutArtifacts &artifacts = it->second;
-  if (artifacts.layoutVersion != layoutVersion ||
-      artifacts.contentHash != BuildLayoutPrewarmContentHash()) {
-    prewarmedArtifactsByLayout_.erase(it);
-    return;
-  }
-
-  for (const auto &view : currentLayout.view2dViews) {
-    auto stateIt = artifacts.viewRenderStates.find(view.id);
-    if (stateIt == artifacts.viewRenderStates.end())
-      continue;
-    ViewCache &cache = GetViewCache(view.id);
-    cache.renderState = stateIt->second;
-    cache.hasRenderState = true;
-  }
-  if (artifacts.legendSymbols) {
-    for (const auto &legend : currentLayout.legendViews) {
-      LegendCache &cache = GetLegendCache(legend.id);
-      cache.symbols = artifacts.legendSymbols;
-      cache.renderDirty = true;
-    }
-  }
-}
-
-// Builds a stable invalidation hash used to discard prewarm entries after layout name/content/version changes.
-size_t LayoutViewerPanel::BuildLayoutPrewarmContentHash() const {
-  size_t seed = std::hash<std::string>{}(currentLayout.name);
-  const size_t sceneHash = ComputeSceneContentHash();
-  seed ^= sceneHash + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-  seed ^= std::hash<int>{}(layoutVersion) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-  return seed;
 }
 
 void LayoutViewerPanel::NotifyRenderReady() {
@@ -2141,7 +1808,7 @@ void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
   }
   layoutVersion++;
   InvalidateSelectionIndexCache();
-  contentDirty = true;
+  renderDirty = true;
   RequestRenderRebuild();
   Refresh();
 }
@@ -2232,7 +1899,7 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
   }
   layoutVersion++;
   InvalidateSelectionIndexCache();
-  contentDirty = true;
+  renderDirty = true;
   RequestRenderRebuild();
   Refresh();
 }
@@ -2356,7 +2023,6 @@ bool LayoutViewerPanel::GetSelectedFrame(
   return true;
 }
 
-// Initializes layout viewer OpenGL resources through centralized GLEW/context validation.
 bool LayoutViewerPanel::InitGL() {
   if (!glContext_)
     return false;
@@ -2364,17 +2030,17 @@ bool LayoutViewerPanel::InitGL() {
     return false;
   if (!SetCurrent(*glContext_))
     return false;
+
   if (!glInitialized_) {
-    const GLEWInitResult initResult =
-        InitializeGlewForCurrentContext(*this, *glContext_, "LayoutViewerPanel");
-    if (!initResult.success) {
-      isReadyToRender_ = false;
-      Logger::Instance().Log(initResult.message);
+    glewExperimental = GL_TRUE;
+    const GLenum glewResult = glewInit();
+    if (glewResult != GLEW_OK) {
+      Logger::Instance().Log(
+          std::string("LayoutViewerPanel: GLEW init failed: ") +
+          reinterpret_cast<const char *>(glewGetErrorString(glewResult)));
       return false;
     }
-    if (initResult.isWarningOnly) {
-      Logger::Instance().Log(initResult.message);
-    }
+    glGetError();
     glInitialized_ = true;
   }
 
@@ -2385,14 +2051,14 @@ bool LayoutViewerPanel::InitGL() {
   return true;
 }
 
-// Rebuilds cached textures incrementally across dirty stages to keep the UI responsive.
 void LayoutViewerPanel::RebuildCachedTexture() {
   try {
     if (!NeedsRenderRebuild())
       return;
     if (!isReadyToRender_ || !glContext_ || !IsShownOnScreen())
       return;
-
+    Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
+    Viewer2DPanel *capturePanel = nullptr;
     auto stopLoadingRequest = [this]() {
       loadingRequested = false;
       if (loadingTimer_.IsRunning())
@@ -2402,60 +2068,517 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       stopLoadingRequest();
       isLoading = false;
     };
-
-    contentDirty = false;
-    presentationDirty = false;
-    StartRebuildTickBudget();
-
+    renderDirty = false;
+    stopLoadingRequest();
+  
+    bool hasDirtyViewCache = false;
+    for (const auto &view : currentLayout.view2dViews) {
+      const auto cacheIt = viewCaches_.find(view.id);
+      if (cacheIt != viewCaches_.end() && cacheIt->second.renderDirty) {
+        hasDirtyViewCache = true;
+        break;
+      }
+    }
     bool needsLegendProcessing = false;
     bool needsLegendSymbolCapture = false;
-    Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
-    Viewer2DPanel *capturePanel = nullptr;
-    if (!EnsureRebuildResourcesReady(needsLegendProcessing, needsLegendSymbolCapture,
-                                     offscreenRenderer, capturePanel)) {
-      return;
+    for (const auto &legend : currentLayout.legendViews) {
+      const auto cacheIt = legendCaches_.find(legend.id);
+      const bool cacheMissing = cacheIt == legendCaches_.end();
+      const bool contentChanged =
+          !cacheMissing && cacheIt->second.contentHash != legendDataHash;
+      const bool needsTextureRebuild =
+          cacheMissing || cacheIt->second.renderDirty || contentChanged;
+      if (needsTextureRebuild) {
+        needsLegendProcessing = true;
+        const bool needsSymbols =
+            cacheMissing || !cacheIt->second.symbols || contentChanged;
+        if (needsSymbols)
+          needsLegendSymbolCapture = true;
+      }
+      if (needsLegendProcessing && needsLegendSymbolCapture) {
+        break;
+      }
+    }
+    const bool needsCapturePanel = hasDirtyViewCache || needsLegendSymbolCapture;
+    if (needsCapturePanel) {
+      if (auto *mw = MainWindow::Instance()) {
+        offscreenRenderer = mw->GetOffscreenRenderer();
+        capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+      }
+      if (!capturePanel || !offscreenRenderer) {
+        return;
+      }
     }
 
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
-    if (!PrepareLegendSymbolsIfNeeded(needsLegendSymbolCapture, capturePanel, cfg,
-                                      legendSymbols)) {
-      clearLoadingState();
-      NotifyRenderReady();
-      return;
+    if (needsLegendSymbolCapture) {
+      legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
     }
-
     std::vector<unsigned char> legendPixels;
     std::vector<unsigned char> eventTablePixels;
     std::vector<unsigned char> textPixels;
     std::vector<unsigned char> imagePixels;
     const double renderZoom = GetRenderZoom();
-    constexpr int kMaxItemsPerStage = 3;
-    bool timeBudgetExpired = false;
+    for (const auto &view : currentLayout.view2dViews) {
+      ViewCache &cache = GetViewCache(view.id);
+      if (!cache.renderDirty)
+        continue;
+      cache.renderDirty = false;
+      wxRect frameRect;
+      if (!cache.hasCapture || !cache.hasRenderState ||
+          !GetFrameRect(view.frame, frameRect)) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+  
+      const wxSize renderSize = GetFrameSizeForZoom(view.frame, renderZoom);
+      if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+  
+      offscreenRenderer->SetViewportSize(renderSize);
+      offscreenRenderer->PrepareForCapture();
 
-    if (!ProcessDirty2DViews(offscreenRenderer, capturePanel, cfg, renderZoom,
-                             kMaxItemsPerStage, timeBudgetExpired) ||
-        !ProcessDirtyLegends(renderZoom, kMaxItemsPerStage, legendSymbols,
-                             legendPixels, timeBudgetExpired) ||
-        !ProcessDirtyEventTables(renderZoom, kMaxItemsPerStage, eventTablePixels,
-                                 timeBudgetExpired) ||
-        !ProcessDirtyTexts(renderZoom, kMaxItemsPerStage, textPixels,
-                           timeBudgetExpired) ||
-        !ProcessDirtyImages(renderZoom, kMaxItemsPerStage, imagePixels,
-                            timeBudgetExpired)) {
-      clearLoadingState();
-      NotifyRenderReady();
-      return;
+      viewer2d::Viewer2DState renderState = cache.renderState;
+      if (renderZoom != 1.0) {
+        renderState.camera.zoom *= static_cast<float>(renderZoom);
+      }
+      renderState.camera.viewportWidth = renderSize.GetWidth();
+      renderState.camera.viewportHeight = renderSize.GetHeight();
+
+      auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+          capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
+
+      std::vector<unsigned char> pixels;
+      int width = 0;
+      int height = 0;
+      capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
+      const bool rendered = capturePanel->RenderToRGBA(pixels, width, height);
+      capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
+      if (!rendered || width <= 0 || height <= 0) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+
+      if (!InitGL()) {
+        clearLoadingState();
+        NotifyRenderReady();
+        return;
+      }
+      if (cache.texture == 0) {
+        glGenTextures(1, &cache.texture);
+      }
+      glBindTexture(GL_TEXTURE_2D, cache.texture);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
+                                           cache.pboBytes);
+      if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(),
+                               cache.textureSize, true)) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      cache.textureSize = wxSize(width, height);
+      cache.renderZoom = renderZoom;
+      cache.contentHash = HashViewContent(view);
+      std::vector<unsigned char>().swap(pixels);
     }
-
-    if (NeedsRenderRebuild() || timeBudgetExpired) {
-      RequestRenderRebuild();
-      NotifyRenderReady();
-      return;
+  
+    for (const auto &legend : currentLayout.legendViews) {
+      LegendCache &cache = GetLegendCache(legend.id);
+      const bool contentChanged = cache.contentHash != legendDataHash;
+      const bool requiresSymbolRefresh = !cache.symbols || contentChanged;
+      if (requiresSymbolRefresh && legendSymbols && cache.symbols != legendSymbols) {
+        cache.symbols = legendSymbols;
+        cache.renderDirty = true;
+      }
+      if (contentChanged) {
+        cache.renderDirty = true;
+      }
+      if (!cache.renderDirty)
+        continue;
+      cache.renderDirty = false;
+  
+      const wxSize renderSize = GetFrameSizeForZoom(legend.frame, renderZoom);
+      if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+  
+      wxImage image = BuildLegendImage(
+          renderSize, wxSize(legend.frame.width, legend.frame.height),
+          renderZoom, legendItems_, cache.symbols.get());
+      if (!image.IsOk()) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      image = image.Mirror(false);
+      if (!image.HasAlpha())
+        image.InitAlpha();
+      const int width = image.GetWidth();
+      const int height = image.GetHeight();
+      const unsigned char *rgb = image.GetData();
+      const unsigned char *alpha = image.GetAlpha();
+      if (!rgb || width <= 0 || height <= 0) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+  
+      if (!TryAllocatePixelBuffer(legendPixels, width, height, "legend")) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      for (int i = 0; i < width * height; ++i) {
+        legendPixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
+        legendPixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
+        legendPixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
+        legendPixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
+      }
+  
+      if (!InitGL()) {
+        clearLoadingState();
+        NotifyRenderReady();
+        return;
+      }
+      if (cache.texture == 0) {
+        glGenTextures(1, &cache.texture);
+      }
+      glBindTexture(GL_TEXTURE_2D, cache.texture);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
+                                           cache.pboBytes);
+      if (!UploadRgbaToTexture(cache.texture, width, height, legendPixels.data(),
+                               cache.textureSize, true)) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      cache.textureSize = wxSize(width, height);
+      cache.renderZoom = renderZoom;
+      cache.contentHash = legendDataHash;
+      legendPixels.clear();
     }
-
-    rebuildViewCursor_ = rebuildLegendCursor_ = rebuildEventTableCursor_ = 0;
-    rebuildTextCursor_ = rebuildImageCursor_ = 0;
+  
+    for (const auto &table : currentLayout.eventTables) {
+      EventTableCache &cache = GetEventTableCache(table.id);
+      size_t dataHash = HashEventTableFields(table);
+      if (cache.contentHash != dataHash)
+        cache.renderDirty = true;
+      if (!cache.renderDirty)
+        continue;
+      cache.renderDirty = false;
+  
+      const wxSize renderSize = GetFrameSizeForZoom(table.frame, renderZoom);
+      if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+  
+      wxImage image =
+          BuildEventTableImage(renderSize,
+                               wxSize(table.frame.width, table.frame.height),
+                               renderZoom, table);
+      if (!image.IsOk()) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      image = image.Mirror(false);
+      if (!image.HasAlpha())
+        image.InitAlpha();
+      const int width = image.GetWidth();
+      const int height = image.GetHeight();
+      const unsigned char *rgb = image.GetData();
+      const unsigned char *alpha = image.GetAlpha();
+      if (!rgb || width <= 0 || height <= 0) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+  
+      if (!TryAllocatePixelBuffer(eventTablePixels, width, height,
+                                  "event table")) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      const bool needsUnpremultiply = false;
+      for (int i = 0; i < width * height; ++i) {
+        const unsigned char a = alpha ? alpha[i] : 255;
+        unsigned char r = rgb[i * 3];
+        unsigned char g = rgb[i * 3 + 1];
+        unsigned char b = rgb[i * 3 + 2];
+        if (needsUnpremultiply && a > 0 && a < 255) {
+          r = static_cast<unsigned char>(
+              std::min(255, static_cast<int>(r) * 255 / a));
+          g = static_cast<unsigned char>(
+              std::min(255, static_cast<int>(g) * 255 / a));
+          b = static_cast<unsigned char>(
+              std::min(255, static_cast<int>(b) * 255 / a));
+        }
+        eventTablePixels[static_cast<size_t>(i) * 4] = r;
+        eventTablePixels[static_cast<size_t>(i) * 4 + 1] = g;
+        eventTablePixels[static_cast<size_t>(i) * 4 + 2] = b;
+        eventTablePixels[static_cast<size_t>(i) * 4 + 3] = a;
+      }
+  
+      if (!InitGL()) {
+        clearLoadingState();
+        NotifyRenderReady();
+        return;
+      }
+      if (cache.texture == 0) {
+        glGenTextures(1, &cache.texture);
+      }
+      glBindTexture(GL_TEXTURE_2D, cache.texture);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
+                                           cache.pboBytes);
+      if (!UploadRgbaToTexture(cache.texture, width, height,
+                               eventTablePixels.data(), cache.textureSize,
+                               true)) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      cache.textureSize = wxSize(width, height);
+      cache.renderZoom = renderZoom;
+      cache.contentHash = dataHash;
+      eventTablePixels.clear();
+    }
+  
+    for (const auto &text : currentLayout.textViews) {
+      TextCache &cache = GetTextCache(text.id);
+      size_t dataHash = HashTextContent(text);
+      if (cache.contentHash != dataHash)
+        cache.renderDirty = true;
+      if (!cache.renderDirty)
+        continue;
+      cache.renderDirty = false;
+  
+      const wxSize renderSize = GetFrameSizeForZoom(text.frame, renderZoom);
+      if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+  
+      wxImage image = BuildTextImage(
+          renderSize, wxSize(text.frame.width, text.frame.height), renderZoom,
+          text);
+      if (!image.IsOk()) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      image = image.Mirror(false);
+      if (!image.HasAlpha())
+        image.InitAlpha();
+      const int width = image.GetWidth();
+      const int height = image.GetHeight();
+      const unsigned char *rgb = image.GetData();
+      const unsigned char *alpha = image.GetAlpha();
+      if (!rgb || width <= 0 || height <= 0) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+  
+      if (!TryAllocatePixelBuffer(textPixels, width, height, "text")) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      const bool needsUnpremultiply = !text.solidBackground;
+      for (int i = 0; i < width * height; ++i) {
+        const unsigned char a = alpha ? alpha[i] : 255;
+        unsigned char r = rgb[i * 3];
+        unsigned char g = rgb[i * 3 + 1];
+        unsigned char b = rgb[i * 3 + 2];
+        if (needsUnpremultiply && a > 0 && a < 255) {
+          r = static_cast<unsigned char>(
+              std::min(255, static_cast<int>(r) * 255 / a));
+          g = static_cast<unsigned char>(
+              std::min(255, static_cast<int>(g) * 255 / a));
+          b = static_cast<unsigned char>(
+              std::min(255, static_cast<int>(b) * 255 / a));
+        }
+        textPixels[static_cast<size_t>(i) * 4] = r;
+        textPixels[static_cast<size_t>(i) * 4 + 1] = g;
+        textPixels[static_cast<size_t>(i) * 4 + 2] = b;
+        textPixels[static_cast<size_t>(i) * 4 + 3] = a;
+      }
+  
+      if (!InitGL()) {
+        clearLoadingState();
+        NotifyRenderReady();
+        return;
+      }
+      if (cache.texture == 0) {
+        glGenTextures(1, &cache.texture);
+      }
+      glBindTexture(GL_TEXTURE_2D, cache.texture);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
+                                           cache.pboBytes);
+      if (!UploadRgbaToTexture(cache.texture, width, height, textPixels.data(),
+                               cache.textureSize, true)) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      cache.textureSize = wxSize(width, height);
+      cache.renderZoom = renderZoom;
+      cache.contentHash = dataHash;
+      textPixels.clear();
+    }
+  
+    for (const auto &image : currentLayout.imageViews) {
+      ImageCache &cache = GetImageCache(image.id);
+      size_t dataHash = HashImageContent(image);
+      if (cache.contentHash != dataHash)
+        cache.renderDirty = true;
+      if (!cache.renderDirty)
+        continue;
+      cache.renderDirty = false;
+  
+      const wxSize renderSize = GetFrameSizeForZoom(image.frame, renderZoom);
+      if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      if (image.imagePath.empty()) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+  
+      wxImage bitmap;
+      if (!bitmap.LoadFile(wxString::FromUTF8(image.imagePath))) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      if (bitmap.GetWidth() <= 0 || bitmap.GetHeight() <= 0) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      wxImage scaled =
+          bitmap.Scale(renderSize.GetWidth(), renderSize.GetHeight(),
+                       wxIMAGE_QUALITY_HIGH);
+      if (!scaled.IsOk()) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      scaled = scaled.Mirror(false);
+      if (!scaled.HasAlpha())
+        scaled.InitAlpha();
+      const int width = scaled.GetWidth();
+      const int height = scaled.GetHeight();
+      const unsigned char *rgb = scaled.GetData();
+      const unsigned char *alpha = scaled.GetAlpha();
+      if (!rgb || width <= 0 || height <= 0) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+  
+      if (!TryAllocatePixelBuffer(imagePixels, width, height, "image")) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      for (int i = 0; i < width * height; ++i) {
+        imagePixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
+        imagePixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
+        imagePixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
+        imagePixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
+      }
+  
+      if (!InitGL()) {
+        clearLoadingState();
+        NotifyRenderReady();
+        return;
+      }
+      if (cache.texture == 0) {
+        glGenTextures(1, &cache.texture);
+      }
+      glBindTexture(GL_TEXTURE_2D, cache.texture);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
+                                           cache.pboBytes);
+      if (!UploadRgbaToTexture(cache.texture, width, height, imagePixels.data(),
+                               cache.textureSize, true)) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      cache.textureSize = wxSize(width, height);
+      cache.renderZoom = renderZoom;
+      cache.contentHash = dataHash;
+      imagePixels.clear();
+    }
+  
     clearLoadingState();
     NotifyRenderReady();
   } catch (const std::exception &ex) {
@@ -2472,276 +2595,6 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         "LayoutViewerPanel::RebuildCachedTexture unknown exception.");
     NotifyRenderReady();
   }
-}
-
-
-// Starts a new per-tick deadline used by progressive texture rebuilding.
-void LayoutViewerPanel::StartRebuildTickBudget() { rebuildTickStart_ = std::chrono::steady_clock::now(); }
-
-// Reports whether the current progressive rebuild tick exhausted its time budget.
-bool LayoutViewerPanel::IsRebuildTimeBudgetExpired() const { return std::chrono::steady_clock::now() - rebuildTickStart_ >= rebuildTickBudget_; }
-
-// Logs per-stage rebuild metrics for visibility into expensive texture categories.
-void LayoutViewerPanel::LogRebuildStageMetrics(const char *stageName, int processedCount, std::chrono::steady_clock::duration elapsed) const {
-  const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
-  if (processedCount == 0 && elapsedMs == 0)
-    return;
-  Logger::Instance().Log(std::string("LayoutViewerPanel rebuild stage ") + stageName + ": count=" + std::to_string(processedCount) + ", ms=" + std::to_string(elapsedMs));
-}
-
-// Collects rebuild prerequisites and lazily resolves offscreen rendering dependencies.
-bool LayoutViewerPanel::EnsureRebuildResourcesReady(bool &needsLegendProcessing, bool &needsLegendSymbolCapture, Viewer2DOffscreenRenderer *&offscreenRenderer, Viewer2DPanel *&capturePanel) {
-  bool hasDirtyViewCache = false;
-  for (const auto &view : currentLayout.view2dViews) {
-    const auto cacheIt = viewCaches_.find(view.id);
-    if (cacheIt != viewCaches_.end() && cacheIt->second.renderDirty) { hasDirtyViewCache = true; break; }
-  }
-  needsLegendProcessing = false; needsLegendSymbolCapture = false;
-  for (const auto &legend : currentLayout.legendViews) {
-    const auto cacheIt = legendCaches_.find(legend.id);
-    const bool cacheMissing = cacheIt == legendCaches_.end();
-    const bool contentChanged = !cacheMissing && cacheIt->second.contentHash != legendDataHash;
-    const bool needsTextureRebuild = cacheMissing || cacheIt->second.renderDirty || contentChanged;
-    if (needsTextureRebuild) { needsLegendProcessing = true; const bool needsSymbols = cacheMissing || !cacheIt->second.symbols || contentChanged; if (needsSymbols) needsLegendSymbolCapture = true; }
-  }
-  const bool needsCapturePanel = hasDirtyViewCache || needsLegendSymbolCapture;
-  if (!needsCapturePanel) return true;
-  if (auto *mw = MainWindow::Instance()) { offscreenRenderer = mw->GetOffscreenRenderer(); capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr; }
-  return capturePanel && offscreenRenderer;
-}
-
-// Captures legend symbol snapshots only when required by dirty legend caches.
-bool LayoutViewerPanel::PrepareLegendSymbolsIfNeeded(bool needsLegendSymbolCapture, Viewer2DPanel *capturePanel, ConfigManager &cfg, std::shared_ptr<const SymbolDefinitionSnapshot> &legendSymbols) {
-  if (!needsLegendSymbolCapture) return true;
-  if (!capturePanel) return false;
-  legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
-  return true;
-}
-
-// Processes dirty 2D view textures in bounded batches and uploads each successful render to GPU.
-bool LayoutViewerPanel::ProcessDirty2DViews(Viewer2DOffscreenRenderer *offscreenRenderer, Viewer2DPanel *capturePanel, ConfigManager &cfg, double renderZoom, int maxItems, bool &timeBudgetExpired) {
-  if (!offscreenRenderer || !capturePanel)
-    return true;
-  const auto stageStart = std::chrono::steady_clock::now();
-  int processedCount = 0;
-  if (currentLayout.view2dViews.empty())
-    return true;
-  const size_t total = currentLayout.view2dViews.size();
-  for (int pass = 0; pass < 2; ++pass) {
-    for (size_t scanned = 0; scanned < total; ++scanned) {
-      const size_t idx = (rebuildViewCursor_ + scanned) % total;
-      const auto &view = currentLayout.view2dViews[idx];
-      wxRect frameRect;
-      const bool isVisible = GetFrameRect(view.frame, frameRect) && frameRect.Intersects(wxRect(wxPoint(0, 0), GetClientSize()));
-      const bool isSelected = selectedElementType == SelectedElementType::View2D && selectedElementId == view.id;
-      const bool isPriority = isVisible || isSelected;
-      if ((pass == 0 && !isPriority) || (pass == 1 && isPriority))
-        continue;
-    ViewCache &cache = GetViewCache(view.id);
-    if (!cache.renderDirty)
-      continue;
-    cache.renderDirty = false;
-    if (!cache.hasCapture || !cache.hasRenderState || !GetFrameRect(view.frame, frameRect)) {
-      ClearCachedTexture(cache);
-      cache.textureSize = wxSize(0, 0);
-      cache.renderZoom = 0.0;
-    } else {
-      const wxSize renderSize = GetFrameSizeForZoom(view.frame, renderZoom);
-      if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) {
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-      } else {
-        offscreenRenderer->SetViewportSize(renderSize);
-        offscreenRenderer->PrepareForCapture();
-        const RenderSize captureRenderSize = ResolveRenderSize(capturePanel);
-        const int captureWidth = captureRenderSize.width > 0
-                                     ? captureRenderSize.width
-                                     : renderSize.GetWidth();
-        const int captureHeight = captureRenderSize.height > 0
-                                      ? captureRenderSize.height
-                                      : renderSize.GetHeight();
-        viewer2d::Viewer2DState renderState = cache.renderState;
-        if (renderZoom != 1.0)
-          renderState.camera.zoom *= static_cast<float>(renderZoom);
-        renderState.camera.viewportWidth = captureWidth;
-        renderState.camera.viewportHeight = captureHeight;
-        auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-            capturePanel, nullptr, cfg, renderState, capturePanel, nullptr,
-            false);
-        std::vector<unsigned char> pixels;
-        int width = 0;
-        int height = 0;
-        Viewer2DRenderOverrides captureOverrides;
-        captureOverrides.drawFixtureLabels = true;
-        capturePanel->SetRenderOverrides(captureOverrides);
-        capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
-        const bool rendered = capturePanel->RenderToRGBA(pixels, width, height);
-        capturePanel->SetRenderOverrides(std::nullopt);
-        capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
-        if (!rendered || width <= 0 || height <= 0) {
-          ClearCachedTexture(cache);
-          cache.textureSize = wxSize(0, 0);
-          cache.renderZoom = 0.0;
-        } else {
-          if (!InitGL())
-            return false;
-          if (cache.texture == 0)
-            glGenTextures(1, &cache.texture);
-          glBindTexture(GL_TEXTURE_2D, cache.texture);
-          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-          glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-          ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes);
-          if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(), cache.textureSize, true)) {
-            ClearCachedTexture(cache);
-            cache.textureSize = wxSize(0, 0);
-            cache.renderZoom = 0.0;
-          } else {
-            cache.textureSize = wxSize(width, height);
-            cache.renderZoom = renderZoom;
-            cache.contentHash = HashViewContent(view);
-          }
-        }
-      }
-    }
-      processedCount++;
-      rebuildViewCursor_ = (idx + 1) % total;
-      if (processedCount >= maxItems || IsRebuildTimeBudgetExpired()) {
-        timeBudgetExpired = true;
-        break;
-      }
-    }
-    if (timeBudgetExpired)
-      break;
-  }
-  LogRebuildStageMetrics("2d_views", processedCount, std::chrono::steady_clock::now() - stageStart);
-  return true;
-}
-
-// Processes dirty legend textures in bounded batches and refreshes symbol snapshots when needed.
-bool LayoutViewerPanel::ProcessDirtyLegends(double renderZoom, int maxItems, const std::shared_ptr<const SymbolDefinitionSnapshot> &legendSymbols, std::vector<unsigned char> &legendPixels, bool &timeBudgetExpired) {
-  const auto stageStart = std::chrono::steady_clock::now();
-  int processedCount = 0;
-  if (currentLayout.legendViews.empty())
-    return true;
-  const size_t total = currentLayout.legendViews.size();
-  for (int pass = 0; pass < 2; ++pass) {
-    for (size_t scanned = 0; scanned < total; ++scanned) {
-      const size_t idx = (rebuildLegendCursor_ + scanned) % total;
-      const auto &legend = currentLayout.legendViews[idx];
-      wxRect frameRect;
-      const bool isVisible = GetFrameRect(legend.frame, frameRect) && frameRect.Intersects(wxRect(wxPoint(0, 0), GetClientSize()));
-      const bool isSelected = selectedElementType == SelectedElementType::Legend && selectedElementId == legend.id;
-      const bool isPriority = isVisible || isSelected;
-      if ((pass == 0 && !isPriority) || (pass == 1 && isPriority))
-        continue;
-    LegendCache &cache = GetLegendCache(legend.id);
-    const bool contentChanged = cache.contentHash != legendDataHash;
-    const bool requiresSymbolRefresh = !cache.symbols || contentChanged;
-    if (requiresSymbolRefresh && legendSymbols && cache.symbols != legendSymbols) { cache.symbols = legendSymbols; cache.renderDirty = true; }
-    if (contentChanged) cache.renderDirty = true;
-    if (!cache.renderDirty) continue;
-    cache.renderDirty = false;
-    const wxSize renderSize = GetFrameSizeForZoom(legend.frame, renderZoom);
-    if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) { ClearCachedTexture(cache); cache.textureSize = wxSize(0, 0); cache.renderZoom = 0.0; }
-    else {
-      wxImage image = BuildLegendImage(renderSize, wxSize(legend.frame.width, legend.frame.height), renderZoom, legendItems_, cache.symbols.get());
-      if (!image.IsOk()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0, 0); cache.renderZoom = 0.0; }
-      else {
-        image = image.Mirror(false); if (!image.HasAlpha()) image.InitAlpha();
-        const int width = image.GetWidth(), height = image.GetHeight(); const unsigned char *rgb = image.GetData(); const unsigned char *alpha = image.GetAlpha();
-        if (!rgb || width <= 0 || height <= 0 || !TryAllocatePixelBuffer(legendPixels, width, height, "legend")) { ClearCachedTexture(cache); cache.textureSize = wxSize(0, 0); cache.renderZoom = 0.0; }
-        else {
-          for (int i = 0; i < width * height; ++i) { legendPixels[static_cast<size_t>(i) * 4] = rgb[i * 3]; legendPixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1]; legendPixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2]; legendPixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255; }
-          if (!InitGL()) return false;
-          if (cache.texture == 0) glGenTextures(1, &cache.texture);
-          glBindTexture(GL_TEXTURE_2D, cache.texture); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-          ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes);
-          if (!UploadRgbaToTexture(cache.texture, width, height, legendPixels.data(), cache.textureSize, true)) { ClearCachedTexture(cache); cache.textureSize = wxSize(0, 0); cache.renderZoom = 0.0; }
-          else { cache.textureSize = wxSize(width, height); cache.renderZoom = renderZoom; cache.contentHash = legendDataHash; }
-          legendPixels.clear();
-        }
-      }
-    }
-      processedCount++; rebuildLegendCursor_ = (idx + 1) % total;
-      if (processedCount >= maxItems || IsRebuildTimeBudgetExpired()) { timeBudgetExpired = true; break; }
-    }
-    if (timeBudgetExpired)
-      break;
-  }
-  LogRebuildStageMetrics("legends", processedCount, std::chrono::steady_clock::now() - stageStart);
-  return true;
-}
-
-// Processes dirty event table textures in bounded batches to progressively refresh overlay tables.
-bool LayoutViewerPanel::ProcessDirtyEventTables(double renderZoom, int maxItems, std::vector<unsigned char> &eventTablePixels, bool &timeBudgetExpired) {
-  const auto stageStart = std::chrono::steady_clock::now();
-  int processedCount = 0;
-  const size_t total = currentLayout.eventTables.size();
-  for (int pass = 0; pass < 2; ++pass) {
-    for (size_t scanned = 0; scanned < total; ++scanned) {
-      const size_t idx = (rebuildEventTableCursor_ + scanned) % total;
-      const auto &table = currentLayout.eventTables[idx];
-      wxRect frameRect;
-      const bool isVisible = GetFrameRect(table.frame, frameRect) && frameRect.Intersects(wxRect(wxPoint(0, 0), GetClientSize()));
-      const bool isSelected = selectedElementType == SelectedElementType::EventTable && selectedElementId == table.id;
-      const bool isPriority = isVisible || isSelected;
-      if ((pass == 0 && !isPriority) || (pass == 1 && isPriority))
-        continue;
-    EventTableCache &cache = GetEventTableCache(table.id);
-    size_t dataHash = HashEventTableFields(table);
-    if (cache.contentHash != dataHash) cache.renderDirty = true;
-    if (!cache.renderDirty) continue;
-    cache.renderDirty = false;
-    const wxSize renderSize = GetFrameSizeForZoom(table.frame, renderZoom);
-    if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; }
-    else {
-      wxImage image = BuildEventTableImage(renderSize, wxSize(table.frame.width, table.frame.height), renderZoom, table);
-      if (!image.IsOk()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; }
-      else {
-        image = image.Mirror(false); if (!image.HasAlpha()) image.InitAlpha();
-        const int width=image.GetWidth(), height=image.GetHeight(); const unsigned char *rgb=image.GetData(), *alpha=image.GetAlpha();
-        if (!rgb || width<=0 || height<=0 || !TryAllocatePixelBuffer(eventTablePixels,width,height,"event table")) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; }
-        else {
-          for (int i=0;i<width*height;++i){ const unsigned char a=alpha?alpha[i]:255; eventTablePixels[(size_t)i*4]=rgb[i*3]; eventTablePixels[(size_t)i*4+1]=rgb[i*3+1]; eventTablePixels[(size_t)i*4+2]=rgb[i*3+2]; eventTablePixels[(size_t)i*4+3]=a; }
-          if (!InitGL()) return false;
-          if (cache.texture==0) glGenTextures(1,&cache.texture);
-          glBindTexture(GL_TEXTURE_2D, cache.texture); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-          ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes);
-          if (!UploadRgbaToTexture(cache.texture,width,height,eventTablePixels.data(),cache.textureSize,true)) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; }
-          else { cache.textureSize = wxSize(width,height); cache.renderZoom = renderZoom; cache.contentHash = dataHash; }
-          eventTablePixels.clear();
-        }
-      }
-    }
-      processedCount++; rebuildEventTableCursor_=(idx+1)%total;
-      if (processedCount>=maxItems || IsRebuildTimeBudgetExpired()) { timeBudgetExpired=true; break; }
-    }
-    if (timeBudgetExpired)
-      break;
-  }
-  LogRebuildStageMetrics("event_tables", processedCount, std::chrono::steady_clock::now()-stageStart);
-  return true;
-}
-
-// Processes dirty text textures in bounded batches to progressively refresh text overlays.
-bool LayoutViewerPanel::ProcessDirtyTexts(double renderZoom, int maxItems, std::vector<unsigned char> &textPixels, bool &timeBudgetExpired) {
-  const auto stageStart = std::chrono::steady_clock::now(); int processedCount = 0; const size_t total = currentLayout.textViews.size();
-  const uint64_t epoch = renderEpoch_.load();
-  for (int pass = 0; pass < 2; ++pass) { for (size_t scanned = 0; scanned < total; ++scanned) { const size_t idx = (rebuildTextCursor_ + scanned) % total; const auto &text = currentLayout.textViews[idx]; wxRect frameRect; const bool isVisible = GetFrameRect(text.frame, frameRect) && frameRect.Intersects(wxRect(wxPoint(0, 0), GetClientSize())); const bool isSelected = selectedElementType == SelectedElementType::Text && selectedElementId == text.id; const bool isPriority = isVisible || isSelected; if ((pass == 0 && !isPriority) || (pass == 1 && isPriority)) continue; TextCache &cache = GetTextCache(text.id); size_t dataHash = HashTextContent(text); if (cache.contentHash != dataHash) cache.renderDirty = true; if (!cache.renderDirty) continue; cache.renderDirty = false; const wxSize renderSize = GetFrameSizeForZoom(text.frame, renderZoom); if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { auto task = std::async(std::launch::async, [this, text, renderSize, renderZoom]() { return PrepareRgbaPayloadFromImage(BuildTextImage(renderSize, wxSize(text.frame.width, text.frame.height), renderZoom, text), "text"); }); PreparedRgbaPayload payload = task.get(); if (epoch != renderEpoch_.load()) return true; if (!payload.valid) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { if (!InitGL()) return false; if (cache.texture==0) glGenTextures(1,&cache.texture); glBindTexture(GL_TEXTURE_2D, cache.texture); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glPixelStorei(GL_UNPACK_ALIGNMENT,1); ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes); if (!UploadRgbaToTexture(cache.texture,payload.width,payload.height,payload.pixels.data(),cache.textureSize,true)) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { cache.textureSize = wxSize(payload.width,payload.height); cache.renderZoom = renderZoom; cache.contentHash = dataHash; } } } processedCount++; rebuildTextCursor_=(idx+1)%total; if (processedCount>=maxItems || IsRebuildTimeBudgetExpired()) { timeBudgetExpired=true; break; } } if (timeBudgetExpired) break; }
-  LogRebuildStageMetrics("texts", processedCount, std::chrono::steady_clock::now()-stageStart); return true;
-}
-
-// Processes dirty image textures in bounded batches to progressively refresh bitmap overlays.
-bool LayoutViewerPanel::ProcessDirtyImages(double renderZoom, int maxItems, std::vector<unsigned char> &imagePixels, bool &timeBudgetExpired) {
-  const auto stageStart = std::chrono::steady_clock::now(); int processedCount = 0; const size_t total = currentLayout.imageViews.size();
-  for (int pass = 0; pass < 2; ++pass) { for (size_t scanned = 0; scanned < total; ++scanned) { const size_t idx = (rebuildImageCursor_ + scanned) % total; const auto &image = currentLayout.imageViews[idx]; wxRect frameRect; const bool isVisible = GetFrameRect(image.frame, frameRect) && frameRect.Intersects(wxRect(wxPoint(0, 0), GetClientSize())); const bool isSelected = selectedElementType == SelectedElementType::Image && selectedElementId == image.id; const bool isPriority = isVisible || isSelected; if ((pass == 0 && !isPriority) || (pass == 1 && isPriority)) continue; ImageCache &cache = GetImageCache(image.id); size_t dataHash = HashImageContent(image); if (cache.contentHash != dataHash) cache.renderDirty = true; if (!cache.renderDirty) continue; cache.renderDirty = false; const wxSize renderSize = GetFrameSizeForZoom(image.frame, renderZoom); if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0 || image.imagePath.empty()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { std::filesystem::file_time_type fileMtime{}; const bool hasMtime = TryGetImageFileMtime(image.imagePath, fileMtime); if (!hasMtime) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { const wxImage *scaled = GetOrCreateScaledImageBitmap(image.imagePath, renderSize.GetWidth(), renderSize.GetHeight(), fileMtime); if (!scaled || !scaled->IsOk()) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { const int width=scaled->GetWidth(), height=scaled->GetHeight(); const unsigned char *rgb=scaled->GetData(), *alpha=scaled->GetAlpha(); if (!rgb || width<=0 || height<=0 || !TryAllocatePixelBuffer(imagePixels,width,height,"image")) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { for (int i=0;i<width*height;++i){ imagePixels[(size_t)i*4]=rgb[i*3]; imagePixels[(size_t)i*4+1]=rgb[i*3+1]; imagePixels[(size_t)i*4+2]=rgb[i*3+2]; imagePixels[(size_t)i*4+3]=alpha?alpha[i]:255; } if (!InitGL()) return false; if (cache.texture==0) glGenTextures(1,&cache.texture); glBindTexture(GL_TEXTURE_2D, cache.texture); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glPixelStorei(GL_UNPACK_ALIGNMENT, 1); ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo, cache.pboBytes); if (!UploadRgbaToTexture(cache.texture,width,height,imagePixels.data(),cache.textureSize,true)) { ClearCachedTexture(cache); cache.textureSize = wxSize(0,0); cache.renderZoom = 0.0; } else { cache.textureSize = wxSize(width,height); cache.renderZoom = renderZoom; cache.contentHash = dataHash; } imagePixels.clear(); } } } }
-    processedCount++; rebuildImageCursor_=(idx+1)%total; if (processedCount>=maxItems || IsRebuildTimeBudgetExpired()) { timeBudgetExpired=true; break; } } if (timeBudgetExpired) break;
-  }
-  LogRebuildStageMetrics("images", processedCount, std::chrono::steady_clock::now()-stageStart); return true;
 }
 
 void LayoutViewerPanel::ClearCachedTexture() {
@@ -2916,13 +2769,10 @@ bool LayoutViewerPanel::HasDirtyRenderCaches() const {
 }
 
 bool LayoutViewerPanel::NeedsRenderRebuild() const {
-  return renderDirty || contentDirty || HasDirtyRenderCaches();
+  return renderDirty || HasDirtyRenderCaches();
 }
 
-// Schedules a deferred layout texture rebuild when content is dirty and rendering is available.
 void LayoutViewerPanel::RequestRenderRebuild() {
-  // Advances the render epoch to cancel stale payloads queued before this rebuild request.
-  NextRenderEpoch();
   if (IsLayoutEmpty()) {
     renderPending = false;
     loadingRequested = false;
@@ -2954,6 +2804,8 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     panel->isLoading = true;
     panel->Refresh();
     panel->Update();
+    if (wxTheApp && wxTheApp->IsMainLoopRunning())
+      wxTheApp->Yield(true);
     if (!weakThis)
       return;
     panel = weakThis.get();
@@ -2965,9 +2817,6 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     panel->renderDelayTimer_.StartOnce(kLoadingOverlayDelayMs);
   });
 }
-
-// Returns a new render epoch value used to guard asynchronous CPU payload tasks.
-uint64_t LayoutViewerPanel::NextRenderEpoch() { return ++renderEpoch_; }
 
 void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
   if (!loadingRequested)
@@ -3220,7 +3069,7 @@ void LayoutViewerPanel::EmitViewSelectionChanged(int viewId) {
 LayoutViewerPanel::ViewCache &LayoutViewerPanel::GetViewCache(int viewId) {
   auto [it, inserted] = viewCaches_.try_emplace(viewId, ViewCache{});
   if (inserted) {
-    contentDirty = true;
+    renderDirty = true;
   }
   return it->second;
 }
@@ -3228,7 +3077,7 @@ LayoutViewerPanel::ViewCache &LayoutViewerPanel::GetViewCache(int viewId) {
 LayoutViewerPanel::LegendCache &LayoutViewerPanel::GetLegendCache(int legendId) {
   auto [it, inserted] = legendCaches_.try_emplace(legendId, LegendCache{});
   if (inserted) {
-    contentDirty = true;
+    renderDirty = true;
   }
   return it->second;
 }
@@ -3238,7 +3087,7 @@ LayoutViewerPanel::GetEventTableCache(int tableId) {
   auto [it, inserted] =
       eventTableCaches_.try_emplace(tableId, EventTableCache{});
   if (inserted) {
-    contentDirty = true;
+    renderDirty = true;
   }
   return it->second;
 }
@@ -3246,7 +3095,7 @@ LayoutViewerPanel::GetEventTableCache(int tableId) {
 LayoutViewerPanel::TextCache &LayoutViewerPanel::GetTextCache(int textId) {
   auto [it, inserted] = textCaches_.try_emplace(textId, TextCache{});
   if (inserted) {
-    contentDirty = true;
+    renderDirty = true;
   }
   return it->second;
 }
@@ -3254,7 +3103,7 @@ LayoutViewerPanel::TextCache &LayoutViewerPanel::GetTextCache(int textId) {
 LayoutViewerPanel::ImageCache &LayoutViewerPanel::GetImageCache(int imageId) {
   auto [it, inserted] = imageCaches_.try_emplace(imageId, ImageCache{});
   if (inserted) {
-    contentDirty = true;
+    renderDirty = true;
   }
   return it->second;
 }
