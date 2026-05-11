@@ -71,7 +71,7 @@ void Viewer2DOffscreenRenderer::ApplySymbolCaptureDefaults() {
   overrides.symbolCaptureIncludeCoplanarEdges = true;
 
   panel_->SetRenderOverrides(overrides);
-  panel_->SetPreferPerastageSvgSymbolsForLayouts(false);
+  panel_->SetPreferPerastageSvgSymbolsForLayouts(true);
   panel_->ApplyViewState(0.0f, 0.0f, 1.0f, Viewer2DView::Top,
                          Viewer2DRenderMode::ByFixtureType);
   panel_->UpdateScene(true);
