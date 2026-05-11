@@ -618,7 +618,7 @@ void Viewer3DPanel::InitGL()
             return;
         }
         if (initResult.isWarningOnly) {
-            wxLogDebug("%s", initResult.message);
+            wxLogWarning("%s", initResult.message);
         }
 
         GLint sampleBuffers = 0;
