@@ -232,7 +232,10 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
       markDirty(cache.renderDirty);
       contentDirty = true;
     } else if (cache.renderZoom != renderZoom) {
-      presentationDirty = true;
+      // Keep 2D view textures pixel-accurate at every layout zoom step so
+      // label placement and clipping stay synchronized with the capture.
+      markDirty(cache.renderDirty);
+      contentDirty = true;
     }
   }
 
