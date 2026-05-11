@@ -2572,13 +2572,31 @@ bool LayoutViewerPanel::ProcessDirty2DViews(Viewer2DOffscreenRenderer *offscreen
         std::vector<unsigned char> pixels;
         int width = 0;
         int height = 0;
-        Viewer2DRenderOverrides captureOverrides;
+        // Applies temporary capture overrides for embedded 2D textures and restores prior panel state afterward.
+        const std::optional<Viewer2DRenderOverrides> previousOverrides =
+            capturePanel->GetRenderOverrides();
+        const bool previousPreferLayoutSvgSymbols =
+            capturePanel->GetPreferPerastageSvgSymbolsForLayouts();
+        struct ScopedCaptureOverridesRestore {
+          Viewer2DPanel *panel = nullptr;
+          std::optional<Viewer2DRenderOverrides> overrides;
+          bool preferLayoutSvgSymbols = false;
+          ~ScopedCaptureOverridesRestore() {
+            if (!panel)
+              return;
+            panel->SetRenderOverrides(overrides);
+            panel->SetPreferPerastageSvgSymbolsForLayouts(
+                preferLayoutSvgSymbols);
+          }
+        } restore{capturePanel, previousOverrides, previousPreferLayoutSvgSymbols};
+
+        Viewer2DRenderOverrides captureOverrides =
+            previousOverrides.value_or(Viewer2DRenderOverrides{});
         captureOverrides.drawFixtureLabels = true;
         capturePanel->SetRenderOverrides(captureOverrides);
         capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
-        const bool rendered = capturePanel->RenderToRGBA(pixels, width, height);
-        capturePanel->SetRenderOverrides(std::nullopt);
-        capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
+        const bool rendered =
+            capturePanel->RenderToRGBA(pixels, width, height);
         if (!rendered || width <= 0 || height <= 0) {
           ClearCachedTexture(cache);
           cache.textureSize = wxSize(0, 0);

@@ -339,6 +339,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
       opts.useSimplifiedFootprints, opts.printIncludeGrid);
 }
 
+// Exports the active layout to PDF by capturing each embedded 2D view and associated legend/table/text/image content.
 void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   // Flow overview: validate selection and 2D resources, collect settings/file,
   // scale frames to the output, and capture views sequentially before exporting
@@ -485,8 +486,11 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       std::make_shared<std::vector<LayoutImageExportData>>(
           std::move(layoutImages));
 
+  // Keeps layout PDF captures in classic symbol-instancing mode and restores previous preference afterward.
+  const bool previousPreferLayoutSvgSymbols =
+      capturePanel ? capturePanel->GetPreferPerastageSvgSymbolsForLayouts() : false;
   if (capturePanel)
-    capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
+    capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
 
   auto captureNext =
       std::make_shared<std::function<void(size_t)>>();
@@ -494,7 +498,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       [this, captureNext, exportViews, layoutViews, offscreenRenderer,
        capturePanel, cfgPtr, useSimplifiedFootprints, includeGrid, scaleX,
        scaleY, outputPageW, outputPageH, outputLandscape, exportLegends,
-       exportTables, exportTexts, exportImages, outputPathWx](size_t index) mutable {
+       exportTables, exportTexts, exportImages, outputPathWx,
+       previousPreferLayoutSvgSymbols](size_t index) mutable {
         if (index >= layoutViews.size()) {
           Viewer2DPrintOptions opts;
           opts.pageWidthPt = outputPageW;
@@ -547,7 +552,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
             });
           }).detach();
           if (capturePanel)
-            capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
+            capturePanel->SetPreferPerastageSvgSymbolsForLayouts(
+                previousPreferLayoutSvgSymbols);
           return;
         }
 
