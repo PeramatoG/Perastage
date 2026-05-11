@@ -24,6 +24,7 @@
 namespace fs = std::filesystem;
 
 namespace {
+// Normalizes path separators to match the current platform conventions.
 std::string NormalizePath(const std::string &path) {
   std::string out = path;
   char sep = static_cast<char>(fs::path::preferred_separator);
@@ -32,6 +33,7 @@ std::string NormalizePath(const std::string &path) {
   return out;
 }
 
+// Normalizes and canonicalizes a model key path used by symbol lookups.
 std::string NormalizeModelKey(const std::string &path) {
   if (path.empty())
     return {};
@@ -41,6 +43,7 @@ std::string NormalizeModelKey(const std::string &path) {
 }
 } // namespace
 
+// Builds the fixture symbol key used by legend and PDF symbol resolution.
 std::string BuildFixtureSymbolKey(const Fixture &fixture,
                                   const std::string &basePath) {
   MvrScene scene;
@@ -53,9 +56,5 @@ std::string BuildFixtureSymbolKey(const Fixture &fixture,
   std::string modelKey = NormalizeModelKey(gdtfPath);
   if (modelKey.empty() && !fixture.gdtfSpec.empty())
     modelKey = NormalizeModelKey(fixture.gdtfSpec);
-  if (modelKey.empty() && !fixture.typeName.empty())
-    modelKey = fixture.typeName;
-  if (modelKey.empty())
-    modelKey = "unknown";
   return modelKey;
 }
