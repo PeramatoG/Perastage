@@ -146,7 +146,6 @@ bool IsDirectoryWritable(const fs::path& dir)
     return true;
 }
 
-// Resolves the base library directory by searching executable, working, and platform resource locations.
 fs::path GetBaseLibraryPath(const std::string& subdir)
 {
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
@@ -156,20 +155,9 @@ fs::path GetBaseLibraryPath(const std::string& subdir)
         return *found;
     if (auto found = FindExistingPath(fs::current_path(), suffix))
         return *found;
-    const wxString resourcesDir = wxStandardPaths::Get().GetResourcesDir();
-    if (!resourcesDir.empty()) {
-        fs::path resourcesPath = WxStringToPath(resourcesDir);
-        fs::path resourcesLibrary = resourcesPath / "library" / subdir;
-        std::error_code ec;
-        if (fs::exists(resourcesLibrary, ec) && !ec &&
-            fs::is_directory(resourcesLibrary, ec) && !ec) {
-            return resourcesLibrary;
-        }
-    }
     return exeBase / suffix;
 }
 
-// Resolves the runtime resources root by checking executable-relative paths and platform bundle locations.
 fs::path GetResourceRoot()
 {
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
@@ -183,46 +171,9 @@ fs::path GetResourceRoot()
     if (!resourcesDir.empty()) {
         fs::path resourcesPath = WxStringToPath(resourcesDir);
         std::error_code ec;
-        const fs::path nestedResources = resourcesPath / "resources";
-        if (fs::exists(nestedResources, ec) && !ec &&
-            fs::is_directory(nestedResources, ec) && !ec)
-            return nestedResources;
-        if (fs::exists(resourcesPath, ec) && !ec)
+        if (fs::exists(resourcesPath, ec))
             return resourcesPath;
     }
-    return {};
-}
-
-// Resolves a relative resource path by checking nested and base resource roots with compatibility fallbacks.
-fs::path ResolveResourcePath(const fs::path& relativePath)
-{
-    if (relativePath.empty() || relativePath.is_absolute())
-        return {};
-
-    std::error_code ec;
-    const fs::path root = GetResourceRoot();
-    if (!root.empty()) {
-        const fs::path directCandidate = root / relativePath;
-        if (fs::exists(directCandidate, ec) && !ec)
-            return directCandidate;
-        ec.clear();
-
-        if (root.filename() == "resources") {
-            const fs::path parentCandidate = root.parent_path() / relativePath;
-            if (fs::exists(parentCandidate, ec) && !ec)
-                return parentCandidate;
-            ec.clear();
-        }
-    }
-
-    const wxString resourcesDir = wxStandardPaths::Get().GetResourcesDir();
-    if (!resourcesDir.empty()) {
-        const fs::path resourcesPath = WxStringToPath(resourcesDir);
-        const fs::path baseCandidate = resourcesPath / relativePath;
-        if (fs::exists(baseCandidate, ec) && !ec)
-            return baseCandidate;
-    }
-
     return {};
 }
 
