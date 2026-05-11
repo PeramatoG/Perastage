@@ -2554,11 +2554,18 @@ bool LayoutViewerPanel::ProcessDirty2DViews(Viewer2DOffscreenRenderer *offscreen
       } else {
         offscreenRenderer->SetViewportSize(renderSize);
         offscreenRenderer->PrepareForCapture();
+        const RenderSize captureRenderSize = ResolveRenderSize(capturePanel);
+        const int captureWidth = captureRenderSize.width > 0
+                                     ? captureRenderSize.width
+                                     : renderSize.GetWidth();
+        const int captureHeight = captureRenderSize.height > 0
+                                      ? captureRenderSize.height
+                                      : renderSize.GetHeight();
         viewer2d::Viewer2DState renderState = cache.renderState;
         if (renderZoom != 1.0)
           renderState.camera.zoom *= static_cast<float>(renderZoom);
-        renderState.camera.viewportWidth = renderSize.GetWidth();
-        renderState.camera.viewportHeight = renderSize.GetHeight();
+        renderState.camera.viewportWidth = captureWidth;
+        renderState.camera.viewportHeight = captureHeight;
         auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
             capturePanel, nullptr, cfg, renderState, capturePanel, nullptr,
             false);
