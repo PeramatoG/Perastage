@@ -2595,3 +2595,38 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   zip.Close();
   return true;
 }
+
+// Serialize the current scene to a temporary MVR file and load its bytes into memory.
+bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes) {
+  outBytes.clear();
+  wxFileName tempFile =
+      wxFileName::CreateTempFileName("perastage_mvr_export_buffer");
+  if (!tempFile.IsOk())
+    return false;
+
+  const std::string tempPath = tempFile.GetFullPath().ToStdString();
+  const bool exported = ExportToFile(tempPath);
+  if (!exported) {
+    wxRemoveFile(tempFile.GetFullPath());
+    return false;
+  }
+
+  std::ifstream input(tempPath, std::ios::binary);
+  if (!input.is_open()) {
+    wxRemoveFile(tempFile.GetFullPath());
+    return false;
+  }
+
+  input.seekg(0, std::ios::end);
+  const std::streampos size = input.tellg();
+  input.seekg(0, std::ios::beg);
+  if (size > 0) {
+    outBytes.resize(static_cast<size_t>(size));
+    input.read(reinterpret_cast<char *>(outBytes.data()), size);
+  }
+
+  const bool readOk = input.good() || input.eof();
+  input.close();
+  wxRemoveFile(tempFile.GetFullPath());
+  return readOk;
+}
