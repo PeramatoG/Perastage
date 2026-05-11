@@ -548,8 +548,13 @@ bool EnsurePboCapacity(unsigned int &pbo, size_t &capacity, size_t bytesNeeded) 
 
 // Returns whether this runtime should use PBO-based texture uploads.
 bool ShouldUsePboTextureUpload() {
-  // Disables PBO uploads globally to avoid driver-specific blank textures and debug heap instability.
+#if defined(__linux__)
+  // Linux AppImage GPU/driver combinations have shown intermittent blank
+  // layout view textures when PBO uploads are enabled, so prefer direct uploads.
   return false;
+#else
+  return true;
+#endif
 }
 
 // Uploads RGBA pixels into the currently bound texture and reallocates if needed.
@@ -2362,8 +2367,6 @@ bool LayoutViewerPanel::InitGL() {
     return false;
   if (!IsShownOnScreen())
     return false;
-  if (!SetCurrent(*glContext_))
-    return false;
   if (!glInitialized_) {
     const GLEWInitResult initResult =
         InitializeGlewForCurrentContext(*this, *glContext_, "LayoutViewerPanel");
@@ -2554,30 +2557,19 @@ bool LayoutViewerPanel::ProcessDirty2DViews(Viewer2DOffscreenRenderer *offscreen
       } else {
         offscreenRenderer->SetViewportSize(renderSize);
         offscreenRenderer->PrepareForCapture();
-        const RenderSize captureRenderSize = ResolveRenderSize(capturePanel);
-        const int captureWidth = captureRenderSize.width > 0
-                                     ? captureRenderSize.width
-                                     : renderSize.GetWidth();
-        const int captureHeight = captureRenderSize.height > 0
-                                      ? captureRenderSize.height
-                                      : renderSize.GetHeight();
         viewer2d::Viewer2DState renderState = cache.renderState;
         if (renderZoom != 1.0)
           renderState.camera.zoom *= static_cast<float>(renderZoom);
-        renderState.camera.viewportWidth = captureWidth;
-        renderState.camera.viewportHeight = captureHeight;
+        renderState.camera.viewportWidth = renderSize.GetWidth();
+        renderState.camera.viewportHeight = renderSize.GetHeight();
         auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
             capturePanel, nullptr, cfg, renderState, capturePanel, nullptr,
             false);
         std::vector<unsigned char> pixels;
         int width = 0;
         int height = 0;
-        Viewer2DRenderOverrides captureOverrides;
-        captureOverrides.drawFixtureLabels = true;
-        capturePanel->SetRenderOverrides(captureOverrides);
         capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
         const bool rendered = capturePanel->RenderToRGBA(pixels, width, height);
-        capturePanel->SetRenderOverrides(std::nullopt);
         capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
         if (!rendered || width <= 0 || height <= 0) {
           ClearCachedTexture(cache);

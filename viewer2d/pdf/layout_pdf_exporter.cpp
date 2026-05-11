@@ -374,7 +374,6 @@ std::string RenderCommandsToStream(
   return content.str();
 }
 
-// Converts an arbitrary key into a PDF-safe resource name token.
 std::string MakePdfName(const std::string &key) {
   std::string name = "X";
   for (char ch : key) {
@@ -388,19 +387,16 @@ std::string MakePdfName(const std::string &key) {
   return name;
 }
 
-// Builds the PDF resource name used for key-based symbol XObjects.
 std::string MakeSymbolKeyName(const std::string &key) {
   return "K" + MakePdfName(key);
 }
 
-// Builds the PDF resource name used for id-based symbol XObjects.
 std::string MakeSymbolIdName(uint32_t symbolId) {
   return "S" + std::to_string(symbolId);
 }
 
 } // namespace
 
-// Exports a single Viewer2D command buffer into a PDF file with shared symbol XObjects.
 Viewer2DExportResult ExportViewer2DToPdf(
     const CommandBuffer &buffer, const Viewer2DViewState &viewState,
     const Viewer2DPrintOptions &options,
@@ -763,7 +759,6 @@ Viewer2DExportResult ExportViewer2DToPdf(
   return result;
 }
 
-// Exports a full layout (views, legends, tables, text, and images) into a composed PDF.
 Viewer2DExportResult ExportLayoutToPdf(
     const std::vector<LayoutViewExportData> &views,
     const std::vector<LayoutLegendExportData> &legends,
