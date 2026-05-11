@@ -2572,8 +2572,12 @@ bool LayoutViewerPanel::ProcessDirty2DViews(Viewer2DOffscreenRenderer *offscreen
         std::vector<unsigned char> pixels;
         int width = 0;
         int height = 0;
+        Viewer2DRenderOverrides captureOverrides;
+        captureOverrides.drawFixtureLabels = true;
+        capturePanel->SetRenderOverrides(captureOverrides);
         capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
         const bool rendered = capturePanel->RenderToRGBA(pixels, width, height);
+        capturePanel->SetRenderOverrides(std::nullopt);
         capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
         if (!rendered || width <= 0 || height <= 0) {
           ClearCachedTexture(cache);
