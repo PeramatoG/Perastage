@@ -2593,6 +2593,7 @@ bool LayoutViewerPanel::ProcessDirty2DViews(Viewer2DOffscreenRenderer *offscreen
         Viewer2DRenderOverrides captureOverrides =
             previousOverrides.value_or(Viewer2DRenderOverrides{});
         captureOverrides.drawFixtureLabels = true;
+        captureOverrides.symbolCaptureRenderProfile = false;
         capturePanel->SetRenderOverrides(captureOverrides);
         capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
         const bool rendered =

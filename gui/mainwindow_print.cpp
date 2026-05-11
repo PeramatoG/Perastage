@@ -425,7 +425,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   const double scaleY =
       layoutPageH > 0.0 ? outputPageH / layoutPageH : 1.0;
 
-  const bool useSimplifiedFootprints = !settings.detailedFootprints;
+  // Forces symbol-instancing capture for layout PDF export so repeated models become reusable PDF XObjects.
+  const bool useSimplifiedFootprints = true;
   const bool includeGrid = true;
   std::vector<layouts::Layout2DViewDefinition> layoutViews =
       layout->view2dViews;
