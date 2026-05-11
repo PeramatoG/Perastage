@@ -29,7 +29,6 @@
 #endif
 
 #include <GL/glew.h>
-#include "glew_init_utils.h"
 // macOS uses the OpenGL framework headers; guard includes for cross-platform builds.
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -99,7 +98,6 @@ wxRect BuildPointDirtyRegion(const wxPoint &point, int radius) {
   return wxRect(point.x - radius, point.y - radius, size, size);
 }
 
-// Verifies framebuffer/viewport postconditions after rendering and restores a safe viewport when needed.
 void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
                                 int expectedHeight) {
   GLint framebuffer = 0;
@@ -119,11 +117,7 @@ void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
   }
   wxASSERT_MSG(validFramebuffer,
                "Unexpected non-default framebuffer after 2D render.");
-  if (!validViewport) {
-    // High-DPI backends (notably macOS) may leave a scaled viewport after
-    // context switches; restore the logical viewport expected by this panel.
-    glViewport(0, 0, expectedWidth, expectedHeight);
-  }
+  wxASSERT_MSG(validViewport, "Unexpected viewport after 2D render.");
 }
 
 bool TryAllocateCaptureBuffer(std::vector<unsigned char> &pixels, int width,
@@ -735,22 +729,17 @@ void Viewer2DPanel::InvalidateBottomSymbolCache() {
   m_controller.ClearBottomSymbolCache();
 }
 
-// Initializes 2D OpenGL state only when GLEW/context validation succeeds.
 void Viewer2DPanel::InitGL() {
   if (!IsShownOnScreen() && !m_forceOffscreenRender &&
       !m_allowOffscreenRender) {
     return;
   }
+  if (!SetCurrent(*m_glContext)) {
+    return;
+  }
   if (!m_glInitialized) {
-    const GLEWInitResult initResult =
-        InitializeGlewForCurrentContext(*this, *m_glContext, "Viewer2DPanel");
-    if (!initResult.success) {
-      wxLogError("%s", initResult.message);
-      return;
-    }
-    if (initResult.isWarningOnly) {
-      wxLogDebug("%s", initResult.message);
-    }
+    glewExperimental = GL_TRUE;
+    glewInit();
     m_controller.InitializeGL();
     glEnable(GL_DEPTH_TEST);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -758,13 +747,7 @@ void Viewer2DPanel::InitGL() {
   }
 }
 
-// Renders one interactive frame after making the panel GL context current when available.
-void Viewer2DPanel::Render() {
-  if (m_glContext) {
-    SetCurrent(*m_glContext);
-  }
-  RenderInternal(true);
-}
+void Viewer2DPanel::Render() { RenderInternal(true); }
 
 void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   static unsigned long long s_renderFrameId = 0;
@@ -1098,7 +1081,6 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   return true;
 }
 
-// Handles paint events by initializing GL state and drawing the current 2D frame.
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
   ResetRepaintCoalescing();

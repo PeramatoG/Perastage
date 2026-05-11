@@ -16,7 +16,6 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvrexporter.h"
-#include "app_version.h"
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
 #include "gdtf_mutation_audit.h"
@@ -29,7 +28,6 @@
 #include "truss_gdtf_builder.h"
 
 #include <wx/wfstream.h>
-#include <wx/mstream.h>
 #include <wx/wx.h>
 class wxZipStreamLink;
 #include <wx/filename.h>
@@ -104,7 +102,7 @@ static bool IsCanonicalUuidString(const std::string &value);
 static void LogLegacyPositionUuidWarning(const std::string &message);
 
 static constexpr const char *kMvrProvider = "Perastage";
-static constexpr const char *kPerastageUserDataSchemaVersion = "1.0";
+static constexpr const char *kMvrProviderVersion = "1.0";
 static constexpr const char *kDummyFallbackFixtureGdtfFileName = "Dummy 1ch.gdtf";
 static constexpr const char *kLegacyFallbackFixtureGdtfFileName = "Generic 1ch.gdtf";
 
@@ -898,7 +896,7 @@ static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument
 
   tinyxml2::XMLElement *data = doc.NewElement("Data");
   data->SetAttribute("provider", kMvrProvider);
-  data->SetAttribute("ver", kPerastageUserDataSchemaVersion);
+  data->SetAttribute("ver", kMvrProviderVersion);
   ud->InsertEndChild(data);
   return data;
 }
@@ -1055,20 +1053,6 @@ static bool ExtractZip(const std::string &zipPath, const std::string &destDir) {
   return true;
 }
 
-// Chooses ZIP compression mode from entry extension and source size heuristics.
-static int SelectZipCompressionMethod(const std::string &entryName,
-                                      std::uintmax_t sourceSize) {
-  const std::string ext = ToLowerAscii(fs::path(entryName).extension().string());
-  if (ext == ".mvr" || ext == ".gdtf" || ext == ".png" || ext == ".jpg" ||
-      ext == ".jpeg" || ext == ".zip" || ext == ".gz" || ext == ".7z" ||
-      ext == ".pdf")
-    return wxZIP_METHOD_STORE;
-  if (sourceSize < 96)
-    return wxZIP_METHOD_STORE;
-  return wxZIP_METHOD_DEFLATE;
-}
-
-// Packs a directory recursively into a ZIP archive using per-entry compression heuristics.
 static bool ZipDir(const std::string &srcDir, const std::string &dstZip) {
   wxFileOutputStream output(dstZip);
   if (!output.IsOk())
@@ -1079,8 +1063,7 @@ static bool ZipDir(const std::string &srcDir, const std::string &dstZip) {
       continue;
     fs::path rel = fs::relative(p.path(), srcDir);
     auto *e = new wxZipEntry(rel.generic_string());
-    const auto sourceSize = p.file_size();
-    e->SetMethod(SelectZipCompressionMethod(rel.generic_string(), sourceSize));
+    e->SetMethod(wxZIP_METHOD_DEFLATE);
     zip.PutNextEntry(e);
     std::ifstream in(p.path(), std::ios::binary);
     char buf[4096];
@@ -1096,28 +1079,6 @@ static bool ZipDir(const std::string &srcDir, const std::string &dstZip) {
   return true;
 }
 
-// Builds a deterministic cache key for a patched GDTF variant from source path and overrides.
-static std::string BuildPatchedGdtfCacheKey(const std::string &gdtfPath,
-                                            const GdtfOverrides &ov) {
-  std::ostringstream key;
-  key << "path=" << gdtfPath
-      << "|color=" << ov.color
-      << "|hasWeightKg=" << ov.hasWeightKg
-      << "|weightKg=" << ov.weightKg
-      << "|hasPowerW=" << ov.hasPowerW
-      << "|powerW=" << ov.powerW
-      << "|hasLengthMm=" << ov.hasLengthMm
-      << "|lengthMm=" << ov.lengthMm
-      << "|hasWidthMm=" << ov.hasWidthMm
-      << "|widthMm=" << ov.widthMm
-      << "|hasHeightMm=" << ov.hasHeightMm
-      << "|heightMm=" << ov.heightMm
-      << "|manufacturer=" << ov.manufacturer
-      << "|model=" << ov.model;
-  return key.str();
-}
-
-// Creates a temporary patched GDTF archive that applies export-time fixture overrides.
 static std::string CreatePatchedGdtf(const std::string &gdtfPath,
                                      const GdtfOverrides &ov) {
   std::string tempDir = CreateTempDir();
@@ -1192,63 +1153,7 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
   return outPath;
 }
 
-// Defines an abstract sink that receives ZIP archive bytes and optional file metadata.
-class MvrArchiveSink {
-public:
-  virtual ~MvrArchiveSink() = default;
-  virtual wxOutputStream &Stream() = 0;
-  virtual const std::string *ArchiveFilePath() const = 0;
-};
-
-// Implements an archive sink backed by a filesystem output stream.
-class FileMvrArchiveSink final : public MvrArchiveSink {
-public:
-  // Initializes a file-backed archive sink that writes ZIP output to the requested path.
-  explicit FileMvrArchiveSink(const std::string &archivePath)
-      : archivePath_(archivePath), output_(archivePath) {}
-
-  // Reports whether the underlying file output stream is ready for writing.
-  bool IsOk() const { return output_.IsOk(); }
-
-  // Returns the stream that receives serialized archive bytes.
-  wxOutputStream &Stream() override { return output_; }
-
-  // Provides the archive file path for file-size metrics logging.
-  const std::string *ArchiveFilePath() const override { return &archivePath_; }
-
-private:
-  std::string archivePath_;
-  wxFileOutputStream output_;
-};
-
-// Implements an archive sink backed by an in-memory output stream.
-class MemoryMvrArchiveSink final : public MvrArchiveSink {
-public:
-  // Returns the in-memory stream that receives serialized archive bytes.
-  wxOutputStream &Stream() override { return output_; }
-
-  // Indicates that this sink has no filesystem archive path metadata.
-  const std::string *ArchiveFilePath() const override { return nullptr; }
-
-  // Copies the in-memory archive bytes into the caller-provided output buffer.
-  bool ToBuffer(std::vector<unsigned char> &outputBuffer) {
-    const size_t archiveSize = output_.GetSize();
-    outputBuffer.resize(archiveSize);
-    if (archiveSize == 0)
-      return true;
-    output_.CopyTo(outputBuffer.data(), archiveSize);
-    return true;
-  }
-
-private:
-  wxMemoryOutputStream output_;
-};
-
-// Serializes the current scene into an MVR archive through an abstract sink.
-static bool ExportMvrArchiveToSink(MvrArchiveSink &sink) {
-  wxOutputStream &output = sink.Stream();
-  const std::string *archiveFilePath = sink.ArchiveFilePath();
-  const auto exportStart = std::chrono::steady_clock::now();
+bool MvrExporter::ExportToFile(const std::string &filePath) {
   const auto &scene = ConfigManager::Get().GetScene();
   const TrussGeometryAuthority trussGeometryAuthority = GetTrussGeometryAuthoritySetting();
   std::unordered_map<std::string, std::string> positions;
@@ -1371,6 +1276,10 @@ static bool ExportMvrArchiveToSink(MvrArchiveSink &sink) {
     }
     return {};
   };
+
+  wxFileOutputStream output(filePath);
+  if (!output.IsOk())
+    return false;
 
   wxZipOutputStream zip(output);
 
@@ -1627,7 +1536,7 @@ static bool ExportMvrArchiveToSink(MvrArchiveSink &sink) {
   root->SetAttribute("verMinor", 6);
   root->SetAttribute("provider", scene.provider.empty() ? kMvrProvider : scene.provider.c_str());
   root->SetAttribute("providerVersion",
-                     scene.providerVersion.empty() ? app::kVersion
+                     scene.providerVersion.empty() ? kMvrProviderVersion
                                                    : scene.providerVersion.c_str());
   doc.InsertEndChild(root);
 
@@ -1862,8 +1771,8 @@ static bool ExportMvrArchiveToSink(MvrArchiveSink &sink) {
 
     tinyxml2::XMLElement *ud = doc.NewElement("UserData");
     tinyxml2::XMLElement *data = doc.NewElement("Data");
-    data->SetAttribute("provider", kMvrProvider);
-    data->SetAttribute("ver", kPerastageUserDataSchemaVersion);
+    data->SetAttribute("provider", "Perastage");
+    data->SetAttribute("ver", "1.0");
     tinyxml2::XMLElement *info = doc.NewElement("FixtureInfo");
     info->SetAttribute("uuid", stableUuid.c_str());
 
@@ -2056,8 +1965,8 @@ static bool ExportMvrArchiveToSink(MvrArchiveSink &sink) {
     if (hasMeta) {
       tinyxml2::XMLElement *ud = doc.NewElement("UserData");
       tinyxml2::XMLElement *data = doc.NewElement("Data");
-      data->SetAttribute("provider", kMvrProvider);
-      data->SetAttribute("ver", kPerastageUserDataSchemaVersion);
+      data->SetAttribute("provider", "Perastage");
+      data->SetAttribute("ver", "1.0");
       tinyxml2::XMLElement *info = doc.NewElement("TrussInfo");
       info->SetAttribute("uuid", t.uuid.c_str());
       auto addTxt = [&](const char *n, const std::string &v) {
@@ -2325,7 +2234,7 @@ static bool ExportMvrArchiveToSink(MvrArchiveSink &sink) {
       if (!primitiveGeometryModelRefs.empty()) {
         tinyxml2::XMLElement *ud = doc.NewElement("UserData");
         tinyxml2::XMLElement *data = doc.NewElement("Data");
-        data->SetAttribute("provider", kMvrProvider);
+        data->SetAttribute("provider", "Perastage");
         tinyxml2::XMLElement *map = doc.NewElement("PrimitiveGeometryMap");
         for (const auto &[archiveFileName, modelRef] : primitiveGeometryModelRefs) {
           tinyxml2::XMLElement *entry = doc.NewElement("Entry");
@@ -2592,8 +2501,8 @@ static bool ExportMvrArchiveToSink(MvrArchiveSink &sink) {
   if (!trussArchiveByTypeKey.empty()) {
     tinyxml2::XMLElement *rootUserData = doc.NewElement("UserData");
     tinyxml2::XMLElement *data = doc.NewElement("Data");
-    data->SetAttribute("provider", kMvrProvider);
-    data->SetAttribute("ver", kPerastageUserDataSchemaVersion);
+    data->SetAttribute("provider", "Perastage");
+    data->SetAttribute("ver", "1.0");
     tinyxml2::XMLElement *manifest = doc.NewElement("TrussSidecarManifest");
     for (const auto &[typeKey, archivePath] : trussArchiveByTypeKey) {
       tinyxml2::XMLElement *typeNode = doc.NewElement("Type");
@@ -2624,38 +2533,18 @@ static bool ExportMvrArchiveToSink(MvrArchiveSink &sink) {
 
   std::unordered_map<std::string, int> plannedArchiveEntries;
   plannedArchiveEntries["GeneralSceneDescription.xml"] = 1;
-  std::unordered_map<std::string, std::string> patchedGdtfPathByCacheKey;
-  int patchedGdtfGenerated = 0;
-  int patchedGdtfReused = 0;
 
   for (auto &entry : resourceEntries) {
     if (!fs::exists(entry.sourcePath))
       continue;
     auto cit = gdtfOverrides.find(entry.archivePath);
     if (cit != gdtfOverrides.end()) {
-      const std::string cacheKey =
-          BuildPatchedGdtfCacheKey(entry.sourcePath.string(), cit->second);
-      auto cacheIt = patchedGdtfPathByCacheKey.find(cacheKey);
-      if (cacheIt != patchedGdtfPathByCacheKey.end()) {
-        entry.sourcePath = fs::path(cacheIt->second);
-        ++patchedGdtfReused;
-      } else {
-        std::string tmp = CreatePatchedGdtf(entry.sourcePath.string(), cit->second);
-        if (!tmp.empty()) {
-          patchedGdtfPathByCacheKey.emplace(cacheKey, tmp);
-          entry.sourcePath = fs::path(tmp);
-          ++patchedGdtfGenerated;
-        }
-      }
+      std::string tmp = CreatePatchedGdtf(entry.sourcePath.string(), cit->second);
+      if (!tmp.empty())
+        entry.sourcePath = fs::path(tmp);
     }
     ++plannedArchiveEntries[entry.archivePath];
   }
-
-  Logger::Instance().Log(
-      Logger::Level::Info,
-      wxString::Format("MVR export patched_gdtf_generated=%d patched_gdtf_reused=%d",
-                       patchedGdtfGenerated, patchedGdtfReused)
-          .ToStdString());
 
   if (!ValidateMvr16Export(doc, gdtfArchiveByObjectUuid, plannedArchiveEntries)) {
     zip.Close();
@@ -2675,8 +2564,7 @@ static bool ExportMvrArchiveToSink(MvrArchiveSink &sink) {
       return false;
     }
     auto *entry = new wxZipEntry("GeneralSceneDescription.xml");
-    entry->SetMethod(
-        SelectZipCompressionMethod("GeneralSceneDescription.xml", xmlData.size()));
+    entry->SetMethod(wxZIP_METHOD_DEFLATE);
     zip.PutNextEntry(entry);
     zip.Write(xmlData.c_str(), xmlData.size());
     zip.CloseEntry();
@@ -2691,10 +2579,7 @@ static bool ExportMvrArchiveToSink(MvrArchiveSink &sink) {
       return false;
     }
     auto *e = new wxZipEntry(resource.archivePath);
-    std::error_code ec;
-    const auto sourceSize = fs::file_size(resource.sourcePath, ec);
-    e->SetMethod(
-        SelectZipCompressionMethod(resource.archivePath, ec ? 0 : sourceSize));
+    e->SetMethod(wxZIP_METHOD_DEFLATE);
     zip.PutNextEntry(e);
     std::ifstream in(resource.sourcePath, std::ios::binary);
     char buf[4096];
@@ -2708,48 +2593,5 @@ static bool ExportMvrArchiveToSink(MvrArchiveSink &sink) {
   }
 
   zip.Close();
-  const auto exportEnd = std::chrono::steady_clock::now();
-  std::error_code archiveEc;
-  std::uintmax_t archiveSize = 0;
-  if (archiveFilePath != nullptr) {
-    archiveSize = fs::file_size(*archiveFilePath, archiveEc);
-  } else {
-    const wxFileOffset streamPos = output.TellO();
-    if (streamPos != wxInvalidOffset)
-      archiveSize = static_cast<std::uintmax_t>(streamPos);
-  }
-  std::uintmax_t sourceBytes = xmlData.size();
-  for (const auto &resource : resourceEntries) {
-    if (!fs::exists(resource.sourcePath))
-      continue;
-    std::error_code sizeEc;
-    sourceBytes += fs::file_size(resource.sourcePath, sizeEc);
-  }
-  Logger::Instance().Log(
-      Logger::Level::Info,
-      wxString::Format(
-          "MVR export metrics duration_ms=%lld source_bytes=%llu archive_bytes=%llu",
-          static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                                     exportEnd - exportStart)
-                                     .count()),
-          static_cast<unsigned long long>(sourceBytes),
-          static_cast<unsigned long long>(archiveEc ? 0 : archiveSize))
-          .ToStdString());
   return true;
-}
-
-// Exports the current scene into an MVR package written through the file-backed sink.
-bool MvrExporter::ExportToFile(const std::string &filePath) {
-  FileMvrArchiveSink sink(filePath);
-  if (!sink.IsOk())
-    return false;
-  return ExportMvrArchiveToSink(sink);
-}
-
-// Exports the current scene into an in-memory MVR package without filesystem staging.
-bool MvrExporter::ExportToBuffer(std::vector<unsigned char> &outputBuffer) {
-  MemoryMvrArchiveSink sink;
-  if (!ExportMvrArchiveToSink(sink))
-    return false;
-  return sink.ToBuffer(outputBuffer);
 }

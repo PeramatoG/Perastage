@@ -43,7 +43,6 @@ private:
   void OnGridStyle(wxCommandEvent &evt);
   void OnGridColor(wxColourPickerEvent &evt);
   void OnDrawAbove(wxCommandEvent &evt);
-  void OnGridSpacing(wxSpinDoubleEvent &evt);
   void OnShowRuler(wxCommandEvent &evt);
   void OnRulerAxisXPosition(wxSpinDoubleEvent &evt);
   void OnRulerAxisYPosition(wxSpinDoubleEvent &evt);
@@ -80,7 +79,6 @@ private:
   wxRadioBox *m_gridStyle = nullptr;
   wxColourPickerCtrl *m_gridColor = nullptr;
   wxCheckBox *m_drawAbove = nullptr;
-  wxSpinCtrlDouble *m_gridSpacing = nullptr;
   wxCheckBox *m_showRuler = nullptr;
   wxSpinCtrlDouble *m_rulerAxisXPosition = nullptr;
   wxSpinCtrlDouble *m_rulerAxisYPosition = nullptr;
