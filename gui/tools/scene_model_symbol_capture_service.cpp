@@ -20,8 +20,10 @@ namespace {
 
 constexpr float kSymbolRdpEpsilon = 1.0f;
 
+// Stores and temporarily overrides the selected fixture color during symbol capture.
 class ScopedFixtureColorOverride {
 public:
+  // Applies a temporary color override to the target fixture when requested.
   ScopedFixtureColorOverride(ConfigManager &cfg, const std::string &fixtureUuid,
                              const std::optional<std::string> &forcedHex)
       : cfg_(cfg) {
@@ -35,6 +37,7 @@ public:
     it->second.color = *forcedHex;
   }
 
+  // Restores the original fixture colors after capture completes.
   ~ScopedFixtureColorOverride() {
     auto &fixtures = cfg_.GetScene().fixtures;
     for (const auto &[uuid, color] : previous_) {
@@ -49,8 +52,10 @@ private:
   std::vector<std::pair<std::string, std::string>> previous_;
 };
 
+// Isolates one scene model in the scene and restores the original scene afterward.
 class ScopedSingleModelSceneOverride {
 public:
+  // Replaces scene contents with only the requested target model for deterministic capture.
   ScopedSingleModelSceneOverride(ConfigManager &cfg,
                                  const SceneModelSymbolTarget &target,
                                  bool alignToLocalAxes)
@@ -100,6 +105,7 @@ public:
     }
   }
 
+  // Restores the full original scene collections when the scope ends.
   ~ScopedSingleModelSceneOverride() {
     auto &scene = cfg_.GetScene();
     scene.fixtures = std::move(originalFixtures_);
@@ -109,6 +115,7 @@ public:
   }
 
 private:
+  // Rebuilds a transform with identity rotation while preserving scale and origin.
   static Matrix AlignRotationToIdentityKeepingScale(const Matrix &source) {
     Matrix identity = MatrixUtils::Identity();
     return MatrixUtils::ApplyRotationPreservingScale(source, identity, source.o);
@@ -121,8 +128,10 @@ private:
   std::unordered_map<std::string, Support> originalSupports_;
 };
 
+// Saves and restores Viewer2D panel state around symbol capture operations.
 class ScopedViewer2DCaptureState {
 public:
+  // Snapshots current Viewer2D state before capture mutates view/render settings.
   explicit ScopedViewer2DCaptureState(Viewer2DPanel &panel) : panel_(panel) {
     const Viewer2DViewState state = panel_.GetViewState();
     offsetXPixels_ = state.offsetPixelsX;
@@ -135,6 +144,7 @@ public:
         panel_.GetPreferPerastageSvgSymbolsForLayouts();
   }
 
+  // Restores previously saved Viewer2D state after capture is finished.
   ~ScopedViewer2DCaptureState() {
     panel_.ApplyViewState(offsetXPixels_, offsetYPixels_, zoom_, view_,
                           renderMode_);
@@ -155,20 +165,24 @@ private:
   bool preferPerastageSvgSymbolsForLayouts_ = false;
 };
 
+// Applies temporary Viewer2D render overrides for symbol capture rendering.
 class ScopedViewer2DRenderOverrides {
 public:
+  // Sets the given render overrides for the lifetime of the scope.
   ScopedViewer2DRenderOverrides(Viewer2DPanel &panel,
                                 const Viewer2DRenderOverrides &overrides)
       : panel_(panel) {
     panel_.SetRenderOverrides(overrides);
   }
 
+  // Clears temporary render overrides when leaving scope.
   ~ScopedViewer2DRenderOverrides() { panel_.SetRenderOverrides(std::nullopt); }
 
 private:
   Viewer2DPanel &panel_;
 };
 
+// Mirrors a captured side-view image horizontally to match left-view convention.
 void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
   if (render.width <= 0 || render.height <= 0)
     return;
@@ -191,6 +205,7 @@ void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
 
 } // namespace
 
+// Captures front/top/left/bottom orthographic symbol images and builds vector symbols.
 SceneModelSymbolCaptureResult
 CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
                                      ConfigManager &cfg,
@@ -224,6 +239,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   renderer.SetViewportSize(options.viewportSize);
   renderer.PrepareForCapture();
   renderer.ApplySymbolCaptureDefaults();
+  capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
 
   {
     std::vector<unsigned char> warmupPixels;
