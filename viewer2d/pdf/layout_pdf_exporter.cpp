@@ -67,26 +67,24 @@ constexpr std::array<const char *, 7> kEventTableLabels = {
     "Venue:", "Location:", "Date:", "Stage:",
     "Version:", "Design:", "Mail:"};
 
-// Returns whether label-order tracing is enabled via environment configuration.
+// Returns whether label-order tracing is enabled via an environment variable.
 static bool ShouldTraceLabelOrder() {
   static const bool enabled = std::getenv("PERASTAGE_TRACE_LABELS") != nullptr;
   return enabled;
 }
 
-
-
-// Returns whether a legend symbol key is eligible for lazy GDTF SVG loading.
-// Returns whether legend keys should trigger lazy SVG loading from GDTF files.
+// Returns whether a legend symbol key points to a loadable GDTF resource.
 bool ShouldLoadLegendSvgFromKey(const std::string &symbolKey) {
   if (symbolKey.empty())
     return false;
+
   std::filesystem::path symbolPath(symbolKey);
   std::string extension = symbolPath.extension().string();
   std::transform(extension.begin(), extension.end(), extension.begin(),
                  [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
   return extension == ".gdtf";
 }
-// Converts an optional legend fill hex color into an RGB triple for PDF output.
+// Converts an optional hex fill color into normalized RGB values for PDF output.
 std::array<double, 3> ResolveLegendSvgFillRgb(
     const std::optional<std::string> &hexColor) {
   constexpr std::array<double, 3> kDefaultGray = {0.878, 0.878, 0.878};
@@ -1670,6 +1668,13 @@ Viewer2DExportResult ExportLayoutToPdf(
     for (const auto &item : legend.items) {
       if (item.symbolKey.empty())
         continue;
+      const PerastageSvgSymbolData *topSvg =
+          item.showBottomSymbol
+              ? findLegendSvg(item.symbolKey, SymbolViewKind::Bottom)
+              : nullptr;
+      const PerastageSvgSymbolData *frontSvg =
+          item.showFrontSymbol ? findLegendSvg(item.symbolKey, SymbolViewKind::Front)
+                               : nullptr;
       const SymbolDefinition *topSymbol =
           (item.showBottomSymbol && legendSymbolsForSizing)
               ? FindSymbolDefinitionPreferred(legendSymbolsForSizing, item.symbolKey,
@@ -1679,15 +1684,7 @@ Viewer2DExportResult ExportLayoutToPdf(
           (item.showFrontSymbol && legendSymbolsForSizing)
               ? FindSymbolDefinitionExact(legendSymbolsForSizing, item.symbolKey,
                                           SymbolViewKind::Front)
-              : nullptr;
-      const PerastageSvgSymbolData *topSvg =
-          item.showBottomSymbol
-              ? findLegendSvg(item.symbolKey, SymbolViewKind::Bottom)
-              : nullptr;
-      const PerastageSvgSymbolData *frontSvg =
-          item.showFrontSymbol
-              ? findLegendSvg(item.symbolKey, SymbolViewKind::Front)
-              : nullptr;
+          : nullptr;
       maxTopSymbolColumnWidth = std::max(
           maxTopSymbolColumnWidth,
           topSvg ? symbolDrawWidthSvg(topSvg) : symbolDrawWidth(topSymbol));
@@ -1717,6 +1714,12 @@ Viewer2DExportResult ExportLayoutToPdf(
         continue;
       const bool topVisible = item.showBottomSymbol;
       const bool frontVisible = item.showFrontSymbol;
+      const PerastageSvgSymbolData *topSvg =
+          topVisible ? findLegendSvg(item.symbolKey, SymbolViewKind::Bottom)
+                     : nullptr;
+      const PerastageSvgSymbolData *frontSvg =
+          frontVisible ? findLegendSvg(item.symbolKey, SymbolViewKind::Front)
+                       : nullptr;
       const SymbolDefinition *topSymbol = legendSymbolsForSizing
           ? FindSymbolDefinitionPreferred(legendSymbolsForSizing, item.symbolKey,
                                           SymbolViewKind::Bottom)
@@ -1725,14 +1728,6 @@ Viewer2DExportResult ExportLayoutToPdf(
           ? FindSymbolDefinitionExact(legendSymbolsForSizing, item.symbolKey,
                                       SymbolViewKind::Front)
           : nullptr;
-      const PerastageSvgSymbolData *topSvg =
-          topVisible
-              ? findLegendSvg(item.symbolKey, SymbolViewKind::Bottom)
-              : nullptr;
-      const PerastageSvgSymbolData *frontSvg =
-          frontVisible
-              ? findLegendSvg(item.symbolKey, SymbolViewKind::Front)
-              : nullptr;
       if ((topVisible && topSvg) || (frontVisible && frontSvg)) {
         hasSvgSymbols = true;
       }
@@ -1851,6 +1846,14 @@ Viewer2DExportResult ExportLayoutToPdf(
         const SymbolDefinitionSnapshot *legendSymbols =
             legend.symbolSnapshot ? legend.symbolSnapshot.get()
                                   : symbolSnapshot.get();
+        const PerastageSvgSymbolData *topSvg =
+            item.showBottomSymbol
+                ? findLegendSvg(item.symbolKey, SymbolViewKind::Bottom)
+                : nullptr;
+        const PerastageSvgSymbolData *frontSvg =
+            item.showFrontSymbol
+                ? findLegendSvg(item.symbolKey, SymbolViewKind::Front)
+                : nullptr;
         const SymbolDefinition *topSymbol =
             (item.showBottomSymbol && legendSymbols)
                 ? FindSymbolDefinitionPreferred(legendSymbols, item.symbolKey,
@@ -1860,14 +1863,6 @@ Viewer2DExportResult ExportLayoutToPdf(
             (item.showFrontSymbol && legendSymbols)
                 ? FindSymbolDefinitionExact(legendSymbols, item.symbolKey,
                                             SymbolViewKind::Front)
-                : nullptr;
-        const PerastageSvgSymbolData *topSvg =
-            item.showBottomSymbol
-                ? findLegendSvg(item.symbolKey, SymbolViewKind::Bottom)
-                : nullptr;
-        const PerastageSvgSymbolData *frontSvg =
-            item.showFrontSymbol
-                ? findLegendSvg(item.symbolKey, SymbolViewKind::Front)
                 : nullptr;
 
         const double topDrawW =
