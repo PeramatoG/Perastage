@@ -14,6 +14,7 @@
 #include "guiconfigservices.h"
 #include "mainwindow.h"
 #include "opaque_pass_utils.h"
+#include "tools/fixture_symbol_3d_capture_service.h"
 #include "tools/scene_model_symbol_capture_service.h"
 #include "tools/symbol_physical_calibration.h"
 #include "windows/SymbolPreviewWindow.h"
@@ -21,6 +22,7 @@
 namespace tools {
 namespace {
 
+// Returns true when a fixture matches at least one candidate model key.
 bool FixtureMatchesModelKeys(const Fixture &fixture,
                              const std::vector<std::string> &modelKeys) {
   if (!fixture.gdtfSpec.empty() &&
@@ -36,6 +38,7 @@ bool FixtureMatchesModelKeys(const Fixture &fixture,
   return false;
 }
 
+// Finds a deterministic fixture UUID candidate for the selected model keys.
 std::string FindSingleFixtureUuidForModelKeys(
     const std::unordered_map<std::string, Fixture> &fixtures,
     const std::vector<std::string> &modelKeys) {
@@ -49,6 +52,7 @@ std::string FindSingleFixtureUuidForModelKeys(
   return selectedUuid;
 }
 
+// Builds fixture type options shown in the generation dialog.
 std::vector<FixtureSymbolTypeOption> BuildFixtureOptions() {
   std::vector<FixtureSymbolTypeOption> options;
   auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
@@ -82,6 +86,7 @@ std::vector<FixtureSymbolTypeOption> BuildFixtureOptions() {
 
 } // namespace
 
+// Runs the interactive fixture symbol generation workflow.
 void RunFixtureSymbolGeneration(MainWindow &window) {
   auto options = BuildFixtureOptions();
   if (options.empty()) {
@@ -135,4 +140,3 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
 }
 
 } // namespace tools
-#include "tools/fixture_symbol_3d_capture_service.h"

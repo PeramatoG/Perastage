@@ -173,6 +173,7 @@ private:
   Viewer2DPanel &panel_;
 };
 
+// Mirrors the rendered side-view image so it matches left-view symbol orientation.
 void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
   if (render.width <= 0 || render.height <= 0)
     return;
@@ -210,8 +211,8 @@ std::string BuildSymbolFingerprint(const std::vector<symbols::Symbol2D> &symbols
       ss << ';';
     }
     for (const auto &polyline : symbol.strokes) {
-      ss << 'l' << polyline.points.size() << ',' << symbol.strokeWidthPx;
-      for (const auto &point : polyline.points)
+      ss << 'l' << polyline.size() << ',' << symbol.strokeWidthPx;
+      for (const auto &point : polyline)
         ss << ',' << point.x << ',' << point.y;
       ss << ';';
     }
@@ -221,6 +222,7 @@ std::string BuildSymbolFingerprint(const std::vector<symbols::Symbol2D> &symbols
 
 } // namespace
 
+// Captures orthographic symbol source images for one scene model and vectorizes them.
 SceneModelSymbolCaptureResult
 CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
                                      ConfigManager &cfg,
