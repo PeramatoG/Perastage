@@ -83,6 +83,7 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems(
     item.count = shared.count;
     item.channelCount = shared.channelCount;
     item.symbolKey = shared.symbolKey;
+    item.gdtfPath = shared.gdtfPath;
     item.symbolFillHex = shared.symbolFillHex;
     if (const auto it = settingsByType.find(shared.typeName);
         it != settingsByType.end()) {
@@ -339,6 +340,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
       opts.useSimplifiedFootprints, opts.printIncludeGrid);
 }
 
+// Captures layout views and exports them as a PDF using the current print settings.
 void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   // Flow overview: validate selection and 2D resources, collect settings/file,
   // scale frames to the output, and capture views sequentially before exporting

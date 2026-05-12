@@ -809,6 +809,7 @@ LayoutViewerPanel::BuildLegendItems() const {
     item.count = shared.count;
     item.channelCount = shared.channelCount;
     item.symbolKey = shared.symbolKey;
+    item.gdtfPath = shared.gdtfPath;
     item.symbolFillHex = shared.symbolFillHex;
     if (const auto it = settingsByType.find(shared.typeName);
         it != settingsByType.end()) {

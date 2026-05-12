@@ -67,6 +67,7 @@ struct LayoutLegendItem {
   int count = 0;
   std::optional<int> channelCount;
   std::string symbolKey;
+  std::string gdtfPath;
   std::optional<std::string> symbolFillHex;
   bool showBottomSymbol = true;
   bool showFrontSymbol = true;

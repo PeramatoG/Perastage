@@ -2158,9 +2158,29 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       std::vector<unsigned char> pixels;
       int width = 0;
       int height = 0;
+      const auto previousOverrides = capturePanel->GetRenderOverrides();
+      const bool previousPreferLayoutSvgSymbols =
+          capturePanel->GetPreferPerastageSvgSymbolsForLayouts();
+      struct ScopedCapturePanelRestore {
+        Viewer2DPanel *panel = nullptr;
+        std::optional<Viewer2DRenderOverrides> overrides;
+        bool preferLayoutSvgSymbols = false;
+        ~ScopedCapturePanelRestore() {
+          if (!panel)
+            return;
+          panel->SetRenderOverrides(overrides);
+          panel->SetPreferPerastageSvgSymbolsForLayouts(preferLayoutSvgSymbols);
+        }
+      } scopedRestore{capturePanel, previousOverrides,
+                      previousPreferLayoutSvgSymbols};
+
+      Viewer2DRenderOverrides previewOverrides =
+          previousOverrides.value_or(Viewer2DRenderOverrides{});
+      previewOverrides.drawFixtureLabels = true;
+      previewOverrides.symbolCaptureRenderProfile = false;
+      capturePanel->SetRenderOverrides(previewOverrides);
       capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
       const bool rendered = capturePanel->RenderToRGBA(pixels, width, height);
-      capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
       if (!rendered || width <= 0 || height <= 0) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);

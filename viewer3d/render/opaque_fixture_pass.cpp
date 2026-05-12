@@ -908,6 +908,7 @@ void OpaqueFixturePass::Render(
           controller.m_captureView == Viewer2DView::Side) &&
          mode != Viewer2DRenderMode::Wireframe &&
          !highlight && !selected);
+    bool placedSymbolInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
       if (!modelKey.empty()) {
         const Viewer2DView fixtureCaptureView =
@@ -1005,7 +1006,15 @@ void OpaqueFixturePass::Render(
             BuildInstanceTransform2D(fixtureTransform, fixtureCaptureView);
         controller.m_captureCanvas->PlaceSymbolInstance(symbol.symbolId,
                                                         instanceTransform);
+        placedSymbolInstance = true;
       }
+    }
+
+    if (placedSymbolInstance) {
+      glPopMatrix();
+      if (controller.m_captureCanvas && !skipCapture)
+        controller.m_captureCanvas->SetSourceKey("unknown");
+      continue;
     }
 
     auto drawFixtureGeometry = [&]() {
@@ -1077,7 +1086,8 @@ void OpaqueFixturePass::Render(
       continue;
     }
 
-    if (context.skipOptionalWork) {
+    // Uses proxy/instanced fixture draws for fast interaction when semantic capture is not active.
+    if (context.skipOptionalWork && !captureRecordingActive) {
       ++frameMetrics.instancedFixtures;
       if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
         const auto &parts = itg->second;
