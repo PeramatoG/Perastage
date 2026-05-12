@@ -239,6 +239,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   renderer.SetViewportSize(options.viewportSize);
   renderer.PrepareForCapture();
   renderer.ApplySymbolCaptureDefaults();
+  capturePanel->InvalidateBottomSymbolCache();
 
   {
     std::vector<unsigned char> warmupPixels;
