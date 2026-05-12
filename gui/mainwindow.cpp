@@ -1291,15 +1291,12 @@ void MainWindow::EnableShortcuts(bool enable) {
     SetAcceleratorTable(wxAcceleratorTable());
 }
 
-// Refreshes visible and offscreen renderers after generated fixture symbols modify a GDTF.
 void MainWindow::RefreshAfterFixtureSymbolUpdate() {
   if (viewport2DPanel) {
-    viewport2DPanel->InvalidateFixtureSymbolRenderResources();
+    viewport2DPanel->InvalidateBottomSymbolCache();
     viewport2DPanel->UpdateScene(true);
     viewport2DPanel->Refresh();
   }
-  if (offscreenViewer2DRenderer && offscreenViewer2DRenderer->GetPanel())
-    offscreenViewer2DRenderer->GetPanel()->InvalidateFixtureSymbolRenderResources();
   if (layoutViewerPanel)
     layoutViewerPanel->RefreshAfterFixtureSymbolUpdate();
 }

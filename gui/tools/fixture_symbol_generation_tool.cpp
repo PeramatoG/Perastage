@@ -16,7 +16,6 @@
 #include "opaque_pass_utils.h"
 #include "tools/scene_model_symbol_capture_service.h"
 #include "tools/symbol_physical_calibration.h"
-#include "viewer2doffscreenrenderer.h"
 #include "windows/SymbolPreviewWindow.h"
 
 namespace tools {
@@ -100,12 +99,6 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
       selection >= static_cast<int>(options.size())) {
     return;
   }
-  Viewer2DOffscreenRenderer *offscreenRenderer = window.GetOffscreenRenderer();
-  if (!offscreenRenderer) {
-    wxMessageBox("Could not prepare offscreen renderer.",
-                 "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
-    return;
-  }
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const std::string selectedFixtureUuid =
       FindSingleFixtureUuidForModelKeys(cfg.GetScene().fixtures,
@@ -119,10 +112,8 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   const std::string forcedFixtureColor = "#3FA9F5";
   SceneModelSymbolCaptureOptions captureOptions;
   captureOptions.forcedFixtureColor = forcedFixtureColor;
-  auto capture = CaptureSceneModelOrthographicSymbols(
-      *offscreenRenderer, cfg,
-      SceneModelSymbolTarget{SceneModelKind::Fixture, selectedFixtureUuid},
-      captureOptions);
+  auto capture = CaptureFixtureSymbolsFromDedicatedRenderer(
+      window, cfg, selectedFixtureUuid, captureOptions);
   if (!capture.ok) {
     wxMessageBox(capture.error, "Generate Fixture Symbols", wxOK | wxICON_ERROR,
                  &window);
@@ -144,3 +135,4 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
 }
 
 } // namespace tools
+#include "tools/fixture_symbol_3d_capture_service.h"

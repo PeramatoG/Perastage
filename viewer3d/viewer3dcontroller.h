@@ -169,8 +169,6 @@ public:
   void SetSymbolCaptureRenderProfileOverride(const std::optional<bool> &value);
   void SetSymbolCaptureIncludeCoplanarEdgesOverride(
       const std::optional<bool> &value);
-  void SetSuppressExistingFixtureSvgSymbolsForCaptureOverride(
-      const std::optional<bool> &value);
   std::optional<bool> GetForceBottomViewForTopFixturesOverride() const;
   std::optional<bool> GetSymbolCaptureRenderProfileOverride() const;
 

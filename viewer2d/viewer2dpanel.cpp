@@ -729,12 +729,6 @@ void Viewer2DPanel::InvalidateBottomSymbolCache() {
   m_controller.ClearBottomSymbolCache();
 }
 
-// Clears symbol-related caches and marks rendering resources dirty after GDTF updates.
-void Viewer2DPanel::InvalidateFixtureSymbolRenderResources() {
-  m_controller.ClearBottomSymbolCache();
-  m_controller.MarkResourceSyncPending();
-}
-
 void Viewer2DPanel::InitGL() {
   if (!IsShownOnScreen() && !m_forceOffscreenRender &&
       !m_allowOffscreenRender) {
@@ -856,7 +850,6 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   std::optional<bool> forceBottomViewForTopFixturesOverride;
   std::optional<bool> symbolCaptureRenderProfileOverride;
   std::optional<bool> symbolCaptureIncludeCoplanarEdgesOverride;
-  std::optional<bool> suppressExistingFixtureSvgSymbolsForCaptureOverride;
   if (m_renderOverrides) {
     forceBottomViewForTopFixturesOverride =
         m_renderOverrides->forceBottomViewForTopFixtures;
@@ -864,8 +857,6 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
         m_renderOverrides->symbolCaptureRenderProfile;
     symbolCaptureIncludeCoplanarEdgesOverride =
         m_renderOverrides->symbolCaptureIncludeCoplanarEdges;
-    suppressExistingFixtureSvgSymbolsForCaptureOverride =
-        m_renderOverrides->suppressExistingFixtureSvgSymbolsForCapture;
   }
   m_controller.SetForceBottomViewForTopFixturesOverride(
       forceBottomViewForTopFixturesOverride);
@@ -873,8 +864,6 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       symbolCaptureRenderProfileOverride);
   m_controller.SetSymbolCaptureIncludeCoplanarEdgesOverride(
       symbolCaptureIncludeCoplanarEdgesOverride);
-  m_controller.SetSuppressExistingFixtureSvgSymbolsForCaptureOverride(
-      suppressExistingFixtureSvgSymbolsForCaptureOverride);
 
   std::unique_ptr<ICanvas2D> recordingCanvas;
   if (m_captureNextFrame) {

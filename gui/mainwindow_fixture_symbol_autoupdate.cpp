@@ -13,6 +13,7 @@
 #include "opaque_pass_utils.h"
 #include "splashscreen.h"
 #include "tools/scene_model_symbol_capture_service.h"
+#include "tools/fixture_symbol_3d_capture_service.h"
 #include "tools/symbol_physical_calibration.h"
 #include "windows/symbol_fixture_applier.h"
 
@@ -227,32 +228,13 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
                               fixtureLabel + "'.",
                           false);
 
-  Viewer2DOffscreenRenderer *offscreenRenderer = GetOffscreenRenderer();
-  if (!offscreenRenderer) {
-    fixtureSymbolAutoUpdateRunning = false;
-    ReportFixtureAutoUpdate(*this, consolePanel,
-                            "Fixture symbol auto-update: stopped (offscreen renderer unavailable).",
-                            false);
-    fixtureSymbolAutoUpdateErrors.push_back(
-        "Stopped: offscreen renderer unavailable");
-    ReportFixtureAutoUpdate(*this, consolePanel,
-                            BuildFixtureSymbolAutoUpdateSummary());
-    if (fixtureSymbolAutoUpdateCompletionCallback) {
-      auto completionCallback = fixtureSymbolAutoUpdateCompletionCallback;
-      fixtureSymbolAutoUpdateCompletionCallback = nullptr;
-      completionCallback();
-    }
-    return;
-  }
 
   const std::string forcedFixtureColor = "#3FA9F5";
   tools::SceneModelSymbolCaptureOptions captureOptions;
   captureOptions.forcedFixtureColor = forcedFixtureColor;
 
-  auto capture = tools::CaptureSceneModelOrthographicSymbols(
-      *offscreenRenderer, cfg,
-      tools::SceneModelSymbolTarget{tools::SceneModelKind::Fixture, fixtureUuid},
-      captureOptions);
+  auto capture = tools::CaptureFixtureSymbolsFromDedicatedRenderer(
+      *this, cfg, fixtureUuid, captureOptions);
   if (!capture.ok) {
     ReportFixtureAutoUpdate(
         *this, consolePanel,

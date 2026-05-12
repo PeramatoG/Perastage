@@ -131,7 +131,6 @@ struct Viewer3DController::Impl {
   std::optional<bool> forceBottomViewForTopFixturesOverride;
   std::optional<bool> symbolCaptureRenderProfileOverride;
   std::optional<bool> symbolCaptureIncludeCoplanarEdgesOverride;
-  std::optional<bool> suppressExistingFixtureSvgSymbolsForCaptureOverride;
   SymbolCache bottomSymbolCache;
   bool darkMode = false;
   Viewer2DRenderMode activeRenderMode = Viewer2DRenderMode::White;
@@ -979,8 +978,6 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.is2DViewer = is2DViewer;
   context.preferPerastageSvgSymbolsForLayouts =
       preferPerastageSvgSymbolsForLayouts;
-  context.suppressExistingFixtureSvgSymbolsForCapture =
-      m_impl->suppressExistingFixtureSvgSymbolsForCaptureOverride.value_or(false);
 
   m_impl->useAdaptiveLineProfile =
       cfg.GetFloat("viewer3d_adaptive_line_profile") >= 0.5f;
@@ -2062,9 +2059,4 @@ std::array<double, 16> &Viewer3DController::GetVisibleSetModel() const {
 
 std::array<double, 16> &Viewer3DController::GetVisibleSetProjection() const {
   return m_impl->visibleSetProjection;
-}
-// Stores an override that forces fixture capture to ignore existing SVG symbols.
-void Viewer3DController::SetSuppressExistingFixtureSvgSymbolsForCaptureOverride(
-    const std::optional<bool> &value) {
-  m_impl->suppressExistingFixtureSvgSymbolsForCaptureOverride = value;
 }

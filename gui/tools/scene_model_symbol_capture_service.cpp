@@ -1,6 +1,9 @@
 #include "tools/scene_model_symbol_capture_service.h"
 
 #include <array>
+#include <cmath>
+#include <cstdint>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
@@ -14,6 +17,7 @@
 #include "truss.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dpanel.h"
+#include <wx/log.h>
 
 namespace tools {
 namespace {
@@ -189,9 +193,34 @@ void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
   }
 }
 
+// Builds a stable textual fingerprint to compare symbol captures across repeated runs.
+std::string BuildSymbolFingerprint(const std::vector<symbols::Symbol2D> &symbols) {
+  std::ostringstream ss;
+  ss.setf(std::ios::fixed);
+  ss.precision(3);
+  for (const auto &symbol : symbols) {
+    ss << static_cast<int>(symbol.view) << ':';
+    ss << symbol.bounds.min.x << ',' << symbol.bounds.min.y << ','
+       << symbol.bounds.max.x << ',' << symbol.bounds.max.y << ';';
+    ss << symbol.fill.size() << ',' << symbol.strokes.size() << ';';
+    for (const auto &polygon : symbol.fill) {
+      ss << 'p' << polygon.outer.size();
+      for (const auto &point : polygon.outer)
+        ss << ',' << point.x << ',' << point.y;
+      ss << ';';
+    }
+    for (const auto &polyline : symbol.strokes) {
+      ss << 'l' << polyline.points.size() << ',' << symbol.strokeWidthPx;
+      for (const auto &point : polyline.points)
+        ss << ',' << point.x << ',' << point.y;
+      ss << ';';
+    }
+  }
+  return ss.str();
+}
+
 } // namespace
 
-// Captures orthographic symbols from isolated scene geometry for a single model.
 SceneModelSymbolCaptureResult
 CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
                                      ConfigManager &cfg,
@@ -219,7 +248,6 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   renderOverrides.forceBottomViewForTopFixtures = false;
   renderOverrides.symbolCaptureRenderProfile = true;
   renderOverrides.symbolCaptureIncludeCoplanarEdges = true;
-  renderOverrides.suppressExistingFixtureSvgSymbolsForCapture = true;
   ScopedViewer2DRenderOverrides scopedRenderOverrides(*capturePanel,
                                                       renderOverrides);
 
@@ -280,6 +308,10 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
   for (auto &symbol : symbols)
     symbols::SimplifySymbolGeometry(symbol, kSymbolRdpEpsilon);
+
+  wxLogTrace("fixture_symbol_capture",
+             "Fixture symbol capture fingerprint for %s: %s",
+             target.uuid, BuildSymbolFingerprint(symbols));
 
   result.ok = true;
   result.symbols = std::move(symbols);
