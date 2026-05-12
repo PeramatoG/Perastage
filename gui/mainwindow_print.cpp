@@ -340,6 +340,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
       opts.useSimplifiedFootprints, opts.printIncludeGrid);
 }
 
+// Captures layout views and exports them as a PDF using the current print settings.
 void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   // Flow overview: validate selection and 2D resources, collect settings/file,
   // scale frames to the output, and capture views sequentially before exporting
@@ -425,7 +426,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   const double scaleY =
       layoutPageH > 0.0 ? outputPageH / layoutPageH : 1.0;
 
-  const bool useSimplifiedFootprints = true;
+  const bool useSimplifiedFootprints = !settings.detailedFootprints;
   const bool includeGrid = true;
   std::vector<layouts::Layout2DViewDefinition> layoutViews =
       layout->view2dViews;
@@ -486,10 +487,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       std::make_shared<std::vector<LayoutImageExportData>>(
           std::move(layoutImages));
 
-  const bool previousPreferLayoutSvgSymbols =
-      capturePanel ? capturePanel->GetPreferPerastageSvgSymbolsForLayouts() : false;
   if (capturePanel)
-    capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
+    capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
 
   auto captureNext =
       std::make_shared<std::function<void(size_t)>>();
@@ -497,8 +496,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       [this, captureNext, exportViews, layoutViews, offscreenRenderer,
        capturePanel, cfgPtr, useSimplifiedFootprints, includeGrid, scaleX,
        scaleY, outputPageW, outputPageH, outputLandscape, exportLegends,
-       exportTables, exportTexts, exportImages, outputPathWx,
-       previousPreferLayoutSvgSymbols](size_t index) mutable {
+       exportTables, exportTexts, exportImages, outputPathWx](size_t index) mutable {
         if (index >= layoutViews.size()) {
           Viewer2DPrintOptions opts;
           opts.pageWidthPt = outputPageW;
@@ -550,10 +548,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
               }
             });
           }).detach();
-          if (capturePanel) {
-            capturePanel->SetPreferPerastageSvgSymbolsForLayouts(
-                previousPreferLayoutSvgSymbols);
-          }
+          if (capturePanel)
+            capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
           return;
         }
 
