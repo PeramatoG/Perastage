@@ -38,7 +38,7 @@ struct LegendAggregate {
   bool hasMixedColors = false;
 };
 
-// Normalizes a raw color string into a canonical #RRGGBB legend color value.
+// Normalizes fixture color text into a canonical #RRGGBB value when valid.
 std::optional<std::string> NormalizeHexColor(const std::string &raw) {
   std::string value;
   value.reserve(raw.size());
@@ -61,7 +61,7 @@ std::optional<std::string> NormalizeHexColor(const std::string &raw) {
 }
 } // namespace
 
-// Builds grouped legend rows with counts, channels, colors, and symbol keys.
+// Builds grouped layout legend entries with counts, channels, symbols, and colors.
 std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
   std::map<std::string, LegendAggregate> aggregates;
   const auto &fixtures =
@@ -93,7 +93,7 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
       typeName = "Unknown";
 
     int chCount = GetGdtfModeChannelCount(fullPath, fixture.gdtfMode);
-    const std::string symbolKey = fullPath;
+    const std::string symbolKey = BuildFixtureSymbolKey(fixture, basePath);
 
     LegendAggregate &agg = aggregates[typeName];
     agg.count += 1;
