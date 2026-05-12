@@ -339,6 +339,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
       opts.useSimplifiedFootprints, opts.printIncludeGrid);
 }
 
+// Captures layout views and exports them to PDF using the print pipeline settings.
 void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   // Flow overview: validate selection and 2D resources, collect settings/file,
   // scale frames to the output, and capture views sequentially before exporting
@@ -424,7 +425,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   const double scaleY =
       layoutPageH > 0.0 ? outputPageH / layoutPageH : 1.0;
 
-  const bool useSimplifiedFootprints = !settings.detailedFootprints;
+  const bool useSimplifiedFootprints = false;
   const bool includeGrid = true;
   std::vector<layouts::Layout2DViewDefinition> layoutViews =
       layout->view2dViews;
