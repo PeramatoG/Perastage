@@ -67,13 +67,13 @@ constexpr std::array<const char *, 7> kEventTableLabels = {
     "Venue:", "Location:", "Date:", "Stage:",
     "Version:", "Design:", "Mail:"};
 
-// Returns whether label-order tracing is enabled via an environment variable.
+// Returns whether label-order tracing diagnostics are enabled through the environment.
 static bool ShouldTraceLabelOrder() {
   static const bool enabled = std::getenv("PERASTAGE_TRACE_LABELS") != nullptr;
   return enabled;
 }
 
-// Returns whether a legend symbol key points to a loadable GDTF resource.
+// Returns whether a legend symbol key can be lazily loaded as a GDTF SVG.
 bool ShouldLoadLegendSvgFromKey(const std::string &symbolKey) {
   if (symbolKey.empty())
     return false;
@@ -84,7 +84,7 @@ bool ShouldLoadLegendSvgFromKey(const std::string &symbolKey) {
                  [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
   return extension == ".gdtf";
 }
-// Converts an optional hex fill color into normalized RGB values for PDF output.
+// Converts an optional legend hex color into normalized RGB values.
 std::array<double, 3> ResolveLegendSvgFillRgb(
     const std::optional<std::string> &hexColor) {
   constexpr std::array<double, 3> kDefaultGray = {0.878, 0.878, 0.878};
