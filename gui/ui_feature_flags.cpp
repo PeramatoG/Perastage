@@ -57,6 +57,7 @@ void ApplyBuildDefaultsToViewer2DPrintSettings(
 
   settings.pageSize = print::PageSize::A4;
   settings.includeGrid = true;
+  settings.detailedFootprints = false;
 }
 
 } // namespace ui

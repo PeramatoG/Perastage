@@ -1077,7 +1077,8 @@ void OpaqueFixturePass::Render(
       continue;
     }
 
-    if (context.skipOptionalWork) {
+    // Uses proxy/instanced fixture draws for fast interaction when semantic capture is not active.
+    if (context.skipOptionalWork && !captureRecordingActive) {
       ++frameMetrics.instancedFixtures;
       if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
         const auto &parts = itg->second;
