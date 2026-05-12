@@ -38,6 +38,7 @@ struct LegendAggregate {
   bool hasMixedColors = false;
 };
 
+// Normalizes fixture color text into a canonical #RRGGBB value when valid.
 std::optional<std::string> NormalizeHexColor(const std::string &raw) {
   std::string value;
   value.reserve(raw.size());
@@ -60,6 +61,7 @@ std::optional<std::string> NormalizeHexColor(const std::string &raw) {
 }
 } // namespace
 
+// Builds grouped layout legend entries with counts, channels, symbols, and colors.
 std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
   std::map<std::string, LegendAggregate> aggregates;
   const auto &fixtures =

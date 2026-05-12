@@ -32,6 +32,7 @@ constexpr bool kIsDebugBuild =
 
 namespace ui {
 
+// Returns whether a UI feature flag is enabled for the current build profile.
 bool IsFeatureEnabled(FeatureFlag flag) {
   switch (flag) {
   case FeatureFlag::GenerateFixtureSymbols:
@@ -48,6 +49,7 @@ bool IsFeatureEnabled(FeatureFlag flag) {
   return false;
 }
 
+// Applies build-profile defaults to 2D print settings before showing dialogs/exporting.
 void ApplyBuildDefaultsToViewer2DPrintSettings(
     print::Viewer2DPrintSettings &settings) {
   if (kIsDebugBuild)
@@ -55,7 +57,6 @@ void ApplyBuildDefaultsToViewer2DPrintSettings(
 
   settings.pageSize = print::PageSize::A4;
   settings.includeGrid = true;
-  settings.detailedFootprints = false;
 }
 
 } // namespace ui
