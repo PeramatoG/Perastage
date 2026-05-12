@@ -24,6 +24,7 @@
 #include <wx/filename.h>
 
 #include "configmanager.h"
+#include "fixtures/fixture_gdtf_resolution.h"
 #include "gdtfloader.h"
 #include "guiconfigservices.h"
 #include "legendutils.h"
@@ -34,6 +35,7 @@ struct LegendAggregate {
   std::optional<int> channelCount;
   bool mixedChannels = false;
   std::string symbolKey;
+  std::string gdtfPath;
   std::optional<std::string> firstColor;
   bool hasMixedColors = false;
 };
@@ -94,6 +96,12 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
 
     int chCount = GetGdtfModeChannelCount(fullPath, fixture.gdtfMode);
     const std::string symbolKey = BuildFixtureSymbolKey(fixture, basePath);
+    MvrScene scene;
+    scene.basePath = basePath;
+    gui::fixtures::FixtureGdtfResolution resolution;
+    std::string resolutionError;
+    gui::fixtures::ResolveFixtureGdtfDeterministic(
+        fixture, scene, resolution, resolutionError, "build-layout-legend-items");
 
     LegendAggregate &agg = aggregates[typeName];
     agg.count += 1;
@@ -110,6 +118,8 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
     // symbol even when the type contains mixed fixture variants.
     if (agg.symbolKey.empty() && !symbolKey.empty())
       agg.symbolKey = symbolKey;
+    if (agg.gdtfPath.empty() && !resolution.selectedPath.empty())
+      agg.gdtfPath = resolution.selectedPath;
 
     const std::optional<std::string> fixtureColor =
         NormalizeHexColor(fixture.color);
@@ -131,6 +141,7 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
     if (agg.channelCount.has_value() && !agg.mixedChannels)
       item.channelCount = agg.channelCount;
     item.symbolKey = agg.symbolKey;
+    item.gdtfPath = agg.gdtfPath;
     if (agg.firstColor.has_value() && !agg.hasMixedColors)
       item.symbolFillHex = agg.firstColor;
     items.push_back(item);
