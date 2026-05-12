@@ -23,9 +23,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
-#include <sstream>
 #include <thread>
-#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -41,7 +39,6 @@
 #include "hoisttablepanel.h"
 #include "layouttextutils.h"
 #include "layoutlegenditems.h"
-#include "logger.h"
 #include "Viewer2DPrintSettings.h"
 #include "print_diagnostics.h"
 #include "sceneobjecttablepanel.h"
@@ -54,87 +51,6 @@
 #include "LayoutManager.h"
 
 namespace {
-struct LayoutPdfCaptureCommandStats {
-  size_t total = 0;
-  size_t line = 0;
-  size_t polyline = 0;
-  size_t polygon = 0;
-  size_t rectangle = 0;
-  size_t circle = 0;
-  size_t beginSymbol = 0;
-  size_t endSymbol = 0;
-  size_t placeSymbol = 0;
-  size_t symbolInstance = 0;
-  size_t text = 0;
-  std::unordered_set<uint32_t> symbolInstanceIds;
-};
-
-// Builds a compact diagnostic summary for layout PDF capture command structure.
-std::string BuildLayoutPdfCaptureDiagnostics(
-    size_t viewIndex, const CommandBuffer &buffer,
-    const std::shared_ptr<const SymbolDefinitionSnapshot> &symbolSnapshot) {
-  LayoutPdfCaptureCommandStats stats;
-  stats.total = buffer.commands.size();
-  for (const auto &command : buffer.commands) {
-    std::visit(
-        [&](const auto &cmd) {
-          using T = std::decay_t<decltype(cmd)>;
-          if constexpr (std::is_same_v<T, LineCommand>) {
-            ++stats.line;
-          } else if constexpr (std::is_same_v<T, PolylineCommand>) {
-            ++stats.polyline;
-          } else if constexpr (std::is_same_v<T, PolygonCommand>) {
-            ++stats.polygon;
-          } else if constexpr (std::is_same_v<T, RectangleCommand>) {
-            ++stats.rectangle;
-          } else if constexpr (std::is_same_v<T, CircleCommand>) {
-            ++stats.circle;
-          } else if constexpr (std::is_same_v<T, BeginSymbolCommand>) {
-            ++stats.beginSymbol;
-          } else if constexpr (std::is_same_v<T, EndSymbolCommand>) {
-            ++stats.endSymbol;
-          } else if constexpr (std::is_same_v<T, PlaceSymbolCommand>) {
-            ++stats.placeSymbol;
-          } else if constexpr (std::is_same_v<T, SymbolInstanceCommand>) {
-            ++stats.symbolInstance;
-            stats.symbolInstanceIds.insert(cmd.symbolId);
-          } else if constexpr (std::is_same_v<T, TextCommand>) {
-            ++stats.text;
-          }
-        },
-        command);
-  }
-
-  size_t matchedSymbolIds = 0;
-  const bool hasSnapshot = static_cast<bool>(symbolSnapshot);
-  const size_t snapshotSize = hasSnapshot ? symbolSnapshot->size() : 0;
-  if (hasSnapshot) {
-    for (uint32_t symbolId : stats.symbolInstanceIds) {
-      if (symbolSnapshot->find(symbolId) != symbolSnapshot->end())
-        ++matchedSymbolIds;
-    }
-  }
-
-  std::ostringstream out;
-  out << "Layout PDF capture view " << viewIndex
-      << ": total=" << stats.total
-      << " line=" << stats.line
-      << " polyline=" << stats.polyline
-      << " polygon=" << stats.polygon
-      << " rectangle=" << stats.rectangle
-      << " circle=" << stats.circle
-      << " beginSymbol=" << stats.beginSymbol
-      << " endSymbol=" << stats.endSymbol
-      << " placeSymbol=" << stats.placeSymbol
-      << " symbolInstance=" << stats.symbolInstance
-      << " text=" << stats.text
-      << " symbolSnapshot=" << (hasSnapshot ? "non-null" : "null")
-      << " symbolSnapshotSize=" << snapshotSize
-      << " symbolInstanceIds=" << stats.symbolInstanceIds.size()
-      << " matchedSymbolIds=" << matchedSymbolIds;
-  return out.str();
-}
-
 void SetPrintStatus(MainWindow *window, const wxString &message) {
   if (!window || !window->GetStatusBar())
     return;
@@ -689,8 +605,25 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
               if (capturePanel)
                 data.symbolSnapshot =
                     capturePanel->GetBottomSymbolCacheSnapshot();
-              Logger::Instance().Log(BuildLayoutPdfCaptureDiagnostics(
-                  exportViews->size(), data.buffer, data.symbolSnapshot));
+              size_t symbolInstanceCount = 0;
+              size_t placeSymbolCount = 0;
+              size_t polygonCount = 0;
+              for (const auto &command : data.buffer.commands) {
+                if (std::holds_alternative<SymbolInstanceCommand>(command))
+                  ++symbolInstanceCount;
+                else if (std::holds_alternative<PlaceSymbolCommand>(command))
+                  ++placeSymbolCount;
+                else if (std::holds_alternative<PolygonCommand>(command))
+                  ++polygonCount;
+              }
+              const size_t symbolSnapshotSize =
+                  data.symbolSnapshot ? data.symbolSnapshot->size() : 0;
+              wxLogMessage(
+                  "PERASTAGE_LAYOUT_PDF_CAPTURE_CALLBACK index=%zu commands=%zu "
+                  "symbolInstance=%zu placeSymbol=%zu polygon=%zu symbolSnapshotSize=%zu",
+                  exportViews->size(), data.buffer.commands.size(),
+                  symbolInstanceCount, placeSymbolCount, polygonCount,
+                  symbolSnapshotSize);
               exportViews->push_back(std::move(data));
               (*captureNext)(exportViews->size());
             },
