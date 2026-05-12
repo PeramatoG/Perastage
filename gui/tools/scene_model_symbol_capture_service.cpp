@@ -239,7 +239,6 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   renderer.SetViewportSize(options.viewportSize);
   renderer.PrepareForCapture();
   renderer.ApplySymbolCaptureDefaults();
-  capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
 
   {
     std::vector<unsigned char> warmupPixels;

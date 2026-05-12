@@ -677,6 +677,7 @@ void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
 } // namespace
 
 // Renders visible fixtures using instanced paths when possible and fallback draws otherwise.
+// Renders opaque fixture geometry and capture symbols for the current 2D/3D pass.
 void OpaqueFixturePass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
     const Viewer3DVisibleSet &visibleSet,
@@ -900,6 +901,8 @@ void OpaqueFixturePass::Render(
       }
     }
 
+    const bool symbolCaptureProfileActive =
+        controller.IsSymbolCaptureRenderProfileEnabled(mode);
     const bool useSymbolInstancing =
         (controller.m_captureUseSymbols &&
          (controller.m_captureView == Viewer2DView::Bottom ||
@@ -925,7 +928,7 @@ void OpaqueFixturePass::Render(
             controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
                                                          uint32_t symbolId) {
               SymbolDefinition svgDefinition{};
-              if (!svgSourcePath.empty() &&
+              if (!symbolCaptureProfileActive && !svgSourcePath.empty() &&
                   TryBuildPerastageSvgSymbolDefinition(svgSourcePath,
                                                        symbolKey.viewKind,
                                                        symbolId,
