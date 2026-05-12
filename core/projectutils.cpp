@@ -146,6 +146,7 @@ bool IsDirectoryWritable(const fs::path& dir)
     return true;
 }
 
+// Resolves the base library directory by searching executable, working, and platform resource locations.
 fs::path GetBaseLibraryPath(const std::string& subdir)
 {
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
@@ -155,9 +156,20 @@ fs::path GetBaseLibraryPath(const std::string& subdir)
         return *found;
     if (auto found = FindExistingPath(fs::current_path(), suffix))
         return *found;
+    const wxString resourcesDir = wxStandardPaths::Get().GetResourcesDir();
+    if (!resourcesDir.empty()) {
+        fs::path resourcesPath = WxStringToPath(resourcesDir);
+        fs::path resourcesLibrary = resourcesPath / "library" / subdir;
+        std::error_code ec;
+        if (fs::exists(resourcesLibrary, ec) && !ec &&
+            fs::is_directory(resourcesLibrary, ec) && !ec) {
+            return resourcesLibrary;
+        }
+    }
     return exeBase / suffix;
 }
 
+// Resolves the runtime resources root by checking executable-relative paths and platform bundle locations.
 fs::path GetResourceRoot()
 {
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
@@ -171,7 +183,11 @@ fs::path GetResourceRoot()
     if (!resourcesDir.empty()) {
         fs::path resourcesPath = WxStringToPath(resourcesDir);
         std::error_code ec;
-        if (fs::exists(resourcesPath, ec))
+        const fs::path nestedResources = resourcesPath / "resources";
+        if (fs::exists(nestedResources, ec) && !ec &&
+            fs::is_directory(nestedResources, ec) && !ec)
+            return nestedResources;
+        if (fs::exists(resourcesPath, ec) && !ec)
             return resourcesPath;
     }
     return {};
