@@ -119,8 +119,14 @@ jobs:
       - name: Build staged distribution
         run: |
           cmake --build --preset wsl-release-stage
-          test -f out/install/Release/Perastage || { echo "Missing staged executable: out/install/Release/Perastage"; exit 1; }
-          test -x out/install/Release/Perastage || { echo "Staged executable is not executable"; exit 1; }
+
+          STAGE_DIR="out/install/Release"
+          test -f "$STAGE_DIR/Perastage" || { echo "Missing staged executable: $STAGE_DIR/Perastage"; exit 1; }
+          test -x "$STAGE_DIR/Perastage" || { echo "Staged executable is not executable"; exit 1; }
+          test -d "$STAGE_DIR/resources" || { echo "Missing staged resources directory"; exit 1; }
+          test -d "$STAGE_DIR/library" || { echo "Missing staged library directory"; exit 1; }
+          test -d "$STAGE_DIR/licenses" || { echo "Missing staged licenses directory"; exit 1; }
+          ls -la "$STAGE_DIR"
 
       - name: Upload staged distribution
         uses: actions/upload-artifact@v4
