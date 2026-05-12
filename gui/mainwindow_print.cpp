@@ -39,6 +39,7 @@
 #include "hoisttablepanel.h"
 #include "layouttextutils.h"
 #include "layoutlegenditems.h"
+#include "logger.h"
 #include "Viewer2DPrintSettings.h"
 #include "print_diagnostics.h"
 #include "sceneobjecttablepanel.h"
@@ -618,12 +619,14 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
               }
               const size_t symbolSnapshotSize =
                   data.symbolSnapshot ? data.symbolSnapshot->size() : 0;
-              wxLogMessage(
-                  "PERASTAGE_LAYOUT_PDF_CAPTURE_CALLBACK index=%zu commands=%zu "
-                  "symbolInstance=%zu placeSymbol=%zu polygon=%zu symbolSnapshotSize=%zu",
-                  exportViews->size(), data.buffer.commands.size(),
-                  symbolInstanceCount, placeSymbolCount, polygonCount,
-                  symbolSnapshotSize);
+              Logger::Instance().Log(
+                  "PERASTAGE_LAYOUT_PDF_CAPTURE_CALLBACK index=" +
+                  std::to_string(exportViews->size()) + " commands=" +
+                  std::to_string(data.buffer.commands.size()) +
+                  " symbolInstance=" + std::to_string(symbolInstanceCount) +
+                  " placeSymbol=" + std::to_string(placeSymbolCount) +
+                  " polygon=" + std::to_string(polygonCount) +
+                  " symbolSnapshotSize=" + std::to_string(symbolSnapshotSize));
               exportViews->push_back(std::move(data));
               (*captureNext)(exportViews->size());
             },
