@@ -191,6 +191,7 @@ void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
 
 } // namespace
 
+// Captures orthographic symbols from isolated scene geometry for a single model.
 SceneModelSymbolCaptureResult
 CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
                                      ConfigManager &cfg,
@@ -218,6 +219,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   renderOverrides.forceBottomViewForTopFixtures = false;
   renderOverrides.symbolCaptureRenderProfile = true;
   renderOverrides.symbolCaptureIncludeCoplanarEdges = true;
+  renderOverrides.suppressExistingFixtureSvgSymbolsForCapture = true;
   ScopedViewer2DRenderOverrides scopedRenderOverrides(*capturePanel,
                                                       renderOverrides);
 

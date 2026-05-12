@@ -873,7 +873,8 @@ void OpaqueFixturePass::Render(
     const bool preferLayoutSvg =
         context.preferPerastageSvgSymbolsForLayouts && is2DViewer &&
         !captureRecordingActive && mode != Viewer2DRenderMode::Wireframe;
-    if (preferLayoutSvg && !svgSourcePath.empty()) {
+    if (preferLayoutSvg && !context.suppressExistingFixtureSvgSymbolsForCapture &&
+        !svgSourcePath.empty()) {
       const Viewer2DView fixtureView =
           isTopView2D && forceBottomViewForTopFixtures ? Viewer2DView::Bottom
                                                        : context.view;

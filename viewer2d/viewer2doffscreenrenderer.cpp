@@ -53,10 +53,12 @@ void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
 void Viewer2DOffscreenRenderer::PrepareForCapture() {
   if (!panel_)
     return;
+  panel_->InvalidateFixtureSymbolRenderResources();
   panel_->SetRenderOverrides(std::nullopt);
   panel_->UpdateScene(true);
 }
 
+// Applies deterministic render settings required by fixture symbol capture.
 void Viewer2DOffscreenRenderer::ApplySymbolCaptureDefaults() {
   if (!panel_)
     return;
@@ -69,6 +71,7 @@ void Viewer2DOffscreenRenderer::ApplySymbolCaptureDefaults() {
   overrides.forceBottomViewForTopFixtures = false;
   overrides.symbolCaptureRenderProfile = true;
   overrides.symbolCaptureIncludeCoplanarEdges = true;
+  overrides.suppressExistingFixtureSvgSymbolsForCapture = true;
 
   panel_->SetRenderOverrides(overrides);
   panel_->SetPreferPerastageSvgSymbolsForLayouts(false);

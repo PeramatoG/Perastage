@@ -59,6 +59,7 @@ struct Viewer2DRenderOverrides {
   std::optional<bool> forceBottomViewForTopFixtures;
   std::optional<bool> symbolCaptureRenderProfile;
   std::optional<bool> symbolCaptureIncludeCoplanarEdges;
+  std::optional<bool> suppressExistingFixtureSvgSymbolsForCapture;
 };
 
 class Viewer2DPanel : public wxGLCanvas {
@@ -133,6 +134,7 @@ public:
   std::shared_ptr<const SymbolDefinitionSnapshot>
   GetBottomSymbolCacheSnapshot() const;
   void InvalidateBottomSymbolCache();
+  void InvalidateFixtureSymbolRenderResources();
 
   void SetLayoutEditOverlay(std::optional<float> aspectRatio,
                             std::optional<wxSize> viewportSize = std::nullopt);
