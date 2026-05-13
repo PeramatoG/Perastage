@@ -83,6 +83,7 @@ namespace {
 constexpr size_t kMaxCapturePixels = 8192u * 8192u;
 constexpr size_t kMaxCaptureBytes = 64u * 1024u * 1024u;
 
+// Builds an inflated dirty rectangle that covers selection drag endpoints.
 wxRect BuildSelectionRectDirtyRegion(const wxPoint &a, const wxPoint &b) {
   const int x = std::min(a.x, b.x);
   const int y = std::min(a.y, b.y);
@@ -91,6 +92,8 @@ wxRect BuildSelectionRectDirtyRegion(const wxPoint &a, const wxPoint &b) {
   wxRect rect(x, y, w, h);
   rect.Inflate(2);
   return rect;
+}
+
 // Logs offscreen viewport consistency metrics used by layout view cache captures.
 void LogOffscreenViewportMetrics(const char *stage, int clientWidth,
                                  int clientHeight, int renderWidth,
@@ -100,7 +103,6 @@ void LogOffscreenViewportMetrics(const char *stage, int clientWidth,
              "viewer2d_offscreen stage=%s client=%dx%d render=%dx%d read=%dx%d",
              stage != nullptr ? stage : "unknown", clientWidth, clientHeight,
              renderWidth, renderHeight, readWidth, readHeight);
-}
 }
 
 wxRect BuildPointDirtyRegion(const wxPoint &point, int radius) {
