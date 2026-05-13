@@ -131,15 +131,16 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
     return;
   }
   gui::fixtures::FixtureGdtfResolution resolution;
+  std::string resolutionError;
   if (!gui::fixtures::ResolveFixtureGdtfDeterministic(
-          fixtureIt->second, cfg.GetScene(), resolution,
-          gui::fixtures::ResolveFixtureGdtfOptions{})) {
+          fixtureIt->second, cfg.GetScene(), resolution, resolutionError,
+          "fixture-symbol-generation")) {
     wxMessageBox("Could not resolve fixture GDTF path for symbol capture.",
                  "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
     return;
   }
   const auto sanitizeResult =
-      BuildSanitizedFixtureCaptureGdtf(resolution.resolvedPath);
+      BuildSanitizedFixtureCaptureGdtf(resolution.selectedPath);
   if (!sanitizeResult.ok) {
     wxMessageBox(sanitizeResult.error, "Generate Fixture Symbols",
                  wxOK | wxICON_ERROR, &window);
