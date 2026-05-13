@@ -27,9 +27,6 @@
 #include <windows.h>
 #endif
 
-// Includes the OpenGL extension loader required for framebuffer entry points.
-#include <GL/glew.h>
-
 #ifdef __APPLE__
 #  include <OpenGL/gl.h>
 #  include <OpenGL/glu.h>
@@ -39,6 +36,7 @@
 #endif
 
 #include "configmanager.h"
+#include "gl_state_guard.h"
 #include "guiconfigservices.h"
 #include "LayoutManager.h"
 #include "ui_render_size.h"
@@ -54,9 +52,7 @@ void RestoreLayoutViewportState(LayoutViewerPanel *panel) {
   const RenderSize renderSize = ResolveRenderSize(panel);
   if (!renderSize.IsValid())
     return;
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  glDisable(GL_SCISSOR_TEST);
-  glViewport(0, 0, renderSize.width, renderSize.height);
+  glstate::ApplyKnownBaseOnscreenState(renderSize.width, renderSize.height);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   const wxSize logicalSize = panel->GetClientSize();
