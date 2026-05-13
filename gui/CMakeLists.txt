@@ -12,7 +12,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/fixture_gdtf_resolution.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/fixture_symbol_generation_tool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/fixture_category_assignment_tool.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/tools/fixture_symbol_capture_gdtf_sanitizer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/scene_model_symbol_capture_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/symbol_physical_calibration.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/windows/SymbolPreviewWindow.cpp

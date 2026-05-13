@@ -27,7 +27,6 @@ struct SceneModelSymbolTarget {
 struct SceneModelSymbolCaptureOptions {
   bool alignToLocalAxes = false;
   bool ignoreGeneratedPerastageSvgSymbolsForCapture = false;
-  std::optional<std::string> fixtureGdtfPathOverride;
   std::optional<std::string> forcedFixtureColor;
   wxSize viewportSize = wxSize(1200, 1200);
 };

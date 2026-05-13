@@ -54,8 +54,7 @@ class ScopedSingleModelSceneOverride {
 public:
   ScopedSingleModelSceneOverride(ConfigManager &cfg,
                                  const SceneModelSymbolTarget &target,
-                                 bool alignToLocalAxes,
-                                 const std::optional<std::string> &fixtureGdtfPathOverride)
+                                 bool alignToLocalAxes)
       : cfg_(cfg) {
     auto &scene = cfg_.GetScene();
     originalFixtures_ = scene.fixtures;
@@ -73,8 +72,6 @@ public:
       auto it = originalFixtures_.find(target.uuid);
       if (it != originalFixtures_.end()) {
         Fixture fixture = it->second;
-        if (fixtureGdtfPathOverride.has_value())
-          fixture.gdtfSpec = fixtureGdtfPathOverride.value();
         if (alignToLocalAxes)
           fixture.transform = AlignRotationToIdentityKeepingScale(fixture.transform);
         scene.fixtures.emplace(it->first, std::move(fixture));
@@ -217,8 +214,7 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
   ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
   ScopedSingleModelSceneOverride isolatedSceneOverride(cfg, target,
-                                                       options.alignToLocalAxes,
-                                                       options.fixtureGdtfPathOverride);
+                                                       options.alignToLocalAxes);
   ScopedFixtureColorOverride selectedFixtureColorOverride(
       cfg, target.kind == SceneModelKind::Fixture ? target.uuid : std::string(),
       options.forcedFixtureColor);
