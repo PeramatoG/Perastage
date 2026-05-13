@@ -25,6 +25,7 @@
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "guiconfigservices.h"
 #include "gdtfdictionary.h"
+#include "gdtfloader.h"
 #include "gdtf_mutation_audit.h"
 #include "windows/symbol_preview_exporter.h"
 
@@ -571,6 +572,7 @@ bool RewriteGdtf(const fs::path &sourcePath,
 
 } // namespace
 
+// Applies generated symbols into scene/library GDTF files and refreshes related fixture references.
 bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
                                const std::string &fixtureUuid,
                                std::string &errorMessage,
@@ -666,6 +668,7 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
       return false;
     }
     sceneUpdated = true;
+    InvalidateGdtfCacheEntry(writableScenePath);
   }
 
   if (options.updateLibraryCopy && !libraryPath.empty()) {
@@ -677,6 +680,8 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
       if (!sceneUpdated)
         return false;
     }
+    if (!libraryEqualsScene)
+      InvalidateGdtfCacheEntry(libraryPath);
   }
 
   if (libraryPath.empty() && !writableScenePath.empty() &&

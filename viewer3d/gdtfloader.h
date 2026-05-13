@@ -122,3 +122,6 @@ bool SetGdtfProperties(const std::string& gdtfPath,
                        float weightKg,
                        float powerW,
                        const std::string& modifiedByProgram);
+
+// Evicts cached parsed/extracted GDTF data for a specific file path.
+void InvalidateGdtfCacheEntry(const std::string& gdtfPath);

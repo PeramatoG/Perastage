@@ -208,6 +208,36 @@ static std::unordered_map<std::string, size_t> g_gdtfFailedAttempts;
 static std::unordered_map<std::string, std::string> g_gdtfFailureReasons;
 static std::recursive_mutex g_gdtfCacheMutex;
 
+// Builds a stable cache key for a GDTF file using its absolute path filename and content hash.
+static bool BuildGdtfStableKey(const std::string& gdtfPath, std::string& stableKeyOut) {
+    std::error_code ec;
+    fs::path absPath = fs::absolute(gdtfPath, ec);
+    if (ec)
+        return false;
+
+    std::ifstream file(absPath, std::ios::binary);
+    if (!file.is_open())
+        return false;
+
+    uint64_t hash = 14695981039346656037ull;
+    const uint64_t prime = 1099511628211ull;
+    char buffer[4096];
+    while (file.good()) {
+        file.read(buffer, sizeof(buffer));
+        std::streamsize read = file.gcount();
+        for (std::streamsize i = 0; i < read; ++i) {
+            hash ^= static_cast<unsigned char>(buffer[i]);
+            hash *= prime;
+        }
+    }
+
+    std::ostringstream oss;
+    oss << absPath.filename().string() << '|'
+        << std::hex << std::setw(16) << std::setfill('0') << hash;
+    stableKeyOut = oss.str();
+    return true;
+}
+
 struct MissingModelLog
 {
     size_t count = 0;
@@ -1055,27 +1085,12 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
         return nullptr;
     }
 
-    std::ifstream file(absPath, std::ios::binary);
-    if (!file.is_open())
+    std::string stableKey;
+    if (!BuildGdtfStableKey(absPath.string(), stableKey))
     {
         setReason("Cannot open GDTF file for hashing");
         return nullptr;
     }
-    uint64_t hash = 14695981039346656037ull;
-    const uint64_t prime = 1099511628211ull;
-    char buffer[4096];
-    while (file.good()) {
-        file.read(buffer, sizeof(buffer));
-        std::streamsize read = file.gcount();
-        for (std::streamsize i = 0; i < read; ++i) {
-            hash ^= static_cast<unsigned char>(buffer[i]);
-            hash *= prime;
-        }
-    }
-    std::ostringstream oss;
-    oss << absPath.filename().string() << '|'
-        << std::hex << std::setw(16) << std::setfill('0') << hash;
-    std::string stableKey = oss.str();
     if (outStableKey)
         *outStableKey = stableKey;
 
@@ -1717,7 +1732,24 @@ bool SetGdtfProperties(const std::string& gdtfPath,
     if (!ZipDir(extraction.Path(), gdtfPath))
         return false;
 
-    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
-    g_gdtfCache.erase(gdtfPath);
+    InvalidateGdtfCacheEntry(gdtfPath);
     return true;
+}
+
+// Removes cached extraction, parse and failure metadata for one GDTF file path.
+void InvalidateGdtfCacheEntry(const std::string& gdtfPath) {
+    std::string stableKey;
+    if (!BuildGdtfStableKey(gdtfPath, stableKey))
+        return;
+
+    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+    auto it = g_gdtfCache.find(stableKey);
+    if (it != g_gdtfCache.end()) {
+        std::error_code ec;
+        fs::remove_all(it->second.extractedDir, ec);
+        g_gdtfCache.erase(it);
+    }
+    g_failedGdtfCache.erase(stableKey);
+    g_gdtfFailedAttempts.erase(stableKey);
+    g_gdtfFailureReasons.erase(stableKey);
 }
