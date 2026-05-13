@@ -1,0 +1,78 @@
+# Main branch patch version bump and test installer dispatch workflow.
+
+name: Main Patch Version and Test Installer Builds
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: main-patch-version-bump
+  cancel-in-progress: false
+
+jobs:
+  bump-and-dispatch:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.ref == 'refs/heads/main' &&
+        github.actor != 'github-actions[bot]' &&
+        !contains(github.event.head_commit.message, '[skip version-bump]')
+      )
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bump patch version in VERSION
+        id: bump
+        run: |
+          set -euo pipefail
+
+          VERSION_RAW="$(tr -d '[:space:]' < VERSION)"
+          if ! [[ "$VERSION_RAW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION must be MAJOR.MINOR.PATCH, got: '$VERSION_RAW'"
+            exit 1
+          fi
+
+          IFS='.' read -r major minor patch <<< "$VERSION_RAW"
+          next_patch=$((patch + 1))
+          NEW_VERSION="${major}.${minor}.${next_patch}"
+
+          printf '%s\n' "$NEW_VERSION" > VERSION
+
+          echo "previous_version=$VERSION_RAW" >> "$GITHUB_OUTPUT"
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push VERSION bump
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add VERSION
+          git commit -m "chore: bump patch version to ${NEW_VERSION} [skip version-bump]"
+          git push origin HEAD:main
+
+      - name: Dispatch installer workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          gh workflow run windows-installer.yml --ref main
+          gh workflow run linux-installer.yml --ref main
+          gh workflow run macos-installer.yml --ref main

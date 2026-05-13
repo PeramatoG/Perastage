@@ -93,10 +93,22 @@ Suggested labels:
 - `ci`
 - `internal`
 
-## Recommended Future Automation
+## Main Branch PATCH Automation
 
-A future workflow may increment PATCH automatically after successful merges to `main` and upload test installers as workflow artifacts.
+PATCH is automatically incremented after normal updates to `main` by the `Main Patch Version and Test Installer Builds` workflow.
 
-A future manual workflow may increment MINOR, reset PATCH to `0`, build installers for Windows/Linux/macOS, create a tag, create a GitHub Release, generate release notes, and upload installers.
+The workflow validates `VERSION` using `MAJOR.MINOR.PATCH`, increments only PATCH, and commits the result back to `main`.
 
-A future manual MAJOR workflow may increment MAJOR, reset MINOR and PATCH to `0`, and create a draft release for manual review.
+The automated commit message includes `[skip version-bump]`, and the workflow skips commits that include this marker to prevent bump loops.
+
+The same workflow dispatches these existing installer workflows on `main` for test artifacts:
+
+- `windows-installer.yml`
+- `linux-installer.yml`
+- `macos-installer.yml`
+
+This automation does not create Git tags and does not create GitHub Releases.
+
+## Future Official Release Automation
+
+Official releases should continue to use a separate manual release workflow that increments MINOR or MAJOR as needed, creates an official tag, and creates a GitHub Release.

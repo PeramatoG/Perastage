@@ -141,9 +141,9 @@ jobs:
           APPDIR="Perastage.AppDir"
           STAGE_DIR="out/install/Release"
 
-          VERSION="$(sed -nE 's/^project\(Perastage VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt | head -n1)"
-          if [ -z "$VERSION" ]; then
-            echo "Failed to extract project version from CMakeLists.txt"
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION must be MAJOR.MINOR.PATCH, got: '$VERSION'"
             exit 1
           fi
 
@@ -210,6 +210,7 @@ jobs:
             cp -L "$LIB_PATH" "$APPDIR/usr/lib/$LIB_NAME"
           done
 
+          # Download a file and fail if it appears empty or unexpectedly small.
           download_checked() {
             local url="$1"
             local output="$2"
