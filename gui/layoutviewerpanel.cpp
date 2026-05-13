@@ -2051,6 +2051,7 @@ bool LayoutViewerPanel::InitGL() {
   return true;
 }
 
+// Rebuilds cached layout textures by capturing each dirty view using framebuffer-accurate viewport dimensions.
 void LayoutViewerPanel::RebuildCachedTexture() {
   try {
     if (!NeedsRenderRebuild())
@@ -2144,13 +2145,20 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   
       offscreenRenderer->SetViewportSize(renderSize);
       offscreenRenderer->PrepareForCapture();
+      const RenderSize physicalRenderSize = ResolveRenderSize(capturePanel);
+      const int physicalWidth = physicalRenderSize.IsValid()
+                                    ? physicalRenderSize.width
+                                    : renderSize.GetWidth();
+      const int physicalHeight = physicalRenderSize.IsValid()
+                                     ? physicalRenderSize.height
+                                     : renderSize.GetHeight();
 
       viewer2d::Viewer2DState renderState = cache.renderState;
       if (renderZoom != 1.0) {
         renderState.camera.zoom *= static_cast<float>(renderZoom);
       }
-      renderState.camera.viewportWidth = renderSize.GetWidth();
-      renderState.camera.viewportHeight = renderSize.GetHeight();
+      renderState.camera.viewportWidth = physicalWidth;
+      renderState.camera.viewportHeight = physicalHeight;
 
       auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
           capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
