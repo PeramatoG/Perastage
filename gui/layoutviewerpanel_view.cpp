@@ -38,9 +38,33 @@
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "LayoutManager.h"
+#include "ui_render_size.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
+#include <wx/log.h>
 
+namespace {
+// Restores on-screen GL state before drawing a cached layout texture quad.
+void RestoreLayoutViewportState(LayoutViewerPanel *panel) {
+  if (panel == nullptr)
+    return;
+  const RenderSize renderSize = ResolveRenderSize(panel);
+  if (!renderSize.IsValid())
+    return;
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glDisable(GL_SCISSOR_TEST);
+  glViewport(0, 0, renderSize.width, renderSize.height);
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  const wxSize logicalSize = panel->GetClientSize();
+  glOrtho(0.0, logicalSize.GetWidth(), logicalSize.GetHeight(), 0.0, -1.0,
+          1.0);
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+}
+}
+
+// Returns the currently editable 2D view or falls back to the first available view.
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
   if (currentLayout.view2dViews.empty())
     return nullptr;
@@ -56,6 +80,7 @@ layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
   return &currentLayout.view2dViews.front();
 }
 
+// Returns the currently editable 2D view as a const pointer for read-only callers.
 const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
     const {
   if (currentLayout.view2dViews.empty())
@@ -72,12 +97,14 @@ const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
   return nullptr;
 }
 
+// Emits the edit request for the selected 2D layout view.
 void LayoutViewerPanel::OnEditView(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::View2D)
     return;
   EmitEditViewRequest();
 }
 
+// Deletes the selected 2D layout view and removes its cached render resources.
 void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::View2D)
     return;
@@ -129,6 +156,7 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
   Refresh();
 }
 
+// Toggles the border visibility flag for the selected 2D layout view.
 void LayoutViewerPanel::OnToggleViewFrame(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::View2D)
     return;
@@ -146,6 +174,7 @@ void LayoutViewerPanel::OnToggleViewFrame(wxCommandEvent &) {
   Refresh();
 }
 
+// Applies frame geometry updates to the selected 2D layout view and persists them when needed.
 void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
                                     bool updatePosition) {
   layouts::Layout2DViewDefinition *view = GetEditableView();
@@ -187,6 +216,7 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
   Refresh();
 }
 
+// Captures, rebuilds, and draws the cached texture for one embedded 2D layout view.
 void LayoutViewerPanel::DrawViewElement(
     const layouts::Layout2DViewDefinition &view, Viewer2DPanel *capturePanel,
     Viewer2DOffscreenRenderer *offscreenRenderer, int activeViewId) {
@@ -264,8 +294,23 @@ void LayoutViewerPanel::DrawViewElement(
   const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
 
   const wxSize renderSize = GetFrameSizeForZoom(view.frame, cache.renderZoom);
+  wxLogTrace(
+      "layoutviewer_view_cache",
+      "draw view=%d layoutZoom=%.4f frame=(%d,%d %dx%d) frameRect=(%d,%d %dx%d) "
+      "cacheRenderZoom=%.4f renderSize=%dx%d textureSize=%dx%d camViewport=%dx%d "
+      "capturedViewport=%dx%d fallbackViewport=%dx%d",
+      view.id, zoom, view.frame.x, view.frame.y, view.frame.width,
+      view.frame.height, frameRect.GetX(), frameRect.GetY(), frameRect.GetWidth(),
+      frameRect.GetHeight(), cache.renderZoom, renderSize.GetWidth(),
+      renderSize.GetHeight(), cache.textureSize.GetWidth(),
+      cache.textureSize.GetHeight(), view.camera.viewportWidth,
+      view.camera.viewportHeight, cache.viewState.viewportWidth,
+      cache.viewState.viewportHeight,
+      view.camera.viewportWidth > 0 ? view.camera.viewportWidth : view.frame.width,
+      view.camera.viewportHeight > 0 ? view.camera.viewportHeight : view.frame.height);
   if (cache.texture != 0 && renderSize.GetWidth() > 0 &&
       renderSize.GetHeight() > 0 && cache.textureSize == renderSize) {
+    RestoreLayoutViewportState(this);
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, cache.texture);
     glColor4ub(255, 255, 255, 255);

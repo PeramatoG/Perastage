@@ -2155,9 +2155,27 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       viewer2d::Viewer2DState renderState = cache.renderState;
       if (renderZoom != 1.0) {
         renderState.camera.zoom *= static_cast<float>(renderZoom);
+        renderState.camera.offsetPixelsX *= static_cast<float>(renderZoom);
+        renderState.camera.offsetPixelsY *= static_cast<float>(renderZoom);
       }
       renderState.camera.viewportWidth = renderSize.GetWidth();
       renderState.camera.viewportHeight = renderSize.GetHeight();
+      wxLogTrace(
+          "layoutviewer_view_cache",
+          "rebuild view=%d client=%dx%d framebuffer=%dx%d layoutZoom=%.4f "
+          "renderZoom=%.4f frame=(%d,%d %dx%d) frameRect=(%d,%d %dx%d) "
+          "renderSize=%dx%d cacheTexture=%dx%d camViewport=%dx%d "
+          "capturedViewport=%dx%d scissor=%d",
+          view.id, GetClientSize().GetWidth(), GetClientSize().GetHeight(),
+          ResolveRenderSize(this).width, ResolveRenderSize(this).height, zoom,
+          renderZoom, view.frame.x, view.frame.y, view.frame.width,
+          view.frame.height, frameRect.GetX(), frameRect.GetY(),
+          frameRect.GetWidth(), frameRect.GetHeight(),
+          renderSize.GetWidth(), renderSize.GetHeight(),
+          cache.textureSize.GetWidth(), cache.textureSize.GetHeight(),
+          view.camera.viewportWidth, view.camera.viewportHeight,
+          cache.viewState.viewportWidth, cache.viewState.viewportHeight,
+          glIsEnabled(GL_SCISSOR_TEST) ? 1 : 0);
 
       auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
           capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
