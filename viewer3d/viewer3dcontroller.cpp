@@ -955,12 +955,14 @@ void Viewer3DController::RebuildVisibleSetCache() {
 }
 
 // Renders all scene objects using their transformMatrix
+// Render the full scene with explicit frame-context flags for capture and layout behaviors.
 void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      Viewer2DView view, bool showGrid,
                                      int gridStyle, float gridR, float gridG,
                                      float gridB, bool gridOnTop,
                                      bool is2DViewer,
-                                     bool preferPerastageSvgSymbolsForLayouts) {
+                                     bool preferPerastageSvgSymbolsForLayouts,
+                                     bool sourceGeometryOnlyForSymbolGeneration) {
   ConfigManager &cfg = ConfigManager::Get();
   m_impl->activeRenderMode = mode;
 
@@ -978,6 +980,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.is2DViewer = is2DViewer;
   context.preferPerastageSvgSymbolsForLayouts =
       preferPerastageSvgSymbolsForLayouts;
+  context.sourceGeometryOnlyForSymbolGeneration =
+      sourceGeometryOnlyForSymbolGeneration;
 
   m_impl->useAdaptiveLineProfile =
       cfg.GetFloat("viewer3d_adaptive_line_profile") >= 0.5f;

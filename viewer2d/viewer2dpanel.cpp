@@ -612,6 +612,7 @@ void Viewer2DPanel::SetCursorWorldPositionCallback(
   m_cursorWorldPositionCallback = std::move(callback);
 }
 
+// Apply panel-level render overrides into the active rendering state.
 void Viewer2DPanel::SetRenderOverrides(
     const std::optional<Viewer2DRenderOverrides> &overrides) {
   m_renderOverrides = overrides;
@@ -850,6 +851,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   std::optional<bool> forceBottomViewForTopFixturesOverride;
   std::optional<bool> symbolCaptureRenderProfileOverride;
   std::optional<bool> symbolCaptureIncludeCoplanarEdgesOverride;
+  std::optional<bool> sourceGeometryOnlyForSymbolGenerationOverride;
   if (m_renderOverrides) {
     forceBottomViewForTopFixturesOverride =
         m_renderOverrides->forceBottomViewForTopFixtures;
@@ -857,6 +859,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
         m_renderOverrides->symbolCaptureRenderProfile;
     symbolCaptureIncludeCoplanarEdgesOverride =
         m_renderOverrides->symbolCaptureIncludeCoplanarEdges;
+    sourceGeometryOnlyForSymbolGenerationOverride =
+        m_renderOverrides->sourceGeometryOnlyForSymbolGeneration;
   }
   m_controller.SetForceBottomViewForTopFixturesOverride(
       forceBottomViewForTopFixturesOverride);
@@ -864,6 +868,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       symbolCaptureRenderProfileOverride);
   m_controller.SetSymbolCaptureIncludeCoplanarEdgesOverride(
       symbolCaptureIncludeCoplanarEdgesOverride);
+  const bool sourceGeometryOnlyForSymbolGeneration =
+      sourceGeometryOnlyForSymbolGenerationOverride.value_or(false);
 
   std::unique_ptr<ICanvas2D> recordingCanvas;
   if (m_captureNextFrame) {
@@ -888,7 +894,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
 
   m_controller.RenderScene(true, m_renderMode, m_view, showGrid, gridStyle,
                            gridR, gridG, gridB, drawAbove, true,
-                           m_preferPerastageSvgSymbolsForLayouts);
+                           m_preferPerastageSvgSymbolsForLayouts,
+                           sourceGeometryOnlyForSymbolGeneration);
 
   if (m_enableSelection && m_mouseInside && m_dragMode == DragMode::None) {
     if (!m_fastHoverHasPos || m_lastFastHoverScreenPos != m_lastMousePos) {

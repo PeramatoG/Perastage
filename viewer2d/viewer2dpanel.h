@@ -59,6 +59,7 @@ struct Viewer2DRenderOverrides {
   std::optional<bool> forceBottomViewForTopFixtures;
   std::optional<bool> symbolCaptureRenderProfile;
   std::optional<bool> symbolCaptureIncludeCoplanarEdges;
+  std::optional<bool> sourceGeometryOnlyForSymbolGeneration;
 };
 
 class Viewer2DPanel : public wxGLCanvas {

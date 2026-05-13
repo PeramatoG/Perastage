@@ -870,9 +870,12 @@ void OpaqueFixturePass::Render(
 
     bool renderedPerastageSvg = false;
     const bool captureRecordingActive = controller.m_captureCanvas && !skipCapture;
+    const bool sourceGeometryOnlyForSymbolGeneration =
+        context.sourceGeometryOnlyForSymbolGeneration;
     const bool preferLayoutSvg =
         context.preferPerastageSvgSymbolsForLayouts && is2DViewer &&
-        !captureRecordingActive && mode != Viewer2DRenderMode::Wireframe;
+        !captureRecordingActive && mode != Viewer2DRenderMode::Wireframe &&
+        !sourceGeometryOnlyForSymbolGeneration;
     if (preferLayoutSvg && !svgSourcePath.empty()) {
       const Viewer2DView fixtureView =
           isTopView2D && forceBottomViewForTopFixtures ? Viewer2DView::Bottom
@@ -907,7 +910,8 @@ void OpaqueFixturePass::Render(
           controller.m_captureView == Viewer2DView::Front ||
           controller.m_captureView == Viewer2DView::Side) &&
          mode != Viewer2DRenderMode::Wireframe &&
-         !highlight && !selected);
+         !highlight && !selected &&
+         !sourceGeometryOnlyForSymbolGeneration);
     bool placedSymbolInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
       if (!modelKey.empty()) {

@@ -169,6 +169,7 @@ private:
   Viewer2DPanel &panel_;
 };
 
+// Mirror a rendered side-view image so symbol orientation matches the left-view convention.
 void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
   if (render.width <= 0 || render.height <= 0)
     return;
@@ -191,6 +192,7 @@ void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
 
 } // namespace
 
+// Capture deterministic orthographic views and vectorize them into fixture symbols.
 SceneModelSymbolCaptureResult
 CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
                                      ConfigManager &cfg,
@@ -218,6 +220,8 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   renderOverrides.forceBottomViewForTopFixtures = false;
   renderOverrides.symbolCaptureRenderProfile = true;
   renderOverrides.symbolCaptureIncludeCoplanarEdges = true;
+  renderOverrides.sourceGeometryOnlyForSymbolGeneration =
+      options.sourceGeometryOnlyForSymbolGeneration;
   ScopedViewer2DRenderOverrides scopedRenderOverrides(*capturePanel,
                                                       renderOverrides);
 
