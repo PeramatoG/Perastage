@@ -265,6 +265,7 @@ bool AreEqual(const std::vector<T> &lhs, const std::vector<T> &rhs) {
   return true;
 }
 
+// Returns the logical client size used by layout-space geometry calculations.
 wxSize GetLogicalClientSize(const wxWindow *window) {
   if (window == nullptr) {
     return wxSize(0, 0);
@@ -272,13 +273,19 @@ wxSize GetLogicalClientSize(const wxWindow *window) {
   return window->GetClientSize();
 }
 
+// Returns the mouse position in logical client coordinates.
 wxPoint GetLogicalMousePosition(const wxMouseEvent &event) {
   return event.GetPosition();
 }
 
+// Converts a logical point to framebuffer pixel coordinates for GL operations.
 wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint) {
   if (window == nullptr) {
     return wxPoint(0, 0);
+  }
+  const wxPoint physicalPoint = window->ToPhys(logicalPoint);
+  if (physicalPoint.x > 0 || physicalPoint.y > 0) {
+    return physicalPoint;
   }
   const double contentScale =
       static_cast<double>(window->GetContentScaleFactor());

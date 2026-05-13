@@ -8,6 +8,7 @@
 #include <cmath>
 #include <limits>
 
+// Resolves the GL framebuffer size in physical pixels for the given window.
 RenderSize ResolveRenderSize(wxWindow *window) {
   if (window == nullptr) {
     return RenderSize{0, 0, "null-window"};
@@ -17,33 +18,31 @@ RenderSize ResolveRenderSize(wxWindow *window) {
   const int logicalWidth = std::max(0, logicalClientSize.GetWidth());
   const int logicalHeight = std::max(0, logicalClientSize.GetHeight());
 
+  const wxSize physicalClientSize = window->ToPhys(logicalClientSize);
+  const int physicalWidth = std::max(0, physicalClientSize.GetWidth());
+  const int physicalHeight = std::max(0, physicalClientSize.GetHeight());
+  if (physicalWidth > 0 && physicalHeight > 0) {
+    return RenderSize{physicalWidth, physicalHeight, "window-to-phys"};
+  }
+
   const double contentScale =
       static_cast<double>(window->GetContentScaleFactor());
   if (!std::isfinite(contentScale) || contentScale <= 0.0) {
     return RenderSize{0, 0, "invalid-content-scale"};
   }
-
-  const double physicalWidthDouble =
-      static_cast<double>(logicalWidth) * contentScale;
-  const double physicalHeightDouble =
-      static_cast<double>(logicalHeight) * contentScale;
-  if (!std::isfinite(physicalWidthDouble) ||
-      !std::isfinite(physicalHeightDouble)) {
-    return RenderSize{0, 0, "invalid-framebuffer-size"};
-  }
-
-  const long roundedWidth = std::lround(physicalWidthDouble);
-  const long roundedHeight = std::lround(physicalHeightDouble);
-  const long clampedWidth =
-      std::clamp(roundedWidth, 0L, static_cast<long>(std::numeric_limits<int>::max()));
-  const long clampedHeight =
-      std::clamp(roundedHeight, 0L, static_cast<long>(std::numeric_limits<int>::max()));
-
-  return RenderSize{static_cast<int>(clampedWidth),
-                    static_cast<int>(clampedHeight),
-                    "window-framebuffer-scaled"};
+  const long roundedWidth =
+      std::lround(static_cast<double>(logicalWidth) * contentScale);
+  const long roundedHeight =
+      std::lround(static_cast<double>(logicalHeight) * contentScale);
+  const long clampedWidth = std::clamp(
+      roundedWidth, 0L, static_cast<long>(std::numeric_limits<int>::max()));
+  const long clampedHeight = std::clamp(
+      roundedHeight, 0L, static_cast<long>(std::numeric_limits<int>::max()));
+  return RenderSize{static_cast<int>(clampedWidth), static_cast<int>(clampedHeight),
+                    "window-content-scale-fallback"};
 }
 
+// Validates that all render stages use a consistent framebuffer-size contract.
 void ValidateRenderSizeContract(const char *panelName, unsigned long long frameId,
                                 const RenderSize &resolvedSize,
                                 const RenderSize &viewportSize,
