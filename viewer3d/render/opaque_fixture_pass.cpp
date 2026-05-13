@@ -121,6 +121,13 @@ uint32_t BuildFixtureSymbolStyleVersion(float r, float g, float b) {
   return 0x1000000u | (toByte(r) << 16) | (toByte(g) << 8) | toByte(b);
 }
 
+// Build a style/cache discriminator that separates capture-only symbols from layout SVG reuse.
+uint32_t BuildFixtureCaptureSymbolStyleVersion(float r, float g, float b,
+                                               bool ignoreGeneratedSvgForCapture) {
+  const uint32_t base = BuildFixtureSymbolStyleVersion(r, g, b);
+  return ignoreGeneratedSvgForCapture ? (base ^ 0x40000000u) : base;
+}
+
 std::vector<SymbolViewKind> BuildSymbolViewCandidates(SymbolViewKind requested) {
   if (requested == SymbolViewKind::Top)
     return {SymbolViewKind::Top, SymbolViewKind::Bottom};
@@ -927,7 +934,8 @@ void OpaqueFixturePass::Render(
         SymbolKey symbolKey;
         symbolKey.modelKey = modelKey;
         symbolKey.viewKind = resolveSymbolView(fixtureCaptureView);
-        symbolKey.styleVersion = BuildFixtureSymbolStyleVersion(r, g, b);
+        symbolKey.styleVersion = BuildFixtureCaptureSymbolStyleVersion(
+            r, g, b, ignoreGeneratedPerastageSvgSymbolsForCapture);
 
         const auto &symbol =
             controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,

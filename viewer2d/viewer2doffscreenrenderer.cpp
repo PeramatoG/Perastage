@@ -50,9 +50,11 @@ void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
   panel_->SetClientSize(size);
 }
 
+// Reset offscreen panel state and symbol caches before deterministic capture.
 void Viewer2DOffscreenRenderer::PrepareForCapture() {
   if (!panel_)
     return;
+  panel_->InvalidateBottomSymbolCache();
   panel_->SetRenderOverrides(std::nullopt);
   panel_->UpdateScene(true);
 }
