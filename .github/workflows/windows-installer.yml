@@ -126,11 +126,11 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path "$env:GITHUB_WORKSPACE\out\installer" -Force | Out-Null
 
-          # Extract version from CMakeLists.txt via the helper cmake script
+          # Extract version from the repository root VERSION file via the helper CMake script
           $versionRaw = cmake -P "$env:GITHUB_WORKSPACE\packaging\windows\get_project_version.cmake" 2>&1
           $version = ($versionRaw | Select-String -Pattern '(\d+\.\d+\.\d+)').Matches[0].Groups[1].Value
           if ([string]::IsNullOrWhiteSpace($version)) {
-            throw "Could not determine PROJECT_VERSION from CMakeLists.txt"
+            throw "Could not determine Perastage version from VERSION"
           }
           Write-Host "Using installer version: $version"
           ISCC "/DMyAppVersion=$version" "$env:GITHUB_WORKSPACE\packaging\windows\Perastage.iss"
