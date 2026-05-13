@@ -1,6 +1,7 @@
 #include "tools/fixture_symbol_generation_tool.h"
 
 #include <algorithm>
+#include <filesystem>
 #include <map>
 #include <set>
 #include <string>
@@ -11,9 +12,11 @@
 
 #include "configmanager.h"
 #include "dialogs/GenerateFixtureSymbolsDialog.h"
+#include "fixtures/fixture_gdtf_resolution.h"
 #include "guiconfigservices.h"
 #include "mainwindow.h"
 #include "opaque_pass_utils.h"
+#include "tools/fixture_symbol_capture_gdtf_sanitizer.h"
 #include "tools/scene_model_symbol_capture_service.h"
 #include "tools/symbol_physical_calibration.h"
 #include "viewer2doffscreenrenderer.h"
@@ -83,6 +86,7 @@ std::vector<FixtureSymbolTypeOption> BuildFixtureOptions() {
 
 } // namespace
 
+// Launch the fixture symbol generation flow using a sanitized capture-only GDTF copy.
 void RunFixtureSymbolGeneration(MainWindow &window) {
   auto options = BuildFixtureOptions();
   if (options.empty()) {
@@ -120,10 +124,34 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   SceneModelSymbolCaptureOptions captureOptions;
   captureOptions.forcedFixtureColor = forcedFixtureColor;
   captureOptions.ignoreGeneratedPerastageSvgSymbolsForCapture = true;
+  const auto fixtureIt = cfg.GetScene().fixtures.find(selectedFixtureUuid);
+  if (fixtureIt == cfg.GetScene().fixtures.end()) {
+    wxMessageBox("Could not resolve fixture for symbol capture.",
+                 "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
+    return;
+  }
+  gui::fixtures::FixtureGdtfResolution resolution;
+  if (!gui::fixtures::ResolveFixtureGdtfDeterministic(
+          fixtureIt->second, cfg.GetScene(), resolution,
+          gui::fixtures::ResolveFixtureGdtfOptions{})) {
+    wxMessageBox("Could not resolve fixture GDTF path for symbol capture.",
+                 "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
+    return;
+  }
+  const auto sanitizeResult =
+      BuildSanitizedFixtureCaptureGdtf(resolution.resolvedPath);
+  if (!sanitizeResult.ok) {
+    wxMessageBox(sanitizeResult.error, "Generate Fixture Symbols",
+                 wxOK | wxICON_ERROR, &window);
+    return;
+  }
+  captureOptions.fixtureGdtfPathOverride = sanitizeResult.sanitizedGdtfPath;
   auto capture = CaptureSceneModelOrthographicSymbols(
       *offscreenRenderer, cfg,
       SceneModelSymbolTarget{SceneModelKind::Fixture, selectedFixtureUuid},
       captureOptions);
+  std::error_code removeError;
+  std::filesystem::remove(sanitizeResult.sanitizedGdtfPath, removeError);
   if (!capture.ok) {
     wxMessageBox(capture.error, "Generate Fixture Symbols", wxOK | wxICON_ERROR,
                  &window);
