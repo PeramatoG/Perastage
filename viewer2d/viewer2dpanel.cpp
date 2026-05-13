@@ -91,6 +91,16 @@ wxRect BuildSelectionRectDirtyRegion(const wxPoint &a, const wxPoint &b) {
   wxRect rect(x, y, w, h);
   rect.Inflate(2);
   return rect;
+// Logs offscreen viewport consistency metrics used by layout view cache captures.
+void LogOffscreenViewportMetrics(const char *stage, int clientWidth,
+                                 int clientHeight, int renderWidth,
+                                 int renderHeight, int readWidth,
+                                 int readHeight) {
+  wxLogTrace("layoutviewer_view_cache",
+             "viewer2d_offscreen stage=%s client=%dx%d render=%dx%d read=%dx%d",
+             stage != nullptr ? stage : "unknown", clientWidth, clientHeight,
+             renderWidth, renderHeight, readWidth, readHeight);
+}
 }
 
 wxRect BuildPointDirtyRegion(const wxPoint &point, int radius) {
@@ -776,6 +786,13 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   }
   if (!resolvedSize.IsValid())
     return;
+  if (m_forceOffscreenRender || m_allowOffscreenRender) {
+    const wxSize clientSize = GetClientSize();
+    LogOffscreenViewportMetrics("render_internal", clientSize.GetWidth(),
+                                clientSize.GetHeight(), w, h, -1, -1);
+    wxASSERT_MSG(clientSize.GetWidth() == w && clientSize.GetHeight() == h,
+                 "Offscreen render viewport must match explicit client size.");
+  }
 
   glstate::ApplyKnownBaseOnscreenState(w, h);
   const RenderSize viewportSize{w, h, "glstate::ApplyKnownBaseOnscreenState(framebuffer-px)"};
@@ -1067,6 +1084,7 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   GetClientSize(&w, &h);
   if (w <= 0 || h <= 0)
     return false;
+  LogOffscreenViewportMetrics("render_to_rgba_begin", w, h, w, h, -1, -1);
 
   if (!TryAllocateCaptureBuffer(pixels, w, h))
     return false;
@@ -1086,6 +1104,7 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   glReadBuffer(GL_BACK);
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+  LogOffscreenViewportMetrics("render_to_rgba_end", w, h, w, h, width, height);
 
   m_forceOffscreenRender = previousForce;
   return true;
