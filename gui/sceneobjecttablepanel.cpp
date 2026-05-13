@@ -344,6 +344,7 @@ void SceneObjectTablePanel::ReloadData()
         SummaryPanel::Instance()->ShowSceneObjectSummary();
 }
 
+// Handles context-menu edits and updates scene/rendering only when an actual table value changes.
 void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
 {
     wxDataViewItem item = event.GetItem();
@@ -422,17 +423,28 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
 
         wxString selectedPath = fdlg.GetPath();
         wxString displayName = wxFileName(selectedPath).GetFullName();
+        bool changed = false;
         for (const auto& itSel : selections)
         {
             int r = table->ItemToRow(itSel);
             if (r == wxNOT_FOUND)
                 continue;
-            table->SetValue(wxVariant(displayName), r, col);
             if (static_cast<size_t>(r) >= modelPaths.size())
                 modelPaths.resize(table->GetItemCount());
+            const wxString previousPath = modelPaths[static_cast<size_t>(r)];
+            wxVariant existingDisplayName;
+            table->GetValue(existingDisplayName, r, col);
+            if (existingDisplayName.GetString() != displayName) {
+                table->SetValue(wxVariant(displayName), r, col);
+                changed = true;
+            }
             SetModelPathForRow(static_cast<unsigned int>(r), selectedPath);
+            if (previousPath != selectedPath)
+                changed = true;
         }
 
+        if (!changed)
+            return;
         ResyncRows(oldOrder, selectedUuids);
         UpdateSceneData();
         if (Viewer3DPanel::Instance()) {

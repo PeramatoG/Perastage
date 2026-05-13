@@ -362,6 +362,7 @@ void TrussTablePanel::ReloadData()
         SummaryPanel::Instance()->ShowTrussSummary();
 }
 
+// Handles context-menu editing workflows and avoids expensive refreshes when no row values change.
 void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
 {
     wxDataViewItem item = event.GetItem();
@@ -438,6 +439,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
         if (fdlg.ShowModal() == wxID_OK)
         {
+            bool changed = false;
             wxString selPath = fdlg.GetPath();
             std::string archivePath(selPath.ToUTF8());
             std::string geomPath = archivePath;
@@ -483,10 +485,24 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                 int r = table->ItemToRow(itSel);
                 if (r == wxNOT_FOUND)
                     continue;
+                const wxString archivePathWx = wxString::FromUTF8(archivePath);
+                const wxString geomPathWx = wxString::FromUTF8(geomPath);
+                const bool pathChanged =
+                    static_cast<size_t>(r) >= modelPaths.size() ||
+                    static_cast<size_t>(r) >= symbolPaths.size() ||
+                    modelPaths[static_cast<size_t>(r)] != archivePathWx ||
+                    symbolPaths[static_cast<size_t>(r)] != geomPathWx;
+
                 SetModelPathsForRow(static_cast<unsigned int>(r),
-                                    wxString::FromUTF8(archivePath),
-                                    wxString::FromUTF8(geomPath));
-                table->SetValue(wxVariant(fileName), r, 2);
+                                    archivePathWx, geomPathWx);
+                wxVariant existingModelFile;
+                table->GetValue(existingModelFile, r, 2);
+                if (existingModelFile.GetString() != fileName)
+                {
+                    table->SetValue(wxVariant(fileName), r, 2);
+                    changed = true;
+                }
+                changed = changed || pathChanged;
                 if (parsedOk)
                 {
                     table->SetValue(wxVariant(manuf), r, 10);
@@ -519,8 +535,11 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                         table->SetValue(wxVariant(heiStr), i, 14);
                         table->SetValue(wxVariant(weightStr), i, 15);
                     }
+                    changed = true;
                 }
             }
+            if (!changed)
+                return;
             TrussDictionary::Update(modelKey, archivePath);
             ResyncRows(oldOrder, selectedUuids);
             UpdateSceneData();

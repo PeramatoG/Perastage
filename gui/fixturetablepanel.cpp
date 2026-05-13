@@ -530,6 +530,7 @@ void FixtureTablePanel::ReloadData() {
   table->Thaw();
 }
 
+// Handles context-menu editing actions and only applies scene updates when data actually changes.
 void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   wxDataViewItem item = event.GetItem();
   int col = event.GetColumn();
@@ -551,6 +552,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
   // Model file column opens file dialog
   if (col == 9) {
+    bool changed = false;
     wxString fixDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
     wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString, "*.gdtf",
@@ -585,6 +587,18 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         if ((size_t)r >= gdtfPaths.size())
           gdtfPaths.resize(table->GetItemCount());
 
+        wxVariant existingModelFile;
+        table->GetValue(existingModelFile, r, 9);
+        wxVariant existingTypeName;
+        table->GetValue(existingTypeName, r, 2);
+
+        const bool rowChanged =
+            gdtfPaths[static_cast<size_t>(r)] != path ||
+            existingModelFile.GetString() != fileName ||
+            existingTypeName.GetString() != typeName;
+        if (!rowChanged)
+          continue;
+
         SetGdtfPathForRow(static_cast<unsigned int>(r), path);
         table->SetValue(wxVariant(fileName), r, 9);
         table->SetValue(wxVariant(typeName), r, 2);
@@ -595,6 +609,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         table->SetValue(wxVariant(wstr), r, 17);
         if (dictColor && !dictColor->color.empty())
           SetFixtureColorCell(table, r, dictColor->color);
+        changed = true;
       }
 
       for (unsigned int i = 0; i < table->GetItemCount(); ++i) {
@@ -607,6 +622,17 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         if ((size_t)i >= gdtfPaths.size())
           gdtfPaths.resize(table->GetItemCount());
 
+        wxVariant existingModelFile;
+        table->GetValue(existingModelFile, i, 9);
+        wxVariant existingTypeName;
+        table->GetValue(existingTypeName, i, 2);
+
+        const bool rowChanged = gdtfPaths[static_cast<size_t>(i)] != path ||
+                                existingModelFile.GetString() != fileName ||
+                                existingTypeName.GetString() != typeName;
+        if (!rowChanged)
+          continue;
+
         SetGdtfPathForRow(i, path);
         table->SetValue(wxVariant(fileName), i, 9);
         table->SetValue(wxVariant(typeName), i, 2);
@@ -617,6 +643,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         table->SetValue(wxVariant(wstr), i, 17);
         if (dictColor && !dictColor->color.empty())
           SetFixtureColorCell(table, i, dictColor->color);
+        changed = true;
       }
 
       PropagateTypeValues(selections, 16);
@@ -627,16 +654,20 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         if (auto entry = GdtfDictionary::Get(prevTypes[0]))
           dictMode = wxString::FromUTF8(entry->mode);
       }
-      ApplyModeForGdtf(path, dictMode);
+      if (changed)
+        ApplyModeForGdtf(path, dictMode);
 
       // Keep dictionary default modes immutable from project table edits.
       for (size_t idx = 0; idx < selections.size(); ++idx) {
         int r = table->ItemToRow(selections[idx]);
         if (r == wxNOT_FOUND)
           continue;
-        GdtfDictionary::Update(prevTypes[idx], pathUtf8);
+        if (changed)
+          GdtfDictionary::Update(prevTypes[idx], pathUtf8);
       }
     }
+    if (!changed)
+      return;
     ResyncRows(oldOrder, selectedUuids);
     const auto updateType = CombineUpdateTypes(
         UpdateTypeForColumn(9), UpdateTypeForColumn(16));

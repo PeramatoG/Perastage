@@ -148,7 +148,8 @@ add_executable(gdtf_dictionary_color_roundtrip_test
 target_include_directories(gdtf_dictionary_color_roundtrip_test PRIVATE
                            . ../core ../third_party)
 target_link_libraries(gdtf_dictionary_color_roundtrip_test PRIVATE
-                      ${wxWidgets_LIBRARIES})
+                      ${wxWidgets_LIBRARIES}
+                      tinyxml2::tinyxml2)
 add_test(NAME GdtfDictionaryColorRoundtrip COMMAND gdtf_dictionary_color_roundtrip_test)
 
 add_executable(gdtf_dictionary_color_mode_propagation_test
@@ -168,7 +169,8 @@ add_executable(gdtf_dictionary_color_mode_propagation_test
 target_include_directories(gdtf_dictionary_color_mode_propagation_test PRIVATE
                            . ../core ../third_party)
 target_link_libraries(gdtf_dictionary_color_mode_propagation_test PRIVATE
-                      ${wxWidgets_LIBRARIES})
+                      ${wxWidgets_LIBRARIES}
+                      tinyxml2::tinyxml2)
 add_test(NAME GdtfDictionaryColorModePropagation
          COMMAND gdtf_dictionary_color_mode_propagation_test)
 
