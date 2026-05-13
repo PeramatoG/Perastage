@@ -7,6 +7,7 @@
 #include <string>
 
 #include <wx/log.h>
+#include <wx/stdpaths.h>
 
 #include "projectutils.h"
 
@@ -15,6 +16,7 @@ namespace fs = std::filesystem;
 namespace gui::fixtures {
 namespace {
 
+// Build a contextual log prefix for deterministic fixture GDTF resolution diagnostics.
 std::string BuildLogPrefix(const Fixture &fixture,
                            const MvrScene &scene,
                            const fs::path &specPath,
@@ -29,6 +31,7 @@ std::string BuildLogPrefix(const Fixture &fixture,
   return out.str();
 }
 
+// Decode URL-like path escape sequences used by some fixture references.
 std::string DecodePathEscapes(const std::string &value) {
   std::string out;
   out.reserve(value.size());
@@ -44,6 +47,7 @@ std::string DecodePathEscapes(const std::string &value) {
   return out;
 }
 
+// Trim whitespace/quotes from a stored fixture path reference.
 std::string TrimPathRef(std::string value) {
   auto isTrim = [](unsigned char c) {
     return std::isspace(c) != 0 || c == '\r' || c == '\n' || c == '\t';
@@ -59,6 +63,7 @@ std::string TrimPathRef(std::string value) {
   return value;
 }
 
+// Normalize path separators to the platform-preferred format.
 std::string NormalizePathSeparators(std::string value) {
   std::replace(value.begin(), value.end(), '\\',
                static_cast<char>(fs::path::preferred_separator));
@@ -67,6 +72,7 @@ std::string NormalizePathSeparators(std::string value) {
   return value;
 }
 
+// Emit a standard debug log for discarded resolver path candidates.
 void LogDiscardReason(const std::string &prefix,
                       const std::string &candidateLabel,
                       const fs::path &candidatePath,
@@ -77,6 +83,7 @@ void LogDiscardReason(const std::string &prefix,
 
 } // namespace
 
+// Resolve a fixture GDTF path deterministically across scene and library candidates.
 bool ResolveFixtureGdtfDeterministic(const Fixture &fixture,
                                      const MvrScene &scene,
                                      FixtureGdtfResolution &resolution,
@@ -121,6 +128,28 @@ bool ResolveFixtureGdtfDeterministic(const Fixture &fixture,
     }
     LogDiscardReason(logPrefix, "scene", sceneCandidate,
                      ec ? ec.message() : "path does not exist");
+    ec.clear();
+    const fs::path sceneNormalized = sceneCandidate.lexically_normal();
+    if (sceneNormalized != sceneCandidate && fs::exists(sceneNormalized, ec) && !ec) {
+      resolution.scenePath = sceneNormalized.string();
+      resolution.selectedPath = resolution.scenePath;
+      wxLogDebug("%s selected normalized scene candidate '%s'.", logPrefix.c_str(),
+                 resolution.selectedPath.c_str());
+      return true;
+    }
+    LogDiscardReason(logPrefix, "scene-normalized", sceneNormalized,
+                     ec ? ec.message() : "path does not exist");
+    ec.clear();
+    const fs::path sceneWeakCanonical = fs::weakly_canonical(sceneCandidate, ec);
+    if (!ec && fs::exists(sceneWeakCanonical, ec) && !ec) {
+      resolution.scenePath = sceneWeakCanonical.string();
+      resolution.selectedPath = resolution.scenePath;
+      wxLogDebug("%s selected weak-canonical scene candidate '%s'.", logPrefix.c_str(),
+                 resolution.selectedPath.c_str());
+      return true;
+    }
+    LogDiscardReason(logPrefix, "scene-weak-canonical", sceneWeakCanonical,
+                     ec ? ec.message() : "path does not exist");
   } else if (scene.basePath.empty()) {
     LogDiscardReason(logPrefix, "scene", {}, "scene.basePath is empty");
   } else {
@@ -150,6 +179,31 @@ bool ResolveFixtureGdtfDeterministic(const Fixture &fixture,
 
   LogDiscardReason(logPrefix, "library", libraryCandidate,
                    ec ? ec.message() : "path does not exist");
+
+  if (!specPath.is_absolute()) {
+    const std::string specGeneric = specPath.generic_string();
+    const std::string marker = "Perastage/library/fixtures/";
+    const size_t markerPos = specGeneric.find(marker);
+    if (markerPos != std::string::npos) {
+      const std::string tail = specGeneric.substr(markerPos + marker.size());
+      const fs::path appDataRoot =
+          fs::path(wxStandardPaths::Get().GetUserDataDir().ToStdString())
+              .parent_path()
+              .parent_path();
+      const fs::path roamingCandidate = appDataRoot / "Roaming" / "Perastage" /
+                                        "library" / "fixtures" / tail;
+      ec.clear();
+      if (fs::exists(roamingCandidate, ec) && !ec) {
+        resolution.libraryPath = roamingCandidate.string();
+        resolution.selectedPath = resolution.libraryPath;
+        wxLogDebug("%s selected roaming-library candidate '%s'.",
+                   logPrefix.c_str(), resolution.selectedPath.c_str());
+        return true;
+      }
+      LogDiscardReason(logPrefix, "roaming-library", roamingCandidate,
+                       ec ? ec.message() : "path does not exist");
+    }
+  }
 
   std::ostringstream out;
   out << "Could not resolve fixture GDTF path deterministically for fixture uuid '"

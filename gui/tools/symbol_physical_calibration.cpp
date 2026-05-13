@@ -4,6 +4,7 @@
 #include <array>
 #include <cfloat>
 #include <unordered_map>
+#include <wx/log.h>
 
 #include "configmanager.h"
 #include "fixtures/fixture_gdtf_resolution.h"
@@ -27,12 +28,14 @@ struct Bounds2D {
   bool valid = false;
 };
 
+// Transform a local-space point by a matrix into world-space.
 std::array<float, 3> TransformPoint(const Matrix &m, const std::array<float, 3> &p) {
   return {m.u[0] * p[0] + m.v[0] * p[1] + m.w[0] * p[2] + m.o[0],
           m.u[1] * p[0] + m.v[1] * p[1] + m.w[1] * p[2] + m.o[1],
           m.u[2] * p[0] + m.v[2] * p[1] + m.w[2] * p[2] + m.o[2]};
 }
 
+// Expand 3D bounds to include a new point.
 void ExtendBounds(Bounds3D &bounds, const std::array<float, 3> &p) {
   bounds.min[0] = std::min(bounds.min[0], p[0]);
   bounds.min[1] = std::min(bounds.min[1], p[1]);
@@ -43,6 +46,7 @@ void ExtendBounds(Bounds3D &bounds, const std::array<float, 3> &p) {
   bounds.valid = true;
 }
 
+// Compute fixture bounds in millimeters from GDTF-loaded mesh geometry.
 bool ComputeFixtureBoundsMm(const std::string &gdtfPath, Bounds3D &bounds,
                             std::string &errorMessage) {
   std::vector<GdtfObject> objects;
@@ -65,6 +69,7 @@ bool ComputeFixtureBoundsMm(const std::string &gdtfPath, Bounds3D &bounds,
   return true;
 }
 
+// Build the target 2D bounds projection for a specific symbol view.
 Bounds2D BuildTargetBounds(const Bounds3D &bounds, symbols::SymbolView view) {
   Bounds2D projected;
   switch (view) {
@@ -82,6 +87,7 @@ Bounds2D BuildTargetBounds(const Bounds3D &bounds, symbols::SymbolView view) {
   return projected;
 }
 
+// Remap a generated symbol geometry from source bounds into target physical bounds.
 bool RemapSymbolToBounds(symbols::Symbol2D &symbol, const Bounds2D &target) {
   if (!symbol.bounds.valid || !target.valid)
     return false;
@@ -129,6 +135,7 @@ bool RemapSymbolToBounds(symbols::Symbol2D &symbol, const Bounds2D &target) {
 
 } // namespace
 
+// Calibrate captured fixture symbols to physical fixture dimensions when resolution succeeds.
 bool CalibrateFixtureSymbolsToPhysicalUnits(ConfigManager &cfg,
                                             const std::string &fixtureUuid,
                                             std::vector<symbols::Symbol2D> &symbols,
@@ -141,15 +148,29 @@ bool CalibrateFixtureSymbolsToPhysicalUnits(ConfigManager &cfg,
   }
 
   gui::fixtures::FixtureGdtfResolution resolution;
+  wxLogTrace("fixture_symbol_capture",
+             "calibration fixtureUuid=%s gdtfSpec=%s sceneBase=%s",
+             fixtureUuid.c_str(), fixtureIt->second.gdtfSpec.c_str(),
+             cfg.GetScene().basePath.c_str());
   if (!gui::fixtures::ResolveFixtureGdtfDeterministic(
-          fixtureIt->second, cfg.GetScene(), resolution, errorMessage)) {
-    return false;
+          fixtureIt->second, cfg.GetScene(), resolution, errorMessage,
+          "symbol-physical-calibration")) {
+    wxLogWarning("Symbol calibration skipped for fixture '%s': %s",
+                 fixtureUuid.c_str(), errorMessage.c_str());
+    errorMessage.clear();
+    return true;
   }
   const std::string gdtfPath = resolution.selectedPath;
+  wxLogTrace("fixture_symbol_capture", "calibration resolvedPath=%s",
+             gdtfPath.c_str());
 
   Bounds3D fixtureBounds;
-  if (!ComputeFixtureBoundsMm(gdtfPath, fixtureBounds, errorMessage))
-    return false;
+  if (!ComputeFixtureBoundsMm(gdtfPath, fixtureBounds, errorMessage)) {
+    wxLogWarning("Symbol calibration skipped for fixture '%s': %s",
+                 fixtureUuid.c_str(), errorMessage.c_str());
+    errorMessage.clear();
+    return true;
+  }
 
   bool remappedAny = false;
   for (auto &symbol : symbols) {
@@ -162,10 +183,14 @@ bool CalibrateFixtureSymbolsToPhysicalUnits(ConfigManager &cfg,
   }
 
   if (!remappedAny) {
-    errorMessage = "No valid symbol views were available for physical calibration.";
-    return false;
+    wxLogWarning("Symbol calibration skipped for fixture '%s': no remappable views.",
+                 fixtureUuid.c_str());
+    errorMessage.clear();
+    return true;
   }
 
+  wxLogTrace("fixture_symbol_capture", "calibration applied fixtureUuid=%s",
+             fixtureUuid);
   return true;
 }
 
