@@ -1050,11 +1050,12 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     SwapBuffers();
 }
 
+// Renders the 2D panel into an RGBA buffer using the explicit offscreen viewport size.
 bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
                                  int &height) {
-  const RenderSize renderSize = ResolveRenderSize(this);
-  const int w = renderSize.width;
-  const int h = renderSize.height;
+  int w = 0;
+  int h = 0;
+  GetClientSize(&w, &h);
   if (w <= 0 || h <= 0)
     return false;
 
