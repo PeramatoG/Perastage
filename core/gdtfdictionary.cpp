@@ -22,12 +22,14 @@
 #include "json.hpp"
 #include "projectutils.h"
 #include "startup_file_access_gate.h"
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
+#include <tinyxml2.h>
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <regex>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -251,16 +253,73 @@ bool IsPerastageNamedGdtfFile(const std::filesystem::path &path) {
   return normalized == "perastage";
 }
 
-// Builds a canonical Perastage export filename using the GDTF naming convention.
+// Loads manufacturer and fixture type from a GDTF description.xml payload when available.
+bool TryReadGdtfIdentityFromDescription(const std::filesystem::path &sourcePath,
+                                        std::string &manufacturerOut,
+                                        std::string &fixtureTypeOut) {
+  manufacturerOut.clear();
+  fixtureTypeOut.clear();
+  wxFileInputStream input(wxString::FromUTF8(sourcePath.string()));
+  if (!input.IsOk())
+    return false;
+
+  wxZipInputStream zipInput(input);
+  std::unique_ptr<wxZipEntry> entry;
+  std::string descriptionXml;
+  while ((entry.reset(zipInput.GetNextEntry())), entry) {
+    if (entry->GetName().CmpNoCase("description.xml") != 0)
+      continue;
+    char buffer[4096];
+    while (true) {
+      zipInput.Read(buffer, sizeof(buffer));
+      const size_t count = zipInput.LastRead();
+      if (count == 0)
+        break;
+      descriptionXml.append(buffer, buffer + count);
+    }
+    break;
+  }
+  if (descriptionXml.empty())
+    return false;
+
+  tinyxml2::XMLDocument doc;
+  if (doc.Parse(descriptionXml.c_str(), descriptionXml.size()) != tinyxml2::XML_SUCCESS)
+    return false;
+
+  tinyxml2::XMLElement *root = doc.FirstChildElement("GDTF");
+  tinyxml2::XMLElement *fixtureType =
+      root ? root->FirstChildElement("FixtureType") : doc.FirstChildElement("FixtureType");
+  if (!fixtureType)
+    return false;
+
+  const char *manufacturer = fixtureType->Attribute("Manufacturer");
+  const char *fixtureName = fixtureType->Attribute("Name");
+  manufacturerOut = TrimAsciiWhitespace(manufacturer ? manufacturer : "");
+  fixtureTypeOut = TrimAsciiWhitespace(fixtureName ? fixtureName : "");
+  return !manufacturerOut.empty() || !fixtureTypeOut.empty();
+}
+
+// Builds a canonical Perastage export filename using parsed GDTF identity values.
 std::string BuildPerastageCanonicalGdtfFileName(const std::filesystem::path &sourcePath) {
-  std::string fixtureTypeName = sourcePath.stem().string();
+  std::string manufacturerName;
+  std::string fixtureTypeName;
+  TryReadGdtfIdentityFromDescription(sourcePath, manufacturerName, fixtureTypeName);
+
+  if (manufacturerName.empty())
+    manufacturerName = "Unknow";
+  if (fixtureTypeName.empty())
+    fixtureTypeName = sourcePath.stem().string();
+
+  std::replace(manufacturerName.begin(), manufacturerName.end(), '@', '_');
+  std::replace(manufacturerName.begin(), manufacturerName.end(), ' ', '_');
   std::replace(fixtureTypeName.begin(), fixtureTypeName.end(), '@', '_');
   std::replace(fixtureTypeName.begin(), fixtureTypeName.end(), ' ', '_');
+  manufacturerName = TrimAsciiWhitespace(manufacturerName);
   fixtureTypeName = TrimAsciiWhitespace(fixtureTypeName);
+  if (manufacturerName.empty())
+    manufacturerName = "Unknow";
   if (fixtureTypeName.empty())
-    fixtureTypeName = "Fixture";
-
-  const std::string manufacturerName = "Unknow";
+    fixtureTypeName = sourcePath.stem().string();
   return manufacturerName + "@" + fixtureTypeName + "@Perastage.gdtf";
 }
 
