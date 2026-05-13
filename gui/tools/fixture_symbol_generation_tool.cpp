@@ -121,6 +121,7 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   SceneModelSymbolCaptureOptions captureOptions;
   captureOptions.forcedFixtureColor = forcedFixtureColor;
   captureOptions.ignoreGeneratedPerastageSvgSymbolsForCapture = true;
+  captureOptions.preferLibraryGdtfForFixtureCapture = true;
   auto capture = CaptureSceneModelOrthographicSymbols(
       *offscreenRenderer, cfg,
       SceneModelSymbolTarget{SceneModelKind::Fixture, selectedFixtureUuid},

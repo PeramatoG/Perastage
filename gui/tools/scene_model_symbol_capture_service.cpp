@@ -6,6 +6,7 @@
 
 #include "configmanager.h"
 #include "fixture.h"
+#include "fixtures/fixture_gdtf_resolution.h"
 #include "matrixutils.h"
 #include "sceneobject.h"
 #include "support.h"
@@ -54,7 +55,8 @@ class ScopedSingleModelSceneOverride {
 public:
   ScopedSingleModelSceneOverride(ConfigManager &cfg,
                                  const SceneModelSymbolTarget &target,
-                                 bool alignToLocalAxes)
+                                 bool alignToLocalAxes,
+                                 bool preferLibraryGdtfForFixtureCapture)
       : cfg_(cfg) {
     auto &scene = cfg_.GetScene();
     originalFixtures_ = scene.fixtures;
@@ -72,6 +74,16 @@ public:
       auto it = originalFixtures_.find(target.uuid);
       if (it != originalFixtures_.end()) {
         Fixture fixture = it->second;
+        if (preferLibraryGdtfForFixtureCapture) {
+          gui::fixtures::FixtureGdtfResolution resolution;
+          std::string resolutionError;
+          if (gui::fixtures::ResolveFixtureGdtfDeterministic(
+                  fixture, cfg_.GetScene(), resolution, resolutionError,
+                  "scene-model-symbol-capture") &&
+              !resolution.libraryPath.empty()) {
+            fixture.gdtfSpec = resolution.libraryPath;
+          }
+        }
         if (alignToLocalAxes)
           fixture.transform = AlignRotationToIdentityKeepingScale(fixture.transform);
         scene.fixtures.emplace(it->first, std::move(fixture));
@@ -214,7 +226,8 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
   ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
   ScopedSingleModelSceneOverride isolatedSceneOverride(cfg, target,
-                                                       options.alignToLocalAxes);
+                                                       options.alignToLocalAxes,
+                                                       options.preferLibraryGdtfForFixtureCapture);
   ScopedFixtureColorOverride selectedFixtureColorOverride(
       cfg, target.kind == SceneModelKind::Fixture ? target.uuid : std::string(),
       options.forcedFixtureColor);
