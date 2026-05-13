@@ -5,7 +5,7 @@
 
 #define MyAppName "Perastage"
 #ifndef MyAppVersion
-  #error "MyAppVersion is not defined. Pass /DMyAppVersion=<version> to ISCC using PROJECT_VERSION from CMakeLists.txt."
+  #error "MyAppVersion is not defined. Pass /DMyAppVersion=<version> to ISCC using the centralized version from the repository root VERSION file."
 #endif
 #define MyAppPublisher "Perasoft"
 #define MyAppURL "https://github.com/PeramatoG/Perastage"

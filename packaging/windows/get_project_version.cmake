@@ -1,25 +1,16 @@
 set(_repo_root "${CMAKE_CURRENT_LIST_DIR}/../..")
-set(_cmake_lists "${_repo_root}/CMakeLists.txt")
+set(_version_file "${_repo_root}/VERSION")
 
-if(NOT EXISTS "${_cmake_lists}")
-  message(FATAL_ERROR "CMakeLists.txt not found at ${_cmake_lists}")
+if(NOT EXISTS "${_version_file}")
+  message(FATAL_ERROR "VERSION file not found at ${_version_file}")
 endif()
 
-file(STRINGS "${_cmake_lists}" _project_line
-     REGEX "^project\\(Perastage VERSION [0-9]+\\.[0-9]+\\.[0-9]+")
-
-if(NOT _project_line)
-  message(FATAL_ERROR "Could not find Perastage project version in ${_cmake_lists}")
-endif()
-
-list(GET _project_line 0 _project_line_value)
-string(REGEX REPLACE "^project\\(Perastage VERSION ([0-9]+\\.[0-9]+\\.[0-9]+).*$"
-                     "\\1"
-                     _project_version
-                     "${_project_line_value}")
+file(READ "${_version_file}" _project_version_raw)
+string(STRIP "${_project_version_raw}" _project_version)
 
 if(NOT _project_version MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
-  message(FATAL_ERROR "Extracted invalid project version: '${_project_version}'")
+  message(FATAL_ERROR
+    "Invalid version '${_project_version}' in ${_version_file}. Expected MAJOR.MINOR.PATCH")
 endif()
 
 message(STATUS "${_project_version}")
