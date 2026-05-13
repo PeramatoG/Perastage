@@ -36,7 +36,6 @@
 #endif
 
 #include "configmanager.h"
-#include "gl_state_guard.h"
 #include "guiconfigservices.h"
 #include "LayoutManager.h"
 #include "ui_render_size.h"
@@ -52,7 +51,8 @@ void RestoreLayoutViewportState(LayoutViewerPanel *panel) {
   const RenderSize renderSize = ResolveRenderSize(panel);
   if (!renderSize.IsValid())
     return;
-  glstate::ApplyKnownBaseOnscreenState(renderSize.width, renderSize.height);
+  glDisable(GL_SCISSOR_TEST);
+  glViewport(0, 0, renderSize.width, renderSize.height);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   const wxSize logicalSize = panel->GetClientSize();
