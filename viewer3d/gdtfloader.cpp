@@ -43,6 +43,7 @@ class wxZipStreamLink;
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <cfloat>
 #include <cstdint>
@@ -301,6 +302,7 @@ static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
     }
 }
 
+// Resolves a fixture 3D model path while excluding generated SVG symbol folders.
 static std::string FindModelFile(const std::string& baseDir,
                                  const std::string& fileName)
 {
@@ -313,6 +315,8 @@ static std::string FindModelFile(const std::string& baseDir,
     std::string ext = ToLower(namePath.extension().string());
 
     auto tryExt = [&](const std::string& e) -> std::string {
+        if (e != ".3ds" && e != ".glb")
+            return {};
         fs::path d = modelsDir / e.substr(1) / (stem + e);
         if(fs::exists(d))
             return d.string();
@@ -329,16 +333,24 @@ static std::string FindModelFile(const std::string& baseDir,
         if(!res.empty()) return res;
     }
 
-    for (auto& p : fs::recursive_directory_iterator(modelsDir)) {
-        if (!p.is_regular_file())
+    // Keep 3D model lookup restricted to canonical 3D model folders to avoid
+    // matching generated SVG symbol payloads under models/svg*.
+    const std::array<std::string, 2> allowedDirs = {"3ds", "glb"};
+    for (const std::string& dirName : allowedDirs) {
+        fs::path dir = modelsDir / dirName;
+        if (!fs::exists(dir))
             continue;
-        if (p.path().stem() != stem)
-            continue;
-        if(ext.empty()) {
-            if(HasExtension(p.path(), ".3ds") || HasExtension(p.path(), ".glb"))
+        for (auto& p : fs::directory_iterator(dir)) {
+            if (!p.is_regular_file())
+                continue;
+            if (p.path().stem() != stem)
+                continue;
+            if (ext.empty()) {
+                if (HasExtension(p.path(), ".3ds") || HasExtension(p.path(), ".glb"))
+                    return p.path().string();
+            } else if (HasExtension(p.path(), ext)) {
                 return p.path().string();
-        } else if(HasExtension(p.path(), ext)) {
-            return p.path().string();
+            }
         }
     }
     return {};
