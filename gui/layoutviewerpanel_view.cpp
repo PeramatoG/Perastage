@@ -27,6 +27,9 @@
 #include <windows.h>
 #endif
 
+// Includes the OpenGL extension loader required for framebuffer entry points.
+#include <GL/glew.h>
+
 #ifdef __APPLE__
 #  include <OpenGL/gl.h>
 #  include <OpenGL/glu.h>
