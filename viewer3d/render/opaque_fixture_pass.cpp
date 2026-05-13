@@ -37,6 +37,7 @@
 #include "scenedatamanager.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer3dcontroller.h"
+#include <wx/log.h>
 #include "gdtfloader.h"
 #include <meshoptimizer.h>
 
@@ -870,12 +871,16 @@ void OpaqueFixturePass::Render(
 
     bool renderedPerastageSvg = false;
     const bool captureRecordingActive = controller.m_captureCanvas && !skipCapture;
-    const bool sourceGeometryOnlyForSymbolGeneration =
-        context.sourceGeometryOnlyForSymbolGeneration;
+    const bool ignoreGeneratedPerastageSvgSymbolsForCapture =
+        context.ignoreGeneratedPerastageSvgSymbolsForCapture;
     const bool preferLayoutSvg =
         context.preferPerastageSvgSymbolsForLayouts && is2DViewer &&
         !captureRecordingActive && mode != Viewer2DRenderMode::Wireframe &&
-        !sourceGeometryOnlyForSymbolGeneration;
+        !ignoreGeneratedPerastageSvgSymbolsForCapture;
+    wxLogTrace("fixture_symbol_capture",
+               "fixture=%s view=%d preferLayoutSvg=%d ignoreGeneratedSvg=%d",
+               uuid, static_cast<int>(context.view), preferLayoutSvg ? 1 : 0,
+               ignoreGeneratedPerastageSvgSymbolsForCapture ? 1 : 0);
     if (preferLayoutSvg && !svgSourcePath.empty()) {
       const Viewer2DView fixtureView =
           isTopView2D && forceBottomViewForTopFixtures ? Viewer2DView::Bottom
@@ -910,8 +915,7 @@ void OpaqueFixturePass::Render(
           controller.m_captureView == Viewer2DView::Front ||
           controller.m_captureView == Viewer2DView::Side) &&
          mode != Viewer2DRenderMode::Wireframe &&
-         !highlight && !selected &&
-         !sourceGeometryOnlyForSymbolGeneration);
+         !highlight && !selected);
     bool placedSymbolInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
       if (!modelKey.empty()) {
@@ -1013,6 +1017,10 @@ void OpaqueFixturePass::Render(
         placedSymbolInstance = true;
       }
     }
+    wxLogTrace("fixture_symbol_capture",
+               "fixture=%s useSymbolInstancing=%d placedSymbolInstance=%d",
+               uuid, useSymbolInstancing ? 1 : 0,
+               placedSymbolInstance ? 1 : 0);
 
     if (placedSymbolInstance) {
       glPopMatrix();

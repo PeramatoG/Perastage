@@ -1377,6 +1377,7 @@ bool LoadGdtf(const std::string& gdtfPath,
               std::vector<GdtfObject>& outObjects,
               std::string* outError)
 {
+    wxLogTrace("fixture_symbol_capture", "LoadGdtf path=%s", gdtfPath);
     std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
 
     outObjects.clear();
@@ -1505,6 +1506,7 @@ bool LoadGdtf(const std::string& gdtfPath,
     }
 
     entry->emptyGeometryLogCount = 0;
+    wxLogTrace("fixture_symbol_capture", "LoadGdtf path=%s loadedObjects=%zu", gdtfPath, outObjects.size());
     return true;
 }
 

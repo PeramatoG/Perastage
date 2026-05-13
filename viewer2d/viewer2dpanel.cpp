@@ -851,7 +851,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   std::optional<bool> forceBottomViewForTopFixturesOverride;
   std::optional<bool> symbolCaptureRenderProfileOverride;
   std::optional<bool> symbolCaptureIncludeCoplanarEdgesOverride;
-  std::optional<bool> sourceGeometryOnlyForSymbolGenerationOverride;
+  std::optional<bool> ignoreGeneratedPerastageSvgSymbolsForCaptureOverride;
   if (m_renderOverrides) {
     forceBottomViewForTopFixturesOverride =
         m_renderOverrides->forceBottomViewForTopFixtures;
@@ -859,8 +859,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
         m_renderOverrides->symbolCaptureRenderProfile;
     symbolCaptureIncludeCoplanarEdgesOverride =
         m_renderOverrides->symbolCaptureIncludeCoplanarEdges;
-    sourceGeometryOnlyForSymbolGenerationOverride =
-        m_renderOverrides->sourceGeometryOnlyForSymbolGeneration;
+    ignoreGeneratedPerastageSvgSymbolsForCaptureOverride =
+        m_renderOverrides->ignoreGeneratedPerastageSvgSymbolsForCapture;
   }
   m_controller.SetForceBottomViewForTopFixturesOverride(
       forceBottomViewForTopFixturesOverride);
@@ -868,8 +868,13 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       symbolCaptureRenderProfileOverride);
   m_controller.SetSymbolCaptureIncludeCoplanarEdgesOverride(
       symbolCaptureIncludeCoplanarEdgesOverride);
-  const bool sourceGeometryOnlyForSymbolGeneration =
-      sourceGeometryOnlyForSymbolGenerationOverride.value_or(false);
+  const bool ignoreGeneratedPerastageSvgSymbolsForCapture =
+      ignoreGeneratedPerastageSvgSymbolsForCaptureOverride.value_or(false);
+  wxLogTrace("fixture_symbol_capture",
+             "viewer2d view=%d ignoreGeneratedSvg=%d preferLayoutSvg=%d",
+             static_cast<int>(m_view),
+             ignoreGeneratedPerastageSvgSymbolsForCapture ? 1 : 0,
+             m_preferPerastageSvgSymbolsForLayouts ? 1 : 0);
 
   std::unique_ptr<ICanvas2D> recordingCanvas;
   if (m_captureNextFrame) {
@@ -895,7 +900,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   m_controller.RenderScene(true, m_renderMode, m_view, showGrid, gridStyle,
                            gridR, gridG, gridB, drawAbove, true,
                            m_preferPerastageSvgSymbolsForLayouts,
-                           sourceGeometryOnlyForSymbolGeneration);
+                           ignoreGeneratedPerastageSvgSymbolsForCapture);
 
   if (m_enableSelection && m_mouseInside && m_dragMode == DragMode::None) {
     if (!m_fastHoverHasPos || m_lastFastHoverScreenPos != m_lastMousePos) {

@@ -100,7 +100,7 @@ public:
                    bool gridOnTop = false,
                    bool is2DViewer = false,
                    bool preferPerastageSvgSymbolsForLayouts = false,
-                   bool sourceGeometryOnlyForSymbolGeneration = false);
+                   bool ignoreGeneratedPerastageSvgSymbolsForCapture = false);
 
   void SetDarkMode(bool enabled);
   void SetInteracting(bool interacting);

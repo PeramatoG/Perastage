@@ -62,7 +62,7 @@ struct RenderFrameContext {
   bool gridOnTop = false;
   bool is2DViewer = false;
   bool preferPerastageSvgSymbolsForLayouts = false;
-  bool sourceGeometryOnlyForSymbolGeneration = false;
+  bool ignoreGeneratedPerastageSvgSymbolsForCapture = false;
 
   bool useLighting = true;
   bool useAmbientOcclusion = true;

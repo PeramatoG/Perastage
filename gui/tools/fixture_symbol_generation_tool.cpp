@@ -119,7 +119,7 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   const std::string forcedFixtureColor = "#3FA9F5";
   SceneModelSymbolCaptureOptions captureOptions;
   captureOptions.forcedFixtureColor = forcedFixtureColor;
-  captureOptions.sourceGeometryOnlyForSymbolGeneration = true;
+  captureOptions.ignoreGeneratedPerastageSvgSymbolsForCapture = true;
   auto capture = CaptureSceneModelOrthographicSymbols(
       *offscreenRenderer, cfg,
       SceneModelSymbolTarget{SceneModelKind::Fixture, selectedFixtureUuid},

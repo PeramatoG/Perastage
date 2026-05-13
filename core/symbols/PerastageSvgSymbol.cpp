@@ -653,10 +653,14 @@ bool ReadOffset(const tinyxml2::XMLElement *model, const char *attr,
 }
 } // namespace
 
+// Load a Perastage-generated SVG symbol variant and its offsets from a GDTF package.
 bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
                                     SymbolViewKind requestedView,
                                     PerastageSvgSymbolData &out,
                                     std::string *errorDetails) {
+  wxLogTrace("fixture_symbol_capture",
+             "LoadPerastageSvgSymbolFromGdtf path=%s view=%d",
+             gdtfPath, static_cast<int>(requestedView));
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   std::unordered_map<std::string, std::string> entries;
   if (!ReadZipEntries(gdtfPath, entries, errorDetails))

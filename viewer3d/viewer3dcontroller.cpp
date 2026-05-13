@@ -962,7 +962,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      float gridB, bool gridOnTop,
                                      bool is2DViewer,
                                      bool preferPerastageSvgSymbolsForLayouts,
-                                     bool sourceGeometryOnlyForSymbolGeneration) {
+                                     bool ignoreGeneratedPerastageSvgSymbolsForCapture) {
   ConfigManager &cfg = ConfigManager::Get();
   m_impl->activeRenderMode = mode;
 
@@ -980,8 +980,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.is2DViewer = is2DViewer;
   context.preferPerastageSvgSymbolsForLayouts =
       preferPerastageSvgSymbolsForLayouts;
-  context.sourceGeometryOnlyForSymbolGeneration =
-      sourceGeometryOnlyForSymbolGeneration;
+  context.ignoreGeneratedPerastageSvgSymbolsForCapture =
+      ignoreGeneratedPerastageSvgSymbolsForCapture;
 
   m_impl->useAdaptiveLineProfile =
       cfg.GetFloat("viewer3d_adaptive_line_profile") >= 0.5f;

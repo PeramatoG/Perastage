@@ -14,6 +14,7 @@
 #include "truss.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dpanel.h"
+#include <wx/log.h>
 
 namespace tools {
 namespace {
@@ -199,6 +200,11 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
                                      const SceneModelSymbolTarget &target,
                                      const SceneModelSymbolCaptureOptions &options) {
   SceneModelSymbolCaptureResult result;
+  static unsigned long long s_captureId = 0;
+  const unsigned long long captureId = ++s_captureId;
+  wxLogTrace("fixture_symbol_capture",
+             "captureId=%llu fixtureUuid=%s ignoreGeneratedSvg=%d",
+             captureId, target.uuid, options.ignoreGeneratedPerastageSvgSymbolsForCapture ? 1 : 0);
 
   Viewer2DPanel *capturePanel = renderer.GetPanel();
   if (!capturePanel) {
@@ -220,8 +226,8 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   renderOverrides.forceBottomViewForTopFixtures = false;
   renderOverrides.symbolCaptureRenderProfile = true;
   renderOverrides.symbolCaptureIncludeCoplanarEdges = true;
-  renderOverrides.sourceGeometryOnlyForSymbolGeneration =
-      options.sourceGeometryOnlyForSymbolGeneration;
+  renderOverrides.ignoreGeneratedPerastageSvgSymbolsForCapture =
+      options.ignoreGeneratedPerastageSvgSymbolsForCapture;
   ScopedViewer2DRenderOverrides scopedRenderOverrides(*capturePanel,
                                                       renderOverrides);
 
@@ -254,6 +260,10 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   renders.reserve(requests.size());
 
   for (const auto &request : requests) {
+    wxLogTrace("fixture_symbol_capture",
+               "captureId=%llu view=%d forceBottom=%d",
+               captureId, static_cast<int>(request.view),
+               request.forceBottomViewForTopFixtures ? 1 : 0);
     renderOverrides.forceBottomViewForTopFixtures =
         request.forceBottomViewForTopFixtures;
     capturePanel->SetRenderOverrides(renderOverrides);
@@ -271,6 +281,9 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
     }
     if (request.mirrorSideHorizontally)
       MirrorImageHorizontally(render);
+    wxLogTrace("fixture_symbol_capture",
+               "captureId=%llu view=%d size=%dx%d",
+               captureId, static_cast<int>(request.symbolView), render.width, render.height);
     renders.push_back(std::move(render));
   }
 
