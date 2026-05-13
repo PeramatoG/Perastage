@@ -122,3 +122,6 @@ bool SetGdtfProperties(const std::string& gdtfPath,
                        float weightKg,
                        float powerW,
                        const std::string& modifiedByProgram);
+
+// Removes a single cached GDTF entry so future loads read updated file contents.
+void InvalidateGdtfCacheEntry(const std::string& gdtfPath);

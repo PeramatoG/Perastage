@@ -1723,3 +1723,9 @@ bool SetGdtfProperties(const std::string& gdtfPath,
     g_gdtfCache.erase(gdtfPath);
     return true;
 }
+
+// Invalidate one cached GDTF path so subsequent loads parse from disk again.
+void InvalidateGdtfCacheEntry(const std::string& gdtfPath) {
+    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+    g_gdtfCache.erase(gdtfPath);
+}

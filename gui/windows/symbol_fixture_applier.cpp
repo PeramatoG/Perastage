@@ -25,6 +25,7 @@
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "guiconfigservices.h"
 #include "gdtfdictionary.h"
+#include "gdtfloader.h"
 #include "gdtf_mutation_audit.h"
 #include "windows/symbol_preview_exporter.h"
 
@@ -665,6 +666,7 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
                      bottomSvgPath, errorMessage)) {
       return false;
     }
+    InvalidateGdtfCacheEntry(writableScenePath);
     sceneUpdated = true;
   }
 
@@ -676,6 +678,8 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
                      bottomSvgPath, errorMessage)) {
       if (!sceneUpdated)
         return false;
+    } else if (!libraryEqualsScene) {
+      InvalidateGdtfCacheEntry(libraryPath);
     }
   }
 
