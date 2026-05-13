@@ -25,7 +25,7 @@
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "guiconfigservices.h"
 #include "gdtfdictionary.h"
-#include "viewer3d/gdtfloader.h"
+#include "../../viewer3d/gdtfloader.h"
 #include "gdtf_mutation_audit.h"
 #include "windows/symbol_preview_exporter.h"
 
