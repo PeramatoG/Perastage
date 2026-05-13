@@ -27,6 +27,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <regex>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -234,6 +235,33 @@ std::string NormalizeTypeKey(const std::string &type) {
     normalized.push_back(static_cast<char>(std::toupper(ch)));
   }
   return normalized;
+}
+
+// Returns true when the filename optional-comment segment marks a Perastage-authored GDTF.
+bool IsPerastageNamedGdtfFile(const std::filesystem::path &path) {
+  const std::string stem = path.stem().string();
+  const size_t firstAt = stem.find('@');
+  if (firstAt == std::string::npos)
+    return false;
+  const size_t secondAt = stem.find('@', firstAt + 1);
+  if (secondAt == std::string::npos)
+    return false;
+  const std::string comment = stem.substr(secondAt + 1);
+  std::string normalized = NormalizeAsciiKey(comment);
+  return normalized == "perastage";
+}
+
+// Builds a canonical Perastage export filename using the GDTF naming convention.
+std::string BuildPerastageCanonicalGdtfFileName(const std::filesystem::path &sourcePath) {
+  std::string fixtureTypeName = sourcePath.stem().string();
+  std::replace(fixtureTypeName.begin(), fixtureTypeName.end(), '@', '_');
+  std::replace(fixtureTypeName.begin(), fixtureTypeName.end(), ' ', '_');
+  fixtureTypeName = TrimAsciiWhitespace(fixtureTypeName);
+  if (fixtureTypeName.empty())
+    fixtureTypeName = "Fixture";
+
+  const std::string manufacturerName = "Unknow";
+  return manufacturerName + "@" + fixtureTypeName + "@Perastage.gdtf";
 }
 
 std::optional<std::string>
@@ -809,6 +837,7 @@ std::optional<std::string> GetDefaultColorForFixture(
   return matchedColor;
 }
 
+// Updates a fixture dictionary entry and applies deterministic GDTF copy/overwrite rules.
 void Update(const std::string &type, const std::string &gdtfPath, const std::string &mode, const std::string &category) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   const std::string normalizedType = NormalizeTypeKey(type);
@@ -823,9 +852,15 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
   if (file.empty())
     return;
 
-  const fs::path dest = file.parent_path() / src.filename();
-  const auto copyResult = FileImportUtils::CopyWithConflictPolicy(
-      src, dest, FileImportUtils::ConflictPolicy::Rename);
+  const bool sourceIsPerastageNamed = IsPerastageNamedGdtfFile(src);
+  const fs::path defaultDest = file.parent_path() / src.filename();
+  const fs::path perastageDest =
+      file.parent_path() / BuildPerastageCanonicalGdtfFileName(src);
+  const fs::path dest = sourceIsPerastageNamed ? defaultDest : perastageDest;
+  const FileImportUtils::ConflictPolicy policy = sourceIsPerastageNamed
+                                                     ? FileImportUtils::ConflictPolicy::Overwrite
+                                                     : FileImportUtils::ConflictPolicy::Rename;
+  const auto copyResult = FileImportUtils::CopyWithConflictPolicy(src, dest, policy);
   if (!copyResult.success)
     return;
 
