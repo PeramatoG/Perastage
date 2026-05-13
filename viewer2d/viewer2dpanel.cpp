@@ -749,6 +749,7 @@ void Viewer2DPanel::InitGL() {
 
 void Viewer2DPanel::Render() { RenderInternal(true); }
 
+// Renders the 2D scene using a viewport that matches either onscreen framebuffer or explicit offscreen size.
 void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   static unsigned long long s_renderFrameId = 0;
   if (!m_glInitialized) {
@@ -762,9 +763,17 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const bool pauseHeavyTasks = m_enableSelection && ShouldPauseHeavyTasks();
   m_interactiveLabelMode =
       m_enableSelection && IsExpensiveVisualInteractionActive();
-  const RenderSize resolvedSize = ResolveRenderSize(this);
-  const int w = resolvedSize.width;
-  const int h = resolvedSize.height;
+  int w = 0;
+  int h = 0;
+  RenderSize resolvedSize{};
+  if (m_forceOffscreenRender || m_allowOffscreenRender) {
+    GetClientSize(&w, &h);
+    resolvedSize = RenderSize{w, h, "offscreen-client-size"};
+  } else {
+    resolvedSize = ResolveRenderSize(this);
+    w = resolvedSize.width;
+    h = resolvedSize.height;
+  }
   if (!resolvedSize.IsValid())
     return;
 
