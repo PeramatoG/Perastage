@@ -2818,9 +2818,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           (scannedFixturesForConflictScan == 1 ||
            scannedFixturesForConflictScan == totalFixturesForConflictScan ||
            scannedFixturesForConflictScan % 50 == 0)) {
-        reportProgress("Preparing GDTF conflict analysis...",
-                       scannedFixturesForConflictScan,
-                       totalFixturesForConflictScan);
+        LogMessage(Logger::Level::Info,
+                   "MVR import progress checkpoint: GDTF conflict scan fixture " +
+                       std::to_string(scannedFixturesForConflictScan) + "/" +
+                       std::to_string(totalFixturesForConflictScan));
       }
       if (f.typeName.empty())
         continue;
