@@ -385,8 +385,7 @@ void RunStartupLibraryBootstrap()
     if (!(bootstrapOnStartup && std::string(bootstrapOnStartup) == "1")) {
         Logger::Instance().Log(Logger::Level::Info,
                                "Library bootstrap migration skipped on startup (set "
-                               "PERASTAGE_BOOTSTRAP_ON_STARTUP=1 to enable).",
-                               false);
+                               "PERASTAGE_BOOTSTRAP_ON_STARTUP=1 to enable).");
         return;
     }
 #endif
