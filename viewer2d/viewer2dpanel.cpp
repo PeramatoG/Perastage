@@ -785,12 +785,16 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   if (!resolvedSize.IsValid())
     return;
 
+#if defined(__WXGTK__) || defined(__WXOSX__)
   if (m_captureFramebufferSizeOverride) {
     glDisable(GL_SCISSOR_TEST);
     glViewport(0, 0, w, h);
   } else {
     glstate::ApplyKnownBaseOnscreenState(w, h);
   }
+#else
+  glstate::ApplyKnownBaseOnscreenState(w, h);
+#endif
   const RenderSize viewportSize{w, h, "RenderInternal(active-framebuffer-px)"};
 
   glMatrixMode(GL_PROJECTION);
