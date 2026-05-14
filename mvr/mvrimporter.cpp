@@ -636,11 +636,11 @@ PromptGdtfConflictsOnUiThread(const std::vector<GdtfConflict> &conflicts,
   if (!wxTheApp || wxIsMainThread())
     return PromptGdtfConflicts(conflicts, parentWindow);
 
-  std::promise<std::unordered_map<std::string, GdtfConflictSelection>> resultPromise;
-  auto resultFuture = resultPromise.get_future();
-  wxTheApp->CallAfter([conflicts, parentWindow,
-                       promise = std::move(resultPromise)]() mutable {
-    promise.set_value(PromptGdtfConflicts(conflicts, parentWindow));
+  auto sharedPromise =
+      std::make_shared<std::promise<std::unordered_map<std::string, GdtfConflictSelection>>>();
+  auto resultFuture = sharedPromise->get_future();
+  wxTheApp->CallAfter([conflicts, parentWindow, sharedPromise]() {
+    sharedPromise->set_value(PromptGdtfConflicts(conflicts, parentWindow));
   });
   return resultFuture.get();
 }
