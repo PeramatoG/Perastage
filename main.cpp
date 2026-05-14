@@ -123,6 +123,22 @@ std::string ToLowerAscii(std::string text) {
   return text;
 }
 
+// Converts wxString to UTF-8 deterministically for filesystem usage without locale-dependent fallbacks.
+std::string WxStringToDeterministicUtf8Path(const wxString &text) {
+  wxCharBuffer utf8 = text.ToUTF8();
+  if (utf8)
+    return std::string(utf8.data());
+
+  const wxWCharBuffer wideBuffer = text.wc_str();
+  const wchar_t *wideChars = wideBuffer.data();
+  if (!wideChars)
+    return {};
+
+  const std::filesystem::path widePath(wideChars);
+  const std::u8string utf8Path = widePath.u8string();
+  return std::string(utf8Path.begin(), utf8Path.end());
+}
+
 // Returns the first startup-open candidate from CLI arguments as a normalized absolute UTF-8 path.
 std::optional<std::string> GetStartupPathFromArgs(
     int argc, wxChar **argv, const std::string &launchWorkingDirectoryUtf8) {
@@ -133,13 +149,6 @@ std::optional<std::string> GetStartupPathFromArgs(
           ? fs::path()
           : fs::u8path(launchWorkingDirectoryUtf8);
 
-  auto toUtf8 = [](const wxString &text) {
-    wxCharBuffer utf8 = text.ToUTF8();
-    if (!utf8)
-      return text.ToStdString();
-    return std::string(utf8.data());
-  };
-
   for (int i = 1; i < argc; ++i) {
     wxString argumentText(argv[i]);
     if ((argumentText.StartsWith("\"") && argumentText.EndsWith("\"")) ||
@@ -147,7 +156,7 @@ std::optional<std::string> GetStartupPathFromArgs(
       argumentText = argumentText.Mid(1, argumentText.length() - 2);
     }
 
-    const std::string rawPath = toUtf8(argumentText);
+    const std::string rawPath = WxStringToDeterministicUtf8Path(argumentText);
     if (rawPath.empty())
       continue;
 
@@ -166,12 +175,26 @@ std::optional<std::string> GetStartupPathFromArgs(
     } else {
       absolutePath = fs::absolute(candidate, ec);
     }
-    if (ec)
+    if (ec) {
+      Logger::Instance().Log("GetStartupPathFromArgs candidate raw argv='" +
+                             rawPath + "' normalized absolute='" +
+                             normalizedRawPath + "' (absolute failed)");
       return normalizedRawPath;
+    }
     const std::u8string absoluteU8 = absolutePath.u8string();
-    if (absoluteU8.empty())
+    if (absoluteU8.empty()) {
+      Logger::Instance().Log("GetStartupPathFromArgs candidate raw argv='" +
+                             rawPath + "' normalized absolute='" +
+                             normalizedRawPath + "' (empty absolute)");
       return normalizedRawPath;
-    return std::string(absoluteU8.begin(), absoluteU8.end());
+    }
+
+    const std::string normalizedAbsolutePath(absoluteU8.begin(),
+                                             absoluteU8.end());
+    Logger::Instance().Log("GetStartupPathFromArgs candidate raw argv='" +
+                           rawPath + "' normalized absolute='" +
+                           normalizedAbsolutePath + "'");
+    return normalizedAbsolutePath;
   }
   return std::nullopt;
 }
