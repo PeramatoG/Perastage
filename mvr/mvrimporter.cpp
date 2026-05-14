@@ -2718,6 +2718,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     const char *layerName = layer->Attribute("name");
     std::string layerStr = layerName ? layerName : "";
     bool isDefaultLayer = layerStr.empty();
+    const std::string layerLabel =
+        isDefaultLayer ? std::string("<default>") : layerStr;
+    LogMessage(Logger::Level::Info,
+               "MVR import progress checkpoint: entering Layer parse '" +
+                   layerLabel + "'");
 
     tinyxml2::XMLElement *childList = layer->FirstChildElement("ChildList");
     if (childList)
@@ -2737,6 +2742,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       }
       scene.layers[l.uuid] = l;
     }
+    LogMessage(Logger::Level::Info,
+               "MVR import progress checkpoint: completed Layer parse '" +
+                   layerLabel + "'");
   }
   LogMessage(Logger::Level::Info,
              "MVR import progress checkpoint: completed Layer scene parsing");
