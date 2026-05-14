@@ -1112,8 +1112,12 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   return true;
 }
 
+// Handles paint events while avoiding implicit offscreen paints that can race GL context readiness on GTK.
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
+  if (m_allowOffscreenRender && !m_forceOffscreenRender) {
+    return;
+  }
   ResetRepaintCoalescing();
   InitGL();
 
