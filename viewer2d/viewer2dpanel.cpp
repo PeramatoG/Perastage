@@ -747,8 +747,10 @@ void Viewer2DPanel::InitGL() {
   }
 }
 
+// Renders the 2D view to the onscreen back buffer and swaps buffers.
 void Viewer2DPanel::Render() { RenderInternal(true); }
 
+// Renders the full 2D scene using the active framebuffer-sized viewport.
 void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   static unsigned long long s_renderFrameId = 0;
   if (!m_glInitialized) {
@@ -762,7 +764,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const bool pauseHeavyTasks = m_enableSelection && ShouldPauseHeavyTasks();
   m_interactiveLabelMode =
       m_enableSelection && IsExpensiveVisualInteractionActive();
-  const RenderSize resolvedSize = ResolveRenderSize(this);
+  const RenderSize resolvedSize =
+      m_captureFramebufferSizeOverride.value_or(ResolveRenderSize(this));
   const int w = resolvedSize.width;
   const int h = resolvedSize.height;
   if (!resolvedSize.IsValid())
@@ -1050,9 +1053,17 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     SwapBuffers();
 }
 
+// Captures the current 2D scene into an RGBA buffer using a framebuffer-sized viewport.
 bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
-                                 int &height) {
-  const RenderSize renderSize = ResolveRenderSize(this);
+                                 int &height,
+                                 const std::optional<wxSize> &targetFramebufferSize) {
+  RenderSize renderSize = ResolveRenderSize(this);
+  if (targetFramebufferSize && targetFramebufferSize->GetWidth() > 0 &&
+      targetFramebufferSize->GetHeight() > 0) {
+    renderSize = RenderSize{targetFramebufferSize->GetWidth(),
+                            targetFramebufferSize->GetHeight(),
+                            "RenderToRGBA(targetFramebufferSize-px)"};
+  }
   const int w = renderSize.width;
   const int h = renderSize.height;
   if (w <= 0 || h <= 0)
@@ -1071,7 +1082,9 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
     return false;
   }
   glstate::ScopedFramebufferViewportScissorState stateGuard;
+  m_captureFramebufferSizeOverride = renderSize;
   RenderInternal(false);
+  m_captureFramebufferSizeOverride.reset();
 
   glReadBuffer(GL_BACK);
   glPixelStorei(GL_PACK_ALIGNMENT, 1);

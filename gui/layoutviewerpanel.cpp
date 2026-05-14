@@ -2180,7 +2180,8 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       previewOverrides.symbolCaptureRenderProfile = false;
       capturePanel->SetRenderOverrides(previewOverrides);
       capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
-      const bool rendered = capturePanel->RenderToRGBA(pixels, width, height);
+      const bool rendered =
+          capturePanel->RenderToRGBA(pixels, width, height, renderSize);
       if (!rendered || width <= 0 || height <= 0) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
