@@ -18,6 +18,7 @@
 #include "truss_gdtf_builder.h"
 
 #include "json.hpp"
+#include "logger.h"
 
 #include <tinyxml2.h>
 #include <wx/filename.h>
@@ -246,6 +247,7 @@ static bool ReadLegacyGtruss(const fs::path &gtrussPath, TrussSourceData &out,
   return true;
 }
 
+// Builds a deterministic fixture type UUID for generated truss GDTF data and logs the generated mapping.
 static std::string BuildStableFixtureTypeId(const TrussSourceData &data) {
   std::ostringstream seed;
   seed << "perastage-truss-type:v2|" << data.typeKey << '|'
@@ -258,8 +260,10 @@ static std::string BuildStableFixtureTypeId(const TrussSourceData &data) {
        << std::fixed << std::setprecision(3) << data.heightMm << '|'
        << std::fixed << std::setprecision(3) << data.weightKg;
   const std::string fixtureTypeId = BuildDeterministicUuid(seed.str());
-  wxLogMessage("Truss GDTF FixtureTypeID generated typeKey='%s' fixtureTypeId='%s'",
-               data.typeKey.c_str(), fixtureTypeId.c_str());
+  Logger::Instance().Log(
+      Logger::Level::Info,
+      "Truss GDTF FixtureTypeID generated typeKey='" + data.typeKey +
+          "' fixtureTypeId='" + fixtureTypeId + "'");
   return fixtureTypeId;
 }
 
