@@ -2635,8 +2635,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     constexpr int kReportEveryNodes = 25;
     if (importedNodes == 1 || importedNodes == totalImportNodes ||
         importedNodes % kReportEveryNodes == 0) {
-      reportProgress(std::string("Importing scene objects (") + nodeKind + ")",
-                     importedNodes, totalImportNodes);
       LogMessage(Logger::Level::Info,
                  "MVR import progress checkpoint: parsed node type='" +
                      std::string(nodeKind) + "' count=" +
