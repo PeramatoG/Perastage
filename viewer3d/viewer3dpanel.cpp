@@ -2316,7 +2316,7 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
     event.Skip();
 }
 
-// Updates the controller with current scene data
+// Updates scene resources only when the 3D canvas is fully shown and its GL context can be safely activated.
 void Viewer3DPanel::UpdateScene()
 {
     ++m_sceneRevision;
@@ -2324,10 +2324,11 @@ void Viewer3DPanel::UpdateScene()
 
     if (ShouldPauseHeavyTasks() || m_cameraMoving)
         return;
-    if (!IsShown())
+    if (!IsShownOnScreen())
         return;
 
-    SetCurrent(*m_glContext);
+    if (!SetCurrent(*m_glContext))
+        return;
     if (m_controller.ConsumeResourceSyncPending())
         m_controller.UpdateResourcesIfDirty();
     if (Viewer2DPanel::Instance())
