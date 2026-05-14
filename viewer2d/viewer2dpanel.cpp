@@ -785,8 +785,13 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   if (!resolvedSize.IsValid())
     return;
 
-  glstate::ApplyKnownBaseOnscreenState(w, h);
-  const RenderSize viewportSize{w, h, "glstate::ApplyKnownBaseOnscreenState(framebuffer-px)"};
+  if (m_captureFramebufferSizeOverride) {
+    glDisable(GL_SCISSOR_TEST);
+    glViewport(0, 0, w, h);
+  } else {
+    glstate::ApplyKnownBaseOnscreenState(w, h);
+  }
+  const RenderSize viewportSize{w, h, "RenderInternal(active-framebuffer-px)"};
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
@@ -1096,13 +1101,48 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
     return false;
   }
   glstate::ScopedFramebufferViewportScissorState stateGuard;
+  GLuint fbo = 0;
+  GLuint colorTexture = 0;
+  GLuint depthStencilRbo = 0;
+  glGenFramebuffers(1, &fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+  glGenTextures(1, &colorTexture);
+  glBindTexture(GL_TEXTURE_2D, colorTexture);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+               nullptr);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         colorTexture, 0);
+
+  glGenRenderbuffers(1, &depthStencilRbo);
+  glBindRenderbuffer(GL_RENDERBUFFER, depthStencilRbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                            GL_RENDERBUFFER, depthStencilRbo);
+
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    glDeleteRenderbuffers(1, &depthStencilRbo);
+    glDeleteTextures(1, &colorTexture);
+    glDeleteFramebuffers(1, &fbo);
+    m_forceOffscreenRender = previousForce;
+    return false;
+  }
+
   m_captureFramebufferSizeOverride = wxSize(w, h);
   RenderInternal(false);
   m_captureFramebufferSizeOverride.reset();
 
-  glReadBuffer(GL_BACK);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+
+  glDeleteRenderbuffers(1, &depthStencilRbo);
+  glDeleteTextures(1, &colorTexture);
+  glDeleteFramebuffers(1, &fbo);
 
   m_forceOffscreenRender = previousForce;
   return true;
