@@ -23,22 +23,16 @@ constexpr int kDefaultViewportWidth = 1600;
 constexpr int kDefaultViewportHeight = 900;
 }
 
-// Creates an offscreen-capable Viewer2D panel and ensures its GL canvas can be made current on Linux/macOS.
+// Creates an offscreen-capable Viewer2D panel that stays hidden from the visible UI hierarchy.
 Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
   host_ = new wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(1, 1));
-  host_->Show();
+  host_->Hide();
 
   panel_ = new Viewer2DPanel(host_, true, false, false);
   panel_->SetSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
   panel_->SetClientSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
   panel_->SetRenderOverrides(std::nullopt);
   panel_->UpdateScene(true);
-  Logger::Instance().Log(
-      "Viewer2DOffscreenRenderer::ctor hostClient=" +
-      std::to_string(host_->GetClientSize().GetWidth()) + "x" +
-      std::to_string(host_->GetClientSize().GetHeight()) + " panelClient=" +
-      std::to_string(panel_->GetClientSize().GetWidth()) + "x" +
-      std::to_string(panel_->GetClientSize().GetHeight()));
 }
 
 // Releases the offscreen host hierarchy owned by this renderer.
@@ -56,53 +50,23 @@ void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
     return;
   if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
     return;
-  const wxSize hostBefore = host_ ? host_->GetClientSize() : wxSize(0, 0);
   const wxSize panelBefore = panel_->GetClientSize();
-  if (host_) {
-    host_->SetMinSize(size);
-    host_->SetSize(size);
-    host_->SetClientSize(size);
-  }
   panel_->SetMinSize(size);
   panel_->SetSize(size);
   panel_->SetClientSize(size);
-  if (host_) {
-    host_->Layout();
-    host_->SendSizeEvent();
-    host_->Update();
-  }
-  Logger::Instance().Log(
-      "Viewer2DOffscreenRenderer::SetViewportSize requested=" +
-      std::to_string(size.GetWidth()) + "x" + std::to_string(size.GetHeight()) +
-      " hostBefore=" + std::to_string(hostBefore.GetWidth()) + "x" +
-      std::to_string(hostBefore.GetHeight()) + " hostAfter=" +
-      std::to_string(host_ ? host_->GetClientSize().GetWidth() : 0) + "x" +
-      std::to_string(host_ ? host_->GetClientSize().GetHeight() : 0) +
-      " panelBefore=" + std::to_string(panelBefore.GetWidth()) + "x" +
-      std::to_string(panelBefore.GetHeight()) + " panelAfter=" +
-      std::to_string(panel_->GetClientSize().GetWidth()) + "x" +
-      std::to_string(panel_->GetClientSize().GetHeight()));
+  Logger::Instance().Log("Viewer2DOffscreenRenderer::SetViewportSize panelBefore=" +
+                         std::to_string(panelBefore.GetWidth()) + "x" +
+                         std::to_string(panelBefore.GetHeight()) + " panelAfter=" +
+                         std::to_string(panel_->GetClientSize().GetWidth()) + "x" +
+                         std::to_string(panel_->GetClientSize().GetHeight()));
 }
 
 // Prepares the offscreen Viewer2D panel state before a capture pass.
 void Viewer2DOffscreenRenderer::PrepareForCapture() {
   if (!panel_)
     return;
-  if (host_ && !host_->IsShown()) {
-    host_->Show();
-  }
-  if (host_) {
-    host_->Layout();
-    host_->Update();
-  }
-  Logger::Instance().Log(
-      "Viewer2DOffscreenRenderer::PrepareForCapture hostShown=" +
-      std::to_string(host_ && host_->IsShown() ? 1 : 0) + " panelShown=" +
-      std::to_string(panel_->IsShown() ? 1 : 0) + " hostClient=" +
-      std::to_string(host_ ? host_->GetClientSize().GetWidth() : 0) + "x" +
-      std::to_string(host_ ? host_->GetClientSize().GetHeight() : 0) +
-      " panelClient=" + std::to_string(panel_->GetClientSize().GetWidth()) +
-      "x" + std::to_string(panel_->GetClientSize().GetHeight()));
+  Logger::Instance().Log("Viewer2DOffscreenRenderer::PrepareForCapture panelShown=" +
+                         std::to_string(panel_->IsShown() ? 1 : 0));
   panel_->SetRenderOverrides(std::nullopt);
   panel_->UpdateScene(true);
 }
