@@ -293,7 +293,17 @@ bool MainWindowIoController::OpenPathFromCommandLine(
   if (extension == "mvr")
   {
     Logger::Instance().Log("Opening MVR from external request: " + pathUtf8);
-    const bool imported = ImportMvrFromPath(pathUtf8);
+    bool imported = ImportMvrFromPath(pathUtf8);
+#if defined(__WXOSX__)
+    // Retries MVR import once on macOS to recover from first-attempt permission timing failures.
+    if (!imported) {
+      wxFileName mvrCandidate(wxString::FromUTF8(pathUtf8));
+      if (mvrCandidate.Exists()) {
+        wxYieldIfNeeded();
+        imported = ImportMvrFromPath(pathUtf8);
+      }
+    }
+#endif
     wxFileName fileInfo(wxString::FromUTF8(pathUtf8));
     if (imported) {
       Logger::Instance().Log("MVR imported: " + fileInfo.GetFullName().ToStdString());
