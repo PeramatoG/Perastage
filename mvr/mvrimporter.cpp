@@ -2857,9 +2857,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     }
     if (!gdtfConflicts.empty()) {
       if (promptConflicts) {
+        reportProgress("Conflict dialog:show");
         LogMessage(Logger::Level::Info,
                    "MVR import progress checkpoint: showing GDTF conflict dialog");
         auto choices = PromptGdtfConflicts(gdtfConflicts);
+        reportProgress("Conflict dialog:hide");
         LogMessage(Logger::Level::Info,
                    "MVR import progress checkpoint: GDTF conflict dialog closed with choices=" +
                        std::to_string(choices.size()));
