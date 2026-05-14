@@ -39,7 +39,6 @@
 #include <wx/weakref.h>
 #include <wx/wx.h>
 #include <wx/filename.h>
-#include <wx/calllater.h>
 #include <wx/stdpaths.h>
 
 class MyApp : public wxApp {
@@ -65,6 +64,9 @@ private:
   void QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
                                bool loaded, bool clearLastProject,
                                const std::string &path = {});
+  void ResolveStartupOpenRequest(const wxWeakRef<MainWindow> &mainWindowRef,
+                                 const std::string &lastPath,
+                                 int remainingMacPollAttempts);
 
   std::string last_event_summary_;
   std::atomic<bool> project_load_event_sent_{false};
@@ -288,40 +290,12 @@ bool MyApp::OnInit() {
     // cleared.
     QueueProjectLoadedEvent(mainWindowRef, false, false, *startupPathOpt);
   } else if (lastPathOpt) {
-    std::string lastPath = *lastPathOpt;
+    const std::string lastPath = *lastPathOpt;
     mainWindow->CallAfter([this, mainWindowRef, lastPath]() {
-      if (!mainWindowRef)
-        return;
-      if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
-        QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
-        return;
-      }
-
 #if defined(__WXOSX__)
-      // Gives macOS file-open events time to arrive after the user grants TCC folder access.
-      auto *delayedLastProjectLoad = new wxCallLater(
-          1800, [this, mainWindowRef, lastPath]() {
-            if (!mainWindowRef)
-              return;
-            if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
-              QueueProjectLoadedEvent(mainWindowRef, false, false,
-                                      *pendingOpenPath);
-              return;
-            }
-            mainWindowRef->LoadStartupProjectFromPath(lastPath);
-          });
-      delayedLastProjectLoad->SetOwner(mainWindowRef.get());
+      ResolveStartupOpenRequest(mainWindowRef, lastPath, 200);
 #else
-      // Loads the last project after one UI tick when no external open request is pending.
-      mainWindowRef->CallAfter([this, mainWindowRef, lastPath]() {
-        if (!mainWindowRef)
-          return;
-        if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
-          QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
-          return;
-        }
-        mainWindowRef->LoadStartupProjectFromPath(lastPath);
-      });
+      ResolveStartupOpenRequest(mainWindowRef, lastPath, 0);
 #endif
     });
 
@@ -330,6 +304,29 @@ bool MyApp::OnInit() {
   }
 
   return true;
+}
+
+// Resolves startup opening by prioritizing external-open paths and only then loading last project fallback.
+void MyApp::ResolveStartupOpenRequest(const wxWeakRef<MainWindow> &mainWindowRef,
+                                      const std::string &lastPath,
+                                      int remainingMacPollAttempts) {
+  if (!mainWindowRef)
+    return;
+  if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
+    QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
+    return;
+  }
+#if defined(__WXOSX__)
+  if (remainingMacPollAttempts > 0) {
+    mainWindowRef->CallAfter([this, mainWindowRef, lastPath,
+                              remainingMacPollAttempts]() {
+      ResolveStartupOpenRequest(mainWindowRef, lastPath,
+                                remainingMacPollAttempts - 1);
+    });
+    return;
+  }
+#endif
+  mainWindowRef->LoadStartupProjectFromPath(lastPath);
 }
 
 // Routes a single macOS file-open request to the shared external-open handler.
