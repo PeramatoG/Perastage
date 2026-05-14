@@ -69,7 +69,18 @@ std::optional<fs::path> FindExistingPath(const fs::path& start,
 
 std::optional<fs::path> ResolveWritableUserDataDir()
 {
-    wxString dir = wxStandardPaths::Get().GetUserDataDir();
+    // Resolves a writable per-user app-data directory, preferring LOCALAPPDATA on Windows.
+    wxString dir;
+#ifdef _WIN32
+    if (const char* localAppData = std::getenv("LOCALAPPDATA");
+        localAppData && *localAppData) {
+        dir = wxString::FromUTF8(localAppData);
+        if (!dir.empty())
+            dir += wxFILE_SEP_PATH + wxString("Perastage");
+    }
+#endif
+    if (dir.empty())
+        dir = wxStandardPaths::Get().GetUserDataDir();
     fs::path candidate;
     if (!dir.empty())
         candidate = WxStringToPath(dir);
