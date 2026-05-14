@@ -293,8 +293,7 @@ bool MyApp::OnInit() {
     const std::string lastPath = *lastPathOpt;
     mainWindow->CallAfter([this, mainWindowRef, lastPath]() {
 #if defined(__WXOSX__)
-      (void)lastPath;
-      QueueProjectLoadedEvent(mainWindowRef, false, false);
+      ResolveStartupOpenRequest(mainWindowRef, lastPath, 240);
 #else
       ResolveStartupOpenRequest(mainWindowRef, lastPath, 0);
 #endif
