@@ -326,6 +326,7 @@ void MyApp::ResolveStartupOpenRequest(const wxWeakRef<MainWindow> &mainWindowRef
     return;
   }
 #endif
+  project_load_event_sent_.store(true);
   mainWindowRef->LoadStartupProjectFromPath(lastPath);
 }
 
