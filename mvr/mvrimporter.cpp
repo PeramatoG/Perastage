@@ -2711,8 +2711,20 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         group.parentGroupUuid = parentGroupUuid;
         if (const char *nameAttr = child->Attribute("name"))
           group.name = nameAttr;
+        LogMessage(Logger::Level::Info,
+                   "MVR import progress detail: storing GroupObject uuid='" +
+                       group.uuid + "'");
         scene.groupObjects[group.uuid] = group;
+        LogMessage(Logger::Level::Info,
+                   "MVR import progress detail: stored GroupObject uuid='" +
+                       group.uuid + "'");
+        LogMessage(Logger::Level::Info,
+                   "MVR import progress detail: reporting GroupObject progress uuid='" +
+                       group.uuid + "'");
         reportNodeProgress("GroupObject");
+        LogMessage(Logger::Level::Info,
+                   "MVR import progress detail: reported GroupObject progress uuid='" +
+                       group.uuid + "'");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::GroupObject, group.uuid});
