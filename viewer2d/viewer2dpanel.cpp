@@ -744,7 +744,7 @@ void Viewer2DPanel::InvalidateBottomSymbolCache() {
 // Initializes GL resources once the canvas is actually shown and can own a current context.
 void Viewer2DPanel::InitGL() {
   const bool isOffscreenRequested = m_forceOffscreenRender || m_allowOffscreenRender;
-  if (!IsShownOnScreen() && !isOffscreenRequested) {
+  if (!IsShownOnScreen()) {
     Logger::Instance().Log("Viewer2DPanel::InitGL skipped (not shown on screen).");
     return;
   }

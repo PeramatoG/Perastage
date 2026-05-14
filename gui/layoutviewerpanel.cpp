@@ -959,8 +959,15 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     const int activeImageId =
         showDeferredResizeOverlay ? -1 : selectedImageId;
 
-    Viewer2DPanel *capturePanel = Viewer2DPanel::Instance();
+    Viewer2DPanel *capturePanel = nullptr;
     Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
+    if (auto *mw = MainWindow::Instance()) {
+      offscreenRenderer = mw->GetOffscreenRenderer();
+      capturePanel =
+          offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+    } else {
+      capturePanel = Viewer2DPanel::Instance();
+    }
 
     std::unordered_map<int, const layouts::Layout2DViewDefinition *> viewById;
     std::unordered_map<int, const layouts::LayoutLegendDefinition *>
@@ -2059,7 +2066,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     if (!isReadyToRender_ || !glContext_ || !IsShownOnScreen())
       return;
     Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
-    Viewer2DPanel *capturePanel = Viewer2DPanel::Instance();
+    Viewer2DPanel *capturePanel = nullptr;
     auto stopLoadingRequest = [this]() {
       loadingRequested = false;
       if (loadingTimer_.IsRunning())
@@ -2101,8 +2108,14 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       }
     }
     const bool needsCapturePanel = hasDirtyViewCache || needsLegendSymbolCapture;
-    if (needsCapturePanel && !capturePanel) {
-      return;
+    if (needsCapturePanel) {
+      if (auto *mw = MainWindow::Instance()) {
+        offscreenRenderer = mw->GetOffscreenRenderer();
+        capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+      }
+      if (!capturePanel || !offscreenRenderer) {
+        return;
+      }
     }
 
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
@@ -2137,10 +2150,8 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      if (offscreenRenderer) {
-        offscreenRenderer->SetViewportSize(renderSize);
-        offscreenRenderer->PrepareForCapture();
-      }
+      offscreenRenderer->SetViewportSize(renderSize);
+      offscreenRenderer->PrepareForCapture();
 
       viewer2d::Viewer2DState renderState = cache.renderState;
       if (renderZoom != 1.0) {
