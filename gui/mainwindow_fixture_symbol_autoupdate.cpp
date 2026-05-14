@@ -352,9 +352,12 @@ void MainWindow::OnStartupSplashCloseIdle(wxIdleEvent &event) {
   CompleteStartupSplashInitialization();
 }
 
+// Finalizes startup splash state and processes any deferred external-open request when startup is complete.
 void MainWindow::CompleteStartupSplashInitialization() {
-  if (!startupSplashInitializationPending)
+  if (!startupSplashInitializationPending) {
+    ProcessDeferredStartupOpenPath();
     return;
+  }
 
   startupSplashInitializationPending = false;
   SplashScreen::SetMessage("Ready");
