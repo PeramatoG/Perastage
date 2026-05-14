@@ -150,7 +150,9 @@ std::optional<std::string> GetStartupPathFromArgs(
           : fs::u8path(launchWorkingDirectoryUtf8);
 
   for (int i = 1; i < argc; ++i) {
-    wxString argumentText(argv[i]);
+    const wxString rawArgvText(argv[i]);
+    const std::string rawArgvToken = WxStringToDeterministicUtf8Path(rawArgvText);
+    wxString argumentText(rawArgvText);
     if ((argumentText.StartsWith("\"") && argumentText.EndsWith("\"")) ||
         (argumentText.StartsWith("'") && argumentText.EndsWith("'"))) {
       argumentText = argumentText.Mid(1, argumentText.length() - 2);
@@ -177,14 +179,14 @@ std::optional<std::string> GetStartupPathFromArgs(
     }
     if (ec) {
       Logger::Instance().Log("GetStartupPathFromArgs candidate raw argv='" +
-                             rawPath + "' normalized absolute='" +
+                             rawArgvToken + "' normalized absolute='" +
                              normalizedRawPath + "' (absolute failed)");
       return normalizedRawPath;
     }
     const std::u8string absoluteU8 = absolutePath.u8string();
     if (absoluteU8.empty()) {
       Logger::Instance().Log("GetStartupPathFromArgs candidate raw argv='" +
-                             rawPath + "' normalized absolute='" +
+                             rawArgvToken + "' normalized absolute='" +
                              normalizedRawPath + "' (empty absolute)");
       return normalizedRawPath;
     }
@@ -192,7 +194,7 @@ std::optional<std::string> GetStartupPathFromArgs(
     const std::string normalizedAbsolutePath(absoluteU8.begin(),
                                              absoluteU8.end());
     Logger::Instance().Log("GetStartupPathFromArgs candidate raw argv='" +
-                           rawPath + "' normalized absolute='" +
+                           rawArgvToken + "' normalized absolute='" +
                            normalizedAbsolutePath + "'");
     return normalizedAbsolutePath;
   }
@@ -316,9 +318,7 @@ bool MyApp::OnInit() {
 
 // Routes a single macOS file-open request to the shared external-open handler.
 void MyApp::MacOpenFile(const wxString &fileName) {
-  const wxCharBuffer utf8 = fileName.ToUTF8();
-  const std::string rawPathUtf8 =
-      utf8 ? std::string(utf8.data()) : fileName.ToStdString();
+  const std::string rawPathUtf8 = WxStringToDeterministicUtf8Path(fileName);
   Logger::Instance().Log("MacOpenFile received: " + rawPathUtf8);
   HandleExternalOpenPath(NormalizeExternalOpenPath(rawPathUtf8));
 }
@@ -335,9 +335,7 @@ void MyApp::MacOpenFiles(const wxArrayString &fileNames) {
 
 // Routes macOS URL open requests (Finder/LaunchServices) to the shared external-open handler.
 void MyApp::MacOpenURL(const wxString &url) {
-  const wxCharBuffer utf8 = url.ToUTF8();
-  const std::string rawUrlUtf8 =
-      utf8 ? std::string(utf8.data()) : url.ToStdString();
+  const std::string rawUrlUtf8 = WxStringToDeterministicUtf8Path(url);
   Logger::Instance().Log("MacOpenURL received: " + rawUrlUtf8);
   HandleExternalOpenPath(NormalizeExternalOpenPath(rawUrlUtf8));
 }
