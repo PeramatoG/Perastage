@@ -510,7 +510,8 @@ struct GdtfConflictSelection {
 };
 
 static std::unordered_map<std::string, GdtfConflictSelection>
-PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
+PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts,
+                    wxWindow *parentWindow) {
   std::unordered_map<std::string, GdtfConflictSelection> chosen;
   if (conflicts.empty())
     return chosen;
@@ -522,7 +523,10 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
     }
   };
 
-  wxDialog dlg(nullptr, wxID_ANY, "Resolve GDTF source conflicts");
+  wxWindow *effectiveParent = parentWindow;
+  if (!effectiveParent && wxTheApp)
+    effectiveParent = wxTheApp->GetTopWindow();
+  wxDialog dlg(effectiveParent, wxID_ANY, "Resolve GDTF source conflicts");
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   wxStaticText *subtitle = new wxStaticText(
       &dlg, wxID_ANY,
@@ -2860,7 +2864,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         reportProgress("Conflict dialog:show");
         LogMessage(Logger::Level::Info,
                    "MVR import progress checkpoint: showing GDTF conflict dialog");
-        auto choices = PromptGdtfConflicts(gdtfConflicts);
+        auto choices = PromptGdtfConflicts(
+            gdtfConflicts, wxTheApp ? wxTheApp->GetTopWindow() : nullptr);
         reportProgress("Conflict dialog:hide");
         LogMessage(Logger::Level::Info,
                    "MVR import progress checkpoint: GDTF conflict dialog closed with choices=" +
