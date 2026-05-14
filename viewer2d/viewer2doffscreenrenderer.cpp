@@ -22,9 +22,10 @@ constexpr int kDefaultViewportWidth = 1600;
 constexpr int kDefaultViewportHeight = 900;
 }
 
+// Creates an offscreen-capable Viewer2D panel and ensures its GL canvas can be made current on Linux/macOS.
 Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
   host_ = new wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(1, 1));
-  host_->Hide();
+  host_->Show();
 
   panel_ = new Viewer2DPanel(host_, true, false, false);
   panel_->SetSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
@@ -33,6 +34,7 @@ Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
   panel_->UpdateScene(true);
 }
 
+// Releases the offscreen host hierarchy owned by this renderer.
 Viewer2DOffscreenRenderer::~Viewer2DOffscreenRenderer() {
   if (host_) {
     host_->Destroy();
@@ -41,6 +43,7 @@ Viewer2DOffscreenRenderer::~Viewer2DOffscreenRenderer() {
   }
 }
 
+// Applies the capture viewport size to the underlying offscreen Viewer2D panel.
 void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
   if (!panel_)
     return;
@@ -50,6 +53,7 @@ void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
   panel_->SetClientSize(size);
 }
 
+// Prepares the offscreen Viewer2D panel state before a capture pass.
 void Viewer2DOffscreenRenderer::PrepareForCapture() {
   if (!panel_)
     return;
@@ -57,6 +61,7 @@ void Viewer2DOffscreenRenderer::PrepareForCapture() {
   panel_->UpdateScene(true);
 }
 
+// Applies capture-friendly render defaults used by symbol snapshot workflows.
 void Viewer2DOffscreenRenderer::ApplySymbolCaptureDefaults() {
   if (!panel_)
     return;
