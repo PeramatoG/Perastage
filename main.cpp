@@ -67,10 +67,14 @@ private:
   void ResolveStartupOpenRequest(const wxWeakRef<MainWindow> &mainWindowRef,
                                  const std::string &lastPath,
                                  int remainingMacPollAttempts);
+  void ScheduleMacStartupFallbackCheck(const wxWeakRef<MainWindow> &mainWindowRef);
 
   std::string last_event_summary_;
   std::atomic<bool> project_load_event_sent_{false};
   std::deque<std::string> pending_external_open_paths_;
+  bool mac_startup_external_open_window_active_ = false;
+  int mac_startup_external_open_ticks_remaining_ = 0;
+  std::string mac_startup_last_project_fallback_path_;
 };
 
 namespace {
@@ -293,7 +297,11 @@ bool MyApp::OnInit() {
     const std::string lastPath = *lastPathOpt;
     mainWindow->CallAfter([this, mainWindowRef, lastPath]() {
 #if defined(__WXOSX__)
-      ResolveStartupOpenRequest(mainWindowRef, lastPath, 200);
+      mac_startup_external_open_window_active_ = true;
+      mac_startup_external_open_ticks_remaining_ = 600;
+      mac_startup_last_project_fallback_path_ = lastPath;
+      QueueProjectLoadedEvent(mainWindowRef, false, false);
+      ScheduleMacStartupFallbackCheck(mainWindowRef);
 #else
       ResolveStartupOpenRequest(mainWindowRef, lastPath, 0);
 #endif
@@ -304,6 +312,47 @@ bool MyApp::OnInit() {
   }
 
   return true;
+}
+
+// Polls macOS startup state to prioritize external-open requests before loading the last-project fallback.
+void MyApp::ScheduleMacStartupFallbackCheck(
+    const wxWeakRef<MainWindow> &mainWindowRef) {
+#if defined(__WXOSX__)
+  if (!mainWindowRef || !mac_startup_external_open_window_active_)
+    return;
+
+  if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
+    mac_startup_external_open_window_active_ = false;
+    mac_startup_last_project_fallback_path_.clear();
+    QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
+    return;
+  }
+
+  if (mainWindowRef->IsStartupProjectLoadPending() ||
+      mainWindowRef->IsStartupInitializationPending()) {
+    mainWindowRef->CallAfter(
+        [this, mainWindowRef]() { ScheduleMacStartupFallbackCheck(mainWindowRef); });
+    return;
+  }
+
+  if (mac_startup_external_open_ticks_remaining_ > 0) {
+    --mac_startup_external_open_ticks_remaining_;
+    mainWindowRef->CallAfter(
+        [this, mainWindowRef]() { ScheduleMacStartupFallbackCheck(mainWindowRef); });
+    return;
+  }
+
+  mac_startup_external_open_window_active_ = false;
+  if (mac_startup_last_project_fallback_path_.empty())
+    return;
+
+  project_load_event_sent_.store(true);
+  const std::string fallbackPath = mac_startup_last_project_fallback_path_;
+  mac_startup_last_project_fallback_path_.clear();
+  mainWindowRef->LoadStartupProjectFromPath(fallbackPath);
+#else
+  (void)mainWindowRef;
+#endif
 }
 
 // Resolves startup opening by prioritizing external-open paths and only then loading last project fallback.
