@@ -1250,12 +1250,13 @@ void LayoutViewerPanel::EnsureLoadingTextTexture() {
 void LayoutViewerPanel::ClearLoadingTextTexture() {
   if (loadingTextTexture_ == 0 || !glContext_)
     return;
-  if (!IsShown()) {
+  if (!IsShownOnScreen()) {
     loadingTextTexture_ = 0;
     loadingTextTextureSize_ = wxSize(0, 0);
     return;
   }
-  SetCurrent(*glContext_);
+  if (!SetCurrent(*glContext_))
+    return;
   glDeleteTextures(1, &loadingTextTexture_);
   loadingTextTexture_ = 0;
   loadingTextTextureSize_ = wxSize(0, 0);
@@ -2672,13 +2673,14 @@ void LayoutViewerPanel::ClearCachedTexture(ViewCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  if (!IsShown()) {
+  if (!IsShownOnScreen()) {
     cache.texture = 0;
     cache.pixelUnpackPbo = 0;
     cache.pboBytes = 0;
     return;
   }
-  SetCurrent(*glContext_);
+  if (!SetCurrent(*glContext_))
+    return;
   if (cache.texture != 0) {
     glDeleteTextures(1, &cache.texture);
     cache.texture = 0;
@@ -2699,13 +2701,14 @@ void LayoutViewerPanel::ClearCachedTexture(LegendCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  if (!IsShown()) {
+  if (!IsShownOnScreen()) {
     cache.texture = 0;
     cache.pixelUnpackPbo = 0;
     cache.pboBytes = 0;
     return;
   }
-  SetCurrent(*glContext_);
+  if (!SetCurrent(*glContext_))
+    return;
   if (cache.texture != 0) {
     glDeleteTextures(1, &cache.texture);
     cache.texture = 0;
@@ -2726,13 +2729,14 @@ void LayoutViewerPanel::ClearCachedTexture(EventTableCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  if (!IsShown()) {
+  if (!IsShownOnScreen()) {
     cache.texture = 0;
     cache.pixelUnpackPbo = 0;
     cache.pboBytes = 0;
     return;
   }
-  SetCurrent(*glContext_);
+  if (!SetCurrent(*glContext_))
+    return;
   if (cache.texture != 0) {
     glDeleteTextures(1, &cache.texture);
     cache.texture = 0;
@@ -2753,13 +2757,14 @@ void LayoutViewerPanel::ClearCachedTexture(TextCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  if (!IsShown()) {
+  if (!IsShownOnScreen()) {
     cache.texture = 0;
     cache.pixelUnpackPbo = 0;
     cache.pboBytes = 0;
     return;
   }
-  SetCurrent(*glContext_);
+  if (!SetCurrent(*glContext_))
+    return;
   if (cache.texture != 0) {
     glDeleteTextures(1, &cache.texture);
     cache.texture = 0;
@@ -2780,13 +2785,14 @@ void LayoutViewerPanel::ClearCachedTexture(ImageCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  if (!IsShown()) {
+  if (!IsShownOnScreen()) {
     cache.texture = 0;
     cache.pixelUnpackPbo = 0;
     cache.pboBytes = 0;
     return;
   }
-  SetCurrent(*glContext_);
+  if (!SetCurrent(*glContext_))
+    return;
   if (cache.texture != 0) {
     glDeleteTextures(1, &cache.texture);
     cache.texture = 0;
