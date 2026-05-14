@@ -64,11 +64,9 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   SplashScreen::Hide();
 
   const bool shouldShowBlockingImportUi = !ownerRef->IsStartupProjectLoadPending();
-  std::unique_ptr<wxWindowDisabler> importDisabler;
   std::unique_ptr<wxBusyInfo> importOverlay;
   std::unique_ptr<wxProgressDialog> importProgress;
   if (shouldShowBlockingImportUi) {
-    importDisabler = std::make_unique<wxWindowDisabler>();
     importOverlay = std::make_unique<wxBusyInfo>("Importing MVR file...");
   }
 
@@ -98,24 +96,22 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           if (stage == "Conflict dialog:show") {
             if (viewportInteractionLocked) {
               ownerRef->UnlockViewportInteraction();
-              viewportInteractionLocked = false;
-            }
-            importProgress.reset();
-            importOverlay.reset();
-            importDisabler.reset();
-            return;
+            viewportInteractionLocked = false;
           }
+          importProgress.reset();
+          importOverlay.reset();
+          return;
+        }
 
           if (stage == "Conflict dialog:hide") {
             if (!viewportInteractionLocked) {
               ownerRef->LockViewportInteraction();
-              viewportInteractionLocked = true;
-            }
-            if (shouldShowBlockingImportUi) {
-              importDisabler = std::make_unique<wxWindowDisabler>();
-              importOverlay =
-                  std::make_unique<wxBusyInfo>("Importing MVR file...");
-            }
+            viewportInteractionLocked = true;
+          }
+          if (shouldShowBlockingImportUi) {
+            importOverlay =
+                std::make_unique<wxBusyInfo>("Importing MVR file...");
+          }
             importProgress.reset();
             return;
           }
