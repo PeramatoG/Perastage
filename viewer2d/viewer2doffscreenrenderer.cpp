@@ -24,10 +24,15 @@ constexpr int kDefaultViewportHeight = 900;
 
 // Creates an offscreen 2D renderer host that is mapped but never visible in the main UI.
 Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
+#if defined(__WXGTK__) || defined(__WXOSX__)
   host_ = new wxFrame(parent, wxID_ANY, wxString(), wxPoint(-32000, -32000),
                       wxSize(1, 1),
                       wxFRAME_TOOL_WINDOW | wxFRAME_NO_TASKBAR | wxBORDER_NONE);
   host_->Show();
+#else
+  host_ = new wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(1, 1));
+  host_->Hide();
+#endif
 
   panel_ = new Viewer2DPanel(host_, true, false, false);
   panel_->SetSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));

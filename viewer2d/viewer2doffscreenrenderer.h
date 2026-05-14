@@ -19,6 +19,7 @@
 
 #include "viewer2dpanel.h"
 #include <wx/frame.h>
+#include <wx/panel.h>
 #include <wx/window.h>
 
 class Viewer2DOffscreenRenderer {
@@ -32,6 +33,6 @@ public:
   void ApplySymbolCaptureDefaults();
 
 private:
-  wxFrame *host_ = nullptr;
+  wxWindow *host_ = nullptr;
   Viewer2DPanel *panel_ = nullptr;
 };
