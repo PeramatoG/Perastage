@@ -743,10 +743,18 @@ void Viewer2DPanel::InvalidateBottomSymbolCache() {
 
 // Initializes GL resources once the canvas is actually shown and can own a current context.
 void Viewer2DPanel::InitGL() {
-  if (!IsShownOnScreen()) {
+  const bool isOffscreenRequested = m_forceOffscreenRender || m_allowOffscreenRender;
+  if (!IsShownOnScreen() && !isOffscreenRequested) {
+    Logger::Instance().Log("Viewer2DPanel::InitGL skipped (not shown on screen).");
     return;
   }
-  if (!SetCurrent(*m_glContext)) {
+  const bool setCurrentOk = SetCurrent(*m_glContext);
+  Logger::Instance().Log(
+      "Viewer2DPanel::InitGL offscreenRequested=" + std::to_string(isOffscreenRequested ? 1 : 0) +
+      " shown=" + std::to_string(IsShown() ? 1 : 0) +
+      " shownOnScreen=" + std::to_string(IsShownOnScreen() ? 1 : 0) +
+      " setCurrent=" + std::to_string(setCurrentOk ? 1 : 0));
+  if (!setCurrentOk) {
     return;
   }
   if (!m_glInitialized) {
@@ -794,6 +802,11 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
                                 clientSize.GetHeight(), w, h, -1, -1);
     wxASSERT_MSG(clientSize.GetWidth() == w && clientSize.GetHeight() == h,
                  "Offscreen render viewport must match explicit client size.");
+    Logger::Instance().Log(
+        "viewer2d_offscreen stage=render_internal client=" +
+        std::to_string(clientSize.GetWidth()) + "x" +
+        std::to_string(clientSize.GetHeight()) + " render=" +
+        std::to_string(w) + "x" + std::to_string(h));
   }
 
   glstate::ApplyKnownBaseOnscreenState(w, h);
@@ -1086,6 +1099,8 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   GetClientSize(&w, &h);
   if (w <= 0 || h <= 0)
     return false;
+  Logger::Instance().Log("viewer2d_offscreen stage=render_to_rgba_begin size=" +
+                         std::to_string(w) + "x" + std::to_string(h));
   LogOffscreenViewportMetrics("render_to_rgba_begin", w, h, w, h, -1, -1);
 
   if (!TryAllocateCaptureBuffer(pixels, w, h))
@@ -1106,6 +1121,12 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   glReadBuffer(GL_BACK);
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+  GLint viewport[4] = {0, 0, 0, 0};
+  glGetIntegerv(GL_VIEWPORT, viewport);
+  Logger::Instance().Log(
+      "viewer2d_offscreen stage=render_to_rgba_end read=" +
+      std::to_string(w) + "x" + std::to_string(h) + " viewport=" +
+      std::to_string(viewport[2]) + "x" + std::to_string(viewport[3]));
   LogOffscreenViewportMetrics("render_to_rgba_end", w, h, w, h, width, height);
 
   m_forceOffscreenRender = previousForce;
