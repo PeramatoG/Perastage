@@ -38,7 +38,6 @@ Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
   panel_->SetSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
   panel_->SetClientSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
   panel_->SetRenderOverrides(std::nullopt);
-  panel_->UpdateScene(true);
 }
 
 // Destroys the offscreen host window and releases the capture panel.
@@ -65,7 +64,6 @@ void Viewer2DOffscreenRenderer::PrepareForCapture() {
   if (!panel_)
     return;
   panel_->SetRenderOverrides(std::nullopt);
-  panel_->UpdateScene(true);
 }
 
 // Applies symbol-capture defaults for legend and symbol texture rendering.
