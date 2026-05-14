@@ -1067,7 +1067,9 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   }
 
   glFlush();
-  ValidateGlStateAfterRender("Viewer2DPanel::RenderInternal", w, h);
+  if (!m_captureFramebufferSizeOverride) {
+    ValidateGlStateAfterRender("Viewer2DPanel::RenderInternal", w, h);
+  }
   if (swapBuffers)
     SwapBuffers();
 }
