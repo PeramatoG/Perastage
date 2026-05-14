@@ -336,7 +336,7 @@ private:
   std::optional<float> m_layoutEditAspect;
   std::optional<wxSize> m_layoutEditBaseSize;
   std::optional<wxSize> m_layoutEditViewportSize;
-  std::optional<RenderSize> m_captureFramebufferSizeOverride;
+  std::optional<wxSize> m_captureFramebufferSizeOverride;
   float m_layoutEditScale = 1.0f;
   bool m_preferPerastageSvgSymbolsForLayouts = false;
   std::optional<Viewer2DRenderOverrides> m_renderOverrides;

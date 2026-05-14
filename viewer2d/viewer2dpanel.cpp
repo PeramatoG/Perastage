@@ -764,8 +764,15 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const bool pauseHeavyTasks = m_enableSelection && ShouldPauseHeavyTasks();
   m_interactiveLabelMode =
       m_enableSelection && IsExpensiveVisualInteractionActive();
-  const RenderSize resolvedSize =
-      m_captureFramebufferSizeOverride.value_or(ResolveRenderSize(this));
+  RenderSize resolvedSize = ResolveRenderSize(this);
+  if (m_captureFramebufferSizeOverride &&
+      m_captureFramebufferSizeOverride->GetWidth() > 0 &&
+      m_captureFramebufferSizeOverride->GetHeight() > 0) {
+    resolvedSize =
+        RenderSize{m_captureFramebufferSizeOverride->GetWidth(),
+                   m_captureFramebufferSizeOverride->GetHeight(),
+                   "RenderInternal(captureFramebufferSizeOverride-px)"};
+  }
   const int w = resolvedSize.width;
   const int h = resolvedSize.height;
   if (!resolvedSize.IsValid())
@@ -1082,7 +1089,7 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
     return false;
   }
   glstate::ScopedFramebufferViewportScissorState stateGuard;
-  m_captureFramebufferSizeOverride = renderSize;
+  m_captureFramebufferSizeOverride = wxSize(w, h);
   RenderInternal(false);
   m_captureFramebufferSizeOverride.reset();
 
