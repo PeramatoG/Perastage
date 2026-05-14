@@ -1862,7 +1862,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   // ---- Helper lambdas for object parsing ----
   int preservedGroupObjectCount = 0;
-  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const std::string &)>
+  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const std::string &, int)>
       parseChildList;
 
   auto ensurePositionEntry = [&](const std::string &positionId)
@@ -2646,7 +2646,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
 
   parseChildList = [&](tinyxml2::XMLElement *cl, const std::string &layerName,
-                       const Matrix &parentTransform, const std::string &parentGroupUuid) {
+                       const Matrix &parentTransform, const std::string &parentGroupUuid,
+                       int depth) {
     for (tinyxml2::XMLElement *child = cl->FirstChildElement(); child;
          child = child->NextSiblingElement()) {
       const char *name = child->Name();
@@ -2663,7 +2664,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         LogMessage(Logger::Level::Info,
                    "MVR import progress detail: layer='" + layerName +
                        "' node='" + nodeName + "' index=" +
-                       std::to_string(detailedLoggedNodes));
+                       std::to_string(detailedLoggedNodes) + " depth=" +
+                       std::to_string(depth));
       }
       if (nodeName == "Fixture") {
         parseFixture(child, layerName, nodeTransform);
@@ -2710,18 +2712,25 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               {MvrNodeType::GroupObject, group.uuid});
         }
         ++preservedGroupObjectCount;
-        if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList"))
-          parseChildList(inner, layerName, nodeTransform, group.uuid);
+        if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList")) {
+          LogMessage(Logger::Level::Info,
+                     "MVR import progress detail: entering GroupObject child list uuid='" +
+                         group.uuid + "' depth=" + std::to_string(depth + 1));
+          parseChildList(inner, layerName, nodeTransform, group.uuid, depth + 1);
+          LogMessage(Logger::Level::Info,
+                     "MVR import progress detail: completed GroupObject child list uuid='" +
+                         group.uuid + "' depth=" + std::to_string(depth + 1));
+        }
         continue;
       }
 
       if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList"))
-        parseChildList(inner, layerName, nodeTransform, parentGroupUuid);
+        parseChildList(inner, layerName, nodeTransform, parentGroupUuid, depth + 1);
     }
   };
   for (tinyxml2::XMLElement *cl = layersNode->FirstChildElement("ChildList");
        cl; cl = cl->NextSiblingElement("ChildList")) {
-    parseChildList(cl, DEFAULT_LAYER_NAME, MatrixUtils::Identity(), "");
+    parseChildList(cl, DEFAULT_LAYER_NAME, MatrixUtils::Identity(), "", 0);
   }
   LogMessage(Logger::Level::Info,
              "MVR import progress checkpoint: completed root ChildList scene parsing");
@@ -2740,7 +2749,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     tinyxml2::XMLElement *childList = layer->FirstChildElement("ChildList");
     if (childList)
       parseChildList(childList, isDefaultLayer ? DEFAULT_LAYER_NAME : layerStr,
-                     MatrixUtils::Identity(), "");
+                     MatrixUtils::Identity(), "", 0);
 
     if (!isDefaultLayer) {
       Layer l;
