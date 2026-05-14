@@ -177,6 +177,7 @@ std::optional<std::string> GetStartupPathFromArgs(
 }
 
 #if defined(_MSC_VER) && defined(_DEBUG)
+// Configures optional CRT leak checking for Windows debug builds via an environment toggle.
 void ConfigureWindowsDebugHeapLeakCheck() {
   int flags = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
   const char *requestedLeakCheck = std::getenv("PERASTAGE_CRT_LEAK_CHECK");
