@@ -159,7 +159,6 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
 
     importProgress.reset();
     importOverlay.reset();
-    importDisabler.reset();
     if (ownerRef->GetStatusBar())
       ownerRef->SetStatusText("MVR import failed.", 0);
     wxMessageBox("Failed to import MVR file.", "Error", wxOK | wxICON_ERROR,
@@ -221,7 +220,6 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
 
   importProgress.reset();
   importOverlay.reset();
-  importDisabler.reset();
 
   if (ownerRef->GetStatusBar()) {
     const wxString fileName = wxFileName(filePath).GetFullName();
