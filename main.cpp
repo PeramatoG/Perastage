@@ -39,6 +39,7 @@
 #include <wx/weakref.h>
 #include <wx/wx.h>
 #include <wx/filename.h>
+#include <wx/calllater.h>
 #include <wx/stdpaths.h>
 
 class MyApp : public wxApp {
@@ -296,8 +297,22 @@ bool MyApp::OnInit() {
         return;
       }
 
-      // Give macOS open-document events one additional UI tick to arrive
-      // before committing to loading the last project path by default.
+#if defined(__WXOSX__)
+      // Gives macOS file-open events time to arrive after the user grants TCC folder access.
+      auto *delayedLastProjectLoad = new wxCallLater(
+          1800, [this, mainWindowRef, lastPath]() {
+            if (!mainWindowRef)
+              return;
+            if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
+              QueueProjectLoadedEvent(mainWindowRef, false, false,
+                                      *pendingOpenPath);
+              return;
+            }
+            mainWindowRef->LoadStartupProjectFromPath(lastPath);
+          });
+      delayedLastProjectLoad->SetOwner(mainWindowRef.get());
+#else
+      // Loads the last project after one UI tick when no external open request is pending.
       mainWindowRef->CallAfter([this, mainWindowRef, lastPath]() {
         if (!mainWindowRef)
           return;
@@ -307,6 +322,7 @@ bool MyApp::OnInit() {
         }
         mainWindowRef->LoadStartupProjectFromPath(lastPath);
       });
+#endif
     });
 
   } else if (mainWindowRef) {
