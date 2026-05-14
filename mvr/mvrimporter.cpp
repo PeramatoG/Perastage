@@ -1092,6 +1092,25 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
   fixtureUuidRemap.clear();
   // Treat the incoming path as UTF-8 to preserve any non-ASCII characters
   fs::path path = fs::u8path(filePath);
+  std::error_code pathEc;
+  const fs::path cwdPath = fs::current_path(pathEc);
+  if (pathEc)
+    pathEc.clear();
+  const fs::path resolvedPath = path.is_absolute() ? path : fs::absolute(path, pathEc);
+  if (!pathEc && !resolvedPath.empty())
+    path = resolvedPath;
+  const std::string resolvedPathUtf8 = ToString(path.u8string());
+  if (!resolvedPathUtf8.empty() && resolvedPathUtf8 != filePath) {
+    LogMessage(Logger::Level::Info,
+               "MVR import resolved relative input path '" + filePath + "' -> '" +
+                   resolvedPathUtf8 + "'");
+  }
+  if (!cwdPath.empty()) {
+    LogMessage(Logger::Level::Info,
+               "MVR import path diagnostics: cwd='" +
+                   ToString(cwdPath.u8string()) + "' input='" + filePath +
+                   "' resolved='" + resolvedPathUtf8 + "'");
+  }
 
   std::string ext = path.extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(),
