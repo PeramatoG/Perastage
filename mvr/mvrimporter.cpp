@@ -58,6 +58,7 @@
 #include <filesystem>
 #include <fstream> // Required for std::ofstream
 #include <functional>
+#include <future>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -626,6 +627,22 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts,
     chosen[c.type] = selection;
   }
   return chosen;
+}
+
+// Runs the GDTF conflict dialog on the GUI thread and returns user selections synchronously.
+static std::unordered_map<std::string, GdtfConflictSelection>
+PromptGdtfConflictsOnUiThread(const std::vector<GdtfConflict> &conflicts,
+                              wxWindow *parentWindow) {
+  if (!wxTheApp || wxIsMainThread())
+    return PromptGdtfConflicts(conflicts, parentWindow);
+
+  std::promise<std::unordered_map<std::string, GdtfConflictSelection>> resultPromise;
+  auto resultFuture = resultPromise.get_future();
+  wxTheApp->CallAfter([conflicts, parentWindow,
+                       promise = std::move(resultPromise)]() mutable {
+    promise.set_value(PromptGdtfConflicts(conflicts, parentWindow));
+  });
+  return resultFuture.get();
 }
 
 struct GdtfCatalogModeCandidate {
@@ -2864,7 +2881,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         reportProgress("Conflict dialog:show");
         LogMessage(Logger::Level::Info,
                    "MVR import progress checkpoint: showing GDTF conflict dialog");
-        auto choices = PromptGdtfConflicts(
+        auto choices = PromptGdtfConflictsOnUiThread(
             gdtfConflicts, wxTheApp ? wxTheApp->GetTopWindow() : nullptr);
         reportProgress("Conflict dialog:hide");
         LogMessage(Logger::Level::Info,
