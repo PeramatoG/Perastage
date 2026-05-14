@@ -74,6 +74,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     return false;
   bool viewportInteractionLocked = true;
   ownerRef->LockViewportInteraction();
+  const bool shouldPromptGdtfConflicts = shouldShowBlockingImportUi;
   auto runOnUiThreadSync = [](std::function<void()> fn) {
     if (wxIsMainThread()) {
       fn();
@@ -88,7 +89,8 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     future.get();
   };
   const bool imported = MvrImporter::ImportAndRegister(
-      pathUtf8, true, true, [&](const MvrImporter::ProgressState &progress) {
+      pathUtf8, shouldPromptGdtfConflicts, true,
+      [&](const MvrImporter::ProgressState &progress) {
         runOnUiThreadSync([&]() {
           if (!ownerRef)
             return;
