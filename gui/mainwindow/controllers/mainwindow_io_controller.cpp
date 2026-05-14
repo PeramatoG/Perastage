@@ -73,6 +73,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
 
   if (!ownerRef)
     return false;
+  bool viewportInteractionLocked = true;
   ownerRef->LockViewportInteraction();
   const bool imported = MvrImporter::ImportAndRegister(
       pathUtf8, true, true, [&](const MvrImporter::ProgressState &progress) {
@@ -80,6 +81,10 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           return;
         const std::string &stage = progress.stage;
         if (stage == "Conflict dialog:show") {
+          if (viewportInteractionLocked) {
+            ownerRef->UnlockViewportInteraction();
+            viewportInteractionLocked = false;
+          }
           importProgress.reset();
           importOverlay.reset();
           importDisabler.reset();
@@ -87,6 +92,10 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
         }
 
         if (stage == "Conflict dialog:hide") {
+          if (!viewportInteractionLocked) {
+            ownerRef->LockViewportInteraction();
+            viewportInteractionLocked = true;
+          }
           if (shouldShowBlockingImportUi) {
             importDisabler = std::make_unique<wxWindowDisabler>();
             importOverlay =
@@ -124,7 +133,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           importProgress->Pulse(wxString::FromUTF8(stage));
         setImportStatus("MVR import: " + wxString::FromUTF8(stage));
       });
-  if (ownerRef)
+  if (ownerRef && viewportInteractionLocked)
     ownerRef->UnlockViewportInteraction();
   if (!ownerRef)
     return false;
