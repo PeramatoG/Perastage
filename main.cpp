@@ -108,11 +108,35 @@ std::string NormalizeExternalOpenPath(const std::string &rawPathUtf8) {
   wxCharBuffer utf8 = wxPath.ToUTF8();
   const std::string normalizedPath =
       utf8 ? std::string(utf8.data()) : rawPathUtf8;
+  std::string normalizedPathWithoutTrailingSeparators = normalizedPath;
+#if defined(__WXMSW__)
+  const bool isDriveRoot =
+      normalizedPathWithoutTrailingSeparators.size() == 3 &&
+      std::isalpha(static_cast<unsigned char>(
+          normalizedPathWithoutTrailingSeparators[0])) &&
+      normalizedPathWithoutTrailingSeparators[1] == ':' &&
+      (normalizedPathWithoutTrailingSeparators[2] == '\\' ||
+       normalizedPathWithoutTrailingSeparators[2] == '/');
+#else
+  const bool isDriveRoot = false;
+#endif
+  const bool isUnixRoot = normalizedPathWithoutTrailingSeparators == "/";
+  while (!normalizedPathWithoutTrailingSeparators.empty() &&
+         !isUnixRoot && !isDriveRoot &&
+         (normalizedPathWithoutTrailingSeparators.back() == '/' ||
+          normalizedPathWithoutTrailingSeparators.back() == '\\')) {
+    normalizedPathWithoutTrailingSeparators.pop_back();
+  }
   if (normalizedPath != rawPathUtf8) {
     Logger::Instance().Log("NormalizeExternalOpenPath normalized '" +
                            rawPathUtf8 + "' -> '" + normalizedPath + "'");
   }
-  return normalizedPath;
+  if (normalizedPathWithoutTrailingSeparators != normalizedPath) {
+    Logger::Instance().Log("NormalizeExternalOpenPath trimmed trailing separator '" +
+                           normalizedPath + "' -> '" +
+                           normalizedPathWithoutTrailingSeparators + "'");
+  }
+  return normalizedPathWithoutTrailingSeparators;
 }
 
 // Converts an ASCII string to lowercase.
@@ -177,6 +201,7 @@ std::optional<std::string> GetStartupPathFromArgs(
 }
 
 #if defined(_MSC_VER) && defined(_DEBUG)
+// Configures optional CRT leak checking controlled by PERASTAGE_CRT_LEAK_CHECK in debug builds.
 void ConfigureWindowsDebugHeapLeakCheck() {
   int flags = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
   const char *requestedLeakCheck = std::getenv("PERASTAGE_CRT_LEAK_CHECK");
