@@ -110,7 +110,9 @@ public:
       bool includeGridInCapture = true);
 
   bool RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
-                    int &height);
+                    int &height,
+                    const std::optional<wxSize> &targetFramebufferSize =
+                        std::nullopt);
   void SetPreferPerastageSvgSymbolsForLayouts(bool enabled) {
     m_preferPerastageSvgSymbolsForLayouts = enabled;
   }
@@ -334,6 +336,7 @@ private:
   std::optional<float> m_layoutEditAspect;
   std::optional<wxSize> m_layoutEditBaseSize;
   std::optional<wxSize> m_layoutEditViewportSize;
+  std::optional<wxSize> m_captureFramebufferSizeOverride;
   float m_layoutEditScale = 1.0f;
   bool m_preferPerastageSvgSymbolsForLayouts = false;
   std::optional<Viewer2DRenderOverrides> m_renderOverrides;

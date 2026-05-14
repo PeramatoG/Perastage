@@ -18,6 +18,7 @@
 #pragma once
 
 #include "viewer2dpanel.h"
+#include <wx/frame.h>
 #include <wx/panel.h>
 #include <wx/window.h>
 
@@ -32,6 +33,6 @@ public:
   void ApplySymbolCaptureDefaults();
 
 private:
-  wxPanel *host_ = nullptr;
+  wxWindow *host_ = nullptr;
   Viewer2DPanel *panel_ = nullptr;
 };

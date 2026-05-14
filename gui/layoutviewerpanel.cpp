@@ -1240,10 +1240,11 @@ void LayoutViewerPanel::EnsureLoadingTextTexture() {
   loadingTextTextureSize_ = wxSize(bmpWidth, bmpHeight);
 }
 
+// Releases the loading-text texture only when the panel can safely bind GL.
 void LayoutViewerPanel::ClearLoadingTextTexture() {
   if (loadingTextTexture_ == 0 || !glContext_)
     return;
-  if (!IsShown()) {
+  if (!IsShownOnScreen()) {
     loadingTextTexture_ = 0;
     loadingTextTextureSize_ = wxSize(0, 0);
     return;
@@ -2180,7 +2181,8 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       previewOverrides.symbolCaptureRenderProfile = false;
       capturePanel->SetRenderOverrides(previewOverrides);
       capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
-      const bool rendered = capturePanel->RenderToRGBA(pixels, width, height);
+      const bool rendered =
+          capturePanel->RenderToRGBA(pixels, width, height, renderSize);
       if (!rendered || width <= 0 || height <= 0) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
@@ -2640,6 +2642,8 @@ void LayoutViewerPanel::ClearCachedTexture() {
   imageCaches_.clear();
 }
 
+// Releases cached 2D view GL resources when the layout panel is screen-mapped.
+// Releases cached 2D view GL resources when the layout panel is screen-mapped.
 void LayoutViewerPanel::ClearCachedTexture(ViewCache &cache) {
   if (cache.texture == 0 && cache.pixelUnpackPbo == 0)
     return;
@@ -2649,7 +2653,7 @@ void LayoutViewerPanel::ClearCachedTexture(ViewCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  if (!IsShown()) {
+  if (!IsShownOnScreen()) {
     cache.texture = 0;
     cache.pixelUnpackPbo = 0;
     cache.pboBytes = 0;
@@ -2667,6 +2671,7 @@ void LayoutViewerPanel::ClearCachedTexture(ViewCache &cache) {
   cache.pboBytes = 0;
 }
 
+// Releases cached legend GL resources when the layout panel is screen-mapped.
 void LayoutViewerPanel::ClearCachedTexture(LegendCache &cache) {
   if (cache.texture == 0 && cache.pixelUnpackPbo == 0)
     return;
@@ -2676,7 +2681,7 @@ void LayoutViewerPanel::ClearCachedTexture(LegendCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  if (!IsShown()) {
+  if (!IsShownOnScreen()) {
     cache.texture = 0;
     cache.pixelUnpackPbo = 0;
     cache.pboBytes = 0;
@@ -2694,6 +2699,7 @@ void LayoutViewerPanel::ClearCachedTexture(LegendCache &cache) {
   cache.pboBytes = 0;
 }
 
+// Releases cached event-table GL resources when the layout panel is screen-mapped.
 void LayoutViewerPanel::ClearCachedTexture(EventTableCache &cache) {
   if (cache.texture == 0 && cache.pixelUnpackPbo == 0)
     return;
@@ -2703,7 +2709,7 @@ void LayoutViewerPanel::ClearCachedTexture(EventTableCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  if (!IsShown()) {
+  if (!IsShownOnScreen()) {
     cache.texture = 0;
     cache.pixelUnpackPbo = 0;
     cache.pboBytes = 0;
@@ -2721,6 +2727,7 @@ void LayoutViewerPanel::ClearCachedTexture(EventTableCache &cache) {
   cache.pboBytes = 0;
 }
 
+// Releases cached text GL resources when the layout panel is screen-mapped.
 void LayoutViewerPanel::ClearCachedTexture(TextCache &cache) {
   if (cache.texture == 0 && cache.pixelUnpackPbo == 0)
     return;
@@ -2730,7 +2737,7 @@ void LayoutViewerPanel::ClearCachedTexture(TextCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  if (!IsShown()) {
+  if (!IsShownOnScreen()) {
     cache.texture = 0;
     cache.pixelUnpackPbo = 0;
     cache.pboBytes = 0;
@@ -2748,6 +2755,7 @@ void LayoutViewerPanel::ClearCachedTexture(TextCache &cache) {
   cache.pboBytes = 0;
 }
 
+// Releases cached image GL resources when the layout panel is screen-mapped.
 void LayoutViewerPanel::ClearCachedTexture(ImageCache &cache) {
   if (cache.texture == 0 && cache.pixelUnpackPbo == 0)
     return;
@@ -2757,7 +2765,7 @@ void LayoutViewerPanel::ClearCachedTexture(ImageCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  if (!IsShown()) {
+  if (!IsShownOnScreen()) {
     cache.texture = 0;
     cache.pixelUnpackPbo = 0;
     cache.pboBytes = 0;

@@ -22,17 +22,25 @@ constexpr int kDefaultViewportWidth = 1600;
 constexpr int kDefaultViewportHeight = 900;
 }
 
+// Creates an offscreen 2D renderer host that is mapped but never visible in the main UI.
 Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
+#if defined(__WXGTK__) || defined(__WXOSX__)
+  host_ = new wxFrame(parent, wxID_ANY, wxString(), wxPoint(-32000, -32000),
+                      wxSize(1, 1),
+                      wxFRAME_TOOL_WINDOW | wxFRAME_NO_TASKBAR | wxBORDER_NONE);
+  host_->Show();
+#else
   host_ = new wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(1, 1));
   host_->Hide();
+#endif
 
   panel_ = new Viewer2DPanel(host_, true, false, false);
   panel_->SetSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
   panel_->SetClientSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
   panel_->SetRenderOverrides(std::nullopt);
-  panel_->UpdateScene(true);
 }
 
+// Destroys the offscreen host window and releases the capture panel.
 Viewer2DOffscreenRenderer::~Viewer2DOffscreenRenderer() {
   if (host_) {
     host_->Destroy();
@@ -41,6 +49,7 @@ Viewer2DOffscreenRenderer::~Viewer2DOffscreenRenderer() {
   }
 }
 
+// Updates the offscreen capture viewport size used by the embedded 2D panel.
 void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
   if (!panel_)
     return;
@@ -50,13 +59,14 @@ void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
   panel_->SetClientSize(size);
 }
 
+// Resets capture overrides and refreshes scene data before a new capture.
 void Viewer2DOffscreenRenderer::PrepareForCapture() {
   if (!panel_)
     return;
   panel_->SetRenderOverrides(std::nullopt);
-  panel_->UpdateScene(true);
 }
 
+// Applies symbol-capture defaults for legend and symbol texture rendering.
 void Viewer2DOffscreenRenderer::ApplySymbolCaptureDefaults() {
   if (!panel_)
     return;

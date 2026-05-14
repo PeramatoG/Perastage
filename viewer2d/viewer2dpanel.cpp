@@ -729,11 +729,18 @@ void Viewer2DPanel::InvalidateBottomSymbolCache() {
   m_controller.ClearBottomSymbolCache();
 }
 
+// Initializes the OpenGL context only when the canvas is safe to bind on this platform.
 void Viewer2DPanel::InitGL() {
+#if defined(__WXGTK__) || defined(__WXOSX__)
+  if (!IsShownOnScreen()) {
+    return;
+  }
+#else
   if (!IsShownOnScreen() && !m_forceOffscreenRender &&
       !m_allowOffscreenRender) {
     return;
   }
+#endif
   if (!SetCurrent(*m_glContext)) {
     return;
   }
@@ -747,8 +754,10 @@ void Viewer2DPanel::InitGL() {
   }
 }
 
+// Renders the 2D view to the onscreen back buffer and swaps buffers.
 void Viewer2DPanel::Render() { RenderInternal(true); }
 
+// Renders the full 2D scene using the active framebuffer-sized viewport.
 void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   static unsigned long long s_renderFrameId = 0;
   if (!m_glInitialized) {
@@ -762,14 +771,31 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const bool pauseHeavyTasks = m_enableSelection && ShouldPauseHeavyTasks();
   m_interactiveLabelMode =
       m_enableSelection && IsExpensiveVisualInteractionActive();
-  const RenderSize resolvedSize = ResolveRenderSize(this);
+  RenderSize resolvedSize = ResolveRenderSize(this);
+  if (m_captureFramebufferSizeOverride &&
+      m_captureFramebufferSizeOverride->GetWidth() > 0 &&
+      m_captureFramebufferSizeOverride->GetHeight() > 0) {
+    resolvedSize =
+        RenderSize{m_captureFramebufferSizeOverride->GetWidth(),
+                   m_captureFramebufferSizeOverride->GetHeight(),
+                   "RenderInternal(captureFramebufferSizeOverride-px)"};
+  }
   const int w = resolvedSize.width;
   const int h = resolvedSize.height;
   if (!resolvedSize.IsValid())
     return;
 
+#if defined(__WXGTK__) || defined(__WXOSX__)
+  if (m_captureFramebufferSizeOverride) {
+    glDisable(GL_SCISSOR_TEST);
+    glViewport(0, 0, w, h);
+  } else {
+    glstate::ApplyKnownBaseOnscreenState(w, h);
+  }
+#else
   glstate::ApplyKnownBaseOnscreenState(w, h);
-  const RenderSize viewportSize{w, h, "glstate::ApplyKnownBaseOnscreenState(framebuffer-px)"};
+#endif
+  const RenderSize viewportSize{w, h, "RenderInternal(active-framebuffer-px)"};
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
@@ -1045,14 +1071,24 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   }
 
   glFlush();
-  ValidateGlStateAfterRender("Viewer2DPanel::RenderInternal", w, h);
+  if (!m_captureFramebufferSizeOverride) {
+    ValidateGlStateAfterRender("Viewer2DPanel::RenderInternal", w, h);
+  }
   if (swapBuffers)
     SwapBuffers();
 }
 
+// Captures the current 2D scene into an RGBA buffer using a framebuffer-sized viewport.
 bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
-                                 int &height) {
-  const RenderSize renderSize = ResolveRenderSize(this);
+                                 int &height,
+                                 const std::optional<wxSize> &targetFramebufferSize) {
+  RenderSize renderSize = ResolveRenderSize(this);
+  if (targetFramebufferSize && targetFramebufferSize->GetWidth() > 0 &&
+      targetFramebufferSize->GetHeight() > 0) {
+    renderSize = RenderSize{targetFramebufferSize->GetWidth(),
+                            targetFramebufferSize->GetHeight(),
+                            "RenderToRGBA(targetFramebufferSize-px)"};
+  }
   const int w = renderSize.width;
   const int h = renderSize.height;
   if (w <= 0 || h <= 0)
@@ -1071,11 +1107,58 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
     return false;
   }
   glstate::ScopedFramebufferViewportScissorState stateGuard;
+#if defined(__WXGTK__) || defined(__WXOSX__)
+  GLuint fbo = 0;
+  GLuint colorTexture = 0;
+  GLuint depthStencilRbo = 0;
+  glGenFramebuffers(1, &fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+  glGenTextures(1, &colorTexture);
+  glBindTexture(GL_TEXTURE_2D, colorTexture);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+               nullptr);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         colorTexture, 0);
+
+  glGenRenderbuffers(1, &depthStencilRbo);
+  glBindRenderbuffer(GL_RENDERBUFFER, depthStencilRbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                            GL_RENDERBUFFER, depthStencilRbo);
+
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    glDeleteRenderbuffers(1, &depthStencilRbo);
+    glDeleteTextures(1, &colorTexture);
+    glDeleteFramebuffers(1, &fbo);
+    m_forceOffscreenRender = previousForce;
+    return false;
+  }
+
+  m_captureFramebufferSizeOverride = wxSize(w, h);
   RenderInternal(false);
+  m_captureFramebufferSizeOverride.reset();
+
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+
+  glDeleteRenderbuffers(1, &depthStencilRbo);
+  glDeleteTextures(1, &colorTexture);
+  glDeleteFramebuffers(1, &fbo);
+#else
+  m_captureFramebufferSizeOverride = wxSize(w, h);
+  RenderInternal(false);
+  m_captureFramebufferSizeOverride.reset();
 
   glReadBuffer(GL_BACK);
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+#endif
 
   m_forceOffscreenRender = previousForce;
   return true;
