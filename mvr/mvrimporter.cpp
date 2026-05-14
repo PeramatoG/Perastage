@@ -2589,6 +2589,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   tinyxml2::XMLElement *layersNode = sceneNode->FirstChildElement("Layers");
   if (!layersNode)
     return true;
+  LogMessage(Logger::Level::Info,
+             "MVR import progress checkpoint: found Layers node, counting importable scene nodes");
 
   std::function<int(tinyxml2::XMLElement *)> countImportSceneNodes =
       [&](tinyxml2::XMLElement *childList) {
@@ -2620,6 +2622,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
        layer; layer = layer->NextSiblingElement("Layer")) {
     totalImportNodes += countImportSceneNodes(layer->FirstChildElement("ChildList"));
   }
+  LogMessage(Logger::Level::Info,
+             "MVR import progress checkpoint: scene node count=" +
+                 std::to_string(totalImportNodes));
 
   int importedNodes = 0;
   auto reportNodeProgress = [&](const char *nodeKind) {
@@ -2705,6 +2710,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
        cl; cl = cl->NextSiblingElement("ChildList")) {
     parseChildList(cl, DEFAULT_LAYER_NAME, MatrixUtils::Identity(), "");
   }
+  LogMessage(Logger::Level::Info,
+             "MVR import progress checkpoint: completed root ChildList scene parsing");
 
   for (tinyxml2::XMLElement *layer = layersNode->FirstChildElement("Layer");
        layer; layer = layer->NextSiblingElement("Layer")) {
@@ -2731,6 +2738,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       scene.layers[l.uuid] = l;
     }
   }
+  LogMessage(Logger::Level::Info,
+             "MVR import progress checkpoint: completed Layer scene parsing");
 
   if (preservedGroupObjectCount > 0) {
     LogMessage(Logger::Level::Info,
@@ -2749,6 +2758,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   // dictionary only if requested. This occurs before rendering so user choices
   // are applied to the final scene data.
   if (applyDictionary) {
+    LogMessage(Logger::Level::Info,
+               "MVR import progress checkpoint: entering GDTF dictionary conflict resolution");
     std::unordered_map<std::string, GdtfConflict> gdtfConflictByType =
         pendingGdtfConflictByType;
     const int totalFixturesForConflictScan =
