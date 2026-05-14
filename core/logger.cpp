@@ -17,6 +17,7 @@
  */
 #include "logger.h"
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <sstream>
@@ -43,6 +44,18 @@ std::string FormatLogLine(Logger::Level level, const std::string &msg) {
   oss << '[' << LevelToString(level) << "] " << msg;
   return oss.str();
 }
+
+// Resolves the preferred per-user log directory path with a Windows LOCALAPPDATA override.
+std::filesystem::path ResolvePreferredLogDir() {
+#ifdef _WIN32
+  if (const char *localAppData = std::getenv("LOCALAPPDATA")) {
+    if (*localAppData)
+      return std::filesystem::u8path(localAppData) / "Perastage";
+  }
+#endif
+  wxString dataDir = wxStandardPaths::Get().GetUserDataDir();
+  return std::filesystem::u8path(std::string(dataDir.ToUTF8()));
+}
 } // namespace
 
 Logger &Logger::Instance() {
@@ -51,10 +64,8 @@ Logger &Logger::Instance() {
 }
 
 Logger::Logger() {
-  wxString dataDir = wxStandardPaths::Get().GetUserDataDir();
-  std::string dataDirUtf8 = std::string(dataDir.ToUTF8());
-  if (!dataDirUtf8.empty()) {
-    std::filesystem::path logDir = std::filesystem::u8path(dataDirUtf8);
+  const std::filesystem::path logDir = ResolvePreferredLogDir();
+  if (!logDir.empty()) {
     std::error_code ec;
     std::filesystem::create_directories(logDir, ec);
     if (!ec) {
