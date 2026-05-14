@@ -729,11 +729,18 @@ void Viewer2DPanel::InvalidateBottomSymbolCache() {
   m_controller.ClearBottomSymbolCache();
 }
 
+// Initializes the OpenGL context only when the canvas is safe to bind on this platform.
 void Viewer2DPanel::InitGL() {
+#if defined(__WXGTK__) || defined(__WXOSX__)
+  if (!IsShownOnScreen()) {
+    return;
+  }
+#else
   if (!IsShownOnScreen() && !m_forceOffscreenRender &&
       !m_allowOffscreenRender) {
     return;
   }
+#endif
   if (!SetCurrent(*m_glContext)) {
     return;
   }
