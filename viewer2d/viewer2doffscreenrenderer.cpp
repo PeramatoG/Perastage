@@ -57,6 +57,13 @@ void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
 void Viewer2DOffscreenRenderer::PrepareForCapture() {
   if (!panel_)
     return;
+  if (host_ && !host_->IsShown()) {
+    host_->Show();
+  }
+  if (host_) {
+    host_->Layout();
+    host_->Update();
+  }
   panel_->SetRenderOverrides(std::nullopt);
   panel_->UpdateScene(true);
 }

@@ -741,9 +741,9 @@ void Viewer2DPanel::InvalidateBottomSymbolCache() {
   m_controller.ClearBottomSymbolCache();
 }
 
+// Initializes GL resources once the canvas is actually shown and can own a current context.
 void Viewer2DPanel::InitGL() {
-  if (!IsShownOnScreen() && !m_forceOffscreenRender &&
-      !m_allowOffscreenRender) {
+  if (!IsShownOnScreen()) {
     return;
   }
   if (!SetCurrent(*m_glContext)) {
