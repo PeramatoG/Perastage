@@ -2697,8 +2697,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                referenceUuidForNode("SceneObject", child, layerName, nodeTransform)});
         }
       } else if (nodeName == "GroupObject") {
+        LogMessage(Logger::Level::Info,
+                   "MVR import progress detail: resolving GroupObject UUID at depth=" +
+                       std::to_string(depth));
         GroupObject group;
         group.uuid = resolveStableUuid("GroupObject", child, layerName, nodeTransform);
+        LogMessage(Logger::Level::Info,
+                   "MVR import progress detail: resolved GroupObject UUID='" +
+                       group.uuid + "' depth=" + std::to_string(depth));
         group.layer = layerName;
         group.transform = nodeTransform;
         group.localTransform = local;
