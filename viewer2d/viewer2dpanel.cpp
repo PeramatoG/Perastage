@@ -1103,6 +1103,7 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
     return false;
   }
   glstate::ScopedFramebufferViewportScissorState stateGuard;
+#if defined(__WXGTK__) || defined(__WXOSX__)
   GLuint fbo = 0;
   GLuint colorTexture = 0;
   GLuint depthStencilRbo = 0;
@@ -1145,6 +1146,15 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   glDeleteRenderbuffers(1, &depthStencilRbo);
   glDeleteTextures(1, &colorTexture);
   glDeleteFramebuffers(1, &fbo);
+#else
+  m_captureFramebufferSizeOverride = wxSize(w, h);
+  RenderInternal(false);
+  m_captureFramebufferSizeOverride.reset();
+
+  glReadBuffer(GL_BACK);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+#endif
 
   m_forceOffscreenRender = previousForce;
   return true;
