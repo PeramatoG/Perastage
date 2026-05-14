@@ -1456,10 +1456,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     LogMessage(Logger::Level::Warn,
                "MVR import used legacy Scene/UserData fallback for Perastage sidecar manifest");
   }
+  LogMessage(Logger::Level::Info,
+             "MVR import progress checkpoint: completed sidecar manifest parsing");
 
   // ---- Parse AUXData for Symdefs and Positions ----
   std::unordered_map<std::string, std::string> legacyPositionIdToCanonical;
   if (tinyxml2::XMLElement *auxNode = sceneNode->FirstChildElement("AUXData")) {
+    LogMessage(Logger::Level::Info,
+               "MVR import progress checkpoint: entering AUXData parsing");
     for (tinyxml2::XMLElement *pos = auxNode->FirstChildElement("Position");
          pos; pos = pos->NextSiblingElement("Position")) {
       const std::string rawUid =
@@ -1540,7 +1544,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           scene.symdefTypes[uid] = geometries.front().geometryType;
       }
     }
+    LogMessage(Logger::Level::Info,
+               "MVR import progress checkpoint: completed AUXData parsing");
   }
+  LogMessage(Logger::Level::Info,
+             "MVR import progress checkpoint: entering scene graph parsing");
 
   constexpr float kTinyScaleMaxNorm = 0.01f;
   constexpr float kUniformScaleRelativeTolerance = 0.05f;
