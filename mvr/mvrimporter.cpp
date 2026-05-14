@@ -2627,6 +2627,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                  std::to_string(totalImportNodes));
 
   int importedNodes = 0;
+  int detailedLoggedNodes = 0;
   auto reportNodeProgress = [&](const char *nodeKind) {
     ++importedNodes;
     if (totalImportNodes <= 0)
@@ -2636,6 +2637,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         importedNodes % kReportEveryNodes == 0) {
       reportProgress(std::string("Importing scene objects (") + nodeKind + ")",
                      importedNodes, totalImportNodes);
+      LogMessage(Logger::Level::Info,
+                 "MVR import progress checkpoint: parsed node type='" +
+                     std::string(nodeKind) + "' count=" +
+                     std::to_string(importedNodes) + "/" +
+                     std::to_string(totalImportNodes));
     }
   };
 
@@ -2652,6 +2658,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       Matrix nodeTransform = MatrixUtils::Multiply(parentTransform, local);
 
       std::string nodeName = name;
+      ++detailedLoggedNodes;
+      if (detailedLoggedNodes <= 10 || detailedLoggedNodes % 50 == 0) {
+        LogMessage(Logger::Level::Info,
+                   "MVR import progress detail: layer='" + layerName +
+                       "' node='" + nodeName + "' index=" +
+                       std::to_string(detailedLoggedNodes));
+      }
       if (nodeName == "Fixture") {
         parseFixture(child, layerName, nodeTransform);
         reportNodeProgress("Fixture");
