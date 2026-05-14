@@ -379,6 +379,18 @@ std::string GetDefaultLibraryPath(const std::string& subdir)
 
 void RunStartupLibraryBootstrap()
 {
+#ifdef _WIN32
+    // Skips heavy startup library migration on Windows unless explicitly enabled.
+    const char* bootstrapOnStartup = std::getenv("PERASTAGE_BOOTSTRAP_ON_STARTUP");
+    if (!(bootstrapOnStartup && std::string(bootstrapOnStartup) == "1")) {
+        Logger::Instance().Log(Logger::Level::Info,
+                               "Library bootstrap migration skipped on startup (set "
+                               "PERASTAGE_BOOTSTRAP_ON_STARTUP=1 to enable).",
+                               false);
+        return;
+    }
+#endif
+
     const auto dataDir = ResolveWritableUserDataDir();
     if (!dataDir) {
         Logger::Instance().Log(Logger::Level::Warn,
