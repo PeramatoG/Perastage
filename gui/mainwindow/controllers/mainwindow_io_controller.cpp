@@ -11,6 +11,7 @@
 #include <wx/weakref.h>
 
 #include <algorithm>
+#include <future>
 #include <memory>
 #include <optional>
 #include <string>
@@ -75,41 +76,55 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     return false;
   bool viewportInteractionLocked = true;
   ownerRef->LockViewportInteraction();
+  auto runOnUiThreadSync = [](std::function<void()> fn) {
+    if (wxIsMainThread()) {
+      fn();
+      return;
+    }
+    auto done = std::make_shared<std::promise<void>>();
+    auto future = done->get_future();
+    wxTheApp->CallAfter([fn = std::move(fn), done]() mutable {
+      fn();
+      done->set_value();
+    });
+    future.get();
+  };
   const bool imported = MvrImporter::ImportAndRegister(
       pathUtf8, true, true, [&](const MvrImporter::ProgressState &progress) {
-        if (!ownerRef)
-          return;
-        const std::string &stage = progress.stage;
-        if (stage == "Conflict dialog:show") {
-          if (viewportInteractionLocked) {
-            ownerRef->UnlockViewportInteraction();
-            viewportInteractionLocked = false;
+        runOnUiThreadSync([&]() {
+          if (!ownerRef)
+            return;
+          const std::string &stage = progress.stage;
+          if (stage == "Conflict dialog:show") {
+            if (viewportInteractionLocked) {
+              ownerRef->UnlockViewportInteraction();
+              viewportInteractionLocked = false;
+            }
+            importProgress.reset();
+            importOverlay.reset();
+            importDisabler.reset();
+            return;
           }
-          importProgress.reset();
-          importOverlay.reset();
-          importDisabler.reset();
-          return;
-        }
 
-        if (stage == "Conflict dialog:hide") {
-          if (!viewportInteractionLocked) {
-            ownerRef->LockViewportInteraction();
-            viewportInteractionLocked = true;
+          if (stage == "Conflict dialog:hide") {
+            if (!viewportInteractionLocked) {
+              ownerRef->LockViewportInteraction();
+              viewportInteractionLocked = true;
+            }
+            if (shouldShowBlockingImportUi) {
+              importDisabler = std::make_unique<wxWindowDisabler>();
+              importOverlay =
+                  std::make_unique<wxBusyInfo>("Importing MVR file...");
+            }
+            importProgress.reset();
+            return;
           }
-          if (shouldShowBlockingImportUi) {
-            importDisabler = std::make_unique<wxWindowDisabler>();
-            importOverlay =
-                std::make_unique<wxBusyInfo>("Importing MVR file...");
-          }
-          importProgress.reset();
-          return;
-        }
 
-        if (progress.HasCount()) {
-          const wxString title = "MVR import progress";
-          const wxString stageText = wxString::FromUTF8(stage);
-          const int safeTotal = std::max(progress.total, 1);
-          const int clampedCompleted = std::clamp(progress.completed, 0, safeTotal);
+          if (progress.HasCount()) {
+            const wxString title = "MVR import progress";
+            const wxString stageText = wxString::FromUTF8(stage);
+            const int safeTotal = std::max(progress.total, 1);
+            const int clampedCompleted = std::clamp(progress.completed, 0, safeTotal);
 
           if (shouldShowBlockingImportUi && !importProgress) {
             importOverlay.reset();
@@ -126,12 +141,13 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
             importProgress->Update(dialogProgressValue, stageText);
           setImportStatus(wxString::Format("MVR import: %s (%d/%d)", stageText,
                                            clampedCompleted, safeTotal));
-          return;
-        }
+            return;
+          }
 
-        if (importProgress)
-          importProgress->Pulse(wxString::FromUTF8(stage));
-        setImportStatus("MVR import: " + wxString::FromUTF8(stage));
+          if (importProgress)
+            importProgress->Pulse(wxString::FromUTF8(stage));
+          setImportStatus("MVR import: " + wxString::FromUTF8(stage));
+        });
       });
   if (ownerRef && viewportInteractionLocked)
     ownerRef->UnlockViewportInteraction();
