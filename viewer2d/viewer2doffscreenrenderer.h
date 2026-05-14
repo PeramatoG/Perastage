@@ -32,6 +32,6 @@ public:
   void ApplySymbolCaptureDefaults();
 
 private:
-  wxWindow *host_ = nullptr;
+  wxFrame *host_ = nullptr;
   Viewer2DPanel *panel_ = nullptr;
 };
