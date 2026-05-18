@@ -50,6 +50,7 @@
 #include "gdtf_mutation_audit.h"
 #include "hoisttablepanel.h"
 #include "layoutviewerpanel.h"
+#include "logger.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "projectutils.h"
