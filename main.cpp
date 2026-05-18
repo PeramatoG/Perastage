@@ -269,6 +269,11 @@ bool MyApp::OnInit() {
     mainWindow->CallAfter([this, mainWindowRef, lastPath]() {
       if (!mainWindowRef)
         return;
+      if (project_load_event_sent_.load()) {
+        Logger::Instance().Log(
+            "OnInit skipping last project load because startup open event was already queued.");
+        return;
+      }
       if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
         Logger::Instance().Log("OnInit pending external path overrides first tick: " +
                                *pendingOpenPath);
@@ -281,6 +286,11 @@ bool MyApp::OnInit() {
       mainWindowRef->CallAfter([this, mainWindowRef, lastPath]() {
         if (!mainWindowRef)
           return;
+        if (project_load_event_sent_.load()) {
+          Logger::Instance().Log(
+              "OnInit skipping last project load on second tick because startup open event was already queued.");
+          return;
+        }
         if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
           Logger::Instance().Log(
               "OnInit pending external path overrides second tick: " +
