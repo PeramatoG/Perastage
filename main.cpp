@@ -401,11 +401,15 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
   }
 
   Logger::Instance().Log(
-      "HandleExternalOpenPath routing through MainWindow deferred-open pipeline.");
+      "HandleExternalOpenPath routing through MainWindow direct-open pipeline.");
   mainWindow->CallAfter([windowRef = wxWeakRef<MainWindow>(mainWindow),
                          pathUtf8]() {
     if (!windowRef)
       return;
+    if (windowRef->OpenPathFromCommandLine(pathUtf8))
+      return;
+    Logger::Instance().Log(
+        "HandleExternalOpenPath direct-open fallback to deferred queue.");
     windowRef->EnqueueExternalOpenPath(pathUtf8);
   });
 }
