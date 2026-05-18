@@ -182,6 +182,11 @@ void MainWindow::EnqueueExternalOpenPath(const std::string &path) {
   QueueDeferredStartupOpenPath(path);
   if (IsStartupProjectLoadPending() || IsStartupInitializationPending() ||
       !CanProcessExternalOpenPath()) {
+    if (!IsStartupProjectLoadPending() && IsStartupInitializationPending()) {
+      Logger::Instance().Log(
+          "EnqueueExternalOpenPath requesting startup splash completion to process deferred open.");
+      RequestStartupSplashCompletion();
+    }
     CallAfter([this]() { ProcessDeferredStartupOpenPath(); });
     return;
   }
