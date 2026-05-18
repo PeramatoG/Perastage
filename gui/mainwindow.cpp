@@ -1248,6 +1248,9 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     // can be processed deterministically after startup reset.
     CallAfter([this]() { CompleteStartupSplashInitialization(); });
     SetStartupProjectLoadPending(false);
+    // Process queued external-open requests as soon as startup project-load
+    // pending is cleared, even if splash completion callbacks are delayed.
+    CallAfter([this]() { ProcessDeferredStartupOpenPath(); });
     RequestStartupSplashCompletion();
     return;
   }
