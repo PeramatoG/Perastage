@@ -801,9 +801,13 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
     ProjectUtils::SaveLastProjectPath("");
     ResetProject(true);
     RequestStartupSplashCompletion();
+    CallAfter([this]() { ProcessDeferredStartupOpenPath(); });
   }
 
   SetStartupProjectLoadPending(false);
+  // Runs any queued external-open request after startup project load flow
+  // exits so Finder/LaunchServices requests are not left pending.
+  CallAfter([this]() { ProcessDeferredStartupOpenPath(); });
 }
 
 void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
