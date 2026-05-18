@@ -259,6 +259,7 @@ private:
   void OnStartupSplashCloseIdle(wxIdleEvent &event);
   void FlushPendingFixtureSymbolLibraryUpdates();
   std::string BuildFixtureSymbolAutoUpdateSummary() const;
+  void CleanupFixtureAutoUpdateStatusTimer();
   std::string defaultLayoutPerspective;
   std::string default2DLayoutPerspective;
   std::string defaultLayoutModePerspective;

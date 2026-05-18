@@ -375,6 +375,7 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 }
 
 MainWindow::~MainWindow() {
+  CleanupFixtureAutoUpdateStatusTimer();
   cursorStatusCallbackLifetimeToken.reset();
   if (viewport2DPanel)
     viewport2DPanel->SetCursorWorldPositionCallback({});

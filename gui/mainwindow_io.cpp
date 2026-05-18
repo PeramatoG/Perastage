@@ -181,7 +181,12 @@ void MainWindow::EnqueueExternalOpenPath(const std::string &path) {
   if (IsStartupProjectLoadPending() || IsStartupInitializationPending() ||
       !CanProcessExternalOpenPath())
     return;
-  ProcessDeferredStartupOpenPath();
+  CallAfter([this]() {
+    if (!CanProcessExternalOpenPath() || IsStartupProjectLoadPending() ||
+        IsStartupInitializationPending())
+      return;
+    ProcessDeferredStartupOpenPath();
+  });
 }
 
 // Stores the latest deferred startup-open request so it can be processed when startup is ready.
