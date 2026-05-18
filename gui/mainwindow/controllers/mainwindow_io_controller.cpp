@@ -215,7 +215,10 @@ void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
     return;
 
   const wxString filePath = openFileDialog.GetPath();
-  const std::string pathUtf8 = filePath.ToUTF8().data();
+  const wxCharBuffer pathUtf8Buffer = filePath.ToUTF8();
+  const std::string pathUtf8 =
+      pathUtf8Buffer ? std::string(pathUtf8Buffer.data())
+                     : filePath.ToStdString();
   (void)ImportMvrWithOfficialPolicy(pathUtf8);
 }
 
