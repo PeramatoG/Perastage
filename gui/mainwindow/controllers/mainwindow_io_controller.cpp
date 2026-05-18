@@ -133,7 +133,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     if (owner->GetStatusBar())
       owner->SetStatusText("MVR import failed.", 0);
     wxMessageBox("Failed to import MVR file.", "Error", wxOK | wxICON_ERROR,
-                 ownerRef.get());
+                 owner);
     if (owner->consolePanel)
       owner->consolePanel->AppendMessage("Failed to import " + filePath);
     return false;
