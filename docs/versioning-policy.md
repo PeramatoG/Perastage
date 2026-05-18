@@ -109,6 +109,23 @@ The same workflow dispatches these existing installer workflows on `main` for te
 
 This automation does not create Git tags and does not create GitHub Releases.
 
-## Future Official Release Automation
+## Manual MINOR Draft Release Workflow
 
-Official releases should continue to use a separate manual release workflow that increments MINOR or MAJOR as needed, creates an official tag, and creates a GitHub Release.
+Perastage includes a manual workflow named `Minor Draft Release` in `.github/workflows/minor-draft-release.yml`.
+
+This workflow is triggered only by `workflow_dispatch`.
+
+It performs these actions for a MINOR release:
+
+- Validates the root `VERSION` format.
+- Increments MINOR and resets PATCH to `0`.
+- Commits the new `VERSION` to `main` with `[skip version-bump]` to prevent the automatic PATCH bump workflow from running on that commit.
+- Creates and pushes an annotated release tag in the format `vMAJOR.MINOR.0`.
+- Builds Windows, Linux, and macOS installers from the new release tag using the existing installer workflows.
+- Creates a GitHub Draft Release for the new tag.
+- Uses GitHub automatic release-note generation.
+- Attaches the Windows installer, Linux AppImage, and macOS DMG assets to the draft release.
+
+The workflow intentionally leaves the release as a draft so the maintainer can manually review, edit, and publish it.
+
+This workflow does not publish the release automatically and does not create MAJOR releases.

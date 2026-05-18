@@ -1,0 +1,202 @@
+name: Minor Draft Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_title:
+        description: Optional release title. Leave empty to use the default title.
+        required: false
+        type: string
+        default: ""
+      prerelease:
+        description: Mark the created draft release as a prerelease.
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: Validate and compute the new version without pushing, tagging, building, or creating a release.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: read
+  packages: read
+
+concurrency:
+  group: perastage-minor-draft-release
+  cancel-in-progress: false
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump.outputs.new_version }}
+      new_tag: ${{ steps.bump.outputs.new_tag }}
+      release_title: ${{ steps.bump.outputs.release_title }}
+      prerelease: ${{ steps.bump.outputs.prerelease }}
+      dry_run: ${{ steps.bump.outputs.dry_run }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Compute next minor version
+        id: bump
+        env:
+          RELEASE_TITLE_INPUT: ${{ github.event.inputs.release_title }}
+          PRERELEASE_INPUT: ${{ github.event.inputs.prerelease }}
+          DRY_RUN_INPUT: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "This workflow must run from refs/heads/main, got: ${GITHUB_REF}"
+            exit 1
+          fi
+
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Working tree must be clean before version bump"
+            exit 1
+          fi
+
+          VERSION_RAW="$(tr -d '[:space:]' < VERSION)"
+          if ! [[ "$VERSION_RAW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION must be MAJOR.MINOR.PATCH, got: '$VERSION_RAW'"
+            exit 1
+          fi
+
+          IFS='.' read -r major minor patch <<< "$VERSION_RAW"
+          next_minor=$((minor + 1))
+          NEW_VERSION="${major}.${next_minor}.0"
+          NEW_TAG="v${NEW_VERSION}"
+
+          if git rev-parse -q --verify "refs/tags/${NEW_TAG}" >/dev/null; then
+            echo "Tag already exists locally: ${NEW_TAG}"
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/${NEW_TAG}" >/dev/null 2>&1; then
+            echo "Tag already exists on origin: ${NEW_TAG}"
+            exit 1
+          fi
+
+          RELEASE_TITLE="${RELEASE_TITLE_INPUT}"
+          if [ -z "$RELEASE_TITLE" ]; then
+            RELEASE_TITLE="Perastage ${NEW_TAG}"
+          fi
+
+          printf '%s\n' "$NEW_VERSION" > VERSION
+
+          echo "previous_version=${VERSION_RAW}" >> "$GITHUB_OUTPUT"
+          echo "new_version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "new_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
+          echo "release_title=${RELEASE_TITLE}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${PRERELEASE_INPUT}" >> "$GITHUB_OUTPUT"
+          echo "dry_run=${DRY_RUN_INPUT}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit, push, and tag release version
+        if: ${{ steps.bump.outputs.dry_run != 'true' }}
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+          NEW_TAG: ${{ steps.bump.outputs.new_tag }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add VERSION
+          git commit -m "chore: prepare minor release ${NEW_TAG} [skip version-bump]"
+          git push origin HEAD:main
+
+          git tag -a "${NEW_TAG}" -m "Perastage ${NEW_TAG}"
+          git push origin "${NEW_TAG}"
+
+      - name: Show dry run result
+        if: ${{ steps.bump.outputs.dry_run == 'true' }}
+        run: |
+          echo "Dry run enabled: computed ${NEW_VERSION} and ${NEW_TAG} without changes"
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+          NEW_TAG: ${{ steps.bump.outputs.new_tag }}
+
+  windows-installer:
+    if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
+    needs: prepare-release
+    uses: ./.github/workflows/windows-installer.yml
+    with:
+      source_ref: ${{ needs.prepare-release.outputs.new_tag }}
+
+  linux-installer:
+    if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
+    needs: prepare-release
+    uses: ./.github/workflows/linux-installer.yml
+    with:
+      source_ref: ${{ needs.prepare-release.outputs.new_tag }}
+
+  macos-installer:
+    if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
+    needs: prepare-release
+    uses: ./.github/workflows/macos-installer.yml
+    with:
+      source_ref: ${{ needs.prepare-release.outputs.new_tag }}
+
+  create-draft-release:
+    if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
+    needs:
+      - prepare-release
+      - windows-installer
+      - linux-installer
+      - macos-installer
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download installer artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: Perastage-*
+
+      - name: Validate installer assets
+        id: assets
+        run: |
+          set -euo pipefail
+
+          WIN_ASSET="$(find release-assets -type f -name 'Perastage_*_Setup.exe' -print -quit)"
+          LINUX_ASSET="$(find release-assets -type f -name 'Perastage-*-x86_64.AppImage' -print -quit)"
+          MAC_ASSET="$(find release-assets -type f -name 'Perastage-*-macos-arm64.dmg' -print -quit)"
+
+          if [ -z "$WIN_ASSET" ] || [ -z "$LINUX_ASSET" ] || [ -z "$MAC_ASSET" ]; then
+            echo "Missing one or more installer assets"
+            echo "Windows: $WIN_ASSET"
+            echo "Linux: $LINUX_ASSET"
+            echo "macOS: $MAC_ASSET"
+            exit 1
+          fi
+
+          echo "win_asset=$WIN_ASSET" >> "$GITHUB_OUTPUT"
+          echo "linux_asset=$LINUX_ASSET" >> "$GITHUB_OUTPUT"
+          echo "mac_asset=$MAC_ASSET" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft release with generated notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ needs.prepare-release.outputs.new_tag }}
+          RELEASE_TITLE: ${{ needs.prepare-release.outputs.release_title }}
+          PRERELEASE: ${{ needs.prepare-release.outputs.prerelease }}
+          WIN_ASSET: ${{ steps.assets.outputs.win_asset }}
+          LINUX_ASSET: ${{ steps.assets.outputs.linux_asset }}
+          MAC_ASSET: ${{ steps.assets.outputs.mac_asset }}
+        run: |
+          set -euo pipefail
+
+          cmd=(gh release create "$TAG_NAME" "$WIN_ASSET" "$LINUX_ASSET" "$MAC_ASSET" --draft --generate-notes --title "$RELEASE_TITLE")
+          if [ "$PRERELEASE" = "true" ]; then
+            cmd+=(--prerelease)
+          fi
+
+          "${cmd[@]}"
