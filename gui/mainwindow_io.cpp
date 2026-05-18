@@ -74,7 +74,7 @@ std::string EnsureProjectFileExtension(const std::string &path) {
   if (path.empty())
     return path;
 
-  const std::filesystem::path candidate = std::filesystem::u8path(path);
+  const std::filesystem::path candidate(path);
   const std::string ext = candidate.extension().string();
   const std::string requiredExt = ProjectUtils::PROJECT_EXTENSION;
   if (ext == requiredExt)

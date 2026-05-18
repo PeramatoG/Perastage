@@ -781,7 +781,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
   }
 
   std::error_code ec;
-  const fs::path projectPath = fs::u8path(path);
+  const fs::path projectPath(path);
   if (!fs::is_regular_file(projectPath, ec)) {
     ProjectUtils::SaveLastProjectPath("");
     ResetProject(true);
