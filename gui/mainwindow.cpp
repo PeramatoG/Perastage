@@ -618,6 +618,15 @@ void MainWindow::SetStartupProjectLoadPending(bool pending) {
   }
 }
 
+// Cancels pending startup-project loading and defers an external file-open path.
+void MainWindow::CancelStartupProjectLoadForExternalOpenPath(
+    const std::string &path) {
+  ProjectUtils::SaveLastProjectPath("");
+  QueueDeferredStartupOpenPath(path);
+  SetStartupProjectLoadPending(false);
+  RequestStartupSplashCompletion();
+}
+
 bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
   if (!startupProjectLoadPending)
     return true;

@@ -338,10 +338,7 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
     if (mainWindow->IsStartupProjectLoadPending()) {
       Logger::Instance().Log(
           "HandleExternalOpenPath canceling startup project load in favor of external path.");
-      ProjectUtils::SaveLastProjectPath("");
-      mainWindow->QueueDeferredStartupOpenPath(pathUtf8);
-      mainWindow->SetStartupProjectLoadPending(false);
-      mainWindow->RequestStartupSplashCompletion();
+      mainWindow->CancelStartupProjectLoadForExternalOpenPath(pathUtf8);
       return;
     }
 
