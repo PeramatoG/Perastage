@@ -177,10 +177,13 @@ bool MainWindow::OpenPathFromCommandLine(const std::string &path) {
 
 // Queues an external open path and processes it immediately only when startup is fully ready.
 void MainWindow::EnqueueExternalOpenPath(const std::string &path) {
+  Logger::Instance().Log("EnqueueExternalOpenPath received: " + path);
   QueueDeferredStartupOpenPath(path);
   if (IsStartupProjectLoadPending() || IsStartupInitializationPending() ||
       !CanProcessExternalOpenPath())
     return;
+  Logger::Instance().Log(
+      "EnqueueExternalOpenPath processing immediately after startup readiness.");
   ProcessDeferredStartupOpenPath();
 }
 
@@ -200,6 +203,7 @@ void MainWindow::ProcessDeferredStartupOpenPath() {
     return;
 
   const std::string path = *deferredStartupOpenPath;
+  Logger::Instance().Log("ProcessDeferredStartupOpenPath executing: " + path);
   deferredStartupOpenPath.reset();
   if (!OpenPathFromCommandLine(path))
     deferredStartupOpenPath = path;

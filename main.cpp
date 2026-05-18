@@ -257,6 +257,7 @@ bool MyApp::OnInit() {
   auto lastPathOpt = ProjectUtils::LoadLastProjectPath();
 
   if (startupPathOpt && mainWindowRef) {
+    Logger::Instance().Log("OnInit startup path selected: " + *startupPathOpt);
     // Route startup file opens through EVT_PROJECT_LOADED so startup-reset and
     // command-line open cannot race each other. The actual open/import is
     // deferred by MainWindow::OnProjectLoaded() after startup pending state is
@@ -264,10 +265,13 @@ bool MyApp::OnInit() {
     QueueProjectLoadedEvent(mainWindowRef, false, false, *startupPathOpt);
   } else if (lastPathOpt) {
     std::string lastPath = *lastPathOpt;
+    Logger::Instance().Log("OnInit last project candidate: " + lastPath);
     mainWindow->CallAfter([this, mainWindowRef, lastPath]() {
       if (!mainWindowRef)
         return;
       if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
+        Logger::Instance().Log("OnInit pending external path overrides first tick: " +
+                               *pendingOpenPath);
         QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
         return;
       }
@@ -278,9 +282,13 @@ bool MyApp::OnInit() {
         if (!mainWindowRef)
           return;
         if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
+          Logger::Instance().Log(
+              "OnInit pending external path overrides second tick: " +
+              *pendingOpenPath);
           QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
           return;
         }
+        Logger::Instance().Log("OnInit loading last project path: " + lastPath);
         mainWindowRef->LoadStartupProjectFromPath(lastPath);
       });
     });
