@@ -4,7 +4,19 @@
 name: Windows Installer Build
 
 on:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: Git ref to build from when called as a reusable workflow.
+        required: false
+        type: string
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Optional git ref to build from.
+        required: false
+        type: string
+        default: ""
   push:
     branches:
       - ci/windows-installer
@@ -24,6 +36,8 @@ jobs:
       # ── 1. Checkout ────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
 
       # ── 2. Cache vcpkg installed tree + downloads ───────────────────────────
       # The cache key includes the workflow file itself so a change in the
