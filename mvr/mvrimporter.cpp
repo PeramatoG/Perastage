@@ -624,6 +624,11 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
   return chosen;
 }
 
+// Returns the preferred fallback GDTF path for download conflicts, prioritizing app fixtures over MVR fixtures.
+static std::string GetDownloadFallbackPath(const GdtfConflict &conflict) {
+  return !conflict.appPath.empty() ? conflict.appPath : conflict.mvrPath;
+}
+
 struct GdtfCatalogModeCandidate {
   std::string name;
   int footprint = 0;
@@ -2777,6 +2782,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         reportProgress("Conflict dialog:hide");
         if (!choices.empty()) {
           std::unordered_map<std::string, std::string> selectedPathByType;
+          std::unordered_map<std::string, std::string> downloadFallbackPathByType;
           std::unordered_map<std::string, std::string> selectedModeByType;
           std::vector<GdtfConflict> downloadRequests;
           for (const auto &conflict : gdtfConflicts) {
@@ -2788,7 +2794,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               selectedPathByType[conflict.type] = conflict.mvrPath;
             } else {
               downloadRequests.push_back(conflict);
-              selectedPathByType[conflict.type] = conflict.mvrPath;
+              const std::string fallbackPath = GetDownloadFallbackPath(conflict);
+              selectedPathByType[conflict.type] = fallbackPath;
+              downloadFallbackPathByType[conflict.type] = fallbackPath;
             }
           }
 
@@ -3295,7 +3303,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                   " / " +
                                   formatBytes(rowProgressByType[req.type].totalBytes)
                             : wxString("0 B / ? B");
-                    updateStatusRow(req.type, "-", "Fallback to MVR",
+                    const bool fallsBackToApp =
+                        downloadFallbackPathByType[req.type] == req.appPath &&
+                        !req.appPath.empty();
+                    updateStatusRow(req.type, "-", fallsBackToApp ? "Fallback to App"
+                                                                   : "Fallback to MVR",
                                     progressText,
                                     "No catalog match found", DownloadRowState::Fallback);
                     updateProgressGauge();
@@ -3399,7 +3411,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                         rowProgressByType[req.type].totalBytes > 0
                             ? formatBytes(rowProgressByType[req.type].totalBytes)
                             : wxString("? B");
-                    updateStatusRow(req.type, selectedFixtureName, "Fallback to MVR",
+                    const bool fallsBackToApp =
+                        downloadFallbackPathByType[req.type] == req.appPath &&
+                        !req.appPath.empty();
+                    updateStatusRow(req.type, selectedFixtureName,
+                                    fallsBackToApp ? "Fallback to App"
+                                                   : "Fallback to MVR",
                                     formatBytes(rowProgressByType[req.type].downloadedBytes) +
                                         " / " + totalText,
                                     "Download failed", DownloadRowState::Fallback);
