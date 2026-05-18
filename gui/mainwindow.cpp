@@ -1248,6 +1248,9 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     return;
   }
   SetStartupProjectLoadPending(false);
+  // Ensure Finder/LaunchServices external-open requests queued during startup
+  // are executed immediately after startup project loading completes.
+  CallAfter([this]() { ProcessDeferredStartupOpenPath(); });
 }
 
 void MainWindow::OnUiUnitsChanged(wxCommandEvent &WXUNUSED(event)) {
