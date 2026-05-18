@@ -181,8 +181,10 @@ void MainWindow::EnqueueExternalOpenPath(const std::string &path) {
   Logger::Instance().Log("EnqueueExternalOpenPath received: " + path);
   QueueDeferredStartupOpenPath(path);
   if (IsStartupProjectLoadPending() || IsStartupInitializationPending() ||
-      !CanProcessExternalOpenPath())
+      !CanProcessExternalOpenPath()) {
+    CallAfter([this]() { ProcessDeferredStartupOpenPath(); });
     return;
+  }
   Logger::Instance().Log(
       "EnqueueExternalOpenPath processing immediately after startup readiness.");
   ProcessDeferredStartupOpenPath();
