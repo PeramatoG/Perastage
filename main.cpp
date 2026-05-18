@@ -288,11 +288,6 @@ bool MyApp::OnInit() {
           QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
           return;
         }
-        if (project_load_event_sent_.load()) {
-          Logger::Instance().Log(
-              "OnInit skipping last project load because startup open event is already in-flight.");
-          return;
-        }
         Logger::Instance().Log("OnInit loading last project path: " + lastPath);
         mainWindowRef->LoadStartupProjectFromPath(lastPath);
       });
