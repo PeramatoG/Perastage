@@ -34,8 +34,7 @@ Perastage/
 ├── library/                     # Packaged runtime content (fixtures, trusses, etc.).
 ├── resources/                   # Visual/platform resources (icons, fonts, .rc).
 ├── third_party/                 # Vendored third-party headers.
-├── licenses/                    # Third-party license files.
-└── peraviz/                     # Godot-based sandbox/prototype + native extension.
+└── licenses/                    # Third-party license files.
 ```
 
 ## Modules and responsibilities
