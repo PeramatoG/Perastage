@@ -278,6 +278,12 @@ bool MyApp::OnInit() {
           QueueProjectLoadedEvent(mainWindowRef, false, true, *pendingOpenPath);
           return;
         }
+        if (!project_load_event_sent_.load()) {
+          Logger::Instance().Log(
+              "OnInit startup external-open flag set without queued path on first tick; posting startup reset event.");
+          QueueProjectLoadedEvent(mainWindowRef, false, true);
+          return;
+        }
         Logger::Instance().Log(
             "OnInit startup external-open flag set but no queued path on first tick.");
         Logger::Instance().Log(
@@ -383,6 +389,13 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
         "default load: " +
         pathUtf8);
     ProjectUtils::SaveLastProjectPath("");
+    if (!project_load_event_sent_.load()) {
+      Logger::Instance().Log(
+          "HandleExternalOpenPath posting startup project-loaded reset event for external open.");
+      QueueProjectLoadedEvent(wxWeakRef<MainWindow>(mainWindow), false, true,
+                              pathUtf8);
+      return;
+    }
     mainWindow->EnqueueExternalOpenPath(pathUtf8);
     return;
   }
