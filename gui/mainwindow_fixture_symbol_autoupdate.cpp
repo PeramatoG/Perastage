@@ -19,11 +19,12 @@
 #include <wx/timer.h>
 
 namespace {
-constexpr int kStatusClearTimerId = wxWindow::NewControlId();
+const int kStatusClearTimerId = wxWindow::NewControlId();
 std::unordered_map<MainWindow *, std::unique_ptr<wxTimer>> g_statusClearTimers;
 std::unordered_map<MainWindow *, std::string> g_pendingStatusText;
-std::unordered_map<MainWindow *, wxEventHandler *> g_statusTimerHandlers;
+std::unordered_map<MainWindow *, wxEvtHandler *> g_statusTimerHandlers;
 
+// Builds a stable deduplication key for fixture symbol auto-update work items.
 std::string BuildFixtureAutoUpdateKey(const Fixture &fixture) {
   if (!fixture.typeName.empty())
     return fixture.typeName;
@@ -32,6 +33,7 @@ std::string BuildFixtureAutoUpdateKey(const Fixture &fixture) {
   return {};
 }
 
+// Builds a human-readable fixture label for progress and error reporting.
 std::string BuildFixtureLabel(const Fixture &fixture) {
   if (!fixture.typeName.empty())
     return fixture.typeName;
@@ -42,6 +44,7 @@ std::string BuildFixtureLabel(const Fixture &fixture) {
   return "unknown fixture";
 }
 
+// Updates status/console text and maintains a per-window timer that clears transient status messages.
 void ReportFixtureAutoUpdate(MainWindow &window, ConsolePanel *console,
                              const std::string &message,
                              bool logToConsole = true) {
@@ -101,6 +104,7 @@ void MainWindow::CleanupFixtureAutoUpdateStatusTimer() {
   }
 }
 
+// Summarizes fixture auto-update results for completion reporting.
 std::string MainWindow::BuildFixtureSymbolAutoUpdateSummary() const {
   std::ostringstream summary;
   summary << "Fixture symbol auto-update summary:";
@@ -137,6 +141,7 @@ std::string MainWindow::BuildFixtureSymbolAutoUpdateSummary() const {
   return summary.str();
 }
 
+// Starts fixture symbol auto-update for the currently loaded scene.
 void MainWindow::RequestFixtureSymbolAutoUpdate() {
   StartFixtureSymbolAutoUpdateForLoadedScene();
 }
