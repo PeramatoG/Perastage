@@ -333,22 +333,17 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
     return;
   }
 
-  bool startupEventAlreadySent = project_load_event_sent_.load();
-  if (startupEventAlreadySent && mainWindow->IsStartupProjectLoadPending()) {
+  if (mainWindow->IsStartupProjectLoadPending()) {
     Logger::Instance().Log(
-        "HandleExternalOpenPath deferring external open until startup load "
-        "completes: " +
+        "HandleExternalOpenPath prioritizing external open over startup "
+        "default load: " +
         pathUtf8);
     ProjectUtils::SaveLastProjectPath("");
-    mainWindow->CallAfter([windowRef = wxWeakRef<MainWindow>(mainWindow),
-                           pathUtf8]() {
-      if (!windowRef)
-        return;
-      windowRef->EnqueueExternalOpenPath(pathUtf8);
-    });
+    mainWindow->EnqueueExternalOpenPath(pathUtf8);
     return;
   }
 
+  bool startupEventAlreadySent = project_load_event_sent_.load();
   if (!startupEventAlreadySent) {
     Logger::Instance().Log(
         "HandleExternalOpenPath routing through startup project-loaded pipeline.");
