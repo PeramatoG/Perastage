@@ -379,15 +379,21 @@ int MyApp::OnExit() {
   return wxApp::OnExit();
 }
 
-// Queues a single startup project-loaded event to avoid duplicate startup routing.
+// Queues startup project-loaded events while allowing explicit override requests.
 void MyApp::QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
                                     bool loaded, bool clearLastProject,
                                     const std::string &path) {
   if (!mainWindowRef)
     return;
-  bool expected = false;
-  if (!project_load_event_sent_.compare_exchange_strong(expected, true))
-    return;
+  if (clearLastProject) {
+    // Allow external-open override events to be posted even if startup already
+    // queued a previous project-loaded event.
+    project_load_event_sent_.store(true);
+  } else {
+    bool expected = false;
+    if (!project_load_event_sent_.compare_exchange_strong(expected, true))
+      return;
+  }
 
   wxCommandEvent evt(EVT_PROJECT_LOADED);
   evt.SetInt(loaded ? 1 : 0);
