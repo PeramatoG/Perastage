@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "logger.h"
+#include "apppaths.h"
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
@@ -45,17 +46,6 @@ std::string FormatLogLine(Logger::Level level, const std::string &msg) {
   return oss.str();
 }
 
-// Resolves the preferred per-user log directory path with a Windows LOCALAPPDATA override.
-std::filesystem::path ResolvePreferredLogDir() {
-#ifdef _WIN32
-  if (const char *localAppData = std::getenv("LOCALAPPDATA")) {
-    if (*localAppData)
-      return std::filesystem::u8path(localAppData) / "Perastage";
-  }
-#endif
-  wxString dataDir = wxStandardPaths::Get().GetUserDataDir();
-  return std::filesystem::u8path(std::string(dataDir.ToUTF8()));
-}
 } // namespace
 
 Logger &Logger::Instance() {
@@ -64,12 +54,12 @@ Logger &Logger::Instance() {
 }
 
 Logger::Logger() {
-  const std::filesystem::path logDir = ResolvePreferredLogDir();
+  const std::filesystem::path logDir = AppPaths::GetUserDataDir();
   if (!logDir.empty()) {
     std::error_code ec;
     std::filesystem::create_directories(logDir, ec);
     if (!ec) {
-      std::filesystem::path logPath = logDir / "perastage.log";
+      std::filesystem::path logPath = AppPaths::GetLogFilePath();
       file_.open(logPath, std::ios::out | std::ios::trunc);
       if (!file_.is_open()) {
         std::cerr << "Warning: Unable to open log file at " << logPath.string()

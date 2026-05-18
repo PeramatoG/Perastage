@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "projectutils.h"
+#include "apppaths.h"
 #include "library/library_bootstrap.h"
 #include "logger.h"
 #include <cstdlib>
@@ -69,21 +70,8 @@ std::optional<fs::path> FindExistingPath(const fs::path& start,
 
 std::optional<fs::path> ResolveWritableUserDataDir()
 {
-    // Resolves a writable per-user app-data directory, preferring LOCALAPPDATA on Windows.
-    wxString dir;
-#ifdef _WIN32
-    if (const char* localAppData = std::getenv("LOCALAPPDATA");
-        localAppData && *localAppData) {
-        dir = wxString::FromUTF8(localAppData);
-        if (!dir.empty())
-            dir += wxFILE_SEP_PATH + wxString("Perastage");
-    }
-#endif
-    if (dir.empty())
-        dir = wxStandardPaths::Get().GetUserDataDir();
-    fs::path candidate;
-    if (!dir.empty())
-        candidate = WxStringToPath(dir);
+    // Resolves a writable per-user app-data directory using centralized platform rules.
+    fs::path candidate = AppPaths::GetUserDataDir();
 
     std::error_code ec;
     if (!candidate.empty()) {
@@ -93,8 +81,7 @@ std::optional<fs::path> ResolveWritableUserDataDir()
     }
 
     ec.clear();
-    wxString tempDir = wxStandardPaths::Get().GetTempDir();
-    fs::path fallback = WxStringToPath(tempDir) / "Perastage";
+    fs::path fallback = AppPaths::GetUserDataTempFallbackDir();
     fs::create_directories(fallback, ec);
     if (ec)
         return std::nullopt;

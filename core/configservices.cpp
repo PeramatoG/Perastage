@@ -1,4 +1,5 @@
 #include "configservices.h"
+#include "apppaths.h"
 
 #include "json.hpp"
 
@@ -41,18 +42,6 @@ wxString WxStringFromPath(const fs::path &path) {
 #else
   return wxString::FromUTF8(path.string());
 #endif
-}
-
-// Resolves a writable per-user config directory path, preferring LOCALAPPDATA on Windows.
-fs::path ResolveUserConfigDirectory() {
-#ifdef _WIN32
-  if (const char *localAppData = std::getenv("LOCALAPPDATA")) {
-    if (*localAppData)
-      return fs::u8path(localAppData) / "Perastage";
-  }
-#endif
-  const wxString userDataDir = wxStandardPaths::Get().GetUserDataDir();
-  return fs::path(userDataDir.ToStdWstring());
 }
 
 std::vector<std::string> SplitCSV(const std::string &s) {
@@ -377,13 +366,12 @@ bool UserPreferencesStore::SaveToStream(std::ostream &out) const {
 
 std::string UserPreferencesStore::GetUserConfigFile() {
   // Builds the user preferences file path and falls back to a temp directory when needed.
-  std::filesystem::path p = ResolveUserConfigDirectory();
+  std::filesystem::path p = AppPaths::GetUserDataDir();
   std::error_code ec;
   std::filesystem::create_directories(p, ec);
   if (ec) {
     ec.clear();
-    const wxString tempDir = wxStandardPaths::Get().GetTempDir();
-    p = std::filesystem::path(tempDir.ToStdWstring()) / "Perastage";
+    p = AppPaths::GetUserDataTempFallbackDir();
     std::filesystem::create_directories(p, ec);
     if (ec)
       return {};
