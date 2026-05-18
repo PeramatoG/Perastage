@@ -287,8 +287,7 @@ bool MyApp::OnInit() {
         Logger::Instance().Log(
             "OnInit startup external-open flag set but no queued path on first tick.");
         Logger::Instance().Log(
-            "OnInit skipping last project load because startup external-open request was received.");
-        return;
+            "OnInit deferring last project fallback to second tick while waiting for startup external-open handling.");
       }
       if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
         Logger::Instance().Log("OnInit pending external path overrides first tick: " +
