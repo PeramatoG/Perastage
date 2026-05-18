@@ -692,7 +692,7 @@ void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
   }
 
   const std::filesystem::path libraryRoot =
-      std::filesystem::u8path(fixturesPath).parent_path();
+      std::filesystem::path(fixturesPath).parent_path();
   const std::u8string folderPathUtf8 = libraryRoot.u8string();
   const std::string folderPathBytes(folderPathUtf8.begin(), folderPathUtf8.end());
   const wxString folderPath = wxString::FromUTF8(folderPathBytes.c_str());
