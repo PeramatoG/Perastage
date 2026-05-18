@@ -8,8 +8,6 @@
 #include <wx/msgdlg.h>
 #include <wx/progdlg.h>
 #include <wx/utils.h>
-#include <wx/weakref.h>
-
 #include <algorithm>
 #include <memory>
 #include <optional>
@@ -34,7 +32,7 @@
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
 
-// Stores a weak owner reference to prevent dereferencing MainWindow after destruction.
+// Stores a non-owning owner pointer used by IO workflows owned by MainWindow lifetime.
 MainWindowIoController::MainWindowIoController(MainWindow &owner)
     : ownerRef_(&owner) {}
 
@@ -42,27 +40,27 @@ MainWindowIoController::MainWindowIoController(MainWindow &owner)
 bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   constexpr const char *kLayoutsConfigKey = "layouts_collection";
   constexpr const char *kViewer3DRenderStyleConfigKey = "viewer3d_render_style";
-  wxWeakRef<MainWindow> ownerRef = ownerRef_;
-  if (!ownerRef || ownerRef->guiConfigServices == nullptr)
+  MainWindow *owner = ownerRef_;
+  if (owner == nullptr || owner->guiConfigServices == nullptr)
     return false;
   const wxString filePath = wxString::FromUTF8(pathUtf8);
   ConfigManager &cfg =
-      ownerRef->guiConfigServices->LegacyConfigManager();
+      owner->guiConfigServices->LegacyConfigManager();
   const std::optional<std::string> preservedLayoutsConfig =
       cfg.GetValue(kLayoutsConfigKey);
   const std::optional<std::string> preservedViewer3DRenderStyle =
       cfg.GetValue(kViewer3DRenderStyleConfigKey);
-  auto setImportStatus = [ownerRef](const wxString &message) {
-    if (!ownerRef || !ownerRef->GetStatusBar())
+  auto setImportStatus = [owner](const wxString &message) {
+    if (owner == nullptr || !owner->GetStatusBar())
       return;
-    ownerRef->SetStatusText(message, 0);
-    ownerRef->GetStatusBar()->Update();
+    owner->SetStatusText(message, 0);
+    owner->GetStatusBar()->Update();
   };
 
   setImportStatus("MVR import: preparing...");
   SplashScreen::Hide();
 
-  const bool shouldShowBlockingImportUi = !ownerRef->IsStartupProjectLoadPending();
+  const bool shouldShowBlockingImportUi = !owner->IsStartupProjectLoadPending();
   std::unique_ptr<wxWindowDisabler> importDisabler;
   std::unique_ptr<wxBusyInfo> importOverlay;
   std::unique_ptr<wxProgressDialog> importProgress;
@@ -71,13 +69,9 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     importOverlay = std::make_unique<wxBusyInfo>("Importing MVR file...");
   }
 
-  if (!ownerRef)
-    return false;
-  ownerRef->LockViewportInteraction();
+  owner->LockViewportInteraction();
   const bool imported = MvrImporter::ImportAndRegister(
       pathUtf8, true, true, [&](const MvrImporter::ProgressState &progress) {
-        if (!ownerRef)
-          return;
         const std::string &stage = progress.stage;
         if (stage == "Conflict dialog:show") {
           importProgress.reset();
@@ -105,7 +99,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           if (shouldShowBlockingImportUi && !importProgress) {
             importOverlay.reset();
             importProgress = std::make_unique<wxProgressDialog>(
-                title, stageText, safeTotal + 1, ownerRef.get(),
+                title, stageText, safeTotal + 1, owner,
                 wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);
           } else if (importProgress) {
             importProgress->SetRange(safeTotal + 1);
@@ -124,10 +118,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           importProgress->Pulse(wxString::FromUTF8(stage));
         setImportStatus("MVR import: " + wxString::FromUTF8(stage));
       });
-  if (ownerRef)
-    ownerRef->UnlockViewportInteraction();
-  if (!ownerRef)
-    return false;
+  owner->UnlockViewportInteraction();
 
   if (!imported) {
     if (preservedLayoutsConfig.has_value())
@@ -139,23 +130,23 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     importProgress.reset();
     importOverlay.reset();
     importDisabler.reset();
-    if (ownerRef->GetStatusBar())
-      ownerRef->SetStatusText("MVR import failed.", 0);
+    if (owner->GetStatusBar())
+      owner->SetStatusText("MVR import failed.", 0);
     wxMessageBox("Failed to import MVR file.", "Error", wxOK | wxICON_ERROR,
                  ownerRef.get());
-    if (ownerRef->consolePanel)
-      ownerRef->consolePanel->AppendMessage("Failed to import " + filePath);
+    if (owner->consolePanel)
+      owner->consolePanel->AppendMessage("Failed to import " + filePath);
     return false;
   }
 
   setImportStatus("MVR import: refreshing panels...");
   viewer2d::ReconcileFixtureLabelOverridesWithScene(cfg);
-  if (ownerRef->consolePanel)
-    ownerRef->consolePanel->AppendMessage("Imported " + filePath);
-  ownerRef->currentProjectPath.clear();
-  ownerRef->currentProjectDisplayName = wxFileName(filePath).GetName();
+  if (owner->consolePanel)
+    owner->consolePanel->AppendMessage("Imported " + filePath);
+  owner->currentProjectPath.clear();
+  owner->currentProjectDisplayName = wxFileName(filePath).GetName();
   ProjectUtils::SaveLastProjectPath("");
-  ownerRef->UpdateTitle();
+  owner->UpdateTitle();
 
   if (preservedLayoutsConfig.has_value())
     cfg.SetValue(kLayoutsConfigKey, *preservedLayoutsConfig);
@@ -165,46 +156,46 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     cfg.SetValue(kViewer3DRenderStyleConfigKey, *preservedViewer3DRenderStyle);
   layouts::LayoutManager::Get().LoadFromConfig(cfg);
 
-  if (ownerRef->layoutPanel)
-    ownerRef->layoutPanel->ReloadLayouts();
-  if (ownerRef->fixturePanel)
-    ownerRef->fixturePanel->ReloadData();
-  if (ownerRef->trussPanel)
-    ownerRef->trussPanel->ReloadData();
-  if (ownerRef->hoistPanel)
-    ownerRef->hoistPanel->ReloadData();
-  if (ownerRef->sceneObjPanel)
-    ownerRef->sceneObjPanel->ReloadData();
-  if (ownerRef->viewportPanel) {
-    ownerRef->viewportPanel->UpdateScene();
-    ownerRef->viewportPanel->Refresh();
+  if (owner->layoutPanel)
+    owner->layoutPanel->ReloadLayouts();
+  if (owner->fixturePanel)
+    owner->fixturePanel->ReloadData();
+  if (owner->trussPanel)
+    owner->trussPanel->ReloadData();
+  if (owner->hoistPanel)
+    owner->hoistPanel->ReloadData();
+  if (owner->sceneObjPanel)
+    owner->sceneObjPanel->ReloadData();
+  if (owner->viewportPanel) {
+    owner->viewportPanel->UpdateScene();
+    owner->viewportPanel->Refresh();
   }
-  if (ownerRef->viewport2DPanel) {
-    if (!ownerRef->HasActiveLayout2DView())
-      ownerRef->viewport2DPanel->LoadViewFromConfig();
-    ownerRef->viewport2DPanel->UpdateScene();
-    ownerRef->viewport2DPanel->Refresh();
+  if (owner->viewport2DPanel) {
+    if (!owner->HasActiveLayout2DView())
+      owner->viewport2DPanel->LoadViewFromConfig();
+    owner->viewport2DPanel->UpdateScene();
+    owner->viewport2DPanel->Refresh();
   }
-  if (ownerRef->viewport2DRenderPanel)
-    ownerRef->viewport2DRenderPanel->ApplyConfig();
-  if (ownerRef->layerPanel)
-    ownerRef->layerPanel->ReloadLayers();
-  ownerRef->RefreshSummary();
-  ownerRef->RefreshRigging();
+  if (owner->viewport2DRenderPanel)
+    owner->viewport2DRenderPanel->ApplyConfig();
+  if (owner->layerPanel)
+    owner->layerPanel->ReloadLayers();
+  owner->RefreshSummary();
+  owner->RefreshRigging();
 
   // Keep import behavior aligned with the existing Tools > Auto color flow:
   // once the MVR scene is loaded, trigger auto-color so fixture types without
   // dictionary colors still receive a color by type/group.
   wxCommandEvent autoColorEvent;
-  ownerRef->OnAutoColor(autoColorEvent);
+  owner->OnAutoColor(autoColorEvent);
 
   importProgress.reset();
   importOverlay.reset();
   importDisabler.reset();
 
-  if (ownerRef->GetStatusBar()) {
+  if (owner->GetStatusBar()) {
     const wxString fileName = wxFileName(filePath).GetFullName();
-    ownerRef->SetStatusText("MVR imported: " + fileName, 0);
+    owner->SetStatusText("MVR imported: " + fileName, 0);
   }
   return true;
 }
@@ -216,7 +207,7 @@ void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
   if (!ownerRef_)
     return;
 
-  wxFileDialog openFileDialog(ownerRef_.get(), "Import MVR file", miscDir, "",
+  wxFileDialog openFileDialog(ownerRef_, "Import MVR file", miscDir, "",
                               "MVR files (*.mvr)|*.mvr",
                               wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 
@@ -254,7 +245,7 @@ bool MainWindowIoController::OpenPathFromCommandLine(
   if (!ownerRef_)
     return false;
 
-  MainWindow *owner = ownerRef_.get();
+  MainWindow *owner = ownerRef_;
   std::string extension = wxFileName(wxString::FromUTF8(pathUtf8)).GetExt()
                               .Lower()
                               .ToStdString();

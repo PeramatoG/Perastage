@@ -2,8 +2,6 @@
 
 #include <string>
 
-#include <wx/weakref.h>
-
 class MainWindow;
 class wxCommandEvent;
 
@@ -19,5 +17,5 @@ private:
 
   bool ImportMvrFromPath(const std::string &pathUtf8);
   bool ImportMvrWithOfficialPolicy(const std::string &pathUtf8);
-  wxWeakRef<MainWindow> ownerRef_;
+  MainWindow *ownerRef_ = nullptr;
 };
