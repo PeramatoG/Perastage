@@ -146,11 +146,6 @@ Additional safeguards include:
 ## Future/Experimental
 
 - Some tools remain Debug-only for production safety in Release builds.
-- **Peraviz (including DMX/Art-Net integration) is experimental and in an early phase.**
-- **Peraviz is not part of the recommended main Perastage production workflow today.**
-- For teams evaluating this area, see:
-  - [Peraviz DMX Input (Art-Net RX)](DMX_ARTNET.md) *(experimental maturity; subject to change)*.
-  - [DMX patch from MVR + Dimmer mapping from GDTF](DMX_PATCH_MVR_GDTF.md) *(experimental maturity; subject to change)*.
 - Large-scene performance and selected advanced workflows continue to be iterated.
 
 ## Related Documents

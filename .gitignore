@@ -370,32 +370,15 @@ MigrationBackup/
 FodyWeavers.xsd
 
 # ---------------------------------------------------------------------------
-# Godot / Peraviz
 # ---------------------------------------------------------------------------
 
-# Godot generated cache folders (keep project files versioned)
-peraviz/.godot/imported/
-peraviz/.godot/shader_cache/
-peraviz/.godot/editor/
-
-# Godot export presets can be kept (optional). If you don't want them versioned, uncomment:
-# peraviz/export_presets.cfg
 
 # Exported builds (keep out of repo)
-peraviz/builds/
-peraviz/exports/
-peraviz/dist/
 
-# C++ GDExtension build artifacts (if/when peraviz/native exists)
-peraviz/native/build/
-peraviz/native/**/build/
 
 # Common native artifacts
 *.dll
 *.pdb
 *.so
 *.dylib
-/peraviz/docs/Capture_Demo.mvr
-/peraviz/.godot/global_script_class_cache.cfg
-/peraviz/.godot/uid_cache.bin
 /library/trusses/truss_dictionary.json.bak
