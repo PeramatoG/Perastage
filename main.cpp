@@ -67,6 +67,7 @@ private:
 
   std::string last_event_summary_;
   std::atomic<bool> project_load_event_sent_{false};
+  std::atomic<bool> startup_external_open_requested_{false};
   std::deque<std::string> pending_external_open_paths_;
 };
 
@@ -269,6 +270,11 @@ bool MyApp::OnInit() {
     mainWindow->CallAfter([this, mainWindowRef, lastPath]() {
       if (!mainWindowRef)
         return;
+      if (startup_external_open_requested_.load()) {
+        Logger::Instance().Log(
+            "OnInit skipping last project load because startup external-open request was received.");
+        return;
+      }
       if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
         Logger::Instance().Log("OnInit pending external path overrides first tick: " +
                                *pendingOpenPath);
@@ -281,6 +287,11 @@ bool MyApp::OnInit() {
       mainWindowRef->CallAfter([this, mainWindowRef, lastPath]() {
         if (!mainWindowRef)
           return;
+        if (startup_external_open_requested_.load()) {
+          Logger::Instance().Log(
+              "OnInit skipping last project load on second tick because startup external-open request was received.");
+          return;
+        }
         if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
           Logger::Instance().Log(
               "OnInit pending external path overrides second tick: " +
@@ -342,6 +353,7 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
   }
 
   if (mainWindow->IsStartupProjectLoadPending()) {
+    startup_external_open_requested_.store(true);
     Logger::Instance().Log(
         "HandleExternalOpenPath prioritizing external open over startup "
         "default load: " +
@@ -353,6 +365,7 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
 
   bool startupEventAlreadySent = project_load_event_sent_.load();
   if (!startupEventAlreadySent) {
+    startup_external_open_requested_.store(true);
     Logger::Instance().Log(
         "HandleExternalOpenPath routing through startup project-loaded pipeline.");
     QueueProjectLoadedEvent(wxWeakRef<MainWindow>(mainWindow), false, true, pathUtf8);
