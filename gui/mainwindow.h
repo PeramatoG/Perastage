@@ -70,6 +70,7 @@ public:
                            bool showBlockingLoadUi = true); // Load given project
   void LoadStartupProjectFromPath(const std::string &path);
   void EnqueueExternalOpenPath(const std::string &path);
+  void CancelStartupProjectLoadForExternalOpenPath(const std::string &path);
   bool OpenPathFromCommandLine(const std::string &path);
   void ResetProject(bool applyLayoutDefaultsForNewProject = false); // Clear current project
   bool IsStartupProjectLoadPending() const { return startupProjectLoadPending; }
@@ -258,6 +259,7 @@ private:
   void OnStartupSplashCloseIdle(wxIdleEvent &event);
   void FlushPendingFixtureSymbolLibraryUpdates();
   std::string BuildFixtureSymbolAutoUpdateSummary() const;
+  void CleanupFixtureAutoUpdateStatusTimer();
   std::string defaultLayoutPerspective;
   std::string default2DLayoutPerspective;
   std::string defaultLayoutModePerspective;

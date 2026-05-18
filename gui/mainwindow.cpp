@@ -375,6 +375,7 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 }
 
 MainWindow::~MainWindow() {
+  CleanupFixtureAutoUpdateStatusTimer();
   cursorStatusCallbackLifetimeToken.reset();
   if (viewport2DPanel)
     viewport2DPanel->SetCursorWorldPositionCallback({});
@@ -616,6 +617,15 @@ void MainWindow::SetStartupProjectLoadPending(bool pending) {
     fileToolBar->EnableTool(ID_File_Load, !pending);
     fileToolBar->Refresh();
   }
+}
+
+// Cancels pending startup-project loading and defers an external file-open path.
+void MainWindow::CancelStartupProjectLoadForExternalOpenPath(
+    const std::string &path) {
+  ProjectUtils::SaveLastProjectPath("");
+  QueueDeferredStartupOpenPath(path);
+  SetStartupProjectLoadPending(false);
+  RequestStartupSplashCompletion();
 }
 
 bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {

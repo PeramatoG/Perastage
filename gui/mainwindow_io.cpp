@@ -50,6 +50,7 @@
 #include "gdtf_mutation_audit.h"
 #include "hoisttablepanel.h"
 #include "layoutviewerpanel.h"
+#include "logger.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "projectutils.h"
@@ -181,7 +182,12 @@ void MainWindow::EnqueueExternalOpenPath(const std::string &path) {
   if (IsStartupProjectLoadPending() || IsStartupInitializationPending() ||
       !CanProcessExternalOpenPath())
     return;
-  ProcessDeferredStartupOpenPath();
+  CallAfter([this]() {
+    if (!CanProcessExternalOpenPath() || IsStartupProjectLoadPending() ||
+        IsStartupInitializationPending())
+      return;
+    ProcessDeferredStartupOpenPath();
+  });
 }
 
 // Stores the latest deferred startup-open request so it can be processed when startup is ready.
@@ -201,6 +207,7 @@ void MainWindow::ProcessDeferredStartupOpenPath() {
 
   const std::string path = *deferredStartupOpenPath;
   deferredStartupOpenPath.reset();
+  Logger::Instance().Log("Opening explicit startup path: " + path);
   if (!OpenPathFromCommandLine(path))
     deferredStartupOpenPath = path;
 }

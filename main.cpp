@@ -59,7 +59,13 @@ public:
 #endif
 
 private:
+  void FinalizeStartupOpenResolution(
+      const wxWeakRef<MainWindow> &mainWindowRef,
+      const std::optional<std::string> &cliStartupPath,
+      const std::optional<std::string> &lastPathOpt);
   void HandleExternalOpenPath(const std::string &pathUtf8);
+  void StorePendingStartupExternalOpenPath(const std::string &pathUtf8);
+  std::optional<std::string> ConsumePendingStartupExternalOpenPath();
   std::optional<std::string> ConsumePendingExternalOpenPath();
   void QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
                                bool loaded, bool clearLastProject,
@@ -67,6 +73,8 @@ private:
 
   std::string last_event_summary_;
   std::atomic<bool> project_load_event_sent_{false};
+  std::atomic<bool> startup_resolution_pending_{true};
+  std::optional<std::string> explicit_startup_open_path_;
   std::deque<std::string> pending_external_open_paths_;
 };
 
@@ -247,49 +255,62 @@ bool MyApp::OnInit() {
   // Start maximized so minimize and restore buttons remain available
   mainWindow->Maximize(true);
 
-  std::optional<std::string> startupPathOpt = GetStartupPathFromArgs(
-      argc, argv, launchWorkingDirectoryUtf8);
-  if (!startupPathOpt)
-    startupPathOpt = ConsumePendingExternalOpenPath();
-
   SplashScreen::SetMessage("Loading last project...");
   wxWeakRef<MainWindow> mainWindowRef(mainWindow);
   auto lastPathOpt = ProjectUtils::LoadLastProjectPath();
-
-  if (startupPathOpt && mainWindowRef) {
-    // Route startup file opens through EVT_PROJECT_LOADED so startup-reset and
-    // command-line open cannot race each other. The actual open/import is
-    // deferred by MainWindow::OnProjectLoaded() after startup pending state is
-    // cleared.
-    QueueProjectLoadedEvent(mainWindowRef, false, false, *startupPathOpt);
-  } else if (lastPathOpt) {
-    std::string lastPath = *lastPathOpt;
-    mainWindow->CallAfter([this, mainWindowRef, lastPath]() {
-      if (!mainWindowRef)
-        return;
-      if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
-        QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
-        return;
-      }
-
-      // Give macOS open-document events one additional UI tick to arrive
-      // before committing to loading the last project path by default.
-      mainWindowRef->CallAfter([this, mainWindowRef, lastPath]() {
-        if (!mainWindowRef)
-          return;
-        if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
-          QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
-          return;
-        }
-        mainWindowRef->LoadStartupProjectFromPath(lastPath);
-      });
+  std::optional<std::string> cliStartupPath =
+      GetStartupPathFromArgs(argc, argv, launchWorkingDirectoryUtf8);
+  Logger::Instance().Log(
+      "Startup resolution delayed to allow macOS open-file event.");
+  mainWindow->CallAfter([this, mainWindowRef, cliStartupPath, lastPathOpt]() {
+    if (!mainWindowRef)
+      return;
+    mainWindowRef->CallAfter([this, mainWindowRef, cliStartupPath, lastPathOpt]() {
+      FinalizeStartupOpenResolution(mainWindowRef, cliStartupPath, lastPathOpt);
     });
+  });
+  return true;
+}
 
-  } else if (mainWindowRef) {
-    QueueProjectLoadedEvent(mainWindowRef, false, false);
+// Finalizes startup path selection after allowing macOS open-file events to arrive.
+void MyApp::FinalizeStartupOpenResolution(
+    const wxWeakRef<MainWindow> &mainWindowRef,
+    const std::optional<std::string> &cliStartupPath,
+    const std::optional<std::string> &lastPathOpt) {
+  if (!mainWindowRef)
+    return;
+
+  if (auto macPath = ConsumePendingStartupExternalOpenPath()) {
+    Logger::Instance().Log("Startup explicit macOS path selected: " + *macPath);
+    Logger::Instance().Log("Opening startup path: " + *macPath);
+    QueueProjectLoadedEvent(mainWindowRef, false, true, *macPath);
+    startup_resolution_pending_.store(false);
+    return;
   }
 
-  return true;
+  if (cliStartupPath.has_value()) {
+    Logger::Instance().Log("Startup CLI path selected: " + *cliStartupPath);
+    Logger::Instance().Log("Opening startup path: " + *cliStartupPath);
+    QueueProjectLoadedEvent(mainWindowRef, false, true, *cliStartupPath);
+    startup_resolution_pending_.store(false);
+    return;
+  }
+
+  if (lastPathOpt.has_value()) {
+    if (explicit_startup_open_path_.has_value()) {
+      Logger::Instance().Log(
+          "Skipping last project because explicit startup path exists.");
+    } else {
+      Logger::Instance().Log("Startup last project selected: " + *lastPathOpt);
+      QueueProjectLoadedEvent(mainWindowRef, false, false, *lastPathOpt);
+    }
+    startup_resolution_pending_.store(false);
+    return;
+  }
+
+  Logger::Instance().Log("Startup empty project selected.");
+  QueueProjectLoadedEvent(mainWindowRef, false, false);
+  startup_resolution_pending_.store(false);
 }
 
 // Routes a single macOS file-open request to the shared external-open handler.
@@ -324,6 +345,13 @@ void MyApp::MacOpenURL(const wxString &url) {
 void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
   if (pathUtf8.empty())
     return;
+  Logger::Instance().Log("macOS external open received: " + pathUtf8);
+
+  if (startup_resolution_pending_.load()) {
+    StorePendingStartupExternalOpenPath(pathUtf8);
+    Logger::Instance().Log("macOS startup explicit path stored: " + pathUtf8);
+    return;
+  }
 
   MainWindow *mainWindow = wxDynamicCast(GetTopWindow(), MainWindow);
   if (!mainWindow) {
@@ -333,22 +361,35 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
     return;
   }
 
-  bool startupEventAlreadySent = project_load_event_sent_.load();
-  if (!startupEventAlreadySent) {
-    Logger::Instance().Log(
-        "HandleExternalOpenPath routing through startup project-loaded pipeline.");
+  if (!project_load_event_sent_.load()) {
+    Logger::Instance().Log("Opening startup path: " + pathUtf8);
     QueueProjectLoadedEvent(wxWeakRef<MainWindow>(mainWindow), false, true, pathUtf8);
     return;
   }
 
   Logger::Instance().Log(
       "HandleExternalOpenPath routing through MainWindow deferred-open pipeline.");
-  mainWindow->CallAfter([windowRef = wxWeakRef<MainWindow>(mainWindow),
-                         pathUtf8]() {
-    if (!windowRef)
+  mainWindow->CallAfter([mainWindow, pathUtf8]() {
+    if (!mainWindow->CanProcessExternalOpenPath())
       return;
-    windowRef->EnqueueExternalOpenPath(pathUtf8);
+    mainWindow->EnqueueExternalOpenPath(pathUtf8);
   });
+}
+
+// Stores the most recent explicit startup external-open path received during app initialization.
+void MyApp::StorePendingStartupExternalOpenPath(const std::string &pathUtf8) {
+  if (pathUtf8.empty())
+    return;
+  explicit_startup_open_path_ = pathUtf8;
+}
+
+// Returns and clears the explicit startup external-open path captured during initialization.
+std::optional<std::string> MyApp::ConsumePendingStartupExternalOpenPath() {
+  if (!explicit_startup_open_path_.has_value())
+    return std::nullopt;
+  std::optional<std::string> path = explicit_startup_open_path_;
+  explicit_startup_open_path_.reset();
+  return path;
 }
 
 // Pops and returns the next queued external-open path, if any.

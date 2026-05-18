@@ -19,7 +19,12 @@
 #include <wx/timer.h>
 
 namespace {
+const int kStatusClearTimerId = wxWindow::NewControlId();
+std::unordered_map<MainWindow *, std::unique_ptr<wxTimer>> g_statusClearTimers;
+std::unordered_map<MainWindow *, std::string> g_pendingStatusText;
+std::unordered_map<MainWindow *, wxEvtHandler *> g_statusTimerHandlers;
 
+// Builds a stable deduplication key for fixture symbol auto-update work items.
 std::string BuildFixtureAutoUpdateKey(const Fixture &fixture) {
   if (!fixture.typeName.empty())
     return fixture.typeName;
@@ -28,6 +33,7 @@ std::string BuildFixtureAutoUpdateKey(const Fixture &fixture) {
   return {};
 }
 
+// Builds a human-readable fixture label for progress and error reporting.
 std::string BuildFixtureLabel(const Fixture &fixture) {
   if (!fixture.typeName.empty())
     return fixture.typeName;
@@ -38,35 +44,35 @@ std::string BuildFixtureLabel(const Fixture &fixture) {
   return "unknown fixture";
 }
 
+// Updates status/console text and maintains a per-window timer that clears transient status messages.
 void ReportFixtureAutoUpdate(MainWindow &window, ConsolePanel *console,
                              const std::string &message,
                              bool logToConsole = true) {
-  static const int kStatusClearTimerId = wxWindow::NewControlId();
-  static std::unordered_map<MainWindow *, std::unique_ptr<wxTimer>> timers;
-  static std::unordered_map<MainWindow *, std::string> pendingStatusText;
-
-  auto timerIt = timers.find(&window);
-  if (timerIt == timers.end()) {
+  MainWindow *windowPtr = &window;
+  auto timerIt = g_statusClearTimers.find(windowPtr);
+  if (timerIt == g_statusClearTimers.end()) {
     auto timer = std::make_unique<wxTimer>(&window, kStatusClearTimerId);
-    window.Bind(
+    auto *handler = new wxEvtHandler();
+    handler->Bind(
         wxEVT_TIMER,
-        [windowPtr = &window](wxTimerEvent &) {
-          auto pendingIt = pendingStatusText.find(windowPtr);
-          if (pendingIt == pendingStatusText.end())
+        [windowPtr](wxTimerEvent &) {
+          auto pendingIt = g_pendingStatusText.find(windowPtr);
+          if (pendingIt == g_pendingStatusText.end())
             return;
           if (windowPtr->GetStatusBar() &&
               windowPtr->GetStatusBar()->GetStatusText(0) ==
-                  wxString::FromUTF8(pendingIt->second)) {
+                  wxString::FromUTF8(pendingIt->second))
             windowPtr->SetStatusText("", 0);
-          }
-          pendingStatusText.erase(pendingIt);
+          g_pendingStatusText.erase(pendingIt);
         },
         kStatusClearTimerId);
-    timerIt = timers.emplace(&window, std::move(timer)).first;
+    window.PushEventHandler(handler);
+    g_statusTimerHandlers[windowPtr] = handler;
+    timerIt = g_statusClearTimers.emplace(windowPtr, std::move(timer)).first;
   }
 
   window.SetStatusText(wxString::FromUTF8(message), 0);
-  pendingStatusText[&window] = message;
+  g_pendingStatusText[windowPtr] = message;
   timerIt->second->StartOnce(10000);
 
   if (console && logToConsole)
@@ -75,6 +81,30 @@ void ReportFixtureAutoUpdate(MainWindow &window, ConsolePanel *console,
 
 } // namespace
 
+// Cleans up the per-window fixture auto-update timer and event handler bindings.
+void MainWindow::CleanupFixtureAutoUpdateStatusTimer() {
+  MainWindow *windowPtr = this;
+  if (auto timerIt = g_statusClearTimers.find(windowPtr);
+      timerIt != g_statusClearTimers.end()) {
+    timerIt->second->Stop();
+    g_statusClearTimers.erase(timerIt);
+  }
+
+  if (auto pendingIt = g_pendingStatusText.find(windowPtr);
+      pendingIt != g_pendingStatusText.end()) {
+    g_pendingStatusText.erase(pendingIt);
+  }
+
+  if (auto handlerIt = g_statusTimerHandlers.find(windowPtr);
+      handlerIt != g_statusTimerHandlers.end()) {
+    wxEvtHandler *handler = handlerIt->second;
+    if (handler != nullptr)
+      RemoveEventHandler(handler);
+    g_statusTimerHandlers.erase(handlerIt);
+  }
+}
+
+// Summarizes fixture auto-update results for completion reporting.
 std::string MainWindow::BuildFixtureSymbolAutoUpdateSummary() const {
   std::ostringstream summary;
   summary << "Fixture symbol auto-update summary:";
@@ -111,6 +141,7 @@ std::string MainWindow::BuildFixtureSymbolAutoUpdateSummary() const {
   return summary.str();
 }
 
+// Starts fixture symbol auto-update for the currently loaded scene.
 void MainWindow::RequestFixtureSymbolAutoUpdate() {
   StartFixtureSymbolAutoUpdateForLoadedScene();
 }
