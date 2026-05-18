@@ -50,6 +50,7 @@
 #include "gdtf_mutation_audit.h"
 #include "hoisttablepanel.h"
 #include "layoutviewerpanel.h"
+#include "logger.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "projectutils.h"
@@ -206,6 +207,7 @@ void MainWindow::ProcessDeferredStartupOpenPath() {
 
   const std::string path = *deferredStartupOpenPath;
   deferredStartupOpenPath.reset();
+  Logger::Instance().Log("Opening explicit startup path: " + path);
   if (!OpenPathFromCommandLine(path))
     deferredStartupOpenPath = path;
 }

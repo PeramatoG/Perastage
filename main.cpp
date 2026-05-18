@@ -267,6 +267,11 @@ bool MyApp::OnInit() {
     mainWindow->CallAfter([this, mainWindowRef, lastPath]() {
       if (!mainWindowRef)
         return;
+      if (project_load_event_sent_.load()) {
+        Logger::Instance().Log(
+            "Skipping last project load because an explicit startup open event was already queued.");
+        return;
+      }
       if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
         QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
         return;
@@ -277,10 +282,21 @@ bool MyApp::OnInit() {
       mainWindowRef->CallAfter([this, mainWindowRef, lastPath]() {
         if (!mainWindowRef)
           return;
+        if (project_load_event_sent_.load()) {
+          Logger::Instance().Log(
+              "Skipping last project load because an explicit startup open event was already queued.");
+          return;
+        }
         if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
           QueueProjectLoadedEvent(mainWindowRef, false, false, *pendingOpenPath);
           return;
         }
+        if (project_load_event_sent_.load()) {
+          Logger::Instance().Log(
+              "Skipping last project load because an explicit startup open event was already queued.");
+          return;
+        }
+        Logger::Instance().Log("Loading last project: " + lastPath);
         mainWindowRef->LoadStartupProjectFromPath(lastPath);
       });
     });
@@ -324,6 +340,7 @@ void MyApp::MacOpenURL(const wxString &url) {
 void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
   if (pathUtf8.empty())
     return;
+  Logger::Instance().Log("External open requested: " + pathUtf8);
 
   MainWindow *mainWindow = wxDynamicCast(GetTopWindow(), MainWindow);
   if (!mainWindow) {
