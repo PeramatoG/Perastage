@@ -336,10 +336,16 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
   bool startupEventAlreadySent = project_load_event_sent_.load();
   if (startupEventAlreadySent && mainWindow->IsStartupProjectLoadPending()) {
     Logger::Instance().Log(
-        "HandleExternalOpenPath overriding pending startup load with " +
+        "HandleExternalOpenPath deferring external open until startup load "
+        "completes: " +
         pathUtf8);
-    QueueProjectLoadedEvent(wxWeakRef<MainWindow>(mainWindow), false, true,
-                            pathUtf8);
+    ProjectUtils::SaveLastProjectPath("");
+    mainWindow->CallAfter([windowRef = wxWeakRef<MainWindow>(mainWindow),
+                           pathUtf8]() {
+      if (!windowRef)
+        return;
+      windowRef->EnqueueExternalOpenPath(pathUtf8);
+    });
     return;
   }
 
@@ -379,21 +385,15 @@ int MyApp::OnExit() {
   return wxApp::OnExit();
 }
 
-// Queues startup project-loaded events while allowing explicit override requests.
+// Queues a single startup project-loaded event to avoid duplicate startup routing.
 void MyApp::QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
                                     bool loaded, bool clearLastProject,
                                     const std::string &path) {
   if (!mainWindowRef)
     return;
-  if (clearLastProject) {
-    // Allow external-open override events to be posted even if startup already
-    // queued a previous project-loaded event.
-    project_load_event_sent_.store(true);
-  } else {
-    bool expected = false;
-    if (!project_load_event_sent_.compare_exchange_strong(expected, true))
-      return;
-  }
+  bool expected = false;
+  if (!project_load_event_sent_.compare_exchange_strong(expected, true))
+    return;
 
   wxCommandEvent evt(EVT_PROJECT_LOADED);
   evt.SetInt(loaded ? 1 : 0);

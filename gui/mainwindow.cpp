@@ -770,8 +770,15 @@ void MainWindow::ClearBlockingProjectLoadUi() {
   blockingProjectLoadDisabler.reset();
 }
 
+// Loads the startup project path unless a deferred external-open request should take precedence.
 void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
   namespace fs = std::filesystem;
+
+  if (deferredStartupOpenPath && !deferredStartupOpenPath->empty()) {
+    SetStartupProjectLoadPending(false);
+    RequestStartupSplashCompletion();
+    return;
+  }
 
   std::error_code ec;
   const fs::path projectPath = fs::u8path(path);
