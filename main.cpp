@@ -375,16 +375,13 @@ void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
         pathUtf8);
     ProjectUtils::SaveLastProjectPath("");
     mainWindow->EnqueueExternalOpenPath(pathUtf8);
-    mainWindow->CallAfter([windowRef = wxWeakRef<MainWindow>(mainWindow)]() {
+    mainWindow->CallAfter([windowRef = wxWeakRef<MainWindow>(mainWindow),
+                           pathUtf8]() {
       if (!windowRef)
         return;
-      if (windowRef->IsStartupProjectLoadPending()) {
-        Logger::Instance().Log(
-            "HandleExternalOpenPath forcing startup completion so deferred external-open can run.");
-        windowRef->SetStartupProjectLoadPending(false);
-        windowRef->RequestStartupSplashCompletion();
-      }
-      windowRef->ProcessDeferredStartupOpenPath();
+      Logger::Instance().Log(
+          "HandleExternalOpenPath retrying deferred external-open via public enqueue path.");
+      windowRef->EnqueueExternalOpenPath(pathUtf8);
     });
     if (!project_load_event_sent_.load()) {
       Logger::Instance().Log(
