@@ -1,0 +1,272 @@
+# macOS installer workflow for Perastage
+# Builds and stages the macOS application using vcpkg and CMake.
+
+name: macOS 15 Manual Installer Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Optional git ref to build from. Leave empty to build the selected branch.
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  build-macos-installer:
+    runs-on: macos-15
+
+    env:
+      # Single source of truth for all vcpkg paths used across steps.
+      VCPKG_ROOT:        ${{ github.workspace }}/vcpkg
+      VCPKG_INSTALLED:   ${{ github.workspace }}/.vcpkg-cache/installed
+      VCPKG_DOWNLOADS:   ${{ github.workspace }}/.vcpkg-cache/downloads
+      VCPKG_PACKAGES:    ${{ github.workspace }}/.vcpkg-cache/packages
+      VCPKG_TRIPLET:     arm64-osx
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
+
+      # ── 2. Print macOS runner diagnostics ───────────────────────────────────
+      - name: Print macOS runner diagnostics
+        run: |
+          sw_vers
+          xcodebuild -version
+          uname -a
+          sysctl -n machdep.cpu.brand_string || true
+
+      # ── 3. Install macOS build tools ────────────────────────────────────────
+      - name: Install macOS build tools
+        run: |
+          brew update
+          brew install autoconf autoconf-archive automake libtool ninja dylibbundler
+
+      # ── 4. Cache vcpkg installed tree + downloads ───────────────────────────
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        id: vcpkg-cache
+        with:
+          path: |
+            .vcpkg-cache/downloads
+            .vcpkg-cache/installed
+            .vcpkg-cache/packages
+          key: ${{ runner.os }}-vcpkg-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/macos-15-manual-installer.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-arm64-osx-
+            ${{ runner.os }}-vcpkg-
+
+      # ── 5. Prepare vcpkg cache folders ──────────────────────────────────────
+      # These folders must exist before bootstrap because VCPKG_DOWNLOADS is
+      # already visible to vcpkg during bootstrap.
+      - name: Prepare vcpkg folders
+        run: |
+          mkdir -p "$VCPKG_DOWNLOADS"
+          mkdir -p "$VCPKG_INSTALLED"
+          mkdir -p "$VCPKG_PACKAGES"
+
+      # ── 6. Bootstrap vcpkg ──────────────────────────────────────────────────
+      - name: Bootstrap vcpkg
+        run: |
+          if [ -d "$VCPKG_ROOT/.git" ]; then
+            echo "Updating existing vcpkg checkout..."
+            git -C "$VCPKG_ROOT" fetch --depth 1 origin master
+            git -C "$VCPKG_ROOT" checkout --force FETCH_HEAD
+          else
+            rm -rf "$VCPKG_ROOT"
+            git clone --depth 1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+          fi
+
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+
+      # ── 7. Install vcpkg packages ───────────────────────────────────────────
+      - name: Install vcpkg packages
+        run: |
+          "$VCPKG_ROOT/vcpkg" install \
+            wxwidgets:$VCPKG_TRIPLET \
+            tinyxml2:$VCPKG_TRIPLET \
+            glew:$VCPKG_TRIPLET \
+            curl:$VCPKG_TRIPLET \
+            zlib:$VCPKG_TRIPLET \
+            nanovg:$VCPKG_TRIPLET \
+            podofo:$VCPKG_TRIPLET \
+            meshoptimizer:$VCPKG_TRIPLET \
+            --x-install-root="$VCPKG_INSTALLED" \
+            --x-packages-root="$VCPKG_PACKAGES" \
+            --downloads-root="$VCPKG_DOWNLOADS"
+
+      # ── 8. Configure CMake ──────────────────────────────────────────────────
+      - name: Configure CMake
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET="$VCPKG_TRIPLET" \
+            -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"
+
+      # ── 9. Build project ────────────────────────────────────────────────────
+      - name: Build project
+        run: |
+          cmake --build build --config Release --parallel 2 --verbose
+
+      # ── 10. Stage distribution folder ───────────────────────────────────────
+      - name: Stage distribution folder
+        run: |
+          cmake --build build --config Release --target perastage_stage
+          find out/install/Release -maxdepth 6 -print || true
+          test -d out/install/Release/Perastage.app
+          test -f out/install/Release/Perastage.app/Contents/Info.plist
+          test -f out/install/Release/Perastage.app/Contents/Resources/Perastage.icns
+          test -f out/install/Release/Perastage.app/Contents/Resources/PerastageProject.icns
+          test -f out/install/Release/Perastage.app/Contents/Resources/PerastageMVR.icns
+          test -f out/install/Release/Perastage.app/Contents/Resources/resources/Perastage_logo.png
+          test -d out/install/Release/Perastage.app/Contents/Resources/resources/icons
+
+      # ── 11. Validate and prepare staged macOS app bundle ────────────────────
+      - name: Validate staged app bundle
+        run: |
+          test -d out/install/Release/Perastage.app
+          test -f out/install/Release/Perastage.app/Contents/Info.plist
+          test -f out/install/Release/Perastage.app/Contents/MacOS/Perastage
+          test -x out/install/Release/Perastage.app/Contents/MacOS/Perastage
+          test -f out/install/Release/Perastage.app/Contents/Resources/Perastage.icns
+          test -f out/install/Release/Perastage.app/Contents/Resources/PerastageProject.icns
+          test -f out/install/Release/Perastage.app/Contents/Resources/PerastageMVR.icns
+          test -f out/install/Release/Perastage.app/Contents/Resources/resources/Perastage_logo.png
+          test -d out/install/Release/Perastage.app/Contents/Resources/resources/icons
+          ls -l out/install/Release/Perastage.app/Contents/MacOS/
+          plutil -lint out/install/Release/Perastage.app/Contents/Info.plist
+          codesign -dv --verbose=4 out/install/Release/Perastage.app || true
+
+      - name: Remove quarantine from staged app bundle
+        run: |
+          xattr -cr "out/install/Release/Perastage.app" || true
+
+      - name: Bundle dylibs and ad-hoc sign staged app
+        run: |
+          APP_PATH="out/install/Release/Perastage.app"
+          BIN_PATH="$APP_PATH/Contents/MacOS/Perastage"
+          FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
+
+          mkdir -p "$FRAMEWORKS_PATH"
+
+          dylibbundler \
+            -od -b \
+            -x "$BIN_PATH" \
+            -d "$FRAMEWORKS_PATH" \
+            -p "@executable_path/../Frameworks/" \
+            -s "$VCPKG_INSTALLED/lib" \
+            -s "$VCPKG_INSTALLED/tools"
+
+          # Sign nested dynamic libraries and helper binaries before signing the bundle.
+          while IFS= read -r file_path; do
+            if file "$file_path" | grep -q "Mach-O"; then
+              if [ "$file_path" != "$BIN_PATH" ]; then
+                codesign --force --sign - --timestamp=none "$file_path"
+              fi
+            fi
+          done < <(find "$APP_PATH/Contents" -type f)
+
+          # Sign nested frameworks as bundles after their inner binaries are signed.
+          while IFS= read -r framework_path; do
+            codesign --force --sign - --timestamp=none "$framework_path"
+          done < <(find "$APP_PATH/Contents/Frameworks" -type d -name "*.framework" 2>/dev/null || true)
+
+          # Sign the full app bundle with deep signing.
+          codesign --force --deep --sign - --timestamp=none "$APP_PATH"
+
+          # Validate ad-hoc signature integrity.
+          codesign --verify --deep --verbose=2 "$APP_PATH"
+
+          # Fail on missing non-system runtime dependencies.
+          MISSING_DEPS=0
+          while IFS= read -r dep_line; do
+            dep_path="$(echo "$dep_line" | awk '{print $1}')"
+            case "$dep_path" in
+              @executable_path/*|@loader_path/*|/System/*|/usr/lib/*) ;;
+              *)
+                echo "Unexpected runtime dependency: $dep_path"
+                MISSING_DEPS=1
+                ;;
+            esac
+          done < <(otool -L "$BIN_PATH" | tail -n +2)
+          test "$MISSING_DEPS" -eq 0
+
+      # ── 12. Upload staged build ─────────────────────────────────────────────
+      - name: Upload staged distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-macos-staged
+          path: out/install/Release
+
+      # ── 13. Build DMG package ───────────────────────────────────────────────
+      - name: Build macOS DMG
+        run: |
+          APP_PATH="out/install/Release/Perastage.app"
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Contents/Info.plist")"
+          DMG_NAME="Perastage-${VERSION}-macos-arm64.dmg"
+          DMG_ROOT="$(mktemp -d)"
+
+          cp -R "$APP_PATH" "$DMG_ROOT/Perastage.app"
+          ln -s /Applications "$DMG_ROOT/Applications"
+
+          mkdir -p out/installer
+          hdiutil create \
+            -volname "Perastage" \
+            -srcfolder "$DMG_ROOT" \
+            -ov \
+            -format UDZO \
+            "out/installer/$DMG_NAME"
+
+          xattr -c "out/installer/$DMG_NAME" || true
+          rm -rf "$DMG_ROOT"
+          find out/installer -name "*.dmg" -print
+
+      # ── 14. Validate generated DMG ──────────────────────────────────────────
+      - name: Validate generated DMG
+        run: |
+          DMG_FILE="$(find out/installer -name "*.dmg" -print -quit)"
+          if [ -z "$DMG_FILE" ]; then
+            echo "DMG not found"
+            exit 1
+          fi
+
+          MOUNT_DIR="$(mktemp -d)"
+          # Detach the mounted DMG and remove the temporary mount directory.
+          cleanup() {
+            hdiutil detach "$MOUNT_DIR" >/dev/null 2>&1 || true
+            rmdir "$MOUNT_DIR" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          hdiutil attach "$DMG_FILE" -mountpoint "$MOUNT_DIR" -nobrowse -readonly
+
+          test -d "$MOUNT_DIR/Perastage.app"
+          test -x "$MOUNT_DIR/Perastage.app/Contents/MacOS/Perastage"
+          test -f "$MOUNT_DIR/Perastage.app/Contents/Resources/resources/Perastage_logo.png"
+          test -d "$MOUNT_DIR/Perastage.app/Contents/Resources/resources/icons"
+          plutil -lint "$MOUNT_DIR/Perastage.app/Contents/Info.plist"
+          codesign --verify --deep --verbose=2 "$MOUNT_DIR/Perastage.app"
+
+      # ── 15. Collect DMG package ─────────────────────────────────────────────
+      - name: Collect macOS DMG
+        run: |
+          mkdir -p out/installer
+          dmg_file="$(find out/installer -name "*.dmg" -print -quit)"
+          if [ -z "$dmg_file" ]; then
+            echo "DMG not found under build/"
+            exit 1
+          fi
+          echo "Using DMG: $dmg_file"
+          xattr -c "$dmg_file" || true
+          find out/installer -maxdepth 2 -name "*.dmg" -print
+
+      # ── 16. Upload DMG package ──────────────────────────────────────────────
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-macos-dmg
+          path: out/installer/*.dmg
