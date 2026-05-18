@@ -271,6 +271,15 @@ bool MyApp::OnInit() {
       if (!mainWindowRef)
         return;
       if (startup_external_open_requested_.load()) {
+        if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
+          Logger::Instance().Log(
+              "OnInit startup external-open flag set; routing queued path through startup pipeline: " +
+              *pendingOpenPath);
+          QueueProjectLoadedEvent(mainWindowRef, false, true, *pendingOpenPath);
+          return;
+        }
+        Logger::Instance().Log(
+            "OnInit startup external-open flag set but no queued path on first tick.");
         Logger::Instance().Log(
             "OnInit skipping last project load because startup external-open request was received.");
         return;
@@ -288,6 +297,21 @@ bool MyApp::OnInit() {
         if (!mainWindowRef)
           return;
         if (startup_external_open_requested_.load()) {
+          if (auto pendingOpenPath = ConsumePendingExternalOpenPath()) {
+            Logger::Instance().Log(
+                "OnInit startup external-open flag set; routing queued path through startup pipeline on second tick: " +
+                *pendingOpenPath);
+            QueueProjectLoadedEvent(mainWindowRef, false, true, *pendingOpenPath);
+            return;
+          }
+          if (!project_load_event_sent_.load()) {
+            Logger::Instance().Log(
+                "OnInit startup external-open flag set without queued path; posting startup reset event to unblock initialization.");
+            QueueProjectLoadedEvent(mainWindowRef, false, true);
+            return;
+          }
+          Logger::Instance().Log(
+              "OnInit startup external-open flag set on second tick with no queued path.");
           Logger::Instance().Log(
               "OnInit skipping last project load on second tick because startup external-open request was received.");
           return;
