@@ -16,7 +16,9 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "logger.h"
+#include "apppaths.h"
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <sstream>
@@ -43,6 +45,7 @@ std::string FormatLogLine(Logger::Level level, const std::string &msg) {
   oss << '[' << LevelToString(level) << "] " << msg;
   return oss.str();
 }
+
 } // namespace
 
 Logger &Logger::Instance() {
@@ -51,14 +54,12 @@ Logger &Logger::Instance() {
 }
 
 Logger::Logger() {
-  wxString dataDir = wxStandardPaths::Get().GetUserDataDir();
-  std::string dataDirUtf8 = std::string(dataDir.ToUTF8());
-  if (!dataDirUtf8.empty()) {
-    std::filesystem::path logDir = std::filesystem::u8path(dataDirUtf8);
+  const std::filesystem::path logDir = AppPaths::GetUserDataDir();
+  if (!logDir.empty()) {
     std::error_code ec;
     std::filesystem::create_directories(logDir, ec);
     if (!ec) {
-      std::filesystem::path logPath = logDir / "perastage.log";
+      std::filesystem::path logPath = AppPaths::GetLogFilePath();
       file_.open(logPath, std::ios::out | std::ios::trunc);
       if (!file_.is_open()) {
         std::cerr << "Warning: Unable to open log file at " << logPath.string()

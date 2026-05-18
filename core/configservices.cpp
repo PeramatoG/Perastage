@@ -1,4 +1,5 @@
 #include "configservices.h"
+#include "apppaths.h"
 
 #include "json.hpp"
 
@@ -364,14 +365,13 @@ bool UserPreferencesStore::SaveToStream(std::ostream &out) const {
 }
 
 std::string UserPreferencesStore::GetUserConfigFile() {
-  wxString dir = wxStandardPaths::Get().GetUserDataDir();
-  std::filesystem::path p(dir.ToStdWstring());
+  // Builds the user preferences file path and falls back to a temp directory when needed.
+  std::filesystem::path p = AppPaths::GetUserDataDir();
   std::error_code ec;
   std::filesystem::create_directories(p, ec);
   if (ec) {
     ec.clear();
-    const wxString tempDir = wxStandardPaths::Get().GetTempDir();
-    p = std::filesystem::path(tempDir.ToStdWstring()) / "Perastage";
+    p = AppPaths::GetUserDataTempFallbackDir();
     std::filesystem::create_directories(p, ec);
     if (ec)
       return {};

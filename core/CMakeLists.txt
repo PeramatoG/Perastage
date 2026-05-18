@@ -1,5 +1,6 @@
 target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/autopatcher.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/apppaths.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/configmanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/configservices.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/credentialstore.cpp
