@@ -17,6 +17,7 @@
  */
 #include "fixturetablepanel.h"
 #include "fixturetablepanel_update_types.h"
+#include "fixturetablepanel_ui_helpers.h"
 #include "addressdialog.h"
 #include "configmanager.h"
 #include "selection_origin_token.h"
@@ -164,79 +165,6 @@ bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
 
   const wxDataViewItemAttr &attr = store->cellAttrs[rowIndex][colIndex];
   return attr.HasColour() && attr.GetColour() == *wxRED;
-}
-
-// Applies the same tooltip text to the table and its child windows.
-void SetTableAndChildTooltips(wxDataViewListCtrl *table,
-                              const wxString &tooltip) {
-  if (!table)
-    return;
-
-  table->SetToolTip(tooltip);
-  wxWindowList &children = table->GetChildren();
-  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
-       it = it->GetNext()) {
-    if (wxWindow *child = it->GetData())
-      child->SetToolTip(tooltip);
-  }
-}
-
-// Converts mouse coordinates from child windows into table client coordinates.
-wxPoint NormalizeMousePositionForTable(wxDataViewListCtrl *table,
-                                       const wxMouseEvent &event) {
-  wxPoint position = event.GetPosition();
-  wxWindow *sourceWindow =
-      dynamic_cast<wxWindow *>(event.GetEventObject());
-  if (!table || !sourceWindow || sourceWindow == table)
-    return position;
-
-  return table->ScreenToClient(sourceWindow->ClientToScreen(position));
-}
-
-template <typename Owner>
-// Binds hover tracking events on the table and all internal child windows.
-void BindTableHoverEvents(wxDataViewListCtrl *table, Owner *owner,
-                          void (Owner::*onMouseMove)(wxMouseEvent &),
-                          void (Owner::*onMouseLeave)(wxMouseEvent &)) {
-  if (!table || !owner)
-    return;
-
-  auto bindEvents = [&](wxWindow *window) {
-    if (!window)
-      return;
-    window->Unbind(wxEVT_MOTION, onMouseMove, owner);
-    window->Unbind(wxEVT_LEAVE_WINDOW, onMouseLeave, owner);
-    window->Bind(wxEVT_MOTION, onMouseMove, owner);
-    window->Bind(wxEVT_LEAVE_WINDOW, onMouseLeave, owner);
-  };
-
-  bindEvents(table);
-  wxWindowList &children = table->GetChildren();
-  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
-       it = it->GetNext()) {
-    bindEvents(it->GetData());
-  }
-}
-
-// Returns tooltip text describing known validation conflicts for a column.
-wxString BuildFixtureTooltipForColumn(int modelColumn) {
-  if (modelColumn == 0)
-    return "Duplicate Fixture ID. Each fixture must have a unique ID.";
-  if (modelColumn == 5 || modelColumn == 6)
-    return "DMX patch conflict detected. Universe and channel overlap with another fixture.";
-  return wxString();
-}
-
-// Returns tooltip text when a fixture category was auto-assigned by fallback rules.
-wxString BuildCategoryFallbackTooltip(const Fixture &fixture) {
-  if (fixture.categorySource != GdtfFixtureCategory::kAutoFallbackSource)
-    return wxString();
-  if (!fixture.categorySourceReason.empty()) {
-    return wxString::Format(
-        "Category auto-assigned by fallback: %s.",
-        wxString::FromUTF8(fixture.categorySourceReason).c_str());
-  }
-  return "Category auto-assigned by fallback.";
 }
 
 // Renders and assigns the fixture color swatch cell for a given row.
