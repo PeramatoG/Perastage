@@ -171,6 +171,7 @@ struct LineRenderProfile {
 
 // Capture the current hidden-layer set from configuration.
 static std::unordered_set<std::string>
+// Captures and returns hidden Layers.
 SnapshotHiddenLayers(const ConfigManager &cfg) {
   return cfg.GetHiddenLayers();
 }
@@ -259,6 +260,7 @@ struct EdgeInfo {
   std::array<float, 3> secondFaceNormal = {0.0f, 0.0f, 0.0f};
 };
 
+// Builds and returns face Normal.
 static std::array<float, 3> BuildFaceNormal(const std::vector<float> &vertices,
                                             uint32_t i0,
                                             uint32_t i1,
@@ -291,6 +293,7 @@ static std::array<float, 3> BuildFaceNormal(const std::vector<float> &vertices,
 }
 
 static std::vector<uint32_t>
+// Builds and returns wireframe Indices.
 BuildWireframeIndices(const std::vector<float> &vertices,
                       const std::vector<uint32_t> &triangleIndices,
                       bool includeCoplanarEdges) {
@@ -351,6 +354,7 @@ BuildWireframeIndices(const std::vector<float> &vertices,
   return lineIndices;
 }
 
+// Computes and returns string.
 static uint32_t HashString(std::string_view value) {
   uint32_t hash = 2166136261u;
   for (unsigned char c : value) {
@@ -360,6 +364,7 @@ static uint32_t HashString(std::string_view value) {
   return hash;
 }
 
+// Converts to RGB.
 static std::array<float, 3> HsvToRgb(float h, float s, float v) {
   const float c = v * s;
   const float hh = h * 6.0f;
@@ -392,6 +397,7 @@ static std::array<float, 3> HsvToRgb(float h, float s, float v) {
   return {r + m, g + m, b + m};
 }
 
+// Creates and returns deterministic Color.
 static std::array<float, 3> MakeDeterministicColor(std::string_view key) {
   if (key.empty())
     key = "default";
@@ -403,6 +409,7 @@ static std::array<float, 3> MakeDeterministicColor(std::string_view key) {
 }
 
 
+// Computes and returns symbol Bounds.
 static SymbolBounds ComputeSymbolBounds(const CommandBuffer &buffer) {
   SymbolBounds bounds{};
   bool hasPoint = false;
@@ -466,6 +473,7 @@ static SymbolBounds ComputeSymbolBounds(const CommandBuffer &buffer) {
   return bounds;
 }
 
+// Converts to R G B.
 static bool HexToRGB(const std::string &hex, float &r, float &g, float &b) {
   if (hex.size() != 7 || hex[0] != '#')
     return false;
@@ -480,6 +488,7 @@ static bool HexToRGB(const std::string &hex, float &r, float &g, float &b) {
   return true;
 }
 
+// Handles g B To Hex.
 static std::string RGBToHex(const std::array<float, 3> &rgb) {
   auto toByte = [](float channel) {
     const float clamped = std::max(0.0f, std::min(1.0f, channel));
@@ -493,6 +502,7 @@ static std::string RGBToHex(const std::array<float, 3> &rgb) {
   return stream.str();
 }
 
+// Converts to Array.
 static void MatrixToArray(const Matrix &m, float out[16]) {
   out[0] = m.u[0];
   out[1] = m.u[1];
@@ -518,6 +528,7 @@ struct CullingSettings {
   float minPixels2D = 1.0f;
 };
 
+// Returns culling Settings3D.
 static CullingSettings GetCullingSettings3D(const ConfigManager &cfg) {
   CullingSettings s{};
   s.enabled = cfg.GetFloat("render_culling_enabled") >= 0.5f;
@@ -526,6 +537,7 @@ static CullingSettings GetCullingSettings3D(const ConfigManager &cfg) {
   return s;
 }
 
+// Transforms and returns point.
 static std::array<float, 3> TransformPoint(const Matrix &m,
                                            const std::array<float, 3> &p) {
   return {m.u[0] * p[0] + m.v[0] * p[1] + m.w[0] * p[2] + m.o[0],
@@ -534,6 +546,7 @@ static std::array<float, 3> TransformPoint(const Matrix &m,
 }
 
 
+// Builds and returns instance Transform2D.
 static Transform2D BuildInstanceTransform2D(const Matrix &m, Viewer2DView view) {
   Transform2D t{};
   switch (view) {
@@ -570,6 +583,7 @@ static Transform2D BuildInstanceTransform2D(const Matrix &m, Viewer2DView view) 
 // simplified viewer. The mapping mirrors the orthographic camera setup in
 // Render() so exporters can rebuild the same projection.
 std::array<float, 2>
+// Projects and returns to Canvas.
 Viewer3DController::ProjectToCanvas(const std::array<float, 3> &p) const {
   switch (m_impl->captureView) {
   case Viewer2DView::Top:
@@ -588,6 +602,7 @@ Viewer3DController::ProjectToCanvas(const std::array<float, 3> &p) const {
   return {p[0], p[1]};
 }
 
+// Records line.
 void Viewer3DController::RecordLine(const std::array<float, 3> &a,
                                     const std::array<float, 3> &b,
                                     const CanvasStroke &stroke) const {
@@ -598,6 +613,7 @@ void Viewer3DController::RecordLine(const std::array<float, 3> &a,
   m_impl->captureCanvas->DrawLine(p0[0], p0[1], p1[0], p1[1], stroke);
 }
 
+// Records polyline.
 void Viewer3DController::RecordPolyline(
     const std::vector<std::array<float, 3>> &points,
     const CanvasStroke &stroke) const {
@@ -613,6 +629,7 @@ void Viewer3DController::RecordPolyline(
   m_impl->captureCanvas->DrawPolyline(flat, stroke);
 }
 
+// Records polygon.
 void Viewer3DController::RecordPolygon(
     const std::vector<std::array<float, 3>> &points,
     const CanvasStroke &stroke, const CanvasFill *fill) const {
@@ -628,6 +645,7 @@ void Viewer3DController::RecordPolygon(
   m_impl->captureCanvas->DrawPolygon(flat, stroke, fill);
 }
 
+// Records text.
 void Viewer3DController::RecordText(float x, float y, const std::string &text,
                                     const CanvasTextStyle &style) const {
   if (!m_impl->captureCanvas)
@@ -635,6 +653,7 @@ void Viewer3DController::RecordText(float x, float y, const std::string &text,
   m_impl->captureCanvas->DrawText(x, y, text, style);
 }
 
+// Reads and returns pick UUID At.
 bool Viewer3DController::ReadPickUuidAt(
     int mouseX, int mouseY, int width, int height,
     const std::unordered_set<std::string> &hiddenLayers, std::string &outUuid) {
@@ -644,6 +663,7 @@ bool Viewer3DController::ReadPickUuidAt(
                                         hiddenLayers, outUuid);
 }
 
+// Handles d Controller.
 Viewer3DController::Viewer3DController()
     : m_impl(std::make_unique<Impl>()),
       m_resourceSyncState(m_impl->resourceSyncState),
@@ -667,6 +687,7 @@ Viewer3DController::Viewer3DController()
   // until a valid context is available.
 }
 
+// Releases 3D viewer controller resources and rendering state.
 Viewer3DController::~Viewer3DController() {
   for (auto &[path, mesh] : m_impl->resourceSyncState.loadedMeshes) {
     (void)path;
@@ -676,6 +697,7 @@ Viewer3DController::~Viewer3DController() {
     nvgDeleteGL2(m_impl->vg);
 }
 
+// Handles g L.
 void Viewer3DController::InitializeGL() {
   if (m_impl->vg)
     return; // Already initialized
@@ -762,19 +784,23 @@ void Viewer3DController::InitializeGL() {
   }
 }
 
+// Sets highlight UUID.
 void Viewer3DController::SetHighlightUuid(const std::string &uuid) {
   m_impl->selectionSystem->SetHighlightUuid(uuid);
 }
 
+// Sets selected UUIDs.
 void Viewer3DController::SetSelectedUuids(
     const std::vector<std::string> &uuids) {
   m_impl->selectionSystem->SetSelectedUuids(uuids);
 }
 
+// Applies highlight UUID.
 void Viewer3DController::ApplyHighlightUuid(const std::string &uuid) {
   m_impl->highlightUuid = uuid;
 }
 
+// Replaces selected UUIDs.
 void Viewer3DController::ReplaceSelectedUuids(
     const std::vector<std::string> &uuids) {
   m_impl->selectedUuids.clear();
@@ -783,24 +809,28 @@ void Viewer3DController::ReplaceSelectedUuids(
 }
 
 const Viewer3DController::BoundingBox *
+// Finds and returns fixture Bounds.
 Viewer3DController::FindFixtureBounds(const std::string &uuid) const {
   auto it = m_impl->fixtureBounds.find(uuid);
   return it == m_impl->fixtureBounds.end() ? nullptr : &it->second;
 }
 
 const Viewer3DController::BoundingBox *
+// Finds and returns truss Bounds.
 Viewer3DController::FindTrussBounds(const std::string &uuid) const {
   auto it = m_impl->trussBounds.find(uuid);
   return it == m_impl->trussBounds.end() ? nullptr : &it->second;
 }
 
 const Viewer3DController::BoundingBox *
+// Finds and returns object Bounds.
 Viewer3DController::FindObjectBounds(const std::string &uuid) const {
   auto it = m_impl->objectBounds.find(uuid);
   return it == m_impl->objectBounds.end() ? nullptr : &it->second;
 }
 
 
+// Ensures bounds Computed is available.
 bool Viewer3DController::EnsureBoundsComputed(
     const std::string &uuid, ItemType type,
     const std::unordered_set<std::string> &hiddenLayers) {
@@ -813,6 +843,7 @@ void Viewer3DController::Update() {
   UpdateFrameStateLightweight();
 }
 
+// Updates frame State Lightweight.
 void Viewer3DController::UpdateFrameStateLightweight() {
   ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
@@ -829,26 +860,32 @@ void Viewer3DController::UpdateFrameStateLightweight() {
   }
 }
 
+// Marks resource Sync Pending.
 void Viewer3DController::MarkResourceSyncPending() {
   m_impl->resourceSyncPending.store(true, std::memory_order_relaxed);
 }
 
+// Checks whether resource Sync Pending.
 bool Viewer3DController::IsResourceSyncPending() const {
   return m_impl->resourceSyncPending.load(std::memory_order_relaxed);
 }
 
+// Consumes and returns resource Sync Pending.
 bool Viewer3DController::ConsumeResourceSyncPending() {
   return m_impl->resourceSyncPending.exchange(false, std::memory_order_relaxed);
 }
 
+// Resets debug Per Frame Counters.
 void Viewer3DController::ResetDebugPerFrameCounters() {
   m_impl->updateResourcesCallsPerFrame = 0;
 }
 
+// Returns debug Update Resources Calls Per Frame.
 int Viewer3DController::GetDebugUpdateResourcesCallsPerFrame() const {
   return m_impl->updateResourcesCallsPerFrame;
 }
 
+// Updates resources If Dirty.
 void Viewer3DController::UpdateResourcesIfDirty() {
   ++m_impl->updateResourcesCallsPerFrame;
 
@@ -942,12 +979,14 @@ void Viewer3DController::UpdateResourcesIfDirty() {
 
 
 
+// Attempts to build Layer Visible Candidates.
 bool Viewer3DController::TryBuildLayerVisibleCandidates(
     const std::unordered_set<std::string> &hiddenLayers,
     VisibleSet &out) const {
   return m_impl->visibilitySystem->TryBuildLayerVisibleCandidates(hiddenLayers, out);
 }
 
+// Attempts to build Visible Set.
 bool Viewer3DController::TryBuildVisibleSet(
     const ViewFrustumSnapshot &frustum, bool useFrustumCulling,
     float minPixels, const VisibleSet &layerVisibleCandidates,
@@ -956,6 +995,7 @@ bool Viewer3DController::TryBuildVisibleSet(
       frustum, useFrustumCulling, minPixels, layerVisibleCandidates, out);
 }
 
+// Returns visible Set.
 const Viewer3DController::VisibleSet &Viewer3DController::GetVisibleSet(
     const ViewFrustumSnapshot &frustum,
     const std::unordered_set<std::string> &hiddenLayers,
@@ -964,6 +1004,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::GetVisibleSet(
                                            useFrustumCulling, minPixels);
 }
 
+// Rebuilds visible Set Cache.
 void Viewer3DController::RebuildVisibleSetCache() {
   m_impl->visibilitySystem->RebuildVisibleSetCache();
 }
@@ -1080,6 +1121,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   pipeline.Execute(context);
 }
 
+// Prepares and returns render Frame.
 const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
     const RenderFrameContext &context, ViewFrustumSnapshot &frustum) {
   m_impl->skipOutlinesForCurrentFrame = context.skipOutlinesForCurrentFrame;
@@ -1176,6 +1218,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
                        context.minCullingPixels);
 }
 
+// Renders opaque Frame.
 void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
                                            const VisibleSet &visibleSet) {
   const bool wireframe = context.wireframe;
@@ -1241,6 +1284,7 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
   HoistSymbolRenderer::Render(*this, context);
 }
 
+// Renders overlay Frame.
 void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
                                             const VisibleSet &visibleSet) {
   (void)visibleSet;
@@ -1255,6 +1299,7 @@ void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
     DrawAxes();
 }
 
+// Finalizes render Frame.
 void Viewer3DController::FinalizeRenderFrame() {
   m_impl->skipOutlinesForCurrentFrame = false;
   if (m_impl->captureCanvas)
@@ -1262,18 +1307,23 @@ void Viewer3DController::FinalizeRenderFrame() {
 }
 
 
+// Sets dark Mode.
 void Viewer3DController::SetDarkMode(bool enabled) { m_impl->darkMode = enabled; }
 
+// Sets interacting.
 void Viewer3DController::SetInteracting(bool interacting) {
   m_impl->isInteracting = interacting;
 }
 
+// Sets camera Moving.
 void Viewer3DController::SetCameraMoving(bool moving) { m_impl->cameraMoving = moving; }
 
+// Sets selection Outline Enabled.
 void Viewer3DController::SetSelectionOutlineEnabled(bool enabled) {
   m_impl->showSelectionOutline2D = enabled;
 }
 
+// Sets capture Canvas.
 void Viewer3DController::SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
                                           bool includeGrid,
                                           bool useSymbolInstancing) {
@@ -1283,20 +1333,24 @@ void Viewer3DController::SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
   m_impl->captureUseSymbols = canvas ? useSymbolInstancing : false;
 }
 
+// Ensures mesh Gpu Buffers is available.
 void Viewer3DController::EnsureMeshGpuBuffers(Mesh &mesh) {
   SetupMeshBuffers(mesh);
 }
 
+// Sets force Bottom View For Top Fixtures Override.
 void Viewer3DController::SetForceBottomViewForTopFixturesOverride(
     const std::optional<bool> &value) {
   m_impl->forceBottomViewForTopFixturesOverride = value;
 }
 
+// Sets symbol Capture Render Profile Override.
 void Viewer3DController::SetSymbolCaptureRenderProfileOverride(
     const std::optional<bool> &value) {
   m_impl->symbolCaptureRenderProfileOverride = value;
 }
 
+// Sets symbol Capture Include Coplanar Edges Override.
 void Viewer3DController::SetSymbolCaptureIncludeCoplanarEdgesOverride(
     const std::optional<bool> &value) {
   if (m_impl->symbolCaptureIncludeCoplanarEdgesOverride == value)
@@ -1323,15 +1377,18 @@ void Viewer3DController::SetSymbolCaptureIncludeCoplanarEdgesOverride(
 }
 
 std::optional<bool>
+// Returns force Bottom View For Top Fixtures Override.
 Viewer3DController::GetForceBottomViewForTopFixturesOverride() const {
   return m_impl->forceBottomViewForTopFixturesOverride;
 }
 
 std::optional<bool>
+// Returns symbol Capture Render Profile Override.
 Viewer3DController::GetSymbolCaptureRenderProfileOverride() const {
   return m_impl->symbolCaptureRenderProfileOverride;
 }
 
+// Checks whether symbol Capture Render Profile Enabled.
 bool Viewer3DController::IsSymbolCaptureRenderProfileEnabled(
     Viewer2DRenderMode mode) const {
   if (m_impl->symbolCaptureRenderProfileOverride.has_value())
@@ -1342,8 +1399,10 @@ bool Viewer3DController::IsSymbolCaptureRenderProfileEnabled(
          0.5f;
 }
 
+// Checks whether camera Moving.
 bool Viewer3DController::IsCameraMoving() const { return m_impl->cameraMoving; }
 
+// Handles color.
 std::array<float, 3> Viewer3DController::AdjustColor(float r, float g,
                                                      float b) const {
   if (!m_impl->darkMode)
@@ -1354,6 +1413,7 @@ std::array<float, 3> Viewer3DController::AdjustColor(float r, float g,
   return {r, g, b};
 }
 
+// Sets g L Color.
 void Viewer3DController::SetGLColor(float r, float g, float b) const {
   auto adjusted = AdjustColor(r, g, b);
   glColor3f(adjusted[0], adjusted[1], adjusted[2]);
@@ -1442,6 +1502,7 @@ void Viewer3DController::DrawCubeWithOutline(
 }
 
 
+// Configures mesh Buffers.
 void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   if (mesh.vertices.empty() || mesh.indices.empty())
     return;
@@ -1569,6 +1630,7 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   }
 }
 
+// Releases mesh Buffers.
 void Viewer3DController::ReleaseMeshBuffers(Mesh &mesh) {
   if (mesh.textureId != 0) {
     glDeleteTextures(1, &mesh.textureId);
@@ -1685,6 +1747,7 @@ void Viewer3DController::SetupBasicLighting(bool ambientOcclusionEnabled,
   Viewer3DLightingProfile::ApplyEnhancedBasicLighting(options);
 }
 
+// Draws fixture Labels.
 void Viewer3DController::DrawFixtureLabels(int width, int height) {
   m_impl->labelRenderSystem->DrawFixtureLabels(width, height);
 }
@@ -1703,6 +1766,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
                                                   interactiveLabelMode);
 }
 
+// Draws overlay Text Labels.
 void Viewer3DController::DrawOverlayTextLabels(
     const std::vector<OverlayTextLabel> &labels, bool darkMode, bool outline) {
   if (!m_impl->vg || m_impl->font < 0 || labels.empty())
@@ -1753,14 +1817,17 @@ void Viewer3DController::DrawOverlayTextLabels(
   nvgEndFrame(m_impl->vg);
 }
 
+// Draws truss Labels.
 void Viewer3DController::DrawTrussLabels(int width, int height) {
   m_impl->labelRenderSystem->DrawTrussLabels(width, height);
 }
 
+// Draws scene Object Labels.
 void Viewer3DController::DrawSceneObjectLabels(int width, int height) {
   m_impl->labelRenderSystem->DrawSceneObjectLabels(width, height);
 }
 
+// Sets layer Color.
 void Viewer3DController::SetLayerColor(const std::string &layer,
                                        const std::string &hex) {
   std::array<float, 3> c;
@@ -1770,20 +1837,24 @@ void Viewer3DController::SetLayerColor(const std::string &layer,
     m_impl->layerColors.erase(layer);
 }
 
+// Builds and returns fixture Type Auto Color Hex.
 std::string Viewer3DController::BuildFixtureTypeAutoColorHex(
     const std::string &fixtureTypeKey) {
   return RGBToHex(MakeDeterministicColor("type:" + fixtureTypeKey));
 }
 
 std::shared_ptr<const SymbolDefinitionSnapshot>
+// Returns bottom Symbol Cache Snapshot.
 Viewer3DController::GetBottomSymbolCacheSnapshot() const {
   return m_impl->bottomSymbolCache.Snapshot();
 }
 
+// Clears bottom Symbol Cache.
 void Viewer3DController::ClearBottomSymbolCache() {
   m_impl->bottomSymbolCache.Clear();
 }
 
+// Draws mesh With Outline.
 void Viewer3DController::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
     bool selected, float cx, float cy, float cz, bool wireframe,
@@ -1797,6 +1868,7 @@ void Viewer3DController::DrawMeshWithOutline(
                                        disableDepthBias);
 }
 
+// Draws mesh Wireframe.
 void Viewer3DController::DrawMeshWireframe(
     const Mesh &mesh, float scale,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
@@ -1804,20 +1876,24 @@ void Viewer3DController::DrawMeshWireframe(
   m_impl->sceneRenderer->DrawMeshWireframe(mesh, scale, captureTransform);
 }
 
+// Draws mesh.
 void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
                                   const float *modelMatrix) {
   m_impl->sceneRenderer->DrawMesh(mesh, scale, modelMatrix);
 }
 
+// Draws grid.
 void Viewer3DController::DrawGrid(int style, float r, float g, float b,
                                   Viewer2DView view) {
   m_impl->sceneRenderer->DrawGrid(style, r, g, b, view);
 }
 
+// Configures material From R G B.
 void Viewer3DController::SetupMaterialFromRGB(float r, float g, float b) {
   m_impl->sceneRenderer->SetupMaterialFromRGB(r, g, b);
 }
 
+// Returns fixture Label At.
 bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
                                            int height, wxString &outLabel,
                                            wxPoint &outPos,
@@ -1828,6 +1904,7 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
                                                      confirmDepth);
 }
 
+// Returns truss Label At.
 bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
                                          int height, wxString &outLabel,
                                          wxPoint &outPos,
@@ -1838,6 +1915,7 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
                                                    confirmDepth);
 }
 
+// Returns scene Object Label At.
 bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
                                                 int width, int height,
                                                 wxString &outLabel,
@@ -1849,6 +1927,7 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
                                                          outUuid, confirmDepth);
 }
 
+// Returns hover UUID At.
 bool Viewer3DController::GetHoverUuidAt(int mouseX, int mouseY, int width,
                                         int height, HoverPickTarget target,
                                         std::string &outUuid,
@@ -1871,207 +1950,256 @@ bool Viewer3DController::GetHoverUuidAt(int mouseX, int mouseY, int width,
                                                   confirmDepth);
 }
 
+// Returns pick UUID At.
 bool Viewer3DController::GetPickUuidAt(
     int mouseX, int mouseY, int width, int height,
     const std::unordered_set<std::string> &hiddenLayers, std::string &outUuid) {
   return ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers, outUuid);
 }
 
+// Returns scene Version Snapshot.
 size_t Viewer3DController::GetSceneVersionSnapshot() const {
   return m_impl->sceneVersion;
 }
 
+// Returns fixtures In Screen Rect.
 std::vector<std::string> Viewer3DController::GetFixturesInScreenRect(
     int x1, int y1, int x2, int y2, int width, int height) const {
   return m_impl->selectionSystem->GetFixturesInScreenRect(x1, y1, x2, y2, width,
                                                     height);
 }
 
+// Returns trusses In Screen Rect.
 std::vector<std::string> Viewer3DController::GetTrussesInScreenRect(
     int x1, int y1, int x2, int y2, int width, int height) const {
   return m_impl->selectionSystem->GetTrussesInScreenRect(x1, y1, x2, y2, width,
                                                    height);
 }
 
+// Returns scene Objects In Screen Rect.
 std::vector<std::string> Viewer3DController::GetSceneObjectsInScreenRect(
     int x1, int y1, int x2, int y2, int width, int height) const {
   return m_impl->selectionSystem->GetSceneObjectsInScreenRect(x1, y1, x2, y2, width,
                                                         height);
 }
 
+// Checks whether interacting.
 bool Viewer3DController::IsInteracting() const { return m_impl->isInteracting; }
 
+// Handles adaptive Line Profile.
 bool Viewer3DController::UseAdaptiveLineProfile() const {
   return m_impl->useAdaptiveLineProfile;
 }
 
+// Handles outlines For Current Frame.
 bool Viewer3DController::SkipOutlinesForCurrentFrame() const {
   return m_impl->skipOutlinesForCurrentFrame;
 }
 
+// Checks whether selection Outline Enabled2D.
 bool Viewer3DController::IsSelectionOutlineEnabled2D() const {
   return m_impl->showSelectionOutline2D;
 }
 
+// Checks whether uUID Highlighted.
 bool Viewer3DController::IsUuidHighlighted(const std::string &uuid) const {
   return !uuid.empty() && m_impl->highlightUuid == uuid;
 }
 
+// Checks whether uUID Selected.
 bool Viewer3DController::IsUuidSelected(const std::string &uuid) const {
   return !uuid.empty() &&
          m_impl->selectedUuids.find(uuid) != m_impl->selectedUuids.end();
 }
 
+// Checks whether capture Only.
 bool Viewer3DController::IsCaptureOnly() const { return m_impl->captureOnly; }
 
+// Returns capture Canvas.
 ICanvas2D *Viewer3DController::GetCaptureCanvas() const {
   return m_impl->captureCanvas;
 }
 
+// Returns whether capture includes Grid.
 bool Viewer3DController::CaptureIncludesGrid() const {
   return m_impl->captureIncludeGrid;
 }
 
+// Checks whether white Model Style Enabled.
 bool Viewer3DController::IsWhiteModelStyleEnabled() const {
   return m_impl->whiteModelStyleEnabled;
 }
 
+// Checks whether sketch Render Style Enabled.
 bool Viewer3DController::IsSketchRenderStyleEnabled() const {
   return m_impl->sketchStyleEnabled;
 }
 
+// Checks whether pure White Render Style Enabled.
 bool Viewer3DController::IsPureWhiteRenderStyleEnabled() const {
   return m_impl->pureWhiteStyleEnabled;
 }
 
+// Checks whether textured Render Style Enabled.
 bool Viewer3DController::IsTexturedRenderStyleEnabled() const {
   return m_impl->texturedStyleEnabled;
 }
 
+// Returns highlight UUID.
 const std::string &Viewer3DController::GetHighlightUuid() const {
   return m_impl->highlightUuid;
 }
 
 const std::unordered_set<std::string> &
+// Returns selected UUIDs.
 Viewer3DController::GetSelectedUuids() const {
   return m_impl->selectedUuids;
 }
 
 const std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+// Returns fixture Bounds Map.
 Viewer3DController::GetFixtureBoundsMap() const {
   return m_impl->fixtureBounds;
 }
 
 const std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+// Returns truss Bounds Map.
 Viewer3DController::GetTrussBoundsMap() const {
   return m_impl->trussBounds;
 }
 
 const std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+// Returns object Bounds Map.
 Viewer3DController::GetObjectBoundsMap() const {
   return m_impl->objectBounds;
 }
 
+// Returns nanoVG Context.
 NVGcontext *Viewer3DController::GetNanoVGContext() const { return m_impl->vg; }
 
+// Returns label Font.
 int Viewer3DController::GetLabelFont() const { return m_impl->font; }
 
+// Returns label Bold Font.
 int Viewer3DController::GetLabelBoldFont() const { return m_impl->fontBold; }
 
+// Checks whether dark Mode.
 bool Viewer3DController::IsDarkMode() const { return m_impl->darkMode; }
 
+// Returns resource Sync State.
 ResourceSyncState &Viewer3DController::GetResourceSyncState() {
   return m_impl->resourceSyncState;
 }
 
 std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+// Returns model Bounds.
 Viewer3DController::GetModelBounds() {
   return m_impl->modelBounds;
 }
 
 std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+// Returns fixture Bounds.
 Viewer3DController::GetFixtureBounds() {
   return m_impl->fixtureBounds;
 }
 
 std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+// Returns truss Bounds.
 Viewer3DController::GetTrussBounds() {
   return m_impl->trussBounds;
 }
 
 std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+// Returns object Bounds.
 Viewer3DController::GetObjectBounds() {
   return m_impl->objectBounds;
 }
 
+// Returns scene Version.
 size_t Viewer3DController::GetSceneVersion() const { return m_impl->sceneVersion; }
 
 const std::vector<const std::pair<const std::string, Fixture> *> &
+// Returns sorted Fixtures.
 Viewer3DController::GetSortedFixtures() const {
   return m_impl->sortedFixtures;
 }
 
 const std::vector<const std::pair<const std::string, Truss> *> &
+// Returns sorted Trusses.
 Viewer3DController::GetSortedTrusses() const {
   return m_impl->sortedTrusses;
 }
 
 const std::vector<const std::pair<const std::string, SceneObject> *> &
+// Returns sorted Objects.
 Viewer3DController::GetSortedObjects() const {
   return m_impl->sortedObjects;
 }
 
+// Returns sorted Lists Mutex.
 std::mutex &Viewer3DController::GetSortedListsMutex() const {
   return m_impl->sortedListsMutex;
 }
 
+// Returns cached Visible Set.
 Viewer3DController::VisibleSet &Viewer3DController::GetCachedVisibleSet() const {
   return m_impl->cachedVisibleSet;
 }
 
 Viewer3DController::VisibleSet &
+// Returns cached Layer Visible Candidates.
 Viewer3DController::GetCachedLayerVisibleCandidates() const {
   return m_impl->cachedLayerVisibleCandidates;
 }
 
+// Returns layer Visible Candidates Scene Version.
 size_t &Viewer3DController::GetLayerVisibleCandidatesSceneVersion() const {
   return m_impl->layerVisibleCandidatesSceneVersion;
 }
 
 std::unordered_set<std::string> &
+// Returns layer Visible Candidates Hidden Layers.
 Viewer3DController::GetLayerVisibleCandidatesHiddenLayers() const {
   return m_impl->layerVisibleCandidatesHiddenLayers;
 }
 
 std::unordered_set<std::string> &
+// Returns layer Visible Candidates Hidden Fixture Types.
 Viewer3DController::GetLayerVisibleCandidatesHiddenFixtureTypes() const {
   return m_impl->layerVisibleCandidatesHiddenFixtureTypes;
 }
 
+// Returns layer Visible Candidates Revision.
 size_t &Viewer3DController::GetLayerVisibleCandidatesRevision() const {
   return m_impl->layerVisibleCandidatesRevision;
 }
 
+// Returns visible Set Layer Candidates Revision.
 size_t &Viewer3DController::GetVisibleSetLayerCandidatesRevision() const {
   return m_impl->visibleSetLayerCandidatesRevision;
 }
 
+// Returns visible Set Frustum Culling.
 bool &Viewer3DController::GetVisibleSetFrustumCulling() const {
   return m_impl->visibleSetFrustumCulling;
 }
 
+// Returns visible Set Min Pixels.
 float &Viewer3DController::GetVisibleSetMinPixels() const {
   return m_impl->visibleSetMinPixels;
 }
 
+// Returns visible Set Viewport.
 std::array<int, 4> &Viewer3DController::GetVisibleSetViewport() const {
   return m_impl->visibleSetViewport;
 }
 
+// Returns visible Set Model.
 std::array<double, 16> &Viewer3DController::GetVisibleSetModel() const {
   return m_impl->visibleSetModel;
 }
 
+// Returns visible Set Projection.
 std::array<double, 16> &Viewer3DController::GetVisibleSetProjection() const {
   return m_impl->visibleSetProjection;
 }
