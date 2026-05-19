@@ -1,4 +1,5 @@
 #include "fixturetablepanel_ui_helpers.h"
+#include "gdtf_fixture_category.h"
 
 // Applies the same tooltip text to the table and its child windows.
 void SetTableAndChildTooltips(wxDataViewListCtrl *table,
