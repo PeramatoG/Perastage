@@ -51,6 +51,11 @@ Recent 3D optimization updates depend on `meshoptimizer`; if you prepare depende
   using inline markers `((...))` or `*(...)*` (ignored by the parser).
 - Use the available tools to adjust and organize scene data more comfortably.
 
+
+## User Guide
+
+**User Guide:** [`/docs/index.md`](docs/index.md)
+
 ## Documentation
 
 The README is intentionally kept fairly compact. More detailed documentation lives in `docs/`:
