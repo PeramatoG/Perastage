@@ -2,7 +2,7 @@
 
 #include "tools_ids.h"
 
-constexpr int ID_Help_Help = ID_Tools_AssignSelectedFixtureCategory + 1;
+constexpr int ID_Help_Help = ID_Tools_OpenUserLibraryFolder + 1;
 constexpr int ID_Help_About = ID_Help_Help + 1;
 constexpr int ID_Select_Fixtures = ID_Help_About + 1;
 constexpr int ID_Select_Trusses = ID_Select_Fixtures + 1;
