@@ -415,6 +415,7 @@ FixtureSceneNode BuildInstancedFixtureNode(const GdtfNode3D &templateNode,
   return node;
 }
 
+// Loads a scene-object model from disk based on its file extension and caches GPU-ready data.
 void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
                        const ResourceSyncCallbacks &callbacks,
                        const viewer3d::resources::MeshProcessingOptions &meshProcessingOptions,
