@@ -608,6 +608,7 @@ void MainWindow::ApplySavedLayout() {
   UpdateViewMenuChecks();
 }
 
+// Applies the Layout Mode preset and avoids persisting transient startup-only perspective changes.
 void MainWindow::ApplyLayoutModePerspective() {
   if (!auiManager)
     return;
@@ -639,10 +640,10 @@ void MainWindow::ApplyLayoutModePerspective() {
   }
 
   if (defaultLayoutModePerspective.empty())
-    ApplyLayoutPreset(*preset, std::nullopt, true, true);
+    ApplyLayoutPreset(*preset, std::nullopt, true, !startupProjectLoadPending);
   else
     ApplyLayoutPreset(*preset, std::make_optional(defaultLayoutModePerspective),
-                      true, true);
+                      true, !startupProjectLoadPending);
 }
 
 void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
