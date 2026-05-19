@@ -69,6 +69,7 @@
 #include "gl_primitive_renderer.h"
 #include "lighting_profile.h"
 #include "viewer3d_render_style.h"
+#include "viewer3dcontroller_cache_helpers.h"
 
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
@@ -169,43 +170,26 @@ struct LineRenderProfile {
   bool enableLineSmoothing = false;
 };
 
-// Capture the current hidden-layer set from configuration.
-static std::unordered_set<std::string>
-// Captures and returns hidden Layers.
-SnapshotHiddenLayers(const ConfigManager &cfg) {
-  return cfg.GetHiddenLayers();
-}
-
-// Return whether a layer should be rendered using the hidden-layer cache.
-static bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
-                                 const std::string &layer) {
-  if (layer.empty())
-    return hidden.find(DEFAULT_LAYER_NAME) == hidden.end();
-  return hidden.find(layer) == hidden.end();
-}
-
-// Return whether fast interaction mode is enabled in configuration.
+// Returns whether fast interaction mode is enabled in configuration.
 static bool IsFastInteractionModeEnabled(const ConfigManager &cfg) {
   return cfg.GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
-// Read the persisted render-style preference for 3D rendering.
+// Returns the persisted 3D render-style preference.
 static Viewer3DRenderStyle ReadRenderStylePreference(const ConfigManager &cfg) {
   return ResolveViewer3DRenderStyle(cfg);
 }
 
-// Resolve the render style while keeping 2D viewer rendering on standard style.
+// Resolves render style while forcing standard style for 2D viewer contexts.
 Viewer3DRenderStyle ResolveRenderStyleForContext(const ConfigManager &cfg,
                                                  bool is2DViewer) {
   if (is2DViewer) {
-    // Keep 2D render paths isolated from user-selected 3D styles.
-    // The 2D viewer rendering was tuned against the standard style.
     return Viewer3DRenderStyle::Standard;
   }
   return ReadRenderStylePreference(cfg);
 }
 
-// Build the line profile used for wireframe and outline rendering.
+// Builds the line profile used for wireframe and outline rendering.
 static LineRenderProfile GetLineRenderProfile(bool isInteracting,
                                               bool wireframeMode,
                                               bool adaptiveEnabled) {
@@ -213,30 +197,6 @@ static LineRenderProfile GetLineRenderProfile(bool isInteracting,
   if (!adaptiveEnabled)
     return {wireframeMode ? 1.0f : 2.0f, false};
   return {wireframeMode ? 1.0f : 2.0f, true};
-}
-
-// Replace Windows path separators with the platform preferred one
-// Normalize separators so paths use the current platform convention.
-static std::string NormalizePath(const std::string &p) {
-  std::string out = p;
-  char sep = static_cast<char>(fs::path::preferred_separator);
-  std::replace(out.begin(), out.end(), '\\', sep);
-  return out;
-}
-
-// Normalize model keys so cache lookups are path-stable.
-static std::string NormalizeModelKey(const std::string &p) {
-  if (p.empty())
-    return {};
-  fs::path path(p);
-  path = path.lexically_normal();
-  return NormalizePath(path.string());
-}
-
-// Invalidate the visible-set cache marker used for layer candidate rebuilds.
-static void InvalidateVisibleSetLayerCandidateCacheOwnership(
-    size_t &sceneVersionMarker) {
-  sceneVersionMarker = static_cast<size_t>(-1);
 }
 
 struct EdgeKey {
@@ -846,7 +806,7 @@ void Viewer3DController::Update() {
 // Updates frame State Lightweight.
 void Viewer3DController::UpdateFrameStateLightweight() {
   ConfigManager &cfg = ConfigManager::Get();
-  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
   const auto hiddenFixtureTypes = cfg.GetHiddenFixtureTypes();
   if (hiddenLayers != m_impl->lastHiddenLayers) {
     Logger::Instance().Log("visibility dirty reason: hidden layers changed vs last frame snapshot");
@@ -890,7 +850,7 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   ++m_impl->updateResourcesCallsPerFrame;
 
   ConfigManager &cfg = ConfigManager::Get();
-  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
   const std::string &base = cfg.GetScene().basePath;
 
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
@@ -911,17 +871,17 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   visibleFixtures.reserve(fixtures.size());
   for (const auto &entry : trusses) {
     sceneTrusses.push_back(&entry);
-    if (IsLayerVisibleCached(hiddenLayers, entry.second.layer))
+    if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer))
       visibleTrusses.push_back(&entry);
   }
   for (const auto &entry : objects) {
     sceneObjects.push_back(&entry);
-    if (IsLayerVisibleCached(hiddenLayers, entry.second.layer))
+    if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer))
       visibleObjects.push_back(&entry);
   }
   for (const auto &entry : fixtures) {
     sceneFixtures.push_back(&entry);
-    if (IsLayerVisibleCached(hiddenLayers, entry.second.layer) &&
+    if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer) &&
         cfg.IsFixtureTypeVisible(entry.second.typeName))
       visibleFixtures.push_back(&entry);
   }
@@ -1114,7 +1074,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   (void)isWireframeMode;
   (void)isWhiteMode;
 
-  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
   context.hiddenLayers = hiddenLayers;
 
   RenderPipeline pipeline(*this);
@@ -1204,7 +1164,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
       // empty (for example during fast interaction), force a rebuild now.
       // Otherwise visibility cache could keep truss/object/fixture UUID lists
       // empty until a full scene reload increments sceneVersion.
-      InvalidateVisibleSetLayerCandidateCacheOwnership(
+      ControllerInvalidateVisibleSetLayerCandidateCacheOwnership(
           m_impl->layerVisibleCandidatesSceneVersion);
     }
 
