@@ -102,6 +102,18 @@ If the change is purely internal and does not alter user-visible behavior, updat
 - [ ] I updated both files in the same PR when both criteria applied.
 - [ ] I added cross-links instead of duplicating long rule sections.
 
+
+## Refactor-Only PR Checklist
+
+Use this short checklist for PRs that claim **no functional change**:
+
+- [ ] No functional change confirmed (behavior, outputs, and user workflows unchanged).
+- [ ] One-line English comments added/maintained above touched function definitions.
+- [ ] CMake source lists updated explicitly when files are split or moved (no implicit source discovery).
+- [ ] If text-to-scene parsing or scene-generation behavior changed, `docs/text_to_scene_rules.md` was updated in the same PR.
+- [ ] If GUI shortcut mappings/scope/precedence changed, `docs/gui_shortcut_architecture.md` was updated in the same PR.
+- [ ] Hotspot growth was avoided by extracting responsibilities when touching near-limit files.
+
 ## Assets and Media
 
 - Store screenshots and diagrams under `docs/` or `resources/` as appropriate.
