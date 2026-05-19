@@ -207,8 +207,11 @@ void MainWindow::ProcessDeferredStartupOpenPath() {
 
   const std::string path = *deferredStartupOpenPath;
   deferredStartupOpenPath.reset();
+  startupDeferredOpenInProgress = true;
   Logger::Instance().Log("Opening explicit startup path: " + path);
-  if (!OpenPathFromCommandLine(path))
+  const bool opened = OpenPathFromCommandLine(path);
+  startupDeferredOpenInProgress = false;
+  if (!opened)
     deferredStartupOpenPath = path;
 }
 
