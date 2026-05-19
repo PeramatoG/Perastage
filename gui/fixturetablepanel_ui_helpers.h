@@ -1,6 +1,6 @@
 #pragma once
 
-#include "scene/fixture.h"
+#include "models/fixture.h"
 #include <wx/dataview.h>
 
 // Applies the same tooltip text to the table and all child windows.
