@@ -54,7 +54,7 @@ Recent 3D optimization updates depend on `meshoptimizer`; if you prepare depende
 
 ## User Guide
 
-**User Guide (GitHub Pages entry):** [docs/index.html](docs/index.html)
+**Perastage User Guide (GitHub Pages):** [docs/index.html](docs/index.html)
 
 ## Documentation
 

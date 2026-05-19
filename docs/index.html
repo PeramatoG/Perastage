@@ -4,146 +4,46 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Perastage Documentation</title>
-    <style>
-      :root {
-        --bg: #0f1117;
-        --bg-elev: #171a23;
-        --text: #e9eef7;
-        --muted: #a6b0c3;
-        --accent: #7eb6ff;
-        --accent-strong: #5a9cff;
-        --border: #293043;
-      }
-
-      * { box-sizing: border-box; }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        background: radial-gradient(circle at top, #161a25 0%, var(--bg) 52%);
-        color: var(--text);
-      }
-
-      .container {
-        width: min(980px, 92vw);
-        margin: 0 auto;
-        padding: 2rem 0 3rem;
-      }
-
-      .card {
-        background: rgba(23, 26, 35, 0.9);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: clamp(1.25rem, 2.5vw, 2rem);
-        box-shadow: 0 10px 35px rgba(0, 0, 0, 0.35);
-      }
-
-      .hero {
-        text-align: center;
-        margin-bottom: 1.75rem;
-      }
-
-      h1 {
-        margin: 0 0 0.5rem;
-        font-size: clamp(1.9rem, 3.3vw, 2.8rem);
-      }
-
-      .subtitle {
-        margin: 0 auto;
-        max-width: 65ch;
-        color: var(--muted);
-        line-height: 1.6;
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 0.75rem;
-        margin: 1.5rem 0 0;
-      }
-
-      .btn {
-        display: block;
-        padding: 0.85rem 1rem;
-        border-radius: 10px;
-        border: 1px solid var(--border);
-        background: linear-gradient(180deg, #202637 0%, #1a2131 100%);
-        color: var(--text);
-        text-decoration: none;
-        text-align: center;
-        font-weight: 600;
-      }
-
-      .btn:hover,
-      .btn:focus-visible {
-        border-color: var(--accent);
-        color: #ffffff;
-        outline: none;
-      }
-
-      .btn.secondary {
-        background: transparent;
-      }
-
-      footer {
-        margin-top: 1.6rem;
-        text-align: center;
-        color: var(--muted);
-        font-size: 0.95rem;
-      }
-
-      .footer-links {
-        margin-top: 0.8rem;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 0.75rem;
-      }
-
-      .footer-links a {
-        color: var(--accent);
-        text-decoration: none;
-        font-weight: 600;
-      }
-
-      .footer-links a:hover,
-      .footer-links a:focus-visible {
-        color: var(--accent-strong);
-      }
-    </style>
+    <link rel="stylesheet" href="assets/css/style.css" />
   </head>
-  <body>
-    <main class="container">
-      <section class="card hero">
-        <h1>Perastage Documentation</h1>
-        <p class="subtitle">
-          Fast, practical guidance for installing Perastage, opening MVR files,
-          configuring views and preferences, and solving common issues.
-        </p>
+  <body id="top">
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="index.html" aria-label="Perastage docs home">
+          <img src="assets/images/Perastage_logo.png" alt="Perastage logo" />
+          <div>
+            <h1>Perastage</h1>
+            <p>Lighting and Rigging visualization tool</p>
+          </div>
+        </a>
+      </header>
 
-        <nav class="grid" aria-label="Documentation sections">
-          <a class="btn" href="installation.md">Installation</a>
-          <a class="btn" href="quick-start.md">Quick Start</a>
-          <a class="btn" href="opening-mvr-files.md">Opening MVR files</a>
-          <a class="btn" href="gdtf-download.md">GDTF download</a>
-          <a class="btn" href="views.md">Views</a>
-          <a class="btn" href="preferences.md">Preferences</a>
-          <a class="btn" href="troubleshooting.md">Troubleshooting</a>
-          <a class="btn" href="faq.md">FAQ</a>
-          <a class="btn secondary" href="https://github.com/PeramatoG/Perastage">Main GitHub repository</a>
-          <a class="btn secondary" href="https://github.com/PeramatoG/Perastage/releases/latest">Latest releases</a>
-        </nav>
+      <section class="hero-panel">
+        <h2>Perastage User Guide</h2>
+        <p>
+          Perastage is a fast, cross-platform desktop viewer focused on MVR v1.6 and GDTF v1.1 workflows,
+          helping you inspect, review, and present lighting scenes without heavy setup.
+        </p>
+        <div class="doc-grid" aria-label="Documentation sections" id="docGrid"></div>
       </section>
 
       <footer>
-        Perastage documentation landing page for GitHub Pages.
-        <div class="footer-links">
-          <a href="features.md">Feature overview</a>
-          <a href="build.md">Build guide</a>
-          <a href="repository_layout.md">Repository layout</a>
-        </div>
+        <a href="https://github.com/PeramatoG/Perastage">Main GitHub repository</a>
+        •
+        <a href="https://github.com/PeramatoG/Perastage/releases/latest">Latest releases</a>
       </footer>
-    </main>
+    </div>
+
+    <script src="assets/js/docs-shell.js"></script>
+    <script>
+      // Renders the landing-page card grid from the shared documentation page list.
+      function renderLandingGrid() {
+        const grid = document.getElementById('docGrid');
+        grid.innerHTML = docsPages
+          .map((p) => `<a class="doc-card" href="${p.html}">${p.icon} ${p.title}<span>Open ${p.md}</span></a>`)
+          .join('');
+      }
+      renderLandingGrid();
+    </script>
   </body>
 </html>
