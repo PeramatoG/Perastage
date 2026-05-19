@@ -1109,6 +1109,7 @@ void MainWindow::PersistLayout2DViewState() {
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
 }
 
+// Restores the selected layout 2D view into the active 2D viewport while preserving startup clean-state semantics.
 void MainWindow::RestoreLayout2DViewState(int viewId) {
   if (activeLayoutName.empty())
     return;
@@ -1129,6 +1130,7 @@ void MainWindow::RestoreLayout2DViewState(int viewId) {
     return;
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const bool wasDirtyBeforeApply = cfg.IsDirty();
   if (layoutModeActive && !standalone2DState)
     standalone2DState = viewer2d::CaptureState(nullptr, cfg);
   Viewer2DPanel *activePanel =
@@ -1141,5 +1143,7 @@ void MainWindow::RestoreLayout2DViewState(int viewId) {
   viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(*match);
   state.renderOptions.darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
   viewer2d::ApplyState(activePanel, activeRenderPanel, cfg, state, false);
+  if (startupProjectLoadPending && !wasDirtyBeforeApply)
+    cfg.MarkSaved();
   SyncLayerVisibilityPanels();
 }
