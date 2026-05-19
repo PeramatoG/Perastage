@@ -1,31 +1,37 @@
 # Troubleshooting
 
-If something does not work as expected, try these quick checks.
+If Perastage does not behave as expected, use these quick checks.
 
-## MVR file will not open
+## MVR file does not open
 
-- Confirm the file is a valid `.mvr`.
-- Try opening a different MVR file to compare behavior.
-- Restart Perastage and open again.
+- Confirm the file extension is `.mvr`.
+- Try a different MVR file to isolate whether the issue is file-specific.
+- Restart Perastage and retry import/open.
 
-## Missing or incorrect fixture appearance
+## Fixtures look missing or incorrect
 
-- Check whether the required GDTF profile is available.
-- Download the profile from **Tools → Download GDTF**.
-- Review dictionary mappings in **Tools → Edit dictionaries**.
+- Download required profiles in **Tools → Download GDTF**.
+- Check local mappings in **Tools → Edit dictionaries**.
+- Reopen the scene after downloading missing profiles.
 
-## Cannot find your local library files
+## Cannot find local library content
 
-Open:
+Open the location from:
 
 - **Tools → Open user library folder**
 
-On Windows, library files are typically under:
+On Windows, the default path is:
 
 - `%APPDATA%\Perastage\library\`
 
-## App feels out of sync after many edits
+## Layout or print output is not as expected
 
-- Save your project.
-- Close and reopen the file.
-- Recheck the scene in both 2D and 3D views.
+- Recheck the scene in 2D before exporting.
+- Verify table values for fixtures/trusses/hoists/objects.
+- Export PDF again after confirming layout adjustments.
+
+## Scene seems inconsistent after many edits
+
+- Save the project.
+- Close and reopen it.
+- Revalidate critical items in both 2D and 3D views.

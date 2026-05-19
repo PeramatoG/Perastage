@@ -42,6 +42,10 @@ Keep Perastage clean and modular while continuing to deliver new features, follo
    - If shortcut scope/priority/focus behavior changes, document the
      resolution and precedence impact in that file.
 
+9. **User documentation sync policy**
+   - Whenever future Codex tasks add, remove, rename, or significantly change a user-facing feature, workflow, preference, supported file type, installer behavior, import/export behavior, or visible UI behavior, update documentation under `docs/` in the same task.
+   - This is required for meaningful feature changes, and not required for minor internal refactors, small bug fixes, formatting-only changes, build-system maintenance, or invisible technical changes that do not affect user experience.
+
 ## Current hotspots (watch for growth)
 - `gui/layoutviewerpanel.cpp`
 - `viewer2d/viewer2dpanel.cpp`

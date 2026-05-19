@@ -4,18 +4,23 @@ Perastage is a cross-platform desktop application.
 
 ## Recommended method
 
-1. Open the project's GitHub releases page.
-2. Download the latest package for your platform.
-3. Install and launch Perastage.
+1. Open the latest release page in this repository.
+2. Download the package for your operating system.
+3. Install the app and launch Perastage.
 
-## Windows user library location
+## First-run library location
 
-Perastage stores editable library data in your user profile, not inside Program Files.
+Perastage stores editable user library data in your user profile folder.
 
-Default location:
+On Windows, the default location is:
 
 - `%APPDATA%\Perastage\library\`
 
-You can also open this folder from inside the app:
+You can open the folder directly from inside the app:
 
 - **Tools → Open user library folder**
+
+## Notes
+
+- Keep your user library folder backed up if you maintain custom dictionary entries or downloaded fixture profiles.
+- If installation succeeds but content looks incomplete, review [Download GDTF Files](gdtf-download.md).
