@@ -155,6 +155,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download installer artifacts
         uses: actions/download-artifact@v4
         with:
@@ -185,6 +188,7 @@ jobs:
       - name: Create draft release with generated notes
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TAG_NAME: ${{ needs.prepare-release.outputs.new_tag }}
           RELEASE_TITLE: ${{ needs.prepare-release.outputs.release_title }}
           PRERELEASE: ${{ needs.prepare-release.outputs.prerelease }}
@@ -193,6 +197,8 @@ jobs:
           MAC_ASSET: ${{ steps.assets.outputs.mac_asset }}
         run: |
           set -euo pipefail
+
+          echo "Creating draft release in $GH_REPO"
 
           cmd=(gh release create "$TAG_NAME" "$WIN_ASSET" "$LINUX_ASSET" "$MAC_ASSET" --draft --generate-notes --title "$RELEASE_TITLE")
           if [ "$PRERELEASE" = "true" ]; then
