@@ -18,6 +18,7 @@
 #include "mainwindow.h"
 #include "mainwindow/controllers/mainwindow_io_controller.h"
 #include "mainwindow_view_controller.h"
+#include "mainwindow_menu_builders.h"
 
 #include <algorithm>
 #include <chrono>
@@ -352,101 +353,7 @@ void MainWindow::CreateToolBars() {
 
 // Builds and assigns the main application menu bar.
 void MainWindow::CreateMenuBar() {
-  wxMenuBar *menuBar = new wxMenuBar();
-
-  // File menu
-  wxMenu *fileMenu = new wxMenu();
-  fileMenu->Append(ID_File_New, "New\tCtrl+N");
-  fileMenu->AppendSeparator();
-  fileMenu->Append(ID_File_Load, "Load\tCtrl+L");
-  fileMenu->Append(ID_File_Save, "Save\tCtrl+S");
-  fileMenu->Append(ID_File_SaveAs, "Save As...");
-  fileMenu->AppendSeparator();
-  fileMenu->Append(ID_File_ImportMVR, "Import MVR...");
-  fileMenu->Append(ID_File_ExportMVR, "Export MVR...");
-  fileMenu->Append(ID_File_PrintViewer2D, "Print Viewer 2D...");
-  fileMenu->Append(ID_File_PrintLayout, "Print Layout...");
-  fileMenu->Append(ID_File_PrintTable, "Print Table...");
-  fileMenu->Append(ID_File_ExportCSV, "Export CSV...");
-  fileMenu->AppendSeparator();
-  fileMenu->Append(ID_File_Close, "Close\tCtrl+Q");
-
-  menuBar->Append(fileMenu, "&File");
-
-  // Edit menu
-  wxMenu *editMenu = new wxMenu();
-  editMenu->Append(ID_Edit_Undo, "Undo\tCtrl+Z");
-  editMenu->Append(ID_Edit_Redo, "Redo\tCtrl+Y");
-  editMenu->AppendSeparator();
-  editMenu->Append(ID_Edit_AddFixture, "Add fixture...");
-  editMenu->Append(ID_Edit_AddTruss, "Add truss...");
-  editMenu->Append(ID_Edit_AddSceneObject, "Add scene object...");
-  wxMenu *primitiveMenu = new wxMenu();
-  primitiveMenu->Append(ID_Edit_AddPrimitiveSphere, "Sphere...");
-  primitiveMenu->Append(ID_Edit_AddPrimitiveCube, "Cube...");
-  primitiveMenu->Append(ID_Edit_AddPrimitiveCylinder, "Cylinder...");
-  editMenu->AppendSubMenu(primitiveMenu, "Add basic geometry");
-  editMenu->AppendSeparator();
-  editMenu->Append(ID_Edit_Delete, "Delete\tDel");
-  editMenu->AppendSeparator();
-  editMenu->Append(ID_Edit_Preferences, "Preferences...");
-
-  menuBar->Append(editMenu, "&Edit");
-
-  // View menu for toggling panels
-  wxMenu *viewMenu = new wxMenu();
-  viewMenu->AppendCheckItem(ID_View_ToggleConsole, "Console");
-  viewMenu->AppendCheckItem(ID_View_ToggleFixtures, "Fixtures");
-  viewMenu->AppendCheckItem(ID_View_ToggleViewport, "3D Viewport");
-  viewMenu->AppendCheckItem(ID_View_ToggleViewport2D, "2D Viewport");
-  viewMenu->AppendCheckItem(ID_View_ToggleRender2D, "2D Render Options");
-  viewMenu->AppendCheckItem(ID_View_ToggleLayers, "Layers");
-  viewMenu->AppendCheckItem(ID_View_ToggleLayouts, "Layouts");
-  viewMenu->AppendCheckItem(ID_View_ToggleSummary, "Summary");
-  viewMenu->AppendCheckItem(ID_View_ToggleRigging, "Rigging");
-
-  wxMenu *layoutMenu = new wxMenu();
-  layoutMenu->Append(ID_View_Layout_Default, "3D Layout View");
-  layoutMenu->Append(ID_View_Layout_2D, "2D Layout View");
-  layoutMenu->Append(ID_View_Layout_Mode, "Layout Mode View");
-  viewMenu->AppendSubMenu(layoutMenu, "Layout Views");
-
-  menuBar->Append(viewMenu, "&View");
-
-  // Tools menu
-  wxMenu *toolsMenu = new wxMenu();
-  toolsMenu->Append(ID_Tools_DownloadGdtf, "Download GDTF fixture...");
-  toolsMenu->Append(ID_Tools_EditDictionaries, "Edit dictionaries...");
-  toolsMenu->Append(ID_Tools_OpenUserLibraryFolder, "Open user library folder");
-  toolsMenu->Append(ID_Tools_ImportRiderText, "Create from text...");
-  toolsMenu->Append(ID_Tools_DistributeHoistWeights,
-                    "Distribute hoist weights...");
-  toolsMenu->Append(ID_Tools_ExportFixture, "Export Fixture...");
-  toolsMenu->Append(ID_Tools_ExportTruss, "Export Truss...");
-  toolsMenu->Append(ID_Tools_ExportSceneObject, "Export Scene Object...");
-  toolsMenu->Append(ID_Tools_AutoPatch, "Auto patch");
-  toolsMenu->Append(ID_Tools_AutoColor, "Auto color");
-  toolsMenu->Append(ID_Tools_ConvertToHoist, "Convert to Hoist");
-  if (ui::IsFeatureEnabled(ui::FeatureFlag::GenerateFixtureSymbols)) {
-    toolsMenu->Append(ID_Tools_GenerateFixtureSymbols,
-                      "Generate Fixture Symbols...");
-  }
-  if (ui::IsFeatureEnabled(
-          ui::FeatureFlag::AssignSelectedFixtureCategory)) {
-    toolsMenu->Append(ID_Tools_AssignSelectedFixtureCategory,
-                      "Auto-assign categories to selected fixtures...");
-  }
-
-  menuBar->Append(toolsMenu, "&Tools");
-
-  // Help menu
-  wxMenu *helpMenu = new wxMenu();
-  helpMenu->Append(ID_Help_Help, "Help\tF1");
-  helpMenu->Append(ID_Help_About, "About");
-
-  menuBar->Append(helpMenu, "&Help");
-
-  SetMenuBar(menuBar);
+  SetMenuBar(BuildMainWindowMenuBar());
 }
 
 // Starts a new project after guarding startup and save state.

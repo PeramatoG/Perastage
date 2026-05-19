@@ -64,6 +64,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_fixture_add_flow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_gdtf_credentials.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu_builders.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_print.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferencesdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferences/gdtf_credentials_panel.cpp
