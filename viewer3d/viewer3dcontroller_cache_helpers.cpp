@@ -9,12 +9,12 @@
 namespace fs = std::filesystem;
 
 // Captures and returns hidden layers from the current configuration state.
-std::unordered_set<std::string> SnapshotHiddenLayers(const ConfigManager &cfg) {
+std::unordered_set<std::string> ControllerSnapshotHiddenLayers(const ConfigManager &cfg) {
   return cfg.GetHiddenLayers();
 }
 
 // Returns true when a layer is not currently marked as hidden in the cache set.
-bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
+bool ControllerIsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
                          const std::string &layer) {
   if (layer.empty())
     return hidden.find(DEFAULT_LAYER_NAME) == hidden.end();
@@ -30,7 +30,7 @@ static std::string NormalizePath(const std::string &path) {
 }
 
 // Returns a normalized, lexically-stable model key for cache lookup consistency.
-std::string NormalizeModelKey(const std::string &path) {
+std::string ControllerNormalizeModelKey(const std::string &path) {
   if (path.empty())
     return {};
   fs::path normalizedPath(path);
@@ -39,7 +39,7 @@ std::string NormalizeModelKey(const std::string &path) {
 }
 
 // Invalidates the layer-candidate ownership marker used by visible-set caching.
-void InvalidateVisibleSetLayerCandidateCacheOwnership(
+void ControllerInvalidateVisibleSetLayerCandidateCacheOwnership(
     size_t &sceneVersionMarker) {
   sceneVersionMarker = static_cast<size_t>(-1);
 }

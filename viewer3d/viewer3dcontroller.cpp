@@ -806,7 +806,7 @@ void Viewer3DController::Update() {
 // Updates frame State Lightweight.
 void Viewer3DController::UpdateFrameStateLightweight() {
   ConfigManager &cfg = ConfigManager::Get();
-  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
   const auto hiddenFixtureTypes = cfg.GetHiddenFixtureTypes();
   if (hiddenLayers != m_impl->lastHiddenLayers) {
     Logger::Instance().Log("visibility dirty reason: hidden layers changed vs last frame snapshot");
@@ -850,7 +850,7 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   ++m_impl->updateResourcesCallsPerFrame;
 
   ConfigManager &cfg = ConfigManager::Get();
-  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
   const std::string &base = cfg.GetScene().basePath;
 
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
@@ -871,17 +871,17 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   visibleFixtures.reserve(fixtures.size());
   for (const auto &entry : trusses) {
     sceneTrusses.push_back(&entry);
-    if (IsLayerVisibleCached(hiddenLayers, entry.second.layer))
+    if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer))
       visibleTrusses.push_back(&entry);
   }
   for (const auto &entry : objects) {
     sceneObjects.push_back(&entry);
-    if (IsLayerVisibleCached(hiddenLayers, entry.second.layer))
+    if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer))
       visibleObjects.push_back(&entry);
   }
   for (const auto &entry : fixtures) {
     sceneFixtures.push_back(&entry);
-    if (IsLayerVisibleCached(hiddenLayers, entry.second.layer) &&
+    if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer) &&
         cfg.IsFixtureTypeVisible(entry.second.typeName))
       visibleFixtures.push_back(&entry);
   }
@@ -1074,7 +1074,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   (void)isWireframeMode;
   (void)isWhiteMode;
 
-  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
   context.hiddenLayers = hiddenLayers;
 
   RenderPipeline pipeline(*this);
@@ -1164,7 +1164,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
       // empty (for example during fast interaction), force a rebuild now.
       // Otherwise visibility cache could keep truss/object/fixture UUID lists
       // empty until a full scene reload increments sceneVersion.
-      InvalidateVisibleSetLayerCandidateCacheOwnership(
+      ControllerInvalidateVisibleSetLayerCandidateCacheOwnership(
           m_impl->layerVisibleCandidatesSceneVersion);
     }
 
