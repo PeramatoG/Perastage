@@ -44,6 +44,7 @@ Keep Perastage clean and modular while continuing to deliver new features, follo
 
 9. **User documentation sync policy**
    - Whenever future Codex tasks add, remove, rename, or significantly change a user-facing feature, workflow, preference, supported file type, installer behavior, import/export behavior, or visible UI behavior, update documentation under `docs/` in the same task.
+  - Keep documentation links in README aligned with the current docs entry points whenever those entry points change.
    - This is required for meaningful feature changes, and not required for minor internal refactors, small bug fixes, formatting-only changes, build-system maintenance, or invisible technical changes that do not affect user experience.
 
 ## Current hotspots (watch for growth)

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Perastage Docs • opening-mvr-files</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+  </head>
+  <body id="top">
+    <div id="app"></div>
+    <script src="assets/js/marked.min.js"></script>
+    <script src="assets/js/docs-shell.js"></script>
+    <script>
+      // Initializes the shared shell and loads markdown content for this documentation page.
+      function bootPage() {
+        renderDocShell('opening-mvr-files.html');
+        loadMarkdown('opening-mvr-files.md');
+      }
+      bootPage();
+    </script>
+  </body>
+</html>
