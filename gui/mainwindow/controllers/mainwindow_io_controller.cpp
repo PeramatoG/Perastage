@@ -230,7 +230,8 @@ bool MainWindowIoController::ImportMvrWithOfficialPolicy(
 
   const bool shouldSkipDirtyConfirmation =
       ownerRef_->IsStartupProjectLoadPending() ||
-      ownerRef_->IsStartupInitializationPending();
+      ownerRef_->IsStartupInitializationPending() ||
+      ownerRef_->currentProjectPath.empty();
   if (!shouldSkipDirtyConfirmation &&
       !ownerRef_->ConfirmSaveIfDirty(kMvrOpenAction, kMvrOpenTitle))
     return false;
@@ -262,6 +263,7 @@ bool MainWindowIoController::OpenPathFromCommandLine(
     const bool shouldSkipDirtyConfirmation =
         owner->IsStartupProjectLoadPending() ||
         owner->IsStartupInitializationPending() ||
+        owner->currentProjectPath.empty() ||
         (owner->deferredStartupOpenPath.has_value() &&
          owner->currentProjectPath.empty());
     if (!shouldSkipDirtyConfirmation &&
