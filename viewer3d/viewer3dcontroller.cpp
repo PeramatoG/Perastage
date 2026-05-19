@@ -232,10 +232,10 @@ static std::string NormalizeModelKey(const std::string &p) {
   return NormalizePath(path.string());
 }
 
-// Invalidate cached layer candidates owned by the visible-set cache flow.
+// Invalidate the visible-set cache marker used for layer candidate rebuilds.
 static void InvalidateVisibleSetLayerCandidateCacheOwnership(
-    Viewer3DController::Impl &impl) {
-  impl.layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
+    size_t &sceneVersionMarker) {
+  sceneVersionMarker = static_cast<size_t>(-1);
 }
 
 struct EdgeKey {
@@ -1162,7 +1162,8 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
       // empty (for example during fast interaction), force a rebuild now.
       // Otherwise visibility cache could keep truss/object/fixture UUID lists
       // empty until a full scene reload increments sceneVersion.
-      InvalidateVisibleSetLayerCandidateCacheOwnership(*m_impl);
+      InvalidateVisibleSetLayerCandidateCacheOwnership(
+          m_impl->layerVisibleCandidatesSceneVersion);
     }
 
   }
