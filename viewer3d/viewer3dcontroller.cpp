@@ -169,11 +169,13 @@ struct LineRenderProfile {
   bool enableLineSmoothing = false;
 };
 
+// Capture the current hidden-layer set from configuration.
 static std::unordered_set<std::string>
 SnapshotHiddenLayers(const ConfigManager &cfg) {
   return cfg.GetHiddenLayers();
 }
 
+// Return whether a layer should be rendered using the hidden-layer cache.
 static bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
                                  const std::string &layer) {
   if (layer.empty())
@@ -181,14 +183,17 @@ static bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
   return hidden.find(layer) == hidden.end();
 }
 
+// Return whether fast interaction mode is enabled in configuration.
 static bool IsFastInteractionModeEnabled(const ConfigManager &cfg) {
   return cfg.GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
+// Read the persisted render-style preference for 3D rendering.
 static Viewer3DRenderStyle ReadRenderStylePreference(const ConfigManager &cfg) {
   return ResolveViewer3DRenderStyle(cfg);
 }
 
+// Resolve the render style while keeping 2D viewer rendering on standard style.
 Viewer3DRenderStyle ResolveRenderStyleForContext(const ConfigManager &cfg,
                                                  bool is2DViewer) {
   if (is2DViewer) {
@@ -199,6 +204,7 @@ Viewer3DRenderStyle ResolveRenderStyleForContext(const ConfigManager &cfg,
   return ReadRenderStylePreference(cfg);
 }
 
+// Build the line profile used for wireframe and outline rendering.
 static LineRenderProfile GetLineRenderProfile(bool isInteracting,
                                               bool wireframeMode,
                                               bool adaptiveEnabled) {
@@ -209,6 +215,7 @@ static LineRenderProfile GetLineRenderProfile(bool isInteracting,
 }
 
 // Replace Windows path separators with the platform preferred one
+// Normalize separators so paths use the current platform convention.
 static std::string NormalizePath(const std::string &p) {
   std::string out = p;
   char sep = static_cast<char>(fs::path::preferred_separator);
@@ -216,12 +223,19 @@ static std::string NormalizePath(const std::string &p) {
   return out;
 }
 
+// Normalize model keys so cache lookups are path-stable.
 static std::string NormalizeModelKey(const std::string &p) {
   if (p.empty())
     return {};
   fs::path path(p);
   path = path.lexically_normal();
   return NormalizePath(path.string());
+}
+
+// Invalidate cached layer candidates owned by the visible-set cache flow.
+static void InvalidateVisibleSetLayerCandidateCacheOwnership(
+    Viewer3DController::Impl &impl) {
+  impl.layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
 }
 
 struct EdgeKey {
@@ -1148,7 +1162,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
       // empty (for example during fast interaction), force a rebuild now.
       // Otherwise visibility cache could keep truss/object/fixture UUID lists
       // empty until a full scene reload increments sceneVersion.
-      m_impl->layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
+      InvalidateVisibleSetLayerCandidateCacheOwnership(*m_impl);
     }
 
   }
