@@ -61,6 +61,7 @@
 namespace fs = std::filesystem;
 
 namespace {
+// Returns the UTF-8 degree symbol used across fixture table labels.
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
@@ -68,18 +69,22 @@ const wxString &DegreeSymbol() {
 
 class ConfigManagerSceneAdapter : public FixtureTableEditService::ISceneAdapter {
 public:
+// Stores an undo checkpoint for fixture table edits.
   void PushUndoState(const std::string &description) override {
     GetDefaultGuiConfigServices().LegacyConfigManager().PushUndoState(description);
   }
 
+// Exposes the active scene for fixture table edit operations.
   MvrScene &GetScene() override { return GetDefaultGuiConfigServices().LegacyConfigManager().GetScene(); }
 
+// Reads the configured distance unit system for formatting and parsing.
   Units::DistanceUnitSystem GetDistanceUnitSystem() const override {
     const auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     return Units::ParseDistanceUnitSystem(
         cfg.GetValue("ui_distance_unit_system"));
   }
 
+// Reads the configured weight unit system for formatting and parsing.
   Units::WeightUnitSystem GetWeightUnitSystem() const override {
     const auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     return Units::ParseWeightUnitSystem(
@@ -87,6 +92,7 @@ public:
   }
 };
 
+// Refreshes 2D/3D viewers after fixture data changes.
 void RefreshViewersForFixtureUpdate(
     FixtureTablePanel::SceneDataUpdateType updateType) {
   const bool requiresFullSceneUpdate =
@@ -104,6 +110,7 @@ void RefreshViewersForFixtureUpdate(
   }
 }
 
+// Determines whether a scene update type requires rigging panel refresh.
 bool RequiresRiggingRefresh(
     FixtureTablePanel::SceneDataUpdateType updateType) {
   using SceneDataUpdateType = FixtureTablePanel::SceneDataUpdateType;
@@ -123,6 +130,7 @@ bool RequiresRiggingRefresh(
   return true;
 }
 
+// Determines whether a scene update type requires summary panel refresh.
 bool ShouldRefreshFixtureSummary(
     FixtureTablePanel::SceneDataUpdateType updateType) {
   using SceneDataUpdateType = FixtureTablePanel::SceneDataUpdateType;
@@ -142,6 +150,7 @@ bool ShouldRefreshFixtureSummary(
   return true;
 }
 
+// Checks whether a table cell is currently marked with a red validation color.
 bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
   if (!store || row < 0 || col < 0)
     return false;
@@ -157,6 +166,7 @@ bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
   return attr.HasColour() && attr.GetColour() == *wxRED;
 }
 
+// Applies the same tooltip text to the table and its child windows.
 void SetTableAndChildTooltips(wxDataViewListCtrl *table,
                               const wxString &tooltip) {
   if (!table)
@@ -171,6 +181,7 @@ void SetTableAndChildTooltips(wxDataViewListCtrl *table,
   }
 }
 
+// Converts mouse coordinates from child windows into table client coordinates.
 wxPoint NormalizeMousePositionForTable(wxDataViewListCtrl *table,
                                        const wxMouseEvent &event) {
   wxPoint position = event.GetPosition();
@@ -183,6 +194,7 @@ wxPoint NormalizeMousePositionForTable(wxDataViewListCtrl *table,
 }
 
 template <typename Owner>
+// Binds hover tracking events on the table and all internal child windows.
 void BindTableHoverEvents(wxDataViewListCtrl *table, Owner *owner,
                           void (Owner::*onMouseMove)(wxMouseEvent &),
                           void (Owner::*onMouseLeave)(wxMouseEvent &)) {
@@ -206,6 +218,7 @@ void BindTableHoverEvents(wxDataViewListCtrl *table, Owner *owner,
   }
 }
 
+// Returns tooltip text describing known validation conflicts for a column.
 wxString BuildFixtureTooltipForColumn(int modelColumn) {
   if (modelColumn == 0)
     return "Duplicate Fixture ID. Each fixture must have a unique ID.";
@@ -214,6 +227,7 @@ wxString BuildFixtureTooltipForColumn(int modelColumn) {
   return wxString();
 }
 
+// Returns tooltip text when a fixture category was auto-assigned by fallback rules.
 wxString BuildCategoryFallbackTooltip(const Fixture &fixture) {
   if (fixture.categorySource != GdtfFixtureCategory::kAutoFallbackSource)
     return wxString();
@@ -225,6 +239,7 @@ wxString BuildCategoryFallbackTooltip(const Fixture &fixture) {
   return "Category auto-assigned by fallback.";
 }
 
+// Renders and assigns the fixture color swatch cell for a given row.
 void SetFixtureColorCell(wxDataViewListCtrl *table, int row,
                          const std::string &hexColor) {
   if (!table || row == wxNOT_FOUND || hexColor.empty())
@@ -242,6 +257,7 @@ void SetFixtureColorCell(wxDataViewListCtrl *table, int row,
 }
 } // namespace
 
+// Initializes the fixture table UI, columns, and event bindings.
 FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *services)
     : wxPanel(parent, wxID_ANY),
       guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
@@ -279,6 +295,7 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *servi
   SetSizer(sizer);
 }
 
+// Releases singleton ownership when the fixture table panel is destroyed.
 FixtureTablePanel::~FixtureTablePanel() {
   if (HasCapture())
     ReleaseMouse();
@@ -286,6 +303,7 @@ FixtureTablePanel::~FixtureTablePanel() {
   store = nullptr;
 }
 
+// Configures fixture table columns and unit-aware header labels.
 void FixtureTablePanel::InitializeTable() {
   columnLabels = FixtureTableColumns::DefaultLabels();
   auto &cfg = guiConfigServices->LegacyConfigManager();
@@ -308,6 +326,7 @@ void FixtureTablePanel::InitializeTable() {
   FixtureTableColumns::ConfigureColumns(table, columnLabels);
 }
 
+// Rebuilds table rows from scene fixtures and reapplies validation highlights.
 void FixtureTablePanel::ReloadData() {
   if (!table || !store)
     return;
@@ -1097,8 +1116,10 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
 static FixtureTablePanel *s_instance = nullptr;
 
+// Returns the current fixture table panel singleton instance.
 FixtureTablePanel *FixtureTablePanel::Instance() { return s_instance; }
 
+// Sets the fixture table panel singleton instance pointer.
 void FixtureTablePanel::SetInstance(FixtureTablePanel *panel) {
   s_instance = panel;
 }
@@ -1115,6 +1136,7 @@ FixtureTablePanel::SceneDataUpdateType FixtureTablePanel::CombineUpdateTypes(
   return CombineUpdateTypesImpl(lhs, rhs);
 }
 
+// Reports whether an update scope requires full viewer scene rebuild.
 bool FixtureTablePanel::RequiresFullViewerSceneUpdate(
     SceneDataUpdateType updateType) {
   switch (updateType) {
@@ -1133,11 +1155,13 @@ bool FixtureTablePanel::RequiresFullViewerSceneUpdate(
   return true;
 }
 
+// Checks whether the fixture table panel is the active notebook page.
 bool FixtureTablePanel::IsActivePage() const {
   auto *nb = dynamic_cast<wxNotebook *>(GetParent());
   return nb && nb->GetPage(nb->GetSelection()) == this;
 }
 
+// Selects and scrolls to the row matching a fixture UUID.
 void FixtureTablePanel::HighlightFixture(const std::string &uuid) {
   if (uuid == highlightedUuid)
     return;
@@ -1166,6 +1190,7 @@ void FixtureTablePanel::HighlightFixture(const std::string &uuid) {
   table->Refresh();
 }
 
+// Highlights fixtures with duplicate DMX universe/channel patch addresses.
 void FixtureTablePanel::HighlightPatchConflicts() {
   // Clear previous highlighting on Universe and Channel columns
   for (unsigned i = 0; i < table->GetItemCount(); ++i) {
@@ -1219,12 +1244,14 @@ void FixtureTablePanel::HighlightPatchConflicts() {
   }
 }
 
+// Clears all current table row selections.
 void FixtureTablePanel::ClearSelection() {
   table->UnselectAll();
   selectionOrder.clear();
   UpdateSelectionHighlight();
 }
 
+// Returns UUIDs for all currently selected fixture rows.
 std::vector<std::string> FixtureTablePanel::GetSelectedUuids() const {
   wxDataViewItemArray selections;
   table->GetSelections(selections);
@@ -1238,6 +1265,7 @@ std::vector<std::string> FixtureTablePanel::GetSelectedUuids() const {
   return uuids;
 }
 
+// Selects rows matching the provided fixture UUID list.
 void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
                                      bool notifySelectionChanged) {
   RebuildRowCachesFromRowKeys();
@@ -1260,6 +1288,7 @@ void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
   store->SetSelectedRows(selectedRows);
 }
 
+// Deletes selected fixtures from the scene and refreshes related panels.
 void FixtureTablePanel::DeleteSelected(bool pushUndoState) {
   RebuildRowCachesFromRowKeys();
   wxDataViewItemArray selections;
@@ -1340,6 +1369,7 @@ void FixtureTablePanel::DeleteSelected(bool pushUndoState) {
   ResyncRows(oldOrder, {}, &oldPaths);
 }
 
+// Commits inline cell edits and propagates resulting scene updates.
 void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
   wxDataViewItem item = event.GetItem();
   if (!item.IsOk()) {
@@ -1376,24 +1406,29 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
   dlg.ShowModal();
 }
 
+// Captures mouse focus for drag-style interactions inside the table.
 void FixtureTablePanel::OnLeftDown(wxMouseEvent &evt) {
   evt.Skip();
 }
 
+// Releases mouse capture after table drag-style interactions finish.
 void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) {
   evt.Skip();
 }
 
+// Resets capture state when the system forces mouse capture loss.
 void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
   dragSelecting = false;
   startRow = wxNOT_FOUND;
 }
 
+// Updates hover tooltip state while the pointer moves over table cells.
 void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
   UpdateHoverTooltip(NormalizeMousePositionForTable(table, evt));
   evt.Skip();
 }
 
+// Clears hover tooltip state when the pointer leaves the table area.
 void FixtureTablePanel::OnMouseLeave(wxMouseEvent &evt) {
   if (!activeHoverTooltip.IsEmpty()) {
     SetTableAndChildTooltips(table, wxString());
@@ -1402,6 +1437,7 @@ void FixtureTablePanel::OnMouseLeave(wxMouseEvent &evt) {
   evt.Skip();
 }
 
+// Shows contextual tooltip text for validation-marked table cells.
 void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
   wxDataViewItem item;
   wxDataViewColumn *column = nullptr;
@@ -1432,6 +1468,7 @@ void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
   activeHoverTooltip = tooltip;
 }
 
+// Syncs cross-panel selection state when table selection changes.
 void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
   RebuildRowCachesFromRowKeys();
   const selection::Origin origin = selection::CurrentOrigin();
@@ -1492,6 +1529,7 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
   evt.Skip();
 }
 
+// Reapplies row highlight styling based on current selection state.
 void FixtureTablePanel::UpdateSelectionHighlight() {
   size_t rowCount = table->GetItemCount();
   std::vector<bool> selectedRows(rowCount, false);
@@ -1505,6 +1543,7 @@ void FixtureTablePanel::UpdateSelectionHighlight() {
   store->SetSelectedRows(selectedRows);
 }
 
+// Normalizes edited position values and tracks whether any row changed.
 void FixtureTablePanel::UpdatePositionValues(
     const std::vector<std::string> &uuids) {
   if (!table)
@@ -1535,6 +1574,7 @@ void FixtureTablePanel::UpdatePositionValues(
   }
 }
 
+// Writes normalized position values back into selected table rows.
 void FixtureTablePanel::ApplyPositionValueUpdates(
     const std::vector<PositionValueUpdate> &updates) {
   if (!table)
@@ -1553,6 +1593,7 @@ void FixtureTablePanel::ApplyPositionValueUpdates(
   }
 }
 
+// Copies a source row value into the same column for all selected rows.
 void FixtureTablePanel::PropagateTypeValues(
     const wxDataViewItemArray &selections, int col) {
   if (!table)
@@ -1561,6 +1602,7 @@ void FixtureTablePanel::PropagateTypeValues(
   FixtureTableEditService::PropagateTypeValues(table, selections, col);
 }
 
+// Persists edited table values back into scene fixtures and refreshes dependents.
 void FixtureTablePanel::UpdateSceneData(bool logChanges,
                                         SceneDataUpdateType updateType,
                                         const std::vector<unsigned int> *targetRows) {
@@ -1610,6 +1652,7 @@ void FixtureTablePanel::UpdateSceneData(bool logChanges,
     SummaryPanel::Instance()->ShowFixtureSummary();
 }
 
+// Applies a GDTF mode selection and fills dependent fixture attributes.
 void FixtureTablePanel::ApplyModeForGdtf(const wxString &path,
                                          const wxString &preferredMode) {
   if (path.empty())
@@ -1670,6 +1713,7 @@ void FixtureTablePanel::ApplyModeForGdtf(const wxString &path,
   }
 }
 
+// Highlights rows that share duplicate fixture IDs.
 void FixtureTablePanel::HighlightDuplicateFixtureIds() {
   // Clear existing text colour highlights
   for (unsigned i = 0; i < table->GetItemCount(); ++i) {
@@ -1693,6 +1737,7 @@ void FixtureTablePanel::HighlightDuplicateFixtureIds() {
   }
 }
 
+// Runs validation highlight passes that correspond to the update scope.
 void FixtureTablePanel::RunValidationHighlights(SceneDataUpdateType updateType) {
   switch (updateType) {
   case SceneDataUpdateType::kPatchOnly:
@@ -1720,6 +1765,7 @@ void FixtureTablePanel::RunValidationHighlights(SceneDataUpdateType updateType) 
   table->Refresh();
 }
 
+// Highlights fixtures whose categories come from automatic fallback.
 void FixtureTablePanel::HighlightAutoFallbackCategories() {
   auto &fixtures = guiConfigServices->LegacyConfigManager().GetScene().fixtures;
   for (unsigned i = 0; i < table->GetItemCount(); ++i) {
@@ -1738,6 +1784,7 @@ void FixtureTablePanel::HighlightAutoFallbackCategories() {
   }
 }
 
+// Reconciles displayed rows with current scene fixture ordering and keys.
 void FixtureTablePanel::ResyncRows(
     const std::vector<std::string> &oldOrder,
     const std::vector<std::string> &selectedUuids,
@@ -1765,6 +1812,7 @@ void FixtureTablePanel::ResyncRows(
   UpdateSelectionHighlight();
 }
 
+// Rebuilds internal row-to-UUID caches from current row keys.
 void FixtureTablePanel::RebuildRowCachesFromRowKeys() {
   if (!table || !store)
     return;
@@ -1784,6 +1832,7 @@ void FixtureTablePanel::RebuildRowCachesFromRowKeys() {
   }
 }
 
+// Resolves a fixture UUID from a data-view item selection handle.
 std::string FixtureTablePanel::UuidForItem(const wxDataViewItem &item) const {
   if (!store || !item.IsOk())
     return {};
@@ -1794,6 +1843,7 @@ std::string FixtureTablePanel::UuidForItem(const wxDataViewItem &item) const {
   return it->second;
 }
 
+// Updates stored GDTF path text and display label for a table row.
 void FixtureTablePanel::SetGdtfPathForRow(unsigned int row,
                                           const wxString &path) {
   if (!table || !store)
@@ -1810,6 +1860,7 @@ void FixtureTablePanel::SetGdtfPathForRow(unsigned int row,
   gdtfPathByKey[rowKey] = path;
 }
 
+// Rebuilds row caches after user-driven column sorting changes row order.
 void FixtureTablePanel::OnColumnSorted(wxDataViewEvent &event) {
   RebuildRowCachesFromRowKeys();
   wxDataViewItemArray selections;
