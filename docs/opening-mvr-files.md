@@ -1,18 +1,32 @@
 # Opening MVR Files
 
-Perastage is focused on MVR workflows.
+Perastage is built for MVR-centered workflows.
 
-## Open or import an MVR
+## Open an MVR file
 
 Use one of these methods:
 
-- Open an existing `.mvr` file from the file workflow.
+- Open an existing `.mvr` file directly.
 - Use **File → Import MVR...**.
 
-After import, Perastage loads the scene so you can review fixtures, trusses, hoists, and objects.
+After import, review fixtures, trusses, hoists, objects, and layout information in the available views and tables.
 
-## Export back to MVR
+## Perastage project files
 
-When you finish changes, you can export the scene using:
+In addition to MVR exchange, Perastage supports project-based work so you can:
 
-- **File → Export MVR...**
+- Save in-progress work.
+- Reopen and continue edits later.
+- Keep iterative scene revisions while preparing a final export.
+
+## Export MVR
+
+When your changes are ready for exchange:
+
+1. Open **File → Export MVR...**.
+2. Choose destination and file name.
+3. Export the updated scene.
+
+## Practical tip
+
+If imported fixtures appear incomplete, download the required GDTF profiles first, then reopen or refresh your scene review workflow.

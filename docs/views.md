@@ -1,25 +1,33 @@
 # Views (2D and 3D)
 
-Perastage includes both 3D and plan-style 2D viewing.
+Perastage combines 3D scene inspection with 2D layout-oriented review.
 
-## 3D View
+## 3D view
 
-Use the 3D view to inspect geometry and scene structure.
+Use 3D when you need spatial understanding.
 
-Typical use cases:
+Typical checks:
 
-- Check placement and orientation.
-- Review fixture/truss/object relationships.
+- Position and orientation.
+- Relationships between fixtures, trusses, hoists, and objects.
+- General scene structure before export.
 
-## 2D View
+## 2D view and layouts
 
-Use the 2D view for plan-focused checks and layout-style review.
+Use 2D when you need plan-oriented validation and output.
 
-Typical use cases:
+Typical checks:
 
-- Quick top/plan reading.
-- Preparing printable view outputs.
+- Top/plan readability.
+- Layout alignment and coverage.
+- Print-ready preparation.
 
-## Helpful workflow
+You can export layout-oriented output as PDF for sharing or printing.
 
-Switch between 3D and 2D while selecting the same scene items to validate both spatial and plan representation.
+## Tables and views together
+
+Best practice is to combine visual review with table review:
+
+- Validate elements in Fixtures, Trusses, Hoists, and Objects tables.
+- Cross-check selected elements in 2D and 3D.
+- Confirm updates before saving or exporting MVR.

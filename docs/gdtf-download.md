@@ -4,14 +4,21 @@ Perastage can download fixture profiles from GDTF Share.
 
 ## Before you start
 
-- You need a valid GDTF Share account.
+- You need an active GDTF Share account.
+- Internet access is required for login and downloads.
 
-## Steps
+## Download workflow
 
-1. In Perastage, open **Tools → Download GDTF**.
-2. Log in with your GDTF Share account when prompted.
-3. Search and download the fixture profile you need.
+1. Open **Tools → Download GDTF**.
+2. Sign in when prompted.
+3. Search for the fixture profile you need.
+4. Download and store it in your local user library.
 
-If needed, you can manage local dictionary entries from:
+## Related tools
 
-- **Tools → Edit dictionaries**
+- **Tools → Edit dictionaries** to manage local mapping and dictionary entries.
+- **Tools → Open user library folder** to inspect downloaded files directly.
+
+## When to use this
+
+Use GDTF download when fixtures appear generic, missing, or visually incorrect after opening/importing MVR content.
