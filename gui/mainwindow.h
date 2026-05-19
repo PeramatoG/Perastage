@@ -283,6 +283,7 @@ private:
   bool startupSplashInitializationPending = true;
   bool startupSplashCloseRequested = false;
   bool startupProjectLoadPending = true;
+  bool startupDeferredOpenInProgress = false;
   std::optional<std::string> deferredStartupOpenPath;
   bool userConfigPersistedOnClose = false;
   int viewportInteractionLockDepth = 0;
