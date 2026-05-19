@@ -573,8 +573,12 @@ Viewer2DOffscreenRenderer *MainWindow::GetOffscreenRenderer() {
 
 bool MainWindow::IsLayout2DViewEditing() const { return layout2DViewEditing; }
 
+// Prompts to save pending project changes while ignoring transient startup state before any project is loaded.
 bool MainWindow::ConfirmSaveIfDirty(const wxString &actionLabel,
                                     const wxString &dialogTitle) {
+  if (startupProjectLoadPending && currentProjectPath.empty())
+    return true;
+
   if (!GetDefaultGuiConfigServices().LegacyConfigManager().IsDirty())
     return true;
 
