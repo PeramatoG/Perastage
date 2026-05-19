@@ -170,6 +170,35 @@ struct LineRenderProfile {
   bool enableLineSmoothing = false;
 };
 
+// Returns whether fast interaction mode is enabled in configuration.
+static bool IsFastInteractionModeEnabled(const ConfigManager &cfg) {
+  return cfg.GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
+}
+
+// Returns the persisted 3D render-style preference.
+static Viewer3DRenderStyle ReadRenderStylePreference(const ConfigManager &cfg) {
+  return ResolveViewer3DRenderStyle(cfg);
+}
+
+// Resolves render style while forcing standard style for 2D viewer contexts.
+Viewer3DRenderStyle ResolveRenderStyleForContext(const ConfigManager &cfg,
+                                                 bool is2DViewer) {
+  if (is2DViewer) {
+    return Viewer3DRenderStyle::Standard;
+  }
+  return ReadRenderStylePreference(cfg);
+}
+
+// Builds the line profile used for wireframe and outline rendering.
+static LineRenderProfile GetLineRenderProfile(bool isInteracting,
+                                              bool wireframeMode,
+                                              bool adaptiveEnabled) {
+  (void)isInteracting;
+  if (!adaptiveEnabled)
+    return {wireframeMode ? 1.0f : 2.0f, false};
+  return {wireframeMode ? 1.0f : 2.0f, true};
+}
+
 struct EdgeKey {
   uint32_t a = 0;
   uint32_t b = 0;
