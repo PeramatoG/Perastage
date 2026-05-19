@@ -89,6 +89,7 @@
 
 namespace {
 
+// Converts a wxString value to a UTF-8 std::string.
 std::string WxToUtf8(const wxString &value) {
   const wxScopedCharBuffer utf8 = value.ToUTF8();
   if (utf8)
@@ -102,6 +103,7 @@ struct HelpMarkdown {
   bool hasSections = false;
 };
 
+// Removes leading blank-line whitespace from a text block.
 std::string TrimLeadingWhitespace(const std::string &text) {
   const auto start = text.find_first_not_of("\r\n");
   if (start == std::string::npos)
@@ -109,6 +111,7 @@ std::string TrimLeadingWhitespace(const std::string &text) {
   return text.substr(start);
 }
 
+// Splits help markdown into English and Spanish sections when markers are present.
 HelpMarkdown SplitHelpMarkdown(const std::string &markdown) {
   constexpr const char *kEnglishMarker = "<!-- LANG:en -->";
   constexpr const char *kSpanishMarker = "<!-- LANG:es -->";
@@ -155,12 +158,14 @@ HelpMarkdown SplitHelpMarkdown(const std::string &markdown) {
   return result;
 }
 
+// Wraps HTML body content in a UTF-8 HTML document shell.
 std::string WrapHelpHtml(const std::string &body) {
   return "<html><head><meta charset=\"UTF-8\"></head><body>" + body +
          "</body></html>";
 }
 } // namespace
 
+// Builds and registers the main application toolbars.
 void MainWindow::CreateToolBars() {
   const long toolbarStyle =
       (wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
@@ -345,6 +350,7 @@ void MainWindow::CreateToolBars() {
   UpdateToolBarAvailability();
 }
 
+// Builds and assigns the main application menu bar.
 void MainWindow::CreateMenuBar() {
   wxMenuBar *menuBar = new wxMenuBar();
 
@@ -443,6 +449,7 @@ void MainWindow::CreateMenuBar() {
   SetMenuBar(menuBar);
 }
 
+// Starts a new project after guarding startup and save state.
 void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
   if (!GuardStartupProjectLoadAction("creating a new project"))
     return;
@@ -454,6 +461,7 @@ void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
 }
 
 // Opens the GDTF search flow, refreshing the remote catalog when credentials are available.
+// Opens the GDTF download workflow and optionally adds the selected fixture.
 void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &configManager =
       GetDefaultGuiConfigServices().LegacyConfigManager();
@@ -678,11 +686,13 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   removeCookieFileIfPresent();
 }
 
+// Opens the dictionary editor dialog.
 void MainWindow::OnEditDictionaries(wxCommandEvent &WXUNUSED(event)) {
   DictionaryEditDialog dlg(this);
   dlg.ShowModal();
 }
 
+// Opens the writable user library folder in the system file browser.
 void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
   const std::string fixturesPath = ProjectUtils::GetWritableLibraryPath("fixtures");
   if (fixturesPath.empty()) {
@@ -702,6 +712,7 @@ void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
   }
 }
 
+// Automatically assigns DMX patch values to fixtures.
 void MainWindow::OnAutoPatch(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   cfg.PushUndoState("auto patch");
@@ -713,6 +724,7 @@ void MainWindow::OnAutoPatch(wxCommandEvent &WXUNUSED(event)) {
   RefreshAfterSceneChange();
 }
 
+// Distributes rigging weight totals across selected hoists.
 void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
   SyncSceneData();
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
@@ -776,6 +788,7 @@ void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
   RefreshAfterSceneChange();
 }
 
+// Auto-assigns layer and fixture colors based on scene state.
 void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   cfg.PushUndoState("auto color");
@@ -876,6 +889,7 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
   RefreshAfterSceneChange();
 }
 
+// Converts selected fixtures into hoist supports.
 void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto selected = cfg.GetSelectedFixtures();
@@ -947,6 +961,7 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
 }
 
 
+// Runs the fixture symbol generation tool when the feature is enabled.
 void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &WXUNUSED(event)) {
   if (!ui::IsFeatureEnabled(ui::FeatureFlag::GenerateFixtureSymbols))
     return;
@@ -954,6 +969,7 @@ void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &WXUNUSED(event)) {
   tools::RunFixtureSymbolGeneration(*this);
 }
 
+// Runs automatic category assignment for selected fixtures when enabled.
 void MainWindow::OnAssignSelectedFixtureCategory(
     wxCommandEvent &WXUNUSED(event)) {
   if (!ui::IsFeatureEnabled(
@@ -964,12 +980,14 @@ void MainWindow::OnAssignSelectedFixtureCategory(
   tools::RunFixtureCategoryAssignment(*this);
 }
 
+// Initiates window closing through the standard close flow.
 void MainWindow::OnClose(wxCommandEvent &event) {
   // Allow the close event to be vetoed when the user chooses Cancel
   Close(false);
 }
 
 // Persists state, stops live workers, and detaches IO callbacks before destroying the main window.
+// Finalizes shutdown by saving state and stopping runtime services.
 void MainWindow::OnCloseWindow(wxCloseEvent &event) {
   SaveUserConfigWithViewport2DState();
   if (!ConfirmSaveIfDirty("exiting", "Exit")) {
@@ -987,51 +1005,61 @@ void MainWindow::OnCloseWindow(wxCloseEvent &event) {
   Destroy();
 }
 
+// Toggles visibility of the console panel.
 void MainWindow::OnToggleConsole(wxCommandEvent &event) {
   if (viewController)
     viewController->OnToggleConsole(event);
 }
 
+// Toggles visibility of the fixtures panel.
 void MainWindow::OnToggleFixtures(wxCommandEvent &event) {
   if (viewController)
     viewController->OnToggleFixtures(event);
 }
 
+// Toggles visibility of the 3D viewport panel.
 void MainWindow::OnToggleViewport(wxCommandEvent &event) {
   if (viewController)
     viewController->OnToggleViewport(event);
 }
 
+// Toggles visibility of the 2D viewport panel.
 void MainWindow::OnToggleViewport2D(wxCommandEvent &event) {
   if (viewController)
     viewController->OnToggleViewport2D(event);
 }
 
+// Toggles visibility of the 2D render options panel.
 void MainWindow::OnToggleRender2D(wxCommandEvent &event) {
   if (viewController)
     viewController->OnToggleRender2D(event);
 }
 
+// Toggles visibility of the layers panel.
 void MainWindow::OnToggleLayers(wxCommandEvent &event) {
   if (viewController)
     viewController->OnToggleLayers(event);
 }
 
+// Toggles visibility of the layouts panel.
 void MainWindow::OnToggleLayouts(wxCommandEvent &event) {
   if (viewController)
     viewController->OnToggleLayouts(event);
 }
 
+// Toggles visibility of the summary panel.
 void MainWindow::OnToggleSummary(wxCommandEvent &event) {
   if (viewController)
     viewController->OnToggleSummary(event);
 }
 
+// Toggles visibility of the rigging panel.
 void MainWindow::OnToggleRigging(wxCommandEvent &event) {
   if (viewController)
     viewController->OnToggleRigging(event);
 }
 
+// Displays the help dialog from the packaged markdown documentation.
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
   // Attempt to load the Markdown help file located alongside the executable.
   wxFileName helpPath(wxStandardPaths::Get().GetExecutablePath());
@@ -1091,6 +1119,7 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
   }
 }
 
+// Displays the application About dialog.
 void MainWindow::OnShowAbout(wxCommandEvent &WXUNUSED(event)) {
   wxAboutDialogInfo info;
   info.SetName(app::kName);
@@ -1125,31 +1154,37 @@ void MainWindow::OnShowAbout(wxCommandEvent &WXUNUSED(event)) {
   wxAboutBox(info, this);
 }
 
+// Switches the notebook to the fixtures tab.
 void MainWindow::OnSelectFixtures(wxCommandEvent &WXUNUSED(event)) {
   if (notebook)
     notebook->SetSelection(0);
 }
 
+// Switches the notebook to the trusses tab.
 void MainWindow::OnSelectTrusses(wxCommandEvent &WXUNUSED(event)) {
   if (notebook)
     notebook->SetSelection(1);
 }
 
+// Switches the notebook to the supports tab.
 void MainWindow::OnSelectSupports(wxCommandEvent &WXUNUSED(event)) {
   if (notebook)
     notebook->SetSelection(2);
 }
 
+// Switches the notebook to the scene objects tab.
 void MainWindow::OnSelectObjects(wxCommandEvent &WXUNUSED(event)) {
   if (notebook)
     notebook->SetSelection(3);
 }
 
+// Opens the preferences dialog.
 void MainWindow::OnPreferences(wxCommandEvent &WXUNUSED(event)) {
   PreferencesDialog dlg(this);
   dlg.ShowModal();
 }
 
+// Undoes the last action and refreshes dependent UI panels.
 void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   if (!cfg.CanUndo())
@@ -1199,6 +1234,7 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
   RefreshSummary();
 }
 
+// Redoes the last undone action and refreshes dependent UI panels.
 void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   if (!cfg.CanRedo())
@@ -1248,6 +1284,7 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
   RefreshSummary();
 }
 
+// Adds fixtures to the scene from existing types or a selected GDTF file.
 void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   auto &scene = cfg.GetScene();
@@ -1303,6 +1340,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
   }
 }
 
+// Adds one or more trusses to the scene from a selected truss definition.
 void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   auto &scene = cfg.GetScene();
@@ -1426,6 +1464,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
   RefreshSummary();
 }
 
+// Adds one or more scene objects to the scene from a selected model file.
 void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   auto &scene = cfg.GetScene();
@@ -1531,6 +1570,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   RefreshSummary();
 }
 
+// Adds sphere primitives to the scene from dialog input.
 void MainWindow::OnAddPrimitiveSphere(wxCommandEvent &WXUNUSED(event)) {
   scene_object_primitives::SphereRequest request;
   if (!scene_object_primitives::ShowSphereDialog(this, request))
@@ -1549,6 +1589,7 @@ void MainWindow::OnAddPrimitiveSphere(wxCommandEvent &WXUNUSED(event)) {
   RefreshSummary();
 }
 
+// Adds cube primitives to the scene from dialog input.
 void MainWindow::OnAddPrimitiveCube(wxCommandEvent &WXUNUSED(event)) {
   scene_object_primitives::CubeRequest request;
   if (!scene_object_primitives::ShowCubeDialog(this, request))
@@ -1567,6 +1608,7 @@ void MainWindow::OnAddPrimitiveCube(wxCommandEvent &WXUNUSED(event)) {
   RefreshSummary();
 }
 
+// Adds cylinder primitives to the scene from dialog input.
 void MainWindow::OnAddPrimitiveCylinder(wxCommandEvent &WXUNUSED(event)) {
   scene_object_primitives::CylinderRequest request;
   if (!scene_object_primitives::ShowCylinderDialog(this, request))
@@ -1585,6 +1627,7 @@ void MainWindow::OnAddPrimitiveCylinder(wxCommandEvent &WXUNUSED(event)) {
   RefreshSummary();
 }
 
+// Deletes currently selected layout elements or scene entities.
 void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
 
