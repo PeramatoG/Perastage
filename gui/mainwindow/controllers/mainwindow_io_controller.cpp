@@ -261,7 +261,9 @@ bool MainWindowIoController::OpenPathFromCommandLine(
   if (extension == projectExtension) {
     const bool shouldSkipDirtyConfirmation =
         owner->IsStartupProjectLoadPending() ||
-        owner->IsStartupInitializationPending();
+        owner->IsStartupInitializationPending() ||
+        (owner->deferredStartupOpenPath.has_value() &&
+         owner->currentProjectPath.empty());
     if (!shouldSkipDirtyConfirmation &&
         !owner->ConfirmSaveIfDirty("loading a project", "Open Project"))
       return false;
