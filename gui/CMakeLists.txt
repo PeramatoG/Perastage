@@ -28,6 +28,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/fixturetable/fixture_table_edit_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixturetable/fixture_table_parser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixturetablepanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixturetablepanel_ui_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixturetablepanel_update_types.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfsearchdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hoist_load_limit_utils.cpp
