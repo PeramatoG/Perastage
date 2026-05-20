@@ -43,6 +43,7 @@ void ExtendBounds(Bounds3D &bounds, const std::array<float, 3> &p) {
   bounds.valid = true;
 }
 
+// Computes world-space fixture mesh bounds in millimeters from a GDTF file.
 bool ComputeFixtureBoundsMm(const std::string &gdtfPath, Bounds3D &bounds,
                             std::string &errorMessage) {
   std::vector<GdtfObject> objects;
@@ -50,6 +51,8 @@ bool ComputeFixtureBoundsMm(const std::string &gdtfPath, Bounds3D &bounds,
     return false;
 
   for (const auto &object : objects) {
+    if (object.isLens)
+      continue;
     for (size_t vi = 0; vi + 2 < object.mesh.vertices.size(); vi += 3) {
       const std::array<float, 3> local = {
           object.mesh.vertices[vi], object.mesh.vertices[vi + 1], object.mesh.vertices[vi + 2]};
@@ -65,6 +68,7 @@ bool ComputeFixtureBoundsMm(const std::string &gdtfPath, Bounds3D &bounds,
   return true;
 }
 
+// Projects 3D fixture bounds onto the 2D plane associated with a symbol view.
 Bounds2D BuildTargetBounds(const Bounds3D &bounds, symbols::SymbolView view) {
   Bounds2D projected;
   switch (view) {
@@ -82,6 +86,7 @@ Bounds2D BuildTargetBounds(const Bounds3D &bounds, symbols::SymbolView view) {
   return projected;
 }
 
+// Uniformly scales and centers a symbol into the requested physical target bounds.
 bool RemapSymbolToBounds(symbols::Symbol2D &symbol, const Bounds2D &target) {
   if (!symbol.bounds.valid || !target.valid)
     return false;
@@ -99,10 +104,15 @@ bool RemapSymbolToBounds(symbols::Symbol2D &symbol, const Bounds2D &target) {
 
   const float scaleX = targetWidth / sourceWidth;
   const float scaleY = targetHeight / sourceHeight;
+  const float uniformScale = std::min(scaleX, scaleY);
+  const float remappedWidth = sourceWidth * uniformScale;
+  const float remappedHeight = sourceHeight * uniformScale;
+  const float offsetX = target.minX + (targetWidth - remappedWidth) * 0.5f;
+  const float offsetY = target.minY + (targetHeight - remappedHeight) * 0.5f;
 
   auto remapPoint = [&](symbols::Point2D &point) {
-    point.x = target.minX + (point.x - sourceMinX) * scaleX;
-    point.y = target.minY + (point.y - sourceMinY) * scaleY;
+    point.x = offsetX + (point.x - sourceMinX) * uniformScale;
+    point.y = offsetY + (point.y - sourceMinY) * uniformScale;
   };
 
   for (auto &polygon : symbol.fill) {
@@ -129,6 +139,7 @@ bool RemapSymbolToBounds(symbols::Symbol2D &symbol, const Bounds2D &target) {
 
 } // namespace
 
+// Maps generated symbol coordinates to fixture physical dimensions from its GDTF.
 bool CalibrateFixtureSymbolsToPhysicalUnits(ConfigManager &cfg,
                                             const std::string &fixtureUuid,
                                             std::vector<symbols::Symbol2D> &symbols,
