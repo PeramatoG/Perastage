@@ -3,6 +3,7 @@
 
 #include "loader3ds.h"
 #include "loaderglb.h"
+#include "loader_obj.h"
 #include "matrixutils.h"
 #include "projectutils.h"
 
@@ -439,6 +440,12 @@ void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
       loaded = Load3DS(path, mesh);
     else if (ext == ".glb")
       loaded = LoadGLB(path, mesh);
+    else if (ext == ".obj") {
+      std::string objError;
+      loaded = LoadOBJ(path, mesh, &objError);
+      if (!loaded && callbacks.appendConsoleMessage)
+        callbacks.appendConsoleMessage("Failed to load OBJ model: " + path + " (" + objError + ")");
+    }
 
     if (loaded && meshProcessingOptions.enableMeshOptimization)
       viewer3d::resources::OptimizeMeshForRuntime(mesh);
@@ -452,7 +459,7 @@ void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
       callbacks.setupMeshBuffers(mesh);
     state.loadedMeshes[path] = std::move(mesh);
     assetsChanged = true;
-  } else if (callbacks.appendConsoleMessage) {
+  } else if (callbacks.appendConsoleMessage && ext != ".obj") {
     callbacks.appendConsoleMessage("Failed to load model: " + path);
   }
 }

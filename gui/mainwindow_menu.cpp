@@ -83,6 +83,7 @@
 #include "mainwindow_gdtf_credentials.h"
 #include "support.h"
 #include "trussloader.h"
+#include "loader_obj.h"
 #include "tools/fixture_symbol_generation_tool.h"
 #include "tools/fixture_category_assignment_tool.h"
 #include "trusstablepanel.h"
@@ -144,6 +145,18 @@ HelpMarkdown SplitHelpMarkdown(const std::string &markdown) {
   return result;
 }
 
+
+// Builds the scene-object file filter based on currently available runtime loaders.
+std::string BuildSceneObjectFileFilter() {
+  std::string filter = "3D files (*.glb;*.gltf;*.3ds";
+  std::string patterns = "*.glb;*.gltf;*.3ds";
+  if (IsObjLoaderAvailable()) {
+    filter += ";*.obj";
+    patterns += ";*.obj";
+  }
+  filter += ")|" + patterns + "|All files|*.*";
+  return filter;
+}
 } // namespace
 
 // Builds and registers the main application toolbars.
@@ -1378,7 +1391,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
       wxString objDir = wxString::FromUTF8(
           ProjectUtils::GetWritableLibraryPath("scene_objects"));
       wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
-                        "*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+                        wxString::FromUTF8(BuildSceneObjectFileFilter()), wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
         return;
       wxFileName fn(fdlg.GetPath());
@@ -1394,8 +1407,8 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   } else {
     wxString objDir = wxString::FromUTF8(
         ProjectUtils::GetWritableLibraryPath("scene_objects"));
-    wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString, "*.*",
-                      wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
+                      wxString::FromUTF8(BuildSceneObjectFileFilter()), wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;
     wxFileName fn(fdlg.GetPath());
