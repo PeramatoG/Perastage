@@ -823,12 +823,15 @@ CollectReferencedArchivePaths(const tinyxml2::XMLDocument &doc) {
         referencedPaths.insert(normalized);
     }
 
-    const char *gdtfSpec = current->Attribute("GDTFSpec");
-    if (gdtfSpec) {
-      const std::string normalized =
-          NormalizeArchiveEntryPath(TrimAscii(gdtfSpec));
-      if (!normalized.empty())
-        referencedPaths.insert(normalized);
+    // Captures <GDTFSpec>archive/path.gdtf</GDTFSpec> element text references.
+    if (std::string(current->Name()) == "GDTFSpec") {
+      const char *gdtfSpecText = current->GetText();
+      if (gdtfSpecText) {
+        const std::string normalized =
+            NormalizeArchiveEntryPath(TrimAscii(gdtfSpecText));
+        if (!normalized.empty())
+          referencedPaths.insert(normalized);
+      }
     }
 
     for (const tinyxml2::XMLElement *child = current->FirstChildElement(); child;
