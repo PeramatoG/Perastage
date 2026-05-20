@@ -21,10 +21,8 @@
       <section class="hero-panel">
         <h2>Perastage User Guide</h2>
         <p>
-          Perastage is a fast, cross-platform desktop viewer focused on MVR v1.6 and GDTF v1.1 workflows,
-          helping you inspect, review, and present lighting scenes without heavy setup.
+          Perastage is a fast, cross-platform desktop viewer focused on MVR and GDTF workflows, helping you inspect, review, and present lighting scenes without heavy setup.
         </p>
-        <p><strong>For the latest documentation, visit <a href="https://perastage.luismaperamato.com/">perastage.luismaperamato.com</a>.</strong></p>
         <div class="doc-grid" aria-label="Documentation sections" id="docGrid"></div>
       </section>
 
@@ -37,11 +35,11 @@
 
     <script src="assets/js/docs-shell.js"></script>
     <script>
-      // Renders the landing-page card grid from the shared documentation page list.
+      // Renders landing cards with section-specific preview text for each documentation entry.
       function renderLandingGrid() {
         const grid = document.getElementById('docGrid');
         grid.innerHTML = docsPages
-          .map((p) => `<a class="doc-card" href="${p.html}">${p.icon} ${p.title}<span>${p.summary || `Read ${p.title}`}</span></a>`)
+          .map((p) => `<a class="doc-card" href="${p.html}">${p.icon} ${p.title}<span>${p.summary}</span></a>`)
           .join('');
       }
       renderLandingGrid();
