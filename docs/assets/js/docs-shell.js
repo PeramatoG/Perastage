@@ -12,6 +12,8 @@ const docsPages = [
   { md: 'repository_layout.md', html: 'repository_layout.html', title: 'Repository layout', icon: '🧩' }
 ];
 
+const mdToHtmlMap = new Map(docsPages.map((page) => [page.md, page.html]));
+
 // Builds a shared navigation list and highlights the active HTML page.
 function renderNav(activeHtml) {
   return docsPages
@@ -48,12 +50,37 @@ function renderDocShell(activeHtml) {
   });
 }
 
+// Converts documentation Markdown links to their HTML shell counterparts.
+function rewriteMarkdownLinks(contentElement) {
+  const links = contentElement.querySelectorAll('a[href]');
+  links.forEach((link) => {
+    const href = link.getAttribute('href');
+    if (!href || href.startsWith('#')) {
+      return;
+    }
+    try {
+      const parsed = new URL(href, window.location.href);
+      const markdownName = parsed.pathname.split('/').pop();
+      const htmlTarget = mdToHtmlMap.get(markdownName);
+      if (!htmlTarget) {
+        return;
+      }
+      parsed.pathname = parsed.pathname.replace(/[^/]+$/, htmlTarget);
+      link.setAttribute('href', `${parsed.pathname}${parsed.search}${parsed.hash}`);
+    } catch (_unused) {
+      // Ignores invalid URLs and keeps their original href value.
+    }
+  });
+}
+
 // Loads a markdown document, converts it to HTML, and injects it into the page content area.
 function loadMarkdown(mdFile) {
   fetch(mdFile)
     .then((res) => res.text())
     .then((md) => {
-      document.getElementById('content').innerHTML = marked.parse(md);
+      const contentElement = document.getElementById('content');
+      contentElement.innerHTML = marked.parse(md);
+      rewriteMarkdownLinks(contentElement);
     })
     .catch((err) => {
       document.getElementById('content').innerHTML = `<p>Could not load documentation file: ${mdFile}</p>`;
