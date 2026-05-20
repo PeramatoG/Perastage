@@ -783,6 +783,49 @@ static bool ValidateMvr16Export(
   return true;
 }
 
+// Collects every archive-relative file path referenced by file-bearing XML attributes.
+static std::unordered_set<std::string>
+CollectReferencedArchivePaths(const tinyxml2::XMLDocument &doc) {
+  std::unordered_set<std::string> referencedPaths;
+  tinyxml2::XMLElement *root = doc.FirstChildElement("GeneralSceneDescription");
+  if (!root)
+    return referencedPaths;
+
+  std::vector<tinyxml2::XMLElement *> stack;
+  for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
+       node = node->NextSiblingElement()) {
+    stack.push_back(node);
+  }
+
+  while (!stack.empty()) {
+    tinyxml2::XMLElement *current = stack.back();
+    stack.pop_back();
+    if (!current)
+      continue;
+
+    const char *fileName = current->Attribute("fileName");
+    if (fileName) {
+      const std::string normalized = NormalizeArchivePath(TrimAscii(fileName));
+      if (!normalized.empty())
+        referencedPaths.insert(normalized);
+    }
+
+    const char *gdtfSpec = current->Attribute("GDTFSpec");
+    if (gdtfSpec) {
+      const std::string normalized = NormalizeArchivePath(TrimAscii(gdtfSpec));
+      if (!normalized.empty())
+        referencedPaths.insert(normalized);
+    }
+
+    for (tinyxml2::XMLElement *child = current->FirstChildElement(); child;
+         child = child->NextSiblingElement()) {
+      stack.push_back(child);
+    }
+  }
+
+  return referencedPaths;
+}
+
 static bool TryParseInt(std::string_view text, int &out) {
   if (text.empty())
     return false;
@@ -2530,6 +2573,19 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     rootUserData->InsertEndChild(data);
     root->InsertEndChild(rootUserData);
   }
+
+  // Prunes non-referenced resources so deleted scene elements do not keep stale payload files.
+  const std::unordered_set<std::string> referencedArchivePaths =
+      CollectReferencedArchivePaths(doc);
+  resourceEntries.erase(
+      std::remove_if(resourceEntries.begin(), resourceEntries.end(),
+                     [&](const ResourceEntry &entry) {
+                       const std::string normalized =
+                           NormalizeArchivePath(entry.archivePath);
+                       return normalized.empty() ||
+                              !referencedArchivePaths.contains(normalized);
+                     }),
+      resourceEntries.end());
 
   std::unordered_map<std::string, int> plannedArchiveEntries;
   plannedArchiveEntries["GeneralSceneDescription.xml"] = 1;
