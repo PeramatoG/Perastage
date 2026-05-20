@@ -61,6 +61,7 @@ private:
     wxUIntPtr nextRowKey = 1;
     std::string highlightedUuid;
     bool dragSelecting = false;
+    bool modelFileEditCommitPending = false;
     int startRow = -1;
     IGuiConfigServices *guiConfigServices = nullptr;
     void InitializeTable();

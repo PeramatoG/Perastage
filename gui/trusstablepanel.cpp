@@ -26,6 +26,7 @@
 #include "layerpanel.h"
 #include "matrixutils.h"
 #include "projectutils.h"
+#include "resource_reference_sync.h"
 #include "riggingpanel.h"
 #include "stringutils.h"
 #include "summarypanel.h"
@@ -844,6 +845,7 @@ void TrussTablePanel::ApplyPositionValueUpdates(
     }
 }
 
+// Applies edited truss table values back into the scene data model.
 void TrussTablePanel::UpdateSceneData(bool logChanges)
 {
     // Ensure in-place cell editors commit pending values before reading table rows.
@@ -903,16 +905,20 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
             next.layer = layerStr;
 
         if (i < symbolPaths.size())
-            next.symbolFile = std::string(symbolPaths[i].ToUTF8());
+            next.symbolFile = gui::PreserveSceneResourceReferenceForTableSync(
+                scene.basePath, old.symbolFile, std::string(symbolPaths[i].ToUTF8()));
         else if (i < modelPaths.size())
-            next.symbolFile = std::string(modelPaths[i].ToUTF8());
+            next.symbolFile = gui::PreserveSceneResourceReferenceForTableSync(
+                scene.basePath, old.symbolFile, std::string(modelPaths[i].ToUTF8()));
         else {
             table->GetValue(v, i, 2);
             next.symbolFile = std::string(v.GetString().ToUTF8());
         }
 
         if (i < modelPaths.size())
-            next.modelFile = std::string(modelPaths[i].ToUTF8());
+            next.modelFile = gui::PreserveSceneResourceReferenceForTableSync(
+                scene.basePath, old.modelFile, std::string(modelPaths[i].ToUTF8()),
+                old.symbolFile);
         else {
             table->GetValue(v, i, 2);
             next.modelFile = std::string(v.GetString().ToUTF8());

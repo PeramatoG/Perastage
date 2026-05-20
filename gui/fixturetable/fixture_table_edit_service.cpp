@@ -2,6 +2,7 @@
 
 #include "consolepanel.h"
 #include "../dataview_edit_commit.h"
+#include "../resource_reference_sync.h"
 #include "matrixutils.h"
 #include "gdtfdictionary.h"
 #include "gdtf_fixture_category.h"
@@ -120,6 +121,7 @@ std::vector<size_t> ResolveTargetRows(
   return rows;
 }
 
+// Applies full fixture table rows back into the scene while preserving stable resource references.
 void ApplyFullRowChanges(
     FixtureTableEditService::ISceneAdapter &adapter, wxDataViewListCtrl *table,
     const std::vector<std::string> &rowUuids, const std::vector<wxString> &gdtfPaths,
@@ -145,7 +147,8 @@ void ApplyFullRowChanges(
         manualCategoryUuids->find(rowUuids[i]) != manualCategoryUuids->end();
 
     if (i < gdtfPaths.size())
-      next.gdtfSpec = std::string(gdtfPaths[i].ToUTF8());
+      next.gdtfSpec = gui::PreserveSceneResourceReferenceForTableSync(
+          scene.basePath, old.gdtfSpec, std::string(gdtfPaths[i].ToUTF8()));
 
     wxVariant v;
     table->GetValue(v, i, 1);
