@@ -71,6 +71,39 @@ Minimal examples:
 
 For the full technical contract (all parsing and placement rules), see [`docs/text_to_scene_rules.md`](docs/text_to_scene_rules.md).
 
+Pipe/vara keywords currently accepted by the parser:
+
+- `pipe`, `pipes`, `vara`, `varas`
+- Optional length is supported; omitted length defaults to `14 m`.
+- Created pipes are scene objects (not truss rows) represented as cylinder primitives.
+- Generated names follow `PIPE <hang>` (for example `PIPE LX1`).
+
+Advanced primitive identifiers used in data-level references:
+
+- `primitive:sphere`
+- `primitive:cube`
+- `primitive:cylinder;top=...;bottom=...;height=...`
+
+
+
+## Edit > Add basic geometry
+
+Use **Edit > Add basic geometry** to create primitive scene objects on the **active layer**.
+
+| Primitive | Dialog fields |
+| --- | --- |
+| `Sphere` | Radius, Quantity |
+| `Cube` | Length, Height, Width, Quantity |
+| `Cylinder` | Top radius, Bottom radius, Height, Quantity |
+
+Dimension inputs use the current unit preference from **Edit > Preferences > Units**:
+
+- Metric active: plain values are interpreted as meters.
+- Imperial active: plain values are interpreted as feet.
+- Explicit suffixes (`m`, `ft`, `in`) are accepted in both modes.
+
+After creation, objects can be selected and edited from normal scene/object workflows.
+
 ## Build-dependent tools
 
 Some tools are intentionally available only in **Debug** builds:
@@ -317,6 +350,39 @@ Relación entre **Apply filter** y **Create**:
 - Tokens de coordenadas/margen como `(0, -1, 9)` y `[0.8]` se preservan durante el filtrado, así que su efecto se mantiene al crear.
 
 Para el contrato técnico completo (todas las reglas de parseo y placement), consulta [`docs/text_to_scene_rules.md`](docs/text_to_scene_rules.md).
+
+Keywords de pipes/varas aceptadas por el parser:
+
+- `pipe`, `pipes`, `vara`, `varas`
+- La longitud es opcional; si se omite, el valor por defecto es `14 m`.
+- Los pipes se crean como scene objects (no como trusses) usando cilindros primitivos.
+- El nombre generado sigue `PIPE <hang>` (por ejemplo `PIPE LX1`).
+
+Identificadores primitivos avanzados (referencia):
+
+- `primitive:sphere`
+- `primitive:cube`
+- `primitive:cylinder;top=...;bottom=...;height=...`
+
+
+
+## Edit > Add basic geometry
+
+Usa **Edit > Add basic geometry** para crear objetos primitivos en la **capa activa**.
+
+| Primitive | Campos del diálogo |
+| --- | --- |
+| `Sphere` | Radius, Quantity |
+| `Cube` | Length, Height, Width, Quantity |
+| `Cylinder` | Top radius, Bottom radius, Height, Quantity |
+
+Las dimensiones usan la preferencia activa de **Edit > Preferences > Units**:
+
+- Con metric activo, un número sin sufijo se interpreta en metros.
+- Con imperial activo, un número sin sufijo se interpreta en pies.
+- Los sufijos explícitos (`m`, `ft`, `in`) se aceptan en ambos modos.
+
+Después de crear, estos objetos se pueden seleccionar y editar desde los flujos normales de escena/objetos.
 
 ## Comandos de consola (completo)
 
