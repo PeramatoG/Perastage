@@ -783,6 +783,117 @@ static bool ValidateMvr16Export(
   return true;
 }
 
+// Normalizes archive entry paths for stable comparisons during resource pruning.
+static std::string NormalizeArchiveEntryPath(std::string path) {
+  path = TrimAscii(std::move(path));
+  std::replace(path.begin(), path.end(), '\\', '/');
+  while (path.rfind("./", 0) == 0)
+    path.erase(0, 2);
+  while (!path.empty() && path.front() == '/')
+    path.erase(path.begin());
+  return path;
+}
+
+// Collects every archive-relative file path referenced by file-bearing XML attributes.
+static std::unordered_set<std::string>
+CollectReferencedArchivePaths(const tinyxml2::XMLDocument &doc) {
+  std::unordered_set<std::string> referencedPaths;
+  const tinyxml2::XMLElement *root =
+      doc.FirstChildElement("GeneralSceneDescription");
+  if (!root)
+    return referencedPaths;
+
+  std::vector<const tinyxml2::XMLElement *> stack;
+  for (const tinyxml2::XMLElement *node = root->FirstChildElement(); node;
+       node = node->NextSiblingElement()) {
+    stack.push_back(node);
+  }
+
+  while (!stack.empty()) {
+    const tinyxml2::XMLElement *current = stack.back();
+    stack.pop_back();
+    if (!current)
+      continue;
+
+    const char *fileName = current->Attribute("fileName");
+    if (fileName) {
+      const std::string normalized =
+          NormalizeArchiveEntryPath(TrimAscii(fileName));
+      if (!normalized.empty())
+        referencedPaths.insert(normalized);
+    }
+
+    // Captures <GDTFSpec>archive/path.gdtf</GDTFSpec> element text references.
+    if (std::string(current->Name()) == "GDTFSpec") {
+      const char *gdtfSpecText = current->GetText();
+      if (gdtfSpecText) {
+        const std::string normalized =
+            NormalizeArchiveEntryPath(TrimAscii(gdtfSpecText));
+        if (!normalized.empty())
+          referencedPaths.insert(normalized);
+      }
+    }
+
+    for (const tinyxml2::XMLElement *child = current->FirstChildElement(); child;
+         child = child->NextSiblingElement()) {
+      stack.push_back(child);
+    }
+  }
+
+  return referencedPaths;
+}
+
+// Logs referenced and pruned archive paths to diagnose unexpected retained resources.
+static void LogResourcePruneDiagnostics(
+    const std::unordered_set<std::string> &referencedArchivePaths,
+    const std::vector<ResourceEntry> &allResourceEntries,
+    const std::vector<ResourceEntry> &keptResourceEntries) {
+  std::unordered_set<std::string> keptNormalized;
+  keptNormalized.reserve(keptResourceEntries.size());
+  for (const auto &entry : keptResourceEntries) {
+    const std::string normalized =
+        NormalizeArchiveEntryPath(entry.archivePath);
+    if (!normalized.empty())
+      keptNormalized.insert(normalized);
+  }
+
+  size_t prunedCount = 0;
+  for (const auto &entry : allResourceEntries) {
+    const std::string normalized =
+        NormalizeArchiveEntryPath(entry.archivePath);
+    if (normalized.empty())
+      continue;
+    if (!keptNormalized.contains(normalized)) {
+      ++prunedCount;
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "MVR export pruned unreferenced archive resource: " + normalized);
+    }
+  }
+
+  Logger::Instance().Log(
+      Logger::Level::Info,
+      "MVR export resource pruning summary: referenced_paths=" +
+          std::to_string(referencedArchivePaths.size()) +
+          ", planned_resources_before=" + std::to_string(allResourceEntries.size()) +
+          ", planned_resources_after=" + std::to_string(keptResourceEntries.size()) +
+          ", pruned=" + std::to_string(prunedCount));
+}
+
+// Collects Symdef UUIDs referenced by trusses that preserve Symbol/Symdef geometry representation.
+static std::unordered_set<std::string>
+CollectReferencedSymdefUuids(const MvrScene &scene) {
+  std::unordered_set<std::string> referencedSymdefs;
+  for (const auto &[uuid, truss] : scene.trusses) {
+    if (truss.sourceRepresentation != Truss::GeometryRepresentation::SymbolSymdef)
+      continue;
+    const std::string symdefUuid = TrimAscii(truss.sourceSymdefUuid);
+    if (!symdefUuid.empty())
+      referencedSymdefs.insert(symdefUuid);
+  }
+  return referencedSymdefs;
+}
+
 static bool TryParseInt(std::string_view text, int &out) {
   if (text.empty())
     return false;
@@ -1552,7 +1663,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       pos->SetAttribute("name", name.c_str());
     aux->InsertEndChild(pos);
   }
+  const std::unordered_set<std::string> referencedSymdefUuids =
+      CollectReferencedSymdefUuids(scene);
   for (const auto &[uuid, file] : scene.symdefFiles) {
+    if (!referencedSymdefUuids.contains(uuid))
+      continue;
     tinyxml2::XMLElement *sym = doc.NewElement("Symdef");
     sym->SetAttribute("uuid", uuid.c_str());
 
@@ -2530,6 +2645,22 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     rootUserData->InsertEndChild(data);
     root->InsertEndChild(rootUserData);
   }
+
+  // Prunes non-referenced resources so deleted scene elements do not keep stale payload files.
+  const std::unordered_set<std::string> referencedArchivePaths =
+      CollectReferencedArchivePaths(doc);
+  const std::vector<ResourceEntry> allResourceEntriesBeforePrune = resourceEntries;
+  resourceEntries.erase(
+      std::remove_if(resourceEntries.begin(), resourceEntries.end(),
+                     [&](const ResourceEntry &entry) {
+                       const std::string normalized =
+                           NormalizeArchiveEntryPath(entry.archivePath);
+                       return normalized.empty() ||
+                              !referencedArchivePaths.contains(normalized);
+                     }),
+      resourceEntries.end());
+  LogResourcePruneDiagnostics(referencedArchivePaths,
+                              allResourceEntriesBeforePrune, resourceEntries);
 
   std::unordered_map<std::string, int> plannedArchiveEntries;
   plannedArchiveEntries["GeneralSceneDescription.xml"] = 1;
