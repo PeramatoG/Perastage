@@ -1,7 +1,5 @@
 #include "loader_obj.h"
 
-#include "matrixutils.h"
-
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -18,12 +16,14 @@ struct ObjIndex {
   int vt = -1;
   int vn = -1;
 
+  // Compares two OBJ vertex index tuples to support hash-map deduplication.
   bool operator==(const ObjIndex &other) const {
     return v == other.v && vt == other.vt && vn == other.vn;
   }
 };
 
 struct ObjIndexHash {
+  // Produces a stable hash for combined OBJ position/UV/normal indices.
   size_t operator()(const ObjIndex &idx) const {
     return (static_cast<size_t>(idx.v + 1) * 73856093u) ^
            (static_cast<size_t>(idx.vt + 1) * 19349663u) ^
@@ -93,8 +93,7 @@ bool LoadOBJ(const std::string &path, Mesh &outMesh, std::string *errorMessage) 
   outMesh.vertices.clear();
   outMesh.indices.clear();
   outMesh.normals.clear();
-  outMesh.uvs.clear();
-  outMesh.vertexColors.clear();
+  outMesh.texcoords.clear();
   outMesh.textureRgba.clear();
   outMesh.textureWidth = 0;
   outMesh.textureHeight = 0;
@@ -164,7 +163,7 @@ bool LoadOBJ(const std::string &path, Mesh &outMesh, std::string *errorMessage) 
             }
             if (corner.vt >= 0) {
               const auto &t = texcoords[static_cast<size_t>(corner.vt)];
-              outMesh.uvs.insert(outMesh.uvs.end(), {t[0], 1.0f - t[1]});
+              outMesh.texcoords.insert(outMesh.texcoords.end(), {t[0], 1.0f - t[1]});
             }
             outMesh.indices.push_back(newIndex);
           } else {
@@ -183,12 +182,12 @@ bool LoadOBJ(const std::string &path, Mesh &outMesh, std::string *errorMessage) 
 
   const size_t vertexCount = outMesh.vertices.size() / 3;
   if (outMesh.normals.size() != outMesh.vertices.size())
-    ComputeVertexNormals(outMesh.vertices, outMesh.indices, outMesh.normals);
-  if (outMesh.uvs.size() != vertexCount * 2)
-    outMesh.uvs.assign(vertexCount * 2, 0.0f);
+    ComputeNormals(outMesh);
+  if (outMesh.texcoords.size() != vertexCount * 2)
+    outMesh.texcoords.assign(vertexCount * 2, 0.0f);
 
-  outMesh.color = {0.85f, 0.85f, 0.85f};
-  outMesh.opacity = 1.0f;
+  outMesh.materialBaseColor = {0.85f, 0.85f, 0.85f};
+  outMesh.hasMaterialBaseColor = true;
   return true;
 }
 
@@ -209,7 +208,7 @@ bool ConvertObjFileToGlb(const std::string &objPath, const std::string &glbPath,
 
   const uint32_t posOffset = appendAligned(mesh.vertices.data(), mesh.vertices.size() * sizeof(float));
   const uint32_t normOffset = appendAligned(mesh.normals.data(), mesh.normals.size() * sizeof(float));
-  const uint32_t uvOffset = appendAligned(mesh.uvs.data(), mesh.uvs.size() * sizeof(float));
+  const uint32_t uvOffset = appendAligned(mesh.texcoords.data(), mesh.texcoords.size() * sizeof(float));
   const uint32_t idxOffset = appendAligned(mesh.indices.data(), mesh.indices.size() * sizeof(uint32_t));
 
   const size_t vertexCount = mesh.vertices.size() / 3;
@@ -219,8 +218,8 @@ bool ConvertObjFileToGlb(const std::string &objPath, const std::string &glbPath,
        << "\"bufferViews\":["
        << "{\"buffer\":0,\"byteOffset\":" << posOffset << ",\"byteLength\":" << mesh.vertices.size() * sizeof(float) << "},"
        << "{\"buffer\":0,\"byteOffset\":" << normOffset << ",\"byteLength\":" << mesh.normals.size() * sizeof(float) << "},"
-       << "{\"buffer\":0,\"byteOffset\":" << uvOffset << ",\"byteLength\":" << mesh.uvs.size() * sizeof(float) << "},"
-       << "{\"buffer\":0,\"byteOffset\":" << idxOffset << ",\"byteLength\":" << mesh.indices.size() * sizeof(uint32_t) << "}"],"
+       << "{\"buffer\":0,\"byteOffset\":" << uvOffset << ",\"byteLength\":" << mesh.texcoords.size() * sizeof(float) << "},"
+       << "{\"buffer\":0,\"byteOffset\":" << idxOffset << ",\"byteLength\":" << mesh.indices.size() * sizeof(uint32_t) << "}],"
        << "\"accessors\":["
        << "{\"bufferView\":0,\"componentType\":5126,\"count\":" << vertexCount << ",\"type\":\"VEC3\"},"
        << "{\"bufferView\":1,\"componentType\":5126,\"count\":" << vertexCount << ",\"type\":\"VEC3\"},"
