@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Perastage Documentation</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+  </head>
+  <body id="top">
+    <div id="app"></div>
+
+    <script src="assets/js/marked.min.js"></script>
+    <script src="assets/js/docs-shell.js"></script>
+    <script>
+      // Selects the markdown source from the URL query and falls back to quick-start.
+      function getMarkdownFromQuery() {
+        const params = new URLSearchParams(window.location.search);
+        const requested = params.get('md');
+        return requested && requested.endsWith('.md') ? requested : 'quick-start.md';
+      }
+
+      const mdFile = getMarkdownFromQuery();
+      const page = docsPages.find((entry) => entry.md === mdFile);
+      const activeHtml = page ? page.html : `doc.html?md=${encodeURIComponent(mdFile)}`;
+      renderDocShell(activeHtml);
+      loadMarkdown(mdFile);
+    </script>
+  </body>
+</html>

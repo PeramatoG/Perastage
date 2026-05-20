@@ -9,7 +9,9 @@ const docsPages = [
   { md: 'faq.md', html: 'faq.html', title: 'FAQ', icon: '❓' },
   { md: 'features.md', html: 'features.html', title: 'Feature overview', icon: '✨' },
   { md: 'build.md', html: 'build.html', title: 'Build guide', icon: '🏗️' },
-  { md: 'repository_layout.md', html: 'repository_layout.html', title: 'Repository layout', icon: '🧩' }
+  { md: 'repository_layout.md', html: 'repository_layout.html', title: 'Repository layout', icon: '🧩' },
+  { md: 'architecture.md', html: 'doc.html?md=architecture.md', title: 'Architecture', icon: '🏛️' },
+  { md: 'shortcuts-and-command-bar.md', html: 'doc.html?md=shortcuts-and-command-bar.md', title: 'Shortcuts and commands', icon: '⌨️' }
 ];
 
 const mdToHtmlMap = new Map(docsPages.map((page) => [page.md, page.html]));
@@ -50,6 +52,18 @@ function renderDocShell(activeHtml) {
   });
 }
 
+// Resolves a markdown file name from either explicit mapping or a generic .md to doc shell route.
+function resolveMarkdownHref(markdownName) {
+  const mappedTarget = mdToHtmlMap.get(markdownName);
+  if (mappedTarget) {
+    return mappedTarget;
+  }
+  if (markdownName && markdownName.endsWith('.md')) {
+    return `doc.html?md=${encodeURIComponent(markdownName)}`;
+  }
+  return null;
+}
+
 // Converts documentation Markdown links to their HTML shell counterparts.
 function rewriteMarkdownLinks(contentElement) {
   const links = contentElement.querySelectorAll('a[href]');
@@ -61,8 +75,12 @@ function rewriteMarkdownLinks(contentElement) {
     try {
       const parsed = new URL(href, window.location.href);
       const markdownName = parsed.pathname.split('/').pop();
-      const htmlTarget = mdToHtmlMap.get(markdownName);
+      const htmlTarget = resolveMarkdownHref(markdownName);
       if (!htmlTarget) {
+        return;
+      }
+      if (htmlTarget.includes('?')) {
+        link.setAttribute('href', htmlTarget);
         return;
       }
       parsed.pathname = parsed.pathname.replace(/[^/]+$/, htmlTarget);
