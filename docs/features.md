@@ -1,63 +1,157 @@
 # Perastage Feature Overview
 
-This page summarizes the current user-facing workflows in Perastage.
+This document is the canonical feature map for the current Perastage release line. It consolidates the active workflows that have evolved from the beta period into the current production-oriented toolset.
 
-## Core workflows
+## Audience and Primary Use Cases
 
-- Open and review stage scenes from `.mvr`.
-- Create and manage Perastage projects (`.pstg`).
-- Inspect and edit scene data through synchronized 3D/2D viewers and data tables.
-- Produce layout/plan documentation for print/export.
+Perastage is designed for lighting designers, programmers, and technicians who need to:
 
-## Scene data and editing
+- import and normalize real show data,
+- visualize rigs in 3D and 2D,
+- maintain fixture/truss/hoist/object metadata,
+- generate printable and shareable technical documentation.
 
-Perastage provides dedicated data workflows for:
+## Project and Scene Lifecycle
 
-- **Fixtures**
-- **Trusses**
-- **Hoists**
-- **Scene objects** (including primitive geometry)
-- **Layers** and layer-based organization
+### Project files and defaults
 
-Additional production helpers include patching, summary/rigging overviews, and console-based selection/transform commands.
+- Perastage projects use the `.pstg` format.
+- New projects can load default layout templates from `library/default_layouts/`.
+- Save, Save As, and Load workflows preserve scene and user-facing project context.
 
-## MVR and GDTF
+### Layer-aware organization
 
-- Import `.mvr` scenes for review and editing.
-- Export scene data back to `.mvr`.
-- Use local GDTF dictionaries for fixture mapping.
-- Optionally use GDTF Share credentials/download workflows when configured in the app.
+- Fixtures, trusses, hoists, and objects can be grouped into layers.
+- Layer visibility and selection behavior is shared across viewer and documentation workflows.
+- Active layer controls where newly created items are placed.
 
-## Text-to-scene
+## MVR and GDTF Workflows
 
-From **Tools > Create from text...** you can:
+### MVR import and open behavior
 
-- normalize rider text with **Apply filter**,
-- create fixtures, trusses, and scene objects from parsed text,
-- use supported keywords such as `truss`, `pipe`, `pipes`, `vara`, `varas`.
+- Imports MVR 1.6 scenes with fixtures, trusses, hoists/supports, and generic objects.
+- `.mvr` opening uses a clean-scene reset plus import flow for deterministic behavior.
+- Menu import and OS association entry points use the same progress and UI lock strategy.
 
-Full parser behavior is documented in [Text-to-scene rules](text_to_scene_rules.md).
+### MVR export
 
-## Basic geometry
+- Exports the current scene back to `.mvr` for interoperability.
+- Parametric objects exported as Fixture/Truss/Support receive stable non-empty `FixtureID` and globally unique `FixtureIDNumeric` values.
 
-From **Edit > Add basic geometry** you can create:
+### GDTF integration and dictionary pipeline
 
-- `Sphere`
-- `Cube`
-- `Cylinder`
+- Local fixture dictionary maps textual fixture descriptions to GDTF specs under `library/`.
+- GDTF-Share download flow is available from the Tools menu.
+- Export packages GDTFs under `gdtf/` with archive-relative forward-slash paths.
+- Filename collisions are handled deterministically (`name (1).gdtf`, etc.) and references are updated.
+- Policy details for mutation, revisions, and schema fallback are maintained in [GDTF mutation policy](gdtf_mutation_policy.md).
 
-New primitives are created on the active layer.
+## Rider and Text-to-Scene Generation
 
-## Visualization and layout output
+### Inputs and parsing flow
 
-- **3D Viewer** for scene navigation and review.
-- **2D Viewer** for plan-oriented navigation.
-- **Layouts** for page composition (views, tables, legends, text, images).
-- Export/print flows for technical documentation.
+- Rider-like imports accept text and PDF input through **Tools → Create from text**.
+- **Apply filter** supports parser-first cleanup before final object creation.
+- Parser understands hang tokens, including optional coordinate payloads where supported.
+- `CALLES` and `SIDES` headers map into side-truss/fixture placement workflows.
 
-## Related docs
+### Rules contract
 
-- [Perastage Help](../help.md)
-- [Text-to-scene rules](text_to_scene_rules.md)
-- [GUI shortcut architecture](gui_shortcut_architecture.md)
-- [Packaging](packaging.md)
+- Parsing and placement behavior is governed by [Text-to-scene rules](text_to_scene_rules.md).
+- Any parser behavior changes must update the rules document in the same change set.
+
+## Dictionary Portability and Asset Handling
+
+Perastage dictionary import/export supports multiple transport levels:
+
+- JSON snapshot (references only),
+- JSON snapshot with optional copied assets,
+- portable ZIP bundle with manifest and assets.
+
+Additional safeguards include:
+
+- preflight path validation,
+- missing-reference reporting,
+- collision policy prompts for differing file content.
+
+## Patch, Data Tables, and Editing Helpers
+
+### Patch management
+
+- Manual and assisted patch workflows support universe and address management.
+- Auto patch can group by hang position/type and assign channels sequentially.
+
+### Data tables
+
+- Dedicated tables for fixtures, trusses, hoists, and objects.
+- Multi-row editing helpers include fills, ranges, interpolation, and relative expressions.
+- CSV export is available through file/export workflows.
+
+### Conversion and type/color helpers
+
+- **Auto color** can assign colors by layer/type while preserving explicit colors.
+- **Convert to Hoist** transforms selected fixtures into supports while retaining scene context.
+
+## Visualization and Layout Production
+
+### 3D Viewer
+
+- OpenGL-based viewer with orbit, pan, zoom, and preset camera views.
+- Selection flows integrate with scene tables and command operations.
+- Context menu includes **Render style** with these options:
+  - **Standard** for general-purpose scene reading.
+  - **Sketch mode** for high-readability geometry outlines.
+  - **Textured** for material-aware scenic validation.
+  - **Wireframe** for technical debugging and overlap checks.
+  - **White** for neutral shape review.
+  - **By device type** for fast fixture-category grouping.
+  - **By layer** for layer-organization validation.
+  - **By universe** for DMX universe distribution checks.
+
+### 2D Viewer
+
+- Top-down plan visualization with configurable grid and labels.
+- Supports vector draw-command capture for downstream document/export workflows.
+
+### Layout system
+
+- Multi-page layout authoring with page naming and orientation control.
+- Place and edit views, legends, event tables, text blocks, and image elements.
+- Layouts can be exported and printed as production documentation sheets.
+
+## Printing and Export Outputs
+
+- Layout-to-PDF output for full documentation sets.
+- Print table workflows for fixtures/trusses/hoists/objects.
+- Debug-only 2D direct print dialog is gated in Release builds via feature flags.
+
+## GUI Workflow and Operations
+
+### Console and command workflows
+
+- Console supports text command workflows for selection and transform operations.
+- Command history and prompt behavior provide fast operator iteration in large scenes.
+
+### Units and preferences
+
+- Distance and weight systems are independently configurable.
+- Internal canonical values remain millimeters (distance) and kilograms (weight).
+- Input parsing accepts explicit unit suffixes regardless of active display system.
+
+### Shortcut and interaction model
+
+- Keyboard/mouse interaction includes viewer navigation, selection, and layout editing actions.
+- Detailed precedence and scope are tracked in [GUI shortcut architecture](gui_shortcut_architecture.md).
+
+## Future/Experimental
+
+- Some tools remain Debug-only for production safety in Release builds.
+- Large-scene performance and selected advanced workflows continue to be iterated.
+
+## Related Documents
+
+- [Changes since beta 0.1.0](changes_since_beta_0_1_0.md)
+- [Build and dependency guide](build.md)
+- [Packaging and platform integration](packaging.md)
+- [Build troubleshooting](troubleshooting.md)
+- [Documentation policy and synchronization checklist](documentation_policy.md#documentation-synchronization-checklist)

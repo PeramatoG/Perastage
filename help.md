@@ -1,355 +1,552 @@
 <!-- LANG:en -->
 # Perastage Help
 
-## 1) What Perastage is
+## Quick Start
 
-Perastage is a desktop tool to inspect and prepare stage scenes from `.mvr` and `.pstg` files with 3D, 2D, table, and layout workflows.
+1. Launch the application.
+2. Use **File > Import MVR...** to load an `.mvr` file.
+3. Use the table tabs (**Fixtures**, **Trusses**, **Hoists**, **Objects**) to inspect data.
+4. Toggle panes via the **View** menu if any pane is hidden (Console, Layers, Layouts, Summary, Rigging, 2D Viewer, 3D Viewer, and 2D Render Options).
 
-## 2) Opening files and projects
+## Documentation synchronization
 
-- **File > New** creates a new `.pstg` project.
-- **File > Load** opens an existing `.pstg` project.
-- **File > Save** and **File > Save As...** store project changes.
-- **File > Import MVR...** imports an `.mvr` scene into the current workflow.
+For maintainers updating user workflows or parser behavior, follow the [Documentation synchronization checklist](docs/documentation_policy.md#documentation-synchronization-checklist) before merging.
 
-## 3) Main interface overview
+## Project Files
 
-Main production panels:
+Perastage projects (`.pstg`) store the scene, layouts, and user settings.
 
-- **3D Viewer** for perspective review and selection.
-- **2D Viewer** for top/layout-oriented navigation.
-- **Fixtures / Trusses / Hoists / Objects** tables for scene data editing.
-- **Layers** for visibility and active-layer control.
-- **Layouts** for printable page composition.
-- **Console** for command-based selection and transform workflows.
+**File > New / Load / Save / Save As...**
 
-Use **View** to show or hide panels.
+- **New** creates a new project. If default layout templates are available in
+  `library/default_layouts/`, they are loaded; otherwise Perastage keeps the
+  built-in blank layout.
+- On first launch (or any empty config without stored layouts), Perastage also
+  attempts to preload `library/default_layouts/`.
+- **Load** opens an existing `.pstg` file.
+- **Save** stores changes in the current project file.
+- **Save As...** writes the project under a new name or location.
 
-## 4) 3D view controls
+## Units (Metric/Imperial)
 
-Keyboard:
-
-- Arrow keys: orbit
-- Shift + arrow keys: pan
-- Alt + arrow keys: zoom
-- Numpad 1 / 3 / 7: Front / Right / Top views
-- Numpad 5: reset camera orientation
-- Z: frame scene
-
-Mouse:
-
-- Left drag: orbit
-- Shift + left drag or middle drag: pan
-- Mouse wheel: zoom
-- Left click: select object under cursor
-- Shift/Ctrl + left click: toggle selection
-- Ctrl + left drag: rectangle selection
-
-## 5) 2D/layout view controls
-
-### 2D Viewer
-
-Keyboard:
-
-- Arrow keys: pan
-- Alt + arrow keys: zoom
-
-Mouse:
-
-- Left drag on empty space: pan
-- Mouse wheel: zoom
-- Left click: select object
-- Shift/Ctrl + left click: toggle selection
-- Ctrl + left drag: rectangle selection
-- Left drag on selected items: move selection
-
-### Layout View
-
-Keyboard:
-
-- Delete: delete selected element
-- Z: fit layout view
-
-Mouse:
-
-- Left drag frame handle: resize element
-- Left drag frame: move element
-- Left drag empty space: pan
-- Mouse wheel: zoom
-- Double click frame: edit element
-- Right click frame: context actions
-
-## 6) Tables and scene data panels
-
-- **Fixtures**: fixture patch, type, positioning, and related metadata.
-- **Trusses**: truss units and structural model data.
-- **Hoists**: load-related rigging elements.
-- **Objects**: generic scene objects, including primitive geometry objects.
-- **Summary** and **Rigging** panels provide quick overview and aggregated checks.
-
-## 7) Adding and editing objects
-
-You can add scene objects from the GUI and later edit them through scene selection and table workflows.
-
-New objects are assigned to the active layer.
-
-## 8) `Add basic geometry`
-
-Use **Edit > Add basic geometry** and choose one of:
-
-- **Sphere...**
-  - Radius
-  - Quantity
-- **Cube...**
-  - Length
-  - Height
-  - Width
-  - Quantity
-- **Cylinder...**
-  - Top radius
-  - Bottom radius
-  - Height
-  - Quantity
-
-Dimension inputs follow the current distance preference from **Edit > Preferences... > Units**:
-
-- Metric mode: plain values are interpreted as meters.
-- Imperial mode: plain values are interpreted as feet.
-- Explicit unit suffixes (`m`, `ft`, `in`) are accepted in both modes.
-
-## 9) `Create from text`
-
-Use **Tools > Create from text...** to create fixtures, trusses, and scene objects from rider-style text.
-
-### Quick behavior
-
-- **Apply filter** normalizes the current text.
-- **Create** parses the text currently visible in the editor and creates scene data.
-- Quantity, hang, and optional coordinate/margin tokens are respected when parsed.
-
-## 10) Layouts, printing, and export
-
-- Use **Layouts** to build printable pages with views, legends, tables, text, and images.
-- Export project scene data with MVR workflows.
-- Some print/debug utilities can be build-dependent.
-
-## 11) Preferences
-
-Open **Edit > Preferences...**.
-
-Important user-facing options include unit systems:
+Set unit systems in **Edit > Preferences > Units**:
 
 - **Distance system:** Metric (`m`) or Imperial (`ft`)
 - **Weight system:** Metric (`kg`) or Imperial (`lb`)
 
-Internal canonical values stay in `mm` (distance) and `kg` (weight).
+Behavior:
 
-## 12) Keyboard shortcuts
-
-### Global
-
-- Ctrl+N: New project
-- Ctrl+L: Load project
-- Ctrl+S: Save project
-- Ctrl+Q: Close application
-- Ctrl+Z / Ctrl+Y: Undo / Redo
-- Del: Delete selection
-- F1: Open Help
-- F: Focus CLI with prefill token
-- 1 / 2 / 3 / 4: switch Fixtures / Trusses / Hoists / Objects tabs
-
-### Console input
-
-- Esc: exit prompt and restore app shortcuts
-- Up / Down: history
-- Home: move to start of editable input
-
-## 13) Text commands and keywords
-
-### Fixtures
-
-Basic fixture pattern:
-
-```text
-N Fixture Type
-```
-
-Example:
-
-```text
-12 Spot 1500
-```
-
-### Trusses
-
-Accepted truss line forms include `truss` with optional length and target hang:
-
-```text
-1 truss 40X40 12m para LX1
-1 truss 40X40 for LX2
-```
-
-### Pipes / varas
-
-Accepted keywords: `pipe`, `pipes`, `vara`, `varas`.
+- Internal canonical values remain in **mm** (distance) and **kg** (weight).
+- The unit preference changes **display labels** and **plain-number input interpretation**.
+- Inputs with explicit suffixes (`m`, `ft`, `in`, `kg`, `lb`) are accepted regardless of active system.
 
 Examples:
 
-```text
-1 pipe 12m para LX1
-2 varas para LX2
-```
+- Metric distance active: entering `6.2` means `6.2 m`.
+- Imperial distance active: entering `6.2` means `6.2 ft`.
+- Entering `5' 6"` always parses as feet/inches distance.
+- Metric weight active: entering `120` means `120 kg`; imperial means `120 lb`.
 
-Current behavior:
+Formatting precision depends on UI context (table/label/inspector). See [`docs/ui_unit_systems.md`](docs/ui_unit_systems.md) for complete parsing and rounding rules.
 
-- Pipe/vara lines create scene objects represented as cylinder primitives.
-- If length is omitted, default length is `14 m`.
-- Generated names follow `PIPE <hang>` (example: `PIPE LX1`).
-- Pipe objects are separate from truss objects and appear in **Objects**.
+## Tools > Create from text... (quick guide)
 
-### Advanced primitive tokens (reference)
+Use **Tools > Create from text...** to paste rider text, normalize it, and create scene objects.
 
-Internal primitive identifiers used in advanced data flows include:
+Minimal examples:
+
+- Coordinate override in a hang token: `LX1 (0, -1, 9)`
+  - Sets explicit `x, y, z` for that hang/truss target.
+- Hang margin override: `LX1 [0.8]`
+  - Overrides the default distribution margin for that hang.
+- Override precedence when both are present:
+  - Truss-line overrides take precedence over hang-header overrides for the values provided in the truss line (both for `(x, y, z)` and `[margin]`).
+
+**Apply filter** vs **Create**:
+
+- **Apply filter** rewrites the input into normalized text (preview/edit step).
+- **Create** parses the current text in the editor and generates fixtures/trusses/objects.
+- If you use **Apply filter** first, then **Create**, creation uses the filtered text currently shown in the dialog.
+- Coordinate/margin tokens such as `(0, -1, 9)` and `[0.8]` are preserved by the filter step, so their effect remains when creating.
+
+For the full technical contract (all parsing and placement rules), see [`docs/text_to_scene_rules.md`](docs/text_to_scene_rules.md).
+
+Pipe/vara keywords currently accepted by the parser:
+
+- `pipe`, `pipes`, `vara`, `varas`
+- Optional length is supported; omitted length defaults to `14 m`.
+- Created pipes are scene objects (not truss rows) represented as cylinder primitives.
+- Generated names follow `PIPE <hang>` (for example `PIPE LX1`).
+
+Advanced primitive identifiers used in data-level references:
 
 - `primitive:sphere`
 - `primitive:cube`
 - `primitive:cylinder;top=...;bottom=...;height=...`
 
-For the full parser contract, see `docs/text_to_scene_rules.md`.
 
-## 14) Troubleshooting / common questions
 
-- If panels are missing, re-enable them from **View**.
-- If parser results are unexpected, run **Apply filter** first and verify hang/quantity lines.
-- If fixture profiles are missing, verify local GDTF resources and optional login settings.
+## Edit > Add basic geometry
 
----
+Use **Edit > Add basic geometry** to create primitive scene objects on the **active layer**.
+
+| Primitive | Dialog fields |
+| --- | --- |
+| `Sphere` | Radius, Quantity |
+| `Cube` | Length, Height, Width, Quantity |
+| `Cylinder` | Top radius, Bottom radius, Height, Quantity |
+
+Dimension inputs use the current unit preference from **Edit > Preferences > Units**:
+
+- Metric active: plain values are interpreted as meters.
+- Imperial active: plain values are interpreted as feet.
+- Explicit suffixes (`m`, `ft`, `in`) are accepted in both modes.
+
+After creation, objects can be selected and edited from normal scene/object workflows.
+
+## Build-dependent tools
+
+Some tools are intentionally available only in **Debug** builds:
+
+- **File > Print Viewer 2D...**
+- **Tools > Generate fixture symbols**
+
+Release builds keep these entries hidden to reduce risk in production workflows.
+
+## File associations by operating system
+
+- **Windows installer (official: Inno Setup):** `packaging/windows/Perastage.iss` registers ProgID/icon/open-command entries for `.pstg`, plus an optional installer task (`assoc_mvr`) to associate `.mvr` for double-click import flow.
+- **Linux install:** deploys a desktop entry plus MIME XML declarations for `*.mvr` and `*.pstg`, then refreshes MIME/desktop caches when the relevant tools are available.
+- **macOS bundle:** exports `CFBundleDocumentTypes` for `.mvr` so files can be opened from Finder.
+
+## Console Commands (complete)
+
+The console works on the current selection. If fixtures are selected, position
+and rotation commands apply to fixtures; otherwise they apply to trusses.
+
+### Selection
+
+| Command | Description |
+| --- | --- |
+| `clear` | Clears all selections (fixtures, trusses, scene objects). |
+| `f ...` | Select fixtures by ID. |
+| `t ...` | Select trusses by unit number (clears current truss selection first). |
+
+Selection syntax supports:
+
+- Single IDs: `f 12`
+- Ranges: `f 1-5`, `f 1 thru 5`, `f 1 t 5`
+- Add/remove: `f + 10 - 3`
+- Mixed tokens: `f 1 3 5 7-9`
+
+### Position and rotation
+
+| Command | Description |
+| --- | --- |
+| `pos x <values>` | Set X positions for the selection. |
+| `pos y <values>` | Set Y positions for the selection. |
+| `pos z <values>` | Set Z positions for the selection. |
+| `pos <x>,<y>,<z>` | Set X/Y/Z in one command. |
+| `x <values>` | Shortcut for `pos x`. |
+| `y <values>` | Shortcut for `pos y`. |
+| `z <values>` | Shortcut for `pos z`. |
+| `rot x <values>` | Set rotation around X (roll). |
+| `rot y <values>` | Set rotation around Y (pitch). |
+| `rot z <values>` | Set rotation around Z (yaw). |
+| `rot x|y|z <values> --group` | Rotate the full selection as one group around a pivot. |
+| `rot x|y|z <values> --g` | Alias of `--group`. |
+
+Notes:
+
+- Provide **one value** to apply it to all selected items.
+- Provide **two values** to linearly distribute from start to end across the selection.
+- Use `++` / `--` to apply relative offsets (example: `pos x ++ 1.5`, `rot z -- 10`).
+- You can also type a comma-separated triplet like `1, 2, 3` as a shortcut for `pos`.
+- Group rotation (`--group`/`--g`) uses the current selection **bbox center** as default pivot.
+- Add a trailing `x,y,z` triplet (in meters) to override pivot, for example: `rot y ++45 --g -2.5,0,0`.
+
+## Keyboard Shortcuts (complete)
+
+### Global
+
+| Shortcut | Action |
+| --- | --- |
+| Ctrl+N | New project |
+| Ctrl+L | Load project |
+| Ctrl+S | Save project |
+| Ctrl+Q | Close application |
+| Ctrl+Z / Ctrl+Y | Undo / Redo |
+| Del | Delete selection |
+| F1 | Open help |
+| F | Focus CLI and prefill `fixture ` (outside editable widgets) |
+| 1 / 2 / 3 / 4 | Switch to Fixtures / Trusses / Hoists / Objects |
+
+### Console input
+
+| Shortcut | Action |
+| --- | --- |
+| Esc | Exit the prompt and re-enable app shortcuts |
+| Up / Down | Navigate command history |
+| Home | Move to the start of input (after the prompt) |
+| Left / Backspace | Cannot move before the prompt |
+
+### 3D Viewer (keyboard)
+
+| Shortcut | Action |
+| --- | --- |
+| Arrow keys | Orbit camera |
+| Shift + arrow keys | Pan camera |
+| Alt + arrow keys | Zoom in/out |
+| Numpad 1 / 3 / 7 | Front / Right / Top views |
+| Numpad 5 | Reset camera orientation |
+| Z | Frame scene (fit all objects in view) |
+
+### 2D Viewer (keyboard)
+
+| Shortcut | Action |
+| --- | --- |
+| Arrow keys | Pan view |
+| Alt + arrow keys | Zoom in/out |
+
+### Layout View (keyboard)
+
+| Shortcut | Action |
+| --- | --- |
+| Delete | Delete selected layout element |
+| Z | Reset layout view to fit |
+
+## Mouse Shortcuts (complete)
+
+### 3D Viewer
+
+| Action | Result |
+| --- | --- |
+| Left drag | Orbit camera |
+| Shift + left drag or middle drag | Pan camera |
+| Mouse wheel | Zoom in/out |
+| Left click | Select fixture/truss/object under the cursor |
+| Shift/Ctrl + left click | Toggle selection |
+| Ctrl + left drag | Rectangle select |
+| Double click a fixture label | Open fixture patch dialog |
+
+## 3D Viewer > Render style
+
+Open it from the **3D Viewer** context menu: right click inside the 3D viewport, then use **Render style**.
+
+Current render styles:
+
+- **Standard**
+- **Sketch mode**
+- **Textured**
+- **Wireframe**
+- **White**
+- **By device type**
+- **By layer**
+- **By universe**
+
+Recommended use by style:
+
+- **Standard**: balanced everyday view for quick scene reading and navigation.
+- **Sketch mode**: flat white model with line emphasis; useful for geometry readability in dense rigs.
+- **Textured**: material-aware look; useful for visual checks of textured assets and scenic context.
+- **Wireframe**: edge-only visualization; useful for technical debugging, overlap inspection, and internal structure checks.
+- **White**: neutral shaded white view; useful for lighting-independent shape review and print-friendly captures.
+- **By device type**: color grouping by fixture/device category; useful for fast visual classification and patch sanity checks.
+- **By layer**: color grouping by layer; useful for validating layer organization and layer-based workflows.
+- **By universe**: color grouping by DMX universe; useful for patch/debug tasks related to universe distribution.
+
+### 2D Viewer
+
+| Action | Result |
+| --- | --- |
+| Left drag (empty space) | Pan view |
+| Mouse wheel | Zoom in/out |
+| Left click | Select fixture/truss/object under the cursor |
+| Shift/Ctrl + left click | Toggle selection |
+| Ctrl + left drag | Rectangle select |
+| Left drag on selected items | Move selection (axis locks to initial drag direction) |
+
+### Layout View
+
+| Action | Result |
+| --- | --- |
+| Left drag on a frame handle | Resize element |
+| Left drag on a frame | Move element |
+| Left drag on empty space | Pan the layout view |
+| Mouse wheel | Zoom in/out |
+| Double click a frame | Edit that element (view/table/text/image) |
+| Right click a frame | Open context menu (edit/delete/stacking) |
+
+## Panels
+
+- **Console** shows status messages and accepts console commands.
+- **Layers** shows layer list, visibility, and active layer for new items.
+- **Layouts** manages printable layout pages.
+- **Summary** shows counts and statistics per object type.
+- **Rigging** aggregates total weights and highlights missing data.
+- **2D Render Options** controls grid/labels for the 2D viewport.
 
 <!-- LANG:es -->
 # Ayuda de Perastage
 
-## 1) Qué es Perastage
+## Inicio rápido
 
-Perastage es una herramienta de escritorio para inspeccionar y preparar escenas desde archivos `.mvr` y proyectos `.pstg`, con flujos 3D, 2D, tablas y layouts.
+1. Abre la aplicación.
+2. Usa **File > Import MVR...** para cargar un `.mvr`.
+3. Usa las pestañas (**Fixtures**, **Trusses**, **Hoists**, **Objects**) para revisar los datos.
+4. Activa/desactiva paneles desde el menú **View** si alguno está oculto.
 
-## 2) Abrir archivos y proyectos
+## Archivos de proyecto
 
-- **File > New** crea un proyecto `.pstg`.
-- **File > Load** abre un proyecto `.pstg`.
-- **File > Save** y **File > Save As...** guardan cambios.
-- **File > Import MVR...** importa una escena `.mvr`.
+Los proyectos de Perastage (`.pstg`) guardan la escena, los layouts y la configuración del usuario.
 
-## 3) Vista general de la interfaz
+**File > New / Load / Save / Save As...**
 
-Paneles principales:
+- **New** crea un proyecto en blanco.
+- **Load** abre un `.pstg` existente.
+- **Save** guarda los cambios en el proyecto actual.
+- **Save As...** guarda el proyecto con otro nombre o en otra ubicación.
 
-- **3D Viewer**
-- **2D Viewer**
-- Tablas **Fixtures / Trusses / Hoists / Objects**
-- **Layers**
-- **Layouts**
-- **Console**
+## Unidades (Métrico/Imperial)
 
-Usa **View** para mostrar u ocultar paneles.
-
-## 4) Controles de vista 3D
-
-Teclado:
-
-- Arrow keys: orbitar
-- Shift + arrow keys: paneo
-- Alt + arrow keys: zoom
-- Numpad 1 / 3 / 7: Front / Right / Top
-- Numpad 5: reset de orientación
-- Z: encuadrar escena
-
-Ratón:
-
-- Left drag: orbitar
-- Shift + left drag o middle drag: paneo
-- Mouse wheel: zoom
-- Left click: seleccionar
-- Shift/Ctrl + left click: alternar selección
-- Ctrl + left drag: selección por rectángulo
-
-## 5) Controles de vista 2D/layout
-
-### 2D Viewer
-
-- Arrow keys: paneo
-- Alt + arrow keys: zoom
-- Left drag en vacío: paneo
-- Mouse wheel: zoom
-- Left click: selección
-
-### Layout View
-
-- Delete: borrar elemento seleccionado
-- Z: ajustar vista
-- Left drag handle/frame: redimensionar o mover
-- Right click frame: menú contextual
-
-## 6) Tablas y paneles de datos
-
-- **Fixtures**, **Trusses**, **Hoists**, **Objects** para edición de datos de escena.
-- **Summary** y **Rigging** para revisión agregada.
-
-## 7) Añadir y editar objetos
-
-Puedes crear objetos desde la GUI y editarlos después con la selección y tablas. Los objetos nuevos se añaden a la capa activa.
-
-## 8) `Add basic geometry`
-
-Usa **Edit > Add basic geometry**:
-
-- **Sphere...**: Radius, Quantity
-- **Cube...**: Length, Height, Width, Quantity
-- **Cylinder...**: Top radius, Bottom radius, Height, Quantity
-
-Las dimensiones usan la preferencia activa de distancia en **Edit > Preferences... > Units**.
-
-## 9) `Create from text`
-
-Usa **Tools > Create from text...** para crear fixtures, trusses y objetos desde texto tipo rider.
-
-- **Apply filter** normaliza el texto.
-- **Create** parsea el texto visible y crea datos.
-
-## 10) Layouts, impresión y export
-
-- **Layouts** permite preparar páginas imprimibles.
-- Exporta/importa escenas con flujos MVR.
-
-## 11) Preferencias
-
-En **Edit > Preferences...** puedes configurar unidades:
+Configura las unidades en **Edit > Preferences > Units**:
 
 - **Distance system:** Metric (`m`) o Imperial (`ft`)
 - **Weight system:** Metric (`kg`) o Imperial (`lb`)
 
-## 12) Atajos de teclado
+Comportamiento:
 
-- Ctrl+N, Ctrl+L, Ctrl+S, Ctrl+Q
-- Ctrl+Z / Ctrl+Y
-- Del, F1, F
-- 1 / 2 / 3 / 4
-
-## 13) Comandos y keywords de texto
-
-Keywords válidas para pipes/varas: `pipe`, `pipes`, `vara`, `varas`.
+- Internamente los valores canónicos siguen en **mm** (distancia) y **kg** (peso).
+- La preferencia cambia las **etiquetas de visualización** y cómo se interpreta una entrada numérica sin sufijo.
+- Entradas con sufijo explícito (`m`, `ft`, `in`, `kg`, `lb`) funcionan en cualquier sistema activo.
 
 Ejemplos:
 
-```text
-1 pipe 12m para LX1
-2 varas para LX2
-```
+- Distancia en metric: `6.2` se interpreta como `6.2 m`.
+- Distancia en imperial: `6.2` se interpreta como `6.2 ft`.
+- `5' 6"` siempre se interpreta como pies/pulgadas.
+- Peso en metric: `120` se interpreta como `120 kg`; en imperial como `120 lb`.
 
-- Si no indicas longitud, se usa `14 m`.
-- El nombre generado sigue `PIPE <hang>`.
-- Se crean como cilindros en **Objects**.
+La precisión de redondeo/formato depende del contexto (tabla/label/inspector). Consulta [`docs/ui_unit_systems.md`](docs/ui_unit_systems.md) para reglas completas de parseo y redondeo.
 
-## 14) Solución de problemas
+## Tools > Create from text... (guía rápida)
 
-- Si falta un panel, reactívalo desde **View**.
-- Si el parser no da el resultado esperado, usa **Apply filter** y revisa cantidades/hangs.
+Usa **Tools > Create from text...** para pegar texto de rider, normalizarlo y crear objetos en la escena.
+
+Ejemplos mínimos:
+
+- Override de coordenadas en el token de hang: `LX1 (0, -1, 9)`
+  - Define `x, y, z` explícitos para ese hang/truss objetivo.
+- Override de margen por hang: `LX1 [0.8]`
+  - Sobrescribe el margen por defecto de distribución para ese hang.
+- Precedencia de overrides cuando ambos existen:
+  - Los overrides en la línea de truss tienen prioridad sobre los del header del hang para los valores definidos en la línea de truss (tanto `(x, y, z)` como `[margen]`).
+
+Relación entre **Apply filter** y **Create**:
+
+- **Apply filter** reescribe la entrada a texto normalizado (paso de vista previa/edición).
+- **Create** parsea el texto actual del editor y genera fixtures/trusses/objetos.
+- Si primero usas **Apply filter** y luego **Create**, la creación usa el texto filtrado que quedó visible en el diálogo.
+- Tokens de coordenadas/margen como `(0, -1, 9)` y `[0.8]` se preservan durante el filtrado, así que su efecto se mantiene al crear.
+
+Para el contrato técnico completo (todas las reglas de parseo y placement), consulta [`docs/text_to_scene_rules.md`](docs/text_to_scene_rules.md).
+
+Keywords de pipes/varas aceptadas por el parser:
+
+- `pipe`, `pipes`, `vara`, `varas`
+- La longitud es opcional; si se omite, el valor por defecto es `14 m`.
+- Los pipes se crean como scene objects (no como trusses) usando cilindros primitivos.
+- El nombre generado sigue `PIPE <hang>` (por ejemplo `PIPE LX1`).
+
+Identificadores primitivos avanzados (referencia):
+
+- `primitive:sphere`
+- `primitive:cube`
+- `primitive:cylinder;top=...;bottom=...;height=...`
+
+
+
+## Edit > Add basic geometry
+
+Usa **Edit > Add basic geometry** para crear objetos primitivos en la **capa activa**.
+
+| Primitive | Campos del diálogo |
+| --- | --- |
+| `Sphere` | Radius, Quantity |
+| `Cube` | Length, Height, Width, Quantity |
+| `Cylinder` | Top radius, Bottom radius, Height, Quantity |
+
+Las dimensiones usan la preferencia activa de **Edit > Preferences > Units**:
+
+- Con metric activo, un número sin sufijo se interpreta en metros.
+- Con imperial activo, un número sin sufijo se interpreta en pies.
+- Los sufijos explícitos (`m`, `ft`, `in`) se aceptan en ambos modos.
+
+Después de crear, estos objetos se pueden seleccionar y editar desde los flujos normales de escena/objetos.
+
+## Comandos de consola (completo)
+
+La consola trabaja sobre la selección actual. Si hay fixtures seleccionados,
+los comandos de posición/rotación se aplican a fixtures; si no, se aplican a trusses.
+
+### Selección
+
+| Comando | Descripción |
+| --- | --- |
+| `clear` | Borra todas las selecciones (fixtures, trusses, scene objects). |
+| `f ...` | Selecciona fixtures por ID. |
+| `t ...` | Selecciona trusses por número de unidad (limpia la selección previa de trusses). |
+
+La sintaxis de selección admite:
+
+- IDs sueltos: `f 12`
+- Rangos: `f 1-5`, `f 1 thru 5`, `f 1 t 5`
+- Añadir/quitar: `f + 10 - 3`
+- Combinado: `f 1 3 5 7-9`
+
+### Posición y rotación
+
+| Comando | Descripción |
+| --- | --- |
+| `pos x <valores>` | Asigna posiciones en X a la selección. |
+| `pos y <valores>` | Asigna posiciones en Y a la selección. |
+| `pos z <valores>` | Asigna posiciones en Z a la selección. |
+| `pos <x>,<y>,<z>` | Asigna X/Y/Z en un solo comando. |
+| `x <valores>` | Atajo de `pos x`. |
+| `y <valores>` | Atajo de `pos y`. |
+| `z <valores>` | Atajo de `pos z`. |
+| `rot x <valores>` | Rota alrededor de X (roll). |
+| `rot y <valores>` | Rota alrededor de Y (pitch). |
+| `rot z <valores>` | Rota alrededor de Z (yaw). |
+| `rot x|y|z <valores> --group` | Rota toda la selección como un grupo alrededor de un pivote. |
+| `rot x|y|z <valores> --g` | Alias de `--group`. |
+
+Notas:
+
+- Un **solo valor** se aplica a toda la selección.
+- **Dos valores** se distribuyen linealmente de inicio a fin.
+- Usa `++` / `--` para aplicar incrementos relativos (ej.: `pos x ++ 1.5`, `rot z -- 10`).
+- También puedes escribir un triplete separado por comas como `1, 2, 3`.
+- La rotación de grupo (`--group`/`--g`) usa por defecto el **centro del bbox** de la selección.
+- Puedes añadir al final un triplete `x,y,z` (en metros) para forzar pivote, por ejemplo: `rot y ++45 --g -2.5,0,0`.
+
+## Atajos de teclado (completo)
+
+### Globales
+
+| Atajo | Acción |
+| --- | --- |
+| Ctrl+N | Nuevo proyecto |
+| Ctrl+L | Cargar proyecto |
+| Ctrl+S | Guardar proyecto |
+| Ctrl+Q | Cerrar aplicación |
+| Ctrl+Z / Ctrl+Y | Deshacer / Rehacer |
+| Del | Borrar selección |
+| F1 | Abrir ayuda |
+| F | Enfocar CLI y rellenar `fixture ` (fuera de widgets editables) |
+| 1 / 2 / 3 / 4 | Ir a Fixtures / Trusses / Hoists / Objects |
+
+### Entrada de consola
+
+| Atajo | Acción |
+| --- | --- |
+| Esc | Salir del prompt y reactivar atajos de la app |
+| Arriba / Abajo | Recorrer el historial |
+| Home | Ir al inicio del input (después del prompt) |
+| Izquierda / Retroceso | No permite pasar antes del prompt |
+
+### 3D Viewer (teclado)
+
+| Atajo | Acción |
+| --- | --- |
+| Flechas | Orbitar cámara |
+| Shift + flechas | Desplazar cámara |
+| Alt + flechas | Zoom +/- |
+| Numpad 1 / 3 / 7 | Vista frontal / derecha / superior |
+| Numpad 5 | Resetear cámara |
+| Z | Encuadrar escena (ajustar todo a vista) |
+
+### 2D Viewer (teclado)
+
+| Atajo | Acción |
+| --- | --- |
+| Flechas | Desplazar vista |
+| Alt + flechas | Zoom +/- |
+
+### Layout View (teclado)
+
+| Atajo | Acción |
+| --- | --- |
+| Delete | Borrar elemento seleccionado |
+| Z | Ajustar vista al layout |
+
+## Atajos de ratón (completo)
+
+### 3D Viewer
+
+| Acción | Resultado |
+| --- | --- |
+| Arrastrar con botón izquierdo | Orbitar cámara |
+| Shift + arrastrar izquierdo o botón central | Desplazar cámara |
+| Rueda | Zoom +/- |
+| Click izquierdo | Seleccionar fixture/truss/objeto bajo el cursor |
+| Shift/Ctrl + click izquierdo | Alternar selección |
+| Ctrl + arrastrar izquierdo | Selección por rectángulo |
+| Doble click en etiqueta de fixture | Abrir patch de fixture |
+
+## 3D Viewer > Render style
+
+Ábrelo desde el menú contextual del **3D Viewer**: click derecho dentro del **3D Viewer** y luego **Render style**.
+
+Estilos de render actuales:
+
+- **Standard**
+- **Sketch mode**
+- **Textured**
+- **Wireframe**
+- **White**
+- **By device type**
+- **By layer**
+- **By universe**
+
+Uso recomendado por estilo:
+
+- **Standard**: vista equilibrada para lectura visual rápida y navegación diaria.
+- **Sketch mode**: modelo blanco plano con énfasis en líneas; útil para leer geometría en rigs densos.
+- **Textured**: visualización con materiales; útil para revisar assets texturizados y contexto escénico.
+- **Wireframe**: visualización solo de aristas; útil para depuración técnica, revisar solapes y estructura interna.
+- **White**: sombreado blanco neutro; útil para revisar formas sin depender de color/iluminación y para capturas limpias.
+- **By device type**: agrupación por color según tipo de fixture/dispositivo; útil para clasificación visual rápida y checks de patch.
+- **By layer**: agrupación por color por capa; útil para validar organización por capas y flujos layer-based.
+- **By universe**: agrupación por color por universo DMX; útil para tareas de patch y depuración de distribución por universos.
+
+### 2D Viewer
+
+| Acción | Resultado |
+| --- | --- |
+| Arrastrar con botón izquierdo (espacio vacío) | Desplazar vista |
+| Rueda | Zoom +/- |
+| Click izquierdo | Seleccionar fixture/truss/objeto bajo el cursor |
+| Shift/Ctrl + click izquierdo | Alternar selección |
+| Ctrl + arrastrar izquierdo | Selección por rectángulo |
+| Arrastrar selección | Mover selección (se bloquea el eje inicial) |
+
+### Layout View
+
+| Acción | Resultado |
+| --- | --- |
+| Arrastrar un tirador de marco | Redimensionar elemento |
+| Arrastrar un marco | Mover elemento |
+| Arrastrar en vacío | Panear la vista |
+| Rueda | Zoom +/- |
+| Doble click en un marco | Editar elemento (vista/tabla/texto/imagen) |
+| Click derecho en un marco | Menú contextual (editar/borrar/orden) |
+
+## Paneles
+
+- **Console** muestra mensajes de estado y acepta comandos.
+- **Layers** muestra capas, visibilidad y la capa activa para nuevos elementos.
+- **Layouts** gestiona las páginas de layout.
+- **Summary** muestra conteos y estadísticas por tipo.
+- **Rigging** agrega pesos totales y marca datos faltantes.
+- **2D Render Options** controla la cuadrícula y etiquetas en el visor 2D.

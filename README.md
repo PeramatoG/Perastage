@@ -5,62 +5,89 @@
 
 ![Perastage 3D View](resources/perastage3d.png)
 
-Perastage is a free, cross-platform desktop application for opening, reviewing, and documenting stage scenes from `.mvr` files and Perastage `.pstg` projects.
+Perastage is a free, cross-platform desktop viewer for MVR files.
 
-Perastage focuses on practical scene review, rigging/fixture inspection, and layout documentation. It is not a real-time DMX visualizer.
+It is designed to open an MVR project quickly, inspect its contents in a clear visual way, and make it easier to review fixtures, trusses, hoists, objects, and general scene structure without needing a full real-time DMX visualizer.
 
-## Quick start
+Perastage is **not** a real-time DMX visualizer. Its main purpose is to provide a fast and practical way to view, check, and work with MVR files that use GDTF libraries.
 
-1. Start Perastage.
-2. Open a project with **File > Load** (`.pstg`) or import a scene with **File > Import MVR...** (`.mvr`).
-3. Review data in **Fixtures**, **Trusses**, **Hoists**, and **Objects** tables.
-4. Use **2D Viewer**, **3D Viewer**, and **Layouts** for visual checks and printable plans.
+## What Perastage is for
 
-## Supported formats
+Perastage focuses primarily on **viewing and working with MVR files**. It uses **GDTF fixture libraries** to represent lighting devices and supports personal dictionary workflows so you can build and maintain your own GDTF library.
 
-- **Project**: `.pstg`
-- **Scene import/export**: `.mvr`
-- **Text-to-scene input**: rider text and `.pdf` content through **Tools > Create from text...**
-- **Fixture profile resources**: `GDTF` (local library and optional online download)
+If you have a free GDTF Share account, Perastage can also connect to the official API to download GDTF files and help you complete your local library.
 
-## What you can do
+The goal is simple: make MVR files easy to open, understand, review, and present.
 
-- Open and inspect `.mvr` scenes and `.pstg` projects.
-- Navigate scene data in synchronized 3D, 2D, and table views.
-- Manage fixtures, trusses, hoists, scene objects, layers, and patch data.
-- Import and export MVR for interoperability.
-- Use GDTF dictionaries and optional GDTF Share login/download workflows.
-- Generate scene content from rider-style text with **Tools > Create from text...**.
-- Add primitive scene objects from **Edit > Add basic geometry**.
-- Build layout pages and export/print plan documentation.
+## Highlights
+
+- Fast and practical **MVR viewer** for lighting and show files.
+- **Free and cross-platform** desktop application.
+- Uses **GDTF libraries** to represent fixture data.
+- Can connect to the **official GDTF API** to download fixture profiles if you have an account.
+- Lets you maintain your own **custom GDTF dictionary/library**.
+- Includes both **3D viewing** and **plan-focused 2D workflows**.
+- Supports importing and exporting MVR scenes.
+- Can create elements directly from text using **Tools → Create from text**.
+- Includes some distinctive workflow tools, such as the ability to **create, modify, adjust, and distribute MVR elements from the command line**.
+- Helps review scene content quickly in a comfortable visual way.
 
 ## Installation
 
-Download the latest package from this repository's Releases page.
+The recommended way to install Perastage is to download the latest release from GitHub:
 
-For source builds, see the build guide in `docs/build.md`.
+- Go to the **latest release** in this repository and download the package for your platform.
+
+If you want to build from source, setup and dependency notes are available in the documentation under `docs/`.
+
+Recent 3D optimization updates depend on `meshoptimizer`; if you prepare dependencies manually, include it in your toolchain setup (see `docs/build.md` and `setup_windows.ps1`).
+
+## Basic usage
+
+- Open an existing `.mvr` file to inspect its content quickly.
+- Review fixtures, trusses, hoists, objects, and scene structure.
+- Use **Tools → Create from text** to generate elements from rider-style notes.
+- In **Tools → Create from text**, you can annotate templates with comments
+  using inline markers `((...))` or `*(...)*` (ignored by the parser).
+- Use the available tools to adjust and organize scene data more comfortably.
+
+
+## User Guide
+
+**Perastage User Guide (GitHub Pages):** [docs/index.html](docs/index.html)
 
 ## Documentation
 
-- [Perastage Help (in-app manual source)](help.md)
+The README is intentionally kept fairly compact. More detailed documentation lives in `docs/`:
+
+- [Documentation policy](docs/documentation_policy.md)
 - [Feature overview](docs/features.md)
-- [Text-to-scene rules](docs/text_to_scene_rules.md)
-- [GUI shortcut architecture](docs/gui_shortcut_architecture.md)
+- [Changes since beta 0.1.0](docs/changes_since_beta_0_1_0.md)
 - [Build and dependency guide](docs/build.md)
+- [Windows installation notes](docs/installation_windows.md)
 - [Packaging and platform integration](docs/packaging.md)
 - [Troubleshooting](docs/troubleshooting.md)
-- [Changes since beta 0.1.0](docs/changes_since_beta_0_1_0.md)
+- [Repository structure](docs/repository_layout.md)
+- [Text-to-scene parsing rules](docs/text_to_scene_rules.md)
+- [GDTF mutation policy](docs/gdtf_mutation_policy.md)
+- [GUI shortcut architecture](docs/gui_shortcut_architecture.md)
 
-## Contributing and feedback
+## Contributing
 
-Feedback, workflow suggestions, and compatibility reports are welcome.
+Feedback is very welcome.
 
-If you share issues or examples, include:
+If you try Perastage, it would be especially helpful if you:
 
-- platform and version,
-- sample `.mvr` / `.pstg` where possible,
-- steps to reproduce the observed behavior.
+- report bugs or unexpected behaviour
+- suggest ideas for improving workflows or usability
+- share edge cases or MVR/GDTF files that help improve compatibility
+
+This is particularly useful for keeping Perastage as compatible and practical as possible across files created by different applications.
 
 ## License
 
 Perastage is distributed under the GNU General Public License v3.0. See [LICENSE.txt](LICENSE.txt).
+
+## Author
+
+Perastage is developed and maintained by **Luisma Peramato** (GitHub: `PeramatoG`).
