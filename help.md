@@ -3,6 +3,8 @@
 
 ## Quick Start
 
+For the latest documentation, visit **https://perastage.luismaperamato.com/**. Internal help remains available in this dialog.
+
 1. Launch the application.
 2. Use **File > Import MVR...** to load an `.mvr` file.
 3. Use the table tabs (**Fixtures**, **Trusses**, **Hoists**, **Objects**) to inspect data.

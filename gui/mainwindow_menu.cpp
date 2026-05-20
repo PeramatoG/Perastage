@@ -1008,6 +1008,11 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
   }
 }
 
+// Opens the public Perastage documentation website in the default browser.
+void MainWindow::OnOpenOnlineDocumentation(wxCommandEvent &WXUNUSED(event)) {
+  wxLaunchDefaultBrowser("https://perastage.luismaperamato.com/");
+}
+
 // Displays the application About dialog.
 void MainWindow::OnShowAbout(wxCommandEvent &WXUNUSED(event)) {
   wxAboutDialogInfo info;
@@ -1022,7 +1027,7 @@ void MainWindow::OnShowAbout(wxCommandEvent &WXUNUSED(event)) {
       "  - nlohmann-json\n"
       "  - OpenGL-based 3D rendering";
   info.SetDescription(description);
-  info.SetWebSite("https://luismaperamato.com");
+  info.SetWebSite("https://perastage.luismaperamato.com/");
   info.AddDeveloper("Luisma Peramato");
   info.SetLicence(
       "This software is licensed under the GNU General Public License v3.0.");

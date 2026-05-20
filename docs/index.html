@@ -24,6 +24,7 @@
           Perastage is a fast, cross-platform desktop viewer focused on MVR v1.6 and GDTF v1.1 workflows,
           helping you inspect, review, and present lighting scenes without heavy setup.
         </p>
+        <p><strong>For the latest documentation, visit <a href="https://perastage.luismaperamato.com/">perastage.luismaperamato.com</a>.</strong></p>
         <div class="doc-grid" aria-label="Documentation sections" id="docGrid"></div>
       </section>
 
@@ -40,7 +41,7 @@
       function renderLandingGrid() {
         const grid = document.getElementById('docGrid');
         grid.innerHTML = docsPages
-          .map((p) => `<a class="doc-card" href="${p.html}">${p.icon} ${p.title}<span>Open ${p.md}</span></a>`)
+          .map((p) => `<a class="doc-card" href="${p.html}">${p.icon} ${p.title}<span>${p.summary || `Read ${p.title}`}</span></a>`)
           .join('');
       }
       renderLandingGrid();

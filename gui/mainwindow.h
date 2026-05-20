@@ -181,6 +181,7 @@ private:
   void OnToggleSummary(wxCommandEvent &event);        // Toggle summary panel
   void OnToggleRigging(wxCommandEvent &event);        // Toggle rigging panel
   void OnShowHelp(wxCommandEvent &event);             // Show help dialog
+  void OnOpenOnlineDocumentation(wxCommandEvent &event); // Open online docs website
   void OnShowAbout(wxCommandEvent &event);            // Show about dialog
   void OnSelectFixtures(wxCommandEvent &event);       // Switch to fixtures tab
   void OnSelectTrusses(wxCommandEvent &event);        // Switch to trusses tab
