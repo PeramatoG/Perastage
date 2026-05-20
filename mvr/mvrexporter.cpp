@@ -843,6 +843,43 @@ CollectReferencedArchivePaths(const tinyxml2::XMLDocument &doc) {
   return referencedPaths;
 }
 
+// Logs referenced and pruned archive paths to diagnose unexpected retained resources.
+static void LogResourcePruneDiagnostics(
+    const std::unordered_set<std::string> &referencedArchivePaths,
+    const std::vector<ResourceEntry> &allResourceEntries,
+    const std::vector<ResourceEntry> &keptResourceEntries) {
+  std::unordered_set<std::string> keptNormalized;
+  keptNormalized.reserve(keptResourceEntries.size());
+  for (const auto &entry : keptResourceEntries) {
+    const std::string normalized =
+        NormalizeArchiveEntryPath(entry.archivePath);
+    if (!normalized.empty())
+      keptNormalized.insert(normalized);
+  }
+
+  size_t prunedCount = 0;
+  for (const auto &entry : allResourceEntries) {
+    const std::string normalized =
+        NormalizeArchiveEntryPath(entry.archivePath);
+    if (normalized.empty())
+      continue;
+    if (!keptNormalized.contains(normalized)) {
+      ++prunedCount;
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "MVR export pruned unreferenced archive resource: " + normalized);
+    }
+  }
+
+  Logger::Instance().Log(
+      Logger::Level::Info,
+      "MVR export resource pruning summary: referenced_paths=" +
+          std::to_string(referencedArchivePaths.size()) +
+          ", planned_resources_before=" + std::to_string(allResourceEntries.size()) +
+          ", planned_resources_after=" + std::to_string(keptResourceEntries.size()) +
+          ", pruned=" + std::to_string(prunedCount));
+}
+
 static bool TryParseInt(std::string_view text, int &out) {
   if (text.empty())
     return false;
@@ -2594,6 +2631,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   // Prunes non-referenced resources so deleted scene elements do not keep stale payload files.
   const std::unordered_set<std::string> referencedArchivePaths =
       CollectReferencedArchivePaths(doc);
+  const std::vector<ResourceEntry> allResourceEntriesBeforePrune = resourceEntries;
   resourceEntries.erase(
       std::remove_if(resourceEntries.begin(), resourceEntries.end(),
                      [&](const ResourceEntry &entry) {
@@ -2603,6 +2641,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
                               !referencedArchivePaths.contains(normalized);
                      }),
       resourceEntries.end());
+  LogResourcePruneDiagnostics(referencedArchivePaths,
+                              allResourceEntriesBeforePrune, resourceEntries);
 
   std::unordered_map<std::string, int> plannedArchiveEntries;
   plannedArchiveEntries["GeneralSceneDescription.xml"] = 1;
