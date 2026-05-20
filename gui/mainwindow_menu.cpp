@@ -1378,7 +1378,8 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
       wxString objDir = wxString::FromUTF8(
           ProjectUtils::GetWritableLibraryPath("scene_objects"));
       wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
-                        "*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+                        "3D Models (*.3ds;*.glb)|*.3ds;*.glb",
+                        wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
         return;
       wxFileName fn(fdlg.GetPath());
@@ -1394,7 +1395,8 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   } else {
     wxString objDir = wxString::FromUTF8(
         ProjectUtils::GetWritableLibraryPath("scene_objects"));
-    wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString, "*.*",
+    wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
+                      "3D Models (*.3ds;*.glb)|*.3ds;*.glb",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;
