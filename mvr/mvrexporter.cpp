@@ -880,6 +880,20 @@ static void LogResourcePruneDiagnostics(
           ", pruned=" + std::to_string(prunedCount));
 }
 
+// Collects Symdef UUIDs referenced by trusses that preserve Symbol/Symdef geometry representation.
+static std::unordered_set<std::string>
+CollectReferencedSymdefUuids(const MvrScene &scene) {
+  std::unordered_set<std::string> referencedSymdefs;
+  for (const auto &[uuid, truss] : scene.trusses) {
+    if (truss.sourceRepresentation != Truss::GeometryRepresentation::SymbolSymdef)
+      continue;
+    const std::string symdefUuid = TrimAscii(truss.sourceSymdefUuid);
+    if (!symdefUuid.empty())
+      referencedSymdefs.insert(symdefUuid);
+  }
+  return referencedSymdefs;
+}
+
 static bool TryParseInt(std::string_view text, int &out) {
   if (text.empty())
     return false;
@@ -1649,7 +1663,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       pos->SetAttribute("name", name.c_str());
     aux->InsertEndChild(pos);
   }
+  const std::unordered_set<std::string> referencedSymdefUuids =
+      CollectReferencedSymdefUuids(scene);
   for (const auto &[uuid, file] : scene.symdefFiles) {
+    if (!referencedSymdefUuids.contains(uuid))
+      continue;
     tinyxml2::XMLElement *sym = doc.NewElement("Symdef");
     sym->SetAttribute("uuid", uuid.c_str());
 
