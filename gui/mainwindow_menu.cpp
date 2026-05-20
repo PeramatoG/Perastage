@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -69,6 +70,7 @@
 #include "layerpanel.h"
 #include "layoutpanel.h"
 #include "layoutviewerpanel.h"
+#include "loader_obj.h"
 #include "logindialog.h"
 #include "markdown.h"
 #include "preferencesdialog.h"
@@ -1351,6 +1353,44 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
   RefreshSummary();
 }
 
+
+// Converts imported OBJ files into GLB assets so MVR exports always reference official GLB resources.
+std::string NormalizeImportedObjectModelPathToGlb(const std::string &selectedPath,
+                                                  const std::string &sceneBasePath,
+                                                  std::string &consoleError) {
+  namespace fs = std::filesystem;
+  fs::path sourcePath = fs::u8path(selectedPath);
+  std::string ext = sourcePath.extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+  if (ext != ".obj")
+    return selectedPath;
+
+  const fs::path writableObjectsDir =
+      fs::u8path(ProjectUtils::GetWritableLibraryPath("scene_objects"));
+  const std::string targetName = sourcePath.stem().string() + ".glb";
+  const fs::path targetPath = writableObjectsDir / targetName;
+
+  std::string conversionError;
+  if (!ConvertObjFileToGlb(sourcePath.string(), targetPath.string(), &conversionError)) {
+    consoleError = "Failed converting OBJ to GLB: " + conversionError;
+    return selectedPath;
+  }
+
+  if (!sceneBasePath.empty()) {
+    std::error_code ec;
+    const fs::path absTarget = fs::weakly_canonical(targetPath, ec);
+    const fs::path absBase = fs::weakly_canonical(fs::u8path(sceneBasePath), ec);
+    if (!ec && !absTarget.empty() && !absBase.empty() &&
+        absTarget.string().rfind(absBase.string(), 0) == 0) {
+      return fs::relative(absTarget, absBase, ec).string();
+    }
+  }
+
+  return targetPath.string();
+}
+
 // Adds one or more scene objects to the scene from a selected model file.
 void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
@@ -1378,7 +1418,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
       wxString objDir = wxString::FromUTF8(
           ProjectUtils::GetWritableLibraryPath("scene_objects"));
       wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
-                        "3D Models (*.3ds;*.glb)|*.3ds;*.glb",
+                        "3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj",
                         wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
         return;
@@ -1396,7 +1436,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     wxString objDir = wxString::FromUTF8(
         ProjectUtils::GetWritableLibraryPath("scene_objects"));
     wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
-                      "3D Models (*.3ds;*.glb)|*.3ds;*.glb",
+                      "3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;
@@ -1413,6 +1453,10 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   namespace fs = std::filesystem;
   cfg.PushUndoState("add scene object");
   std::string base = scene.basePath;
+  std::string conversionError;
+  path = NormalizeImportedObjectModelPathToGlb(path, base, conversionError);
+  if (!conversionError.empty() && ConsolePanel::Instance())
+    ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(conversionError));
   if (!base.empty()) {
     fs::path abs = fs::absolute(path);
     fs::path b = fs::absolute(base);
