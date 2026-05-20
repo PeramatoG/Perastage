@@ -7,6 +7,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/labels/label_render_system.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/loader3ds.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/loaderglb.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/loader_obj.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/meshprimitives.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/picking/selectionsystem.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/picking/id_pick_pass.cpp
