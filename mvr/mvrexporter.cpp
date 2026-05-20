@@ -783,41 +783,55 @@ static bool ValidateMvr16Export(
   return true;
 }
 
+// Normalizes archive entry paths for stable comparisons during resource pruning.
+static std::string NormalizeArchiveEntryPath(std::string path) {
+  path = TrimAscii(std::move(path));
+  std::replace(path.begin(), path.end(), '\\', '/');
+  while (path.rfind("./", 0) == 0)
+    path.erase(0, 2);
+  while (!path.empty() && path.front() == '/')
+    path.erase(path.begin());
+  return path;
+}
+
 // Collects every archive-relative file path referenced by file-bearing XML attributes.
 static std::unordered_set<std::string>
 CollectReferencedArchivePaths(const tinyxml2::XMLDocument &doc) {
   std::unordered_set<std::string> referencedPaths;
-  tinyxml2::XMLElement *root = doc.FirstChildElement("GeneralSceneDescription");
+  const tinyxml2::XMLElement *root =
+      doc.FirstChildElement("GeneralSceneDescription");
   if (!root)
     return referencedPaths;
 
-  std::vector<tinyxml2::XMLElement *> stack;
-  for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
+  std::vector<const tinyxml2::XMLElement *> stack;
+  for (const tinyxml2::XMLElement *node = root->FirstChildElement(); node;
        node = node->NextSiblingElement()) {
     stack.push_back(node);
   }
 
   while (!stack.empty()) {
-    tinyxml2::XMLElement *current = stack.back();
+    const tinyxml2::XMLElement *current = stack.back();
     stack.pop_back();
     if (!current)
       continue;
 
     const char *fileName = current->Attribute("fileName");
     if (fileName) {
-      const std::string normalized = NormalizeArchivePath(TrimAscii(fileName));
+      const std::string normalized =
+          NormalizeArchiveEntryPath(TrimAscii(fileName));
       if (!normalized.empty())
         referencedPaths.insert(normalized);
     }
 
     const char *gdtfSpec = current->Attribute("GDTFSpec");
     if (gdtfSpec) {
-      const std::string normalized = NormalizeArchivePath(TrimAscii(gdtfSpec));
+      const std::string normalized =
+          NormalizeArchiveEntryPath(TrimAscii(gdtfSpec));
       if (!normalized.empty())
         referencedPaths.insert(normalized);
     }
 
-    for (tinyxml2::XMLElement *child = current->FirstChildElement(); child;
+    for (const tinyxml2::XMLElement *child = current->FirstChildElement(); child;
          child = child->NextSiblingElement()) {
       stack.push_back(child);
     }
@@ -2581,7 +2595,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       std::remove_if(resourceEntries.begin(), resourceEntries.end(),
                      [&](const ResourceEntry &entry) {
                        const std::string normalized =
-                           NormalizeArchivePath(entry.archivePath);
+                           NormalizeArchiveEntryPath(entry.archivePath);
                        return normalized.empty() ||
                               !referencedArchivePaths.contains(normalized);
                      }),
