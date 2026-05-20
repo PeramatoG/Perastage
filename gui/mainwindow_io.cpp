@@ -437,6 +437,7 @@ void MainWindow::OnImportMVR(wxCommandEvent &event) {
     ioController->OnImportMVR(event);
 }
 
+// Exports the current scene to an MVR file without mutating the live scene.
 void MainWindow::OnExportMVR(wxCommandEvent &event) {
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
@@ -447,7 +448,6 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
   if (saveFileDialog.ShowModal() == wxID_CANCEL)
     return;
 
-  SyncSceneData();
   MvrExporter exporter;
   wxString path = saveFileDialog.GetPath();
   if (!exporter.ExportToFile(path.ToStdString())) {

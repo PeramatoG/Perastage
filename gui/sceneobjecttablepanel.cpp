@@ -25,6 +25,7 @@
 #include "matrixutils.h"
 #include "primitive_model_resources.h"
 #include "projectutils.h"
+#include "resource_reference_sync.h"
 #include "scene_object_primitive_editing.h"
 #include "stringutils.h"
 #include "summarypanel.h"
@@ -446,7 +447,9 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
         if (!changed)
             return;
         ResyncRows(oldOrder, selectedUuids);
+        modelFileEditCommitPending = true;
         UpdateSceneData();
+        modelFileEditCommitPending = false;
         if (Viewer3DPanel::Instance()) {
             Viewer3DPanel::Instance()->UpdateScene();
             Viewer3DPanel::Instance()->Refresh();
@@ -768,6 +771,7 @@ void SceneObjectTablePanel::ApplyPositionValueUpdates(
     }
 }
 
+// Applies edited scene object table values back into the scene data model.
 void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
 {
     // Ensure in-place cell editors commit pending values before reading table rows.
@@ -806,10 +810,14 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
             next.layer = layerStr;
 
         const bool hasPrimitiveModel = old.GetPrimaryModel().rfind("primitive:", 0) == 0;
-        if (i < modelPaths.size() && !modelPaths[i].IsEmpty())
-            next.modelFile = std::string(modelPaths[i].ToUTF8());
+        if (!modelFileEditCommitPending)
+            next.modelFile = old.modelFile;
         else if (hasPrimitiveModel)
             next.modelFile = old.modelFile;
+        else if (i < modelPaths.size() && !modelPaths[i].IsEmpty())
+            next.modelFile = gui::PreserveSceneResourceReferenceForTableSync(
+                scene.basePath, old.modelFile, std::string(modelPaths[i].ToUTF8()),
+                old.geometries.empty() ? std::string() : old.GetPrimaryModel());
         else {
             table->GetValue(v, i, 2);
             next.modelFile = std::string(v.GetString().ToUTF8());
