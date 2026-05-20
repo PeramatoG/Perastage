@@ -1,17 +1,17 @@
 const docsPages = [
-  { md: 'installation.md', html: 'installation.html', title: 'Installation', icon: '🛠️' },
-  { md: 'quick-start.md', html: 'quick-start.html', title: 'Quick Start', icon: '🚀' },
-  { md: 'opening-mvr-files.md', html: 'opening-mvr-files.html', title: 'Opening MVR Files', icon: '📁' },
-  { md: 'gdtf-download.md', html: 'gdtf-download.html', title: 'GDTF Download', icon: '⬇️' },
-  { md: 'views.md', html: 'views.html', title: 'Views', icon: '🧭' },
-  { md: 'preferences.md', html: 'preferences.html', title: 'Preferences', icon: '⚙️' },
-  { md: 'troubleshooting.md', html: 'troubleshooting.html', title: 'Troubleshooting', icon: '🩺' },
-  { md: 'faq.md', html: 'faq.html', title: 'FAQ', icon: '❓' },
-  { md: 'features.md', html: 'features.html', title: 'Feature overview', icon: '✨' },
-  { md: 'build.md', html: 'build.html', title: 'Build guide', icon: '🏗️' },
-  { md: 'repository_layout.md', html: 'repository_layout.html', title: 'Repository layout', icon: '🧩' },
-  { md: 'architecture.md', html: 'doc.html?md=architecture.md', title: 'Architecture', icon: '🏛️' },
-  { md: 'shortcuts-and-command-bar.md', html: 'doc.html?md=shortcuts-and-command-bar.md', title: 'Shortcuts and commands', icon: '⌨️' }
+  { md: 'installation.md', html: 'installation.html', title: 'Installation', icon: '🛠️', summary: 'Set up dependencies and install Perastage on your platform.' },
+  { md: 'quick-start.md', html: 'quick-start.html', title: 'Quick Start', icon: '🚀', summary: 'Learn the fastest path to open a project and navigate the app.' },
+  { md: 'opening-mvr-files.md', html: 'opening-mvr-files.html', title: 'Opening MVR Files', icon: '📁', summary: 'Import MVR scenes and inspect fixtures, trusses, and objects.' },
+  { md: 'gdtf-download.md', html: 'gdtf-download.html', title: 'GDTF Download', icon: '⬇️', summary: 'Download and manage GDTF fixture profiles from supported sources.' },
+  { md: 'views.md', html: 'views.html', title: 'Views', icon: '🧭', summary: 'Understand 2D, 3D, and layout views for scene review workflows.' },
+  { md: 'preferences.md', html: 'preferences.html', title: 'Preferences', icon: '⚙️', summary: 'Configure application behavior, units, and user-facing defaults.' },
+  { md: 'troubleshooting.md', html: 'troubleshooting.html', title: 'Troubleshooting', icon: '🩺', summary: 'Resolve common setup, import, and rendering issues quickly.' },
+  { md: 'faq.md', html: 'faq.html', title: 'FAQ', icon: '❓', summary: 'Find concise answers to frequent workflow and feature questions.' },
+  { md: 'features.md', html: 'features.html', title: 'Feature overview', icon: '✨', summary: 'Explore key capabilities and practical tools available in Perastage.' },
+  { md: 'build.md', html: 'build.html', title: 'Build guide', icon: '🏗️', summary: 'Compile Perastage from source with the supported toolchains.' },
+  { md: 'repository_layout.md', html: 'repository_layout.html', title: 'Repository layout', icon: '🧩', summary: 'Understand module boundaries and where each subsystem lives.' },
+  { md: 'architecture.md', html: 'doc.html?md=architecture.md', title: 'Architecture', icon: '🏛️', summary: 'Review high-level design decisions and subsystem responsibilities.' },
+  { md: 'shortcuts-and-command-bar.md', html: 'doc.html?md=shortcuts-and-command-bar.md', title: 'Shortcuts and commands', icon: '⌨️', summary: 'Use keyboard shortcuts and command-bar actions to work faster.' }
 ];
 
 const mdToHtmlMap = new Map(docsPages.map((page) => [page.md, page.html]));

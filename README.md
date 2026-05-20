@@ -5,7 +5,10 @@
 
 ![Perastage 3D View](resources/perastage3d.png)
 
-Perastage is a free, cross-platform desktop viewer for MVR files.
+Perastage is a free, cross-platform desktop viewer for MVR files.  
+**Help website:** https://perastage.luismaperamato.com/  
+**Releases:** https://github.com/PeramatoG/Perastage/releases/latest  
+**Screenshots:** `resources/perastage3d.png`
 
 It is designed to open an MVR project quickly, inspect its contents in a clear visual way, and make it easier to review fixtures, trusses, hoists, objects, and general scene structure without needing a full real-time DMX visualizer.
 
@@ -53,6 +56,8 @@ Recent 3D optimization updates depend on `meshoptimizer`; if you prepare depende
 
 
 ## User Guide
+
+**Latest online documentation:** https://perastage.luismaperamato.com/
 
 **Perastage User Guide (GitHub Pages):** [docs/index.html](docs/index.html)
 

@@ -73,6 +73,7 @@ Examples:
 ## Release Notes
 
 Release notes should be generated from merged PRs between the previous official release tag and the new release tag.
+Include the latest documentation link (`https://perastage.luismaperamato.com/`) in each published release note.
 
 PR titles and labels should be clear because they feed release-note quality.
 
