@@ -1367,10 +1367,20 @@ std::string NormalizeImportedObjectModelPathToGlb(const std::string &selectedPat
   if (ext != ".obj")
     return selectedPath;
 
-  const fs::path writableObjectsDir =
-      fs::u8path(ProjectUtils::GetWritableLibraryPath("scene_objects"));
-  const std::string targetName = sourcePath.stem().string() + ".glb";
-  const fs::path targetPath = writableObjectsDir / targetName;
+  std::error_code ec;
+  const fs::path tempRoot = fs::temp_directory_path(ec);
+  const fs::path importTempDir = tempRoot / "perastage_imported_objects";
+  fs::create_directories(importTempDir, ec);
+  if (ec) {
+    consoleError = "Failed preparing temporary directory for OBJ import conversion";
+    return selectedPath;
+  }
+
+  const std::string uniqueSuffix = std::to_string(
+      static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count()));
+  const std::string targetName =
+      sourcePath.stem().string() + "_" + uniqueSuffix + ".glb";
+  const fs::path targetPath = importTempDir / targetName;
 
   std::string conversionError;
   if (!ConvertObjFileToGlb(sourcePath.string(), targetPath.string(), &conversionError)) {
@@ -1379,7 +1389,6 @@ std::string NormalizeImportedObjectModelPathToGlb(const std::string &selectedPat
   }
 
   if (!sceneBasePath.empty()) {
-    std::error_code ec;
     const fs::path absTarget = fs::weakly_canonical(targetPath, ec);
     const fs::path absBase = fs::weakly_canonical(fs::u8path(sceneBasePath), ec);
     if (!ec && !absTarget.empty() && !absBase.empty() &&
