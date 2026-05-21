@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
-#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -98,13 +97,13 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
 
   if (sourceSelection == 0) {
     const auto &scene = cfg.GetScene();
-    std::map<std::string, const Fixture *> sceneOptions;
+    std::vector<std::pair<std::string, const Fixture *>> sceneOptions;
     for (const auto &[uuid, fixture] : scene.fixtures) {
       if (fixture.gdtfSpec.empty())
         continue;
       const std::string modeLabel = fixture.gdtfMode.empty() ? "(no mode)" : fixture.gdtfMode;
       const std::string label = fixture.typeName + " | " + modeLabel + " | id " + std::to_string(fixture.fixtureId);
-      sceneOptions.try_emplace(label, &fixture);
+      sceneOptions.emplace_back(label, &fixture);
     }
     if (sceneOptions.empty()) {
       wxMessageBox("There are no fixtures with GDTF data in the scene.",
@@ -226,6 +225,11 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     target.address = keepAddress;
     target.transform = keepTransform;
   }
+
+  // Restores the fixture selection so replacement keeps internal UUID targeting stable.
+  cfg.SetSelectedFixtures(selectedUuids);
+  if (fixturePanel)
+    fixturePanel->SelectByUuid(selectedUuids, false);
 
   RefreshAfterSceneChange();
 }
