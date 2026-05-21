@@ -98,7 +98,7 @@ wxString DecodeFileUriToPath(const wxString &fileUri) {
   return fileUri;
 }
 
-// Converts macOS file URLs or raw paths into a normalized UTF-8 filesystem path when possible.
+// Converts external open input into a UTF-8 path while avoiding Windows shell-folder normalization stalls.
 std::string NormalizeExternalOpenPath(const std::string &rawPathUtf8) {
   if (rawPathUtf8.empty())
     return {};
@@ -107,11 +107,15 @@ std::string NormalizeExternalOpenPath(const std::string &rawPathUtf8) {
   if (wxPath.StartsWith("file://"))
     wxPath = DecodeFileUriToPath(wxPath);
 
+#if defined(__WXMSW__)
+  wxPath.Replace("/", "\\");
+#else
   wxFileName fileName(wxPath);
   if (fileName.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_TILDE |
                          wxPATH_NORM_ABSOLUTE)) {
     wxPath = fileName.GetFullPath();
   }
+#endif
 
   wxCharBuffer utf8 = wxPath.ToUTF8();
   const std::string normalizedPath =
