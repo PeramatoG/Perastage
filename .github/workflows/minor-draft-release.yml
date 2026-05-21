@@ -164,22 +164,60 @@ jobs:
           path: release-assets
           pattern: Perastage-*
 
-      - name: Validate installer assets
+      - name: Prepare final installer assets
         id: assets
         run: |
           set -euo pipefail
 
-          WIN_ASSET="$(find release-assets -type f -name 'Perastage_*_Setup.exe' -print -quit)"
-          LINUX_ASSET="$(find release-assets -type f -name 'Perastage-*-x86_64.AppImage' -print -quit)"
-          MAC_ASSET="$(find release-assets -type f -name 'Perastage-*-macos-arm64.dmg' -print -quit)"
+          FINAL_DIR="release-assets/final"
+          EXTRACT_DIR="release-assets/.extracted-zips"
 
-          if [ -z "$WIN_ASSET" ] || [ -z "$LINUX_ASSET" ] || [ -z "$MAC_ASSET" ]; then
-            echo "Missing one or more installer assets"
-            echo "Windows: $WIN_ASSET"
-            echo "Linux: $LINUX_ASSET"
-            echo "macOS: $MAC_ASSET"
+          rm -rf "$FINAL_DIR" "$EXTRACT_DIR"
+          mkdir -p "$FINAL_DIR" "$EXTRACT_DIR"
+
+          echo "Downloaded artifact tree (release-assets):"
+          find release-assets -mindepth 1 -maxdepth 4 -print | sort
+
+          mapfile -t ZIP_FILES < <(find release-assets -type f -name '*.zip' | sort)
+          if [ "${#ZIP_FILES[@]}" -gt 0 ]; then
+            echo "Found zip files in release-assets; extracting to temporary directory"
+            for zip_file in "${ZIP_FILES[@]}"; do
+              zip_base="$(basename "$zip_file" .zip)"
+              target_dir="$EXTRACT_DIR/$zip_base"
+              mkdir -p "$target_dir"
+              unzip -q "$zip_file" -d "$target_dir"
+            done
+          else
+            echo "No zip files found in release-assets"
+          fi
+
+          mapfile -t WIN_MATCHES < <(find release-assets -type f -name 'Perastage_*_Setup.exe' | sort)
+          mapfile -t LINUX_MATCHES < <(find release-assets -type f -name 'Perastage-*-x86_64.AppImage' | sort)
+          mapfile -t MAC_MATCHES < <(find release-assets -type f -name 'Perastage-*-macos-arm64.dmg' | sort)
+
+          if [ "${#WIN_MATCHES[@]}" -ne 1 ] || [ "${#LINUX_MATCHES[@]}" -ne 1 ] || [ "${#MAC_MATCHES[@]}" -ne 1 ]; then
+            echo "Expected exactly one installer per platform"
+            echo "Windows matches (${#WIN_MATCHES[@]}): ${WIN_MATCHES[*]:-none}"
+            echo "Linux matches (${#LINUX_MATCHES[@]}): ${LINUX_MATCHES[*]:-none}"
+            echo "macOS matches (${#MAC_MATCHES[@]}): ${MAC_MATCHES[*]:-none}"
             exit 1
           fi
+
+          cp "${WIN_MATCHES[0]}" "$FINAL_DIR/"
+          cp "${LINUX_MATCHES[0]}" "$FINAL_DIR/"
+          cp "${MAC_MATCHES[0]}" "$FINAL_DIR/"
+
+          if find "$FINAL_DIR" -type f -name '*.zip' | grep -q .; then
+            echo "Final asset directory must not contain zip files"
+            exit 1
+          fi
+
+          WIN_ASSET="$FINAL_DIR/$(basename "${WIN_MATCHES[0]}")"
+          LINUX_ASSET="$FINAL_DIR/$(basename "${LINUX_MATCHES[0]}")"
+          MAC_ASSET="$FINAL_DIR/$(basename "${MAC_MATCHES[0]}")"
+
+          echo "Final release assets (release-assets/final):"
+          find "$FINAL_DIR" -mindepth 1 -maxdepth 1 -type f -print | sort
 
           echo "win_asset=$WIN_ASSET" >> "$GITHUB_OUTPUT"
           echo "linux_asset=$LINUX_ASSET" >> "$GITHUB_OUTPUT"
