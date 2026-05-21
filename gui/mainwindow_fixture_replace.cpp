@@ -14,6 +14,7 @@
 
 #include "configmanager.h"
 #include "fixture.h"
+#include "fixturetablepanel.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "guiconfigservices.h"
