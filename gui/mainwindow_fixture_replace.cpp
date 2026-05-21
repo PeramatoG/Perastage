@@ -55,7 +55,7 @@ std::string GenerateAutoColor() {
 }
 
 // Resolves the replacement color by reusing existing fixture-file color or creating a new group color.
-std::string ResolveReplacementColor(const Scene &scene,
+std::string ResolveReplacementColor(const MvrScene &scene,
                                     const std::vector<std::string> &selectedUuids,
                                     const std::string &replacementSpec,
                                     const std::string &fallbackColor) {
