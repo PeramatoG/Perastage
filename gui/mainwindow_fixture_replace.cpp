@@ -210,7 +210,7 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     const std::string keepLayer = target.layer;
     const std::string keepPositionName = target.positionName;
     const std::string keepAddress = target.address;
-    const Transform keepTransform = target.transform;
+    const Matrix keepTransform = target.transform;
 
     target.typeName = replacement.typeName;
     target.gdtfSpec = replacement.gdtfSpec;
