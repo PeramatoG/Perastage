@@ -371,7 +371,15 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
   }
 
   std::error_code ec;
-  fs::path lookupDir = baseDir.empty() ? fs::current_path(ec) : fs::u8path(baseDir);
+#if defined(_WIN32)
+  // Restricts fallback directory scans to the extracted MVR base directory on Windows.
+  if (baseDir.empty())
+    return ToString(candidate.u8string());
+  fs::path lookupDir = fs::u8path(baseDir);
+#else
+  fs::path lookupDir =
+      baseDir.empty() ? fs::current_path(ec) : fs::u8path(baseDir);
+#endif
   if (ec || !fs::exists(lookupDir))
     return ToString(candidate.u8string());
 
