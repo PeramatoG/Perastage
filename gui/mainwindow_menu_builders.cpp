@@ -46,6 +46,7 @@ wxMenu *BuildEditMenu() {
   editMenu->AppendSubMenu(BuildPrimitiveMenu(), "Add basic geometry");
   editMenu->AppendSeparator();
   editMenu->Append(ID_Edit_Delete, "Delete\tDel");
+  editMenu->Append(ID_Edit_ReplaceFixtures, "Replace fixtures...");
   editMenu->AppendSeparator();
   editMenu->Append(ID_Edit_Preferences, "Preferences...");
   return editMenu;

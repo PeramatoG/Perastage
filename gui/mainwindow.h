@@ -215,6 +215,7 @@ private:
   void OnAddPrimitiveCube(wxCommandEvent &event); // Add primitive cube
   void OnAddPrimitiveCylinder(wxCommandEvent &event); // Add primitive cylinder
   void OnDelete(wxCommandEvent &event);         // Delete selected items
+  void OnReplaceSelectedFixtures(wxCommandEvent &event); // Replace selected fixtures
   void OnLayoutAdd2DView(wxCommandEvent &event); // Layout 2D view creation
   void OnLayoutAddLegend(wxCommandEvent &event); // Layout legend creation
   void OnLayoutAddEventTable(wxCommandEvent &event); // Layout event table
