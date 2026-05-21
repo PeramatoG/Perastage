@@ -2,9 +2,12 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <filesystem>
 #include <optional>
+#include <random>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include <wx/choicdlg.h>
@@ -31,6 +34,49 @@ struct ReplacementFixtureTemplate {
   float powerConsumptionW = 0.0f;
   std::string color;
 };
+
+
+// Normalizes a GDTF path into a comparable lowercase filename token.
+std::string BuildGdtfFileKey(const std::string &gdtfSpec) {
+  if (gdtfSpec.empty())
+    return {};
+  std::string key = std::filesystem::path(gdtfSpec).filename().string();
+  std::transform(key.begin(), key.end(), key.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return key;
+}
+
+// Generates a random color in #RRGGBB format for assigning new fixture groups.
+std::string GenerateAutoColor() {
+  static std::mt19937 rng(std::random_device{}());
+  std::uniform_int_distribution<int> dist(0, 255);
+  return wxString::Format("#%02X%02X%02X", dist(rng), dist(rng), dist(rng))
+      .ToStdString();
+}
+
+// Resolves the replacement color by reusing existing fixture-file color or creating a new group color.
+std::string ResolveReplacementColor(const Scene &scene,
+                                    const std::vector<std::string> &selectedUuids,
+                                    const std::string &replacementSpec,
+                                    const std::string &fallbackColor) {
+  const std::string replacementKey = BuildGdtfFileKey(replacementSpec);
+  if (replacementKey.empty())
+    return fallbackColor.empty() ? GenerateAutoColor() : fallbackColor;
+
+  std::unordered_set<std::string> selectedSet(selectedUuids.begin(), selectedUuids.end());
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    if (selectedSet.find(uuid) != selectedSet.end())
+      continue;
+    if (BuildGdtfFileKey(fixture.gdtfSpec) != replacementKey)
+      continue;
+    if (!fixture.color.empty())
+      return fixture.color;
+  }
+
+  if (!fallbackColor.empty())
+    return fallbackColor;
+  return GenerateAutoColor();
+}
 
 // Extracts the list of selected fixture UUIDs that still exist in the current scene.
 std::vector<std::string> GetSelectedExistingFixtureUuids(ConfigManager &cfg) {
@@ -200,6 +246,8 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
 
   cfg.PushUndoState("replace selected fixtures");
   auto &scene = cfg.GetScene();
+  const std::string replacementColor =
+      ResolveReplacementColor(scene, selectedUuids, replacement.gdtfSpec, replacement.color);
   for (const std::string &uuid : selectedUuids) {
     auto it = scene.fixtures.find(uuid);
     if (it == scene.fixtures.end())
@@ -217,7 +265,7 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     target.gdtfMode = replacement.gdtfMode;
     target.weightKg = replacement.weightKg;
     target.powerConsumptionW = replacement.powerConsumptionW;
-    target.color = replacement.color;
+    target.color = replacementColor;
 
     target.fixtureId = keepFixtureId;
     target.instanceName = keepName;
