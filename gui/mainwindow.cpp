@@ -121,6 +121,8 @@ using json = nlohmann::json;
 #include "viewer2dpdfexporter.h"
 #include "print_diagnostics.h"
 #include "support.h"
+#include "update/update_check_preferences.h"
+#include "update/app_update_service.h"
 #include "units/units.h"
 #include "trussloader.h"
 #include "trusstablepanel.h"
@@ -204,6 +206,7 @@ const std::vector<std::string> &GetPreferencesDialogConfigKeys() {
       "rider_layer_mode",
       "ui_distance_unit_system",
       "ui_weight_unit_system",
+      "app_update_startup_mode",
       "viewer3d_render_style",
       "viewer3d_invert_orbit",
       "rider_lx1_height",
@@ -244,6 +247,30 @@ void RestorePreferencesDialogValues(
     const std::vector<std::pair<std::string, std::string>> &values) {
   for (const auto &[key, value] : values)
     preferences.SetValue(key, value);
+}
+
+// Runs a silent update check and only opens the browser when an update is found.
+void RunSilentStartupUpdateCheck(MainWindow *window) {
+  if (!window)
+    return;
+  std::thread([window]() {
+    gui::update::AppUpdateService service;
+    const gui::update::CheckResult result = service.CheckForUpdates();
+    if (result.status != gui::update::CheckStatus::UpdateAvailable)
+      return;
+    window->CallAfter([window, result]() {
+      wxString message =
+          "A newer Perastage version is available.\nCurrent version: " +
+          wxString::FromUTF8(result.currentVersion) +
+          "\nLatest version: " + wxString::FromUTF8(result.latestVersion) +
+          "\n\nOpen release page now?";
+      const int response = wxMessageBox(
+          message, "Perastage Updates",
+          wxYES_NO | wxYES_DEFAULT | wxICON_INFORMATION, window);
+      if (response == wxYES)
+        wxLaunchDefaultBrowser(wxString::FromUTF8(result.releaseUrl));
+    });
+  }).detach();
 }
 
 }
@@ -377,6 +404,14 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 
   SetStartupProjectLoadPending(true);
   UpdateTitle();
+
+  auto &preferences = guiConfigServices->Preferences();
+  const auto now = std::chrono::system_clock::now();
+  if (gui::update::ShouldRunStartupCheckNow(preferences, now)) {
+    gui::update::MarkStartupCheckRun(preferences, now);
+    preferences.SaveUserConfig();
+    RunSilentStartupUpdateCheck(this);
+  }
 }
 
 MainWindow::~MainWindow() {

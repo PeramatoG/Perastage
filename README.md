@@ -75,6 +75,7 @@ The README is intentionally kept fairly compact. More detailed documentation liv
 - [Repository structure](docs/repository_layout.md)
 - [Text-to-scene parsing rules](docs/text_to_scene_rules.md)
 - [GDTF mutation policy](docs/gdtf_mutation_policy.md)
+- [Preferences](docs/preferences.md)
 - [GUI shortcut architecture](docs/gui_shortcut_architecture.md)
 
 ## Contributing

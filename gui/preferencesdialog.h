@@ -58,6 +58,7 @@ private:
   wxCheckBox *viewer3dInvertOrbitCheck = nullptr;
   wxChoice *distanceUnitChoice = nullptr;
   wxChoice *weightUnitChoice = nullptr;
+  wxChoice *updateCheckModeChoice = nullptr;
   wxString initialDistanceUnit;
   wxString initialWeightUnit;
   GdtfCredentialsPanel *gdtfCredentialsPanel = nullptr;
