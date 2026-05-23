@@ -15,6 +15,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2d_measure_tool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_overrides.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpdfexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2drenderpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2d_support_selection.cpp
