@@ -174,7 +174,7 @@ int AppUpdateService::CompareSemanticVersions(const std::string &left,
     return left == right ? 0 : (left < right ? -1 : 1);
   }
 
-  const size_t count = std::max(leftParts.size(), rightParts.size());
+  const size_t count = (std::max)(leftParts.size(), rightParts.size());
   leftParts.resize(count, 0);
   rightParts.resize(count, 0);
 
