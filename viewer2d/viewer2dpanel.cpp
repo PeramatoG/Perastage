@@ -282,6 +282,22 @@ wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint) {
           std::lround(static_cast<double>(logicalPoint.y) * contentScale)));
 }
 
+// Converts framebuffer-space mouse coordinates back to logical window coordinates.
+wxPoint ToLogicalPointFromFramebuffer(wxWindow *window,
+                                      const std::array<float, 2> &framebufferPoint) {
+  if (window == nullptr)
+    return wxPoint(static_cast<int>(std::lround(framebufferPoint[0])),
+                   static_cast<int>(std::lround(framebufferPoint[1])));
+  const double contentScale =
+      static_cast<double>(window->GetContentScaleFactor());
+  if (!std::isfinite(contentScale) || contentScale <= 0.0) {
+    return wxPoint(static_cast<int>(std::lround(framebufferPoint[0])),
+                   static_cast<int>(std::lround(framebufferPoint[1])));
+  }
+  return wxPoint(static_cast<int>(std::lround(framebufferPoint[0] / contentScale)),
+                 static_cast<int>(std::lround(framebufferPoint[1] / contentScale)));
+}
+
 // Emit grid primitives to a canvas so the command buffer records the same
 // visual information shown by the OpenGL renderer. Coordinates are expressed in
 // the 2D world space after the camera orientation has been applied.
@@ -2518,7 +2534,18 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
             m_measureToolState.hasAnchor = true;
             m_measureToolState.anchorUuid = uuid;
             m_measureToolState.anchorWorld = *center;
-            m_lastMousePos = event.GetPosition();
+            const RenderSize anchorRenderSize = ResolveRenderSize(this);
+            if (anchorRenderSize.IsValid()) {
+              const auto anchorScreen = Viewer2DMeasureWorldToScreen(
+                  m_measureToolState.anchorWorld, m_view, anchorRenderSize.width,
+                  anchorRenderSize.height, m_zoom, m_offsetX, m_offsetY);
+              if (anchorScreen)
+                m_lastMousePos = ToLogicalPointFromFramebuffer(this, *anchorScreen);
+              else
+                m_lastMousePos = event.GetPosition();
+            } else {
+              m_lastMousePos = event.GetPosition();
+            }
           } else {
             m_measureToolState.hasCommittedTarget = true;
             m_measureToolState.committedTargetWorld = *center;
