@@ -184,6 +184,7 @@ private:
   void OnShowHelp(wxCommandEvent &event);             // Show help dialog
   void OnOpenOnlineDocumentation(wxCommandEvent &event); // Open online docs website
   void OnShowAbout(wxCommandEvent &event);            // Show about dialog
+  void OnCheckForUpdates(wxCommandEvent &event);      // Check online for new releases
   void OnSelectFixtures(wxCommandEvent &event);       // Switch to fixtures tab
   void OnSelectTrusses(wxCommandEvent &event);        // Switch to trusses tab
   void OnSelectSupports(wxCommandEvent &event);       // Switch to supports tab
