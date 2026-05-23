@@ -101,15 +101,19 @@ wxRect BuildPointDirtyRegion(const wxPoint &point, int radius) {
 // Resolves the center world position for any selectable scene element UUID.
 std::optional<std::array<float, 3>>
 ResolveSceneElementCenterByUuid(const ConfigManager &cfg, const std::string &uuid) {
+  const auto toMeters = [](const std::array<float, 3> &pointMm) {
+    return std::array<float, 3>{pointMm[0] / 1000.0f, pointMm[1] / 1000.0f,
+                                pointMm[2] / 1000.0f};
+  };
   const auto &scene = cfg.GetScene();
   if (const auto fit = scene.fixtures.find(uuid); fit != scene.fixtures.end())
-    return fit->second.GetPosition();
+    return toMeters(fit->second.GetPosition());
   if (const auto tit = scene.trusses.find(uuid); tit != scene.trusses.end())
-    return tit->second.transform.o;
+    return toMeters(tit->second.transform.o);
   if (const auto sit = scene.supports.find(uuid); sit != scene.supports.end())
-    return sit->second.transform.o;
+    return toMeters(sit->second.transform.o);
   if (const auto oit = scene.sceneObjects.find(uuid); oit != scene.sceneObjects.end())
-    return oit->second.transform.o;
+    return toMeters(oit->second.transform.o);
   return std::nullopt;
 }
 
