@@ -38,15 +38,20 @@ void MainWindow::OnViewportSideView(wxCommandEvent &WXUNUSED(event)) {
   ApplyViewportShortcut(Viewer2DView::Side);
 }
 
+// Synchronizes Select/Measure toolbar toggle buttons with the active viewport tool mode.
+void MainWindow::SyncViewportToolToggleState(bool measureEnabled) {
+  if (!layoutViewsToolBar)
+    return;
+  layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, !measureEnabled);
+  layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, measureEnabled);
+  layoutViewsToolBar->Refresh();
+}
+
 // Switches the viewport interaction back to standard selection mode.
 void MainWindow::OnViewportSelectTool(wxCommandEvent &WXUNUSED(event)) {
   if (viewport2DPanel)
     viewport2DPanel->SetMeasureToolEnabled(false);
-  if (layoutViewsToolBar) {
-    layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, true);
-    layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, false);
-    layoutViewsToolBar->Refresh();
-  }
+  SyncViewportToolToggleState(false);
 }
 
 // Enables or disables the viewport measure tool and syncs toolbar toggle state.
@@ -55,11 +60,7 @@ void MainWindow::OnViewportMeasureTool(wxCommandEvent &WXUNUSED(event)) {
       !(viewport2DPanel && viewport2DPanel->IsMeasureToolEnabled());
   if (viewport2DPanel)
     viewport2DPanel->SetMeasureToolEnabled(enableMeasure);
-  if (layoutViewsToolBar) {
-    layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, !enableMeasure);
-    layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, enableMeasure);
-    layoutViewsToolBar->Refresh();
-  }
+  SyncViewportToolToggleState(enableMeasure);
 }
 
 

@@ -767,6 +767,8 @@ void Viewer2DPanel::SetRenderOverrides(
 void Viewer2DPanel::SetMeasureToolEnabled(bool enabled) {
   m_measureToolState.enabled = enabled;
   ResetViewer2DMeasure(m_measureToolState);
+  if (MainWindow::Instance())
+    MainWindow::Instance()->SyncViewportToolToggleState(enabled);
   SetCursor(enabled ? wxCursor(wxCURSOR_CROSS) : wxCursor(wxCURSOR_ARROW));
   RequestRepaint();
 }

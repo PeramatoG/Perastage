@@ -205,6 +205,7 @@ private:
   void OnViewportSideView(wxCommandEvent &event);
   void OnViewportSelectTool(wxCommandEvent &event);
   void OnViewportMeasureTool(wxCommandEvent &event);
+  void SyncViewportToolToggleState(bool measureEnabled);
 
   void OnUndo(wxCommandEvent &event);           // Undo action placeholder
   void OnRedo(wxCommandEvent &event);           // Redo action placeholder
