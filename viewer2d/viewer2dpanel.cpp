@@ -740,6 +740,7 @@ void Viewer2DPanel::SetRenderOverrides(
 void Viewer2DPanel::SetMeasureToolEnabled(bool enabled) {
   m_measureToolState.enabled = enabled;
   ResetViewer2DMeasure(m_measureToolState);
+  m_measureLivePreviewStarted = false;
   SetCursor(enabled ? wxCursor(wxCURSOR_CROSS) : wxCursor(wxCURSOR_ARROW));
   RequestRepaint();
 }
@@ -1162,6 +1163,13 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     std::optional<std::array<float, 2>> targetScreenOverride;
     if (m_measureToolState.hasCommittedTarget) {
       targetWorld = m_measureToolState.committedTargetWorld;
+    } else if (!m_measureLivePreviewStarted) {
+      targetWorld = m_measureToolState.anchorWorld;
+      const wxPoint framebufferAnchorPos =
+          ToFramebufferPoint(this, m_measureAnchorScreenPos);
+      targetScreenOverride = std::array<float, 2>{
+          static_cast<float>(framebufferAnchorPos.x),
+          static_cast<float>(framebufferAnchorPos.y)};
     } else {
       targetWorld = ComputeWorldPositionFromScreen(m_lastMousePos);
       if (targetWorld) {
@@ -2509,6 +2517,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     if (m_measureToolState.enabled) {
       if (!found) {
         ResetViewer2DMeasure(m_measureToolState);
+        m_measureLivePreviewStarted = false;
       } else {
         const auto center = ResolveSceneElementCenterByUuid(cfg, uuid);
         if (center) {
@@ -2518,9 +2527,12 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
             m_measureToolState.hasAnchor = true;
             m_measureToolState.anchorUuid = uuid;
             m_measureToolState.anchorWorld = *center;
+            m_measureLivePreviewStarted = false;
+            m_measureAnchorScreenPos = event.GetPosition();
           } else {
             m_measureToolState.hasCommittedTarget = true;
             m_measureToolState.committedTargetWorld = *center;
+            m_measureLivePreviewStarted = false;
           }
         }
       }
@@ -2809,7 +2821,10 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   if (m_dragMode == DragMode::Selection && event.Dragging()) {
     if ((wxGetLocalTimeMillis() - m_dragPressTime).ToLong() <
         kSelectionDragDelayMs) {
-      m_lastMousePos = pos;
+  m_lastMousePos = pos;
+  if (m_measureToolState.enabled && m_measureToolState.hasAnchor &&
+      !m_measureToolState.hasCommittedTarget)
+    m_measureLivePreviewStarted = true;
       return;
     }
 
