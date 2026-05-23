@@ -140,17 +140,8 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   const float distanceMeters = std::sqrt(dx * dx + dy * dy + dz * dz);
   const std::string text = Units::FormatDistanceFromMillimeters(
       static_cast<double>(distanceMeters) * 1000.0, distanceUnitSystem,
-      Units::ValueFormatContext::Label);
-
-  std::array<float, 3> midpoint{
-      (measureState.anchorWorld[0] + targetWorld[0]) * 0.5f,
-      (measureState.anchorWorld[1] + targetWorld[1]) * 0.5f,
-      (measureState.anchorWorld[2] + targetWorld[2]) * 0.5f};
-  auto labelPoint =
-      Viewer2DMeasureWorldToScreen(midpoint, view, width, height, zoom, offsetX,
-                                   offsetY);
-  if (!labelPoint)
-    return;
+      Units::ValueFormatContext::Label) +
+                           " " + Units::DistanceUnitSuffix(distanceUnitSystem);
 
   const float x0 = (*startPx)[0];
   const float y0 = static_cast<float>(height) - (*startPx)[1];
@@ -170,6 +161,8 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   const float ty0 = y0 + ny * offset;
   const float tx1 = x1 + nx * offset;
   const float ty1 = y1 + ny * offset;
+  const float labelX = ((tx0 + tx1) * 0.5f);
+  const float labelY = static_cast<float>(height) - ((ty0 + ty1) * 0.5f);
   const float arrow = 7.0f;
 
   glDisable(GL_DEPTH_TEST);
@@ -181,8 +174,8 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
-  glLineWidth(1.2f);
-  glColor3f(0.78f, 0.82f, 0.86f);
+  glLineWidth(2.2f);
+  glColor3f(0.92f, 0.12f, 0.12f);
   glBegin(GL_LINES);
   glVertex2f(x0, y0); glVertex2f(tx0, ty0);
   glVertex2f(x1, y1); glVertex2f(tx1, ty1);
@@ -203,9 +196,7 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   glEnable(GL_DEPTH_TEST);
 
   std::vector<OverlayTextLabel> labels{
-      {(*labelPoint)[0] + nx * offset, (*labelPoint)[1] - ny * offset, text, true,
-       true, 3.0f * zoom, true,
-       darkMode ? 1.0f : 0.1f, 0.75f, 0.05f}};
+      {labelX, labelY, text, true, true, 3.0f * zoom, true, 0.95f, 0.1f, 0.1f}};
   controller.DrawOverlayTextLabels(labels, darkMode);
 }
 
