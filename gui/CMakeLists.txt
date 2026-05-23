@@ -87,6 +87,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/summarypanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tableprinter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trusstablepanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/update/app_update_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dprintdialog.cpp
 )
 

@@ -88,6 +88,7 @@
 #include "tools/fixture_symbol_generation_tool.h"
 #include "tools/fixture_category_assignment_tool.h"
 #include "trusstablepanel.h"
+#include "update/app_update_service.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 
@@ -1024,6 +1025,52 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
 // Opens the public Perastage documentation website in the default browser.
 void MainWindow::OnOpenOnlineDocumentation(wxCommandEvent &WXUNUSED(event)) {
   wxLaunchDefaultBrowser("https://perastage.luismaperamato.com/");
+}
+
+
+
+// Checks the latest release asynchronously and shows a result dialog with update actions.
+void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {
+  auto busyInfo = std::make_shared<wxBusyInfo>("Checking for updates...");
+  auto disabler = std::make_shared<wxWindowDisabler>();
+
+  std::thread([this, busyInfo, disabler]() {
+    gui::update::AppUpdateService service;
+    const gui::update::CheckResult result = service.CheckForUpdates();
+
+    CallAfter([this, result, busyInfo, disabler]() {
+      (void)busyInfo;
+      (void)disabler;
+
+      wxString title = "Perastage Updates";
+      if (result.status == gui::update::CheckStatus::CheckFailed) {
+        wxString message = "Could not check for updates.\n\n";
+        message += result.errorMessage.empty()
+                       ? "Please verify your network connection and try again."
+                       : wxString::FromUTF8(result.errorMessage);
+        wxMessageBox(message, title, wxOK | wxICON_WARNING, this);
+        return;
+      }
+
+      const wxString currentVersion = wxString::FromUTF8(result.currentVersion);
+      const wxString latestVersion = wxString::FromUTF8(result.latestVersion);
+      wxString message = "Current version: " + currentVersion + "\n" +
+                         "Latest version: " + latestVersion + "\n\n";
+
+      if (result.status == gui::update::CheckStatus::UpToDate) {
+        message += "You are up to date.";
+        wxMessageBox(message, title, wxOK | wxICON_INFORMATION, this);
+        return;
+      }
+
+      message += "A newer version is available.\nOpen release page now?";
+      const int response = wxMessageBox(message, title,
+                                        wxYES_NO | wxYES_DEFAULT | wxICON_INFORMATION, this);
+      if (response == wxYES) {
+        wxLaunchDefaultBrowser(wxString::FromUTF8(result.releaseUrl));
+      }
+    });
+  }).detach();
 }
 
 // Displays the application About dialog.

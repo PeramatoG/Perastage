@@ -106,6 +106,8 @@ wxMenu *BuildHelpMenu() {
   wxMenu *helpMenu = new wxMenu();
   helpMenu->Append(ID_Help_Help, "Help\tF1");
   helpMenu->Append(ID_Help_OnlineDocumentation, "Online Documentation");
+  helpMenu->Append(ID_Help_CheckForUpdates, "Check for Updates...");
+  helpMenu->AppendSeparator();
   helpMenu->Append(ID_Help_About, "About Perastage");
   return helpMenu;
 }
