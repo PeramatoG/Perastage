@@ -20,6 +20,7 @@
 #include "mainwindow_view_controller.h"
 #include "mainwindow_menu_builders.h"
 #include "mainwindow_menu_text_utils.h"
+#include "mainwindow_menu_helpers.h"
 
 #include <algorithm>
 #include <chrono>
@@ -91,63 +92,6 @@
 #include "update/app_update_service.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
-
-namespace {
-
-struct HelpMarkdown {
-  std::string english;
-  std::string spanish;
-  bool hasSections = false;
-};
-
-// Splits help markdown into English and Spanish sections when markers are present.
-HelpMarkdown SplitHelpMarkdown(const std::string &markdown) {
-  constexpr const char *kEnglishMarker = "<!-- LANG:en -->";
-  constexpr const char *kSpanishMarker = "<!-- LANG:es -->";
-  HelpMarkdown result;
-
-  const auto enPos = markdown.find(kEnglishMarker);
-  const auto esPos = markdown.find(kSpanishMarker);
-  if (enPos == std::string::npos && esPos == std::string::npos) {
-    result.english = markdown;
-    result.spanish = markdown;
-    return result;
-  }
-
-  result.hasSections = true;
-  auto extract = [&](size_t start, size_t end, const char *marker) {
-    if (start == std::string::npos)
-      return std::string();
-    start += std::strlen(marker);
-    if (end == std::string::npos || end < start)
-      end = markdown.size();
-    return TrimLeadingWhitespace(markdown.substr(start, end - start));
-  };
-
-  if (enPos != std::string::npos && esPos != std::string::npos) {
-    if (enPos < esPos) {
-      result.english = extract(enPos, esPos, kEnglishMarker);
-      result.spanish = extract(esPos, std::string::npos, kSpanishMarker);
-    } else {
-      result.spanish = extract(esPos, enPos, kSpanishMarker);
-      result.english = extract(enPos, std::string::npos, kEnglishMarker);
-    }
-  } else {
-    result.english =
-        extract(enPos, std::string::npos, kEnglishMarker);
-    result.spanish =
-        extract(esPos, std::string::npos, kSpanishMarker);
-  }
-
-  if (result.english.empty())
-    result.english = markdown;
-  if (result.spanish.empty())
-    result.spanish = markdown;
-
-  return result;
-}
-
-} // namespace
 
 // Builds and registers the main application toolbars.
 void MainWindow::CreateToolBars() {
@@ -972,7 +916,7 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     std::ifstream in(WxToUtf8(helpPath.GetFullPath()));
     std::string markdown((std::istreambuf_iterator<char>(in)),
                          std::istreambuf_iterator<char>());
-    HelpMarkdown help = SplitHelpMarkdown(markdown);
+    menu::HelpMarkdown help = menu::SplitHelpMarkdown(markdown);
 
     // Create a resizable dialog containing a wxHtmlWindow to render the
     // generated HTML.
