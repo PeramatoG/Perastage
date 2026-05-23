@@ -26,6 +26,7 @@
 
 #include "canvas2d.h"
 #include "viewer3dcontroller.h"
+#include "viewer2d_measure_tool.h"
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include <array>
@@ -147,6 +148,8 @@ public:
   void SetCursorWorldPositionCallback(CursorWorldPositionCallback callback);
   void SetRenderOverrides(
       const std::optional<Viewer2DRenderOverrides> &overrides);
+  void SetMeasureToolEnabled(bool enabled);
+  bool IsMeasureToolEnabled() const { return m_measureToolState.enabled; }
   std::optional<Viewer2DRenderOverrides> GetRenderOverrides() const {
     return m_renderOverrides;
   }
@@ -306,6 +309,7 @@ private:
   PickCacheEntry m_pickCache;
   uint64_t m_pickCacheSceneGeneration = 0;
   bool m_enableSelection = true;
+  Viewer2DMeasureToolState m_measureToolState;
   std::vector<std::string> m_lastAppliedSelectionUuids;
   std::string m_hoverUuid;
   CursorWorldPositionCallback m_cursorWorldPositionCallback;

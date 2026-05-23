@@ -22,3 +22,5 @@ constexpr int ID_View_Layout_Image = ID_View_Layout_Text + 1;
 constexpr int ID_View_Viewport_Top = ID_View_Layout_Image + 1;
 constexpr int ID_View_Viewport_Front = ID_View_Viewport_Top + 1;
 constexpr int ID_View_Viewport_Side = ID_View_Viewport_Front + 1;
+constexpr int ID_View_Viewport_SelectTool = ID_View_Viewport_Side + 1;
+constexpr int ID_View_Viewport_MeasureTool = ID_View_Viewport_SelectTool + 1;

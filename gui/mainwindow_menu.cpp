@@ -272,6 +272,19 @@ void MainWindow::CreateToolBars() {
                               loadToolbarIcon("cube-view-side",
                                               wxART_MISSING_IMAGE),
                               "Apply side view to active viewport");
+  layoutViewsToolBar->AddSeparator();
+  layoutViewsToolBar->AddTool(ID_View_Viewport_SelectTool, "Select Tool",
+                              loadToolbarIcon("mouse-pointer-2",
+                                              wxART_NORMAL_FILE),
+                              "Switch to standard selection mode",
+                              wxITEM_CHECK);
+  layoutViewsToolBar->AddTool(ID_View_Viewport_MeasureTool, "Measure Tool",
+                              loadToolbarIcon("ruler-dimension-line",
+                                              wxART_MISSING_IMAGE),
+                              "Toggle center-to-center measure tool",
+                              wxITEM_CHECK);
+  layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, true);
+  layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, false);
   layoutViewsToolBar->Realize();
   auiManager->AddPane(
       layoutViewsToolBar, wxAuiPaneInfo()

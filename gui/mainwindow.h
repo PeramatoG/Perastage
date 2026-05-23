@@ -83,6 +83,7 @@ public:
   void EnableShortcuts(bool enable);
   void FocusConsoleForQuickCommand(const wxString &prefill);
   bool ApplyShortcutDecision(const gui::ShortcutExecutionDecision &decision);
+  void SyncViewportToolToggleState(bool measureEnabled);
   void Ensure2DViewportAvailable();
   Viewer2DPanel *GetLayoutCapturePanel() const;
   Viewer2DOffscreenRenderer *GetOffscreenRenderer();
@@ -203,6 +204,8 @@ private:
   void OnViewportTopView(wxCommandEvent &event);
   void OnViewportFrontView(wxCommandEvent &event);
   void OnViewportSideView(wxCommandEvent &event);
+  void OnViewportSelectTool(wxCommandEvent &event);
+  void OnViewportMeasureTool(wxCommandEvent &event);
 
   void OnUndo(wxCommandEvent &event);           // Undo action placeholder
   void OnRedo(wxCommandEvent &event);           // Redo action placeholder

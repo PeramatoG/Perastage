@@ -288,6 +288,8 @@ EVT_MENU(ID_View_Layout_Mode, MainWindow::OnApplyLayoutModeLayout)
 EVT_MENU(ID_View_Viewport_Top, MainWindow::OnViewportTopView)
 EVT_MENU(ID_View_Viewport_Front, MainWindow::OnViewportFrontView)
 EVT_MENU(ID_View_Viewport_Side, MainWindow::OnViewportSideView)
+EVT_MENU(ID_View_Viewport_SelectTool, MainWindow::OnViewportSelectTool)
+EVT_MENU(ID_View_Viewport_MeasureTool, MainWindow::OnViewportMeasureTool)
 EVT_MENU(ID_View_Layout_2DView, MainWindow::OnLayoutAdd2DView)
 EVT_MENU(ID_View_Layout_Legend, MainWindow::OnLayoutAddLegend)
 EVT_MENU(ID_View_Layout_EventTable, MainWindow::OnLayoutAddEventTable)
@@ -938,6 +940,7 @@ void MainWindow::UpdateToolBarAvailability() {
   const bool hasLayoutViewer = paneShown("LayoutViewer");
   const bool hasCreationTarget = paneShown("2DViewport") || paneShown("3DViewport") ||
                                  paneShown("DataNotebook");
+  const bool enableViewportTools = !hasLayoutViewer;
 
   if (layoutToolBar) {
     const struct {
@@ -980,6 +983,20 @@ void MainWindow::UpdateToolBarAvailability() {
               : "Requires an open 2D viewport, 3D viewport, or Data Views");
     }
     toolsToolBar->Refresh();
+  }
+
+  if (layoutViewsToolBar) {
+    layoutViewsToolBar->EnableTool(ID_View_Viewport_SelectTool, enableViewportTools);
+    layoutViewsToolBar->EnableTool(ID_View_Viewport_MeasureTool, enableViewportTools);
+    layoutViewsToolBar->SetToolShortHelp(
+        ID_View_Viewport_SelectTool,
+        enableViewportTools ? "Switch to standard selection mode"
+                            : "Disabled while editing Layout views");
+    layoutViewsToolBar->SetToolShortHelp(
+        ID_View_Viewport_MeasureTool,
+        enableViewportTools ? "Toggle center-to-center measure tool"
+                            : "Disabled while editing Layout views");
+    layoutViewsToolBar->Refresh();
   }
 }
 

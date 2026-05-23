@@ -98,6 +98,135 @@ wxRect BuildPointDirtyRegion(const wxPoint &point, int radius) {
   return wxRect(point.x - radius, point.y - radius, size, size);
 }
 
+// Resolves the center world position for any selectable scene element UUID.
+std::optional<std::array<float, 3>>
+ResolveSceneElementCenterByUuid(const ConfigManager &cfg, const std::string &uuid) {
+  const auto toMeters = [](const std::array<float, 3> &pointMm) {
+    return std::array<float, 3>{pointMm[0] / 1000.0f, pointMm[1] / 1000.0f,
+                                pointMm[2] / 1000.0f};
+  };
+  const auto &scene = cfg.GetScene();
+  if (const auto fit = scene.fixtures.find(uuid); fit != scene.fixtures.end())
+    return toMeters(fit->second.GetPosition());
+  if (const auto tit = scene.trusses.find(uuid); tit != scene.trusses.end())
+    return toMeters(tit->second.transform.o);
+  if (const auto sit = scene.supports.find(uuid); sit != scene.supports.end())
+    return toMeters(sit->second.transform.o);
+  if (const auto oit = scene.sceneObjects.find(uuid); oit != scene.sceneObjects.end())
+    return toMeters(oit->second.transform.o);
+  return std::nullopt;
+}
+
+// Draws a CAD-like temporary dimension overlay with extension lines, arrows, and label.
+void DrawMeasureOverlay(Viewer3DController &controller,
+                        const Viewer2DMeasureToolState &measureState,
+                        const std::array<float, 3> &targetWorld, Viewer2DView view,
+                        int width, int height, float zoom, float offsetX,
+                        float offsetY, Units::DistanceUnitSystem distanceUnitSystem,
+                        bool darkMode,
+                        const std::optional<std::array<float, 2>> &targetScreenOverride) {
+  const auto startPx = Viewer2DMeasureWorldToScreen(measureState.anchorWorld, view, width,
+                                                    height, zoom, offsetX, offsetY);
+  const auto endPx = targetScreenOverride.has_value()
+                         ? targetScreenOverride
+                         : Viewer2DMeasureWorldToScreen(targetWorld, view, width, height,
+                                                        zoom, offsetX, offsetY);
+  if (!startPx || !endPx)
+    return;
+
+  // Computes the displayed distance using mouse screen delta during live preview for axis-safe tracking.
+  float distanceMeters = 0.0f;
+  if (targetScreenOverride.has_value()) {
+    const float dxPixels = (*endPx)[0] - (*startPx)[0];
+    const float dyPixels = (*endPx)[1] - (*startPx)[1];
+    const float pixelsPerMeter = PIXELS_PER_METER * zoom;
+    if (pixelsPerMeter > 0.0f)
+      distanceMeters = std::sqrt(dxPixels * dxPixels + dyPixels * dyPixels) /
+                       pixelsPerMeter;
+  } else {
+    // Compute distance in the active 2D projection plane instead of full 3D space.
+    float du = 0.0f;
+    float dv = 0.0f;
+    switch (view) {
+    case Viewer2DView::Top:
+    case Viewer2DView::Bottom:
+      du = targetWorld[0] - measureState.anchorWorld[0];
+      dv = targetWorld[1] - measureState.anchorWorld[1];
+      break;
+    case Viewer2DView::Front:
+      du = targetWorld[0] - measureState.anchorWorld[0];
+      dv = targetWorld[2] - measureState.anchorWorld[2];
+      break;
+    case Viewer2DView::Side:
+      du = targetWorld[1] - measureState.anchorWorld[1];
+      dv = targetWorld[2] - measureState.anchorWorld[2];
+      break;
+    }
+    distanceMeters = std::sqrt(du * du + dv * dv);
+  }
+  const std::string text = Units::FormatDistanceFromMillimeters(
+      static_cast<double>(distanceMeters) * 1000.0, distanceUnitSystem,
+      Units::ValueFormatContext::Label) +
+                           " " + Units::DistanceUnitSuffix(distanceUnitSystem);
+
+  const float x0 = (*startPx)[0];
+  const float y0 = static_cast<float>(height) - (*startPx)[1];
+  const float x1 = (*endPx)[0];
+  const float y1 = static_cast<float>(height) - (*endPx)[1];
+  float vx = x1 - x0;
+  float vy = y1 - y0;
+  const float len = std::sqrt(vx * vx + vy * vy);
+  if (len < 1.0f)
+    return;
+  vx /= len;
+  vy /= len;
+  const float nx = -vy;
+  const float ny = vx;
+  const float offset = 14.0f;
+  const float tx0 = x0 + nx * offset;
+  const float ty0 = y0 + ny * offset;
+  const float tx1 = x1 + nx * offset;
+  const float ty1 = y1 + ny * offset;
+  const float labelX = ((tx0 + tx1) * 0.5f);
+  const float labelY =
+      static_cast<float>(height) - ((ty0 + ty1) * 0.5f) - 10.0f;
+  const float arrow = 7.0f;
+
+  glDisable(GL_DEPTH_TEST);
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
+  glLoadIdentity();
+  glOrtho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height), -1.0f,
+          1.0f);
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
+  glLineWidth(2.2f);
+  glColor3f(0.92f, 0.12f, 0.12f);
+  glBegin(GL_LINES);
+  glVertex2f(x0, y0); glVertex2f(tx0, ty0);
+  glVertex2f(x1, y1); glVertex2f(tx1, ty1);
+  glVertex2f(tx0, ty0); glVertex2f(tx1, ty1);
+  glVertex2f(tx0, ty0); glVertex2f(tx0 + vx * arrow + nx * (arrow * 0.45f),
+                                   ty0 + vy * arrow + ny * (arrow * 0.45f));
+  glVertex2f(tx0, ty0); glVertex2f(tx0 + vx * arrow - nx * (arrow * 0.45f),
+                                   ty0 + vy * arrow - ny * (arrow * 0.45f));
+  glVertex2f(tx1, ty1); glVertex2f(tx1 - vx * arrow + nx * (arrow * 0.45f),
+                                   ty1 - vy * arrow + ny * (arrow * 0.45f));
+  glVertex2f(tx1, ty1); glVertex2f(tx1 - vx * arrow - nx * (arrow * 0.45f),
+                                   ty1 - vy * arrow - ny * (arrow * 0.45f));
+  glEnd();
+  glPopMatrix();
+  glMatrixMode(GL_PROJECTION);
+  glPopMatrix();
+  glMatrixMode(GL_MODELVIEW);
+  glEnable(GL_DEPTH_TEST);
+
+  std::vector<OverlayTextLabel> labels{
+      {labelX, labelY, text, true, true, 3.0f * zoom, true, 0.95f, 0.1f, 0.1f}};
+  controller.DrawOverlayTextLabels(labels, darkMode);
+}
+
 void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
                                 int expectedHeight) {
   GLint framebuffer = 0;
@@ -162,6 +291,22 @@ wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint) {
           std::lround(static_cast<double>(logicalPoint.x) * contentScale)),
       static_cast<int>(
           std::lround(static_cast<double>(logicalPoint.y) * contentScale)));
+}
+
+// Converts framebuffer-space mouse coordinates back to logical window coordinates.
+wxPoint ToLogicalPointFromFramebuffer(wxWindow *window,
+                                      const std::array<float, 2> &framebufferPoint) {
+  if (window == nullptr)
+    return wxPoint(static_cast<int>(std::lround(framebufferPoint[0])),
+                   static_cast<int>(std::lround(framebufferPoint[1])));
+  const double contentScale =
+      static_cast<double>(window->GetContentScaleFactor());
+  if (!std::isfinite(contentScale) || contentScale <= 0.0) {
+    return wxPoint(static_cast<int>(std::lround(framebufferPoint[0])),
+                   static_cast<int>(std::lround(framebufferPoint[1])));
+  }
+  return wxPoint(static_cast<int>(std::lround(framebufferPoint[0] / contentScale)),
+                 static_cast<int>(std::lround(framebufferPoint[1] / contentScale)));
 }
 
 // Emit grid primitives to a canvas so the command buffer records the same
@@ -615,29 +760,44 @@ void Viewer2DPanel::SetCursorWorldPositionCallback(
 void Viewer2DPanel::SetRenderOverrides(
     const std::optional<Viewer2DRenderOverrides> &overrides) {
   m_renderOverrides = overrides;
+  RequestRepaint();
 }
 
+// Toggles the measurement tool mode and resets temporary measurement state.
+void Viewer2DPanel::SetMeasureToolEnabled(bool enabled) {
+  m_measureToolState.enabled = enabled;
+  ResetViewer2DMeasure(m_measureToolState);
+  if (MainWindow::Instance())
+    MainWindow::Instance()->SyncViewportToolToggleState(enabled);
+  SetCursor(enabled ? wxCursor(wxCURSOR_CROSS) : wxCursor(wxCURSOR_ARROW));
+  RequestRepaint();
+}
+
+// Converts a mouse position in window coordinates into the current 2D world position.
 std::optional<std::array<float, 3>>
 Viewer2DPanel::ComputeWorldPositionFromScreen(const wxPoint &screenPos) const {
-  const wxSize size = GetClientSize();
-  const int width = size.GetWidth();
-  const int height = size.GetHeight();
-  if (width <= 0 || height <= 0)
+  const RenderSize renderSize =
+      ResolveRenderSize(const_cast<Viewer2DPanel *>(this));
+  if (!renderSize.IsValid())
     return std::nullopt;
+  const int width = renderSize.width;
+  const int height = renderSize.height;
+  const wxPoint framebufferPos =
+      ToFramebufferPoint(const_cast<Viewer2DPanel *>(this), screenPos);
 
   const float pixelsPerMeter = PIXELS_PER_METER * m_zoom;
   if (pixelsPerMeter <= 0.0f)
     return std::nullopt;
 
-  const float offsetMetersX = m_offsetX / PIXELS_PER_METER;
-  const float offsetMetersY = m_offsetY / PIXELS_PER_METER;
+  const float offsetMetersX = m_offsetX / pixelsPerMeter;
+  const float offsetMetersY = m_offsetY / pixelsPerMeter;
 
   const float viewX =
-      (static_cast<float>(screenPos.x) - static_cast<float>(width) * 0.5f) /
+      (static_cast<float>(framebufferPos.x) - static_cast<float>(width) * 0.5f) /
           pixelsPerMeter -
       offsetMetersX;
   const float viewY =
-      (static_cast<float>(height) * 0.5f - static_cast<float>(screenPos.y)) /
+      (static_cast<float>(height) * 0.5f - static_cast<float>(framebufferPos.y)) /
           pixelsPerMeter -
       offsetMetersY;
 
@@ -1024,6 +1184,40 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     }
     if (recordingCanvas)
       viewer2d::EmitRulerToCanvas(rulerState, darkMode, *recordingCanvas);
+  }
+
+  if (m_measureToolState.enabled && m_measureToolState.hasAnchor) {
+    std::optional<std::array<float, 3>> targetWorld;
+    std::optional<std::array<float, 2>> targetScreenOverride;
+    if (m_measureToolState.hasCommittedTarget) {
+      targetWorld = m_measureToolState.committedTargetWorld;
+    } else {
+      targetWorld = ComputeWorldPositionFromScreen(m_lastMousePos);
+      if (targetWorld) {
+        // Keep live preview distance constrained to the active view plane.
+        switch (m_view) {
+        case Viewer2DView::Top:
+        case Viewer2DView::Bottom:
+          (*targetWorld)[2] = m_measureToolState.anchorWorld[2];
+          break;
+        case Viewer2DView::Front:
+          (*targetWorld)[1] = m_measureToolState.anchorWorld[1];
+          break;
+        case Viewer2DView::Side:
+          (*targetWorld)[0] = m_measureToolState.anchorWorld[0];
+          break;
+        }
+      }
+      const wxPoint framebufferMousePos = ToFramebufferPoint(this, m_lastMousePos);
+      targetScreenOverride = std::array<float, 2>{
+          static_cast<float>(framebufferMousePos.x),
+          static_cast<float>(framebufferMousePos.y)};
+    }
+    if (targetWorld) {
+      DrawMeasureOverlay(m_controller, m_measureToolState, *targetWorld, m_view, w,
+                         h, m_zoom, m_offsetX, m_offsetY, distanceUnitSystem,
+                         darkMode, targetScreenOverride);
+    }
   }
 
   // Draw fixture/hoist labels after all overlays so they remain on top of
@@ -2307,6 +2501,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
   }
 
   if (event.LeftUp() && !m_draggedSincePress) {
+    m_lastMousePos = event.GetPosition();
     const bool oldHasHover = m_hasHover;
     const std::string oldHoverUuid = m_hoverUuid;
     const RenderSize renderSize = ResolveRenderSize(this);
@@ -2340,6 +2535,37 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
                                            w, h, hiddenLayersHash, true, uuid);
 
     ConfigManager &cfg = ConfigManager::Get();
+    if (m_measureToolState.enabled) {
+      if (!found) {
+        ResetViewer2DMeasure(m_measureToolState);
+      } else {
+        const auto center = ResolveSceneElementCenterByUuid(cfg, uuid);
+        if (center) {
+          if (!m_measureToolState.hasAnchor ||
+              m_measureToolState.hasCommittedTarget) {
+            ResetViewer2DMeasure(m_measureToolState);
+            m_measureToolState.hasAnchor = true;
+            m_measureToolState.anchorUuid = uuid;
+            m_measureToolState.anchorWorld = *center;
+            const RenderSize anchorRenderSize = ResolveRenderSize(this);
+            if (anchorRenderSize.IsValid()) {
+              const auto anchorScreen = Viewer2DMeasureWorldToScreen(
+                  m_measureToolState.anchorWorld, m_view, anchorRenderSize.width,
+                  anchorRenderSize.height, m_zoom, m_offsetX, m_offsetY);
+              if (anchorScreen)
+                m_lastMousePos = ToLogicalPointFromFramebuffer(this, *anchorScreen);
+              else
+                m_lastMousePos = event.GetPosition();
+            } else {
+              m_lastMousePos = event.GetPosition();
+            }
+          } else {
+            m_measureToolState.hasCommittedTarget = true;
+            m_measureToolState.committedTargetWorld = *center;
+          }
+        }
+      }
+    }
     bool selectionChanged = false;
     if (found) {
       m_hasHover = true;
@@ -2624,7 +2850,6 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   if (m_dragMode == DragMode::Selection && event.Dragging()) {
     if ((wxGetLocalTimeMillis() - m_dragPressTime).ToLong() <
         kSelectionDragDelayMs) {
-      m_lastMousePos = pos;
       return;
     }
 
@@ -2729,6 +2954,17 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
   float panStep = 10.0f / m_zoom;
 
   switch (event.GetKeyCode()) {
+  case WXK_ESCAPE:
+    if (m_measureToolState.enabled) {
+      SetMeasureToolEnabled(false);
+      return;
+    }
+    event.Skip();
+    return;
+  case 'M':
+  case 'm':
+    SetMeasureToolEnabled(!m_measureToolState.enabled);
+    return;
   case WXK_LEFT:
     if (alt)
       m_zoom *= 1.1f;
