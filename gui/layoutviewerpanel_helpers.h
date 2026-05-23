@@ -1,7 +1,6 @@
 #pragma once
 
-#include <wx/point.h>
-#include <wx/size.h>
+#include <wx/gdicmn.h>
 
 class wxMouseEvent;
 class wxWindow;
