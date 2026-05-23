@@ -310,8 +310,6 @@ private:
   uint64_t m_pickCacheSceneGeneration = 0;
   bool m_enableSelection = true;
   Viewer2DMeasureToolState m_measureToolState;
-  bool m_measureLivePreviewStarted = false;
-  wxPoint m_measureAnchorScreenPos;
   std::vector<std::string> m_lastAppliedSelectionUuids;
   std::string m_hoverUuid;
   CursorWorldPositionCallback m_cursorWorldPositionCallback;
