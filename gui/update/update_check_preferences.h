@@ -8,7 +8,7 @@ class IGuiPreferencesService;
 
 namespace gui::update {
 
-enum class StartupCheckMode { Disabled, StartupRecommended, ManualOnly };
+enum class StartupCheckMode { StartupRecommended, ManualOnly };
 
 // Returns the configured startup-check mode from persisted GUI preferences.
 StartupCheckMode ReadStartupCheckMode(const IGuiPreferencesService &preferences);

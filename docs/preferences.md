@@ -9,7 +9,7 @@ Current user-facing preferences include:
 - Distance units
 - Weight units
 - GDTF-related settings
-- Update check behavior (never automatic, startup recommended, or manual only)
+- Update check behavior (startup recommended or manual only)
 
 ## Why preferences matter
 
@@ -19,7 +19,6 @@ Current user-facing preferences include:
 
 ## Update check behavior
 
-- **Never check automatically**: disables startup-triggered online checks.
 - **Check on startup (recommended)**: checks on launch, limited to at most once every 24 hours.
 - **Manual only**: does not run startup checks; use **Help → Check for Updates** on demand.
 

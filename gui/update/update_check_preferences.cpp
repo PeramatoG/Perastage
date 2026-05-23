@@ -23,8 +23,6 @@ std::string ToLowerCopy(std::string value) {
 // Converts the enum mode to a stable config token for persistence.
 std::string ModeToConfigValue(const StartupCheckMode mode) {
   switch (mode) {
-  case StartupCheckMode::Disabled:
-    return "never_auto";
   case StartupCheckMode::ManualOnly:
     return "manual_only";
   case StartupCheckMode::StartupRecommended:
@@ -57,9 +55,7 @@ StartupCheckMode ReadStartupCheckMode(const IGuiPreferencesService &preferences)
     return StartupCheckMode::StartupRecommended;
 
   const std::string normalized = ToLowerCopy(*raw);
-  if (normalized == "never_auto")
-    return StartupCheckMode::Disabled;
-  if (normalized == "manual_only")
+  if (normalized == "manual_only" || normalized == "never_auto")
     return StartupCheckMode::ManualOnly;
   return StartupCheckMode::StartupRecommended;
 }

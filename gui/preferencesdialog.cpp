@@ -163,17 +163,14 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
                                     "Automatic update checks:"),
                    0, wxALIGN_CENTER_VERTICAL);
   updateCheckModeChoice = new wxChoice(updatesPanel, wxID_ANY);
-  updateCheckModeChoice->Append("Never check automatically");
   updateCheckModeChoice->Append("Check on startup (recommended)");
   updateCheckModeChoice->Append("Manual only");
   const auto startupMode =
       gui::update::ReadStartupCheckMode(GetDefaultGuiConfigServices().Preferences());
-  if (startupMode == gui::update::StartupCheckMode::Disabled)
-    updateCheckModeChoice->SetSelection(0);
-  else if (startupMode == gui::update::StartupCheckMode::ManualOnly)
-    updateCheckModeChoice->SetSelection(2);
-  else
+  if (startupMode == gui::update::StartupCheckMode::ManualOnly)
     updateCheckModeChoice->SetSelection(1);
+  else
+    updateCheckModeChoice->SetSelection(0);
   updatesGrid->Add(updateCheckModeChoice, 1, wxEXPAND);
   updatesSizer->Add(updatesGrid, 0, wxALL | wxEXPAND, 10);
   updatesSizer->Add(new wxStaticText(
@@ -362,10 +359,7 @@ bool PreferencesDialog::ApplyPreferences() {
   cfg.SetValue("ui_weight_unit_system",
                weightUnitChoice->GetSelection() == 1 ? "imperial" : "metric");
   auto &preferences = GetDefaultGuiConfigServices().Preferences();
-  if (updateCheckModeChoice && updateCheckModeChoice->GetSelection() == 0)
-    gui::update::WriteStartupCheckMode(preferences,
-                                       gui::update::StartupCheckMode::Disabled);
-  else if (updateCheckModeChoice && updateCheckModeChoice->GetSelection() == 2)
+  if (updateCheckModeChoice && updateCheckModeChoice->GetSelection() == 1)
     gui::update::WriteStartupCheckMode(preferences,
                                        gui::update::StartupCheckMode::ManualOnly);
   else
