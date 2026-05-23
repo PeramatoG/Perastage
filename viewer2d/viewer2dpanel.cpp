@@ -113,20 +113,19 @@ ResolveSceneElementCenterByUuid(const ConfigManager &cfg, const std::string &uui
   return std::nullopt;
 }
 
-// Draws the active temporary measurement segment and its formatted distance label.
+// Draws a CAD-like temporary dimension overlay with extension lines, arrows, and label.
 void DrawMeasureOverlay(Viewer3DController &controller,
                         const Viewer2DMeasureToolState &measureState,
                         const std::array<float, 3> &targetWorld, Viewer2DView view,
                         int width, int height, float zoom, float offsetX,
                         float offsetY, Units::DistanceUnitSystem distanceUnitSystem,
                         bool darkMode) {
-  glLineWidth(1.8f);
-  glColor3f(1.0f, 0.75f, 0.05f);
-  glBegin(GL_LINES);
-  glVertex3f(measureState.anchorWorld[0], measureState.anchorWorld[1],
-             measureState.anchorWorld[2]);
-  glVertex3f(targetWorld[0], targetWorld[1], targetWorld[2]);
-  glEnd();
+  const auto startPx = Viewer2DMeasureWorldToScreen(measureState.anchorWorld, view, width,
+                                                    height, zoom, offsetX, offsetY);
+  const auto endPx = Viewer2DMeasureWorldToScreen(targetWorld, view, width, height, zoom,
+                                                  offsetX, offsetY);
+  if (!startPx || !endPx)
+    return;
 
   const float dx = targetWorld[0] - measureState.anchorWorld[0];
   const float dy = targetWorld[1] - measureState.anchorWorld[1];
@@ -140,12 +139,65 @@ void DrawMeasureOverlay(Viewer3DController &controller,
       (measureState.anchorWorld[0] + targetWorld[0]) * 0.5f,
       (measureState.anchorWorld[1] + targetWorld[1]) * 0.5f,
       (measureState.anchorWorld[2] + targetWorld[2]) * 0.5f};
-  auto labelPoint = Viewer2DMeasureWorldToScreen(midpoint, view, width, height,
-                                                 zoom, offsetX, offsetY);
+  auto labelPoint =
+      Viewer2DMeasureWorldToScreen(midpoint, view, width, height, zoom, offsetX,
+                                   offsetY);
   if (!labelPoint)
     return;
+
+  const float x0 = (*startPx)[0];
+  const float y0 = static_cast<float>(height) - (*startPx)[1];
+  const float x1 = (*endPx)[0];
+  const float y1 = static_cast<float>(height) - (*endPx)[1];
+  float vx = x1 - x0;
+  float vy = y1 - y0;
+  const float len = std::sqrt(vx * vx + vy * vy);
+  if (len < 1.0f)
+    return;
+  vx /= len;
+  vy /= len;
+  const float nx = -vy;
+  const float ny = vx;
+  const float offset = 14.0f;
+  const float tx0 = x0 + nx * offset;
+  const float ty0 = y0 + ny * offset;
+  const float tx1 = x1 + nx * offset;
+  const float ty1 = y1 + ny * offset;
+  const float arrow = 7.0f;
+
+  glDisable(GL_DEPTH_TEST);
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
+  glLoadIdentity();
+  glOrtho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height), -1.0f,
+          1.0f);
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
+  glLineWidth(1.2f);
+  glColor3f(0.78f, 0.82f, 0.86f);
+  glBegin(GL_LINES);
+  glVertex2f(x0, y0); glVertex2f(tx0, ty0);
+  glVertex2f(x1, y1); glVertex2f(tx1, ty1);
+  glVertex2f(tx0, ty0); glVertex2f(tx1, ty1);
+  glVertex2f(tx0, ty0); glVertex2f(tx0 + vx * arrow + nx * (arrow * 0.45f),
+                                   ty0 + vy * arrow + ny * (arrow * 0.45f));
+  glVertex2f(tx0, ty0); glVertex2f(tx0 + vx * arrow - nx * (arrow * 0.45f),
+                                   ty0 + vy * arrow - ny * (arrow * 0.45f));
+  glVertex2f(tx1, ty1); glVertex2f(tx1 - vx * arrow + nx * (arrow * 0.45f),
+                                   ty1 - vy * arrow + ny * (arrow * 0.45f));
+  glVertex2f(tx1, ty1); glVertex2f(tx1 - vx * arrow - nx * (arrow * 0.45f),
+                                   ty1 - vy * arrow - ny * (arrow * 0.45f));
+  glEnd();
+  glPopMatrix();
+  glMatrixMode(GL_PROJECTION);
+  glPopMatrix();
+  glMatrixMode(GL_MODELVIEW);
+  glEnable(GL_DEPTH_TEST);
+
   std::vector<OverlayTextLabel> labels{
-      {(*labelPoint)[0], (*labelPoint)[1], text, true, true, 3.0f * zoom, true,
+      {(*labelPoint)[0] + nx * offset, (*labelPoint)[1] - ny * offset, text, true,
+       true, 3.0f * zoom, true,
        darkMode ? 1.0f : 0.1f, 0.75f, 0.05f}};
   controller.DrawOverlayTextLabels(labels, darkMode);
 }
@@ -2382,6 +2434,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
   }
 
   if (event.LeftUp() && !m_draggedSincePress) {
+    m_lastMousePos = event.GetPosition();
     const bool oldHasHover = m_hasHover;
     const std::string oldHoverUuid = m_hoverUuid;
     const RenderSize renderSize = ResolveRenderSize(this);
