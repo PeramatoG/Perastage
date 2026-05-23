@@ -103,13 +103,13 @@ std::optional<std::array<float, 3>>
 ResolveSceneElementCenterByUuid(const ConfigManager &cfg, const std::string &uuid) {
   const auto &scene = cfg.GetScene();
   if (const auto fit = scene.fixtures.find(uuid); fit != scene.fixtures.end())
-    return fit->second.pos;
+    return fit->second.GetPosition();
   if (const auto tit = scene.trusses.find(uuid); tit != scene.trusses.end())
-    return tit->second.pos;
+    return tit->second.transform.o;
   if (const auto sit = scene.supports.find(uuid); sit != scene.supports.end())
-    return sit->second.pos;
+    return sit->second.transform.o;
   if (const auto oit = scene.sceneObjects.find(uuid); oit != scene.sceneObjects.end())
-    return oit->second.pos;
+    return oit->second.transform.o;
   return std::nullopt;
 }
 
@@ -133,7 +133,8 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   const float dz = targetWorld[2] - measureState.anchorWorld[2];
   const float distanceMeters = std::sqrt(dx * dx + dy * dy + dz * dz);
   const std::string text = Units::FormatDistanceFromMillimeters(
-      static_cast<double>(distanceMeters) * 1000.0, distanceUnitSystem);
+      static_cast<double>(distanceMeters) * 1000.0, distanceUnitSystem,
+      Units::ValueFormatContext::Label);
 
   std::array<float, 3> midpoint{
       (measureState.anchorWorld[0] + targetWorld[0]) * 0.5f,
