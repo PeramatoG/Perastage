@@ -1039,8 +1039,11 @@ void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {
     const gui::update::CheckResult result = service.CheckForUpdates();
 
     CallAfter([this, result, busyInfo, disabler]() {
-      (void)busyInfo;
-      (void)disabler;
+      // Releases busy UI guards before any modal dialog so result popups remain visible.
+      auto busyInfoGuard = busyInfo;
+      auto disablerGuard = disabler;
+      busyInfoGuard.reset();
+      disablerGuard.reset();
 
       wxString title = "Perastage Updates";
       if (result.status == gui::update::CheckStatus::CheckFailed) {
