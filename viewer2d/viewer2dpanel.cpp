@@ -134,25 +134,36 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   if (!startPx || !endPx)
     return;
 
-  // Compute distance in the active 2D projection plane instead of full 3D space.
-  float du = 0.0f;
-  float dv = 0.0f;
-  switch (view) {
-  case Viewer2DView::Top:
-  case Viewer2DView::Bottom:
-    du = targetWorld[0] - measureState.anchorWorld[0];
-    dv = targetWorld[1] - measureState.anchorWorld[1];
-    break;
-  case Viewer2DView::Front:
-    du = targetWorld[0] - measureState.anchorWorld[0];
-    dv = targetWorld[2] - measureState.anchorWorld[2];
-    break;
-  case Viewer2DView::Side:
-    du = targetWorld[1] - measureState.anchorWorld[1];
-    dv = targetWorld[2] - measureState.anchorWorld[2];
-    break;
+  // Computes the displayed distance using mouse screen delta during live preview for axis-safe tracking.
+  float distanceMeters = 0.0f;
+  if (targetScreenOverride.has_value()) {
+    const float dxPixels = (*endPx)[0] - (*startPx)[0];
+    const float dyPixels = (*endPx)[1] - (*startPx)[1];
+    const float pixelsPerMeter = PIXELS_PER_METER * zoom;
+    if (pixelsPerMeter > 0.0f)
+      distanceMeters = std::sqrt(dxPixels * dxPixels + dyPixels * dyPixels) /
+                       pixelsPerMeter;
+  } else {
+    // Compute distance in the active 2D projection plane instead of full 3D space.
+    float du = 0.0f;
+    float dv = 0.0f;
+    switch (view) {
+    case Viewer2DView::Top:
+    case Viewer2DView::Bottom:
+      du = targetWorld[0] - measureState.anchorWorld[0];
+      dv = targetWorld[1] - measureState.anchorWorld[1];
+      break;
+    case Viewer2DView::Front:
+      du = targetWorld[0] - measureState.anchorWorld[0];
+      dv = targetWorld[2] - measureState.anchorWorld[2];
+      break;
+    case Viewer2DView::Side:
+      du = targetWorld[1] - measureState.anchorWorld[1];
+      dv = targetWorld[2] - measureState.anchorWorld[2];
+      break;
+    }
+    distanceMeters = std::sqrt(du * du + dv * dv);
   }
-  const float distanceMeters = std::sqrt(du * du + dv * dv);
   const std::string text = Units::FormatDistanceFromMillimeters(
       static_cast<double>(distanceMeters) * 1000.0, distanceUnitSystem,
       Units::ValueFormatContext::Label) +
