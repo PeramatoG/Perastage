@@ -123,11 +123,14 @@ void DrawMeasureOverlay(Viewer3DController &controller,
                         const std::array<float, 3> &targetWorld, Viewer2DView view,
                         int width, int height, float zoom, float offsetX,
                         float offsetY, Units::DistanceUnitSystem distanceUnitSystem,
-                        bool darkMode) {
+                        bool darkMode,
+                        const std::optional<std::array<float, 2>> &targetScreenOverride) {
   const auto startPx = Viewer2DMeasureWorldToScreen(measureState.anchorWorld, view, width,
                                                     height, zoom, offsetX, offsetY);
-  const auto endPx = Viewer2DMeasureWorldToScreen(targetWorld, view, width, height, zoom,
-                                                  offsetX, offsetY);
+  const auto endPx = targetScreenOverride.has_value()
+                         ? targetScreenOverride
+                         : Viewer2DMeasureWorldToScreen(targetWorld, view, width, height,
+                                                        zoom, offsetX, offsetY);
   if (!startPx || !endPx)
     return;
 
@@ -1149,15 +1152,20 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
 
   if (m_measureToolState.enabled && m_measureToolState.hasAnchor) {
     std::optional<std::array<float, 3>> targetWorld;
+    std::optional<std::array<float, 2>> targetScreenOverride;
     if (m_measureToolState.hasCommittedTarget) {
       targetWorld = m_measureToolState.committedTargetWorld;
     } else {
       targetWorld = ComputeWorldPositionFromScreen(m_lastMousePos);
+      const wxPoint framebufferMousePos = ToFramebufferPoint(this, m_lastMousePos);
+      targetScreenOverride = std::array<float, 2>{
+          static_cast<float>(framebufferMousePos.x),
+          static_cast<float>(framebufferMousePos.y)};
     }
     if (targetWorld) {
       DrawMeasureOverlay(m_controller, m_measureToolState, *targetWorld, m_view, w,
                          h, m_zoom, m_offsetX, m_offsetY, distanceUnitSystem,
-                         darkMode);
+                         darkMode, targetScreenOverride);
     }
   }
 
