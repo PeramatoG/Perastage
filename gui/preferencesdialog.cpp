@@ -19,6 +19,7 @@
 #include "preferences/gdtf_credentials_panel.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "update/update_check_preferences.h"
 #include "units/units.h"
 #include "viewer3d_render_style.h"
 #include <wx/checkbox.h>
@@ -153,6 +154,32 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   unitsPanel->SetSizer(unitsSizer);
   book->AddPage(unitsPanel, "Units");
 
+  // Updates page
+  wxPanel *updatesPanel = new wxPanel(book);
+  wxBoxSizer *updatesSizer = new wxBoxSizer(wxVERTICAL);
+  wxFlexGridSizer *updatesGrid = new wxFlexGridSizer(1, 2, 10, 10);
+  updatesGrid->AddGrowableCol(1, 1);
+  updatesGrid->Add(new wxStaticText(updatesPanel, wxID_ANY,
+                                    "Automatic update checks:"),
+                   0, wxALIGN_CENTER_VERTICAL);
+  updateCheckModeChoice = new wxChoice(updatesPanel, wxID_ANY);
+  updateCheckModeChoice->Append("Check on startup (recommended)");
+  updateCheckModeChoice->Append("Manual only");
+  const auto startupMode =
+      gui::update::ReadStartupCheckMode(GetDefaultGuiConfigServices().Preferences());
+  if (startupMode == gui::update::StartupCheckMode::ManualOnly)
+    updateCheckModeChoice->SetSelection(1);
+  else
+    updateCheckModeChoice->SetSelection(0);
+  updatesGrid->Add(updateCheckModeChoice, 1, wxEXPAND);
+  updatesSizer->Add(updatesGrid, 0, wxALL | wxEXPAND, 10);
+  updatesSizer->Add(new wxStaticText(
+                        updatesPanel, wxID_ANY,
+                        "Manual checks are always available from Help -> Check for Updates."),
+                    0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
+  updatesPanel->SetSizer(updatesSizer);
+  book->AddPage(updatesPanel, "Updates");
+
   // GDTF page
   gdtfCredentialsPanel = new GdtfCredentialsPanel(book);
   gdtfCredentialsPanel->LoadCredentials();
@@ -284,6 +311,7 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   Bind(wxEVT_BUTTON, &PreferencesDialog::OnOkButton, this, wxID_OK);
 }
 
+// Applies the dialog changes without closing when requested.
 void PreferencesDialog::OnApplyButton(wxCommandEvent &WXUNUSED(event)) {
   if (!ApplyPreferences())
     return;
@@ -291,6 +319,7 @@ void PreferencesDialog::OnApplyButton(wxCommandEvent &WXUNUSED(event)) {
   NotifyPreferencesApplied();
 }
 
+// Applies the dialog changes and closes the dialog on success.
 void PreferencesDialog::OnOkButton(wxCommandEvent &WXUNUSED(event)) {
   if (!ApplyPreferences())
     return;
@@ -299,6 +328,7 @@ void PreferencesDialog::OnOkButton(wxCommandEvent &WXUNUSED(event)) {
   EndModal(wxID_OK);
 }
 
+// Writes all preference fields to persistent user configuration storage.
 bool PreferencesDialog::ApplyPreferences() {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto distanceUnitSystem = DistanceUnitSystemFromChoice(distanceUnitChoice);
@@ -328,6 +358,13 @@ bool PreferencesDialog::ApplyPreferences() {
                                                        : "metric");
   cfg.SetValue("ui_weight_unit_system",
                weightUnitChoice->GetSelection() == 1 ? "imperial" : "metric");
+  auto &preferences = GetDefaultGuiConfigServices().Preferences();
+  if (updateCheckModeChoice && updateCheckModeChoice->GetSelection() == 1)
+    gui::update::WriteStartupCheckMode(preferences,
+                                       gui::update::StartupCheckMode::ManualOnly);
+  else
+    gui::update::WriteStartupCheckMode(
+        preferences, gui::update::StartupCheckMode::StartupRecommended);
   Viewer3DRenderStyle renderStyle = Viewer3DRenderStyle::Standard;
   if (viewer3dWhiteRenderRadio && viewer3dWhiteRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::White;
