@@ -730,13 +730,17 @@ void Viewer2DPanel::SetMeasureToolEnabled(bool enabled) {
   RequestRepaint();
 }
 
+// Converts a mouse position in window coordinates into the current 2D world position.
 std::optional<std::array<float, 3>>
 Viewer2DPanel::ComputeWorldPositionFromScreen(const wxPoint &screenPos) const {
-  const wxSize size = GetClientSize();
-  const int width = size.GetWidth();
-  const int height = size.GetHeight();
-  if (width <= 0 || height <= 0)
+  const RenderSize renderSize =
+      ResolveRenderSize(const_cast<Viewer2DPanel *>(this));
+  if (!renderSize.IsValid())
     return std::nullopt;
+  const int width = renderSize.width;
+  const int height = renderSize.height;
+  const wxPoint framebufferPos =
+      ToFramebufferPoint(const_cast<Viewer2DPanel *>(this), screenPos);
 
   const float pixelsPerMeter = PIXELS_PER_METER * m_zoom;
   if (pixelsPerMeter <= 0.0f)
@@ -746,11 +750,11 @@ Viewer2DPanel::ComputeWorldPositionFromScreen(const wxPoint &screenPos) const {
   const float offsetMetersY = m_offsetY / PIXELS_PER_METER;
 
   const float viewX =
-      (static_cast<float>(screenPos.x) - static_cast<float>(width) * 0.5f) /
+      (static_cast<float>(framebufferPos.x) - static_cast<float>(width) * 0.5f) /
           pixelsPerMeter -
       offsetMetersX;
   const float viewY =
-      (static_cast<float>(height) * 0.5f - static_cast<float>(screenPos.y)) /
+      (static_cast<float>(height) * 0.5f - static_cast<float>(framebufferPos.y)) /
           pixelsPerMeter -
       offsetMetersY;
 
