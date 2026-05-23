@@ -203,6 +203,8 @@ private:
   void OnViewportTopView(wxCommandEvent &event);
   void OnViewportFrontView(wxCommandEvent &event);
   void OnViewportSideView(wxCommandEvent &event);
+  void OnViewportSelectTool(wxCommandEvent &event);
+  void OnViewportMeasureTool(wxCommandEvent &event);
 
   void OnUndo(wxCommandEvent &event);           // Undo action placeholder
   void OnRedo(wxCommandEvent &event);           // Redo action placeholder
