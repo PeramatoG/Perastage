@@ -44,6 +44,7 @@
 #endif
 
 #include "layoutviewerpanel.h"
+#include "layoutviewerpanel_helpers.h"
 #include "gl_state_guard.h"
 #include <wx/debug.h>
 #include <wx/log.h>
@@ -82,7 +83,6 @@ constexpr int kHandleSizePx = 10;
 constexpr int kHandleHalfPx = kHandleSizePx / 2;
 constexpr int kHandleHoverPadPx = 6;
 constexpr int kMinFrameSize = 24;
-constexpr int kLayoutGridStep = 5;
 constexpr int kMaxRenderDimension = 8192;
 constexpr size_t kMaxRenderPixels =
     static_cast<size_t>(kMaxRenderDimension) * kMaxRenderDimension;
@@ -267,32 +267,6 @@ bool AreEqual(const std::vector<T> &lhs, const std::vector<T> &rhs) {
   return true;
 }
 
-// Returns the logical client size for a window or zero size when the window is null.
-wxSize GetLogicalClientSize(const wxWindow *window) {
-  if (window == nullptr) {
-    return wxSize(0, 0);
-  }
-  return window->GetClientSize();
-}
-
-// Returns the mouse position in logical client coordinates.
-wxPoint GetLogicalMousePosition(const wxMouseEvent &event) {
-  return event.GetPosition();
-}
-
-// Converts a logical point to framebuffer coordinates using the window content scale.
-wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint) {
-  if (window == nullptr) {
-    return wxPoint(0, 0);
-  }
-  const double contentScale =
-      static_cast<double>(window->GetContentScaleFactor());
-  if (!std::isfinite(contentScale) || contentScale <= 0.0) {
-    return wxPoint(0, 0);
-  }
-  return wxPoint(static_cast<int>(std::lround(logicalPoint.x * contentScale)),
-                 static_cast<int>(std::lround(logicalPoint.y * contentScale)));
-}
 
 bool IsSameRenderableLayout(const layouts::LayoutDefinition &lhs,
                             const layouts::LayoutDefinition &rhs) {
@@ -468,14 +442,6 @@ bool UploadRgbaToTexture(unsigned int texture, int width, int height,
   return uploaded;
 }
 
-// Snaps an integer coordinate to the nearest layout grid increment.
-int SnapToGrid(int value) {
-  if (kLayoutGridStep <= 1)
-    return value;
-  return static_cast<int>(
-      std::lround(static_cast<double>(value) / kLayoutGridStep) *
-      kLayoutGridStep);
-}
 } // namespace
 
 wxDEFINE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
@@ -858,7 +824,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       RequestRenderRebuild();
     }
 
-    const wxSize logicalSize = GetLogicalClientSize(this);
+    const wxSize logicalSize = layoutviewerpanel::GetLogicalClientSize(this);
     if (logicalSize.GetWidth() <= 0 || logicalSize.GetHeight() <= 0) {
       return;
     }
@@ -877,7 +843,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     glOrtho(0.0, logicalSize.GetWidth(), logicalSize.GetHeight(), 0.0, -1.0,
             1.0);
     const wxPoint projectionFramebufferPoint =
-        ToFramebufferPoint(this,
+        layoutviewerpanel::ToFramebufferPoint(this,
                            wxPoint(logicalSize.GetWidth(), logicalSize.GetHeight()));
     const RenderSize projectionSize{
         projectionFramebufferPoint.x, projectionFramebufferPoint.y,
@@ -1293,7 +1259,7 @@ void LayoutViewerPanel::DrawSelectionHandles(const wxRect &frameRect) const {
 }
 
 void LayoutViewerPanel::OnSize(wxSizeEvent &) {
-  wxSize size = GetLogicalClientSize(this);
+  wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
   if (pendingFitOnResize && size.GetWidth() > 0 && size.GetHeight() > 0) {
     ResetViewToFit();
     pendingFitOnResize = false;
@@ -1308,7 +1274,7 @@ void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
   SetFocus();
   pendingFrameCommit_ = false;
   deferredResizeFrame_.reset();
-  const wxPoint pos = GetLogicalMousePosition(event);
+  const wxPoint pos = layoutviewerpanel::GetLogicalMousePosition(event);
   SelectElementAtPosition(pos);
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
@@ -1338,16 +1304,16 @@ void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
   if (dragMode != FrameDragMode::None) {
     if (dragMode != FrameDragMode::Move && deferredResizeFrame_.has_value()) {
       layouts::Layout2DViewFrame finalFrame = *deferredResizeFrame_;
-      finalFrame.width = std::max(kMinFrameSize, SnapToGrid(finalFrame.width));
+      finalFrame.width = std::max(kMinFrameSize, layoutviewerpanel::SnapToGrid(finalFrame.width));
       finalFrame.height =
-          std::max(kMinFrameSize, SnapToGrid(finalFrame.height));
+          std::max(kMinFrameSize, layoutviewerpanel::SnapToGrid(finalFrame.height));
       ApplyFrameUpdateToSelection(finalFrame, false);
     }
     if (dragMode == FrameDragMode::Move) {
       layouts::Layout2DViewFrame finalFrame;
       if (GetSelectedFrame(finalFrame)) {
-        finalFrame.x = SnapToGrid(finalFrame.x);
-        finalFrame.y = SnapToGrid(finalFrame.y);
+        finalFrame.x = layoutviewerpanel::SnapToGrid(finalFrame.x);
+        finalFrame.y = layoutviewerpanel::SnapToGrid(finalFrame.y);
         ApplyFrameUpdateToSelection(finalFrame, true);
       }
       CommitPendingFrameUpdate();
@@ -1367,7 +1333,7 @@ void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
 }
 
 void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
-  const wxPoint pos = GetLogicalMousePosition(event);
+  const wxPoint pos = layoutviewerpanel::GetLogicalMousePosition(event);
   SelectElementAtPosition(pos);
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
@@ -1457,7 +1423,7 @@ void LayoutViewerPanel::OnShow(wxShowEvent &event) {
 }
 
 void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
-  wxPoint currentPos = GetLogicalMousePosition(event);
+  wxPoint currentPos = layoutviewerpanel::GetLogicalMousePosition(event);
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
   if (GetSelectedFrame(selectedFrame) &&
@@ -1581,9 +1547,9 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
   if (std::abs(newZoom - zoom) < 1e-6)
     return;
 
-  wxSize size = GetLogicalClientSize(this);
+  wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
   wxPoint center(size.GetWidth() / 2, size.GetHeight() / 2);
-  wxPoint mousePos = GetLogicalMousePosition(event);
+  wxPoint mousePos = layoutviewerpanel::GetLogicalMousePosition(event);
 
   wxPoint relative = mousePos - center - panOffset;
   const double scale = newZoom / zoom;
@@ -1670,7 +1636,7 @@ void LayoutViewerPanel::CommitPendingFrameUpdate() {
 
 void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
   SetFocus();
-  const wxPoint pos = GetLogicalMousePosition(event);
+  const wxPoint pos = layoutviewerpanel::GetLogicalMousePosition(event);
   if (!SelectElementAtPosition(pos)) {
     event.Skip();
     return;
@@ -1912,7 +1878,7 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
 }
 
 void LayoutViewerPanel::ResetViewToFit() {
-  wxSize size = GetLogicalClientSize(this);
+  wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
   const double pageWidth = currentLayout.pageSetup.PageWidthPt();
   const double pageHeight = currentLayout.pageSetup.PageHeightPt();
 
@@ -1933,7 +1899,7 @@ void LayoutViewerPanel::ResetViewToFit() {
 }
 
 wxRect LayoutViewerPanel::GetPageRect() const {
-  wxSize size = GetLogicalClientSize(this);
+  wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
   const double pageWidth = currentLayout.pageSetup.PageWidthPt();
   const double pageHeight = currentLayout.pageSetup.PageHeightPt();
   const double scaledWidth = pageWidth * zoom;
