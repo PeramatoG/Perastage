@@ -50,6 +50,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_legend.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_text.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_view.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerviewrenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/legendutils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/legendsymbolcapture.cpp
