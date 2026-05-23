@@ -746,8 +746,8 @@ Viewer2DPanel::ComputeWorldPositionFromScreen(const wxPoint &screenPos) const {
   if (pixelsPerMeter <= 0.0f)
     return std::nullopt;
 
-  const float offsetMetersX = m_offsetX / PIXELS_PER_METER;
-  const float offsetMetersY = m_offsetY / PIXELS_PER_METER;
+  const float offsetMetersX = m_offsetX / pixelsPerMeter;
+  const float offsetMetersY = m_offsetY / pixelsPerMeter;
 
   const float viewX =
       (static_cast<float>(framebufferPos.x) - static_cast<float>(width) * 0.5f) /

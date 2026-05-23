@@ -35,7 +35,7 @@ std::optional<std::array<float, 2>> Viewer2DMeasureWorldToScreen(
     break;
   }
   const float ppm = kPixelsPerMeter * zoom;
-  const float sx = width * 0.5f + (u * ppm) + offsetXPixels;
-  const float sy = height * 0.5f - (v * ppm) - offsetYPixels;
+  const float sx = width * 0.5f + (u * ppm) + (offsetXPixels * zoom);
+  const float sy = height * 0.5f - (v * ppm) - (offsetYPixels * zoom);
   return std::array<float, 2>{sx, sy};
 }
