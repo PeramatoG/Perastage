@@ -162,7 +162,8 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   const float tx1 = x1 + nx * offset;
   const float ty1 = y1 + ny * offset;
   const float labelX = ((tx0 + tx1) * 0.5f);
-  const float labelY = static_cast<float>(height) - ((ty0 + ty1) * 0.5f);
+  const float labelY =
+      static_cast<float>(height) - ((ty0 + ty1) * 0.5f) - 10.0f;
   const float arrow = 7.0f;
 
   glDisable(GL_DEPTH_TEST);
@@ -1148,6 +1149,21 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       targetWorld = m_measureToolState.committedTargetWorld;
     } else {
       targetWorld = ComputeWorldPositionFromScreen(m_lastMousePos);
+      if (targetWorld) {
+        // Keep live preview distance constrained to the active view plane.
+        switch (m_view) {
+        case Viewer2DView::Top:
+        case Viewer2DView::Bottom:
+          (*targetWorld)[2] = m_measureToolState.anchorWorld[2];
+          break;
+        case Viewer2DView::Front:
+          (*targetWorld)[1] = m_measureToolState.anchorWorld[1];
+          break;
+        case Viewer2DView::Side:
+          (*targetWorld)[0] = m_measureToolState.anchorWorld[0];
+          break;
+        }
+      }
       const wxPoint framebufferMousePos = ToFramebufferPoint(this, m_lastMousePos);
       targetScreenOverride = std::array<float, 2>{
           static_cast<float>(framebufferMousePos.x),
