@@ -41,6 +41,10 @@ private:
   // Compares two semantic versions and returns -1, 0, or 1.
   static int CompareSemanticVersions(const std::string &left,
                                      const std::string &right);
+
+  // Compares only major/minor components and ignores patch-level differences.
+  static int CompareMajorMinorVersions(const std::string &left,
+                                       const std::string &right);
 };
 
 } // namespace gui::update

@@ -59,8 +59,8 @@ bool ParseSemVerParts(const std::string &version, std::vector<int> &partsOut) {
 
 // Initializes update endpoints for release API data and user-facing download pages.
 AppUpdateService::AppUpdateService()
-    : releasesApiUrl("https://api.github.com/repos/luisma-peramato/perastage/releases"),
-      releasesPageUrl("https://github.com/luisma-peramato/perastage/releases") {}
+    : releasesApiUrl("https://api.github.com/repos/PeramatoG/Perastage/releases/latest"),
+      releasesPageUrl("https://github.com/PeramatoG/Perastage/releases") {}
 
 // Runs the update check flow and classifies availability versus failures.
 CheckResult AppUpdateService::CheckForUpdates() const {
@@ -83,7 +83,7 @@ CheckResult AppUpdateService::CheckForUpdates() const {
   result.releaseUrl = releaseUrl.empty() ? releasesPageUrl : releaseUrl;
   result.changelogUrl = changelogUrl.empty() ? releasesPageUrl : changelogUrl;
 
-  const int compare = CompareSemanticVersions(result.currentVersion, result.latestVersion);
+  const int compare = CompareMajorMinorVersions(result.currentVersion, result.latestVersion);
   result.status = compare < 0 ? CheckStatus::UpdateAvailable : CheckStatus::UpToDate;
   return result;
 }
@@ -134,35 +134,29 @@ bool AppUpdateService::QueryLatestStableRelease(std::string &versionOut,
   }
 
   const nlohmann::json parsed = nlohmann::json::parse(responseBody, nullptr, false);
-  if (!parsed.is_array()) {
+  if (!parsed.is_object()) {
     errorOut = "Release data format was not recognized.";
     return false;
   }
 
-  for (const auto &release : parsed) {
-    if (!release.is_object()) {
-      continue;
-    }
-    const bool prerelease = release.value("prerelease", false);
-    const bool draft = release.value("draft", false);
-    if (prerelease || draft) {
-      continue;
-    }
-
-    const std::string tag = release.value("tag_name", "");
-    const std::string htmlUrl = release.value("html_url", "");
-    if (tag.empty()) {
-      continue;
-    }
-
-    versionOut = NormalizeVersionString(tag);
-    releaseUrlOut = htmlUrl;
-    changelogUrlOut = htmlUrl;
-    return true;
+  const bool prerelease = parsed.value("prerelease", false);
+  const bool draft = parsed.value("draft", false);
+  if (prerelease || draft) {
+    errorOut = "No stable release was found.";
+    return false;
   }
 
-  errorOut = "No stable release was found.";
-  return false;
+  const std::string tag = parsed.value("tag_name", "");
+  const std::string htmlUrl = parsed.value("html_url", "");
+  if (tag.empty()) {
+    errorOut = "No stable release was found.";
+    return false;
+  }
+
+  versionOut = NormalizeVersionString(tag);
+  releaseUrlOut = htmlUrl;
+  changelogUrlOut = htmlUrl;
+  return true;
 }
 
 // Lexicographically compares numeric semantic-version components.
@@ -185,6 +179,26 @@ int AppUpdateService::CompareSemanticVersions(const std::string &left,
     if (leftParts[i] > rightParts[i]) {
       return 1;
     }
+  }
+  return 0;
+}
+
+// Compares only major/minor components while treating missing parts as zero.
+int AppUpdateService::CompareMajorMinorVersions(const std::string &left,
+                                                const std::string &right) {
+  std::vector<int> leftParts;
+  std::vector<int> rightParts;
+  if (!ParseSemVerParts(left, leftParts) || !ParseSemVerParts(right, rightParts)) {
+    return CompareSemanticVersions(left, right);
+  }
+
+  leftParts.resize(2, 0);
+  rightParts.resize(2, 0);
+  if (leftParts[0] != rightParts[0]) {
+    return leftParts[0] < rightParts[0] ? -1 : 1;
+  }
+  if (leftParts[1] != rightParts[1]) {
+    return leftParts[1] < rightParts[1] ? -1 : 1;
   }
   return 0;
 }
