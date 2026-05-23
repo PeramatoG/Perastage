@@ -18,4 +18,5 @@ constexpr int ID_Edit_AddPrimitiveSphere = ID_Edit_AddSceneObject + 1;
 constexpr int ID_Edit_AddPrimitiveCube = ID_Edit_AddPrimitiveSphere + 1;
 constexpr int ID_Edit_AddPrimitiveCylinder = ID_Edit_AddPrimitiveCube + 1;
 constexpr int ID_Edit_Delete = ID_Edit_AddPrimitiveCylinder + 1;
-constexpr int ID_Edit_Preferences = ID_Edit_Delete + 1;
+constexpr int ID_Edit_ReplaceFixtures = ID_Edit_Delete + 1;
+constexpr int ID_Edit_Preferences = ID_Edit_ReplaceFixtures + 1;

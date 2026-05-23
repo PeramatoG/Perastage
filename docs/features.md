@@ -91,6 +91,7 @@ Additional safeguards include:
 
 - **Auto color** can assign colors by layer/type while preserving explicit colors.
 - **Convert to Hoist** transforms selected fixtures into supports while retaining scene context.
+- **Replace fixtures** (Edit menu) swaps selected fixtures to a chosen fixture source (scene fixture, dictionary fixture, or GDTF file) while preserving placement and patch identity fields.
 
 ## Visualization and Layout Production
 

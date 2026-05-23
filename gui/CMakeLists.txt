@@ -64,6 +64,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_cli_shortcuts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_view_shortcuts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_fixture_add_flow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_fixture_replace.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_gdtf_credentials.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu_builders.cpp
