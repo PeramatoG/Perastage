@@ -175,7 +175,7 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   updatesSizer->Add(updatesGrid, 0, wxALL | wxEXPAND, 10);
   updatesSizer->Add(new wxStaticText(
                         updatesPanel, wxID_ANY,
-                        "Manual checks are always available from Help → Check for Updates."),
+                        "Manual checks are always available from Help -> Check for Updates."),
                     0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
   updatesPanel->SetSizer(updatesSizer);
   book->AddPage(updatesPanel, "Updates");
