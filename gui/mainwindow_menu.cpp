@@ -1046,7 +1046,8 @@ void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {
       if (result.status == gui::update::CheckStatus::CheckFailed) {
         wxString message = "Could not check for updates.\n\n";
         message += result.errorMessage.empty()
-                       ? "Please verify your network connection and try again."
+                       ? wxString::FromUTF8(
+                             "Please verify your network connection and try again.")
                        : wxString::FromUTF8(result.errorMessage);
         wxMessageBox(message, title, wxOK | wxICON_WARNING, this);
         return;

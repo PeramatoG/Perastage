@@ -1,7 +1,7 @@
 #include "app_update_service.h"
 
 #include "app_version.h"
-#include "third_party/json.hpp"
+#include "json.hpp"
 
 #include <curl/curl.h>
 
