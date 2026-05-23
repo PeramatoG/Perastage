@@ -46,4 +46,19 @@ int SnapToGrid(int value) {
       kLayoutGridStep);
 }
 
+// Returns the localized loading overlay message shown while layout content is rendering.
+wxString BuildLoadingOverlayLabel() {
+  return wxString::FromUTF8("Loading layout...");
+}
+
+// Returns the shared context-menu label for sending an element to the top Z order.
+wxString BuildBringToFrontMenuLabel() {
+  return wxString::FromUTF8("Bring to Front");
+}
+
+// Returns the shared context-menu label for sending an element to the bottom Z order.
+wxString BuildSendToBackMenuLabel() {
+  return wxString::FromUTF8("Send to Back");
+}
+
 } // namespace layoutviewerpanel

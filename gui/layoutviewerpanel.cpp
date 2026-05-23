@@ -1154,7 +1154,7 @@ void LayoutViewerPanel::EnsureLoadingTextTexture() {
     }
   }
 
-  const wxString label = wxString::FromUTF8("Loading layout...");
+  const wxString label = layoutviewerpanel::BuildLoadingOverlayLabel();
   wxFont font = wxFontInfo(14).Bold();
   int textWidth = 0;
   int textHeight = 0;
@@ -1657,20 +1657,20 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
     if (const auto *view = GetEditableView())
       menu.Check(kToggleViewFrameMenuId, view->drawFrame);
     menu.AppendSeparator();
-    menu.Append(kBringToFrontMenuId, "Bring to Front");
-    menu.Append(kSendToBackMenuId, "Send to Back");
+    menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
+    menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   } else if (selectedElementType == SelectedElementType::Legend) {
     menu.Append(kEditLegendMenuId, "Edit Legend");
     menu.Append(kDeleteLegendMenuId, "Delete Legend");
     menu.AppendSeparator();
-    menu.Append(kBringToFrontMenuId, "Bring to Front");
-    menu.Append(kSendToBackMenuId, "Send to Back");
+    menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
+    menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   } else if (selectedElementType == SelectedElementType::EventTable) {
     menu.Append(kEditEventTableMenuId, "Edit Event Table");
     menu.Append(kDeleteEventTableMenuId, "Delete Event Table");
     menu.AppendSeparator();
-    menu.Append(kBringToFrontMenuId, "Bring to Front");
-    menu.Append(kSendToBackMenuId, "Send to Back");
+    menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
+    menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   } else if (selectedElementType == SelectedElementType::Text) {
     menu.Append(kEditTextMenuId, "Edit Text");
     menu.AppendCheckItem(kToggleTextFrameMenuId, "Show Border");
@@ -1683,14 +1683,14 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
                  !text->solidBackground);
     }
     menu.AppendSeparator();
-    menu.Append(kBringToFrontMenuId, "Bring to Front");
-    menu.Append(kSendToBackMenuId, "Send to Back");
+    menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
+    menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   } else if (selectedElementType == SelectedElementType::Image) {
     menu.Append(kEditImageMenuId, "Change Image");
     menu.Append(kDeleteImageMenuId, "Delete Image");
     menu.AppendSeparator();
-    menu.Append(kBringToFrontMenuId, "Bring to Front");
-    menu.Append(kSendToBackMenuId, "Send to Back");
+    menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
+    menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   }
   PopupMenu(&menu, pos);
 }

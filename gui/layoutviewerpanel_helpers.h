@@ -1,6 +1,7 @@
 #pragma once
 
 #include <wx/gdicmn.h>
+#include <wx/string.h>
 
 class wxMouseEvent;
 class wxWindow;
@@ -18,5 +19,14 @@ wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint);
 
 // Snaps an integer coordinate to the nearest layout grid increment.
 int SnapToGrid(int value);
+
+// Returns the localized loading overlay message shown while layout content is rendering.
+wxString BuildLoadingOverlayLabel();
+
+// Returns the shared context-menu label for sending an element to the top Z order.
+wxString BuildBringToFrontMenuLabel();
+
+// Returns the shared context-menu label for sending an element to the bottom Z order.
+wxString BuildSendToBackMenuLabel();
 
 } // namespace layoutviewerpanel
