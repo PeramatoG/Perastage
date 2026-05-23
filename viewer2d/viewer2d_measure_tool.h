@@ -4,6 +4,8 @@
 #include <optional>
 #include <string>
 
+#include "../viewer3d/viewer3d_types.h"
+
 // Stores the interaction state for the 2D center-to-center measurement tool.
 struct Viewer2DMeasureToolState {
   bool enabled = false;

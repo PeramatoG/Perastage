@@ -1,9 +1,7 @@
 #include "viewer2d_measure_tool.h"
 
-#include "viewportscene.h"
-
 namespace {
-constexpr float kPixelsPerMeter = PIXELS_PER_METER;
+constexpr float kPixelsPerMeter = 25.0f;
 }
 
 // Resets the active and committed measurement points while preserving enablement.
