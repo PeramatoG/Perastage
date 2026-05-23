@@ -98,6 +98,57 @@ wxRect BuildPointDirtyRegion(const wxPoint &point, int radius) {
   return wxRect(point.x - radius, point.y - radius, size, size);
 }
 
+// Resolves the center world position for any selectable scene element UUID.
+std::optional<std::array<float, 3>>
+ResolveSceneElementCenterByUuid(const ConfigManager &cfg, const std::string &uuid) {
+  const auto &scene = cfg.GetScene();
+  if (const auto fit = scene.fixtures.find(uuid); fit != scene.fixtures.end())
+    return fit->second.pos;
+  if (const auto tit = scene.trusses.find(uuid); tit != scene.trusses.end())
+    return tit->second.pos;
+  if (const auto sit = scene.supports.find(uuid); sit != scene.supports.end())
+    return sit->second.pos;
+  if (const auto oit = scene.sceneObjects.find(uuid); oit != scene.sceneObjects.end())
+    return oit->second.pos;
+  return std::nullopt;
+}
+
+// Draws the active temporary measurement segment and its formatted distance label.
+void DrawMeasureOverlay(Viewer3DController &controller,
+                        const Viewer2DMeasureToolState &measureState,
+                        const std::array<float, 3> &targetWorld, Viewer2DView view,
+                        int width, int height, float zoom, float offsetX,
+                        float offsetY, Units::DistanceUnitSystem distanceUnitSystem,
+                        bool darkMode) {
+  glLineWidth(1.8f);
+  glColor3f(1.0f, 0.75f, 0.05f);
+  glBegin(GL_LINES);
+  glVertex3f(measureState.anchorWorld[0], measureState.anchorWorld[1],
+             measureState.anchorWorld[2]);
+  glVertex3f(targetWorld[0], targetWorld[1], targetWorld[2]);
+  glEnd();
+
+  const float dx = targetWorld[0] - measureState.anchorWorld[0];
+  const float dy = targetWorld[1] - measureState.anchorWorld[1];
+  const float dz = targetWorld[2] - measureState.anchorWorld[2];
+  const float distanceMeters = std::sqrt(dx * dx + dy * dy + dz * dz);
+  const std::string text = Units::FormatDistanceFromMillimeters(
+      static_cast<double>(distanceMeters) * 1000.0, distanceUnitSystem);
+
+  std::array<float, 3> midpoint{
+      (measureState.anchorWorld[0] + targetWorld[0]) * 0.5f,
+      (measureState.anchorWorld[1] + targetWorld[1]) * 0.5f,
+      (measureState.anchorWorld[2] + targetWorld[2]) * 0.5f};
+  auto labelPoint = Viewer2DMeasureWorldToScreen(midpoint, view, width, height,
+                                                 zoom, offsetX, offsetY);
+  if (!labelPoint)
+    return;
+  std::vector<OverlayTextLabel> labels{
+      {(*labelPoint)[0], (*labelPoint)[1], text, true, true, 3.0f * zoom, true,
+       darkMode ? 1.0f : 0.1f, 0.75f, 0.05f}};
+  controller.DrawOverlayTextLabels(labels, darkMode);
+}
+
 void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
                                 int expectedHeight) {
   GLint framebuffer = 0;
@@ -615,6 +666,15 @@ void Viewer2DPanel::SetCursorWorldPositionCallback(
 void Viewer2DPanel::SetRenderOverrides(
     const std::optional<Viewer2DRenderOverrides> &overrides) {
   m_renderOverrides = overrides;
+  RequestRepaint();
+}
+
+// Toggles the measurement tool mode and resets temporary measurement state.
+void Viewer2DPanel::SetMeasureToolEnabled(bool enabled) {
+  m_measureToolState.enabled = enabled;
+  ResetViewer2DMeasure(m_measureToolState);
+  SetCursor(enabled ? wxCursor(wxCURSOR_CROSS) : wxCursor(wxCURSOR_ARROW));
+  RequestRepaint();
 }
 
 std::optional<std::array<float, 3>>
@@ -1024,6 +1084,20 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     }
     if (recordingCanvas)
       viewer2d::EmitRulerToCanvas(rulerState, darkMode, *recordingCanvas);
+  }
+
+  if (m_measureToolState.enabled && m_measureToolState.hasAnchor) {
+    std::optional<std::array<float, 3>> targetWorld;
+    if (m_measureToolState.hasCommittedTarget) {
+      targetWorld = m_measureToolState.committedTargetWorld;
+    } else {
+      targetWorld = ComputeWorldPositionFromScreen(m_lastMousePos);
+    }
+    if (targetWorld) {
+      DrawMeasureOverlay(m_controller, m_measureToolState, *targetWorld, m_view, w,
+                         h, m_zoom, m_offsetX, m_offsetY, distanceUnitSystem,
+                         darkMode);
+    }
   }
 
   // Draw fixture/hoist labels after all overlays so they remain on top of
@@ -2340,6 +2414,25 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
                                            w, h, hiddenLayersHash, true, uuid);
 
     ConfigManager &cfg = ConfigManager::Get();
+    if (m_measureToolState.enabled) {
+      if (!found) {
+        ResetViewer2DMeasure(m_measureToolState);
+      } else {
+        const auto center = ResolveSceneElementCenterByUuid(cfg, uuid);
+        if (center) {
+          if (!m_measureToolState.hasAnchor ||
+              m_measureToolState.hasCommittedTarget) {
+            ResetViewer2DMeasure(m_measureToolState);
+            m_measureToolState.hasAnchor = true;
+            m_measureToolState.anchorUuid = uuid;
+            m_measureToolState.anchorWorld = *center;
+          } else {
+            m_measureToolState.hasCommittedTarget = true;
+            m_measureToolState.committedTargetWorld = *center;
+          }
+        }
+      }
+    }
     bool selectionChanged = false;
     if (found) {
       m_hasHover = true;
@@ -2729,6 +2822,17 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
   float panStep = 10.0f / m_zoom;
 
   switch (event.GetKeyCode()) {
+  case WXK_ESCAPE:
+    if (m_measureToolState.enabled) {
+      SetMeasureToolEnabled(false);
+      return;
+    }
+    event.Skip();
+    return;
+  case 'M':
+  case 'm':
+    SetMeasureToolEnabled(!m_measureToolState.enabled);
+    return;
   case WXK_LEFT:
     if (alt)
       m_zoom *= 1.1f;
