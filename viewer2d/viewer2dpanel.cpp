@@ -134,10 +134,25 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   if (!startPx || !endPx)
     return;
 
-  const float dx = targetWorld[0] - measureState.anchorWorld[0];
-  const float dy = targetWorld[1] - measureState.anchorWorld[1];
-  const float dz = targetWorld[2] - measureState.anchorWorld[2];
-  const float distanceMeters = std::sqrt(dx * dx + dy * dy + dz * dz);
+  // Compute distance in the active 2D projection plane instead of full 3D space.
+  float du = 0.0f;
+  float dv = 0.0f;
+  switch (view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    du = targetWorld[0] - measureState.anchorWorld[0];
+    dv = targetWorld[1] - measureState.anchorWorld[1];
+    break;
+  case Viewer2DView::Front:
+    du = targetWorld[0] - measureState.anchorWorld[0];
+    dv = targetWorld[2] - measureState.anchorWorld[2];
+    break;
+  case Viewer2DView::Side:
+    du = targetWorld[1] - measureState.anchorWorld[1];
+    dv = targetWorld[2] - measureState.anchorWorld[2];
+    break;
+  }
+  const float distanceMeters = std::sqrt(du * du + dv * dv);
   const std::string text = Units::FormatDistanceFromMillimeters(
       static_cast<double>(distanceMeters) * 1000.0, distanceUnitSystem,
       Units::ValueFormatContext::Label) +
