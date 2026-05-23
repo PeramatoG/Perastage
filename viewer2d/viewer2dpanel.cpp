@@ -279,6 +279,7 @@ CanvasStroke MakeGridStroke(float r, float g, float b) {
   return stroke;
 }
 
+// Converts a logical canvas point to framebuffer coordinates using content scale.
 wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint) {
   if (window == nullptr)
     return logicalPoint;
@@ -408,6 +409,7 @@ std::string BuildFixtureDebugReport(const CommandBuffer &buffer,
   return out.str();
 }
 
+// Formats a millimeter value as a fixed-precision meter string.
 std::string FormatMeters(float millimeters) {
   std::ostringstream out;
   out << std::fixed << std::setprecision(3)
@@ -415,6 +417,7 @@ std::string FormatMeters(float millimeters) {
   return out.str();
 }
 
+// Builds fixture UUIDs filtered by type name for selection workflows.
 std::vector<std::string> BuildFixtureSelectionByType(
     const MvrScene &scene, const std::string &typeName) {
   std::vector<std::string> uuids;
@@ -426,6 +429,7 @@ std::vector<std::string> BuildFixtureSelectionByType(
   return uuids;
 }
 
+// Builds fixture UUIDs filtered by position-name mapping criteria.
 std::vector<std::string> BuildFixtureSelectionByPosition(
     const MvrScene &scene, const std::string &positionName,
     bool selectNoPosition) {
@@ -463,6 +467,7 @@ void ApplyFixtureSelectionToUi(const std::vector<std::string> &selection,
   }
 }
 
+// Combines all selected entity UUID lists into a stable unique sequence.
 std::vector<std::string> BuildCombinedSelection(const ConfigManager &cfg) {
   std::vector<std::string> combined;
   std::set<std::string> seen;
