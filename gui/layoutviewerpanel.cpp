@@ -1651,32 +1651,32 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
 
   wxMenu menu;
   if (selectedElementType == SelectedElementType::View2D) {
-    menu.Append(kEditMenuId, "2D View Editor");
-    menu.AppendCheckItem(kToggleViewFrameMenuId, "Show Border");
-    menu.Append(kDeleteMenuId, "Delete 2D View");
+    menu.Append(kEditMenuId, layoutviewerpanel::BuildEditViewMenuLabel());
+    menu.AppendCheckItem(kToggleViewFrameMenuId, layoutviewerpanel::BuildShowBorderMenuLabel());
+    menu.Append(kDeleteMenuId, layoutviewerpanel::BuildDeleteViewMenuLabel());
     if (const auto *view = GetEditableView())
       menu.Check(kToggleViewFrameMenuId, view->drawFrame);
     menu.AppendSeparator();
     menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
     menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   } else if (selectedElementType == SelectedElementType::Legend) {
-    menu.Append(kEditLegendMenuId, "Edit Legend");
-    menu.Append(kDeleteLegendMenuId, "Delete Legend");
+    menu.Append(kEditLegendMenuId, layoutviewerpanel::BuildEditLegendMenuLabel());
+    menu.Append(kDeleteLegendMenuId, layoutviewerpanel::BuildDeleteLegendMenuLabel());
     menu.AppendSeparator();
     menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
     menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   } else if (selectedElementType == SelectedElementType::EventTable) {
-    menu.Append(kEditEventTableMenuId, "Edit Event Table");
-    menu.Append(kDeleteEventTableMenuId, "Delete Event Table");
+    menu.Append(kEditEventTableMenuId, layoutviewerpanel::BuildEditEventTableMenuLabel());
+    menu.Append(kDeleteEventTableMenuId, layoutviewerpanel::BuildDeleteEventTableMenuLabel());
     menu.AppendSeparator();
     menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
     menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   } else if (selectedElementType == SelectedElementType::Text) {
-    menu.Append(kEditTextMenuId, "Edit Text");
-    menu.AppendCheckItem(kToggleTextFrameMenuId, "Show Border");
+    menu.Append(kEditTextMenuId, layoutviewerpanel::BuildEditTextMenuLabel());
+    menu.AppendCheckItem(kToggleTextFrameMenuId, layoutviewerpanel::BuildShowBorderMenuLabel());
     menu.AppendCheckItem(kToggleTextTransparentBackgroundMenuId,
-                         "Transparent Background");
-    menu.Append(kDeleteTextMenuId, "Delete Text");
+                         layoutviewerpanel::BuildTransparentBackgroundMenuLabel());
+    menu.Append(kDeleteTextMenuId, layoutviewerpanel::BuildDeleteTextMenuLabel());
     if (const auto *text = GetSelectedText()) {
       menu.Check(kToggleTextFrameMenuId, text->drawFrame);
       menu.Check(kToggleTextTransparentBackgroundMenuId,
@@ -1686,8 +1686,8 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
     menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
     menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   } else if (selectedElementType == SelectedElementType::Image) {
-    menu.Append(kEditImageMenuId, "Change Image");
-    menu.Append(kDeleteImageMenuId, "Delete Image");
+    menu.Append(kEditImageMenuId, layoutviewerpanel::BuildChangeImageMenuLabel());
+    menu.Append(kDeleteImageMenuId, layoutviewerpanel::BuildDeleteImageMenuLabel());
     menu.AppendSeparator();
     menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
     menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
