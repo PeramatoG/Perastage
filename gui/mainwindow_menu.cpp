@@ -101,6 +101,7 @@ struct HelpMarkdown {
 };
 
 // Splits help markdown into English and Spanish sections when markers are present.
+// Splits bilingual help markdown into per-language content blocks.
 HelpMarkdown SplitHelpMarkdown(const std::string &markdown) {
   constexpr const char *kEnglishMarker = "<!-- LANG:en -->";
   constexpr const char *kSpanishMarker = "<!-- LANG:es -->";

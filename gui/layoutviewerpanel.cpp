@@ -135,6 +135,7 @@ void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
   }
 }
 
+// Computes a safe per-frame zoom cap constrained by render dimensions and pixel budget.
 double GetMaxZoomForFrame(const layouts::Layout2DViewFrame &frame) {
   if (frame.width <= 0 || frame.height <= 0)
     return kMaxZoom;
@@ -158,6 +159,7 @@ double GetMaxZoomForFrame(const layouts::Layout2DViewFrame &frame) {
   return std::clamp(maxZoom, kMinZoom, kMaxZoom);
 }
 
+// Computes the layout-wide maximum safe zoom across all renderable frame collections.
 double GetLayoutSafeMaxZoom(const layouts::LayoutDefinition &layout) {
   double maxZoom = kMaxZoom;
   auto clampFromFrames = [&maxZoom](const auto &collection) {
@@ -265,6 +267,7 @@ bool AreEqual(const std::vector<T> &lhs, const std::vector<T> &rhs) {
   return true;
 }
 
+// Returns the logical client size for a window or zero size when the window is null.
 wxSize GetLogicalClientSize(const wxWindow *window) {
   if (window == nullptr) {
     return wxSize(0, 0);
@@ -272,10 +275,12 @@ wxSize GetLogicalClientSize(const wxWindow *window) {
   return window->GetClientSize();
 }
 
+// Returns the mouse position in logical client coordinates.
 wxPoint GetLogicalMousePosition(const wxMouseEvent &event) {
   return event.GetPosition();
 }
 
+// Converts a logical point to framebuffer coordinates using the window content scale.
 wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint) {
   if (window == nullptr) {
     return wxPoint(0, 0);
@@ -463,6 +468,7 @@ bool UploadRgbaToTexture(unsigned int texture, int width, int height,
   return uploaded;
 }
 
+// Snaps an integer coordinate to the nearest layout grid increment.
 int SnapToGrid(int value) {
   if (kLayoutGridStep <= 1)
     return value;
