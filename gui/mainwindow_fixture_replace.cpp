@@ -130,7 +130,7 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
   wxArrayString sourceChoices;
   sourceChoices.push_back("Fixture from scene");
   sourceChoices.push_back("Fixture from dictionary");
-  sourceChoices.push_back("GDTF download/file");
+  sourceChoices.push_back("GDTF file");
   wxSingleChoiceDialog sourceDlg(
       this,
       "Choose the source for the replacement fixture:",
