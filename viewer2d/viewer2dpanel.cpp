@@ -58,6 +58,7 @@
 #include "viewer2drenderpanel.h"
 #include "viewer2d_ruler_overlay.h"
 #include "viewer2dviewfit.h"
+#include "viewer2dpanel_helpers.h"
 #include "gl_state_guard.h"
 #include "units/units.h"
 #include "ui_render_size.h"
@@ -355,67 +356,6 @@ void EmitGrid(ICanvas2D &canvas, int style, Viewer2DView view, float r, float g,
   }
 }
 
-std::string BuildFixtureDebugReport(const CommandBuffer &buffer,
-                                    const std::string &debugKey) {
-  if (debugKey.empty())
-    return {};
-
-  size_t polygonCount = 0;
-  size_t filledPolygons = 0;
-  size_t strokedPolygons = 0;
-  std::map<int, size_t> histogram;
-
-  auto getMeta = [&](size_t idx) -> CommandMetadata {
-    if (idx < buffer.metadata.size())
-      return buffer.metadata[idx];
-    return {};
-  };
-
-  for (size_t i = 0; i < buffer.commands.size(); ++i) {
-    if (i >= buffer.sources.size())
-      break;
-    if (buffer.sources[i] != debugKey)
-      continue;
-
-    const auto &cmd = buffer.commands[i];
-    const auto meta = getMeta(i);
-    auto addEntry = [&](int vertices) {
-      ++polygonCount;
-      ++histogram[vertices];
-      if (meta.hasFill)
-        ++filledPolygons;
-      if (meta.hasStroke)
-        ++strokedPolygons;
-    };
-
-    if (std::holds_alternative<PolygonCommand>(cmd)) {
-      const auto &poly = std::get<PolygonCommand>(cmd);
-      addEntry(static_cast<int>(poly.points.size() / 2));
-    } else if (std::holds_alternative<RectangleCommand>(cmd)) {
-      addEntry(4);
-    }
-  }
-
-  if (polygonCount == 0)
-    return {};
-
-  std::ostringstream out;
-  out << "Fixture capture debug ['" << debugKey << "']: polygons="
-      << polygonCount << ", filled=" << filledPolygons
-      << ", stroked=" << strokedPolygons << "\nVertex histogram:";
-  for (const auto &[verts, count] : histogram)
-    out << ' ' << verts << "->" << count;
-
-  return out.str();
-}
-
-// Formats a millimeter value as a fixed-precision meter string.
-std::string FormatMeters(float millimeters) {
-  std::ostringstream out;
-  out << std::fixed << std::setprecision(3)
-      << (static_cast<double>(millimeters) / 1000.0);
-  return out.str();
-}
 
 // Builds fixture UUIDs filtered by type name for selection workflows.
 std::vector<std::string> BuildFixtureSelectionByType(
@@ -487,15 +427,6 @@ std::vector<std::string> BuildCombinedSelection(const ConfigManager &cfg) {
   return combined;
 }
 
-template <typename StringContainer>
-size_t HashStringContainer(const StringContainer &items) {
-  size_t hash = 0;
-  for (const auto &item : items) {
-    const size_t itemHash = std::hash<std::string>{}(item);
-    hash ^= itemHash + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-  }
-  return hash;
-}
 } // namespace
 
 namespace {
