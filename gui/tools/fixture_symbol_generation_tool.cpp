@@ -83,6 +83,7 @@ std::vector<FixtureSymbolTypeOption> BuildFixtureOptions() {
 
 } // namespace
 
+// Generates and previews orthographic symbols for the selected fixture type.
 void RunFixtureSymbolGeneration(MainWindow &window) {
   auto options = BuildFixtureOptions();
   if (options.empty()) {
@@ -119,10 +120,13 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   const std::string forcedFixtureColor = "#3FA9F5";
   SceneModelSymbolCaptureOptions captureOptions;
   captureOptions.forcedFixtureColor = forcedFixtureColor;
+  // Captured symbols must be orientation-neutral so per-instance rotation can be applied later in rendering/printing.
+  captureOptions.alignToLocalAxes = true;
   auto capture = CaptureSceneModelOrthographicSymbols(
       *offscreenRenderer, cfg,
       SceneModelSymbolTarget{SceneModelKind::Fixture, selectedFixtureUuid},
       captureOptions);
+  captureOptions.alignToLocalAxes = false;
   if (!capture.ok) {
     wxMessageBox(capture.error, "Generate Fixture Symbols", wxOK | wxICON_ERROR,
                  &window);
