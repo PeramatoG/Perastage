@@ -94,6 +94,7 @@ using json = nlohmann::json;
 #include "mainwindow_view_controller.h"
 #include "layoutpanel.h"
 #include "layoutviewerpanel.h"
+#include "layout_render_status_notifier.h"
 #include "layouttextutils.h"
 #include "layoutviewerpanel_shared.h"
 #include "legendutils.h"

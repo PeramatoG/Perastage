@@ -45,6 +45,7 @@
 
 #include "layoutviewerpanel.h"
 #include "layoutviewerpanel_helpers.h"
+#include "layout_render_status_notifier.h"
 #include "gl_state_guard.h"
 #include <wx/debug.h>
 #include <wx/log.h>
@@ -479,7 +480,6 @@ wxEND_EVENT_TABLE()
 
 wxDEFINE_EVENT(EVT_LAYOUT_RENDER_READY, wxCommandEvent);
 wxDEFINE_EVENT(EVT_LAYOUT_VIEW_SELECTED, wxCommandEvent);
-wxDEFINE_EVENT(EVT_LAYOUT_RENDER_STATUS, wxCommandEvent);
 
 LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition,
@@ -2795,7 +2795,8 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     return;
   renderPending = true;
   loadingRequested = true;
-  PostRenderStatus("Layout render queued...");
+  gui::layoutstatus::PostLayoutRenderStatus(this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+                                           "Layout render queued...");
   if (!loadingTimer_.IsRunning()) {
     loadingTimer_.StartOnce(kLoadingOverlayDelayMs);
   }
@@ -2806,7 +2807,9 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     LayoutViewerPanel *panel = weakThis.get();
     if (!panel)
       return;
-    panel->PostRenderStatus("Preparing layout textures...");
+    gui::layoutstatus::PostLayoutRenderStatus(
+        panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        "Preparing layout textures...");
     panel->isLoading = true;
     panel->Refresh();
     panel->Update();
@@ -2828,7 +2831,8 @@ void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
     return;
   if (!renderPending && !NeedsRenderRebuild())
     return;
-  PostRenderStatus("Rendering layout content...");
+  gui::layoutstatus::PostLayoutRenderStatus(this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+                                           "Rendering layout content...");
   isLoading = true;
   Refresh();
 }
@@ -2848,25 +2852,16 @@ void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
     LayoutViewerPanel *panel = weakThis.get();
     if (!panel)
       return;
-    panel->PostRenderStatus("Building layout textures...");
+    gui::layoutstatus::PostLayoutRenderStatus(
+        panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        "Building layout textures...");
     panel->renderPending = false;
     panel->RebuildCachedTexture();
-    panel->PostRenderStatus("Layout render completed.");
+    gui::layoutstatus::PostLayoutRenderStatus(
+        panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        "Layout render completed.");
     panel->Refresh();
   });
-}
-
-// Broadcasts layout-render pipeline status text to the main window status bar.
-void LayoutViewerPanel::PostRenderStatus(const wxString &statusText) const {
-  if (!wxTheApp)
-    return;
-  wxWindow *topWindow = wxTheApp->GetTopWindow();
-  if (!topWindow)
-    return;
-  wxCommandEvent event(EVT_LAYOUT_RENDER_STATUS);
-  event.SetEventObject(const_cast<LayoutViewerPanel *>(this));
-  event.SetString(statusText);
-  wxPostEvent(topWindow, event);
 }
 
 bool LayoutViewerPanel::AreTexturesReady() const {

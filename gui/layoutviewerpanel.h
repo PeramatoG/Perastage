@@ -32,7 +32,6 @@
 wxDECLARE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 wxDECLARE_EVENT(EVT_LAYOUT_RENDER_READY, wxCommandEvent);
 wxDECLARE_EVENT(EVT_LAYOUT_VIEW_SELECTED, wxCommandEvent);
-wxDECLARE_EVENT(EVT_LAYOUT_RENDER_STATUS, wxCommandEvent);
 
 class Viewer2DOffscreenRenderer;
 
@@ -201,7 +200,6 @@ private:
   bool HasDirtyRenderCaches() const;
   bool NeedsRenderRebuild() const;
   void RequestRenderRebuild();
-  void PostRenderStatus(const wxString &statusText) const;
   void InvalidateRenderIfFrameChanged(bool includeSceneContent = true);
   size_t ComputeSceneContentHash() const;
   size_t HashViewContent(const layouts::Layout2DViewDefinition &view) const;
