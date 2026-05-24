@@ -94,6 +94,7 @@ using json = nlohmann::json;
 #include "mainwindow_view_controller.h"
 #include "layoutpanel.h"
 #include "layoutviewerpanel.h"
+#include "layout_render_status_notifier.h"
 #include "layouttextutils.h"
 #include "layoutviewerpanel_shared.h"
 #include "legendutils.h"
@@ -145,6 +146,11 @@ MainWindow *MainWindow::Instance() { return s_instance; }
 void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
 namespace {
+
+// Returns true when the status bar text corresponds to fixture symbol auto-update progress.
+bool IsFixtureSymbolStatusMessage(const wxString &statusText) {
+  return statusText.StartsWith("Fixture symbol auto-update");
+}
 
 void PersistFixtureTypeAutoColors(ConfigManager &configManager) {
   auto &scene = configManager.GetScene();
@@ -351,6 +357,7 @@ EVT_COMMAND(wxID_ANY, EVT_UI_PREFERENCES_APPLIED, MainWindow::OnPreferencesAppli
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_SELECTED, MainWindow::OnLayoutSelected)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_VIEW_EDIT, MainWindow::OnLayoutViewEdit)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_VIEW_SELECTED, MainWindow::OnLayoutViewSelected)
+EVT_COMMAND(wxID_ANY, EVT_LAYOUT_RENDER_STATUS, MainWindow::OnLayoutRenderStatus)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_RENDER_READY, MainWindow::OnLayoutRenderReady)
 wxEND_EVENT_TABLE()
 
@@ -1100,31 +1107,44 @@ bool MainWindow::HasActiveLayout2DView() const {
   return false;
 }
 
-// Shows layout-loading status text and enables the busy cursor during layout rendering.
+// Shows layout-loading status text and enables the busy cursor when the layout viewer is visible.
 void MainWindow::ShowLayoutLoadingIndicator(const wxString &message) {
+  if (GetStatusBar())
+    SetStatusText(message, 0);
+
+  bool layoutViewerVisible = true;
   if (auiManager) {
     auto &layoutPane = auiManager->GetPane("LayoutViewer");
     if (layoutPane.IsOk() && !layoutPane.IsShown())
-      return;
+      layoutViewerVisible = false;
   }
   if (layoutViewerPanel && !layoutViewerPanel->IsShownOnScreen())
-    return;
-  if (GetStatusBar())
-    SetStatusText(message);
-  if (!layoutRenderCursor)
+    layoutViewerVisible = false;
+
+  if (layoutViewerVisible && !layoutRenderCursor)
     layoutRenderCursor = std::make_unique<wxBusyCursor>();
 }
 
 // Clears layout-loading status text and releases the busy cursor indicator.
 void MainWindow::ClearLayoutLoadingIndicator() {
   if (GetStatusBar())
-    SetStatusText("");
+    SetStatusText("", 0);
   layoutRenderCursor.reset();
 }
 
 // Clears the loading indicator when the layout render pipeline reports completion.
 void MainWindow::OnLayoutRenderReady(wxCommandEvent &) {
   ClearLayoutLoadingIndicator();
+}
+
+// Mirrors layout-render updates unless fixture symbol generation is currently reporting progress.
+void MainWindow::OnLayoutRenderStatus(wxCommandEvent &event) {
+  if (fixtureSymbolAutoUpdateRunning ||
+      (GetStatusBar() &&
+       IsFixtureSymbolStatusMessage(GetStatusBar()->GetStatusText(0)))) {
+    return;
+  }
+  ShowLayoutLoadingIndicator(event.GetString());
 }
 
 void MainWindow::ActivateLayoutView(const std::string &layoutName) {

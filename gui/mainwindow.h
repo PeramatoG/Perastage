@@ -229,6 +229,7 @@ private:
   void OnLayout2DViewCancel(wxCommandEvent &event); // Cancel layout 2D edit
   void OnLayoutViewEdit(wxCommandEvent &event);
   void OnLayoutViewSelected(wxCommandEvent &event);
+  void OnLayoutRenderStatus(wxCommandEvent &event);
   void OnLayoutRenderReady(wxCommandEvent &event);
 
   void OnPaneClose(wxAuiManagerEvent &event); // Keep View menu in sync

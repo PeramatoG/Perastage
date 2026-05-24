@@ -45,6 +45,7 @@
 
 #include "layoutviewerpanel.h"
 #include "layoutviewerpanel_helpers.h"
+#include "layout_render_status_notifier.h"
 #include "gl_state_guard.h"
 #include <wx/debug.h>
 #include <wx/log.h>
@@ -2045,7 +2046,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     };
     renderDirty = false;
     stopLoadingRequest();
-  
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        "Analyzing layout render workload...");
+
     bool hasDirtyViewCache = false;
     for (const auto &view : currentLayout.view2dViews) {
       const auto cacheIt = viewCaches_.find(view.id);
@@ -2056,6 +2060,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     }
     bool needsLegendProcessing = false;
     bool needsLegendSymbolCapture = false;
+    size_t legendSymbolsMissingCount = 0;
     for (const auto &legend : currentLayout.legendViews) {
       const auto cacheIt = legendCaches_.find(legend.id);
       const bool cacheMissing = cacheIt == legendCaches_.end();
@@ -2065,17 +2070,27 @@ void LayoutViewerPanel::RebuildCachedTexture() {
           cacheMissing || cacheIt->second.renderDirty || contentChanged;
       if (needsTextureRebuild) {
         needsLegendProcessing = true;
-        const bool needsSymbols =
-            cacheMissing || !cacheIt->second.symbols || contentChanged;
-        if (needsSymbols)
+        const bool needsSymbols = cacheMissing || !cacheIt->second.symbols;
+        if (needsSymbols) {
           needsLegendSymbolCapture = true;
+          ++legendSymbolsMissingCount;
+        }
       }
       if (needsLegendProcessing && needsLegendSymbolCapture) {
         break;
       }
     }
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        wxString::Format("Workload: %zu views, %zu legends (symbol recapture: %s).",
+                         currentLayout.view2dViews.size(),
+                         currentLayout.legendViews.size(),
+                         needsLegendSymbolCapture ? "yes" : "no"));
     const bool needsCapturePanel = hasDirtyViewCache || needsLegendSymbolCapture;
     if (needsCapturePanel) {
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          "Preparing offscreen renderer for layout capture...");
       if (auto *mw = MainWindow::Instance()) {
         offscreenRenderer = mw->GetOffscreenRenderer();
         capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
@@ -2088,13 +2103,31 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
     if (needsLegendSymbolCapture) {
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          wxString::Format("Capturing legend symbols (%zu legend(s) missing symbols)...",
+                           legendSymbolsMissingCount));
       legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          "Legend symbol capture completed.");
     }
     std::vector<unsigned char> legendPixels;
     std::vector<unsigned char> eventTablePixels;
     std::vector<unsigned char> textPixels;
     std::vector<unsigned char> imagePixels;
     const double renderZoom = GetRenderZoom();
+    bool glReady = false;
+    auto ensureGlReady = [&]() {
+      if (glReady)
+        return true;
+      glReady = InitGL();
+      return glReady;
+    };
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        wxString::Format("Rendering 2D views (%zu)...",
+                         currentLayout.view2dViews.size()));
     for (const auto &view : currentLayout.view2dViews) {
       ViewCache &cache = GetViewCache(view.id);
       if (!cache.renderDirty)
@@ -2164,7 +2197,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
 
-      if (!InitGL()) {
+      if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
         return;
@@ -2193,10 +2226,14 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       std::vector<unsigned char>().swap(pixels);
     }
   
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        wxString::Format("Rendering legends (%zu)...",
+                         currentLayout.legendViews.size()));
     for (const auto &legend : currentLayout.legendViews) {
       LegendCache &cache = GetLegendCache(legend.id);
       const bool contentChanged = cache.contentHash != legendDataHash;
-      const bool requiresSymbolRefresh = !cache.symbols || contentChanged;
+      const bool requiresSymbolRefresh = !cache.symbols;
       if (requiresSymbolRefresh && legendSymbols && cache.symbols != legendSymbols) {
         cache.symbols = legendSymbols;
         cache.renderDirty = true;
@@ -2252,7 +2289,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         legendPixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
       }
   
-      if (!InitGL()) {
+      if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
         return;
@@ -2281,6 +2318,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       legendPixels.clear();
     }
   
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        wxString::Format("Rendering event tables (%zu)...",
+                         currentLayout.eventTables.size()));
     for (const auto &table : currentLayout.eventTables) {
       EventTableCache &cache = GetEventTableCache(table.id);
       size_t dataHash = HashEventTableFields(table);
@@ -2349,7 +2390,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         eventTablePixels[static_cast<size_t>(i) * 4 + 3] = a;
       }
   
-      if (!InitGL()) {
+      if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
         return;
@@ -2379,6 +2420,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       eventTablePixels.clear();
     }
   
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        wxString::Format("Rendering text blocks (%zu)...",
+                         currentLayout.textViews.size()));
     for (const auto &text : currentLayout.textViews) {
       TextCache &cache = GetTextCache(text.id);
       size_t dataHash = HashTextContent(text);
@@ -2445,7 +2490,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         textPixels[static_cast<size_t>(i) * 4 + 3] = a;
       }
   
-      if (!InitGL()) {
+      if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
         return;
@@ -2474,6 +2519,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       textPixels.clear();
     }
   
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        wxString::Format("Rendering images (%zu)...",
+                         currentLayout.imageViews.size()));
     for (const auto &image : currentLayout.imageViews) {
       ImageCache &cache = GetImageCache(image.id);
       size_t dataHash = HashImageContent(image);
@@ -2546,7 +2595,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         imagePixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
       }
   
-      if (!InitGL()) {
+      if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
         return;
@@ -2774,6 +2823,7 @@ bool LayoutViewerPanel::NeedsRenderRebuild() const {
   return renderDirty || HasDirtyRenderCaches();
 }
 
+// Schedules a deferred layout texture rebuild when render data is stale.
 void LayoutViewerPanel::RequestRenderRebuild() {
   if (IsLayoutEmpty()) {
     renderPending = false;
@@ -2793,6 +2843,8 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     return;
   renderPending = true;
   loadingRequested = true;
+  gui::layoutstatus::PostLayoutRenderStatus(this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+                                           "Layout render queued...");
   if (!loadingTimer_.IsRunning()) {
     loadingTimer_.StartOnce(kLoadingOverlayDelayMs);
   }
@@ -2803,11 +2855,12 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     LayoutViewerPanel *panel = weakThis.get();
     if (!panel)
       return;
+    gui::layoutstatus::PostLayoutRenderStatus(
+        panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        "Preparing layout textures...");
     panel->isLoading = true;
     panel->Refresh();
     panel->Update();
-    if (wxTheApp && wxTheApp->IsMainLoopRunning())
-      wxTheApp->Yield(true);
     if (!weakThis)
       return;
     panel = weakThis.get();
@@ -2820,15 +2873,19 @@ void LayoutViewerPanel::RequestRenderRebuild() {
   });
 }
 
+// Activates the loading overlay when a delayed rebuild is still pending.
 void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
   if (!loadingRequested)
     return;
   if (!renderPending && !NeedsRenderRebuild())
     return;
+  gui::layoutstatus::PostLayoutRenderStatus(this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+                                           "Rendering layout content...");
   isLoading = true;
   Refresh();
 }
 
+// Triggers cached texture regeneration after the configured debounce delay.
 void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
   if (!renderPending)
     return;
@@ -2843,8 +2900,14 @@ void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
     LayoutViewerPanel *panel = weakThis.get();
     if (!panel)
       return;
+    gui::layoutstatus::PostLayoutRenderStatus(
+        panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        "Building layout textures...");
     panel->renderPending = false;
     panel->RebuildCachedTexture();
+    gui::layoutstatus::PostLayoutRenderStatus(
+        panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        "Layout render completed.");
     panel->Refresh();
   });
 }
