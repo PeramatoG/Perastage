@@ -1100,6 +1100,7 @@ bool MainWindow::HasActiveLayout2DView() const {
   return false;
 }
 
+// Shows layout-loading status text and enables the busy cursor during layout rendering.
 void MainWindow::ShowLayoutLoadingIndicator(const wxString &message) {
   if (auiManager) {
     auto &layoutPane = auiManager->GetPane("LayoutViewer");
@@ -1114,12 +1115,14 @@ void MainWindow::ShowLayoutLoadingIndicator(const wxString &message) {
     layoutRenderCursor = std::make_unique<wxBusyCursor>();
 }
 
+// Clears layout-loading status text and releases the busy cursor indicator.
 void MainWindow::ClearLayoutLoadingIndicator() {
   if (GetStatusBar())
     SetStatusText("");
   layoutRenderCursor.reset();
 }
 
+// Clears the loading indicator when the layout render pipeline reports completion.
 void MainWindow::OnLayoutRenderReady(wxCommandEvent &) {
   ClearLayoutLoadingIndicator();
 }

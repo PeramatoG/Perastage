@@ -451,6 +451,7 @@ void MainWindow::SetupLayout() {
   UpdateViewMenuChecks();
 }
 
+// Applies a named pane preset while synchronizing mode-specific 2D viewport state transitions.
 void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
                                    const std::optional<std::string> &perspective,
                                    bool layoutMode,
@@ -458,12 +459,16 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   if (!auiManager)
     return;
 
+  if (!layoutMode)
+    ClearLayoutLoadingIndicator();
+
   const bool wasLayoutMode = layoutModeActive;
   if (layoutMode && !wasLayoutMode) {
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     if (!standalone2DState)
       standalone2DState = viewer2d::CaptureState(viewport2DPanel, cfg);
   } else if (!layoutMode && wasLayoutMode) {
+    ClearLayoutLoadingIndicator();
     if (standalone2DState) {
       ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
       if (viewport2DPanel) {

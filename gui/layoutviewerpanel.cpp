@@ -644,6 +644,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   Refresh();
 }
 
+// Posts a deferred render-ready event after layout rendering state has settled.
 void LayoutViewerPanel::NotifyRenderReady() {
   wxWeakRef<LayoutViewerPanel> weakThis(this);
   CallAfter([weakThis]() {
