@@ -147,6 +147,11 @@ void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
 namespace {
 
+// Returns true when the status bar text corresponds to fixture symbol auto-update progress.
+bool IsFixtureSymbolStatusMessage(const wxString &statusText) {
+  return statusText.StartsWith("Fixture symbol auto-update");
+}
+
 void PersistFixtureTypeAutoColors(ConfigManager &configManager) {
   auto &scene = configManager.GetScene();
   for (auto &[uuid, fixture] : scene.fixtures) {
