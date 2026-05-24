@@ -46,6 +46,22 @@ int SnapToGrid(int value) {
       kLayoutGridStep);
 }
 
+
+// Returns whether the selected element type supports Z-order context-menu commands.
+bool SupportsZOrderMenuCommands(LayoutViewerPanel::SelectedElementType type) {
+  switch (type) {
+  case LayoutViewerPanel::SelectedElementType::View2D:
+  case LayoutViewerPanel::SelectedElementType::Legend:
+  case LayoutViewerPanel::SelectedElementType::EventTable:
+  case LayoutViewerPanel::SelectedElementType::Text:
+  case LayoutViewerPanel::SelectedElementType::Image:
+    return true;
+  case LayoutViewerPanel::SelectedElementType::None:
+  default:
+    return false;
+  }
+}
+
 // Builds the loading overlay label shown during layout rendering.
 wxString BuildLoadingOverlayLabel() {
   return wxString::FromUTF8("Loading layout...");

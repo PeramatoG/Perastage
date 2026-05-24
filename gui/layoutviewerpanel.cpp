@@ -255,21 +255,6 @@ bool AreEqual(const layouts::LayoutImageDefinition &lhs,
          lhs.aspectRatio == rhs.aspectRatio;
 }
 
-// Returns whether the selected element type supports z-order menu commands.
-bool SupportsZOrderMenuCommands(LayoutViewerPanel::SelectedElementType type) {
-  switch (type) {
-  case LayoutViewerPanel::SelectedElementType::View2D:
-  case LayoutViewerPanel::SelectedElementType::Legend:
-  case LayoutViewerPanel::SelectedElementType::EventTable:
-  case LayoutViewerPanel::SelectedElementType::Text:
-  case LayoutViewerPanel::SelectedElementType::Image:
-    return true;
-  case LayoutViewerPanel::SelectedElementType::None:
-  default:
-    return false;
-  }
-}
-
 template <typename T>
 bool AreEqual(const std::vector<T> &lhs, const std::vector<T> &rhs) {
   if (lhs.size() != rhs.size())
