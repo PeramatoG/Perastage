@@ -46,77 +46,79 @@ int SnapToGrid(int value) {
       kLayoutGridStep);
 }
 
-// Returns the localized loading overlay message shown while layout content is rendering.
+
+
+// Builds the loading overlay label shown during layout rendering.
 wxString BuildLoadingOverlayLabel() {
   return wxString::FromUTF8("Loading layout...");
 }
 
-// Returns the shared context-menu label for sending an element to the top Z order.
+// Builds the context-menu label for moving an element to the top Z order.
 wxString BuildBringToFrontMenuLabel() {
   return wxString::FromUTF8("Bring to Front");
 }
 
-// Returns the shared context-menu label for sending an element to the bottom Z order.
+// Builds the context-menu label for moving an element to the bottom Z order.
 wxString BuildSendToBackMenuLabel() {
   return wxString::FromUTF8("Send to Back");
 }
 
-// Returns the context-menu label for opening the 2D view editor.
+// Builds the context-menu label for opening the 2D view editor.
 wxString BuildEditViewMenuLabel() {
   return wxString::FromUTF8("2D View Editor");
 }
 
-// Returns the context-menu label for toggling element border visibility.
+// Builds the context-menu label for toggling element border visibility.
 wxString BuildShowBorderMenuLabel() {
   return wxString::FromUTF8("Show Border");
 }
 
-// Returns the context-menu label for deleting a 2D view.
+// Builds the context-menu label for deleting a 2D view.
 wxString BuildDeleteViewMenuLabel() {
   return wxString::FromUTF8("Delete 2D View");
 }
 
-// Returns the context-menu label for editing a legend.
+// Builds the context-menu label for editing a legend.
 wxString BuildEditLegendMenuLabel() {
   return wxString::FromUTF8("Edit Legend");
 }
 
-// Returns the context-menu label for deleting a legend.
+// Builds the context-menu label for deleting a legend.
 wxString BuildDeleteLegendMenuLabel() {
   return wxString::FromUTF8("Delete Legend");
 }
 
-// Returns the context-menu label for editing an event table.
+// Builds the context-menu label for editing an event table.
 wxString BuildEditEventTableMenuLabel() {
   return wxString::FromUTF8("Edit Event Table");
 }
 
-// Returns the context-menu label for deleting an event table.
+// Builds the context-menu label for deleting an event table.
 wxString BuildDeleteEventTableMenuLabel() {
   return wxString::FromUTF8("Delete Event Table");
 }
 
-// Returns the context-menu label for editing a text element.
+// Builds the context-menu label for editing a text element.
 wxString BuildEditTextMenuLabel() {
   return wxString::FromUTF8("Edit Text");
 }
 
-// Returns the context-menu label for toggling transparent text background.
+// Builds the context-menu label for toggling transparent text background.
 wxString BuildTransparentBackgroundMenuLabel() {
   return wxString::FromUTF8("Transparent Background");
 }
 
-// Returns the context-menu label for deleting a text element.
+// Builds the context-menu label for deleting a text element.
 wxString BuildDeleteTextMenuLabel() {
   return wxString::FromUTF8("Delete Text");
 }
 
-// Returns the context-menu label for changing an image element.
+// Builds the context-menu label for changing an image element.
 wxString BuildChangeImageMenuLabel() {
   return wxString::FromUTF8("Change Image");
 }
 
-// Returns the context-menu label for deleting an image element.
+// Builds the context-menu label for deleting an image element.
 wxString BuildDeleteImageMenuLabel() {
   return wxString::FromUTF8("Delete Image");
 }

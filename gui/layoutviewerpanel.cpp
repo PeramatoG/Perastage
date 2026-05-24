@@ -255,6 +255,7 @@ bool AreEqual(const layouts::LayoutImageDefinition &lhs,
          lhs.aspectRatio == rhs.aspectRatio;
 }
 
+
 template <typename T>
 bool AreEqual(const std::vector<T> &lhs, const std::vector<T> &rhs) {
   if (lhs.size() != rhs.size())
