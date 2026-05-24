@@ -2774,6 +2774,7 @@ bool LayoutViewerPanel::NeedsRenderRebuild() const {
   return renderDirty || HasDirtyRenderCaches();
 }
 
+// Schedules a deferred layout texture rebuild when render data is stale.
 void LayoutViewerPanel::RequestRenderRebuild() {
   if (IsLayoutEmpty()) {
     renderPending = false;
@@ -2806,8 +2807,6 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     panel->isLoading = true;
     panel->Refresh();
     panel->Update();
-    if (wxTheApp && wxTheApp->IsMainLoopRunning())
-      wxTheApp->Yield(true);
     if (!weakThis)
       return;
     panel = weakThis.get();
@@ -2820,6 +2819,7 @@ void LayoutViewerPanel::RequestRenderRebuild() {
   });
 }
 
+// Activates the loading overlay when a delayed rebuild is still pending.
 void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
   if (!loadingRequested)
     return;
@@ -2829,6 +2829,7 @@ void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
   Refresh();
 }
 
+// Triggers cached texture regeneration after the configured debounce delay.
 void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
   if (!renderPending)
     return;
