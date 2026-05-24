@@ -256,21 +256,6 @@ bool AreEqual(const layouts::LayoutImageDefinition &lhs,
 }
 
 
-// Returns whether the selected element type supports z-order menu commands.
-bool SupportsZOrderMenuCommands(LayoutViewerPanel::SelectedElementType type) {
-  switch (type) {
-  case LayoutViewerPanel::SelectedElementType::View2D:
-  case LayoutViewerPanel::SelectedElementType::Legend:
-  case LayoutViewerPanel::SelectedElementType::EventTable:
-  case LayoutViewerPanel::SelectedElementType::Text:
-  case LayoutViewerPanel::SelectedElementType::Image:
-    return true;
-  case LayoutViewerPanel::SelectedElementType::None:
-  default:
-    return false;
-  }
-}
-
 template <typename T>
 bool AreEqual(const std::vector<T> &lhs, const std::vector<T> &rhs) {
   if (lhs.size() != rhs.size())
@@ -1673,27 +1658,21 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
     menu.Append(kDeleteMenuId, layoutviewerpanel::BuildDeleteViewMenuLabel());
     if (const auto *view = GetEditableView())
       menu.Check(kToggleViewFrameMenuId, view->drawFrame);
-    if (SupportsZOrderMenuCommands(selectedElementType)) {
-      menu.AppendSeparator();
-      menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
-      menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
-    }
+    menu.AppendSeparator();
+    menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
+    menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   } else if (selectedElementType == SelectedElementType::Legend) {
     menu.Append(kEditLegendMenuId, layoutviewerpanel::BuildEditLegendMenuLabel());
     menu.Append(kDeleteLegendMenuId, layoutviewerpanel::BuildDeleteLegendMenuLabel());
-    if (SupportsZOrderMenuCommands(selectedElementType)) {
-      menu.AppendSeparator();
-      menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
-      menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
-    }
+    menu.AppendSeparator();
+    menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
+    menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   } else if (selectedElementType == SelectedElementType::EventTable) {
     menu.Append(kEditEventTableMenuId, layoutviewerpanel::BuildEditEventTableMenuLabel());
     menu.Append(kDeleteEventTableMenuId, layoutviewerpanel::BuildDeleteEventTableMenuLabel());
-    if (SupportsZOrderMenuCommands(selectedElementType)) {
-      menu.AppendSeparator();
-      menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
-      menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
-    }
+    menu.AppendSeparator();
+    menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
+    menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   } else if (selectedElementType == SelectedElementType::Text) {
     menu.Append(kEditTextMenuId, layoutviewerpanel::BuildEditTextMenuLabel());
     menu.AppendCheckItem(kToggleTextFrameMenuId, layoutviewerpanel::BuildShowBorderMenuLabel());
@@ -1705,19 +1684,15 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
       menu.Check(kToggleTextTransparentBackgroundMenuId,
                  !text->solidBackground);
     }
-    if (SupportsZOrderMenuCommands(selectedElementType)) {
-      menu.AppendSeparator();
-      menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
-      menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
-    }
+    menu.AppendSeparator();
+    menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
+    menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   } else if (selectedElementType == SelectedElementType::Image) {
     menu.Append(kEditImageMenuId, layoutviewerpanel::BuildChangeImageMenuLabel());
     menu.Append(kDeleteImageMenuId, layoutviewerpanel::BuildDeleteImageMenuLabel());
-    if (SupportsZOrderMenuCommands(selectedElementType)) {
-      menu.AppendSeparator();
-      menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
-      menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
-    }
+    menu.AppendSeparator();
+    menu.Append(kBringToFrontMenuId, layoutviewerpanel::BuildBringToFrontMenuLabel());
+    menu.Append(kSendToBackMenuId, layoutviewerpanel::BuildSendToBackMenuLabel());
   }
   PopupMenu(&menu, pos);
 }
