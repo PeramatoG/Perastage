@@ -2046,7 +2046,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     };
     renderDirty = false;
     stopLoadingRequest();
-  
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        "Analyzing layout render workload...");
+
     bool hasDirtyViewCache = false;
     for (const auto &view : currentLayout.view2dViews) {
       const auto cacheIt = viewCaches_.find(view.id);
@@ -2096,6 +2099,17 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     std::vector<unsigned char> textPixels;
     std::vector<unsigned char> imagePixels;
     const double renderZoom = GetRenderZoom();
+    bool glReady = false;
+    auto ensureGlReady = [&]() {
+      if (glReady)
+        return true;
+      glReady = InitGL();
+      return glReady;
+    };
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        wxString::Format("Rendering 2D views (%zu)...",
+                         currentLayout.view2dViews.size()));
     for (const auto &view : currentLayout.view2dViews) {
       ViewCache &cache = GetViewCache(view.id);
       if (!cache.renderDirty)
@@ -2165,7 +2179,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
 
-      if (!InitGL()) {
+      if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
         return;
@@ -2194,6 +2208,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       std::vector<unsigned char>().swap(pixels);
     }
   
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        wxString::Format("Rendering legends (%zu)...",
+                         currentLayout.legendViews.size()));
     for (const auto &legend : currentLayout.legendViews) {
       LegendCache &cache = GetLegendCache(legend.id);
       const bool contentChanged = cache.contentHash != legendDataHash;
@@ -2253,7 +2271,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         legendPixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
       }
   
-      if (!InitGL()) {
+      if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
         return;
@@ -2282,6 +2300,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       legendPixels.clear();
     }
   
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        wxString::Format("Rendering event tables (%zu)...",
+                         currentLayout.eventTables.size()));
     for (const auto &table : currentLayout.eventTables) {
       EventTableCache &cache = GetEventTableCache(table.id);
       size_t dataHash = HashEventTableFields(table);
@@ -2350,7 +2372,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         eventTablePixels[static_cast<size_t>(i) * 4 + 3] = a;
       }
   
-      if (!InitGL()) {
+      if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
         return;
@@ -2380,6 +2402,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       eventTablePixels.clear();
     }
   
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        wxString::Format("Rendering text blocks (%zu)...",
+                         currentLayout.textViews.size()));
     for (const auto &text : currentLayout.textViews) {
       TextCache &cache = GetTextCache(text.id);
       size_t dataHash = HashTextContent(text);
@@ -2446,7 +2472,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         textPixels[static_cast<size_t>(i) * 4 + 3] = a;
       }
   
-      if (!InitGL()) {
+      if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
         return;
@@ -2475,6 +2501,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       textPixels.clear();
     }
   
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        wxString::Format("Rendering images (%zu)...",
+                         currentLayout.imageViews.size()));
     for (const auto &image : currentLayout.imageViews) {
       ImageCache &cache = GetImageCache(image.id);
       size_t dataHash = HashImageContent(image);
@@ -2547,7 +2577,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         imagePixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
       }
   
-      if (!InitGL()) {
+      if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
         return;
