@@ -3,7 +3,6 @@
 #include <wx/gdicmn.h>
 #include <wx/string.h>
 
-#include "layoutviewerpanel.h"
 
 class wxMouseEvent;
 class wxWindow;
@@ -23,8 +22,6 @@ wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint);
 int SnapToGrid(int value);
 
 
-// Returns whether the selected element type supports Z-order context-menu commands.
-bool SupportsZOrderMenuCommands(LayoutViewerPanel::SelectedElementType type);
 
 // Returns the localized loading overlay message shown while layout content is rendering.
 wxString BuildLoadingOverlayLabel();
