@@ -392,12 +392,6 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
     layerPanel->ReloadLayers();
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
-  if (layoutViewerPanel) {
-    // Binds direct render-ready callback so busy cursor cleanup does not rely on event routing.
-    layoutViewerPanel->SetRenderReadyCallback([this]() {
-      ClearLayoutLoadingIndicator();
-    });
-  }
 
   const auto shortcutRegistryErrors = gui::ValidateShortcutRegistry();
   for (const std::string &error : shortcutRegistryErrors)

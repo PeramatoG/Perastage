@@ -644,11 +644,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   Refresh();
 }
 
-// Stores a callback notified when layout rendering is reported as ready.
-void LayoutViewerPanel::SetRenderReadyCallback(std::function<void()> callback) {
-  onRenderReady_ = std::move(callback);
-}
-
+// Posts a deferred render-ready event after layout rendering state has settled.
 void LayoutViewerPanel::NotifyRenderReady() {
   wxWeakRef<LayoutViewerPanel> weakThis(this);
   CallAfter([weakThis]() {
@@ -657,8 +653,6 @@ void LayoutViewerPanel::NotifyRenderReady() {
     LayoutViewerPanel *panel = weakThis.get();
     if (!panel)
       return;
-    if (panel->onRenderReady_)
-      panel->onRenderReady_();
     wxCommandEvent event(EVT_LAYOUT_RENDER_READY);
     event.SetEventObject(panel);
     wxPostEvent(panel, event);

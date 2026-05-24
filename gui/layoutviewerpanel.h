@@ -18,7 +18,6 @@
 #pragma once
 
 #include <memory>
-#include <functional>
 #include <optional>
 #include <unordered_map>
 #include <utility>
@@ -42,7 +41,6 @@ public:
   ~LayoutViewerPanel();
 
   void SetLayoutDefinition(const layouts::LayoutDefinition &layout);
-  void SetRenderReadyCallback(std::function<void()> callback);
   layouts::Layout2DViewDefinition *GetEditableView();
   const layouts::Layout2DViewDefinition *GetEditableView() const;
   bool DeleteSelectedElement();
@@ -127,7 +125,6 @@ private:
   };
 
   void NotifyRenderReady();
-  std::function<void()> onRenderReady_;
   void OnPaint(wxPaintEvent &event);
   void OnSize(wxSizeEvent &event);
   void OnLeftDown(wxMouseEvent &event);
