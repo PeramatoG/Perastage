@@ -2069,8 +2069,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
           cacheMissing || cacheIt->second.renderDirty || contentChanged;
       if (needsTextureRebuild) {
         needsLegendProcessing = true;
-        const bool needsSymbols =
-            cacheMissing || !cacheIt->second.symbols || contentChanged;
+        const bool needsSymbols = cacheMissing || !cacheIt->second.symbols;
         if (needsSymbols)
           needsLegendSymbolCapture = true;
       }
@@ -2218,7 +2217,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       ++processedLegendCount;
       LegendCache &cache = GetLegendCache(legend.id);
       const bool contentChanged = cache.contentHash != legendDataHash;
-      const bool requiresSymbolRefresh = !cache.symbols || contentChanged;
+      const bool requiresSymbolRefresh = !cache.symbols;
       if (requiresSymbolRefresh && legendSymbols && cache.symbols != legendSymbols) {
         cache.symbols = legendSymbols;
         cache.renderDirty = true;
