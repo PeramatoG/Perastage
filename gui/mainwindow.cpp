@@ -1139,8 +1139,9 @@ void MainWindow::OnLayoutRenderReady(wxCommandEvent &) {
 
 // Mirrors layout-render updates unless fixture symbol generation is currently reporting progress.
 void MainWindow::OnLayoutRenderStatus(wxCommandEvent &event) {
-  if (GetStatusBar() &&
-      IsFixtureSymbolStatusMessage(GetStatusBar()->GetStatusText(0))) {
+  if (fixtureSymbolAutoUpdateRunning ||
+      (GetStatusBar() &&
+       IsFixtureSymbolStatusMessage(GetStatusBar()->GetStatusText(0)))) {
     return;
   }
   ShowLayoutLoadingIndicator(event.GetString());

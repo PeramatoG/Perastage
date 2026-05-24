@@ -2212,7 +2212,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
         wxString::Format("Rendering legends (%zu)...",
                          currentLayout.legendViews.size()));
+    size_t processedLegendCount = 0;
+    const size_t totalLegendCount = currentLayout.legendViews.size();
     for (const auto &legend : currentLayout.legendViews) {
+      ++processedLegendCount;
       LegendCache &cache = GetLegendCache(legend.id);
       const bool contentChanged = cache.contentHash != legendDataHash;
       const bool requiresSymbolRefresh = !cache.symbols || contentChanged;
@@ -2298,6 +2301,14 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       cache.renderZoom = renderZoom;
       cache.contentHash = legendDataHash;
       legendPixels.clear();
+      if (totalLegendCount > 0 &&
+          ((processedLegendCount % 8) == 0 ||
+           processedLegendCount == totalLegendCount)) {
+        gui::layoutstatus::PostLayoutRenderStatus(
+            this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+            wxString::Format("Rendering legends (%zu/%zu)...",
+                             processedLegendCount, totalLegendCount));
+      }
     }
   
     gui::layoutstatus::PostLayoutRenderStatus(
