@@ -351,6 +351,7 @@ EVT_COMMAND(wxID_ANY, EVT_UI_PREFERENCES_APPLIED, MainWindow::OnPreferencesAppli
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_SELECTED, MainWindow::OnLayoutSelected)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_VIEW_EDIT, MainWindow::OnLayoutViewEdit)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_VIEW_SELECTED, MainWindow::OnLayoutViewSelected)
+EVT_COMMAND(wxID_ANY, EVT_LAYOUT_RENDER_STATUS, MainWindow::OnLayoutRenderStatus)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_RENDER_READY, MainWindow::OnLayoutRenderReady)
 wxEND_EVENT_TABLE()
 
@@ -1125,6 +1126,11 @@ void MainWindow::ClearLayoutLoadingIndicator() {
 // Clears the loading indicator when the layout render pipeline reports completion.
 void MainWindow::OnLayoutRenderReady(wxCommandEvent &) {
   ClearLayoutLoadingIndicator();
+}
+
+// Mirrors layout-render pipeline status updates in the main status bar.
+void MainWindow::OnLayoutRenderStatus(wxCommandEvent &event) {
+  ShowLayoutLoadingIndicator(event.GetString());
 }
 
 void MainWindow::ActivateLayoutView(const std::string &layoutName) {
