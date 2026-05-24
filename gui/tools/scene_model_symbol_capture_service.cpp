@@ -50,6 +50,7 @@ void ExtendBounds(Bounds3D &bounds, const std::array<float, 3> &p) {
 // Temporarily overrides a fixture color during symbol capture and restores it afterward.
 class ScopedFixtureColorOverride {
 public:
+  // Applies an optional temporary fixture color override for symbol capture.
   ScopedFixtureColorOverride(ConfigManager &cfg, const std::string &fixtureUuid,
                              const std::optional<std::string> &forcedHex)
       : cfg_(cfg) {
@@ -63,6 +64,7 @@ public:
     it->second.color = *forcedHex;
   }
 
+  // Restores any fixture colors overridden during symbol capture.
   ~ScopedFixtureColorOverride() {
     auto &fixtures = cfg_.GetScene().fixtures;
     for (const auto &[uuid, color] : previous_) {
@@ -80,6 +82,7 @@ private:
 // Temporarily isolates the scene to a single model target for deterministic capture.
 class ScopedSingleModelSceneOverride {
 public:
+  // Replaces scene content with only the requested model target for isolated capture.
   ScopedSingleModelSceneOverride(ConfigManager &cfg,
                                  const SceneModelSymbolTarget &target,
                                  bool alignToLocalAxes)
@@ -129,6 +132,7 @@ public:
     }
   }
 
+  // Restores the original scene content after isolated capture is complete.
   ~ScopedSingleModelSceneOverride() {
     auto &scene = cfg_.GetScene();
     scene.fixtures = std::move(originalFixtures_);
@@ -154,6 +158,7 @@ private:
 // Saves and restores 2D viewer state so capture does not affect interactive UI state.
 class ScopedViewer2DCaptureState {
 public:
+  // Stores the current 2D viewer state so capture can run without persisting UI changes.
   explicit ScopedViewer2DCaptureState(Viewer2DPanel &panel) : panel_(panel) {
     const Viewer2DViewState state = panel_.GetViewState();
     offsetXPixels_ = state.offsetPixelsX;
@@ -166,6 +171,7 @@ public:
         panel_.GetPreferPerastageSvgSymbolsForLayouts();
   }
 
+  // Restores the saved 2D viewer state after capture operations finish.
   ~ScopedViewer2DCaptureState() {
     panel_.ApplyViewState(offsetXPixels_, offsetYPixels_, zoom_, view_,
                           renderMode_);
@@ -189,12 +195,14 @@ private:
 // Applies temporary render overrides tailored for high-contrast symbol extraction.
 class ScopedViewer2DRenderOverrides {
 public:
+  // Applies temporary render overrides optimized for symbol capture.
   ScopedViewer2DRenderOverrides(Viewer2DPanel &panel,
                                 const Viewer2DRenderOverrides &overrides)
       : panel_(panel) {
     panel_.SetRenderOverrides(overrides);
   }
 
+  // Clears temporary render overrides when capture scope ends.
   ~ScopedViewer2DRenderOverrides() { panel_.SetRenderOverrides(std::nullopt); }
 
 private:
