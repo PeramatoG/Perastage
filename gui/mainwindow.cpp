@@ -380,8 +380,6 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
     icon = wxArtProvider::GetIcon(wxART_MISSING_IMAGE);
   if (icon.IsOk())
     SetIcon(icon);
-  // Handles fail-safe timeout cleanup for layout render busy cursor state.
-  Bind(wxEVT_TIMER, &MainWindow::OnLayoutRenderBusyCursorTimeout, this);
 
   Centre();
   SetupLayout();
@@ -394,6 +392,12 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
     layerPanel->ReloadLayers();
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
+  if (layoutViewerPanel) {
+    // Binds direct render-ready callback so busy cursor cleanup does not rely on event routing.
+    layoutViewerPanel->SetRenderReadyCallback([this]() {
+      ClearLayoutLoadingIndicator();
+    });
+  }
 
   const auto shortcutRegistryErrors = gui::ValidateShortcutRegistry();
   for (const std::string &error : shortcutRegistryErrors)
@@ -1102,7 +1106,7 @@ bool MainWindow::HasActiveLayout2DView() const {
   return false;
 }
 
-// Shows layout-loading status text and starts a fail-safe busy-cursor timeout.
+// Shows layout-loading status text and enables the busy cursor during layout rendering.
 void MainWindow::ShowLayoutLoadingIndicator(const wxString &message) {
   if (auiManager) {
     auto &layoutPane = auiManager->GetPane("LayoutViewer");
@@ -1115,27 +1119,17 @@ void MainWindow::ShowLayoutLoadingIndicator(const wxString &message) {
     SetStatusText(message);
   if (!layoutRenderCursor)
     layoutRenderCursor = std::make_unique<wxBusyCursor>();
-  layoutRenderCursorFailSafeTimer.StartOnce(4000);
 }
 
-// Clears layout-loading status text, busy cursor state, and timeout tracking.
+// Clears layout-loading status text and releases the busy cursor indicator.
 void MainWindow::ClearLayoutLoadingIndicator() {
   if (GetStatusBar())
     SetStatusText("");
-  layoutRenderCursorFailSafeTimer.Stop();
   layoutRenderCursor.reset();
 }
 
 // Clears the loading indicator when the layout render pipeline reports completion.
 void MainWindow::OnLayoutRenderReady(wxCommandEvent &) {
-  ClearLayoutLoadingIndicator();
-}
-
-// Releases the busy cursor if a render-ready event is unexpectedly missed.
-void MainWindow::OnLayoutRenderBusyCursorTimeout(wxTimerEvent &) {
-  if (!layoutRenderCursor)
-    return;
-  wxLogWarning("Layout render-ready event timeout; clearing busy cursor fail-safe.");
   ClearLayoutLoadingIndicator();
 }
 

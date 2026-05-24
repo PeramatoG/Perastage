@@ -22,7 +22,6 @@
 #include "shortcut_registry.h"
 #include <wx/aui/aui.h>
 #include <wx/frame.h>
-#include <wx/timer.h>
 
 #include <memory>
 #include <optional>
@@ -245,8 +244,6 @@ private:
   void UpdateViewMenuChecks();
   void OnLayoutSelected(wxCommandEvent &event);
   void ActivateLayoutView(const std::string &layoutName);
-  // Clears a stuck layout busy cursor when no render-ready event arrives in time.
-  void OnLayoutRenderBusyCursorTimeout(wxTimerEvent &event);
   void ShowLayoutLoadingIndicator(const wxString &message);
   void ClearLayoutLoadingIndicator();
   void ApplyViewportShortcut(Viewer2DView view);
@@ -281,7 +278,6 @@ private:
   Viewer2DRenderPanel *layout2DViewEditRenderPanel = nullptr;
   std::optional<viewer2d::Viewer2DState> standalone2DState;
   std::unique_ptr<wxBusyCursor> layoutRenderCursor;
-  wxTimer layoutRenderCursorFailSafeTimer;
   std::vector<std::string> fixtureSymbolAutoUpdateQueue;
   std::unordered_set<std::string> fixtureSymbolAutoUpdateProcessedKeys;
   std::unordered_set<std::string> fixtureSymbolPendingLibrarySyncUuids;
