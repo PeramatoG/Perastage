@@ -187,6 +187,7 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
   CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
 }
 
+// Processes queued fixture entries and auto-generates missing fixture symbols.
 void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   if (!fixtureSymbolAutoUpdateRunning)
     return;
@@ -279,11 +280,14 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   const std::string forcedFixtureColor = "#3FA9F5";
   tools::SceneModelSymbolCaptureOptions captureOptions;
   captureOptions.forcedFixtureColor = forcedFixtureColor;
+  // Captured symbols must be orientation-neutral so per-instance rotation can be applied later in rendering/printing.
+  captureOptions.alignToLocalAxes = true;
 
   auto capture = tools::CaptureSceneModelOrthographicSymbols(
       *offscreenRenderer, cfg,
       tools::SceneModelSymbolTarget{tools::SceneModelKind::Fixture, fixtureUuid},
       captureOptions);
+  captureOptions.alignToLocalAxes = false;
   if (!capture.ok) {
     ReportFixtureAutoUpdate(
         *this, consolePanel,
