@@ -1132,8 +1132,12 @@ void MainWindow::OnLayoutRenderReady(wxCommandEvent &) {
   ClearLayoutLoadingIndicator();
 }
 
-// Mirrors layout-render pipeline status updates in the main status bar.
+// Mirrors layout-render updates unless fixture symbol generation is currently reporting progress.
 void MainWindow::OnLayoutRenderStatus(wxCommandEvent &event) {
+  if (GetStatusBar() &&
+      IsFixtureSymbolStatusMessage(GetStatusBar()->GetStatusText(0))) {
+    return;
+  }
   ShowLayoutLoadingIndicator(event.GetString());
 }
 
