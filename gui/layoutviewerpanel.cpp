@@ -2060,6 +2060,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     }
     bool needsLegendProcessing = false;
     bool needsLegendSymbolCapture = false;
+    size_t legendSymbolsMissingCount = 0;
     for (const auto &legend : currentLayout.legendViews) {
       const auto cacheIt = legendCaches_.find(legend.id);
       const bool cacheMissing = cacheIt == legendCaches_.end();
@@ -2070,15 +2071,26 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       if (needsTextureRebuild) {
         needsLegendProcessing = true;
         const bool needsSymbols = cacheMissing || !cacheIt->second.symbols;
-        if (needsSymbols)
+        if (needsSymbols) {
           needsLegendSymbolCapture = true;
+          ++legendSymbolsMissingCount;
+        }
       }
       if (needsLegendProcessing && needsLegendSymbolCapture) {
         break;
       }
     }
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        wxString::Format("Workload: %zu views, %zu legends (symbol recapture: %s).",
+                         currentLayout.view2dViews.size(),
+                         currentLayout.legendViews.size(),
+                         needsLegendSymbolCapture ? "yes" : "no"));
     const bool needsCapturePanel = hasDirtyViewCache || needsLegendSymbolCapture;
     if (needsCapturePanel) {
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          "Preparing offscreen renderer for layout capture...");
       if (auto *mw = MainWindow::Instance()) {
         offscreenRenderer = mw->GetOffscreenRenderer();
         capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
@@ -2091,7 +2103,14 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
     if (needsLegendSymbolCapture) {
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          wxString::Format("Capturing legend symbols (%zu legend(s) missing symbols)...",
+                           legendSymbolsMissingCount));
       legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          "Legend symbol capture completed.");
     }
     std::vector<unsigned char> legendPixels;
     std::vector<unsigned char> eventTablePixels;
