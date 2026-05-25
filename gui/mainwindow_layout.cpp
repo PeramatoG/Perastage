@@ -979,6 +979,15 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   Viewer2DPanel *editPanel =
       layout2DViewEditPanel ? layout2DViewEditPanel : viewport2DPanel;
+  auto finishEditingSession = [this, editPanel]() {
+    layout2DViewStateGuard.reset();
+    layout2DViewEditingId = 0;
+    RefreshSummary();
+    if (editPanel)
+      editPanel->SetLayoutEditOverlay(std::nullopt);
+    layout2DViewEditing = false;
+    UpdateViewMenuChecks();
+  };
   viewer2d::Viewer2DState current =
       viewer2d::CaptureState(editPanel, cfg);
   viewer2d::ApplyEditorRenderOptions(current, cfg);
@@ -1011,8 +1020,10 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
     if (viewId <= 0)
       viewId = editableView->id;
   }
-  if (viewId <= 0 || !matchedView)
+  if (viewId <= 0 || !matchedView) {
+    finishEditingSession();
     return;
+  }
   frame = matchedView->frame;
 
   // Ensure the stored viewport matches the layout frame size, not the popup.
@@ -1033,8 +1044,11 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
     updatedView.zIndex = editableView->zIndex;
   }
   cfg.PushUndoState("edit layout 2d view");
-  layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName,
-                                                   updatedView);
+  if (!layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName,
+                                                        updatedView)) {
+    finishEditingSession();
+    return;
+  }
 
   if (layoutViewerPanel) {
     for (const auto &entry :
@@ -1046,17 +1060,10 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
     }
   }
 
-  layout2DViewStateGuard.reset();
-  layout2DViewEditingId = 0;
-  RefreshSummary();
-
-  if (editPanel)
-    editPanel->SetLayoutEditOverlay(std::nullopt);
-
-  layout2DViewEditing = false;
-  UpdateViewMenuChecks();
+  finishEditingSession();
 }
 
+// Cancels 2D view editing and restores the viewer state without applying layout changes.
 void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {
   if (!layout2DViewEditing || !layout2DViewStateGuard)
     return;
