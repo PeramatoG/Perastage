@@ -13,4 +13,7 @@ namespace gui::layoutstatus {
 void PostLayoutRenderStatus(wxWindow *eventSource, wxWindow *targetWindow,
                             const wxString &statusText);
 
+// Pumps pending UI events at a throttled cadence so status-bar progress remains visible.
+void PumpLayoutRenderStatusUi();
+
 } // namespace gui::layoutstatus
