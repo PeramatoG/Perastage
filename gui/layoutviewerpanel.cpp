@@ -661,10 +661,12 @@ void LayoutViewerPanel::NotifyRenderReady() {
   });
 }
 
+// Marks the cached selection/render indices as dirty so they rebuild on demand.
 void LayoutViewerPanel::InvalidateSelectionIndexCache() {
   selectionIndexCache_.dirty = true;
 }
 
+// Rebuilds cached ID lookups and z-ordered render elements when invalidated.
 void LayoutViewerPanel::EnsureSelectionIndexCache() {
   if (!selectionIndexCache_.dirty) {
     return;
@@ -704,6 +706,7 @@ void LayoutViewerPanel::EnsureSelectionIndexCache() {
   selectionIndexCache_.dirty = false;
 }
 
+// Builds a stable z-ordered element list used for selection and rendering passes.
 std::vector<LayoutViewerPanel::ZOrderedElement>
 LayoutViewerPanel::BuildZOrderedElements() const {
   std::vector<ZOrderedElement> elements;
@@ -806,6 +809,7 @@ bool LayoutViewerPanel::IsLayoutEmpty() const {
          currentLayout.imageViews.empty();
 }
 
+// Paints the layout page and all elements using cached selection/render indices.
 void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   static unsigned long long s_renderFrameId = 0;
   wxPaintDC dc(this);
@@ -937,30 +941,13 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       capturePanel = Viewer2DPanel::Instance();
     }
 
-    std::unordered_map<int, const layouts::Layout2DViewDefinition *> viewById;
-    std::unordered_map<int, const layouts::LayoutLegendDefinition *>
-        legendById;
-    std::unordered_map<int, const layouts::LayoutEventTableDefinition *>
-        eventTableById;
-    std::unordered_map<int, const layouts::LayoutTextDefinition *> textById;
-    std::unordered_map<int, const layouts::LayoutImageDefinition *> imageById;
-    viewById.reserve(currentLayout.view2dViews.size());
-    legendById.reserve(currentLayout.legendViews.size());
-    eventTableById.reserve(currentLayout.eventTables.size());
-    textById.reserve(currentLayout.textViews.size());
-    imageById.reserve(currentLayout.imageViews.size());
-    for (const auto &view : currentLayout.view2dViews)
-      viewById.emplace(view.id, &view);
-    for (const auto &legend : currentLayout.legendViews)
-      legendById.emplace(legend.id, &legend);
-    for (const auto &table : currentLayout.eventTables)
-      eventTableById.emplace(table.id, &table);
-    for (const auto &text : currentLayout.textViews)
-      textById.emplace(text.id, &text);
-    for (const auto &image : currentLayout.imageViews)
-      imageById.emplace(image.id, &image);
-
-    const auto elements = BuildZOrderedElements();
+    EnsureSelectionIndexCache();
+    const auto &viewById = selectionIndexCache_.viewById;
+    const auto &legendById = selectionIndexCache_.legendById;
+    const auto &eventTableById = selectionIndexCache_.eventTableById;
+    const auto &textById = selectionIndexCache_.textById;
+    const auto &imageById = selectionIndexCache_.imageById;
+    const auto &elements = selectionIndexCache_.zOrderedElements;
     for (const auto &element : elements) {
       if (element.type == SelectedElementType::View2D) {
         auto it = viewById.find(element.id);
