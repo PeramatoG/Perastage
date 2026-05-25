@@ -63,6 +63,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   SplashScreen::Hide();
 
   const bool shouldShowBlockingImportUi = !owner->IsStartupProjectLoadPending();
+  const bool shouldUseProgressDialog = false;
   std::unique_ptr<wxWindowDisabler> importDisabler;
   std::unique_ptr<wxBusyInfo> importOverlay;
   std::unique_ptr<wxProgressDialog> importProgress;
@@ -103,7 +104,8 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           const int safeTotal = std::max(progress.total, 1);
           const int clampedCompleted = std::clamp(progress.completed, 0, safeTotal);
 
-          if (shouldShowBlockingImportUi && !importProgress) {
+          if (shouldShowBlockingImportUi && shouldUseProgressDialog &&
+              !importProgress) {
             importOverlay.reset();
             importProgress = std::make_unique<wxProgressDialog>(
                 title, stageText, safeTotal + 1, owner,
