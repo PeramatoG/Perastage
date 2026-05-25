@@ -45,6 +45,7 @@
 #include "layoutviewerpanel_shared.h"
 #include "layoutlegendeditdialog.h"
 #include "layoutlegenditems.h"
+#include "mainwindow.h"
 #include "LayoutManager.h"
 #include "guiconfigservices.h"
 #include "configmanager.h"
