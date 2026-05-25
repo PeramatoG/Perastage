@@ -2970,7 +2970,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 downloadInfoDialog.CentreOnScreen();
               }
               bool isDownloadInfoFinished = false;
-              bool isDownloadInfoAcknowledged = false;
               std::atomic<bool> cancelRequested{false};
               auto downloadUiActive = std::make_shared<std::atomic<bool>>(true);
               downloadInfoDialog.Bind(wxEVT_CLOSE_WINDOW,
@@ -2981,7 +2980,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                           return;
                                         }
                                         downloadUiActive->store(false);
-                                        isDownloadInfoAcknowledged = true;
                                         downloadInfoDialog.Hide();
                                       });
               cancelButton->Bind(wxEVT_BUTTON, [&](wxCommandEvent &) {
@@ -2991,7 +2989,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               });
               ackButton->Bind(wxEVT_BUTTON, [&](wxCommandEvent &) {
                 downloadUiActive->store(false);
-                isDownloadInfoAcknowledged = true;
                 downloadInfoDialog.Hide();
               });
 
@@ -3484,10 +3481,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               summaryText->SetLabel(summaryText->GetLabel() + " - queue finished");
               ackButton->Enable();
               ackButton->SetFocus();
-              while (!isDownloadInfoAcknowledged) {
-                wxMilliSleep(10);
-                wxYieldIfNeeded();
-              }
+              downloadInfoDialog.Hide();
             } else {
               wxMessageBox("Login failed. Verify credentials in Preferences.",
                            "GDTF Share login", wxOK | wxICON_WARNING);
