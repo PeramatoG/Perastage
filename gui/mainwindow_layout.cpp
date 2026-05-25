@@ -1021,6 +1021,11 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
       viewId = editableView->id;
   }
   if (viewId <= 0 || !matchedView) {
+    Logger::Instance().Log(
+        "Layout 2D edit commit aborted: target view could not be resolved.");
+    if (GetStatusBar()) {
+      SetStatusText("Layout view update skipped: target view not found.", 0);
+    }
     finishEditingSession();
     return;
   }
@@ -1046,6 +1051,11 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   cfg.PushUndoState("edit layout 2d view");
   if (!layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName,
                                                         updatedView)) {
+    Logger::Instance().Log(
+        "Layout 2D edit commit failed: UpdateLayout2DView returned false.");
+    if (GetStatusBar()) {
+      SetStatusText("Layout view update failed.", 0);
+    }
     finishEditingSession();
     return;
   }
