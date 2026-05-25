@@ -2823,7 +2823,7 @@ bool LayoutViewerPanel::NeedsRenderRebuild() const {
   return renderDirty || HasDirtyRenderCaches();
 }
 
-// Schedules a deferred layout texture rebuild when render data is stale.
+// Queues one asynchronous render rebuild cycle when layout textures are stale.
 void LayoutViewerPanel::RequestRenderRebuild() {
   if (IsLayoutEmpty()) {
     renderPending = false;
@@ -2839,37 +2839,27 @@ void LayoutViewerPanel::RequestRenderRebuild() {
   auto *offscreenRenderer = mw->GetOffscreenRenderer();
   if (!offscreenRenderer || !offscreenRenderer->GetPanel())
     return;
-  if (!NeedsRenderRebuild() || renderPending)
+  if (!NeedsRenderRebuild() || renderPending || loadingRequested)
     return;
+
   renderPending = true;
   loadingRequested = true;
   gui::layoutstatus::PostLayoutRenderStatus(this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
                                            "Layout render queued...");
-  if (!loadingTimer_.IsRunning()) {
-    loadingTimer_.StartOnce(kLoadingOverlayDelayMs);
-  }
+
   wxWeakRef<LayoutViewerPanel> weakThis(this);
   CallAfter([weakThis]() {
     if (!weakThis)
       return;
     LayoutViewerPanel *panel = weakThis.get();
-    if (!panel)
+    if (!panel || !panel->renderPending || !panel->loadingRequested)
       return;
     gui::layoutstatus::PostLayoutRenderStatus(
         panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
         "Preparing layout textures...");
     panel->isLoading = true;
-    panel->Refresh();
-    panel->Update();
-    if (!weakThis)
-      return;
-    panel = weakThis.get();
-    if (!panel)
-      return;
-    if (panel->renderDelayTimer_.IsRunning()) {
-      panel->renderDelayTimer_.Stop();
-    }
-    panel->renderDelayTimer_.StartOnce(kLoadingOverlayDelayMs);
+    wxTimerEvent delayedEvent;
+    panel->OnRenderDelayTimer(delayedEvent);
   });
 }
 
@@ -2885,31 +2875,28 @@ void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
   Refresh();
 }
 
-// Triggers cached texture regeneration after the configured debounce delay.
+// Rebuilds stale cached textures and triggers exactly one repaint for the cycle.
 void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
-  if (!renderPending)
+  if (!renderPending || !loadingRequested)
     return;
   if (!NeedsRenderRebuild()) {
     renderPending = false;
+    loadingRequested = false;
+    isLoading = false;
     return;
   }
-  wxWeakRef<LayoutViewerPanel> weakThis(this);
-  CallAfter([weakThis]() {
-    if (!weakThis)
-      return;
-    LayoutViewerPanel *panel = weakThis.get();
-    if (!panel)
-      return;
-    gui::layoutstatus::PostLayoutRenderStatus(
-        panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
-        "Building layout textures...");
-    panel->renderPending = false;
-    panel->RebuildCachedTexture();
-    gui::layoutstatus::PostLayoutRenderStatus(
-        panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
-        "Layout render completed.");
-    panel->Refresh();
-  });
+
+  gui::layoutstatus::PostLayoutRenderStatus(
+      this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+      "Building layout textures...");
+  RebuildCachedTexture();
+  renderPending = false;
+  loadingRequested = false;
+  isLoading = false;
+  gui::layoutstatus::PostLayoutRenderStatus(
+      this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+      "Layout render completed.");
+  Refresh();
 }
 
 bool LayoutViewerPanel::AreTexturesReady() const {
