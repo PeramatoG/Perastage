@@ -1011,11 +1011,9 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
     if (viewId <= 0)
       viewId = editableView->id;
   }
-  if (matchedView) {
-    frame = matchedView->frame;
-  } else if (editableView) {
-    frame = editableView->frame;
-  }
+  if (viewId <= 0 || !matchedView)
+    return;
+  frame = matchedView->frame;
 
   // Ensure the stored viewport matches the layout frame size, not the popup.
   if (frame.width > 0 || frame.height > 0) {

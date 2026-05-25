@@ -1144,12 +1144,17 @@ void MainWindow::OnLayoutRenderReady(wxCommandEvent &) {
 
 // Mirrors layout-render updates unless fixture symbol generation is currently reporting progress.
 void MainWindow::OnLayoutRenderStatus(wxCommandEvent &event) {
+  const wxString statusMessage = event.GetString();
+  if (statusMessage.CmpNoCase("Layout render completed.") == 0) {
+    ClearLayoutLoadingIndicator();
+    return;
+  }
   if (fixtureSymbolAutoUpdateRunning ||
       (GetStatusBar() &&
        IsFixtureSymbolStatusMessage(GetStatusBar()->GetStatusText(0)))) {
     return;
   }
-  ShowLayoutLoadingIndicator(event.GetString());
+  ShowLayoutLoadingIndicator(statusMessage);
 }
 
 void MainWindow::ActivateLayoutView(const std::string &layoutName) {
