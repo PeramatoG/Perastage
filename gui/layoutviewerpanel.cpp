@@ -668,8 +668,43 @@ void LayoutViewerPanel::InvalidateSelectionIndexCache() {
 
 // Rebuilds cached ID lookups and z-ordered render elements when invalidated.
 void LayoutViewerPanel::EnsureSelectionIndexCache() {
+  // Detect stale cached pointers when layout vectors changed without explicit invalidation.
   if (!selectionIndexCache_.dirty) {
-    return;
+    const auto pointerInRange = [](const auto &container, const auto *ptr) {
+      if (ptr == nullptr)
+        return false;
+      if (container.empty())
+        return false;
+      const auto *begin = container.data();
+      const auto *end = begin + container.size();
+      return ptr >= begin && ptr < end;
+    };
+    const auto mapPointersValid = [&pointerInRange](const auto &map,
+                                                    const auto &container) {
+      for (const auto &entry : map) {
+        if (!pointerInRange(container, entry.second))
+          return false;
+      }
+      return true;
+    };
+    const bool cacheShapeMatches =
+        selectionIndexCache_.viewById.size() == currentLayout.view2dViews.size() &&
+        selectionIndexCache_.legendById.size() == currentLayout.legendViews.size() &&
+        selectionIndexCache_.eventTableById.size() ==
+            currentLayout.eventTables.size() &&
+        selectionIndexCache_.textById.size() == currentLayout.textViews.size() &&
+        selectionIndexCache_.imageById.size() == currentLayout.imageViews.size();
+    const bool cachePointersValid =
+        mapPointersValid(selectionIndexCache_.viewById, currentLayout.view2dViews) &&
+        mapPointersValid(selectionIndexCache_.legendById,
+                         currentLayout.legendViews) &&
+        mapPointersValid(selectionIndexCache_.eventTableById,
+                         currentLayout.eventTables) &&
+        mapPointersValid(selectionIndexCache_.textById, currentLayout.textViews) &&
+        mapPointersValid(selectionIndexCache_.imageById, currentLayout.imageViews);
+    if (cacheShapeMatches && cachePointersValid) {
+      return;
+    }
   }
 
   selectionIndexCache_.zOrderedElements = BuildZOrderedElements();
