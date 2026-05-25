@@ -23,6 +23,7 @@
 #include "layerpanel.h"
 #include "LayoutManager.h"
 #include "layoutpanel.h"
+#include "layoutviewerpanel.h"
 #include "logger.h"
 #include "mvrimporter.h"
 #include "projectutils.h"
