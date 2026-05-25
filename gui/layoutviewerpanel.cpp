@@ -513,6 +513,7 @@ LayoutViewerPanel::~LayoutViewerPanel() {
   delete glContext_;
 }
 
+// Applies a layout snapshot, preserving selection and scheduling texture rebuilds when renderable data changes.
 void LayoutViewerPanel::SetLayoutDefinition(
     const layouts::LayoutDefinition &layout) {
   if (IsSameRenderableLayout(currentLayout, layout)) {
@@ -608,7 +609,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   if (sameLayoutName) {
     captureInProgress = false;
     renderDirty = true;
-    loadingRequested = true;
+    loadingRequested = false;
     legendDataDirty_ = true;
     RefreshLegendData();
     InvalidateRenderIfFrameChanged(false);

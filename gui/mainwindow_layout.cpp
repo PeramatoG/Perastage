@@ -877,6 +877,7 @@ void MainWindow::OnLayoutAddImage(wxCommandEvent &WXUNUSED(event)) {
   }
 }
 
+// Opens the modal 2D view editor and initializes editing state for the selected layout view.
 void MainWindow::BeginLayout2DViewEdit() {
   if (!layoutModeActive || activeLayoutName.empty() || layout2DViewEditing)
     return;
@@ -970,6 +971,7 @@ void MainWindow::BeginLayout2DViewEdit() {
   Viewer2DRenderPanel::SetInstance(prevRenderPanel);
 }
 
+// Commits edited 2D view state back into the active layout while preserving target view identity and frame.
 void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   if (!layout2DViewEditing || !layout2DViewStateGuard)
     return;
@@ -977,6 +979,15 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   Viewer2DPanel *editPanel =
       layout2DViewEditPanel ? layout2DViewEditPanel : viewport2DPanel;
+  auto finishEditingSession = [this, editPanel]() {
+    layout2DViewStateGuard.reset();
+    layout2DViewEditingId = 0;
+    RefreshSummary();
+    if (editPanel)
+      editPanel->SetLayoutEditOverlay(std::nullopt);
+    layout2DViewEditing = false;
+    UpdateViewMenuChecks();
+  };
   viewer2d::Viewer2DState current =
       viewer2d::CaptureState(editPanel, cfg);
   viewer2d::ApplyEditorRenderOptions(current, cfg);
@@ -989,10 +1000,11 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   layouts::Layout2DViewFrame frame{};
   int viewId = layout2DViewEditingId;
   const layouts::Layout2DViewDefinition *editableView = nullptr;
-  if (viewId <= 0 && layoutViewerPanel) {
+  if (layoutViewerPanel) {
     editableView = layoutViewerPanel->GetEditableView();
-    if (editableView)
-      viewId = editableView->id;
+  }
+  if (viewId <= 0 && editableView) {
+    viewId = editableView->id;
   }
   const layouts::LayoutDefinition *layout = nullptr;
   for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
@@ -1003,11 +1015,21 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   }
   const layouts::Layout2DViewDefinition *matchedView =
       FindLayout2DViewById(layout, viewId);
-  if (matchedView) {
-    frame = matchedView->frame;
-  } else if (editableView) {
-    frame = editableView->frame;
+  if (!matchedView && editableView && editableView->id > 0) {
+    matchedView = editableView;
+    if (viewId <= 0)
+      viewId = editableView->id;
   }
+  if (viewId <= 0 || !matchedView) {
+    Logger::Instance().Log(
+        "Layout 2D edit commit aborted: target view could not be resolved.");
+    if (GetStatusBar()) {
+      SetStatusText("Layout view update skipped: target view not found.", 0);
+    }
+    finishEditingSession();
+    return;
+  }
+  frame = matchedView->frame;
 
   // Ensure the stored viewport matches the layout frame size, not the popup.
   if (frame.width > 0 || frame.height > 0) {
@@ -1027,30 +1049,32 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
     updatedView.zIndex = editableView->zIndex;
   }
   cfg.PushUndoState("edit layout 2d view");
-  layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName,
-                                                   updatedView);
+  if (!layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName,
+                                                        updatedView)) {
+    Logger::Instance().Log(
+        "Layout 2D edit commit failed: UpdateLayout2DView returned false.");
+    if (GetStatusBar()) {
+      SetStatusText("Layout view update failed.", 0);
+    }
+    finishEditingSession();
+    return;
+  }
 
   if (layoutViewerPanel) {
     for (const auto &entry :
          layouts::LayoutManager::Get().GetLayouts().Items()) {
       if (entry.name == activeLayoutName) {
         layoutViewerPanel->SetLayoutDefinition(entry);
+        layoutViewerPanel->RefreshEditedViewById(viewId);
         break;
       }
     }
   }
 
-  layout2DViewStateGuard.reset();
-  layout2DViewEditingId = 0;
-  RefreshSummary();
-
-  if (editPanel)
-    editPanel->SetLayoutEditOverlay(std::nullopt);
-
-  layout2DViewEditing = false;
-  UpdateViewMenuChecks();
+  finishEditingSession();
 }
 
+// Cancels 2D view editing and restores the viewer state without applying layout changes.
 void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {
   if (!layout2DViewEditing || !layout2DViewStateGuard)
     return;
