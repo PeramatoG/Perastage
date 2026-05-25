@@ -53,7 +53,6 @@
 #include <cstdlib>
 #include <chrono>
 #include <cmath>
-#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -62,7 +61,6 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
-#include <mutex>
 #include <optional>
 #include <random>
 #include <set>
@@ -3130,7 +3128,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 const int safeTotal = std::max(1, total);
                 progressGauge->SetValue((finished * 100) / safeTotal);
               };
-              auto runOnUiThread = [&](const std::function<void()> &task) {
+              // Schedules progress updates on the UI thread without blocking worker callbacks.
+              auto runOnUiThread = [&](std::function<void()> task) {
                 if (wxThread::IsMain()) {
                   task();
                   return;
@@ -3138,24 +3137,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 wxWindow *targetWindow = &downloadInfoDialog;
                 if (!targetWindow || targetWindow->IsBeingDeleted())
                   return;
-                std::mutex syncMutex;
-                std::condition_variable syncCondition;
-                bool completed = false;
-                targetWindow->CallAfter([&]() {
-                  if (!downloadInfoDialog.IsShownOnScreen() &&
-                      isDownloadInfoFinished) {
-                    std::lock_guard<std::mutex> lock(syncMutex);
-                    completed = true;
-                    syncCondition.notify_one();
-                    return;
-                  }
-                  task();
-                  std::lock_guard<std::mutex> lock(syncMutex);
-                  completed = true;
-                  syncCondition.notify_one();
-                });
-                std::unique_lock<std::mutex> lock(syncMutex);
-                syncCondition.wait(lock, [&completed]() { return completed; });
+                targetWindow->CallAfter([task = std::move(task)]() mutable { task(); });
               };
 
               downloadInfoDialog.Show();
@@ -3399,17 +3381,22 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   if (GdtfDownload(bestMatch.rid, filePath, cookieFile,
                                    downloadHttpCode,
                                    [&](const GdtfDownloadProgress &progress) {
-                                     runOnUiThread([&]() {
-                                       auto &stats = rowProgressByType[req.type];
-                                       stats.downloadedBytes = std::max<long long>(
-                                           0, progress.downloadedBytes);
-                                       stats.totalBytes = progress.totalBytes > 0
-                                                              ? progress.totalBytes
-                                                              : -1;
-                                       updateStatusRow(req.type, selectedFixtureName,
+                                     const long long downloadedBytes =
+                                         std::max<long long>(0, progress.downloadedBytes);
+                                     const long long totalBytes =
+                                         progress.totalBytes > 0 ? progress.totalBytes : -1;
+                                     const double percentage = progress.percentage;
+                                     const std::string typeKey = req.type;
+                                     const wxString selectedFixtureNameCopy =
+                                         selectedFixtureName;
+                                     runOnUiThread([=, &rowProgressByType, &updateStatusRow,
+                                                    &formatRowProgress, &updateProgressGauge]() {
+                                       auto &stats = rowProgressByType[typeKey];
+                                       stats.downloadedBytes = downloadedBytes;
+                                       stats.totalBytes = totalBytes;
+                                       updateStatusRow(typeKey, selectedFixtureNameCopy,
                                                        "Downloading",
-                                                       formatRowProgress(stats,
-                                                                         progress.percentage),
+                                                       formatRowProgress(stats, percentage),
                                                        "Fetching fixture package",
                                                        DownloadRowState::Downloading);
                                        updateProgressGauge();
