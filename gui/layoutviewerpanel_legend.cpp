@@ -62,6 +62,35 @@ constexpr double kLegendFallbackSymbolScale = 2.0;
 constexpr double kLegendSvgSymbolScale = 0.4;
 constexpr double kLegendMaxSymbolSlotScale = 1.45;
 
+struct CachedSvgSymbolEntry {
+  std::optional<PerastageSvgSymbolData> symbol;
+};
+
+// Returns a process-wide cached SVG symbol entry to avoid repeated GDTF reads while resizing legends.
+const PerastageSvgSymbolData *GetCachedLegendSvgSymbol(const std::string &symbolKey,
+                                                       SymbolViewKind view) {
+  if (symbolKey.empty())
+    return nullptr;
+  using CacheKey = std::pair<std::string, SymbolViewKind>;
+  struct CacheKeyHash {
+    size_t operator()(const CacheKey &key) const {
+      return std::hash<std::string>{}(key.first) ^
+             (static_cast<size_t>(key.second) << 1);
+    }
+  };
+  static std::unordered_map<CacheKey, CachedSvgSymbolEntry, CacheKeyHash> cache;
+  const CacheKey key{symbolKey, view};
+  auto it = cache.find(key);
+  if (it == cache.end()) {
+    CachedSvgSymbolEntry entry;
+    PerastageSvgSymbolData data;
+    if (LoadPerastageSvgSymbolFromGdtf(symbolKey, view, data))
+      entry.symbol = std::move(data);
+    it = cache.emplace(key, std::move(entry)).first;
+  }
+  return it->second.symbol ? &it->second.symbol.value() : nullptr;
+}
+
 int SymbolViewRank(SymbolViewKind kind) {
   switch (kind) {
   case SymbolViewKind::Top:
@@ -1080,38 +1109,11 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     return symbolH * scale;
   };
 
-  struct SvgLookupKey {
-    std::string symbolKey;
-    SymbolViewKind view = SymbolViewKind::Top;
-
-    bool operator==(const SvgLookupKey &other) const {
-      return symbolKey == other.symbolKey && view == other.view;
-    }
-  };
-  struct SvgLookupHasher {
-    size_t operator()(const SvgLookupKey &key) const {
-      return std::hash<std::string>{}(key.symbolKey) ^
-             (static_cast<size_t>(key.view) << 1);
-    }
-  };
-  std::unordered_map<SvgLookupKey, std::optional<PerastageSvgSymbolData>,
-                     SvgLookupHasher>
-      svgCache;
+  // Resolves SVG symbols through a shared cache so legend resizes do not reload unchanged data.
   auto findSvgSymbol = [&](const std::string &symbolKey,
                            SymbolViewKind view)
       -> const PerastageSvgSymbolData * {
-    if (symbolKey.empty())
-      return nullptr;
-    const SvgLookupKey cacheKey{symbolKey, view};
-    auto cacheIt = svgCache.find(cacheKey);
-    if (cacheIt == svgCache.end()) {
-      PerastageSvgSymbolData data;
-      std::optional<PerastageSvgSymbolData> value;
-      if (LoadPerastageSvgSymbolFromGdtf(symbolKey, view, data))
-        value = std::move(data);
-      cacheIt = svgCache.emplace(cacheKey, std::move(value)).first;
-    }
-    return cacheIt->second ? &cacheIt->second.value() : nullptr;
+    return GetCachedLegendSvgSymbol(symbolKey, view);
   };
   struct SvgGeometryMetrics {
     bool valid = false;
