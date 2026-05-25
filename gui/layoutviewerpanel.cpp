@@ -2948,6 +2948,13 @@ bool LayoutViewerPanel::NeedsRenderRebuild() const {
 
 // Queues one asynchronous render rebuild cycle when layout textures are stale.
 void LayoutViewerPanel::RequestRenderRebuild() {
+  if (auto *mw = MainWindow::Instance();
+      mw && mw->IsMvrImportPipelineActive()) {
+    renderPending = false;
+    loadingRequested = false;
+    isLoading = false;
+    return;
+  }
   if (IsLayoutEmpty()) {
     renderPending = false;
     loadingRequested = false;
@@ -2987,6 +2994,10 @@ void LayoutViewerPanel::RequestRenderRebuild() {
 
 // Activates the loading overlay when a delayed rebuild is still pending.
 void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
+  if (auto *mw = MainWindow::Instance();
+      mw && mw->IsMvrImportPipelineActive()) {
+    return;
+  }
   if (!loadingRequested)
     return;
   if (!renderPending && !NeedsRenderRebuild())
@@ -2999,6 +3010,13 @@ void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
 
 // Processes the deferred render rebuild cycle and performs one final repaint.
 void LayoutViewerPanel::ProcessDeferredRenderRebuild() {
+  if (auto *mw = MainWindow::Instance();
+      mw && mw->IsMvrImportPipelineActive()) {
+    renderPending = false;
+    loadingRequested = false;
+    isLoading = false;
+    return;
+  }
   if (!renderPending || !loadingRequested)
     return;
   if (!NeedsRenderRebuild()) {
