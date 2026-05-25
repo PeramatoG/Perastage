@@ -33,6 +33,7 @@
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
 #include <atomic>
+#include <memory>
 
 // Stores the owning MainWindow pointer for IO operations during the controller lifetime.
 MainWindowIoController::MainWindowIoController(MainWindow &owner)
@@ -65,6 +66,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
 
   const bool shouldShowBlockingImportUi = !owner->IsStartupProjectLoadPending();
   std::atomic<int> pendingProgressUiUpdates{0};
+  auto progressUiActive = std::make_shared<std::atomic<bool>>(true);
   std::unique_ptr<wxWindowDisabler> importDisabler;
   std::unique_ptr<wxBusyInfo> importOverlay;
   std::unique_ptr<wxProgressDialog> importProgress;
@@ -76,12 +78,18 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   owner->LockViewportInteraction();
   const bool imported = MvrImporter::ImportAndRegister(
       pathUtf8, true, true, [&](const MvrImporter::ProgressState &progress) {
+        if (!progressUiActive->load())
+          return;
         if (!wxThread::IsMain()) {
           if (!owner || owner->IsBeingDeleted())
             return;
           const MvrImporter::ProgressState progressCopy = progress;
           pendingProgressUiUpdates.fetch_add(1);
-          owner->CallAfter([&, progressCopy]() {
+          owner->CallAfter([&, progressCopy, progressUiActive]() {
+            if (!progressUiActive->load()) {
+              pendingProgressUiUpdates.fetch_sub(1);
+              return;
+            }
             if (!owner || owner->IsBeingDeleted())
               {
                 pendingProgressUiUpdates.fetch_sub(1);
@@ -183,6 +191,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           importProgress->Pulse(wxString::FromUTF8(stage));
         setImportStatus("MVR import: " + wxString::FromUTF8(stage));
       });
+  progressUiActive->store(false);
   // Drains queued cross-thread progress UI updates before panel reload starts.
   while (pendingProgressUiUpdates.load() > 0) {
     wxMilliSleep(1);
