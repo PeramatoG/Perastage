@@ -2027,6 +2027,7 @@ bool LayoutViewerPanel::InitGL() {
   return true;
 }
 
+// Rebuilds all dirty layout element textures and posts progress to the status bar.
 void LayoutViewerPanel::RebuildCachedTexture() {
   try {
     if (!NeedsRenderRebuild())
@@ -2049,6 +2050,25 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     gui::layoutstatus::PostLayoutRenderStatus(
         this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
         "Analyzing layout render workload...");
+
+    const size_t totalRenderItems = currentLayout.view2dViews.size() +
+                                    currentLayout.legendViews.size() +
+                                    currentLayout.eventTables.size() +
+                                    currentLayout.textViews.size() +
+                                    currentLayout.imageViews.size();
+    size_t processedRenderItems = 0;
+    auto postRenderProgressStatus =
+        [this, &processedRenderItems, totalRenderItems](const wxString &stage,
+                                                        size_t stageIndex,
+                                                        size_t stageTotal) {
+          const size_t safeTotal = std::max<size_t>(1, totalRenderItems);
+          gui::layoutstatus::PostLayoutRenderStatus(
+              this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+              wxString::Format("%s (%zu/%zu) · global %zu/%zu", stage,
+                               stageIndex, stageTotal,
+                               std::min(processedRenderItems, safeTotal),
+                               safeTotal));
+        };
 
     bool hasDirtyViewCache = false;
     for (const auto &view : currentLayout.view2dViews) {
@@ -2129,6 +2149,9 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         wxString::Format("Rendering 2D views (%zu)...",
                          currentLayout.view2dViews.size()));
     for (const auto &view : currentLayout.view2dViews) {
+      ++processedRenderItems;
+      postRenderProgressStatus("Rendering 2D views", processedRenderItems,
+                               currentLayout.view2dViews.size());
       ViewCache &cache = GetViewCache(view.id);
       if (!cache.renderDirty)
         continue;
@@ -2231,6 +2254,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         wxString::Format("Rendering legends (%zu)...",
                          currentLayout.legendViews.size()));
     for (const auto &legend : currentLayout.legendViews) {
+      ++processedRenderItems;
+      const size_t legendStageIndex =
+          processedRenderItems - currentLayout.view2dViews.size();
+      postRenderProgressStatus("Rendering legends", legendStageIndex,
+                               currentLayout.legendViews.size());
       LegendCache &cache = GetLegendCache(legend.id);
       const bool contentChanged = cache.contentHash != legendDataHash;
       const bool requiresSymbolRefresh = !cache.symbols;
@@ -2323,6 +2351,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         wxString::Format("Rendering event tables (%zu)...",
                          currentLayout.eventTables.size()));
     for (const auto &table : currentLayout.eventTables) {
+      ++processedRenderItems;
+      const size_t tableStageIndex = processedRenderItems -
+          currentLayout.view2dViews.size() - currentLayout.legendViews.size();
+      postRenderProgressStatus("Rendering event tables", tableStageIndex,
+                               currentLayout.eventTables.size());
       EventTableCache &cache = GetEventTableCache(table.id);
       size_t dataHash = HashEventTableFields(table);
       if (cache.contentHash != dataHash)
@@ -2425,6 +2458,12 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         wxString::Format("Rendering text blocks (%zu)...",
                          currentLayout.textViews.size()));
     for (const auto &text : currentLayout.textViews) {
+      ++processedRenderItems;
+      const size_t textStageIndex = processedRenderItems -
+          currentLayout.view2dViews.size() - currentLayout.legendViews.size() -
+          currentLayout.eventTables.size();
+      postRenderProgressStatus("Rendering text blocks", textStageIndex,
+                               currentLayout.textViews.size());
       TextCache &cache = GetTextCache(text.id);
       size_t dataHash = HashTextContent(text);
       if (cache.contentHash != dataHash)
@@ -2524,6 +2563,13 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         wxString::Format("Rendering images (%zu)...",
                          currentLayout.imageViews.size()));
     for (const auto &image : currentLayout.imageViews) {
+      ++processedRenderItems;
+      const size_t imageStageIndex = processedRenderItems -
+          currentLayout.view2dViews.size() - currentLayout.legendViews.size() -
+          currentLayout.eventTables.size() -
+          currentLayout.textViews.size();
+      postRenderProgressStatus("Rendering images", imageStageIndex,
+                               currentLayout.imageViews.size());
       ImageCache &cache = GetImageCache(image.id);
       size_t dataHash = HashImageContent(image);
       if (cache.contentHash != dataHash)
