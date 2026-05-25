@@ -205,6 +205,7 @@ private:
   size_t HashViewContent(const layouts::Layout2DViewDefinition &view) const;
   void OnLoadingTimer(wxTimerEvent &event);
   void OnRenderDelayTimer(wxTimerEvent &event);
+  void ProcessDeferredRenderRebuild();
   bool AreTexturesReady() const;
   void EmitEditViewRequest();
   void EmitViewSelectionChanged(int viewId);

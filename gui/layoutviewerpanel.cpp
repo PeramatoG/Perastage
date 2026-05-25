@@ -2858,8 +2858,7 @@ void LayoutViewerPanel::RequestRenderRebuild() {
         panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
         "Preparing layout textures...");
     panel->isLoading = true;
-    wxTimerEvent delayedEvent(wxEVT_TIMER, panel->GetId());
-    panel->OnRenderDelayTimer(delayedEvent);
+    panel->ProcessDeferredRenderRebuild();
   });
 }
 
@@ -2875,8 +2874,8 @@ void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
   Refresh();
 }
 
-// Rebuilds stale cached textures and triggers exactly one repaint for the cycle.
-void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
+// Processes the deferred render rebuild cycle and performs one final repaint.
+void LayoutViewerPanel::ProcessDeferredRenderRebuild() {
   if (!renderPending || !loadingRequested)
     return;
   if (!NeedsRenderRebuild()) {
@@ -2897,6 +2896,11 @@ void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
       this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
       "Layout render completed.");
   Refresh();
+}
+
+// Rebuilds stale cached textures when the delayed render timer callback fires.
+void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
+  ProcessDeferredRenderRebuild();
 }
 
 bool LayoutViewerPanel::AreTexturesReady() const {
