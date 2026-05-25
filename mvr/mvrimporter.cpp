@@ -3480,7 +3480,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               cancelButton->Disable();
               summaryText->SetLabel(summaryText->GetLabel() + " - queue finished");
               ackButton->Enable();
-              ackButton->SetFocus();
               downloadInfoDialog.Hide();
             } else {
               wxMessageBox("Login failed. Verify credentials in Preferences.",
