@@ -2858,7 +2858,7 @@ void LayoutViewerPanel::RequestRenderRebuild() {
         panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
         "Preparing layout textures...");
     panel->isLoading = true;
-    wxTimerEvent delayedEvent;
+    wxTimerEvent delayedEvent(wxEVT_TIMER, panel->GetId());
     panel->OnRenderDelayTimer(delayedEvent);
   });
 }
