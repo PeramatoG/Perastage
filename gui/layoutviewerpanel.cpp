@@ -637,7 +637,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     return;
   }
   renderDirty = true;
-  loadingRequested = true;
+  loadingRequested = false;
   legendDataDirty_ = true;
   RefreshLegendData();
   pendingFitOnResize = true;
