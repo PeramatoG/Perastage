@@ -32,6 +32,7 @@
 #include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
+#include <atomic>
 
 // Stores the owning MainWindow pointer for IO operations during the controller lifetime.
 MainWindowIoController::MainWindowIoController(MainWindow &owner)
@@ -61,6 +62,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   SplashScreen::Hide();
 
   const bool shouldShowBlockingImportUi = !owner->IsStartupProjectLoadPending();
+  std::atomic<int> pendingProgressUiUpdates{0};
   std::unique_ptr<wxWindowDisabler> importDisabler;
   std::unique_ptr<wxBusyInfo> importOverlay;
   std::unique_ptr<wxProgressDialog> importProgress;
@@ -76,14 +78,19 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           if (!owner || owner->IsBeingDeleted())
             return;
           const MvrImporter::ProgressState progressCopy = progress;
+          pendingProgressUiUpdates.fetch_add(1);
           owner->CallAfter([&, progressCopy]() {
             if (!owner || owner->IsBeingDeleted())
+              {
+                pendingProgressUiUpdates.fetch_sub(1);
               return;
+              }
             const std::string &stage = progressCopy.stage;
             if (stage == "Conflict dialog:show") {
               importProgress.reset();
               importOverlay.reset();
               importDisabler.reset();
+              pendingProgressUiUpdates.fetch_sub(1);
               return;
             }
             if (stage == "Conflict dialog:hide") {
@@ -93,6 +100,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
                     std::make_unique<wxBusyInfo>("Importing MVR file...");
               }
               importProgress.reset();
+              pendingProgressUiUpdates.fetch_sub(1);
               return;
             }
             if (progressCopy.HasCount()) {
@@ -115,11 +123,13 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
                 importProgress->Update(dialogProgressValue, stageText);
               setImportStatus(wxString::Format("MVR import: %s (%d/%d)", stageText,
                                                clampedCompleted, safeTotal));
+              pendingProgressUiUpdates.fetch_sub(1);
               return;
             }
             if (importProgress)
               importProgress->Pulse(wxString::FromUTF8(stage));
             setImportStatus("MVR import: " + wxString::FromUTF8(stage));
+            pendingProgressUiUpdates.fetch_sub(1);
           });
           return;
         }
@@ -171,6 +181,11 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           importProgress->Pulse(wxString::FromUTF8(stage));
         setImportStatus("MVR import: " + wxString::FromUTF8(stage));
       });
+  // Drains queued cross-thread progress UI updates before panel reload starts.
+  while (pendingProgressUiUpdates.load() > 0) {
+    wxMilliSleep(1);
+    wxYieldIfNeeded();
+  }
   owner->UnlockViewportInteraction();
 
   if (!imported) {
