@@ -3134,21 +3134,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               };
               // Schedules progress updates on the UI thread without blocking worker callbacks.
               auto runOnUiThread = [&](std::function<void()> task) {
-                if (wxThread::IsMain()) {
-                  if (!downloadUiActive->load())
-                    return;
-                  task();
+                // Drops worker-thread progress updates to avoid deferred UI races during teardown.
+                if (!wxThread::IsMain())
                   return;
-                }
-                wxWindow *targetWindow = &downloadInfoDialog;
-                if (!targetWindow || targetWindow->IsBeingDeleted())
+                if (!downloadUiActive->load())
                   return;
-                targetWindow->CallAfter(
-                    [task = std::move(task), downloadUiActive]() mutable {
-                      if (!downloadUiActive->load())
-                        return;
-                      task();
-                    });
+                task();
               };
 
               downloadInfoDialog.Show();
