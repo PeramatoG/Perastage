@@ -35,6 +35,7 @@
 #include "viewer3dpanel.h"
 #include "units/unit_label_utils.h"
 #include "units/units.h"
+#include <wx/aui/aui.h>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -226,8 +227,11 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent, IGuiConfigService
     SetSizer(sizer);
 }
 
+// Releases table resources and detaches the scene-object pane from AUI layout management.
 SceneObjectTablePanel::~SceneObjectTablePanel()
 {
+    if (wxAuiManager *manager = wxAuiManager::GetManager(this))
+        manager->DetachPane(this);
     store = nullptr;
 }
 
