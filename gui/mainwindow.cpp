@@ -862,7 +862,12 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
   SetStartupProjectLoadPending(false);
 }
 
+// Resets project state, UI-bound data, and active layout context for a fresh session.
 void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
+  activeLayoutName.clear();
+  if (layoutViewerPanel)
+    layoutViewerPanel->SetLayoutDefinition(layouts::LayoutDefinition{});
+
   auto &guiConfigServices = GetDefaultGuiConfigServices();
   auto &preferences = guiConfigServices.Preferences();
   const auto preservedPreferences = CapturePreferencesDialogValues(preferences);
