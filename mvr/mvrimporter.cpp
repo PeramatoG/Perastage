@@ -61,6 +61,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <random>
 #include <set>
@@ -2971,7 +2972,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               bool isDownloadInfoFinished = false;
               bool isDownloadInfoAcknowledged = false;
               std::atomic<bool> cancelRequested{false};
-              std::atomic<bool> downloadUiActive{true};
+              auto downloadUiActive = std::make_shared<std::atomic<bool>>(true);
               downloadInfoDialog.Bind(wxEVT_CLOSE_WINDOW,
                                       [&](wxCloseEvent &closeEvent) {
                                         if (!isDownloadInfoFinished) {
@@ -2979,7 +2980,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                           closeEvent.Veto();
                                           return;
                                         }
-                                        downloadUiActive.store(false);
+                                        downloadUiActive->store(false);
                                         isDownloadInfoAcknowledged = true;
                                         downloadInfoDialog.Hide();
                                       });
@@ -2989,7 +2990,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 progressPhaseText->SetLabel("Cancel requested. Finishing current transfer...");
               });
               ackButton->Bind(wxEVT_BUTTON, [&](wxCommandEvent &) {
-                downloadUiActive.store(false);
+                downloadUiActive->store(false);
                 isDownloadInfoAcknowledged = true;
                 downloadInfoDialog.Hide();
               });
@@ -3134,7 +3135,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               // Schedules progress updates on the UI thread without blocking worker callbacks.
               auto runOnUiThread = [&](std::function<void()> task) {
                 if (wxThread::IsMain()) {
-                  if (!downloadUiActive.load())
+                  if (!downloadUiActive->load())
                     return;
                   task();
                   return;
@@ -3143,8 +3144,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 if (!targetWindow || targetWindow->IsBeingDeleted())
                   return;
                 targetWindow->CallAfter(
-                    [task = std::move(task), &downloadUiActive]() mutable {
-                      if (!downloadUiActive.load())
+                    [task = std::move(task), downloadUiActive]() mutable {
+                      if (!downloadUiActive->load())
                         return;
                       task();
                     });
@@ -3487,7 +3488,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                             ". Keeping MVR originals.");
               }
               isDownloadInfoFinished = true;
-              downloadUiActive.store(false);
+              downloadUiActive->store(false);
               cancelButton->Disable();
               summaryText->SetLabel(summaryText->GetLabel() + " - queue finished");
               ackButton->Enable();
