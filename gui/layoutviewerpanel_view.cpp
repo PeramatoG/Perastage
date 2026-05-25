@@ -72,6 +72,34 @@ const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
   return nullptr;
 }
 
+// Marks one 2D view cache dirty and schedules a rebuild only for the updated view element.
+void LayoutViewerPanel::RefreshEditedViewById(int viewId) {
+  if (viewId <= 0)
+    return;
+  auto cacheIt = viewCaches_.find(viewId);
+  if (cacheIt != viewCaches_.end()) {
+    cacheIt->second.captureVersion = -1;
+    cacheIt->second.captureInProgress = false;
+    cacheIt->second.hasCapture = false;
+    cacheIt->second.hasRenderState = false;
+    cacheIt->second.hasCaptureContentHash = false;
+    cacheIt->second.renderDirty = true;
+    cacheIt->second.contentHash = 0;
+  } else {
+    ViewCache &cache = GetViewCache(viewId);
+    cache.captureVersion = -1;
+    cache.captureInProgress = false;
+    cache.hasCapture = false;
+    cache.hasRenderState = false;
+    cache.hasCaptureContentHash = false;
+    cache.renderDirty = true;
+    cache.contentHash = 0;
+  }
+  renderDirty = true;
+  RequestRenderRebuild();
+  Refresh();
+}
+
 void LayoutViewerPanel::OnEditView(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::View2D)
     return;

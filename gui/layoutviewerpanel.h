@@ -48,6 +48,7 @@ public:
   void RefreshAfterSelectionOnlyUpdate();
   void RefreshAfterSceneContentUpdate();
   void RefreshAfterFixtureSymbolUpdate();
+  void RefreshEditedViewById(int viewId);
 
 private:
   struct LegendItem {
