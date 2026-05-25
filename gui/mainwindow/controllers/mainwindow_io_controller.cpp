@@ -38,6 +38,7 @@ MainWindowIoController::MainWindowIoController(MainWindow &owner)
     : ownerRef_(&owner) {}
 
 // Imports an MVR file from disk, preserving selected UI config keys and refreshing dependent panels.
+// Imports an MVR file while keeping import progress and UI panel refreshes synchronized on the main thread.
 bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   constexpr const char *kLayoutsConfigKey = "layouts_collection";
   constexpr const char *kViewer3DRenderStyleConfigKey = "viewer3d_render_style";
@@ -72,6 +73,57 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   owner->LockViewportInteraction();
   const bool imported = MvrImporter::ImportAndRegister(
       pathUtf8, true, true, [&](const MvrImporter::ProgressState &progress) {
+        if (!wxThread::IsMain()) {
+          if (!owner || owner->IsBeingDeleted())
+            return;
+          const MvrImporter::ProgressState progressCopy = progress;
+          owner->CallAfter([this, progressCopy]() {
+            if (!owner || owner->IsBeingDeleted())
+              return;
+            const std::string &stage = progressCopy.stage;
+            if (stage == "Conflict dialog:show") {
+              importProgress.reset();
+              importOverlay.reset();
+              importDisabler.reset();
+              return;
+            }
+            if (stage == "Conflict dialog:hide") {
+              if (shouldShowBlockingImportUi) {
+                importDisabler = std::make_unique<wxWindowDisabler>();
+                importOverlay =
+                    std::make_unique<wxBusyInfo>("Importing MVR file...");
+              }
+              importProgress.reset();
+              return;
+            }
+            if (progressCopy.HasCount()) {
+              const wxString title = "MVR import progress";
+              const wxString stageText = wxString::FromUTF8(stage);
+              const int safeTotal = std::max(progressCopy.total, 1);
+              const int clampedCompleted =
+                  std::clamp(progressCopy.completed, 0, safeTotal);
+              if (shouldShowBlockingImportUi && !importProgress) {
+                importOverlay.reset();
+                importProgress = std::make_unique<wxProgressDialog>(
+                    title, stageText, safeTotal + 1, owner,
+                    wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);
+              } else if (importProgress) {
+                importProgress->SetRange(safeTotal + 1);
+              }
+              const int dialogProgressValue =
+                  std::clamp(clampedCompleted, 0, std::max(1, safeTotal));
+              if (importProgress)
+                importProgress->Update(dialogProgressValue, stageText);
+              setImportStatus(wxString::Format("MVR import: %s (%d/%d)", stageText,
+                                               clampedCompleted, safeTotal));
+              return;
+            }
+            if (importProgress)
+              importProgress->Pulse(wxString::FromUTF8(stage));
+            setImportStatus("MVR import: " + wxString::FromUTF8(stage));
+          });
+          return;
+        }
         if (owner == nullptr)
           return;
         const std::string &stage = progress.stage;
