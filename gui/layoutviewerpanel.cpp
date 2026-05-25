@@ -637,7 +637,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     return;
   }
   renderDirty = true;
-  loadingRequested = true;
+  loadingRequested = false;
   legendDataDirty_ = true;
   RefreshLegendData();
   pendingFitOnResize = true;
@@ -2027,6 +2027,7 @@ bool LayoutViewerPanel::InitGL() {
   return true;
 }
 
+// Rebuilds all dirty layout element textures and posts progress to the status bar.
 void LayoutViewerPanel::RebuildCachedTexture() {
   try {
     if (!NeedsRenderRebuild())
@@ -2049,6 +2050,25 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     gui::layoutstatus::PostLayoutRenderStatus(
         this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
         "Analyzing layout render workload...");
+
+    const size_t totalRenderItems = currentLayout.view2dViews.size() +
+                                    currentLayout.legendViews.size() +
+                                    currentLayout.eventTables.size() +
+                                    currentLayout.textViews.size() +
+                                    currentLayout.imageViews.size();
+    size_t processedRenderItems = 0;
+    auto postRenderProgressStatus =
+        [this, &processedRenderItems, totalRenderItems](const wxString &stage,
+                                                        size_t stageIndex,
+                                                        size_t stageTotal) {
+          const size_t safeTotal = std::max<size_t>(1, totalRenderItems);
+          gui::layoutstatus::PostLayoutRenderStatus(
+              this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+              wxString::Format("%s (%zu/%zu) · global %zu/%zu", stage,
+                               stageIndex, stageTotal,
+                               std::min(processedRenderItems, safeTotal),
+                               safeTotal));
+        };
 
     bool hasDirtyViewCache = false;
     for (const auto &view : currentLayout.view2dViews) {
@@ -2129,6 +2149,9 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         wxString::Format("Rendering 2D views (%zu)...",
                          currentLayout.view2dViews.size()));
     for (const auto &view : currentLayout.view2dViews) {
+      ++processedRenderItems;
+      postRenderProgressStatus("Rendering 2D views", processedRenderItems,
+                               currentLayout.view2dViews.size());
       ViewCache &cache = GetViewCache(view.id);
       if (!cache.renderDirty)
         continue;
@@ -2188,6 +2211,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       previewOverrides.symbolCaptureRenderProfile = false;
       capturePanel->SetRenderOverrides(previewOverrides);
       capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          wxString::Format(
+              "Rendering 2D view id=%d (%zu/%zu): capturing scene objects...",
+              view.id, processedRenderItems, std::max<size_t>(1, totalRenderItems)));
       const bool rendered =
           capturePanel->RenderToRGBA(pixels, width, height, renderSize);
       if (!rendered || width <= 0 || height <= 0) {
@@ -2220,6 +2248,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         cache.renderZoom = 0.0;
         continue;
       }
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          wxString::Format("Rendering 2D view id=%d: GPU texture upload completed.",
+                           view.id));
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = HashViewContent(view);
@@ -2231,6 +2263,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         wxString::Format("Rendering legends (%zu)...",
                          currentLayout.legendViews.size()));
     for (const auto &legend : currentLayout.legendViews) {
+      ++processedRenderItems;
+      const size_t legendStageIndex =
+          processedRenderItems - currentLayout.view2dViews.size();
+      postRenderProgressStatus("Rendering legends", legendStageIndex,
+                               currentLayout.legendViews.size());
       LegendCache &cache = GetLegendCache(legend.id);
       const bool contentChanged = cache.contentHash != legendDataHash;
       const bool requiresSymbolRefresh = !cache.symbols;
@@ -2253,6 +2290,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          wxString::Format(
+              "Rendering legend id=%d (%zu/%zu): rasterizing legend content...",
+              legend.id, processedRenderItems, std::max<size_t>(1, totalRenderItems)));
       wxImage image = BuildLegendImage(
           renderSize, wxSize(legend.frame.width, legend.frame.height),
           renderZoom, legendItems_, cache.symbols.get());
@@ -2312,6 +2354,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         cache.renderZoom = 0.0;
         continue;
       }
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          wxString::Format("Rendering legend id=%d: GPU texture upload completed.",
+                           legend.id));
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = legendDataHash;
@@ -2323,6 +2369,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         wxString::Format("Rendering event tables (%zu)...",
                          currentLayout.eventTables.size()));
     for (const auto &table : currentLayout.eventTables) {
+      ++processedRenderItems;
+      const size_t tableStageIndex = processedRenderItems -
+          currentLayout.view2dViews.size() - currentLayout.legendViews.size();
+      postRenderProgressStatus("Rendering event tables", tableStageIndex,
+                               currentLayout.eventTables.size());
       EventTableCache &cache = GetEventTableCache(table.id);
       size_t dataHash = HashEventTableFields(table);
       if (cache.contentHash != dataHash)
@@ -2339,6 +2390,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          wxString::Format(
+              "Rendering event table id=%d (%zu/%zu): generating table image...",
+              table.id, processedRenderItems, std::max<size_t>(1, totalRenderItems)));
       wxImage image =
           BuildEventTableImage(renderSize,
                                wxSize(table.frame.width, table.frame.height),
@@ -2414,6 +2470,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         cache.renderZoom = 0.0;
         continue;
       }
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          wxString::Format(
+              "Rendering event table id=%d: GPU texture upload completed.",
+              table.id));
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
@@ -2425,6 +2486,12 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         wxString::Format("Rendering text blocks (%zu)...",
                          currentLayout.textViews.size()));
     for (const auto &text : currentLayout.textViews) {
+      ++processedRenderItems;
+      const size_t textStageIndex = processedRenderItems -
+          currentLayout.view2dViews.size() - currentLayout.legendViews.size() -
+          currentLayout.eventTables.size();
+      postRenderProgressStatus("Rendering text blocks", textStageIndex,
+                               currentLayout.textViews.size());
       TextCache &cache = GetTextCache(text.id);
       size_t dataHash = HashTextContent(text);
       if (cache.contentHash != dataHash)
@@ -2441,6 +2508,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          wxString::Format(
+              "Rendering text block id=%d (%zu/%zu): rasterizing text layout...",
+              text.id, processedRenderItems, std::max<size_t>(1, totalRenderItems)));
       wxImage image = BuildTextImage(
           renderSize, wxSize(text.frame.width, text.frame.height), renderZoom,
           text);
@@ -2513,6 +2585,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         cache.renderZoom = 0.0;
         continue;
       }
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          wxString::Format("Rendering text block id=%d: GPU texture upload completed.",
+                           text.id));
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
@@ -2524,6 +2600,13 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         wxString::Format("Rendering images (%zu)...",
                          currentLayout.imageViews.size()));
     for (const auto &image : currentLayout.imageViews) {
+      ++processedRenderItems;
+      const size_t imageStageIndex = processedRenderItems -
+          currentLayout.view2dViews.size() - currentLayout.legendViews.size() -
+          currentLayout.eventTables.size() -
+          currentLayout.textViews.size();
+      postRenderProgressStatus("Rendering images", imageStageIndex,
+                               currentLayout.imageViews.size());
       ImageCache &cache = GetImageCache(image.id);
       size_t dataHash = HashImageContent(image);
       if (cache.contentHash != dataHash)
@@ -2547,6 +2630,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       }
   
       wxImage bitmap;
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          wxString::Format(
+              "Rendering image id=%d (%zu/%zu): loading source image...",
+              image.id, processedRenderItems, std::max<size_t>(1, totalRenderItems)));
       if (!bitmap.LoadFile(wxString::FromUTF8(image.imagePath))) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
@@ -2562,6 +2650,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       wxImage scaled =
           bitmap.Scale(renderSize.GetWidth(), renderSize.GetHeight(),
                        wxIMAGE_QUALITY_HIGH);
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          wxString::Format(
+              "Rendering image id=%d: scaling and preparing RGBA texture...",
+              image.id));
       if (!scaled.IsOk()) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
@@ -2618,6 +2711,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         cache.renderZoom = 0.0;
         continue;
       }
+      gui::layoutstatus::PostLayoutRenderStatus(
+          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+          wxString::Format("Rendering image id=%d: GPU texture upload completed.",
+                           image.id));
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
@@ -2823,7 +2920,7 @@ bool LayoutViewerPanel::NeedsRenderRebuild() const {
   return renderDirty || HasDirtyRenderCaches();
 }
 
-// Schedules a deferred layout texture rebuild when render data is stale.
+// Queues one asynchronous render rebuild cycle when layout textures are stale.
 void LayoutViewerPanel::RequestRenderRebuild() {
   if (IsLayoutEmpty()) {
     renderPending = false;
@@ -2839,37 +2936,26 @@ void LayoutViewerPanel::RequestRenderRebuild() {
   auto *offscreenRenderer = mw->GetOffscreenRenderer();
   if (!offscreenRenderer || !offscreenRenderer->GetPanel())
     return;
-  if (!NeedsRenderRebuild() || renderPending)
+  if (!NeedsRenderRebuild() || renderPending || loadingRequested)
     return;
+
   renderPending = true;
   loadingRequested = true;
   gui::layoutstatus::PostLayoutRenderStatus(this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
                                            "Layout render queued...");
-  if (!loadingTimer_.IsRunning()) {
-    loadingTimer_.StartOnce(kLoadingOverlayDelayMs);
-  }
+
   wxWeakRef<LayoutViewerPanel> weakThis(this);
   CallAfter([weakThis]() {
     if (!weakThis)
       return;
     LayoutViewerPanel *panel = weakThis.get();
-    if (!panel)
+    if (!panel || !panel->renderPending || !panel->loadingRequested)
       return;
     gui::layoutstatus::PostLayoutRenderStatus(
         panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
         "Preparing layout textures...");
     panel->isLoading = true;
-    panel->Refresh();
-    panel->Update();
-    if (!weakThis)
-      return;
-    panel = weakThis.get();
-    if (!panel)
-      return;
-    if (panel->renderDelayTimer_.IsRunning()) {
-      panel->renderDelayTimer_.Stop();
-    }
-    panel->renderDelayTimer_.StartOnce(kLoadingOverlayDelayMs);
+    panel->ProcessDeferredRenderRebuild();
   });
 }
 
@@ -2885,31 +2971,33 @@ void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
   Refresh();
 }
 
-// Triggers cached texture regeneration after the configured debounce delay.
-void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
-  if (!renderPending)
+// Processes the deferred render rebuild cycle and performs one final repaint.
+void LayoutViewerPanel::ProcessDeferredRenderRebuild() {
+  if (!renderPending || !loadingRequested)
     return;
   if (!NeedsRenderRebuild()) {
     renderPending = false;
+    loadingRequested = false;
+    isLoading = false;
     return;
   }
-  wxWeakRef<LayoutViewerPanel> weakThis(this);
-  CallAfter([weakThis]() {
-    if (!weakThis)
-      return;
-    LayoutViewerPanel *panel = weakThis.get();
-    if (!panel)
-      return;
-    gui::layoutstatus::PostLayoutRenderStatus(
-        panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
-        "Building layout textures...");
-    panel->renderPending = false;
-    panel->RebuildCachedTexture();
-    gui::layoutstatus::PostLayoutRenderStatus(
-        panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
-        "Layout render completed.");
-    panel->Refresh();
-  });
+
+  gui::layoutstatus::PostLayoutRenderStatus(
+      this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+      "Building layout textures...");
+  RebuildCachedTexture();
+  renderPending = false;
+  loadingRequested = false;
+  isLoading = false;
+  gui::layoutstatus::PostLayoutRenderStatus(
+      this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+      "Layout render completed.");
+  Refresh();
+}
+
+// Rebuilds stale cached textures when the delayed render timer callback fires.
+void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
+  ProcessDeferredRenderRebuild();
 }
 
 bool LayoutViewerPanel::AreTexturesReady() const {
