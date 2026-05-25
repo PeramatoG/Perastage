@@ -168,8 +168,6 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   if (preservedViewer3DRenderStyle.has_value())
     cfg.SetValue(kViewer3DRenderStyleConfigKey, *preservedViewer3DRenderStyle);
   layouts::LayoutManager::Get().LoadFromConfig(cfg);
-  // Re-enables layout rendering before UI panels reload imported layout data.
-  owner->mvrImportPipelineActive = false;
 
   if (owner->layoutPanel)
     owner->layoutPanel->ReloadLayouts();
@@ -212,6 +210,12 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     const wxString fileName = wxFileName(filePath).GetFullName();
     owner->SetStatusText("MVR imported: " + fileName, 0);
   }
+  // Re-enables layout rendering only after all import-driven panel updates finish.
+  owner->mvrImportPipelineActive = false;
+  if (owner->layoutPanel)
+    owner->layoutPanel->ReloadLayouts();
+  if (owner->layoutViewerPanel)
+    owner->layoutViewerPanel->RefreshAfterSceneContentUpdate();
   return true;
 }
 
