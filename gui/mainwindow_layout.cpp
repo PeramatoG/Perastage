@@ -877,6 +877,7 @@ void MainWindow::OnLayoutAddImage(wxCommandEvent &WXUNUSED(event)) {
   }
 }
 
+// Opens the modal 2D view editor and initializes editing state for the selected layout view.
 void MainWindow::BeginLayout2DViewEdit() {
   if (!layoutModeActive || activeLayoutName.empty() || layout2DViewEditing)
     return;
@@ -970,6 +971,7 @@ void MainWindow::BeginLayout2DViewEdit() {
   Viewer2DRenderPanel::SetInstance(prevRenderPanel);
 }
 
+// Commits edited 2D view state back into the active layout while preserving target view identity and frame.
 void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   if (!layout2DViewEditing || !layout2DViewStateGuard)
     return;
@@ -989,10 +991,11 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   layouts::Layout2DViewFrame frame{};
   int viewId = layout2DViewEditingId;
   const layouts::Layout2DViewDefinition *editableView = nullptr;
-  if (viewId <= 0 && layoutViewerPanel) {
+  if (layoutViewerPanel) {
     editableView = layoutViewerPanel->GetEditableView();
-    if (editableView)
-      viewId = editableView->id;
+  }
+  if (viewId <= 0 && editableView) {
+    viewId = editableView->id;
   }
   const layouts::LayoutDefinition *layout = nullptr;
   for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
@@ -1003,6 +1006,11 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   }
   const layouts::Layout2DViewDefinition *matchedView =
       FindLayout2DViewById(layout, viewId);
+  if (!matchedView && editableView && editableView->id > 0) {
+    matchedView = editableView;
+    if (viewId <= 0)
+      viewId = editableView->id;
+  }
   if (matchedView) {
     frame = matchedView->frame;
   } else if (editableView) {
