@@ -861,12 +861,23 @@ void MainWindow::OnLayoutAddText(wxCommandEvent &WXUNUSED(event)) {
   layouts::LayoutManager::Get().UpdateLayoutText(activeLayoutName, text);
 
   if (layoutViewerPanel) {
+    bool layoutDefinitionApplied = false;
     for (const auto &entry :
          layouts::LayoutManager::Get().GetLayouts().Items()) {
       if (entry.name == activeLayoutName) {
         layoutViewerPanel->SetLayoutDefinition(entry);
+        layoutDefinitionApplied = true;
         break;
       }
+    }
+    if (layoutDefinitionApplied) {
+      layoutViewerPanel->RefreshAfterSceneContentUpdate();
+      if (GetStatusBar()) {
+        SetStatusText("Re-rendering updated layout view...", 0);
+      }
+    } else {
+      Logger::Instance().Log(
+          "Layout 2D edit commit warning: active layout definition was not found for refresh.");
     }
   }
 }
@@ -900,12 +911,23 @@ void MainWindow::OnLayoutAddImage(wxCommandEvent &WXUNUSED(event)) {
   layouts::LayoutManager::Get().UpdateLayoutImage(activeLayoutName, image);
 
   if (layoutViewerPanel) {
+    bool layoutDefinitionApplied = false;
     for (const auto &entry :
          layouts::LayoutManager::Get().GetLayouts().Items()) {
       if (entry.name == activeLayoutName) {
         layoutViewerPanel->SetLayoutDefinition(entry);
+        layoutDefinitionApplied = true;
         break;
       }
+    }
+    if (layoutDefinitionApplied) {
+      layoutViewerPanel->RefreshAfterSceneContentUpdate();
+      if (GetStatusBar()) {
+        SetStatusText("Re-rendering updated layout view...", 0);
+      }
+    } else {
+      Logger::Instance().Log(
+          "Layout 2D edit commit warning: active layout definition was not found for refresh.");
     }
   }
 }
@@ -1094,12 +1116,23 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   }
 
   if (layoutViewerPanel) {
+    bool layoutDefinitionApplied = false;
     for (const auto &entry :
          layouts::LayoutManager::Get().GetLayouts().Items()) {
       if (entry.name == activeLayoutName) {
         layoutViewerPanel->SetLayoutDefinition(entry);
+        layoutDefinitionApplied = true;
         break;
       }
+    }
+    if (layoutDefinitionApplied) {
+      layoutViewerPanel->RefreshAfterSceneContentUpdate();
+      if (GetStatusBar()) {
+        SetStatusText("Re-rendering updated layout view...", 0);
+      }
+    } else {
+      Logger::Instance().Log(
+          "Layout 2D edit commit warning: active layout definition was not found for refresh.");
     }
   }
 
