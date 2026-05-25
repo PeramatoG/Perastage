@@ -616,6 +616,7 @@ bool LayoutViewerPanel::GetLegendFrameById(
   return false;
 }
 
+// Updates legend geometry and invalidates only the legend cache when resizing completes.
 void LayoutViewerPanel::UpdateLegendFrame(const layouts::Layout2DViewFrame &frame,
                                           bool updatePosition) {
   layouts::LayoutLegendDefinition *legend = GetSelectedLegend();
@@ -636,10 +637,10 @@ void LayoutViewerPanel::UpdateLegendFrame(const layouts::Layout2DViewFrame &fram
     layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name,
                                                      *legend);
   }
-  InvalidateRenderIfFrameChanged(false);
-  if (NeedsRenderRebuild()) {
-    RequestRenderRebuild();
-  }
+  LegendCache &cache = GetLegendCache(legend->id);
+  cache.renderDirty = true;
+  renderDirty = true;
+  RequestRenderRebuild();
   Refresh();
 }
 
