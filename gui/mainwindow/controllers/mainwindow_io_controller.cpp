@@ -37,7 +37,6 @@
 MainWindowIoController::MainWindowIoController(MainWindow &owner)
     : ownerRef_(&owner) {}
 
-// Imports an MVR file from disk, preserving selected UI config keys and refreshing dependent panels.
 // Imports an MVR file while keeping import progress and UI panel refreshes synchronized on the main thread.
 bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   constexpr const char *kLayoutsConfigKey = "layouts_collection";
@@ -77,7 +76,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           if (!owner || owner->IsBeingDeleted())
             return;
           const MvrImporter::ProgressState progressCopy = progress;
-          owner->CallAfter([this, progressCopy]() {
+          owner->CallAfter([&, progressCopy]() {
             if (!owner || owner->IsBeingDeleted())
               return;
             const std::string &stage = progressCopy.stage;
