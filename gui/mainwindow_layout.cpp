@@ -871,7 +871,6 @@ void MainWindow::OnLayoutAddImage(wxCommandEvent &WXUNUSED(event)) {
          layouts::LayoutManager::Get().GetLayouts().Items()) {
       if (entry.name == activeLayoutName) {
         layoutViewerPanel->SetLayoutDefinition(entry);
-        layoutViewerPanel->RefreshEditedViewById(viewId);
         break;
       }
     }
