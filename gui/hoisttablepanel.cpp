@@ -36,6 +36,7 @@
 #include "units/units.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
+#include <wx/aui/aui.h>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -316,7 +317,10 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
   SetSizer(sizer);
 }
 
+// Releases table resources and detaches the hoist pane from AUI layout management.
 HoistTablePanel::~HoistTablePanel() {
+  if (wxAuiManager *manager = wxAuiManager::GetManager(this))
+    manager->DetachPane(this);
   if (s_instance == this)
     s_instance = nullptr;
   store = nullptr;

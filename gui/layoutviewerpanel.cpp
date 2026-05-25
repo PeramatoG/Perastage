@@ -661,13 +661,50 @@ void LayoutViewerPanel::NotifyRenderReady() {
   });
 }
 
+// Marks the cached selection/render indices as dirty so they rebuild on demand.
 void LayoutViewerPanel::InvalidateSelectionIndexCache() {
   selectionIndexCache_.dirty = true;
 }
 
+// Rebuilds cached ID lookups and z-ordered render elements when invalidated.
 void LayoutViewerPanel::EnsureSelectionIndexCache() {
+  // Detect stale cached pointers when layout vectors changed without explicit invalidation.
   if (!selectionIndexCache_.dirty) {
-    return;
+    const auto pointerInRange = [](const auto &container, const auto *ptr) {
+      if (ptr == nullptr)
+        return false;
+      if (container.empty())
+        return false;
+      const auto *begin = container.data();
+      const auto *end = begin + container.size();
+      return ptr >= begin && ptr < end;
+    };
+    const auto mapPointersValid = [&pointerInRange](const auto &map,
+                                                    const auto &container) {
+      for (const auto &entry : map) {
+        if (!pointerInRange(container, entry.second))
+          return false;
+      }
+      return true;
+    };
+    const bool cacheShapeMatches =
+        selectionIndexCache_.viewById.size() == currentLayout.view2dViews.size() &&
+        selectionIndexCache_.legendById.size() == currentLayout.legendViews.size() &&
+        selectionIndexCache_.eventTableById.size() ==
+            currentLayout.eventTables.size() &&
+        selectionIndexCache_.textById.size() == currentLayout.textViews.size() &&
+        selectionIndexCache_.imageById.size() == currentLayout.imageViews.size();
+    const bool cachePointersValid =
+        mapPointersValid(selectionIndexCache_.viewById, currentLayout.view2dViews) &&
+        mapPointersValid(selectionIndexCache_.legendById,
+                         currentLayout.legendViews) &&
+        mapPointersValid(selectionIndexCache_.eventTableById,
+                         currentLayout.eventTables) &&
+        mapPointersValid(selectionIndexCache_.textById, currentLayout.textViews) &&
+        mapPointersValid(selectionIndexCache_.imageById, currentLayout.imageViews);
+    if (cacheShapeMatches && cachePointersValid) {
+      return;
+    }
   }
 
   selectionIndexCache_.zOrderedElements = BuildZOrderedElements();
@@ -704,6 +741,7 @@ void LayoutViewerPanel::EnsureSelectionIndexCache() {
   selectionIndexCache_.dirty = false;
 }
 
+// Builds a stable z-ordered element list used for selection and rendering passes.
 std::vector<LayoutViewerPanel::ZOrderedElement>
 LayoutViewerPanel::BuildZOrderedElements() const {
   std::vector<ZOrderedElement> elements;
@@ -806,10 +844,15 @@ bool LayoutViewerPanel::IsLayoutEmpty() const {
          currentLayout.imageViews.empty();
 }
 
+// Paints the layout page and all elements using cached selection/render indices.
 void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   static unsigned long long s_renderFrameId = 0;
   wxPaintDC dc(this);
   try {
+    if (auto *mw = MainWindow::Instance();
+        mw && mw->IsMvrImportPipelineActive()) {
+      return;
+    }
     if (!IsShownOnScreen()) {
       return;
     }
@@ -937,30 +980,13 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       capturePanel = Viewer2DPanel::Instance();
     }
 
-    std::unordered_map<int, const layouts::Layout2DViewDefinition *> viewById;
-    std::unordered_map<int, const layouts::LayoutLegendDefinition *>
-        legendById;
-    std::unordered_map<int, const layouts::LayoutEventTableDefinition *>
-        eventTableById;
-    std::unordered_map<int, const layouts::LayoutTextDefinition *> textById;
-    std::unordered_map<int, const layouts::LayoutImageDefinition *> imageById;
-    viewById.reserve(currentLayout.view2dViews.size());
-    legendById.reserve(currentLayout.legendViews.size());
-    eventTableById.reserve(currentLayout.eventTables.size());
-    textById.reserve(currentLayout.textViews.size());
-    imageById.reserve(currentLayout.imageViews.size());
-    for (const auto &view : currentLayout.view2dViews)
-      viewById.emplace(view.id, &view);
-    for (const auto &legend : currentLayout.legendViews)
-      legendById.emplace(legend.id, &legend);
-    for (const auto &table : currentLayout.eventTables)
-      eventTableById.emplace(table.id, &table);
-    for (const auto &text : currentLayout.textViews)
-      textById.emplace(text.id, &text);
-    for (const auto &image : currentLayout.imageViews)
-      imageById.emplace(image.id, &image);
-
-    const auto elements = BuildZOrderedElements();
+    EnsureSelectionIndexCache();
+    const auto &viewById = selectionIndexCache_.viewById;
+    const auto &legendById = selectionIndexCache_.legendById;
+    const auto &eventTableById = selectionIndexCache_.eventTableById;
+    const auto &textById = selectionIndexCache_.textById;
+    const auto &imageById = selectionIndexCache_.imageById;
+    const auto &elements = selectionIndexCache_.zOrderedElements;
     for (const auto &element : elements) {
       if (element.type == SelectedElementType::View2D) {
         auto it = viewById.find(element.id);
@@ -2922,6 +2948,13 @@ bool LayoutViewerPanel::NeedsRenderRebuild() const {
 
 // Queues one asynchronous render rebuild cycle when layout textures are stale.
 void LayoutViewerPanel::RequestRenderRebuild() {
+  if (auto *mw = MainWindow::Instance();
+      mw && mw->IsMvrImportPipelineActive()) {
+    renderPending = false;
+    loadingRequested = false;
+    isLoading = false;
+    return;
+  }
   if (IsLayoutEmpty()) {
     renderPending = false;
     loadingRequested = false;
@@ -2961,6 +2994,10 @@ void LayoutViewerPanel::RequestRenderRebuild() {
 
 // Activates the loading overlay when a delayed rebuild is still pending.
 void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
+  if (auto *mw = MainWindow::Instance();
+      mw && mw->IsMvrImportPipelineActive()) {
+    return;
+  }
   if (!loadingRequested)
     return;
   if (!renderPending && !NeedsRenderRebuild())
@@ -2973,6 +3010,13 @@ void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
 
 // Processes the deferred render rebuild cycle and performs one final repaint.
 void LayoutViewerPanel::ProcessDeferredRenderRebuild() {
+  if (auto *mw = MainWindow::Instance();
+      mw && mw->IsMvrImportPipelineActive()) {
+    renderPending = false;
+    loadingRequested = false;
+    isLoading = false;
+    return;
+  }
   if (!renderPending || !loadingRequested)
     return;
   if (!NeedsRenderRebuild()) {

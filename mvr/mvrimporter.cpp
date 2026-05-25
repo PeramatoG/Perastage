@@ -61,6 +61,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <random>
 #include <set>
@@ -2969,8 +2970,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 downloadInfoDialog.CentreOnScreen();
               }
               bool isDownloadInfoFinished = false;
-              bool isDownloadInfoAcknowledged = false;
               std::atomic<bool> cancelRequested{false};
+              auto downloadUiActive = std::make_shared<std::atomic<bool>>(true);
               downloadInfoDialog.Bind(wxEVT_CLOSE_WINDOW,
                                       [&](wxCloseEvent &closeEvent) {
                                         if (!isDownloadInfoFinished) {
@@ -2978,7 +2979,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                           closeEvent.Veto();
                                           return;
                                         }
-                                        isDownloadInfoAcknowledged = true;
+                                        downloadUiActive->store(false);
                                         downloadInfoDialog.Hide();
                                       });
               cancelButton->Bind(wxEVT_BUTTON, [&](wxCommandEvent &) {
@@ -2987,7 +2988,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 progressPhaseText->SetLabel("Cancel requested. Finishing current transfer...");
               });
               ackButton->Bind(wxEVT_BUTTON, [&](wxCommandEvent &) {
-                isDownloadInfoAcknowledged = true;
+                downloadUiActive->store(false);
                 downloadInfoDialog.Hide();
               });
 
@@ -3127,6 +3128,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 }
                 const int safeTotal = std::max(1, total);
                 progressGauge->SetValue((finished * 100) / safeTotal);
+              };
+              // Schedules progress updates on the UI thread without blocking worker callbacks.
+              auto runOnUiThread = [&](std::function<void()> task) {
+                // Drops worker-thread progress updates to avoid deferred UI races during teardown.
+                if (!wxThread::IsMain())
+                  return;
+                if (!downloadUiActive->load())
+                  return;
+                task();
               };
 
               downloadInfoDialog.Show();
@@ -3370,20 +3380,26 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   if (GdtfDownload(bestMatch.rid, filePath, cookieFile,
                                    downloadHttpCode,
                                    [&](const GdtfDownloadProgress &progress) {
-                                     auto &stats = rowProgressByType[req.type];
-                                     stats.downloadedBytes = std::max<long long>(
-                                         0, progress.downloadedBytes);
-                                     stats.totalBytes = progress.totalBytes > 0
-                                                            ? progress.totalBytes
-                                                            : -1;
-                                     updateStatusRow(req.type, selectedFixtureName,
-                                                     "Downloading",
-                                                     formatRowProgress(stats,
-                                                                       progress.percentage),
-                                                     "Fetching fixture package",
-                                                     DownloadRowState::Downloading);
-                                     updateProgressGauge();
-                                     wxYieldIfNeeded();
+                                     const long long downloadedBytes =
+                                         std::max<long long>(0, progress.downloadedBytes);
+                                     const long long totalBytes =
+                                         progress.totalBytes > 0 ? progress.totalBytes : -1;
+                                     const double percentage = progress.percentage;
+                                     const std::string typeKey = req.type;
+                                     const wxString selectedFixtureNameCopy =
+                                         selectedFixtureName;
+                                     runOnUiThread([=, &rowProgressByType, &updateStatusRow,
+                                                    &formatRowProgress, &updateProgressGauge]() {
+                                       auto &stats = rowProgressByType[typeKey];
+                                       stats.downloadedBytes = downloadedBytes;
+                                       stats.totalBytes = totalBytes;
+                                       updateStatusRow(typeKey, selectedFixtureNameCopy,
+                                                       "Downloading",
+                                                       formatRowProgress(stats, percentage),
+                                                       "Fetching fixture package",
+                                                       DownloadRowState::Downloading);
+                                       updateProgressGauge();
+                                     });
                                    },
                                    [&]() { return cancelRequested.load(); }) &&
                       downloadHttpCode == 200) {
@@ -3460,14 +3476,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                             ". Keeping MVR originals.");
               }
               isDownloadInfoFinished = true;
+              downloadUiActive->store(false);
               cancelButton->Disable();
               summaryText->SetLabel(summaryText->GetLabel() + " - queue finished");
               ackButton->Enable();
-              ackButton->SetFocus();
-              while (!isDownloadInfoAcknowledged) {
-                wxMilliSleep(10);
-                wxYieldIfNeeded();
-              }
+              downloadInfoDialog.Hide();
             } else {
               wxMessageBox("Login failed. Verify credentials in Preferences.",
                            "GDTF Share login", wxOK | wxICON_WARNING);

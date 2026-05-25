@@ -38,6 +38,7 @@
 #include "projectutils.h"
 #include "riggingpanel.h"
 #include "stringutils.h"
+#include <wx/aui/aui.h>
 #include "summarypanel.h"
 #include "units/unit_label_utils.h"
 #include "units/units.h"
@@ -225,6 +226,8 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *servi
 
 // Releases singleton ownership when the fixture table panel is destroyed.
 FixtureTablePanel::~FixtureTablePanel() {
+  if (wxAuiManager *manager = wxAuiManager::GetManager(this))
+    manager->DetachPane(this);
   if (HasCapture())
     ReleaseMouse();
   SetInstance(nullptr);

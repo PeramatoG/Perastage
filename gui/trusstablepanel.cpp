@@ -37,6 +37,7 @@
 #include "units/units.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
+#include <wx/aui/aui.h>
 #include <cctype>
 #include <cmath>
 #include <filesystem>
@@ -195,8 +196,11 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
     SetSizer(sizer);
 }
 
+// Releases table resources and detaches the truss pane from AUI layout management.
 TrussTablePanel::~TrussTablePanel()
 {
+    if (wxAuiManager *manager = wxAuiManager::GetManager(this))
+        manager->DetachPane(this);
     store = nullptr;
 }
 

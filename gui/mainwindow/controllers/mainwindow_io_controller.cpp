@@ -23,6 +23,7 @@
 #include "layerpanel.h"
 #include "LayoutManager.h"
 #include "layoutpanel.h"
+#include "layoutviewerpanel.h"
 #include "logger.h"
 #include "mvrimporter.h"
 #include "projectutils.h"
@@ -37,13 +38,15 @@
 MainWindowIoController::MainWindowIoController(MainWindow &owner)
     : ownerRef_(&owner) {}
 
-// Imports an MVR file from disk, preserving selected UI config keys and refreshing dependent panels.
+// Imports an MVR file while keeping import progress and UI panel refreshes synchronized on the main thread.
 bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   constexpr const char *kLayoutsConfigKey = "layouts_collection";
   constexpr const char *kViewer3DRenderStyleConfigKey = "viewer3d_render_style";
   MainWindow *owner = ownerRef_;
   if (owner == nullptr || owner->guiConfigServices == nullptr)
     return false;
+  // Marks the full MVR import pipeline as active to defer layout rendering until data is stable.
+  owner->mvrImportPipelineActive = true;
   const wxString filePath = wxString::FromUTF8(pathUtf8);
   ConfigManager &cfg = owner->guiConfigServices->LegacyConfigManager();
   const std::optional<std::string> preservedLayoutsConfig =
@@ -61,17 +64,23 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   SplashScreen::Hide();
 
   const bool shouldShowBlockingImportUi = !owner->IsStartupProjectLoadPending();
+  const bool shouldUseBusyOverlay = false;
+  const bool shouldUseProgressDialog = false;
   std::unique_ptr<wxWindowDisabler> importDisabler;
   std::unique_ptr<wxBusyInfo> importOverlay;
   std::unique_ptr<wxProgressDialog> importProgress;
   if (shouldShowBlockingImportUi) {
     importDisabler = std::make_unique<wxWindowDisabler>();
-    importOverlay = std::make_unique<wxBusyInfo>("Importing MVR file...");
+    if (shouldUseBusyOverlay)
+      importOverlay = std::make_unique<wxBusyInfo>("Importing MVR file...");
   }
 
   owner->LockViewportInteraction();
   const bool imported = MvrImporter::ImportAndRegister(
       pathUtf8, true, true, [&](const MvrImporter::ProgressState &progress) {
+        // Ignores worker-thread progress callbacks to keep UI mutation strictly main-thread only.
+        if (!wxThread::IsMain())
+          return;
         if (owner == nullptr)
           return;
         const std::string &stage = progress.stage;
@@ -85,8 +94,9 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
         if (stage == "Conflict dialog:hide") {
           if (shouldShowBlockingImportUi) {
             importDisabler = std::make_unique<wxWindowDisabler>();
-            importOverlay =
-                std::make_unique<wxBusyInfo>("Importing MVR file...");
+            if (shouldUseBusyOverlay)
+              importOverlay =
+                  std::make_unique<wxBusyInfo>("Importing MVR file...");
           }
           importProgress.reset();
           return;
@@ -98,7 +108,8 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
           const int safeTotal = std::max(progress.total, 1);
           const int clampedCompleted = std::clamp(progress.completed, 0, safeTotal);
 
-          if (shouldShowBlockingImportUi && !importProgress) {
+          if (shouldShowBlockingImportUi && shouldUseProgressDialog &&
+              !importProgress) {
             importOverlay.reset();
             importProgress = std::make_unique<wxProgressDialog>(
                 title, stageText, safeTotal + 1, owner,
@@ -138,6 +149,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
                  owner);
     if (owner->consolePanel)
       owner->consolePanel->AppendMessage("Failed to import " + filePath);
+    owner->mvrImportPipelineActive = false;
     return false;
   }
 
@@ -199,6 +211,12 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     const wxString fileName = wxFileName(filePath).GetFullName();
     owner->SetStatusText("MVR imported: " + fileName, 0);
   }
+  // Re-enables layout rendering only after all import-driven panel updates finish.
+  owner->mvrImportPipelineActive = false;
+  if (owner->layoutPanel)
+    owner->layoutPanel->ReloadLayouts();
+  if (owner->layoutViewerPanel)
+    owner->layoutViewerPanel->RefreshAfterSceneContentUpdate();
   return true;
 }
 
