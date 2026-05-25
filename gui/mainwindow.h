@@ -75,6 +75,7 @@ public:
   void ResetProject(bool applyLayoutDefaultsForNewProject = false); // Clear current project
   bool IsStartupProjectLoadPending() const { return startupProjectLoadPending; }
   bool IsStartupInitializationPending() const { return startupSplashInitializationPending; }
+  bool IsMvrImportPipelineActive() const { return mvrImportPipelineActive; }
   bool CanProcessExternalOpenPath() const;
 
   static MainWindow *Instance();
@@ -290,6 +291,7 @@ private:
   bool startupSplashInitializationPending = true;
   bool startupSplashCloseRequested = false;
   bool startupProjectLoadPending = true;
+  bool mvrImportPipelineActive = false;
   bool startupDeferredOpenInProgress = false;
   std::optional<std::string> deferredStartupOpenPath;
   bool userConfigPersistedOnClose = false;

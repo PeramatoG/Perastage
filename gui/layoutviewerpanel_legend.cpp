@@ -753,7 +753,12 @@ void LayoutViewerPanel::DrawLegendElement(
     DrawSelectionHandles(frameRect);
 }
 
+// Rebuilds cached legend items and marks legend textures dirty when legend content changes.
 void LayoutViewerPanel::RefreshLegendData() {
+  if (auto *mw = MainWindow::Instance();
+      mw && mw->IsMvrImportPipelineActive()) {
+    return;
+  }
   if (!legendDataDirty_)
     return;
   if (currentLayout.legendViews.empty()) {

@@ -849,6 +849,10 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   static unsigned long long s_renderFrameId = 0;
   wxPaintDC dc(this);
   try {
+    if (auto *mw = MainWindow::Instance();
+        mw && mw->IsMvrImportPipelineActive()) {
+      return;
+    }
     if (!IsShownOnScreen()) {
       return;
     }

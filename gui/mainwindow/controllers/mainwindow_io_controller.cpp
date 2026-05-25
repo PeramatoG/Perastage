@@ -45,6 +45,8 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   MainWindow *owner = ownerRef_;
   if (owner == nullptr || owner->guiConfigServices == nullptr)
     return false;
+  // Marks the full MVR import pipeline as active to defer layout rendering until data is stable.
+  owner->mvrImportPipelineActive = true;
   const wxString filePath = wxString::FromUTF8(pathUtf8);
   ConfigManager &cfg = owner->guiConfigServices->LegacyConfigManager();
   const std::optional<std::string> preservedLayoutsConfig =
@@ -204,6 +206,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
                  owner);
     if (owner->consolePanel)
       owner->consolePanel->AppendMessage("Failed to import " + filePath);
+    owner->mvrImportPipelineActive = false;
     return false;
   }
 
@@ -265,6 +268,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     const wxString fileName = wxFileName(filePath).GetFullName();
     owner->SetStatusText("MVR imported: " + fileName, 0);
   }
+  owner->mvrImportPipelineActive = false;
   return true;
 }
 
