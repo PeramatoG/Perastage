@@ -170,6 +170,20 @@ wxPoint ToFramebufferPoint(wxWindow* window, const wxPoint& logicalPoint) {
                        static_cast<double>(logicalPoint.y) * contentScale)));
 }
 
+// Converts framebuffer pixel coordinates back to logical client-space pixels.
+wxPoint FromFramebufferPoint(wxWindow* window, const wxPoint& framebufferPoint) {
+    if (window == nullptr)
+        return framebufferPoint;
+    const double contentScale =
+        static_cast<double>(window->GetContentScaleFactor());
+    if (!std::isfinite(contentScale) || contentScale <= 0.0)
+        return framebufferPoint;
+    return wxPoint(static_cast<int>(std::lround(
+                       static_cast<double>(framebufferPoint.x) / contentScale)),
+                   static_cast<int>(std::lround(
+                       static_cast<double>(framebufferPoint.y) / contentScale)));
+}
+
 Viewer3DRenderStyle ResolveRenderStyleFromPreferences() {
     return ResolveViewer3DRenderStyle(ConfigManager::Get());
 }
