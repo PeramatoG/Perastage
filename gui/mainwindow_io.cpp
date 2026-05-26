@@ -215,6 +215,7 @@ void MainWindow::ProcessDeferredStartupOpenPath() {
     deferredStartupOpenPath = path;
 }
 
+// Save the current project to its existing path or route to Save As when no path exists.
 void MainWindow::OnSave(wxCommandEvent &event) {
   if (currentProjectPath.empty()) {
     OnSaveAs(event);
@@ -249,6 +250,7 @@ void MainWindow::OnSave(wxCommandEvent &event) {
   }
 }
 
+// Prompt for a destination path and save the current project under that file name.
 void MainWindow::OnSaveAs(wxCommandEvent &event) {
   const wxString projectExtension =
       wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION);
@@ -450,11 +452,23 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
 
   MvrExporter exporter;
   wxString path = saveFileDialog.GetPath();
-  if (!exporter.ExportToFile(path.ToStdString())) {
+  wxBusyInfo *busy = new wxBusyInfo("Saving project...", this);
+  const bool exported = exporter.ExportToFile(path.ToStdString());
+  delete busy;
+  if (!exported) {
     wxMessageBox("Failed to export MVR file.", "Error", wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to export " + path);
   } else {
+    const auto &warnings = exporter.GetExportWarnings();
+    if (!warnings.empty()) {
+      wxString warningText;
+      for (const auto &warning : warnings) {
+        warningText += wxString::FromUTF8(warning);
+        warningText += "\n";
+      }
+      wxMessageBox(warningText, "Export Warnings", wxOK | wxICON_WARNING, this);
+    }
     wxMessageBox("MVR file exported successfully.", "Success",
                  wxICON_INFORMATION);
     if (consolePanel)

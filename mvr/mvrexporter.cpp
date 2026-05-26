@@ -500,10 +500,12 @@ static bool IsCanonicalUuidString(const std::string &value) {
   return CanonicalizeUuid(value) == value;
 }
 
+// Validate MVR 1.6 XML/archive consistency while downgrading missing resource issues to warnings.
 static bool ValidateMvr16Export(
     tinyxml2::XMLDocument &doc,
     const std::unordered_map<std::string, std::string> &gdtfPathsByUuid,
-    const std::unordered_map<std::string, int> &archiveEntryCount) {
+    const std::unordered_map<std::string, int> &archiveEntryCount,
+    std::vector<std::string> *exportWarnings) {
   tinyxml2::XMLElement *root = doc.FirstChildElement("GeneralSceneDescription");
   if (!root) {
     wxLogError("MVR export validation failed: missing GeneralSceneDescription root");
@@ -715,9 +717,14 @@ static bool ValidateMvr16Export(
               return false;
             }
             auto gdtfArchiveIt = archiveEntryCount.find(value);
-            if (gdtfArchiveIt == archiveEntryCount.end() || gdtfArchiveIt->second != 1) {
-              wxLogError("MVR export validation failed: GDTFSpec '%s' must be present exactly once in archive", value);
-              return false;
+            if (gdtfArchiveIt == archiveEntryCount.end() || gdtfArchiveIt->second < 1) {
+              if (exportWarnings)
+                exportWarnings->push_back("Referenced file '" + value +
+                                          "' is missing from the archive and will be omitted.");
+            } else if (gdtfArchiveIt->second > 1) {
+              if (exportWarnings)
+                exportWarnings->push_back("Referenced file '" + value +
+                                          "' appears multiple times; duplicates will be ignored.");
             }
           }
 
@@ -749,6 +756,8 @@ static bool ValidateMvr16Export(
     }
   }
 
+  std::unordered_set<std::string> warnedMissingFiles;
+  std::unordered_set<std::string> warnedDuplicateFiles;
   for (const auto &fileRef : referencedFiles) {
     if (!IsValidMvrFileName(fileRef)) {
       wxLogError("MVR export validation failed: invalid FileName reference '%s'", fileRef);
@@ -756,9 +765,19 @@ static bool ValidateMvr16Export(
     }
 
     auto fileRefIt = archiveEntryCount.find(fileRef);
-    if (fileRefIt == archiveEntryCount.end() || fileRefIt->second != 1) {
-      wxLogError("MVR export validation failed: FileName reference '%s' must be present exactly once in archive", fileRef);
-      return false;
+    if (fileRefIt == archiveEntryCount.end() || fileRefIt->second < 1) {
+      if (exportWarnings && warnedMissingFiles.insert(fileRef).second) {
+        exportWarnings->push_back("Referenced file '" + fileRef +
+                                  "' is missing from the archive and will be omitted.");
+      }
+      continue;
+    }
+
+    if (fileRefIt->second > 1) {
+      if (exportWarnings && warnedDuplicateFiles.insert(fileRef).second) {
+        exportWarnings->push_back("Referenced file '" + fileRef +
+                                  "' appears multiple times; duplicates will be ignored.");
+      }
     }
   }
 
@@ -1264,7 +1283,9 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
   return outPath;
 }
 
+// Serialize the configured scene into a .mvr archive and collect non-fatal export warnings.
 bool MvrExporter::ExportToFile(const std::string &filePath) {
+  m_exportWarnings.clear();
   const auto &scene = ConfigManager::Get().GetScene();
   const TrussGeometryAuthority trussGeometryAuthority = GetTrussGeometryAuthoritySetting();
   std::unordered_map<std::string, std::string> positions;
@@ -2662,6 +2683,23 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   LogResourcePruneDiagnostics(referencedArchivePaths,
                               allResourceEntriesBeforePrune, resourceEntries);
 
+  // Deduplicate archive resources and keep only the first entry for each archive path.
+  std::unordered_set<std::string> seenArchivePaths;
+  std::vector<ResourceEntry> deduplicatedResources;
+  deduplicatedResources.reserve(resourceEntries.size());
+  for (const auto &entry : resourceEntries) {
+    const std::string normalizedPath = NormalizeArchiveEntryPath(entry.archivePath);
+    if (normalizedPath.empty())
+      continue;
+    if (!seenArchivePaths.insert(normalizedPath).second) {
+      m_exportWarnings.push_back("Referenced file '" + normalizedPath +
+                                 "' appears multiple times; duplicates will be ignored.");
+      continue;
+    }
+    deduplicatedResources.push_back(entry);
+  }
+  resourceEntries = std::move(deduplicatedResources);
+
   std::unordered_map<std::string, int> plannedArchiveEntries;
   plannedArchiveEntries["GeneralSceneDescription.xml"] = 1;
 
@@ -2677,7 +2715,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     ++plannedArchiveEntries[entry.archivePath];
   }
 
-  if (!ValidateMvr16Export(doc, gdtfArchiveByObjectUuid, plannedArchiveEntries)) {
+  if (!ValidateMvr16Export(doc, gdtfArchiveByObjectUuid, plannedArchiveEntries, &m_exportWarnings)) {
     zip.Close();
     return false;
   }
@@ -2727,7 +2765,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   return true;
 }
 
-// Serialize the current scene to a temporary MVR file and load its bytes into memory.
+// Export an MVR into memory by writing a temporary file and reading it back.
 bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes) {
   outBytes.clear();
   wxFileName tempFile =
@@ -2760,4 +2798,9 @@ bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes) {
   input.close();
   wxRemoveFile(tempFile.GetFullPath());
   return readOk;
+}
+
+// Return non-fatal validation and packaging warnings captured during export.
+const std::vector<std::string> &MvrExporter::GetExportWarnings() const {
+  return m_exportWarnings;
 }

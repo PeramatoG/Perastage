@@ -32,4 +32,9 @@ public:
     bool ExportToFile(const std::string& filePath);
     // Serialize the scene and write a .mvr archive into an in-memory byte buffer.
     bool ExportToBuffer(std::vector<uint8_t>& outBytes);
+    // Return non-fatal export warnings collected during the most recent export.
+    const std::vector<std::string>& GetExportWarnings() const;
+
+private:
+    std::vector<std::string> m_exportWarnings;
 };
