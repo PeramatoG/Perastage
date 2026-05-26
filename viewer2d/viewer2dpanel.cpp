@@ -192,6 +192,8 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   const float labelX = ((tx0 + tx1) * 0.5f);
   const float labelY =
       static_cast<float>(height) - ((ty0 + ty1) * 0.5f) - 10.0f;
+  const float labelAngleDegrees =
+      std::atan2(ty1 - ty0, tx1 - tx0) * (180.0f / 3.14159265358979323846f);
   glDisable(GL_DEPTH_TEST);
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
@@ -209,7 +211,8 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   glEnable(GL_DEPTH_TEST);
 
   std::vector<OverlayTextLabel> labels{
-      {labelX, labelY, text, true, true, 3.0f * zoom, true, 0.95f, 0.1f, 0.1f}};
+      {labelX, labelY, text, true, true, 3.0f * zoom, true, 0.95f, 0.1f, 0.1f,
+       labelAngleDegrees}};
   controller.DrawOverlayTextLabels(labels, darkMode);
 }
 

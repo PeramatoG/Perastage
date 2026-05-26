@@ -64,6 +64,7 @@ struct OverlayTextLabel {
   float colorR = 0.0f;
   float colorG = 0.0f;
   float colorB = 0.0f;
+  float rotationDegrees = 0.0f;
 };
 
 class Viewer3DController : public IRenderContext,
