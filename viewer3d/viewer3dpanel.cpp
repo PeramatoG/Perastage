@@ -460,6 +460,29 @@ bool QueryHoverUuid(Viewer3DController& controller,
                                      confirmDepth);
 }
 
+// Projects a world-space point to framebuffer-space pixels using current GL matrices.
+std::optional<std::array<float, 2>> ProjectWorldToFramebuffer(
+    const std::array<float, 3>& worldMeters) {
+    GLdouble model[16] = {};
+    GLdouble projection[16] = {};
+    GLint viewport[4] = {};
+    glGetDoublev(GL_MODELVIEW_MATRIX, model);
+    glGetDoublev(GL_PROJECTION_MATRIX, projection);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    GLdouble winX = 0.0;
+    GLdouble winY = 0.0;
+    GLdouble winZ = 0.0;
+    if (gluProject(static_cast<GLdouble>(worldMeters[0]),
+                   static_cast<GLdouble>(worldMeters[1]),
+                   static_cast<GLdouble>(worldMeters[2]), model, projection,
+                   viewport, &winX, &winY, &winZ) != GL_TRUE) {
+        return std::nullopt;
+    }
+    return std::array<float, 2>{static_cast<float>(winX),
+                                static_cast<float>(winY)};
+}
+
 bool QueryDragLabelUuid(Viewer3DController& controller,
                         Viewer3DPanel::HoverTargetTable target, int mouseX,
                         int mouseY, int width, int height, std::string& outUuid) {
@@ -1213,11 +1236,15 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
         (m_measureAnchorWorldMeters[0] + lineEnd[0]) * 0.5f,
         (m_measureAnchorWorldMeters[1] + lineEnd[1]) * 0.5f,
         (m_measureAnchorWorldMeters[2] + lineEnd[2]) * 0.5f};
-    const auto screenMid = m_controller.ProjectToCanvas(midPoint);
+    const auto framebufferMid = ProjectWorldToFramebuffer(midPoint);
+    if (!framebufferMid)
+        return;
     wxClientDC dc(this);
     dc.SetTextForeground(*wxWHITE);
-    dc.DrawText(distanceText, wxPoint(static_cast<int>(screenMid[0]) + 6,
-                                      static_cast<int>(screenMid[1]) - 10));
+    const wxPoint clientPos = FromFramebufferPoint(
+        this, wxPoint(static_cast<int>((*framebufferMid)[0]),
+                      renderSize.height - static_cast<int>((*framebufferMid)[1])));
+    dc.DrawText(distanceText, wxPoint(clientPos.x + 6, clientPos.y - 10));
 }
 
 // Handles mouse button press
