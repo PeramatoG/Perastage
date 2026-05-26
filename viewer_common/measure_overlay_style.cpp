@@ -35,9 +35,9 @@ void DrawMeasureOverlayStyle(float x0, float y0, float x1, float y1,
   const float tx1 = x1 + nx * offset;
   const float ty1 = y1 + ny * offset;
 
-  const float cr = darkMode ? 0.9f : 0.15f;
-  const float cg = darkMode ? 0.9f : 0.15f;
-  const float cb = darkMode ? 0.9f : 0.15f;
+  const float cr = darkMode ? 0.95f : 0.92f;
+  const float cg = darkMode ? 0.10f : 0.12f;
+  const float cb = darkMode ? 0.10f : 0.12f;
 
   glColor3f(cr, cg, cb);
   glLineWidth(1.0f);

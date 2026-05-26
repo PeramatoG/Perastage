@@ -1280,19 +1280,12 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
                                              Units::ValueFormatContext::Label) +
         " " + Units::DistanceUnitSuffix(distanceUnitSystem);
 
-    const std::array<float, 3> midPoint{
-        (m_measureAnchorWorldMeters[0] + lineEndWorld[0]) * 0.5f,
-        (m_measureAnchorWorldMeters[1] + lineEndWorld[1]) * 0.5f,
-        (m_measureAnchorWorldMeters[2] + lineEndWorld[2]) * 0.5f};
-    const auto framebufferMid = ProjectWorldToFramebuffer(midPoint);
-    if (!framebufferMid)
-        return;
-    wxClientDC dc(this);
-    dc.SetTextForeground(*wxWHITE);
-    const wxPoint clientPos = FromFramebufferPoint(
-        this, wxPoint(static_cast<int>((*framebufferMid)[0]),
-                      renderSize.height - static_cast<int>((*framebufferMid)[1])));
-    dc.DrawText(distanceText, wxPoint(clientPos.x + 6, clientPos.y - 10));
+    const float labelX = ((tx0 + tx1) * 0.5f);
+    const float labelY =
+        static_cast<float>(renderSize.height) - ((ty0 + ty1) * 0.5f) - 10.0f;
+    std::vector<OverlayTextLabel> labels{
+        {labelX, labelY, distanceText, true, true, 3.0f, true, 0.95f, 0.1f, 0.1f}};
+    m_controller.DrawOverlayTextLabels(labels, Is2DDarkModeEnabled());
     if (MainWindow::Instance() && MainWindow::Instance()->GetStatusBar())
         MainWindow::Instance()->SetStatusText(wxString::FromUTF8("Measure: " + distanceText), 0);
 }
@@ -1429,6 +1422,9 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                     }
                     Refresh();
                 }
+            } else {
+                ResetMeasureState();
+                Refresh();
             }
             return;
         }
