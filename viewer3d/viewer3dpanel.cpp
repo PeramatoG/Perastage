@@ -1281,11 +1281,21 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
         " " + Units::DistanceUnitSuffix(distanceUnitSystem);
 
     const float labelX = ((tx0 + tx1) * 0.5f);
-    const float labelY =
-        static_cast<float>(renderSize.height) - ((ty0 + ty1) * 0.5f) - 10.0f;
-    std::vector<OverlayTextLabel> labels{
-        {labelX, labelY, distanceText, true, true, 10.0f, true, 0.95f, 0.1f, 0.1f}};
-    m_controller.DrawOverlayTextLabels(labels, Is2DDarkModeEnabled());
+    const float labelY = ((ty0 + ty1) * 0.5f) + 2.0f;
+    const wxPoint labelClientPos = FromFramebufferPoint(
+        this, wxPoint(static_cast<int>(labelX),
+                      renderSize.height - static_cast<int>(labelY)));
+    const double textAngleDegrees =
+        std::atan2(static_cast<double>(ty1 - ty0),
+                   static_cast<double>(tx1 - tx0)) *
+        (180.0 / M_PI);
+    wxClientDC dc(this);
+    wxFont font = GetFont();
+    font.SetPointSize(std::max(font.GetPointSize() + 2, 11));
+    font.SetWeight(wxFONTWEIGHT_BOLD);
+    dc.SetFont(font);
+    dc.SetTextForeground(wxColour(242, 26, 26));
+    dc.DrawRotatedText(distanceText, labelClientPos, -textAngleDegrees);
     if (MainWindow::Instance() && MainWindow::Instance()->GetStatusBar())
         MainWindow::Instance()->SetStatusText(wxString::FromUTF8("Measure: " + distanceText), 0);
 }
