@@ -174,6 +174,7 @@ add_subdirectory(core)
 add_subdirectory(gui)
 add_subdirectory(viewer2d)
 add_subdirectory(viewer3d)
+add_subdirectory(viewer_common)
 
 if(WIN32)
     target_sources(${PROJECT_NAME} PRIVATE resources/Perastage.rc)

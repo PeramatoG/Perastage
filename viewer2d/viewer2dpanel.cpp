@@ -61,6 +61,7 @@
 #include "viewer2dpanel_helpers.h"
 #include "gl_state_guard.h"
 #include "units/units.h"
+#include "../viewer_common/measure_overlay_style.h"
 #include "ui_render_size.h"
 #include <wx/app.h>
 #include <wx/debug.h>
@@ -191,8 +192,6 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   const float labelX = ((tx0 + tx1) * 0.5f);
   const float labelY =
       static_cast<float>(height) - ((ty0 + ty1) * 0.5f) - 10.0f;
-  const float arrow = 7.0f;
-
   glDisable(GL_DEPTH_TEST);
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
@@ -202,21 +201,7 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
-  glLineWidth(2.2f);
-  glColor3f(0.92f, 0.12f, 0.12f);
-  glBegin(GL_LINES);
-  glVertex2f(x0, y0); glVertex2f(tx0, ty0);
-  glVertex2f(x1, y1); glVertex2f(tx1, ty1);
-  glVertex2f(tx0, ty0); glVertex2f(tx1, ty1);
-  glVertex2f(tx0, ty0); glVertex2f(tx0 + vx * arrow + nx * (arrow * 0.45f),
-                                   ty0 + vy * arrow + ny * (arrow * 0.45f));
-  glVertex2f(tx0, ty0); glVertex2f(tx0 + vx * arrow - nx * (arrow * 0.45f),
-                                   ty0 + vy * arrow - ny * (arrow * 0.45f));
-  glVertex2f(tx1, ty1); glVertex2f(tx1 - vx * arrow + nx * (arrow * 0.45f),
-                                   ty1 - vy * arrow + ny * (arrow * 0.45f));
-  glVertex2f(tx1, ty1); glVertex2f(tx1 - vx * arrow - nx * (arrow * 0.45f),
-                                   ty1 - vy * arrow - ny * (arrow * 0.45f));
-  glEnd();
+  viewer_common::DrawMeasureOverlayStyle(x0, y0, x1, y1, darkMode);
   glPopMatrix();
   glMatrixMode(GL_PROJECTION);
   glPopMatrix();

@@ -56,6 +56,7 @@
 #include "base_pass_framebuffer_cache.h"
 #include "gl_state_guard.h"
 #include "ui_render_size.h"
+#include "../viewer_common/measure_overlay_style.h"
 #include "units/units.h"
 #include <wx/dcclient.h>
 #include <wx/debug.h>
@@ -1233,6 +1234,9 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
     const float y0 = (*anchorFramebuffer)[1];
     const float x1 = endX;
     const float y1 = endY;
+    viewer_common::DrawMeasureOverlayStyle(x0, y0, x1, y1,
+                                         Is2DDarkModeEnabled());
+
     float vx = x1 - x0;
     float vy = y1 - y0;
     const float len = std::sqrt(vx * vx + vy * vy);
@@ -1254,37 +1258,6 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
     const float ty0 = y0 + ny * offset;
     const float tx1 = x1 + nx * offset;
     const float ty1 = y1 + ny * offset;
-    const bool darkMode = Is2DDarkModeEnabled();
-    const float cr = darkMode ? 0.9f : 0.15f;
-    const float cg = darkMode ? 0.9f : 0.15f;
-    const float cb = darkMode ? 0.9f : 0.15f;
-
-    glColor3f(cr, cg, cb);
-    glLineWidth(1.0f);
-    glBegin(GL_LINES);
-    glVertex2f(x0, y0); glVertex2f(tx0, ty0);
-    glVertex2f(x1, y1); glVertex2f(tx1, ty1);
-    glEnd();
-    glLineWidth(2.0f);
-    glBegin(GL_LINES);
-    glVertex2f(tx0, ty0); glVertex2f(tx1, ty1);
-    glEnd();
-    const float arrowLength = 9.0f;
-    const float arrowWidth = 4.0f;
-    const auto drawArrow = [&](float ax, float ay, float dx, float dy) {
-        const float bx = ax - dx * arrowLength;
-        const float by = ay - dy * arrowLength;
-        const float lx = bx + (-dy) * arrowWidth;
-        const float ly = by + dx * arrowWidth;
-        const float rx = bx - (-dy) * arrowWidth;
-        const float ry = by - dx * arrowWidth;
-        glBegin(GL_LINES);
-        glVertex2f(ax, ay); glVertex2f(lx, ly);
-        glVertex2f(ax, ay); glVertex2f(rx, ry);
-        glEnd();
-    };
-    drawArrow(tx0, ty0, -vx, -vy);
-    drawArrow(tx1, ty1, vx, vy);
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
