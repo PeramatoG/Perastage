@@ -56,6 +56,7 @@
 #include "base_pass_framebuffer_cache.h"
 #include "gl_state_guard.h"
 #include "ui_render_size.h"
+#include "units/units.h"
 #include <wx/dcclient.h>
 #include <wx/debug.h>
 #include <wx/event.h>
@@ -872,6 +873,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         DrawSelectionRectangle(w, h);
     if (m_selectionDragArmed)
         DrawSelectionDragGizmo(renderSize);
+    DrawMeasureOverlay(renderSize);
 
     if (reusedBasePass)
         ++m_highlightRefreshesInCurrentWindow;
@@ -1103,6 +1105,121 @@ void Viewer3DPanel::ApplyCameraMatrices(const RenderSize& renderSize, double fov
     m_camera.Apply();
 }
 
+
+// Toggles the 3D measure tool mode and clears any pending measurement points.
+void Viewer3DPanel::SetMeasureToolEnabled(bool enabled)
+{
+    m_measureToolEnabled = enabled;
+    ResetMeasureState();
+    if (MainWindow::Instance())
+        MainWindow::Instance()->SyncViewportToolToggleState(enabled);
+    SetCursor(enabled ? wxCursor(wxCURSOR_CROSS) : wxCursor(wxCURSOR_ARROW));
+    Refresh();
+}
+
+// Resets the active and committed 3D measurement points while preserving enablement.
+void Viewer3DPanel::ResetMeasureState()
+{
+    m_measureHasAnchor = false;
+    m_measureAnchorUuid.clear();
+    m_measureHasCommittedTarget = false;
+    m_measureHasPreviewMousePos = false;
+}
+
+// Resolves the world-space center position of a selectable element.
+std::optional<std::array<float, 3>> Viewer3DPanel::ResolveMeasureWorldFromUuid(
+    HoverTargetTable target, const std::string& uuid) const
+{
+    const auto& scene = ConfigManager::Get().GetScene();
+    auto extract = [&](const auto& map) -> std::optional<std::array<float, 3>> {
+        auto it = map.find(uuid);
+        if (it == map.end())
+            return std::nullopt;
+        return std::array<float, 3>{
+            it->second.transform.o[0] / 1000.0f,
+            it->second.transform.o[1] / 1000.0f,
+            it->second.transform.o[2] / 1000.0f};
+    };
+    if (target == HoverTargetTable::Fixtures)
+        return extract(scene.fixtures);
+    if (target == HoverTargetTable::Trusses)
+        return extract(scene.trusses);
+    if (target == HoverTargetTable::SceneObjects)
+        return extract(scene.sceneObjects);
+    return std::nullopt;
+}
+
+// Draws the active 3D measurement line and distance text when two elements are fixed.
+void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
+{
+    if (!m_measureToolEnabled || !m_measureHasAnchor || !renderSize.IsValid())
+        return;
+
+    std::array<float, 3> lineEnd = m_measureAnchorWorldMeters;
+    bool showDistanceLabel = false;
+    if (m_measureHasCommittedTarget) {
+        lineEnd = m_measureCommittedTargetWorldMeters;
+        showDistanceLabel = true;
+    }
+
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    constexpr double kNearPlane = 0.05;
+    constexpr double kFarPlane = 2000.0;
+    gluPerspective(kDefaultFovYDegrees,
+                   static_cast<double>(renderSize.width) / renderSize.height,
+                   kNearPlane, kFarPlane);
+
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    m_camera.Apply();
+
+    GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
+    if (depthEnabled)
+        glDisable(GL_DEPTH_TEST);
+    glLineWidth(2.0f);
+    glColor3f(1.0f, 1.0f, 0.2f);
+    glBegin(GL_LINES);
+    glVertex3f(m_measureAnchorWorldMeters[0], m_measureAnchorWorldMeters[1],
+               m_measureAnchorWorldMeters[2]);
+    glVertex3f(lineEnd[0], lineEnd[1], lineEnd[2]);
+    glEnd();
+    if (depthEnabled)
+        glEnable(GL_DEPTH_TEST);
+
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+
+    if (!showDistanceLabel)
+        return;
+
+    const float dx = lineEnd[0] - m_measureAnchorWorldMeters[0];
+    const float dy = lineEnd[1] - m_measureAnchorWorldMeters[1];
+    const float dz = lineEnd[2] - m_measureAnchorWorldMeters[2];
+    const float distanceMeters = std::sqrt(dx * dx + dy * dy + dz * dz);
+    const auto distanceUnitSystem =
+        Units::ParseDistanceUnitSystem(ConfigManager::Get().GetValue("ui_distance_unit_system"));
+    const std::string distanceText =
+        Units::FormatDistanceFromMillimeters(static_cast<double>(distanceMeters) * 1000.0,
+                                             distanceUnitSystem,
+                                             Units::ValueFormatContext::Label) +
+        " " + Units::DistanceUnitSuffix(distanceUnitSystem);
+
+    const std::array<float, 3> midPoint{
+        (m_measureAnchorWorldMeters[0] + lineEnd[0]) * 0.5f,
+        (m_measureAnchorWorldMeters[1] + lineEnd[1]) * 0.5f,
+        (m_measureAnchorWorldMeters[2] + lineEnd[2]) * 0.5f};
+    const auto screenMid = m_controller.ProjectToCanvas(midPoint);
+    wxClientDC dc(this);
+    dc.SetTextForeground(*wxWHITE);
+    dc.DrawText(distanceText, wxPoint(static_cast<int>(screenMid[0]) + 6,
+                                      static_cast<int>(screenMid[1]) - 10));
+}
+
 // Handles mouse button press
 void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
 {
@@ -1220,6 +1337,24 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                                           pickPos.y, w, h, uuid, true);
 
         ConfigManager& cfg = ConfigManager::Get();
+        if (m_measureToolEnabled) {
+            if (found) {
+                const auto worldPos = ResolveMeasureWorldFromUuid(activeTable, uuid);
+                if (worldPos) {
+                    if (!m_measureHasAnchor) {
+                        m_measureHasAnchor = true;
+                        m_measureAnchorUuid = uuid;
+                        m_measureAnchorWorldMeters = *worldPos;
+                        m_measureHasCommittedTarget = false;
+                    } else {
+                        m_measureHasCommittedTarget = true;
+                        m_measureCommittedTargetWorldMeters = *worldPos;
+                    }
+                    Refresh();
+                }
+            }
+            return;
+        }
         if (found)
         {
             bool additive = event.ShiftDown() || event.ControlDown();
@@ -2179,6 +2314,7 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
     Refresh();
 }
 
+// Handles keyboard shortcuts for viewport tools and camera actions.
 void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
 {
     if (!m_mouseInside && !HasFocus()) { event.Skip(); return; }
@@ -2192,6 +2328,17 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
     bool zoomTriggered = false;
 
     switch (event.GetKeyCode()) {
+        case WXK_ESCAPE:
+            if (m_measureToolEnabled) {
+                SetMeasureToolEnabled(false);
+                return;
+            }
+            event.Skip();
+            return;
+        case 'M':
+        case 'm':
+            SetMeasureToolEnabled(!m_measureToolEnabled);
+            return;
         case WXK_LEFT:
             if (shift)
                 m_camera.Pan(-0.1f, 0.0f);

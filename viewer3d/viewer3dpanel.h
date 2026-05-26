@@ -39,6 +39,7 @@
 #include <wx/thread.h>
 #include <wx/timer.h>
 #include <vector>
+#include <optional>
 
 wxDECLARE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
 
@@ -75,6 +76,11 @@ public:
     bool FrameSceneToFit();
     bool ResetCameraToIsometric();
     void SetModalDialogActive(bool active);
+
+    // Toggles the 3D measure tool mode and resets its transient state.
+    void SetMeasureToolEnabled(bool enabled);
+    // Returns whether the 3D measure tool is currently enabled.
+    bool IsMeasureToolEnabled() const { return m_measureToolEnabled; }
 
     enum class HoverTargetTable { None, Fixtures, Trusses, SceneObjects };
 
@@ -189,6 +195,23 @@ private:
     int m_highlightUpdateSamplesInCurrentWindow = 0;
 
     // True when the mouse moved since the last paint
+
+    bool m_measureToolEnabled = false;
+    bool m_measureHasAnchor = false;
+    std::string m_measureAnchorUuid;
+    std::array<float, 3> m_measureAnchorWorldMeters{0.0f, 0.0f, 0.0f};
+    bool m_measureHasCommittedTarget = false;
+    std::array<float, 3> m_measureCommittedTargetWorldMeters{0.0f, 0.0f, 0.0f};
+    wxPoint m_measurePreviewMousePos;
+    bool m_measureHasPreviewMousePos = false;
+
+    // Resets the active and committed 3D measurement points while preserving enablement.
+    void ResetMeasureState();
+    // Resolves the world-space center position of an element uuid on the active table.
+    std::optional<std::array<float, 3>> ResolveMeasureWorldFromUuid(
+        HoverTargetTable target, const std::string& uuid) const;
+    // Draws the 3D measurement line and optional distance overlay.
+    void DrawMeasureOverlay(const RenderSize& renderSize);
     bool m_mouseMoved = false;
 
     // True once OpenGL/GLEW initialization has been performed
