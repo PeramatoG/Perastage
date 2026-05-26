@@ -1406,11 +1406,19 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         std::string uuid;
         const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
         const HoverTargetTable activeTable = ResolveActiveHoverTargetTable();
-        const bool found = QueryHoverUuid(m_controller, activeTable, pickPos.x,
-                                          pickPos.y, w, h, uuid, true);
+        bool found = QueryHoverUuid(m_controller, activeTable, pickPos.x,
+                                    pickPos.y, w, h, uuid, true);
 
         ConfigManager& cfg = ConfigManager::Get();
         if (m_measureToolEnabled) {
+            if (!found) {
+                found = QueryHoverUuid(m_controller, activeTable, pickPos.x,
+                                       pickPos.y, w, h, uuid, false);
+            }
+            if (!found && !m_hoverUuid.empty()) {
+                uuid = m_hoverUuid;
+                found = true;
+            }
             if (found) {
                 const auto worldPos = ResolveMeasureWorldFromUuid(activeTable, uuid);
                 if (worldPos) {
