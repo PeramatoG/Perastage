@@ -1192,51 +1192,62 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
     if (!m_measureToolEnabled || !m_measureHasAnchor || !renderSize.IsValid())
         return;
 
-    std::array<float, 3> lineEnd = m_measureAnchorWorldMeters;
+    const auto anchorFramebuffer = ProjectWorldToFramebuffer(m_measureAnchorWorldMeters);
+    if (!anchorFramebuffer)
+        return;
+
+    float endX = (*anchorFramebuffer)[0];
+    float endY = (*anchorFramebuffer)[1];
     bool showDistanceLabel = false;
+    std::array<float, 3> lineEndWorld = m_measureAnchorWorldMeters;
     if (m_measureHasCommittedTarget) {
-        lineEnd = m_measureCommittedTargetWorldMeters;
+        const auto targetFramebuffer =
+            ProjectWorldToFramebuffer(m_measureCommittedTargetWorldMeters);
+        if (!targetFramebuffer)
+            return;
+        endX = (*targetFramebuffer)[0];
+        endY = (*targetFramebuffer)[1];
+        lineEndWorld = m_measureCommittedTargetWorldMeters;
         showDistanceLabel = true;
+    } else if (m_measureHasPreviewMousePos) {
+        const wxPoint previewFramebuffer =
+            ToFramebufferPoint(this, m_measurePreviewMousePos);
+        endX = static_cast<float>(previewFramebuffer.x);
+        endY = static_cast<float>(renderSize.height - previewFramebuffer.y);
+    } else {
+        return;
     }
-
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    constexpr double kNearPlane = 0.05;
-    constexpr double kFarPlane = 2000.0;
-    gluPerspective(kDefaultFovYDegrees,
-                   static_cast<double>(renderSize.width) / renderSize.height,
-                   kNearPlane, kFarPlane);
-
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    m_camera.Apply();
 
     GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
     if (depthEnabled)
         glDisable(GL_DEPTH_TEST);
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0.0f, static_cast<float>(renderSize.width), 0.0f,
+            static_cast<float>(renderSize.height), -1.0f, 1.0f);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
     glLineWidth(2.0f);
     glColor3f(1.0f, 1.0f, 0.2f);
     glBegin(GL_LINES);
-    glVertex3f(m_measureAnchorWorldMeters[0], m_measureAnchorWorldMeters[1],
-               m_measureAnchorWorldMeters[2]);
-    glVertex3f(lineEnd[0], lineEnd[1], lineEnd[2]);
+    glVertex2f((*anchorFramebuffer)[0], (*anchorFramebuffer)[1]);
+    glVertex2f(endX, endY);
     glEnd();
-    if (depthEnabled)
-        glEnable(GL_DEPTH_TEST);
-
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
+    if (depthEnabled)
+        glEnable(GL_DEPTH_TEST);
 
     if (!showDistanceLabel)
         return;
 
-    const float dx = lineEnd[0] - m_measureAnchorWorldMeters[0];
-    const float dy = lineEnd[1] - m_measureAnchorWorldMeters[1];
-    const float dz = lineEnd[2] - m_measureAnchorWorldMeters[2];
+    const float dx = lineEndWorld[0] - m_measureAnchorWorldMeters[0];
+    const float dy = lineEndWorld[1] - m_measureAnchorWorldMeters[1];
+    const float dz = lineEndWorld[2] - m_measureAnchorWorldMeters[2];
     const float distanceMeters = std::sqrt(dx * dx + dy * dy + dz * dz);
     const auto distanceUnitSystem =
         Units::ParseDistanceUnitSystem(ConfigManager::Get().GetValue("ui_distance_unit_system"));
@@ -1247,9 +1258,9 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
         " " + Units::DistanceUnitSuffix(distanceUnitSystem);
 
     const std::array<float, 3> midPoint{
-        (m_measureAnchorWorldMeters[0] + lineEnd[0]) * 0.5f,
-        (m_measureAnchorWorldMeters[1] + lineEnd[1]) * 0.5f,
-        (m_measureAnchorWorldMeters[2] + lineEnd[2]) * 0.5f};
+        (m_measureAnchorWorldMeters[0] + lineEndWorld[0]) * 0.5f,
+        (m_measureAnchorWorldMeters[1] + lineEndWorld[1]) * 0.5f,
+        (m_measureAnchorWorldMeters[2] + lineEndWorld[2]) * 0.5f};
     const auto framebufferMid = ProjectWorldToFramebuffer(midPoint);
     if (!framebufferMid)
         return;
@@ -2163,6 +2174,10 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
 void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 {
     wxPoint pos = event.GetPosition();
+    if (m_measureToolEnabled && m_measureHasAnchor && !m_measureHasCommittedTarget) {
+        m_measurePreviewMousePos = pos;
+        m_measureHasPreviewMousePos = true;
+    }
 
     if (m_rectSelecting && event.Dragging())
     {
@@ -2489,6 +2504,7 @@ void Viewer3DPanel::OnMouseEnter(wxMouseEvent& event)
 void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
 {
     m_mouseInside = false;
+    m_measureHasPreviewMousePos = false;
     m_hasHover = false;
     m_hoverUuid.clear();
     ++m_highlightRevision;
