@@ -1284,7 +1284,7 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
     const float labelY =
         static_cast<float>(renderSize.height) - ((ty0 + ty1) * 0.5f) - 10.0f;
     std::vector<OverlayTextLabel> labels{
-        {labelX, labelY, distanceText, true, true, 3.0f, true, 0.95f, 0.1f, 0.1f}};
+        {labelX, labelY, distanceText, true, true, 10.0f, true, 0.95f, 0.1f, 0.1f}};
     m_controller.DrawOverlayTextLabels(labels, Is2DDarkModeEnabled());
     if (MainWindow::Instance() && MainWindow::Instance()->GetStatusBar())
         MainWindow::Instance()->SetStatusText(wxString::FromUTF8("Measure: " + distanceText), 0);
@@ -1411,11 +1411,11 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
             if (found) {
                 const auto worldPos = ResolveMeasureWorldFromUuid(activeTable, uuid);
                 if (worldPos) {
-                    if (!m_measureHasAnchor) {
+                    if (!m_measureHasAnchor || m_measureHasCommittedTarget) {
+                        ResetMeasureState();
                         m_measureHasAnchor = true;
                         m_measureAnchorUuid = uuid;
                         m_measureAnchorWorldMeters = *worldPos;
-                        m_measureHasCommittedTarget = false;
                     } else {
                         m_measureHasCommittedTarget = true;
                         m_measureCommittedTargetWorldMeters = *worldPos;

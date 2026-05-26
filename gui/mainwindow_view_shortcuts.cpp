@@ -58,22 +58,14 @@ void MainWindow::OnViewportSelectTool(wxCommandEvent &WXUNUSED(event)) {
 
 // Enables or disables the viewport measure tool and syncs toolbar toggle state.
 void MainWindow::OnViewportMeasureTool(wxCommandEvent &WXUNUSED(event)) {
-  const wxWindow *focusedWindow = wxWindow::FindFocus();
-  const bool focusIn3D = IsChildOrSame(viewportPanel, focusedWindow);
-  const bool enableMeasure = focusIn3D
-                                 ? !(viewportPanel && viewportPanel->IsMeasureToolEnabled())
-                                 : !(viewport2DPanel && viewport2DPanel->IsMeasureToolEnabled());
-  if (focusIn3D) {
-    if (viewportPanel)
-      viewportPanel->SetMeasureToolEnabled(enableMeasure);
-    if (viewport2DPanel)
-      viewport2DPanel->SetMeasureToolEnabled(false);
-  } else {
-    if (viewport2DPanel)
-      viewport2DPanel->SetMeasureToolEnabled(enableMeasure);
-    if (viewportPanel)
-      viewportPanel->SetMeasureToolEnabled(false);
-  }
+  const bool measureEnabled =
+      (viewport2DPanel && viewport2DPanel->IsMeasureToolEnabled()) ||
+      (viewportPanel && viewportPanel->IsMeasureToolEnabled());
+  const bool enableMeasure = !measureEnabled;
+  if (viewport2DPanel)
+    viewport2DPanel->SetMeasureToolEnabled(enableMeasure);
+  if (viewportPanel)
+    viewportPanel->SetMeasureToolEnabled(enableMeasure);
   SyncViewportToolToggleState(enableMeasure);
 }
 
