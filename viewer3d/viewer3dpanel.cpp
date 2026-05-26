@@ -185,6 +185,15 @@ wxPoint FromFramebufferPoint(wxWindow* window, const wxPoint& framebufferPoint) 
                        static_cast<double>(framebufferPoint.y) / contentScale)));
 }
 
+// Normalizes label rotation so text remains readable while staying parallel to the measure line.
+float NormalizeMeasureLabelAngleDegrees(float angleDegrees) {
+    while (angleDegrees > 90.0f)
+        angleDegrees -= 180.0f;
+    while (angleDegrees < -90.0f)
+        angleDegrees += 180.0f;
+    return angleDegrees;
+}
+
 Viewer3DRenderStyle ResolveRenderStyleFromPreferences() {
     return ResolveViewer3DRenderStyle(ConfigManager::Get());
 }
@@ -1283,8 +1292,8 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
     const float labelX = ((tx0 + tx1) * 0.5f);
     const float labelY =
         static_cast<float>(renderSize.height) - ((ty0 + ty1) * 0.5f) - 10.0f;
-    const float labelAngleDegrees =
-        -std::atan2(ty1 - ty0, tx1 - tx0) * (180.0f / 3.14159265358979323846f);
+    const float labelAngleDegrees = NormalizeMeasureLabelAngleDegrees(
+        -std::atan2(ty1 - ty0, tx1 - tx0) * (180.0f / 3.14159265358979323846f));
     std::vector<OverlayTextLabel> labels{
         {labelX, labelY, distanceText, true, true, 20.0f, true, 0.95f, 0.1f,
          0.1f, labelAngleDegrees}};
