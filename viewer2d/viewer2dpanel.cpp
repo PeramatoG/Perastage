@@ -61,6 +61,7 @@
 #include "viewer2dpanel_helpers.h"
 #include "gl_state_guard.h"
 #include "units/units.h"
+#include "../viewer_common/measure_overlay_style.h"
 #include "ui_render_size.h"
 #include <wx/app.h>
 #include <wx/debug.h>
@@ -97,6 +98,15 @@ wxRect BuildSelectionRectDirtyRegion(const wxPoint &a, const wxPoint &b) {
 wxRect BuildPointDirtyRegion(const wxPoint &point, int radius) {
   const int size = std::max(1, radius * 2);
   return wxRect(point.x - radius, point.y - radius, size, size);
+}
+
+// Normalizes label rotation so text stays parallel to the line without appearing upside down.
+float NormalizeMeasureLabelAngleDegrees(float angleDegrees) {
+  while (angleDegrees > 90.0f)
+    angleDegrees -= 180.0f;
+  while (angleDegrees < -90.0f)
+    angleDegrees += 180.0f;
+  return angleDegrees;
 }
 
 // Resolves the center world position for any selectable scene element UUID.
@@ -191,8 +201,8 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   const float labelX = ((tx0 + tx1) * 0.5f);
   const float labelY =
       static_cast<float>(height) - ((ty0 + ty1) * 0.5f) - 10.0f;
-  const float arrow = 7.0f;
-
+  const float labelAngleDegrees = NormalizeMeasureLabelAngleDegrees(
+      -std::atan2(ty1 - ty0, tx1 - tx0) * (180.0f / 3.14159265358979323846f));
   glDisable(GL_DEPTH_TEST);
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
@@ -202,21 +212,7 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
-  glLineWidth(2.2f);
-  glColor3f(0.92f, 0.12f, 0.12f);
-  glBegin(GL_LINES);
-  glVertex2f(x0, y0); glVertex2f(tx0, ty0);
-  glVertex2f(x1, y1); glVertex2f(tx1, ty1);
-  glVertex2f(tx0, ty0); glVertex2f(tx1, ty1);
-  glVertex2f(tx0, ty0); glVertex2f(tx0 + vx * arrow + nx * (arrow * 0.45f),
-                                   ty0 + vy * arrow + ny * (arrow * 0.45f));
-  glVertex2f(tx0, ty0); glVertex2f(tx0 + vx * arrow - nx * (arrow * 0.45f),
-                                   ty0 + vy * arrow - ny * (arrow * 0.45f));
-  glVertex2f(tx1, ty1); glVertex2f(tx1 - vx * arrow + nx * (arrow * 0.45f),
-                                   ty1 - vy * arrow + ny * (arrow * 0.45f));
-  glVertex2f(tx1, ty1); glVertex2f(tx1 - vx * arrow - nx * (arrow * 0.45f),
-                                   ty1 - vy * arrow - ny * (arrow * 0.45f));
-  glEnd();
+  viewer_common::DrawMeasureOverlayStyle(x0, y0, x1, y1, darkMode);
   glPopMatrix();
   glMatrixMode(GL_PROJECTION);
   glPopMatrix();
@@ -224,7 +220,8 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   glEnable(GL_DEPTH_TEST);
 
   std::vector<OverlayTextLabel> labels{
-      {labelX, labelY, text, true, true, 3.0f * zoom, true, 0.95f, 0.1f, 0.1f}};
+      {labelX, labelY, text, true, true, 3.0f * zoom, true, 0.95f, 0.1f, 0.1f,
+       labelAngleDegrees}};
   controller.DrawOverlayTextLabels(labels, darkMode);
 }
 
@@ -2498,6 +2495,40 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
           } else {
             m_measureToolState.hasCommittedTarget = true;
             m_measureToolState.committedTargetWorld = *center;
+            float du = 0.0f;
+            float dv = 0.0f;
+            switch (m_view) {
+            case Viewer2DView::Top:
+            case Viewer2DView::Bottom:
+              du = m_measureToolState.committedTargetWorld[0] -
+                   m_measureToolState.anchorWorld[0];
+              dv = m_measureToolState.committedTargetWorld[1] -
+                   m_measureToolState.anchorWorld[1];
+              break;
+            case Viewer2DView::Front:
+              du = m_measureToolState.committedTargetWorld[0] -
+                   m_measureToolState.anchorWorld[0];
+              dv = m_measureToolState.committedTargetWorld[2] -
+                   m_measureToolState.anchorWorld[2];
+              break;
+            case Viewer2DView::Side:
+              du = m_measureToolState.committedTargetWorld[1] -
+                   m_measureToolState.anchorWorld[1];
+              dv = m_measureToolState.committedTargetWorld[2] -
+                   m_measureToolState.anchorWorld[2];
+              break;
+            }
+            const float distanceMeters = std::sqrt(du * du + dv * dv);
+            const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
+                ConfigManager::Get().GetValue("ui_distance_unit_system"));
+            const std::string distanceText = Units::FormatDistanceFromMillimeters(
+                static_cast<double>(distanceMeters) * 1000.0, distanceUnitSystem,
+                Units::ValueFormatContext::Label) +
+                " " + Units::DistanceUnitSuffix(distanceUnitSystem);
+            if (MainWindow::Instance() && MainWindow::Instance()->GetStatusBar()) {
+              MainWindow::Instance()->SetStatusText(
+                  wxString::FromUTF8("Measure: " + distanceText), 0);
+            }
           }
         }
       }

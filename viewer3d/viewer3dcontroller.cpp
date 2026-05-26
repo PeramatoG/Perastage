@@ -1751,14 +1751,22 @@ void Viewer3DController::DrawOverlayTextLabels(
                 (label.centerOnY ? NVG_ALIGN_MIDDLE : NVG_ALIGN_TOP);
     nvgTextAlign(m_impl->vg, align);
 
+    constexpr float kPi = 3.14159265358979323846f;
+    const float rotationRadians = label.rotationDegrees * (kPi / 180.0f);
+    auto drawLabelText = [&](float x, float y) {
+      nvgSave(m_impl->vg);
+      nvgTranslate(m_impl->vg, x, y);
+      nvgRotate(m_impl->vg, rotationRadians);
+      nvgText(m_impl->vg, 0.0f, 0.0f, label.text.c_str(), nullptr);
+      nvgRestore(m_impl->vg);
+    };
+
     if (outline) {
       nvgFillColor(m_impl->vg, outlineColor);
       constexpr float kOutlineOffsets[4][2] = {
           {-0.8f, 0.0f}, {0.8f, 0.0f}, {0.0f, -0.8f}, {0.0f, 0.8f}};
-      for (const auto &offset : kOutlineOffsets) {
-        nvgText(m_impl->vg, label.xPixels + offset[0], label.yPixels + offset[1],
-                label.text.c_str(), nullptr);
-      }
+      for (const auto &offset : kOutlineOffsets)
+        drawLabelText(label.xPixels + offset[0], label.yPixels + offset[1]);
     }
 
     if (label.hasCustomColor) {
@@ -1769,8 +1777,7 @@ void Viewer3DController::DrawOverlayTextLabels(
     } else {
       nvgFillColor(m_impl->vg, textColor);
     }
-    nvgText(m_impl->vg, label.xPixels, label.yPixels, label.text.c_str(),
-            nullptr);
+    drawLabelText(label.xPixels, label.yPixels);
   }
 
   nvgRestore(m_impl->vg);

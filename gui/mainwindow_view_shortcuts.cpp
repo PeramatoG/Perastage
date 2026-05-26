@@ -51,15 +51,21 @@ void MainWindow::SyncViewportToolToggleState(bool measureEnabled) {
 void MainWindow::OnViewportSelectTool(wxCommandEvent &WXUNUSED(event)) {
   if (viewport2DPanel)
     viewport2DPanel->SetMeasureToolEnabled(false);
+  if (viewportPanel)
+    viewportPanel->SetMeasureToolEnabled(false);
   SyncViewportToolToggleState(false);
 }
 
 // Enables or disables the viewport measure tool and syncs toolbar toggle state.
 void MainWindow::OnViewportMeasureTool(wxCommandEvent &WXUNUSED(event)) {
-  const bool enableMeasure =
-      !(viewport2DPanel && viewport2DPanel->IsMeasureToolEnabled());
+  const bool measureEnabled =
+      (viewport2DPanel && viewport2DPanel->IsMeasureToolEnabled()) ||
+      (viewportPanel && viewportPanel->IsMeasureToolEnabled());
+  const bool enableMeasure = !measureEnabled;
   if (viewport2DPanel)
     viewport2DPanel->SetMeasureToolEnabled(enableMeasure);
+  if (viewportPanel)
+    viewportPanel->SetMeasureToolEnabled(enableMeasure);
   SyncViewportToolToggleState(enableMeasure);
 }
 

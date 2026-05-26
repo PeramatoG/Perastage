@@ -56,6 +56,8 @@
 #include "base_pass_framebuffer_cache.h"
 #include "gl_state_guard.h"
 #include "ui_render_size.h"
+#include "../viewer_common/measure_overlay_style.h"
+#include "units/units.h"
 #include <wx/dcclient.h>
 #include <wx/debug.h>
 #include <wx/event.h>
@@ -167,6 +169,29 @@ wxPoint ToFramebufferPoint(wxWindow* window, const wxPoint& logicalPoint) {
                        static_cast<double>(logicalPoint.x) * contentScale)),
                    static_cast<int>(std::lround(
                        static_cast<double>(logicalPoint.y) * contentScale)));
+}
+
+// Converts framebuffer pixel coordinates back to logical client-space pixels.
+wxPoint FromFramebufferPoint(wxWindow* window, const wxPoint& framebufferPoint) {
+    if (window == nullptr)
+        return framebufferPoint;
+    const double contentScale =
+        static_cast<double>(window->GetContentScaleFactor());
+    if (!std::isfinite(contentScale) || contentScale <= 0.0)
+        return framebufferPoint;
+    return wxPoint(static_cast<int>(std::lround(
+                       static_cast<double>(framebufferPoint.x) / contentScale)),
+                   static_cast<int>(std::lround(
+                       static_cast<double>(framebufferPoint.y) / contentScale)));
+}
+
+// Normalizes label rotation so text remains readable while staying parallel to the measure line.
+float NormalizeMeasureLabelAngleDegrees(float angleDegrees) {
+    while (angleDegrees > 90.0f)
+        angleDegrees -= 180.0f;
+    while (angleDegrees < -90.0f)
+        angleDegrees += 180.0f;
+    return angleDegrees;
 }
 
 Viewer3DRenderStyle ResolveRenderStyleFromPreferences() {
@@ -457,6 +482,29 @@ bool QueryHoverUuid(Viewer3DController& controller,
     return controller.GetHoverUuidAt(mouseX, mouseY, width, height,
                                      ToHoverPickTarget(target), outUuid,
                                      confirmDepth);
+}
+
+// Projects a world-space point to framebuffer-space pixels using current GL matrices.
+std::optional<std::array<float, 2>> ProjectWorldToFramebuffer(
+    const std::array<float, 3>& worldMeters) {
+    GLdouble model[16] = {};
+    GLdouble projection[16] = {};
+    GLint viewport[4] = {};
+    glGetDoublev(GL_MODELVIEW_MATRIX, model);
+    glGetDoublev(GL_PROJECTION_MATRIX, projection);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    GLdouble winX = 0.0;
+    GLdouble winY = 0.0;
+    GLdouble winZ = 0.0;
+    if (gluProject(static_cast<GLdouble>(worldMeters[0]),
+                   static_cast<GLdouble>(worldMeters[1]),
+                   static_cast<GLdouble>(worldMeters[2]), model, projection,
+                   viewport, &winX, &winY, &winZ) != GL_TRUE) {
+        return std::nullopt;
+    }
+    return std::array<float, 2>{static_cast<float>(winX),
+                                static_cast<float>(winY)};
 }
 
 bool QueryDragLabelUuid(Viewer3DController& controller,
@@ -872,6 +920,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         DrawSelectionRectangle(w, h);
     if (m_selectionDragArmed)
         DrawSelectionDragGizmo(renderSize);
+    DrawMeasureOverlay(renderSize);
 
     if (reusedBasePass)
         ++m_highlightRefreshesInCurrentWindow;
@@ -1103,6 +1152,156 @@ void Viewer3DPanel::ApplyCameraMatrices(const RenderSize& renderSize, double fov
     m_camera.Apply();
 }
 
+
+// Toggles the 3D measure tool mode and clears any pending measurement points.
+void Viewer3DPanel::SetMeasureToolEnabled(bool enabled)
+{
+    m_measureToolEnabled = enabled;
+    ResetMeasureState();
+    if (MainWindow::Instance())
+        MainWindow::Instance()->SyncViewportToolToggleState(enabled);
+    SetCursor(enabled ? wxCursor(wxCURSOR_CROSS) : wxCursor(wxCURSOR_ARROW));
+    Refresh();
+}
+
+// Resets the active and committed 3D measurement points while preserving enablement.
+void Viewer3DPanel::ResetMeasureState()
+{
+    m_measureHasAnchor = false;
+    m_measureAnchorUuid.clear();
+    m_measureHasCommittedTarget = false;
+    m_measureHasPreviewMousePos = false;
+}
+
+// Resolves the world-space center position of a selectable element.
+std::optional<std::array<float, 3>> Viewer3DPanel::ResolveMeasureWorldFromUuid(
+    HoverTargetTable target, const std::string& uuid) const
+{
+    const auto& scene = ConfigManager::Get().GetScene();
+    auto extract = [&](const auto& map) -> std::optional<std::array<float, 3>> {
+        auto it = map.find(uuid);
+        if (it == map.end())
+            return std::nullopt;
+        return std::array<float, 3>{
+            it->second.transform.o[0] / 1000.0f,
+            it->second.transform.o[1] / 1000.0f,
+            it->second.transform.o[2] / 1000.0f};
+    };
+    if (target == HoverTargetTable::Fixtures)
+        return extract(scene.fixtures);
+    if (target == HoverTargetTable::Trusses)
+        return extract(scene.trusses);
+    if (target == HoverTargetTable::SceneObjects)
+        return extract(scene.sceneObjects);
+    return std::nullopt;
+}
+
+// Draws the active 3D measurement line and distance text when two elements are fixed.
+void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
+{
+    if (!m_measureToolEnabled || !m_measureHasAnchor || !renderSize.IsValid())
+        return;
+
+    const auto anchorFramebuffer = ProjectWorldToFramebuffer(m_measureAnchorWorldMeters);
+    if (!anchorFramebuffer)
+        return;
+
+    float endX = (*anchorFramebuffer)[0];
+    float endY = (*anchorFramebuffer)[1];
+    bool showDistanceLabel = false;
+    std::array<float, 3> lineEndWorld = m_measureAnchorWorldMeters;
+    if (m_measureHasCommittedTarget) {
+        const auto targetFramebuffer =
+            ProjectWorldToFramebuffer(m_measureCommittedTargetWorldMeters);
+        if (!targetFramebuffer)
+            return;
+        endX = (*targetFramebuffer)[0];
+        endY = (*targetFramebuffer)[1];
+        lineEndWorld = m_measureCommittedTargetWorldMeters;
+        showDistanceLabel = true;
+    } else if (m_measureHasPreviewMousePos) {
+        const wxPoint previewFramebuffer =
+            ToFramebufferPoint(this, m_measurePreviewMousePos);
+        endX = static_cast<float>(previewFramebuffer.x);
+        endY = static_cast<float>(renderSize.height - previewFramebuffer.y);
+    } else {
+        return;
+    }
+
+    GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
+    if (depthEnabled)
+        glDisable(GL_DEPTH_TEST);
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0.0f, static_cast<float>(renderSize.width), 0.0f,
+            static_cast<float>(renderSize.height), -1.0f, 1.0f);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    const float x0 = (*anchorFramebuffer)[0];
+    const float y0 = (*anchorFramebuffer)[1];
+    const float x1 = endX;
+    const float y1 = endY;
+    viewer_common::DrawMeasureOverlayStyle(x0, y0, x1, y1,
+                                         Is2DDarkModeEnabled());
+
+    float vx = x1 - x0;
+    float vy = y1 - y0;
+    const float len = std::sqrt(vx * vx + vy * vy);
+    if (len < 1.0f) {
+        glPopMatrix();
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
+        glMatrixMode(GL_MODELVIEW);
+        if (depthEnabled)
+            glEnable(GL_DEPTH_TEST);
+        return;
+    }
+    vx /= len;
+    vy /= len;
+    const float nx = -vy;
+    const float ny = vx;
+    const float offset = 14.0f;
+    const float tx0 = x0 + nx * offset;
+    const float ty0 = y0 + ny * offset;
+    const float tx1 = x1 + nx * offset;
+    const float ty1 = y1 + ny * offset;
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    if (depthEnabled)
+        glEnable(GL_DEPTH_TEST);
+
+    if (!showDistanceLabel)
+        return;
+
+    const float dx = lineEndWorld[0] - m_measureAnchorWorldMeters[0];
+    const float dy = lineEndWorld[1] - m_measureAnchorWorldMeters[1];
+    const float dz = lineEndWorld[2] - m_measureAnchorWorldMeters[2];
+    const float distanceMeters = std::sqrt(dx * dx + dy * dy + dz * dz);
+    const auto distanceUnitSystem =
+        Units::ParseDistanceUnitSystem(ConfigManager::Get().GetValue("ui_distance_unit_system"));
+    const std::string distanceText =
+        Units::FormatDistanceFromMillimeters(static_cast<double>(distanceMeters) * 1000.0,
+                                             distanceUnitSystem,
+                                             Units::ValueFormatContext::Label) +
+        " " + Units::DistanceUnitSuffix(distanceUnitSystem);
+
+    const float labelX = ((tx0 + tx1) * 0.5f);
+    const float labelY =
+        static_cast<float>(renderSize.height) - ((ty0 + ty1) * 0.5f) - 10.0f;
+    const float labelAngleDegrees = NormalizeMeasureLabelAngleDegrees(
+        -std::atan2(ty1 - ty0, tx1 - tx0) * (180.0f / 3.14159265358979323846f));
+    std::vector<OverlayTextLabel> labels{
+        {labelX, labelY, distanceText, true, true, 20.0f, true, 0.95f, 0.1f,
+         0.1f, labelAngleDegrees}};
+    m_controller.DrawOverlayTextLabels(labels, Is2DDarkModeEnabled());
+    if (MainWindow::Instance() && MainWindow::Instance()->GetStatusBar())
+        MainWindow::Instance()->SetStatusText(wxString::FromUTF8("Measure: " + distanceText), 0);
+}
+
 // Handles mouse button press
 void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
 {
@@ -1216,10 +1415,39 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         std::string uuid;
         const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
         const HoverTargetTable activeTable = ResolveActiveHoverTargetTable();
-        const bool found = QueryHoverUuid(m_controller, activeTable, pickPos.x,
-                                          pickPos.y, w, h, uuid, true);
+        bool found = QueryHoverUuid(m_controller, activeTable, pickPos.x,
+                                    pickPos.y, w, h, uuid, true);
 
         ConfigManager& cfg = ConfigManager::Get();
+        if (m_measureToolEnabled) {
+            if (!found) {
+                found = QueryHoverUuid(m_controller, activeTable, pickPos.x,
+                                       pickPos.y, w, h, uuid, false);
+            }
+            if (!found && !m_hoverUuid.empty()) {
+                uuid = m_hoverUuid;
+                found = true;
+            }
+            if (found) {
+                const auto worldPos = ResolveMeasureWorldFromUuid(activeTable, uuid);
+                if (worldPos) {
+                    if (!m_measureHasAnchor || m_measureHasCommittedTarget) {
+                        ResetMeasureState();
+                        m_measureHasAnchor = true;
+                        m_measureAnchorUuid = uuid;
+                        m_measureAnchorWorldMeters = *worldPos;
+                    } else {
+                        m_measureHasCommittedTarget = true;
+                        m_measureCommittedTargetWorldMeters = *worldPos;
+                    }
+                    Refresh();
+                }
+            } else {
+                ResetMeasureState();
+                Refresh();
+            }
+            return;
+        }
         if (found)
         {
             bool additive = event.ShiftDown() || event.ControlDown();
@@ -1987,6 +2215,10 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
 void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 {
     wxPoint pos = event.GetPosition();
+    if (m_measureToolEnabled && m_measureHasAnchor && !m_measureHasCommittedTarget) {
+        m_measurePreviewMousePos = pos;
+        m_measureHasPreviewMousePos = true;
+    }
 
     if (m_rectSelecting && event.Dragging())
     {
@@ -2179,6 +2411,7 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
     Refresh();
 }
 
+// Handles keyboard shortcuts for viewport tools and camera actions.
 void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
 {
     if (!m_mouseInside && !HasFocus()) { event.Skip(); return; }
@@ -2192,6 +2425,17 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
     bool zoomTriggered = false;
 
     switch (event.GetKeyCode()) {
+        case WXK_ESCAPE:
+            if (m_measureToolEnabled) {
+                SetMeasureToolEnabled(false);
+                return;
+            }
+            event.Skip();
+            return;
+        case 'M':
+        case 'm':
+            SetMeasureToolEnabled(!m_measureToolEnabled);
+            return;
         case WXK_LEFT:
             if (shift)
                 m_camera.Pan(-0.1f, 0.0f);
@@ -2301,6 +2545,7 @@ void Viewer3DPanel::OnMouseEnter(wxMouseEvent& event)
 void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
 {
     m_mouseInside = false;
+    m_measureHasPreviewMousePos = false;
     m_hasHover = false;
     m_hoverUuid.clear();
     ++m_highlightRevision;
