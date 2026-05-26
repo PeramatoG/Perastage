@@ -2498,6 +2498,40 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
           } else {
             m_measureToolState.hasCommittedTarget = true;
             m_measureToolState.committedTargetWorld = *center;
+            float du = 0.0f;
+            float dv = 0.0f;
+            switch (m_view) {
+            case Viewer2DView::Top:
+            case Viewer2DView::Bottom:
+              du = m_measureToolState.committedTargetWorld[0] -
+                   m_measureToolState.anchorWorld[0];
+              dv = m_measureToolState.committedTargetWorld[1] -
+                   m_measureToolState.anchorWorld[1];
+              break;
+            case Viewer2DView::Front:
+              du = m_measureToolState.committedTargetWorld[0] -
+                   m_measureToolState.anchorWorld[0];
+              dv = m_measureToolState.committedTargetWorld[2] -
+                   m_measureToolState.anchorWorld[2];
+              break;
+            case Viewer2DView::Side:
+              du = m_measureToolState.committedTargetWorld[1] -
+                   m_measureToolState.anchorWorld[1];
+              dv = m_measureToolState.committedTargetWorld[2] -
+                   m_measureToolState.anchorWorld[2];
+              break;
+            }
+            const float distanceMeters = std::sqrt(du * du + dv * dv);
+            const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
+                ConfigManager::Get().GetValue("ui_distance_unit_system"));
+            const std::string distanceText = Units::FormatDistanceFromMillimeters(
+                static_cast<double>(distanceMeters) * 1000.0, distanceUnitSystem,
+                Units::ValueFormatContext::Label) +
+                " " + Units::DistanceUnitSuffix(distanceUnitSystem);
+            if (MainWindow::Instance() && MainWindow::Instance()->GetStatusBar()) {
+              MainWindow::Instance()->SetStatusText(
+                  wxString::FromUTF8("Measure: " + distanceText), 0);
+            }
           }
         }
       }

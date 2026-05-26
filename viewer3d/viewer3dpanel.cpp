@@ -1229,12 +1229,62 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
-    glLineWidth(2.0f);
-    glColor3f(1.0f, 1.0f, 0.2f);
+    const float x0 = (*anchorFramebuffer)[0];
+    const float y0 = (*anchorFramebuffer)[1];
+    const float x1 = endX;
+    const float y1 = endY;
+    float vx = x1 - x0;
+    float vy = y1 - y0;
+    const float len = std::sqrt(vx * vx + vy * vy);
+    if (len < 1.0f) {
+        glPopMatrix();
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
+        glMatrixMode(GL_MODELVIEW);
+        if (depthEnabled)
+            glEnable(GL_DEPTH_TEST);
+        return;
+    }
+    vx /= len;
+    vy /= len;
+    const float nx = -vy;
+    const float ny = vx;
+    const float offset = 14.0f;
+    const float tx0 = x0 + nx * offset;
+    const float ty0 = y0 + ny * offset;
+    const float tx1 = x1 + nx * offset;
+    const float ty1 = y1 + ny * offset;
+    const bool darkMode = Is2DDarkModeEnabled();
+    const float cr = darkMode ? 0.9f : 0.15f;
+    const float cg = darkMode ? 0.9f : 0.15f;
+    const float cb = darkMode ? 0.9f : 0.15f;
+
+    glColor3f(cr, cg, cb);
+    glLineWidth(1.0f);
     glBegin(GL_LINES);
-    glVertex2f((*anchorFramebuffer)[0], (*anchorFramebuffer)[1]);
-    glVertex2f(endX, endY);
+    glVertex2f(x0, y0); glVertex2f(tx0, ty0);
+    glVertex2f(x1, y1); glVertex2f(tx1, ty1);
     glEnd();
+    glLineWidth(2.0f);
+    glBegin(GL_LINES);
+    glVertex2f(tx0, ty0); glVertex2f(tx1, ty1);
+    glEnd();
+    const float arrowLength = 9.0f;
+    const float arrowWidth = 4.0f;
+    const auto drawArrow = [&](float ax, float ay, float dx, float dy) {
+        const float bx = ax - dx * arrowLength;
+        const float by = ay - dy * arrowLength;
+        const float lx = bx + (-dy) * arrowWidth;
+        const float ly = by + dx * arrowWidth;
+        const float rx = bx - (-dy) * arrowWidth;
+        const float ry = by - dx * arrowWidth;
+        glBegin(GL_LINES);
+        glVertex2f(ax, ay); glVertex2f(lx, ly);
+        glVertex2f(ax, ay); glVertex2f(rx, ry);
+        glEnd();
+    };
+    drawArrow(tx0, ty0, -vx, -vy);
+    drawArrow(tx1, ty1, vx, vy);
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
@@ -1270,6 +1320,8 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
         this, wxPoint(static_cast<int>((*framebufferMid)[0]),
                       renderSize.height - static_cast<int>((*framebufferMid)[1])));
     dc.DrawText(distanceText, wxPoint(clientPos.x + 6, clientPos.y - 10));
+    if (MainWindow::Instance() && MainWindow::Instance()->GetStatusBar())
+        MainWindow::Instance()->SetStatusText(wxString::FromUTF8("Measure: " + distanceText), 0);
 }
 
 // Handles mouse button press
