@@ -1286,7 +1286,7 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
     const float labelAngleDegrees =
         -std::atan2(ty1 - ty0, tx1 - tx0) * (180.0f / 3.14159265358979323846f);
     std::vector<OverlayTextLabel> labels{
-        {labelX, labelY, distanceText, true, true, 10.0f, true, 0.95f, 0.1f,
+        {labelX, labelY, distanceText, true, true, 20.0f, true, 0.95f, 0.1f,
          0.1f, labelAngleDegrees}};
     m_controller.DrawOverlayTextLabels(labels, Is2DDarkModeEnabled());
     if (MainWindow::Instance() && MainWindow::Instance()->GetStatusBar())
