@@ -1213,8 +1213,18 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
     ApplyLayoutModePerspective();
 }
 
+// Synchronizes table-backed edits into the scene while protecting against stale inactive-panel values.
 void MainWindow::SyncSceneData() {
   // Automatic sync should remain silent to avoid noisy save/close logs.
+  if (fixturePanel && !fixturePanel->IsActivePage())
+    fixturePanel->ReloadData();
+  if (trussPanel && !trussPanel->IsActivePage())
+    trussPanel->ReloadData();
+  if (hoistPanel && !hoistPanel->IsActivePage())
+    hoistPanel->ReloadData();
+  if (sceneObjPanel && !sceneObjPanel->IsActivePage())
+    sceneObjPanel->ReloadData();
+
   if (fixturePanel)
     fixturePanel->UpdateSceneData(false);
   if (trussPanel)
