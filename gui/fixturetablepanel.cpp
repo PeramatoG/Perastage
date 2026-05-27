@@ -1537,9 +1537,6 @@ void FixtureTablePanel::PropagateTypeValues(
 void FixtureTablePanel::UpdateSceneData(bool logChanges,
                                         SceneDataUpdateType updateType,
                                         const std::vector<unsigned int> *targetRows) {
-  // Refreshes fixture position cells from scene state when inactive to avoid stale transform overwrites during global sync.
-  if (!IsActivePage() && updateType == SceneDataUpdateType::kGeneral)
-    UpdatePositionValues(rowUuids);
 
   ConfigManagerSceneAdapter adapter;
   std::unordered_set<std::string> changedWeightPositions;

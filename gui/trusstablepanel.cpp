@@ -856,9 +856,6 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
     if (table)
         DataViewEditCommit::CommitPendingEdit(table);
 
-    // Refreshes truss position cells from scene state when the table is inactive to avoid stale transform overwrites.
-    if (!IsActivePage())
-        UpdatePositionValues(rowUuids);
 
     ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
     auto& scene = cfg.GetScene();

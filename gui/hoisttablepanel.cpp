@@ -931,24 +931,6 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
   (void)logChanges;
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
   auto &scene = cfg.GetScene();
-  // Refreshes support position cells from scene state when inactive to avoid stale transform overwrites.
-  if (!IsActivePage()) {
-    std::vector<PositionValueUpdate> updates;
-    updates.reserve(rowUuids.size());
-    for (const auto &uuid : rowUuids) {
-      auto it = scene.supports.find(uuid);
-      if (it == scene.supports.end())
-        continue;
-
-      const auto &positionMm = it->second.transform.o;
-      updates.push_back(PositionValueUpdate{
-          uuid, wxString::Format("%.3f", positionMm[0] / 1000.0f).ToStdString(),
-          wxString::Format("%.3f", positionMm[1] / 1000.0f).ToStdString(),
-          wxString::Format("%.3f", positionMm[2] / 1000.0f).ToStdString()});
-    }
-    ApplyPositionValueUpdates(updates);
-  }
-
   size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
   bool anyChanged = false;
   std::unordered_set<std::string> changedWeightPositions;

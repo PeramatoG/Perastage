@@ -782,9 +782,6 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
     if (table)
         DataViewEditCommit::CommitPendingEdit(table);
 
-    // Refreshes scene object position cells from scene state when inactive to avoid stale transform overwrites.
-    if (!IsActivePage())
-        UpdatePositionValues(rowUuids);
 
     (void)logChanges;
     ConfigManager& cfg = guiConfigServices->LegacyConfigManager();

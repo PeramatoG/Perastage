@@ -1213,25 +1213,21 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
     ApplyLayoutModePerspective();
 }
 
-// Synchronizes table-backed edits into the scene while protecting against stale inactive-panel values.
+// Synchronizes pending edits from the active table panel into the scene before save/close operations.
 void MainWindow::SyncSceneData() {
   // Automatic sync should remain silent to avoid noisy save/close logs.
-  if (fixturePanel && !fixturePanel->IsActivePage())
-    fixturePanel->ReloadData();
-  if (trussPanel && !trussPanel->IsActivePage())
-    trussPanel->ReloadData();
-  if (hoistPanel && !hoistPanel->IsActivePage())
-    hoistPanel->ReloadData();
-  if (sceneObjPanel && !sceneObjPanel->IsActivePage())
-    sceneObjPanel->ReloadData();
+  const bool fixtureActive = fixturePanel && fixturePanel->IsActivePage();
+  const bool trussActive = trussPanel && trussPanel->IsActivePage();
+  const bool hoistActive = hoistPanel && hoistPanel->IsActivePage();
+  const bool sceneObjActive = sceneObjPanel && sceneObjPanel->IsActivePage();
 
-  if (fixturePanel)
+  if (fixtureActive)
     fixturePanel->UpdateSceneData(false);
-  if (trussPanel)
+  if (trussActive)
     trussPanel->UpdateSceneData(false);
-  if (hoistPanel)
+  if (hoistActive)
     hoistPanel->UpdateSceneData(false);
-  if (sceneObjPanel)
+  if (sceneObjActive)
     sceneObjPanel->UpdateSceneData(false);
 
   PersistFixtureTypeAutoColors(
