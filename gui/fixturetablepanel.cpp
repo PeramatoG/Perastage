@@ -1537,6 +1537,7 @@ void FixtureTablePanel::PropagateTypeValues(
 void FixtureTablePanel::UpdateSceneData(bool logChanges,
                                         SceneDataUpdateType updateType,
                                         const std::vector<unsigned int> *targetRows) {
+
   ConfigManagerSceneAdapter adapter;
   std::unordered_set<std::string> changedWeightPositions;
 

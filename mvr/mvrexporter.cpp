@@ -2086,7 +2086,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         }
       }
     }
-    const Matrix matrixToWrite = t.hasLocalTransform ? t.localTransform : t.transform;
+    const bool writeWorldTransform = t.parentGroupUuid.empty();
+    const Matrix matrixToWrite =
+        writeWorldTransform ? t.transform
+                            : (t.hasLocalTransform ? t.localTransform
+                                                   : t.transform);
     std::string mstr = MatrixUtils::FormatMatrix(matrixToWrite);
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(mstr.c_str());
