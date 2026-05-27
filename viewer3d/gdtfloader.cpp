@@ -81,6 +81,7 @@ bool TryParseFloat(const std::string& text, float& out)
     return false;
 }
 
+// Parses a trimmed integer token and succeeds only when the whole token is numeric.
 bool TryParseInt(std::string_view text, int& out)
 {
     if (text.empty())
@@ -217,6 +218,7 @@ struct MissingModelLog
 
 static bool ExtractZip(const std::string& zipPath, const std::string& destDir);
 
+// Returns a lowercase copy of the provided string for case-insensitive comparisons.
 static std::string ToLower(const std::string& s)
 {
     std::string t = s;
@@ -224,6 +226,7 @@ static std::string ToLower(const std::string& s)
     return t;
 }
 
+// Checks whether a path ends with the requested extension using case-insensitive matching.
 static bool HasExtension(const fs::path& p, const std::string& ext)
 {
     return ToLower(p.extension().string()) == ToLower(ext);
@@ -271,46 +274,68 @@ static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
     }
 }
 
+// Locates a model file using spec-compliant preferred folders and cached recursive fallback lookups.
 static std::string FindModelFile(const std::string& baseDir,
                                  const std::string& fileName)
 {
-    fs::path modelsDir = fs::path(baseDir) / "models";
+    const fs::path modelsDir = fs::u8path(baseDir) / "models";
     if (!fs::exists(modelsDir))
         return {};
 
-    fs::path namePath = fileName;
-    std::string stem = namePath.stem().string();
-    std::string ext = ToLower(namePath.extension().string());
+    const fs::path requested = fs::u8path(fileName);
+    const std::string requestedName = requested.filename().string();
+    const bool hasExtension = requested.has_extension();
 
-    auto tryExt = [&](const std::string& e) -> std::string {
-        fs::path d = modelsDir / e.substr(1) / (stem + e);
-        if(fs::exists(d))
-            return d.string();
+    auto tryCandidate = [&](const fs::path& candidate) -> std::string {
+        if (fs::exists(candidate) && fs::is_regular_file(candidate))
+            return candidate.string();
         return {};
     };
 
-    if(!ext.empty()) {
-        std::string res = tryExt(ext);
-        if(!res.empty()) return res;
+    if (hasExtension) {
+        const fs::path direct = modelsDir / requested;
+        if (std::string resolved = tryCandidate(direct); !resolved.empty())
+            return resolved;
     } else {
-        std::string res = tryExt(".3ds");
-        if(!res.empty()) return res;
-        res = tryExt(".glb");
-        if(!res.empty()) return res;
-    }
-
-    for (auto& p : fs::recursive_directory_iterator(modelsDir)) {
-        if (!p.is_regular_file())
-            continue;
-        if (p.path().stem() != stem)
-            continue;
-        if(ext.empty()) {
-            if(HasExtension(p.path(), ".3ds") || HasExtension(p.path(), ".glb"))
-                return p.path().string();
-        } else if(HasExtension(p.path(), ext)) {
-            return p.path().string();
+        const std::vector<std::pair<std::string, std::string>> preferredFolders = {
+            {"gltf_low", ".glb"},
+            {"gltf", ".glb"},
+            {"gltf_high", ".glb"},
+            {"glb", ".glb"},
+            {"3ds_low", ".3ds"},
+            {"3ds", ".3ds"},
+            {"3ds_high", ".3ds"},
+        };
+        for (const auto& [folder, extension] : preferredFolders) {
+            const fs::path candidate = modelsDir / folder / (requestedName + extension);
+            if (std::string resolved = tryCandidate(candidate); !resolved.empty())
+                return resolved;
         }
     }
+
+    static std::unordered_map<std::string, std::vector<fs::path>> modelFileIndexCache;
+    auto indexIt = modelFileIndexCache.find(modelsDir.string());
+    if (indexIt == modelFileIndexCache.end()) {
+        std::vector<fs::path> indexedPaths;
+        for (const auto& entry : fs::recursive_directory_iterator(modelsDir)) {
+            if (entry.is_regular_file())
+                indexedPaths.push_back(entry.path());
+        }
+        indexIt = modelFileIndexCache.emplace(modelsDir.string(), std::move(indexedPaths)).first;
+    }
+
+    for (const fs::path& path : indexIt->second) {
+        if (hasExtension) {
+            if (ToLower(path.filename().string()) == ToLower(requestedName))
+                return path.string();
+            continue;
+        }
+        if (ToLower(path.stem().string()) != ToLower(requestedName))
+            continue;
+        if (HasExtension(path, ".glb") || HasExtension(path, ".3ds"))
+            return path.string();
+    }
+
     return {};
 }
 
@@ -1232,10 +1257,27 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                         bool alreadyFailed = failedModelLoads && failedModelLoads->find(path) != failedModelLoads->end();
                         if (!alreadyFailed) {
                             bool loaded = false;
-                            if (HasExtension(path, ".3ds"))
+                            bool tried3ds = false;
+                            bool triedGlb = false;
+                            const fs::path loadedPath = fs::u8path(path);
+                            std::string fallbackGlbPath;
+
+                            if (HasExtension(loadedPath, ".3ds")) {
+                                tried3ds = true;
                                 loaded = Load3DS(path, mesh, false);
-                            else if (HasExtension(path, ".glb"))
+                                if (!loaded) {
+                                    fallbackGlbPath = FindModelFile(baseDir, loadedPath.stem().string());
+                                    if (!fallbackGlbPath.empty() && HasExtension(fs::u8path(fallbackGlbPath), ".glb")) {
+                                        triedGlb = true;
+                                        loaded = LoadGLB(fallbackGlbPath, mesh);
+                                        if (loaded)
+                                            path = fallbackGlbPath;
+                                    }
+                                }
+                            } else if (HasExtension(loadedPath, ".glb")) {
+                                triedGlb = true;
                                 loaded = LoadGLB(path, mesh);
+                            }
 
                             if (loaded) {
                                 ApplyModelDimensions(mesh, modelInfo);
@@ -1246,7 +1288,15 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                                     shouldLog = failedModelLoads->insert(path).second;
 
                                 if (shouldLog && ConsolePanel::Instance()) {
-                                    wxString msg = wxString::Format("GDTF: failed to load model %s", wxString::FromUTF8(path));
+                                    wxString msg;
+                                    if (tried3ds && triedGlb) {
+                                        msg = wxString::Format(
+                                            "GDTF: failed to load model %s and fallback %s",
+                                            wxString::FromUTF8(path),
+                                            wxString::FromUTF8(fallbackGlbPath));
+                                    } else {
+                                        msg = wxString::Format("GDTF: failed to load model %s", wxString::FromUTF8(path));
+                                    }
                                     ConsolePanel::Instance()->AppendMessage(msg);
                                 }
                             }
