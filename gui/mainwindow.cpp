@@ -1215,21 +1215,7 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
 
 // Synchronizes pending edits from the active table panel into the scene before save/close operations.
 void MainWindow::SyncSceneData() {
-  // Automatic sync should remain silent to avoid noisy save/close logs.
-  const bool fixtureActive = fixturePanel && fixturePanel->IsActivePage();
-  const bool trussActive = trussPanel && trussPanel->IsActivePage();
-  const bool hoistActive = hoistPanel && hoistPanel->IsActivePage();
-  const bool sceneObjActive = sceneObjPanel && sceneObjPanel->IsActivePage();
-
-  if (fixtureActive)
-    fixturePanel->UpdateSceneData(false);
-  if (trussActive)
-    trussPanel->UpdateSceneData(false);
-  if (hoistActive)
-    hoistPanel->UpdateSceneData(false);
-  if (sceneObjActive)
-    sceneObjPanel->UpdateSceneData(false);
-
+  // Save uses scene data as source of truth; avoid table-wide resyncs that can overwrite cross-table transforms.
   PersistFixtureTypeAutoColors(
       GetDefaultGuiConfigServices().LegacyConfigManager());
 }
