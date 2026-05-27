@@ -170,7 +170,8 @@ static std::optional<GLBFile> ParseGLBFile(const std::string& path, std::string&
     return result;
 }
 
-bool LoadGLB(const std::string& path, Mesh& outMesh)
+// Loads a GLB file into a mesh by concatenating all available primitives across scene nodes.
+bool LoadGLB(const std::string& path, Mesh& outMesh, std::string* error)
 {
     outMesh.vertices.clear();
     outMesh.indices.clear();
@@ -184,14 +185,18 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
                                  wxString::FromUTF8(path),
                                  wxString::FromUTF8(parseError)));
         }
+        if (error)
+            *error = parseError;
         return false;
     }
 
     const json& doc = glbFile->doc;
     const auto& binData = glbFile->binData;
 
-    if(!doc.contains("meshes"))
+    if(!doc.contains("meshes")) {
+        if (error) *error = "no meshes in glTF document";
         return false;
+    }
 
     auto readInt = [](const json& j, int& out) {
         if(!j.is_number_integer())
@@ -258,7 +263,8 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
         size_t bufferIdx = 0;
         if(view.contains("buffer") && !readSize(view["buffer"], bufferIdx))
             return false;
-        if(bufferIdx != 0) return false; // only single embedded buffer supported
+        if(!doc.contains("buffers") || !doc["buffers"].is_array() || bufferIdx >= doc["buffers"].size())
+            return false;
         return true;
     };
 
@@ -670,6 +676,8 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
 
     if (ok)
         ComputeNormals(outMesh);
+    if (!ok && error)
+        *error = "unsupported glTF structure or missing positions/indices";
 
     if(kLogGlbMessages && ConsolePanel::Instance()) {
         wxString msg;

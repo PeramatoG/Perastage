@@ -275,6 +275,24 @@ static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
 }
 
 // Locates a model file using spec-compliant preferred folders and cached recursive fallback lookups.
+
+// Builds a box primitive scaled from model dimensions using visible defaults for missing size components.
+static bool BuildDimensionFallbackMesh(const GdtfModelInfo& modelInfo, Mesh& mesh)
+{
+    GdtfModelInfo adjusted = modelInfo;
+    constexpr float kDefaultMeters = 0.1f;
+    if (adjusted.length <= 0.0f)
+        adjusted.length = kDefaultMeters;
+    if (adjusted.width <= 0.0f)
+        adjusted.width = kDefaultMeters;
+    if (adjusted.height <= 0.0f)
+        adjusted.height = kDefaultMeters;
+
+    if (!BuildPrimitiveMesh("Cube", mesh))
+        return false;
+    ApplyModelDimensions(mesh, adjusted);
+    return true;
+}
 static std::string FindModelFile(const std::string& baseDir,
                                  const std::string& fileName)
 {
@@ -1264,19 +1282,22 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
 
                             if (HasExtension(loadedPath, ".3ds")) {
                                 tried3ds = true;
-                                loaded = Load3DS(path, mesh, false);
+                                std::string loadError3ds;
+                                loaded = Load3DS(path, mesh, false, &loadError3ds);
                                 if (!loaded) {
                                     fallbackGlbPath = FindModelFile(baseDir, loadedPath.stem().string());
                                     if (!fallbackGlbPath.empty() && HasExtension(fs::u8path(fallbackGlbPath), ".glb")) {
                                         triedGlb = true;
-                                        loaded = LoadGLB(fallbackGlbPath, mesh);
+                                        std::string loadErrorGlbFallback;
+                                        loaded = LoadGLB(fallbackGlbPath, mesh, &loadErrorGlbFallback);
                                         if (loaded)
                                             path = fallbackGlbPath;
                                     }
                                 }
                             } else if (HasExtension(loadedPath, ".glb")) {
                                 triedGlb = true;
-                                loaded = LoadGLB(path, mesh);
+                                std::string loadErrorGlb;
+                                loaded = LoadGLB(path, mesh, &loadErrorGlb);
                             }
 
                             if (loaded) {
@@ -1291,11 +1312,11 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                                     wxString msg;
                                     if (tried3ds && triedGlb) {
                                         msg = wxString::Format(
-                                            "GDTF: failed to load model %s and fallback %s",
+                                            "GDTF: failed to load model %s and fallback %s (unsupported or empty geometry)",
                                             wxString::FromUTF8(path),
                                             wxString::FromUTF8(fallbackGlbPath));
                                     } else {
-                                        msg = wxString::Format("GDTF: failed to load model %s", wxString::FromUTF8(path));
+                                        msg = wxString::Format("GDTF: failed to load model %s (unsupported or empty geometry)", wxString::FromUTF8(path));
                                     }
                                     ConsolePanel::Instance()->AppendMessage(msg);
                                 }
@@ -1319,9 +1340,27 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             }
 
             if (!haveMesh && IsPrimitiveTypeDefined(modelInfo.primitiveType)) {
+                GdtfModelInfo adjusted = modelInfo;
+                constexpr float kDefaultMeters = 0.1f;
+                if (adjusted.length <= 0.0f)
+                    adjusted.length = kDefaultMeters;
+                if (adjusted.width <= 0.0f)
+                    adjusted.width = kDefaultMeters;
+                if (adjusted.height <= 0.0f)
+                    adjusted.height = kDefaultMeters;
                 if (BuildPrimitiveMesh(modelInfo.primitiveType, mesh)) {
-                    ApplyModelDimensions(mesh, modelInfo);
+                    ApplyModelDimensions(mesh, adjusted);
                     haveMesh = true;
+                    if (ConsolePanel::Instance())
+                        ConsolePanel::Instance()->AppendMessage(wxString::Format("GDTF: using primitive fallback for model %s", wxString::FromUTF8(modelInfo.file)));
+                }
+            }
+
+            if (!haveMesh && (modelInfo.length > 0.0f || modelInfo.width > 0.0f || modelInfo.height > 0.0f)) {
+                if (BuildDimensionFallbackMesh(modelInfo, mesh)) {
+                    haveMesh = true;
+                    if (ConsolePanel::Instance())
+                        ConsolePanel::Instance()->AppendMessage(wxString::Format("GDTF: using dimension box fallback for model %s", wxString::FromUTF8(modelInfo.file)));
                 }
             }
 

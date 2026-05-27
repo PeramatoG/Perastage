@@ -416,14 +416,17 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
 }
 
 // Loads mesh/object data from a 3DS file, with optional local transform application.
-bool Load3DS(const std::string& path, Mesh& outMesh, bool applyObjectLocalTransform)
+// Loads a 3DS file into a mesh and reports failure details when geometry cannot be produced.
+bool Load3DS(const std::string& path, Mesh& outMesh, bool applyObjectLocalTransform, std::string* error)
 {
     std::ifstream file(path, std::ios::binary);
-    if(!file.is_open())
+    if(!file.is_open()) {
+        if (error) *error = "cannot open file";
         return false;
+    }
 
-    Chunk root; if(!readChunk(file, root)) return false;
-    if(root.id != 0x4D4D) return false;
+    Chunk root; if(!readChunk(file, root)) { if (error) *error = "invalid 3DS root chunk"; return false; }
+    if(root.id != 0x4D4D) { if (error) *error = "unexpected 3DS root chunk id"; return false; }
     long rootEnd = root.length;
 
     std::unordered_map<std::string, std::array<float, 3>> materials;
@@ -504,6 +507,8 @@ bool Load3DS(const std::string& path, Mesh& outMesh, bool applyObjectLocalTransf
     }
 
     bool ok = !outMesh.vertices.empty() && !outMesh.indices.empty();
+    if (!ok && error)
+        *error = "no vertices or faces found";
     if (ok && colorAccum.weight > 0.0) {
         outMesh.materialBaseColor = {
             static_cast<float>(colorAccum.r / colorAccum.weight),

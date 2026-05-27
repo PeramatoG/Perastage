@@ -20,4 +20,4 @@
 #include "mesh.h"
 
 // Loads a 3DS mesh and optionally applies per-object local pivot/basis transforms.
-bool Load3DS(const std::string& path, Mesh& outMesh, bool applyObjectLocalTransform = true);
+bool Load3DS(const std::string& path, Mesh& outMesh, bool applyObjectLocalTransform = true, std::string* error = nullptr);
