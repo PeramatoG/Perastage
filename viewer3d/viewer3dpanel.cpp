@@ -1190,7 +1190,9 @@ std::optional<std::array<float, 3>> Viewer3DPanel::ResolveMeasureWorldFromUuid(
     if (target == HoverTargetTable::Fixtures)
         return extract(scene.fixtures);
     if (target == HoverTargetTable::Trusses) {
-        if (const auto* trussBounds = m_controller.FindTrussBounds(uuid)) {
+        const auto& selectionContext =
+            static_cast<const ISelectionContext&>(m_controller);
+        if (const auto* trussBounds = selectionContext.FindTrussBounds(uuid)) {
             return std::array<float, 3>{
                 0.5f * (trussBounds->min[0] + trussBounds->max[0]),
                 0.5f * (trussBounds->min[1] + trussBounds->max[1]),
