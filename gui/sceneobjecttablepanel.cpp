@@ -781,6 +781,11 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
     // Ensure in-place cell editors commit pending values before reading table rows.
     if (table)
         DataViewEditCommit::CommitPendingEdit(table);
+
+    // Refreshes scene object position cells from scene state when inactive to avoid stale transform overwrites.
+    if (!IsActivePage())
+        UpdatePositionValues(rowUuids);
+
     (void)logChanges;
     ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
     auto& scene = cfg.GetScene();
