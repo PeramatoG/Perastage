@@ -22,4 +22,4 @@
 // Minimal loader for GLB (glTF 2.0 binary) files. The loader parses all nodes
 // and primitives of the file and applies the node transforms so that compound
 // models are assembled correctly.
-bool LoadGLB(const std::string& path, Mesh& outMesh);
+bool LoadGLB(const std::string& path, Mesh& outMesh, std::string* error = nullptr);
