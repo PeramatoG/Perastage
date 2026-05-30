@@ -48,4 +48,6 @@ public:
   virtual std::array<int, 4> &GetVisibleSetViewport() const = 0;
   virtual std::array<double, 16> &GetVisibleSetModel() const = 0;
   virtual std::array<double, 16> &GetVisibleSetProjection() const = 0;
+  virtual bool &GetVisibleSetIs2DViewer() const = 0;
+  virtual Viewer2DView &GetVisibleSetView() const = 0;
 };

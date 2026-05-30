@@ -225,6 +225,17 @@ struct PreparedFixtureLabelLayout {
   std::optional<FixtureLayoutCacheEntry> transientLayout;
 };
 
+struct DrawableFixtureLabelLayout {
+  const PreparedFixtureLabelLayout *prepared = nullptr;
+  std::vector<LabelLine2D> lines;
+  int x = 0;
+  int y = 0;
+  double wx = 0.0;
+  double wy = 0.0;
+  double wz = 0.0;
+  double area = 0.0;
+};
+
 FixtureLayoutKey BuildFixtureLayoutKey(
     const std::string &uuid, const Fixture &fixture,
     const viewer2d::FixtureLabelOverride *overrideSettings,
@@ -359,6 +370,70 @@ bool ShouldCullByScreenRect(const ScreenRect &rect, const ProjectionContext &ctx
   const double screenHeight = rect.maxY - rect.minY;
   return screenWidth < static_cast<double>(minPixels) &&
          screenHeight < static_cast<double>(minPixels);
+}
+
+
+// Returns whether a screen rectangle contains measured finite extents.
+bool IsScreenRectMeasured(const ScreenRect &rect) {
+  return rect.minX <= rect.maxX && rect.minY <= rect.maxY;
+}
+
+// Returns whether a label rectangle is completely outside the viewport.
+bool ShouldCullLabelByScreenRect(const ScreenRect &rect,
+                                 const ProjectionContext &ctx) {
+  return rect.maxX < 0.0 || rect.minX > static_cast<double>(ctx.width) ||
+         rect.maxY < 0.0 || rect.minY > static_cast<double>(ctx.height);
+}
+
+// Measures the on-screen rectangle occupied by the prepared 2D label lines.
+ScreenRect MeasureLabelLinesScreenRect(NVGcontext *vg,
+                                       const std::vector<LabelLine2D> &lines,
+                                       int x, int y,
+                                       int horizontalAlign = NVG_ALIGN_CENTER) {
+  ScreenRect rect;
+  if (!vg || lines.empty())
+    return rect;
+
+  constexpr float lineSpacing = 2.0f;
+  std::vector<float> heights(lines.size());
+  for (size_t i = 0; i < lines.size(); ++i) {
+    nvgFontSize(vg, lines[i].size);
+    nvgFontFaceId(vg, lines[i].font);
+    nvgTextAlign(vg, horizontalAlign | NVG_ALIGN_TOP);
+    float bounds[4];
+    nvgTextBounds(vg, 0.f, 0.f, lines[i].text.c_str(), nullptr, bounds);
+    heights[i] = bounds[3] - bounds[1];
+  }
+
+  float totalHeight = 0.0f;
+  for (size_t i = 0; i < heights.size(); ++i) {
+    totalHeight += heights[i];
+    if (i + 1 < heights.size())
+      totalHeight += lineSpacing;
+  }
+
+  float currentY = static_cast<float>(y) - totalHeight * 0.5f;
+  for (size_t i = 0; i < lines.size(); ++i) {
+    nvgFontSize(vg, lines[i].size);
+    nvgFontFaceId(vg, lines[i].font);
+    nvgTextAlign(vg, horizontalAlign | NVG_ALIGN_TOP);
+    float bounds[4];
+    nvgTextBounds(vg, static_cast<float>(x), currentY, lines[i].text.c_str(),
+                  nullptr, bounds);
+    rect.minX = std::min(rect.minX, static_cast<double>(bounds[0] - 1.0f));
+    rect.minY = std::min(rect.minY, static_cast<double>(bounds[1] - 1.0f));
+    rect.maxX = std::max(rect.maxX, static_cast<double>(bounds[2] + 1.0f));
+    rect.maxY = std::max(rect.maxY, static_cast<double>(bounds[3] + 1.0f));
+    currentY += heights[i] + lineSpacing;
+  }
+
+  return rect;
+}
+
+// Computes the pixel area covered by a measured screen rectangle.
+double ComputeScreenRectArea(const ScreenRect &rect) {
+  return std::max(0.0, rect.maxX - rect.minX) *
+         std::max(0.0, rect.maxY - rect.minY);
 }
 
 bool ProjectLabelAnchor(const ProjectionContext &ctx, double wx, double wy,
@@ -667,6 +742,7 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
   }
 }
 
+// Draws all fixture labels for the 2D viewer while culling by label bounds.
 void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
                                              Viewer2DView view, float zoom,
                                              bool interactiveLabelMode) {
@@ -685,7 +761,6 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
       GetCachedFixtureLabelOverrides(layoutCacheState, cfg);
 
   const CullingSettings culling = GetCullingSettings(cfg);
-  const float minLabelPixels = culling.minPixels2D;
   const bool useLabelOptimizations =
       !interactiveLabelMode &&
       (cfg.GetFloat("label_optimizations_enabled") >= 0.5f);
@@ -712,23 +787,7 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
         !cfg.IsFixtureTypeVisible(f.typeName))
       continue;
 
-    auto bit = m_controller.GetFixtureBoundsMap().find(uuid);
-    if (useLabelOptimizations && culling.enabled &&
-        bit != m_controller.GetFixtureBoundsMap().end()) {
-      ScreenRect rect;
-      bool anyDepthVisible = false;
-      if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max, projection,
-                                      rect, anyDepthVisible) ||
-          !anyDepthVisible ||
-          ShouldCullByScreenRect(rect, projection, minLabelPixels)) {
-        continue;
-      }
-      const double area = std::max(0.0, rect.maxX - rect.minX) *
-                          std::max(0.0, rect.maxY - rect.minY);
-      candidates.push_back({&uuid, &f, area});
-    } else {
-      candidates.push_back({&uuid, &f, 0.0});
-    }
+    candidates.push_back({&uuid, &f, 0.0});
   }
 
   for (auto it = layoutCacheState.fixtureLayoutByUuid.begin();
@@ -738,15 +797,6 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
       continue;
     }
     ++it;
-  }
-
-  if (useLabelOptimizations && maxFixtureLabels > 0 &&
-      static_cast<int>(candidates.size()) > maxFixtureLabels) {
-    std::partial_sort(candidates.begin(), candidates.begin() + maxFixtureLabels,
-                      candidates.end(), [](const auto &a, const auto &b) {
-                        return a.area > b.area;
-                      });
-    candidates.resize(maxFixtureLabels);
   }
 
   std::vector<PreparedFixtureLabelLayout> preparedLayouts;
@@ -802,7 +852,10 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     preparedLayouts.push_back(std::move(prepared));
   }
 
-  // Phase 2: project and draw using the current frame state.
+  std::vector<DrawableFixtureLabelLayout> drawableLayouts;
+  drawableLayouts.reserve(preparedLayouts.size());
+
+  // Phase 2: project labels and cull by label bounds instead of fixture bounds.
   for (const auto &prepared : preparedLayouts) {
     const std::string &uuid = *prepared.uuid;
     const Fixture &f = *prepared.fixture;
@@ -831,6 +884,46 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
                                : m_controller.GetLabelFont());
     if (lines.empty())
       continue;
+
+    ScreenRect labelRect = MeasureLabelLinesScreenRect(
+        m_controller.GetNanoVGContext(), lines, x, y, NVG_ALIGN_CENTER);
+    if (useLabelOptimizations && culling.enabled &&
+        IsScreenRectMeasured(labelRect) &&
+        ShouldCullLabelByScreenRect(labelRect, projection)) {
+      continue;
+    }
+
+    DrawableFixtureLabelLayout drawable;
+    drawable.prepared = &prepared;
+    drawable.lines = std::move(lines);
+    drawable.x = x;
+    drawable.y = y;
+    drawable.wx = wx;
+    drawable.wy = wy;
+    drawable.wz = wz;
+    drawable.area = ComputeScreenRectArea(labelRect);
+    drawableLayouts.push_back(std::move(drawable));
+  }
+
+  if (useLabelOptimizations && maxFixtureLabels > 0 &&
+      static_cast<int>(drawableLayouts.size()) > maxFixtureLabels) {
+    std::partial_sort(drawableLayouts.begin(),
+                      drawableLayouts.begin() + maxFixtureLabels,
+                      drawableLayouts.end(), [](const auto &a, const auto &b) {
+                        return a.area > b.area;
+                      });
+    drawableLayouts.resize(maxFixtureLabels);
+  }
+
+  // Phase 3: draw and capture labels that remain visible in the current frame.
+  for (const auto &drawable : drawableLayouts) {
+    const std::string &uuid = *drawable.prepared->uuid;
+    const auto &lines = drawable.lines;
+    const int x = drawable.x;
+    const int y = drawable.y;
+    const double wx = drawable.wx;
+    const double wy = drawable.wy;
+    const double wz = drawable.wz;
 
     if (!interactiveLabelMode && m_controller.GetCaptureCanvas()) {
       std::string labelSourceKey = "label:" + uuid;

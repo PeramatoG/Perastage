@@ -27,6 +27,7 @@
 
 namespace {
 
+// Returns whether a layer remains visible after applying hidden-layer filters.
 bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
                           const std::string &layer) {
   if (layer.empty())
@@ -34,21 +35,25 @@ bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
   return hidden.find(layer) == hidden.end();
 }
 
+// Captures the current hidden-layer configuration for visibility filtering.
 std::unordered_set<std::string> SnapshotHiddenLayers(const ConfigManager &cfg) {
   return cfg.GetHiddenLayers();
 }
 
 
+// Normalizes path separators for stable resource cache lookups.
 static std::string NormalizePath(const std::string &pathRef) {
   std::string out = pathRef;
   std::replace(out.begin(), out.end(), '\\', '/');
   return out;
 }
 
+// Resolves the normalized cache key used by model and fixture resource maps.
 static std::string ResolveCacheKey(const std::string &pathRef) {
   return NormalizePath(pathRef);
 }
 
+// Transforms a local point into world space using the supplied matrix.
 static std::array<float, 3> TransformPoint(const Matrix &m,
                                            const std::array<float, 3> &p) {
   return {m.u[0] * p[0] + m.v[0] * p[1] + m.w[0] * p[2] + m.o[0],
@@ -69,6 +74,7 @@ struct CullingSettings {
   float minPixels2D = 1.0f;
 };
 
+// Reads culling feature flags and pixel thresholds from configuration.
 static CullingSettings GetCullingSettings3D(const ConfigManager &cfg) {
   CullingSettings s{};
   s.enabled = cfg.GetFloat("render_culling_enabled") >= 0.5f;
@@ -77,6 +83,7 @@ static CullingSettings GetCullingSettings3D(const ConfigManager &cfg) {
   return s;
 }
 
+// Projects a 3D bounding box into the active viewport and reports its screen rectangle.
 static bool ProjectBoundingBoxToScreen(const std::array<float, 3> &bbMin,
                                        const std::array<float, 3> &bbMax,
                                        int viewportHeight,
@@ -117,6 +124,7 @@ static bool ProjectBoundingBoxToScreen(const std::array<float, 3> &bbMin,
   return projected;
 }
 
+// Returns whether a projected screen rectangle is fully outside or below pixel size.
 static bool ShouldCullByScreenRect(const ScreenRect &rect, int width,
                                    int height, float minPixels) {
   if (rect.maxX < 0.0 || rect.minX > static_cast<double>(width) ||
@@ -130,8 +138,34 @@ static bool ShouldCullByScreenRect(const ScreenRect &rect, int width,
          screenHeight < static_cast<double>(minPixels);
 }
 
+// Returns whether the projected bounds can be safely culled for the current view.
+static bool ShouldCullProjectedBounds(
+    const IVisibilityContext::BoundingBox &bounds,
+    const IVisibilityContext::ViewFrustumSnapshot &frustum, float minPixels,
+    bool &outProjectionSucceeded) {
+  if (frustum.viewport[2] <= 0 || frustum.viewport[3] <= 0) {
+    outProjectionSucceeded = false;
+    return false;
+  }
+
+  ScreenRect rect;
+  bool anyDepthVisible = false;
+  outProjectionSucceeded = ProjectBoundingBoxToScreen(
+      bounds.min, bounds.max, frustum.viewport[3], frustum.model,
+      frustum.projection, frustum.viewport, rect, anyDepthVisible);
+  if (!outProjectionSucceeded)
+    return false;
+
+  if (!frustum.is2DViewer && !anyDepthVisible)
+    return true;
+
+  return ShouldCullByScreenRect(rect, frustum.viewport[2], frustum.viewport[3],
+                                minPixels);
+}
+
 } // namespace
 
+// Computes or retrieves world-space bounds for the requested visible item.
 bool VisibilitySystem::EnsureBoundsComputed(
     const std::string &uuid, IVisibilityContext::ItemType type,
     const std::unordered_set<std::string> &hiddenLayers) {
@@ -475,6 +509,7 @@ bool VisibilitySystem::EnsureBoundsComputed(
   return true;
 }
 
+// Builds layer- and type-filtered visibility candidates from sorted scene lists.
 bool VisibilitySystem::TryBuildLayerVisibleCandidates(
     const std::unordered_set<std::string> &hiddenLayers,
     IVisibilityContext::VisibleSet &out) const {
@@ -527,6 +562,7 @@ bool VisibilitySystem::TryBuildLayerVisibleCandidates(
   return true;
 }
 
+// Builds the final visible set using 3D or 2D projected-bounds culling.
 bool VisibilitySystem::TryBuildVisibleSet(
     const IVisibilityContext::ViewFrustumSnapshot &frustum,
     bool useFrustumCulling, float minPixels,
@@ -540,17 +576,10 @@ bool VisibilitySystem::TryBuildVisibleSet(
   for (const auto &uuid : layerVisibleCandidates.objectUuids) {
     if (useFrustumCulling) {
       auto bit = m_controller.GetObjectBounds().find(uuid);
-      if (bit == m_controller.GetObjectBounds().end())
-        continue;
-      ScreenRect rect;
-      bool anyDepthVisible = false;
-      if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max,
-                                      frustum.viewport[3], frustum.model,
-                                      frustum.projection, frustum.viewport, rect,
-                                      anyDepthVisible) ||
-          !anyDepthVisible ||
-          ShouldCullByScreenRect(rect, frustum.viewport[2], frustum.viewport[3],
-                                 minPixels)) {
+      bool projected = false;
+      if (bit != m_controller.GetObjectBounds().end() &&
+          ShouldCullProjectedBounds(bit->second, frustum, minPixels, projected) &&
+          projected) {
         continue;
       }
     }
@@ -561,17 +590,10 @@ bool VisibilitySystem::TryBuildVisibleSet(
   for (const auto &uuid : layerVisibleCandidates.trussUuids) {
     if (useFrustumCulling) {
       auto bit = m_controller.GetTrussBounds().find(uuid);
-      if (bit == m_controller.GetTrussBounds().end())
-        continue;
-      ScreenRect rect;
-      bool anyDepthVisible = false;
-      if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max,
-                                      frustum.viewport[3], frustum.model,
-                                      frustum.projection, frustum.viewport, rect,
-                                      anyDepthVisible) ||
-          !anyDepthVisible ||
-          ShouldCullByScreenRect(rect, frustum.viewport[2], frustum.viewport[3],
-                                 minPixels)) {
+      bool projected = false;
+      if (bit != m_controller.GetTrussBounds().end() &&
+          ShouldCullProjectedBounds(bit->second, frustum, minPixels, projected) &&
+          projected) {
         continue;
       }
     }
@@ -582,17 +604,10 @@ bool VisibilitySystem::TryBuildVisibleSet(
   for (const auto &uuid : layerVisibleCandidates.fixtureUuids) {
     if (useFrustumCulling) {
       auto bit = m_controller.GetFixtureBounds().find(uuid);
-      if (bit == m_controller.GetFixtureBounds().end())
-        continue;
-      ScreenRect rect;
-      bool anyDepthVisible = false;
-      if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max,
-                                      frustum.viewport[3], frustum.model,
-                                      frustum.projection, frustum.viewport, rect,
-                                      anyDepthVisible) ||
-          !anyDepthVisible ||
-          ShouldCullByScreenRect(rect, frustum.viewport[2], frustum.viewport[3],
-                                 minPixels)) {
+      bool projected = false;
+      if (bit != m_controller.GetFixtureBounds().end() &&
+          ShouldCullProjectedBounds(bit->second, frustum, minPixels, projected) &&
+          projected) {
         continue;
       }
     }
@@ -602,6 +617,7 @@ bool VisibilitySystem::TryBuildVisibleSet(
   return true;
 }
 
+// Returns the cached visible set, rebuilding it when filters or view state change.
 const IVisibilityContext::VisibleSet &VisibilitySystem::GetVisibleSet(
     const IVisibilityContext::ViewFrustumSnapshot &frustum,
     const std::unordered_set<std::string> &hiddenLayers,
@@ -641,7 +657,9 @@ const IVisibilityContext::VisibleSet &VisibilitySystem::GetVisibleSet(
       (m_controller.GetVisibleSetLayerCandidatesRevision() ==
        m_controller.GetLayerVisibleCandidatesRevision()) &&
       (m_controller.GetVisibleSetFrustumCulling() == useFrustumCulling) &&
-      (m_controller.GetVisibleSetMinPixels() == minPixels) && sameViewport &&
+      (m_controller.GetVisibleSetMinPixels() == minPixels) &&
+      (m_controller.GetVisibleSetIs2DViewer() == frustum.is2DViewer) &&
+      (m_controller.GetVisibleSetView() == frustum.view) && sameViewport &&
       sameModel && sameProjection;
 
   if (!cacheValid) {
@@ -651,6 +669,8 @@ const IVisibilityContext::VisibleSet &VisibilitySystem::GetVisibleSet(
           m_controller.GetLayerVisibleCandidatesRevision();
       m_controller.GetVisibleSetFrustumCulling() = useFrustumCulling;
       m_controller.GetVisibleSetMinPixels() = minPixels;
+      m_controller.GetVisibleSetIs2DViewer() = frustum.is2DViewer;
+      m_controller.GetVisibleSetView() = frustum.view;
       std::copy(std::begin(frustum.viewport), std::end(frustum.viewport),
                 m_controller.GetVisibleSetViewport().begin());
       std::copy(std::begin(frustum.model), std::end(frustum.model),
@@ -668,6 +688,8 @@ const IVisibilityContext::VisibleSet &VisibilitySystem::GetVisibleSet(
           m_controller.GetLayerVisibleCandidatesRevision();
       m_controller.GetVisibleSetFrustumCulling() = useFrustumCulling;
       m_controller.GetVisibleSetMinPixels() = minPixels;
+      m_controller.GetVisibleSetIs2DViewer() = frustum.is2DViewer;
+      m_controller.GetVisibleSetView() = frustum.view;
       std::copy(std::begin(frustum.viewport), std::end(frustum.viewport),
                 m_controller.GetVisibleSetViewport().begin());
       std::copy(std::begin(frustum.model), std::end(frustum.model),
@@ -680,6 +702,7 @@ const IVisibilityContext::VisibleSet &VisibilitySystem::GetVisibleSet(
   return m_controller.GetCachedVisibleSet();
 }
 
+// Refreshes the visible-set cache from the current OpenGL view state.
 void VisibilitySystem::RebuildVisibleSetCache() {
   ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
