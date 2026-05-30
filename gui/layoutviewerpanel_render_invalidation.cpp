@@ -23,14 +23,17 @@
 #include "guiconfigservices.h"
 
 namespace {
+// Mixes a value into an aggregate hash seed.
 void HashCombine(size_t &seed, size_t value) {
   seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
+// Mixes a floating-point value into an aggregate hash seed.
 void HashCombineFloat(size_t &seed, float value) {
   HashCombine(seed, std::hash<float>{}(value));
 }
 
+// Hashes a transform matrix for scene-content change detection.
 size_t HashMatrixValue(const Matrix &matrix) {
   size_t hash = 0;
   HashCombineFloat(hash, matrix.u[0]);
@@ -48,6 +51,7 @@ size_t HashMatrixValue(const Matrix &matrix) {
   return hash;
 }
 
+// Hashes a scene object and its nested geometry data.
 size_t HashSceneObjectValue(const SceneObject &object) {
   size_t hash = std::hash<std::string>{}(object.layer);
   HashCombine(hash, std::hash<std::string>{}(object.name));
@@ -61,6 +65,7 @@ size_t HashSceneObjectValue(const SceneObject &object) {
   return hash;
 }
 
+// Hashes fixture fields that affect layout rendering output.
 size_t HashFixtureValue(const Fixture &fixture) {
   size_t hash = std::hash<std::string>{}(fixture.layer);
   HashCombine(hash, std::hash<std::string>{}(fixture.instanceName));
@@ -72,6 +77,7 @@ size_t HashFixtureValue(const Fixture &fixture) {
   return hash;
 }
 
+// Hashes truss fields that affect layout rendering output.
 size_t HashTrussValue(const Truss &truss) {
   size_t hash = std::hash<std::string>{}(truss.layer);
   HashCombine(hash, std::hash<std::string>{}(truss.name));
@@ -81,6 +87,7 @@ size_t HashTrussValue(const Truss &truss) {
   return hash;
 }
 
+// Hashes support fields that affect layout rendering output.
 size_t HashSupportValue(const Support &support) {
   size_t hash = std::hash<std::string>{}(support.layer);
   HashCombine(hash, std::hash<std::string>{}(support.name));
@@ -89,6 +96,7 @@ size_t HashSupportValue(const Support &support) {
   return hash;
 }
 
+// Aggregates a scene map into an order-stable content hash.
 template <typename TMap, typename ValueHasher>
 size_t HashSceneMapWithValues(const TMap &items, ValueHasher hasher) {
   size_t aggregate = std::hash<size_t>{}(items.size());
@@ -101,6 +109,7 @@ size_t HashSceneMapWithValues(const TMap &items, ValueHasher hasher) {
 }
 } // namespace
 
+// Computes a scene-wide hash for data that can affect layout previews.
 size_t LayoutViewerPanel::ComputeSceneContentHash() const {
   const auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
   size_t hash = 0;
@@ -111,6 +120,7 @@ size_t LayoutViewerPanel::ComputeSceneContentHash() const {
   return hash;
 }
 
+// Computes a view-specific hash for camera, render options, and layer filters.
 size_t LayoutViewerPanel::HashViewContent(
     const layouts::Layout2DViewDefinition &view) const {
   size_t seed = std::hash<int>{}(view.id);
@@ -162,11 +172,13 @@ size_t LayoutViewerPanel::HashViewContent(
   return seed;
 }
 
+// Marks cached layout rasters dirty only when content or LOD changes require it.
 void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent) {
   const double renderZoom = GetRenderZoom();
   const double pageWidth = currentLayout.pageSetup.PageWidthPt();
   const double pageHeight = currentLayout.pageSetup.PageHeightPt();
-  const bool zoomChanged = lastRenderZoom != renderZoom;
+  const bool zoomChanged =
+      ShouldRebuildCacheForRenderZoom(lastRenderZoom, renderZoom);
   const bool pageChanged =
       lastPageWidthPt != pageWidth || lastPageHeightPt != pageHeight;
   size_t sceneContentHash = lastSceneContentHash;
@@ -204,7 +216,8 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
       continue;
     }
     const wxSize renderSize = GetFrameSizeForZoom(view.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
+    if (cache.texture == 0 ||
+        ShouldRebuildCacheForRenderZoom(cache.renderZoom, renderZoom) ||
         renderSize != cache.textureSize) {
       markDirty(cache.renderDirty);
     }
@@ -227,7 +240,8 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
       continue;
     }
     const wxSize renderSize = GetFrameSizeForZoom(legend.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
+    if (cache.texture == 0 ||
+        ShouldRebuildCacheForRenderZoom(cache.renderZoom, renderZoom) ||
         renderSize != cache.textureSize) {
       markDirty(cache.renderDirty);
     }
@@ -246,7 +260,8 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
       continue;
     }
     const wxSize renderSize = GetFrameSizeForZoom(table.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
+    if (cache.texture == 0 ||
+        ShouldRebuildCacheForRenderZoom(cache.renderZoom, renderZoom) ||
         renderSize != cache.textureSize) {
       markDirty(cache.renderDirty);
     }
@@ -265,7 +280,8 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
       continue;
     }
     const wxSize renderSize = GetFrameSizeForZoom(text.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
+    if (cache.texture == 0 ||
+        ShouldRebuildCacheForRenderZoom(cache.renderZoom, renderZoom) ||
         renderSize != cache.textureSize) {
       markDirty(cache.renderDirty);
     }
@@ -284,7 +300,8 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
       continue;
     }
     const wxSize renderSize = GetFrameSizeForZoom(image.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
+    if (cache.texture == 0 ||
+        ShouldRebuildCacheForRenderZoom(cache.renderZoom, renderZoom) ||
         renderSize != cache.textureSize) {
       markDirty(cache.renderDirty);
     }
@@ -302,6 +319,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
   }
 }
 
+// Invalidates render data after scene content changes and queues a rebuild.
 void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
   legendDataDirty_ = true;
   RefreshLegendData();
@@ -325,10 +343,12 @@ void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
   Refresh();
 }
 
+// Refreshes the layout viewer after selection-only updates.
 void LayoutViewerPanel::RefreshAfterSelectionOnlyUpdate() {
   Refresh();
 }
 
+// Invalidates render data after fixture symbol changes.
 void LayoutViewerPanel::RefreshAfterFixtureSymbolUpdate() {
   RefreshAfterSceneContentUpdate();
 }

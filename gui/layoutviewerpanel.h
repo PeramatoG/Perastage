@@ -177,6 +177,8 @@ private:
   wxSize GetFrameSizeForZoom(const layouts::Layout2DViewFrame &frame,
                              double targetZoom) const;
   double GetRenderZoom() const;
+  bool ShouldRebuildCacheForRenderZoom(double cachedRenderZoom,
+                                       double targetRenderZoom) const;
   void UpdateFrame(const layouts::Layout2DViewFrame &frame,
                    bool updatePosition);
   void UpdateLegendFrame(const layouts::Layout2DViewFrame &frame,

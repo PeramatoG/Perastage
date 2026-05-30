@@ -106,6 +106,7 @@ constexpr int kToggleTextFrameMenuId = wxID_HIGHEST + 503;
 constexpr int kToggleTextTransparentBackgroundMenuId = wxID_HIGHEST + 504;
 constexpr int kToggleViewFrameMenuId = wxID_HIGHEST + 506;
 constexpr int kLoadingOverlayDelayMs = 150;
+constexpr int kZoomRenderDebounceMs = 180;
 
 void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
                                 int expectedHeight) {
@@ -1561,6 +1562,7 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
   Refresh();
 }
 
+// Updates visual zoom around the cursor and defers high-quality cache rendering.
 void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
   if (dragMode != FrameDragMode::None)
     return;
@@ -1588,8 +1590,9 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
 
   panOffset += relative - newRelative;
   zoom = newZoom;
-  InvalidateRenderIfFrameChanged();
-  RequestRenderRebuild();
+  if (renderDelayTimer_.IsRunning())
+    renderDelayTimer_.Stop();
+  renderDelayTimer_.StartOnce(kZoomRenderDebounceMs);
   Refresh();
 }
 
@@ -1985,8 +1988,32 @@ wxSize LayoutViewerPanel::GetFrameSizeForZoom(
   return wxSize(scaledWidth, scaledHeight);
 }
 
+// Quantizes the current visual zoom into a stable raster-cache LOD bucket.
 double LayoutViewerPanel::GetRenderZoom() const {
-  return zoom;
+  if (zoom <= 0.0)
+    return kMinZoom;
+
+  const double safeMaxZoom = GetLayoutSafeMaxZoom(currentLayout);
+  const double zoomSteps = std::log(zoom) / std::log(kZoomStep);
+  const double bucketSteps =
+      std::round(zoomSteps / kZoomCacheStepsPerLevel) *
+      kZoomCacheStepsPerLevel;
+  const double bucketZoom = std::pow(kZoomStep, bucketSteps);
+  return std::clamp(bucketZoom, kMinZoom, safeMaxZoom);
+}
+
+// Determines whether a cached raster is far enough from the target LOD to rebuild.
+bool LayoutViewerPanel::ShouldRebuildCacheForRenderZoom(
+    double cachedRenderZoom, double targetRenderZoom) const {
+  if (cachedRenderZoom <= 0.0)
+    return true;
+  if (targetRenderZoom <= 0.0)
+    return true;
+
+  const double levelRatio = std::pow(kZoomStep, kZoomCacheStepsPerLevel);
+  const double halfLevelRatio = std::sqrt(levelRatio);
+  return targetRenderZoom >= cachedRenderZoom * halfLevelRatio ||
+         targetRenderZoom <= cachedRenderZoom / halfLevelRatio;
 }
 
 bool LayoutViewerPanel::GetSelectedFrame(
@@ -3042,7 +3069,8 @@ void LayoutViewerPanel::ProcessDeferredRenderRebuild() {
 
 // Rebuilds stale cached textures when the delayed render timer callback fires.
 void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
-  ProcessDeferredRenderRebuild();
+  InvalidateRenderIfFrameChanged();
+  RequestRenderRebuild();
 }
 
 bool LayoutViewerPanel::AreTexturesReady() const {
