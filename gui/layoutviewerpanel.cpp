@@ -2017,41 +2017,7 @@ bool LayoutViewerPanel::ShouldRebuildCacheForRenderZoom(
          targetRenderZoom <= cachedRenderZoom / halfLevelRatio;
 }
 
-// Marks cached textures dirty when the target render zoom or page size changes.
-void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent) {
-  const double targetRenderZoom = GetRenderZoom();
-  const double pageWidth = currentLayout.pageSetup.PageWidthPt();
-  const double pageHeight = currentLayout.pageSetup.PageHeightPt();
-  const bool frameChanged = std::abs(pageWidth - lastPageWidthPt) > 1e-6 ||
-                            std::abs(pageHeight - lastPageHeightPt) > 1e-6;
-  const bool zoomChanged =
-      ShouldRebuildCacheForRenderZoom(lastRenderZoom, targetRenderZoom);
-  const bool sceneContentChanged = includeSceneContent && !hasSceneContentHash;
-  if (!frameChanged && !zoomChanged && !sceneContentChanged)
-    return;
-
-  auto markDirtyForZoom = [this, targetRenderZoom, frameChanged](auto &map) {
-    for (auto &entry : map) {
-      if (frameChanged ||
-          ShouldRebuildCacheForRenderZoom(entry.second.renderZoom,
-                                          targetRenderZoom)) {
-        entry.second.renderDirty = true;
-      }
-    }
-  };
-  markDirtyForZoom(viewCaches_);
-  markDirtyForZoom(legendCaches_);
-  markDirtyForZoom(eventTableCaches_);
-  markDirtyForZoom(textCaches_);
-  markDirtyForZoom(imageCaches_);
-  renderDirty = true;
-  lastRenderZoom = targetRenderZoom;
-  lastPageWidthPt = pageWidth;
-  lastPageHeightPt = pageHeight;
-  if (includeSceneContent)
-    hasSceneContentHash = true;
-}
-
+// Retrieves the frame definition for the currently selected layout element.
 bool LayoutViewerPanel::GetSelectedFrame(
     layouts::Layout2DViewFrame &frame) const {
   if (selectedElementType == SelectedElementType::Legend) {
