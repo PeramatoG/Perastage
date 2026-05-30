@@ -23,6 +23,7 @@
 #include <exception>
 #include <filesystem>
 #include <functional>
+#include <system_error>
 
 // Include GLEW or other OpenGL loader first if present
 #ifdef _WIN32
@@ -47,11 +48,49 @@
 namespace {
 constexpr int kMinFrameSize = 24;
 
+struct ImageSourceFileState {
+  std::uintmax_t size = 0;
+  std::int64_t writeTime = 0;
+  bool valid = false;
+};
+
+// Mixes a value into an existing hash seed for layout image cache keys.
 void HashCombine(size_t &seed, size_t value) {
   seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
+
+// Reads the on-disk size and mtime used to validate decoded source image cache entries.
+ImageSourceFileState GetImageSourceFileState(const std::string &imagePath) {
+  ImageSourceFileState state;
+  if (imagePath.empty())
+    return state;
+
+  std::error_code ec;
+  try {
+    const std::filesystem::path path = std::filesystem::u8path(imagePath);
+    if (!std::filesystem::exists(path, ec) || ec)
+      return state;
+
+    const auto fileSize = std::filesystem::file_size(path, ec);
+    if (ec)
+      return state;
+
+    const auto writeTime = std::filesystem::last_write_time(path, ec);
+    if (ec)
+      return state;
+
+    state.size = fileSize;
+    state.writeTime = static_cast<std::int64_t>(
+        writeTime.time_since_epoch().count());
+    state.valid = true;
+  } catch (const std::exception &) {
+    state.valid = false;
+  }
+  return state;
+}
 } // namespace
 
+// Returns the selected image definition, defaulting to the first image when needed.
 layouts::LayoutImageDefinition *LayoutViewerPanel::GetSelectedImage() {
   if (currentLayout.imageViews.empty())
     return nullptr;
@@ -67,6 +106,7 @@ layouts::LayoutImageDefinition *LayoutViewerPanel::GetSelectedImage() {
   return &currentLayout.imageViews.front();
 }
 
+// Returns the selected image definition without modifying the current selection.
 const layouts::LayoutImageDefinition *LayoutViewerPanel::GetSelectedImage()
     const {
   if (currentLayout.imageViews.empty())
@@ -83,6 +123,7 @@ const layouts::LayoutImageDefinition *LayoutViewerPanel::GetSelectedImage()
   return nullptr;
 }
 
+// Finds an image frame by identifier and copies it into the output parameter.
 bool LayoutViewerPanel::GetImageFrameById(
     int imageId, layouts::Layout2DViewFrame &frame) const {
   if (imageId <= 0)
@@ -96,6 +137,7 @@ bool LayoutViewerPanel::GetImageFrameById(
   return false;
 }
 
+// Applies a frame update to the selected image and schedules texture refresh work.
 void LayoutViewerPanel::UpdateImageFrame(const layouts::Layout2DViewFrame &frame,
                                          bool updatePosition) {
   layouts::LayoutImageDefinition *image = GetSelectedImage();
@@ -122,6 +164,7 @@ void LayoutViewerPanel::UpdateImageFrame(const layouts::Layout2DViewFrame &frame
   Refresh();
 }
 
+// Opens the image picker and updates the selected layout image from the chosen file.
 void LayoutViewerPanel::OnEditImage(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::Image)
     return;
@@ -168,6 +211,7 @@ void LayoutViewerPanel::OnEditImage(wxCommandEvent &) {
   Refresh();
 }
 
+// Removes the selected image element from the layout and releases its cache entry.
 void LayoutViewerPanel::OnDeleteImage(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::Image)
     return;
@@ -218,6 +262,7 @@ void LayoutViewerPanel::OnDeleteImage(wxCommandEvent &) {
   Refresh();
 }
 
+// Draws a layout image element using its cached GL texture or a placeholder fill.
 void LayoutViewerPanel::DrawImageElement(
     const layouts::LayoutImageDefinition &image, int activeImageId) {
   ImageCache &cache = GetImageCache(image.id);
@@ -279,29 +324,57 @@ void LayoutViewerPanel::DrawImageElement(
   }
 }
 
+// Clears the decoded source image while leaving GL texture resources untouched.
+void LayoutViewerPanel::ClearCachedImageSource(ImageCache &cache) {
+  cache.sourceImage = wxImage();
+  cache.sourceImagePath.clear();
+  cache.sourceFileSize = 0;
+  cache.sourceWriteTime = 0;
+  cache.hasSourceImage = false;
+  cache.hasSourceFileState = false;
+}
+
+// Loads or reuses the decoded source image when the path and file state are unchanged.
+bool LayoutViewerPanel::EnsureCachedImageSource(
+    const layouts::LayoutImageDefinition &image, ImageCache &cache) {
+  const ImageSourceFileState fileState =
+      GetImageSourceFileState(image.imagePath);
+  const bool sourceCurrent =
+      cache.hasSourceImage && cache.sourceImage.IsOk() &&
+      cache.sourceImagePath == image.imagePath && fileState.valid &&
+      cache.hasSourceFileState && cache.sourceFileSize == fileState.size &&
+      cache.sourceWriteTime == fileState.writeTime;
+  if (sourceCurrent)
+    return cache.sourceImage.GetWidth() > 0 && cache.sourceImage.GetHeight() > 0;
+
+  ClearCachedImageSource(cache);
+  if (image.imagePath.empty() || !fileState.valid)
+    return false;
+
+  wxImage source;
+  if (!source.LoadFile(wxString::FromUTF8(image.imagePath)))
+    return false;
+  if (!source.IsOk() || source.GetWidth() <= 0 || source.GetHeight() <= 0)
+    return false;
+
+  cache.sourceImage = source;
+  cache.sourceImagePath = image.imagePath;
+  cache.sourceFileSize = fileState.size;
+  cache.sourceWriteTime = fileState.writeTime;
+  cache.hasSourceImage = true;
+  cache.hasSourceFileState = true;
+  return true;
+}
+
+// Computes the cache key for a layout image, including path and file metadata.
 size_t LayoutViewerPanel::HashImageContent(
     const layouts::LayoutImageDefinition &image) const {
   size_t seed = std::hash<std::string>{}(image.imagePath);
-  std::error_code ec;
-  if (!image.imagePath.empty()) {
-    try {
-      const std::filesystem::path path =
-          std::filesystem::u8path(image.imagePath);
-      if (std::filesystem::exists(path, ec)) {
-        const auto fileSize = std::filesystem::file_size(path, ec);
-        if (!ec)
-          HashCombine(seed, std::hash<uintmax_t>{}(fileSize));
-        const auto writeTime = std::filesystem::last_write_time(path, ec);
-        if (!ec) {
-          auto stamp = writeTime.time_since_epoch().count();
-          HashCombine(
-              seed,
-              std::hash<std::int64_t>{}(static_cast<std::int64_t>(stamp)));
-        }
-      }
-    } catch (const std::exception &) {
-      return seed;
-    }
+  const ImageSourceFileState fileState =
+      GetImageSourceFileState(image.imagePath);
+  if (fileState.valid) {
+    HashCombine(seed, std::hash<std::uintmax_t>{}(fileState.size));
+    HashCombine(seed, std::hash<std::int64_t>{}(fileState.writeTime));
   }
   HashCombine(seed, std::hash<float>{}(image.aspectRatio));
   return seed;

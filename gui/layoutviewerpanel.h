@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -123,6 +124,12 @@ private:
     double renderZoom = 0.0;
     bool renderDirty = true;
     size_t contentHash = 0;
+    wxImage sourceImage;
+    std::string sourceImagePath;
+    std::uintmax_t sourceFileSize = 0;
+    std::int64_t sourceWriteTime = 0;
+    bool hasSourceImage = false;
+    bool hasSourceFileState = false;
   };
 
   void NotifyRenderReady();
@@ -246,6 +253,9 @@ private:
       const layouts::LayoutEventTableDefinition &table) const;
   size_t HashTextContent(const layouts::LayoutTextDefinition &text) const;
   size_t HashImageContent(const layouts::LayoutImageDefinition &image) const;
+  void ClearCachedImageSource(ImageCache &cache);
+  bool EnsureCachedImageSource(const layouts::LayoutImageDefinition &image,
+                               ImageCache &cache);
   wxImage BuildTextImage(const wxSize &size, const wxSize &logicalSize,
                          double renderZoom,
                          const layouts::LayoutTextDefinition &text) const;
