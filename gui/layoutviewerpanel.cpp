@@ -2685,32 +2685,26 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       }
       if (image.imagePath.empty()) {
         ClearCachedTexture(cache);
+        ClearCachedImageSource(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         continue;
       }
   
-      wxImage bitmap;
       gui::layoutstatus::PostLayoutRenderStatus(
           this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
           wxString::Format(
-              "Rendering image id=%d (%zu/%zu): loading source image...",
+              "Rendering image id=%d (%zu/%zu): preparing source image...",
               image.id, processedRenderItems, std::max<size_t>(1, totalRenderItems)));
-      if (!bitmap.LoadFile(wxString::FromUTF8(image.imagePath))) {
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-        continue;
-      }
-      if (bitmap.GetWidth() <= 0 || bitmap.GetHeight() <= 0) {
+      if (!EnsureCachedImageSource(image, cache)) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         continue;
       }
       wxImage scaled =
-          bitmap.Scale(renderSize.GetWidth(), renderSize.GetHeight(),
-                       wxIMAGE_QUALITY_HIGH);
+          cache.sourceImage.Scale(renderSize.GetWidth(), renderSize.GetHeight(),
+                                  wxIMAGE_QUALITY_HIGH);
       gui::layoutstatus::PostLayoutRenderStatus(
           this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
           wxString::Format(
