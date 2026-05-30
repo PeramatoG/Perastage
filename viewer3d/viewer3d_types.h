@@ -42,6 +42,8 @@ struct Viewer3DViewFrustumSnapshot {
   int viewport[4] = {0, 0, 0, 0};
   double model[16] = {0.0};
   double projection[16] = {0.0};
+  bool is2DViewer = false;
+  Viewer2DView view = Viewer2DView::Top;
 };
 
 struct Viewer3DBoundingBox {

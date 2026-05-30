@@ -158,6 +158,8 @@ struct Viewer3DController::Impl {
   mutable std::array<int, 4> visibleSetViewport = {0, 0, 0, 0};
   mutable std::array<double, 16> visibleSetModel = {};
   mutable std::array<double, 16> visibleSetProjection = {};
+  mutable bool visibleSetIs2DViewer = false;
+  mutable Viewer2DView visibleSetView = Viewer2DView::Top;
   std::unique_ptr<SceneRenderer> sceneRenderer;
   std::unique_ptr<VisibilitySystem> visibilitySystem;
   std::unique_ptr<SelectionSystem> selectionSystem;
@@ -1026,12 +1028,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 
   const CullingSettings culling = GetCullingSettings3D(cfg);
 
-  // 2D orthographic projections use a very different depth setup than the 3D
-  // camera, and the frustum/pixel culling pass can incorrectly reject every
-  // item even when all layers are visible. Keep layer-based filtering active
-  // in 2D, but skip frustum culling there so visibility in the Layers panel
-  // matches what is rendered on screen.
-  context.useFrustumCulling = culling.enabled && !context.is2DViewer;
+  // Enable culling in 2D through the visibility system's 2D projection path
+  // instead of reusing the 3D depth-frustum reject that caused false negatives.
+  context.useFrustumCulling = culling.enabled;
   context.minCullingPixels =
       context.is2DViewer ? culling.minPixels2D : culling.minPixels3D;
 
@@ -1173,6 +1172,8 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
+  frustum.is2DViewer = context.is2DViewer;
+  frustum.view = context.view;
 
   return GetVisibleSet(frustum, context.hiddenLayers, context.useFrustumCulling,
                        context.minCullingPixels);
@@ -2169,4 +2170,14 @@ std::array<double, 16> &Viewer3DController::GetVisibleSetModel() const {
 // Returns visible Set Projection.
 std::array<double, 16> &Viewer3DController::GetVisibleSetProjection() const {
   return m_impl->visibleSetProjection;
+}
+
+// Returns whether the cached visible set was built for the 2D viewer.
+bool &Viewer3DController::GetVisibleSetIs2DViewer() const {
+  return m_impl->visibleSetIs2DViewer;
+}
+
+// Returns the cached 2D view orientation for visible-set culling.
+Viewer2DView &Viewer3DController::GetVisibleSetView() const {
+  return m_impl->visibleSetView;
 }

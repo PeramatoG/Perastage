@@ -342,6 +342,8 @@ private:
   std::array<int, 4> &GetVisibleSetViewport() const override;
   std::array<double, 16> &GetVisibleSetModel() const override;
   std::array<double, 16> &GetVisibleSetProjection() const override;
+  bool &GetVisibleSetIs2DViewer() const override;
+  Viewer2DView &GetVisibleSetView() const override;
 
   friend class OpaqueFixturePass;
   friend class OpaqueTrussPass;
