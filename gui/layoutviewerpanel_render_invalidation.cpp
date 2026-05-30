@@ -339,6 +339,7 @@ void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
   }
 
   renderDirty = true;
+  InvalidateRenderIfFrameChanged(true);
   RequestRenderRebuild();
   Refresh();
 }

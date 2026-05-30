@@ -522,7 +522,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     currentLayout.name = layout.name;
     legendDataDirty_ = true;
     RefreshLegendData();
-    InvalidateRenderIfFrameChanged(true);
+    InvalidateRenderIfFrameChanged(false);
     if (NeedsRenderRebuild())
       RequestRenderRebuild();
     Refresh();
@@ -614,7 +614,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     loadingRequested = false;
     legendDataDirty_ = true;
     RefreshLegendData();
-    InvalidateRenderIfFrameChanged(false);
+    InvalidateRenderIfFrameChanged(true);
     if (NeedsRenderRebuild())
       RequestRenderRebuild();
     Refresh();
@@ -645,6 +645,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   RefreshLegendData();
   pendingFitOnResize = true;
   ResetViewToFit();
+  InvalidateRenderIfFrameChanged(true);
   RequestRenderRebuild();
   Refresh();
 }
@@ -1290,13 +1291,14 @@ void LayoutViewerPanel::DrawSelectionHandles(const wxRect &frameRect) const {
   drawHandle(handleCorner);
 }
 
+// Updates cached render state and repaint scheduling after viewport size changes.
 void LayoutViewerPanel::OnSize(wxSizeEvent &) {
   wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
   if (pendingFitOnResize && size.GetWidth() > 0 && size.GetHeight() > 0) {
     ResetViewToFit();
     pendingFitOnResize = false;
   } else {
-    InvalidateRenderIfFrameChanged();
+    InvalidateRenderIfFrameChanged(false);
   }
   RequestRenderRebuild();
   Refresh();
@@ -1591,9 +1593,8 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
 
   panOffset += relative - newRelative;
   zoom = newZoom;
-  if (renderDelayTimer_.IsRunning())
-    renderDelayTimer_.Stop();
-  renderDelayTimer_.StartOnce(kZoomRenderDebounceMs);
+  InvalidateRenderIfFrameChanged(false);
+  RequestRenderRebuild();
   Refresh();
 }
 
@@ -1911,6 +1912,7 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
   Refresh();
 }
 
+// Resets the layout camera so the page fits within the current viewport.
 void LayoutViewerPanel::ResetViewToFit() {
   wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
   const double pageWidth = currentLayout.pageSetup.PageWidthPt();
@@ -1929,7 +1931,7 @@ void LayoutViewerPanel::ResetViewToFit() {
       static_cast<double>(size.GetHeight() - kFitMarginPx) / pageHeight;
   zoom = std::clamp(std::min(fitWidth, fitHeight), kMinZoom, kMaxZoom);
   panOffset = wxPoint(0, 0);
-  InvalidateRenderIfFrameChanged();
+  InvalidateRenderIfFrameChanged(false);
 }
 
 wxRect LayoutViewerPanel::GetPageRect() const {
@@ -3095,7 +3097,7 @@ void LayoutViewerPanel::ProcessDeferredRenderRebuild() {
 
 // Handles debounce and incremental render timer ticks for stale layout textures.
 void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
-  InvalidateRenderIfFrameChanged();
+  InvalidateRenderIfFrameChanged(false);
   if (renderPending && loadingRequested) {
     ProcessDeferredRenderRebuild();
     return;
