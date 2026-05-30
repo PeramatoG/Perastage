@@ -193,7 +193,7 @@ private:
                                    bool updatePosition);
   void CommitPendingFrameUpdate();
   bool InitGL();
-  void RebuildCachedTexture();
+  bool RebuildCachedTexture();
   void ClearCachedTexture();
   void ClearCachedTexture(ViewCache &cache);
   void ClearCachedTexture(LegendCache &cache);

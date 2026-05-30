@@ -107,6 +107,7 @@ constexpr int kToggleTextTransparentBackgroundMenuId = wxID_HIGHEST + 504;
 constexpr int kToggleViewFrameMenuId = wxID_HIGHEST + 506;
 constexpr int kLoadingOverlayDelayMs = 150;
 constexpr int kZoomRenderDebounceMs = 180;
+constexpr int kIncrementalRenderDelayMs = 1;
 
 void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
                                 int expectedHeight) {
@@ -2016,6 +2017,41 @@ bool LayoutViewerPanel::ShouldRebuildCacheForRenderZoom(
          targetRenderZoom <= cachedRenderZoom / halfLevelRatio;
 }
 
+// Marks cached textures dirty when the target render zoom or page size changes.
+void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent) {
+  const double targetRenderZoom = GetRenderZoom();
+  const double pageWidth = currentLayout.pageSetup.PageWidthPt();
+  const double pageHeight = currentLayout.pageSetup.PageHeightPt();
+  const bool frameChanged = std::abs(pageWidth - lastPageWidthPt) > 1e-6 ||
+                            std::abs(pageHeight - lastPageHeightPt) > 1e-6;
+  const bool zoomChanged =
+      ShouldRebuildCacheForRenderZoom(lastRenderZoom, targetRenderZoom);
+  const bool sceneContentChanged = includeSceneContent && !hasSceneContentHash;
+  if (!frameChanged && !zoomChanged && !sceneContentChanged)
+    return;
+
+  auto markDirtyForZoom = [this, targetRenderZoom, frameChanged](auto &map) {
+    for (auto &entry : map) {
+      if (frameChanged ||
+          ShouldRebuildCacheForRenderZoom(entry.second.renderZoom,
+                                          targetRenderZoom)) {
+        entry.second.renderDirty = true;
+      }
+    }
+  };
+  markDirtyForZoom(viewCaches_);
+  markDirtyForZoom(legendCaches_);
+  markDirtyForZoom(eventTableCaches_);
+  markDirtyForZoom(textCaches_);
+  markDirtyForZoom(imageCaches_);
+  renderDirty = true;
+  lastRenderZoom = targetRenderZoom;
+  lastPageWidthPt = pageWidth;
+  lastPageHeightPt = pageHeight;
+  if (includeSceneContent)
+    hasSceneContentHash = true;
+}
+
 bool LayoutViewerPanel::GetSelectedFrame(
     layouts::Layout2DViewFrame &frame) const {
   if (selectedElementType == SelectedElementType::Legend) {
@@ -2081,13 +2117,13 @@ bool LayoutViewerPanel::InitGL() {
   return true;
 }
 
-// Rebuilds all dirty layout element textures and posts progress to the status bar.
-void LayoutViewerPanel::RebuildCachedTexture() {
+// Rebuilds the next dirty layout element texture and reports whether more work remains.
+bool LayoutViewerPanel::RebuildCachedTexture() {
   try {
     if (!NeedsRenderRebuild())
-      return;
+      return false;
     if (!isReadyToRender_ || !glContext_ || !IsShownOnScreen())
-      return;
+      return false;
     Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
     Viewer2DPanel *capturePanel = nullptr;
     auto stopLoadingRequest = [this]() {
@@ -2100,7 +2136,6 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       isLoading = false;
     };
     renderDirty = false;
-    stopLoadingRequest();
     gui::layoutstatus::PostLayoutRenderStatus(
         this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
         "Analyzing layout render workload...");
@@ -2170,7 +2205,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
       }
       if (!capturePanel || !offscreenRenderer) {
-        return;
+        return false;
       }
     }
 
@@ -2282,7 +2317,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
-        return;
+        return false;
       }
       if (cache.texture == 0) {
         glGenTextures(1, &cache.texture);
@@ -2310,6 +2345,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       cache.renderZoom = renderZoom;
       cache.contentHash = HashViewContent(view);
       std::vector<unsigned char>().swap(pixels);
+      return NeedsRenderRebuild();
     }
   
     gui::layoutstatus::PostLayoutRenderStatus(
@@ -2388,7 +2424,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
-        return;
+        return false;
       }
       if (cache.texture == 0) {
         glGenTextures(1, &cache.texture);
@@ -2416,6 +2452,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       cache.renderZoom = renderZoom;
       cache.contentHash = legendDataHash;
       legendPixels.clear();
+      return NeedsRenderRebuild();
     }
   
     gui::layoutstatus::PostLayoutRenderStatus(
@@ -2503,7 +2540,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
-        return;
+        return false;
       }
       if (cache.texture == 0) {
         glGenTextures(1, &cache.texture);
@@ -2533,6 +2570,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
       eventTablePixels.clear();
+      return NeedsRenderRebuild();
     }
   
     gui::layoutstatus::PostLayoutRenderStatus(
@@ -2619,7 +2657,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
-        return;
+        return false;
       }
       if (cache.texture == 0) {
         glGenTextures(1, &cache.texture);
@@ -2647,6 +2685,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
       textPixels.clear();
+      return NeedsRenderRebuild();
     }
   
     gui::layoutstatus::PostLayoutRenderStatus(
@@ -2745,7 +2784,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
-        return;
+        return false;
       }
       if (cache.texture == 0) {
         glGenTextures(1, &cache.texture);
@@ -2773,10 +2812,12 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
       imagePixels.clear();
+      return NeedsRenderRebuild();
     }
   
     clearLoadingState();
     NotifyRenderReady();
+    return false;
   } catch (const std::exception &ex) {
     loadingRequested = false;
     isLoading = false;
@@ -2784,15 +2825,18 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         std::string("LayoutViewerPanel::RebuildCachedTexture exception: ") +
         ex.what());
     NotifyRenderReady();
+    return false;
   } catch (...) {
     loadingRequested = false;
     isLoading = false;
     Logger::Instance().Log(
         "LayoutViewerPanel::RebuildCachedTexture unknown exception.");
     NotifyRenderReady();
+    return false;
   }
 }
 
+// Releases all cached layout element textures and clears cache maps.
 void LayoutViewerPanel::ClearCachedTexture() {
   for (auto &entry : viewCaches_) {
     ClearCachedTexture(entry.second);
@@ -2816,7 +2860,6 @@ void LayoutViewerPanel::ClearCachedTexture() {
   imageCaches_.clear();
 }
 
-// Releases cached 2D view GL resources when the layout panel is screen-mapped.
 // Releases cached 2D view GL resources when the layout panel is screen-mapped.
 void LayoutViewerPanel::ClearCachedTexture(ViewCache &cache) {
   if (cache.texture == 0 && cache.pixelUnpackPbo == 0)
@@ -2957,6 +3000,7 @@ void LayoutViewerPanel::ClearCachedTexture(ImageCache &cache) {
   cache.pboBytes = 0;
 }
 
+// Reports whether any element-level render cache is marked dirty.
 bool LayoutViewerPanel::HasDirtyRenderCaches() const {
   auto hasDirty = [](const auto &map) {
     for (const auto &entry : map) {
@@ -2970,23 +3014,28 @@ bool LayoutViewerPanel::HasDirtyRenderCaches() const {
          hasDirty(imageCaches_);
 }
 
+// Reports whether global or element-level layout rendering work is pending.
 bool LayoutViewerPanel::NeedsRenderRebuild() const {
   return renderDirty || HasDirtyRenderCaches();
 }
 
-// Queues one asynchronous render rebuild cycle when layout textures are stale.
+// Debounces render rebuild requests and coalesces repeated zoom/layout changes.
 void LayoutViewerPanel::RequestRenderRebuild() {
   if (auto *mw = MainWindow::Instance();
       mw && mw->IsMvrImportPipelineActive()) {
     renderPending = false;
     loadingRequested = false;
     isLoading = false;
+    loadingTimer_.Stop();
+    renderDelayTimer_.Stop();
     return;
   }
   if (IsLayoutEmpty()) {
     renderPending = false;
     loadingRequested = false;
     isLoading = false;
+    loadingTimer_.Stop();
+    renderDelayTimer_.Stop();
     return;
   }
   if (!isReadyToRender_ || !glContext_ || !IsShownOnScreen())
@@ -2997,27 +3046,20 @@ void LayoutViewerPanel::RequestRenderRebuild() {
   auto *offscreenRenderer = mw->GetOffscreenRenderer();
   if (!offscreenRenderer || !offscreenRenderer->GetPanel())
     return;
-  if (!NeedsRenderRebuild() || renderPending || loadingRequested)
+  if (!NeedsRenderRebuild())
     return;
 
+  const bool alreadyPending = renderPending || loadingRequested;
   renderPending = true;
   loadingRequested = true;
-  gui::layoutstatus::PostLayoutRenderStatus(this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
-                                           "Layout render queued...");
-
-  wxWeakRef<LayoutViewerPanel> weakThis(this);
-  CallAfter([weakThis]() {
-    if (!weakThis)
-      return;
-    LayoutViewerPanel *panel = weakThis.get();
-    if (!panel || !panel->renderPending || !panel->loadingRequested)
-      return;
+  if (!alreadyPending) {
     gui::layoutstatus::PostLayoutRenderStatus(
-        panel, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
-        "Preparing layout textures...");
-    panel->isLoading = true;
-    panel->ProcessDeferredRenderRebuild();
-  });
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        "Layout render queued...");
+  }
+  if (renderDelayTimer_.IsRunning())
+    renderDelayTimer_.Stop();
+  renderDelayTimer_.StartOnce(kZoomRenderDebounceMs);
 }
 
 // Activates the loading overlay when a delayed rebuild is still pending.
@@ -3036,13 +3078,15 @@ void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
   Refresh();
 }
 
-// Processes the deferred render rebuild cycle and performs one final repaint.
+// Processes one incremental render rebuild step and schedules the next step if needed.
 void LayoutViewerPanel::ProcessDeferredRenderRebuild() {
   if (auto *mw = MainWindow::Instance();
       mw && mw->IsMvrImportPipelineActive()) {
     renderPending = false;
     loadingRequested = false;
     isLoading = false;
+    loadingTimer_.Stop();
+    renderDelayTimer_.Stop();
     return;
   }
   if (!renderPending || !loadingRequested)
@@ -3051,28 +3095,49 @@ void LayoutViewerPanel::ProcessDeferredRenderRebuild() {
     renderPending = false;
     loadingRequested = false;
     isLoading = false;
+    loadingTimer_.Stop();
+    gui::layoutstatus::PostLayoutRenderStatus(
+        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+        "Layout render completed.");
+    Refresh();
     return;
   }
 
   gui::layoutstatus::PostLayoutRenderStatus(
       this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
       "Building layout textures...");
-  RebuildCachedTexture();
+  if (!isLoading && !loadingTimer_.IsRunning())
+    loadingTimer_.StartOnce(kLoadingOverlayDelayMs);
+  const bool hasMoreWork = RebuildCachedTexture();
+  Refresh();
+  if (hasMoreWork && NeedsRenderRebuild()) {
+    if (renderDelayTimer_.IsRunning())
+      renderDelayTimer_.Stop();
+    renderDelayTimer_.StartOnce(kIncrementalRenderDelayMs);
+    return;
+  }
+
   renderPending = false;
   loadingRequested = false;
   isLoading = false;
+  loadingTimer_.Stop();
   gui::layoutstatus::PostLayoutRenderStatus(
       this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
       "Layout render completed.");
   Refresh();
 }
 
-// Rebuilds stale cached textures when the delayed render timer callback fires.
+// Handles debounce and incremental render timer ticks for stale layout textures.
 void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
   InvalidateRenderIfFrameChanged();
+  if (renderPending && loadingRequested) {
+    ProcessDeferredRenderRebuild();
+    return;
+  }
   RequestRenderRebuild();
 }
 
+// Checks whether all layout elements currently have uploaded textures.
 bool LayoutViewerPanel::AreTexturesReady() const {
   auto hasTexture = [](const auto &map, int id) {
     auto it = map.find(id);
