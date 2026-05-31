@@ -23,8 +23,10 @@
  */
 
 #include "viewer3dcamera.h"
+#include "navigation_diagnostics.h"
 #include <cmath>
 #include <algorithm>
+#include <wx/debug.h>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -38,7 +40,41 @@
 #include <GL/glu.h>
 #endif
 
+namespace {
+constexpr float kPi = 3.14159265f;
+constexpr float kDefaultYawDegrees = 45.0f;
+constexpr float kDefaultPitchDegrees = 30.0f;
+constexpr float kDefaultDistance = 15.0f;
 
+// Returns whether a scalar is finite enough to be used in camera math.
+bool IsFiniteCameraValue(float value)
+{
+    return std::isfinite(value);
+}
+
+// Wraps yaw to a bounded range so repeated input cannot grow it without limit.
+float NormalizeYawDegrees(float value)
+{
+    if (!IsFiniteCameraValue(value))
+        return 0.0f;
+    value = std::fmod(value, 360.0f);
+    if (value > 180.0f)
+        value -= 360.0f;
+    if (value < -180.0f)
+        value += 360.0f;
+    return value;
+}
+
+// Clamps pitch away from the singularities at straight up and straight down.
+float ClampPitchDegrees(float value)
+{
+    if (!IsFiniteCameraValue(value))
+        return 0.0f;
+    return std::clamp(value, -89.0f, 89.0f);
+}
+} // namespace
+
+// Initializes the orbital camera with deterministic default state.
 Viewer3DCamera::Viewer3DCamera()
     : yaw(0.0f), pitch(20.0f), distance(30.0f),
     targetX(0.0f), targetY(0.0f), targetZ(0.0f),
@@ -50,68 +86,92 @@ Viewer3DCamera::Viewer3DCamera()
     targetTargetX = targetX;
     targetTargetY = targetY;
     targetTargetZ = targetZ;
+    SanitizeTargetState("constructor");
 }
 
-
+// Releases camera resources owned by the camera object.
 Viewer3DCamera::~Viewer3DCamera() = default;
 
-// Applies the camera transformation
+// Applies the current camera transform to the active OpenGL model-view matrix.
 void Viewer3DCamera::Apply() const
 {
-    float radYaw = yaw * 3.14159265f / 180.0f;
-    float radPitch = pitch * 3.14159265f / 180.0f;
+    if (!IsValid()) {
+        viewer3d::diagnostics::Log("Viewer3DCamera::Apply rejected invalid camera state.");
+        wxASSERT_MSG(false, "Invalid 3D camera state before gluLookAt.");
+        return;
+    }
 
-    float x = distance * cosf(radPitch) * sinf(radYaw);
-    float z = distance * sinf(radPitch);
-    float y = -distance * cosf(radPitch) * cosf(radYaw);
+    const float radYaw = yaw * kPi / 180.0f;
+    const float radPitch = pitch * kPi / 180.0f;
 
-    // Compute camera position relative to the target
-    float camX = targetX + x;
-    float camY = targetY + y;
-    float camZ = targetZ + z;
+    const float x = distance * cosf(radPitch) * sinf(radYaw);
+    const float z = distance * sinf(radPitch);
+    const float y = -distance * cosf(radPitch) * cosf(radYaw);
 
-    gluLookAt(camX, camY, camZ,  // eye position
-        targetX, targetY, targetZ,  // look-at point
-        0, 0, 1);  // Z is up
+    const float camX = targetX + x;
+    const float camY = targetY + y;
+    const float camZ = targetZ + z;
+    if (!IsFiniteCameraValue(camX) || !IsFiniteCameraValue(camY) ||
+        !IsFiniteCameraValue(camZ)) {
+        viewer3d::diagnostics::Log("Viewer3DCamera::Apply produced invalid eye coordinates.");
+        wxASSERT_MSG(false, "Invalid 3D camera eye coordinates before gluLookAt.");
+        return;
+    }
+
+    gluLookAt(camX, camY, camZ, targetX, targetY, targetZ, 0, 0, 1);
 }
 
-
-// Adjusts yaw and pitch
+// Offsets yaw and pitch targets for orbit navigation.
 void Viewer3DCamera::Orbit(float deltaYaw, float deltaPitch)
 {
+    if (!IsFiniteCameraValue(deltaYaw) || !IsFiniteCameraValue(deltaPitch)) {
+        viewer3d::diagnostics::Log("Viewer3DCamera::Orbit ignored non-finite input delta.");
+        wxASSERT_MSG(false, "Non-finite orbit delta.");
+        return;
+    }
     targetYaw += deltaYaw;
     targetPitch += deltaPitch;
-
-    // Clamp pitch to avoid flipping
-    if (targetPitch > 89.0f) targetPitch = 89.0f;
-    if (targetPitch < -89.0f) targetPitch = -89.0f;
+    SanitizeTargetState("Orbit");
+    viewer3d::diagnostics::Logf(
+        "Camera orbit target yaw=%.3f pitch=%.3f", targetYaw, targetPitch);
 }
 
-// Adjusts distance
+// Changes the camera target distance and advances through the minimum distance when zooming in.
 void Viewer3DCamera::Zoom(float deltaSteps)
 {
-    // Use exponential zoom scale. Increase sensitivity when the camera
-    // is far from the target so wheel scrolling covers large distances
-    // more quickly.
-    float base = 1.1f + 0.1f *
-                 std::clamp(targetDistance / 200.0f, 0.0f, 1.0f);
-    float factor = std::pow(base, deltaSteps);
+    if (!IsFiniteCameraValue(deltaSteps)) {
+        viewer3d::diagnostics::Log("Viewer3DCamera::Zoom ignored non-finite input delta.");
+        wxASSERT_MSG(false, "Non-finite zoom delta.");
+        return;
+    }
+    deltaSteps = std::clamp(deltaSteps, -64.0f, 64.0f);
 
-    float newDistance = targetDistance * factor;
+    const float base = 1.1f + 0.1f *
+                 std::clamp(targetDistance / 200.0f, 0.0f, 1.0f);
+    const float factor = std::pow(base, deltaSteps);
+    if (!IsFiniteCameraValue(factor)) {
+        viewer3d::diagnostics::Log("Viewer3DCamera::Zoom rejected non-finite zoom factor.");
+        wxASSERT_MSG(false, "Non-finite zoom factor.");
+        return;
+    }
+
+    const float newDistance = targetDistance * factor;
+    if (!IsFiniteCameraValue(newDistance)) {
+        targetDistance = deltaSteps > 0.0f ? maxDistance : minDistance;
+        viewer3d::diagnostics::Log("Viewer3DCamera::Zoom clamped non-finite distance.");
+        return;
+    }
 
     if (newDistance < minDistance)
     {
-        // Continue moving forward once we reach the minimum distance
-        // by translating the target in the viewing direction so that
-        // zooming in keeps advancing the camera.
-        float radYaw = targetYaw * 3.14159265f / 180.0f;
-        float radPitch = targetPitch * 3.14159265f / 180.0f;
+        const float radYaw = targetYaw * kPi / 180.0f;
+        const float radPitch = targetPitch * kPi / 180.0f;
 
-        float forwardX = -cosf(radPitch) * sinf(radYaw);
-        float forwardY =  cosf(radPitch) * cosf(radYaw);
-        float forwardZ = -sinf(radPitch);
+        const float forwardX = -cosf(radPitch) * sinf(radYaw);
+        const float forwardY =  cosf(radPitch) * cosf(radYaw);
+        const float forwardZ = -sinf(radPitch);
 
-        float overshoot = minDistance - newDistance;
+        const float overshoot = minDistance - newDistance;
 
         targetTargetX += overshoot * forwardX;
         targetTargetY += overshoot * forwardY;
@@ -121,70 +181,124 @@ void Viewer3DCamera::Zoom(float deltaSteps)
     }
     else
     {
-        targetDistance = newDistance;
-        if (targetDistance > maxDistance) targetDistance = maxDistance;
+        targetDistance = std::clamp(newDistance, minDistance, maxDistance);
     }
+    SanitizeTargetState("Zoom");
+    viewer3d::diagnostics::Logf(
+        "Camera zoom target distance=%.3f target=(%.3f, %.3f, %.3f)",
+        targetDistance, targetTargetX, targetTargetY, targetTargetZ);
 }
 
-
-
-// Moves the target point laterally (pan)
+// Moves the camera target laterally in the current horizontal view basis.
 void Viewer3DCamera::Pan(float deltaX, float deltaY)
 {
-    float radYaw = targetYaw * 3.14159265f / 180.0f;
+    if (!IsFiniteCameraValue(deltaX) || !IsFiniteCameraValue(deltaY)) {
+        viewer3d::diagnostics::Log("Viewer3DCamera::Pan ignored non-finite input delta.");
+        wxASSERT_MSG(false, "Non-finite pan delta.");
+        return;
+    }
 
-    float rightX = cosf(radYaw);
-    float rightY = sinf(radYaw);
+    const float radYaw = targetYaw * kPi / 180.0f;
+
+    const float rightX = cosf(radYaw);
+    const float rightY = sinf(radYaw);
 
     targetTargetX += deltaX * rightX;
     targetTargetY += deltaX * rightY;
     targetTargetZ += deltaY;
-
+    SanitizeTargetState("Pan");
+    viewer3d::diagnostics::Logf(
+        "Camera pan target=(%.3f, %.3f, %.3f)",
+        targetTargetX, targetTargetY, targetTargetZ);
 }
 
+// Sets the camera distance while enforcing configured distance bounds.
 void Viewer3DCamera::SetDistance(float d)
 {
-    distance = d;
-    if (distance < minDistance) distance = minDistance;
-    if (distance > maxDistance) distance = maxDistance;
+    if (!IsFiniteCameraValue(d)) {
+        viewer3d::diagnostics::Log("Viewer3DCamera::SetDistance received non-finite distance.");
+        wxASSERT_MSG(false, "Non-finite camera distance.");
+        d = kDefaultDistance;
+    }
+    distance = std::clamp(d, minDistance, maxDistance);
     targetDistance = distance;
+    SanitizeTargetState("SetDistance");
 }
 
+// Returns the current camera distance from its target point.
 float Viewer3DCamera::GetDistance() const
 {
     return distance;
 }
 
+// Sets the current and target camera orientation angles.
 void Viewer3DCamera::SetOrientation(float y, float p)
 {
-    yaw = y;
-    pitch = p;
-    if (pitch > 89.0f) pitch = 89.0f;
-    if (pitch < -89.0f) pitch = -89.0f;
+    yaw = NormalizeYawDegrees(y);
+    pitch = ClampPitchDegrees(p);
     targetYaw = yaw;
     targetPitch = pitch;
+    SanitizeTargetState("SetOrientation");
 }
 
+
+// Sets the current and target camera look-at point.
+void Viewer3DCamera::SetTarget(float x, float y, float z)
+{
+    targetX = x;
+    targetY = y;
+    targetZ = z;
+    targetTargetX = x;
+    targetTargetY = y;
+    targetTargetZ = z;
+    SanitizeTargetState("SetTarget");
+}
+
+// Synchronizes current camera values to the latest input-driven target values.
 void Viewer3DCamera::Update(float dt)
 {
     (void)dt;
+    SanitizeTargetState("UpdateBeforeApply");
 
-    // Keep camera updates deterministic and immediate.
-    // This disables interpolation so each interaction delta is applied
-    // exactly once and no residual motion is carried to the next gesture.
     yaw = targetYaw;
     pitch = targetPitch;
     distance = targetDistance;
     targetX = targetTargetX;
     targetY = targetTargetY;
     targetZ = targetTargetZ;
+    SanitizeTargetState("UpdateAfterApply");
+    viewer3d::diagnostics::Logf(
+        "Camera update yaw=%.3f pitch=%.3f distance=%.3f target=(%.3f, %.3f, %.3f)",
+        yaw, pitch, distance, targetX, targetY, targetZ);
 }
 
+// Reports whether all active and target camera values are finite and usable.
+bool Viewer3DCamera::IsValid() const
+{
+    return IsFiniteCameraValue(yaw) && IsFiniteCameraValue(pitch) &&
+           IsFiniteCameraValue(distance) && IsFiniteCameraValue(targetX) &&
+           IsFiniteCameraValue(targetY) && IsFiniteCameraValue(targetZ) &&
+           IsFiniteCameraValue(targetYaw) && IsFiniteCameraValue(targetPitch) &&
+           IsFiniteCameraValue(targetDistance) && IsFiniteCameraValue(targetTargetX) &&
+           IsFiniteCameraValue(targetTargetY) && IsFiniteCameraValue(targetTargetZ) &&
+           distance >= minDistance && distance <= maxDistance &&
+           targetDistance >= minDistance && targetDistance <= maxDistance;
+}
+
+// Returns a compact camera state snapshot for diagnostics and fingerprints.
+std::array<float, 12> Viewer3DCamera::GetStateForDiagnostics() const
+{
+    return {yaw, pitch, distance, targetX, targetY, targetZ, targetYaw,
+            targetPitch, targetDistance, targetTargetX, targetTargetY,
+            targetTargetZ};
+}
+
+// Resets camera to the default isometric navigation state.
 void Viewer3DCamera::Reset()
 {
-    yaw = 45.0f;
-    pitch = 30.0f;
-    distance = 15.0f;
+    yaw = kDefaultYawDegrees;
+    pitch = kDefaultPitchDegrees;
+    distance = kDefaultDistance;
     targetX = targetY = targetZ = 0.0f;
 
     targetYaw = yaw;
@@ -193,4 +307,43 @@ void Viewer3DCamera::Reset()
     targetTargetX = targetX;
     targetTargetY = targetY;
     targetTargetZ = targetZ;
+    SanitizeTargetState("Reset");
+}
+
+// Normalizes target values and restores safe defaults when invalid values are detected.
+void Viewer3DCamera::SanitizeTargetState(const char* source)
+{
+    bool corrected = false;
+    auto replaceIfInvalid = [&](float& value, float replacement) {
+        if (!IsFiniteCameraValue(value)) {
+            value = replacement;
+            corrected = true;
+        }
+    };
+
+    replaceIfInvalid(yaw, kDefaultYawDegrees);
+    replaceIfInvalid(pitch, kDefaultPitchDegrees);
+    replaceIfInvalid(distance, kDefaultDistance);
+    replaceIfInvalid(targetX, 0.0f);
+    replaceIfInvalid(targetY, 0.0f);
+    replaceIfInvalid(targetZ, 0.0f);
+    replaceIfInvalid(targetYaw, yaw);
+    replaceIfInvalid(targetPitch, pitch);
+    replaceIfInvalid(targetDistance, distance);
+    replaceIfInvalid(targetTargetX, targetX);
+    replaceIfInvalid(targetTargetY, targetY);
+    replaceIfInvalid(targetTargetZ, targetZ);
+
+    yaw = NormalizeYawDegrees(yaw);
+    targetYaw = NormalizeYawDegrees(targetYaw);
+    pitch = ClampPitchDegrees(pitch);
+    targetPitch = ClampPitchDegrees(targetPitch);
+    distance = std::clamp(distance, minDistance, maxDistance);
+    targetDistance = std::clamp(targetDistance, minDistance, maxDistance);
+
+    if (corrected) {
+        viewer3d::diagnostics::Logf(
+            "Viewer3DCamera corrected invalid state after %s.", source ? source : "unknown");
+        wxASSERT_MSG(false, "Corrected invalid 3D camera state.");
+    }
 }

@@ -182,6 +182,7 @@ private:
     size_t m_lastHiddenLayersFingerprint = 0;
     size_t m_lastThreadCameraFingerprint = 0;
     bool m_hasLastThreadCameraFingerprint = false;
+    bool m_paintInProgress = false;
     bool m_selectionRefreshPending = false;
     bool m_highlightRefreshPending = false;
     std::chrono::steady_clock::time_point m_refreshTelemetryWindowStart{};
@@ -226,6 +227,7 @@ private:
     std::atomic<bool> m_threadRunning{false};
     std::atomic<bool> m_shuttingDown{false};
     std::atomic<bool> m_modalDialogActive{false};
+    std::atomic<bool> m_refreshEventPending{false};
     std::thread m_refreshThread;
     void RefreshLoop();
     void OnThreadRefresh(wxThreadEvent& event);
