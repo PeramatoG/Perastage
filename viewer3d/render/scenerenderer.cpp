@@ -835,6 +835,7 @@ void SceneRenderer::DrawMeshWithOutline(
   restoreTextureState();
 }
 
+// Draws mesh edges as wireframe lines and records them for capture output.
 void SceneRenderer::DrawMeshWireframe(
     const Mesh &mesh, float scale,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
@@ -923,6 +924,7 @@ void SceneRenderer::DrawMeshWireframe(
   }
 }
 
+// Draws a lit or textured mesh while correcting mirrored winding and normals.
 void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMatrix,
                              bool useTexture) {
   const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
@@ -932,6 +934,13 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
   const bool flipWinding =
       (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
+
+  const std::vector<float> *normalData = &mesh.normals;
+  if (flipWinding && hasNormals) {
+    EnsureFlippedNormalsCache(mesh);
+    if (mesh.flippedNormalsCache.size() == mesh.normals.size())
+      normalData = &mesh.flippedNormalsCache;
+  }
 
   const std::vector<uint32_t> *triangleIndices = &mesh.indices;
   if (flipWinding) {
@@ -999,10 +1008,15 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(3, GL_FLOAT, 0, nullptr);
 
-    glBindBuffer(GL_ARRAY_BUFFER,
-                 allowGpuFlatTriangles ? mesh.vboFlatNormals : mesh.vboNormals);
     glEnableClientState(GL_NORMAL_ARRAY);
-    glNormalPointer(GL_FLOAT, 0, nullptr);
+    if (!useFaceNormals && normalData != &mesh.normals) {
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glNormalPointer(GL_FLOAT, 0, normalData->data());
+    } else {
+      glBindBuffer(GL_ARRAY_BUFFER,
+                   allowGpuFlatTriangles ? mesh.vboFlatNormals : mesh.vboNormals);
+      glNormalPointer(GL_FLOAT, 0, nullptr);
+    }
 
     if (textureEnabled) {
       glEnable(GL_TEXTURE_2D);
@@ -1068,8 +1082,6 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       const float v2y = mesh.vertices[i2 * 3 + 1] * scale;
       const float v2z = mesh.vertices[i2 * 3 + 2] * scale;
 
-      const auto &normalData = mesh.normals;
-
       if (useFaceNormals) {
         float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
         float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
@@ -1080,14 +1092,17 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
           ny /= len;
           nz /= len;
           if (hasNormals) {
-            const float avgNx =
-                (normalData[i0 * 3] + normalData[i1 * 3] + normalData[i2 * 3]) /
-                3.0f;
-            const float avgNy = (normalData[i0 * 3 + 1] + normalData[i1 * 3 + 1] +
-                                 normalData[i2 * 3 + 1]) /
+            const float avgNx = ((*normalData)[i0 * 3] +
+                                 (*normalData)[i1 * 3] +
+                                 (*normalData)[i2 * 3]) /
                                 3.0f;
-            const float avgNz = (normalData[i0 * 3 + 2] + normalData[i1 * 3 + 2] +
-                                 normalData[i2 * 3 + 2]) /
+            const float avgNy = ((*normalData)[i0 * 3 + 1] +
+                                 (*normalData)[i1 * 3 + 1] +
+                                 (*normalData)[i2 * 3 + 1]) /
+                                3.0f;
+            const float avgNz = ((*normalData)[i0 * 3 + 2] +
+                                 (*normalData)[i1 * 3 + 2] +
+                                 (*normalData)[i2 * 3 + 2]) /
                                 3.0f;
             const float alignment = nx * avgNx + ny * avgNy + nz * avgNz;
             if (alignment < 0.0f) {
@@ -1111,20 +1126,20 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
         if (textureEnabled) {
           glTexCoord2f(mesh.texcoords[i0 * 2], mesh.texcoords[i0 * 2 + 1]);
         }
-        glNormal3f(normalData[i0 * 3], normalData[i0 * 3 + 1],
-                   normalData[i0 * 3 + 2]);
+        glNormal3f((*normalData)[i0 * 3], (*normalData)[i0 * 3 + 1],
+                   (*normalData)[i0 * 3 + 2]);
         glVertex3f(v0x, v0y, v0z);
         if (textureEnabled) {
           glTexCoord2f(mesh.texcoords[i1 * 2], mesh.texcoords[i1 * 2 + 1]);
         }
-        glNormal3f(normalData[i1 * 3], normalData[i1 * 3 + 1],
-                   normalData[i1 * 3 + 2]);
+        glNormal3f((*normalData)[i1 * 3], (*normalData)[i1 * 3 + 1],
+                   (*normalData)[i1 * 3 + 2]);
         glVertex3f(v1x, v1y, v1z);
         if (textureEnabled) {
           glTexCoord2f(mesh.texcoords[i2 * 2], mesh.texcoords[i2 * 2 + 1]);
         }
-        glNormal3f(normalData[i2 * 3], normalData[i2 * 3 + 1],
-                   normalData[i2 * 3 + 2]);
+        glNormal3f((*normalData)[i2 * 3], (*normalData)[i2 * 3 + 1],
+                   (*normalData)[i2 * 3 + 2]);
         glVertex3f(v2x, v2y, v2z);
       } else {
         float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);

@@ -51,6 +51,8 @@ struct Mesh {
     bool buffersReady = false;
     // Optional cached triangle index order for mirrored instances.
     mutable std::vector<uint32_t> flippedIndicesCache;
+    // Optional cached per-vertex normals for mirrored instances.
+    mutable std::vector<float> flippedNormalsCache;
     // True once we have evaluated/fixed triangle winding for compatibility
     // with assets coming from heterogeneous DCC/export pipelines.
     bool windingChecked = false;
@@ -61,6 +63,22 @@ struct Mesh {
     mutable std::vector<float> flippedFlatVertices;
     mutable std::vector<float> flippedFlatNormals;
 };
+
+// Populates mirrored per-vertex normals by negating the mesh normal stream on demand.
+inline void EnsureFlippedNormalsCache(const Mesh& mesh)
+{
+    if (mesh.normals.empty()) {
+        mesh.flippedNormalsCache.clear();
+        return;
+    }
+
+    if (mesh.flippedNormalsCache.size() == mesh.normals.size())
+        return;
+
+    mesh.flippedNormalsCache.resize(mesh.normals.size());
+    for (size_t i = 0; i < mesh.normals.size(); ++i)
+        mesh.flippedNormalsCache[i] = -mesh.normals[i];
+}
 
 // Attempts to detect meshes whose triangle winding is globally inverted and
 // flips their index order when needed. This runs once per mesh at upload time,
