@@ -24,6 +24,8 @@
 
 #pragma once
 
+#include <array>
+
 class Viewer3DCamera
 {
 public:
@@ -53,6 +55,12 @@ public:
     // Returns current distance
     float GetDistance() const;
 
+    // Returns whether all active and target camera values are finite.
+    bool IsValid() const;
+
+    // Returns the current camera state for diagnostics.
+    std::array<float, 12> GetStateForDiagnostics() const;
+
     // Synchronizes current camera state with interaction targets.
     void Update(float dt);
 
@@ -61,10 +69,8 @@ public:
     float GetTargetX() const { return targetX; }
     float GetTargetY() const { return targetY; }
     float GetTargetZ() const { return targetZ; }
-    void SetTarget(float x, float y, float z) {
-        targetX = x; targetY = y; targetZ = z;
-        targetTargetX = x; targetTargetY = y; targetTargetZ = z;
-    }
+    // Sets the target point directly.
+    void SetTarget(float x, float y, float z);
 
     // Desired/orbital target state driven by input handlers.
     float targetYaw;
@@ -88,4 +94,7 @@ private:
 
     float minDistance;
     float maxDistance;
+
+    // Normalizes target values and rejects non-finite camera state.
+    void SanitizeTargetState(const char* source);
 };
