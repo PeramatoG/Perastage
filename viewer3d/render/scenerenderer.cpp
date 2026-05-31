@@ -320,6 +320,15 @@ void ApplyNormalMatrixSign(float *normalMatrix3x3, float normalSign) {
     normalMatrix3x3[i] *= normalSign;
 }
 
+// Returns the supplied model matrix or reads the current OpenGL model-view matrix.
+const float *ResolveModelMatrixForMirroring(const float *modelMatrix,
+                                            float fallbackModelMatrix[16]) {
+  if (modelMatrix != nullptr)
+    return modelMatrix;
+  glGetFloatv(GL_MODELVIEW_MATRIX, fallbackModelMatrix);
+  return fallbackModelMatrix;
+}
+
 // Draws a mesh with the GPU three-tone ink shader when buffers are available.
 bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
                              const float *modelMatrix) {
@@ -357,7 +366,8 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
 
   float normalMatrix[9];
   ComputeNormalMatrix3x3(modelView, normalMatrix);
-  ApplyNormalMatrixSign(normalMatrix, ComputeNormalMatrixSign(modelMatrix));
+  ApplyNormalMatrixSign(
+      normalMatrix, ComputeNormalMatrixSign(modelMatrix ? modelMatrix : modelView));
 
   glUseProgram(program.program);
   glUniformMatrix4fv(program.modelViewUniform, 1, GL_FALSE, modelView);
@@ -400,7 +410,9 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
 
 // Builds cached flat-shaded vertex streams with mirrored triangle winding.
 void EnsureFlippedFlatCache(const Mesh &mesh) {
-  if (!mesh.flippedFlatVertices.empty() && !mesh.flippedFlatNormals.empty())
+  const size_t expectedFloatCount = mesh.indices.size() * 3;
+  if (mesh.flippedFlatVertices.size() == expectedFloatCount &&
+      mesh.flippedFlatNormals.size() == expectedFloatCount)
     return;
 
   mesh.flippedFlatVertices.clear();
@@ -408,8 +420,8 @@ void EnsureFlippedFlatCache(const Mesh &mesh) {
   if (mesh.vertices.empty() || mesh.indices.empty())
     return;
 
-  mesh.flippedFlatVertices.reserve(mesh.indices.size() * 3);
-  mesh.flippedFlatNormals.reserve(mesh.indices.size() * 3);
+  mesh.flippedFlatVertices.reserve(expectedFloatCount);
+  mesh.flippedFlatNormals.reserve(expectedFloatCount);
 
   for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
     const uint32_t i0 = mesh.indices[i];
@@ -426,10 +438,16 @@ void EnsureFlippedFlatCache(const Mesh &mesh) {
     const float v2y = mesh.vertices[i2 * 3 + 1];
     const float v2z = mesh.vertices[i2 * 3 + 2];
 
-    const std::array<float, 3> faceNormal = NormalizeVector(
+    std::array<float, 3> faceNormal = NormalizeVector(
         (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y),
         (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z),
         (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x));
+    const size_t flatNormalOffset = i * 3;
+    if (flatNormalOffset + 2 < mesh.flatNormals.size()) {
+      faceNormal = {-mesh.flatNormals[flatNormalOffset],
+                    -mesh.flatNormals[flatNormalOffset + 1],
+                    -mesh.flatNormals[flatNormalOffset + 2]};
+    }
 
     mesh.flippedFlatVertices.insert(
         mesh.flippedFlatVertices.end(),
@@ -453,9 +471,11 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatri
 void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
                                    const float *modelMatrix) {
   std::array<float, 3> lightDir = NormalizeVector(0.35f, -0.55f, 1.0f);
+  float fallbackModelMatrix[16];
+  const float *effectiveModelMatrix =
+      ResolveModelMatrixForMirroring(modelMatrix, fallbackModelMatrix);
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
-  const bool flipWinding =
-      (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
+  const bool flipWinding = TransformDeterminant(effectiveModelMatrix) < 0.0f;
   const std::vector<uint32_t> *triangleIndices = &mesh.indices;
   if (flipWinding) {
     if (mesh.flippedIndicesCache.size() != mesh.indices.size()) {
@@ -494,11 +514,11 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
     const std::array<float, 3> triangleNormal = NormalizeVector(
         uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
     const std::array<float, 3> p0World =
-        TransformPoint({v0x, v0y, v0z}, modelMatrix);
+        TransformPoint({v0x, v0y, v0z}, effectiveModelMatrix);
     const std::array<float, 3> p1World =
-        TransformPoint({v1x, v1y, v1z}, modelMatrix);
+        TransformPoint({v1x, v1y, v1z}, effectiveModelMatrix);
     const std::array<float, 3> p2World =
-        TransformPoint({v2x, v2y, v2z}, modelMatrix);
+        TransformPoint({v2x, v2y, v2z}, effectiveModelMatrix);
     const std::array<float, 3> worldTriNormal = NormalizeVector(
         (p1World[1] - p0World[1]) * (p2World[2] - p0World[2]) -
             (p1World[2] - p0World[2]) * (p2World[1] - p0World[1]),
@@ -524,7 +544,8 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
         }
       }
 
-      std::array<float, 3> worldNormal = TransformNormal(localNormal, modelMatrix);
+      std::array<float, 3> worldNormal =
+          TransformNormal(localNormal, effectiveModelMatrix);
       const float dotWorld = worldNormal[0] * worldTriNormal[0] +
                              worldNormal[1] * worldTriNormal[1] +
                              worldNormal[2] * worldTriNormal[2];
@@ -931,9 +952,11 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
   if (cullWasEnabled)
     glDisable(GL_CULL_FACE);
 
+  float fallbackModelMatrix[16];
+  const float *effectiveModelMatrix =
+      ResolveModelMatrixForMirroring(modelMatrix, fallbackModelMatrix);
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
-  const bool flipWinding =
-      (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
+  const bool flipWinding = TransformDeterminant(effectiveModelMatrix) < 0.0f;
 
   const std::vector<float> *normalData = &mesh.normals;
   if (flipWinding && hasNormals) {
