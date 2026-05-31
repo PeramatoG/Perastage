@@ -259,6 +259,7 @@ const ThreeToneInkProgram &GetThreeToneInkProgram() {
   return program;
 }
 
+// Builds the inverse-transpose normal matrix from the current model-view matrix.
 void ComputeNormalMatrix3x3(const float *modelView, float *normalMatrix3x3) {
   const float m00 = modelView[0];
   const float m01 = modelView[4];
@@ -304,7 +305,24 @@ void ComputeNormalMatrix3x3(const float *modelView, float *normalMatrix3x3) {
   normalMatrix3x3[8] = c22 * invDet;
 }
 
-bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale) {
+// Returns the normal orientation multiplier required for mirrored model transforms.
+float ComputeNormalMatrixSign(const float *modelMatrix) {
+  return (modelMatrix != nullptr && TransformDeterminant(modelMatrix) < 0.0f)
+             ? -1.0f
+             : 1.0f;
+}
+
+// Applies a handedness correction to a normal matrix before shader upload.
+void ApplyNormalMatrixSign(float *normalMatrix3x3, float normalSign) {
+  if (normalSign == 1.0f)
+    return;
+  for (int i = 0; i < 9; ++i)
+    normalMatrix3x3[i] *= normalSign;
+}
+
+// Draws a mesh with the GPU three-tone ink shader when buffers are available.
+bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
+                             const float *modelMatrix) {
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.vboNormals) == GL_TRUE &&
                                glIsBuffer(mesh.eboTriangles) == GL_TRUE;
@@ -339,6 +357,7 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale) {
 
   float normalMatrix[9];
   ComputeNormalMatrix3x3(modelView, normalMatrix);
+  ApplyNormalMatrixSign(normalMatrix, ComputeNormalMatrixSign(modelMatrix));
 
   glUseProgram(program.program);
   glUniformMatrix4fv(program.modelViewUniform, 1, GL_FALSE, modelView);
@@ -379,6 +398,7 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale) {
 void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
                                    const float *modelMatrix);
 
+// Builds cached flat-shaded vertex streams with mirrored triangle winding.
 void EnsureFlippedFlatCache(const Mesh &mesh) {
   if (!mesh.flippedFlatVertices.empty() && !mesh.flippedFlatNormals.empty())
     return;
@@ -422,12 +442,14 @@ void EnsureFlippedFlatCache(const Mesh &mesh) {
   }
 }
 
+// Draws a mesh using three-tone ink shading with GPU and immediate fallbacks.
 void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatrix) {
-  if (DrawMeshThreeToneInkGpu(mesh, scale))
+  if (DrawMeshThreeToneInkGpu(mesh, scale, modelMatrix))
     return;
   DrawMeshThreeToneInkImmediate(mesh, scale, modelMatrix);
 }
 
+// Draws a mesh with CPU-side three-tone ink shading when GPU shaders are unavailable.
 void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
                                    const float *modelMatrix) {
   std::array<float, 3> lightDir = NormalizeVector(0.35f, -0.55f, 1.0f);
