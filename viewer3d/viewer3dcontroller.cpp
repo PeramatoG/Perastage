@@ -1106,6 +1106,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
         (context.is2DViewer && m_impl->sortedListsLastView != context.view);
     if ((m_impl->sortedListsDirty || viewSortChanged) &&
         !context.skipOptionalWork) {
+      // Computes the transform-origin depth used by fixtures, trusses, and fallback object sorting.
       const auto sortDepthKey = [&](const Matrix &transform) {
         if (!context.is2DViewer)
           return transform.o[2];
@@ -1122,14 +1123,51 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
           return transform.o[2];
         }
       };
+      // Computes scene-object 2D sort depth from cached world bounds when available.
+      const auto sceneObjectSortDepthKey = [&](const auto *entry) {
+        const auto &transform = entry->second.transform;
+        if (!context.is2DViewer)
+          return sortDepthKey(transform);
+
+        const auto &uuid = entry->first;
+        EnsureBoundsComputed(uuid, ItemType::SceneObject, context.hiddenLayers);
+        const auto boundsIt = m_impl->objectBounds.find(uuid);
+        if (boundsIt == m_impl->objectBounds.end())
+          return sortDepthKey(transform);
+
+        const auto &bounds = boundsIt->second;
+        switch (context.view) {
+        case Viewer2DView::Top:
+          return bounds.max[2];
+        case Viewer2DView::Bottom:
+          return -bounds.min[2];
+        case Viewer2DView::Front:
+          return -bounds.max[1];
+        case Viewer2DView::Side:
+          return -bounds.max[0];
+        default:
+          return sortDepthKey(transform);
+        }
+      };
+      std::unordered_map<std::string, float> sceneObjectSortDepthKeys;
+      sceneObjectSortDepthKeys.reserve(sceneObjects.size());
       m_impl->sortedObjects.clear();
       m_impl->sortedObjects.reserve(sceneObjects.size());
-      for (const auto &obj : sceneObjects)
+      for (const auto &obj : sceneObjects) {
         m_impl->sortedObjects.push_back(&obj);
+        sceneObjectSortDepthKeys.emplace(obj.first,
+                                         sceneObjectSortDepthKey(&obj));
+      }
+      // Returns the precomputed scene-object sort depth for a sorted-list entry.
+      const auto sceneObjectSortDepth = [&](const auto *entry) {
+        const auto keyIt = sceneObjectSortDepthKeys.find(entry->first);
+        if (keyIt != sceneObjectSortDepthKeys.end())
+          return keyIt->second;
+        return sortDepthKey(entry->second.transform);
+      };
       std::sort(m_impl->sortedObjects.begin(), m_impl->sortedObjects.end(),
                 [&](const auto *a, const auto *b) {
-                  return sortDepthKey(a->second.transform) <
-                         sortDepthKey(b->second.transform);
+                  return sceneObjectSortDepth(a) < sceneObjectSortDepth(b);
                 });
 
       m_impl->sortedTrusses.clear();
