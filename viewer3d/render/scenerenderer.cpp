@@ -305,19 +305,19 @@ void ComputeNormalMatrix3x3(const float *modelView, float *normalMatrix3x3) {
   normalMatrix3x3[8] = c22 * invDet;
 }
 
-// Returns the normal orientation multiplier required for mirrored model transforms.
-float ComputeNormalMatrixSign(const float *modelMatrix) {
-  return (modelMatrix != nullptr && TransformDeterminant(modelMatrix) < 0.0f)
-             ? -1.0f
-             : 1.0f;
+// Returns the prior front-face mode after adapting it for mirrored model draws.
+GLint ApplyMirroredFrontFace(bool mirrored) {
+  GLint previousFrontFace = GL_CCW;
+  glGetIntegerv(GL_FRONT_FACE, &previousFrontFace);
+  if (mirrored) {
+    glFrontFace(previousFrontFace == GL_CCW ? GL_CW : GL_CCW);
+  }
+  return previousFrontFace;
 }
 
-// Applies a handedness correction to a normal matrix before shader upload.
-void ApplyNormalMatrixSign(float *normalMatrix3x3, float normalSign) {
-  if (normalSign == 1.0f)
-    return;
-  for (int i = 0; i < 9; ++i)
-    normalMatrix3x3[i] *= normalSign;
+// Restores the front-face winding mode saved before a mirrored draw.
+void RestoreFrontFace(GLint previousFrontFace) {
+  glFrontFace(static_cast<GLenum>(previousFrontFace));
 }
 
 // Returns the supplied model matrix or reads the current OpenGL model-view matrix.
@@ -366,8 +366,9 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
 
   float normalMatrix[9];
   ComputeNormalMatrix3x3(modelView, normalMatrix);
-  ApplyNormalMatrixSign(
-      normalMatrix, ComputeNormalMatrixSign(modelMatrix ? modelMatrix : modelView));
+  const bool mirrored =
+      TransformDeterminant(modelMatrix ? modelMatrix : modelView) < 0.0f;
+  const GLint previousFrontFace = ApplyMirroredFrontFace(mirrored);
 
   glUseProgram(program.program);
   glUniformMatrix4fv(program.modelViewUniform, 1, GL_FALSE, modelView);
@@ -400,6 +401,7 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glUseProgram(static_cast<GLuint>(priorProgram));
+  RestoreFrontFace(previousFrontFace);
   glPopMatrix();
 
   return true;
@@ -407,58 +409,6 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
 
 void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
                                    const float *modelMatrix);
-
-// Builds cached flat-shaded vertex streams with mirrored triangle winding.
-void EnsureFlippedFlatCache(const Mesh &mesh) {
-  const size_t expectedFloatCount = mesh.indices.size() * 3;
-  if (mesh.flippedFlatVertices.size() == expectedFloatCount &&
-      mesh.flippedFlatNormals.size() == expectedFloatCount)
-    return;
-
-  mesh.flippedFlatVertices.clear();
-  mesh.flippedFlatNormals.clear();
-  if (mesh.vertices.empty() || mesh.indices.empty())
-    return;
-
-  mesh.flippedFlatVertices.reserve(expectedFloatCount);
-  mesh.flippedFlatNormals.reserve(expectedFloatCount);
-
-  for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-    const uint32_t i0 = mesh.indices[i];
-    const uint32_t i1 = mesh.indices[i + 2];
-    const uint32_t i2 = mesh.indices[i + 1];
-
-    const float v0x = mesh.vertices[i0 * 3];
-    const float v0y = mesh.vertices[i0 * 3 + 1];
-    const float v0z = mesh.vertices[i0 * 3 + 2];
-    const float v1x = mesh.vertices[i1 * 3];
-    const float v1y = mesh.vertices[i1 * 3 + 1];
-    const float v1z = mesh.vertices[i1 * 3 + 2];
-    const float v2x = mesh.vertices[i2 * 3];
-    const float v2y = mesh.vertices[i2 * 3 + 1];
-    const float v2z = mesh.vertices[i2 * 3 + 2];
-
-    std::array<float, 3> faceNormal = NormalizeVector(
-        (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y),
-        (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z),
-        (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x));
-    const size_t flatNormalOffset = i * 3;
-    if (flatNormalOffset + 2 < mesh.flatNormals.size()) {
-      faceNormal = {-mesh.flatNormals[flatNormalOffset],
-                    -mesh.flatNormals[flatNormalOffset + 1],
-                    -mesh.flatNormals[flatNormalOffset + 2]};
-    }
-
-    mesh.flippedFlatVertices.insert(
-        mesh.flippedFlatVertices.end(),
-        {v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z});
-    for (int v = 0; v < 3; ++v) {
-      mesh.flippedFlatNormals.push_back(faceNormal[0]);
-      mesh.flippedFlatNormals.push_back(faceNormal[1]);
-      mesh.flippedFlatNormals.push_back(faceNormal[2]);
-    }
-  }
-}
 
 // Draws a mesh using three-tone ink shading with GPU and immediate fallbacks.
 void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatrix) {
@@ -475,20 +425,13 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
   const float *effectiveModelMatrix =
       ResolveModelMatrixForMirroring(modelMatrix, fallbackModelMatrix);
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
-  const bool flipWinding = TransformDeterminant(effectiveModelMatrix) < 0.0f;
+  const bool mirrored = TransformDeterminant(effectiveModelMatrix) < 0.0f;
   const std::vector<uint32_t> *triangleIndices = &mesh.indices;
-  if (flipWinding) {
-    if (mesh.flippedIndicesCache.size() != mesh.indices.size()) {
-      mesh.flippedIndicesCache = mesh.indices;
-      for (size_t i = 0; i + 2 < mesh.flippedIndicesCache.size(); i += 3)
-        std::swap(mesh.flippedIndicesCache[i + 1], mesh.flippedIndicesCache[i + 2]);
-    }
-    triangleIndices = &mesh.flippedIndicesCache;
-  }
 
   const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
   if (cullWasEnabled)
     glDisable(GL_CULL_FACE);
+  const GLint previousFrontFace = ApplyMirroredFrontFace(mirrored);
   glShadeModel(GL_SMOOTH);
 
   glBegin(GL_TRIANGLES);
@@ -519,13 +462,18 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
         TransformPoint({v1x, v1y, v1z}, effectiveModelMatrix);
     const std::array<float, 3> p2World =
         TransformPoint({v2x, v2y, v2z}, effectiveModelMatrix);
-    const std::array<float, 3> worldTriNormal = NormalizeVector(
+    std::array<float, 3> worldTriNormal = NormalizeVector(
         (p1World[1] - p0World[1]) * (p2World[2] - p0World[2]) -
             (p1World[2] - p0World[2]) * (p2World[1] - p0World[1]),
         (p1World[2] - p0World[2]) * (p2World[0] - p0World[0]) -
             (p1World[0] - p0World[0]) * (p2World[2] - p0World[2]),
         (p1World[0] - p0World[0]) * (p2World[1] - p0World[1]) -
             (p1World[1] - p0World[1]) * (p2World[0] - p0World[0]));
+    if (mirrored) {
+      worldTriNormal[0] = -worldTriNormal[0];
+      worldTriNormal[1] = -worldTriNormal[1];
+      worldTriNormal[2] = -worldTriNormal[2];
+    }
 
     for (int v = 0; v < 3; ++v) {
       const uint32_t idx = tri[v];
@@ -567,6 +515,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
   }
   glEnd();
 
+  RestoreFrontFace(previousFrontFace);
   if (cullWasEnabled)
     glEnable(GL_CULL_FACE);
 }
@@ -945,7 +894,7 @@ void SceneRenderer::DrawMeshWireframe(
   }
 }
 
-// Draws a lit or textured mesh while correcting mirrored winding and normals.
+// Draws a lit or textured mesh while preserving front-face orientation for mirrored transforms.
 void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMatrix,
                              bool useTexture) {
   const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
@@ -956,26 +905,11 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
   const float *effectiveModelMatrix =
       ResolveModelMatrixForMirroring(modelMatrix, fallbackModelMatrix);
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
-  const bool flipWinding = TransformDeterminant(effectiveModelMatrix) < 0.0f;
+  const bool mirrored = TransformDeterminant(effectiveModelMatrix) < 0.0f;
+  const GLint previousFrontFace = ApplyMirroredFrontFace(mirrored);
 
   const std::vector<float> *normalData = &mesh.normals;
-  if (flipWinding && hasNormals) {
-    EnsureFlippedNormalsCache(mesh);
-    if (mesh.flippedNormalsCache.size() == mesh.normals.size())
-      normalData = &mesh.flippedNormalsCache;
-  }
-
   const std::vector<uint32_t> *triangleIndices = &mesh.indices;
-  if (flipWinding) {
-    if (mesh.flippedIndicesCache.size() != mesh.indices.size()) {
-      mesh.flippedIndicesCache = mesh.indices;
-      for (size_t i = 0; i + 2 < mesh.flippedIndicesCache.size(); i += 3) {
-        std::swap(mesh.flippedIndicesCache[i + 1],
-                  mesh.flippedIndicesCache[i + 2]);
-      }
-    }
-    triangleIndices = &mesh.flippedIndicesCache;
-  }
 
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.vboNormals) == GL_TRUE &&
@@ -997,27 +931,12 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       mesh.vboFlatNormals != 0 && mesh.flatVertexCount > 0 &&
       flatGpuHandlesValid;
 
-  const bool canUseGpuVertexArrays =
-      mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
-      mesh.vboNormals != 0 && gpuHandlesValid;
-
-  const bool hasFlippedFlatCache = [&]() {
-    if (!flipWinding)
-      return false;
-    EnsureFlippedFlatCache(mesh);
-    return !mesh.flippedFlatVertices.empty() && !mesh.flippedFlatNormals.empty();
-  }();
-
   const bool allowGpuTriangles =
       canUseGpuTriangles && (!useFaceNormals || !canUseGpuFlatTriangles);
   const bool allowGpuFlatTriangles = canUseGpuFlatTriangles && useFaceNormals;
-  const bool allowCachedFlatTriangles = useFaceNormals && hasFlippedFlatCache;
-  const bool allowDrawElementsWithCpuIndices =
-      canUseGpuVertexArrays && !useFaceNormals && flipWinding;
 
   if (!m_controller.IsCaptureOnly() &&
-      (allowGpuTriangles || allowGpuFlatTriangles || allowCachedFlatTriangles ||
-       allowDrawElementsWithCpuIndices)) {
+      (allowGpuTriangles || allowGpuFlatTriangles)) {
     const bool textureEnabled =
         allowGpuTriangles && useTexture && mesh.textureId != 0 &&
         mesh.vboTexCoords != 0 &&
@@ -1031,15 +950,10 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(3, GL_FLOAT, 0, nullptr);
 
+    glBindBuffer(GL_ARRAY_BUFFER,
+                 allowGpuFlatTriangles ? mesh.vboFlatNormals : mesh.vboNormals);
     glEnableClientState(GL_NORMAL_ARRAY);
-    if (!useFaceNormals && normalData != &mesh.normals) {
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      glNormalPointer(GL_FLOAT, 0, normalData->data());
-    } else {
-      glBindBuffer(GL_ARRAY_BUFFER,
-                   allowGpuFlatTriangles ? mesh.vboFlatNormals : mesh.vboNormals);
-      glNormalPointer(GL_FLOAT, 0, nullptr);
-    }
+    glNormalPointer(GL_FLOAT, 0, nullptr);
 
     if (textureEnabled) {
       glEnable(GL_TEXTURE_2D);
@@ -1049,22 +963,9 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       glTexCoordPointer(2, GL_FLOAT, 0, nullptr);
     }
 
-    if (allowCachedFlatTriangles) {
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      glVertexPointer(3, GL_FLOAT, 0, mesh.flippedFlatVertices.data());
-      glNormalPointer(GL_FLOAT, 0, mesh.flippedFlatNormals.data());
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-      glDrawArrays(
-          GL_TRIANGLES, 0,
-          static_cast<GLsizei>(mesh.flippedFlatVertices.size() / 3));
-    } else if (allowGpuFlatTriangles) {
+    if (allowGpuFlatTriangles) {
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
       glDrawArrays(GL_TRIANGLES, 0, mesh.flatVertexCount);
-    } else if (allowDrawElementsWithCpuIndices) {
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-      glDrawElements(
-          GL_TRIANGLES, static_cast<GLsizei>(triangleIndices->size()),
-          GL_UNSIGNED_INT, triangleIndices->data());
     } else {
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
       glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
@@ -1197,6 +1098,7 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     }
   }
 
+  RestoreFrontFace(previousFrontFace);
   if (cullWasEnabled)
     glEnable(GL_CULL_FACE);
 }
