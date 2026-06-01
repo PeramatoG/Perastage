@@ -83,6 +83,7 @@ void LayoutViewerPanel::RefreshEditedViewById(int viewId) {
     cacheIt->second.hasCapture = false;
     cacheIt->second.hasRenderState = false;
     cacheIt->second.hasCaptureContentHash = false;
+    cacheIt->second.restoredFromPersistentCache = false;
     cacheIt->second.renderDirty = true;
     cacheIt->second.contentHash = 0;
   } else {
@@ -92,6 +93,7 @@ void LayoutViewerPanel::RefreshEditedViewById(int viewId) {
     cache.hasCapture = false;
     cache.hasRenderState = false;
     cache.hasCaptureContentHash = false;
+    cache.restoredFromPersistentCache = false;
     cache.renderDirty = true;
     cache.contentHash = 0;
   }
@@ -273,6 +275,7 @@ void LayoutViewerPanel::DrawViewElement(
           cache.captureContentHash = captureContentHash;
           cache.hasCaptureContentHash = true;
           cache.captureVersion = viewRenderVersion;
+          cache.restoredFromPersistentCache = false;
           cache.captureInProgress = false;
           captureInProgress = false;
           cache.renderDirty = true;

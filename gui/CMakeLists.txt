@@ -44,6 +44,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layouttextdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouttextutils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_view_cache_archive.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_render_invalidation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_eventtable.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel_image.cpp

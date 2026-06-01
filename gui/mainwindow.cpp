@@ -391,6 +391,12 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 
   Centre();
   SetupLayout();
+  guiConfigServices->LegacyConfigManager().SetProjectArchiveResourceProvider(
+      [this]() -> std::vector<ProjectSession::ArchiveResource> {
+        if (!layoutViewerPanel)
+          return {};
+        return layoutViewerPanel->CollectPersistentViewCacheResources();
+      });
   // Ensure the 3D viewport is available even before a project is loaded.
   Ensure3DViewport();
 
@@ -423,6 +429,7 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 }
 
 MainWindow::~MainWindow() {
+  guiConfigServices->LegacyConfigManager().SetProjectArchiveResourceProvider({});
   CleanupFixtureAutoUpdateStatusTimer();
   cursorStatusCallbackLifetimeToken.reset();
   if (viewport2DPanel)
@@ -756,6 +763,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     return false;
   }
   loadProfiler.EndPhase();
+  if (layoutViewerPanel)
+    layoutViewerPanel->LoadPersistentViewCacheFromProject(path);
   viewer2d::ReconcileFixtureLabelOverridesWithScene(
       GetDefaultGuiConfigServices().LegacyConfigManager());
 

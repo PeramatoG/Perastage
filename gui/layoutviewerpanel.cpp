@@ -44,6 +44,7 @@
 #endif
 
 #include "layoutviewerpanel.h"
+#include "layout_view_cache_archive.h"
 #include "layoutviewerpanel_helpers.h"
 #include "layout_render_status_notifier.h"
 #include "layout_render_profiler.h"
@@ -523,6 +524,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     currentLayout.name = layout.name;
     legendDataDirty_ = true;
     RefreshLegendData();
+    HydratePendingPersistentViewCache();
     InvalidateRenderIfFrameChanged(false);
     if (NeedsRenderRebuild())
       RequestRenderRebuild();
@@ -615,6 +617,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     loadingRequested = false;
     legendDataDirty_ = true;
     RefreshLegendData();
+    HydratePendingPersistentViewCache();
     InvalidateRenderIfFrameChanged(true);
     if (NeedsRenderRebuild())
       RequestRenderRebuild();
@@ -624,6 +627,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
 
   captureInProgress = false;
   ClearCachedTexture();
+  HydratePendingPersistentViewCache();
   const bool emptyLayout = IsLayoutEmpty();
   if (emptyLayout) {
     selectedElementType = SelectedElementType::None;
@@ -2137,12 +2141,12 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
                                safeTotal));
         };
 
-    bool hasDirtyViewCache = false;
+    bool needsViewSceneCapture = false;
     for (const auto &view : currentLayout.view2dViews) {
       const auto cacheIt = viewCaches_.find(view.id);
       if (cacheIt != viewCaches_.end() && cacheIt->second.renderDirty) {
-        hasDirtyViewCache = true;
-        break;
+        needsViewSceneCapture =
+            needsViewSceneCapture || !cacheIt->second.restoredFromPersistentCache;
       }
     }
     bool needsLegendProcessing = false;
@@ -2173,7 +2177,7 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
                          currentLayout.view2dViews.size(),
                          currentLayout.legendViews.size(),
                          needsLegendSymbolCapture ? "yes" : "no"));
-    const bool needsCapturePanel = hasDirtyViewCache || needsLegendSymbolCapture;
+    const bool needsCapturePanel = needsViewSceneCapture || needsLegendSymbolCapture;
     profiler.BeginPhase("prepare_capture_panel");
     if (needsCapturePanel) {
       gui::layoutstatus::PostLayoutRenderStatus(
@@ -2248,51 +2252,77 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      offscreenRenderer->SetViewportSize(renderSize);
-      offscreenRenderer->PrepareForCapture();
-
-      viewer2d::Viewer2DState renderState = cache.renderState;
-      if (renderZoom != 1.0) {
-        renderState.camera.zoom *= static_cast<float>(renderZoom);
-      }
-      renderState.camera.viewportWidth = renderSize.GetWidth();
-      renderState.camera.viewportHeight = renderSize.GetHeight();
-
-      auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-          capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
-
       std::vector<unsigned char> pixels;
       int width = 0;
       int height = 0;
-      const auto previousOverrides = capturePanel->GetRenderOverrides();
-      const bool previousPreferLayoutSvgSymbols =
-          capturePanel->GetPreferPerastageSvgSymbolsForLayouts();
-      struct ScopedCapturePanelRestore {
-        Viewer2DPanel *panel = nullptr;
-        std::optional<Viewer2DRenderOverrides> overrides;
-        bool preferLayoutSvgSymbols = false;
-        ~ScopedCapturePanelRestore() {
-          if (!panel)
-            return;
-          panel->SetRenderOverrides(overrides);
-          panel->SetPreferPerastageSvgSymbolsForLayouts(preferLayoutSvgSymbols);
+      const bool attemptedPersistentCache = cache.restoredFromPersistentCache;
+      const bool renderedFromPersistentCache =
+          attemptedPersistentCache &&
+          gui::layoutcache::RenderCommandBufferCacheToRgba(
+              renderSize, cache.buffer, cache.viewState, cache.symbols.get(),
+              renderZoom, pixels, width, height);
+      if (attemptedPersistentCache && !renderedFromPersistentCache)
+        cache.restoredFromPersistentCache = false;
+      std::shared_ptr<viewer2d::ScopedViewer2DState> stateGuard;
+      if (!renderedFromPersistentCache) {
+        if (!capturePanel || !offscreenRenderer) {
+          ClearCachedTexture(cache);
+          cache.textureSize = wxSize(0, 0);
+          cache.renderZoom = 0.0;
+          continue;
         }
-      } scopedRestore{capturePanel, previousOverrides,
-                      previousPreferLayoutSvgSymbols};
+        offscreenRenderer->SetViewportSize(renderSize);
+        offscreenRenderer->PrepareForCapture();
 
-      Viewer2DRenderOverrides previewOverrides =
-          previousOverrides.value_or(Viewer2DRenderOverrides{});
-      previewOverrides.drawFixtureLabels = true;
-      previewOverrides.symbolCaptureRenderProfile = false;
-      capturePanel->SetRenderOverrides(previewOverrides);
-      capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
-      gui::layoutstatus::PostLayoutRenderStatus(
-          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
-          wxString::Format(
-              "Rendering 2D view id=%d (%zu/%zu): capturing scene objects...",
-              view.id, processedRenderItems, std::max<size_t>(1, totalRenderItems)));
-      const bool rendered =
-          capturePanel->RenderToRGBA(pixels, width, height, renderSize);
+        viewer2d::Viewer2DState renderState = cache.renderState;
+        if (renderZoom != 1.0) {
+          renderState.camera.zoom *= static_cast<float>(renderZoom);
+        }
+        renderState.camera.viewportWidth = renderSize.GetWidth();
+        renderState.camera.viewportHeight = renderSize.GetHeight();
+
+        stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+            capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
+      }
+
+      bool rendered = renderedFromPersistentCache;
+      if (!renderedFromPersistentCache) {
+        if (!capturePanel) {
+          ClearCachedTexture(cache);
+          cache.textureSize = wxSize(0, 0);
+          cache.renderZoom = 0.0;
+          continue;
+        }
+        const auto previousOverrides = capturePanel->GetRenderOverrides();
+        const bool previousPreferLayoutSvgSymbols =
+            capturePanel->GetPreferPerastageSvgSymbolsForLayouts();
+        struct ScopedCapturePanelRestore {
+          Viewer2DPanel *panel = nullptr;
+          std::optional<Viewer2DRenderOverrides> overrides;
+          bool preferLayoutSvgSymbols = false;
+          ~ScopedCapturePanelRestore() {
+            if (!panel)
+              return;
+            panel->SetRenderOverrides(overrides);
+            panel->SetPreferPerastageSvgSymbolsForLayouts(preferLayoutSvgSymbols);
+          }
+        } scopedRestore{capturePanel, previousOverrides,
+                        previousPreferLayoutSvgSymbols};
+
+        Viewer2DRenderOverrides previewOverrides =
+            previousOverrides.value_or(Viewer2DRenderOverrides{});
+        previewOverrides.drawFixtureLabels = true;
+        previewOverrides.symbolCaptureRenderProfile = false;
+        capturePanel->SetRenderOverrides(previewOverrides);
+        capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
+        gui::layoutstatus::PostLayoutRenderStatus(
+            this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+            wxString::Format(
+                "Rendering 2D view id=%d (%zu/%zu): capturing scene objects...",
+                view.id, processedRenderItems,
+                std::max<size_t>(1, totalRenderItems)));
+        rendered = capturePanel->RenderToRGBA(pixels, width, height, renderSize);
+      }
       if (!rendered || width <= 0 || height <= 0) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
