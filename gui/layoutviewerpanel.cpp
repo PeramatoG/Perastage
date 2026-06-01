@@ -46,6 +46,7 @@
 #include "layoutviewerpanel.h"
 #include "layoutviewerpanel_helpers.h"
 #include "layout_render_status_notifier.h"
+#include "layout_render_profiler.h"
 #include "gl_state_guard.h"
 #include <wx/debug.h>
 #include <wx/log.h>
@@ -2085,13 +2086,22 @@ bool LayoutViewerPanel::InitGL() {
   return true;
 }
 
-// Rebuilds the next dirty layout element texture and reports whether more work remains.
+// Rebuilds one stale layout element texture per call so the viewer can update progressively.
 bool LayoutViewerPanel::RebuildCachedTexture() {
   try {
-    if (!NeedsRenderRebuild())
+    gui::layoutperf::LayoutRenderProfiler profiler("layout_render_rebuild");
+    profiler.SetLayoutContext(
+        layouts::LayoutManager::Get().GetLayouts().Count(), currentLayout);
+    profiler.BeginPhase("preflight");
+    if (!NeedsRenderRebuild()) {
+      profiler.Finish("clean");
       return false;
-    if (!isReadyToRender_ || !glContext_ || !IsShownOnScreen())
+    }
+    if (!isReadyToRender_ || !glContext_ || !IsShownOnScreen()) {
+      profiler.Finish("not_ready");
       return false;
+    }
+    profiler.EndPhase();
     Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
     Viewer2DPanel *capturePanel = nullptr;
     auto stopLoadingRequest = [this]() {
@@ -2164,6 +2174,7 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
                          currentLayout.legendViews.size(),
                          needsLegendSymbolCapture ? "yes" : "no"));
     const bool needsCapturePanel = hasDirtyViewCache || needsLegendSymbolCapture;
+    profiler.BeginPhase("prepare_capture_panel");
     if (needsCapturePanel) {
       gui::layoutstatus::PostLayoutRenderStatus(
           this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
@@ -2173,12 +2184,15 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
         capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
       }
       if (!capturePanel || !offscreenRenderer) {
+        profiler.Finish("capture_panel_unavailable");
         return false;
       }
     }
+    profiler.EndPhase();
 
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
+    profiler.BeginPhase("legend_symbol_capture");
     if (needsLegendSymbolCapture) {
       gui::layoutstatus::PostLayoutRenderStatus(
           this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
@@ -2189,6 +2203,7 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
           this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
           "Legend symbol capture completed.");
     }
+    profiler.EndPhase();
     std::vector<unsigned char> legendPixels;
     std::vector<unsigned char> eventTablePixels;
     std::vector<unsigned char> textPixels;
@@ -2201,6 +2216,7 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       glReady = InitGL();
       return glReady;
     };
+    profiler.BeginPhase("2d_views");
     gui::layoutstatus::PostLayoutRenderStatus(
         this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
         wxString::Format("Rendering 2D views (%zu)...",
@@ -2210,8 +2226,10 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       postRenderProgressStatus("Rendering 2D views", processedRenderItems,
                                currentLayout.view2dViews.size());
       ViewCache &cache = GetViewCache(view.id);
-      if (!cache.renderDirty)
+      if (!cache.renderDirty) {
+        profiler.RecordReusedElement();
         continue;
+      }
       cache.renderDirty = false;
       wxRect frameRect;
       if (!cache.hasCapture || !cache.hasRenderState ||
@@ -2312,10 +2330,14 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = HashViewContent(view);
+      profiler.RecordRenderedElement();
       std::vector<unsigned char>().swap(pixels);
-      return NeedsRenderRebuild();
+      const bool hasMoreWork = NeedsRenderRebuild();
+      profiler.Finish(hasMoreWork ? "incremental_pending" : "completed");
+      return hasMoreWork;
     }
   
+    profiler.BeginPhase("legends");
     gui::layoutstatus::PostLayoutRenderStatus(
         this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
         wxString::Format("Rendering legends (%zu)...",
@@ -2336,8 +2358,10 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       if (contentChanged) {
         cache.renderDirty = true;
       }
-      if (!cache.renderDirty)
+      if (!cache.renderDirty) {
+        profiler.RecordReusedElement();
         continue;
+      }
       cache.renderDirty = false;
   
       const wxSize renderSize = GetFrameSizeForZoom(legend.frame, renderZoom);
@@ -2419,10 +2443,14 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = legendDataHash;
+      profiler.RecordRenderedElement();
       legendPixels.clear();
-      return NeedsRenderRebuild();
+      const bool hasMoreWork = NeedsRenderRebuild();
+      profiler.Finish(hasMoreWork ? "incremental_pending" : "completed");
+      return hasMoreWork;
     }
   
+    profiler.BeginPhase("event_tables");
     gui::layoutstatus::PostLayoutRenderStatus(
         this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
         wxString::Format("Rendering event tables (%zu)...",
@@ -2437,8 +2465,10 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       size_t dataHash = HashEventTableFields(table);
       if (cache.contentHash != dataHash)
         cache.renderDirty = true;
-      if (!cache.renderDirty)
+      if (!cache.renderDirty) {
+        profiler.RecordReusedElement();
         continue;
+      }
       cache.renderDirty = false;
   
       const wxSize renderSize = GetFrameSizeForZoom(table.frame, renderZoom);
@@ -2537,10 +2567,14 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
+      profiler.RecordRenderedElement();
       eventTablePixels.clear();
-      return NeedsRenderRebuild();
+      const bool hasMoreWork = NeedsRenderRebuild();
+      profiler.Finish(hasMoreWork ? "incremental_pending" : "completed");
+      return hasMoreWork;
     }
   
+    profiler.BeginPhase("text_blocks");
     gui::layoutstatus::PostLayoutRenderStatus(
         this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
         wxString::Format("Rendering text blocks (%zu)...",
@@ -2556,8 +2590,10 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       size_t dataHash = HashTextContent(text);
       if (cache.contentHash != dataHash)
         cache.renderDirty = true;
-      if (!cache.renderDirty)
+      if (!cache.renderDirty) {
+        profiler.RecordReusedElement();
         continue;
+      }
       cache.renderDirty = false;
   
       const wxSize renderSize = GetFrameSizeForZoom(text.frame, renderZoom);
@@ -2652,10 +2688,14 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
+      profiler.RecordRenderedElement();
       textPixels.clear();
-      return NeedsRenderRebuild();
+      const bool hasMoreWork = NeedsRenderRebuild();
+      profiler.Finish(hasMoreWork ? "incremental_pending" : "completed");
+      return hasMoreWork;
     }
   
+    profiler.BeginPhase("images");
     gui::layoutstatus::PostLayoutRenderStatus(
         this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
         wxString::Format("Rendering images (%zu)...",
@@ -2672,8 +2712,10 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       size_t dataHash = HashImageContent(image);
       if (cache.contentHash != dataHash)
         cache.renderDirty = true;
-      if (!cache.renderDirty)
+      if (!cache.renderDirty) {
+        profiler.RecordReusedElement();
         continue;
+      }
       cache.renderDirty = false;
   
       const wxSize renderSize = GetFrameSizeForZoom(image.frame, renderZoom);
@@ -2773,12 +2815,16 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
+      profiler.RecordRenderedElement();
       imagePixels.clear();
-      return NeedsRenderRebuild();
+      const bool hasMoreWork = NeedsRenderRebuild();
+      profiler.Finish(hasMoreWork ? "incremental_pending" : "completed");
+      return hasMoreWork;
     }
   
     clearLoadingState();
     NotifyRenderReady();
+    profiler.Finish("completed");
     return false;
   } catch (const std::exception &ex) {
     loadingRequested = false;
@@ -3014,11 +3060,12 @@ void LayoutViewerPanel::RequestRenderRebuild() {
   const bool alreadyPending = renderPending || loadingRequested;
   renderPending = true;
   loadingRequested = true;
-  if (!alreadyPending) {
-    gui::layoutstatus::PostLayoutRenderStatus(
-        this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
-        "Layout render queued...");
-  }
+  if (alreadyPending)
+    return;
+
+  gui::layoutstatus::PostLayoutRenderStatus(
+      this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+      "Layout render queued...");
   if (renderDelayTimer_.IsRunning())
     renderDelayTimer_.Stop();
   renderDelayTimer_.StartOnce(kZoomRenderDebounceMs);
