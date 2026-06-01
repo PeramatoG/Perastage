@@ -80,6 +80,7 @@ private:
     bool hasRenderState = false;
     size_t captureContentHash = 0;
     bool hasCaptureContentHash = false;
+    bool restoredFromPersistentCache = false;
     std::shared_ptr<const SymbolDefinitionSnapshot> symbols;
     unsigned int texture = 0;
     unsigned int pixelUnpackPbo = 0;

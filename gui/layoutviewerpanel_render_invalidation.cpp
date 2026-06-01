@@ -203,6 +203,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
     if (sceneContentChanged) {
       cache.captureVersion = -1;
       cache.captureInProgress = false;
+      cache.restoredFromPersistentCache = false;
       markDirty(cache.renderDirty);
     }
     wxRect frameRect;
@@ -330,6 +331,7 @@ void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
     ViewCache &cache = entry.second;
     cache.captureVersion = -1;
     cache.captureInProgress = false;
+    cache.restoredFromPersistentCache = false;
     cache.renderDirty = true;
   }
 

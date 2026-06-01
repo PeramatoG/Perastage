@@ -17,10 +17,26 @@
  */
 #pragma once
 
+#include <vector>
+
+#include <wx/gdicmn.h>
+
+#include "canvas2d.h"
+#include "symbolcache.h"
+#include "viewer2dpanel.h"
+
 namespace gui::layoutcache {
 
 inline constexpr int kLayoutViewCacheSchemaVersion = 1;
 inline constexpr const char *kLayoutViewCacheArchiveEntry =
     "resources/layout_view_cache/last_selected_layout_view.json";
+
+bool RenderCommandBufferCacheToRgba(const wxSize &renderSize,
+                                    const CommandBuffer &buffer,
+                                    const Viewer2DViewState &viewState,
+                                    const SymbolDefinitionSnapshot *symbols,
+                                    double renderZoom,
+                                    std::vector<unsigned char> &pixels,
+                                    int &width, int &height);
 
 } // namespace gui::layoutcache

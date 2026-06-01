@@ -26,6 +26,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_set>
 
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
@@ -33,12 +34,16 @@
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "json.hpp"
+#include "layoutviewerviewrenderer.h"
 #include "logger.h"
 #include "symbol_cache_manifest.h"
 
 namespace {
 using gui::layoutcache::kLayoutViewCacheArchiveEntry;
 using gui::layoutcache::kLayoutViewCacheSchemaVersion;
+
+constexpr size_t kMaxPersistentCommandCount = 75000;
+constexpr size_t kMaxPersistentCacheBytes = 8 * 1024 * 1024;
 
 // Combines a byte into a deterministic FNV-1a hash accumulator.
 void HashByte(std::uint64_t &hash, unsigned char value) {
@@ -556,6 +561,75 @@ SymbolKey SymbolKeyFromJson(const nlohmann::json &json) {
   return key;
 }
 
+// Collects direct symbol instance references from a command buffer.
+void CollectDirectSymbolIds(const CommandBuffer &buffer,
+                            std::unordered_set<uint32_t> &symbolIds) {
+  for (const auto &command : buffer.commands) {
+    if (const auto *symbol = std::get_if<SymbolInstanceCommand>(&command))
+      symbolIds.insert(symbol->symbolId);
+  }
+}
+
+// Expands symbol references to include nested symbol-local command buffers.
+void ExpandReferencedSymbolIds(const SymbolDefinitionSnapshot &snapshot,
+                               std::unordered_set<uint32_t> &symbolIds) {
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    std::vector<uint32_t> pending(symbolIds.begin(), symbolIds.end());
+    for (uint32_t symbolId : pending) {
+      const auto it = snapshot.find(symbolId);
+      if (it == snapshot.end())
+        continue;
+      const size_t before = symbolIds.size();
+      CollectDirectSymbolIds(it->second.localCommands, symbolIds);
+      changed = changed || symbolIds.size() != before;
+    }
+  }
+}
+
+// Reports whether replay needs symbol definitions.
+bool HasSymbolReferences(const CommandBuffer &buffer) {
+  std::unordered_set<uint32_t> symbolIds;
+  CollectDirectSymbolIds(buffer, symbolIds);
+  return !symbolIds.empty();
+}
+
+// Counts commands in the main buffer and every referenced symbol definition.
+size_t CountPersistentCommands(const CommandBuffer &buffer,
+                               const SymbolDefinitionSnapshot *symbols) {
+  size_t count = buffer.commands.size();
+  if (!symbols)
+    return count;
+  std::unordered_set<uint32_t> symbolIds;
+  CollectDirectSymbolIds(buffer, symbolIds);
+  ExpandReferencedSymbolIds(*symbols, symbolIds);
+  for (uint32_t symbolId : symbolIds) {
+    const auto it = symbols->find(symbolId);
+    if (it != symbols->end())
+      count += it->second.localCommands.commands.size();
+  }
+  return count;
+}
+
+// Builds the minimal symbol snapshot needed for replay.
+std::shared_ptr<const SymbolDefinitionSnapshot> FilterSymbolSnapshotForBuffer(
+    const CommandBuffer &buffer,
+    const std::shared_ptr<const SymbolDefinitionSnapshot> &snapshot) {
+  if (!snapshot)
+    return nullptr;
+  std::unordered_set<uint32_t> symbolIds;
+  CollectDirectSymbolIds(buffer, symbolIds);
+  ExpandReferencedSymbolIds(*snapshot, symbolIds);
+  auto filtered = std::make_shared<SymbolDefinitionSnapshot>();
+  for (uint32_t symbolId : symbolIds) {
+    const auto it = snapshot->find(symbolId);
+    if (it != snapshot->end())
+      (*filtered)[symbolId] = it->second;
+  }
+  return filtered;
+}
+
 // Serializes a symbol snapshot into JSON.
 nlohmann::json SymbolSnapshotToJson(
     const std::shared_ptr<const SymbolDefinitionSnapshot> &snapshot) {
@@ -628,8 +702,55 @@ bool ReadCacheEntryFromProject(const std::string &projectPath,
 }
 } // namespace
 
-// Collects the active layout view cache as an optional project archive
-// resource.
+namespace gui::layoutcache {
+
+// Renders a persisted command-buffer cache into RGBA pixels for texture upload.
+bool RenderCommandBufferCacheToRgba(const wxSize &renderSize,
+                                    const CommandBuffer &buffer,
+                                    const Viewer2DViewState &viewState,
+                                    const SymbolDefinitionSnapshot *symbols,
+                                    double renderZoom,
+                                    std::vector<unsigned char> &pixels,
+                                    int &width, int &height) {
+  pixels.clear();
+  width = 0;
+  height = 0;
+  if (buffer.commands.empty() || renderSize.GetWidth() <= 0 ||
+      renderSize.GetHeight() <= 0)
+    return false;
+
+  Viewer2DViewState renderViewState = viewState;
+  renderViewState.zoom *= static_cast<float>(renderZoom);
+  renderViewState.viewportWidth = renderSize.GetWidth();
+  renderViewState.viewportHeight = renderSize.GetHeight();
+
+  wxImage image = RenderLayoutViewCommandBufferToImage(
+      renderSize, buffer, renderViewState, symbols);
+  if (!image.IsOk())
+    return false;
+  if (!image.HasAlpha())
+    image.InitAlpha();
+
+  width = image.GetWidth();
+  height = image.GetHeight();
+  const unsigned char *rgb = image.GetData();
+  const unsigned char *alpha = image.GetAlpha();
+  if (!rgb || width <= 0 || height <= 0)
+    return false;
+
+  pixels.resize(static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
+  for (int i = 0; i < width * height; ++i) {
+    pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
+    pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
+    pixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
+    pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
+  }
+  return true;
+}
+
+} // namespace gui::layoutcache
+
+// Collects cache data for the active layout view.
 std::vector<ProjectSession::ArchiveResource>
 LayoutViewerPanel::CollectPersistentViewCacheResources() const {
   const layouts::Layout2DViewDefinition *view = GetEditableView();
@@ -642,6 +763,25 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
   if (!cache.hasCapture || !cache.hasRenderState ||
       !cache.hasCaptureContentHash || cache.buffer.commands.empty())
     return {};
+
+  const auto cacheSymbols =
+      FilterSymbolSnapshotForBuffer(cache.buffer, cache.symbols);
+  if (HasSymbolReferences(cache.buffer) && !cacheSymbols) {
+    Logger::Instance().Log(Logger::Level::Info,
+                           "Skipping persistent layout view cache because "
+                           "symbol snapshots are unavailable.");
+    return {};
+  }
+  const size_t commandCount =
+      CountPersistentCommands(cache.buffer, cacheSymbols.get());
+  if (commandCount > kMaxPersistentCommandCount) {
+    Logger::Instance().Log(
+        Logger::Level::Info,
+        "Skipping persistent layout view cache because command_count=" +
+            std::to_string(commandCount) +
+            " exceeds limit=" + std::to_string(kMaxPersistentCommandCount));
+    return {};
+  }
 
   nlohmann::json document;
   document["schemaVersion"] = kLayoutViewCacheSchemaVersion;
@@ -658,15 +798,22 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
   document["commandBuffer"] = CommandBufferToJson(cache.buffer);
   document["viewState"] = ViewStateToJson(cache.viewState);
   document["renderState"] = RenderStateToJson(cache.renderState);
-  document["symbols"] = SymbolSnapshotToJson(cache.symbols);
+  document["symbols"] = SymbolSnapshotToJson(cacheSymbols);
 
-  const std::string serialized = document.dump(2);
+  const std::string serialized = document.dump();
+  if (serialized.size() > kMaxPersistentCacheBytes) {
+    Logger::Instance().Log(
+        Logger::Level::Info,
+        "Skipping persistent layout view cache because serialized_bytes=" +
+            std::to_string(serialized.size()) +
+            " exceeds limit=" + std::to_string(kMaxPersistentCacheBytes));
+    return {};
+  }
   return {{kLayoutViewCacheArchiveEntry,
            std::vector<std::uint8_t>(serialized.begin(), serialized.end())}};
 }
 
-// Loads the persisted layout view cache payload from a project archive for
-// later hydration.
+// Loads persisted layout cache JSON from the project archive.
 void LayoutViewerPanel::LoadPersistentViewCacheFromProject(
     const std::string &projectPath) {
   pendingPersistentViewCacheJson_.clear();
@@ -677,8 +824,7 @@ void LayoutViewerPanel::LoadPersistentViewCacheFromProject(
     pendingPersistentViewCacheJson_ = std::move(jsonText);
 }
 
-// Hydrates the pending persistent view cache when it matches the active layout
-// and scene.
+// Hydrates matching persistent cache data into the active layout view.
 void LayoutViewerPanel::HydratePendingPersistentViewCache() {
   if (pendingPersistentViewCacheJson_.empty() || currentLayout.name.empty())
     return;
@@ -724,6 +870,7 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
     cache.captureContentHash = HashViewContent(*viewIt);
     cache.hasCaptureContentHash = true;
     cache.captureVersion = viewRenderVersion;
+    cache.restoredFromPersistentCache = true;
     cache.captureInProgress = false;
     cache.renderDirty = true;
     cache.texture = 0;
