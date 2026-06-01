@@ -4,6 +4,7 @@
 #include <ostream>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -136,8 +137,14 @@ public:
   using SaveSceneToBufferFn = std::function<bool(std::vector<uint8_t> &out)>;
   using LoadConfigFn = std::function<bool(const std::string &path)>;
   using LoadSceneFn = std::function<bool(const std::string &path)>;
+  struct ArchiveResource {
+    std::string entryName;
+    std::vector<std::uint8_t> bytes;
+  };
+
   using LoadProgressFn =
       std::function<void(const std::string &stage, int completed, int total)>;
+  using CollectArchiveResourcesFn = std::function<std::vector<ArchiveResource>()>;
 
   MvrScene &GetScene();
   const MvrScene &GetScene() const;
@@ -147,6 +154,10 @@ public:
   bool SaveProject(const std::string &path,
                    const SaveConfigToBufferFn &saveConfigToBuffer,
                    const SaveSceneToBufferFn &saveSceneToBuffer) const;
+  bool SaveProject(const std::string &path,
+                   const SaveConfigToBufferFn &saveConfigToBuffer,
+                   const SaveSceneToBufferFn &saveSceneToBuffer,
+                   const CollectArchiveResourcesFn &collectResources) const;
   bool LoadProject(const std::string &path, const LoadConfigFn &loadConfig,
                    const LoadSceneFn &loadScene,
                    const LoadProgressFn &progress = {});
@@ -155,9 +166,14 @@ public:
   void Touch();
   void MarkSaved();
   void ResetDirty();
+  ~ProjectSession();
 
 private:
+  void ClearExtractedResourceDirectory();
+  bool CreateExtractedResourceDirectory();
+
   MvrScene scene;
+  std::string extractedResourceDirectory;
   size_t revision = 0;
   size_t savedRevision = 0;
 };

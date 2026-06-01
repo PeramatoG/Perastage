@@ -18,6 +18,7 @@
 #include "configmanager.h"
 #include "json.hpp"
 #include "LayoutManager.h"
+#include "LayoutImageResourceRegistry.h"
 #include "logger.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
@@ -444,8 +445,9 @@ bool ConfigManager::SaveToFile(const std::string &path) const {
   return preferencesStore.SaveToFile(path);
 }
 
-// Saves the current project state as a packaged archive with config and scene content.
+// Saves the current project state as a packaged archive with config, scene content, and used resources.
 bool ConfigManager::SaveProject(const std::string &path) {
+  layouts::LayoutManager::Get().PrepareImageResourcesForSave();
   layouts::LayoutManager::Get().SaveToConfig(*this);
   SetValue(kHiddenLayersConfigKey,
            SerializeHiddenLayerChecks(layerVisibilityState.GetHiddenLayers()));
@@ -473,6 +475,14 @@ bool ConfigManager::SaveProject(const std::string &path) {
                                    .count()) +
                 " scene_bytes=" + std::to_string(sceneBytes.size()));
         return exported;
+      },
+      []() {
+        std::vector<ProjectSession::ArchiveResource> resources;
+        for (const auto &entry :
+             layouts::LayoutImageResourceRegistry::Get().UsedResources()) {
+          resources.push_back({entry.archivePath, entry.bytes});
+        }
+        return resources;
       });
   if (ok)
     projectSession.MarkSaved();

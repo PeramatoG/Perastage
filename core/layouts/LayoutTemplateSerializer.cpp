@@ -49,7 +49,7 @@ constexpr float kOffsetAngleMin = -3600.0f;
 constexpr float kOffsetAngleMax = 3600.0f;
 constexpr float kAspectRatioMin = 0.01f;
 constexpr float kAspectRatioMax = 100.0f;
-constexpr const char *kImagePathPolicy = "preserve_original_path";
+constexpr const char *kImagePathPolicy = "package_project_resources";
 thread_local LayoutTemplateImportReport *g_activeImportReport = nullptr;
 
 struct ParseContext {
@@ -215,17 +215,23 @@ nlohmann::json ToJson(const LayoutTextDefinition &text) {
   return data;
 }
 
+// Serializes a layout image element including packaged resource metadata.
 nlohmann::json ToJson(const LayoutImageDefinition &image) {
   const auto &frame = image.frame;
-  return {{"id", image.id},
-          {"zIndex", image.zIndex},
-          {"frame",
-           {{"x", frame.x},
-            {"y", frame.y},
-            {"width", frame.width},
-            {"height", frame.height}}},
-          {"path", image.imagePath},
-          {"aspectRatio", image.aspectRatio}};
+  nlohmann::json data{{"id", image.id},
+                      {"zIndex", image.zIndex},
+                      {"frame",
+                       {{"x", frame.x},
+                        {"y", frame.y},
+                        {"width", frame.width},
+                        {"height", frame.height}}},
+                      {"path", image.imagePath},
+                      {"aspectRatio", image.aspectRatio}};
+  if (!image.originalImagePath.empty())
+    data["originalPath"] = image.originalImagePath;
+  if (!image.projectResourcePath.empty())
+    data["projectResource"] = image.projectResourcePath;
+  return data;
 }
 
 void ReadBoolArray(const nlohmann::json &obj, const char *key,
@@ -558,6 +564,7 @@ bool ParseLayoutText(const nlohmann::json &value, LayoutTextDefinition &out,
   return true;
 }
 
+// Parses a layout image element including packaged resource metadata.
 bool ParseLayoutImage(const nlohmann::json &value, LayoutImageDefinition &out,
                       const ParseContext &ctx) {
   if (!value.is_object())
@@ -572,9 +579,16 @@ bool ParseLayoutImage(const nlohmann::json &value, LayoutImageDefinition &out,
     ReadFrame(*frameIt, out.frame, ctx);
   if (auto pathIt = value.find("path"); pathIt != value.end() && pathIt->is_string()) {
     out.imagePath = pathIt->get<std::string>();
-    if (!out.imagePath.empty() && !fs::exists(fs::path(out.imagePath)))
+    if (!out.imagePath.empty() && !fs::exists(fs::path(out.imagePath)) &&
+        value.find("projectResource") == value.end())
       AddWarning(ctx, "Image path does not exist. Path kept as-is by policy.");
   }
+  if (auto originalIt = value.find("originalPath");
+      originalIt != value.end() && originalIt->is_string())
+    out.originalImagePath = originalIt->get<std::string>();
+  if (auto resourceIt = value.find("projectResource");
+      resourceIt != value.end() && resourceIt->is_string())
+    out.projectResourcePath = resourceIt->get<std::string>();
   if (auto ratioIt = value.find("aspectRatio");
       ratioIt != value.end() && ratioIt->is_number())
     out.aspectRatio = ClampValue(ratioIt->get<float>(), kAspectRatioMin,

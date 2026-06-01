@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "LayoutManager.h"
+#include "LayoutImageResourceRegistry.h"
 
 #include "LayoutDefaultsLoader.h"
 #include "LayoutTemplateSerializer.h"
@@ -120,6 +121,7 @@ void EnsureUniqueTextIds(LayoutDefinition &layout) {
   }
 }
 
+// Ensures every image element in a layout has a stable unique identifier.
 void EnsureUniqueImageIds(LayoutDefinition &layout) {
   std::unordered_set<int> used;
   int nextId = 1;
@@ -142,6 +144,31 @@ void EnsureUniqueImageIds(LayoutDefinition &layout) {
   }
 }
 
+// Finds an existing image element by layout name and element identifier.
+const LayoutImageDefinition *FindImage(const LayoutCollection &layouts,
+                                       const std::string &layoutName,
+                                       int imageId) {
+  for (const auto &layout : layouts.Items()) {
+    if (layout.name != layoutName)
+      continue;
+    for (const auto &image : layout.imageViews) {
+      if (image.id == imageId && imageId > 0)
+        return &image;
+    }
+  }
+  return nullptr;
+}
+
+// Captures or refreshes packaged resource metadata before an image is stored.
+void PrepareImageResource(LayoutImageDefinition &image,
+                          const LayoutImageDefinition *existingImage) {
+  if (existingImage != nullptr && image.imagePath != existingImage->imagePath) {
+    image.originalImagePath.clear();
+    image.projectResourcePath.clear();
+  }
+  LayoutImageResourceRegistry::Get().AttachResource(image);
+}
+
 } // namespace
 
 LayoutManager::LayoutManager() = default;
@@ -153,9 +180,14 @@ LayoutManager &LayoutManager::Get() {
 
 const LayoutCollection &LayoutManager::GetLayouts() const { return layouts; }
 
+// Adds a layout after capturing any image resources it references.
 bool LayoutManager::AddLayout(const LayoutDefinition &layout) {
-  if (!layouts.AddLayout(layout))
+  LayoutDefinition preparedLayout = layout;
+  for (auto &image : preparedLayout.imageViews)
+    PrepareImageResource(image, nullptr);
+  if (!layouts.AddLayout(preparedLayout))
     return false;
+  LayoutImageResourceRegistry::Get().SynchronizeWithLayouts(layouts);
   SyncToConfig();
   return true;
 }
@@ -168,9 +200,11 @@ bool LayoutManager::RenameLayout(const std::string &currentName,
   return true;
 }
 
+// Removes a layout and refreshes image resource usage counters.
 bool LayoutManager::RemoveLayout(const std::string &name) {
   if (!layouts.RemoveLayout(name))
     return false;
+  LayoutImageResourceRegistry::Get().SynchronizeWithLayouts(layouts);
   SyncToConfig();
   return true;
 }
@@ -275,17 +309,23 @@ bool LayoutManager::MoveLayoutText(const std::string &name, int textId,
   return true;
 }
 
+// Updates or adds an image element while capturing its packaged resource.
 bool LayoutManager::UpdateLayoutImage(const std::string &name,
                                       const LayoutImageDefinition &image) {
-  if (!layouts.UpdateLayoutImage(name, image))
+  LayoutImageDefinition preparedImage = image;
+  PrepareImageResource(preparedImage, FindImage(layouts, name, image.id));
+  if (!layouts.UpdateLayoutImage(name, preparedImage))
     return false;
+  LayoutImageResourceRegistry::Get().SynchronizeWithLayouts(layouts);
   SyncToConfig();
   return true;
 }
 
+// Removes an image element and refreshes packaged resource usage counters.
 bool LayoutManager::RemoveLayoutImage(const std::string &name, int imageId) {
   if (!layouts.RemoveLayoutImage(name, imageId))
     return false;
+  LayoutImageResourceRegistry::Get().SynchronizeWithLayouts(layouts);
   SyncToConfig();
   return true;
 }
@@ -398,6 +438,7 @@ void LayoutManager::EndBatchUpdate() {
   }
 }
 
+// Loads layout state from configuration and restores image resource tracking.
 void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   auto loadDefaultsOrFallback = [&cfg, this]() {
     if (!LoadDefaultsForNewProject(cfg))
@@ -432,17 +473,31 @@ void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   }
 
   layouts.ReplaceAll(std::move(loaded));
+  PrepareImageResourcesForSave();
 }
 
+// Saves the current layout collection to configuration metadata.
 void LayoutManager::SaveToConfig(ConfigManager &cfg) const {
   cfg.SetValue(kLayoutsConfigKey, ToTemplateDocument(layouts.Items()).dump());
 }
 
+// Ensures current layout image resources are captured and usage counters are current.
+void LayoutManager::PrepareImageResourcesForSave() {
+  for (auto &layout : layouts.Items()) {
+    for (auto &image : layout.imageViews)
+      PrepareImageResource(image, nullptr);
+  }
+  LayoutImageResourceRegistry::Get().SynchronizeWithLayouts(layouts);
+}
+
+// Resets layouts to defaults and clears unused image resource references.
 void LayoutManager::ResetToDefault(ConfigManager &cfg) {
   layouts = LayoutCollection();
+  LayoutImageResourceRegistry::Get().SynchronizeWithLayouts(layouts);
   SaveToConfig(cfg);
 }
 
+// Loads bundled default layouts and prepares their image resources.
 bool LayoutManager::LoadDefaultsForNewProject(ConfigManager &cfg) {
   LayoutDefaultsLoadResult loadedDefaults = LoadLayoutDefaultsFromLibrary();
   if (loadedDefaults.layouts.empty())
@@ -475,6 +530,7 @@ bool LayoutManager::LoadDefaultsForNewProject(ConfigManager &cfg) {
   }
 
   layouts.ReplaceAll(std::move(loadedDefaults.layouts));
+  PrepareImageResourcesForSave();
   SaveToConfig(cfg);
   return true;
 }

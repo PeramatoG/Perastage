@@ -122,6 +122,8 @@ struct LayoutImageDefinition {
   int zIndex = 0;
   Layout2DViewFrame frame;
   std::string imagePath;
+  std::string originalImagePath;
+  std::string projectResourcePath;
   float aspectRatio = 1.0f;
 };
 
@@ -140,6 +142,7 @@ public:
   LayoutCollection();
 
   const std::vector<LayoutDefinition> &Items() const;
+  std::vector<LayoutDefinition> &Items();
   std::size_t Count() const;
 
   bool AddLayout(const LayoutDefinition &layout);
