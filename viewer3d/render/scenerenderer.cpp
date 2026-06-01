@@ -150,8 +150,10 @@ struct ThreeToneInkProgram {
   GLint lightToneUniform = -1;
   GLint darkThresholdUniform = -1;
   GLint lightThresholdUniform = -1;
+  GLint twoSidedNormalsUniform = -1;
 };
 
+// Compiles a GLSL shader object and returns zero when compilation fails.
 GLuint CompileShader(GLenum shaderType, const char *source) {
   const GLuint shader = glCreateShader(shaderType);
   if (shader == 0)
@@ -166,6 +168,7 @@ GLuint CompileShader(GLenum shaderType, const char *source) {
   return 0;
 }
 
+// Links a GLSL program object and reports whether linking succeeded.
 bool LinkProgram(GLuint program) {
   glLinkProgram(program);
   GLint linked = GL_FALSE;
@@ -173,6 +176,7 @@ bool LinkProgram(GLuint program) {
   return linked == GL_TRUE;
 }
 
+// Creates the three-tone ink shader program and caches its attribute and uniform locations.
 ThreeToneInkProgram CreateThreeToneInkProgram() {
   static constexpr const char *kVertexShader = R"glsl(
     #version 120
@@ -195,9 +199,13 @@ ThreeToneInkProgram CreateThreeToneInkProgram() {
     uniform vec3 uLightTone;
     uniform float uDarkThreshold;
     uniform float uLightThreshold;
+    uniform bool uTwoSidedNormals;
     varying vec3 vNormal;
     void main() {
-      float ndotl = max(dot(normalize(vNormal), normalize(uLightDir)), 0.0);
+      vec3 normal = normalize(vNormal);
+      if (uTwoSidedNormals && !gl_FrontFacing)
+        normal = -normal;
+      float ndotl = max(dot(normal, normalize(uLightDir)), 0.0);
       vec3 tone = uLightTone;
       if (ndotl <= uDarkThreshold)
         tone = uDarkTone;
@@ -251,9 +259,12 @@ ThreeToneInkProgram CreateThreeToneInkProgram() {
       glGetUniformLocation(result.program, "uDarkThreshold");
   result.lightThresholdUniform =
       glGetUniformLocation(result.program, "uLightThreshold");
+  result.twoSidedNormalsUniform =
+      glGetUniformLocation(result.program, "uTwoSidedNormals");
   return result;
 }
 
+// Returns the lazily-created three-tone ink shader program.
 const ThreeToneInkProgram &GetThreeToneInkProgram() {
   static const ThreeToneInkProgram program = CreateThreeToneInkProgram();
   return program;
@@ -331,15 +342,22 @@ const float *ResolveModelMatrixForMirroring(const float *modelMatrix,
 
 // Draws a mesh with the GPU three-tone ink shader when buffers are available.
 bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
-                             const float *modelMatrix) {
+                             const float *modelMatrix, bool sketchFill) {
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.vboNormals) == GL_TRUE &&
                                glIsBuffer(mesh.eboTriangles) == GL_TRUE;
+  const bool flatGpuHandlesValid =
+      glIsBuffer(mesh.vboFlatVertices) == GL_TRUE &&
+      glIsBuffer(mesh.vboFlatNormals) == GL_TRUE;
   const bool canUseGpuPath =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
       mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
       mesh.triangleIndexCount > 0;
-  if (!canUseGpuPath)
+  const bool canUseSketchFlatPath =
+      sketchFill && mesh.buffersReady && mesh.vao != 0 &&
+      mesh.vboFlatVertices != 0 && mesh.vboFlatNormals != 0 &&
+      mesh.flatVertexCount > 0 && flatGpuHandlesValid;
+  if (!canUseGpuPath && !canUseSketchFlatPath)
     return false;
 
   const ThreeToneInkProgram &program = GetThreeToneInkProgram();
@@ -348,7 +366,8 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
       program.projectionUniform < 0 || program.normalMatrixUniform < 0 ||
       program.lightDirUniform < 0 || program.darkToneUniform < 0 ||
       program.midToneUniform < 0 || program.lightToneUniform < 0 ||
-      program.darkThresholdUniform < 0 || program.lightThresholdUniform < 0) {
+      program.darkThresholdUniform < 0 || program.lightThresholdUniform < 0 ||
+      program.twoSidedNormalsUniform < 0) {
     return false;
   }
 
@@ -368,6 +387,9 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   ComputeNormalMatrix3x3(modelView, normalMatrix);
   const bool mirrored =
       TransformDeterminant(modelMatrix ? modelMatrix : modelView) < 0.0f;
+  const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
+  if (sketchFill && cullWasEnabled)
+    glDisable(GL_CULL_FACE);
   const GLint previousFrontFace = ApplyMirroredFrontFace(mirrored);
 
   glUseProgram(program.program);
@@ -381,20 +403,28 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   glUniform3f(program.lightToneUniform, 1.0f, 1.0f, 1.0f);
   glUniform1f(program.darkThresholdUniform, 0.10f);
   glUniform1f(program.lightThresholdUniform, 0.30f);
+  glUniform1i(program.twoSidedNormalsUniform, sketchFill ? GL_TRUE : GL_FALSE);
 
-  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
+  glBindBuffer(GL_ARRAY_BUFFER,
+               canUseSketchFlatPath ? mesh.vboFlatVertices : mesh.vboVertices);
   glEnableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
   glVertexAttribPointer(static_cast<GLuint>(program.positionAttrib), 3, GL_FLOAT,
                         GL_FALSE, 0, nullptr);
 
-  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboNormals);
+  glBindBuffer(GL_ARRAY_BUFFER,
+               canUseSketchFlatPath ? mesh.vboFlatNormals : mesh.vboNormals);
   glEnableVertexAttribArray(static_cast<GLuint>(program.normalAttrib));
   glVertexAttribPointer(static_cast<GLuint>(program.normalAttrib), 3, GL_FLOAT,
                         GL_FALSE, 0, nullptr);
 
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
-  glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
-                 nullptr);
+  if (canUseSketchFlatPath) {
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glDrawArrays(GL_TRIANGLES, 0, mesh.flatVertexCount);
+  } else {
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
+    glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
+                   nullptr);
+  }
 
   glDisableVertexAttribArray(static_cast<GLuint>(program.normalAttrib));
   glDisableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
@@ -402,24 +432,27 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glUseProgram(static_cast<GLuint>(priorProgram));
   RestoreFrontFace(previousFrontFace);
+  if (sketchFill && cullWasEnabled)
+    glEnable(GL_CULL_FACE);
   glPopMatrix();
 
   return true;
 }
 
 void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
-                                   const float *modelMatrix);
+                                   const float *modelMatrix, bool sketchFill);
 
 // Draws a mesh using three-tone ink shading with GPU and immediate fallbacks.
-void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatrix) {
-  if (DrawMeshThreeToneInkGpu(mesh, scale, modelMatrix))
+void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatrix,
+                           bool sketchFill) {
+  if (DrawMeshThreeToneInkGpu(mesh, scale, modelMatrix, sketchFill))
     return;
-  DrawMeshThreeToneInkImmediate(mesh, scale, modelMatrix);
+  DrawMeshThreeToneInkImmediate(mesh, scale, modelMatrix, sketchFill);
 }
 
 // Draws a mesh with CPU-side three-tone ink shading when GPU shaders are unavailable.
 void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
-                                   const float *modelMatrix) {
+                                   const float *modelMatrix, bool sketchFill) {
   std::array<float, 3> lightDir = NormalizeVector(0.35f, -0.55f, 1.0f);
   float fallbackModelMatrix[16];
   const float *effectiveModelMatrix =
@@ -482,7 +515,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
       const float vz = mesh.vertices[idx * 3 + 2] * scale;
 
       std::array<float, 3> localNormal = triangleNormal;
-      if (hasNormals) {
+      if (!sketchFill && hasNormals) {
         const float nx = mesh.normals[idx * 3];
         const float ny = mesh.normals[idx * 3 + 1];
         const float nz = mesh.normals[idx * 3 + 2];
@@ -742,7 +775,8 @@ void SceneRenderer::DrawMeshWithOutline(
         const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
         if (fillLightingWasEnabled)
           glDisable(GL_LIGHTING);
-        DrawMeshThreeToneInk(mesh, scale, modelMatrix);
+        DrawMeshThreeToneInk(mesh, scale, modelMatrix,
+                             m_controller.IsSketchRenderStyleEnabled());
         if (fillLightingWasEnabled)
           glEnable(GL_LIGHTING);
       }
