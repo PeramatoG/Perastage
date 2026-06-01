@@ -73,6 +73,8 @@ layouts::LayoutDefinition BuildFullLayoutDefinition() {
   image.zIndex = 8;
   image.frame = {1, 2, 100, 60};
   image.imagePath = "missing_image_for_serializer_test.png";
+  image.originalImagePath = "original_image_for_serializer_test.png";
+  image.projectResourcePath = "resources/layout_images/image_serializer.png";
   image.aspectRatio = 1.8f;
   layout.imageViews.push_back(image);
 
@@ -112,6 +114,8 @@ void TestFullRoundTrip() {
   assert(layout.eventTables.front().fields[0] == "Venue");
   assert(layout.textViews.front().richText == "<b>Rich</b>");
   assert(layout.imageViews.front().aspectRatio == original.imageViews.front().aspectRatio);
+  assert(layout.imageViews.front().originalImagePath == original.imageViews.front().originalImagePath);
+  assert(layout.imageViews.front().projectResourcePath == original.imageViews.front().projectResourcePath);
 
   assert(report.layouts.imported == 1);
   assert(report.layouts.skipped == 0);

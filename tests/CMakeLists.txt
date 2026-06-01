@@ -63,6 +63,7 @@ add_executable(fixture_label_overrides_reconcile_test
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/layouts/LayoutManager.cpp
+    ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
@@ -137,6 +138,7 @@ add_executable(gdtf_dictionary_color_roundtrip_test
                ../core/configservices.cpp
                ../core/gdtfdictionary.cpp
                ../core/layouts/LayoutManager.cpp
+    ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
@@ -158,6 +160,7 @@ add_executable(gdtf_dictionary_color_mode_propagation_test
                ../core/configservices.cpp
                ../core/gdtfdictionary.cpp
                ../core/layouts/LayoutManager.cpp
+    ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
@@ -183,6 +186,7 @@ add_executable(dictionary_seed_merge_backup_test
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/layouts/LayoutManager.cpp
+    ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
@@ -212,6 +216,7 @@ add_executable(layout_template_import_name_collision_test
                layout_template_import_name_collision_test.cpp
                configmanager_layoutmanager_stub.cpp
                ../core/layouts/LayoutManager.cpp
+    ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/projectutils.cpp
                ../core/logger.cpp
@@ -227,6 +232,7 @@ add_executable(layout_defaults_load_from_empty_config_test
                layout_defaults_load_from_empty_config_test.cpp
                configmanager_layoutmanager_stub.cpp
                ../core/layouts/LayoutManager.cpp
+    ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/projectutils.cpp
                ../core/logger.cpp
@@ -244,6 +250,7 @@ endfunction()
 
 set(LAYOUT_SOURCES
     ../core/layouts/LayoutManager.cpp
+    ../core/layouts/LayoutImageResourceRegistry.cpp
     ../core/layouts/LayoutDefaultsLoader.cpp
     ../core/layouts/LayoutCollection.cpp
     ../core/layouts/LayoutTemplateSerializer.cpp)
@@ -1199,6 +1206,27 @@ target_include_directories(layer_visibility_state_test PRIVATE ../core ../models
 target_link_libraries(layer_visibility_state_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME LayerVisibilityState COMMAND layer_visibility_state_test)
 
+
+
+add_executable(layout_image_resource_registry_test
+               layout_image_resource_registry_test.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/layouts/LayoutManager.cpp
+               ../core/layouts/LayoutImageResourceRegistry.cpp
+               ../core/layouts/LayoutDefaultsLoader.cpp
+               ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplateSerializer.cpp
+               ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
+               ../core/logger.cpp
+               ../models/mvrscene.cpp
+               mvr_io_stubs.cpp)
+target_include_directories(layout_image_resource_registry_test PRIVATE
+                           . ../core ../core/layouts ../models ../third_party)
+target_link_libraries(layout_image_resource_registry_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME LayoutImageResourceRegistry COMMAND layout_image_resource_registry_test)
+set_library_env(LayoutImageResourceRegistry)
 
 add_executable(project_session_io_test
                project_session_io_test.cpp

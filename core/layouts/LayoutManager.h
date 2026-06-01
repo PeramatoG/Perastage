@@ -67,6 +67,7 @@ public:
 
   void LoadFromConfig(ConfigManager &cfg);
   void SaveToConfig(ConfigManager &cfg) const;
+  void PrepareImageResourcesForSave();
   void ResetToDefault(ConfigManager &cfg);
   bool LoadDefaultsForNewProject(ConfigManager &cfg);
 

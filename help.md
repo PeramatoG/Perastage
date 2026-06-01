@@ -16,7 +16,7 @@ For maintainers updating user workflows or parser behavior, follow the [Document
 
 ## Project Files
 
-Perastage projects (`.pstg`) store the scene, layouts, and user settings.
+Perastage projects (`.pstg`) store the scene, layouts, user settings, and packaged layout images so projects remain self-contained when original image files move or are deleted.
 
 **File > New / Load / Save / Save As...**
 
@@ -300,7 +300,7 @@ Recommended use by style:
 
 ## Archivos de proyecto
 
-Los proyectos de Perastage (`.pstg`) guardan la escena, los layouts y la configuración del usuario.
+Los proyectos de Perastage (`.pstg`) guardan la escena, los layouts, la configuración del usuario y las imágenes empaquetadas de layouts para que el proyecto siga siendo autosuficiente si los archivos originales se mueven o eliminan.
 
 **File > New / Load / Save / Save As...**
 

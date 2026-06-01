@@ -129,6 +129,9 @@ const std::vector<LayoutDefinition> &LayoutCollection::Items() const {
   return layouts;
 }
 
+// Returns mutable access to the layout list for service-layer maintenance.
+std::vector<LayoutDefinition> &LayoutCollection::Items() { return layouts; }
+
 std::size_t LayoutCollection::Count() const { return layouts.size(); }
 
 bool LayoutCollection::AddLayout(const LayoutDefinition &layout) {

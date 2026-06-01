@@ -39,7 +39,7 @@ When needed, use:
 
 ## 5) Save and export
 
-1. Save your working project file to continue later.
+1. Save your working project file to continue later; `.pstg` files include packaged layout images used by the project.
 2. Export to `.mvr` when you need to exchange the scene.
 3. Export layouts to PDF when you need print/share output.
 

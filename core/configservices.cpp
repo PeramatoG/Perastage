@@ -152,6 +152,125 @@ std::string ToLowerCopy(std::string text) {
   return text;
 }
 
+// Selects the ZIP compression method for a project archive entry.
+int SelectZipCompressionMethod(const std::string &entryName, size_t payloadSize);
+
+// Returns true when a ZIP entry name is a packaged layout image resource.
+bool IsLayoutImageResourceEntry(const std::string &entryName) {
+  const std::string normalized = fs::path(entryName).generic_string();
+  return normalized.rfind("resources/layout_images/", 0) == 0;
+}
+
+// Rejects archive paths that could escape the project resource extraction directory.
+bool IsSafeArchiveRelativePath(const std::string &entryName) {
+  const fs::path path(entryName);
+  if (path.empty() || path.is_absolute())
+    return false;
+  for (const auto &part : path) {
+    if (part == "..")
+      return false;
+  }
+  return true;
+}
+
+// Reads the active ZIP entry payload into the requested output file path.
+bool ExtractCurrentZipEntry(wxZipInputStream &zip, const fs::path &outPath) {
+  std::error_code ec;
+  fs::create_directories(outPath.parent_path(), ec);
+  if (ec)
+    return false;
+
+  std::ofstream out(outPath, std::ios::binary);
+  if (!out.is_open())
+    return false;
+  char buf[4096];
+  while (true) {
+    zip.Read(buf, sizeof(buf));
+    const size_t bytes = zip.LastRead();
+    if (bytes == 0)
+      break;
+    out.write(buf, bytes);
+  }
+  return out.good();
+}
+
+// Writes one project resource payload to a ZIP entry with the selected compression method.
+bool WriteZipBytes(wxZipOutputStream &zip, const std::string &entryName,
+                   const std::vector<std::uint8_t> &bytes) {
+  if (entryName.empty() || !IsSafeArchiveRelativePath(entryName))
+    return false;
+  auto *entry = new wxZipEntry(entryName);
+  entry->SetMethod(SelectZipCompressionMethod(entryName, bytes.size()));
+  if (!zip.PutNextEntry(entry))
+    return false;
+  if (!bytes.empty()) {
+    zip.Write(bytes.data(), bytes.size());
+    if (!zip.IsOk()) {
+      zip.CloseEntry();
+      return false;
+    }
+  }
+  return zip.CloseEntry();
+}
+
+// Updates layout image paths inside config.json to point at extracted packaged resources.
+bool PatchExtractedProjectResourcePaths(const fs::path &configPath,
+                                        const fs::path &resourceDir) {
+  std::ifstream in(configPath, std::ios::binary);
+  if (!in.is_open())
+    return false;
+
+  nlohmann::json config;
+  try {
+    in >> config;
+  } catch (...) {
+    return false;
+  }
+  if (!config.is_object())
+    return false;
+
+  auto layoutsIt = config.find("layouts_collection");
+  if (layoutsIt == config.end() || !layoutsIt->is_string())
+    return true;
+
+  nlohmann::json layoutDoc;
+  try {
+    layoutDoc = nlohmann::json::parse(layoutsIt->get<std::string>());
+  } catch (...) {
+    return true;
+  }
+
+  bool changed = false;
+  auto layoutsItDoc = layoutDoc.find("layouts");
+  if (layoutsItDoc != layoutDoc.end() && layoutsItDoc->is_array()) {
+    for (auto &layout : *layoutsItDoc) {
+      auto imagesIt = layout.find("imageViews");
+      if (imagesIt == layout.end() || !imagesIt->is_array())
+        continue;
+      for (auto &image : *imagesIt) {
+        auto resourceIt = image.find("projectResource");
+        if (resourceIt == image.end() || !resourceIt->is_string())
+          continue;
+        const std::string archivePath = resourceIt->get<std::string>();
+        if (!IsSafeArchiveRelativePath(archivePath))
+          continue;
+        image["path"] = Utf8StringFromPath(resourceDir / fs::path(archivePath));
+        changed = true;
+      }
+    }
+  }
+
+  if (!changed)
+    return true;
+
+  config["layouts_collection"] = layoutDoc.dump();
+  std::ofstream out(configPath, std::ios::binary | std::ios::trunc);
+  if (!out.is_open())
+    return false;
+  out << config.dump(2);
+  return out.good();
+}
+
 // Chooses ZIP compression mode from entry extension and payload size heuristics.
 int SelectZipCompressionMethod(const std::string &entryName, size_t payloadSize) {
   const std::string ext = fs::path(ToLowerCopy(entryName)).extension().string();
@@ -580,6 +699,33 @@ void LayerVisibilityState::SetCurrentLayer(const std::string &name) {
     currentLayer = name;
 }
 
+// Removes the resource extraction directory owned by this project session.
+ProjectSession::~ProjectSession() { ClearExtractedResourceDirectory(); }
+
+// Deletes any previously extracted packaged resources for this session.
+void ProjectSession::ClearExtractedResourceDirectory() {
+  if (extractedResourceDirectory.empty())
+    return;
+  std::error_code ec;
+  fs::remove_all(PathFromUtf8(extractedResourceDirectory), ec);
+  extractedResourceDirectory.clear();
+}
+
+// Creates a persistent temporary directory for resources extracted from a project package.
+bool ProjectSession::CreateExtractedResourceDirectory() {
+  ClearExtractedResourceDirectory();
+  auto stamp = std::chrono::system_clock::now().time_since_epoch().count();
+  std::error_code ec;
+  const fs::path base = fs::temp_directory_path(ec);
+  if (ec)
+    return false;
+  const fs::path path = base / ("psp_resources_" + std::to_string(stamp));
+  if (!fs::create_directories(path, ec) || ec)
+    return false;
+  extractedResourceDirectory = Utf8StringFromPath(path);
+  return true;
+}
+
 MvrScene &ProjectSession::GetScene() { return scene; }
 
 const MvrScene &ProjectSession::GetScene() const { return scene; }
@@ -588,6 +734,14 @@ const MvrScene &ProjectSession::GetScene() const { return scene; }
 bool ProjectSession::SaveProject(
     const std::string &path, const SaveConfigToBufferFn &saveConfigToBuffer,
     const SaveSceneToBufferFn &saveSceneToBuffer) const {
+  return SaveProject(path, saveConfigToBuffer, saveSceneToBuffer, {});
+}
+
+// Saves a project package with additional resource entries supplied by the caller.
+bool ProjectSession::SaveProject(
+    const std::string &path, const SaveConfigToBufferFn &saveConfigToBuffer,
+    const SaveSceneToBufferFn &saveSceneToBuffer,
+    const CollectArchiveResourcesFn &collectResources) const {
   if (!saveConfigToBuffer || !saveSceneToBuffer)
     return false;
 
@@ -637,6 +791,16 @@ bool ProjectSession::SaveProject(
     return false;
   const auto sceneEnd = std::chrono::steady_clock::now();
 
+  const auto resourcesStart = std::chrono::steady_clock::now();
+  std::vector<ArchiveResource> resourceEntries;
+  if (collectResources)
+    resourceEntries = collectResources();
+  for (const auto &resource : resourceEntries) {
+    if (!WriteZipBytes(zip, resource.entryName, resource.bytes))
+      return false;
+  }
+  const auto resourcesEnd = std::chrono::steady_clock::now();
+
   const auto finalizeStart = std::chrono::steady_clock::now();
   if (!zip.Close())
     return false;
@@ -650,10 +814,12 @@ bool ProjectSession::SaveProject(
   std::cout << "ProjectSession::SaveProject timings [ms] config="
             << elapsedMs(configStart, configEnd)
             << ", scene=" << elapsedMs(sceneStart, sceneEnd)
+            << ", resources=" << elapsedMs(resourcesStart, resourcesEnd)
             << ", finalize=" << elapsedMs(finalizeStart, finalizeEnd)
             << ", total=" << elapsedMs(stageStart, finalizeEnd)
             << " | sizes [bytes] input="
             << (configBytes.size() + sceneBytes.size())
+            << ", resources=" << resourceEntries.size()
             << ", archive=" << archiveBytes << std::endl;
 
   return true;
@@ -725,6 +891,9 @@ bool ProjectSession::LoadProject(const std::string &path,
   TempDir tempDir("psp_");
   if (!tempDir.Valid())
     return false;
+  if (!CreateExtractedResourceDirectory())
+    return false;
+  const fs::path resourceDir = PathFromUtf8(extractedResourceDirectory);
 
   std::unique_ptr<wxZipEntry> entry;
   fs::path configPath;
@@ -743,21 +912,18 @@ bool ProjectSession::LoadProject(const std::string &path,
     else if (baseName == "scene.mvr")
       outPath = tempDir.Path() / "scene.mvr";
     else {
+      const std::string entryName = fs::path(entry->GetName().ToStdString()).generic_string();
       if (baseName == "generalscenedescription.xml")
         hasMvrSceneXml = true;
+      if (IsLayoutImageResourceEntry(entryName) &&
+          IsSafeArchiveRelativePath(entryName)) {
+        ExtractCurrentZipEntry(zip, resourceDir / fs::path(entryName));
+      }
       continue;
     }
 
-    std::ofstream out(outPath, std::ios::binary);
-    char buf[4096];
-    while (true) {
-      zip.Read(buf, sizeof(buf));
-      size_t bytes = zip.LastRead();
-      if (bytes == 0)
-        break;
-      out.write(buf, bytes);
-    }
-    out.close();
+    if (!ExtractCurrentZipEntry(zip, outPath))
+      return false;
 
     if (baseName == "config.json")
       configPath = outPath;
@@ -787,6 +953,8 @@ bool ProjectSession::LoadProject(const std::string &path,
     ok &= sceneOk;
   }
   if (!configPath.empty()) {
+    if (!PatchExtractedProjectResourcePaths(configPath, resourceDir))
+      return false;
     reportProgress("Loading project configuration...");
     const bool configOk = loadConfig(configPath.string());
     if (!configOk) {
