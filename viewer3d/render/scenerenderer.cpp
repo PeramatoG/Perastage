@@ -150,8 +150,10 @@ struct ThreeToneInkProgram {
   GLint lightToneUniform = -1;
   GLint darkThresholdUniform = -1;
   GLint lightThresholdUniform = -1;
+  GLint twoSidedNormalsUniform = -1;
 };
 
+// Compiles a GLSL shader object and returns zero when compilation fails.
 GLuint CompileShader(GLenum shaderType, const char *source) {
   const GLuint shader = glCreateShader(shaderType);
   if (shader == 0)
@@ -166,6 +168,7 @@ GLuint CompileShader(GLenum shaderType, const char *source) {
   return 0;
 }
 
+// Links a GLSL program object and reports whether linking succeeded.
 bool LinkProgram(GLuint program) {
   glLinkProgram(program);
   GLint linked = GL_FALSE;
@@ -173,6 +176,7 @@ bool LinkProgram(GLuint program) {
   return linked == GL_TRUE;
 }
 
+// Creates the three-tone ink shader program and caches its attribute and uniform locations.
 ThreeToneInkProgram CreateThreeToneInkProgram() {
   static constexpr const char *kVertexShader = R"glsl(
     #version 120
@@ -195,9 +199,13 @@ ThreeToneInkProgram CreateThreeToneInkProgram() {
     uniform vec3 uLightTone;
     uniform float uDarkThreshold;
     uniform float uLightThreshold;
+    uniform bool uTwoSidedNormals;
     varying vec3 vNormal;
     void main() {
-      float ndotl = max(dot(normalize(vNormal), normalize(uLightDir)), 0.0);
+      vec3 normal = normalize(vNormal);
+      if (uTwoSidedNormals && !gl_FrontFacing)
+        normal = -normal;
+      float ndotl = max(dot(normal, normalize(uLightDir)), 0.0);
       vec3 tone = uLightTone;
       if (ndotl <= uDarkThreshold)
         tone = uDarkTone;
@@ -251,14 +259,18 @@ ThreeToneInkProgram CreateThreeToneInkProgram() {
       glGetUniformLocation(result.program, "uDarkThreshold");
   result.lightThresholdUniform =
       glGetUniformLocation(result.program, "uLightThreshold");
+  result.twoSidedNormalsUniform =
+      glGetUniformLocation(result.program, "uTwoSidedNormals");
   return result;
 }
 
+// Returns the lazily-created three-tone ink shader program.
 const ThreeToneInkProgram &GetThreeToneInkProgram() {
   static const ThreeToneInkProgram program = CreateThreeToneInkProgram();
   return program;
 }
 
+// Builds the inverse-transpose normal matrix from the current model-view matrix.
 void ComputeNormalMatrix3x3(const float *modelView, float *normalMatrix3x3) {
   const float m00 = modelView[0];
   const float m01 = modelView[4];
@@ -304,15 +316,48 @@ void ComputeNormalMatrix3x3(const float *modelView, float *normalMatrix3x3) {
   normalMatrix3x3[8] = c22 * invDet;
 }
 
-bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale) {
+// Returns the prior front-face mode after adapting it for mirrored model draws.
+GLint ApplyMirroredFrontFace(bool mirrored) {
+  GLint previousFrontFace = GL_CCW;
+  glGetIntegerv(GL_FRONT_FACE, &previousFrontFace);
+  if (mirrored) {
+    glFrontFace(previousFrontFace == GL_CCW ? GL_CW : GL_CCW);
+  }
+  return previousFrontFace;
+}
+
+// Restores the front-face winding mode saved before a mirrored draw.
+void RestoreFrontFace(GLint previousFrontFace) {
+  glFrontFace(static_cast<GLenum>(previousFrontFace));
+}
+
+// Returns the supplied model matrix or reads the current OpenGL model-view matrix.
+const float *ResolveModelMatrixForMirroring(const float *modelMatrix,
+                                            float fallbackModelMatrix[16]) {
+  if (modelMatrix != nullptr)
+    return modelMatrix;
+  glGetFloatv(GL_MODELVIEW_MATRIX, fallbackModelMatrix);
+  return fallbackModelMatrix;
+}
+
+// Draws a mesh with the GPU three-tone ink shader when buffers are available.
+bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
+                             const float *modelMatrix, bool sketchFill) {
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.vboNormals) == GL_TRUE &&
                                glIsBuffer(mesh.eboTriangles) == GL_TRUE;
+  const bool flatGpuHandlesValid =
+      glIsBuffer(mesh.vboFlatVertices) == GL_TRUE &&
+      glIsBuffer(mesh.vboFlatNormals) == GL_TRUE;
   const bool canUseGpuPath =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
       mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
       mesh.triangleIndexCount > 0;
-  if (!canUseGpuPath)
+  const bool canUseSketchFlatPath =
+      sketchFill && mesh.buffersReady && mesh.vao != 0 &&
+      mesh.vboFlatVertices != 0 && mesh.vboFlatNormals != 0 &&
+      mesh.flatVertexCount > 0 && flatGpuHandlesValid;
+  if (!canUseGpuPath && !canUseSketchFlatPath)
     return false;
 
   const ThreeToneInkProgram &program = GetThreeToneInkProgram();
@@ -321,7 +366,8 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale) {
       program.projectionUniform < 0 || program.normalMatrixUniform < 0 ||
       program.lightDirUniform < 0 || program.darkToneUniform < 0 ||
       program.midToneUniform < 0 || program.lightToneUniform < 0 ||
-      program.darkThresholdUniform < 0 || program.lightThresholdUniform < 0) {
+      program.darkThresholdUniform < 0 || program.lightThresholdUniform < 0 ||
+      program.twoSidedNormalsUniform < 0) {
     return false;
   }
 
@@ -339,6 +385,12 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale) {
 
   float normalMatrix[9];
   ComputeNormalMatrix3x3(modelView, normalMatrix);
+  const bool mirrored =
+      TransformDeterminant(modelMatrix ? modelMatrix : modelView) < 0.0f;
+  const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
+  if (sketchFill && cullWasEnabled)
+    glDisable(GL_CULL_FACE);
+  const GLint previousFrontFace = ApplyMirroredFrontFace(mirrored);
 
   glUseProgram(program.program);
   glUniformMatrix4fv(program.modelViewUniform, 1, GL_FALSE, modelView);
@@ -351,102 +403,68 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale) {
   glUniform3f(program.lightToneUniform, 1.0f, 1.0f, 1.0f);
   glUniform1f(program.darkThresholdUniform, 0.10f);
   glUniform1f(program.lightThresholdUniform, 0.30f);
+  glUniform1i(program.twoSidedNormalsUniform, sketchFill ? GL_TRUE : GL_FALSE);
 
-  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
+  glBindBuffer(GL_ARRAY_BUFFER,
+               canUseSketchFlatPath ? mesh.vboFlatVertices : mesh.vboVertices);
   glEnableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
   glVertexAttribPointer(static_cast<GLuint>(program.positionAttrib), 3, GL_FLOAT,
                         GL_FALSE, 0, nullptr);
 
-  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboNormals);
+  glBindBuffer(GL_ARRAY_BUFFER,
+               canUseSketchFlatPath ? mesh.vboFlatNormals : mesh.vboNormals);
   glEnableVertexAttribArray(static_cast<GLuint>(program.normalAttrib));
   glVertexAttribPointer(static_cast<GLuint>(program.normalAttrib), 3, GL_FLOAT,
                         GL_FALSE, 0, nullptr);
 
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
-  glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
-                 nullptr);
+  if (canUseSketchFlatPath) {
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glDrawArrays(GL_TRIANGLES, 0, mesh.flatVertexCount);
+  } else {
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
+    glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
+                   nullptr);
+  }
 
   glDisableVertexAttribArray(static_cast<GLuint>(program.normalAttrib));
   glDisableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glUseProgram(static_cast<GLuint>(priorProgram));
+  RestoreFrontFace(previousFrontFace);
+  if (sketchFill && cullWasEnabled)
+    glEnable(GL_CULL_FACE);
   glPopMatrix();
 
   return true;
 }
 
 void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
-                                   const float *modelMatrix);
+                                   const float *modelMatrix, bool sketchFill);
 
-void EnsureFlippedFlatCache(const Mesh &mesh) {
-  if (!mesh.flippedFlatVertices.empty() && !mesh.flippedFlatNormals.empty())
+// Draws a mesh using three-tone ink shading with GPU and immediate fallbacks.
+void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatrix,
+                           bool sketchFill) {
+  if (DrawMeshThreeToneInkGpu(mesh, scale, modelMatrix, sketchFill))
     return;
-
-  mesh.flippedFlatVertices.clear();
-  mesh.flippedFlatNormals.clear();
-  if (mesh.vertices.empty() || mesh.indices.empty())
-    return;
-
-  mesh.flippedFlatVertices.reserve(mesh.indices.size() * 3);
-  mesh.flippedFlatNormals.reserve(mesh.indices.size() * 3);
-
-  for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-    const uint32_t i0 = mesh.indices[i];
-    const uint32_t i1 = mesh.indices[i + 2];
-    const uint32_t i2 = mesh.indices[i + 1];
-
-    const float v0x = mesh.vertices[i0 * 3];
-    const float v0y = mesh.vertices[i0 * 3 + 1];
-    const float v0z = mesh.vertices[i0 * 3 + 2];
-    const float v1x = mesh.vertices[i1 * 3];
-    const float v1y = mesh.vertices[i1 * 3 + 1];
-    const float v1z = mesh.vertices[i1 * 3 + 2];
-    const float v2x = mesh.vertices[i2 * 3];
-    const float v2y = mesh.vertices[i2 * 3 + 1];
-    const float v2z = mesh.vertices[i2 * 3 + 2];
-
-    const std::array<float, 3> faceNormal = NormalizeVector(
-        (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y),
-        (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z),
-        (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x));
-
-    mesh.flippedFlatVertices.insert(
-        mesh.flippedFlatVertices.end(),
-        {v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z});
-    for (int v = 0; v < 3; ++v) {
-      mesh.flippedFlatNormals.push_back(faceNormal[0]);
-      mesh.flippedFlatNormals.push_back(faceNormal[1]);
-      mesh.flippedFlatNormals.push_back(faceNormal[2]);
-    }
-  }
+  DrawMeshThreeToneInkImmediate(mesh, scale, modelMatrix, sketchFill);
 }
 
-void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatrix) {
-  if (DrawMeshThreeToneInkGpu(mesh, scale))
-    return;
-  DrawMeshThreeToneInkImmediate(mesh, scale, modelMatrix);
-}
-
+// Draws a mesh with CPU-side three-tone ink shading when GPU shaders are unavailable.
 void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
-                                   const float *modelMatrix) {
+                                   const float *modelMatrix, bool sketchFill) {
   std::array<float, 3> lightDir = NormalizeVector(0.35f, -0.55f, 1.0f);
+  float fallbackModelMatrix[16];
+  const float *effectiveModelMatrix =
+      ResolveModelMatrixForMirroring(modelMatrix, fallbackModelMatrix);
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
-  const bool flipWinding =
-      (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
+  const bool mirrored = TransformDeterminant(effectiveModelMatrix) < 0.0f;
   const std::vector<uint32_t> *triangleIndices = &mesh.indices;
-  if (flipWinding) {
-    if (mesh.flippedIndicesCache.size() != mesh.indices.size()) {
-      mesh.flippedIndicesCache = mesh.indices;
-      for (size_t i = 0; i + 2 < mesh.flippedIndicesCache.size(); i += 3)
-        std::swap(mesh.flippedIndicesCache[i + 1], mesh.flippedIndicesCache[i + 2]);
-    }
-    triangleIndices = &mesh.flippedIndicesCache;
-  }
 
   const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
   if (cullWasEnabled)
     glDisable(GL_CULL_FACE);
+  const GLint previousFrontFace = ApplyMirroredFrontFace(mirrored);
   glShadeModel(GL_SMOOTH);
 
   glBegin(GL_TRIANGLES);
@@ -472,18 +490,23 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
     const std::array<float, 3> triangleNormal = NormalizeVector(
         uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
     const std::array<float, 3> p0World =
-        TransformPoint({v0x, v0y, v0z}, modelMatrix);
+        TransformPoint({v0x, v0y, v0z}, effectiveModelMatrix);
     const std::array<float, 3> p1World =
-        TransformPoint({v1x, v1y, v1z}, modelMatrix);
+        TransformPoint({v1x, v1y, v1z}, effectiveModelMatrix);
     const std::array<float, 3> p2World =
-        TransformPoint({v2x, v2y, v2z}, modelMatrix);
-    const std::array<float, 3> worldTriNormal = NormalizeVector(
+        TransformPoint({v2x, v2y, v2z}, effectiveModelMatrix);
+    std::array<float, 3> worldTriNormal = NormalizeVector(
         (p1World[1] - p0World[1]) * (p2World[2] - p0World[2]) -
             (p1World[2] - p0World[2]) * (p2World[1] - p0World[1]),
         (p1World[2] - p0World[2]) * (p2World[0] - p0World[0]) -
             (p1World[0] - p0World[0]) * (p2World[2] - p0World[2]),
         (p1World[0] - p0World[0]) * (p2World[1] - p0World[1]) -
             (p1World[1] - p0World[1]) * (p2World[0] - p0World[0]));
+    if (mirrored) {
+      worldTriNormal[0] = -worldTriNormal[0];
+      worldTriNormal[1] = -worldTriNormal[1];
+      worldTriNormal[2] = -worldTriNormal[2];
+    }
 
     for (int v = 0; v < 3; ++v) {
       const uint32_t idx = tri[v];
@@ -492,7 +515,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
       const float vz = mesh.vertices[idx * 3 + 2] * scale;
 
       std::array<float, 3> localNormal = triangleNormal;
-      if (hasNormals) {
+      if (!sketchFill && hasNormals) {
         const float nx = mesh.normals[idx * 3];
         const float ny = mesh.normals[idx * 3 + 1];
         const float nz = mesh.normals[idx * 3 + 2];
@@ -502,7 +525,8 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
         }
       }
 
-      std::array<float, 3> worldNormal = TransformNormal(localNormal, modelMatrix);
+      std::array<float, 3> worldNormal =
+          TransformNormal(localNormal, effectiveModelMatrix);
       const float dotWorld = worldNormal[0] * worldTriNormal[0] +
                              worldNormal[1] * worldTriNormal[1] +
                              worldNormal[2] * worldTriNormal[2];
@@ -524,6 +548,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
   }
   glEnd();
 
+  RestoreFrontFace(previousFrontFace);
   if (cullWasEnabled)
     glEnable(GL_CULL_FACE);
 }
@@ -750,7 +775,8 @@ void SceneRenderer::DrawMeshWithOutline(
         const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
         if (fillLightingWasEnabled)
           glDisable(GL_LIGHTING);
-        DrawMeshThreeToneInk(mesh, scale, modelMatrix);
+        DrawMeshThreeToneInk(mesh, scale, modelMatrix,
+                             m_controller.IsSketchRenderStyleEnabled());
         if (fillLightingWasEnabled)
           glEnable(GL_LIGHTING);
       }
@@ -813,6 +839,7 @@ void SceneRenderer::DrawMeshWithOutline(
   restoreTextureState();
 }
 
+// Draws mesh edges as wireframe lines and records them for capture output.
 void SceneRenderer::DrawMeshWireframe(
     const Mesh &mesh, float scale,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
@@ -901,27 +928,22 @@ void SceneRenderer::DrawMeshWireframe(
   }
 }
 
+// Draws a lit or textured mesh while preserving front-face orientation for mirrored transforms.
 void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMatrix,
                              bool useTexture) {
   const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
   if (cullWasEnabled)
     glDisable(GL_CULL_FACE);
 
+  float fallbackModelMatrix[16];
+  const float *effectiveModelMatrix =
+      ResolveModelMatrixForMirroring(modelMatrix, fallbackModelMatrix);
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
-  const bool flipWinding =
-      (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
+  const bool mirrored = TransformDeterminant(effectiveModelMatrix) < 0.0f;
+  const GLint previousFrontFace = ApplyMirroredFrontFace(mirrored);
 
+  const std::vector<float> *normalData = &mesh.normals;
   const std::vector<uint32_t> *triangleIndices = &mesh.indices;
-  if (flipWinding) {
-    if (mesh.flippedIndicesCache.size() != mesh.indices.size()) {
-      mesh.flippedIndicesCache = mesh.indices;
-      for (size_t i = 0; i + 2 < mesh.flippedIndicesCache.size(); i += 3) {
-        std::swap(mesh.flippedIndicesCache[i + 1],
-                  mesh.flippedIndicesCache[i + 2]);
-      }
-    }
-    triangleIndices = &mesh.flippedIndicesCache;
-  }
 
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.vboNormals) == GL_TRUE &&
@@ -943,27 +965,13 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       mesh.vboFlatNormals != 0 && mesh.flatVertexCount > 0 &&
       flatGpuHandlesValid;
 
-  const bool canUseGpuVertexArrays =
-      mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
-      mesh.vboNormals != 0 && gpuHandlesValid;
-
-  const bool hasFlippedFlatCache = [&]() {
-    if (!flipWinding)
-      return false;
-    EnsureFlippedFlatCache(mesh);
-    return !mesh.flippedFlatVertices.empty() && !mesh.flippedFlatNormals.empty();
-  }();
-
   const bool allowGpuTriangles =
-      canUseGpuTriangles && (!useFaceNormals || !canUseGpuFlatTriangles);
+      canUseGpuTriangles && !useTexture &&
+      (!useFaceNormals || !canUseGpuFlatTriangles);
   const bool allowGpuFlatTriangles = canUseGpuFlatTriangles && useFaceNormals;
-  const bool allowCachedFlatTriangles = useFaceNormals && hasFlippedFlatCache;
-  const bool allowDrawElementsWithCpuIndices =
-      canUseGpuVertexArrays && !useFaceNormals && flipWinding;
 
   if (!m_controller.IsCaptureOnly() &&
-      (allowGpuTriangles || allowGpuFlatTriangles || allowCachedFlatTriangles ||
-       allowDrawElementsWithCpuIndices)) {
+      (allowGpuTriangles || allowGpuFlatTriangles)) {
     const bool textureEnabled =
         allowGpuTriangles && useTexture && mesh.textureId != 0 &&
         mesh.vboTexCoords != 0 &&
@@ -990,22 +998,9 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       glTexCoordPointer(2, GL_FLOAT, 0, nullptr);
     }
 
-    if (allowCachedFlatTriangles) {
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      glVertexPointer(3, GL_FLOAT, 0, mesh.flippedFlatVertices.data());
-      glNormalPointer(GL_FLOAT, 0, mesh.flippedFlatNormals.data());
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-      glDrawArrays(
-          GL_TRIANGLES, 0,
-          static_cast<GLsizei>(mesh.flippedFlatVertices.size() / 3));
-    } else if (allowGpuFlatTriangles) {
+    if (allowGpuFlatTriangles) {
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
       glDrawArrays(GL_TRIANGLES, 0, mesh.flatVertexCount);
-    } else if (allowDrawElementsWithCpuIndices) {
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-      glDrawElements(
-          GL_TRIANGLES, static_cast<GLsizei>(triangleIndices->size()),
-          GL_UNSIGNED_INT, triangleIndices->data());
     } else {
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
       glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
@@ -1026,7 +1021,10 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     const bool textureEnabled =
         useTexture && mesh.textureId != 0 &&
         mesh.texcoords.size() >= (mesh.vertices.size() / 3u) * 2u;
+    GLint twoSidedLightingWasEnabled = GL_FALSE;
     if (textureEnabled) {
+      glGetIntegerv(GL_LIGHT_MODEL_TWO_SIDE, &twoSidedLightingWasEnabled);
+      glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_FALSE);
       glEnable(GL_TEXTURE_2D);
       glBindTexture(GL_TEXTURE_2D, mesh.textureId);
     }
@@ -1046,8 +1044,6 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       const float v2y = mesh.vertices[i2 * 3 + 1] * scale;
       const float v2z = mesh.vertices[i2 * 3 + 2] * scale;
 
-      const auto &normalData = mesh.normals;
-
       if (useFaceNormals) {
         float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
         float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
@@ -1058,14 +1054,17 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
           ny /= len;
           nz /= len;
           if (hasNormals) {
-            const float avgNx =
-                (normalData[i0 * 3] + normalData[i1 * 3] + normalData[i2 * 3]) /
-                3.0f;
-            const float avgNy = (normalData[i0 * 3 + 1] + normalData[i1 * 3 + 1] +
-                                 normalData[i2 * 3 + 1]) /
+            const float avgNx = ((*normalData)[i0 * 3] +
+                                 (*normalData)[i1 * 3] +
+                                 (*normalData)[i2 * 3]) /
                                 3.0f;
-            const float avgNz = (normalData[i0 * 3 + 2] + normalData[i1 * 3 + 2] +
-                                 normalData[i2 * 3 + 2]) /
+            const float avgNy = ((*normalData)[i0 * 3 + 1] +
+                                 (*normalData)[i1 * 3 + 1] +
+                                 (*normalData)[i2 * 3 + 1]) /
+                                3.0f;
+            const float avgNz = ((*normalData)[i0 * 3 + 2] +
+                                 (*normalData)[i1 * 3 + 2] +
+                                 (*normalData)[i2 * 3 + 2]) /
                                 3.0f;
             const float alignment = nx * avgNx + ny * avgNy + nz * avgNz;
             if (alignment < 0.0f) {
@@ -1087,22 +1086,60 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
 
       if (hasNormals) {
         if (textureEnabled) {
+          float faceNx = (v1y - v0y) * (v2z - v0z) -
+                         (v1z - v0z) * (v2y - v0y);
+          float faceNy = (v1z - v0z) * (v2x - v0x) -
+                         (v1x - v0x) * (v2z - v0z);
+          float faceNz = (v1x - v0x) * (v2y - v0y) -
+                         (v1y - v0y) * (v2x - v0x);
+          const float faceLen =
+              std::sqrt(faceNx * faceNx + faceNy * faceNy + faceNz * faceNz);
+          if (faceLen > 0.0f) {
+            faceNx /= faceLen;
+            faceNy /= faceLen;
+            faceNz /= faceLen;
+            const float avgNx = ((*normalData)[i0 * 3] +
+                                 (*normalData)[i1 * 3] +
+                                 (*normalData)[i2 * 3]) /
+                                3.0f;
+            const float avgNy = ((*normalData)[i0 * 3 + 1] +
+                                 (*normalData)[i1 * 3 + 1] +
+                                 (*normalData)[i2 * 3 + 1]) /
+                                3.0f;
+            const float avgNz = ((*normalData)[i0 * 3 + 2] +
+                                 (*normalData)[i1 * 3 + 2] +
+                                 (*normalData)[i2 * 3 + 2]) /
+                                3.0f;
+            const float alignment =
+                faceNx * avgNx + faceNy * avgNy + faceNz * avgNz;
+            if (alignment < 0.0f) {
+              faceNx = -faceNx;
+              faceNy = -faceNy;
+              faceNz = -faceNz;
+            }
+          } else {
+            faceNx = 0.0f;
+            faceNy = 0.0f;
+            faceNz = 1.0f;
+          }
+
+          glNormal3f(faceNx, faceNy, faceNz);
           glTexCoord2f(mesh.texcoords[i0 * 2], mesh.texcoords[i0 * 2 + 1]);
-        }
-        glNormal3f(normalData[i0 * 3], normalData[i0 * 3 + 1],
-                   normalData[i0 * 3 + 2]);
-        glVertex3f(v0x, v0y, v0z);
-        if (textureEnabled) {
+          glVertex3f(v0x, v0y, v0z);
           glTexCoord2f(mesh.texcoords[i1 * 2], mesh.texcoords[i1 * 2 + 1]);
-        }
-        glNormal3f(normalData[i1 * 3], normalData[i1 * 3 + 1],
-                   normalData[i1 * 3 + 2]);
-        glVertex3f(v1x, v1y, v1z);
-        if (textureEnabled) {
+          glVertex3f(v1x, v1y, v1z);
           glTexCoord2f(mesh.texcoords[i2 * 2], mesh.texcoords[i2 * 2 + 1]);
+          glVertex3f(v2x, v2y, v2z);
+          continue;
         }
-        glNormal3f(normalData[i2 * 3], normalData[i2 * 3 + 1],
-                   normalData[i2 * 3 + 2]);
+        glNormal3f((*normalData)[i0 * 3], (*normalData)[i0 * 3 + 1],
+                   (*normalData)[i0 * 3 + 2]);
+        glVertex3f(v0x, v0y, v0z);
+        glNormal3f((*normalData)[i1 * 3], (*normalData)[i1 * 3 + 1],
+                   (*normalData)[i1 * 3 + 2]);
+        glVertex3f(v1x, v1y, v1z);
+        glNormal3f((*normalData)[i2 * 3], (*normalData)[i2 * 3 + 1],
+                   (*normalData)[i2 * 3 + 2]);
         glVertex3f(v2x, v2y, v2z);
       } else {
         float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
@@ -1134,9 +1171,11 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     if (textureEnabled) {
       glBindTexture(GL_TEXTURE_2D, 0);
       glDisable(GL_TEXTURE_2D);
+      glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, twoSidedLightingWasEnabled);
     }
   }
 
+  RestoreFrontFace(previousFrontFace);
   if (cullWasEnabled)
     glEnable(GL_CULL_FACE);
 }
