@@ -966,7 +966,8 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       flatGpuHandlesValid;
 
   const bool allowGpuTriangles =
-      canUseGpuTriangles && (!useFaceNormals || !canUseGpuFlatTriangles);
+      canUseGpuTriangles && !useTexture &&
+      (!useFaceNormals || !canUseGpuFlatTriangles);
   const bool allowGpuFlatTriangles = canUseGpuFlatTriangles && useFaceNormals;
 
   if (!m_controller.IsCaptureOnly() &&
@@ -1081,23 +1082,58 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       }
 
       if (hasNormals) {
+        float normalSign = 1.0f;
+        if (textureEnabled) {
+          float faceNx = (v1y - v0y) * (v2z - v0z) -
+                         (v1z - v0z) * (v2y - v0y);
+          float faceNy = (v1z - v0z) * (v2x - v0x) -
+                         (v1x - v0x) * (v2z - v0z);
+          float faceNz = (v1x - v0x) * (v2y - v0y) -
+                         (v1y - v0y) * (v2x - v0x);
+          const float faceLen =
+              std::sqrt(faceNx * faceNx + faceNy * faceNy + faceNz * faceNz);
+          if (faceLen > 0.0f) {
+            faceNx /= faceLen;
+            faceNy /= faceLen;
+            faceNz /= faceLen;
+            const float avgNx = ((*normalData)[i0 * 3] +
+                                 (*normalData)[i1 * 3] +
+                                 (*normalData)[i2 * 3]) /
+                                3.0f;
+            const float avgNy = ((*normalData)[i0 * 3 + 1] +
+                                 (*normalData)[i1 * 3 + 1] +
+                                 (*normalData)[i2 * 3 + 1]) /
+                                3.0f;
+            const float avgNz = ((*normalData)[i0 * 3 + 2] +
+                                 (*normalData)[i1 * 3 + 2] +
+                                 (*normalData)[i2 * 3 + 2]) /
+                                3.0f;
+            const float alignment =
+                faceNx * avgNx + faceNy * avgNy + faceNz * avgNz;
+            if (alignment < 0.0f)
+              normalSign = -1.0f;
+          }
+        }
         if (textureEnabled) {
           glTexCoord2f(mesh.texcoords[i0 * 2], mesh.texcoords[i0 * 2 + 1]);
         }
-        glNormal3f((*normalData)[i0 * 3], (*normalData)[i0 * 3 + 1],
-                   (*normalData)[i0 * 3 + 2]);
+        glNormal3f((*normalData)[i0 * 3] * normalSign,
+                   (*normalData)[i0 * 3 + 1] * normalSign,
+                   (*normalData)[i0 * 3 + 2] * normalSign);
         glVertex3f(v0x, v0y, v0z);
         if (textureEnabled) {
           glTexCoord2f(mesh.texcoords[i1 * 2], mesh.texcoords[i1 * 2 + 1]);
         }
-        glNormal3f((*normalData)[i1 * 3], (*normalData)[i1 * 3 + 1],
-                   (*normalData)[i1 * 3 + 2]);
+        glNormal3f((*normalData)[i1 * 3] * normalSign,
+                   (*normalData)[i1 * 3 + 1] * normalSign,
+                   (*normalData)[i1 * 3 + 2] * normalSign);
         glVertex3f(v1x, v1y, v1z);
         if (textureEnabled) {
           glTexCoord2f(mesh.texcoords[i2 * 2], mesh.texcoords[i2 * 2 + 1]);
         }
-        glNormal3f((*normalData)[i2 * 3], (*normalData)[i2 * 3 + 1],
-                   (*normalData)[i2 * 3 + 2]);
+        glNormal3f((*normalData)[i2 * 3] * normalSign,
+                   (*normalData)[i2 * 3 + 1] * normalSign,
+                   (*normalData)[i2 * 3 + 2] * normalSign);
         glVertex3f(v2x, v2y, v2z);
       } else {
         float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
