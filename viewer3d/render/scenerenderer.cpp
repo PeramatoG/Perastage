@@ -1021,7 +1021,10 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     const bool textureEnabled =
         useTexture && mesh.textureId != 0 &&
         mesh.texcoords.size() >= (mesh.vertices.size() / 3u) * 2u;
+    GLint twoSidedLightingWasEnabled = GL_FALSE;
     if (textureEnabled) {
+      glGetIntegerv(GL_LIGHT_MODEL_TWO_SIDE, &twoSidedLightingWasEnabled);
+      glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_FALSE);
       glEnable(GL_TEXTURE_2D);
       glBindTexture(GL_TEXTURE_2D, mesh.textureId);
     }
@@ -1082,7 +1085,6 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       }
 
       if (hasNormals) {
-        float normalSign = 1.0f;
         if (textureEnabled) {
           float faceNx = (v1y - v0y) * (v2z - v0z) -
                          (v1z - v0z) * (v2y - v0y);
@@ -1110,30 +1112,34 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
                                 3.0f;
             const float alignment =
                 faceNx * avgNx + faceNy * avgNy + faceNz * avgNz;
-            if (alignment < 0.0f)
-              normalSign = -1.0f;
+            if (alignment < 0.0f) {
+              faceNx = -faceNx;
+              faceNy = -faceNy;
+              faceNz = -faceNz;
+            }
+          } else {
+            faceNx = 0.0f;
+            faceNy = 0.0f;
+            faceNz = 1.0f;
           }
-        }
-        if (textureEnabled) {
+
+          glNormal3f(faceNx, faceNy, faceNz);
           glTexCoord2f(mesh.texcoords[i0 * 2], mesh.texcoords[i0 * 2 + 1]);
-        }
-        glNormal3f((*normalData)[i0 * 3] * normalSign,
-                   (*normalData)[i0 * 3 + 1] * normalSign,
-                   (*normalData)[i0 * 3 + 2] * normalSign);
-        glVertex3f(v0x, v0y, v0z);
-        if (textureEnabled) {
+          glVertex3f(v0x, v0y, v0z);
           glTexCoord2f(mesh.texcoords[i1 * 2], mesh.texcoords[i1 * 2 + 1]);
-        }
-        glNormal3f((*normalData)[i1 * 3] * normalSign,
-                   (*normalData)[i1 * 3 + 1] * normalSign,
-                   (*normalData)[i1 * 3 + 2] * normalSign);
-        glVertex3f(v1x, v1y, v1z);
-        if (textureEnabled) {
+          glVertex3f(v1x, v1y, v1z);
           glTexCoord2f(mesh.texcoords[i2 * 2], mesh.texcoords[i2 * 2 + 1]);
+          glVertex3f(v2x, v2y, v2z);
+          continue;
         }
-        glNormal3f((*normalData)[i2 * 3] * normalSign,
-                   (*normalData)[i2 * 3 + 1] * normalSign,
-                   (*normalData)[i2 * 3 + 2] * normalSign);
+        glNormal3f((*normalData)[i0 * 3], (*normalData)[i0 * 3 + 1],
+                   (*normalData)[i0 * 3 + 2]);
+        glVertex3f(v0x, v0y, v0z);
+        glNormal3f((*normalData)[i1 * 3], (*normalData)[i1 * 3 + 1],
+                   (*normalData)[i1 * 3 + 2]);
+        glVertex3f(v1x, v1y, v1z);
+        glNormal3f((*normalData)[i2 * 3], (*normalData)[i2 * 3 + 1],
+                   (*normalData)[i2 * 3 + 2]);
         glVertex3f(v2x, v2y, v2z);
       } else {
         float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
@@ -1165,6 +1171,7 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     if (textureEnabled) {
       glBindTexture(GL_TEXTURE_2D, 0);
       glDisable(GL_TEXTURE_2D);
+      glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, twoSidedLightingWasEnabled);
     }
   }
 
