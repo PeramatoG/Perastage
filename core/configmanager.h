@@ -24,7 +24,6 @@
 #include <vector>
 #include <functional>
 #include "configservices.h"
-#include "symbol_cache_manifest.h"
 
 // Singleton to manage configuration and MVR scene data globally
 class ConfigManager
@@ -56,10 +55,6 @@ public:
     // Access to current MVR scene (modifiable)
     MvrScene& GetScene();
     const MvrScene& GetScene() const;
-
-    // Access project-level fixture symbol cache metadata.
-    symbol_cache::SymbolCacheManifest& GetSymbolCacheManifest();
-    const symbol_cache::SymbolCacheManifest& GetSymbolCacheManifest() const;
 
     // Current selections for different object types
     const std::vector<std::string>& GetSelectedFixtures() const;
@@ -142,7 +137,6 @@ private:
     SelectionState selectionState;
     HistoryManager historyManager;
     LayerVisibilityState layerVisibilityState;
-    symbol_cache::SymbolCacheManifest symbolCacheManifest;
 
     bool suppressRevision = false;
 };

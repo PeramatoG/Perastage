@@ -689,7 +689,6 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
 }
 
 
-// Inspects a fixture GDTF to determine whether Perastage SVG symbols must be generated.
 bool InspectFixtureSymbolState(const Fixture &fixture,
                                const MvrScene &scene,
                                FixtureSymbolInspectionResult &result,
@@ -768,7 +767,6 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
 
   const std::unordered_set<std::string> requiredPaths = {
       NormalizeArchivePath("models/svg/" + modelSvgBase + ".svg"),
-      NormalizeArchivePath("models/svg/" + modelSvgBase + "_bottom.svg"),
       NormalizeArchivePath("models/svg_side/" + modelSvgBase + ".svg"),
       NormalizeArchivePath("models/svg_front/" + modelSvgBase + ".svg")};
 
