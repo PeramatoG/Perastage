@@ -22,11 +22,14 @@
 #include <array>
 #include <cstdint>
 #include <exception>
+#include <filesystem>
+#include <fstream>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
@@ -39,6 +42,8 @@
 #include "symbol_cache_manifest.h"
 
 namespace {
+namespace fs = std::filesystem;
+
 using gui::layoutcache::kLayoutViewCacheArchiveEntry;
 using gui::layoutcache::kLayoutViewCacheSchemaVersion;
 
@@ -49,6 +54,79 @@ constexpr size_t kMaxPersistentCacheBytes = 8 * 1024 * 1024;
 void HashByte(std::uint64_t &hash, unsigned char value) {
   hash ^= value;
   hash *= 1099511628211ull;
+}
+
+// Combines a string into a deterministic FNV-1a hash accumulator.
+void HashString(std::uint64_t &hash, const std::string &value) {
+  for (unsigned char ch : value)
+    HashByte(hash, ch);
+}
+
+// Returns a portable UTF-8 representation of a filesystem path.
+std::string PathToUtf8(const fs::path &path) {
+  const auto utf8 = path.generic_u8string();
+  return std::string(utf8.begin(), utf8.end());
+}
+
+// Computes a deterministic hash for a file using its relative path and bytes.
+bool HashFileContent(const fs::path &root, const fs::path &filePath,
+                     std::uint64_t &hash) {
+  std::error_code ec;
+  const fs::path relative = fs::relative(filePath, root, ec);
+  if (ec)
+    return false;
+  HashString(hash, PathToUtf8(relative));
+  HashByte(hash, 0);
+
+  std::ifstream input(filePath, std::ios::binary);
+  if (!input.is_open())
+    return false;
+  std::array<char, 4096> buffer{};
+  while (input) {
+    input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    const std::streamsize count = input.gcount();
+    for (std::streamsize i = 0; i < count; ++i)
+      HashByte(hash,
+               static_cast<unsigned char>(buffer[static_cast<size_t>(i)]));
+  }
+  HashByte(hash, 0);
+  return input.good() || input.eof();
+}
+
+// Computes a stable hash for authoritative extracted project source assets.
+std::optional<std::string> ComputeSourceAssetHash(const MvrScene &scene) {
+  if (scene.basePath.empty())
+    return std::nullopt;
+  std::error_code ec;
+  const fs::path root = fs::weakly_canonical(fs::u8path(scene.basePath), ec);
+  if (ec || !fs::is_directory(root, ec))
+    return std::nullopt;
+
+  std::vector<fs::path> files;
+  for (fs::recursive_directory_iterator it(root, ec), end; !ec && it != end;
+       it.increment(ec)) {
+    if (it->is_regular_file(ec))
+      files.push_back(fs::weakly_canonical(it->path(), ec));
+    if (ec)
+      return std::nullopt;
+  }
+  if (ec)
+    return std::nullopt;
+
+  std::sort(files.begin(), files.end(), [&root](const fs::path &lhs,
+                                                const fs::path &rhs) {
+    std::error_code leftError;
+    std::error_code rightError;
+    return PathToUtf8(fs::relative(lhs, root, leftError)) <
+           PathToUtf8(fs::relative(rhs, root, rightError));
+  });
+
+  std::uint64_t hash = 14695981039346656037ull;
+  for (const fs::path &file : files) {
+    if (!HashFileContent(root, file, hash))
+      return std::nullopt;
+  }
+  return std::to_string(hash);
 }
 
 // Computes a deterministic FNV-1a hash for serialized JSON content.
@@ -783,14 +861,24 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
     return {};
   }
 
+  const MvrScene &scene =
+      GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  const auto sourceAssetHash = ComputeSourceAssetHash(scene);
+  if (!sourceAssetHash) {
+    Logger::Instance().Log(Logger::Level::Info,
+                           "Skipping persistent layout view cache because "
+                           "source assets could not be hashed.");
+    return {};
+  }
+
   nlohmann::json document;
   document["schemaVersion"] = kLayoutViewCacheSchemaVersion;
   document["symbolGenerationVersion"] =
       symbol_cache::kCurrentPerastageSymbolFormatVersion;
   document["layoutName"] = currentLayout.name;
   document["viewId"] = view->id;
-  document["sceneHash"] = StableJsonHash(SceneToHashJson(
-      GetDefaultGuiConfigServices().LegacyConfigManager().GetScene()));
+  document["sceneHash"] = StableJsonHash(SceneToHashJson(scene));
+  document["sourceAssetHash"] = *sourceAssetHash;
   document["viewHash"] = StableJsonHash(ViewDefinitionToHashJson(*view));
   document["legacyCaptureContentHash"] =
       std::to_string(cache.captureContentHash);
@@ -846,12 +934,25 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
       pendingPersistentViewCacheJson_.clear();
       return;
     }
-    const std::string sceneHash = StableJsonHash(SceneToHashJson(
-        GetDefaultGuiConfigServices().LegacyConfigManager().GetScene()));
+    const MvrScene &scene =
+        GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+    const auto sourceAssetHash = ComputeSourceAssetHash(scene);
+    if (!sourceAssetHash) {
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "Ignoring layout view cache because source assets could not be hashed.");
+      pendingPersistentViewCacheJson_.clear();
+      return;
+    }
+    const std::string sceneHash = StableJsonHash(SceneToHashJson(scene));
     const std::string viewHash =
         StableJsonHash(ViewDefinitionToHashJson(*viewIt));
     if (document.value("sceneHash", std::string{}) != sceneHash ||
+        document.value("sourceAssetHash", std::string{}) != *sourceAssetHash ||
         document.value("viewHash", std::string{}) != viewHash) {
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "Ignoring layout view cache because source assets or layout data changed.");
       pendingPersistentViewCacheJson_.clear();
       return;
     }
