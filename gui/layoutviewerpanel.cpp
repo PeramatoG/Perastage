@@ -523,6 +523,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     currentLayout.name = layout.name;
     legendDataDirty_ = true;
     RefreshLegendData();
+    HydratePendingPersistentViewCache();
     InvalidateRenderIfFrameChanged(false);
     if (NeedsRenderRebuild())
       RequestRenderRebuild();
@@ -615,6 +616,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     loadingRequested = false;
     legendDataDirty_ = true;
     RefreshLegendData();
+    HydratePendingPersistentViewCache();
     InvalidateRenderIfFrameChanged(true);
     if (NeedsRenderRebuild())
       RequestRenderRebuild();
@@ -624,6 +626,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
 
   captureInProgress = false;
   ClearCachedTexture();
+  HydratePendingPersistentViewCache();
   const bool emptyLayout = IsLayoutEmpty();
   if (emptyLayout) {
     selectedElementType = SelectedElementType::None;

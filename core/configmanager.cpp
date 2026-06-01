@@ -458,6 +458,12 @@ bool ConfigManager::SaveToFile(const std::string &path) const {
   return preferencesStore.SaveToFile(path);
 }
 
+// Registers an optional provider for GUI-owned project archive resources.
+void ConfigManager::SetProjectArchiveResourceProvider(
+    ProjectArchiveResourceProvider provider) {
+  projectArchiveResourceProvider = std::move(provider);
+}
+
 // Saves the current project state as a packaged archive with config, scene content, and used resources.
 bool ConfigManager::SaveProject(const std::string &path) {
   layouts::LayoutManager::Get().PrepareImageResourcesForSave();
@@ -505,6 +511,12 @@ bool ConfigManager::SaveProject(const std::string &path) {
           Logger::Instance().Log(Logger::Level::Warn,
                                  "Could not serialize symbol cache manifest: " +
                                      manifestError);
+        }
+        if (projectArchiveResourceProvider) {
+          auto providedResources = projectArchiveResourceProvider();
+          resources.insert(resources.end(),
+                           std::make_move_iterator(providedResources.begin()),
+                           std::make_move_iterator(providedResources.end()));
         }
         return resources;
       });

@@ -32,6 +32,8 @@ class ConfigManager
 public:
     using LoadProjectProgressCallback =
         std::function<void(const std::string& stage, int completed, int total)>;
+    using ProjectArchiveResourceProvider =
+        std::function<std::vector<ProjectSession::ArchiveResource>()>;
     // Access singleton instance
     static ConfigManager& Get();
 
@@ -45,6 +47,7 @@ public:
     bool SaveProject(const std::string& path);
     bool LoadProject(const std::string& path,
                      LoadProjectProgressCallback progressCallback = {});
+    void SetProjectArchiveResourceProvider(ProjectArchiveResourceProvider provider);
     // Save/load configuration file (e.g., JSON, INI, TXT…)
     bool LoadFromFile(const std::string& path);
     bool SaveToFile(const std::string& path) const;
@@ -138,6 +141,7 @@ private:
     ConfigManager& operator=(const ConfigManager&) = delete;
 
     UserPreferencesStore preferencesStore;
+    ProjectArchiveResourceProvider projectArchiveResourceProvider;
     ProjectSession projectSession;
     SelectionState selectionState;
     HistoryManager historyManager;

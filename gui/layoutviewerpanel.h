@@ -22,9 +22,11 @@
 #include <optional>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include "LayoutCollection.h"
+#include "configservices.h"
 #include "canvas2d.h"
 #include "symbolcache.h"
 #include "viewer2dpanel.h"
@@ -50,6 +52,9 @@ public:
   void RefreshAfterSceneContentUpdate();
   void RefreshAfterFixtureSymbolUpdate();
   void RefreshEditedViewById(int viewId);
+  std::vector<ProjectSession::ArchiveResource>
+  CollectPersistentViewCacheResources() const;
+  void LoadPersistentViewCacheFromProject(const std::string &projectPath);
 
 private:
   struct LegendItem {
@@ -256,6 +261,7 @@ private:
   void ClearCachedImageSource(ImageCache &cache);
   bool EnsureCachedImageSource(const layouts::LayoutImageDefinition &image,
                                ImageCache &cache);
+  void HydratePendingPersistentViewCache();
   wxImage BuildTextImage(const wxSize &size, const wxSize &logicalSize,
                          double renderZoom,
                          const layouts::LayoutTextDefinition &text) const;
@@ -340,6 +346,7 @@ private:
   wxTimer renderDelayTimer_;
   unsigned int loadingTextTexture_ = 0;
   wxSize loadingTextTextureSize_{0, 0};
+  std::string pendingPersistentViewCacheJson_;
   std::unordered_map<int, ViewCache> viewCaches_;
   std::unordered_map<int, LegendCache> legendCaches_;
   std::unordered_map<int, EventTableCache> eventTableCaches_;
