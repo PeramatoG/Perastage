@@ -155,8 +155,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout release tag
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-release.outputs.new_tag }}
 
       - name: Download installer artifacts
         uses: actions/download-artifact@v4
@@ -223,7 +225,7 @@ jobs:
           echo "linux_asset=$LINUX_ASSET" >> "$GITHUB_OUTPUT"
           echo "mac_asset=$MAC_ASSET" >> "$GITHUB_OUTPUT"
 
-      - name: Create draft release with generated notes
+      - name: Create draft release with curated notes
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -236,9 +238,18 @@ jobs:
         run: |
           set -euo pipefail
 
+          RELEASE_NOTES_FILE="docs/release-notes-draft.md"
+
           echo "Creating draft release in $GH_REPO"
 
-          cmd=(gh release create "$TAG_NAME" "$WIN_ASSET" "$LINUX_ASSET" "$MAC_ASSET" --draft --generate-notes --title "$RELEASE_TITLE")
+          cmd=(gh release create "$TAG_NAME" "$WIN_ASSET" "$LINUX_ASSET" "$MAC_ASSET" --draft --title "$RELEASE_TITLE")
+          if [ -s "$RELEASE_NOTES_FILE" ]; then
+            echo "Using curated release notes from $RELEASE_NOTES_FILE"
+            cmd+=(--notes-file "$RELEASE_NOTES_FILE")
+          else
+            echo "Curated release notes draft is missing or empty; falling back to GitHub generated notes"
+            cmd+=(--generate-notes)
+          fi
           if [ "$PRERELEASE" = "true" ]; then
             cmd+=(--prerelease)
           fi

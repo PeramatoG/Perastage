@@ -72,10 +72,14 @@ Examples:
 
 ## Release Notes
 
-Release notes should be generated from merged PRs between the previous official release tag and the new release tag.
+Perastage maintains a curated working draft for the next release in [`release-notes-draft.md`](release-notes-draft.md).
+Update that draft whenever a merged PR includes a meaningful user-facing change, such as a feature, bug fix, performance improvement, stability improvement, packaging change, or documentation update.
+Internal-only changes can be omitted or recorded under the internal section when they may help maintainers review the release.
+
+Before publishing a GitHub Release, review the draft, remove entries that are too technical or temporary, group related items, and convert it into concise public release notes.
 Include the latest documentation link (`https://perastage.luismaperamato.com/`) in each published release note.
 
-PR titles and labels should be clear because they feed release-note quality.
+PR titles, labels, and the PR template release-note field should be clear because they help keep the curated draft accurate.
 
 Suggested labels:
 
@@ -124,7 +128,8 @@ It performs these actions for a MINOR release:
 - Creates and pushes an annotated release tag in the format `vMAJOR.MINOR.0`.
 - Builds Windows, Linux, and macOS installers from the new release tag using the existing installer workflows.
 - Creates a GitHub Draft Release for the new tag.
-- Uses GitHub automatic release-note generation.
+- Uses `docs/release-notes-draft.md` as the release body when the file is present and non-empty.
+- Falls back to GitHub automatic release-note generation only if the curated draft is missing or empty.
 - Attaches the Windows installer, Linux AppImage, and macOS DMG assets to the draft release.
 
 The workflow intentionally leaves the release as a draft so the maintainer can manually review, edit, and publish it.
