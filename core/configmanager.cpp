@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iterator>
+#include <utility>
 #include <wx/stdpaths.h>
 
 
@@ -391,10 +392,22 @@ void ConfigManager::SetCurrentLayer(const std::string &name) {
 
 // -- Scene access --
 
+// Returns the mutable scene owned by the active project session.
 MvrScene &ConfigManager::GetScene() { return projectSession.GetScene(); }
 
+// Returns the read-only scene owned by the active project session.
 const MvrScene &ConfigManager::GetScene() const {
   return projectSession.GetScene();
+}
+
+// Returns mutable project-level fixture symbol cache metadata.
+symbol_cache::SymbolCacheManifest &ConfigManager::GetSymbolCacheManifest() {
+  return symbolCacheManifest;
+}
+
+// Returns read-only project-level fixture symbol cache metadata.
+const symbol_cache::SymbolCacheManifest &ConfigManager::GetSymbolCacheManifest() const {
+  return symbolCacheManifest;
 }
 
 const std::vector<std::string> &ConfigManager::GetSelectedFixtures() const {
@@ -476,11 +489,22 @@ bool ConfigManager::SaveProject(const std::string &path) {
                 " scene_bytes=" + std::to_string(sceneBytes.size()));
         return exported;
       },
-      []() {
+      [this]() {
         std::vector<ProjectSession::ArchiveResource> resources;
         for (const auto &entry :
              layouts::LayoutImageResourceRegistry::Get().UsedResources()) {
           resources.push_back({entry.archivePath, entry.bytes});
+        }
+
+        std::string manifestError;
+        if (auto manifestResource =
+                symbolCacheManifest.ToArchiveResource(manifestError)) {
+          resources.push_back(
+              {manifestResource->entryName, std::move(manifestResource->bytes)});
+        } else if (!manifestError.empty()) {
+          Logger::Instance().Log(Logger::Level::Warning,
+                                 "Could not serialize symbol cache manifest: " +
+                                     manifestError);
         }
         return resources;
       });
@@ -489,8 +513,16 @@ bool ConfigManager::SaveProject(const std::string &path) {
   return ok;
 }
 
+// Loads a project package and restores optional symbol cache metadata.
 bool ConfigManager::LoadProject(const std::string &path,
                                 LoadProjectProgressCallback progressCallback) {
+  std::string manifestError;
+  if (!symbolCacheManifest.LoadFromProjectArchive(path, manifestError)) {
+    Logger::Instance().Log(Logger::Level::Warning,
+                           "Ignoring symbol cache manifest: " + manifestError);
+    symbolCacheManifest.Clear();
+  }
+
   const bool hasUserView2dDarkMode = HasKey("view2d_dark_mode");
   const float userView2dDarkMode = GetFloat("view2d_dark_mode");
   auto restoreUserPreferences = [this, hasUserView2dDarkMode,
@@ -538,13 +570,17 @@ bool ConfigManager::LoadProject(const std::string &path,
     ClearHistory();
     selectionState.Clear();
     projectSession.ResetDirty();
+  } else {
+    symbolCacheManifest.Clear();
   }
   return ok;
 }
 
+// Resets configuration, symbol cache metadata, and scene state for a fresh project.
 void ConfigManager::Reset() {
   RevisionGuard guard(*this);
   preferencesStore.ClearValues();
+  symbolCacheManifest.Clear();
   projectSession.GetScene().Clear();
   if (!HasKey("ui_distance_unit_system"))
     SetValue("ui_distance_unit_system", "metric");

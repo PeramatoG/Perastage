@@ -82,6 +82,8 @@ std::string MakeFixtureGdtfFromFixtureTypeXml(const std::string &fixtureTypeXml)
   const std::string symbolBody = "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>";
   zipOut.PutNextEntry("models/svg/Body.svg");
   zipOut.Write(symbolBody.data(), symbolBody.size());
+  zipOut.PutNextEntry("models/svg/Body_bottom.svg");
+  zipOut.Write(symbolBody.data(), symbolBody.size());
   zipOut.PutNextEntry("models/svg_side/Body.svg");
   zipOut.Write(symbolBody.data(), symbolBody.size());
   zipOut.PutNextEntry("models/svg_front/Body.svg");
@@ -121,6 +123,7 @@ std::vector<symbols::Symbol2D> BuildSymbols() {
 
   return {
       makeView(symbols::SymbolView::Top),
+      makeView(symbols::SymbolView::Bottom),
       makeView(symbols::SymbolView::Left),
       makeView(symbols::SymbolView::Front),
   };
@@ -177,6 +180,7 @@ int main() {
   }
 
   assert(entries.find("models/svg/Body.svg") != entries.end());
+  assert(entries.find("models/svg/Body_bottom.svg") != entries.end());
   assert(entries.find("models/svg_side/Body.svg") != entries.end());
   assert(entries.find("models/svg_front/Body.svg") != entries.end());
 
@@ -212,7 +216,7 @@ int main() {
   assert(text != nullptr);
   assert(modifiedBy != nullptr);
   assert(std::string(text) ==
-         "Applied fixture SVG symbol views (top, side, front)");
+         "Applied fixture SVG symbol views (top, side, front, bottom)");
   assert(std::string(modifiedBy).rfind("Perastage ", 0) == 0);
 
   symbol_preview::FixtureSymbolInspectionResult after{};
