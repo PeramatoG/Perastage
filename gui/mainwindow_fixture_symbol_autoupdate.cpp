@@ -9,11 +9,9 @@
 #include "configmanager.h"
 #include "consolepanel.h"
 #include "fixture.h"
-#include "fixtures/fixture_gdtf_resolution.h"
 #include "guiconfigservices.h"
 #include "opaque_pass_utils.h"
 #include "splashscreen.h"
-#include "symbol_cache_manifest.h"
 #include "tools/scene_model_symbol_capture_service.h"
 #include "tools/symbol_physical_calibration.h"
 #include "windows/symbol_fixture_applier.h"
@@ -44,50 +42,6 @@ std::string BuildFixtureLabel(const Fixture &fixture) {
   if (!fixture.gdtfSpec.empty())
     return std::filesystem::path(fixture.gdtfSpec).filename().string();
   return "unknown fixture";
-}
-
-
-// Builds a manifest validation request for the current fixture and resolved GDTF path.
-bool BuildFixtureSymbolCacheRequest(
-    const Fixture &fixture, const std::string &key,
-    const gui::fixtures::FixtureGdtfResolution &resolution,
-    symbol_cache::ValidationRequest &request, std::string &errorMessage) {
-  const std::string selectedPath = resolution.selectedPath.empty()
-                                       ? resolution.scenePath
-                                       : resolution.selectedPath;
-  if (selectedPath.empty()) {
-    errorMessage = "fixture GDTF path is empty";
-    return false;
-  }
-
-  std::string hashError;
-  const std::string contentHash =
-      symbol_cache::ComputeFileContentHash(selectedPath, hashError);
-  if (contentHash.empty()) {
-    errorMessage = hashError.empty() ? "could not hash fixture GDTF" : hashError;
-    return false;
-  }
-
-  request.fixtureKey = key;
-  request.fixtureTypeName = fixture.typeName;
-  request.gdtfSpec = fixture.gdtfSpec;
-  request.gdtfContentHash = contentHash;
-  request.requiredViews = symbol_cache::RequiredPerastageSymbolViews();
-  return true;
-}
-
-// Resolves a fixture GDTF and builds the corresponding manifest validation request.
-bool ResolveFixtureSymbolCacheRequest(const Fixture &fixture, const MvrScene &scene,
-                                      const std::string &key,
-                                      symbol_cache::ValidationRequest &request,
-                                      gui::fixtures::FixtureGdtfResolution &resolution,
-                                      std::string &errorMessage) {
-  if (!gui::fixtures::ResolveFixtureGdtfDeterministic(
-          fixture, scene, resolution, errorMessage, "symbol-cache")) {
-    return false;
-  }
-  return BuildFixtureSymbolCacheRequest(fixture, key, resolution, request,
-                                        errorMessage);
 }
 
 // Updates status/console text and maintains a per-window timer that clears transient status messages.
@@ -270,40 +224,6 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
     return;
   }
 
-  symbol_cache::ValidationRequest cacheRequest;
-  gui::fixtures::FixtureGdtfResolution cacheResolution;
-  std::string cacheError;
-  const bool hasCacheRequest = ResolveFixtureSymbolCacheRequest(
-      fixture, cfg.GetScene(), key, cacheRequest, cacheResolution, cacheError);
-  if (hasCacheRequest) {
-    const auto cacheResult =
-        cfg.GetSymbolCacheManifest().ValidateFixture(cacheRequest);
-    if (cacheResult.valid) {
-      ReportFixtureAutoUpdate(
-          *this, consolePanel,
-          "Fixture symbol auto-update: skipped '" + fixtureLabel +
-              "' because the project symbol cache manifest is valid.",
-          false);
-      CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
-      return;
-    }
-    ReportFixtureAutoUpdate(
-        *this, consolePanel,
-        "Fixture symbol auto-update: inspecting '" + fixtureLabel +
-            "' because the project symbol cache manifest was not valid (" +
-            std::string(symbol_cache::ValidationStatusName(cacheResult.status)) +
-            ").",
-        false);
-  } else {
-    ReportFixtureAutoUpdate(
-        *this, consolePanel,
-        "Fixture symbol auto-update: inspecting '" + fixtureLabel +
-            "' because the project symbol cache manifest could not be checked (" +
-            (cacheError.empty() ? std::string("unknown cache error") : cacheError) +
-            ").",
-        false);
-  }
-
   std::string inspectionError;
   symbol_preview::FixtureSymbolInspectionResult inspection;
   if (!symbol_preview::InspectFixtureSymbolState(fixture, cfg.GetScene(), inspection,
@@ -336,8 +256,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
 
   ReportFixtureAutoUpdate(*this, consolePanel,
                           "Fixture symbol auto-update: generating symbols for '" +
-                              fixtureLabel +
-                              "' because symbols were missing or invalid.",
+                              fixtureLabel + "'.",
                           false);
 
   Viewer2DOffscreenRenderer *offscreenRenderer = GetOffscreenRenderer();
@@ -417,33 +336,6 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
                                 fixtureLabel + "' and " + locationMessage +
                                 " GDTF updated.",
                             false);
-    symbol_cache::ValidationRequest updatedCacheRequest;
-    gui::fixtures::FixtureGdtfResolution updatedCacheResolution;
-    std::string updatedCacheError;
-    symbol_preview::FixtureSymbolInspectionResult updatedInspection;
-    const auto updatedFixtureIt = cfg.GetScene().fixtures.find(fixtureUuid);
-    if (updatedFixtureIt != cfg.GetScene().fixtures.end() &&
-        ResolveFixtureSymbolCacheRequest(updatedFixtureIt->second, cfg.GetScene(),
-                                         key, updatedCacheRequest,
-                                         updatedCacheResolution,
-                                         updatedCacheError) &&
-        symbol_preview::InspectFixtureSymbolState(updatedFixtureIt->second,
-                                                  cfg.GetScene(),
-                                                  updatedInspection,
-                                                  updatedCacheError) &&
-        !updatedInspection.requiresSymbolGeneration) {
-      cfg.GetSymbolCacheManifest().MarkFixtureSymbolsValid(updatedCacheRequest);
-    } else {
-      ReportFixtureAutoUpdate(
-          *this, consolePanel,
-          "Fixture symbol auto-update: symbols generated for '" + fixtureLabel +
-              "' but the project symbol cache manifest was not updated (" +
-              (updatedCacheError.empty() ? std::string("symbol validation failed")
-                                         : updatedCacheError) +
-              ").",
-          false);
-    }
-
     if (fixtureSymbolAutoUpdateGeneratedTypeSet.insert(fixtureLabel).second)
       fixtureSymbolAutoUpdateGeneratedTypes.push_back(fixtureLabel);
     RefreshAfterFixtureSymbolUpdate();
