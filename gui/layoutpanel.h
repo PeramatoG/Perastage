@@ -17,6 +17,8 @@
  */
 #pragma once
 
+#include <string>
+
 #include <wx/dataview.h>
 #include <wx/wx.h>
 
@@ -26,6 +28,7 @@ class LayoutPanel : public wxPanel {
 public:
   explicit LayoutPanel(wxWindow *parent);
   void ReloadLayouts();
+  void SetCurrentLayout(const std::string &layoutName);
 
   static LayoutPanel *Instance();
   static void SetInstance(LayoutPanel *p);

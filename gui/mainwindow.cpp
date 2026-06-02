@@ -153,6 +153,32 @@ bool IsFixtureSymbolStatusMessage(const wxString &statusText) {
   return statusText.StartsWith("Fixture symbol auto-update");
 }
 
+constexpr const char *kActiveLayoutNameConfigKey = "layout_active_name";
+
+// Reports whether the loaded project contains a layout with the provided name.
+bool ProjectContainsLayout(const std::string &layoutName) {
+  if (layoutName.empty())
+    return false;
+  for (const auto &layout : layouts::LayoutManager::Get().GetLayouts().Items()) {
+    if (layout.name == layoutName)
+      return true;
+  }
+  return false;
+}
+
+// Resolves the project layout that should be activated after a project load.
+std::string ResolveProjectStartupLayoutName(const ConfigManager &cfg) {
+  const std::string savedLayoutName =
+      cfg.GetValue(kActiveLayoutNameConfigKey).value_or("");
+  if (ProjectContainsLayout(savedLayoutName))
+    return savedLayoutName;
+  const auto &layouts = layouts::LayoutManager::Get().GetLayouts().Items();
+  if (!layouts.empty())
+    return layouts.front().name;
+  return {};
+}
+
+// Persists missing fixture type auto-colors before scene save and synchronization.
 void PersistFixtureTypeAutoColors(ConfigManager &configManager) {
   auto &scene = configManager.GetScene();
   for (auto &[uuid, fixture] : scene.fixtures) {
@@ -362,6 +388,7 @@ EVT_COMMAND(wxID_ANY, EVT_LAYOUT_RENDER_STATUS, MainWindow::OnLayoutRenderStatus
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_RENDER_READY, MainWindow::OnLayoutRenderReady)
 wxEND_EVENT_TABLE()
 
+// Constructs the main window and prepares startup UI state before project loading.
 MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
     : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 950)),
       guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
@@ -400,6 +427,7 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
   // Ensure the 3D viewport is available even before a project is loaded.
   Ensure3DViewport();
 
+  SetStartupProjectLoadPending(true);
   ApplySavedLayout();
 
   if (layerPanel)
@@ -416,7 +444,6 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
   Bind(wxEVT_IDLE, &MainWindow::OnStartupSplashCloseIdle, this);
   Bind(wxEVT_CHAR_HOOK, &MainWindow::OnGlobalCharHook, this);
 
-  SetStartupProjectLoadPending(true);
   UpdateTitle();
 
   auto &preferences = guiConfigServices->Preferences();
@@ -779,9 +806,16 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
 
   loadProfiler.BeginPhase("layout_selection_reload");
   reportProjectLoadProgress("Applying saved layout...", true);
+  activeLayoutName.clear();
+  const std::string startupLayoutName = ResolveProjectStartupLayoutName(
+      GetDefaultGuiConfigServices().LegacyConfigManager());
   ApplySavedLayout();
-  if (layoutPanel)
+  if (!startupLayoutName.empty())
+    ActivateLayoutView(startupLayoutName);
+  if (layoutPanel) {
+    layoutPanel->SetCurrentLayout(activeLayoutName);
     layoutPanel->ReloadLayouts();
+  }
   // Inactive layouts stay in LayoutManager, but preview caches build lazily when selected.
   if (const auto &loadedLayouts =
           layouts::LayoutManager::Get().GetLayouts().Items();
@@ -1135,7 +1169,10 @@ void MainWindow::UpdateViewMenuChecks() {
   UpdateToolBarAvailability();
 }
 
+// Activates a layout selected from the layout panel after startup loading is complete.
 void MainWindow::OnLayoutSelected(wxCommandEvent &event) {
+  if (startupProjectLoadPending)
+    return;
   ActivateLayoutView(event.GetString().ToStdString());
 }
 
@@ -1201,6 +1238,7 @@ void MainWindow::OnLayoutRenderStatus(wxCommandEvent &event) {
   ShowLayoutLoadingIndicator(statusMessage);
 }
 
+// Applies the named project layout to the layout viewer and persists it as active.
 void MainWindow::ActivateLayoutView(const std::string &layoutName) {
   if (!auiManager || layoutName.empty()) {
     ClearLayoutLoadingIndicator();
@@ -1233,6 +1271,9 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
 
   if (!selectedLayout || !layoutViewerPanel || !appliedLayout) {
     ClearLayoutLoadingIndicator();
+  } else {
+    GetDefaultGuiConfigServices().LegacyConfigManager().SetValue(
+        kActiveLayoutNameConfigKey, activeLayoutName);
   }
 
   if (viewport2DPanel && layoutModeActive) {
@@ -1321,9 +1362,16 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     currentProjectPath = path;
     currentProjectDisplayName.clear();
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
+    activeLayoutName.clear();
+    const std::string startupLayoutName = ResolveProjectStartupLayoutName(
+        GetDefaultGuiConfigServices().LegacyConfigManager());
     ApplySavedLayout();
-    if (layoutPanel)
+    if (!startupLayoutName.empty())
+      ActivateLayoutView(startupLayoutName);
+    if (layoutPanel) {
+      layoutPanel->SetCurrentLayout(activeLayoutName);
       layoutPanel->ReloadLayouts();
+    }
     if (consolePanel)
       consolePanel->AppendMessage("Loaded " + wxString::FromUTF8(path));
     SplashScreen::SetMessage("Loading tables...");

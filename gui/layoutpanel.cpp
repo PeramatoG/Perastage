@@ -70,6 +70,12 @@ LayoutPanel *LayoutPanel::Instance() { return s_instance; }
 
 void LayoutPanel::SetInstance(LayoutPanel *p) { s_instance = p; }
 
+// Sets the layout row that should remain selected during the next reload.
+void LayoutPanel::SetCurrentLayout(const std::string &layoutName) {
+  currentLayout = layoutName;
+}
+
+// Reloads available project layouts and reselects the current layout when possible.
 void LayoutPanel::ReloadLayouts() {
   if (!list)
     return;

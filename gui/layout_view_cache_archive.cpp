@@ -93,6 +93,66 @@ bool HashFileContent(const fs::path &root, const fs::path &filePath,
   return input.good() || input.eof();
 }
 
+// Resolves a scene asset reference against the extracted MVR source root.
+std::optional<fs::path> ResolveSourceAssetPath(const fs::path &root,
+                                               const std::string &reference) {
+  if (reference.empty())
+    return std::nullopt;
+  std::error_code ec;
+  fs::path path = fs::u8path(reference);
+  if (!path.is_absolute())
+    path = root / path;
+  path = fs::weakly_canonical(path, ec);
+  if (ec || !fs::is_regular_file(path, ec))
+    return std::nullopt;
+  return path;
+}
+
+// Adds an existing scene asset reference to the source hash candidate list.
+void AddSourceAssetPath(const fs::path &root, const std::string &reference,
+                        std::vector<fs::path> &files) {
+  if (auto path = ResolveSourceAssetPath(root, reference))
+    files.push_back(*path);
+}
+
+// Collects existing files that are referenced by the scene and affect layout rendering.
+std::vector<fs::path> CollectReferencedSourceAssets(const fs::path &root,
+                                                    const MvrScene &scene) {
+  std::vector<fs::path> files;
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    (void)uuid;
+    AddSourceAssetPath(root, fixture.gdtfSpec, files);
+  }
+  for (const auto &[uuid, truss] : scene.trusses) {
+    (void)uuid;
+    AddSourceAssetPath(root, truss.gdtfSpec, files);
+    AddSourceAssetPath(root, truss.symbolFile, files);
+    AddSourceAssetPath(root, truss.modelFile, files);
+    AddSourceAssetPath(root, truss.perastageAuxGdtfArchivePath, files);
+  }
+  for (const auto &[uuid, support] : scene.supports) {
+    (void)uuid;
+    AddSourceAssetPath(root, support.gdtfSpec, files);
+  }
+  for (const auto &[uuid, object] : scene.sceneObjects) {
+    (void)uuid;
+    AddSourceAssetPath(root, object.modelFile, files);
+    for (const auto &geometry : object.geometries)
+      AddSourceAssetPath(root, geometry.modelFile, files);
+  }
+  for (const auto &[uuid, symdefFile] : scene.symdefFiles) {
+    (void)uuid;
+    AddSourceAssetPath(root, symdefFile, files);
+  }
+
+  std::sort(files.begin(), files.end(), [](const fs::path &lhs,
+                                           const fs::path &rhs) {
+    return PathToUtf8(lhs) < PathToUtf8(rhs);
+  });
+  files.erase(std::unique(files.begin(), files.end()), files.end());
+  return files;
+}
+
 // Computes a stable hash for authoritative extracted project source assets.
 std::optional<std::string> ComputeSourceAssetHash(const MvrScene &scene) {
   if (scene.basePath.empty())
@@ -102,25 +162,8 @@ std::optional<std::string> ComputeSourceAssetHash(const MvrScene &scene) {
   if (ec || !fs::is_directory(root, ec))
     return std::nullopt;
 
-  std::vector<fs::path> files;
-  for (fs::recursive_directory_iterator it(root, ec), end; !ec && it != end;
-       it.increment(ec)) {
-    if (it->is_regular_file(ec))
-      files.push_back(fs::weakly_canonical(it->path(), ec));
-    if (ec)
-      return std::nullopt;
-  }
-  if (ec)
-    return std::nullopt;
-
-  std::sort(files.begin(), files.end(), [&root](const fs::path &lhs,
-                                                const fs::path &rhs) {
-    std::error_code leftError;
-    std::error_code rightError;
-    return PathToUtf8(fs::relative(lhs, root, leftError)) <
-           PathToUtf8(fs::relative(rhs, root, rightError));
-  });
-
+  const std::vector<fs::path> files =
+      CollectReferencedSourceAssets(root, scene);
   std::uint64_t hash = 14695981039346656037ull;
   for (const fs::path &file : files) {
     if (!HashFileContent(root, file, hash))
