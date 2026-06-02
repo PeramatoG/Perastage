@@ -330,6 +330,15 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   }
 
   if (!inspection.requiresSymbolGeneration) {
+    if (hasCacheRequest) {
+      cfg.GetSymbolCacheManifest().MarkFixtureSymbolsValid(cacheRequest);
+      cfg.MarkDirty();
+      ReportFixtureAutoUpdate(
+          *this, consolePanel,
+          "Fixture symbol auto-update: recorded valid project GDTF symbols for '" +
+              fixtureLabel + "' in the project symbol cache manifest.",
+          false);
+    }
     CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
     return;
   }
@@ -417,6 +426,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
                                 fixtureLabel + "' and " + locationMessage +
                                 " GDTF updated.",
                             false);
+    cfg.MarkDirty();
     symbol_cache::ValidationRequest updatedCacheRequest;
     gui::fixtures::FixtureGdtfResolution updatedCacheResolution;
     std::string updatedCacheError;
@@ -433,6 +443,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
                                                   updatedCacheError) &&
         !updatedInspection.requiresSymbolGeneration) {
       cfg.GetSymbolCacheManifest().MarkFixtureSymbolsValid(updatedCacheRequest);
+      cfg.MarkDirty();
     } else {
       ReportFixtureAutoUpdate(
           *this, consolePanel,
