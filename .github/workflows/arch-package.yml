@@ -49,14 +49,12 @@ jobs:
         run: |
           pacman -S --noconfirm --needed \
             autoconf \
-            autoconf-archive \
             automake \
             cmake \
             curl \
             desktop-file-utils \
             file \
             gcc \
-            gettext \
             glew \
             glu \
             gtk3 \
@@ -125,10 +123,12 @@ jobs:
             exit 1
           fi
 
-          mapfile -t PACKAGE_FILES < <(find packaging/arch -maxdepth 1 -type f -name 'perastage-*-x86_64.pkg.tar.zst' | sort)
+          mapfile -t PACKAGE_FILES < <(find packaging/arch -maxdepth 1 -type f -name 'perastage-*-x86_64.pkg.tar.zst' ! -name 'perastage-debug-*.pkg.tar.zst' | sort)
           if [ "${#PACKAGE_FILES[@]}" -ne 1 ]; then
-            echo "Expected exactly one Arch package, found ${#PACKAGE_FILES[@]}"
+            echo "Expected exactly one main Arch package, found ${#PACKAGE_FILES[@]}"
             printf '%s\n' "${PACKAGE_FILES[@]:-none}"
+            echo "All generated Arch packages:"
+            find packaging/arch -maxdepth 1 -type f -name '*.pkg.tar.zst' | sort
             exit 1
           fi
 
