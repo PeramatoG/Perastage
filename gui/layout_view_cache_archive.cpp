@@ -828,36 +828,55 @@ bool RenderCommandBufferCacheToRgba(const wxSize &renderSize,
 
 } // namespace gui::layoutcache
 
-// Collects cache data for the active layout view.
+// Collects cache data for every reusable 2D view in the active layout.
 std::vector<ProjectSession::ArchiveResource>
 LayoutViewerPanel::CollectPersistentViewCacheResources() const {
-  const layouts::Layout2DViewDefinition *view = GetEditableView();
-  if (!view || currentLayout.name.empty())
-    return {};
-  const auto cacheIt = viewCaches_.find(view->id);
-  if (cacheIt == viewCaches_.end())
-    return {};
-  const ViewCache &cache = cacheIt->second;
-  if (!cache.hasCapture || !cache.hasRenderState ||
-      !cache.hasCaptureContentHash || cache.buffer.commands.empty())
+  if (currentLayout.name.empty() || currentLayout.view2dViews.empty())
     return {};
 
-  const auto cacheSymbols =
-      FilterSymbolSnapshotForBuffer(cache.buffer, cache.symbols);
-  if (HasSymbolReferences(cache.buffer) && !cacheSymbols) {
-    Logger::Instance().Log(Logger::Level::Info,
-                           "Skipping persistent layout view cache because "
-                           "symbol snapshots are unavailable.");
-    return {};
+  size_t commandCount = 0;
+  nlohmann::json views = nlohmann::json::array();
+  for (const auto &view : currentLayout.view2dViews) {
+    const auto cacheIt = viewCaches_.find(view.id);
+    if (cacheIt == viewCaches_.end())
+      continue;
+    const ViewCache &cache = cacheIt->second;
+    if (!cache.hasCapture || !cache.hasRenderState ||
+        !cache.hasCaptureContentHash || cache.buffer.commands.empty())
+      continue;
+
+    const auto cacheSymbols =
+        FilterSymbolSnapshotForBuffer(cache.buffer, cache.symbols);
+    if (HasSymbolReferences(cache.buffer) && !cacheSymbols) {
+      Logger::Instance().Log(Logger::Level::Info,
+                             "Skipping one persistent layout view cache entry "
+                             "because symbol snapshots are unavailable.");
+      continue;
+    }
+    commandCount += CountPersistentCommands(cache.buffer, cacheSymbols.get());
+    if (commandCount > kMaxPersistentCommandCount) {
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "Skipping persistent layout view cache because command_count=" +
+              std::to_string(commandCount) +
+              " exceeds limit=" + std::to_string(kMaxPersistentCommandCount));
+      return {};
+    }
+
+    views.push_back({{"viewId", view.id},
+                     {"viewHash", StableJsonHash(ViewDefinitionToHashJson(view))},
+                     {"legacyCaptureContentHash",
+                      std::to_string(cache.captureContentHash)},
+                     {"captureVersion", cache.captureVersion},
+                     {"commandBuffer", CommandBufferToJson(cache.buffer)},
+                     {"viewState", ViewStateToJson(cache.viewState)},
+                     {"renderState", RenderStateToJson(cache.renderState)},
+                     {"symbols", SymbolSnapshotToJson(cacheSymbols)}});
   }
-  const size_t commandCount =
-      CountPersistentCommands(cache.buffer, cacheSymbols.get());
-  if (commandCount > kMaxPersistentCommandCount) {
-    Logger::Instance().Log(
-        Logger::Level::Info,
-        "Skipping persistent layout view cache because command_count=" +
-            std::to_string(commandCount) +
-            " exceeds limit=" + std::to_string(kMaxPersistentCommandCount));
+  if (views.empty()) {
+    Logger::Instance().Log(Logger::Level::Info,
+                           "Skipping persistent layout view cache because no "
+                           "2D view cache entries are ready to save.");
     return {};
   }
 
@@ -876,17 +895,9 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
   document["symbolGenerationVersion"] =
       symbol_cache::kCurrentPerastageSymbolFormatVersion;
   document["layoutName"] = currentLayout.name;
-  document["viewId"] = view->id;
   document["sceneHash"] = StableJsonHash(SceneToHashJson(scene));
   document["sourceAssetHash"] = *sourceAssetHash;
-  document["viewHash"] = StableJsonHash(ViewDefinitionToHashJson(*view));
-  document["legacyCaptureContentHash"] =
-      std::to_string(cache.captureContentHash);
-  document["captureVersion"] = cache.captureVersion;
-  document["commandBuffer"] = CommandBufferToJson(cache.buffer);
-  document["viewState"] = ViewStateToJson(cache.viewState);
-  document["renderState"] = RenderStateToJson(cache.renderState);
-  document["symbols"] = SymbolSnapshotToJson(cacheSymbols);
+  document["views"] = views;
 
   const std::string serialized = document.dump();
   if (serialized.size() > kMaxPersistentCacheBytes) {
@@ -897,6 +908,10 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
             " exceeds limit=" + std::to_string(kMaxPersistentCacheBytes));
     return {};
   }
+  Logger::Instance().Log(
+      Logger::Level::Info,
+      "Saving persistent layout view cache for layout '" + currentLayout.name +
+          "' with view_count=" + std::to_string(views.size()));
   return {{kLayoutViewCacheArchiveEntry,
            std::vector<std::uint8_t>(serialized.begin(), serialized.end())}};
 }
@@ -926,14 +941,7 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
       pendingPersistentViewCacheJson_.clear();
       return;
     }
-    const int viewId = document.value("viewId", 0);
-    const auto viewIt = std::find_if(
-        currentLayout.view2dViews.begin(), currentLayout.view2dViews.end(),
-        [viewId](const auto &entry) { return entry.id == viewId; });
-    if (viewIt == currentLayout.view2dViews.end()) {
-      pendingPersistentViewCacheJson_.clear();
-      return;
-    }
+
     const MvrScene &scene =
         GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
     const auto sourceAssetHash = ComputeSourceAssetHash(scene);
@@ -945,41 +953,76 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
       return;
     }
     const std::string sceneHash = StableJsonHash(SceneToHashJson(scene));
-    const std::string viewHash =
-        StableJsonHash(ViewDefinitionToHashJson(*viewIt));
     if (document.value("sceneHash", std::string{}) != sceneHash ||
-        document.value("sourceAssetHash", std::string{}) != *sourceAssetHash ||
-        document.value("viewHash", std::string{}) != viewHash) {
+        document.value("sourceAssetHash", std::string{}) != *sourceAssetHash) {
       Logger::Instance().Log(
           Logger::Level::Info,
-          "Ignoring layout view cache because source assets or layout data changed.");
+          "Ignoring layout view cache because source assets or scene data changed.");
       pendingPersistentViewCacheJson_.clear();
       return;
     }
 
-    ViewCache &cache = GetViewCache(viewId);
-    cache.buffer = CommandBufferFromJson(
-        document.value("commandBuffer", nlohmann::json{}));
-    cache.viewState =
-        ViewStateFromJson(document.value("viewState", nlohmann::json{}));
-    cache.renderState =
-        RenderStateFromJson(document.value("renderState", nlohmann::json{}));
-    cache.symbols = SymbolSnapshotFromJson(
-        document.value("symbols", nlohmann::json::array()));
-    cache.hasCapture = !cache.buffer.commands.empty();
-    cache.hasRenderState = true;
-    cache.captureContentHash = HashViewContent(*viewIt);
-    cache.hasCaptureContentHash = true;
-    cache.captureVersion = viewRenderVersion;
-    cache.restoredFromPersistentCache = true;
-    cache.captureInProgress = false;
-    cache.renderDirty = true;
-    cache.texture = 0;
-    cache.pixelUnpackPbo = 0;
-    cache.pboBytes = 0;
-    cache.textureSize = wxSize(0, 0);
-    cache.renderZoom = 0.0;
-    renderDirty = true;
+    const auto cachedViews = document.value("views", nlohmann::json::array());
+    if (!cachedViews.is_array()) {
+      pendingPersistentViewCacheJson_.clear();
+      return;
+    }
+
+    int hydratedCount = 0;
+    for (const auto &cachedView : cachedViews) {
+      if (!cachedView.is_object())
+        continue;
+      const int viewId = cachedView.value("viewId", 0);
+      const auto viewIt = std::find_if(
+          currentLayout.view2dViews.begin(), currentLayout.view2dViews.end(),
+          [viewId](const auto &entry) { return entry.id == viewId; });
+      if (viewIt == currentLayout.view2dViews.end())
+        continue;
+      const std::string viewHash =
+          StableJsonHash(ViewDefinitionToHashJson(*viewIt));
+      if (cachedView.value("viewHash", std::string{}) != viewHash)
+        continue;
+
+      ViewCache &cache = GetViewCache(viewId);
+      cache.buffer = CommandBufferFromJson(
+          cachedView.value("commandBuffer", nlohmann::json{}));
+      if (cache.buffer.commands.empty())
+        continue;
+      cache.viewState =
+          ViewStateFromJson(cachedView.value("viewState", nlohmann::json{}));
+      cache.renderState =
+          RenderStateFromJson(cachedView.value("renderState", nlohmann::json{}));
+      cache.symbols = SymbolSnapshotFromJson(
+          cachedView.value("symbols", nlohmann::json::array()));
+      cache.hasCapture = true;
+      cache.hasRenderState = true;
+      cache.captureContentHash = HashViewContent(*viewIt);
+      cache.hasCaptureContentHash = true;
+      cache.captureVersion = viewRenderVersion;
+      cache.restoredFromPersistentCache = true;
+      cache.captureInProgress = false;
+      cache.renderDirty = true;
+      cache.texture = 0;
+      cache.pixelUnpackPbo = 0;
+      cache.pboBytes = 0;
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      ++hydratedCount;
+    }
+
+    if (hydratedCount > 0) {
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "Hydrated persistent layout view cache for layout '" +
+              currentLayout.name + "' with view_count=" +
+              std::to_string(hydratedCount));
+      renderDirty = true;
+    } else {
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "Ignoring layout view cache because no cached views matched the "
+          "active layout.");
+    }
     pendingPersistentViewCacheJson_.clear();
   } catch (const std::exception &ex) {
     Logger::Instance().Log(Logger::Level::Warn,

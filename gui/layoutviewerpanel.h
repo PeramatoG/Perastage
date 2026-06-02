@@ -215,6 +215,10 @@ private:
   void ClearCachedTexture(ImageCache &cache);
   bool HasDirtyRenderCaches() const;
   bool NeedsRenderRebuild() const;
+  bool ShouldDeferMissingElementTexture(bool cacheRenderDirty,
+                                        unsigned int texture,
+                                        const wxSize &textureSize,
+                                        const wxSize &renderSize) const;
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged(bool includeSceneContent = true);
   size_t ComputeSceneContentHash() const;

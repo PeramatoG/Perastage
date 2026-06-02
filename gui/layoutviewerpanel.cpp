@@ -3057,6 +3057,17 @@ bool LayoutViewerPanel::NeedsRenderRebuild() const {
   return renderDirty || HasDirtyRenderCaches();
 }
 
+// Reports whether a dirty element should stay hidden until its final texture is ready.
+bool LayoutViewerPanel::ShouldDeferMissingElementTexture(
+    bool cacheRenderDirty, unsigned int texture, const wxSize &textureSize,
+    const wxSize &renderSize) const {
+  if (!cacheRenderDirty || !(renderPending || loadingRequested || isLoading))
+    return false;
+  if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0)
+    return false;
+  return texture == 0 || textureSize != renderSize;
+}
+
 // Debounces render rebuild requests and coalesces repeated zoom/layout changes.
 void LayoutViewerPanel::RequestRenderRebuild() {
   if (auto *mw = MainWindow::Instance();
