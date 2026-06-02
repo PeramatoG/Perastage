@@ -1,0 +1,114 @@
+# Maintainer: Perastage maintainers
+
+pkgname=perastage
+pkgver=$(tr -d '[:space:]' < "$(realpath "$(dirname "${BASH_SOURCE[0]}")/../..")/VERSION")
+pkgrel=1
+pkgdesc='Lighting plot editor and MVR viewer'
+arch=('x86_64')
+url='https://github.com/PeramatoG/Perastage'
+license=('GPL-3.0-or-later')
+depends=(
+  'curl'
+  'gcc-libs'
+  'glew'
+  'glibc'
+  'glu'
+  'gtk3'
+  'hicolor-icon-theme'
+  'libglvnd'
+  'shared-mime-info'
+  'zlib'
+)
+makedepends=(
+  'base-devel'
+  'cmake'
+  'desktop-file-utils'
+  'git'
+  'ninja'
+  'pkgconf'
+)
+source=()
+sha256sums=()
+
+# Validates that makepkg is running from the repository packaging/arch directory.
+_resolve_repo_root() {
+  local repo_root
+  repo_root="$(realpath "$startdir/../..")"
+
+  if [[ ! -f "$repo_root/VERSION" || ! -f "$repo_root/CMakeLists.txt" ]]; then
+    echo "Unable to resolve Perastage repository root from $startdir" >&2
+    return 1
+  fi
+
+  printf '%s\n' "$repo_root"
+}
+
+# Configures and builds Perastage with CMake and the project Linux dependency strategy.
+build() {
+  local repo_root
+  repo_root="$(_resolve_repo_root)"
+
+  local cmake_args=(
+    -S "$repo_root"
+    -B "$srcdir/build"
+    -G Ninja
+    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_INSTALL_PREFIX=/opt/perastage
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    -DCMAKE_CXX_STANDARD=20
+    -DCMAKE_CXX_STANDARD_REQUIRED=ON
+    -DCMAKE_CXX_EXTENSIONS=OFF
+    -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF
+    -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF
+    -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=OFF
+    -DCURL_NO_CURL_CMAKE=ON
+  )
+
+  if [[ -n "${VCPKG_ROOT:-}" ]]; then
+    cmake_args+=("-DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake")
+  fi
+  if [[ -n "${VCPKG_TARGET_TRIPLET:-}" ]]; then
+    cmake_args+=("-DVCPKG_TARGET_TRIPLET=$VCPKG_TARGET_TRIPLET")
+  fi
+  if [[ -n "${VCPKG_INSTALLED:-}" ]]; then
+    cmake_args+=("-DVCPKG_INSTALLED_DIR=$VCPKG_INSTALLED")
+  fi
+
+  cmake "${cmake_args[@]}"
+  cmake --build "$srcdir/build" --config Release
+}
+
+# Installs the built application into the Arch package root and exposes desktop metadata system-wide.
+package() {
+  DESTDIR="$pkgdir" cmake --install "$srcdir/build" --config Release
+
+  install -d "$pkgdir/usr/bin"
+  ln -s /opt/perastage/Perastage "$pkgdir/usr/bin/Perastage"
+
+  # The project install rules keep Linux runtime assets beside the executable,
+  # which is appropriate for the current application resource lookup behavior.
+  install -d "$pkgdir/usr/share/applications" "$pkgdir/usr/share/mime/packages" "$pkgdir/usr/share/icons/hicolor/1024x1024/apps"
+  if [[ -f "$pkgdir/opt/perastage/share/applications/perastage.desktop" ]]; then
+    mv "$pkgdir/opt/perastage/share/applications/perastage.desktop" "$pkgdir/usr/share/applications/perastage.desktop"
+  fi
+  if [[ -f "$pkgdir/opt/perastage/share/mime/packages/perastage-mime.xml" ]]; then
+    mv "$pkgdir/opt/perastage/share/mime/packages/perastage-mime.xml" "$pkgdir/usr/share/mime/packages/perastage-mime.xml"
+  fi
+  if [[ -f "$pkgdir/opt/perastage/share/icons/hicolor/1024x1024/apps/perastage.png" ]]; then
+    mv "$pkgdir/opt/perastage/share/icons/hicolor/1024x1024/apps/perastage.png" "$pkgdir/usr/share/icons/hicolor/1024x1024/apps/perastage.png"
+  fi
+  rm -rf "$pkgdir/opt/perastage/share"
+
+  install -d "$pkgdir/usr/share/licenses/$pkgname"
+  ln -s /opt/perastage/LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE.txt"
+  ln -s /opt/perastage/THIRD_PARTY_LICENSES.md "$pkgdir/usr/share/licenses/$pkgname/THIRD_PARTY_LICENSES.md"
+
+  test -x "$pkgdir/opt/perastage/Perastage"
+  test -d "$pkgdir/opt/perastage/resources"
+  test -d "$pkgdir/opt/perastage/library"
+  test -d "$pkgdir/opt/perastage/licenses"
+  test -f "$pkgdir/opt/perastage/help.md"
+  test -f "$pkgdir/usr/share/applications/perastage.desktop"
+  test -f "$pkgdir/usr/share/mime/packages/perastage-mime.xml"
+  test -f "$pkgdir/usr/share/icons/hicolor/1024x1024/apps/perastage.png"
+}

@@ -86,6 +86,21 @@ values without aggressively deleting global extension ownership.
 - Uninstall behavior is conservative and avoids aggressive global extension ownership cleanup.
 - Legacy CPack/NSIS wiring exists for compatibility but is not the primary path.
 
+## Linux Packaging
+
+The official generic Linux release asset remains the AppImage produced by `.github/workflows/linux-installer.yml`. This is the recommended download for general Linux distribution because it keeps the existing staged application layout and bundles the runtime pieces expected by the AppImage flow.
+
+Perastage also generates an experimental Arch Linux pacman package from `.github/workflows/arch-package.yml`:
+
+- Artifact name: `Perastage-<version>-arch-x86_64.pkg.tar.zst`
+- Packaging recipe: `packaging/arch/PKGBUILD`
+- Build environment: `archlinux:base-devel` in GitHub Actions
+- Intended audience: Arch-based distributions such as Arch Linux, Manjaro, and EndeavourOS
+
+The Arch package uses the project CMake install target, keeps runtime assets under `/opt/perastage` so resource lookup matches the current Linux application layout, and exposes a `/usr/bin/Perastage` launcher symlink. Desktop metadata, MIME metadata, and the application icon are installed into standard `/usr/share` locations.
+
+This Arch package is experimental until it receives broader runtime testing on real Arch-based desktop systems. If a user only needs the most portable Linux release asset, use the AppImage.
+
 ## Linux Desktop Integration
 
 Install layouts include desktop and MIME metadata:

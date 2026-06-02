@@ -1,0 +1,151 @@
+# Arch Linux package workflow for Perastage.
+# Builds an experimental pacman package without changing the AppImage workflow.
+
+name: Arch Linux Package Build
+
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: Git ref to build from when called as a reusable workflow.
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Optional git ref to build from.
+        required: false
+        type: string
+        default: ""
+  push:
+    branches:
+      - ci/arch-package
+
+jobs:
+  build-arch-package:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_INSTALLED: ${{ github.workspace }}/.vcpkg-cache/installed
+      VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-cache/downloads
+      VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
+      VCPKG_TARGET_TRIPLET: x64-linux
+
+    steps:
+      - name: Prepare Arch base tools
+        run: |
+          pacman -Syu --noconfirm --needed git ca-certificates
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
+
+      - name: Install Arch build dependencies
+        run: |
+          pacman -S --noconfirm --needed \
+            autoconf \
+            automake \
+            cmake \
+            curl \
+            desktop-file-utils \
+            file \
+            gcc \
+            glew \
+            glu \
+            gtk3 \
+            hicolor-icon-theme \
+            libglvnd \
+            libtool \
+            m4 \
+            make \
+            ninja \
+            patch \
+            pkgconf \
+            shared-mime-info \
+            tar \
+            unzip \
+            zip \
+            zlib
+
+      - name: Prepare vcpkg folders
+        run: |
+          mkdir -p "$VCPKG_DOWNLOADS" "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"
+
+      - name: Bootstrap vcpkg
+        run: |
+          if [ -d "$VCPKG_ROOT/.git" ]; then
+            git -C "$VCPKG_ROOT" fetch --depth 1 origin master
+            git -C "$VCPKG_ROOT" checkout --force FETCH_HEAD
+          else
+            rm -rf "$VCPKG_ROOT"
+            git clone --depth 1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+          fi
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+
+      - name: Install vcpkg packages
+        run: |
+          # Perastage still uses vcpkg for Linux CI because nanovg, PoDoFo, and
+          # meshoptimizer availability can vary across distro repositories.
+          "$VCPKG_ROOT/vcpkg" install \
+            wxwidgets:x64-linux \
+            tinyxml2:x64-linux \
+            glew:x64-linux \
+            curl:x64-linux \
+            zlib:x64-linux \
+            nanovg:x64-linux \
+            podofo:x64-linux \
+            meshoptimizer:x64-linux \
+            --x-install-root="$VCPKG_INSTALLED" \
+            --x-packages-root="$VCPKG_PACKAGES" \
+            --downloads-root="$VCPKG_DOWNLOADS"
+
+      - name: Create makepkg user
+        run: |
+          useradd --create-home --shell /bin/bash builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
+      - name: Build Arch package
+        run: |
+          su builder -c "export VCPKG_ROOT='$VCPKG_ROOT' VCPKG_INSTALLED='$VCPKG_INSTALLED' VCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET'; cd '$GITHUB_WORKSPACE/packaging/arch' && makepkg --force --noconfirm --nodeps"
+
+      - name: Collect Arch package
+        run: |
+          set -euo pipefail
+
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION must be MAJOR.MINOR.PATCH, got: '$VERSION'"
+            exit 1
+          fi
+
+          mapfile -t PACKAGE_FILES < <(find packaging/arch -maxdepth 1 -type f -name 'perastage-*-x86_64.pkg.tar.zst' | sort)
+          if [ "${#PACKAGE_FILES[@]}" -ne 1 ]; then
+            echo "Expected exactly one Arch package, found ${#PACKAGE_FILES[@]}"
+            printf '%s\n' "${PACKAGE_FILES[@]:-none}"
+            exit 1
+          fi
+
+          OUTPUT_NAME="Perastage-${VERSION}-arch-x86_64.pkg.tar.zst"
+          cp "${PACKAGE_FILES[0]}" "$OUTPUT_NAME"
+          test -f "$OUTPUT_NAME" || { echo "Arch package was not created"; exit 1; }
+          file "$OUTPUT_NAME"
+          tar -tf "$OUTPUT_NAME" | tee arch-package-contents.txt
+          grep -q '^opt/perastage/Perastage$' arch-package-contents.txt
+          grep -q '^opt/perastage/resources/' arch-package-contents.txt
+          grep -q '^opt/perastage/library/' arch-package-contents.txt
+          grep -q '^opt/perastage/licenses/' arch-package-contents.txt
+          grep -q '^opt/perastage/help.md$' arch-package-contents.txt
+          grep -q '^usr/share/applications/perastage.desktop$' arch-package-contents.txt
+          grep -q '^usr/share/mime/packages/perastage-mime.xml$' arch-package-contents.txt
+          grep -q '^usr/share/icons/hicolor/1024x1024/apps/perastage.png$' arch-package-contents.txt
+
+      - name: Upload Arch package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-arch-package
+          path: Perastage-*-arch-x86_64.pkg.tar.zst
