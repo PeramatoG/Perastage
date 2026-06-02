@@ -40,6 +40,7 @@ The goal is simple: make MVR files easy to open, understand, review, and present
 The recommended way to install Perastage is to download the latest release from GitHub:
 
 - Go to the **latest release** in this repository and download the package for your platform.
+- On Linux, the AppImage remains the recommended generic package. Experimental Arch Linux packages may also be attached for Arch-based distributions and should be tested on real Arch, Manjaro, or EndeavourOS systems.
 
 If you want to build from source, setup and dependency notes are available in the documentation under `docs/`.
 

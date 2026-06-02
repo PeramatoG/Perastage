@@ -145,6 +145,13 @@ jobs:
     with:
       source_ref: ${{ needs.prepare-release.outputs.new_tag }}
 
+  arch-package:
+    if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
+    needs: prepare-release
+    uses: ./.github/workflows/arch-package.yml
+    with:
+      source_ref: ${{ needs.prepare-release.outputs.new_tag }}
+
   create-draft-release:
     if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
     needs:
@@ -152,6 +159,7 @@ jobs:
       - windows-installer
       - linux-installer
       - macos-installer
+      - arch-package
     runs-on: ubuntu-latest
 
     steps:
@@ -196,18 +204,21 @@ jobs:
           mapfile -t WIN_MATCHES < <(find release-assets -type f -name 'Perastage_*_Setup.exe' | sort)
           mapfile -t LINUX_MATCHES < <(find release-assets -type f -name 'Perastage-*-x86_64.AppImage' | sort)
           mapfile -t MAC_MATCHES < <(find release-assets -type f -name 'Perastage-*-macos-arm64.dmg' | sort)
+          mapfile -t ARCH_MATCHES < <(find release-assets -type f -name 'Perastage-*-arch-x86_64.pkg.tar.zst' | sort)
 
-          if [ "${#WIN_MATCHES[@]}" -ne 1 ] || [ "${#LINUX_MATCHES[@]}" -ne 1 ] || [ "${#MAC_MATCHES[@]}" -ne 1 ]; then
-            echo "Expected exactly one installer per platform"
+          if [ "${#WIN_MATCHES[@]}" -ne 1 ] || [ "${#LINUX_MATCHES[@]}" -ne 1 ] || [ "${#MAC_MATCHES[@]}" -ne 1 ] || [ "${#ARCH_MATCHES[@]}" -ne 1 ]; then
+            echo "Expected exactly one installer per platform plus one experimental Arch package"
             echo "Windows matches (${#WIN_MATCHES[@]}): ${WIN_MATCHES[*]:-none}"
-            echo "Linux matches (${#LINUX_MATCHES[@]}): ${LINUX_MATCHES[*]:-none}"
+            echo "Linux AppImage matches (${#LINUX_MATCHES[@]}): ${LINUX_MATCHES[*]:-none}"
             echo "macOS matches (${#MAC_MATCHES[@]}): ${MAC_MATCHES[*]:-none}"
+            echo "Arch package matches (${#ARCH_MATCHES[@]}): ${ARCH_MATCHES[*]:-none}"
             exit 1
           fi
 
           cp "${WIN_MATCHES[0]}" "$FINAL_DIR/"
           cp "${LINUX_MATCHES[0]}" "$FINAL_DIR/"
           cp "${MAC_MATCHES[0]}" "$FINAL_DIR/"
+          cp "${ARCH_MATCHES[0]}" "$FINAL_DIR/"
 
           if find "$FINAL_DIR" -type f -name '*.zip' | grep -q .; then
             echo "Final asset directory must not contain zip files"
@@ -217,6 +228,7 @@ jobs:
           WIN_ASSET="$FINAL_DIR/$(basename "${WIN_MATCHES[0]}")"
           LINUX_ASSET="$FINAL_DIR/$(basename "${LINUX_MATCHES[0]}")"
           MAC_ASSET="$FINAL_DIR/$(basename "${MAC_MATCHES[0]}")"
+          ARCH_ASSET="$FINAL_DIR/$(basename "${ARCH_MATCHES[0]}")"
 
           echo "Final release assets (release-assets/final):"
           find "$FINAL_DIR" -mindepth 1 -maxdepth 1 -type f -print | sort
@@ -224,6 +236,7 @@ jobs:
           echo "win_asset=$WIN_ASSET" >> "$GITHUB_OUTPUT"
           echo "linux_asset=$LINUX_ASSET" >> "$GITHUB_OUTPUT"
           echo "mac_asset=$MAC_ASSET" >> "$GITHUB_OUTPUT"
+          echo "arch_asset=$ARCH_ASSET" >> "$GITHUB_OUTPUT"
 
       - name: Create draft release with curated notes
         env:
@@ -235,6 +248,7 @@ jobs:
           WIN_ASSET: ${{ steps.assets.outputs.win_asset }}
           LINUX_ASSET: ${{ steps.assets.outputs.linux_asset }}
           MAC_ASSET: ${{ steps.assets.outputs.mac_asset }}
+          ARCH_ASSET: ${{ steps.assets.outputs.arch_asset }}
         run: |
           set -euo pipefail
 
@@ -242,7 +256,7 @@ jobs:
 
           echo "Creating draft release in $GH_REPO"
 
-          cmd=(gh release create "$TAG_NAME" "$WIN_ASSET" "$LINUX_ASSET" "$MAC_ASSET" --draft --title "$RELEASE_TITLE")
+          cmd=(gh release create "$TAG_NAME" "$WIN_ASSET" "$LINUX_ASSET" "$MAC_ASSET" "$ARCH_ASSET" --draft --title "$RELEASE_TITLE")
           if [ -s "$RELEASE_NOTES_FILE" ]; then
             echo "Using curated release notes from $RELEASE_NOTES_FILE"
             cmd+=(--notes-file "$RELEASE_NOTES_FILE")
