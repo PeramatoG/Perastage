@@ -89,6 +89,10 @@ private:
     double renderZoom = 0.0;
     bool renderDirty = true;
     size_t contentHash = 0;
+    std::vector<unsigned char> persistentRgba;
+    wxSize persistentRgbaSize{0, 0};
+    double persistentRgbaRenderZoom = 0.0;
+    size_t persistentRgbaContentHash = 0;
   };
 
   struct LegendCache {
@@ -352,6 +356,8 @@ private:
   unsigned int loadingTextTexture_ = 0;
   wxSize loadingTextTextureSize_{0, 0};
   std::string pendingPersistentViewCacheJson_;
+  std::unordered_map<std::string, std::vector<unsigned char>>
+      pendingPersistentViewCacheRasters_;
   std::unordered_map<int, ViewCache> viewCaches_;
   std::unordered_map<int, LegendCache> legendCaches_;
   std::unordered_map<int, EventTableCache> eventTableCaches_;

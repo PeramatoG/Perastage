@@ -28,6 +28,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -45,10 +46,13 @@ namespace {
 namespace fs = std::filesystem;
 
 using gui::layoutcache::kLayoutViewCacheArchiveEntry;
+using gui::layoutcache::kLayoutViewCacheRasterEntryPrefix;
 using gui::layoutcache::kLayoutViewCacheSchemaVersion;
 
 constexpr size_t kMaxPersistentCommandCount = 75000;
 constexpr size_t kMaxPersistentCacheBytes = 8 * 1024 * 1024;
+constexpr size_t kMaxPersistentRasterBytes = 16 * 1024 * 1024;
+constexpr size_t kMaxPersistentRasterEntryBytes = 8 * 1024 * 1024;
 
 // Combines a byte into a deterministic FNV-1a hash accumulator.
 void HashByte(std::uint64_t &hash, unsigned char value) {
@@ -91,6 +95,13 @@ bool HashFileContent(const fs::path &root, const fs::path &filePath,
   }
   HashByte(hash, 0);
   return input.good() || input.eof();
+}
+
+
+// Builds the archive entry name for a persisted 2D view raster.
+std::string RasterEntryNameForView(int viewId) {
+  return std::string(kLayoutViewCacheRasterEntryPrefix) + "view_" +
+         std::to_string(viewId) + ".rgba";
 }
 
 // Resolves a scene asset reference against the extracted MVR source root.
@@ -796,30 +807,47 @@ SymbolSnapshotFromJson(const nlohmann::json &json) {
   return snapshot;
 }
 
-// Reads a project archive cache entry into a UTF-8 string.
-bool ReadCacheEntryFromProject(const std::string &projectPath,
-                               std::string &outJson) {
+// Reads one ZIP entry from the current stream into a byte vector.
+std::vector<unsigned char> ReadCurrentZipEntryBytes(wxZipInputStream &zip) {
+  std::vector<unsigned char> bytes;
+  std::array<char, 4096> buffer{};
+  while (true) {
+    zip.Read(buffer.data(), buffer.size());
+    const size_t count = zip.LastRead();
+    if (count == 0)
+      break;
+    bytes.insert(bytes.end(), buffer.begin(), buffer.begin() + count);
+  }
+  return bytes;
+}
+
+// Reads project archive layout-cache JSON and optional raster entries.
+bool ReadCacheEntriesFromProject(
+    const std::string &projectPath, std::string &outJson,
+    std::unordered_map<std::string, std::vector<unsigned char>> &outRasters) {
   wxFileInputStream input(wxString::FromUTF8(projectPath));
   if (!input.IsOk())
     return false;
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;
+  bool foundJson = false;
   while ((entry.reset(zip.GetNextEntry())), entry) {
     if (entry->IsDir())
       continue;
-    if (entry->GetName().ToStdString() != kLayoutViewCacheArchiveEntry)
+    const std::string entryName = entry->GetName().ToStdString();
+    if (entryName == kLayoutViewCacheArchiveEntry) {
+      const auto bytes = ReadCurrentZipEntryBytes(zip);
+      outJson.assign(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+      foundJson = true;
       continue;
-    std::array<char, 4096> buffer{};
-    while (true) {
-      zip.Read(buffer.data(), buffer.size());
-      const size_t count = zip.LastRead();
-      if (count == 0)
-        break;
-      outJson.append(buffer.data(), count);
     }
-    return true;
+    if (entryName.rfind(kLayoutViewCacheRasterEntryPrefix, 0) == 0) {
+      auto bytes = ReadCurrentZipEntryBytes(zip);
+      if (bytes.size() <= kMaxPersistentRasterEntryBytes)
+        outRasters[entryName] = std::move(bytes);
+    }
   }
-  return false;
+  return foundJson;
 }
 } // namespace
 
@@ -878,7 +906,18 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
     return {};
 
   size_t commandCount = 0;
+  size_t rasterBytes = 0;
+  std::vector<ProjectSession::ArchiveResource> resources;
   nlohmann::json views = nlohmann::json::array();
+  auto hasRasterSnapshot = [](const ViewCache &cache) {
+    const size_t width =
+        static_cast<size_t>(cache.persistentRgbaSize.GetWidth());
+    const size_t height =
+        static_cast<size_t>(cache.persistentRgbaSize.GetHeight());
+    return width > 0 && height > 0 && cache.persistentRgbaRenderZoom > 0.0 &&
+           cache.persistentRgba.size() == width * height * 4 &&
+           cache.persistentRgbaContentHash != 0;
+  };
   for (const auto &view : currentLayout.view2dViews) {
     const auto cacheIt = viewCaches_.find(view.id);
     if (cacheIt == viewCaches_.end())
@@ -906,15 +945,30 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
       return {};
     }
 
-    views.push_back({{"viewId", view.id},
-                     {"viewHash", StableJsonHash(ViewDefinitionToHashJson(view))},
-                     {"legacyCaptureContentHash",
-                      std::to_string(cache.captureContentHash)},
-                     {"captureVersion", cache.captureVersion},
-                     {"commandBuffer", CommandBufferToJson(cache.buffer)},
-                     {"viewState", ViewStateToJson(cache.viewState)},
-                     {"renderState", RenderStateToJson(cache.renderState)},
-                     {"symbols", SymbolSnapshotToJson(cacheSymbols)}});
+    nlohmann::json viewDocument =
+        {{"viewId", view.id},
+         {"viewHash", StableJsonHash(ViewDefinitionToHashJson(view))},
+         {"legacyCaptureContentHash", std::to_string(cache.captureContentHash)},
+         {"captureVersion", cache.captureVersion},
+         {"commandBuffer", CommandBufferToJson(cache.buffer)},
+         {"viewState", ViewStateToJson(cache.viewState)},
+         {"renderState", RenderStateToJson(cache.renderState)},
+         {"symbols", SymbolSnapshotToJson(cacheSymbols)}};
+    if (hasRasterSnapshot(cache) &&
+        cache.persistentRgbaContentHash == HashViewContent(view) &&
+        cache.persistentRgba.size() <= kMaxPersistentRasterEntryBytes &&
+        rasterBytes + cache.persistentRgba.size() <= kMaxPersistentRasterBytes) {
+      const std::string rasterEntryName = RasterEntryNameForView(view.id);
+      viewDocument["raster"] =
+          {{"entry", rasterEntryName},
+           {"width", cache.persistentRgbaSize.GetWidth()},
+           {"height", cache.persistentRgbaSize.GetHeight()},
+           {"renderZoom", cache.persistentRgbaRenderZoom},
+           {"contentHash", std::to_string(cache.persistentRgbaContentHash)}};
+      resources.push_back({rasterEntryName, cache.persistentRgba});
+      rasterBytes += cache.persistentRgba.size();
+    }
+    views.push_back(std::move(viewDocument));
   }
   if (views.empty()) {
     Logger::Instance().Log(Logger::Level::Info,
@@ -954,20 +1008,27 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
   Logger::Instance().Log(
       Logger::Level::Info,
       "Saving persistent layout view cache for layout '" + currentLayout.name +
-          "' with view_count=" + std::to_string(views.size()));
-  return {{kLayoutViewCacheArchiveEntry,
-           std::vector<std::uint8_t>(serialized.begin(), serialized.end())}};
+          "' with view_count=" + std::to_string(views.size()) +
+          " raster_bytes=" + std::to_string(rasterBytes));
+  resources.push_back(
+      {kLayoutViewCacheArchiveEntry,
+       std::vector<std::uint8_t>(serialized.begin(), serialized.end())});
+  return resources;
 }
 
 // Loads persisted layout cache JSON from the project archive.
 void LayoutViewerPanel::LoadPersistentViewCacheFromProject(
     const std::string &projectPath) {
   pendingPersistentViewCacheJson_.clear();
+  pendingPersistentViewCacheRasters_.clear();
   if (projectPath.empty())
     return;
   std::string jsonText;
-  if (ReadCacheEntryFromProject(projectPath, jsonText))
+  if (ReadCacheEntriesFromProject(projectPath, jsonText,
+                                  pendingPersistentViewCacheRasters_))
     pendingPersistentViewCacheJson_ = std::move(jsonText);
+  else
+    pendingPersistentViewCacheRasters_.clear();
 }
 
 // Hydrates matching persistent cache data into the active layout view.
@@ -982,6 +1043,7 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
             symbol_cache::kCurrentPerastageSymbolFormatVersion ||
         document.value("layoutName", std::string{}) != currentLayout.name) {
       pendingPersistentViewCacheJson_.clear();
+      pendingPersistentViewCacheRasters_.clear();
       return;
     }
 
@@ -993,6 +1055,7 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
           Logger::Level::Info,
           "Ignoring layout view cache because source assets could not be hashed.");
       pendingPersistentViewCacheJson_.clear();
+      pendingPersistentViewCacheRasters_.clear();
       return;
     }
     const std::string sceneHash = StableJsonHash(SceneToHashJson(scene));
@@ -1002,12 +1065,14 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
           Logger::Level::Info,
           "Ignoring layout view cache because source assets or scene data changed.");
       pendingPersistentViewCacheJson_.clear();
+      pendingPersistentViewCacheRasters_.clear();
       return;
     }
 
     const auto cachedViews = document.value("views", nlohmann::json::array());
     if (!cachedViews.is_array()) {
       pendingPersistentViewCacheJson_.clear();
+      pendingPersistentViewCacheRasters_.clear();
       return;
     }
 
@@ -1050,6 +1115,29 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
       cache.pboBytes = 0;
       cache.textureSize = wxSize(0, 0);
       cache.renderZoom = 0.0;
+      cache.persistentRgba.clear();
+      cache.persistentRgbaSize = wxSize(0, 0);
+      cache.persistentRgbaRenderZoom = 0.0;
+      cache.persistentRgbaContentHash = 0;
+      const auto raster = cachedView.value("raster", nlohmann::json::object());
+      if (raster.is_object()) {
+        const std::string rasterEntry = raster.value("entry", std::string{});
+        auto rasterIt = pendingPersistentViewCacheRasters_.find(rasterEntry);
+        const int rasterWidth = raster.value("width", 0);
+        const int rasterHeight = raster.value("height", 0);
+        const size_t rasterBytes = static_cast<size_t>(std::max(0, rasterWidth)) *
+                                   static_cast<size_t>(std::max(0, rasterHeight)) * 4;
+        if (rasterIt != pendingPersistentViewCacheRasters_.end() &&
+            rasterWidth > 0 && rasterHeight > 0 &&
+            rasterIt->second.size() == rasterBytes &&
+            raster.value("contentHash", std::string{}) ==
+                std::to_string(cache.captureContentHash)) {
+          cache.persistentRgba = std::move(rasterIt->second);
+          cache.persistentRgbaSize = wxSize(rasterWidth, rasterHeight);
+          cache.persistentRgbaRenderZoom = raster.value("renderZoom", 0.0);
+          cache.persistentRgbaContentHash = cache.captureContentHash;
+        }
+      }
       ++hydratedCount;
     }
 
@@ -1067,10 +1155,12 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
           "active layout.");
     }
     pendingPersistentViewCacheJson_.clear();
+    pendingPersistentViewCacheRasters_.clear();
   } catch (const std::exception &ex) {
     Logger::Instance().Log(Logger::Level::Warn,
                            std::string("Ignoring layout view cache: ") +
                                ex.what());
     pendingPersistentViewCacheJson_.clear();
+    pendingPersistentViewCacheRasters_.clear();
   }
 }
