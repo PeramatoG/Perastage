@@ -912,6 +912,13 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     glClearColor(0.35f, 0.35f, 0.35f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
+    if (auto *mw = MainWindow::Instance();
+        mw && mw->IsStartupProjectLoadPending() && currentLayout.name.empty()) {
+      glFlush();
+      SwapBuffers();
+      return;
+    }
+
     const double pageWidth = currentLayout.pageSetup.PageWidthPt();
     const double pageHeight = currentLayout.pageSetup.PageHeightPt();
 
@@ -2379,6 +2386,8 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       cache.persistentRgbaContentHash = cache.contentHash;
       profiler.RecordRenderedElement();
       std::vector<unsigned char>().swap(pixels);
+      if (hasPersistentRaster)
+        continue;
       const bool hasMoreWork = NeedsRenderRebuild();
       profiler.Finish(hasMoreWork ? "incremental_pending" : "completed");
       return hasMoreWork;

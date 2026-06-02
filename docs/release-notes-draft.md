@@ -21,7 +21,7 @@ Changes since `v1.2.0`.
 ## Improvements
 
 - Improved 2D layout performance when opening projects, zooming, navigating views, resizing legends, rebuilding render caches, and working with fixture labels or image-heavy layouts.
-- Improved first-load layout startup by reusing validated selected-layout cache data and bounded CPU-side raster snapshots across the visible 2D views, restoring the saved active layout before the layout list refreshes, and reducing intermediate placeholder redraws while keeping packaged GDTF, MVR, and SVG assets authoritative.
+- Improved first-load layout startup by reusing validated selected-layout cache data and bounded CPU-side raster snapshots across the visible 2D views, restoring the saved active layout before the layout list refreshes, suppressing pre-project fallback layout draws, and reducing intermediate placeholder redraws while keeping packaged GDTF, MVR, and SVG assets authoritative.
 - Improved project symbol-cache persistence so verified or newly generated fixture symbols in project GDTF files are recorded and saved, reducing repeated symbol regeneration on later opens.
 - Improved layout render progress feedback with clearer status-bar messages during symbol capture, texture rebuilds, legend preparation, and rendering.
 - Improved GDTF model loading with better lookup ordering, GLB fallback handling, and diagnostics for missing or difficult-to-load models.
