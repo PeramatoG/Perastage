@@ -49,12 +49,14 @@ jobs:
         run: |
           pacman -S --noconfirm --needed \
             autoconf \
+            autoconf-archive \
             automake \
             cmake \
             curl \
             desktop-file-utils \
             file \
             gcc \
+            gettext \
             glew \
             glu \
             gtk3 \
@@ -71,6 +73,17 @@ jobs:
             unzip \
             zip \
             zlib
+
+      - name: Verify autotools for vcpkg
+        run: |
+          set -euo pipefail
+          pacman -Q autoconf autoconf-archive automake libtool gettext
+          command -v autoconf
+          command -v autoreconf
+          command -v aclocal
+          command -v automake
+          command -v libtoolize
+          command -v autopoint
 
       - name: Prepare vcpkg folders
         run: |
@@ -89,6 +102,8 @@ jobs:
 
       - name: Install vcpkg packages
         run: |
+          set -euo pipefail
+          rm -rf "$VCPKG_PACKAGES"/gperf_* "$VCPKG_INSTALLED"/vcpkg/issue_body.md
           # Perastage still uses vcpkg for Linux CI because nanovg, PoDoFo, and
           # meshoptimizer availability can vary across distro repositories.
           "$VCPKG_ROOT/vcpkg" install \
