@@ -665,6 +665,11 @@ std::string ConfigManager::Redo() {
 
 void ConfigManager::ClearHistory() { historyManager.ClearHistory(); }
 
+// Reports whether the active project has unsaved changes.
 bool ConfigManager::IsDirty() const { return projectSession.IsDirty(); }
 
+// Marks the current project as modified when derived project metadata changes.
+void ConfigManager::MarkDirty() { projectSession.Touch(); }
+
+// Marks the active project as saved after successful persistence.
 void ConfigManager::MarkSaved() { projectSession.MarkSaved(); }

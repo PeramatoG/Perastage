@@ -186,7 +186,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent)
   if (includeSceneContent) {
     sceneContentHash = ComputeSceneContentHash();
     sceneContentChanged =
-        !hasSceneContentHash || sceneContentHash != lastSceneContentHash;
+        hasSceneContentHash && sceneContentHash != lastSceneContentHash;
   }
   auto markDirty = [&](bool &cacheDirty) {
     if (cacheDirty)

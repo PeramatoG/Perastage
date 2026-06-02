@@ -89,6 +89,10 @@ private:
     double renderZoom = 0.0;
     bool renderDirty = true;
     size_t contentHash = 0;
+    std::vector<unsigned char> persistentRgba;
+    wxSize persistentRgbaSize{0, 0};
+    double persistentRgbaRenderZoom = 0.0;
+    size_t persistentRgbaContentHash = 0;
   };
 
   struct LegendCache {
@@ -215,6 +219,10 @@ private:
   void ClearCachedTexture(ImageCache &cache);
   bool HasDirtyRenderCaches() const;
   bool NeedsRenderRebuild() const;
+  bool ShouldDeferMissingElementTexture(bool cacheRenderDirty,
+                                        unsigned int texture,
+                                        const wxSize &textureSize,
+                                        const wxSize &renderSize) const;
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged(bool includeSceneContent = true);
   size_t ComputeSceneContentHash() const;
@@ -348,6 +356,8 @@ private:
   unsigned int loadingTextTexture_ = 0;
   wxSize loadingTextTextureSize_{0, 0};
   std::string pendingPersistentViewCacheJson_;
+  std::unordered_map<std::string, std::vector<unsigned char>>
+      pendingPersistentViewCacheRasters_;
   std::unordered_map<int, ViewCache> viewCaches_;
   std::unordered_map<int, LegendCache> legendCaches_;
   std::unordered_map<int, EventTableCache> eventTableCaches_;

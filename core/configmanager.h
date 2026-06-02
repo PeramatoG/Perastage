@@ -123,6 +123,7 @@ public:
 
     // Track unsaved changes
     bool IsDirty() const;
+    void MarkDirty();
     void MarkSaved();
 
 private:

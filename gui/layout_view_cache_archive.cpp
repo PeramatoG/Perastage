@@ -22,11 +22,15 @@
 #include <array>
 #include <cstdint>
 #include <exception>
+#include <filesystem>
+#include <fstream>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
@@ -39,16 +43,144 @@
 #include "symbol_cache_manifest.h"
 
 namespace {
+namespace fs = std::filesystem;
+
 using gui::layoutcache::kLayoutViewCacheArchiveEntry;
+using gui::layoutcache::kLayoutViewCacheRasterEntryPrefix;
 using gui::layoutcache::kLayoutViewCacheSchemaVersion;
 
 constexpr size_t kMaxPersistentCommandCount = 75000;
 constexpr size_t kMaxPersistentCacheBytes = 8 * 1024 * 1024;
+constexpr size_t kMaxPersistentRasterBytes = 16 * 1024 * 1024;
+constexpr size_t kMaxPersistentRasterEntryBytes = 8 * 1024 * 1024;
 
 // Combines a byte into a deterministic FNV-1a hash accumulator.
 void HashByte(std::uint64_t &hash, unsigned char value) {
   hash ^= value;
   hash *= 1099511628211ull;
+}
+
+// Combines a string into a deterministic FNV-1a hash accumulator.
+void HashString(std::uint64_t &hash, const std::string &value) {
+  for (unsigned char ch : value)
+    HashByte(hash, ch);
+}
+
+// Returns a portable UTF-8 representation of a filesystem path.
+std::string PathToUtf8(const fs::path &path) {
+  const auto utf8 = path.generic_u8string();
+  return std::string(utf8.begin(), utf8.end());
+}
+
+// Computes a deterministic hash for a file using its relative path and bytes.
+bool HashFileContent(const fs::path &root, const fs::path &filePath,
+                     std::uint64_t &hash) {
+  std::error_code ec;
+  const fs::path relative = fs::relative(filePath, root, ec);
+  if (ec)
+    return false;
+  HashString(hash, PathToUtf8(relative));
+  HashByte(hash, 0);
+
+  std::ifstream input(filePath, std::ios::binary);
+  if (!input.is_open())
+    return false;
+  std::array<char, 4096> buffer{};
+  while (input) {
+    input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    const std::streamsize count = input.gcount();
+    for (std::streamsize i = 0; i < count; ++i)
+      HashByte(hash,
+               static_cast<unsigned char>(buffer[static_cast<size_t>(i)]));
+  }
+  HashByte(hash, 0);
+  return input.good() || input.eof();
+}
+
+
+// Builds the archive entry name for a persisted 2D view raster.
+std::string RasterEntryNameForView(int viewId) {
+  return std::string(kLayoutViewCacheRasterEntryPrefix) + "view_" +
+         std::to_string(viewId) + ".rgba";
+}
+
+// Resolves a scene asset reference against the extracted MVR source root.
+std::optional<fs::path> ResolveSourceAssetPath(const fs::path &root,
+                                               const std::string &reference) {
+  if (reference.empty())
+    return std::nullopt;
+  std::error_code ec;
+  fs::path path = fs::u8path(reference);
+  if (!path.is_absolute())
+    path = root / path;
+  path = fs::weakly_canonical(path, ec);
+  if (ec || !fs::is_regular_file(path, ec))
+    return std::nullopt;
+  return path;
+}
+
+// Adds an existing scene asset reference to the source hash candidate list.
+void AddSourceAssetPath(const fs::path &root, const std::string &reference,
+                        std::vector<fs::path> &files) {
+  if (auto path = ResolveSourceAssetPath(root, reference))
+    files.push_back(*path);
+}
+
+// Collects existing files that are referenced by the scene and affect layout rendering.
+std::vector<fs::path> CollectReferencedSourceAssets(const fs::path &root,
+                                                    const MvrScene &scene) {
+  std::vector<fs::path> files;
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    (void)uuid;
+    AddSourceAssetPath(root, fixture.gdtfSpec, files);
+  }
+  for (const auto &[uuid, truss] : scene.trusses) {
+    (void)uuid;
+    AddSourceAssetPath(root, truss.gdtfSpec, files);
+    AddSourceAssetPath(root, truss.symbolFile, files);
+    AddSourceAssetPath(root, truss.modelFile, files);
+    AddSourceAssetPath(root, truss.perastageAuxGdtfArchivePath, files);
+  }
+  for (const auto &[uuid, support] : scene.supports) {
+    (void)uuid;
+    AddSourceAssetPath(root, support.gdtfSpec, files);
+  }
+  for (const auto &[uuid, object] : scene.sceneObjects) {
+    (void)uuid;
+    AddSourceAssetPath(root, object.modelFile, files);
+    for (const auto &geometry : object.geometries)
+      AddSourceAssetPath(root, geometry.modelFile, files);
+  }
+  for (const auto &[uuid, symdefFile] : scene.symdefFiles) {
+    (void)uuid;
+    AddSourceAssetPath(root, symdefFile, files);
+  }
+
+  std::sort(files.begin(), files.end(), [](const fs::path &lhs,
+                                           const fs::path &rhs) {
+    return PathToUtf8(lhs) < PathToUtf8(rhs);
+  });
+  files.erase(std::unique(files.begin(), files.end()), files.end());
+  return files;
+}
+
+// Computes a stable hash for authoritative extracted project source assets.
+std::optional<std::string> ComputeSourceAssetHash(const MvrScene &scene) {
+  if (scene.basePath.empty())
+    return std::nullopt;
+  std::error_code ec;
+  const fs::path root = fs::weakly_canonical(fs::u8path(scene.basePath), ec);
+  if (ec || !fs::is_directory(root, ec))
+    return std::nullopt;
+
+  const std::vector<fs::path> files =
+      CollectReferencedSourceAssets(root, scene);
+  std::uint64_t hash = 14695981039346656037ull;
+  for (const fs::path &file : files) {
+    if (!HashFileContent(root, file, hash))
+      return std::nullopt;
+  }
+  return std::to_string(hash);
 }
 
 // Computes a deterministic FNV-1a hash for serialized JSON content.
@@ -675,30 +807,47 @@ SymbolSnapshotFromJson(const nlohmann::json &json) {
   return snapshot;
 }
 
-// Reads a project archive cache entry into a UTF-8 string.
-bool ReadCacheEntryFromProject(const std::string &projectPath,
-                               std::string &outJson) {
+// Reads one ZIP entry from the current stream into a byte vector.
+std::vector<unsigned char> ReadCurrentZipEntryBytes(wxZipInputStream &zip) {
+  std::vector<unsigned char> bytes;
+  std::array<char, 4096> buffer{};
+  while (true) {
+    zip.Read(buffer.data(), buffer.size());
+    const size_t count = zip.LastRead();
+    if (count == 0)
+      break;
+    bytes.insert(bytes.end(), buffer.begin(), buffer.begin() + count);
+  }
+  return bytes;
+}
+
+// Reads project archive layout-cache JSON and optional raster entries.
+bool ReadCacheEntriesFromProject(
+    const std::string &projectPath, std::string &outJson,
+    std::unordered_map<std::string, std::vector<unsigned char>> &outRasters) {
   wxFileInputStream input(wxString::FromUTF8(projectPath));
   if (!input.IsOk())
     return false;
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;
+  bool foundJson = false;
   while ((entry.reset(zip.GetNextEntry())), entry) {
     if (entry->IsDir())
       continue;
-    if (entry->GetName().ToStdString() != kLayoutViewCacheArchiveEntry)
+    const std::string entryName = entry->GetName().ToStdString();
+    if (entryName == kLayoutViewCacheArchiveEntry) {
+      const auto bytes = ReadCurrentZipEntryBytes(zip);
+      outJson.assign(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+      foundJson = true;
       continue;
-    std::array<char, 4096> buffer{};
-    while (true) {
-      zip.Read(buffer.data(), buffer.size());
-      const size_t count = zip.LastRead();
-      if (count == 0)
-        break;
-      outJson.append(buffer.data(), count);
     }
-    return true;
+    if (entryName.rfind(kLayoutViewCacheRasterEntryPrefix, 0) == 0) {
+      auto bytes = ReadCurrentZipEntryBytes(zip);
+      if (bytes.size() <= kMaxPersistentRasterEntryBytes)
+        outRasters[entryName] = std::move(bytes);
+    }
   }
-  return false;
+  return foundJson;
 }
 } // namespace
 
@@ -750,36 +899,91 @@ bool RenderCommandBufferCacheToRgba(const wxSize &renderSize,
 
 } // namespace gui::layoutcache
 
-// Collects cache data for the active layout view.
+// Collects cache data for every reusable 2D view in the active layout.
 std::vector<ProjectSession::ArchiveResource>
 LayoutViewerPanel::CollectPersistentViewCacheResources() const {
-  const layouts::Layout2DViewDefinition *view = GetEditableView();
-  if (!view || currentLayout.name.empty())
-    return {};
-  const auto cacheIt = viewCaches_.find(view->id);
-  if (cacheIt == viewCaches_.end())
-    return {};
-  const ViewCache &cache = cacheIt->second;
-  if (!cache.hasCapture || !cache.hasRenderState ||
-      !cache.hasCaptureContentHash || cache.buffer.commands.empty())
+  if (currentLayout.name.empty() || currentLayout.view2dViews.empty())
     return {};
 
-  const auto cacheSymbols =
-      FilterSymbolSnapshotForBuffer(cache.buffer, cache.symbols);
-  if (HasSymbolReferences(cache.buffer) && !cacheSymbols) {
+  size_t commandCount = 0;
+  size_t rasterBytes = 0;
+  std::vector<ProjectSession::ArchiveResource> resources;
+  nlohmann::json views = nlohmann::json::array();
+  auto hasRasterSnapshot = [](const ViewCache &cache) {
+    const size_t width =
+        static_cast<size_t>(cache.persistentRgbaSize.GetWidth());
+    const size_t height =
+        static_cast<size_t>(cache.persistentRgbaSize.GetHeight());
+    return width > 0 && height > 0 && cache.persistentRgbaRenderZoom > 0.0 &&
+           cache.persistentRgba.size() == width * height * 4 &&
+           cache.persistentRgbaContentHash != 0;
+  };
+  for (const auto &view : currentLayout.view2dViews) {
+    const auto cacheIt = viewCaches_.find(view.id);
+    if (cacheIt == viewCaches_.end())
+      continue;
+    const ViewCache &cache = cacheIt->second;
+    if (!cache.hasCapture || !cache.hasRenderState ||
+        !cache.hasCaptureContentHash || cache.buffer.commands.empty())
+      continue;
+
+    const auto cacheSymbols =
+        FilterSymbolSnapshotForBuffer(cache.buffer, cache.symbols);
+    if (HasSymbolReferences(cache.buffer) && !cacheSymbols) {
+      Logger::Instance().Log(Logger::Level::Info,
+                             "Skipping one persistent layout view cache entry "
+                             "because symbol snapshots are unavailable.");
+      continue;
+    }
+    commandCount += CountPersistentCommands(cache.buffer, cacheSymbols.get());
+    if (commandCount > kMaxPersistentCommandCount) {
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "Skipping persistent layout view cache because command_count=" +
+              std::to_string(commandCount) +
+              " exceeds limit=" + std::to_string(kMaxPersistentCommandCount));
+      return {};
+    }
+
+    nlohmann::json viewDocument =
+        {{"viewId", view.id},
+         {"viewHash", StableJsonHash(ViewDefinitionToHashJson(view))},
+         {"legacyCaptureContentHash", std::to_string(cache.captureContentHash)},
+         {"captureVersion", cache.captureVersion},
+         {"commandBuffer", CommandBufferToJson(cache.buffer)},
+         {"viewState", ViewStateToJson(cache.viewState)},
+         {"renderState", RenderStateToJson(cache.renderState)},
+         {"symbols", SymbolSnapshotToJson(cacheSymbols)}};
+    if (hasRasterSnapshot(cache) &&
+        cache.persistentRgbaContentHash == HashViewContent(view) &&
+        cache.persistentRgba.size() <= kMaxPersistentRasterEntryBytes &&
+        rasterBytes + cache.persistentRgba.size() <= kMaxPersistentRasterBytes) {
+      const std::string rasterEntryName = RasterEntryNameForView(view.id);
+      viewDocument["raster"] =
+          {{"entry", rasterEntryName},
+           {"width", cache.persistentRgbaSize.GetWidth()},
+           {"height", cache.persistentRgbaSize.GetHeight()},
+           {"renderZoom", cache.persistentRgbaRenderZoom},
+           {"contentHash", std::to_string(cache.persistentRgbaContentHash)}};
+      resources.push_back({rasterEntryName, cache.persistentRgba});
+      rasterBytes += cache.persistentRgba.size();
+    }
+    views.push_back(std::move(viewDocument));
+  }
+  if (views.empty()) {
     Logger::Instance().Log(Logger::Level::Info,
-                           "Skipping persistent layout view cache because "
-                           "symbol snapshots are unavailable.");
+                           "Skipping persistent layout view cache because no "
+                           "2D view cache entries are ready to save.");
     return {};
   }
-  const size_t commandCount =
-      CountPersistentCommands(cache.buffer, cacheSymbols.get());
-  if (commandCount > kMaxPersistentCommandCount) {
-    Logger::Instance().Log(
-        Logger::Level::Info,
-        "Skipping persistent layout view cache because command_count=" +
-            std::to_string(commandCount) +
-            " exceeds limit=" + std::to_string(kMaxPersistentCommandCount));
+
+  const MvrScene &scene =
+      GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  const auto sourceAssetHash = ComputeSourceAssetHash(scene);
+  if (!sourceAssetHash) {
+    Logger::Instance().Log(Logger::Level::Info,
+                           "Skipping persistent layout view cache because "
+                           "source assets could not be hashed.");
     return {};
   }
 
@@ -788,17 +992,9 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
   document["symbolGenerationVersion"] =
       symbol_cache::kCurrentPerastageSymbolFormatVersion;
   document["layoutName"] = currentLayout.name;
-  document["viewId"] = view->id;
-  document["sceneHash"] = StableJsonHash(SceneToHashJson(
-      GetDefaultGuiConfigServices().LegacyConfigManager().GetScene()));
-  document["viewHash"] = StableJsonHash(ViewDefinitionToHashJson(*view));
-  document["legacyCaptureContentHash"] =
-      std::to_string(cache.captureContentHash);
-  document["captureVersion"] = cache.captureVersion;
-  document["commandBuffer"] = CommandBufferToJson(cache.buffer);
-  document["viewState"] = ViewStateToJson(cache.viewState);
-  document["renderState"] = RenderStateToJson(cache.renderState);
-  document["symbols"] = SymbolSnapshotToJson(cacheSymbols);
+  document["sceneHash"] = StableJsonHash(SceneToHashJson(scene));
+  document["sourceAssetHash"] = *sourceAssetHash;
+  document["views"] = views;
 
   const std::string serialized = document.dump();
   if (serialized.size() > kMaxPersistentCacheBytes) {
@@ -809,19 +1005,30 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
             " exceeds limit=" + std::to_string(kMaxPersistentCacheBytes));
     return {};
   }
-  return {{kLayoutViewCacheArchiveEntry,
-           std::vector<std::uint8_t>(serialized.begin(), serialized.end())}};
+  Logger::Instance().Log(
+      Logger::Level::Info,
+      "Saving persistent layout view cache for layout '" + currentLayout.name +
+          "' with view_count=" + std::to_string(views.size()) +
+          " raster_bytes=" + std::to_string(rasterBytes));
+  resources.push_back(
+      {kLayoutViewCacheArchiveEntry,
+       std::vector<std::uint8_t>(serialized.begin(), serialized.end())});
+  return resources;
 }
 
 // Loads persisted layout cache JSON from the project archive.
 void LayoutViewerPanel::LoadPersistentViewCacheFromProject(
     const std::string &projectPath) {
   pendingPersistentViewCacheJson_.clear();
+  pendingPersistentViewCacheRasters_.clear();
   if (projectPath.empty())
     return;
   std::string jsonText;
-  if (ReadCacheEntryFromProject(projectPath, jsonText))
+  if (ReadCacheEntriesFromProject(projectPath, jsonText,
+                                  pendingPersistentViewCacheRasters_))
     pendingPersistentViewCacheJson_ = std::move(jsonText);
+  else
+    pendingPersistentViewCacheRasters_.clear();
 }
 
 // Hydrates matching persistent cache data into the active layout view.
@@ -836,54 +1043,124 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
             symbol_cache::kCurrentPerastageSymbolFormatVersion ||
         document.value("layoutName", std::string{}) != currentLayout.name) {
       pendingPersistentViewCacheJson_.clear();
-      return;
-    }
-    const int viewId = document.value("viewId", 0);
-    const auto viewIt = std::find_if(
-        currentLayout.view2dViews.begin(), currentLayout.view2dViews.end(),
-        [viewId](const auto &entry) { return entry.id == viewId; });
-    if (viewIt == currentLayout.view2dViews.end()) {
-      pendingPersistentViewCacheJson_.clear();
-      return;
-    }
-    const std::string sceneHash = StableJsonHash(SceneToHashJson(
-        GetDefaultGuiConfigServices().LegacyConfigManager().GetScene()));
-    const std::string viewHash =
-        StableJsonHash(ViewDefinitionToHashJson(*viewIt));
-    if (document.value("sceneHash", std::string{}) != sceneHash ||
-        document.value("viewHash", std::string{}) != viewHash) {
-      pendingPersistentViewCacheJson_.clear();
+      pendingPersistentViewCacheRasters_.clear();
       return;
     }
 
-    ViewCache &cache = GetViewCache(viewId);
-    cache.buffer = CommandBufferFromJson(
-        document.value("commandBuffer", nlohmann::json{}));
-    cache.viewState =
-        ViewStateFromJson(document.value("viewState", nlohmann::json{}));
-    cache.renderState =
-        RenderStateFromJson(document.value("renderState", nlohmann::json{}));
-    cache.symbols = SymbolSnapshotFromJson(
-        document.value("symbols", nlohmann::json::array()));
-    cache.hasCapture = !cache.buffer.commands.empty();
-    cache.hasRenderState = true;
-    cache.captureContentHash = HashViewContent(*viewIt);
-    cache.hasCaptureContentHash = true;
-    cache.captureVersion = viewRenderVersion;
-    cache.restoredFromPersistentCache = true;
-    cache.captureInProgress = false;
-    cache.renderDirty = true;
-    cache.texture = 0;
-    cache.pixelUnpackPbo = 0;
-    cache.pboBytes = 0;
-    cache.textureSize = wxSize(0, 0);
-    cache.renderZoom = 0.0;
-    renderDirty = true;
+    const MvrScene &scene =
+        GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+    const auto sourceAssetHash = ComputeSourceAssetHash(scene);
+    if (!sourceAssetHash) {
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "Ignoring layout view cache because source assets could not be hashed.");
+      pendingPersistentViewCacheJson_.clear();
+      pendingPersistentViewCacheRasters_.clear();
+      return;
+    }
+    const std::string sceneHash = StableJsonHash(SceneToHashJson(scene));
+    if (document.value("sceneHash", std::string{}) != sceneHash ||
+        document.value("sourceAssetHash", std::string{}) != *sourceAssetHash) {
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "Ignoring layout view cache because source assets or scene data changed.");
+      pendingPersistentViewCacheJson_.clear();
+      pendingPersistentViewCacheRasters_.clear();
+      return;
+    }
+
+    const auto cachedViews = document.value("views", nlohmann::json::array());
+    if (!cachedViews.is_array()) {
+      pendingPersistentViewCacheJson_.clear();
+      pendingPersistentViewCacheRasters_.clear();
+      return;
+    }
+
+    int hydratedCount = 0;
+    for (const auto &cachedView : cachedViews) {
+      if (!cachedView.is_object())
+        continue;
+      const int viewId = cachedView.value("viewId", 0);
+      const auto viewIt = std::find_if(
+          currentLayout.view2dViews.begin(), currentLayout.view2dViews.end(),
+          [viewId](const auto &entry) { return entry.id == viewId; });
+      if (viewIt == currentLayout.view2dViews.end())
+        continue;
+      const std::string viewHash =
+          StableJsonHash(ViewDefinitionToHashJson(*viewIt));
+      if (cachedView.value("viewHash", std::string{}) != viewHash)
+        continue;
+
+      ViewCache &cache = GetViewCache(viewId);
+      cache.buffer = CommandBufferFromJson(
+          cachedView.value("commandBuffer", nlohmann::json{}));
+      if (cache.buffer.commands.empty())
+        continue;
+      cache.viewState =
+          ViewStateFromJson(cachedView.value("viewState", nlohmann::json{}));
+      cache.renderState =
+          RenderStateFromJson(cachedView.value("renderState", nlohmann::json{}));
+      cache.symbols = SymbolSnapshotFromJson(
+          cachedView.value("symbols", nlohmann::json::array()));
+      cache.hasCapture = true;
+      cache.hasRenderState = true;
+      cache.captureContentHash = HashViewContent(*viewIt);
+      cache.hasCaptureContentHash = true;
+      cache.captureVersion = viewRenderVersion;
+      cache.restoredFromPersistentCache = true;
+      cache.captureInProgress = false;
+      cache.renderDirty = true;
+      cache.texture = 0;
+      cache.pixelUnpackPbo = 0;
+      cache.pboBytes = 0;
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      cache.persistentRgba.clear();
+      cache.persistentRgbaSize = wxSize(0, 0);
+      cache.persistentRgbaRenderZoom = 0.0;
+      cache.persistentRgbaContentHash = 0;
+      const auto raster = cachedView.value("raster", nlohmann::json::object());
+      if (raster.is_object()) {
+        const std::string rasterEntry = raster.value("entry", std::string{});
+        auto rasterIt = pendingPersistentViewCacheRasters_.find(rasterEntry);
+        const int rasterWidth = raster.value("width", 0);
+        const int rasterHeight = raster.value("height", 0);
+        const size_t rasterBytes = static_cast<size_t>(std::max(0, rasterWidth)) *
+                                   static_cast<size_t>(std::max(0, rasterHeight)) * 4;
+        if (rasterIt != pendingPersistentViewCacheRasters_.end() &&
+            rasterWidth > 0 && rasterHeight > 0 &&
+            rasterIt->second.size() == rasterBytes &&
+            raster.value("contentHash", std::string{}) ==
+                std::to_string(cache.captureContentHash)) {
+          cache.persistentRgba = std::move(rasterIt->second);
+          cache.persistentRgbaSize = wxSize(rasterWidth, rasterHeight);
+          cache.persistentRgbaRenderZoom = raster.value("renderZoom", 0.0);
+          cache.persistentRgbaContentHash = cache.captureContentHash;
+        }
+      }
+      ++hydratedCount;
+    }
+
+    if (hydratedCount > 0) {
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "Hydrated persistent layout view cache for layout '" +
+              currentLayout.name + "' with view_count=" +
+              std::to_string(hydratedCount));
+      renderDirty = true;
+    } else {
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "Ignoring layout view cache because no cached views matched the "
+          "active layout.");
+    }
     pendingPersistentViewCacheJson_.clear();
+    pendingPersistentViewCacheRasters_.clear();
   } catch (const std::exception &ex) {
     Logger::Instance().Log(Logger::Level::Warn,
                            std::string("Ignoring layout view cache: ") +
                                ex.what());
     pendingPersistentViewCacheJson_.clear();
+    pendingPersistentViewCacheRasters_.clear();
   }
 }

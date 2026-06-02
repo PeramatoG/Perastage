@@ -295,6 +295,10 @@ void LayoutViewerPanel::DrawViewElement(
   const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
 
   const wxSize renderSize = GetFrameSizeForZoom(view.frame, cache.renderZoom);
+  if (ShouldDeferMissingElementTexture(cache.renderDirty, cache.texture,
+                                       cache.textureSize, renderSize)) {
+    return;
+  }
   if (cache.texture != 0 && renderSize.GetWidth() > 0 &&
       renderSize.GetHeight() > 0 && cache.textureSize == renderSize) {
     glEnable(GL_TEXTURE_2D);

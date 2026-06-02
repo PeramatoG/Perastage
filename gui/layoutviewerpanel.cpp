@@ -912,6 +912,13 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     glClearColor(0.35f, 0.35f, 0.35f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
+    if (auto *mw = MainWindow::Instance();
+        mw && mw->IsStartupProjectLoadPending() && currentLayout.name.empty()) {
+      glFlush();
+      SwapBuffers();
+      return;
+    }
+
     const double pageWidth = currentLayout.pageSetup.PageWidthPt();
     const double pageHeight = currentLayout.pageSetup.PageHeightPt();
 
@@ -2255,7 +2262,20 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       std::vector<unsigned char> pixels;
       int width = 0;
       int height = 0;
-      const bool attemptedPersistentCache = cache.restoredFromPersistentCache;
+      const bool hasPersistentRaster =
+          cache.persistentRgbaSize == renderSize &&
+          cache.persistentRgbaContentHash == HashViewContent(view) &&
+          std::abs(cache.persistentRgbaRenderZoom - renderZoom) < 0.000001 &&
+          cache.persistentRgba.size() ==
+              static_cast<size_t>(renderSize.GetWidth()) *
+                  static_cast<size_t>(renderSize.GetHeight()) * 4;
+      if (hasPersistentRaster) {
+        pixels = cache.persistentRgba;
+        width = renderSize.GetWidth();
+        height = renderSize.GetHeight();
+      }
+      const bool attemptedPersistentCache =
+          cache.restoredFromPersistentCache && !hasPersistentRaster;
       const bool renderedFromPersistentCache =
           attemptedPersistentCache &&
           gui::layoutcache::RenderCommandBufferCacheToRgba(
@@ -2264,7 +2284,7 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       if (attemptedPersistentCache && !renderedFromPersistentCache)
         cache.restoredFromPersistentCache = false;
       std::shared_ptr<viewer2d::ScopedViewer2DState> stateGuard;
-      if (!renderedFromPersistentCache) {
+      if (!hasPersistentRaster && !renderedFromPersistentCache) {
         if (!capturePanel || !offscreenRenderer) {
           ClearCachedTexture(cache);
           cache.textureSize = wxSize(0, 0);
@@ -2285,8 +2305,8 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
             capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
       }
 
-      bool rendered = renderedFromPersistentCache;
-      if (!renderedFromPersistentCache) {
+      bool rendered = hasPersistentRaster || renderedFromPersistentCache;
+      if (!hasPersistentRaster && !renderedFromPersistentCache) {
         if (!capturePanel) {
           ClearCachedTexture(cache);
           cache.textureSize = wxSize(0, 0);
@@ -2360,8 +2380,14 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = HashViewContent(view);
+      cache.persistentRgba = pixels;
+      cache.persistentRgbaSize = cache.textureSize;
+      cache.persistentRgbaRenderZoom = renderZoom;
+      cache.persistentRgbaContentHash = cache.contentHash;
       profiler.RecordRenderedElement();
       std::vector<unsigned char>().swap(pixels);
+      if (hasPersistentRaster)
+        continue;
       const bool hasMoreWork = NeedsRenderRebuild();
       profiler.Finish(hasMoreWork ? "incremental_pending" : "completed");
       return hasMoreWork;
@@ -3055,6 +3081,17 @@ bool LayoutViewerPanel::HasDirtyRenderCaches() const {
 // Reports whether global or element-level layout rendering work is pending.
 bool LayoutViewerPanel::NeedsRenderRebuild() const {
   return renderDirty || HasDirtyRenderCaches();
+}
+
+// Reports whether a dirty element should stay hidden until its final texture is ready.
+bool LayoutViewerPanel::ShouldDeferMissingElementTexture(
+    bool cacheRenderDirty, unsigned int texture, const wxSize &textureSize,
+    const wxSize &renderSize) const {
+  if (!cacheRenderDirty || !(renderPending || loadingRequested || isLoading))
+    return false;
+  if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0)
+    return false;
+  return texture == 0 || textureSize != renderSize;
 }
 
 // Debounces render rebuild requests and coalesces repeated zoom/layout changes.
