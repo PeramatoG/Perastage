@@ -49,12 +49,14 @@ jobs:
         run: |
           pacman -S --noconfirm --needed \
             autoconf \
+            autoconf-archive \
             automake \
             cmake \
             curl \
             desktop-file-utils \
             file \
             gcc \
+            gettext \
             glew \
             glu \
             gtk3 \
