@@ -34,6 +34,7 @@ Changes since `v1.2.0`.
 
 ## Fixes
 
+- Fixed automatic GDTF download matching during MVR import so fixtures with generic embedded GDTF metadata can still match the original fixture names from the MVR file.
 - Fixed an About dialog startup assertion when locating the Perastage logo on wxWidgets debug builds.
 - Fixed MVR export before saving a project so resource references are synchronized before export.
 - Fixed MVR merge resource handling so imported fixture, truss, symbol, and model files remain available after saving and reopening the project.

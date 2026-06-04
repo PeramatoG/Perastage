@@ -418,6 +418,10 @@ target_include_directories(rider_truss_dictionary_normalization_test PRIVATE
 target_link_libraries(rider_truss_dictionary_normalization_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderTrussDictionaryNormalization COMMAND rider_truss_dictionary_normalization_test)
 
+add_executable(mvr_gdtf_import_matching_test mvr_gdtf_import_matching_test.cpp)
+target_include_directories(mvr_gdtf_import_matching_test PRIVATE ../mvr)
+add_test(NAME MvrGdtfImportMatching COMMAND mvr_gdtf_import_matching_test)
+
 add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
