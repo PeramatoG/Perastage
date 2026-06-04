@@ -27,6 +27,7 @@
 #endif
 #include "gdtfloader.h"
 #include "gdtf_catalog_service.h"
+#include "gdtf_import_matching.h"
 #include "gdtf_fixture_category.h"
 #include "matrixutils.h"
 #include "primitive_model_resources.h"
@@ -503,6 +504,7 @@ static void LogMessage(const std::string &msg) {
 
 struct GdtfConflict {
   std::string type;
+  std::string requestedFixtureName;
   std::string mvrPath;
   std::string appPath;
   std::string manufacturer;
@@ -2024,6 +2026,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   int trussSymbolSymdefPreservedCount = 0;
   std::unordered_map<std::string, int> trussSymbolSymdefPreservedBySymdef;
 
+  // Parses a Fixture XML node into scene data while preserving its original matching identity.
   std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)>
       parseFixture = [&](tinyxml2::XMLElement *node,
                          const std::string &layerName,
@@ -2039,8 +2042,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         fixture.layer = layerName;
         fixture.transform = nodeTransform;
 
-        if (const char *nameAttr = node->Attribute("name"))
-          fixture.instanceName = nameAttr;
+        const char *nameAttr = node->Attribute("name");
+        const std::string rawFixtureNodeName =
+            nameAttr ? Trim(nameAttr) : std::string{};
+        if (!rawFixtureNodeName.empty())
+          fixture.instanceName = rawFixtureNodeName;
 
         fixtureIdOf(node, fixture.fixtureIdText, fixture.fixtureIdNumeric);
         fixture.fixtureId = fixture.fixtureIdNumeric;
@@ -2049,7 +2055,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         intOf(node, "CustomIdType", fixture.customIdType);
 
         fixture.gdtfSpec = textOf(node, "GDTFSpec");
+        const std::string rawGdtfSpec = fixture.gdtfSpec;
         fixture.gdtfMode = textOf(node, "GDTFMode");
+        fixture.requestedFixtureName =
+            mvr::gdtf_import_matching::SelectRequestedFixtureName(rawFixtureNodeName,
+                                                                 rawGdtfSpec);
         fixture.focus = textOf(node, "Focus");
         fixture.function = textOf(node, "Function");
         fixture.position = CanonicalizeUuid(textOf(node, "Position"));
@@ -2155,6 +2165,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           pendingGdtfConflictByType.try_emplace(
               fixture.typeName,
               GdtfConflict{fixture.typeName,
+                           fixture.requestedFixtureName,
                            fixture.gdtfSpec,
                            dictionaryEntry->path,
                            "",
@@ -2815,6 +2826,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       conflict.type = f.typeName;
       if (conflict.mvrPath.empty())
         conflict.mvrPath = f.gdtfSpec;
+      if (conflict.requestedFixtureName.empty()) {
+        conflict.requestedFixtureName =
+            f.requestedFixtureName.empty()
+                ? mvr::gdtf_import_matching::ExtractFixtureNameFromGdtfSpec(
+                      f.gdtfSpec)
+                : f.requestedFixtureName;
+      }
       if (conflict.fixtureName.empty())
         conflict.fixtureName = f.typeName;
       if (conflict.modeName.empty())
@@ -3307,7 +3325,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   bool bestUsedRecencyTiebreak = false;
                   for (const auto &entry : catalogEntries) {
                     const std::string requestedFixtureName =
-                        req.fixtureName.empty() ? req.type : req.fixtureName;
+                        mvr::gdtf_import_matching::SelectDownloadSearchFixtureName(
+                            req.requestedFixtureName, req.type);
                     const int nameScore = ComputeFixtureNameMatchScore(
                         entry.fixtureName, requestedFixtureName);
                     if (nameScore <= 0) {
