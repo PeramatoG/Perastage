@@ -126,6 +126,20 @@ ShowMvrFixtureTypeConflictDialog(wxWindow *parent,
   return mvr::MvrMergeFixtureTypeDecision::UseCurrentDefinition;
 }
 
+// Formats non-blocking duplicate patch warnings for the merge summary.
+std::string FormatMvrMergePatchAddressWarningSummary(
+    const mvr::MvrMergeAnalysis &analysis) {
+  const std::size_t warningCount = analysis.patchAddressWarnings.size();
+  if (warningCount == 0)
+    return {};
+
+  return std::to_string(warningCount) +
+         (warningCount == 1
+              ? " duplicate DMX address warning"
+              : " duplicate DMX address warnings") +
+         "; duplicate patches will be highlighted after reload";
+}
+
 // Shows the user-facing MVR import mode selection dialog.
 MvrImportChoice ShowMvrImportChoiceDialog(wxWindow *parent) {
   wxArrayString choices;
@@ -528,6 +542,10 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
     if (mergeResult.nonObjectLookupConflictsResolved > 0)
       summary << ", " << mergeResult.nonObjectLookupConflictsResolved
               << " lookup conflicts resolved";
+    const std::string patchWarningSummary =
+        FormatMvrMergePatchAddressWarningSummary(applyAnalysis);
+    if (!patchWarningSummary.empty())
+      summary << "; Warning: " << patchWarningSummary;
     summary << ")";
     owner->consolePanel->AppendMessage(wxString::FromUTF8(summary.str()));
   }
