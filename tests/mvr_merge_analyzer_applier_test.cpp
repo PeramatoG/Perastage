@@ -5,6 +5,8 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 // Builds a fixture with the requested UUID and position reference.
 static Fixture MakeFixture(const std::string &uuid,
@@ -13,6 +15,18 @@ static Fixture MakeFixture(const std::string &uuid,
   fixture.uuid = uuid;
   fixture.position = position;
   return fixture;
+}
+
+// Builds a layer with the requested UUID, name, color, and child list.
+static Layer MakeLayer(const std::string &uuid, const std::string &name,
+                       const std::string &color,
+                       std::vector<std::string> childUuids = {}) {
+  Layer layer;
+  layer.uuid = uuid;
+  layer.name = name;
+  layer.color = color;
+  layer.childUUIDs = std::move(childUuids);
+  return layer;
 }
 
 // Builds a fixture with a user-visible type name and GDTF identity.
@@ -225,6 +239,84 @@ static void VerifyRenameIncomingDefinitionDecisionAppliesToIncomingFixtures() {
   assert(target.fixtures.at("incoming-b").typeName == "Spot (Imported)");
 }
 
+// Verifies imported layers without UUIDs receive generated merge UUIDs.
+static void VerifyEmptyLayerUuidReceivesGeneratedUuid() {
+  MvrScene target;
+
+  MvrScene imported;
+  imported.layers[""] = MakeLayer("", "Incoming empty UUID", "#123456");
+
+  const mvr::MvrMergeAnalysis analysis =
+      mvr::AnalyzeImportedSceneMerge(target, imported);
+  assert(analysis.layerUuidMap.contains(""));
+  assert(!analysis.layerUuidMap.at("").empty());
+  const mvr::MvrSceneMergeResult result =
+      mvr::ApplyImportedSceneMerge(target, imported, analysis);
+
+  const std::string generatedUuid = analysis.layerUuidMap.at("");
+  assert(result.layersAdded == 1);
+  assert(target.layers.count("") == 0);
+  assert(target.layers.count(generatedUuid) == 1);
+  assert(target.layers.at(generatedUuid).uuid == generatedUuid);
+  assert(target.layers.at(generatedUuid).name == "Incoming empty UUID");
+}
+
+// Verifies same-name layers with different UUIDs keep current layer state names.
+static void VerifySameLayerNameWithDifferentUuidRenamesIncomingLayer() {
+  MvrScene target;
+  target.layers["current-layer"] =
+      MakeLayer("current-layer", "Rig", "#0000FF");
+
+  MvrScene imported;
+  imported.layers["incoming-layer"] =
+      MakeLayer("incoming-layer", "Rig", "#FF0000");
+  imported.fixtures["incoming-fixture"] = MakeFixture("incoming-fixture", "");
+  imported.fixtures["incoming-fixture"].layer = "Rig";
+
+  const mvr::MvrMergeAnalysis analysis =
+      mvr::AnalyzeImportedSceneMerge(target, imported);
+  assert(analysis.incomingLayerNameRenames.at("Rig") == "Rig (Imported)");
+  const mvr::MvrSceneMergeResult result =
+      mvr::ApplyImportedSceneMerge(target, imported, analysis);
+
+  assert(result.layersAdded == 1);
+  assert(target.layers.at("current-layer").name == "Rig");
+  assert(target.layers.at("incoming-layer").name == "Rig (Imported)");
+  assert(target.fixtures.at("incoming-fixture").layer == "Rig (Imported)");
+}
+
+// Verifies Symdef UUID collisions remap Symbol-derived object references.
+static void VerifySymdefUuidCollisionWithDifferentGeometryFilesRemapsSymbol() {
+  MvrScene target;
+  target.symdefFiles["symdef-a"] = "symbols/current.3ds";
+  target.symdefTypes["symdef-a"] = "Mesh";
+  target.symdefGeometries["symdef-a"] = {
+      SymdefGeometry{"symbols/current.3ds", "Mesh", Matrix{}}};
+
+  MvrScene imported;
+  imported.symdefFiles["symdef-a"] = "symbols/incoming.3ds";
+  imported.symdefTypes["symdef-a"] = "Mesh";
+  imported.symdefGeometries["symdef-a"] = {
+      SymdefGeometry{"symbols/incoming.3ds", "Mesh", Matrix{}}};
+  Truss truss;
+  truss.uuid = "incoming-truss";
+  truss.sourceSymdefUuid = "symdef-a";
+  imported.trusses[truss.uuid] = truss;
+
+  const mvr::MvrMergeAnalysis analysis =
+      mvr::AnalyzeImportedSceneMerge(target, imported);
+  const std::string remappedSymdefUuid = analysis.uuidMap.at("symdef-a");
+  assert(remappedSymdefUuid != "symdef-a");
+  const mvr::MvrSceneMergeResult result =
+      mvr::ApplyImportedSceneMerge(target, imported, analysis);
+
+  assert(result.nonObjectLookupConflictsResolved == 1);
+  assert(target.symdefFiles.at("symdef-a") == "symbols/current.3ds");
+  assert(target.symdefFiles.at(remappedSymdefUuid) == "symbols/incoming.3ds");
+  assert(target.trusses.at("incoming-truss").sourceSymdefUuid ==
+         remappedSymdefUuid);
+}
+
 // Verifies imported resource copying preserves target basePath.
 static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
   const std::filesystem::path tempDir = std::filesystem::temp_directory_path() /
@@ -322,6 +414,9 @@ int main() {
   VerifyFixtureTypeGdtfConflictBlocksAutomaticMerge();
   VerifyUseCurrentDefinitionDecisionAppliesToIncomingFixtures();
   VerifyRenameIncomingDefinitionDecisionAppliesToIncomingFixtures();
+  VerifyEmptyLayerUuidReceivesGeneratedUuid();
+  VerifySameLayerNameWithDifferentUuidRenamesIncomingLayer();
+  VerifySymdefUuidCollisionWithDifferentGeometryFilesRemapsSymbol();
   VerifyImportedResourcesAreRewrittenIntoTargetBasePath();
   return 0;
 }

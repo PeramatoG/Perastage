@@ -36,6 +36,7 @@ struct MvrSceneMergeResult {
   std::size_t layersAdded = 0;
   std::size_t uuidCollisionsResolved = 0;
   std::size_t fixtureTypeConflictsBlocked = 0;
+  std::size_t nonObjectLookupConflictsResolved = 0;
   std::unordered_map<std::string, std::string> fixtureUuidRemap;
 };
 
@@ -84,8 +85,12 @@ struct MvrMergeAnalysis {
   std::unordered_map<std::string, MvrMergeFixtureTypeDecision>
       fixtureTypeDecisions;
   std::unordered_map<std::string, std::string> incomingFixtureTypeRenames;
+  std::unordered_map<std::string, std::string> layerUuidMap;
+  std::unordered_map<std::string, std::string> incomingLayerNameRenames;
+  std::unordered_set<std::string> skippedIncomingLayerUuids;
   std::size_t uuidCollisionsDetected = 0;
   std::size_t uuidCollisionsResolved = 0;
+  std::size_t nonObjectLookupConflictsResolved = 0;
 };
 
 // Builds a fixture type identity map keyed by normalized fixture type name.

@@ -79,6 +79,41 @@ std::size_t MergeObjectTable(std::unordered_map<std::string, T> &target,
   return added;
 }
 
+// Applies imported layer name remaps to object layer references.
+template <typename T>
+void RemapObjectLayerNames(std::unordered_map<std::string, T> &objects,
+                           const MvrMergeAnalysis &analysis) {
+  for (auto &[uuid, object] : objects) {
+    const auto renameIt = analysis.incomingLayerNameRenames.find(object.layer);
+    if (renameIt != analysis.incomingLayerNameRenames.end())
+      object.layer = renameIt->second;
+  }
+}
+
+// Adds imported layers after applying layer-specific UUID and name rules.
+std::size_t
+MergeLayerTable(std::unordered_map<std::string, Layer> &target,
+                const std::unordered_map<std::string, Layer> &imported,
+                const MvrMergeAnalysis &analysis) {
+  std::size_t added = 0;
+  for (const auto &[uuid, layer] : imported) {
+    if (analysis.skippedIncomingLayerUuids.contains(uuid))
+      continue;
+    const auto uuidIt = analysis.layerUuidMap.find(uuid);
+    const std::string resolvedUuid = uuidIt == analysis.layerUuidMap.end()
+                                         ? uuid
+                                         : uuidIt->second;
+    Layer merged = layer;
+    merged.uuid = resolvedUuid;
+    const auto renameIt = analysis.incomingLayerNameRenames.find(merged.name);
+    if (renameIt != analysis.incomingLayerNameRenames.end())
+      merged.name = renameIt->second;
+    target[resolvedUuid] = std::move(merged);
+    ++added;
+  }
+  return added;
+}
+
 // Applies selected fixture type conflict decisions to imported fixtures.
 void ApplyFixtureTypeDecisions(MvrScene &scene,
                                const MvrMergeAnalysis &analysis) {
@@ -134,6 +169,12 @@ void RemapImportedReferences(MvrScene &scene,
       child.uuid = RemapImportedUuidReference(child.uuid, analysis);
   }
 
+  RemapObjectLayerNames(scene.fixtures, analysis);
+  RemapObjectLayerNames(scene.trusses, analysis);
+  RemapObjectLayerNames(scene.supports, analysis);
+  RemapObjectLayerNames(scene.sceneObjects, analysis);
+  RemapObjectLayerNames(scene.groupObjects, analysis);
+
   for (auto &[uuid, layer] : scene.layers) {
     for (auto &childUuid : layer.childUUIDs)
       childUuid = RemapImportedUuidReference(childUuid, analysis);
@@ -148,6 +189,8 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
                                             const MvrMergeAnalysis &analysis) {
   MvrSceneMergeResult result;
   result.uuidCollisionsResolved = analysis.uuidCollisionsResolved;
+  result.nonObjectLookupConflictsResolved =
+      analysis.nonObjectLookupConflictsResolved;
   if (HasBlockingFixtureTypeConflicts(analysis)) {
     result.fixtureTypeConflictsBlocked = analysis.fixtureTypeConflicts.size();
     return result;
@@ -178,7 +221,7 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
   result.groupObjectsAdded = MergeObjectTable(
       target.groupObjects, importedCopy.groupObjects, analysis);
   result.layersAdded =
-      MergeObjectTable(target.layers, importedCopy.layers, analysis);
+      MergeLayerTable(target.layers, importedCopy.layers, analysis);
 
   if (target.provider.empty())
     target.provider = imported.provider;
