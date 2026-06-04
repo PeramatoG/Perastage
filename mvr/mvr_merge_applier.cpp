@@ -17,6 +17,8 @@
  */
 #include "mvr_merge_applier.h"
 
+#include "mvr_merge_resource_rewriter.h"
+
 #include <algorithm>
 #include <cctype>
 #include <utility>
@@ -153,6 +155,7 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
   result.fixtureUuidRemap = analysis.fixtureUuidRemap;
 
   MvrScene importedCopy = imported;
+  RewriteImportedSceneResourceReferences(target, importedCopy);
   ApplyFixtureTypeDecisions(importedCopy, analysis);
   RemapImportedReferences(importedCopy, analysis);
 
@@ -177,8 +180,6 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
   result.layersAdded =
       MergeObjectTable(target.layers, importedCopy.layers, analysis);
 
-  if (target.basePath.empty())
-    target.basePath = imported.basePath;
   if (target.provider.empty())
     target.provider = imported.provider;
   if (target.providerVersion.empty())

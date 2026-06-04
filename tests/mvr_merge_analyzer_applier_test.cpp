@@ -27,12 +27,18 @@ static Fixture MakeTypedFixture(const std::string &uuid,
   return fixture;
 }
 
-// Writes a small GDTF placeholder file for SHA-256 identity tests.
+// Writes a small file for SHA-256 identity and resource-copy tests.
 static void WriteGdtfFile(const std::filesystem::path &path,
                           const std::string &content) {
   std::filesystem::create_directories(path.parent_path());
   std::ofstream out(path, std::ios::binary);
   out << content;
+}
+
+// Returns true when a scene-relative resource path exists.
+static bool ResourceExists(const std::filesystem::path &basePath,
+                           const std::string &resourcePath) {
+  return std::filesystem::is_regular_file(basePath / resourcePath);
 }
 
 // Builds a support with requested references.
@@ -219,6 +225,95 @@ static void VerifyRenameIncomingDefinitionDecisionAppliesToIncomingFixtures() {
   assert(target.fixtures.at("incoming-b").typeName == "Spot (Imported)");
 }
 
+// Verifies imported resource copying preserves target basePath.
+static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
+  const std::filesystem::path tempDir = std::filesystem::temp_directory_path() /
+                                        "perastage_mvr_merge_resource_test";
+  std::filesystem::remove_all(tempDir);
+  const std::filesystem::path targetBase = tempDir / "current_project";
+  const std::filesystem::path importedBase = tempDir / "incoming_mvr";
+
+  WriteGdtfFile(targetBase / "shared" / "fixture.gdtf", "current fixture");
+  WriteGdtfFile(importedBase / "shared" / "fixture.gdtf", "incoming fixture");
+  WriteGdtfFile(importedBase / "truss" / "type.gdtf", "incoming truss gdtf");
+  WriteGdtfFile(importedBase / "truss" / "symbol.3ds", "incoming symbol");
+  WriteGdtfFile(importedBase / "truss" / "model.gtruss",
+                "incoming truss model");
+  WriteGdtfFile(importedBase / "truss" / "aux.gdtf", "incoming truss aux");
+  WriteGdtfFile(importedBase / "objects" / "object.3ds", "incoming object");
+  WriteGdtfFile(importedBase / "objects" / "geometry.3ds", "incoming geometry");
+  WriteGdtfFile(importedBase / "symbols" / "symdef.3ds", "incoming symdef");
+  WriteGdtfFile(importedBase / "symbols" / "symdef_child.3ds",
+                "incoming symdef child");
+
+  MvrScene target;
+  target.basePath = targetBase.string();
+  target.fixtures["current-fixture"] = MakeTypedFixture(
+      "current-fixture", "Current", "shared/fixture.gdtf", "Mode A");
+
+  MvrScene imported;
+  imported.basePath = importedBase.string();
+  imported.fixtures["incoming-fixture"] = MakeTypedFixture(
+      "incoming-fixture", "Incoming", "shared/fixture.gdtf", "Mode B");
+
+  Truss truss;
+  truss.uuid = "incoming-truss";
+  truss.gdtfSpec = "truss/type.gdtf";
+  truss.symbolFile = "truss/symbol.3ds";
+  truss.modelFile = "truss/model.gtruss";
+  truss.perastageAuxGdtfArchivePath = "truss/aux.gdtf";
+  imported.trusses[truss.uuid] = truss;
+
+  SceneObject object;
+  object.uuid = "incoming-object";
+  object.modelFile = "objects/object.3ds";
+  object.geometries.push_back(
+      GeometryInstance{"objects/geometry.3ds", Matrix{}});
+  imported.sceneObjects[object.uuid] = object;
+
+  imported.symdefFiles["incoming-symdef"] = "symbols/symdef.3ds";
+  imported.symdefGeometries["incoming-symdef"] = {
+      SymdefGeometry{"symbols/symdef_child.3ds", "Mesh", Matrix{}}};
+
+  const mvr::MvrMergeAnalysis analysis =
+      mvr::AnalyzeImportedSceneMerge(target, imported);
+  const mvr::MvrSceneMergeResult result =
+      mvr::ApplyImportedSceneMerge(target, imported, analysis);
+  assert(result.fixturesAdded == 1);
+  assert(target.basePath == targetBase.string());
+
+  const Fixture &fixture = target.fixtures.at("incoming-fixture");
+  assert(fixture.gdtfSpec != "shared/fixture.gdtf");
+  assert(ResourceExists(targetBase, fixture.gdtfSpec));
+  assert(ResourceExists(targetBase,
+                        target.fixtures.at("current-fixture").gdtfSpec));
+
+  const Truss &mergedTruss = target.trusses.at("incoming-truss");
+  assert(ResourceExists(targetBase, mergedTruss.gdtfSpec));
+  assert(ResourceExists(targetBase, mergedTruss.symbolFile));
+  assert(ResourceExists(targetBase, mergedTruss.modelFile));
+  assert(ResourceExists(targetBase, mergedTruss.perastageAuxGdtfArchivePath));
+
+  const SceneObject &mergedObject = target.sceneObjects.at("incoming-object");
+  assert(ResourceExists(targetBase, mergedObject.modelFile));
+  assert(ResourceExists(targetBase, mergedObject.geometries.front().modelFile));
+  const std::string mergedSymdefUuid =
+      mvr::RemapImportedUuidReference("incoming-symdef", analysis);
+  assert(ResourceExists(targetBase, target.symdefFiles.at(mergedSymdefUuid)));
+  assert(ResourceExists(
+      targetBase, target.symdefGeometries.at(mergedSymdefUuid).front().file));
+
+  const std::filesystem::path reloadedBase = tempDir / "reloaded_project";
+  std::filesystem::copy(targetBase, reloadedBase,
+                        std::filesystem::copy_options::recursive);
+  assert(ResourceExists(reloadedBase,
+                        target.fixtures.at("current-fixture").gdtfSpec));
+  assert(ResourceExists(reloadedBase, fixture.gdtfSpec));
+  assert(ResourceExists(reloadedBase, mergedTruss.symbolFile));
+  assert(
+      ResourceExists(reloadedBase, mergedObject.geometries.front().modelFile));
+}
+
 // Verifies merge analysis resolves collisions before applying imported data.
 int main() {
   VerifyFixtureUuidCollisionUsesStableReplacement();
@@ -227,5 +322,6 @@ int main() {
   VerifyFixtureTypeGdtfConflictBlocksAutomaticMerge();
   VerifyUseCurrentDefinitionDecisionAppliesToIncomingFixtures();
   VerifyRenameIncomingDefinitionDecisionAppliesToIncomingFixtures();
+  VerifyImportedResourcesAreRewrittenIntoTargetBasePath();
   return 0;
 }
