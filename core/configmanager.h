@@ -30,6 +30,7 @@
 class ConfigManager
 {
 public:
+    using DirtyState = ProjectSession::DirtyState;
     using LoadProjectProgressCallback =
         std::function<void(const std::string& stage, int completed, int total)>;
     using ProjectArchiveResourceProvider =
@@ -123,6 +124,8 @@ public:
 
     // Track unsaved changes
     bool IsDirty() const;
+    DirtyState CaptureDirtyState() const;
+    void RestoreDirtyState(const DirtyState& state);
     void MarkDirty();
     void MarkSaved();
 

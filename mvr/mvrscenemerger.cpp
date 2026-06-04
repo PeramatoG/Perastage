@@ -19,6 +19,8 @@
 
 #include "mvr_merge_applier.h"
 
+#include <utility>
+
 namespace mvr {
 
 // Combines imported MVR content while preserving existing objects.
@@ -27,7 +29,21 @@ MergeImportedSceneIntoCurrent(MvrScene &target, const MvrScene &imported,
                               const MvrMergeOptions &options) {
   const MvrMergeAnalysis analysis =
       AnalyzeImportedSceneMerge(target, imported, options);
-  return ApplyImportedSceneMerge(target, imported, analysis);
+  return ApplyImportedSceneMergeAtomically(target, imported, analysis);
+}
+
+// Applies a prepared MVR merge only after the working scene succeeds.
+MvrSceneMergeResult
+ApplyImportedSceneMergeAtomically(MvrScene &target, const MvrScene &imported,
+                                  const MvrMergeAnalysis &analysis) {
+  MvrScene workingScene = target;
+  const MvrSceneMergeResult result =
+      ApplyImportedSceneMerge(workingScene, imported, analysis);
+  if (result.fixtureTypeConflictsBlocked > 0)
+    return result;
+
+  target = std::move(workingScene);
+  return result;
 }
 
 } // namespace mvr

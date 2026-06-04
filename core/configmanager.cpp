@@ -668,6 +668,16 @@ void ConfigManager::ClearHistory() { historyManager.ClearHistory(); }
 // Reports whether the active project has unsaved changes.
 bool ConfigManager::IsDirty() const { return projectSession.IsDirty(); }
 
+// Captures the active project dirty revision counters for rollback.
+ConfigManager::DirtyState ConfigManager::CaptureDirtyState() const {
+  return projectSession.CaptureDirtyState();
+}
+
+// Restores the active project dirty revision counters after rollback.
+void ConfigManager::RestoreDirtyState(const DirtyState& state) {
+  projectSession.RestoreDirtyState(state);
+}
+
 // Marks the current project as modified when derived project metadata changes.
 void ConfigManager::MarkDirty() { projectSession.Touch(); }
 

@@ -48,6 +48,7 @@ add_executable(mvr_merge_analyzer_applier_test
                ../mvr/mvr_merge_analyzer.cpp
                ../mvr/mvr_merge_applier.cpp
                ../mvr/mvr_merge_resource_rewriter.cpp
+               ../mvr/mvrscenemerger.cpp
                ../core/uuidutils.cpp
                ../models/mvrscene.cpp)
 add_test(NAME MvrMergeAnalyzerApplier COMMAND mvr_merge_analyzer_applier_test)

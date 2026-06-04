@@ -17,6 +17,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 #include "LayoutManager.h"
 #include "configmanager.h"
@@ -300,7 +301,8 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
 }
 
 // Refreshes all scene-dependent UI panels after MVR scene content changes.
-void MainWindowIoController::RefreshPanelsAfterMvrSceneChange() {
+void MainWindowIoController::RefreshPanelsAfterMvrSceneChange(
+    bool autoColorScene) {
   MainWindow *owner = ownerRef_;
   if (owner == nullptr)
     return;
@@ -332,9 +334,11 @@ void MainWindowIoController::RefreshPanelsAfterMvrSceneChange() {
   owner->RefreshSummary();
   owner->RefreshRigging();
 
-  // Keeps MVR scene updates aligned with the existing Tools > Auto color flow.
-  wxCommandEvent autoColorEvent;
-  owner->OnAutoColor(autoColorEvent);
+  if (autoColorScene) {
+    // Keeps MVR scene updates aligned with the existing Tools > Auto color flow.
+    wxCommandEvent autoColorEvent;
+    owner->OnAutoColor(autoColorEvent);
+  }
 
   if (owner->layoutViewerPanel)
     owner->layoutViewerPanel->RefreshAfterSceneContentUpdate();
@@ -377,7 +381,17 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
     return false;
 
   ConfigManager &cfg = owner->guiConfigServices->LegacyConfigManager();
-  MvrScene currentScene = cfg.GetScene();
+  const MvrScene preservedScene = cfg.GetScene();
+  const ConfigManager::DirtyState preservedDirtyState =
+      cfg.CaptureDirtyState();
+  const std::vector<std::string> preservedSelectedFixtures =
+      cfg.GetSelectedFixtures();
+  const std::vector<std::string> preservedSelectedTrusses =
+      cfg.GetSelectedTrusses();
+  const std::vector<std::string> preservedSelectedSupports =
+      cfg.GetSelectedSupports();
+  const std::vector<std::string> preservedSelectedSceneObjects =
+      cfg.GetSelectedSceneObjects();
   const std::optional<std::string> preservedLayoutsConfig =
       cfg.GetValue(kLayoutsConfigKey);
   const std::optional<std::string> preservedViewer3DRenderStyle =
@@ -405,6 +419,23 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
     layouts::LayoutManager::Get().LoadFromConfig(cfg);
   };
 
+  // Restores the live project exactly as it was before merge analysis began.
+  auto restoreMergeRollbackState = [&cfg, &preservedScene,
+                                    &preservedDirtyState,
+                                    &preservedSelectedFixtures,
+                                    &preservedSelectedTrusses,
+                                    &preservedSelectedSupports,
+                                    &preservedSelectedSceneObjects,
+                                    &restorePreservedConfig]() {
+    cfg.GetScene() = preservedScene;
+    cfg.SetSelectedFixtures(preservedSelectedFixtures);
+    cfg.SetSelectedTrusses(preservedSelectedTrusses);
+    cfg.SetSelectedSupports(preservedSelectedSupports);
+    cfg.SetSelectedSceneObjects(preservedSelectedSceneObjects);
+    restorePreservedConfig();
+    cfg.RestoreDirtyState(preservedDirtyState);
+  };
+
   owner->mvrImportPipelineActive = true;
   SplashScreen::Hide();
   if (owner->GetStatusBar())
@@ -418,8 +449,7 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
   owner->UnlockViewportInteraction();
 
   if (!imported) {
-    cfg.GetScene() = currentScene;
-    restorePreservedConfig();
+    restoreMergeRollbackState();
     owner->mvrImportPipelineActive = false;
     if (owner->GetStatusBar())
       owner->SetStatusText("MVR merge failed.", 0);
@@ -431,15 +461,14 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
     return false;
   }
 
-  cfg.GetScene() = currentScene;
   mvr::MvrMergeOptions mergeOptions;
   const mvr::MvrMergeAnalysis preflightAnalysis =
-      mvr::AnalyzeImportedSceneMerge(currentScene, importResult.scene);
+      mvr::AnalyzeImportedSceneMerge(preservedScene, importResult.scene);
   if (preflightAnalysis.uuidCollisionsDetected > 0) {
     const auto collisionBehavior = ShowMvrMergeUuidCollisionDialog(
         owner, preflightAnalysis.uuidCollisionsDetected);
     if (!collisionBehavior.has_value()) {
-      restorePreservedConfig();
+      restoreMergeRollbackState();
       owner->mvrImportPipelineActive = false;
       if (owner->GetStatusBar())
         owner->SetStatusText("MVR merge cancelled.", 0);
@@ -451,21 +480,25 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
     const auto decision = ShowMvrFixtureTypeConflictDialog(owner, conflict);
     if (!decision.has_value() ||
         *decision == mvr::MvrMergeFixtureTypeDecision::CancelMerge) {
-      restorePreservedConfig();
+      restoreMergeRollbackState();
       owner->mvrImportPipelineActive = false;
       if (owner->GetStatusBar())
         owner->SetStatusText("MVR merge cancelled.", 0);
       return false;
     }
-    mergeOptions.fixtureTypeDecisions[conflict.normalizedTypeName] = *decision;
+    mergeOptions.fixtureTypeDecisions[conflict.normalizedTypeName] =
+        *decision;
   }
+  const mvr::MvrMergeAnalysis applyAnalysis =
+      mvr::AnalyzeImportedSceneMerge(preservedScene, importResult.scene,
+                                     mergeOptions);
   cfg.PushUndoState("merge MVR");
+  cfg.GetScene() = preservedScene;
   const mvr::MvrSceneMergeResult mergeResult =
-      mvr::MergeImportedSceneIntoCurrent(cfg.GetScene(), importResult.scene,
-                                         mergeOptions);
+      mvr::ApplyImportedSceneMergeAtomically(
+          cfg.GetScene(), importResult.scene, applyAnalysis);
   if (mergeResult.fixtureTypeConflictsBlocked > 0) {
-    cfg.GetScene() = currentScene;
-    restorePreservedConfig();
+    restoreMergeRollbackState();
     owner->mvrImportPipelineActive = false;
     if (owner->GetStatusBar())
       owner->SetStatusText("MVR merge cancelled.", 0);
@@ -474,10 +507,14 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
                  "MVR Merge Cancelled", wxOK | wxICON_WARNING, owner);
     return false;
   }
-  cfg.MarkDirty();
+  cfg.SetSelectedFixtures(preservedSelectedFixtures);
+  cfg.SetSelectedTrusses(preservedSelectedTrusses);
+  cfg.SetSelectedSupports(preservedSelectedSupports);
+  cfg.SetSelectedSceneObjects(preservedSelectedSceneObjects);
   restorePreservedConfig();
+  cfg.MarkDirty();
   viewer2d::ReconcileFixtureLabelOverridesWithScene(cfg);
-  RefreshPanelsAfterMvrSceneChange();
+  RefreshPanelsAfterMvrSceneChange(false);
   owner->mvrImportPipelineActive = false;
 
   const wxString fileName =

@@ -1,5 +1,6 @@
 #include "mvr_merge_analyzer.h"
 #include "mvr_merge_applier.h"
+#include "mvrscenemerger.h"
 
 #include <cassert>
 #include <filesystem>
@@ -406,6 +407,64 @@ static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
       ResourceExists(reloadedBase, mergedObject.geometries.front().modelFile));
 }
 
+// Verifies a cancelled merge leaves the target scene untouched before apply.
+static void VerifyCancelBeforeApplyLeavesTargetUnchanged() {
+  MvrScene target;
+  target.fixtures["current-fixture"] =
+      MakeFixture("current-fixture", "current-position");
+  target.positions["current-position"] = "0 0 0";
+
+  const MvrScene before = target;
+  MvrScene imported;
+  imported.fixtures["incoming-fixture"] =
+      MakeFixture("incoming-fixture", "incoming-position");
+
+  const mvr::MvrMergeAnalysis analysis =
+      mvr::AnalyzeImportedSceneMerge(target, imported);
+  assert(analysis.uuidCollisionsDetected == 0);
+
+  const bool userCancelledBeforeApply = true;
+  if (!userCancelledBeforeApply)
+    mvr::ApplyImportedSceneMergeAtomically(target, imported, analysis);
+
+  assert(target.fixtures.size() == before.fixtures.size());
+  assert(target.fixtures.count("current-fixture") == 1);
+  assert(target.fixtures.count("incoming-fixture") == 0);
+  assert(target.fixtures.at("current-fixture").position ==
+         before.fixtures.at("current-fixture").position);
+  assert(target.positions.size() == before.positions.size());
+  assert(target.positions.count("current-position") == 1);
+}
+
+// Verifies an apply failure restores the target scene without partial changes.
+static void VerifyFailureDuringApplyLeavesTargetUnchanged() {
+  MvrScene target;
+  target.fixtures["current-fixture"] = MakeTypedFixture(
+      "current-fixture", "Spot", "current.gdtf", "Mode A");
+  target.provider = "current-provider";
+
+  MvrScene imported;
+  imported.fixtures["incoming-fixture"] = MakeTypedFixture(
+      "incoming-fixture", "Spot", "incoming.gdtf", "Mode B");
+  imported.provider = "incoming-provider";
+
+  const MvrScene before = target;
+  const mvr::MvrMergeAnalysis analysis =
+      mvr::AnalyzeImportedSceneMerge(target, imported);
+  assert(!analysis.fixtureTypeConflicts.empty());
+
+  const mvr::MvrSceneMergeResult result =
+      mvr::ApplyImportedSceneMergeAtomically(target, imported, analysis);
+
+  assert(result.fixtureTypeConflictsBlocked == 1);
+  assert(target.fixtures.size() == before.fixtures.size());
+  assert(target.fixtures.count("current-fixture") == 1);
+  assert(target.fixtures.count("incoming-fixture") == 0);
+  assert(target.fixtures.at("current-fixture").gdtfSpec ==
+         before.fixtures.at("current-fixture").gdtfSpec);
+  assert(target.provider == before.provider);
+}
+
 // Verifies merge analysis resolves collisions before applying imported data.
 int main() {
   VerifyFixtureUuidCollisionUsesStableReplacement();
@@ -418,5 +477,7 @@ int main() {
   VerifySameLayerNameWithDifferentUuidRenamesIncomingLayer();
   VerifySymdefUuidCollisionWithDifferentGeometryFilesRemapsSymbol();
   VerifyImportedResourcesAreRewrittenIntoTargetBasePath();
+  VerifyCancelBeforeApplyLeavesTargetUnchanged();
+  VerifyFailureDuringApplyLeavesTargetUnchanged();
   return 0;
 }

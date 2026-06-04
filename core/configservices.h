@@ -131,6 +131,10 @@ private:
 
 class ProjectSession {
 public:
+  struct DirtyState {
+    size_t revision = 0;
+    size_t savedRevision = 0;
+  };
   using SaveConfigFn = std::function<bool(const std::string &path)>;
   using SaveSceneFn = std::function<bool(const std::string &path)>;
   using SaveConfigToBufferFn = std::function<bool(std::vector<uint8_t> &out)>;
@@ -163,6 +167,8 @@ public:
                    const LoadProgressFn &progress = {});
 
   bool IsDirty() const;
+  DirtyState CaptureDirtyState() const;
+  void RestoreDirtyState(const DirtyState &state);
   void Touch();
   void MarkSaved();
   void ResetDirty();
