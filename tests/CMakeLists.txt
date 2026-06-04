@@ -42,6 +42,15 @@ include_directories(
     ../viewer3d/render
 )
 
+
+add_executable(mvr_merge_analyzer_applier_test
+               mvr_merge_analyzer_applier_test.cpp
+               ../mvr/mvr_merge_analyzer.cpp
+               ../mvr/mvr_merge_applier.cpp
+               ../core/uuidutils.cpp
+               ../models/mvrscene.cpp)
+add_test(NAME MvrMergeAnalyzerApplier COMMAND mvr_merge_analyzer_applier_test)
+
 add_executable(matrixutils_test matrixutils_test.cpp)
 target_include_directories(matrixutils_test PRIVATE ../models)
 add_test(NAME MatrixUtilsParsingAndComposition COMMAND matrixutils_test)

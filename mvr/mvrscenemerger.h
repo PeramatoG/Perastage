@@ -17,21 +17,9 @@
  */
 #pragma once
 
-#include <cstddef>
-
-#include "mvrscene.h"
+#include "mvr_merge_analyzer.h"
 
 namespace mvr {
-
-struct MvrSceneMergeResult {
-  std::size_t fixturesAdded = 0;
-  std::size_t trussesAdded = 0;
-  std::size_t supportsAdded = 0;
-  std::size_t sceneObjectsAdded = 0;
-  std::size_t groupObjectsAdded = 0;
-  std::size_t layersAdded = 0;
-  std::size_t uuidCollisionsResolved = 0;
-};
 
 // Combines imported MVR scene content into the target while preserving existing objects.
 MvrSceneMergeResult MergeImportedSceneIntoCurrent(MvrScene &target,
