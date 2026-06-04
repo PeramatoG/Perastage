@@ -21,6 +21,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include "mvrscene.h"
 
@@ -34,7 +35,30 @@ struct MvrSceneMergeResult {
   std::size_t groupObjectsAdded = 0;
   std::size_t layersAdded = 0;
   std::size_t uuidCollisionsResolved = 0;
+  std::size_t fixtureTypeConflictsBlocked = 0;
   std::unordered_map<std::string, std::string> fixtureUuidRemap;
+};
+
+enum class MvrMergeFixtureTypeDecision {
+  UseCurrentDefinition,
+  RenameIncomingType,
+  CancelMerge,
+};
+
+struct MvrFixtureTypeIdentity {
+  std::string normalizedTypeName;
+  std::string typeName;
+  std::string gdtfSpec;
+  std::string resolvedGdtfSpec;
+  std::string gdtfMode;
+  std::string gdtfSha256;
+};
+
+struct MvrFixtureTypeConflict {
+  std::string normalizedTypeName;
+  MvrFixtureTypeIdentity currentIdentity;
+  MvrFixtureTypeIdentity incomingIdentity;
+  std::string suggestedIncomingTypeName;
 };
 
 enum class MvrMergeUuidCollisionBehavior {
@@ -46,15 +70,35 @@ enum class MvrMergeUuidCollisionBehavior {
 struct MvrMergeOptions {
   MvrMergeUuidCollisionBehavior uuidCollisionBehavior =
       MvrMergeUuidCollisionBehavior::GenerateStableUuid;
+  std::unordered_map<std::string, MvrMergeFixtureTypeDecision>
+      fixtureTypeDecisions;
 };
 
 struct MvrMergeAnalysis {
   std::unordered_map<std::string, std::string> uuidMap;
   std::unordered_map<std::string, std::string> fixtureUuidRemap;
   std::unordered_set<std::string> skippedIncomingUuids;
+  std::unordered_map<std::string, MvrFixtureTypeIdentity> currentFixtureTypes;
+  std::unordered_map<std::string, MvrFixtureTypeIdentity> incomingFixtureTypes;
+  std::vector<MvrFixtureTypeConflict> fixtureTypeConflicts;
+  std::unordered_map<std::string, MvrMergeFixtureTypeDecision>
+      fixtureTypeDecisions;
+  std::unordered_map<std::string, std::string> incomingFixtureTypeRenames;
   std::size_t uuidCollisionsDetected = 0;
   std::size_t uuidCollisionsResolved = 0;
 };
+
+// Builds a fixture type identity map keyed by normalized fixture type name.
+std::unordered_map<std::string, MvrFixtureTypeIdentity>
+BuildFixtureTypeIdentityMap(const MvrScene &scene);
+
+// Reports whether the two fixture type identities resolve to different
+// definitions.
+bool FixtureTypeIdentitiesConflict(const MvrFixtureTypeIdentity &current,
+                                   const MvrFixtureTypeIdentity &incoming);
+
+// Reports whether unresolved fixture type conflicts prevent merge application.
+bool HasBlockingFixtureTypeConflicts(const MvrMergeAnalysis &analysis);
 
 // Analyzes imported scene UUIDs and prepares collision-safe reference remaps.
 MvrMergeAnalysis

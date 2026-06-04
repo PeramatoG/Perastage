@@ -71,6 +71,59 @@ ShowMvrMergeUuidCollisionDialog(wxWindow *parent, std::size_t collisionCount) {
   return mvr::MvrMergeUuidCollisionBehavior::GenerateStableUuid;
 }
 
+// Formats a fixture type identity for the MVR merge conflict dialog.
+wxString FormatFixtureTypeIdentityForDialog(
+    const mvr::MvrFixtureTypeIdentity &identity) {
+  wxString text = wxString::Format(
+      "Type: %s\nGDTF: %s\nMode: %s",
+      wxString::FromUTF8(identity.typeName).c_str(),
+      wxString::FromUTF8(identity.gdtfSpec.empty() ? "(none)"
+                                                   : identity.gdtfSpec)
+          .c_str(),
+      wxString::FromUTF8(identity.gdtfMode.empty() ? "(default)"
+                                                   : identity.gdtfMode)
+          .c_str());
+  if (!identity.gdtfSha256.empty()) {
+    text += wxString::Format(
+        "\nSHA-256: %s",
+        wxString::FromUTF8(identity.gdtfSha256.substr(0, 16) + "...").c_str());
+  }
+  return text;
+}
+
+// Shows fixture type conflict choices before an MVR merge is applied.
+std::optional<mvr::MvrMergeFixtureTypeDecision>
+ShowMvrFixtureTypeConflictDialog(wxWindow *parent,
+                                 const mvr::MvrFixtureTypeConflict &conflict) {
+  wxArrayString choices;
+  choices.Add("Use current project definition for imported fixtures");
+  choices.Add(wxString::Format(
+      "Keep imported definition by renaming it to \"%s\"",
+      wxString::FromUTF8(conflict.suggestedIncomingTypeName).c_str()));
+  choices.Add("Cancel merge");
+
+  wxString message = wxString::Format(
+      "The imported MVR uses fixture type \"%s\" with a different GDTF "
+      "definition than the current project. Choose how Perastage should "
+      "resolve all incoming fixtures of this type.\n\nCurrent project "
+      "definition:\n%s\n\n"
+      "Imported definition:\n%s",
+      wxString::FromUTF8(conflict.currentIdentity.typeName).c_str(),
+      FormatFixtureTypeIdentityForDialog(conflict.currentIdentity).c_str(),
+      FormatFixtureTypeIdentityForDialog(conflict.incomingIdentity).c_str());
+
+  wxSingleChoiceDialog dialog(parent, message,
+                              "MVR Merge Fixture Type Conflict", choices);
+  dialog.SetSelection(0);
+  if (dialog.ShowModal() != wxID_OK)
+    return std::nullopt;
+  if (dialog.GetSelection() == 1)
+    return mvr::MvrMergeFixtureTypeDecision::RenameIncomingType;
+  if (dialog.GetSelection() == 2)
+    return mvr::MvrMergeFixtureTypeDecision::CancelMerge;
+  return mvr::MvrMergeFixtureTypeDecision::UseCurrentDefinition;
+}
+
 // Shows the user-facing MVR import mode selection dialog.
 MvrImportChoice ShowMvrImportChoiceDialog(wxWindow *parent) {
   wxArrayString choices;
@@ -90,13 +143,11 @@ MvrImportChoice ShowMvrImportChoiceDialog(wxWindow *parent) {
 
 } // namespace
 
-// Stores the owning MainWindow pointer for IO operations during the controller
-// lifetime.
+// Stores the owning MainWindow pointer for IO operations.
 MainWindowIoController::MainWindowIoController(MainWindow &owner)
     : ownerRef_(&owner) {}
 
-// Imports an MVR file while keeping import progress and UI panel refreshes
-// synchronized on the main thread.
+// Imports an MVR file and synchronizes UI refreshes.
 bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   constexpr const char *kLayoutsConfigKey = "layouts_collection";
   constexpr const char *kViewer3DRenderStyleConfigKey = "viewer3d_render_style";
@@ -288,8 +339,7 @@ void MainWindowIoController::RefreshPanelsAfterMvrSceneChange() {
     owner->layoutViewerPanel->RefreshAfterSceneContentUpdate();
 }
 
-// Opens a file picker and imports the selected MVR file using the selected
-// import mode.
+// Opens a file picker and imports the selected MVR file.
 void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
@@ -388,10 +438,33 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
     }
     mergeOptions.uuidCollisionBehavior = *collisionBehavior;
   }
+  for (const auto &conflict : preflightAnalysis.fixtureTypeConflicts) {
+    const auto decision = ShowMvrFixtureTypeConflictDialog(owner, conflict);
+    if (!decision.has_value() ||
+        *decision == mvr::MvrMergeFixtureTypeDecision::CancelMerge) {
+      restorePreservedConfig();
+      owner->mvrImportPipelineActive = false;
+      if (owner->GetStatusBar())
+        owner->SetStatusText("MVR merge cancelled.", 0);
+      return false;
+    }
+    mergeOptions.fixtureTypeDecisions[conflict.normalizedTypeName] = *decision;
+  }
   cfg.PushUndoState("merge MVR");
   const mvr::MvrSceneMergeResult mergeResult =
       mvr::MergeImportedSceneIntoCurrent(cfg.GetScene(), importResult.scene,
                                          mergeOptions);
+  if (mergeResult.fixtureTypeConflictsBlocked > 0) {
+    cfg.GetScene() = currentScene;
+    restorePreservedConfig();
+    owner->mvrImportPipelineActive = false;
+    if (owner->GetStatusBar())
+      owner->SetStatusText("MVR merge cancelled.", 0);
+    wxMessageBox("The MVR merge was cancelled because fixture type definition "
+                 "conflicts were not resolved.",
+                 "MVR Merge Cancelled", wxOK | wxICON_WARNING, owner);
+    return false;
+  }
   cfg.MarkDirty();
   restorePreservedConfig();
   viewer2d::ReconcileFixtureLabelOverridesWithScene(cfg);
