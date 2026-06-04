@@ -311,6 +311,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
@@ -344,6 +345,7 @@ add_executable(project_support_userdata_roundtrip_test project_support_userdata_
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
@@ -402,6 +404,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
@@ -418,7 +421,8 @@ target_include_directories(rider_truss_dictionary_normalization_test PRIVATE
 target_link_libraries(rider_truss_dictionary_normalization_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderTrussDictionaryNormalization COMMAND rider_truss_dictionary_normalization_test)
 
-add_executable(mvr_gdtf_import_matching_test mvr_gdtf_import_matching_test.cpp)
+add_executable(mvr_gdtf_import_matching_test mvr_gdtf_import_matching_test.cpp
+               ../mvr/gdtf_catalog_matcher.cpp)
 target_include_directories(mvr_gdtf_import_matching_test PRIVATE ../mvr)
 add_test(NAME MvrGdtfImportMatching COMMAND mvr_gdtf_import_matching_test)
 
@@ -438,6 +442,7 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
@@ -469,6 +474,7 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
@@ -503,6 +509,7 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
@@ -536,6 +543,7 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
@@ -569,6 +577,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
@@ -610,6 +619,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1123,6 +1133,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
                ../mvr/mvrimporter.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1161,6 +1172,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
                ../mvr/mvrimporter.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                consolepanel_stub.cpp
                ${LAYOUT_SOURCES})
