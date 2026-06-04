@@ -967,6 +967,17 @@ bool ProjectSession::LoadProject(const std::string &path,
 
 bool ProjectSession::IsDirty() const { return revision != savedRevision; }
 
+// Captures the project revision counters so rollback can preserve dirty state.
+ProjectSession::DirtyState ProjectSession::CaptureDirtyState() const {
+  return DirtyState{revision, savedRevision};
+}
+
+// Restores project revision counters after a cancelled or failed operation.
+void ProjectSession::RestoreDirtyState(const DirtyState &state) {
+  revision = state.revision;
+  savedRevision = state.savedRevision;
+}
+
 void ProjectSession::Touch() { ++revision; }
 
 void ProjectSession::MarkSaved() { savedRevision = revision; }

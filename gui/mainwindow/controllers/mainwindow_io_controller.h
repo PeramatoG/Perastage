@@ -18,6 +18,6 @@ private:
 
   bool ImportMvrFromPath(const std::string &pathUtf8);
   bool ImportMvrWithOfficialPolicy(const std::string &pathUtf8);
-  void RefreshPanelsAfterMvrSceneChange();
+  void RefreshPanelsAfterMvrSceneChange(bool autoColorScene = true);
   MainWindow *ownerRef_ = nullptr; // Non-owning pointer; MainWindow owns this controller.
 };

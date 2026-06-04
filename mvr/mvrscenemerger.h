@@ -26,4 +26,9 @@ MvrSceneMergeResult MergeImportedSceneIntoCurrent(
     MvrScene &target, const MvrScene &imported,
     const MvrMergeOptions &options = MvrMergeOptions{});
 
+// Applies a prepared MVR merge only after the working scene succeeds.
+MvrSceneMergeResult ApplyImportedSceneMergeAtomically(
+    MvrScene &target, const MvrScene &imported,
+    const MvrMergeAnalysis &analysis);
+
 } // namespace mvr
