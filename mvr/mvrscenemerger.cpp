@@ -21,10 +21,12 @@
 
 namespace mvr {
 
-// Combines imported MVR scene content into the target while preserving existing objects.
-MvrSceneMergeResult MergeImportedSceneIntoCurrent(MvrScene &target,
-                                                  const MvrScene &imported) {
-  const MvrMergeAnalysis analysis = AnalyzeImportedSceneMerge(target, imported);
+// Combines imported MVR content while preserving existing objects.
+MvrSceneMergeResult
+MergeImportedSceneIntoCurrent(MvrScene &target, const MvrScene &imported,
+                              const MvrMergeOptions &options) {
+  const MvrMergeAnalysis analysis =
+      AnalyzeImportedSceneMerge(target, imported, options);
   return ApplyImportedSceneMerge(target, imported, analysis);
 }
 

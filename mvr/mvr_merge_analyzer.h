@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "mvrscene.h"
 
@@ -33,16 +34,36 @@ struct MvrSceneMergeResult {
   std::size_t groupObjectsAdded = 0;
   std::size_t layersAdded = 0;
   std::size_t uuidCollisionsResolved = 0;
+  std::unordered_map<std::string, std::string> fixtureUuidRemap;
+};
+
+enum class MvrMergeUuidCollisionBehavior {
+  GenerateStableUuid,
+  ReplaceExisting,
+  SkipIncoming,
+};
+
+struct MvrMergeOptions {
+  MvrMergeUuidCollisionBehavior uuidCollisionBehavior =
+      MvrMergeUuidCollisionBehavior::GenerateStableUuid;
 };
 
 struct MvrMergeAnalysis {
   std::unordered_map<std::string, std::string> uuidMap;
+  std::unordered_map<std::string, std::string> fixtureUuidRemap;
+  std::unordered_set<std::string> skippedIncomingUuids;
+  std::size_t uuidCollisionsDetected = 0;
   std::size_t uuidCollisionsResolved = 0;
 };
 
 // Analyzes imported scene UUIDs and prepares collision-safe reference remaps.
-MvrMergeAnalysis AnalyzeImportedSceneMerge(const MvrScene &target,
-                                           const MvrScene &imported);
+MvrMergeAnalysis
+AnalyzeImportedSceneMerge(const MvrScene &target, const MvrScene &imported,
+                          const MvrMergeOptions &options = MvrMergeOptions{});
+
+// Reports whether an imported object UUID should be skipped during merge apply.
+bool ShouldSkipImportedUuid(const std::string &uuid,
+                            const MvrMergeAnalysis &analysis);
 
 // Resolves an imported UUID reference using the prepared merge analysis.
 std::string RemapImportedUuidReference(const std::string &uuid,
