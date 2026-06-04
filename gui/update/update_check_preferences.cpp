@@ -12,6 +12,8 @@ namespace {
 constexpr const char *kUpdateModeKey = "app_update_startup_mode";
 constexpr const char *kUpdateLastCheckEpochSecondsKey =
     "app_update_last_startup_check_epoch_seconds";
+constexpr const char *kDismissedStartupReminderVersionKey =
+    "app_update_dismissed_startup_reminder_version";
 
 // Normalizes persisted mode tokens to lowercase for robust parsing.
 std::string ToLowerCopy(std::string value) {
@@ -88,6 +90,23 @@ void MarkStartupCheckRun(IGuiPreferencesService &preferences,
           .count();
   preferences.SetValue(kUpdateLastCheckEpochSecondsKey,
                        std::to_string(secondsSinceEpoch));
+}
+
+// Returns true when startup should show a reminder for the discovered version.
+bool ShouldShowStartupUpdateReminder(const IGuiPreferencesService &preferences,
+                                     const std::string &latestVersion) {
+  if (latestVersion.empty())
+    return true;
+
+  const auto dismissedVersion =
+      preferences.GetValue(kDismissedStartupReminderVersionKey);
+  return !dismissedVersion.has_value() || *dismissedVersion != latestVersion;
+}
+
+// Persists the latest version dismissed from an automatic startup reminder.
+void WriteDismissedStartupReminderVersion(IGuiPreferencesService &preferences,
+                                          const std::string &latestVersion) {
+  preferences.SetValue(kDismissedStartupReminderVersionKey, latestVersion);
 }
 
 } // namespace gui::update

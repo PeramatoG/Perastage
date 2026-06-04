@@ -19,8 +19,8 @@ Current user-facing preferences include:
 
 ## Update check behavior
 
-- **Check on startup (recommended)**: checks on launch, limited to at most once every 24 hours.
-- **Manual only**: does not run startup checks; use **Help → Check for Updates** on demand.
+- **Check on startup (recommended)**: checks on launch, limited to at most once every 24 hours. When a newer version is found, you can choose **Do not remind me again for this version** to suppress future startup reminders for that same version.
+- **Manual only**: does not run startup checks; use **Help → Check for Updates** on demand. Manual checks still show the current result even if a startup reminder was previously dismissed.
 
 ## Good practice
 

@@ -95,6 +95,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/trusstablepanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/update/app_update_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/update/update_check_preferences.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/update/update_notification_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dprintdialog.cpp
 )
 

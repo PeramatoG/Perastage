@@ -125,6 +125,7 @@ using json = nlohmann::json;
 #include "support.h"
 #include "update/update_check_preferences.h"
 #include "update/app_update_service.h"
+#include "update/update_notification_dialog.h"
 #include "units/units.h"
 #include "trussloader.h"
 #include "trusstablepanel.h"
@@ -282,7 +283,7 @@ void RestorePreferencesDialogValues(
     preferences.SetValue(key, value);
 }
 
-// Runs a silent update check and only opens the browser when an update is found.
+// Runs a startup update check and prompts for newer versions that were not dismissed.
 void RunSilentStartupUpdateCheck(MainWindow *window) {
   if (!window)
     return;
@@ -292,15 +293,19 @@ void RunSilentStartupUpdateCheck(MainWindow *window) {
     if (result.status != gui::update::CheckStatus::UpdateAvailable)
       return;
     window->CallAfter([window, result]() {
-      wxString message =
-          "A newer Perastage version is available.\nCurrent version: " +
-          wxString::FromUTF8(result.currentVersion) +
-          "\nLatest version: " + wxString::FromUTF8(result.latestVersion) +
-          "\n\nOpen release page now?";
-      const int response = wxMessageBox(
-          message, "Perastage Updates",
-          wxYES_NO | wxYES_DEFAULT | wxICON_INFORMATION, window);
-      if (response == wxYES)
+      auto &preferences = GetDefaultGuiConfigServices().Preferences();
+      if (!gui::update::ShouldShowStartupUpdateReminder(preferences,
+                                                        result.latestVersion))
+        return;
+
+      const gui::update::UpdateNotificationChoice choice =
+          gui::update::ShowAvailableUpdateDialog(window, result, true);
+      if (choice.suppressVersionReminder) {
+        gui::update::WriteDismissedStartupReminderVersion(preferences,
+                                                          result.latestVersion);
+        preferences.SaveUserConfig();
+      }
+      if (choice.openReleasePage)
         wxLaunchDefaultBrowser(wxString::FromUTF8(result.releaseUrl));
     });
   }).detach();
