@@ -17,14 +17,105 @@
  */
 #include "mvr_merge_analyzer.h"
 
+#include "file_import_utils.h"
 #include "uuidutils.h"
 
 #include <algorithm>
+#include <cctype>
+#include <filesystem>
 #include <string_view>
 #include <vector>
 
 namespace mvr {
 namespace {
+
+// Trims leading and trailing ASCII whitespace from a value.
+std::string TrimAscii(std::string value) {
+  auto isSpace = [](unsigned char ch) { return std::isspace(ch) != 0; };
+  while (!value.empty() && isSpace(static_cast<unsigned char>(value.front())))
+    value.erase(value.begin());
+  while (!value.empty() && isSpace(static_cast<unsigned char>(value.back())))
+    value.pop_back();
+  return value;
+}
+
+// Converts a string to lowercase ASCII for stable comparisons.
+std::string ToLowerAscii(std::string value) {
+  std::transform(
+      value.begin(), value.end(), value.begin(),
+      [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  return value;
+}
+
+// Normalizes fixture type names for merge identity comparisons.
+std::string NormalizeFixtureTypeName(const std::string &typeName) {
+  return ToLowerAscii(TrimAscii(typeName));
+}
+
+// Resolves a scene resource path to the best available local filesystem path.
+std::filesystem::path
+ResolveSceneResourcePath(const MvrScene &scene,
+                         const std::string &resourcePath) {
+  if (resourcePath.empty())
+    return {};
+
+  std::filesystem::path path = std::filesystem::path(resourcePath);
+  if (path.is_absolute())
+    return path;
+  if (!scene.basePath.empty())
+    return std::filesystem::path(scene.basePath) / path;
+  return path;
+}
+
+// Normalizes a resolved path token for case-insensitive identity comparisons.
+std::string NormalizeResolvedPathToken(const std::filesystem::path &path,
+                                       const std::string &fallback) {
+  std::error_code ec;
+  const std::filesystem::path absolute = std::filesystem::absolute(path, ec);
+  if (!ec)
+    return ToLowerAscii(absolute.lexically_normal().string());
+  return ToLowerAscii(TrimAscii(fallback));
+}
+
+// Creates an identity descriptor for a fixture type in the supplied scene.
+MvrFixtureTypeIdentity BuildFixtureTypeIdentity(const MvrScene &scene,
+                                                const Fixture &fixture,
+                                                const std::string &normalized) {
+  MvrFixtureTypeIdentity identity;
+  identity.normalizedTypeName = normalized;
+  identity.typeName = fixture.typeName;
+  identity.gdtfSpec = fixture.gdtfSpec;
+  identity.gdtfMode = fixture.gdtfMode;
+
+  const std::filesystem::path resolvedPath =
+      ResolveSceneResourcePath(scene, fixture.gdtfSpec);
+  if (!resolvedPath.empty()) {
+    identity.resolvedGdtfSpec =
+        NormalizeResolvedPathToken(resolvedPath, fixture.gdtfSpec);
+    std::error_code ec;
+    if (std::filesystem::is_regular_file(resolvedPath, ec) && !ec) {
+      if (const auto hash = FileImportUtils::ComputeFileSha256(resolvedPath))
+        identity.gdtfSha256 = *hash;
+    }
+  } else {
+    identity.resolvedGdtfSpec = ToLowerAscii(TrimAscii(fixture.gdtfSpec));
+  }
+  return identity;
+}
+
+// Chooses a stable display name for an imported conflicting fixture type.
+std::string BuildUniqueImportedTypeName(
+    const MvrFixtureTypeIdentity &incoming,
+    const std::unordered_set<std::string> &reservedNormalizedNames) {
+  const std::string base = !TrimAscii(incoming.typeName).empty()
+                               ? TrimAscii(incoming.typeName)
+                               : "Imported fixture type";
+  std::string candidate = base + " (Imported)";
+  int suffix = 2;
+  while (reservedNormalizedNames.contains(NormalizeFixtureTypeName(candidate)))
+    candidate = base + " (Imported " + std::to_string(suffix++) + ")";
+  return candidate;
+}
 
 // Collects every UUID already owned by a scene across object and lookup tables.
 std::unordered_set<std::string> CollectUsedUuids(const MvrScene &scene) {
@@ -117,15 +208,104 @@ void PrepareObjectTable(const std::unordered_map<std::string, T> &imported,
     (void)ResolveImportedUuid(uuid, tableName, usedUuids, analysis, options);
 }
 
+// Adds fixture type conflict metadata and rename decisions to the analysis.
+void AnalyzeFixtureTypeConflicts(const MvrMergeOptions &options,
+                                 MvrMergeAnalysis &analysis) {
+  std::unordered_set<std::string> reservedNames;
+  for (const auto &[normalized, identity] : analysis.currentFixtureTypes)
+    reservedNames.insert(normalized);
+  for (const auto &[normalized, identity] : analysis.incomingFixtureTypes)
+    reservedNames.insert(normalized);
+
+  for (const auto &[normalized, incoming] : analysis.incomingFixtureTypes) {
+    const auto currentIt = analysis.currentFixtureTypes.find(normalized);
+    if (currentIt == analysis.currentFixtureTypes.end() ||
+        !FixtureTypeIdentitiesConflict(currentIt->second, incoming))
+      continue;
+
+    MvrFixtureTypeConflict conflict;
+    conflict.normalizedTypeName = normalized;
+    conflict.currentIdentity = currentIt->second;
+    conflict.incomingIdentity = incoming;
+    conflict.suggestedIncomingTypeName =
+        BuildUniqueImportedTypeName(incoming, reservedNames);
+    reservedNames.insert(
+        NormalizeFixtureTypeName(conflict.suggestedIncomingTypeName));
+    analysis.fixtureTypeConflicts.push_back(conflict);
+
+    const auto decisionIt = options.fixtureTypeDecisions.find(normalized);
+    if (decisionIt == options.fixtureTypeDecisions.end())
+      continue;
+    analysis.fixtureTypeDecisions[normalized] = decisionIt->second;
+    if (decisionIt->second == MvrMergeFixtureTypeDecision::RenameIncomingType)
+      analysis.incomingFixtureTypeRenames[normalized] =
+          conflict.suggestedIncomingTypeName;
+  }
+}
+
 } // namespace
+
+// Builds a fixture type identity map keyed by normalized fixture type name.
+std::unordered_map<std::string, MvrFixtureTypeIdentity>
+BuildFixtureTypeIdentityMap(const MvrScene &scene) {
+  std::unordered_map<std::string, MvrFixtureTypeIdentity> types;
+  std::vector<std::string> fixtureUuids;
+  fixtureUuids.reserve(scene.fixtures.size());
+  for (const auto &[uuid, fixture] : scene.fixtures)
+    fixtureUuids.push_back(uuid);
+  std::sort(fixtureUuids.begin(), fixtureUuids.end());
+
+  for (const auto &uuid : fixtureUuids) {
+    const Fixture &fixture = scene.fixtures.at(uuid);
+    const std::string normalized = NormalizeFixtureTypeName(fixture.typeName);
+    if (normalized.empty())
+      continue;
+    const MvrFixtureTypeIdentity identity =
+        BuildFixtureTypeIdentity(scene, fixture, normalized);
+    const auto existingIt = types.find(normalized);
+    if (existingIt == types.end()) {
+      types.emplace(normalized, identity);
+      continue;
+    }
+  }
+  return types;
+}
+
+// Reports whether two fixture identities resolve to different definitions.
+bool FixtureTypeIdentitiesConflict(const MvrFixtureTypeIdentity &current,
+                                   const MvrFixtureTypeIdentity &incoming) {
+  if (TrimAscii(current.gdtfMode) != TrimAscii(incoming.gdtfMode))
+    return true;
+  if (!current.gdtfSha256.empty() && !incoming.gdtfSha256.empty())
+    return current.gdtfSha256 != incoming.gdtfSha256;
+  if (!current.resolvedGdtfSpec.empty() || !incoming.resolvedGdtfSpec.empty())
+    return current.resolvedGdtfSpec != incoming.resolvedGdtfSpec;
+  return ToLowerAscii(TrimAscii(current.gdtfSpec)) !=
+         ToLowerAscii(TrimAscii(incoming.gdtfSpec));
+}
+
+// Reports whether unresolved fixture type conflicts prevent merge application.
+bool HasBlockingFixtureTypeConflicts(const MvrMergeAnalysis &analysis) {
+  for (const auto &conflict : analysis.fixtureTypeConflicts) {
+    const auto decisionIt =
+        analysis.fixtureTypeDecisions.find(conflict.normalizedTypeName);
+    if (decisionIt == analysis.fixtureTypeDecisions.end() ||
+        decisionIt->second == MvrMergeFixtureTypeDecision::CancelMerge)
+      return true;
+  }
+  return false;
+}
 
 // Analyzes imported scene UUIDs and prepares collision-safe reference remaps.
 MvrMergeAnalysis AnalyzeImportedSceneMerge(const MvrScene &target,
                                            const MvrScene &imported,
                                            const MvrMergeOptions &options) {
   MvrMergeAnalysis analysis;
-  std::unordered_set<std::string> usedUuids = CollectUsedUuids(target);
+  analysis.currentFixtureTypes = BuildFixtureTypeIdentityMap(target);
+  analysis.incomingFixtureTypes = BuildFixtureTypeIdentityMap(imported);
+  AnalyzeFixtureTypeConflicts(options, analysis);
 
+  std::unordered_set<std::string> usedUuids = CollectUsedUuids(target);
   PrepareObjectTable(imported.positions, "positions", usedUuids, analysis,
                      options);
   PrepareObjectTable(imported.symdefFiles, "symdefFiles", usedUuids, analysis,

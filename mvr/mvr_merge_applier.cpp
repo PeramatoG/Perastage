@@ -17,10 +17,35 @@
  */
 #include "mvr_merge_applier.h"
 
+#include <algorithm>
+#include <cctype>
 #include <utility>
 
 namespace mvr {
 namespace {
+
+// Trims leading and trailing ASCII whitespace from a value.
+std::string TrimAscii(std::string value) {
+  auto isSpace = [](unsigned char ch) { return std::isspace(ch) != 0; };
+  while (!value.empty() && isSpace(static_cast<unsigned char>(value.front())))
+    value.erase(value.begin());
+  while (!value.empty() && isSpace(static_cast<unsigned char>(value.back())))
+    value.pop_back();
+  return value;
+}
+
+// Converts a string to lowercase ASCII for stable comparisons.
+std::string ToLowerAscii(std::string value) {
+  std::transform(
+      value.begin(), value.end(), value.begin(),
+      [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  return value;
+}
+
+// Normalizes fixture type names for merge decision lookup.
+std::string NormalizeFixtureTypeName(const std::string &typeName) {
+  return ToLowerAscii(TrimAscii(typeName));
+}
 
 // Adds imported lookup-table entries with prepared UUID remaps.
 template <typename T>
@@ -50,6 +75,32 @@ std::size_t MergeObjectTable(std::unordered_map<std::string, T> &target,
     ++added;
   }
   return added;
+}
+
+// Applies selected fixture type conflict decisions to imported fixtures.
+void ApplyFixtureTypeDecisions(MvrScene &scene,
+                               const MvrMergeAnalysis &analysis) {
+  for (auto &[uuid, fixture] : scene.fixtures) {
+    const std::string normalized = NormalizeFixtureTypeName(fixture.typeName);
+    const auto decisionIt = analysis.fixtureTypeDecisions.find(normalized);
+    if (decisionIt == analysis.fixtureTypeDecisions.end())
+      continue;
+    if (decisionIt->second ==
+        MvrMergeFixtureTypeDecision::UseCurrentDefinition) {
+      const auto currentIt = analysis.currentFixtureTypes.find(normalized);
+      if (currentIt == analysis.currentFixtureTypes.end())
+        continue;
+      fixture.typeName = currentIt->second.typeName;
+      fixture.gdtfSpec = currentIt->second.gdtfSpec;
+      fixture.gdtfMode = currentIt->second.gdtfMode;
+    } else if (decisionIt->second ==
+               MvrMergeFixtureTypeDecision::RenameIncomingType) {
+      const auto renameIt =
+          analysis.incomingFixtureTypeRenames.find(normalized);
+      if (renameIt != analysis.incomingFixtureTypeRenames.end())
+        fixture.typeName = renameIt->second;
+    }
+  }
 }
 
 // Updates imported scene references after building the UUID remap table.
@@ -95,9 +146,14 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
                                             const MvrMergeAnalysis &analysis) {
   MvrSceneMergeResult result;
   result.uuidCollisionsResolved = analysis.uuidCollisionsResolved;
+  if (HasBlockingFixtureTypeConflicts(analysis)) {
+    result.fixtureTypeConflictsBlocked = analysis.fixtureTypeConflicts.size();
+    return result;
+  }
   result.fixtureUuidRemap = analysis.fixtureUuidRemap;
 
   MvrScene importedCopy = imported;
+  ApplyFixtureTypeDecisions(importedCopy, analysis);
   RemapImportedReferences(importedCopy, analysis);
 
   MergeLookupTable(target.positions, importedCopy.positions, analysis);

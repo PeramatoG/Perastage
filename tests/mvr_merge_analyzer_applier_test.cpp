@@ -2,6 +2,8 @@
 #include "mvr_merge_applier.h"
 
 #include <cassert>
+#include <filesystem>
+#include <fstream>
 #include <string>
 
 // Builds a fixture with the requested UUID and position reference.
@@ -13,8 +15,27 @@ static Fixture MakeFixture(const std::string &uuid,
   return fixture;
 }
 
-// Builds a support with the requested UUID, position reference, and motor
-// fixture reference.
+// Builds a fixture with a user-visible type name and GDTF identity.
+static Fixture MakeTypedFixture(const std::string &uuid,
+                                const std::string &typeName,
+                                const std::string &gdtfSpec,
+                                const std::string &gdtfMode) {
+  Fixture fixture = MakeFixture(uuid, "");
+  fixture.typeName = typeName;
+  fixture.gdtfSpec = gdtfSpec;
+  fixture.gdtfMode = gdtfMode;
+  return fixture;
+}
+
+// Writes a small GDTF placeholder file for SHA-256 identity tests.
+static void WriteGdtfFile(const std::filesystem::path &path,
+                          const std::string &content) {
+  std::filesystem::create_directories(path.parent_path());
+  std::ofstream out(path, std::ios::binary);
+  out << content;
+}
+
+// Builds a support with requested references.
 static Support MakeSupport(const std::string &uuid, const std::string &position,
                            const std::string &motorFixtureUuid) {
   Support support;
@@ -63,8 +84,7 @@ static void VerifyFixtureUuidCollisionUsesStableReplacement() {
   assert(target.fixtures.count(firstAnalysis.uuidMap.at("fixture-a")) == 1);
 }
 
-// Verifies group child references follow UUID remaps for colliding imported
-// children.
+// Verifies group child references follow UUID remaps.
 static void VerifyGroupChildRemapping() {
   MvrScene target;
   target.fixtures["fixture-a"] = MakeFixture("fixture-a", "");
@@ -85,8 +105,7 @@ static void VerifyGroupChildRemapping() {
          remappedFixtureUuid);
 }
 
-// Verifies support position and linked motor fixture references follow remapped
-// UUIDs.
+// Verifies support references follow remapped UUIDs.
 static void VerifySupportPositionReferenceRemapping() {
   MvrScene target;
   target.positions["position-a"] = "Existing position";
@@ -111,11 +130,102 @@ static void VerifySupportPositionReferenceRemapping() {
          remappedFixtureUuid);
 }
 
-// Verifies merge analysis resolves collisions before applying imported scene
-// data.
+// Verifies fixture type conflicts block automatic merge.
+static void VerifyFixtureTypeGdtfConflictBlocksAutomaticMerge() {
+  const std::filesystem::path tempDir = std::filesystem::temp_directory_path() /
+                                        "perastage_mvr_merge_identity_test";
+  std::filesystem::remove_all(tempDir);
+  WriteGdtfFile(tempDir / "current" / "spot.gdtf", "current gdtf");
+  WriteGdtfFile(tempDir / "incoming" / "spot.gdtf", "incoming gdtf");
+
+  MvrScene target;
+  target.basePath = (tempDir / "current").string();
+  target.fixtures["current-fixture"] =
+      MakeTypedFixture("current-fixture", "Spot", "spot.gdtf", "Mode A");
+
+  MvrScene imported;
+  imported.basePath = (tempDir / "incoming").string();
+  imported.fixtures["incoming-fixture"] =
+      MakeTypedFixture("incoming-fixture", "spot", "spot.gdtf", "Mode A");
+
+  const mvr::MvrMergeAnalysis analysis =
+      mvr::AnalyzeImportedSceneMerge(target, imported);
+  assert(analysis.currentFixtureTypes.at("spot").typeName == "Spot");
+  assert(analysis.incomingFixtureTypes.at("spot").typeName == "spot");
+  assert(!analysis.currentFixtureTypes.at("spot").gdtfSha256.empty());
+  assert(!analysis.incomingFixtureTypes.at("spot").gdtfSha256.empty());
+  assert(analysis.currentFixtureTypes.at("spot").gdtfSha256 !=
+         analysis.incomingFixtureTypes.at("spot").gdtfSha256);
+  assert(analysis.fixtureTypeConflicts.size() == 1);
+  assert(mvr::HasBlockingFixtureTypeConflicts(analysis));
+
+  const mvr::MvrSceneMergeResult result =
+      mvr::ApplyImportedSceneMerge(target, imported, analysis);
+  assert(result.fixtureTypeConflictsBlocked == 1);
+  assert(target.fixtures.count("incoming-fixture") == 0);
+}
+
+// Verifies current-definition decisions update incoming fixtures.
+static void VerifyUseCurrentDefinitionDecisionAppliesToIncomingFixtures() {
+  MvrScene target;
+  target.fixtures["current-fixture"] =
+      MakeTypedFixture("current-fixture", "Spot", "current.gdtf", "Mode A");
+
+  MvrScene imported;
+  imported.fixtures["incoming-a"] =
+      MakeTypedFixture("incoming-a", "spot", "incoming.gdtf", "Mode B");
+  imported.fixtures["incoming-b"] =
+      MakeTypedFixture("incoming-b", "SPOT", "incoming.gdtf", "Mode B");
+
+  mvr::MvrMergeOptions options;
+  options.fixtureTypeDecisions["spot"] =
+      mvr::MvrMergeFixtureTypeDecision::UseCurrentDefinition;
+  const mvr::MvrMergeAnalysis analysis =
+      mvr::AnalyzeImportedSceneMerge(target, imported, options);
+  assert(!mvr::HasBlockingFixtureTypeConflicts(analysis));
+  mvr::ApplyImportedSceneMerge(target, imported, analysis);
+
+  assert(target.fixtures.at("incoming-a").typeName == "Spot");
+  assert(target.fixtures.at("incoming-a").gdtfSpec == "current.gdtf");
+  assert(target.fixtures.at("incoming-a").gdtfMode == "Mode A");
+  assert(target.fixtures.at("incoming-b").typeName == "Spot");
+  assert(target.fixtures.at("incoming-b").gdtfSpec == "current.gdtf");
+}
+
+// Verifies rename decisions preserve imported definitions.
+static void VerifyRenameIncomingDefinitionDecisionAppliesToIncomingFixtures() {
+  MvrScene target;
+  target.fixtures["current-fixture"] =
+      MakeTypedFixture("current-fixture", "Spot", "current.gdtf", "Mode A");
+
+  MvrScene imported;
+  imported.fixtures["incoming-a"] =
+      MakeTypedFixture("incoming-a", "Spot", "incoming.gdtf", "Mode B");
+  imported.fixtures["incoming-b"] =
+      MakeTypedFixture("incoming-b", "spot", "incoming.gdtf", "Mode B");
+
+  mvr::MvrMergeOptions options;
+  options.fixtureTypeDecisions["spot"] =
+      mvr::MvrMergeFixtureTypeDecision::RenameIncomingType;
+  const mvr::MvrMergeAnalysis analysis =
+      mvr::AnalyzeImportedSceneMerge(target, imported, options);
+  assert(!mvr::HasBlockingFixtureTypeConflicts(analysis));
+  assert(analysis.incomingFixtureTypeRenames.at("spot") == "Spot (Imported)");
+  mvr::ApplyImportedSceneMerge(target, imported, analysis);
+
+  assert(target.fixtures.at("incoming-a").typeName == "Spot (Imported)");
+  assert(target.fixtures.at("incoming-a").gdtfSpec == "incoming.gdtf");
+  assert(target.fixtures.at("incoming-a").gdtfMode == "Mode B");
+  assert(target.fixtures.at("incoming-b").typeName == "Spot (Imported)");
+}
+
+// Verifies merge analysis resolves collisions before applying imported data.
 int main() {
   VerifyFixtureUuidCollisionUsesStableReplacement();
   VerifyGroupChildRemapping();
   VerifySupportPositionReferenceRemapping();
+  VerifyFixtureTypeGdtfConflictBlocksAutomaticMerge();
+  VerifyUseCurrentDefinitionDecisionAppliesToIncomingFixtures();
+  VerifyRenameIncomingDefinitionDecisionAppliesToIncomingFixtures();
   return 0;
 }
