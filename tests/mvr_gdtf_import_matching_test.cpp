@@ -51,10 +51,43 @@ static void VerifyResolvedTypeFallback() {
          "BLED Standard mode 12CH");
 }
 
+// Verifies name confidence outranks footprint matches.
+static void VerifyExactNameWithoutFootprintBeatsPartialNameWithFootprint() {
+  const auto exactTier = matching::ComputeFixtureNameMatchTier("My Beam 200",
+                                                              "My Beam 200");
+  const auto partialTier = matching::ComputeFixtureNameMatchTier("My Beam 200 Extended",
+                                                                "My Beam 200");
+  const matching::DownloadCandidateRank exactNoFootprint{
+      exactTier, false, false, 100, 0.0f};
+  const matching::DownloadCandidateRank partialWithFootprint{
+      partialTier, true, false, 200, 5.0f};
+
+  assert(exactTier == matching::FixtureNameMatchTier::ExactNormalized);
+  assert(partialTier == matching::FixtureNameMatchTier::Partial);
+  assert(matching::IsBetterDownloadCandidate(exactNoFootprint, partialWithFootprint));
+  assert(!matching::IsBetterDownloadCandidate(partialWithFootprint, exactNoFootprint));
+}
+
+// Verifies manufacturer matches outrank recency ties.
+static void VerifyManufacturerMatchBeatsRecencyInsideSameNameAndFootprintTier() {
+  const auto tier = matching::ComputeFixtureNameMatchTier("My Beam 200", "My Beam 200");
+  const matching::DownloadCandidateRank manufacturerMatch{
+      tier, true, true, 100, 0.0f};
+  const matching::DownloadCandidateRank newerWithoutManufacturer{
+      tier, true, false, 200, 5.0f};
+
+  assert(matching::IsBetterDownloadCandidate(manufacturerMatch,
+                                             newerWithoutManufacturer));
+  assert(!matching::IsBetterDownloadCandidate(newerWithoutManufacturer,
+                                              manufacturerMatch));
+}
+
 // Runs focused coverage for MVR-requested GDTF import matching identity selection.
 int main() {
   VerifyDistinctOriginalNamesBeatSharedPlaceholderMetadata();
   VerifySpecBasenameFallback();
   VerifyResolvedTypeFallback();
+  VerifyExactNameWithoutFootprintBeatsPartialNameWithFootprint();
+  VerifyManufacturerMatchBeatsRecencyInsideSameNameAndFootprintTier();
   return 0;
 }
