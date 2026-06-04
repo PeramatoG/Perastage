@@ -7,7 +7,9 @@ Perastage is built for MVR-centered workflows.
 Use one of these methods:
 
 - Open an existing `.mvr` file directly.
-- Use **File → Import MVR...**.
+- Use **File → Import MVR...**. After choosing a file, select **Open as new project** to replace the current scene or **Merge into current project** to add the selected MVR content to the current scene.
+
+Opening an `.mvr` file directly from the command line, operating system file association, or startup path uses the clean **Open as new project** behavior.
 
 After import, review fixtures, trusses, hoists, objects, and layout information in the available views and tables.
 

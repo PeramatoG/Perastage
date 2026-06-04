@@ -30,8 +30,9 @@ Perastage is designed for lighting designers, programmers, and technicians who n
 ### MVR import and open behavior
 
 - Imports MVR 1.6 scenes with fixtures, trusses, hoists/supports, and generic objects.
-- `.mvr` opening uses a clean-scene reset plus import flow for deterministic behavior.
-- Menu import and OS association entry points use the same progress and UI lock strategy.
+- `.mvr` opening from startup, command-line, or OS association uses a clean-scene reset plus import flow for deterministic behavior.
+- Menu import lets you choose between opening the selected MVR as a new project or merging it into the current project.
+- Merged MVR content preserves existing scene content and resolves imported UUID collisions so both scenes can coexist.
 
 ### MVR export
 

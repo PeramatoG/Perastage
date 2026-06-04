@@ -17,6 +17,7 @@ Changes since `v1.2.0`.
 - Added a GUI update-check action and startup update-check preference, making it easier to discover new Perastage versions.
 - Added fixture replacement from the Edit menu, including improved source labeling, transform preservation, selection stability, UUID handling, and color reuse/autocolor behavior.
 - Added support for packaging referenced layout images into project archives, making `.pstg` project files more portable when shared or reopened elsewhere.
+- Added an MVR import choice so users can open a selected MVR as a new project or merge it into the current project.
 
 ## Improvements
 

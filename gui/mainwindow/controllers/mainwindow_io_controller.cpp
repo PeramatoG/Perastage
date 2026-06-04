@@ -2,7 +2,9 @@
 
 #include "mainwindow.h"
 
+#include <wx/arrstr.h>
 #include <wx/busyinfo.h>
+#include <wx/choicdlg.h>
 #include <wx/filedlg.h>
 #include <wx/filename.h>
 #include <wx/msgdlg.h>
@@ -12,6 +14,7 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 
 #include "consolepanel.h"
@@ -26,6 +29,7 @@
 #include "layoutviewerpanel.h"
 #include "logger.h"
 #include "mvrimporter.h"
+#include "mvrscenemerger.h"
 #include "projectutils.h"
 #include "sceneobjecttablepanel.h"
 #include "splashscreen.h"
@@ -33,6 +37,34 @@
 #include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
+
+namespace {
+
+enum class MvrImportChoice {
+  OpenAsNewProject,
+  MergeIntoCurrentProject,
+  Cancel,
+};
+
+// Shows the user-facing MVR import mode selection dialog after a file has been chosen.
+MvrImportChoice ShowMvrImportChoiceDialog(wxWindow *parent) {
+  wxArrayString choices;
+  choices.Add("Open as new project");
+  choices.Add("Merge into current project");
+  wxSingleChoiceDialog dialog(
+      parent,
+      "Choose how Perastage should import the selected MVR file.",
+      "Import MVR", choices);
+  dialog.SetSelection(0);
+
+  if (dialog.ShowModal() != wxID_OK)
+    return MvrImportChoice::Cancel;
+  if (dialog.GetSelection() == 1)
+    return MvrImportChoice::MergeIntoCurrentProject;
+  return MvrImportChoice::OpenAsNewProject;
+}
+
+} // namespace
 
 // Stores the owning MainWindow pointer for IO operations during the controller lifetime.
 MainWindowIoController::MainWindowIoController(MainWindow &owner)
@@ -170,6 +202,27 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     cfg.SetValue(kViewer3DRenderStyleConfigKey, *preservedViewer3DRenderStyle);
   layouts::LayoutManager::Get().LoadFromConfig(cfg);
 
+  RefreshPanelsAfterMvrSceneChange();
+
+  importProgress.reset();
+  importOverlay.reset();
+  importDisabler.reset();
+
+  if (owner->GetStatusBar()) {
+    const wxString fileName = wxFileName(filePath).GetFullName();
+    owner->SetStatusText("MVR imported: " + fileName, 0);
+  }
+  // Re-enables layout rendering only after all import-driven panel updates finish.
+  owner->mvrImportPipelineActive = false;
+  return true;
+}
+
+// Refreshes all scene-dependent UI panels after MVR scene content changes.
+void MainWindowIoController::RefreshPanelsAfterMvrSceneChange() {
+  MainWindow *owner = ownerRef_;
+  if (owner == nullptr)
+    return;
+
   if (owner->layoutPanel)
     owner->layoutPanel->ReloadLayouts();
   if (owner->fixturePanel)
@@ -197,30 +250,15 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   owner->RefreshSummary();
   owner->RefreshRigging();
 
-  // Keep import behavior aligned with the existing Tools > Auto color flow:
-  // once the MVR scene is loaded, trigger auto-color so fixture types without
-  // dictionary colors still receive a color by type/group.
+  // Keeps MVR scene updates aligned with the existing Tools > Auto color flow.
   wxCommandEvent autoColorEvent;
   owner->OnAutoColor(autoColorEvent);
 
-  importProgress.reset();
-  importOverlay.reset();
-  importDisabler.reset();
-
-  if (owner->GetStatusBar()) {
-    const wxString fileName = wxFileName(filePath).GetFullName();
-    owner->SetStatusText("MVR imported: " + fileName, 0);
-  }
-  // Re-enables layout rendering only after all import-driven panel updates finish.
-  owner->mvrImportPipelineActive = false;
-  if (owner->layoutPanel)
-    owner->layoutPanel->ReloadLayouts();
   if (owner->layoutViewerPanel)
     owner->layoutViewerPanel->RefreshAfterSceneContentUpdate();
-  return true;
 }
 
-// Opens a file picker and imports the selected MVR file using the official open policy.
+// Opens a file picker and imports the selected MVR file using the selected import mode.
 void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
@@ -236,9 +274,96 @@ void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
 
   const wxString filePath = openFileDialog.GetPath();
   const std::string pathUtf8 = filePath.ToUTF8().data();
-  (void)ImportMvrWithOfficialPolicy(pathUtf8);
+  switch (ShowMvrImportChoiceDialog(ownerRef_)) {
+  case MvrImportChoice::OpenAsNewProject:
+    (void)ImportMvrWithOfficialPolicy(pathUtf8);
+    return;
+  case MvrImportChoice::MergeIntoCurrentProject:
+    (void)MergeMvrFromPath(pathUtf8);
+    return;
+  case MvrImportChoice::Cancel:
+    return;
+  }
 }
 
+// Merges an MVR file into the current scene while keeping existing project content.
+bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
+  constexpr const char *kLayoutsConfigKey = "layouts_collection";
+  constexpr const char *kViewer3DRenderStyleConfigKey = "viewer3d_render_style";
+  MainWindow *owner = ownerRef_;
+  if (owner == nullptr || owner->guiConfigServices == nullptr)
+    return false;
+
+  ConfigManager &cfg = owner->guiConfigServices->LegacyConfigManager();
+  MvrScene currentScene = cfg.GetScene();
+  const std::optional<std::string> preservedLayoutsConfig =
+      cfg.GetValue(kLayoutsConfigKey);
+  const std::optional<std::string> preservedViewer3DRenderStyle =
+      cfg.GetValue(kViewer3DRenderStyleConfigKey);
+
+  auto restorePreservedConfig = [&cfg, &preservedLayoutsConfig,
+                                 &preservedViewer3DRenderStyle]() {
+    if (preservedLayoutsConfig.has_value())
+      cfg.SetValue(kLayoutsConfigKey, *preservedLayoutsConfig);
+    else
+      cfg.RemoveKey(kLayoutsConfigKey);
+    if (preservedViewer3DRenderStyle.has_value())
+      cfg.SetValue(kViewer3DRenderStyleConfigKey, *preservedViewer3DRenderStyle);
+    else
+      cfg.RemoveKey(kViewer3DRenderStyleConfigKey);
+    layouts::LayoutManager::Get().LoadFromConfig(cfg);
+  };
+
+  owner->mvrImportPipelineActive = true;
+  SplashScreen::Hide();
+  if (owner->GetStatusBar())
+    owner->SetStatusText("MVR merge: importing selected file...", 0);
+
+  MvrScene importedScene;
+  MvrImporter mergeImporter;
+  owner->LockViewportInteraction();
+  const bool imported =
+      mergeImporter.ImportSceneFromFile(pathUtf8, importedScene, true, true);
+  owner->UnlockViewportInteraction();
+
+  if (!imported) {
+    cfg.GetScene() = currentScene;
+    restorePreservedConfig();
+    owner->mvrImportPipelineActive = false;
+    if (owner->GetStatusBar())
+      owner->SetStatusText("MVR merge failed.", 0);
+    wxMessageBox("Failed to import MVR file for merge.", "Error",
+                 wxOK | wxICON_ERROR, owner);
+    if (owner->consolePanel)
+      owner->consolePanel->AppendMessage("Failed to merge " +
+                                           wxString::FromUTF8(pathUtf8));
+    return false;
+  }
+
+  cfg.GetScene() = currentScene;
+  cfg.PushUndoState("merge MVR");
+  const mvr::MvrSceneMergeResult mergeResult =
+      mvr::MergeImportedSceneIntoCurrent(cfg.GetScene(), importedScene);
+  cfg.MarkDirty();
+  restorePreservedConfig();
+  viewer2d::ReconcileFixtureLabelOverridesWithScene(cfg);
+  RefreshPanelsAfterMvrSceneChange();
+  owner->mvrImportPipelineActive = false;
+
+  const wxString fileName =
+      wxFileName(wxString::FromUTF8(pathUtf8)).GetFullName();
+  if (owner->consolePanel) {
+    std::ostringstream summary;
+    summary << "Merged " << pathUtf8 << " (" << mergeResult.fixturesAdded
+            << " fixtures, " << mergeResult.trussesAdded << " trusses, "
+            << mergeResult.supportsAdded << " hoists, "
+            << mergeResult.sceneObjectsAdded << " objects)";
+    owner->consolePanel->AppendMessage(wxString::FromUTF8(summary.str()));
+  }
+  if (owner->GetStatusBar())
+    owner->SetStatusText("MVR merged: " + fileName, 0);
+  return true;
+}
 
 // Applies the official MVR-open policy by confirming unsaved changes before importing the file.
 bool MainWindowIoController::ImportMvrWithOfficialPolicy(
@@ -307,13 +432,13 @@ bool MainWindowIoController::OpenPathFromCommandLine(
     return true;
   }
 
-  if (extension == "mvr")
-  {
+  if (extension == "mvr") {
     Logger::Instance().Log("Opening MVR from external request: " + pathUtf8);
-    const bool imported = ImportMvrFromPath(pathUtf8);
+    const bool imported = ImportMvrWithOfficialPolicy(pathUtf8);
     wxFileName fileInfo(wxString::FromUTF8(pathUtf8));
     if (imported) {
-      Logger::Instance().Log("MVR imported: " + fileInfo.GetFullName().ToStdString());
+      Logger::Instance().Log("MVR imported: " +
+                             fileInfo.GetFullName().ToStdString());
     } else {
       Logger::Instance().Log("MVR import failed: " + pathUtf8);
     }
