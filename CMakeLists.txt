@@ -123,6 +123,8 @@ add_executable(${PROJECT_NAME} main.cpp
     models/sceneobject.cpp
     models/truss.cpp
     mvr/mvrimporter.cpp
+    mvr/mvr_merge_analyzer.cpp
+    mvr/mvr_merge_applier.cpp
     mvr/mvrscenemerger.cpp
     mvr/mvrexporter.cpp
     mvr/primitive_model_resources.cpp

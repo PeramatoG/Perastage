@@ -319,11 +319,11 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
   if (owner->GetStatusBar())
     owner->SetStatusText("MVR merge: importing selected file...", 0);
 
-  MvrScene importedScene;
+  MvrImportResult importResult;
   MvrImporter mergeImporter;
   owner->LockViewportInteraction();
-  const bool imported =
-      mergeImporter.ImportSceneFromFile(pathUtf8, importedScene, true, true);
+  const bool imported = mergeImporter.ImportFromFile(
+      pathUtf8, importResult, MvrImportMode::ParseOnly, true, true);
   owner->UnlockViewportInteraction();
 
   if (!imported) {
@@ -343,7 +343,7 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
   cfg.GetScene() = currentScene;
   cfg.PushUndoState("merge MVR");
   const mvr::MvrSceneMergeResult mergeResult =
-      mvr::MergeImportedSceneIntoCurrent(cfg.GetScene(), importedScene);
+      mvr::MergeImportedSceneIntoCurrent(cfg.GetScene(), importResult.scene);
   cfg.MarkDirty();
   restorePreservedConfig();
   viewer2d::ReconcileFixtureLabelOverridesWithScene(cfg);

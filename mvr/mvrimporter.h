@@ -18,10 +18,20 @@
 #pragma once
 
 #include <functional>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 
-class MvrScene;
+#include "mvrscene.h"
+
+enum class MvrImportMode {
+    ReplaceProject,
+    ParseOnly,
+};
+
+struct MvrImportResult {
+    MvrScene scene;
+    std::unordered_map<std::string, std::string> fixtureUuidRemap;
+};
 
 // Responsible for importing .mvr files into the application's internal data model
 class MvrImporter
@@ -41,6 +51,14 @@ public:
     using ProgressCallback = std::function<void(const ProgressState& state)>;
 
     bool ImportFromFile(const std::string& filePath,
+                        bool promptConflicts = true,
+                        bool applyDictionary = true,
+                        ProgressCallback progressCallback = {});
+
+    // Imports and parses a .mvr file into an import result using the requested import mode.
+    bool ImportFromFile(const std::string& filePath,
+                        MvrImportResult& importResult,
+                        MvrImportMode mode = MvrImportMode::ReplaceProject,
                         bool promptConflicts = true,
                         bool applyDictionary = true,
                         ProgressCallback progressCallback = {});
@@ -70,16 +88,17 @@ private:
     // Extracts the .mvr (ZIP) contents into the given destination directory
     bool ExtractMvrZip(const std::string& mvrPath, const std::string& destDir);
 
-    // Extracts and parses a .mvr file into either the global scene or a provided target scene.
-    bool ImportFromFileIntoScene(const std::string& filePath,
-                                 MvrScene* targetScene,
-                                 bool promptConflicts,
-                                 bool applyDictionary,
-                                 ProgressCallback progressCallback);
+    // Extracts and parses a .mvr file into an import result payload.
+    bool ImportFromFileIntoResult(const std::string& filePath,
+                                  MvrImportResult& importResult,
+                                  MvrImportMode mode,
+                                  bool promptConflicts,
+                                  bool applyDictionary,
+                                  ProgressCallback progressCallback);
 
-    // Parses the GeneralSceneDescription.xml file and updates the selected scene model.
+    // Parses the GeneralSceneDescription.xml file and updates the import result payload.
     bool ParseSceneXml(const std::string& sceneXmlPath,
-                       MvrScene* targetScene,
+                       MvrImportResult& importResult,
                        bool promptConflicts,
                        bool applyDictionary,
                        ProgressCallback progressCallback);

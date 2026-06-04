@@ -62,4 +62,5 @@ Changes since `v1.2.0`.
 - Refactored layout render invalidation, selected element z-order mapping, label builders, and status notification plumbing without changing the intended user workflow.
 - Added internal resource-reference synchronization and layout image resource registry support used by project save/export paths.
 - Added symbol cache manifest infrastructure and tests to improve project cache consistency.
+- Refined MVR import internals so merge workflows can parse scene payloads without resetting the active project first.
 - Added and adjusted CI/release workflow plumbing for installer artifact handling, Arch Linux package generation, curated release notes, and version-bump safety.

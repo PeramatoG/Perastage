@@ -1096,8 +1096,20 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  bool promptConflicts,
                                  bool applyDictionary,
                                  ProgressCallback progressCallback) {
-  return ImportFromFileIntoScene(filePath, nullptr, promptConflicts,
-                                 applyDictionary, progressCallback);
+  MvrImportResult importResult;
+  return ImportFromFile(filePath, importResult, MvrImportMode::ReplaceProject,
+                        promptConflicts, applyDictionary, progressCallback);
+}
+
+// Imports an MVR file into an import result and optionally replaces the global project.
+bool MvrImporter::ImportFromFile(const std::string &filePath,
+                                 MvrImportResult &importResult,
+                                 MvrImportMode mode,
+                                 bool promptConflicts,
+                                 bool applyDictionary,
+                                 ProgressCallback progressCallback) {
+  return ImportFromFileIntoResult(filePath, importResult, mode, promptConflicts,
+                                  applyDictionary, progressCallback);
 }
 
 // Imports an MVR file into the provided scene without resetting global configuration.
@@ -1106,16 +1118,25 @@ bool MvrImporter::ImportSceneFromFile(const std::string &filePath,
                                       bool promptConflicts,
                                       bool applyDictionary,
                                       ProgressCallback progressCallback) {
-  return ImportFromFileIntoScene(filePath, &targetScene, promptConflicts,
-                                 applyDictionary, progressCallback);
+  MvrImportResult importResult;
+  const bool imported = ImportFromFile(
+      filePath, importResult, MvrImportMode::ParseOnly, promptConflicts,
+      applyDictionary, progressCallback);
+  if (!imported)
+    return false;
+
+  targetScene = std::move(importResult.scene);
+  fixtureUuidRemap = std::move(importResult.fixtureUuidRemap);
+  return true;
 }
 
-// Extracts an MVR package and parses its scene data into either the global or provided scene.
-bool MvrImporter::ImportFromFileIntoScene(const std::string &filePath,
-                                          MvrScene *targetScene,
-                                          bool promptConflicts,
-                                          bool applyDictionary,
-                                          ProgressCallback progressCallback) {
+// Extracts an MVR package and parses its scene data into an import result payload.
+bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
+                                           MvrImportResult &importResult,
+                                           MvrImportMode mode,
+                                           bool promptConflicts,
+                                           bool applyDictionary,
+                                           ProgressCallback progressCallback) {
   auto reportProgress = [&](std::string stage, int completed = 0, int total = 0) {
     if (!progressCallback)
       return;
@@ -1124,6 +1145,7 @@ bool MvrImporter::ImportFromFileIntoScene(const std::string &filePath,
 
   pathRemap.clear();
   fixtureUuidRemap.clear();
+  importResult = MvrImportResult{};
   // Treat the incoming path as UTF-8 to preserve any non-ASCII characters
   fs::path path = fs::u8path(filePath);
 
@@ -1196,14 +1218,26 @@ bool MvrImporter::ImportFromFileIntoScene(const std::string &filePath,
 
   std::string scenePath = ToString(sceneFile.u8string());
   reportProgress("Parsing scene data...");
-  return ParseSceneXml(scenePath, targetScene, promptConflicts, applyDictionary,
-                       progressCallback);
+  const bool parsed = ParseSceneXml(scenePath, importResult, promptConflicts,
+                                    applyDictionary, progressCallback);
+  if (!parsed)
+    return false;
+
+  if (mode == MvrImportMode::ReplaceProject) {
+    ConfigManager::Get().Reset();
+    ConfigManager::Get().GetScene() = importResult.scene;
+  }
+
+  fixtureUuidRemap = importResult.fixtureUuidRemap;
+  return true;
 }
 
+// Normalizes an MVR archive path so extracted resources can be found reliably.
 std::string MvrImporter::NormalizeArchivePath(const std::string &archivePath) const {
   return NormalizeArchivePathValue(archivePath);
 }
 
+// Returns a remapped extraction path for long archive entries when one exists.
 std::string MvrImporter::RemapArchivePathIfNeeded(const std::string &archivePath) const {
   const std::string normalized = NormalizeArchivePath(archivePath);
   auto it = pathRemap.find(normalized);
@@ -1212,6 +1246,7 @@ std::string MvrImporter::RemapArchivePathIfNeeded(const std::string &archivePath
   return archivePath;
 }
 
+// Creates a temporary extraction directory for the current MVR import.
 std::string MvrImporter::CreateTemporaryDirectory() {
   fs::path tempBase = fs::temp_directory_path();
   for (int attempt = 0; attempt < 32; ++attempt) {
@@ -1230,6 +1265,7 @@ std::string MvrImporter::CreateTemporaryDirectory() {
   return ToString(fallback.u8string());
 }
 
+// Extracts an MVR zip archive into the destination directory.
 bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
                                 const std::string &destDir) {
   wxFileInputStream input(wxString::FromUTF8(mvrPath.c_str()));
@@ -1344,9 +1380,9 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
   return true;
 }
 
-// Parses GeneralSceneDescription.xml and populates the selected scene model.
+// Parses GeneralSceneDescription.xml and populates the import result scene payload.
 bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
-                                MvrScene *targetScene,
+                                MvrImportResult &importResult,
                                 bool promptConflicts,
                                 bool applyDictionary,
                                 ProgressCallback progressCallback) {
@@ -1369,10 +1405,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return false;
   }
 
-  if (targetScene == nullptr)
-    ConfigManager::Get().Reset();
-  MvrScene &scene =
-      targetScene != nullptr ? *targetScene : ConfigManager::Get().GetScene();
+  MvrScene &scene = importResult.scene;
   scene.Clear();
   scene.basePath = ToString(fs::u8path(sceneXmlPath).parent_path().u8string());
 
@@ -3826,9 +3859,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       std::to_string(scene.supports.size()) + " supports, " +
       std::to_string(scene.sceneObjects.size()) + " objects";
   LogMessage(summary);
+  importResult.fixtureUuidRemap = fixtureUuidRemap;
   return true;
 }
 
+// Imports an MVR file and migrates labels after replacing the active project scene.
 bool MvrImporter::ImportAndRegister(const std::string &filePath,
                                     bool promptConflicts,
                                     bool applyDictionary,

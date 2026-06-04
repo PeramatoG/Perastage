@@ -15,17 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "mvrscenemerger.h"
+#pragma once
 
-#include "mvr_merge_applier.h"
+#include "mvr_merge_analyzer.h"
 
 namespace mvr {
 
-// Combines imported MVR scene content into the target while preserving existing objects.
-MvrSceneMergeResult MergeImportedSceneIntoCurrent(MvrScene &target,
-                                                  const MvrScene &imported) {
-  const MvrMergeAnalysis analysis = AnalyzeImportedSceneMerge(target, imported);
-  return ApplyImportedSceneMerge(target, imported, analysis);
-}
+// Applies an analyzed imported scene merge into the target scene.
+MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
+                                            const MvrScene &imported,
+                                            const MvrMergeAnalysis &analysis);
 
 } // namespace mvr
