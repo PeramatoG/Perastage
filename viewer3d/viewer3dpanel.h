@@ -138,6 +138,9 @@ private:
     void OnKeyDown(wxKeyEvent& event);
     void OnMouseEnter(wxMouseEvent& event);
     void OnMouseLeave(wxMouseEvent& event);
+
+    // Clear all selected scene object types and refresh related UI state.
+    void ClearAllObjectSelections(const char* undoLabel);
     void OnCaptureLost(wxMouseCaptureLostEvent& event);
     void ApplyRectangleSelection(const wxPoint& start, const wxPoint& end);
     void DrawSelectionRectangle(int width, int height);
