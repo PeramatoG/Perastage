@@ -201,17 +201,27 @@ jobs:
             echo "No zip files found in release-assets"
           fi
 
-          mapfile -t WIN_MATCHES < <(find release-assets -type f -name 'Perastage_*_Setup.exe' | sort)
-          mapfile -t LINUX_MATCHES < <(find release-assets -type f -name 'Perastage-*-x86_64.AppImage' | sort)
-          mapfile -t MAC_MATCHES < <(find release-assets -type f -name 'Perastage-*-macos-arm64.dmg' | sort)
-          mapfile -t ARCH_MATCHES < <(find release-assets -type f -name 'Perastage-*-arch-x86_64.pkg.tar.zst' | sort)
+          # Finds exactly one release asset for a platform and keeps the match for staging.
+          collect_single_asset() {
+            local label="$1"
+            local pattern="$2"
+            local -n matches_ref="$3"
 
-          if [ "${#WIN_MATCHES[@]}" -ne 1 ] || [ "${#LINUX_MATCHES[@]}" -ne 1 ] || [ "${#MAC_MATCHES[@]}" -ne 1 ] || [ "${#ARCH_MATCHES[@]}" -ne 1 ]; then
-            echo "Expected exactly one installer per platform plus one experimental Arch package"
-            echo "Windows matches (${#WIN_MATCHES[@]}): ${WIN_MATCHES[*]:-none}"
-            echo "Linux AppImage matches (${#LINUX_MATCHES[@]}): ${LINUX_MATCHES[*]:-none}"
-            echo "macOS matches (${#MAC_MATCHES[@]}): ${MAC_MATCHES[*]:-none}"
-            echo "Arch package matches (${#ARCH_MATCHES[@]}): ${ARCH_MATCHES[*]:-none}"
+            mapfile -t matches_ref < <(find release-assets -type f -name "$pattern" | sort)
+            if [ "${#matches_ref[@]}" -ne 1 ]; then
+              echo "${label} matches (${#matches_ref[@]}): ${matches_ref[*]:-none}"
+              return 1
+            fi
+          }
+
+          asset_errors=0
+          collect_single_asset "Windows installer" 'Perastage_*_Setup.exe' WIN_MATCHES || asset_errors=1
+          collect_single_asset "Linux AppImage" 'Perastage-*-x86_64.AppImage' LINUX_MATCHES || asset_errors=1
+          collect_single_asset "macOS DMG" 'Perastage-*-macos-arm64.dmg' MAC_MATCHES || asset_errors=1
+          collect_single_asset "Arch Linux package" 'Perastage-*-arch-x86_64.pkg.tar.zst' ARCH_MATCHES || asset_errors=1
+
+          if [ "$asset_errors" -ne 0 ]; then
+            echo "Expected exactly one release installer asset for Windows, Linux, macOS, and Arch Linux"
             exit 1
           fi
 
@@ -228,7 +238,7 @@ jobs:
           WIN_ASSET="$FINAL_DIR/$(basename "${WIN_MATCHES[0]}")"
           LINUX_ASSET="$FINAL_DIR/$(basename "${LINUX_MATCHES[0]}")"
           MAC_ASSET="$FINAL_DIR/$(basename "${MAC_MATCHES[0]}")"
-          ARCH_ASSET="$FINAL_DIR/$(basename "${ARCH_MATCHES[0]}")"
+          ARCH_INSTALLER_ASSET="$FINAL_DIR/$(basename "${ARCH_MATCHES[0]}")"
 
           echo "Final release assets (release-assets/final):"
           find "$FINAL_DIR" -mindepth 1 -maxdepth 1 -type f -print | sort
@@ -236,7 +246,7 @@ jobs:
           echo "win_asset=$WIN_ASSET" >> "$GITHUB_OUTPUT"
           echo "linux_asset=$LINUX_ASSET" >> "$GITHUB_OUTPUT"
           echo "mac_asset=$MAC_ASSET" >> "$GITHUB_OUTPUT"
-          echo "arch_asset=$ARCH_ASSET" >> "$GITHUB_OUTPUT"
+          echo "arch_installer_asset=$ARCH_INSTALLER_ASSET" >> "$GITHUB_OUTPUT"
 
       - name: Create draft release with curated notes
         env:
@@ -248,7 +258,7 @@ jobs:
           WIN_ASSET: ${{ steps.assets.outputs.win_asset }}
           LINUX_ASSET: ${{ steps.assets.outputs.linux_asset }}
           MAC_ASSET: ${{ steps.assets.outputs.mac_asset }}
-          ARCH_ASSET: ${{ steps.assets.outputs.arch_asset }}
+          ARCH_INSTALLER_ASSET: ${{ steps.assets.outputs.arch_installer_asset }}
         run: |
           set -euo pipefail
 
@@ -256,7 +266,7 @@ jobs:
 
           echo "Creating draft release in $GH_REPO"
 
-          cmd=(gh release create "$TAG_NAME" "$WIN_ASSET" "$LINUX_ASSET" "$MAC_ASSET" "$ARCH_ASSET" --draft --title "$RELEASE_TITLE")
+          cmd=(gh release create "$TAG_NAME" "$WIN_ASSET" "$LINUX_ASSET" "$MAC_ASSET" "$ARCH_INSTALLER_ASSET" --draft --title "$RELEASE_TITLE")
           if [ -s "$RELEASE_NOTES_FILE" ]; then
             echo "Using curated release notes from $RELEASE_NOTES_FILE"
             cmd+=(--notes-file "$RELEASE_NOTES_FILE")

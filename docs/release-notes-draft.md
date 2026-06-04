@@ -8,7 +8,7 @@ Changes since `v1.2.0`.
 - Added measurement tools in both 2D and 3D viewers, with toolbar controls, live distance previews, readable labels, and status-bar feedback.
 - Added update checking from the GUI, including a startup preference so users can choose whether Perastage checks for newer versions automatically.
 - Improved layout viewer responsiveness and reliability during project loading, MVR import, zooming, rendering, legend resizing, and image-heavy workflows.
-- Improved release packaging so GitHub Draft Releases can attach direct installer assets instead of requiring users to unpack workflow ZIP files.
+- Improved release packaging so GitHub Draft Releases attach direct Windows, Linux, macOS, and Arch Linux installer assets instead of requiring users to unpack workflow ZIP files.
 
 ## New features
 
@@ -27,7 +27,7 @@ Changes since `v1.2.0`.
 - Improved GDTF model loading with better lookup ordering, GLB fallback handling, and diagnostics for missing or difficult-to-load models.
 - Improved fixture symbol alignment so generated layout symbols better match each fixture's local axes.
 - Improved 3D textured mesh lighting and mirrored geometry handling so dark/light patterns, ink normals, face orientation, and textured surfaces render more consistently.
-- Improved release asset handling so GitHub Draft Releases can include direct Windows installer, Linux AppImage, macOS DMG, and experimental Arch Linux package downloads.
+- Improved release asset handling so GitHub Draft Releases include the Arch Linux package alongside the Windows installer, Linux AppImage, and macOS DMG downloads.
 
 ## Fixes
 
@@ -52,7 +52,7 @@ Changes since `v1.2.0`.
 ## Documentation
 
 - Updated user documentation for update preferences, MVR export warnings, quick-start guidance, feature descriptions, and GDTF mutation policy notes.
-- Updated packaging documentation to clarify preferred release asset distribution, experimental Arch Linux package availability, and macOS unsigned build behavior.
+- Updated packaging documentation to clarify preferred release asset distribution, Arch Linux package availability, and macOS unsigned build behavior.
 - Added a curated release-notes workflow so future public release notes can be prepared from user-friendly entries instead of raw commit lists.
 
 ## Internal changes
@@ -61,4 +61,4 @@ Changes since `v1.2.0`.
 - Refactored layout render invalidation, selected element z-order mapping, label builders, and status notification plumbing without changing the intended user workflow.
 - Added internal resource-reference synchronization and layout image resource registry support used by project save/export paths.
 - Added symbol cache manifest infrastructure and tests to improve project cache consistency.
-- Added and adjusted CI/release workflow plumbing for installer artifact handling, experimental Arch Linux package generation, curated release notes, and version-bump safety.
+- Added and adjusted CI/release workflow plumbing for installer artifact handling, Arch Linux package generation, curated release notes, and version-bump safety.
