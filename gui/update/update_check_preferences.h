@@ -27,4 +27,12 @@ bool ShouldRunStartupCheckNow(const IGuiPreferencesService &preferences,
 void MarkStartupCheckRun(IGuiPreferencesService &preferences,
                          std::chrono::system_clock::time_point now);
 
+// Returns true when startup should show a reminder for the discovered version.
+bool ShouldShowStartupUpdateReminder(const IGuiPreferencesService &preferences,
+                                     const std::string &latestVersion);
+
+// Persists the latest version dismissed from an automatic startup reminder.
+void WriteDismissedStartupReminderVersion(IGuiPreferencesService &preferences,
+                                          const std::string &latestVersion);
+
 } // namespace gui::update

@@ -15,6 +15,7 @@ Changes since `v1.2.0`.
 - Added a 2D measurement tool with live preview, active-plane distance calculation, HiDPI-aware cursor mapping, and synchronized tool state when leaving the tool.
 - Added a 3D measurement tool with euclidean distance display, clearer preview behavior, readable labels, restart handling, and status-bar reporting.
 - Added a GUI update-check action and startup update-check preference, making it easier to discover new Perastage versions.
+- Added a startup update reminder checkbox so users can stop seeing repeated prompts for the same available version while keeping manual update checks available.
 - Added fixture replacement from the Edit menu, including improved source labeling, transform preservation, selection stability, UUID handling, and color reuse/autocolor behavior.
 - Added support for packaging referenced layout images into project archives, making `.pstg` project files more portable when shared or reopened elsewhere.
 - Added an MVR import choice so users can open a selected MVR as a new project or merge it into the current project.

@@ -88,6 +88,7 @@
 #include "tools/fixture_category_assignment_tool.h"
 #include "trusstablepanel.h"
 #include "update/app_update_service.h"
+#include "update/update_notification_dialog.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 
@@ -1007,10 +1008,9 @@ void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {
         return;
       }
 
-      message += "A newer version is available.\nOpen release page now?";
-      const int response = wxMessageBox(message, title,
-                                        wxYES_NO | wxYES_DEFAULT | wxICON_INFORMATION, this);
-      if (response == wxYES) {
+      const gui::update::UpdateNotificationChoice choice =
+          gui::update::ShowAvailableUpdateDialog(this, result, false);
+      if (choice.openReleasePage) {
         wxLaunchDefaultBrowser(wxString::FromUTF8(result.releaseUrl));
       }
     });
