@@ -407,6 +407,37 @@ static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
       ResourceExists(reloadedBase, mergedObject.geometries.front().modelFile));
 }
 
+// Verifies duplicate patch addresses are warnings and do not block apply.
+static void VerifyDuplicatePatchAddressWarningDoesNotBlockMerge() {
+  MvrScene target;
+  target.fixtures["current-fixture"] =
+      MakeFixture("current-fixture", "current-position");
+  target.fixtures.at("current-fixture").address = "1.25";
+
+  MvrScene imported;
+  imported.fixtures["incoming-fixture"] =
+      MakeFixture("incoming-fixture", "incoming-position");
+  imported.fixtures.at("incoming-fixture").address = "1.25";
+
+  const mvr::MvrMergeAnalysis analysis =
+      mvr::AnalyzeImportedSceneMerge(target, imported);
+  assert(analysis.patchAddressWarnings.size() == 1);
+  assert(analysis.patchAddressWarnings.front().universe == 1);
+  assert(analysis.patchAddressWarnings.front().channel == 25);
+  assert(analysis.patchAddressWarnings.front().currentFixtureUuid ==
+         "current-fixture");
+  assert(analysis.patchAddressWarnings.front().incomingFixtureUuid ==
+         "incoming-fixture");
+  assert(!mvr::HasBlockingFixtureTypeConflicts(analysis));
+
+  const mvr::MvrSceneMergeResult result =
+      mvr::ApplyImportedSceneMerge(target, imported, analysis);
+  assert(result.fixtureTypeConflictsBlocked == 0);
+  assert(result.fixturesAdded == 1);
+  assert(target.fixtures.count("incoming-fixture") == 1);
+  assert(target.fixtures.at("incoming-fixture").address == "1.25");
+}
+
 // Verifies a cancelled merge leaves the target scene untouched before apply.
 static void VerifyCancelBeforeApplyLeavesTargetUnchanged() {
   MvrScene target;
@@ -477,6 +508,7 @@ int main() {
   VerifySameLayerNameWithDifferentUuidRenamesIncomingLayer();
   VerifySymdefUuidCollisionWithDifferentGeometryFilesRemapsSymbol();
   VerifyImportedResourcesAreRewrittenIntoTargetBasePath();
+  VerifyDuplicatePatchAddressWarningDoesNotBlockMerge();
   VerifyCancelBeforeApplyLeavesTargetUnchanged();
   VerifyFailureDuringApplyLeavesTargetUnchanged();
   return 0;

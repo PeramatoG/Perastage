@@ -62,6 +62,15 @@ struct MvrFixtureTypeConflict {
   std::string suggestedIncomingTypeName;
 };
 
+// Describes a non-blocking duplicate DMX patch address found during merge
+// analysis.
+struct MvrMergePatchAddressWarning {
+  int universe = 0;
+  int channel = 0;
+  std::string currentFixtureUuid;
+  std::string incomingFixtureUuid;
+};
+
 enum class MvrMergeUuidCollisionBehavior {
   GenerateStableUuid,
   ReplaceExisting,
@@ -82,6 +91,7 @@ struct MvrMergeAnalysis {
   std::unordered_map<std::string, MvrFixtureTypeIdentity> currentFixtureTypes;
   std::unordered_map<std::string, MvrFixtureTypeIdentity> incomingFixtureTypes;
   std::vector<MvrFixtureTypeConflict> fixtureTypeConflicts;
+  std::vector<MvrMergePatchAddressWarning> patchAddressWarnings;
   std::unordered_map<std::string, MvrMergeFixtureTypeDecision>
       fixtureTypeDecisions;
   std::unordered_map<std::string, std::string> incomingFixtureTypeRenames;

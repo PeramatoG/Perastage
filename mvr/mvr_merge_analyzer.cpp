@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -148,6 +149,80 @@ SortedUuidKeys(const std::unordered_map<std::string, T> &objects) {
     keys.push_back(entry.first);
   std::sort(keys.begin(), keys.end());
   return keys;
+}
+
+struct ParsedPatchAddress {
+  int universe = 0;
+  int channel = 0;
+};
+
+// Parses a fixture DMX address token into a valid universe and channel pair.
+std::optional<ParsedPatchAddress> ParseFixturePatchAddress(
+    const std::string &address) {
+  const std::string trimmed = TrimAscii(address);
+  if (trimmed.empty())
+    return std::nullopt;
+
+  const size_t dot = trimmed.find('.');
+  if (dot == std::string::npos)
+    return std::nullopt;
+
+  try {
+    const int universe = std::stoi(trimmed.substr(0, dot));
+    const int channel = std::stoi(trimmed.substr(dot + 1));
+    if (universe < 1 || channel < 1 || channel > 512)
+      return std::nullopt;
+    return ParsedPatchAddress{universe, channel};
+  } catch (...) {
+    return std::nullopt;
+  }
+}
+
+// Builds a stable string key for a parsed DMX patch address.
+std::string BuildPatchAddressKey(const ParsedPatchAddress &address) {
+  return std::to_string(address.universe) + "." +
+         std::to_string(address.channel);
+}
+
+// Adds non-blocking warnings for incoming fixtures that reuse current patches.
+void AnalyzePatchAddressWarnings(const MvrScene &target,
+                                 const MvrScene &imported,
+                                 MvrMergeAnalysis &analysis) {
+  std::unordered_map<std::string, std::vector<std::string>> currentByAddress;
+  const std::vector<std::string> currentFixtureUuids =
+      SortedUuidKeys(target.fixtures);
+  for (const std::string &uuid : currentFixtureUuids) {
+    const auto parsedAddress =
+        ParseFixturePatchAddress(target.fixtures.at(uuid).address);
+    if (!parsedAddress.has_value())
+      continue;
+    currentByAddress[BuildPatchAddressKey(*parsedAddress)].push_back(uuid);
+  }
+
+  const std::vector<std::string> incomingFixtureUuids =
+      SortedUuidKeys(imported.fixtures);
+  for (const std::string &incomingUuid : incomingFixtureUuids) {
+    if (analysis.skippedIncomingUuids.contains(incomingUuid))
+      continue;
+    const auto parsedAddress =
+        ParseFixturePatchAddress(imported.fixtures.at(incomingUuid).address);
+    if (!parsedAddress.has_value())
+      continue;
+
+    const auto currentIt =
+        currentByAddress.find(BuildPatchAddressKey(*parsedAddress));
+    if (currentIt == currentByAddress.end())
+      continue;
+    const std::string resolvedIncomingUuid =
+        RemapImportedUuidReference(incomingUuid, analysis);
+    for (const std::string &currentUuid : currentIt->second) {
+      if (currentUuid == resolvedIncomingUuid)
+        continue;
+      analysis.patchAddressWarnings.push_back(MvrMergePatchAddressWarning{
+          parsedAddress->universe, parsedAddress->channel, currentUuid,
+          incomingUuid});
+    }
+  }
 }
 
 // Returns sorted UUID keys from all maps in a lookup family.
@@ -511,6 +586,7 @@ MvrMergeAnalysis AnalyzeImportedSceneMerge(const MvrScene &target,
   PrepareObjectTable(imported.groupObjects, "groupObjects", usedUuids, analysis,
                      options);
   PrepareLayerTable(target, imported, usedUuids, analysis, options);
+  AnalyzePatchAddressWarnings(target, imported, analysis);
 
   for (const auto &[oldUuid, newUuid] : analysis.uuidMap) {
     if (oldUuid != newUuid && imported.fixtures.contains(oldUuid))

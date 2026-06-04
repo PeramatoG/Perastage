@@ -38,6 +38,7 @@ Changes since `v1.2.0`.
 - Fixed MVR merge resource handling so imported fixture, truss, symbol, and model files remain available after saving and reopening the project.
 - Fixed MVR merge handling for layer, position, and symbol-definition lookup collisions so imported references remain connected without overwriting current project state.
 - Fixed MVR merge rollback so cancelled or failed merges leave the current project, layouts, selection, and dirty state unchanged.
+- Fixed MVR merge feedback so duplicate DMX patch addresses are reported as warnings while the merge still completes.
 - Fixed Windows startup behavior for shell-opened MVR files, including path normalization and startup stalls while scanning for GDTF fallbacks.
 - Fixed layout view freezes and busy-cursor issues caused by reentrant GUI work, render timeouts, mode changes, new project creation, and 2D view edit commits.
 - Fixed layout 2D view editing so edits apply to the intended target view and reliably refresh the layout viewer afterward.
