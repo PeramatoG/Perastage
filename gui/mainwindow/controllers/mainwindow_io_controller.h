@@ -10,6 +10,7 @@ public:
   explicit MainWindowIoController(MainWindow &owner);
   void OnImportMVR(wxCommandEvent &event);
   bool OpenPathFromCommandLine(const std::string &pathUtf8);
+  bool MergeMvrFromPath(const std::string &pathUtf8);
 
 private:
   static constexpr const char *kMvrOpenAction = "importing an MVR file";
@@ -17,5 +18,6 @@ private:
 
   bool ImportMvrFromPath(const std::string &pathUtf8);
   bool ImportMvrWithOfficialPolicy(const std::string &pathUtf8);
+  void RefreshPanelsAfterMvrSceneChange();
   MainWindow *ownerRef_ = nullptr; // Non-owning pointer; MainWindow owns this controller.
 };

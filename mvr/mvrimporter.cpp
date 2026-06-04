@@ -1091,11 +1091,31 @@ static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
     }
   }
 }
-// Imports an MVR file from disk by validating the path, extracting its package, and parsing the scene XML.
+// Imports an MVR file into the global application scene.
 bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  bool promptConflicts,
                                  bool applyDictionary,
                                  ProgressCallback progressCallback) {
+  return ImportFromFileIntoScene(filePath, nullptr, promptConflicts,
+                                 applyDictionary, progressCallback);
+}
+
+// Imports an MVR file into the provided scene without resetting global configuration.
+bool MvrImporter::ImportSceneFromFile(const std::string &filePath,
+                                      MvrScene &targetScene,
+                                      bool promptConflicts,
+                                      bool applyDictionary,
+                                      ProgressCallback progressCallback) {
+  return ImportFromFileIntoScene(filePath, &targetScene, promptConflicts,
+                                 applyDictionary, progressCallback);
+}
+
+// Extracts an MVR package and parses its scene data into either the global or provided scene.
+bool MvrImporter::ImportFromFileIntoScene(const std::string &filePath,
+                                          MvrScene *targetScene,
+                                          bool promptConflicts,
+                                          bool applyDictionary,
+                                          ProgressCallback progressCallback) {
   auto reportProgress = [&](std::string stage, int completed = 0, int total = 0) {
     if (!progressCallback)
       return;
@@ -1176,7 +1196,8 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
 
   std::string scenePath = ToString(sceneFile.u8string());
   reportProgress("Parsing scene data...");
-  return ParseSceneXml(scenePath, promptConflicts, applyDictionary, progressCallback);
+  return ParseSceneXml(scenePath, targetScene, promptConflicts, applyDictionary,
+                       progressCallback);
 }
 
 std::string MvrImporter::NormalizeArchivePath(const std::string &archivePath) const {
@@ -1323,9 +1344,9 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
   return true;
 }
 
-// Parses GeneralSceneDescription.xml and populates fixtures and trusses into
-// the scene model
+// Parses GeneralSceneDescription.xml and populates the selected scene model.
 bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
+                                MvrScene *targetScene,
                                 bool promptConflicts,
                                 bool applyDictionary,
                                 ProgressCallback progressCallback) {
@@ -1348,8 +1369,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return false;
   }
 
-  ConfigManager::Get().Reset();
-  auto &scene = ConfigManager::Get().GetScene();
+  if (targetScene == nullptr)
+    ConfigManager::Get().Reset();
+  MvrScene &scene =
+      targetScene != nullptr ? *targetScene : ConfigManager::Get().GetScene();
+  scene.Clear();
   scene.basePath = ToString(fs::u8path(sceneXmlPath).parent_path().u8string());
 
   root->QueryIntAttribute("verMajor", &scene.versionMajor);

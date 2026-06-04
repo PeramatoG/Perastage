@@ -21,6 +21,8 @@
 #include <unordered_map>
 #include <string>
 
+class MvrScene;
+
 // Responsible for importing .mvr files into the application's internal data model
 class MvrImporter
 {
@@ -43,6 +45,13 @@ public:
                         bool applyDictionary = true,
                         ProgressCallback progressCallback = {});
 
+    // Imports and parses a .mvr file into the provided scene without resetting ConfigManager.
+    bool ImportSceneFromFile(const std::string& filePath,
+                             MvrScene& targetScene,
+                             bool promptConflicts = true,
+                             bool applyDictionary = true,
+                             ProgressCallback progressCallback = {});
+
     // Static interface for use outside the import module (e.g. GUI)
     // Allows the caller to decide whether dictionary conflicts should prompt
     // or whether the dictionary should be applied at all
@@ -61,10 +70,17 @@ private:
     // Extracts the .mvr (ZIP) contents into the given destination directory
     bool ExtractMvrZip(const std::string& mvrPath, const std::string& destDir);
 
-    // Parses the GeneralSceneDescription.xml file and updates the scene model
-    // When promptConflicts is true, the user is asked to resolve GDTF conflicts
-    // If applyDictionary is false, existing GDTF assignments are kept intact
-    bool ParseSceneXml(const std::string& sceneXmlPath, bool promptConflicts,
+    // Extracts and parses a .mvr file into either the global scene or a provided target scene.
+    bool ImportFromFileIntoScene(const std::string& filePath,
+                                 MvrScene* targetScene,
+                                 bool promptConflicts,
+                                 bool applyDictionary,
+                                 ProgressCallback progressCallback);
+
+    // Parses the GeneralSceneDescription.xml file and updates the selected scene model.
+    bool ParseSceneXml(const std::string& sceneXmlPath,
+                       MvrScene* targetScene,
+                       bool promptConflicts,
                        bool applyDictionary,
                        ProgressCallback progressCallback);
 
