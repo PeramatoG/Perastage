@@ -28,6 +28,7 @@ Changes since `v1.2.0`.
 - Improved project symbol-cache persistence so verified or newly generated fixture symbols in project GDTF files are recorded and saved, reducing repeated symbol regeneration on later opens.
 - Improved layout render progress feedback with clearer status-bar messages during symbol capture, texture rebuilds, legend preparation, and rendering.
 - Improved GDTF model loading with better lookup ordering, GLB fallback handling, and diagnostics for missing or difficult-to-load models.
+- Improved automatic GDTF selection during MVR import so stronger fixture-name matches are preferred before footprint, manufacturer, recency, and rating tie-breakers.
 - Improved fixture symbol alignment so generated layout symbols better match each fixture's local axes.
 - Improved 3D textured mesh lighting and mirrored geometry handling so dark/light patterns, ink normals, face orientation, and textured surfaces render more consistently.
 - Improved release asset handling so GitHub Draft Releases include the Arch Linux package alongside the Windows installer, Linux AppImage, and macOS DMG downloads.
