@@ -16,6 +16,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 
 #include "LayoutManager.h"
 #include "configmanager.h"
@@ -381,9 +382,15 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
       cfg.GetValue(kLayoutsConfigKey);
   const std::optional<std::string> preservedViewer3DRenderStyle =
       cfg.GetValue(kViewer3DRenderStyleConfigKey);
+  const std::unordered_set<std::string> preservedHiddenLayers =
+      cfg.GetHiddenLayers();
+  const std::string preservedCurrentLayer = cfg.GetCurrentLayer();
 
+  // Restores merge-preserved project configuration and layer UI state.
   auto restorePreservedConfig = [&cfg, &preservedLayoutsConfig,
-                                 &preservedViewer3DRenderStyle]() {
+                                 &preservedViewer3DRenderStyle,
+                                 &preservedHiddenLayers,
+                                 &preservedCurrentLayer]() {
     if (preservedLayoutsConfig.has_value())
       cfg.SetValue(kLayoutsConfigKey, *preservedLayoutsConfig);
     else
@@ -393,6 +400,8 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
                    *preservedViewer3DRenderStyle);
     else
       cfg.RemoveKey(kViewer3DRenderStyleConfigKey);
+    cfg.SetHiddenLayers(preservedHiddenLayers);
+    cfg.SetCurrentLayer(preservedCurrentLayer);
     layouts::LayoutManager::Get().LoadFromConfig(cfg);
   };
 
@@ -478,7 +487,11 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
     summary << "Merged " << pathUtf8 << " (" << mergeResult.fixturesAdded
             << " fixtures, " << mergeResult.trussesAdded << " trusses, "
             << mergeResult.supportsAdded << " hoists, "
-            << mergeResult.sceneObjectsAdded << " objects)";
+            << mergeResult.sceneObjectsAdded << " objects";
+    if (mergeResult.nonObjectLookupConflictsResolved > 0)
+      summary << ", " << mergeResult.nonObjectLookupConflictsResolved
+              << " lookup conflicts resolved";
+    summary << ")";
     owner->consolePanel->AppendMessage(wxString::FromUTF8(summary.str()));
   }
   if (owner->GetStatusBar())

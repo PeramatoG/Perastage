@@ -150,6 +150,90 @@ SortedUuidKeys(const std::unordered_map<std::string, T> &objects) {
   return keys;
 }
 
+// Returns sorted UUID keys from all maps in a lookup family.
+template <typename... Maps>
+std::vector<std::string> SortedUnionUuidKeys(const Maps &...maps) {
+  std::unordered_set<std::string> seen;
+  auto collect = [&seen](const auto &map) {
+    for (const auto &entry : map)
+      seen.insert(entry.first);
+  };
+  (collect(maps), ...);
+  std::vector<std::string> keys(seen.begin(), seen.end());
+  std::sort(keys.begin(), keys.end());
+  return keys;
+}
+
+// Reports whether two matrices contain identical transform components.
+bool MatrixValuesEqual(const Matrix &current, const Matrix &incoming) {
+  return current.u == incoming.u && current.v == incoming.v &&
+         current.w == incoming.w && current.o == incoming.o;
+}
+
+// Reports whether two Symdef geometry entries describe the same geometry.
+bool SymdefGeometryValuesEqual(const SymdefGeometry &current,
+                               const SymdefGeometry &incoming) {
+  return current.file == incoming.file &&
+         current.geometryType == incoming.geometryType &&
+         MatrixValuesEqual(current.transform, incoming.transform);
+}
+
+// Reports whether two Symdef geometry lists have identical entries.
+bool SymdefGeometryListsEqual(const std::vector<SymdefGeometry> &current,
+                              const std::vector<SymdefGeometry> &incoming) {
+  if (current.size() != incoming.size())
+    return false;
+  for (std::size_t i = 0; i < current.size(); ++i) {
+    if (!SymdefGeometryValuesEqual(current[i], incoming[i]))
+      return false;
+  }
+  return true;
+}
+
+// Looks up a value from a map or returns the supplied fallback.
+template <typename T>
+T LookupOrDefault(const std::unordered_map<std::string, T> &values,
+                  const std::string &uuid, const T &fallback = T{}) {
+  const auto it = values.find(uuid);
+  if (it == values.end())
+    return fallback;
+  return it->second;
+}
+
+// Reports whether two Symdef UUID entries describe the same definition.
+bool SymdefDefinitionsEqual(const MvrScene &target, const MvrScene &imported,
+                            const std::string &uuid) {
+  return LookupOrDefault(target.symdefFiles, uuid) ==
+             LookupOrDefault(imported.symdefFiles, uuid) &&
+         LookupOrDefault(target.symdefTypes, uuid) ==
+             LookupOrDefault(imported.symdefTypes, uuid) &&
+         MatrixValuesEqual(LookupOrDefault(target.symdefMatrices, uuid),
+                           LookupOrDefault(imported.symdefMatrices, uuid)) &&
+         SymdefGeometryListsEqual(
+             LookupOrDefault(target.symdefGeometries, uuid),
+             LookupOrDefault(imported.symdefGeometries, uuid));
+}
+
+// Reports whether two layer entries share the same merge-visible content.
+bool LayerValuesEqual(const Layer &current, const Layer &incoming) {
+  return current.name == incoming.name && current.color == incoming.color &&
+         current.childUUIDs == incoming.childUUIDs;
+}
+
+// Builds an imported layer name that does not shadow current layer state.
+std::string BuildUniqueImportedLayerName(
+    const std::string &layerName,
+    const std::unordered_set<std::string> &reservedLayerNames) {
+  const std::string base = !TrimAscii(layerName).empty()
+                               ? TrimAscii(layerName)
+                               : "Imported layer";
+  std::string candidate = base + " (Imported)";
+  int suffix = 2;
+  while (reservedLayerNames.contains(candidate))
+    candidate = base + " (Imported " + std::to_string(suffix++) + ")";
+  return candidate;
+}
+
 // Derives an unused deterministic replacement UUID.
 std::string
 DeriveStableReplacementUuid(std::string_view tableName, const std::string &uuid,
@@ -206,6 +290,115 @@ void PrepareObjectTable(const std::unordered_map<std::string, T> &imported,
                         const MvrMergeOptions &options) {
   for (const auto &uuid : SortedUuidKeys(imported))
     (void)ResolveImportedUuid(uuid, tableName, usedUuids, analysis, options);
+}
+
+// Prepares position UUID remaps while preserving current names on conflicts.
+void PreparePositionLookupTable(const MvrScene &target, const MvrScene &imported,
+                                std::unordered_set<std::string> &usedUuids,
+                                MvrMergeAnalysis &analysis,
+                                const MvrMergeOptions &options) {
+  for (const auto &uuid : SortedUuidKeys(imported.positions)) {
+    const auto targetIt = target.positions.find(uuid);
+    const auto importedIt = imported.positions.find(uuid);
+    if (targetIt != target.positions.end() &&
+        importedIt != imported.positions.end() &&
+        targetIt->second == importedIt->second) {
+      analysis.uuidMap[uuid] = uuid;
+      continue;
+    }
+    if (targetIt != target.positions.end() &&
+        importedIt != imported.positions.end() &&
+        targetIt->second != importedIt->second) {
+      ++analysis.uuidCollisionsDetected;
+      const std::string replacement =
+          DeriveStableReplacementUuid("positions", uuid, usedUuids);
+      analysis.uuidMap[uuid] = replacement;
+      ++analysis.uuidCollisionsResolved;
+      ++analysis.nonObjectLookupConflictsResolved;
+      continue;
+    }
+    (void)ResolveImportedUuid(uuid, "positions", usedUuids, analysis, options);
+  }
+}
+
+// Prepares Symdef UUID remaps as one logical definition across lookup maps.
+void PrepareSymdefLookupTables(const MvrScene &target, const MvrScene &imported,
+                               std::unordered_set<std::string> &usedUuids,
+                               MvrMergeAnalysis &analysis,
+                               const MvrMergeOptions &options) {
+  for (const auto &uuid : SortedUnionUuidKeys(
+           imported.symdefFiles, imported.symdefTypes, imported.symdefMatrices,
+           imported.symdefGeometries)) {
+    const bool targetHasSymdef = target.symdefFiles.contains(uuid) ||
+                                 target.symdefTypes.contains(uuid) ||
+                                 target.symdefMatrices.contains(uuid) ||
+                                 target.symdefGeometries.contains(uuid);
+    if (targetHasSymdef && SymdefDefinitionsEqual(target, imported, uuid)) {
+      analysis.uuidMap[uuid] = uuid;
+      continue;
+    }
+    if (targetHasSymdef && !SymdefDefinitionsEqual(target, imported, uuid)) {
+      ++analysis.uuidCollisionsDetected;
+      const std::string replacement =
+          DeriveStableReplacementUuid("symdefs", uuid, usedUuids);
+      analysis.uuidMap[uuid] = replacement;
+      ++analysis.uuidCollisionsResolved;
+      ++analysis.nonObjectLookupConflictsResolved;
+      continue;
+    }
+    (void)ResolveImportedUuid(uuid, "symdefs", usedUuids, analysis, options);
+  }
+}
+
+// Prepares layer UUID and name remaps without changing current layer names.
+void PrepareLayerTable(const MvrScene &target, const MvrScene &imported,
+                       std::unordered_set<std::string> &usedUuids,
+                       MvrMergeAnalysis &analysis,
+                       const MvrMergeOptions &options) {
+  std::unordered_set<std::string> reservedLayerNames;
+  for (const auto &[uuid, layer] : target.layers)
+    reservedLayerNames.insert(layer.name);
+
+  for (const auto &uuid : SortedUuidKeys(imported.layers)) {
+    const Layer &incoming = imported.layers.at(uuid);
+    std::string resolvedUuid = uuid;
+    bool keepIncoming = true;
+    const auto targetIt = target.layers.find(uuid);
+    if (uuid.empty()) {
+      resolvedUuid = DeriveStableReplacementUuid("layers", incoming.name,
+                                                 usedUuids);
+      ++analysis.uuidCollisionsResolved;
+    } else if (targetIt != target.layers.end()) {
+      ++analysis.uuidCollisionsDetected;
+      if (LayerValuesEqual(targetIt->second, incoming)) {
+        analysis.skippedIncomingLayerUuids.insert(uuid);
+        keepIncoming = false;
+      } else {
+        resolvedUuid = DeriveStableReplacementUuid("layers", uuid, usedUuids);
+        ++analysis.uuidCollisionsResolved;
+        ++analysis.nonObjectLookupConflictsResolved;
+      }
+    } else if (!usedUuids.insert(uuid).second) {
+      resolvedUuid = ResolveImportedUuid(uuid, "layers", usedUuids, analysis,
+                                         options);
+    }
+
+    if (keepIncoming)
+      analysis.layerUuidMap[uuid] = resolvedUuid;
+
+    if (!keepIncoming)
+      continue;
+    if (reservedLayerNames.contains(incoming.name) &&
+        (targetIt == target.layers.end() || resolvedUuid != uuid)) {
+      const std::string renamed =
+          BuildUniqueImportedLayerName(incoming.name, reservedLayerNames);
+      analysis.incomingLayerNameRenames[incoming.name] = renamed;
+      reservedLayerNames.insert(renamed);
+      ++analysis.nonObjectLookupConflictsResolved;
+    } else {
+      reservedLayerNames.insert(incoming.name);
+    }
+  }
 }
 
 // Adds fixture type conflict metadata and rename decisions to the analysis.
@@ -306,16 +499,8 @@ MvrMergeAnalysis AnalyzeImportedSceneMerge(const MvrScene &target,
   AnalyzeFixtureTypeConflicts(options, analysis);
 
   std::unordered_set<std::string> usedUuids = CollectUsedUuids(target);
-  PrepareObjectTable(imported.positions, "positions", usedUuids, analysis,
-                     options);
-  PrepareObjectTable(imported.symdefFiles, "symdefFiles", usedUuids, analysis,
-                     options);
-  PrepareObjectTable(imported.symdefTypes, "symdefTypes", usedUuids, analysis,
-                     options);
-  PrepareObjectTable(imported.symdefMatrices, "symdefMatrices", usedUuids,
-                     analysis, options);
-  PrepareObjectTable(imported.symdefGeometries, "symdefGeometries", usedUuids,
-                     analysis, options);
+  PreparePositionLookupTable(target, imported, usedUuids, analysis, options);
+  PrepareSymdefLookupTables(target, imported, usedUuids, analysis, options);
   PrepareObjectTable(imported.fixtures, "fixtures", usedUuids, analysis,
                      options);
   PrepareObjectTable(imported.trusses, "trusses", usedUuids, analysis, options);
@@ -325,7 +510,7 @@ MvrMergeAnalysis AnalyzeImportedSceneMerge(const MvrScene &target,
                      options);
   PrepareObjectTable(imported.groupObjects, "groupObjects", usedUuids, analysis,
                      options);
-  PrepareObjectTable(imported.layers, "layers", usedUuids, analysis, options);
+  PrepareLayerTable(target, imported, usedUuids, analysis, options);
 
   for (const auto &[oldUuid, newUuid] : analysis.uuidMap) {
     if (oldUuid != newUuid && imported.fixtures.contains(oldUuid))
