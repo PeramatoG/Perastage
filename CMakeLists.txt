@@ -122,6 +122,7 @@ add_executable(${PROJECT_NAME} main.cpp
     models/mvrscene.cpp
     models/sceneobject.cpp
     models/truss.cpp
+    mvr/gdtf_catalog_matcher.cpp
     mvr/mvrimporter.cpp
     mvr/mvr_merge_analyzer.cpp
     mvr/mvr_merge_applier.cpp
