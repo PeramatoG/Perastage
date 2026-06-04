@@ -34,6 +34,7 @@ Changes since `v1.2.0`.
 
 ## Fixes
 
+- Fixed an About dialog startup assertion when locating the Perastage logo on wxWidgets debug builds.
 - Fixed MVR export before saving a project so resource references are synchronized before export.
 - Fixed MVR merge resource handling so imported fixture, truss, symbol, and model files remain available after saving and reopening the project.
 - Fixed MVR merge handling for layer, position, and symbol-definition lookup collisions so imported references remain connected without overwriting current project state.

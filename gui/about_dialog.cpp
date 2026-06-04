@@ -55,7 +55,9 @@ FindRuntimeAsset(const std::initializer_list<wxString> &relativePaths) {
 
   for (const wxString &root : roots) {
     for (const wxString &relativePath : relativePaths) {
-      wxFileName candidate(root, relativePath);
+      const wxString fullPath =
+          wxFileName(root, wxEmptyString).GetPathWithSep() + relativePath;
+      wxFileName candidate(fullPath);
       candidate.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_ABSOLUTE);
       if (candidate.FileExists()) {
         return candidate.GetFullPath();
