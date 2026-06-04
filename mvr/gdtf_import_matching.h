@@ -217,12 +217,83 @@ inline FixtureNameMatchTier ComputeFixtureNameMatchTier(
   return FixtureNameMatchTier::Partial;
 }
 
+
+enum class GdtfModeMatchTier {
+  None = 0,
+  Footprint = 1,
+  DigitSignature = 2,
+  ExactNormalized = 3
+};
+
+struct GdtfModeMatchScore {
+  GdtfModeMatchTier tier = GdtfModeMatchTier::None;
+  bool footprintMatch = false;
+  std::string modeName;
+};
+
+// Scores how well a requested GDTF mode aligns with catalog modes and footprint evidence.
+template <typename CatalogModes>
+inline GdtfModeMatchScore ComputeGdtfModeMatchScore(
+    const std::string &requestedMode,
+    const CatalogModes &catalogModes,
+    int requestedFootprint) {
+  GdtfModeMatchScore bestScore;
+  const std::string requestedNormalized = NormalizeForGdtfMatch(requestedMode);
+  const std::string requestedDigits = ExtractDigitSignature(requestedNormalized);
+  std::string footprintModeName;
+  bool selectedModeHasFootprint = false;
+
+  for (const auto &mode : catalogModes) {
+    const bool footprintMatch = requestedFootprint > 0 && mode.footprint == requestedFootprint;
+    if (footprintMatch) {
+      bestScore.footprintMatch = true;
+      if (footprintModeName.empty())
+        footprintModeName = mode.name;
+    }
+
+    const std::string modeNormalized = NormalizeForGdtfMatch(mode.name);
+    GdtfModeMatchTier candidateTier = GdtfModeMatchTier::None;
+    if (!requestedNormalized.empty() && !modeNormalized.empty() &&
+        requestedNormalized == modeNormalized) {
+      candidateTier = GdtfModeMatchTier::ExactNormalized;
+    } else {
+      const std::string modeDigits = ExtractDigitSignature(modeNormalized);
+      if (!requestedDigits.empty() && !modeDigits.empty() && requestedDigits == modeDigits)
+        candidateTier = GdtfModeMatchTier::DigitSignature;
+    }
+
+    if (candidateTier == GdtfModeMatchTier::None)
+      continue;
+    if (static_cast<int>(candidateTier) > static_cast<int>(bestScore.tier) ||
+        (candidateTier == bestScore.tier && footprintMatch && !selectedModeHasFootprint)) {
+      bestScore.tier = candidateTier;
+      bestScore.modeName = mode.name;
+      selectedModeHasFootprint = footprintMatch;
+    }
+  }
+
+  if (bestScore.tier == GdtfModeMatchTier::None && bestScore.footprintMatch) {
+    bestScore.tier = GdtfModeMatchTier::Footprint;
+    bestScore.modeName = footprintModeName;
+  }
+  return bestScore;
+}
+
+// Scores requested mode names against catalog modes without footprint evidence.
+template <typename CatalogModes>
+inline GdtfModeMatchScore ComputeGdtfModeMatchScore(
+    const std::string &requestedMode,
+    const CatalogModes &catalogModes) {
+  return ComputeGdtfModeMatchScore(requestedMode, catalogModes, 0);
+}
+
 struct DownloadCandidateRank {
   FixtureNameMatchTier nameTier = FixtureNameMatchTier::None;
   bool footprintMatch = false;
   bool manufacturerMatch = false;
   long long recency = 0;
   float rating = 0.0f;
+  GdtfModeMatchTier modeTier = GdtfModeMatchTier::None;
 };
 
 // Compares download candidates by tier and tie-breakers.
@@ -230,6 +301,8 @@ inline bool IsBetterDownloadCandidate(const DownloadCandidateRank &candidate,
                                       const DownloadCandidateRank &currentBest) {
   if (candidate.nameTier != currentBest.nameTier)
     return static_cast<int>(candidate.nameTier) > static_cast<int>(currentBest.nameTier);
+  if (candidate.modeTier != currentBest.modeTier)
+    return static_cast<int>(candidate.modeTier) > static_cast<int>(currentBest.modeTier);
   if (candidate.footprintMatch != currentBest.footprintMatch)
     return candidate.footprintMatch;
   if (candidate.manufacturerMatch != currentBest.manufacturerMatch)

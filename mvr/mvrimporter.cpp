@@ -661,6 +661,15 @@ struct GdtfDownloadMatch {
   std::string selectionReason;
 };
 
+// Scores requested mode names against a catalog entry and preserves the best catalog mode name.
+static mvr::gdtf_import_matching::GdtfModeMatchScore ComputeGdtfModeMatchScore(
+    const std::string &requestedMode,
+    const std::vector<GdtfCatalogModeCandidate> &catalogModes,
+    int requestedFootprint) {
+  return mvr::gdtf_import_matching::ComputeGdtfModeMatchScore(
+      requestedMode, catalogModes, requestedFootprint);
+}
+
 // Parses GDTF catalog JSON into normalized entries used by automatic downloads.
 static std::vector<GdtfCatalogEntry>
 ParseGdtfCatalogEntries(const std::string &listData) {
@@ -3179,24 +3188,18 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     if (nameTier == mvr::gdtf_import_matching::FixtureNameMatchTier::None) {
                       continue;
                     }
-                    std::string matchedMode;
-                    bool footprintMatch = false;
-                    if (req.footprint > 0) {
-                      for (const auto &mode : entry.modes) {
-                        if (mode.footprint == req.footprint) {
-                          footprintMatch = true;
-                          matchedMode = mode.name;
-                          break;
-                        }
-                      }
-                    }
+                    const auto modeScore =
+                        ComputeGdtfModeMatchScore(req.modeName, entry.modes, req.footprint);
+                    const std::string matchedMode = modeScore.modeName;
+                    const bool footprintMatch = modeScore.footprintMatch;
                     const bool manufacturerMatch =
                         !req.manufacturer.empty() && !entry.manufacturer.empty() &&
                         mvr::gdtf_import_matching::NormalizeForGdtfMatch(req.manufacturer) ==
                             mvr::gdtf_import_matching::NormalizeForGdtfMatch(entry.manufacturer);
-                    const mvr::gdtf_import_matching::DownloadCandidateRank candidateRank{
+                    mvr::gdtf_import_matching::DownloadCandidateRank candidateRank{
                         nameTier, footprintMatch, manufacturerMatch,
                         entry.lastModifiedUnix, entry.rating};
+                    candidateRank.modeTier = modeScore.tier;
                     const bool hadPreviousBest = bestMatch.found;
                     if (!mvr::gdtf_import_matching::IsBetterDownloadCandidate(
                             candidateRank, bestPrimaryScore)) {
@@ -3204,7 +3207,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     }
 
                     std::string selectionReason = "name";
-                    if (footprintMatch) {
+                    if (modeScore.tier ==
+                        mvr::gdtf_import_matching::GdtfModeMatchTier::ExactNormalized) {
+                      selectionReason = "name+mode";
+                    } else if (modeScore.tier ==
+                               mvr::gdtf_import_matching::GdtfModeMatchTier::DigitSignature) {
+                      selectionReason = "name+mode-digits";
+                    } else if (footprintMatch) {
                       selectionReason = "name+footprint";
                     } else if (manufacturerMatch) {
                       selectionReason = "name+manufacturer";
