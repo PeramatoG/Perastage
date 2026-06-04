@@ -18,8 +18,7 @@ Changes since `v1.2.0`.
 - Added fixture replacement from the Edit menu, including improved source labeling, transform preservation, selection stability, UUID handling, and color reuse/autocolor behavior.
 - Added support for packaging referenced layout images into project archives, making `.pstg` project files more portable when shared or reopened elsewhere.
 - Added an MVR import choice so users can open a selected MVR as a new project or merge it into the current project.
-- Improved MVR merge safety so imported objects with UUIDs that already exist in the current project receive stable replacement UUIDs while their internal references stay connected.
-- Added MVR merge protection for fixture type name conflicts, prompting users to reuse the current GDTF definition, keep the imported definition under a renamed type, or cancel before mixed definitions can enter the scene.
+- Improved MVR merge safety with user choices for UUID collisions, fixture type and GDTF definition conflicts, stable reference updates, rollback on cancellation, resource preservation, and non-blocking duplicate DMX patch warnings after merge.
 
 ## Improvements
 

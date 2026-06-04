@@ -68,6 +68,8 @@ The README is intentionally kept fairly compact. More detailed documentation liv
 
 - [Documentation policy](docs/documentation_policy.md)
 - [Feature overview](docs/features.md)
+- [Opening and merging MVR files](docs/opening-mvr-files.md)
+- [MVR exporter warning behavior](docs/mvr_exporter.md)
 - [Changes since beta 0.1.0](docs/changes_since_beta_0_1_0.md)
 - [Build and dependency guide](docs/build.md)
 - [Windows installation notes](docs/installation_windows.md)

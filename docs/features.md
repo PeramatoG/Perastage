@@ -32,7 +32,7 @@ Perastage is designed for lighting designers, programmers, and technicians who n
 - Imports MVR 1.6 scenes with fixtures, trusses, hoists/supports, and generic objects.
 - `.mvr` opening from startup, command-line, or OS association uses a clean-scene reset plus import flow for deterministic behavior.
 - Menu import lets you choose between opening the selected MVR as a new project or merging it into the current project.
-- Merged MVR content preserves existing scene content, resolves imported UUID collisions so both scenes can coexist, and blocks fixture type name conflicts until the user chooses whether to reuse the current GDTF definition, rename the imported definition, or cancel.
+- Merged MVR content preserves existing scene content, resolves imported UUID collisions so both scenes can coexist, prompts before fixture type/GDTF definition conflicts are applied, and reports duplicate DMX patch addresses as non-blocking warnings for post-merge review.
 
 ### MVR export
 
