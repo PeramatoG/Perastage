@@ -22,22 +22,27 @@
 namespace mvr {
 namespace {
 
-// Adds imported lookup-table entries to the target scene using prepared UUID remaps.
+// Adds imported lookup-table entries with prepared UUID remaps.
 template <typename T>
 void MergeLookupTable(std::unordered_map<std::string, T> &target,
                       const std::unordered_map<std::string, T> &imported,
                       const MvrMergeAnalysis &analysis) {
-  for (const auto &[uuid, value] : imported)
+  for (const auto &[uuid, value] : imported) {
+    if (ShouldSkipImportedUuid(uuid, analysis))
+      continue;
     target[RemapImportedUuidReference(uuid, analysis)] = value;
+  }
 }
 
-// Adds imported objects with UUID fields to the target after updating each object's UUID.
+// Adds imported objects after updating each object UUID.
 template <typename T>
 std::size_t MergeObjectTable(std::unordered_map<std::string, T> &target,
                              const std::unordered_map<std::string, T> &imported,
                              const MvrMergeAnalysis &analysis) {
   std::size_t added = 0;
   for (const auto &[uuid, object] : imported) {
+    if (ShouldSkipImportedUuid(uuid, analysis))
+      continue;
     const std::string resolvedUuid = RemapImportedUuidReference(uuid, analysis);
     T merged = object;
     merged.uuid = resolvedUuid;
@@ -47,10 +52,13 @@ std::size_t MergeObjectTable(std::unordered_map<std::string, T> &target,
   return added;
 }
 
-// Updates references inside an imported scene copy after the full UUID remap table has been built.
-void RemapImportedReferences(MvrScene &scene, const MvrMergeAnalysis &analysis) {
-  for (auto &[uuid, fixture] : scene.fixtures)
+// Updates imported scene references after building the UUID remap table.
+void RemapImportedReferences(MvrScene &scene,
+                             const MvrMergeAnalysis &analysis) {
+  for (auto &[uuid, fixture] : scene.fixtures) {
     fixture.position = RemapImportedUuidReference(fixture.position, analysis);
+    fixture.focus = RemapImportedUuidReference(fixture.focus, analysis);
+  }
 
   for (auto &[uuid, truss] : scene.trusses) {
     truss.position = RemapImportedUuidReference(truss.position, analysis);
@@ -87,6 +95,7 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
                                             const MvrMergeAnalysis &analysis) {
   MvrSceneMergeResult result;
   result.uuidCollisionsResolved = analysis.uuidCollisionsResolved;
+  result.fixtureUuidRemap = analysis.fixtureUuidRemap;
 
   MvrScene importedCopy = imported;
   RemapImportedReferences(importedCopy, analysis);
@@ -94,7 +103,8 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
   MergeLookupTable(target.positions, importedCopy.positions, analysis);
   MergeLookupTable(target.symdefFiles, importedCopy.symdefFiles, analysis);
   MergeLookupTable(target.symdefTypes, importedCopy.symdefTypes, analysis);
-  MergeLookupTable(target.symdefMatrices, importedCopy.symdefMatrices, analysis);
+  MergeLookupTable(target.symdefMatrices, importedCopy.symdefMatrices,
+                   analysis);
   MergeLookupTable(target.symdefGeometries, importedCopy.symdefGeometries,
                    analysis);
 
@@ -104,10 +114,10 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
       MergeObjectTable(target.trusses, importedCopy.trusses, analysis);
   result.supportsAdded =
       MergeObjectTable(target.supports, importedCopy.supports, analysis);
-  result.sceneObjectsAdded =
-      MergeObjectTable(target.sceneObjects, importedCopy.sceneObjects, analysis);
-  result.groupObjectsAdded =
-      MergeObjectTable(target.groupObjects, importedCopy.groupObjects, analysis);
+  result.sceneObjectsAdded = MergeObjectTable(
+      target.sceneObjects, importedCopy.sceneObjects, analysis);
+  result.groupObjectsAdded = MergeObjectTable(
+      target.groupObjects, importedCopy.groupObjects, analysis);
   result.layersAdded =
       MergeObjectTable(target.layers, importedCopy.layers, analysis);
 

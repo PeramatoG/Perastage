@@ -19,7 +19,9 @@
 
 #include "uuidutils.h"
 
-#include <unordered_set>
+#include <algorithm>
+#include <string_view>
+#include <vector>
 
 namespace mvr {
 namespace {
@@ -37,23 +39,45 @@ std::unordered_set<std::string> CollectUsedUuids(const MvrScene &scene) {
   addKeys(scene.sceneObjects);
   addKeys(scene.groupObjects);
   addKeys(scene.layers);
-  for (const auto &entry : scene.positions)
-    used.insert(entry.first);
-  for (const auto &entry : scene.symdefFiles)
-    used.insert(entry.first);
-  for (const auto &entry : scene.symdefTypes)
-    used.insert(entry.first);
-  for (const auto &entry : scene.symdefMatrices)
-    used.insert(entry.first);
-  for (const auto &entry : scene.symdefGeometries)
-    used.insert(entry.first);
+  addKeys(scene.positions);
+  addKeys(scene.symdefFiles);
+  addKeys(scene.symdefTypes);
+  addKeys(scene.symdefMatrices);
+  addKeys(scene.symdefGeometries);
   return used;
 }
 
-// Resolves a collision-free UUID for an imported item and records reference remaps.
+// Returns sorted UUID keys so merge analysis is deterministic across platforms.
+template <typename T>
+std::vector<std::string>
+SortedUuidKeys(const std::unordered_map<std::string, T> &objects) {
+  std::vector<std::string> keys;
+  keys.reserve(objects.size());
+  for (const auto &entry : objects)
+    keys.push_back(entry.first);
+  std::sort(keys.begin(), keys.end());
+  return keys;
+}
+
+// Derives an unused deterministic replacement UUID.
+std::string
+DeriveStableReplacementUuid(std::string_view tableName, const std::string &uuid,
+                            std::unordered_set<std::string> &usedUuids) {
+  std::string seed = "mvr:merge:" + std::string(tableName) + ":" + uuid;
+  std::string replacement = DeriveDeterministicUuid(seed);
+  size_t suffix = 1;
+  while (!usedUuids.insert(replacement).second)
+    replacement =
+        DeriveDeterministicUuid(seed + "#" + std::to_string(suffix++));
+  return replacement;
+}
+
+// Resolves an imported UUID and records reference remaps.
 std::string ResolveImportedUuid(const std::string &uuid,
+                                std::string_view tableName,
                                 std::unordered_set<std::string> &usedUuids,
-                                MvrMergeAnalysis &analysis) {
+                                MvrMergeAnalysis &analysis,
+                                const MvrMergeOptions &options) {
   if (uuid.empty())
     return uuid;
 
@@ -62,45 +86,78 @@ std::string ResolveImportedUuid(const std::string &uuid,
     return uuid;
   }
 
-  std::string replacement;
-  do {
-    replacement = GenerateUuid();
-  } while (!usedUuids.insert(replacement).second);
+  ++analysis.uuidCollisionsDetected;
+  if (options.uuidCollisionBehavior ==
+      MvrMergeUuidCollisionBehavior::ReplaceExisting) {
+    analysis.uuidMap[uuid] = uuid;
+    return uuid;
+  }
+  if (options.uuidCollisionBehavior ==
+      MvrMergeUuidCollisionBehavior::SkipIncoming) {
+    analysis.uuidMap[uuid] = uuid;
+    analysis.skippedIncomingUuids.insert(uuid);
+    return uuid;
+  }
 
+  const std::string replacement =
+      DeriveStableReplacementUuid(tableName, uuid, usedUuids);
   analysis.uuidMap[uuid] = replacement;
   ++analysis.uuidCollisionsResolved;
   return replacement;
 }
 
-// Records UUID remaps for an imported object map without mutating scene content.
+// Records UUID remaps without mutating imported scene content.
 template <typename T>
 void PrepareObjectTable(const std::unordered_map<std::string, T> &imported,
+                        std::string_view tableName,
                         std::unordered_set<std::string> &usedUuids,
-                        MvrMergeAnalysis &analysis) {
-  for (const auto &entry : imported)
-    (void)ResolveImportedUuid(entry.first, usedUuids, analysis);
+                        MvrMergeAnalysis &analysis,
+                        const MvrMergeOptions &options) {
+  for (const auto &uuid : SortedUuidKeys(imported))
+    (void)ResolveImportedUuid(uuid, tableName, usedUuids, analysis, options);
 }
 
 } // namespace
 
 // Analyzes imported scene UUIDs and prepares collision-safe reference remaps.
 MvrMergeAnalysis AnalyzeImportedSceneMerge(const MvrScene &target,
-                                           const MvrScene &imported) {
+                                           const MvrScene &imported,
+                                           const MvrMergeOptions &options) {
   MvrMergeAnalysis analysis;
   std::unordered_set<std::string> usedUuids = CollectUsedUuids(target);
 
-  PrepareObjectTable(imported.positions, usedUuids, analysis);
-  PrepareObjectTable(imported.symdefFiles, usedUuids, analysis);
-  PrepareObjectTable(imported.symdefTypes, usedUuids, analysis);
-  PrepareObjectTable(imported.symdefMatrices, usedUuids, analysis);
-  PrepareObjectTable(imported.symdefGeometries, usedUuids, analysis);
-  PrepareObjectTable(imported.fixtures, usedUuids, analysis);
-  PrepareObjectTable(imported.trusses, usedUuids, analysis);
-  PrepareObjectTable(imported.supports, usedUuids, analysis);
-  PrepareObjectTable(imported.sceneObjects, usedUuids, analysis);
-  PrepareObjectTable(imported.groupObjects, usedUuids, analysis);
-  PrepareObjectTable(imported.layers, usedUuids, analysis);
+  PrepareObjectTable(imported.positions, "positions", usedUuids, analysis,
+                     options);
+  PrepareObjectTable(imported.symdefFiles, "symdefFiles", usedUuids, analysis,
+                     options);
+  PrepareObjectTable(imported.symdefTypes, "symdefTypes", usedUuids, analysis,
+                     options);
+  PrepareObjectTable(imported.symdefMatrices, "symdefMatrices", usedUuids,
+                     analysis, options);
+  PrepareObjectTable(imported.symdefGeometries, "symdefGeometries", usedUuids,
+                     analysis, options);
+  PrepareObjectTable(imported.fixtures, "fixtures", usedUuids, analysis,
+                     options);
+  PrepareObjectTable(imported.trusses, "trusses", usedUuids, analysis, options);
+  PrepareObjectTable(imported.supports, "supports", usedUuids, analysis,
+                     options);
+  PrepareObjectTable(imported.sceneObjects, "sceneObjects", usedUuids, analysis,
+                     options);
+  PrepareObjectTable(imported.groupObjects, "groupObjects", usedUuids, analysis,
+                     options);
+  PrepareObjectTable(imported.layers, "layers", usedUuids, analysis, options);
+
+  for (const auto &[oldUuid, newUuid] : analysis.uuidMap) {
+    if (oldUuid != newUuid && imported.fixtures.contains(oldUuid))
+      analysis.fixtureUuidRemap.emplace(oldUuid, newUuid);
+  }
   return analysis;
+}
+
+// Reports whether an imported object UUID should be skipped during merge apply.
+bool ShouldSkipImportedUuid(const std::string &uuid,
+                            const MvrMergeAnalysis &analysis) {
+  return analysis.skippedIncomingUuids.contains(uuid);
 }
 
 // Resolves an imported UUID reference using the prepared merge analysis.
