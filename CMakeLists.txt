@@ -125,6 +125,7 @@ add_executable(${PROJECT_NAME} main.cpp
     mvr/mvrimporter.cpp
     mvr/mvr_merge_analyzer.cpp
     mvr/mvr_merge_applier.cpp
+    mvr/mvr_merge_resource_rewriter.cpp
     mvr/mvrscenemerger.cpp
     mvr/mvrexporter.cpp
     mvr/primitive_model_resources.cpp
