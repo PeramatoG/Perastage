@@ -52,6 +52,7 @@ Changes since `v1.2.0`.
 - Fixed MVR import and GDTF download progress UI races that could update UI from the wrong thread or after dialogs were already closed.
 - Fixed MVR exports with missing non-critical resources so users receive warnings instead of failing the entire export when possible.
 - Fixed 2D scene-object depth sorting so objects draw in the expected order.
+- Fixed 3D empty-space deselection so fixtures, trusses, hoists, and scene objects are cleared consistently across the viewer and object tables.
 
 ## Stability and reliability
 

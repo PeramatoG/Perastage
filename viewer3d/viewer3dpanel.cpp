@@ -45,6 +45,7 @@
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
 #include "trusstablepanel.h"
+#include "hoisttablepanel.h"
 #include "sceneobjecttablepanel.h"
 #include "scene_object_primitive_editing.h"
 #include "../gui/selection_origin_token.h"
@@ -1614,38 +1615,41 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         }
         else
         {
-            if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
-                if (!cfg.GetSelectedFixtures().empty()) {
-                    cfg.PushUndoState("fixture selection");
-                    cfg.SetSelectedFixtures({});
-                }
-                SetSelectedFixtures({});
-                FixtureTablePanel::Instance()->ClearSelection();
-            }
-            else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
-                if (!cfg.GetSelectedTrusses().empty()) {
-                    cfg.PushUndoState("truss selection");
-                    cfg.SetSelectedTrusses({});
-                }
-                SetSelectedFixtures({});
-                TrussTablePanel::Instance()->ClearSelection();
-            }
-            else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
-                if (!cfg.GetSelectedSceneObjects().empty()) {
-                    cfg.PushUndoState("scene object selection");
-                    cfg.SetSelectedSceneObjects({});
-                }
-                SetSelectedFixtures({});
-                SceneObjectTablePanel::Instance()->ClearSelection();
-            }
-            else {
-                SetSelectedFixtures({});
-            }
+            ClearAllObjectSelections("clear selection");
         }
     }
     m_draggedSincePress = false;
 }
 
+
+// Clears every object-selection store and synchronizes table and viewport highlights.
+void Viewer3DPanel::ClearAllObjectSelections(const char* undoLabel)
+{
+    ConfigManager& cfg = ConfigManager::Get();
+    const bool hasAnySelection =
+        !cfg.GetSelectedFixtures().empty() || !cfg.GetSelectedTrusses().empty() ||
+        !cfg.GetSelectedSupports().empty() || !cfg.GetSelectedSceneObjects().empty();
+
+    if (hasAnySelection) {
+        cfg.PushUndoState(undoLabel);
+        cfg.SetSelectedFixtures({});
+        cfg.SetSelectedTrusses({});
+        cfg.SetSelectedSupports({});
+        cfg.SetSelectedSceneObjects({});
+    }
+
+    SetSelectedFixtures({});
+    if (Viewer2DPanel::Instance())
+        Viewer2DPanel::Instance()->SetSelectedUuids({});
+    if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->ClearSelection();
+    if (TrussTablePanel::Instance())
+        TrussTablePanel::Instance()->ClearSelection();
+    if (HoistTablePanel::Instance())
+        HoistTablePanel::Instance()->ClearSelection();
+    if (SceneObjectTablePanel::Instance())
+        SceneObjectTablePanel::Instance()->ClearSelection();
+}
 
 // Opens the right-click selection and render-style context menu.
 void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
