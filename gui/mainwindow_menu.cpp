@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "about_dialog.h"
 #include "mainwindow.h"
 #include "mainwindow/controllers/mainwindow_io_controller.h"
 #include "mainwindow_view_controller.h"
@@ -35,7 +36,6 @@
 #include <thread>
 #include <vector>
 
-#include <wx/aboutdlg.h>
 #include <wx/artprov.h>
 #include <wx/busyinfo.h>
 #include <wx/choice.h>
@@ -44,7 +44,6 @@
 #include <wx/filename.h>
 #include <wx/filefn.h>
 #include <wx/html/htmlwin.h>
-#include <wx/iconbndl.h>
 #include <wx/numdlg.h>
 #include <wx/stdpaths.h>
 #include <wx/utils.h>
@@ -53,7 +52,6 @@
 #include "addfixturedialog.h"
 #include "autopatcher.h"
 #include "ui_feature_flags.h"
-#include "app_version.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "consolepanel.h"
@@ -1021,37 +1019,7 @@ void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {
 
 // Displays the application About dialog.
 void MainWindow::OnShowAbout(wxCommandEvent &WXUNUSED(event)) {
-  wxAboutDialogInfo info;
-  info.SetName(app::kName);
-  info.SetVersion(app::kVersionDisplay);
-  wxString description =
-      "MVR viewer/editor with integrated 2D/3D workflows, MVR import/export, "
-      "and Create from text tools.\n\n"
-      "This application makes use of the following open-source libraries:\n"
-      "  - wxWidgets\n"
-      "  - tinyxml2\n"
-      "  - nlohmann-json\n"
-      "  - OpenGL-based 3D rendering";
-  info.SetDescription(description);
-  info.SetWebSite("https://perastage.luismaperamato.com/");
-  info.AddDeveloper("Luisma Peramato");
-  info.SetLicence(
-      "This software is licensed under the GNU General Public License v3.0.");
-
-  // Load the largest available icon
-  wxIconBundle bundle;
-  const wxString iconPaths[] = {"resources/Perastage.ico",
-                                "../resources/Perastage.ico",
-                                "../../resources/Perastage.ico"};
-  for (const wxString &path : iconPaths) {
-    if (wxFileExists(path))
-      bundle.AddIcon(path, wxBITMAP_TYPE_ICO);
-  }
-  wxIcon icon = bundle.GetIcon(wxSize(256, 256));
-  if (icon.IsOk())
-    info.SetIcon(icon);
-
-  wxAboutBox(info, this);
+  gui::ShowAboutDialog(this);
 }
 
 // Switches the notebook to the fixtures tab.
