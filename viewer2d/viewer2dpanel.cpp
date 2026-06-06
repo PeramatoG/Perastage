@@ -822,6 +822,32 @@ void Viewer2DPanel::InvalidateBottomSymbolCache() {
   m_controller.ClearBottomSymbolCache();
 }
 
+// Binds the OpenGL context needed for interaction hit-testing and selection readback.
+bool Viewer2DPanel::TryBindGlContextForInteraction() {
+  if (!m_glContext) {
+    Logger::Instance().Log(
+        Logger::Level::Warn,
+        "Viewer2DPanel: skipping interaction picking because the OpenGL context is unavailable.");
+    return false;
+  }
+
+  if (!IsShownOnScreen()) {
+    Logger::Instance().Log(
+        Logger::Level::Warn,
+        "Viewer2DPanel: skipping interaction picking because the canvas is not shown.");
+    return false;
+  }
+
+  if (!SetCurrent(*m_glContext)) {
+    Logger::Instance().Log(
+        Logger::Level::Warn,
+        "Viewer2DPanel: skipping interaction picking because the OpenGL context could not be bound.");
+    return false;
+  }
+
+  return true;
+}
+
 // Initializes the OpenGL context only when the canvas is safe to bind on this platform.
 void Viewer2DPanel::InitGL() {
 #if defined(__WXGTK__) || defined(__WXOSX__)
@@ -1390,6 +1416,7 @@ void Viewer2DPanel::FinalizeSelectionDrag() {
   }
 }
 
+// Selects scene items inside a dragged screen rectangle.
 void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
                                             const wxPoint &end,
                                             bool selectAcrossAllTables) {
@@ -1404,7 +1431,9 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
   if (w <= 0 || h <= 0)
     return;
 
-  SetCurrent(*m_glContext);
+  if (!TryBindGlContextForInteraction())
+    return;
+
   const wxPoint pickStart = ToFramebufferPoint(this, start);
   const wxPoint pickEnd = ToFramebufferPoint(this, end);
 
@@ -2039,6 +2068,7 @@ bool Viewer2DPanel::TryResolvePickLabelWithCache(PickQueryKind queryKind,
   return found;
 }
 
+// Updates hover highlighting through the lightweight pick-UUID path when available.
 bool Viewer2DPanel::TryUpdateHoverHighlightFast(const wxPoint &screenPos) {
   if (!m_enableSelection || !IsShownOnScreen() || m_dragMode != DragMode::None)
     return false;
@@ -2056,6 +2086,8 @@ bool Viewer2DPanel::TryUpdateHoverHighlightFast(const wxPoint &screenPos) {
 
   const RenderSize renderSize = ResolveRenderSize(this);
   if (!renderSize.IsValid())
+    return false;
+  if (!TryBindGlContextForInteraction())
     return false;
 
   const wxPoint pickPos = ToFramebufferPoint(this, screenPos);
@@ -2085,6 +2117,7 @@ bool Viewer2DPanel::TryUpdateHoverHighlightFast(const wxPoint &screenPos) {
   return true;
 }
 
+// Resolves the hovered scene item and updates hover highlighting.
 void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
   const auto queryStartTime = std::chrono::steady_clock::now();
   if (!m_enableSelection || !IsShownOnScreen())
@@ -2107,8 +2140,9 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
   const int h = renderSize.height;
   if (!renderSize.IsValid())
     return;
+  if (!TryBindGlContextForInteraction())
+    return;
 
-  SetCurrent(*m_glContext);
   const wxPoint pickPos = ToFramebufferPoint(this, screenPos);
   const size_t hiddenLayersHash = BuildHiddenLayersHash();
   std::string newUuid;
@@ -2192,6 +2226,7 @@ void Viewer2DPanel::TrackHoverHitTestTelemetry(std::chrono::microseconds duratio
 #endif
 }
 
+// Handles left-button press setup for view dragging, selection dragging, and rectangle selection.
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   if (event.LeftDown()) {
     CaptureMouse();
@@ -2230,8 +2265,9 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     const int h = renderSize.height;
     if (w <= 0 || h <= 0)
       return;
+    if (!TryBindGlContextForInteraction())
+      return;
 
-    SetCurrent(*m_glContext);
     std::string uuid;
     const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
     const size_t hiddenLayersHash = BuildHiddenLayersHash();
@@ -2320,14 +2356,16 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   }
 }
 
+// Opens the editor for the double-clicked fixture or scene object.
 void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
   const RenderSize renderSize = ResolveRenderSize(this);
   const int w = renderSize.width;
   const int h = renderSize.height;
   if (w <= 0 || h <= 0 || !IsShownOnScreen())
     return;
+  if (!TryBindGlContextForInteraction())
+    return;
 
-  SetCurrent(*m_glContext);
   wxString label;
   wxPoint pos;
   std::string uuid;
@@ -2387,6 +2425,7 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
   RequestRepaint();
 }
 
+// Completes mouse-driven interaction and applies click or rectangle selections.
 void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
   if (event.LeftUp() && m_dragMode == DragMode::RectSelection) {
     const wxRect dirtyRect =
@@ -2445,7 +2484,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     }
     if (!renderSize.IsValid())
       return;
-    SetCurrent(*m_glContext);
+    if (!TryBindGlContextForInteraction())
+      return;
     std::string uuid;
     const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
     const size_t hiddenLayersHash = BuildHiddenLayersHash();
@@ -2661,6 +2701,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
 }
 
 
+// Opens the fixture filter menu when right-clicking empty fixture-table space.
 void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
   if (!m_enableSelection || !event.RightUp()) {
     event.Skip();
@@ -2680,7 +2721,9 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
     return;
   }
 
-  SetCurrent(*m_glContext);
+  if (!TryBindGlContextForInteraction())
+    return;
+
   wxString label;
   wxPoint pos;
   std::string hitUuid;

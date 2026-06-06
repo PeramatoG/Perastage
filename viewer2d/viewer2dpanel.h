@@ -171,6 +171,7 @@ private:
   void Render();
   void RenderInternal(bool swapBuffers);
   void OnPaint(wxPaintEvent &event);
+  bool TryBindGlContextForInteraction();
 
   void OnMouseDown(wxMouseEvent &event);
   void OnMouseDClick(wxMouseEvent &event);
