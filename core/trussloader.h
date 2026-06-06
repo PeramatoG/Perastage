@@ -21,6 +21,8 @@
 
 #include "truss.h"
 
+std::string GetTrussDefinitionFileDialogWildcard();
+bool IsSupportedTrussDefinitionExtension(const std::string &path);
 bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss);
 bool LoadTrussArchive(const std::string &archivePath, Truss &outTruss);
 bool LoadTrussDefinition(const std::string &path, Truss &outTruss);

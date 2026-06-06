@@ -35,11 +35,19 @@ namespace fs = std::filesystem;
 
 namespace {
 
+constexpr float kDefaultDirectModelLengthMm = 1000.0f;
+constexpr float kDefaultDirectModelWidthMm = 400.0f;
+constexpr float kDefaultDirectModelHeightMm = 400.0f;
+constexpr const char *kSupportedTrussFileDialogWildcard =
+    "Truss files (*.gdtf;*.gtruss;*.glb;*.3ds)|*.gdtf;*.gtruss;*.glb;*.3ds";
+
+// Converts a filesystem path to a UTF-8 string for storage and UI handoff.
 static std::string ToUtf8String(const fs::path &path) {
   std::u8string utf8 = path.u8string();
   return std::string(utf8.begin(), utf8.end());
 }
 
+// Converts a UTF-8 string into a filesystem path without losing non-ASCII characters.
 static fs::path FromUtf8String(const std::string &text) {
 #if defined(__cpp_lib_char8_t)
   const char8_t *begin = reinterpret_cast<const char8_t *>(text.data());
@@ -49,6 +57,7 @@ static fs::path FromUtf8String(const std::string &text) {
 #endif
 }
 
+// Returns a lowercase file extension for extension-based loader dispatch.
 static std::string LowerExt(fs::path path) {
   std::string ext = path.extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(),
@@ -56,6 +65,7 @@ static std::string LowerExt(fs::path path) {
   return ext;
 }
 
+// Parses a floating-point XML attribute into the provided output value.
 static bool ParseFloatAttr(tinyxml2::XMLElement *node, const char *name, float &out) {
   if (!node)
     return false;
@@ -67,6 +77,7 @@ static bool ParseFloatAttr(tinyxml2::XMLElement *node, const char *name, float &
   return false;
 }
 
+// Extracts a ZIP-based archive into the requested destination directory.
 static bool ExtractArchive(const fs::path &archivePath, const fs::path &destination) {
   wxFileInputStream input(archivePath.string());
   if (!input.IsOk())
@@ -100,6 +111,7 @@ static bool ExtractArchive(const fs::path &archivePath, const fs::path &destinat
 }
 
 
+// Builds a stable extraction cache path for a GDTF archive.
 static fs::path BuildGdtfExtractionCacheDir(const fs::path &gdtfPath) {
   std::error_code ec;
   fs::path normalized = fs::weakly_canonical(gdtfPath, ec);
@@ -119,6 +131,8 @@ static fs::path BuildGdtfExtractionCacheDir(const fs::path &gdtfPath) {
   fs::path cacheRoot = fs::temp_directory_path() / "perastage-truss-gdtf-cache";
   return cacheRoot / std::to_string(hashValue);
 }
+
+// Finds the first candidate path that exists below the provided base directory.
 static fs::path FindFirstExisting(const fs::path &base,
                                   std::initializer_list<fs::path> candidates) {
   for (const auto &candidate : candidates) {
@@ -131,6 +145,18 @@ static fs::path FindFirstExisting(const fs::path &base,
 
 } // namespace
 
+// Returns the file dialog wildcard matching the supported truss loader inputs.
+std::string GetTrussDefinitionFileDialogWildcard() {
+  return kSupportedTrussFileDialogWildcard;
+}
+
+// Reports whether the path extension is supported by the truss loader and renderer.
+bool IsSupportedTrussDefinitionExtension(const std::string &path) {
+  const std::string ext = LowerExt(FromUtf8String(path));
+  return ext == ".gdtf" || ext == ".gtruss" || ext == ".glb" || ext == ".3ds";
+}
+
+// Loads a GDTF truss archive and resolves its renderable model metadata.
 bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
   fs::path inputPath = FromUtf8String(gdtfPath);
   if (!fs::exists(inputPath))
@@ -213,10 +239,12 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
   return !outTruss.symbolFile.empty();
 }
 
+// Loads a truss archive through the general truss definition loader.
 bool LoadTrussArchive(const std::string &archivePath, Truss &outTruss) {
   return LoadTrussDefinition(archivePath, outTruss);
 }
 
+// Loads a supported truss definition or direct renderable model file.
 bool LoadTrussDefinition(const std::string &path, Truss &outTruss) {
   fs::path inputPath = FromUtf8String(path);
   std::string ext = LowerExt(inputPath);
@@ -234,8 +262,18 @@ bool LoadTrussDefinition(const std::string &path, Truss &outTruss) {
     return LoadTrussGdtf(ToUtf8String(migratedPath), outTruss);
   }
 
+  if (ext != ".glb" && ext != ".3ds")
+    return false;
+
+  std::error_code ec;
+  if (!fs::exists(inputPath, ec) || ec || !fs::is_regular_file(inputPath, ec))
+    return false;
+
   outTruss = Truss{};
   outTruss.symbolFile = ToUtf8String(inputPath);
   outTruss.modelFile = ToUtf8String(inputPath);
+  outTruss.lengthMm = kDefaultDirectModelLengthMm;
+  outTruss.widthMm = kDefaultDirectModelWidthMm;
+  outTruss.heightMm = kDefaultDirectModelHeightMm;
   return true;
 }
