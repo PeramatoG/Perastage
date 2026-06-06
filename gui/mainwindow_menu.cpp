@@ -70,6 +70,7 @@
 #include "layoutpanel.h"
 #include "layoutviewerpanel.h"
 #include "loader_obj.h"
+#include "logger.h"
 #include "logindialog.h"
 #include "markdown.h"
 #include "preferencesdialog.h"
@@ -1263,7 +1264,20 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
 
   Truss baseTruss;
   namespace fs = std::filesystem;
+  fs::path selectedTrussPath = fs::u8path(path);
+  std::string selectedExtension = selectedTrussPath.extension().string();
+  std::transform(selectedExtension.begin(), selectedExtension.end(),
+                 selectedExtension.begin(), [](unsigned char c) {
+                   return static_cast<char>(std::tolower(c));
+                 });
+  Logger::Instance().Log(Logger::Level::Info,
+                         "Add truss: selected extension='" + selectedExtension +
+                             "' path='" + path + "'.");
   if (!LoadTrussDefinition(path, baseTruss)) {
+    Logger::Instance().Log(
+        Logger::Level::Warn,
+        "Add truss validation failed: extension='" + selectedExtension +
+            "' path='" + path + "'.");
     wxMessageBox("Unsupported or unreadable truss file. Supported formats are "
                  "GDTF, GTruss, GLB, and 3DS.",
                  "Error", wxOK | wxICON_ERROR);
@@ -1329,6 +1343,17 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
 
   if (trussPanel)
     trussPanel->ReloadData();
+  const bool updateSceneRequested = viewportPanel != nullptr;
+  Logger::Instance().Log(
+      Logger::Level::Info,
+      "Add truss complete: extension='" + selectedExtension +
+          "' parsingSucceeded=true symbolFile='" + baseTruss.symbolFile +
+          "' dimensionsMm=" + std::to_string(baseTruss.lengthMm) + "x" +
+          std::to_string(baseTruss.widthMm) + "x" +
+          std::to_string(baseTruss.heightMm) +
+          " updateSceneRequested=" +
+          (updateSceneRequested ? std::string("true") : std::string("false")) +
+          ".");
   if (viewportPanel) {
     viewportPanel->UpdateScene();
     viewportPanel->Refresh();

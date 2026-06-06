@@ -309,6 +309,8 @@ private:
   bool m_viewMotionSinceLastHoverHitTest = false;
   PickCacheEntry m_pickCache;
   uint64_t m_pickCacheSceneGeneration = 0;
+  bool m_logFirstPickAfterSceneUpdate = false;
+  bool m_lastUpdateSceneReloadRequested = false;
   bool m_enableSelection = true;
   Viewer2DMeasureToolState m_measureToolState;
   std::vector<std::string> m_lastAppliedSelectionUuids;

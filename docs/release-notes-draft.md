@@ -21,3 +21,5 @@ Changes since `v1.3.0`.
 ## Documentation
 
 ## Internal changes
+
+- Added concise diagnostics for truss loading and 2D viewer picking to make validation and interaction issues easier to troubleshoot.
