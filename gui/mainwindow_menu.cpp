@@ -1234,7 +1234,8 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
       wxString trussDir =
           wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
       wxFileDialog fdlg(this, "Select Truss file", trussDir, wxEmptyString,
-                        "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All files|*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+                        wxString::FromUTF8(GetTrussDefinitionFileDialogWildcard()),
+                        wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
         return;
       wxFileName fn(fdlg.GetPath());
@@ -1251,7 +1252,8 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     wxString trussDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
     wxFileDialog fdlg(this, "Select Truss file", trussDir, wxEmptyString,
-                      "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All files|*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+                      wxString::FromUTF8(GetTrussDefinitionFileDialogWildcard()),
+                      wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;
     wxFileName fn(fdlg.GetPath());
@@ -1262,7 +1264,9 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
   Truss baseTruss;
   namespace fs = std::filesystem;
   if (!LoadTrussDefinition(path, baseTruss)) {
-    wxMessageBox("Failed to read truss file.", "Error", wxOK | wxICON_ERROR);
+    wxMessageBox("Unsupported or unreadable truss file. Supported formats are "
+                 "GDTF, GTruss, GLB, and 3DS.",
+                 "Error", wxOK | wxICON_ERROR);
     return;
   }
   if (!baseTruss.name.empty())

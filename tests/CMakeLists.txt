@@ -42,6 +42,18 @@ include_directories(
     ../viewer3d/render
 )
 
+add_executable(trussloader_validation_test
+               trussloader_validation_test.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/logger.cpp
+               ../models/truss.cpp)
+target_include_directories(trussloader_validation_test PRIVATE
+                           . ../core ../models ../third_party)
+target_link_libraries(trussloader_validation_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME TrussLoaderValidation COMMAND trussloader_validation_test)
+
 
 add_executable(mvr_merge_analyzer_applier_test
                mvr_merge_analyzer_applier_test.cpp
