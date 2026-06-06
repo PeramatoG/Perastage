@@ -18,6 +18,7 @@
 #include "trussloader.h"
 
 #include "truss_gdtf_builder.h"
+#include "logger.h"
 
 #include <tinyxml2.h>
 #include <wx/filename.h>
@@ -30,6 +31,7 @@
 #include <functional>
 #include <fstream>
 #include <memory>
+#include <sstream>
 
 namespace fs = std::filesystem;
 
@@ -143,6 +145,19 @@ static fs::path FindFirstExisting(const fs::path &base,
   return {};
 }
 
+// Writes a concise truss definition load diagnostic for add-truss validation.
+static void LogTrussDefinitionLoadResult(const fs::path &path, const std::string &ext,
+                                         bool success, const Truss &truss) {
+  std::ostringstream msg;
+  msg << "Truss definition load: extension='" << ext << "'"
+      << " parsingSucceeded=" << (success ? "true" : "false")
+      << " symbolFile='" << truss.symbolFile << "'"
+      << " dimensionsMm=" << truss.lengthMm << "x" << truss.widthMm
+      << "x" << truss.heightMm << " path='" << ToUtf8String(path) << "'";
+  Logger::Instance().Log(success ? Logger::Level::Info : Logger::Level::Warn,
+                         msg.str());
+}
+
 } // namespace
 
 // Returns the file dialog wildcard matching the supported truss loader inputs.
@@ -248,32 +263,42 @@ bool LoadTrussArchive(const std::string &archivePath, Truss &outTruss) {
 bool LoadTrussDefinition(const std::string &path, Truss &outTruss) {
   fs::path inputPath = FromUtf8String(path);
   std::string ext = LowerExt(inputPath);
-  if (ext == ".gdtf")
-    return LoadTrussGdtf(ToUtf8String(inputPath), outTruss);
+  bool success = false;
+
+  if (ext == ".gdtf") {
+    success = LoadTrussGdtf(ToUtf8String(inputPath), outTruss);
+    LogTrussDefinitionLoadResult(inputPath, ext, success, outTruss);
+    return success;
+  }
 
   if (ext == ".gtruss") {
     fs::path migratedPath = inputPath;
     migratedPath.replace_extension(".gdtf");
     std::string error;
-    if (!fs::exists(migratedPath) &&
-        !ConvertLegacyGtrussToGdtf(inputPath, migratedPath, &error)) {
-      return false;
+    if (fs::exists(migratedPath) ||
+        ConvertLegacyGtrussToGdtf(inputPath, migratedPath, &error)) {
+      success = LoadTrussGdtf(ToUtf8String(migratedPath), outTruss);
     }
-    return LoadTrussGdtf(ToUtf8String(migratedPath), outTruss);
+    LogTrussDefinitionLoadResult(inputPath, ext, success, outTruss);
+    return success;
   }
 
-  if (ext != ".glb" && ext != ".3ds")
-    return false;
+  if (ext == ".glb" || ext == ".3ds") {
+    std::error_code ec;
+    if (fs::exists(inputPath, ec) && !ec && fs::is_regular_file(inputPath, ec) &&
+        !ec) {
+      outTruss = Truss{};
+      outTruss.symbolFile = ToUtf8String(inputPath);
+      outTruss.modelFile = ToUtf8String(inputPath);
+      outTruss.lengthMm = kDefaultDirectModelLengthMm;
+      outTruss.widthMm = kDefaultDirectModelWidthMm;
+      outTruss.heightMm = kDefaultDirectModelHeightMm;
+      success = true;
+    }
+    LogTrussDefinitionLoadResult(inputPath, ext, success, outTruss);
+    return success;
+  }
 
-  std::error_code ec;
-  if (!fs::exists(inputPath, ec) || ec || !fs::is_regular_file(inputPath, ec))
-    return false;
-
-  outTruss = Truss{};
-  outTruss.symbolFile = ToUtf8String(inputPath);
-  outTruss.modelFile = ToUtf8String(inputPath);
-  outTruss.lengthMm = kDefaultDirectModelLengthMm;
-  outTruss.widthMm = kDefaultDirectModelWidthMm;
-  outTruss.heightMm = kDefaultDirectModelHeightMm;
-  return true;
+  LogTrussDefinitionLoadResult(inputPath, ext, false, outTruss);
+  return false;
 }

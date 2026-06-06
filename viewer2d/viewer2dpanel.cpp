@@ -525,10 +525,13 @@ void Viewer2DPanel::TrackRefreshTelemetry() {
 #endif
 }
 
+// Updates cached 2D scene data, selection state, and repaint scheduling.
 void Viewer2DPanel::UpdateScene(bool reload) {
   if (reload && m_enableSelection && ShouldPauseHeavyTasks())
     return;
 
+  m_logFirstPickAfterSceneUpdate = true;
+  m_lastUpdateSceneReloadRequested = reload;
   if (reload)
     m_controller.Update();
   if (m_enableSelection) {
@@ -841,7 +844,7 @@ bool Viewer2DPanel::TryBindGlContextForInteraction() {
   if (!SetCurrent(*m_glContext)) {
     Logger::Instance().Log(
         Logger::Level::Warn,
-        "Viewer2DPanel: skipping interaction picking because the OpenGL context could not be bound.");
+        "Viewer2DPanel: interaction picking context-bind failure; glContextBindFailed=true.");
     return false;
   }
 
@@ -1935,11 +1938,13 @@ void Viewer2DPanel::ClearHoverState(bool requestRepaint) {
   ApplyHoverUuid("", requestRepaint);
 }
 
+// Invalidates cached picking results after scene, view, or visibility changes.
 void Viewer2DPanel::InvalidatePickCache() {
   m_pickCache.valid = false;
   ++m_pickCacheSceneGeneration;
 }
 
+// Builds a hash for hidden-layer state and invalidates stale pick cache entries.
 size_t Viewer2DPanel::BuildHiddenLayersHash() {
   const size_t hash = HashStringContainer(ConfigManager::Get().GetHiddenLayers());
   if (m_pickCache.valid && m_pickCache.hiddenLayersHash != hash)
@@ -1947,6 +1952,7 @@ size_t Viewer2DPanel::BuildHiddenLayersHash() {
   return hash;
 }
 
+// Returns whether a recent picking query can be reused for the current pointer location.
 bool Viewer2DPanel::IsPickCacheReusable(PickQueryKind queryKind,
                                         const wxPoint &framebufferPos,
                                         int viewportWidth, int viewportHeight,
@@ -1971,6 +1977,7 @@ bool Viewer2DPanel::IsPickCacheReusable(PickQueryKind queryKind,
          (kPickCacheReuseDistancePx * kPickCacheReuseDistancePx);
 }
 
+// Stores a pick result and logs the first interaction pick after a scene update.
 void Viewer2DPanel::StorePickCache(PickQueryKind queryKind,
                                    const wxPoint &framebufferPos,
                                    int viewportWidth, int viewportHeight,
@@ -1989,8 +1996,40 @@ void Viewer2DPanel::StorePickCache(PickQueryKind queryKind,
   m_pickCache.timestamp = std::chrono::steady_clock::now();
   m_pickCache.found = found;
   m_pickCache.uuid = uuid;
+
+  if (m_logFirstPickAfterSceneUpdate) {
+    const char *queryName = "none";
+    switch (queryKind) {
+    case PickQueryKind::FixtureLabel:
+      queryName = "fixture-label";
+      break;
+    case PickQueryKind::TrussLabel:
+      queryName = "truss-label";
+      break;
+    case PickQueryKind::HoistLabel:
+      queryName = "hoist-label";
+      break;
+    case PickQueryKind::SceneObjectLabel:
+      queryName = "scene-object-label";
+      break;
+    case PickQueryKind::PickUuid:
+      queryName = "pick-uuid";
+      break;
+    case PickQueryKind::None:
+      break;
+    }
+    Logger::Instance().Log(
+        Logger::Level::Debug,
+        "Viewer2DPanel: first pick after scene update; updateSceneRequested=true reload=" +
+            std::string(m_lastUpdateSceneReloadRequested ? "true" : "false") +
+            " query='" + queryName + "' found=" +
+            std::string(found ? "true" : "false") + " sceneGeneration=" +
+            std::to_string(m_pickCacheSceneGeneration) + ".");
+    m_logFirstPickAfterSceneUpdate = false;
+  }
 }
 
+// Resolves a picked UUID using the reusable interaction pick cache.
 bool Viewer2DPanel::TryResolvePickUuidWithCache(const wxPoint &framebufferPos,
                                                 int viewportWidth,
                                                 int viewportHeight,
@@ -2015,6 +2054,7 @@ bool Viewer2DPanel::TryResolvePickUuidWithCache(const wxPoint &framebufferPos,
   return found;
 }
 
+// Resolves a picked label using the reusable interaction pick cache.
 bool Viewer2DPanel::TryResolvePickLabelWithCache(PickQueryKind queryKind,
                                                  const wxPoint &framebufferPos,
                                                  int viewportWidth,
