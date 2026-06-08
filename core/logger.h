@@ -50,6 +50,9 @@ public:
   // Flushes queued messages to the persistent sinks.
   void Flush();
 
+  // Stops background logging during application exit after a bounded final drain.
+  void ShutdownForExit(std::string finalMessage = {});
+
   // Returns a copy of the newest formatted log lines kept in memory.
   std::vector<std::string> GetRecentLines(std::size_t maxLines) const;
 
@@ -69,6 +72,7 @@ private:
   // Limit batch sizes to avoid large memory spikes when the queue grows.
   static constexpr std::size_t kMaxBatchSize = 256;
   static constexpr std::size_t kMaxRecentLines = 512;
+  static constexpr std::size_t kShutdownDrainLimit = 32;
 
   std::filesystem::path log_path_;
   std::ofstream file_;
@@ -83,6 +87,8 @@ private:
   // Default to most-verbose so level filtering is opt-in and does not
   // accidentally suppress Debug logs unless explicitly configured.
   Level min_level_ = Level::Debug;
+  bool accepting_logs_ = true;
+  bool shutdown_started_ = false;
   bool done_ = false;
   bool writing_ = false;
   std::thread worker_;

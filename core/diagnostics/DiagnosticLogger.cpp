@@ -45,6 +45,11 @@ void DiagnosticLogger::Debug(const std::string &message) {
 // Flushes queued diagnostic log messages to disk.
 void DiagnosticLogger::Flush() { Logger::Instance().Flush(); }
 
+// Stops diagnostic logging during application exit after a bounded final drain.
+void DiagnosticLogger::ShutdownForExit(const std::string &finalMessage) {
+  Logger::Instance().ShutdownForExit(finalMessage);
+}
+
 // Returns recent in-memory log lines for crash and diagnostic reports.
 std::vector<std::string> DiagnosticLogger::RecentLines(std::size_t maxLines) {
   return Logger::Instance().GetRecentLines(maxLines);

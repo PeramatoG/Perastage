@@ -17,6 +17,7 @@ public:
   static void Error(const std::string &message);
   static void Debug(const std::string &message);
   static void Flush();
+  static void ShutdownForExit(const std::string &finalMessage);
   static std::vector<std::string> RecentLines(std::size_t maxLines);
   static std::filesystem::path CurrentLogFile();
   static std::string FileNameOnly(const std::string &pathText);

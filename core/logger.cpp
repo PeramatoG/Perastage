@@ -88,17 +88,7 @@ Logger::Logger() {
 }
 
 // Flushes queued log entries and stops the log worker.
-Logger::~Logger() {
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    done_ = true;
-  }
-  cv_.notify_one();
-  if (worker_.joinable())
-    worker_.join();
-  if (file_.is_open())
-    file_.close();
-}
+Logger::~Logger() { ShutdownForExit(); }
 
 // Queues an informational log entry.
 void Logger::Log(std::string msg) { Log(Level::Info, std::move(msg)); }
@@ -107,7 +97,8 @@ void Logger::Log(std::string msg) { Log(Level::Info, std::move(msg)); }
 void Logger::Log(Level level, std::string msg) {
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (static_cast<int>(level) > static_cast<int>(min_level_))
+    if (!accepting_logs_ || done_ ||
+        static_cast<int>(level) > static_cast<int>(min_level_))
       return;
     queue_.push({level, std::move(msg)});
   }
@@ -132,6 +123,32 @@ void Logger::Flush() {
   cv_.wait(lock, [this] { return queue_.empty() && !writing_; });
   if (file_.is_open())
     file_.flush();
+}
+
+// Stops the worker quickly while preserving a bounded tail of shutdown logs.
+void Logger::ShutdownForExit(std::string finalMessage) {
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (shutdown_started_)
+      return;
+    shutdown_started_ = true;
+    accepting_logs_ = false;
+    if (!finalMessage.empty() &&
+        static_cast<int>(Level::Info) <= static_cast<int>(min_level_)) {
+      queue_.push({Level::Info, std::move(finalMessage)});
+    }
+    while (queue_.size() > kShutdownDrainLimit)
+      queue_.pop();
+    done_ = true;
+  }
+
+  cv_.notify_all();
+  if (worker_.joinable())
+    worker_.join();
+  if (file_.is_open()) {
+    file_.flush();
+    file_.close();
+  }
 }
 
 // Returns recent formatted log lines for diagnostic reports.
@@ -188,6 +205,10 @@ void Logger::Worker() {
         }
         std::cerr << formatted << '\n';
         lock.lock();
+        writing_ = false;
+        cv_.notify_all();
+        if (done_ && shutdown_started_)
+          break;
       }
       cv_.notify_all();
     }

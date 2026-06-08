@@ -40,4 +40,12 @@ On Windows, the default path is:
 
 Perastage writes local diagnostics only; it does not upload logs or crash reports automatically.
 
-Use **Help → Open Logs Folder** to view the local logs and crash reports folder. Use **Help → Export Diagnostic Report** to create a plain-text report that includes build information, platform details, captured OpenGL information when available, and recent log lines. Share this file manually only if you are comfortable sending it to the developer.
+Use **Help → Open Logs Folder** to view the local logs and crash reports folder. The current log file is named `perastage.log`, and the previous launch is kept as `perastage.previous.log`.
+
+Default log locations are:
+
+- Windows: `%LOCALAPPDATA%\Perastage\logs\perastage.log`
+- macOS: `~/Library/Logs/Perastage/perastage.log`
+- Linux: `${XDG_STATE_HOME}/perastage/logs/perastage.log`, or `~/.local/state/perastage/logs/perastage.log` when `XDG_STATE_HOME` is not set
+
+Crash reports are written under the `crash_reports` folder inside the same logs folder. Use **Help → Export Diagnostic Report** to create a plain-text report that includes build information, platform details, captured OpenGL information when available, and recent log lines. Share this file manually only if you are comfortable sending it to the developer.

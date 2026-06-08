@@ -417,8 +417,7 @@ std::optional<std::string> MyApp::ConsumePendingExternalOpenPath() {
 
 // Releases application-level resources before process shutdown.
 int MyApp::OnExit() {
-  diagnostics::DiagnosticLogger::Info("Perastage shutdown started.");
-  diagnostics::DiagnosticLogger::Flush();
+  diagnostics::DiagnosticLogger::ShutdownForExit("Perastage shutdown started.");
   // Release application-level singletons before CRT leak reporting runs in
   // debug builds on Windows.
   ConfigManager::Get().Reset();
