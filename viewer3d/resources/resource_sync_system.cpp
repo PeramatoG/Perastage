@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <exception>
 #include <cctype>
 #include <cmath>
 #include <filesystem>
@@ -439,16 +440,26 @@ void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
   std::transform(ext.begin(), ext.end(), ext.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   if (!loaded) {
-    if (ext == ".3ds")
-      loaded = Load3DS(path, mesh);
-    else if (ext == ".glb")
-      loaded = LoadGLB(path, mesh);
-    else if (ext == ".obj") {
-      std::string objError;
-      loaded = LoadOBJ(path, mesh, &objError);
-      if (!loaded && callbacks.appendConsoleMessage)
-        callbacks.appendConsoleMessage("OBJ load failed for " + path + ": " + objError);
+    std::string loadException;
+    try {
+      if (ext == ".3ds")
+        loaded = Load3DS(path, mesh);
+      else if (ext == ".glb")
+        loaded = LoadGLB(path, mesh);
+      else if (ext == ".obj") {
+        std::string objError;
+        loaded = LoadOBJ(path, mesh, &objError);
+        if (!loaded && callbacks.appendConsoleMessage)
+          callbacks.appendConsoleMessage("OBJ load failed for " + path + ": " + objError);
+      }
+    } catch (const std::exception &ex) {
+      loadException = ex.what();
+    } catch (...) {
+      loadException = "unknown loader exception";
     }
+
+    if (!loadException.empty() && callbacks.appendConsoleMessage)
+      callbacks.appendConsoleMessage("Model load exception for " + path + ": " + loadException);
 
     if (loaded && meshProcessingOptions.enableMeshOptimization)
       viewer3d::resources::OptimizeMeshForRuntime(mesh);
@@ -711,13 +722,19 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     if (state.loadedGdtf.find(gdtfPath) == state.loadedGdtf.end()) {
       std::vector<GdtfObject> objs;
       std::string gdtfError;
-      if (meshProcessingOptions.enableDiskCache &&
-          viewer3d::resources::TryLoadGdtfCache(gdtfPath, objs)) {
-      } else if (LoadGdtf(gdtfPath, objs, &gdtfError)) {
-        if (meshProcessingOptions.enableMeshOptimization)
-          viewer3d::resources::OptimizeGdtfObjectsForRuntime(objs);
-        if (meshProcessingOptions.enableDiskCache)
-          viewer3d::resources::TrySaveGdtfCache(gdtfPath, objs);
+      try {
+        if (meshProcessingOptions.enableDiskCache &&
+            viewer3d::resources::TryLoadGdtfCache(gdtfPath, objs)) {
+        } else if (LoadGdtf(gdtfPath, objs, &gdtfError)) {
+          if (meshProcessingOptions.enableMeshOptimization)
+            viewer3d::resources::OptimizeGdtfObjectsForRuntime(objs);
+          if (meshProcessingOptions.enableDiskCache)
+            viewer3d::resources::TrySaveGdtfCache(gdtfPath, objs);
+        }
+      } catch (const std::exception &ex) {
+        gdtfError = ex.what();
+      } catch (...) {
+        gdtfError = "unknown GDTF loader exception";
       }
 
       if (!objs.empty()) {

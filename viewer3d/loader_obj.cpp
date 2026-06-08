@@ -1,6 +1,7 @@
 #include "loader_obj.h"
 
 #include <algorithm>
+#include <charconv>
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -35,7 +36,14 @@ struct ObjIndexHash {
 bool ParseObjIndexToken(const std::string &token, int count, int &outIndex) {
   if (token.empty())
     return false;
-  int raw = std::stoi(token);
+
+  int raw = 0;
+  const char *begin = token.data();
+  const char *end = begin + token.size();
+  const std::from_chars_result result = std::from_chars(begin, end, raw);
+  if (result.ec != std::errc{} || result.ptr != end)
+    return false;
+
   if (raw > 0)
     outIndex = raw - 1;
   else if (raw < 0)

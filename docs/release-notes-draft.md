@@ -17,6 +17,7 @@ Changes since `v1.3.0`.
 
 ## Stability and reliability
 
+- Improved 3D MVR import resilience so malformed model or GDTF resources no longer stop the rest of the scene from synchronizing into the viewport, while model texture loading avoids duplicate wxWidgets image-handler registration.
 - Restored reliable 3D viewport updates after MVR imports by keeping external fixture-library paths absolute instead of rewriting them as scene-relative escape paths, and by preparing OpenGL before pending scene resource synchronization runs.
 - Improved truss add-path handling so scene-local model resources are converted safely without filesystem exceptions escaping the UI.
 - Improved 2D viewer startup reliability by validating GLEW initialization before enabling 2D OpenGL rendering.
