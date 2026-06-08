@@ -714,17 +714,17 @@ void Viewer3DPanel::StopRefreshThread()
 }
 
 // Initializes 3D OpenGL state only after centralized GLEW/context validation.
-void Viewer3DPanel::InitGL()
+bool Viewer3DPanel::InitGL()
 {
     if (!IsShownOnScreen()) {
-        return;
+        return false;
     }
     if (!m_glInitialized) {
         const GLEWInitResult initResult =
             InitializeGlewForCurrentContext(*this, *m_glContext, "Viewer3DPanel");
         if (!initResult.success) {
             wxLogError("%s", initResult.message);
-            return;
+            return false;
         }
         if (initResult.isWarningOnly) {
             wxLogDebug("%s", initResult.message);
@@ -744,6 +744,7 @@ void Viewer3DPanel::InitGL()
     else
         glDisable(GL_MULTISAMPLE);
     ApplyViewer3DClearColorForStyle(ResolveRenderStyleFromPreferences());
+    return m_glInitialized;
 }
 
 // Paint event handler
@@ -767,7 +768,10 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         wxASSERT_MSG(false, "Viewer3DPanel has no GL context during paint.");
         return;
     }
-    InitGL();
+    if (!InitGL() || !m_glInitialized) {
+        viewer3d::diagnostics::Log("OpenGL render frame skipped because GL initialization is not complete.");
+        return;
+    }
 
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
     const bool highlightOnlyRefresh =
@@ -1123,8 +1127,7 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
         return false;
 
     SetCurrent(*m_glContext);
-    InitGL();
-    if (!m_glInitialized) {
+    if (!InitGL() || !m_glInitialized) {
         wxMessageBox("OpenGL is not initialized yet.", "Export image",
                      wxOK | wxICON_ERROR, this);
         return false;

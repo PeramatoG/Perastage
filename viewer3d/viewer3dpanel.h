@@ -120,7 +120,7 @@ private:
     std::vector<std::string> m_lastAppliedSelectionUuids;
 
     // Initializes OpenGL settings
-    void InitGL();
+    bool InitGL();
 
     // Handles paint events
     void OnPaint(wxPaintEvent& event);
