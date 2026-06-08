@@ -29,6 +29,7 @@
 #endif
 
 #include <GL/glew.h>
+#include "glew_init_utils.h"
 // macOS uses the OpenGL framework headers; guard includes for cross-platform builds.
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -863,16 +864,26 @@ void Viewer2DPanel::InitGL() {
     return;
   }
 #endif
-  if (!SetCurrent(*m_glContext)) {
-    return;
-  }
   if (!m_glInitialized) {
-    glewExperimental = GL_TRUE;
-    glewInit();
+    const GLEWInitResult initResult =
+        InitializeGlewForCurrentContext(*this, *m_glContext, "Viewer2DPanel");
+    if (!initResult.success) {
+      wxLogError("%s", initResult.message);
+      return;
+    }
+    if (initResult.isWarningOnly) {
+      wxLogDebug("%s", initResult.message);
+    }
+
     m_controller.InitializeGL();
     glEnable(GL_DEPTH_TEST);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     m_glInitialized = true;
+    return;
+  }
+
+  if (!SetCurrent(*m_glContext)) {
+    return;
   }
 }
 

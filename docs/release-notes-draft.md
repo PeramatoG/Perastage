@@ -17,6 +17,7 @@ Changes since `v1.3.0`.
 
 ## Stability and reliability
 
+- Improved 2D viewer startup reliability by validating GLEW initialization before enabling 2D OpenGL rendering.
 - Improved 2D viewer interaction stability by safely skipping selection and hover picking when the OpenGL context is not available.
 - Improved 3D viewer interaction stability by safely skipping picking and resource synchronization when the OpenGL context cannot be activated.
 - Improved 3D viewer paint stability by skipping rendering and GL-dependent overlay work until OpenGL initialization completes successfully.
