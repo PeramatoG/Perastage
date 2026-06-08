@@ -542,6 +542,43 @@ target_link_libraries(mvr_fixture_category_roundtrip_test PRIVATE
 add_test(NAME MvrFixtureCategoryRoundtrip COMMAND mvr_fixture_category_roundtrip_test)
 set_library_env(MvrFixtureCategoryRoundtrip)
 
+add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_identity_test.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/gdtf_fixture_category.cpp
+               ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/uuidutils.cpp
+               ../core/dummyprofilelibrary.cpp
+               ../mvr/mvrimporter.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
+               ../viewer2d/fixture_label_overrides.cpp
+               ../mvr/mvrexporter.cpp
+               ../mvr/primitive_model_resources.cpp
+               ../viewer3d/culling/bounds_cache_system.cpp
+               ../viewer3d/culling/primitive_bounds_utils.cpp
+               ../core/gdtf_mutation_audit.cpp
+               ../core/logger.cpp
+               gdtfloader_stub.cpp
+               consolepanel_stub.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
+target_include_directories(mvr_sceneobject_symbol_identity_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../viewer3d
+                           ../viewer3d/culling ../viewer3d/resources ../third_party)
+target_link_libraries(mvr_sceneobject_symbol_identity_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME MvrSceneObjectSymbolIdentity COMMAND mvr_sceneobject_symbol_identity_test)
+set_library_env(MvrSceneObjectSymbolIdentity)
+
 add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -1090,6 +1127,15 @@ target_include_directories(gdtfloader_primitive_test PRIVATE
 target_link_libraries(gdtfloader_primitive_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfLoaderPrimitiveFallback COMMAND gdtfloader_primitive_test)
 set_library_env(GdtfLoaderPrimitiveFallback)
+
+add_executable(loader3ds_native_dimensions_test loader3ds_native_dimensions_test.cpp
+               ../viewer3d/loader3ds.cpp
+               consolepanel_stub.cpp)
+target_include_directories(loader3ds_native_dimensions_test PRIVATE
+                           . ../viewer3d ../models ../gui ../third_party)
+target_link_libraries(loader3ds_native_dimensions_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME Loader3dsNativeDimensions COMMAND loader3ds_native_dimensions_test)
+set_library_env(Loader3dsNativeDimensions)
 
 add_executable(gdtfloader_channel_modes_test gdtfloader_channel_modes_test.cpp
                ../viewer3d/gdtfloader.cpp

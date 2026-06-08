@@ -17,12 +17,23 @@
  */
 #pragma once
 
-#include <vector>
-#include <string>
 #include "types.h"
+#include <string>
+#include <utility>
+#include <vector>
 
 struct GeometryInstance {
+    // Creates an empty geometry instance.
+    GeometryInstance() = default;
+
+    // Creates a geometry instance with a model reference and local transform.
+    GeometryInstance(std::string model, Matrix transform)
+        : modelFile(std::move(model)), localTransform(transform) {}
+
     std::string modelFile;
+    std::string instanceKey;
+    std::string sourceSymbolUuid;
+    std::string sourceSymdefUuid;
     Matrix localTransform = Matrix{};
 };
 
@@ -35,6 +46,7 @@ struct SceneObject {
     std::vector<GeometryInstance> geometries;
     Matrix transform;
 
+    // Returns the first available model reference for this scene object.
     std::string GetPrimaryModel() const {
         if (!geometries.empty())
             return geometries.front().modelFile;

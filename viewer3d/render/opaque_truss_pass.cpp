@@ -22,10 +22,28 @@
 #include "viewer3dcontroller.h"
 
 #include <algorithm>
+#include <cmath>
 #include <sstream>
 #include <vector>
 
 namespace {
+// Computes truss fallback dimensions projected onto the render world axes.
+std::array<float, 3> ComputeWorldTrussDimensionsMm(const Matrix &transform,
+                                                   float lengthMm,
+                                                   float widthMm,
+                                                   float heightMm) {
+  const auto &u = transform.u;
+  const auto &v = transform.v;
+  const auto &w = transform.w;
+
+  return {std::fabs(u[0]) * lengthMm + std::fabs(v[0]) * widthMm +
+              std::fabs(w[0]) * heightMm,
+          std::fabs(u[1]) * lengthMm + std::fabs(v[1]) * widthMm +
+              std::fabs(w[1]) * heightMm,
+          std::fabs(u[2]) * lengthMm + std::fabs(v[2]) * widthMm +
+              std::fabs(w[2]) * heightMm};
+}
+
 // Draws a solid bounding box for ID-only truss picking.
 void DrawBoundsSolid(const Viewer3DBoundingBox &bb) {
   glBegin(GL_QUADS);
@@ -158,12 +176,17 @@ void OpaqueTrussPass::Render(
       }
     }
 
-    float trussLengthMm = (t.lengthMm > 0 ? t.lengthMm : TrussDefaults::kFallbackLengthMm);
-    float trussWidthMm = (t.widthMm > 0 ? t.widthMm : TrussDefaults::kFallbackWidthMm);
-    float trussHeightMm = (t.heightMm > 0 ? t.heightMm : TrussDefaults::kFallbackHeightMm);
-    float trussLen = trussLengthMm * RENDER_SCALE;
-    float trussWid = trussWidthMm * RENDER_SCALE;
-    float trussHei = trussHeightMm * RENDER_SCALE;
+    float trussLengthMm =
+        (t.lengthMm > 0 ? t.lengthMm : TrussDefaults::kFallbackLengthMm);
+    float trussWidthMm =
+        (t.widthMm > 0 ? t.widthMm : TrussDefaults::kFallbackWidthMm);
+    float trussHeightMm =
+        (t.heightMm > 0 ? t.heightMm : TrussDefaults::kFallbackHeightMm);
+    const auto trussWorldDimensionsMm = ComputeWorldTrussDimensionsMm(
+        t.transform, trussLengthMm, trussWidthMm, trussHeightMm);
+    float trussLen = trussWorldDimensionsMm[0] * RENDER_SCALE;
+    float trussHei = trussWorldDimensionsMm[1] * RENDER_SCALE;
+    float trussWid = trussWorldDimensionsMm[2] * RENDER_SCALE;
 
     auto drawTrussGeometry =
         [&](const std::function<std::array<float, 3>(
@@ -198,8 +221,9 @@ void OpaqueTrussPass::Render(
         modelKey = NormalizeModelKey(t.symbolFile);
       if (modelKey.empty() && !trussMesh) {
         std::ostringstream boxKey;
-        boxKey << "box:" << trussLengthMm << "x" << trussWidthMm << "x"
-               << trussHeightMm;
+        boxKey << "box:" << trussWorldDimensionsMm[0] << "x"
+               << trussWorldDimensionsMm[2] << "x"
+               << trussWorldDimensionsMm[1];
         modelKey = boxKey.str();
       }
       if (modelKey.empty() && !t.model.empty())

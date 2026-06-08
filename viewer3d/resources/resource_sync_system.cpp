@@ -587,7 +587,8 @@ void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
     std::string loadException;
     try {
       if (ext == ".3ds")
-        loaded = Load3DS(path, mesh);
+        loaded = Load3DS(path, mesh,
+                         meshProcessingOptions.applyThreeDsObjectTransforms);
       else if (ext == ".glb")
         loaded = LoadGLB(path, mesh);
       else if (ext == ".obj") {
@@ -704,6 +705,9 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     sceneSignature = HashCombine(sceneSignature, HashMatrix(o.transform));
     for (const auto &g : o.geometries) {
       sceneSignature = HashCombine(sceneSignature, HashString(g.modelFile));
+      sceneSignature = HashCombine(sceneSignature, HashString(g.instanceKey));
+      sceneSignature = HashCombine(sceneSignature, HashString(g.sourceSymbolUuid));
+      sceneSignature = HashCombine(sceneSignature, HashString(g.sourceSymdefUuid));
       sceneSignature = HashCombine(sceneSignature, HashMatrix(g.localTransform));
     }
   }
