@@ -31,8 +31,11 @@ std::chrono::seconds ResolutionRetryDelayForAttempt(size_t attemptCount) {
   return std::chrono::seconds(kBackoffSeconds[index]);
 }
 
+// Checks whether a cached resolved path still points at an existing file.
 bool HasValidResolvedPath(const ResourceSyncState::PathResolutionEntry &entry) {
-  return !entry.resolvedPath.empty() && fs::exists(fs::u8path(entry.resolvedPath));
+  std::error_code ec;
+  return !entry.resolvedPath.empty() &&
+         fs::exists(fs::u8path(entry.resolvedPath), ec) && !ec;
 }
 
 bool ShouldSkipResolveAttempt(const ResourceSyncState::PathResolutionEntry &entry,
@@ -586,7 +589,9 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       return;
 
     const std::string resolvedPath = ResolveGdtfPath(basePath, cleanSpec, true);
-    if (!resolvedPath.empty() && fs::exists(fs::u8path(resolvedPath))) {
+    std::error_code existsEc;
+    if (!resolvedPath.empty() &&
+        fs::exists(fs::u8path(resolvedPath), existsEc) && !existsEc) {
       MarkResolutionSuccess(it->second, resolvedPath, now);
       return;
     }
@@ -608,7 +613,9 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       return;
 
     const std::string resolvedPath = ResolveModelPath(basePath, cleanModelRef, true);
-    if (!resolvedPath.empty() && fs::exists(fs::u8path(resolvedPath))) {
+    std::error_code existsEc;
+    if (!resolvedPath.empty() &&
+        fs::exists(fs::u8path(resolvedPath), existsEc) && !existsEc) {
       MarkResolutionSuccess(it->second, resolvedPath, now);
       return;
     }
