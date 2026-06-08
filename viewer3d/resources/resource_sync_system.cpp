@@ -11,6 +11,7 @@
 #include <array>
 #include <chrono>
 #include <exception>
+#include <system_error>
 #include <cctype>
 #include <cmath>
 #include <filesystem>
@@ -24,6 +25,80 @@ using RetryClock = std::chrono::steady_clock;
 
 RetryClock::time_point CurrentRetryTime() { return RetryClock::now(); }
 
+struct PathExistenceResult {
+  bool exists = false;
+  std::error_code error;
+  std::string errorMessage;
+};
+
+struct PathValidationDiagnostic {
+  std::string path;
+  std::string message;
+};
+
+// Checks whether a filesystem path exists without throwing on filesystem errors.
+PathExistenceResult CheckPathExistsNoThrow(const fs::path &path) {
+  PathExistenceResult result;
+  result.exists = fs::exists(path, result.error);
+  return result;
+}
+
+// Checks whether a UTF-8 filesystem path exists without throwing on malformed paths.
+PathExistenceResult CheckUtf8PathExistsNoThrow(const std::string &path) {
+  try {
+    return CheckPathExistsNoThrow(fs::u8path(path));
+  } catch (const fs::filesystem_error &ex) {
+    PathExistenceResult result;
+    result.error = ex.code();
+    result.errorMessage = ex.what();
+    return result;
+  } catch (const std::exception &ex) {
+    PathExistenceResult result;
+    result.error = std::make_error_code(std::errc::invalid_argument);
+    result.errorMessage = ex.what();
+    return result;
+  }
+}
+
+// Returns the most concise available diagnostic for a path existence failure.
+std::string PathExistenceErrorMessage(const PathExistenceResult &result) {
+  if (!result.errorMessage.empty())
+    return result.errorMessage;
+  return result.error.message();
+}
+
+// Logs a concise diagnostic when filesystem path validation fails.
+void LogPathValidationError(const ResourceSyncCallbacks &callbacks,
+                            const std::string &path,
+                            const PathExistenceResult &result) {
+  if (!result.error || !callbacks.appendConsoleMessage)
+    return;
+  callbacks.appendConsoleMessage("Resource path validation failed for " + path +
+                                 ": " + PathExistenceErrorMessage(result));
+}
+
+// Records a path-validation diagnostic for deferred visible-resource logging.
+void AddPathValidationDiagnostic(
+    std::vector<PathValidationDiagnostic> *diagnostics, const fs::path &path,
+    const PathExistenceResult &result) {
+  if (!diagnostics || !result.error)
+    return;
+  diagnostics->push_back(
+      PathValidationDiagnostic{path.string(), PathExistenceErrorMessage(result)});
+}
+
+// Logs deferred path-validation diagnostics collected during resource resolution.
+void LogPathValidationDiagnostics(
+    const ResourceSyncCallbacks &callbacks,
+    const std::vector<PathValidationDiagnostic> &diagnostics) {
+  if (!callbacks.appendConsoleMessage)
+    return;
+  for (const PathValidationDiagnostic &diagnostic : diagnostics) {
+    callbacks.appendConsoleMessage("Resource path validation failed for " +
+                                   diagnostic.path + ": " + diagnostic.message);
+  }
+}
+
 std::chrono::seconds ResolutionRetryDelayForAttempt(size_t attemptCount) {
   static constexpr std::array<int, 4> kBackoffSeconds = {1, 5, 30, 120};
   if (attemptCount == 0)
@@ -33,10 +108,15 @@ std::chrono::seconds ResolutionRetryDelayForAttempt(size_t attemptCount) {
 }
 
 // Checks whether a cached resolved path still points at an existing file.
-bool HasValidResolvedPath(const ResourceSyncState::PathResolutionEntry &entry) {
-  std::error_code ec;
-  return !entry.resolvedPath.empty() &&
-         fs::exists(fs::u8path(entry.resolvedPath), ec) && !ec;
+bool HasValidResolvedPath(const ResourceSyncState::PathResolutionEntry &entry,
+                          const ResourceSyncCallbacks &callbacks) {
+  if (entry.resolvedPath.empty())
+    return false;
+
+  const PathExistenceResult existence =
+      CheckUtf8PathExistsNoThrow(entry.resolvedPath);
+  LogPathValidationError(callbacks, entry.resolvedPath, existence);
+  return existence.exists && !existence.error;
 }
 
 bool ShouldSkipResolveAttempt(const ResourceSyncState::PathResolutionEntry &entry,
@@ -146,14 +226,19 @@ std::string DecodePathEscapes(const std::string &input) {
   return out;
 }
 
-std::string ResolveExistingPath(const fs::path &path) {
+// Resolves an existing path while collecting non-throwing filesystem diagnostics.
+std::string ResolveExistingPath(
+    const fs::path &path,
+    std::vector<PathValidationDiagnostic> *diagnostics = nullptr) {
   if (path.empty())
     return {};
 
   std::error_code ec;
-  if (fs::exists(path, ec))
+  const PathExistenceResult existence = CheckPathExistsNoThrow(path);
+  if (existence.exists && !existence.error)
     return path.string();
-  if (ec && path.is_absolute())
+  AddPathValidationDiagnostic(diagnostics, path, existence);
+  if (existence.error && path.is_absolute())
     return path.string();
 
   const fs::path parent = path.parent_path();
@@ -180,13 +265,20 @@ std::string ResolveExistingPath(const fs::path &path) {
       continue;
     return entry.path().string();
   }
-  if (ec && path.is_absolute())
-    return path.string();
+  if (ec) {
+    PathExistenceResult result;
+    result.error = ec;
+    AddPathValidationDiagnostic(diagnostics, parent, result);
+    if (path.is_absolute())
+      return path.string();
+  }
   return {};
 }
 
-std::string ResolveFromLibrarySuffix(const std::string &base,
-                                     const std::string &spec) {
+// Resolves paths that contain a library-root suffix against known library roots.
+std::string ResolveFromLibrarySuffix(
+    const std::string &base, const std::string &spec,
+    std::vector<PathValidationDiagnostic> *diagnostics = nullptr) {
   fs::path specPath(spec);
   std::vector<fs::path> parts;
   for (const auto &part : specPath) {
@@ -226,7 +318,7 @@ std::string ResolveFromLibrarySuffix(const std::string &base,
 
   for (const fs::path &root : roots) {
     for (fs::path probe = root; !probe.empty(); probe = probe.parent_path()) {
-      const std::string resolved = ResolveExistingPath(probe / suffix);
+      const std::string resolved = ResolveExistingPath(probe / suffix, diagnostics);
       if (!resolved.empty())
         return resolved;
       if (probe == probe.parent_path())
@@ -237,7 +329,10 @@ std::string ResolveFromLibrarySuffix(const std::string &base,
   return {};
 }
 
-std::string ResolveFromDefaultLibrary(const std::string &fileName) {
+// Resolves a resource file name from default Perastage library locations.
+std::string ResolveFromDefaultLibrary(
+    const std::string &fileName,
+    std::vector<PathValidationDiagnostic> *diagnostics = nullptr) {
   if (fileName.empty())
     return {};
 
@@ -245,7 +340,8 @@ std::string ResolveFromDefaultLibrary(const std::string &fileName) {
       "fixtures", "trusses", "scene_objects"};
   for (const std::string &subdir : librarySubdirs) {
     const fs::path root = fs::u8path(ProjectUtils::GetDefaultLibraryPath(subdir));
-    const std::string directResolved = ResolveExistingPath(root / fileName);
+    const std::string directResolved =
+        ResolveExistingPath(root / fileName, diagnostics);
     if (!directResolved.empty())
       return directResolved;
 
@@ -292,8 +388,11 @@ std::string ResolveCacheKey(const std::string &pathRef) {
   return NormalizeModelKey(TrimPathRef(pathRef));
 }
 
-std::string ResolveGdtfPath(const std::string &base, const std::string &spec,
-                            bool allowRecursiveFallback = false) {
+// Resolves a GDTF resource specification against scene and library paths.
+std::string ResolveGdtfPath(
+    const std::string &base, const std::string &spec,
+    bool allowRecursiveFallback = false,
+    std::vector<PathValidationDiagnostic> *diagnostics = nullptr) {
   const std::string cleanSpec = DecodePathEscapes(TrimPathRef(spec));
   if (cleanSpec.empty())
     return {};
@@ -304,36 +403,39 @@ std::string ResolveGdtfPath(const std::string &base, const std::string &spec,
   for (const std::string &variant : variants) {
     fs::path absoluteCandidate = fs::path(variant);
     if (absoluteCandidate.is_absolute()) {
-      const std::string absoluteResolved = ResolveExistingPath(absoluteCandidate);
+      const std::string absoluteResolved =
+          ResolveExistingPath(absoluteCandidate, diagnostics);
       if (!absoluteResolved.empty())
         return absoluteResolved;
     }
 
     const std::string relativeResolved =
-        ResolveExistingPath(fs::path(base) / absoluteCandidate);
+        ResolveExistingPath(fs::path(base) / absoluteCandidate, diagnostics);
     if (!relativeResolved.empty())
       return relativeResolved;
 
     fs::path utf8AbsoluteCandidate = fs::u8path(variant);
     if (utf8AbsoluteCandidate.is_absolute()) {
       const std::string utf8AbsoluteResolved =
-          ResolveExistingPath(utf8AbsoluteCandidate);
+          ResolveExistingPath(utf8AbsoluteCandidate, diagnostics);
       if (!utf8AbsoluteResolved.empty())
         return utf8AbsoluteResolved;
     }
 
     const std::string utf8RelativeResolved =
-        ResolveExistingPath(fs::path(base) / utf8AbsoluteCandidate);
+        ResolveExistingPath(fs::path(base) / utf8AbsoluteCandidate, diagnostics);
     if (!utf8RelativeResolved.empty())
       return utf8RelativeResolved;
   }
 
-  const std::string librarySuffixResolved = ResolveFromLibrarySuffix(base, cleanSpec);
+  const std::string librarySuffixResolved =
+      ResolveFromLibrarySuffix(base, cleanSpec, diagnostics);
   if (!librarySuffixResolved.empty())
     return librarySuffixResolved;
 
   const std::string fileName = fs::path(cleanSpec).filename().string();
-  const std::string defaultLibraryResolved = ResolveFromDefaultLibrary(fileName);
+  const std::string defaultLibraryResolved =
+      ResolveFromDefaultLibrary(fileName, diagnostics);
   if (!defaultLibraryResolved.empty())
     return defaultLibraryResolved;
 
@@ -342,10 +444,12 @@ std::string ResolveGdtfPath(const std::string &base, const std::string &spec,
   return {};
 }
 
-std::string ResolveModelPath(const std::string &base,
-                             const std::string &modelRef,
-                             bool allowRecursiveFallback = false) {
-  return ResolveGdtfPath(base, modelRef, allowRecursiveFallback);
+// Resolves a model resource reference using the shared resource path rules.
+std::string ResolveModelPath(
+    const std::string &base, const std::string &modelRef,
+    bool allowRecursiveFallback = false,
+    std::vector<PathValidationDiagnostic> *diagnostics = nullptr) {
+  return ResolveGdtfPath(base, modelRef, allowRecursiveFallback, diagnostics);
 }
 
 size_t HashCombine(size_t seed, size_t value) {
@@ -501,6 +605,7 @@ void ReleaseGdtfMeshBuffers(ResourceSyncState &state,
 
 } // namespace
 
+// Synchronizes visible scene resources with cached models, GDTFs, and fixture nodes.
 ResourceSyncResult ResourceSyncSystem::Sync(
     const std::string &basePath,
     const std::vector<const std::pair<const std::string, Truss> *> &sceneTrusses,
@@ -592,19 +697,29 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     const std::string key = ResolveCacheKey(cleanSpec);
     auto [it, inserted] =
         state.resolvedGdtfSpecs.try_emplace(key, ResourceSyncState::PathResolutionEntry{});
-    if (!inserted && HasValidResolvedPath(it->second))
+    if (!inserted && HasValidResolvedPath(it->second, callbacks))
       return;
 
     const RetryClock::time_point now = CurrentRetryTime();
     if (ShouldSkipResolveAttempt(it->second, now))
       return;
 
-    const std::string resolvedPath = ResolveGdtfPath(basePath, cleanSpec, true);
-    std::error_code existsEc;
-    if (!resolvedPath.empty() &&
-        fs::exists(fs::u8path(resolvedPath), existsEc) && !existsEc) {
-      MarkResolutionSuccess(it->second, resolvedPath, now);
-      return;
+    std::vector<PathValidationDiagnostic> pathDiagnostics;
+    const std::string resolvedPath =
+        ResolveGdtfPath(basePath, cleanSpec, true, &pathDiagnostics);
+    if (!resolvedPath.empty()) {
+      const PathExistenceResult existence =
+          CheckUtf8PathExistsNoThrow(resolvedPath);
+      if (existence.exists && !existence.error) {
+        MarkResolutionSuccess(it->second, resolvedPath, now);
+        return;
+      }
+      if (existence.error)
+        LogPathValidationError(callbacks, resolvedPath, existence);
+      else
+        LogPathValidationDiagnostics(callbacks, pathDiagnostics);
+    } else {
+      LogPathValidationDiagnostics(callbacks, pathDiagnostics);
     }
     MarkResolutionFailure(it->second, now);
   };
@@ -616,19 +731,29 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     const std::string key = ResolveCacheKey(cleanModelRef);
     auto [it, inserted] =
         state.resolvedModelRefs.try_emplace(key, ResourceSyncState::PathResolutionEntry{});
-    if (!inserted && HasValidResolvedPath(it->second))
+    if (!inserted && HasValidResolvedPath(it->second, callbacks))
       return;
 
     const RetryClock::time_point now = CurrentRetryTime();
     if (ShouldSkipResolveAttempt(it->second, now))
       return;
 
-    const std::string resolvedPath = ResolveModelPath(basePath, cleanModelRef, true);
-    std::error_code existsEc;
-    if (!resolvedPath.empty() &&
-        fs::exists(fs::u8path(resolvedPath), existsEc) && !existsEc) {
-      MarkResolutionSuccess(it->second, resolvedPath, now);
-      return;
+    std::vector<PathValidationDiagnostic> pathDiagnostics;
+    const std::string resolvedPath =
+        ResolveModelPath(basePath, cleanModelRef, true, &pathDiagnostics);
+    if (!resolvedPath.empty()) {
+      const PathExistenceResult existence =
+          CheckUtf8PathExistsNoThrow(resolvedPath);
+      if (existence.exists && !existence.error) {
+        MarkResolutionSuccess(it->second, resolvedPath, now);
+        return;
+      }
+      if (existence.error)
+        LogPathValidationError(callbacks, resolvedPath, existence);
+      else
+        LogPathValidationDiagnostics(callbacks, pathDiagnostics);
+    } else {
+      LogPathValidationDiagnostics(callbacks, pathDiagnostics);
     }
     MarkResolutionFailure(it->second, now);
   };
