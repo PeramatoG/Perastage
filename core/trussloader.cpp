@@ -77,19 +77,86 @@ static bool ParseFloatAttr(tinyxml2::XMLElement *node, const char *name, float &
   return false;
 }
 
+// Checks whether a path is inside or equal to a normalized base path.
+static bool IsPathWithinBase(const fs::path &path, const fs::path &base) {
+  auto pathIt = path.begin();
+  auto baseIt = base.begin();
+  for (; baseIt != base.end(); ++baseIt, ++pathIt) {
+    if (pathIt == path.end() || *pathIt != *baseIt)
+      return false;
+  }
+  return true;
+}
+
+// Reports whether an archive entry name is absolute on supported path syntaxes.
+static bool IsAbsoluteArchiveEntryName(const std::string &entryName, const fs::path &entryPath) {
+  if (entryPath.is_absolute() || entryPath.has_root_name())
+    return true;
+  return entryName.size() >= 1 &&
+         (entryName[0] == '/' || entryName[0] == '\\' ||
+          (entryName.size() >= 2 && std::isalpha(static_cast<unsigned char>(entryName[0])) &&
+           entryName[1] == ':'));
+}
+
+// Writes a warning for an unsafe archive entry rejected during extraction.
+static void LogUnsafeArchiveEntry(const fs::path &archivePath, const std::string &entryName) {
+  std::ostringstream msg;
+  msg << "Rejected unsafe truss archive entry '" << entryName << "' in '"
+      << ToUtf8String(archivePath) << "'";
+  Logger::Instance().Log(Logger::Level::Warn, msg.str());
+}
+
+// Resolves a ZIP entry path safely below the requested extraction destination.
+static bool ResolveArchiveEntryTarget(const fs::path &archivePath,
+                                      const fs::path &destinationRoot,
+                                      const std::string &entryName,
+                                      fs::path &target) {
+  fs::path entryPath = fs::path(entryName);
+  if (IsAbsoluteArchiveEntryName(entryName, entryPath)) {
+    LogUnsafeArchiveEntry(archivePath, entryName);
+    return false;
+  }
+
+  entryPath = entryPath.lexically_normal();
+  if (entryPath.empty()) {
+    target.clear();
+    return true;
+  }
+
+  target = (destinationRoot / entryPath).lexically_normal();
+  if (!IsPathWithinBase(target, destinationRoot)) {
+    LogUnsafeArchiveEntry(archivePath, entryName);
+    return false;
+  }
+  return true;
+}
+
 // Extracts a ZIP-based archive into the requested destination directory.
 static bool ExtractArchive(const fs::path &archivePath, const fs::path &destination) {
   wxFileInputStream input(archivePath.string());
   if (!input.IsOk())
     return false;
 
+  std::error_code ec;
+  fs::create_directories(destination, ec);
+  fs::path destinationRoot = fs::weakly_canonical(destination, ec);
+  if (ec) {
+    ec.clear();
+    destinationRoot = fs::absolute(destination, ec);
+  }
+  if (ec)
+    return false;
+  destinationRoot = destinationRoot.lexically_normal();
+
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;
   while ((entry.reset(zip.GetNextEntry())), entry) {
-    fs::path entryPath = fs::path(entry->GetName().ToStdString()).lexically_normal();
-    if (entryPath.empty())
+    const std::string entryName = entry->GetName().ToStdString();
+    fs::path target;
+    if (!ResolveArchiveEntryTarget(archivePath, destinationRoot, entryName, target))
+      return false;
+    if (target.empty())
       continue;
-    fs::path target = destination / entryPath;
     if (entry->IsDir()) {
       wxFileName::Mkdir(target.string(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
       continue;
