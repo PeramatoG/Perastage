@@ -1,5 +1,6 @@
 #include "resource_sync_system.h"
 #include "mesh_processing.h"
+#include "resource_path_search.h"
 
 #include "loader3ds.h"
 #include "loaderglb.h"
@@ -23,6 +24,7 @@ namespace fs = std::filesystem;
 namespace {
 using RetryClock = std::chrono::steady_clock;
 
+// Returns the current monotonic time used for retry backoff.
 RetryClock::time_point CurrentRetryTime() { return RetryClock::now(); }
 
 struct PathExistenceResult {
@@ -99,6 +101,7 @@ void LogPathValidationDiagnostics(
   }
 }
 
+// Returns the retry delay for a failed path-resolution attempt.
 std::chrono::seconds ResolutionRetryDelayForAttempt(size_t attemptCount) {
   static constexpr std::array<int, 4> kBackoffSeconds = {1, 5, 30, 120};
   if (attemptCount == 0)
@@ -119,11 +122,13 @@ bool HasValidResolvedPath(const ResourceSyncState::PathResolutionEntry &entry,
   return existence.exists && !existence.error;
 }
 
+// Checks whether a cached failed resolution is still inside its backoff window.
 bool ShouldSkipResolveAttempt(const ResourceSyncState::PathResolutionEntry &entry,
                               RetryClock::time_point now) {
   return entry.attempted && entry.attemptCount > 0 && now < entry.nextRetryTime;
 }
 
+// Records a successful resource path resolution in the cache.
 void MarkResolutionSuccess(ResourceSyncState::PathResolutionEntry &entry,
                            const std::string &resolvedPath,
                            RetryClock::time_point now) {
@@ -134,6 +139,7 @@ void MarkResolutionSuccess(ResourceSyncState::PathResolutionEntry &entry,
   entry.nextRetryTime = RetryClock::time_point{};
 }
 
+// Records a failed resource path resolution and schedules the next retry.
 void MarkResolutionFailure(ResourceSyncState::PathResolutionEntry &entry,
                            RetryClock::time_point now) {
   entry.resolvedPath.clear();
@@ -143,6 +149,7 @@ void MarkResolutionFailure(ResourceSyncState::PathResolutionEntry &entry,
   entry.nextRetryTime = now + ResolutionRetryDelayForAttempt(entry.attemptCount);
 }
 
+// Removes failed path-resolution entries so changed scenes can retry immediately.
 void InvalidateNegativeResolutionCache(
     std::unordered_map<std::string, ResourceSyncState::PathResolutionEntry> &cache) {
   for (auto it = cache.begin(); it != cache.end();) {
@@ -157,29 +164,7 @@ void InvalidateNegativeResolutionCache(
 bool MatchesFileNameWithExtensionTolerance(const fs::path &candidate,
                                            const std::string &fileName);
 
-std::string FindFileRecursive(const std::string &baseDir,
-                              const std::string &fileName) {
-  if (baseDir.empty())
-    return {};
-
-  std::error_code ec;
-  fs::recursive_directory_iterator it(baseDir, ec), end;
-  if (ec)
-    return {};
-
-  for (; it != end; it.increment(ec)) {
-    if (ec)
-      break;
-    if (!it->is_regular_file(ec) || ec) {
-      ec.clear();
-      continue;
-    }
-    if (MatchesFileNameWithExtensionTolerance(it->path(), fileName))
-      return it->path().string();
-  }
-  return {};
-}
-
+// Compares two ASCII strings without considering letter case.
 bool EqualIgnoreCaseAscii(std::string_view lhs, std::string_view rhs) {
   if (lhs.size() != rhs.size())
     return false;
@@ -192,12 +177,14 @@ bool EqualIgnoreCaseAscii(std::string_view lhs, std::string_view rhs) {
   return true;
 }
 
+// Checks whether a path is already present in a path list.
 bool ContainsPath(const std::vector<fs::path> &paths, const fs::path &candidate) {
   return std::any_of(paths.begin(), paths.end(), [&](const fs::path &p) {
     return p == candidate;
   });
 }
 
+// Checks whether a candidate path matches a target file name with case-tolerant extensions.
 bool MatchesFileNameWithExtensionTolerance(const fs::path &candidate,
                                            const std::string &fileName) {
   const fs::path target(fileName);
@@ -211,6 +198,46 @@ bool MatchesFileNameWithExtensionTolerance(const fs::path &candidate,
                               target.extension().string());
 }
 
+// Logs recursive-search diagnostics for bounded fallback resolution.
+void LogRecursiveSearchDiagnostics(
+    const ResourceSyncCallbacks &callbacks,
+    const viewer3d::resources::BoundedRecursiveSearchDiagnostics &diagnostics) {
+  if (!callbacks.appendConsoleMessage)
+    return;
+
+  for (const viewer3d::resources::BoundedRecursiveSearchResult &diagnostic : diagnostics) {
+    if (diagnostic.skipped) {
+      callbacks.appendConsoleMessage(
+          "Recursive resource search skipped for " + diagnostic.fileName +
+          " under " + diagnostic.baseDir + ": " + diagnostic.skipReason);
+      continue;
+    }
+
+    if (!diagnostic.capped && diagnostic.skippedFolder) {
+      callbacks.appendConsoleMessage(
+          "Recursive resource search skipped protected folders while looking for " +
+          diagnostic.fileName + " under " + diagnostic.baseDir + ".");
+      continue;
+    }
+
+    std::string reason;
+    if (diagnostic.cappedByFiles)
+      reason = "file limit";
+    else if (diagnostic.cappedByDirectories)
+      reason = "directory limit";
+    else if (diagnostic.cappedByTime)
+      reason = "time limit";
+    else
+      reason = "configured limit";
+    callbacks.appendConsoleMessage(
+        "Recursive resource search capped by " + reason + " for " +
+        diagnostic.fileName + " under " + diagnostic.baseDir + " after visiting " +
+        std::to_string(diagnostic.visitedFiles) + " files and " +
+        std::to_string(diagnostic.visitedDirectories) + " directories.");
+  }
+}
+
+// Decodes simple percent escapes that appear in imported resource paths.
 std::string DecodePathEscapes(const std::string &input) {
   std::string out;
   out.reserve(input.size());
@@ -329,7 +356,7 @@ std::string ResolveFromLibrarySuffix(
   return {};
 }
 
-// Resolves a resource file name from default Perastage library locations.
+// Resolves direct resource file-name matches from default Perastage library locations.
 std::string ResolveFromDefaultLibrary(
     const std::string &fileName,
     std::vector<PathValidationDiagnostic> *diagnostics = nullptr) {
@@ -344,14 +371,11 @@ std::string ResolveFromDefaultLibrary(
         ResolveExistingPath(root / fileName, diagnostics);
     if (!directResolved.empty())
       return directResolved;
-
-    const std::string recursiveResolved = FindFileRecursive(root.string(), fileName);
-    if (!recursiveResolved.empty())
-      return recursiveResolved;
   }
   return {};
 }
 
+// Trims whitespace and wrapping quotes from an imported path reference.
 std::string TrimPathRef(std::string value) {
   auto isTrim = [](unsigned char c) {
     return std::isspace(c) != 0 || c == '\r' || c == '\n' || c == '\t';
@@ -368,6 +392,7 @@ std::string TrimPathRef(std::string value) {
   return value;
 }
 
+// Normalizes path separators to the current platform separator.
 std::string NormalizePath(const std::string &p) {
   std::string out = p;
   char sep = static_cast<char>(fs::path::preferred_separator);
@@ -376,6 +401,7 @@ std::string NormalizePath(const std::string &p) {
   return out;
 }
 
+// Normalizes a model path for cache-key comparisons.
 std::string NormalizeModelKey(const std::string &p) {
   if (p.empty())
     return {};
@@ -384,6 +410,7 @@ std::string NormalizeModelKey(const std::string &p) {
   return NormalizePath(path.string());
 }
 
+// Builds the stable cache key for a resource path reference.
 std::string ResolveCacheKey(const std::string &pathRef) {
   return NormalizeModelKey(TrimPathRef(pathRef));
 }
@@ -392,7 +419,9 @@ std::string ResolveCacheKey(const std::string &pathRef) {
 std::string ResolveGdtfPath(
     const std::string &base, const std::string &spec,
     bool allowRecursiveFallback = false,
-    std::vector<PathValidationDiagnostic> *diagnostics = nullptr) {
+    std::vector<PathValidationDiagnostic> *diagnostics = nullptr,
+    viewer3d::resources::BoundedRecursiveSearchDiagnostics *recursiveDiagnostics =
+        nullptr) {
   const std::string cleanSpec = DecodePathEscapes(TrimPathRef(spec));
   if (cleanSpec.empty())
     return {};
@@ -440,7 +469,8 @@ std::string ResolveGdtfPath(
     return defaultLibraryResolved;
 
   if (allowRecursiveFallback)
-    return FindFileRecursive(base, fileName);
+    return viewer3d::resources::ResolveFromBoundedRecursiveFallback(
+        base, fileName, recursiveDiagnostics);
   return {};
 }
 
@@ -448,20 +478,27 @@ std::string ResolveGdtfPath(
 std::string ResolveModelPath(
     const std::string &base, const std::string &modelRef,
     bool allowRecursiveFallback = false,
-    std::vector<PathValidationDiagnostic> *diagnostics = nullptr) {
-  return ResolveGdtfPath(base, modelRef, allowRecursiveFallback, diagnostics);
+    std::vector<PathValidationDiagnostic> *diagnostics = nullptr,
+    viewer3d::resources::BoundedRecursiveSearchDiagnostics *recursiveDiagnostics =
+        nullptr) {
+  return ResolveGdtfPath(base, modelRef, allowRecursiveFallback, diagnostics,
+                         recursiveDiagnostics);
 }
 
+// Combines two hash values into a stable aggregate hash.
 size_t HashCombine(size_t seed, size_t value) {
   return seed ^ (value + 0x9e3779b97f4a7c15ULL + (seed << 6U) + (seed >> 2U));
 }
 
+// Hashes a string value for scene-signature calculations.
 size_t HashString(const std::string &value) { return std::hash<std::string>{}(value); }
 
+// Hashes a float after quantizing it for stable scene signatures.
 size_t HashFloat(float value) {
   return std::hash<int>{}(std::lround(value * 1000.0f));
 }
 
+// Hashes a transform matrix for scene-signature calculations.
 size_t HashMatrix(const Matrix &m) {
   size_t hash = 0;
   for (float value : m.u)
@@ -475,6 +512,7 @@ size_t HashMatrix(const Matrix &m) {
   return hash;
 }
 
+// Builds a version hash for fixture geometry-tree content.
 size_t HashGeometryTreeVersion(const GdtfGeometryTree &tree) {
   size_t hash = HashCombine(HashString("nodes"), tree.nodes.size());
   for (const GdtfNode3D &node : tree.nodes) {
@@ -498,6 +536,7 @@ size_t HashGeometryTreeVersion(const GdtfGeometryTree &tree) {
   return hash;
 }
 
+// Builds the cache signature for a fixture node registry entry.
 size_t BuildFixtureRegistrySignature(const std::string &uuid,
                                      const std::string &resolvedGdtfPath,
                                      const Matrix &fixtureTransform,
@@ -509,6 +548,7 @@ size_t BuildFixtureRegistrySignature(const std::string &uuid,
   return signature;
 }
 
+// Creates a fixture scene node from a GDTF template node and fixture transform.
 FixtureSceneNode BuildInstancedFixtureNode(const GdtfNode3D &templateNode,
                                           const Matrix &fixtureTransform,
                                           int parentIndexOffset) {
@@ -582,6 +622,7 @@ void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
   }
 }
 
+// Uploads mesh buffers for all loaded GDTF objects when a setup callback exists.
 void SetupGdtfMeshBuffers(std::vector<GdtfObject> &objects,
                           const ResourceSyncCallbacks &callbacks) {
   if (!callbacks.setupMeshBuffers)
@@ -591,6 +632,7 @@ void SetupGdtfMeshBuffers(std::vector<GdtfObject> &objects,
     callbacks.setupMeshBuffers(object.mesh);
 }
 
+// Releases GPU mesh buffers for all cached GDTF objects when a release callback exists.
 void ReleaseGdtfMeshBuffers(ResourceSyncState &state,
                             const ResourceSyncCallbacks &callbacks) {
   if (!callbacks.releaseMeshBuffers)
@@ -705,12 +747,15 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       return;
 
     std::vector<PathValidationDiagnostic> pathDiagnostics;
+    viewer3d::resources::BoundedRecursiveSearchDiagnostics recursiveDiagnostics;
     const std::string resolvedPath =
-        ResolveGdtfPath(basePath, cleanSpec, true, &pathDiagnostics);
+        ResolveGdtfPath(basePath, cleanSpec, true, &pathDiagnostics,
+                        &recursiveDiagnostics);
     if (!resolvedPath.empty()) {
       const PathExistenceResult existence =
           CheckUtf8PathExistsNoThrow(resolvedPath);
       if (existence.exists && !existence.error) {
+        LogRecursiveSearchDiagnostics(callbacks, recursiveDiagnostics);
         MarkResolutionSuccess(it->second, resolvedPath, now);
         return;
       }
@@ -720,6 +765,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
         LogPathValidationDiagnostics(callbacks, pathDiagnostics);
     } else {
       LogPathValidationDiagnostics(callbacks, pathDiagnostics);
+      LogRecursiveSearchDiagnostics(callbacks, recursiveDiagnostics);
     }
     MarkResolutionFailure(it->second, now);
   };
@@ -739,12 +785,15 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       return;
 
     std::vector<PathValidationDiagnostic> pathDiagnostics;
+    viewer3d::resources::BoundedRecursiveSearchDiagnostics recursiveDiagnostics;
     const std::string resolvedPath =
-        ResolveModelPath(basePath, cleanModelRef, true, &pathDiagnostics);
+        ResolveModelPath(basePath, cleanModelRef, true, &pathDiagnostics,
+                         &recursiveDiagnostics);
     if (!resolvedPath.empty()) {
       const PathExistenceResult existence =
           CheckUtf8PathExistsNoThrow(resolvedPath);
       if (existence.exists && !existence.error) {
+        LogRecursiveSearchDiagnostics(callbacks, recursiveDiagnostics);
         MarkResolutionSuccess(it->second, resolvedPath, now);
         return;
       }
@@ -754,6 +803,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
         LogPathValidationDiagnostics(callbacks, pathDiagnostics);
     } else {
       LogPathValidationDiagnostics(callbacks, pathDiagnostics);
+      LogRecursiveSearchDiagnostics(callbacks, recursiveDiagnostics);
     }
     MarkResolutionFailure(it->second, now);
   };
