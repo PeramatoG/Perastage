@@ -18,6 +18,7 @@
 #include "matrixutils.h"
 #include "opaque_pass_utils.h"
 #include "scenedatamanager.h"
+#include "truss_defaults.h"
 #include "viewer3dcontroller.h"
 
 #include <algorithm>
@@ -25,6 +26,7 @@
 #include <vector>
 
 namespace {
+// Draws a solid bounding box for ID-only truss picking.
 void DrawBoundsSolid(const Viewer3DBoundingBox &bb) {
   glBegin(GL_QUADS);
   glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
@@ -55,6 +57,7 @@ void DrawBoundsSolid(const Viewer3DBoundingBox &bb) {
 }
 } // namespace
 
+// Renders visible trusses using loaded meshes or conservative fallback boxes.
 void OpaqueTrussPass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
     const Viewer3DVisibleSet &visibleSet,
@@ -155,11 +158,12 @@ void OpaqueTrussPass::Render(
       }
     }
 
-    float trussLen = t.lengthMm * RENDER_SCALE;
-    float trussWid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
-    float trussHei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
-    float trussWidthMm = (t.widthMm > 0 ? t.widthMm : 400.0f);
-    float trussHeightMm = (t.heightMm > 0 ? t.heightMm : 400.0f);
+    float trussLengthMm = (t.lengthMm > 0 ? t.lengthMm : TrussDefaults::kFallbackLengthMm);
+    float trussWidthMm = (t.widthMm > 0 ? t.widthMm : TrussDefaults::kFallbackWidthMm);
+    float trussHeightMm = (t.heightMm > 0 ? t.heightMm : TrussDefaults::kFallbackHeightMm);
+    float trussLen = trussLengthMm * RENDER_SCALE;
+    float trussWid = trussWidthMm * RENDER_SCALE;
+    float trussHei = trussHeightMm * RENDER_SCALE;
 
     auto drawTrussGeometry =
         [&](const std::function<std::array<float, 3>(
@@ -194,7 +198,7 @@ void OpaqueTrussPass::Render(
         modelKey = NormalizeModelKey(t.symbolFile);
       if (modelKey.empty() && !trussMesh) {
         std::ostringstream boxKey;
-        boxKey << "box:" << t.lengthMm << "x" << trussWidthMm << "x"
+        boxKey << "box:" << trussLengthMm << "x" << trussWidthMm << "x"
                << trussHeightMm;
         modelKey = boxKey.str();
       }

@@ -11,6 +11,7 @@
 #include "projectutils.h"
 #include "types.h"
 #include "logger.h"
+#include "truss_defaults.h"
 #include "matrixutils.h"
 
 #include <algorithm>
@@ -22,6 +23,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
+// Normalizes a model reference path for cache lookups.
 static std::string NormalizePath(const std::string &p) {
   std::string out = p;
   char sep = static_cast<char>(fs::path::preferred_separator);
@@ -29,10 +31,12 @@ static std::string NormalizePath(const std::string &p) {
   return out;
 }
 
+// Resolves a resource reference to the cache key used by synchronization state.
 static std::string ResolveCacheKey(const std::string &pathRef) {
   return NormalizePath(pathRef);
 }
 
+// Reports whether a layer is visible using the cached hidden-layer set.
 static bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
                                  const std::string &layer) {
   if (layer.empty())
@@ -40,6 +44,7 @@ static bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
   return hidden.find(layer) == hidden.end();
 }
 
+// Transforms a point by the provided matrix.
 static std::array<float, 3> TransformPoint(const Matrix &m,
                                            const std::array<float, 3> &p) {
   return {m.u[0] * p[0] + m.v[0] * p[1] + m.w[0] * p[2] + m.o[0],
@@ -47,6 +52,7 @@ static std::array<float, 3> TransformPoint(const Matrix &m,
           m.u[2] * p[0] + m.v[2] * p[1] + m.w[2] * p[2] + m.o[2]};
 }
 
+// Transforms a local bounding box into world-space bounds.
 static Viewer3DBoundingBox TransformBounds(const Viewer3DBoundingBox &local,
                                            const Matrix &m) {
   Viewer3DBoundingBox world;
@@ -77,6 +83,7 @@ static Viewer3DBoundingBox TransformBounds(const Viewer3DBoundingBox &local,
 
 } // namespace
 
+// Rebuilds cached object bounds when scene, asset, or visibility state changes.
 void BoundsCacheSystem::RebuildIfDirty(
     Context &context,
     const std::unordered_set<std::string> &hiddenLayers,
@@ -248,9 +255,12 @@ void BoundsCacheSystem::RebuildIfDirty(
     }
 
     if (!found) {
-      float len = (t.lengthMm > 0 ? t.lengthMm * RENDER_SCALE : 0.3f);
-      float halfy = (t.widthMm > 0 ? t.widthMm * RENDER_SCALE * 0.5f : 0.15f);
-      float z1 = (t.heightMm > 0 ? t.heightMm * RENDER_SCALE : 0.3f);
+      float len = (t.lengthMm > 0 ? t.lengthMm : TrussDefaults::kFallbackLengthMm) *
+                  RENDER_SCALE;
+      float halfy = (t.widthMm > 0 ? t.widthMm : TrussDefaults::kFallbackWidthMm) *
+                    RENDER_SCALE * 0.5f;
+      float z1 = (t.heightMm > 0 ? t.heightMm : TrussDefaults::kFallbackHeightMm) *
+                 RENDER_SCALE;
       std::array<std::array<float, 3>, 8> corners = {
           std::array<float, 3>{0.0f, -halfy, 0.0f},
           {len, -halfy, 0.0f},
