@@ -106,6 +106,17 @@ static std::string Trim(const std::string &s) {
   return s.substr(start, end - start + 1);
 }
 
+// Builds a stable per-parent key for SceneObject child geometry instances.
+static std::string BuildSceneObjectGeometryInstanceKey(
+    const std::string &parentUuid, const std::string &childKind,
+    size_t childIndex, const std::string &symdefUuid = {}) {
+  std::ostringstream key;
+  key << parentUuid << '/' << childKind << '/' << childIndex;
+  if (!symdefUuid.empty())
+    key << '/' << symdefUuid;
+  return key.str();
+}
+
 static std::string DecodeLegacyCredentialValue(const std::string &encoded) {
   constexpr unsigned char kKey = 0x5A;
   std::string out;
@@ -1734,12 +1745,18 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   auto appendGeometryInstance = [&](std::vector<GeometryInstance> &instances,
                                     const std::string &fileName,
-                                    const Matrix &localTransform) {
+                                    const Matrix &localTransform,
+                                    const std::string &instanceKey,
+                                    const std::string &sourceSymbolUuid = {},
+                                    const std::string &sourceSymdefUuid = {}) {
     std::string normalized = normalizeAndResolveGeometryFileName(fileName);
     if (normalized.empty())
       return;
     GeometryInstance instance;
     instance.modelFile = normalized;
+    instance.instanceKey = instanceKey;
+    instance.sourceSymbolUuid = sourceSymbolUuid;
+    instance.sourceSymdefUuid = sourceSymdefUuid;
     instance.localTransform = localTransform;
     instances.push_back(std::move(instance));
   };
@@ -2421,27 +2438,42 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             if (mappedModelRefIt != primitiveModelRefByArchiveFile.end()) {
               GeometryInstance instance;
               instance.modelFile = mappedModelRefIt->second;
+              instance.instanceKey = BuildSceneObjectGeometryInstanceKey(
+                  obj.uuid, "geometry3d", obj.geometries.size());
               instance.localTransform = geoMatrix;
               obj.geometries.push_back(std::move(instance));
             } else {
-              appendGeometryInstance(obj.geometries, fileName, geoMatrix);
+              const std::string instanceKey = BuildSceneObjectGeometryInstanceKey(
+                  obj.uuid, "geometry3d", obj.geometries.size());
+              appendGeometryInstance(obj.geometries, fileName, geoMatrix, instanceKey);
             }
           }
 
+          size_t symbolIndex = 0;
           for (tinyxml2::XMLElement *sym = geos->FirstChildElement("Symbol"); sym;
-               sym = sym->NextSiblingElement("Symbol")) {
+               sym = sym->NextSiblingElement("Symbol"), ++symbolIndex) {
             std::vector<SymdefGeometry> symGeometries;
             Matrix symMatrix = MatrixUtils::Identity();
             std::string symGeometryType;
+            const std::string sourceSymbolUuid =
+                Trim(sym->Attribute("uuid") ? sym->Attribute("uuid") : "");
+            const std::string sourceSymdefUuid =
+                Trim(sym->Attribute("symdef") ? sym->Attribute("symdef") : "");
             resolveSymdefReference(sym, symGeometries, symGeometryType, symMatrix);
             if (!symGeometryType.empty())
               geometryType = symGeometryType;
 
+            size_t symGeometryIndex = 0;
             for (const auto &geo : symGeometries) {
               Matrix localTransform = MatrixUtils::Multiply(symMatrix, geo.transform);
-              appendGeometryInstance(obj.geometries, geo.file, localTransform);
+              const std::string instanceKey = BuildSceneObjectGeometryInstanceKey(
+                  obj.uuid, "symbol", symbolIndex,
+                  sourceSymdefUuid + "/" + std::to_string(symGeometryIndex));
+              appendGeometryInstance(obj.geometries, geo.file, localTransform, instanceKey,
+                                     sourceSymbolUuid, sourceSymdefUuid);
               if (!geo.geometryType.empty())
                 geometryType = geo.geometryType;
+              ++symGeometryIndex;
             }
           }
         }

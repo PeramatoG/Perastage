@@ -704,6 +704,9 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     sceneSignature = HashCombine(sceneSignature, HashMatrix(o.transform));
     for (const auto &g : o.geometries) {
       sceneSignature = HashCombine(sceneSignature, HashString(g.modelFile));
+      sceneSignature = HashCombine(sceneSignature, HashString(g.instanceKey));
+      sceneSignature = HashCombine(sceneSignature, HashString(g.sourceSymbolUuid));
+      sceneSignature = HashCombine(sceneSignature, HashString(g.sourceSymdefUuid));
       sceneSignature = HashCombine(sceneSignature, HashMatrix(g.localTransform));
     }
   }

@@ -155,9 +155,16 @@ const Mesh *TryGetPrimitiveSceneObjectMesh(const std::string &modelRef) {
   return &insertedIt->second;
 }
 
+struct SceneObjectSymbolPartSignature {
+  std::string modelKey;
+  std::string instanceKey;
+  Matrix localTransform = MatrixUtils::Identity();
+};
+
+// Builds a cache signature for SceneObject symbol captures.
 std::string BuildSceneObjectSymbolSignature(
     const SceneObject &object,
-    const std::vector<std::pair<std::string, Matrix>> &meshParts) {
+    const std::vector<SceneObjectSymbolPartSignature> &meshParts) {
   std::ostringstream signature;
   signature << std::fixed << std::setprecision(6);
 
@@ -165,12 +172,16 @@ std::string BuildSceneObjectSymbolSignature(
     signature << "parts:" << meshParts.size();
     for (const auto &part : meshParts) {
       signature << '|';
-      if (!part.first.empty())
-        signature << part.first;
+      if (!part.modelKey.empty())
+        signature << part.modelKey;
       else
         signature << "<unnamed>";
+      if (!part.instanceKey.empty())
+        signature << "#" << part.instanceKey;
+      else if (!object.uuid.empty())
+        signature << "#" << object.uuid;
 
-      const Matrix &m = part.second;
+      const Matrix &m = part.localTransform;
       signature << "@" << m.u[0] << ',' << m.u[1] << ',' << m.u[2] << ';'
                 << m.v[0] << ',' << m.v[1] << ',' << m.v[2] << ';' << m.w[0]
                 << ',' << m.w[1] << ',' << m.w[2] << ';' << m.o[0] << ','
@@ -181,10 +192,14 @@ std::string BuildSceneObjectSymbolSignature(
 
   if (!object.modelFile.empty()) {
     signature << "model:" << NormalizeModelKey(object.modelFile);
+    if (!object.uuid.empty())
+      signature << "#" << object.uuid;
     return signature.str();
   }
 
   signature << "fallback:";
+  if (!object.uuid.empty())
+    signature << object.uuid << ':';
   signature << (IsPipeSceneObject(object) ? "pipe-cylinder" : "cube");
   return signature.str();
 }
@@ -283,6 +298,7 @@ void OpaqueObjectPass::Render(
       const Mesh *mesh = nullptr;
       Matrix localTransform = MatrixUtils::Identity();
       std::string modelKey;
+      std::string instanceKey;
     };
     std::vector<SceneObjectMeshPart> objectMeshParts;
     if (!m.geometries.empty()) {
@@ -294,6 +310,7 @@ void OpaqueObjectPass::Render(
           part.mesh = primitiveMesh;
           part.localTransform = geo.localTransform;
           part.modelKey = NormalizeModelKey(geo.modelFile);
+          part.instanceKey = geo.instanceKey;
           objectMeshParts.push_back(std::move(part));
           continue;
         }
@@ -313,6 +330,7 @@ void OpaqueObjectPass::Render(
         part.mesh = &it->second;
         part.localTransform = geo.localTransform;
         part.modelKey = NormalizeModelKey(objectPath);
+        part.instanceKey = geo.instanceKey;
         objectMeshParts.push_back(std::move(part));
       }
     } else if (!m.modelFile.empty()) {
@@ -419,10 +437,11 @@ void OpaqueObjectPass::Render(
          !highlight && !selected);
     bool placedInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
-      std::vector<std::pair<std::string, Matrix>> symbolMeshParts;
+      std::vector<SceneObjectSymbolPartSignature> symbolMeshParts;
       symbolMeshParts.reserve(objectMeshParts.size());
       for (const auto &part : objectMeshParts)
-        symbolMeshParts.emplace_back(part.modelKey, part.localTransform);
+        symbolMeshParts.push_back(
+            {part.modelKey, part.instanceKey, part.localTransform});
       const std::string modelKey =
           BuildSceneObjectSymbolSignature(m, symbolMeshParts);
 
