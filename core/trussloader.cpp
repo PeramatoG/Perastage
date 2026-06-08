@@ -19,6 +19,7 @@
 
 #include "truss_gdtf_builder.h"
 #include "logger.h"
+#include "truss_defaults.h"
 
 #include <tinyxml2.h>
 #include <wx/filename.h>
@@ -37,9 +38,6 @@ namespace fs = std::filesystem;
 
 namespace {
 
-constexpr float kDefaultDirectModelLengthMm = 1000.0f;
-constexpr float kDefaultDirectModelWidthMm = 400.0f;
-constexpr float kDefaultDirectModelHeightMm = 400.0f;
 constexpr const char *kSupportedTrussFileDialogWildcard =
     "Truss files (*.gdtf;*.gtruss;*.glb;*.3ds)|*.gdtf;*.gtruss;*.glb;*.3ds";
 
@@ -290,9 +288,9 @@ bool LoadTrussDefinition(const std::string &path, Truss &outTruss) {
       outTruss = Truss{};
       outTruss.symbolFile = ToUtf8String(inputPath);
       outTruss.modelFile = ToUtf8String(inputPath);
-      outTruss.lengthMm = kDefaultDirectModelLengthMm;
-      outTruss.widthMm = kDefaultDirectModelWidthMm;
-      outTruss.heightMm = kDefaultDirectModelHeightMm;
+      outTruss.lengthMm = TrussDefaults::kFallbackLengthMm;
+      outTruss.widthMm = TrussDefaults::kFallbackWidthMm;
+      outTruss.heightMm = TrussDefaults::kFallbackHeightMm;
       success = true;
     }
     LogTrussDefinitionLoadResult(inputPath, ext, success, outTruss);
