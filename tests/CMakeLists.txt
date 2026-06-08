@@ -1128,6 +1128,15 @@ target_link_libraries(gdtfloader_primitive_test PRIVATE ${wxWidgets_LIBRARIES} t
 add_test(NAME GdtfLoaderPrimitiveFallback COMMAND gdtfloader_primitive_test)
 set_library_env(GdtfLoaderPrimitiveFallback)
 
+add_executable(loader3ds_native_dimensions_test loader3ds_native_dimensions_test.cpp
+               ../viewer3d/loader3ds.cpp
+               consolepanel_stub.cpp)
+target_include_directories(loader3ds_native_dimensions_test PRIVATE
+                           . ../viewer3d ../models ../gui ../third_party)
+target_link_libraries(loader3ds_native_dimensions_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME Loader3dsNativeDimensions COMMAND loader3ds_native_dimensions_test)
+set_library_env(Loader3dsNativeDimensions)
+
 add_executable(gdtfloader_channel_modes_test gdtfloader_channel_modes_test.cpp
                ../viewer3d/gdtfloader.cpp
                ../core/gdtf_mutation_audit.cpp

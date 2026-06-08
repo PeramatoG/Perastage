@@ -16,7 +16,7 @@ namespace {
 
 constexpr uint32_t kMeshCacheMagic = 0x4843534Du; // MSCH
 constexpr uint32_t kGdtfCacheMagic = 0x48434747u; // GGCH
-constexpr uint32_t kCacheVersion = 1u;
+constexpr uint32_t kCacheVersion = 2u;
 constexpr float kOverdrawThreshold = 1.05f;
 
 struct CacheHeader {

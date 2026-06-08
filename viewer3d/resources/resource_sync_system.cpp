@@ -587,7 +587,8 @@ void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
     std::string loadException;
     try {
       if (ext == ".3ds")
-        loaded = Load3DS(path, mesh);
+        loaded = Load3DS(path, mesh,
+                         meshProcessingOptions.applyThreeDsObjectTransforms);
       else if (ext == ".glb")
         loaded = LoadGLB(path, mesh);
       else if (ext == ".obj") {

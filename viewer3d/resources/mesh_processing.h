@@ -11,6 +11,7 @@ namespace viewer3d::resources {
 struct MeshProcessingOptions {
   bool enableMeshOptimization = true;
   bool enableDiskCache = true;
+  bool applyThreeDsObjectTransforms = false;
 };
 
 void OptimizeMeshForRuntime(Mesh &mesh);

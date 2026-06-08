@@ -2471,6 +2471,16 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   sourceSymdefUuid + "/" + std::to_string(symGeometryIndex));
               appendGeometryInstance(obj.geometries, geo.file, localTransform, instanceKey,
                                      sourceSymbolUuid, sourceSymdefUuid);
+              std::ostringstream geometryLog;
+              geometryLog << "SceneObject geometry resolved: sceneObject='"
+                          << obj.name << "' sceneUuid=" << obj.uuid
+                          << " symbolUuid=" << sourceSymbolUuid
+                          << " symdef=" << sourceSymdefUuid
+                          << " file=" << geo.file
+                          << " instanceKey=" << instanceKey
+                          << " localTransform="
+                          << MatrixUtils::FormatMatrix(localTransform);
+              LogMessage(Logger::Level::Debug, geometryLog.str());
               if (!geo.geometryType.empty())
                 geometryType = geo.geometryType;
               ++symGeometryIndex;
