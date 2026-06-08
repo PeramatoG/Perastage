@@ -119,6 +119,7 @@ jobs:
             nanovg:x64-linux \
             podofo:x64-linux \
             meshoptimizer:x64-linux \
+            backward-cpp:x64-linux \
             --x-install-root="$VCPKG_INSTALLED" \
             --x-packages-root="$VCPKG_PACKAGES" \
             --downloads-root="$VCPKG_DOWNLOADS"
@@ -126,6 +127,7 @@ jobs:
       - name: Configure CMake
         run: |
           cmake --preset wsl-x64-release \
+            -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -g" \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET=x64-linux \
             -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"
@@ -136,11 +138,26 @@ jobs:
 
           STAGE_DIR="out/install/Release"
           test -f "$STAGE_DIR/Perastage" || { echo "Missing staged executable: $STAGE_DIR/Perastage"; exit 1; }
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          SYMBOLS_DIR="out/symbols/linux"
+          rm -rf "$SYMBOLS_DIR"
+          mkdir -p "$SYMBOLS_DIR"
+          objcopy --only-keep-debug "$STAGE_DIR/Perastage" "$SYMBOLS_DIR/Perastage.debug"
+          strip --strip-debug "$STAGE_DIR/Perastage"
+          objcopy --add-gnu-debuglink="$SYMBOLS_DIR/Perastage.debug" "$STAGE_DIR/Perastage"
+          (cd "$SYMBOLS_DIR" && zip -r "../../Perastage-$VERSION-Linux-symbols.zip" .)
+          test -f "out/Perastage-$VERSION-Linux-symbols.zip" || { echo "Linux symbols ZIP was not created"; exit 1; }
           test -x "$STAGE_DIR/Perastage" || { echo "Staged executable is not executable"; exit 1; }
           test -d "$STAGE_DIR/resources" || { echo "Missing staged resources directory"; exit 1; }
           test -d "$STAGE_DIR/library" || { echo "Missing staged library directory"; exit 1; }
           test -d "$STAGE_DIR/licenses" || { echo "Missing staged licenses directory"; exit 1; }
           ls -la "$STAGE_DIR"
+
+      - name: Upload Linux symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-linux-symbols
+          path: out/Perastage-*-Linux-symbols.zip
 
       - name: Upload staged distribution
         uses: actions/upload-artifact@v4

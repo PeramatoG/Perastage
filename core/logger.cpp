@@ -16,16 +16,16 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "logger.h"
-#include "apppaths.h"
+#include "diagnostics/DiagnosticPaths.h"
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <wx/stdpaths.h>
 
 namespace {
+// Converts a log level to a stable text label.
 const char *LevelToString(Logger::Level level) {
   switch (level) {
   case Logger::Level::Error:
@@ -40,6 +40,7 @@ const char *LevelToString(Logger::Level level) {
   return "INFO";
 }
 
+// Formats one log entry for persistent and console sinks.
 std::string FormatLogLine(Logger::Level level, const std::string &msg) {
   std::ostringstream oss;
   oss << '[' << LevelToString(level) << "] " << msg;
@@ -48,35 +49,45 @@ std::string FormatLogLine(Logger::Level level, const std::string &msg) {
 
 } // namespace
 
+// Returns the process-wide asynchronous logger instance.
 Logger &Logger::Instance() {
   static Logger instance;
   return instance;
 }
 
+// Opens the persistent log file and starts the log worker.
 Logger::Logger() {
-  const std::filesystem::path logDir = AppPaths::GetUserDataDir();
+  const std::filesystem::path logDir = diagnostics::DiagnosticPaths::LogsDirectory();
   if (!logDir.empty()) {
-    std::error_code ec;
-    std::filesystem::create_directories(logDir, ec);
-    if (!ec) {
-      std::filesystem::path logPath = AppPaths::GetLogFilePath();
-      file_.open(logPath, std::ios::out | std::ios::trunc);
+    std::string error;
+    if (diagnostics::DiagnosticPaths::EnsureDirectory(logDir, &error)) {
+      log_path_ = diagnostics::DiagnosticPaths::CurrentLogFile();
+      std::error_code rotateEc;
+      const std::filesystem::path previousLogPath =
+          diagnostics::DiagnosticPaths::PreviousLogFile();
+      if (std::filesystem::exists(log_path_, rotateEc)) {
+        std::filesystem::remove(previousLogPath, rotateEc);
+        rotateEc.clear();
+        std::filesystem::rename(log_path_, previousLogPath, rotateEc);
+      }
+      file_.open(log_path_, std::ios::out | std::ios::trunc);
       if (!file_.is_open()) {
-        std::cerr << "Warning: Unable to open log file at " << logPath.string()
+        std::cerr << "Warning: Unable to open log file at " << log_path_.string()
                   << "; logging only to stderr." << std::endl;
       }
     } else {
       std::cerr << "Warning: Unable to create log directory " << logDir.string()
-                << "; logging only to stderr." << std::endl;
+                << ": " << error << "; logging only to stderr." << std::endl;
     }
   } else {
-    std::cerr << "Warning: Unable to resolve user data directory; logging only "
+    std::cerr << "Warning: Unable to resolve diagnostics directory; logging only "
                  "to stderr."
               << std::endl;
   }
   worker_ = std::thread(&Logger::Worker, this);
 }
 
+// Flushes queued log entries and stops the log worker.
 Logger::~Logger() {
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -89,8 +100,10 @@ Logger::~Logger() {
     file_.close();
 }
 
+// Queues an informational log entry.
 void Logger::Log(std::string msg) { Log(Level::Info, std::move(msg)); }
 
+// Queues a log entry at the requested severity.
 void Logger::Log(Level level, std::string msg) {
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -101,16 +114,42 @@ void Logger::Log(Level level, std::string msg) {
   cv_.notify_one();
 }
 
+// Updates the runtime minimum severity filter.
 void Logger::SetMinLevel(Level level) {
   std::lock_guard<std::mutex> lock(mutex_);
   min_level_ = level;
 }
 
+// Returns the current runtime minimum severity filter.
 Logger::Level Logger::GetMinLevel() const {
   std::lock_guard<std::mutex> lock(mutex_);
   return min_level_;
 }
 
+// Blocks until the current queue has been written to the sinks.
+void Logger::Flush() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  cv_.wait(lock, [this] { return queue_.empty() && !writing_; });
+  if (file_.is_open())
+    file_.flush();
+}
+
+// Returns recent formatted log lines for diagnostic reports.
+std::vector<std::string> Logger::GetRecentLines(std::size_t maxLines) const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (maxLines >= recent_lines_.size())
+    return recent_lines_;
+  return std::vector<std::string>(recent_lines_.end() - maxLines,
+                                  recent_lines_.end());
+}
+
+// Returns the persistent log file path used by the logger.
+std::filesystem::path Logger::GetLogFilePath() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return log_path_;
+}
+
+// Drains the log queue to the persistent file and stderr.
 void Logger::Worker() {
   std::unique_lock<std::mutex> lock(mutex_);
   std::size_t messages_since_flush = 0;
@@ -128,9 +167,17 @@ void Logger::Worker() {
         batch.emplace_back(std::move(queue_.front()));
         queue_.pop();
       }
-      lock.unlock();
       for (const auto &entry : batch) {
         std::string formatted = FormatLogLine(entry.level, entry.msg);
+        recent_lines_.push_back(formatted);
+        if (recent_lines_.size() > kMaxRecentLines) {
+          recent_lines_.erase(
+              recent_lines_.begin(),
+              recent_lines_.begin() +
+                  static_cast<std::ptrdiff_t>(recent_lines_.size() - kMaxRecentLines));
+        }
+        writing_ = true;
+        lock.unlock();
         if (file_.is_open()) {
           file_ << formatted << '\n';
           ++messages_since_flush;
@@ -140,8 +187,9 @@ void Logger::Worker() {
           }
         }
         std::cerr << formatted << '\n';
+        lock.lock();
       }
-      lock.lock();
+      cv_.notify_all();
     }
     if (file_.is_open() && shutting_down && messages_since_flush > 0) {
       file_.flush();

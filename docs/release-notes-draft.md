@@ -6,6 +6,7 @@ Changes since `v1.3.0`.
 
 ## New features
 
+- Added Help menu actions to open the local logs folder and export a manual diagnostic report for troubleshooting.
 - Added a startup update reminder checkbox so users can stop seeing repeated prompts for the same available version while keeping manual update checks available.
 
 ## Improvements
@@ -17,6 +18,7 @@ Changes since `v1.3.0`.
 
 ## Stability and reliability
 
+- Added local crash reporting and persistent diagnostics logs with build, platform, wxWidgets, OpenGL, recent-log, and stack-trace context when available.
 - Improved truss archive extraction safety by rejecting unsafe ZIP entries that use absolute paths or attempt to write outside the extraction cache.
 - Improved 3D resource lookup resilience by bounding recursive fallback scans on the viewport sync path and logging when protected folders are skipped or scan limits are reached.
 - Improved visible 3D resource synchronization so filesystem errors on cached or user-derived GDTF and model paths are handled safely with concise diagnostics instead of interrupting viewport updates.
@@ -30,7 +32,10 @@ Changes since `v1.3.0`.
 
 ## Documentation
 
+- Documented local diagnostics export and release symbol ZIP assets for troubleshooting and maintainer workflows.
+
 ## Internal changes
 
+- Added backward-cpp integration, generated build metadata, and release workflow symbol archives for Windows, Linux, macOS, and Arch Linux builds.
 - Improved truss table reload stability so rebuilding rows preserves existing truss selection without triggering transient selection side effects.
 - Added concise diagnostics for truss loading and 2D viewer picking to make validation and interaction issues easier to troubleshoot.

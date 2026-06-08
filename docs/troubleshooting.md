@@ -35,3 +35,9 @@ On Windows, the default path is:
 - Save the project.
 - Close and reopen it.
 - Revalidate critical items in both 2D and 3D views.
+
+## Export diagnostics after a crash or bug
+
+Perastage writes local diagnostics only; it does not upload logs or crash reports automatically.
+
+Use **Help → Open Logs Folder** to view the local logs and crash reports folder. Use **Help → Export Diagnostic Report** to create a plain-text report that includes build information, platform details, captured OpenGL information when available, and recent log lines. Share this file manually only if you are comfortable sending it to the developer.

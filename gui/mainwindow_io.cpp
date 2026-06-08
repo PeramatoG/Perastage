@@ -39,6 +39,7 @@
 #include <wx/zipstrm.h>
 
 #include "configmanager.h"
+#include "diagnostics/DiagnosticLogger.h"
 #include "guiconfigservices.h"
 #include "consolepanel.h"
 #include "exportfixturedialog.h"
@@ -50,7 +51,6 @@
 #include "gdtf_mutation_audit.h"
 #include "hoisttablepanel.h"
 #include "layoutviewerpanel.h"
-#include "logger.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "projectutils.h"
@@ -66,11 +66,13 @@
 
 namespace {
 
+// Converts a filesystem path to a UTF-8 string.
 std::string Utf8StringFromPath(const std::filesystem::path &path) {
   const auto utf8 = path.u8string();
   return std::string(utf8.begin(), utf8.end());
 }
 
+// Ensures saved project files use the Perastage project extension.
 std::string EnsureProjectFileExtension(const std::string &path) {
   if (path.empty())
     return path;
@@ -134,7 +136,9 @@ void MainWindow::UnlockViewportInteraction() {
     layoutViewerPanel->Enable();
 }
 
+// Opens a project file selected by the user.
 void MainWindow::OnLoad(wxCommandEvent &event) {
+  diagnostics::DiagnosticLogger::Info("Project open requested.");
   if (!GuardStartupProjectLoadAction("opening another project"))
     return;
 
@@ -159,6 +163,9 @@ void MainWindow::OnLoad(wxCommandEvent &event) {
 
   wxString path = dlg.GetPath();
   const std::filesystem::path selectedPath(path.ToStdWstring());
+  diagnostics::DiagnosticLogger::Info(
+      "Project open selected: " +
+      diagnostics::DiagnosticLogger::FileNameOnly(Utf8StringFromPath(selectedPath)));
   if (!LoadProjectFromPath(Utf8StringFromPath(selectedPath)))
     wxMessageBox("Failed to load project.", "Error", wxOK | wxICON_ERROR,
                  this);
@@ -208,7 +215,9 @@ void MainWindow::ProcessDeferredStartupOpenPath() {
   const std::string path = *deferredStartupOpenPath;
   deferredStartupOpenPath.reset();
   startupDeferredOpenInProgress = true;
-  Logger::Instance().Log("Opening explicit startup path: " + path);
+  diagnostics::DiagnosticLogger::Info(
+      "Opening explicit startup path: " +
+      diagnostics::DiagnosticLogger::FileNameOnly(path));
   const bool opened = OpenPathFromCommandLine(path);
   startupDeferredOpenInProgress = false;
   if (!opened)
@@ -217,6 +226,7 @@ void MainWindow::ProcessDeferredStartupOpenPath() {
 
 // Save the current project to its existing path or route to Save As when no path exists.
 void MainWindow::OnSave(wxCommandEvent &event) {
+  diagnostics::DiagnosticLogger::Info("Project save requested.");
   if (currentProjectPath.empty()) {
     OnSaveAs(event);
     return;
@@ -233,10 +243,16 @@ void MainWindow::OnSave(wxCommandEvent &event) {
   SyncSceneData();
   FlushPendingFixtureSymbolLibraryUpdates();
   SaveUserConfigWithViewport2DState();
-  if (!cfg.SaveProject(currentProjectPath))
+  if (!cfg.SaveProject(currentProjectPath)) {
+    diagnostics::DiagnosticLogger::Error(
+        "Project save failed: " +
+        diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath));
     wxMessageBox("Failed to save project.", "Error", wxOK | wxICON_ERROR,
                  this);
-  else {
+  } else {
+    diagnostics::DiagnosticLogger::Info(
+        "Project save completed: " +
+        diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath));
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
     if (consolePanel)
       consolePanel->AppendMessage("[INFO] Saved " +
@@ -252,6 +268,7 @@ void MainWindow::OnSave(wxCommandEvent &event) {
 
 // Prompt for a destination path and save the current project under that file name.
 void MainWindow::OnSaveAs(wxCommandEvent &event) {
+  diagnostics::DiagnosticLogger::Info("Project save-as requested.");
   const wxString projectExtension =
       wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION);
   wxString filter = "Perastage files (*" + projectExtension + ")|*" +
@@ -298,9 +315,15 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   SyncSceneData();
   FlushPendingFixtureSymbolLibraryUpdates();
   SaveUserConfigWithViewport2DState();
-  if (!cfg.SaveProject(currentProjectPath))
+  if (!cfg.SaveProject(currentProjectPath)) {
+    diagnostics::DiagnosticLogger::Error(
+        "Project save-as failed: " +
+        diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath));
     wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
-  else {
+  } else {
+    diagnostics::DiagnosticLogger::Info(
+        "Project save-as completed: " +
+        diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath));
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
     if (consolePanel)
       consolePanel->AppendMessage("[INFO] Saved " +
@@ -317,6 +340,7 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
 
 // Import fixtures and trusses from a rider (.txt/.pdf)
 void MainWindow::OnImportRider(wxCommandEvent &event) {
+  diagnostics::DiagnosticLogger::Info("Text/rider import requested.");
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
   wxFileDialog dlg(this, "Import Rider", miscDir, "",
@@ -435,12 +459,14 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
 // Handles MVR file selection, import, and updates fixture/truss panels
 // accordingly
 void MainWindow::OnImportMVR(wxCommandEvent &event) {
+  diagnostics::DiagnosticLogger::Info("MVR import requested.");
   if (ioController)
     ioController->OnImportMVR(event);
 }
 
 // Exports the current scene to an MVR file without mutating the live scene.
 void MainWindow::OnExportMVR(wxCommandEvent &event) {
+  diagnostics::DiagnosticLogger::Info("MVR export requested.");
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
   wxFileDialog saveFileDialog(this, "Export MVR file", miscDir, "",
@@ -452,14 +478,23 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
 
   MvrExporter exporter;
   wxString path = saveFileDialog.GetPath();
+  diagnostics::DiagnosticLogger::Info(
+      "MVR export selected: " +
+      diagnostics::DiagnosticLogger::FileNameOnly(path.ToStdString()));
   wxBusyInfo *busy = new wxBusyInfo("Saving project...", this);
   const bool exported = exporter.ExportToFile(path.ToStdString());
   delete busy;
   if (!exported) {
+    diagnostics::DiagnosticLogger::Error(
+        "MVR export failed: " +
+        diagnostics::DiagnosticLogger::FileNameOnly(path.ToStdString()));
     wxMessageBox("Failed to export MVR file.", "Error", wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to export " + path);
   } else {
+    diagnostics::DiagnosticLogger::Info(
+        "MVR export completed: " +
+        diagnostics::DiagnosticLogger::FileNameOnly(path.ToStdString()));
     const auto &warnings = exporter.GetExportWarnings();
     if (!warnings.empty()) {
       wxString warningText;

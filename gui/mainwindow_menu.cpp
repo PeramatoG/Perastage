@@ -56,6 +56,9 @@
 #include "guiconfigservices.h"
 #include "consolepanel.h"
 #include "credentialstore.h"
+#include "diagnostics/DiagnosticLogger.h"
+#include "diagnostics/DiagnosticPaths.h"
+#include "diagnostics/DiagnosticReport.h"
 #include "dictionaryeditdialog.h"
 #include "fixture.h"
 #include "fixturetablepanel.h"
@@ -311,6 +314,7 @@ void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
 // Opens the GDTF search flow, refreshing the remote catalog when credentials are available.
 // Opens the GDTF download workflow and optionally adds the selected fixture.
 void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
+  diagnostics::DiagnosticLogger::Info("GDTF download workflow opened.");
   ConfigManager &configManager =
       GetDefaultGuiConfigServices().LegacyConfigManager();
   std::optional<CredentialStore::Credentials> activeCredentials =
@@ -369,6 +373,13 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     effectiveListData = catalogResult.snapshot->listData;
     effectiveUpdatedAt = catalogResult.snapshot->updatedAt;
   }
+  diagnostics::DiagnosticLogger::Info(
+      std::string("GDTF catalog resolved: cache_hit=") +
+      (catalogResult.metrics.cacheHit ? "true" : "false") +
+      " refresh_attempted=" +
+      (catalogResult.metrics.refreshAttempted ? "true" : "false") +
+      " refresh_succeeded=" +
+      (catalogResult.metrics.refreshSucceeded ? "true" : "false"));
 
   if (consolePanel) {
     consolePanel->AppendMessage(wxString::Format(
@@ -505,6 +516,9 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     clearGdtfDownloadBlockingUi();
     if (saveDlg.ShowModal() == wxID_OK) {
       wxString dest = saveDlg.GetPath();
+      diagnostics::DiagnosticLogger::Info(
+          "GDTF download selected: " +
+          diagnostics::DiagnosticLogger::FileNameOnly(WxToUtf8(dest)));
       if (!rid.empty()) {
         gdtfDownloadDisabler = std::make_unique<wxWindowDisabler>();
         updateGdtfDownloadBusyOverlay("Downloading GDTF from GDTF Share...");
@@ -517,12 +531,17 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
           consolePanel->AppendMessage(
               wxString::Format("[INFO] Download HTTP code: %ld", dlCode));
         if (ok && dlCode == 200) {
+          diagnostics::DiagnosticLogger::Info(
+              "GDTF download completed: " +
+              diagnostics::DiagnosticLogger::FileNameOnly(WxToUtf8(dest)));
           int addNow = wxMessageBox(
               "GDTF downloaded successfully. Do you want to add it to the project now?",
               "Success", wxYES_NO | wxICON_QUESTION, this);
           if (addNow == wxYES)
             AddFixtureFromGdtfPath(WxToUtf8(dest));
         } else {
+          diagnostics::DiagnosticLogger::Error(
+              "GDTF download failed: http=" + std::to_string(dlCode));
           wxMessageBox("Failed to download GDTF.", "Error", wxOK | wxICON_ERROR);
         }
       } else {
@@ -973,6 +992,58 @@ void MainWindow::OnOpenOnlineDocumentation(wxCommandEvent &WXUNUSED(event)) {
 }
 
 
+
+
+// Opens the local diagnostics folder in the system file explorer.
+void MainWindow::OnOpenLogsFolder(wxCommandEvent &WXUNUSED(event)) {
+  std::string error;
+  const std::filesystem::path logsDirectory =
+      diagnostics::DiagnosticPaths::LogsDirectory();
+  if (!diagnostics::DiagnosticPaths::EnsureDirectory(logsDirectory, &error)) {
+    diagnostics::DiagnosticLogger::Error("Unable to open logs folder: " + error);
+    wxMessageBox(wxString::FromUTF8("Could not create the logs folder.\n\n" + error),
+                 wxString::FromUTF8("Perastage Diagnostics"),
+                 wxOK | wxICON_ERROR, this);
+    return;
+  }
+
+  diagnostics::DiagnosticLogger::Info("Open logs folder requested.");
+  const wxString quotedPath = "\"" + wxString::FromUTF8(logsDirectory.string()) + "\"";
+#if defined(__WXMSW__)
+  const wxString command = "explorer " + quotedPath;
+#elif defined(__WXOSX__)
+  const wxString command = "open " + quotedPath;
+#else
+  const wxString command = "xdg-open " + quotedPath;
+#endif
+  const bool launched = wxExecute(command, wxEXEC_ASYNC) != 0;
+  if (!launched) {
+    wxMessageBox(wxString::FromUTF8("Could not open the logs folder.\n\n" +
+                                    logsDirectory.string()),
+                 wxString::FromUTF8("Perastage Diagnostics"),
+                 wxOK | wxICON_WARNING, this);
+  }
+}
+
+// Exports a local text diagnostic report for manual sharing.
+void MainWindow::OnExportDiagnosticReport(wxCommandEvent &WXUNUSED(event)) {
+  diagnostics::DiagnosticLogger::Info("Diagnostic report export requested.");
+  std::filesystem::path reportPath;
+  std::string error;
+  if (!diagnostics::DiagnosticReport::ExportToFile(&reportPath, &error)) {
+    diagnostics::DiagnosticLogger::Error("Diagnostic report export failed: " + error);
+    wxMessageBox(wxString::FromUTF8("Could not export the diagnostic report.\n\n" + error),
+                 wxString::FromUTF8("Perastage Diagnostics"),
+                 wxOK | wxICON_ERROR, this);
+    return;
+  }
+
+  diagnostics::DiagnosticLogger::Info("Diagnostic report exported.");
+  wxMessageBox(wxString::FromUTF8("Diagnostic report exported successfully.\n\n" +
+                                  reportPath.string()),
+               wxString::FromUTF8("Perastage Diagnostics"),
+               wxOK | wxICON_INFORMATION, this);
+}
 
 // Checks the latest release asynchronously and shows a result dialog with update actions.
 void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {

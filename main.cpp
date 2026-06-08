@@ -15,9 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "BuildInfo.h"
 #include "app_version.h"
 #include "configmanager.h"
-#include "logger.h"
+#include "diagnostics/CrashHandler.h"
+#include "diagnostics/DiagnosticLogger.h"
 #include "mainwindow.h"
 #include "projectutils.h"
 #include "splashscreen.h"
@@ -121,8 +123,10 @@ std::string NormalizeExternalOpenPath(const std::string &rawPathUtf8) {
   const std::string normalizedPath =
       utf8 ? std::string(utf8.data()) : rawPathUtf8;
   if (normalizedPath != rawPathUtf8) {
-    Logger::Instance().Log("NormalizeExternalOpenPath normalized '" +
-                           rawPathUtf8 + "' -> '" + normalizedPath + "'");
+    diagnostics::DiagnosticLogger::Debug(
+        "NormalizeExternalOpenPath normalized filename '" +
+        diagnostics::DiagnosticLogger::FileNameOnly(rawPathUtf8) + "' -> '" +
+        diagnostics::DiagnosticLogger::FileNameOnly(normalizedPath) + "'");
   }
   return normalizedPath;
 }
@@ -247,8 +251,14 @@ bool MyApp::OnInit() {
   SplashScreen::Show();
   SplashScreen::SetMessage("Initializing logger...");
 
-  // Initialize logging system (overwrites log file each launch)
-  Logger::Instance();
+  // Initialize logging and crash reporting before creating the main window.
+  diagnostics::DiagnosticLogger::Initialize();
+  diagnostics::CrashHandler::Initialize();
+  diagnostics::DiagnosticLogger::Info(
+      std::string("Perastage startup: version=") + build_info::kVersionDisplay +
+      " commit=" + build_info::kGitCommit +
+      " build_type=" + build_info::kBuildType +
+      " platform=" + build_info::kTargetPlatform);
 
   SplashScreen::SetMessage("Running library bootstrap...");
   ProjectUtils::RunStartupLibraryBootstrap();
@@ -264,7 +274,7 @@ bool MyApp::OnInit() {
   auto lastPathOpt = ProjectUtils::LoadLastProjectPath();
   std::optional<std::string> cliStartupPath =
       GetStartupPathFromArgs(argc, argv, launchWorkingDirectoryUtf8);
-  Logger::Instance().Log(
+  diagnostics::DiagnosticLogger::Info(
       "Startup resolution delayed to allow macOS open-file event.");
   mainWindow->CallAfter([this, mainWindowRef, cliStartupPath, lastPathOpt]() {
     if (!mainWindowRef)
@@ -285,16 +295,16 @@ void MyApp::FinalizeStartupOpenResolution(
     return;
 
   if (auto macPath = ConsumePendingStartupExternalOpenPath()) {
-    Logger::Instance().Log("Startup explicit macOS path selected: " + *macPath);
-    Logger::Instance().Log("Opening startup path: " + *macPath);
+    diagnostics::DiagnosticLogger::Info("Startup explicit macOS path selected: " + diagnostics::DiagnosticLogger::FileNameOnly(*macPath));
+    diagnostics::DiagnosticLogger::Info("Opening startup path: " + diagnostics::DiagnosticLogger::FileNameOnly(*macPath));
     QueueProjectLoadedEvent(mainWindowRef, false, true, *macPath);
     startup_resolution_pending_.store(false);
     return;
   }
 
   if (cliStartupPath.has_value()) {
-    Logger::Instance().Log("Startup CLI path selected: " + *cliStartupPath);
-    Logger::Instance().Log("Opening startup path: " + *cliStartupPath);
+    diagnostics::DiagnosticLogger::Info("Startup CLI path selected: " + diagnostics::DiagnosticLogger::FileNameOnly(*cliStartupPath));
+    diagnostics::DiagnosticLogger::Info("Opening startup path: " + diagnostics::DiagnosticLogger::FileNameOnly(*cliStartupPath));
     QueueProjectLoadedEvent(mainWindowRef, false, true, *cliStartupPath);
     startup_resolution_pending_.store(false);
     return;
@@ -302,17 +312,17 @@ void MyApp::FinalizeStartupOpenResolution(
 
   if (lastPathOpt.has_value()) {
     if (explicit_startup_open_path_.has_value()) {
-      Logger::Instance().Log(
+      diagnostics::DiagnosticLogger::Info(
           "Skipping last project because explicit startup path exists.");
     } else {
-      Logger::Instance().Log("Startup last project selected: " + *lastPathOpt);
+      diagnostics::DiagnosticLogger::Info("Startup last project selected: " + diagnostics::DiagnosticLogger::FileNameOnly(*lastPathOpt));
       QueueProjectLoadedEvent(mainWindowRef, false, false, *lastPathOpt);
     }
     startup_resolution_pending_.store(false);
     return;
   }
 
-  Logger::Instance().Log("Startup empty project selected.");
+  diagnostics::DiagnosticLogger::Info("Startup empty project selected.");
   QueueProjectLoadedEvent(mainWindowRef, false, false);
   startup_resolution_pending_.store(false);
 }
@@ -322,13 +332,13 @@ void MyApp::MacOpenFile(const wxString &fileName) {
   const wxCharBuffer utf8 = fileName.ToUTF8();
   const std::string rawPathUtf8 =
       utf8 ? std::string(utf8.data()) : fileName.ToStdString();
-  Logger::Instance().Log("MacOpenFile received: " + rawPathUtf8);
+  diagnostics::DiagnosticLogger::Info("MacOpenFile received: " + diagnostics::DiagnosticLogger::FileNameOnly(rawPathUtf8));
   HandleExternalOpenPath(NormalizeExternalOpenPath(rawPathUtf8));
 }
 
 // Routes macOS multi-file open requests to the external open pipeline in order.
 void MyApp::MacOpenFiles(const wxArrayString &fileNames) {
-  Logger::Instance().Log("MacOpenFiles received count: " +
+  diagnostics::DiagnosticLogger::Info("MacOpenFiles received count: " +
                          std::to_string(fileNames.GetCount()));
   for (const wxString &fileName : fileNames) {
     MacOpenFile(fileName);
@@ -341,7 +351,7 @@ void MyApp::MacOpenURL(const wxString &url) {
   const wxCharBuffer utf8 = url.ToUTF8();
   const std::string rawUrlUtf8 =
       utf8 ? std::string(utf8.data()) : url.ToStdString();
-  Logger::Instance().Log("MacOpenURL received: " + rawUrlUtf8);
+  diagnostics::DiagnosticLogger::Info("MacOpenURL received.");
   HandleExternalOpenPath(NormalizeExternalOpenPath(rawUrlUtf8));
 }
 
@@ -349,29 +359,29 @@ void MyApp::MacOpenURL(const wxString &url) {
 void MyApp::HandleExternalOpenPath(const std::string &pathUtf8) {
   if (pathUtf8.empty())
     return;
-  Logger::Instance().Log("macOS external open received: " + pathUtf8);
+  diagnostics::DiagnosticLogger::Info("macOS external open received: " + diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
 
   if (startup_resolution_pending_.load()) {
     StorePendingStartupExternalOpenPath(pathUtf8);
-    Logger::Instance().Log("macOS startup explicit path stored: " + pathUtf8);
+    diagnostics::DiagnosticLogger::Info("macOS startup explicit path stored: " + diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
     return;
   }
 
   MainWindow *mainWindow = wxDynamicCast(GetTopWindow(), MainWindow);
   if (!mainWindow) {
-    Logger::Instance().Log(
+    diagnostics::DiagnosticLogger::Info(
         "HandleExternalOpenPath queued: MainWindow is not ready.");
     pending_external_open_paths_.push_back(pathUtf8);
     return;
   }
 
   if (!project_load_event_sent_.load()) {
-    Logger::Instance().Log("Opening startup path: " + pathUtf8);
+    diagnostics::DiagnosticLogger::Info("Opening startup path: " + diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
     QueueProjectLoadedEvent(wxWeakRef<MainWindow>(mainWindow), false, true, pathUtf8);
     return;
   }
 
-  Logger::Instance().Log(
+  diagnostics::DiagnosticLogger::Info(
       "HandleExternalOpenPath routing through MainWindow deferred-open pipeline.");
   mainWindow->CallAfter([mainWindow, pathUtf8]() {
     if (!mainWindow->CanProcessExternalOpenPath())
@@ -407,6 +417,8 @@ std::optional<std::string> MyApp::ConsumePendingExternalOpenPath() {
 
 // Releases application-level resources before process shutdown.
 int MyApp::OnExit() {
+  diagnostics::DiagnosticLogger::Info("Perastage shutdown started.");
+  diagnostics::DiagnosticLogger::Flush();
   // Release application-level singletons before CRT leak reporting runs in
   // debug builds on Windows.
   ConfigManager::Get().Reset();
@@ -458,7 +470,7 @@ namespace {
 // Logs an exception message and an optional platform stack trace for diagnostics.
 void LogExceptionWithStack(const std::exception &ex,
                            const char *contextMessage) {
-  Logger::Instance().Log(std::string(contextMessage) + ex.what());
+  diagnostics::DiagnosticLogger::Error(std::string(contextMessage) + ex.what());
 
 #if defined(__WXMSW__)
   class StackWalker : public wxStackWalker {
@@ -486,7 +498,7 @@ void LogExceptionWithStack(const std::exception &ex,
   StackWalker walker;
   std::string trace = walker.TakeStackTrace();
   if (!trace.empty()) {
-    Logger::Instance().Log(std::string("Stack trace:\n") + trace);
+    diagnostics::DiagnosticLogger::Error(std::string("Stack trace:\n") + trace);
   }
 #endif
 }
@@ -498,20 +510,26 @@ bool MyApp::OnExceptionInMainLoop() {
     throw;
   } catch (const std::exception &ex) {
     if (dynamic_cast<const std::bad_alloc *>(&ex)) {
-      Logger::Instance().Log("Unhandled exception in main loop: bad allocation.");
+      diagnostics::DiagnosticLogger::Error("Unhandled exception in main loop: bad allocation.");
       if (!last_event_summary_.empty()) {
-        Logger::Instance().Log(last_event_summary_);
+        diagnostics::DiagnosticLogger::Error(last_event_summary_);
       }
       LogExceptionWithStack(ex, "Unhandled exception in main loop: ");
+      diagnostics::CrashHandler::WriteExceptionReport(
+          "Unhandled exception in main loop", last_event_summary_);
       return true;
     }
     if (!last_event_summary_.empty()) {
-      Logger::Instance().Log(last_event_summary_);
+      diagnostics::DiagnosticLogger::Error(last_event_summary_);
     }
     LogExceptionWithStack(ex, "Unhandled exception in main loop: ");
+    diagnostics::CrashHandler::WriteExceptionReport(
+        "Unhandled exception in main loop", last_event_summary_);
     return true;
   } catch (...) {
-    Logger::Instance().Log("Unhandled exception in main loop: unknown error.");
+    diagnostics::DiagnosticLogger::Error("Unhandled exception in main loop: unknown error.");
+    diagnostics::CrashHandler::WriteExceptionReport(
+        "Unhandled exception in main loop", last_event_summary_);
   }
   return false;
 }
@@ -522,17 +540,23 @@ void MyApp::OnUnhandledException() {
     throw;
   } catch (const std::exception &ex) {
     if (dynamic_cast<const std::bad_alloc *>(&ex)) {
-      Logger::Instance().Log("Unhandled exception: bad allocation.");
+      diagnostics::DiagnosticLogger::Error("Unhandled exception: bad allocation.");
       if (!last_event_summary_.empty()) {
-        Logger::Instance().Log(last_event_summary_);
+        diagnostics::DiagnosticLogger::Error(last_event_summary_);
       }
+      diagnostics::CrashHandler::WriteExceptionReport("Unhandled exception",
+                                                      last_event_summary_);
       return;
     }
     if (!last_event_summary_.empty()) {
-      Logger::Instance().Log(last_event_summary_);
+      diagnostics::DiagnosticLogger::Error(last_event_summary_);
     }
     LogExceptionWithStack(ex, "Unhandled exception: ");
+    diagnostics::CrashHandler::WriteExceptionReport("Unhandled exception",
+                                                    last_event_summary_);
   } catch (...) {
-    Logger::Instance().Log("Unhandled exception: unknown error.");
+    diagnostics::DiagnosticLogger::Error("Unhandled exception: unknown error.");
+    diagnostics::CrashHandler::WriteExceptionReport("Unhandled exception",
+                                                      last_event_summary_);
   }
 }

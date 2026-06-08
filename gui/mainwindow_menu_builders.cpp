@@ -108,6 +108,9 @@ wxMenu *BuildHelpMenu() {
   helpMenu->Append(ID_Help_OnlineDocumentation, "Online Documentation");
   helpMenu->Append(ID_Help_CheckForUpdates, "Check for Updates...");
   helpMenu->AppendSeparator();
+  helpMenu->Append(ID_Help_OpenLogsFolder, "Open Logs Folder");
+  helpMenu->Append(ID_Help_ExportDiagnosticReport, "Export Diagnostic Report...");
+  helpMenu->AppendSeparator();
   helpMenu->Append(ID_Help_About, "About Perastage");
   return helpMenu;
 }

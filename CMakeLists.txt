@@ -115,6 +115,33 @@ else()
     endif()
 endif()
 find_package(ZLIB REQUIRED)
+find_package(Backward CONFIG REQUIRED)
+
+execute_process(
+    COMMAND git rev-parse --short=12 HEAD
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    OUTPUT_VARIABLE PERASTAGE_GIT_COMMIT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+if(NOT PERASTAGE_GIT_COMMIT)
+    set(PERASTAGE_GIT_COMMIT "unknown")
+endif()
+string(TIMESTAMP PERASTAGE_BUILD_TIMESTAMP_UTC "%Y-%m-%d %H:%M:%S UTC" UTC)
+if(CMAKE_CONFIGURATION_TYPES)
+    set(PERASTAGE_BUILD_TYPE_TEXT "$<CONFIG>")
+elseif(CMAKE_BUILD_TYPE)
+    set(PERASTAGE_BUILD_TYPE_TEXT "${CMAKE_BUILD_TYPE}")
+else()
+    set(PERASTAGE_BUILD_TYPE_TEXT "Unknown")
+endif()
+set(PERASTAGE_TARGET_PLATFORM "${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+set(PERASTAGE_COMPILER_TEXT "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+configure_file(
+    "${CMAKE_SOURCE_DIR}/cmake/BuildInfo.h.in"
+    "${CMAKE_BINARY_DIR}/generated/BuildInfo.h"
+    @ONLY
+)
 
 add_executable(${PROJECT_NAME} main.cpp
     models/fixture.cpp
@@ -165,9 +192,14 @@ if(APPLE)
 endif()
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_BINARY_DIR}/generated
+)
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     PERASTAGE_APP_VERSION="${PERASTAGE_APP_VERSION}"
     PERASTAGE_APP_VERSION_DISPLAY="${PERASTAGE_APP_VERSION_DISPLAY}"
+    PERASTAGE_BUILD_CONFIGURATION="$<CONFIG>"
     PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API=1
 )
 
@@ -265,6 +297,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     nanovg::nanovg
     podofo::podofo
     ZLIB::ZLIB
+    Backward::Backward
     ${_wx_libs}
 )
 

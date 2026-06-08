@@ -4,7 +4,9 @@
 
 constexpr int ID_Help_Help = ID_Tools_OpenUserLibraryFolder + 1;
 constexpr int ID_Help_OnlineDocumentation = ID_Help_Help + 1;
-constexpr int ID_Help_About = ID_Help_OnlineDocumentation + 1;
+constexpr int ID_Help_OpenLogsFolder = ID_Help_OnlineDocumentation + 1;
+constexpr int ID_Help_ExportDiagnosticReport = ID_Help_OpenLogsFolder + 1;
+constexpr int ID_Help_About = ID_Help_ExportDiagnosticReport + 1;
 constexpr int ID_Help_CheckForUpdates = ID_Help_About + 1;
 constexpr int ID_Select_Fixtures = ID_Help_CheckForUpdates + 1;
 constexpr int ID_Select_Trusses = ID_Select_Fixtures + 1;

@@ -188,7 +188,7 @@ jobs:
           echo "Downloaded artifact tree (release-assets):"
           find release-assets -mindepth 1 -maxdepth 4 -print | sort
 
-          mapfile -t ZIP_FILES < <(find release-assets -type f -name '*.zip' | sort)
+          mapfile -t ZIP_FILES < <(find release-assets -type f -name '*.zip' ! -name '*-symbols.zip' | sort)
           if [ "${#ZIP_FILES[@]}" -gt 0 ]; then
             echo "Found zip files in release-assets; extracting to temporary directory"
             for zip_file in "${ZIP_FILES[@]}"; do
@@ -219,9 +219,13 @@ jobs:
           collect_single_asset "Linux AppImage" 'Perastage-*-x86_64.AppImage' LINUX_MATCHES || asset_errors=1
           collect_single_asset "macOS DMG" 'Perastage-*-macos-arm64.dmg' MAC_MATCHES || asset_errors=1
           collect_single_asset "Arch Linux package" 'Perastage-*-arch-x86_64.pkg.tar.zst' ARCH_MATCHES || asset_errors=1
+          collect_single_asset "Windows symbols" 'Perastage-*-Windows-symbols.zip' WIN_SYMBOL_MATCHES || asset_errors=1
+          collect_single_asset "Linux symbols" 'Perastage-*-Linux-symbols.zip' LINUX_SYMBOL_MATCHES || asset_errors=1
+          collect_single_asset "macOS symbols" 'Perastage-*-macOS-symbols.zip' MAC_SYMBOL_MATCHES || asset_errors=1
+          collect_single_asset "Arch Linux symbols" 'Perastage-*-ArchLinux-symbols.zip' ARCH_SYMBOL_MATCHES || asset_errors=1
 
           if [ "$asset_errors" -ne 0 ]; then
-            echo "Expected exactly one release installer asset for Windows, Linux, macOS, and Arch Linux"
+            echo "Expected exactly one installer and symbols asset for Windows, Linux, macOS, and Arch Linux"
             exit 1
           fi
 
@@ -229,9 +233,13 @@ jobs:
           cp "${LINUX_MATCHES[0]}" "$FINAL_DIR/"
           cp "${MAC_MATCHES[0]}" "$FINAL_DIR/"
           cp "${ARCH_MATCHES[0]}" "$FINAL_DIR/"
+          cp "${WIN_SYMBOL_MATCHES[0]}" "$FINAL_DIR/"
+          cp "${LINUX_SYMBOL_MATCHES[0]}" "$FINAL_DIR/"
+          cp "${MAC_SYMBOL_MATCHES[0]}" "$FINAL_DIR/"
+          cp "${ARCH_SYMBOL_MATCHES[0]}" "$FINAL_DIR/"
 
-          if find "$FINAL_DIR" -type f -name '*.zip' | grep -q .; then
-            echo "Final asset directory must not contain zip files"
+          if find "$FINAL_DIR" -type f -name '*.zip' ! -name '*-symbols.zip' | grep -q .; then
+            echo "Final asset directory must contain only symbol ZIP files"
             exit 1
           fi
 
@@ -239,6 +247,10 @@ jobs:
           LINUX_ASSET="$FINAL_DIR/$(basename "${LINUX_MATCHES[0]}")"
           MAC_ASSET="$FINAL_DIR/$(basename "${MAC_MATCHES[0]}")"
           ARCH_INSTALLER_ASSET="$FINAL_DIR/$(basename "${ARCH_MATCHES[0]}")"
+          WIN_SYMBOL_ASSET="$FINAL_DIR/$(basename "${WIN_SYMBOL_MATCHES[0]}")"
+          LINUX_SYMBOL_ASSET="$FINAL_DIR/$(basename "${LINUX_SYMBOL_MATCHES[0]}")"
+          MAC_SYMBOL_ASSET="$FINAL_DIR/$(basename "${MAC_SYMBOL_MATCHES[0]}")"
+          ARCH_SYMBOL_ASSET="$FINAL_DIR/$(basename "${ARCH_SYMBOL_MATCHES[0]}")"
 
           echo "Final release assets (release-assets/final):"
           find "$FINAL_DIR" -mindepth 1 -maxdepth 1 -type f -print | sort
@@ -247,6 +259,10 @@ jobs:
           echo "linux_asset=$LINUX_ASSET" >> "$GITHUB_OUTPUT"
           echo "mac_asset=$MAC_ASSET" >> "$GITHUB_OUTPUT"
           echo "arch_installer_asset=$ARCH_INSTALLER_ASSET" >> "$GITHUB_OUTPUT"
+          echo "win_symbol_asset=$WIN_SYMBOL_ASSET" >> "$GITHUB_OUTPUT"
+          echo "linux_symbol_asset=$LINUX_SYMBOL_ASSET" >> "$GITHUB_OUTPUT"
+          echo "mac_symbol_asset=$MAC_SYMBOL_ASSET" >> "$GITHUB_OUTPUT"
+          echo "arch_symbol_asset=$ARCH_SYMBOL_ASSET" >> "$GITHUB_OUTPUT"
 
       - name: Create draft release with curated notes
         env:
@@ -259,6 +275,10 @@ jobs:
           LINUX_ASSET: ${{ steps.assets.outputs.linux_asset }}
           MAC_ASSET: ${{ steps.assets.outputs.mac_asset }}
           ARCH_INSTALLER_ASSET: ${{ steps.assets.outputs.arch_installer_asset }}
+          WIN_SYMBOL_ASSET: ${{ steps.assets.outputs.win_symbol_asset }}
+          LINUX_SYMBOL_ASSET: ${{ steps.assets.outputs.linux_symbol_asset }}
+          MAC_SYMBOL_ASSET: ${{ steps.assets.outputs.mac_symbol_asset }}
+          ARCH_SYMBOL_ASSET: ${{ steps.assets.outputs.arch_symbol_asset }}
         run: |
           set -euo pipefail
 
@@ -266,7 +286,7 @@ jobs:
 
           echo "Creating draft release in $GH_REPO"
 
-          cmd=(gh release create "$TAG_NAME" "$WIN_ASSET" "$LINUX_ASSET" "$MAC_ASSET" "$ARCH_INSTALLER_ASSET" --draft --title "$RELEASE_TITLE")
+          cmd=(gh release create "$TAG_NAME" "$WIN_ASSET" "$LINUX_ASSET" "$MAC_ASSET" "$ARCH_INSTALLER_ASSET" "$WIN_SYMBOL_ASSET" "$LINUX_SYMBOL_ASSET" "$MAC_SYMBOL_ASSET" "$ARCH_SYMBOL_ASSET" --draft --title "$RELEASE_TITLE")
           if [ -s "$RELEASE_NOTES_FILE" ]; then
             echo "Using curated release notes from $RELEASE_NOTES_FILE"
             cmd+=(--notes-file "$RELEASE_NOTES_FILE")

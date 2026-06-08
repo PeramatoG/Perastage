@@ -56,11 +56,12 @@ The generated installer is written to:
 
 Perastage version is defined in one place:
 
-- `CMakeLists.txt` in the root `project(Perastage VERSION X.Y.Z ...)` declaration.
+- `VERSION` at the repository root.
 
-When you want a new global version for generated artifacts, update that line only.
-The helper script `packaging/windows/get_project_version.cmake` reads that value and
-passes it to Inno Setup (`/DMyAppVersion=...`).
+When you want a new global version for generated artifacts, update that file only.
+The root CMake configuration reads it into `project(Perastage VERSION ...)`, and
+the helper script `packaging/windows/get_project_version.cmake` passes it to Inno
+Setup (`/DMyAppVersion=...`).
 
 ### Enabling `.mvr` Association in the Installer
 
@@ -170,3 +171,14 @@ GitHub Actions artifacts are downloaded as ZIP files, which may preserve or add 
 - [Build and dependency guide](build.md)
 - [Storage policy (installation vs user profile)](storage_policy.md)
 - [Troubleshooting](troubleshooting.md)
+
+## Release debug symbols
+
+Release workflows preserve matching debug symbols as separate ZIP assets for maintainers:
+
+- Windows: `Perastage-<version>-Windows-symbols.zip` contains collected `.pdb` files.
+- Linux AppImage: `Perastage-<version>-Linux-symbols.zip` contains separated debug data for the staged executable.
+- macOS: `Perastage-<version>-macOS-symbols.zip` contains the generated `.dSYM` bundle.
+- Arch Linux: `Perastage-<version>-ArchLinux-symbols.zip` contains the generated debug package when makepkg produces one.
+
+Users do not need these files to run Perastage. They are uploaded with release assets so maintainers can match a local crash report to the exact binary build that shipped.
