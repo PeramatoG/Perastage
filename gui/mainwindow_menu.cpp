@@ -76,6 +76,7 @@
 #include "preferencesdialog.h"
 #include "projectutils.h"
 #include "rigging_extra_weight_settings.h"
+#include "resource_path_utils.h"
 #include "riggingpanel.h"
 #include "scene_object_primitive_dialogs.h"
 #include "scene_object_primitive_creation.h"
@@ -1292,24 +1293,12 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     return;
 
   cfg.PushUndoState("add truss");
-  std::string base = scene.basePath;
-  std::string modelPath = baseTruss.symbolFile;
-  if (!base.empty()) {
-    fs::path abs = fs::absolute(modelPath);
-    fs::path b = fs::absolute(base);
-    if (abs.string().rfind(b.string(), 0) == 0)
-      modelPath = fs::relative(abs, b).string();
-  }
-  baseTruss.symbolFile = modelPath;
+  const std::string base = scene.basePath;
+  baseTruss.symbolFile = gui::MakeSceneRelativeResourcePathOrOriginal(
+      base, baseTruss.symbolFile, "Add truss symbol path");
   if (!baseTruss.modelFile.empty()) {
-    std::string archiveRel = baseTruss.modelFile;
-    if (!base.empty()) {
-      fs::path absM = fs::absolute(archiveRel);
-      fs::path b = fs::absolute(base);
-      if (absM.string().rfind(b.string(), 0) == 0)
-        archiveRel = fs::relative(absM, b).string();
-    }
-    baseTruss.modelFile = archiveRel;
+    baseTruss.modelFile = gui::MakeSceneRelativeResourcePathOrOriginal(
+        base, baseTruss.modelFile, "Add truss model path");
   }
 
   auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();

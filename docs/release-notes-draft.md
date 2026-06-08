@@ -17,6 +17,7 @@ Changes since `v1.3.0`.
 
 ## Stability and reliability
 
+- Improved truss add-path handling so scene-local model resources are converted safely without filesystem exceptions escaping the UI.
 - Improved 2D viewer startup reliability by validating GLEW initialization before enabling 2D OpenGL rendering.
 - Improved 2D viewer interaction stability by safely skipping selection and hover picking when the OpenGL context is not available.
 - Improved 3D viewer interaction stability by safely skipping picking and resource synchronization when the OpenGL context cannot be activated.
