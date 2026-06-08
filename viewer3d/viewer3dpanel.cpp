@@ -705,6 +705,20 @@ bool Viewer3DPanel::TryBindGlContextForInteraction(const char* caller)
     return true;
 }
 
+// Prepares initialized OpenGL state before scene resource synchronization.
+bool Viewer3DPanel::PrepareGlResourceSync(const char* caller)
+{
+    if (!TryBindGlContextForInteraction(caller))
+        return false;
+    if (!InitGL()) {
+        const char* callerName = caller != nullptr ? caller : "unknown";
+        viewer3d::diagnostics::Logf("%s skipped resource sync because GL initialization is not complete.",
+                                    callerName);
+        return false;
+    }
+    return true;
+}
+
 // Stops and joins the background refresh signal thread.
 void Viewer3DPanel::StopRefreshThread()
 {
@@ -773,7 +787,14 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         return;
     }
 
+    m_controller.ResetDebugPerFrameCounters();
+
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
+    if (m_controller.IsResourceSyncPending() && !pauseHeavyTasks &&
+        !m_cameraMoving && m_controller.ConsumeResourceSyncPending()) {
+        m_controller.UpdateResourcesIfDirty();
+    }
+
     const bool highlightOnlyRefresh =
         m_highlightRefreshPending &&
         !m_controller.IsResourceSyncPending() &&
@@ -786,7 +807,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
     const size_t sceneVersion = m_controller.GetSceneVersionSnapshot();
 
-    m_controller.ResetDebugPerFrameCounters();
     m_controller.UpdateFrameStateLightweight();
 
     const int updateResourcesCallsPerFrame =
@@ -2741,7 +2761,7 @@ void Viewer3DPanel::UpdateScene()
     if (ShouldPauseHeavyTasks() || m_cameraMoving)
         return;
 
-    if (!TryBindGlContextForInteraction("UpdateScene"))
+    if (!PrepareGlResourceSync("UpdateScene"))
         return;
     if (m_controller.ConsumeResourceSyncPending())
         m_controller.UpdateResourcesIfDirty();
@@ -2843,7 +2863,7 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
         const bool syncCadenceDue =
             (now - m_lastResourceSyncCheck) >= kResourceSyncInterval;
         if (syncCadenceDue) {
-            if (!TryBindGlContextForInteraction("OnThreadRefresh"))
+            if (!PrepareGlResourceSync("OnThreadRefresh"))
                 return;
             m_lastResourceSyncCheck = now;
             if (m_controller.ConsumeResourceSyncPending())

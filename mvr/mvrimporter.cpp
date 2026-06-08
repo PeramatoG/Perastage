@@ -314,6 +314,48 @@ static fs::path ResolveSceneRelativePath(const std::string &basePath,
   return fs::u8path(basePath) / path;
 }
 
+// Compares path components using platform filesystem case-sensitivity rules.
+static bool SameFilesystemPathComponent(const fs::path &lhs, const fs::path &rhs) {
+#if defined(_WIN32)
+  return ToLowerAscii(lhs.string()) == ToLowerAscii(rhs.string());
+#else
+  return lhs == rhs;
+#endif
+}
+
+// Returns true when candidate is inside base after both paths have been normalized.
+static bool IsPathWithinDirectoryByComponents(const fs::path &candidate,
+                                              const fs::path &base) {
+  auto candidateIt = candidate.begin();
+  auto baseIt = base.begin();
+  for (; baseIt != base.end(); ++baseIt, ++candidateIt) {
+    if (candidateIt == candidate.end() ||
+        !SameFilesystemPathComponent(*candidateIt, *baseIt))
+      return false;
+  }
+  return true;
+}
+
+// Builds a normalized absolute path without throwing filesystem exceptions.
+static fs::path NormalizedAbsolutePathForImport(const fs::path &path,
+                                                std::error_code &ec) {
+  ec.clear();
+  fs::path absolute = path;
+  if (!absolute.is_absolute()) {
+    absolute = fs::absolute(path, ec);
+    if (ec)
+      return {};
+  }
+
+  std::error_code canonicalEc;
+  fs::path canonical = fs::weakly_canonical(absolute, canonicalEc);
+  if (!canonicalEc)
+    return canonical.lexically_normal();
+
+  return absolute.lexically_normal();
+}
+
+// Converts imported resource paths to scene-relative references only when they stay under scene.basePath.
 static std::string ToSceneRelativePathIfPossible(const std::string &basePath,
                                                  const fs::path &candidatePath) {
   if (candidatePath.empty())
@@ -323,14 +365,19 @@ static std::string ToSceneRelativePathIfPossible(const std::string &basePath,
     return ToString(candidatePath.u8string());
 
   std::error_code ec;
-  const fs::path base = fs::weakly_canonical(fs::u8path(basePath), ec);
-  if (ec)
-    return ToString(candidatePath.u8string());
-  const fs::path canonicalCandidate = fs::weakly_canonical(candidatePath, ec);
+  const fs::path base =
+      NormalizedAbsolutePathForImport(fs::u8path(basePath), ec);
   if (ec)
     return ToString(candidatePath.u8string());
 
-  fs::path relative = fs::relative(canonicalCandidate, base, ec);
+  const fs::path candidate = NormalizedAbsolutePathForImport(candidatePath, ec);
+  if (ec)
+    return ToString(candidatePath.u8string());
+
+  if (!IsPathWithinDirectoryByComponents(candidate, base))
+    return ToString(candidatePath.u8string());
+
+  fs::path relative = fs::relative(candidate, base, ec);
   if (ec || relative.empty())
     return ToString(candidatePath.u8string());
 
@@ -363,18 +410,20 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
                            ? fs::u8path(normalizedSpec)
                            : fs::u8path(baseDir) / fs::u8path(normalizedSpec);
 
+  std::error_code ec;
   const std::string candidateExt = ToLowerAscii(candidate.extension().string());
-  if (candidateExt == ".gdtf" && fs::exists(candidate))
+  if (candidateExt == ".gdtf" && fs::exists(candidate, ec) && !ec)
     return ToString(candidate.u8string());
+  ec.clear();
 
   if (!candidate.has_extension()) {
     fs::path withExtension = candidate;
     withExtension += ".gdtf";
-    if (fs::exists(withExtension))
+    if (fs::exists(withExtension, ec) && !ec)
       return ToString(withExtension.u8string());
+    ec.clear();
   }
 
-  std::error_code ec;
 #if defined(_WIN32)
   // Restricts fallback directory scans to the extracted MVR base directory on Windows.
   if (baseDir.empty())
@@ -384,7 +433,7 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
   fs::path lookupDir =
       baseDir.empty() ? fs::current_path(ec) : fs::u8path(baseDir);
 #endif
-  if (ec || !fs::exists(lookupDir))
+  if (ec || !fs::exists(lookupDir, ec) || ec)
     return ToString(candidate.u8string());
 
   const std::string expectedStem =
@@ -992,13 +1041,14 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
   // std::filesystem::exists() may report false for a valid double-click path.
   // Keep the strict filesystem check on Windows, but on macOS fall back to
   // wxFileName::FileExists() before aborting so Finder-opened MVR imports work.
+  std::error_code importExistsEc;
 #if defined(__WXMSW__)
-  if (!fs::exists(path)) {
+  if (!fs::exists(path, importExistsEc) || importExistsEc) {
     LogMessage("MVR file does not exist: " + filePath);
     return false;
   }
 #elif defined(__WXOSX__) || defined(__APPLE__)
-  if (!fs::exists(path)) {
+  if (!fs::exists(path, importExistsEc) || importExistsEc) {
     wxFileName finderPath(wxString::FromUTF8(filePath));
     wxFileInputStream stream(finderPath.GetFullPath());
     if (!finderPath.FileExists() && !stream.IsOk()) {
@@ -1007,7 +1057,7 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
     }
   }
 #else
-  if (!fs::exists(path)) {
+  if (!fs::exists(path, importExistsEc) || importExistsEc) {
     LogMessage("MVR file does not exist: " + filePath);
     return false;
   }
@@ -1028,11 +1078,16 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
   }
 
   fs::path sceneFile = tempPath / "GeneralSceneDescription.xml";
-  if (!fs::exists(sceneFile)) {
+  std::error_code sceneFileEc;
+  if (!fs::exists(sceneFile, sceneFileEc) || sceneFileEc) {
     // Some MVR packages may store the file with a different case.
     std::string target = "generalscenedescription.xml";
-    for (const auto &entry : fs::directory_iterator(tempPath)) {
-      if (entry.is_regular_file()) {
+    sceneFileEc.clear();
+    for (const auto &entry : fs::directory_iterator(tempPath, sceneFileEc)) {
+      if (sceneFileEc)
+        break;
+      std::error_code regularFileEc;
+      if (entry.is_regular_file(regularFileEc) && !regularFileEc) {
         std::string name = entry.path().filename().string();
         std::string lower = name;
         std::transform(lower.begin(), lower.end(), lower.begin(),
@@ -1044,7 +1099,8 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
       }
     }
   }
-  if (!fs::exists(sceneFile)) {
+  sceneFileEc.clear();
+  if (!fs::exists(sceneFile, sceneFileEc) || sceneFileEc) {
     LogMessage("Missing GeneralSceneDescription.xml in MVR.");
     return false;
   }
@@ -1524,7 +1580,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       for (const std::string &ext : extensions) {
         fs::path candidate = resolved;
         candidate += ext;
-        if (fs::exists(candidate)) {
+        std::error_code existsEc;
+        if (fs::exists(candidate, existsEc) && !existsEc) {
           resolved = candidate;
           break;
         }
@@ -2215,7 +2272,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         const fs::path resolvedSymbolPath =
             ResolveSceneRelativePath(scene.basePath, truss.symbolFile);
         const bool symbolRenderable = IsRenderableTrussGeometry(truss.symbolFile);
-        const bool symbolExists = symbolRenderable && fs::exists(resolvedSymbolPath);
+        std::error_code symbolExistsEc;
+        const bool symbolExists =
+            symbolRenderable && fs::exists(resolvedSymbolPath, symbolExistsEc) &&
+            !symbolExistsEc;
         if (!symbolExists) {
           std::ostringstream reason;
           if (truss.symbolFile.empty()) {

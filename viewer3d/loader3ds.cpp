@@ -69,13 +69,11 @@ static bool IsIdentityBasis(const MeshTransform3ds& transform)
            almostEqual(transform.zAxis[2], 1.0f);
 }
 
+// Ensures wx image handlers are available without registering duplicates.
 static bool EnsureImageHandlersInitialized()
 {
-    static bool imageHandlersInitialized = false;
-    if (!imageHandlersInitialized) {
+    if (wxImage::FindHandler(wxBITMAP_TYPE_PNG) == nullptr)
         wxInitAllImageHandlers();
-        imageHandlersInitialized = true;
-    }
     return true;
 }
 

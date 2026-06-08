@@ -358,11 +358,8 @@ bool LoadGLB(const std::string& path, Mesh& outMesh, std::string* error)
 
     auto decodeTextureImage = [&](int imageIndex, std::vector<unsigned char>& rgba,
                                   int& width, int& height) -> bool {
-        static bool imageHandlersInitialized = false;
-        if (!imageHandlersInitialized) {
+        if (wxImage::FindHandler(wxBITMAP_TYPE_PNG) == nullptr)
             wxInitAllImageHandlers();
-            imageHandlersInitialized = true;
-        }
         if (!doc.contains("images") || !doc["images"].is_array() ||
             imageIndex < 0 || imageIndex >= static_cast<int>(doc["images"].size())) {
             return false;

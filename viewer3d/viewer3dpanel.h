@@ -145,6 +145,8 @@ private:
     void ApplyRectangleSelection(const wxPoint& start, const wxPoint& end);
     // Safely binds the GL context for interaction and picking paths.
     bool TryBindGlContextForInteraction(const char* caller);
+    // Prepares the GL context before running resource synchronization work.
+    bool PrepareGlResourceSync(const char* caller);
     void DrawSelectionRectangle(int width, int height);
     void ResetSelectionDragState();
     bool PrepareSelectionDrag(const wxPoint& mousePos);
