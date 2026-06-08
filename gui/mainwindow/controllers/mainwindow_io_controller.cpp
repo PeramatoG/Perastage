@@ -21,6 +21,7 @@
 
 #include "LayoutManager.h"
 #include "configmanager.h"
+#include "diagnostics/DiagnosticLogger.h"
 #include "consolepanel.h"
 #include "fixture_label_overrides.h"
 #include "fixturetablepanel.h"
@@ -29,7 +30,6 @@
 #include "layerpanel.h"
 #include "layoutpanel.h"
 #include "layoutviewerpanel.h"
-#include "logger.h"
 #include "mvrimporter.h"
 #include "mvrscenemerger.h"
 #include "projectutils.h"
@@ -167,6 +167,9 @@ MainWindowIoController::MainWindowIoController(MainWindow &owner)
 bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   constexpr const char *kLayoutsConfigKey = "layouts_collection";
   constexpr const char *kViewer3DRenderStyleConfigKey = "viewer3d_render_style";
+  diagnostics::DiagnosticLogger::Info(
+      "MVR import started: " +
+      diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
   MainWindow *owner = ownerRef_;
   if (owner == nullptr || owner->guiConfigServices == nullptr)
     return false;
@@ -277,6 +280,9 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
                  owner);
     if (owner->consolePanel)
       owner->consolePanel->AppendMessage("Failed to import " + filePath);
+    diagnostics::DiagnosticLogger::Error(
+        "MVR import failed: " +
+        diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
     owner->mvrImportPipelineActive = false;
     return false;
   }
@@ -311,6 +317,9 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   // Re-enables layout rendering only after all import-driven panel updates
   // finish.
   owner->mvrImportPipelineActive = false;
+  diagnostics::DiagnosticLogger::Info(
+      "MVR import completed: " +
+      diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
   return true;
 }
 
@@ -390,6 +399,9 @@ void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
 bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
   constexpr const char *kLayoutsConfigKey = "layouts_collection";
   constexpr const char *kViewer3DRenderStyleConfigKey = "viewer3d_render_style";
+  diagnostics::DiagnosticLogger::Info(
+      "MVR import started: " +
+      diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
   MainWindow *owner = ownerRef_;
   if (owner == nullptr || owner->guiConfigServices == nullptr)
     return false;
@@ -450,6 +462,9 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
     cfg.RestoreDirtyState(preservedDirtyState);
   };
 
+  diagnostics::DiagnosticLogger::Info(
+      "MVR merge started: " +
+      diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
   owner->mvrImportPipelineActive = true;
   SplashScreen::Hide();
   if (owner->GetStatusBar())
@@ -472,6 +487,9 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
     if (owner->consolePanel)
       owner->consolePanel->AppendMessage("Failed to merge " +
                                          wxString::FromUTF8(pathUtf8));
+    diagnostics::DiagnosticLogger::Error(
+        "MVR merge failed: " +
+        diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
     return false;
   }
 
@@ -551,6 +569,9 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
   }
   if (owner->GetStatusBar())
     owner->SetStatusText("MVR merged: " + fileName, 0);
+  diagnostics::DiagnosticLogger::Info(
+      "MVR merge completed: " +
+      diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
   return true;
 }
 
@@ -622,14 +643,18 @@ bool MainWindowIoController::OpenPathFromCommandLine(
   }
 
   if (extension == "mvr") {
-    Logger::Instance().Log("Opening MVR from external request: " + pathUtf8);
+    diagnostics::DiagnosticLogger::Info(
+        "Opening MVR from external request: " +
+        diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
     const bool imported = ImportMvrWithOfficialPolicy(pathUtf8);
     wxFileName fileInfo(wxString::FromUTF8(pathUtf8));
     if (imported) {
-      Logger::Instance().Log("MVR imported: " +
-                             fileInfo.GetFullName().ToStdString());
+      diagnostics::DiagnosticLogger::Info("MVR imported: " +
+                                          fileInfo.GetFullName().ToStdString());
     } else {
-      Logger::Instance().Log("MVR import failed: " + pathUtf8);
+      diagnostics::DiagnosticLogger::Error(
+          "MVR import failed: " +
+          diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
     }
     return imported;
   }

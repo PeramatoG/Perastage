@@ -1,5 +1,7 @@
 #include <GL/glew.h>
 #include "glew_init_utils.h"
+#include "diagnostics/DiagnosticLogger.h"
+#include "diagnostics/DiagnosticReport.h"
 
 #include <cstdlib>
 #include <string>
@@ -48,21 +50,43 @@ GLEWInitResult InitializeGlewForCurrentContext(wxGLCanvas &canvas,
   glewExperimental = GL_TRUE;
   const GLenum glewResult = glewInit();
   const GLubyte *glVersionRaw = glGetString(GL_VERSION);
+  const GLubyte *glVendorRaw = glGetString(GL_VENDOR);
+  const GLubyte *glRendererRaw = glGetString(GL_RENDERER);
   const bool hasGlVersion = glVersionRaw != nullptr;
   wxLogDebug("%s GL context status: GL_VERSION %s", panelName,
              hasGlVersion ? "available" : "missing");
+  if (hasGlVersion || glVendorRaw || glRendererRaw) {
+    diagnostics::OpenGLInfo openGlInfo;
+    openGlInfo.vendor = glVendorRaw
+                            ? reinterpret_cast<const char *>(glVendorRaw)
+                            : "unknown";
+    openGlInfo.renderer = glRendererRaw
+                              ? reinterpret_cast<const char *>(glRendererRaw)
+                              : "unknown";
+    openGlInfo.version = glVersionRaw
+                             ? reinterpret_cast<const char *>(glVersionRaw)
+                             : "unknown";
+    diagnostics::DiagnosticReport::SetOpenGLInfo(openGlInfo);
+    diagnostics::DiagnosticLogger::Info(
+        std::string(panelName) + " OpenGL context: vendor=" +
+        openGlInfo.vendor + " renderer=" + openGlInfo.renderer +
+        " version=" + openGlInfo.version);
+  }
 
   if (glewResult == GLEW_OK) {
     result.success = true;
     result.message = std::string(panelName) + ": GLEW initialized";
+    diagnostics::DiagnosticLogger::Info(result.message);
   } else if (glewResult == GLEW_ERROR_NO_GLX_DISPLAY && hasGlVersion) {
     result.success = true;
     result.isWarningOnly = true;
     result.message = std::string(panelName) +
                      ": GLEW reported NO_GLX_DISPLAY but GL context is valid";
+    diagnostics::DiagnosticLogger::Warning(result.message);
   } else {
     result.message = std::string(panelName) + ": GLEW init failed: " +
                      reinterpret_cast<const char *>(glewGetErrorString(glewResult));
+    diagnostics::DiagnosticLogger::Error(result.message);
   }
 
   glGetError();

@@ -184,6 +184,8 @@ private:
   void OnToggleRigging(wxCommandEvent &event);        // Toggle rigging panel
   void OnShowHelp(wxCommandEvent &event);             // Show help dialog
   void OnOpenOnlineDocumentation(wxCommandEvent &event); // Open online docs website
+  void OnOpenLogsFolder(wxCommandEvent &event);       // Open diagnostics folder
+  void OnExportDiagnosticReport(wxCommandEvent &event); // Export diagnostics report
   void OnShowAbout(wxCommandEvent &event);            // Show about dialog
   void OnCheckForUpdates(wxCommandEvent &event);      // Check online for new releases
   void OnSelectFixtures(wxCommandEvent &event);       // Switch to fixtures tab

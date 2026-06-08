@@ -95,6 +95,7 @@ jobs:
             nanovg:$VCPKG_TRIPLET \
             podofo:$VCPKG_TRIPLET \
             meshoptimizer:$VCPKG_TRIPLET \
+            backward-cpp:$VCPKG_TRIPLET \
             --x-install-root="$VCPKG_INSTALLED" \
             --x-packages-root="$VCPKG_PACKAGES" \
             --downloads-root="$VCPKG_DOWNLOADS"
@@ -104,6 +105,7 @@ jobs:
         run: |
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -g" \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET="$VCPKG_TRIPLET" \
             -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"
@@ -125,6 +127,25 @@ jobs:
           test -f out/install/Release/Perastage.app/Contents/Resources/PerastageMVR.icns
           test -f out/install/Release/Perastage.app/Contents/Resources/resources/Perastage_logo.png
           test -d out/install/Release/Perastage.app/Contents/Resources/resources/icons
+
+      - name: Collect macOS symbols
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          APP_BIN="out/install/Release/Perastage.app/Contents/MacOS/Perastage"
+          SYMBOLS_DIR="out/symbols/macos"
+          rm -rf "$SYMBOLS_DIR"
+          mkdir -p "$SYMBOLS_DIR"
+          dsymutil "$APP_BIN" -o "$SYMBOLS_DIR/Perastage.dSYM"
+          strip -S "$APP_BIN" || true
+          (cd "$SYMBOLS_DIR" && zip -r "../../Perastage-$VERSION-macOS-symbols.zip" .)
+          test -f "out/Perastage-$VERSION-macOS-symbols.zip"
+
+      - name: Upload macOS symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-macos-symbols
+          path: out/Perastage-*-macOS-symbols.zip
 
       # ── 10. Validate and prepare staged macOS app bundle ─────────────────────
       - name: Validate staged app bundle

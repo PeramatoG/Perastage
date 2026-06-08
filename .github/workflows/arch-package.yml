@@ -115,6 +115,7 @@ jobs:
             nanovg:x64-linux \
             podofo:x64-linux \
             meshoptimizer:x64-linux \
+            backward-cpp:x64-linux \
             --x-install-root="$VCPKG_INSTALLED" \
             --x-packages-root="$VCPKG_PACKAGES" \
             --downloads-root="$VCPKG_DOWNLOADS"
@@ -160,6 +161,29 @@ jobs:
           grep -q '^usr/share/applications/perastage.desktop$' arch-package-contents.txt
           grep -q '^usr/share/mime/packages/perastage-mime.xml$' arch-package-contents.txt
           grep -q '^usr/share/icons/hicolor/1024x1024/apps/perastage.png$' arch-package-contents.txt
+
+      - name: Collect Arch Linux symbols
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          SYMBOLS_DIR="out/symbols/archlinux"
+          rm -rf "$SYMBOLS_DIR"
+          mkdir -p "$SYMBOLS_DIR"
+          mapfile -t DEBUG_PACKAGES < <(find packaging/arch -maxdepth 1 -type f -name 'perastage-debug-*.pkg.tar.zst' | sort)
+          if [ "${#DEBUG_PACKAGES[@]}" -lt 1 ]; then
+            echo "Arch debug package was not generated"
+            find packaging/arch -maxdepth 1 -type f -name '*.pkg.tar.zst' | sort
+            exit 1
+          fi
+          cp "${DEBUG_PACKAGES[0]}" "$SYMBOLS_DIR/"
+          (cd "$SYMBOLS_DIR" && zip -r "../../Perastage-$VERSION-ArchLinux-symbols.zip" .)
+          test -f "out/Perastage-$VERSION-ArchLinux-symbols.zip"
+
+      - name: Upload Arch Linux symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-archlinux-symbols
+          path: out/Perastage-*-ArchLinux-symbols.zip
 
       - name: Upload Arch package artifact
         uses: actions/upload-artifact@v4

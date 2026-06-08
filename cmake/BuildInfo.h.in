@@ -1,0 +1,17 @@
+#pragma once
+
+#ifndef PERASTAGE_BUILD_CONFIGURATION
+#define PERASTAGE_BUILD_CONFIGURATION "@PERASTAGE_BUILD_TYPE_TEXT@"
+#endif
+
+namespace build_info {
+
+inline constexpr const char *kVersion = "@PERASTAGE_APP_VERSION@";
+inline constexpr const char *kVersionDisplay = "@PERASTAGE_APP_VERSION_DISPLAY@";
+inline constexpr const char *kGitCommit = "@PERASTAGE_GIT_COMMIT@";
+inline constexpr const char *kBuildTimestampUtc = "@PERASTAGE_BUILD_TIMESTAMP_UTC@";
+inline constexpr const char *kBuildType = PERASTAGE_BUILD_CONFIGURATION;
+inline constexpr const char *kTargetPlatform = "@PERASTAGE_TARGET_PLATFORM@";
+inline constexpr const char *kCompiler = "@PERASTAGE_COMPILER_TEXT@";
+
+} // namespace build_info

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "diagnostics/DiagnosticLogger.h"
 
 #include <algorithm>
 #include <cctype>
@@ -376,6 +377,8 @@ EVT_MENU(ID_Tools_ImportRiderText, MainWindow::OnImportRiderText)
 EVT_MENU(ID_Tools_DistributeHoistWeights, MainWindow::OnDistributeHoistWeights)
 EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)
 EVT_MENU(ID_Help_OnlineDocumentation, MainWindow::OnOpenOnlineDocumentation)
+EVT_MENU(ID_Help_OpenLogsFolder, MainWindow::OnOpenLogsFolder)
+EVT_MENU(ID_Help_ExportDiagnosticReport, MainWindow::OnExportDiagnosticReport)
 EVT_MENU(ID_Help_About, MainWindow::OnShowAbout)
 EVT_MENU(ID_Help_CheckForUpdates, MainWindow::OnCheckForUpdates)
 EVT_MENU(ID_Select_Fixtures, MainWindow::OnSelectFixtures)
@@ -717,6 +720,9 @@ void MainWindow::CancelStartupProjectLoadForExternalOpenPath(
     const std::string &path) {
   ProjectUtils::SaveLastProjectPath("");
   QueueDeferredStartupOpenPath(path);
+  diagnostics::DiagnosticLogger::Info(
+      "Startup project load canceled for external open: " +
+      diagnostics::DiagnosticLogger::FileNameOnly(path));
   SetStartupProjectLoadPending(false);
   RequestStartupSplashCompletion();
 }
@@ -734,6 +740,9 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
 // Loads a project archive and refreshes only the active layout preview during startup.
 bool MainWindow::LoadProjectFromPath(const std::string &path,
                                      bool showBlockingLoadUi) {
+  diagnostics::DiagnosticLogger::Info(
+      "Project load started: " +
+      diagnostics::DiagnosticLogger::FileNameOnly(path));
   constexpr int kProjectLoadProgressSteps = 10;
   int projectLoadProgressStep = 0;
   std::unique_ptr<wxProgressDialog> projectLoadProgressDialog;
@@ -792,6 +801,9 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     ClearBlockingProjectLoadUi();
     finishLoad();
     loadProfiler.Finish("project_load_failed");
+    diagnostics::DiagnosticLogger::Error(
+        "Project load failed: " +
+        diagnostics::DiagnosticLogger::FileNameOnly(path));
     return false;
   }
   loadProfiler.EndPhase();
@@ -908,6 +920,9 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   projectLoadProgressDialog.reset();
   finishLoad();
   loadProfiler.Finish("project_load_completed");
+  diagnostics::DiagnosticLogger::Info(
+      "Project load completed: " +
+      diagnostics::DiagnosticLogger::FileNameOnly(path));
   return true;
 }
 

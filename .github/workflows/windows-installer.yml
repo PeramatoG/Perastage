@@ -89,6 +89,7 @@ jobs:
             nanovg:x64-windows `
             podofo:x64-windows `
             meshoptimizer:x64-windows `
+            backward-cpp:x64-windows `
             --x-install-root="$env:VCPKG_INSTALLED" `
             --x-packages-root="$env:VCPKG_PACKAGES" `
             --downloads-root="$env:VCPKG_DOWNLOADS"
@@ -119,6 +120,26 @@ jobs:
         run: |
           cmake --build build --config Release --target perastage_stage
           Get-ChildItem out\install\Release
+
+      - name: Collect Windows symbols
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --target perastage_symbols
+          $version = (Get-Content VERSION -Raw).Trim()
+          $symbolsDir = "$env:GITHUB_WORKSPACE\out\install\Release\symbols"
+          if (!(Test-Path $symbolsDir)) { throw "Symbols directory not found: $symbolsDir" }
+          $pdbs = Get-ChildItem -Path $symbolsDir -Recurse -Filter "*.pdb"
+          if ($pdbs.Count -lt 1) { throw "No PDB files were collected" }
+          $zipPath = "$env:GITHUB_WORKSPACE\Perastage-$version-Windows-symbols.zip"
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+          Compress-Archive -Path "$symbolsDir\*" -DestinationPath $zipPath -Force
+          Get-Item $zipPath
+
+      - name: Upload Windows symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-windows-symbols
+          path: Perastage-*-Windows-symbols.zip
 
       # ── 8. Upload staged build ───────────────────────────────────────────────
       - name: Upload staged distribution

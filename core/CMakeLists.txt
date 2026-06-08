@@ -4,6 +4,10 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/configmanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/configservices.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/credentialstore.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/CrashHandler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/DiagnosticLogger.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/DiagnosticPaths.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/DiagnosticReport.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_bundle.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dummyprofilelibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/file_import_utils.cpp
@@ -51,6 +55,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts
     ${CMAKE_CURRENT_SOURCE_DIR}/print
 )

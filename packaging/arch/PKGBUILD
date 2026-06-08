@@ -7,6 +7,7 @@ pkgdesc='Lighting plot editor and MVR viewer'
 arch=('x86_64')
 url='https://github.com/PeramatoG/Perastage'
 license=('GPL-3.0-or-later')
+options=('debug')
 depends=(
   'curl'
   'gcc-libs'
@@ -53,6 +54,7 @@ build() {
     -B "$srcdir/build"
     -G Ninja
     -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -g"
     -DCMAKE_INSTALL_PREFIX=/opt/perastage
     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
     -DCMAKE_CXX_STANDARD=20
