@@ -229,8 +229,11 @@ void TrussTablePanel::InitializeTable()
     ColumnUtils::EnforceMinColumnWidth(table);
 }
 
+// Refreshes truss table rows from the current project data.
 void TrussTablePanel::ReloadData()
 {
+    ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
+    const std::vector<std::string> selectedTrusses = cfg.GetSelectedTrusses();
     const auto distanceUnit = ResolveDistanceUnitSystem();
     const auto weightUnit = ResolveWeightUnitSystem();
     const wxString distanceSuffix =
@@ -249,6 +252,9 @@ void TrussTablePanel::ReloadData()
             column->SetTitle(columnLabels[i]);
     }
 
+    std::unique_ptr<wxEventBlocker> selectionBlocker = std::make_unique<wxEventBlocker>(
+        table, wxEVT_DATAVIEW_SELECTION_CHANGED);
+
     table->DeleteAllItems();
     rowUuids.clear();
     modelPaths.clear();
@@ -257,7 +263,7 @@ void TrussTablePanel::ReloadData()
     modelPathByKey.clear();
     symbolPathByKey.clear();
     nextRowKey = 1;
-    const auto& trusses = guiConfigServices->LegacyConfigManager().GetScene().trusses;
+    const auto& trusses = cfg.GetScene().trusses;
 
     std::vector<std::pair<std::string, const Truss*>> sorted;
     sorted.reserve(trusses.size());
@@ -285,7 +291,7 @@ void TrussTablePanel::ReloadData()
                                                             : wxString::FromUTF8(truss.layer);
         std::string displayPath;
         std::string symbolFullPath;
-        const std::string &base = guiConfigServices->LegacyConfigManager().GetScene().basePath;
+        const std::string &base = cfg.GetScene().basePath;
         if (!truss.modelFile.empty()) {
             fs::path p = base.empty() ? fs::path(truss.modelFile)
                                      : fs::path(base) / truss.modelFile;
@@ -359,6 +365,11 @@ void TrussTablePanel::ReloadData()
         modelPathByKey[rowKey] = modelFull;
         symbolPathByKey[rowKey] = wxString::FromUTF8(symbolFullPath);
     }
+
+    selectionBlocker.reset();
+    if (!selectedTrusses.empty())
+        SelectByUuid(selectedTrusses, false);
+    UpdateSelectionHighlight();
 
     // Let wxDataViewListCtrl manage column headers and sorting
     if (LayerPanel::Instance())
