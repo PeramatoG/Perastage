@@ -676,6 +676,35 @@ Viewer3DPanel::~Viewer3DPanel()
     SetInstance(nullptr);
 }
 
+// Binds the OpenGL context for interaction work when the panel can safely pick.
+bool Viewer3DPanel::TryBindGlContextForInteraction(const char* caller)
+{
+    const char* callerName = caller != nullptr ? caller : "unknown";
+    const char* reason = nullptr;
+    if (!m_glContext)
+        reason = "missing context";
+    else if (!IsShownOnScreen())
+        reason = "panel hidden";
+    else if (m_modalDialogActive)
+        reason = "modal dialog active";
+    else if (IsBeingDeleted())
+        reason = "panel being deleted";
+
+    if (reason != nullptr) {
+        viewer3d::diagnostics::Logf("%s skipped GL interaction binding: %s.",
+                                    callerName, reason);
+        return false;
+    }
+
+    if (!SetCurrent(*m_glContext)) {
+        viewer3d::diagnostics::Logf("%s skipped GL interaction binding: SetCurrent failed.",
+                                    callerName);
+        return false;
+    }
+
+    return true;
+}
+
 // Stops and joins the background refresh signal thread.
 void Viewer3DPanel::StopRefreshThread()
 {
@@ -1500,12 +1529,10 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         const RenderSize renderSize = ResolveRenderSize(this);
         const int w = renderSize.width;
         const int h = renderSize.height;
-        if (!IsShownOnScreen()) {
-            return;
-        }
         if (!renderSize.IsValid())
             return;
-        SetCurrent(*m_glContext);
+        if (!TryBindGlContextForInteraction("OnMouseUp"))
+            return;
         std::string uuid;
         const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
         const HoverTargetTable activeTable = ResolveActiveHoverTargetTable();
@@ -1672,8 +1699,8 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     std::set<std::string> positionNames;
     bool hasNoPosition = false;
     bool showSelectionSubmenus = false;
-    if (fixturePageActive && !scene.fixtures.empty()) {
-        SetCurrent(*m_glContext);
+    if (fixturePageActive && !scene.fixtures.empty() &&
+        TryBindGlContextForInteraction("OnRightUp")) {
         std::string hitUuid;
         const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
         if (!QueryHoverUuid(m_controller, HoverTargetTable::Fixtures, pickPos.x,
@@ -1878,11 +1905,11 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
     const RenderSize renderSize = ResolveRenderSize(this);
     const int w = renderSize.width;
     const int h = renderSize.height;
-    if (w <= 0 || h <= 0 || !IsShownOnScreen()) {
+    if (w <= 0 || h <= 0) {
         return;
     }
-
-    SetCurrent(*m_glContext);
+    if (!TryBindGlContextForInteraction("ApplyRectangleSelection"))
+        return;
 
     ConfigManager& cfg = ConfigManager::Get();
     const wxPoint pickStart = ToFramebufferPoint(this, start);
@@ -2088,10 +2115,10 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
 {
     viewer3d::diagnostics::Logf("Selection dragging prepare pos=(%d,%d)", mousePos.x, mousePos.y);
     const RenderSize renderSize = ResolveRenderSize(this);
-    if (!renderSize.IsValid() || !IsShownOnScreen())
+    if (!renderSize.IsValid())
         return false;
-
-    SetCurrent(*m_glContext);
+    if (!TryBindGlContextForInteraction("PrepareSelectionDrag"))
+        return false;
     const wxPoint pickPos = ToFramebufferPoint(this, mousePos);
     const HoverTargetTable target = ResolveActiveHoverTargetTable();
     if (target == HoverTargetTable::None)
@@ -2365,8 +2392,8 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
         const int dy = pos.y - m_lastMousePos.y;
         if (dx != 0 || dy != 0) {
             const RenderSize renderSize = ResolveRenderSize(this);
-            if (renderSize.IsValid()) {
-                SetCurrent(*m_glContext);
+            if (renderSize.IsValid() &&
+                TryBindGlContextForInteraction("OnMouseMove")) {
                 ApplyCameraMatrices(renderSize);
                 const auto projectedAxes = BuildProjectedDragAxes(renderSize);
                 if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None) {
@@ -2469,7 +2496,8 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
     const int h = renderSize.height;
     if (!renderSize.IsValid())
         return;
-    SetCurrent(*m_glContext);
+    if (!TryBindGlContextForInteraction("OnMouseDClick"))
+        return;
     std::string uuid;
     const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
     const bool cameraWasMoving = m_cameraMoving;
@@ -2709,10 +2737,8 @@ void Viewer3DPanel::UpdateScene()
 
     if (ShouldPauseHeavyTasks() || m_cameraMoving)
         return;
-    if (!IsShownOnScreen())
-        return;
 
-    if (!SetCurrent(*m_glContext))
+    if (!TryBindGlContextForInteraction("UpdateScene"))
         return;
     if (m_controller.ConsumeResourceSyncPending())
         m_controller.UpdateResourcesIfDirty();
@@ -2814,13 +2840,8 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
         const bool syncCadenceDue =
             (now - m_lastResourceSyncCheck) >= kResourceSyncInterval;
         if (syncCadenceDue) {
-            if (!IsShown())
+            if (!TryBindGlContextForInteraction("OnThreadRefresh"))
                 return;
-            if (!SetCurrent(*m_glContext)) {
-                viewer3d::diagnostics::Log("Thread refresh skipped resource sync because SetCurrent failed.");
-                wxASSERT_MSG(false, "Unable to make 3D GL context current for thread refresh.");
-                return;
-            }
             m_lastResourceSyncCheck = now;
             if (m_controller.ConsumeResourceSyncPending())
                 m_controller.UpdateResourcesIfDirty();

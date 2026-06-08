@@ -18,6 +18,7 @@ Changes since `v1.3.0`.
 ## Stability and reliability
 
 - Improved 2D viewer interaction stability by safely skipping selection and hover picking when the OpenGL context is not available.
+- Improved 3D viewer interaction stability by safely skipping picking and resource synchronization when the OpenGL context cannot be activated.
 
 ## Documentation
 
