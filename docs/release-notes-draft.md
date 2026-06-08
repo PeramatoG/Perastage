@@ -13,6 +13,7 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
+- Fixed MVR truss fallback sizing in the 3D viewport so trusses rotated along X, Y, or corner directions keep their real imported dimensions.
 - Improved truss file validation so unsupported model formats are rejected clearly, while direct GLB and 3DS truss models now load only when the selected file exists.
 - Improved fallback dimensions for direct truss model files so GLB and 3DS trusses remain visible and selectable even when model metadata or mesh loading is unavailable.
 
