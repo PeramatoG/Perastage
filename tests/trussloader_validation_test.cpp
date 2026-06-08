@@ -18,7 +18,11 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <string>
+
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
 
 #include "trussloader.h"
 
@@ -32,9 +36,37 @@ std::string ToUtf8String(const fs::path &path) {
   return std::string(utf8.begin(), utf8.end());
 }
 
+// Writes a ZIP archive with the provided text entries.
+bool WriteZipArchive(const fs::path &path, const std::map<std::string, std::string> &entries) {
+  wxFileOutputStream output(path.string());
+  if (!output.IsOk())
+    return false;
+
+  wxZipOutputStream zip(output);
+  for (const auto &[name, content] : entries) {
+    if (!zip.PutNextEntry(wxString::FromUTF8(name.c_str())))
+      return false;
+    zip.Write(content.data(), content.size());
+  }
+  return zip.Close();
+}
+
+// Returns a minimal GDTF description that references the main GLB model.
+std::string MinimalGdtfDescription() {
+  return R"xml(<?xml version="1.0" encoding="UTF-8"?>
+<GDTF>
+  <FixtureType Manufacturer="Perastage" Name="Test Truss">
+    <Models>
+      <Model Name="Main" File="main" Length="1.0" Width="0.5" Height="0.5"/>
+    </Models>
+  </FixtureType>
+</GDTF>
+)xml";
+}
+
 } // namespace
 
-// Verifies truss loader extension validation and direct model defaults.
+// Verifies truss loader extension validation and archive extraction safety.
 int main() {
   const fs::path tempRoot = fs::temp_directory_path() /
                             fs::u8path("perastage_trussloader_validation_test");
@@ -69,6 +101,33 @@ int main() {
 
   assert(GetTrussDefinitionFileDialogWildcard().find(
              "*.gdtf;*.gtruss;*.glb;*.3ds") != std::string::npos);
+
+  const fs::path validGdtfPath = tempRoot / "valid.gdtf";
+  assert(WriteZipArchive(validGdtfPath,
+                         {{"description.xml", MinimalGdtfDescription()},
+                          {"models/gltf/main.glb", "glTF"}}));
+
+  Truss validGdtf;
+  assert(LoadTrussDefinition(ToUtf8String(validGdtfPath), validGdtf));
+  assert(validGdtf.symbolFile.find("models/gltf/main.glb") != std::string::npos);
+
+  const fs::path traversalGdtfPath = tempRoot / "traversal.gdtf";
+  assert(WriteZipArchive(traversalGdtfPath,
+                         {{"description.xml", MinimalGdtfDescription()},
+                          {"../escaped.txt", "unsafe"},
+                          {"models/gltf/main.glb", "glTF"}}));
+
+  Truss traversalGdtf;
+  assert(!LoadTrussDefinition(ToUtf8String(traversalGdtfPath), traversalGdtf));
+
+  const fs::path absoluteGdtfPath = tempRoot / "absolute.gdtf";
+  assert(WriteZipArchive(absoluteGdtfPath,
+                         {{"description.xml", MinimalGdtfDescription()},
+                          {"/tmp/perastage-unsafe-entry.txt", "unsafe"},
+                          {"models/gltf/main.glb", "glTF"}}));
+
+  Truss absoluteGdtf;
+  assert(!LoadTrussDefinition(ToUtf8String(absoluteGdtfPath), absoluteGdtf));
 
   fs::remove_all(tempRoot, ec);
   return 0;
