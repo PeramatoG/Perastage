@@ -6,6 +6,7 @@ Changes since `v1.3.0`.
 
 ## New features
 
+- Added Edit menu Group and Ungroup commands with `Ctrl+G` and `Ctrl+U` shortcuts for cross-table scene selections, preserving object placement and hang-position assignments while using MVR-compatible GroupObject hierarchy.
 - Added Help menu actions to open the local logs folder and export a manual diagnostic report for troubleshooting.
 - Added a startup update reminder checkbox so users can stop seeing repeated prompts for the same available version while keeping manual update checks available.
 

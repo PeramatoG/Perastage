@@ -23,6 +23,9 @@ Each shortcut entry defines:
 
 ## Current shortcut map
 
+Menu accelerators are owned by their menu entries and are not routed through `ShortcutAction`. The Edit menu includes `Ctrl+G` for Group and `Ctrl+U` for Ungroup; both commands are global menu accelerators, operate on the active cross-table selection, and keep the existing editable-widget behavior provided by wxWidgets menu accelerator handling.
+
+
 | Key | Action | Owner | Scope | Focus policy |
 |---|---|---|---|---|
 | `Z` | `FitView` | `viewer2d` | `Viewer2D` | Block in editable widgets |

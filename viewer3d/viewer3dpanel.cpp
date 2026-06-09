@@ -50,6 +50,7 @@
 #include "scene_object_primitive_editing.h"
 #include "../gui/selection_origin_token.h"
 #include "configmanager.h"
+#include "scene_grouping.h"
 #include "fixturepatchdialog.h"
 #include "viewer2dpanel.h"
 #include "viewer3dviewfit.h"
@@ -2772,12 +2773,18 @@ void Viewer3DPanel::UpdateScene()
 // Applies a new selected UUID set to the 3D controller and schedules a refresh.
 void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string>& uuids)
 {
-    if (uuids == m_lastAppliedSelectionUuids)
+    const scene_grouping::ObjectSelection typedSelection{
+        .fixtures = uuids, .trusses = uuids, .supports = uuids,
+        .sceneObjects = uuids};
+    const std::vector<std::string> expandedUuids =
+        scene_grouping::ExpandSelectionForGroupHighlights(
+            ConfigManager::Get().GetScene(), typedSelection);
+    if (expandedUuids == m_lastAppliedSelectionUuids)
         return;
-    m_lastAppliedSelectionUuids = uuids;
+    m_lastAppliedSelectionUuids = expandedUuids;
     ++m_selectionRevision;
     m_selectionRefreshPending = true;
-    m_controller.SetSelectedUuids(uuids);
+    m_controller.SetSelectedUuids(expandedUuids);
     Refresh();
 }
 

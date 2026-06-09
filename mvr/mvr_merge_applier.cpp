@@ -146,6 +146,8 @@ void RemapImportedReferences(MvrScene &scene,
   for (auto &[uuid, fixture] : scene.fixtures) {
     fixture.position = RemapImportedUuidReference(fixture.position, analysis);
     fixture.focus = RemapImportedUuidReference(fixture.focus, analysis);
+    fixture.parentGroupUuid =
+        RemapImportedUuidReference(fixture.parentGroupUuid, analysis);
   }
 
   for (auto &[uuid, truss] : scene.trusses) {
@@ -160,6 +162,13 @@ void RemapImportedReferences(MvrScene &scene,
     support.position = RemapImportedUuidReference(support.position, analysis);
     support.motorFixtureUuid =
         RemapImportedUuidReference(support.motorFixtureUuid, analysis);
+    support.parentGroupUuid =
+        RemapImportedUuidReference(support.parentGroupUuid, analysis);
+  }
+
+  for (auto &[uuid, object] : scene.sceneObjects) {
+    object.parentGroupUuid =
+        RemapImportedUuidReference(object.parentGroupUuid, analysis);
   }
 
   for (auto &[uuid, group] : scene.groupObjects) {

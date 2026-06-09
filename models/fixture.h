@@ -37,6 +37,9 @@ struct Fixture {
     std::string address;          // DMX address in string format (e.g., "1.1")
     std::string matrixRaw;        // Raw matrix string from XML (to be parsed later)
     Matrix transform;             // Parsed transformation matrix
+    Matrix localTransform;         // Local transform relative to parent GroupObject
+    bool hasLocalTransform = false; // True when localTransform was explicitly assigned
+    std::string parentGroupUuid;    // Parent GroupObject UUID when grouped
 
     std::string color;            // Hex RGB color (e.g., "#RRGGBB")
 
