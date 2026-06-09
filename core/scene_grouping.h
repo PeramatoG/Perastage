@@ -19,6 +19,7 @@
 
 #include "mvrscene.h"
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,11 @@ struct ObjectSelection {
   std::vector<std::string> trusses;
   std::vector<std::string> supports;
   std::vector<std::string> sceneObjects;
+};
+
+struct SceneTransformTarget {
+  MvrNodeType type = MvrNodeType::Fixture;
+  std::string uuid;
 };
 
 struct OperationResult {
@@ -46,7 +52,28 @@ OperationResult GroupSelection(MvrScene &scene, const ObjectSelection &selection
 // Removes selected scene entities from their direct parent groups.
 OperationResult UngroupSelection(MvrScene &scene, const ObjectSelection &selection);
 
-// Expands UUID highlights so selecting one group member highlights its direct siblings.
+// Builds effective transform roots so grouped objects behave as single units.
+std::vector<SceneTransformTarget> BuildTransformTargets(
+    const MvrScene &scene, const ObjectSelection &selection);
+
+// Returns the current world transform for one transform target.
+Matrix GetTargetWorldTransform(const MvrScene &scene,
+                               const SceneTransformTarget &target);
+
+// Applies a world transform to a target and recursively synchronizes group children.
+void SetTargetWorldTransform(MvrScene &scene, const SceneTransformTarget &target,
+                             const Matrix &worldTransform);
+
+// Translates effective selection targets by a millimeter delta.
+void TranslateSelection(MvrScene &scene, const ObjectSelection &selection,
+                        const std::array<float, 3> &deltaMm);
+
+// Rotates effective selection targets around a millimeter pivot.
+void RotateSelectionAroundPivot(MvrScene &scene, const ObjectSelection &selection,
+                                int axis, float angleDeg,
+                                const std::array<float, 3> &pivotMm);
+
+// Expands UUID highlights so selecting one group member highlights its full root group.
 std::vector<std::string> ExpandSelectionForGroupHighlights(
     const MvrScene &scene, const ObjectSelection &selection);
 

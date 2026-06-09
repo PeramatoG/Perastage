@@ -23,6 +23,7 @@
 #include "hoisttablepanel.h"
 #include "mainwindow.h"
 #include "matrixutils.h"
+#include "scene_grouping.h"
 #include "sceneobjecttablepanel.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
@@ -792,26 +793,13 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           maxCorner[axis] = std::max(maxCorner[axis], positionMm[axis]);
         }
       };
-      for (const auto &uuid : cfg.GetSelectedFixtures()) {
-        auto it = scene.fixtures.find(uuid);
-        if (it != scene.fixtures.end())
-          expandBounds(it->second.transform.o);
-      }
-      for (const auto &uuid : cfg.GetSelectedTrusses()) {
-        auto it = scene.trusses.find(uuid);
-        if (it != scene.trusses.end())
-          expandBounds(it->second.transform.o);
-      }
-      for (const auto &uuid : cfg.GetSelectedSupports()) {
-        auto it = scene.supports.find(uuid);
-        if (it != scene.supports.end())
-          expandBounds(it->second.transform.o);
-      }
-      for (const auto &uuid : cfg.GetSelectedSceneObjects()) {
-        auto it = scene.sceneObjects.find(uuid);
-        if (it != scene.sceneObjects.end())
-          expandBounds(it->second.transform.o);
-      }
+      const scene_grouping::ObjectSelection selection{
+          .fixtures = cfg.GetSelectedFixtures(),
+          .trusses = cfg.GetSelectedTrusses(),
+          .supports = cfg.GetSelectedSupports(),
+          .sceneObjects = cfg.GetSelectedSceneObjects()};
+      for (const auto &target : scene_grouping::BuildTransformTargets(scene, selection))
+        expandBounds(scene_grouping::GetTargetWorldTransform(scene, target).o);
       if (!hasAny)
         return std::nullopt;
       return std::array<float, 3>{
@@ -877,6 +865,83 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         }
       }
     };
+
+    auto buildEffectiveSelection = [&]() {
+      return scene_grouping::ObjectSelection{.fixtures = cfg.GetSelectedFixtures(),
+                                             .trusses = cfg.GetSelectedTrusses(),
+                                             .supports = cfg.GetSelectedSupports(),
+                                             .sceneObjects = cfg.GetSelectedSceneObjects()};
+    };
+
+    auto applyPosEffective = [&](int axis, const std::vector<float> &vals,
+                                 bool relative) {
+      if (vals.empty())
+        return;
+      auto &scene = cfg.GetScene();
+      const auto targets = scene_grouping::BuildTransformTargets(scene,
+                                                                 buildEffectiveSelection());
+      const size_t n = targets.size();
+      if (n == 0)
+        return;
+      const float start = vals[0] * 1000.0f;
+      const float end = (vals.size() > 1 ? vals[1] : vals[0]) * 1000.0f;
+      for (size_t i = 0; i < n; ++i) {
+        const float value = (vals.size() > 1 && n > 1)
+                                ? start + (end - start) * static_cast<float>(i) /
+                                              static_cast<float>(n - 1)
+                                : start;
+        Matrix transform = scene_grouping::GetTargetWorldTransform(scene, targets[i]);
+        if (relative)
+          transform.o[axis] += value;
+        else
+          transform.o[axis] = value;
+        scene_grouping::SetTargetWorldTransform(scene, targets[i], transform);
+      }
+    };
+
+    auto applyRotEffective = [&](int axis, const std::vector<float> &vals,
+                                 bool relative) {
+      if (vals.empty())
+        return;
+      auto &scene = cfg.GetScene();
+      const auto targets = scene_grouping::BuildTransformTargets(scene,
+                                                                 buildEffectiveSelection());
+      const size_t n = targets.size();
+      if (n == 0)
+        return;
+      const float start = vals[0];
+      const float end = vals.size() > 1 ? vals[1] : vals[0];
+      int eAxis = 0;
+      switch (axis) {
+      case 0: eAxis = 2; break;
+      case 1: eAxis = 1; break;
+      default: eAxis = 0; break;
+      }
+      for (size_t i = 0; i < n; ++i) {
+        const float angle = (vals.size() > 1 && n > 1)
+                                ? start + (end - start) * static_cast<float>(i) /
+                                              static_cast<float>(n - 1)
+                                : start;
+        Matrix transform = scene_grouping::GetTargetWorldTransform(scene, targets[i]);
+        auto e = MatrixUtils::MatrixToEuler(transform);
+        if (relative)
+          e[eAxis] += angle;
+        else
+          e[eAxis] = angle;
+        Matrix rotated = MatrixUtils::EulerToMatrix(e[0], e[1], e[2]);
+        rotated.o = transform.o;
+        scene_grouping::SetTargetWorldTransform(scene, targets[i], rotated);
+      }
+    };
+
+    auto rotateEffectiveAroundPivot = [&](int axis, float angleDeg,
+                                          const std::array<float, 3> &pivotMm) {
+      scene_grouping::RotateSelectionAroundPivot(cfg.GetScene(),
+                                                 buildEffectiveSelection(), axis,
+                                                 angleDeg, pivotMm);
+    };
+
+
 
     auto parseVals = [](const std::string &s, bool &relative) {
       return gui::console::ParseTransformValues(s, relative);
@@ -1023,23 +1088,9 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
             bool rel = false;
             auto vals = parseVals(parts[idx], rel);
             if (isRot) {
-              applyRot(selFixtures, TransformTarget::Fixtures, (int)idx, vals,
-                       rel);
-              applyRot(selTrusses, TransformTarget::Trusses, (int)idx, vals,
-                       rel);
-              applyRot(selSupports, TransformTarget::Supports, (int)idx, vals,
-                       rel);
-              applyRot(selSceneObjects, TransformTarget::SceneObjects,
-                       (int)idx, vals, rel);
+              applyRotEffective((int)idx, vals, rel);
             } else {
-              applyPos(selFixtures, TransformTarget::Fixtures, (int)idx, vals,
-                       rel);
-              applyPos(selTrusses, TransformTarget::Trusses, (int)idx, vals,
-                       rel);
-              applyPos(selSupports, TransformTarget::Supports, (int)idx, vals,
-                       rel);
-              applyPos(selSceneObjects, TransformTarget::SceneObjects,
-                       (int)idx, vals, rel);
+              applyPosEffective((int)idx, vals, rel);
             }
           }
         } else {
@@ -1067,35 +1118,12 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                   explicitPivotMm.value_or(computeSelectionBoundsCenterMm().value_or(
                       std::array<float, 3>{0.0f, 0.0f, 0.0f}));
               const float angleDeg = vals[0];
-              rotateAroundPivot(selFixtures, TransformTarget::Fixtures, axis,
-                                angleDeg, pivotMm);
-              rotateAroundPivot(selTrusses, TransformTarget::Trusses, axis,
-                                angleDeg, pivotMm);
-              rotateAroundPivot(selSupports, TransformTarget::Supports, axis,
-                                angleDeg, pivotMm);
-              rotateAroundPivot(selSceneObjects, TransformTarget::SceneObjects,
-                                axis, angleDeg, pivotMm);
-              applyRot(selFixtures, TransformTarget::Fixtures, axis,
-                       {angleDeg}, true);
-              applyRot(selTrusses, TransformTarget::Trusses, axis, {angleDeg},
-                       true);
-              applyRot(selSupports, TransformTarget::Supports, axis, {angleDeg},
-                       true);
-              applyRot(selSceneObjects, TransformTarget::SceneObjects, axis,
-                       {angleDeg}, true);
+              rotateEffectiveAroundPivot(axis, angleDeg, pivotMm);
             }
           } else if (isRot) {
-            applyRot(selFixtures, TransformTarget::Fixtures, axis, vals, rel);
-            applyRot(selTrusses, TransformTarget::Trusses, axis, vals, rel);
-            applyRot(selSupports, TransformTarget::Supports, axis, vals, rel);
-            applyRot(selSceneObjects, TransformTarget::SceneObjects, axis, vals,
-                     rel);
+            applyRotEffective(axis, vals, rel);
           } else {
-            applyPos(selFixtures, TransformTarget::Fixtures, axis, vals, rel);
-            applyPos(selTrusses, TransformTarget::Trusses, axis, vals, rel);
-            applyPos(selSupports, TransformTarget::Supports, axis, vals, rel);
-            applyPos(selSceneObjects, TransformTarget::SceneObjects, axis, vals,
-                     rel);
+            applyPosEffective(axis, vals, rel);
           }
         }
         refreshSelectionAfterTransform();
@@ -1114,11 +1142,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         int axis = (lw == "x") ? 0 : (lw == "y" ? 1 : 2);
         bool rel = false;
         auto vals = parseVals(rest, rel);
-        applyPos(selFixtures, TransformTarget::Fixtures, axis, vals, rel);
-        applyPos(selTrusses, TransformTarget::Trusses, axis, vals, rel);
-        applyPos(selSupports, TransformTarget::Supports, axis, vals, rel);
-        applyPos(selSceneObjects, TransformTarget::SceneObjects, axis, vals,
-                 rel);
+        applyPosEffective(axis, vals, rel);
         refreshSelectionAfterTransform();
       } else if (!lw.empty() && (std::isdigit(lw[0]) || lw[0] == '-' ||
                                  lw[0] == '+') &&
@@ -1132,11 +1156,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         for (size_t idx = 0; idx < parts.size() && idx < 3; ++idx) {
           bool rel = false;
           auto vals = parseVals(parts[idx], rel);
-          applyPos(selFixtures, TransformTarget::Fixtures, (int)idx, vals, rel);
-          applyPos(selTrusses, TransformTarget::Trusses, (int)idx, vals, rel);
-          applyPos(selSupports, TransformTarget::Supports, (int)idx, vals, rel);
-          applyPos(selSceneObjects, TransformTarget::SceneObjects, (int)idx,
-                   vals, rel);
+          applyPosEffective((int)idx, vals, rel);
         }
         refreshSelectionAfterTransform();
       } else if (!lw.empty() && lw[0] == 'f') {

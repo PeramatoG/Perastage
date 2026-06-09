@@ -2187,8 +2187,23 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
             m_dragSceneObjectUuids = {uuid};
     }
 
-    m_selectionDragAnchorMeters =
-        ComputeSelectionCenterMeters(m_dragSelectionUuids, target);
+    const scene_grouping::ObjectSelection dragSelection{
+        .fixtures = m_dragFixtureUuids,
+        .trusses = m_dragTrussUuids,
+        .supports = {},
+        .sceneObjects = m_dragSceneObjectUuids};
+    const auto dragTargets = scene_grouping::BuildTransformTargets(cfg.GetScene(), dragSelection);
+    m_selectionDragAnchorMeters = {0.0f, 0.0f, 0.0f};
+    if (!dragTargets.empty()) {
+        for (const auto& dragTarget : dragTargets) {
+            const Matrix transform = scene_grouping::GetTargetWorldTransform(cfg.GetScene(), dragTarget);
+            m_selectionDragAnchorMeters[0] += transform.o[0] / 1000.0f;
+            m_selectionDragAnchorMeters[1] += transform.o[1] / 1000.0f;
+            m_selectionDragAnchorMeters[2] += transform.o[2] / 1000.0f;
+        }
+        for (float& component : m_selectionDragAnchorMeters)
+            component /= static_cast<float>(dragTargets.size());
+    }
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
     m_selectionDragArmed = true;
     m_selectionDragMoved = false;
@@ -2276,21 +2291,11 @@ void Viewer3DPanel::ApplySelectionDragDelta(const std::array<float, 3>& deltaMet
         m_selectionDragUndoPushed = true;
     }
 
-    auto& scene = cfg.GetScene();
-    auto applyDelta = [&](const auto& uuids, auto& items) {
-        for (const std::string& uuid : uuids) {
-            auto it = items.find(uuid);
-            if (it == items.end())
-                continue;
-            it->second.transform.o[0] += dxMm;
-            it->second.transform.o[1] += dyMm;
-            it->second.transform.o[2] += dzMm;
-        }
-    };
-
-    applyDelta(m_dragFixtureUuids, scene.fixtures);
-    applyDelta(m_dragTrussUuids, scene.trusses);
-    applyDelta(m_dragSceneObjectUuids, scene.sceneObjects);
+    scene_grouping::ObjectSelection selection;
+    selection.fixtures = m_dragFixtureUuids;
+    selection.trusses = m_dragTrussUuids;
+    selection.sceneObjects = m_dragSceneObjectUuids;
+    scene_grouping::TranslateSelection(cfg.GetScene(), selection, {dxMm, dyMm, dzMm});
     m_selectionDragAnchorMeters[0] += deltaMeters[0];
     m_selectionDragAnchorMeters[1] += deltaMeters[1];
     m_selectionDragAnchorMeters[2] += deltaMeters[2];

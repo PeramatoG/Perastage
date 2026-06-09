@@ -12,6 +12,7 @@ Changes since `v1.3.0`.
 
 ## Improvements
 
+- Improved GroupObject handling so selecting a grouped member highlights and transforms the full root group, including nested groups, in 2D, 3D, and command-bar transform workflows.
 ## Fixes
 
 - Fixed command-bar position and rotation value parsing so `t` and `thru` separators distribute selected items the same way as two space-separated values.

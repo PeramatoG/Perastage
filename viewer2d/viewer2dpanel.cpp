@@ -1373,24 +1373,13 @@ void Viewer2DPanel::ApplySelectionDelta(
     cfg.PushUndoState("move selection");
     m_dragSelectionPushedUndo = true;
   }
-  auto &scene = cfg.GetScene();
   std::lock_guard<std::mutex> sceneLock(m_dragTableUpdateSceneMutex);
-
-  auto applyDelta = [&](const auto &uuids, auto &items) {
-    for (const auto &uuid : uuids) {
-      auto it = items.find(uuid);
-      if (it == items.end())
-        continue;
-      it->second.transform.o[0] += dxMm;
-      it->second.transform.o[1] += dyMm;
-      it->second.transform.o[2] += dzMm;
-    }
-  };
-
-  applyDelta(m_dragFixtureUuids, scene.fixtures);
-  applyDelta(m_dragTrussUuids, scene.trusses);
-  applyDelta(m_dragSupportUuids, scene.supports);
-  applyDelta(m_dragSceneObjectUuids, scene.sceneObjects);
+  scene_grouping::ObjectSelection selection;
+  selection.fixtures = m_dragFixtureUuids;
+  selection.trusses = m_dragTrussUuids;
+  selection.supports = m_dragSupportUuids;
+  selection.sceneObjects = m_dragSceneObjectUuids;
+  scene_grouping::TranslateSelection(cfg.GetScene(), selection, {dxMm, dyMm, dzMm});
   ScheduleDragTableUpdate();
 }
 

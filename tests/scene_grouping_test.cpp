@@ -71,5 +71,54 @@ int main() {
   assert(NearlyEqual(scene.fixtures[fixture.uuid].transform.o[0], 1000.0f));
   assert(NearlyEqual(scene.trusses[truss.uuid].transform.o[0], 3000.0f));
 
+
+  const scene_grouping::OperationResult regroupResult =
+      scene_grouping::GroupSelection(scene, selection);
+  assert(regroupResult.changed);
+
+  Support support;
+  support.uuid = "support-a";
+  support.layer = "No Layer";
+  support.position = "lx1-position";
+  support.positionName = "LX1";
+  support.transform = Translated(5000.0f, 0.0f, 0.0f);
+  scene.supports[support.uuid] = support;
+
+  scene_grouping::ObjectSelection nestedSelection;
+  nestedSelection.fixtures = {fixture.uuid};
+  nestedSelection.trusses = {truss.uuid};
+  nestedSelection.supports = {support.uuid};
+  const scene_grouping::OperationResult nestedGroupResult =
+      scene_grouping::GroupSelection(scene, nestedSelection);
+  assert(nestedGroupResult.changed);
+  assert(scene.groupObjects.size() == 2);
+
+  scene_grouping::ObjectSelection childSelection;
+  childSelection.fixtures = {fixture.uuid};
+  assert(scene_grouping::BuildTransformTargets(scene, childSelection).size() == 1);
+  const auto nestedExpanded =
+      scene_grouping::ExpandSelectionForGroupHighlights(scene, childSelection);
+  assert(nestedExpanded.size() == 3);
+
+  scene_grouping::TranslateSelection(scene, childSelection,
+                                     {1000.0f, 2000.0f, 0.0f});
+  assert(NearlyEqual(scene.fixtures[fixture.uuid].transform.o[0], 2000.0f));
+  assert(NearlyEqual(scene.trusses[truss.uuid].transform.o[0], 4000.0f));
+  assert(NearlyEqual(scene.supports[support.uuid].transform.o[0], 6000.0f));
+  assert(NearlyEqual(scene.fixtures[fixture.uuid].transform.o[1], 2000.0f));
+  assert(NearlyEqual(scene.trusses[truss.uuid].transform.o[1], 2000.0f));
+  assert(NearlyEqual(scene.supports[support.uuid].transform.o[1], 2000.0f));
+
+
+  const scene_grouping::OperationResult nestedUngroupResult =
+      scene_grouping::UngroupSelection(scene, childSelection);
+  assert(nestedUngroupResult.changed);
+  assert(scene.groupObjects.size() == 1);
+  assert(scene.supports[support.uuid].parentGroupUuid.empty());
+  assert(!scene.fixtures[fixture.uuid].parentGroupUuid.empty());
+  assert(NearlyEqual(scene.fixtures[fixture.uuid].transform.o[0], 2000.0f));
+  assert(NearlyEqual(scene.trusses[truss.uuid].transform.o[0], 4000.0f));
+  assert(NearlyEqual(scene.supports[support.uuid].transform.o[0], 6000.0f));
+
   return 0;
 }
