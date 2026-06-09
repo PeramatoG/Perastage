@@ -4,6 +4,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/addressdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/columnselectiondialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/consolepanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/console_command_parser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui_feature_flags.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionaryeditdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_selection_controls.cpp

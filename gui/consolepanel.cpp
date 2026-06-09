@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "consolepanel.h"
+#include "console_command_parser.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "fixturetablepanel.h"
@@ -505,6 +506,7 @@ NormalizeRangeTokens(const std::vector<std::string> &tokens) {
   return out;
 }
 
+// Parses and applies command-bar actions to the current scene selection.
 void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
   std::string cmd = std::string(cmdWx.ToUTF8());
   cmd = trim(cmd);
@@ -876,24 +878,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       }
     };
 
-    auto parseVals = [&](const std::string &s, bool &relative) {
-      relative = false;
-      std::string str = trim(s);
-      float sign = 1.0f;
-      if (str.rfind("++", 0) == 0) {
-        relative = true;
-        str = trim(str.substr(2));
-      } else if (str.rfind("--", 0) == 0) {
-        relative = true;
-        sign = -1.0f;
-        str = trim(str.substr(2));
-      }
-      std::stringstream ss(str);
-      std::vector<float> vals;
-      float v;
-      while (ss >> v)
-        vals.push_back(sign * v);
-      return vals;
+    auto parseVals = [](const std::string &s, bool &relative) {
+      return gui::console::ParseTransformValues(s, relative);
     };
 
     auto refreshSelectionAfterTransform = [&]() {
