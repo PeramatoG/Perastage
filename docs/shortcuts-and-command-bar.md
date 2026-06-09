@@ -12,6 +12,8 @@ This reference page consolidates the most practical keyboard, mouse, and command
 | `Ctrl+Q` | Close application |
 | `Ctrl+Z / Ctrl+Y` | Undo / Redo |
 | `Del` | Delete selection |
+| `Ctrl+G` | Group the active cross-table selection |
+| `Ctrl+U` | Ungroup selected objects from their direct group |
 | `F1` | Open help |
 | `F` | Focus CLI and prefill `fixture ` (outside editable widgets) |
 | `1 / 2 / 3 / 4` | Switch to Fixtures / Trusses / Hoists / Objects |

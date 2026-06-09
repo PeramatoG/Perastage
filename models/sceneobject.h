@@ -45,6 +45,9 @@ struct SceneObject {
     std::string modelFile; // Referenced 3D model file (Geometry3D or Symdef)
     std::vector<GeometryInstance> geometries;
     Matrix transform;
+    Matrix localTransform;
+    bool hasLocalTransform = false;
+    std::string parentGroupUuid;
 
     // Returns the first available model reference for this scene object.
     std::string GetPrimaryModel() const {

@@ -66,6 +66,9 @@ struct Support {
     std::string hoistFunction = "Lighting";
 
     Matrix transform;
+    Matrix localTransform;
+    bool hasLocalTransform = false;
+    std::string parentGroupUuid;
 };
 
 inline const std::array<std::string, 5> &GetHoistFunctionOptions() {

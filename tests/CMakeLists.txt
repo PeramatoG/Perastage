@@ -69,6 +69,14 @@ add_executable(matrixutils_test matrixutils_test.cpp)
 target_include_directories(matrixutils_test PRIVATE ../models)
 add_test(NAME MatrixUtilsParsingAndComposition COMMAND matrixutils_test)
 
+add_executable(scene_grouping_test scene_grouping_test.cpp
+    ../core/scene_grouping.cpp
+    ../core/uuidutils.cpp
+    ../models/mvrscene.cpp
+)
+target_include_directories(scene_grouping_test PRIVATE ../core ../models)
+add_test(NAME SceneGroupingPreservesTransforms COMMAND scene_grouping_test)
+
 add_executable(rdp_simplifier_test
                rdp_simplifier_test.cpp
                ../core/geometry/RdpSimplifier.cpp)

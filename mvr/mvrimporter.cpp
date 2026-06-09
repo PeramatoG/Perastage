@@ -1932,10 +1932,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   std::unordered_map<std::string, int> trussSymbolSymdefPreservedBySymdef;
 
   // Parses a Fixture XML node into scene data while preserving its original matching identity.
-  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)>
+  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const Matrix &, const std::string &)>
       parseFixture = [&](tinyxml2::XMLElement *node,
                          const std::string &layerName,
-                         const Matrix &nodeTransform) {
+                         const Matrix &nodeTransform, const Matrix &localTransform,
+                         const std::string &parentGroupUuid) {
         Fixture fixture;
         const char *rawUuidAttr = node->Attribute("uuid");
         const std::string rawFixtureUuid =
@@ -1946,6 +1947,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           fixtureUuidRemap[rawFixtureUuid] = fixture.uuid;
         fixture.layer = layerName;
         fixture.transform = nodeTransform;
+        fixture.localTransform = localTransform;
+        fixture.hasLocalTransform = true;
+        fixture.parentGroupUuid = parentGroupUuid;
 
         const char *nameAttr = node->Attribute("name");
         const std::string rawFixtureNodeName =
@@ -2315,14 +2319,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         scene.trusses[truss.uuid] = truss;
       };
 
-  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)> parseSupport =
+  // Parses a Support XML node into scene data while preserving group-local transforms.
+  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const Matrix &, const std::string &)> parseSupport =
       [&](tinyxml2::XMLElement *node, const std::string &layerName,
-          const Matrix &nodeTransform) {
+          const Matrix &nodeTransform, const Matrix &localTransform,
+          const std::string &parentGroupUuid) {
         Support support;
         support.uuid =
             resolveStableUuid("Support", node, layerName, nodeTransform);
         support.layer = layerName;
         support.transform = nodeTransform;
+        support.localTransform = localTransform;
+        support.hasLocalTransform = true;
+        support.parentGroupUuid = parentGroupUuid;
 
         if (const char *nameAttr = node->Attribute("name"))
           support.name = nameAttr;
@@ -2378,6 +2387,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         scene.supports[support.uuid] = support;
       };
 
+  // Parses a SceneObject XML node into scene data while preserving group-local transforms.
   std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const Matrix &, const std::string &)>
       parseSceneObj = [&](tinyxml2::XMLElement *node,
                           const std::string &layerName,
@@ -2387,6 +2397,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             resolveStableUuid("SceneObject", node, layerName, nodeTransform);
         obj.layer = layerName;
         obj.transform = nodeTransform;
+        obj.localTransform = localTransform;
+        obj.hasLocalTransform = true;
+        obj.parentGroupUuid = parentGroupUuid;
         if (const char *nameAttr = node->Attribute("name"))
           obj.name = nameAttr;
 
@@ -2636,7 +2649,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
       std::string nodeName = name;
       if (nodeName == "Fixture") {
-        parseFixture(child, layerName, nodeTransform);
+        parseFixture(child, layerName, nodeTransform, local, parentGroupUuid);
         reportNodeProgress("Fixture");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
@@ -2650,7 +2663,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               {MvrNodeType::Truss, referenceUuidForNode("Truss", child, layerName, nodeTransform)});
         }
       } else if (nodeName == "Support") {
-        parseSupport(child, layerName, nodeTransform);
+        parseSupport(child, layerName, nodeTransform, local, parentGroupUuid);
         reportNodeProgress("Support");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(

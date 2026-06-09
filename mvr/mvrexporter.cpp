@@ -1900,7 +1900,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
     }
 
-    std::string mstr = MatrixUtils::FormatMatrix(f.transform);
+    const Matrix fixtureMatrixToWrite =
+        f.parentGroupUuid.empty()
+            ? f.transform
+            : (f.hasLocalTransform ? f.localTransform : f.transform);
+    std::string mstr = MatrixUtils::FormatMatrix(fixtureMatrixToWrite);
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(mstr.c_str());
     fe->InsertEndChild(mat);
@@ -2199,7 +2203,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (info->FirstChild())
       data->InsertEndChild(info);
 
-    std::string mstr = MatrixUtils::FormatMatrix(s.transform);
+    const Matrix supportMatrixToWrite =
+        s.parentGroupUuid.empty()
+            ? s.transform
+            : (s.hasLocalTransform ? s.localTransform : s.transform);
+    std::string mstr = MatrixUtils::FormatMatrix(supportMatrixToWrite);
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(mstr.c_str());
     se->InsertEndChild(mat);
@@ -2271,7 +2279,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       return true;
     };
 
-    Matrix objectMatrixToWrite = obj.transform;
+    Matrix objectMatrixToWrite =
+        obj.parentGroupUuid.empty()
+            ? obj.transform
+            : (obj.hasLocalTransform ? obj.localTransform : obj.transform);
 
     tinyxml2::XMLElement *oe = doc.NewElement("SceneObject");
     oe->SetAttribute("uuid", obj.uuid.c_str());
@@ -2500,18 +2511,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     }
 
     for (const auto &[uid, f] : scene.fixtures) {
-      if (f.layer != layer.name)
-        continue;
-      bool grouped = false;
-      for (const auto &[gid, g] : scene.groupObjects) {
-        if (std::any_of(g.children.begin(), g.children.end(), [&](const GroupObjectChildRef &r) {
-              return r.type == MvrNodeType::Fixture && r.uuid == uid;
-            })) {
-          grouped = true;
-          break;
-        }
-      }
-      if (grouped)
+      if (f.layer != layer.name || !f.parentGroupUuid.empty())
         continue;
       exportFixture(childList, f);
     }
@@ -2525,35 +2525,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     }
 
     for (const auto &[uid, s] : scene.supports) {
-      if (s.layer != layer.name)
-        continue;
-      bool grouped = false;
-      for (const auto &[gid, g] : scene.groupObjects) {
-        if (std::any_of(g.children.begin(), g.children.end(), [&](const GroupObjectChildRef &r) {
-              return r.type == MvrNodeType::Support && r.uuid == uid;
-            })) {
-          grouped = true;
-          break;
-        }
-      }
-      if (grouped)
+      if (s.layer != layer.name || !s.parentGroupUuid.empty())
         continue;
       exportSupport(childList, s);
     }
 
     for (const auto &[uid, obj] : scene.sceneObjects) {
-      if (obj.layer != layer.name)
-        continue;
-      bool grouped = false;
-      for (const auto &[gid, g] : scene.groupObjects) {
-        if (std::any_of(g.children.begin(), g.children.end(), [&](const GroupObjectChildRef &r) {
-              return r.type == MvrNodeType::SceneObject && r.uuid == uid;
-            })) {
-          grouped = true;
-          break;
-        }
-      }
-      if (grouped)
+      if (obj.layer != layer.name || !obj.parentGroupUuid.empty())
         continue;
       exportSceneObject(childList, obj);
     }
@@ -2572,18 +2550,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     exportGroupObject(exportGroupObject, rootChildList, group);
   }
   for (const auto &[uid, f] : scene.fixtures) {
-    if (!(f.layer == DEFAULT_LAYER_NAME || f.layer.empty()))
-      continue;
-    bool grouped = false;
-    for (const auto &[gid, g] : scene.groupObjects) {
-      if (std::any_of(g.children.begin(), g.children.end(), [&](const GroupObjectChildRef &r) {
-            return r.type == MvrNodeType::Fixture && r.uuid == uid;
-          })) {
-        grouped = true;
-        break;
-      }
-    }
-    if (!grouped)
+    if ((f.layer == DEFAULT_LAYER_NAME || f.layer.empty()) && f.parentGroupUuid.empty())
       exportFixture(rootChildList, f);
   }
   for (const auto &[uid, t] : scene.trusses) {
@@ -2591,33 +2558,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       exportTruss(rootChildList, t);
   }
   for (const auto &[uid, s] : scene.supports) {
-    if (!(s.layer == DEFAULT_LAYER_NAME || s.layer.empty()))
-      continue;
-    bool grouped = false;
-    for (const auto &[gid, g] : scene.groupObjects) {
-      if (std::any_of(g.children.begin(), g.children.end(), [&](const GroupObjectChildRef &r) {
-            return r.type == MvrNodeType::Support && r.uuid == uid;
-          })) {
-        grouped = true;
-        break;
-      }
-    }
-    if (!grouped)
+    if ((s.layer == DEFAULT_LAYER_NAME || s.layer.empty()) && s.parentGroupUuid.empty())
       exportSupport(rootChildList, s);
   }
   for (const auto &[uid, obj] : scene.sceneObjects) {
-    if (!(obj.layer == DEFAULT_LAYER_NAME || obj.layer.empty()))
-      continue;
-    bool grouped = false;
-    for (const auto &[gid, g] : scene.groupObjects) {
-      if (std::any_of(g.children.begin(), g.children.end(), [&](const GroupObjectChildRef &r) {
-            return r.type == MvrNodeType::SceneObject && r.uuid == uid;
-          })) {
-        grouped = true;
-        break;
-      }
-    }
-    if (!grouped)
+    if ((obj.layer == DEFAULT_LAYER_NAME || obj.layer.empty()) && obj.parentGroupUuid.empty())
       exportSceneObject(rootChildList, obj);
   }
   if (rootChildList->FirstChild()) {

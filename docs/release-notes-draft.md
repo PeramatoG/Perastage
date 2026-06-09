@@ -6,11 +6,13 @@ Changes since `v1.3.0`.
 
 ## New features
 
+- Added Edit menu Group and Ungroup commands with `Ctrl+G` and `Ctrl+U` shortcuts for cross-table scene selections, preserving object placement and hang-position assignments while using MVR-compatible GroupObject hierarchy.
 - Added Help menu actions to open the local logs folder and export a manual diagnostic report for troubleshooting.
 - Added a startup update reminder checkbox so users can stop seeing repeated prompts for the same available version while keeping manual update checks available.
 
 ## Improvements
 
+- Improved GroupObject handling so selecting a grouped member highlights and transforms the full root group, including nested groups, in 2D, 3D, and command-bar transform workflows.
 ## Fixes
 
 - Fixed command-bar position and rotation value parsing so `t` and `thru` separators distribute selected items the same way as two space-separated values.

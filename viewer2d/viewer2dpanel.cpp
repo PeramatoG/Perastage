@@ -44,6 +44,7 @@
 #include "mainwindow.h"
 #include "editable_focus_utils.h"
 #include "configmanager.h"
+#include "scene_grouping.h"
 #include "canvas2d.h"
 #include "fixturetablepanel.h"
 #include "fixturepatchdialog.h"
@@ -407,22 +408,12 @@ void ApplyFixtureSelectionToUi(const std::vector<std::string> &selection,
 
 // Combines all selected entity UUID lists into a stable unique sequence.
 std::vector<std::string> BuildCombinedSelection(const ConfigManager &cfg) {
-  std::vector<std::string> combined;
-  std::set<std::string> seen;
-
-  const auto appendUnique = [&](const std::vector<std::string> &source) {
-    for (const auto &uuid : source) {
-      if (seen.insert(uuid).second)
-        combined.push_back(uuid);
-    }
-  };
-
-  appendUnique(cfg.GetSelectedFixtures());
-  appendUnique(cfg.GetSelectedTrusses());
-  appendUnique(cfg.GetSelectedSupports());
-  appendUnique(cfg.GetSelectedSceneObjects());
-
-  return combined;
+  const scene_grouping::ObjectSelection selection{
+      .fixtures = cfg.GetSelectedFixtures(),
+      .trusses = cfg.GetSelectedTrusses(),
+      .supports = cfg.GetSelectedSupports(),
+      .sceneObjects = cfg.GetSelectedSceneObjects()};
+  return scene_grouping::ExpandSelectionForGroupHighlights(cfg.GetScene(), selection);
 }
 
 } // namespace
@@ -559,10 +550,16 @@ void Viewer2DPanel::SetSelectedUuids(
     const std::vector<std::string> &selection) {
   if (!m_enableSelection)
     return;
-  if (selection == m_lastAppliedSelectionUuids)
+  const scene_grouping::ObjectSelection typedSelection{
+      .fixtures = selection, .trusses = selection, .supports = selection,
+      .sceneObjects = selection};
+  const std::vector<std::string> expandedSelection =
+      scene_grouping::ExpandSelectionForGroupHighlights(
+          ConfigManager::Get().GetScene(), typedSelection);
+  if (expandedSelection == m_lastAppliedSelectionUuids)
     return;
-  m_lastAppliedSelectionUuids = selection;
-  m_controller.SetSelectedUuids(selection);
+  m_lastAppliedSelectionUuids = expandedSelection;
+  m_controller.SetSelectedUuids(expandedSelection);
   RequestRepaint();
 }
 
@@ -1376,24 +1373,13 @@ void Viewer2DPanel::ApplySelectionDelta(
     cfg.PushUndoState("move selection");
     m_dragSelectionPushedUndo = true;
   }
-  auto &scene = cfg.GetScene();
   std::lock_guard<std::mutex> sceneLock(m_dragTableUpdateSceneMutex);
-
-  auto applyDelta = [&](const auto &uuids, auto &items) {
-    for (const auto &uuid : uuids) {
-      auto it = items.find(uuid);
-      if (it == items.end())
-        continue;
-      it->second.transform.o[0] += dxMm;
-      it->second.transform.o[1] += dyMm;
-      it->second.transform.o[2] += dzMm;
-    }
-  };
-
-  applyDelta(m_dragFixtureUuids, scene.fixtures);
-  applyDelta(m_dragTrussUuids, scene.trusses);
-  applyDelta(m_dragSupportUuids, scene.supports);
-  applyDelta(m_dragSceneObjectUuids, scene.sceneObjects);
+  scene_grouping::ObjectSelection selection;
+  selection.fixtures = m_dragFixtureUuids;
+  selection.trusses = m_dragTrussUuids;
+  selection.supports = m_dragSupportUuids;
+  selection.sceneObjects = m_dragSceneObjectUuids;
+  scene_grouping::TranslateSelection(cfg.GetScene(), selection, {dxMm, dyMm, dzMm});
   ScheduleDragTableUpdate();
 }
 
