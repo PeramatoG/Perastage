@@ -83,6 +83,11 @@ struct ThreeDsChunkHeader {
   uint32_t length = 0;
 };
 
+struct FixtureExportId {
+  std::string text;
+  int numeric = 0;
+};
+
 static bool TryParseInt(std::string_view text, int &out);
 static bool ParseMvrAddressNodeText(const std::string &text, int &universeOut,
                                     int &channelOut);
@@ -90,6 +95,7 @@ static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
                                   int &absoluteOut);
 static std::string TrimAscii(std::string value);
 static std::string ToLowerAscii(std::string value);
+static FixtureExportId ResolveFixtureExportId(const Fixture &fixture);
 
 static bool ShouldExportSupportHoistInfo(const Support &support);
 static tinyxml2::XMLElement *FindFirstPerastageUserData(tinyxml2::XMLElement *node);
@@ -105,6 +111,22 @@ static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kMvrProviderVersion = "1.0";
 static constexpr const char *kDummyFallbackFixtureGdtfFileName = "Dummy 1ch.gdtf";
 static constexpr const char *kLegacyFallbackFixtureGdtfFileName = "Generic 1ch.gdtf";
+
+// Resolves the MVR FixtureID values from the current editable fixture ID.
+static FixtureExportId ResolveFixtureExportId(const Fixture &fixture) {
+  FixtureExportId id;
+  id.numeric = fixture.fixtureId > 0 ? fixture.fixtureId : fixture.fixtureIdNumeric;
+  if (id.numeric <= 0)
+    id.numeric = 0;
+
+  const bool importedNumericStillMatches =
+      fixture.fixtureIdNumeric > 0 && fixture.fixtureId == fixture.fixtureIdNumeric;
+  if (importedNumericStillMatches)
+    id.text = TrimAscii(fixture.fixtureIdText);
+  if (id.text.empty() && id.numeric > 0)
+    id.text = std::to_string(id.numeric);
+  return id;
+}
 
 static bool Read3dsChunkHeader(std::ifstream &file, ThreeDsChunkHeader &chunk) {
   if (!file.read(reinterpret_cast<char *>(&chunk.id), sizeof(chunk.id)))
@@ -1612,8 +1634,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         usedIds.insert(candidate);
     };
     for (const auto &[uid, f] : scene.fixtures) {
-      int existing = f.fixtureIdNumeric > 0 ? f.fixtureIdNumeric : f.fixtureId;
-      reserveId(existing);
+      reserveId(ResolveFixtureExportId(f).numeric);
     }
 
     auto allocId = [&]() {
@@ -1625,14 +1646,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
     std::unordered_map<std::string, std::pair<std::string, int>> result;
     for (const auto &[uid, f] : scene.fixtures) {
-      int numeric = f.fixtureIdNumeric > 0 ? f.fixtureIdNumeric : f.fixtureId;
-      if (numeric <= 0) {
-        numeric = allocId();
+      FixtureExportId fixtureId = ResolveFixtureExportId(f);
+      if (fixtureId.numeric <= 0) {
+        fixtureId.numeric = allocId();
+        fixtureId.text = std::to_string(fixtureId.numeric);
       }
-      std::string stringId = TrimAscii(f.fixtureIdText);
-      if (stringId.empty())
-        stringId = std::to_string(numeric);
-      result[uid] = {stringId, numeric};
+      result[uid] = {fixtureId.text, fixtureId.numeric};
     }
 
     for (const auto &[uid, t] : scene.trusses) {
@@ -1808,17 +1827,18 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     };
 
     auto idIt = assignedIds.find(f.uuid);
-    int fixtureNumericId = f.fixtureIdNumeric > 0 ? f.fixtureIdNumeric : f.fixtureId;
-    if (fixtureNumericId <= 0 && idIt != assignedIds.end())
-      fixtureNumericId = idIt->second.second;
-    if (fixtureNumericId <= 0)
-      fixtureNumericId = 1;
-    std::string fixtureId = TrimAscii(f.fixtureIdText);
-    if (fixtureId.empty())
-      fixtureId = std::to_string(fixtureNumericId);
-    addStr("FixtureID", fixtureId);
-    addInt("FixtureIDNumeric", fixtureNumericId);
-    if (f.unitNumber != 0 && f.unitNumber != fixtureNumericId)
+    FixtureExportId fixtureExportId = ResolveFixtureExportId(f);
+    if (fixtureExportId.numeric <= 0 && idIt != assignedIds.end())
+      fixtureExportId = {idIt->second.first, idIt->second.second};
+    if (fixtureExportId.numeric <= 0) {
+      fixtureExportId.numeric = 1;
+      fixtureExportId.text = "1";
+    }
+    if (fixtureExportId.text.empty())
+      fixtureExportId.text = std::to_string(fixtureExportId.numeric);
+    addStr("FixtureID", fixtureExportId.text);
+    addInt("FixtureIDNumeric", fixtureExportId.numeric);
+    if (f.unitNumber != 0 && f.unitNumber != fixtureExportId.numeric)
       addInt("UnitNumber", f.unitNumber);
     addInt("CustomId", f.customId);
     addInt("CustomIdType", f.customIdType);

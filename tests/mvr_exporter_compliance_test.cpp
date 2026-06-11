@@ -211,6 +211,16 @@ int main() {
   fLongDup.address = "8.1";
   scene.fixtures[fLongDup.uuid] = fLongDup;
 
+  Fixture fEditedId;
+  fEditedId.uuid = "fx-edited-id";
+  fEditedId.instanceName = "Edited ID Fixture";
+  fEditedId.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
+  fEditedId.fixtureIdText = "Old imported ID";
+  fEditedId.fixtureIdNumeric = 12;
+  fEditedId.fixtureId = 909;
+  fEditedId.address = "9.1";
+  scene.fixtures[fEditedId.uuid] = fEditedId;
+
   Truss tr;
   tr.uuid = "tr-1";
   tr.name = "Main Truss";
@@ -320,6 +330,8 @@ int main() {
   bool sawAddress2681 = false;
   bool sawAddress3073 = false;
   bool sawAddress3585 = false;
+  bool sawAddress4097 = false;
+  bool sawEditedFixtureId = false;
   bool sawNonNumericTrussNameFixtureIdConsistency = false;
   bool sawPrimitiveSphereWithIdentityGeometryMatrix = false;
   bool sawPrimitivePipeObjectMatrixUnbaked = false;
@@ -359,6 +371,12 @@ int main() {
             std::string fixtureUuid = uuidAttr;
             std::string fixtureNodeName = nameAttr;
             assert(fixtureNodeName == "Fixture_" + fixtureUuid);
+
+            if (fixtureUuid == fEditedId.uuid) {
+              assert(fixtureIdText == "909");
+              assert(value == 909);
+              sawEditedFixtureId = true;
+            }
 
             auto *unitNode = cur->FirstChildElement("UnitNumber");
             if (unitNode) {
@@ -404,6 +422,8 @@ int main() {
               sawAddress3073 = true;
             if (absoluteAddress == ComputeAbsoluteDmx(8, 1))
               sawAddress3585 = true;
+            if (absoluteAddress == ComputeAbsoluteDmx(9, 1))
+              sawAddress4097 = true;
             ++fixtureAddressCount;
           }
 
@@ -539,12 +559,14 @@ int main() {
   }
 
   assert(gdtfCount.size() >= 2);
-  assert(fixtureAddressCount == 5);
+  assert(fixtureAddressCount == 6);
   assert(sawAddress1);
   assert(sawAddress1025);
   assert(sawAddress2681);
   assert(sawAddress3073);
   assert(sawAddress3585);
+  assert(sawAddress4097);
+  assert(sawEditedFixtureId);
   assert(sawNonNumericTrussNameFixtureIdConsistency);
   assert(sawPrimitiveSphereWithIdentityGeometryMatrix);
   assert(sawPrimitivePipeObjectMatrixUnbaked);
