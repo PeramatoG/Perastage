@@ -556,6 +556,8 @@ struct FixtureInstancedDrawCall {
   float cx = 0.0f;
   float cy = 0.0f;
   float cz = 0.0f;
+  bool highlight = false;
+  bool selected = false;
   std::array<float, 16> fixtureMatrix{};
   std::array<float, 16> localMatrix{};
   bool hasLocalMatrix = false;
@@ -583,10 +585,12 @@ bool ShouldLogFixtureRenderMetrics(const FixtureRenderMetrics &metrics) {
   return loggedMetricKeys.insert(key).second;
 }
 
+// Adds a fixture draw command to the fast-interaction batch queue.
 void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
                              float r, float g, float b, bool unlit,
                              bool wireframe, Viewer2DRenderMode mode,
                              float scale, float cx, float cy, float cz,
+                             bool highlight, bool selected,
                              const float *fixtureMatrix,
                              const float *localMatrix,
                              const float *worldMatrix) {
@@ -602,6 +606,8 @@ void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
   draw.cx = cx;
   draw.cy = cy;
   draw.cz = cz;
+  draw.highlight = highlight;
+  draw.selected = selected;
   for (size_t i = 0; i < draw.fixtureMatrix.size(); ++i)
     draw.fixtureMatrix[i] = fixtureMatrix[i];
   if (localMatrix) {
@@ -688,8 +694,8 @@ void OpaqueFixturePass::Render(
             const float g = static_cast<float>((color >> 8) & 0xFFu) / 255.0f;
             const float b = static_cast<float>(color & 0xFFu) / 255.0f;
             controller.DrawMeshWithOutline(
-                *key.mesh, r, g, b, key.scale, false, false, draw.cx, draw.cy,
-                draw.cz, key.wireframe, key.mode,
+                *key.mesh, r, g, b, key.scale, draw.highlight, draw.selected,
+                draw.cx, draw.cy, draw.cz, key.wireframe, key.mode,
                 [](const std::array<float, 3> &p) { return p; }, key.unlit,
                 draw.worldMatrix.data());
             glPopMatrix();
@@ -1013,9 +1019,8 @@ void OpaqueFixturePass::Render(
       continue;
     }
 
-    // Uses proxy/instanced fixture draws only for non-highlighted fast interaction frames.
-    if (context.skipOptionalWork && !highlight && !selected &&
-        !captureRecordingActive) {
+    // Fast interaction keeps fixtures on lightweight proxy draws, including highlighted ones.
+    if (context.skipOptionalWork && !captureRecordingActive) {
       ++frameMetrics.instancedFixtures;
       if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
         const auto &parts = itg->second;
@@ -1043,12 +1048,13 @@ void OpaqueFixturePass::Render(
           const Mesh &proxyMesh = ResolveMovingProxyMesh(obj.mesh, controller);
           AddFixtureInstancedDraw(fixtureInstancedBatches, proxyMesh, partR, partG,
                                   partB, drawUnlit, wireframe, mode, RENDER_SCALE,
-                                  cx, cy, cz, matrix, localMatrix, worldMatrixArray);
+                                  cx, cy, cz, highlight, selected, matrix,
+                                  localMatrix, worldMatrixArray);
         }
       } else {
         AddFixtureInstancedDraw(fixtureInstancedBatches, FallbackFixtureCubeMesh(),
                                 r, g, b, false, wireframe, mode, 0.2f, cx, cy,
-                                cz, matrix, nullptr, matrix);
+                                cz, highlight, selected, matrix, nullptr, matrix);
       }
       glPopMatrix();
       if (controller.m_captureCanvas && !skipCapture)
@@ -1056,52 +1062,8 @@ void OpaqueFixturePass::Render(
       continue;
     }
 
-    // Proxy/instanced fixture batching is reserved for the fast-interaction
-    // path while the camera is moving. When the camera is static we draw full
-    // geometry directly to avoid persistent proxy rendering.
-    const bool eligibleForFixtureInstancedBatch =
-        context.skipOptionalWork && !highlight && !selected &&
-        !captureRecordingActive;
-    if (eligibleForFixtureInstancedBatch) {
-      ++frameMetrics.instancedFixtures;
-      if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
-        const auto &parts = itg->second;
-        const bool reversePartOrder = drawRealTopInTopView;
-        for (size_t offset = 0; offset < parts.size(); ++offset) {
-          const size_t partIndex =
-              reversePartOrder ? (parts.size() - 1 - offset) : offset;
-          const auto &obj = parts[partIndex];
-          float localMatrix[16];
-          MatrixToArray(obj.transform, localMatrix);
-          Matrix worldMatrix = MatrixUtils::Multiply(f.transform, obj.transform);
-          float worldMatrixArray[16];
-          MatrixToArray(worldMatrix, worldMatrixArray);
-
-          float partR = r;
-          float partG = g;
-          float partB = b;
-          if (!is2DViewer && obj.isLens) {
-            const bool isWhiteRenderMode =
-                controller.IsPureWhiteRenderStyleEnabled();
-            partR = 1.0f;
-            partG = isWhiteRenderMode ? 1.0f : 0.78f;
-            partB = isWhiteRenderMode ? 1.0f : 0.35f;
-          }
-          const bool drawUnlit = !is2DViewer && obj.isLens;
-          AddFixtureInstancedDraw(fixtureInstancedBatches, obj.mesh, partR,
-                                  partG, partB, drawUnlit, wireframe, mode,
-                                  RENDER_SCALE, cx, cy, cz, matrix, localMatrix,
-                                  worldMatrixArray);
-        }
-      } else {
-        AddFixtureInstancedDraw(fixtureInstancedBatches, FallbackFixtureCubeMesh(),
-                                r, g, b, false, wireframe, mode, 0.2f, cx, cy,
-                                cz, matrix, nullptr, matrix);
-      }
-    } else {
-      ++frameMetrics.fallbackFixtures;
-      frameMetrics.fallbackDrawCalls += drawFixtureGeometry();
-    }
+    ++frameMetrics.fallbackFixtures;
+    frameMetrics.fallbackDrawCalls += drawFixtureGeometry();
 
     glPopMatrix();
 
