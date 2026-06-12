@@ -163,34 +163,6 @@ static bool ShouldCullProjectedBounds(
                                 minPixels);
 }
 
-// Returns whether fixture bounds are fully outside the viewport without depth
-// or size rejects.
-static bool ShouldCullProjectedFixtureBounds(
-    const IVisibilityContext::BoundingBox &bounds,
-    const IVisibilityContext::ViewFrustumSnapshot &frustum,
-    bool &outProjectionSucceeded) {
-  if (frustum.viewport[2] <= 0 || frustum.viewport[3] <= 0) {
-    outProjectionSucceeded = false;
-    return false;
-  }
-
-  ScreenRect rect;
-  bool anyDepthVisible = false;
-  outProjectionSucceeded = ProjectBoundingBoxToScreen(
-      bounds.min, bounds.max, frustum.viewport[3], frustum.model,
-      frustum.projection, frustum.viewport, rect, anyDepthVisible);
-  if (!outProjectionSucceeded)
-    return false;
-
-  constexpr double kFixtureEdgeMarginPixels = 2.0;
-  return rect.maxX < -kFixtureEdgeMarginPixels ||
-         rect.minX > static_cast<double>(frustum.viewport[2]) +
-                         kFixtureEdgeMarginPixels ||
-         rect.maxY < -kFixtureEdgeMarginPixels ||
-         rect.minY > static_cast<double>(frustum.viewport[3]) +
-                         kFixtureEdgeMarginPixels;
-}
-
 } // namespace
 
 // Computes or retrieves world-space bounds for the requested visible item.
@@ -630,15 +602,9 @@ bool VisibilitySystem::TryBuildVisibleSet(
 
   out.fixtureUuids.reserve(layerVisibleCandidates.fixtureUuids.size());
   for (const auto &uuid : layerVisibleCandidates.fixtureUuids) {
-    if (useFrustumCulling) {
-      auto bit = m_controller.GetFixtureBounds().find(uuid);
-      bool projected = false;
-      if (bit != m_controller.GetFixtureBounds().end() &&
-          ShouldCullProjectedFixtureBounds(bit->second, frustum, projected) &&
-          projected) {
-        continue;
-      }
-    }
+    // Fixture GDTF bounds can be conservative or delayed while resources load;
+    // keep fixtures after layer/type filtering so edge-clipped fixtures remain
+    // renderable and hoverable.
     out.fixtureUuids.push_back(uuid);
   }
 
