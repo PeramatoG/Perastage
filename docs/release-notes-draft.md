@@ -16,6 +16,7 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
+- Restored fast 3D fixture hover highlighting by using the same proxy/instanced fast-interaction path as Perastage v1.3.0 while preserving responsive viewport-edge repaint behavior.
 - Fixed 3D fixture hover highlighting and edge clipping so fixtures stay visible and hoverable at viewport edges even when fixture bounds are delayed or conservative.
 - Fixed fixture ID edits so saved project files and exported MVR files keep the updated numeric fixture IDs instead of reverting to imported IDs.
 - Fixed command-bar position and rotation value parsing so `t` and `thru` separators distribute selected items the same way as two space-separated values.
