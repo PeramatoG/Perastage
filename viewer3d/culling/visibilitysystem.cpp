@@ -602,15 +602,9 @@ bool VisibilitySystem::TryBuildVisibleSet(
 
   out.fixtureUuids.reserve(layerVisibleCandidates.fixtureUuids.size());
   for (const auto &uuid : layerVisibleCandidates.fixtureUuids) {
-    if (useFrustumCulling) {
-      auto bit = m_controller.GetFixtureBounds().find(uuid);
-      bool projected = false;
-      if (bit != m_controller.GetFixtureBounds().end() &&
-          ShouldCullProjectedBounds(bit->second, frustum, minPixels, projected) &&
-          projected) {
-        continue;
-      }
-    }
+    // Fixture GDTF bounds can be conservative or delayed while resources load;
+    // keep fixtures after layer/type filtering so edge-clipped fixtures remain
+    // renderable and hoverable.
     out.fixtureUuids.push_back(uuid);
   }
 
