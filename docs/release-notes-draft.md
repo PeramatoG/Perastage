@@ -16,7 +16,7 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
-- Restored edge-safe fixture visibility and kept fixture label picking from blocking 3D hover highlight repaint after hover changes.
+- Restored edge-safe fixture visibility and forced fixture hover highlight changes to repaint immediately without waiting for another frame.
 - Fixed fixture ID edits so saved project files and exported MVR files keep the updated numeric fixture IDs instead of reverting to imported IDs.
 - Fixed command-bar position and rotation value parsing so `t` and `thru` separators distribute selected items the same way as two space-separated values.
 - Fixed MVR Eurotruss rendering in the 3D viewport by preserving native 3DS SceneObject mesh dimensions, keeping repeated SceneObject Symbol children distinct per parent object, and preserving correct truss fallback sizing for rotated trusses.

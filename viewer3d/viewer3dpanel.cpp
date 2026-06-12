@@ -979,6 +979,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
 
     bool highlightChanged = false;
+    bool rerenderedAfterFixtureHighlightChange = false;
     if (oldHoverUuid != m_hoverUuid || oldHasHover != m_hasHover) {
         const auto highlightUpdateStart = std::chrono::steady_clock::now();
         highlightChanged = true;
@@ -1013,6 +1014,13 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         ++m_highlightUpdateSamplesInCurrentWindow;
     }
     m_mouseMoved = false;
+
+    if (highlightChanged && activeTable == HoverTargetTable::Fixtures) {
+        Render(renderSize);
+        SetCurrent(*m_glContext);
+        reusedBasePass = false;
+        rerenderedAfterFixtureHighlightChange = true;
+    }
 
     // Draw labels before swapping buffers to avoid losing them.
     if ((!highlightOnlyRefresh || !reusedBasePass) && !pauseHeavyTasks &&
@@ -1072,9 +1080,10 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_highlightUpdateSamplesInCurrentWindow = 0;
     }
 
-    if (!highlightChanged && highlightRefreshPendingAtFrameStart)
+    if ((!highlightChanged && highlightRefreshPendingAtFrameStart) ||
+        rerenderedAfterFixtureHighlightChange)
         m_highlightRefreshPending = false;
-    if (highlightChanged)
+    if (highlightChanged && !rerenderedAfterFixtureHighlightChange)
         Refresh(false);
     if (m_selectionRefreshPending)
         m_selectionRefreshPending = false;
