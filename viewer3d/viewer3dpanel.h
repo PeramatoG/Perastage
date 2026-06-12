@@ -157,6 +157,8 @@ private:
     void ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters);
     void FinalizeSelectionDrag();
     void DrawSelectionDragGizmo(const RenderSize& renderSize);
+    // Updates hover state immediately from a mouse-move event when possible.
+    bool TryUpdateHoverFromMouseMove(const wxPoint& mousePos);
 
     // Renders the full scene
     void Render(const RenderSize& renderSize);

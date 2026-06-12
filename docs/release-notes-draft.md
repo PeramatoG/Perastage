@@ -16,7 +16,7 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
-- Restored smooth 3D fixture hover and selection highlighting during fast viewport interaction, especially for dense GDTF fixture models.
+- Restored responsive 3D fixture hover picking, labels, and selection highlighting during mouse movement and fast viewport interaction, especially for dense GDTF fixture models.
 - Fixed 3D fixture hover highlighting and edge clipping so fixtures stay visible and hoverable at viewport edges even when fixture bounds are delayed or conservative.
 - Fixed fixture ID edits so saved project files and exported MVR files keep the updated numeric fixture IDs instead of reverting to imported IDs.
 - Fixed command-bar position and rotation value parsing so `t` and `thru` separators distribute selected items the same way as two space-separated values.
