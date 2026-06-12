@@ -34,6 +34,9 @@ IdPickPass::~IdPickPass() {
     glDeleteFramebuffers(1, &m_fbo);
 }
 
+// Marks the cached ID-pick framebuffer for rebuild on the next pick query.
+void IdPickPass::MarkDirty() { m_dirty = true; }
+
 uint32_t IdPickPass::GetOrCreatePickId(const std::string &uuid) {
   auto it = m_uuidToPickId.find(uuid);
   if (it != m_uuidToPickId.end())

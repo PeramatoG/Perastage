@@ -925,6 +925,8 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   if (syncResult.assetsChanged) {
     m_impl->assetsChangedDirty = true;
     m_impl->modelBounds.clear();
+    if (m_impl->idPickPass)
+      m_impl->idPickPass->MarkDirty();
   }
 
   BoundsCacheSystem::Context boundsContext{
