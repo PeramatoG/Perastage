@@ -859,8 +859,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     const int w = renderSize.width;
     const int h = renderSize.height;
 
-    wxString newLabel;
-    wxPoint newPos;
     std::string newUuid;
     const std::string oldHoverUuid = m_hoverUuid;
     const bool oldHasHover = m_hasHover;
@@ -931,26 +929,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_hoverQueryMsAccumInCurrentWindow += hoverQueryElapsedMs;
         ++m_hoverQuerySamplesInCurrentWindow;
         hoverQueryRan = true;
-        if (found) {
-            if (!skipLabelWork) {
-                wxString tooltipLabel;
-                wxPoint tooltipPos;
-                if (activeTable == HoverTargetTable::Fixtures) {
-                    m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y,
-                        w, h, tooltipLabel, tooltipPos, nullptr);
-                } else if (activeTable == HoverTargetTable::Trusses) {
-                    m_controller.GetTrussLabelAt(pickPos.x, pickPos.y,
-                        w, h, tooltipLabel, tooltipPos, nullptr);
-                } else if (activeTable == HoverTargetTable::SceneObjects) {
-                    m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y,
-                        w, h, tooltipLabel, tooltipPos, nullptr);
-                }
-                newLabel = tooltipLabel;
-                newPos = tooltipPos;
-            } else {
-                newLabel.clear();
-            }
-        }
     }
 
     if (hoverQueryRan) {
@@ -963,12 +941,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     if (hoverQueryRan && found) {
         m_hasHover = true;
         m_hoverUuid = newUuid;
-        if (!skipLabelWork) {
-            m_hoverText = newLabel;
-            m_hoverPos = newPos;
-        } else {
-            m_hoverText.clear();
-        }
+        m_hoverText.clear();
     }
     else if (hoverQueryRan && !skipLabelWork) {
         m_hasHover = false;
