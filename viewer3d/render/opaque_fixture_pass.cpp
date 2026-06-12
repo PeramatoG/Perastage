@@ -496,33 +496,24 @@ void CancelFixtureRotationForLayoutSvg(const Matrix &fixtureTransform,
   glMultMatrixf(inverseRotation);
 }
 
-void DrawBoundsSolid(const Viewer3DBoundingBox &bb) {
-  glBegin(GL_QUADS);
-  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
+// Draws mesh triangles with the current flat OpenGL color for ID picking.
+void DrawMeshSolidForPick(const Mesh &mesh, float scale) {
+  glPushMatrix();
+  glScalef(scale, scale, scale);
+  glBegin(GL_TRIANGLES);
+  for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+    const uint32_t i0 = mesh.indices[i];
+    const uint32_t i1 = mesh.indices[i + 1];
+    const uint32_t i2 = mesh.indices[i + 2];
+    glVertex3f(mesh.vertices[i0 * 3], mesh.vertices[i0 * 3 + 1],
+               mesh.vertices[i0 * 3 + 2]);
+    glVertex3f(mesh.vertices[i1 * 3], mesh.vertices[i1 * 3 + 1],
+               mesh.vertices[i1 * 3 + 2]);
+    glVertex3f(mesh.vertices[i2 * 3], mesh.vertices[i2 * 3 + 1],
+               mesh.vertices[i2 * 3 + 2]);
+  }
   glEnd();
+  glPopMatrix();
 }
 
 struct FixtureInstancedBatchKey {
@@ -625,15 +616,45 @@ void OpaqueFixturePass::Render(
     const std::function<std::array<float, 3>(const std::string &)> &getLayerColor,
     const std::function<SymbolViewKind(Viewer2DView)> &resolveSymbolView,
     const std::function<std::array<float, 3>(const std::string &)> &getPickColor) {
+  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   if (context.idOnlyPass) {
     glShadeModel(GL_FLAT);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_LIGHTING);
     for (const auto &uuid : visibleSet.fixtureUuids) {
-      auto bbIt = controller.m_fixtureBounds.find(uuid);
-      if (bbIt == controller.m_fixtureBounds.end())
+      auto fixtureIt = fixtures.find(uuid);
+      if (fixtureIt == fixtures.end())
         continue;
+      const Fixture &fixture = fixtureIt->second;
       const auto pickColor = getPickColor(uuid);
       glColor3f(pickColor[0], pickColor[1], pickColor[2]);
-      DrawBoundsSolid(bbIt->second);
+
+      float fixtureMatrix[16];
+      MatrixToArray(fixture.transform, fixtureMatrix);
+      glPushMatrix();
+      controller.ApplyTransform(fixtureMatrix, true);
+
+      std::string gdtfPath;
+      auto gdtfPathIt = controller.m_resourceSyncState.resolvedGdtfSpecs.find(
+          ResolveCacheKey(fixture.gdtfSpec));
+      if (gdtfPathIt != controller.m_resourceSyncState.resolvedGdtfSpecs.end() &&
+          gdtfPathIt->second.attempted)
+        gdtfPath = gdtfPathIt->second.resolvedPath;
+
+      auto gdtfIt = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
+      if (gdtfIt != controller.m_resourceSyncState.loadedGdtf.end()) {
+        for (const auto &obj : gdtfIt->second) {
+          float localMatrix[16];
+          MatrixToArray(obj.transform, localMatrix);
+          glPushMatrix();
+          controller.ApplyTransform(localMatrix, false);
+          DrawMeshSolidForPick(obj.mesh, RENDER_SCALE);
+          glPopMatrix();
+        }
+      } else {
+        DrawMeshSolidForPick(FallbackFixtureCubeMesh(), 0.2f);
+      }
+      glPopMatrix();
     }
     return;
   }
@@ -643,7 +664,6 @@ void OpaqueFixturePass::Render(
   const bool is2DViewer = context.is2DViewer;
   const bool isTopView2D = is2DViewer && context.view == Viewer2DView::Top;
 
-  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   std::unordered_map<SvgSymbolCacheKey, std::optional<PerastageSvgSymbolData>,
                      SvgSymbolCacheKeyHasher>
       perastageSvgCache;
