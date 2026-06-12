@@ -22,10 +22,6 @@ bool MatricesEqual(const std::array<double, 16> &a,
   return std::equal(a.begin(), a.end(), b.begin());
 }
 
-// Converts a top-left mouse Y coordinate to an OpenGL framebuffer sample row.
-int ToFramebufferSampleY(int mouseY, int height) {
-  return std::clamp(height - 1 - mouseY, 0, std::max(0, height - 1));
-}
 } // namespace
 
 IdPickPass::IdPickPass(Viewer3DController &controller) : m_controller(controller) {}
@@ -195,7 +191,7 @@ bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
       mouseY >= height)
     return false;
 
-  const int sampleY = ToFramebufferSampleY(mouseY, height);
+  const int sampleY = height - mouseY;
   unsigned char pixel[3] = {0, 0, 0};
   glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
   glReadPixels(mouseX, sampleY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
