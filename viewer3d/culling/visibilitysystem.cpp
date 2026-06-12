@@ -142,7 +142,7 @@ static bool ShouldCullByScreenRect(const ScreenRect &rect, int width,
 static bool ShouldCullProjectedBounds(
     const IVisibilityContext::BoundingBox &bounds,
     const IVisibilityContext::ViewFrustumSnapshot &frustum, float minPixels,
-    bool &outProjectionSucceeded) {
+    bool requireVisibleDepth, bool &outProjectionSucceeded) {
   if (frustum.viewport[2] <= 0 || frustum.viewport[3] <= 0) {
     outProjectionSucceeded = false;
     return false;
@@ -156,7 +156,7 @@ static bool ShouldCullProjectedBounds(
   if (!outProjectionSucceeded)
     return false;
 
-  if (!frustum.is2DViewer && !anyDepthVisible)
+  if (requireVisibleDepth && !frustum.is2DViewer && !anyDepthVisible)
     return true;
 
   return ShouldCullByScreenRect(rect, frustum.viewport[2], frustum.viewport[3],
@@ -578,7 +578,7 @@ bool VisibilitySystem::TryBuildVisibleSet(
       auto bit = m_controller.GetObjectBounds().find(uuid);
       bool projected = false;
       if (bit != m_controller.GetObjectBounds().end() &&
-          ShouldCullProjectedBounds(bit->second, frustum, minPixels, projected) &&
+          ShouldCullProjectedBounds(bit->second, frustum, minPixels, true, projected) &&
           projected) {
         continue;
       }
@@ -592,7 +592,7 @@ bool VisibilitySystem::TryBuildVisibleSet(
       auto bit = m_controller.GetTrussBounds().find(uuid);
       bool projected = false;
       if (bit != m_controller.GetTrussBounds().end() &&
-          ShouldCullProjectedBounds(bit->second, frustum, minPixels, projected) &&
+          ShouldCullProjectedBounds(bit->second, frustum, minPixels, true, projected) &&
           projected) {
         continue;
       }
@@ -602,9 +602,15 @@ bool VisibilitySystem::TryBuildVisibleSet(
 
   out.fixtureUuids.reserve(layerVisibleCandidates.fixtureUuids.size());
   for (const auto &uuid : layerVisibleCandidates.fixtureUuids) {
-    // Fixture GDTF bounds can be conservative or delayed while resources load;
-    // keep fixtures after layer/type filtering so edge-clipped fixtures remain
-    // renderable and hoverable.
+    if (useFrustumCulling) {
+      auto bit = m_controller.GetFixtureBounds().find(uuid);
+      bool projected = false;
+      if (bit != m_controller.GetFixtureBounds().end() &&
+          ShouldCullProjectedBounds(bit->second, frustum, minPixels, false, projected) &&
+          projected) {
+        continue;
+      }
+    }
     out.fixtureUuids.push_back(uuid);
   }
 

@@ -16,8 +16,7 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
-- Restored the Perastage v1.3.0 fast-interaction render path for highlighted 3D fixtures so hover feedback remains responsive while edge fixtures stay visible.
-- Fixed 3D fixture hover highlighting and edge clipping so fixtures stay visible and hoverable at viewport edges even when fixture bounds are delayed or conservative.
+- Restored the Perastage v1.3.0 fast-interaction render and projected visibility paths for 3D fixture hover so highlights stay responsive while edge fixtures remain visible.
 - Fixed fixture ID edits so saved project files and exported MVR files keep the updated numeric fixture IDs instead of reverting to imported IDs.
 - Fixed command-bar position and rotation value parsing so `t` and `thru` separators distribute selected items the same way as two space-separated values.
 - Fixed MVR Eurotruss rendering in the 3D viewport by preserving native 3DS SceneObject mesh dimensions, keeping repeated SceneObject Symbol children distinct per parent object, and preserving correct truss fallback sizing for rotated trusses.
