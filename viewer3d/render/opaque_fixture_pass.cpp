@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cfloat>
 #include <cstddef>
 #include <filesystem>
 #include <optional>
@@ -130,6 +131,66 @@ std::vector<SymbolViewKind> BuildSymbolViewCandidates(SymbolViewKind requested) 
 }
 
 std::array<float, 3> BuildSvgVertexForView(float x, float y, Viewer2DView view);
+
+struct FrustumPlanes {
+  std::array<std::array<float, 4>, 6> planes{};
+};
+
+// Builds normalized frustum planes from the current OpenGL matrices.
+FrustumPlanes BuildCurrentFrustumPlanes() {
+  std::array<float, 16> model{};
+  std::array<float, 16> projection{};
+  glGetFloatv(GL_MODELVIEW_MATRIX, model.data());
+  glGetFloatv(GL_PROJECTION_MATRIX, projection.data());
+
+  std::array<float, 16> clip{};
+  for (int row = 0; row < 4; ++row) {
+    for (int col = 0; col < 4; ++col) {
+      clip[row * 4 + col] = model[row * 4 + 0] * projection[0 * 4 + col] +
+                            model[row * 4 + 1] * projection[1 * 4 + col] +
+                            model[row * 4 + 2] * projection[2 * 4 + col] +
+                            model[row * 4 + 3] * projection[3 * 4 + col];
+    }
+  }
+
+  FrustumPlanes out;
+  out.planes[0] = {clip[3] - clip[0], clip[7] - clip[4], clip[11] - clip[8],
+                   clip[15] - clip[12]}; // right
+  out.planes[1] = {clip[3] + clip[0], clip[7] + clip[4], clip[11] + clip[8],
+                   clip[15] + clip[12]}; // left
+  out.planes[2] = {clip[3] + clip[1], clip[7] + clip[5], clip[11] + clip[9],
+                   clip[15] + clip[13]}; // bottom
+  out.planes[3] = {clip[3] - clip[1], clip[7] - clip[5], clip[11] - clip[9],
+                   clip[15] - clip[13]}; // top
+  out.planes[4] = {clip[3] - clip[2], clip[7] - clip[6], clip[11] - clip[10],
+                   clip[15] - clip[14]}; // far
+  out.planes[5] = {clip[3] + clip[2], clip[7] + clip[6], clip[11] + clip[10],
+                   clip[15] + clip[14]}; // near
+
+  for (auto &plane : out.planes) {
+    const float length =
+        std::sqrt(plane[0] * plane[0] + plane[1] * plane[1] + plane[2] * plane[2]);
+    if (length > FLT_EPSILON) {
+      plane[0] /= length;
+      plane[1] /= length;
+      plane[2] /= length;
+      plane[3] /= length;
+    }
+  }
+  return out;
+}
+
+// Checks whether a bounding sphere is completely outside the frustum.
+bool SphereOutsideFrustum(const FrustumPlanes &frustum, float x, float y, float z,
+                          float radius) {
+  for (const auto &plane : frustum.planes) {
+    const float distance =
+        plane[0] * x + plane[1] * y + plane[2] * z + plane[3];
+    if (distance < -radius)
+      return true;
+  }
+  return false;
+}
 
 const Mesh &ResolveMovingProxyMesh(const Mesh &source,
                                    Viewer3DController &controller) {
@@ -672,6 +733,9 @@ void OpaqueFixturePass::Render(
   }
   FixtureInstancedBatches fixtureInstancedBatches;
   FixtureRenderMetrics frameMetrics;
+  // Build once per pass and reject fixtures whose bounding sphere is fully
+  // outside the camera frustum before issuing GPU work.
+  const FrustumPlanes frustumPlanes = BuildCurrentFrustumPlanes();
   auto RenderFixtureInstancedBatches =
       [&](const FixtureInstancedBatches &batches) {
         size_t drawCalls = 0;
@@ -705,6 +769,17 @@ void OpaqueFixturePass::Render(
     const auto &f = fixtureIt->second;
 
     auto fbit = controller.m_fixtureBounds.find(uuid);
+    if (fbit != controller.m_fixtureBounds.end()) {
+      const float sx = (fbit->second.min[0] + fbit->second.max[0]) * 0.5f;
+      const float sy = (fbit->second.min[1] + fbit->second.max[1]) * 0.5f;
+      const float sz = (fbit->second.min[2] + fbit->second.max[2]) * 0.5f;
+      const float dx = fbit->second.max[0] - sx;
+      const float dy = fbit->second.max[1] - sy;
+      const float dz = fbit->second.max[2] - sz;
+      const float radius = std::sqrt(dx * dx + dy * dy + dz * dz);
+      if (SphereOutsideFrustum(frustumPlanes, sx, sy, sz, radius))
+        continue;
+    }
 
     glPushMatrix();
 

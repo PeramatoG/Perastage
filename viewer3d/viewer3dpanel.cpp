@@ -866,6 +866,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     const bool oldHasHover = m_hasHover;
     bool found = false;
     bool hoverQueryRan = false;
+    bool highlightChanged = false;
 
     const bool skipLabelsWhenMoving =
         ConfigManager::Get().GetFloat("viewer3d_skip_labels_when_moving") >= 0.5f;
@@ -982,8 +983,11 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     if (oldHoverUuid != m_hoverUuid || oldHasHover != m_hasHover) {
         const auto highlightUpdateStart = std::chrono::steady_clock::now();
+        highlightChanged = true;
         ++m_highlightRevision;
         m_highlightRefreshPending = true;
+        if (m_basePassCache)
+            m_basePassCache->Invalidate();
         m_controller.SetHighlightUuid(m_hoverUuid);
         if (FixtureTablePanel::Instance()) {
             FixtureTablePanel::Instance()->HighlightFixture(
@@ -1075,6 +1079,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_selectionRefreshPending = false;
 
     SwapBuffers(); // Swap after drawing labels to ensure they are visible
+    if (highlightChanged)
+        Refresh();
     viewer3d::diagnostics::Log("OpenGL render frame end.");
 }
 
