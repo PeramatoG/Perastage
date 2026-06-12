@@ -92,6 +92,7 @@ int main() {
     Fixture f2; f2.uuid = "fx2"; f2.instanceName = "Fixture 2"; f2.layer = layer.name; f2.typeName = "FixtureType"; f2.gdtfSpec = "orig.gdtf"; f2.fixtureIdText = "S101B"; f2.fixtureIdNumeric = 101; f2.fixtureId = 101; scene.fixtures[f2.uuid] = f2;
     const std::string nonCanonicalFixtureUuid = "A0B1C2D3-E4F5-4678-9ABC-DEF012345678";
     Fixture f3; f3.uuid = nonCanonicalFixtureUuid; f3.instanceName = "Fixture 3"; f3.layer = layer.name; f3.typeName = "FixtureType"; f3.gdtfSpec = "orig.gdtf"; f3.fixtureIdText = "S101C"; f3.fixtureIdNumeric = 101; f3.fixtureId = 101; scene.fixtures[f3.uuid] = f3;
+    Fixture f4; f4.uuid = "fx-edited-id"; f4.instanceName = "Edited ID Fixture"; f4.layer = layer.name; f4.typeName = "FixtureType"; f4.gdtfSpec = "orig.gdtf"; f4.fixtureIdText = "Imported ID"; f4.fixtureIdNumeric = 44; f4.fixtureId = 707; scene.fixtures[f4.uuid] = f4;
     viewer2d::ApplyShowLabelNameOverride(cfg, {nonCanonicalFixtureUuid}, 0, true);
     Truss t; t.uuid = "tr1"; t.name = "Truss"; t.layer = layer.name; scene.trusses[t.uuid] = t;
     SceneObject o; o.uuid = "obj1"; o.name = "Object"; o.layer = layer.name; scene.sceneObjects[o.uuid] = o;
@@ -136,7 +137,7 @@ int main() {
     assert(cfg.LoadProject(temp.string()));
 
     const auto &scene2 = cfg.GetScene();
-    assert(scene2.fixtures.size() == 3);
+    assert(scene2.fixtures.size() == 4);
     assert(scene2.trusses.size() == 1);
     assert(scene2.sceneObjects.size() == 3);
     assert(scene2.supports.size() == 2);
@@ -157,6 +158,9 @@ int main() {
     assert(scene2.fixtures.at("fx1").fixtureIdNumeric == 101);
     assert(scene2.fixtures.at("fx2").fixtureIdText == "S101B");
     assert(scene2.fixtures.at("fx2").fixtureIdNumeric == 101);
+    assert(scene2.fixtures.at("fx-edited-id").fixtureId == 707);
+    assert(scene2.fixtures.at("fx-edited-id").fixtureIdNumeric == 707);
+    assert(scene2.fixtures.at("fx-edited-id").fixtureIdText == "707");
     const std::string canonicalFixtureUuid = CanonicalizeUuid(nonCanonicalFixtureUuid);
     assert(!canonicalFixtureUuid.empty());
     assert(scene2.fixtures.count(canonicalFixtureUuid) == 1);
