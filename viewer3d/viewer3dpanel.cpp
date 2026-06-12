@@ -933,13 +933,10 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         ++m_hoverQuerySamplesInCurrentWindow;
         hoverQueryRan = true;
         if (found) {
-            if (!skipLabelWork) {
+            if (!skipLabelWork && activeTable != HoverTargetTable::Fixtures) {
                 wxString tooltipLabel;
                 wxPoint tooltipPos;
-                if (activeTable == HoverTargetTable::Fixtures) {
-                    m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y,
-                        w, h, tooltipLabel, tooltipPos, nullptr);
-                } else if (activeTable == HoverTargetTable::Trusses) {
+                if (activeTable == HoverTargetTable::Trusses) {
                     m_controller.GetTrussLabelAt(pickPos.x, pickPos.y,
                         w, h, tooltipLabel, tooltipPos, nullptr);
                 } else if (activeTable == HoverTargetTable::SceneObjects) {
