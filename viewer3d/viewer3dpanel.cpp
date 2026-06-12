@@ -796,8 +796,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_controller.UpdateResourcesIfDirty();
     }
 
+    const bool highlightRefreshPendingAtFrameStart = m_highlightRefreshPending;
     const bool highlightOnlyRefresh =
-        m_highlightRefreshPending &&
+        highlightRefreshPendingAtFrameStart &&
         !m_controller.IsResourceSyncPending() &&
         !m_selectionRefreshPending &&
         !m_cameraMoving &&
@@ -980,10 +981,14 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_hoverText.clear();
     }
 
+    bool highlightChanged = false;
     if (oldHoverUuid != m_hoverUuid || oldHasHover != m_hasHover) {
         const auto highlightUpdateStart = std::chrono::steady_clock::now();
+        highlightChanged = true;
         ++m_highlightRevision;
         m_highlightRefreshPending = true;
+        if (m_basePassCache)
+            m_basePassCache->Invalidate();
         m_controller.SetHighlightUuid(m_hoverUuid);
         if (FixtureTablePanel::Instance()) {
             FixtureTablePanel::Instance()->HighlightFixture(
@@ -1013,7 +1018,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     m_mouseMoved = false;
 
     // Draw labels before swapping buffers to avoid losing them.
-    if (!highlightOnlyRefresh && !pauseHeavyTasks && !skipLabelWork) {
+    if ((!highlightOnlyRefresh || !reusedBasePass) && !pauseHeavyTasks &&
+        !skipLabelWork) {
         if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
             m_controller.DrawFixtureLabels(w, h);
         else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
@@ -1069,8 +1075,10 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_highlightUpdateSamplesInCurrentWindow = 0;
     }
 
-    if (reusedBasePass)
+    if (!highlightChanged && highlightRefreshPendingAtFrameStart)
         m_highlightRefreshPending = false;
+    if (highlightChanged)
+        Refresh(false);
     if (m_selectionRefreshPending)
         m_selectionRefreshPending = false;
 
