@@ -18,7 +18,6 @@ public:
   bool ReadUuidAt(int mouseX, int mouseY, int width, int height,
                   const std::unordered_set<std::string> &hiddenLayers,
                   std::string &outUuid);
-  void MarkDirty();
 
 private:
   void EnsureFramebufferSize(int width, int height);

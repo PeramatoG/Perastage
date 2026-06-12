@@ -2,7 +2,6 @@
 
 #include "iselectioncontext.h"
 #include <array>
-#include <cstddef>
 #include <chrono>
 #include <string>
 #include <unordered_set>
@@ -58,7 +57,6 @@ public:
     int depthMouseX = -1;
     int depthMouseY = -1;
     int depthHeight = -1;
-    size_t sceneVersion = static_cast<size_t>(-1);
   };
 
   struct QueryMetrics {

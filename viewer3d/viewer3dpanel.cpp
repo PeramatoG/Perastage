@@ -859,6 +859,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     const int w = renderSize.width;
     const int h = renderSize.height;
 
+    wxString newLabel;
+    wxPoint newPos;
     std::string newUuid;
     const std::string oldHoverUuid = m_hoverUuid;
     const bool oldHasHover = m_hasHover;
@@ -929,6 +931,26 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_hoverQueryMsAccumInCurrentWindow += hoverQueryElapsedMs;
         ++m_hoverQuerySamplesInCurrentWindow;
         hoverQueryRan = true;
+        if (found) {
+            if (!skipLabelWork) {
+                wxString tooltipLabel;
+                wxPoint tooltipPos;
+                if (activeTable == HoverTargetTable::Fixtures) {
+                    m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y,
+                        w, h, tooltipLabel, tooltipPos, nullptr);
+                } else if (activeTable == HoverTargetTable::Trusses) {
+                    m_controller.GetTrussLabelAt(pickPos.x, pickPos.y,
+                        w, h, tooltipLabel, tooltipPos, nullptr);
+                } else if (activeTable == HoverTargetTable::SceneObjects) {
+                    m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y,
+                        w, h, tooltipLabel, tooltipPos, nullptr);
+                }
+                newLabel = tooltipLabel;
+                newPos = tooltipPos;
+            } else {
+                newLabel.clear();
+            }
+        }
     }
 
     if (hoverQueryRan) {
@@ -941,7 +963,12 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     if (hoverQueryRan && found) {
         m_hasHover = true;
         m_hoverUuid = newUuid;
-        m_hoverText.clear();
+        if (!skipLabelWork) {
+            m_hoverText = newLabel;
+            m_hoverPos = newPos;
+        } else {
+            m_hoverText.clear();
+        }
     }
     else if (hoverQueryRan && !skipLabelWork) {
         m_hasHover = false;
@@ -953,15 +980,10 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_hoverText.clear();
     }
 
-    bool highlightChanged = false;
-    bool rerenderedAfterHighlightChange = false;
     if (oldHoverUuid != m_hoverUuid || oldHasHover != m_hasHover) {
         const auto highlightUpdateStart = std::chrono::steady_clock::now();
-        highlightChanged = true;
         ++m_highlightRevision;
         m_highlightRefreshPending = true;
-        if (m_basePassCache)
-            m_basePassCache->Invalidate();
         m_controller.SetHighlightUuid(m_hoverUuid);
         if (FixtureTablePanel::Instance()) {
             FixtureTablePanel::Instance()->HighlightFixture(
@@ -990,15 +1012,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     m_mouseMoved = false;
 
-    if (highlightChanged) {
-        Render(renderSize);
-        SetCurrent(*m_glContext);
-        reusedBasePass = false;
-        rerenderedAfterHighlightChange = true;
-    }
-
     // Draw labels before swapping buffers to avoid losing them.
-    if (!pauseHeavyTasks && !skipLabelWork) {
+    if (!highlightOnlyRefresh && !pauseHeavyTasks && !skipLabelWork) {
         if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
             m_controller.DrawFixtureLabels(w, h);
         else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
@@ -1054,7 +1069,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_highlightUpdateSamplesInCurrentWindow = 0;
     }
 
-    if (reusedBasePass || rerenderedAfterHighlightChange)
+    if (reusedBasePass)
         m_highlightRefreshPending = false;
     if (m_selectionRefreshPending)
         m_selectionRefreshPending = false;

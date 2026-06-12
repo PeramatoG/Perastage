@@ -3,7 +3,6 @@
 #include "viewer3d_types.h"
 #include "canvas2d.h"
 #include <cstdint>
-#include <cstddef>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -22,7 +21,6 @@ public:
   virtual void ApplyHighlightUuid(const std::string &uuid) = 0;
   virtual void ReplaceSelectedUuids(const std::vector<std::string> &uuids) = 0;
   virtual bool IsCameraMoving() const = 0;
-  virtual size_t GetSceneVersion() const = 0;
 
   virtual const BoundingBox *FindFixtureBounds(const std::string &uuid) const = 0;
   virtual const BoundingBox *FindTrussBounds(const std::string &uuid) const = 0;

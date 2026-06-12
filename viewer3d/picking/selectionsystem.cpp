@@ -305,21 +305,6 @@ void CacheProjectionSnapshot(const ProjectionSnapshot &projection,
   cache.visibleSet = nullptr;
 }
 
-// Invalidates cached query results when scene resources or bounds changed.
-void SyncQueryCacheSceneVersion(const ISelectionContext &controller,
-                                SelectionSystem::QueryCache &cache) {
-  const size_t sceneVersion = controller.GetSceneVersion();
-  if (cache.sceneVersion == sceneVersion)
-    return;
-
-  cache.sceneVersion = sceneVersion;
-  cache.visibleSet = nullptr;
-  cache.hasDepthWorldPoint = false;
-  cache.depthMouseX = -1;
-  cache.depthMouseY = -1;
-  cache.depthHeight = -1;
-}
-
 bool IsUuidValidForTarget(const std::string &uuid,
                           SelectionSystem::HoverPickTarget target,
                           const std::unordered_set<std::string> &hiddenLayers,
@@ -459,7 +444,6 @@ bool SelectionSystem::GetHoverUuidAt(int mouseX, int mouseY, int width,
     CacheProjectionSnapshot(projection, m_queryCache);
     m_queryCache.hiddenLayers.clear();
   }
-  SyncQueryCacheSceneVersion(m_controller, m_queryCache);
   metrics.reprojected = projectionChanged;
   metrics.projection = std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::steady_clock::now() - projectionStart);
@@ -629,7 +613,6 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
     CacheProjectionSnapshot(projection, m_queryCache);
     m_queryCache.hiddenLayers.clear();
   }
-  SyncQueryCacheSceneVersion(m_controller, m_queryCache);
   metrics.reprojected = projectionChanged;
   metrics.projection = std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::steady_clock::now() - projectionStart);
@@ -830,7 +813,6 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
     CacheProjectionSnapshot(projection, m_queryCache);
     m_queryCache.hiddenLayers.clear();
   }
-  SyncQueryCacheSceneVersion(m_controller, m_queryCache);
   metrics.reprojected = projectionChanged;
   metrics.projection = std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::steady_clock::now() - projectionStart);
@@ -1009,7 +991,6 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
     CacheProjectionSnapshot(projection, m_queryCache);
     m_queryCache.hiddenLayers.clear();
   }
-  SyncQueryCacheSceneVersion(m_controller, m_queryCache);
   metrics.reprojected = projectionChanged;
   metrics.projection = std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::steady_clock::now() - projectionStart);
