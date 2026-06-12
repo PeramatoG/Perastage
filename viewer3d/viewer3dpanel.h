@@ -132,8 +132,6 @@ private:
     void OnMouseDown(wxMouseEvent& event);
     void OnMouseUp(wxMouseEvent& event);
     void OnMouseMove(wxMouseEvent& event);
-    // Updates hover state synchronously from a mouse-move event when picking is safe.
-    bool TryUpdateHoverFromMouseMove(const wxPoint& mousePos);
     void OnMouseWheel(wxMouseEvent& event);
     void OnRightUp(wxMouseEvent& event);
     void OnMouseDClick(wxMouseEvent& event);

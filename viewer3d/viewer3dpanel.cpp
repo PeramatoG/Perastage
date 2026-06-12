@@ -558,30 +558,6 @@ bool QueryDragLabelUuid(Viewer3DController& controller,
     }
 }
 
-// Applies hover row highlighting to the active object table only.
-void ApplyHoverHighlightToTables(Viewer3DPanel::HoverTargetTable activeTable,
-                                 const std::string& hoverUuid)
-{
-    if (FixtureTablePanel::Instance()) {
-        FixtureTablePanel::Instance()->HighlightFixture(
-            activeTable == Viewer3DPanel::HoverTargetTable::Fixtures
-                ? hoverUuid
-                : std::string());
-    }
-    if (TrussTablePanel::Instance()) {
-        TrussTablePanel::Instance()->HighlightTruss(
-            activeTable == Viewer3DPanel::HoverTargetTable::Trusses
-                ? hoverUuid
-                : std::string());
-    }
-    if (SceneObjectTablePanel::Instance()) {
-        SceneObjectTablePanel::Instance()->HighlightObject(
-            activeTable == Viewer3DPanel::HoverTargetTable::SceneObjects
-                ? hoverUuid
-                : std::string());
-    }
-}
-
 std::array<float, 3> AxisVectorFromSelectionDragAxis(
     viewer3d::SelectionDragAxis axis) {
     switch (axis) {
@@ -890,7 +866,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     const bool oldHasHover = m_hasHover;
     bool found = false;
     bool hoverQueryRan = false;
-    bool highlightChanged = false;
 
     const bool skipLabelsWhenMoving =
         ConfigManager::Get().GetFloat("viewer3d_skip_labels_when_moving") >= 0.5f;
@@ -1005,16 +980,29 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_hoverText.clear();
     }
 
-    bool rerenderedAfterHighlightChange = false;
     if (oldHoverUuid != m_hoverUuid || oldHasHover != m_hasHover) {
         const auto highlightUpdateStart = std::chrono::steady_clock::now();
-        highlightChanged = true;
         ++m_highlightRevision;
         m_highlightRefreshPending = true;
-        if (m_basePassCache)
-            m_basePassCache->Invalidate();
         m_controller.SetHighlightUuid(m_hoverUuid);
-        ApplyHoverHighlightToTables(activeTable, m_hoverUuid);
+        if (FixtureTablePanel::Instance()) {
+            FixtureTablePanel::Instance()->HighlightFixture(
+                FixtureTablePanel::Instance()->IsActivePage()
+                    ? std::string(m_hoverUuid)
+                    : std::string());
+        }
+        if (TrussTablePanel::Instance()) {
+            TrussTablePanel::Instance()->HighlightTruss(
+                TrussTablePanel::Instance()->IsActivePage()
+                    ? std::string(m_hoverUuid)
+                    : std::string());
+        }
+        if (SceneObjectTablePanel::Instance()) {
+            SceneObjectTablePanel::Instance()->HighlightObject(
+                SceneObjectTablePanel::Instance()->IsActivePage()
+                    ? std::string(m_hoverUuid)
+                    : std::string());
+        }
         const auto highlightUpdateElapsedMs =
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - highlightUpdateStart)
@@ -1024,15 +1012,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     m_mouseMoved = false;
 
-    if (highlightChanged) {
-        Render(renderSize);
-        SetCurrent(*m_glContext);
-        reusedBasePass = false;
-        rerenderedAfterHighlightChange = true;
-    }
-
     // Draw labels before swapping buffers to avoid losing them.
-    if (!pauseHeavyTasks && !skipLabelWork) {
+    if (!highlightOnlyRefresh && !pauseHeavyTasks && !skipLabelWork) {
         if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
             m_controller.DrawFixtureLabels(w, h);
         else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
@@ -1088,7 +1069,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_highlightUpdateSamplesInCurrentWindow = 0;
     }
 
-    if (reusedBasePass || rerenderedAfterHighlightChange)
+    if (reusedBasePass)
         m_highlightRefreshPending = false;
     if (m_selectionRefreshPending)
         m_selectionRefreshPending = false;
@@ -2408,78 +2389,6 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
     glMatrixMode(GL_MODELVIEW);
 }
 
-// Updates hover picking immediately during mouse movement when no navigation is active.
-bool Viewer3DPanel::TryUpdateHoverFromMouseMove(const wxPoint& mousePos)
-{
-    if (m_dragging || m_rectSelecting || m_selectionDragArmed ||
-        m_cameraMoving || m_isInteracting)
-        return false;
-
-    const RenderSize renderSize = ResolveRenderSize(this);
-    const HoverTargetTable activeTable = ResolveActiveHoverTargetTable();
-    if (!renderSize.IsValid() || activeTable == HoverTargetTable::None ||
-        !TryBindGlContextForInteraction("OnMouseMove") || !InitGL())
-        return false;
-
-    ApplyCameraMatrices(renderSize);
-    const wxPoint pickPos = ToFramebufferPoint(this, mousePos);
-    std::string newUuid;
-    const bool found = QueryHoverUuid(m_controller, activeTable, pickPos.x,
-                                      pickPos.y, renderSize.width,
-                                      renderSize.height, newUuid);
-
-    wxString newLabel;
-    wxPoint newPos;
-    if (found) {
-        if (activeTable == HoverTargetTable::Fixtures) {
-            m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, renderSize.width,
-                                           renderSize.height, newLabel, newPos,
-                                           nullptr);
-        } else if (activeTable == HoverTargetTable::Trusses) {
-            m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, renderSize.width,
-                                         renderSize.height, newLabel, newPos,
-                                         nullptr);
-        } else if (activeTable == HoverTargetTable::SceneObjects) {
-            m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y,
-                                               renderSize.width,
-                                               renderSize.height, newLabel,
-                                               newPos, nullptr);
-        }
-    }
-
-    const std::string oldHoverUuid = m_hoverUuid;
-    const bool oldHasHover = m_hasHover;
-    m_hasHover = found;
-    m_hoverUuid = found ? newUuid : std::string();
-    m_hoverText = found ? newLabel : wxString();
-    if (found)
-        m_hoverPos = newPos;
-
-    if (oldHoverUuid != m_hoverUuid || oldHasHover != m_hasHover) {
-        ++m_highlightRevision;
-        m_highlightRefreshPending = true;
-        if (m_basePassCache)
-            m_basePassCache->Invalidate();
-        m_controller.SetHighlightUuid(m_hoverUuid);
-        ApplyHoverHighlightToTables(activeTable, m_hoverUuid);
-    }
-
-    size_t hiddenLayersFingerprint = 0;
-    for (const std::string& layer : ConfigManager::Get().GetHiddenLayers())
-        HashCombine(hiddenLayersFingerprint, layer);
-    if (hiddenLayersFingerprint != m_lastHiddenLayersFingerprint) {
-        ++m_hiddenLayersRevision;
-        m_lastHiddenLayersFingerprint = hiddenLayersFingerprint;
-    }
-
-    m_lastHoverQueryState = {pickPos, m_cameraRevision,
-                             m_hiddenLayersRevision, m_sceneRevision};
-    m_hasLastHoverQueryState = true;
-    m_lastHoverQueryTime = std::chrono::steady_clock::now();
-    m_forceHoverQuery = false;
-    return true;
-}
-
 // Handles mouse movement (orbit or pan)
 void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 {
@@ -2570,12 +2479,9 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 
     m_lastMousePos = pos;
 
-    const bool hoverUpdatedImmediately =
-        !event.Dragging() && TryUpdateHoverFromMouseMove(pos);
-
-    // Mark that the mouse has moved so OnPaint can update hover info when direct picking is unavailable.
-    m_mouseMoved = !hoverUpdatedImmediately;
-    m_forceHoverQuery = !hoverUpdatedImmediately;
+    // Mark that the mouse has moved so OnPaint can update hover info
+    m_mouseMoved = true;
+    m_forceHoverQuery = true;
 
     Refresh();
 }

@@ -135,18 +135,10 @@ bool ProjectBoundingBox(const ISelectionContext::BoundingBox &bb,
   return visible;
 }
 
-// Converts a top-left mouse Y coordinate to an OpenGL framebuffer sample row.
-int ToFramebufferSampleY(int mouseY, int screenHeight) {
-  return std::clamp(screenHeight - 1 - mouseY, 0,
-                    std::max(0, screenHeight - 1));
-}
-
-// Builds a world-space ray from framebuffer mouse coordinates.
 bool BuildMouseRay(int mouseX, int mouseY, int screenHeight,
                    const ProjectionSnapshot &projection, Ray &outRay) {
   const double winX = static_cast<double>(mouseX);
-  const double winY =
-      static_cast<double>(ToFramebufferSampleY(mouseY, screenHeight));
+  const double winY = static_cast<double>(screenHeight - mouseY);
 
   double nearX = 0.0;
   double nearY = 0.0;
@@ -176,11 +168,10 @@ bool BuildMouseRay(int mouseX, int mouseY, int screenHeight,
   return true;
 }
 
-// Reads the depth buffer at the mouse position and converts it to world space.
 bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
                              const ProjectionSnapshot &projection,
                              std::array<double, 3> &outWorldPoint) {
-  const int sampleY = ToFramebufferSampleY(mouseY, screenHeight);
+  const int sampleY = screenHeight - mouseY;
   float depth = 1.0f;
   glReadPixels(mouseX, sampleY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
   if (depth >= 1.0f)
