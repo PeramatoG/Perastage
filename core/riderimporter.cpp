@@ -1515,7 +1515,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       }
     }
 
-    if (!preview.str().empty())
+    if (!firstSection)
       preview << "\n\n";
     preview << "RIGGING";
     for (const std::string &hoistLine : hoistLines)
