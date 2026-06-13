@@ -50,7 +50,8 @@ OutputDir={#OutputParentDir}
 OutputBaseFilename=Perastage_{#MyAppVersion}_Setup
 SetupIconFile={#RepoResourcesDir}\Perastage.ico
 SolidCompression=yes
-WizardStyle=modern dark
+; Keep the installer compatible with the Inno Setup version available on GitHub Actions.
+WizardStyle=modern
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
