@@ -34,6 +34,7 @@
 #include <regex>
 #include <sstream>
 #include <string_view>
+#include <system_error>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
@@ -1570,6 +1571,37 @@ struct ImportedGdtfMetadataCache {
   }
 };
 
+struct ImportedTrussDefinitionResult {
+  bool loaded = false;
+  Truss parsed;
+};
+
+struct ImportedTrussDefinitionCache {
+  std::unordered_map<std::string, ImportedTrussDefinitionResult> entries;
+
+  // Returns a stable cache key for a truss definition path.
+  std::string BuildKey(const std::string &path) const {
+    std::error_code ec;
+    std::filesystem::path normalized = std::filesystem::absolute(path, ec);
+    if (ec)
+      return path;
+    return normalized.lexically_normal().string();
+  }
+
+  // Loads and caches a truss definition for the current import.
+  const ImportedTrussDefinitionResult &Get(const std::string &path) {
+    const std::string key = BuildKey(path);
+    auto found = entries.find(key);
+    if (found != entries.end())
+      return found->second;
+
+    ImportedTrussDefinitionResult result;
+    result.loaded = LoadTrussDefinition(path, result.parsed);
+    auto [insertedIt, inserted] = entries.emplace(key, std::move(result));
+    return insertedIt->second;
+  }
+};
+
 // Applies cached GDTF metadata without overriding rider or dictionary choices.
 void ApplyImportedGdtfMetadata(Fixture &fixture,
                                const ImportedGdtfMetadata &metadata) {
@@ -1637,6 +1669,7 @@ bool RiderImporter::ImportText(const std::string &text,
   std::optional<float> lastBackdropReferencePosZ;
   std::optional<float> lastBackdropReferenceLengthMm;
   std::unordered_map<std::string, float> hangMarginOverridesMm;
+  ImportedTrussDefinitionCache trussDefinitionCache;
 
   auto getHangHeight = [&](const std::string &posName) {
     if (posName.rfind("LX", 0) == 0) {
@@ -2134,8 +2167,10 @@ bool RiderImporter::ImportText(const std::string &text,
             }
 
             if (dictPath) {
-              Truss parsed;
-              if (LoadTrussDefinition(*dictPath, parsed)) {
+              const ImportedTrussDefinitionResult &definition =
+                  trussDefinitionCache.Get(*dictPath);
+              if (definition.loaded) {
+                const Truss &parsed = definition.parsed;
                 if (!parsed.symbolFile.empty())
                   t.symbolFile = parsed.symbolFile;
                 t.modelFile = parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
@@ -2461,8 +2496,10 @@ bool RiderImporter::ImportText(const std::string &text,
                 break;
             }
             if (dictPath) {
-              Truss parsed;
-              if (LoadTrussDefinition(*dictPath, parsed)) {
+              const ImportedTrussDefinitionResult &definition =
+                  trussDefinitionCache.Get(*dictPath);
+              if (definition.loaded) {
+                const Truss &parsed = definition.parsed;
                 if (!parsed.symbolFile.empty())
                   t.symbolFile = parsed.symbolFile;
                 t.modelFile = parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
@@ -2633,8 +2670,10 @@ bool RiderImporter::ImportText(const std::string &text,
           }
 
           if (dictPath) {
-            Truss parsed;
-            if (LoadTrussDefinition(*dictPath, parsed)) {
+            const ImportedTrussDefinitionResult &definition =
+                trussDefinitionCache.Get(*dictPath);
+            if (definition.loaded) {
+              const Truss &parsed = definition.parsed;
               if (!parsed.symbolFile.empty())
                 t.symbolFile = parsed.symbolFile;
               t.modelFile = parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
@@ -2716,12 +2755,20 @@ bool RiderImporter::ImportText(const std::string &text,
     bool dictionaryDefinitionFailed = false;
 
     if (!t.modelFile.empty()) {
-      resolved = LoadTrussDefinition(t.modelFile, parsed);
+      const ImportedTrussDefinitionResult &definition =
+          trussDefinitionCache.Get(t.modelFile);
+      resolved = definition.loaded;
+      if (resolved)
+        parsed = definition.parsed;
       if (!resolved)
         modelDefinitionFailed = true;
     }
     if (!resolved && !t.gdtfSpec.empty()) {
-      resolved = LoadTrussDefinition(t.gdtfSpec, parsed);
+      const ImportedTrussDefinitionResult &definition =
+          trussDefinitionCache.Get(t.gdtfSpec);
+      resolved = definition.loaded;
+      if (resolved)
+        parsed = definition.parsed;
       if (!resolved)
         gdtfDefinitionFailed = true;
     }
@@ -2732,7 +2779,11 @@ bool RiderImporter::ImportText(const std::string &text,
         auto dictPath = TrussDictionary::Get(lookupKey);
         if (!dictPath)
           continue;
-        resolved = LoadTrussDefinition(*dictPath, parsed);
+        const ImportedTrussDefinitionResult &definition =
+            trussDefinitionCache.Get(*dictPath);
+        resolved = definition.loaded;
+        if (resolved)
+          parsed = definition.parsed;
         if (!resolved)
           dictionaryDefinitionFailed = true;
         if (resolved && t.modelFile.empty())
