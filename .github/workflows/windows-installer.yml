@@ -102,7 +102,10 @@ jobs:
       - name: Configure CMake
         shell: pwsh
         run: |
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
+          $cmakeHelp = cmake --help
+          $generator = if ($cmakeHelp -match 'Visual Studio 18 2026') { 'Visual Studio 18 2026' } else { 'Visual Studio 17 2022' }
+          Write-Host "Using CMake generator: $generator"
+          cmake -S . -B build -G $generator -A x64 `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows `
