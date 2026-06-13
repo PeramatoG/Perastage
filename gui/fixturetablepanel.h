@@ -58,6 +58,8 @@ public:
     ~FixtureTablePanel();
     void ReloadData(); // Refresh content from ConfigManager
     void HighlightFixture(const std::string& uuid);
+    void HighlightFixture(const std::string& uuid,
+                          const std::vector<std::string>& relatedUuids);
     void ClearSelection();
     std::vector<std::string> GetSelectedUuids() const;
     void SelectByUuid(const std::vector<std::string>& uuids,
@@ -88,6 +90,7 @@ private:
     std::vector<wxString> columnLabels;
     std::vector<wxString> gdtfPaths; // Stores full GDTF paths per row
     std::vector<std::string> rowUuids;
+    std::vector<std::string> highlightedRelatedUuids;
     std::unordered_map<wxUIntPtr, std::string> rowUuidByKey;
     std::unordered_map<wxUIntPtr, wxString> gdtfPathByKey;
     wxUIntPtr nextRowKey = 1;

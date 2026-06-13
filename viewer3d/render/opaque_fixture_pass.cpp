@@ -26,18 +26,18 @@
 #include <unordered_map>
 #include <vector>
 
-#include "matrixutils.h"
 #include "configmanager.h"
+#include "fixture_mesh_color.h"
+#include "gdtfloader.h"
 #include "logger.h"
+#include "matrixutils.h"
 #include "mesh.h"
 #include "opaque_pass_utils.h"
-#include "universe_color.h"
 #include "perastage_svg_symbol_builder.h"
 #include "scenedatamanager.h"
 #include "symbols/PerastageSvgSymbol.h"
+#include "universe_color.h"
 #include "viewer3dcontroller.h"
-#include "gdtfloader.h"
-#include "fixture_mesh_color.h"
 #include <meshoptimizer.h>
 
 namespace {
@@ -120,7 +120,8 @@ uint32_t BuildFixtureSymbolStyleVersion(float r, float g, float b) {
   return 0x1000000u | (toByte(r) << 16) | (toByte(g) << 8) | toByte(b);
 }
 
-std::vector<SymbolViewKind> BuildSymbolViewCandidates(SymbolViewKind requested) {
+std::vector<SymbolViewKind>
+BuildSymbolViewCandidates(SymbolViewKind requested) {
   if (requested == SymbolViewKind::Top)
     return {SymbolViewKind::Top, SymbolViewKind::Bottom};
   if (requested == SymbolViewKind::Bottom)
@@ -177,29 +178,28 @@ const Mesh &ResolveMovingProxyMesh(const Mesh &source,
 
     const size_t indexCount = proxy.indices.size();
     const float proxyRatio = computeProxyRatio(sourceTriangleCount);
-    const size_t requestedTriangles =
-        static_cast<size_t>(static_cast<float>(sourceTriangleCount) * proxyRatio);
+    const size_t requestedTriangles = static_cast<size_t>(
+        static_cast<float>(sourceTriangleCount) * proxyRatio);
     const size_t targetTriangles = std::clamp(
-        requestedTriangles,
-        std::min(kProxyMinTriangles, sourceTriangleCount),
+        requestedTriangles, std::min(kProxyMinTriangles, sourceTriangleCount),
         std::min(kProxyMaxTriangles, sourceTriangleCount));
     const size_t targetIndexCount = std::max<size_t>(3, targetTriangles * 3);
 
     std::vector<uint32_t> simplified(indexCount);
-    size_t simplifiedCount = meshopt_simplify(
-        simplified.data(), proxy.indices.data(), indexCount, proxy.vertices.data(),
-        vertexCount, sizeof(float) * 3, targetIndexCount, kProxySimplifyError, 0,
-        nullptr);
-    const size_t acceptableUpperBound = std::max(
-        targetIndexCount + targetIndexCount / 4,
-        std::min(indexCount, indexCount * 4 / 5));
+    size_t simplifiedCount =
+        meshopt_simplify(simplified.data(), proxy.indices.data(), indexCount,
+                         proxy.vertices.data(), vertexCount, sizeof(float) * 3,
+                         targetIndexCount, kProxySimplifyError, 0, nullptr);
+    const size_t acceptableUpperBound =
+        std::max(targetIndexCount + targetIndexCount / 4,
+                 std::min(indexCount, indexCount * 4 / 5));
 
     // Some dense/non-manifold fixtures (often 32-bit/high-poly assets) can be
     // too constrained for a strict low-error pass. Escalate sloppy simplify
     // error in steps before using coarse subsampling to avoid odd artifacts.
     if (simplifiedCount < 3 || simplifiedCount > acceptableUpperBound) {
-      const std::vector<float> sloppyErrors = {kProxySimplifyError, 0.02f, 0.05f,
-                                               0.10f, 0.20f};
+      const std::vector<float> sloppyErrors = {kProxySimplifyError, 0.02f,
+                                               0.05f, 0.10f, 0.20f};
       std::vector<uint32_t> sloppyCandidate(indexCount);
       size_t bestCount = 0;
       std::vector<uint32_t> bestIndices;
@@ -235,8 +235,7 @@ const Mesh &ResolveMovingProxyMesh(const Mesh &source,
       // triangle subsample so every heavy fixture still gets a lighter proxy
       // while moving the camera.
       const size_t sourceTriangles = indexCount / 3;
-      const size_t targetTriangles =
-          std::max<size_t>(1, targetIndexCount / 3);
+      const size_t targetTriangles = std::max<size_t>(1, targetIndexCount / 3);
       simplified.clear();
       simplified.reserve(targetTriangles * 3);
       for (size_t t = 0; t < targetTriangles; ++t) {
@@ -294,8 +293,7 @@ void TessEndCallback(void *polygonData) {
 }
 
 void TessCombineCallback(GLdouble coords[3], void *vertexData[4],
-                                  GLfloat weight[4], void **outData,
-                                  void *polygonData) {
+                         GLfloat weight[4], void **outData, void *polygonData) {
   (void)vertexData;
   (void)weight;
   auto *context = static_cast<SvgTessellationContext *>(polygonData);
@@ -327,9 +325,8 @@ void AppendSvgContourVertices(std::vector<std::array<GLdouble, 3>> &storage,
 }
 
 void DrawSvgFilledPolygon(const PerastageSvgPolygon &polygon,
-                          const PerastageSvgSymbolData &svg,
-                          Viewer2DView view, double anchorX,
-                          double anchorY) {
+                          const PerastageSvgSymbolData &svg, Viewer2DView view,
+                          double anchorX, double anchorY) {
   if (polygon.points.size() < 3)
     return;
 
@@ -354,7 +351,8 @@ void DrawSvgFilledPolygon(const PerastageSvgPolygon &polygon,
   AppendSvgContourVertices(contourVertices, polygon.points, svg, view, anchorX,
                            anchorY);
   for (const auto &hole : polygon.holes)
-    AppendSvgContourVertices(contourVertices, hole, svg, view, anchorX, anchorY);
+    AppendSvgContourVertices(contourVertices, hole, svg, view, anchorX,
+                             anchorY);
 
   if (contourVertices.size() < polygon.points.size()) {
     gluDeleteTess(tess);
@@ -383,7 +381,8 @@ void DrawSvgFilledPolygon(const PerastageSvgPolygon &polygon,
   gluDeleteTess(tess);
 }
 
-std::array<float, 3> BuildSvgVertexForView(float x, float y, Viewer2DView view) {
+std::array<float, 3> BuildSvgVertexForView(float x, float y,
+                                           Viewer2DView view) {
   switch (view) {
   case Viewer2DView::Front:
     return {x, 0.0f, y};
@@ -470,10 +469,9 @@ bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg,
       continue;
     glBegin(GL_LINE_STRIP);
     for (const auto &point : line.points) {
-      const auto vertex =
-          BuildSvgVertexForView(static_cast<float>(point.x + svg.offsetXmm - anchorX),
-                                static_cast<float>(point.y + svg.offsetYmm - anchorY),
-                                view);
+      const auto vertex = BuildSvgVertexForView(
+          static_cast<float>(point.x + svg.offsetXmm - anchorX),
+          static_cast<float>(point.y + svg.offsetYmm - anchorY), view);
       glVertex3f(vertex[0], vertex[1], vertex[2]);
     }
     glEnd();
@@ -489,10 +487,22 @@ void CancelFixtureRotationForLayoutSvg(const Matrix &fixtureTransform,
     return;
 
   float inverseRotation[16] = {
-      fixtureTransform.u[0], fixtureTransform.v[0], fixtureTransform.w[0], 0.0f,
-      fixtureTransform.u[1], fixtureTransform.v[1], fixtureTransform.w[1], 0.0f,
-      fixtureTransform.u[2], fixtureTransform.v[2], fixtureTransform.w[2], 0.0f,
-      0.0f,                 0.0f,                 0.0f,                 1.0f,
+      fixtureTransform.u[0],
+      fixtureTransform.v[0],
+      fixtureTransform.w[0],
+      0.0f,
+      fixtureTransform.u[1],
+      fixtureTransform.v[1],
+      fixtureTransform.w[1],
+      0.0f,
+      fixtureTransform.u[2],
+      fixtureTransform.v[2],
+      fixtureTransform.w[2],
+      0.0f,
+      0.0f,
+      0.0f,
+      0.0f,
+      1.0f,
   };
   glMultMatrixf(inverseRotation);
 }
@@ -566,12 +576,14 @@ struct FixtureRenderMetrics {
   size_t fallbackDrawCalls = 0;
 };
 
-// Returns true only for fixture metric combinations that have not been logged before.
+// Returns true only for fixture metric combinations that have not been logged
+// before.
 bool ShouldLogFixtureRenderMetrics(const FixtureRenderMetrics &metrics) {
   using MetricsKey = std::array<size_t, 4>;
   static std::set<MetricsKey> loggedMetricKeys;
   const MetricsKey key = {metrics.instancedFixtures, metrics.fallbackFixtures,
-                          metrics.instancedDrawCalls, metrics.fallbackDrawCalls};
+                          metrics.instancedDrawCalls,
+                          metrics.fallbackDrawCalls};
   return loggedMetricKeys.insert(key).second;
 }
 
@@ -609,14 +621,18 @@ void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
 
 } // namespace
 
-// Renders visible fixtures using instanced paths when possible and fallback draws otherwise.
+// Renders visible fixtures using instanced paths when possible and fallback
+// draws otherwise.
 void OpaqueFixturePass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
     const Viewer3DVisibleSet &visibleSet,
-    const std::function<std::array<float, 3>(const std::string &, const std::string &)> &getTypeColor,
-    const std::function<std::array<float, 3>(const std::string &)> &getLayerColor,
+    const std::function<std::array<float, 3>(
+        const std::string &, const std::string &)> &getTypeColor,
+    const std::function<std::array<float, 3>(const std::string &)>
+        &getLayerColor,
     const std::function<SymbolViewKind(Viewer2DView)> &resolveSymbolView,
-    const std::function<std::array<float, 3>(const std::string &)> &getPickColor) {
+    const std::function<std::array<float, 3>(const std::string &)>
+        &getPickColor) {
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   if (context.idOnlyPass) {
     glShadeModel(GL_FLAT);
@@ -638,7 +654,8 @@ void OpaqueFixturePass::Render(
       std::string gdtfPath;
       auto gdtfPathIt = controller.m_resourceSyncState.resolvedGdtfSpecs.find(
           ResolveCacheKey(fixture.gdtfSpec));
-      if (gdtfPathIt != controller.m_resourceSyncState.resolvedGdtfSpecs.end() &&
+      if (gdtfPathIt !=
+              controller.m_resourceSyncState.resolvedGdtfSpecs.end() &&
           gdtfPathIt->second.attempted)
         gdtfPath = gdtfPathIt->second.resolvedPath;
 
@@ -679,7 +696,8 @@ void OpaqueFixturePass::Render(
     forceBottomViewForTopFixtures =
         controller.GetForceBottomViewForTopFixturesOverride().value();
   }
-  const bool drawRealTopInTopView = isTopView2D && !forceBottomViewForTopFixtures;
+  const bool drawRealTopInTopView =
+      isTopView2D && !forceBottomViewForTopFixtures;
 
   glShadeModel((context.texturedStyle && !wireframe) ? GL_SMOOTH : GL_FLAT);
   // Keep 2D wireframe fixture overlays unchanged, but in the real 3D wireframe
@@ -709,8 +727,8 @@ void OpaqueFixturePass::Render(
             const float g = static_cast<float>((color >> 8) & 0xFFu) / 255.0f;
             const float b = static_cast<float>(color & 0xFFu) / 255.0f;
             controller.DrawMeshWithOutline(
-                *key.mesh, r, g, b, key.scale, false, false, draw.cx, draw.cy,
-                draw.cz, key.wireframe, key.mode,
+                *key.mesh, r, g, b, key.scale, false, false, false, draw.cx,
+                draw.cy, draw.cz, key.wireframe, key.mode,
                 [](const std::array<float, 3> &p) { return p; }, key.unlit,
                 draw.worldMatrix.data());
             glPopMatrix();
@@ -737,12 +755,15 @@ void OpaqueFixturePass::Render(
       controller.m_captureCanvas->SetSourceKey(fixtureCaptureKey);
     }
 
-    const bool highlight =
-        context.selectionOverlayPass && !controller.m_highlightUuid.empty() &&
-        uuid == controller.m_highlightUuid;
-    const bool selected = context.selectionOverlayPass &&
-                          controller.m_selectedUuids.find(uuid) !=
-                              controller.m_selectedUuids.end();
+    const bool highlight = context.selectionOverlayPass &&
+                           !controller.m_highlightUuid.empty() &&
+                           uuid == controller.m_highlightUuid;
+    const bool groupHighlight = context.selectionOverlayPass &&
+                                controller.m_groupHighlightUuids.find(uuid) !=
+                                    controller.m_groupHighlightUuids.end();
+    const bool selected =
+        context.selectionOverlayPass && controller.m_selectedUuids.find(uuid) !=
+                                            controller.m_selectedUuids.end();
 
     float matrix[16];
     MatrixToArray(f.transform, matrix);
@@ -807,9 +828,10 @@ void OpaqueFixturePass::Render(
     fixtureTransform.o[1] *= RENDER_SCALE;
     fixtureTransform.o[2] *= RENDER_SCALE;
 
-    auto applyFixtureCapture = [fixtureTransform](const std::array<float, 3> &p) {
-      return TransformPoint(fixtureTransform, p);
-    };
+    auto applyFixtureCapture =
+        [fixtureTransform](const std::array<float, 3> &p) {
+          return TransformPoint(fixtureTransform, p);
+        };
 
     const std::string normalizedGdtfPath = NormalizeModelKeyPath(gdtfPath);
     const std::string modelKey =
@@ -819,10 +841,11 @@ void OpaqueFixturePass::Render(
     auto itg = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
 
     bool renderedPerastageSvg = false;
-    const bool captureRecordingActive = controller.m_captureCanvas && !skipCapture;
-    const bool preferLayoutSvg =
-        context.preferPerastageSvgSymbolsForLayouts && is2DViewer &&
-        !captureRecordingActive && mode != Viewer2DRenderMode::Wireframe;
+    const bool captureRecordingActive =
+        controller.m_captureCanvas && !skipCapture;
+    const bool preferLayoutSvg = context.preferPerastageSvgSymbolsForLayouts &&
+                                 is2DViewer && !captureRecordingActive &&
+                                 mode != Viewer2DRenderMode::Wireframe;
     if (preferLayoutSvg && !svgSourcePath.empty()) {
       const Viewer2DView fixtureView =
           isTopView2D && forceBottomViewForTopFixtures ? Viewer2DView::Bottom
@@ -838,7 +861,8 @@ void OpaqueFixturePass::Render(
           PerastageSvgSymbolData svg;
           if (LoadPerastageSvgSymbolFromGdtf(svgSourcePath, candidateView, svg))
             loaded = std::move(svg);
-          cacheIt = perastageSvgCache.emplace(cacheKey, std::move(loaded)).first;
+          cacheIt =
+              perastageSvgCache.emplace(cacheKey, std::move(loaded)).first;
         }
         if (!cacheIt->second.has_value())
           continue;
@@ -856,8 +880,8 @@ void OpaqueFixturePass::Render(
           controller.m_captureView == Viewer2DView::Top ||
           controller.m_captureView == Viewer2DView::Front ||
           controller.m_captureView == Viewer2DView::Side) &&
-         mode != Viewer2DRenderMode::Wireframe &&
-         !highlight && !selected);
+         mode != Viewer2DRenderMode::Wireframe && !highlight &&
+         !groupHighlight && !selected);
     bool placedSymbolInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
       if (!modelKey.empty()) {
@@ -871,16 +895,13 @@ void OpaqueFixturePass::Render(
         symbolKey.viewKind = resolveSymbolView(fixtureCaptureView);
         symbolKey.styleVersion = BuildFixtureSymbolStyleVersion(r, g, b);
 
-        const auto &symbol =
-            controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
-                                                         uint32_t symbolId) {
+        const auto &symbol = controller.m_bottomSymbolCache.GetOrCreate(
+            symbolKey, [&](const SymbolKey &, uint32_t symbolId) {
               SymbolDefinition svgDefinition{};
               if (!svgSourcePath.empty() &&
-                  TryBuildPerastageSvgSymbolDefinition(svgSourcePath,
-                                                       symbolKey.viewKind,
-                                                       symbolId,
-                                                       {r, g, b},
-                                                       svgDefinition)) {
+                  TryBuildPerastageSvgSymbolDefinition(
+                      svgSourcePath, symbolKey.viewKind, symbolId, {r, g, b},
+                      svgDefinition)) {
                 return svgDefinition;
               }
 
@@ -926,18 +947,18 @@ void OpaqueFixturePass::Render(
                   }
                   controller.DrawMeshWithOutline(
                       obj.mesh, partR, partG, partB, RENDER_SCALE, false, false,
-                      0.0f, 0.0f, 0.0f, wireframe, mode, applyCapture, false);
+                      false, 0.0f, 0.0f, 0.0f, wireframe, mode, applyCapture,
+                      false);
                 }
               } else {
                 controller.m_captureCanvas->SetSourceKey(fixtureCaptureKey);
-                const bool fallbackWireframe =
-                    wireframe;
+                const bool fallbackWireframe = wireframe;
                 const bool fallbackUnlit =
                     context.whiteModelStyle &&
                     !controller.IsSketchRenderStyleEnabled();
                 controller.DrawMeshWithOutline(
                     FallbackFixtureCubeMesh(), r, g, b, 0.2f, false, false,
-                    0.0f, 0.0f, 0.0f, fallbackWireframe, mode,
+                    false, 0.0f, 0.0f, 0.0f, fallbackWireframe, mode,
                     [](const std::array<float, 3> &p) { return p; },
                     fallbackUnlit);
               }
@@ -984,15 +1005,15 @@ void OpaqueFixturePass::Render(
           float m2[16];
           MatrixToArray(obj.transform, m2);
           controller.ApplyTransform(m2, false);
-          Matrix worldMatrix = MatrixUtils::Multiply(f.transform, obj.transform);
+          Matrix worldMatrix =
+              MatrixUtils::Multiply(f.transform, obj.transform);
           float partMatrix[16];
           MatrixToArray(worldMatrix, partMatrix);
-          auto applyCapture =
-              [fixtureTransform, objTransform = obj.transform](
-                  const std::array<float, 3> &p) {
-                auto local = TransformPoint(objTransform, p);
-                return TransformPoint(fixtureTransform, local);
-              };
+          auto applyCapture = [fixtureTransform, objTransform = obj.transform](
+                                  const std::array<float, 3> &p) {
+            auto local = TransformPoint(objTransform, p);
+            return TransformPoint(fixtureTransform, local);
+          };
           float partR = r;
           float partG = g;
           float partB = b;
@@ -1004,25 +1025,22 @@ void OpaqueFixturePass::Render(
             partB = isWhiteRenderMode ? 1.0f : 0.35f;
           }
           const bool drawUnlit = !is2DViewer && obj.isLens;
-          controller.DrawMeshWithOutline(obj.mesh, partR, partG, partB,
-                                         RENDER_SCALE, highlight, selected, cx,
-                                         cy, cz, wireframe, mode, applyCapture,
-                                         drawUnlit, partMatrix);
+          controller.DrawMeshWithOutline(
+              obj.mesh, partR, partG, partB, RENDER_SCALE, highlight,
+              groupHighlight, selected, cx, cy, cz, wireframe, mode,
+              applyCapture, drawUnlit, partMatrix);
           ++drawCalls;
           glPopMatrix();
         }
       } else {
-        const bool fallbackWireframe =
-            wireframe;
-        const bool fallbackUnlit =
-            !highlight && !selected &&
-            context.whiteModelStyle &&
-            !controller.IsSketchRenderStyleEnabled();
-        controller.DrawMeshWithOutline(FallbackFixtureCubeMesh(), r, g, b, 0.2f,
-                                       highlight, selected, cx, cy, cz,
-                                       fallbackWireframe, mode,
-                                       applyFixtureCapture, fallbackUnlit,
-                                       matrix);
+        const bool fallbackWireframe = wireframe;
+        const bool fallbackUnlit = !highlight && !groupHighlight && !selected &&
+                                   context.whiteModelStyle &&
+                                   !controller.IsSketchRenderStyleEnabled();
+        controller.DrawMeshWithOutline(
+            FallbackFixtureCubeMesh(), r, g, b, 0.2f, highlight, groupHighlight,
+            selected, cx, cy, cz, fallbackWireframe, mode, applyFixtureCapture,
+            fallbackUnlit, matrix);
         ++drawCalls;
       }
       return drawCalls;
@@ -1036,9 +1054,10 @@ void OpaqueFixturePass::Render(
       continue;
     }
 
-    // Uses proxy/instanced fixture draws only for non-highlighted fast interaction frames.
-    if (context.skipOptionalWork && !highlight && !selected &&
-        !captureRecordingActive) {
+    // Uses proxy/instanced fixture draws only for non-highlighted fast
+    // interaction frames.
+    if (context.skipOptionalWork && !highlight && !groupHighlight &&
+        !selected && !captureRecordingActive) {
       ++frameMetrics.instancedFixtures;
       if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
         const auto &parts = itg->second;
@@ -1049,7 +1068,8 @@ void OpaqueFixturePass::Render(
           const auto &obj = parts[partIndex];
           float localMatrix[16];
           MatrixToArray(obj.transform, localMatrix);
-          Matrix worldMatrix = MatrixUtils::Multiply(f.transform, obj.transform);
+          Matrix worldMatrix =
+              MatrixUtils::Multiply(f.transform, obj.transform);
           float worldMatrixArray[16];
           MatrixToArray(worldMatrix, worldMatrixArray);
           float partR = r;
@@ -1064,14 +1084,15 @@ void OpaqueFixturePass::Render(
           }
           const bool drawUnlit = !is2DViewer && obj.isLens;
           const Mesh &proxyMesh = ResolveMovingProxyMesh(obj.mesh, controller);
-          AddFixtureInstancedDraw(fixtureInstancedBatches, proxyMesh, partR, partG,
-                                  partB, drawUnlit, wireframe, mode, RENDER_SCALE,
-                                  cx, cy, cz, matrix, localMatrix, worldMatrixArray);
+          AddFixtureInstancedDraw(fixtureInstancedBatches, proxyMesh, partR,
+                                  partG, partB, drawUnlit, wireframe, mode,
+                                  RENDER_SCALE, cx, cy, cz, matrix, localMatrix,
+                                  worldMatrixArray);
         }
       } else {
-        AddFixtureInstancedDraw(fixtureInstancedBatches, FallbackFixtureCubeMesh(),
-                                r, g, b, false, wireframe, mode, 0.2f, cx, cy,
-                                cz, matrix, nullptr, matrix);
+        AddFixtureInstancedDraw(
+            fixtureInstancedBatches, FallbackFixtureCubeMesh(), r, g, b, false,
+            wireframe, mode, 0.2f, cx, cy, cz, matrix, nullptr, matrix);
       }
       glPopMatrix();
       if (controller.m_captureCanvas && !skipCapture)
@@ -1083,8 +1104,8 @@ void OpaqueFixturePass::Render(
     // path while the camera is moving. When the camera is static we draw full
     // geometry directly to avoid persistent proxy rendering.
     const bool eligibleForFixtureInstancedBatch =
-        context.skipOptionalWork && !highlight && !selected &&
-        !captureRecordingActive;
+        context.skipOptionalWork && !highlight && !groupHighlight &&
+        !selected && !captureRecordingActive;
     if (eligibleForFixtureInstancedBatch) {
       ++frameMetrics.instancedFixtures;
       if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
@@ -1096,7 +1117,8 @@ void OpaqueFixturePass::Render(
           const auto &obj = parts[partIndex];
           float localMatrix[16];
           MatrixToArray(obj.transform, localMatrix);
-          Matrix worldMatrix = MatrixUtils::Multiply(f.transform, obj.transform);
+          Matrix worldMatrix =
+              MatrixUtils::Multiply(f.transform, obj.transform);
           float worldMatrixArray[16];
           MatrixToArray(worldMatrix, worldMatrixArray);
 
@@ -1117,9 +1139,9 @@ void OpaqueFixturePass::Render(
                                   worldMatrixArray);
         }
       } else {
-        AddFixtureInstancedDraw(fixtureInstancedBatches, FallbackFixtureCubeMesh(),
-                                r, g, b, false, wireframe, mode, 0.2f, cx, cy,
-                                cz, matrix, nullptr, matrix);
+        AddFixtureInstancedDraw(
+            fixtureInstancedBatches, FallbackFixtureCubeMesh(), r, g, b, false,
+            wireframe, mode, 0.2f, cx, cy, cz, matrix, nullptr, matrix);
       }
     } else {
       ++frameMetrics.fallbackFixtures;
@@ -1144,8 +1166,8 @@ void OpaqueFixturePass::Render(
   if (ShouldLogFixtureRenderMetrics(frameMetrics)) {
     Logger::Instance().Log(
         "fixture render metrics: instancedFixtures=" +
-        std::to_string(frameMetrics.instancedFixtures) + ", fallbackFixtures=" +
-        std::to_string(frameMetrics.fallbackFixtures) +
+        std::to_string(frameMetrics.instancedFixtures) +
+        ", fallbackFixtures=" + std::to_string(frameMetrics.fallbackFixtures) +
         ", instancedDrawCalls=" +
         std::to_string(frameMetrics.instancedDrawCalls) +
         ", fallbackDrawCalls=" +

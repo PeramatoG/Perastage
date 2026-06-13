@@ -148,6 +148,94 @@ bool Is2DDarkModeEnabled() {
     return ConfigManager::Get().GetFloat("view2d_dark_mode") >= 0.5f;
 }
 
+struct HoverTableHighlights {
+    std::vector<std::string> fixtures;
+    std::vector<std::string> trusses;
+    std::vector<std::string> supports;
+    std::vector<std::string> sceneObjects;
+};
+
+// Appends a UUID to a sequence when it is not already present.
+void AppendUniqueUuid(std::vector<std::string>& uuids, const std::string& uuid) {
+    if (uuid.empty())
+        return;
+    if (std::find(uuids.begin(), uuids.end(), uuid) == uuids.end())
+        uuids.push_back(uuid);
+}
+
+// Splits one UUID into the table bucket that owns it.
+void AppendUuidToTableHighlights(const MvrScene& scene, const std::string& uuid,
+                                 HoverTableHighlights& highlights) {
+    if (scene.fixtures.find(uuid) != scene.fixtures.end())
+        AppendUniqueUuid(highlights.fixtures, uuid);
+    else if (scene.trusses.find(uuid) != scene.trusses.end())
+        AppendUniqueUuid(highlights.trusses, uuid);
+    else if (scene.supports.find(uuid) != scene.supports.end())
+        AppendUniqueUuid(highlights.supports, uuid);
+    else if (scene.sceneObjects.find(uuid) != scene.sceneObjects.end())
+        AppendUniqueUuid(highlights.sceneObjects, uuid);
+}
+
+// Splits related hover UUIDs by table ownership for synchronized table highlights.
+HoverTableHighlights BuildHoverTableHighlights(const MvrScene& scene,
+                                               const std::string& hoverUuid) {
+    HoverTableHighlights highlights;
+    for (const auto& uuid :
+         scene_grouping::ExpandHoverForGroupHighlights(scene, hoverUuid)) {
+        AppendUuidToTableHighlights(scene, uuid, highlights);
+    }
+    return highlights;
+}
+
+// Builds the cross-table selection represented by a clicked scene item.
+HoverTableHighlights BuildClickSelectionHighlights(
+    const MvrScene& scene, const std::string& uuid) {
+    HoverTableHighlights highlights;
+    AppendUuidToTableHighlights(scene, uuid, highlights);
+    for (const auto& relatedUuid :
+         scene_grouping::ExpandHoverForGroupHighlights(scene, uuid)) {
+        AppendUuidToTableHighlights(scene, relatedUuid, highlights);
+    }
+    return highlights;
+}
+
+// Returns true when every grouped click UUID is already selected.
+bool ContainsAllUuids(const std::vector<std::string>& selection,
+                      const std::vector<std::string>& clickedUuids) {
+    return std::all_of(clickedUuids.begin(), clickedUuids.end(),
+                       [&](const std::string& uuid) {
+                           return std::find(selection.begin(), selection.end(),
+                                            uuid) != selection.end();
+                       });
+}
+
+// Adds or removes grouped click UUIDs from an existing additive selection.
+std::vector<std::string> ToggleClickedUuids(std::vector<std::string> selection,
+                                            const std::vector<std::string>& clickedUuids) {
+    if (clickedUuids.empty())
+        return selection;
+    const bool removeClickedUuids = ContainsAllUuids(selection, clickedUuids);
+    for (const auto& uuid : clickedUuids) {
+        auto it = std::find(selection.begin(), selection.end(), uuid);
+        if (removeClickedUuids) {
+            if (it != selection.end())
+                selection.erase(it);
+        } else if (it == selection.end()) {
+            selection.push_back(uuid);
+        }
+    }
+    return selection;
+}
+
+// Updates one typed selection according to the additive click mode.
+std::vector<std::string> ResolveClickedSelection(
+    const std::vector<std::string>& currentSelection,
+    const std::vector<std::string>& clickedUuids, bool additive) {
+    if (!additive)
+        return clickedUuids;
+    return ToggleClickedUuids(currentSelection, clickedUuids);
+}
+
 template <typename T>
 void HashCombine(size_t& seed, const T& value) {
     seed ^= std::hash<T>{}(value) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
@@ -455,6 +543,46 @@ void ApplyFixtureSelectionToUi(const std::vector<std::string>& selection,
         else
             FixtureTablePanel::Instance()->SelectByUuid(selection, false);
     }
+}
+
+// Applies cross-table scene selections to config, viewport, and table panels.
+void ApplyObjectSelectionToUi(const HoverTableHighlights& selection,
+                              Viewer3DPanel* panel)
+{
+    ConfigManager& cfg = ConfigManager::Get();
+    const bool selectionChanged =
+        selection.fixtures != cfg.GetSelectedFixtures() ||
+        selection.trusses != cfg.GetSelectedTrusses() ||
+        selection.supports != cfg.GetSelectedSupports() ||
+        selection.sceneObjects != cfg.GetSelectedSceneObjects();
+    if (selectionChanged) {
+        cfg.PushUndoState("object selection");
+        cfg.SetSelectedFixtures(selection.fixtures);
+        cfg.SetSelectedTrusses(selection.trusses);
+        cfg.SetSelectedSupports(selection.supports);
+        cfg.SetSelectedSceneObjects(selection.sceneObjects);
+    }
+
+    std::set<std::string> mergedSelection;
+    mergedSelection.insert(selection.fixtures.begin(), selection.fixtures.end());
+    mergedSelection.insert(selection.trusses.begin(), selection.trusses.end());
+    mergedSelection.insert(selection.supports.begin(), selection.supports.end());
+    mergedSelection.insert(selection.sceneObjects.begin(), selection.sceneObjects.end());
+    if (panel) {
+        panel->SetSelectedFixtures(std::vector<std::string>(
+            mergedSelection.begin(), mergedSelection.end()));
+    }
+
+    selection::ScopedOrigin selectionOrigin(selection::Origin::Viewer3D);
+    if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->SelectByUuid(selection.fixtures, false);
+    if (TrussTablePanel::Instance())
+        TrussTablePanel::Instance()->SelectByUuid(selection.trusses, false);
+    if (HoistTablePanel::Instance())
+        HoistTablePanel::Instance()->SelectByUuid(selection.supports, false);
+    if (SceneObjectTablePanel::Instance())
+        SceneObjectTablePanel::Instance()->SelectByUuid(selection.sceneObjects,
+                                                       false);
 }
 
 // Resolves which table should receive hover and pick queries.
@@ -988,23 +1116,40 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         if (m_basePassCache)
             m_basePassCache->Invalidate();
         m_controller.SetHighlightUuid(m_hoverUuid);
+        const MvrScene& scene = ConfigManager::Get().GetScene();
+        const HoverTableHighlights relatedHighlights =
+            BuildHoverTableHighlights(scene, m_hoverUuid);
         if (FixtureTablePanel::Instance()) {
-            FixtureTablePanel::Instance()->HighlightFixture(
-                FixtureTablePanel::Instance()->IsActivePage()
+            const std::string primaryUuid =
+                scene.fixtures.find(m_hoverUuid) != scene.fixtures.end()
                     ? std::string(m_hoverUuid)
-                    : std::string());
+                    : std::string();
+            FixtureTablePanel::Instance()->HighlightFixture(
+                primaryUuid, relatedHighlights.fixtures);
         }
         if (TrussTablePanel::Instance()) {
-            TrussTablePanel::Instance()->HighlightTruss(
-                TrussTablePanel::Instance()->IsActivePage()
+            const std::string primaryUuid =
+                scene.trusses.find(m_hoverUuid) != scene.trusses.end()
                     ? std::string(m_hoverUuid)
-                    : std::string());
+                    : std::string();
+            TrussTablePanel::Instance()->HighlightTruss(
+                primaryUuid, relatedHighlights.trusses);
+        }
+        if (HoistTablePanel::Instance()) {
+            const std::string primaryUuid =
+                scene.supports.find(m_hoverUuid) != scene.supports.end()
+                    ? std::string(m_hoverUuid)
+                    : std::string();
+            HoistTablePanel::Instance()->HighlightHoist(
+                primaryUuid, relatedHighlights.supports);
         }
         if (SceneObjectTablePanel::Instance()) {
-            SceneObjectTablePanel::Instance()->HighlightObject(
-                SceneObjectTablePanel::Instance()->IsActivePage()
+            const std::string primaryUuid =
+                scene.sceneObjects.find(m_hoverUuid) != scene.sceneObjects.end()
                     ? std::string(m_hoverUuid)
-                    : std::string());
+                    : std::string();
+            SceneObjectTablePanel::Instance()->HighlightObject(
+                primaryUuid, relatedHighlights.sceneObjects);
         }
         const auto highlightUpdateElapsedMs =
             std::chrono::duration<double, std::milli>(
@@ -1576,6 +1721,10 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         const HoverTargetTable activeTable = ResolveActiveHoverTargetTable();
         bool found = QueryHoverUuid(m_controller, activeTable, pickPos.x,
                                     pickPos.y, w, h, uuid, true);
+        if (!found && !m_hoverUuid.empty()) {
+            uuid = m_hoverUuid;
+            found = true;
+        }
 
         ConfigManager& cfg = ConfigManager::Get();
         if (m_measureToolEnabled) {
@@ -1610,73 +1759,19 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         if (found)
         {
             bool additive = event.ShiftDown() || event.ControlDown();
-            std::vector<std::string> selection;
-            if (activeTable == HoverTargetTable::Fixtures &&
-                FixtureTablePanel::Instance())
-            {
-                if (additive)
-                    selection = FixtureTablePanel::Instance()->GetSelectedUuids();
-                if (additive)
-                {
-                    auto it = std::find(selection.begin(), selection.end(), uuid);
-                    if (it != selection.end())
-                        selection.erase(it);
-                    else
-                        selection.push_back(uuid);
-                }
-                else
-                    selection = {uuid};
-                if (selection != cfg.GetSelectedFixtures()) {
-                    cfg.PushUndoState("fixture selection");
-                    cfg.SetSelectedFixtures(selection);
-                }
-                SetSelectedFixtures(selection);
-                FixtureTablePanel::Instance()->SelectByUuid(selection, false);
-            }
-            else if (activeTable == HoverTargetTable::Trusses &&
-                     TrussTablePanel::Instance())
-            {
-                if (additive)
-                    selection = TrussTablePanel::Instance()->GetSelectedUuids();
-                if (additive)
-                {
-                    auto it = std::find(selection.begin(), selection.end(), uuid);
-                    if (it != selection.end())
-                        selection.erase(it);
-                    else
-                        selection.push_back(uuid);
-                }
-                else
-                    selection = {uuid};
-                if (selection != cfg.GetSelectedTrusses()) {
-                    cfg.PushUndoState("truss selection");
-                    cfg.SetSelectedTrusses(selection);
-                }
-                SetSelectedFixtures(selection);
-                TrussTablePanel::Instance()->SelectByUuid(selection, false);
-            }
-            else if (activeTable == HoverTargetTable::SceneObjects &&
-                     SceneObjectTablePanel::Instance())
-            {
-                if (additive)
-                    selection = SceneObjectTablePanel::Instance()->GetSelectedUuids();
-                if (additive)
-                {
-                    auto it = std::find(selection.begin(), selection.end(), uuid);
-                    if (it != selection.end())
-                        selection.erase(it);
-                    else
-                        selection.push_back(uuid);
-                }
-                else
-                    selection = {uuid};
-                if (selection != cfg.GetSelectedSceneObjects()) {
-                    cfg.PushUndoState("scene object selection");
-                    cfg.SetSelectedSceneObjects(selection);
-                }
-                SetSelectedFixtures(selection);
-                SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
-            }
+            const HoverTableHighlights clickedSelection =
+                BuildClickSelectionHighlights(cfg.GetScene(), uuid);
+            HoverTableHighlights resolvedSelection;
+            resolvedSelection.fixtures = ResolveClickedSelection(
+                cfg.GetSelectedFixtures(), clickedSelection.fixtures, additive);
+            resolvedSelection.trusses = ResolveClickedSelection(
+                cfg.GetSelectedTrusses(), clickedSelection.trusses, additive);
+            resolvedSelection.supports = ResolveClickedSelection(
+                cfg.GetSelectedSupports(), clickedSelection.supports, additive);
+            resolvedSelection.sceneObjects = ResolveClickedSelection(
+                cfg.GetSelectedSceneObjects(), clickedSelection.sceneObjects,
+                additive);
+            ApplyObjectSelectionToUi(resolvedSelection, this);
         }
         else
         {
@@ -2766,6 +2861,8 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
         FixtureTablePanel::Instance()->HighlightFixture(std::string());
     if (TrussTablePanel::Instance())
         TrussTablePanel::Instance()->HighlightTruss(std::string());
+    if (HoistTablePanel::Instance())
+        HoistTablePanel::Instance()->HighlightHoist(std::string());
     if (SceneObjectTablePanel::Instance())
         SceneObjectTablePanel::Instance()->HighlightObject(std::string());
     Refresh();

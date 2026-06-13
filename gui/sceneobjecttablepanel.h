@@ -35,6 +35,8 @@ public:
     ~SceneObjectTablePanel();
     void ReloadData();
     void HighlightObject(const std::string& uuid);
+    void HighlightObject(const std::string& uuid,
+                         const std::vector<std::string>& relatedUuids);
     void ClearSelection();
     std::vector<std::string> GetSelectedUuids() const;
     void SelectByUuid(const std::vector<std::string>& uuids,
@@ -56,6 +58,7 @@ private:
     std::vector<wxString> columnLabels;
     std::vector<wxString> modelPaths;
     std::vector<std::string> rowUuids;
+    std::vector<std::string> highlightedRelatedUuids;
     std::unordered_map<wxUIntPtr, std::string> rowUuidByKey;
     std::unordered_map<wxUIntPtr, wxString> modelPathByKey;
     wxUIntPtr nextRowKey = 1;

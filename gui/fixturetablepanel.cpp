@@ -1092,9 +1092,15 @@ bool FixtureTablePanel::IsActivePage() const {
   return nb && nb->GetPage(nb->GetSelection()) == this;
 }
 
-// Selects and scrolls to the row matching a fixture UUID.
+// Applies a primary hover highlight to one fixture row.
 void FixtureTablePanel::HighlightFixture(const std::string &uuid) {
-  if (uuid == highlightedUuid)
+  HighlightFixture(uuid, {});
+}
+
+// Applies primary and related group-hover highlights to fixture rows.
+void FixtureTablePanel::HighlightFixture(
+    const std::string &uuid, const std::vector<std::string> &relatedUuids) {
+  if (uuid == highlightedUuid && relatedUuids == highlightedRelatedUuids)
     return;
 
   auto findRow = [&](const std::string &candidate) -> int {
@@ -1109,15 +1115,21 @@ void FixtureTablePanel::HighlightFixture(const std::string &uuid) {
     return row;
   };
 
-  const int previousRow = findRow(highlightedUuid);
-  if (previousRow != wxNOT_FOUND)
-    store->ClearRowBackground(previousRow);
-
+  std::vector<bool> primaryRows(table->GetItemCount(), false);
+  std::vector<bool> secondaryRows(table->GetItemCount(), false);
   const int currentRow = findRow(uuid);
   if (currentRow != wxNOT_FOUND)
-    store->SetRowBackgroundColour(currentRow, wxColour(0, 200, 0));
+    primaryRows[static_cast<size_t>(currentRow)] = true;
+  for (const auto &relatedUuid : relatedUuids) {
+    const int relatedRow = findRow(relatedUuid);
+    if (relatedRow != wxNOT_FOUND && relatedRow != currentRow)
+      secondaryRows[static_cast<size_t>(relatedRow)] = true;
+  }
+  store->SetHighlightRows(primaryRows, secondaryRows, wxColour(170, 220, 0),
+                          wxColour(110, 210, 150), wxColour(0, 0, 0));
 
   highlightedUuid = uuid;
+  highlightedRelatedUuids = relatedUuids;
   table->Refresh();
 }
 

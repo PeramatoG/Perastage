@@ -79,9 +79,11 @@ void DrawBoundsSolid(const Viewer3DBoundingBox &bb) {
 void OpaqueTrussPass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
     const Viewer3DVisibleSet &visibleSet,
-    const std::function<std::array<float, 3>(const std::string &)> &getLayerColor,
+    const std::function<std::array<float, 3>(const std::string &)>
+        &getLayerColor,
     const std::function<SymbolViewKind(Viewer2DView)> &resolveSymbolView,
-    const std::function<std::array<float, 3>(const std::string &)> &getPickColor) {
+    const std::function<std::array<float, 3>(const std::string &)>
+        &getPickColor) {
   if (context.idOnlyPass) {
     glShadeModel(GL_FLAT);
     for (const auto &uuid : visibleSet.trussUuids) {
@@ -117,12 +119,15 @@ void OpaqueTrussPass::Render(
       controller.m_captureCanvas->SetSourceKey(trussCaptureKey);
     }
 
-    const bool highlight =
-        context.selectionOverlayPass && !controller.m_highlightUuid.empty() &&
-        uuid == controller.m_highlightUuid;
-    const bool selected = context.selectionOverlayPass &&
-                          controller.m_selectedUuids.find(uuid) !=
-                              controller.m_selectedUuids.end();
+    const bool highlight = context.selectionOverlayPass &&
+                           !controller.m_highlightUuid.empty() &&
+                           uuid == controller.m_highlightUuid;
+    const bool groupHighlight = context.selectionOverlayPass &&
+                                controller.m_groupHighlightUuids.find(uuid) !=
+                                    controller.m_groupHighlightUuids.end();
+    const bool selected =
+        context.selectionOverlayPass && controller.m_selectedUuids.find(uuid) !=
+                                            controller.m_selectedUuids.end();
 
     float matrix[16];
     MatrixToArray(t.transform, matrix);
@@ -166,7 +171,8 @@ void OpaqueTrussPass::Render(
     if (!t.symbolFile.empty()) {
       auto trussPathIt = controller.m_resourceSyncState.resolvedModelRefs.find(
           ResolveCacheKey(t.symbolFile));
-      if (trussPathIt != controller.m_resourceSyncState.resolvedModelRefs.end() &&
+      if (trussPathIt !=
+              controller.m_resourceSyncState.resolvedModelRefs.end() &&
           trussPathIt->second.attempted)
         trussPath = trussPathIt->second.resolvedPath;
       if (!trussPath.empty()) {
@@ -191,16 +197,17 @@ void OpaqueTrussPass::Render(
     auto drawTrussGeometry =
         [&](const std::function<std::array<float, 3>(
                 const std::array<float, 3> &)> &captureTransformFn,
-            bool isHighlighted, bool isSelected) {
+            bool isHighlighted, bool isGroupHighlighted, bool isSelected) {
           if (trussMesh) {
-            controller.DrawMeshWithOutline(*trussMesh, r, g, b, RENDER_SCALE,
-                                           isHighlighted, isSelected, cx, cy,
-                                           cz, wireframe, mode,
-                                           captureTransformFn, false, matrix);
+            controller.DrawMeshWithOutline(
+                *trussMesh, r, g, b, RENDER_SCALE, isHighlighted,
+                isGroupHighlighted, isSelected, cx, cy, cz, wireframe, mode,
+                captureTransformFn, false, matrix);
           } else {
             controller.DrawWireframeBox(trussLen, trussHei, trussWid, r, g, b,
-                                        isHighlighted, isSelected, wireframe,
-                                        mode, captureTransformFn);
+                                        isHighlighted, isGroupHighlighted,
+                                        isSelected, wireframe, mode,
+                                        captureTransformFn);
           }
         };
 
@@ -210,8 +217,8 @@ void OpaqueTrussPass::Render(
           captureView == Viewer2DView::Top ||
           captureView == Viewer2DView::Front ||
           captureView == Viewer2DView::Side) &&
-         mode != Viewer2DRenderMode::Wireframe &&
-         !highlight && !selected);
+         mode != Viewer2DRenderMode::Wireframe && !highlight &&
+         !groupHighlight && !selected);
     bool placedInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
       std::string modelKey;
@@ -222,8 +229,7 @@ void OpaqueTrussPass::Render(
       if (modelKey.empty() && !trussMesh) {
         std::ostringstream boxKey;
         boxKey << "box:" << trussWorldDimensionsMm[0] << "x"
-               << trussWorldDimensionsMm[2] << "x"
-               << trussWorldDimensionsMm[1];
+               << trussWorldDimensionsMm[2] << "x" << trussWorldDimensionsMm[1];
         modelKey = boxKey.str();
       }
       if (modelKey.empty() && !t.model.empty())
@@ -237,9 +243,8 @@ void OpaqueTrussPass::Render(
         symbolKey.viewKind = resolveSymbolView(captureView);
         symbolKey.styleVersion = 1;
 
-        const auto &symbol =
-            controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
-                                                           uint32_t symbolId) {
+        const auto &symbol = controller.m_bottomSymbolCache.GetOrCreate(
+            symbolKey, [&](const SymbolKey &, uint32_t symbolId) {
               SymbolDefinition definition{};
               definition.symbolId = symbolId;
               auto localCanvas =
@@ -259,7 +264,7 @@ void OpaqueTrussPass::Render(
 
               controller.m_captureCanvas->SetSourceKey(
                   trussCaptureKey.empty() ? "truss" : trussCaptureKey);
-              drawTrussGeometry({}, false, false);
+              drawTrussGeometry({}, false, false, false);
               localCanvas->EndFrame();
               definition.bounds = ComputeSymbolBounds(definition.localCommands);
 
@@ -283,11 +288,11 @@ void OpaqueTrussPass::Render(
       bool prevCaptureOnly = controller.m_captureOnly;
       controller.m_captureCanvas = nullptr;
       controller.m_captureOnly = false;
-      drawTrussGeometry(applyCapture, highlight, selected);
+      drawTrussGeometry(applyCapture, highlight, groupHighlight, selected);
       controller.m_captureCanvas = prevCanvas;
       controller.m_captureOnly = prevCaptureOnly;
     } else {
-      drawTrussGeometry(applyCapture, highlight, selected);
+      drawTrussGeometry(applyCapture, highlight, groupHighlight, selected);
     }
 
     glPopMatrix();

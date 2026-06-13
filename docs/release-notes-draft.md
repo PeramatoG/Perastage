@@ -13,9 +13,12 @@ Changes since `v1.3.0`.
 ## Improvements
 
 - Improved GroupObject handling so selecting a grouped member highlights and transforms the full root group, including nested groups, in 2D, 3D, and command-bar transform workflows.
+- Improved group hover feedback by using a more yellow primary highlight and a paler secondary group highlight across the 3D view and related fixture, truss, hoist, and scene object table rows, matching the table selection styling.
+- Improved 3D click selection for grouped scene items so a quick click selects the full group across fixture, truss, hoist, and scene object tables.
 
 ## Fixes
 
+- Fixed quick-click fixture selection in the 3D view so hovered fixtures can still be selected when the precise release pick misses.
 - Fixed MVR fixture Color handling so visualization colors are no longer exported as gel/filter colors, while imported MVR Color values are preserved as fixture gel/filter data.
 - Restored edge-safe fixture visibility and made fixture hover picking use actual fixture geometry so highlights and labels target the visible fixture instead of broad bounds.
 - Fixed fixture ID edits so saved project files and exported MVR files keep the updated numeric fixture IDs instead of reverting to imported IDs.
@@ -48,3 +51,4 @@ Changes since `v1.3.0`.
 - Added backward-cpp integration, generated build metadata, and release workflow symbol archives for Windows, Linux, macOS, and Arch Linux builds.
 - Improved truss table reload stability so rebuilding rows preserves existing truss selection without triggering transient selection side effects.
 - Added concise diagnostics for truss loading and 2D viewer picking to make validation and interaction issues easier to troubleshoot.
+- Improved grouped-hover rendering integration so symbol capture paths use the same highlight state as direct 3D drawing.

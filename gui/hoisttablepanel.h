@@ -35,6 +35,8 @@ public:
 
   void ReloadData();
   void HighlightHoist(const std::string &uuid);
+  void HighlightHoist(const std::string &uuid,
+                      const std::vector<std::string> &relatedUuids);
   void ClearSelection();
   std::vector<std::string> GetSelectedUuids() const;
   void SelectByUuid(const std::vector<std::string> &uuids,
