@@ -1158,22 +1158,31 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       havePending = false;
       continue;
     }
-    if (ContainsCaseInsensitive(line, "sonido") ||
-        ContainsCaseInsensitive(line, "audio") ||
-        ContainsCaseInsensitive(line, "control de p.a.") ||
-        ContainsCaseInsensitive(line, "monitores") ||
-        ContainsCaseInsensitive(line, "microfon") ||
-        ContainsCaseInsensitive(line, "video") ||
-        ContainsCaseInsensitive(line, "realizacion") ||
-        ContainsCaseInsensitive(line, "control")) {
+    const std::string lowerLine = [&line]() {
+      std::string lowered = line;
+      std::transform(lowered.begin(), lowered.end(), lowered.begin(),
+                     [](unsigned char c) {
+                       return static_cast<char>(std::tolower(c));
+                     });
+      return lowered;
+    }();
+
+    if (lowerLine.find("sonido") != std::string::npos ||
+        lowerLine.find("audio") != std::string::npos ||
+        lowerLine.find("control de p.a.") != std::string::npos ||
+        lowerLine.find("monitores") != std::string::npos ||
+        lowerLine.find("microfon") != std::string::npos ||
+        lowerLine.find("video") != std::string::npos ||
+        lowerLine.find("realizacion") != std::string::npos ||
+        lowerLine.find("control") != std::string::npos) {
       seenSectionHeader = true;
       inFixtures = false;
       inRigging = false;
-      inControl = ContainsCaseInsensitive(line, "control");
+      inControl = lowerLine.find("control") != std::string::npos;
       havePending = false;
       continue;
     }
-    if (ContainsCaseInsensitive(line, "rigging")) {
+    if (lowerLine.find("rigging") != std::string::npos) {
       seenSectionHeader = true;
       inFixtures = false;
       inRigging = true;
@@ -1181,9 +1190,9 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       havePending = false;
       continue;
     }
-    if (!inControl && (ContainsCaseInsensitive(line, "ilumin") ||
-                       ContainsCaseInsensitive(line, "robotica") ||
-                       ContainsCaseInsensitive(line, "convencion"))) {
+    if (!inControl && (lowerLine.find("ilumin") != std::string::npos ||
+                       lowerLine.find("robotica") != std::string::npos ||
+                       lowerLine.find("convencion") != std::string::npos)) {
       seenSectionHeader = true;
       inFixtures = true;
       inRigging = false;
