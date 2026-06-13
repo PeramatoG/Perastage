@@ -18,8 +18,9 @@
 #include "console_command_parser.h"
 
 #include <algorithm>
-#include <charconv>
+#include <cerrno>
 #include <cctype>
+#include <cstdlib>
 #include <sstream>
 
 namespace gui::console {
@@ -49,10 +50,17 @@ bool IsRangeSeparator(const std::string &token) {
 
 // Parses a floating-point token and requires the full token to be consumed.
 bool TryParseFloat(const std::string &token, float &value) {
-  const char *begin = token.data();
-  const char *end = token.data() + token.size();
-  const auto result = std::from_chars(begin, end, value);
-  return result.ec == std::errc{} && result.ptr == end;
+  if (token.empty())
+    return false;
+
+  char *end = nullptr;
+  errno = 0;
+  const float parsed = std::strtof(token.c_str(), &end);
+  if (errno != 0 || end != token.c_str() + token.size())
+    return false;
+
+  value = parsed;
+  return true;
 }
 
 } // namespace
