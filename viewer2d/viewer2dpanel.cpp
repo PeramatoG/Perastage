@@ -1432,7 +1432,9 @@ void Viewer2DPanel::DrawSelectionDragGizmo(int width, int height) {
   glLoadIdentity();
 
   const float x = (*centerScreen)[0];
-  const float y = (*centerScreen)[1];
+  // Viewer2DMeasureWorldToScreen returns top-origin pixels; this overlay uses
+  // bottom-origin GL coordinates.
+  const float y = static_cast<float>(height) - (*centerScreen)[1];
   const float length = 58.0f;
   const float arrowheadLength = 14.0f;
   const float arrowheadRadius = 6.0f;
