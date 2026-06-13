@@ -473,7 +473,7 @@ void OpaqueObjectPass::Render(
 
               controller.m_captureCanvas->SetSourceKey(
                   objectCaptureKey.empty() ? "scene_object" : objectCaptureKey);
-              drawSceneObjectGeometry({}, false, false);
+              drawSceneObjectGeometry({}, false, false, false);
               localCanvas->EndFrame();
               definition.bounds = ComputeSymbolBounds(definition.localCommands);
 

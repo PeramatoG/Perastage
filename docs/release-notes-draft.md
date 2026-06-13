@@ -49,3 +49,4 @@ Changes since `v1.3.0`.
 - Added backward-cpp integration, generated build metadata, and release workflow symbol archives for Windows, Linux, macOS, and Arch Linux builds.
 - Improved truss table reload stability so rebuilding rows preserves existing truss selection without triggering transient selection side effects.
 - Added concise diagnostics for truss loading and 2D viewer picking to make validation and interaction issues easier to troubleshoot.
+- Improved grouped-hover rendering integration so symbol capture paths use the same highlight state as direct 3D drawing.

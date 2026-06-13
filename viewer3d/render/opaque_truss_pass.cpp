@@ -264,7 +264,7 @@ void OpaqueTrussPass::Render(
 
               controller.m_captureCanvas->SetSourceKey(
                   trussCaptureKey.empty() ? "truss" : trussCaptureKey);
-              drawTrussGeometry({}, false, false);
+              drawTrussGeometry({}, false, false, false);
               localCanvas->EndFrame();
               definition.bounds = ComputeSymbolBounds(definition.localCommands);
 
