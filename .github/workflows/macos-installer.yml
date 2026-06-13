@@ -124,7 +124,36 @@ jobs:
       # ── 9. Build project ────────────────────────────────────────────────────
       - name: Build project
         run: |
-          cmake --build build --config Release --parallel 2 --verbose
+          set -o pipefail
+          mkdir -p build
+          cmake --build build --config Release --parallel 1 --verbose 2>&1 | tee build/macos-build.log
+          build_status=${PIPESTATUS[0]}
+          if [ "$build_status" -ne 0 ]; then
+            echo "::group::Focused compiler diagnostics"
+            first_error_line="$(grep -n -m 1 -E '(^|[:[:space:]])error:' build/macos-build.log | cut -d: -f1 || true)"
+            if [ -n "$first_error_line" ]; then
+              start_line=$(( first_error_line > 40 ? first_error_line - 40 : 1 ))
+              end_line=$(( first_error_line + 120 ))
+              sed -n "${start_line},${end_line}p" build/macos-build.log
+            else
+              echo "No compiler error marker was found in build/macos-build.log."
+              tail -n 200 build/macos-build.log
+            fi
+            echo "::endgroup::"
+            exit "$build_status"
+          fi
+
+      - name: Upload macOS build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-macos-build-diagnostics
+          if-no-files-found: warn
+          path: |
+            build/macos-build.log
+            build/CMakeFiles/CMakeOutput.log
+            build/CMakeFiles/CMakeError.log
+            .vcpkg-cache/**/*.log
 
       # ── 10. Stage distribution folder ────────────────────────────────────────
       - name: Stage distribution folder

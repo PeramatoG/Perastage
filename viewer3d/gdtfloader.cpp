@@ -1069,14 +1069,23 @@ static std::string ParseModelColor(tinyxml2::XMLElement* ft)
     return os.str();
 }
 
+// Converts a filesystem timestamp to a portable nanosecond string for cache keys.
+static std::string FileTimestampToCacheKeyString(const fs::file_time_type& timestamp)
+{
+    const auto timestampNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        timestamp.time_since_epoch());
+    const auto timestampValue = static_cast<std::int64_t>(timestampNs.count());
+    return std::to_string(timestampValue);
+}
+
 // Builds the metadata key used to reuse hashes for unchanged GDTF archive files.
 static std::string BuildGdtfHashCacheKey(const fs::path& absPath,
                                          const fs::file_time_type& timestamp,
                                          uintmax_t fileSize)
 {
     std::ostringstream oss;
-    oss << absPath.string() << '|'
-        << timestamp.time_since_epoch().count() << '|'
+    oss << PathUtils::PathToUtf8(absPath) << '|'
+        << FileTimestampToCacheKeyString(timestamp) << '|'
         << fileSize;
     return oss.str();
 }
