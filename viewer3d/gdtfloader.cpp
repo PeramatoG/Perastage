@@ -54,6 +54,16 @@ class wxZipStreamLink;
 namespace fs = std::filesystem;
 
 namespace {
+// Converts a UTF-8 string into a filesystem path without triggering macOS libc++ u8path deprecation warnings.
+static fs::path MakeUtf8Path(const std::string& text)
+{
+#if defined(__APPLE__)
+    return fs::path(text);
+#else
+    return fs::u8path(text);
+#endif
+}
+
 // Parses a trimmed float token and succeeds only when the whole token is numeric.
 bool TryParseFloat(const std::string& text, float& out)
 {
@@ -280,8 +290,6 @@ static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
     }
 }
 
-// Locates a model file using spec-compliant preferred folders and cached recursive fallback lookups.
-
 // Builds a box primitive scaled from model dimensions using visible defaults for missing size components.
 static bool BuildDimensionFallbackMesh(const GdtfModelInfo& modelInfo, Mesh& mesh)
 {
@@ -299,14 +307,16 @@ static bool BuildDimensionFallbackMesh(const GdtfModelInfo& modelInfo, Mesh& mes
     ApplyModelDimensions(mesh, adjusted);
     return true;
 }
+
+// Locates a model file using spec-compliant preferred folders and cached recursive fallback lookups.
 static std::string FindModelFile(const std::string& baseDir,
                                  const std::string& fileName)
 {
-    const fs::path modelsDir = fs::u8path(baseDir) / "models";
+    const fs::path modelsDir = MakeUtf8Path(baseDir) / "models";
     if (!fs::exists(modelsDir))
         return {};
 
-    const fs::path requested = fs::u8path(fileName);
+    const fs::path requested = MakeUtf8Path(fileName);
     const std::string requestedName = requested.filename().string();
     const bool hasExtension = requested.has_extension();
 
@@ -1327,7 +1337,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                             bool loaded = false;
                             bool tried3ds = false;
                             bool triedGlb = false;
-                            const fs::path loadedPath = fs::u8path(path);
+                            const fs::path loadedPath = MakeUtf8Path(path);
                             std::string fallbackGlbPath;
 
                             if (HasExtension(loadedPath, ".3ds")) {
@@ -1336,7 +1346,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                                 loaded = Load3DS(path, mesh, false, &loadError3ds);
                                 if (!loaded) {
                                     fallbackGlbPath = FindModelFile(baseDir, loadedPath.stem().string());
-                                    if (!fallbackGlbPath.empty() && HasExtension(fs::u8path(fallbackGlbPath), ".glb")) {
+                                    if (!fallbackGlbPath.empty() && HasExtension(MakeUtf8Path(fallbackGlbPath), ".glb")) {
                                         triedGlb = true;
                                         std::string loadErrorGlbFallback;
                                         loaded = LoadGLB(fallbackGlbPath, mesh, &loadErrorGlbFallback);
