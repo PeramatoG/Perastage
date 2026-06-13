@@ -36,10 +36,22 @@ double MetersToDisplayDistance(double meters, Units::DistanceUnitSystem unitSyst
                                                    unitSystem);
 }
 
+// Converts millimeter scene coordinates to the active display distance unit.
+double MillimetersToDisplayDistance(double millimeters,
+                                    Units::DistanceUnitSystem unitSystem) {
+  return UiUnitUtils::DistanceMillimetersToDisplay(millimeters, unitSystem);
+}
+
 double DisplayDistanceToMeters(double displayValue,
                                Units::DistanceUnitSystem unitSystem) {
   return UiUnitUtils::DistanceDisplayToMillimeters(displayValue, unitSystem) /
          kMetersToMillimeters;
+}
+
+// Converts a displayed distance value to millimeters for scene coordinates.
+double DisplayDistanceToMillimeters(double displayValue,
+                                    Units::DistanceUnitSystem unitSystem) {
+  return UiUnitUtils::DistanceDisplayToMillimeters(displayValue, unitSystem);
 }
 
 wxString DistanceLabel(const char *baseLabel,
@@ -88,18 +100,18 @@ wxSpinCtrlDouble *AddNumberRow(wxWindow *parent, wxFlexGridSizer *grid,
   return ctrl;
 }
 
-// Adds a signed distance spin row using the active project distance unit.
+// Adds a signed millimeter distance spin row using the active project unit.
 wxSpinCtrlDouble *AddSignedDistanceRow(wxWindow *parent, wxFlexGridSizer *grid,
-                                       const char *label, double meters,
+                                       const char *label, double millimeters,
                                        Units::DistanceUnitSystem unitSystem) {
   grid->Add(new wxStaticText(parent, wxID_ANY, DistanceLabel(label, unitSystem)),
             0, wxALIGN_CENTER_VERTICAL);
   auto *ctrl = new wxSpinCtrlDouble(parent, wxID_ANY);
-  ctrl->SetRange(MetersToDisplayDistance(-1000000.0, unitSystem),
-                 MetersToDisplayDistance(1000000.0, unitSystem));
+  ctrl->SetRange(MillimetersToDisplayDistance(-1000000.0, unitSystem),
+                 MillimetersToDisplayDistance(1000000.0, unitSystem));
   ctrl->SetIncrement(0.1);
   ctrl->SetDigits(2);
-  ctrl->SetValue(MetersToDisplayDistance(meters, unitSystem));
+  ctrl->SetValue(MillimetersToDisplayDistance(millimeters, unitSystem));
   grid->Add(ctrl, 1, wxEXPAND);
   return ctrl;
 }
@@ -191,11 +203,11 @@ public:
     if (!placement_)
       return request;
     request.positionXMeters =
-        DisplayDistanceToMeters(positionXCtrl_->GetValue(), unitSystem_);
+        DisplayDistanceToMillimeters(positionXCtrl_->GetValue(), unitSystem_);
     request.positionYMeters =
-        DisplayDistanceToMeters(positionYCtrl_->GetValue(), unitSystem_);
+        DisplayDistanceToMillimeters(positionYCtrl_->GetValue(), unitSystem_);
     request.positionZMeters =
-        DisplayDistanceToMeters(positionZCtrl_->GetValue(), unitSystem_);
+        DisplayDistanceToMillimeters(positionZCtrl_->GetValue(), unitSystem_);
     request.rotationXDegrees = rotationXCtrl_->GetValue();
     request.rotationYDegrees = rotationYCtrl_->GetValue();
     request.rotationZDegrees = rotationZCtrl_->GetValue();
@@ -309,11 +321,11 @@ public:
     if (!placement_)
       return request;
     request.positionXMeters =
-        DisplayDistanceToMeters(positionXCtrl_->GetValue(), unitSystem_);
+        DisplayDistanceToMillimeters(positionXCtrl_->GetValue(), unitSystem_);
     request.positionYMeters =
-        DisplayDistanceToMeters(positionYCtrl_->GetValue(), unitSystem_);
+        DisplayDistanceToMillimeters(positionYCtrl_->GetValue(), unitSystem_);
     request.positionZMeters =
-        DisplayDistanceToMeters(positionZCtrl_->GetValue(), unitSystem_);
+        DisplayDistanceToMillimeters(positionZCtrl_->GetValue(), unitSystem_);
     request.rotationXDegrees = rotationXCtrl_->GetValue();
     request.rotationYDegrees = rotationYCtrl_->GetValue();
     request.rotationZDegrees = rotationZCtrl_->GetValue();
@@ -433,11 +445,11 @@ public:
     if (!placement_)
       return request;
     request.positionXMeters =
-        DisplayDistanceToMeters(positionXCtrl_->GetValue(), unitSystem_);
+        DisplayDistanceToMillimeters(positionXCtrl_->GetValue(), unitSystem_);
     request.positionYMeters =
-        DisplayDistanceToMeters(positionYCtrl_->GetValue(), unitSystem_);
+        DisplayDistanceToMillimeters(positionYCtrl_->GetValue(), unitSystem_);
     request.positionZMeters =
-        DisplayDistanceToMeters(positionZCtrl_->GetValue(), unitSystem_);
+        DisplayDistanceToMillimeters(positionZCtrl_->GetValue(), unitSystem_);
     request.rotationXDegrees = rotationXCtrl_->GetValue();
     request.rotationYDegrees = rotationYCtrl_->GetValue();
     request.rotationZDegrees = rotationZCtrl_->GetValue();
