@@ -60,7 +60,7 @@ void AddSphereObjects(ConfigManager &cfg, const SphereRequest &request) {
   const std::string layerName = kSceneObjectsLayerName;
 
   EnsureCurrentLayerExists(scene, layerName);
-  AddPrimitiveObjects(scene, layerName, "Sphere", "primitive:sphere",
+  AddPrimitiveObjects(scene, layerName, request.name, "primitive:sphere",
                       BuildSphereScaleTransform(request.radiusMeters),
                       request.quantity, baseId);
 }
@@ -71,7 +71,7 @@ void AddCubeObjects(ConfigManager &cfg, const CubeRequest &request) {
   const std::string layerName = kSceneObjectsLayerName;
 
   EnsureCurrentLayerExists(scene, layerName);
-  AddPrimitiveObjects(scene, layerName, "Cube", "primitive:cube",
+  AddPrimitiveObjects(scene, layerName, request.name, "primitive:cube",
                       BuildCubeScaleTransform(request.lengthMeters,
                                               request.heightMeters,
                                               request.widthMeters),
@@ -97,7 +97,7 @@ void AddCylinderObjects(ConfigManager &cfg, const CylinderRequest &request) {
       isRoundCylinder
           ? BuildCylinderScaleTransform(request.topRadiusMeters, request.heightMeters)
           : Matrix{};
-  AddPrimitiveObjects(scene, layerName, "Cylinder", primitiveToken, localTransform,
+  AddPrimitiveObjects(scene, layerName, request.name, primitiveToken, localTransform,
                       request.quantity, baseId);
 }
 

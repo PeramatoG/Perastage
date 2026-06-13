@@ -3,6 +3,7 @@
 #include "configmanager.h"
 #include "scene_object_primitive_dialogs.h"
 #include "sceneobject.h"
+#include "matrixutils.h"
 
 #include <algorithm>
 #include <cctype>
@@ -104,6 +105,32 @@ PrimitiveGeometryTarget ResolvePrimitiveTarget(const SceneObject &object) {
   return {};
 }
 
+
+PrimitivePlacementRequest PlacementFromObject(const SceneObject &object) {
+  PrimitivePlacementRequest request;
+  request.positionXMeters = object.transform.o[0];
+  request.positionYMeters = object.transform.o[1];
+  request.positionZMeters = object.transform.o[2];
+  const auto euler = MatrixUtils::MatrixToEuler(object.transform);
+  request.rotationZDegrees = euler[0];
+  request.rotationYDegrees = euler[1];
+  request.rotationXDegrees = euler[2];
+  return request;
+}
+
+void ApplyPlacementToObject(SceneObject &object,
+                            const PrimitivePlacementRequest &request) {
+  Matrix rotation = MatrixUtils::EulerToMatrix(
+      static_cast<float>(request.rotationZDegrees),
+      static_cast<float>(request.rotationYDegrees),
+      static_cast<float>(request.rotationXDegrees));
+  object.transform = MatrixUtils::ApplyRotationPreservingScale(
+      object.transform, rotation,
+      {static_cast<float>(request.positionXMeters),
+       static_cast<float>(request.positionYMeters),
+       static_cast<float>(request.positionZMeters)});
+}
+
 Matrix ResolveEditableTransform(const SceneObject &object,
                                const PrimitiveGeometryTarget &target) {
   if (target.usesGeometryEntry && target.geometryIndex < object.geometries.size())
@@ -163,31 +190,53 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
   const Matrix currentTransform = ResolveEditableTransform(object, target);
 
   Matrix updatedTransform = currentTransform;
+  PrimitivePlacementRequest placement = PlacementFromObject(object);
+  const Matrix oldObjectTransform = object.transform;
+  const std::string oldObjectName = object.name;
   bool accepted = false;
   bool primitiveTokenUpdated = false;
 
   if (target.kind == PrimitiveKind::Sphere) {
     SphereRequest request;
+    request.name = object.name.empty() ? "Sphere" : object.name;
     const double uniformScale = std::max(
         {static_cast<double>(AxisLength(currentTransform.u)),
          static_cast<double>(AxisLength(currentTransform.v)),
          static_cast<double>(AxisLength(currentTransform.w)), 0.01});
     request.radiusMeters = uniformScale * 0.5;
-    accepted = ShowSphereEditDialog(parent, request);
+    accepted = ShowSphereEditDialog(parent, request, placement, [&]() {
+      cfg.PushUndoState("apply primitive geometry");
+      object.name = request.name;
+      ApplyPlacementToObject(object, placement);
+      if (target.usesGeometryEntry && target.geometryIndex < object.geometries.size())
+        object.geometries[target.geometryIndex].localTransform =
+            BuildSphereScaleTransform(request.radiusMeters);
+    });
     if (!accepted)
       return false;
+    object.name = request.name;
     updatedTransform = BuildSphereScaleTransform(request.radiusMeters);
   } else if (target.kind == PrimitiveKind::Cube) {
     CubeRequest request;
+    request.name = object.name.empty() ? "Cube" : object.name;
     request.lengthMeters =
         std::max(static_cast<double>(AxisLength(currentTransform.u)), 0.01);
     request.heightMeters =
         std::max(static_cast<double>(AxisLength(currentTransform.v)), 0.01);
     request.widthMeters =
         std::max(static_cast<double>(AxisLength(currentTransform.w)), 0.01);
-    accepted = ShowCubeEditDialog(parent, request);
+    accepted = ShowCubeEditDialog(parent, request, placement, [&]() {
+      cfg.PushUndoState("apply primitive geometry");
+      object.name = request.name;
+      ApplyPlacementToObject(object, placement);
+      if (target.usesGeometryEntry && target.geometryIndex < object.geometries.size())
+        object.geometries[target.geometryIndex].localTransform =
+            BuildCubeScaleTransform(request.lengthMeters, request.heightMeters,
+                                    request.widthMeters);
+    });
     if (!accepted)
       return false;
+    object.name = request.name;
     updatedTransform = BuildCubeScaleTransform(request.lengthMeters,
                                                request.heightMeters,
                                                request.widthMeters);
@@ -197,9 +246,32 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
             ? object.geometries[target.geometryIndex].modelFile
             : object.modelFile,
         currentTransform);
-    accepted = ShowCylinderEditDialog(parent, request);
+    request.name = object.name.empty() ? "Cylinder" : object.name;
+    accepted = ShowCylinderEditDialog(parent, request, placement, [&]() {
+      cfg.PushUndoState("apply primitive geometry");
+      object.name = request.name;
+      ApplyPlacementToObject(object, placement);
+      const bool applyRound = std::fabs(request.topRadiusMeters - request.bottomRadiusMeters) <
+                              kCylinderRoundToleranceMeters;
+      const std::string applyToken =
+          applyRound ? std::string(kPrimitiveCylinderToken)
+                     : BuildCylinderPrimitiveToken(request.topRadiusMeters,
+                                                   request.bottomRadiusMeters,
+                                                   request.heightMeters);
+      const Matrix applyTransform =
+          applyRound ? BuildCylinderScaleTransform(request.topRadiusMeters,
+                                                   request.heightMeters)
+                     : Matrix{};
+      if (target.usesGeometryEntry && target.geometryIndex < object.geometries.size()) {
+        object.geometries[target.geometryIndex].modelFile = applyToken;
+        object.geometries[target.geometryIndex].localTransform = applyTransform;
+      } else {
+        object.modelFile = applyToken;
+      }
+    });
     if (!accepted)
       return false;
+    object.name = request.name;
     const bool isRoundCylinder =
         std::fabs(request.topRadiusMeters - request.bottomRadiusMeters) <
         kCylinderRoundToleranceMeters;
@@ -221,11 +293,20 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
     primitiveTokenUpdated = true;
   }
 
-  if (!accepted ||
-      (!primitiveTokenUpdated &&
-      (updatedTransform.u == currentTransform.u &&
-       updatedTransform.v == currentTransform.v &&
-       updatedTransform.w == currentTransform.w)))
+  if (!accepted)
+    return false;
+
+  ApplyPlacementToObject(object, placement);
+
+  if (!primitiveTokenUpdated &&
+      updatedTransform.u == currentTransform.u &&
+      updatedTransform.v == currentTransform.v &&
+      updatedTransform.w == currentTransform.w &&
+      object.transform.u == oldObjectTransform.u &&
+      object.transform.v == oldObjectTransform.v &&
+      object.transform.w == oldObjectTransform.w &&
+      object.transform.o == oldObjectTransform.o &&
+      object.name == oldObjectName)
     return false;
 
   cfg.PushUndoState("edit primitive geometry");
