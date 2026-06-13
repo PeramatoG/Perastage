@@ -25,10 +25,17 @@ public:
   std::vector<wxDataViewItemAttr> rowAttrs;
   std::vector<std::vector<wxDataViewItemAttr>> cellAttrs;
   std::vector<bool> selectionRows;
+  std::vector<bool> primaryHighlightRows;
+  std::vector<bool> secondaryHighlightRows;
   wxColour selectionBackground;
   wxColour selectionForeground;
+  wxColour primaryHighlightBackground;
+  wxColour secondaryHighlightBackground;
+  wxColour highlightForeground;
   bool selectionBackgroundEnabled = false;
   bool selectionForegroundEnabled = false;
+  bool highlightBackgroundEnabled = false;
+  bool highlightForegroundEnabled = false;
 
   bool GetAttrByRow(unsigned row, unsigned col,
                     wxDataViewItemAttr &attr) const override {
@@ -60,6 +67,24 @@ public:
       return true;
     }
 
+    const bool isPrimaryHighlight =
+        row < primaryHighlightRows.size() && primaryHighlightRows[row];
+    const bool isSecondaryHighlight =
+        row < secondaryHighlightRows.size() && secondaryHighlightRows[row];
+    if ((isPrimaryHighlight || isSecondaryHighlight) &&
+        (highlightBackgroundEnabled || highlightForegroundEnabled)) {
+      if (!hasAttr)
+        attr = wxDataViewItemAttr();
+      if (highlightBackgroundEnabled && !attr.HasBackgroundColour()) {
+        attr.SetBackgroundColour(isPrimaryHighlight
+                                     ? primaryHighlightBackground
+                                     : secondaryHighlightBackground);
+      }
+      if (highlightForegroundEnabled && !hasTextColour)
+        attr.SetColour(highlightForeground);
+      return true;
+    }
+
     return hasAttr;
   }
 
@@ -68,6 +93,8 @@ public:
     rowAttrs.emplace_back();
     cellAttrs.emplace_back();
     selectionRows.push_back(false);
+    primaryHighlightRows.push_back(false);
+    secondaryHighlightRows.push_back(false);
   }
 
   void PrependItem(const wxVector<wxVariant> &values, wxUIntPtr data = 0) {
@@ -75,6 +102,8 @@ public:
     rowAttrs.insert(rowAttrs.begin(), wxDataViewItemAttr());
     cellAttrs.insert(cellAttrs.begin(), std::vector<wxDataViewItemAttr>());
     selectionRows.insert(selectionRows.begin(), false);
+    primaryHighlightRows.insert(primaryHighlightRows.begin(), false);
+    secondaryHighlightRows.insert(secondaryHighlightRows.begin(), false);
   }
 
   void InsertItem(unsigned row, const wxVector<wxVariant> &values,
@@ -84,6 +113,8 @@ public:
     cellAttrs.insert(cellAttrs.begin() + row,
                      std::vector<wxDataViewItemAttr>());
     selectionRows.insert(selectionRows.begin() + row, false);
+    primaryHighlightRows.insert(primaryHighlightRows.begin() + row, false);
+    secondaryHighlightRows.insert(secondaryHighlightRows.begin() + row, false);
   }
 
   void DeleteItem(unsigned row) {
@@ -94,6 +125,10 @@ public:
       cellAttrs.erase(cellAttrs.begin() + row);
     if (row < selectionRows.size())
       selectionRows.erase(selectionRows.begin() + row);
+    if (row < primaryHighlightRows.size())
+      primaryHighlightRows.erase(primaryHighlightRows.begin() + row);
+    if (row < secondaryHighlightRows.size())
+      secondaryHighlightRows.erase(secondaryHighlightRows.begin() + row);
   }
 
   void DeleteAllItems() {
@@ -101,6 +136,8 @@ public:
     rowAttrs.clear();
     cellAttrs.clear();
     selectionRows.clear();
+    primaryHighlightRows.clear();
+    secondaryHighlightRows.clear();
   }
 
   void SetRowBackgroundColour(unsigned row, const wxColour &colour) {
@@ -188,6 +225,51 @@ public:
       bool oldVal = i < oldSize ? oldRows[i] : false;
       bool newVal = i < selectionRows.size() ? selectionRows[i] : false;
       if (oldVal != newVal)
+        RowChanged(i);
+    }
+  }
+
+  // Applies primary and secondary row highlights using selection-style colors.
+  void SetHighlightRows(const std::vector<bool> &primaryRows,
+                        const std::vector<bool> &secondaryRows,
+                        const wxColour &primaryBackground,
+                        const wxColour &secondaryBackground,
+                        const wxColour &foreground) {
+    std::vector<bool> oldPrimaryRows = primaryHighlightRows;
+    std::vector<bool> oldSecondaryRows = secondaryHighlightRows;
+    primaryHighlightRows.assign(primaryRows.begin(), primaryRows.end());
+    secondaryHighlightRows.assign(secondaryRows.begin(), secondaryRows.end());
+    size_t itemCount = GetItemCount();
+    if (itemCount > primaryHighlightRows.size())
+      primaryHighlightRows.resize(itemCount, false);
+    if (itemCount > secondaryHighlightRows.size())
+      secondaryHighlightRows.resize(itemCount, false);
+    if (primaryHighlightRows.size() > itemCount)
+      primaryHighlightRows.resize(itemCount);
+    if (secondaryHighlightRows.size() > itemCount)
+      secondaryHighlightRows.resize(itemCount);
+    primaryHighlightBackground = primaryBackground;
+    secondaryHighlightBackground = secondaryBackground;
+    highlightForeground = foreground;
+    highlightBackgroundEnabled = true;
+    highlightForegroundEnabled = true;
+
+    size_t notifyCount =
+        (std::min)((std::max)(oldPrimaryRows.size(), primaryHighlightRows.size()),
+                   itemCount);
+    notifyCount = (std::max)(notifyCount,
+                             (std::min)((std::max)(oldSecondaryRows.size(),
+                                                    secondaryHighlightRows.size()),
+                                        itemCount));
+    for (size_t i = 0; i < notifyCount; ++i) {
+      bool oldPrimary = i < oldPrimaryRows.size() ? oldPrimaryRows[i] : false;
+      bool newPrimary =
+          i < primaryHighlightRows.size() ? primaryHighlightRows[i] : false;
+      bool oldSecondary =
+          i < oldSecondaryRows.size() ? oldSecondaryRows[i] : false;
+      bool newSecondary =
+          i < secondaryHighlightRows.size() ? secondaryHighlightRows[i] : false;
+      if (oldPrimary != newPrimary || oldSecondary != newSecondary)
         RowChanged(i);
     }
   }

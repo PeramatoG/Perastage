@@ -1170,23 +1170,18 @@ void TrussTablePanel::HighlightTruss(
         return row;
     };
 
-    const int previousRow = findRow(highlightedUuid);
-    if (previousRow != wxNOT_FOUND)
-        store->ClearRowBackground(previousRow);
-    for (const auto& relatedUuid : highlightedRelatedUuids) {
-        const int relatedRow = findRow(relatedUuid);
-        if (relatedRow != wxNOT_FOUND)
-            store->ClearRowBackground(relatedRow);
-    }
-
+    std::vector<bool> primaryRows(table->GetItemCount(), false);
+    std::vector<bool> secondaryRows(table->GetItemCount(), false);
     const int currentRow = findRow(uuid);
     if (currentRow != wxNOT_FOUND)
-        store->SetRowBackgroundColour(currentRow, wxColour(170, 220, 0));
+        primaryRows[static_cast<size_t>(currentRow)] = true;
     for (const auto& relatedUuid : relatedUuids) {
         const int relatedRow = findRow(relatedUuid);
         if (relatedRow != wxNOT_FOUND && relatedRow != currentRow)
-            store->SetRowBackgroundColour(relatedRow, wxColour(110, 210, 150));
+            secondaryRows[static_cast<size_t>(relatedRow)] = true;
     }
+    store->SetHighlightRows(primaryRows, secondaryRows, wxColour(170, 220, 0),
+                            wxColour(110, 210, 150), wxColour(0, 0, 0));
 
     highlightedUuid = uuid;
     highlightedRelatedUuids = relatedUuids;

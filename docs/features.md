@@ -86,7 +86,7 @@ Additional safeguards include:
 
 - Dedicated tables for fixtures, trusses, hoists, and objects.
 - Multi-row editing helpers include fills, ranges, interpolation, and relative expressions.
-- **Group** and **Ungroup** in the Edit menu create and remove MVR-compatible GroupObject hierarchy from the active cross-table selection across fixtures, trusses, hoists, and scene objects while preserving world placement and hang-position assignments; after grouping, selecting a member highlights and moves/rotates the full group, including nested groups, while hovering a grouped member uses a more yellow primary highlight and a paler related-green highlight on the other group members in the 3D view and related tables.
+- **Group** and **Ungroup** in the Edit menu create and remove MVR-compatible GroupObject hierarchy from the active cross-table selection across fixtures, trusses, hoists, and scene objects while preserving world placement and hang-position assignments; after grouping, selecting a member highlights and moves/rotates the full group, including nested groups, while hovering a grouped member uses a more yellow primary highlight and a paler related-green highlight on the other group members in the 3D view and related tables using the same row style as table selection.
 - CSV export is available through file/export workflows.
 
 ### Conversion and type/color helpers
