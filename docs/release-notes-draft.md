@@ -12,6 +12,7 @@ Changes since `v1.3.0`.
 
 ## Improvements
 
+- Added a 2D position gizmo while dragging scene elements so movement direction feedback follows the dragged insertion point and matches the 3D viewer.
 - Improved GroupObject handling so selecting a grouped member highlights and transforms the full root group, including nested groups, in 2D, 3D, and command-bar transform workflows.
 - Improved group hover feedback by using a more yellow primary highlight and a paler secondary group highlight across the 3D view and related fixture, truss, hoist, and scene object table rows, matching the table selection styling.
 - Improved 3D click selection for grouped scene items so a quick click selects the full group across fixture, truss, hoist, and scene object tables.
@@ -19,6 +20,7 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
+- Kept the 2D and 3D viewer highlights pinned to the dragged scene element during mouse-drag moves so hover feedback no longer jumps to other elements mid-drag.
 - Fixed quick-click fixture selection in the 3D view so hovered fixtures can still be selected when the precise release pick misses.
 - Fixed MVR fixture Color handling so visualization colors are no longer exported as gel/filter colors, while imported MVR Color values are preserved as fixture gel/filter data.
 - Restored edge-safe fixture visibility and made fixture hover picking use actual fixture geometry so highlights and labels target the visible fixture instead of broad bounds.

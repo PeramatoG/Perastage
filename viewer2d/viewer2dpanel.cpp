@@ -130,6 +130,22 @@ ResolveSceneElementCenterByUuid(const ConfigManager &cfg, const std::string &uui
   return std::nullopt;
 }
 
+
+// Draws a 2D triangular arrowhead in screen-space overlay coordinates.
+void DrawSelectionDragArrowhead2D(float baseX, float baseY, float dirX, float dirY,
+                                  float length, float radius) {
+  const float tipX = baseX + dirX * length;
+  const float tipY = baseY + dirY * length;
+  const float sideX = -dirY;
+  const float sideY = dirX;
+
+  glBegin(GL_TRIANGLES);
+  glVertex2f(tipX, tipY);
+  glVertex2f(baseX + sideX * radius, baseY + sideY * radius);
+  glVertex2f(baseX - sideX * radius, baseY - sideY * radius);
+  glEnd();
+}
+
 // Draws a CAD-like temporary dimension overlay with extension lines, arrows, and label.
 void DrawMeasureOverlay(Viewer3DController &controller,
                         const Viewer2DMeasureToolState &measureState,
@@ -1156,6 +1172,9 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       viewer2d::EmitRulerToCanvas(rulerState, darkMode, *recordingCanvas);
   }
 
+  if (m_dragMode == DragMode::Selection)
+    DrawSelectionDragGizmo(w, h);
+
   if (m_measureToolState.enabled && m_measureToolState.hasAnchor) {
     std::optional<std::array<float, 3>> targetWorld;
     std::optional<std::array<float, 2>> targetScreenOverride;
@@ -1355,6 +1374,120 @@ std::array<float, 3> Viewer2DPanel::MapDragDelta(float dxMeters,
     return {0.0f, dxMeters, dyMeters};
   }
   return {dxMeters, dyMeters, 0.0f};
+}
+
+// Computes the current center point for the dragged 2D selection.
+std::optional<std::array<float, 3>>
+Viewer2DPanel::ComputeSelectionDragCenterMeters() const {
+  if (m_dragSelectionUuids.empty())
+    return std::nullopt;
+
+  const ConfigManager &cfg = ConfigManager::Get();
+  std::array<float, 3> center{0.0f, 0.0f, 0.0f};
+  size_t count = 0;
+  for (const std::string &uuid : m_dragSelectionUuids) {
+    const auto elementCenter = ResolveSceneElementCenterByUuid(cfg, uuid);
+    if (!elementCenter)
+      continue;
+    center[0] += (*elementCenter)[0];
+    center[1] += (*elementCenter)[1];
+    center[2] += (*elementCenter)[2];
+    ++count;
+  }
+
+  if (count == 0)
+    return std::nullopt;
+  center[0] /= static_cast<float>(count);
+  center[1] /= static_cast<float>(count);
+  center[2] /= static_cast<float>(count);
+  return center;
+}
+
+// Draws a position gizmo at the active 2D selection drag center.
+void Viewer2DPanel::DrawSelectionDragGizmo(int width, int height) {
+  if (m_dragMode != DragMode::Selection || m_dragSelectionUuids.empty() ||
+      width <= 0 || height <= 0)
+    return;
+
+  const auto centerWorld = ComputeSelectionDragCenterMeters();
+  if (!centerWorld)
+    return;
+
+  const auto centerScreen = Viewer2DMeasureWorldToScreen(
+      *centerWorld, m_view, width, height, m_zoom, m_offsetX, m_offsetY);
+  if (!centerScreen)
+    return;
+
+  const bool depthEnabled = glIsEnabled(GL_DEPTH_TEST);
+  if (depthEnabled)
+    glDisable(GL_DEPTH_TEST);
+
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
+  glLoadIdentity();
+  glOrtho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height),
+          -1.0f, 1.0f);
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
+
+  const float x = (*centerScreen)[0];
+  // Viewer2DMeasureWorldToScreen returns top-origin pixels; this overlay uses
+  // bottom-origin GL coordinates.
+  const float y = static_cast<float>(height) - (*centerScreen)[1];
+  const float length = 58.0f;
+  const float arrowheadLength = 14.0f;
+  const float arrowheadRadius = 6.0f;
+  const float shaftLength = length - arrowheadLength;
+  const bool horizontalActive = m_dragAxis == DragAxis::Horizontal;
+  const bool verticalActive = m_dragAxis == DragAxis::Vertical;
+
+  std::array<float, 4> horizontalColor{};
+  std::array<float, 4> verticalColor{};
+  switch (m_view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    horizontalColor = {horizontalActive ? 1.0f : 0.95f, 0.25f, 0.25f, 1.0f};
+    verticalColor = {0.25f, verticalActive ? 1.0f : 0.95f, 0.25f, 1.0f};
+    break;
+  case Viewer2DView::Front:
+    horizontalColor = {horizontalActive ? 1.0f : 0.95f, 0.25f, 0.25f, 1.0f};
+    verticalColor = {0.25f, 0.45f, verticalActive ? 1.0f : 0.95f, 1.0f};
+    break;
+  case Viewer2DView::Side:
+    horizontalColor = {0.25f, horizontalActive ? 1.0f : 0.95f, 0.25f, 1.0f};
+    verticalColor = {0.25f, 0.45f, verticalActive ? 1.0f : 0.95f, 1.0f};
+    break;
+  }
+
+  glLineWidth(2.5f);
+  glBegin(GL_LINES);
+  glColor4f(horizontalColor[0], horizontalColor[1], horizontalColor[2],
+            horizontalColor[3]);
+  glVertex2f(x, y);
+  glVertex2f(x + shaftLength, y);
+  glColor4f(verticalColor[0], verticalColor[1], verticalColor[2],
+            verticalColor[3]);
+  glVertex2f(x, y);
+  glVertex2f(x, y + shaftLength);
+  glEnd();
+
+  glColor4f(horizontalColor[0], horizontalColor[1], horizontalColor[2],
+            horizontalColor[3]);
+  DrawSelectionDragArrowhead2D(x + shaftLength, y, 1.0f, 0.0f,
+                               arrowheadLength, arrowheadRadius);
+  glColor4f(verticalColor[0], verticalColor[1], verticalColor[2],
+            verticalColor[3]);
+  DrawSelectionDragArrowhead2D(x, y + shaftLength, 0.0f, 1.0f,
+                               arrowheadLength, arrowheadRadius);
+
+  glPopMatrix();
+  glMatrixMode(GL_PROJECTION);
+  glPopMatrix();
+  glMatrixMode(GL_MODELVIEW);
+
+  if (depthEnabled)
+    glEnable(GL_DEPTH_TEST);
 }
 
 void Viewer2DPanel::ApplySelectionDelta(
@@ -2161,6 +2294,8 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
     return;
 
   m_hoverHitTestPending = false;
+  if (m_dragMode == DragMode::Selection)
+    return;
   m_lastHoverHitTestTime = std::chrono::steady_clock::now();
   m_lastHoverQueryScreenPos = screenPos;
   m_hoverQueryHasPos = true;
@@ -2387,6 +2522,7 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
         }
       }
 
+      ApplyHoverUuid(uuid, true);
       m_dragMode = DragMode::Selection;
       m_dragTarget = target;
     }

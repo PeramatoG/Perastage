@@ -190,12 +190,14 @@ private:
   void TrackRefreshTelemetry();
 
   std::array<float, 3> MapDragDelta(float dxMeters, float dyMeters) const;
+  std::optional<std::array<float, 3>> ComputeSelectionDragCenterMeters() const;
   std::optional<std::array<float, 3>>
   ComputeWorldPositionFromScreen(const wxPoint &screenPos) const;
   void NotifyCursorWorldPosition(const wxPoint &screenPos);
   void ClearCursorWorldPosition();
   void ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
   void FinalizeSelectionDrag();
+  void DrawSelectionDragGizmo(int width, int height);
   void ApplyRectangleSelection(const wxPoint &start, const wxPoint &end,
                                bool selectAcrossAllTables);
   void DrawSelectionRectangle(int width, int height, bool darkMode);

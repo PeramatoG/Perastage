@@ -141,6 +141,8 @@ private:
 
     // Clear all selected scene object types and refresh related UI state.
     void ClearAllObjectSelections(const char* undoLabel);
+    // Synchronizes the current hover highlight with the 3D controller and tables.
+    void SynchronizeHoverHighlight();
     void OnCaptureLost(wxMouseCaptureLostEvent& event);
     void ApplyRectangleSelection(const wxPoint& start, const wxPoint& end);
     // Safely binds the GL context for interaction and picking paths.
