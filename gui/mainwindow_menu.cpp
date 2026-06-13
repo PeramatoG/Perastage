@@ -1475,15 +1475,16 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
 
   std::string path;
   std::string defaultName;
+  const SceneObject *templateObject = nullptr;
 
   if (!scene.sceneObjects.empty()) {
-    std::map<std::string, std::string> nameToFile;
+    std::map<std::string, const SceneObject *> nameToObject;
     for (const auto &[uuid, o] : scene.sceneObjects)
-      if (!o.name.empty() && !o.modelFile.empty())
-        nameToFile.try_emplace(o.name, o.modelFile);
+      if (!o.name.empty() && !o.GetPrimaryModel().empty())
+        nameToObject.try_emplace(o.name, &o);
     std::vector<std::string> names;
-    names.reserve(nameToFile.size());
-    for (const auto &[n, _] : nameToFile)
+    names.reserve(nameToObject.size());
+    for (const auto &[n, _] : nameToObject)
       names.push_back(n);
 
     SelectNameDialog chooseDlg(this, names, "Select Scene Object",
@@ -1507,7 +1508,11 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
       if (sel < 0 || sel >= static_cast<int>(names.size()))
         return;
       defaultName = names[sel];
-      path = nameToFile[defaultName];
+      auto objectIt = nameToObject.find(defaultName);
+      if (objectIt == nameToObject.end() || objectIt->second == nullptr)
+        return;
+      templateObject = objectIt->second;
+      path = templateObject->GetPrimaryModel();
     }
   } else {
     wxString objDir = wxString::FromUTF8(
@@ -1530,15 +1535,19 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   namespace fs = std::filesystem;
   cfg.PushUndoState("add scene object");
   std::string base = scene.basePath;
-  std::string conversionError;
-  path = NormalizeImportedObjectModelPathToGlb(path, base, conversionError);
-  if (!conversionError.empty() && ConsolePanel::Instance())
-    ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(conversionError));
-  if (!base.empty()) {
-    fs::path abs = fs::absolute(path);
-    fs::path b = fs::absolute(base);
-    if (abs.string().rfind(b.string(), 0) == 0)
-      path = fs::relative(abs, b).string();
+  const bool useTemplateGeometry =
+      templateObject != nullptr && !templateObject->geometries.empty();
+  if (!useTemplateGeometry) {
+    std::string conversionError;
+    path = NormalizeImportedObjectModelPathToGlb(path, base, conversionError);
+    if (!conversionError.empty() && ConsolePanel::Instance())
+      ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(conversionError));
+    if (!base.empty()) {
+      fs::path abs = fs::absolute(path);
+      fs::path b = fs::absolute(base);
+      if (abs.string().rfind(b.string(), 0) == 0)
+        path = fs::relative(abs, b).string();
+    }
   }
 
   auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
@@ -1566,7 +1575,12 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
       obj.name = defaultName + " " + std::to_string(i + 1);
     else
       obj.name = defaultName;
-    obj.modelFile = path;
+    if (useTemplateGeometry) {
+      obj.geometries = templateObject->geometries;
+      obj.modelFile = templateObject->modelFile;
+    } else {
+      obj.modelFile = path;
+    }
     obj.layer = layerName;
     scene.sceneObjects[obj.uuid] = obj;
   }
