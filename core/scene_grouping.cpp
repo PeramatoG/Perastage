@@ -44,7 +44,8 @@ float Determinant3x3(const Matrix &m) {
          m.w[0] * (m.u[1] * m.v[2] - m.v[1] * m.u[2]);
 }
 
-// Builds the inverse transform used to preserve world placement during reparenting.
+// Builds the inverse transform used to preserve world placement during
+// reparenting.
 Matrix InverseMatrix(const Matrix &m) {
   const float det = Determinant3x3(m);
   if (std::fabs(det) < 1e-8f)
@@ -56,19 +57,15 @@ Matrix InverseMatrix(const Matrix &m) {
   const float a20 = m.u[2], a21 = m.v[2], a22 = m.w[2];
 
   Matrix inv;
-  inv.u = { (a11 * a22 - a12 * a21) * invDet,
-            (a12 * a20 - a10 * a22) * invDet,
-            (a10 * a21 - a11 * a20) * invDet };
-  inv.v = { (a02 * a21 - a01 * a22) * invDet,
-            (a00 * a22 - a02 * a20) * invDet,
-            (a01 * a20 - a00 * a21) * invDet };
-  inv.w = { (a01 * a12 - a02 * a11) * invDet,
-            (a02 * a10 - a00 * a12) * invDet,
-            (a00 * a11 - a01 * a10) * invDet };
+  inv.u = {(a11 * a22 - a12 * a21) * invDet, (a12 * a20 - a10 * a22) * invDet,
+           (a10 * a21 - a11 * a20) * invDet};
+  inv.v = {(a02 * a21 - a01 * a22) * invDet, (a00 * a22 - a02 * a20) * invDet,
+           (a01 * a20 - a00 * a21) * invDet};
+  inv.w = {(a01 * a12 - a02 * a11) * invDet, (a02 * a10 - a00 * a12) * invDet,
+           (a00 * a11 - a01 * a10) * invDet};
 
   for (int i = 0; i < 3; ++i) {
-    inv.o[i] = -(inv.u[i] * m.o[0] + inv.v[i] * m.o[1] +
-                 inv.w[i] * m.o[2]);
+    inv.o[i] = -(inv.u[i] * m.o[0] + inv.v[i] * m.o[1] + inv.w[i] * m.o[2]);
   }
   return inv;
 }
@@ -118,19 +115,23 @@ std::string ParentGroupUuidFor(const MvrScene &scene, const MvrNodeType type,
   switch (type) {
   case MvrNodeType::Fixture: {
     auto it = scene.fixtures.find(uuid);
-    return it == scene.fixtures.end() ? std::string{} : it->second.parentGroupUuid;
+    return it == scene.fixtures.end() ? std::string{}
+                                      : it->second.parentGroupUuid;
   }
   case MvrNodeType::Truss: {
     auto it = scene.trusses.find(uuid);
-    return it == scene.trusses.end() ? std::string{} : it->second.parentGroupUuid;
+    return it == scene.trusses.end() ? std::string{}
+                                     : it->second.parentGroupUuid;
   }
   case MvrNodeType::Support: {
     auto it = scene.supports.find(uuid);
-    return it == scene.supports.end() ? std::string{} : it->second.parentGroupUuid;
+    return it == scene.supports.end() ? std::string{}
+                                      : it->second.parentGroupUuid;
   }
   case MvrNodeType::SceneObject: {
     auto it = scene.sceneObjects.find(uuid);
-    return it == scene.sceneObjects.end() ? std::string{} : it->second.parentGroupUuid;
+    return it == scene.sceneObjects.end() ? std::string{}
+                                          : it->second.parentGroupUuid;
   }
   case MvrNodeType::GroupObject:
     break;
@@ -139,8 +140,9 @@ std::string ParentGroupUuidFor(const MvrScene &scene, const MvrNodeType type,
 }
 
 // Adds existing selected objects to a normalized reference list.
-std::vector<SelectedObjectRef> CollectSelectedObjects(
-    const MvrScene &scene, const ObjectSelection &selection) {
+std::vector<SelectedObjectRef>
+CollectSelectedObjects(const MvrScene &scene,
+                       const ObjectSelection &selection) {
   std::vector<SelectedObjectRef> refs;
   std::set<std::pair<MvrNodeType, std::string>> seen;
 
@@ -150,8 +152,8 @@ std::vector<SelectedObjectRef> CollectSelectedObjects(
       auto it = table.find(uuid);
       if (it == table.end() || !seen.insert({type, uuid}).second)
         continue;
-      refs.push_back({type, uuid, it->second.layer,
-                      it->second.parentGroupUuid, it->second.transform});
+      refs.push_back({type, uuid, it->second.layer, it->second.parentGroupUuid,
+                      it->second.transform});
     }
   };
 
@@ -178,7 +180,8 @@ Matrix BuildGroupWorldTransform(const std::vector<SelectedObjectRef> &objects) {
 }
 
 // Returns a common direct parent if every selected object has the same one.
-std::string CommonParentGroupUuid(const std::vector<SelectedObjectRef> &objects) {
+std::string
+CommonParentGroupUuid(const std::vector<SelectedObjectRef> &objects) {
   if (objects.empty())
     return {};
   const std::string parent = objects.front().parentGroupUuid;
@@ -190,7 +193,8 @@ std::string CommonParentGroupUuid(const std::vector<SelectedObjectRef> &objects)
 }
 
 // Updates an object's parent group and local transform fields.
-void ApplyParentAndLocalTransform(MvrScene &scene, const SelectedObjectRef &object,
+void ApplyParentAndLocalTransform(MvrScene &scene,
+                                  const SelectedObjectRef &object,
                                   const std::string &parentGroupUuid,
                                   const Matrix &localTransform) {
   switch (object.type) {
@@ -241,12 +245,14 @@ void ApplyParentAndLocalTransform(MvrScene &scene, const SelectedObjectRef &obje
   }
 }
 
-// Adds an affected child UUID to the operation result for selection restoration.
+// Adds an affected child UUID to the operation result for selection
+// restoration.
 void AppendAffected(OperationResult &result, const MvrNodeType type,
                     const std::string &uuid) {
   switch (type) {
   case MvrNodeType::Fixture:
-    if (std::find(result.affectedFixtures.begin(), result.affectedFixtures.end(),
+    if (std::find(result.affectedFixtures.begin(),
+                  result.affectedFixtures.end(),
                   uuid) == result.affectedFixtures.end())
       result.affectedFixtures.push_back(uuid);
     break;
@@ -256,14 +262,15 @@ void AppendAffected(OperationResult &result, const MvrNodeType type,
       result.affectedTrusses.push_back(uuid);
     break;
   case MvrNodeType::Support:
-    if (std::find(result.affectedSupports.begin(), result.affectedSupports.end(),
+    if (std::find(result.affectedSupports.begin(),
+                  result.affectedSupports.end(),
                   uuid) == result.affectedSupports.end())
       result.affectedSupports.push_back(uuid);
     break;
   case MvrNodeType::SceneObject:
     if (std::find(result.affectedSceneObjects.begin(),
-                  result.affectedSceneObjects.end(), uuid) ==
-        result.affectedSceneObjects.end())
+                  result.affectedSceneObjects.end(),
+                  uuid) == result.affectedSceneObjects.end())
       result.affectedSceneObjects.push_back(uuid);
     break;
   case MvrNodeType::GroupObject:
@@ -271,8 +278,8 @@ void AppendAffected(OperationResult &result, const MvrNodeType type,
   }
 }
 
-
-// Multiplies a matrix point by the transform without applying translation scale changes.
+// Multiplies a matrix point by the transform without applying translation scale
+// changes.
 std::array<float, 3> TransformPoint(const Matrix &m,
                                     const std::array<float, 3> &point) {
   return {m.u[0] * point[0] + m.v[0] * point[1] + m.w[0] * point[2] + m.o[0],
@@ -285,7 +292,8 @@ std::string ParentGroupUuidForTarget(const MvrScene &scene,
                                      const SceneTransformTarget &target) {
   if (target.type == MvrNodeType::GroupObject) {
     auto it = scene.groupObjects.find(target.uuid);
-    return it == scene.groupObjects.end() ? std::string{} : it->second.parentGroupUuid;
+    return it == scene.groupObjects.end() ? std::string{}
+                                          : it->second.parentGroupUuid;
   }
   return ParentGroupUuidFor(scene, target.type, target.uuid);
 }
@@ -318,8 +326,8 @@ void UpdateLocalTransformForTarget(MvrScene &scene,
   if (!parentUuid.empty()) {
     auto parentIt = scene.groupObjects.find(parentUuid);
     if (parentIt != scene.groupObjects.end())
-      localTransform = MatrixUtils::Multiply(InverseMatrix(parentIt->second.transform),
-                                             worldTransform);
+      localTransform = MatrixUtils::Multiply(
+          InverseMatrix(parentIt->second.transform), worldTransform);
   }
 
   switch (target.type) {
@@ -378,46 +386,47 @@ void SynchronizeGroupChildrenWorldTransforms(MvrScene &scene,
       auto childIt = scene.groupObjects.find(child.uuid);
       if (childIt == scene.groupObjects.end())
         continue;
-      childIt->second.transform = MatrixUtils::Multiply(group.transform,
-                                                        childIt->second.localTransform);
+      childIt->second.transform = MatrixUtils::Multiply(
+          group.transform, childIt->second.localTransform);
       SynchronizeGroupChildrenWorldTransforms(scene, childIt->second);
     } else if (child.type == MvrNodeType::Fixture) {
       auto it = scene.fixtures.find(child.uuid);
       if (it != scene.fixtures.end())
-        it->second.transform = MatrixUtils::Multiply(group.transform,
-                                                     it->second.localTransform);
+        it->second.transform =
+            MatrixUtils::Multiply(group.transform, it->second.localTransform);
     } else if (child.type == MvrNodeType::Truss) {
       auto it = scene.trusses.find(child.uuid);
       if (it != scene.trusses.end())
-        it->second.transform = MatrixUtils::Multiply(group.transform,
-                                                     it->second.localTransform);
+        it->second.transform =
+            MatrixUtils::Multiply(group.transform, it->second.localTransform);
     } else if (child.type == MvrNodeType::Support) {
       auto it = scene.supports.find(child.uuid);
       if (it != scene.supports.end())
-        it->second.transform = MatrixUtils::Multiply(group.transform,
-                                                     it->second.localTransform);
+        it->second.transform =
+            MatrixUtils::Multiply(group.transform, it->second.localTransform);
     } else if (child.type == MvrNodeType::SceneObject) {
       auto it = scene.sceneObjects.find(child.uuid);
       if (it != scene.sceneObjects.end())
-        it->second.transform = MatrixUtils::Multiply(group.transform,
-                                                     it->second.localTransform);
+        it->second.transform =
+            MatrixUtils::Multiply(group.transform, it->second.localTransform);
     }
   }
 }
 
-// Rotates a target world transform around a pivot by applying a rotation matrix.
+// Rotates a target world transform around a pivot by applying a rotation
+// matrix.
 Matrix RotateTransformAroundPivot(const Matrix &source, const Matrix &rotation,
                                   const std::array<float, 3> &pivotMm) {
   Matrix rotated = MatrixUtils::Multiply(rotation, source);
   const std::array<float, 3> relative = {source.o[0] - pivotMm[0],
                                          source.o[1] - pivotMm[1],
                                          source.o[2] - pivotMm[2]};
-  const std::array<float, 3> rotatedPosition = TransformPoint(rotation, relative);
+  const std::array<float, 3> rotatedPosition =
+      TransformPoint(rotation, relative);
   rotated.o = {rotatedPosition[0] + pivotMm[0], rotatedPosition[1] + pivotMm[1],
                rotatedPosition[2] + pivotMm[2]};
   return rotated;
 }
-
 
 // Adds all descendant leaf UUIDs from a group to an operation result.
 void AppendAffectedGroupChildren(OperationResult &result, const MvrScene &scene,
@@ -443,41 +452,42 @@ void AppendAffectedTarget(OperationResult &result, const MvrScene &scene,
 }
 
 // Converts an effective transform target to a grouping child reference.
-SelectedObjectRef BuildSelectedObjectRefForTarget(const MvrScene &scene,
-                                                  const SceneTransformTarget &target) {
+SelectedObjectRef
+BuildSelectedObjectRefForTarget(const MvrScene &scene,
+                                const SceneTransformTarget &target) {
   if (target.type == MvrNodeType::GroupObject) {
     auto it = scene.groupObjects.find(target.uuid);
     if (it != scene.groupObjects.end())
-      return {target.type, target.uuid, it->second.layer, it->second.parentGroupUuid,
-              it->second.transform};
+      return {target.type, target.uuid, it->second.layer,
+              it->second.parentGroupUuid, it->second.transform};
   }
   switch (target.type) {
   case MvrNodeType::Fixture: {
     auto it = scene.fixtures.find(target.uuid);
     if (it != scene.fixtures.end())
-      return {target.type, target.uuid, it->second.layer, it->second.parentGroupUuid,
-              it->second.transform};
+      return {target.type, target.uuid, it->second.layer,
+              it->second.parentGroupUuid, it->second.transform};
     break;
   }
   case MvrNodeType::Truss: {
     auto it = scene.trusses.find(target.uuid);
     if (it != scene.trusses.end())
-      return {target.type, target.uuid, it->second.layer, it->second.parentGroupUuid,
-              it->second.transform};
+      return {target.type, target.uuid, it->second.layer,
+              it->second.parentGroupUuid, it->second.transform};
     break;
   }
   case MvrNodeType::Support: {
     auto it = scene.supports.find(target.uuid);
     if (it != scene.supports.end())
-      return {target.type, target.uuid, it->second.layer, it->second.parentGroupUuid,
-              it->second.transform};
+      return {target.type, target.uuid, it->second.layer,
+              it->second.parentGroupUuid, it->second.transform};
     break;
   }
   case MvrNodeType::SceneObject: {
     auto it = scene.sceneObjects.find(target.uuid);
     if (it != scene.sceneObjects.end())
-      return {target.type, target.uuid, it->second.layer, it->second.parentGroupUuid,
-              it->second.transform};
+      return {target.type, target.uuid, it->second.layer,
+              it->second.parentGroupUuid, it->second.transform};
     break;
   }
   case MvrNodeType::GroupObject:
@@ -504,9 +514,10 @@ void AppendGroupChildrenForHighlights(const MvrScene &scene,
 
 } // namespace
 
-
-// Reparents one child reference to a new parent group while preserving world placement.
-void ReparentChildPreservingWorld(MvrScene &scene, const GroupObjectChildRef &child,
+// Reparents one child reference to a new parent group while preserving world
+// placement.
+void ReparentChildPreservingWorld(MvrScene &scene,
+                                  const GroupObjectChildRef &child,
                                   const std::string &newParentUuid) {
   const SceneTransformTarget target{child.type, child.uuid};
   const Matrix worldTransform = GetTargetWorldTransform(scene, target);
@@ -514,22 +525,24 @@ void ReparentChildPreservingWorld(MvrScene &scene, const GroupObjectChildRef &ch
     auto childGroupIt = scene.groupObjects.find(child.uuid);
     if (childGroupIt != scene.groupObjects.end()) {
       childGroupIt->second.parentGroupUuid = newParentUuid;
-      childGroupIt->second.localTransform = newParentUuid.empty()
-                                               ? worldTransform
-                                               : MatrixUtils::Multiply(
-                                                     InverseMatrix(scene.groupObjects[newParentUuid].transform),
-                                                     worldTransform);
+      childGroupIt->second.localTransform =
+          newParentUuid.empty()
+              ? worldTransform
+              : MatrixUtils::Multiply(
+                    InverseMatrix(scene.groupObjects[newParentUuid].transform),
+                    worldTransform);
     }
     return;
   }
 
   SelectedObjectRef ref = BuildSelectedObjectRefForTarget(scene, target);
-  ApplyParentAndLocalTransform(scene, ref, newParentUuid,
-                               newParentUuid.empty()
-                                   ? worldTransform
-                                   : MatrixUtils::Multiply(
-                                         InverseMatrix(scene.groupObjects[newParentUuid].transform),
-                                         worldTransform));
+  ApplyParentAndLocalTransform(
+      scene, ref, newParentUuid,
+      newParentUuid.empty()
+          ? worldTransform
+          : MatrixUtils::Multiply(
+                InverseMatrix(scene.groupObjects[newParentUuid].transform),
+                worldTransform));
 }
 
 // Removes a group while promoting its direct children to the group's parent.
@@ -555,11 +568,13 @@ void UngroupRootTarget(MvrScene &scene, const std::string &groupUuid,
 }
 
 // Creates a new GroupObject and reparents the selected scene entities.
-OperationResult GroupSelection(MvrScene &scene, const ObjectSelection &selection) {
+OperationResult GroupSelection(MvrScene &scene,
+                               const ObjectSelection &selection) {
   OperationResult result;
-  std::vector<SelectedObjectRef> objects = CollectSelectedObjects(scene, selection);
-  const bool hasCommonDirectParent = objects.size() >= 2 &&
-                                     !CommonParentGroupUuid(objects).empty();
+  std::vector<SelectedObjectRef> objects =
+      CollectSelectedObjects(scene, selection);
+  const bool hasCommonDirectParent =
+      objects.size() >= 2 && !CommonParentGroupUuid(objects).empty();
   if (!hasCommonDirectParent) {
     const auto targets = BuildTransformTargets(scene, selection);
     objects.clear();
@@ -582,19 +597,20 @@ OperationResult GroupSelection(MvrScene &scene, const ObjectSelection &selection
   group.layer = objects.front().layer;
   group.parentGroupUuid = parentGroupUuid;
   group.transform = groupWorldTransform;
-  group.localTransform = parentGroupUuid.empty()
-                             ? groupWorldTransform
-                             : MatrixUtils::Multiply(
-                                   InverseMatrix(scene.groupObjects[parentGroupUuid].transform),
-                                   groupWorldTransform);
+  group.localTransform =
+      parentGroupUuid.empty()
+          ? groupWorldTransform
+          : MatrixUtils::Multiply(
+                InverseMatrix(scene.groupObjects[parentGroupUuid].transform),
+                groupWorldTransform);
 
   std::unordered_set<std::string> previousGroupsToCheck;
   for (const auto &object : objects) {
     if (!object.parentGroupUuid.empty())
       previousGroupsToCheck.insert(object.parentGroupUuid);
     RemoveChildFromGroups(scene, object.type, object.uuid);
-    const Matrix localTransform = MatrixUtils::Multiply(inverseGroupWorldTransform,
-                                                        object.worldTransform);
+    const Matrix localTransform = MatrixUtils::Multiply(
+        inverseGroupWorldTransform, object.worldTransform);
     ApplyParentAndLocalTransform(scene, object, group.uuid, localTransform);
     group.children.push_back({object.type, object.uuid});
     AppendAffectedTarget(result, scene, object.type, object.uuid);
@@ -616,7 +632,8 @@ OperationResult GroupSelection(MvrScene &scene, const ObjectSelection &selection
 }
 
 // Removes selected effective groups and promotes their direct children.
-OperationResult UngroupSelection(MvrScene &scene, const ObjectSelection &selection) {
+OperationResult UngroupSelection(MvrScene &scene,
+                                 const ObjectSelection &selection) {
   OperationResult result;
   const auto targets = BuildTransformTargets(scene, selection);
   for (const auto &target : targets) {
@@ -626,13 +643,13 @@ OperationResult UngroupSelection(MvrScene &scene, const ObjectSelection &selecti
   return result;
 }
 
-
 // Builds effective transform roots so group members move as one item.
-std::vector<SceneTransformTarget> BuildTransformTargets(
-    const MvrScene &scene, const ObjectSelection &selection) {
+std::vector<SceneTransformTarget>
+BuildTransformTargets(const MvrScene &scene, const ObjectSelection &selection) {
   std::vector<SceneTransformTarget> targets;
   std::set<std::pair<MvrNodeType, std::string>> seen;
-  const std::vector<SelectedObjectRef> objects = CollectSelectedObjects(scene, selection);
+  const std::vector<SelectedObjectRef> objects =
+      CollectSelectedObjects(scene, selection);
   for (const auto &object : objects) {
     SceneTransformTarget target = ResolveTransformRoot(scene, object);
     if (seen.insert({target.type, target.uuid}).second)
@@ -647,30 +664,37 @@ Matrix GetTargetWorldTransform(const MvrScene &scene,
   switch (target.type) {
   case MvrNodeType::Fixture: {
     auto it = scene.fixtures.find(target.uuid);
-    return it == scene.fixtures.end() ? MatrixUtils::Identity() : it->second.transform;
+    return it == scene.fixtures.end() ? MatrixUtils::Identity()
+                                      : it->second.transform;
   }
   case MvrNodeType::Truss: {
     auto it = scene.trusses.find(target.uuid);
-    return it == scene.trusses.end() ? MatrixUtils::Identity() : it->second.transform;
+    return it == scene.trusses.end() ? MatrixUtils::Identity()
+                                     : it->second.transform;
   }
   case MvrNodeType::Support: {
     auto it = scene.supports.find(target.uuid);
-    return it == scene.supports.end() ? MatrixUtils::Identity() : it->second.transform;
+    return it == scene.supports.end() ? MatrixUtils::Identity()
+                                      : it->second.transform;
   }
   case MvrNodeType::SceneObject: {
     auto it = scene.sceneObjects.find(target.uuid);
-    return it == scene.sceneObjects.end() ? MatrixUtils::Identity() : it->second.transform;
+    return it == scene.sceneObjects.end() ? MatrixUtils::Identity()
+                                          : it->second.transform;
   }
   case MvrNodeType::GroupObject: {
     auto it = scene.groupObjects.find(target.uuid);
-    return it == scene.groupObjects.end() ? MatrixUtils::Identity() : it->second.transform;
+    return it == scene.groupObjects.end() ? MatrixUtils::Identity()
+                                          : it->second.transform;
   }
   }
   return MatrixUtils::Identity();
 }
 
-// Applies a world transform to a target and recursively synchronizes group descendants.
-void SetTargetWorldTransform(MvrScene &scene, const SceneTransformTarget &target,
+// Applies a world transform to a target and recursively synchronizes group
+// descendants.
+void SetTargetWorldTransform(MvrScene &scene,
+                             const SceneTransformTarget &target,
                              const Matrix &worldTransform) {
   UpdateLocalTransformForTarget(scene, target, worldTransform);
   if (target.type != MvrNodeType::GroupObject)
@@ -693,8 +717,9 @@ void TranslateSelection(MvrScene &scene, const ObjectSelection &selection,
 }
 
 // Rotates selected effective targets around a shared millimeter pivot.
-void RotateSelectionAroundPivot(MvrScene &scene, const ObjectSelection &selection,
-                                int axis, float angleDeg,
+void RotateSelectionAroundPivot(MvrScene &scene,
+                                const ObjectSelection &selection, int axis,
+                                float angleDeg,
                                 const std::array<float, 3> &pivotMm) {
   Matrix rotation = MatrixUtils::Identity();
   if (axis == 0)
@@ -707,14 +732,17 @@ void RotateSelectionAroundPivot(MvrScene &scene, const ObjectSelection &selectio
   const auto targets = BuildTransformTargets(scene, selection);
   for (const auto &target : targets) {
     const Matrix transform = GetTargetWorldTransform(scene, target);
-    SetTargetWorldTransform(scene, target,
-                            RotateTransformAroundPivot(transform, rotation, pivotMm));
+    SetTargetWorldTransform(
+        scene, target,
+        RotateTransformAroundPivot(transform, rotation, pivotMm));
   }
 }
 
-// Returns selected UUIDs expanded with direct group siblings for viewport highlights.
-std::vector<std::string> ExpandSelectionForGroupHighlights(
-    const MvrScene &scene, const ObjectSelection &selection) {
+// Returns selected UUIDs expanded with direct group siblings for viewport
+// highlights.
+std::vector<std::string>
+ExpandSelectionForGroupHighlights(const MvrScene &scene,
+                                  const ObjectSelection &selection) {
   std::vector<std::string> expanded;
   std::unordered_set<std::string> seen;
   for (const auto &target : BuildTransformTargets(scene, selection)) {
@@ -724,6 +752,36 @@ std::vector<std::string> ExpandSelectionForGroupHighlights(
       AppendUnique(expanded, seen, target.uuid);
     }
   }
+  return expanded;
+}
+
+// Returns sibling UUIDs that share the hovered object's effective root group.
+std::vector<std::string>
+ExpandHoverForGroupHighlights(const MvrScene &scene, const std::string &uuid) {
+  std::vector<std::string> expanded;
+  if (uuid.empty())
+    return expanded;
+
+  ObjectSelection selection;
+  if (scene.fixtures.find(uuid) != scene.fixtures.end())
+    selection.fixtures.push_back(uuid);
+  else if (scene.trusses.find(uuid) != scene.trusses.end())
+    selection.trusses.push_back(uuid);
+  else if (scene.supports.find(uuid) != scene.supports.end())
+    selection.supports.push_back(uuid);
+  else if (scene.sceneObjects.find(uuid) != scene.sceneObjects.end())
+    selection.sceneObjects.push_back(uuid);
+  else
+    return expanded;
+
+  std::unordered_set<std::string> seen;
+  for (const auto &target : BuildTransformTargets(scene, selection)) {
+    if (target.type != MvrNodeType::GroupObject)
+      continue;
+    AppendGroupChildrenForHighlights(scene, target.uuid, expanded, seen);
+  }
+  expanded.erase(std::remove(expanded.begin(), expanded.end(), uuid),
+                 expanded.end());
   return expanded;
 }
 

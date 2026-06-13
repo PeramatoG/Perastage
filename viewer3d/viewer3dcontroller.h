@@ -24,11 +24,11 @@
 
 #pragma once
 
-#include "viewer3d_types.h"
 #include "irendercontext.h"
 #include "iselectioncontext.h"
 #include "ivisibilitycontext.h"
 #include "symbolcache.h"
+#include "viewer3d_types.h"
 #include <array>
 #include <functional>
 #include <memory>
@@ -92,13 +92,9 @@ public:
 
   void RenderScene(bool wireframe = false,
                    Viewer2DRenderMode mode = Viewer2DRenderMode::White,
-                   Viewer2DView view = Viewer2DView::Top,
-                   bool showGrid = true,
-                   int gridStyle = 0,
-                   float gridR = 0.35f,
-                   float gridG = 0.35f,
-                   float gridB = 0.35f,
-                   bool gridOnTop = false,
+                   Viewer2DView view = Viewer2DView::Top, bool showGrid = true,
+                   int gridStyle = 0, float gridR = 0.35f, float gridG = 0.35f,
+                   float gridB = 0.35f, bool gridOnTop = false,
                    bool is2DViewer = false,
                    bool preferPerastageSvgSymbolsForLayouts = false);
 
@@ -157,7 +153,8 @@ public:
                                                        int height) const;
 
   void SetLayerColor(const std::string &layer, const std::string &hex);
-  static std::string BuildFixtureTypeAutoColorHex(const std::string &fixtureTypeKey);
+  static std::string
+  BuildFixtureTypeAutoColorHex(const std::string &fixtureTypeKey);
   std::shared_ptr<const SymbolDefinitionSnapshot>
   GetBottomSymbolCacheSnapshot() const;
   void ClearBottomSymbolCache();
@@ -166,7 +163,8 @@ public:
                         bool includeGrid = true,
                         bool useSymbolInstancing = false);
   void EnsureMeshGpuBuffers(Mesh &mesh);
-  void SetForceBottomViewForTopFixturesOverride(const std::optional<bool> &value);
+  void
+  SetForceBottomViewForTopFixturesOverride(const std::optional<bool> &value);
   void SetSymbolCaptureRenderProfileOverride(const std::optional<bool> &value);
   void SetSymbolCaptureIncludeCoplanarEdgesOverride(
       const std::optional<bool> &value);
@@ -185,6 +183,7 @@ private:
   std::unordered_map<std::string, BoundingBox> &m_trussBounds;
   std::unordered_map<std::string, BoundingBox> &m_objectBounds;
   std::string &m_highlightUuid;
+  std::unordered_set<std::string> &m_groupHighlightUuids;
   std::unordered_set<std::string> &m_selectedUuids;
   ICanvas2D *&m_captureCanvas;
   Viewer2DView &m_captureView;
@@ -203,54 +202,47 @@ private:
 
   void DrawCube(float size = 0.2f, float r = 1.0f, float g = 1.0f,
                 float b = 1.0f);
-  void DrawWireframeCube(float size = 0.3f, float r = 1.0f, float g = 1.0f,
-                         float b = 0.0f,
-                         Viewer2DRenderMode mode = Viewer2DRenderMode::White,
-                         const std::function<std::array<float, 3>(
-                             const std::array<float, 3> &)> &captureTransform =
-                             {},
-                         float lineWidthOverride = -1.0f,
-                         bool recordCapture = true);
-  void DrawWireframeBox(float length, float height, float width,
-                        float r = 1.0f, float g = 1.0f, float b = 1.0f,
-                        bool highlight = false, bool selected = false,
-                        bool wireframe = false,
-                        Viewer2DRenderMode mode = Viewer2DRenderMode::White,
-                        const std::function<std::array<float, 3>(
-                            const std::array<float, 3> &)> &captureTransform =
-                            {});
-  void DrawMeshWithOutline(const Mesh &mesh, float r = 1.0f, float g = 1.0f,
-                           float b = 1.0f, float scale = RENDER_SCALE,
-                           bool highlight = false, bool selected = false,
-                           float cx = 0.0f, float cy = 0.0f, float cz = 0.0f,
-                           bool wireframe = false,
-                           Viewer2DRenderMode mode = Viewer2DRenderMode::White,
-                           const std::function<std::array<float, 3>(
-                               const std::array<float, 3> &)> &captureTransform =
-                               {},
-                           bool unlit = false,
-                           const float *modelMatrix = nullptr,
-                           bool disableDepthBias = false);
+  void DrawWireframeCube(
+      float size = 0.3f, float r = 1.0f, float g = 1.0f, float b = 0.0f,
+      Viewer2DRenderMode mode = Viewer2DRenderMode::White,
+      const std::function<std::array<float, 3>(const std::array<float, 3> &)>
+          &captureTransform = {},
+      float lineWidthOverride = -1.0f, bool recordCapture = true);
+  void DrawWireframeBox(
+      float length, float height, float width, float r = 1.0f, float g = 1.0f,
+      float b = 1.0f, bool highlight = false, bool groupHighlight = false,
+      bool selected = false, bool wireframe = false,
+      Viewer2DRenderMode mode = Viewer2DRenderMode::White,
+      const std::function<std::array<float, 3>(const std::array<float, 3> &)>
+          &captureTransform = {});
+  void DrawMeshWithOutline(
+      const Mesh &mesh, float r = 1.0f, float g = 1.0f, float b = 1.0f,
+      float scale = RENDER_SCALE, bool highlight = false,
+      bool groupHighlight = false, bool selected = false, float cx = 0.0f,
+      float cy = 0.0f, float cz = 0.0f, bool wireframe = false,
+      Viewer2DRenderMode mode = Viewer2DRenderMode::White,
+      const std::function<std::array<float, 3>(const std::array<float, 3> &)>
+          &captureTransform = {},
+      bool unlit = false, const float *modelMatrix = nullptr,
+      bool disableDepthBias = false);
   void DrawMeshWireframe(
       const Mesh &mesh, float scale = RENDER_SCALE,
-      const std::function<std::array<float, 3>(
-          const std::array<float, 3> &)> &captureTransform = {});
-  void DrawCubeWithOutline(float size = 0.2f, float r = 1.0f, float g = 1.0f,
-                           float b = 1.0f, bool highlight = false,
-                           bool selected = false, float cx = 0.0f,
-                           float cy = 0.0f, float cz = 0.0f,
-                           bool wireframe = false,
-                           Viewer2DRenderMode mode = Viewer2DRenderMode::White,
-                           const std::function<std::array<float, 3>(
-                               const std::array<float, 3> &)> &captureTransform =
-                               {});
+      const std::function<std::array<float, 3>(const std::array<float, 3> &)>
+          &captureTransform = {});
+  void DrawCubeWithOutline(
+      float size = 0.2f, float r = 1.0f, float g = 1.0f, float b = 1.0f,
+      bool highlight = false, bool groupHighlight = false,
+      bool selected = false, float cx = 0.0f, float cy = 0.0f, float cz = 0.0f,
+      bool wireframe = false,
+      Viewer2DRenderMode mode = Viewer2DRenderMode::White,
+      const std::function<std::array<float, 3>(const std::array<float, 3> &)>
+          &captureTransform = {});
   void ApplyTransform(const float matrix[16], bool scaleTranslation = true);
   void DrawGrid(int style, float r, float g, float b,
                 Viewer2DView view = Viewer2DView::Top);
   void DrawAxes();
   void SetupBasicLighting(bool ambientOcclusionEnabled,
-                          float ambientOcclusionStrength,
-                          bool whiteModelStyle);
+                          float ambientOcclusionStrength, bool whiteModelStyle);
   void SetupMaterialFromRGB(float r, float g, float b);
   void SetGLColor(float r, float g, float b) const override;
   std::array<float, 3> AdjustColor(float r, float g, float b) const;
@@ -279,8 +271,9 @@ private:
                           bool useFrustumCulling, float minPixels,
                           const VisibleSet &layerVisibleCandidates,
                           VisibleSet &out) const;
-  bool EnsureBoundsComputed(const std::string &uuid, ItemType type,
-                            const std::unordered_set<std::string> &hiddenLayers);
+  bool
+  EnsureBoundsComputed(const std::string &uuid, ItemType type,
+                       const std::unordered_set<std::string> &hiddenLayers);
   bool IsSymbolCaptureRenderProfileEnabled(Viewer2DRenderMode mode) const;
 
   bool IsInteracting() const override;
@@ -288,6 +281,7 @@ private:
   bool SkipOutlinesForCurrentFrame() const override;
   bool IsSelectionOutlineEnabled2D() const override;
   bool IsUuidHighlighted(const std::string &uuid) const override;
+  bool IsUuidGroupHighlighted(const std::string &uuid) const override;
   bool IsUuidSelected(const std::string &uuid) const override;
   bool IsCaptureOnly() const override;
   ICanvas2D *GetCaptureCanvas() const override;

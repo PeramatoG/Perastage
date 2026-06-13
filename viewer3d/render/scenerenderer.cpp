@@ -14,10 +14,10 @@
 #include <GL/gl.h>
 #endif
 
+#include "configmanager.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include "configmanager.h"
 
 namespace {
 struct InkColor {
@@ -39,8 +39,8 @@ enum class SketchInteractionWireframeMode {
 };
 
 SketchInteractionWireframeMode ReadSketchInteractionWireframeMode() {
-  const float rawValue =
-      ConfigManager::Get().GetFloat("viewer3d_sketch_interaction_wireframe_mode");
+  const float rawValue = ConfigManager::Get().GetFloat(
+      "viewer3d_sketch_interaction_wireframe_mode");
   const int mode = static_cast<int>(std::lround(rawValue));
   switch (mode) {
   case 1:
@@ -55,8 +55,8 @@ SketchInteractionWireframeMode ReadSketchInteractionWireframeMode() {
 }
 
 int ReadSketchInteractionWireframeStep() {
-  const float rawStep =
-      ConfigManager::Get().GetFloat("viewer3d_sketch_interaction_wireframe_step");
+  const float rawStep = ConfigManager::Get().GetFloat(
+      "viewer3d_sketch_interaction_wireframe_step");
   const int step = static_cast<int>(std::lround(rawStep));
   return std::clamp(step, 1, 12);
 }
@@ -176,7 +176,8 @@ bool LinkProgram(GLuint program) {
   return linked == GL_TRUE;
 }
 
-// Creates the three-tone ink shader program and caches its attribute and uniform locations.
+// Creates the three-tone ink shader program and caches its attribute and
+// uniform locations.
 ThreeToneInkProgram CreateThreeToneInkProgram() {
   static constexpr const char *kVertexShader = R"glsl(
     #version 120
@@ -248,7 +249,8 @@ ThreeToneInkProgram CreateThreeToneInkProgram() {
   result.positionAttrib = glGetAttribLocation(result.program, "aPosition");
   result.normalAttrib = glGetAttribLocation(result.program, "aNormal");
   result.modelViewUniform = glGetUniformLocation(result.program, "uModelView");
-  result.projectionUniform = glGetUniformLocation(result.program, "uProjection");
+  result.projectionUniform =
+      glGetUniformLocation(result.program, "uProjection");
   result.normalMatrixUniform =
       glGetUniformLocation(result.program, "uNormalMatrix");
   result.lightDirUniform = glGetUniformLocation(result.program, "uLightDir");
@@ -270,7 +272,8 @@ const ThreeToneInkProgram &GetThreeToneInkProgram() {
   return program;
 }
 
-// Builds the inverse-transpose normal matrix from the current model-view matrix.
+// Builds the inverse-transpose normal matrix from the current model-view
+// matrix.
 void ComputeNormalMatrix3x3(const float *modelView, float *normalMatrix3x3) {
   const float m00 = modelView[0];
   const float m01 = modelView[4];
@@ -331,7 +334,8 @@ void RestoreFrontFace(GLint previousFrontFace) {
   glFrontFace(static_cast<GLenum>(previousFrontFace));
 }
 
-// Returns the supplied model matrix or reads the current OpenGL model-view matrix.
+// Returns the supplied model matrix or reads the current OpenGL model-view
+// matrix.
 const float *ResolveModelMatrixForMirroring(const float *modelMatrix,
                                             float fallbackModelMatrix[16]) {
   if (modelMatrix != nullptr)
@@ -349,10 +353,10 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   const bool flatGpuHandlesValid =
       glIsBuffer(mesh.vboFlatVertices) == GL_TRUE &&
       glIsBuffer(mesh.vboFlatNormals) == GL_TRUE;
-  const bool canUseGpuPath =
-      mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
-      mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
-      mesh.triangleIndexCount > 0;
+  const bool canUseGpuPath = mesh.buffersReady && mesh.vao != 0 &&
+                             mesh.vboVertices != 0 && mesh.vboNormals != 0 &&
+                             mesh.eboTriangles != 0 && gpuHandlesValid &&
+                             mesh.triangleIndexCount > 0;
   const bool canUseSketchFlatPath =
       sketchFill && mesh.buffersReady && mesh.vao != 0 &&
       mesh.vboFlatVertices != 0 && mesh.vboFlatNormals != 0 &&
@@ -408,8 +412,8 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   glBindBuffer(GL_ARRAY_BUFFER,
                canUseSketchFlatPath ? mesh.vboFlatVertices : mesh.vboVertices);
   glEnableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
-  glVertexAttribPointer(static_cast<GLuint>(program.positionAttrib), 3, GL_FLOAT,
-                        GL_FALSE, 0, nullptr);
+  glVertexAttribPointer(static_cast<GLuint>(program.positionAttrib), 3,
+                        GL_FLOAT, GL_FALSE, 0, nullptr);
 
   glBindBuffer(GL_ARRAY_BUFFER,
                canUseSketchFlatPath ? mesh.vboFlatNormals : mesh.vboNormals);
@@ -443,14 +447,15 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
                                    const float *modelMatrix, bool sketchFill);
 
 // Draws a mesh using three-tone ink shading with GPU and immediate fallbacks.
-void DrawMeshThreeToneInk(const Mesh &mesh, float scale, const float *modelMatrix,
-                           bool sketchFill) {
+void DrawMeshThreeToneInk(const Mesh &mesh, float scale,
+                          const float *modelMatrix, bool sketchFill) {
   if (DrawMeshThreeToneInkGpu(mesh, scale, modelMatrix, sketchFill))
     return;
   DrawMeshThreeToneInkImmediate(mesh, scale, modelMatrix, sketchFill);
 }
 
-// Draws a mesh with CPU-side three-tone ink shading when GPU shaders are unavailable.
+// Draws a mesh with CPU-side three-tone ink shading when GPU shaders are
+// unavailable.
 void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
                                    const float *modelMatrix, bool sketchFill) {
   std::array<float, 3> lightDir = NormalizeVector(0.35f, -0.55f, 1.0f);
@@ -470,7 +475,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
   glBegin(GL_TRIANGLES);
   for (size_t i = 0; i + 2 < triangleIndices->size(); i += 3) {
     const uint32_t tri[3] = {(*triangleIndices)[i], (*triangleIndices)[i + 1],
-                                   (*triangleIndices)[i + 2]};
+                             (*triangleIndices)[i + 2]};
     const float v0x = mesh.vertices[tri[0] * 3];
     const float v0y = mesh.vertices[tri[0] * 3 + 1];
     const float v0z = mesh.vertices[tri[0] * 3 + 2];
@@ -556,19 +561,18 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
 
 void SceneRenderer::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
-    bool selected, float cx, float cy, float cz, bool wireframe,
-    Viewer2DRenderMode mode,
-    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
-        captureTransform,
+    bool groupHighlight, bool selected, float cx, float cy, float cz,
+    bool wireframe, Viewer2DRenderMode mode,
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)>
+        &captureTransform,
     bool unlit, const float *modelMatrix, bool disableDepthBias) {
   (void)cx;
   (void)cy;
   (void)cz;
-  const bool forceDisableTexture =
-      mode == Viewer2DRenderMode::Wireframe ||
-      mode == Viewer2DRenderMode::ByFixtureType ||
-      mode == Viewer2DRenderMode::ByLayer ||
-      mode == Viewer2DRenderMode::ByUniverse;
+  const bool forceDisableTexture = mode == Viewer2DRenderMode::Wireframe ||
+                                   mode == Viewer2DRenderMode::ByFixtureType ||
+                                   mode == Viewer2DRenderMode::ByLayer ||
+                                   mode == Viewer2DRenderMode::ByUniverse;
   const GLboolean texture2DWasEnabled = glIsEnabled(GL_TEXTURE_2D);
   if (forceDisableTexture && texture2DWasEnabled)
     glDisable(GL_TEXTURE_2D);
@@ -585,15 +589,15 @@ void SceneRenderer::DrawMeshWithOutline(
             .lineWidth;
     bool symbolCaptureRenderProfile =
         mode == Viewer2DRenderMode::ByFixtureType ||
-        ConfigManager::Get().GetFloat("viewer3d_symbol_capture_render_profile") >=
-            0.5f;
+        ConfigManager::Get().GetFloat(
+            "viewer3d_symbol_capture_render_profile") >= 0.5f;
     if (m_controller.GetSymbolCaptureRenderProfileOverride().has_value()) {
       symbolCaptureRenderProfile =
           m_controller.GetSymbolCaptureRenderProfileOverride().value();
     }
-    const bool drawOutline =
-        !m_controller.SkipOutlinesForCurrentFrame() &&
-        m_controller.IsSelectionOutlineEnabled2D() && (highlight || selected);
+    const bool drawOutline = !m_controller.SkipOutlinesForCurrentFrame() &&
+                             m_controller.IsSelectionOutlineEnabled2D() &&
+                             (highlight || groupHighlight || selected);
     const bool useWireframeModeColor = mode == Viewer2DRenderMode::Wireframe;
     const float strokeR = useWireframeModeColor ? r : 0.0f;
     const float strokeG = useWireframeModeColor ? g : 0.0f;
@@ -613,6 +617,8 @@ void SceneRenderer::DrawMeshWithOutline(
         glLineWidth(glowWidth);
         if (highlight)
           m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
+        else if (groupHighlight)
+          m_controller.SetGLColor(0.45f, 1.0f, 0.35f);
         else if (selected)
           m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
         DrawMeshWireframe(mesh, scale, captureTransform);
@@ -637,7 +643,8 @@ void SceneRenderer::DrawMeshWithOutline(
     }
     if (m_controller.IsCaptureOnly())
       DrawMeshWireframe(mesh, scale, captureTransform, &stroke);
-    if (m_controller.GetCaptureCanvas() && mode != Viewer2DRenderMode::Wireframe) {
+    if (m_controller.GetCaptureCanvas() &&
+        mode != Viewer2DRenderMode::Wireframe) {
       CanvasFill fill;
       fill.color = {r, g, b, 1.0f};
       for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
@@ -681,7 +688,8 @@ void SceneRenderer::DrawMeshWithOutline(
 
   if (!m_controller.IsCaptureOnly()) {
     if (m_controller.IsWhiteModelStyleEnabled()) {
-      const GLboolean texture2DWhiteModelWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+      const GLboolean texture2DWhiteModelWasEnabled =
+          glIsEnabled(GL_TEXTURE_2D);
       if (texture2DWhiteModelWasEnabled)
         glDisable(GL_TEXTURE_2D);
       const bool useColorFillInWhiteStyle =
@@ -694,24 +702,26 @@ void SceneRenderer::DrawMeshWithOutline(
           m_controller.IsPureWhiteRenderStyleEnabled();
       // Keep 3D white-model aligned with the 2D viewer draw order:
       // stroke pass first, then polygon-offset fill pass.
-      const LineRenderProfile lineProfile =
-          GetLineRenderProfile(m_controller.IsInteracting(),
-                               mode == Viewer2DRenderMode::Wireframe,
-                               m_controller.UseAdaptiveLineProfile());
+      const LineRenderProfile lineProfile = GetLineRenderProfile(
+          m_controller.IsInteracting(), mode == Viewer2DRenderMode::Wireframe,
+          m_controller.UseAdaptiveLineProfile());
       const float lineWidth = lineProfile.lineWidth;
       auto setHighlightOrSelectionColor = [&]() {
         if (highlight)
           m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
+        else if (groupHighlight)
+          m_controller.SetGLColor(0.45f, 1.0f, 0.35f);
         else if (selected)
           m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
         else
           m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
       };
-      const bool drawOutline =
-          !m_controller.SkipOutlinesForCurrentFrame() &&
-          m_controller.IsSelectionOutlineEnabled2D() && (highlight || selected);
+      const bool drawOutline = !m_controller.SkipOutlinesForCurrentFrame() &&
+                               m_controller.IsSelectionOutlineEnabled2D() &&
+                               (highlight || groupHighlight || selected);
       const bool interactiveSketchMode =
-          m_controller.IsSketchRenderStyleEnabled() && m_controller.IsInteracting();
+          m_controller.IsSketchRenderStyleEnabled() &&
+          m_controller.IsInteracting();
       const SketchInteractionWireframeMode interactionMode =
           interactiveSketchMode ? ReadSketchInteractionWireframeMode()
                                 : SketchInteractionWireframeMode::FullQuality;
@@ -720,11 +730,12 @@ void SceneRenderer::DrawMeshWithOutline(
       if (interactiveSketchMode) {
         if (interactionMode == SketchInteractionWireframeMode::Sparse) {
           wireframeTriangleStep = ReadSketchInteractionWireframeStep();
-        } else if (interactionMode == SketchInteractionWireframeMode::FillOnly) {
+        } else if (interactionMode ==
+                   SketchInteractionWireframeMode::FillOnly) {
           drawBaseWireframe = false;
         } else if (interactionMode ==
                    SketchInteractionWireframeMode::HighlightSelectedOnly) {
-          drawBaseWireframe = highlight || selected;
+          drawBaseWireframe = highlight || groupHighlight || selected;
         }
       }
 
@@ -750,7 +761,7 @@ void SceneRenderer::DrawMeshWithOutline(
         glEnable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(-1.0f, -1.0f);
       }
-      if (highlight || selected) {
+      if (highlight || groupHighlight || selected) {
         setHighlightOrSelectionColor();
         if (!glIsEnabled(GL_LIGHTING))
           glEnable(GL_LIGHTING);
@@ -785,16 +796,18 @@ void SceneRenderer::DrawMeshWithOutline(
       if (texture2DWhiteModelWasEnabled)
         glEnable(GL_TEXTURE_2D);
     } else {
-      const bool useTexture = m_controller.IsTexturedRenderStyleEnabled() &&
-                              !highlight && !selected &&
-                              mesh.textureId != 0 &&
-                              mesh.texcoords.size() >= (mesh.vertices.size() / 3u) * 2u;
+      const bool useTexture =
+          m_controller.IsTexturedRenderStyleEnabled() && !highlight &&
+          !groupHighlight && !selected && mesh.textureId != 0 &&
+          mesh.texcoords.size() >= (mesh.vertices.size() / 3u) * 2u;
       const bool useMaterialColor =
-                                    m_controller.IsTexturedRenderStyleEnabled() &&
-                                    !highlight && !selected &&
-                                    !useTexture && mesh.hasMaterialBaseColor;
+          m_controller.IsTexturedRenderStyleEnabled() && !highlight &&
+          !groupHighlight && !selected && !useTexture &&
+          mesh.hasMaterialBaseColor;
       if (highlight)
         m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
+      else if (groupHighlight)
+        m_controller.SetGLColor(0.45f, 1.0f, 0.35f);
       else if (selected)
         m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
       else if (useMaterialColor)
@@ -842,18 +855,18 @@ void SceneRenderer::DrawMeshWithOutline(
 // Draws mesh edges as wireframe lines and records them for capture output.
 void SceneRenderer::DrawMeshWireframe(
     const Mesh &mesh, float scale,
-    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
-        captureTransform,
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)>
+        &captureTransform,
     const CanvasStroke *captureStroke, int triangleStep) {
   const size_t triangleAdvance =
       static_cast<size_t>(std::max(1, triangleStep)) * 3u;
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.eboLines) == GL_TRUE &&
                                glIsBuffer(mesh.eboTriangles) == GL_TRUE;
-  const bool canUseGpuWireframe =
-      mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
-      mesh.eboLines != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
-      triangleAdvance == 3u;
+  const bool canUseGpuWireframe = mesh.buffersReady && mesh.vao != 0 &&
+                                  mesh.vboVertices != 0 && mesh.eboLines != 0 &&
+                                  mesh.eboTriangles != 0 && gpuHandlesValid &&
+                                  triangleAdvance == 3u;
 
   if (!m_controller.IsCaptureOnly() && canUseGpuWireframe) {
     glBindVertexArray(mesh.vao);
@@ -879,19 +892,25 @@ void SceneRenderer::DrawMeshWireframe(
       const uint32_t i1 = mesh.indices[i + 1];
       const uint32_t i2 = mesh.indices[i + 2];
 
-      glVertex3f(mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
+      glVertex3f(mesh.vertices[i0 * 3] * scale,
+                 mesh.vertices[i0 * 3 + 1] * scale,
                  mesh.vertices[i0 * 3 + 2] * scale);
-      glVertex3f(mesh.vertices[i1 * 3] * scale, mesh.vertices[i1 * 3 + 1] * scale,
+      glVertex3f(mesh.vertices[i1 * 3] * scale,
+                 mesh.vertices[i1 * 3 + 1] * scale,
                  mesh.vertices[i1 * 3 + 2] * scale);
 
-      glVertex3f(mesh.vertices[i1 * 3] * scale, mesh.vertices[i1 * 3 + 1] * scale,
+      glVertex3f(mesh.vertices[i1 * 3] * scale,
+                 mesh.vertices[i1 * 3 + 1] * scale,
                  mesh.vertices[i1 * 3 + 2] * scale);
-      glVertex3f(mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
+      glVertex3f(mesh.vertices[i2 * 3] * scale,
+                 mesh.vertices[i2 * 3 + 1] * scale,
                  mesh.vertices[i2 * 3 + 2] * scale);
 
-      glVertex3f(mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
+      glVertex3f(mesh.vertices[i2 * 3] * scale,
+                 mesh.vertices[i2 * 3 + 1] * scale,
                  mesh.vertices[i2 * 3 + 2] * scale);
-      glVertex3f(mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
+      glVertex3f(mesh.vertices[i0 * 3] * scale,
+                 mesh.vertices[i0 * 3 + 1] * scale,
                  mesh.vertices[i0 * 3 + 2] * scale);
     }
     glEnd();
@@ -928,9 +947,10 @@ void SceneRenderer::DrawMeshWireframe(
   }
 }
 
-// Draws a lit or textured mesh while preserving front-face orientation for mirrored transforms.
-void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMatrix,
-                             bool useTexture) {
+// Draws a lit or textured mesh while preserving front-face orientation for
+// mirrored transforms.
+void SceneRenderer::DrawMesh(const Mesh &mesh, float scale,
+                             const float *modelMatrix, bool useTexture) {
   const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
   if (cullWasEnabled)
     glDisable(GL_CULL_FACE);
@@ -965,9 +985,8 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       mesh.vboFlatNormals != 0 && mesh.flatVertexCount > 0 &&
       flatGpuHandlesValid;
 
-  const bool allowGpuTriangles =
-      canUseGpuTriangles && !useTexture &&
-      (!useFaceNormals || !canUseGpuFlatTriangles);
+  const bool allowGpuTriangles = canUseGpuTriangles && !useTexture &&
+                                 (!useFaceNormals || !canUseGpuFlatTriangles);
   const bool allowGpuFlatTriangles = canUseGpuFlatTriangles && useFaceNormals;
 
   if (!m_controller.IsCaptureOnly() &&
@@ -980,8 +999,8 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     glPushMatrix();
     glScalef(scale, scale, scale);
 
-    glBindBuffer(GL_ARRAY_BUFFER,
-                 allowGpuFlatTriangles ? mesh.vboFlatVertices : mesh.vboVertices);
+    glBindBuffer(GL_ARRAY_BUFFER, allowGpuFlatTriangles ? mesh.vboFlatVertices
+                                                        : mesh.vboVertices);
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(3, GL_FLOAT, 0, nullptr);
 
@@ -1054,18 +1073,17 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
           ny /= len;
           nz /= len;
           if (hasNormals) {
-            const float avgNx = ((*normalData)[i0 * 3] +
-                                 (*normalData)[i1 * 3] +
+            const float avgNx = ((*normalData)[i0 * 3] + (*normalData)[i1 * 3] +
                                  (*normalData)[i2 * 3]) /
                                 3.0f;
-            const float avgNy = ((*normalData)[i0 * 3 + 1] +
-                                 (*normalData)[i1 * 3 + 1] +
-                                 (*normalData)[i2 * 3 + 1]) /
-                                3.0f;
-            const float avgNz = ((*normalData)[i0 * 3 + 2] +
-                                 (*normalData)[i1 * 3 + 2] +
-                                 (*normalData)[i2 * 3 + 2]) /
-                                3.0f;
+            const float avgNy =
+                ((*normalData)[i0 * 3 + 1] + (*normalData)[i1 * 3 + 1] +
+                 (*normalData)[i2 * 3 + 1]) /
+                3.0f;
+            const float avgNz =
+                ((*normalData)[i0 * 3 + 2] + (*normalData)[i1 * 3 + 2] +
+                 (*normalData)[i2 * 3 + 2]) /
+                3.0f;
             const float alignment = nx * avgNx + ny * avgNy + nz * avgNz;
             if (alignment < 0.0f) {
               nx = -nx;
@@ -1086,30 +1104,26 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
 
       if (hasNormals) {
         if (textureEnabled) {
-          float faceNx = (v1y - v0y) * (v2z - v0z) -
-                         (v1z - v0z) * (v2y - v0y);
-          float faceNy = (v1z - v0z) * (v2x - v0x) -
-                         (v1x - v0x) * (v2z - v0z);
-          float faceNz = (v1x - v0x) * (v2y - v0y) -
-                         (v1y - v0y) * (v2x - v0x);
+          float faceNx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
+          float faceNy = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
+          float faceNz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
           const float faceLen =
               std::sqrt(faceNx * faceNx + faceNy * faceNy + faceNz * faceNz);
           if (faceLen > 0.0f) {
             faceNx /= faceLen;
             faceNy /= faceLen;
             faceNz /= faceLen;
-            const float avgNx = ((*normalData)[i0 * 3] +
-                                 (*normalData)[i1 * 3] +
+            const float avgNx = ((*normalData)[i0 * 3] + (*normalData)[i1 * 3] +
                                  (*normalData)[i2 * 3]) /
                                 3.0f;
-            const float avgNy = ((*normalData)[i0 * 3 + 1] +
-                                 (*normalData)[i1 * 3 + 1] +
-                                 (*normalData)[i2 * 3 + 1]) /
-                                3.0f;
-            const float avgNz = ((*normalData)[i0 * 3 + 2] +
-                                 (*normalData)[i1 * 3 + 2] +
-                                 (*normalData)[i2 * 3 + 2]) /
-                                3.0f;
+            const float avgNy =
+                ((*normalData)[i0 * 3 + 1] + (*normalData)[i1 * 3 + 1] +
+                 (*normalData)[i2 * 3 + 1]) /
+                3.0f;
+            const float avgNz =
+                ((*normalData)[i0 * 3 + 2] + (*normalData)[i1 * 3 + 2] +
+                 (*normalData)[i2 * 3 + 2]) /
+                3.0f;
             const float alignment =
                 faceNx * avgNx + faceNy * avgNy + faceNz * avgNz;
             if (alignment < 0.0f) {
@@ -1180,10 +1194,12 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     glEnable(GL_CULL_FACE);
 }
 
-// Draw the 2D reference grid with configurable spacing and a moderate centered extent.
+// Draw the 2D reference grid with configurable spacing and a moderate centered
+// extent.
 void SceneRenderer::DrawGrid(int style, float r, float g, float b,
                              Viewer2DView view) {
-  const float step = std::max(0.01f, ConfigManager::Get().GetFloat("grid_spacing_m"));
+  const float step =
+      std::max(0.01f, ConfigManager::Get().GetFloat("grid_spacing_m"));
   const float halfCellCount = 40.0f;
   const float size = step * halfCellCount;
 
@@ -1215,7 +1231,8 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
         glVertex3f(i, size, 0.0f);
         glVertex3f(-size, i, 0.0f);
         glVertex3f(size, i, 0.0f);
-        if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid()) {
+        if (m_controller.GetCaptureCanvas() &&
+            m_controller.CaptureIncludesGrid()) {
           m_controller.RecordLine({i, -size, 0.0f}, {i, size, 0.0f}, stroke);
           m_controller.RecordLine({-size, i, 0.0f}, {size, i, 0.0f}, stroke);
         }
@@ -1225,7 +1242,8 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
         glVertex3f(i, 0.0f, size);
         glVertex3f(-size, 0.0f, i);
         glVertex3f(size, 0.0f, i);
-        if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid()) {
+        if (m_controller.GetCaptureCanvas() &&
+            m_controller.CaptureIncludesGrid()) {
           m_controller.RecordLine({i, 0.0f, -size}, {i, 0.0f, size}, stroke);
           m_controller.RecordLine({-size, 0.0f, i}, {size, 0.0f, i}, stroke);
         }
@@ -1235,7 +1253,8 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
         glVertex3f(0.0f, i, size);
         glVertex3f(0.0f, -size, i);
         glVertex3f(0.0f, size, i);
-        if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid()) {
+        if (m_controller.GetCaptureCanvas() &&
+            m_controller.CaptureIncludesGrid()) {
           m_controller.RecordLine({0.0f, i, -size}, {0.0f, i, size}, stroke);
           m_controller.RecordLine({0.0f, -size, i}, {0.0f, size, i}, stroke);
         }
@@ -1254,17 +1273,20 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
         case Viewer2DView::Top:
         case Viewer2DView::Bottom:
           glVertex3f(x, y, 0.0f);
-          if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid())
+          if (m_controller.GetCaptureCanvas() &&
+              m_controller.CaptureIncludesGrid())
             m_controller.RecordLine({x, y, 0.0f}, {x, y, 0.0f}, stroke);
           break;
         case Viewer2DView::Front:
           glVertex3f(x, 0.0f, y);
-          if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid())
+          if (m_controller.GetCaptureCanvas() &&
+              m_controller.CaptureIncludesGrid())
             m_controller.RecordLine({x, 0.0f, y}, {x, 0.0f, y}, stroke);
           break;
         case Viewer2DView::Side:
           glVertex3f(0.0f, x, y);
-          if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid())
+          if (m_controller.GetCaptureCanvas() &&
+              m_controller.CaptureIncludesGrid())
             m_controller.RecordLine({0.0f, x, y}, {0.0f, x, y}, stroke);
           break;
         }
@@ -1286,9 +1308,12 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
           glVertex3f(x + half, y, 0.0f);
           glVertex3f(x, y - half, 0.0f);
           glVertex3f(x, y + half, 0.0f);
-          if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid()) {
-            m_controller.RecordLine({x - half, y, 0.0f}, {x + half, y, 0.0f}, stroke);
-            m_controller.RecordLine({x, y - half, 0.0f}, {x, y + half, 0.0f}, stroke);
+          if (m_controller.GetCaptureCanvas() &&
+              m_controller.CaptureIncludesGrid()) {
+            m_controller.RecordLine({x - half, y, 0.0f}, {x + half, y, 0.0f},
+                                    stroke);
+            m_controller.RecordLine({x, y - half, 0.0f}, {x, y + half, 0.0f},
+                                    stroke);
           }
           break;
         case Viewer2DView::Front:
@@ -1296,9 +1321,12 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
           glVertex3f(x + half, 0.0f, y);
           glVertex3f(x, 0.0f, y - half);
           glVertex3f(x, 0.0f, y + half);
-          if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid()) {
-            m_controller.RecordLine({x - half, 0.0f, y}, {x + half, 0.0f, y}, stroke);
-            m_controller.RecordLine({x, 0.0f, y - half}, {x, 0.0f, y + half}, stroke);
+          if (m_controller.GetCaptureCanvas() &&
+              m_controller.CaptureIncludesGrid()) {
+            m_controller.RecordLine({x - half, 0.0f, y}, {x + half, 0.0f, y},
+                                    stroke);
+            m_controller.RecordLine({x, 0.0f, y - half}, {x, 0.0f, y + half},
+                                    stroke);
           }
           break;
         case Viewer2DView::Side:
@@ -1306,9 +1334,12 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
           glVertex3f(0.0f, x + half, y);
           glVertex3f(0.0f, x, y - half);
           glVertex3f(0.0f, x, y + half);
-          if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid()) {
-            m_controller.RecordLine({0.0f, x - half, y}, {0.0f, x + half, y}, stroke);
-            m_controller.RecordLine({0.0f, x, y - half}, {0.0f, x, y + half}, stroke);
+          if (m_controller.GetCaptureCanvas() &&
+              m_controller.CaptureIncludesGrid()) {
+            m_controller.RecordLine({0.0f, x - half, y}, {0.0f, x + half, y},
+                                    stroke);
+            m_controller.RecordLine({0.0f, x, y - half}, {0.0f, x, y + half},
+                                    stroke);
           }
           break;
         }

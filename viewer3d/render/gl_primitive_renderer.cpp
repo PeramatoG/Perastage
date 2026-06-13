@@ -50,11 +50,11 @@ void DrawBoxEdges(float x0, float x1, float y0, float y1, float z0, float z1) {
 
 void RecordBoxEdges(float x0, float x1, float y0, float y1, float z0, float z1,
                     const CaptureTransform &captureTransform,
-                    const CanvasStroke &stroke, const RecordLineFn &recordLine) {
-  std::vector<std::array<float, 3>> verts = {{x0, y0, z0}, {x1, y0, z0},
-                                             {x0, y1, z0}, {x1, y1, z0},
-                                             {x0, y0, z1}, {x1, y0, z1},
-                                             {x0, y1, z1}, {x1, y1, z1}};
+                    const CanvasStroke &stroke,
+                    const RecordLineFn &recordLine) {
+  std::vector<std::array<float, 3>> verts = {
+      {x0, y0, z0}, {x1, y0, z0}, {x0, y1, z0}, {x1, y1, z0},
+      {x0, y0, z1}, {x1, y0, z1}, {x0, y1, z1}, {x1, y1, z1}};
   if (captureTransform) {
     for (auto &p : verts)
       p = captureTransform(p);
@@ -134,7 +134,8 @@ void DrawWireframeCube(float size, float r, float g, float b,
   stroke.color = {r, g, b, 1.0f};
   stroke.width = lineWidth;
   if (captureCanvas && recordCapture)
-    RecordBoxEdges(x0, x1, y0, y1, z0, z1, captureTransform, stroke, recordLine);
+    RecordBoxEdges(x0, x1, y0, y1, z0, z1, captureTransform, stroke,
+                   recordLine);
 
   glLineWidth(1.0f);
   if (mode != Viewer2DRenderMode::Wireframe) {
@@ -152,8 +153,8 @@ void DrawWireframeCube(float size, float r, float g, float b,
 }
 
 void DrawWireframeBox(float length, float height, float width, float r, float g,
-                      float b, bool highlight, bool selected, bool wireframe,
-                      Viewer2DRenderMode mode,
+                      float b, bool highlight, bool groupHighlight,
+                      bool selected, bool wireframe, Viewer2DRenderMode mode,
                       const CaptureTransform &captureTransform,
                       bool skipOutlinesForCurrentFrame,
                       bool showSelectionOutline2D, bool captureOnly,
@@ -170,13 +171,16 @@ void DrawWireframeBox(float length, float height, float width, float r, float g,
     const float strokeG = useWireframeModeColor ? g : 0.0f;
     const float strokeB = useWireframeModeColor ? b : 0.0f;
     const bool drawOutline = !skipOutlinesForCurrentFrame &&
-                             showSelectionOutline2D && (highlight || selected);
+                             showSelectionOutline2D &&
+                             (highlight || groupHighlight || selected);
     if (!captureOnly) {
       if (drawOutline) {
         float glowWidth = lineWidth + 3.0f;
         glLineWidth(glowWidth);
         if (highlight)
           setColor(0.0f, 1.0f, 0.0f);
+        else if (groupHighlight)
+          setColor(0.45f, 1.0f, 0.35f);
         else if (selected)
           setColor(0.0f, 1.0f, 1.0f);
         DrawBoxEdges(x0, x1, y0, y1, z0, z1);
@@ -210,6 +214,8 @@ void DrawWireframeBox(float length, float height, float width, float r, float g,
   } else if (!captureOnly) {
     if (highlight)
       setColor(0.0f, 1.0f, 0.0f);
+    else if (groupHighlight)
+      setColor(0.45f, 1.0f, 0.35f);
     else if (selected)
       setColor(0.0f, 1.0f, 1.0f);
     else
@@ -220,6 +226,8 @@ void DrawWireframeBox(float length, float height, float width, float r, float g,
   stroke.width = 1.0f;
   if (highlight)
     stroke.color = {0.0f, 1.0f, 0.0f, 1.0f};
+  else if (groupHighlight)
+    stroke.color = {0.45f, 1.0f, 0.35f, 1.0f};
   else if (selected)
     stroke.color = {0.0f, 1.0f, 1.0f, 1.0f};
   else
@@ -232,20 +240,18 @@ void DrawWireframeBox(float length, float height, float width, float r, float g,
                    recordLine);
 }
 
-void DrawCubeWithOutline(float size, float r, float g, float b, bool highlight,
-                         bool selected, bool wireframe,
-                         Viewer2DRenderMode mode,
-                         const CaptureTransform &captureTransform,
-                         bool skipOutlinesForCurrentFrame,
-                         bool showSelectionOutline2D, bool captureOnly,
-                         bool captureCanvas, float lineWidth,
-                         const SetColorFn &setColor,
-                         const RecordLineFn &recordLine,
-                         const RecordPolygonFn &recordPolygon) {
+void DrawCubeWithOutline(
+    float size, float r, float g, float b, bool highlight, bool groupHighlight,
+    bool selected, bool wireframe, Viewer2DRenderMode mode,
+    const CaptureTransform &captureTransform, bool skipOutlinesForCurrentFrame,
+    bool showSelectionOutline2D, bool captureOnly, bool captureCanvas,
+    float lineWidth, const SetColorFn &setColor, const RecordLineFn &recordLine,
+    const RecordPolygonFn &recordPolygon) {
   if (wireframe) {
     if (mode == Viewer2DRenderMode::Wireframe) {
       const bool drawOutline = !skipOutlinesForCurrentFrame &&
-                               showSelectionOutline2D && (highlight || selected);
+                               showSelectionOutline2D &&
+                               (highlight || groupHighlight || selected);
       float baseWidth = 1.0f;
       if (!captureOnly && drawOutline) {
         float glowWidth = baseWidth + 3.0f;
@@ -253,23 +259,31 @@ void DrawCubeWithOutline(float size, float r, float g, float b, bool highlight,
           DrawWireframeCube(size, 0.0f, 1.0f, 0.0f, mode, captureTransform,
                             lineWidth, glowWidth, false, captureOnly,
                             captureCanvas, setColor, recordLine);
+        else if (groupHighlight)
+          DrawWireframeCube(size, 0.45f, 1.0f, 0.35f, mode, captureTransform,
+                            lineWidth, glowWidth, false, captureOnly,
+                            captureCanvas, setColor, recordLine);
         else if (selected)
           DrawWireframeCube(size, 0.0f, 1.0f, 1.0f, mode, captureTransform,
                             lineWidth, glowWidth, false, captureOnly,
                             captureCanvas, setColor, recordLine);
       }
-      DrawWireframeCube(size, r, g, b, mode, captureTransform,
-                        lineWidth, -1.0f, true, captureOnly, captureCanvas,
-                        setColor, recordLine);
+      DrawWireframeCube(size, r, g, b, mode, captureTransform, lineWidth, -1.0f,
+                        true, captureOnly, captureCanvas, setColor, recordLine);
       return;
     }
     const bool drawOutline = !skipOutlinesForCurrentFrame &&
-                             showSelectionOutline2D && (highlight || selected);
+                             showSelectionOutline2D &&
+                             (highlight || groupHighlight || selected);
     float baseWidth = 2.0f;
     if (!captureOnly && drawOutline) {
       float glowWidth = baseWidth + 3.0f;
       if (highlight)
         DrawWireframeCube(size, 0.0f, 1.0f, 0.0f, mode, captureTransform,
+                          lineWidth, glowWidth, false, captureOnly,
+                          captureCanvas, setColor, recordLine);
+      else if (groupHighlight)
+        DrawWireframeCube(size, 0.45f, 1.0f, 0.35f, mode, captureTransform,
                           lineWidth, glowWidth, false, captureOnly,
                           captureCanvas, setColor, recordLine);
       else if (selected)
@@ -319,6 +333,8 @@ void DrawCubeWithOutline(float size, float r, float g, float b, bool highlight,
 
   if (highlight)
     DrawCube(size, 0.0f, 1.0f, 0.0f, captureOnly, setColor);
+  else if (groupHighlight)
+    DrawCube(size, 0.45f, 1.0f, 0.35f, captureOnly, setColor);
   else if (selected)
     DrawCube(size, 0.0f, 1.0f, 1.0f, captureOnly, setColor);
   else

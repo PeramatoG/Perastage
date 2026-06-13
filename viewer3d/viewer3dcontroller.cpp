@@ -39,56 +39,57 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 #endif
-#include <cstdlib>
 #include <algorithm>
+#include <cstdlib>
 #include <numeric>
 
 #include "configmanager.h"
 #include "loader3ds.h"
 #include "loaderglb.h"
-#include "scenedatamanager.h"
 #include "matrixutils.h"
+#include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 // Include shared Matrix type used throughout models
-#include "types.h"
+#include "bounds_cache_system.h"
 #include "consolepanel.h"
-#include "logger.h"
-#include "projectutils.h"
-#include "scenerenderer.h"
-#include "render_pipeline.h"
-#include "opaque_fixture_pass.h"
+#include "gl_primitive_renderer.h"
 #include "hoist_symbol_renderer.h"
+#include "id_pick_pass.h"
+#include "label_render_system.h"
+#include "lighting_profile.h"
+#include "logger.h"
+#include "opaque_fixture_pass.h"
 #include "opaque_object_pass.h"
 #include "opaque_truss_pass.h"
+#include "projectutils.h"
+#include "render_pipeline.h"
+#include "scene_grouping.h"
+#include "scenerenderer.h"
 #include "selection_overlay_pass.h"
-#include "bounds_cache_system.h"
-#include "visibilitysystem.h"
-#include "label_render_system.h"
 #include "selectionsystem.h"
-#include "id_pick_pass.h"
-#include "gl_primitive_renderer.h"
-#include "lighting_profile.h"
+#include "types.h"
 #include "viewer3d_render_style.h"
 #include "viewer3dcontroller_cache_helpers.h"
+#include "visibilitysystem.h"
 
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cfloat>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
+#include <iomanip>
 #include <iostream>
 #include <nanovg.h>
 #include <nanovg_gl.h>
-#include <cstdint>
-#include <iomanip>
-#include <string_view>
 #include <sstream>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <atomic>
 
 namespace fs = std::filesystem;
 
@@ -107,9 +108,11 @@ struct Viewer3DController::Impl {
   std::vector<const std::pair<const std::string, Fixture> *> sortedFixtures;
   std::vector<const std::pair<const std::string, Truss> *> sortedTrusses;
   std::vector<const std::pair<const std::string, SceneObject> *> sortedObjects;
-  std::vector<const std::pair<const std::string, Fixture> *> visibleSortedFixtures;
+  std::vector<const std::pair<const std::string, Fixture> *>
+      visibleSortedFixtures;
   std::vector<const std::pair<const std::string, Truss> *> visibleSortedTrusses;
-  std::vector<const std::pair<const std::string, SceneObject> *> visibleSortedObjects;
+  std::vector<const std::pair<const std::string, SceneObject> *>
+      visibleSortedObjects;
   std::unordered_set<std::string> lastHiddenLayers;
   std::unordered_set<std::string> lastHiddenFixtureTypes;
   size_t hiddenLayersVersion = 0;
@@ -120,6 +123,7 @@ struct Viewer3DController::Impl {
   std::unordered_map<std::string, std::array<float, 3>> typeColors;
   std::unordered_map<std::string, std::array<float, 3>> layerColors;
   std::string highlightUuid;
+  std::unordered_set<std::string> groupHighlightUuids;
   std::unordered_set<std::string> selectedUuids;
   NVGcontext *vg = nullptr;
   int font = -1;
@@ -150,7 +154,8 @@ struct Viewer3DController::Impl {
   mutable VisibleSet cachedLayerVisibleCandidates;
   mutable size_t layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
   mutable std::unordered_set<std::string> layerVisibleCandidatesHiddenLayers;
-  mutable std::unordered_set<std::string> layerVisibleCandidatesHiddenFixtureTypes;
+  mutable std::unordered_set<std::string>
+      layerVisibleCandidatesHiddenFixtureTypes;
   mutable size_t layerVisibleCandidatesRevision = 0;
   mutable size_t visibleSetLayerCandidatesRevision = static_cast<size_t>(-1);
   mutable bool visibleSetFrustumCulling = false;
@@ -224,8 +229,7 @@ struct EdgeInfo {
 
 // Builds and returns face Normal.
 static std::array<float, 3> BuildFaceNormal(const std::vector<float> &vertices,
-                                            uint32_t i0,
-                                            uint32_t i1,
+                                            uint32_t i0, uint32_t i1,
                                             uint32_t i2) {
   const size_t p0 = static_cast<size_t>(i0) * 3u;
   const size_t p1 = static_cast<size_t>(i1) * 3u;
@@ -261,8 +265,7 @@ BuildWireframeIndices(const std::vector<float> &vertices,
                       bool includeCoplanarEdges) {
   static constexpr float kCreaseAngleDeg = 5.0f;
   static constexpr float kPi = 3.14159265358979323846f;
-  const float creaseDotThreshold =
-      std::cos(kCreaseAngleDeg * kPi / 180.0f);
+  const float creaseDotThreshold = std::cos(kCreaseAngleDeg * kPi / 180.0f);
 
   std::unordered_map<EdgeKey, EdgeInfo, EdgeKeyHash> edges;
   edges.reserve(triangleIndices.size());
@@ -282,7 +285,8 @@ BuildWireframeIndices(const std::vector<float> &vertices,
     const uint32_t i0 = triangleIndices[i];
     const uint32_t i1 = triangleIndices[i + 1];
     const uint32_t i2 = triangleIndices[i + 2];
-    const std::array<float, 3> faceNormal = BuildFaceNormal(vertices, i0, i1, i2);
+    const std::array<float, 3> faceNormal =
+        BuildFaceNormal(vertices, i0, i1, i2);
 
     registerEdge(i0, i1, faceNormal);
     registerEdge(i1, i2, faceNormal);
@@ -369,7 +373,6 @@ static std::array<float, 3> MakeDeterministicColor(std::string_view key) {
   float val = 0.7f + static_cast<float>((hash >> 16) & 0xFFu) / 255.0f * 0.25f;
   return HsvToRgb(hue, sat, val);
 }
-
 
 // Computes and returns symbol Bounds.
 static SymbolBounds ComputeSymbolBounds(const CommandBuffer &buffer) {
@@ -507,9 +510,9 @@ static std::array<float, 3> TransformPoint(const Matrix &m,
           m.u[2] * p[0] + m.v[2] * p[1] + m.w[2] * p[2] + m.o[2]};
 }
 
-
 // Builds and returns instance Transform2D.
-static Transform2D BuildInstanceTransform2D(const Matrix &m, Viewer2DView view) {
+static Transform2D BuildInstanceTransform2D(const Matrix &m,
+                                            Viewer2DView view) {
   Transform2D t{};
   switch (view) {
   case Viewer2DView::Top:
@@ -593,8 +596,8 @@ void Viewer3DController::RecordPolyline(
 
 // Records polygon.
 void Viewer3DController::RecordPolygon(
-    const std::vector<std::array<float, 3>> &points,
-    const CanvasStroke &stroke, const CanvasFill *fill) const {
+    const std::vector<std::array<float, 3>> &points, const CanvasStroke &stroke,
+    const CanvasFill *fill) const {
   if (!m_impl->captureCanvas || points.size() < 3)
     return;
   std::vector<float> flat;
@@ -630,9 +633,9 @@ Viewer3DController::Viewer3DController()
     : m_impl(std::make_unique<Impl>()),
       m_resourceSyncState(m_impl->resourceSyncState),
       m_fixtureBounds(m_impl->fixtureBounds),
-      m_trussBounds(m_impl->trussBounds),
-      m_objectBounds(m_impl->objectBounds),
+      m_trussBounds(m_impl->trussBounds), m_objectBounds(m_impl->objectBounds),
       m_highlightUuid(m_impl->highlightUuid),
+      m_groupHighlightUuids(m_impl->groupHighlightUuids),
       m_selectedUuids(m_impl->selectedUuids),
       m_captureCanvas(m_impl->captureCanvas),
       m_captureView(m_impl->captureView),
@@ -760,6 +763,11 @@ void Viewer3DController::SetSelectedUuids(
 // Applies highlight UUID.
 void Viewer3DController::ApplyHighlightUuid(const std::string &uuid) {
   m_impl->highlightUuid = uuid;
+  m_impl->groupHighlightUuids.clear();
+  for (const auto &groupUuid : scene_grouping::ExpandHoverForGroupHighlights(
+           ConfigManager::Get().GetScene(), uuid)) {
+    m_impl->groupHighlightUuids.insert(groupUuid);
+  }
 }
 
 // Replaces selected UUIDs.
@@ -791,19 +799,17 @@ Viewer3DController::FindObjectBounds(const std::string &uuid) const {
   return it == m_impl->objectBounds.end() ? nullptr : &it->second;
 }
 
-
 // Ensures bounds Computed is available.
 bool Viewer3DController::EnsureBoundsComputed(
     const std::string &uuid, ItemType type,
     const std::unordered_set<std::string> &hiddenLayers) {
-  return m_impl->visibilitySystem->EnsureBoundsComputed(uuid, type, hiddenLayers);
+  return m_impl->visibilitySystem->EnsureBoundsComputed(uuid, type,
+                                                        hiddenLayers);
 }
 
 // Loads meshes or GDTF models referenced by scene objects. Called when the
 // scene is updated.
-void Viewer3DController::Update() {
-  UpdateFrameStateLightweight();
-}
+void Viewer3DController::Update() { UpdateFrameStateLightweight(); }
 
 // Updates frame State Lightweight.
 void Viewer3DController::UpdateFrameStateLightweight() {
@@ -811,12 +817,14 @@ void Viewer3DController::UpdateFrameStateLightweight() {
   const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
   const auto hiddenFixtureTypes = cfg.GetHiddenFixtureTypes();
   if (hiddenLayers != m_impl->lastHiddenLayers) {
-    Logger::Instance().Log("visibility dirty reason: hidden layers changed vs last frame snapshot");
+    Logger::Instance().Log("visibility dirty reason: hidden layers changed vs "
+                           "last frame snapshot");
     m_impl->visibilityChangedDirty = true;
     MarkResourceSyncPending();
   }
   if (hiddenFixtureTypes != m_impl->lastHiddenFixtureTypes) {
-    Logger::Instance().Log("visibility dirty reason: hidden fixture types changed vs last frame snapshot");
+    Logger::Instance().Log("visibility dirty reason: hidden fixture types "
+                           "changed vs last frame snapshot");
     m_impl->visibilityChangedDirty = true;
     MarkResourceSyncPending();
   }
@@ -890,7 +898,9 @@ void Viewer3DController::UpdateResourcesIfDirty() {
 
   ResourceSyncCallbacks callbacks;
   callbacks.setupMeshBuffers = [this](Mesh &mesh) { SetupMeshBuffers(mesh); };
-  callbacks.releaseMeshBuffers = [this](Mesh &mesh) { ReleaseMeshBuffers(mesh); };
+  callbacks.releaseMeshBuffers = [this](Mesh &mesh) {
+    ReleaseMeshBuffers(mesh);
+  };
   callbacks.appendConsoleMessage = [](const std::string &msg) {
     if (ConsolePanel::Instance())
       ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(msg));
@@ -909,8 +919,9 @@ void Viewer3DController::UpdateResourcesIfDirty() {
       visibleObjects, visibleFixtures, m_impl->resourceSyncState, callbacks);
 
   if (syncResult.sceneChanged) {
-    Logger::Instance().Log("scene dirty reason: resource sync signature changed to " +
-                           std::to_string(syncResult.sceneSignature));
+    Logger::Instance().Log(
+        "scene dirty reason: resource sync signature changed to " +
+        std::to_string(syncResult.sceneSignature));
     ++m_impl->sceneVersion;
     m_impl->sceneChangedDirty = true;
     std::lock_guard<std::mutex> lock(m_impl->sortedListsMutex);
@@ -928,31 +939,31 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   }
 
   BoundsCacheSystem::Context boundsContext{
-      m_impl->resourceSyncState, m_impl->modelBounds, m_impl->fixtureBounds,
-      m_impl->trussBounds,      m_impl->objectBounds, m_impl->boundsHiddenLayers,
-      m_impl->sceneVersion,     m_impl->cachedVersion, m_impl->sceneChangedDirty,
-      m_impl->assetsChangedDirty, m_impl->visibilityChangedDirty,
-      m_impl->sortedListsMutex, m_impl->sortedListsDirty};
+      m_impl->resourceSyncState,      m_impl->modelBounds,
+      m_impl->fixtureBounds,          m_impl->trussBounds,
+      m_impl->objectBounds,           m_impl->boundsHiddenLayers,
+      m_impl->sceneVersion,           m_impl->cachedVersion,
+      m_impl->sceneChangedDirty,      m_impl->assetsChangedDirty,
+      m_impl->visibilityChangedDirty, m_impl->sortedListsMutex,
+      m_impl->sortedListsDirty};
   BoundsCacheSystem::RebuildIfDirty(boundsContext, hiddenLayers, trusses,
                                     objects, fixtures);
   m_impl->lastHiddenLayers = hiddenLayers;
   m_impl->lastHiddenFixtureTypes = cfg.GetHiddenFixtureTypes();
 }
 
-
-
 // Attempts to build Layer Visible Candidates.
 bool Viewer3DController::TryBuildLayerVisibleCandidates(
     const std::unordered_set<std::string> &hiddenLayers,
     VisibleSet &out) const {
-  return m_impl->visibilitySystem->TryBuildLayerVisibleCandidates(hiddenLayers, out);
+  return m_impl->visibilitySystem->TryBuildLayerVisibleCandidates(hiddenLayers,
+                                                                  out);
 }
 
 // Attempts to build Visible Set.
 bool Viewer3DController::TryBuildVisibleSet(
-    const ViewFrustumSnapshot &frustum, bool useFrustumCulling,
-    float minPixels, const VisibleSet &layerVisibleCandidates,
-    VisibleSet &out) const {
+    const ViewFrustumSnapshot &frustum, bool useFrustumCulling, float minPixels,
+    const VisibleSet &layerVisibleCandidates, VisibleSet &out) const {
   return m_impl->visibilitySystem->TryBuildVisibleSet(
       frustum, useFrustumCulling, minPixels, layerVisibleCandidates, out);
 }
@@ -960,10 +971,10 @@ bool Viewer3DController::TryBuildVisibleSet(
 // Returns visible Set.
 const Viewer3DController::VisibleSet &Viewer3DController::GetVisibleSet(
     const ViewFrustumSnapshot &frustum,
-    const std::unordered_set<std::string> &hiddenLayers,
-    bool useFrustumCulling, float minPixels) const {
+    const std::unordered_set<std::string> &hiddenLayers, bool useFrustumCulling,
+    float minPixels) const {
   return m_impl->visibilitySystem->GetVisibleSet(frustum, hiddenLayers,
-                                           useFrustumCulling, minPixels);
+                                                 useFrustumCulling, minPixels);
 }
 
 // Rebuilds visible Set Cache.
@@ -1009,7 +1020,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   // During camera movement we prioritize frame pacing: keep drawing the
   // scene and camera updates, but defer optional CPU/GPU work until the
   // interaction grace period ends in Viewer3DPanel::ShouldPauseHeavyTasks().
-  context.skipOptionalWork = m_impl->cameraMoving && context.fastInteractionMode;
+  context.skipOptionalWork =
+      m_impl->cameraMoving && context.fastInteractionMode;
   context.skipCapture = context.skipOptionalWork && skipCaptureWhenMoving;
   context.skipOutlinesForCurrentFrame =
       context.skipOptionalWork && skipOutlinesWhenMoving;
@@ -1034,14 +1046,12 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.minCullingPixels =
       context.is2DViewer ? culling.minPixels2D : culling.minPixels3D;
 
-  const bool isWireframeMode =
-      context.mode == Viewer2DRenderMode::Wireframe;
+  const bool isWireframeMode = context.mode == Viewer2DRenderMode::Wireframe;
   const bool isWhiteMode = context.mode == Viewer2DRenderMode::White;
   const bool isByFixtureTypeMode =
       context.mode == Viewer2DRenderMode::ByFixtureType;
   const bool isByLayerMode = context.mode == Viewer2DRenderMode::ByLayer;
-  const bool isByUniverseMode =
-      context.mode == Viewer2DRenderMode::ByUniverse;
+  const bool isByUniverseMode = context.mode == Viewer2DRenderMode::ByUniverse;
 
   context.useLighting = !context.wireframe;
   context.useAmbientOcclusion =
@@ -1081,8 +1091,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 }
 
 // Prepares and returns render Frame.
-const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
-    const RenderFrameContext &context, ViewFrustumSnapshot &frustum) {
+const Viewer3DController::VisibleSet &
+Viewer3DController::PrepareRenderFrame(const RenderFrameContext &context,
+                                       ViewFrustumSnapshot &frustum) {
   m_impl->skipOutlinesForCurrentFrame = context.skipOutlinesForCurrentFrame;
 
   int viewport[4] = {0, 0, 0, 0};
@@ -1106,7 +1117,8 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
         (context.is2DViewer && m_impl->sortedListsLastView != context.view);
     if ((m_impl->sortedListsDirty || viewSortChanged) &&
         !context.skipOptionalWork) {
-      // Computes the transform-origin depth used by fixtures, trusses, and fallback object sorting.
+      // Computes the transform-origin depth used by fixtures, trusses, and
+      // fallback object sorting.
       const auto sortDepthKey = [&](const Matrix &transform) {
         if (!context.is2DViewer)
           return transform.o[2];
@@ -1123,7 +1135,8 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
           return transform.o[2];
         }
       };
-      // Computes scene-object 2D sort depth from cached world bounds when available.
+      // Computes scene-object 2D sort depth from cached world bounds when
+      // available.
       const auto sceneObjectSortDepthKey = [&](const auto *entry) {
         const auto &transform = entry->second.transform;
         if (!context.is2DViewer)
@@ -1158,7 +1171,8 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
         sceneObjectSortDepthKeys.emplace(obj.first,
                                          sceneObjectSortDepthKey(&obj));
       }
-      // Returns the precomputed scene-object sort depth for a sorted-list entry.
+      // Returns the precomputed scene-object sort depth for a sorted-list
+      // entry.
       const auto sceneObjectSortDepth = [&](const auto *entry) {
         const auto keyIt = sceneObjectSortDepthKeys.find(entry->first);
         if (keyIt != sceneObjectSortDepthKeys.end())
@@ -1204,10 +1218,10 @@ const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
       ControllerInvalidateVisibleSetLayerCandidateCacheOwnership(
           m_impl->layerVisibleCandidatesSceneVersion);
     }
-
   }
 
-  std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
+  std::copy(std::begin(viewport), std::end(viewport),
+            std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
   frustum.is2DViewer = context.is2DViewer;
@@ -1226,8 +1240,8 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
 
   if (context.useLighting)
     SetupBasicLighting(context.useAmbientOcclusion,
-                      context.ambientOcclusionStrength,
-                      context.whiteModelStyle);
+                       context.ambientOcclusionStrength,
+                       context.whiteModelStyle);
   else
     glDisable(GL_LIGHTING);
 
@@ -1305,9 +1319,10 @@ void Viewer3DController::FinalizeRenderFrame() {
     m_impl->captureCanvas->SetSourceKey("unknown");
 }
 
-
 // Sets dark Mode.
-void Viewer3DController::SetDarkMode(bool enabled) { m_impl->darkMode = enabled; }
+void Viewer3DController::SetDarkMode(bool enabled) {
+  m_impl->darkMode = enabled;
+}
 
 // Sets interacting.
 void Viewer3DController::SetInteracting(bool interacting) {
@@ -1315,7 +1330,9 @@ void Viewer3DController::SetInteracting(bool interacting) {
 }
 
 // Sets camera Moving.
-void Viewer3DController::SetCameraMoving(bool moving) { m_impl->cameraMoving = moving; }
+void Viewer3DController::SetCameraMoving(bool moving) {
+  m_impl->cameraMoving = moving;
+}
 
 // Sets selection Outline Enabled.
 void Viewer3DController::SetSelectionOutlineEnabled(bool enabled) {
@@ -1394,8 +1411,8 @@ bool Viewer3DController::IsSymbolCaptureRenderProfileEnabled(
     return m_impl->symbolCaptureRenderProfileOverride.value();
   if (mode == Viewer2DRenderMode::ByFixtureType)
     return true;
-  return ConfigManager::Get().GetFloat("viewer3d_symbol_capture_render_profile") >=
-         0.5f;
+  return ConfigManager::Get().GetFloat(
+             "viewer3d_symbol_capture_render_profile") >= 0.5f;
 }
 
 // Checks whether camera Moving.
@@ -1406,8 +1423,8 @@ std::array<float, 3> Viewer3DController::AdjustColor(float r, float g,
                                                      float b) const {
   if (!m_impl->darkMode)
     return {r, g, b};
-  if (m_impl->activeRenderMode == Viewer2DRenderMode::Wireframe &&
-      r == 0.0f && g == 0.0f && b == 0.0f)
+  if (m_impl->activeRenderMode == Viewer2DRenderMode::Wireframe && r == 0.0f &&
+      g == 0.0f && b == 0.0f)
     return {1.0f, 1.0f, 1.0f};
   return {r, g, b};
 }
@@ -1425,17 +1442,16 @@ void Viewer3DController::DrawCube(float size, float r, float g, float b) {
       [this](float cr, float cg, float cb) { SetGLColor(cr, cg, cb); });
 }
 
-
 // Draws a wireframe cube centered at origin with given size and color
 void Viewer3DController::DrawWireframeCube(
     float size, float r, float g, float b, Viewer2DRenderMode mode,
-    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
-        captureTransform,
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)>
+        &captureTransform,
     float lineWidthOverride, bool recordCapture) {
-  float lineWidth =
-      GetLineRenderProfile(m_impl->isInteracting, mode == Viewer2DRenderMode::Wireframe,
-                           m_impl->useAdaptiveLineProfile)
-          .lineWidth;
+  float lineWidth = GetLineRenderProfile(m_impl->isInteracting,
+                                         mode == Viewer2DRenderMode::Wireframe,
+                                         m_impl->useAdaptiveLineProfile)
+                        .lineWidth;
   if (IsSymbolCaptureRenderProfileEnabled(mode))
     lineWidth = 2.0f;
   GLPrimitiveRenderer::DrawWireframeCube(
@@ -1446,60 +1462,60 @@ void Viewer3DController::DrawWireframeCube(
              const CanvasStroke &stroke) { RecordLine(a, b, stroke); });
 }
 
-
 // Draws a wireframe box whose origin sits at the left end of the span.
 // The box extends along +X for the given length and is centered in Y/Z.
 void Viewer3DController::DrawWireframeBox(
     float length, float height, float width, float r, float g, float b,
-    bool highlight, bool selected, bool wireframe, Viewer2DRenderMode mode,
-    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
-        captureTransform) {
-  float lineWidth =
-      GetLineRenderProfile(m_impl->isInteracting, mode == Viewer2DRenderMode::Wireframe,
-                           m_impl->useAdaptiveLineProfile)
-          .lineWidth;
+    bool highlight, bool groupHighlight, bool selected, bool wireframe,
+    Viewer2DRenderMode mode,
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)>
+        &captureTransform) {
+  float lineWidth = GetLineRenderProfile(m_impl->isInteracting,
+                                         mode == Viewer2DRenderMode::Wireframe,
+                                         m_impl->useAdaptiveLineProfile)
+                        .lineWidth;
   if (IsSymbolCaptureRenderProfileEnabled(mode))
     lineWidth = 2.0f;
   GLPrimitiveRenderer::DrawWireframeBox(
-      length, height, width, r, g, b, highlight, selected, wireframe, mode,
-      captureTransform, m_impl->skipOutlinesForCurrentFrame, m_impl->showSelectionOutline2D,
-      m_impl->captureOnly, m_impl->captureCanvas, lineWidth,
+      length, height, width, r, g, b, highlight, groupHighlight, selected,
+      wireframe, mode, captureTransform, m_impl->skipOutlinesForCurrentFrame,
+      m_impl->showSelectionOutline2D, m_impl->captureOnly,
+      m_impl->captureCanvas, lineWidth,
       [this](float cr, float cg, float cb) { SetGLColor(cr, cg, cb); },
       [this](const std::array<float, 3> &a, const std::array<float, 3> &b,
              const CanvasStroke &stroke) { RecordLine(a, b, stroke); });
 }
 
-
 // Draws a colored cube. If selected or highlighted it is tinted
 // in cyan or green respectively instead of its original color.
 void Viewer3DController::DrawCubeWithOutline(
-    float size, float r, float g, float b, bool highlight, bool selected,
-    float cx, float cy, float cz, bool wireframe, Viewer2DRenderMode mode,
-    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
-        captureTransform) {
+    float size, float r, float g, float b, bool highlight, bool groupHighlight,
+    bool selected, float cx, float cy, float cz, bool wireframe,
+    Viewer2DRenderMode mode,
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)>
+        &captureTransform) {
   (void)cx;
   (void)cy;
   (void)cz;
 
-  float lineWidth =
-      GetLineRenderProfile(m_impl->isInteracting, mode == Viewer2DRenderMode::Wireframe,
-                           m_impl->useAdaptiveLineProfile)
-          .lineWidth;
+  float lineWidth = GetLineRenderProfile(m_impl->isInteracting,
+                                         mode == Viewer2DRenderMode::Wireframe,
+                                         m_impl->useAdaptiveLineProfile)
+                        .lineWidth;
   if (IsSymbolCaptureRenderProfileEnabled(mode))
     lineWidth = 2.0f;
   GLPrimitiveRenderer::DrawCubeWithOutline(
-      size, r, g, b, highlight, selected, wireframe, mode, captureTransform,
-      m_impl->skipOutlinesForCurrentFrame, m_impl->showSelectionOutline2D, m_impl->captureOnly,
+      size, r, g, b, highlight, groupHighlight, selected, wireframe, mode,
+      captureTransform, m_impl->skipOutlinesForCurrentFrame,
+      m_impl->showSelectionOutline2D, m_impl->captureOnly,
       m_impl->captureCanvas, lineWidth,
       [this](float cr, float cg, float cb) { SetGLColor(cr, cg, cb); },
       [this](const std::array<float, 3> &a, const std::array<float, 3> &b,
              const CanvasStroke &stroke) { RecordLine(a, b, stroke); },
       [this](const std::vector<std::array<float, 3>> &points,
-             const CanvasStroke &stroke, const CanvasFill *fill) {
-        RecordPolygon(points, stroke, fill);
-      });
+             const CanvasStroke &stroke,
+             const CanvasFill *fill) { RecordPolygon(points, stroke, fill); });
 }
-
 
 // Configures mesh Buffers.
 void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
@@ -1507,10 +1523,11 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
     return;
 
   const bool hasVertexBufferSupport = GLEW_VERSION_1_5;
-  const bool hasVertexArraySupport = GLEW_VERSION_3_0 || GLEW_ARB_vertex_array_object;
+  const bool hasVertexArraySupport =
+      GLEW_VERSION_3_0 || GLEW_ARB_vertex_array_object;
   if (!hasVertexBufferSupport || !hasVertexArraySupport) {
-    Logger::Instance().Log(
-        "Viewer3DController: OpenGL buffer functions are unavailable; skipping mesh GPU buffer setup.");
+    Logger::Instance().Log("Viewer3DController: OpenGL buffer functions are "
+                           "unavailable; skipping mesh GPU buffer setup.");
     mesh.buffersReady = false;
     return;
   }
@@ -1568,14 +1585,12 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
 
   glGenBuffers(1, &mesh.eboTriangles);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-               mesh.indices.size() * sizeof(uint32_t),
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh.indices.size() * sizeof(uint32_t),
                mesh.indices.data(), GL_STATIC_DRAW);
 
   glGenBuffers(1, &mesh.eboLines);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboLines);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-               lineIndices.size() * sizeof(uint32_t),
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, lineIndices.size() * sizeof(uint32_t),
                lineIndices.data(), GL_STATIC_DRAW);
 
   // Restore the triangle index buffer while the VAO is bound so the VAO keeps
@@ -1590,8 +1605,10 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
       glIsBuffer(mesh.vboVertices) == GL_TRUE &&
       glIsBuffer(mesh.vboNormals) == GL_TRUE &&
       (mesh.vboTexCoords == 0 || glIsBuffer(mesh.vboTexCoords) == GL_TRUE) &&
-      (mesh.vboFlatVertices == 0 || glIsBuffer(mesh.vboFlatVertices) == GL_TRUE) &&
-      (mesh.vboFlatNormals == 0 || glIsBuffer(mesh.vboFlatNormals) == GL_TRUE) &&
+      (mesh.vboFlatVertices == 0 ||
+       glIsBuffer(mesh.vboFlatVertices) == GL_TRUE) &&
+      (mesh.vboFlatNormals == 0 ||
+       glIsBuffer(mesh.vboFlatNormals) == GL_TRUE) &&
       glIsBuffer(mesh.eboTriangles) == GL_TRUE &&
       glIsBuffer(mesh.eboLines) == GL_TRUE;
 
@@ -1623,8 +1640,9 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, mesh.textureWidth, mesh.textureHeight,
-                 0, GL_RGBA, GL_UNSIGNED_BYTE, mesh.textureRgba.data());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, mesh.textureWidth,
+                 mesh.textureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 mesh.textureRgba.data());
     glBindTexture(GL_TEXTURE_2D, 0);
   }
 }
@@ -1683,8 +1701,8 @@ void Viewer3DController::ReleaseMeshBuffers(Mesh &mesh) {
 // Draws the reference grid on one of the principal planes
 // Draws the XYZ axes centered at origin
 void Viewer3DController::DrawAxes() {
-  const LineRenderProfile profile =
-      GetLineRenderProfile(m_impl->isInteracting, false, m_impl->useAdaptiveLineProfile);
+  const LineRenderProfile profile = GetLineRenderProfile(
+      m_impl->isInteracting, false, m_impl->useAdaptiveLineProfile);
   const GLboolean lineSmoothWasEnabled = glIsEnabled(GL_LINE_SMOOTH);
   if (profile.enableLineSmoothing)
     glEnable(GL_LINE_SMOOTH);
@@ -1863,22 +1881,21 @@ void Viewer3DController::ClearBottomSymbolCache() {
 // Draws mesh With Outline.
 void Viewer3DController::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
-    bool selected, float cx, float cy, float cz, bool wireframe,
-    Viewer2DRenderMode mode,
-    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
-        captureTransform,
+    bool groupHighlight, bool selected, float cx, float cy, float cz,
+    bool wireframe, Viewer2DRenderMode mode,
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)>
+        &captureTransform,
     bool unlit, const float *modelMatrix, bool disableDepthBias) {
-  m_impl->sceneRenderer->DrawMeshWithOutline(mesh, r, g, b, scale, highlight,
-                                       selected, cx, cy, cz, wireframe, mode,
-                                       captureTransform, unlit, modelMatrix,
-                                       disableDepthBias);
+  m_impl->sceneRenderer->DrawMeshWithOutline(
+      mesh, r, g, b, scale, highlight, groupHighlight, selected, cx, cy, cz,
+      wireframe, mode, captureTransform, unlit, modelMatrix, disableDepthBias);
 }
 
 // Draws mesh Wireframe.
 void Viewer3DController::DrawMeshWireframe(
     const Mesh &mesh, float scale,
-    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
-        captureTransform) {
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)>
+        &captureTransform) {
   m_impl->sceneRenderer->DrawMeshWireframe(mesh, scale, captureTransform);
 }
 
@@ -1905,32 +1922,25 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
                                            wxPoint &outPos,
                                            std::string *outUuid,
                                            bool confirmDepth) {
-  return m_impl->selectionSystem->GetFixtureLabelAt(mouseX, mouseY, width, height,
-                                                     outLabel, outPos, outUuid,
-                                                     confirmDepth);
+  return m_impl->selectionSystem->GetFixtureLabelAt(
+      mouseX, mouseY, width, height, outLabel, outPos, outUuid, confirmDepth);
 }
 
 // Returns truss Label At.
 bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
                                          int height, wxString &outLabel,
-                                         wxPoint &outPos,
-                                         std::string *outUuid,
+                                         wxPoint &outPos, std::string *outUuid,
                                          bool confirmDepth) {
-  return m_impl->selectionSystem->GetTrussLabelAt(mouseX, mouseY, width, height,
-                                                   outLabel, outPos, outUuid,
-                                                   confirmDepth);
+  return m_impl->selectionSystem->GetTrussLabelAt(
+      mouseX, mouseY, width, height, outLabel, outPos, outUuid, confirmDepth);
 }
 
 // Returns scene Object Label At.
-bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
-                                                int width, int height,
-                                                wxString &outLabel,
-                                                wxPoint &outPos,
-                                                std::string *outUuid,
-                                                bool confirmDepth) {
-  return m_impl->selectionSystem->GetSceneObjectLabelAt(mouseX, mouseY, width,
-                                                         height, outLabel, outPos,
-                                                         outUuid, confirmDepth);
+bool Viewer3DController::GetSceneObjectLabelAt(
+    int mouseX, int mouseY, int width, int height, wxString &outLabel,
+    wxPoint &outPos, std::string *outUuid, bool confirmDepth) {
+  return m_impl->selectionSystem->GetSceneObjectLabelAt(
+      mouseX, mouseY, width, height, outLabel, outPos, outUuid, confirmDepth);
 }
 
 // Returns hover UUID At.
@@ -1951,9 +1961,8 @@ bool Viewer3DController::GetHoverUuidAt(int mouseX, int mouseY, int width,
     selectionTarget = SelectionSystem::HoverPickTarget::SceneObject;
     break;
   }
-  return m_impl->selectionSystem->GetHoverUuidAt(mouseX, mouseY, width, height,
-                                                  selectionTarget, outUuid,
-                                                  confirmDepth);
+  return m_impl->selectionSystem->GetHoverUuidAt(
+      mouseX, mouseY, width, height, selectionTarget, outUuid, confirmDepth);
 }
 
 // Returns pick UUID At.
@@ -1969,24 +1978,27 @@ size_t Viewer3DController::GetSceneVersionSnapshot() const {
 }
 
 // Returns fixtures In Screen Rect.
-std::vector<std::string> Viewer3DController::GetFixturesInScreenRect(
-    int x1, int y1, int x2, int y2, int width, int height) const {
+std::vector<std::string>
+Viewer3DController::GetFixturesInScreenRect(int x1, int y1, int x2, int y2,
+                                            int width, int height) const {
   return m_impl->selectionSystem->GetFixturesInScreenRect(x1, y1, x2, y2, width,
-                                                    height);
+                                                          height);
 }
 
 // Returns trusses In Screen Rect.
-std::vector<std::string> Viewer3DController::GetTrussesInScreenRect(
-    int x1, int y1, int x2, int y2, int width, int height) const {
+std::vector<std::string>
+Viewer3DController::GetTrussesInScreenRect(int x1, int y1, int x2, int y2,
+                                           int width, int height) const {
   return m_impl->selectionSystem->GetTrussesInScreenRect(x1, y1, x2, y2, width,
-                                                   height);
+                                                         height);
 }
 
 // Returns scene Objects In Screen Rect.
-std::vector<std::string> Viewer3DController::GetSceneObjectsInScreenRect(
-    int x1, int y1, int x2, int y2, int width, int height) const {
-  return m_impl->selectionSystem->GetSceneObjectsInScreenRect(x1, y1, x2, y2, width,
-                                                        height);
+std::vector<std::string>
+Viewer3DController::GetSceneObjectsInScreenRect(int x1, int y1, int x2, int y2,
+                                                int width, int height) const {
+  return m_impl->selectionSystem->GetSceneObjectsInScreenRect(x1, y1, x2, y2,
+                                                              width, height);
 }
 
 // Checks whether interacting.
@@ -2010,6 +2022,12 @@ bool Viewer3DController::IsSelectionOutlineEnabled2D() const {
 // Checks whether uUID Highlighted.
 bool Viewer3DController::IsUuidHighlighted(const std::string &uuid) const {
   return !uuid.empty() && m_impl->highlightUuid == uuid;
+}
+
+// Checks whether the UUID is highlighted as a hovered group sibling.
+bool Viewer3DController::IsUuidGroupHighlighted(const std::string &uuid) const {
+  return !uuid.empty() && m_impl->groupHighlightUuids.find(uuid) !=
+                              m_impl->groupHighlightUuids.end();
 }
 
 // Checks whether uUID Selected.
@@ -2122,7 +2140,9 @@ Viewer3DController::GetObjectBounds() {
 }
 
 // Returns scene Version.
-size_t Viewer3DController::GetSceneVersion() const { return m_impl->sceneVersion; }
+size_t Viewer3DController::GetSceneVersion() const {
+  return m_impl->sceneVersion;
+}
 
 const std::vector<const std::pair<const std::string, Fixture> *> &
 // Returns sorted Fixtures.
@@ -2148,7 +2168,8 @@ std::mutex &Viewer3DController::GetSortedListsMutex() const {
 }
 
 // Returns cached Visible Set.
-Viewer3DController::VisibleSet &Viewer3DController::GetCachedVisibleSet() const {
+Viewer3DController::VisibleSet &
+Viewer3DController::GetCachedVisibleSet() const {
   return m_impl->cachedVisibleSet;
 }
 

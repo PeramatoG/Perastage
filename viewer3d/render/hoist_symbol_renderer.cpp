@@ -171,7 +171,8 @@ void DrawOutlineLoop(IRenderContext &renderContext,
   stroke.width = lineWidth;
   stroke.color = {color.r, color.g, color.b, 1.0f};
   for (size_t i = 0; i < points.size(); ++i)
-    renderContext.RecordLine(points[i], points[(i + 1) % points.size()], stroke);
+    renderContext.RecordLine(points[i], points[(i + 1) % points.size()],
+                             stroke);
 }
 
 void DrawSegment(IRenderContext &renderContext, const std::array<float, 3> &a,
@@ -251,10 +252,10 @@ void DrawCircleSymbol(IRenderContext &renderContext, float cx, float cy,
   std::vector<std::array<float, 3>> ring;
   ring.reserve(static_cast<size_t>(kSegments));
   for (int i = 0; i < kSegments; ++i) {
-    const float t = 2.0f * kPi *
-                    (static_cast<float>(i) / static_cast<float>(kSegments));
-    ring.push_back(
-        MakePoint(cx + std::cos(t) * kHalfSizeMeters, cy + std::sin(t) * kHalfSizeMeters, z));
+    const float t =
+        2.0f * kPi * (static_cast<float>(i) / static_cast<float>(kSegments));
+    ring.push_back(MakePoint(cx + std::cos(t) * kHalfSizeMeters,
+                             cy + std::sin(t) * kHalfSizeMeters, z));
   }
 
   constexpr int kQuarterSegments = 11;
@@ -262,8 +263,8 @@ void DrawCircleSymbol(IRenderContext &renderContext, float cx, float cy,
   topRight.reserve(static_cast<size_t>(kQuarterSegments + 2));
   topRight.push_back(MakePoint(cx, cy, z));
   for (int i = 0; i <= kQuarterSegments; ++i) {
-    const float t = static_cast<float>(i) / static_cast<float>(kQuarterSegments) *
-                    (kPi * 0.5f);
+    const float t = static_cast<float>(i) /
+                    static_cast<float>(kQuarterSegments) * (kPi * 0.5f);
     topRight.push_back(MakePoint(cx + std::cos(t) * kHalfSizeMeters,
                                  cy + std::sin(t) * kHalfSizeMeters, z));
   }
@@ -272,9 +273,9 @@ void DrawCircleSymbol(IRenderContext &renderContext, float cx, float cy,
   bottomLeft.reserve(static_cast<size_t>(kQuarterSegments + 2));
   bottomLeft.push_back(MakePoint(cx, cy, z));
   for (int i = 0; i <= kQuarterSegments; ++i) {
-    const float t = kPi +
-                    static_cast<float>(i) / static_cast<float>(kQuarterSegments) *
-                        (kPi * 0.5f);
+    const float t = kPi + static_cast<float>(i) /
+                              static_cast<float>(kQuarterSegments) *
+                              (kPi * 0.5f);
     bottomLeft.push_back(MakePoint(cx + std::cos(t) * kHalfSizeMeters,
                                    cy + std::sin(t) * kHalfSizeMeters, z));
   }
@@ -317,7 +318,8 @@ void DrawTriangleSymbol(IRenderContext &renderContext, float cx, float cy,
   DrawFillPolygon(renderContext, {top, rightCross, center}, color);
   DrawFillPolygon(renderContext, {leftCross, left, baseMid, center}, color);
 
-  DrawOutlineLoop(renderContext, {top, right, left}, outlineColor, outlineWidth);
+  DrawOutlineLoop(renderContext, {top, right, left}, outlineColor,
+                  outlineWidth);
   DrawSegment(renderContext, leftCross, rightCross, outlineColor, outlineWidth);
   DrawSegment(renderContext, top, baseMid, outlineColor, outlineWidth);
 }
@@ -326,8 +328,8 @@ void DrawPentagonSymbol(IRenderContext &renderContext, float cx, float cy,
                         float z, const RgbColor &color,
                         const RgbColor &outlineColor, float outlineWidth) {
   const auto top = MakePoint(cx, cy + kHalfSizeMeters, z);
-  const auto rightTop = MakePoint(cx + kHalfSizeMeters * 0.85f,
-                                  cy + kHalfSizeMeters * 0.25f, z);
+  const auto rightTop =
+      MakePoint(cx + kHalfSizeMeters * 0.85f, cy + kHalfSizeMeters * 0.25f, z);
   const auto rightBottom =
       MakePoint(cx + kHalfSizeMeters * 0.55f, cy - kHalfSizeMeters, z);
   const auto leftBottom =
@@ -335,9 +337,8 @@ void DrawPentagonSymbol(IRenderContext &renderContext, float cx, float cy,
   const auto leftTop =
       MakePoint(cx - kHalfSizeMeters * 0.85f, cy + kHalfSizeMeters * 0.25f, z);
   const auto center = MakePoint(cx, cy - kHalfSizeMeters * 0.15f, z);
-  const auto bottomMid =
-      MakePoint((leftBottom[0] + rightBottom[0]) * 0.5f,
-                (leftBottom[1] + rightBottom[1]) * 0.5f, z);
+  const auto bottomMid = MakePoint((leftBottom[0] + rightBottom[0]) * 0.5f,
+                                   (leftBottom[1] + rightBottom[1]) * 0.5f, z);
 
   const auto pointOnEdgeAtY = [z](const std::array<float, 3> &a,
                                   const std::array<float, 3> &b, float y) {
@@ -350,10 +351,12 @@ void DrawPentagonSymbol(IRenderContext &renderContext, float cx, float cy,
   const auto leftCross = pointOnEdgeAtY(leftTop, leftBottom, center[1]);
   const auto rightCross = pointOnEdgeAtY(rightTop, rightBottom, center[1]);
 
-  DrawFillPolygon(renderContext, {top, rightTop, rightBottom, leftBottom, leftTop},
+  DrawFillPolygon(renderContext,
+                  {top, rightTop, rightBottom, leftBottom, leftTop},
                   WhiteColor());
   DrawFillPolygon(renderContext, {top, rightTop, rightCross, center}, color);
-  DrawFillPolygon(renderContext, {leftCross, leftBottom, bottomMid, center}, color);
+  DrawFillPolygon(renderContext, {leftCross, leftBottom, bottomMid, center},
+                  color);
 
   DrawOutlineLoop(renderContext,
                   {top, rightTop, rightBottom, leftBottom, leftTop},
@@ -409,18 +412,19 @@ void Render(IRenderContext &renderContext, const RenderFrameContext &context) {
       continue;
 
     const RgbColor color = ResolveHoistLayerColor(scene, support);
-    const bool isHighlighted = renderContext.IsUuidHighlighted(uuid);
+    const bool isHighlighted = renderContext.IsUuidHighlighted(uuid) ||
+                               renderContext.IsUuidGroupHighlighted(uuid);
     const bool isSelected = renderContext.IsUuidSelected(uuid);
     const bool useOutlineColors =
         context.is2DViewer && renderContext.IsSelectionOutlineEnabled2D();
     const RgbColor outlineColor =
-        useOutlineColors ? (isHighlighted ? HighlightColor()
-                                          : (isSelected ? SelectedColor() : color))
-                         : color;
-    const float outlineWidth =
-        useOutlineColors && (isHighlighted || isSelected)
-            ? kSelectionLineWidth
-            : kLineWidth;
+        useOutlineColors
+            ? (isHighlighted ? HighlightColor()
+                             : (isSelected ? SelectedColor() : color))
+            : color;
+    const float outlineWidth = useOutlineColors && (isHighlighted || isSelected)
+                                   ? kSelectionLineWidth
+                                   : kLineWidth;
 
     DrawHoistSymbol(renderContext, support, color, outlineColor, outlineWidth);
   }

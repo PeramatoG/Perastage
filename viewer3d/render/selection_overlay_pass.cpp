@@ -61,27 +61,32 @@ bool HexToRGB(const std::string &hex, float &r, float &g, float &b) {
   return true;
 }
 
-bool ContainsUuid(const std::vector<std::string> &uuids, const std::string &uuid) {
+bool ContainsUuid(const std::vector<std::string> &uuids,
+                  const std::string &uuid) {
   return std::find(uuids.begin(), uuids.end(), uuid) != uuids.end();
 }
 
-void AppendUuidIfRenderable(const std::string &uuid,
-                            const std::unordered_map<std::string, Fixture> &fixtures,
-                            const std::unordered_map<std::string, Truss> &trusses,
-                            const std::unordered_map<std::string, SceneObject> &objects,
-                            Viewer3DVisibleSet &overlaySet) {
+void AppendUuidIfRenderable(
+    const std::string &uuid,
+    const std::unordered_map<std::string, Fixture> &fixtures,
+    const std::unordered_map<std::string, Truss> &trusses,
+    const std::unordered_map<std::string, SceneObject> &objects,
+    Viewer3DVisibleSet &overlaySet) {
   if (uuid.empty())
     return;
 
-  if (fixtures.find(uuid) != fixtures.end() && !ContainsUuid(overlaySet.fixtureUuids, uuid)) {
+  if (fixtures.find(uuid) != fixtures.end() &&
+      !ContainsUuid(overlaySet.fixtureUuids, uuid)) {
     overlaySet.fixtureUuids.push_back(uuid);
     return;
   }
-  if (trusses.find(uuid) != trusses.end() && !ContainsUuid(overlaySet.trussUuids, uuid)) {
+  if (trusses.find(uuid) != trusses.end() &&
+      !ContainsUuid(overlaySet.trussUuids, uuid)) {
     overlaySet.trussUuids.push_back(uuid);
     return;
   }
-  if (objects.find(uuid) != objects.end() && !ContainsUuid(overlaySet.objectUuids, uuid)) {
+  if (objects.find(uuid) != objects.end() &&
+      !ContainsUuid(overlaySet.objectUuids, uuid)) {
     overlaySet.objectUuids.push_back(uuid);
     return;
   }
@@ -96,15 +101,19 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
 
   Viewer3DVisibleSet overlaySet;
-  const auto appendFromVisibility = [&](const std::vector<std::string> &sourceUuids,
-                                        std::vector<std::string> &targetUuids) {
-    for (const auto &uuid : sourceUuids) {
-      if (uuid == controller.m_highlightUuid ||
-          controller.m_selectedUuids.find(uuid) != controller.m_selectedUuids.end()) {
-        targetUuids.push_back(uuid);
-      }
-    }
-  };
+  const auto appendFromVisibility =
+      [&](const std::vector<std::string> &sourceUuids,
+          std::vector<std::string> &targetUuids) {
+        for (const auto &uuid : sourceUuids) {
+          if (uuid == controller.m_highlightUuid ||
+              controller.m_groupHighlightUuids.find(uuid) !=
+                  controller.m_groupHighlightUuids.end() ||
+              controller.m_selectedUuids.find(uuid) !=
+                  controller.m_selectedUuids.end()) {
+            targetUuids.push_back(uuid);
+          }
+        }
+      };
 
   appendFromVisibility(visibleSet.fixtureUuids, overlaySet.fixtureUuids);
   appendFromVisibility(visibleSet.trussUuids, overlaySet.trussUuids);
@@ -112,6 +121,9 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
 
   AppendUuidIfRenderable(controller.m_highlightUuid, fixtures, trusses, objects,
                          overlaySet);
+  for (const auto &uuid : controller.m_groupHighlightUuids) {
+    AppendUuidIfRenderable(uuid, fixtures, trusses, objects, overlaySet);
+  }
 
   for (const auto &uuid : controller.m_selectedUuids) {
     AppendUuidIfRenderable(uuid, fixtures, trusses, objects, overlaySet);
@@ -156,11 +168,12 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
   GLint previousDepthFunc = GL_LESS;
   glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
   glDepthFunc(GL_LEQUAL);
-  OpaqueObjectPass::Render(controller, overlayContext, overlaySet, getLayerColor,
-                           resolveSymbolView, getPickColor);
+  OpaqueObjectPass::Render(controller, overlayContext, overlaySet,
+                           getLayerColor, resolveSymbolView, getPickColor);
   OpaqueTrussPass::Render(controller, overlayContext, overlaySet, getLayerColor,
                           resolveSymbolView, getPickColor);
-  OpaqueFixturePass::Render(controller, overlayContext, overlaySet, getTypeColor,
-                            getLayerColor, resolveSymbolView, getPickColor);
+  OpaqueFixturePass::Render(controller, overlayContext, overlaySet,
+                            getTypeColor, getLayerColor, resolveSymbolView,
+                            getPickColor);
   glDepthFunc(static_cast<GLenum>(previousDepthFunc));
 }
