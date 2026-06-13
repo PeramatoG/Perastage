@@ -1576,7 +1576,8 @@ void ApplyImportedGdtfMetadata(Fixture &fixture,
 
 // Imports rider text into the current scene.
 bool RiderImporter::ImportText(const std::string &text,
-                               ProgressCallback progressCallback) {
+                               ProgressCallback progressCallback,
+                               bool skipFixtureFilterPreview) {
   if (text.empty())
     return false;
   auto reportProgress = [&](std::string stage, int completed = 0, int total = 0) {
@@ -1585,11 +1586,13 @@ bool RiderImporter::ImportText(const std::string &text,
     progressCallback(ProgressState{std::move(stage), completed, total});
   };
 
-  reportProgress("Filtering text...", 1, 6);
-  // Keep scene creation consistent with the dialog preview flow:
-  // import always consumes the same normalized text produced by the
-  // filter pass used by "Apply filter".
-  const std::string filteredText = BuildFixtureFilterPreview(text);
+  reportProgress(skipFixtureFilterPreview ? "Using filtered text..."
+                                          : "Filtering text...",
+                 1, 6);
+  // Keep scene creation consistent with the dialog preview flow while allowing
+  // callers that already hold preview text to avoid repeating the filter pass.
+  const std::string filteredText =
+      skipFixtureFilterPreview ? std::string{} : BuildFixtureFilterPreview(text);
   const std::string &textToImport = filteredText.empty() ? text : filteredText;
   reportProgress("Parsing lines...", 2, 6);
   const int totalInputLines = [&]() {

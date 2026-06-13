@@ -38,6 +38,7 @@ public:
                            const wxString &initialSource = wxEmptyString);
   const std::string &GetRiderTextUtf8() const;
   wxString GetLoadedFileTitle() const;
+  bool IsCurrentTextFilteredPreview() const;
 
 private:
   bool TryGetCurrentText(std::string &outText) const;
@@ -69,6 +70,7 @@ private:
   std::vector<RiderTextAutocompleteProvider::Suggestion> currentSuggestions;
   wxTimer autocompleteTimer;
   bool suppressAutocompleteTextEvent = false;
+  bool currentTextIsFilteredPreview = false;
 
   wxDECLARE_EVENT_TABLE();
 };

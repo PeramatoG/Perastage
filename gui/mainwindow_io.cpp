@@ -398,8 +398,10 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
   std::unique_ptr<wxProgressDialog> createProgress;
   wxYieldIfNeeded();
 
+  const bool riderTextAlreadyFiltered = dlg.IsCurrentTextFilteredPreview();
   if (!RiderImporter::ImportText(
-          riderText, [&](const RiderImporter::ProgressState &progress) {
+          riderText,
+          [&](const RiderImporter::ProgressState &progress) {
             if (!GetStatusBar())
               return;
             const wxString stageText = wxString::FromUTF8(progress.stage);
@@ -426,7 +428,8 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
               SetStatusText("Text import: " + stageText, 0);
             }
             GetStatusBar()->Update();
-          })) {
+          },
+          riderTextAlreadyFiltered)) {
     wxMessageBox("Failed to import rider text.", "Error", wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to import rider from text.");
