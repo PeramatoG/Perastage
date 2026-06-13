@@ -36,10 +36,22 @@ double MetersToDisplayDistance(double meters, Units::DistanceUnitSystem unitSyst
                                                    unitSystem);
 }
 
+// Converts millimeter scene coordinates to the active display distance unit.
+double MillimetersToDisplayDistance(double millimeters,
+                                    Units::DistanceUnitSystem unitSystem) {
+  return UiUnitUtils::DistanceMillimetersToDisplay(millimeters, unitSystem);
+}
+
 double DisplayDistanceToMeters(double displayValue,
                                Units::DistanceUnitSystem unitSystem) {
   return UiUnitUtils::DistanceDisplayToMillimeters(displayValue, unitSystem) /
          kMetersToMillimeters;
+}
+
+// Converts a displayed distance value to millimeters for scene coordinates.
+double DisplayDistanceToMillimeters(double displayValue,
+                                    Units::DistanceUnitSystem unitSystem) {
+  return UiUnitUtils::DistanceDisplayToMillimeters(displayValue, unitSystem);
 }
 
 wxString DistanceLabel(const char *baseLabel,
@@ -73,6 +85,7 @@ wxSpinCtrlDouble *AddDistanceRow(wxWindow *parent, wxFlexGridSizer *grid,
   return ctrl;
 }
 
+// Adds a generic numeric spin row to a primitive dialog.
 wxSpinCtrlDouble *AddNumberRow(wxWindow *parent, wxFlexGridSizer *grid,
                                const char *label, double value, double minValue,
                                double maxValue, double increment) {
@@ -83,6 +96,22 @@ wxSpinCtrlDouble *AddNumberRow(wxWindow *parent, wxFlexGridSizer *grid,
   ctrl->SetIncrement(increment);
   ctrl->SetDigits(2);
   ctrl->SetValue(value);
+  grid->Add(ctrl, 1, wxEXPAND);
+  return ctrl;
+}
+
+// Adds a signed millimeter distance spin row using the active project unit.
+wxSpinCtrlDouble *AddSignedDistanceRow(wxWindow *parent, wxFlexGridSizer *grid,
+                                       const char *label, double millimeters,
+                                       Units::DistanceUnitSystem unitSystem) {
+  grid->Add(new wxStaticText(parent, wxID_ANY, DistanceLabel(label, unitSystem)),
+            0, wxALIGN_CENTER_VERTICAL);
+  auto *ctrl = new wxSpinCtrlDouble(parent, wxID_ANY);
+  ctrl->SetRange(MillimetersToDisplayDistance(-1000000.0, unitSystem),
+                 MillimetersToDisplayDistance(1000000.0, unitSystem));
+  ctrl->SetIncrement(0.1);
+  ctrl->SetDigits(2);
+  ctrl->SetValue(MillimetersToDisplayDistance(millimeters, unitSystem));
   grid->Add(ctrl, 1, wxEXPAND);
   return ctrl;
 }
@@ -156,6 +185,7 @@ public:
     SetSizerAndFit(root);
   }
 
+  // Builds the sphere request from dialog controls.
   SphereRequest Request() const {
     SphereRequest request;
     request.name = nameCtrl_->GetValue().ToStdString();
@@ -167,13 +197,17 @@ public:
     return request;
   }
 
+  // Builds the placement request from dialog controls.
   PrimitivePlacementRequest Placement() const {
     PrimitivePlacementRequest request;
     if (!placement_)
       return request;
-    request.positionXMeters = positionXCtrl_->GetValue();
-    request.positionYMeters = positionYCtrl_->GetValue();
-    request.positionZMeters = positionZCtrl_->GetValue();
+    request.positionXMeters =
+        DisplayDistanceToMillimeters(positionXCtrl_->GetValue(), unitSystem_);
+    request.positionYMeters =
+        DisplayDistanceToMillimeters(positionYCtrl_->GetValue(), unitSystem_);
+    request.positionZMeters =
+        DisplayDistanceToMillimeters(positionZCtrl_->GetValue(), unitSystem_);
     request.rotationXDegrees = rotationXCtrl_->GetValue();
     request.rotationYDegrees = rotationYCtrl_->GetValue();
     request.rotationZDegrees = rotationZCtrl_->GetValue();
@@ -181,6 +215,7 @@ public:
   }
 
 private:
+  // Adds quantity controls for creation or placement controls for editing.
   void AddQuantityAndPlacementRows(wxFlexGridSizer *grid, int quantity) {
     if (includeQuantity_) {
       grid->Add(new wxStaticText(this, wxID_ANY, "Units:"), 0, wxALIGN_CENTER_VERTICAL);
@@ -190,9 +225,12 @@ private:
       grid->Add(quantityCtrl_, 1, wxEXPAND);
       return;
     }
-    positionXCtrl_ = AddNumberRow(this, grid, "Position X (m):", placement_->positionXMeters, -1000000.0, 1000000.0, 0.1);
-    positionYCtrl_ = AddNumberRow(this, grid, "Position Y (m):", placement_->positionYMeters, -1000000.0, 1000000.0, 0.1);
-    positionZCtrl_ = AddNumberRow(this, grid, "Position Z (m):", placement_->positionZMeters, -1000000.0, 1000000.0, 0.1);
+    positionXCtrl_ = AddSignedDistanceRow(
+        this, grid, "Position X", placement_->positionXMeters, unitSystem_);
+    positionYCtrl_ = AddSignedDistanceRow(
+        this, grid, "Position Y", placement_->positionYMeters, unitSystem_);
+    positionZCtrl_ = AddSignedDistanceRow(
+        this, grid, "Position Z", placement_->positionZMeters, unitSystem_);
     rotationXCtrl_ = AddNumberRow(this, grid, "Rotation X (deg):", placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
     rotationYCtrl_ = AddNumberRow(this, grid, "Rotation Y (deg):", placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
     rotationZCtrl_ = AddNumberRow(this, grid, "Rotation Z (deg):", placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
@@ -261,25 +299,33 @@ public:
     SetSizerAndFit(root);
   }
 
+  // Builds the cube request from dialog controls.
   CubeRequest Request() const {
     CubeRequest request;
     request.name = nameCtrl_->GetValue().ToStdString();
     if (request.name.empty())
       request.name = "Cube";
-    request.lengthMeters = std::max(DisplayDistanceToMeters(lengthCtrl_->GetValue(), unitSystem_), 0.01);
-    request.heightMeters = std::max(DisplayDistanceToMeters(heightCtrl_->GetValue(), unitSystem_), 0.01);
-    request.widthMeters = std::max(DisplayDistanceToMeters(widthCtrl_->GetValue(), unitSystem_), 0.01);
+    request.lengthMeters = std::max(
+        DisplayDistanceToMeters(lengthCtrl_->GetValue(), unitSystem_), 0.01);
+    request.heightMeters = std::max(
+        DisplayDistanceToMeters(heightCtrl_->GetValue(), unitSystem_), 0.01);
+    request.widthMeters = std::max(
+        DisplayDistanceToMeters(widthCtrl_->GetValue(), unitSystem_), 0.01);
     request.quantity = includeQuantity_ ? quantityCtrl_->GetValue() : 1;
     return request;
   }
 
+  // Builds the placement request from dialog controls.
   PrimitivePlacementRequest Placement() const {
     PrimitivePlacementRequest request;
     if (!placement_)
       return request;
-    request.positionXMeters = positionXCtrl_->GetValue();
-    request.positionYMeters = positionYCtrl_->GetValue();
-    request.positionZMeters = positionZCtrl_->GetValue();
+    request.positionXMeters =
+        DisplayDistanceToMillimeters(positionXCtrl_->GetValue(), unitSystem_);
+    request.positionYMeters =
+        DisplayDistanceToMillimeters(positionYCtrl_->GetValue(), unitSystem_);
+    request.positionZMeters =
+        DisplayDistanceToMillimeters(positionZCtrl_->GetValue(), unitSystem_);
     request.rotationXDegrees = rotationXCtrl_->GetValue();
     request.rotationYDegrees = rotationYCtrl_->GetValue();
     request.rotationZDegrees = rotationZCtrl_->GetValue();
@@ -287,6 +333,7 @@ public:
   }
 
 private:
+  // Adds quantity controls for creation or placement controls for editing.
   void AddQuantityAndPlacementRows(wxFlexGridSizer *grid, int quantity) {
     if (includeQuantity_) {
       grid->Add(new wxStaticText(this, wxID_ANY, "Units:"), 0, wxALIGN_CENTER_VERTICAL);
@@ -296,9 +343,12 @@ private:
       grid->Add(quantityCtrl_, 1, wxEXPAND);
       return;
     }
-    positionXCtrl_ = AddNumberRow(this, grid, "Position X (m):", placement_->positionXMeters, -1000000.0, 1000000.0, 0.1);
-    positionYCtrl_ = AddNumberRow(this, grid, "Position Y (m):", placement_->positionYMeters, -1000000.0, 1000000.0, 0.1);
-    positionZCtrl_ = AddNumberRow(this, grid, "Position Z (m):", placement_->positionZMeters, -1000000.0, 1000000.0, 0.1);
+    positionXCtrl_ = AddSignedDistanceRow(
+        this, grid, "Position X", placement_->positionXMeters, unitSystem_);
+    positionYCtrl_ = AddSignedDistanceRow(
+        this, grid, "Position Y", placement_->positionYMeters, unitSystem_);
+    positionZCtrl_ = AddSignedDistanceRow(
+        this, grid, "Position Z", placement_->positionZMeters, unitSystem_);
     rotationXCtrl_ = AddNumberRow(this, grid, "Rotation X (deg):", placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
     rotationYCtrl_ = AddNumberRow(this, grid, "Rotation Y (deg):", placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
     rotationZCtrl_ = AddNumberRow(this, grid, "Rotation Z (deg):", placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
@@ -373,25 +423,33 @@ public:
     SetSizerAndFit(root);
   }
 
+  // Builds the cylinder request from dialog controls.
   CylinderRequest Request() const {
     CylinderRequest request;
     request.name = nameCtrl_->GetValue().ToStdString();
     if (request.name.empty())
       request.name = "Cylinder";
-    request.topRadiusMeters = std::max(DisplayDistanceToMeters(topRadiusCtrl_->GetValue(), unitSystem_), 0.01);
-    request.bottomRadiusMeters = std::max(DisplayDistanceToMeters(bottomRadiusCtrl_->GetValue(), unitSystem_), 0.01);
-    request.heightMeters = std::max(DisplayDistanceToMeters(heightCtrl_->GetValue(), unitSystem_), 0.01);
+    request.topRadiusMeters = std::max(
+        DisplayDistanceToMeters(topRadiusCtrl_->GetValue(), unitSystem_), 0.01);
+    request.bottomRadiusMeters = std::max(
+        DisplayDistanceToMeters(bottomRadiusCtrl_->GetValue(), unitSystem_), 0.01);
+    request.heightMeters = std::max(
+        DisplayDistanceToMeters(heightCtrl_->GetValue(), unitSystem_), 0.01);
     request.quantity = includeQuantity_ ? quantityCtrl_->GetValue() : 1;
     return request;
   }
 
+  // Builds the placement request from dialog controls.
   PrimitivePlacementRequest Placement() const {
     PrimitivePlacementRequest request;
     if (!placement_)
       return request;
-    request.positionXMeters = positionXCtrl_->GetValue();
-    request.positionYMeters = positionYCtrl_->GetValue();
-    request.positionZMeters = positionZCtrl_->GetValue();
+    request.positionXMeters =
+        DisplayDistanceToMillimeters(positionXCtrl_->GetValue(), unitSystem_);
+    request.positionYMeters =
+        DisplayDistanceToMillimeters(positionYCtrl_->GetValue(), unitSystem_);
+    request.positionZMeters =
+        DisplayDistanceToMillimeters(positionZCtrl_->GetValue(), unitSystem_);
     request.rotationXDegrees = rotationXCtrl_->GetValue();
     request.rotationYDegrees = rotationYCtrl_->GetValue();
     request.rotationZDegrees = rotationZCtrl_->GetValue();
@@ -399,6 +457,7 @@ public:
   }
 
 private:
+  // Adds quantity controls for creation or placement controls for editing.
   void AddQuantityAndPlacementRows(wxFlexGridSizer *grid, int quantity) {
     if (includeQuantity_) {
       grid->Add(new wxStaticText(this, wxID_ANY, "Units:"), 0, wxALIGN_CENTER_VERTICAL);
@@ -408,9 +467,12 @@ private:
       grid->Add(quantityCtrl_, 1, wxEXPAND);
       return;
     }
-    positionXCtrl_ = AddNumberRow(this, grid, "Position X (m):", placement_->positionXMeters, -1000000.0, 1000000.0, 0.1);
-    positionYCtrl_ = AddNumberRow(this, grid, "Position Y (m):", placement_->positionYMeters, -1000000.0, 1000000.0, 0.1);
-    positionZCtrl_ = AddNumberRow(this, grid, "Position Z (m):", placement_->positionZMeters, -1000000.0, 1000000.0, 0.1);
+    positionXCtrl_ = AddSignedDistanceRow(
+        this, grid, "Position X", placement_->positionXMeters, unitSystem_);
+    positionYCtrl_ = AddSignedDistanceRow(
+        this, grid, "Position Y", placement_->positionYMeters, unitSystem_);
+    positionZCtrl_ = AddSignedDistanceRow(
+        this, grid, "Position Z", placement_->positionZMeters, unitSystem_);
     rotationXCtrl_ = AddNumberRow(this, grid, "Rotation X (deg):", placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
     rotationYCtrl_ = AddNumberRow(this, grid, "Rotation Y (deg):", placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
     rotationZCtrl_ = AddNumberRow(this, grid, "Rotation Z (deg):", placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
@@ -463,12 +525,13 @@ public:
   ScreenEditDialog(wxWindow *parent, const ScreenEditRequest &initial)
       : wxDialog(parent, wxID_ANY, "Edit Screen", wxDefaultPosition,
                  wxDefaultSize,
-                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+        unitSystem_(ResolveDistanceUnitSystem()) {
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(2, 2, 8, 8);
 
-    widthCtrl_ = AddDimensionRow(grid, "Width (m):", initial.widthMeters);
-    heightCtrl_ = AddDimensionRow(grid, "Height (m):", initial.heightMeters);
+    widthCtrl_ = AddDimensionRow(grid, "Width", initial.widthMeters);
+    heightCtrl_ = AddDimensionRow(grid, "Height", initial.heightMeters);
 
     grid->AddGrowableCol(1, 1);
     root->Add(grid, 1, wxALL | wxEXPAND, 12);
@@ -477,28 +540,26 @@ public:
     SetSizerAndFit(root);
   }
 
+  // Builds the screen edit request from dialog controls.
   ScreenEditRequest Request() const {
     ScreenEditRequest request;
-    request.widthMeters = widthCtrl_->GetValue();
-    request.heightMeters = heightCtrl_->GetValue();
+    request.widthMeters =
+        DisplayDistanceToMeters(widthCtrl_->GetValue(), unitSystem_);
+    request.heightMeters =
+        DisplayDistanceToMeters(heightCtrl_->GetValue(), unitSystem_);
     return request;
   }
 
 private:
+  // Adds a screen dimension row using the active project distance unit.
   wxSpinCtrlDouble *AddDimensionRow(wxFlexGridSizer *grid, const char *label,
                                     double defaultValue) {
-    grid->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALIGN_CENTER_VERTICAL);
-    auto *ctrl = new wxSpinCtrlDouble(this, wxID_ANY);
-    ctrl->SetRange(0.01, 1000.0);
-    ctrl->SetIncrement(0.1);
-    ctrl->SetDigits(2);
-    ctrl->SetValue(defaultValue);
-    grid->Add(ctrl, 1, wxEXPAND);
-    return ctrl;
+    return AddDistanceRow(this, grid, label, defaultValue, unitSystem_);
   }
 
   wxSpinCtrlDouble *widthCtrl_ = nullptr;
   wxSpinCtrlDouble *heightCtrl_ = nullptr;
+  Units::DistanceUnitSystem unitSystem_ = Units::DistanceUnitSystem::Metric;
 };
 
 class PipeEditDialog : public wxDialog {
@@ -506,18 +567,13 @@ public:
   PipeEditDialog(wxWindow *parent, const PipeEditRequest &initial)
       : wxDialog(parent, wxID_ANY, "Edit Pipe", wxDefaultPosition,
                  wxDefaultSize,
-                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+        unitSystem_(ResolveDistanceUnitSystem()) {
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(1, 2, 8, 8);
 
-    grid->Add(new wxStaticText(this, wxID_ANY, "Length (m):"),
-              0, wxALIGN_CENTER_VERTICAL);
-    lengthCtrl_ = new wxSpinCtrlDouble(this, wxID_ANY);
-    lengthCtrl_->SetRange(0.01, 1000.0);
-    lengthCtrl_->SetIncrement(0.1);
-    lengthCtrl_->SetDigits(2);
-    lengthCtrl_->SetValue(initial.lengthMeters);
-    grid->Add(lengthCtrl_, 1, wxEXPAND);
+    lengthCtrl_ = AddDistanceRow(this, grid, "Length", initial.lengthMeters,
+                                 unitSystem_);
 
     grid->AddGrowableCol(1, 1);
     root->Add(grid, 1, wxALL | wxEXPAND, 12);
@@ -526,14 +582,17 @@ public:
     SetSizerAndFit(root);
   }
 
+  // Builds the pipe edit request from dialog controls.
   PipeEditRequest Request() const {
     PipeEditRequest request;
-    request.lengthMeters = lengthCtrl_->GetValue();
+    request.lengthMeters =
+        DisplayDistanceToMeters(lengthCtrl_->GetValue(), unitSystem_);
     return request;
   }
 
 private:
   wxSpinCtrlDouble *lengthCtrl_ = nullptr;
+  Units::DistanceUnitSystem unitSystem_ = Units::DistanceUnitSystem::Metric;
 };
 
 constexpr double kPrimitiveCubeSizeMillimeters = 1000.0;
