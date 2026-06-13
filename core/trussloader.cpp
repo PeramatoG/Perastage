@@ -28,7 +28,9 @@
 #include <wx/zipstrm.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cctype>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <fstream>
@@ -46,6 +48,14 @@ constexpr const char *kSupportedTrussFileDialogWildcard =
 static std::string ToUtf8String(const fs::path &path) {
   std::u8string utf8 = path.u8string();
   return std::string(utf8.begin(), utf8.end());
+}
+
+// Converts a filesystem timestamp to a portable nanosecond string for cache keys.
+static std::string FileTimestampToCacheKeyString(const fs::file_time_type &timestamp) {
+  const auto timestampNs =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(timestamp.time_since_epoch());
+  const auto timestampValue = static_cast<std::int64_t>(timestampNs.count());
+  return std::to_string(timestampValue);
 }
 
 // Converts a UTF-8 string into a filesystem path without losing non-ASCII characters.
@@ -188,12 +198,11 @@ static fs::path BuildGdtfExtractionCacheDir(const fs::path &gdtfPath) {
   if (ec)
     normalized = gdtfPath;
 
-  std::string key = normalized.generic_string();
+  std::string key = PathUtils::PathToUtf8(normalized);
   std::error_code timeEc;
   const auto writeTime = fs::last_write_time(gdtfPath, timeEc);
   if (!timeEc)
-    key += "#" +
-           std::to_string(static_cast<long long>(writeTime.time_since_epoch().count()));
+    key += "#" + FileTimestampToCacheKeyString(writeTime);
 
   const std::size_t hashValue = std::hash<std::string>{}(key);
   fs::path cacheRoot = fs::temp_directory_path() / "perastage-truss-gdtf-cache";
