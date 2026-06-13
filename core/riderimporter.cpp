@@ -127,6 +127,10 @@ static const std::regex kHangOnlyRe(
 static const std::regex kTrailingHangWithCoordinateRe(
     "(LX\\d+|lx\\s*sides?|screen|pantalla|proyecci[oó]n|led\\s*screen|backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s*((?:\\([^\\)]*\\)|\\[[^\\]]*\\])))?\\s*$",
     std::regex::icase);
+static const std::regex kParenthesizedCleanupRe("\\([^\\)]*\\)");
+static const std::regex kBracketedCleanupRe("\\[[^\\]]*\\]");
+static const std::regex kHyphenSpacingCleanupRe("\\s*[-]\\s*");
+static const std::regex kWhitespaceCleanupRe("\\s+");
 std::string Trim(const std::string &s) {
   size_t start = s.find_first_not_of(" \t\r\n");
   if (start == std::string::npos)
@@ -1079,6 +1083,7 @@ bool RiderImporter::Import(const std::string &path,
   return ImportText(text, std::move(progressCallback));
 }
 
+// Builds a filtered rider preview containing fixtures and rigging context.
 std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
   if (text.empty())
     return {};
@@ -1107,9 +1112,9 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
 
   auto normalizeFixtureToken = [](const std::string &token) {
     std::string normalized = token;
-    normalized = std::regex_replace(normalized, std::regex("\\([^\\)]*\\)"), "");
-    normalized = std::regex_replace(normalized, std::regex("\\s*[-]\\s*"), "-");
-    normalized = std::regex_replace(normalized, std::regex("\\s+"), " ");
+    normalized = std::regex_replace(normalized, kParenthesizedCleanupRe, "");
+    normalized = std::regex_replace(normalized, kHyphenSpacingCleanupRe, "-");
+    normalized = std::regex_replace(normalized, kWhitespaceCleanupRe, " ");
     return Trim(normalized);
   };
 
@@ -1255,8 +1260,8 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
             marginSuffix.has_value()) {
           trussMarginSuffix = *marginSuffix;
         }
-        modelForHang = std::regex_replace(modelForHang, std::regex("\\([^\\)]*\\)"), "");
-        modelForHang = std::regex_replace(modelForHang, std::regex("\\[[^\\]]*\\]"), "");
+        modelForHang = std::regex_replace(modelForHang, kParenthesizedCleanupRe, "");
+        modelForHang = std::regex_replace(modelForHang, kBracketedCleanupRe, "");
         modelForHang = Trim(modelForHang);
         if (std::regex_match(modelForHang, kHangOnlyRe)) {
           hang = modelForHang;
