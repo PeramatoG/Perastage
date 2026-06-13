@@ -588,15 +588,37 @@ std::string DescribeTrussForLog(const Truss &truss) {
   return oss.str();
 }
 
+// Returns a trimmed view over ASCII whitespace without copying.
+std::string_view TrimView(std::string_view s) {
+  const size_t start = s.find_first_not_of(" \t\r\n");
+  if (start == std::string_view::npos)
+    return {};
+  const size_t end = s.find_last_not_of(" \t\r\n");
+  return s.substr(start, end - start + 1);
+}
+
+// Visits each non-empty trimmed plus-separated segment without owning strings.
+template <typename Callback>
+void ForEachSplitPlusPart(std::string_view s, Callback callback) {
+  size_t start = 0;
+  while (start <= s.size()) {
+    const size_t plus = s.find('+', start);
+    const size_t end = plus == std::string_view::npos ? s.size() : plus;
+    const std::string_view part = TrimView(s.substr(start, end - start));
+    if (!part.empty())
+      callback(part);
+    if (plus == std::string_view::npos)
+      break;
+    start = plus + 1;
+  }
+}
+
+// Splits a plus-separated string into owned, trimmed, non-empty segments.
 std::vector<std::string> SplitPlus(const std::string &s) {
   std::vector<std::string> out;
-  std::istringstream ss(s);
-  std::string item;
-  while (std::getline(ss, item, '+')) {
-    item = Trim(item);
-    if (!item.empty())
-      out.push_back(item);
-  }
+  ForEachSplitPlusPart(s, [&](std::string_view item) {
+    out.emplace_back(item);
+  });
   return out;
 }
 
@@ -1133,9 +1155,9 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
 
   auto appendFixtureLines = [&](int baseQuantity, const std::string &descRaw) {
     const std::string hang = currentHang.empty() ? "UNASSIGNED" : currentHang;
-    auto parts = SplitPlus(descRaw);
-    for (const auto &partRaw : parts) {
+    ForEachSplitPlusPart(descRaw, [&](std::string_view partRawView) {
       std::smatch pm;
+      std::string partRaw(partRawView);
       std::string part = partRaw;
       int quantity = baseQuantity;
       if (std::regex_match(partRaw, pm, kFixtureLineRe)) {
@@ -1155,7 +1177,7 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
       parsed.fixtureRequests.push_back(hang + "\n" + fixtureRequest);
       if (NormalizeHangName(hang) == "SCREEN")
         parsed.screenRequests.push_back(fixtureRequest);
-    }
+    });
   };
 
   auto formatLengthM = [](float meters) {
@@ -1881,9 +1903,9 @@ bool RiderImporter::ImportText(const std::string &text,
   int parsedInputLineCount = 0;
 
   auto addFixtures = [&](int baseQuantity, const std::string &desc) {
-    auto parts = SplitPlus(desc);
-    for (const auto &partRaw : parts) {
+    ForEachSplitPlusPart(desc, [&](std::string_view partRawView) {
       std::smatch pm;
+      std::string partRaw(partRawView);
       std::string part = partRaw;
       int quantity = baseQuantity;
       if (std::regex_match(partRaw, pm, kFixtureLineRe)) {
@@ -1969,7 +1991,7 @@ bool RiderImporter::ImportText(const std::string &text,
         importedFixtureOrderByUuid[f.uuid] = nextImportedFixtureOrder++;
         addToLayer(f.layer, f.uuid);
       }
-    }
+    });
   };
   while (std::getline(iss, line)) {
     ++parsedInputLineCount;
