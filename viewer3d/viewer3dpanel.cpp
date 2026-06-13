@@ -74,6 +74,7 @@
 #include <cmath>
 #include <set>
 #include <cstdint>
+#include <utility>
 
 wxDEFINE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
 wxBEGIN_EVENT_TABLE(Viewer3DPanel, wxGLCanvas)
@@ -686,6 +687,7 @@ bool QueryDragLabelUuid(Viewer3DController& controller,
     }
 }
 
+// Returns the world-space unit vector for a selection drag axis.
 std::array<float, 3> AxisVectorFromSelectionDragAxis(
     viewer3d::SelectionDragAxis axis) {
     switch (axis) {
@@ -699,6 +701,76 @@ std::array<float, 3> AxisVectorFromSelectionDragAxis(
     default:
         return {0.0f, 0.0f, 0.0f};
     }
+}
+
+// Computes two perpendicular unit vectors around an axis for cone rendering.
+std::pair<std::array<float, 3>, std::array<float, 3>> BuildAxisConeBasis(
+    const std::array<float, 3>& axis) {
+    const std::array<float, 3> reference =
+        std::abs(axis[2]) < 0.9f ? std::array<float, 3>{0.0f, 0.0f, 1.0f}
+                                : std::array<float, 3>{0.0f, 1.0f, 0.0f};
+    std::array<float, 3> u{
+        axis[1] * reference[2] - axis[2] * reference[1],
+        axis[2] * reference[0] - axis[0] * reference[2],
+        axis[0] * reference[1] - axis[1] * reference[0],
+    };
+    const float uLength = std::sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
+    if (uLength > 1e-5f) {
+        u[0] /= uLength;
+        u[1] /= uLength;
+        u[2] /= uLength;
+    }
+    const std::array<float, 3> v{
+        axis[1] * u[2] - axis[2] * u[1],
+        axis[2] * u[0] - axis[0] * u[2],
+        axis[0] * u[1] - axis[1] * u[0],
+    };
+    return {u, v};
+}
+
+// Draws a filled cone arrowhead aligned to a selection drag axis.
+void DrawSelectionDragArrowhead(const std::array<float, 3>& origin,
+                                const std::array<float, 3>& axis,
+                                float length, float radius) {
+    constexpr int kSegments = 24;
+    constexpr float kPi = 3.14159265358979323846f;
+    const auto [u, v] = BuildAxisConeBasis(axis);
+    const std::array<float, 3> tip{
+        origin[0] + axis[0] * length,
+        origin[1] + axis[1] * length,
+        origin[2] + axis[2] * length,
+    };
+    const std::array<float, 3> base{
+        tip[0] - axis[0] * length,
+        tip[1] - axis[1] * length,
+        tip[2] - axis[2] * length,
+    };
+
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex3f(tip[0], tip[1], tip[2]);
+    for (int i = 0; i <= kSegments; ++i) {
+        const float angle = (static_cast<float>(i) / static_cast<float>(kSegments)) *
+                            2.0f * kPi;
+        const float ca = std::cos(angle);
+        const float sa = std::sin(angle);
+        glVertex3f(base[0] + (u[0] * ca + v[0] * sa) * radius,
+                   base[1] + (u[1] * ca + v[1] * sa) * radius,
+                   base[2] + (u[2] * ca + v[2] * sa) * radius);
+    }
+    glEnd();
+
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex3f(base[0], base[1], base[2]);
+    for (int i = kSegments; i >= 0; --i) {
+        const float angle = (static_cast<float>(i) / static_cast<float>(kSegments)) *
+                            2.0f * kPi;
+        const float ca = std::cos(angle);
+        const float sa = std::sin(angle);
+        glVertex3f(base[0] + (u[0] * ca + v[0] * sa) * radius,
+                   base[1] + (u[1] * ca + v[1] * sa) * radius,
+                   base[2] + (u[2] * ca + v[2] * sa) * radius);
+    }
+    glEnd();
 }
 
 struct GlCanvasSelection {
@@ -2464,9 +2536,12 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
     glLoadIdentity();
     m_camera.Apply();
 
-    glLineWidth(2.0f);
+    glLineWidth(2.5f);
     glDisable(GL_DEPTH_TEST);
     const float gizmoLength = std::max(0.4f, m_camera.GetDistance() * 0.08f);
+    const float arrowheadLength = gizmoLength * 0.22f;
+    const float arrowheadRadius = gizmoLength * 0.055f;
+    const float shaftLength = gizmoLength - arrowheadLength;
     const bool xActive = m_selectionDragAxis == viewer3d::SelectionDragAxis::X;
     const bool yActive = m_selectionDragAxis == viewer3d::SelectionDragAxis::Y;
     const bool zActive = m_selectionDragAxis == viewer3d::SelectionDragAxis::Z;
@@ -2485,11 +2560,26 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
         glColor4f(colors[i][0], colors[i][1], colors[i][2], colors[i][3]);
         glVertex3f(m_selectionDragAnchorMeters[0], m_selectionDragAnchorMeters[1],
                    m_selectionDragAnchorMeters[2]);
-        glVertex3f(m_selectionDragAnchorMeters[0] + axis[0] * gizmoLength,
-                   m_selectionDragAnchorMeters[1] + axis[1] * gizmoLength,
-                   m_selectionDragAnchorMeters[2] + axis[2] * gizmoLength);
+        glVertex3f(m_selectionDragAnchorMeters[0] + axis[0] * shaftLength,
+                   m_selectionDragAnchorMeters[1] + axis[1] * shaftLength,
+                   m_selectionDragAnchorMeters[2] + axis[2] * shaftLength);
     }
     glEnd();
+
+    for (size_t i = 0; i < colors.size(); ++i) {
+        const auto axis = AxisVectorFromSelectionDragAxis(
+            i == 0 ? viewer3d::SelectionDragAxis::X
+                   : i == 1 ? viewer3d::SelectionDragAxis::Y
+                            : viewer3d::SelectionDragAxis::Z);
+        const std::array<float, 3> arrowheadBase{
+            m_selectionDragAnchorMeters[0] + axis[0] * shaftLength,
+            m_selectionDragAnchorMeters[1] + axis[1] * shaftLength,
+            m_selectionDragAnchorMeters[2] + axis[2] * shaftLength,
+        };
+        glColor4f(colors[i][0], colors[i][1], colors[i][2], colors[i][3]);
+        DrawSelectionDragArrowhead(arrowheadBase, axis, arrowheadLength,
+                                   arrowheadRadius);
+    }
     glEnable(GL_DEPTH_TEST);
 
     glPopMatrix();
