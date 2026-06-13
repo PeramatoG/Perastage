@@ -1177,12 +1177,22 @@ bool HoistTablePanel::IsActivePage() const {
   return nb->GetPage(static_cast<size_t>(selection)) == this;
 }
 
+// Applies a primary hover highlight to one hoist row.
 void HoistTablePanel::HighlightHoist(const std::string &uuid) {
+  HighlightHoist(uuid, {});
+}
+
+// Applies primary and related group-hover highlights to hoist rows.
+void HoistTablePanel::HighlightHoist(
+    const std::string &uuid, const std::vector<std::string> &relatedUuids) {
   size_t count =
       std::min(rowUuids.size(), static_cast<size_t>(table->GetItemCount()));
   for (size_t i = 0; i < count; ++i) {
     if (!uuid.empty() && rowUuids[i] == uuid)
-      store->SetRowBackgroundColour(i, wxColour(0, 200, 0));
+      store->SetRowBackgroundColour(i, wxColour(170, 220, 0));
+    else if (std::find(relatedUuids.begin(), relatedUuids.end(), rowUuids[i]) !=
+             relatedUuids.end())
+      store->SetRowBackgroundColour(i, wxColour(110, 210, 150));
     else
       store->ClearRowBackground(i);
   }

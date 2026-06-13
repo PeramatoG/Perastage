@@ -18,10 +18,13 @@
 namespace GLPrimitiveRenderer {
 
 namespace {
+constexpr float kPrimaryHighlightR = 0.78f;
+constexpr float kPrimaryHighlightG = 1.0f;
+constexpr float kPrimaryHighlightB = 0.0f;
 
-constexpr float kGroupHighlightR = 0.62f;
-constexpr float kGroupHighlightG = 0.90f;
-constexpr float kGroupHighlightB = 0.58f;
+constexpr float kGroupHighlightR = 0.25f;
+constexpr float kGroupHighlightG = 0.78f;
+constexpr float kGroupHighlightB = 0.55f;
 
 void DrawBoxEdges(float x0, float x1, float y0, float y1, float z0, float z1) {
   glBegin(GL_LINES);
@@ -182,7 +185,7 @@ void DrawWireframeBox(float length, float height, float width, float r, float g,
         float glowWidth = lineWidth + 3.0f;
         glLineWidth(glowWidth);
         if (highlight)
-          setColor(0.0f, 1.0f, 0.0f);
+          setColor(kPrimaryHighlightR, kPrimaryHighlightG, kPrimaryHighlightB);
         else if (groupHighlight)
           setColor(kGroupHighlightR, kGroupHighlightG, kGroupHighlightB);
         else if (selected)
@@ -217,7 +220,7 @@ void DrawWireframeBox(float length, float height, float width, float r, float g,
     return;
   } else if (!captureOnly) {
     if (highlight)
-      setColor(0.0f, 1.0f, 0.0f);
+      setColor(kPrimaryHighlightR, kPrimaryHighlightG, kPrimaryHighlightB);
     else if (groupHighlight)
       setColor(kGroupHighlightR, kGroupHighlightG, kGroupHighlightB);
     else if (selected)
@@ -229,7 +232,7 @@ void DrawWireframeBox(float length, float height, float width, float r, float g,
   CanvasStroke stroke;
   stroke.width = 1.0f;
   if (highlight)
-    stroke.color = {0.0f, 1.0f, 0.0f, 1.0f};
+    stroke.color = {kPrimaryHighlightR, kPrimaryHighlightG, kPrimaryHighlightB, 1.0f};
   else if (groupHighlight)
     stroke.color = {kGroupHighlightR, kGroupHighlightG, kGroupHighlightB, 1.0f};
   else if (selected)
@@ -260,7 +263,8 @@ void DrawCubeWithOutline(
       if (!captureOnly && drawOutline) {
         float glowWidth = baseWidth + 3.0f;
         if (highlight)
-          DrawWireframeCube(size, 0.0f, 1.0f, 0.0f, mode, captureTransform,
+          DrawWireframeCube(size, kPrimaryHighlightR, kPrimaryHighlightG,
+                            kPrimaryHighlightB, mode, captureTransform,
                             lineWidth, glowWidth, false, captureOnly,
                             captureCanvas, setColor, recordLine);
         else if (groupHighlight)
@@ -284,9 +288,10 @@ void DrawCubeWithOutline(
     if (!captureOnly && drawOutline) {
       float glowWidth = baseWidth + 3.0f;
       if (highlight)
-        DrawWireframeCube(size, 0.0f, 1.0f, 0.0f, mode, captureTransform,
-                          lineWidth, glowWidth, false, captureOnly,
-                          captureCanvas, setColor, recordLine);
+        DrawWireframeCube(size, kPrimaryHighlightR, kPrimaryHighlightG,
+                          kPrimaryHighlightB, mode, captureTransform, lineWidth,
+                          glowWidth, false, captureOnly, captureCanvas,
+                          setColor, recordLine);
       else if (groupHighlight)
         DrawWireframeCube(size, kGroupHighlightR, kGroupHighlightG,
                           kGroupHighlightB, mode, captureTransform, lineWidth,
@@ -338,7 +343,8 @@ void DrawCubeWithOutline(
   }
 
   if (highlight)
-    DrawCube(size, 0.0f, 1.0f, 0.0f, captureOnly, setColor);
+    DrawCube(size, kPrimaryHighlightR, kPrimaryHighlightG, kPrimaryHighlightB,
+             captureOnly, setColor);
   else if (groupHighlight)
     DrawCube(size, kGroupHighlightR, kGroupHighlightG, kGroupHighlightB,
              captureOnly, setColor);

@@ -1145,9 +1145,17 @@ bool TrussTablePanel::IsActivePage() const
     return nb && nb->GetPage(nb->GetSelection()) == this;
 }
 
+// Applies a primary hover highlight to one truss row.
 void TrussTablePanel::HighlightTruss(const std::string& uuid)
 {
-    if (uuid == highlightedUuid)
+    HighlightTruss(uuid, {});
+}
+
+// Applies primary and related group-hover highlights to truss rows.
+void TrussTablePanel::HighlightTruss(
+    const std::string& uuid, const std::vector<std::string>& relatedUuids)
+{
+    if (uuid == highlightedUuid && relatedUuids == highlightedRelatedUuids)
         return;
 
     auto findRow = [&](const std::string& candidate) -> int {
@@ -1165,12 +1173,23 @@ void TrussTablePanel::HighlightTruss(const std::string& uuid)
     const int previousRow = findRow(highlightedUuid);
     if (previousRow != wxNOT_FOUND)
         store->ClearRowBackground(previousRow);
+    for (const auto& relatedUuid : highlightedRelatedUuids) {
+        const int relatedRow = findRow(relatedUuid);
+        if (relatedRow != wxNOT_FOUND)
+            store->ClearRowBackground(relatedRow);
+    }
 
     const int currentRow = findRow(uuid);
     if (currentRow != wxNOT_FOUND)
-        store->SetRowBackgroundColour(currentRow, wxColour(0, 200, 0));
+        store->SetRowBackgroundColour(currentRow, wxColour(170, 220, 0));
+    for (const auto& relatedUuid : relatedUuids) {
+        const int relatedRow = findRow(relatedUuid);
+        if (relatedRow != wxNOT_FOUND && relatedRow != currentRow)
+            store->SetRowBackgroundColour(relatedRow, wxColour(110, 210, 150));
+    }
 
     highlightedUuid = uuid;
+    highlightedRelatedUuids = relatedUuids;
     table->Refresh();
 }
 

@@ -10,7 +10,7 @@ Typical checks:
 
 - Position and orientation.
 - Relationships between fixtures, trusses, hoists, and objects.
-- Group membership while hovering scene items: the hovered item keeps the normal highlight, and other members of the same group use a softer related-green highlight.
+- Group membership while hovering scene items: the hovered item uses the primary hover highlight, and other members of the same group use a paler related-green highlight in the 3D view and related tables.
 - General scene structure before export.
 
 ## 2D view and layouts

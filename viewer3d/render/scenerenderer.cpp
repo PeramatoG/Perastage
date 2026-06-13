@@ -20,9 +20,12 @@
 #include <cstdint>
 
 namespace {
-constexpr float kGroupHighlightR = 0.62f;
-constexpr float kGroupHighlightG = 0.90f;
-constexpr float kGroupHighlightB = 0.58f;
+constexpr float kPrimaryHighlightR = 0.78f;
+constexpr float kPrimaryHighlightG = 1.0f;
+constexpr float kPrimaryHighlightB = 0.0f;
+constexpr float kGroupHighlightR = 0.25f;
+constexpr float kGroupHighlightG = 0.78f;
+constexpr float kGroupHighlightB = 0.55f;
 
 struct InkColor {
   float r = 1.0f;
@@ -620,7 +623,8 @@ void SceneRenderer::DrawMeshWithOutline(
         float glowWidth = lineWidth + 3.0f;
         glLineWidth(glowWidth);
         if (highlight)
-          m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
+          m_controller.SetGLColor(kPrimaryHighlightR, kPrimaryHighlightG,
+                                  kPrimaryHighlightB);
         else if (groupHighlight)
           m_controller.SetGLColor(kGroupHighlightR, kGroupHighlightG,
                                   kGroupHighlightB);
@@ -713,7 +717,8 @@ void SceneRenderer::DrawMeshWithOutline(
       const float lineWidth = lineProfile.lineWidth;
       auto setHighlightOrSelectionColor = [&]() {
         if (highlight)
-          m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
+          m_controller.SetGLColor(kPrimaryHighlightR, kPrimaryHighlightG,
+                                  kPrimaryHighlightB);
         else if (groupHighlight)
           m_controller.SetGLColor(kGroupHighlightR, kGroupHighlightG,
                                   kGroupHighlightB);
@@ -811,7 +816,8 @@ void SceneRenderer::DrawMeshWithOutline(
           !groupHighlight && !selected && !useTexture &&
           mesh.hasMaterialBaseColor;
       if (highlight)
-        m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
+        m_controller.SetGLColor(kPrimaryHighlightR, kPrimaryHighlightG,
+                                kPrimaryHighlightB);
       else if (groupHighlight)
         m_controller.SetGLColor(kGroupHighlightR, kGroupHighlightG,
                                 kGroupHighlightB);

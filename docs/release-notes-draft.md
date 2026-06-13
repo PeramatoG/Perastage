@@ -13,7 +13,7 @@ Changes since `v1.3.0`.
 ## Improvements
 
 - Improved GroupObject handling so selecting a grouped member highlights and transforms the full root group, including nested groups, in 2D, 3D, and command-bar transform workflows.
-- Improved 3D hover feedback for grouped scene items by showing related group members with a softer related-green highlight across fixtures, trusses, hoists, and scene objects.
+- Improved group hover feedback by using a more yellow primary highlight and a paler secondary group highlight across the 3D view and related fixture, truss, hoist, and scene object table rows.
 
 ## Fixes
 

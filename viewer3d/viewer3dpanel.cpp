@@ -148,6 +148,31 @@ bool Is2DDarkModeEnabled() {
     return ConfigManager::Get().GetFloat("view2d_dark_mode") >= 0.5f;
 }
 
+struct HoverTableHighlights {
+    std::vector<std::string> fixtures;
+    std::vector<std::string> trusses;
+    std::vector<std::string> supports;
+    std::vector<std::string> sceneObjects;
+};
+
+// Splits related hover UUIDs by table ownership for synchronized table highlights.
+HoverTableHighlights BuildHoverTableHighlights(const MvrScene& scene,
+                                               const std::string& hoverUuid) {
+    HoverTableHighlights highlights;
+    for (const auto& uuid :
+         scene_grouping::ExpandHoverForGroupHighlights(scene, hoverUuid)) {
+        if (scene.fixtures.find(uuid) != scene.fixtures.end())
+            highlights.fixtures.push_back(uuid);
+        else if (scene.trusses.find(uuid) != scene.trusses.end())
+            highlights.trusses.push_back(uuid);
+        else if (scene.supports.find(uuid) != scene.supports.end())
+            highlights.supports.push_back(uuid);
+        else if (scene.sceneObjects.find(uuid) != scene.sceneObjects.end())
+            highlights.sceneObjects.push_back(uuid);
+    }
+    return highlights;
+}
+
 template <typename T>
 void HashCombine(size_t& seed, const T& value) {
     seed ^= std::hash<T>{}(value) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
@@ -988,23 +1013,40 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         if (m_basePassCache)
             m_basePassCache->Invalidate();
         m_controller.SetHighlightUuid(m_hoverUuid);
+        const MvrScene& scene = ConfigManager::Get().GetScene();
+        const HoverTableHighlights relatedHighlights =
+            BuildHoverTableHighlights(scene, m_hoverUuid);
         if (FixtureTablePanel::Instance()) {
-            FixtureTablePanel::Instance()->HighlightFixture(
-                FixtureTablePanel::Instance()->IsActivePage()
+            const std::string primaryUuid =
+                scene.fixtures.find(m_hoverUuid) != scene.fixtures.end()
                     ? std::string(m_hoverUuid)
-                    : std::string());
+                    : std::string();
+            FixtureTablePanel::Instance()->HighlightFixture(
+                primaryUuid, relatedHighlights.fixtures);
         }
         if (TrussTablePanel::Instance()) {
-            TrussTablePanel::Instance()->HighlightTruss(
-                TrussTablePanel::Instance()->IsActivePage()
+            const std::string primaryUuid =
+                scene.trusses.find(m_hoverUuid) != scene.trusses.end()
                     ? std::string(m_hoverUuid)
-                    : std::string());
+                    : std::string();
+            TrussTablePanel::Instance()->HighlightTruss(
+                primaryUuid, relatedHighlights.trusses);
+        }
+        if (HoistTablePanel::Instance()) {
+            const std::string primaryUuid =
+                scene.supports.find(m_hoverUuid) != scene.supports.end()
+                    ? std::string(m_hoverUuid)
+                    : std::string();
+            HoistTablePanel::Instance()->HighlightHoist(
+                primaryUuid, relatedHighlights.supports);
         }
         if (SceneObjectTablePanel::Instance()) {
-            SceneObjectTablePanel::Instance()->HighlightObject(
-                SceneObjectTablePanel::Instance()->IsActivePage()
+            const std::string primaryUuid =
+                scene.sceneObjects.find(m_hoverUuid) != scene.sceneObjects.end()
                     ? std::string(m_hoverUuid)
-                    : std::string());
+                    : std::string();
+            SceneObjectTablePanel::Instance()->HighlightObject(
+                primaryUuid, relatedHighlights.sceneObjects);
         }
         const auto highlightUpdateElapsedMs =
             std::chrono::duration<double, std::milli>(
@@ -2766,6 +2808,8 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
         FixtureTablePanel::Instance()->HighlightFixture(std::string());
     if (TrussTablePanel::Instance())
         TrussTablePanel::Instance()->HighlightTruss(std::string());
+    if (HoistTablePanel::Instance())
+        HoistTablePanel::Instance()->HighlightHoist(std::string());
     if (SceneObjectTablePanel::Instance())
         SceneObjectTablePanel::Instance()->HighlightObject(std::string());
     Refresh();

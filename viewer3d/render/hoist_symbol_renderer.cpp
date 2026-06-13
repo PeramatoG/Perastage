@@ -126,9 +126,9 @@ HoistShape ResolveHoistShape(float capacityKg) {
 std::array<float, 3> MakePoint(float x, float y, float z) { return {x, y, z}; }
 
 RgbColor WhiteColor() { return {1.0f, 1.0f, 1.0f}; }
-RgbColor HighlightColor() { return {0.0f, 1.0f, 0.0f}; }
+RgbColor HighlightColor() { return {0.78f, 1.0f, 0.0f}; }
 // Returns the softer highlight color used for grouped hover siblings.
-RgbColor GroupHighlightColor() { return {0.62f, 0.90f, 0.58f}; }
+RgbColor GroupHighlightColor() { return {0.25f, 0.78f, 0.55f}; }
 RgbColor SelectedColor() { return {0.0f, 1.0f, 1.0f}; }
 
 void DrawFillPolygon(IRenderContext &renderContext,
