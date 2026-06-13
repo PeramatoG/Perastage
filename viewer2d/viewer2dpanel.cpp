@@ -2161,6 +2161,8 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
     return;
 
   m_hoverHitTestPending = false;
+  if (m_dragMode == DragMode::Selection)
+    return;
   m_lastHoverHitTestTime = std::chrono::steady_clock::now();
   m_lastHoverQueryScreenPos = screenPos;
   m_hoverQueryHasPos = true;
@@ -2387,6 +2389,7 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
         }
       }
 
+      ApplyHoverUuid(uuid, true);
       m_dragMode = DragMode::Selection;
       m_dragTarget = target;
     }
