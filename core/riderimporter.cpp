@@ -231,26 +231,7 @@ std::string ResolveGdtfPath(const MvrScene &scene,
   return (std::filesystem::path(scene.basePath) / specPath).string();
 }
 
-void ApplyFixturePhysicalPropertiesFromGdtf(const MvrScene &scene,
-                                            Fixture &fixture) {
-  if (fixture.gdtfSpec.empty())
-    return;
-
-  const std::string gdtfPath = ResolveGdtfPath(scene, fixture.gdtfSpec);
-  if (gdtfPath.empty())
-    return;
-
-  float gdtfWeightKg = 0.0f;
-  float gdtfPowerW = 0.0f;
-  if (!GetGdtfProperties(gdtfPath, gdtfWeightKg, gdtfPowerW))
-    return;
-
-  if (fixture.weightKg <= 0.0f)
-    fixture.weightKg = gdtfWeightKg;
-  if (fixture.powerConsumptionW <= 0.0f)
-    fixture.powerConsumptionW = gdtfPowerW;
-}
-
+// Ensures imported fixtures always have a resolved category and source.
 void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
   auto containsWord = [](std::string value, const std::string &needle) {
     std::transform(value.begin(), value.end(), value.begin(),
@@ -1517,6 +1498,64 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
   return preview.str();
 }
 
+struct ImportedGdtfMetadata {
+  std::string parsedFixtureName;
+  bool hasProperties = false;
+  float weightKg = 0.0f;
+  float powerConsumptionW = 0.0f;
+  std::string resolvedCategory;
+  std::string categorySource;
+  std::string categoryReason;
+  bool hasChannelDerivedWashHint = false;
+};
+
+struct ImportedGdtfMetadataCache {
+  std::unordered_map<std::string, ImportedGdtfMetadata> entries;
+
+  // Returns parsed GDTF metadata cached by resolved path and mode.
+  const ImportedGdtfMetadata &Get(const MvrScene &scene,
+                                  const std::string &resolvedGdtfPath,
+                                  const std::string &modeName) {
+    const std::string key = resolvedGdtfPath + "\n" + modeName;
+    auto found = entries.find(key);
+    if (found != entries.end())
+      return found->second;
+
+    ImportedGdtfMetadata metadata;
+    metadata.parsedFixtureName = Trim(GetGdtfFixtureName(resolvedGdtfPath));
+    metadata.hasProperties =
+        GetGdtfProperties(resolvedGdtfPath, metadata.weightKg,
+                          metadata.powerConsumptionW);
+
+    Fixture categoryProbe;
+    categoryProbe.gdtfSpec = resolvedGdtfPath;
+    categoryProbe.gdtfMode = modeName;
+    EnsureFixtureCategoryForImport(scene, categoryProbe);
+    metadata.resolvedCategory = categoryProbe.category;
+    metadata.categorySource = categoryProbe.categorySource;
+    metadata.categoryReason = categoryProbe.categorySourceReason;
+    metadata.hasChannelDerivedWashHint =
+        metadata.categoryReason.find("channel hints") != std::string::npos;
+
+    auto [insertedIt, inserted] = entries.emplace(key, std::move(metadata));
+    return insertedIt->second;
+  }
+};
+
+// Applies cached GDTF metadata without overriding rider or dictionary choices.
+void ApplyImportedGdtfMetadata(Fixture &fixture,
+                               const ImportedGdtfMetadata &metadata) {
+  if (!metadata.parsedFixtureName.empty())
+    fixture.typeName = metadata.parsedFixtureName;
+  if (metadata.hasProperties) {
+    if (fixture.weightKg <= 0.0f)
+      fixture.weightKg = metadata.weightKg;
+    if (fixture.powerConsumptionW <= 0.0f)
+      fixture.powerConsumptionW = metadata.powerConsumptionW;
+  }
+}
+
+// Imports rider text into the current scene.
 bool RiderImporter::ImportText(const std::string &text,
                                ProgressCallback progressCallback) {
   if (text.empty())
@@ -1720,6 +1759,7 @@ bool RiderImporter::ImportText(const std::string &text,
   bool havePending = false;
   std::unordered_map<std::string, TrussCoordinateOverride>
       hangCoordinateOverrides;
+  ImportedGdtfMetadataCache importedGdtfMetadataCache;
   int parsedInputLineCount = 0;
 
   auto addFixtures = [&](int baseQuantity, const std::string &desc) {
@@ -1785,10 +1825,9 @@ bool RiderImporter::ImportText(const std::string &text,
             f.categorySourceReason.clear();
           }
           const std::string resolvedGdtfPath = ResolveGdtfPath(scene, f.gdtfSpec);
-          std::string parsed = Trim(GetGdtfFixtureName(resolvedGdtfPath));
-          if (!parsed.empty())
-            f.typeName = parsed;
-          ApplyFixturePhysicalPropertiesFromGdtf(scene, f);
+          const ImportedGdtfMetadata &metadata =
+              importedGdtfMetadataCache.Get(scene, resolvedGdtfPath, f.gdtfMode);
+          ApplyImportedGdtfMetadata(f, metadata);
         }
         EnsureFixtureCategoryForImport(scene, f);
         if (!seenTypes.count(f.typeName)) {
