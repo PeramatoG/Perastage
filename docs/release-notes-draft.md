@@ -49,6 +49,7 @@ Changes since `v1.3.0`.
 ## Internal changes
 
 - Improved rider imports by reusing parsed GDTF fixture metadata during fixture creation and skipping repeated category inference once an imported fixture has an authoritative category, reducing repeated GDTF lookups while preserving existing dictionary, category, weight, and power precedence.
+- Improved rider fixture filtering performance by reusing cleanup regular expressions in hot preview paths while preserving existing filtering behavior.
 - Improved text-to-scene creation so applying the rider text filter in the editor no longer repeats the same filtering work during import, while preserving existing import behavior for all other flows.
 - Added backward-cpp integration, generated build metadata, and release workflow symbol archives for Windows, Linux, macOS, and Arch Linux builds.
 - Improved truss table reload stability so rebuilding rows preserves existing truss selection without triggering transient selection side effects.
