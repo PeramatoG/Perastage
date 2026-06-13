@@ -48,7 +48,7 @@ Changes since `v1.3.0`.
 
 ## Internal changes
 
-- Improved rider imports by reusing parsed GDTF fixture metadata during fixture creation, reducing repeated GDTF lookups while preserving existing dictionary, category, weight, and power precedence.
+- Improved rider imports by reusing parsed GDTF fixture metadata during fixture creation and skipping repeated category inference once an imported fixture has an authoritative category, reducing repeated GDTF lookups while preserving existing dictionary, category, weight, and power precedence.
 - Added backward-cpp integration, generated build metadata, and release workflow symbol archives for Windows, Linux, macOS, and Arch Linux builds.
 - Improved truss table reload stability so rebuilding rows preserves existing truss selection without triggering transient selection side effects.
 - Added concise diagnostics for truss loading and 2D viewer picking to make validation and interaction issues easier to troubleshoot.

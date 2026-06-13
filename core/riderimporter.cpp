@@ -231,8 +231,22 @@ std::string ResolveGdtfPath(const MvrScene &scene,
   return (std::filesystem::path(scene.basePath) / specPath).string();
 }
 
+// Returns whether an imported fixture category is authoritative enough to keep.
+bool HasAuthoritativeImportCategory(const Fixture &fixture) {
+  if (fixture.category.empty())
+    return false;
+  return fixture.categorySource == GdtfFixtureCategory::kManualSource ||
+         fixture.categorySource == GdtfFixtureCategory::kAutoFallbackSource;
+}
+
 // Ensures imported fixtures always have a resolved category and source.
 void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
+  if (HasAuthoritativeImportCategory(fixture)) {
+    if (fixture.categorySource == GdtfFixtureCategory::kManualSource)
+      fixture.categorySourceReason.clear();
+    return;
+  }
+
   auto containsWord = [](std::string value, const std::string &needle) {
     std::transform(value.begin(), value.end(), value.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
@@ -1552,6 +1566,11 @@ void ApplyImportedGdtfMetadata(Fixture &fixture,
       fixture.weightKg = metadata.weightKg;
     if (fixture.powerConsumptionW <= 0.0f)
       fixture.powerConsumptionW = metadata.powerConsumptionW;
+  }
+  if (fixture.category.empty() && !metadata.resolvedCategory.empty()) {
+    fixture.category = metadata.resolvedCategory;
+    fixture.categorySource = metadata.categorySource;
+    fixture.categorySourceReason = metadata.categoryReason;
   }
 }
 
@@ -3160,8 +3179,7 @@ bool RiderImporter::ImportText(const std::string &text,
   HoistWeightDistribution::ApplyForImportedSupports(
       scene, importedSupportUuids, roundedRiggingTotalsByPosition);
 
-  // Categories must be resolved before fixture distribution/positioning so any
-  // downstream placement strategy can rely on category values.
+  // Fill any missing fixture categories before placement so downstream distribution can rely on them.
   for (const std::string &uuid : importedFixtureUuids) {
     auto fixtureIt = scene.fixtures.find(uuid);
     if (fixtureIt == scene.fixtures.end())
