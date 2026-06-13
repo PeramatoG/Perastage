@@ -32,6 +32,7 @@ Changes since `v1.3.0`.
 - Improved truss file validation so unsupported model formats are rejected clearly, while direct GLB and 3DS truss models now load only when the selected file exists.
 - Improved fallback dimensions for direct truss model files so GLB and 3DS trusses remain visible and selectable even when model metadata or mesh loading is unavailable.
 - Fixed Add scene object so reusing an existing Perastage basic geometry object copies its primitive geometry data immediately instead of showing a default cube until the project is reopened.
+- Fixed basic geometry edit dialogs so position, screen size, and pipe length fields use the selected project distance units consistently.
 
 ## Stability and reliability
 
