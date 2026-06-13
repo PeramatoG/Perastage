@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "filesystem_path_utils.h"
 
 #include <chrono>
 #include <filesystem>
@@ -54,7 +55,7 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
   }
   const wxString gdtfPathWx = wxString::FromUTF8(gdtfPath);
 
-  if (!std::filesystem::exists(std::filesystem::u8path(gdtfPath))) {
+  if (!std::filesystem::exists(PathUtils::PathFromUtf8(gdtfPath))) {
     wxMessageBox("The selected GDTF file does not exist.", "Add fixture",
                  wxOK | wxICON_ERROR);
     if (consolePanel)

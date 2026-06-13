@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "projectutils.h"
+#include "filesystem_path_utils.h"
 #include "apppaths.h"
 #include "library/library_bootstrap.h"
 #include "logger.h"
@@ -45,7 +46,7 @@ fs::path WxStringToPath(const wxString& value)
 {
     const wxScopedCharBuffer utf8 = value.ToUTF8();
     if (utf8)
-        return fs::u8path(std::string(utf8.data(), utf8.length()));
+        return PathUtils::PathFromUtf8(std::string(utf8.data(), utf8.length()));
 
     return fs::path(value.ToStdString());
 }
@@ -251,7 +252,7 @@ bool SaveLastProjectPath(const std::string& path)
         return true;
     }
     std::error_code ec;
-    fs::path resolved = fs::absolute(fs::u8path(path), ec);
+    fs::path resolved = fs::absolute(PathUtils::PathFromUtf8(path), ec);
     if (ec)
         out << path;
     else
@@ -273,7 +274,7 @@ std::optional<std::string> LoadLastProjectPath()
         return std::nullopt;
     fs::path candidate;
     try {
-        candidate = fs::u8path(rawPath);
+        candidate = PathUtils::PathFromUtf8(rawPath);
     } catch (...) {
         return std::nullopt;
     }
@@ -312,7 +313,7 @@ std::string GetWritableLibraryPath(const std::string& subdir)
 {
     if (const char* envPath = std::getenv("PERASTAGE_LIBRARY_PATH")) {
         if (*envPath != '\0') {
-            fs::path envRoot = fs::u8path(envPath);
+            fs::path envRoot = PathUtils::PathFromUtf8(envPath);
             std::error_code ec;
             const bool envRootExists = fs::exists(envRoot, ec);
             const bool envRootIsDir = !ec && fs::is_directory(envRoot, ec);
@@ -345,7 +346,7 @@ std::string GetWritableLibraryPath(const std::string& subdir)
 std::string GetDefaultLibraryPath(const std::string& subdir)
 {
     if (std::string installedPath = GetInstalledLibraryPath(subdir); !installedPath.empty()) {
-        const fs::path installed = fs::u8path(installedPath);
+        const fs::path installed = PathUtils::PathFromUtf8(installedPath);
         if (IsDirectoryWritable(installed))
             return installedPath;
     }

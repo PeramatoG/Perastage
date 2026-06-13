@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "gdtfloader.h"
+#include "filesystem_path_utils.h"
 #include "gdtf_mutation_audit.h"
 #include "loader3ds.h"
 #include "loaderglb.h"
@@ -54,16 +55,6 @@ class wxZipStreamLink;
 namespace fs = std::filesystem;
 
 namespace {
-// Converts a UTF-8 string into a filesystem path without triggering macOS libc++ u8path deprecation warnings.
-static fs::path MakeUtf8Path(const std::string& text)
-{
-#if defined(__APPLE__)
-    return fs::path(text);
-#else
-    return fs::u8path(text);
-#endif
-}
-
 // Parses a trimmed float token and succeeds only when the whole token is numeric.
 bool TryParseFloat(const std::string& text, float& out)
 {
@@ -312,11 +303,11 @@ static bool BuildDimensionFallbackMesh(const GdtfModelInfo& modelInfo, Mesh& mes
 static std::string FindModelFile(const std::string& baseDir,
                                  const std::string& fileName)
 {
-    const fs::path modelsDir = MakeUtf8Path(baseDir) / "models";
+    const fs::path modelsDir = PathUtils::PathFromUtf8(baseDir) / "models";
     if (!fs::exists(modelsDir))
         return {};
 
-    const fs::path requested = MakeUtf8Path(fileName);
+    const fs::path requested = PathUtils::PathFromUtf8(fileName);
     const std::string requestedName = requested.filename().string();
     const bool hasExtension = requested.has_extension();
 
@@ -1337,7 +1328,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                             bool loaded = false;
                             bool tried3ds = false;
                             bool triedGlb = false;
-                            const fs::path loadedPath = MakeUtf8Path(path);
+                            const fs::path loadedPath = PathUtils::PathFromUtf8(path);
                             std::string fallbackGlbPath;
 
                             if (HasExtension(loadedPath, ".3ds")) {
@@ -1346,7 +1337,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                                 loaded = Load3DS(path, mesh, false, &loadError3ds);
                                 if (!loaded) {
                                     fallbackGlbPath = FindModelFile(baseDir, loadedPath.stem().string());
-                                    if (!fallbackGlbPath.empty() && HasExtension(MakeUtf8Path(fallbackGlbPath), ".glb")) {
+                                    if (!fallbackGlbPath.empty() && HasExtension(PathUtils::PathFromUtf8(fallbackGlbPath), ".glb")) {
                                         triedGlb = true;
                                         std::string loadErrorGlbFallback;
                                         loaded = LoadGLB(fallbackGlbPath, mesh, &loadErrorGlbFallback);

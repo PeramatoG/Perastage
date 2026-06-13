@@ -2,6 +2,7 @@
  * This file is part of Perastage.
  */
 #include <cassert>
+#include "filesystem_path_utils.h"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -124,7 +125,7 @@ int main() {
   assert(initializer.IsOk());
 
   const fs::path tempRoot = fs::temp_directory_path() /
-                            fs::u8path("perastage_dictionary_seed_merge_backup_test");
+                            PathUtils::PathFromUtf8("perastage_dictionary_seed_merge_backup_test");
   std::error_code ec;
   fs::remove_all(tempRoot, ec);
   fs::create_directories(tempRoot);

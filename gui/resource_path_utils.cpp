@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "resource_path_utils.h"
+#include "filesystem_path_utils.h"
 
 #include "logger.h"
 
@@ -78,13 +79,13 @@ std::string MakeSceneRelativeResourcePathOrOriginal(
     return resourcePath;
 
   std::error_code ec;
-  const fs::path resource = NormalizedAbsolutePath(fs::u8path(resourcePath), ec);
+  const fs::path resource = NormalizedAbsolutePath(PathUtils::PathFromUtf8(resourcePath), ec);
   if (ec) {
     LogSceneRelativeConversionWarning(logContext, resourcePath, basePath, ec);
     return resourcePath;
   }
 
-  const fs::path base = NormalizedAbsolutePath(fs::u8path(basePath), ec);
+  const fs::path base = NormalizedAbsolutePath(PathUtils::PathFromUtf8(basePath), ec);
   if (ec) {
     LogSceneRelativeConversionWarning(logContext, resourcePath, basePath, ec);
     return resourcePath;

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "dictionaryeditdialog.h"
+#include "filesystem_path_utils.h"
 
 #include "columnutils.h"
 #include "colorfulrenderers.h"
@@ -98,8 +99,8 @@ bool FixturePathsMatchForColorFamily(const std::string &lhs,
                                      const std::string &rhs) {
   if (lhs.empty() || rhs.empty())
     return false;
-  const std::filesystem::path leftPath = std::filesystem::u8path(lhs).lexically_normal();
-  const std::filesystem::path rightPath = std::filesystem::u8path(rhs).lexically_normal();
+  const std::filesystem::path leftPath = PathUtils::PathFromUtf8(lhs).lexically_normal();
+  const std::filesystem::path rightPath = PathUtils::PathFromUtf8(rhs).lexically_normal();
   if (leftPath == rightPath)
     return true;
   if (!leftPath.filename().empty() && leftPath.filename() == rightPath.filename())
@@ -283,7 +284,7 @@ ExportPathStatusSummary AnalyzeFixtureExportPaths(
   constexpr size_t kMaxMissingExamples = 10;
   summary.total_entries = dict.size();
   for (const auto &[name, entry] : dict) {
-    if (HasExistingPath(std::filesystem::u8path(entry.path)))
+    if (HasExistingPath(PathUtils::PathFromUtf8(entry.path)))
       ++summary.found_entries;
     else {
       ++summary.missing_entries;
@@ -304,7 +305,7 @@ ExportPathStatusSummary AnalyzeTrussExportPaths(
   constexpr size_t kMaxMissingExamples = 10;
   summary.total_entries = dict.size();
   for (const auto &[name, path] : dict) {
-    if (HasExistingPath(std::filesystem::u8path(path)))
+    if (HasExistingPath(PathUtils::PathFromUtf8(path)))
       ++summary.found_entries;
     else {
       ++summary.missing_entries;
@@ -480,8 +481,8 @@ ImportPathValidationSummary ValidateFixtureImportPaths(const std::string &import
   if (!entriesOpt)
     return summary;
 
-  const std::filesystem::path importFilePath = std::filesystem::u8path(importPath);
-  const std::filesystem::path libraryDir = std::filesystem::u8path(
+  const std::filesystem::path importFilePath = PathUtils::PathFromUtf8(importPath);
+  const std::filesystem::path libraryDir = PathUtils::PathFromUtf8(
       ProjectUtils::GetWritableLibraryPath("fixtures"));
 
   auto checkEntry = [&](const std::string &entryName, const nlohmann::json &entryJson) {
@@ -496,7 +497,7 @@ ImportPathValidationSummary ValidateFixtureImportPaths(const std::string &import
       return;
 
     ++summary.checked_entries;
-    const std::filesystem::path sourcePath = std::filesystem::u8path(rawPath);
+    const std::filesystem::path sourcePath = PathUtils::PathFromUtf8(rawPath);
     const std::filesystem::path importRelativePath =
         ResolveImportRelativePath(importFilePath, sourcePath);
     const std::filesystem::path libraryRelativePath = libraryDir / sourcePath.filename();
@@ -539,9 +540,9 @@ ImportPathValidationSummary ValidateTrussImportPaths(const std::string &importPa
   if (!entriesOpt)
     return summary;
 
-  const std::filesystem::path importFilePath = std::filesystem::u8path(importPath);
+  const std::filesystem::path importFilePath = PathUtils::PathFromUtf8(importPath);
   const std::filesystem::path libraryDir =
-      std::filesystem::u8path(ProjectUtils::GetWritableLibraryPath("trusses"));
+      PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("trusses"));
 
   auto checkEntry = [&](const std::string &entryName, const nlohmann::json &entryJson) {
     if (!entryJson.is_object())
@@ -555,7 +556,7 @@ ImportPathValidationSummary ValidateTrussImportPaths(const std::string &importPa
       return;
 
     ++summary.checked_entries;
-    const std::filesystem::path sourcePath = std::filesystem::u8path(rawPath);
+    const std::filesystem::path sourcePath = PathUtils::PathFromUtf8(rawPath);
     const std::filesystem::path importRelativePath =
         ResolveImportRelativePath(importFilePath, sourcePath);
     const std::filesystem::path libraryRelativePath = libraryDir / sourcePath.filename();
@@ -638,12 +639,12 @@ CopyToLibrary(wxWindow *parent, const std::string &path, const char *libraryName
   if (path.empty())
     return std::nullopt;
 
-  const std::filesystem::path src = std::filesystem::u8path(path);
+  const std::filesystem::path src = PathUtils::PathFromUtf8(path);
   if (!std::filesystem::exists(src))
     return std::nullopt;
 
   const std::filesystem::path dir =
-      std::filesystem::u8path(ProjectUtils::GetWritableLibraryPath(libraryName));
+      PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath(libraryName));
   if (dir.empty())
     return CopiedLibraryAsset{path, {}};
 
@@ -761,7 +762,7 @@ bool SaveFixturesSnapshotToFile(
     keys.push_back(name);
   std::sort(keys.begin(), keys.end());
 
-  const std::filesystem::path outputFsPath = std::filesystem::u8path(outputPath);
+  const std::filesystem::path outputFsPath = PathUtils::PathFromUtf8(outputPath);
   const std::filesystem::path targetAssetsDir = outputFsPath.parent_path();
   std::unordered_map<std::string, bool> useNewByFileName;
   if (copyReferencedAssets) {
@@ -771,7 +772,7 @@ bool SaveFixturesSnapshotToFile(
           paths.reserve(dict.size());
           for (const auto &[_, entry] : dict) {
             if (!entry.path.empty())
-              paths.push_back(std::filesystem::u8path(entry.path));
+              paths.push_back(PathUtils::PathFromUtf8(entry.path));
           }
           return paths;
         });
@@ -788,7 +789,7 @@ bool SaveFixturesSnapshotToFile(
       continue;
     nlohmann::json obj;
     if (!entry.path.empty()) {
-      const std::filesystem::path sourcePath = std::filesystem::u8path(entry.path);
+      const std::filesystem::path sourcePath = PathUtils::PathFromUtf8(entry.path);
       if (copyReferencedAssets) {
         const auto copiedRelativePath =
             CopySnapshotAsset(sourcePath, targetAssetsDir, useNewByFileName);
@@ -835,7 +836,7 @@ bool SaveTrussesSnapshotToFile(wxWindow *parent, const std::string &outputPath,
     keys.push_back(name);
   std::sort(keys.begin(), keys.end());
 
-  const std::filesystem::path outputFsPath = std::filesystem::u8path(outputPath);
+  const std::filesystem::path outputFsPath = PathUtils::PathFromUtf8(outputPath);
   const std::filesystem::path targetAssetsDir = outputFsPath.parent_path();
   std::unordered_map<std::string, bool> useNewByFileName;
   if (copyReferencedAssets) {
@@ -845,7 +846,7 @@ bool SaveTrussesSnapshotToFile(wxWindow *parent, const std::string &outputPath,
           paths.reserve(dict.size());
           for (const auto &[_, path] : dict) {
             if (!path.empty())
-              paths.push_back(std::filesystem::u8path(path));
+              paths.push_back(PathUtils::PathFromUtf8(path));
           }
           return paths;
         });
@@ -859,7 +860,7 @@ bool SaveTrussesSnapshotToFile(wxWindow *parent, const std::string &outputPath,
     const auto &path = dict.at(name);
     if (path.empty())
       continue;
-    const std::filesystem::path sourcePath = std::filesystem::u8path(path);
+    const std::filesystem::path sourcePath = PathUtils::PathFromUtf8(path);
     if (copyReferencedAssets) {
       const auto copiedRelativePath =
           CopySnapshotAsset(sourcePath, targetAssetsDir, useNewByFileName);
@@ -1273,9 +1274,9 @@ void DictionaryEditDialog::RefreshDictionarySelectionLabels() {
 void DictionaryEditDialog::OnSelectFixturesDictionary(
     wxCommandEvent &WXUNUSED(event)) {
   const std::filesystem::path currentPath =
-      std::filesystem::u8path(GdtfDictionary::GetActiveDictionaryFilePath());
+      PathUtils::PathFromUtf8(GdtfDictionary::GetActiveDictionaryFilePath());
   const wxString initialDir = wxString::FromUTF8(
-      (currentPath.empty() ? std::filesystem::u8path(
+      (currentPath.empty() ? PathUtils::PathFromUtf8(
                                  ProjectUtils::GetWritableLibraryPath("fixtures"))
                            : currentPath.parent_path())
           .string());
@@ -1290,7 +1291,7 @@ void DictionaryEditDialog::OnSelectFixturesDictionary(
 
   std::string error;
   std::filesystem::path selectedPath =
-      std::filesystem::u8path(std::string(dialog.GetPath().ToUTF8()));
+      PathUtils::PathFromUtf8(std::string(dialog.GetPath().ToUTF8()));
   if (!selectedPath.has_extension())
     selectedPath += ".json";
   const std::string selected = selectedPath.string();
@@ -1307,9 +1308,9 @@ void DictionaryEditDialog::OnSelectFixturesDictionary(
 void DictionaryEditDialog::OnSelectTrussesDictionary(
     wxCommandEvent &WXUNUSED(event)) {
   const std::filesystem::path currentPath =
-      std::filesystem::u8path(TrussDictionary::GetActiveDictionaryFilePath());
+      PathUtils::PathFromUtf8(TrussDictionary::GetActiveDictionaryFilePath());
   const wxString initialDir = wxString::FromUTF8(
-      (currentPath.empty() ? std::filesystem::u8path(
+      (currentPath.empty() ? PathUtils::PathFromUtf8(
                                  ProjectUtils::GetWritableLibraryPath("trusses"))
                            : currentPath.parent_path())
           .string());
@@ -1324,7 +1325,7 @@ void DictionaryEditDialog::OnSelectTrussesDictionary(
 
   std::string error;
   std::filesystem::path selectedPath =
-      std::filesystem::u8path(std::string(dialog.GetPath().ToUTF8()));
+      PathUtils::PathFromUtf8(std::string(dialog.GetPath().ToUTF8()));
   if (!selectedPath.has_extension())
     selectedPath += ".json";
   const std::string selected = selectedPath.string();
@@ -1392,7 +1393,7 @@ bool DictionaryEditDialog::SaveFixtures() {
     entry.importedAt = FileImportUtils::NowUtcIso8601();
     if (!row.sha256.empty())
       entry.sha256 = row.sha256;
-    else if (const auto hash = FileImportUtils::ComputeFileSha256(std::filesystem::u8path(row.path)))
+    else if (const auto hash = FileImportUtils::ComputeFileSha256(PathUtils::PathFromUtf8(row.path)))
       entry.sha256 = *hash;
     dict[row.name] = std::move(entry);
   }

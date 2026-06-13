@@ -1,4 +1,5 @@
 #include "LayoutDefaultsLoader.h"
+#include "filesystem_path_utils.h"
 
 #include "LayoutTemplateSerializer.h"
 #include "json.hpp"
@@ -44,7 +45,7 @@ std::string ResolveImagePath(const std::string &rawPath,
   if (rawPath.empty())
     return rawPath;
 
-  fs::path parsedPath = fs::u8path(rawPath);
+  fs::path parsedPath = PathUtils::PathFromUtf8(rawPath);
   std::error_code ec;
   if (parsedPath.is_absolute()) {
     fs::path absolutePath = fs::absolute(parsedPath, ec);
@@ -77,7 +78,7 @@ std::string ResolveImagePath(const std::string &rawPath,
 
     const std::string strippedPath = StripResourcesPrefix(rawPath);
     if (strippedPath != rawPath) {
-      const fs::path strippedCandidate = resourceRoot / fs::u8path(strippedPath);
+      const fs::path strippedCandidate = resourceRoot / PathUtils::PathFromUtf8(strippedPath);
       if (std::string resolved = asAbsoluteIfExists(strippedCandidate);
           !resolved.empty()) {
         return resolved;
@@ -108,7 +109,7 @@ LayoutDefaultsLoadResult LoadLayoutDefaultsFromLibrary(
     return result;
 
   std::error_code ec;
-  const fs::path defaultsDir = fs::u8path(defaultsDirUtf8);
+  const fs::path defaultsDir = PathUtils::PathFromUtf8(defaultsDirUtf8);
   if (!fs::exists(defaultsDir, ec) || ec || !fs::is_directory(defaultsDir, ec) ||
       ec) {
     return result;

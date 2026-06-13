@@ -1,4 +1,5 @@
 #include "resource_reference_sync.h"
+#include "filesystem_path_utils.h"
 
 #include <cctype>
 #include <filesystem>
@@ -29,9 +30,9 @@ bool IsPrimitiveReference(const std::string &value) {
 // Resolves scene-relative resource references against the current MVR base path.
 fs::path ResolveSceneResourcePath(const std::string &basePath,
                                   const std::string &pathRef) {
-  fs::path path = fs::u8path(pathRef);
+  fs::path path = PathUtils::PathFromUtf8(pathRef);
   if (!path.is_absolute() && !basePath.empty())
-    path = fs::u8path(basePath) / path;
+    path = PathUtils::PathFromUtf8(basePath) / path;
   return path.lexically_normal();
 }
 

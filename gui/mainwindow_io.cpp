@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "filesystem_path_utils.h"
 #include "mainwindow_io_controller.h"
 
 #include <algorithm>
@@ -77,7 +78,7 @@ std::string EnsureProjectFileExtension(const std::string &path) {
   if (path.empty())
     return path;
 
-  const std::filesystem::path candidate = std::filesystem::u8path(path);
+  const std::filesystem::path candidate = PathUtils::PathFromUtf8(path);
   const std::string ext = candidate.extension().string();
   const std::string requiredExt = ProjectUtils::PROJECT_EXTENSION;
   if (ext == requiredExt)

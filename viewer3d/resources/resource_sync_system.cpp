@@ -1,4 +1,5 @@
 #include "resource_sync_system.h"
+#include "filesystem_path_utils.h"
 #include "mesh_processing.h"
 #include "resource_path_search.h"
 
@@ -48,7 +49,7 @@ PathExistenceResult CheckPathExistsNoThrow(const fs::path &path) {
 // Checks whether a UTF-8 filesystem path exists without throwing on malformed paths.
 PathExistenceResult CheckUtf8PathExistsNoThrow(const std::string &path) {
   try {
-    return CheckPathExistsNoThrow(fs::u8path(path));
+    return CheckPathExistsNoThrow(PathUtils::PathFromUtf8(path));
   } catch (const fs::filesystem_error &ex) {
     PathExistenceResult result;
     result.error = ex.code();
@@ -335,7 +336,7 @@ std::string ResolveFromLibrarySuffix(
   if (!installedLibraryRoot.empty() && !ContainsPath(roots, installedLibraryRoot))
     roots.push_back(installedLibraryRoot);
 
-  const fs::path writableLibraryRoot = fs::u8path(ProjectUtils::GetWritableLibraryPath(""));
+  const fs::path writableLibraryRoot = PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath(""));
   if (!writableLibraryRoot.empty() && !ContainsPath(roots, writableLibraryRoot))
     roots.push_back(writableLibraryRoot);
 
@@ -366,7 +367,7 @@ std::string ResolveFromDefaultLibrary(
   const std::array<std::string, 3> librarySubdirs = {
       "fixtures", "trusses", "scene_objects"};
   for (const std::string &subdir : librarySubdirs) {
-    const fs::path root = fs::u8path(ProjectUtils::GetDefaultLibraryPath(subdir));
+    const fs::path root = PathUtils::PathFromUtf8(ProjectUtils::GetDefaultLibraryPath(subdir));
     const std::string directResolved =
         ResolveExistingPath(root / fileName, diagnostics);
     if (!directResolved.empty())
@@ -443,7 +444,7 @@ std::string ResolveGdtfPath(
     if (!relativeResolved.empty())
       return relativeResolved;
 
-    fs::path utf8AbsoluteCandidate = fs::u8path(variant);
+    fs::path utf8AbsoluteCandidate = PathUtils::PathFromUtf8(variant);
     if (utf8AbsoluteCandidate.is_absolute()) {
       const std::string utf8AbsoluteResolved =
           ResolveExistingPath(utf8AbsoluteCandidate, diagnostics);

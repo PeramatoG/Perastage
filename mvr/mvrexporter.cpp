@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvrexporter.h"
+#include "filesystem_path_utils.h"
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
 #include "gdtf_mutation_audit.h"
@@ -254,7 +255,7 @@ static bool ResolveTextureDependencyPath(const fs::path &modelPath,
   if (normalizedRef.empty())
     return false;
 
-  const fs::path refPath = fs::u8path(normalizedRef);
+  const fs::path refPath = PathUtils::PathFromUtf8(normalizedRef);
   if (refPath.is_absolute() && fs::exists(refPath)) {
     resolvedPath = refPath;
     return true;
@@ -435,7 +436,7 @@ static std::string SanitizeArchiveRelativePath(const std::string &input,
   if (candidate.empty())
     return SanitizeArchiveFileName(candidate, fallbackName);
 
-  fs::path raw = fs::u8path(candidate);
+  fs::path raw = PathUtils::PathFromUtf8(candidate);
   std::vector<std::string> sanitizedParts;
   for (const auto &part : raw) {
     const std::string segment = TrimAscii(part.generic_string());
@@ -449,7 +450,7 @@ static std::string SanitizeArchiveRelativePath(const std::string &input,
 
   fs::path out;
   for (const std::string &segment : sanitizedParts)
-    out /= fs::u8path(segment);
+    out /= PathUtils::PathFromUtf8(segment);
   return out.generic_string();
 }
 
@@ -1519,7 +1520,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         const std::string trimmedRef = TrimAscii(textureRef);
         if (trimmedRef.empty())
           continue;
-        const fs::path candidate = modelDir / fs::u8path(trimmedRef);
+        const fs::path candidate = modelDir / PathUtils::PathFromUtf8(trimmedRef);
         if (!fs::exists(candidate))
           continue;
 
@@ -1613,7 +1614,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       const std::string tempFileName = wxString::Format(
           "primitive_%s_%zx.glb", primitiveLabel.c_str(), primitiveHash)
                                            .ToStdString();
-      fs::path outputPath = fs::u8path(primitiveTempDir) / fs::u8path(tempFileName);
+      fs::path outputPath = PathUtils::PathFromUtf8(primitiveTempDir) / PathUtils::PathFromUtf8(tempFileName);
       if (!mvr::WritePrimitiveModelForToken(primitiveKey, outputPath.generic_string()))
         return {};
       sourcePath = outputPath.generic_string();

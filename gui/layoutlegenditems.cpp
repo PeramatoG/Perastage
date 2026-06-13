@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layoutlegenditems.h"
+#include "filesystem_path_utils.h"
 
 #include <filesystem>
 #include <cctype>
@@ -78,9 +79,9 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
     if (!fixture.gdtfSpec.empty()) {
       try {
         std::filesystem::path p =
-            basePath.empty() ? std::filesystem::u8path(fixture.gdtfSpec)
-                             : std::filesystem::u8path(basePath) /
-                                   std::filesystem::u8path(fixture.gdtfSpec);
+            basePath.empty() ? PathUtils::PathFromUtf8(fixture.gdtfSpec)
+                             : PathUtils::PathFromUtf8(basePath) /
+                                   PathUtils::PathFromUtf8(fixture.gdtfSpec);
         fullPath = p.string();
       } catch (const std::exception &) {
         fullPath.clear();

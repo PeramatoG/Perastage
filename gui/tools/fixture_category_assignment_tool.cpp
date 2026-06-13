@@ -1,4 +1,5 @@
 #include "tools/fixture_category_assignment_tool.h"
+#include "filesystem_path_utils.h"
 
 #include <algorithm>
 #include <cctype>
@@ -36,12 +37,12 @@ std::string ResolveFixtureGdtfPath(const std::string &basePath,
   if (gdtfSpec.empty())
     return {};
 
-  const std::filesystem::path specPath = std::filesystem::u8path(gdtfSpec);
+  const std::filesystem::path specPath = PathUtils::PathFromUtf8(gdtfSpec);
   if (specPath.is_absolute() && std::filesystem::exists(specPath))
     return specPath.string();
 
   if (!basePath.empty()) {
-    const std::filesystem::path joined = std::filesystem::u8path(basePath) / specPath;
+    const std::filesystem::path joined = PathUtils::PathFromUtf8(basePath) / specPath;
     if (std::filesystem::exists(joined))
       return joined.string();
   }

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include <cassert>
+#include "filesystem_path_utils.h"
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -69,7 +70,7 @@ std::string MinimalGdtfDescription() {
 // Verifies truss loader extension validation and archive extraction safety.
 int main() {
   const fs::path tempRoot = fs::temp_directory_path() /
-                            fs::u8path("perastage_trussloader_validation_test");
+                            PathUtils::PathFromUtf8("perastage_trussloader_validation_test");
   std::error_code ec;
   fs::remove_all(tempRoot, ec);
   fs::create_directories(tempRoot);

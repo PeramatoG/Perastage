@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "truss_gdtf_builder.h"
+#include "filesystem_path_utils.h"
 
 #include "json.hpp"
 #include "logger.h"
@@ -404,7 +405,7 @@ bool BuildTrussGdtfFromInstance(const Truss &truss, const fs::path &outGdtfPath,
   source.typeKey = truss.perastageTypeKey;
 
   auto pickGeometry = [&](const std::string &path) {
-    fs::path p = fs::u8path(path);
+    fs::path p = PathUtils::PathFromUtf8(path);
     std::string ext = p.extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
@@ -423,7 +424,7 @@ bool BuildTrussGdtfFromInstance(const Truss &truss, const fs::path &outGdtfPath,
     pickGeometry(truss.modelFile);
 
   if (source.geometryPath.empty()) {
-    fs::path modelArchive = fs::u8path(truss.modelFile);
+    fs::path modelArchive = PathUtils::PathFromUtf8(truss.modelFile);
     std::string ext = modelArchive.extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });

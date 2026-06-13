@@ -1,4 +1,5 @@
 #include "dummyprofilelibrary.h"
+#include "filesystem_path_utils.h"
 
 #include "json.hpp"
 #include "projectutils.h"
@@ -33,7 +34,7 @@ std::vector<DummyHoistProfile> LoadProfiles() {
   if (baseDir.empty())
     return profiles;
 
-  const fs::path filePath = fs::u8path(baseDir) / "dummy_profiles.json";
+  const fs::path filePath = PathUtils::PathFromUtf8(baseDir) / "dummy_profiles.json";
   if (!fs::exists(filePath))
     return profiles;
 

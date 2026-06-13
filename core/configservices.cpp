@@ -1,4 +1,5 @@
 #include "configservices.h"
+#include "filesystem_path_utils.h"
 #include "apppaths.h"
 
 #include "json.hpp"
@@ -30,10 +31,11 @@ std::string Utf8StringFromPath(const fs::path &path) {
   return std::string(utf8.begin(), utf8.end());
 }
 
+// Creates a filesystem path from UTF-8 configuration text.
 fs::path PathFromUtf8(const std::string &path) {
   if (path.empty())
     return {};
-  return fs::u8path(path);
+  return PathUtils::PathFromUtf8(path);
 }
 
 wxString WxStringFromPath(const fs::path &path) {

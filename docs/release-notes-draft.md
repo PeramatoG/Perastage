@@ -55,6 +55,7 @@ Changes since `v1.3.0`.
 
 ## Internal changes
 
+- Updated UTF-8 filesystem path handling across the codebase and pinned the macOS installer workflow to an explicit current-generation runner for more predictable CI builds.
 - Restored macOS installer build compatibility with Xcode 16.4 by avoiding deprecated filesystem path construction during GDTF model loading.
 - Improved installer build reliability by allowing the Windows packaging workflow to use the current Visual Studio generator when available, generating Windows Release symbol files for CI symbol archives, using a dynamic modern Windows installer wizard style, and keeping macOS command-bar float parsing portable across libc++ versions.
 - Improved GDTF loading efficiency by reusing cached archive content hashes when file metadata is unchanged, avoiding repeated full-file reads while preserving content-based cache invalidation.

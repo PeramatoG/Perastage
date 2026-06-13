@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layoutviewerpanel.h"
+#include "filesystem_path_utils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -67,7 +68,7 @@ ImageSourceFileState GetImageSourceFileState(const std::string &imagePath) {
 
   std::error_code ec;
   try {
-    const std::filesystem::path path = std::filesystem::u8path(imagePath);
+    const std::filesystem::path path = PathUtils::PathFromUtf8(imagePath);
     if (!std::filesystem::exists(path, ec) || ec)
       return state;
 

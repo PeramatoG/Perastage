@@ -1,4 +1,5 @@
 #include "apppaths.h"
+#include "filesystem_path_utils.h"
 
 #include <cstdlib>
 #include <system_error>
@@ -11,7 +12,7 @@ namespace {
 std::filesystem::path WxStringToPath(const wxString &value) {
   const wxScopedCharBuffer utf8 = value.ToUTF8();
   if (utf8)
-    return std::filesystem::u8path(std::string(utf8.data(), utf8.length()));
+    return PathUtils::PathFromUtf8(std::string(utf8.data(), utf8.length()));
   return std::filesystem::path(value.ToStdString());
 }
 
@@ -20,7 +21,7 @@ std::filesystem::path ResolvePreferredUserDataDir() {
 #ifdef _WIN32
   if (const char *localAppData = std::getenv("LOCALAPPDATA")) {
     if (*localAppData)
-      return std::filesystem::u8path(localAppData) / "Perastage";
+      return PathUtils::PathFromUtf8(localAppData) / "Perastage";
   }
 #endif
   const wxString userDataDir = wxStandardPaths::Get().GetUserDataDir();
