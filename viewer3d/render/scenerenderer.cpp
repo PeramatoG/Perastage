@@ -20,6 +20,10 @@
 #include <cstdint>
 
 namespace {
+constexpr float kGroupHighlightR = 0.62f;
+constexpr float kGroupHighlightG = 0.90f;
+constexpr float kGroupHighlightB = 0.58f;
+
 struct InkColor {
   float r = 1.0f;
   float g = 1.0f;
@@ -618,7 +622,8 @@ void SceneRenderer::DrawMeshWithOutline(
         if (highlight)
           m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
         else if (groupHighlight)
-          m_controller.SetGLColor(0.45f, 1.0f, 0.35f);
+          m_controller.SetGLColor(kGroupHighlightR, kGroupHighlightG,
+                                  kGroupHighlightB);
         else if (selected)
           m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
         DrawMeshWireframe(mesh, scale, captureTransform);
@@ -710,7 +715,8 @@ void SceneRenderer::DrawMeshWithOutline(
         if (highlight)
           m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
         else if (groupHighlight)
-          m_controller.SetGLColor(0.45f, 1.0f, 0.35f);
+          m_controller.SetGLColor(kGroupHighlightR, kGroupHighlightG,
+                                  kGroupHighlightB);
         else if (selected)
           m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
         else
@@ -807,7 +813,8 @@ void SceneRenderer::DrawMeshWithOutline(
       if (highlight)
         m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
       else if (groupHighlight)
-        m_controller.SetGLColor(0.45f, 1.0f, 0.35f);
+        m_controller.SetGLColor(kGroupHighlightR, kGroupHighlightG,
+                                kGroupHighlightB);
       else if (selected)
         m_controller.SetGLColor(0.0f, 1.0f, 1.0f);
       else if (useMaterialColor)

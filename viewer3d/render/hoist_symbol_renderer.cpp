@@ -127,6 +127,8 @@ std::array<float, 3> MakePoint(float x, float y, float z) { return {x, y, z}; }
 
 RgbColor WhiteColor() { return {1.0f, 1.0f, 1.0f}; }
 RgbColor HighlightColor() { return {0.0f, 1.0f, 0.0f}; }
+// Returns the softer highlight color used for grouped hover siblings.
+RgbColor GroupHighlightColor() { return {0.62f, 0.90f, 0.58f}; }
 RgbColor SelectedColor() { return {0.0f, 1.0f, 1.0f}; }
 
 void DrawFillPolygon(IRenderContext &renderContext,
@@ -412,19 +414,23 @@ void Render(IRenderContext &renderContext, const RenderFrameContext &context) {
       continue;
 
     const RgbColor color = ResolveHoistLayerColor(scene, support);
-    const bool isHighlighted = renderContext.IsUuidHighlighted(uuid) ||
-                               renderContext.IsUuidGroupHighlighted(uuid);
+    const bool isHighlighted = renderContext.IsUuidHighlighted(uuid);
+    const bool isGroupHighlighted = renderContext.IsUuidGroupHighlighted(uuid);
     const bool isSelected = renderContext.IsUuidSelected(uuid);
     const bool useOutlineColors =
         context.is2DViewer && renderContext.IsSelectionOutlineEnabled2D();
     const RgbColor outlineColor =
         useOutlineColors
-            ? (isHighlighted ? HighlightColor()
-                             : (isSelected ? SelectedColor() : color))
+            ? (isHighlighted
+                   ? HighlightColor()
+                   : (isGroupHighlighted
+                          ? GroupHighlightColor()
+                          : (isSelected ? SelectedColor() : color)))
             : color;
-    const float outlineWidth = useOutlineColors && (isHighlighted || isSelected)
-                                   ? kSelectionLineWidth
-                                   : kLineWidth;
+    const float outlineWidth =
+        useOutlineColors && (isHighlighted || isGroupHighlighted || isSelected)
+            ? kSelectionLineWidth
+            : kLineWidth;
 
     DrawHoistSymbol(renderContext, support, color, outlineColor, outlineWidth);
   }
