@@ -50,7 +50,7 @@ OutputDir={#OutputParentDir}
 OutputBaseFilename=Perastage_{#MyAppVersion}_Setup
 SetupIconFile={#RepoResourcesDir}\Perastage.ico
 SolidCompression=yes
-WizardStyle=modern dark
+WizardStyle=modern dynamic
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
