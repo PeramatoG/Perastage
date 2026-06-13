@@ -1,9 +1,17 @@
 #include "riderimporter.h"
 
+#include "configmanager.h"
+
+#include <cassert>
 #include <iostream>
 #include <string>
+#include <wx/init.h>
 
+// Verifies rider filter preview stability and import parity.
 int main() {
+  wxInitializer initializer;
+  assert(initializer.IsOk());
+
   const std::string input =
       "Rider Tecnico\n"
       "ILUMINACION\n"
@@ -170,6 +178,39 @@ int main() {
               << mixedSectionsPreview << "\n";
     return 1;
   }
+
+  auto assertImportParity = [](const std::string &riderText) {
+    auto &cfg = ConfigManager::Get();
+    const std::string filtered = RiderImporter::BuildFixtureFilterPreview(riderText);
+
+    cfg.Reset();
+    assert(RiderImporter::ImportText(riderText));
+    const auto directFixtureCount = cfg.GetScene().fixtures.size();
+    const auto directTrussCount = cfg.GetScene().trusses.size();
+    const auto directSupportCount = cfg.GetScene().supports.size();
+    const auto directSceneObjectCount = cfg.GetScene().sceneObjects.size();
+
+    cfg.Reset();
+    assert(RiderImporter::ImportText(filtered));
+    const auto filteredFixtureCount = cfg.GetScene().fixtures.size();
+    const auto filteredTrussCount = cfg.GetScene().trusses.size();
+    const auto filteredSupportCount = cfg.GetScene().supports.size();
+    const auto filteredSceneObjectCount = cfg.GetScene().sceneObjects.size();
+
+    assert(directFixtureCount == filteredFixtureCount);
+    assert(directTrussCount == filteredTrussCount);
+    assert(directSupportCount == filteredSupportCount);
+    assert(directSceneObjectCount == filteredSceneObjectCount);
+  };
+
+  assertImportParity(input);
+  assertImportParity(inputWithCoordinates);
+  assertImportParity(
+      "ILUMINACION\n"
+      "SCREEN\n"
+      "1 PANTALLA LED 8X5m 1664X1040 PIXELS\n"
+      "RIGGING\n"
+      "1 PIPE 12m PARA PANTALLA\n");
 
   return 0;
 }

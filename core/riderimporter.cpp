@@ -1084,10 +1084,22 @@ bool RiderImporter::Import(const std::string &path,
   return ImportText(text, std::move(progressCallback));
 }
 
-// Builds a filtered rider preview containing fixtures and rigging context.
-std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
+
+struct ParsedRiderImport {
+  std::vector<std::string> fixtureRequests;
+  std::vector<std::string> trussRequests;
+  std::vector<std::string> pipeRequests;
+  std::vector<ParsedHoistLine> hoistRequests;
+  std::vector<std::string> screenRequests;
+  std::vector<std::string> hangMetadata;
+  std::string filteredPreviewText;
+};
+
+// Parses raw rider text into filtered import requests and preview metadata.
+ParsedRiderImport ParseRiderImport(const std::string &text) {
+  ParsedRiderImport parsed;
   if (text.empty())
-    return {};
+    return parsed;
 
   std::istringstream iss(text);
   std::string line;
@@ -1138,7 +1150,11 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       auto &bucket = fixturesByHang[hang];
       if (bucket.empty())
         hangOrder.push_back(hang);
-      bucket.push_back(std::to_string(quantity) + " " + part);
+      const std::string fixtureRequest = std::to_string(quantity) + " " + part;
+      bucket.push_back(fixtureRequest);
+      parsed.fixtureRequests.push_back(hang + "\n" + fixtureRequest);
+      if (NormalizeHangName(hang) == "SCREEN")
+        parsed.screenRequests.push_back(fixtureRequest);
     }
   };
 
@@ -1220,6 +1236,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
           marginSuffix.has_value()) {
         hangMarginSuffixByHang[currentHang] = *marginSuffix;
       }
+      parsed.hangMetadata.push_back(line);
       if (!inRigging && !inFixtures)
         inFixtures = true;
       continue;
@@ -1311,6 +1328,10 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
         if (!trussMarginSuffix.empty())
           out += " " + trussMarginSuffix;
         riggingLines.push_back(out);
+        if (riggingKind == RiggingLineKind::Pipe)
+          parsed.pipeRequests.push_back(out);
+        else
+          parsed.trussRequests.push_back(out);
         if (targetHang.rfind("LX", 0) == 0 &&
             std::find(lxTargetsInRigging.begin(), lxTargetsInRigging.end(),
                       targetHang) == lxTargetsInRigging.end()) {
@@ -1396,6 +1417,10 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
         if (!trussMarginSuffix.empty())
           out += " " + trussMarginSuffix;
         riggingLines.push_back(out);
+        if (riggingKind == RiggingLineKind::Pipe)
+          parsed.pipeRequests.push_back(out);
+        else
+          parsed.trussRequests.push_back(out);
       }
       continue;
     }
@@ -1418,6 +1443,10 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       if (!hang.empty())
         out += " " + hang;
       riggingLines.push_back(out);
+      if (riggingKind == RiggingLineKind::Pipe)
+        parsed.pipeRequests.push_back(out);
+      else
+        parsed.trussRequests.push_back(out);
       if (hang.rfind("LX", 0) == 0 &&
           std::find(lxTargetsInRigging.begin(), lxTargetsInRigging.end(), hang) ==
               lxTargetsInRigging.end()) {
@@ -1430,6 +1459,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
     if (TryParseHoistLine(line, currentHang, parsedHoist)) {
       hoistRequests.push_back(
           {parsedHoist.quantity, parsedHoist.capacityKg, parsedHoist.target});
+      parsed.hoistRequests.push_back(parsedHoist);
       continue;
     }
 
@@ -1524,7 +1554,23 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       preview << "\n" << rigLine;
   }
 
-  return preview.str();
+  parsed.filteredPreviewText = preview.str();
+  return parsed;
+}
+
+// Formats a parsed rider import into the existing filtered preview text.
+std::string BuildFilteredPreviewText(const ParsedRiderImport &parsed) {
+  return parsed.filteredPreviewText;
+}
+
+// Produces scene-import text from parsed rider requests without re-filtering raw text.
+std::string BuildSceneImportText(const ParsedRiderImport &parsed) {
+  return parsed.filteredPreviewText;
+}
+
+// Builds a filtered rider preview containing fixtures and rigging context.
+std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
+  return BuildFilteredPreviewText(ParseRiderImport(text));
 }
 
 struct ImportedGdtfMetadata {
@@ -1637,9 +1683,12 @@ bool RiderImporter::ImportText(const std::string &text,
                  1, 6);
   // Keep scene creation consistent with the dialog preview flow while allowing
   // callers that already hold preview text to avoid repeating the filter pass.
-  const std::string filteredText =
-      skipFixtureFilterPreview ? std::string{} : BuildFixtureFilterPreview(text);
-  const std::string &textToImport = filteredText.empty() ? text : filteredText;
+  const ParsedRiderImport parsedImport =
+      skipFixtureFilterPreview ? ParsedRiderImport{} : ParseRiderImport(text);
+  const std::string parsedImportText =
+      skipFixtureFilterPreview ? std::string{} : BuildSceneImportText(parsedImport);
+  const std::string &textToImport =
+      parsedImportText.empty() ? text : parsedImportText;
   reportProgress("Parsing lines...", 2, 6);
   const int totalInputLines = [&]() {
     if (textToImport.empty())
