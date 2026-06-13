@@ -55,7 +55,7 @@ Changes since `v1.3.0`.
 
 ## Internal changes
 
-- Improved installer build reliability by allowing the Windows packaging workflow to use the current Visual Studio generator when available, keeping the Inno Setup script compatible with the CI-provided compiler, and keeping macOS command-bar float parsing portable across libc++ versions.
+- Improved installer build reliability by allowing the Windows packaging workflow to use the current Visual Studio generator when available, generating Windows Release symbol files for CI symbol archives, and keeping macOS command-bar float parsing portable across libc++ versions.
 - Improved GDTF loading efficiency by reusing cached archive content hashes when file metadata is unchanged, avoiding repeated full-file reads while preserving content-based cache invalidation.
 - Improved rider truss import efficiency by caching truss definition loads within each import, avoiding repeated retries for the same valid or invalid truss paths while preserving existing parsed truss data precedence.
 - Improved rider imports by reusing parsed GDTF fixture metadata during fixture creation and skipping repeated category inference once an imported fixture has an authoritative category, reducing repeated GDTF lookups while preserving existing dictionary, category, weight, and power precedence.
