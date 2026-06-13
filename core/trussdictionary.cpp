@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "trussdictionary.h"
+#include "filesystem_path_utils.h"
 
 #include "configmanager.h"
 #include "dictionary_json_contract.h"
@@ -86,7 +87,7 @@ static bool IsSupportedDictionaryFile(const fs::path &path) {
 }
 
 static fs::path GetUserDictFile() {
-  fs::path dir = fs::u8path(ProjectUtils::GetWritableLibraryPath("trusses"));
+  fs::path dir = PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("trusses"));
   if (dir.empty())
     return {};
   std::error_code ec;
@@ -105,7 +106,7 @@ static fs::path ResolveConfiguredDictionaryPath(
   if (trimmedPath.empty())
     return defaultPath;
 
-  fs::path configuredPath = fs::u8path(trimmedPath);
+  fs::path configuredPath = PathUtils::PathFromUtf8(trimmedPath);
   if (configuredPath.is_relative())
     configuredPath = defaultPath.parent_path() / configuredPath;
 
@@ -195,7 +196,7 @@ static bool MergeSeedEntriesIntoUserDictionary(
 
 static fs::path ResolveImportedPath(const fs::path &jsonFile,
                                     const std::string &rawPathText) {
-  const fs::path parsedPath = fs::u8path(rawPathText);
+  const fs::path parsedPath = PathUtils::PathFromUtf8(rawPathText);
   if (parsedPath.is_absolute())
     return parsedPath;
 
@@ -321,7 +322,7 @@ LoadFromFile(const fs::path &file, std::string &error) {
     }
 
     if (!fs::exists(path)) {
-      if (!fs::u8path(rawPath).is_absolute()) {
+      if (!PathUtils::PathFromUtf8(rawPath).is_absolute()) {
         std::cerr << "Warning: trusses dictionary " << sourceLabel
                   << " references missing relative path '" << rawPath
                   << "' resolved from '" << file.string() << "'."
@@ -382,7 +383,7 @@ DictionaryImportSummary MergeDictionaryEntries(
     if (value.empty())
       continue;
     std::error_code ec;
-    if (fs::exists(fs::u8path(value), ec))
+    if (fs::exists(PathUtils::PathFromUtf8(value), ec))
       continue;
     ++summary.missing_files_count;
     if (summary.missing_file_examples.size() < kMaxMissingExamples)
@@ -446,7 +447,7 @@ bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
                      std::string &error) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   storedPath.clear();
-  fs::path src = fs::u8path(inputPath);
+  fs::path src = PathUtils::PathFromUtf8(inputPath);
   if (!fs::exists(src)) {
     error = "Truss file does not exist";
     return false;
@@ -634,7 +635,7 @@ bool Save(const std::unordered_map<std::string, std::string> &dict,
   std::sort(keys.begin(), keys.end());
 
   for (const auto &model : keys) {
-    fs::path p = fs::u8path(normalizedDict.at(model));
+    fs::path p = PathUtils::PathFromUtf8(normalizedDict.at(model));
     fs::path forced = p;
     if (forced.extension() != ".gdtf")
       forced.replace_extension(".gdtf");
@@ -687,7 +688,7 @@ std::optional<std::string> Get(const std::string &model) {
   if (it == dict.end())
     return std::nullopt;
 
-  if (!fs::exists(fs::u8path(it->second))) {
+  if (!fs::exists(PathUtils::PathFromUtf8(it->second))) {
     dict.erase(it);
     Save(dict);
     return std::nullopt;
@@ -722,7 +723,7 @@ DictionaryImportSummary PreviewImportFromFile(const std::string &filePath,
   DictionaryImportSummary summary;
 
   std::string importError;
-  const fs::path importPath = fs::u8path(filePath);
+  const fs::path importPath = PathUtils::PathFromUtf8(filePath);
   auto importedOpt = LoadFromFile(importPath, importError);
   if (!importedOpt) {
     summary.errors.push_back("Failed to load import file: " + importError);
@@ -745,7 +746,7 @@ DictionaryImportSummary ApplyImportFromFile(const std::string &filePath,
   DictionaryImportSummary summary;
 
   std::string importError;
-  const fs::path importPath = fs::u8path(filePath);
+  const fs::path importPath = PathUtils::PathFromUtf8(filePath);
   auto importedOpt = LoadFromFile(importPath, importError);
   if (!importedOpt) {
     summary.errors.push_back("Failed to load import file: " + importError);

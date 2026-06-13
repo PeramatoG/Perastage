@@ -1,4 +1,5 @@
 #include "diagnostics/DiagnosticLogger.h"
+#include "filesystem_path_utils.h"
 
 #include "diagnostics/DiagnosticPaths.h"
 #include "logger.h"
@@ -8,14 +9,6 @@
 namespace diagnostics {
 namespace {
 
-// Converts UTF-8 text into a filesystem path without deprecated helpers.
-std::filesystem::path PathFromUtf8(const std::string &text) {
-  std::u8string u8Text;
-  u8Text.reserve(text.size());
-  for (const char ch : text)
-    u8Text.push_back(static_cast<char8_t>(static_cast<unsigned char>(ch)));
-  return std::filesystem::path(u8Text);
-}
 
 } // namespace
 
@@ -64,7 +57,7 @@ std::filesystem::path DiagnosticLogger::CurrentLogFile() {
 std::string DiagnosticLogger::FileNameOnly(const std::string &pathText) {
   if (pathText.empty())
     return {};
-  std::filesystem::path path = PathFromUtf8(pathText);
+  std::filesystem::path path = PathUtils::PathFromUtf8(pathText);
   const std::u8string filenameU8 = path.filename().u8string();
   std::string filename(filenameU8.begin(), filenameU8.end());
   if (!filename.empty())

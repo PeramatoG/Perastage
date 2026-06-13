@@ -2,6 +2,7 @@
  * This file is part of Perastage.
  */
 #include <cassert>
+#include "filesystem_path_utils.h"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -37,7 +38,7 @@ int main() {
   assert(initializer.IsOk());
 
   const std::filesystem::path fixturesDir =
-      std::filesystem::u8path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+      PathUtils::PathFromUtf8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
   std::filesystem::create_directories(fixturesDir);
   const std::filesystem::path dictPath = fixturesDir / "gdtf_dictionary.json";
 

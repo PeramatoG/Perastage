@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "riderimporter.h"
+#include "filesystem_path_utils.h"
 
 #include <algorithm>
 #include <array>
@@ -560,18 +561,18 @@ bool IsRenderableTrussGeometry(const std::string &path) {
 }
 
 std::filesystem::path ResolveTrussSymbolPath(const Truss &truss) {
-  std::filesystem::path symbolPath = std::filesystem::u8path(truss.symbolFile);
+  std::filesystem::path symbolPath = PathUtils::PathFromUtf8(truss.symbolFile);
   if (symbolPath.is_absolute())
     return symbolPath;
 
   if (!truss.modelFile.empty()) {
-    std::filesystem::path modelPath = std::filesystem::u8path(truss.modelFile);
+    std::filesystem::path modelPath = PathUtils::PathFromUtf8(truss.modelFile);
     if (modelPath.is_absolute())
       return modelPath.parent_path() / symbolPath;
   }
 
   if (!truss.gdtfSpec.empty()) {
-    std::filesystem::path gdtfPath = std::filesystem::u8path(truss.gdtfSpec);
+    std::filesystem::path gdtfPath = PathUtils::PathFromUtf8(truss.gdtfSpec);
     if (gdtfPath.is_absolute())
       return gdtfPath.parent_path() / symbolPath;
   }

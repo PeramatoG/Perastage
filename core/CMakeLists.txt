@@ -11,6 +11,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_bundle.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dummyprofilelibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/file_import_utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/filesystem_path_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfdictionary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_category.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_service.cpp

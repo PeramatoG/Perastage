@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include <cassert>
+#include "filesystem_path_utils.h"
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -88,7 +89,7 @@ void AssertTrussSymbolResolved(const std::string &textVariant) {
   assert(scene.trusses.size() == 1);
   const auto &truss = scene.trusses.begin()->second;
   assert(!truss.symbolFile.empty());
-  assert(fs::exists(fs::u8path(truss.symbolFile)));
+  assert(fs::exists(PathUtils::PathFromUtf8(truss.symbolFile)));
 }
 
 void AssertModelTokenDictionaryLookupWorks(const std::string &textVariant) {
@@ -102,7 +103,7 @@ void AssertModelTokenDictionaryLookupWorks(const std::string &textVariant) {
   assert(!truss.model.empty());
   assert(truss.model == TrussDictionary::NormalizeModelKey("FK40Q"));
   assert(!truss.symbolFile.empty());
-  assert(fs::exists(fs::u8path(truss.symbolFile)));
+  assert(fs::exists(PathUtils::PathFromUtf8(truss.symbolFile)));
 }
 
 } // namespace
@@ -112,15 +113,15 @@ int main() {
   assert(initializer.IsOk());
 
   const fs::path tempRoot =
-      fs::temp_directory_path() / fs::u8path("perastage_truss_model_normalization");
+      fs::temp_directory_path() / PathUtils::PathFromUtf8("perastage_truss_model_normalization");
   std::error_code ec;
   fs::remove_all(tempRoot, ec);
   fs::create_directories(tempRoot);
 
-  const fs::path libraryRoot = tempRoot / fs::u8path("library");
+  const fs::path libraryRoot = tempRoot / PathUtils::PathFromUtf8("library");
   SetLibraryPathEnv(ToUtf8String(libraryRoot));
 
-  const fs::path archivePath = tempRoot / fs::u8path("FK40Q.gdtf");
+  const fs::path archivePath = tempRoot / PathUtils::PathFromUtf8("FK40Q.gdtf");
   assert(WriteArchive(archivePath));
 
   TrussDictionary::Update("TRUSS 40X40 3M", ToUtf8String(archivePath));

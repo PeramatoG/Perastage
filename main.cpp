@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "BuildInfo.h"
+#include "filesystem_path_utils.h"
 #include "app_version.h"
 #include "configmanager.h"
 #include "diagnostics/CrashHandler.h"
@@ -147,7 +148,7 @@ std::optional<std::string> GetStartupPathFromArgs(
   const fs::path launchWorkingDirectory =
       launchWorkingDirectoryUtf8.empty()
           ? fs::path()
-          : fs::u8path(launchWorkingDirectoryUtf8);
+          : PathUtils::PathFromUtf8(launchWorkingDirectoryUtf8);
 
   auto toUtf8 = [](const wxString &text) {
     wxCharBuffer utf8 = text.ToUTF8();
@@ -168,7 +169,7 @@ std::optional<std::string> GetStartupPathFromArgs(
       continue;
 
     const std::string normalizedRawPath = NormalizeExternalOpenPath(rawPath);
-    const fs::path candidate = fs::u8path(normalizedRawPath);
+    const fs::path candidate = PathUtils::PathFromUtf8(normalizedRawPath);
     const std::u8string extensionU8 = candidate.extension().u8string();
     const std::string extension(extensionU8.begin(), extensionU8.end());
     const std::string normalizedExtension = ToLowerAscii(extension);

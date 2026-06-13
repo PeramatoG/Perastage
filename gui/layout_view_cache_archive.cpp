@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layout_view_cache_archive.h"
+#include "filesystem_path_utils.h"
 #include "layoutviewerpanel.h"
 
 #include <algorithm>
@@ -110,7 +111,7 @@ std::optional<fs::path> ResolveSourceAssetPath(const fs::path &root,
   if (reference.empty())
     return std::nullopt;
   std::error_code ec;
-  fs::path path = fs::u8path(reference);
+  fs::path path = PathUtils::PathFromUtf8(reference);
   if (!path.is_absolute())
     path = root / path;
   path = fs::weakly_canonical(path, ec);
@@ -169,7 +170,7 @@ std::optional<std::string> ComputeSourceAssetHash(const MvrScene &scene) {
   if (scene.basePath.empty())
     return std::nullopt;
   std::error_code ec;
-  const fs::path root = fs::weakly_canonical(fs::u8path(scene.basePath), ec);
+  const fs::path root = fs::weakly_canonical(PathUtils::PathFromUtf8(scene.basePath), ec);
   if (ec || !fs::is_directory(root, ec))
     return std::nullopt;
 

@@ -1,4 +1,5 @@
 #include "resource_path_search.h"
+#include "filesystem_path_utils.h"
 
 #include "projectutils.h"
 
@@ -142,7 +143,7 @@ BoundedRecursiveSearchResult FindFileRecursiveBounded(
     return result;
   }
 
-  const fs::path root = fs::u8path(baseDir);
+  const fs::path root = PathUtils::PathFromUtf8(baseDir);
   if (IsSkippedRecursiveSearchRoot(root, &result.skipReason)) {
     result.skipped = true;
     return result;
@@ -215,12 +216,12 @@ BoundedRecursiveSearchResult FindFileRecursiveBounded(
 std::vector<fs::path> BuildRecursiveFallbackRoots(const std::string &base) {
   std::vector<fs::path> roots;
   if (!base.empty())
-    roots.push_back(fs::u8path(base));
+    roots.push_back(PathUtils::PathFromUtf8(base));
 
   const std::array<std::string, 3> librarySubdirs = {
       "fixtures", "trusses", "scene_objects"};
   for (const std::string &subdir : librarySubdirs) {
-    const fs::path root = fs::u8path(ProjectUtils::GetDefaultLibraryPath(subdir));
+    const fs::path root = PathUtils::PathFromUtf8(ProjectUtils::GetDefaultLibraryPath(subdir));
     if (!root.empty() && !ContainsPath(roots, root))
       roots.push_back(root);
   }

@@ -1,4 +1,5 @@
 #include "dictionary_bundle.h"
+#include "filesystem_path_utils.h"
 
 #include "dictionary_json_contract.h"
 #include "json.hpp"
@@ -174,7 +175,7 @@ nlohmann::json BuildFixturesEntriesJson(
 
     nlohmann::json outputEntry = nlohmann::json::object();
     if (!entry.path.empty()) {
-      const fs::path sourcePath = fs::u8path(entry.path);
+      const fs::path sourcePath = PathUtils::PathFromUtf8(entry.path);
       if (!fs::exists(sourcePath)) {
         error = "Missing fixture asset for entry '" + name + "': " + entry.path;
         return {};
@@ -235,7 +236,7 @@ nlohmann::json BuildTrussEntriesJson(
     if (source.empty())
       continue;
 
-    const fs::path sourcePath = fs::u8path(source);
+    const fs::path sourcePath = PathUtils::PathFromUtf8(source);
     if (!fs::exists(sourcePath)) {
       error = "Missing truss asset for entry '" + name + "': " + source;
       return {};
@@ -327,7 +328,7 @@ bool ExtractArchive(const fs::path &zipPath, const fs::path &destination,
     if (entry->IsDir())
       continue;
 
-    const fs::path outPath = destination / fs::u8path(entry->GetName().ToStdString());
+    const fs::path outPath = destination / PathUtils::PathFromUtf8(entry->GetName().ToStdString());
     std::error_code ec;
     fs::create_directories(outPath.parent_path(), ec);
 
@@ -409,7 +410,7 @@ bool ExportFixturesBundle(
   if (!error.empty())
     return false;
 
-  return WriteBundle(fs::u8path(outputZipPath), "fixtures", entries, assets, error);
+  return WriteBundle(PathUtils::PathFromUtf8(outputZipPath), "fixtures", entries, assets, error);
 }
 
 bool ExportTrussesBundle(
@@ -420,13 +421,13 @@ bool ExportTrussesBundle(
   if (!error.empty())
     return false;
 
-  return WriteBundle(fs::u8path(outputZipPath), "trusses", entries, assets, error);
+  return WriteBundle(PathUtils::PathFromUtf8(outputZipPath), "trusses", entries, assets, error);
 }
 
 PreparedImport PrepareBundleImport(const std::string &importPath, Type expectedType) {
   PreparedImport result;
 
-  const fs::path path = fs::u8path(importPath);
+  const fs::path path = PathUtils::PathFromUtf8(importPath);
   if (!fs::exists(path))
     return result;
 
@@ -497,7 +498,7 @@ PreparedImport PrepareBundleImport(const std::string &importPath, Type expectedT
     return result;
   }
 
-  const fs::path libraryDir = fs::u8path(ProjectUtils::GetWritableLibraryPath(expectedTypeText));
+  const fs::path libraryDir = PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath(expectedTypeText));
   std::error_code ec;
   fs::create_directories(libraryDir, ec);
 
@@ -514,7 +515,7 @@ PreparedImport PrepareBundleImport(const std::string &importPath, Type expectedT
 
     const std::string archivePath = assetJson["path"].get<std::string>();
     const std::string expectedChecksum = assetJson["checksum"].get<std::string>();
-    const fs::path extractedPath = stagingDir / fs::u8path(archivePath);
+    const fs::path extractedPath = stagingDir / PathUtils::PathFromUtf8(archivePath);
     if (!fs::exists(extractedPath)) {
       result.errors.push_back("Bundle asset not found: " + archivePath);
       continue;

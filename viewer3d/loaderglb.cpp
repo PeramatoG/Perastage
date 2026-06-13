@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "loaderglb.h"
+#include "filesystem_path_utils.h"
 #include "consolepanel.h"
 #include "json.hpp"
 #include "matrixutils.h"
@@ -407,7 +408,7 @@ bool LoadGLB(const std::string& path, Mesh& outMesh, std::string* error)
                 if (!wxImg.LoadFile(stream, resolveBitmapType(image)))
                     return false;
             } else {
-                const fs::path uriPath = glbDir / fs::u8path(uri);
+                const fs::path uriPath = glbDir / PathUtils::PathFromUtf8(uri);
                 if (!wxImg.LoadFile(wxString::FromUTF8(uriPath.string())))
                     return false;
             }

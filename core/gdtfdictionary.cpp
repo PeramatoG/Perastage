@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "gdtfdictionary.h"
+#include "filesystem_path_utils.h"
 #include "configmanager.h"
 #include "dictionary_json_contract.h"
 #include "file_import_utils.h"
@@ -67,7 +68,7 @@ fs::path ResolveConfiguredDictionaryPath(const fs::path &defaultPath,
   if (trimmedPath.empty())
     return defaultPath;
 
-  fs::path configuredPath = fs::u8path(trimmedPath);
+  fs::path configuredPath = PathUtils::PathFromUtf8(trimmedPath);
   if (configuredPath.is_relative()) {
     configuredPath = defaultPath.parent_path() / configuredPath;
   }
@@ -108,8 +109,8 @@ bool PathsMatchForDictionaryEntries(const std::string &lhs,
                                     const std::string &rhs) {
   if (lhs.empty() || rhs.empty())
     return false;
-  const fs::path leftPath = fs::u8path(lhs).lexically_normal();
-  const fs::path rightPath = fs::u8path(rhs).lexically_normal();
+  const fs::path leftPath = PathUtils::PathFromUtf8(lhs).lexically_normal();
+  const fs::path rightPath = PathUtils::PathFromUtf8(rhs).lexically_normal();
   if (leftPath == rightPath)
     return true;
 
@@ -121,8 +122,8 @@ bool PathsMatchForDictionaryEntries(const std::string &lhs,
 bool PathsShareFileName(const std::string &lhs, const std::string &rhs) {
   if (lhs.empty() || rhs.empty())
     return false;
-  const fs::path leftPath = fs::u8path(lhs);
-  const fs::path rightPath = fs::u8path(rhs);
+  const fs::path leftPath = PathUtils::PathFromUtf8(lhs);
+  const fs::path rightPath = PathUtils::PathFromUtf8(rhs);
   if (leftPath.filename().empty() || rightPath.filename().empty())
     return false;
   return leftPath.filename() == rightPath.filename();
@@ -224,7 +225,7 @@ bool IsDummy1ChFallbackType(const std::string &type) {
 bool IsDummy1ChFallbackPath(const std::string &gdtfPath) {
   if (gdtfPath.empty())
     return false;
-  const std::string fileName = fs::u8path(gdtfPath).filename().string();
+  const std::string fileName = PathUtils::PathFromUtf8(gdtfPath).filename().string();
   return NormalizeAsciiKey(fileName) == "dummy1ch.gdtf";
 }
 
@@ -372,7 +373,7 @@ bool ApplyCategoryUpdateForFile(
 }
 
 fs::path GetUserDictFile() {
-  fs::path dir = fs::u8path(ProjectUtils::GetWritableLibraryPath("fixtures"));
+  fs::path dir = PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("fixtures"));
   if (dir.empty())
     return {};
   std::error_code ec;
@@ -435,7 +436,7 @@ bool MergeSeedEntriesIntoUserDictionary(
 
 fs::path ResolveImportedPath(const fs::path &jsonFile,
                              const std::string &rawPathText) {
-  const fs::path parsedPath = fs::u8path(rawPathText);
+  const fs::path parsedPath = PathUtils::PathFromUtf8(rawPathText);
   if (parsedPath.is_absolute())
     return parsedPath;
 
@@ -490,7 +491,7 @@ LoadFromFile(const fs::path &file, std::string &error) {
     if (value.is_string()) {
       const std::string rawPath = value.get<std::string>();
       fs::path p = ResolveImportedPath(file, rawPath);
-      if (!fs::u8path(rawPath).is_absolute() && !fs::exists(p)) {
+      if (!PathUtils::PathFromUtf8(rawPath).is_absolute() && !fs::exists(p)) {
         std::cerr << "Warning: fixtures dictionary entry '" << entryKey
                   << "' references missing relative path '" << rawPath
                   << "' resolved from '" << file.string() << "'." << std::endl;
@@ -512,7 +513,7 @@ LoadFromFile(const fs::path &file, std::string &error) {
 
     if (!fname.empty()) {
       fs::path p = ResolveImportedPath(file, fname);
-      if (!fs::u8path(fname).is_absolute() && !fs::exists(p)) {
+      if (!PathUtils::PathFromUtf8(fname).is_absolute() && !fs::exists(p)) {
         std::cerr << "Warning: fixtures dictionary entry '" << entryKey
                   << "' references missing relative path '" << fname
                   << "' resolved from '" << file.string() << "'." << std::endl;
@@ -596,7 +597,7 @@ DictionaryImportSummary MergeDictionaryEntries(
     if (value.path.empty())
       continue;
     std::error_code ec;
-    if (fs::exists(fs::u8path(value.path), ec))
+    if (fs::exists(PathUtils::PathFromUtf8(value.path), ec))
       continue;
     ++summary.missing_files_count;
     if (summary.missing_file_examples.size() < kMaxMissingExamples)
@@ -796,7 +797,7 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
       continue;
     nlohmann::json obj;
     if (!entry.path.empty()) {
-      fs::path p = fs::u8path(entry.path);
+      fs::path p = PathUtils::PathFromUtf8(entry.path);
       const std::string fileName = p.filename().string();
       if (!fileName.empty())
         obj["file"] = fileName;
@@ -904,7 +905,7 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
     return;
   if (IsDummy1ChFallbackType(normalizedType) || IsDummy1ChFallbackPath(gdtfPath))
     return;
-  const fs::path src = fs::u8path(gdtfPath);
+  const fs::path src = PathUtils::PathFromUtf8(gdtfPath);
   if (!fs::exists(src))
     return;
   const fs::path file = GetConfiguredUserDictFile();
@@ -1051,7 +1052,7 @@ DictionaryImportSummary PreviewImportFromFile(const std::string &filePath,
   DictionaryImportSummary summary;
 
   std::string importError;
-  const fs::path importPath = fs::u8path(filePath);
+  const fs::path importPath = PathUtils::PathFromUtf8(filePath);
   auto importedOpt = LoadFromFile(importPath, importError);
   if (!importedOpt) {
     summary.errors.push_back("Failed to load import file: " + importError);
@@ -1074,7 +1075,7 @@ DictionaryImportSummary ApplyImportFromFile(const std::string &filePath,
   DictionaryImportSummary summary;
 
   std::string importError;
-  const fs::path importPath = fs::u8path(filePath);
+  const fs::path importPath = PathUtils::PathFromUtf8(filePath);
   auto importedOpt = LoadFromFile(importPath, importError);
   if (!importedOpt) {
     summary.errors.push_back("Failed to load import file: " + importError);

@@ -1,4 +1,5 @@
 #include "diagnostics/DiagnosticPaths.h"
+#include "filesystem_path_utils.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -31,31 +32,23 @@ std::string TimestampForFilename() {
   return stream.str();
 }
 
-// Converts UTF-8 text into a filesystem path without deprecated helpers.
-std::filesystem::path PathFromUtf8(const std::string &text) {
-  std::u8string u8Text;
-  u8Text.reserve(text.size());
-  for (const char ch : text)
-    u8Text.push_back(static_cast<char8_t>(static_cast<unsigned char>(ch)));
-  return std::filesystem::path(u8Text);
-}
 
 // Returns a home directory path from environment or platform user data.
 std::filesystem::path HomeDirectory() {
 #if defined(_WIN32)
   if (const char *userProfile = std::getenv("USERPROFILE")) {
     if (*userProfile)
-      return PathFromUtf8(userProfile);
+      return PathUtils::PathFromUtf8(userProfile);
   }
 #else
   if (const char *home = std::getenv("HOME")) {
     if (*home)
-      return PathFromUtf8(home);
+      return PathUtils::PathFromUtf8(home);
   }
 #ifdef __APPLE__
   if (const passwd *pw = getpwuid(getuid())) {
     if (pw->pw_dir && *pw->pw_dir)
-      return PathFromUtf8(pw->pw_dir);
+      return PathUtils::PathFromUtf8(pw->pw_dir);
   }
 #endif
 #endif
@@ -67,7 +60,7 @@ std::filesystem::path DiagnosticsBaseDirectory() {
 #if defined(_WIN32)
   if (const char *localAppData = std::getenv("LOCALAPPDATA")) {
     if (*localAppData)
-      return PathFromUtf8(localAppData) / "Perastage";
+      return PathUtils::PathFromUtf8(localAppData) / "Perastage";
   }
   return HomeDirectory() / "AppData" / "Local" / "Perastage";
 #elif defined(__APPLE__)
@@ -75,7 +68,7 @@ std::filesystem::path DiagnosticsBaseDirectory() {
 #else
   if (const char *xdgStateHome = std::getenv("XDG_STATE_HOME")) {
     if (*xdgStateHome)
-      return PathFromUtf8(xdgStateHome) / "perastage";
+      return PathUtils::PathFromUtf8(xdgStateHome) / "perastage";
   }
   return HomeDirectory() / ".local" / "state" / "perastage";
 #endif

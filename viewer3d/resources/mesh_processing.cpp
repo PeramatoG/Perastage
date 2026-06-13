@@ -1,4 +1,5 @@
 #include "mesh_processing.h"
+#include "filesystem_path_utils.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -70,7 +71,7 @@ std::string BuildCachePath(const std::string &sourcePath) {
 
 int64_t GetSourceTimestampNs(const std::string &sourcePath) {
   std::error_code ec;
-  const fs::file_time_type writeTime = fs::last_write_time(fs::u8path(sourcePath), ec);
+  const fs::file_time_type writeTime = fs::last_write_time(PathUtils::PathFromUtf8(sourcePath), ec);
   if (ec)
     return -1;
   return std::chrono::duration_cast<std::chrono::nanoseconds>(writeTime.time_since_epoch())

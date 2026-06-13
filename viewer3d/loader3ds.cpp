@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "loader3ds.h"
+#include "filesystem_path_utils.h"
 #include <fstream>
 #include <cstdint>
 #include <array>
@@ -142,7 +143,7 @@ static bool ResolveTexturePath(const fs::path& modelDir, const std::string& file
     if (filename.empty())
         return false;
 
-    fs::path texturePath = fs::u8path(filename);
+    fs::path texturePath = PathUtils::PathFromUtf8(filename);
     if (texturePath.is_absolute() && fs::exists(texturePath)) {
         outPath = texturePath;
         return true;
@@ -430,7 +431,7 @@ bool Load3DS(const std::string& path, Mesh& outMesh, bool applyObjectLocalTransf
     std::unordered_map<std::string, std::array<float, 3>> materials;
     FaceColorAccum colorAccum;
     std::string textureFilename;
-    const fs::path modelPath = fs::u8path(path);
+    const fs::path modelPath = PathUtils::PathFromUtf8(path);
     const fs::path modelDir = modelPath.has_parent_path() ? modelPath.parent_path() : fs::path();
 
     while(file.tellg() < rootEnd) {

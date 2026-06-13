@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvrimporter.h"
+#include "filesystem_path_utils.h"
 #include "configmanager.h"
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
 #include "credentialstore.h"
@@ -196,7 +197,7 @@ static std::string NormalizeGdtfLookupKey(const std::string &value) {
   if (normalized.empty())
     return normalized;
 
-  fs::path path = fs::u8path(normalized);
+  fs::path path = PathUtils::PathFromUtf8(normalized);
   std::string stem = Trim(path.stem().string());
   std::string ext = ToLowerAscii(path.extension().string());
   if (ext.empty())
@@ -319,10 +320,10 @@ static bool IsRenderableTrussGeometry(const std::string &path) {
 
 static fs::path ResolveSceneRelativePath(const std::string &basePath,
                                          const std::string &pathText) {
-  fs::path path = fs::u8path(pathText);
+  fs::path path = PathUtils::PathFromUtf8(pathText);
   if (path.is_absolute() || basePath.empty())
     return path;
-  return fs::u8path(basePath) / path;
+  return PathUtils::PathFromUtf8(basePath) / path;
 }
 
 // Compares path components using platform filesystem case-sensitivity rules.
@@ -377,7 +378,7 @@ static std::string ToSceneRelativePathIfPossible(const std::string &basePath,
 
   std::error_code ec;
   const fs::path base =
-      NormalizedAbsolutePathForImport(fs::u8path(basePath), ec);
+      NormalizedAbsolutePathForImport(PathUtils::PathFromUtf8(basePath), ec);
   if (ec)
     return ToString(candidatePath.u8string());
 
@@ -418,8 +419,8 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
     return {};
 
   fs::path candidate = baseDir.empty()
-                           ? fs::u8path(normalizedSpec)
-                           : fs::u8path(baseDir) / fs::u8path(normalizedSpec);
+                           ? PathUtils::PathFromUtf8(normalizedSpec)
+                           : PathUtils::PathFromUtf8(baseDir) / PathUtils::PathFromUtf8(normalizedSpec);
 
   std::error_code ec;
   const std::string candidateExt = ToLowerAscii(candidate.extension().string());
@@ -439,16 +440,16 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
   // Restricts fallback directory scans to the extracted MVR base directory on Windows.
   if (baseDir.empty())
     return ToString(candidate.u8string());
-  fs::path lookupDir = fs::u8path(baseDir);
+  fs::path lookupDir = PathUtils::PathFromUtf8(baseDir);
 #else
   fs::path lookupDir =
-      baseDir.empty() ? fs::current_path(ec) : fs::u8path(baseDir);
+      baseDir.empty() ? fs::current_path(ec) : PathUtils::PathFromUtf8(baseDir);
 #endif
   if (ec || !fs::exists(lookupDir, ec) || ec)
     return ToString(candidate.u8string());
 
   const std::string expectedStem =
-      ToLowerAscii(Trim(fs::u8path(normalizedSpec).filename().stem().string()));
+      ToLowerAscii(Trim(PathUtils::PathFromUtf8(normalizedSpec).filename().stem().string()));
   const std::string normalizedSpecKey = NormalizeGdtfLookupKey(normalizedSpec);
   for (const auto &entry : fs::directory_iterator(lookupDir, ec)) {
     if (ec)
@@ -1040,7 +1041,7 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
   fixtureUuidRemap.clear();
   importResult = MvrImportResult{};
   // Treat the incoming path as UTF-8 to preserve any non-ASCII characters
-  fs::path path = fs::u8path(filePath);
+  fs::path path = PathUtils::PathFromUtf8(filePath);
 
   std::string ext = path.extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(),
@@ -1154,7 +1155,7 @@ std::string MvrImporter::CreateTemporaryDirectory() {
     std::error_code ec;
     if (fs::create_directory(fullPath, ec) && !ec) {
       // Return the path encoded as UTF-8 so it can safely be converted back
-      // using fs::u8path or passed to wxWidgets APIs expecting UTF-8 strings.
+      // using PathUtils::PathFromUtf8 or passed to wxWidgets APIs expecting UTF-8 strings.
       return ToString(fullPath.u8string());
     }
   }
@@ -1180,7 +1181,7 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
   while ((entry.reset(zipStream.GetNextEntry())), entry) {
     // Extract entry names using UTF-8 to preserve special characters
     std::string entryName = entry->GetName().ToUTF8().data();
-    fs::path fullPath = fs::u8path(destDir) / fs::u8path(entryName);
+    fs::path fullPath = PathUtils::PathFromUtf8(destDir) / PathUtils::PathFromUtf8(entryName);
 
     if (entry->IsDir()) {
       std::string dirUtf8 = ToString(fullPath.u8string());
@@ -1206,8 +1207,8 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
       output = tryOpenOutput(fullPath);
 
     if (!output.is_open()) {
-      fs::path longDir = fs::u8path(destDir) / "_long";
-      std::string extension = fs::u8path(entryName).extension().string();
+      fs::path longDir = PathUtils::PathFromUtf8(destDir) / "_long";
+      std::string extension = PathUtils::PathFromUtf8(entryName).extension().string();
       std::string hashBase = std::to_string(std::hash<std::string>{}(normalizedEntryName));
       wxFileName::Mkdir(wxString::FromUTF8(ToString(longDir.u8string()).c_str()),
                         wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
@@ -1217,12 +1218,12 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
         if (suffix > 0)
           candidateName += "_" + std::to_string(suffix);
         candidateName += extension;
-        fs::path candidatePath = longDir / fs::u8path(candidateName);
+        fs::path candidatePath = longDir / PathUtils::PathFromUtf8(candidateName);
         output = tryOpenOutput(candidatePath);
         if (output.is_open()) {
           fullPath = candidatePath;
           pathRemap[normalizedEntryName] = ToString((fs::path("_long") /
-                                                     fs::u8path(candidateName))
+                                                     PathUtils::PathFromUtf8(candidateName))
                                                         .u8string());
           remapped = true;
         }
@@ -1307,7 +1308,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   MvrScene &scene = importResult.scene;
   scene.Clear();
-  scene.basePath = ToString(fs::u8path(sceneXmlPath).parent_path().u8string());
+  scene.basePath = ToString(PathUtils::PathFromUtf8(sceneXmlPath).parent_path().u8string());
 
   root->QueryIntAttribute("verMajor", &scene.versionMajor);
   root->QueryIntAttribute("verMinor", &scene.versionMinor);
@@ -1571,7 +1572,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     fileName = Trim(fileName);
     if (fileName.empty())
       return fileName;
-    return ToString(fs::u8path(fileName).u8string());
+    return ToString(PathUtils::PathFromUtf8(fileName).u8string());
   };
 
   auto normalizeAndResolveGeometryFileName = [&](std::string fileName) {
@@ -1584,7 +1585,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     std::string remapped = RemapArchivePathIfNeeded(normalized);
     if (mvr::ResolvePrimitiveTokenFromModelRef(remapped, primitiveToken))
       return primitiveToken;
-    fs::path remappedPath = fs::u8path(remapped);
+    fs::path remappedPath = PathUtils::PathFromUtf8(remapped);
     fs::path resolved = ResolveSceneRelativePath(scene.basePath, remapped);
     if (!remappedPath.has_extension()) {
       const std::array<std::string, 3> extensions = {".gltf", ".glb", ".3ds"};
@@ -1629,7 +1630,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     const std::string normalized = NormalizeArchivePathValue(spec);
     if (normalized.empty())
       return std::string{};
-    return ToSceneRelativePathIfPossible(scene.basePath, fs::u8path(resolveGdtfPathCached(normalized)));
+    return ToSceneRelativePathIfPossible(scene.basePath, PathUtils::PathFromUtf8(resolveGdtfPathCached(normalized)));
   };
 
   auto getGdtfModesCached = [&](const std::string &gdtfPath)
@@ -2270,8 +2271,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           if (typeIt != perastageTypeToGdtfPath.end()) {
             truss.perastageAuxGdtfArchivePath = typeIt->second;
             fs::path auxPath = scene.basePath.empty()
-                                   ? fs::u8path(typeIt->second)
-                                   : fs::u8path(scene.basePath) / fs::u8path(typeIt->second);
+                                   ? PathUtils::PathFromUtf8(typeIt->second)
+                                   : PathUtils::PathFromUtf8(scene.basePath) / PathUtils::PathFromUtf8(typeIt->second);
             Truss sidecar;
             if (LoadTrussDefinition(ToString(auxPath.u8string()), sidecar)) {
               if (truss.manufacturer.empty())
@@ -2356,7 +2357,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                                   ? support.gdtfSpec
                                                   : resolvedSupportGdtfPath;
           support.gdtfSpec = ToSceneRelativePathIfPossible(
-              scene.basePath, fs::u8path(supportGdtfPath));
+              scene.basePath, PathUtils::PathFromUtf8(supportGdtfPath));
         }
         support.gdtfMode = readText("GDTFMode");
         support.function = readText("Function");
@@ -3290,7 +3291,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 #ifdef NDEBUG
                       ProjectUtils::GetWritableLibraryPath("fixtures");
 #else
-                      (fs::u8path(
+                      (PathUtils::PathFromUtf8(
                            wxStandardPaths::Get().GetExecutablePath().ToStdString())
                            .parent_path() /
                        "library" / "fixtures")
@@ -3475,7 +3476,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 continue;
               f.gdtfSpec = selectedPathIt->second;
             f.gdtfSpec = ToSceneRelativePathIfPossible(
-                scene.basePath, fs::u8path(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
+                scene.basePath, PathUtils::PathFromUtf8(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
             std::string parsed =
                 Trim(GetGdtfFixtureName(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
             if (!parsed.empty())
@@ -3519,7 +3520,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     : -1;
             f.gdtfSpec = dictEntry->path;
             f.gdtfSpec = ToSceneRelativePathIfPossible(
-                scene.basePath, fs::u8path(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
+                scene.basePath, PathUtils::PathFromUtf8(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
             if (f.gdtfMode.empty())
               f.gdtfMode = dictEntry->mode;
             f.gdtfMode = resolveExistingGdtfModeCached(

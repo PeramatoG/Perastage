@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "LayoutImageResourceRegistry.h"
+#include "filesystem_path_utils.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -37,7 +38,7 @@ std::string Utf8StringFromPath(const fs::path &path) {
 
 // Reads the complete image file into memory so projects do not depend on the source file later.
 bool ReadFileBytes(const std::string &path, std::vector<std::uint8_t> &out) {
-  std::ifstream in(fs::u8path(path), std::ios::binary);
+  std::ifstream in(PathUtils::PathFromUtf8(path), std::ios::binary);
   if (!in.is_open())
     return false;
   out.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
@@ -46,7 +47,7 @@ bool ReadFileBytes(const std::string &path, std::vector<std::uint8_t> &out) {
 
 // Returns a lowercase extension while preserving common image format hints.
 std::string NormalizedExtension(const std::string &path) {
-  std::string ext = fs::u8path(path).extension().string();
+  std::string ext = PathUtils::PathFromUtf8(path).extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) {
     return static_cast<char>(std::tolower(ch));
   });

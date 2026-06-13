@@ -1,4 +1,5 @@
 #include "primitive_model_resources.h"
+#include "filesystem_path_utils.h"
 
 #include <algorithm>
 #include <cctype>
@@ -441,7 +442,7 @@ bool WriteGlb(const PrimitiveMeshData &mesh, const std::string &outputPath) {
   AppendBytes(glb, bin.data(), bin.size());
 
   std::error_code ec;
-  const fs::path output = fs::u8path(outputPath);
+  const fs::path output = PathUtils::PathFromUtf8(outputPath);
   if (output.has_parent_path())
     fs::create_directories(output.parent_path(), ec);
 

@@ -1,4 +1,5 @@
 #include "hoistpresetlibrary.h"
+#include "filesystem_path_utils.h"
 
 #include "projectutils.h"
 #include "support.h"
@@ -33,7 +34,7 @@ std::vector<HoistPreset> LoadPresets() {
   if (baseDir.empty())
     return presets;
 
-  const fs::path filePath = fs::u8path(baseDir) / "hoist_presets.json";
+  const fs::path filePath = PathUtils::PathFromUtf8(baseDir) / "hoist_presets.json";
   if (!fs::exists(filePath))
     return presets;
 

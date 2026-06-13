@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "trussloader.h"
+#include "filesystem_path_utils.h"
 
 #include "truss_gdtf_builder.h"
 #include "logger.h"
@@ -53,7 +54,7 @@ static fs::path FromUtf8String(const std::string &text) {
   const char8_t *begin = reinterpret_cast<const char8_t *>(text.data());
   return fs::path(std::u8string(begin, begin + text.size()));
 #else
-  return fs::u8path(text);
+  return PathUtils::PathFromUtf8(text);
 #endif
 }
 

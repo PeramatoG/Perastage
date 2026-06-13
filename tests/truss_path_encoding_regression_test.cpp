@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include <cassert>
+#include "filesystem_path_utils.h"
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -81,7 +82,7 @@ bool WriteArchive(const fs::path &archivePath) {
 void RunPathCase(const fs::path &sourceDir, const std::string &modelName,
                  const std::string &fileName) {
   fs::create_directories(sourceDir);
-  const fs::path archivePath = sourceDir / fs::u8path(fileName);
+  const fs::path archivePath = sourceDir / PathUtils::PathFromUtf8(fileName);
   assert(WriteArchive(archivePath));
 
   TrussDictionary::Update(modelName, ToUtf8String(archivePath));
@@ -91,8 +92,8 @@ void RunPathCase(const fs::path &sourceDir, const std::string &modelName,
   Truss truss;
   assert(LoadTrussDefinition(*storedPath, truss));
   assert(!truss.symbolFile.empty());
-  assert(fs::exists(fs::u8path(truss.symbolFile)));
-  assert(fs::path(fs::u8path(truss.symbolFile)).filename() == "main.svg");
+  assert(fs::exists(PathUtils::PathFromUtf8(truss.symbolFile)));
+  assert(fs::path(PathUtils::PathFromUtf8(truss.symbolFile)).filename() == "main.svg");
   assert(truss.symbolFile != *storedPath);
 }
 
@@ -103,17 +104,17 @@ int main() {
   assert(initializer.IsOk());
 
   const fs::path tempRoot =
-      fs::temp_directory_path() / fs::u8path("perastage_truss_diccionario_ñ");
+      fs::temp_directory_path() / PathUtils::PathFromUtf8("perastage_truss_diccionario_ñ");
   std::error_code ec;
   fs::remove_all(tempRoot, ec);
   fs::create_directories(tempRoot);
 
-  const fs::path libraryRoot = tempRoot / fs::u8path("librería prueba");
+  const fs::path libraryRoot = tempRoot / PathUtils::PathFromUtf8("librería prueba");
   SetLibraryPathEnv(ToUtf8String(libraryRoot));
 
-  RunPathCase(tempRoot / fs::u8path("origen ñ"), "FK40Q-Unicode",
+  RunPathCase(tempRoot / PathUtils::PathFromUtf8("origen ñ"), "FK40Q-Unicode",
               "Tramo_áéíóú.gdtf");
-  RunPathCase(tempRoot / fs::u8path("source with spaces"), "FK40Q-Spaces",
+  RunPathCase(tempRoot / PathUtils::PathFromUtf8("source with spaces"), "FK40Q-Spaces",
               "FK40Q H-300.gdtf");
 
   TrussDictionary::Save({});

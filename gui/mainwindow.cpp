@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "filesystem_path_utils.h"
 #include "diagnostics/DiagnosticLogger.h"
 
 #include <algorithm>
@@ -937,7 +938,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
   namespace fs = std::filesystem;
 
   std::error_code ec;
-  const fs::path projectPath = fs::u8path(path);
+  const fs::path projectPath = PathUtils::PathFromUtf8(path);
   if (!fs::is_regular_file(projectPath, ec)) {
     ProjectUtils::SaveLastProjectPath("");
     ResetProject(true);

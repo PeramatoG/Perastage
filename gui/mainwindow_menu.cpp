@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "about_dialog.h"
+#include "filesystem_path_utils.h"
 #include "mainwindow.h"
 #include "mainwindow/controllers/mainwindow_io_controller.h"
 #include "mainwindow_view_controller.h"
@@ -569,7 +570,7 @@ void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
   }
 
   const std::filesystem::path libraryRoot =
-      std::filesystem::u8path(fixturesPath).parent_path();
+      PathUtils::PathFromUtf8(fixturesPath).parent_path();
   const std::u8string folderPathUtf8 = libraryRoot.u8string();
   const std::string folderPathBytes(folderPathUtf8.begin(), folderPathUtf8.end());
   const wxString folderPath = wxString::FromUTF8(folderPathBytes.c_str());
@@ -1336,7 +1337,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
 
   Truss baseTruss;
   namespace fs = std::filesystem;
-  fs::path selectedTrussPath = fs::u8path(path);
+  fs::path selectedTrussPath = PathUtils::PathFromUtf8(path);
   std::string selectedExtension = selectedTrussPath.extension().string();
   std::transform(selectedExtension.begin(), selectedExtension.end(),
                  selectedExtension.begin(), [](unsigned char c) {
@@ -1427,7 +1428,7 @@ std::string NormalizeImportedObjectModelPathToGlb(const std::string &selectedPat
                                                   const std::string &sceneBasePath,
                                                   std::string &consoleError) {
   namespace fs = std::filesystem;
-  fs::path sourcePath = fs::u8path(selectedPath);
+  fs::path sourcePath = PathUtils::PathFromUtf8(selectedPath);
   std::string ext = sourcePath.extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
     return static_cast<char>(std::tolower(c));
@@ -1458,7 +1459,7 @@ std::string NormalizeImportedObjectModelPathToGlb(const std::string &selectedPat
 
   if (!sceneBasePath.empty()) {
     const fs::path absTarget = fs::weakly_canonical(targetPath, ec);
-    const fs::path absBase = fs::weakly_canonical(fs::u8path(sceneBasePath), ec);
+    const fs::path absBase = fs::weakly_canonical(PathUtils::PathFromUtf8(sceneBasePath), ec);
     if (!ec && !absTarget.empty() && !absBase.empty() &&
         absTarget.string().rfind(absBase.string(), 0) == 0) {
       return fs::relative(absTarget, absBase, ec).string();
