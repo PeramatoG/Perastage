@@ -1167,7 +1167,7 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
       }
       part = normalizeFixtureToken(part);
       if (part.empty())
-        continue;
+        return;
 
       auto &bucket = fixturesByHang[hang];
       if (bucket.empty())
@@ -1945,7 +1945,7 @@ bool RiderImporter::ImportText(const std::string &text,
                                                 : "pos " + currentHang;
           screenObjectRequests.push_back(std::move(request));
         }
-        continue;
+        return;
       }
       int &counter = nameCounters[part];
       for (int i = 0; i < quantity; ++i) {
