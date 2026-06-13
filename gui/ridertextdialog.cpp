@@ -157,10 +157,17 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   CentreOnScreen();
 }
 
+// Returns the UTF-8 rider text selected for scene creation.
 const std::string &RiderTextDialog::GetRiderTextUtf8() const {
   return selectedRiderTextUtf8;
 }
 
+// Returns whether the current editor text already contains the filter preview.
+bool RiderTextDialog::IsCurrentTextFilteredPreview() const {
+  return currentTextIsFilteredPreview;
+}
+
+// Returns the title of the loaded source file when the dialog uses a file.
 wxString RiderTextDialog::GetLoadedFileTitle() const {
   if (!sourceLoadedFromFile)
     return wxEmptyString;
@@ -182,6 +189,7 @@ bool RiderTextDialog::TryGetCurrentText(std::string &outText) const {
   return true;
 }
 
+// Loads rider text from a selected TXT or PDF file into the editor.
 void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("misc"));
@@ -238,9 +246,11 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   if (sourceText)
     sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
   textCtrl->ChangeValue(loadedText);
+  currentTextIsFilteredPreview = false;
   autocompleteProvider.RefreshDynamicTerms();
 }
 
+// Loads the built-in rider example into the editor.
 void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
   const wxString exampleText =
       "LX1 \n"
@@ -294,8 +304,10 @@ void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
   if (sourceText)
     sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
   autocompleteProvider.RefreshDynamicTerms();
+  currentTextIsFilteredPreview = false;
 }
 
+// Replaces the editor content with the fixture filter preview.
 void RiderTextDialog::OnApplyFilter(wxCommandEvent &WXUNUSED(event)) {
   std::string text;
   if (!TryGetCurrentText(text) || text.empty()) {
@@ -320,6 +332,7 @@ void RiderTextDialog::OnApplyFilter(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
   textCtrl->ChangeValue(filteredText);
+  currentTextIsFilteredPreview = true;
   autocompleteProvider.RefreshDynamicTerms();
 }
 
@@ -333,7 +346,9 @@ void RiderTextDialog::OnApply(wxCommandEvent &WXUNUSED(event)) {
   EndModal(wxID_OK);
 }
 
+// Handles manual text edits and schedules autocomplete updates.
 void RiderTextDialog::OnTextChanged(wxCommandEvent &event) {
+  currentTextIsFilteredPreview = false;
   if (!suppressAutocompleteTextEvent)
     autocompleteTimer.StartOnce(35);
   event.Skip();
@@ -490,6 +505,7 @@ bool RiderTextDialog::IsSuggestionPopupVisible() const {
   return suggestionPopup && suggestionPopup->IsShown();
 }
 
+// Replaces the token at the insertion point with an accepted suggestion.
 void RiderTextDialog::ReplaceCurrentToken(const std::string &replacement) {
   if (!textCtrl)
     return;
@@ -539,6 +555,7 @@ void RiderTextDialog::ReplaceCurrentToken(const std::string &replacement) {
   }
 
   suppressAutocompleteTextEvent = true;
+  currentTextIsFilteredPreview = false;
   textCtrl->Replace(tokenStart, tokenEnd, replacementText);
   textCtrl->SetInsertionPoint(tokenStart + replacementText.length());
   suppressAutocompleteTextEvent = false;

@@ -43,5 +43,6 @@ public:
     static std::string BuildFixtureFilterPreview(const std::string& text);
     // Import from raw rider text. Returns true on success.
     static bool ImportText(const std::string& text,
-                           ProgressCallback progressCallback = {});
+                           ProgressCallback progressCallback = {},
+                           bool skipFixtureFilterPreview = false);
 };
