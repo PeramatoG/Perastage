@@ -1110,12 +1110,12 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     const auto nowForHover = std::chrono::steady_clock::now();
     const bool hoverCadenceDue = m_forceHoverQuery ||
         (nowForHover - m_lastHoverQueryTime) >= kHoverQueryInterval;
-    const bool hoverQueriesPausedForCamera =
-        m_cameraMoving || m_isInteracting || m_dragging;
-    if (hoverQueriesPausedForCamera && shouldUpdateHoverQuery)
-        viewer3d::diagnostics::Log("Hover picking paused during active camera navigation.");
+    const bool hoverQueriesPausedForInteraction =
+        m_cameraMoving || m_isInteracting || m_dragging || m_selectionDragArmed;
+    if (hoverQueriesPausedForInteraction && shouldUpdateHoverQuery)
+        viewer3d::diagnostics::Log("Hover picking paused during active interaction.");
     const bool shouldRunHoverQuery =
-        !hoverQueriesPausedForCamera &&
+        !hoverQueriesPausedForInteraction &&
         (!skipLabelWork || m_forceHoverQuery) &&
         shouldUpdateHoverQuery && hoverCadenceDue &&
         activeTable != HoverTargetTable::None &&
@@ -1183,46 +1183,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     if (oldHoverUuid != m_hoverUuid || oldHasHover != m_hasHover) {
         const auto highlightUpdateStart = std::chrono::steady_clock::now();
         highlightChanged = true;
-        ++m_highlightRevision;
-        m_highlightRefreshPending = true;
-        if (m_basePassCache)
-            m_basePassCache->Invalidate();
-        m_controller.SetHighlightUuid(m_hoverUuid);
-        const MvrScene& scene = ConfigManager::Get().GetScene();
-        const HoverTableHighlights relatedHighlights =
-            BuildHoverTableHighlights(scene, m_hoverUuid);
-        if (FixtureTablePanel::Instance()) {
-            const std::string primaryUuid =
-                scene.fixtures.find(m_hoverUuid) != scene.fixtures.end()
-                    ? std::string(m_hoverUuid)
-                    : std::string();
-            FixtureTablePanel::Instance()->HighlightFixture(
-                primaryUuid, relatedHighlights.fixtures);
-        }
-        if (TrussTablePanel::Instance()) {
-            const std::string primaryUuid =
-                scene.trusses.find(m_hoverUuid) != scene.trusses.end()
-                    ? std::string(m_hoverUuid)
-                    : std::string();
-            TrussTablePanel::Instance()->HighlightTruss(
-                primaryUuid, relatedHighlights.trusses);
-        }
-        if (HoistTablePanel::Instance()) {
-            const std::string primaryUuid =
-                scene.supports.find(m_hoverUuid) != scene.supports.end()
-                    ? std::string(m_hoverUuid)
-                    : std::string();
-            HoistTablePanel::Instance()->HighlightHoist(
-                primaryUuid, relatedHighlights.supports);
-        }
-        if (SceneObjectTablePanel::Instance()) {
-            const std::string primaryUuid =
-                scene.sceneObjects.find(m_hoverUuid) != scene.sceneObjects.end()
-                    ? std::string(m_hoverUuid)
-                    : std::string();
-            SceneObjectTablePanel::Instance()->HighlightObject(
-                primaryUuid, relatedHighlights.sceneObjects);
-        }
+        SynchronizeHoverHighlight();
         const auto highlightUpdateElapsedMs =
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - highlightUpdateStart)
@@ -1854,6 +1815,53 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
 }
 
 
+// Synchronizes the current hover highlight with the 3D controller and tables.
+void Viewer3DPanel::SynchronizeHoverHighlight()
+{
+    ++m_highlightRevision;
+    m_highlightRefreshPending = true;
+    if (m_basePassCache)
+        m_basePassCache->Invalidate();
+    m_controller.SetHighlightUuid(m_hoverUuid);
+
+    const MvrScene& scene = ConfigManager::Get().GetScene();
+    const HoverTableHighlights relatedHighlights =
+        BuildHoverTableHighlights(scene, m_hoverUuid);
+    if (FixtureTablePanel::Instance()) {
+        const std::string primaryUuid =
+            scene.fixtures.find(m_hoverUuid) != scene.fixtures.end()
+                ? std::string(m_hoverUuid)
+                : std::string();
+        FixtureTablePanel::Instance()->HighlightFixture(
+            primaryUuid, relatedHighlights.fixtures);
+    }
+    if (TrussTablePanel::Instance()) {
+        const std::string primaryUuid =
+            scene.trusses.find(m_hoverUuid) != scene.trusses.end()
+                ? std::string(m_hoverUuid)
+                : std::string();
+        TrussTablePanel::Instance()->HighlightTruss(
+            primaryUuid, relatedHighlights.trusses);
+    }
+    if (HoistTablePanel::Instance()) {
+        const std::string primaryUuid =
+            scene.supports.find(m_hoverUuid) != scene.supports.end()
+                ? std::string(m_hoverUuid)
+                : std::string();
+        HoistTablePanel::Instance()->HighlightHoist(
+            primaryUuid, relatedHighlights.supports);
+    }
+    if (SceneObjectTablePanel::Instance()) {
+        const std::string primaryUuid =
+            scene.sceneObjects.find(m_hoverUuid) != scene.sceneObjects.end()
+                ? std::string(m_hoverUuid)
+                : std::string();
+        SceneObjectTablePanel::Instance()->HighlightObject(
+            primaryUuid, relatedHighlights.sceneObjects);
+    }
+}
+
+
 // Clears every object-selection store and synchronizes table and viewport highlights.
 void Viewer3DPanel::ClearAllObjectSelections(const char* undoLabel)
 {
@@ -2279,6 +2287,7 @@ void Viewer3DPanel::ResetSelectionDragState()
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
 }
 
+// Computes the world-space center for the active selection drag target.
 std::array<float, 3> Viewer3DPanel::ComputeSelectionCenterMeters(
     const std::vector<std::string>& uuids, HoverTargetTable target) const
 {
@@ -2385,6 +2394,11 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
         for (float& component : m_selectionDragAnchorMeters)
             component /= static_cast<float>(dragTargets.size());
     }
+    m_hasHover = true;
+    m_hoverUuid = uuid;
+    m_hoverText.clear();
+    SynchronizeHoverHighlight();
+
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
     m_selectionDragArmed = true;
     m_selectionDragMoved = false;

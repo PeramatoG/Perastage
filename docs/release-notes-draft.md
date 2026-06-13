@@ -19,7 +19,7 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
-- Kept the 2D viewer highlight pinned to the dragged scene element during mouse-drag moves so hover feedback no longer jumps to other elements mid-drag.
+- Kept the 2D and 3D viewer highlights pinned to the dragged scene element during mouse-drag moves so hover feedback no longer jumps to other elements mid-drag.
 - Fixed quick-click fixture selection in the 3D view so hovered fixtures can still be selected when the precise release pick misses.
 - Fixed MVR fixture Color handling so visualization colors are no longer exported as gel/filter colors, while imported MVR Color values are preserved as fixture gel/filter data.
 - Restored edge-safe fixture visibility and made fixture hover picking use actual fixture geometry so highlights and labels target the visible fixture instead of broad bounds.
