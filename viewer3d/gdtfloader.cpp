@@ -203,10 +203,16 @@ struct GdtfCacheEntry
     size_t emptyGeometryLogCount = 0;
 };
 
+struct CachedGdtfHash
+{
+    uint64_t contentHash = 0;
+};
+
 static std::unordered_map<std::string, GdtfCacheEntry> g_gdtfCache;
 static std::unordered_map<std::string, fs::file_time_type> g_failedGdtfCache;
 static std::unordered_map<std::string, size_t> g_gdtfFailedAttempts;
 static std::unordered_map<std::string, std::string> g_gdtfFailureReasons;
+static std::unordered_map<std::string, CachedGdtfHash> g_gdtfHashCache;
 static std::recursive_mutex g_gdtfCacheMutex;
 
 struct MissingModelLog
@@ -1062,6 +1068,49 @@ static std::string ParseModelColor(tinyxml2::XMLElement* ft)
     return os.str();
 }
 
+// Builds the metadata key used to reuse hashes for unchanged GDTF archive files.
+static std::string BuildGdtfHashCacheKey(const fs::path& absPath,
+                                         const fs::file_time_type& timestamp,
+                                         uintmax_t fileSize)
+{
+    std::ostringstream oss;
+    oss << absPath.string() << '|'
+        << timestamp.time_since_epoch().count() << '|'
+        << fileSize;
+    return oss.str();
+}
+
+// Calculates the stable content hash for a GDTF archive file.
+static bool ComputeGdtfContentHash(const fs::path& absPath, uint64_t& hash)
+{
+    std::ifstream file(absPath, std::ios::binary);
+    if (!file.is_open())
+        return false;
+
+    hash = 14695981039346656037ull;
+    const uint64_t prime = 1099511628211ull;
+    char buffer[4096];
+    while (file.good()) {
+        file.read(buffer, sizeof(buffer));
+        std::streamsize read = file.gcount();
+        for (std::streamsize i = 0; i < read; ++i) {
+            hash ^= static_cast<unsigned char>(buffer[i]);
+            hash *= prime;
+        }
+    }
+    return true;
+}
+
+// Formats the stable in-process cache key used by parsed and failed GDTF caches.
+static std::string BuildGdtfStableCacheKey(const fs::path& absPath, uint64_t hash)
+{
+    std::ostringstream oss;
+    oss << absPath.filename().string() << '|'
+        << std::hex << std::setw(16) << std::setfill('0') << hash;
+    return oss.str();
+}
+
+// Returns a parsed GDTF cache entry, reusing content hashes when file metadata is unchanged.
 static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
                                      bool* cachedFailure = nullptr,
                                      bool* fromCache = nullptr,
@@ -1098,27 +1147,28 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
         return nullptr;
     }
 
-    std::ifstream file(absPath, std::ios::binary);
-    if (!file.is_open())
+    auto fileSize = fs::file_size(absPath, ec);
+    if (ec)
     {
-        setReason("Cannot open GDTF file for hashing");
+        setReason("Cannot read GDTF file size");
         return nullptr;
     }
-    uint64_t hash = 14695981039346656037ull;
-    const uint64_t prime = 1099511628211ull;
-    char buffer[4096];
-    while (file.good()) {
-        file.read(buffer, sizeof(buffer));
-        std::streamsize read = file.gcount();
-        for (std::streamsize i = 0; i < read; ++i) {
-            hash ^= static_cast<unsigned char>(buffer[i]);
-            hash *= prime;
+
+    uint64_t hash = 0;
+    const std::string hashCacheKey = BuildGdtfHashCacheKey(absPath, timestamp, fileSize);
+    auto hashIt = g_gdtfHashCache.find(hashCacheKey);
+    if (hashIt != g_gdtfHashCache.end()) {
+        hash = hashIt->second.contentHash;
+    } else {
+        if (!ComputeGdtfContentHash(absPath, hash)) {
+            setReason("Cannot open GDTF file for hashing");
+            return nullptr;
         }
+        // This metadata-keyed hash cache avoids rereading unchanged archives while retaining content-hash invalidation when file metadata changes.
+        g_gdtfHashCache[hashCacheKey] = CachedGdtfHash{hash};
     }
-    std::ostringstream oss;
-    oss << absPath.filename().string() << '|'
-        << std::hex << std::setw(16) << std::setfill('0') << hash;
-    std::string stableKey = oss.str();
+
+    std::string stableKey = BuildGdtfStableCacheKey(absPath, hash);
     if (outStableKey)
         *outStableKey = stableKey;
 
