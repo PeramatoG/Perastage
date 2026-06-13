@@ -188,6 +188,7 @@ int main() {
   f2.fixtureIdNumeric = 0;
   f2.unitNumber = 0;
   f2.address = "3.1";
+  f2.color = "#445566";
   scene.fixtures[f2.uuid] = f2;
 
   Fixture f3;
@@ -195,6 +196,7 @@ int main() {
   f3.instanceName = "Floor Wash";
   f3.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
   f3.address = "6.121";
+  f3.gelColor = "#00FF00";
   scene.fixtures[f3.uuid] = f3;
 
   Fixture fLong;
@@ -332,6 +334,8 @@ int main() {
   bool sawAddress3585 = false;
   bool sawAddress4097 = false;
   bool sawEditedFixtureId = false;
+  bool sawFixtureVisualizationColorWithoutMvrColor = false;
+  bool sawFixtureGelColor = false;
   bool sawNonNumericTrussNameFixtureIdConsistency = false;
   bool sawPrimitiveSphereWithIdentityGeometryMatrix = false;
   bool sawPrimitivePipeObjectMatrixUnbaked = false;
@@ -371,6 +375,18 @@ int main() {
             std::string fixtureUuid = uuidAttr;
             std::string fixtureNodeName = nameAttr;
             assert(fixtureNodeName == "Fixture_" + fixtureUuid);
+
+            auto *colorNode = cur->FirstChildElement("Color");
+            if (fixtureUuid == f2.uuid) {
+              assert(colorNode == nullptr);
+              sawFixtureVisualizationColorWithoutMvrColor = true;
+            }
+            if (fixtureUuid == f3.uuid) {
+              assert(colorNode != nullptr);
+              assert(colorNode->GetText() != nullptr);
+              assert(std::string(colorNode->GetText()) == "0.300000,0.600000,0.715200");
+              sawFixtureGelColor = true;
+            }
 
             if (fixtureUuid == fEditedId.uuid) {
               assert(fixtureIdText == "909");
@@ -567,6 +583,8 @@ int main() {
   assert(sawAddress3585);
   assert(sawAddress4097);
   assert(sawEditedFixtureId);
+  assert(sawFixtureVisualizationColorWithoutMvrColor);
+  assert(sawFixtureGelColor);
   assert(sawNonNumericTrussNameFixtureIdConsistency);
   assert(sawPrimitiveSphereWithIdentityGeometryMatrix);
   assert(sawPrimitivePipeObjectMatrixUnbaked);
@@ -777,6 +795,8 @@ int main() {
   assert(legacyFixture.position != "LX1");
   assert(CanonicalizeUuid(legacyFixture.position) == legacyFixture.position);
   assert(importedScene.positions.count(legacyFixture.position) == 1);
+  assert(legacyFixture.color.empty());
+  assert(!legacyFixture.gelColor.empty());
 
   fs::remove_all(tempDir);
   return 0;

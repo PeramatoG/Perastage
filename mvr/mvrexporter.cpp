@@ -1881,8 +1881,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     addNum("PowerConsumption", f.powerConsumptionW, "W");
     addNum("Weight", f.weightKg, "kg");
 
-    if (!f.color.empty() && f.color.size() == 7 && f.color[0] == '#') {
-      std::string cie = HexToCie(f.color);
+    if (!f.gelColor.empty() && f.gelColor.size() == 7 && f.gelColor[0] == '#') {
+      std::string cie = HexToCie(f.gelColor);
       tinyxml2::XMLElement *col = doc.NewElement("Color");
       col->SetText(cie.c_str());
       fe->InsertEndChild(col);

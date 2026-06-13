@@ -1981,7 +1981,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (tinyxml2::XMLElement *colorNode =
                 node->FirstChildElement("Color")) {
           if (const char *txt = colorNode->GetText())
-            fixture.color = CieToHex(txt);
+            fixture.gelColor = CieToHex(txt);
         }
         if (tinyxml2::XMLElement *pcNode =
                 node->FirstChildElement("PowerConsumption")) {

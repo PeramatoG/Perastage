@@ -37,6 +37,7 @@
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer3dcontroller.h"
 #include "gdtfloader.h"
+#include "fixture_mesh_color.h"
 #include <meshoptimizer.h>
 
 namespace {
@@ -765,7 +766,9 @@ void OpaqueFixturePass::Render(
         gdtfPathIt->second.attempted)
       gdtfPath = gdtfPathIt->second.resolvedPath;
 
-    float r = 1.0f, g = 1.0f, b = 1.0f;
+    float r = viewer3d::render::DEFAULT_MESH_COLOR[0];
+    float g = viewer3d::render::DEFAULT_MESH_COLOR[1];
+    float b = viewer3d::render::DEFAULT_MESH_COLOR[2];
     if (context.whiteModelStyle && !wireframe) {
       r = 0.95f;
       g = 0.95f;

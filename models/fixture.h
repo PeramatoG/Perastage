@@ -41,7 +41,8 @@ struct Fixture {
     bool hasLocalTransform = false; // True when localTransform was explicitly assigned
     std::string parentGroupUuid;    // Parent GroupObject UUID when grouped
 
-    std::string color;            // Hex RGB color (e.g., "#RRGGBB")
+    std::string color;            // Hex RGB visualization color (e.g., "#RRGGBB")
+    std::string gelColor;         // Optional physical gel/filter color exported as MVR Color
 
     std::string fixtureIdText;    // FixtureID (free-form string identifier from XML)
     int fixtureId = 0;            // Numeric FixtureID fallback used internally
@@ -60,6 +61,6 @@ struct Fixture {
     std::string categorySource;   // Category source (Manual, AutoFallback, ...)
     std::string categorySourceReason; // Why category fallback was applied
 
-    // Convenience method to access translation as array
+    // Returns the fixture translation as an array.
     std::array<float,3> GetPosition() const { return transform.o; }
 };
