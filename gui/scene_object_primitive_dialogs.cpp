@@ -8,16 +8,22 @@
 #include <cmath>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <wx/dialog.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
+#include <wx/button.h>
 #include <wx/stattext.h>
+#include <wx/textctrl.h>
 
 namespace scene_object_primitives {
 namespace {
 
 constexpr double kMetersToMillimeters = 1000.0;
+constexpr int kSaveDefaultButtonId = wxID_HIGHEST + 211;
+constexpr int kLoadDefaultButtonId = wxID_HIGHEST + 212;
+constexpr int kApplyPrimitiveButtonId = wxID_HIGHEST + 213;
 
 Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
@@ -43,194 +49,412 @@ wxString DistanceLabel(const char *baseLabel,
                           suffix.c_str());
 }
 
+wxTextCtrl *AddNameRow(wxWindow *parent, wxFlexGridSizer *grid,
+                       const std::string &name) {
+  grid->Add(new wxStaticText(parent, wxID_ANY, "Name:"), 0,
+            wxALIGN_CENTER_VERTICAL);
+  auto *ctrl = new wxTextCtrl(parent, wxID_ANY, wxString::FromUTF8(name));
+  grid->Add(ctrl, 1, wxEXPAND);
+  return ctrl;
+}
+
+wxSpinCtrlDouble *AddDistanceRow(wxWindow *parent, wxFlexGridSizer *grid,
+                                 const char *label, double meters,
+                                 Units::DistanceUnitSystem unitSystem) {
+  grid->Add(new wxStaticText(parent, wxID_ANY, DistanceLabel(label, unitSystem)),
+            0, wxALIGN_CENTER_VERTICAL);
+  auto *ctrl = new wxSpinCtrlDouble(parent, wxID_ANY);
+  ctrl->SetRange(MetersToDisplayDistance(0.01, unitSystem),
+                 MetersToDisplayDistance(1000.0, unitSystem));
+  ctrl->SetIncrement(0.1);
+  ctrl->SetDigits(2);
+  ctrl->SetValue(MetersToDisplayDistance(meters, unitSystem));
+  grid->Add(ctrl, 1, wxEXPAND);
+  return ctrl;
+}
+
+wxSpinCtrlDouble *AddNumberRow(wxWindow *parent, wxFlexGridSizer *grid,
+                               const char *label, double value, double minValue,
+                               double maxValue, double increment) {
+  grid->Add(new wxStaticText(parent, wxID_ANY, label), 0,
+            wxALIGN_CENTER_VERTICAL);
+  auto *ctrl = new wxSpinCtrlDouble(parent, wxID_ANY);
+  ctrl->SetRange(minValue, maxValue);
+  ctrl->SetIncrement(increment);
+  ctrl->SetDigits(2);
+  ctrl->SetValue(value);
+  grid->Add(ctrl, 1, wxEXPAND);
+  return ctrl;
+}
+
+wxSizer *CreatePrimitiveButtonSizer(wxWindow *parent, bool includeApply) {
+  auto *buttons = new wxBoxSizer(wxHORIZONTAL);
+  buttons->Add(new wxButton(parent, kSaveDefaultButtonId, "Save as Default"), 0,
+               wxRIGHT, 6);
+  buttons->Add(new wxButton(parent, kLoadDefaultButtonId, "Load Default"), 0,
+               wxRIGHT, 6);
+  buttons->AddStretchSpacer(1);
+  if (includeApply)
+    buttons->Add(new wxButton(parent, kApplyPrimitiveButtonId, "Apply"), 0,
+                 wxRIGHT, 6);
+  buttons->Add(new wxButton(parent, wxID_OK, "OK"), 0, wxRIGHT, 6);
+  buttons->Add(new wxButton(parent, wxID_CANCEL, "Cancel"), 0);
+  return buttons;
+}
+
+std::string ReadProjectString(const char *key, const std::string &fallback) {
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  return cfg.GetValue(key).value_or(fallback);
+}
+
+double ReadProjectDistance(const char *key, double fallback) {
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  auto value = cfg.GetValue(key);
+  if (!value)
+    return fallback;
+  try {
+    return std::max(std::stod(*value), 0.01);
+  } catch (...) {
+    return fallback;
+  }
+}
+
+void WriteProjectString(const char *key, const std::string &value) {
+  GetDefaultGuiConfigServices().LegacyConfigManager().SetValue(key, value);
+}
+
+void WriteProjectDistance(const char *key, double value) {
+  GetDefaultGuiConfigServices().LegacyConfigManager().SetValue(
+      key, std::to_string(std::max(value, 0.01)));
+}
+
+
 class SphereDialog : public wxDialog {
 public:
   SphereDialog(wxWindow *parent, const wxString &title,
-               const SphereRequest &initialRequest, bool includeQuantity)
-      : wxDialog(parent, wxID_ANY, title, wxDefaultPosition,
-                 wxDefaultSize,
+               const SphereRequest &initialRequest, bool includeQuantity,
+               PrimitivePlacementRequest *placement = nullptr,
+               SphereRequest *liveRequest = nullptr,
+               const PrimitiveApplyCallback &applyCallback = {})
+      : wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
-        includeQuantity_(includeQuantity),
-        unitSystem_(ResolveDistanceUnitSystem()) {
+        includeQuantity_(includeQuantity), placement_(placement),
+        liveRequest_(liveRequest), applyCallback_(applyCallback), unitSystem_(ResolveDistanceUnitSystem()) {
     auto *root = new wxBoxSizer(wxVERTICAL);
-    auto *grid = new wxFlexGridSizer(2, 2, 8, 8);
-
-    grid->Add(new wxStaticText(this, wxID_ANY, DistanceLabel("Radius", unitSystem_)),
-              0, wxALIGN_CENTER_VERTICAL);
-    radiusCtrl_ = new wxSpinCtrlDouble(this, wxID_ANY);
-    radiusCtrl_->SetRange(MetersToDisplayDistance(0.01, unitSystem_),
-                          MetersToDisplayDistance(1000.0, unitSystem_));
-    radiusCtrl_->SetIncrement(0.1);
-    radiusCtrl_->SetDigits(2);
-    radiusCtrl_->SetValue(
-        MetersToDisplayDistance(initialRequest.radiusMeters, unitSystem_));
-    grid->Add(radiusCtrl_, 1, wxEXPAND);
-
-    if (includeQuantity_) {
-      grid->Add(new wxStaticText(this, wxID_ANY, "Units:"),
-                0, wxALIGN_CENTER_VERTICAL);
-      quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
-      quantityCtrl_->SetRange(1, 1000);
-      quantityCtrl_->SetValue(initialRequest.quantity);
-      grid->Add(quantityCtrl_, 1, wxEXPAND);
-    }
-
+    auto *grid = new wxFlexGridSizer(includeQuantity ? 3 : 8, 2, 8, 8);
+    nameCtrl_ = AddNameRow(this, grid, initialRequest.name);
+    radiusCtrl_ = AddDistanceRow(this, grid, "Radius", initialRequest.radiusMeters,
+                                 unitSystem_);
+    AddQuantityAndPlacementRows(grid, initialRequest.quantity);
     grid->AddGrowableCol(1, 1);
     root->Add(grid, 1, wxALL | wxEXPAND, 12);
-    root->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL),
-              0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 12);
-
+    root->Add(CreatePrimitiveButtonSizer(this, !includeQuantity_), 0,
+              wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 12);
+    Bind(wxEVT_BUTTON, &SphereDialog::OnSaveDefault, this, kSaveDefaultButtonId);
+    Bind(wxEVT_BUTTON, &SphereDialog::OnLoadDefault, this, kLoadDefaultButtonId);
+    Bind(wxEVT_BUTTON, &SphereDialog::OnApply, this, kApplyPrimitiveButtonId);
     SetSizerAndFit(root);
   }
 
   SphereRequest Request() const {
     SphereRequest request;
+    request.name = nameCtrl_->GetValue().ToStdString();
+    if (request.name.empty())
+      request.name = "Sphere";
     request.radiusMeters = std::max(
         DisplayDistanceToMeters(radiusCtrl_->GetValue(), unitSystem_), 0.01);
     request.quantity = includeQuantity_ ? quantityCtrl_->GetValue() : 1;
     return request;
   }
 
+  PrimitivePlacementRequest Placement() const {
+    PrimitivePlacementRequest request;
+    if (!placement_)
+      return request;
+    request.positionXMeters = positionXCtrl_->GetValue();
+    request.positionYMeters = positionYCtrl_->GetValue();
+    request.positionZMeters = positionZCtrl_->GetValue();
+    request.rotationXDegrees = rotationXCtrl_->GetValue();
+    request.rotationYDegrees = rotationYCtrl_->GetValue();
+    request.rotationZDegrees = rotationZCtrl_->GetValue();
+    return request;
+  }
+
 private:
+  void AddQuantityAndPlacementRows(wxFlexGridSizer *grid, int quantity) {
+    if (includeQuantity_) {
+      grid->Add(new wxStaticText(this, wxID_ANY, "Units:"), 0, wxALIGN_CENTER_VERTICAL);
+      quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
+      quantityCtrl_->SetRange(1, 1000);
+      quantityCtrl_->SetValue(quantity);
+      grid->Add(quantityCtrl_, 1, wxEXPAND);
+      return;
+    }
+    positionXCtrl_ = AddNumberRow(this, grid, "Position X (m):", placement_->positionXMeters, -1000000.0, 1000000.0, 0.1);
+    positionYCtrl_ = AddNumberRow(this, grid, "Position Y (m):", placement_->positionYMeters, -1000000.0, 1000000.0, 0.1);
+    positionZCtrl_ = AddNumberRow(this, grid, "Position Z (m):", placement_->positionZMeters, -1000000.0, 1000000.0, 0.1);
+    rotationXCtrl_ = AddNumberRow(this, grid, "Rotation X (deg):", placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
+    rotationYCtrl_ = AddNumberRow(this, grid, "Rotation Y (deg):", placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
+    rotationZCtrl_ = AddNumberRow(this, grid, "Rotation Z (deg):", placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
+  }
+
+  void OnSaveDefault(wxCommandEvent &) {
+    const SphereRequest request = Request();
+    WriteProjectString("primitive_sphere_default_name", request.name);
+    WriteProjectDistance("primitive_sphere_default_radius_m", request.radiusMeters);
+  }
+
+  void OnLoadDefault(wxCommandEvent &) {
+    nameCtrl_->SetValue(wxString::FromUTF8(ReadProjectString("primitive_sphere_default_name", "Sphere")));
+    radiusCtrl_->SetValue(MetersToDisplayDistance(ReadProjectDistance("primitive_sphere_default_radius_m", 1.0), unitSystem_));
+  }
+
+  void OnApply(wxCommandEvent &) {
+    if (liveRequest_)
+      *liveRequest_ = Request();
+    if (placement_)
+      *placement_ = Placement();
+    if (applyCallback_)
+      applyCallback_();
+  }
+
+  wxTextCtrl *nameCtrl_ = nullptr;
   wxSpinCtrlDouble *radiusCtrl_ = nullptr;
   wxSpinCtrl *quantityCtrl_ = nullptr;
+  wxSpinCtrlDouble *positionXCtrl_ = nullptr;
+  wxSpinCtrlDouble *positionYCtrl_ = nullptr;
+  wxSpinCtrlDouble *positionZCtrl_ = nullptr;
+  wxSpinCtrlDouble *rotationXCtrl_ = nullptr;
+  wxSpinCtrlDouble *rotationYCtrl_ = nullptr;
+  wxSpinCtrlDouble *rotationZCtrl_ = nullptr;
   bool includeQuantity_ = true;
+  PrimitivePlacementRequest *placement_ = nullptr;
+  SphereRequest *liveRequest_ = nullptr;
+  PrimitiveApplyCallback applyCallback_;
   Units::DistanceUnitSystem unitSystem_ = Units::DistanceUnitSystem::Metric;
 };
 
 class CubeDialog : public wxDialog {
 public:
   CubeDialog(wxWindow *parent, const wxString &title,
-             const CubeRequest &initialRequest, bool includeQuantity)
-      : wxDialog(parent, wxID_ANY, title, wxDefaultPosition,
-                 wxDefaultSize,
+             const CubeRequest &initialRequest, bool includeQuantity,
+             PrimitivePlacementRequest *placement = nullptr,
+             CubeRequest *liveRequest = nullptr,
+             const PrimitiveApplyCallback &applyCallback = {})
+      : wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
-        includeQuantity_(includeQuantity),
-        unitSystem_(ResolveDistanceUnitSystem()) {
+        includeQuantity_(includeQuantity), placement_(placement),
+        liveRequest_(liveRequest), applyCallback_(applyCallback), unitSystem_(ResolveDistanceUnitSystem()) {
     auto *root = new wxBoxSizer(wxVERTICAL);
-    auto *grid = new wxFlexGridSizer(4, 2, 8, 8);
-
-    lengthCtrl_ = AddDimensionRow(grid, "Length", initialRequest.lengthMeters);
-    heightCtrl_ = AddDimensionRow(grid, "Height", initialRequest.heightMeters);
-    widthCtrl_ = AddDimensionRow(grid, "Width", initialRequest.widthMeters);
-
-    if (includeQuantity_) {
-      grid->Add(new wxStaticText(this, wxID_ANY, "Units:"),
-                0, wxALIGN_CENTER_VERTICAL);
-      quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
-      quantityCtrl_->SetRange(1, 1000);
-      quantityCtrl_->SetValue(initialRequest.quantity);
-      grid->Add(quantityCtrl_, 1, wxEXPAND);
-    }
-
+    auto *grid = new wxFlexGridSizer(includeQuantity ? 5 : 10, 2, 8, 8);
+    nameCtrl_ = AddNameRow(this, grid, initialRequest.name);
+    lengthCtrl_ = AddDistanceRow(this, grid, "Length", initialRequest.lengthMeters, unitSystem_);
+    heightCtrl_ = AddDistanceRow(this, grid, "Height", initialRequest.heightMeters, unitSystem_);
+    widthCtrl_ = AddDistanceRow(this, grid, "Width", initialRequest.widthMeters, unitSystem_);
+    AddQuantityAndPlacementRows(grid, initialRequest.quantity);
     grid->AddGrowableCol(1, 1);
     root->Add(grid, 1, wxALL | wxEXPAND, 12);
-    root->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL),
-              0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 12);
-
+    root->Add(CreatePrimitiveButtonSizer(this, !includeQuantity_), 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 12);
+    Bind(wxEVT_BUTTON, &CubeDialog::OnSaveDefault, this, kSaveDefaultButtonId);
+    Bind(wxEVT_BUTTON, &CubeDialog::OnLoadDefault, this, kLoadDefaultButtonId);
+    Bind(wxEVT_BUTTON, &CubeDialog::OnApply, this, kApplyPrimitiveButtonId);
     SetSizerAndFit(root);
   }
 
   CubeRequest Request() const {
     CubeRequest request;
-    request.lengthMeters = std::max(
-        DisplayDistanceToMeters(lengthCtrl_->GetValue(), unitSystem_), 0.01);
-    request.heightMeters = std::max(
-        DisplayDistanceToMeters(heightCtrl_->GetValue(), unitSystem_), 0.01);
-    request.widthMeters = std::max(
-        DisplayDistanceToMeters(widthCtrl_->GetValue(), unitSystem_), 0.01);
+    request.name = nameCtrl_->GetValue().ToStdString();
+    if (request.name.empty())
+      request.name = "Cube";
+    request.lengthMeters = std::max(DisplayDistanceToMeters(lengthCtrl_->GetValue(), unitSystem_), 0.01);
+    request.heightMeters = std::max(DisplayDistanceToMeters(heightCtrl_->GetValue(), unitSystem_), 0.01);
+    request.widthMeters = std::max(DisplayDistanceToMeters(widthCtrl_->GetValue(), unitSystem_), 0.01);
     request.quantity = includeQuantity_ ? quantityCtrl_->GetValue() : 1;
     return request;
   }
 
-private:
-  wxSpinCtrlDouble *AddDimensionRow(wxFlexGridSizer *grid, const char *label,
-                                    double defaultValue) {
-    grid->Add(new wxStaticText(this, wxID_ANY, DistanceLabel(label, unitSystem_)),
-              0, wxALIGN_CENTER_VERTICAL);
-    auto *ctrl = new wxSpinCtrlDouble(this, wxID_ANY);
-    ctrl->SetRange(MetersToDisplayDistance(0.01, unitSystem_),
-                   MetersToDisplayDistance(1000.0, unitSystem_));
-    ctrl->SetIncrement(0.1);
-    ctrl->SetDigits(2);
-    ctrl->SetValue(MetersToDisplayDistance(defaultValue, unitSystem_));
-    grid->Add(ctrl, 1, wxEXPAND);
-    return ctrl;
+  PrimitivePlacementRequest Placement() const {
+    PrimitivePlacementRequest request;
+    if (!placement_)
+      return request;
+    request.positionXMeters = positionXCtrl_->GetValue();
+    request.positionYMeters = positionYCtrl_->GetValue();
+    request.positionZMeters = positionZCtrl_->GetValue();
+    request.rotationXDegrees = rotationXCtrl_->GetValue();
+    request.rotationYDegrees = rotationYCtrl_->GetValue();
+    request.rotationZDegrees = rotationZCtrl_->GetValue();
+    return request;
   }
 
+private:
+  void AddQuantityAndPlacementRows(wxFlexGridSizer *grid, int quantity) {
+    if (includeQuantity_) {
+      grid->Add(new wxStaticText(this, wxID_ANY, "Units:"), 0, wxALIGN_CENTER_VERTICAL);
+      quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
+      quantityCtrl_->SetRange(1, 1000);
+      quantityCtrl_->SetValue(quantity);
+      grid->Add(quantityCtrl_, 1, wxEXPAND);
+      return;
+    }
+    positionXCtrl_ = AddNumberRow(this, grid, "Position X (m):", placement_->positionXMeters, -1000000.0, 1000000.0, 0.1);
+    positionYCtrl_ = AddNumberRow(this, grid, "Position Y (m):", placement_->positionYMeters, -1000000.0, 1000000.0, 0.1);
+    positionZCtrl_ = AddNumberRow(this, grid, "Position Z (m):", placement_->positionZMeters, -1000000.0, 1000000.0, 0.1);
+    rotationXCtrl_ = AddNumberRow(this, grid, "Rotation X (deg):", placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
+    rotationYCtrl_ = AddNumberRow(this, grid, "Rotation Y (deg):", placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
+    rotationZCtrl_ = AddNumberRow(this, grid, "Rotation Z (deg):", placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
+  }
+
+  void OnSaveDefault(wxCommandEvent &) {
+    const CubeRequest request = Request();
+    WriteProjectString("primitive_cube_default_name", request.name);
+    WriteProjectDistance("primitive_cube_default_length_m", request.lengthMeters);
+    WriteProjectDistance("primitive_cube_default_height_m", request.heightMeters);
+    WriteProjectDistance("primitive_cube_default_width_m", request.widthMeters);
+  }
+
+  void OnLoadDefault(wxCommandEvent &) {
+    nameCtrl_->SetValue(wxString::FromUTF8(ReadProjectString("primitive_cube_default_name", "Cube")));
+    lengthCtrl_->SetValue(MetersToDisplayDistance(ReadProjectDistance("primitive_cube_default_length_m", 1.0), unitSystem_));
+    heightCtrl_->SetValue(MetersToDisplayDistance(ReadProjectDistance("primitive_cube_default_height_m", 1.0), unitSystem_));
+    widthCtrl_->SetValue(MetersToDisplayDistance(ReadProjectDistance("primitive_cube_default_width_m", 1.0), unitSystem_));
+  }
+
+  void OnApply(wxCommandEvent &) {
+    if (liveRequest_)
+      *liveRequest_ = Request();
+    if (placement_)
+      *placement_ = Placement();
+    if (applyCallback_)
+      applyCallback_();
+  }
+
+  wxTextCtrl *nameCtrl_ = nullptr;
   wxSpinCtrlDouble *lengthCtrl_ = nullptr;
   wxSpinCtrlDouble *heightCtrl_ = nullptr;
   wxSpinCtrlDouble *widthCtrl_ = nullptr;
   wxSpinCtrl *quantityCtrl_ = nullptr;
+  wxSpinCtrlDouble *positionXCtrl_ = nullptr;
+  wxSpinCtrlDouble *positionYCtrl_ = nullptr;
+  wxSpinCtrlDouble *positionZCtrl_ = nullptr;
+  wxSpinCtrlDouble *rotationXCtrl_ = nullptr;
+  wxSpinCtrlDouble *rotationYCtrl_ = nullptr;
+  wxSpinCtrlDouble *rotationZCtrl_ = nullptr;
   bool includeQuantity_ = true;
+  PrimitivePlacementRequest *placement_ = nullptr;
+  CubeRequest *liveRequest_ = nullptr;
+  PrimitiveApplyCallback applyCallback_;
   Units::DistanceUnitSystem unitSystem_ = Units::DistanceUnitSystem::Metric;
 };
 
 class CylinderDialog : public wxDialog {
 public:
   CylinderDialog(wxWindow *parent, const wxString &title,
-                 const CylinderRequest &initialRequest, bool includeQuantity)
+                 const CylinderRequest &initialRequest, bool includeQuantity,
+                 PrimitivePlacementRequest *placement = nullptr,
+                 CylinderRequest *liveRequest = nullptr,
+                 const PrimitiveApplyCallback &applyCallback = {})
       : wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
-        includeQuantity_(includeQuantity),
-        unitSystem_(ResolveDistanceUnitSystem()) {
+        includeQuantity_(includeQuantity), placement_(placement),
+        liveRequest_(liveRequest), applyCallback_(applyCallback), unitSystem_(ResolveDistanceUnitSystem()) {
     auto *root = new wxBoxSizer(wxVERTICAL);
-    auto *grid = new wxFlexGridSizer(4, 2, 8, 8);
-
-    topRadiusCtrl_ =
-        AddDimensionRow(grid, "Top radius", initialRequest.topRadiusMeters);
-    bottomRadiusCtrl_ = AddDimensionRow(
-        grid, "Bottom radius", initialRequest.bottomRadiusMeters);
-    heightCtrl_ = AddDimensionRow(grid, "Height", initialRequest.heightMeters);
-
-    if (includeQuantity_) {
-      grid->Add(new wxStaticText(this, wxID_ANY, "Units:"),
-                0, wxALIGN_CENTER_VERTICAL);
-      quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
-      quantityCtrl_->SetRange(1, 1000);
-      quantityCtrl_->SetValue(initialRequest.quantity);
-      grid->Add(quantityCtrl_, 1, wxEXPAND);
-    }
-
+    auto *grid = new wxFlexGridSizer(includeQuantity ? 5 : 10, 2, 8, 8);
+    nameCtrl_ = AddNameRow(this, grid, initialRequest.name);
+    topRadiusCtrl_ = AddDistanceRow(this, grid, "Top radius", initialRequest.topRadiusMeters, unitSystem_);
+    bottomRadiusCtrl_ = AddDistanceRow(this, grid, "Bottom radius", initialRequest.bottomRadiusMeters, unitSystem_);
+    heightCtrl_ = AddDistanceRow(this, grid, "Height", initialRequest.heightMeters, unitSystem_);
+    AddQuantityAndPlacementRows(grid, initialRequest.quantity);
     grid->AddGrowableCol(1, 1);
     root->Add(grid, 1, wxALL | wxEXPAND, 12);
-    root->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL),
-              0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 12);
+    root->Add(CreatePrimitiveButtonSizer(this, !includeQuantity_), 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 12);
+    Bind(wxEVT_BUTTON, &CylinderDialog::OnSaveDefault, this, kSaveDefaultButtonId);
+    Bind(wxEVT_BUTTON, &CylinderDialog::OnLoadDefault, this, kLoadDefaultButtonId);
+    Bind(wxEVT_BUTTON, &CylinderDialog::OnApply, this, kApplyPrimitiveButtonId);
     SetSizerAndFit(root);
   }
 
   CylinderRequest Request() const {
     CylinderRequest request;
-    request.topRadiusMeters = std::max(
-        DisplayDistanceToMeters(topRadiusCtrl_->GetValue(), unitSystem_), 0.01);
-    request.bottomRadiusMeters = std::max(
-        DisplayDistanceToMeters(bottomRadiusCtrl_->GetValue(), unitSystem_), 0.01);
-    request.heightMeters = std::max(
-        DisplayDistanceToMeters(heightCtrl_->GetValue(), unitSystem_), 0.01);
+    request.name = nameCtrl_->GetValue().ToStdString();
+    if (request.name.empty())
+      request.name = "Cylinder";
+    request.topRadiusMeters = std::max(DisplayDistanceToMeters(topRadiusCtrl_->GetValue(), unitSystem_), 0.01);
+    request.bottomRadiusMeters = std::max(DisplayDistanceToMeters(bottomRadiusCtrl_->GetValue(), unitSystem_), 0.01);
+    request.heightMeters = std::max(DisplayDistanceToMeters(heightCtrl_->GetValue(), unitSystem_), 0.01);
     request.quantity = includeQuantity_ ? quantityCtrl_->GetValue() : 1;
     return request;
   }
 
-private:
-  wxSpinCtrlDouble *AddDimensionRow(wxFlexGridSizer *grid, const char *label,
-                                    double defaultValue) {
-    grid->Add(new wxStaticText(this, wxID_ANY, DistanceLabel(label, unitSystem_)),
-              0, wxALIGN_CENTER_VERTICAL);
-    auto *ctrl = new wxSpinCtrlDouble(this, wxID_ANY);
-    ctrl->SetRange(MetersToDisplayDistance(0.01, unitSystem_),
-                   MetersToDisplayDistance(1000.0, unitSystem_));
-    ctrl->SetIncrement(0.1);
-    ctrl->SetDigits(2);
-    ctrl->SetValue(MetersToDisplayDistance(defaultValue, unitSystem_));
-    grid->Add(ctrl, 1, wxEXPAND);
-    return ctrl;
+  PrimitivePlacementRequest Placement() const {
+    PrimitivePlacementRequest request;
+    if (!placement_)
+      return request;
+    request.positionXMeters = positionXCtrl_->GetValue();
+    request.positionYMeters = positionYCtrl_->GetValue();
+    request.positionZMeters = positionZCtrl_->GetValue();
+    request.rotationXDegrees = rotationXCtrl_->GetValue();
+    request.rotationYDegrees = rotationYCtrl_->GetValue();
+    request.rotationZDegrees = rotationZCtrl_->GetValue();
+    return request;
   }
 
+private:
+  void AddQuantityAndPlacementRows(wxFlexGridSizer *grid, int quantity) {
+    if (includeQuantity_) {
+      grid->Add(new wxStaticText(this, wxID_ANY, "Units:"), 0, wxALIGN_CENTER_VERTICAL);
+      quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
+      quantityCtrl_->SetRange(1, 1000);
+      quantityCtrl_->SetValue(quantity);
+      grid->Add(quantityCtrl_, 1, wxEXPAND);
+      return;
+    }
+    positionXCtrl_ = AddNumberRow(this, grid, "Position X (m):", placement_->positionXMeters, -1000000.0, 1000000.0, 0.1);
+    positionYCtrl_ = AddNumberRow(this, grid, "Position Y (m):", placement_->positionYMeters, -1000000.0, 1000000.0, 0.1);
+    positionZCtrl_ = AddNumberRow(this, grid, "Position Z (m):", placement_->positionZMeters, -1000000.0, 1000000.0, 0.1);
+    rotationXCtrl_ = AddNumberRow(this, grid, "Rotation X (deg):", placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
+    rotationYCtrl_ = AddNumberRow(this, grid, "Rotation Y (deg):", placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
+    rotationZCtrl_ = AddNumberRow(this, grid, "Rotation Z (deg):", placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
+  }
+
+  void OnSaveDefault(wxCommandEvent &) {
+    const CylinderRequest request = Request();
+    WriteProjectString("primitive_cylinder_default_name", request.name);
+    WriteProjectDistance("primitive_cylinder_default_top_radius_m", request.topRadiusMeters);
+    WriteProjectDistance("primitive_cylinder_default_bottom_radius_m", request.bottomRadiusMeters);
+    WriteProjectDistance("primitive_cylinder_default_height_m", request.heightMeters);
+  }
+
+  void OnLoadDefault(wxCommandEvent &) {
+    nameCtrl_->SetValue(wxString::FromUTF8(ReadProjectString("primitive_cylinder_default_name", "Cylinder")));
+    topRadiusCtrl_->SetValue(MetersToDisplayDistance(ReadProjectDistance("primitive_cylinder_default_top_radius_m", 0.5), unitSystem_));
+    bottomRadiusCtrl_->SetValue(MetersToDisplayDistance(ReadProjectDistance("primitive_cylinder_default_bottom_radius_m", 0.5), unitSystem_));
+    heightCtrl_->SetValue(MetersToDisplayDistance(ReadProjectDistance("primitive_cylinder_default_height_m", 1.0), unitSystem_));
+  }
+
+  void OnApply(wxCommandEvent &) {
+    if (liveRequest_)
+      *liveRequest_ = Request();
+    if (placement_)
+      *placement_ = Placement();
+    if (applyCallback_)
+      applyCallback_();
+  }
+
+  wxTextCtrl *nameCtrl_ = nullptr;
   wxSpinCtrlDouble *topRadiusCtrl_ = nullptr;
   wxSpinCtrlDouble *bottomRadiusCtrl_ = nullptr;
   wxSpinCtrlDouble *heightCtrl_ = nullptr;
   wxSpinCtrl *quantityCtrl_ = nullptr;
+  wxSpinCtrlDouble *positionXCtrl_ = nullptr;
+  wxSpinCtrlDouble *positionYCtrl_ = nullptr;
+  wxSpinCtrlDouble *positionZCtrl_ = nullptr;
+  wxSpinCtrlDouble *rotationXCtrl_ = nullptr;
+  wxSpinCtrlDouble *rotationYCtrl_ = nullptr;
+  wxSpinCtrlDouble *rotationZCtrl_ = nullptr;
   bool includeQuantity_ = true;
+  PrimitivePlacementRequest *placement_ = nullptr;
+  CylinderRequest *liveRequest_ = nullptr;
+  PrimitiveApplyCallback applyCallback_;
   Units::DistanceUnitSystem unitSystem_ = Units::DistanceUnitSystem::Metric;
 };
 
@@ -346,7 +570,10 @@ double ParseFloatTokenValue(std::string_view token, std::string_view key,
 } // namespace
 
 bool ShowSphereDialog(wxWindow *parent, SphereRequest &outRequest) {
-  SphereDialog dialog(parent, "Add Sphere", SphereRequest{}, true);
+  SphereRequest defaults;
+  defaults.name = ReadProjectString("primitive_sphere_default_name", "Sphere");
+  defaults.radiusMeters = ReadProjectDistance("primitive_sphere_default_radius_m", 1.0);
+  SphereDialog dialog(parent, "Add Sphere", defaults, true);
   if (dialog.ShowModal() != wxID_OK)
     return false;
 
@@ -355,7 +582,12 @@ bool ShowSphereDialog(wxWindow *parent, SphereRequest &outRequest) {
 }
 
 bool ShowCubeDialog(wxWindow *parent, CubeRequest &outRequest) {
-  CubeDialog dialog(parent, "Add Cube", CubeRequest{}, true);
+  CubeRequest defaults;
+  defaults.name = ReadProjectString("primitive_cube_default_name", "Cube");
+  defaults.lengthMeters = ReadProjectDistance("primitive_cube_default_length_m", 1.0);
+  defaults.heightMeters = ReadProjectDistance("primitive_cube_default_height_m", 1.0);
+  defaults.widthMeters = ReadProjectDistance("primitive_cube_default_width_m", 1.0);
+  CubeDialog dialog(parent, "Add Cube", defaults, true);
   if (dialog.ShowModal() != wxID_OK)
     return false;
 
@@ -364,7 +596,12 @@ bool ShowCubeDialog(wxWindow *parent, CubeRequest &outRequest) {
 }
 
 bool ShowCylinderDialog(wxWindow *parent, CylinderRequest &outRequest) {
-  CylinderDialog dialog(parent, "Add Cylinder", CylinderRequest{}, true);
+  CylinderRequest defaults;
+  defaults.name = ReadProjectString("primitive_cylinder_default_name", "Cylinder");
+  defaults.topRadiusMeters = ReadProjectDistance("primitive_cylinder_default_top_radius_m", 0.5);
+  defaults.bottomRadiusMeters = ReadProjectDistance("primitive_cylinder_default_bottom_radius_m", 0.5);
+  defaults.heightMeters = ReadProjectDistance("primitive_cylinder_default_height_m", 1.0);
+  CylinderDialog dialog(parent, "Add Cylinder", defaults, true);
   if (dialog.ShowModal() != wxID_OK)
     return false;
 
@@ -372,30 +609,42 @@ bool ShowCylinderDialog(wxWindow *parent, CylinderRequest &outRequest) {
   return true;
 }
 
-bool ShowSphereEditDialog(wxWindow *parent, SphereRequest &inOutRequest) {
-  SphereDialog dialog(parent, "Edit Sphere", inOutRequest, false);
+bool ShowSphereEditDialog(wxWindow *parent, SphereRequest &inOutRequest,
+                          PrimitivePlacementRequest &inOutPlacement,
+                          const PrimitiveApplyCallback &applyCallback) {
+  SphereDialog dialog(parent, "Edit Sphere", inOutRequest, false,
+                      &inOutPlacement, &inOutRequest, applyCallback);
   if (dialog.ShowModal() != wxID_OK)
     return false;
 
   inOutRequest = dialog.Request();
+  inOutPlacement = dialog.Placement();
   return true;
 }
 
-bool ShowCubeEditDialog(wxWindow *parent, CubeRequest &inOutRequest) {
-  CubeDialog dialog(parent, "Edit Cube", inOutRequest, false);
+bool ShowCubeEditDialog(wxWindow *parent, CubeRequest &inOutRequest,
+                        PrimitivePlacementRequest &inOutPlacement,
+                        const PrimitiveApplyCallback &applyCallback) {
+  CubeDialog dialog(parent, "Edit Cube", inOutRequest, false,
+                    &inOutPlacement, &inOutRequest, applyCallback);
   if (dialog.ShowModal() != wxID_OK)
     return false;
 
   inOutRequest = dialog.Request();
+  inOutPlacement = dialog.Placement();
   return true;
 }
 
-bool ShowCylinderEditDialog(wxWindow *parent, CylinderRequest &inOutRequest) {
-  CylinderDialog dialog(parent, "Edit Cylinder", inOutRequest, false);
+bool ShowCylinderEditDialog(wxWindow *parent, CylinderRequest &inOutRequest,
+                            PrimitivePlacementRequest &inOutPlacement,
+                            const PrimitiveApplyCallback &applyCallback) {
+  CylinderDialog dialog(parent, "Edit Cylinder", inOutRequest, false,
+                        &inOutPlacement, &inOutRequest, applyCallback);
   if (dialog.ShowModal() != wxID_OK)
     return false;
 
   inOutRequest = dialog.Request();
+  inOutPlacement = dialog.Placement();
   return true;
 }
 

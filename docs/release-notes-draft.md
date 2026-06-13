@@ -6,6 +6,7 @@ Changes since `v1.3.0`.
 
 ## New features
 
+- Expanded basic primitive creation and editing for spheres, cubes, and cylinders with editable names, project-persistent default dimensions, default load/save buttons, and richer edit controls for position and rotation.
 - Added Edit menu Group and Ungroup commands with `Ctrl+G` and `Ctrl+U` shortcuts for cross-table scene selections, preserving object placement and hang-position assignments while using MVR-compatible GroupObject hierarchy.
 - Added Help menu actions to open the local logs folder and export a manual diagnostic report for troubleshooting.
 - Added a startup update reminder checkbox so users can stop seeing repeated prompts for the same available version while keeping manual update checks available.
@@ -48,6 +49,7 @@ Changes since `v1.3.0`.
 
 ## Documentation
 
+- Documented basic geometry primitive creation defaults and editing controls.
 - Documented local diagnostics export and release symbol ZIP assets for troubleshooting and maintainer workflows.
 
 ## Internal changes
