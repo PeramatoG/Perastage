@@ -797,7 +797,7 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
         }
     };
 
-    // Persist row values only when layer or transform differs from scene data.
+    // Persist row values only when editable scene object data differs from scene data.
     for (size_t i = 0; i < count; ++i)
     {
         auto it = scene.sceneObjects.find(rowUuids[i]);
@@ -808,8 +808,11 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
         SceneObject next = old;
         wxVariant v;
 
+        table->GetValue(v, i, 0);
+        next.name = std::string(v.GetString().ToUTF8());
+
         table->GetValue(v, i, 1);
-        std::string layerStr = std::string(v.GetString().mb_str());
+        std::string layerStr = std::string(v.GetString().ToUTF8());
         if (layerStr.empty())
             next.layer.clear();
         else
@@ -885,7 +888,8 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
                  static_cast<float>(zMm)});
         }
 
-        const bool objectChanged = old.layer != next.layer ||
+        const bool objectChanged = old.name != next.name ||
+                                   old.layer != next.layer ||
                                    old.modelFile != next.modelFile ||
                                    transformChanged;
         if (!objectChanged)
