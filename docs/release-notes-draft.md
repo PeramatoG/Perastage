@@ -20,6 +20,7 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
+- Fixed scene object renaming so edited Data View names are preserved in the scene summary and MVR exports, supporting technical object-name workflows such as cable waypoints.
 - Kept the 2D and 3D viewer highlights pinned to the dragged scene element during mouse-drag moves so hover feedback no longer jumps to other elements mid-drag.
 - Fixed quick-click fixture selection in the 3D view so hovered fixtures can still be selected when the precise release pick misses.
 - Fixed MVR fixture Color handling so visualization colors are no longer exported as gel/filter colors, while imported MVR Color values are preserved as fixture gel/filter data.
