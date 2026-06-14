@@ -76,6 +76,7 @@ using json = nlohmann::json;
 #include "autopatcher.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "highlight_status_bar.h"
 #include "consolepanel.h"
 #include "credentialstore.h"
 #include "dictionaryeditdialog.h"
@@ -155,6 +156,28 @@ namespace {
 // Returns true when the status bar text corresponds to fixture symbol auto-update progress.
 bool IsFixtureSymbolStatusMessage(const wxString &statusText) {
   return statusText.StartsWith("Fixture symbol auto-update");
+}
+
+// Formats a world-space position for the status bar using the active distance units.
+wxString FormatWorldPositionStatusText(
+    const std::array<float, 3> &positionMeters,
+    Units::DistanceUnitSystem distanceUnitSystem) {
+  const std::string unitSuffix = Units::DistanceUnitSuffix(distanceUnitSystem);
+  std::ostringstream stream;
+  stream << "X: "
+         << Units::FormatDistanceFromMillimeters(
+                static_cast<double>(positionMeters[0]) * 1000.0,
+                distanceUnitSystem, Units::ValueFormatContext::Label)
+         << " " << unitSuffix << "  Y: "
+         << Units::FormatDistanceFromMillimeters(
+                static_cast<double>(positionMeters[1]) * 1000.0,
+                distanceUnitSystem, Units::ValueFormatContext::Label)
+         << " " << unitSuffix << "  Z: "
+         << Units::FormatDistanceFromMillimeters(
+                static_cast<double>(positionMeters[2]) * 1000.0,
+                distanceUnitSystem, Units::ValueFormatContext::Label)
+         << " " << unitSuffix;
+  return wxString::FromUTF8(stream.str());
 }
 
 constexpr const char *kActiveLayoutNameConfigKey = "layout_active_name";
@@ -522,10 +545,14 @@ void MainWindow::Ensure2DViewport() {
   std::weak_ptr<int> lifetimeToken = cursorStatusCallbackLifetimeToken;
   viewport2DPanel->SetCursorWorldPositionCallback(
       [this, lifetimeToken](
-          const std::optional<std::array<float, 3>> &positionMeters) {
+          const std::optional<std::array<float, 3>> &positionMeters,
+          bool highlighted) {
         if (lifetimeToken.expired() || !GetStatusBar())
           return;
-        UpdateCursorWorldPositionInStatusBar(positionMeters);
+        if (highlighted)
+          UpdateHighlightedWorldPositionInStatusBar(positionMeters);
+        else
+          UpdateCursorWorldPositionInStatusBar(positionMeters);
       });
   Viewer2DPanel::SetInstance(viewport2DPanel);
   viewport2DPanel->LoadViewFromConfig();
@@ -619,22 +646,8 @@ void MainWindow::UpdateCursorWorldPositionInStatusBar(
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
       cfg.GetValue("ui_distance_unit_system"));
-  const std::string unitSuffix = Units::DistanceUnitSuffix(distanceUnitSystem);
-  std::ostringstream stream;
-  stream << "X: "
-         << Units::FormatDistanceFromMillimeters(
-                static_cast<double>((*positionMeters)[0]) * 1000.0,
-                distanceUnitSystem, Units::ValueFormatContext::Label)
-         << " " << unitSuffix << "  Y: "
-         << Units::FormatDistanceFromMillimeters(
-                static_cast<double>((*positionMeters)[1]) * 1000.0,
-                distanceUnitSystem, Units::ValueFormatContext::Label)
-         << " " << unitSuffix << "  Z: "
-         << Units::FormatDistanceFromMillimeters(
-                static_cast<double>((*positionMeters)[2]) * 1000.0,
-                distanceUnitSystem, Units::ValueFormatContext::Label)
-         << " " << unitSuffix;
-  SetStatusText(wxString::FromUTF8(stream.str()), 1);
+  SetStatusText(FormatWorldPositionStatusText(*positionMeters, distanceUnitSystem),
+                1);
 }
 
 // Clears the world-position status text and restores the normal status-bar font color.
@@ -645,12 +658,14 @@ void MainWindow::ClearCursorWorldPositionInStatusBar() {
   const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
       cfg.GetValue("ui_distance_unit_system"));
   const std::string unitSuffix = Units::DistanceUnitSuffix(distanceUnitSystem);
-  GetStatusBar()->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
-  GetStatusBar()->Refresh();
-  SetStatusText(
-      wxString::Format("X: -- %s  Y: -- %s  Z: -- %s", unitSuffix.c_str(), unitSuffix.c_str(),
-                       unitSuffix.c_str()),
-      1);
+  const wxString text = wxString::Format(
+      "X: -- %s  Y: -- %s  Z: -- %s", unitSuffix.c_str(), unitSuffix.c_str(),
+      unitSuffix.c_str());
+  if (auto *statusBar = dynamic_cast<HighlightStatusBar *>(GetStatusBar())) {
+    statusBar->ClearHighlightedField(1, text);
+  } else {
+    SetStatusText(text, 1);
+  }
 }
 
 // Updates the status bar with a highlighted world-space position during drag interactions.
@@ -658,9 +673,21 @@ void MainWindow::UpdateHighlightedWorldPositionInStatusBar(
     const std::optional<std::array<float, 3>> &positionMeters) {
   if (!GetStatusBar())
     return;
-  GetStatusBar()->SetForegroundColour(wxColour(30, 115, 210));
-  GetStatusBar()->Refresh();
-  UpdateCursorWorldPositionInStatusBar(positionMeters);
+  if (!positionMeters.has_value()) {
+    ClearHighlightedWorldPositionInStatusBar();
+    return;
+  }
+
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
+      cfg.GetValue("ui_distance_unit_system"));
+  const wxString text =
+      FormatWorldPositionStatusText(*positionMeters, distanceUnitSystem);
+  if (auto *statusBar = dynamic_cast<HighlightStatusBar *>(GetStatusBar())) {
+    statusBar->SetHighlightedFieldText(1, text, wxColour(30, 115, 210));
+  } else {
+    SetStatusText(text, 1);
+  }
 }
 
 // Restores the status bar after a highlighted drag-position display ends.

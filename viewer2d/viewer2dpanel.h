@@ -144,7 +144,7 @@ public:
   std::optional<wxSize> GetLayoutEditOverlaySize() const;
 
   using CursorWorldPositionCallback =
-      std::function<void(const std::optional<std::array<float, 3>> &)>;
+      std::function<void(const std::optional<std::array<float, 3>> &, bool)>;
   void SetCursorWorldPositionCallback(CursorWorldPositionCallback callback);
   void SetRenderOverrides(
       const std::optional<Viewer2DRenderOverrides> &overrides);
@@ -194,6 +194,8 @@ private:
   std::optional<std::array<float, 3>>
   ComputeWorldPositionFromScreen(const wxPoint &screenPos) const;
   void NotifyCursorWorldPosition(const wxPoint &screenPos);
+  void NotifyHighlightedWorldPosition(
+      const std::optional<std::array<float, 3>> &positionMeters);
   void ClearCursorWorldPosition();
   void ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
   void FinalizeSelectionDrag();

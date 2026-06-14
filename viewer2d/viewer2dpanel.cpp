@@ -702,6 +702,7 @@ void Viewer2DPanel::SetLayoutEditOverlayScale(float scale) {
   RequestRepaint();
 }
 
+// Sets the callback used to publish cursor and highlighted drag positions.
 void Viewer2DPanel::SetCursorWorldPositionCallback(
     CursorWorldPositionCallback callback) {
   m_cursorWorldPositionCallback = std::move(callback);
@@ -763,16 +764,27 @@ Viewer2DPanel::ComputeWorldPositionFromScreen(const wxPoint &screenPos) const {
   return std::array<float, 3>{viewX, viewY, 0.0f};
 }
 
+// Notifies listeners about the current cursor world position.
 void Viewer2DPanel::NotifyCursorWorldPosition(const wxPoint &screenPos) {
   if (!m_cursorWorldPositionCallback)
     return;
-  m_cursorWorldPositionCallback(ComputeWorldPositionFromScreen(screenPos));
+  m_cursorWorldPositionCallback(ComputeWorldPositionFromScreen(screenPos),
+                                false);
 }
 
+// Notifies listeners about a highlighted world position during active dragging.
+void Viewer2DPanel::NotifyHighlightedWorldPosition(
+    const std::optional<std::array<float, 3>> &positionMeters) {
+  if (!m_cursorWorldPositionCallback)
+    return;
+  m_cursorWorldPositionCallback(positionMeters, true);
+}
+
+// Clears the cursor world position notification.
 void Viewer2DPanel::ClearCursorWorldPosition() {
   if (!m_cursorWorldPositionCallback)
     return;
-  m_cursorWorldPositionCallback(std::nullopt);
+  m_cursorWorldPositionCallback(std::nullopt, false);
 }
 
 std::optional<wxSize> Viewer2DPanel::GetLayoutEditOverlaySize() const {
@@ -1513,6 +1525,7 @@ void Viewer2DPanel::ApplySelectionDelta(
   selection.supports = m_dragSupportUuids;
   selection.sceneObjects = m_dragSceneObjectUuids;
   scene_grouping::TranslateSelection(cfg.GetScene(), selection, {dxMm, dyMm, dzMm});
+  NotifyHighlightedWorldPosition(ComputeSelectionDragCenterMeters());
   ScheduleDragTableUpdate();
 }
 
@@ -2638,6 +2651,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     m_dragSupportUuids.clear();
     m_dragSceneObjectUuids.clear();
     m_dragSelectionMoved = false;
+    ClearCursorWorldPosition();
   }
 
   if (!m_enableSelection) {
@@ -3012,6 +3026,7 @@ void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
   m_dragSelectionMoved = false;
   m_rectSelecting = false;
   m_rectSelectionAcrossAllTables = false;
+  ClearCursorWorldPosition();
 }
 
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
