@@ -1534,17 +1534,22 @@ std::optional<magnet_snap::SnapSource> Viewer2DPanel::BuildActiveMagnetSource() 
 }
 
 // Finds the current Magnet snap candidate for the active single-object drag.
-std::optional<magnet_snap::SnapResult> Viewer2DPanel::FindActiveMagnetSnap(
-    bool retainingExistingSnap) const {
+std::optional<magnet_snap::SnapResult> Viewer2DPanel::FindActiveMagnetSnap() const {
   auto source = BuildActiveMagnetSource();
   if (!source)
     return std::nullopt;
-  magnet_snap::SnapSettings settings;
-  settings.thresholdMm = retainingExistingSnap
-                             ? magnet_snap::kSnapRetainDistanceMm
-                             : magnet_snap::kDefaultSnapDistanceMm;
-  return magnet_snap::FindSnap(ConfigManager::Get().GetScene(), *source,
-                               settings);
+  return magnet_snap::FindSnap(ConfigManager::Get().GetScene(), *source);
+}
+
+// Restores the raw mouse-following transform before applying the next drag delta.
+void Viewer2DPanel::RestorePendingMagnetSnapPreview() {
+  if (!m_pendingMagnetSnap)
+    return;
+  magnet_snap::SnapResult inverse = *m_pendingMagnetSnap;
+  for (float &component : inverse.translationDeltaMm)
+    component = -component;
+  magnet_snap::ApplySnapTransform(ConfigManager::Get().GetScene(), inverse);
+  m_pendingMagnetSnap.reset();
 }
 
 // Commits deferred Magnet grouping after a successful truss snap.
@@ -1577,13 +1582,11 @@ void Viewer2DPanel::ApplySelectionDelta(
   selection.trusses = m_dragTrussUuids;
   selection.supports = m_dragSupportUuids;
   selection.sceneObjects = m_dragSceneObjectUuids;
+  RestorePendingMagnetSnapPreview();
   scene_grouping::TranslateSelection(cfg.GetScene(), selection, {dxMm, dyMm, dzMm});
-  const bool wasSnapped = m_pendingMagnetSnap.has_value();
-  if (auto snap = FindActiveMagnetSnap(wasSnapped)) {
+  if (auto snap = FindActiveMagnetSnap()) {
     magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap);
     m_pendingMagnetSnap = snap;
-  } else {
-    m_pendingMagnetSnap.reset();
   }
   NotifyHighlightedWorldPosition(ComputeSelectionDragCenterMeters());
   ScheduleDragTableUpdate();
