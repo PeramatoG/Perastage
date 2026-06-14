@@ -66,10 +66,9 @@ jobs:
             .vcpkg-cache/downloads
             .vcpkg-cache/installed
             .vcpkg-cache/packages
-          key: ${{ runner.os }}-macos-26-vcpkg-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/macos-installer.yml') }}
+          key: macos-26-xcode-26-v2-vcpkg-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/macos-installer.yml') }}
           restore-keys: |
-            ${{ runner.os }}-macos-26-vcpkg-arm64-osx-
-            ${{ runner.os }}-vcpkg-
+            macos-26-xcode-26-v2-vcpkg-arm64-osx-
 
       # ── 5. Prepare vcpkg cache folders ──────────────────────────────────────
       # These folders must exist before bootstrap because VCPKG_DOWNLOADS is
@@ -94,9 +93,53 @@ jobs:
 
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
 
-      # ── 7. Install vcpkg packages ───────────────────────────────────────────
+      # ── 7. Diagnose restored vcpkg SDK metadata ───────────────────────────────
+      - name: Diagnose restored vcpkg SDK metadata
+        run: |
+          set -euo pipefail
+          echo "xcode-select path:"
+          xcode-select -p
+          echo "Xcode version:"
+          xcodebuild -version
+          echo "Current macOS SDK path:"
+          xcrun --sdk macosx --show-sdk-path
+
+          for cache_dir in "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"; do
+            if [ -d "$cache_dir" ]; then
+              echo "Scanning $cache_dir for cached Xcode SDK paths..."
+              if ! grep -R -n -F "/Applications/Xcode_" "$cache_dir" 2>/dev/null; then
+                echo "No cached Xcode SDK paths found in $cache_dir."
+              fi
+            else
+              echo "$cache_dir does not exist; skipping SDK metadata scan."
+            fi
+          done
+
+      # ── 8. Install vcpkg packages ───────────────────────────────────────────
       - name: Install vcpkg packages
         run: |
+          set -euo pipefail
+          current_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
+          stale_sdk_paths="$(
+            for cache_dir in "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"; do
+              if [ -d "$cache_dir" ]; then
+                grep -R -h -o -E "/Applications/Xcode_[^[:space:]]*/SDKs/MacOSX\.sdk" "$cache_dir" 2>/dev/null || true
+              fi
+            done | sort -u | grep -F -v -x "$current_sdk_path" || true
+          )"
+
+          if [ -n "$stale_sdk_paths" ]; then
+            echo "Stale macOS SDK path metadata was found in the restored vcpkg cache."
+            echo "Current SDK path: $current_sdk_path"
+            echo "Stale SDK path(s):"
+            echo "$stale_sdk_paths"
+            echo "Deleting and recreating vcpkg installed and packages caches before rebuilding dependencies."
+            rm -rf "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"
+            mkdir -p "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"
+          else
+            echo "No stale macOS SDK path metadata found in the restored vcpkg cache."
+          fi
+
           "$VCPKG_ROOT/vcpkg" install \
             wxwidgets:$VCPKG_TRIPLET \
             tinyxml2:$VCPKG_TRIPLET \
@@ -111,17 +154,21 @@ jobs:
             --x-packages-root="$VCPKG_PACKAGES" \
             --downloads-root="$VCPKG_DOWNLOADS"
 
-      # ── 8. Configure CMake ──────────────────────────────────────────────────
+      # ── 9. Configure CMake ──────────────────────────────────────────────────
       - name: Configure CMake
         run: |
+          set -euo pipefail
+          rm -rf build
+          current_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_SYSROOT="$current_sdk_path" \
             -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -g" \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET="$VCPKG_TRIPLET" \
             -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"
 
-      # ── 9. Build project ────────────────────────────────────────────────────
+      # ── 10. Build project ───────────────────────────────────────────────────
       - name: Build project
         run: |
           set -o pipefail
@@ -140,6 +187,16 @@ jobs:
               tail -n 200 build/macos-build.log
             fi
             echo "::endgroup::"
+            echo "::group::Linker and SDK failure summary"
+            echo "Lines containing 'No rule to make target':"
+            grep -n -F "No rule to make target" build/macos-build.log || true
+            echo "Lines containing '/Applications/Xcode_':"
+            grep -n -F "/Applications/Xcode_" build/macos-build.log || true
+            echo "Lines containing 'libiconv.tbd':"
+            grep -n -F "libiconv.tbd" build/macos-build.log || true
+            echo "Last 120 lines of build log:"
+            tail -n 120 build/macos-build.log
+            echo "::endgroup::"
             exit "$build_status"
           fi
 
@@ -155,7 +212,7 @@ jobs:
             build/CMakeFiles/CMakeError.log
             .vcpkg-cache/**/*.log
 
-      # ── 10. Stage distribution folder ────────────────────────────────────────
+      # ── 11. Stage distribution folder ────────────────────────────────────────
       - name: Stage distribution folder
         run: |
           cmake --build build --config Release --target perastage_stage
@@ -187,7 +244,7 @@ jobs:
           name: Perastage-macos-symbols
           path: out/Perastage-*-macOS-symbols.zip
 
-      # ── 11. Validate and prepare staged macOS app bundle ─────────────────────
+      # ── 12. Validate and prepare staged macOS app bundle ─────────────────────
       - name: Validate staged app bundle
         run: |
           test -d out/install/Release/Perastage.app
@@ -257,14 +314,14 @@ jobs:
           done < <(otool -L "$BIN_PATH" | tail -n +2)
           test "$MISSING_DEPS" -eq 0
 
-      # ── 12. Upload staged build ─────────────────────────────────────────────
+      # ── 13. Upload staged build ─────────────────────────────────────────────
       - name: Upload staged distribution
         uses: actions/upload-artifact@v4
         with:
           name: Perastage-macos-staged
           path: out/install/Release
 
-      # ── 13. Build DMG package ───────────────────────────────────────────────
+      # ── 14. Build DMG package ───────────────────────────────────────────────
       - name: Build macOS DMG
         run: |
           APP_PATH="out/install/Release/Perastage.app"
@@ -287,7 +344,7 @@ jobs:
           rm -rf "$DMG_ROOT"
           find out/installer -name "*.dmg" -print
 
-      # ── 14. Validate generated DMG ───────────────────────────────────────────
+      # ── 15. Validate generated DMG ───────────────────────────────────────────
       - name: Validate generated DMG
         run: |
           DMG_FILE="$(find out/installer -name "*.dmg" -print -quit)"
@@ -313,7 +370,7 @@ jobs:
           plutil -lint "$MOUNT_DIR/Perastage.app/Contents/Info.plist"
           codesign --verify --deep --verbose=2 "$MOUNT_DIR/Perastage.app"
 
-      # ── 15. Collect DMG package ─────────────────────────────────────────────
+      # ── 16. Collect DMG package ─────────────────────────────────────────────
       - name: Collect macOS DMG
         run: |
           mkdir -p out/installer
@@ -326,7 +383,7 @@ jobs:
           xattr -c "$dmg_file" || true
           find out/installer -maxdepth 2 -name "*.dmg" -print
 
-      # ── 16. Upload DMG package ──────────────────────────────────────────────
+      # ── 17. Upload DMG package ──────────────────────────────────────────────
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
