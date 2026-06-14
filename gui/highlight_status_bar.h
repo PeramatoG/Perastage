@@ -1,7 +1,7 @@
 #pragma once
 
-#include <optional>
 #include <wx/colour.h>
+#include <wx/stattext.h>
 #include <wx/statusbr.h>
 
 class HighlightStatusBar : public wxStatusBar {
@@ -15,11 +15,11 @@ public:
 private:
   struct HighlightedField {
     int field = wxNOT_FOUND;
-    wxString text;
-    wxColour textColour;
   };
 
-  void OnPaint(wxPaintEvent &event);
+  void OnSize(wxSizeEvent &event);
+  void PositionHighlightLabel();
 
-  std::optional<HighlightedField> highlightedField_;
+  HighlightedField highlightedField_;
+  wxStaticText *highlightLabel_ = nullptr;
 };

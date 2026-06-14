@@ -1,67 +1,52 @@
 #include "highlight_status_bar.h"
 
-#include <wx/dcbuffer.h>
-#include <wx/settings.h>
-
-// Creates a status bar that can draw one highlighted field with custom text color.
+// Creates a status bar with a child label for transient highlighted field text.
 HighlightStatusBar::HighlightStatusBar(wxWindow *parent, wxWindowID id)
     : wxStatusBar(parent, id) {
-  SetBackgroundStyle(wxBG_STYLE_PAINT);
-  Bind(wxEVT_PAINT, &HighlightStatusBar::OnPaint, this);
+  highlightLabel_ = new wxStaticText(this, wxID_ANY, "");
+  highlightLabel_->Hide();
+  Bind(wxEVT_SIZE, &HighlightStatusBar::OnSize, this);
 }
 
-// Stores highlighted field text while keeping native field text available between paints.
+// Shows highlighted text in a child label positioned over the requested field.
 void HighlightStatusBar::SetHighlightedFieldText(int field, const wxString &text,
                                                  const wxColour &textColour) {
-  highlightedField_ = HighlightedField{field, text, textColour};
-  wxStatusBar::SetStatusText(text, field);
-  Refresh(false);
+  highlightedField_.field = field;
+  wxStatusBar::SetStatusText("", field);
+  highlightLabel_->SetLabel(text);
+  highlightLabel_->SetForegroundColour(textColour);
+  highlightLabel_->SetBackgroundColour(GetBackgroundColour());
+  PositionHighlightLabel();
+  highlightLabel_->Show();
+  highlightLabel_->Refresh();
 }
 
-// Restores a field to normal native status-bar rendering.
+// Restores normal native status-bar text and hides the highlighted child label.
 void HighlightStatusBar::ClearHighlightedField(int field, const wxString &text) {
-  if (highlightedField_ && highlightedField_->field == field)
-    highlightedField_.reset();
+  if (highlightedField_.field == field) {
+    highlightedField_.field = wxNOT_FOUND;
+    highlightLabel_->Hide();
+  }
   wxStatusBar::SetStatusText(text, field);
-  Refresh(false);
 }
 
-// Paints status-bar fields with optional highlighted text for one field.
-void HighlightStatusBar::OnPaint(wxPaintEvent &event) {
-  (void)event;
-  wxAutoBufferedPaintDC dc(this);
+// Repositions highlighted child text whenever the status bar is resized.
+void HighlightStatusBar::OnSize(wxSizeEvent &event) {
+  PositionHighlightLabel();
+  event.Skip();
+}
 
-  wxColour background = GetBackgroundColour();
-  if (!background.IsOk())
-    background = wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE);
-  dc.SetFont(GetFont());
+// Aligns the highlighted label with the active status-bar field rectangle.
+void HighlightStatusBar::PositionHighlightLabel() {
+  if (!highlightLabel_ || highlightedField_.field == wxNOT_FOUND)
+    return;
+
+  wxRect rect;
+  if (!GetFieldRect(highlightedField_.field, rect))
+    return;
 
   constexpr int kHorizontalPadding = 4;
-  dc.SetPen(wxPen(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNSHADOW)));
-  dc.SetBrush(wxBrush(background));
-  dc.DrawRectangle(GetClientRect());
-
-  const int fieldsCount = GetFieldsCount();
-  for (int field = 0; field < fieldsCount; ++field) {
-    wxRect rect;
-    if (!GetFieldRect(field, rect))
-      continue;
-
-    dc.SetPen(wxPen(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNSHADOW)));
-    dc.SetBrush(wxBrush(background));
-    dc.DrawRectangle(rect);
-
-    wxString text = GetStatusText(field);
-    wxColour textColour = GetForegroundColour();
-    if (!textColour.IsOk())
-      textColour = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
-    if (highlightedField_ && highlightedField_->field == field) {
-      text = highlightedField_->text;
-      textColour = highlightedField_->textColour;
-    }
-
-    dc.SetTextForeground(textColour);
-    wxRect textRect = rect.Deflate(kHorizontalPadding, 0);
-    dc.DrawLabel(text, textRect, wxALIGN_CENTER_VERTICAL);
-  }
+  rect.Deflate(kHorizontalPadding, 0);
+  highlightLabel_->SetPosition(rect.GetPosition());
+  highlightLabel_->SetSize(rect.GetSize());
 }
