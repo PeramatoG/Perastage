@@ -56,6 +56,7 @@ Changes since `v1.3.0`.
 
 ## Internal changes
 
+- Hardened the macOS installer workflow so restored vcpkg dependency caches are rebuilt when they contain stale Xcode SDK metadata, preventing old runner paths from breaking current macOS builds.
 - Improved macOS installer build diagnostics by saving full compiler logs, showing focused error context on failure, and uploading related CMake and vcpkg logs for maintainers.
 - Restored macOS installer build compatibility with newer Xcode toolchains by making GDTF metadata cache timestamp keys use an explicit portable duration representation.
 - Updated UTF-8 filesystem path handling across the codebase and pinned the macOS installer workflow to an explicit current-generation runner for more predictable CI builds.
