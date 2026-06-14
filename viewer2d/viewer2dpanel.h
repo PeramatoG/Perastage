@@ -202,7 +202,8 @@ private:
   void ClearCursorWorldPosition();
   void ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
   std::optional<magnet_snap::SnapSource> BuildActiveMagnetSource() const;
-  std::optional<magnet_snap::SnapResult> FindActiveMagnetSnap() const;
+  std::optional<magnet_snap::SnapResult>
+  FindActiveMagnetSnap(bool retainingExistingSnap) const;
   void CommitActiveMagnetSnap();
   void FinalizeSelectionDrag();
   void DrawSelectionDragGizmo(int width, int height);

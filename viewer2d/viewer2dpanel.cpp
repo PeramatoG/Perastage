@@ -1534,11 +1534,17 @@ std::optional<magnet_snap::SnapSource> Viewer2DPanel::BuildActiveMagnetSource() 
 }
 
 // Finds the current Magnet snap candidate for the active single-object drag.
-std::optional<magnet_snap::SnapResult> Viewer2DPanel::FindActiveMagnetSnap() const {
+std::optional<magnet_snap::SnapResult> Viewer2DPanel::FindActiveMagnetSnap(
+    bool retainingExistingSnap) const {
   auto source = BuildActiveMagnetSource();
   if (!source)
     return std::nullopt;
-  return magnet_snap::FindSnap(ConfigManager::Get().GetScene(), *source);
+  magnet_snap::SnapSettings settings;
+  settings.thresholdMm = retainingExistingSnap
+                             ? magnet_snap::kSnapRetainDistanceMm
+                             : magnet_snap::kDefaultSnapDistanceMm;
+  return magnet_snap::FindSnap(ConfigManager::Get().GetScene(), *source,
+                               settings);
 }
 
 // Commits deferred Magnet grouping after a successful truss snap.
@@ -1572,10 +1578,12 @@ void Viewer2DPanel::ApplySelectionDelta(
   selection.supports = m_dragSupportUuids;
   selection.sceneObjects = m_dragSceneObjectUuids;
   scene_grouping::TranslateSelection(cfg.GetScene(), selection, {dxMm, dyMm, dzMm});
-  m_pendingMagnetSnap.reset();
-  if (auto snap = FindActiveMagnetSnap()) {
+  const bool wasSnapped = m_pendingMagnetSnap.has_value();
+  if (auto snap = FindActiveMagnetSnap(wasSnapped)) {
     magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap);
     m_pendingMagnetSnap = snap;
+  } else {
+    m_pendingMagnetSnap.reset();
   }
   NotifyHighlightedWorldPosition(ComputeSelectionDragCenterMeters());
   ScheduleDragTableUpdate();

@@ -10,6 +10,7 @@
 namespace magnet_snap {
 
 constexpr float kDefaultSnapDistanceMm = 250.0f;
+constexpr float kSnapRetainDistanceMm = 75.0f;
 constexpr const char *kMagnetEnabledConfigKey = "viewport_magnet_enabled";
 
 enum class ObjectType { Fixture, Truss, SceneObject };
