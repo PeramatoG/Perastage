@@ -1542,22 +1542,25 @@ std::optional<magnet_snap::SnapResult> Viewer2DPanel::FindActiveMagnetSnap() con
 }
 
 // Restores the raw mouse-following transform before applying the next drag delta.
-void Viewer2DPanel::RestorePendingMagnetSnapPreview() {
+std::optional<magnet_snap::SnapResult>
+Viewer2DPanel::RestorePendingMagnetSnapPreview() {
   if (!m_pendingMagnetSnap)
-    return;
-  magnet_snap::SnapResult inverse = *m_pendingMagnetSnap;
+    return std::nullopt;
+  magnet_snap::SnapResult previous = *m_pendingMagnetSnap;
+  magnet_snap::SnapResult inverse = previous;
   for (float &component : inverse.translationDeltaMm)
     component = -component;
   magnet_snap::ApplySnapTransform(ConfigManager::Get().GetScene(), inverse);
   m_pendingMagnetSnap.reset();
+  return previous;
 }
 
 // Commits deferred Magnet grouping after a successful truss snap.
 void Viewer2DPanel::CommitActiveMagnetSnap() {
-  if (!m_pendingMagnetSnap || !m_pendingMagnetSnap->needsTrussGrouping)
+  if (!m_pendingMagnetSnap || !m_pendingMagnetSnap->needsGrouping)
     return;
   ConfigManager &cfg = ConfigManager::Get();
-  magnet_snap::ApplyCommittedTrussGrouping(cfg.GetScene(), *m_pendingMagnetSnap);
+  magnet_snap::ApplyCommittedSnapGrouping(cfg.GetScene(), *m_pendingMagnetSnap);
 }
 
 void Viewer2DPanel::ApplySelectionDelta(
@@ -1582,11 +1585,13 @@ void Viewer2DPanel::ApplySelectionDelta(
   selection.trusses = m_dragTrussUuids;
   selection.supports = m_dragSupportUuids;
   selection.sceneObjects = m_dragSceneObjectUuids;
-  RestorePendingMagnetSnapPreview();
+  const auto previousSnap = RestorePendingMagnetSnapPreview();
   scene_grouping::TranslateSelection(cfg.GetScene(), selection, {dxMm, dyMm, dzMm});
   if (auto snap = FindActiveMagnetSnap()) {
     magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap);
     m_pendingMagnetSnap = snap;
+  } else if (previousSnap) {
+    magnet_snap::DetachSnapSourceFromGroup(cfg.GetScene(), *previousSnap);
   }
   NotifyHighlightedWorldPosition(ComputeSelectionDragCenterMeters());
   ScheduleDragTableUpdate();

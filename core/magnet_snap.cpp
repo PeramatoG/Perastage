@@ -181,7 +181,7 @@ void ConsiderFacePair(const SnapSource &source, ObjectType targetType,
   result.sourceType = source.type;
   result.targetType = targetType;
   result.translationDeltaMm = delta;
-  result.needsTrussGrouping = kind == SnapKind::TrussToTruss;
+  result.needsGrouping = kind == SnapKind::TrussToTruss;
   best = result;
 }
 
@@ -239,7 +239,7 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
       result.sourceType = source.type;
       result.targetType = ObjectType::Truss;
       result.translationDeltaMm = delta;
-      result.needsTrussGrouping = false;
+      result.needsGrouping = true;
       best = result;
     }
     return best;
@@ -280,25 +280,56 @@ bool ApplySnapTransform(MvrScene &scene, const SnapResult &result) {
   return true;
 }
 
-// Creates or extends an official MVR GroupObject after a committed truss snap.
-bool ApplyCommittedTrussGrouping(MvrScene &scene, const SnapResult &result) {
-  if (!result.needsTrussGrouping || result.sourceType != ObjectType::Truss ||
-      result.targetType != ObjectType::Truss)
+// Creates or extends official MVR GroupObjects after a committed snap.
+bool ApplyCommittedSnapGrouping(MvrScene &scene, const SnapResult &result) {
+  if (!result.needsGrouping)
     return false;
-  auto sourceIt = scene.trusses.find(result.sourceUuid);
-  auto targetIt = scene.trusses.find(result.targetUuid);
-  if (sourceIt == scene.trusses.end() || targetIt == scene.trusses.end())
-    return false;
-  scene_grouping::ObjectSelection selection;
-  selection.trusses = {result.targetUuid, result.sourceUuid};
-  if (!targetIt->second.parentGroupUuid.empty()) {
-    scene_grouping::ObjectSelection addSelection;
-    addSelection.trusses = {result.sourceUuid};
-    return scene_grouping::AddSelectionToGroup(
-               scene, addSelection, targetIt->second.parentGroupUuid)
-        .changed;
+  if (result.kind == SnapKind::TrussToTruss) {
+    auto sourceIt = scene.trusses.find(result.sourceUuid);
+    auto targetIt = scene.trusses.find(result.targetUuid);
+    if (sourceIt == scene.trusses.end() || targetIt == scene.trusses.end())
+      return false;
+    scene_grouping::ObjectSelection selection;
+    selection.trusses = {result.targetUuid, result.sourceUuid};
+    if (!targetIt->second.parentGroupUuid.empty()) {
+      scene_grouping::ObjectSelection addSelection;
+      addSelection.trusses = {result.sourceUuid};
+      return scene_grouping::AddSelectionToGroup(
+                 scene, addSelection, targetIt->second.parentGroupUuid)
+          .changed;
+    }
+    return scene_grouping::GroupSelection(scene, selection).changed;
   }
-  return scene_grouping::GroupSelection(scene, selection).changed;
+  if (result.kind == SnapKind::FixtureToTruss) {
+    auto fixtureIt = scene.fixtures.find(result.sourceUuid);
+    auto targetIt = scene.trusses.find(result.targetUuid);
+    if (fixtureIt == scene.fixtures.end() || targetIt == scene.trusses.end())
+      return false;
+    if (!targetIt->second.parentGroupUuid.empty()) {
+      scene_grouping::ObjectSelection addSelection;
+      addSelection.fixtures = {result.sourceUuid};
+      return scene_grouping::AddSelectionToGroup(
+                 scene, addSelection, targetIt->second.parentGroupUuid)
+          .changed;
+    }
+    scene_grouping::ObjectSelection selection;
+    selection.fixtures = {result.sourceUuid};
+    selection.trusses = {result.targetUuid};
+    return scene_grouping::GroupSelection(scene, selection).changed;
+  }
+  return false;
+}
+
+// Removes the snapped source from its direct GroupObject when it is detached.
+bool DetachSnapSourceFromGroup(MvrScene &scene, const SnapResult &result) {
+  scene_grouping::ObjectSelection selection;
+  if (result.sourceType == ObjectType::Truss)
+    selection.trusses = {result.sourceUuid};
+  else if (result.sourceType == ObjectType::Fixture)
+    selection.fixtures = {result.sourceUuid};
+  else
+    return false;
+  return scene_grouping::RemoveSelectionFromGroup(scene, selection).changed;
 }
 
 } // namespace magnet_snap

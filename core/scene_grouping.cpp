@@ -301,6 +301,9 @@ std::string ParentGroupUuidForTarget(const MvrScene &scene,
 // Returns the highest group ancestor for a selected object when one exists.
 SceneTransformTarget ResolveTransformRoot(const MvrScene &scene,
                                           const SelectedObjectRef &object) {
+  if (object.type == MvrNodeType::Fixture)
+    return {object.type, object.uuid};
+
   std::string groupUuid = object.parentGroupUuid;
   if (groupUuid.empty())
     return {object.type, object.uuid};
@@ -654,6 +657,23 @@ OperationResult AddSelectionToGroup(MvrScene &scene,
     result.changed = true;
   }
   result.groupUuid = groupUuid;
+  return result;
+}
+
+
+// Removes selected scene entities from their direct GroupObject parents while preserving world placement.
+OperationResult RemoveSelectionFromGroup(MvrScene &scene,
+                                         const ObjectSelection &selection) {
+  OperationResult result;
+  std::vector<SelectedObjectRef> objects = CollectSelectedObjects(scene, selection);
+  for (const auto &object : objects) {
+    if (object.parentGroupUuid.empty())
+      continue;
+    RemoveChildFromGroups(scene, object.type, object.uuid);
+    ReparentChildPreservingWorld(scene, {object.type, object.uuid}, {});
+    AppendAffectedTarget(result, scene, object.type, object.uuid);
+    result.changed = true;
+  }
   return result;
 }
 

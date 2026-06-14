@@ -168,7 +168,7 @@ private:
     void ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters);
     std::optional<magnet_snap::SnapSource> BuildActiveMagnetSource() const;
     std::optional<magnet_snap::SnapResult> FindActiveMagnetSnap() const;
-    void RestorePendingMagnetSnapPreview();
+    std::optional<magnet_snap::SnapResult> RestorePendingMagnetSnapPreview();
     void CommitActiveMagnetSnap();
     void UpdateSelectionDragStatusPosition();
     void FinalizeSelectionDrag();

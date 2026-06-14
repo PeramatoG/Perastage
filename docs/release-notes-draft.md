@@ -15,6 +15,7 @@ Changes since `v1.3.0`.
 
 ## Improvements
 
+- Changed grouped fixture dragging so moving a selected fixture only moves that fixture, allowing fixtures to be repositioned along grouped trusses without moving the full group.
 - Added a 2D position gizmo while dragging scene elements so movement direction feedback follows the dragged insertion point and matches the 3D viewer.
 - Improved GroupObject handling so selecting a grouped member highlights and transforms the full root group, including nested groups, in 2D, 3D, and command-bar transform workflows.
 - Improved group hover feedback by using a more yellow primary highlight and a paler secondary group highlight across the 3D view and related fixture, truss, hoist, and scene object table rows, matching the table selection styling.
@@ -24,7 +25,7 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
-- Improved Magnet snapping so fixtures and trusses release from snapped targets based on the raw mouse-following drag position, while fixture insertion points detect nearby truss bounding-box surfaces and edges reliably across fixture and truss table selections.
+- Improved Magnet snapping so fixtures and trusses release from snapped targets based on the raw mouse-following drag position, fixture-to-truss snaps join the fixture to the truss snap group, and detaching snapped fixtures or trusses preserves the rest of the group hierarchy.
 - Fixed highlighted drag-coordinate feedback so the bottom X/Y/Z readout stays visible and reliably changes font color during 2D and 3D object moves.
 - Fixed scene object renaming so edited Data View names are preserved in the scene summary and MVR exports, supporting technical object-name workflows such as cable waypoints.
 - Kept the 2D and 3D viewer highlights pinned to the dragged scene element during mouse-drag moves so hover feedback no longer jumps to other elements mid-drag.

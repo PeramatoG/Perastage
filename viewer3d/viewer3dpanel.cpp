@@ -2590,11 +2590,12 @@ std::optional<magnet_snap::SnapResult> Viewer3DPanel::FindActiveMagnetSnap() con
 }
 
 // Restores the raw mouse-following transform before applying the next 3D drag delta.
-void Viewer3DPanel::RestorePendingMagnetSnapPreview()
+std::optional<magnet_snap::SnapResult> Viewer3DPanel::RestorePendingMagnetSnapPreview()
 {
     if (!m_pendingMagnetSnap)
-        return;
-    magnet_snap::SnapResult inverse = *m_pendingMagnetSnap;
+        return std::nullopt;
+    magnet_snap::SnapResult previous = *m_pendingMagnetSnap;
+    magnet_snap::SnapResult inverse = previous;
     for (float& component : inverse.translationDeltaMm)
         component = -component;
     magnet_snap::ApplySnapTransform(ConfigManager::Get().GetScene(), inverse);
@@ -2602,15 +2603,16 @@ void Viewer3DPanel::RestorePendingMagnetSnapPreview()
     m_selectionDragAnchorMeters[1] += inverse.translationDeltaMm[1] / 1000.0f;
     m_selectionDragAnchorMeters[2] += inverse.translationDeltaMm[2] / 1000.0f;
     m_pendingMagnetSnap.reset();
+    return previous;
 }
 
 // Commits deferred Magnet grouping after a successful 3D truss snap.
 void Viewer3DPanel::CommitActiveMagnetSnap()
 {
-    if (!m_pendingMagnetSnap || !m_pendingMagnetSnap->needsTrussGrouping)
+    if (!m_pendingMagnetSnap || !m_pendingMagnetSnap->needsGrouping)
         return;
     ConfigManager& cfg = ConfigManager::Get();
-    magnet_snap::ApplyCommittedTrussGrouping(cfg.GetScene(), *m_pendingMagnetSnap);
+    magnet_snap::ApplyCommittedSnapGrouping(cfg.GetScene(), *m_pendingMagnetSnap);
 }
 
 // Applies a world-space delta to every object in the active selection drag.
@@ -2640,7 +2642,7 @@ void Viewer3DPanel::ApplySelectionDragDelta(const std::array<float, 3>& deltaMet
     selection.fixtures = m_dragFixtureUuids;
     selection.trusses = m_dragTrussUuids;
     selection.sceneObjects = m_dragSceneObjectUuids;
-    RestorePendingMagnetSnapPreview();
+    const auto previousSnap = RestorePendingMagnetSnapPreview();
     scene_grouping::TranslateSelection(cfg.GetScene(), selection, {dxMm, dyMm, dzMm});
     if (auto snap = FindActiveMagnetSnap()) {
         magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap);
@@ -2648,6 +2650,8 @@ void Viewer3DPanel::ApplySelectionDragDelta(const std::array<float, 3>& deltaMet
         m_selectionDragAnchorMeters[0] += snap->translationDeltaMm[0] / 1000.0f;
         m_selectionDragAnchorMeters[1] += snap->translationDeltaMm[1] / 1000.0f;
         m_selectionDragAnchorMeters[2] += snap->translationDeltaMm[2] / 1000.0f;
+    } else if (previousSnap) {
+        magnet_snap::DetachSnapSourceFromGroup(cfg.GetScene(), *previousSnap);
     }
     m_selectionDragAnchorMeters[0] += deltaMeters[0];
     m_selectionDragAnchorMeters[1] += deltaMeters[1];

@@ -32,7 +32,7 @@ struct SnapResult {
   ObjectType sourceType = ObjectType::SceneObject;
   ObjectType targetType = ObjectType::SceneObject;
   std::array<float, 3> translationDeltaMm{0.0f, 0.0f, 0.0f};
-  bool needsTrussGrouping = false;
+  bool needsGrouping = false;
 };
 
 // Finds the best non-destructive Magnet snap candidate for the source object.
@@ -43,7 +43,10 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
 // Applies a translation-only snap result through scene_grouping transform helpers.
 bool ApplySnapTransform(MvrScene &scene, const SnapResult &result);
 
-// Creates or extends an official MVR GroupObject after a committed truss snap.
-bool ApplyCommittedTrussGrouping(MvrScene &scene, const SnapResult &result);
+// Creates or extends official MVR GroupObjects after a committed snap.
+bool ApplyCommittedSnapGrouping(MvrScene &scene, const SnapResult &result);
+
+// Removes the snapped source from its direct GroupObject when it is detached.
+bool DetachSnapSourceFromGroup(MvrScene &scene, const SnapResult &result);
 
 } // namespace magnet_snap
