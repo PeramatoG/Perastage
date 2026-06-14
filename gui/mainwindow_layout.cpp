@@ -26,6 +26,7 @@
 #include "app_version.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "highlight_status_bar.h"
 #include "logger.h"
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
@@ -440,7 +441,9 @@ void MainWindow::SetupLayout() {
   m_accel = wxAcceleratorTable();
   SetAcceleratorTable(m_accel);
 
-  CreateStatusBar(3);
+  SetStatusBar(new HighlightStatusBar(this));
+  SetStatusBarPane(0);
+  GetStatusBar()->SetFieldsCount(3);
   const int statusWidths[] = {-1, 260, 220};
   SetStatusWidths(3, statusWidths);
   SetStatusText("Ready", 0);
@@ -922,10 +925,14 @@ void MainWindow::BeginLayout2DViewEdit() {
     std::weak_ptr<int> lifetimeToken = cursorStatusCallbackLifetimeToken;
     layout2DViewEditPanel->SetCursorWorldPositionCallback(
         [this, lifetimeToken](
-            const std::optional<std::array<float, 3>> &positionMeters) {
+            const std::optional<std::array<float, 3>> &positionMeters,
+            bool highlighted) {
           if (lifetimeToken.expired() || !GetStatusBar())
             return;
-          UpdateCursorWorldPositionInStatusBar(positionMeters);
+          if (highlighted)
+            UpdateHighlightedWorldPositionInStatusBar(positionMeters);
+          else
+            UpdateCursorWorldPositionInStatusBar(positionMeters);
         });
   }
 

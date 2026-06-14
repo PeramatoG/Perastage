@@ -2285,6 +2285,8 @@ void Viewer3DPanel::ResetSelectionDragState()
     m_dragTrussUuids.clear();
     m_dragSceneObjectUuids.clear();
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
+    if (MainWindow::Instance())
+        MainWindow::Instance()->ClearHighlightedWorldPositionInStatusBar();
 }
 
 // Computes the world-space center for the active selection drag target.
@@ -2494,6 +2496,15 @@ void Viewer3DPanel::ApplySelectionDragDelta(const std::array<float, 3>& deltaMet
     m_selectionDragAnchorMeters[0] += deltaMeters[0];
     m_selectionDragAnchorMeters[1] += deltaMeters[1];
     m_selectionDragAnchorMeters[2] += deltaMeters[2];
+    UpdateSelectionDragStatusPosition();
+}
+
+// Updates the status bar with the active selection drag insertion point.
+void Viewer3DPanel::UpdateSelectionDragStatusPosition()
+{
+    if (MainWindow::Instance())
+        MainWindow::Instance()->UpdateHighlightedWorldPositionInStatusBar(
+            std::optional<std::array<float, 3>>(m_selectionDragAnchorMeters));
 }
 
 // Finalizes a completed selection drag and synchronizes dependent views.
