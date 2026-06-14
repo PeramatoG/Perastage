@@ -14,6 +14,7 @@ Typical checks:
 - Group selection while clicking scene items: clicking a grouped member selects its full group across related tables.
 - General scene structure before export.
 - Dragging feedback: while moving scene elements in 2D or with the 3D gizmo, the bottom X/Y/Z status readout shows the dragged insertion-point position with a highlighted font color until the mouse is released.
+- Axis lock: the **Axis Lock** toolbar toggle, shown with the Move 3D icon, is enabled by default and stores its state in the project. When disabled, 3D selection dragging follows a plane parallel to the current camera view through the selection origin, similar to Blender free move.
 
 ## 2D view and layouts
 
@@ -22,6 +23,7 @@ Use 2D when you need plan-oriented validation and output.
 Typical checks:
 
 - Top/plan readability.
+- Free 2D selection movement when **Axis Lock** is disabled; when enabled, dragged selections remain constrained to the dominant horizontal or vertical movement axis.
 - Layout alignment and coverage.
 - Print-ready preparation.
 

@@ -2,6 +2,8 @@
 
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
+#include "selection_movement_settings.h"
+#include "guiconfigservices.h"
 
 namespace {
 
@@ -44,7 +46,19 @@ void MainWindow::SyncViewportToolToggleState(bool measureEnabled) {
     return;
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, !measureEnabled);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, measureEnabled);
+  SyncAxisConstraintToolToggleState();
   layoutViewsToolBar->Refresh();
+}
+
+// Synchronizes the axis-constrained movement toolbar toggle with project settings.
+void MainWindow::SyncAxisConstraintToolToggleState() {
+  if (!layoutViewsToolBar)
+    return;
+  layoutViewsToolBar->ToggleTool(
+      ID_View_Viewport_AxisConstraint,
+      GetDefaultGuiConfigServices().Preferences().GetValue(
+          selection_movement_settings::kAxisConstrainedMovementConfigKey) !=
+          "0");
 }
 
 // Switches the viewport interaction back to standard selection mode.
@@ -69,6 +83,18 @@ void MainWindow::OnViewportMeasureTool(wxCommandEvent &WXUNUSED(event)) {
   SyncViewportToolToggleState(enableMeasure);
 }
 
+// Toggles project-level axis-constrained selection movement.
+void MainWindow::OnViewportAxisConstraint(wxCommandEvent &WXUNUSED(event)) {
+  auto &preferences = GetDefaultGuiConfigServices().Preferences();
+  const bool axisConstraintEnabled =
+      preferences.GetValue(
+          selection_movement_settings::kAxisConstrainedMovementConfigKey) !=
+      "0";
+  preferences.SetValue(
+      selection_movement_settings::kAxisConstrainedMovementConfigKey,
+      axisConstraintEnabled ? "0" : "1");
+  SyncAxisConstraintToolToggleState();
+}
 
 bool MainWindow::ApplyFitShortcut() {
   const wxWindow *focusedWindow = wxWindow::FindFocus();

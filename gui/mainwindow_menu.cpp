@@ -97,6 +97,7 @@
 #include "update/update_notification_dialog.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
+#include "selection_movement_settings.h"
 
 // Builds and registers the main application toolbars.
 void MainWindow::CreateToolBars() {
@@ -233,8 +234,18 @@ void MainWindow::CreateToolBars() {
                                               wxART_MISSING_IMAGE),
                               "Toggle center-to-center measure tool",
                               wxITEM_CHECK);
+  layoutViewsToolBar->AddTool(ID_View_Viewport_AxisConstraint, "Axis Lock",
+                              loadToolbarIcon("move-3d",
+                                              wxART_MISSING_IMAGE),
+                              "Toggle axis-constrained selection movement",
+                              wxITEM_CHECK);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, true);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, false);
+  layoutViewsToolBar->ToggleTool(
+      ID_View_Viewport_AxisConstraint,
+      GetDefaultGuiConfigServices().Preferences().GetValue(
+          selection_movement_settings::kAxisConstrainedMovementConfigKey) !=
+          "0");
   layoutViewsToolBar->Realize();
   auiManager->AddPane(
       layoutViewsToolBar, wxAuiPaneInfo()
