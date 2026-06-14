@@ -62,6 +62,7 @@
 #include <wx/tokenzr.h>
 #include <wx/utils.h>
 #include <wx/wfstream.h>
+#include <wx/colour.h>
 class wxZipStreamLink;
 #include <wx/log.h>
 #include <wx/zipstrm.h>
@@ -605,6 +606,7 @@ void MainWindow::Ensure2DViewport() {
   }
 }
 
+// Updates the status bar with a world-space position formatted in the active distance units.
 void MainWindow::UpdateCursorWorldPositionInStatusBar(
     const std::optional<std::array<float, 3>> &positionMeters) {
   if (!GetStatusBar())
@@ -635,6 +637,7 @@ void MainWindow::UpdateCursorWorldPositionInStatusBar(
   SetStatusText(wxString::FromUTF8(stream.str()), 1);
 }
 
+// Clears the world-position status text and restores the normal status-bar font color.
 void MainWindow::ClearCursorWorldPositionInStatusBar() {
   if (!GetStatusBar())
     return;
@@ -642,10 +645,27 @@ void MainWindow::ClearCursorWorldPositionInStatusBar() {
   const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
       cfg.GetValue("ui_distance_unit_system"));
   const std::string unitSuffix = Units::DistanceUnitSuffix(distanceUnitSystem);
+  GetStatusBar()->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
+  GetStatusBar()->Refresh();
   SetStatusText(
       wxString::Format("X: -- %s  Y: -- %s  Z: -- %s", unitSuffix.c_str(), unitSuffix.c_str(),
                        unitSuffix.c_str()),
       1);
+}
+
+// Updates the status bar with a highlighted world-space position during drag interactions.
+void MainWindow::UpdateHighlightedWorldPositionInStatusBar(
+    const std::optional<std::array<float, 3>> &positionMeters) {
+  if (!GetStatusBar())
+    return;
+  GetStatusBar()->SetForegroundColour(wxColour(30, 115, 210));
+  GetStatusBar()->Refresh();
+  UpdateCursorWorldPositionInStatusBar(positionMeters);
+}
+
+// Restores the status bar after a highlighted drag-position display ends.
+void MainWindow::ClearHighlightedWorldPositionInStatusBar() {
+  ClearCursorWorldPositionInStatusBar();
 }
 
 void MainWindow::Ensure2DViewportAvailable() { Ensure2DViewport(); }

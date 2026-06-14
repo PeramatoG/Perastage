@@ -157,6 +157,7 @@ private:
     std::array<viewer3d::ProjectedAxis, 3> BuildProjectedDragAxes(
         const RenderSize& renderSize) const;
     void ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters);
+    void UpdateSelectionDragStatusPosition();
     void FinalizeSelectionDrag();
     void DrawSelectionDragGizmo(const RenderSize& renderSize);
 

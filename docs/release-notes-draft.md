@@ -18,6 +18,7 @@ Changes since `v1.3.0`.
 - Improved group hover feedback by using a more yellow primary highlight and a paler secondary group highlight across the 3D view and related fixture, truss, hoist, and scene object table rows, matching the table selection styling.
 - Improved 3D click selection for grouped scene items so a quick click selects the full group across fixture, truss, hoist, and scene object tables.
 - Improved the 3D move gizmo with Blender-style cone arrowheads so drag axes are easier to distinguish from coordinate axes.
+- Improved 3D drag feedback so the bottom X/Y/Z status readout shows the dragged insertion-point position in a highlighted color while objects are being moved.
 
 ## Fixes
 

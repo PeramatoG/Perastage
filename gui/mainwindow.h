@@ -94,6 +94,9 @@ public:
   void RefreshAfterFixtureSymbolUpdate();
   void RefreshAfterToolSceneUpdate();
   void RequestFixtureSymbolAutoUpdate();
+  void UpdateHighlightedWorldPositionInStatusBar(
+      const std::optional<std::array<float, 3>> &positionMeters);
+  void ClearHighlightedWorldPositionInStatusBar();
 
 private:
   void SetupLayout();   // Set up main window layout
