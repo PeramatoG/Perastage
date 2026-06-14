@@ -4,6 +4,7 @@
 #include "viewer3dpanel.h"
 #include "selection_movement_settings.h"
 #include "guiconfigservices.h"
+#include "magnet_snap.h"
 
 namespace {
 
@@ -47,6 +48,10 @@ void MainWindow::SyncViewportToolToggleState(bool measureEnabled) {
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, !measureEnabled);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, measureEnabled);
   SyncAxisConstraintToolToggleState();
+  layoutViewsToolBar->ToggleTool(
+      ID_View_Viewport_Magnet,
+      GetDefaultGuiConfigServices().Preferences().GetValue(
+          magnet_snap::kMagnetEnabledConfigKey) == "1");
   layoutViewsToolBar->Refresh();
 }
 
@@ -131,4 +136,20 @@ void MainWindow::ApplyViewportShortcut(Viewer2DView view) {
 
   if (viewportPanel)
     viewportPanel->SetStandardView(view);
+}
+
+// Toggles Magnet snapping for 2D selection dragging and persists the preference.
+void MainWindow::OnViewportMagnet(wxCommandEvent &WXUNUSED(event)) {
+  const bool currentEnabled =
+      (viewport2DPanel && viewport2DPanel->IsMagnetEnabled()) ||
+      (viewportPanel && viewportPanel->IsMagnetEnabled());
+  const bool enabled = !currentEnabled;
+  if (viewport2DPanel)
+    viewport2DPanel->SetMagnetEnabled(enabled);
+  if (viewportPanel)
+    viewportPanel->SetMagnetEnabled(enabled);
+  if (layoutViewsToolBar) {
+    layoutViewsToolBar->ToggleTool(ID_View_Viewport_Magnet, enabled);
+    layoutViewsToolBar->Refresh();
+  }
 }

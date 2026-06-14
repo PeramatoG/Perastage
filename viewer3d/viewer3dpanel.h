@@ -29,6 +29,7 @@
 #include "viewer3dcamera.h"
 #include "viewer3dcontroller.h"
 #include "ui_render_size.h"
+#include "magnet_snap.h"
 #include <array>
 #include <memory>
 #include <string>
@@ -81,6 +82,10 @@ public:
     void SetMeasureToolEnabled(bool enabled);
     // Returns whether the 3D measure tool is currently enabled.
     bool IsMeasureToolEnabled() const { return m_measureToolEnabled; }
+    // Enables or disables Magnet snapping for 3D selection dragging.
+    void SetMagnetEnabled(bool enabled);
+    // Returns whether Magnet snapping is currently enabled for 3D selection dragging.
+    bool IsMagnetEnabled() const { return m_magnetEnabled; }
 
     enum class HoverTargetTable { None, Fixtures, Trusses, SceneObjects };
 
@@ -100,6 +105,8 @@ private:
     bool m_selectionDragArmed = false;
     bool m_selectionDragMoved = false;
     bool m_selectionDragUndoPushed = false;
+    bool m_magnetEnabled = false;
+    std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
     wxLongLong m_selectionDragPressTime = 0;
     HoverTargetTable m_selectionDragTarget = HoverTargetTable::None;
     std::vector<std::string> m_dragSelectionUuids;
@@ -159,6 +166,10 @@ private:
     std::optional<std::array<float, 3>> ProjectMouseToSelectionDragViewPlane(
         const wxPoint& mousePos, const RenderSize& renderSize) const;
     void ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters);
+    std::optional<magnet_snap::SnapSource> BuildActiveMagnetSource() const;
+    std::optional<magnet_snap::SnapResult> FindActiveMagnetSnap() const;
+    std::optional<magnet_snap::SnapResult> RestorePendingMagnetSnapPreview();
+    void CommitActiveMagnetSnap();
     void UpdateSelectionDragStatusPosition();
     void FinalizeSelectionDrag();
     void DrawSelectionDragGizmo(const RenderSize& renderSize);

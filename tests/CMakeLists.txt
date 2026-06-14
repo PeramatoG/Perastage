@@ -77,6 +77,15 @@ add_executable(scene_grouping_test scene_grouping_test.cpp
 target_include_directories(scene_grouping_test PRIVATE ../core ../models)
 add_test(NAME SceneGroupingPreservesTransforms COMMAND scene_grouping_test)
 
+add_executable(magnet_snap_test magnet_snap_test.cpp
+    ../core/magnet_snap.cpp
+    ../core/scene_grouping.cpp
+    ../core/uuidutils.cpp
+    ../models/mvrscene.cpp
+)
+target_include_directories(magnet_snap_test PRIVATE ../core ../models)
+add_test(NAME MagnetSnapCore COMMAND magnet_snap_test)
+
 add_executable(rdp_simplifier_test
                rdp_simplifier_test.cpp
                ../core/geometry/RdpSimplifier.cpp)

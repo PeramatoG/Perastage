@@ -6,6 +6,7 @@ Changes since `v1.3.0`.
 
 ## New features
 
+- Added a disabled-by-default Magnet snapping toolbar mode for 2D and 3D dragging, with truss-to-truss grouping on committed snaps and transform-only fixture/object snaps that preserve Hang Position and MVR compatibility.
 - Added a project-persistent Axis Lock toolbar toggle for selection dragging, enabled by default for axis-constrained moves and allowing free 2D movement plus Blender-style view-plane movement in 3D when disabled.
 - Expanded basic primitive creation and editing for spheres, cubes, and cylinders with editable names, project-persistent default dimensions, default load/save buttons, and richer edit controls for position and rotation.
 - Added Edit menu Group and Ungroup commands with `Ctrl+G` and `Ctrl+U` shortcuts for cross-table scene selections, preserving object placement and hang-position assignments while using MVR-compatible GroupObject hierarchy.
@@ -14,6 +15,7 @@ Changes since `v1.3.0`.
 
 ## Improvements
 
+- Changed grouped fixture dragging so moving a selected fixture only moves that fixture, allowing fixtures to be repositioned along grouped trusses without moving the full group.
 - Added a 2D position gizmo while dragging scene elements so movement direction feedback follows the dragged insertion point and matches the 3D viewer.
 - Improved GroupObject handling so selecting a grouped member highlights and transforms the full root group, including nested groups, in 2D, 3D, and command-bar transform workflows.
 - Improved group hover feedback by using a more yellow primary highlight and a paler secondary group highlight across the 3D view and related fixture, truss, hoist, and scene object table rows, matching the table selection styling.
@@ -23,6 +25,7 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
+- Improved Magnet snapping so fixtures and trusses release from snapped targets based on the raw mouse-following drag position, fixture-to-truss snaps join the fixture to the truss snap group, and detaching snapped fixtures or trusses preserves the rest of the group hierarchy.
 - Fixed highlighted drag-coordinate feedback so the bottom X/Y/Z readout stays visible and reliably changes font color during 2D and 3D object moves.
 - Fixed scene object renaming so edited Data View names are preserved in the scene summary and MVR exports, supporting technical object-name workflows such as cable waypoints.
 - Kept the 2D and 3D viewer highlights pinned to the dragged scene element during mouse-drag moves so hover feedback no longer jumps to other elements mid-drag.

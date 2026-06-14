@@ -50,6 +50,16 @@ struct OperationResult {
 OperationResult GroupSelection(MvrScene &scene,
                                const ObjectSelection &selection);
 
+// Adds selected scene entities to an existing MVR-compatible GroupObject.
+OperationResult AddSelectionToGroup(MvrScene &scene,
+                                    const ObjectSelection &selection,
+                                    const std::string &groupUuid);
+
+// Removes selected scene entities from their direct parent groups without
+// deleting or flattening those groups.
+OperationResult RemoveSelectionFromGroup(MvrScene &scene,
+                                         const ObjectSelection &selection);
+
 // Removes selected scene entities from their direct parent groups.
 OperationResult UngroupSelection(MvrScene &scene,
                                  const ObjectSelection &selection);

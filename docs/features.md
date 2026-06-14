@@ -116,6 +116,7 @@ Additional safeguards include:
 
 - Top-down plan visualization with configurable grid and labels.
 - The shared viewport axis-lock toggle also controls 2D selection dragging: enabled keeps movement constrained to one screen axis, while disabled allows free movement across both axes in the active 2D plane.
+- The Magnet toolbar toggle is disabled by default and can be enabled to snap dragged trusses, fixtures, and scene objects to nearby compatible scene bounds in the 2D and 3D viewers. Fixture snaps use the nearest truss bounding-box surface or edge even when fixtures and trusses are managed from different tables. Truss-to-truss snaps can create or extend an official GroupObject when the mouse is released, and fixture-to-truss snaps add the fixture to the truss snap group so it can later be detached without flattening the rest of the group. Scene-object snaps only update transforms. Magnet does not modify Hang Position, does not merge geometry, and keeps exported MVR data standards-compliant.
 - Supports vector draw-command capture for downstream document/export workflows.
 
 ### Layout system
