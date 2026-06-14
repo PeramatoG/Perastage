@@ -1,20 +1,21 @@
 #include "highlight_status_bar.h"
 
-#include <wx/dcclient.h>
+#include <wx/dcbuffer.h>
 #include <wx/settings.h>
 
 // Creates a status bar that can draw one highlighted field with custom text color.
 HighlightStatusBar::HighlightStatusBar(wxWindow *parent, wxWindowID id)
     : wxStatusBar(parent, id) {
+  SetBackgroundStyle(wxBG_STYLE_PAINT);
   Bind(wxEVT_PAINT, &HighlightStatusBar::OnPaint, this);
 }
 
-// Stores highlighted field text and clears the native field to avoid double drawing.
+// Stores highlighted field text while keeping native field text available between paints.
 void HighlightStatusBar::SetHighlightedFieldText(int field, const wxString &text,
                                                  const wxColour &textColour) {
   highlightedField_ = HighlightedField{field, text, textColour};
-  wxStatusBar::SetStatusText("", field);
-  Refresh();
+  wxStatusBar::SetStatusText(text, field);
+  Refresh(false);
 }
 
 // Restores a field to normal native status-bar rendering.
@@ -22,13 +23,13 @@ void HighlightStatusBar::ClearHighlightedField(int field, const wxString &text) 
   if (highlightedField_ && highlightedField_->field == field)
     highlightedField_.reset();
   wxStatusBar::SetStatusText(text, field);
-  Refresh();
+  Refresh(false);
 }
 
 // Paints status-bar fields with optional highlighted text for one field.
 void HighlightStatusBar::OnPaint(wxPaintEvent &event) {
   (void)event;
-  wxPaintDC dc(this);
+  wxAutoBufferedPaintDC dc(this);
 
   wxColour background = GetBackgroundColour();
   if (!background.IsOk())
