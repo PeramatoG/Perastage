@@ -843,6 +843,24 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
   return true;
 }
 
+// Looks up a fixture type in a preloaded dictionary snapshot.
+std::optional<Entry> FindInLoadedDictionary(
+    const std::unordered_map<std::string, Entry> &dict,
+    const std::string &type, bool validateExistingPath) {
+  const std::string normalizedType = NormalizeTypeKey(type);
+  if (normalizedType.empty())
+    return std::nullopt;
+  auto keyOpt = FindEquivalentTypeKey(dict, normalizedType);
+  if (!keyOpt)
+    return std::nullopt;
+  auto it = dict.find(*keyOpt);
+  if (it == dict.end())
+    return std::nullopt;
+  if (validateExistingPath && !it->second.path.empty() && !fs::exists(it->second.path))
+    return std::nullopt;
+  return it->second;
+}
+
 std::optional<Entry> Get(const std::string &type) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   const std::string normalizedType = NormalizeTypeKey(type);

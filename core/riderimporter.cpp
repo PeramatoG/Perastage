@@ -23,6 +23,7 @@
 #include <cerrno>
 #include <cctype>
 #include <charconv>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -65,6 +66,52 @@ namespace {
 constexpr const char *kPrimitiveCylinderToken = "primitive:cylinder";
 constexpr const char *kPrimitiveCubeToken = "primitive:cube";
 
+
+struct RiderImportTimingStats {
+  std::chrono::steady_clock::time_point startedAt = std::chrono::steady_clock::now();
+  std::unordered_map<std::string, double> phaseMs;
+  size_t fixtureCount = 0;
+  size_t trussCount = 0;
+  size_t uniqueFixtureLookups = 0;
+  size_t uniqueTrussLookups = 0;
+};
+
+// Records elapsed milliseconds for a rider import phase.
+void AddRiderImportPhaseTime(RiderImportTimingStats &timing,
+                             const std::string &phaseName,
+                             std::chrono::steady_clock::time_point startedAt) {
+  timing.phaseMs[phaseName] += std::chrono::duration<double, std::milli>(
+      std::chrono::steady_clock::now() - startedAt).count();
+}
+
+// Logs one concise timing line for the completed rider import.
+void LogRiderImportTiming(const RiderImportTimingStats &timing) {
+  const auto totalMs = std::chrono::duration<double, std::milli>(
+      std::chrono::steady_clock::now() - timing.startedAt).count();
+  auto phase = [&](const std::string &name) {
+    const auto it = timing.phaseMs.find(name);
+    return it == timing.phaseMs.end() ? 0.0 : it->second;
+  };
+  std::ostringstream oss;
+  oss << std::fixed << std::setprecision(1)
+      << "Rider import timing: total=" << totalMs << "ms"
+      << ", filter=" << phase("filter/reduce text") << "ms"
+      << ", fixtureDict=" << phase("load fixture dictionary") << "ms"
+      << ", trussDict=" << phase("load truss dictionary") << "ms"
+      << ", parse=" << phase("parse reduced text") << "ms"
+      << ", createFixtures=" << phase("create fixtures") << "ms"
+      << ", createTrusses=" << phase("create trusses") << "ms"
+      << ", gdtfMetadata=" << phase("resolve GDTF metadata") << "ms"
+      << ", trussDefinitions=" << phase("resolve truss definitions") << "ms"
+      << ", placeObjects=" << phase("place imported objects") << "ms"
+      << ", assignIdentities=" << phase("assign fixture identities") << "ms"
+      << ", autoPatch=" << phase("Auto Patch") << "ms"
+      << "; fixtures=" << timing.fixtureCount
+      << ", uniqueFixtureLookups=" << timing.uniqueFixtureLookups
+      << ", trusses=" << timing.trussCount
+      << ", uniqueTrussLookups=" << timing.uniqueTrussLookups;
+  Logger::Instance().Log(Logger::Level::Debug, oss.str());
+}
 Matrix BuildCylinderPitchY90LocalTransform() {
   Matrix transform{};
   // Equivalent to applying a +90° pitch around Y after creating the
@@ -1695,6 +1742,7 @@ bool RiderImporter::ImportText(const std::string &text,
                                bool skipFixtureFilterPreview) {
   if (text.empty())
     return false;
+  RiderImportTimingStats timing;
   auto reportProgress = [&](std::string stage, int completed = 0, int total = 0) {
     if (!progressCallback)
       return;
@@ -1706,12 +1754,24 @@ bool RiderImporter::ImportText(const std::string &text,
                  1, 6);
   // Keep scene creation consistent with the dialog preview flow while allowing
   // callers that already hold preview text to avoid repeating the filter pass.
+  auto phaseStartedAt = std::chrono::steady_clock::now();
   const ParsedRiderImport parsedImport =
       skipFixtureFilterPreview ? ParsedRiderImport{} : ParseRiderImport(text);
   const std::string parsedImportText =
       skipFixtureFilterPreview ? std::string{} : BuildSceneImportText(parsedImport);
+  AddRiderImportPhaseTime(timing, "filter/reduce text", phaseStartedAt);
   const std::string &textToImport =
       parsedImportText.empty() ? text : parsedImportText;
+  phaseStartedAt = std::chrono::steady_clock::now();
+  auto fixtureDictionaryOpt = GdtfDictionary::Load();
+  AddRiderImportPhaseTime(timing, "load fixture dictionary", phaseStartedAt);
+  phaseStartedAt = std::chrono::steady_clock::now();
+  auto trussDictionaryOpt = TrussDictionary::Load();
+  AddRiderImportPhaseTime(timing, "load truss dictionary", phaseStartedAt);
+  const std::unordered_map<std::string, GdtfDictionary::Entry> emptyFixtureDictionary;
+  const auto &fixtureDictionary = fixtureDictionaryOpt ? *fixtureDictionaryOpt : emptyFixtureDictionary;
+  const std::unordered_map<std::string, std::string> emptyTrussDictionary;
+  const auto &trussDictionary = trussDictionaryOpt ? *trussDictionaryOpt : emptyTrussDictionary;
   reportProgress("Parsing lines...", 2, 6);
   const int totalInputLines = [&]() {
     if (textToImport.empty())
@@ -1901,7 +1961,24 @@ bool RiderImporter::ImportText(const std::string &text,
   std::unordered_map<std::string, TrussCoordinateOverride>
       hangCoordinateOverrides;
   ImportedGdtfMetadataCache importedGdtfMetadataCache;
+  std::unordered_map<std::string, std::optional<GdtfDictionary::Entry>> fixtureDictionaryLookupCache;
+  std::unordered_map<std::string, std::optional<std::string>> trussDictionaryLookupCache;
   int parsedInputLineCount = 0;
+
+  auto lookupFixtureDictionary = [&](const std::string &typeName) -> const std::optional<GdtfDictionary::Entry> & {
+    auto found = fixtureDictionaryLookupCache.find(typeName);
+    if (found != fixtureDictionaryLookupCache.end())
+      return found->second;
+    ++timing.uniqueFixtureLookups;
+    return fixtureDictionaryLookupCache.emplace(typeName, GdtfDictionary::FindInLoadedDictionary(fixtureDictionary, typeName)).first->second;
+  };
+  auto lookupTrussDictionary = [&](const std::string &lookupKey) -> const std::optional<std::string> & {
+    auto found = trussDictionaryLookupCache.find(lookupKey);
+    if (found != trussDictionaryLookupCache.end())
+      return found->second;
+    ++timing.uniqueTrussLookups;
+    return trussDictionaryLookupCache.emplace(lookupKey, TrussDictionary::FindInLoadedDictionary(trussDictionary, lookupKey)).first->second;
+  };
 
   auto addFixtures = [&](int baseQuantity, const std::string &desc) {
     ForEachSplitPlusPart(desc, [&](std::string_view partRawView) {
@@ -1954,7 +2031,7 @@ bool RiderImporter::ImportText(const std::string &text,
         f.uuid = GenerateUuid();
         f.instanceName = part + " " + std::to_string(++counter);
         f.typeName = part;
-        if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
+        if (const auto &dictEntry = lookupFixtureDictionary(f.typeName)) {
           f.gdtfSpec = dictEntry->path;
           f.gdtfMode = dictEntry->mode;
           if (!dictEntry->color.empty())
@@ -1966,8 +2043,10 @@ bool RiderImporter::ImportText(const std::string &text,
             f.categorySourceReason.clear();
           }
           const std::string resolvedGdtfPath = ResolveGdtfPath(scene, f.gdtfSpec);
+          phaseStartedAt = std::chrono::steady_clock::now();
           const ImportedGdtfMetadata &metadata =
               importedGdtfMetadataCache.Get(scene, resolvedGdtfPath, f.gdtfMode);
+          AddRiderImportPhaseTime(timing, "resolve GDTF metadata", phaseStartedAt);
           ApplyImportedGdtfMetadata(f, metadata);
         }
         EnsureFixtureCategoryForImport(scene, f);
@@ -1987,13 +2066,17 @@ bool RiderImporter::ImportText(const std::string &text,
         f.positionName = currentHang;
         f.transform.o[1] = getHangPos(currentHang);
         f.transform.o[2] = getHangHeight(currentHang);
+        phaseStartedAt = std::chrono::steady_clock::now();
         scene.fixtures[f.uuid] = f;
+        AddRiderImportPhaseTime(timing, "create fixtures", phaseStartedAt);
+        ++timing.fixtureCount;
         importedFixtureUuids.push_back(f.uuid);
         importedFixtureOrderByUuid[f.uuid] = nextImportedFixtureOrder++;
         addToLayer(f.layer, f.uuid);
       }
     });
   };
+  const auto parseStartedAt = std::chrono::steady_clock::now();
   while (std::getline(iss, line)) {
     ++parsedInputLineCount;
     if (totalInputLines > 0 &&
@@ -2233,14 +2316,16 @@ bool RiderImporter::ImportText(const std::string &text,
             for (const std::string &lookupKey : dictionaryLookupKeys) {
               if (lookupKey.empty())
                 continue;
-              dictPath = TrussDictionary::Get(lookupKey);
+              dictPath = lookupTrussDictionary(lookupKey);
               if (dictPath)
                 break;
             }
 
             if (dictPath) {
+              phaseStartedAt = std::chrono::steady_clock::now();
               const ImportedTrussDefinitionResult &definition =
                   trussDefinitionCache.Get(*dictPath);
+              AddRiderImportPhaseTime(timing, "resolve truss definitions", phaseStartedAt);
               if (definition.loaded) {
                 const Truss &parsed = definition.parsed;
                 if (!parsed.symbolFile.empty())
@@ -2276,12 +2361,18 @@ bool RiderImporter::ImportText(const std::string &text,
                 sideTruss.uuid = GenerateUuid();
                 sideTruss.transform.o[0] = sideX;
                 const std::string sideTrussUuid = sideTruss.uuid;
+                phaseStartedAt = std::chrono::steady_clock::now();
                 scene.trusses.emplace(sideTrussUuid, std::move(sideTruss));
+                AddRiderImportPhaseTime(timing, "create trusses", phaseStartedAt);
+                ++timing.trussCount;
                 importedTrussUuids.push_back(sideTrussUuid);
                 addToLayer(trussLayer, sideTrussUuid);
               }
             } else {
+              phaseStartedAt = std::chrono::steady_clock::now();
               scene.trusses.emplace(trussUuid, std::move(t));
+              AddRiderImportPhaseTime(timing, "create trusses", phaseStartedAt);
+              ++timing.trussCount;
               importedTrussUuids.push_back(trussUuid);
               addToLayer(trussLayer, trussUuid);
             }
@@ -2563,13 +2654,15 @@ bool RiderImporter::ImportText(const std::string &text,
             for (const std::string &lookupKey : dictionaryLookupKeys) {
               if (lookupKey.empty())
                 continue;
-              dictPath = TrussDictionary::Get(lookupKey);
+              dictPath = lookupTrussDictionary(lookupKey);
               if (dictPath)
                 break;
             }
             if (dictPath) {
+              phaseStartedAt = std::chrono::steady_clock::now();
               const ImportedTrussDefinitionResult &definition =
                   trussDefinitionCache.Get(*dictPath);
+              AddRiderImportPhaseTime(timing, "resolve truss definitions", phaseStartedAt);
               if (definition.loaded) {
                 const Truss &parsed = definition.parsed;
                 if (!parsed.symbolFile.empty())
@@ -2597,7 +2690,10 @@ bool RiderImporter::ImportText(const std::string &text,
             }
             const std::string trussUuid = t.uuid;
             const std::string trussLayer = t.layer;
+            phaseStartedAt = std::chrono::steady_clock::now();
             scene.trusses.emplace(trussUuid, std::move(t));
+            AddRiderImportPhaseTime(timing, "create trusses", phaseStartedAt);
+            ++timing.trussCount;
             importedTrussUuids.push_back(trussUuid);
             addToLayer(trussLayer, trussUuid);
             x += s;
@@ -2736,14 +2832,16 @@ bool RiderImporter::ImportText(const std::string &text,
 
           std::optional<std::string> dictPath;
           for (const std::string &lookupKey : dictionaryLookupKeys) {
-            dictPath = TrussDictionary::Get(lookupKey);
+            dictPath = lookupTrussDictionary(lookupKey);
             if (dictPath)
               break;
           }
 
           if (dictPath) {
+            phaseStartedAt = std::chrono::steady_clock::now();
             const ImportedTrussDefinitionResult &definition =
                 trussDefinitionCache.Get(*dictPath);
+            AddRiderImportPhaseTime(timing, "resolve truss definitions", phaseStartedAt);
             if (definition.loaded) {
               const Truss &parsed = definition.parsed;
               if (!parsed.symbolFile.empty())
@@ -2766,7 +2864,10 @@ bool RiderImporter::ImportText(const std::string &text,
           }
           const std::string trussUuid = t.uuid;
           const std::string trussLayer = t.layer;
+          phaseStartedAt = std::chrono::steady_clock::now();
           scene.trusses.emplace(trussUuid, std::move(t));
+          AddRiderImportPhaseTime(timing, "create trusses", phaseStartedAt);
+          ++timing.trussCount;
           importedTrussUuids.push_back(trussUuid);
           addToLayer(trussLayer, trussUuid);
           if (IsLxHangName(hang)) {
@@ -2808,6 +2909,8 @@ bool RiderImporter::ImportText(const std::string &text,
     }
   }
 
+  AddRiderImportPhaseTime(timing, "parse reduced text", parseStartedAt);
+
   reportProgress("Resolving rigging data...", 3, 6);
   for (const std::string &uuid : importedTrussUuids) {
     auto trussIt = scene.trusses.find(uuid);
@@ -2827,8 +2930,10 @@ bool RiderImporter::ImportText(const std::string &text,
     bool dictionaryDefinitionFailed = false;
 
     if (!t.modelFile.empty()) {
+      phaseStartedAt = std::chrono::steady_clock::now();
       const ImportedTrussDefinitionResult &definition =
           trussDefinitionCache.Get(t.modelFile);
+      AddRiderImportPhaseTime(timing, "resolve truss definitions", phaseStartedAt);
       resolved = definition.loaded;
       if (resolved)
         parsed = definition.parsed;
@@ -2836,8 +2941,10 @@ bool RiderImporter::ImportText(const std::string &text,
         modelDefinitionFailed = true;
     }
     if (!resolved && !t.gdtfSpec.empty()) {
+      phaseStartedAt = std::chrono::steady_clock::now();
       const ImportedTrussDefinitionResult &definition =
           trussDefinitionCache.Get(t.gdtfSpec);
+      AddRiderImportPhaseTime(timing, "resolve truss definitions", phaseStartedAt);
       resolved = definition.loaded;
       if (resolved)
         parsed = definition.parsed;
@@ -2848,11 +2955,13 @@ bool RiderImporter::ImportText(const std::string &text,
       const std::vector<std::string> dictionaryLookupKeys =
           BuildTrussDictionaryLookupKeys(t.model, t.name);
       for (const std::string &lookupKey : dictionaryLookupKeys) {
-        auto dictPath = TrussDictionary::Get(lookupKey);
+        auto dictPath = lookupTrussDictionary(lookupKey);
         if (!dictPath)
           continue;
+        phaseStartedAt = std::chrono::steady_clock::now();
         const ImportedTrussDefinitionResult &definition =
             trussDefinitionCache.Get(*dictPath);
+        AddRiderImportPhaseTime(timing, "resolve truss definitions", phaseStartedAt);
         resolved = definition.loaded;
         if (resolved)
           parsed = definition.parsed;
@@ -2934,6 +3043,7 @@ bool RiderImporter::ImportText(const std::string &text,
   }
 
   reportProgress("Placing imported scene objects...", 4, 6);
+  const auto placementStartedAt = std::chrono::steady_clock::now();
   // Distribute fixtures along their hang positions using available truss
   // information. Fixtures are arranged symmetrically and alternately by type,
   // leaving a configurable margin at the ends of the truss and placing them on
@@ -3629,6 +3739,8 @@ bool RiderImporter::ImportText(const std::string &text,
     fixturesByType[fixtureIt->second.typeName].push_back(&fixtureIt->second);
   }
 
+  AddRiderImportPhaseTime(timing, "place imported objects", placementStartedAt);
+  const auto identityStartedAt = std::chrono::steady_clock::now();
   std::unordered_set<std::string> importedFixtureIdSet(importedFixtureUuids.begin(),
                                                        importedFixtureUuids.end());
   int highestExistingFixtureId = 100;
@@ -3684,6 +3796,8 @@ bool RiderImporter::ImportText(const std::string &text,
         ((baseId - 1 + static_cast<int>(vec.size()) + 99) / 100) * 100 + 1;
   }
 
+  AddRiderImportPhaseTime(timing, "assign fixture identities", identityStartedAt);
+
   bool hasDefaultLayer = false;
   for (const auto &[uid, layer] : scene.layers) {
     if (layer.name == DEFAULT_LAYER_NAME) {
@@ -3699,8 +3813,12 @@ bool RiderImporter::ImportText(const std::string &text,
   }
 
   auto autoPref = cfg.GetValue("rider_autopatch");
-  if (!autoPref || *autoPref != "0")
+  if (!autoPref || *autoPref != "0") {
+    phaseStartedAt = std::chrono::steady_clock::now();
     AutoPatcher::AutoPatch(scene);
+    AddRiderImportPhaseTime(timing, "Auto Patch", phaseStartedAt);
+  }
   reportProgress("Completed.", 6, 6);
+  LogRiderImportTiming(timing);
   return true;
 }
