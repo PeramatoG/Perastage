@@ -51,6 +51,7 @@
 #include "../gui/selection_origin_token.h"
 #include "configmanager.h"
 #include "selection_movement_settings.h"
+#include "magnet_snap.h"
 #include "scene_grouping.h"
 #include "fixturepatchdialog.h"
 #include "viewer2dpanel.h"
@@ -836,6 +837,8 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
                  wxFULL_REPAINT_ON_RESIZE | wxWANTS_CHARS),
     m_glContext(new wxGLContext(this))
 {
+    m_magnetEnabled = ConfigManager::Get().GetValue(
+                          magnet_snap::kMagnetEnabledConfigKey) == "1";
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
     Bind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this, wxEVT_VIEWER_REFRESH);
     m_zoomInteractionTimer.SetOwner(this);
@@ -1715,6 +1718,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         if (HasCapture())
             ReleaseMouse();
         if (m_selectionDragMoved) {
+            CommitActiveMagnetSnap();
             FinalizeSelectionDrag();
             m_draggedSincePress = true;
         }
@@ -2099,6 +2103,17 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     }
 }
 
+
+// Enables or disables Magnet snapping for 3D selection dragging.
+void Viewer3DPanel::SetMagnetEnabled(bool enabled)
+{
+    m_magnetEnabled = enabled;
+    m_pendingMagnetSnap.reset();
+    ConfigManager::Get().SetValue(magnet_snap::kMagnetEnabledConfigKey,
+                                  enabled ? "1" : "0");
+    ConfigManager::Get().SaveUserConfig();
+}
+
 // Resets interaction state after wxWidgets reports lost mouse capture.
 void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
 {
@@ -2287,6 +2302,7 @@ void Viewer3DPanel::ResetSelectionDragState()
     m_dragTrussUuids.clear();
     m_dragSceneObjectUuids.clear();
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
+    m_pendingMagnetSnap.reset();
     if (MainWindow::Instance())
         MainWindow::Instance()->ClearHighlightedWorldPositionInStatusBar();
 }
@@ -2404,6 +2420,7 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
     SynchronizeHoverHighlight();
 
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
+    m_pendingMagnetSnap.reset();
     m_selectionDragArmed = true;
     m_selectionDragMoved = false;
     m_selectionDragUndoPushed = false;
@@ -2537,6 +2554,45 @@ Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
         static_cast<float>(nearPoint[2] + rayDir[2] * t)};
 }
 
+
+// Builds a Magnet snap source for the active single-object 3D drag.
+std::optional<magnet_snap::SnapSource> Viewer3DPanel::BuildActiveMagnetSource() const
+{
+    if (!m_magnetEnabled || m_measureToolEnabled)
+        return std::nullopt;
+    if (m_dragTrussUuids.size() == 1 && m_dragFixtureUuids.empty() &&
+        m_dragSceneObjectUuids.empty())
+        return magnet_snap::SnapSource{magnet_snap::ObjectType::Truss,
+                                       m_dragTrussUuids.front()};
+    if (m_dragFixtureUuids.size() == 1 && m_dragTrussUuids.empty() &&
+        m_dragSceneObjectUuids.empty())
+        return magnet_snap::SnapSource{magnet_snap::ObjectType::Fixture,
+                                       m_dragFixtureUuids.front()};
+    if (m_dragSceneObjectUuids.size() == 1 && m_dragFixtureUuids.empty() &&
+        m_dragTrussUuids.empty())
+        return magnet_snap::SnapSource{magnet_snap::ObjectType::SceneObject,
+                                       m_dragSceneObjectUuids.front()};
+    return std::nullopt;
+}
+
+// Finds the current Magnet snap candidate for the active 3D drag.
+std::optional<magnet_snap::SnapResult> Viewer3DPanel::FindActiveMagnetSnap() const
+{
+    auto source = BuildActiveMagnetSource();
+    if (!source)
+        return std::nullopt;
+    return magnet_snap::FindSnap(ConfigManager::Get().GetScene(), *source);
+}
+
+// Commits deferred Magnet grouping after a successful 3D truss snap.
+void Viewer3DPanel::CommitActiveMagnetSnap()
+{
+    if (!m_pendingMagnetSnap || !m_pendingMagnetSnap->needsTrussGrouping)
+        return;
+    ConfigManager& cfg = ConfigManager::Get();
+    magnet_snap::ApplyCommittedTrussGrouping(cfg.GetScene(), *m_pendingMagnetSnap);
+}
+
 // Applies a world-space delta to every object in the active selection drag.
 void Viewer3DPanel::ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters)
 {
@@ -2565,6 +2621,14 @@ void Viewer3DPanel::ApplySelectionDragDelta(const std::array<float, 3>& deltaMet
     selection.trusses = m_dragTrussUuids;
     selection.sceneObjects = m_dragSceneObjectUuids;
     scene_grouping::TranslateSelection(cfg.GetScene(), selection, {dxMm, dyMm, dzMm});
+    m_pendingMagnetSnap.reset();
+    if (auto snap = FindActiveMagnetSnap()) {
+        magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap);
+        m_pendingMagnetSnap = snap;
+        m_selectionDragAnchorMeters[0] += snap->translationDeltaMm[0] / 1000.0f;
+        m_selectionDragAnchorMeters[1] += snap->translationDeltaMm[1] / 1000.0f;
+        m_selectionDragAnchorMeters[2] += snap->translationDeltaMm[2] / 1000.0f;
+    }
     m_selectionDragAnchorMeters[0] += deltaMeters[0];
     m_selectionDragAnchorMeters[1] += deltaMeters[1];
     m_selectionDragAnchorMeters[2] += deltaMeters[2];

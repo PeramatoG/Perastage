@@ -140,9 +140,14 @@ void MainWindow::ApplyViewportShortcut(Viewer2DView view) {
 
 // Toggles Magnet snapping for 2D selection dragging and persists the preference.
 void MainWindow::OnViewportMagnet(wxCommandEvent &WXUNUSED(event)) {
-  const bool enabled = !(viewport2DPanel && viewport2DPanel->IsMagnetEnabled());
+  const bool currentEnabled =
+      (viewport2DPanel && viewport2DPanel->IsMagnetEnabled()) ||
+      (viewportPanel && viewportPanel->IsMagnetEnabled());
+  const bool enabled = !currentEnabled;
   if (viewport2DPanel)
     viewport2DPanel->SetMagnetEnabled(enabled);
+  if (viewportPanel)
+    viewportPanel->SetMagnetEnabled(enabled);
   if (layoutViewsToolBar) {
     layoutViewsToolBar->ToggleTool(ID_View_Viewport_Magnet, enabled);
     layoutViewsToolBar->Refresh();

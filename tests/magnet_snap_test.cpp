@@ -71,13 +71,14 @@ int main() {
 
   Fixture fixture;
   fixture.uuid = "fixture";
-  fixture.transform = Translated(0.0f, 0.0f, 140.0f);
+  fixture.transform = Translated(1510.0f, 160.0f, 0.0f);
   scene.fixtures[fixture.uuid] = fixture;
   auto fixtureSnap = magnet_snap::FindSnap(
       scene, {magnet_snap::ObjectType::Fixture, fixture.uuid});
   assert(fixtureSnap);
   assert(fixtureSnap->kind == magnet_snap::SnapKind::FixtureToTruss);
   assert(!fixtureSnap->needsTrussGrouping);
+  assert(std::fabs(fixtureSnap->translationDeltaMm[1] + 10.0f) < 0.001f);
 
   SceneObject object;
   object.uuid = "object";

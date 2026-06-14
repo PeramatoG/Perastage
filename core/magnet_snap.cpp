@@ -31,6 +31,18 @@ std::array<float, 3> Add(const std::array<float, 3> &a,
   return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
 }
 
+
+// Returns the dot product for two millimeter vectors.
+float Dot(const std::array<float, 3> &a, const std::array<float, 3> &b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+// Returns the vector difference between two points.
+std::array<float, 3> Subtract(const std::array<float, 3> &a,
+                              const std::array<float, 3> &b) {
+  return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+}
+
 // Returns the vector length in millimeters.
 float Length(const std::array<float, 3> &v) {
   return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
@@ -91,6 +103,47 @@ std::vector<Face> BuildFaces(const Bounds &bounds, bool trussPrimaryFaces) {
                      Scale(basis[axis], -1.0f)});
   }
   return faces;
+}
+
+
+// Finds the nearest point on an oriented bounds surface to a world-space point.
+std::array<float, 3> ClosestPointOnSurface(const Bounds &bounds,
+                                           const std::array<float, 3> &point) {
+  const std::array<std::array<float, 3>, 3> basis = {
+      Normalize(bounds.transform.u), Normalize(bounds.transform.v),
+      Normalize(bounds.transform.w)};
+  const auto relative = Subtract(point, bounds.transform.o);
+  std::array<float, 3> local{};
+  std::array<float, 3> halfSize{};
+  bool inside = true;
+  for (int axis = 0; axis < 3; ++axis) {
+    halfSize[axis] = bounds.size[axis] * 0.5f;
+    local[axis] = Dot(relative, basis[axis]);
+    if (local[axis] < -halfSize[axis] || local[axis] > halfSize[axis])
+      inside = false;
+    local[axis] = std::clamp(local[axis], -halfSize[axis], halfSize[axis]);
+  }
+
+  if (inside) {
+    int nearestAxis = 0;
+    float nearestDistance = std::numeric_limits<float>::max();
+    for (int axis = 0; axis < 3; ++axis) {
+      const float positiveDistance = halfSize[axis] - local[axis];
+      const float negativeDistance = local[axis] + halfSize[axis];
+      const float axisDistance = std::min(positiveDistance, negativeDistance);
+      if (axisDistance < nearestDistance) {
+        nearestDistance = axisDistance;
+        nearestAxis = axis;
+      }
+    }
+    local[nearestAxis] = local[nearestAxis] >= 0.0f ? halfSize[nearestAxis]
+                                                    : -halfSize[nearestAxis];
+  }
+
+  std::array<float, 3> closest = bounds.transform.o;
+  for (int axis = 0; axis < 3; ++axis)
+    closest = Add(closest, Scale(basis[axis], local[axis]));
+  return closest;
 }
 
 // Returns the source object transform target.
@@ -165,16 +218,29 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
   }
 
   if (source.type == ObjectType::Fixture) {
-    const Face insertion{sourceBounds->transform.o, {0.0f, 0.0f, 1.0f}};
+    const std::array<float, 3> insertion = sourceBounds->transform.o;
     for (const auto &[uuid, truss] : scene.trusses) {
       const Bounds targetBounds{truss.transform,
                                 {std::max(truss.lengthMm, 1.0f),
                                  std::max(truss.widthMm, 1.0f),
                                  std::max(truss.heightMm, 1.0f)}};
-      for (const auto &targetFace : BuildFaces(targetBounds, false))
-        ConsiderFacePair(source, ObjectType::Truss, uuid,
-                         SnapKind::FixtureToTruss, insertion, targetFace,
-                         settings.thresholdMm, bestDistance, best);
+      const std::array<float, 3> closest =
+          ClosestPointOnSurface(targetBounds, insertion);
+      const std::array<float, 3> delta = Subtract(closest, insertion);
+      const float distance = Length(delta);
+      if (distance > settings.thresholdMm || distance >= bestDistance)
+        continue;
+      bestDistance = distance;
+      SnapResult result;
+      result.snapped = true;
+      result.kind = SnapKind::FixtureToTruss;
+      result.sourceUuid = source.uuid;
+      result.targetUuid = uuid;
+      result.sourceType = source.type;
+      result.targetType = ObjectType::Truss;
+      result.translationDeltaMm = delta;
+      result.needsTrussGrouping = false;
+      best = result;
     }
     return best;
   }
