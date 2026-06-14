@@ -27,6 +27,7 @@
 #include "canvas2d.h"
 #include "viewer3dcontroller.h"
 #include "viewer2d_measure_tool.h"
+#include "magnet_snap.h"
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include <array>
@@ -150,6 +151,8 @@ public:
       const std::optional<Viewer2DRenderOverrides> &overrides);
   void SetMeasureToolEnabled(bool enabled);
   bool IsMeasureToolEnabled() const { return m_measureToolState.enabled; }
+  void SetMagnetEnabled(bool enabled);
+  bool IsMagnetEnabled() const { return m_magnetEnabled; }
   std::optional<Viewer2DRenderOverrides> GetRenderOverrides() const {
     return m_renderOverrides;
   }
@@ -198,6 +201,9 @@ private:
       const std::optional<std::array<float, 3>> &positionMeters);
   void ClearCursorWorldPosition();
   void ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
+  std::optional<magnet_snap::SnapSource> BuildActiveMagnetSource() const;
+  std::optional<magnet_snap::SnapResult> FindActiveMagnetSnap() const;
+  void CommitActiveMagnetSnap();
   void FinalizeSelectionDrag();
   void DrawSelectionDragGizmo(int width, int height);
   void ApplyRectangleSelection(const wxPoint &start, const wxPoint &end,
@@ -286,6 +292,8 @@ private:
   std::vector<std::string> m_dragSceneObjectUuids;
   bool m_dragSelectionMoved = false;
   bool m_dragSelectionPushedUndo = false;
+  bool m_magnetEnabled = false;
+  std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
   bool m_draggedSincePress = false;
   wxLongLong m_dragPressTime = 0;
   bool m_rectSelecting = false;

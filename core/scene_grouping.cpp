@@ -631,6 +631,32 @@ OperationResult GroupSelection(MvrScene &scene,
   return result;
 }
 
+
+// Adds selected scene entities to an existing GroupObject while preserving world placement.
+OperationResult AddSelectionToGroup(MvrScene &scene,
+                                    const ObjectSelection &selection,
+                                    const std::string &groupUuid) {
+  OperationResult result;
+  auto groupIt = scene.groupObjects.find(groupUuid);
+  if (groupIt == scene.groupObjects.end())
+    return result;
+
+  std::vector<SelectedObjectRef> objects = CollectSelectedObjects(scene, selection);
+  for (const auto &object : objects) {
+    if (object.parentGroupUuid == groupUuid)
+      continue;
+    RemoveChildFromGroups(scene, object.type, object.uuid);
+    const Matrix localTransform = MatrixUtils::Multiply(
+        InverseMatrix(groupIt->second.transform), object.worldTransform);
+    ApplyParentAndLocalTransform(scene, object, groupUuid, localTransform);
+    groupIt->second.children.push_back({object.type, object.uuid});
+    AppendAffectedTarget(result, scene, object.type, object.uuid);
+    result.changed = true;
+  }
+  result.groupUuid = groupUuid;
+  return result;
+}
+
 // Removes selected effective groups and promotes their direct children.
 OperationResult UngroupSelection(MvrScene &scene,
                                  const ObjectSelection &selection) {

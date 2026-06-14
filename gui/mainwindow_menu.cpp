@@ -75,6 +75,7 @@
 #include "layoutviewerpanel.h"
 #include "loader_obj.h"
 #include "logger.h"
+#include "magnet_snap.h"
 #include "logindialog.h"
 #include "markdown.h"
 #include "preferencesdialog.h"
@@ -239,6 +240,11 @@ void MainWindow::CreateToolBars() {
                                               wxART_MISSING_IMAGE),
                               "Toggle axis-constrained selection movement",
                               wxITEM_CHECK);
+  layoutViewsToolBar->AddTool(ID_View_Viewport_Magnet, "Magnet",
+                              loadToolbarIcon("magnet",
+                                              wxART_MISSING_IMAGE),
+                              "Toggle Magnet snapping while dragging",
+                              wxITEM_CHECK);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, true);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, false);
   layoutViewsToolBar->ToggleTool(
@@ -246,6 +252,10 @@ void MainWindow::CreateToolBars() {
       GetDefaultGuiConfigServices().Preferences().GetValue(
           selection_movement_settings::kAxisConstrainedMovementConfigKey) !=
           "0");
+  layoutViewsToolBar->ToggleTool(
+      ID_View_Viewport_Magnet,
+      GetDefaultGuiConfigServices().Preferences().GetValue(
+          magnet_snap::kMagnetEnabledConfigKey) == "1");
   layoutViewsToolBar->Realize();
   auiManager->AddPane(
       layoutViewsToolBar, wxAuiPaneInfo()

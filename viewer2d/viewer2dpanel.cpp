@@ -468,6 +468,8 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
       m_enableSelection(enableSelection) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   m_controller.SetSelectionOutlineEnabled(m_enableSelection);
+  m_magnetEnabled = ConfigManager::Get().GetValue(
+                        magnet_snap::kMagnetEnabledConfigKey) == "1";
   m_glContext = new wxGLContext(this);
   if (m_enableSelection) {
     StartDragTableUpdateWorker();
@@ -484,6 +486,7 @@ Viewer2DPanel::~Viewer2DPanel() {
   m_dragTarget = DragTarget::None;
   m_dragSelectionUuids.clear();
   m_dragSelectionMoved = false;
+  m_pendingMagnetSnap.reset();
   m_rectSelecting = false;
   m_interactionResumeTimer.Stop();
   m_hoverHitTestTimer.Stop();
@@ -723,6 +726,15 @@ void Viewer2DPanel::SetMeasureToolEnabled(bool enabled) {
     MainWindow::Instance()->SyncViewportToolToggleState(enabled);
   SetCursor(enabled ? wxCursor(wxCURSOR_CROSS) : wxCursor(wxCURSOR_ARROW));
   RequestRepaint();
+}
+
+// Enables or disables Magnet snapping for selection dragging.
+void Viewer2DPanel::SetMagnetEnabled(bool enabled) {
+  m_magnetEnabled = enabled;
+  m_pendingMagnetSnap.reset();
+  ConfigManager::Get().SetValue(magnet_snap::kMagnetEnabledConfigKey,
+                                enabled ? "1" : "0");
+  ConfigManager::Get().SaveUserConfig();
 }
 
 // Converts a mouse position in window coordinates into the current 2D world position.
@@ -1503,6 +1515,40 @@ void Viewer2DPanel::DrawSelectionDragGizmo(int width, int height) {
     glEnable(GL_DEPTH_TEST);
 }
 
+std::optional<magnet_snap::SnapSource> Viewer2DPanel::BuildActiveMagnetSource() const {
+  if (!m_magnetEnabled || m_measureToolState.enabled)
+    return std::nullopt;
+  if (m_dragTrussUuids.size() == 1 && m_dragFixtureUuids.empty() &&
+      m_dragSupportUuids.empty() && m_dragSceneObjectUuids.empty())
+    return magnet_snap::SnapSource{magnet_snap::ObjectType::Truss,
+                                   m_dragTrussUuids.front()};
+  if (m_dragFixtureUuids.size() == 1 && m_dragTrussUuids.empty() &&
+      m_dragSupportUuids.empty() && m_dragSceneObjectUuids.empty())
+    return magnet_snap::SnapSource{magnet_snap::ObjectType::Fixture,
+                                   m_dragFixtureUuids.front()};
+  if (m_dragSceneObjectUuids.size() == 1 && m_dragFixtureUuids.empty() &&
+      m_dragTrussUuids.empty() && m_dragSupportUuids.empty())
+    return magnet_snap::SnapSource{magnet_snap::ObjectType::SceneObject,
+                                   m_dragSceneObjectUuids.front()};
+  return std::nullopt;
+}
+
+// Finds the current Magnet snap candidate for the active single-object drag.
+std::optional<magnet_snap::SnapResult> Viewer2DPanel::FindActiveMagnetSnap() const {
+  auto source = BuildActiveMagnetSource();
+  if (!source)
+    return std::nullopt;
+  return magnet_snap::FindSnap(ConfigManager::Get().GetScene(), *source);
+}
+
+// Commits deferred Magnet grouping after a successful truss snap.
+void Viewer2DPanel::CommitActiveMagnetSnap() {
+  if (!m_pendingMagnetSnap || !m_pendingMagnetSnap->needsTrussGrouping)
+    return;
+  ConfigManager &cfg = ConfigManager::Get();
+  magnet_snap::ApplyCommittedTrussGrouping(cfg.GetScene(), *m_pendingMagnetSnap);
+}
+
 void Viewer2DPanel::ApplySelectionDelta(
     const std::array<float, 3> &deltaMeters) {
   if (m_dragSelectionUuids.empty())
@@ -1526,6 +1572,11 @@ void Viewer2DPanel::ApplySelectionDelta(
   selection.supports = m_dragSupportUuids;
   selection.sceneObjects = m_dragSceneObjectUuids;
   scene_grouping::TranslateSelection(cfg.GetScene(), selection, {dxMm, dyMm, dzMm});
+  m_pendingMagnetSnap.reset();
+  if (auto snap = FindActiveMagnetSnap()) {
+    magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap);
+    m_pendingMagnetSnap = snap;
+  }
   NotifyHighlightedWorldPosition(ComputeSelectionDragCenterMeters());
   ScheduleDragTableUpdate();
 }
@@ -2641,8 +2692,11 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
   if (event.LeftUp() && m_dragMode != DragMode::None) {
     if (HasCapture())
       ReleaseMouse();
-    if (m_dragMode == DragMode::Selection && m_dragSelectionMoved)
+    if (m_dragMode == DragMode::Selection && m_dragSelectionMoved) {
+      CommitActiveMagnetSnap();
       FinalizeSelectionDrag();
+    }
+    m_pendingMagnetSnap.reset();
     m_dragMode = DragMode::None;
     m_dragAxis = DragAxis::None;
     m_dragTarget = DragTarget::None;
@@ -3025,6 +3079,7 @@ void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
   m_dragSupportUuids.clear();
   m_dragSceneObjectUuids.clear();
   m_dragSelectionMoved = false;
+  m_pendingMagnetSnap.reset();
   m_rectSelecting = false;
   m_rectSelectionAcrossAllTables = false;
   ClearCursorWorldPosition();

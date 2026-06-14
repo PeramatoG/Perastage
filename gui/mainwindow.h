@@ -214,6 +214,7 @@ private:
   void OnViewportSideView(wxCommandEvent &event);
   void OnViewportSelectTool(wxCommandEvent &event);
   void OnViewportMeasureTool(wxCommandEvent &event);
+  void OnViewportMagnet(wxCommandEvent &event);
   void OnViewportAxisConstraint(wxCommandEvent &event);
 
   void OnUndo(wxCommandEvent &event);           // Undo action placeholder
