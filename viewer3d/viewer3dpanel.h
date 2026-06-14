@@ -156,6 +156,8 @@ private:
         const std::vector<std::string>& uuids, HoverTargetTable target) const;
     std::array<viewer3d::ProjectedAxis, 3> BuildProjectedDragAxes(
         const RenderSize& renderSize) const;
+    std::optional<std::array<float, 3>> ProjectMouseToSelectionDragViewPlane(
+        const wxPoint& mousePos, const RenderSize& renderSize) const;
     void ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters);
     void UpdateSelectionDragStatusPosition();
     void FinalizeSelectionDrag();

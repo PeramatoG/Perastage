@@ -55,6 +55,12 @@
       "group": "LayoutViewsToolbar"
     },
     {
+      "name": "Axis Lock",
+      "icon": "outline/move-3d.svg",
+      "description": "Toggles axis-constrained selection movement in the 2D and 3D viewports.",
+      "group": "LayoutViewsToolbar"
+    },
+    {
       "name": "Layout 2D View",
       "icon": "outline/panel-top-bottom-dashed.svg",
       "description": "Toggles or applies the 2D view layout.",

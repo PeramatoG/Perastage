@@ -44,6 +44,7 @@
 #include "mainwindow.h"
 #include "editable_focus_utils.h"
 #include "configmanager.h"
+#include "selection_movement_settings.h"
 #include "scene_grouping.h"
 #include "canvas2d.h"
 #include "fixturetablepanel.h"
@@ -3055,19 +3056,24 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     int dy = pos.y - m_lastMousePos.y;
 
     if (dx != 0 || dy != 0) {
-      if (m_dragAxis == DragAxis::None) {
-        int absDx = std::abs(dx);
-        int absDy = std::abs(dy);
-        if (absDx >= 3 || absDy >= 3) {
-          m_dragAxis =
-              absDx >= absDy ? DragAxis::Horizontal : DragAxis::Vertical;
+      const bool axisConstrainedMovement =
+          selection_movement_settings::IsAxisConstrainedMovementEnabled(
+              ConfigManager::Get());
+      if (axisConstrainedMovement) {
+        if (m_dragAxis == DragAxis::None) {
+          int absDx = std::abs(dx);
+          int absDy = std::abs(dy);
+          if (absDx >= 3 || absDy >= 3) {
+            m_dragAxis =
+                absDx >= absDy ? DragAxis::Horizontal : DragAxis::Vertical;
+          }
         }
-      }
 
-      if (m_dragAxis == DragAxis::Horizontal)
-        dy = 0;
-      else if (m_dragAxis == DragAxis::Vertical)
-        dx = 0;
+        if (m_dragAxis == DragAxis::Horizontal)
+          dy = 0;
+        else if (m_dragAxis == DragAxis::Vertical)
+          dx = 0;
+      }
 
       if (dx != 0 || dy != 0) {
         float ppm = PIXELS_PER_METER * m_zoom;

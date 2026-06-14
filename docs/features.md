@@ -101,6 +101,7 @@ Additional safeguards include:
 
 - OpenGL-based viewer with orbit, pan, zoom, and preset camera views.
 - Selection flows integrate with scene tables and command operations.
+- The viewport toolbar includes an axis-lock toggle for dragged scene selections. It is enabled by default for axis-constrained moves; disabling it stores the project setting and allows Blender-style free dragging on a plane parallel to the 3D camera view.
 - Context menu includes **Render style** with these options:
   - **Standard** for general-purpose scene reading.
   - **Sketch mode** for high-readability geometry outlines.
@@ -114,6 +115,7 @@ Additional safeguards include:
 ### 2D Viewer
 
 - Top-down plan visualization with configurable grid and labels.
+- The shared viewport axis-lock toggle also controls 2D selection dragging: enabled keeps movement constrained to one screen axis, while disabled allows free movement across both axes in the active 2D plane.
 - Supports vector draw-command capture for downstream document/export workflows.
 
 ### Layout system

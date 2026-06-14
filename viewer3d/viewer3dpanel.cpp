@@ -50,6 +50,7 @@
 #include "scene_object_primitive_editing.h"
 #include "../gui/selection_origin_token.h"
 #include "configmanager.h"
+#include "selection_movement_settings.h"
 #include "scene_grouping.h"
 #include "fixturepatchdialog.h"
 #include "viewer2dpanel.h"
@@ -75,6 +76,7 @@
 #include <set>
 #include <cstdint>
 #include <utility>
+#include <limits>
 
 wxDEFINE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
 wxBEGIN_EVENT_TABLE(Viewer3DPanel, wxGLCanvas)
@@ -2465,6 +2467,76 @@ Viewer3DPanel::BuildProjectedDragAxes(const RenderSize& renderSize) const
     return axes;
 }
 
+
+// Projects the mouse position onto the active selection drag view plane.
+std::optional<std::array<float, 3>>
+Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
+    const wxPoint& mousePos, const RenderSize& renderSize) const
+{
+    if (!renderSize.IsValid())
+        return std::nullopt;
+
+    GLdouble modelview[16] = {};
+    GLdouble projection[16] = {};
+    GLint viewport[4] = {0, 0, 0, 0};
+    glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+    glGetDoublev(GL_PROJECTION_MATRIX, projection);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    const wxPoint framebufferPos = ToFramebufferPoint(
+        const_cast<Viewer3DPanel*>(this), mousePos);
+    const double winX = static_cast<double>(framebufferPos.x);
+    const double winY = static_cast<double>(renderSize.height - framebufferPos.y);
+
+    auto unproject = [&](double x, double y, double z) {
+        std::array<double, 3> point{0.0, 0.0, 0.0};
+        if (gluUnProject(x, y, z, modelview, projection, viewport, &point[0],
+                         &point[1], &point[2]) != GL_TRUE) {
+            point = {std::numeric_limits<double>::quiet_NaN(),
+                     std::numeric_limits<double>::quiet_NaN(),
+                     std::numeric_limits<double>::quiet_NaN()};
+        }
+        return point;
+    };
+
+    const auto nearPoint = unproject(winX, winY, 0.0);
+    const auto farPoint = unproject(winX, winY, 1.0);
+    const auto centerNear = unproject(viewport[0] + viewport[2] * 0.5,
+                                      viewport[1] + viewport[3] * 0.5, 0.0);
+    const auto centerFar = unproject(viewport[0] + viewport[2] * 0.5,
+                                     viewport[1] + viewport[3] * 0.5, 1.0);
+    for (double value : {nearPoint[0], nearPoint[1], nearPoint[2], farPoint[0],
+                         farPoint[1], farPoint[2], centerNear[0], centerNear[1],
+                         centerNear[2], centerFar[0], centerFar[1], centerFar[2]}) {
+        if (!std::isfinite(value))
+            return std::nullopt;
+    }
+
+    const std::array<double, 3> rayDir{farPoint[0] - nearPoint[0],
+                                      farPoint[1] - nearPoint[1],
+                                      farPoint[2] - nearPoint[2]};
+    const std::array<double, 3> planeNormal{centerFar[0] - centerNear[0],
+                                           centerFar[1] - centerNear[1],
+                                           centerFar[2] - centerNear[2]};
+    const double denominator = rayDir[0] * planeNormal[0] +
+                               rayDir[1] * planeNormal[1] +
+                               rayDir[2] * planeNormal[2];
+    if (std::abs(denominator) <= 1e-12)
+        return std::nullopt;
+
+    const std::array<double, 3> planePoint{
+        m_selectionDragAnchorMeters[0], m_selectionDragAnchorMeters[1],
+        m_selectionDragAnchorMeters[2]};
+    const double t = ((planePoint[0] - nearPoint[0]) * planeNormal[0] +
+                      (planePoint[1] - nearPoint[1]) * planeNormal[1] +
+                      (planePoint[2] - nearPoint[2]) * planeNormal[2]) /
+                     denominator;
+    return std::array<float, 3>{
+        static_cast<float>(nearPoint[0] + rayDir[0] * t),
+        static_cast<float>(nearPoint[1] + rayDir[1] * t),
+        static_cast<float>(nearPoint[2] + rayDir[2] * t)};
+}
+
 // Applies a world-space delta to every object in the active selection drag.
 void Viewer3DPanel::ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters)
 {
@@ -2648,24 +2720,42 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
             if (renderSize.IsValid() &&
                 TryBindGlContextForInteraction("OnMouseMove")) {
                 ApplyCameraMatrices(renderSize);
-                const auto projectedAxes = BuildProjectedDragAxes(renderSize);
-                if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None) {
-                    m_selectionDragAxis = viewer3d::SelectDragAxisFromMouseDelta(
-                        dx, -dy, projectedAxes);
-                }
+                if (selection_movement_settings::IsAxisConstrainedMovementEnabled(
+                        ConfigManager::Get())) {
+                    const auto projectedAxes = BuildProjectedDragAxes(renderSize);
+                    if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None) {
+                        m_selectionDragAxis = viewer3d::SelectDragAxisFromMouseDelta(
+                            dx, -dy, projectedAxes);
+                    }
 
-                const double axisDeltaMeters = viewer3d::ComputeDragMetersOnAxis(
-                    dx, -dy, m_selectionDragAxis, projectedAxes);
-                if (axisDeltaMeters != 0.0) {
-                    const auto axisVector =
-                        AxisVectorFromSelectionDragAxis(m_selectionDragAxis);
-                    const std::array<float, 3> worldDelta{
-                        axisVector[0] * static_cast<float>(axisDeltaMeters),
-                        axisVector[1] * static_cast<float>(axisDeltaMeters),
-                        axisVector[2] * static_cast<float>(axisDeltaMeters)};
-                    ApplySelectionDragDelta(worldDelta);
-                    m_selectionDragMoved = true;
-                    m_draggedSincePress = true;
+                    const double axisDeltaMeters = viewer3d::ComputeDragMetersOnAxis(
+                        dx, -dy, m_selectionDragAxis, projectedAxes);
+                    if (axisDeltaMeters != 0.0) {
+                        const auto axisVector =
+                            AxisVectorFromSelectionDragAxis(m_selectionDragAxis);
+                        const std::array<float, 3> worldDelta{
+                            axisVector[0] * static_cast<float>(axisDeltaMeters),
+                            axisVector[1] * static_cast<float>(axisDeltaMeters),
+                            axisVector[2] * static_cast<float>(axisDeltaMeters)};
+                        ApplySelectionDragDelta(worldDelta);
+                        m_selectionDragMoved = true;
+                        m_draggedSincePress = true;
+                    }
+                } else {
+                    const auto lastPoint = ProjectMouseToSelectionDragViewPlane(
+                        m_lastMousePos, renderSize);
+                    const auto currentPoint = ProjectMouseToSelectionDragViewPlane(
+                        pos, renderSize);
+                    if (lastPoint && currentPoint) {
+                        const std::array<float, 3> worldDelta{
+                            (*currentPoint)[0] - (*lastPoint)[0],
+                            (*currentPoint)[1] - (*lastPoint)[1],
+                            (*currentPoint)[2] - (*lastPoint)[2]};
+                        ApplySelectionDragDelta(worldDelta);
+                        m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
+                        m_selectionDragMoved = true;
+                        m_draggedSincePress = true;
+                    }
                 }
             }
         }
