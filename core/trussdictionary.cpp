@@ -673,6 +673,21 @@ bool Save(const std::unordered_map<std::string, std::string> &dict,
   return true;
 }
 
+// Looks up a truss model in a preloaded dictionary snapshot.
+std::optional<std::string> FindInLoadedDictionary(
+    const std::unordered_map<std::string, std::string> &dict,
+    const std::string &model, bool validateExistingPath) {
+  const std::string normalizedModel = NormalizeModelKey(model);
+  if (normalizedModel.empty())
+    return std::nullopt;
+  auto it = dict.find(normalizedModel);
+  if (it == dict.end())
+    return std::nullopt;
+  if (validateExistingPath && !fs::exists(PathUtils::PathFromUtf8(it->second)))
+    return std::nullopt;
+  return it->second;
+}
+
 std::optional<std::string> Get(const std::string &model) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   const std::string normalizedModel = NormalizeModelKey(model);

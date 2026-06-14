@@ -40,6 +40,10 @@ bool SetActiveDictionaryFilePath(const std::string &path,
 bool Save(const std::unordered_map<std::string, std::string> &dict,
           std::string *errorOut = nullptr);
 std::optional<std::string> Get(const std::string &model);
+// Looks up a model in an already loaded dictionary without reloading from disk.
+std::optional<std::string> FindInLoadedDictionary(
+    const std::unordered_map<std::string, std::string> &dict,
+    const std::string &model, bool validateExistingPath = true);
 void Update(const std::string &model, const std::string &modelPath);
 bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
                      std::string &error);

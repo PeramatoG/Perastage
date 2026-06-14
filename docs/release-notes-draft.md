@@ -70,6 +70,7 @@ Changes since `v1.3.0`.
 - Improved rider fixture filter preview construction by avoiding an extra string copy when appending rigging content, while preserving the existing preview layout.
 - Improved rider text import internals by separating filtered rider requests into a parsed intermediate model, preserving preview output while reducing coupling between filtering and scene creation.
 - Improved text-to-scene creation so applying the rider text filter in the editor no longer repeats the same filtering work during import, while preserving existing import behavior for all other flows.
+- Improved Create from text import performance by loading fixture and truss dictionaries once per import, reusing importer-local lookup caches, and adding concise phase timing diagnostics for future optimization.
 - Added backward-cpp integration, generated build metadata, and release workflow symbol archives for Windows, Linux, macOS, and Arch Linux builds.
 - Improved truss table reload stability so rebuilding rows preserves existing truss selection without triggering transient selection side effects.
 - Added concise diagnostics for truss loading and 2D viewer picking to make validation and interaction issues easier to troubleshoot.
