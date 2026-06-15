@@ -1140,6 +1140,7 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   }
 }
 
+// Draws visible truss labels in the 3D viewport.
 void LabelRenderSystem::DrawTrussLabels(int width, int height) {
   ConfigManager &cfg = ConfigManager::Get();
   ProjectionContext projection;
@@ -1189,7 +1190,7 @@ void LabelRenderSystem::DrawTrussLabels(int width, int height) {
                                     : wxString::FromUTF8(t.name);
     float baseHeight = t.transform.o[2] - t.heightMm * 0.5f;
     const std::string heightText = FormatMeters(baseHeight);
-    label += wxString::Format("\nh = %s m", heightText.c_str());
+    label += "\nh = " + wxString::FromUTF8(heightText) + " m";
 
     auto utf8 = label.ToUTF8();
     DrawText2D(m_controller.GetNanoVGContext(), m_controller.GetLabelFont(),

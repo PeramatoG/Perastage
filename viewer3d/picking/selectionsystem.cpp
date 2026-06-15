@@ -749,6 +749,7 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   return found;
 }
 
+// Finds the best truss label under the mouse cursor.
 bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
                                       int height, wxString &outLabel,
                                       wxPoint &outPos,
@@ -891,8 +892,8 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
       bestLabel = t.name.empty() ? wxString::FromUTF8(uuid)
                                  : wxString::FromUTF8(t.name);
       float baseHeight = t.transform.o[2] - t.heightMm * 0.5f;
-      std::string hStr = FormatMeters(baseHeight);
-      bestLabel += wxString::Format("\nh = %s m", hStr.c_str());
+      const std::string hStr = FormatMeters(baseHeight);
+      bestLabel += "\nh = " + wxString::FromUTF8(hStr) + " m";
       bestUuid = uuid;
       found = true;
     }

@@ -458,11 +458,12 @@ int MyApp::FilterEvent(wxEvent &event) {
       objectClassName = wxT("UnknownObject");
     }
   }
-  last_event_summary_ = wxString::Format(
-                            "Last event: class=%s type=%d id=%d object=%s",
-                            eventClassName, static_cast<int>(event.GetEventType()),
-                            event.GetId(), objectClassName)
-                            .ToStdString();
+  last_event_summary_ =
+      ("Last event: class=" + eventClassName +
+       wxString::Format(" type=%d id=%d object=",
+                        static_cast<int>(event.GetEventType()), event.GetId()) +
+       objectClassName)
+          .ToStdString();
   return -1;
 }
 
