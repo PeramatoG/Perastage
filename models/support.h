@@ -27,6 +27,7 @@
 
 #include "types.h"
 #include "fixture.h"
+#include "sceneobject.h"
 
 // Represents a hoist parsed from MVR
 struct Support {
@@ -39,6 +40,8 @@ struct Support {
     std::string position;
     std::string positionName;
     std::string layer;
+    std::string modelFile;
+    std::vector<GeometryInstance> geometries;
 
     float capacityKg = 0.0f;
     float weightKg = 0.0f;
