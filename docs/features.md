@@ -37,6 +37,7 @@ Perastage is designed for lighting designers, programmers, and technicians who n
 ### MVR export
 
 - Exports the current scene back to `.mvr` for interoperability.
+- Stores Perastage-specific layer appearance metadata, including layer colors, in a root-level MVR `UserData/Data` block instead of writing non-standard `Color` children inside `Layer` nodes.
 - Parametric objects exported as Fixture/Truss/Support receive stable non-empty `FixtureID` and globally unique `FixtureIDNumeric` values.
 
 ### GDTF integration and dictionary pipeline

@@ -556,6 +556,41 @@ add_test(NAME MvrSupportUserDataRoundtrip COMMAND mvr_support_userdata_roundtrip
 set_library_env(MvrSupportUserDataRoundtrip)
 
 
+add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_test.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/gdtf_fixture_category.cpp
+               ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/uuidutils.cpp
+               ../core/dummyprofilelibrary.cpp
+               ../mvr/mvrimporter.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
+               ../viewer2d/fixture_label_overrides.cpp
+               ../mvr/mvrexporter.cpp
+               ../mvr/primitive_model_resources.cpp
+               ../core/gdtf_mutation_audit.cpp
+               ../core/logger.cpp
+               gdtfloader_stub.cpp
+               consolepanel_stub.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
+target_include_directories(mvr_layer_appearance_userdata_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(mvr_layer_appearance_userdata_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME MvrLayerAppearanceUserData COMMAND mvr_layer_appearance_userdata_test)
+set_library_env(MvrLayerAppearanceUserData)
+
+
 add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtrip_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp

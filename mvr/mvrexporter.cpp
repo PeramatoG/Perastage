@@ -104,10 +104,18 @@ static bool ShouldExportSupportHoistInfo(const Support &support);
 static tinyxml2::XMLElement *FindFirstPerastageUserData(tinyxml2::XMLElement *node);
 static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
                                                             tinyxml2::XMLElement *node);
+
 static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
                                            tinyxml2::XMLElement *supportData,
                                            const Support &support);
 static bool IsCanonicalUuidString(const std::string &value);
+static std::string ExportLayerUuid(const std::string &layerUuid,
+                                   const std::string &layerName);
+static bool IsLayerColorMetadataValue(const std::string &color);
+static bool HasLayerAppearanceMetadata(const MvrScene &scene);
+static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
+                                          tinyxml2::XMLElement *perastageData,
+                                          const MvrScene &scene);
 static void LogLegacyPositionUuidWarning(const std::string &message);
 
 static constexpr const char *kMvrProvider = "Perastage";
@@ -692,6 +700,15 @@ static bool ValidateMvr16Export(
   std::unordered_set<std::string> referencedPositionUuids;
 
   if (tinyxml2::XMLElement *scene = root->FirstChildElement("Scene")) {
+    if (tinyxml2::XMLElement *layers = scene->FirstChildElement("Layers")) {
+      for (tinyxml2::XMLElement *layer = layers->FirstChildElement("Layer"); layer;
+           layer = layer->NextSiblingElement("Layer")) {
+        if (layer->FirstChildElement("Color")) {
+          wxLogError("MVR export validation failed: Layer/Color is not valid in MVR 1.6");
+          return false;
+        }
+      }
+    }
     if (scene->FirstChildElement("UserData")) {
       wxLogError("MVR export validation failed: Scene/UserData is not valid in MVR 1.6");
       return false;
@@ -1168,6 +1185,7 @@ static bool ShouldExportSupportHoistInfo(const Support &support) {
          NormalizeHoistDataSource(support.hoistFunctionSource) != "Inherited";
 }
 
+// Finds the first UserData element that already contains Perastage-owned data.
 static tinyxml2::XMLElement *FindFirstPerastageUserData(tinyxml2::XMLElement *node) {
   if (!node)
     return nullptr;
@@ -1186,6 +1204,7 @@ static tinyxml2::XMLElement *FindFirstPerastageUserData(tinyxml2::XMLElement *no
   return nullptr;
 }
 
+// Finds or creates the Perastage Data element under a valid parent node.
 static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
                                                             tinyxml2::XMLElement *node) {
   tinyxml2::XMLElement *ud = FindFirstPerastageUserData(node);
@@ -1209,6 +1228,67 @@ static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument
   return data;
 }
 
+// Resolves the canonical MVR layer UUID exported for a Perastage layer.
+static std::string ExportLayerUuid(const std::string &layerUuid,
+                                   const std::string &layerName) {
+  if (layerUuid.empty())
+    return {};
+  return IsCanonicalUuidString(layerUuid)
+             ? layerUuid
+             : DeriveDeterministicUuid("mvr:layer:" + layerName + ":" + layerUuid);
+}
+
+// Returns true when the color can be stored as Perastage #RRGGBB metadata.
+static bool IsLayerColorMetadataValue(const std::string &color) {
+  if (color.size() != 7 || color[0] != '#')
+    return false;
+  return std::all_of(color.begin() + 1, color.end(), [](unsigned char ch) {
+    return std::isxdigit(ch) != 0;
+  });
+}
+
+// Returns true when any layer has Perastage color metadata to export.
+static bool HasLayerAppearanceMetadata(const MvrScene &scene) {
+  return std::any_of(scene.layers.begin(), scene.layers.end(), [](const auto &entry) {
+    return IsLayerColorMetadataValue(entry.second.color);
+  });
+}
+
+// Appends the root-level Perastage layer appearance map when layers define colors.
+static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
+                                          tinyxml2::XMLElement *perastageData,
+                                          const MvrScene &scene) {
+  if (!perastageData)
+    return;
+
+  tinyxml2::XMLElement *map = nullptr;
+  for (tinyxml2::XMLElement *existing = perastageData->FirstChildElement("LayerAppearanceMap");
+       existing; existing = existing->NextSiblingElement("LayerAppearanceMap")) {
+    map = existing;
+    break;
+  }
+
+  for (const auto &[layerUuid, layer] : scene.layers) {
+    if (!IsLayerColorMetadataValue(layer.color))
+      continue;
+    if (!map)
+      map = doc.NewElement("LayerAppearanceMap");
+
+    tinyxml2::XMLElement *entry = doc.NewElement("Layer");
+    const std::string exportUuid = ExportLayerUuid(layerUuid, layer.name);
+    if (!exportUuid.empty())
+      entry->SetAttribute("uuid", exportUuid.c_str());
+    if (!layer.name.empty())
+      entry->SetAttribute("name", layer.name.c_str());
+    entry->SetAttribute("color", layer.color.c_str());
+    map->InsertEndChild(entry);
+  }
+
+  if (map && !map->Parent())
+    perastageData->InsertEndChild(map);
+}
+
+// Appends Perastage support hoist metadata into the supplied Data element.
 static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
                                            tinyxml2::XMLElement *supportData,
                                            const Support &support) {
@@ -1879,6 +1959,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
                      scene.providerVersion.empty() ? kMvrProviderVersion
                                                    : scene.providerVersion.c_str());
   doc.InsertEndChild(root);
+
+  if (HasLayerAppearanceMetadata(scene)) {
+    tinyxml2::XMLElement *rootPerastageData = FindOrCreatePerastageDataNode(doc, root);
+    AppendLayerAppearanceMetadata(doc, rootPerastageData, scene);
+  }
 
   tinyxml2::XMLElement *sceneNode = doc.NewElement("Scene");
   root->InsertEndChild(sceneNode);
@@ -2788,22 +2873,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       continue;
     tinyxml2::XMLElement *layerElem = doc.NewElement("Layer");
     if (!layerUuid.empty()) {
-      const std::string exportLayerUuid =
-          IsCanonicalUuidString(layerUuid)
-              ? layerUuid
-              : DeriveDeterministicUuid("mvr:layer:" + layer.name + ":" + layerUuid);
+      const std::string exportLayerUuid = ExportLayerUuid(layerUuid, layer.name);
       layerElem->SetAttribute("uuid", exportLayerUuid.c_str());
     }
     if (!layer.name.empty())
       layerElem->SetAttribute("name", layer.name.c_str());
 
-    if (!layer.color.empty() && layer.color.size() == 7 &&
-        layer.color[0] == '#') {
-      std::string cie = HexToCie(layer.color);
-      tinyxml2::XMLElement *col = doc.NewElement("Color");
-      col->SetText(cie.c_str());
-      layerElem->InsertEndChild(col);
-    }
 
     tinyxml2::XMLElement *childList = doc.NewElement("ChildList");
 
@@ -2872,10 +2947,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     tinyxml2::XMLElement *defaultLayerElem = doc.NewElement("Layer");
     if (!defaultLayerUuid.empty()) {
       const std::string exportDefaultLayerUuid =
-          IsCanonicalUuidString(defaultLayerUuid)
-              ? defaultLayerUuid
-              : DeriveDeterministicUuid("mvr:layer:" + defaultLayerName + ":" +
-                                        defaultLayerUuid);
+          ExportLayerUuid(defaultLayerUuid, defaultLayerName);
       defaultLayerElem->SetAttribute("uuid", exportDefaultLayerUuid.c_str());
     }
     if (!defaultLayerName.empty())
@@ -2887,10 +2959,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   sceneNode->InsertEndChild(layersNode);
 
   if (!trussArchiveByTypeKey.empty()) {
-    tinyxml2::XMLElement *rootUserData = doc.NewElement("UserData");
-    tinyxml2::XMLElement *data = doc.NewElement("Data");
-    data->SetAttribute("provider", "Perastage");
-    data->SetAttribute("ver", "1.0");
+    tinyxml2::XMLElement *data = FindOrCreatePerastageDataNode(doc, root);
     tinyxml2::XMLElement *manifest = doc.NewElement("TrussSidecarManifest");
     for (const auto &[typeKey, archivePath] : trussArchiveByTypeKey) {
       tinyxml2::XMLElement *typeNode = doc.NewElement("Type");
@@ -2915,8 +2984,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
               .ToStdString());
     }
     data->InsertEndChild(manifest);
-    rootUserData->InsertEndChild(data);
-    root->InsertEndChild(rootUserData);
   }
 
   // Prunes non-referenced resources so deleted scene elements do not keep stale payload files.
