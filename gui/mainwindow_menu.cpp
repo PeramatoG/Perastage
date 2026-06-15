@@ -51,6 +51,7 @@
 #include <wx/window.h>
 
 #include "addfixturedialog.h"
+#include "addtrussdialog.h"
 #include "autopatcher.h"
 #include "ui_feature_flags.h"
 #include "configmanager.h"
@@ -85,6 +86,7 @@
 #include "riggingpanel.h"
 #include "scene_object_primitive_dialogs.h"
 #include "scene_object_primitive_creation.h"
+#include "scene_grouping.h"
 #include "sceneobjecttablepanel.h"
 #include "selectfixturetypedialog.h"
 #include "selectnamedialog.h"
@@ -1380,8 +1382,11 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
   if (!baseTruss.name.empty())
     defaultName = baseTruss.name;
 
-  long qty = wxGetNumberFromUser("Enter truss quantity:", wxEmptyString,
-                                 "Add Truss", 1, 1, 1000, this);
+  AddTrussDialog addDialog(this);
+  if (addDialog.ShowModal() != wxID_OK)
+    return;
+  const AddTrussRequest addRequest = addDialog.GetRequest();
+  const long qty = addRequest.quantity;
   if (qty <= 0)
     return;
 
@@ -1411,6 +1416,10 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     scene.layers[layer.uuid] = layer;
   }
 
+  std::vector<std::string> addedTrussUuids;
+  addedTrussUuids.reserve(static_cast<size_t>(qty));
+  const float trussSpacingMm =
+      baseTruss.lengthMm > 0.0f ? baseTruss.lengthMm : 0.0f;
   for (long i = 0; i < qty; ++i) {
     Truss t = baseTruss;
     t.uuid = wxString::Format("uuid_%lld", static_cast<long long>(baseId + i))
@@ -1420,7 +1429,20 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     else
       t.name = defaultName;
     t.layer = layerName;
+    t.parentGroupUuid.clear();
+    t.hasLocalTransform = false;
+    t.transform.o = {addRequest.insertionPointMm[0] + trussSpacingMm * i,
+                     addRequest.insertionPointMm[1],
+                     addRequest.insertionPointMm[2]};
+    t.localTransform = t.transform;
     scene.trusses[t.uuid] = t;
+    addedTrussUuids.push_back(t.uuid);
+  }
+
+  if (addRequest.createGroup && addedTrussUuids.size() > 1) {
+    scene_grouping::ObjectSelection selection;
+    selection.trusses = addedTrussUuids;
+    scene_grouping::GroupSelection(scene, selection);
   }
 
   if (trussPanel)
