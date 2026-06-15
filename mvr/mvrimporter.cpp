@@ -2232,6 +2232,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             std::string symType;
             Matrix symMatrix = MatrixUtils::Identity();
             resolveSymdefReference(sym, symGeometries, symType, symMatrix);
+            if (const char *symbolUuid = sym->Attribute("uuid"))
+              truss.sourceSymbolUuid = CanonicalizeUuid(Trim(symbolUuid));
             if (const char *symdef = sym->Attribute("symdef"))
               truss.sourceSymdefUuid = Trim(symdef);
             truss.sourceSymbolMatrix = symMatrix;

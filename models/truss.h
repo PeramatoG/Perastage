@@ -63,6 +63,7 @@ struct Truss {
     bool hasLocalTransform = false;
 
     GeometryRepresentation sourceRepresentation = GeometryRepresentation::Unknown;
+    std::string sourceSymbolUuid;
     std::string sourceSymdefUuid;
     std::string sourceGeometryType;
     std::string parentGroupUuid;

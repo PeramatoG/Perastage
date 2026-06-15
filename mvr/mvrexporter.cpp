@@ -620,6 +620,47 @@ static bool IsCanonicalUuidString(const std::string &value) {
   return CanonicalizeUuid(value) == value;
 }
 
+// Returns a stable, unique MVR Symbol UUID for the current export.
+static std::string ResolveExportSymbolUuid(
+    const std::string &candidateUuid,
+    const std::string &containerUuid,
+    const std::string &symdefUuid,
+    const std::string &deterministicSeed,
+    std::unordered_set<std::string> &usedSymbolUuids,
+    std::vector<std::string> *exportWarnings,
+    const std::string &context) {
+  const std::string canonicalCandidate = CanonicalizeUuid(candidateUuid);
+  const std::string canonicalContainer = CanonicalizeUuid(containerUuid);
+  const std::string canonicalSymdef = CanonicalizeUuid(symdefUuid);
+  const bool candidateConflicts =
+      !canonicalCandidate.empty() &&
+      (usedSymbolUuids.contains(canonicalCandidate) ||
+       (!canonicalContainer.empty() && canonicalCandidate == canonicalContainer) ||
+       (!canonicalSymdef.empty() && canonicalCandidate == canonicalSymdef));
+
+  if (!canonicalCandidate.empty() && !candidateConflicts) {
+    usedSymbolUuids.insert(canonicalCandidate);
+    return canonicalCandidate;
+  }
+
+  if (!TrimAscii(candidateUuid).empty() && exportWarnings) {
+    exportWarnings->push_back("MVR export replaced invalid or conflicting Symbol uuid '" +
+                              TrimAscii(candidateUuid) + "' for " + context + ".");
+  }
+
+  for (int suffix = 0;; ++suffix) {
+    const std::string seed = deterministicSeed + "#" + std::to_string(suffix);
+    const std::string generated = DeriveDeterministicUuid(seed);
+    if (generated.empty() || usedSymbolUuids.contains(generated) ||
+        (!canonicalContainer.empty() && generated == canonicalContainer) ||
+        (!canonicalSymdef.empty() && generated == canonicalSymdef)) {
+      continue;
+    }
+    usedSymbolUuids.insert(generated);
+    return generated;
+  }
+}
+
 // Validate MVR 1.6 XML/archive consistency while downgrading missing resource issues to warnings.
 static bool ValidateMvr16Export(
     tinyxml2::XMLDocument &doc,
@@ -680,7 +721,24 @@ static bool ValidateMvr16Export(
     while (!stack.empty()) {
       tinyxml2::XMLElement *cur = stack.back();
       stack.pop_back();
-        if (std::string(cur->Name()) == "Fixture") {
+      if (std::string(cur->Name()) == "Symbol") {
+        const tinyxml2::XMLElement *parent = cur->Parent() ? cur->Parent()->ToElement() : nullptr;
+        const std::string context = parent && parent->Name() ? std::string(parent->Name()) : "unknown";
+        const std::string symbolUuid = TrimAscii(cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+        const std::string symdefUuid = TrimAscii(cur->Attribute("symdef") ? cur->Attribute("symdef") : "");
+        if (!IsCanonicalUuidString(symbolUuid)) {
+          wxLogError("MVR export validation failed: Symbol in %s has missing or non-canonical uuid '%s'",
+                     context, symbolUuid);
+          return false;
+        }
+        if (symdefUuid.empty()) {
+          wxLogError("MVR export validation failed: Symbol uuid '%s' in %s has no symdef",
+                     symbolUuid, context);
+          return false;
+        }
+      }
+
+      if (std::string(cur->Name()) == "Fixture") {
         auto *idNode = cur->FirstChildElement("FixtureID");
         auto *numNode = cur->FirstChildElement("FixtureIDNumeric");
         const std::string fixtureUuid = cur->Attribute("uuid") ? cur->Attribute("uuid") : "(missing uuid)";
@@ -1411,6 +1469,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   std::unordered_map<std::string, std::string> positions;
   std::unordered_map<std::string, std::string> legacyPositionIdToCanonical;
   std::unordered_set<std::string> usedPositionUuids;
+  std::unordered_set<std::string> usedSymbolUuids;
 
   auto reserveCanonicalPositionUuid = [&](const std::string &candidate,
                                           const std::string &seedBase) {
@@ -2219,16 +2278,23 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           !t.sourceSymdefUuid.empty()) {
         tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
         tinyxml2::XMLElement *sym = doc.NewElement("Symbol");
+        const std::string symbolMatrixText = MatrixUtils::FormatMatrix(t.sourceSymbolMatrix);
+        const std::string symbolUuid = ResolveExportSymbolUuid(
+            t.sourceSymbolUuid, t.uuid, t.sourceSymdefUuid,
+            "mvr:symbol:truss:" + t.uuid + ":" + t.sourceSymdefUuid + ":" +
+                symbolMatrixText + ":0",
+            usedSymbolUuids, &m_exportWarnings, "Truss uuid " + t.uuid);
+        sym->SetAttribute("uuid", symbolUuid.c_str());
         sym->SetAttribute("symdef", t.sourceSymdefUuid.c_str());
         tinyxml2::XMLElement *symMat = doc.NewElement("Matrix");
-        symMat->SetText(MatrixUtils::FormatMatrix(t.sourceSymbolMatrix).c_str());
+        symMat->SetText(symbolMatrixText.c_str());
         sym->InsertEndChild(symMat);
         geos->InsertEndChild(sym);
         te->InsertEndChild(geos);
         Logger::Instance().Log(
             Logger::Level::Info,
-            wxString::Format("MVR export truss keeps Symbol/Symdef uuid=%s symdef=%s",
-                             t.uuid.c_str(), t.sourceSymdefUuid.c_str())
+            wxString::Format("MVR export truss keeps Symbol/Symdef uuid=%s symbol=%s symdef=%s",
+                             t.uuid.c_str(), symbolUuid.c_str(), t.sourceSymdefUuid.c_str())
                 .ToStdString());
       } else if (!t.symbolFile.empty()) {
         std::string ext = fs::path(t.symbolFile).extension().string();
