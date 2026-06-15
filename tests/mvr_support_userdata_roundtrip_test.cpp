@@ -172,6 +172,7 @@ int main() {
   tinyxml2::XMLElement *root = xml.FirstChildElement("GeneralSceneDescription");
   assert(root != nullptr);
   bool foundLinkedSupport = false;
+  bool foundEmptySceneObjectPlaceholder = false;
   bool foundInvalidSceneObject = false;
   std::vector<tinyxml2::XMLElement *> stack;
   stack.push_back(root);
@@ -188,16 +189,20 @@ int main() {
       assert(current->FirstChildElement("GDTFMode") != nullptr);
     }
     if (std::string(current->Name()) == "SceneObject" &&
+        current->Attribute("uuid") &&
+        std::string(current->Attribute("uuid")) == "obj-empty") {
+      foundEmptySceneObjectPlaceholder = true;
+      assert(current->FirstChildElement("Geometries") != nullptr);
+    }
+    if (std::string(current->Name()) == "SceneObject" &&
         current->FirstChildElement("Geometries") == nullptr)
       foundInvalidSceneObject = true;
-    assert(!(std::string(current->Name()) == "SceneObject" &&
-             current->Attribute("uuid") &&
-             std::string(current->Attribute("uuid")) == "obj-empty"));
     for (tinyxml2::XMLElement *child = current->FirstChildElement(); child;
          child = child->NextSiblingElement())
       stack.push_back(child);
   }
   assert(foundLinkedSupport);
+  assert(foundEmptySceneObjectPlaceholder);
   assert(!foundInvalidSceneObject);
 
   cfg.Reset();
