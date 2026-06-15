@@ -28,6 +28,20 @@ enum class MvrImportMode {
     ParseOnly,
 };
 
+enum class MvrImportSourceKind {
+    ExternalImport,
+    ProjectRestore,
+    MergeImport,
+};
+
+struct MvrImportOptions {
+    bool promptConflicts = true;
+    bool applyDictionary = true;
+    bool preserveMvrGdtfReferences = true;
+    bool allowDummyFallback = true;
+    MvrImportSourceKind sourceKind = MvrImportSourceKind::ExternalImport;
+};
+
 struct MvrImportResult {
     MvrScene scene;
     std::unordered_map<std::string, std::string> fixtureUuidRemap;
@@ -63,11 +77,24 @@ public:
                         bool applyDictionary = true,
                         ProgressCallback progressCallback = {});
 
+    // Imports and parses a .mvr file into an import result using explicit restore/import options.
+    bool ImportFromFile(const std::string& filePath,
+                        MvrImportResult& importResult,
+                        MvrImportMode mode,
+                        const MvrImportOptions& options,
+                        ProgressCallback progressCallback = {});
+
     // Imports and parses a .mvr file into the provided scene without resetting ConfigManager.
     bool ImportSceneFromFile(const std::string& filePath,
                              MvrScene& targetScene,
                              bool promptConflicts = true,
                              bool applyDictionary = true,
+                             ProgressCallback progressCallback = {});
+
+    // Imports and parses a .mvr file into the provided scene using explicit restore/import options.
+    bool ImportSceneFromFile(const std::string& filePath,
+                             MvrScene& targetScene,
+                             const MvrImportOptions& options,
                              ProgressCallback progressCallback = {});
 
     // Static interface for use outside the import module (e.g. GUI)
@@ -76,6 +103,11 @@ public:
     static bool ImportAndRegister(const std::string& filePath,
                                   bool promptConflicts = true,
                                   bool applyDictionary = true,
+                                  ProgressCallback progressCallback = {});
+
+    // Static interface for project restore imports that must preserve serialized MVR resources.
+    static bool ImportAndRegister(const std::string& filePath,
+                                  const MvrImportOptions& options,
                                   ProgressCallback progressCallback = {});
 
 private:
@@ -92,15 +124,13 @@ private:
     bool ImportFromFileIntoResult(const std::string& filePath,
                                   MvrImportResult& importResult,
                                   MvrImportMode mode,
-                                  bool promptConflicts,
-                                  bool applyDictionary,
+                                  const MvrImportOptions& options,
                                   ProgressCallback progressCallback);
 
     // Parses the GeneralSceneDescription.xml file and updates the import result payload.
     bool ParseSceneXml(const std::string& sceneXmlPath,
                        MvrImportResult& importResult,
-                       bool promptConflicts,
-                       bool applyDictionary,
+                       const MvrImportOptions& options,
                        ProgressCallback progressCallback);
 
     std::string NormalizeArchivePath(const std::string& archivePath) const;

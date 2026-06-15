@@ -190,6 +190,7 @@ int main() {
 
     const auto &loaded = scene2.fixtures.at("fx1");
     assert(std::filesystem::path(loaded.gdtfSpec).filename() == "orig.gdtf");
+    assert(std::filesystem::path(loaded.originalMvrGdtfSpec).filename() == "orig.gdtf");
 
     std::filesystem::remove(temp);
     std::filesystem::remove(ProjectUtils::GetDefaultLibraryPath("fixtures") + "/dict.gdtf");
