@@ -94,9 +94,6 @@ int main() {
 
   assert(magnet_snap::ApplyCommittedSnapGrouping(scene, *fixtureSnap));
   assert(scene.fixtures[fixture.uuid].parentGroupUuid == groupUuid);
-  assert(magnet_snap::DetachSnapSourceFromGroup(scene, *fixtureSnap));
-  assert(scene.fixtures[fixture.uuid].parentGroupUuid.empty());
-  assert(scene.trusses["target"].parentGroupUuid == groupUuid);
 
   SceneObject object;
   object.uuid = "object";
@@ -106,6 +103,24 @@ int main() {
       scene, {magnet_snap::ObjectType::SceneObject, object.uuid});
   assert(objectSnap);
   assert(objectSnap->kind == magnet_snap::SnapKind::SceneObjectToObject);
+
+  magnet_snap::SnapResult groupedTrussMove;
+  groupedTrussMove.snapped = true;
+  groupedTrussMove.sourceType = magnet_snap::ObjectType::Truss;
+  groupedTrussMove.sourceUuid = "target";
+  groupedTrussMove.translationDeltaMm = {0.0f, 0.0f, 100.0f};
+  const float fixtureZBeforeGroupMove =
+      scene.fixtures[fixture.uuid].transform.o[2];
+  const float trussZBeforeGroupMove = scene.trusses["target"].transform.o[2];
+  assert(magnet_snap::ApplySnapTransform(scene, groupedTrussMove));
+  assert(std::fabs(scene.fixtures[fixture.uuid].transform.o[2] -
+                   fixtureZBeforeGroupMove - 100.0f) < 0.001f);
+  assert(std::fabs(scene.trusses["target"].transform.o[2] -
+                   trussZBeforeGroupMove - 100.0f) < 0.001f);
+
+  assert(magnet_snap::DetachSnapSourceFromGroup(scene, *fixtureSnap));
+  assert(scene.fixtures[fixture.uuid].parentGroupUuid.empty());
+  assert(scene.trusses["target"].parentGroupUuid == groupUuid);
 
   return 0;
 }

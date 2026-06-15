@@ -169,6 +169,38 @@ scene_grouping::SceneTransformTarget TargetFor(ObjectType type,
   return {MvrNodeType::SceneObject, uuid};
 }
 
+// Returns the selection that contains only the snap source object.
+scene_grouping::ObjectSelection SelectionForSource(ObjectType type,
+                                                   const std::string &uuid) {
+  scene_grouping::ObjectSelection selection;
+  switch (type) {
+  case ObjectType::Fixture:
+    selection.fixtures = {uuid};
+    break;
+  case ObjectType::Truss:
+    selection.trusses = {uuid};
+    break;
+  case ObjectType::SceneObject:
+    selection.sceneObjects = {uuid};
+    break;
+  }
+  return selection;
+}
+
+// Returns the effective transform target that should receive snap translations.
+scene_grouping::SceneTransformTarget SnapTransformTarget(
+    const MvrScene &scene, const SnapResult &result) {
+  if (result.sourceType == ObjectType::Fixture)
+    return TargetFor(result.sourceType, result.sourceUuid);
+
+  const auto targets = scene_grouping::BuildTransformTargets(
+      scene, SelectionForSource(result.sourceType, result.sourceUuid));
+  if (!targets.empty())
+    return targets.front();
+
+  return TargetFor(result.sourceType, result.sourceUuid);
+}
+
 // Tests a source and target face pair and stores the closest snap result.
 void ConsiderFacePair(const SnapSource &source, ObjectType targetType,
                       const std::string &targetUuid, SnapKind kind,
@@ -272,7 +304,7 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
 bool ApplySnapTransform(MvrScene &scene, const SnapResult &result) {
   if (!result.snapped)
     return false;
-  auto target = TargetFor(result.sourceType, result.sourceUuid);
+  auto target = SnapTransformTarget(scene, result);
   Matrix transform = scene_grouping::GetTargetWorldTransform(scene, target);
   for (int axis = 0; axis < 3; ++axis)
     transform.o[axis] += result.translationDeltaMm[axis];
