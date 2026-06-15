@@ -1467,6 +1467,46 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                "MVR import used legacy Scene/UserData fallback for Perastage sidecar manifest");
   }
 
+  std::unordered_map<std::string, std::string> layerColorByUuid;
+  std::unordered_map<std::string, std::string> layerColorByName;
+  auto isHexRgb = [](const std::string &color) {
+    if (color.size() != 7 || color[0] != '#')
+      return false;
+    return std::all_of(color.begin() + 1, color.end(), [](unsigned char ch) {
+      return std::isxdigit(ch) != 0;
+    });
+  };
+  auto parseLayerAppearanceMap = [&](tinyxml2::XMLElement *userDataNode) {
+    if (!userDataNode)
+      return;
+    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data"); data;
+         data = data->NextSiblingElement("Data")) {
+      const std::string provider = ToLowerCopy(
+          Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
+      if (provider != "perastage")
+        continue;
+      for (tinyxml2::XMLElement *map = data->FirstChildElement("LayerAppearanceMap"); map;
+           map = map->NextSiblingElement("LayerAppearanceMap")) {
+        for (tinyxml2::XMLElement *entry = map->FirstChildElement("Layer"); entry;
+             entry = entry->NextSiblingElement("Layer")) {
+          const std::string color =
+              Trim(entry->Attribute("color") ? entry->Attribute("color") : "");
+          if (!isHexRgb(color))
+            continue;
+          const std::string uuid =
+              CanonicalizeUuid(Trim(entry->Attribute("uuid") ? entry->Attribute("uuid") : ""));
+          const std::string name =
+              Trim(entry->Attribute("name") ? entry->Attribute("name") : "");
+          if (!uuid.empty())
+            layerColorByUuid[uuid] = color;
+          if (!name.empty())
+            layerColorByName[name] = color;
+        }
+      }
+    }
+  };
+  parseLayerAppearanceMap(root->FirstChildElement("UserData"));
+
   // ---- Parse AUXData for Symdefs and Positions ----
   std::unordered_map<std::string, std::string> legacyPositionIdToCanonical;
   if (tinyxml2::XMLElement *auxNode = sceneNode->FirstChildElement("AUXData")) {
@@ -2833,10 +2873,20 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       if (uuidAttr)
         l.uuid = uuidAttr;
       l.name = layerStr;
-      if (tinyxml2::XMLElement *colorNode =
-              layer->FirstChildElement("Color")) {
-        if (const char *txt = colorNode->GetText())
-          l.color = CieToHex(txt);
+      auto colorByUuid = layerColorByUuid.find(CanonicalizeUuid(l.uuid));
+      if (colorByUuid != layerColorByUuid.end()) {
+        l.color = colorByUuid->second;
+      } else {
+        auto colorByName = layerColorByName.find(l.name);
+        if (colorByName != layerColorByName.end()) {
+          l.color = colorByName->second;
+        } else if (tinyxml2::XMLElement *colorNode =
+                       layer->FirstChildElement("Color")) {
+          if (const char *txt = colorNode->GetText()) {
+            const std::string legacyColor = Trim(txt);
+            l.color = isHexRgb(legacyColor) ? legacyColor : CieToHex(legacyColor);
+          }
+        }
       }
       scene.layers[l.uuid] = l;
     }
