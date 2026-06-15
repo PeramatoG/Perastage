@@ -2379,6 +2379,47 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (supportPosIt != legacyPositionIdToCanonical.end())
           support.position = supportPosIt->second;
 
+        if (tinyxml2::XMLElement *geos = node->FirstChildElement("Geometries")) {
+          for (tinyxml2::XMLElement *g3d = geos->FirstChildElement("Geometry3D"); g3d;
+               g3d = g3d->NextSiblingElement("Geometry3D")) {
+            const char *file = g3d->Attribute("fileName");
+            if (!file)
+              continue;
+            Matrix geoMatrix = MatrixUtils::Identity();
+            parseMatrixOrIdentity(g3d, "Matrix", "Support/Geometry3D", geoMatrix, true);
+            appendGeometryInstance(support.geometries, Trim(file), geoMatrix,
+                                   BuildSceneObjectGeometryInstanceKey(
+                                       support.uuid, "support-geometry3d",
+                                       support.geometries.size()));
+          }
+
+          size_t symbolIndex = 0;
+          for (tinyxml2::XMLElement *sym = geos->FirstChildElement("Symbol"); sym;
+               sym = sym->NextSiblingElement("Symbol"), ++symbolIndex) {
+            std::vector<SymdefGeometry> symGeometries;
+            Matrix symMatrix = MatrixUtils::Identity();
+            std::string symGeometryType;
+            const std::string sourceSymbolUuid =
+                Trim(sym->Attribute("uuid") ? sym->Attribute("uuid") : "");
+            const std::string sourceSymdefUuid =
+                Trim(sym->Attribute("symdef") ? sym->Attribute("symdef") : "");
+            resolveSymdefReference(sym, symGeometries, symGeometryType, symMatrix);
+            size_t symGeometryIndex = 0;
+            for (const auto &geo : symGeometries) {
+              appendGeometryInstance(
+                  support.geometries, geo.file,
+                  MatrixUtils::Multiply(symMatrix, geo.transform),
+                  BuildSceneObjectGeometryInstanceKey(
+                      support.uuid, "support-symbol", symbolIndex,
+                      sourceSymdefUuid + "/" + std::to_string(symGeometryIndex)),
+                  sourceSymbolUuid, sourceSymdefUuid);
+              ++symGeometryIndex;
+            }
+          }
+        }
+        if (!support.geometries.empty())
+          support.modelFile = support.geometries.front().modelFile;
+
         ReadSupportHoistInfoFromUserData(node, support);
         ApplySupportHoistInfoDefaults(support);
         auto posIt = scene.positions.find(support.position);
@@ -2522,6 +2563,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           support.name = obj.name;
           support.layer = obj.layer;
           support.transform = obj.transform;
+          support.localTransform = obj.localTransform;
+          support.hasLocalTransform = obj.hasLocalTransform;
+          support.parentGroupUuid = obj.parentGroupUuid;
+          support.modelFile = obj.modelFile;
+          support.geometries = obj.geometries;
           for (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData"); ud;
                ud = ud->NextSiblingElement("UserData")) {
             for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;

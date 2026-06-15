@@ -3,6 +3,7 @@
  */
 #include <cassert>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -16,10 +17,12 @@
 
 #include "configmanager.h"
 #include "layer.h"
+#include "matrixutils.h"
 #include "support.h"
 
 namespace fs = std::filesystem;
 
+// Reads the current ZIP entry into a string.
 static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
   std::string content;
   char buffer[4096];
@@ -33,6 +36,7 @@ static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
   return content;
 }
 
+// Reads all archive entries from a ZIP file.
 static std::unordered_map<std::string, std::string>
 ReadArchiveEntries(const fs::path &archivePath) {
   wxFileInputStream input(archivePath.generic_string());
@@ -62,6 +66,7 @@ int main() {
 
   MvrScene &scene = cfg.GetScene();
   scene.basePath = tempDir.generic_string();
+  std::ofstream(tempDir / "support.3ds") << "support-model";
 
   Layer layer;
   layer.uuid = "layer1";
@@ -86,6 +91,11 @@ int main() {
   support.motorManufacturerSource = "Manual";
   support.motorModel = "D8+";
   support.motorModelSource = "Manual";
+  support.chainLength = 1.0f;
+  GeometryInstance supportGeometry;
+  supportGeometry.modelFile = (tempDir / "support.3ds").generic_string();
+  supportGeometry.localTransform = MatrixUtils::Identity();
+  support.geometries.push_back(supportGeometry);
   scene.supports[support.uuid] = support;
 
   const fs::path projectPath = tempDir / "support_userdata_roundtrip.pstg";
@@ -121,10 +131,8 @@ int main() {
     while (!stack.empty()) {
       tinyxml2::XMLElement *current = stack.back();
       stack.pop_back();
-      const char *geometryType = current->Attribute("geometryType");
       const char *uuid = current->Attribute("uuid");
-      if (std::string(current->Name()) == "SceneObject" && geometryType != nullptr &&
-          std::string(geometryType) == "support" && uuid != nullptr &&
+      if (std::string(current->Name()) == "Support" && uuid != nullptr &&
           std::string(uuid) == support.uuid) {
         supportNode = current;
         break;

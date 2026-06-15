@@ -2097,11 +2097,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (fixtureNumericId <= 0)
       fixtureNumericId = 1;
     std::string fixtureId = std::to_string(fixtureNumericId);
-    addStr("FixtureID", fixtureId);
-    addInt("FixtureIDNumeric", fixtureNumericId);
-    addInt("UnitNumber", t.unitNumber);
-    addInt("CustomId", t.customId);
-    addInt("CustomIdType", t.customIdType);
 
     std::string trussTypeKey = BuildTrussTypeKey(t);
     std::string trussGdtfArchivePath;
@@ -2133,14 +2128,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       trussInstanceToTypeKey[t.uuid] = trussTypeKey;
 
     if (!trussGdtfArchivePath.empty()) {
-      tinyxml2::XMLElement *e = doc.NewElement("GDTFSpec");
-      e->SetText(trussGdtfArchivePath.c_str());
-      te->InsertEndChild(e);
-
-      tinyxml2::XMLElement *modeElement = doc.NewElement("GDTFMode");
-      modeElement->SetText(t.gdtfMode.empty() ? "Default" : t.gdtfMode.c_str());
-      te->InsertEndChild(modeElement);
-
       auto &ov = gdtfOverrides[trussGdtfArchivePath];
       ov.hasLengthMm = true;
       ov.lengthMm = t.lengthMm;
@@ -2153,11 +2140,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       ov.manufacturer = t.manufacturer;
       ov.model = t.model;
     }
-    if (!t.function.empty()) {
-      tinyxml2::XMLElement *e = doc.NewElement("Function");
-      e->SetText(t.function.c_str());
-      te->InsertEndChild(e);
-    }
+
+    const bool writeWorldTransform = t.parentGroupUuid.empty();
+    const Matrix matrixToWrite =
+        writeWorldTransform ? t.transform
+                            : (t.hasLocalTransform ? t.localTransform
+                                                   : t.transform);
+    std::string mstr = MatrixUtils::FormatMatrix(matrixToWrite);
+    tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
+    mat->SetText(mstr.c_str());
+    te->InsertEndChild(mat);
+
     {
       const std::string positionRef =
           resolvePositionReference(t.position, t.positionName);
@@ -2209,15 +2202,25 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         }
       }
     }
-    const bool writeWorldTransform = t.parentGroupUuid.empty();
-    const Matrix matrixToWrite =
-        writeWorldTransform ? t.transform
-                            : (t.hasLocalTransform ? t.localTransform
-                                                   : t.transform);
-    std::string mstr = MatrixUtils::FormatMatrix(matrixToWrite);
-    tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
-    mat->SetText(mstr.c_str());
-    te->InsertEndChild(mat);
+    if (!t.function.empty()) {
+      tinyxml2::XMLElement *e = doc.NewElement("Function");
+      e->SetText(t.function.c_str());
+      te->InsertEndChild(e);
+    }
+    if (!trussGdtfArchivePath.empty()) {
+      tinyxml2::XMLElement *e = doc.NewElement("GDTFSpec");
+      e->SetText(trussGdtfArchivePath.c_str());
+      te->InsertEndChild(e);
+
+      tinyxml2::XMLElement *modeElement = doc.NewElement("GDTFMode");
+      modeElement->SetText(t.gdtfMode.empty() ? "Default" : t.gdtfMode.c_str());
+      te->InsertEndChild(modeElement);
+    }
+    addStr("FixtureID", fixtureId);
+    addInt("FixtureIDNumeric", fixtureNumericId);
+    addInt("UnitNumber", t.unitNumber);
+    addInt("CustomId", t.customId);
+    addInt("CustomIdType", t.customIdType);
 
     bool hasMeta =
                    (!t.manufacturer.empty() || !t.model.empty() ||
@@ -2268,17 +2271,87 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   };
 
   auto exportSupport = [&](tinyxml2::XMLElement *parent, const Support &s) {
-    Logger::Instance().Log(
-        Logger::Level::Info,
-        wxString::Format(
-            "MVR export support uuid=%s uses SceneObject fallback to keep XML MVR 1.6-compliant",
-            s.uuid.c_str())
-            .ToStdString());
-    tinyxml2::XMLElement *se = doc.NewElement("SceneObject");
+    tinyxml2::XMLElement *se = doc.NewElement("Support");
     se->SetAttribute("uuid", s.uuid.c_str());
-    se->SetAttribute("geometryType", "support");
     if (!s.name.empty())
       se->SetAttribute("name", s.name.c_str());
+
+    const Matrix supportMatrixToWrite =
+        s.parentGroupUuid.empty()
+            ? s.transform
+            : (s.hasLocalTransform ? s.localTransform : s.transform);
+    tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
+    mat->SetText(MatrixUtils::FormatMatrix(supportMatrixToWrite).c_str());
+    se->InsertEndChild(mat);
+
+    const std::string supportPositionRef =
+        resolvePositionReference(s.position, s.positionName);
+    if (!supportPositionRef.empty()) {
+      tinyxml2::XMLElement *position = doc.NewElement("Position");
+      position->SetText(supportPositionRef.c_str());
+      se->InsertEndChild(position);
+    }
+
+    tinyxml2::XMLElement *geos = nullptr;
+    auto ensureGeometries = [&]() {
+      if (!geos)
+        geos = doc.NewElement("Geometries");
+      return geos;
+    };
+    for (const auto &geo : s.geometries) {
+      if (geo.modelFile.empty())
+        continue;
+      std::string modelArchivePath = registerModelResource(geo.modelFile, "support.3ds");
+      if (modelArchivePath.empty())
+        continue;
+      tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+      g3d->SetAttribute("fileName", modelArchivePath.c_str());
+      tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
+      geoMatrix->SetText(MatrixUtils::FormatMatrix(geo.localTransform).c_str());
+      g3d->InsertEndChild(geoMatrix);
+      ensureGeometries()->InsertEndChild(g3d);
+    }
+    if (!geos && !s.modelFile.empty()) {
+      std::string modelArchivePath = registerModelResource(s.modelFile, "support.3ds");
+      if (!modelArchivePath.empty()) {
+        tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+        g3d->SetAttribute("fileName", modelArchivePath.c_str());
+        tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
+        geoMatrix->SetText(MatrixUtils::FormatMatrix(MatrixUtils::Identity()).c_str());
+        g3d->InsertEndChild(geoMatrix);
+        ensureGeometries()->InsertEndChild(g3d);
+      }
+    }
+    if (geos && geos->FirstChild()) {
+      se->InsertEndChild(geos);
+    } else {
+      Logger::Instance().Log(Logger::Level::Warning,
+                             "MVR export omitted Support uuid=" + s.uuid +
+                                 " because Support requires Geometries");
+      doc.DeleteNode(se);
+      return;
+    }
+
+    if (!s.function.empty()) {
+      tinyxml2::XMLElement *e = doc.NewElement("Function");
+      e->SetText(s.function.c_str());
+      se->InsertEndChild(e);
+    }
+    tinyxml2::XMLElement *chainLength = doc.NewElement("ChainLength");
+    chainLength->SetText(std::to_string(std::max(s.chainLength, 0.0f)).c_str());
+    se->InsertEndChild(chainLength);
+
+    std::string supportGdtfArchivePath = registerGdtfResource(s.uuid, s.gdtfSpec, "");
+    if (!supportGdtfArchivePath.empty()) {
+      tinyxml2::XMLElement *e = doc.NewElement("GDTFSpec");
+      e->SetText(supportGdtfArchivePath.c_str());
+      se->InsertEndChild(e);
+    }
+    if (!s.gdtfMode.empty()) {
+      tinyxml2::XMLElement *e = doc.NewElement("GDTFMode");
+      e->SetText(s.gdtfMode.c_str());
+      se->InsertEndChild(e);
+    }
 
     auto supportIdIt = assignedIds.find(s.uuid);
     int supportNumericId = (supportIdIt != assignedIds.end()) ? supportIdIt->second.second : 0;
@@ -2291,46 +2364,32 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     supportIdNumeric->SetText(std::to_string(supportNumericId).c_str());
     se->InsertEndChild(supportIdNumeric);
 
-    auto addSupportInfo = [&](const char *n, const std::string &v,
-                              tinyxml2::XMLElement *info) {
+    tinyxml2::XMLElement *data = FindOrCreatePerastageDataNode(doc, se);
+    tinyxml2::XMLElement *info = doc.NewElement("SupportInfo");
+    info->SetAttribute("uuid", s.uuid.c_str());
+    auto addSupportInfo = [&](const char *n, const std::string &v) {
       if (!v.empty()) {
         tinyxml2::XMLElement *e = doc.NewElement(n);
         e->SetText(v.c_str());
         info->InsertEndChild(e);
       }
     };
-    auto addSupportNum = [&](const char *n, float v,
-                             tinyxml2::XMLElement *info) {
+    auto addSupportNum = [&](const char *n, float v) {
       if (v > 0.0f) {
         tinyxml2::XMLElement *e = doc.NewElement(n);
         e->SetText(std::to_string(v).c_str());
         info->InsertEndChild(e);
       }
     };
-
-    tinyxml2::XMLElement *data = FindOrCreatePerastageDataNode(doc, se);
-    tinyxml2::XMLElement *info = doc.NewElement("SupportInfo");
-    info->SetAttribute("uuid", s.uuid.c_str());
-    std::string supportGdtfArchivePath = registerGdtfResource(s.uuid, s.gdtfSpec, "");
-    addSupportInfo("GDTFSpec", supportGdtfArchivePath, info);
-    addSupportInfo("GDTFMode", s.gdtfMode, info);
-    addSupportInfo("Function", s.function, info);
-    addSupportInfo("HoistFunction", s.hoistFunction, info);
-    addSupportNum("ChainLength", s.chainLength, info);
-    addSupportInfo("Position", resolvePositionReference(s.position, s.positionName), info);
-    addSupportInfo("PositionName", s.positionName, info);
+    addSupportInfo("GDTFSpec", supportGdtfArchivePath);
+    addSupportInfo("GDTFMode", s.gdtfMode);
+    addSupportInfo("Function", s.function);
+    addSupportInfo("HoistFunction", s.hoistFunction);
+    addSupportNum("ChainLength", s.chainLength);
+    addSupportInfo("Position", resolvePositionReference(s.position, s.positionName));
+    addSupportInfo("PositionName", s.positionName);
     if (info->FirstChild())
       data->InsertEndChild(info);
-
-    const Matrix supportMatrixToWrite =
-        s.parentGroupUuid.empty()
-            ? s.transform
-            : (s.hasLocalTransform ? s.localTransform : s.transform);
-    std::string mstr = MatrixUtils::FormatMatrix(supportMatrixToWrite);
-    tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
-    mat->SetText(mstr.c_str());
-    se->InsertEndChild(mat);
-
     if (ShouldExportSupportHoistInfo(s))
       AppendSupportHoistInfoUserData(doc, data, s);
 
@@ -2534,6 +2593,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         oe->InsertEndChild(geos);
         geos->InsertEndChild(g3d);
       }
+    }
+
+    if (!oe->FirstChildElement("Geometries")) {
+      Logger::Instance().Log(Logger::Level::Warning,
+                             "MVR export omitted SceneObject uuid=" + obj.uuid +
+                                 " because SceneObject requires Geometries");
+      doc.DeleteNode(oe);
+      return;
     }
 
     std::string mstr = MatrixUtils::FormatMatrix(objectMatrixToWrite);

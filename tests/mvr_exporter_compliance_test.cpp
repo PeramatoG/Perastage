@@ -184,6 +184,7 @@ int main() {
   std::ofstream(tempDir / "B" / "Same.gdtf") << "B";
   std::ofstream(tempDir / "mesh.3ds") << "mesh";
   std::ofstream(tempDir / "models" / "truss_model.3ds") << "truss";
+  std::ofstream(tempDir / "models" / "support_model.3ds") << "support";
 
   const std::string longToken(320, "x"[0]);
   const fs::path longNamedGdtf = tempDir / ("VeryLongGeneratedName_" + longToken + ".gdtf");
@@ -378,6 +379,11 @@ int main() {
   sup.loadKg = 600.0f;
   sup.position = "SCREEN";
   sup.positionName = "SCREEN";
+  sup.chainLength = 1.0f;
+  GeometryInstance supportGeometry;
+  supportGeometry.modelFile = (tempDir / "models" / "support_model.3ds").string();
+  supportGeometry.localTransform = MatrixUtils::Identity();
+  sup.geometries.push_back(supportGeometry);
   scene.supports[sup.uuid] = sup;
 
   SceneObject primitiveSphere;
@@ -782,20 +788,22 @@ int main() {
     assert(CanonicalizeUuid(uuidAttr) == std::string(uuidAttr));
   }
 
-  tinyxml2::XMLElement *supportSceneObject = nullptr;
+  tinyxml2::XMLElement *supportNode = nullptr;
   for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
        node = node->NextSiblingElement()) {
     std::vector<tinyxml2::XMLElement *> stack{node};
     while (!stack.empty()) {
       tinyxml2::XMLElement *cur = stack.back();
       stack.pop_back();
-      if (std::string(cur->Name()) == "Support") {
-        assert(false && "Support node must not be emitted when schema is incomplete");
-      }
       if (std::string(cur->Name()) == "SceneObject" &&
           cur->Attribute("uuid") != nullptr &&
           std::string(cur->Attribute("uuid")) == sup.uuid) {
-        supportSceneObject = cur;
+        assert(false && "Support must not be exported as SceneObject");
+      }
+      if (std::string(cur->Name()) == "Support" &&
+          cur->Attribute("uuid") != nullptr &&
+          std::string(cur->Attribute("uuid")) == sup.uuid) {
+        supportNode = cur;
       }
       for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
            child = child->NextSiblingElement()) {
@@ -803,9 +811,9 @@ int main() {
       }
     }
   }
-  assert(supportSceneObject != nullptr);
-  assert(std::string(supportSceneObject->Attribute("geometryType")) == "support");
-  auto *supportUserData = supportSceneObject->FirstChildElement("UserData");
+  assert(supportNode != nullptr);
+  assert(supportNode->FirstChildElement("Geometries") != nullptr);
+  auto *supportUserData = supportNode->FirstChildElement("UserData");
   assert(supportUserData != nullptr);
   assert(supportUserData->NextSiblingElement("UserData") == nullptr);
   auto *supportData = supportUserData->FirstChildElement("Data");

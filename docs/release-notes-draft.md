@@ -25,6 +25,7 @@ Changes since `v1.3.0`.
 - Improved 2D and 3D drag feedback so the bottom X/Y/Z status readout shows the dragged insertion-point position in a highlighted color while objects are being moved.
 
 ## Fixes
+- Improved MVR compatibility by preserving Support objects during roundtrip export, avoiding empty SceneObject exports, and writing Truss children in schema-compatible order.
 
 - Fixed GDTF persistence so automatic symbol generation and project-scoped fixture edits update project-owned copies or stable @Perastage library derivatives without filling the user fixture library with imported or generated project files.
 - Fixed Linux GTK layout warnings in the rich text toolbar by giving icon buttons enough themed padding while preserving the existing editing behavior.

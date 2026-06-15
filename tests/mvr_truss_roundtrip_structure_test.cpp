@@ -141,6 +141,31 @@ int main() {
   assert(groupChildList != nullptr);
   tinyxml2::XMLElement *trussNode = groupChildList->FirstChildElement("Truss");
   assert(trussNode != nullptr);
+  int matrixOrder = -1;
+  int geosOrder = -1;
+  int fixtureIdOrder = -1;
+  int fixtureNumericOrder = -1;
+  int childOrder = 0;
+  for (tinyxml2::XMLElement *child = trussNode->FirstChildElement(); child;
+       child = child->NextSiblingElement(), ++childOrder) {
+    const std::string childName = child->Name();
+    if (childName == "Matrix" && matrixOrder < 0)
+      matrixOrder = childOrder;
+    else if (childName == "Geometries" && geosOrder < 0)
+      geosOrder = childOrder;
+    else if (childName == "FixtureID" && fixtureIdOrder < 0)
+      fixtureIdOrder = childOrder;
+    else if (childName == "FixtureIDNumeric" && fixtureNumericOrder < 0)
+      fixtureNumericOrder = childOrder;
+  }
+  assert(matrixOrder >= 0);
+  assert(geosOrder >= 0);
+  assert(fixtureIdOrder >= 0);
+  assert(fixtureNumericOrder >= 0);
+  assert(matrixOrder < geosOrder);
+  assert(geosOrder < fixtureIdOrder);
+  assert(fixtureIdOrder < fixtureNumericOrder);
+
   tinyxml2::XMLElement *geos = trussNode->FirstChildElement("Geometries");
   assert(geos != nullptr);
   tinyxml2::XMLElement *symbol = geos->FirstChildElement("Symbol");

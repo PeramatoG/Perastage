@@ -18,3 +18,6 @@ Structural MVR compliance errors still fail export (for example missing `General
 ## UI behavior
 
 GUI code should show export warnings only after any busy overlay is destroyed, so dialogs remain visible to the user.
+## MVR node validity notes
+
+Support is a standard MVR scene node and is preserved as `<Support>` during import/export when valid geometry is available. Generic `<SceneObject>` nodes require a `<Geometries>` child, so Perastage omits geometry-less SceneObjects instead of writing invalid XML. Truss children are emitted in XSD `xs:sequence` order, with `Matrix` before `Geometries` and fixture identifiers after geometry-related content.
