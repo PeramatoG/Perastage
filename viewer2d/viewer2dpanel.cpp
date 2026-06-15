@@ -1518,10 +1518,20 @@ void Viewer2DPanel::DrawSelectionDragGizmo(int width, int height) {
 std::optional<magnet_snap::SnapSource> Viewer2DPanel::BuildActiveMagnetSource() const {
   if (!m_magnetEnabled || m_measureToolState.enabled)
     return std::nullopt;
-  if (m_dragTrussUuids.size() == 1 && m_dragFixtureUuids.empty() &&
-      m_dragSupportUuids.empty() && m_dragSceneObjectUuids.empty())
-    return magnet_snap::SnapSource{magnet_snap::ObjectType::Truss,
-                                   m_dragTrussUuids.front()};
+  if (!m_dragTrussUuids.empty() && m_dragSupportUuids.empty() &&
+      m_dragSceneObjectUuids.empty()) {
+    scene_grouping::ObjectSelection selection;
+    selection.fixtures = m_dragFixtureUuids;
+    selection.trusses = m_dragTrussUuids;
+    const auto targets = scene_grouping::BuildTransformTargets(
+        ConfigManager::Get().GetScene(), selection);
+    if (targets.size() == 1 && targets.front().type == MvrNodeType::GroupObject)
+      return magnet_snap::SnapSource{magnet_snap::ObjectType::TrussGroup,
+                                     targets.front().uuid};
+    if (m_dragTrussUuids.size() == 1 && m_dragFixtureUuids.empty())
+      return magnet_snap::SnapSource{magnet_snap::ObjectType::Truss,
+                                     m_dragTrussUuids.front()};
+  }
   if (m_dragFixtureUuids.size() == 1 && m_dragTrussUuids.empty() &&
       m_dragSupportUuids.empty() && m_dragSceneObjectUuids.empty())
     return magnet_snap::SnapSource{magnet_snap::ObjectType::Fixture,
@@ -3125,6 +3135,10 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
 
     int dx = pos.x - m_lastMousePos.x;
     int dy = pos.y - m_lastMousePos.y;
+
+    if (!m_dragSelectionMoved && std::abs(dx) < kSelectionDragStartThresholdPx &&
+        std::abs(dy) < kSelectionDragStartThresholdPx)
+      return;
 
     if (dx != 0 || dy != 0) {
       const bool axisConstrainedMovement =

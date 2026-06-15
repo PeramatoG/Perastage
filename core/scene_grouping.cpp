@@ -298,18 +298,15 @@ std::string ParentGroupUuidForTarget(const MvrScene &scene,
   return ParentGroupUuidFor(scene, target.type, target.uuid);
 }
 
-// Returns the highest group ancestor for a selected object when one exists.
-SceneTransformTarget ResolveTransformRoot(const MvrScene &scene,
-                                          const SelectedObjectRef &object) {
-  if (object.type == MvrNodeType::Fixture)
-    return {object.type, object.uuid};
-
+// Returns the highest group UUID for a selected object when one exists.
+std::string ResolveRootGroupUuid(const MvrScene &scene,
+                                 const SelectedObjectRef &object) {
   std::string groupUuid = object.parentGroupUuid;
   if (groupUuid.empty())
-    return {object.type, object.uuid};
+    return {};
 
   std::unordered_set<std::string> visited;
-  std::string rootUuid = groupUuid;
+  std::string rootUuid;
   while (!groupUuid.empty() && visited.insert(groupUuid).second) {
     auto it = scene.groupObjects.find(groupUuid);
     if (it == scene.groupObjects.end())
@@ -317,6 +314,19 @@ SceneTransformTarget ResolveTransformRoot(const MvrScene &scene,
     rootUuid = groupUuid;
     groupUuid = it->second.parentGroupUuid;
   }
+  return rootUuid;
+}
+
+// Returns the highest group ancestor for a selected object when one exists.
+SceneTransformTarget ResolveTransformRoot(const MvrScene &scene,
+                                          const SelectedObjectRef &object) {
+  if (object.type == MvrNodeType::Fixture)
+    return {object.type, object.uuid};
+
+  const std::string rootUuid = ResolveRootGroupUuid(scene, object);
+  if (rootUuid.empty())
+    return {object.type, object.uuid};
+
   return {MvrNodeType::GroupObject, rootUuid};
 }
 
@@ -692,14 +702,33 @@ OperationResult UngroupSelection(MvrScene &scene,
 // Builds effective transform roots so group members move as one item.
 std::vector<SceneTransformTarget>
 BuildTransformTargets(const MvrScene &scene, const ObjectSelection &selection) {
-  std::vector<SceneTransformTarget> targets;
-  std::set<std::pair<MvrNodeType, std::string>> seen;
+  struct Candidate {
+    SceneTransformTarget target;
+    std::string rootGroupUuid;
+  };
+
+  std::vector<Candidate> candidates;
+  std::set<std::string> selectedGroupRoots;
   const std::vector<SelectedObjectRef> objects =
       CollectSelectedObjects(scene, selection);
   for (const auto &object : objects) {
-    SceneTransformTarget target = ResolveTransformRoot(scene, object);
-    if (seen.insert({target.type, target.uuid}).second)
-      targets.push_back(std::move(target));
+    Candidate candidate{ResolveTransformRoot(scene, object),
+                        ResolveRootGroupUuid(scene, object)};
+    if (candidate.target.type == MvrNodeType::GroupObject)
+      selectedGroupRoots.insert(candidate.target.uuid);
+    candidates.push_back(std::move(candidate));
+  }
+
+  std::vector<SceneTransformTarget> targets;
+  std::set<std::pair<MvrNodeType, std::string>> seen;
+  for (const auto &candidate : candidates) {
+    if (candidate.target.type != MvrNodeType::GroupObject &&
+        !candidate.rootGroupUuid.empty() &&
+        selectedGroupRoots.find(candidate.rootGroupUuid) !=
+            selectedGroupRoots.end())
+      continue;
+    if (seen.insert({candidate.target.type, candidate.target.uuid}).second)
+      targets.push_back(candidate.target);
   }
   return targets;
 }

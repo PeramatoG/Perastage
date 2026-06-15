@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 namespace magnet_snap {
 namespace {
@@ -56,6 +57,92 @@ std::array<float, 3> Normalize(const std::array<float, 3> &v) {
   return {v[0] / len, v[1] / len, v[2] / len};
 }
 
+// Builds truss bounds using the truss insertion point as start/base origin.
+Bounds MakeTrussBounds(const Truss &truss) {
+  const std::array<float, 3> size{std::max(truss.lengthMm, 1.0f),
+                                  std::max(truss.widthMm, 1.0f),
+                                  std::max(truss.heightMm, 1.0f)};
+  Matrix transform = truss.transform;
+  transform.o = Add(transform.o, Scale(Normalize(transform.u), size[0] * 0.5f));
+  transform.o = Add(transform.o, Scale(Normalize(transform.w), size[2] * 0.5f));
+  return Bounds{transform, size};
+}
+
+// Appends the eight world-space corners for an oriented bounds box.
+void AppendBoundsCorners(const Bounds &bounds,
+                         std::vector<std::array<float, 3>> &corners) {
+  const std::array<std::array<float, 3>, 3> basis = {
+      Normalize(bounds.transform.u), Normalize(bounds.transform.v),
+      Normalize(bounds.transform.w)};
+  for (int xSign : {-1, 1}) {
+    for (int ySign : {-1, 1}) {
+      for (int zSign : {-1, 1}) {
+        std::array<float, 3> corner = bounds.transform.o;
+        corner = Add(corner, Scale(basis[0], bounds.size[0] * 0.5f * xSign));
+        corner = Add(corner, Scale(basis[1], bounds.size[1] * 0.5f * ySign));
+        corner = Add(corner, Scale(basis[2], bounds.size[2] * 0.5f * zSign));
+        corners.push_back(corner);
+      }
+    }
+  }
+}
+
+// Collects truss bounds from a group hierarchy while ignoring attached fixtures.
+void CollectGroupTrussBounds(const MvrScene &scene, const std::string &groupUuid,
+                             std::vector<Bounds> &trussBounds) {
+  auto groupIt = scene.groupObjects.find(groupUuid);
+  if (groupIt == scene.groupObjects.end())
+    return;
+  for (const auto &child : groupIt->second.children) {
+    if (child.type == MvrNodeType::Truss) {
+      auto trussIt = scene.trusses.find(child.uuid);
+      if (trussIt != scene.trusses.end())
+        trussBounds.push_back(MakeTrussBounds(trussIt->second));
+    } else if (child.type == MvrNodeType::GroupObject) {
+      CollectGroupTrussBounds(scene, child.uuid, trussBounds);
+    }
+  }
+}
+
+// Builds an aggregate oriented bounds box for grouped trusses only.
+std::optional<Bounds> MakeTrussGroupBounds(const MvrScene &scene,
+                                           const std::string &groupUuid) {
+  std::vector<Bounds> trussBounds;
+  CollectGroupTrussBounds(scene, groupUuid, trussBounds);
+  if (trussBounds.empty())
+    return std::nullopt;
+
+  Bounds aggregate = trussBounds.front();
+  const std::array<std::array<float, 3>, 3> basis = {
+      Normalize(aggregate.transform.u), Normalize(aggregate.transform.v),
+      Normalize(aggregate.transform.w)};
+  std::array<float, 3> minLocal{std::numeric_limits<float>::max(),
+                                std::numeric_limits<float>::max(),
+                                std::numeric_limits<float>::max()};
+  std::array<float, 3> maxLocal{std::numeric_limits<float>::lowest(),
+                                std::numeric_limits<float>::lowest(),
+                                std::numeric_limits<float>::lowest()};
+  std::vector<std::array<float, 3>> corners;
+  for (const Bounds &bounds : trussBounds)
+    AppendBoundsCorners(bounds, corners);
+  for (const auto &corner : corners) {
+    const auto relative = Subtract(corner, aggregate.transform.o);
+    for (int axis = 0; axis < 3; ++axis) {
+      const float projected = Dot(relative, basis[axis]);
+      minLocal[axis] = std::min(minLocal[axis], projected);
+      maxLocal[axis] = std::max(maxLocal[axis], projected);
+    }
+  }
+
+  for (int axis = 0; axis < 3; ++axis) {
+    aggregate.size[axis] = std::max(maxLocal[axis] - minLocal[axis], 1.0f);
+    aggregate.transform.o = Add(
+        aggregate.transform.o,
+        Scale(basis[axis], (minLocal[axis] + maxLocal[axis]) * 0.5f));
+  }
+  return aggregate;
+}
+
 // Returns transformed bounds for objects with known dimensions.
 std::optional<Bounds> GetBounds(const MvrScene &scene, ObjectType type,
                                 const std::string &uuid) {
@@ -64,10 +151,10 @@ std::optional<Bounds> GetBounds(const MvrScene &scene, ObjectType type,
     if (it == scene.trusses.end())
       return std::nullopt;
     const Truss &t = it->second;
-    return Bounds{t.transform, {std::max(t.lengthMm, 1.0f),
-                                std::max(t.widthMm, 1.0f),
-                                std::max(t.heightMm, 1.0f)}};
+    return MakeTrussBounds(t);
   }
+  if (type == ObjectType::TrussGroup)
+    return MakeTrussGroupBounds(scene, uuid);
   if (type == ObjectType::Fixture) {
     auto it = scene.fixtures.find(uuid);
     if (it == scene.fixtures.end())
@@ -154,10 +241,62 @@ scene_grouping::SceneTransformTarget TargetFor(ObjectType type,
     return {MvrNodeType::Fixture, uuid};
   case ObjectType::Truss:
     return {MvrNodeType::Truss, uuid};
+  case ObjectType::TrussGroup:
+    return {MvrNodeType::GroupObject, uuid};
   case ObjectType::SceneObject:
     return {MvrNodeType::SceneObject, uuid};
   }
   return {MvrNodeType::SceneObject, uuid};
+}
+
+// Returns the selection that contains only the snap source object.
+scene_grouping::ObjectSelection SelectionForSource(ObjectType type,
+                                                   const std::string &uuid) {
+  scene_grouping::ObjectSelection selection;
+  switch (type) {
+  case ObjectType::Fixture:
+    selection.fixtures = {uuid};
+    break;
+  case ObjectType::Truss:
+    selection.trusses = {uuid};
+    break;
+  case ObjectType::TrussGroup:
+    break;
+  case ObjectType::SceneObject:
+    selection.sceneObjects = {uuid};
+    break;
+  }
+  return selection;
+}
+
+// Returns the effective transform target that should receive snap translations.
+scene_grouping::SceneTransformTarget SnapTransformTarget(
+    const MvrScene &scene, const SnapResult &result) {
+  if (result.sourceType == ObjectType::Fixture)
+    return TargetFor(result.sourceType, result.sourceUuid);
+
+  const auto targets = scene_grouping::BuildTransformTargets(
+      scene, SelectionForSource(result.sourceType, result.sourceUuid));
+  if (!targets.empty())
+    return targets.front();
+
+  return TargetFor(result.sourceType, result.sourceUuid);
+}
+
+// Returns whether a truss is already a descendant of a group.
+bool GroupContainsTruss(const MvrScene &scene, const std::string &groupUuid,
+                        const std::string &trussUuid) {
+  auto groupIt = scene.groupObjects.find(groupUuid);
+  if (groupIt == scene.groupObjects.end())
+    return false;
+  for (const auto &child : groupIt->second.children) {
+    if (child.type == MvrNodeType::Truss && child.uuid == trussUuid)
+      return true;
+    if (child.type == MvrNodeType::GroupObject &&
+        GroupContainsTruss(scene, child.uuid, trussUuid))
+      return true;
+  }
+  return false;
 }
 
 // Tests a source and target face pair and stores the closest snap result.
@@ -198,15 +337,15 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
   float bestDistance = std::numeric_limits<float>::max();
   std::optional<SnapResult> best;
 
-  if (source.type == ObjectType::Truss) {
+  if (source.type == ObjectType::Truss ||
+      source.type == ObjectType::TrussGroup) {
     const auto sourceFaces = BuildFaces(*sourceBounds, true);
     for (const auto &[uuid, truss] : scene.trusses) {
-      if (uuid == source.uuid)
+      if (uuid == source.uuid ||
+          (source.type == ObjectType::TrussGroup &&
+           GroupContainsTruss(scene, source.uuid, uuid)))
         continue;
-      const Bounds targetBounds{truss.transform,
-                                {std::max(truss.lengthMm, 1.0f),
-                                 std::max(truss.widthMm, 1.0f),
-                                 std::max(truss.heightMm, 1.0f)}};
+      const Bounds targetBounds = MakeTrussBounds(truss);
       for (const auto &sourceFace : sourceFaces) {
         for (const auto &targetFace : BuildFaces(targetBounds, true))
           ConsiderFacePair(source, ObjectType::Truss, uuid,
@@ -220,10 +359,7 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
   if (source.type == ObjectType::Fixture) {
     const std::array<float, 3> insertion = sourceBounds->transform.o;
     for (const auto &[uuid, truss] : scene.trusses) {
-      const Bounds targetBounds{truss.transform,
-                                {std::max(truss.lengthMm, 1.0f),
-                                 std::max(truss.widthMm, 1.0f),
-                                 std::max(truss.heightMm, 1.0f)}};
+      const Bounds targetBounds = MakeTrussBounds(truss);
       const std::array<float, 3> closest =
           ClosestPointOnSurface(targetBounds, insertion);
       const std::array<float, 3> delta = Subtract(closest, insertion);
@@ -258,10 +394,7 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
     }
   };
   for (const auto &[uuid, truss] : scene.trusses)
-    considerSceneTarget(ObjectType::Truss, uuid,
-                        {truss.transform, {std::max(truss.lengthMm, 1.0f),
-                                           std::max(truss.widthMm, 1.0f),
-                                           std::max(truss.heightMm, 1.0f)}});
+    considerSceneTarget(ObjectType::Truss, uuid, MakeTrussBounds(truss));
   for (const auto &[uuid, object] : scene.sceneObjects)
     considerSceneTarget(ObjectType::SceneObject, uuid,
                         {object.transform, {1000.0f, 1000.0f, 1000.0f}});
@@ -272,7 +405,7 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
 bool ApplySnapTransform(MvrScene &scene, const SnapResult &result) {
   if (!result.snapped)
     return false;
-  auto target = TargetFor(result.sourceType, result.sourceUuid);
+  auto target = SnapTransformTarget(scene, result);
   Matrix transform = scene_grouping::GetTargetWorldTransform(scene, target);
   for (int axis = 0; axis < 3; ++axis)
     transform.o[axis] += result.translationDeltaMm[axis];
@@ -285,9 +418,18 @@ bool ApplyCommittedSnapGrouping(MvrScene &scene, const SnapResult &result) {
   if (!result.needsGrouping)
     return false;
   if (result.kind == SnapKind::TrussToTruss) {
-    auto sourceIt = scene.trusses.find(result.sourceUuid);
     auto targetIt = scene.trusses.find(result.targetUuid);
-    if (sourceIt == scene.trusses.end() || targetIt == scene.trusses.end())
+    if (targetIt == scene.trusses.end())
+      return false;
+    if (result.sourceType == ObjectType::TrussGroup) {
+      scene_grouping::ObjectSelection addSelection;
+      addSelection.trusses = {result.targetUuid};
+      return scene_grouping::AddSelectionToGroup(scene, addSelection,
+                                                 result.sourceUuid)
+          .changed;
+    }
+    auto sourceIt = scene.trusses.find(result.sourceUuid);
+    if (sourceIt == scene.trusses.end())
       return false;
     scene_grouping::ObjectSelection selection;
     selection.trusses = {result.targetUuid, result.sourceUuid};

@@ -102,6 +102,7 @@ constexpr int kZoomInteractionTimeoutMs = 260;
 constexpr auto kHoverQueryInterval = std::chrono::milliseconds(40);
 constexpr auto kResourceSyncInterval = std::chrono::milliseconds(250);
 constexpr int kSelectionDragDelayMs = 120;
+constexpr int kSelectionDragStartThresholdPx = 3;
 constexpr int kExportImageWidth = 1920;
 constexpr int kExportImageHeight = 1080;
 constexpr double kDefaultFovYDegrees = 45.0;
@@ -2560,10 +2561,20 @@ std::optional<magnet_snap::SnapSource> Viewer3DPanel::BuildActiveMagnetSource() 
 {
     if (!m_magnetEnabled || m_measureToolEnabled)
         return std::nullopt;
-    if (m_dragTrussUuids.size() == 1 && m_dragFixtureUuids.empty() &&
-        m_dragSceneObjectUuids.empty())
-        return magnet_snap::SnapSource{magnet_snap::ObjectType::Truss,
-                                       m_dragTrussUuids.front()};
+    if (!m_dragTrussUuids.empty() && m_dragSceneObjectUuids.empty()) {
+        scene_grouping::ObjectSelection selection;
+        selection.fixtures = m_dragFixtureUuids;
+        selection.trusses = m_dragTrussUuids;
+        const auto targets = scene_grouping::BuildTransformTargets(
+            ConfigManager::Get().GetScene(), selection);
+        if (targets.size() == 1 &&
+            targets.front().type == MvrNodeType::GroupObject)
+            return magnet_snap::SnapSource{magnet_snap::ObjectType::TrussGroup,
+                                           targets.front().uuid};
+        if (m_dragTrussUuids.size() == 1 && m_dragFixtureUuids.empty())
+            return magnet_snap::SnapSource{magnet_snap::ObjectType::Truss,
+                                           m_dragTrussUuids.front()};
+    }
     if (m_dragFixtureUuids.size() == 1 && m_dragTrussUuids.empty() &&
         m_dragSceneObjectUuids.empty())
         return magnet_snap::SnapSource{magnet_snap::ObjectType::Fixture,
@@ -2803,6 +2814,9 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 
         const int dx = pos.x - m_lastMousePos.x;
         const int dy = pos.y - m_lastMousePos.y;
+        if (!m_selectionDragMoved && std::abs(dx) < kSelectionDragStartThresholdPx &&
+            std::abs(dy) < kSelectionDragStartThresholdPx)
+            return;
         if (dx != 0 || dy != 0) {
             const RenderSize renderSize = ResolveRenderSize(this);
             if (renderSize.IsValid() &&

@@ -24,6 +24,9 @@ Changes since `v1.3.0`.
 - Improved 2D and 3D drag feedback so the bottom X/Y/Z status readout shows the dragged insertion-point position in a highlighted color while objects are being moved.
 
 ## Fixes
+
+- Fixed Magnet fixture-to-truss snapping so fixtures snap to the actual truss edge height, stay aligned when their snapped truss or full snapped group is moved, and only snap after an intentional drag starts.
+- Improved Magnet truss snapping so grouped truss runs can snap to loose trusses using the truss run bounds while ignoring attached fixtures.
 - Fixed reopening the last project from startup and loading its symbol cache metadata when the saved path contains accented or other non-ASCII characters.
 
 - Improved Magnet snapping so fixtures and trusses release from snapped targets based on the raw mouse-following drag position, fixture-to-truss snaps join the fixture to the truss snap group, and detaching snapped fixtures or trusses preserves the rest of the group hierarchy.

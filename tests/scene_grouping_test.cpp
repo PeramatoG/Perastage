@@ -109,6 +109,33 @@ int main() {
   assert(NearlyEqual(scene.trusses[truss.uuid].transform.o[1], 0.0f));
   assert(NearlyEqual(scene.supports[support.uuid].transform.o[1], 0.0f));
 
+  MvrScene groupedDragScene;
+  Fixture groupedFixture;
+  groupedFixture.uuid = "grouped-fixture";
+  groupedFixture.layer = "No Layer";
+  groupedFixture.transform = Translated(1000.0f, 0.0f, 0.0f);
+  groupedDragScene.fixtures[groupedFixture.uuid] = groupedFixture;
+  Truss groupedTruss;
+  groupedTruss.uuid = "grouped-truss";
+  groupedTruss.layer = "No Layer";
+  groupedTruss.transform = Translated(3000.0f, 0.0f, 0.0f);
+  groupedDragScene.trusses[groupedTruss.uuid] = groupedTruss;
+  scene_grouping::ObjectSelection groupedDragSelection;
+  groupedDragSelection.fixtures = {groupedFixture.uuid};
+  groupedDragSelection.trusses = {groupedTruss.uuid};
+  assert(scene_grouping::GroupSelection(groupedDragScene, groupedDragSelection)
+             .changed);
+  assert(scene_grouping::BuildTransformTargets(groupedDragScene,
+                                               groupedDragSelection)
+             .size() == 1);
+  scene_grouping::TranslateSelection(groupedDragScene, groupedDragSelection,
+                                     {100.0f, 0.0f, 0.0f});
+  assert(NearlyEqual(groupedDragScene.fixtures[groupedFixture.uuid]
+                         .transform.o[0],
+                     1100.0f));
+  assert(NearlyEqual(groupedDragScene.trusses[groupedTruss.uuid].transform.o[0],
+                     3100.0f));
+
   const scene_grouping::OperationResult fixtureDetachResult =
       scene_grouping::RemoveSelectionFromGroup(scene, childSelection);
   assert(fixtureDetachResult.changed);
