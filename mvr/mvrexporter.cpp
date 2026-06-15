@@ -97,6 +97,8 @@ static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
 static std::string TrimAscii(std::string value);
 static std::string ToLowerAscii(std::string value);
 static FixtureExportId ResolveFixtureExportId(const Fixture &fixture);
+static std::unordered_map<std::string, int> BuildFixtureUnitNumbersForExport(
+    const std::unordered_map<std::string, Fixture> &fixtures);
 
 static bool ShouldExportSupportHoistInfo(const Support &support);
 static tinyxml2::XMLElement *FindFirstPerastageUserData(tinyxml2::XMLElement *node);
@@ -127,6 +129,101 @@ static FixtureExportId ResolveFixtureExportId(const Fixture &fixture) {
   if (id.text.empty() && id.numeric > 0)
     id.text = std::to_string(id.numeric);
   return id;
+}
+
+
+// Builds a normalized fixture type key for UnitNumber export grouping.
+static std::string BuildFixtureUnitNumberTypeKey(const Fixture &fixture) {
+  auto normalize = [](std::string value) {
+    value = TrimAscii(std::move(value));
+    std::string normalized;
+    bool pendingSpace = false;
+    for (unsigned char ch : value) {
+      if (std::isspace(ch)) {
+        pendingSpace = !normalized.empty();
+        continue;
+      }
+      if (pendingSpace) {
+        normalized.push_back(' ');
+        pendingSpace = false;
+      }
+      normalized.push_back(static_cast<char>(ch));
+    }
+    return normalized;
+  };
+
+  for (const std::string *candidate : {&fixture.typeName, &fixture.gdtfSpec,
+                                       &fixture.requestedFixtureName,
+                                       &fixture.instanceName}) {
+    std::string key = normalize(*candidate);
+    if (!key.empty())
+      return key;
+  }
+  return "Unknown";
+}
+
+// Prepares deterministic UnitNumber values for fixtures without mutating the editable scene.
+static std::unordered_map<std::string, int> BuildFixtureUnitNumbersForExport(
+    const std::unordered_map<std::string, Fixture> &fixtures) {
+  struct FixtureRef {
+    std::string uuid;
+    const Fixture *fixture = nullptr;
+  };
+
+  struct UnitGroup {
+    std::set<int> used;
+    std::vector<FixtureRef> missing;
+  };
+
+  std::unordered_map<std::string, int> result;
+  std::unordered_map<std::string, UnitGroup> groups;
+  for (const auto &[uuid, fixture] : fixtures) {
+    const std::string typeKey = BuildFixtureUnitNumberTypeKey(fixture);
+    UnitGroup &group = groups[typeKey];
+    if (fixture.unitNumber > 0) {
+      group.used.insert(fixture.unitNumber);
+      result[uuid] = fixture.unitNumber;
+    } else {
+      group.missing.push_back({uuid, &fixture});
+    }
+  }
+
+  constexpr float kPositionTieTolerance = 0.0001f;
+  for (auto &[_, group] : groups) {
+    std::sort(group.missing.begin(), group.missing.end(),
+              [=](const FixtureRef &lhs, const FixtureRef &rhs) {
+                const auto lhsPos = lhs.fixture->GetPosition();
+                const auto rhsPos = rhs.fixture->GetPosition();
+                if (std::fabs(lhsPos[1] - rhsPos[1]) > kPositionTieTolerance)
+                  return lhsPos[1] < rhsPos[1];
+                if (std::fabs(lhsPos[0] - rhsPos[0]) > kPositionTieTolerance)
+                  return lhsPos[0] < rhsPos[0];
+
+                const int lhsId = ResolveFixtureExportId(*lhs.fixture).numeric;
+                const int rhsId = ResolveFixtureExportId(*rhs.fixture).numeric;
+                if (lhsId != rhsId) {
+                  if (lhsId <= 0)
+                    return false;
+                  if (rhsId <= 0)
+                    return true;
+                  return lhsId < rhsId;
+                }
+                if (lhs.fixture->instanceName != rhs.fixture->instanceName)
+                  return lhs.fixture->instanceName < rhs.fixture->instanceName;
+                return lhs.uuid < rhs.uuid;
+              });
+
+    int nextUnitNumber = 1;
+    for (const FixtureRef &fixtureRef : group.missing) {
+      while (group.used.contains(nextUnitNumber))
+        ++nextUnitNumber;
+      result[fixtureRef.uuid] = nextUnitNumber;
+      group.used.insert(nextUnitNumber);
+      ++nextUnitNumber;
+    }
+  }
+
+  return result;
 }
 
 static bool Read3dsChunkHeader(std::ifstream &file, ThreeDsChunkHeader &chunk) {
@@ -603,15 +700,15 @@ static bool ValidateMvr16Export(
           return false;
         }
 
-        if (auto *unitNode = cur->FirstChildElement("UnitNumber"); unitNode) {
-          int unitValue = 0;
-          const std::string unitText = unitNode->GetText() ? TrimAscii(unitNode->GetText()) : "";
-          if (unitText.empty() || !TryParseInt(unitText, unitValue)) {
-            wxLogError(
-                "MVR export validation failed: Fixture '%s' (uuid=%s) has non-integer UnitNumber",
-                fixtureName, fixtureUuid);
-            return false;
-          }
+        auto *unitNode = cur->FirstChildElement("UnitNumber");
+        int unitValue = 0;
+        const std::string unitText =
+            unitNode && unitNode->GetText() ? TrimAscii(unitNode->GetText()) : "";
+        if (unitText.empty() || !TryParseInt(unitText, unitValue) || unitValue <= 0) {
+          wxLogError(
+              "MVR export validation failed: Fixture '%s' (uuid=%s) must have a positive integer UnitNumber",
+              fixtureName, fixtureUuid);
+          return false;
         }
 
         if (auto *addresses = cur->FirstChildElement("Addresses"); addresses) {
@@ -1679,6 +1776,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   };
 
   const auto assignedIds = assignIds();
+  const auto assignedUnitNumbers = BuildFixtureUnitNumbersForExport(scene.fixtures);
 
   tinyxml2::XMLDocument doc;
   doc.InsertEndChild(doc.NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\""));
@@ -1839,8 +1937,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       fixtureExportId.text = std::to_string(fixtureExportId.numeric);
     addStr("FixtureID", fixtureExportId.text);
     addInt("FixtureIDNumeric", fixtureExportId.numeric);
-    if (f.unitNumber != 0 && f.unitNumber != fixtureExportId.numeric)
-      addInt("UnitNumber", f.unitNumber);
+    auto unitIt = assignedUnitNumbers.find(f.uuid);
+    addInt("UnitNumber", unitIt != assignedUnitNumbers.end() ? unitIt->second : f.unitNumber);
     addInt("CustomId", f.customId);
     addInt("CustomIdType", f.customIdType);
     std::string fixtureSourceGdtf = f.gdtfSpec;

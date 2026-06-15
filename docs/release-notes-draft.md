@@ -38,6 +38,7 @@ Changes since `v1.3.0`.
 - Kept the 2D and 3D viewer highlights pinned to the dragged scene element during mouse-drag moves so hover feedback no longer jumps to other elements mid-drag.
 - Fixed quick-click fixture selection in the 3D view so hovered fixtures can still be selected when the precise release pick misses.
 - Fixed MVR fixture Color handling so visualization colors are no longer exported as gel/filter colors, while imported MVR Color values are preserved as fixture gel/filter data.
+- Fixed MVR fixture UnitNumber export so existing unit numbers are preserved and missing values are generated deterministically by fixture type and stage position.
 - Restored edge-safe fixture visibility and made fixture hover picking use actual fixture geometry so highlights and labels target the visible fixture instead of broad bounds.
 - Fixed fixture ID edits so saved project files and exported MVR files keep the updated numeric fixture IDs instead of reverting to imported IDs.
 - Fixed command-bar position and rotation value parsing so `t` and `thru` separators distribute selected items the same way as two space-separated values.
