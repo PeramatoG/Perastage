@@ -1723,32 +1723,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     return registerResource(sourcePath, preferredArchivePath);
   };
 
-  auto appendPlaceholderCubeGeometry = [&](tinyxml2::XMLElement *owner,
-                                          const std::string &objectUuid,
-                                          const char *nodeName) -> bool {
-    const std::string modelArchivePath =
-        registerPrimitiveModelResource("primitive:cube", objectUuid);
-    if (modelArchivePath.empty()) {
-      Logger::Instance().Log(Logger::Level::Warn,
-                             std::string("MVR export could not create placeholder geometry for ") +
-                                 nodeName + " uuid=" + objectUuid);
-      return false;
-    }
-
-    tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
-    tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-    g3d->SetAttribute("fileName", modelArchivePath.c_str());
-    tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
-    geoMatrix->SetText(MatrixUtils::FormatMatrix(MatrixUtils::Identity()).c_str());
-    g3d->InsertEndChild(geoMatrix);
-    geos->InsertEndChild(g3d);
-    owner->InsertEndChild(geos);
-    Logger::Instance().Log(Logger::Level::Warn,
-                           std::string("MVR export added placeholder cube geometry for ") +
-                               nodeName + " uuid=" + objectUuid);
-    return true;
-  };
-
   auto assignIds = [&]() {
     int nextNumericId = 1;
     std::unordered_set<int> usedIds;
@@ -1806,6 +1780,32 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   tinyxml2::XMLDocument doc;
   doc.InsertEndChild(doc.NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\""));
+
+  auto appendPlaceholderCubeGeometry = [&](tinyxml2::XMLElement *owner,
+                                          const std::string &objectUuid,
+                                          const char *nodeName) -> bool {
+    const std::string modelArchivePath =
+        registerPrimitiveModelResource("primitive:cube", objectUuid);
+    if (modelArchivePath.empty()) {
+      Logger::Instance().Log(Logger::Level::Warn,
+                             std::string("MVR export could not create placeholder geometry for ") +
+                                 nodeName + " uuid=" + objectUuid);
+      return false;
+    }
+
+    tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
+    tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+    g3d->SetAttribute("fileName", modelArchivePath.c_str());
+    tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
+    geoMatrix->SetText(MatrixUtils::FormatMatrix(MatrixUtils::Identity()).c_str());
+    g3d->InsertEndChild(geoMatrix);
+    geos->InsertEndChild(g3d);
+    owner->InsertEndChild(geos);
+    Logger::Instance().Log(Logger::Level::Warn,
+                           std::string("MVR export added placeholder cube geometry for ") +
+                               nodeName + " uuid=" + objectUuid);
+    return true;
+  };
 
   tinyxml2::XMLElement *root = doc.NewElement("GeneralSceneDescription");
   root->SetAttribute("verMajor", 1);
