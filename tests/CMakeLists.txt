@@ -11,8 +11,11 @@ find_package(tinyxml2 CONFIG REQUIRED)
 enable_testing()
 
 add_library(perastage_test_diagnostics STATIC
+            ../core/apppaths.cpp
+            ../core/configservices.cpp
             ../core/diagnostics/DiagnosticPaths.cpp
-            ../core/filesystem_path_utils.cpp)
+            ../core/filesystem_path_utils.cpp
+            ../core/symbol_cache_manifest.cpp)
 target_include_directories(perastage_test_diagnostics PRIVATE
                            ../core
                            ../third_party)

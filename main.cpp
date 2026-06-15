@@ -266,7 +266,7 @@ bool MyApp::OnInit() {
       " platform=" + build_info::kTargetPlatform +
       " text_locale=" + localeSetup.activeLocale);
   if (!localeSetup.note.empty())
-    diagnostics::DiagnosticLogger::Warn("Startup text locale: " + localeSetup.note);
+    diagnostics::DiagnosticLogger::Warning("Startup text locale: " + localeSetup.note);
 
   SplashScreen::SetMessage("Running library bootstrap...");
   ProjectUtils::RunStartupLibraryBootstrap();
