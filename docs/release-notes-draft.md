@@ -26,7 +26,7 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
-- Preserved embedded MVR GDTF fixture references when reopening `.pstg` projects so vendor fixtures such as Clay Paky Sharpy do not silently downgrade to dummy geometry on the next save.
+- Preserved embedded MVR GDTF fixture references when reopening `.pstg` projects so fixtures affected by GDTF dictionary conflicts do not silently downgrade to dummy geometry on the next save.
 - Improved MVR compatibility by preserving Support objects during roundtrip export, preserving geometry-less Support nodes with empty Geometries and using small 10 cm placeholder geometry for otherwise empty SceneObject exports, and writing Truss children in schema-compatible order.
 
 - Fixed GDTF persistence so automatic symbol generation and project-scoped fixture edits update project-owned copies or stable @Perastage library derivatives without filling the user fixture library with imported or generated project files.
