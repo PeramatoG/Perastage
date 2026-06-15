@@ -46,6 +46,7 @@ Changes since `v1.3.0`.
 
 ## Stability and reliability
 
+- Fixed a Linux startup crash caused by narrow-string arguments in Unicode wxWidgets status and splash text formatting.
 - Added local crash reporting and persistent diagnostics logs with build, platform, wxWidgets, OpenGL, recent-log, and stack-trace context when available.
 - Improved diagnostics shutdown behavior so closing Perastage is not delayed by pending background log messages.
 - Improved truss archive extraction safety by rejecting unsafe ZIP entries that use absolute paths or attempt to write outside the extraction cache.

@@ -136,10 +136,11 @@ void SplashScreen::Show() {
 
   wxBitmap logoBmp = BuildSplashBitmap();
   wxStaticBitmap *logo = new wxStaticBitmap(panel, wxID_ANY, logoBmp);
+  const wxString appInfoText = wxString::FromUTF8(app::kName) + " " +
+                               wxString::FromUTF8(app::kVersionDisplay);
   wxStaticText *appInfoLabel =
-      new wxStaticText(panel, wxID_ANY,
-                       wxString::Format("%s %s", app::kName, app::kVersionDisplay),
-                       wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
+      new wxStaticText(panel, wxID_ANY, appInfoText, wxDefaultPosition,
+                       wxDefaultSize, wxALIGN_CENTER);
   wxFont appInfoFont = appInfoLabel->GetFont();
   appInfoFont.MakeBold();
   appInfoLabel->SetFont(appInfoFont);
