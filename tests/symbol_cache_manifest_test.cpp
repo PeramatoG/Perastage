@@ -1,11 +1,35 @@
 #include "symbol_cache_manifest.h"
 
 #include <cassert>
+#include <filesystem>
 #include <string>
 
+#include <wx/filename.h>
+#include <wx/init.h>
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
+
+#include "filesystem_path_utils.h"
 #include "json.hpp"
 
 namespace {
+
+namespace fs = std::filesystem;
+
+// Converts a filesystem path to a wxString using the native platform representation.
+wxString WxStringFromPath(const fs::path &path) {
+#ifdef _WIN32
+  return wxString(path.wstring());
+#else
+  return wxString::FromUTF8(path.string());
+#endif
+}
+
+// Converts a filesystem path to UTF-8 for project APIs.
+std::string ToUtf8String(const fs::path &path) {
+  std::u8string utf8 = path.u8string();
+  return std::string(utf8.begin(), utf8.end());
+}
 
 // Builds a complete cache validation request used by manifest unit tests.
 symbol_cache::ValidationRequest BuildRequest(const std::string &hash = "hash-a") {
@@ -119,15 +143,63 @@ void TestFailedGenerationDoesNotMarkManifestValid() {
   assert(result.status == symbol_cache::ValidationStatus::MissingManifest);
 }
 
+// Writes a minimal project archive containing the symbol cache manifest entry.
+bool WriteProjectArchiveWithManifest(const fs::path &projectPath) {
+  wxFileName::Mkdir(WxStringFromPath(projectPath.parent_path()), wxS_DIR_DEFAULT,
+                    wxPATH_MKDIR_FULL);
+  wxFileOutputStream output(WxStringFromPath(projectPath));
+  if (!output.IsOk())
+    return false;
+
+  wxZipOutputStream zip(output);
+  if (!zip.IsOk())
+    return false;
+
+  const std::string manifestJson =
+      BuildManifestJson(symbol_cache::kCurrentManifestFormatVersion,
+                        symbol_cache::kCurrentPerastageSymbolFormatVersion)
+          .dump();
+  if (!zip.PutNextEntry(symbol_cache::kProjectArchiveEntryName))
+    return false;
+  zip.Write(manifestJson.data(), manifestJson.size());
+  zip.Close();
+  return output.IsOk();
+}
+
+// Verifies manifest loading from project archives whose paths contain non-ASCII characters.
+void TestProjectArchivePathUsesUtf8() {
+  const fs::path tempRoot =
+      fs::temp_directory_path() / PathUtils::PathFromUtf8("perastage_manifest_viña");
+  std::error_code ec;
+  fs::remove_all(tempRoot, ec);
+  fs::create_directories(tempRoot);
+
+  const fs::path projectPath =
+      tempRoot / PathUtils::PathFromUtf8("Escenaro_Metal_ViñaRock_1.pstg");
+  assert(WriteProjectArchiveWithManifest(projectPath));
+
+  symbol_cache::SymbolCacheManifest manifest;
+  std::string error;
+  assert(manifest.LoadFromProjectArchive(ToUtf8String(projectPath), error));
+  assert(error.empty());
+  assert(manifest.ValidateFixture(BuildRequest()).valid);
+
+  fs::remove_all(tempRoot, ec);
+}
+
 } // namespace
 
 // Runs symbol cache manifest validation and update-policy unit tests.
 int main() {
+  wxInitializer initializer;
+  assert(initializer.IsOk());
+
   TestValidManifestSkipsInspection();
   TestMissingManifestFallsBackToInspection();
   TestOutdatedManifestFallsBackToInspection();
   TestChangedGdtfHashFallsBackToInspection();
   TestSuccessfulGenerationUpdatesManifest();
   TestFailedGenerationDoesNotMarkManifestValid();
+  TestProjectArchivePathUsesUtf8();
   return 0;
 }
