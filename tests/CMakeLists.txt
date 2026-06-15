@@ -20,6 +20,10 @@ target_include_directories(perastage_test_diagnostics PRIVATE
                            ../core
                            ../third_party)
 
+add_library(perastage_test_path_utils STATIC
+            ../core/filesystem_path_utils.cpp)
+target_include_directories(perastage_test_path_utils PRIVATE ../core)
+
 find_program(BASH_EXECUTABLE bash)
 if(BASH_EXECUTABLE)
     add_test(NAME DocsPerastageTreeModules
@@ -1383,5 +1387,11 @@ foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
     get_target_property(PERASTAGE_TEST_SOURCES ${PERASTAGE_TEST_TARGET} SOURCES)
     if(PERASTAGE_TEST_SOURCES AND "../core/logger.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
         target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_diagnostics)
+    endif()
+    if(PERASTAGE_TEST_SOURCES AND
+       ("../viewer3d/gdtfloader.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
+        "../viewer3d/loader3ds.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
+        "../viewer3d/loaderglb.cpp" IN_LIST PERASTAGE_TEST_SOURCES))
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_path_utils)
     endif()
 endforeach()

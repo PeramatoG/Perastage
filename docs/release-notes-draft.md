@@ -68,7 +68,7 @@ Changes since `v1.3.0`.
 ## Internal changes
 
 - Added Linux text-locale startup validation coverage to prevent regressions in wxWidgets narrow-to-wide string conversion behavior.
-- Improved Debian/Linux test build reliability by linking logger-based test executables with the shared diagnostics, app path, config service, and symbol-cache support sources used by the main application.
+- Improved Debian/Linux test build reliability by linking logger-based test executables with the shared diagnostics, app path, filesystem path, config service, and symbol-cache support sources used by the main application.
 - Improved Linux GCC build reliability by separating lightweight GDTF geometry data types from loader declarations, reducing header-order coupling in the 3D resource and bounds systems.
 - Hardened the macOS installer workflow so restored vcpkg dependency caches are rebuilt when they contain stale Xcode SDK metadata, preventing old runner paths from breaking current macOS builds.
 - Improved macOS installer build diagnostics by saving full compiler logs, showing focused error context on failure, and uploading related CMake and vcpkg logs for maintainers.
