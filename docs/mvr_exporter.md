@@ -21,3 +21,7 @@ GUI code should show export warnings only after any busy overlay is destroyed, s
 ## MVR node validity notes
 
 Support is a standard MVR scene node and is preserved as `<Support>` during import/export; if geometry is missing, Perastage writes an empty `<Geometries/>` plus required `ChainLength` so the logical Support remains schema-valid without inventing model geometry. Generic `<SceneObject>` nodes require a `<Geometries>` child, so Perastage writes a small 10 cm placeholder cube when no source geometry is available instead of writing invalid XML. Truss children are emitted in XSD `xs:sequence` order, with `Matrix` before `Geometries` and fixture identifiers after geometry-related content.
+
+## Symbol/Symdef UUID handling
+
+MVR `Symbol` nodes represent geometry instances defined by a referenced `Symdef`. MVR 1.6 requires every exported `Symbol` to carry both a canonical `uuid` attribute for the symbol instance and a non-empty `symdef` reference. Perastage preserves an imported Symbol UUID when it is valid and belongs to preserved Symbol/Symdef geometry; if the original Symbol UUID is missing, invalid, or collides with another exported Symbol, Perastage derives a deterministic replacement from the container type, container UUID, Symdef UUID, Symbol matrix, and stable index context so repeated exports of the same scene remain logically stable.
