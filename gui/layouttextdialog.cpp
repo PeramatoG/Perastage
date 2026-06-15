@@ -37,13 +37,16 @@
 
 namespace {
 constexpr int kToolbarIconSizePx = 16;
+constexpr int kToolbarButtonSizePx = 36;
 constexpr int kMinFontSize = 6;
 constexpr int kMaxFontSize = 72;
 
+// Returns the text colour used while editing rich text.
 wxColour GetEditorTextColour() {
   return *wxWHITE;
 }
 
+// Applies a consistent text colour to the whole rich text buffer.
 void NormalizeBufferTextColour(wxRichTextBuffer &buffer,
                                const wxColour &colour) {
   wxRichTextRange range = buffer.GetRange();
@@ -55,6 +58,7 @@ void NormalizeBufferTextColour(wxRichTextBuffer &buffer,
   buffer.SetStyle(range, attr);
 }
 
+// Initializes rich text handlers once before loading or saving rich text content.
 void EnsureRichTextHandlers() {
   static bool initialized = false;
   if (initialized)
@@ -67,6 +71,7 @@ void EnsureRichTextHandlers() {
 }
 } // namespace
 
+// Creates the rich text editing dialog and wires its toolbar controls.
 LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
                                    const wxString &initialRichText,
                                    const wxString &fallbackText,
@@ -86,7 +91,8 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
                                               kToolbarIconSizePx));
     wxBitmapButton *button = new wxBitmapButton(
         this, wxID_ANY, bitmap, wxDefaultPosition,
-        wxSize(kToolbarIconSizePx + 6, kToolbarIconSizePx + 6));
+        wxSize(kToolbarButtonSizePx, kToolbarButtonSizePx));
+    button->SetMinSize(wxSize(kToolbarButtonSizePx, kToolbarButtonSizePx));
     button->SetToolTip(tooltip);
     button->Bind(wxEVT_BUTTON, [handler](wxCommandEvent &) { handler(); });
     toolbarSizer->Add(button, 0, wxRIGHT, 4);
@@ -153,6 +159,7 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   Centre();
 }
 
+// Returns the edited content serialized as rich text XML.
 wxString LayoutTextDialog::GetRichText() const {
   if (!textCtrl)
     return wxEmptyString;
@@ -161,18 +168,22 @@ wxString LayoutTextDialog::GetRichText() const {
   return layouttext::SaveRichTextBufferToString(bufferCopy);
 }
 
+// Returns the edited content as plain text.
 wxString LayoutTextDialog::GetPlainText() const {
   return textCtrl ? textCtrl->GetBuffer().GetText() : wxString();
 }
 
+// Returns whether the text should use a solid background.
 bool LayoutTextDialog::GetSolidBackground() const {
   return solidBackgroundCtrl ? solidBackgroundCtrl->GetValue() : true;
 }
 
+// Returns whether the text frame should be drawn.
 bool LayoutTextDialog::GetDrawFrame() const {
   return drawFrameCtrl ? drawFrameCtrl->GetValue() : true;
 }
 
+// Loads a toolbar icon from project resources with an art-provider fallback.
 wxBitmapBundle LayoutTextDialog::LoadIcon(const std::string &name) const {
   auto svgPath = ProjectUtils::ResolveResourcePath(
       std::filesystem::path("icons") / "outline" / (name + ".svg"));
@@ -189,6 +200,7 @@ wxBitmapBundle LayoutTextDialog::LoadIcon(const std::string &name) const {
                                                kToolbarIconSizePx));
 }
 
+// Loads rich text content when possible and falls back to plain text.
 void LayoutTextDialog::LoadInitialContent(const wxString &initialRichText,
                                           const wxString &fallbackText) {
   if (!textCtrl)
@@ -202,6 +214,7 @@ void LayoutTextDialog::LoadInitialContent(const wxString &initialRichText,
   textCtrl->SetValue(fallbackText);
 }
 
+// Applies the default editor text style to current and future content.
 void LayoutTextDialog::ApplyDefaultFontStyle() {
   if (!textCtrl)
     return;
@@ -222,16 +235,19 @@ void LayoutTextDialog::ApplyDefaultFontStyle() {
   textCtrl->SetStyle(range, colourOnly);
 }
 
+// Toggles bold formatting for the current rich text selection.
 void LayoutTextDialog::ApplyBold() {
   if (textCtrl)
     textCtrl->ApplyBoldToSelection();
 }
 
+// Toggles italic formatting for the current rich text selection.
 void LayoutTextDialog::ApplyItalic() {
   if (textCtrl)
     textCtrl->ApplyItalicToSelection();
 }
 
+// Applies the selected font size to the current selection or document.
 void LayoutTextDialog::ApplyFontSize(int size) {
   if (!textCtrl)
     return;
@@ -252,6 +268,7 @@ void LayoutTextDialog::ApplyFontSize(int size) {
   }
 }
 
+// Adjusts the font size control by the requested delta and applies it.
 void LayoutTextDialog::AdjustFontSize(int delta) {
   if (!fontSizeCtrl)
     return;
@@ -261,6 +278,7 @@ void LayoutTextDialog::AdjustFontSize(int delta) {
   ApplyFontSize(size);
 }
 
+// Applies paragraph alignment to the current rich text selection.
 void LayoutTextDialog::ApplyAlignment(int alignment) {
   if (!textCtrl)
     return;
