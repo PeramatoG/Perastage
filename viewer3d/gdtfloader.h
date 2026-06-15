@@ -19,38 +19,8 @@
 
 #include <string>
 #include <vector>
-#include "mesh.h"
-// Use the Matrix definition shared by model code
-#include "types.h"
 
-struct GdtfObject {
-    Mesh mesh;
-    Matrix transform; // local transform relative to fixture
-    bool isLens = false;
-};
-
-enum class GdtfNodeType {
-    Geometry,
-    Axis,
-    Emitter
-};
-
-struct GdtfNode3D {
-    std::string stableName;
-    GdtfNodeType type = GdtfNodeType::Geometry;
-    int parentIndex = -1;
-    Matrix localTransform = Matrix{};
-    Matrix worldTransform = Matrix{};
-    bool isLens = false;
-    bool hasMesh = false;
-    Mesh mesh;
-};
-
-struct GdtfGeometryTree {
-    std::vector<GdtfNode3D> nodes;
-    std::vector<int> axisNodeIndices;
-    std::vector<int> emitterNodeIndices;
-};
+#include "gdtf_geometry_types.h"
 
 // Metadata for a GDTF model definition. Length/Width/Height correspond
 // to the desired bounding box dimensions in meters as specified in the

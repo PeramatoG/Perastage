@@ -1,7 +1,7 @@
 #pragma once
 
 #include "mesh.h"
-#include "gdtfloader.h"
+#include "gdtf_geometry_types.h"
 #include "mesh_processing.h"
 #include "fixture.h"
 #include "sceneobject.h"

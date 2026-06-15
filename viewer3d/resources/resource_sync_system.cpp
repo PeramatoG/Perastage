@@ -1,5 +1,6 @@
 #include "resource_sync_system.h"
 #include "filesystem_path_utils.h"
+#include "gdtfloader.h"
 #include "mesh_processing.h"
 #include "resource_path_search.h"
 
