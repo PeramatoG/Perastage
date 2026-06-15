@@ -225,6 +225,66 @@ fs::path ResolveResourcePath(const fs::path& relativePath)
     return {};
 }
 
+
+// Repairs legacy last-project paths that were saved after UTF-8 bytes were decoded as Latin-1 text.
+std::optional<std::string> RepairLegacyUtf8MojibakePath(const std::string& rawPath)
+{
+    wxString decodedAsUnicode = wxString::FromUTF8(rawPath.c_str(), rawPath.size());
+    if (decodedAsUnicode.empty())
+        return std::nullopt;
+
+    std::string originalUtf8Bytes;
+    originalUtf8Bytes.reserve(decodedAsUnicode.length());
+    for (size_t index = 0; index < decodedAsUnicode.length(); ++index) {
+        const unsigned int value = decodedAsUnicode[index].GetValue();
+        if (value > 0xFF)
+            return std::nullopt;
+        originalUtf8Bytes.push_back(static_cast<char>(value));
+    }
+
+    wxString repaired = wxString::FromUTF8(originalUtf8Bytes.c_str(),
+                                          originalUtf8Bytes.size());
+    if (repaired.empty() || repaired == decodedAsUnicode)
+        return std::nullopt;
+
+    const wxScopedCharBuffer repairedUtf8 = repaired.ToUTF8();
+    if (!repairedUtf8)
+        return std::nullopt;
+    return std::string(repairedUtf8.data(), repairedUtf8.length());
+}
+
+// Resolves a stored project path only when it points to an existing project file.
+std::optional<std::string> ResolveExistingProjectPath(const std::string& rawPath)
+{
+    fs::path candidate;
+    try {
+        candidate = PathUtils::PathFromUtf8(rawPath);
+    } catch (...) {
+        return std::nullopt;
+    }
+
+    auto isValidFile = [](const fs::path& path) {
+        std::error_code ec;
+        return fs::exists(path, ec) && fs::is_regular_file(path, ec);
+    };
+    if (candidate.is_absolute()) {
+        if (isValidFile(candidate))
+            return ToUtf8String(candidate);
+        return std::nullopt;
+    }
+    std::error_code ec;
+    fs::path currentCandidate = fs::absolute(candidate, ec);
+    if (!ec && isValidFile(currentCandidate))
+        return ToUtf8String(currentCandidate);
+    ec.clear();
+    wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
+    fs::path exeBase = WxStringToPath(exe.GetPath());
+    fs::path exeCandidate = fs::absolute(exeBase / candidate, ec);
+    if (!ec && isValidFile(exeCandidate))
+        return ToUtf8String(exeCandidate);
+    return std::nullopt;
+}
+
 std::string GetLastProjectPathFile()
 {
     const auto dataDir = ResolveWritableUserDataDir();
@@ -272,31 +332,13 @@ std::optional<std::string> LoadLastProjectPath()
     std::getline(in, rawPath);
     if (rawPath.empty())
         return std::nullopt;
-    fs::path candidate;
-    try {
-        candidate = PathUtils::PathFromUtf8(rawPath);
-    } catch (...) {
-        return std::nullopt;
-    }
-    auto isValidFile = [](const fs::path& path) {
-        std::error_code ec;
-        return fs::exists(path, ec) && fs::is_regular_file(path, ec);
-    };
-    if (candidate.is_absolute()) {
-        if (isValidFile(candidate))
-            return ToUtf8String(candidate);
-        return std::nullopt;
-    }
-    std::error_code ec;
-    fs::path currentCandidate = fs::absolute(candidate, ec);
-    if (!ec && isValidFile(currentCandidate))
-        return ToUtf8String(currentCandidate);
-    ec.clear();
-    wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
-    fs::path exeBase = WxStringToPath(exe.GetPath());
-    fs::path exeCandidate = fs::absolute(exeBase / candidate, ec);
-    if (!ec && isValidFile(exeCandidate))
-        return ToUtf8String(exeCandidate);
+
+    if (auto resolved = ResolveExistingProjectPath(rawPath))
+        return resolved;
+
+    if (auto repairedPath = RepairLegacyUtf8MojibakePath(rawPath))
+        return ResolveExistingProjectPath(*repairedPath);
+
     return std::nullopt;
 }
 

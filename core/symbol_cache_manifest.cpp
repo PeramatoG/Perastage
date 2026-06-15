@@ -1,9 +1,11 @@
 #include "symbol_cache_manifest.h"
+#include "filesystem_path_utils.h"
 
 #include <array>
 #include <chrono>
 #include <ctime>
 #include <exception>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <memory>
@@ -226,11 +228,21 @@ bool SymbolCacheManifest::SaveToJsonText(std::string &jsonText,
   return true;
 }
 
+// Converts a UTF-8 filesystem path into a wxString using the native platform representation.
+wxString WxStringFromUtf8Path(const std::string &path) {
+  const std::filesystem::path nativePath = PathUtils::PathFromUtf8(path);
+#ifdef _WIN32
+  return wxString(nativePath.wstring());
+#else
+  return wxString::FromUTF8(nativePath.string());
+#endif
+}
+
 // Loads the project-level manifest entry from a .pstg ZIP archive when present.
 bool SymbolCacheManifest::LoadFromProjectArchive(const std::string &projectPath,
                                                  std::string &errorMessage) {
   Clear();
-  wxFileInputStream input(projectPath);
+  wxFileInputStream input(WxStringFromUtf8Path(projectPath));
   if (!input.IsOk()) {
     errorMessage = "Could not open project archive for symbol cache manifest.";
     return false;

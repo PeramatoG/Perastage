@@ -405,6 +405,8 @@ add_executable(truss_path_encoding_regression_test
                truss_path_encoding_regression_test.cpp
                configmanager_layoutmanager_stub.cpp
                ../core/projectutils.cpp
+               ../core/apppaths.cpp
+               ../core/filesystem_path_utils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -1350,7 +1352,8 @@ target_include_directories(support_resolution_test PRIVATE ../models)
 add_test(NAME SupportResolution COMMAND support_resolution_test)
 
 add_executable(symbol_cache_manifest_test symbol_cache_manifest_test.cpp
-               ../core/symbol_cache_manifest.cpp)
+               ../core/symbol_cache_manifest.cpp
+               ../core/filesystem_path_utils.cpp)
 target_include_directories(symbol_cache_manifest_test PRIVATE
     ${CMAKE_SOURCE_DIR}/core
     ${CMAKE_SOURCE_DIR}/models
