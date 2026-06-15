@@ -1894,6 +1894,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   tinyxml2::XMLElement *layersNode = doc.NewElement("Layers");
 
   std::unordered_set<std::string> usedFixtureUuids;
+  int exportedRealFixtureGdtfCount = 0;
+  int exportedDummyFixtureGdtfCount = 0;
+  int preservedOriginalFixtureGdtfRecoveries = 0;
+  std::vector<std::string> dummyFallbackFixtureExamples;
 
   auto exportFixture = [&](tinyxml2::XMLElement *parent, const Fixture &f) {
     tinyxml2::XMLElement *fe = doc.NewElement("Fixture");
@@ -1973,6 +1977,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     addInt("CustomId", f.customId);
     addInt("CustomIdType", f.customIdType);
     std::string fixtureSourceGdtf = f.gdtfSpec;
+    if (fixtureSourceGdtf.empty() && !f.originalMvrGdtfSpec.empty()) {
+      fixtureSourceGdtf = f.originalMvrGdtfSpec;
+      ++preservedOriginalFixtureGdtfRecoveries;
+      Logger::Instance().Log(
+          Logger::Level::Warn,
+          wxString::Format(
+              "Fixture '%s' (uuid=%s) had an empty current GDTF. Recovering preserved original MVR GDTFSpec '%s' for export.",
+              fixtureExportName.c_str(), f.uuid.c_str(), fixtureSourceGdtf.c_str())
+              .ToStdString());
+    }
+    bool usedDummyFallbackForFixture = false;
     if (fixtureSourceGdtf.empty()) {
       fixtureSourceGdtf = ResolveFallbackFixtureGdtfPath();
       const std::string fallbackHint = std::string(kDummyFallbackFixtureGdtfFileName) +
@@ -1991,8 +2006,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
             << fs::path(fixtureSourceGdtf).filename().string()
             << "' for MVR export.";
         Logger::Instance().Log(Logger::Level::Info, msg.str());
+        usedDummyFallbackForFixture = true;
+        if (dummyFallbackFixtureExamples.size() < 5)
+          dummyFallbackFixtureExamples.push_back(fixtureExportName + " (uuid=" + f.uuid + ")");
       }
     }
+    if (usedDummyFallbackForFixture)
+      ++exportedDummyFixtureGdtfCount;
+    else if (!fixtureSourceGdtf.empty())
+      ++exportedRealFixtureGdtfCount;
     std::string fixtureName = SanitizeArchiveFileName(fixtureSourceGdtf, "fixture.gdtf");
     std::string fixtureGdtfArchivePath =
         registerGdtfResource(f.uuid, fixtureSourceGdtf, fixtureName);
@@ -2834,6 +2856,22 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   // Prunes non-referenced resources so deleted scene elements do not keep stale payload files.
   const std::unordered_set<std::string> referencedArchivePaths =
       CollectReferencedArchivePaths(doc);
+  std::ostringstream fixtureGdtfExportDiagnostics;
+  fixtureGdtfExportDiagnostics << "MVR export fixture GDTF diagnostics: real="
+                                << exportedRealFixtureGdtfCount
+                                << ", dummyFallback=" << exportedDummyFixtureGdtfCount
+                                << ", preservedOriginalRecoveries="
+                                << preservedOriginalFixtureGdtfRecoveries;
+  if (!dummyFallbackFixtureExamples.empty()) {
+    fixtureGdtfExportDiagnostics << ", dummyExamples=";
+    for (size_t i = 0; i < dummyFallbackFixtureExamples.size(); ++i) {
+      if (i > 0)
+        fixtureGdtfExportDiagnostics << "; ";
+      fixtureGdtfExportDiagnostics << dummyFallbackFixtureExamples[i];
+    }
+  }
+  Logger::Instance().Log(Logger::Level::Info, fixtureGdtfExportDiagnostics.str());
+
   const std::vector<ResourceEntry> allResourceEntriesBeforePrune = resourceEntries;
   resourceEntries.erase(
       std::remove_if(resourceEntries.begin(), resourceEntries.end(),

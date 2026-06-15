@@ -439,14 +439,14 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
 #if defined(_WIN32)
   // Restricts fallback directory scans to the extracted MVR base directory on Windows.
   if (baseDir.empty())
-    return ToString(candidate.u8string());
+    return {};
   fs::path lookupDir = PathUtils::PathFromUtf8(baseDir);
 #else
   fs::path lookupDir =
       baseDir.empty() ? fs::current_path(ec) : PathUtils::PathFromUtf8(baseDir);
 #endif
   if (ec || !fs::exists(lookupDir, ec) || ec)
-    return ToString(candidate.u8string());
+    return {};
 
   const std::string expectedStem =
       ToLowerAscii(Trim(PathUtils::PathFromUtf8(normalizedSpec).filename().stem().string()));
@@ -472,7 +472,7 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
     }
   }
 
-  return ToString(candidate.u8string());
+  return {};
 }
 
 static std::string DescribeTrussForLog(const Truss &truss) {
@@ -533,6 +533,19 @@ static std::string CieToHex(const std::string &cie) {
 // Helper to log errors both to stderr and the application's console panel.
 // Log a message to both the log file and the application's console panel.
 // Console updates are queued to the GUI thread to avoid blocking.
+// Describes the import source kind for diagnostic logging.
+static const char *DescribeMvrImportSourceKind(MvrImportSourceKind sourceKind) {
+  switch (sourceKind) {
+  case MvrImportSourceKind::ExternalImport:
+    return "ExternalImport";
+  case MvrImportSourceKind::ProjectRestore:
+    return "ProjectRestore";
+  case MvrImportSourceKind::MergeImport:
+    return "MergeImport";
+  }
+  return "Unknown";
+}
+
 static bool IsDetailedMvrImportLogEnabled() {
   return ConfigManager::Get().GetFloat("mvr_import_detailed_log") >= 0.5f;
 }
@@ -1002,8 +1015,20 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  bool promptConflicts,
                                  bool applyDictionary,
                                  ProgressCallback progressCallback) {
-  return ImportFromFileIntoResult(filePath, importResult, mode, promptConflicts,
-                                  applyDictionary, progressCallback);
+  MvrImportOptions options;
+  options.promptConflicts = promptConflicts;
+  options.applyDictionary = applyDictionary;
+  return ImportFromFile(filePath, importResult, mode, options, progressCallback);
+}
+
+// Imports an MVR file into an import result using explicit import behavior options.
+bool MvrImporter::ImportFromFile(const std::string &filePath,
+                                 MvrImportResult &importResult,
+                                 MvrImportMode mode,
+                                 const MvrImportOptions &options,
+                                 ProgressCallback progressCallback) {
+  return ImportFromFileIntoResult(filePath, importResult, mode, options,
+                                  progressCallback);
 }
 
 // Imports an MVR file into the provided scene without resetting global configuration.
@@ -1012,10 +1037,20 @@ bool MvrImporter::ImportSceneFromFile(const std::string &filePath,
                                       bool promptConflicts,
                                       bool applyDictionary,
                                       ProgressCallback progressCallback) {
+  MvrImportOptions options;
+  options.promptConflicts = promptConflicts;
+  options.applyDictionary = applyDictionary;
+  return ImportSceneFromFile(filePath, targetScene, options, progressCallback);
+}
+
+// Imports an MVR file into the provided scene using explicit import behavior options.
+bool MvrImporter::ImportSceneFromFile(const std::string &filePath,
+                                      MvrScene &targetScene,
+                                      const MvrImportOptions &options,
+                                      ProgressCallback progressCallback) {
   MvrImportResult importResult;
   const bool imported = ImportFromFile(
-      filePath, importResult, MvrImportMode::ParseOnly, promptConflicts,
-      applyDictionary, progressCallback);
+      filePath, importResult, MvrImportMode::ParseOnly, options, progressCallback);
   if (!imported)
     return false;
 
@@ -1028,8 +1063,7 @@ bool MvrImporter::ImportSceneFromFile(const std::string &filePath,
 bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
                                            MvrImportResult &importResult,
                                            MvrImportMode mode,
-                                           bool promptConflicts,
-                                           bool applyDictionary,
+                                           const MvrImportOptions &options,
                                            ProgressCallback progressCallback) {
   auto reportProgress = [&](std::string stage, int completed = 0, int total = 0) {
     if (!progressCallback)
@@ -1089,6 +1123,22 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
     return false;
   }
 
+  int extractedGdtfEntryCount = 0;
+  std::error_code gdtfCountEc;
+  for (const auto &entry : fs::directory_iterator(tempPath, gdtfCountEc)) {
+    if (gdtfCountEc)
+      break;
+    std::error_code regularEc;
+    if (entry.is_regular_file(regularEc) && !regularEc &&
+        ToLowerAscii(entry.path().extension().string()) == ".gdtf") {
+      ++extractedGdtfEntryCount;
+    }
+  }
+  LogMessage(Logger::Level::Info,
+             "MVR extraction diagnostics: basePath='" +
+                 ToString(tempPath.u8string()) + "', extractedGdtfEntries=" +
+                 std::to_string(extractedGdtfEntryCount));
+
   fs::path sceneFile = tempPath / "GeneralSceneDescription.xml";
   std::error_code sceneFileEc;
   if (!fs::exists(sceneFile, sceneFileEc) || sceneFileEc) {
@@ -1119,8 +1169,8 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
 
   std::string scenePath = ToString(sceneFile.u8string());
   reportProgress("Parsing scene data...");
-  const bool parsed = ParseSceneXml(scenePath, importResult, promptConflicts,
-                                    applyDictionary, progressCallback);
+  const bool parsed = ParseSceneXml(scenePath, importResult, options,
+                                    progressCallback);
   if (!parsed)
     return false;
 
@@ -1284,8 +1334,7 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
 // Parses GeneralSceneDescription.xml and populates the import result scene payload.
 bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                 MvrImportResult &importResult,
-                                bool promptConflicts,
-                                bool applyDictionary,
+                                const MvrImportOptions &options,
                                 ProgressCallback progressCallback) {
   auto reportProgress = [&](std::string stage, int completed = 0, int total = 0) {
     if (!progressCallback)
@@ -1309,6 +1358,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   MvrScene &scene = importResult.scene;
   scene.Clear();
   scene.basePath = ToString(PathUtils::PathFromUtf8(sceneXmlPath).parent_path().u8string());
+  LogMessage(Logger::Level::Info,
+             std::string("MVR import mode: source=") +
+                 DescribeMvrImportSourceKind(options.sourceKind) +
+                 ", promptConflicts=" +
+                 (options.promptConflicts ? "true" : "false") +
+                 ", applyDictionary=" +
+                 (options.applyDictionary ? "true" : "false") +
+                 ", basePath='" + scene.basePath + "'.");
 
   root->QueryIntAttribute("verMajor", &scene.versionMajor);
   root->QueryIntAttribute("verMinor", &scene.versionMinor);
@@ -1966,6 +2023,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
         fixture.gdtfSpec = textOf(node, "GDTFSpec");
         const std::string rawGdtfSpec = fixture.gdtfSpec;
+        fixture.originalMvrGdtfSpec = rawGdtfSpec;
         fixture.gdtfMode = textOf(node, "GDTFMode");
         fixture.requestedFixtureName =
             mvr::gdtf_import_matching::SelectRequestedFixtureName(rawFixtureNodeName,
@@ -2006,6 +2064,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           const std::string &resolvedGdtfPath = resolveGdtfPathCached(fixture.gdtfSpec);
           resolvedGdtfPathForFixture = resolvedGdtfPath;
           fixture.gdtfSpec = normalizeGdtfSpecForScene(fixture.gdtfSpec);
+          if (fixture.gdtfSpec.empty() && !rawGdtfSpec.empty())
+            fixture.gdtfSpec = RemapArchivePathIfNeeded(rawGdtfSpec);
           const GdtfFixtureMetadata &metadata = getFixtureMetadata(resolvedGdtfPath);
           fixture.typeName = metadata.fixtureName;
           if (metadata.hasProperties) {
@@ -2066,7 +2126,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             fixture.matrixRaw = txt;
         }
 
-        if (applyDictionary && dictionaryEntry && !fixture.typeName.empty()) {
+        if (options.applyDictionary && dictionaryEntry && !fixture.typeName.empty()) {
           int footprint = 0;
           if (!resolvedGdtfPathForFixture.empty() && !fixture.gdtfMode.empty()) {
             footprint = getGdtfModeChannelCountCached(resolvedGdtfPathForFixture,
@@ -2796,7 +2856,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   // After parsing the entire scene, resolve any GDTF conflicts using the
   // dictionary only if requested. This occurs before rendering so user choices
   // are applied to the final scene data.
-  if (applyDictionary) {
+  if (options.applyDictionary) {
     std::unordered_map<std::string, GdtfConflict> gdtfConflictByType =
         pendingGdtfConflictByType;
     const int totalFixturesForConflictScan =
@@ -2853,7 +2913,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       gdtfConflicts.push_back(conflict);
     }
     if (!gdtfConflicts.empty()) {
-      if (promptConflicts) {
+      if (options.promptConflicts) {
         reportProgress("Conflict dialog:show");
         auto choices = PromptGdtfConflicts(gdtfConflicts);
         reportProgress("Conflict dialog:hide");
@@ -3557,24 +3617,34 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                            totalFixturesForDictionaryApply);
           }
           const auto &dictEntry = getDictionaryEntryCached(f.typeName);
-          if (dictEntry) {
+          if (dictEntry && !dictEntry->path.empty()) {
+            const std::string dictionaryResolvedPath =
+                resolveFixtureGdtfPathForRead(dictEntry->path);
+            std::error_code dictionaryPathEc;
+            if (dictionaryResolvedPath.empty() ||
+                !fs::exists(PathUtils::PathFromUtf8(dictionaryResolvedPath), dictionaryPathEc) ||
+                dictionaryPathEc) {
+              LogMessage(Logger::Level::Warn,
+                         "Skipping dictionary GDTF mapping for fixture '" +
+                             f.instanceName + "' because the mapped path is unavailable: " +
+                             dictEntry->path);
+              continue;
+            }
             const std::string resolvedGdtfPath =
                 resolveFixtureGdtfPathForRead(f.gdtfSpec);
             const int previousChannelCount =
                 (!resolvedGdtfPath.empty() && !f.gdtfMode.empty())
                     ? getGdtfModeChannelCountCached(resolvedGdtfPath, f.gdtfMode)
                     : -1;
-            f.gdtfSpec = dictEntry->path;
             f.gdtfSpec = ToSceneRelativePathIfPossible(
-                scene.basePath, PathUtils::PathFromUtf8(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
+                scene.basePath, PathUtils::PathFromUtf8(dictionaryResolvedPath));
             if (f.gdtfMode.empty())
               f.gdtfMode = dictEntry->mode;
             f.gdtfMode = resolveExistingGdtfModeCached(
-                resolveFixtureGdtfPathForRead(f.gdtfSpec), f.gdtfMode,
+                dictionaryResolvedPath, f.gdtfMode,
                 previousChannelCount > 0 ? std::optional<int>(previousChannelCount)
                                          : std::nullopt);
-            std::string parsed =
-                Trim(GetGdtfFixtureName(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
+            std::string parsed = Trim(GetGdtfFixtureName(dictionaryResolvedPath));
             if (!parsed.empty())
               f.typeName = parsed;
           }
@@ -3796,6 +3866,45 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     LogMessage(Logger::Level::Info, oss.str());
   }
 
+  int fixturesWithGdtfSpec = 0;
+  int fixturesWithResolvedGdtf = 0;
+  std::vector<std::string> unresolvedGdtfExamples;
+  for (const auto &[uid, fixture] : scene.fixtures) {
+    (void)uid;
+    const std::string preservedSpec = fixture.originalMvrGdtfSpec.empty()
+                                          ? fixture.gdtfSpec
+                                          : fixture.originalMvrGdtfSpec;
+    if (preservedSpec.empty())
+      continue;
+    ++fixturesWithGdtfSpec;
+    const std::string resolvedGdtf = resolveFixtureGdtfPathForRead(preservedSpec);
+    std::error_code resolvedEc;
+    if (!resolvedGdtf.empty() && fs::exists(PathUtils::PathFromUtf8(resolvedGdtf), resolvedEc) &&
+        !resolvedEc) {
+      ++fixturesWithResolvedGdtf;
+    } else if (unresolvedGdtfExamples.size() < 5) {
+      unresolvedGdtfExamples.push_back(preservedSpec);
+    }
+  }
+
+  std::ostringstream importDiagnostics;
+  importDiagnostics << "MVR import GDTF diagnostics: basePath='" << scene.basePath
+                    << "', fixturesWithGdtfSpec=" << fixturesWithGdtfSpec
+                    << ", resolvedFixtureGdtfs=" << fixturesWithResolvedGdtf
+                    << ", unresolvedFixtureGdtfs="
+                    << (fixturesWithGdtfSpec - fixturesWithResolvedGdtf)
+                    << ", dictionaryMapping="
+                    << (options.applyDictionary ? "enabled" : "disabled");
+  if (!unresolvedGdtfExamples.empty()) {
+    importDiagnostics << ", unresolvedExamples=";
+    for (size_t i = 0; i < unresolvedGdtfExamples.size(); ++i) {
+      if (i > 0)
+        importDiagnostics << "; ";
+      importDiagnostics << unresolvedGdtfExamples[i];
+    }
+  }
+  LogMessage(Logger::Level::Info, importDiagnostics.str());
+
   std::string summary =
       "Parsed scene: " + std::to_string(scene.fixtures.size()) + " fixtures, " +
       std::to_string(scene.trusses.size()) + " trusses, " +
@@ -3811,9 +3920,21 @@ bool MvrImporter::ImportAndRegister(const std::string &filePath,
                                     bool promptConflicts,
                                     bool applyDictionary,
                                     ProgressCallback progressCallback) {
+  MvrImportOptions options;
+  options.promptConflicts = promptConflicts;
+  options.applyDictionary = applyDictionary;
+  return ImportAndRegister(filePath, options, progressCallback);
+}
+
+// Imports and registers an MVR file with explicit import behavior options.
+bool MvrImporter::ImportAndRegister(const std::string &filePath,
+                                    const MvrImportOptions &options,
+                                    ProgressCallback progressCallback) {
   MvrImporter importer;
+  MvrImportResult importResult;
   const bool imported = importer.ImportFromFile(
-      filePath, promptConflicts, applyDictionary, progressCallback);
+      filePath, importResult, MvrImportMode::ReplaceProject, options,
+      progressCallback);
   if (!imported)
     return false;
 

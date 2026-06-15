@@ -554,8 +554,14 @@ bool ConfigManager::LoadProject(const std::string &path,
         return loaded;
       },
       [progressCallback](const std::string &scenePath) {
+        MvrImportOptions options;
+        options.promptConflicts = false;
+        options.applyDictionary = false;
+        options.preserveMvrGdtfReferences = true;
+        options.allowDummyFallback = false;
+        options.sourceKind = MvrImportSourceKind::ProjectRestore;
         const bool imported = MvrImporter::ImportAndRegister(
-            scenePath, false, true,
+            scenePath, options,
             [progressCallback](const MvrImporter::ProgressState &state) {
               if (!progressCallback)
                 return;

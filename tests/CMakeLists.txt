@@ -34,6 +34,8 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_library_user_data_policy.sh)
     add_test(NAME DictionaryPathsPolicy
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_dictionary_paths.sh)
+    add_test(NAME ProjectRestoreImportOptions
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_project_restore_import_options.sh)
 endif()
 
 include_directories(

@@ -27,6 +27,7 @@ struct Fixture {
     std::string typeName;         // GDTF fixture type name
     std::string requestedFixtureName; // Original MVR fixture name used for matching
     std::string gdtfSpec;         // GDTF file name
+    std::string originalMvrGdtfSpec; // Original MVR GDTF archive reference preserved for safe restore/export
     std::string gdtfMode;         // GDTF mode name (optional)
     std::string focus;            // Focus reference UUID (optional)
     std::string function;         // Function string (optional)
