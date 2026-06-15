@@ -1729,7 +1729,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     const std::string modelArchivePath =
         registerPrimitiveModelResource("primitive:cube", objectUuid);
     if (modelArchivePath.empty()) {
-      Logger::Instance().Log(Logger::Level::Warning,
+      Logger::Instance().Log(Logger::Level::Warn,
                              std::string("MVR export could not create placeholder geometry for ") +
                                  nodeName + " uuid=" + objectUuid);
       return false;
@@ -1743,7 +1743,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     g3d->InsertEndChild(geoMatrix);
     geos->InsertEndChild(g3d);
     owner->InsertEndChild(geos);
-    Logger::Instance().Log(Logger::Level::Warning,
+    Logger::Instance().Log(Logger::Level::Warn,
                            std::string("MVR export added placeholder cube geometry for ") +
                                nodeName + " uuid=" + objectUuid);
     return true;
@@ -2353,7 +2353,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     } else {
       tinyxml2::XMLElement *emptyGeometries = doc.NewElement("Geometries");
       se->InsertEndChild(emptyGeometries);
-      Logger::Instance().Log(Logger::Level::Warning,
+      Logger::Instance().Log(Logger::Level::Warn,
                              "MVR export kept Support uuid=" + s.uuid +
                                  " with empty Geometries because no source geometry is available");
     }
