@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "gdtfloader.h"
+#include "gdtf_geometry_types.h"
 #include "mesh.h"
 
 namespace viewer3d::resources {

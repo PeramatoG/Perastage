@@ -28,7 +28,6 @@
 
 #include "configmanager.h"
 #include "fixture_mesh_color.h"
-#include "gdtfloader.h"
 #include "logger.h"
 #include "matrixutils.h"
 #include "mesh.h"

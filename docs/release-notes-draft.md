@@ -63,6 +63,7 @@ Changes since `v1.3.0`.
 
 ## Internal changes
 
+- Improved Linux GCC build reliability by separating lightweight GDTF geometry data types from loader declarations, reducing header-order coupling in the 3D resource and bounds systems.
 - Hardened the macOS installer workflow so restored vcpkg dependency caches are rebuilt when they contain stale Xcode SDK metadata, preventing old runner paths from breaking current macOS builds.
 - Improved macOS installer build diagnostics by saving full compiler logs, showing focused error context on failure, and uploading related CMake and vcpkg logs for maintainers.
 - Restored macOS installer build compatibility with newer Xcode toolchains by making GDTF metadata cache timestamp keys use an explicit portable duration representation.
