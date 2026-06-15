@@ -2350,9 +2350,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     }
     if (geos && geos->FirstChild()) {
       se->InsertEndChild(geos);
-    } else if (!appendPlaceholderCubeGeometry(se, s.uuid, "Support")) {
-      doc.DeleteNode(se);
-      return;
+    } else {
+      tinyxml2::XMLElement *emptyGeometries = doc.NewElement("Geometries");
+      se->InsertEndChild(emptyGeometries);
+      Logger::Instance().Log(Logger::Level::Warning,
+                             "MVR export kept Support uuid=" + s.uuid +
+                                 " with empty Geometries because no source geometry is available");
     }
 
     if (!s.function.empty()) {

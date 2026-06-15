@@ -155,6 +155,13 @@ int main() {
   manual.hoistFunctionSource = "Manual";
   scene.supports[manual.uuid] = manual;
 
+  Support logicalOnly;
+  logicalOnly.uuid = "sup-logical-only";
+  logicalOnly.name = "Logical Only";
+  logicalOnly.layer = layer.name;
+  logicalOnly.chainLength = 0.0f;
+  scene.supports[logicalOnly.uuid] = logicalOnly;
+
   SceneObject emptySceneObject;
   emptySceneObject.uuid = "obj-empty";
   emptySceneObject.name = "Empty SceneObject";
@@ -172,6 +179,7 @@ int main() {
   tinyxml2::XMLElement *root = xml.FirstChildElement("GeneralSceneDescription");
   assert(root != nullptr);
   bool foundLinkedSupport = false;
+  bool foundLogicalOnlySupport = false;
   bool foundEmptySceneObjectPlaceholder = false;
   bool foundInvalidSceneObject = false;
   std::vector<tinyxml2::XMLElement *> stack;
@@ -188,6 +196,15 @@ int main() {
       assert(current->FirstChildElement("GDTFSpec") != nullptr);
       assert(current->FirstChildElement("GDTFMode") != nullptr);
     }
+    if (std::string(current->Name()) == "Support" &&
+        current->Attribute("uuid") &&
+        std::string(current->Attribute("uuid")) == "sup-logical-only") {
+      foundLogicalOnlySupport = true;
+      tinyxml2::XMLElement *geometries = current->FirstChildElement("Geometries");
+      assert(geometries != nullptr);
+      assert(geometries->FirstChildElement() == nullptr);
+      assert(current->FirstChildElement("ChainLength") != nullptr);
+    }
     if (std::string(current->Name()) == "SceneObject" &&
         current->Attribute("uuid") &&
         std::string(current->Attribute("uuid")) == "obj-empty") {
@@ -202,6 +219,7 @@ int main() {
       stack.push_back(child);
   }
   assert(foundLinkedSupport);
+  assert(foundLogicalOnlySupport);
   assert(foundEmptySceneObjectPlaceholder);
   assert(!foundInvalidSceneObject);
 
@@ -214,7 +232,7 @@ int main() {
   assert(loadedFixtures.at("fx-motor").category == "Spot");
 
   const auto &loaded = cfg.GetScene().supports;
-  assert(loaded.size() == 4);
+  assert(loaded.size() == 5);
 
   const auto &loadedLinked = loaded.at("sup-linked");
   assert(loadedLinked.motorFixtureUuid == "fx-motor");
