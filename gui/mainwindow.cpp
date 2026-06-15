@@ -473,8 +473,10 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
     layoutPanel->ReloadLayouts();
 
   const auto shortcutRegistryErrors = gui::ValidateShortcutRegistry();
-  for (const std::string &error : shortcutRegistryErrors)
-    wxLogError("Shortcut registry validation failed: %s", error.c_str());
+  for (const std::string &error : shortcutRegistryErrors) {
+    const wxString errorText = wxString::FromUTF8(error);
+    wxLogError("Shortcut registry validation failed: %s", errorText.c_str());
+  }
   wxASSERT_MSG(shortcutRegistryErrors.empty(),
                "Shortcut registry contains scope collisions");
 
@@ -659,10 +661,10 @@ void MainWindow::ClearCursorWorldPositionInStatusBar() {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
       cfg.GetValue("ui_distance_unit_system"));
-  const std::string unitSuffix = Units::DistanceUnitSuffix(distanceUnitSystem);
-  const wxString text = wxString::Format(
-      "X: -- %s  Y: -- %s  Z: -- %s", unitSuffix.c_str(), unitSuffix.c_str(),
-      unitSuffix.c_str());
+  const wxString unitSuffix =
+      wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnitSystem));
+  const wxString text =
+      "X: -- " + unitSuffix + "  Y: -- " + unitSuffix + "  Z: -- " + unitSuffix;
   if (auto *statusBar = dynamic_cast<HighlightStatusBar *>(GetStatusBar())) {
     statusBar->ClearHighlightedField(1, text);
   } else {

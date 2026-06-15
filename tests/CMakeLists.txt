@@ -10,6 +10,20 @@ find_package(tinyxml2 CONFIG REQUIRED)
 
 enable_testing()
 
+add_library(perastage_test_diagnostics STATIC
+            ../core/apppaths.cpp
+            ../core/configservices.cpp
+            ../core/diagnostics/DiagnosticPaths.cpp
+            ../core/filesystem_path_utils.cpp
+            ../core/symbol_cache_manifest.cpp)
+target_include_directories(perastage_test_diagnostics PRIVATE
+                           ../core
+                           ../third_party)
+
+add_library(perastage_test_path_utils STATIC
+            ../core/filesystem_path_utils.cpp)
+target_include_directories(perastage_test_path_utils PRIVATE ../core)
+
 find_program(BASH_EXECUTABLE bash)
 if(BASH_EXECUTABLE)
     add_test(NAME DocsPerastageTreeModules
@@ -41,6 +55,13 @@ include_directories(
     ../viewer3d/picking
     ../viewer3d/render
 )
+
+
+add_executable(platform_locale_test
+               platform_locale_test.cpp
+               ../core/platform_locale.cpp)
+target_include_directories(platform_locale_test PRIVATE ../core)
+add_test(NAME PlatformLocaleSetup COMMAND platform_locale_test)
 
 add_executable(trussloader_validation_test
                trussloader_validation_test.cpp
@@ -1361,3 +1382,18 @@ target_include_directories(symbol_cache_manifest_test PRIVATE
     ${wxWidgets_INCLUDE_DIRS})
 target_link_libraries(symbol_cache_manifest_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME SymbolCacheManifestValidation COMMAND symbol_cache_manifest_test)
+get_property(PERASTAGE_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
+    get_target_property(PERASTAGE_TEST_SOURCES ${PERASTAGE_TEST_TARGET} SOURCES)
+    if(PERASTAGE_TEST_SOURCES AND
+       ("../core/logger.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
+        "../core/configservices.cpp" IN_LIST PERASTAGE_TEST_SOURCES))
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_diagnostics)
+    endif()
+    if(PERASTAGE_TEST_SOURCES AND
+       ("../viewer3d/gdtfloader.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
+        "../viewer3d/loader3ds.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
+        "../viewer3d/loaderglb.cpp" IN_LIST PERASTAGE_TEST_SOURCES))
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_path_utils)
+    endif()
+endforeach()

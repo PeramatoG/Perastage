@@ -22,6 +22,7 @@
 #include "diagnostics/CrashHandler.h"
 #include "diagnostics/DiagnosticLogger.h"
 #include "mainwindow.h"
+#include "platform_locale.h"
 #include "projectutils.h"
 #include "splashscreen.h"
 #include <filesystem>
@@ -220,6 +221,9 @@ bool MyApp::OnInit() {
   ConfigureWindowsDebugHeapLeakCheck();
 #endif
 
+  const platform::LocaleSetupResult localeSetup =
+      platform::EnsureProcessTextLocale();
+
   const wxString launchCwdWx = wxFileName::GetCwd();
   const wxCharBuffer launchCwdUtf8Buffer = launchCwdWx.ToUTF8();
   const std::string launchWorkingDirectoryUtf8 =
@@ -259,7 +263,10 @@ bool MyApp::OnInit() {
       std::string("Perastage startup: version=") + build_info::kVersionDisplay +
       " commit=" + build_info::kGitCommit +
       " build_type=" + build_info::kBuildType +
-      " platform=" + build_info::kTargetPlatform);
+      " platform=" + build_info::kTargetPlatform +
+      " text_locale=" + localeSetup.activeLocale);
+  if (!localeSetup.note.empty())
+    diagnostics::DiagnosticLogger::Warning("Startup text locale: " + localeSetup.note);
 
   SplashScreen::SetMessage("Running library bootstrap...");
   ProjectUtils::RunStartupLibraryBootstrap();
@@ -458,11 +465,12 @@ int MyApp::FilterEvent(wxEvent &event) {
       objectClassName = wxT("UnknownObject");
     }
   }
-  last_event_summary_ = wxString::Format(
-                            "Last event: class=%s type=%d id=%d object=%s",
-                            eventClassName, static_cast<int>(event.GetEventType()),
-                            event.GetId(), objectClassName)
-                            .ToStdString();
+  last_event_summary_ =
+      ("Last event: class=" + eventClassName +
+       wxString::Format(" type=%d id=%d object=",
+                        static_cast<int>(event.GetEventType()), event.GetId()) +
+       objectClassName)
+          .ToStdString();
   return -1;
 }
 

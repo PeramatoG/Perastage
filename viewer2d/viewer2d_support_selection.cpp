@@ -62,6 +62,7 @@ bool ProjectSupportCenter(const Support &support, int viewportHeight,
   return true;
 }
 
+// Builds a hover label for a support using the configured display units.
 wxString BuildHoistLabel(const std::string &uuid, const Support &support) {
   auto &cfg = ConfigManager::Get();
   const auto distanceUnitSystem =
@@ -79,9 +80,11 @@ wxString BuildHoistLabel(const std::string &uuid, const Support &support) {
       effectiveData.capacityKg, weightUnitSystem, Units::ValueFormatContext::Label);
   const std::string load = Units::FormatWeightFromKilograms(
       support.loadKg, weightUnitSystem, Units::ValueFormatContext::Label);
-  label += wxString::Format("\nh = %s %s", height.c_str(), unitSuffix.c_str());
-  label += wxString::Format("\ncapacity = %s %s", capacity.c_str(), weightSuffix.c_str());
-  label += wxString::Format("\nload = %s %s", load.c_str(), weightSuffix.c_str());
+  const wxString unitSuffixText = wxString::FromUTF8(unitSuffix);
+  const wxString weightSuffixText = wxString::FromUTF8(weightSuffix);
+  label += "\nh = " + wxString::FromUTF8(height) + " " + unitSuffixText;
+  label += "\ncapacity = " + wxString::FromUTF8(capacity) + " " + weightSuffixText;
+  label += "\nload = " + wxString::FromUTF8(load) + " " + weightSuffixText;
   return label;
 }
 

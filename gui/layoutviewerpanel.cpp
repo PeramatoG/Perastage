@@ -111,6 +111,7 @@ constexpr int kLoadingOverlayDelayMs = 150;
 constexpr int kZoomRenderDebounceMs = 180;
 constexpr int kIncrementalRenderDelayMs = 1;
 
+// Validates that offscreen rendering restored the expected OpenGL state.
 void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
                                 int expectedHeight) {
   GLint framebuffer = 0;
@@ -122,11 +123,12 @@ void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
       viewport[0] == 0 && viewport[1] == 0 && viewport[2] == expectedWidth &&
       viewport[3] == expectedHeight;
   if (!validFramebuffer || !validViewport) {
+    const wxString stageText = wxString::FromUTF8(stage ? stage : "unknown");
     wxLogTrace("layoutviewer_gl_state",
                "%s left unexpected GL state (fbo=%d viewport=%d,%d,%d,%d "
                "expected=0,0,%d,%d).",
-               stage, framebuffer, viewport[0], viewport[1], viewport[2],
-               viewport[3], expectedWidth, expectedHeight);
+               stageText.c_str(), framebuffer, viewport[0], viewport[1],
+               viewport[2], viewport[3], expectedWidth, expectedHeight);
   }
   if (!validFramebuffer) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -2142,10 +2144,10 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
           const size_t safeTotal = std::max<size_t>(1, totalRenderItems);
           gui::layoutstatus::PostLayoutRenderStatus(
               this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
-              wxString::Format("%s (%zu/%zu) · global %zu/%zu", stage,
-                               stageIndex, stageTotal,
-                               std::min(processedRenderItems, safeTotal),
-                               safeTotal));
+              stage + wxString::Format(" (%zu/%zu) · global %zu/%zu",
+                                       stageIndex, stageTotal,
+                                       std::min(processedRenderItems, safeTotal),
+                                       safeTotal));
         };
 
     bool needsViewSceneCapture = false;
@@ -2180,10 +2182,10 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
     }
     gui::layoutstatus::PostLayoutRenderStatus(
         this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
-        wxString::Format("Workload: %zu views, %zu legends (symbol recapture: %s).",
+        wxString::Format("Workload: %zu views, %zu legends (symbol recapture: ",
                          currentLayout.view2dViews.size(),
-                         currentLayout.legendViews.size(),
-                         needsLegendSymbolCapture ? "yes" : "no"));
+                         currentLayout.legendViews.size()) +
+            (needsLegendSymbolCapture ? "yes)." : "no)."));
     const bool needsCapturePanel = needsViewSceneCapture || needsLegendSymbolCapture;
     profiler.BeginPhase("prepare_capture_panel");
     if (needsCapturePanel) {

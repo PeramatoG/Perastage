@@ -32,6 +32,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/markdown.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/magnet_snap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/patchmanager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/platform_locale.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdftext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/print/PageSetup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/print/Viewer2DPrintSettings.cpp
