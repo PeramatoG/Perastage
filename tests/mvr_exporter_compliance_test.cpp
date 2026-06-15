@@ -119,6 +119,38 @@ static bool GdtfHasRenderable3DModel(const fs::path &gdtfPath) {
   return false;
 }
 
+// Finds an exported Fixture XML element by UUID.
+static tinyxml2::XMLElement *FindFixtureElementByUuid(tinyxml2::XMLElement *root,
+                                                      const std::string &uuid) {
+  for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
+       node = node->NextSiblingElement()) {
+    std::vector<tinyxml2::XMLElement *> stack{node};
+    while (!stack.empty()) {
+      tinyxml2::XMLElement *cur = stack.back();
+      stack.pop_back();
+      if (std::string(cur->Name()) == "Fixture") {
+        const char *fixtureUuid = cur->Attribute("uuid");
+        if (fixtureUuid != nullptr && uuid == fixtureUuid)
+          return cur;
+      }
+      for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
+           child = child->NextSiblingElement()) {
+        stack.push_back(child);
+      }
+    }
+  }
+  return nullptr;
+}
+
+// Reads the exported UnitNumber for a fixture UUID.
+static int ReadFixtureUnitNumber(tinyxml2::XMLElement *root, const std::string &uuid) {
+  tinyxml2::XMLElement *fixture = FindFixtureElementByUuid(root, uuid);
+  assert(fixture != nullptr);
+  tinyxml2::XMLElement *unitNumber = fixture->FirstChildElement("UnitNumber");
+  assert(unitNumber != nullptr && unitNumber->GetText() != nullptr);
+  return std::stoi(unitNumber->GetText());
+}
+
 static std::string ReadFixtureTypeIdFromGdtf(const fs::path &gdtfPath) {
   const auto gdtfEntries = ReadArchiveTextEntries(gdtfPath);
   auto descriptionIt = gdtfEntries.find("description.xml");
@@ -223,6 +255,87 @@ int main() {
   fEditedId.address = "9.1";
   scene.fixtures[fEditedId.uuid] = fEditedId;
 
+  Fixture unitOrderBottom;
+  unitOrderBottom.uuid = "unit-order-bottom";
+  unitOrderBottom.instanceName = "Unit Order Bottom";
+  unitOrderBottom.typeName = "  Unit   Order Type  ";
+  unitOrderBottom.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
+  unitOrderBottom.transform.o = {10.0f, -20.0f, 0.0f};
+  unitOrderBottom.address = "10.1";
+  scene.fixtures[unitOrderBottom.uuid] = unitOrderBottom;
+
+  Fixture unitOrderLeft;
+  unitOrderLeft.uuid = "unit-order-left";
+  unitOrderLeft.instanceName = "Unit Order Left";
+  unitOrderLeft.typeName = "Unit Order Type";
+  unitOrderLeft.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
+  unitOrderLeft.transform.o = {-5.0f, 0.0f, 0.0f};
+  unitOrderLeft.address = "11.1";
+  scene.fixtures[unitOrderLeft.uuid] = unitOrderLeft;
+
+  Fixture unitOrderRight;
+  unitOrderRight.uuid = "unit-order-right";
+  unitOrderRight.instanceName = "Unit Order Right";
+  unitOrderRight.typeName = "Unit Order Type";
+  unitOrderRight.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
+  unitOrderRight.transform.o = {5.0f, 0.0f, 0.0f};
+  unitOrderRight.address = "12.1";
+  scene.fixtures[unitOrderRight.uuid] = unitOrderRight;
+
+  Fixture unitExistingOne;
+  unitExistingOne.uuid = "unit-existing-one";
+  unitExistingOne.instanceName = "Existing Unit One";
+  unitExistingOne.typeName = "Existing Unit Type";
+  unitExistingOne.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
+  unitExistingOne.unitNumber = 1;
+  unitExistingOne.address = "13.1";
+  scene.fixtures[unitExistingOne.uuid] = unitExistingOne;
+
+  Fixture unitExistingFour;
+  unitExistingFour.uuid = "unit-existing-four";
+  unitExistingFour.instanceName = "Existing Unit Four";
+  unitExistingFour.typeName = "Existing Unit Type";
+  unitExistingFour.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
+  unitExistingFour.unitNumber = 4;
+  unitExistingFour.address = "14.1";
+  scene.fixtures[unitExistingFour.uuid] = unitExistingFour;
+
+  Fixture unitExistingMissingA;
+  unitExistingMissingA.uuid = "unit-existing-missing-a";
+  unitExistingMissingA.instanceName = "Existing Unit Missing A";
+  unitExistingMissingA.typeName = "Existing Unit Type";
+  unitExistingMissingA.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
+  unitExistingMissingA.transform.o = {0.0f, -10.0f, 0.0f};
+  unitExistingMissingA.address = "15.1";
+  scene.fixtures[unitExistingMissingA.uuid] = unitExistingMissingA;
+
+  Fixture unitExistingMissingB;
+  unitExistingMissingB.uuid = "unit-existing-missing-b";
+  unitExistingMissingB.instanceName = "Existing Unit Missing B";
+  unitExistingMissingB.typeName = "Existing Unit Type";
+  unitExistingMissingB.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
+  unitExistingMissingB.transform.o = {0.0f, 10.0f, 0.0f};
+  unitExistingMissingB.address = "16.1";
+  scene.fixtures[unitExistingMissingB.uuid] = unitExistingMissingB;
+
+  Fixture unitIndependentType;
+  unitIndependentType.uuid = "unit-independent-type";
+  unitIndependentType.instanceName = "Independent Unit Type";
+  unitIndependentType.typeName = "Independent Unit Type";
+  unitIndependentType.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
+  unitIndependentType.address = "17.1";
+  scene.fixtures[unitIndependentType.uuid] = unitIndependentType;
+
+  Fixture unitSameAsFixtureId;
+  unitSameAsFixtureId.uuid = "unit-same-as-fixture-id";
+  unitSameAsFixtureId.instanceName = "Unit Same As Fixture ID";
+  unitSameAsFixtureId.typeName = "Same As Fixture ID Type";
+  unitSameAsFixtureId.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
+  unitSameAsFixtureId.fixtureId = 77;
+  unitSameAsFixtureId.unitNumber = 77;
+  unitSameAsFixtureId.address = "18.1";
+  scene.fixtures[unitSameAsFixtureId.uuid] = unitSameAsFixtureId;
+
   Truss tr;
   tr.uuid = "tr-1";
   tr.name = "Main Truss";
@@ -323,6 +436,33 @@ int main() {
   assert(std::string(root->Attribute("provider")) == "Perastage");
   assert(std::string(root->Attribute("providerVersion")) == app::kVersion);
 
+  assert(ReadFixtureUnitNumber(root, "unit-order-bottom") == 1);
+  assert(ReadFixtureUnitNumber(root, "unit-order-left") == 2);
+  assert(ReadFixtureUnitNumber(root, "unit-order-right") == 3);
+  assert(ReadFixtureUnitNumber(root, "unit-existing-one") == 1);
+  assert(ReadFixtureUnitNumber(root, "unit-existing-four") == 4);
+  assert(ReadFixtureUnitNumber(root, "unit-existing-missing-a") == 2);
+  assert(ReadFixtureUnitNumber(root, "unit-existing-missing-b") == 3);
+  assert(ReadFixtureUnitNumber(root, "unit-independent-type") == 1);
+  assert(ReadFixtureUnitNumber(root, "unit-same-as-fixture-id") == 77);
+
+  MvrExporter deterministicExporter;
+  fs::path deterministicMvrPath = tempDir / "Test1_repeat.mvr";
+  assert(deterministicExporter.ExportToFile(deterministicMvrPath.generic_string()));
+  const auto deterministicEntries = ReadArchiveTextEntries(deterministicMvrPath);
+  auto deterministicXmlIt = deterministicEntries.find("GeneralSceneDescription.xml");
+  assert(deterministicXmlIt != deterministicEntries.end());
+  tinyxml2::XMLDocument deterministicDoc;
+  assert(deterministicDoc.Parse(deterministicXmlIt->second.c_str()) == tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *deterministicRoot =
+      deterministicDoc.FirstChildElement("GeneralSceneDescription");
+  assert(deterministicRoot != nullptr);
+  assert(ReadFixtureUnitNumber(deterministicRoot, "unit-order-bottom") == 1);
+  assert(ReadFixtureUnitNumber(deterministicRoot, "unit-order-left") == 2);
+  assert(ReadFixtureUnitNumber(deterministicRoot, "unit-order-right") == 3);
+  assert(ReadFixtureUnitNumber(deterministicRoot, "unit-existing-missing-a") == 2);
+  assert(ReadFixtureUnitNumber(deterministicRoot, "unit-existing-missing-b") == 3);
+
   std::unordered_set<int> numericIds;
   std::unordered_map<std::string, int> gdtfCount;
 
@@ -395,11 +535,9 @@ int main() {
             }
 
             auto *unitNode = cur->FirstChildElement("UnitNumber");
-            if (unitNode) {
-              assert(unitNode->GetText() != nullptr);
-              int unitValue = std::stoi(unitNode->GetText());
-              assert(unitValue != value);
-            }
+            assert(unitNode != nullptr && unitNode->GetText() != nullptr);
+            int unitValue = std::stoi(unitNode->GetText());
+            assert(unitValue > 0);
 
             auto *ud = cur->FirstChildElement("UserData");
             assert(ud != nullptr);
