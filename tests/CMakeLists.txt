@@ -405,6 +405,8 @@ add_executable(truss_path_encoding_regression_test
                truss_path_encoding_regression_test.cpp
                configmanager_layoutmanager_stub.cpp
                ../core/projectutils.cpp
+               ../core/apppaths.cpp
+               ../core/filesystem_path_utils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp

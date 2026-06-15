@@ -28,6 +28,7 @@
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
+#include "projectutils.h"
 #include "trussdictionary.h"
 #include "trussloader.h"
 
@@ -79,6 +80,48 @@ bool WriteArchive(const fs::path &archivePath) {
   return output.IsOk();
 }
 
+// Simulates legacy mojibake by treating UTF-8 bytes as Latin-1 text.
+std::string MangleUtf8AsLatin1(const std::string &text) {
+  wxString decodedAsUtf8 = wxString::FromUTF8(text.c_str(), text.size());
+  std::string latin1Bytes;
+  latin1Bytes.reserve(decodedAsUtf8.length());
+  for (size_t index = 0; index < decodedAsUtf8.length(); ++index) {
+    const unsigned int value = decodedAsUtf8[index].GetValue();
+    assert(value <= 0xFF);
+    latin1Bytes.push_back(static_cast<char>(value));
+  }
+  return latin1Bytes;
+}
+
+// Verifies last-project paths survive Unicode and legacy mojibake storage.
+void RunLastProjectPathCase(const fs::path &tempRoot) {
+  const fs::path projectPath =
+      tempRoot / PathUtils::PathFromUtf8("Escenaro_Metal_ViñaRock_1.pstg");
+  std::ofstream project(projectPath, std::ios::binary);
+  project << "placeholder";
+  project.close();
+
+  const std::string expectedPath = ToUtf8String(projectPath);
+  const std::string lastProjectPath = ProjectUtils::GetLastProjectPathFile();
+  std::string previousLastProject;
+  {
+    std::ifstream previousIn(lastProjectPath, std::ios::binary);
+    previousLastProject.assign(std::istreambuf_iterator<char>(previousIn),
+                               std::istreambuf_iterator<char>());
+  }
+
+  assert(ProjectUtils::SaveLastProjectPath(expectedPath));
+  assert(ProjectUtils::LoadLastProjectPath() == expectedPath);
+
+  std::ofstream legacyOut(lastProjectPath, std::ios::binary | std::ios::trunc);
+  legacyOut << MangleUtf8AsLatin1(expectedPath);
+  legacyOut.close();
+  assert(ProjectUtils::LoadLastProjectPath() == expectedPath);
+
+  std::ofstream restoreOut(lastProjectPath, std::ios::binary | std::ios::trunc);
+  restoreOut << previousLastProject;
+}
+
 void RunPathCase(const fs::path &sourceDir, const std::string &modelName,
                  const std::string &fileName) {
   fs::create_directories(sourceDir);
@@ -116,6 +159,7 @@ int main() {
               "Tramo_áéíóú.gdtf");
   RunPathCase(tempRoot / PathUtils::PathFromUtf8("source with spaces"), "FK40Q-Spaces",
               "FK40Q H-300.gdtf");
+  RunLastProjectPathCase(tempRoot);
 
   TrussDictionary::Save({});
   fs::remove_all(tempRoot, ec);
