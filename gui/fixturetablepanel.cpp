@@ -557,14 +557,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       if (changed)
         ApplyModeForGdtf(path, dictMode);
 
-      // Keep dictionary default modes immutable from project table edits.
-      for (size_t idx = 0; idx < selections.size(); ++idx) {
-        int r = table->ItemToRow(selections[idx]);
-        if (r == wxNOT_FOUND)
-          continue;
-        if (changed)
-          GdtfDictionary::Update(prevTypes[idx], pathUtf8);
-      }
+      // Project table GDTF changes stay project-scoped and do not promote files into the user library.
     }
     if (!changed)
       return;

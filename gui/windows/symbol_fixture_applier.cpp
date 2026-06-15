@@ -652,12 +652,29 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
   }
 
   if (options.updateSceneCopy && writableScenePath.empty() && !scene.basePath.empty() &&
-      !libraryPath.empty()) {
+      !libraryPath.empty() && !options.updateLibraryCopy) {
     if (!EnsureSceneLocalGdtfCopy(fs::path(libraryPath), fs::path(scene.basePath),
                                   fixtureIt->second, writableScenePath,
                                   errorMessage)) {
       return false;
     }
+  }
+
+  if (options.updateLibraryCopy && !libraryPath.empty() &&
+      !fixtureIt->second.typeName.empty()) {
+    auto derivative = GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
+        fixtureIt->second.typeName, libraryPath, fixtureIt->second.gdtfMode,
+        fixtureIt->second.category);
+    if (!derivative || derivative->path.empty()) {
+      errorMessage = "Could not create the Perastage library fixture derivative.";
+      return false;
+    }
+    if (!RewriteGdtf(derivative->path, payloads, topSvgPath, sideSvgPath,
+                     frontSvgPath, bottomSvgPath, errorMessage)) {
+      return false;
+    }
+    fixtureIt->second.gdtfSpec = fs::path(derivative->path).filename().string();
+    return true;
   }
 
   if (options.updateSceneCopy && !writableScenePath.empty()) {
@@ -668,21 +685,9 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     sceneUpdated = true;
   }
 
-  if (options.updateLibraryCopy && !libraryPath.empty()) {
-    const bool libraryEqualsScene =
-        !writableScenePath.empty() && libraryPath == writableScenePath;
-    if (!libraryEqualsScene &&
-        !RewriteGdtf(libraryPath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
-                     bottomSvgPath, errorMessage)) {
-      if (!sceneUpdated)
-        return false;
-    }
-  }
-
-  if (libraryPath.empty() && !writableScenePath.empty() &&
-      !fixtureIt->second.typeName.empty()) {
-    // Keep dictionary default modes immutable outside dictionary editor.
-    GdtfDictionary::Update(fixtureIt->second.typeName, writableScenePath);
+  if (!sceneUpdated) {
+    errorMessage = "Could not resolve a project-owned fixture GDTF copy to update.";
+    return false;
   }
 
   return true;
@@ -793,6 +798,7 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
   return true;
 }
 
+// Synchronizes only library-owned fixture changes back to a stable @Perastage derivative.
 bool SyncFixtureGdtfToLibrary(const Fixture &fixture,
                               const MvrScene &scene,
                               std::string &errorMessage) {
@@ -806,10 +812,13 @@ bool SyncFixtureGdtfToLibrary(const Fixture &fixture,
   if (scenePath.empty() || libraryPath.empty() || scenePath == libraryPath)
     return true;
 
-  std::error_code ec;
-  fs::copy_file(scenePath, libraryPath, fs::copy_options::overwrite_existing, ec);
-  if (ec) {
-    errorMessage = "Could not update fixture in the fixtures library.";
+  if (resolution.libraryPath.empty())
+    return true;
+
+  auto derivative = GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
+      fixture.typeName, scenePath, fixture.gdtfMode, fixture.category);
+  if (!derivative) {
+    errorMessage = "Could not update the Perastage library fixture derivative.";
     return false;
   }
   return true;

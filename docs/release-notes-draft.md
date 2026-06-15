@@ -25,6 +25,7 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
+- Fixed GDTF persistence so automatic symbol generation and project-scoped fixture edits update project-owned copies or stable @Perastage library derivatives without filling the user fixture library with imported or generated project files.
 - Fixed Linux GTK layout warnings in the rich text toolbar by giving icon buttons enough themed padding while preserving the existing editing behavior.
 - Fixed Magnet fixture-to-truss snapping so fixtures snap to the actual truss edge height, stay aligned when their snapped truss or full snapped group is moved, and only snap after an intentional drag starts.
 - Improved Magnet truss snapping so grouped truss runs can snap to loose trusses using the truss run bounds while ignoring attached fixtures.
