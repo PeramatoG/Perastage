@@ -79,6 +79,19 @@ int main() {
   assert(fixtureSnap->kind == magnet_snap::SnapKind::FixtureToTruss);
   assert(fixtureSnap->needsGrouping);
   assert(std::fabs(fixtureSnap->translationDeltaMm[1] + 10.0f) < 0.001f);
+  assert(std::fabs(fixtureSnap->translationDeltaMm[2]) < 0.001f);
+
+  Fixture topEdgeFixture;
+  topEdgeFixture.uuid = "top-edge-fixture";
+  topEdgeFixture.transform = Translated(1510.0f, 160.0f, 300.0f);
+  scene.fixtures[topEdgeFixture.uuid] = topEdgeFixture;
+  auto topEdgeFixtureSnap = magnet_snap::FindSnap(
+      scene, {magnet_snap::ObjectType::Fixture, topEdgeFixture.uuid});
+  assert(topEdgeFixtureSnap);
+  assert(topEdgeFixtureSnap->kind == magnet_snap::SnapKind::FixtureToTruss);
+  assert(std::fabs(topEdgeFixtureSnap->translationDeltaMm[1] + 10.0f) < 0.001f);
+  assert(std::fabs(topEdgeFixtureSnap->translationDeltaMm[2]) < 0.001f);
+
   assert(magnet_snap::ApplyCommittedSnapGrouping(scene, *fixtureSnap));
   assert(scene.fixtures[fixture.uuid].parentGroupUuid == groupUuid);
   assert(magnet_snap::DetachSnapSourceFromGroup(scene, *fixtureSnap));

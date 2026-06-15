@@ -56,6 +56,17 @@ std::array<float, 3> Normalize(const std::array<float, 3> &v) {
   return {v[0] / len, v[1] / len, v[2] / len};
 }
 
+// Builds truss bounds using the truss insertion point as start/base origin.
+Bounds MakeTrussBounds(const Truss &truss) {
+  const std::array<float, 3> size{std::max(truss.lengthMm, 1.0f),
+                                  std::max(truss.widthMm, 1.0f),
+                                  std::max(truss.heightMm, 1.0f)};
+  Matrix transform = truss.transform;
+  transform.o = Add(transform.o, Scale(Normalize(transform.u), size[0] * 0.5f));
+  transform.o = Add(transform.o, Scale(Normalize(transform.w), size[2] * 0.5f));
+  return Bounds{transform, size};
+}
+
 // Returns transformed bounds for objects with known dimensions.
 std::optional<Bounds> GetBounds(const MvrScene &scene, ObjectType type,
                                 const std::string &uuid) {
@@ -64,9 +75,7 @@ std::optional<Bounds> GetBounds(const MvrScene &scene, ObjectType type,
     if (it == scene.trusses.end())
       return std::nullopt;
     const Truss &t = it->second;
-    return Bounds{t.transform, {std::max(t.lengthMm, 1.0f),
-                                std::max(t.widthMm, 1.0f),
-                                std::max(t.heightMm, 1.0f)}};
+    return MakeTrussBounds(t);
   }
   if (type == ObjectType::Fixture) {
     auto it = scene.fixtures.find(uuid);
@@ -203,10 +212,7 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
     for (const auto &[uuid, truss] : scene.trusses) {
       if (uuid == source.uuid)
         continue;
-      const Bounds targetBounds{truss.transform,
-                                {std::max(truss.lengthMm, 1.0f),
-                                 std::max(truss.widthMm, 1.0f),
-                                 std::max(truss.heightMm, 1.0f)}};
+      const Bounds targetBounds = MakeTrussBounds(truss);
       for (const auto &sourceFace : sourceFaces) {
         for (const auto &targetFace : BuildFaces(targetBounds, true))
           ConsiderFacePair(source, ObjectType::Truss, uuid,
@@ -220,10 +226,7 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
   if (source.type == ObjectType::Fixture) {
     const std::array<float, 3> insertion = sourceBounds->transform.o;
     for (const auto &[uuid, truss] : scene.trusses) {
-      const Bounds targetBounds{truss.transform,
-                                {std::max(truss.lengthMm, 1.0f),
-                                 std::max(truss.widthMm, 1.0f),
-                                 std::max(truss.heightMm, 1.0f)}};
+      const Bounds targetBounds = MakeTrussBounds(truss);
       const std::array<float, 3> closest =
           ClosestPointOnSurface(targetBounds, insertion);
       const std::array<float, 3> delta = Subtract(closest, insertion);
@@ -258,10 +261,7 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
     }
   };
   for (const auto &[uuid, truss] : scene.trusses)
-    considerSceneTarget(ObjectType::Truss, uuid,
-                        {truss.transform, {std::max(truss.lengthMm, 1.0f),
-                                           std::max(truss.widthMm, 1.0f),
-                                           std::max(truss.heightMm, 1.0f)}});
+    considerSceneTarget(ObjectType::Truss, uuid, MakeTrussBounds(truss));
   for (const auto &[uuid, object] : scene.sceneObjects)
     considerSceneTarget(ObjectType::SceneObject, uuid,
                         {object.transform, {1000.0f, 1000.0f, 1000.0f}});
