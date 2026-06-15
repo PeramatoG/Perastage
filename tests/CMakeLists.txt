@@ -49,6 +49,13 @@ include_directories(
     ../viewer3d/render
 )
 
+
+add_executable(platform_locale_test
+               platform_locale_test.cpp
+               ../core/platform_locale.cpp)
+target_include_directories(platform_locale_test PRIVATE ../core)
+add_test(NAME PlatformLocaleSetup COMMAND platform_locale_test)
+
 add_executable(trussloader_validation_test
                trussloader_validation_test.cpp
                ../core/trussloader.cpp
