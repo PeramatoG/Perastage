@@ -10,6 +10,7 @@ Changes since `v1.3.0`.
 - Added a project-persistent Axis Lock toolbar toggle for selection dragging, enabled by default for axis-constrained moves and allowing free 2D movement plus Blender-style view-plane movement in 3D when disabled.
 - Expanded basic primitive creation and editing for spheres, cubes, and cylinders with editable names, project-persistent default dimensions, default load/save buttons, and richer edit controls for position and rotation.
 - Added Edit menu Group and Ungroup commands with `Ctrl+G` and `Ctrl+U` shortcuts for cross-table scene selections, preserving object placement and hang-position assignments while using MVR-compatible GroupObject hierarchy.
+- Expanded Add Truss with real-world X/Y/Z insertion coordinates in the active distance units, automatic multi-truss line placement, and default grouping into one bridge.
 - Added Help menu actions to open the local logs folder and export a manual diagnostic report for troubleshooting.
 - Added a startup update reminder checkbox so users can stop seeing repeated prompts for the same available version while keeping manual update checks available.
 
