@@ -915,45 +915,53 @@ std::optional<std::string> GetDefaultColorForFixture(
   return matchedColor;
 }
 
-// Updates a fixture dictionary entry and applies deterministic GDTF copy/overwrite rules.
-void Update(const std::string &type, const std::string &gdtfPath, const std::string &mode, const std::string &category) {
+// Updates one dictionary entry without performing any fixture file copies.
+void UpdateDictionaryEntry(const std::string &type, const Entry &entry) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   const std::string normalizedType = NormalizeTypeKey(type);
-  if (normalizedType.empty() || gdtfPath.empty())
-    return;
-  if (IsDummy1ChFallbackType(normalizedType) || IsDummy1ChFallbackPath(gdtfPath))
-    return;
-  const fs::path src = PathUtils::PathFromUtf8(gdtfPath);
-  if (!fs::exists(src))
-    return;
-  const fs::path file = GetConfiguredUserDictFile();
-  if (file.empty())
-    return;
-
-  const bool sourceIsPerastageNamed = IsPerastageNamedGdtfFile(src);
-  const fs::path defaultDest = file.parent_path() / src.filename();
-  const fs::path perastageDest =
-      file.parent_path() / BuildPerastageCanonicalGdtfFileName(src);
-  const fs::path dest = sourceIsPerastageNamed ? defaultDest : perastageDest;
-  const FileImportUtils::ConflictPolicy policy = sourceIsPerastageNamed
-                                                     ? FileImportUtils::ConflictPolicy::Overwrite
-                                                     : FileImportUtils::ConflictPolicy::Rename;
-  const auto copyResult = FileImportUtils::CopyWithConflictPolicy(src, dest, policy);
-  if (!copyResult.success)
+  if (normalizedType.empty())
     return;
 
   auto dictOpt = Load();
   if (!dictOpt)
-    return; // avoid overwriting existing dictionary on load failure
+    return;
   auto &dict = *dictOpt;
   std::string keyToUse = type;
   if (auto existingKey = FindEquivalentTypeKey(dict, normalizedType))
     keyToUse = *existingKey;
-  Entry e;
-  auto it = dict.find(keyToUse);
-  if (it != dict.end())
-    e = it->second;
+  dict[keyToUse] = entry;
+  Save(dict);
+}
 
+// Creates or refreshes a stable @Perastage derivative for a library-owned GDTF.
+std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
+    const std::string &type, const std::string &gdtfPath, const std::string &mode,
+    const std::string &category) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  const std::string normalizedType = NormalizeTypeKey(type);
+  if (normalizedType.empty() || gdtfPath.empty())
+    return std::nullopt;
+  if (IsDummy1ChFallbackType(normalizedType) || IsDummy1ChFallbackPath(gdtfPath))
+    return std::nullopt;
+
+  const fs::path src = PathUtils::PathFromUtf8(gdtfPath);
+  if (!fs::exists(src))
+    return std::nullopt;
+  const fs::path file = GetConfiguredUserDictFile();
+  if (file.empty())
+    return std::nullopt;
+
+  const fs::path dest = IsPerastageNamedGdtfFile(src)
+                            ? file.parent_path() / src.filename()
+                            : file.parent_path() / BuildPerastageCanonicalGdtfFileName(src);
+  const auto copyResult = FileImportUtils::CopyWithConflictPolicy(
+      src, dest, FileImportUtils::ConflictPolicy::Overwrite);
+  if (!copyResult.success)
+    return std::nullopt;
+
+  Entry e;
+  if (auto existing = Get(type))
+    e = *existing;
   e.path = copyResult.finalPath.string();
   if (!mode.empty())
     e.mode = mode;
@@ -961,9 +969,13 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
     e.category = category;
   e.importedAt = FileImportUtils::NowUtcIso8601();
   e.sha256 = copyResult.finalSha256;
+  UpdateDictionaryEntry(type, e);
+  return e;
+}
 
-  dict[keyToUse] = e;
-  Save(dict);
+// Registers an explicit user-library fixture import using deterministic @Perastage derivative rules.
+void Update(const std::string &type, const std::string &gdtfPath, const std::string &mode, const std::string &category) {
+  (void)CreateOrUpdatePerastageLibraryDerivative(type, gdtfPath, mode, category);
 }
 
 

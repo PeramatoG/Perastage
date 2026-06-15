@@ -18,11 +18,11 @@
 #include "fixtureeditdialog.h"
 #include "fixturepreviewpanel.h"
 #include "fixturetablepanel.h"
+#include "filesystem_path_utils.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "gdtf_mutation_audit.h"
 #include "projectutils.h"
-#include "gdtf_fixture_category.h"
 #include "symbolcache.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer2dpanel.h"
@@ -43,8 +43,43 @@
 #include <memory>
 #include <algorithm>
 #include <initializer_list>
+#include <filesystem>
 
 namespace {
+
+// Checks whether a path resolves inside a candidate parent directory.
+bool IsPathInsideDirectory(const std::filesystem::path &path,
+                           const std::filesystem::path &directory) {
+  if (path.empty() || directory.empty())
+    return false;
+
+  std::error_code ec;
+  const std::filesystem::path canonicalPath =
+      std::filesystem::weakly_canonical(path, ec);
+  if (ec)
+    return false;
+  ec.clear();
+  const std::filesystem::path canonicalDirectory =
+      std::filesystem::weakly_canonical(directory, ec);
+  if (ec)
+    return false;
+
+  auto pathIt = canonicalPath.begin();
+  auto dirIt = canonicalDirectory.begin();
+  for (; dirIt != canonicalDirectory.end(); ++dirIt, ++pathIt) {
+    if (pathIt == canonicalPath.end() || *pathIt != *dirIt)
+      return false;
+  }
+  return true;
+}
+
+// Checks whether a GDTF path belongs to the writable user fixture library.
+bool IsUserFixtureLibraryPath(const std::string &path) {
+  const std::filesystem::path candidate = PathUtils::PathFromUtf8(path);
+  return IsPathInsideDirectory(
+      candidate,
+      PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("fixtures")));
+}
 
 bool ParseFloatOrDefault(const wxString &text, float &out) {
   double parsed = 0.0;
@@ -924,16 +959,33 @@ void FixtureEditDialog::ApplyChanges() {
       const bool gdtfPhysicalChanged =
           std::fabs(newPowerW - originalPowerW) > 0.01f ||
           std::fabs(newWeightKg - originalWeightKg) > 0.01f;
-      if (gdtfPhysicalCandidateChanged && gdtfPhysicalChanged &&
-          !SetGdtfProperties(std::string(gdtfPath.ToUTF8()), newWeightKg,
-                             newPowerW,
-                             GdtfMutationAudit::BuildPerastageModifiedBy())) {
-        wxMessageBox(
-            "Could not update GDTF physical properties (Weight/PowerConsumption).",
-            "GDTF update", wxOK | wxICON_WARNING, this);
-      } else if (gdtfPhysicalCandidateChanged && gdtfPhysicalChanged) {
-        originalPowerW = newPowerW;
-        originalWeightKg = newWeightKg;
+      if (gdtfPhysicalCandidateChanged && gdtfPhysicalChanged) {
+        std::string writableGdtfPath = std::string(gdtfPath.ToUTF8());
+        if (IsUserFixtureLibraryPath(writableGdtfPath)) {
+          auto derivative = GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
+              std::string(originalType.ToUTF8()), writableGdtfPath);
+          if (derivative && !derivative->path.empty()) {
+            writableGdtfPath = derivative->path;
+            gdtfPath = wxString::FromUTF8(derivative->path);
+            if (modelCtrl)
+              modelCtrl->SetValue(gdtfPath);
+            if (panel && row >= 0) {
+              if (static_cast<size_t>(row) >= panel->gdtfPaths.size())
+                panel->gdtfPaths.resize(static_cast<size_t>(row) + 1);
+              panel->gdtfPaths[static_cast<size_t>(row)] = gdtfPath;
+              table->SetValue(wxVariant(wxFileName(gdtfPath).GetFullName()), row, 9);
+            }
+          }
+        }
+        if (!SetGdtfProperties(writableGdtfPath, newWeightKg, newPowerW,
+                               GdtfMutationAudit::BuildPerastageModifiedBy())) {
+          wxMessageBox(
+              "Could not update GDTF physical properties (Weight/PowerConsumption).",
+              "GDTF update", wxOK | wxICON_WARNING, this);
+        } else {
+          originalPowerW = newPowerW;
+          originalWeightKg = newWeightKg;
+        }
       }
     }
 
@@ -941,20 +993,7 @@ void FixtureEditDialog::ApplyChanges() {
       std::string mode =
           modeChoice ? std::string(modeChoice->GetStringSelection().ToUTF8())
                      : std::string();
-      wxVariant categoryVar;
-      table->GetValue(categoryVar, row, 18);
-      const std::string category = GdtfFixtureCategory::NormalizeCategory(
-          std::string(categoryVar.GetString().ToUTF8()));
-      const bool modeOnlyChange =
-          (modifiedColumns.size() > 7 && modifiedColumns[7]) &&
-          !(modifiedColumns.size() > 2 && modifiedColumns[2]) &&
-          !(modifiedColumns.size() > 9 && modifiedColumns[9]) &&
-          !(modifiedColumns.size() > 18 && modifiedColumns[18]);
-      if (!modeOnlyChange) {
-        // Keep dictionary default modes immutable outside dictionary editor.
-        GdtfDictionary::Update(std::string(originalType.ToUTF8()),
-                               std::string(gdtfPath.ToUTF8()), {}, category);
-      }
+      // Project fixture metadata edits stay project-scoped and do not promote files into the user library.
       panel->ApplyModeForGdtf(gdtfPath, wxString::FromUTF8(mode));
     }
   }

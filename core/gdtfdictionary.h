@@ -65,8 +65,14 @@ namespace GdtfDictionary {
     std::optional<std::string> GetDefaultColorForFixture(
         const std::string& type, const std::string& gdtfPath,
         const std::string& mode);
-    // Copies the gdtf file into the fixtures library and updates the dictionary
+    // Copies a user-selected GDTF into the fixtures library and updates the dictionary.
     void Update(const std::string& type, const std::string& gdtfPath, const std::string& mode = {}, const std::string& category = {});
+    // Creates or overwrites the stable @Perastage derivative for a library fixture and updates the dictionary.
+    std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
+        const std::string& type, const std::string& gdtfPath,
+        const std::string& mode = {}, const std::string& category = {});
+    // Updates dictionary metadata without copying fixture files into the library.
+    void UpdateDictionaryEntry(const std::string& type, const Entry& entry);
     void UpdateCategory(const std::string& type, const std::string& category);
     void UpdateCategoryForFile(const std::string& type, const std::string& gdtfPath,
                                const std::string& category);
