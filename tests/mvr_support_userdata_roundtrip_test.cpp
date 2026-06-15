@@ -2,6 +2,7 @@
  * This file is part of Perastage.
  */
 #include <cassert>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -209,7 +210,17 @@ int main() {
         current->Attribute("uuid") &&
         std::string(current->Attribute("uuid")) == "obj-empty") {
       foundEmptySceneObjectPlaceholder = true;
-      assert(current->FirstChildElement("Geometries") != nullptr);
+      tinyxml2::XMLElement *geometries = current->FirstChildElement("Geometries");
+      assert(geometries != nullptr);
+      tinyxml2::XMLElement *geometry3d = geometries->FirstChildElement("Geometry3D");
+      assert(geometry3d != nullptr);
+      tinyxml2::XMLElement *matrixNode = geometry3d->FirstChildElement("Matrix");
+      assert(matrixNode != nullptr && matrixNode->GetText() != nullptr);
+      Matrix placeholderMatrix;
+      assert(MatrixUtils::ParseMatrix(matrixNode->GetText(), placeholderMatrix));
+      assert(std::abs(placeholderMatrix.u[0] - 0.1f) < 0.001f);
+      assert(std::abs(placeholderMatrix.v[1] - 0.1f) < 0.001f);
+      assert(std::abs(placeholderMatrix.w[2] - 0.1f) < 0.001f);
     }
     if (std::string(current->Name()) == "SceneObject" &&
         current->FirstChildElement("Geometries") == nullptr)

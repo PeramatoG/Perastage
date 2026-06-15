@@ -1796,8 +1796,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
     tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
     g3d->SetAttribute("fileName", modelArchivePath.c_str());
+    constexpr float kPlaceholderCubeSizeMeters = 0.1f;
+    Matrix placeholderMatrix = MatrixUtils::Identity();
+    placeholderMatrix.u = {kPlaceholderCubeSizeMeters, 0.0f, 0.0f};
+    placeholderMatrix.v = {0.0f, kPlaceholderCubeSizeMeters, 0.0f};
+    placeholderMatrix.w = {0.0f, 0.0f, kPlaceholderCubeSizeMeters};
     tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
-    geoMatrix->SetText(MatrixUtils::FormatMatrix(MatrixUtils::Identity()).c_str());
+    geoMatrix->SetText(MatrixUtils::FormatMatrix(placeholderMatrix).c_str());
     g3d->InsertEndChild(geoMatrix);
     geos->InsertEndChild(g3d);
     owner->InsertEndChild(geos);
