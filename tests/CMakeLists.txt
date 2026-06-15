@@ -10,6 +10,13 @@ find_package(tinyxml2 CONFIG REQUIRED)
 
 enable_testing()
 
+add_library(perastage_test_diagnostics STATIC
+            ../core/diagnostics/DiagnosticPaths.cpp
+            ../core/filesystem_path_utils.cpp)
+target_include_directories(perastage_test_diagnostics PRIVATE
+                           ../core
+                           ../third_party)
+
 find_program(BASH_EXECUTABLE bash)
 if(BASH_EXECUTABLE)
     add_test(NAME DocsPerastageTreeModules
@@ -1361,3 +1368,10 @@ target_include_directories(symbol_cache_manifest_test PRIVATE
     ${wxWidgets_INCLUDE_DIRS})
 target_link_libraries(symbol_cache_manifest_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME SymbolCacheManifestValidation COMMAND symbol_cache_manifest_test)
+get_property(PERASTAGE_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
+    get_target_property(PERASTAGE_TEST_SOURCES ${PERASTAGE_TEST_TARGET} SOURCES)
+    if(PERASTAGE_TEST_SOURCES AND "../core/logger.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_diagnostics)
+    endif()
+endforeach()
