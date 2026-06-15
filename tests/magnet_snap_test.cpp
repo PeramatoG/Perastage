@@ -60,6 +60,16 @@ int main() {
   const std::string groupUuid = scene.trusses["target"].parentGroupUuid;
   assert(!groupUuid.empty());
 
+  AddTruss(scene, "loose", 6250.0f);
+  auto groupSnap = magnet_snap::FindSnap(
+      scene, {magnet_snap::ObjectType::TrussGroup, groupUuid});
+  assert(groupSnap);
+  assert(groupSnap->kind == magnet_snap::SnapKind::TrussToTruss);
+  assert(groupSnap->sourceUuid == groupUuid);
+  assert(groupSnap->targetUuid == "loose");
+  assert(std::fabs(groupSnap->translationDeltaMm[0] - 250.0f) < 0.001f);
+  scene.trusses.erase("loose");
+
   AddTruss(scene, "source-2", 6250.0f);
   scene.trusses["source-2"].transform.o[0] = 3250.0f;
   auto snap2 = magnet_snap::FindSnap(

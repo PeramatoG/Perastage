@@ -260,6 +260,7 @@ private:
                             std::vector<std::string> uuids);
 
   static constexpr long kSelectionDragDelayMs = 150;
+  static constexpr int kSelectionDragStartThresholdPx = 3;
   static constexpr int kDragTableUpdateIntervalMs = 50;
   static constexpr int kHoverHitTestIdleIntervalMs = 10;
   static constexpr int kHoverHitTestInteractingIntervalMs = 35;
