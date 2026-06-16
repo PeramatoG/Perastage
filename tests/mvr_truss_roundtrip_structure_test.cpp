@@ -209,10 +209,18 @@ int main() {
   }
   assert(foundSymdef);
 
-  tinyxml2::XMLElement *sceneUserData = sceneNode->FirstChildElement("UserData");
-  assert(sceneUserData != nullptr);
-  tinyxml2::XMLElement *manifest = sceneUserData->FirstChildElement("Data")->FirstChildElement("TrussSidecarManifest");
+  assert(sceneNode->FirstChildElement("UserData") == nullptr);
+  tinyxml2::XMLElement *rootUserData = xml.FirstChildElement("GeneralSceneDescription")->FirstChildElement("UserData");
+  assert(rootUserData != nullptr);
+  tinyxml2::XMLElement *rootData = rootUserData->FirstChildElement("Data");
+  assert(rootData != nullptr);
+  tinyxml2::XMLElement *manifest = rootData->FirstChildElement("TrussSidecarManifest");
   assert(manifest != nullptr);
+  tinyxml2::XMLElement *trussInfoMap = rootData->FirstChildElement("TrussInfoMap");
+  assert(trussInfoMap != nullptr);
+  tinyxml2::XMLElement *trussInfo = trussInfoMap->FirstChildElement("TrussInfo");
+  assert(trussInfo != nullptr);
+  assert(std::string(trussInfo->Attribute("uuid")) == truss.uuid);
   tinyxml2::XMLElement *typeNode = manifest->FirstChildElement("Type");
   assert(typeNode != nullptr);
   assert(std::string(typeNode->Attribute("gdtf")).rfind("Perastage/truss_types/", 0) == 0);
@@ -229,6 +237,69 @@ int main() {
   assert(!importedTruss.perastageAuxGdtfArchivePath.empty());
   assert(importedTruss.manufacturer == "Perastage");
   assert(importedTruss.model == "Tower 40");
+
+  const fs::path legacyMvrPath = tempDir / "legacy-truss-userdata.mvr";
+  {
+    wxFileOutputStream legacyOut(legacyMvrPath.generic_string());
+    assert(legacyOut.IsOk());
+    wxZipOutputStream legacyZip(legacyOut);
+    const std::string legacyXml =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" provider=\"Perastage\" providerVersion=\"test\">"
+        "<Scene><Layers><Layer name=\"Default\"><ChildList>"
+        "<Truss uuid=\"uuid_17311332189900\" name=\"Legacy Truss\">"
+        "<Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
+        "<FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric>"
+        "<UserData><Data provider=\"Perastage\" ver=\"1.0\"><TrussInfo uuid=\"uuid_17311332189900\">"
+        "<Manufacturer>Legacy Maker</Manufacturer><Model>Legacy Model</Model><Length unit=\"mm\">2500</Length>"
+        "<Width unit=\"mm\">400</Width><Height unit=\"mm\">400</Height><Weight unit=\"kg\">30</Weight>"
+        "<CrossSection>40x40</CrossSection><HangPos>Legacy Position</HangPos>"
+        "</TrussInfo></Data></UserData></Truss>"
+        "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
+    assert(legacyZip.PutNextEntry("GeneralSceneDescription.xml"));
+    legacyZip.Write(legacyXml.data(), legacyXml.size());
+    legacyZip.Close();
+  }
+
+  cfg.Reset();
+  assert(importer.ImportFromFile(legacyMvrPath.string(), false, false));
+  MvrScene &legacyImportedScene = ConfigManager::Get().GetScene();
+  assert(legacyImportedScene.trusses.size() == 1);
+  const Truss &legacyImportedTruss = legacyImportedScene.trusses.begin()->second;
+  assert(CanonicalizeUuid(legacyImportedTruss.uuid) == legacyImportedTruss.uuid);
+  assert(legacyImportedTruss.manufacturer == "Legacy Maker");
+  assert(legacyImportedTruss.model == "Legacy Model");
+  assert(legacyImportedTruss.lengthMm == 2500.0f);
+  const fs::path migratedMvrPath = tempDir / "legacy-truss-migrated.mvr";
+  assert(exporter.ExportToFile(migratedMvrPath.string()));
+  const auto migratedEntries = ReadArchiveTextEntries(migratedMvrPath);
+  tinyxml2::XMLDocument migratedXml;
+  assert(migratedXml.Parse(migratedEntries.at("GeneralSceneDescription.xml").c_str()) ==
+         tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *migratedRoot = migratedXml.FirstChildElement("GeneralSceneDescription");
+  assert(migratedRoot != nullptr);
+  bool sawMigratedTrussInfo = false;
+  std::vector<tinyxml2::XMLElement *> migratedStack{migratedRoot};
+  while (!migratedStack.empty()) {
+    tinyxml2::XMLElement *node = migratedStack.back();
+    migratedStack.pop_back();
+    if (std::string(node->Name()) == "Truss") {
+      assert(node->FirstChildElement("UserData") == nullptr);
+      const char *uuid = node->Attribute("uuid");
+      assert(uuid != nullptr);
+      assert(CanonicalizeUuid(uuid) == std::string(uuid));
+    }
+    if (std::string(node->Name()) == "TrussInfo") {
+      const char *uuid = node->Attribute("uuid");
+      assert(uuid != nullptr);
+      assert(CanonicalizeUuid(uuid) == std::string(uuid));
+      sawMigratedTrussInfo = true;
+    }
+    for (tinyxml2::XMLElement *child = node->FirstChildElement(); child;
+         child = child->NextSiblingElement())
+      migratedStack.push_back(child);
+  }
+  assert(sawMigratedTrussInfo);
 
   cfg.Reset();
   MvrScene &generatedScene = cfg.GetScene();

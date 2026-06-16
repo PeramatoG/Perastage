@@ -116,6 +116,13 @@ static bool HasLayerAppearanceMetadata(const MvrScene &scene);
 static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
                                           tinyxml2::XMLElement *perastageData,
                                           const MvrScene &scene);
+static bool HasTrussInfoMetadata(const Truss &truss);
+static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
+                                    tinyxml2::XMLElement *trussInfoMap,
+                                    const Truss &truss,
+                                    const std::string &exportUuid,
+                                    const std::string &trussTypeKey,
+                                    const std::string &auxGdtfArchivePath);
 static void LogLegacyPositionUuidWarning(const std::string &message);
 
 static constexpr const char *kMvrProvider = "Perastage";
@@ -698,6 +705,7 @@ static bool ValidateMvr16Export(
   std::vector<std::string> referencedFiles;
   std::unordered_set<std::string> positionUuids;
   std::unordered_set<std::string> referencedPositionUuids;
+  std::unordered_set<std::string> exportedTrussUuids;
 
   if (tinyxml2::XMLElement *scene = root->FirstChildElement("Scene")) {
     if (tinyxml2::XMLElement *layers = scene->FirstChildElement("Layers")) {
@@ -751,6 +759,19 @@ static bool ValidateMvr16Export(
         if (symdefUuid.empty()) {
           wxLogError("MVR export validation failed: Symbol uuid '%s' in %s has no symdef",
                      symbolUuid, context);
+          return false;
+        }
+      }
+
+      if (std::string(cur->Name()) == "Truss") {
+        const std::string trussUuid = TrimAscii(cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+        if (!IsCanonicalUuidString(trussUuid)) {
+          wxLogError("MVR export validation failed: Truss uuid '%s' is missing or non-canonical", trussUuid);
+          return false;
+        }
+        exportedTrussUuids.insert(trussUuid);
+        if (cur->FirstChildElement("UserData")) {
+          wxLogError("MVR export validation failed: Truss uuid '%s' contains direct UserData", trussUuid);
           return false;
         }
       }
@@ -947,6 +968,36 @@ static bool ValidateMvr16Export(
         for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
              child = child->NextSiblingElement())
           stack.push_back(child);
+      }
+    }
+  }
+
+  if (tinyxml2::XMLElement *rootUserData = root->FirstChildElement("UserData")) {
+    for (tinyxml2::XMLElement *data = rootUserData->FirstChildElement("Data"); data;
+         data = data->NextSiblingElement("Data")) {
+      const std::string provider = ToLowerAscii(TrimAscii(data->Attribute("provider") ? data->Attribute("provider") : ""));
+      if (provider != "perastage")
+        continue;
+      for (tinyxml2::XMLElement *map = data->FirstChildElement("TrussInfoMap"); map;
+           map = map->NextSiblingElement("TrussInfoMap")) {
+        for (tinyxml2::XMLElement *info = map->FirstChildElement("TrussInfo"); info;
+             info = info->NextSiblingElement("TrussInfo")) {
+          const std::string uuid = TrimAscii(info->Attribute("uuid") ? info->Attribute("uuid") : "");
+          if (!IsCanonicalUuidString(uuid) || !exportedTrussUuids.contains(uuid)) {
+            wxLogError("MVR export validation failed: root TrussInfo references invalid exported Truss uuid '%s'", uuid);
+            return false;
+          }
+        }
+      }
+      if (tinyxml2::XMLElement *manifest = data->FirstChildElement("TrussSidecarManifest")) {
+        for (tinyxml2::XMLElement *inst = manifest->FirstChildElement("Instance"); inst;
+             inst = inst->NextSiblingElement("Instance")) {
+          const std::string uuid = TrimAscii(inst->Attribute("uuid") ? inst->Attribute("uuid") : "");
+          if (!IsCanonicalUuidString(uuid) || !exportedTrussUuids.contains(uuid)) {
+            wxLogError("MVR export validation failed: Truss sidecar manifest references invalid exported Truss uuid '%s'", uuid);
+            return false;
+          }
+        }
       }
     }
   }
@@ -1286,6 +1337,61 @@ static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
 
   if (map && !map->Parent())
     perastageData->InsertEndChild(map);
+}
+
+// Returns true when a truss carries Perastage-specific metadata for export.
+static bool HasTrussInfoMetadata(const Truss &truss) {
+  return !truss.manufacturer.empty() || !truss.model.empty() ||
+         truss.lengthMm != 0.0f || truss.widthMm != 0.0f ||
+         truss.heightMm != 0.0f || truss.weightKg != 0.0f ||
+         !truss.crossSection.empty() || !truss.modelFile.empty() ||
+         !truss.positionName.empty() ||
+         truss.sourceRepresentation != Truss::GeometryRepresentation::Unknown ||
+         !truss.perastageTypeKey.empty() || !truss.perastageAuxGdtfArchivePath.empty();
+}
+
+// Appends one root-level Perastage truss metadata entry keyed by exported UUID.
+static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
+                                    tinyxml2::XMLElement *trussInfoMap,
+                                    const Truss &truss,
+                                    const std::string &exportUuid,
+                                    const std::string &trussTypeKey,
+                                    const std::string &auxGdtfArchivePath) {
+  if (!trussInfoMap || !HasTrussInfoMetadata(truss))
+    return;
+
+  tinyxml2::XMLElement *info = doc.NewElement("TrussInfo");
+  info->SetAttribute("uuid", exportUuid.c_str());
+  auto addTxt = [&](const char *name, const std::string &value) {
+    if (value.empty())
+      return;
+    tinyxml2::XMLElement *node = doc.NewElement(name);
+    node->SetText(value.c_str());
+    info->InsertEndChild(node);
+  };
+  auto addNum = [&](const char *name, float value, const char *unit) {
+    if (value == 0.0f)
+      return;
+    tinyxml2::XMLElement *node = doc.NewElement(name);
+    node->SetAttribute("unit", unit);
+    node->SetText(std::to_string(value).c_str());
+    info->InsertEndChild(node);
+  };
+
+  addTxt("Manufacturer", truss.manufacturer);
+  addTxt("Model", truss.model);
+  addNum("Length", truss.lengthMm, "mm");
+  addNum("Width", truss.widthMm, "mm");
+  addNum("Height", truss.heightMm, "mm");
+  addNum("Weight", truss.weightKg, "kg");
+  addTxt("CrossSection", truss.crossSection);
+  addTxt("ModelFile", truss.modelFile);
+  addTxt("PositionName", truss.positionName);
+  addTxt("HangPos", truss.positionName);
+  addTxt("Representation", ToRepresentationText(truss.sourceRepresentation));
+  addTxt("TypeKey", trussTypeKey.empty() ? truss.perastageTypeKey : trussTypeKey);
+  addTxt("AuxGdtf", auxGdtfArchivePath.empty() ? truss.perastageAuxGdtfArchivePath : auxGdtfArchivePath);
+  trussInfoMap->InsertEndChild(info);
 }
 
 // Appends Perastage support hoist metadata into the supplied Data element.
@@ -2038,6 +2144,53 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   tinyxml2::XMLElement *layersNode = doc.NewElement("Layers");
 
   std::unordered_set<std::string> usedFixtureUuids;
+  std::unordered_set<std::string> usedObjectExportUuids;
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    const std::string exportUuid = CanonicalizeUuid(uuid);
+    if (!exportUuid.empty())
+      usedObjectExportUuids.insert(exportUuid);
+  }
+  for (const auto &[uuid, support] : scene.supports) {
+    const std::string exportUuid = CanonicalizeUuid(uuid);
+    if (!exportUuid.empty())
+      usedObjectExportUuids.insert(exportUuid);
+  }
+  for (const auto &[uuid, object] : scene.sceneObjects) {
+    const std::string exportUuid = CanonicalizeUuid(uuid);
+    if (!exportUuid.empty())
+      usedObjectExportUuids.insert(exportUuid);
+  }
+  for (const auto &[uuid, group] : scene.groupObjects) {
+    const std::string exportUuid = CanonicalizeUuid(uuid);
+    if (!exportUuid.empty())
+      usedObjectExportUuids.insert(exportUuid);
+  }
+  std::unordered_map<std::string, std::string> trussExportUuids;
+  for (const auto &[uuid, truss] : scene.trusses) {
+    std::string exportUuid = CanonicalizeUuid(truss.uuid);
+    const std::string seed = "mvr-export-truss:" + truss.uuid + ":" + truss.name + ":" +
+                             MatrixUtils::FormatMatrix(truss.transform);
+    const bool needsRepair = exportUuid.empty() || usedObjectExportUuids.contains(exportUuid);
+    if (needsRepair) {
+      Logger::Instance().Log(
+          Logger::Level::Warn,
+          wxString::Format(
+              "Truss '%s' has missing, non-canonical, or conflicting UUID '%s'. Applying deterministic fallback UUID for export.",
+              truss.name.c_str(), truss.uuid.c_str())
+              .ToStdString());
+      for (int suffix = 0;; ++suffix) {
+        const std::string candidate = DeriveDeterministicUuid(seed + "#" + std::to_string(suffix));
+        if (!candidate.empty() && !usedObjectExportUuids.contains(candidate)) {
+          exportUuid = candidate;
+          break;
+        }
+      }
+    }
+    usedObjectExportUuids.insert(exportUuid);
+    trussExportUuids[uuid] = exportUuid;
+  }
+  tinyxml2::XMLElement *trussInfoMap = doc.NewElement("TrussInfoMap");
+
   int exportedRealFixtureGdtfCount = 0;
   int exportedDummyFixtureGdtfCount = 0;
   int preservedOriginalFixtureGdtfRecoveries = 0;
@@ -2271,7 +2424,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   auto exportTruss = [&](tinyxml2::XMLElement *parent, const Truss &t) {
     tinyxml2::XMLElement *te = doc.NewElement("Truss");
-    te->SetAttribute("uuid", t.uuid.c_str());
+    const auto exportUuidIt = trussExportUuids.find(t.uuid);
+    const std::string exportedTrussUuid = exportUuidIt != trussExportUuids.end()
+                                             ? exportUuidIt->second
+                                             : DeriveDeterministicUuid("mvr-export-truss:" + t.uuid + ":" + t.name);
+    te->SetAttribute("uuid", exportedTrussUuid.c_str());
     if (!t.name.empty())
       te->SetAttribute("name", t.name.c_str());
 
@@ -2300,8 +2457,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     auto trussArchiveIt = trussArchiveByTypeKey.find(trussTypeKey);
     if (trussArchiveIt != trussArchiveByTypeKey.end()) {
       trussGdtfArchivePath = trussArchiveIt->second;
-      if (!t.uuid.empty())
-        gdtfArchiveByObjectUuid[t.uuid] = trussGdtfArchivePath;
+      if (!exportedTrussUuid.empty())
+        gdtfArchiveByObjectUuid[exportedTrussUuid] = trussGdtfArchivePath;
     } else {
       std::string trussSourceGdtf = t.gdtfSpec;
       if (trussSourceGdtf.empty() && fs::path(t.modelFile).extension() == ".gdtf")
@@ -2317,12 +2474,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
       std::string trussPreferredName = "Perastage/truss_types/" + BuildTrussGdtfArchiveName(t);
       trussGdtfArchivePath =
-          registerGdtfResource(t.uuid, trussSourceGdtf, trussPreferredName, true);
+          registerGdtfResource(exportedTrussUuid, trussSourceGdtf, trussPreferredName, true);
       if (!trussGdtfArchivePath.empty())
         trussArchiveByTypeKey[trussTypeKey] = trussGdtfArchivePath;
     }
     if (!trussTypeKey.empty())
-      trussInstanceToTypeKey[t.uuid] = trussTypeKey;
+      trussInstanceToTypeKey[exportedTrussUuid] = trussTypeKey;
 
     if (!trussGdtfArchivePath.empty()) {
       auto &ov = gdtfOverrides[trussGdtfArchivePath];
@@ -2426,50 +2583,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     addInt("CustomId", t.customId);
     addInt("CustomIdType", t.customIdType);
 
-    bool hasMeta =
-                   (!t.manufacturer.empty() || !t.model.empty() ||
-                    t.lengthMm != 0.0f || t.widthMm != 0.0f ||
-                    t.heightMm != 0.0f || t.weightKg != 0.0f ||
-                    !t.crossSection.empty() || !t.modelFile.empty() ||
-                    !t.positionName.empty());
-    if (hasMeta) {
-      tinyxml2::XMLElement *ud = doc.NewElement("UserData");
-      tinyxml2::XMLElement *data = doc.NewElement("Data");
-      data->SetAttribute("provider", "Perastage");
-      data->SetAttribute("ver", "1.0");
-      tinyxml2::XMLElement *info = doc.NewElement("TrussInfo");
-      info->SetAttribute("uuid", t.uuid.c_str());
-      auto addTxt = [&](const char *n, const std::string &v) {
-        if (!v.empty()) {
-          tinyxml2::XMLElement *e = doc.NewElement(n);
-          e->SetText(v.c_str());
-          info->InsertEndChild(e);
-        }
-      };
-      auto addNum = [&](const char *n, float v, const char *unit) {
-        if (v != 0.0f) {
-          tinyxml2::XMLElement *e = doc.NewElement(n);
-          e->SetAttribute("unit", unit);
-          e->SetText(std::to_string(v).c_str());
-          info->InsertEndChild(e);
-        }
-      };
-      addTxt("Manufacturer", t.manufacturer);
-      addTxt("Model", t.model);
-      addNum("Length", t.lengthMm, "mm");
-      addNum("Width", t.widthMm, "mm");
-      addNum("Height", t.heightMm, "mm");
-      addNum("Weight", t.weightKg, "kg");
-      addTxt("CrossSection", t.crossSection);
-      addTxt("ModelFile", t.modelFile);
-      addTxt("HangPos", t.positionName);
-      addTxt("Representation", ToRepresentationText(t.sourceRepresentation));
-      addTxt("TypeKey", trussTypeKey);
-      addTxt("AuxGdtf", trussGdtfArchivePath);
-      data->InsertEndChild(info);
-      ud->InsertEndChild(data);
-      te->InsertEndChild(ud);
-    }
+    AppendTrussInfoMetadata(doc, trussInfoMap, t, exportedTrussUuid,
+                            trussTypeKey, trussGdtfArchivePath);
 
     parent->InsertEndChild(te);
   };
@@ -2954,6 +3069,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       defaultLayerElem->SetAttribute("name", defaultLayerName.c_str());
     defaultLayerElem->InsertEndChild(rootChildList);
     layersNode->InsertEndChild(defaultLayerElem);
+  }
+
+  if (trussInfoMap->FirstChild()) {
+    tinyxml2::XMLElement *rootPerastageDataForTrusses = FindOrCreatePerastageDataNode(doc, root);
+    rootPerastageDataForTrusses->InsertEndChild(trussInfoMap);
+  } else {
+    doc.DeleteNode(trussInfoMap);
   }
 
   sceneNode->InsertEndChild(layersNode);
