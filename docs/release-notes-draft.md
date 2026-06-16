@@ -52,6 +52,7 @@ Changes since `v1.3.0`.
 - Improved fallback dimensions for direct truss model files so GLB and 3DS trusses remain visible and selectable even when model metadata or mesh loading is unavailable.
 - Fixed Add scene object so reusing an existing Perastage basic geometry object copies its primitive geometry data immediately instead of showing a default cube until the project is reopened.
 - Fixed basic geometry edit dialogs so position, screen size, and pipe length fields use the selected project distance units consistently.
+- Fixed 3D truss height labels so they show both the value and suffix in the selected project distance units.
 
 ## Stability and reliability
 

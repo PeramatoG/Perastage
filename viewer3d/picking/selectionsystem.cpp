@@ -18,11 +18,12 @@
 
 #include "configmanager.h"
 #include "scenedatamanager.h"
+#include "units/unit_label_utils.h"
+#include "units/units.h"
 #include <algorithm>
 #include <array>
 #include <cfloat>
 #include <cmath>
-#include <cstdio>
 #include <cstring>
 #include <unordered_set>
 #include <wx/log.h>
@@ -269,11 +270,12 @@ bool ProjectBoundingBoxCenter(const ISelectionContext::BoundingBox &bb,
   return true;
 }
 
-std::string FormatMeters(float mm) {
-  const float meters = mm / 1000.0f;
-  char buffer[32];
-  std::snprintf(buffer, sizeof(buffer), "%.2f", meters);
-  return std::string(buffer);
+// Formats a distance for hover labels using the selected project units.
+std::string FormatDistanceLabel(float mm, const ConfigManager &cfg) {
+  const auto distanceUnit =
+      Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+  return Units::DistanceValueWithUnit(mm, distanceUnit,
+                                      Units::ValueFormatContext::Label);
 }
 
 bool ProjectionMatchesCache(const ProjectionSnapshot &projection,
@@ -892,8 +894,8 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
       bestLabel = t.name.empty() ? wxString::FromUTF8(uuid)
                                  : wxString::FromUTF8(t.name);
       float baseHeight = t.transform.o[2] - t.heightMm * 0.5f;
-      const std::string hStr = FormatMeters(baseHeight);
-      bestLabel += "\nh = " + wxString::FromUTF8(hStr) + " m";
+      const std::string hStr = FormatDistanceLabel(baseHeight, cfg);
+      bestLabel += "\nh = " + wxString::FromUTF8(hStr);
       bestUuid = uuid;
       found = true;
     }
