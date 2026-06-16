@@ -22,6 +22,7 @@
 #include "logger.h"
 #include "scenedatamanager.h"
 #include "support.h"
+#include "units/unit_label_utils.h"
 #include "units/units.h"
 
 #include <algorithm>
@@ -478,14 +479,10 @@ ResolveAnchor(const ISelectionContext::BoundingBox *bounds,
   return {x, y, z};
 }
 
-std::string FormatMeters(float mm) {
-  std::ostringstream oss;
-  oss << std::fixed << std::setprecision(2) << mm / 1000.0f;
-  std::string s = oss.str();
-  s.erase(s.find_last_not_of('0') + 1, std::string::npos);
-  if (!s.empty() && s.back() == '.')
-    s.pop_back();
-  return s;
+// Formats a distance for rendered labels using the selected project units.
+std::string FormatDistanceLabel(float mm, Units::DistanceUnitSystem distanceUnit) {
+  return Units::DistanceValueWithUnit(mm, distanceUnit,
+                                      Units::ValueFormatContext::Label);
 }
 
 SupportLabelText BuildSupportLabelText(const Support &support,
@@ -1143,6 +1140,8 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
 // Draws visible truss labels in the 3D viewport.
 void LabelRenderSystem::DrawTrussLabels(int width, int height) {
   ConfigManager &cfg = ConfigManager::Get();
+  const auto distanceUnitSystem =
+      Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
   ProjectionContext projection;
   FillProjectionContext(width, height, projection);
 
@@ -1189,8 +1188,9 @@ void LabelRenderSystem::DrawTrussLabels(int width, int height) {
     wxString label = t.name.empty() ? wxString::FromUTF8(uuid)
                                     : wxString::FromUTF8(t.name);
     float baseHeight = t.transform.o[2] - t.heightMm * 0.5f;
-    const std::string heightText = FormatMeters(baseHeight);
-    label += "\nh = " + wxString::FromUTF8(heightText) + " m";
+    const std::string heightText =
+        FormatDistanceLabel(baseHeight, distanceUnitSystem);
+    label += "\nh = " + wxString::FromUTF8(heightText);
 
     auto utf8 = label.ToUTF8();
     DrawText2D(m_controller.GetNanoVGContext(), m_controller.GetLabelFont(),

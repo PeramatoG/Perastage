@@ -82,8 +82,13 @@ void AssertWeightParsingWithSuffixes() {
   assert(std::abs(*pounds * 2.2046226218487757 - 220.0) < 1e-6);
 }
 
+// Verifies unit suffix helpers produce display-ready labels and values.
 void AssertLabelWithUnitHelper() {
   assert(Units::LabelWithUnit("Weight", "kg") == "Weight (kg)");
+  assert(Units::DistanceValueWithUnit(3000.0, Units::DistanceUnitSystem::Metric,
+                                      Units::ValueFormatContext::Label) == "3.00 m");
+  assert(Units::DistanceValueWithUnit(3048.0, Units::DistanceUnitSystem::Imperial,
+                                      Units::ValueFormatContext::Label) == "10.00 ft");
 }
 
 } // namespace
