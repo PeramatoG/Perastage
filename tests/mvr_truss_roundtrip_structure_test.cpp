@@ -19,6 +19,7 @@
 #include "matrixutils.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
+#include "mvr_preferences.h"
 #include "truss_gdtf_builder.h"
 #include "uuidutils.h"
 
@@ -108,6 +109,17 @@ int main() {
   scene.symdefGeometries[symdefUuid] = {symGeo};
   scene.symdefFiles[symdefUuid] = symModel.generic_string();
   scene.symdefMatrices[symdefUuid] = MatrixUtils::Identity();
+  scene.symdefFiles["44444444-4444-4444-4444-444444444444"] = symModel.generic_string();
+
+  assert(mvr::preferences::LoadExportOptions(cfg).trussGeometryExportMode ==
+         MvrTrussGeometryExportMode::Standard);
+  MvrExportOptions directPreferenceOptions;
+  directPreferenceOptions.trussGeometryExportMode =
+      MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols;
+  mvr::preferences::SaveExportOptions(cfg, directPreferenceOptions);
+  assert(mvr::preferences::LoadExportOptions(cfg).trussGeometryExportMode ==
+         MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols);
+  mvr::preferences::SaveExportOptions(cfg, MvrExportOptions{});
 
   GroupObject group;
   group.uuid = "22222222-2222-2222-2222-222222222222";
@@ -209,21 +221,52 @@ int main() {
   }
   assert(foundSymdef);
 
+  MvrExportOptions directOptions;
+  directOptions.trussGeometryExportMode =
+      MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols;
+  const fs::path directMvrPath = tempDir / "direct-truss-geometry.mvr";
+  assert(exporter.ExportToFile(directMvrPath.string(), directOptions));
+  const auto directEntries = ReadArchiveTextEntries(directMvrPath);
+  tinyxml2::XMLDocument directXml;
+  assert(directXml.Parse(directEntries.at("GeneralSceneDescription.xml").c_str()) ==
+         tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *directSceneNode =
+      directXml.FirstChildElement("GeneralSceneDescription")->FirstChildElement("Scene");
+  tinyxml2::XMLElement *directTrussNode =
+      directSceneNode->FirstChildElement("Layers")
+          ->FirstChildElement("ChildList")
+          ->FirstChildElement("GroupObject")
+          ->FirstChildElement("ChildList")
+          ->FirstChildElement("Truss");
+  tinyxml2::XMLElement *directGeos = directTrussNode->FirstChildElement("Geometries");
+  assert(directGeos != nullptr);
+  assert(directGeos->FirstChildElement("Symbol") == nullptr);
+  tinyxml2::XMLElement *directGeometry = directGeos->FirstChildElement("Geometry3D");
+  assert(directGeometry != nullptr);
+  const char *directFileName = directGeometry->Attribute("fileName");
+  assert(directFileName != nullptr);
+  assert(directEntries.find(directFileName) != directEntries.end());
+  tinyxml2::XMLElement *directAux = directSceneNode->FirstChildElement("AUXData");
+  if (directAux)
+    assert(directAux->FirstChildElement("Symdef") == nullptr);
+
+  MvrExportOptions projectOptions;
+  projectOptions.trussGeometryExportMode = MvrTrussGeometryExportMode::Standard;
+  std::vector<uint8_t> projectSceneBytes;
+  assert(exporter.ExportToBuffer(projectSceneBytes, projectOptions));
+  assert(!projectSceneBytes.empty());
+
   assert(sceneNode->FirstChildElement("UserData") == nullptr);
   tinyxml2::XMLElement *rootUserData = xml.FirstChildElement("GeneralSceneDescription")->FirstChildElement("UserData");
   assert(rootUserData != nullptr);
   tinyxml2::XMLElement *rootData = rootUserData->FirstChildElement("Data");
   assert(rootData != nullptr);
-  tinyxml2::XMLElement *manifest = rootData->FirstChildElement("TrussSidecarManifest");
-  assert(manifest != nullptr);
+  assert(rootData->FirstChildElement("TrussSidecarManifest") == nullptr);
   tinyxml2::XMLElement *trussInfoMap = rootData->FirstChildElement("TrussInfoMap");
   assert(trussInfoMap != nullptr);
   tinyxml2::XMLElement *trussInfo = trussInfoMap->FirstChildElement("TrussInfo");
   assert(trussInfo != nullptr);
   assert(std::string(trussInfo->Attribute("uuid")) == truss.uuid);
-  tinyxml2::XMLElement *typeNode = manifest->FirstChildElement("Type");
-  assert(typeNode != nullptr);
-  assert(std::string(typeNode->Attribute("gdtf")).rfind("Perastage/truss_types/", 0) == 0);
 
   cfg.Reset();
   MvrImporter importer;

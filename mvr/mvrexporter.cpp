@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvrexporter.h"
+#include "mvr_preferences.h"
 #include "filesystem_path_utils.h"
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
@@ -1145,16 +1146,35 @@ static void LogResourcePruneDiagnostics(
           ", pruned=" + std::to_string(prunedCount));
 }
 
+// Returns whether a Symdef has enough geometry data to flatten into Geometry3D nodes.
+static bool CanFlattenSymdefGeometry(const MvrScene &scene,
+                                     const std::string &symdefUuid) {
+  auto geoIt = scene.symdefGeometries.find(symdefUuid);
+  if (geoIt != scene.symdefGeometries.end()) {
+    for (const SymdefGeometry &geometry : geoIt->second) {
+      if (!TrimAscii(geometry.file).empty())
+        return true;
+    }
+  }
+
+  auto fileIt = scene.symdefFiles.find(symdefUuid);
+  return fileIt != scene.symdefFiles.end() && !TrimAscii(fileIt->second).empty();
+}
+
 // Collects Symdef UUIDs referenced by trusses that preserve Symbol/Symdef geometry representation.
 static std::unordered_set<std::string>
-CollectReferencedSymdefUuids(const MvrScene &scene) {
+CollectReferencedSymdefUuids(const MvrScene &scene, const MvrExportOptions &options) {
   std::unordered_set<std::string> referencedSymdefs;
   for (const auto &[uuid, truss] : scene.trusses) {
     if (truss.sourceRepresentation != Truss::GeometryRepresentation::SymbolSymdef)
       continue;
     const std::string symdefUuid = TrimAscii(truss.sourceSymdefUuid);
-    if (!symdefUuid.empty())
-      referencedSymdefs.insert(symdefUuid);
+    if (symdefUuid.empty())
+      continue;
+    if (options.trussGeometryExportMode == MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols &&
+        CanFlattenSymdefGeometry(scene, symdefUuid))
+      continue;
+    referencedSymdefs.insert(symdefUuid);
   }
   return referencedSymdefs;
 }
@@ -1649,6 +1669,11 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
 
 // Serialize the configured scene into a .mvr archive and collect non-fatal export warnings.
 bool MvrExporter::ExportToFile(const std::string &filePath) {
+  return ExportToFile(filePath, mvr::preferences::LoadExportOptions(ConfigManager::Get()));
+}
+
+// Serialize the configured scene into a .mvr archive with explicit export options.
+bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptions &options) {
   m_exportWarnings.clear();
   const auto &scene = ConfigManager::Get().GetScene();
   const TrussGeometryAuthority trussGeometryAuthority = GetTrussGeometryAuthoritySetting();
@@ -2084,7 +2109,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     aux->InsertEndChild(pos);
   }
   const std::unordered_set<std::string> referencedSymdefUuids =
-      CollectReferencedSymdefUuids(scene);
+      CollectReferencedSymdefUuids(scene, options);
   for (const auto &[uuid, file] : scene.symdefFiles) {
     if (!referencedSymdefUuids.contains(uuid))
       continue;
@@ -2464,7 +2489,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       if (trussSourceGdtf.empty() && fs::path(t.modelFile).extension() == ".gdtf")
         trussSourceGdtf = t.modelFile;
 
-      if (trussSourceGdtf.empty()) {
+      const bool importedFromMvrGeometry =
+          t.sourceRepresentation == Truss::GeometryRepresentation::SymbolSymdef ||
+          t.sourceRepresentation == Truss::GeometryRepresentation::Geometry3D;
+      if (trussSourceGdtf.empty() && !importedFromMvrGeometry) {
         fs::path tempPath = fs::temp_directory_path() /
                             ("perastage-truss-export-" + (t.uuid.empty() ? std::string("truss") : t.uuid) + ".gdtf");
         std::string conversionError;
@@ -2518,26 +2546,90 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (trussGeometryAuthority == TrussGeometryAuthority::MvrGeometry) {
       if (t.sourceRepresentation == Truss::GeometryRepresentation::SymbolSymdef &&
           !t.sourceSymdefUuid.empty()) {
+        const bool flattenSymbol =
+            options.trussGeometryExportMode == MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols;
         tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
-        tinyxml2::XMLElement *sym = doc.NewElement("Symbol");
-        const std::string symbolMatrixText = MatrixUtils::FormatMatrix(t.sourceSymbolMatrix);
-        const std::string symbolUuid = ResolveExportSymbolUuid(
-            t.sourceSymbolUuid, t.uuid, t.sourceSymdefUuid,
-            "mvr:symbol:truss:" + t.uuid + ":" + t.sourceSymdefUuid + ":" +
-                symbolMatrixText + ":0",
-            usedSymbolUuids, &m_exportWarnings, "Truss uuid " + t.uuid);
-        sym->SetAttribute("uuid", symbolUuid.c_str());
-        sym->SetAttribute("symdef", t.sourceSymdefUuid.c_str());
-        tinyxml2::XMLElement *symMat = doc.NewElement("Matrix");
-        symMat->SetText(symbolMatrixText.c_str());
-        sym->InsertEndChild(symMat);
-        geos->InsertEndChild(sym);
-        te->InsertEndChild(geos);
-        Logger::Instance().Log(
-            Logger::Level::Info,
-            wxString::Format("MVR export truss keeps Symbol/Symdef uuid=%s symbol=%s symdef=%s",
-                             t.uuid.c_str(), symbolUuid.c_str(), t.sourceSymdefUuid.c_str())
-                .ToStdString());
+        if (flattenSymbol) {
+          std::vector<SymdefGeometry> geometries;
+          auto geoIt = scene.symdefGeometries.find(t.sourceSymdefUuid);
+          if (geoIt != scene.symdefGeometries.end())
+            geometries = geoIt->second;
+          auto fileIt = scene.symdefFiles.find(t.sourceSymdefUuid);
+          if (geometries.empty() && fileIt != scene.symdefFiles.end() && !fileIt->second.empty()) {
+            SymdefGeometry fallback;
+            fallback.file = fileIt->second;
+            auto matIt = scene.symdefMatrices.find(t.sourceSymdefUuid);
+            fallback.transform = (matIt != scene.symdefMatrices.end()) ? matIt->second : MatrixUtils::Identity();
+            auto typeIt = scene.symdefTypes.find(t.sourceSymdefUuid);
+            if (typeIt != scene.symdefTypes.end())
+              fallback.geometryType = typeIt->second;
+            geometries.push_back(std::move(fallback));
+          }
+
+          for (const SymdefGeometry &geo : geometries) {
+            if (geo.file.empty())
+              continue;
+            tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+            const std::string archivePath = registerModelResource(geo.file, "truss.3ds");
+            if (archivePath.empty())
+              continue;
+            g3d->SetAttribute("fileName", archivePath.c_str());
+            if (!geo.geometryType.empty())
+              g3d->SetAttribute("geometryType", geo.geometryType.c_str());
+            const Matrix composedMatrix = MatrixUtils::Multiply(t.sourceSymbolMatrix, geo.transform);
+            tinyxml2::XMLElement *geoMat = doc.NewElement("Matrix");
+            geoMat->SetText(MatrixUtils::FormatMatrix(composedMatrix).c_str());
+            g3d->InsertEndChild(geoMat);
+            geos->InsertEndChild(g3d);
+          }
+
+          if (geos->FirstChildElement("Geometry3D")) {
+            te->InsertEndChild(geos);
+            Logger::Instance().Log(
+                Logger::Level::Info,
+                wxString::Format("MVR export truss flattened Symbol/Symdef geometry uuid=%s symdef=%s",
+                                 t.uuid.c_str(), t.sourceSymdefUuid.c_str())
+                    .ToStdString());
+          } else {
+            m_exportWarnings.push_back(
+                "MVR export could not resolve truss Symdef '" + t.sourceSymdefUuid +
+                "' for direct Geometry3D export; preserving Symbol/Symdef representation.");
+            tinyxml2::XMLElement *sym = doc.NewElement("Symbol");
+            const std::string symbolMatrixText = MatrixUtils::FormatMatrix(t.sourceSymbolMatrix);
+            const std::string symbolUuid = ResolveExportSymbolUuid(
+                t.sourceSymbolUuid, t.uuid, t.sourceSymdefUuid,
+                "mvr:symbol:truss:" + t.uuid + ":" + t.sourceSymdefUuid + ":" +
+                    symbolMatrixText + ":0",
+                usedSymbolUuids, &m_exportWarnings, "Truss uuid " + t.uuid);
+            sym->SetAttribute("uuid", symbolUuid.c_str());
+            sym->SetAttribute("symdef", t.sourceSymdefUuid.c_str());
+            tinyxml2::XMLElement *symMat = doc.NewElement("Matrix");
+            symMat->SetText(symbolMatrixText.c_str());
+            sym->InsertEndChild(symMat);
+            geos->InsertEndChild(sym);
+            te->InsertEndChild(geos);
+          }
+        } else {
+          tinyxml2::XMLElement *sym = doc.NewElement("Symbol");
+          const std::string symbolMatrixText = MatrixUtils::FormatMatrix(t.sourceSymbolMatrix);
+          const std::string symbolUuid = ResolveExportSymbolUuid(
+              t.sourceSymbolUuid, t.uuid, t.sourceSymdefUuid,
+              "mvr:symbol:truss:" + t.uuid + ":" + t.sourceSymdefUuid + ":" +
+                  symbolMatrixText + ":0",
+              usedSymbolUuids, &m_exportWarnings, "Truss uuid " + t.uuid);
+          sym->SetAttribute("uuid", symbolUuid.c_str());
+          sym->SetAttribute("symdef", t.sourceSymdefUuid.c_str());
+          tinyxml2::XMLElement *symMat = doc.NewElement("Matrix");
+          symMat->SetText(symbolMatrixText.c_str());
+          sym->InsertEndChild(symMat);
+          geos->InsertEndChild(sym);
+          te->InsertEndChild(geos);
+          Logger::Instance().Log(
+              Logger::Level::Info,
+              wxString::Format("MVR export truss keeps Symbol/Symdef uuid=%s symbol=%s symdef=%s",
+                               t.uuid.c_str(), symbolUuid.c_str(), t.sourceSymdefUuid.c_str())
+                  .ToStdString());
+        }
       } else if (!t.symbolFile.empty()) {
         std::string ext = fs::path(t.symbolFile).extension().string();
         std::transform(ext.begin(), ext.end(), ext.begin(),
@@ -3224,6 +3316,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
 // Export an MVR into memory by writing a temporary file and reading it back.
 bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes) {
+  return ExportToBuffer(outBytes, mvr::preferences::LoadExportOptions(ConfigManager::Get()));
+}
+
+// Export an MVR into memory with explicit options by writing a temporary file and reading it back.
+bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes, const MvrExportOptions &options) {
   outBytes.clear();
   wxFileName tempFile =
       wxFileName::CreateTempFileName("perastage_mvr_export_buffer");
@@ -3231,7 +3328,7 @@ bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes) {
     return false;
 
   const std::string tempPath = tempFile.GetFullPath().ToStdString();
-  const bool exported = ExportToFile(tempPath);
+  const bool exported = ExportToFile(tempPath, options);
   if (!exported) {
     wxRemoveFile(tempFile.GetFullPath());
     return false;

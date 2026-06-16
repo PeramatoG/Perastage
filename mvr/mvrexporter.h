@@ -17,6 +17,8 @@
  */
 #pragma once
 
+#include "mvr_export_options.h"
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -30,8 +32,12 @@ class MvrExporter
 public:
     // Serialize the scene and write a .mvr archive at the given path
     bool ExportToFile(const std::string& filePath);
+    // Serialize the scene with explicit options and write a .mvr archive at the given path.
+    bool ExportToFile(const std::string& filePath, const MvrExportOptions& options);
     // Serialize the scene and write a .mvr archive into an in-memory byte buffer.
     bool ExportToBuffer(std::vector<uint8_t>& outBytes);
+    // Serialize the scene with explicit options into an in-memory byte buffer.
+    bool ExportToBuffer(std::vector<uint8_t>& outBytes, const MvrExportOptions& options);
     // Return non-fatal export warnings collected during the most recent export.
     const std::vector<std::string>& GetExportWarnings() const;
 

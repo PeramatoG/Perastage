@@ -484,7 +484,10 @@ bool ConfigManager::SaveProject(const std::string &path) {
       [](std::vector<uint8_t> &sceneBytes) {
         const auto sceneExportStart = std::chrono::steady_clock::now();
         MvrExporter exporter;
-        const bool exported = exporter.ExportToBuffer(sceneBytes);
+        MvrExportOptions projectExportOptions;
+        projectExportOptions.trussGeometryExportMode =
+            MvrTrussGeometryExportMode::Standard;
+        const bool exported = exporter.ExportToBuffer(sceneBytes, projectExportOptions);
         const auto sceneExportEnd = std::chrono::steady_clock::now();
         Logger::Instance().Log(
             Logger::Level::Info,
