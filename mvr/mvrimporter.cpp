@@ -1507,6 +1507,32 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
   parseLayerAppearanceMap(root->FirstChildElement("UserData"));
 
+
+  std::unordered_map<std::string, tinyxml2::XMLElement *> rootTrussInfoByUuid;
+  // Collects root-level Perastage truss metadata by canonical exported UUID.
+  auto parseRootTrussInfoMap = [&](tinyxml2::XMLElement *userDataNode) {
+    if (!userDataNode)
+      return;
+    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data"); data;
+         data = data->NextSiblingElement("Data")) {
+      const std::string provider = ToLowerCopy(
+          Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
+      if (provider != "perastage")
+        continue;
+      for (tinyxml2::XMLElement *map = data->FirstChildElement("TrussInfoMap"); map;
+           map = map->NextSiblingElement("TrussInfoMap")) {
+        for (tinyxml2::XMLElement *info = map->FirstChildElement("TrussInfo"); info;
+             info = info->NextSiblingElement("TrussInfo")) {
+          const std::string uuid = CanonicalizeUuid(
+              Trim(info->Attribute("uuid") ? info->Attribute("uuid") : ""));
+          if (!uuid.empty())
+            rootTrussInfoByUuid[uuid] = info;
+        }
+      }
+    }
+  };
+  parseRootTrussInfoMap(root->FirstChildElement("UserData"));
+
   // ---- Parse AUXData for Symdefs and Positions ----
   std::unordered_map<std::string, std::string> legacyPositionIdToCanonical;
   if (tinyxml2::XMLElement *auxNode = sceneNode->FirstChildElement("AUXData")) {
@@ -2188,6 +2214,71 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         scene.fixtures[fixture.uuid] = fixture;
       };
 
+  // Applies Perastage TrussInfo metadata while preserving GDTF authority rules.
+  auto applyTrussInfo = [&](tinyxml2::XMLElement *info, Truss &truss,
+                              bool hasGdtfMetadataAuthority) {
+    if (!info)
+      return;
+    if (!hasGdtfMetadataAuthority) {
+      if (tinyxml2::XMLElement *m = info->FirstChildElement("Manufacturer"))
+        if (m->GetText())
+          truss.manufacturer = Trim(m->GetText());
+      if (tinyxml2::XMLElement *mo = info->FirstChildElement("Model"))
+        if (mo->GetText())
+          truss.model = Trim(mo->GetText());
+      if (tinyxml2::XMLElement *len = info->FirstChildElement("Length"))
+        if (len->GetText()) {
+          float parsed = 0.0f;
+          if (TryParseFloat(len->GetText(), parsed))
+            truss.lengthMm = parsed;
+        }
+      if (tinyxml2::XMLElement *wid = info->FirstChildElement("Width"))
+        if (wid->GetText()) {
+          float parsed = 0.0f;
+          if (TryParseFloat(wid->GetText(), parsed))
+            truss.widthMm = parsed;
+          else
+            truss.widthMm = 400.0f;
+        }
+      if (tinyxml2::XMLElement *hei = info->FirstChildElement("Height"))
+        if (hei->GetText()) {
+          float parsed = 0.0f;
+          if (TryParseFloat(hei->GetText(), parsed))
+            truss.heightMm = parsed;
+          else
+            truss.heightMm = 400.0f;
+        }
+      if (tinyxml2::XMLElement *wei = info->FirstChildElement("Weight"))
+        if (wei->GetText()) {
+          float parsed = 0.0f;
+          if (TryParseFloat(wei->GetText(), parsed))
+            truss.weightKg = parsed;
+        }
+      if (tinyxml2::XMLElement *cs = info->FirstChildElement("CrossSection"))
+        if (cs->GetText())
+          truss.crossSection = Trim(cs->GetText());
+    }
+    if (tinyxml2::XMLElement *mf = info->FirstChildElement("ModelFile"))
+      if (mf->GetText())
+        truss.modelFile = mf->GetText();
+    if (tinyxml2::XMLElement *hp = info->FirstChildElement("PositionName"))
+      if (hp->GetText())
+        truss.positionName = Trim(hp->GetText());
+    if (truss.positionName.empty())
+      if (tinyxml2::XMLElement *hp = info->FirstChildElement("HangPos"))
+        if (hp->GetText())
+          truss.positionName = Trim(hp->GetText());
+    if (tinyxml2::XMLElement *rep = info->FirstChildElement("Representation"))
+      if (rep->GetText())
+        truss.sourceRepresentation = ParseTrussRepresentation(rep->GetText());
+    if (tinyxml2::XMLElement *tk = info->FirstChildElement("TypeKey"))
+      if (tk->GetText())
+        truss.perastageTypeKey = Trim(tk->GetText());
+    if (tinyxml2::XMLElement *ag = info->FirstChildElement("AuxGdtf"))
+      if (ag->GetText())
+        truss.perastageAuxGdtfArchivePath = RemapArchivePathIfNeeded(Trim(ag->GetText()));
+  };
+
   std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const Matrix &, const std::string &)> parseTruss =
       [&](tinyxml2::XMLElement *node, const std::string &layerName,
           const Matrix &nodeTransform, const Matrix &localTransform, const std::string &parentGroupUuid) {
@@ -2297,70 +2388,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
         const bool hasGdtfMetadataAuthority = !truss.gdtfSpec.empty() && !gdtfLoadFailed;
 
-        if (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData")) {
+        auto rootTrussInfoIt = rootTrussInfoByUuid.find(truss.uuid);
+        if (rootTrussInfoIt != rootTrussInfoByUuid.end()) {
+          applyTrussInfo(rootTrussInfoIt->second, truss, hasGdtfMetadataAuthority);
+        } else if (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData")) {
           for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
                data = data->NextSiblingElement("Data")) {
-            if (tinyxml2::XMLElement *info =
-                    data->FirstChildElement("TrussInfo")) {
-              // GDTF values are authoritative when available. TrussInfo is used
-              // only as fallback metadata if GDTF could not be loaded.
-              if (!hasGdtfMetadataAuthority) {
-                if (tinyxml2::XMLElement *m =
-                        info->FirstChildElement("Manufacturer"))
-                  if (m->GetText())
-                    truss.manufacturer = Trim(m->GetText());
-                if (tinyxml2::XMLElement *mo = info->FirstChildElement("Model"))
-                  if (mo->GetText())
-                    truss.model = Trim(mo->GetText());
-                if (tinyxml2::XMLElement *len = info->FirstChildElement("Length"))
-                  if (len->GetText()) {
-                    float parsed = 0.0f;
-                    if (TryParseFloat(len->GetText(), parsed))
-                      truss.lengthMm = parsed;
-                  }
-                if (tinyxml2::XMLElement *wid = info->FirstChildElement("Width"))
-                  if (wid->GetText()) {
-                    float parsed = 0.0f;
-                    if (TryParseFloat(wid->GetText(), parsed))
-                      truss.widthMm = parsed;
-                    else
-                      truss.widthMm = 400.0f;
-                  }
-                if (tinyxml2::XMLElement *hei = info->FirstChildElement("Height"))
-                  if (hei->GetText()) {
-                    float parsed = 0.0f;
-                    if (TryParseFloat(hei->GetText(), parsed))
-                      truss.heightMm = parsed;
-                    else
-                      truss.heightMm = 400.0f;
-                  }
-                if (tinyxml2::XMLElement *wei = info->FirstChildElement("Weight"))
-                  if (wei->GetText()) {
-                    float parsed = 0.0f;
-                    if (TryParseFloat(wei->GetText(), parsed))
-                      truss.weightKg = parsed;
-                  }
-                if (tinyxml2::XMLElement *cs =
-                        info->FirstChildElement("CrossSection"))
-                  if (cs->GetText())
-                    truss.crossSection = Trim(cs->GetText());
-              }
-              if (tinyxml2::XMLElement *mf =
-                      info->FirstChildElement("ModelFile"))
-                if (mf->GetText())
-                  truss.modelFile = mf->GetText();
-              if (tinyxml2::XMLElement *hp = info->FirstChildElement("HangPos"))
-                if (hp->GetText())
-                  truss.positionName = Trim(hp->GetText());
-              if (tinyxml2::XMLElement *rep = info->FirstChildElement("Representation"))
-                if (rep->GetText())
-                  truss.sourceRepresentation = ParseTrussRepresentation(rep->GetText());
-              if (tinyxml2::XMLElement *tk = info->FirstChildElement("TypeKey"))
-                if (tk->GetText())
-                  truss.perastageTypeKey = Trim(tk->GetText());
-              if (tinyxml2::XMLElement *ag = info->FirstChildElement("AuxGdtf"))
-                if (ag->GetText())
-                  truss.perastageAuxGdtfArchivePath = RemapArchivePathIfNeeded(Trim(ag->GetText()));
+            if (tinyxml2::XMLElement *info = data->FirstChildElement("TrussInfo")) {
+              applyTrussInfo(info, truss, hasGdtfMetadataAuthority);
               break;
             }
           }

@@ -360,7 +360,14 @@ int main() {
   trDifferentType.uuid = "tr-3";
   trDifferentType.name = "TRUSS 3M";
   trDifferentType.lengthMm = 3000.0f;
-  scene.trusses[trDifferentType.uuid] = trDifferentType;
+  Truss trCanonical = trNonNumeric;
+  trCanonical.uuid = "12345678-1234-4234-9234-123456789ABC";
+  trCanonical.name = "Canonical Truss";
+  trCanonical.lengthMm = 4000.0f;
+  trCanonical.unitNumber = 12;
+  trCanonical.customId = 34;
+  trCanonical.customIdType = 56;
+  scene.trusses[trCanonical.uuid] = trCanonical;
 
   Support sup;
   sup.uuid = "sup-1";
@@ -483,6 +490,10 @@ int main() {
   bool sawFixtureVisualizationColorWithoutMvrColor = false;
   bool sawFixtureGelColor = false;
   bool sawNonNumericTrussNameFixtureIdConsistency = false;
+  bool sawCanonicalTrussUuidUnchanged = false;
+  bool sawInvalidTrussUuidRepaired = false;
+  bool sawCanonicalTrussStandardChildren = false;
+  std::string repairedInvalidTrussUuid;
   bool sawPrimitiveSphereWithIdentityGeometryMatrix = false;
   bool sawPrimitivePipeObjectMatrixUnbaked = false;
   bool sawPrimitivePipeGeometryMatrixNormalized = false;
@@ -612,7 +623,22 @@ int main() {
               ++mvrGeometryTrussesWithRenderableGdtf;
 
             const char *trussUuid = cur->Attribute("uuid");
-            if (trussUuid != nullptr && std::string(trussUuid) == trNonNumeric.uuid) {
+            assert(trussUuid != nullptr);
+            assert(CanonicalizeUuid(trussUuid) == std::string(trussUuid));
+            assert(cur->FirstChildElement("UserData") == nullptr);
+            if (std::string(trussUuid) == trCanonical.uuid) {
+              sawCanonicalTrussUuidUnchanged = true;
+              sawCanonicalTrussStandardChildren =
+                  cur->FirstChildElement("FixtureID") != nullptr &&
+                  cur->FirstChildElement("FixtureIDNumeric") != nullptr &&
+                  cur->FirstChildElement("UnitNumber") != nullptr &&
+                  cur->FirstChildElement("CustomId") != nullptr &&
+                  cur->FirstChildElement("CustomIdType") != nullptr;
+            }
+            const char *trussName = cur->Attribute("name");
+            if (trussName != nullptr && std::string(trussName) == trNonNumeric.name) {
+              sawInvalidTrussUuidRepaired = std::string(trussUuid) != trNonNumeric.uuid;
+              repairedInvalidTrussUuid = trussUuid;
               sawNonNumericTrussNameFixtureIdConsistency =
                   fixtureIdText == std::to_string(value);
             }
@@ -730,6 +756,10 @@ int main() {
   assert(sawFixtureVisualizationColorWithoutMvrColor);
   assert(sawFixtureGelColor);
   assert(sawNonNumericTrussNameFixtureIdConsistency);
+  assert(sawCanonicalTrussUuidUnchanged);
+  assert(sawInvalidTrussUuidRepaired);
+  assert(!repairedInvalidTrussUuid.empty());
+  assert(sawCanonicalTrussStandardChildren);
   assert(sawPrimitiveSphereWithIdentityGeometryMatrix);
   assert(sawPrimitivePipeObjectMatrixUnbaked);
   assert(sawPrimitivePipeGeometryMatrixNormalized);
@@ -778,6 +808,32 @@ int main() {
   assert(sawSphereInDefaultLayer);
   tinyxml2::XMLElement *rootUserData = root->FirstChildElement("UserData");
   assert(rootUserData != nullptr);
+  bool sawRootTrussInfoMap = false;
+  bool sawRepairedTrussInfo = false;
+  bool sawCanonicalTrussInfo = false;
+  for (tinyxml2::XMLElement *data = rootUserData->FirstChildElement("Data"); data;
+       data = data->NextSiblingElement("Data")) {
+    const char *provider = data->Attribute("provider");
+    if (provider == nullptr || std::string(provider) != "Perastage")
+      continue;
+    for (tinyxml2::XMLElement *map = data->FirstChildElement("TrussInfoMap"); map;
+         map = map->NextSiblingElement("TrussInfoMap")) {
+      sawRootTrussInfoMap = true;
+      for (tinyxml2::XMLElement *info = map->FirstChildElement("TrussInfo"); info;
+           info = info->NextSiblingElement("TrussInfo")) {
+        const char *uuid = info->Attribute("uuid");
+        assert(uuid != nullptr);
+        assert(CanonicalizeUuid(uuid) == std::string(uuid));
+        if (std::string(uuid) == repairedInvalidTrussUuid)
+          sawRepairedTrussInfo = true;
+        if (std::string(uuid) == trCanonical.uuid)
+          sawCanonicalTrussInfo = true;
+      }
+    }
+  }
+  assert(sawRootTrussInfoMap);
+  assert(sawRepairedTrussInfo);
+  assert(sawCanonicalTrussInfo);
 
   tinyxml2::XMLElement *auxNode = sceneNode->FirstChildElement("AUXData");
   assert(auxNode != nullptr);
