@@ -48,6 +48,7 @@ void MainWindow::SyncViewportToolToggleState(bool measureEnabled) {
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, !measureEnabled);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, measureEnabled);
   SyncAxisConstraintToolToggleState();
+  SyncLeftDragMoveToolToggleState();
   layoutViewsToolBar->ToggleTool(
       ID_View_Viewport_Magnet,
       GetDefaultGuiConfigServices().Preferences().GetValue(
@@ -64,6 +65,17 @@ void MainWindow::SyncAxisConstraintToolToggleState() {
       GetDefaultGuiConfigServices().Preferences().GetValue(
           selection_movement_settings::kAxisConstrainedMovementConfigKey) !=
           "0");
+}
+
+// Synchronizes the left-click selection dragging toolbar toggle with project settings.
+void MainWindow::SyncLeftDragMoveToolToggleState() {
+  if (!layoutViewsToolBar)
+    return;
+  layoutViewsToolBar->ToggleTool(
+      ID_View_Viewport_LeftDragMove,
+      GetDefaultGuiConfigServices().Preferences().GetValue(
+          selection_movement_settings::kLeftDragSelectionMovementConfigKey) ==
+          "1");
 }
 
 // Switches the viewport interaction back to standard selection mode.
@@ -99,6 +111,19 @@ void MainWindow::OnViewportAxisConstraint(wxCommandEvent &WXUNUSED(event)) {
       selection_movement_settings::kAxisConstrainedMovementConfigKey,
       axisConstraintEnabled ? "0" : "1");
   SyncAxisConstraintToolToggleState();
+}
+
+// Toggles project-level left-click selection dragging.
+void MainWindow::OnViewportLeftDragMove(wxCommandEvent &WXUNUSED(event)) {
+  auto &preferences = GetDefaultGuiConfigServices().Preferences();
+  const bool enabled =
+      preferences.GetValue(
+          selection_movement_settings::kLeftDragSelectionMovementConfigKey) ==
+      "1";
+  preferences.SetValue(
+      selection_movement_settings::kLeftDragSelectionMovementConfigKey,
+      enabled ? "0" : "1");
+  SyncLeftDragMoveToolToggleState();
 }
 
 bool MainWindow::ApplyFitShortcut() {

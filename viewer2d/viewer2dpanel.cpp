@@ -2514,6 +2514,10 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     if (!m_enableSelection || !IsShownOnScreen())
       return;
 
+    const bool leftDragSelectionMovement =
+        selection_movement_settings::IsLeftDragSelectionMovementEnabled(
+            ConfigManager::Get());
+
     if (event.ControlDown()) {
       m_dragMode = DragMode::RectSelection;
       m_rectSelecting = true;
@@ -2522,6 +2526,9 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
       m_rectSelectEnd = m_lastMousePos;
       return;
     }
+
+    if (!leftDragSelectionMovement)
+      return;
 
     const RenderSize renderSize = ResolveRenderSize(this);
     const int w = renderSize.width;

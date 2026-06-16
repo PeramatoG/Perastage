@@ -1664,7 +1664,9 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
         }
 
         if (event.LeftDown() && !event.ShiftDown() && !event.MiddleDown() &&
-            !event.RightDown()) {
+            !event.RightDown() &&
+            selection_movement_settings::IsLeftDragSelectionMovementEnabled(
+                ConfigManager::Get())) {
             if (PrepareSelectionDrag(event.GetPosition())) {
                 m_lastMousePos = event.GetPosition();
                 m_draggedSincePress = false;

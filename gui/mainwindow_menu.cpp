@@ -139,9 +139,10 @@ void MainWindow::CreateToolBars() {
   const auto addToolWithDisabledIcon =
       [&](wxAuiToolBar *toolbar, int id, const wxString &label,
           const std::string &iconName, const wxArtID &fallbackArtId,
-          const wxString &shortHelp) {
+          const wxString &shortHelp,
+          wxItemKind kind = wxITEM_NORMAL) {
         toolbar->AddTool(id, label, loadToolbarIcon(iconName, fallbackArtId),
-                         shortHelp);
+                         shortHelp, kind);
 
         wxAuiToolBarItem *toolItem = toolbar->FindTool(id);
         if (toolItem) {
@@ -227,26 +228,23 @@ void MainWindow::CreateToolBars() {
                                               wxART_MISSING_IMAGE),
                               "Apply side view to active viewport");
   layoutViewsToolBar->AddSeparator();
-  layoutViewsToolBar->AddTool(ID_View_Viewport_SelectTool, "Select Tool",
-                              loadToolbarIcon("mouse-pointer-2",
-                                              wxART_NORMAL_FILE),
-                              "Switch to standard selection mode",
-                              wxITEM_CHECK);
-  layoutViewsToolBar->AddTool(ID_View_Viewport_MeasureTool, "Measure Tool",
-                              loadToolbarIcon("ruler-dimension-line",
-                                              wxART_MISSING_IMAGE),
-                              "Toggle center-to-center measure tool",
-                              wxITEM_CHECK);
-  layoutViewsToolBar->AddTool(ID_View_Viewport_AxisConstraint, "Axis Lock",
-                              loadToolbarIcon("move-3d",
-                                              wxART_MISSING_IMAGE),
-                              "Toggle axis-constrained selection movement",
-                              wxITEM_CHECK);
-  layoutViewsToolBar->AddTool(ID_View_Viewport_Magnet, "Magnet",
-                              loadToolbarIcon("magnet",
-                                              wxART_MISSING_IMAGE),
-                              "Toggle Magnet snapping while dragging",
-                              wxITEM_CHECK);
+  addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_SelectTool,
+                          "Select Tool", "mouse-pointer-2", wxART_NORMAL_FILE,
+                          "Switch to standard selection mode", wxITEM_CHECK);
+  addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_MeasureTool,
+                          "Measure Tool", "ruler-dimension-line",
+                          wxART_MISSING_IMAGE,
+                          "Toggle center-to-center measure tool", wxITEM_CHECK);
+  addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_AxisConstraint,
+                          "Axis Lock", "move-3d", wxART_MISSING_IMAGE,
+                          "Toggle axis-constrained selection movement",
+                          wxITEM_CHECK);
+  addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_LeftDragMove,
+                          "Drag Move", "move", wxART_MISSING_IMAGE,
+                          "Toggle left-click selection dragging", wxITEM_CHECK);
+  addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_Magnet, "Magnet",
+                          "magnet", wxART_MISSING_IMAGE,
+                          "Toggle Magnet snapping while dragging", wxITEM_CHECK);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, true);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, false);
   layoutViewsToolBar->ToggleTool(
@@ -254,6 +252,11 @@ void MainWindow::CreateToolBars() {
       GetDefaultGuiConfigServices().Preferences().GetValue(
           selection_movement_settings::kAxisConstrainedMovementConfigKey) !=
           "0");
+  layoutViewsToolBar->ToggleTool(
+      ID_View_Viewport_LeftDragMove,
+      GetDefaultGuiConfigServices().Preferences().GetValue(
+          selection_movement_settings::kLeftDragSelectionMovementConfigKey) ==
+          "1");
   layoutViewsToolBar->ToggleTool(
       ID_View_Viewport_Magnet,
       GetDefaultGuiConfigServices().Preferences().GetValue(
