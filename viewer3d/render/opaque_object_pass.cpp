@@ -19,6 +19,7 @@
 #include "mesh.h"
 #include "meshprimitives.h"
 #include "opaque_pass_utils.h"
+#include "resources/resource_sync_system.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
@@ -32,35 +33,27 @@
 #include <vector>
 
 namespace {
-void DrawBoundsSolid(const Viewer3DBoundingBox &bb) {
-  glBegin(GL_QUADS);
-  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.min[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.min[0], bb.min[1], bb.max[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.min[2]);
-  glVertex3f(bb.max[0], bb.max[1], bb.max[2]);
-  glVertex3f(bb.max[0], bb.min[1], bb.max[2]);
+// Draws mesh triangles with the active OpenGL color for ID picking.
+void DrawMeshSolidForPick(const Mesh &mesh, float scale) {
+  glPushMatrix();
+  glScalef(scale, scale, scale);
+  glBegin(GL_TRIANGLES);
+  for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+    const uint32_t i0 = mesh.indices[i];
+    const uint32_t i1 = mesh.indices[i + 1];
+    const uint32_t i2 = mesh.indices[i + 2];
+    glVertex3f(mesh.vertices[i0 * 3], mesh.vertices[i0 * 3 + 1],
+               mesh.vertices[i0 * 3 + 2]);
+    glVertex3f(mesh.vertices[i1 * 3], mesh.vertices[i1 * 3 + 1],
+               mesh.vertices[i1 * 3 + 2]);
+    glVertex3f(mesh.vertices[i2 * 3], mesh.vertices[i2 * 3 + 1],
+               mesh.vertices[i2 * 3 + 2]);
+  }
   glEnd();
+  glPopMatrix();
 }
 
+// Returns the shared fallback cube mesh for mesh-based scene object rendering.
 const Mesh &FallbackSceneObjectCubeMesh() {
   static const Mesh mesh = []() {
     Mesh cube;
@@ -88,11 +81,13 @@ const Mesh &FallbackSceneObjectCubeMesh() {
   return mesh;
 }
 
+// Returns the shared fallback cylinder mesh for pipe scene object rendering.
 const Mesh &FallbackSceneObjectCylinderMesh() {
   static const Mesh mesh = BuildCylinderMesh(0.5f, 1.0f, 24);
   return mesh;
 }
 
+// Checks whether a scene object should use the pipe fallback primitive.
 bool IsPipeSceneObject(const SceneObject &object) {
   if (!object.modelFile.empty() || !object.geometries.empty())
     return false;
@@ -104,6 +99,7 @@ bool IsPipeSceneObject(const SceneObject &object) {
   return upperName.rfind("PIPE", 0) == 0;
 }
 
+// Checks whether a scene object represents a screen surface.
 bool IsScreenSceneObject(const SceneObject &object) {
   std::string lowerName = object.name;
   std::transform(
@@ -113,6 +109,8 @@ bool IsScreenSceneObject(const SceneObject &object) {
          lowerName.find("pantalla") != std::string::npos;
 }
 
+// Checks whether a scene object symbol can be placed with an affine view
+// transform.
 bool CanUseAffineSymbolInstance(const Matrix &transform, Viewer2DView view) {
   constexpr float kEpsilon = 1e-4f;
   switch (view) {
@@ -130,6 +128,8 @@ bool CanUseAffineSymbolInstance(const Matrix &transform, Viewer2DView view) {
   return false;
 }
 
+// Returns a primitive scene object mesh for supported primitive model
+// references.
 const Mesh *TryGetPrimitiveSceneObjectMesh(const std::string &modelRef) {
   constexpr std::string_view prefix = "primitive:";
   if (modelRef.rfind(prefix.data(), 0) != 0)
@@ -157,6 +157,71 @@ struct SceneObjectSymbolPartSignature {
   std::string instanceKey;
   Matrix localTransform = MatrixUtils::Identity();
 };
+
+struct SceneObjectMeshPart {
+  const Mesh *mesh = nullptr;
+  Matrix localTransform = MatrixUtils::Identity();
+  std::string modelKey;
+  std::string instanceKey;
+};
+
+// Resolves all renderable mesh parts for a scene object.
+std::vector<SceneObjectMeshPart>
+ResolveSceneObjectMeshParts(const ResourceSyncState &resourceSyncState,
+                            const SceneObject &object) {
+  std::vector<SceneObjectMeshPart> objectMeshParts;
+  if (!object.geometries.empty()) {
+    for (const auto &geo : object.geometries) {
+      if (const Mesh *primitiveMesh =
+              TryGetPrimitiveSceneObjectMesh(geo.modelFile);
+          primitiveMesh != nullptr) {
+        SceneObjectMeshPart part;
+        part.mesh = primitiveMesh;
+        part.localTransform = geo.localTransform;
+        part.modelKey = NormalizeModelKey(geo.modelFile);
+        part.instanceKey = geo.instanceKey;
+        objectMeshParts.push_back(std::move(part));
+        continue;
+      }
+      std::string objectPath;
+      auto pathIt = resourceSyncState.resolvedModelRefs.find(
+          ResolveCacheKey(geo.modelFile));
+      if (pathIt != resourceSyncState.resolvedModelRefs.end() &&
+          pathIt->second.attempted)
+        objectPath = pathIt->second.resolvedPath;
+      if (objectPath.empty())
+        continue;
+      auto it = resourceSyncState.loadedMeshes.find(objectPath);
+      if (it == resourceSyncState.loadedMeshes.end())
+        continue;
+
+      SceneObjectMeshPart part;
+      part.mesh = &it->second;
+      part.localTransform = geo.localTransform;
+      part.modelKey = NormalizeModelKey(objectPath);
+      part.instanceKey = geo.instanceKey;
+      objectMeshParts.push_back(std::move(part));
+    }
+  } else if (!object.modelFile.empty()) {
+    std::string objectPath;
+    auto pathIt = resourceSyncState.resolvedModelRefs.find(
+        ResolveCacheKey(object.modelFile));
+    if (pathIt != resourceSyncState.resolvedModelRefs.end() &&
+        pathIt->second.attempted)
+      objectPath = pathIt->second.resolvedPath;
+    if (!objectPath.empty()) {
+      auto it = resourceSyncState.loadedMeshes.find(objectPath);
+      if (it != resourceSyncState.loadedMeshes.end()) {
+        SceneObjectMeshPart part;
+        part.mesh = &it->second;
+        part.modelKey = NormalizeModelKey(objectPath);
+        objectMeshParts.push_back(std::move(part));
+      }
+    }
+  }
+
+  return objectMeshParts;
+}
 
 // Builds a cache signature for SceneObject symbol captures.
 std::string BuildSceneObjectSymbolSignature(
@@ -203,6 +268,8 @@ std::string BuildSceneObjectSymbolSignature(
 
 } // namespace
 
+// Renders scene objects for color, capture, selection overlay, and ID picking
+// passes.
 void OpaqueObjectPass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
     const Viewer3DVisibleSet &visibleSet,
@@ -213,13 +280,42 @@ void OpaqueObjectPass::Render(
         &getPickColor) {
   if (context.idOnlyPass) {
     glShadeModel(GL_FLAT);
+    const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
     for (const auto &uuid : visibleSet.objectUuids) {
-      auto bbIt = controller.m_objectBounds.find(uuid);
-      if (bbIt == controller.m_objectBounds.end())
+      auto sceneIt = sceneObjects.find(uuid);
+      if (sceneIt == sceneObjects.end())
         continue;
       const auto pickColor = getPickColor(uuid);
       glColor3f(pickColor[0], pickColor[1], pickColor[2]);
-      DrawBoundsSolid(bbIt->second);
+      const auto &object = sceneIt->second;
+      const auto objectMeshParts =
+          ResolveSceneObjectMeshParts(controller.m_resourceSyncState, object);
+      if (!objectMeshParts.empty()) {
+        glPushMatrix();
+        float matrix[16];
+        MatrixToArray(object.transform, matrix);
+        controller.ApplyTransform(matrix, true);
+        for (const auto &part : objectMeshParts) {
+          float localMatrix[16];
+          MatrixToArray(part.localTransform, localMatrix);
+          glPushMatrix();
+          controller.ApplyTransform(localMatrix, false);
+          DrawMeshSolidForPick(*part.mesh, RENDER_SCALE);
+          glPopMatrix();
+        }
+        glPopMatrix();
+        continue;
+      }
+
+      glPushMatrix();
+      float matrix[16];
+      MatrixToArray(object.transform, matrix);
+      controller.ApplyTransform(matrix, true);
+      const Mesh &fallbackMesh = IsPipeSceneObject(object)
+                                     ? FallbackSceneObjectCylinderMesh()
+                                     : FallbackSceneObjectCubeMesh();
+      DrawMeshSolidForPick(fallbackMesh, 0.3f);
+      glPopMatrix();
     }
     return;
   }
@@ -296,62 +392,8 @@ void OpaqueObjectPass::Render(
       return TransformPoint(captureTransform, p);
     };
 
-    struct SceneObjectMeshPart {
-      const Mesh *mesh = nullptr;
-      Matrix localTransform = MatrixUtils::Identity();
-      std::string modelKey;
-      std::string instanceKey;
-    };
-    std::vector<SceneObjectMeshPart> objectMeshParts;
-    if (!m.geometries.empty()) {
-      for (const auto &geo : m.geometries) {
-        if (const Mesh *primitiveMesh =
-                TryGetPrimitiveSceneObjectMesh(geo.modelFile);
-            primitiveMesh != nullptr) {
-          SceneObjectMeshPart part;
-          part.mesh = primitiveMesh;
-          part.localTransform = geo.localTransform;
-          part.modelKey = NormalizeModelKey(geo.modelFile);
-          part.instanceKey = geo.instanceKey;
-          objectMeshParts.push_back(std::move(part));
-          continue;
-        }
-        std::string objectPath;
-        auto pathIt = controller.m_resourceSyncState.resolvedModelRefs.find(
-            ResolveCacheKey(geo.modelFile));
-        if (pathIt != controller.m_resourceSyncState.resolvedModelRefs.end() &&
-            pathIt->second.attempted)
-          objectPath = pathIt->second.resolvedPath;
-        if (objectPath.empty())
-          continue;
-        auto it = controller.m_resourceSyncState.loadedMeshes.find(objectPath);
-        if (it == controller.m_resourceSyncState.loadedMeshes.end())
-          continue;
-
-        SceneObjectMeshPart part;
-        part.mesh = &it->second;
-        part.localTransform = geo.localTransform;
-        part.modelKey = NormalizeModelKey(objectPath);
-        part.instanceKey = geo.instanceKey;
-        objectMeshParts.push_back(std::move(part));
-      }
-    } else if (!m.modelFile.empty()) {
-      std::string objectPath;
-      auto pathIt = controller.m_resourceSyncState.resolvedModelRefs.find(
-          ResolveCacheKey(m.modelFile));
-      if (pathIt != controller.m_resourceSyncState.resolvedModelRefs.end() &&
-          pathIt->second.attempted)
-        objectPath = pathIt->second.resolvedPath;
-      if (!objectPath.empty()) {
-        auto it = controller.m_resourceSyncState.loadedMeshes.find(objectPath);
-        if (it != controller.m_resourceSyncState.loadedMeshes.end()) {
-          SceneObjectMeshPart part;
-          part.mesh = &it->second;
-          part.modelKey = NormalizeModelKey(objectPath);
-          objectMeshParts.push_back(std::move(part));
-        }
-      }
-    }
+    const auto objectMeshParts =
+        ResolveSceneObjectMeshParts(controller.m_resourceSyncState, m);
 
     auto drawSceneObjectGeometry =
         [&](const std::function<std::array<float, 3>(
