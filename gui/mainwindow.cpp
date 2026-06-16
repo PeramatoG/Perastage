@@ -76,6 +76,7 @@ using json = nlohmann::json;
 #include "autopatcher.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "magnet_snap.h"
 #include "highlight_status_bar.h"
 #include "consolepanel.h"
 #include "credentialstore.h"
@@ -384,6 +385,7 @@ EVT_MENU(ID_View_Viewport_Side, MainWindow::OnViewportSideView)
 EVT_MENU(ID_View_Viewport_SelectTool, MainWindow::OnViewportSelectTool)
 EVT_MENU(ID_View_Viewport_MeasureTool, MainWindow::OnViewportMeasureTool)
 EVT_MENU(ID_View_Viewport_AxisConstraint, MainWindow::OnViewportAxisConstraint)
+EVT_MENU(ID_View_Viewport_LeftDragMove, MainWindow::OnViewportLeftDragMove)
 EVT_MENU(ID_View_Viewport_Magnet, MainWindow::OnViewportMagnet)
 EVT_MENU(ID_View_Layout_2DView, MainWindow::OnLayoutAdd2DView)
 EVT_MENU(ID_View_Layout_Legend, MainWindow::OnLayoutAddLegend)
@@ -1189,6 +1191,7 @@ void MainWindow::UpdateToolBarAvailability() {
     layoutViewsToolBar->EnableTool(ID_View_Viewport_SelectTool, enableViewportTools);
     layoutViewsToolBar->EnableTool(ID_View_Viewport_MeasureTool, enableViewportTools);
     layoutViewsToolBar->EnableTool(ID_View_Viewport_AxisConstraint, enableViewportTools);
+    layoutViewsToolBar->EnableTool(ID_View_Viewport_LeftDragMove, enableViewportTools);
     layoutViewsToolBar->EnableTool(ID_View_Viewport_Magnet, enableViewportTools);
     layoutViewsToolBar->SetToolShortHelp(
         ID_View_Viewport_SelectTool,
@@ -1201,6 +1204,10 @@ void MainWindow::UpdateToolBarAvailability() {
     layoutViewsToolBar->SetToolShortHelp(
         ID_View_Viewport_AxisConstraint,
         enableViewportTools ? "Toggle axis-constrained selection movement"
+                            : "Disabled while editing Layout views");
+    layoutViewsToolBar->SetToolShortHelp(
+        ID_View_Viewport_LeftDragMove,
+        enableViewportTools ? "Toggle left-click selection dragging"
                             : "Disabled while editing Layout views");
     layoutViewsToolBar->SetToolShortHelp(
         ID_View_Viewport_Magnet,
@@ -1488,6 +1495,16 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     }
     if (viewport2DRenderPanel)
       viewport2DRenderPanel->ApplyConfig();
+    const bool magnetEnabled =
+        GetDefaultGuiConfigServices().Preferences().GetValue(
+            magnet_snap::kMagnetEnabledConfigKey) == "1";
+    if (viewportPanel)
+      viewportPanel->SetMagnetEnabled(magnetEnabled);
+    if (viewport2DPanel)
+      viewport2DPanel->SetMagnetEnabled(magnetEnabled);
+    SyncViewportToolToggleState(
+        (viewport2DPanel && viewport2DPanel->IsMeasureToolEnabled()) ||
+        (viewportPanel && viewportPanel->IsMeasureToolEnabled()));
     if (layerPanel)
       layerPanel->ReloadLayers();
     SplashScreen::SetMessage("Refreshing panels...");

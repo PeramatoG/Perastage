@@ -86,6 +86,7 @@ public:
   bool ApplyShortcutDecision(const gui::ShortcutExecutionDecision &decision);
   void SyncViewportToolToggleState(bool measureEnabled);
   void SyncAxisConstraintToolToggleState();
+  void SyncLeftDragMoveToolToggleState();
   void Ensure2DViewportAvailable();
   Viewer2DPanel *GetLayoutCapturePanel() const;
   Viewer2DOffscreenRenderer *GetOffscreenRenderer();
@@ -215,6 +216,7 @@ private:
   void OnViewportSelectTool(wxCommandEvent &event);
   void OnViewportMeasureTool(wxCommandEvent &event);
   void OnViewportMagnet(wxCommandEvent &event);
+  void OnViewportLeftDragMove(wxCommandEvent &event);
   void OnViewportAxisConstraint(wxCommandEvent &event);
 
   void OnUndo(wxCommandEvent &event);           // Undo action placeholder

@@ -6,6 +6,8 @@ Changes since `v1.3.0`.
 
 ## New features
 
+- Added a project-persistent Drag Move toolbar toggle for enabling left-click selection dragging, disabled by default to reduce accidental object moves while panning dense 2D and 3D views.
+
 - Added MVR Import / Export preferences with a truss geometry export mode selector, defaulting to the standard MVR representation while offering a direct Geometry3D compatibility mode for truss symbols.
 - Added a disabled-by-default Magnet snapping toolbar mode for 2D and 3D dragging, with truss-to-truss grouping on committed snaps and transform-only fixture/object snaps that preserve Hang Position and MVR compatibility.
 - Added a project-persistent Axis Lock toolbar toggle for selection dragging, enabled by default for axis-constrained moves and allowing free 2D movement plus Blender-style view-plane movement in 3D when disabled.
@@ -26,6 +28,8 @@ Changes since `v1.3.0`.
 - Improved 2D and 3D drag feedback so the bottom X/Y/Z status readout shows the dragged insertion-point position in a highlighted color while objects are being moved.
 
 ## Fixes
+
+- Improved disabled toolbar icon colors for viewport selection, measurement, axis-lock, drag-move, and Magnet tools so disabled tools no longer look highlighted in dark mode.
 
 - Preserved embedded MVR GDTF fixture references when reopening `.pstg` projects so fixtures affected by GDTF dictionary conflicts do not silently downgrade to dummy geometry on the next save.
 - Improved MVR compatibility by preserving Support objects during roundtrip export, preserving geometry-less Support nodes with empty Geometries and using small 10 cm placeholder geometry for otherwise empty SceneObject exports, and writing Truss children in schema-compatible order.

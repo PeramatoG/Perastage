@@ -103,6 +103,7 @@ Additional safeguards include:
 
 - OpenGL-based viewer with orbit, pan, zoom, and preset camera views.
 - Selection flows integrate with scene tables and command operations.
+- The viewport toolbar includes a Drag Move toggle for moving scene selections with a left-click drag. It is disabled by default to make viewport panning safer in dense scenes, and its state is stored with the project.
 - The viewport toolbar includes an axis-lock toggle for dragged scene selections. It is enabled by default for axis-constrained moves; disabling it stores the project setting and allows Blender-style free dragging on a plane parallel to the 3D camera view.
 - Context menu includes **Render style** with these options:
   - **Standard** for general-purpose scene reading.
