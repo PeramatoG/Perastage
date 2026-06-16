@@ -59,6 +59,7 @@ Changes since `v1.3.0`.
 - Fixed Add scene object so reusing an existing Perastage basic geometry object copies its primitive geometry data immediately instead of showing a default cube until the project is reopened.
 - Fixed basic geometry edit dialogs so position, screen size, and pipe length fields use the selected project distance units consistently.
 - Fixed 3D truss height labels so they show both the value and suffix in the selected project distance units.
+- Fixed 2D and 3D scene object picking so hollow or U-shaped meshes are selected by their visible geometry instead of their broad bounding boxes.
 
 ## Stability and reliability
 
