@@ -18,6 +18,7 @@
 #include "preferencesdialog.h"
 #include "preferences/gdtf_credentials_panel.h"
 #include "configmanager.h"
+#include "mvr_preferences.h"
 #include "guiconfigservices.h"
 #include "update/update_check_preferences.h"
 #include "units/units.h"
@@ -184,6 +185,40 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   gdtfCredentialsPanel = new GdtfCredentialsPanel(book);
   gdtfCredentialsPanel->LoadCredentials();
   book->AddPage(gdtfCredentialsPanel, "GDTF");
+
+  // MVR Import / Export page
+  wxPanel *mvrPanel = new wxPanel(book);
+  wxBoxSizer *mvrSizer = new wxBoxSizer(wxVERTICAL);
+  wxStaticBoxSizer *mvrExportSizer =
+      new wxStaticBoxSizer(wxVERTICAL, mvrPanel, "Export");
+  wxFlexGridSizer *mvrExportGrid = new wxFlexGridSizer(1, 2, 10, 10);
+  mvrExportGrid->AddGrowableCol(1, 1);
+  mvrExportGrid->Add(new wxStaticText(mvrExportSizer->GetStaticBox(), wxID_ANY,
+                                      "Truss geometry export mode:"),
+                     0, wxALIGN_CENTER_VERTICAL);
+  mvrTrussGeometryExportModeChoice =
+      new wxChoice(mvrExportSizer->GetStaticBox(), wxID_ANY);
+  mvrTrussGeometryExportModeChoice->Append("Standard MVR representation");
+  mvrTrussGeometryExportModeChoice->Append("Direct Geometry3D for truss symbols");
+  const MvrExportOptions mvrExportOptions = mvr::preferences::LoadExportOptions(cfg);
+  mvrTrussGeometryExportModeChoice->SetSelection(
+      mvrExportOptions.trussGeometryExportMode ==
+              MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols
+          ? 1
+          : 0);
+  mvrExportGrid->Add(mvrTrussGeometryExportModeChoice, 1, wxEXPAND);
+  mvrExportSizer->Add(mvrExportGrid, 0, wxALL | wxEXPAND, 8);
+  wxStaticText *mvrExportHint = new wxStaticText(
+      mvrExportSizer->GetStaticBox(), wxID_ANY,
+      "Standard MVR representation: preserves imported Symbol/Symdef references when possible.\n"
+      "Direct Geometry3D for truss symbols: expands truss Symbol/Symdef references into direct Geometry3D entries for broader importer compatibility.");
+  mvrExportHint->SetForegroundColour(
+      wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+  mvrExportHint->Wrap(740);
+  mvrExportSizer->Add(mvrExportHint, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
+  mvrSizer->Add(mvrExportSizer, 0, wxALL | wxEXPAND, 10);
+  mvrPanel->SetSizer(mvrSizer);
+  book->AddPage(mvrPanel, "MVR Import / Export");
 
   // 3D Viewer page
   wxPanel *viewer3dPanel = new wxPanel(book);
@@ -385,6 +420,14 @@ bool PreferencesDialog::ApplyPreferences() {
                viewer3dInvertOrbitCheck && viewer3dInvertOrbitCheck->GetValue()
                    ? "1"
                    : "0");
+
+  MvrExportOptions mvrExportOptions;
+  mvrExportOptions.trussGeometryExportMode =
+      mvrTrussGeometryExportModeChoice &&
+              mvrTrussGeometryExportModeChoice->GetSelection() == 1
+          ? MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols
+          : MvrTrussGeometryExportMode::Standard;
+  mvr::preferences::SaveExportOptions(cfg, mvrExportOptions);
 
   if (gdtfCredentialsPanel)
     gdtfCredentialsPanel->ApplyCredentials();

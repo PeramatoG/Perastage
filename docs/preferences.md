@@ -10,12 +10,24 @@ Current user-facing preferences include:
 - Weight units
 - GDTF-related settings
 - Update check behavior (startup recommended or manual only)
+- MVR import/export settings
 
 ## Why preferences matter
 
 - Unit settings affect how values are shown in the interface.
 - GDTF-related options affect fixture profile handling and lookup behavior.
 - Preferences help keep the app aligned with your workflow without changing scene data intent.
+
+## MVR Import / Export
+
+The **MVR Import / Export** tab is the location for MVR-related import and export preferences. The current export setting controls how truss geometry is written when exporting MVR files.
+
+### Truss geometry export mode
+
+- **Standard MVR representation**: the default. Perastage preserves imported Truss `Symbol`/`Symdef` references when possible, keeping the standards-oriented structure intact.
+- **Direct Geometry3D for truss symbols**: Perastage expands truss `Symbol`/`Symdef` references into direct `Geometry3D` entries under the exported Truss node. This can improve compatibility with importers that expect direct truss geometry while still writing valid MVR.
+
+Project saves keep the standard representation so internal `.pstg` scene storage remains non-lossy.
 
 ## Update check behavior
 

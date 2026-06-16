@@ -6,6 +6,7 @@ Changes since `v1.3.0`.
 
 ## New features
 
+- Added MVR Import / Export preferences with a truss geometry export mode selector, defaulting to the standard MVR representation while offering a direct Geometry3D compatibility mode for truss symbols.
 - Added a disabled-by-default Magnet snapping toolbar mode for 2D and 3D dragging, with truss-to-truss grouping on committed snaps and transform-only fixture/object snaps that preserve Hang Position and MVR compatibility.
 - Added a project-persistent Axis Lock toolbar toggle for selection dragging, enabled by default for axis-constrained moves and allowing free 2D movement plus Blender-style view-plane movement in 3D when disabled.
 - Expanded basic primitive creation and editing for spheres, cubes, and cylinders with editable names, project-persistent default dimensions, default load/save buttons, and richer edit controls for position and rotation.

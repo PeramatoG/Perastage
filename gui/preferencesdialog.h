@@ -59,6 +59,7 @@ private:
   wxChoice *distanceUnitChoice = nullptr;
   wxChoice *weightUnitChoice = nullptr;
   wxChoice *updateCheckModeChoice = nullptr;
+  wxChoice *mvrTrussGeometryExportModeChoice = nullptr;
   wxString initialDistanceUnit;
   wxString initialWeightUnit;
   GdtfCredentialsPanel *gdtfCredentialsPanel = nullptr;
