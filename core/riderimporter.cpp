@@ -1132,6 +1132,7 @@ BuildTrussDictionaryLookupKeys(const std::string &modelToken,
 // ExtractPdfText moved to pdftext.cpp
 } // namespace
 
+// Loads rider text from supported text or PDF file paths.
 std::string RiderImporter::LoadText(const std::string &path) {
   std::string ext;
   const size_t dotPos = path.find_last_of('.');
@@ -1146,6 +1147,7 @@ std::string RiderImporter::LoadText(const std::string &path) {
   return {};
 }
 
+// Imports scene data from a rider file path.
 bool RiderImporter::Import(const std::string &path,
                            ProgressCallback progressCallback) {
   std::string text = LoadText(path);
@@ -1597,7 +1599,7 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
       capText << std::fixed << std::setprecision(0) << std::round(capacityKg);
       hoistLines.push_back("MOTOR " + capText.str());
       hoistLines.back() =
-          std::to_string(quantity) + " " + hoistLines.back() + "Kg PARA " + target;
+          std::to_string(quantity) + " " + hoistLines.back() + "Kg FOR " + target;
     };
     for (const HoistPreviewRequest &request : hoistRequests) {
       if (request.target == "LX") {

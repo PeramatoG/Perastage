@@ -37,7 +37,7 @@ Filter behavior:
 1. Keeps only lines interpreted as fixture entries in fixture sections.
 2. Keeps truss/rigging lines and emits a normalized `RIGGING` block.
 3. Keeps motor/hoist lines found in rigging and normalizes them as
-   `N MOTOR <capacity>Kg PARA <hang>`.
+   `N MOTOR <capacity>Kg FOR <hang>`.
 4. Groups fixture output by detected hang (`LX1`, `LX2`, `FLOOR`, ...).
 5. Normalizes floor aliases to `FLOOR`:
    - `floor`
@@ -59,6 +59,9 @@ Filter behavior:
 15. Truss targets with accessory suffixes are normalized to the effective hang
     target (for example, `... + HUESITOS PARA PUENTES LX` is interpreted as
     `PUENTES LX`).
+16. Hoist/motor target keywords in the filtered preview are normalized to
+    English `FOR`, while `PARA` remains accepted in input text and existing
+    normalized text.
 
 After applying the filter, users can manually adjust the filtered text and then
 press **Create**; the same normalization rules are still applied at creation
@@ -325,8 +328,8 @@ Special case:
 
 Supported hoist syntax includes:
 
-- `N MOTOR <capacity><unit> [ ... ] PARA <hang>`
-- `N HOIST <capacity><unit> [ ... ] PARA <hang>`
+- `N MOTOR <capacity><unit> [ ... ] FOR <hang>`
+- `N HOIST <capacity><unit> [ ... ] FOR <hang>`
 - Optional list bullets (`-` or `*`) before quantity are accepted.
 
 Capacity parsing:
