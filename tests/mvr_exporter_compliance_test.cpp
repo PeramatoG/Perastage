@@ -1,6 +1,7 @@
 /*
  * This file is part of Perastage.
  */
+#include <algorithm>
 #include <cassert>
 #include <filesystem>
 #include <fstream>
@@ -179,9 +180,14 @@ int main() {
   fs::create_directories(tempDir / "B");
   fs::create_directories(tempDir / "models");
   fs::create_directories(tempDir / "C");
+  fs::create_directories(tempDir / "case_a");
+  fs::create_directories(tempDir / "case_b");
 
   std::ofstream(tempDir / "A" / "Same.gdtf") << "A";
   std::ofstream(tempDir / "B" / "Same.gdtf") << "B";
+  std::ofstream(tempDir / "case_a" / "CaseOnly.gdtf") << "CASE A";
+  std::ofstream(tempDir / "case_b" / "caseonly.gdtf") << "CASE B";
+  std::ofstream(tempDir / "@PerastageFixture.gdtf") << "AT";
   std::ofstream(tempDir / "mesh.3ds") << "mesh";
   std::ofstream(tempDir / "models" / "truss_model.3ds") << "truss";
   std::ofstream(tempDir / "models" / "support_model.3ds") << "support";
@@ -245,6 +251,27 @@ int main() {
   fLongDup.gdtfSpec = duplicateLongNamedGdtf.generic_string();
   fLongDup.address = "8.1";
   scene.fixtures[fLongDup.uuid] = fLongDup;
+
+  Fixture fCaseA;
+  fCaseA.uuid = "fx-case-a";
+  fCaseA.instanceName = "Case A";
+  fCaseA.gdtfSpec = (tempDir / "case_a" / "CaseOnly.gdtf").generic_string();
+  fCaseA.address = "19.1";
+  scene.fixtures[fCaseA.uuid] = fCaseA;
+
+  Fixture fCaseB;
+  fCaseB.uuid = "fx-case-b";
+  fCaseB.instanceName = "Case B";
+  fCaseB.gdtfSpec = (tempDir / "case_b" / "caseonly.gdtf").generic_string();
+  fCaseB.address = "20.1";
+  scene.fixtures[fCaseB.uuid] = fCaseB;
+
+  Fixture fAt;
+  fAt.uuid = "fx-at";
+  fAt.instanceName = "At Fixture";
+  fAt.gdtfSpec = (tempDir / "@PerastageFixture.gdtf").generic_string();
+  fAt.address = "21.1";
+  scene.fixtures[fAt.uuid] = fAt;
 
   Fixture fEditedId;
   fEditedId.uuid = "fx-edited-id";
@@ -433,13 +460,31 @@ int main() {
 
   const auto mvrGeometryEntries = ReadArchiveTextEntries(mvrPath);
   std::unordered_set<std::string> entries;
-  for (const auto &[entryName, _] : mvrGeometryEntries)
+  for (const auto &[entryName, _] : mvrGeometryEntries) {
+    assert(entryName.find('/') == std::string::npos);
+    assert(entryName.find('\\') == std::string::npos);
+    assert(entryName.rfind("./", 0) != 0);
     entries.insert(entryName);
+  }
+  int caseOnlyEntryCount = 0;
+  for (const std::string &entryName : entries) {
+    std::string lowerEntry = entryName;
+    std::transform(lowerEntry.begin(), lowerEntry.end(), lowerEntry.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (lowerEntry == "caseonly.gdtf" || lowerEntry == "caseonly_2.gdtf")
+      ++caseOnlyEntryCount;
+  }
+  assert(caseOnlyEntryCount == 2);
+  assert(entries.count("@PerastageFixture.gdtf") == 1);
   auto xmlIt = mvrGeometryEntries.find("GeneralSceneDescription.xml");
   assert(xmlIt != mvrGeometryEntries.end());
   std::string xml = xmlIt->second;
 
   assert(!xml.empty());
+  assert(xml.find("Perastage/truss_types") == std::string::npos);
+  assert(xml.find("C:\\") == std::string::npos);
+  assert(xml.find('\\') == std::string::npos);
+  assert(xml.find(tempDir.generic_string()) == std::string::npos);
   tinyxml2::XMLDocument doc;
   assert(doc.Parse(xml.c_str()) == tinyxml2::XML_SUCCESS);
   tinyxml2::XMLElement *root = doc.FirstChildElement("GeneralSceneDescription");

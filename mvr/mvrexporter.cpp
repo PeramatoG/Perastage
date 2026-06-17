@@ -451,6 +451,10 @@ static std::string TruncateFileNamePreservingExtension(const std::string &fileNa
   return truncatedStem + extension;
 }
 
+// Sanitizes arbitrary input into a single portable archive filename.
+static std::string SanitizeArchiveFileName(const std::string &input,
+                                           const std::string &fallbackName);
+
 static std::string ResolveFallbackFixtureGdtfPath() {
   static const std::string resolvedPath = []() {
     const fs::path basePath = ProjectUtils::GetBaseLibraryPath("fixtures");
@@ -470,15 +474,26 @@ static std::string ResolveFallbackFixtureGdtfPath() {
   return resolvedPath;
 }
 
+// Returns true when an archive filename is already reserved case-insensitively.
+static bool ContainsArchiveFileNameCaseInsensitive(
+    const std::unordered_set<std::string> &usedPaths,
+    const std::string &candidate) {
+  const std::string candidateKey = ToLowerAscii(candidate);
+  return std::any_of(usedPaths.begin(), usedPaths.end(),
+                     [&](const std::string &used) {
+                       return ToLowerAscii(used) == candidateKey;
+                     });
+}
+
+// Creates a unique root-level MVR archive filename from any source-like path.
 static std::string EnsureUniqueArchivePath(const std::string &proposed,
                                            std::unordered_set<std::string> &usedPaths) {
   constexpr size_t kMaxArchiveEntryNameLength = 120;
-  fs::path path = fs::path(proposed).lexically_normal();
-  std::string normalized =
-      TruncateFileNamePreservingExtension(path.generic_string(), kMaxArchiveEntryNameLength);
-  if (normalized.empty())
+  std::string normalized = SanitizeArchiveFileName(proposed, "resource.bin");
+  normalized = TruncateFileNamePreservingExtension(normalized, kMaxArchiveEntryNameLength);
+  if (normalized.empty() || fs::path(normalized).stem().generic_string().empty())
     normalized = "resource.bin";
-  if (!usedPaths.contains(normalized)) {
+  if (!ContainsArchiveFileNameCaseInsensitive(usedPaths, normalized)) {
     usedPaths.insert(normalized);
     return normalized;
   }
@@ -486,7 +501,8 @@ static std::string EnsureUniqueArchivePath(const std::string &proposed,
   fs::path stemPath = fs::path(normalized);
   std::string ext = stemPath.extension().generic_string();
   std::string stem = stemPath.stem().generic_string();
-  fs::path parent = stemPath.parent_path();
+  if (stem.empty())
+    stem = "resource";
   int index = 1;
   while (true) {
     const std::string suffix = "_" + std::to_string(index + 1);
@@ -497,9 +513,10 @@ static std::string EnsureUniqueArchivePath(const std::string &proposed,
             : 0;
     if (adjustedStem.size() > candidateMaxStemLength)
       adjustedStem = adjustedStem.substr(0, candidateMaxStemLength);
-    std::string candidate =
-        (parent / (adjustedStem + suffix + ext)).generic_string();
-    if (!usedPaths.contains(candidate)) {
+    if (adjustedStem.empty())
+      adjustedStem = "resource";
+    std::string candidate = adjustedStem + suffix + ext;
+    if (!ContainsArchiveFileNameCaseInsensitive(usedPaths, candidate)) {
       usedPaths.insert(candidate);
       return candidate;
     }
@@ -507,6 +524,7 @@ static std::string EnsureUniqueArchivePath(const std::string &proposed,
   }
 }
 
+// Sanitizes arbitrary input into a single portable archive filename.
 static std::string SanitizeArchiveFileName(const std::string &input,
                                            const std::string &fallbackName) {
   constexpr size_t kMaxArchiveFileNameLength = 120;
@@ -542,6 +560,7 @@ static std::string SanitizeArchiveFileName(const std::string &input,
       sanitizeSingleFileName("", fallbackName), kMaxArchiveFileNameLength);
 }
 
+// Sanitizes arbitrary input into a relative archive path for legacy helpers.
 static std::string SanitizeArchiveRelativePath(const std::string &input,
                                                const std::string &fallbackName) {
   std::string candidate = TrimAscii(input);
@@ -567,6 +586,7 @@ static std::string SanitizeArchiveRelativePath(const std::string &input,
   return out.generic_string();
 }
 
+// Builds the preferred root-level GDTF archive filename for a truss.
 static std::string BuildTrussGdtfArchiveName(const Truss &truss) {
   std::string baseName = TrimAscii(truss.model);
   if (baseName.empty()) {
@@ -586,6 +606,7 @@ static std::string BuildTrussGdtfArchiveName(const Truss &truss) {
   return SanitizeArchiveFileName(baseName, "truss.gdtf");
 }
 
+// Builds the internal truss type key used for export-time resource reuse.
 static std::string BuildTrussTypeKey(const Truss &truss) {
   std::ostringstream key;
   key << TrimAscii(truss.gdtfSpec) << '|'
@@ -598,6 +619,27 @@ static std::string BuildTrussTypeKey(const Truss &truss) {
       << truss.heightMm << '|'
       << truss.weightKg;
   return key.str();
+}
+
+// Builds path-free Perastage truss type metadata for exported UserData.
+static std::string BuildExportTrussTypeKey(const Truss &truss,
+                                           const std::string &auxGdtfArchivePath) {
+  std::ostringstream key;
+  key << TrimAscii(truss.manufacturer) << '|'
+      << TrimAscii(truss.model) << '|'
+      << TrimAscii(truss.crossSection) << '|'
+      << truss.lengthMm << '|'
+      << truss.widthMm << '|'
+      << truss.heightMm << '|'
+      << truss.weightKg << '|'
+      << SanitizeArchiveFileName(auxGdtfArchivePath, "");
+  std::string value = key.str();
+  for (char &ch : value) {
+    const unsigned char uch = static_cast<unsigned char>(ch);
+    if (uch < 32 || ch == '/' || ch == '\\')
+      ch = '_';
+  }
+  return TrimAscii(value);
 }
 
 static const char *ToRepresentationText(Truss::GeometryRepresentation representation) {
@@ -615,19 +657,37 @@ static const char *ToRepresentationText(Truss::GeometryRepresentation representa
   }
 }
 
+// Returns true when a value is a root-level MVR FileName reference.
 static bool IsValidMvrFileName(const std::string &value) {
   if (value.empty())
     return false;
-  if (value.front() == '/' || value.find("..") != std::string::npos)
+  if (fs::path(value).stem().generic_string().empty())
     return false;
   for (unsigned char c : value) {
     if (c < 32)
       return false;
   }
-  return value.find(':') == std::string::npos && value.find('\\') == std::string::npos &&
+  return value.find('/') == std::string::npos &&
+         value.find('\\') == std::string::npos &&
+         value.find(':') == std::string::npos &&
          value.find('*') == std::string::npos && value.find('?') == std::string::npos &&
          value.find('"') == std::string::npos && value.find('<') == std::string::npos &&
-         value.find('>') == std::string::npos && value.find('|') == std::string::npos;
+         value.find('>') == std::string::npos && value.find('|') == std::string::npos &&
+         value != "." && value != "..";
+}
+
+// Returns true when exported metadata text looks like a local filesystem path.
+static bool LooksLikeLocalFilesystemPath(const std::string &value) {
+  const std::string trimmed = TrimAscii(value);
+  const std::string lower = ToLowerAscii(trimmed);
+  return trimmed.find('\\') != std::string::npos || trimmed.rfind("/", 0) == 0 ||
+         (trimmed.size() >= 3 && std::isalpha(static_cast<unsigned char>(trimmed[0])) &&
+          trimmed[1] == ':' && (trimmed[2] == '/' || trimmed[2] == '\\')) ||
+         lower.find("/users/") != std::string::npos ||
+         lower.find("/home/") != std::string::npos ||
+         lower.find("appdata") != std::string::npos ||
+         lower.find("/tmp/") != std::string::npos ||
+         lower.find("/temp/") != std::string::npos;
 }
 
 static bool IsCanonicalUuidString(const std::string &value) {
@@ -988,14 +1048,48 @@ static bool ValidateMvr16Export(
             wxLogError("MVR export validation failed: root TrussInfo references invalid exported Truss uuid '%s'", uuid);
             return false;
           }
+          for (const char *nodeName : {"ModelFile", "AuxGdtf", "TypeKey"}) {
+            if (tinyxml2::XMLElement *pathNode = info->FirstChildElement(nodeName)) {
+              const std::string value = TrimAscii(pathNode->GetText() ? pathNode->GetText() : "");
+              if (LooksLikeLocalFilesystemPath(value) || value.find('/') != std::string::npos ||
+                  value.find('\\') != std::string::npos) {
+                wxLogError("MVR export validation failed: Perastage UserData %s contains non-portable path text '%s'",
+                           nodeName, value);
+                return false;
+              }
+            }
+          }
         }
       }
       if (tinyxml2::XMLElement *manifest = data->FirstChildElement("TrussSidecarManifest")) {
+        for (tinyxml2::XMLElement *type = manifest->FirstChildElement("Type"); type;
+             type = type->NextSiblingElement("Type")) {
+          const std::string key = TrimAscii(type->Attribute("key") ? type->Attribute("key") : "");
+          const std::string gdtf = TrimAscii(type->Attribute("gdtf") ? type->Attribute("gdtf") : "");
+          if (LooksLikeLocalFilesystemPath(key) || key.find('/') != std::string::npos ||
+              key.find('\\') != std::string::npos) {
+            wxLogError("MVR export validation failed: Perastage UserData TrussSidecarManifest Type key contains non-portable path text '%s'",
+                       key);
+            return false;
+          }
+          if (!IsValidMvrFileName(gdtf)) {
+            wxLogError("MVR export validation failed: Perastage UserData TrussSidecarManifest Type gdtf '%s' is not a root-level MVR filename",
+                       gdtf);
+            return false;
+          }
+        }
         for (tinyxml2::XMLElement *inst = manifest->FirstChildElement("Instance"); inst;
              inst = inst->NextSiblingElement("Instance")) {
           const std::string uuid = TrimAscii(inst->Attribute("uuid") ? inst->Attribute("uuid") : "");
           if (!IsCanonicalUuidString(uuid) || !exportedTrussUuids.contains(uuid)) {
             wxLogError("MVR export validation failed: Truss sidecar manifest references invalid exported Truss uuid '%s'", uuid);
+            return false;
+          }
+          const std::string typeKey = TrimAscii(inst->Attribute("typeKey") ? inst->Attribute("typeKey") : "");
+          if (LooksLikeLocalFilesystemPath(typeKey) || typeKey.find('/') != std::string::npos ||
+              typeKey.find('\\') != std::string::npos) {
+            wxLogError("MVR export validation failed: Perastage UserData TrussSidecarManifest Instance typeKey contains non-portable path text '%s'",
+                       typeKey);
             return false;
           }
         }
@@ -1029,6 +1123,10 @@ static bool ValidateMvr16Export(
   }
 
   for (const auto &[archivePath, count] : archiveEntryCount) {
+    if (!IsValidMvrFileName(archivePath)) {
+      wxLogError("MVR export validation failed: ZIP entry '%s' is not a root-level MVR filename", archivePath);
+      return false;
+    }
     if (archivePath.empty()) {
       wxLogError("MVR export validation failed: found empty ZIP entry path");
       return false;
@@ -1405,12 +1503,14 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
   addNum("Height", truss.heightMm, "mm");
   addNum("Weight", truss.weightKg, "kg");
   addTxt("CrossSection", truss.crossSection);
-  addTxt("ModelFile", truss.modelFile);
+  addTxt("ModelFile", SanitizeArchiveFileName(truss.modelFile, ""));
   addTxt("PositionName", truss.positionName);
   addTxt("HangPos", truss.positionName);
   addTxt("Representation", ToRepresentationText(truss.sourceRepresentation));
-  addTxt("TypeKey", trussTypeKey.empty() ? truss.perastageTypeKey : trussTypeKey);
-  addTxt("AuxGdtf", auxGdtfArchivePath.empty() ? truss.perastageAuxGdtfArchivePath : auxGdtfArchivePath);
+  addTxt("TypeKey", trussTypeKey.empty() ? SanitizeArchiveFileName(truss.perastageTypeKey, "") : trussTypeKey);
+  const std::string exportedAuxGdtf =
+      auxGdtfArchivePath.empty() ? truss.perastageAuxGdtfArchivePath : auxGdtfArchivePath;
+  addTxt("AuxGdtf", SanitizeArchiveFileName(exportedAuxGdtf, ""));
   trussInfoMap->InsertEndChild(info);
 }
 
@@ -1810,6 +1910,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
   std::unordered_map<std::string, std::string> gdtfArchiveByObjectUuid;
   std::unordered_map<std::string, GdtfOverrides> gdtfOverrides;
   std::unordered_map<std::string, std::string> trussArchiveByTypeKey;
+  std::unordered_map<std::string, std::string> trussExportTypeKeyByTypeKey;
   std::unordered_map<std::string, std::string> trussInstanceToTypeKey;
   std::unordered_map<std::string, std::string> primitiveSourceByToken;
   std::unordered_set<std::string> reservedArchivePaths;
@@ -1872,7 +1973,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
           continue;
 
         std::string preferredTextureName =
-            SanitizeArchiveRelativePath(textureRef, texturePath.filename().generic_string());
+            SanitizeArchiveFileName(textureRef, texturePath.filename().generic_string());
         registerResource(texturePath.generic_string(), preferredTextureName);
       }
       return;
@@ -1891,7 +1992,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
         if (!fs::exists(candidate))
           continue;
 
-        std::string preferredTextureName = SanitizeArchiveRelativePath(
+        std::string preferredTextureName = SanitizeArchiveFileName(
             trimmedRef, candidate.filename().generic_string());
         registerResource(candidate.generic_string(), preferredTextureName);
       }
@@ -2500,14 +2601,18 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
           trussSourceGdtf = tempPath.string();
       }
 
-      std::string trussPreferredName = "Perastage/truss_types/" + BuildTrussGdtfArchiveName(t);
+      std::string trussPreferredName = BuildTrussGdtfArchiveName(t);
       trussGdtfArchivePath =
           registerGdtfResource(exportedTrussUuid, trussSourceGdtf, trussPreferredName, true);
       if (!trussGdtfArchivePath.empty())
         trussArchiveByTypeKey[trussTypeKey] = trussGdtfArchivePath;
     }
-    if (!trussTypeKey.empty())
-      trussInstanceToTypeKey[exportedTrussUuid] = trussTypeKey;
+    const std::string exportTrussTypeKey =
+        BuildExportTrussTypeKey(t, trussGdtfArchivePath);
+    if (!trussTypeKey.empty()) {
+      trussExportTypeKeyByTypeKey[trussTypeKey] = exportTrussTypeKey;
+      trussInstanceToTypeKey[exportedTrussUuid] = exportTrussTypeKey;
+    }
 
     if (!trussGdtfArchivePath.empty()) {
       auto &ov = gdtfOverrides[trussGdtfArchivePath];
@@ -2676,7 +2781,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     addInt("CustomIdType", t.customIdType);
 
     AppendTrussInfoMetadata(doc, trussInfoMap, t, exportedTrussUuid,
-                            trussTypeKey, trussGdtfArchivePath);
+                            exportTrussTypeKey, trussGdtfArchivePath);
 
     parent->InsertEndChild(te);
   };
@@ -3176,14 +3281,18 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     tinyxml2::XMLElement *data = FindOrCreatePerastageDataNode(doc, root);
     tinyxml2::XMLElement *manifest = doc.NewElement("TrussSidecarManifest");
     for (const auto &[typeKey, archivePath] : trussArchiveByTypeKey) {
+      const auto exportTypeKeyIt = trussExportTypeKeyByTypeKey.find(typeKey);
+      const std::string exportTypeKey = exportTypeKeyIt != trussExportTypeKeyByTypeKey.end()
+                                           ? exportTypeKeyIt->second
+                                           : SanitizeArchiveFileName(typeKey, "truss_type");
       tinyxml2::XMLElement *typeNode = doc.NewElement("Type");
-      typeNode->SetAttribute("key", typeKey.c_str());
+      typeNode->SetAttribute("key", exportTypeKey.c_str());
       typeNode->SetAttribute("gdtf", archivePath.c_str());
       manifest->InsertEndChild(typeNode);
       Logger::Instance().Log(
           Logger::Level::Info,
           wxString::Format("MVR export generated truss sidecar GDTF typeKey=%s archive=%s",
-                           typeKey.c_str(), archivePath.c_str())
+                           exportTypeKey.c_str(), archivePath.c_str())
               .ToStdString());
     }
     for (const auto &[uuid, typeKey] : trussInstanceToTypeKey) {
