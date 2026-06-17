@@ -47,16 +47,24 @@ tinyxml2::XMLElement *InsertFixtureTypeChildInOrder(
   }
 
   if (targetIndex >= 0) {
+    tinyxml2::XMLElement *previousElement = nullptr;
     for (tinyxml2::XMLElement *child = fixtureType->FirstChildElement(); child;
          child = child->NextSiblingElement()) {
-      for (int i = targetIndex + 1; i < static_cast<int>(sizeof(kOrder) / sizeof(kOrder[0])); ++i) {
-        if (std::string(child->Name()) == kOrder[i])
-          return fixtureType->InsertBeforeChild(child, node)->ToElement();
+      for (int i = targetIndex + 1;
+           i < static_cast<int>(sizeof(kOrder) / sizeof(kOrder[0])); ++i) {
+        if (std::string(child->Name()) == kOrder[i]) {
+          tinyxml2::XMLNode *inserted =
+              previousElement ? fixtureType->InsertAfterChild(previousElement, node)
+                              : fixtureType->InsertFirstChild(node);
+          return inserted ? inserted->ToElement() : nullptr;
+        }
       }
+      previousElement = child;
     }
   }
 
-  return fixtureType->InsertEndChild(node)->ToElement();
+  tinyxml2::XMLNode *inserted = fixtureType->InsertEndChild(node);
+  return inserted ? inserted->ToElement() : nullptr;
 }
 
 } // namespace
