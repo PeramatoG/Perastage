@@ -29,6 +29,8 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
+- Fixed Create from text filtering so normalized motor/hoist lines use the English `FOR` target keyword while preserving the same import behavior.
+
 - Improved disabled toolbar icon colors for viewport selection, measurement, axis-lock, drag-move, and Magnet tools so disabled tools no longer look highlighted in dark mode.
 
 - Preserved embedded MVR GDTF fixture references when reopening `.pstg` projects so fixtures affected by GDTF dictionary conflicts do not silently downgrade to dummy geometry on the next save.
