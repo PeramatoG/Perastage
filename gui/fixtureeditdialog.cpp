@@ -20,6 +20,7 @@
 #include "fixturetablepanel.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "hoist_load_recalculation_prompt.h"
 #include "filesystem_path_utils.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
@@ -41,6 +42,7 @@
 #include <wx/zipstrm.h>
 #include <tinyxml2.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <set>
 #include <cmath>
 #include <memory>
@@ -95,17 +97,17 @@ bool MatchesPhysicalPropertyType(const Fixture &fixture,
 }
 
 // Mirrors a GDTF physical-property edit to every row and fixture of the same type.
-void ApplySharedPhysicalPropertyEdit(wxDataViewListCtrl *table,
-                                     const std::vector<std::string> &rowUuids,
-                                     const std::string &sourceUuid,
-                                     float weightKg, float powerW) {
+std::unordered_set<std::string> ApplySharedPhysicalPropertyEdit(
+    wxDataViewListCtrl *table, const std::vector<std::string> &rowUuids,
+    const std::string &sourceUuid, float weightKg, float powerW) {
+  std::unordered_set<std::string> changedWeightPositions;
   if (!table || sourceUuid.empty())
-    return;
+    return changedWeightPositions;
 
   auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
   const auto sourceIt = scene.fixtures.find(sourceUuid);
   if (sourceIt == scene.fixtures.end())
-    return;
+    return changedWeightPositions;
 
   const std::string gdtfSpec = sourceIt->second.gdtfSpec;
   const std::string typeName = sourceIt->second.typeName;
@@ -122,6 +124,10 @@ void ApplySharedPhysicalPropertyEdit(wxDataViewListCtrl *table,
         !MatchesPhysicalPropertyType(fixtureIt->second, gdtfSpec, typeName))
       continue;
 
+    if (!Units::NearlyEqualWeightKilograms(fixtureIt->second.weightKg, weightKg, 0.001))
+      changedWeightPositions.insert(fixtureIt->second.positionName.empty()
+                                        ? "Unassigned"
+                                        : fixtureIt->second.positionName);
     fixtureIt->second.weightKg = weightKg;
     fixtureIt->second.powerConsumptionW = powerW;
     fixtureIt->second.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
@@ -129,6 +135,7 @@ void ApplySharedPhysicalPropertyEdit(wxDataViewListCtrl *table,
     table->SetValue(powerValue, rowIndex, 16);
     table->SetValue(weightValue, rowIndex, 17);
   }
+  return changedWeightPositions;
 }
 
 // Parses a floating-point value while preserving the previous value on failure.
@@ -1001,6 +1008,8 @@ void FixtureEditDialog::ApplyChanges() {
     }
   }
 
+  std::unordered_set<std::string> changedWeightPositions;
+
   if (!gdtfPath.empty()) {
     if (ctrls.size() > 17) {
       float newPowerW = originalPowerW;
@@ -1037,9 +1046,9 @@ void FixtureEditDialog::ApplyChanges() {
               "GDTF update", wxOK | wxICON_WARNING, this);
         } else {
           if (row >= 0 && static_cast<size_t>(row) < panel->rowUuids.size())
-            ApplySharedPhysicalPropertyEdit(table, panel->rowUuids,
-                                            panel->rowUuids[static_cast<size_t>(row)],
-                                            newWeightKg, newPowerW);
+            changedWeightPositions = ApplySharedPhysicalPropertyEdit(
+                table, panel->rowUuids, panel->rowUuids[static_cast<size_t>(row)],
+                newWeightKg, newPowerW);
           originalPowerW = newPowerW;
           originalWeightKg = newWeightKg;
         }
@@ -1063,6 +1072,9 @@ void FixtureEditDialog::ApplyChanges() {
         updateType, FixtureTablePanel::UpdateTypeForColumn(static_cast<int>(i)));
   }
   panel->UpdateSceneData(true, updateType);
+  HoistLoadRecalculationPrompt::PromptAndApply(
+      GetDefaultGuiConfigServices().LegacyConfigManager(), panel,
+      changedWeightPositions);
   applied = true;
   const bool requiresFullSceneUpdate =
       FixtureTablePanel::RequiresFullViewerSceneUpdate(updateType);
