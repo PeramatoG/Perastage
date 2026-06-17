@@ -1,6 +1,6 @@
 # GDTF mutation audit (Perastage)
 
-Perastage centralizes GDTF write traceability in `core/gdtf_mutation_audit.{h,cpp}`.
+Perastage centralizes standard GDTF revision traceability in `core/gdtf_mutation_audit.{h,cpp}`.
 
 ## API
 
@@ -9,24 +9,29 @@ Perastage centralizes GDTF write traceability in `core/gdtf_mutation_audit.{h,cp
 - `AppendRevision(...)`
 - `StampPerastageMutationMetadata(...)`
 
-These helpers are the single integration point for metadata that Perastage owns
-when mutating `description.xml` inside `.gdtf` archives.
+These helpers are the single integration point for standard GDTF revisions that
+Perastage writes when intentionally mutating `description.xml` inside `.gdtf`
+archives. `StampPerastageMutationMetadata(...)` is retained as a compatibility
+no-op for older call sites and must not write non-standard GDTF XML nodes.
 
-## Perastage mutation schema version
+## Legacy Perastage mutation schema version
 
 `kPerastageGdtfMutationSchemaVersion` is a Perastage-owned version marker for the
-shape and semantics of Perastage mutation metadata (for example the
+legacy shape and semantics of Perastage mutation metadata (for example the
 `<PerastageMutationAudit>` node and related attributes).
 
 - It is **independent** from GDTF format versioning.
-- It should be bumped only when Perastage changes its own mutation-audit contract.
+- Perastage does not write this node in new exports.
+- It exists so compatibility code can identify legacy files written by older builds.
 
 ## Relationship with Perastage app version
 
-Each mutation stamp persists the running app version (`app::kVersion` and display
-variant) alongside the schema version. In short:
+Each standard GDTF revision uses `ModifiedBy="Perastage " + app::kVersion`.
+In short:
 
-- **Schema version** = contract version for audit metadata structure.
-- **App version** = concrete Perastage build that performed the mutation.
+- **GDTF DataVersion** = GDTF compatibility version, for example `1.2`.
+- **Revision ModifiedBy app version** = concrete Perastage build that performed
+  the intentional mutation.
 
-This allows distinguishing "which metadata format" from "which app wrote it".
+This keeps Perastage application versioning separate from GDTF format
+compatibility versioning.

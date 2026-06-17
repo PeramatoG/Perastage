@@ -202,9 +202,7 @@ int main() {
   assert(hasRevision);
 
   tinyxml2::XMLElement *audit = fixtureType->FirstChildElement("PerastageMutationAudit");
-  assert(audit != nullptr);
-  assert(audit->IntAttribute("SchemaVersion") ==
-         GdtfMutationAudit::kPerastageGdtfMutationSchemaVersion);
+  assert(audit == nullptr);
 
   tinyxml2::XMLElement *revision =
       fixtureType->FirstChildElement("Revisions")->FirstChildElement("Revision");

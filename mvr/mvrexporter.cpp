@@ -17,6 +17,7 @@
  */
 #include "mvrexporter.h"
 #include "mvr_preferences.h"
+#include "app_version.h"
 #include "filesystem_path_utils.h"
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
@@ -127,7 +128,7 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
 static void LogLegacyPositionUuidWarning(const std::string &message);
 
 static constexpr const char *kMvrProvider = "Perastage";
-static constexpr const char *kMvrProviderVersion = "1.0";
+static constexpr const char *kPerastageUserDataSchemaVersion = "1.0";
 static constexpr const char *kDummyFallbackFixtureGdtfFileName = "Dummy 1ch.gdtf";
 static constexpr const char *kLegacyFallbackFixtureGdtfFileName = "Generic 1ch.gdtf";
 
@@ -761,6 +762,10 @@ static bool ValidateMvr16Export(
     wxLogError("MVR export validation failed: provider/providerVersion are required for MVR 1.6");
     return false;
   }
+  if (std::string(providerVersion) == "1.0" && std::string(app::kVersion) != "1.0") {
+    wxLogError("MVR export validation failed: providerVersion fell back to 1.0 instead of the Perastage app version");
+    return false;
+  }
 
   std::unordered_set<int> numericIds;
   std::vector<std::string> referencedFiles;
@@ -1392,7 +1397,7 @@ static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument
 
   tinyxml2::XMLElement *data = doc.NewElement("Data");
   data->SetAttribute("provider", kMvrProvider);
-  data->SetAttribute("ver", kMvrProviderVersion);
+  data->SetAttribute("ver", kPerastageUserDataSchemaVersion);
   ud->InsertEndChild(data);
   return data;
 }
@@ -1754,7 +1759,6 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
   }
 
   if (patched) {
-    GdtfMutationAudit::StampPerastageMutationMetadata(ft, doc);
     GdtfMutationAudit::AppendRevision(
         ft, doc, "Patched fixture metadata for MVR export",
         GdtfMutationAudit::BuildPerastageModifiedBy());
@@ -2186,10 +2190,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
   tinyxml2::XMLElement *root = doc.NewElement("GeneralSceneDescription");
   root->SetAttribute("verMajor", 1);
   root->SetAttribute("verMinor", 6);
-  root->SetAttribute("provider", scene.provider.empty() ? kMvrProvider : scene.provider.c_str());
-  root->SetAttribute("providerVersion",
-                     scene.providerVersion.empty() ? kMvrProviderVersion
-                                                   : scene.providerVersion.c_str());
+  root->SetAttribute("provider", kMvrProvider);
+  root->SetAttribute("providerVersion", app::kVersion);
   doc.InsertEndChild(root);
 
   if (HasLayerAppearanceMetadata(scene)) {
