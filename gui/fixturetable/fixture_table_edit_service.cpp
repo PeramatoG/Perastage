@@ -43,6 +43,18 @@ bool IsSameGdtfType(const Fixture &fixture, const std::string &gdtfSpec,
   return !typeName.empty() && fixture.typeName == typeName;
 }
 
+// Checks whether two fixtures share the same category-bearing type profile.
+bool IsSameFixtureCategoryType(const Fixture &fixture, const Fixture &reference) {
+  if (!reference.gdtfSpec.empty()) {
+    if (fixture.gdtfSpec != reference.gdtfSpec)
+      return false;
+    return reference.gdtfMode.empty() || fixture.gdtfMode == reference.gdtfMode;
+  }
+  if (!reference.typeName.empty() && fixture.typeName != reference.typeName)
+    return false;
+  return !reference.typeName.empty();
+}
+
 // Writes GDTF physical properties to the project GDTF file when a type value changes.
 bool UpdateProjectGdtfPhysicalProperties(const MvrScene &scene,
                                          const std::string &gdtfSpec,
@@ -480,6 +492,7 @@ void ApplyAppearanceChanges(FixtureTableEditService::ISceneAdapter &adapter,
   AppendChangeLogIfNeeded(tracking, logChanges);
 }
 
+// Applies category edits and synchronizes the type-level category across matching fixtures.
 void ApplyCategoryChanges(
     FixtureTableEditService::ISceneAdapter &adapter, wxDataViewListCtrl *table,
     const std::vector<std::string> &rowUuids,
@@ -537,6 +550,19 @@ void ApplyCategoryChanges(
       manualCategoriesByType[next.typeName] = next.category;
     }
     TrackUpdatedFixture(it->second, tracking, logChanges);
+
+    for (auto &[uuid, fixture] : scene.fixtures) {
+      if (uuid == it->first || !IsSameFixtureCategoryType(fixture, next))
+        continue;
+      if (fixture.category == next.category &&
+          fixture.categorySource == next.categorySource &&
+          fixture.categorySourceReason == next.categorySourceReason)
+        continue;
+      fixture.category = next.category;
+      fixture.categorySource = next.categorySource;
+      fixture.categorySourceReason = next.categorySourceReason;
+      TrackUpdatedFixture(fixture, tracking, logChanges);
+    }
   }
 
   GdtfDictionary::UpdateCategoriesBulk(manualCategoriesByType);
