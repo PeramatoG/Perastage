@@ -208,7 +208,7 @@ private:
   void FinalizeSelectionDrag();
   void DrawSelectionDragGizmo(int width, int height);
   void ApplyRectangleSelection(const wxPoint &start, const wxPoint &end,
-                               bool selectAcrossAllTables);
+                               bool selectAcrossAllTables, bool additive);
   void DrawSelectionRectangle(int width, int height, bool darkMode);
   void ScheduleDragTableUpdate();
   void StopDragTableUpdates();

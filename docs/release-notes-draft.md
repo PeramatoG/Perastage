@@ -29,6 +29,8 @@ Changes since `v1.3.0`.
 
 ## Fixes
 
+- Fixed 2D and 3D viewer Control and Control+Shift mouse selections so newly selected elements are added to the existing selection across tables instead of replacing or visually clearing it.
+
 - Fixed Create from text filtering so normalized motor/hoist lines use the English `FOR` target keyword while preserving the same import behavior.
 
 - Improved disabled toolbar icon colors for viewport selection, measurement, axis-lock, drag-move, and Magnet tools so disabled tools no longer look highlighted in dark mode.
