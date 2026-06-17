@@ -2576,20 +2576,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     tinyxml2::XMLElement *info = doc.NewElement("FixtureInfo");
     info->SetAttribute("uuid", stableUuid.c_str());
 
-    tinyxml2::XMLElement *stableIdNode = doc.NewElement("StableId");
-    stableIdNode->SetText(stableUuid.c_str());
-    info->InsertEndChild(stableIdNode);
-
-    tinyxml2::XMLElement *scriptNode = doc.NewElement("Script");
-    scriptNode->SetText(fixtureExportName.c_str());
-    info->InsertEndChild(scriptNode);
-
-    if (!f.instanceName.empty()) {
-      tinyxml2::XMLElement *instanceName = doc.NewElement("InstanceName");
-      instanceName->SetText(f.instanceName.c_str());
-      info->InsertEndChild(instanceName);
-    }
-
     if (!f.category.empty()) {
       tinyxml2::XMLElement *category = doc.NewElement("Category");
       category->SetText(f.category.c_str());

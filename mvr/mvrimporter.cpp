@@ -894,6 +894,43 @@ static void ReadFixtureCategoryFromUserData(tinyxml2::XMLElement *fixtureNode,
   }
 }
 
+struct LegacyFixtureIdentity {
+  std::string instanceName;
+  std::string stableId;
+};
+
+// Reads legacy Perastage fixture identity fields used by older MVR exports.
+static LegacyFixtureIdentity ReadLegacyFixtureIdentityFromUserData(
+    tinyxml2::XMLElement *fixtureNode) {
+  LegacyFixtureIdentity identity;
+  if (!fixtureNode)
+    return identity;
+
+  tinyxml2::XMLElement *ud = fixtureNode->FirstChildElement("UserData");
+  if (!ud)
+    return identity;
+
+  for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
+       data = data->NextSiblingElement("Data")) {
+    tinyxml2::XMLElement *info = data->FirstChildElement("FixtureInfo");
+    if (!info)
+      continue;
+
+    auto readText = [&](const char *name) -> std::string {
+      if (tinyxml2::XMLElement *el = info->FirstChildElement(name)) {
+        if (const char *txt = el->GetText())
+          return Trim(txt);
+      }
+      return {};
+    };
+
+    identity.instanceName = readText("InstanceName");
+    identity.stableId = readText("StableId");
+    return identity;
+  }
+  return identity;
+}
+
 static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
                                              Support &support) {
   for (tinyxml2::XMLElement *ud = supportNode->FirstChildElement("UserData"); ud;
@@ -1996,7 +2033,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   auto resolveStableUuid = [&](const char *kind, tinyxml2::XMLElement *node,
                                const std::string &layerName,
-                               const Matrix &nodeTransform) {
+                               const Matrix &nodeTransform,
+                               const std::string &legacyStableId = {}) {
     const char *uuidAttr = node->Attribute("uuid");
     std::string rawUuid = uuidAttr ? Trim(uuidAttr) : std::string{};
     std::string stableUuid = CanonicalizeUuid(rawUuid);
@@ -2004,13 +2042,17 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         buildStableIdSeed(kind, node, layerName, nodeTransform, rawUuid);
 
     if (stableUuid.empty()) {
-      if (!rawUuid.empty()) {
+      const std::string legacyUuid = CanonicalizeUuid(Trim(legacyStableId));
+      if (!legacyUuid.empty()) {
+        stableUuid = legacyUuid;
+      } else if (!rawUuid.empty()) {
         LogMessage(Logger::Level::Warn,
                    wxString::Format("MVR import: %s UUID '%s' is invalid. Applying deterministic fallback.",
                                     kind, rawUuid.c_str())
                        .ToStdString());
       }
-      stableUuid = DeriveDeterministicUuid(seed);
+      if (stableUuid.empty())
+        stableUuid = DeriveDeterministicUuid(seed);
     }
 
     if (usedStableUuids.contains(stableUuid)) {
@@ -2068,11 +2110,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                          const Matrix &nodeTransform, const Matrix &localTransform,
                          const std::string &parentGroupUuid) {
         Fixture fixture;
+        const LegacyFixtureIdentity legacyIdentity =
+            ReadLegacyFixtureIdentityFromUserData(node);
         const char *rawUuidAttr = node->Attribute("uuid");
         const std::string rawFixtureUuid =
             rawUuidAttr ? Trim(rawUuidAttr) : std::string{};
         fixture.uuid =
-            resolveStableUuid("Fixture", node, layerName, nodeTransform);
+            resolveStableUuid("Fixture", node, layerName, nodeTransform,
+                              legacyIdentity.stableId);
         if (!rawFixtureUuid.empty() && rawFixtureUuid != fixture.uuid)
           fixtureUuidRemap[rawFixtureUuid] = fixture.uuid;
         fixture.layer = layerName;
@@ -2086,6 +2131,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             nameAttr ? Trim(nameAttr) : std::string{};
         if (!rawFixtureNodeName.empty())
           fixture.instanceName = rawFixtureNodeName;
+        else if (!legacyIdentity.instanceName.empty())
+          fixture.instanceName = legacyIdentity.instanceName;
 
         fixtureIdOf(node, fixture.fixtureIdText, fixture.fixtureIdNumeric);
         fixture.fixtureId = fixture.fixtureIdNumeric;
