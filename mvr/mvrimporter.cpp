@@ -857,6 +857,7 @@ static void ApplySupportHoistInfoDefaults(Support &support) {
     support.function = support.hoistFunction;
 }
 
+// Reads legacy per-fixture category metadata from older Perastage MVR exports.
 static void ReadFixtureCategoryFromUserData(tinyxml2::XMLElement *fixtureNode,
                                             Fixture &fixture) {
   if (!fixtureNode)
@@ -1551,6 +1552,71 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   parseLayerAppearanceMap(root->FirstChildElement("UserData"));
 
 
+  struct RootFixtureTypeCategoryInfo {
+    std::string category;
+    std::string categorySource;
+  };
+  std::unordered_map<std::string, RootFixtureTypeCategoryInfo> rootFixtureCategoryByTypeKey;
+
+  // Builds the root UserData fixture type key used by Perastage exports.
+  auto buildFixtureTypeCategoryKey = [](const std::string &gdtfSpec,
+                                        const std::string &gdtfMode,
+                                        const std::string &typeName) {
+    std::ostringstream key;
+    key << Trim(gdtfSpec) << '|' << Trim(gdtfMode);
+    if (Trim(gdtfSpec).empty())
+      key << '|' << Trim(typeName);
+    std::string value = key.str();
+    for (char &ch : value) {
+      const unsigned char uch = static_cast<unsigned char>(ch);
+      if (uch < 32 || ch == '/' || ch == '\\')
+        ch = '_';
+    }
+    return Trim(value);
+  };
+
+  // Collects root-level Perastage fixture type category metadata.
+  auto parseRootFixtureTypeInfoMap = [&](tinyxml2::XMLElement *userDataNode) {
+    if (!userDataNode)
+      return;
+    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data"); data;
+         data = data->NextSiblingElement("Data")) {
+      const std::string provider = ToLowerCopy(
+          Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
+      if (provider != "perastage")
+        continue;
+      for (tinyxml2::XMLElement *map = data->FirstChildElement("FixtureTypeInfoMap"); map;
+           map = map->NextSiblingElement("FixtureTypeInfoMap")) {
+        for (tinyxml2::XMLElement *info = map->FirstChildElement("FixtureTypeInfo"); info;
+             info = info->NextSiblingElement("FixtureTypeInfo")) {
+          std::string key = Trim(info->Attribute("key") ? info->Attribute("key") : "");
+          if (key.empty()) {
+            key = buildFixtureTypeCategoryKey(
+                info->Attribute("gdtfSpec") ? info->Attribute("gdtfSpec") : "",
+                info->Attribute("gdtfMode") ? info->Attribute("gdtfMode") : "",
+                info->Attribute("model") ? info->Attribute("model") : "");
+          }
+          if (key.empty())
+            continue;
+          RootFixtureTypeCategoryInfo categoryInfo;
+          if (tinyxml2::XMLElement *category = info->FirstChildElement("Category")) {
+            if (const char *txt = category->GetText())
+              categoryInfo.category = GdtfFixtureCategory::NormalizeCategory(Trim(txt));
+          }
+          if (tinyxml2::XMLElement *source = info->FirstChildElement("CategorySource")) {
+            if (const char *txt = source->GetText())
+              categoryInfo.categorySource = Trim(txt);
+          }
+          if (!categoryInfo.category.empty() && categoryInfo.categorySource.empty())
+            categoryInfo.categorySource = GdtfFixtureCategory::kManualSource;
+          if (!categoryInfo.category.empty())
+            rootFixtureCategoryByTypeKey[key] = categoryInfo;
+        }
+      }
+    }
+  };
+  parseRootFixtureTypeInfoMap(root->FirstChildElement("UserData"));
+
   std::unordered_map<std::string, tinyxml2::XMLElement *> rootTrussInfoByUuid;
   // Collects root-level Perastage truss metadata by canonical exported UUID.
   auto parseRootTrussInfoMap = [&](tinyxml2::XMLElement *userDataNode) {
@@ -2215,6 +2281,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         fixture.physicalPropertiesDirty = false;
 
         ReadFixtureCategoryFromUserData(node, fixture);
+        const std::string categoryTypeKey = buildFixtureTypeCategoryKey(
+            rawGdtfSpec, fixture.gdtfMode, fixture.typeName);
+        auto rootCategoryIt = rootFixtureCategoryByTypeKey.find(categoryTypeKey);
+        if (rootCategoryIt != rootFixtureCategoryByTypeKey.end()) {
+          fixture.category = rootCategoryIt->second.category;
+          fixture.categorySource = rootCategoryIt->second.categorySource;
+          fixture.categorySourceReason.clear();
+        }
         const std::optional<GdtfDictionary::Entry> &dictionaryEntry =
             getDictionaryEntryCached(fixture.typeName);
         auto posIt = scene.positions.find(fixture.position);

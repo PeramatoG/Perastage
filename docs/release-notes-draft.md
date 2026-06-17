@@ -93,6 +93,7 @@ Changes since `v1.3.0`.
 - Documented local diagnostics export and release symbol ZIP assets for troubleshooting and maintainer workflows.
 
 ## Internal changes
+- Improved MVR fixture export compatibility by moving Perastage fixture category metadata to root-level type metadata, removing per-fixture custom UserData, and preserving legacy fixture category imports.
 
 - Cleaned up new MVR fixture exports by relying on standard Fixture `uuid` and `name` attributes instead of redundant Perastage FixtureInfo identity fields, while preserving legacy import fallback compatibility.
 - Added Linux text-locale startup validation coverage to prevent regressions in wxWidgets narrow-to-wide string conversion behavior.
