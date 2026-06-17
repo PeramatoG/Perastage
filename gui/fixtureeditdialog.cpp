@@ -18,6 +18,8 @@
 #include "fixtureeditdialog.h"
 #include "fixturepreviewpanel.h"
 #include "fixturetablepanel.h"
+#include "configmanager.h"
+#include "guiconfigservices.h"
 #include "filesystem_path_utils.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
@@ -27,6 +29,7 @@
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
+#include "units/units.h"
 #include <wx/datetime.h>
 #include <wx/filedlg.h>
 #include <wx/filename.h>
@@ -81,6 +84,54 @@ bool IsUserFixtureLibraryPath(const std::string &path) {
       PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("fixtures")));
 }
 
+
+// Checks whether two fixture records use the same GDTF type-level physical values.
+bool MatchesPhysicalPropertyType(const Fixture &fixture,
+                                 const std::string &gdtfSpec,
+                                 const std::string &typeName) {
+  if (!gdtfSpec.empty() && fixture.gdtfSpec == gdtfSpec)
+    return true;
+  return !typeName.empty() && fixture.typeName == typeName;
+}
+
+// Mirrors a GDTF physical-property edit to every row and fixture of the same type.
+void ApplySharedPhysicalPropertyEdit(wxDataViewListCtrl *table,
+                                     const std::vector<std::string> &rowUuids,
+                                     const std::string &sourceUuid,
+                                     float weightKg, float powerW) {
+  if (!table || sourceUuid.empty())
+    return;
+
+  auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  const auto sourceIt = scene.fixtures.find(sourceUuid);
+  if (sourceIt == scene.fixtures.end())
+    return;
+
+  const std::string gdtfSpec = sourceIt->second.gdtfSpec;
+  const std::string typeName = sourceIt->second.typeName;
+  const auto weightUnitSystem = Units::ParseWeightUnitSystem(
+      GetDefaultGuiConfigServices().LegacyConfigManager().GetValue("ui_weight_unit_system"));
+  const wxVariant powerValue(wxString::Format("%.1f", powerW));
+  const wxVariant weightValue(wxString::FromUTF8(Units::FormatWeightFromKilograms(
+      weightKg, weightUnitSystem, Units::ValueFormatContext::Table)));
+
+  const size_t count = std::min(static_cast<size_t>(table->GetItemCount()), rowUuids.size());
+  for (size_t rowIndex = 0; rowIndex < count; ++rowIndex) {
+    const auto fixtureIt = scene.fixtures.find(rowUuids[rowIndex]);
+    if (fixtureIt == scene.fixtures.end() ||
+        !MatchesPhysicalPropertyType(fixtureIt->second, gdtfSpec, typeName))
+      continue;
+
+    fixtureIt->second.weightKg = weightKg;
+    fixtureIt->second.powerConsumptionW = powerW;
+    fixtureIt->second.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
+    fixtureIt->second.physicalPropertiesDirty = false;
+    table->SetValue(powerValue, rowIndex, 16);
+    table->SetValue(weightValue, rowIndex, 17);
+  }
+}
+
+// Parses a floating-point value while preserving the previous value on failure.
 bool ParseFloatOrDefault(const wxString &text, float &out) {
   double parsed = 0.0;
   if (!text.ToDouble(&parsed))
@@ -89,6 +140,7 @@ bool ParseFloatOrDefault(const wxString &text, float &out) {
   return true;
 }
 
+// Updates a fixture table row with a rendered color swatch cell.
 void SetFixtureColorCell(wxDataViewListCtrl *table, int row,
                          const std::string &hexColor) {
   if (!table || row == wxNOT_FOUND || hexColor.empty())
@@ -106,6 +158,7 @@ void SetFixtureColorCell(wxDataViewListCtrl *table, int row,
   table->SetValue(colorValue, row, 19);
 }
 
+// Loads the thumbnail bitmap from a GDTF archive when available.
 bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
   if (gdtfPath.empty())
     return false;
@@ -983,6 +1036,10 @@ void FixtureEditDialog::ApplyChanges() {
               "Could not update GDTF physical properties (Weight/PowerConsumption).",
               "GDTF update", wxOK | wxICON_WARNING, this);
         } else {
+          if (row >= 0 && static_cast<size_t>(row) < panel->rowUuids.size())
+            ApplySharedPhysicalPropertyEdit(table, panel->rowUuids,
+                                            panel->rowUuids[static_cast<size_t>(row)],
+                                            newWeightKg, newPowerW);
           originalPowerW = newPowerW;
           originalWeightKg = newWeightKg;
         }
