@@ -1487,12 +1487,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         continue;
       for (tinyxml2::XMLElement *map = data->FirstChildElement("LayerAppearanceMap"); map;
            map = map->NextSiblingElement("LayerAppearanceMap")) {
-        for (tinyxml2::XMLElement *entry = map->FirstChildElement("Layer"); entry;
-             entry = entry->NextSiblingElement("Layer")) {
+        auto parseAppearanceEntry = [&](tinyxml2::XMLElement *entry) {
           const std::string color =
               Trim(entry->Attribute("color") ? entry->Attribute("color") : "");
           if (!isHexRgb(color))
-            continue;
+            return;
           const std::string uuid =
               CanonicalizeUuid(Trim(entry->Attribute("uuid") ? entry->Attribute("uuid") : ""));
           const std::string name =
@@ -1501,7 +1500,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             layerColorByUuid[uuid] = color;
           if (!name.empty())
             layerColorByName[name] = color;
-        }
+        };
+
+        for (tinyxml2::XMLElement *entry = map->FirstChildElement("PerastageLayerAppearance");
+             entry; entry = entry->NextSiblingElement("PerastageLayerAppearance"))
+          parseAppearanceEntry(entry);
+        for (tinyxml2::XMLElement *entry = map->FirstChildElement("Layer"); entry;
+             entry = entry->NextSiblingElement("Layer"))
+          parseAppearanceEntry(entry);
       }
     }
   };

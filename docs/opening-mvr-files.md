@@ -61,7 +61,7 @@ In addition to MVR exchange, Perastage supports project-based work so you can:
 
 ## Export MVR
 
-Perastage stores its own layer appearance metadata, including layer colors, in a root-level MVR `UserData/Data` block with `provider="Perastage"`. This keeps new exports standards-compliant while still allowing Perastage to recover layer colors from its own MVR files when the metadata is preserved. Older Perastage MVR files that used direct `Layer/Color` children are still accepted on import, but new exports do not write that legacy structure.
+Perastage stores its own layer appearance metadata, including layer colors, in a root-level MVR `UserData/Data` block with `provider="Perastage"`, using Perastage-owned `PerastageLayerAppearance` entries under `LayerAppearanceMap`. This keeps new exports standards-compliant and avoids confusing custom metadata with standard MVR `Layer` nodes, while still allowing Perastage to recover layer colors from its own MVR files when the metadata is preserved. Older Perastage MVR files that used direct `Layer/Color` children or legacy Perastage `LayerAppearanceMap/Layer` entries are still accepted on import, but new exports do not write those legacy structures.
 
 When your changes are ready for exchange:
 

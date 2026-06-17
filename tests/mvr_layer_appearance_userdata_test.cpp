@@ -69,8 +69,8 @@ static tinyxml2::XMLElement *FindLayerAppearance(tinyxml2::XMLDocument &doc,
   assert(std::string(data->Attribute("provider")) == "Perastage");
   tinyxml2::XMLElement *map = data->FirstChildElement("LayerAppearanceMap");
   assert(map != nullptr);
-  for (tinyxml2::XMLElement *layer = map->FirstChildElement("Layer"); layer;
-       layer = layer->NextSiblingElement("Layer")) {
+  for (tinyxml2::XMLElement *layer = map->FirstChildElement("PerastageLayerAppearance"); layer;
+       layer = layer->NextSiblingElement("PerastageLayerAppearance")) {
     const char *name = layer->Attribute("name");
     if (name && std::string(name) == layerName)
       return layer;
@@ -97,10 +97,12 @@ static void VerifyExportStructure(const std::filesystem::path &archivePath,
   for (tinyxml2::XMLElement *layer = layers->FirstChildElement("Layer"); layer;
        layer = layer->NextSiblingElement("Layer")) {
     assert(layer->FirstChildElement("Color") == nullptr);
+    assert(layer->Attribute("color") == nullptr);
   }
 
   tinyxml2::XMLElement *appearance = FindLayerAppearance(doc, layerName);
   assert(appearance != nullptr);
+  assert(std::string(appearance->Name()) == "PerastageLayerAppearance");
   assert(std::string(appearance->Attribute("color")) == expectedColor);
 }
 
@@ -156,6 +158,36 @@ static void TestLegacyLayerColorCompatibility(const std::filesystem::path &tempD
   VerifyExportStructure(reexportPath, "Legacy Layer", "#445566");
 }
 
+// Imports legacy Perastage LayerAppearanceMap/Layer entries and reexports current entry names.
+static void TestLegacyLayerAppearanceEntryCompatibility(const std::filesystem::path &tempDir) {
+  const std::filesystem::path legacyPath = tempDir / "legacy-layer-appearance-entry.mvr";
+  const std::string legacyXml =
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" provider=\"Perastage\" providerVersion=\"test\">"
+      "<UserData><Data provider=\"Perastage\" ver=\"1.0\"><LayerAppearanceMap>"
+      "<Layer uuid=\"33333333-3333-4333-8333-333333333333\" name=\"Legacy Appearance Layer\" color=\"#AA6633\"/>"
+      "</LayerAppearanceMap></Data></UserData>"
+      "<Scene><Layers><Layer uuid=\"33333333-3333-4333-8333-333333333333\" name=\"Legacy Appearance Layer\">"
+      "<ChildList/></Layer></Layers></Scene>"
+      "</GeneralSceneDescription>";
+  WriteMvrWithSceneXml(legacyPath, legacyXml);
+
+  MvrScene imported;
+  MvrImporter importer;
+  assert(importer.ImportSceneFromFile(legacyPath.generic_string(), imported, false, false));
+  const auto importedLayer = imported.layers.find("33333333-3333-4333-8333-333333333333");
+  assert(importedLayer != imported.layers.end());
+  assert(importedLayer->second.color == "#AA6633");
+
+  auto &cfg = ConfigManager::Get();
+  cfg.Reset();
+  cfg.GetScene() = imported;
+  const std::filesystem::path reexportPath = tempDir / "legacy-layer-appearance-entry-reexport.mvr";
+  MvrExporter exporter;
+  assert(exporter.ExportToFile(reexportPath.generic_string()));
+  VerifyExportStructure(reexportPath, "Legacy Appearance Layer", "#AA6633");
+}
+
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
@@ -166,5 +198,6 @@ int main() {
 
   TestLayerAppearanceRoundtrip(tempDir);
   TestLegacyLayerColorCompatibility(tempDir);
+  TestLegacyLayerAppearanceEntryCompatibility(tempDir);
   return 0;
 }
