@@ -1,120 +1,90 @@
 # Perastage v1.4.0 Release Notes
 
-Changes since `v1.3.0`.
+Changes since **v1.3.0** (June 2026)
 
 ## Highlights
 
+Perastage v1.4.0 delivers a long-anticipated refresh of the modelling and rigging workflows. This release introduces new toolbar toggles for drag-move, axis-locking and magnet snapping, extended import/export control for truss geometry, richer primitives with persistent defaults, and first-class grouping tools. Users will notice smoother group selection with new highlight colours, improved gizmos, and more responsive 2D/3D feedback. Under the hood there are many fixes and reliability improvements across MVR/GDTF export, magnet snapping, resource loading and OpenGL initialisation. The built-in fixture, truss and scene-object libraries have also been lightly reviewed and updated to keep the default catalogue more consistent.
+
 ## New features
 
-- Added a project-persistent Drag Move toolbar toggle for enabling left-click selection dragging, disabled by default to reduce accidental object moves while panning dense 2D and 3D views.
+- **Drag-Move toolbar toggle** - add left-click selection dragging without affecting panning in crowded views.  This project-persistent setting is disabled by default to prevent accidental moves.
 
-- Added MVR Import / Export preferences with a truss geometry export mode selector, defaulting to the standard MVR representation while offering a direct Geometry3D compatibility mode for truss symbols.
-- Added a disabled-by-default Magnet snapping toolbar mode for 2D and 3D dragging, with truss-to-truss grouping on committed snaps and transform-only fixture/object snaps that preserve Hang Position and MVR compatibility.
-- Added a project-persistent Axis Lock toolbar toggle for selection dragging, enabled by default for axis-constrained moves and allowing free 2D movement plus Blender-style view-plane movement in 3D when disabled.
-- Expanded basic primitive creation and editing for spheres, cubes, and cylinders with editable names, project-persistent default dimensions, default load/save buttons, and richer edit controls for position and rotation.
-- Added Edit menu Group and Ungroup commands with `Ctrl+G` and `Ctrl+U` shortcuts for cross-table scene selections, preserving object placement and hang-position assignments while using MVR-compatible GroupObject hierarchy.
-- Expanded Add Truss with real-world X/Y/Z insertion coordinates in the active distance units, automatic multi-truss line placement, and default grouping into one bridge.
-- Added Help menu actions to open the local logs folder and export a manual diagnostic report for troubleshooting.
-- Added a startup update reminder checkbox so users can stop seeing repeated prompts for the same available version while keeping manual update checks available.
+- **Magnet snapping mode** - enable optional snapping of fixtures and objects when dragging in 2D/3D.  Snaps preserve hang positions and MVR compatibility, and can group trusses on commit.  Disabled by default.
+
+- **Axis Lock toggle** - constrain moves along axes in 2D/3D by default.  When disabled it allows free 2D movement and Blender-style view-plane movement in 3D.
+
+- **Truss import/export preferences** - choose the truss geometry export mode (standard MVR representation or Geometry3D compatibility) when importing and exporting MVR files.
+
+- **Extended primitive creation** - build spheres, cubes and cylinders with custom names, persistent default sizes, load/save templates and richer controls for position and rotation.
+
+- **Grouping commands** - new *Group* and *Ungroup* items in the Edit menu (shortcuts `Ctrl+G` and `Ctrl+U`) support cross-table selections and preserve object placement and hang-position assignments using an MVR-compatible GroupObject hierarchy.
+
+- **Add truss enhancements** - specify real-world X/Y/Z insertion coordinates, automatically place multiple trusses along a line and group them into a bridge by default.
+
+- **Diagnostics access** - open the local logs folder or export a manual diagnostic report directly from the Help menu.
+
+- **Update reminder control** - a new checkbox on startup stops repeated prompts for the same available version while still allowing manual update checks.
 
 ## Improvements
 
-- Changed grouped fixture dragging so moving a selected fixture only moves that fixture, allowing fixtures to be repositioned along grouped trusses without moving the full group.
-- Added a 2D position gizmo while dragging scene elements so movement direction feedback follows the dragged insertion point and matches the 3D viewer.
-- Improved GroupObject handling so selecting a grouped member highlights and transforms the full root group, including nested groups, in 2D, 3D, and command-bar transform workflows.
-- Improved group hover feedback by using a more yellow primary highlight and a paler secondary group highlight across the 3D view and related fixture, truss, hoist, and scene object table rows, matching the table selection styling.
-- Improved 3D click selection for grouped scene items so a quick click selects the full group across fixture, truss, hoist, and scene object tables.
-- Improved the 3D move gizmo with Blender-style cone arrowheads so drag axes are easier to distinguish from coordinate axes.
-- Improved 2D and 3D drag feedback so the bottom X/Y/Z status readout shows the dragged insertion-point position in a highlighted color while objects are being moved.
+- **Selectable fixtures within groups** - moving a fixture no longer drags its entire group, making it easy to reposition individual fixtures along grouped trusses.
+- **On-drag gizmos and feedback** - a 2D position gizmo and highlighted X/Y/Z readouts provide clear movement direction feedback, matching the 3D viewer.
+- **Group selection and highlights** - selecting a grouped member now highlights and transforms the entire root group (including nested groups) and group hover feedback uses clearer colours that match table selections.  Quick clicks select full groups in the 3D view.
+- **Enhanced 3D move gizmo** - Blender-style cone arrowheads make drag axes easier to distinguish from coordinate axes.
+- **Improved toolbar icon states** - disabled icons for selection, measurement, axis lock, drag-move and magnet tools no longer appear highlighted in dark mode.
+- **Better magnet snapping** - snapping now respects truss bounds, snaps fixtures to actual truss edges, groups fixtures with trusses on snap, releases snapped items based on raw pointer position and maintains group hierarchies when detaching.
+- **Fixture and truss editing** - editing Weight and Power Consumption updates shared GDTF type data across all matching fixtures, keeping calculations aligned with GDTF standards.
+- **MVR export compatibility** - truss symbols preserve stable UUIDs and proper Symdef references, support objects are retained during round-trip export (including empty placeholders where required), canonical Truss UUIDs are written for MVR 1.6 files, and resource files are written at the archive root without exposing local paths.
+- **MVR/GDTF metadata** - exported MVR files identify the current Perastage version, generated GDTF files keep GDTF 1.2 compatibility, and unit numbers are preserved or deterministically generated by fixture type and position.  Weight and power consumption values are exported through standard GDTF properties.
+- **Truss model handling** - unsupported truss formats are rejected clearly, while direct GLB/3DS models are loaded only when the file exists, fall back to reasonable dimensions when metadata is unavailable and remain visible/selectable.
+- **Fixture, truss and scene-object libraries** - reviewed and lightly updated the built-in library content to improve the default resources available when starting new projects.
+- **Library content review** - the built-in fixture, truss and scene-object libraries have been lightly reviewed and adjusted for consistency in the default resources shipped with Perastage.
+- **Basic geometry editing** - dialogs for spheres/cubes/cylinders now honour project distance units for all fields (position, screen size, pipe length); cube dimensions map height to Z and width to Y; reusing a basic geometry object copies its primitive data immediately without showing a default cube.
+- **Scene picking and selection** - hollow or U-shaped meshes are selected by their visible geometry instead of their bounding boxes, quick clicks still register on fixtures if the release pick misses, and hover highlights stay pinned to dragged elements.
+- **Command-bar parsing** - position and rotation values support `t` and `thru` separators just like space-separated values.
+- **Eurotruss rendering** - native 3DS mesh dimensions are preserved, repeated symbol children stay distinct per parent and fallback sizing for rotated trusses is correct.
+- **2D/3D viewer interface** - the viewer displays a consistent highlighted X/Y/Z status readout during drags and keeps fixture highlights pinned to the dragged object.
 
 ## Fixes
 
-- Fixed 2D and 3D viewer Control and Control+Shift mouse selections so newly selected elements are added to the existing selection across tables instead of replacing or visually clearing it.
+This release addresses dozens of issues across importing, snapping, editing and export workflows, including:
 
-- Fixed Create from text filtering so normalized motor/hoist lines use the English `FOR` target keyword while preserving the same import behavior.
-
-- Improved disabled toolbar icon colors for viewport selection, measurement, axis-lock, drag-move, and Magnet tools so disabled tools no longer look highlighted in dark mode.
-
-- Preserved embedded MVR GDTF fixture references when reopening `.pstg` projects so fixtures affected by GDTF dictionary conflicts do not silently downgrade to dummy geometry on the next save.
-- Improved MVR compatibility by preserving Support objects during roundtrip export, preserving geometry-less Support nodes with empty Geometries and using small 10 cm placeholder geometry for otherwise empty SceneObject exports, and writing Truss children in schema-compatible order.
-- Fixed MVR Symbol/Symdef truss export so every Symbol keeps or receives a stable valid UUID and required Symdef reference, improving compatibility with strict MVR importers.
-- Improved MVR 1.6 truss export compatibility by writing canonical Truss UUIDs, moving Perastage truss metadata to root UserData, and preserving legacy truss metadata import.
-- Fixed MVR 1.6 exports so resource files are written at the archive root and Perastage truss metadata no longer exposes local filesystem paths.
-
-- Fixed GDTF persistence so automatic symbol generation and project-scoped fixture edits update project-owned copies or stable @Perastage library derivatives without filling the user fixture library with imported or generated project files.
-- Fixed Linux GTK layout warnings in the rich text toolbar by giving icon buttons enough themed padding while preserving the existing editing behavior.
-- Fixed Magnet fixture-to-truss snapping so fixtures snap to the actual truss edge height, stay aligned when their snapped truss or full snapped group is moved, and only snap after an intentional drag starts.
-- Improved Magnet truss snapping so grouped truss runs can snap to loose trusses using the truss run bounds while ignoring attached fixtures.
-- Fixed reopening the last project from startup and loading its symbol cache metadata when the saved path contains accented or other non-ASCII characters.
-
-- Improved Magnet snapping so fixtures and trusses release from snapped targets based on the raw mouse-following drag position, fixture-to-truss snaps join the fixture to the truss snap group, and detaching snapped fixtures or trusses preserves the rest of the group hierarchy.
-- Fixed highlighted drag-coordinate feedback so the bottom X/Y/Z readout stays visible and reliably changes font color during 2D and 3D object moves.
-- Fixed scene object renaming so edited Data View names are preserved in the scene summary and MVR exports, supporting technical object-name workflows such as cable waypoints.
-- Kept the 2D and 3D viewer highlights pinned to the dragged scene element during mouse-drag moves so hover feedback no longer jumps to other elements mid-drag.
-- Fixed quick-click fixture selection in the 3D view so hovered fixtures can still be selected when the precise release pick misses.
-- Fixed MVR fixture Color handling so visualization colors are no longer exported as gel/filter colors, while imported MVR Color values are preserved as fixture gel/filter data.
-- Fixed MVR layer color persistence so Perastage now stores layer appearance metadata in a standards-compliant root UserData block with Perastage-specific appearance entries, while still importing legacy Layer/Color data from older exports.
-- Fixed MVR and GDTF version metadata so exported MVR files identify the current Perastage app version, generated GDTF files keep GDTF 1.2 compatibility versioning, and intentional GDTF changes are recorded through standard revisions without Perastage-specific custom XML nodes.
-- Fixed MVR fixture UnitNumber export so existing unit numbers are preserved and missing values are generated deterministically by fixture type and stage position.
-- Fixed MVR fixture physical metadata export so Weight and Power Consumption are written through standard GDTF physical properties instead of non-standard Fixture child nodes, while legacy Perastage files still import those values.
-- Improved fixture Weight and Power Consumption editing so changes update the shared GDTF type data and all matching fixtures in the project, keeping calculations and tables aligned with GDTF standards.
-- Fixed Edit Fixture weight changes so shared GDTF type updates also trigger the hoist load recalculation prompt after table synchronization.
-- Restored edge-safe fixture visibility and made fixture hover picking use actual fixture geometry so highlights and labels target the visible fixture instead of broad bounds.
-- Fixed fixture ID edits so saved project files and exported MVR files keep the updated numeric fixture IDs instead of reverting to imported IDs.
-- Fixed command-bar position and rotation value parsing so `t` and `thru` separators distribute selected items the same way as two space-separated values.
-- Fixed MVR Eurotruss rendering in the 3D viewport by preserving native 3DS SceneObject mesh dimensions, keeping repeated SceneObject Symbol children distinct per parent object, and preserving correct truss fallback sizing for rotated trusses.
-- Improved truss file validation so unsupported model formats are rejected clearly, while direct GLB and 3DS truss models now load only when the selected file exists.
-- Improved fallback dimensions for direct truss model files so GLB and 3DS trusses remain visible and selectable even when model metadata or mesh loading is unavailable.
-- Fixed Add scene object so reusing an existing Perastage basic geometry object copies its primitive geometry data immediately instead of showing a default cube until the project is reopened.
-- Fixed basic geometry edit dialogs so position, screen size, and pipe length fields use the selected project distance units consistently.
-- Fixed cube primitive dimensions so Height now scales the application Z axis and Width scales the Y axis during creation and editing.
-- Fixed 3D truss height labels so they show both the value and suffix in the selected project distance units.
-- Fixed 2D and 3D scene object picking so hollow or U-shaped meshes are selected by their visible geometry instead of their broad bounding boxes.
+- **Selection workflow** - using `Ctrl` or `Ctrl+Shift` while clicking in 2D/3D adds to the selection instead of clearing it.  Quick clicks on grouped items select the entire group.
+- **Create-from-text** - normalised rider text now uses the English `FOR` keyword for motor/hoist lines, ensuring consistent import behaviour; text filtering has been optimised for speed and now shares lookup caches across operations.
+- **GDTF persistence** - automatic symbol generation and per-fixture edits update project-owned copies or stable library derivatives without filling the user library with temporary files.  Editing a fixture's weight triggers hoist-load recalculation after the table synchronises.
+- **Scene object naming** - edited names in the Data View persist across saves and are exported through MVR, supporting technical naming workflows like cable waypoints.  Fixture IDs remain as edited instead of reverting when reopening or exporting projects.
+- **Magnet snapping** - fixture-to-truss snaps align to the actual truss edge height, stay aligned when the snapped truss or group moves, and only snap after an intentional drag starts.  Truss runs can snap to loose trusses using run bounds while ignoring attached fixtures.
+- **Drag feedback** - the X/Y/Z status display remains visible and changes colour reliably while moving objects in 2D/3D.
+- **Command-bar parsing** - improved parsing of `t` and `thru` sequences distributes position/rotation values as expected.
+- **Truss export/import** - MVR exports no longer embed local file paths, preserve layer colour metadata in a standards-compliant UserData block, and store fixture colours as gel/filter data only when intended.  Round-trip exports retain support objects and write truss children in the correct schema order.
+- **Geometry models** - GLB/3DS trusses remain visible even when metadata is missing, and unsupported formats are rejected clearly.  Newly added scene objects reuse existing primitive data immediately.
+- **Dimension labels** - 3D truss height labels now show both value and unit suffix in the selected project distance units.
+- **Picking and selection** - hollow/U-shaped meshes are selected by their geometry rather than by bounding boxes, and quick-click fixture selection works even if the precise release pick misses.
 
 ## Stability and reliability
 
-- Fixed Linux Unicode text stability by initializing a UTF-8 process text locale at startup and removing narrow-string wxWidgets formatting from affected status, splash, layout-progress, and viewport-label paths.
-- Added local crash reporting and persistent diagnostics logs with build, platform, wxWidgets, OpenGL, recent-log, and stack-trace context when available.
-- Improved diagnostics shutdown behavior so closing Perastage is not delayed by pending background log messages.
-- Improved truss archive extraction safety by rejecting unsafe ZIP entries that use absolute paths or attempt to write outside the extraction cache.
-- Improved 3D resource lookup resilience by bounding recursive fallback scans on the viewport sync path and logging when protected folders are skipped or scan limits are reached.
-- Improved visible 3D resource synchronization so filesystem errors on cached or user-derived GDTF and model paths are handled safely with concise diagnostics instead of interrupting viewport updates.
-- Improved 3D MVR import resilience so malformed model or GDTF resources no longer stop the rest of the scene from synchronizing into the viewport, while model texture loading avoids duplicate wxWidgets image-handler registration.
-- Restored reliable 3D viewport updates after MVR imports by keeping external fixture-library paths absolute instead of rewriting them as scene-relative escape paths, and by preparing OpenGL before pending scene resource synchronization runs.
-- Improved truss add-path handling so scene-local model resources are converted safely without filesystem exceptions escaping the UI.
-- Improved 2D viewer startup reliability by validating GLEW initialization before enabling 2D OpenGL rendering.
-- Improved 2D viewer interaction stability by safely skipping selection and hover picking when the OpenGL context is not available.
-- Improved 3D viewer interaction stability by safely skipping picking and resource synchronization when the OpenGL context cannot be activated.
-- Improved 3D viewer paint stability by skipping rendering and GL-dependent overlay work until OpenGL initialization completes successfully.
+We've invested significant effort in stability for this release:
+
+- **Unicode stability** - Perastage now initialises a UTF-8 process locale on startup, fixes Linux narrow-string formatting issues and resolves GTK padding warnings in rich-text toolbars.
+- **Diagnostics and crash reporting** - added local crash reporting and persistent diagnostics logs with build, platform, wxWidgets, OpenGL and stack-trace context.  Application shutdown is no longer delayed by pending log messages.
+- **Safe resource handling** - extraction of truss archives rejects unsafe ZIP entries; 3D resource lookup bounds fallback scans, logs skipped protected folders and handles filesystem errors gracefully without interrupting viewport updates.
+- **Robust imports** - malformed MVR models or GDTF resources no longer stop the scene from synchronising into the viewport; external fixture-library paths remain absolute, preventing relative path escapes; texture loading avoids duplicate image-handler registration.
+- **OpenGL resilience** - the 2D viewer validates GLEW initialisation before enabling OpenGL; both 2D and 3D viewers gracefully skip selection and rendering when the OpenGL context is unavailable and defer overlay work until initialisation completes.
+- **Build and CI improvements** - added backward-cpp integration, build metadata and CI symbol archives; improved Linux/Mac/Windows build reliability by separating GDTF data types, updating UTF-8 path handling, rebuilding vcpkg caches, preserving compatibility with new Xcode toolchains, using the current Visual Studio generator when available and generating modern Windows installers.
 
 ## Documentation
 
-- Documented basic geometry primitive creation defaults and editing controls.
-- Documented local diagnostics export and release symbol ZIP assets for troubleshooting and maintainer workflows.
+- Expanded documentation for basic geometry creation, editing controls and default dimensions.
+- Added instructions for exporting diagnostics and uploading release-symbol assets for troubleshooting and maintainer workflows.
 
 ## Internal changes
-- Improved MVR fixture export compatibility by moving Perastage fixture category metadata to root-level type metadata, removing per-fixture custom UserData, and preserving legacy fixture category imports.
 
-- Cleaned up new MVR fixture exports by relying on standard Fixture `uuid` and `name` attributes instead of redundant Perastage FixtureInfo identity fields, while preserving legacy import fallback compatibility.
-- Added Linux text-locale startup validation coverage to prevent regressions in wxWidgets narrow-to-wide string conversion behavior.
-- Improved Debian/Linux test build reliability by linking logger- and config-service-based test executables with the shared diagnostics, app path, filesystem path, config service, and symbol-cache support sources used by the main application.
-- Improved Linux GCC build reliability by separating lightweight GDTF geometry data types from loader declarations, reducing header-order coupling in the 3D resource and bounds systems.
-- Hardened the macOS installer workflow so restored vcpkg dependency caches are rebuilt when they contain stale Xcode SDK metadata, preventing old runner paths from breaking current macOS builds.
-- Improved macOS installer build diagnostics by saving full compiler logs, showing focused error context on failure, and uploading related CMake and vcpkg logs for maintainers.
-- Restored macOS installer build compatibility with newer Xcode toolchains by making GDTF metadata cache timestamp keys use an explicit portable duration representation.
-- Updated UTF-8 filesystem path handling across the codebase and pinned the macOS installer workflow to an explicit current-generation runner for more predictable CI builds.
-- Restored macOS installer build compatibility with Xcode 16.4 by avoiding deprecated filesystem path construction during GDTF model loading.
-- Improved installer build reliability by allowing the Windows packaging workflow to use the current Visual Studio generator when available, generating Windows Release symbol files for CI symbol archives, using a dynamic modern Windows installer wizard style, and keeping macOS command-bar float parsing portable across libc++ versions.
-- Improved GDTF loading efficiency by reusing cached archive content hashes when file metadata is unchanged, avoiding repeated full-file reads while preserving content-based cache invalidation.
-- Improved rider truss import efficiency by caching truss definition loads within each import, avoiding repeated retries for the same valid or invalid truss paths while preserving existing parsed truss data precedence.
-- Improved rider imports by reusing parsed GDTF fixture metadata during fixture creation and skipping repeated category inference once an imported fixture has an authoritative category, reducing repeated GDTF lookups while preserving existing dictionary, category, weight, and power precedence.
-- Improved rider fixture filtering performance by reusing cleanup regular expressions and per-line section keyword normalization in hot preview paths while preserving existing filtering behavior.
-- Improved rider fixture splitting performance during text import and fixture filter preview by avoiding intermediate string lists while preserving existing parsing behavior.
-- Improved rider fixture filter preview construction by avoiding an extra string copy when appending rigging content, while preserving the existing preview layout.
-- Improved rider text import internals by separating filtered rider requests into a parsed intermediate model, preserving preview output while reducing coupling between filtering and scene creation.
-- Improved text-to-scene creation so applying the rider text filter in the editor no longer repeats the same filtering work during import, while preserving existing import behavior for all other flows.
-- Improved Create from text import performance by loading fixture and truss dictionaries once per import, reusing importer-local lookup caches, and adding concise phase timing diagnostics for future optimization.
-- Added backward-cpp integration, generated build metadata, and release workflow symbol archives for Windows, Linux, macOS, and Arch Linux builds.
-- Improved truss table reload stability so rebuilding rows preserves existing truss selection without triggering transient selection side effects.
-- Added concise diagnostics for truss loading and 2D viewer picking to make validation and interaction issues easier to troubleshoot.
-- Improved grouped-hover rendering integration so symbol capture paths use the same highlight state as direct 3D drawing.
+Behind the scenes, this release includes numerous optimisations and refactorings:
+
+- **Fixture export metadata** - Perastage fixture category information has been moved to root-level type metadata and the export relies on standard fixture `uuid` and `name` attributes.  Legacy import fallback has been preserved.
+- **Locale and build validation** - added text-locale validation at startup to prevent regressions in string conversion.  Debian/Linux test builds now link test executables with shared diagnostics and config service sources for better reliability.
+- **Cross-platform builds** - improved GCC and Clang build reliability by separating lightweight GDTF data types from loader declarations, updating UTF-8 filesystem handling, separating portable timestamp representations and refining CI diagnostics for Windows and macOS installers.
+- **Importer performance** - improved rider truss and fixture imports by caching truss definitions and GDTF metadata, reusing cleanup regular expressions and normalisation patterns, avoiding unnecessary string copies and intermediate lists, and separating filtering logic from scene creation.  Applying rider text filters no longer recomputes the same work multiple times during import.
+- **Creation performance** - loading fixture and truss dictionaries only once per import and adding concise phase timing diagnostics reduce import time and ease future optimisation.
+- **Table reloads and hover rendering** - reloading truss tables preserves current selections without triggering side effects, and grouped-hover rendering now uses the same highlight state as direct 3D drawing.
