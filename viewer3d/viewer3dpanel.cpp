@@ -214,6 +214,16 @@ bool ContainsAllUuids(const std::vector<std::string>& selection,
                        });
 }
 
+// Adds missing clicked UUIDs to an existing selection while preserving order.
+std::vector<std::string> AddClickedUuids(std::vector<std::string> selection,
+                                         const std::vector<std::string>& clickedUuids) {
+    for (const auto& uuid : clickedUuids) {
+        if (std::find(selection.begin(), selection.end(), uuid) == selection.end())
+            selection.push_back(uuid);
+    }
+    return selection;
+}
+
 // Adds or removes grouped click UUIDs from an existing additive selection.
 std::vector<std::string> ToggleClickedUuids(std::vector<std::string> selection,
                                             const std::vector<std::string>& clickedUuids) {
@@ -235,10 +245,34 @@ std::vector<std::string> ToggleClickedUuids(std::vector<std::string> selection,
 // Updates one typed selection according to the additive click mode.
 std::vector<std::string> ResolveClickedSelection(
     const std::vector<std::string>& currentSelection,
-    const std::vector<std::string>& clickedUuids, bool additive) {
+    const std::vector<std::string>& clickedUuids, bool additive, bool addOnly) {
     if (!additive)
         return clickedUuids;
+    if (addOnly)
+        return AddClickedUuids(currentSelection, clickedUuids);
     return ToggleClickedUuids(currentSelection, clickedUuids);
+}
+
+// Flattens typed table selections into one viewer UUID list.
+std::vector<std::string> FlattenSelectionHighlights(
+    const HoverTableHighlights& selection) {
+    std::set<std::string> mergedSelection;
+    mergedSelection.insert(selection.fixtures.begin(), selection.fixtures.end());
+    mergedSelection.insert(selection.trusses.begin(), selection.trusses.end());
+    mergedSelection.insert(selection.supports.begin(), selection.supports.end());
+    mergedSelection.insert(selection.sceneObjects.begin(),
+                           selection.sceneObjects.end());
+    return std::vector<std::string>(mergedSelection.begin(), mergedSelection.end());
+}
+
+// Builds a typed selection snapshot from the current configuration state.
+HoverTableHighlights BuildCurrentSelectionHighlights(const ConfigManager& cfg) {
+    HoverTableHighlights selection;
+    selection.fixtures = cfg.GetSelectedFixtures();
+    selection.trusses = cfg.GetSelectedTrusses();
+    selection.supports = cfg.GetSelectedSupports();
+    selection.sceneObjects = cfg.GetSelectedSceneObjects();
+    return selection;
 }
 
 template <typename T>
@@ -568,15 +602,8 @@ void ApplyObjectSelectionToUi(const HoverTableHighlights& selection,
         cfg.SetSelectedSceneObjects(selection.sceneObjects);
     }
 
-    std::set<std::string> mergedSelection;
-    mergedSelection.insert(selection.fixtures.begin(), selection.fixtures.end());
-    mergedSelection.insert(selection.trusses.begin(), selection.trusses.end());
-    mergedSelection.insert(selection.supports.begin(), selection.supports.end());
-    mergedSelection.insert(selection.sceneObjects.begin(), selection.sceneObjects.end());
-    if (panel) {
-        panel->SetSelectedFixtures(std::vector<std::string>(
-            mergedSelection.begin(), mergedSelection.end()));
-    }
+    if (panel)
+        panel->SetSelectedFixtures(FlattenSelectionHighlights(selection));
 
     selection::ScopedOrigin selectionOrigin(selection::Origin::Viewer3D);
     if (FixtureTablePanel::Instance())
@@ -1800,19 +1827,20 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         }
         if (found)
         {
-            bool additive = event.ShiftDown() || event.ControlDown();
+            const bool additive = event.ShiftDown() || event.ControlDown();
+            const bool addOnly = event.ControlDown();
             const HoverTableHighlights clickedSelection =
                 BuildClickSelectionHighlights(cfg.GetScene(), uuid);
             HoverTableHighlights resolvedSelection;
             resolvedSelection.fixtures = ResolveClickedSelection(
-                cfg.GetSelectedFixtures(), clickedSelection.fixtures, additive);
+                cfg.GetSelectedFixtures(), clickedSelection.fixtures, additive, addOnly);
             resolvedSelection.trusses = ResolveClickedSelection(
-                cfg.GetSelectedTrusses(), clickedSelection.trusses, additive);
+                cfg.GetSelectedTrusses(), clickedSelection.trusses, additive, addOnly);
             resolvedSelection.supports = ResolveClickedSelection(
-                cfg.GetSelectedSupports(), clickedSelection.supports, additive);
+                cfg.GetSelectedSupports(), clickedSelection.supports, additive, addOnly);
             resolvedSelection.sceneObjects = ResolveClickedSelection(
                 cfg.GetSelectedSceneObjects(), clickedSelection.sceneObjects,
-                additive);
+                additive, addOnly);
             ApplyObjectSelectionToUi(resolvedSelection, this);
         }
         else
@@ -2149,94 +2177,49 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
     const wxPoint pickEnd = ToFramebufferPoint(this, end);
     if (m_rectSelectionAcrossAllTables)
     {
-        const auto fixtures = m_controller.GetFixturesInScreenRect(
-            pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
-        const auto trusses = m_controller.GetTrussesInScreenRect(
-            pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
-        const auto sceneObjects = m_controller.GetSceneObjectsInScreenRect(
-            pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
-
-        const bool selectionChanged =
-            fixtures != cfg.GetSelectedFixtures() ||
-            trusses != cfg.GetSelectedTrusses() ||
-            sceneObjects != cfg.GetSelectedSceneObjects();
-        if (selectionChanged)
-            cfg.PushUndoState("global selection");
-
-        cfg.SetSelectedFixtures(fixtures);
-        cfg.SetSelectedTrusses(trusses);
-        cfg.SetSelectedSceneObjects(sceneObjects);
-
-        std::set<std::string> mergedSelection;
-        mergedSelection.insert(fixtures.begin(), fixtures.end());
-        mergedSelection.insert(trusses.begin(), trusses.end());
-        mergedSelection.insert(sceneObjects.begin(), sceneObjects.end());
-        SetSelectedFixtures(
-            std::vector<std::string>(mergedSelection.begin(), mergedSelection.end()));
-
-        if (FixtureTablePanel::Instance()) {
-            if (fixtures.empty())
-                FixtureTablePanel::Instance()->ClearSelection();
-            else
-                FixtureTablePanel::Instance()->SelectByUuid(fixtures, false);
-        }
-        if (TrussTablePanel::Instance()) {
-            if (trusses.empty())
-                TrussTablePanel::Instance()->ClearSelection();
-            else
-                TrussTablePanel::Instance()->SelectByUuid(trusses, false);
-        }
-        if (SceneObjectTablePanel::Instance()) {
-            if (sceneObjects.empty())
-                SceneObjectTablePanel::Instance()->ClearSelection();
-            else
-                SceneObjectTablePanel::Instance()->SelectByUuid(sceneObjects, false);
-        }
+        HoverTableHighlights selection = BuildCurrentSelectionHighlights(cfg);
+        selection.fixtures = AddClickedUuids(
+            selection.fixtures, m_controller.GetFixturesInScreenRect(
+                                    pickStart.x, pickStart.y, pickEnd.x,
+                                    pickEnd.y, w, h));
+        selection.trusses = AddClickedUuids(
+            selection.trusses, m_controller.GetTrussesInScreenRect(
+                                   pickStart.x, pickStart.y, pickEnd.x,
+                                   pickEnd.y, w, h));
+        selection.sceneObjects = AddClickedUuids(
+            selection.sceneObjects, m_controller.GetSceneObjectsInScreenRect(
+                                        pickStart.x, pickStart.y, pickEnd.x,
+                                        pickEnd.y, w, h));
+        ApplyObjectSelectionToUi(selection, this);
         return;
     }
 
     if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
     {
-        auto selection = m_controller.GetFixturesInScreenRect(
-            pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
-        if (selection != cfg.GetSelectedFixtures()) {
-            cfg.PushUndoState("fixture selection");
-            cfg.SetSelectedFixtures(selection);
-        }
-        SetSelectedFixtures(selection);
-        if (selection.empty())
-            FixtureTablePanel::Instance()->ClearSelection();
-        else
-            FixtureTablePanel::Instance()->SelectByUuid(selection, false);
+        HoverTableHighlights selection = BuildCurrentSelectionHighlights(cfg);
+        selection.fixtures = AddClickedUuids(
+            selection.fixtures, m_controller.GetFixturesInScreenRect(
+                                    pickStart.x, pickStart.y, pickEnd.x,
+                                    pickEnd.y, w, h));
+        ApplyObjectSelectionToUi(selection, this);
     }
     else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
     {
-        auto selection = m_controller.GetTrussesInScreenRect(
-            pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
-        if (selection != cfg.GetSelectedTrusses()) {
-            cfg.PushUndoState("truss selection");
-            cfg.SetSelectedTrusses(selection);
-        }
-        SetSelectedFixtures(selection);
-        if (selection.empty())
-            TrussTablePanel::Instance()->ClearSelection();
-        else
-            TrussTablePanel::Instance()->SelectByUuid(selection, false);
+        HoverTableHighlights selection = BuildCurrentSelectionHighlights(cfg);
+        selection.trusses = AddClickedUuids(
+            selection.trusses, m_controller.GetTrussesInScreenRect(
+                                   pickStart.x, pickStart.y, pickEnd.x,
+                                   pickEnd.y, w, h));
+        ApplyObjectSelectionToUi(selection, this);
     }
     else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
     {
-        auto selection =
-            m_controller.GetSceneObjectsInScreenRect(
-                pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
-        if (selection != cfg.GetSelectedSceneObjects()) {
-            cfg.PushUndoState("scene object selection");
-            cfg.SetSelectedSceneObjects(selection);
-        }
-        SetSelectedFixtures(selection);
-        if (selection.empty())
-            SceneObjectTablePanel::Instance()->ClearSelection();
-        else
-            SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
+        HoverTableHighlights selection = BuildCurrentSelectionHighlights(cfg);
+        selection.sceneObjects = AddClickedUuids(
+            selection.sceneObjects, m_controller.GetSceneObjectsInScreenRect(
+                                        pickStart.x, pickStart.y, pickEnd.x,
+                                        pickEnd.y, w, h));
+        ApplyObjectSelectionToUi(selection, this);
     }
 }
 
