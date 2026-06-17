@@ -140,6 +140,7 @@ Matrix ResolveEditableTransform(const SceneObject &object,
 
 } // namespace
 
+// Opens the matching primitive edit dialog and applies accepted geometry changes.
 bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
                                const std::string &uuid) {
   auto &scene = cfg.GetScene();
@@ -221,9 +222,9 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
     request.name = object.name.empty() ? "Cube" : object.name;
     request.lengthMeters =
         std::max(static_cast<double>(AxisLength(currentTransform.u)), 0.01);
-    request.heightMeters =
-        std::max(static_cast<double>(AxisLength(currentTransform.v)), 0.01);
     request.widthMeters =
+        std::max(static_cast<double>(AxisLength(currentTransform.v)), 0.01);
+    request.heightMeters =
         std::max(static_cast<double>(AxisLength(currentTransform.w)), 0.01);
     accepted = ShowCubeEditDialog(parent, request, placement, [&]() {
       cfg.PushUndoState("apply primitive geometry");
