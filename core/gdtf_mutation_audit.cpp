@@ -28,6 +28,37 @@ std::string BuildIsoTimestampUtcNow() {
   return stamp.str();
 }
 
+
+// Inserts a FixtureType child before the first following standard sibling.
+tinyxml2::XMLElement *InsertFixtureTypeChildInOrder(
+    tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc,
+    const char *name) {
+  tinyxml2::XMLElement *node = doc.NewElement(name);
+  static constexpr const char *kOrder[] = {
+      "AttributeDefinitions", "Wheels", "PhysicalDescriptions", "Models",
+      "Geometries", "DMXModes", "Revisions", "FTPresets", "Protocols"};
+
+  int targetIndex = -1;
+  for (int i = 0; i < static_cast<int>(sizeof(kOrder) / sizeof(kOrder[0])); ++i) {
+    if (std::string(name) == kOrder[i]) {
+      targetIndex = i;
+      break;
+    }
+  }
+
+  if (targetIndex >= 0) {
+    for (tinyxml2::XMLElement *child = fixtureType->FirstChildElement(); child;
+         child = child->NextSiblingElement()) {
+      for (int i = targetIndex + 1; i < static_cast<int>(sizeof(kOrder) / sizeof(kOrder[0])); ++i) {
+        if (std::string(child->Name()) == kOrder[i])
+          return fixtureType->InsertBeforeChild(child, node)->ToElement();
+      }
+    }
+  }
+
+  return fixtureType->InsertEndChild(node)->ToElement();
+}
+
 } // namespace
 
 // Decides how legacy Perastage mutation metadata should be interpreted.
@@ -96,8 +127,7 @@ tinyxml2::XMLElement *EnsureRevisionsNode(tinyxml2::XMLElement *fixtureType,
 
   tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
   if (!revisions) {
-    revisions = doc.NewElement("Revisions");
-    fixtureType->InsertEndChild(revisions);
+    revisions = InsertFixtureTypeChildInOrder(fixtureType, doc, "Revisions");
   }
   return revisions;
 }
@@ -173,8 +203,8 @@ tinyxml2::XMLElement *EnsurePhysicalPropertiesNode(
   tinyxml2::XMLElement *physicalDescriptions =
       fixtureType->FirstChildElement("PhysicalDescriptions");
   if (!physicalDescriptions) {
-    physicalDescriptions = doc.NewElement("PhysicalDescriptions");
-    fixtureType->InsertEndChild(physicalDescriptions);
+    physicalDescriptions =
+        InsertFixtureTypeChildInOrder(fixtureType, doc, "PhysicalDescriptions");
   }
 
   tinyxml2::XMLElement *properties =

@@ -56,6 +56,7 @@ Changes since `v1.3.0`.
 - Fixed MVR layer color persistence so Perastage now stores layer appearance metadata in a standards-compliant root UserData block with Perastage-specific appearance entries, while still importing legacy Layer/Color data from older exports.
 - Fixed MVR and GDTF version metadata so exported MVR files identify the current Perastage app version, generated GDTF files keep GDTF 1.2 compatibility versioning, and intentional GDTF changes are recorded through standard revisions without Perastage-specific custom XML nodes.
 - Fixed MVR fixture UnitNumber export so existing unit numbers are preserved and missing values are generated deterministically by fixture type and stage position.
+- Fixed MVR fixture physical metadata export so Weight and Power Consumption are written through standard GDTF physical properties instead of non-standard Fixture child nodes, while legacy Perastage files still import those values.
 - Restored edge-safe fixture visibility and made fixture hover picking use actual fixture geometry so highlights and labels target the visible fixture instead of broad bounds.
 - Fixed fixture ID edits so saved project files and exported MVR files keep the updated numeric fixture IDs instead of reverting to imported IDs.
 - Fixed command-bar position and rotation value parsing so `t` and `thru` separators distribute selected items the same way as two space-separated values.

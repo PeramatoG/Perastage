@@ -265,6 +265,8 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     target.gdtfMode = replacement.gdtfMode;
     target.weightKg = replacement.weightKg;
     target.powerConsumptionW = replacement.powerConsumptionW;
+    target.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
+    target.physicalPropertiesDirty = false;
     target.color = replacementColor;
 
     target.fixtureId = keepFixtureId;

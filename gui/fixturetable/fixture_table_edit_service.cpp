@@ -244,6 +244,7 @@ void ApplyFullRowChanges(
     double pw = 0.0;
     v.GetString().ToDouble(&pw);
     next.powerConsumptionW = static_cast<float>(pw);
+    const bool powerChanged = old.powerConsumptionW != next.powerConsumptionW;
 
     table->GetValue(v, i, 17);
     const float previousWeightKg = next.weightKg;
@@ -254,6 +255,10 @@ void ApplyFullRowChanges(
     }
     const bool weightChanged = !Units::NearlyEqualWeightKilograms(
         previousWeightKg, next.weightKg, 0.001);
+    if (powerChanged || weightChanged) {
+      next.physicalPropertiesSource = FixturePhysicalPropertiesSource::Manual;
+      next.physicalPropertiesDirty = true;
+    }
 
     table->GetValue(v, i, 18);
     next.category = GdtfFixtureCategory::NormalizeCategory(std::string(v.GetString().ToUTF8()));

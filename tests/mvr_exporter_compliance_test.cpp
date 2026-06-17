@@ -258,6 +258,8 @@ int main() {
   f3.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
   f3.address = "6.121";
   f3.gelColor = "#00FF00";
+  f3.weightKg = 12.5f;
+  f3.powerConsumptionW = 450.0f;
   scene.fixtures[f3.uuid] = f3;
 
   Fixture fLong;
@@ -613,6 +615,9 @@ int main() {
               assert(std::string(colorNode->GetText()) == "0.300000,0.600000,0.715200");
               sawFixtureGelColor = true;
             }
+
+            assert(cur->FirstChildElement("Weight") == nullptr);
+            assert(cur->FirstChildElement("PowerConsumption") == nullptr);
 
             if (fixtureUuid == fEditedId.uuid) {
               assert(fixtureIdText == "909");
