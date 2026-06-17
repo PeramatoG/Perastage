@@ -1448,7 +1448,7 @@ static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
     if (!map)
       map = doc.NewElement("LayerAppearanceMap");
 
-    tinyxml2::XMLElement *entry = doc.NewElement("Layer");
+    tinyxml2::XMLElement *entry = doc.NewElement("PerastageLayerAppearance");
     const std::string exportUuid = ExportLayerUuid(layerUuid, layer.name);
     if (!exportUuid.empty())
       entry->SetAttribute("uuid", exportUuid.c_str());
