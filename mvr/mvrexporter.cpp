@@ -128,6 +128,7 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
 static void LogLegacyPositionUuidWarning(const std::string &message);
 
 static constexpr const char *kMvrProvider = "Perastage";
+static constexpr const char *kPerastageUserDataSchemaVersion = "1.0";
 static constexpr const char *kDummyFallbackFixtureGdtfFileName = "Dummy 1ch.gdtf";
 static constexpr const char *kLegacyFallbackFixtureGdtfFileName = "Generic 1ch.gdtf";
 
@@ -1396,7 +1397,7 @@ static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument
 
   tinyxml2::XMLElement *data = doc.NewElement("Data");
   data->SetAttribute("provider", kMvrProvider);
-  data->SetAttribute("ver", kMvrProviderVersion);
+  data->SetAttribute("ver", kPerastageUserDataSchemaVersion);
   ud->InsertEndChild(data);
   return data;
 }
