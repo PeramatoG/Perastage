@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "truss_gdtf_builder.h"
+#include "app_version.h"
 #include "filesystem_path_utils.h"
 
 #include "json.hpp"
@@ -31,6 +32,8 @@
 #include <array>
 #include <cctype>
 #include <cstdint>
+#include <chrono>
+#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <memory>
@@ -74,6 +77,21 @@ std::string BuildDeterministicUuid(const std::string &seed) {
   bytes[6] = static_cast<uint8_t>((bytes[6] & 0x0Fu) | 0x50u);
   bytes[8] = static_cast<uint8_t>((bytes[8] & 0x3Fu) | 0x80u);
   return BytesToUuid(bytes);
+}
+
+// Builds the current UTC timestamp used by generated GDTF revisions.
+std::string BuildRevisionTimestampUtcNow() {
+  using Clock = std::chrono::system_clock;
+  const std::time_t nowTime = Clock::to_time_t(Clock::now());
+  std::tm utcTm{};
+#if defined(_WIN32)
+  gmtime_s(&utcTm, &nowTime);
+#else
+  gmtime_r(&nowTime, &utcTm);
+#endif
+  std::ostringstream stamp;
+  stamp << std::put_time(&utcTm, "%Y-%m-%dT%H:%M:%SZ");
+  return stamp.str();
 }
 
 struct TrussSourceData {
@@ -268,6 +286,7 @@ static std::string BuildStableFixtureTypeId(const TrussSourceData &data) {
   return fixtureTypeId;
 }
 
+// Builds a valid GDTF 1.2 description.xml for a generated truss fixture type.
 static std::string BuildDescriptionXml(const TrussSourceData &data) {
   tinyxml2::XMLDocument doc;
   auto *decl = doc.NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\"");
@@ -295,6 +314,14 @@ static std::string BuildDescriptionXml(const TrussSourceData &data) {
   attributes->InsertEndChild(features);
   attributes->InsertEndChild(attributesNode);
   fixtureType->InsertEndChild(attributes);
+
+  auto *physical = doc.NewElement("PhysicalDescriptions");
+  auto *properties = doc.NewElement("Properties");
+  auto *weight = doc.NewElement("Weight");
+  weight->SetAttribute("Value", data.weightKg);
+  properties->InsertEndChild(weight);
+  physical->InsertEndChild(properties);
+  fixtureType->InsertEndChild(physical);
 
   auto *models = doc.NewElement("Models");
   auto *mainModel = doc.NewElement("Model");
@@ -327,13 +354,15 @@ static std::string BuildDescriptionXml(const TrussSourceData &data) {
   dmxModes->InsertEndChild(mode);
   fixtureType->InsertEndChild(dmxModes);
 
-  auto *physical = doc.NewElement("PhysicalDescriptions");
-  auto *properties = doc.NewElement("Properties");
-  auto *weight = doc.NewElement("Weight");
-  weight->SetAttribute("Value", data.weightKg);
-  properties->InsertEndChild(weight);
-  physical->InsertEndChild(properties);
-  fixtureType->InsertEndChild(physical);
+  auto *revisions = doc.NewElement("Revisions");
+  auto *revision = doc.NewElement("Revision");
+  revision->SetAttribute("Date", BuildRevisionTimestampUtcNow().c_str());
+  revision->SetAttribute("UserID", 0);
+  const std::string modifiedBy = std::string("Perastage ") + app::kVersion;
+  revision->SetAttribute("ModifiedBy", modifiedBy.c_str());
+  revision->SetAttribute("Text", "Generated Perastage auxiliary truss fixture type for MVR export");
+  revisions->InsertEndChild(revision);
+  fixtureType->InsertEndChild(revisions);
 
   tinyxml2::XMLPrinter printer;
   doc.Print(&printer);

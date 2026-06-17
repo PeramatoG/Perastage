@@ -53,8 +53,7 @@ void AppendRevision(tinyxml2::XMLElement *fixtureType,
                     int userId = 0,
                     const std::string &dateUtcIso8601 = "");
 
-// Stamps Perastage-owned mutation metadata under <FixtureType>.
-// Metadata is stored in <PerastageMutationAudit>.
+// Preserves the legacy call site while avoiding non-standard GDTF metadata.
 void StampPerastageMutationMetadata(tinyxml2::XMLElement *fixtureType,
                                     tinyxml2::XMLDocument &doc);
 

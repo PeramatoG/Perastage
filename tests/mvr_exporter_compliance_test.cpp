@@ -166,6 +166,28 @@ static std::string ReadFixtureTypeIdFromGdtf(const fs::path &gdtfPath) {
   return id;
 }
 
+// Verifies generated GDTF files use standard version and revision metadata.
+static void AssertGeneratedGdtfVersioning(const fs::path &gdtfPath) {
+  const auto gdtfEntries = ReadArchiveTextEntries(gdtfPath);
+  auto descriptionIt = gdtfEntries.find("description.xml");
+  assert(descriptionIt != gdtfEntries.end());
+
+  tinyxml2::XMLDocument gdtfDoc;
+  assert(gdtfDoc.Parse(descriptionIt->second.c_str()) == tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *root = gdtfDoc.FirstChildElement("GDTF");
+  assert(root != nullptr);
+  assert(std::string(root->Attribute("DataVersion")) == "1.2");
+  tinyxml2::XMLElement *fixtureType = root->FirstChildElement("FixtureType");
+  assert(fixtureType != nullptr);
+  assert(fixtureType->FirstChildElement("PerastageMutationAudit") == nullptr);
+  tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
+  assert(revisions != nullptr);
+  tinyxml2::XMLElement *revision = revisions->FirstChildElement("Revision");
+  assert(revision != nullptr);
+  const std::string expectedModifiedBy = std::string("Perastage ") + app::kVersion;
+  assert(std::string(revision->Attribute("ModifiedBy")) == expectedModifiedBy);
+}
+
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
@@ -199,8 +221,8 @@ int main() {
   std::ofstream(duplicateLongNamedGdtf) << "LONG2";
 
   scene.basePath = tempDir.generic_string();
-  scene.provider.clear();
-  scene.providerVersion.clear();
+  scene.provider = "ImportedApp";
+  scene.providerVersion = "9.9";
   scene.versionMajor = 1;
   scene.versionMinor = 6;
   scene.positions["LX1"] = "LX1";
@@ -493,6 +515,8 @@ int main() {
   assert(root->IntAttribute("verMinor") == 6);
   assert(std::string(root->Attribute("provider")) == "Perastage");
   assert(std::string(root->Attribute("providerVersion")) == app::kVersion);
+  assert(std::string(root->Attribute("providerVersion")) != "1.0" ||
+         std::string(app::kVersion) == "1.0");
 
   assert(ReadFixtureUnitNumber(root, "unit-order-bottom") == 1);
   assert(ReadFixtureUnitNumber(root, "unit-order-left") == 2);
@@ -939,6 +963,7 @@ int main() {
     assert(gdtfOut.is_open());
     gdtfOut << mvrGeometryEntries.at(gdtfSpec);
     gdtfOut.close();
+    AssertGeneratedGdtfVersioning(trussGdtfPath);
     fixtureTypeIdByTrussUuid[trussUuid] = ReadFixtureTypeIdFromGdtf(trussGdtfPath);
   }
   assert(fixtureTypeIdByTrussUuid.at(tr.uuid) == fixtureTypeIdByTrussUuid.at(trNonNumeric.uuid));

@@ -10,6 +10,7 @@
 namespace GdtfMutationAudit {
 namespace {
 
+// Builds the current UTC timestamp in the GDTF revision date format.
 std::string BuildIsoTimestampUtcNow() {
   using Clock = std::chrono::system_clock;
   const auto now = Clock::now();
@@ -29,6 +30,7 @@ std::string BuildIsoTimestampUtcNow() {
 
 } // namespace
 
+// Decides how legacy Perastage mutation metadata should be interpreted.
 CompatibilityDecision
 InspectCompatibility(const tinyxml2::XMLElement *fixtureType) {
   CompatibilityDecision decision;
@@ -63,6 +65,7 @@ InspectCompatibility(const tinyxml2::XMLElement *fixtureType) {
   return decision;
 }
 
+// Returns the fixture type element used by GDTF mutation helpers.
 tinyxml2::XMLElement *EnsureFixtureType(tinyxml2::XMLDocument &doc) {
   tinyxml2::XMLElement *root = doc.FirstChildElement("GDTF");
   if (root) {
@@ -85,6 +88,7 @@ tinyxml2::XMLElement *EnsureFixtureType(tinyxml2::XMLDocument &doc) {
   return fixtureType;
 }
 
+// Returns or creates the standard GDTF revisions container.
 tinyxml2::XMLElement *EnsureRevisionsNode(tinyxml2::XMLElement *fixtureType,
                                           tinyxml2::XMLDocument &doc) {
   if (!fixtureType)
@@ -98,10 +102,33 @@ tinyxml2::XMLElement *EnsureRevisionsNode(tinyxml2::XMLElement *fixtureType,
   return revisions;
 }
 
+// Builds the standard ModifiedBy value for Perastage-authored GDTF revisions.
 std::string BuildPerastageModifiedBy() {
   return std::string("Perastage ") + app::kVersion;
 }
 
+// Checks whether an equivalent Perastage revision already exists.
+bool HasEquivalentRevision(const tinyxml2::XMLElement *fixtureType,
+                           const std::string &text,
+                           const std::string &modifiedBy,
+                           int userId) {
+  const tinyxml2::XMLElement *revisions =
+      fixtureType ? fixtureType->FirstChildElement("Revisions") : nullptr;
+  for (const tinyxml2::XMLElement *revision =
+           revisions ? revisions->FirstChildElement("Revision") : nullptr;
+       revision; revision = revision->NextSiblingElement("Revision")) {
+    const char *existingText = revision->Attribute("Text");
+    const char *existingModifiedBy = revision->Attribute("ModifiedBy");
+    int existingUserId = -1;
+    revision->QueryIntAttribute("UserID", &existingUserId);
+    if (existingText && existingModifiedBy && existingText == text &&
+        existingModifiedBy == modifiedBy && existingUserId == userId)
+      return true;
+  }
+  return false;
+}
+
+// Appends a standard GDTF Revision unless the same Perastage revision exists.
 void AppendRevision(tinyxml2::XMLElement *fixtureType,
                     tinyxml2::XMLDocument &doc,
                     const std::string &text,
@@ -109,6 +136,11 @@ void AppendRevision(tinyxml2::XMLElement *fixtureType,
                     int userId,
                     const std::string &dateUtcIso8601) {
   if (!fixtureType)
+    return;
+
+  const std::string effectiveModifiedBy =
+      modifiedBy.empty() ? BuildPerastageModifiedBy() : modifiedBy;
+  if (HasEquivalentRevision(fixtureType, text, effectiveModifiedBy, userId))
     return;
 
   tinyxml2::XMLElement *revisions = EnsureRevisionsNode(fixtureType, doc);
@@ -119,32 +151,20 @@ void AppendRevision(tinyxml2::XMLElement *fixtureType,
   const std::string timestamp =
       dateUtcIso8601.empty() ? BuildIsoTimestampUtcNow() : dateUtcIso8601;
   revision->SetAttribute("Date", timestamp.c_str());
-  revision->SetAttribute("ModifiedBy",
-                         modifiedBy.empty() ? BuildPerastageModifiedBy().c_str()
-                                            : modifiedBy.c_str());
+  revision->SetAttribute("ModifiedBy", effectiveModifiedBy.c_str());
   revision->SetAttribute("Text", text.c_str());
   revision->SetAttribute("UserID", userId);
   revisions->InsertEndChild(revision);
 }
 
+// Keeps old mutation-audit callers from writing non-standard GDTF XML nodes.
 void StampPerastageMutationMetadata(tinyxml2::XMLElement *fixtureType,
                                     tinyxml2::XMLDocument &doc) {
-  if (!fixtureType)
-    return;
-
-  tinyxml2::XMLElement *auditNode =
-      fixtureType->FirstChildElement("PerastageMutationAudit");
-  if (!auditNode) {
-    auditNode = doc.NewElement("PerastageMutationAudit");
-    fixtureType->InsertEndChild(auditNode);
-  }
-
-  auditNode->SetAttribute("SchemaVersion", kPerastageGdtfMutationSchemaVersion);
-  auditNode->SetAttribute("PerastageVersion", app::kVersion);
-  auditNode->SetAttribute("PerastageVersionDisplay", app::kVersionDisplay);
-  auditNode->SetAttribute("LastMutationDateUtc", BuildIsoTimestampUtcNow().c_str());
+  (void)fixtureType;
+  (void)doc;
 }
 
+// Returns or creates the GDTF physical properties container.
 tinyxml2::XMLElement *EnsurePhysicalPropertiesNode(
     tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc) {
   if (!fixtureType)
@@ -166,6 +186,7 @@ tinyxml2::XMLElement *EnsurePhysicalPropertiesNode(
   return properties;
 }
 
+// Applies physical property values to a GDTF fixture type.
 bool ApplyPhysicalProperties(tinyxml2::XMLElement *fixtureType,
                              tinyxml2::XMLDocument &doc,
                              const std::optional<float> &weightKg,
@@ -201,6 +222,7 @@ bool ApplyPhysicalProperties(tinyxml2::XMLElement *fixtureType,
   return mutated;
 }
 
+// Applies physical properties and records a standard GDTF revision.
 bool ApplyPhysicalPropertiesWithAudit(
     tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc,
     const std::optional<float> &weightKg,
@@ -211,7 +233,6 @@ bool ApplyPhysicalPropertiesWithAudit(
   if (!mutated)
     return false;
 
-  StampPerastageMutationMetadata(fixtureType, doc);
   AppendRevision(fixtureType, doc, revisionText, modifiedBy);
   return true;
 }

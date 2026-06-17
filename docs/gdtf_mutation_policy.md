@@ -8,22 +8,22 @@ Perastage currently mutates GDTF archives at the following integration points.
 
 | Module | File | Function(s) | Mutation scope |
 |---|---|---|---|
-| Viewer 3D API | `viewer3d/gdtfloader.cpp` | `SetGdtfProperties(...)` | Writes `PhysicalDescriptions/Properties` (`Weight`, `PowerConsumption`), stamps audit metadata, appends `Revision`, rewrites `.gdtf`. |
-| GUI symbol workflow | `gui/windows/symbol_fixture_applier.cpp` | `RewriteGdtf(...)` + `AppendMutationAuditMetadata(...)` (called by `ApplySymbolsToFixtureGdtf(...)`) | Writes/updates SVG symbol assets and model SVG offsets, stamps audit metadata, appends `Revision`, rewrites `.gdtf`. |
+| Viewer 3D API | `viewer3d/gdtfloader.cpp` | `SetGdtfProperties(...)` | Writes `PhysicalDescriptions/Properties` (`Weight`, `PowerConsumption`), appends a standard `Revision`, rewrites `.gdtf`. |
+| GUI symbol workflow | `gui/windows/symbol_fixture_applier.cpp` | `RewriteGdtf(...)` + `AppendMutationAuditMetadata(...)` (called by `ApplySymbolsToFixtureGdtf(...)`) | Writes/updates SVG symbol assets and model SVG offsets, appends a standard `Revision`, rewrites `.gdtf`. |
 | Project symbol cache manifest | `core/symbol_cache_manifest.cpp` | `SymbolCacheManifest::ValidateFixture(...)`, `MarkFixtureSymbolsValid(...)` | Stores project-level metadata in `.pstg` packages so startup can skip deep GDTF inspection only when the referenced GDTF hash and required view metadata still match. |
-| MVR export patching | `mvr/mvrexporter.cpp` | `CreatePatchedGdtf(...)` | Creates temporary patched GDTF copies for export overrides (manufacturer/model/physical properties/color/dimensions), stamps audit metadata and appends `Revision` when patched. |
-| Shared audit helpers | `core/gdtf_mutation_audit.cpp` | `StampPerastageMutationMetadata(...)`, `AppendRevision(...)`, `ApplyPhysicalPropertiesWithAudit(...)` | Centralizes Perastage-owned mutation metadata and revision-appending semantics used by write flows. |
+| MVR export patching | `mvr/mvrexporter.cpp` | `CreatePatchedGdtf(...)` | Creates temporary patched GDTF copies for export overrides (manufacturer/model/physical properties/color/dimensions), and appends a standard `Revision` when patched. |
+| Shared audit helpers | `core/gdtf_mutation_audit.cpp` | `StampPerastageMutationMetadata(...)`, `AppendRevision(...)`, `ApplyPhysicalPropertiesWithAudit(...)` | Centralizes standard GDTF revision-appending semantics used by write flows. |
 
 ### Notes on ownership
 
-- `core/gdtf_mutation_audit.{h,cpp}` is the single owner of Perastage mutation-audit schema semantics.
-- Write call sites in other modules must use this helper API instead of hand-rolling custom audit XML shapes.
+- `core/gdtf_mutation_audit.{h,cpp}` is the single owner of Perastage GDTF revision semantics.
+- Write call sites in other modules must use this helper API instead of hand-rolling custom revision XML shapes.
 - Fixture SVG symbols remain stored inside their corresponding GDTF files; the `.pstg` symbol cache manifest stores metadata only and never stores SVG payloads.
 - Fixture display color is no longer persisted by mutating `description.xml` model `Color` values in place. The persisted source of truth for default color selection is the Perastage dictionary/project data layer, while `GetGdtfModelColor(...)` remains read-only for legacy fallback reads.
 
 ## 2) Exact `Revision` format used by Perastage
 
-Perastage appends `<Revision />` under `<FixtureType>/<Revisions>` and ensures `<Revisions>` exists when needed.
+Perastage appends `<Revision />` under `<FixtureType>/<Revisions>` and ensures `<Revisions>` exists when needed. Repeated exports do not append a duplicate Perastage revision when the same `Text`, `ModifiedBy`, and `UserID` already exist.
 
 Perastage writes these attributes:
 
@@ -45,19 +45,14 @@ Canonical shape:
 </Revisions>
 ```
 
-## 3) Definition of `kPerastageGdtfMutationSchemaVersion`
+## 3) Legacy `PerastageMutationAudit` compatibility
 
 - Symbol: `GdtfMutationAudit::kPerastageGdtfMutationSchemaVersion`.
 - Location: `core/gdtf_mutation_audit.h`.
 - Current value: `1`.
-- Meaning: version of the **Perastage-owned mutation metadata contract**, not the GDTF specification version.
+- Meaning: legacy version of the former **Perastage-owned mutation metadata contract**, not the GDTF specification version.
 
-This schema version controls semantics for the `<PerastageMutationAudit .../>` node, currently stamped with:
-
-- `SchemaVersion`
-- `PerastageVersion`
-- `PerastageVersionDisplay`
-- `LastMutationDateUtc`
+Perastage no longer writes `<PerastageMutationAudit .../>` into GDTF `description.xml`, because it is not a standard GDTF node. The importer and compatibility helpers may still read and ignore legacy nodes from older files.
 
 ## 4) Compatibility matrix (legacy / current / future reads)
 
@@ -83,9 +78,10 @@ A GDTF mutation change is accepted only if all conditions below hold:
 1. **Mutation correctness**
    - Target payload mutation is present (for example color/properties/SVG view assets+offsets).
    - Fixture symbol validation requires the Perastage top, bottom, front, and side SVG views before project manifest cache entries can skip deep inspection.
-2. **Audit correctness**
-   - `<PerastageMutationAudit>` exists and includes the current schema version.
-   - A new `<Revision>` entry is appended with valid `Date`, `ModifiedBy`, `Text`, `UserID`.
+2. **Revision correctness**
+   - No new `<PerastageMutationAudit>` node is written.
+   - A new `<Revision>` entry is appended with valid `Date`, `ModifiedBy`, `Text`, `UserID` when Perastage intentionally changes a GDTF.
+   - No duplicate identical Perastage revision is appended on repeated exports.
 3. **Compatibility safety**
    - Legacy/no-audit and unknown-schema files remain readable through fallback behavior.
 4. **Archive integrity**
@@ -100,8 +96,8 @@ A GDTF mutation change is accepted only if all conditions below hold:
 - [ ] Apply fixture symbol generation to a fixture and verify the `.gdtf` receives updated top, bottom, front, and side SVG entries and offsets.
 - [ ] Edit fixture color via dictionary/project workflow and verify fixture color persists after reopening without mutating model `Color` in the source `.gdtf`.
 - [ ] Edit fixture physical properties and verify weight/power values persist after reopening.
-- [ ] Inspect resulting `description.xml` and verify `PerastageMutationAudit` + `Revision` attributes follow the policy format.
-- [ ] Export an MVR that triggers patched GDTF overrides and verify the exported patched GDTF carries mutation audit and revision metadata.
+- [ ] Inspect resulting `description.xml` and verify no new `PerastageMutationAudit` node is present and `Revision` attributes follow the policy format.
+- [ ] Export an MVR that triggers patched GDTF overrides and verify the exported patched GDTF carries standard revision metadata.
 - [ ] Confirm legacy GDTF (without `PerastageMutationAudit`) remains loadable.
 - [ ] Confirm unknown/future `SchemaVersion` triggers safe fallback behavior (no hard failure due only to version mismatch).
 
