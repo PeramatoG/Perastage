@@ -738,16 +738,17 @@ Matrix BuildSphereScaleTransform(double radiusMeters) {
   return transform;
 }
 
+// Builds a cube scale transform with length on X, width on Y, and height on Z.
 Matrix BuildCubeScaleTransform(double lengthMeters, double heightMeters,
                                double widthMeters) {
   const float sx = static_cast<float>(
       std::max(lengthMeters, 0.01) * kMetersToMillimeters /
       kPrimitiveCubeSizeMillimeters);
   const float sy = static_cast<float>(
-      std::max(heightMeters, 0.01) * kMetersToMillimeters /
+      std::max(widthMeters, 0.01) * kMetersToMillimeters /
       kPrimitiveCubeSizeMillimeters);
   const float sz = static_cast<float>(
-      std::max(widthMeters, 0.01) * kMetersToMillimeters /
+      std::max(heightMeters, 0.01) * kMetersToMillimeters /
       kPrimitiveCubeSizeMillimeters);
 
   Matrix transform;
