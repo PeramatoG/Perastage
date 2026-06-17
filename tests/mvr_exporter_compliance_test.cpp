@@ -602,7 +602,8 @@ int main() {
             assert(nameAttr != nullptr);
             std::string fixtureUuid = uuidAttr;
             std::string fixtureNodeName = nameAttr;
-            assert(fixtureNodeName == "Fixture_" + fixtureUuid);
+            assert(!fixtureNodeName.empty());
+            assert(fixtureNodeName != "Fixture_" + fixtureUuid);
 
             auto *colorNode = cur->FirstChildElement("Color");
             if (fixtureUuid == f2.uuid) {
@@ -639,12 +640,9 @@ int main() {
             const char *metaUuid = info->Attribute("uuid");
             assert(metaUuid != nullptr);
             assert(std::string(metaUuid) == fixtureUuid);
-            auto *stableIdNode = info->FirstChildElement("StableId");
-            assert(stableIdNode != nullptr && stableIdNode->GetText() != nullptr);
-            assert(std::string(stableIdNode->GetText()) == fixtureUuid);
-            auto *scriptNode = info->FirstChildElement("Script");
-            assert(scriptNode != nullptr && scriptNode->GetText() != nullptr);
-            assert(std::string(scriptNode->GetText()) == fixtureNodeName);
+            assert(info->FirstChildElement("InstanceName") == nullptr);
+            assert(info->FirstChildElement("StableId") == nullptr);
+            assert(info->FirstChildElement("Script") == nullptr);
 
             auto *addresses = cur->FirstChildElement("Addresses");
             assert(addresses != nullptr);
@@ -1050,9 +1048,14 @@ int main() {
         "<Scene>"
         "<AUXData><Position uuid=\"LX1\" name=\"LX 1\"/></AUXData>"
         "<Layers><Layer name=\"Default\"><ChildList>"
-        "<Fixture uuid=\"fixture-legacy\" name=\"Fixture\">"
+        "<Fixture uuid=\"fixture-legacy\" name=\"\">"
         "<FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric>"
         "<GDTFSpec>fixture.gdtf</GDTFSpec><Position>LX1</Position>"
+        "<UserData><Data provider=\"Perastage\" ver=\"1.0\"><FixtureInfo>"
+        "<InstanceName>Legacy Fixture Name</InstanceName>"
+        "<StableId>11111111-1111-4111-8111-111111111111</StableId>"
+        "<Script>LegacyScriptName</Script>"
+        "</FixtureInfo></Data></UserData>"
         "</Fixture>"
         "</ChildList></Layer></Layers>"
         "</Scene></GeneralSceneDescription>";
@@ -1068,6 +1071,9 @@ int main() {
   const MvrScene &importedScene = ConfigManager::Get().GetScene();
   assert(!importedScene.fixtures.empty());
   const Fixture &legacyFixture = importedScene.fixtures.begin()->second;
+  assert(importedScene.fixtures.count("11111111-1111-4111-8111-111111111111") == 1);
+  assert(legacyFixture.uuid == "11111111-1111-4111-8111-111111111111");
+  assert(legacyFixture.instanceName == "Legacy Fixture Name");
   assert(!legacyFixture.position.empty());
   assert(legacyFixture.position != "LX1");
   assert(CanonicalizeUuid(legacyFixture.position) == legacyFixture.position);

@@ -94,6 +94,7 @@ Changes since `v1.3.0`.
 
 ## Internal changes
 
+- Cleaned up new MVR fixture exports by relying on standard Fixture `uuid` and `name` attributes instead of redundant Perastage FixtureInfo identity fields, while preserving legacy import fallback compatibility.
 - Added Linux text-locale startup validation coverage to prevent regressions in wxWidgets narrow-to-wide string conversion behavior.
 - Improved Debian/Linux test build reliability by linking logger- and config-service-based test executables with the shared diagnostics, app path, filesystem path, config service, and symbol-cache support sources used by the main application.
 - Improved Linux GCC build reliability by separating lightweight GDTF geometry data types from loader declarations, reducing header-order coupling in the 3D resource and bounds systems.
