@@ -20,6 +20,14 @@
 #include <string>
 #include "types.h"
 
+// Tracks where editable fixture physical properties came from.
+enum class FixturePhysicalPropertiesSource {
+    Unknown,
+    Gdtf,
+    LegacyMvrFixtureNode,
+    Manual
+};
+
 // Represents a lighting fixture object parsed from MVR
 struct Fixture {
     std::string uuid;             // Unique identifier from the MVR file
@@ -57,6 +65,9 @@ struct Fixture {
 
     float powerConsumptionW = 0.0f; // Power consumption in watts
     float weightKg = 0.0f;          // Fixture weight in kilograms
+    FixturePhysicalPropertiesSource physicalPropertiesSource =
+        FixturePhysicalPropertiesSource::Unknown; // Source for editable physical values
+    bool physicalPropertiesDirty = false; // True when the user edited physical values
 
     std::string category;         // Fixture category (Spot, Wash, etc.)
     std::string categorySource;   // Category source (Manual, AutoFallback, ...)

@@ -2114,20 +2114,28 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           if (const char *txt = colorNode->GetText())
             fixture.gelColor = CieToHex(txt);
         }
+        float legacyPowerConsumptionW = 0.0f;
+        bool hasLegacyPowerConsumption = false;
         if (tinyxml2::XMLElement *pcNode =
                 node->FirstChildElement("PowerConsumption")) {
           if (const char *txt = pcNode->GetText()) {
             float parsed = 0.0f;
-            if (TryParseFloat(txt, parsed))
-              fixture.powerConsumptionW = parsed;
+            if (TryParseFloat(txt, parsed)) {
+              legacyPowerConsumptionW = parsed;
+              hasLegacyPowerConsumption = true;
+            }
           }
         }
+        float legacyWeightKg = 0.0f;
+        bool hasLegacyWeight = false;
         if (tinyxml2::XMLElement *wNode =
                 node->FirstChildElement("Weight")) {
           if (const char *txt = wNode->GetText()) {
             float parsed = 0.0f;
-            if (TryParseFloat(txt, parsed))
-              fixture.weightKg = parsed;
+            if (TryParseFloat(txt, parsed)) {
+              legacyWeightKg = parsed;
+              hasLegacyWeight = true;
+            }
           }
         }
         std::string resolvedGdtfPathForFixture;
@@ -2141,12 +2149,23 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           const GdtfFixtureMetadata &metadata = getFixtureMetadata(resolvedGdtfPath);
           fixture.typeName = metadata.fixtureName;
           if (metadata.hasProperties) {
-            if (fixture.weightKg == 0.0f)
+            if (metadata.weightKg > 0.0f)
               fixture.weightKg = metadata.weightKg;
-            if (fixture.powerConsumptionW == 0.0f)
+            if (metadata.powerW > 0.0f)
               fixture.powerConsumptionW = metadata.powerW;
+            fixture.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
+            fixture.physicalPropertiesDirty = false;
           }
         }
+        if (fixture.weightKg <= 0.0f && hasLegacyWeight) {
+          fixture.weightKg = legacyWeightKg;
+          fixture.physicalPropertiesSource = FixturePhysicalPropertiesSource::LegacyMvrFixtureNode;
+        }
+        if (fixture.powerConsumptionW <= 0.0f && hasLegacyPowerConsumption) {
+          fixture.powerConsumptionW = legacyPowerConsumptionW;
+          fixture.physicalPropertiesSource = FixturePhysicalPropertiesSource::LegacyMvrFixtureNode;
+        }
+        fixture.physicalPropertiesDirty = false;
 
         ReadFixtureCategoryFromUserData(node, fixture);
         const std::optional<GdtfDictionary::Entry> &dictionaryEntry =

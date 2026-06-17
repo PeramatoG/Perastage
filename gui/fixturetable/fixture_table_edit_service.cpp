@@ -6,14 +6,18 @@
 #include "matrixutils.h"
 #include "gdtfdictionary.h"
 #include "gdtf_fixture_category.h"
+#include "gdtf_mutation_audit.h"
+#include "gdtfloader.h"
 
 #include <algorithm>
 #include <cmath>
 #include <unordered_map>
+#include <filesystem>
 
 namespace FixtureTableEditService {
 
 namespace {
+// Returns the localized degree symbol used by angle cells.
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
@@ -21,6 +25,75 @@ const wxString &DegreeSymbol() {
 
 constexpr const char *kUnassignedPosition = "Unassigned";
 
+// Resolves a fixture resource path against the scene base path when needed.
+std::string ResolveSceneResourcePath(const MvrScene &scene, const std::string &resourcePath) {
+  if (resourcePath.empty())
+    return {};
+  std::filesystem::path path(resourcePath);
+  if (path.is_relative() && !scene.basePath.empty())
+    path = std::filesystem::path(scene.basePath) / path;
+  return path.string();
+}
+
+// Checks whether two fixtures should share GDTF type-level physical properties.
+bool IsSameGdtfType(const Fixture &fixture, const std::string &gdtfSpec,
+                    const std::string &typeName) {
+  if (!gdtfSpec.empty() && fixture.gdtfSpec == gdtfSpec)
+    return true;
+  return !typeName.empty() && fixture.typeName == typeName;
+}
+
+// Writes GDTF physical properties to the project GDTF file when a type value changes.
+bool UpdateProjectGdtfPhysicalProperties(const MvrScene &scene,
+                                         const std::string &gdtfSpec,
+                                         float weightKg, float powerW) {
+  const std::string resolvedPath = ResolveSceneResourcePath(scene, gdtfSpec);
+  if (resolvedPath.empty())
+    return false;
+  return SetGdtfProperties(resolvedPath, weightKg, powerW,
+                           GdtfMutationAudit::BuildPerastageModifiedBy());
+}
+
+// Updates table cells that mirror shared GDTF type-level physical properties.
+void UpdateMatchingPhysicalPropertyCells(wxDataViewListCtrl *table,
+                                         const std::vector<std::string> &rowUuids,
+                                         const MvrScene &scene,
+                                         const std::string &gdtfSpec,
+                                         const std::string &typeName,
+                                         float weightKg, float powerW,
+                                         Units::WeightUnitSystem weightUnitSystem) {
+  if (!table)
+    return;
+  const size_t count =
+      std::min(static_cast<size_t>(table->GetItemCount()), rowUuids.size());
+  for (size_t row = 0; row < count; ++row) {
+    const auto it = scene.fixtures.find(rowUuids[row]);
+    if (it == scene.fixtures.end() || !IsSameGdtfType(it->second, gdtfSpec, typeName))
+      continue;
+    table->SetValue(wxVariant(wxString::Format("%.1f", powerW)), row, 16);
+    table->SetValue(wxVariant(wxString::FromUTF8(Units::FormatWeightFromKilograms(
+                        weightKg, weightUnitSystem,
+                        Units::ValueFormatContext::Table))),
+                    row, 17);
+  }
+}
+
+// Applies a GDTF type-level physical property edit to every matching fixture.
+void ApplySharedPhysicalProperties(MvrScene &scene, const std::string &gdtfSpec,
+                                   const std::string &typeName, float weightKg,
+                                   float powerW) {
+  for (auto &[uuid, fixture] : scene.fixtures) {
+    (void)uuid;
+    if (!IsSameGdtfType(fixture, gdtfSpec, typeName))
+      continue;
+    fixture.weightKg = weightKg;
+    fixture.powerConsumptionW = powerW;
+    fixture.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
+    fixture.physicalPropertiesDirty = false;
+  }
+}
+
+// Normalizes empty position names for grouped physical summaries.
 std::string NormalizePositionName(const std::string &positionName) {
   return positionName.empty() ? kUnassignedPosition : positionName;
 }
@@ -244,6 +317,7 @@ void ApplyFullRowChanges(
     double pw = 0.0;
     v.GetString().ToDouble(&pw);
     next.powerConsumptionW = static_cast<float>(pw);
+    const bool powerChanged = old.powerConsumptionW != next.powerConsumptionW;
 
     table->GetValue(v, i, 17);
     const float previousWeightKg = next.weightKg;
@@ -254,6 +328,22 @@ void ApplyFullRowChanges(
     }
     const bool weightChanged = !Units::NearlyEqualWeightKilograms(
         previousWeightKg, next.weightKg, 0.001);
+    if (powerChanged || weightChanged) {
+      if (UpdateProjectGdtfPhysicalProperties(scene, next.gdtfSpec, next.weightKg,
+                                              next.powerConsumptionW)) {
+        UpdateMatchingPhysicalPropertyCells(table, rowUuids, scene, next.gdtfSpec,
+                                            next.typeName, next.weightKg,
+                                            next.powerConsumptionW,
+                                            weightUnitSystem);
+        ApplySharedPhysicalProperties(scene, next.gdtfSpec, next.typeName,
+                                      next.weightKg, next.powerConsumptionW);
+        next.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
+        next.physicalPropertiesDirty = false;
+      } else {
+        next.physicalPropertiesSource = FixturePhysicalPropertiesSource::Manual;
+        next.physicalPropertiesDirty = true;
+      }
+    }
 
     table->GetValue(v, i, 18);
     next.category = GdtfFixtureCategory::NormalizeCategory(std::string(v.GetString().ToUTF8()));

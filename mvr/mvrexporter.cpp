@@ -22,6 +22,7 @@
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
 #include "gdtf_mutation_audit.h"
+#include "gdtfloader.h"
 #include "logger.h"
 #include "matrixutils.h"
 #include "projectutils.h"
@@ -103,6 +104,10 @@ static std::unordered_map<std::string, int> BuildFixtureUnitNumbersForExport(
     const std::unordered_map<std::string, Fixture> &fixtures);
 
 static bool ShouldExportSupportHoistInfo(const Support &support);
+static bool NearlyEqualPhysicalValue(float lhs, float rhs);
+static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
+                                          const std::string &gdtfPath,
+                                          GdtfOverrides &overrides);
 static tinyxml2::XMLElement *FindFirstPerastageUserData(tinyxml2::XMLElement *node);
 static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
                                                             tinyxml2::XMLElement *node);
@@ -131,6 +136,43 @@ static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kPerastageUserDataSchemaVersion = "1.0";
 static constexpr const char *kDummyFallbackFixtureGdtfFileName = "Dummy 1ch.gdtf";
 static constexpr const char *kLegacyFallbackFixtureGdtfFileName = "Generic 1ch.gdtf";
+static constexpr const char *kPhysicalPropertiesRevisionText =
+    "Updated physical properties for Perastage MVR export";
+
+
+// Compares physical values using the exporter tolerance.
+static bool NearlyEqualPhysicalValue(float lhs, float rhs) {
+  return std::fabs(lhs - rhs) <= 0.001f;
+}
+
+// Decides whether fixture edits require a patched exported GDTF copy.
+static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
+                                          const std::string &gdtfPath,
+                                          GdtfOverrides &overrides) {
+  if (!fixture.physicalPropertiesDirty || gdtfPath.empty())
+    return false;
+
+  float gdtfWeightKg = 0.0f;
+  float gdtfPowerW = 0.0f;
+  const bool hasGdtfProperties =
+      GetGdtfProperties(gdtfPath, gdtfWeightKg, gdtfPowerW);
+
+  bool needsPatch = false;
+  if (fixture.weightKg > 0.0f &&
+      (!hasGdtfProperties || !NearlyEqualPhysicalValue(fixture.weightKg, gdtfWeightKg))) {
+    overrides.hasWeightKg = true;
+    overrides.weightKg = fixture.weightKg;
+    needsPatch = true;
+  }
+  if (fixture.powerConsumptionW > 0.0f &&
+      (!hasGdtfProperties ||
+       !NearlyEqualPhysicalValue(fixture.powerConsumptionW, gdtfPowerW))) {
+    overrides.hasPowerW = true;
+    overrides.powerW = fixture.powerConsumptionW;
+    needsPatch = true;
+  }
+  return needsPatch;
+}
 
 // Resolves the MVR FixtureID values from the current editable fixture ID.
 static FixtureExportId ResolveFixtureExportId(const Fixture &fixture) {
@@ -1698,6 +1740,7 @@ static bool ZipDir(const std::string &srcDir, const std::string &dstZip) {
   return true;
 }
 
+// Creates a temporary patched GDTF copy for intentional MVR export overrides.
 static std::string CreatePatchedGdtf(const std::string &gdtfPath,
                                      const GdtfOverrides &ov) {
   std::string tempDir = CreateTempDir();
@@ -1760,7 +1803,9 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
 
   if (patched) {
     GdtfMutationAudit::AppendRevision(
-        ft, doc, "Patched fixture metadata for MVR export",
+        ft, doc, (ov.hasWeightKg || ov.hasPowerW)
+                     ? kPhysicalPropertiesRevisionText
+                     : "Patched fixture metadata for MVR export",
         GdtfMutationAudit::BuildPerastageModifiedBy());
   }
 
@@ -1911,6 +1956,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
 
   std::vector<ResourceEntry> resourceEntries;
   std::unordered_map<std::string, std::string> sourceToArchivePath;
+  std::unordered_map<std::string, std::string> physicalPatchArchiveByKey;
   std::unordered_map<std::string, std::string> gdtfArchiveByObjectUuid;
   std::unordered_map<std::string, GdtfOverrides> gdtfOverrides;
   std::unordered_map<std::string, std::string> trussArchiveByTypeKey;
@@ -1940,7 +1986,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       return srcIt->second;
 
     std::string archivePath = EnsureUniqueArchivePath(preferredArchivePath, reservedArchivePaths);
-    sourceToArchivePath[normalizedSource] = archivePath;
+    if (allowReuseBySource)
+      sourceToArchivePath[normalizedSource] = archivePath;
     resourceEntries.push_back({fs::path(normalizedSource), archivePath});
     return archivePath;
   };
@@ -2376,15 +2423,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
         fe->InsertEndChild(e);
       }
     };
-    auto addNum = [&](const char *n, float v, const char *unit) {
-      if (v != 0.0f) {
-        tinyxml2::XMLElement *e = doc.NewElement(n);
-        e->SetAttribute("unit", unit);
-        e->SetText(v);
-        fe->InsertEndChild(e);
-      }
-    };
-
     auto idIt = assignedIds.find(f.uuid);
     FixtureExportId fixtureExportId = ResolveFixtureExportId(f);
     if (fixtureExportId.numeric <= 0 && idIt != assignedIds.end())
@@ -2441,22 +2479,47 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     else if (!fixtureSourceGdtf.empty())
       ++exportedRealFixtureGdtfCount;
     std::string fixtureName = SanitizeArchiveFileName(fixtureSourceGdtf, "fixture.gdtf");
-    std::string fixtureGdtfArchivePath =
-        registerGdtfResource(f.uuid, fixtureSourceGdtf, fixtureName);
+    GdtfOverrides fixtureOverrides;
+    const bool needsPhysicalPatch =
+        FixtureNeedsPhysicalGdtfPatch(f, fixtureSourceGdtf, fixtureOverrides);
+    if (needsPhysicalPatch) {
+      const fs::path archiveName(fixtureName);
+      const std::string stem = archiveName.stem().generic_string();
+      const std::string extension = archiveName.extension().generic_string();
+      fixtureName = SanitizeArchiveFileName(stem + "_physical_" + f.uuid + extension,
+                                            "fixture_physical.gdtf");
+    }
+    std::string fixtureGdtfArchivePath;
+    if (needsPhysicalPatch) {
+      std::ostringstream patchKey;
+      patchKey << normalizeSourcePath(fixtureSourceGdtf) << '|'
+               << (fixtureOverrides.hasWeightKg ? fixtureOverrides.weightKg : -1.0f)
+               << '|'
+               << (fixtureOverrides.hasPowerW ? fixtureOverrides.powerW : -1.0f);
+      auto patchIt = physicalPatchArchiveByKey.find(patchKey.str());
+      if (patchIt != physicalPatchArchiveByKey.end()) {
+        fixtureGdtfArchivePath = patchIt->second;
+        if (!f.uuid.empty())
+          gdtfArchiveByObjectUuid[f.uuid] = fixtureGdtfArchivePath;
+      } else {
+        fixtureGdtfArchivePath =
+            registerGdtfResource(f.uuid, fixtureSourceGdtf, fixtureName, false);
+        physicalPatchArchiveByKey[patchKey.str()] = fixtureGdtfArchivePath;
+        gdtfOverrides[fixtureGdtfArchivePath] = fixtureOverrides;
+      }
+    } else {
+      fixtureGdtfArchivePath =
+          registerGdtfResource(f.uuid, fixtureSourceGdtf, fixtureName);
+    }
     addStr("GDTFSpec", fixtureGdtfArchivePath);
-    // Keep fixture GDTF payloads byte-preserved in exported MVR/project
-    // packages. Fixture-specific metadata such as Color/Weight/Power is
-    // already serialized at fixture level in GeneralSceneDescription.xml.
-    // Repacking fixture GDTFs here can break model/texture references in some
-    // vendor libraries after a save/reload cycle.
+    // Keep fixture GDTF payloads byte-preserved unless the user intentionally
+    // edits type-level physical properties that must be exported through GDTF.
     addStr("GDTFMode", f.gdtfMode);
     addStr("Focus", f.focus);
     addStr("Function", f.function);
     if (!f.position.empty() || !f.positionName.empty())
       addStr("Position", resolvePositionReference(f.position, f.positionName));
 
-    addNum("PowerConsumption", f.powerConsumptionW, "W");
-    addNum("Weight", f.weightKg, "kg");
 
     if (!f.gelColor.empty() && f.gelColor.size() == 7 && f.gelColor[0] == '#') {
       std::string cie = HexToCie(f.gelColor);

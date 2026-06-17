@@ -154,6 +154,8 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
     f.layer = layerName;
     f.weightKg = weight;
     f.powerConsumptionW = power;
+    f.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
+    f.physicalPropertiesDirty = false;
     f.color = defaultColor;
     sceneRef.fixtures[f.uuid] = f;
   }
