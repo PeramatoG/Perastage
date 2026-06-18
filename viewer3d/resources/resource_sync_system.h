@@ -71,6 +71,10 @@ struct ResourceSyncResult {
   bool hasSceneSignature = false;
 };
 
+// Builds the mode-aware key used for loaded GDTF resources.
+std::string BuildGdtfResourceKey(const std::string &resolvedPath,
+                                 const std::string &modeName);
+
 class ResourceSyncSystem {
 public:
   static ResourceSyncResult

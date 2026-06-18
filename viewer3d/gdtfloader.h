@@ -45,11 +45,23 @@ bool LoadGdtf(const std::string& gdtfPath,
               std::vector<GdtfObject>& outObjects,
               std::string* outError = nullptr);
 
+// Loads the models for a selected GDTF DMX mode while preserving the legacy API.
+bool LoadGdtf(const std::string& gdtfPath,
+              std::vector<GdtfObject>& outObjects,
+              const std::string& modeName,
+              std::string* outError = nullptr);
+
 // Loads the geometry hierarchy defined by a GDTF file preserving each node's
 // local transform and exposing stable node names for geometry, axis and
 // emitter nodes.
 bool LoadGdtfGeometryTree(const std::string& gdtfPath,
                           GdtfGeometryTree& outTree,
+                          std::string* outError = nullptr);
+
+// Loads the geometry hierarchy for a selected GDTF DMX mode.
+bool LoadGdtfGeometryTree(const std::string& gdtfPath,
+                          GdtfGeometryTree& outTree,
+                          const std::string& modeName,
                           std::string* outError = nullptr);
 
 // Returns the DMX footprint (highest occupied offset) of the given mode in a

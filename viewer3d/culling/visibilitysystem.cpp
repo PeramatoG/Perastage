@@ -19,6 +19,7 @@
 
 #include "configmanager.h"
 #include "matrixutils.h"
+#include "resource_sync_system.h"
 #include "scenedatamanager.h"
 
 #include <algorithm>
@@ -225,9 +226,11 @@ bool VisibilitySystem::EnsureBoundsComputed(
     if (gdtfIt != m_controller.GetResourceSyncState().resolvedGdtfSpecs.end() &&
         gdtfIt->second.attempted)
       gdtfPath = gdtfIt->second.resolvedPath;
-    auto itg = m_controller.GetResourceSyncState().loadedGdtf.find(gdtfPath);
+    const std::string resourceKey =
+        BuildGdtfResourceKey(gdtfPath, fit->second.gdtfMode);
+    auto itg = m_controller.GetResourceSyncState().loadedGdtf.find(resourceKey);
     if (itg != m_controller.GetResourceSyncState().loadedGdtf.end()) {
-      auto bit = m_controller.GetModelBounds().find(gdtfPath);
+      auto bit = m_controller.GetModelBounds().find(resourceKey);
       if (bit == m_controller.GetModelBounds().end()) {
         IVisibilityContext::BoundingBox local;
         local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
@@ -249,7 +252,7 @@ bool VisibilitySystem::EnsureBoundsComputed(
           }
         }
         if (localFound)
-          bit = m_controller.GetModelBounds().emplace(gdtfPath, local).first;
+          bit = m_controller.GetModelBounds().emplace(resourceKey, local).first;
       }
       if (bit != m_controller.GetModelBounds().end()) {
         bb = transformBounds(bit->second, fix);

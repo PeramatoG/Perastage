@@ -1247,6 +1247,20 @@ target_link_libraries(gdtfloader_channel_modes_test PRIVATE ${wxWidgets_LIBRARIE
 add_test(NAME GdtfLoaderChannelModeSummaries COMMAND gdtfloader_channel_modes_test)
 set_library_env(GdtfLoaderChannelModeSummaries)
 
+add_executable(gdtfloader_geometry_roots_test gdtfloader_geometry_roots_test.cpp
+               ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_mutation_audit.cpp
+               ../viewer3d/loader3ds.cpp
+               ../viewer3d/loaderglb.cpp
+               ../viewer3d/meshprimitives.cpp
+               consolepanel_stub.cpp)
+target_include_directories(gdtfloader_geometry_roots_test PRIVATE
+                           . ../viewer3d ../models ../gui ../third_party)
+target_link_libraries(gdtfloader_geometry_roots_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME GdtfLoaderGeometryRoots COMMAND gdtfloader_geometry_roots_test)
+set_library_env(GdtfLoaderGeometryRoots)
+
 add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
                ../viewer3d/gdtfloader.cpp
                ../core/gdtf_mutation_audit.cpp

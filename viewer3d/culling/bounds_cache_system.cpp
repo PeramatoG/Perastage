@@ -144,9 +144,10 @@ void BoundsCacheSystem::RebuildIfDirty(
         gdtfPathIt->second.attempted) {
       gdtfPath = gdtfPathIt->second.resolvedPath;
     }
-    auto itg = context.resourceSyncState.loadedGdtf.find(gdtfPath);
+    const std::string resourceKey = BuildGdtfResourceKey(gdtfPath, f.gdtfMode);
+    auto itg = context.resourceSyncState.loadedGdtf.find(resourceKey);
     if (itg != context.resourceSyncState.loadedGdtf.end()) {
-      auto bit = context.modelBounds.find(gdtfPath);
+      auto bit = context.modelBounds.find(resourceKey);
       if (bit == context.modelBounds.end()) {
         Viewer3DBoundingBox local;
         local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
@@ -169,7 +170,7 @@ void BoundsCacheSystem::RebuildIfDirty(
           }
         }
         if (localFound)
-          bit = context.modelBounds.emplace(gdtfPath, local).first;
+          bit = context.modelBounds.emplace(resourceKey, local).first;
       }
       if (bit != context.modelBounds.end()) {
         bb = TransformBounds(bit->second, fix);

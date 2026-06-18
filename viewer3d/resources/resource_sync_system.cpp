@@ -650,6 +650,12 @@ void ReleaseGdtfMeshBuffers(ResourceSyncState &state,
 
 } // namespace
 
+// Builds the mode-aware key used for loaded GDTF resources.
+std::string BuildGdtfResourceKey(const std::string &resolvedPath,
+                                 const std::string &modeName) {
+  return resolvedPath + "\nmode=" + modeName;
+}
+
 // Synchronizes visible scene resources with cached models, GDTFs, and fixture nodes.
 ResourceSyncResult ResourceSyncSystem::Sync(
     const std::string &basePath,
@@ -717,6 +723,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     const auto &[uuid, f] = *entry;
     sceneSignature = HashCombine(sceneSignature, HashString(uuid));
     sceneSignature = HashCombine(sceneSignature, HashString(f.gdtfSpec));
+    sceneSignature = HashCombine(sceneSignature, HashString(f.gdtfMode));
     sceneSignature = HashCombine(sceneSignature, HashMatrix(f.transform));
   }
 
@@ -886,31 +893,32 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       continue;
     }
 
-    auto failedIt = state.failedGdtfReasons.find(gdtfPath);
+    const std::string resourceKey = BuildGdtfResourceKey(gdtfPath, f.gdtfMode);
+    auto failedIt = state.failedGdtfReasons.find(resourceKey);
     if (failedIt != state.failedGdtfReasons.end()) {
-      const size_t attempts = state.failedGdtfAttemptCounts[gdtfPath];
+      const size_t attempts = state.failedGdtfAttemptCounts[resourceKey];
       if (attempts >= 3) {
-        ++gdtfErrorCounts[gdtfPath];
-        gdtfErrorReasons[gdtfPath] = failedIt->second;
+        ++gdtfErrorCounts[resourceKey];
+        gdtfErrorReasons[resourceKey] = failedIt->second;
         continue;
       }
       state.failedGdtfReasons.erase(failedIt);
     }
 
-    if (!processedGdtfPaths.insert(gdtfPath).second)
+    if (!processedGdtfPaths.insert(resourceKey).second)
       continue;
 
-    if (state.loadedGdtf.find(gdtfPath) == state.loadedGdtf.end()) {
+    if (state.loadedGdtf.find(resourceKey) == state.loadedGdtf.end()) {
       std::vector<GdtfObject> objs;
       std::string gdtfError;
       try {
         if (meshProcessingOptions.enableDiskCache &&
-            viewer3d::resources::TryLoadGdtfCache(gdtfPath, objs)) {
-        } else if (LoadGdtf(gdtfPath, objs, &gdtfError)) {
+            viewer3d::resources::TryLoadGdtfCache(gdtfPath, f.gdtfMode, objs)) {
+        } else if (LoadGdtf(gdtfPath, objs, f.gdtfMode, &gdtfError)) {
           if (meshProcessingOptions.enableMeshOptimization)
             viewer3d::resources::OptimizeGdtfObjectsForRuntime(objs);
           if (meshProcessingOptions.enableDiskCache)
-            viewer3d::resources::TrySaveGdtfCache(gdtfPath, objs);
+            viewer3d::resources::TrySaveGdtfCache(gdtfPath, f.gdtfMode, objs);
         }
       } catch (const std::exception &ex) {
         gdtfError = ex.what();
@@ -920,26 +928,27 @@ ResourceSyncResult ResourceSyncSystem::Sync(
 
       if (!objs.empty()) {
         SetupGdtfMeshBuffers(objs, callbacks);
-        state.loadedGdtf[gdtfPath] = std::move(objs);
-        state.failedGdtfAttemptCounts.erase(gdtfPath);
+        state.loadedGdtf[resourceKey] = std::move(objs);
+        state.failedGdtfAttemptCounts.erase(resourceKey);
 
         GdtfGeometryTree geometryTree;
         std::string geometryTreeError;
-        if (LoadGdtfGeometryTree(gdtfPath, geometryTree, &geometryTreeError)) {
+        if (LoadGdtfGeometryTree(gdtfPath, geometryTree, f.gdtfMode,
+                                 &geometryTreeError)) {
           const size_t geometryTreeVersion = HashGeometryTreeVersion(geometryTree);
-          state.loadedGdtfGeometryTrees[gdtfPath] = std::move(geometryTree);
-          state.geometryTreeVersionByResolvedGdtfPath[gdtfPath] = geometryTreeVersion;
+          state.loadedGdtfGeometryTrees[resourceKey] = std::move(geometryTree);
+          state.geometryTreeVersionByResolvedGdtfPath[resourceKey] = geometryTreeVersion;
         } else {
-          state.geometryTreeVersionByResolvedGdtfPath.erase(gdtfPath);
+          state.geometryTreeVersionByResolvedGdtfPath.erase(resourceKey);
         }
 
         result.assetsChanged = true;
       } else {
         std::string reason = gdtfError.empty() ? "Failed to load GDTF" : gdtfError;
-        state.failedGdtfReasons[gdtfPath] = reason;
-        ++state.failedGdtfAttemptCounts[gdtfPath];
-        ++gdtfErrorCounts[gdtfPath];
-        gdtfErrorReasons[gdtfPath] = reason;
+        state.failedGdtfReasons[resourceKey] = reason;
+        ++state.failedGdtfAttemptCounts[resourceKey];
+        ++gdtfErrorCounts[resourceKey];
+        gdtfErrorReasons[resourceKey] = reason;
         result.assetsChanged = true;
       }
     }
@@ -980,7 +989,9 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       continue;
     }
 
-    auto treeIt = state.loadedGdtfGeometryTrees.find(gdtfPathIt->second.resolvedPath);
+    const std::string resourceKey =
+        BuildGdtfResourceKey(gdtfPathIt->second.resolvedPath, fixture.gdtfMode);
+    auto treeIt = state.loadedGdtfGeometryTrees.find(resourceKey);
     if (treeIt == state.loadedGdtfGeometryTrees.end()) {
       state.fixtureNodeRegistry.erase(uuid);
       state.fixtureAnchorRegistry.erase(uuid);
@@ -989,12 +1000,12 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     }
 
     auto versionIt = state.geometryTreeVersionByResolvedGdtfPath.find(
-        gdtfPathIt->second.resolvedPath);
+        resourceKey);
     const size_t geometryTreeVersion = versionIt != state.geometryTreeVersionByResolvedGdtfPath.end()
                                            ? versionIt->second
                                            : HashGeometryTreeVersion(treeIt->second);
     const size_t fixtureSignature = BuildFixtureRegistrySignature(
-        uuid, gdtfPathIt->second.resolvedPath, fixture.transform, geometryTreeVersion);
+        uuid, resourceKey, fixture.transform, geometryTreeVersion);
 
     auto signatureIt = state.fixtureRegistrySignatureByUuid.find(uuid);
     const bool hasStableRegistry = signatureIt != state.fixtureRegistrySignatureByUuid.end() &&
