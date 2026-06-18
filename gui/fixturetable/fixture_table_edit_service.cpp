@@ -410,11 +410,21 @@ void ApplyFullRowChanges(
       icon << v;
       wxString txt = icon.GetText();
       if (!txt.IsEmpty())
-        next.color = std::string(txt.ToUTF8());
+        next.visualColorHex = std::string(txt.ToUTF8());
       else
-        next.color.clear();
+        next.visualColorHex.clear();
     } else {
-      next.color = std::string(v.GetString().ToUTF8());
+      next.visualColorHex = std::string(v.GetString().ToUTF8());
+    }
+    table->GetValue(
+        v, i,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::MvrColor));
+    if (v.GetType() == "wxDataViewIconText") {
+      wxDataViewIconText icon;
+      icon << v;
+      next.mvrFixtureColorHex = std::string(icon.GetText().ToUTF8());
+    } else {
+      next.mvrFixtureColorHex = std::string(v.GetString().ToUTF8());
     }
 
     const bool fixtureChanged =
@@ -429,7 +439,8 @@ void ApplyFullRowChanges(
         old.category != next.category ||
         old.categorySource != next.categorySource ||
         old.categorySourceReason != next.categorySourceReason ||
-        old.color != next.color;
+        old.visualColorHex != next.visualColorHex ||
+        old.mvrFixtureColorHex != next.mvrFixtureColorHex;
     if (!fixtureChanged)
       continue;
 
@@ -524,11 +535,11 @@ void ApplyAppearanceChanges(FixtureTableEditService::ISceneAdapter &adapter,
         value, row,
         FixtureTableColumns::ToIndex(FixtureTableColumns::Column::VisualColor));
     const std::string nextColor = ExtractColorValue(value);
-    if (it->second.color == nextColor)
+    if (it->second.visualColorHex == nextColor)
       continue;
 
     PushUndoIfNeeded(adapter, tracking);
-    it->second.color = nextColor;
+    it->second.visualColorHex = nextColor;
     TrackUpdatedFixture(it->second, tracking, logChanges);
   }
 

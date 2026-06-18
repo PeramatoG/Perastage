@@ -16,20 +16,20 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvrexporter.h"
-#include "mvr_preferences.h"
 #include "app_version.h"
-#include "filesystem_path_utils.h"
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
+#include "filesystem_path_utils.h"
 #include "gdtf_mutation_audit.h"
 #include "gdtfloader.h"
 #include "logger.h"
 #include "matrixutils.h"
-#include "projectutils.h"
+#include "mvr_preferences.h"
 #include "primitive_model_resources.h"
+#include "projectutils.h"
 #include "support.h"
-#include "uuidutils.h"
 #include "truss_gdtf_builder.h"
+#include "uuidutils.h"
 
 #include <wx/wfstream.h>
 #include <wx/wx.h>
@@ -51,14 +51,14 @@ class wxZipStreamLink;
 #include <functional>
 #include <iomanip>
 #include <map>
+#include <optional>
 #include <regex>
 #include <set>
 #include <sstream>
-#include <unordered_set>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
-#include <optional>
 
 namespace fs = std::filesystem;
 
@@ -113,7 +113,8 @@ static std::string ToLowerAscii(std::string value);
 static FixtureExportId ResolveFixtureExportId(const Fixture &fixture);
 static std::unordered_map<std::string, int> BuildFixtureUnitNumbersForExport(
     const std::unordered_map<std::string, Fixture> &fixtures);
-static std::string BuildFixtureTypeCategoryKey(const Fixture &fixture,
+static std::string
+BuildFixtureTypeCategoryKey(const Fixture &fixture,
                                                const std::string &gdtfArchivePath);
 static bool IsManualFixtureCategorySource(const std::string &source);
 static void MergeFixtureTypeCategoryExport(
@@ -128,8 +129,10 @@ static bool NearlyEqualPhysicalValue(float lhs, float rhs);
 static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
                                           const std::string &gdtfPath,
                                           GdtfOverrides &overrides);
-static tinyxml2::XMLElement *FindFirstPerastageUserData(tinyxml2::XMLElement *node);
-static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
+static tinyxml2::XMLElement *
+FindFirstPerastageUserData(tinyxml2::XMLElement *node);
+static tinyxml2::XMLElement *
+FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
                                                             tinyxml2::XMLElement *node);
 
 static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
@@ -154,11 +157,12 @@ static void LogLegacyPositionUuidWarning(const std::string &message);
 
 static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kPerastageUserDataSchemaVersion = "1.0";
-static constexpr const char *kDummyFallbackFixtureGdtfFileName = "Dummy 1ch.gdtf";
-static constexpr const char *kLegacyFallbackFixtureGdtfFileName = "Generic 1ch.gdtf";
+static constexpr const char *kDummyFallbackFixtureGdtfFileName =
+    "Dummy 1ch.gdtf";
+static constexpr const char *kLegacyFallbackFixtureGdtfFileName =
+    "Generic 1ch.gdtf";
 static constexpr const char *kPhysicalPropertiesRevisionText =
     "Updated physical properties for Perastage MVR export";
-
 
 // Compares physical values using the exporter tolerance.
 static bool NearlyEqualPhysicalValue(float lhs, float rhs) {
@@ -179,7 +183,8 @@ static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
 
   bool needsPatch = false;
   if (fixture.weightKg > 0.0f &&
-      (!hasGdtfProperties || !NearlyEqualPhysicalValue(fixture.weightKg, gdtfWeightKg))) {
+      (!hasGdtfProperties ||
+       !NearlyEqualPhysicalValue(fixture.weightKg, gdtfWeightKg))) {
     overrides.hasWeightKg = true;
     overrides.weightKg = fixture.weightKg;
     needsPatch = true;
@@ -197,19 +202,20 @@ static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
 // Resolves the MVR FixtureID values from the current editable fixture ID.
 static FixtureExportId ResolveFixtureExportId(const Fixture &fixture) {
   FixtureExportId id;
-  id.numeric = fixture.fixtureId > 0 ? fixture.fixtureId : fixture.fixtureIdNumeric;
+  id.numeric =
+      fixture.fixtureId > 0 ? fixture.fixtureId : fixture.fixtureIdNumeric;
   if (id.numeric <= 0)
     id.numeric = 0;
 
   const bool importedNumericStillMatches =
-      fixture.fixtureIdNumeric > 0 && fixture.fixtureId == fixture.fixtureIdNumeric;
+      fixture.fixtureIdNumeric > 0 &&
+      fixture.fixtureId == fixture.fixtureIdNumeric;
   if (importedNumericStillMatches)
     id.text = TrimAscii(fixture.fixtureIdText);
   if (id.text.empty() && id.numeric > 0)
     id.text = std::to_string(id.numeric);
   return id;
 }
-
 
 // Builds a normalized fixture type key for UnitNumber export grouping.
 static std::string BuildFixtureUnitNumberTypeKey(const Fixture &fixture) {
@@ -231,8 +237,8 @@ static std::string BuildFixtureUnitNumberTypeKey(const Fixture &fixture) {
     return normalized;
   };
 
-  for (const std::string *candidate : {&fixture.typeName, &fixture.gdtfSpec,
-                                       &fixture.requestedFixtureName,
+  for (const std::string *candidate :
+       {&fixture.typeName, &fixture.gdtfSpec, &fixture.requestedFixtureName,
                                        &fixture.instanceName}) {
     std::string key = normalize(*candidate);
     if (!key.empty())
@@ -241,7 +247,8 @@ static std::string BuildFixtureUnitNumberTypeKey(const Fixture &fixture) {
   return "Unknown";
 }
 
-// Prepares deterministic UnitNumber values for fixtures without mutating the editable scene.
+// Prepares deterministic UnitNumber values for fixtures without mutating the
+// editable scene.
 static std::unordered_map<std::string, int> BuildFixtureUnitNumbersForExport(
     const std::unordered_map<std::string, Fixture> &fixtures) {
   struct FixtureRef {
@@ -324,7 +331,8 @@ static std::string Read3dsCString(std::ifstream &file, std::streampos endPos) {
   return output;
 }
 
-static std::vector<std::string> Collect3dsTextureReferences(const fs::path &modelPath) {
+static std::vector<std::string>
+Collect3dsTextureReferences(const fs::path &modelPath) {
   std::vector<std::string> references;
   std::ifstream file(modelPath, std::ios::binary);
   if (!file.is_open())
@@ -393,7 +401,8 @@ static std::vector<std::string> Collect3dsTextureReferences(const fs::path &mode
   return references;
 }
 
-static std::vector<std::string> CollectGltfTextureReferences(const fs::path &modelPath) {
+static std::vector<std::string>
+CollectGltfTextureReferences(const fs::path &modelPath) {
   std::vector<std::string> references;
   std::ifstream file(modelPath);
   if (!file.is_open())
@@ -449,8 +458,8 @@ static bool ResolveTextureDependencyPath(const fs::path &modelPath,
   }
 
   std::error_code ec;
-  for (const auto &entry :
-       fs::directory_iterator(modelDir, fs::directory_options::skip_permission_denied, ec)) {
+  for (const auto &entry : fs::directory_iterator(
+           modelDir, fs::directory_options::skip_permission_denied, ec)) {
     if (ec)
       break;
     if (!entry.is_regular_file())
@@ -471,22 +480,27 @@ enum class TrussGeometryAuthority {
 };
 
 static TrussGeometryAuthority GetTrussGeometryAuthoritySetting() {
-  const float rawValue = ConfigManager::Get().GetFloat("mvr_truss_geometry_authority");
-  return rawValue >= 0.5f ? TrussGeometryAuthority::Gdtf : TrussGeometryAuthority::MvrGeometry;
+  const float rawValue =
+      ConfigManager::Get().GetFloat("mvr_truss_geometry_authority");
+  return rawValue >= 0.5f ? TrussGeometryAuthority::Gdtf
+                          : TrussGeometryAuthority::MvrGeometry;
 }
 
 static std::string TrimAscii(std::string value) {
   auto isSpace = [](unsigned char c) { return std::isspace(c); };
-  value.erase(value.begin(), std::find_if(value.begin(), value.end(),
+  value.erase(value.begin(),
+              std::find_if(value.begin(), value.end(),
                                           [&](unsigned char c) { return !isSpace(c); }));
   value.erase(std::find_if(value.rbegin(), value.rend(),
-                           [&](unsigned char c) { return !isSpace(c); }).base(),
+                           [&](unsigned char c) { return !isSpace(c); })
+                  .base(),
               value.end());
   return value;
 }
 
 static std::string ToLowerAscii(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(),
+  std::transform(
+      value.begin(), value.end(), value.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   return value;
 }
@@ -495,7 +509,8 @@ static void LogLegacyPositionUuidWarning(const std::string &message) {
   Logger::Instance().Log(Logger::Level::Warn, message);
 }
 
-static std::string TruncateFileNamePreservingExtension(const std::string &fileName,
+static std::string
+TruncateFileNamePreservingExtension(const std::string &fileName,
                                                        size_t maxLength) {
   if (fileName.size() <= maxLength)
     return fileName;
@@ -549,12 +564,15 @@ static bool ContainsArchiveFileNameCaseInsensitive(
 }
 
 // Creates a unique root-level MVR archive filename from any source-like path.
-static std::string EnsureUniqueArchivePath(const std::string &proposed,
+static std::string
+EnsureUniqueArchivePath(const std::string &proposed,
                                            std::unordered_set<std::string> &usedPaths) {
   constexpr size_t kMaxArchiveEntryNameLength = 120;
   std::string normalized = SanitizeArchiveFileName(proposed, "resource.bin");
-  normalized = TruncateFileNamePreservingExtension(normalized, kMaxArchiveEntryNameLength);
-  if (normalized.empty() || fs::path(normalized).stem().generic_string().empty())
+  normalized = TruncateFileNamePreservingExtension(normalized,
+                                                   kMaxArchiveEntryNameLength);
+  if (normalized.empty() ||
+      fs::path(normalized).stem().generic_string().empty())
     normalized = "resource.bin";
   if (!ContainsArchiveFileNameCaseInsensitive(usedPaths, normalized)) {
     usedPaths.insert(normalized);
@@ -618,13 +636,15 @@ static std::string SanitizeArchiveFileName(const std::string &input,
   const std::string fileName = fs::path(candidate).filename().generic_string();
   if (!fileName.empty())
     return TruncateFileNamePreservingExtension(
-        sanitizeSingleFileName(fileName, fallbackName), kMaxArchiveFileNameLength);
+        sanitizeSingleFileName(fileName, fallbackName),
+        kMaxArchiveFileNameLength);
   return TruncateFileNamePreservingExtension(
       sanitizeSingleFileName("", fallbackName), kMaxArchiveFileNameLength);
 }
 
 // Sanitizes arbitrary input into a relative archive path for legacy helpers.
-static std::string SanitizeArchiveRelativePath(const std::string &input,
+static std::string
+SanitizeArchiveRelativePath(const std::string &input,
                                                const std::string &fallbackName) {
   std::string candidate = TrimAscii(input);
   std::replace(candidate.begin(), candidate.end(), '\\', '/');
@@ -649,9 +669,9 @@ static std::string SanitizeArchiveRelativePath(const std::string &input,
   return out.generic_string();
 }
 
-
 // Builds a stable fixture type/profile key for root-level category metadata.
-static std::string BuildFixtureTypeCategoryKey(const Fixture &fixture,
+static std::string
+BuildFixtureTypeCategoryKey(const Fixture &fixture,
                                                const std::string &gdtfArchivePath) {
   std::ostringstream key;
   key << TrimAscii(gdtfArchivePath) << '|' << TrimAscii(fixture.gdtfMode);
@@ -671,7 +691,8 @@ static bool IsManualFixtureCategorySource(const std::string &source) {
   return ToLowerAscii(TrimAscii(source)) == "manual";
 }
 
-// Merges one fixture's category into the type-level export map deterministically.
+// Merges one fixture's category into the type-level export map
+// deterministically.
 static void MergeFixtureTypeCategoryExport(
     std::map<std::string, FixtureTypeCategoryExport> &metadataByType,
     const Fixture &fixture, const std::string &gdtfArchivePath) {
@@ -697,7 +718,8 @@ static void MergeFixtureTypeCategoryExport(
   }
 
   const bool incomingManual = IsManualFixtureCategorySource(source);
-  const bool existingManual = IsManualFixtureCategorySource(entry.categorySource);
+  const bool existingManual =
+      IsManualFixtureCategorySource(entry.categorySource);
   if (incomingManual && !existingManual) {
     entry.category = category;
     entry.categorySource = source;
@@ -742,7 +764,8 @@ static std::string BuildTrussGdtfArchiveName(const Truss &truss) {
   std::string baseName = TrimAscii(truss.model);
   if (baseName.empty()) {
     if (truss.lengthMm > 0.0f) {
-      const int lengthMeters = static_cast<int>(std::lround(truss.lengthMm / 1000.0f));
+      const int lengthMeters =
+          static_cast<int>(std::lround(truss.lengthMm / 1000.0f));
       if (lengthMeters > 0)
         baseName = "truss " + std::to_string(lengthMeters) + "m";
     }
@@ -760,29 +783,21 @@ static std::string BuildTrussGdtfArchiveName(const Truss &truss) {
 // Builds the internal truss type key used for export-time resource reuse.
 static std::string BuildTrussTypeKey(const Truss &truss) {
   std::ostringstream key;
-  key << TrimAscii(truss.gdtfSpec) << '|'
-      << TrimAscii(truss.modelFile) << '|'
-      << TrimAscii(truss.manufacturer) << '|'
-      << TrimAscii(truss.model) << '|'
-      << TrimAscii(truss.crossSection) << '|'
-      << truss.lengthMm << '|'
-      << truss.widthMm << '|'
-      << truss.heightMm << '|'
-      << truss.weightKg;
+  key << TrimAscii(truss.gdtfSpec) << '|' << TrimAscii(truss.modelFile) << '|'
+      << TrimAscii(truss.manufacturer) << '|' << TrimAscii(truss.model) << '|'
+      << TrimAscii(truss.crossSection) << '|' << truss.lengthMm << '|'
+      << truss.widthMm << '|' << truss.heightMm << '|' << truss.weightKg;
   return key.str();
 }
 
 // Builds path-free Perastage truss type metadata for exported UserData.
-static std::string BuildExportTrussTypeKey(const Truss &truss,
+static std::string
+BuildExportTrussTypeKey(const Truss &truss,
                                            const std::string &auxGdtfArchivePath) {
   std::ostringstream key;
-  key << TrimAscii(truss.manufacturer) << '|'
-      << TrimAscii(truss.model) << '|'
-      << TrimAscii(truss.crossSection) << '|'
-      << truss.lengthMm << '|'
-      << truss.widthMm << '|'
-      << truss.heightMm << '|'
-      << truss.weightKg << '|'
+  key << TrimAscii(truss.manufacturer) << '|' << TrimAscii(truss.model) << '|'
+      << TrimAscii(truss.crossSection) << '|' << truss.lengthMm << '|'
+      << truss.widthMm << '|' << truss.heightMm << '|' << truss.weightKg << '|'
       << SanitizeArchiveFileName(auxGdtfArchivePath, "");
   std::string value = key.str();
   for (char &ch : value) {
@@ -793,7 +808,8 @@ static std::string BuildExportTrussTypeKey(const Truss &truss,
   return TrimAscii(value);
 }
 
-static const char *ToRepresentationText(Truss::GeometryRepresentation representation) {
+static const char *
+ToRepresentationText(Truss::GeometryRepresentation representation) {
   switch (representation) {
   case Truss::GeometryRepresentation::SymbolSymdef:
     return "SymbolSymdef";
@@ -821,18 +837,22 @@ static bool IsValidMvrFileName(const std::string &value) {
   return value.find('/') == std::string::npos &&
          value.find('\\') == std::string::npos &&
          value.find(':') == std::string::npos &&
-         value.find('*') == std::string::npos && value.find('?') == std::string::npos &&
-         value.find('"') == std::string::npos && value.find('<') == std::string::npos &&
-         value.find('>') == std::string::npos && value.find('|') == std::string::npos &&
-         value != "." && value != "..";
+         value.find('*') == std::string::npos &&
+         value.find('?') == std::string::npos &&
+         value.find('"') == std::string::npos &&
+         value.find('<') == std::string::npos &&
+         value.find('>') == std::string::npos &&
+         value.find('|') == std::string::npos && value != "." && value != "..";
 }
 
 // Returns true when exported metadata text looks like a local filesystem path.
 static bool LooksLikeLocalFilesystemPath(const std::string &value) {
   const std::string trimmed = TrimAscii(value);
   const std::string lower = ToLowerAscii(trimmed);
-  return trimmed.find('\\') != std::string::npos || trimmed.rfind("/", 0) == 0 ||
-         (trimmed.size() >= 3 && std::isalpha(static_cast<unsigned char>(trimmed[0])) &&
+  return trimmed.find('\\') != std::string::npos ||
+         trimmed.rfind("/", 0) == 0 ||
+         (trimmed.size() >= 3 &&
+          std::isalpha(static_cast<unsigned char>(trimmed[0])) &&
           trimmed[1] == ':' && (trimmed[2] == '/' || trimmed[2] == '\\')) ||
          lower.find("/users/") != std::string::npos ||
          lower.find("/home/") != std::string::npos ||
@@ -849,20 +869,18 @@ static bool IsCanonicalUuidString(const std::string &value) {
 
 // Returns a stable, unique MVR Symbol UUID for the current export.
 static std::string ResolveExportSymbolUuid(
-    const std::string &candidateUuid,
-    const std::string &containerUuid,
-    const std::string &symdefUuid,
-    const std::string &deterministicSeed,
+    const std::string &candidateUuid, const std::string &containerUuid,
+    const std::string &symdefUuid, const std::string &deterministicSeed,
     std::unordered_set<std::string> &usedSymbolUuids,
-    std::vector<std::string> *exportWarnings,
-    const std::string &context) {
+    std::vector<std::string> *exportWarnings, const std::string &context) {
   const std::string canonicalCandidate = CanonicalizeUuid(candidateUuid);
   const std::string canonicalContainer = CanonicalizeUuid(containerUuid);
   const std::string canonicalSymdef = CanonicalizeUuid(symdefUuid);
   const bool candidateConflicts =
       !canonicalCandidate.empty() &&
       (usedSymbolUuids.contains(canonicalCandidate) ||
-       (!canonicalContainer.empty() && canonicalCandidate == canonicalContainer) ||
+       (!canonicalContainer.empty() &&
+        canonicalCandidate == canonicalContainer) ||
        (!canonicalSymdef.empty() && canonicalCandidate == canonicalSymdef));
 
   if (!canonicalCandidate.empty() && !candidateConflicts) {
@@ -871,7 +889,8 @@ static std::string ResolveExportSymbolUuid(
   }
 
   if (!TrimAscii(candidateUuid).empty() && exportWarnings) {
-    exportWarnings->push_back("MVR export replaced invalid or conflicting Symbol uuid '" +
+    exportWarnings->push_back(
+        "MVR export replaced invalid or conflicting Symbol uuid '" +
                               TrimAscii(candidateUuid) + "' for " + context + ".");
   }
 
@@ -888,7 +907,8 @@ static std::string ResolveExportSymbolUuid(
   }
 }
 
-// Validate MVR 1.6 XML/archive consistency while downgrading missing resource issues to warnings.
+// Validate MVR 1.6 XML/archive consistency while downgrading missing resource
+// issues to warnings.
 static bool ValidateMvr16Export(
     tinyxml2::XMLDocument &doc,
     const std::unordered_map<std::string, std::string> &gdtfPathsByUuid,
@@ -896,11 +916,13 @@ static bool ValidateMvr16Export(
     std::vector<std::string> *exportWarnings) {
   tinyxml2::XMLElement *root = doc.FirstChildElement("GeneralSceneDescription");
   if (!root) {
-    wxLogError("MVR export validation failed: missing GeneralSceneDescription root");
+    wxLogError(
+        "MVR export validation failed: missing GeneralSceneDescription root");
     return false;
   }
 
-  if (root->IntAttribute("verMajor") != 1 || root->IntAttribute("verMinor") != 6) {
+  if (root->IntAttribute("verMajor") != 1 ||
+      root->IntAttribute("verMinor") != 6) {
     wxLogError("MVR export validation failed: root version must be 1.6");
     return false;
   }
@@ -909,11 +931,14 @@ static bool ValidateMvr16Export(
   const char *providerVersion = root->Attribute("providerVersion");
   if (!provider || std::string(provider).empty() || !providerVersion ||
       std::string(providerVersion).empty()) {
-    wxLogError("MVR export validation failed: provider/providerVersion are required for MVR 1.6");
+    wxLogError("MVR export validation failed: provider/providerVersion are "
+               "required for MVR 1.6");
     return false;
   }
-  if (std::string(providerVersion) == "1.0" && std::string(app::kVersion) != "1.0") {
-    wxLogError("MVR export validation failed: providerVersion fell back to 1.0 instead of the Perastage app version");
+  if (std::string(providerVersion) == "1.0" &&
+      std::string(app::kVersion) != "1.0") {
+    wxLogError("MVR export validation failed: providerVersion fell back to 1.0 "
+               "instead of the Perastage app version");
     return false;
   }
 
@@ -925,24 +950,29 @@ static bool ValidateMvr16Export(
 
   if (tinyxml2::XMLElement *scene = root->FirstChildElement("Scene")) {
     if (tinyxml2::XMLElement *layers = scene->FirstChildElement("Layers")) {
-      for (tinyxml2::XMLElement *layer = layers->FirstChildElement("Layer"); layer;
-           layer = layer->NextSiblingElement("Layer")) {
+      for (tinyxml2::XMLElement *layer = layers->FirstChildElement("Layer");
+           layer; layer = layer->NextSiblingElement("Layer")) {
         if (layer->FirstChildElement("Color")) {
-          wxLogError("MVR export validation failed: Layer/Color is not valid in MVR 1.6");
+          wxLogError("MVR export validation failed: Layer/Color is not valid "
+                     "in MVR 1.6");
           return false;
         }
       }
     }
     if (scene->FirstChildElement("UserData")) {
-      wxLogError("MVR export validation failed: Scene/UserData is not valid in MVR 1.6");
+      wxLogError("MVR export validation failed: Scene/UserData is not valid in "
+                 "MVR 1.6");
       return false;
     }
     if (tinyxml2::XMLElement *aux = scene->FirstChildElement("AUXData")) {
       for (tinyxml2::XMLElement *pos = aux->FirstChildElement("Position"); pos;
            pos = pos->NextSiblingElement("Position")) {
-        const std::string uuid = TrimAscii(pos->Attribute("uuid") ? pos->Attribute("uuid") : "");
+        const std::string uuid =
+            TrimAscii(pos->Attribute("uuid") ? pos->Attribute("uuid") : "");
         if (!IsCanonicalUuidString(uuid)) {
-          wxLogError("MVR export validation failed: Position uuid '%s' is not canonical", uuid);
+          wxLogError("MVR export validation failed: Position uuid '%s' is not "
+                     "canonical",
+                     uuid);
           return false;
         }
         positionUuids.insert(uuid);
@@ -963,50 +993,68 @@ static bool ValidateMvr16Export(
       tinyxml2::XMLElement *cur = stack.back();
       stack.pop_back();
       if (std::string(cur->Name()) == "Symbol") {
-        const tinyxml2::XMLElement *parent = cur->Parent() ? cur->Parent()->ToElement() : nullptr;
-        const std::string context = parent && parent->Name() ? std::string(parent->Name()) : "unknown";
-        const std::string symbolUuid = TrimAscii(cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
-        const std::string symdefUuid = TrimAscii(cur->Attribute("symdef") ? cur->Attribute("symdef") : "");
+        const tinyxml2::XMLElement *parent =
+            cur->Parent() ? cur->Parent()->ToElement() : nullptr;
+        const std::string context =
+            parent && parent->Name() ? std::string(parent->Name()) : "unknown";
+        const std::string symbolUuid =
+            TrimAscii(cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+        const std::string symdefUuid =
+            TrimAscii(cur->Attribute("symdef") ? cur->Attribute("symdef") : "");
         if (!IsCanonicalUuidString(symbolUuid)) {
-          wxLogError("MVR export validation failed: Symbol in %s has missing or non-canonical uuid '%s'",
+          wxLogError("MVR export validation failed: Symbol in %s has missing "
+                     "or non-canonical uuid '%s'",
                      context, symbolUuid);
           return false;
         }
         if (symdefUuid.empty()) {
-          wxLogError("MVR export validation failed: Symbol uuid '%s' in %s has no symdef",
+          wxLogError("MVR export validation failed: Symbol uuid '%s' in %s has "
+                     "no symdef",
                      symbolUuid, context);
           return false;
         }
       }
 
       if (std::string(cur->Name()) == "Truss") {
-        const std::string trussUuid = TrimAscii(cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+        const std::string trussUuid =
+            TrimAscii(cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
         if (!IsCanonicalUuidString(trussUuid)) {
-          wxLogError("MVR export validation failed: Truss uuid '%s' is missing or non-canonical", trussUuid);
+          wxLogError("MVR export validation failed: Truss uuid '%s' is missing "
+                     "or non-canonical",
+                     trussUuid);
           return false;
         }
         exportedTrussUuids.insert(trussUuid);
         if (cur->FirstChildElement("UserData")) {
-          wxLogError("MVR export validation failed: Truss uuid '%s' contains direct UserData", trussUuid);
+          wxLogError("MVR export validation failed: Truss uuid '%s' contains "
+                     "direct UserData",
+                     trussUuid);
           return false;
         }
       }
 
       if (std::string(cur->Name()) == "Fixture") {
         if (cur->FirstChildElement("UserData")) {
-          wxLogError("MVR export validation failed: Fixture uuid '%s' contains direct UserData",
-                     cur->Attribute("uuid") ? cur->Attribute("uuid") : "(missing uuid)");
+          wxLogError("MVR export validation failed: Fixture uuid '%s' contains "
+                     "direct UserData",
+                     cur->Attribute("uuid") ? cur->Attribute("uuid")
+                                            : "(missing uuid)");
           return false;
         }
-        if (cur->FirstChildElement("Category") || cur->FirstChildElement("CategorySource") ||
+        if (cur->FirstChildElement("Category") ||
+            cur->FirstChildElement("CategorySource") ||
             cur->FirstChildElement("CategoryReason")) {
-          wxLogError("MVR export validation failed: Fixture contains Perastage category metadata");
+          wxLogError("MVR export validation failed: Fixture contains Perastage "
+                     "category metadata");
           return false;
         }
         auto *idNode = cur->FirstChildElement("FixtureID");
         auto *numNode = cur->FirstChildElement("FixtureIDNumeric");
-        const std::string fixtureUuid = cur->Attribute("uuid") ? cur->Attribute("uuid") : "(missing uuid)";
-        const std::string fixtureName = cur->Attribute("name") ? cur->Attribute("name") : "(unnamed fixture)";
+        const std::string fixtureUuid =
+            cur->Attribute("uuid") ? cur->Attribute("uuid") : "(missing uuid)";
+        const std::string fixtureName = cur->Attribute("name")
+                                            ? cur->Attribute("name")
+                                            : "(unnamed fixture)";
 
         const std::string fixtureId =
             idNode && idNode->GetText() ? TrimAscii(idNode->GetText()) : "";
@@ -1014,42 +1062,48 @@ static bool ValidateMvr16Export(
             numNode && numNode->GetText() ? TrimAscii(numNode->GetText()) : "";
         int fixtureNumeric = 0;
 
-        if (fixtureId.empty() || !TryParseInt(fixtureNumericText, fixtureNumeric) ||
+        if (fixtureId.empty() ||
+            !TryParseInt(fixtureNumericText, fixtureNumeric) ||
             fixtureNumeric <= 0) {
           wxLogError(
-              "MVR export validation failed: Fixture '%s' (uuid=%s) must have a non-empty FixtureID and a positive integer FixtureIDNumeric",
+              "MVR export validation failed: Fixture '%s' (uuid=%s) must have "
+              "a non-empty FixtureID and a positive integer FixtureIDNumeric",
               fixtureName, fixtureUuid);
           return false;
         }
 
         auto *unitNode = cur->FirstChildElement("UnitNumber");
         int unitValue = 0;
-        const std::string unitText =
-            unitNode && unitNode->GetText() ? TrimAscii(unitNode->GetText()) : "";
-        if (unitText.empty() || !TryParseInt(unitText, unitValue) || unitValue <= 0) {
-          wxLogError(
-              "MVR export validation failed: Fixture '%s' (uuid=%s) must have a positive integer UnitNumber",
+        const std::string unitText = unitNode && unitNode->GetText()
+                                         ? TrimAscii(unitNode->GetText())
+                                         : "";
+        if (unitText.empty() || !TryParseInt(unitText, unitValue) ||
+            unitValue <= 0) {
+          wxLogError("MVR export validation failed: Fixture '%s' (uuid=%s) "
+                     "must have a positive integer UnitNumber",
               fixtureName, fixtureUuid);
           return false;
         }
 
         if (auto *addresses = cur->FirstChildElement("Addresses"); addresses) {
           std::unordered_set<int> usedBreaks;
-          for (auto *addressNode = addresses->FirstChildElement("Address"); addressNode;
+          for (auto *addressNode = addresses->FirstChildElement("Address");
+               addressNode;
                addressNode = addressNode->NextSiblingElement("Address")) {
             int breakNum = 0;
-            const std::string breakText = addressNode->Attribute("break")
+            const std::string breakText =
+                addressNode->Attribute("break")
                                               ? TrimAscii(addressNode->Attribute("break"))
                                               : "0";
             if (!TryParseInt(breakText, breakNum) || breakNum < 0) {
-              wxLogError(
-                  "MVR export validation failed: Fixture '%s' (uuid=%s) has invalid Address break '%s'",
+              wxLogError("MVR export validation failed: Fixture '%s' (uuid=%s) "
+                         "has invalid Address break '%s'",
                   fixtureName, fixtureUuid, breakText);
               return false;
             }
             if (!usedBreaks.insert(breakNum).second) {
-              wxLogError(
-                  "MVR export validation failed: Fixture '%s' (uuid=%s) has duplicate Address break %d",
+              wxLogError("MVR export validation failed: Fixture '%s' (uuid=%s) "
+                         "has duplicate Address break %d",
                   fixtureName, fixtureUuid, breakNum);
               return false;
             }
@@ -1059,28 +1113,33 @@ static bool ValidateMvr16Export(
             int universe = 0;
             int channel = 0;
             if (!ParseMvrAddressNodeText(addressText, universe, channel)) {
-              wxLogError(
-                  "MVR export validation failed: Fixture '%s' (uuid=%s) has invalid Address value '%s'",
+              wxLogError("MVR export validation failed: Fixture '%s' (uuid=%s) "
+                         "has invalid Address value '%s'",
                   fixtureName, fixtureUuid, addressText);
               return false;
             }
-
           }
         }
       }
 
       if (std::string(cur->Name()) == "Position") {
-        const tinyxml2::XMLElement *parent = cur->Parent() ? cur->Parent()->ToElement() : nullptr;
-        const std::string parentName = parent ? std::string(parent->Name()) : std::string{};
+        const tinyxml2::XMLElement *parent =
+            cur->Parent() ? cur->Parent()->ToElement() : nullptr;
+        const std::string parentName =
+            parent ? std::string(parent->Name()) : std::string{};
         const bool isObjectPositionRef =
-            parentName == "Fixture" || parentName == "Truss" || parentName == "Support" ||
-            parentName == "VideoScreen" || parentName == "Projector";
+            parentName == "Fixture" || parentName == "Truss" ||
+            parentName == "Support" || parentName == "VideoScreen" ||
+            parentName == "Projector";
         if (isObjectPositionRef) {
-          const std::string positionRef = TrimAscii(cur->GetText() ? cur->GetText() : "");
+          const std::string positionRef =
+              TrimAscii(cur->GetText() ? cur->GetText() : "");
           if (positionRef.empty())
             continue;
           if (!IsCanonicalUuidString(positionRef)) {
-            wxLogError("MVR export validation failed: Position reference '%s' is not canonical", positionRef);
+            wxLogError("MVR export validation failed: Position reference '%s' "
+                       "is not canonical",
+                       positionRef);
             return false;
           }
           referencedPositionUuids.insert(positionRef);
@@ -1105,7 +1164,8 @@ static bool ValidateMvr16Export(
     for (const tinyxml2::XMLAttribute *attr = cur->FirstAttribute(); attr;
          attr = attr->Next()) {
       std::string attrName = attr->Name();
-      std::transform(attrName.begin(), attrName.end(), attrName.begin(),
+      std::transform(
+          attrName.begin(), attrName.end(), attrName.begin(),
                      [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
       if (attrName == "filename")
         referencedFiles.emplace_back(attr->Value());
@@ -1127,21 +1187,28 @@ static bool ValidateMvr16Export(
         if (std::string(cur->Name()) == tagName) {
           bool isMultipatchChild = false;
           if (const char *mp = cur->Attribute("multipatch"); mp)
-            isMultipatchChild = std::string(mp) == "true" || std::string(mp) == "1";
+            isMultipatchChild =
+                std::string(mp) == "true" || std::string(mp) == "1";
           if (!isMultipatchChild) {
-            const char *idText = cur->FirstChildElement("FixtureID")
+            const char *idText =
+                cur->FirstChildElement("FixtureID")
                                      ? cur->FirstChildElement("FixtureID")->GetText()
                                      : nullptr;
-            const char *numText = cur->FirstChildElement("FixtureIDNumeric")
+            const char *numText =
+                cur->FirstChildElement("FixtureIDNumeric")
                                       ? cur->FirstChildElement("FixtureIDNumeric")->GetText()
                                       : nullptr;
             if (!idText || TrimAscii(idText).empty() || !numText) {
-              wxLogError("MVR export validation failed: %s is missing FixtureID/FixtureIDNumeric", tagName);
+              wxLogError("MVR export validation failed: %s is missing "
+                         "FixtureID/FixtureIDNumeric",
+                         tagName);
               return false;
             }
             int numeric = 0;
-            if (!TryParseInt(numText, numeric) || numeric <= 0 || !numericIds.insert(numeric).second) {
-              wxLogError("MVR export validation failed: FixtureIDNumeric must be globally unique positive integer");
+            if (!TryParseInt(numText, numeric) || numeric <= 0 ||
+                !numericIds.insert(numeric).second) {
+              wxLogError("MVR export validation failed: FixtureIDNumeric must "
+                         "be globally unique positive integer");
               return false;
             }
           }
@@ -1150,41 +1217,54 @@ static bool ValidateMvr16Export(
             const char *txt = gdtf->GetText();
             std::string value = txt ? txt : "";
             if (!IsValidMvrFileName(value)) {
-              wxLogError("MVR export validation failed: GDTFSpec '%s' is not a valid archive-relative FileName", value);
+              wxLogError("MVR export validation failed: GDTFSpec '%s' is not a "
+                         "valid archive-relative FileName",
+                         value);
               return false;
             }
-            auto uidIt = gdtfPathsByUuid.find(cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+            auto uidIt = gdtfPathsByUuid.find(
+                cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
             if (uidIt != gdtfPathsByUuid.end() && uidIt->second != value) {
-              wxLogError("MVR export validation failed: GDTFSpec mismatch for object uuid '%s'", cur->Attribute("uuid"));
+              wxLogError("MVR export validation failed: GDTFSpec mismatch for "
+                         "object uuid '%s'",
+                         cur->Attribute("uuid"));
               return false;
             }
             auto gdtfArchiveIt = archiveEntryCount.find(value);
-            if (gdtfArchiveIt == archiveEntryCount.end() || gdtfArchiveIt->second < 1) {
+            if (gdtfArchiveIt == archiveEntryCount.end() ||
+                gdtfArchiveIt->second < 1) {
               if (exportWarnings)
-                exportWarnings->push_back("Referenced file '" + value +
+                exportWarnings->push_back(
+                    "Referenced file '" + value +
                                           "' is missing from the archive and will be omitted.");
             } else if (gdtfArchiveIt->second > 1) {
               if (exportWarnings)
-                exportWarnings->push_back("Referenced file '" + value +
+                exportWarnings->push_back(
+                    "Referenced file '" + value +
                                           "' appears multiple times; duplicates will be ignored.");
             }
           }
 
           if (std::string(tagName) == "Support") {
             if (!cur->FirstChildElement("Geometries")) {
-              wxLogError("MVR export validation failed: Support uuid '%s' has no Geometries",
+              wxLogError("MVR export validation failed: Support uuid '%s' has "
+                         "no Geometries",
                          cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
               return false;
             }
             if (!cur->FirstChildElement("ChainLength")) {
-              wxLogError("MVR export validation failed: Support uuid '%s' has no ChainLength",
+              wxLogError("MVR export validation failed: Support uuid '%s' has "
+                         "no ChainLength",
                          cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
               return false;
             }
-            const bool hasGdtfSpec = cur->FirstChildElement("GDTFSpec") != nullptr;
-            const bool hasGdtfMode = cur->FirstChildElement("GDTFMode") != nullptr;
+            const bool hasGdtfSpec =
+                cur->FirstChildElement("GDTFSpec") != nullptr;
+            const bool hasGdtfMode =
+                cur->FirstChildElement("GDTFMode") != nullptr;
             if (hasGdtfSpec != hasGdtfMode) {
-              wxLogError("MVR export validation failed: Support uuid '%s' has inconsistent GDTFSpec/GDTFMode",
+              wxLogError("MVR export validation failed: Support uuid '%s' has "
+                         "inconsistent GDTFSpec/GDTFMode",
                          cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
               return false;
             }
@@ -1198,27 +1278,37 @@ static bool ValidateMvr16Export(
     }
   }
 
-  if (tinyxml2::XMLElement *rootUserData = root->FirstChildElement("UserData")) {
-    for (tinyxml2::XMLElement *data = rootUserData->FirstChildElement("Data"); data;
-         data = data->NextSiblingElement("Data")) {
-      const std::string provider = ToLowerAscii(TrimAscii(data->Attribute("provider") ? data->Attribute("provider") : ""));
+  if (tinyxml2::XMLElement *rootUserData =
+          root->FirstChildElement("UserData")) {
+    for (tinyxml2::XMLElement *data = rootUserData->FirstChildElement("Data");
+         data; data = data->NextSiblingElement("Data")) {
+      const std::string provider = ToLowerAscii(TrimAscii(
+          data->Attribute("provider") ? data->Attribute("provider") : ""));
       if (provider != "perastage")
         continue;
-      for (tinyxml2::XMLElement *map = data->FirstChildElement("TrussInfoMap"); map;
-           map = map->NextSiblingElement("TrussInfoMap")) {
-        for (tinyxml2::XMLElement *info = map->FirstChildElement("TrussInfo"); info;
-             info = info->NextSiblingElement("TrussInfo")) {
-          const std::string uuid = TrimAscii(info->Attribute("uuid") ? info->Attribute("uuid") : "");
-          if (!IsCanonicalUuidString(uuid) || !exportedTrussUuids.contains(uuid)) {
-            wxLogError("MVR export validation failed: root TrussInfo references invalid exported Truss uuid '%s'", uuid);
+      for (tinyxml2::XMLElement *map = data->FirstChildElement("TrussInfoMap");
+           map; map = map->NextSiblingElement("TrussInfoMap")) {
+        for (tinyxml2::XMLElement *info = map->FirstChildElement("TrussInfo");
+             info; info = info->NextSiblingElement("TrussInfo")) {
+          const std::string uuid =
+              TrimAscii(info->Attribute("uuid") ? info->Attribute("uuid") : "");
+          if (!IsCanonicalUuidString(uuid) ||
+              !exportedTrussUuids.contains(uuid)) {
+            wxLogError("MVR export validation failed: root TrussInfo "
+                       "references invalid exported Truss uuid '%s'",
+                       uuid);
             return false;
           }
           for (const char *nodeName : {"ModelFile", "AuxGdtf", "TypeKey"}) {
-            if (tinyxml2::XMLElement *pathNode = info->FirstChildElement(nodeName)) {
-              const std::string value = TrimAscii(pathNode->GetText() ? pathNode->GetText() : "");
-              if (LooksLikeLocalFilesystemPath(value) || value.find('/') != std::string::npos ||
+            if (tinyxml2::XMLElement *pathNode =
+                    info->FirstChildElement(nodeName)) {
+              const std::string value =
+                  TrimAscii(pathNode->GetText() ? pathNode->GetText() : "");
+              if (LooksLikeLocalFilesystemPath(value) ||
+                  value.find('/') != std::string::npos ||
                   value.find('\\') != std::string::npos) {
-                wxLogError("MVR export validation failed: Perastage UserData %s contains non-portable path text '%s'",
+                wxLogError("MVR export validation failed: Perastage UserData "
+                           "%s contains non-portable path text '%s'",
                            nodeName, value);
                 return false;
               }
@@ -1226,34 +1316,51 @@ static bool ValidateMvr16Export(
           }
         }
       }
-      if (tinyxml2::XMLElement *manifest = data->FirstChildElement("TrussSidecarManifest")) {
-        for (tinyxml2::XMLElement *type = manifest->FirstChildElement("Type"); type;
-             type = type->NextSiblingElement("Type")) {
-          const std::string key = TrimAscii(type->Attribute("key") ? type->Attribute("key") : "");
-          const std::string gdtf = TrimAscii(type->Attribute("gdtf") ? type->Attribute("gdtf") : "");
-          if (LooksLikeLocalFilesystemPath(key) || key.find('/') != std::string::npos ||
+      if (tinyxml2::XMLElement *manifest =
+              data->FirstChildElement("TrussSidecarManifest")) {
+        for (tinyxml2::XMLElement *type = manifest->FirstChildElement("Type");
+             type; type = type->NextSiblingElement("Type")) {
+          const std::string key =
+              TrimAscii(type->Attribute("key") ? type->Attribute("key") : "");
+          const std::string gdtf =
+              TrimAscii(type->Attribute("gdtf") ? type->Attribute("gdtf") : "");
+          if (LooksLikeLocalFilesystemPath(key) ||
+              key.find('/') != std::string::npos ||
               key.find('\\') != std::string::npos) {
-            wxLogError("MVR export validation failed: Perastage UserData TrussSidecarManifest Type key contains non-portable path text '%s'",
+            wxLogError("MVR export validation failed: Perastage UserData "
+                       "TrussSidecarManifest Type key contains non-portable "
+                       "path text '%s'",
                        key);
             return false;
           }
           if (!IsValidMvrFileName(gdtf)) {
-            wxLogError("MVR export validation failed: Perastage UserData TrussSidecarManifest Type gdtf '%s' is not a root-level MVR filename",
+            wxLogError("MVR export validation failed: Perastage UserData "
+                       "TrussSidecarManifest Type gdtf '%s' is not a "
+                       "root-level MVR filename",
                        gdtf);
             return false;
           }
         }
-        for (tinyxml2::XMLElement *inst = manifest->FirstChildElement("Instance"); inst;
-             inst = inst->NextSiblingElement("Instance")) {
-          const std::string uuid = TrimAscii(inst->Attribute("uuid") ? inst->Attribute("uuid") : "");
-          if (!IsCanonicalUuidString(uuid) || !exportedTrussUuids.contains(uuid)) {
-            wxLogError("MVR export validation failed: Truss sidecar manifest references invalid exported Truss uuid '%s'", uuid);
+        for (tinyxml2::XMLElement *inst =
+                 manifest->FirstChildElement("Instance");
+             inst; inst = inst->NextSiblingElement("Instance")) {
+          const std::string uuid =
+              TrimAscii(inst->Attribute("uuid") ? inst->Attribute("uuid") : "");
+          if (!IsCanonicalUuidString(uuid) ||
+              !exportedTrussUuids.contains(uuid)) {
+            wxLogError("MVR export validation failed: Truss sidecar manifest "
+                       "references invalid exported Truss uuid '%s'",
+                       uuid);
             return false;
           }
-          const std::string typeKey = TrimAscii(inst->Attribute("typeKey") ? inst->Attribute("typeKey") : "");
-          if (LooksLikeLocalFilesystemPath(typeKey) || typeKey.find('/') != std::string::npos ||
+          const std::string typeKey = TrimAscii(
+              inst->Attribute("typeKey") ? inst->Attribute("typeKey") : "");
+          if (LooksLikeLocalFilesystemPath(typeKey) ||
+              typeKey.find('/') != std::string::npos ||
               typeKey.find('\\') != std::string::npos) {
-            wxLogError("MVR export validation failed: Perastage UserData TrussSidecarManifest Instance typeKey contains non-portable path text '%s'",
+            wxLogError("MVR export validation failed: Perastage UserData "
+                       "TrussSidecarManifest Instance typeKey contains "
+                       "non-portable path text '%s'",
                        typeKey);
             return false;
           }
@@ -1266,14 +1373,17 @@ static bool ValidateMvr16Export(
   std::unordered_set<std::string> warnedDuplicateFiles;
   for (const auto &fileRef : referencedFiles) {
     if (!IsValidMvrFileName(fileRef)) {
-      wxLogError("MVR export validation failed: invalid FileName reference '%s'", fileRef);
+      wxLogError(
+          "MVR export validation failed: invalid FileName reference '%s'",
+          fileRef);
       return false;
     }
 
     auto fileRefIt = archiveEntryCount.find(fileRef);
     if (fileRefIt == archiveEntryCount.end() || fileRefIt->second < 1) {
       if (exportWarnings && warnedMissingFiles.insert(fileRef).second) {
-        exportWarnings->push_back("Referenced file '" + fileRef +
+        exportWarnings->push_back(
+            "Referenced file '" + fileRef +
                                   "' is missing from the archive and will be omitted.");
       }
       continue;
@@ -1281,7 +1391,8 @@ static bool ValidateMvr16Export(
 
     if (fileRefIt->second > 1) {
       if (exportWarnings && warnedDuplicateFiles.insert(fileRef).second) {
-        exportWarnings->push_back("Referenced file '" + fileRef +
+        exportWarnings->push_back(
+            "Referenced file '" + fileRef +
                                   "' appears multiple times; duplicates will be ignored.");
       }
     }
@@ -1289,7 +1400,9 @@ static bool ValidateMvr16Export(
 
   for (const auto &[archivePath, count] : archiveEntryCount) {
     if (!IsValidMvrFileName(archivePath)) {
-      wxLogError("MVR export validation failed: ZIP entry '%s' is not a root-level MVR filename", archivePath);
+      wxLogError("MVR export validation failed: ZIP entry '%s' is not a "
+                 "root-level MVR filename",
+                 archivePath);
       return false;
     }
     if (archivePath.empty()) {
@@ -1297,14 +1410,17 @@ static bool ValidateMvr16Export(
       return false;
     }
     if (count != 1) {
-      wxLogError("MVR export validation failed: duplicate ZIP entry '%s'", archivePath);
+      wxLogError("MVR export validation failed: duplicate ZIP entry '%s'",
+                 archivePath);
       return false;
     }
   }
 
   for (const auto &positionRef : referencedPositionUuids) {
     if (!positionUuids.contains(positionRef)) {
-      wxLogError("MVR export validation failed: Position reference '%s' has no AUXData/Position definition", positionRef);
+      wxLogError("MVR export validation failed: Position reference '%s' has no "
+                 "AUXData/Position definition",
+                 positionRef);
       return false;
     }
   }
@@ -1312,7 +1428,8 @@ static bool ValidateMvr16Export(
   return true;
 }
 
-// Normalizes archive entry paths for stable comparisons during resource pruning.
+// Normalizes archive entry paths for stable comparisons during resource
+// pruning.
 static std::string NormalizeArchiveEntryPath(std::string path) {
   path = TrimAscii(std::move(path));
   std::replace(path.begin(), path.end(), '\\', '/');
@@ -1323,7 +1440,8 @@ static std::string NormalizeArchiveEntryPath(std::string path) {
   return path;
 }
 
-// Collects every archive-relative file path referenced by file-bearing XML attributes.
+// Collects every archive-relative file path referenced by file-bearing XML
+// attributes.
 static std::unordered_set<std::string>
 CollectReferencedArchivePaths(const tinyxml2::XMLDocument &doc) {
   std::unordered_set<std::string> referencedPaths;
@@ -1363,8 +1481,8 @@ CollectReferencedArchivePaths(const tinyxml2::XMLDocument &doc) {
       }
     }
 
-    for (const tinyxml2::XMLElement *child = current->FirstChildElement(); child;
-         child = child->NextSiblingElement()) {
+    for (const tinyxml2::XMLElement *child = current->FirstChildElement();
+         child; child = child->NextSiblingElement()) {
       stack.push_back(child);
     }
   }
@@ -1372,7 +1490,8 @@ CollectReferencedArchivePaths(const tinyxml2::XMLDocument &doc) {
   return referencedPaths;
 }
 
-// Logs referenced and pruned archive paths to diagnose unexpected retained resources.
+// Logs referenced and pruned archive paths to diagnose unexpected retained
+// resources.
 static void LogResourcePruneDiagnostics(
     const std::unordered_set<std::string> &referencedArchivePaths,
     const std::vector<ResourceEntry> &allResourceEntries,
@@ -1380,16 +1499,14 @@ static void LogResourcePruneDiagnostics(
   std::unordered_set<std::string> keptNormalized;
   keptNormalized.reserve(keptResourceEntries.size());
   for (const auto &entry : keptResourceEntries) {
-    const std::string normalized =
-        NormalizeArchiveEntryPath(entry.archivePath);
+    const std::string normalized = NormalizeArchiveEntryPath(entry.archivePath);
     if (!normalized.empty())
       keptNormalized.insert(normalized);
   }
 
   size_t prunedCount = 0;
   for (const auto &entry : allResourceEntries) {
-    const std::string normalized =
-        NormalizeArchiveEntryPath(entry.archivePath);
+    const std::string normalized = NormalizeArchiveEntryPath(entry.archivePath);
     if (normalized.empty())
       continue;
     if (!keptNormalized.contains(normalized)) {
@@ -1404,12 +1521,15 @@ static void LogResourcePruneDiagnostics(
       Logger::Level::Info,
       "MVR export resource pruning summary: referenced_paths=" +
           std::to_string(referencedArchivePaths.size()) +
-          ", planned_resources_before=" + std::to_string(allResourceEntries.size()) +
-          ", planned_resources_after=" + std::to_string(keptResourceEntries.size()) +
+          ", planned_resources_before=" +
+          std::to_string(allResourceEntries.size()) +
+          ", planned_resources_after=" +
+          std::to_string(keptResourceEntries.size()) +
           ", pruned=" + std::to_string(prunedCount));
 }
 
-// Returns whether a Symdef has enough geometry data to flatten into Geometry3D nodes.
+// Returns whether a Symdef has enough geometry data to flatten into Geometry3D
+// nodes.
 static bool CanFlattenSymdefGeometry(const MvrScene &scene,
                                      const std::string &symdefUuid) {
   auto geoIt = scene.symdefGeometries.find(symdefUuid);
@@ -1421,20 +1541,25 @@ static bool CanFlattenSymdefGeometry(const MvrScene &scene,
   }
 
   auto fileIt = scene.symdefFiles.find(symdefUuid);
-  return fileIt != scene.symdefFiles.end() && !TrimAscii(fileIt->second).empty();
+  return fileIt != scene.symdefFiles.end() &&
+         !TrimAscii(fileIt->second).empty();
 }
 
-// Collects Symdef UUIDs referenced by trusses that preserve Symbol/Symdef geometry representation.
+// Collects Symdef UUIDs referenced by trusses that preserve Symbol/Symdef
+// geometry representation.
 static std::unordered_set<std::string>
-CollectReferencedSymdefUuids(const MvrScene &scene, const MvrExportOptions &options) {
+CollectReferencedSymdefUuids(const MvrScene &scene,
+                             const MvrExportOptions &options) {
   std::unordered_set<std::string> referencedSymdefs;
   for (const auto &[uuid, truss] : scene.trusses) {
-    if (truss.sourceRepresentation != Truss::GeometryRepresentation::SymbolSymdef)
+    if (truss.sourceRepresentation !=
+        Truss::GeometryRepresentation::SymbolSymdef)
       continue;
     const std::string symdefUuid = TrimAscii(truss.sourceSymdefUuid);
     if (symdefUuid.empty())
       continue;
-    if (options.trussGeometryExportMode == MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols &&
+    if (options.trussGeometryExportMode ==
+            MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols &&
         CanFlattenSymdefGeometry(scene, symdefUuid))
       continue;
     referencedSymdefs.insert(symdefUuid);
@@ -1446,12 +1571,15 @@ static bool TryParseInt(std::string_view text, int &out) {
   if (text.empty())
     return false;
 
-  const auto first = std::find_if_not(text.begin(), text.end(),
+  const auto first =
+      std::find_if_not(text.begin(), text.end(),
                                       [](unsigned char c) { return std::isspace(c); });
   if (first == text.end())
     return false;
-  const auto last = std::find_if_not(text.rbegin(), text.rend(),
-                                     [](unsigned char c) { return std::isspace(c); }).base();
+  const auto last =
+      std::find_if_not(text.rbegin(), text.rend(), [](unsigned char c) {
+        return std::isspace(c);
+      }).base();
   std::string_view trimmed(&(*first), static_cast<size_t>(last - first));
 
   int value = 0;
@@ -1505,14 +1633,15 @@ int ComputeAbsoluteDmx(int universe1Based, int address1Based) {
 
 static bool ShouldExportSupportHoistInfo(const Support &support) {
   return support.capacityKg != 0.0f || support.weightKg != 0.0f ||
-         support.loadKg != 0.0f ||
-         !support.hoistFunction.empty() || !support.motorName.empty() ||
-         !support.motorManufacturer.empty() || !support.motorModel.empty() ||
-         !support.motorFixtureUuid.empty() || !support.useMotorDefaults ||
-         !support.dummyProfileId.empty() || !support.dummyPreset.empty() ||
+         support.loadKg != 0.0f || !support.hoistFunction.empty() ||
+         !support.motorName.empty() || !support.motorManufacturer.empty() ||
+         !support.motorModel.empty() || !support.motorFixtureUuid.empty() ||
+         !support.useMotorDefaults || !support.dummyProfileId.empty() ||
+         !support.dummyPreset.empty() ||
          NormalizeHoistDataSource(support.hoistDataSource) != "Inherited" ||
          NormalizeHoistDataSource(support.motorNameSource) != "Inherited" ||
-         NormalizeHoistDataSource(support.motorManufacturerSource) != "Inherited" ||
+         NormalizeHoistDataSource(support.motorManufacturerSource) !=
+             "Inherited" ||
          NormalizeHoistDataSource(support.motorModelSource) != "Inherited" ||
          NormalizeHoistDataSource(support.capacitySource) != "Inherited" ||
          NormalizeHoistDataSource(support.weightSource) != "Inherited" ||
@@ -1520,7 +1649,8 @@ static bool ShouldExportSupportHoistInfo(const Support &support) {
 }
 
 // Finds the first UserData element that already contains Perastage-owned data.
-static tinyxml2::XMLElement *FindFirstPerastageUserData(tinyxml2::XMLElement *node) {
+static tinyxml2::XMLElement *
+FindFirstPerastageUserData(tinyxml2::XMLElement *node) {
   if (!node)
     return nullptr;
 
@@ -1539,7 +1669,8 @@ static tinyxml2::XMLElement *FindFirstPerastageUserData(tinyxml2::XMLElement *no
 }
 
 // Finds or creates the Perastage Data element under a valid parent node.
-static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
+static tinyxml2::XMLElement *
+FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
                                                             tinyxml2::XMLElement *node) {
   tinyxml2::XMLElement *ud = FindFirstPerastageUserData(node);
   if (!ud) {
@@ -1549,8 +1680,8 @@ static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument
 
   for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
        data = data->NextSiblingElement("Data")) {
-    const std::string provider =
-        TrimAscii(data->Attribute("provider") ? data->Attribute("provider") : "");
+    const std::string provider = TrimAscii(
+        data->Attribute("provider") ? data->Attribute("provider") : "");
     if (provider.empty() || ToLowerAscii(provider) == "perastage")
       return data;
   }
@@ -1569,26 +1700,28 @@ static std::string ExportLayerUuid(const std::string &layerUuid,
     return {};
   return IsCanonicalUuidString(layerUuid)
              ? layerUuid
-             : DeriveDeterministicUuid("mvr:layer:" + layerName + ":" + layerUuid);
+             : DeriveDeterministicUuid("mvr:layer:" + layerName + ":" +
+                                       layerUuid);
 }
 
 // Returns true when the color can be stored as Perastage #RRGGBB metadata.
 static bool IsLayerColorMetadataValue(const std::string &color) {
   if (color.size() != 7 || color[0] != '#')
     return false;
-  return std::all_of(color.begin() + 1, color.end(), [](unsigned char ch) {
-    return std::isxdigit(ch) != 0;
-  });
+  return std::all_of(color.begin() + 1, color.end(),
+                     [](unsigned char ch) { return std::isxdigit(ch) != 0; });
 }
 
 // Returns true when any layer has Perastage color metadata to export.
 static bool HasLayerAppearanceMetadata(const MvrScene &scene) {
-  return std::any_of(scene.layers.begin(), scene.layers.end(), [](const auto &entry) {
+  return std::any_of(scene.layers.begin(), scene.layers.end(),
+                     [](const auto &entry) {
     return IsLayerColorMetadataValue(entry.second.color);
   });
 }
 
-// Appends the root-level Perastage layer appearance map when layers define colors.
+// Appends the root-level Perastage layer appearance map when layers define
+// colors.
 static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
                                           tinyxml2::XMLElement *perastageData,
                                           const MvrScene &scene) {
@@ -1596,8 +1729,10 @@ static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
     return;
 
   tinyxml2::XMLElement *map = nullptr;
-  for (tinyxml2::XMLElement *existing = perastageData->FirstChildElement("LayerAppearanceMap");
-       existing; existing = existing->NextSiblingElement("LayerAppearanceMap")) {
+  for (tinyxml2::XMLElement *existing =
+           perastageData->FirstChildElement("LayerAppearanceMap");
+       existing;
+       existing = existing->NextSiblingElement("LayerAppearanceMap")) {
     map = existing;
     break;
   }
@@ -1630,7 +1765,8 @@ static bool HasTrussInfoMetadata(const Truss &truss) {
          !truss.crossSection.empty() || !truss.modelFile.empty() ||
          !truss.positionName.empty() ||
          truss.sourceRepresentation != Truss::GeometryRepresentation::Unknown ||
-         !truss.perastageTypeKey.empty() || !truss.perastageAuxGdtfArchivePath.empty();
+         !truss.perastageTypeKey.empty() ||
+         !truss.perastageAuxGdtfArchivePath.empty();
 }
 
 // Appends one root-level Perastage truss metadata entry keyed by exported UUID.
@@ -1672,9 +1808,12 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
   addTxt("PositionName", truss.positionName);
   addTxt("HangPos", truss.positionName);
   addTxt("Representation", ToRepresentationText(truss.sourceRepresentation));
-  addTxt("TypeKey", trussTypeKey.empty() ? SanitizeArchiveFileName(truss.perastageTypeKey, "") : trussTypeKey);
-  const std::string exportedAuxGdtf =
-      auxGdtfArchivePath.empty() ? truss.perastageAuxGdtfArchivePath : auxGdtfArchivePath;
+  addTxt("TypeKey", trussTypeKey.empty()
+                        ? SanitizeArchiveFileName(truss.perastageTypeKey, "")
+                        : trussTypeKey);
+  const std::string exportedAuxGdtf = auxGdtfArchivePath.empty()
+                                          ? truss.perastageAuxGdtfArchivePath
+                                          : auxGdtfArchivePath;
   addTxt("AuxGdtf", SanitizeArchiveFileName(exportedAuxGdtf, ""));
   trussInfoMap->InsertEndChild(info);
 }
@@ -1707,7 +1846,8 @@ static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
   addNum("Weight", support.weightKg, "kg");
   addNum("Load", support.loadKg, "kg");
 
-  const std::string hoistFunction = NormalizeHoistFunction(support.hoistFunction);
+  const std::string hoistFunction =
+      NormalizeHoistFunction(support.hoistFunction);
   if (!hoistFunction.empty()) {
     addText("RiggingPoint", hoistFunction);
     addText("Function", hoistFunction); // Compatibility alias for older builds.
@@ -1770,8 +1910,7 @@ static std::string HexToCie(const std::string &hex) {
   unsigned int G = (rgb >> 8) & 0xFF;
   unsigned int B = rgb & 0xFF;
   auto invGamma = [](double c) {
-    return c <= 0.04045 ? c / 12.92
-                        : std::pow((c + 0.055) / 1.055, 2.4);
+    return c <= 0.04045 ? c / 12.92 : std::pow((c + 0.055) / 1.055, 2.4);
   };
   double r = invGamma(R / 255.0);
   double g = invGamma(G / 255.0);
@@ -1890,8 +2029,8 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
       ov.hasWeightKg ? std::optional<float>(ov.weightKg) : std::nullopt;
   const std::optional<float> powerW =
       ov.hasPowerW ? std::optional<float>(ov.powerW) : std::nullopt;
-  patched = GdtfMutationAudit::ApplyPhysicalProperties(
-                ft, doc, weightKg, powerW) ||
+  patched =
+      GdtfMutationAudit::ApplyPhysicalProperties(ft, doc, weightKg, powerW) ||
             patched;
   if (!ov.manufacturer.empty()) {
     ft->SetAttribute("Manufacturer", ov.manufacturer.c_str());
@@ -1921,7 +2060,8 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
 
   if (patched) {
     GdtfMutationAudit::AppendRevision(
-        ft, doc, (ov.hasWeightKg || ov.hasPowerW)
+        ft, doc,
+        (ov.hasWeightKg || ov.hasPowerW)
                      ? kPhysicalPropertiesRevisionText
                      : "Patched fixture metadata for MVR export",
         GdtfMutationAudit::BuildPerastageModifiedBy());
@@ -1934,16 +2074,21 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
   return outPath;
 }
 
-// Serialize the configured scene into a .mvr archive and collect non-fatal export warnings.
+// Serialize the configured scene into a .mvr archive and collect non-fatal
+// export warnings.
 bool MvrExporter::ExportToFile(const std::string &filePath) {
-  return ExportToFile(filePath, mvr::preferences::LoadExportOptions(ConfigManager::Get()));
+  return ExportToFile(
+      filePath, mvr::preferences::LoadExportOptions(ConfigManager::Get()));
 }
 
-// Serialize the configured scene into a .mvr archive with explicit export options.
-bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptions &options) {
+// Serialize the configured scene into a .mvr archive with explicit export
+// options.
+bool MvrExporter::ExportToFile(const std::string &filePath,
+                               const MvrExportOptions &options) {
   m_exportWarnings.clear();
   const auto &scene = ConfigManager::Get().GetScene();
-  const TrussGeometryAuthority trussGeometryAuthority = GetTrussGeometryAuthoritySetting();
+  const TrussGeometryAuthority trussGeometryAuthority =
+      GetTrussGeometryAuthoritySetting();
   std::unordered_map<std::string, std::string> positions;
   std::unordered_map<std::string, std::string> legacyPositionIdToCanonical;
   std::unordered_set<std::string> usedPositionUuids;
@@ -1955,7 +2100,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     if (out.empty() || usedPositionUuids.contains(out)) {
       int suffix = 0;
       do {
-        out = DeriveDeterministicUuid(seedBase + "#" + std::to_string(suffix++));
+        out =
+            DeriveDeterministicUuid(seedBase + "#" + std::to_string(suffix++));
       } while (usedPositionUuids.contains(out));
     }
     usedPositionUuids.insert(out);
@@ -1978,9 +2124,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     const std::string generated = reserveCanonicalPositionUuid({}, seed);
     positions[generated] = name.empty() ? rawUuid : name;
     legacyPositionIdToCanonical[rawUuid] = generated;
-    LogLegacyPositionUuidWarning(
-        "MVR export converted legacy Position uuid '" + rawUuid +
-        "' to canonical '" + generated + "' (name='" + positions[generated] + "')");
+    LogLegacyPositionUuidWarning("MVR export converted legacy Position uuid '" +
+                                 rawUuid + "' to canonical '" + generated +
+                                 "' (name='" + positions[generated] + "')");
   }
 
   std::unordered_map<std::string, std::string> positionByName;
@@ -1994,7 +2140,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     auto legacyIt = legacyPositionIdToCanonical.find(positionId);
     if (legacyIt != legacyPositionIdToCanonical.end()) {
       auto existing = positions.find(legacyIt->second);
-      if (existing != positions.end() && !nameHint.empty() && existing->second != nameHint)
+      if (existing != positions.end() && !nameHint.empty() &&
+          existing->second != nameHint)
         existing->second = nameHint;
       if (!nameHint.empty())
         positionByName[nameHint] = legacyIt->second;
@@ -2007,7 +2154,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       if (it == positions.end()) {
         positions[canonicalId] = nameHint;
       } else if (!nameHint.empty() && it->second != nameHint) {
-        // Refresh the stored name so Hang Position edits are preserved on export.
+        // Refresh the stored name so Hang Position edits are preserved on
+        // export.
         it->second = nameHint;
       }
       if (!nameHint.empty())
@@ -2022,13 +2170,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     if (byName != positionByName.end())
       return;
 
-    std::string newUuid = reserveCanonicalPositionUuid({}, "mvr:position:name:" + nameHint);
+    std::string newUuid =
+        reserveCanonicalPositionUuid({}, "mvr:position:name:" + nameHint);
     positions[newUuid] = nameHint;
     positionByName[nameHint] = newUuid;
     if (!positionId.empty()) {
       LogLegacyPositionUuidWarning(
-          "MVR export normalized legacy Position uuid '" + positionId + "' -> '" +
-          newUuid + "' (name='" + nameHint + "')");
+          "MVR export normalized legacy Position uuid '" + positionId +
+          "' -> '" + newUuid + "' (name='" + nameHint + "')");
     }
   };
 
@@ -2039,7 +2188,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
   for (const auto &[uid, support] : scene.supports)
     ensurePositionEntry(support.position, support.positionName);
 
-  auto resolvePositionReference = [&](const std::string &positionId,
+  auto resolvePositionReference =
+      [&](const std::string &positionId,
                                       const std::string &nameHint) -> std::string {
     auto legacyIt = legacyPositionIdToCanonical.find(positionId);
     if (legacyIt != legacyPositionIdToCanonical.end())
@@ -2055,9 +2205,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
         if (!positionId.empty() && byName->second != positionId) {
           Logger::Instance().Log(
               Logger::Level::Info,
-              wxString::Format(
-                  "MVR export remapped non-canonical Position '%s' to '%s' by name '%s'",
-                  positionId.c_str(), byName->second.c_str(), nameHint.c_str())
+              wxString::Format("MVR export remapped non-canonical Position "
+                               "'%s' to '%s' by name '%s'",
+                               positionId.c_str(), byName->second.c_str(),
+                               nameHint.c_str())
                   .ToStdString());
         }
         return byName->second;
@@ -2103,15 +2254,16 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     if (allowReuseBySource && srcIt != sourceToArchivePath.end())
       return srcIt->second;
 
-    std::string archivePath = EnsureUniqueArchivePath(preferredArchivePath, reservedArchivePaths);
+    std::string archivePath =
+        EnsureUniqueArchivePath(preferredArchivePath, reservedArchivePaths);
     if (allowReuseBySource)
       sourceToArchivePath[normalizedSource] = archivePath;
     resourceEntries.push_back({fs::path(normalizedSource), archivePath});
     return archivePath;
   };
 
-  auto registerGdtfResource = [&](const std::string &objectUuid,
-                                  const std::string &rawGdtfPath,
+  auto registerGdtfResource =
+      [&](const std::string &objectUuid, const std::string &rawGdtfPath,
                                   const std::string &preferredName,
                                   bool allowReuseBySource = true) -> std::string {
     if (rawGdtfPath.empty())
@@ -2127,7 +2279,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     return archivePath;
   };
 
-  auto registerModelTextureDependencies = [&](const std::string &rawModelSource) {
+  auto registerModelTextureDependencies = [&](const std::string
+                                                  &rawModelSource) {
     if (rawModelSource.empty())
       return;
     const std::string normalizedModelPath = normalizeSourcePath(rawModelSource);
@@ -2141,8 +2294,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
         if (!ResolveTextureDependencyPath(modelPath, textureRef, texturePath))
           continue;
 
-        std::string preferredTextureName =
-            SanitizeArchiveFileName(textureRef, texturePath.filename().generic_string());
+        std::string preferredTextureName = SanitizeArchiveFileName(
+            textureRef, texturePath.filename().generic_string());
         registerResource(texturePath.generic_string(), preferredTextureName);
       }
       return;
@@ -2157,7 +2310,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
         const std::string trimmedRef = TrimAscii(textureRef);
         if (trimmedRef.empty())
           continue;
-        const fs::path candidate = modelDir / PathUtils::PathFromUtf8(trimmedRef);
+        const fs::path candidate =
+            modelDir / PathUtils::PathFromUtf8(trimmedRef);
         if (!fs::exists(candidate))
           continue;
 
@@ -2168,27 +2322,32 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     }
   };
 
-  auto registerModelResource = [&](const std::string &rawModelSource,
+  auto registerModelResource =
+      [&](const std::string &rawModelSource,
                                    const std::string &fallbackArchiveName) -> std::string {
     std::string archivePath = registerResource(
-        rawModelSource, SanitizeArchiveFileName(rawModelSource, fallbackArchiveName));
+        rawModelSource,
+        SanitizeArchiveFileName(rawModelSource, fallbackArchiveName));
     registerModelTextureDependencies(rawModelSource);
     return archivePath;
   };
 
-  auto registerPrimitiveModelResource = [&](const std::string &modelRef,
+  auto registerPrimitiveModelResource =
+      [&](const std::string &modelRef,
                                             const std::string &objectUuid) -> std::string {
     std::string primitiveToken;
     if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
       return {};
     const std::string normalizedModelRef = ToLowerAscii(TrimAscii(modelRef));
 
-    auto convertCylinderTokenMillimetersToMeters = [&](const std::string &token) {
+    auto convertCylinderTokenMillimetersToMeters =
+        [&](const std::string &token) {
       std::string normalized = ToLowerAscii(TrimAscii(token));
       if (normalized.rfind("primitive:cylinder", 0) != 0)
         return normalized;
       const size_t separator = normalized.find(';');
-      if (separator == std::string::npos || separator + 1 >= normalized.size())
+          if (separator == std::string::npos ||
+              separator + 1 >= normalized.size())
         return normalized;
 
       std::vector<std::string> fields;
@@ -2248,11 +2407,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       if (primitiveLabel.empty())
         primitiveLabel = "shape";
       const std::size_t primitiveHash = std::hash<std::string>{}(primitiveKey);
-      const std::string tempFileName = wxString::Format(
-          "primitive_%s_%zx.glb", primitiveLabel.c_str(), primitiveHash)
+      const std::string tempFileName =
+          wxString::Format("primitive_%s_%zx.glb", primitiveLabel.c_str(),
+                           primitiveHash)
                                            .ToStdString();
-      fs::path outputPath = PathUtils::PathFromUtf8(primitiveTempDir) / PathUtils::PathFromUtf8(tempFileName);
-      if (!mvr::WritePrimitiveModelForToken(primitiveKey, outputPath.generic_string()))
+      fs::path outputPath = PathUtils::PathFromUtf8(primitiveTempDir) /
+                            PathUtils::PathFromUtf8(tempFileName);
+      if (!mvr::WritePrimitiveModelForToken(primitiveKey,
+                                            outputPath.generic_string()))
         return {};
       sourcePath = outputPath.generic_string();
       primitiveSourceByToken[primitiveKey] = sourcePath;
@@ -2316,10 +2478,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
   };
 
   const auto assignedIds = assignIds();
-  const auto assignedUnitNumbers = BuildFixtureUnitNumbersForExport(scene.fixtures);
+  const auto assignedUnitNumbers =
+      BuildFixtureUnitNumbersForExport(scene.fixtures);
 
   tinyxml2::XMLDocument doc;
-  doc.InsertEndChild(doc.NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\""));
+  doc.InsertEndChild(
+      doc.NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\""));
 
   auto appendPlaceholderCubeGeometry = [&](tinyxml2::XMLElement *owner,
                                           const std::string &objectUuid,
@@ -2327,7 +2491,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     const std::string modelArchivePath =
         registerPrimitiveModelResource("primitive:cube", objectUuid);
     if (modelArchivePath.empty()) {
-      Logger::Instance().Log(Logger::Level::Warn,
+      Logger::Instance().Log(
+          Logger::Level::Warn,
                              std::string("MVR export could not create placeholder geometry for ") +
                                  nodeName + " uuid=" + objectUuid);
       return false;
@@ -2346,7 +2511,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     g3d->InsertEndChild(geoMatrix);
     geos->InsertEndChild(g3d);
     owner->InsertEndChild(geos);
-    Logger::Instance().Log(Logger::Level::Warn,
+    Logger::Instance().Log(
+        Logger::Level::Warn,
                            std::string("MVR export added placeholder cube geometry for ") +
                                nodeName + " uuid=" + objectUuid);
     return true;
@@ -2360,7 +2526,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
   doc.InsertEndChild(root);
 
   if (HasLayerAppearanceMetadata(scene)) {
-    tinyxml2::XMLElement *rootPerastageData = FindOrCreatePerastageDataNode(doc, root);
+    tinyxml2::XMLElement *rootPerastageData =
+        FindOrCreatePerastageDataNode(doc, root);
     AppendLayerAppearanceMetadata(doc, rootPerastageData, scene);
   }
 
@@ -2397,8 +2564,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       SymdefGeometry fallback;
       fallback.file = file;
       auto matIt = scene.symdefMatrices.find(uuid);
-      fallback.transform =
-          (matIt != scene.symdefMatrices.end()) ? matIt->second : MatrixUtils::Identity();
+      fallback.transform = (matIt != scene.symdefMatrices.end())
+                               ? matIt->second
+                               : MatrixUtils::Identity();
       if (tit != scene.symdefTypes.end())
         fallback.geometryType = tit->second;
       geometries.push_back(std::move(fallback));
@@ -2461,18 +2629,22 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
   std::unordered_map<std::string, std::string> trussExportUuids;
   for (const auto &[uuid, truss] : scene.trusses) {
     std::string exportUuid = CanonicalizeUuid(truss.uuid);
-    const std::string seed = "mvr-export-truss:" + truss.uuid + ":" + truss.name + ":" +
+    const std::string seed = "mvr-export-truss:" + truss.uuid + ":" +
+                             truss.name + ":" +
                              MatrixUtils::FormatMatrix(truss.transform);
-    const bool needsRepair = exportUuid.empty() || usedObjectExportUuids.contains(exportUuid);
+    const bool needsRepair =
+        exportUuid.empty() || usedObjectExportUuids.contains(exportUuid);
     if (needsRepair) {
       Logger::Instance().Log(
           Logger::Level::Warn,
           wxString::Format(
-              "Truss '%s' has missing, non-canonical, or conflicting UUID '%s'. Applying deterministic fallback UUID for export.",
+              "Truss '%s' has missing, non-canonical, or conflicting UUID "
+              "'%s'. Applying deterministic fallback UUID for export.",
               truss.name.c_str(), truss.uuid.c_str())
               .ToStdString());
       for (int suffix = 0;; ++suffix) {
-        const std::string candidate = DeriveDeterministicUuid(seed + "#" + std::to_string(suffix));
+        const std::string candidate =
+            DeriveDeterministicUuid(seed + "#" + std::to_string(suffix));
         if (!candidate.empty() && !usedObjectExportUuids.contains(candidate)) {
           exportUuid = candidate;
           break;
@@ -2500,8 +2672,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     if (stableUuid.empty()) {
       Logger::Instance().Log(
           Logger::Level::Warn,
-          wxString::Format(
-              "Fixture '%s' has non-canonical UUID '%s'. Applying deterministic fallback UUID for export.",
+          wxString::Format("Fixture '%s' has non-canonical UUID '%s'. Applying "
+                           "deterministic fallback UUID for export.",
               f.instanceName.c_str(), f.uuid.c_str())
               .ToStdString());
       stableUuid = DeriveDeterministicUuid(seed);
@@ -2509,8 +2681,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     if (usedFixtureUuids.contains(stableUuid)) {
       Logger::Instance().Log(
           Logger::Level::Warn,
-          wxString::Format(
-              "Fixture UUID collision detected during export for '%s' (uuid=%s). Applying controlled fallback UUID.",
+          wxString::Format("Fixture UUID collision detected during export for "
+                           "'%s' (uuid=%s). Applying controlled fallback UUID.",
               f.instanceName.c_str(), stableUuid.c_str())
               .ToStdString());
       int suffix = 1;
@@ -2524,8 +2696,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     usedFixtureUuids.insert(stableUuid);
 
     fe->SetAttribute("uuid", stableUuid.c_str());
-    const std::string fixtureExportName =
-        TrimAscii(f.instanceName).empty() ? "Fixture" : TrimAscii(f.instanceName);
+    const std::string fixtureExportName = TrimAscii(f.instanceName).empty()
+                                              ? "Fixture"
+                                              : TrimAscii(f.instanceName);
     fe->SetAttribute("name", fixtureExportName.c_str());
 
     auto addInt = [&](const char *n, int v) {
@@ -2559,16 +2732,18 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       Logger::Instance().Log(
           Logger::Level::Warn,
           wxString::Format(
-              "Fixture '%s' (uuid=%s) had an empty current GDTF. Recovering preserved original MVR GDTFSpec '%s' for export.",
-              fixtureExportName.c_str(), f.uuid.c_str(), fixtureSourceGdtf.c_str())
+              "Fixture '%s' (uuid=%s) had an empty current GDTF. Recovering "
+              "preserved original MVR GDTFSpec '%s' for export.",
+              fixtureExportName.c_str(), f.uuid.c_str(),
+              fixtureSourceGdtf.c_str())
               .ToStdString());
     }
     bool usedDummyFallbackForFixture = false;
     if (fixtureSourceGdtf.empty()) {
       fixtureSourceGdtf = ResolveFallbackFixtureGdtfPath();
-      const std::string fallbackHint = std::string(kDummyFallbackFixtureGdtfFileName) +
-                                       " (legacy: " +
-                                       kLegacyFallbackFixtureGdtfFileName + ")";
+      const std::string fallbackHint =
+          std::string(kDummyFallbackFixtureGdtfFileName) +
+          " (legacy: " + kLegacyFallbackFixtureGdtfFileName + ")";
       if (fixtureSourceGdtf.empty()) {
         std::ostringstream msg;
         msg << "Fixture '" << fixtureExportName << "' (uuid=" << f.uuid
@@ -2584,14 +2759,16 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
         Logger::Instance().Log(Logger::Level::Info, msg.str());
         usedDummyFallbackForFixture = true;
         if (dummyFallbackFixtureExamples.size() < 5)
-          dummyFallbackFixtureExamples.push_back(fixtureExportName + " (uuid=" + f.uuid + ")");
+          dummyFallbackFixtureExamples.push_back(fixtureExportName +
+                                                 " (uuid=" + f.uuid + ")");
       }
     }
     if (usedDummyFallbackForFixture)
       ++exportedDummyFixtureGdtfCount;
     else if (!fixtureSourceGdtf.empty())
       ++exportedRealFixtureGdtfCount;
-    std::string fixtureName = SanitizeArchiveFileName(fixtureSourceGdtf, "fixture.gdtf");
+    std::string fixtureName =
+        SanitizeArchiveFileName(fixtureSourceGdtf, "fixture.gdtf");
     GdtfOverrides fixtureOverrides;
     const bool needsPhysicalPatch =
         FixtureNeedsPhysicalGdtfPatch(f, fixtureSourceGdtf, fixtureOverrides);
@@ -2599,16 +2776,18 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       const fs::path archiveName(fixtureName);
       const std::string stem = archiveName.stem().generic_string();
       const std::string extension = archiveName.extension().generic_string();
-      fixtureName = SanitizeArchiveFileName(stem + "_physical_" + f.uuid + extension,
-                                            "fixture_physical.gdtf");
+      fixtureName = SanitizeArchiveFileName(
+          stem + "_physical_" + f.uuid + extension, "fixture_physical.gdtf");
     }
     std::string fixtureGdtfArchivePath;
     if (needsPhysicalPatch) {
       std::ostringstream patchKey;
       patchKey << normalizeSourcePath(fixtureSourceGdtf) << '|'
-               << (fixtureOverrides.hasWeightKg ? fixtureOverrides.weightKg : -1.0f)
+               << (fixtureOverrides.hasWeightKg ? fixtureOverrides.weightKg
+                                                : -1.0f)
                << '|'
-               << (fixtureOverrides.hasPowerW ? fixtureOverrides.powerW : -1.0f);
+               << (fixtureOverrides.hasPowerW ? fixtureOverrides.powerW
+                                              : -1.0f);
       auto patchIt = physicalPatchArchiveByKey.find(patchKey.str());
       if (patchIt != physicalPatchArchiveByKey.end()) {
         fixtureGdtfArchivePath = patchIt->second;
@@ -2624,7 +2803,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       fixtureGdtfArchivePath =
           registerGdtfResource(f.uuid, fixtureSourceGdtf, fixtureName);
     }
-    MergeFixtureTypeCategoryExport(fixtureTypeCategoryMetadata, f, fixtureGdtfArchivePath);
+    MergeFixtureTypeCategoryExport(fixtureTypeCategoryMetadata, f,
+                                   fixtureGdtfArchivePath);
 
     const Matrix fixtureMatrixToWrite =
         f.parentGroupUuid.empty()
@@ -2639,12 +2819,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     // Keep fixture GDTF payloads byte-preserved unless the user intentionally
     // edits type-level physical properties that must be exported through GDTF.
     addStr("GDTFMode", f.gdtfMode);
+    if (!f.mvrFixtureColorHex.empty())
+      addStr("Color", HexToCie(f.mvrFixtureColorHex));
     if (!f.position.empty() || !f.positionName.empty())
       addStr("Position", resolvePositionReference(f.position, f.positionName));
     addStr("FixtureID", fixtureExportId.text);
     addInt("FixtureIDNumeric", fixtureExportId.numeric);
     auto unitIt = assignedUnitNumbers.find(f.uuid);
-    addInt("UnitNumber", unitIt != assignedUnitNumbers.end() ? unitIt->second : f.unitNumber);
+    addInt("UnitNumber",
+           unitIt != assignedUnitNumbers.end() ? unitIt->second : f.unitNumber);
 
     if (!f.address.empty()) {
       const std::string trimmedAddress = TrimAscii(f.address);
@@ -2660,9 +2843,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       } else {
         Logger::Instance().Log(
             Logger::Level::Warn,
-            wxString::Format(
-                "Skipping invalid DMX patch for fixture '%s' (uuid=%s): '%s' (expected Universe.Address with universe >= 1 and address in [1,512])",
-                f.instanceName.c_str(), f.uuid.c_str(), trimmedAddress.c_str())
+            wxString::Format("Skipping invalid DMX patch for fixture '%s' "
+                             "(uuid=%s): '%s' (expected Universe.Address with "
+                             "universe >= 1 and address in [1,512])",
+                             f.instanceName.c_str(), f.uuid.c_str(),
+                             trimmedAddress.c_str())
                 .ToStdString());
       }
     }
@@ -2673,9 +2858,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
   auto exportTruss = [&](tinyxml2::XMLElement *parent, const Truss &t) {
     tinyxml2::XMLElement *te = doc.NewElement("Truss");
     const auto exportUuidIt = trussExportUuids.find(t.uuid);
-    const std::string exportedTrussUuid = exportUuidIt != trussExportUuids.end()
+    const std::string exportedTrussUuid =
+        exportUuidIt != trussExportUuids.end()
                                              ? exportUuidIt->second
-                                             : DeriveDeterministicUuid("mvr-export-truss:" + t.uuid + ":" + t.name);
+            : DeriveDeterministicUuid("mvr-export-truss:" + t.uuid + ":" +
+                                      t.name);
     te->SetAttribute("uuid", exportedTrussUuid.c_str());
     if (!t.name.empty())
       te->SetAttribute("name", t.name.c_str());
@@ -2695,7 +2882,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       }
     };
     auto idIt = assignedIds.find(t.uuid);
-    int fixtureNumericId = (idIt != assignedIds.end()) ? idIt->second.second : 0;
+    int fixtureNumericId =
+        (idIt != assignedIds.end()) ? idIt->second.second : 0;
     if (fixtureNumericId <= 0)
       fixtureNumericId = 1;
     std::string fixtureId = std::to_string(fixtureNumericId);
@@ -2709,23 +2897,27 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
         gdtfArchiveByObjectUuid[exportedTrussUuid] = trussGdtfArchivePath;
     } else {
       std::string trussSourceGdtf = t.gdtfSpec;
-      if (trussSourceGdtf.empty() && fs::path(t.modelFile).extension() == ".gdtf")
+      if (trussSourceGdtf.empty() &&
+          fs::path(t.modelFile).extension() == ".gdtf")
         trussSourceGdtf = t.modelFile;
 
       const bool importedFromMvrGeometry =
-          t.sourceRepresentation == Truss::GeometryRepresentation::SymbolSymdef ||
+          t.sourceRepresentation ==
+              Truss::GeometryRepresentation::SymbolSymdef ||
           t.sourceRepresentation == Truss::GeometryRepresentation::Geometry3D;
       if (trussSourceGdtf.empty() && !importedFromMvrGeometry) {
-        fs::path tempPath = fs::temp_directory_path() /
-                            ("perastage-truss-export-" + (t.uuid.empty() ? std::string("truss") : t.uuid) + ".gdtf");
+        fs::path tempPath =
+            fs::temp_directory_path() /
+            ("perastage-truss-export-" +
+             (t.uuid.empty() ? std::string("truss") : t.uuid) + ".gdtf");
         std::string conversionError;
         if (BuildTrussGdtfFromInstance(t, tempPath, &conversionError))
           trussSourceGdtf = tempPath.string();
       }
 
       std::string trussPreferredName = BuildTrussGdtfArchiveName(t);
-      trussGdtfArchivePath =
-          registerGdtfResource(exportedTrussUuid, trussSourceGdtf, trussPreferredName, true);
+      trussGdtfArchivePath = registerGdtfResource(
+          exportedTrussUuid, trussSourceGdtf, trussPreferredName, true);
       if (!trussGdtfArchivePath.empty())
         trussArchiveByTypeKey[trussTypeKey] = trussGdtfArchivePath;
     }
@@ -2752,9 +2944,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
 
     const bool writeWorldTransform = t.parentGroupUuid.empty();
     const Matrix matrixToWrite =
-        writeWorldTransform ? t.transform
-                            : (t.hasLocalTransform ? t.localTransform
-                                                   : t.transform);
+        writeWorldTransform
+            ? t.transform
+            : (t.hasLocalTransform ? t.localTransform : t.transform);
     std::string mstr = MatrixUtils::FormatMatrix(matrixToWrite);
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(mstr.c_str());
@@ -2771,10 +2963,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     }
 
     if (trussGeometryAuthority == TrussGeometryAuthority::MvrGeometry) {
-      if (t.sourceRepresentation == Truss::GeometryRepresentation::SymbolSymdef &&
+      if (t.sourceRepresentation ==
+              Truss::GeometryRepresentation::SymbolSymdef &&
           !t.sourceSymdefUuid.empty()) {
         const bool flattenSymbol =
-            options.trussGeometryExportMode == MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols;
+            options.trussGeometryExportMode ==
+            MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols;
         tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
         if (flattenSymbol) {
           std::vector<SymdefGeometry> geometries;
@@ -2782,11 +2976,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
           if (geoIt != scene.symdefGeometries.end())
             geometries = geoIt->second;
           auto fileIt = scene.symdefFiles.find(t.sourceSymdefUuid);
-          if (geometries.empty() && fileIt != scene.symdefFiles.end() && !fileIt->second.empty()) {
+          if (geometries.empty() && fileIt != scene.symdefFiles.end() &&
+              !fileIt->second.empty()) {
             SymdefGeometry fallback;
             fallback.file = fileIt->second;
             auto matIt = scene.symdefMatrices.find(t.sourceSymdefUuid);
-            fallback.transform = (matIt != scene.symdefMatrices.end()) ? matIt->second : MatrixUtils::Identity();
+            fallback.transform = (matIt != scene.symdefMatrices.end())
+                                     ? matIt->second
+                                     : MatrixUtils::Identity();
             auto typeIt = scene.symdefTypes.find(t.sourceSymdefUuid);
             if (typeIt != scene.symdefTypes.end())
               fallback.geometryType = typeIt->second;
@@ -2797,13 +2994,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
             if (geo.file.empty())
               continue;
             tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-            const std::string archivePath = registerModelResource(geo.file, "truss.3ds");
+            const std::string archivePath =
+                registerModelResource(geo.file, "truss.3ds");
             if (archivePath.empty())
               continue;
             g3d->SetAttribute("fileName", archivePath.c_str());
             if (!geo.geometryType.empty())
               g3d->SetAttribute("geometryType", geo.geometryType.c_str());
-            const Matrix composedMatrix = MatrixUtils::Multiply(t.sourceSymbolMatrix, geo.transform);
+            const Matrix composedMatrix =
+                MatrixUtils::Multiply(t.sourceSymbolMatrix, geo.transform);
             tinyxml2::XMLElement *geoMat = doc.NewElement("Matrix");
             geoMat->SetText(MatrixUtils::FormatMatrix(composedMatrix).c_str());
             g3d->InsertEndChild(geoMat);
@@ -2814,15 +3013,19 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
             te->InsertEndChild(geos);
             Logger::Instance().Log(
                 Logger::Level::Info,
-                wxString::Format("MVR export truss flattened Symbol/Symdef geometry uuid=%s symdef=%s",
+                wxString::Format("MVR export truss flattened Symbol/Symdef "
+                                 "geometry uuid=%s symdef=%s",
                                  t.uuid.c_str(), t.sourceSymdefUuid.c_str())
                     .ToStdString());
           } else {
             m_exportWarnings.push_back(
-                "MVR export could not resolve truss Symdef '" + t.sourceSymdefUuid +
-                "' for direct Geometry3D export; preserving Symbol/Symdef representation.");
+                "MVR export could not resolve truss Symdef '" +
+                t.sourceSymdefUuid +
+                "' for direct Geometry3D export; preserving Symbol/Symdef "
+                "representation.");
             tinyxml2::XMLElement *sym = doc.NewElement("Symbol");
-            const std::string symbolMatrixText = MatrixUtils::FormatMatrix(t.sourceSymbolMatrix);
+            const std::string symbolMatrixText =
+                MatrixUtils::FormatMatrix(t.sourceSymbolMatrix);
             const std::string symbolUuid = ResolveExportSymbolUuid(
                 t.sourceSymbolUuid, t.uuid, t.sourceSymdefUuid,
                 "mvr:symbol:truss:" + t.uuid + ":" + t.sourceSymdefUuid + ":" +
@@ -2838,7 +3041,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
           }
         } else {
           tinyxml2::XMLElement *sym = doc.NewElement("Symbol");
-          const std::string symbolMatrixText = MatrixUtils::FormatMatrix(t.sourceSymbolMatrix);
+          const std::string symbolMatrixText =
+              MatrixUtils::FormatMatrix(t.sourceSymbolMatrix);
           const std::string symbolUuid = ResolveExportSymbolUuid(
               t.sourceSymbolUuid, t.uuid, t.sourceSymdefUuid,
               "mvr:symbol:truss:" + t.uuid + ":" + t.sourceSymdefUuid + ":" +
@@ -2853,13 +3057,16 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
           te->InsertEndChild(geos);
           Logger::Instance().Log(
               Logger::Level::Info,
-              wxString::Format("MVR export truss keeps Symbol/Symdef uuid=%s symbol=%s symdef=%s",
-                               t.uuid.c_str(), symbolUuid.c_str(), t.sourceSymdefUuid.c_str())
+              wxString::Format("MVR export truss keeps Symbol/Symdef uuid=%s "
+                               "symbol=%s symdef=%s",
+                               t.uuid.c_str(), symbolUuid.c_str(),
+                               t.sourceSymdefUuid.c_str())
                   .ToStdString());
         }
       } else if (!t.symbolFile.empty()) {
         std::string ext = fs::path(t.symbolFile).extension().string();
-        std::transform(ext.begin(), ext.end(), ext.begin(),
+        std::transform(
+            ext.begin(), ext.end(), ext.begin(),
                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         if (ext == ".3ds" || ext == ".glb") {
           tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
@@ -2870,13 +3077,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
           if (!t.sourceGeometryType.empty())
             g3d->SetAttribute("geometryType", t.sourceGeometryType.c_str());
           tinyxml2::XMLElement *geoMat = doc.NewElement("Matrix");
-          geoMat->SetText(MatrixUtils::FormatMatrix(t.sourceGeometryMatrix).c_str());
+          geoMat->SetText(
+              MatrixUtils::FormatMatrix(t.sourceGeometryMatrix).c_str());
           g3d->InsertEndChild(geoMat);
           geos->InsertEndChild(g3d);
           te->InsertEndChild(geos);
           Logger::Instance().Log(
               Logger::Level::Info,
-              wxString::Format("MVR export truss uses direct Geometry3D uuid=%s",
+              wxString::Format(
+                  "MVR export truss uses direct Geometry3D uuid=%s",
                                t.uuid.c_str())
                   .ToStdString());
         }
@@ -2939,7 +3148,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     for (const auto &geo : s.geometries) {
       if (geo.modelFile.empty())
         continue;
-      std::string modelArchivePath = registerModelResource(geo.modelFile, "support.3ds");
+      std::string modelArchivePath =
+          registerModelResource(geo.modelFile, "support.3ds");
       if (modelArchivePath.empty())
         continue;
       tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
@@ -2950,12 +3160,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       ensureGeometries()->InsertEndChild(g3d);
     }
     if (!geos && !s.modelFile.empty()) {
-      std::string modelArchivePath = registerModelResource(s.modelFile, "support.3ds");
+      std::string modelArchivePath =
+          registerModelResource(s.modelFile, "support.3ds");
       if (!modelArchivePath.empty()) {
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
         tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
-        geoMatrix->SetText(MatrixUtils::FormatMatrix(MatrixUtils::Identity()).c_str());
+        geoMatrix->SetText(
+            MatrixUtils::FormatMatrix(MatrixUtils::Identity()).c_str());
         g3d->InsertEndChild(geoMatrix);
         ensureGeometries()->InsertEndChild(g3d);
       }
@@ -2965,7 +3177,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     } else {
       tinyxml2::XMLElement *emptyGeometries = doc.NewElement("Geometries");
       se->InsertEndChild(emptyGeometries);
-      Logger::Instance().Log(Logger::Level::Warn,
+      Logger::Instance().Log(
+          Logger::Level::Warn,
                              "MVR export kept Support uuid=" + s.uuid +
                                  " with empty Geometries because no source geometry is available");
     }
@@ -2979,7 +3192,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     chainLength->SetText(std::to_string(std::max(s.chainLength, 0.0f)).c_str());
     se->InsertEndChild(chainLength);
 
-    std::string supportGdtfArchivePath = registerGdtfResource(s.uuid, s.gdtfSpec, "");
+    std::string supportGdtfArchivePath =
+        registerGdtfResource(s.uuid, s.gdtfSpec, "");
     if (!supportGdtfArchivePath.empty()) {
       tinyxml2::XMLElement *e = doc.NewElement("GDTFSpec");
       e->SetText(supportGdtfArchivePath.c_str());
@@ -2992,7 +3206,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     }
 
     auto supportIdIt = assignedIds.find(s.uuid);
-    int supportNumericId = (supportIdIt != assignedIds.end()) ? supportIdIt->second.second : 0;
+    int supportNumericId =
+        (supportIdIt != assignedIds.end()) ? supportIdIt->second.second : 0;
     if (supportNumericId <= 0)
       supportNumericId = 1;
     tinyxml2::XMLElement *supportId = doc.NewElement("FixtureID");
@@ -3024,7 +3239,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     addSupportInfo("Function", s.function);
     addSupportInfo("HoistFunction", s.hoistFunction);
     addSupportNum("ChainLength", s.chainLength);
-    addSupportInfo("Position", resolvePositionReference(s.position, s.positionName));
+    addSupportInfo("Position",
+                   resolvePositionReference(s.position, s.positionName));
     addSupportInfo("PositionName", s.positionName);
     if (info->FirstChild())
       data->InsertEndChild(info);
@@ -3107,7 +3323,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
 
     if (!obj.geometries.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
-      std::vector<std::pair<std::string, std::string>> primitiveGeometryModelRefs;
+      std::vector<std::pair<std::string, std::string>>
+          primitiveGeometryModelRefs;
       for (const auto &geo : obj.geometries) {
         if (geo.modelFile.empty())
           continue;
@@ -3126,15 +3343,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
         Matrix geoMatrixToWrite = geo.localTransform;
 
         CylinderTokenParams cylinderParams;
-        const bool hasCylinderToken = parseCylinderTokenParams(modelRef, cylinderParams);
+        const bool hasCylinderToken =
+            parseCylinderTokenParams(modelRef, cylinderParams);
         const bool hasExplicitCylinderDimensions =
             hasCylinderToken && cylinderParams.hasExplicitDimensions;
         const bool isRoundCylinder =
             hasExplicitCylinderDimensions &&
-            std::fabs(cylinderParams.topRadiusMm - cylinderParams.bottomRadiusMm) < 1e-3f;
+            std::fabs(cylinderParams.topRadiusMm -
+                      cylinderParams.bottomRadiusMm) < 1e-3f;
         if (hasExplicitCylinderDimensions) {
-          // Explicit parametric cylinders already encode final dimensions in the
-          // generated primitive mesh; keep geometry matrix scale neutral.
+          // Explicit parametric cylinders already encode final dimensions in
+          // the generated primitive mesh; keep geometry matrix scale neutral.
           geoMatrixToWrite = MatrixUtils::Identity();
         }
         if (isRoundCylinder) {
@@ -3148,13 +3367,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
           if (!modelArchivePath.empty())
             g3d->SetAttribute("fileName", modelArchivePath.c_str());
 
-          // Convert token dimensions (stored in millimeters) to scene meters for
-          // Geometry3D matrix scaling, matching importer expectations in MA3.
+          // Convert token dimensions (stored in millimeters) to scene meters
+          // for Geometry3D matrix scaling, matching importer expectations in
+          // MA3.
           constexpr float kMillimetersPerMeter = 1000.0f;
           const float radialScale = std::max(
-              (cylinderParams.topRadiusMm * 2.0f) / kMillimetersPerMeter, 0.000001f);
-          const float heightScale = std::max(cylinderParams.heightMm / kMillimetersPerMeter,
+              (cylinderParams.topRadiusMm * 2.0f) / kMillimetersPerMeter,
                                              0.000001f);
+          const float heightScale = std::max(
+              cylinderParams.heightMm / kMillimetersPerMeter, 0.000001f);
           if (cylinderParams.axis == 'x') {
             for (float &component : geoMatrixToWrite.u)
               component *= heightScale;
@@ -3180,7 +3401,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
         }
 
         std::string primitiveToken;
-        if (mvr::ResolvePrimitiveTokenFromModelRef(geo.modelFile, primitiveToken)) {
+        if (mvr::ResolvePrimitiveTokenFromModelRef(geo.modelFile,
+                                                   primitiveToken)) {
           // Persist the effective model reference used for Geometry3D so a
           // roundtrip keeps primitive token parameters/axis aligned with the
           // stored geometry matrix.
@@ -3203,11 +3425,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
         tinyxml2::XMLElement *data = doc.NewElement("Data");
         data->SetAttribute("provider", "Perastage");
         tinyxml2::XMLElement *map = doc.NewElement("PrimitiveGeometryMap");
-        for (const auto &[archiveFileName, modelRef] : primitiveGeometryModelRefs) {
+        for (const auto &[archiveFileName, modelRef] :
+             primitiveGeometryModelRefs) {
           tinyxml2::XMLElement *entry = doc.NewElement("Entry");
           entry->SetAttribute("fileName", archiveFileName.c_str());
-          // Keep Perastage-specific metadata namespaced to reduce collisions with
-          // third-party MVR parsers that may react to generic attribute names.
+          // Keep Perastage-specific metadata namespaced to reduce collisions
+          // with third-party MVR parsers that may react to generic attribute
+          // names.
           entry->SetAttribute("perastageModelRef", modelRef.c_str());
           map->InsertEndChild(entry);
         }
@@ -3226,7 +3450,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       if (!modelArchivePath.empty()) {
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
         tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
-        geoMatrix->SetText(MatrixUtils::FormatMatrix(MatrixUtils::Identity()).c_str());
+        geoMatrix->SetText(
+            MatrixUtils::FormatMatrix(MatrixUtils::Identity()).c_str());
         g3d->InsertEndChild(geoMatrix);
         oe->InsertEndChild(geos);
         geos->InsertEndChild(g3d);
@@ -3307,12 +3532,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       continue;
     tinyxml2::XMLElement *layerElem = doc.NewElement("Layer");
     if (!layerUuid.empty()) {
-      const std::string exportLayerUuid = ExportLayerUuid(layerUuid, layer.name);
+      const std::string exportLayerUuid =
+          ExportLayerUuid(layerUuid, layer.name);
       layerElem->SetAttribute("uuid", exportLayerUuid.c_str());
     }
     if (!layer.name.empty())
       layerElem->SetAttribute("name", layer.name.c_str());
-
 
     tinyxml2::XMLElement *childList = doc.NewElement("ChildList");
 
@@ -3357,24 +3582,29 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
   // Objects with no layer
   tinyxml2::XMLElement *rootChildList = doc.NewElement("ChildList");
   for (const auto &[uid, group] : scene.groupObjects) {
-    if (!(group.layer == DEFAULT_LAYER_NAME || group.layer.empty()) || !group.parentGroupUuid.empty())
+    if (!(group.layer == DEFAULT_LAYER_NAME || group.layer.empty()) ||
+        !group.parentGroupUuid.empty())
       continue;
     exportGroupObject(exportGroupObject, rootChildList, group);
   }
   for (const auto &[uid, f] : scene.fixtures) {
-    if ((f.layer == DEFAULT_LAYER_NAME || f.layer.empty()) && f.parentGroupUuid.empty())
+    if ((f.layer == DEFAULT_LAYER_NAME || f.layer.empty()) &&
+        f.parentGroupUuid.empty())
       exportFixture(rootChildList, f);
   }
   for (const auto &[uid, t] : scene.trusses) {
-    if ((t.layer == DEFAULT_LAYER_NAME || t.layer.empty()) && t.parentGroupUuid.empty())
+    if ((t.layer == DEFAULT_LAYER_NAME || t.layer.empty()) &&
+        t.parentGroupUuid.empty())
       exportTruss(rootChildList, t);
   }
   for (const auto &[uid, s] : scene.supports) {
-    if ((s.layer == DEFAULT_LAYER_NAME || s.layer.empty()) && s.parentGroupUuid.empty())
+    if ((s.layer == DEFAULT_LAYER_NAME || s.layer.empty()) &&
+        s.parentGroupUuid.empty())
       exportSupport(rootChildList, s);
   }
   for (const auto &[uid, obj] : scene.sceneObjects) {
-    if ((obj.layer == DEFAULT_LAYER_NAME || obj.layer.empty()) && obj.parentGroupUuid.empty())
+    if ((obj.layer == DEFAULT_LAYER_NAME || obj.layer.empty()) &&
+        obj.parentGroupUuid.empty())
       exportSceneObject(rootChildList, obj);
   }
   if (rootChildList->FirstChild()) {
@@ -3391,13 +3621,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
   }
 
   if (!fixtureTypeCategoryMetadata.empty()) {
-    tinyxml2::XMLElement *rootPerastageDataForFixtures = FindOrCreatePerastageDataNode(doc, root);
+    tinyxml2::XMLElement *rootPerastageDataForFixtures =
+        FindOrCreatePerastageDataNode(doc, root);
     AppendFixtureTypeCategoryMetadata(doc, rootPerastageDataForFixtures,
                                       fixtureTypeCategoryMetadata);
   }
 
   if (trussInfoMap->FirstChild()) {
-    tinyxml2::XMLElement *rootPerastageDataForTrusses = FindOrCreatePerastageDataNode(doc, root);
+    tinyxml2::XMLElement *rootPerastageDataForTrusses =
+        FindOrCreatePerastageDataNode(doc, root);
     rootPerastageDataForTrusses->InsertEndChild(trussInfoMap);
   } else {
     doc.DeleteNode(trussInfoMap);
@@ -3410,7 +3642,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     tinyxml2::XMLElement *manifest = doc.NewElement("TrussSidecarManifest");
     for (const auto &[typeKey, archivePath] : trussArchiveByTypeKey) {
       const auto exportTypeKeyIt = trussExportTypeKeyByTypeKey.find(typeKey);
-      const std::string exportTypeKey = exportTypeKeyIt != trussExportTypeKeyByTypeKey.end()
+      const std::string exportTypeKey =
+          exportTypeKeyIt != trussExportTypeKeyByTypeKey.end()
                                            ? exportTypeKeyIt->second
                                            : SanitizeArchiveFileName(typeKey, "truss_type");
       tinyxml2::XMLElement *typeNode = doc.NewElement("Type");
@@ -3419,7 +3652,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       manifest->InsertEndChild(typeNode);
       Logger::Instance().Log(
           Logger::Level::Info,
-          wxString::Format("MVR export generated truss sidecar GDTF typeKey=%s archive=%s",
+          wxString::Format(
+              "MVR export generated truss sidecar GDTF typeKey=%s archive=%s",
                            exportTypeKey.c_str(), archivePath.c_str())
               .ToStdString());
     }
@@ -3430,18 +3664,21 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       manifest->InsertEndChild(instNode);
       Logger::Instance().Log(
           Logger::Level::Info,
-          wxString::Format("MVR export linked truss instance to sidecar uuid=%s typeKey=%s",
+          wxString::Format(
+              "MVR export linked truss instance to sidecar uuid=%s typeKey=%s",
                            uuid.c_str(), typeKey.c_str())
               .ToStdString());
     }
     data->InsertEndChild(manifest);
   }
 
-  // Prunes non-referenced resources so deleted scene elements do not keep stale payload files.
+  // Prunes non-referenced resources so deleted scene elements do not keep stale
+  // payload files.
   const std::unordered_set<std::string> referencedArchivePaths =
       CollectReferencedArchivePaths(doc);
   std::ostringstream fixtureGdtfExportDiagnostics;
-  fixtureGdtfExportDiagnostics << "MVR export fixture GDTF diagnostics: real="
+  fixtureGdtfExportDiagnostics
+      << "MVR export fixture GDTF diagnostics: real="
                                 << exportedRealFixtureGdtfCount
                                 << ", dummyFallback=" << exportedDummyFixtureGdtfCount
                                 << ", preservedOriginalRecoveries="
@@ -3454,9 +3691,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       fixtureGdtfExportDiagnostics << dummyFallbackFixtureExamples[i];
     }
   }
-  Logger::Instance().Log(Logger::Level::Info, fixtureGdtfExportDiagnostics.str());
+  Logger::Instance().Log(Logger::Level::Info,
+                         fixtureGdtfExportDiagnostics.str());
 
-  const std::vector<ResourceEntry> allResourceEntriesBeforePrune = resourceEntries;
+  const std::vector<ResourceEntry> allResourceEntriesBeforePrune =
+      resourceEntries;
   resourceEntries.erase(
       std::remove_if(resourceEntries.begin(), resourceEntries.end(),
                      [&](const ResourceEntry &entry) {
@@ -3469,16 +3708,19 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
   LogResourcePruneDiagnostics(referencedArchivePaths,
                               allResourceEntriesBeforePrune, resourceEntries);
 
-  // Deduplicate archive resources and keep only the first entry for each archive path.
+  // Deduplicate archive resources and keep only the first entry for each
+  // archive path.
   std::unordered_set<std::string> seenArchivePaths;
   std::vector<ResourceEntry> deduplicatedResources;
   deduplicatedResources.reserve(resourceEntries.size());
   for (const auto &entry : resourceEntries) {
-    const std::string normalizedPath = NormalizeArchiveEntryPath(entry.archivePath);
+    const std::string normalizedPath =
+        NormalizeArchiveEntryPath(entry.archivePath);
     if (normalizedPath.empty())
       continue;
     if (!seenArchivePaths.insert(normalizedPath).second) {
-      m_exportWarnings.push_back("Referenced file '" + normalizedPath +
+      m_exportWarnings.push_back(
+          "Referenced file '" + normalizedPath +
                                  "' appears multiple times; duplicates will be ignored.");
       continue;
     }
@@ -3494,14 +3736,16 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
       continue;
     auto cit = gdtfOverrides.find(entry.archivePath);
     if (cit != gdtfOverrides.end()) {
-      std::string tmp = CreatePatchedGdtf(entry.sourcePath.string(), cit->second);
+      std::string tmp =
+          CreatePatchedGdtf(entry.sourcePath.string(), cit->second);
       if (!tmp.empty())
         entry.sourcePath = fs::path(tmp);
     }
     ++plannedArchiveEntries[entry.archivePath];
   }
 
-  if (!ValidateMvr16Export(doc, gdtfArchiveByObjectUuid, plannedArchiveEntries, &m_exportWarnings)) {
+  if (!ValidateMvr16Export(doc, gdtfArchiveByObjectUuid, plannedArchiveEntries,
+                           &m_exportWarnings)) {
     zip.Close();
     return false;
   }
@@ -3514,7 +3758,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
   std::unordered_set<std::string> writtenArchiveEntries;
   {
     if (!writtenArchiveEntries.insert("GeneralSceneDescription.xml").second) {
-      wxLogError("MVR export failed: duplicate ZIP entry GeneralSceneDescription.xml");
+      wxLogError(
+          "MVR export failed: duplicate ZIP entry GeneralSceneDescription.xml");
       zip.Close();
       return false;
     }
@@ -3529,7 +3774,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
     if (!fs::exists(resource.sourcePath) || resource.archivePath.empty())
       continue;
     if (!writtenArchiveEntries.insert(resource.archivePath).second) {
-      wxLogError("MVR export failed: duplicate ZIP entry %s", resource.archivePath);
+      wxLogError("MVR export failed: duplicate ZIP entry %s",
+                 resource.archivePath);
       zip.Close();
       return false;
     }
@@ -3553,11 +3799,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath, const MvrExportOptio
 
 // Export an MVR into memory by writing a temporary file and reading it back.
 bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes) {
-  return ExportToBuffer(outBytes, mvr::preferences::LoadExportOptions(ConfigManager::Get()));
+  return ExportToBuffer(
+      outBytes, mvr::preferences::LoadExportOptions(ConfigManager::Get()));
 }
 
-// Export an MVR into memory with explicit options by writing a temporary file and reading it back.
-bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes, const MvrExportOptions &options) {
+// Export an MVR into memory with explicit options by writing a temporary file
+// and reading it back.
+bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes,
+                                 const MvrExportOptions &options) {
   outBytes.clear();
   wxFileName tempFile =
       wxFileName::CreateTempFileName("perastage_mvr_export_buffer");

@@ -1,8 +1,8 @@
 #include "mainwindow.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cctype>
+#include <chrono>
 #include <filesystem>
 #include <optional>
 #include <random>
@@ -35,14 +35,14 @@ struct ReplacementFixtureTemplate {
   std::string color;
 };
 
-
 // Normalizes a GDTF path into a comparable lowercase filename token.
 std::string BuildGdtfFileKey(const std::string &gdtfSpec) {
   if (gdtfSpec.empty())
     return {};
   std::string key = std::filesystem::path(gdtfSpec).filename().string();
-  std::transform(key.begin(), key.end(), key.begin(),
-                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
   return key;
 }
 
@@ -54,23 +54,24 @@ std::string GenerateAutoColor() {
       .ToStdString();
 }
 
-// Resolves the replacement color by reusing existing fixture-file color or creating a new group color.
-std::string ResolveReplacementColor(const MvrScene &scene,
-                                    const std::vector<std::string> &selectedUuids,
-                                    const std::string &replacementSpec,
-                                    const std::string &fallbackColor) {
+// Resolves the replacement color by reusing existing fixture-file color or
+// creating a new group color.
+std::string ResolveReplacementColor(
+    const MvrScene &scene, const std::vector<std::string> &selectedUuids,
+    const std::string &replacementSpec, const std::string &fallbackColor) {
   const std::string replacementKey = BuildGdtfFileKey(replacementSpec);
   if (replacementKey.empty())
     return fallbackColor.empty() ? GenerateAutoColor() : fallbackColor;
 
-  std::unordered_set<std::string> selectedSet(selectedUuids.begin(), selectedUuids.end());
+  std::unordered_set<std::string> selectedSet(selectedUuids.begin(),
+                                              selectedUuids.end());
   for (const auto &[uuid, fixture] : scene.fixtures) {
     if (selectedSet.find(uuid) != selectedSet.end())
       continue;
     if (BuildGdtfFileKey(fixture.gdtfSpec) != replacementKey)
       continue;
-    if (!fixture.color.empty())
-      return fixture.color;
+    if (!fixture.visualColorHex.empty())
+      return fixture.visualColorHex;
   }
 
   if (!fallbackColor.empty())
@@ -78,7 +79,8 @@ std::string ResolveReplacementColor(const MvrScene &scene,
   return GenerateAutoColor();
 }
 
-// Extracts the list of selected fixture UUIDs that still exist in the current scene.
+// Extracts the list of selected fixture UUIDs that still exist in the current
+// scene.
 std::vector<std::string> GetSelectedExistingFixtureUuids(ConfigManager &cfg) {
   const auto &scene = cfg.GetScene();
   std::vector<std::string> selected;
@@ -107,7 +109,8 @@ std::optional<std::string> ChooseFixtureMode(wxWindow *parent,
       initialSelection = static_cast<int>(i);
   }
 
-  wxSingleChoiceDialog dlg(parent, "Select fixture mode", "Fixture mode", choices);
+  wxSingleChoiceDialog dlg(parent, "Select fixture mode", "Fixture mode",
+                           choices);
   if (initialSelection != wxNOT_FOUND)
     dlg.SetSelection(initialSelection);
   if (dlg.ShowModal() != wxID_OK)
@@ -117,7 +120,8 @@ std::optional<std::string> ChooseFixtureMode(wxWindow *parent,
 
 } // namespace
 
-// Replaces selected fixtures with a fixture chosen from scene, dictionary, or file source.
+// Replaces selected fixtures with a fixture chosen from scene, dictionary, or
+// file source.
 void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   auto selectedUuids = GetSelectedExistingFixtureUuids(cfg);
@@ -133,8 +137,7 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
   sourceChoices.push_back("GDTF file");
   wxSingleChoiceDialog sourceDlg(
       this,
-      "Choose the source for the replacement fixture:",
-      "Replace Fixtures",
+      "Choose the source for the replacement fixture:", "Replace Fixtures",
       sourceChoices);
   if (sourceDlg.ShowModal() != wxID_OK)
     return;
@@ -148,8 +151,10 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     for (const auto &[uuid, fixture] : scene.fixtures) {
       if (fixture.gdtfSpec.empty())
         continue;
-      const std::string modeLabel = fixture.gdtfMode.empty() ? "(no mode)" : fixture.gdtfMode;
-      const std::string label = fixture.typeName + " | " + modeLabel + " | id " + std::to_string(fixture.fixtureId);
+      const std::string modeLabel =
+          fixture.gdtfMode.empty() ? "(no mode)" : fixture.gdtfMode;
+      const std::string label = fixture.typeName + " | " + modeLabel +
+                                " | id " + std::to_string(fixture.fixtureId);
       sceneOptions.emplace_back(label, &fixture);
     }
     if (sceneOptions.empty()) {
@@ -163,8 +168,8 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
       choices.push_back(wxString::FromUTF8(label));
       ordered.push_back(fixture);
     }
-    wxSingleChoiceDialog pickDlg(this, "Choose a fixture from the scene:",
-                                 "Replace Fixtures", choices);
+    wxSingleChoiceDialog pickDlg(
+        this, "Choose a fixture from the scene:", "Replace Fixtures", choices);
     if (pickDlg.ShowModal() != wxID_OK)
       return;
     const int idx = pickDlg.GetSelection();
@@ -209,9 +214,10 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     replacement.gdtfMode = entries[static_cast<size_t>(idx)].second.mode;
     replacement.color = entries[static_cast<size_t>(idx)].second.color;
   } else {
-    wxString fixDir = wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
-    wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString,
-                      "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    wxString fixDir =
+        wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
+    wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString, "*.gdtf",
+                      wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;
     replacement.gdtfSpec = std::string(fdlg.GetPath().ToUTF8());
@@ -228,7 +234,8 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  const auto selectedMode = ChooseFixtureMode(this, replacement.gdtfSpec, replacement.gdtfMode);
+  const auto selectedMode =
+      ChooseFixtureMode(this, replacement.gdtfSpec, replacement.gdtfMode);
   if (!selectedMode.has_value()) {
     wxMessageBox("Could not read fixture modes from the selected GDTF.",
                  "Replace Fixtures", wxOK | wxICON_ERROR, this);
@@ -246,8 +253,8 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
 
   cfg.PushUndoState("replace selected fixtures");
   auto &scene = cfg.GetScene();
-  const std::string replacementColor =
-      ResolveReplacementColor(scene, selectedUuids, replacement.gdtfSpec, replacement.color);
+  const std::string replacementColor = ResolveReplacementColor(
+      scene, selectedUuids, replacement.gdtfSpec, replacement.color);
   for (const std::string &uuid : selectedUuids) {
     auto it = scene.fixtures.find(uuid);
     if (it == scene.fixtures.end())
@@ -267,7 +274,7 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     target.powerConsumptionW = replacement.powerConsumptionW;
     target.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
     target.physicalPropertiesDirty = false;
-    target.color = replacementColor;
+    target.visualColorHex = replacementColor;
 
     target.fixtureId = keepFixtureId;
     target.instanceName = keepName;
@@ -277,7 +284,8 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     target.transform = keepTransform;
   }
 
-  // Restores the fixture selection so replacement keeps internal UUID targeting stable.
+  // Restores the fixture selection so replacement keeps internal UUID targeting
+  // stable.
   cfg.SetSelectedFixtures(selectedUuids);
   if (fixturePanel)
     fixturePanel->SelectByUuid(selectedUuids, false);

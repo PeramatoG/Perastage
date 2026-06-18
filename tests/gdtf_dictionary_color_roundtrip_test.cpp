@@ -1,8 +1,8 @@
 /*
  * This file is part of Perastage.
  */
-#include <cassert>
 #include "filesystem_path_utils.h"
+#include <cassert>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -43,7 +43,8 @@ int main() {
   const std::filesystem::path dictPath = fixturesDir / "gdtf_dictionary.json";
 
   const bool hadOriginal = std::filesystem::exists(dictPath);
-  const std::string originalContent = hadOriginal ? ReadFile(dictPath) : std::string{};
+  const std::string originalContent =
+      hadOriginal ? ReadFile(dictPath) : std::string{};
 
   const std::filesystem::path fixtureFile = fixturesDir / "color_fixture.gdtf";
   WriteFile(fixtureFile, "fixture");
@@ -54,7 +55,8 @@ int main() {
                          {"mode", "ModeA"},
                          {"category", "Wash"},
                          {"color", "#ABCDEF"}};
-  WriteFile(dictPath,
+  WriteFile(
+      dictPath,
             DictionaryJsonContract::MakeRoot("fixtures", std::move(entries)).dump(4));
 
   auto loadedOpt = GdtfDictionary::Load();
@@ -62,12 +64,12 @@ int main() {
 
   const auto colorOnlyIt = loadedOpt->find("ColorOnlyType");
   assert(colorOnlyIt != loadedOpt->end());
-  assert(colorOnlyIt->second.color == "#112233");
+  assert(colorOnlyIt->second.visualColorHex == "#112233");
   assert(colorOnlyIt->second.path.empty());
 
   const auto fullIt = loadedOpt->find("FullType");
   assert(fullIt != loadedOpt->end());
-  assert(fullIt->second.color == "#ABCDEF");
+  assert(fullIt->second.visualColorHex == "#ABCDEF");
 
   assert(GdtfDictionary::Save(*loadedOpt));
 
@@ -79,8 +81,10 @@ int main() {
   }
 
   assert(savedRoot.contains("entries"));
-  assert(savedRoot["entries"]["ColorOnlyType"]["color"] == "#112233");
-  assert(savedRoot["entries"]["FullType"]["color"] == "#ABCDEF");
+  assert(savedRoot["entries"]["ColorOnlyType"]["visual_color"] == "#112233");
+  assert(savedRoot["entries"]["FullType"]["visual_color"] == "#ABCDEF");
+  assert(!savedRoot["entries"]["ColorOnlyType"].contains("color"));
+  assert(!savedRoot["entries"]["FullType"].contains("color"));
 
   std::filesystem::remove(fixtureFile);
   if (hadOriginal)

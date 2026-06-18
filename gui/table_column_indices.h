@@ -119,7 +119,7 @@ enum class Column : int { CountValue = 0, Type, Count };
 } // namespace ObjectSummaryTableColumns
 
 namespace DictionaryFixtureTableColumns {
-enum class Column : int { Name = 0, File, Mode, Category, Color, Count };
+enum class Column : int { Name = 0, File, Mode, Category, VisualColor, Count };
 } // namespace DictionaryFixtureTableColumns
 
 namespace DictionaryTrussTableColumns {

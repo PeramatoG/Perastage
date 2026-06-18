@@ -44,9 +44,10 @@ private:
   bool HasTrussChanges() const;
   void ShowDictionaryLoadStatusMessages();
   bool IsFixturesPage() const;
-  void SyncFixtureColorForFileAndMode(int row);
+  void SyncFixtureVisualColorForFileAndMode(int row);
   void UpdateFixtureCategoryForFile(int row, const std::string &category);
-  void UpdateFixtureColorForFileAndMode(int row, const std::string &colorHex);
+  void UpdateFixtureVisualColorForFileAndMode(int row,
+                                              const std::string &colorHex);
   void OnFixtureTableMouseMove(wxMouseEvent &event);
   void OnFixtureTableMouseLeave(wxMouseEvent &event);
   void OnTrussTableMouseMove(wxMouseEvent &event);

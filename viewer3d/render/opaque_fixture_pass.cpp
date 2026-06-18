@@ -806,7 +806,7 @@ void OpaqueFixturePass::Render(
       g = c[1];
       b = c[2];
     } else if (mode == Viewer2DRenderMode::ByFixtureType) {
-      auto c = getTypeColor(f.gdtfSpec, f.color);
+      auto c = getTypeColor(f.gdtfSpec, f.visualColorHex);
       r = c[0];
       g = c[1];
       b = c[2];

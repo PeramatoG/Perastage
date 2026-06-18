@@ -23,12 +23,12 @@
 #include "table_column_indices.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
-#include <wx/colordlg.h>
-#include <wx/dcmemory.h>
-#include <wx/aui/framemanager.h>
 #include <algorithm>
 #include <map>
 #include <unordered_set>
+#include <wx/aui/framemanager.h>
+#include <wx/colordlg.h>
+#include <wx/dcmemory.h>
 
 static SummaryPanel* s_instance = nullptr;
 
@@ -140,8 +140,8 @@ void SummaryPanel::ShowFixtureSummary() {
         auto& row = grouped[fix.typeName];
         row.typeName = fix.typeName;
         row.count += 1;
-        if (row.colorHex.empty() && !fix.color.empty())
-            row.colorHex = fix.color;
+    if (row.visualColorHexHex.empty() && !fix.visualColorHex.empty())
+      row.visualColorHexHex = fix.visualColorHex;
     }
 
     const auto hiddenFixtureTypes =
@@ -208,8 +208,8 @@ void SummaryPanel::ShowFixtureSummaryRows(
         wxBitmap bmp(16, 16);
         wxMemoryDC dc(bmp);
         wxColour color;
-    if (!rowData.colorHex.empty() &&
-        color.Set(wxString::FromUTF8(rowData.colorHex)))
+    if (!rowData.visualColorHexHex.empty() &&
+        color.Set(wxString::FromUTF8(rowData.visualColorHexHex)))
             dc.SetBrush(wxBrush(color));
         else
             dc.SetBrush(wxBrush(wxColour(128, 128, 128)));
@@ -404,8 +404,7 @@ void SummaryPanel::RefreshVisibleViewers() const {
 
 void SummaryPanel::OnItemValueChanged(wxDataViewEvent& event) {
     if (!table || mode != SummaryMode::Fixture ||
-        event.GetColumn() !=
-            FixtureColumnIndex(FixtureSummaryColumn::Visible))
+      event.GetColumn() != FixtureColumnIndex(FixtureSummaryColumn::Visible))
         return;
     const int row = table->ItemToRow(event.GetItem());
     if (row == wxNOT_FOUND)
@@ -443,8 +442,7 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
         return;
 
     const std::string typeName =
-        table->GetTextValue(
-                 row, FixtureColumnIndex(FixtureSummaryColumn::Type))
+      table->GetTextValue(row, FixtureColumnIndex(FixtureSummaryColumn::Type))
             .ToStdString();
     auto& colorCfg = (*colorConfigManager);
     auto& fixtures = colorCfg.GetScene().fixtures;
@@ -452,8 +450,8 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
     wxColourData data;
     for (const auto& [uuid, fixture] : fixtures) {
         (void)uuid;
-        if (fixture.typeName == typeName && !fixture.color.empty()) {
-            data.SetColour(wxColour(wxString::FromUTF8(fixture.color)));
+    if (fixture.typeName == typeName && !fixture.visualColorHex.empty()) {
+      data.SetColour(wxColour(wxString::FromUTF8(fixture.visualColorHex)));
             break;
         }
     }
@@ -470,7 +468,7 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
     for (auto& [uuid, fixture] : fixtures) {
         (void)uuid;
         if (fixture.typeName == typeName)
-            fixture.color = hex;
+      fixture.visualColorHex = hex;
     }
 
     if (FixtureTablePanel::Instance())

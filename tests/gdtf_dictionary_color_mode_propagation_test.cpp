@@ -1,8 +1,8 @@
 /*
  * This file is part of Perastage.
  */
-#include <cassert>
 #include "filesystem_path_utils.h"
+#include <cassert>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -42,77 +42,80 @@ int main() {
   std::filesystem::create_directories(fixturesDir);
   const std::filesystem::path dictPath = fixturesDir / "gdtf_dictionary.json";
   const bool hadOriginal = std::filesystem::exists(dictPath);
-  const std::string originalContent = hadOriginal ? ReadFile(dictPath) : std::string{};
+  const std::string originalContent =
+      hadOriginal ? ReadFile(dictPath) : std::string{};
 
-  const std::filesystem::path fixtureFile = fixturesDir / "mode_shared_fixture.gdtf";
+  const std::filesystem::path fixtureFile =
+      fixturesDir / "mode_shared_fixture.gdtf";
   WriteFile(fixtureFile, "fixture");
-  const std::filesystem::path fixtureFileNew = fixturesDir / "mode_shared_fixture_new.gdtf";
+  const std::filesystem::path fixtureFileNew =
+      fixturesDir / "mode_shared_fixture_new.gdtf";
   WriteFile(fixtureFileNew, "fixture-new");
 
   nlohmann::json entries = nlohmann::json::object();
-  entries["TypeA"] = {{"file", fixtureFile.string()},
-                      {"mode", "Mode A"},
-                      {"color", "#000001"}};
-  entries["TypeB"] = {{"file", fixtureFile.string()},
-                      {"mode", "Mode_B"},
-                      {"color", "#000002"}};
-  entries["TypeC"] = {{"file", fixtureFile.string()},
-                      {"mode", "mode-a"},
-                      {"color", "#000003"}};
-  WriteFile(dictPath,
+  entries["TypeA"] = {
+      {"file", fixtureFile.string()}, {"mode", "Mode A"}, {"color", "#000001"}};
+  entries["TypeB"] = {
+      {"file", fixtureFile.string()}, {"mode", "Mode_B"}, {"color", "#000002"}};
+  entries["TypeC"] = {
+      {"file", fixtureFile.string()}, {"mode", "mode-a"}, {"color", "#000003"}};
+  WriteFile(
+      dictPath,
             DictionaryJsonContract::MakeRoot("fixtures", std::move(entries)).dump(4));
 
-  GdtfDictionary::UpdateColorForFile("TypeA", fixtureFile.string(), "MODE-A", "#ABCDEF");
+  GdtfDictionary::UpdateVisualColorForFile("TypeA", fixtureFile.string(),
+                                           "MODE-A", "#ABCDEF");
 
   auto dictAfterExplicitModeOpt = GdtfDictionary::Load();
   assert(dictAfterExplicitModeOpt.has_value());
   const auto &dictAfterExplicitMode = *dictAfterExplicitModeOpt;
-  assert(dictAfterExplicitMode.at("TypeA").color == "#ABCDEF");
-  assert(dictAfterExplicitMode.at("TypeC").color == "#ABCDEF");
-  assert(dictAfterExplicitMode.at("TypeB").color == "#000002");
+  assert(dictAfterExplicitMode.at("TypeA").visualColorHex == "#ABCDEF");
+  assert(dictAfterExplicitMode.at("TypeC").visualColorHex == "#ABCDEF");
+  assert(dictAfterExplicitMode.at("TypeB").visualColorHex == "#000002");
 
-  GdtfDictionary::UpdateColorForFile("TypeA", fixtureFile.string(), {}, "#FEDCBA");
+  GdtfDictionary::UpdateVisualColorForFile("TypeA", fixtureFile.string(), {},
+                                           "#FEDCBA");
 
   auto dictAfterEntryModeOpt = GdtfDictionary::Load();
   assert(dictAfterEntryModeOpt.has_value());
   const auto &dictAfterEntryMode = *dictAfterEntryModeOpt;
-  assert(dictAfterEntryMode.at("TypeA").color == "#FEDCBA");
-  assert(dictAfterEntryMode.at("TypeC").color == "#FEDCBA");
-  assert(dictAfterEntryMode.at("TypeB").color == "#000002");
+  assert(dictAfterEntryMode.at("TypeA").visualColorHex == "#FEDCBA");
+  assert(dictAfterEntryMode.at("TypeC").visualColorHex == "#FEDCBA");
+  assert(dictAfterEntryMode.at("TypeB").visualColorHex == "#000002");
 
-  GdtfDictionary::UpdateColorForFile("TypeNotInDictionary", fixtureFile.string(),
-                                     "mode_a", "#123456");
+  GdtfDictionary::UpdateVisualColorForFile(
+      "TypeNotInDictionary", fixtureFile.string(), "mode_a", "#123456");
 
   auto dictAfterNewTypeOpt = GdtfDictionary::Load();
   assert(dictAfterNewTypeOpt.has_value());
   const auto &dictAfterNewType = *dictAfterNewTypeOpt;
-  assert(dictAfterNewType.at("TypeA").color == "#123456");
-  assert(dictAfterNewType.at("TypeC").color == "#123456");
-  assert(dictAfterNewType.at("TypeB").color == "#000002");
-  assert(dictAfterNewType.at("TypeNotInDictionary").color == "#123456");
+  assert(dictAfterNewType.at("TypeA").visualColorHex == "#123456");
+  assert(dictAfterNewType.at("TypeC").visualColorHex == "#123456");
+  assert(dictAfterNewType.at("TypeB").visualColorHex == "#000002");
+  assert(dictAfterNewType.at("TypeNotInDictionary").visualColorHex ==
+         "#123456");
 
   nlohmann::json migratedEntries = nlohmann::json::object();
-  migratedEntries["TypeA"] = {{"file", fixtureFile.string()},
-                              {"mode", "Mode A"},
-                              {"color", "#100000"}};
-  migratedEntries["TypeB"] = {{"file", fixtureFile.string()},
-                              {"mode", "Mode_B"},
-                              {"color", "#200000"}};
+  migratedEntries["TypeA"] = {
+      {"file", fixtureFile.string()}, {"mode", "Mode A"}, {"color", "#100000"}};
+  migratedEntries["TypeB"] = {
+      {"file", fixtureFile.string()}, {"mode", "Mode_B"}, {"color", "#200000"}};
   migratedEntries["TypeC"] = {{"file", fixtureFileNew.string()},
                               {"mode", "Mode A"},
                               {"color", "#300000"}};
-  WriteFile(dictPath, DictionaryJsonContract::MakeRoot("fixtures", std::move(migratedEntries))
+  WriteFile(dictPath, DictionaryJsonContract::MakeRoot(
+                          "fixtures", std::move(migratedEntries))
                          .dump(4));
 
-  GdtfDictionary::UpdateColorForFile("TypeA", fixtureFileNew.string(), "Mode A",
-                                     "#654321");
+  GdtfDictionary::UpdateVisualColorForFile("TypeA", fixtureFileNew.string(),
+                                           "Mode A", "#654321");
   auto dictAfterPathRefreshOpt = GdtfDictionary::Load();
   assert(dictAfterPathRefreshOpt.has_value());
   const auto &dictAfterPathRefresh = *dictAfterPathRefreshOpt;
   assert(dictAfterPathRefresh.at("TypeA").path == fixtureFileNew.string());
-  assert(dictAfterPathRefresh.at("TypeA").color == "#654321");
-  assert(dictAfterPathRefresh.at("TypeC").color == "#654321");
-  assert(dictAfterPathRefresh.at("TypeB").color == "#200000");
+  assert(dictAfterPathRefresh.at("TypeA").visualColorHex == "#654321");
+  assert(dictAfterPathRefresh.at("TypeC").visualColorHex == "#654321");
+  assert(dictAfterPathRefresh.at("TypeB").visualColorHex == "#200000");
 
   nlohmann::json inconsistentEntries = nlohmann::json::object();
   inconsistentEntries["TypeWithColor"] = {{"file", fixtureFileNew.string()},
@@ -122,16 +125,18 @@ int main() {
                                              {"mode", "mode-a"}};
   inconsistentEntries["TypeOtherMode"] = {{"file", fixtureFileNew.string()},
                                           {"mode", "Mode B"}};
-  WriteFile(dictPath,
-            DictionaryJsonContract::MakeRoot("fixtures", std::move(inconsistentEntries))
+  WriteFile(dictPath, DictionaryJsonContract::MakeRoot(
+                          "fixtures", std::move(inconsistentEntries))
                 .dump(4));
 
   auto dictAfterLoadHarmonizationOpt = GdtfDictionary::Load();
   assert(dictAfterLoadHarmonizationOpt.has_value());
   const auto &dictAfterLoadHarmonization = *dictAfterLoadHarmonizationOpt;
-  assert(dictAfterLoadHarmonization.at("TypeWithColor").color == "#0F0F0F");
-  assert(dictAfterLoadHarmonization.at("TypeWithoutColor").color == "#0F0F0F");
-  assert(dictAfterLoadHarmonization.at("TypeOtherMode").color.empty());
+  assert(dictAfterLoadHarmonization.at("TypeWithColor").visualColorHex ==
+         "#0F0F0F");
+  assert(dictAfterLoadHarmonization.at("TypeWithoutColor").visualColorHex ==
+         "#0F0F0F");
+  assert(dictAfterLoadHarmonization.at("TypeOtherMode").visualColorHex.empty());
 
   std::filesystem::remove(fixtureFileNew);
   std::filesystem::remove(fixtureFile);

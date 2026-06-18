@@ -16,22 +16,22 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "gdtfdictionary.h"
-#include "filesystem_path_utils.h"
 #include "configmanager.h"
 #include "dictionary_json_contract.h"
 #include "file_import_utils.h"
+#include "filesystem_path_utils.h"
 #include "json.hpp"
 #include "projectutils.h"
 #include "startup_file_access_gate.h"
-#include <wx/wfstream.h>
-#include <wx/zipstrm.h>
-#include <tinyxml2.h>
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <tinyxml2.h>
 #include <vector>
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
 
 namespace fs = std::filesystem;
 
@@ -42,7 +42,6 @@ namespace {
 LoadStatus g_lastLoadStatus;
 size_t g_saveCallCountForTesting = 0;
 fs::path GetUserDictFile();
-
 
 constexpr const char *kFixturesDictionaryPathConfigKey =
     "fixtures_dictionary_active_path";
@@ -73,19 +72,22 @@ fs::path ResolveConfiguredDictionaryPath(const fs::path &defaultPath,
     configuredPath = defaultPath.parent_path() / configuredPath;
   }
 
-  if (configuredPath.has_filename() && IsSupportedDictionaryFile(configuredPath)) {
+  if (configuredPath.has_filename() &&
+      IsSupportedDictionaryFile(configuredPath)) {
     std::error_code ec;
     fs::create_directories(configuredPath.parent_path(), ec);
     if (!ec)
       return configuredPath;
     if (warningOut)
-      *warningOut = "Could not create dictionary directory for configured path: " +
+      *warningOut =
+          "Could not create dictionary directory for configured path: " +
                     configuredPath.parent_path().string();
     return defaultPath;
   }
 
   if (warningOut)
-    *warningOut = "Configured fixtures dictionary path is invalid. Expected a .json file path.";
+    *warningOut = "Configured fixtures dictionary path is invalid. Expected a "
+                  ".json file path.";
   return defaultPath;
 }
 
@@ -103,7 +105,6 @@ fs::path GetConfiguredUserDictFile(std::string *warningOut = nullptr) {
     return defaultPath;
   return ResolveConfiguredDictionaryPath(defaultPath, *configured, warningOut);
 }
-
 
 bool PathsMatchForDictionaryEntries(const std::string &lhs,
                                     const std::string &rhs) {
@@ -130,21 +131,22 @@ bool PathsShareFileName(const std::string &lhs, const std::string &rhs) {
 }
 
 std::string NormalizeAsciiKey(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(),
+  std::transform(
+      value.begin(), value.end(), value.begin(),
                  [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
   value.erase(std::remove_if(value.begin(), value.end(),
                              [](unsigned char ch) {
-                               return std::isspace(ch) != 0 || ch == '_' || ch == '-';
+                               return std::isspace(ch) != 0 || ch == '_' ||
+                                      ch == '-';
                              }),
               value.end());
   return value;
 }
 
 std::optional<std::string> NormalizeHexColor(std::string raw) {
-  raw.erase(std::remove_if(raw.begin(), raw.end(),
-                           [](unsigned char ch) {
-                             return std::isspace(ch) != 0;
-                           }),
+  raw.erase(
+      std::remove_if(raw.begin(), raw.end(),
+                     [](unsigned char ch) { return std::isspace(ch) != 0; }),
             raw.end());
   if (raw.empty())
     return std::string();
@@ -160,8 +162,9 @@ std::optional<std::string> NormalizeHexColor(std::string raw) {
   return "#" + raw;
 }
 
-std::optional<std::string> GetObjectStringByNormalizedKey(
-    const nlohmann::json &value, const std::string &key) {
+std::optional<std::string>
+GetObjectStringByNormalizedKey(const nlohmann::json &value,
+                               const std::string &key) {
   if (!value.is_object())
     return std::nullopt;
   const std::string normalizedTarget = NormalizeAsciiKey(key);
@@ -184,7 +187,8 @@ bool ModesMatchForDictionaryEntries(const std::string &lhs,
   return NormalizeModeKey(lhs) == NormalizeModeKey(rhs);
 }
 
-bool EntriesShareFixtureFamily(const Entry &entry, const std::string &referencePath,
+bool EntriesShareFixtureFamily(const Entry &entry,
+                               const std::string &referencePath,
                                const std::string &referenceMode) {
   const bool samePath =
       PathsMatchForDictionaryEntries(entry.path, referencePath);
@@ -194,7 +198,8 @@ bool EntriesShareFixtureFamily(const Entry &entry, const std::string &referenceP
   return ModesMatchForDictionaryEntries(entry.mode, referenceMode);
 }
 
-void HarmonizeColorsByFixtureFamily(std::unordered_map<std::string, Entry> &dict) {
+void HarmonizeColorsByFixtureFamily(
+    std::unordered_map<std::string, Entry> &dict) {
   std::vector<std::string> keys;
   keys.reserve(dict.size());
   for (const auto &[key, _] : dict)
@@ -206,14 +211,15 @@ void HarmonizeColorsByFixtureFamily(std::unordered_map<std::string, Entry> &dict
     if (sourceIt == dict.end())
       continue;
     const Entry &source = sourceIt->second;
-    if (source.path.empty() || source.mode.empty() || source.color.empty())
+    if (source.path.empty() || source.mode.empty() ||
+        source.visualColorHex.empty())
       continue;
     for (auto &[targetKey, target] : dict) {
       if (targetKey == sourceKey)
         continue;
       if (!EntriesShareFixtureFamily(target, source.path, source.mode))
         continue;
-      target.color = source.color;
+      target.visualColorHex = source.visualColorHex;
     }
   }
 }
@@ -225,7 +231,8 @@ bool IsDummy1ChFallbackType(const std::string &type) {
 bool IsDummy1ChFallbackPath(const std::string &gdtfPath) {
   if (gdtfPath.empty())
     return false;
-  const std::string fileName = PathUtils::PathFromUtf8(gdtfPath).filename().string();
+  const std::string fileName =
+      PathUtils::PathFromUtf8(gdtfPath).filename().string();
   return NormalizeAsciiKey(fileName) == "dummy1ch.gdtf";
 }
 
@@ -240,7 +247,8 @@ std::string NormalizeTypeKey(const std::string &type) {
   return normalized;
 }
 
-// Returns true when the filename optional-comment segment marks a Perastage-authored GDTF.
+// Returns true when the filename optional-comment segment marks a
+// Perastage-authored GDTF.
 bool IsPerastageNamedGdtfFile(const std::filesystem::path &path) {
   const std::string stem = path.stem().string();
   const size_t firstAt = stem.find('@');
@@ -254,7 +262,8 @@ bool IsPerastageNamedGdtfFile(const std::filesystem::path &path) {
   return normalized == "perastage";
 }
 
-// Loads manufacturer and fixture type from a GDTF description.xml payload when available.
+// Loads manufacturer and fixture type from a GDTF description.xml payload when
+// available.
 bool TryReadGdtfIdentityFromDescription(const std::filesystem::path &sourcePath,
                                         std::string &manufacturerOut,
                                         std::string &fixtureTypeOut) {
@@ -284,12 +293,14 @@ bool TryReadGdtfIdentityFromDescription(const std::filesystem::path &sourcePath,
     return false;
 
   tinyxml2::XMLDocument doc;
-  if (doc.Parse(descriptionXml.c_str(), descriptionXml.size()) != tinyxml2::XML_SUCCESS)
+  if (doc.Parse(descriptionXml.c_str(), descriptionXml.size()) !=
+      tinyxml2::XML_SUCCESS)
     return false;
 
   tinyxml2::XMLElement *root = doc.FirstChildElement("GDTF");
   tinyxml2::XMLElement *fixtureType =
-      root ? root->FirstChildElement("FixtureType") : doc.FirstChildElement("FixtureType");
+      root ? root->FirstChildElement("FixtureType")
+           : doc.FirstChildElement("FixtureType");
   if (!fixtureType)
     return false;
 
@@ -300,11 +311,14 @@ bool TryReadGdtfIdentityFromDescription(const std::filesystem::path &sourcePath,
   return !manufacturerOut.empty() || !fixtureTypeOut.empty();
 }
 
-// Builds a canonical Perastage export filename using parsed GDTF identity values.
-std::string BuildPerastageCanonicalGdtfFileName(const std::filesystem::path &sourcePath) {
+// Builds a canonical Perastage export filename using parsed GDTF identity
+// values.
+std::string
+BuildPerastageCanonicalGdtfFileName(const std::filesystem::path &sourcePath) {
   std::string manufacturerName;
   std::string fixtureTypeName;
-  TryReadGdtfIdentityFromDescription(sourcePath, manufacturerName, fixtureTypeName);
+  TryReadGdtfIdentityFromDescription(sourcePath, manufacturerName,
+                                     fixtureTypeName);
 
   if (manufacturerName.empty())
     manufacturerName = "Unknow";
@@ -338,9 +352,10 @@ FindEquivalentTypeKey(const std::unordered_map<std::string, Entry> &dict,
   return std::nullopt;
 }
 
-bool ApplyCategoryUpdateForFile(
-    std::unordered_map<std::string, Entry> &dict, const std::string &type,
-    const std::string &gdtfPath, const std::string &category) {
+bool ApplyCategoryUpdateForFile(std::unordered_map<std::string, Entry> &dict,
+                                const std::string &type,
+                                const std::string &gdtfPath,
+                                const std::string &category) {
   const std::string normalizedType = NormalizeTypeKey(type);
   if (normalizedType.empty())
     return false;
@@ -363,7 +378,8 @@ bool ApplyCategoryUpdateForFile(
   for (auto &[entryType, entry] : dict) {
     if (entryType == keyToUse)
       continue;
-    const bool samePath = PathsMatchForDictionaryEntries(entry.path, sharedPath);
+    const bool samePath =
+        PathsMatchForDictionaryEntries(entry.path, sharedPath);
     const bool sameFileName = PathsShareFileName(entry.path, sharedPath);
     if (!samePath && !sameFileName)
       continue;
@@ -373,7 +389,8 @@ bool ApplyCategoryUpdateForFile(
 }
 
 fs::path GetUserDictFile() {
-  fs::path dir = PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("fixtures"));
+  fs::path dir =
+      PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("fixtures"));
   if (dir.empty())
     return {};
   std::error_code ec;
@@ -410,7 +427,8 @@ bool WriteDictionaryBackup(const fs::path &sourceFile) {
   fs::path backupFile = sourceFile;
   backupFile += ".bak";
   std::error_code ec;
-  fs::copy_file(sourceFile, backupFile, fs::copy_options::overwrite_existing, ec);
+  fs::copy_file(sourceFile, backupFile, fs::copy_options::overwrite_existing,
+                ec);
   return !ec;
 }
 
@@ -525,13 +543,16 @@ LoadFromFile(const fs::path &file, std::string &error) {
     if (const auto categoryText =
             GetObjectStringByNormalizedKey(value, "category"))
       entry.category = *categoryText;
-    if (const auto colorText = GetObjectStringByNormalizedKey(value, "color")) {
+    auto colorText = GetObjectStringByNormalizedKey(value, "visual_color");
+    if (!colorText)
+      colorText = GetObjectStringByNormalizedKey(value, "color");
+    if (colorText) {
       const auto normalizedColor = NormalizeHexColor(*colorText);
       if (!normalizedColor.has_value()) {
-        entryError = "color must be #RRGGBB when provided";
+        entryError = "visual_color must be #RRGGBB when provided";
         return false;
       }
-      entry.color = *normalizedColor;
+      entry.visualColorHex = *normalizedColor;
     }
     if (const auto importedAtText =
             GetObjectStringByNormalizedKey(value, "imported_at"))
@@ -539,9 +560,9 @@ LoadFromFile(const fs::path &file, std::string &error) {
     if (const auto shaText = GetObjectStringByNormalizedKey(value, "sha256"))
       entry.sha256 = *shaText;
     if (entry.path.empty() && entry.mode.empty() && entry.category.empty() &&
-        entry.color.empty()) {
-      entryError =
-          "entry object must include at least one of file/path/mode/category/color";
+        entry.visualColorHex.empty()) {
+      entryError = "entry object must include at least one of "
+                   "file/path/mode/category/visual_color";
       return false;
     }
     return true;
@@ -586,8 +607,8 @@ LoadFromFile(const fs::path &file, std::string &error) {
   return dict;
 }
 
-DictionaryImportSummary MergeDictionaryEntries(
-    std::unordered_map<std::string, Entry> &current,
+DictionaryImportSummary
+MergeDictionaryEntries(std::unordered_map<std::string, Entry> &current,
     const std::unordered_map<std::string, Entry> &imported,
     DictionaryImportPolicy policy, bool applyChanges) {
   DictionaryImportSummary summary;
@@ -640,7 +661,6 @@ DictionaryImportSummary MergeDictionaryEntries(
 
 } // namespace
 
-
 std::string GetActiveDictionaryFilePath() {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   return GetConfiguredUserDictFile().string();
@@ -654,7 +674,8 @@ std::string GetActiveDictionaryFileName() {
   return path.filename().string();
 }
 
-bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut) {
+bool SetActiveDictionaryFilePath(const std::string &path,
+                                 std::string *errorOut) {
   if (errorOut)
     errorOut->clear();
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
@@ -669,13 +690,15 @@ bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut)
   std::string warning;
   const fs::path resolvedPath =
       ResolveConfiguredDictionaryPath(defaultPath, path, &warning);
-  if (!warning.empty() && TrimAsciiWhitespace(path) != TrimAsciiWhitespace(defaultPath.string())) {
+  if (!warning.empty() &&
+      TrimAsciiWhitespace(path) != TrimAsciiWhitespace(defaultPath.string())) {
     if (errorOut)
       *errorOut = warning;
     return false;
   }
 
-  const auto previousValue = ConfigManager::Get().GetValue(kFixturesDictionaryPathConfigKey);
+  const auto previousValue =
+      ConfigManager::Get().GetValue(kFixturesDictionaryPathConfigKey);
 
   const std::string trimmedInput = TrimAsciiWhitespace(path);
   if (trimmedInput.empty() || resolvedPath == defaultPath) {
@@ -687,7 +710,8 @@ bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut)
 
   if (!ConfigManager::Get().SaveUserConfig()) {
     if (previousValue)
-      ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey, *previousValue);
+      ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey,
+                                    *previousValue);
     else
       ConfigManager::Get().RemoveKey(kFixturesDictionaryPathConfigKey);
     if (errorOut)
@@ -700,7 +724,8 @@ bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut)
       std::string createError;
       if (!Save({}, &createError)) {
         if (previousValue)
-          ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey, *previousValue);
+          ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey,
+                                        *previousValue);
         else
           ConfigManager::Get().RemoveKey(kFixturesDictionaryPathConfigKey);
         ConfigManager::Get().SaveUserConfig();
@@ -715,7 +740,8 @@ bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut)
   std::string loadError;
   if (!LoadFromFile(resolvedPath, loadError)) {
     if (previousValue)
-      ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey, *previousValue);
+      ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey,
+                                    *previousValue);
     else
       ConfigManager::Get().RemoveKey(kFixturesDictionaryPathConfigKey);
     ConfigManager::Get().SaveUserConfig();
@@ -723,7 +749,6 @@ bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut)
       *errorOut = "Could not load selected fixtures dictionary: " + loadError;
     return false;
   }
-
 
   return true;
 }
@@ -740,7 +765,8 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
     bool mergedSeedEntries = false;
     std::string baseError;
     if (auto baseDict = LoadFromFile(baseFile, baseError)) {
-      MergeSeedEntriesIntoUserDictionary(*userDict, *baseDict, &mergedSeedEntries);
+      MergeSeedEntriesIntoUserDictionary(*userDict, *baseDict,
+                                         &mergedSeedEntries);
       if (mergedSeedEntries) {
         WriteDictionaryBackup(userFile);
         Save(*userDict);
@@ -760,9 +786,9 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
     return baseDict;
   }
 
-  g_lastLoadStatus.error =
-      "Failed to load user fixtures dictionary ('" + userFile.string() +
-      "'): " + userError + ". Failed to load base fixtures dictionary ('" +
+  g_lastLoadStatus.error = "Failed to load user fixtures dictionary ('" +
+                           userFile.string() + "'): " + userError +
+                           ". Failed to load base fixtures dictionary ('" +
       baseFile.string() + "'): " + baseError;
   std::cerr << "Error: " << g_lastLoadStatus.error << std::endl;
   return std::nullopt;
@@ -793,7 +819,7 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
   for (const auto &type : keys) {
     const auto &entry = dict.at(type);
     if (entry.path.empty() && entry.mode.empty() && entry.category.empty() &&
-        entry.color.empty())
+        entry.visualColorHex.empty())
       continue;
     nlohmann::json obj;
     if (!entry.path.empty()) {
@@ -806,8 +832,8 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
       obj["mode"] = entry.mode;
     if (!entry.category.empty())
       obj["category"] = entry.category;
-    if (!entry.color.empty())
-      obj["color"] = entry.color;
+    if (!entry.visualColorHex.empty())
+      obj["visual_color"] = entry.visualColorHex;
     if (!entry.importedAt.empty())
       obj["imported_at"] = entry.importedAt;
     if (!entry.sha256.empty())
@@ -817,7 +843,8 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
     entries[type] = obj;
   }
 
-  const nlohmann::json root = DictionaryJsonContract::MakeRoot("fixtures", std::move(entries));
+  const nlohmann::json root =
+      DictionaryJsonContract::MakeRoot("fixtures", std::move(entries));
   std::ofstream out(file);
   if (!out.is_open()) {
     if (errorOut)
@@ -828,15 +855,15 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
   out << root.dump(4);
   if (!out.good()) {
     if (errorOut)
-      *errorOut = "Failed while writing user fixtures dictionary: " +
-                  file.string();
+      *errorOut =
+          "Failed while writing user fixtures dictionary: " + file.string();
     return false;
   }
   out.flush();
   if (!out.good()) {
     if (errorOut)
-      *errorOut = "Failed to flush user fixtures dictionary to disk: " +
-                  file.string();
+      *errorOut =
+          "Failed to flush user fixtures dictionary to disk: " + file.string();
     return false;
   }
   ++g_saveCallCountForTesting;
@@ -844,8 +871,8 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
 }
 
 // Looks up a fixture type in a preloaded dictionary snapshot.
-std::optional<Entry> FindInLoadedDictionary(
-    const std::unordered_map<std::string, Entry> &dict,
+std::optional<Entry>
+FindInLoadedDictionary(const std::unordered_map<std::string, Entry> &dict,
     const std::string &type, bool validateExistingPath) {
   const std::string normalizedType = NormalizeTypeKey(type);
   if (normalizedType.empty())
@@ -856,7 +883,8 @@ std::optional<Entry> FindInLoadedDictionary(
   auto it = dict.find(*keyOpt);
   if (it == dict.end())
     return std::nullopt;
-  if (validateExistingPath && !it->second.path.empty() && !fs::exists(it->second.path))
+  if (validateExistingPath && !it->second.path.empty() &&
+      !fs::exists(it->second.path))
     return std::nullopt;
   return it->second;
 }
@@ -882,8 +910,9 @@ std::optional<Entry> Get(const std::string &type) {
   return it->second;
 }
 
-std::optional<std::string> GetDefaultColorForFixture(
-    const std::string &type, const std::string &gdtfPath,
+std::optional<std::string>
+GetDefaultVisualColorForFixture(const std::string &type,
+                                const std::string &gdtfPath,
     const std::string &mode) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   auto dictOpt = Load();
@@ -895,20 +924,20 @@ std::optional<std::string> GetDefaultColorForFixture(
   if (!normalizedType.empty()) {
     if (auto keyOpt = FindEquivalentTypeKey(dict, normalizedType)) {
       auto byType = dict.find(*keyOpt);
-      if (byType != dict.end() && !byType->second.color.empty())
-        return byType->second.color;
+      if (byType != dict.end() && !byType->second.visualColorHex.empty())
+        return byType->second.visualColorHex;
     }
   }
 
   std::optional<std::string> matchedColor;
   std::string matchedKey;
   for (const auto &[entryType, entry] : dict) {
-    if (entry.color.empty())
+    if (entry.visualColorHex.empty())
       continue;
     if (!EntriesShareFixtureFamily(entry, gdtfPath, mode))
       continue;
     if (!matchedColor || entryType < matchedKey) {
-      matchedColor = entry.color;
+      matchedColor = entry.visualColorHex;
       matchedKey = entryType;
     }
   }
@@ -935,13 +964,14 @@ void UpdateDictionaryEntry(const std::string &type, const Entry &entry) {
 
 // Creates or refreshes a stable @Perastage derivative for a library-owned GDTF.
 std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
-    const std::string &type, const std::string &gdtfPath, const std::string &mode,
-    const std::string &category) {
+    const std::string &type, const std::string &gdtfPath,
+    const std::string &mode, const std::string &category) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   const std::string normalizedType = NormalizeTypeKey(type);
   if (normalizedType.empty() || gdtfPath.empty())
     return std::nullopt;
-  if (IsDummy1ChFallbackType(normalizedType) || IsDummy1ChFallbackPath(gdtfPath))
+  if (IsDummy1ChFallbackType(normalizedType) ||
+      IsDummy1ChFallbackPath(gdtfPath))
     return std::nullopt;
 
   const fs::path src = PathUtils::PathFromUtf8(gdtfPath);
@@ -951,7 +981,8 @@ std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
   if (file.empty())
     return std::nullopt;
 
-  const fs::path dest = IsPerastageNamedGdtfFile(src)
+  const fs::path dest =
+      IsPerastageNamedGdtfFile(src)
                             ? file.parent_path() / src.filename()
                             : file.parent_path() / BuildPerastageCanonicalGdtfFileName(src);
   const auto copyResult = FileImportUtils::CopyWithConflictPolicy(
@@ -973,11 +1004,13 @@ std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
   return e;
 }
 
-// Registers an explicit user-library fixture import using deterministic @Perastage derivative rules.
-void Update(const std::string &type, const std::string &gdtfPath, const std::string &mode, const std::string &category) {
-  (void)CreateOrUpdatePerastageLibraryDerivative(type, gdtfPath, mode, category);
+// Registers an explicit user-library fixture import using deterministic
+// @Perastage derivative rules.
+void Update(const std::string &type, const std::string &gdtfPath,
+            const std::string &mode, const std::string &category) {
+  (void)CreateOrUpdatePerastageLibraryDerivative(type, gdtfPath, mode,
+                                                 category);
 }
-
 
 void UpdateCategory(const std::string &type, const std::string &category) {
   UpdateCategoryForFile(type, {}, category);
@@ -1015,12 +1048,14 @@ void UpdateCategoriesBulk(
   Save(dict);
 }
 
-void UpdateColor(const std::string &type, const std::string &color) {
-  UpdateColorForFile(type, {}, {}, color);
+void UpdateVisualColor(const std::string &type, const std::string &color) {
+  UpdateVisualColorForFile(type, {}, {}, color);
 }
 
-void UpdateColorForFile(const std::string &type, const std::string &gdtfPath,
-                        const std::string &mode, const std::string &color) {
+void UpdateVisualColorForFile(const std::string &type,
+                              const std::string &gdtfPath,
+                              const std::string &mode,
+                              const std::string &color) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   const std::string normalizedType = NormalizeTypeKey(type);
   if (normalizedType.empty())
@@ -1041,7 +1076,7 @@ void UpdateColorForFile(const std::string &type, const std::string &gdtfPath,
       e.path = gdtfPath;
     if (!mode.empty())
       e.mode = mode;
-    e.color = color;
+    e.visualColorHex = color;
     dict[keyToUse] = e;
   } else {
     if (sharedPath.empty())
@@ -1052,7 +1087,7 @@ void UpdateColorForFile(const std::string &type, const std::string &gdtfPath,
       it->second.path = gdtfPath;
     if (!mode.empty())
       it->second.mode = mode;
-    it->second.color = color;
+    it->second.visualColorHex = color;
   }
 
   if (sharedMode.empty()) {
@@ -1071,7 +1106,7 @@ void UpdateColorForFile(const std::string &type, const std::string &gdtfPath,
       continue;
     if (!EntriesShareFixtureFamily(entry, sharedPath, sharedMode))
       continue;
-    entry.color = color;
+    entry.visualColorHex = color;
   }
   Save(dict);
 }

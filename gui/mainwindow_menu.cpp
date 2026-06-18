@@ -19,14 +19,14 @@
 #include "filesystem_path_utils.h"
 #include "mainwindow.h"
 #include "mainwindow/controllers/mainwindow_io_controller.h"
-#include "mainwindow_view_controller.h"
 #include "mainwindow_menu_builders.h"
-#include "mainwindow_menu_text_utils.h"
 #include "mainwindow_menu_helpers.h"
+#include "mainwindow_menu_text_utils.h"
+#include "mainwindow_view_controller.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cctype>
+#include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -39,11 +39,11 @@
 
 #include <wx/artprov.h>
 #include <wx/busyinfo.h>
-#include <wx/choice.h>
 #include <wx/choicdlg.h>
+#include <wx/choice.h>
 #include <wx/datetime.h>
-#include <wx/filename.h>
 #include <wx/filefn.h>
+#include <wx/filename.h>
 #include <wx/html/htmlwin.h>
 #include <wx/numdlg.h>
 #include <wx/stdpaths.h>
@@ -53,9 +53,7 @@
 #include "addfixturedialog.h"
 #include "addtrussdialog.h"
 #include "autopatcher.h"
-#include "ui_feature_flags.h"
 #include "configmanager.h"
-#include "guiconfigservices.h"
 #include "consolepanel.h"
 #include "credentialstore.h"
 #include "diagnostics/DiagnosticLogger.h"
@@ -64,11 +62,12 @@
 #include "dictionaryeditdialog.h"
 #include "fixture.h"
 #include "fixturetablepanel.h"
+#include "gdtf_catalog_service.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "gdtfnet.h"
-#include "gdtf_catalog_service.h"
 #include "gdtfsearchdialog.h"
+#include "guiconfigservices.h"
 #include "hoist_weight_distribution.h"
 #include "hoisttablepanel.h"
 #include "layerpanel.h"
@@ -76,36 +75,36 @@
 #include "layoutviewerpanel.h"
 #include "loader_obj.h"
 #include "logger.h"
-#include "magnet_snap.h"
 #include "logindialog.h"
+#include "magnet_snap.h"
+#include "mainwindow_gdtf_credentials.h"
 #include "markdown.h"
 #include "preferencesdialog.h"
 #include "projectutils.h"
-#include "rigging_extra_weight_settings.h"
 #include "resource_path_utils.h"
+#include "rigging_extra_weight_settings.h"
 #include "riggingpanel.h"
-#include "scene_object_primitive_dialogs.h"
-#include "scene_object_primitive_creation.h"
 #include "scene_grouping.h"
+#include "scene_object_primitive_creation.h"
+#include "scene_object_primitive_dialogs.h"
 #include "sceneobjecttablepanel.h"
 #include "selectfixturetypedialog.h"
+#include "selection_movement_settings.h"
 #include "selectnamedialog.h"
-#include "mainwindow_gdtf_credentials.h"
 #include "support.h"
-#include "trussloader.h"
-#include "tools/fixture_symbol_generation_tool.h"
 #include "tools/fixture_category_assignment_tool.h"
+#include "tools/fixture_symbol_generation_tool.h"
+#include "trussloader.h"
 #include "trusstablepanel.h"
+#include "ui_feature_flags.h"
 #include "update/app_update_service.h"
 #include "update/update_notification_dialog.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
-#include "selection_movement_settings.h"
 
 // Builds and registers the main application toolbars.
 void MainWindow::CreateToolBars() {
-  const long toolbarStyle =
-      (wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
+  const long toolbarStyle = (wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
   fileToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                  wxDefaultSize, toolbarStyle);
   fileToolBar->SetToolBitmapSize(wxSize(16, 16));
@@ -139,8 +138,7 @@ void MainWindow::CreateToolBars() {
   const auto addToolWithDisabledIcon =
       [&](wxAuiToolBar *toolbar, int id, const wxString &label,
           const std::string &iconName, const wxArtID &fallbackArtId,
-          const wxString &shortHelp,
-          wxItemKind kind = wxITEM_NORMAL) {
+          const wxString &shortHelp, wxItemKind kind = wxITEM_NORMAL) {
         toolbar->AddTool(id, label, loadToolbarIcon(iconName, fallbackArtId),
                          shortHelp, kind);
 
@@ -151,8 +149,7 @@ void MainWindow::CreateToolBars() {
                   .GetBitmap(wxSize(16, 16)));
         }
       };
-  fileToolBar->AddTool(ID_File_New, "New",
-                       loadToolbarIcon("file", wxART_NEW),
+  fileToolBar->AddTool(ID_File_New, "New", loadToolbarIcon("file", wxART_NEW),
                        "Create a new project");
   fileToolBar->AddTool(ID_File_Load, "Open",
                        loadToolbarIcon("folder-open", wxART_FILE_OPEN),
@@ -175,11 +172,8 @@ void MainWindow::CreateToolBars() {
   fileToolBar->Realize();
 
   auiManager->AddPane(
-      fileToolBar, wxAuiPaneInfo()
-                       .Name("FileToolbar")
-                       .Caption("File")
-                       .ToolbarPane()
-                       .Top());
+      fileToolBar,
+      wxAuiPaneInfo().Name("FileToolbar").Caption("File").ToolbarPane().Top());
 
   editToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                  wxDefaultSize, toolbarStyle);
@@ -192,40 +186,35 @@ void MainWindow::CreateToolBars() {
                        "Redo last undone action");
   editToolBar->Realize();
   auiManager->AddPane(
-      editToolBar, wxAuiPaneInfo()
-                       .Name("EditToolbar")
-                       .Caption("Edit")
-                       .ToolbarPane()
-                       .Top());
+      editToolBar,
+      wxAuiPaneInfo().Name("EditToolbar").Caption("Edit").ToolbarPane().Top());
 
-  layoutViewsToolBar =
-      new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                       toolbarStyle);
+  layoutViewsToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
+                                        wxDefaultSize, toolbarStyle);
   layoutViewsToolBar->SetToolBitmapSize(wxSize(16, 16));
   layoutViewsToolBar->AddTool(ID_View_Layout_Default, "Vista layout 3D",
-                              loadToolbarIcon("box",
-                                              wxART_MISSING_IMAGE),
+                              loadToolbarIcon("box", wxART_MISSING_IMAGE),
                               "Switch to 3D Layout View");
-  layoutViewsToolBar->AddTool(ID_View_Layout_2D, "Vista layout 2D",
-                              loadToolbarIcon("panels-right-bottom",
-                                              wxART_MISSING_IMAGE),
+  layoutViewsToolBar->AddTool(
+      ID_View_Layout_2D, "Vista layout 2D",
+      loadToolbarIcon("panels-right-bottom", wxART_MISSING_IMAGE),
                               "Switch to 2D Layout View");
-  layoutViewsToolBar->AddTool(ID_View_Layout_Mode, "Modo layout",
-                              loadToolbarIcon("square-asterisk",
-                                              wxART_MISSING_IMAGE),
+  layoutViewsToolBar->AddTool(
+      ID_View_Layout_Mode, "Modo layout",
+      loadToolbarIcon("square-asterisk", wxART_MISSING_IMAGE),
                               "Switch to Layout Mode View");
   layoutViewsToolBar->AddSeparator();
-  layoutViewsToolBar->AddTool(ID_View_Viewport_Top, "Top View",
-                              loadToolbarIcon("cube-view-top",
-                                              wxART_MISSING_IMAGE),
+  layoutViewsToolBar->AddTool(
+      ID_View_Viewport_Top, "Top View",
+      loadToolbarIcon("cube-view-top", wxART_MISSING_IMAGE),
                               "Apply top view to active viewport");
-  layoutViewsToolBar->AddTool(ID_View_Viewport_Front, "Front View",
-                              loadToolbarIcon("cube-view-front",
-                                              wxART_MISSING_IMAGE),
+  layoutViewsToolBar->AddTool(
+      ID_View_Viewport_Front, "Front View",
+      loadToolbarIcon("cube-view-front", wxART_MISSING_IMAGE),
                               "Apply front view to active viewport");
-  layoutViewsToolBar->AddTool(ID_View_Viewport_Side, "Side View",
-                              loadToolbarIcon("cube-view-side",
-                                              wxART_MISSING_IMAGE),
+  layoutViewsToolBar->AddTool(
+      ID_View_Viewport_Side, "Side View",
+      loadToolbarIcon("cube-view-side", wxART_MISSING_IMAGE),
                               "Apply side view to active viewport");
   layoutViewsToolBar->AddSeparator();
   addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_SelectTool,
@@ -244,7 +233,8 @@ void MainWindow::CreateToolBars() {
                           "Toggle left-click selection dragging", wxITEM_CHECK);
   addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_Magnet, "Magnet",
                           "magnet", wxART_MISSING_IMAGE,
-                          "Toggle Magnet snapping while dragging", wxITEM_CHECK);
+                          "Toggle Magnet snapping while dragging",
+                          wxITEM_CHECK);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, true);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, false);
   layoutViewsToolBar->ToggleTool(
@@ -262,8 +252,7 @@ void MainWindow::CreateToolBars() {
       GetDefaultGuiConfigServices().Preferences().GetValue(
           magnet_snap::kMagnetEnabledConfigKey) == "1");
   layoutViewsToolBar->Realize();
-  auiManager->AddPane(
-      layoutViewsToolBar, wxAuiPaneInfo()
+  auiManager->AddPane(layoutViewsToolBar, wxAuiPaneInfo()
                               .Name("LayoutViewsToolbar")
                               .Caption("Layout Views")
                               .ToolbarPane()
@@ -274,8 +263,8 @@ void MainWindow::CreateToolBars() {
   toolsToolBar->SetToolBitmapSize(wxSize(16, 16));
   addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddFixture, "Add Fixture",
                           "spotlight", wxART_MISSING_IMAGE, "Add fixture");
-  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddTruss, "Add Truss",
-                          "truss", wxART_MISSING_IMAGE, "Add truss");
+  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddTruss, "Add Truss", "truss",
+                          wxART_MISSING_IMAGE, "Add truss");
   addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddSceneObject, "Add Object",
                           "guitar", wxART_MISSING_IMAGE, "Add object");
   toolsToolBar->AddSeparator();
@@ -286,8 +275,7 @@ void MainWindow::CreateToolBars() {
                         loadToolbarIcon("notepad-text", wxART_TIP),
                         "Create from text");
   toolsToolBar->Realize();
-  auiManager->AddPane(
-      toolsToolBar, wxAuiPaneInfo()
+  auiManager->AddPane(toolsToolBar, wxAuiPaneInfo()
                         .Name("ToolsToolbar")
                         .Caption("Tools")
                         .ToolbarPane()
@@ -300,20 +288,18 @@ void MainWindow::CreateToolBars() {
                           "Añadir vista 2D", "panel-top-bottom-dashed",
                           wxART_MISSING_IMAGE, "Add 2D View to Layout");
   addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Legend,
-                          "Añadir leyenda", "layout-list",
-                          wxART_MISSING_IMAGE, "Add fixture legend to layout");
+                          "Añadir leyenda", "layout-list", wxART_MISSING_IMAGE,
+                          "Add fixture legend to layout");
   addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_EventTable,
                           "Añadir tabla de evento", "table", wxART_LIST_VIEW,
                           "Add event table to layout");
   addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Text, "Añadir texto",
-                          "text-select", wxART_TIP,
-                          "Add text box to layout");
-  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Image,
-                          "Añadir imagen", "image-plus",
-                          wxART_MISSING_IMAGE, "Add image to layout");
+                          "text-select", wxART_TIP, "Add text box to layout");
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Image, "Añadir imagen",
+                          "image-plus", wxART_MISSING_IMAGE,
+                          "Add image to layout");
   layoutToolBar->Realize();
-  auiManager->AddPane(
-      layoutToolBar, wxAuiPaneInfo()
+  auiManager->AddPane(layoutToolBar, wxAuiPaneInfo()
                          .Name("LayoutToolbar")
                          .Caption("Layout")
                          .ToolbarPane()
@@ -323,9 +309,7 @@ void MainWindow::CreateToolBars() {
 }
 
 // Builds and assigns the main application menu bar.
-void MainWindow::CreateMenuBar() {
-  SetMenuBar(BuildMainWindowMenuBar());
-}
+void MainWindow::CreateMenuBar() { SetMenuBar(BuildMainWindowMenuBar()); }
 
 // Starts a new project after guarding startup and save state.
 void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
@@ -338,8 +322,9 @@ void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
   ResetProject(true);
 }
 
-// Opens the GDTF search flow, refreshing the remote catalog when credentials are available.
-// Opens the GDTF download workflow and optionally adds the selected fixture.
+// Opens the GDTF search flow, refreshing the remote catalog when credentials
+// are available. Opens the GDTF download workflow and optionally adds the
+// selected fixture.
 void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   diagnostics::DiagnosticLogger::Info("GDTF download workflow opened.");
   ConfigManager &configManager =
@@ -356,7 +341,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
   const auto catalogResolveStart = std::chrono::steady_clock::now();
   GdtfCatalogService catalogService;
-  const std::string nowUtc = WxToUtf8(wxDateTime::UNow().FormatISOCombined(' '));
+  const std::string nowUtc =
+      WxToUtf8(wxDateTime::UNow().FormatISOCombined(' '));
 
   std::unique_ptr<wxWindowDisabler> refreshDisabler =
       std::make_unique<wxWindowDisabler>();
@@ -373,10 +359,9 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
             }
 
             long loginHttpCode = 0;
-            const bool loginOk =
-                GdtfLogin(activeCredentials->username,
-                         activeCredentials->password, cookieFile,
-                         loginHttpCode);
+            const bool loginOk = GdtfLogin(activeCredentials->username,
+                                           activeCredentials->password,
+                                           cookieFile, loginHttpCode);
             if (!loginOk || loginHttpCode != 200)
               return false;
 
@@ -384,13 +369,13 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
             return GdtfGetList(cookieFile, onlineListData, &listHttpCode) &&
                    listHttpCode == 200 && !onlineListData.empty();
           },
-          nowUtc,
-          0);
+          nowUtc, 0);
 
   refreshOverlay.reset();
   refreshDisabler.reset();
 
-  const auto catalogResolveElapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+  const auto catalogResolveElapsedMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - catalogResolveStart)
                                             .count();
 
@@ -410,7 +395,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
   if (consolePanel) {
     consolePanel->AppendMessage(wxString::Format(
-        "[METRIC] GDTF catalog cache_hit=%d cache_miss=%d cache_age_s=%lld refresh_attempted=%d refresh_succeeded=%d resolve_ms=%lld",
+        "[METRIC] GDTF catalog cache_hit=%d cache_miss=%d cache_age_s=%lld "
+        "refresh_attempted=%d refresh_succeeded=%d resolve_ms=%lld",
         catalogResult.metrics.cacheHit ? 1 : 0,
         catalogResult.metrics.cacheMiss ? 1 : 0,
         static_cast<long long>(catalogResult.metrics.cacheAgeSeconds),
@@ -426,19 +412,23 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
       this, effectiveListData, effectiveUpdatedAt,
       [&]() -> GdtfSearchDialog::RefreshResult {
         GdtfSearchDialog::RefreshResult refreshResult;
-        refreshResult.updatedAt = WxToUtf8(wxDateTime::UNow().FormatISOCombined(' '));
+        refreshResult.updatedAt =
+            WxToUtf8(wxDateTime::UNow().FormatISOCombined(' '));
         if (!activeCredentials || activeCredentials->username.empty() ||
             activeCredentials->password.empty()) {
-          refreshResult.failureDetails = "No stored GDTF credentials configured.";
+          refreshResult.failureDetails =
+              "No stored GDTF credentials configured.";
           return refreshResult;
         }
 
         long loginHttpCode = 0;
-        const bool loginOk = GdtfLogin(activeCredentials->username,
-                                       activeCredentials->password,
+        const bool loginOk =
+            GdtfLogin(activeCredentials->username, activeCredentials->password,
                                        cookieFile, loginHttpCode);
         if (!loginOk || loginHttpCode != 200) {
-          refreshResult.failureDetails = wxString::Format("Login failed (HTTP %ld).", loginHttpCode).ToStdString();
+          refreshResult.failureDetails =
+              wxString::Format("Login failed (HTTP %ld).", loginHttpCode)
+                  .ToStdString();
           return refreshResult;
         }
 
@@ -512,7 +502,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
       }
 
       if (consolePanel)
-        consolePanel->AppendMessage("[INFO] Logging into GDTF Share using libcurl");
+        consolePanel->AppendMessage(
+            "[INFO] Logging into GDTF Share using libcurl");
       updateGdtfDownloadBusyOverlay("Logging in to GDTF Share...");
       return GdtfLogin(activeCredentials->username, activeCredentials->password,
                        cookieFile, httpCode);
@@ -550,9 +541,11 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         gdtfDownloadDisabler = std::make_unique<wxWindowDisabler>();
         updateGdtfDownloadBusyOverlay("Downloading GDTF from GDTF Share...");
         if (consolePanel)
-          consolePanel->AppendMessage("[INFO] Downloading via libcurl rid=" + rid);
+          consolePanel->AppendMessage("[INFO] Downloading via libcurl rid=" +
+                                      rid);
         long dlCode = 0;
-        bool ok = GdtfDownload(WxToUtf8(rid), WxToUtf8(dest), cookieFile, dlCode);
+        bool ok =
+            GdtfDownload(WxToUtf8(rid), WxToUtf8(dest), cookieFile, dlCode);
         clearGdtfDownloadBlockingUi();
         if (consolePanel)
           consolePanel->AppendMessage(
@@ -561,18 +554,21 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
           diagnostics::DiagnosticLogger::Info(
               "GDTF download completed: " +
               diagnostics::DiagnosticLogger::FileNameOnly(WxToUtf8(dest)));
-          int addNow = wxMessageBox(
-              "GDTF downloaded successfully. Do you want to add it to the project now?",
+          int addNow =
+              wxMessageBox("GDTF downloaded successfully. Do you want to add "
+                           "it to the project now?",
               "Success", wxYES_NO | wxICON_QUESTION, this);
           if (addNow == wxYES)
             AddFixtureFromGdtfPath(WxToUtf8(dest));
         } else {
-          diagnostics::DiagnosticLogger::Error(
-              "GDTF download failed: http=" + std::to_string(dlCode));
-          wxMessageBox("Failed to download GDTF.", "Error", wxOK | wxICON_ERROR);
+          diagnostics::DiagnosticLogger::Error("GDTF download failed: http=" +
+                                               std::to_string(dlCode));
+          wxMessageBox("Failed to download GDTF.", "Error",
+                       wxOK | wxICON_ERROR);
         }
       } else {
-        wxMessageBox("Download information missing.", "Error", wxOK | wxICON_ERROR);
+        wxMessageBox("Download information missing.", "Error",
+                     wxOK | wxICON_ERROR);
       }
     }
   }
@@ -588,7 +584,8 @@ void MainWindow::OnEditDictionaries(wxCommandEvent &WXUNUSED(event)) {
 
 // Opens the writable user library folder in the system file browser.
 void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
-  const std::string fixturesPath = ProjectUtils::GetWritableLibraryPath("fixtures");
+  const std::string fixturesPath =
+      ProjectUtils::GetWritableLibraryPath("fixtures");
   if (fixturesPath.empty()) {
     wxMessageBox("Could not resolve writable user library path.",
                  "Open user library folder", wxOK | wxICON_ERROR);
@@ -598,7 +595,8 @@ void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
   const std::filesystem::path libraryRoot =
       PathUtils::PathFromUtf8(fixturesPath).parent_path();
   const std::u8string folderPathUtf8 = libraryRoot.u8string();
-  const std::string folderPathBytes(folderPathUtf8.begin(), folderPathUtf8.end());
+  const std::string folderPathBytes(folderPathUtf8.begin(),
+                                    folderPathUtf8.end());
   const wxString folderPath = wxString::FromUTF8(folderPathBytes.c_str());
   if (!wxLaunchDefaultApplication(folderPath)) {
     wxMessageBox("Could not open the user library folder.",
@@ -610,7 +608,8 @@ void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
 void MainWindow::OnAutoPatch(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   cfg.PushUndoState("auto patch");
-  const std::vector<std::string> selectedFixtureUuids = cfg.GetSelectedFixtures();
+  const std::vector<std::string> selectedFixtureUuids =
+      cfg.GetSelectedFixtures();
   if (!selectedFixtureUuids.empty())
     AutoPatcher::AutoPatchSelection(cfg.GetScene(), selectedFixtureUuids);
   else
@@ -645,7 +644,8 @@ void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
   for (const std::string &positionName : hoistPositions)
     choices.Add(wxString::FromUTF8(positionName));
 
-  wxSingleChoiceDialog dialog(this, "Select hang position(s) to distribute hoist weights.",
+  wxSingleChoiceDialog dialog(
+      this, "Select hang position(s) to distribute hoist weights.",
                               "Distribute hoist weights", choices);
   dialog.SetSelection(0);
   if (dialog.ShowModal() != wxID_OK)
@@ -677,8 +677,8 @@ void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
       HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(
           scene,
           RiggingExtraWeightSettings::BuildKilogramsByPosition(extraWeights));
-  HoistWeightDistribution::ApplyForImportedSupports(
-      scene, selectedSupportUuids, roundedTotalsByPosition);
+  HoistWeightDistribution::ApplyForImportedSupports(scene, selectedSupportUuids,
+                                                    roundedTotalsByPosition);
   RefreshAfterSceneChange();
 }
 
@@ -741,24 +741,25 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
 
   std::map<std::string, std::string> fixtureGroupColors;
   for (auto &[uuid, f] : scene.fixtures) {
-    if (hasFixtureSelection && selectedFixtureSet.find(uuid) == selectedFixtureSet.end())
+    if (hasFixtureSelection &&
+        selectedFixtureSet.find(uuid) == selectedFixtureSet.end())
       continue;
 
     if (hasFixtureSelection) {
       if (f.gdtfSpec.empty()) {
-        f.color = randHex();
+        f.visualColorHex = randHex();
         continue;
       }
       const std::string groupKey = buildFixtureGroupKey(f);
       auto existing = fixtureGroupColors.find(groupKey);
       if (existing == fixtureGroupColors.end()) {
-        const auto dictColor = GdtfDictionary::GetDefaultColorForFixture(
+        const auto dictColor = GdtfDictionary::GetDefaultVisualColorForFixture(
             f.typeName, f.gdtfSpec, f.gdtfMode);
         const std::string chosenColor = dictColor ? *dictColor : randHex();
         fixtureGroupColors[groupKey] = chosenColor;
-        f.color = chosenColor;
+        f.visualColorHex = chosenColor;
       } else {
-        f.color = existing->second;
+        f.visualColorHex = existing->second;
       }
       continue;
     }
@@ -767,14 +768,17 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
       auto it = fixtureGroupColors.find(buildFixtureGroupKey(f));
       if (it == fixtureGroupColors.end()) {
         const std::string c =
-            (f.color.empty() || isWhiteColor(f.color)) ? randHex() : f.color;
+            (f.visualColorHex.empty() || isWhiteColor(f.visualColorHex))
+                ? randHex()
+                : f.visualColorHex;
         fixtureGroupColors[buildFixtureGroupKey(f)] = c;
-        f.color = c;
+        f.visualColorHex = c;
       } else {
-        f.color = it->second;
+        f.visualColorHex = it->second;
       }
-    } else if (hasFixtureSelection || f.color.empty() || isWhiteColor(f.color)) {
-      f.color = randHex();
+    } else if (hasFixtureSelection || f.visualColorHex.empty() ||
+               isWhiteColor(f.visualColorHex)) {
+      f.visualColorHex = randHex();
     }
   }
 
@@ -807,8 +811,8 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
     const auto &fixture = it->second;
 
     Support s;
-    s.uuid = wxString::Format("uuid_%lld_%d", static_cast<long long>(baseId),
-                             idx++)
+    s.uuid =
+        wxString::Format("uuid_%lld_%d", static_cast<long long>(baseId), idx++)
                 .ToStdString();
     s.name = fixture.instanceName;
     s.gdtfSpec = fixture.gdtfSpec;
@@ -821,7 +825,8 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
     s.capacityKg = 0.0f;
     s.weightKg = 0.0f;
     s.loadKg = fixture.weightKg;
-    s.motorName = fixture.instanceName.empty() ? fixture.typeName : fixture.instanceName;
+    s.motorName =
+        fixture.instanceName.empty() ? fixture.typeName : fixture.instanceName;
     s.motorModel = fixture.gdtfMode;
     s.motorFixtureUuid = fixture.uuid;
     s.hoistDataSource = "Manual";
@@ -849,11 +854,10 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
   RefreshSummary();
   RefreshRigging();
 
-  wxMessageBox(wxString::Format("Converted %zu fixture(s) to hoists.",
-                                newIds.size()),
+  wxMessageBox(
+      wxString::Format("Converted %zu fixture(s) to hoists.", newIds.size()),
                "Convert to Hoist", wxOK | wxICON_INFORMATION);
 }
-
 
 // Runs the fixture symbol generation tool when the feature is enabled.
 void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &WXUNUSED(event)) {
@@ -866,8 +870,7 @@ void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &WXUNUSED(event)) {
 // Runs automatic category assignment for selected fixtures when enabled.
 void MainWindow::OnAssignSelectedFixtureCategory(
     wxCommandEvent &WXUNUSED(event)) {
-  if (!ui::IsFeatureEnabled(
-          ui::FeatureFlag::AssignSelectedFixtureCategory)) {
+  if (!ui::IsFeatureEnabled(ui::FeatureFlag::AssignSelectedFixtureCategory)) {
     return;
   }
 
@@ -880,8 +883,9 @@ void MainWindow::OnClose(wxCommandEvent &event) {
   Close(false);
 }
 
-// Persists state, stops live workers, and detaches IO callbacks before destroying the main window.
-// Finalizes shutdown by saving state and stopping runtime services.
+// Persists state, stops live workers, and detaches IO callbacks before
+// destroying the main window. Finalizes shutdown by saving state and stopping
+// runtime services.
 void MainWindow::OnCloseWindow(wxCloseEvent &event) {
   SaveUserConfigWithViewport2DState();
   if (!ConfirmSaveIfDirty("exiting", "Exit")) {
@@ -972,13 +976,12 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
         std::max(900, static_cast<int>(parentSize.x * 0.85)),
         std::max(700, static_cast<int>(parentSize.y * 0.85)));
     wxDialog dlg(this, wxID_ANY, wxString::FromUTF8("Perastage Help"),
-                 wxDefaultPosition,
-                 dialogSize,
+                 wxDefaultPosition, dialogSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX);
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
     wxBoxSizer *langSizer = new wxBoxSizer(wxHORIZONTAL);
-    wxStaticText *langLabel = new wxStaticText(
-        &dlg, wxID_ANY, wxString::FromUTF8("Language:"));
+    wxStaticText *langLabel =
+        new wxStaticText(&dlg, wxID_ANY, wxString::FromUTF8("Language:"));
     wxChoice *langChoice = new wxChoice(&dlg, wxID_ANY);
     langChoice->Append(wxString::FromUTF8("English"));
     langChoice->Append(wxString::FromUTF8("Español"));
@@ -1008,8 +1011,8 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     dlg.ShowModal();
   } else {
     wxMessageBox(wxString::FromUTF8("help.md file not found"),
-                 wxString::FromUTF8("Perastage Help"),
-                 wxOK | wxICON_ERROR, this);
+                 wxString::FromUTF8("Perastage Help"), wxOK | wxICON_ERROR,
+                 this);
   }
 }
 
@@ -1018,24 +1021,23 @@ void MainWindow::OnOpenOnlineDocumentation(wxCommandEvent &WXUNUSED(event)) {
   wxLaunchDefaultBrowser("https://perastage.luismaperamato.com/");
 }
 
-
-
-
 // Opens the local diagnostics folder in the system file explorer.
 void MainWindow::OnOpenLogsFolder(wxCommandEvent &WXUNUSED(event)) {
   std::string error;
   const std::filesystem::path logsDirectory =
       diagnostics::DiagnosticPaths::LogsDirectory();
   if (!diagnostics::DiagnosticPaths::EnsureDirectory(logsDirectory, &error)) {
-    diagnostics::DiagnosticLogger::Error("Unable to open logs folder: " + error);
-    wxMessageBox(wxString::FromUTF8("Could not create the logs folder.\n\n" + error),
-                 wxString::FromUTF8("Perastage Diagnostics"),
-                 wxOK | wxICON_ERROR, this);
+    diagnostics::DiagnosticLogger::Error("Unable to open logs folder: " +
+                                         error);
+    wxMessageBox(
+        wxString::FromUTF8("Could not create the logs folder.\n\n" + error),
+        wxString::FromUTF8("Perastage Diagnostics"), wxOK | wxICON_ERROR, this);
     return;
   }
 
   diagnostics::DiagnosticLogger::Info("Open logs folder requested.");
-  const wxString quotedPath = "\"" + wxString::FromUTF8(logsDirectory.string()) + "\"";
+  const wxString quotedPath =
+      "\"" + wxString::FromUTF8(logsDirectory.string()) + "\"";
 #if defined(__WXMSW__)
   const wxString command = "explorer " + quotedPath;
 #elif defined(__WXOSX__)
@@ -1058,21 +1060,25 @@ void MainWindow::OnExportDiagnosticReport(wxCommandEvent &WXUNUSED(event)) {
   std::filesystem::path reportPath;
   std::string error;
   if (!diagnostics::DiagnosticReport::ExportToFile(&reportPath, &error)) {
-    diagnostics::DiagnosticLogger::Error("Diagnostic report export failed: " + error);
-    wxMessageBox(wxString::FromUTF8("Could not export the diagnostic report.\n\n" + error),
+    diagnostics::DiagnosticLogger::Error("Diagnostic report export failed: " +
+                                         error);
+    wxMessageBox(wxString::FromUTF8(
+                     "Could not export the diagnostic report.\n\n" + error),
                  wxString::FromUTF8("Perastage Diagnostics"),
                  wxOK | wxICON_ERROR, this);
     return;
   }
 
   diagnostics::DiagnosticLogger::Info("Diagnostic report exported.");
-  wxMessageBox(wxString::FromUTF8("Diagnostic report exported successfully.\n\n" +
+  wxMessageBox(
+      wxString::FromUTF8("Diagnostic report exported successfully.\n\n" +
                                   reportPath.string()),
-               wxString::FromUTF8("Perastage Diagnostics"),
-               wxOK | wxICON_INFORMATION, this);
+      wxString::FromUTF8("Perastage Diagnostics"), wxOK | wxICON_INFORMATION,
+      this);
 }
 
-// Checks the latest release asynchronously and shows a result dialog with update actions.
+// Checks the latest release asynchronously and shows a result dialog with
+// update actions.
 void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {
   auto busyInfo = std::make_shared<wxBusyInfo>("Checking for updates...");
   auto disabler = std::make_shared<wxWindowDisabler>();
@@ -1082,14 +1088,16 @@ void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {
     const gui::update::CheckResult result = service.CheckForUpdates();
 
     CallAfter([this, result, busyInfo, disabler]() mutable {
-      // Releases busy UI guards before any modal dialog so result popups remain visible.
+      // Releases busy UI guards before any modal dialog so result popups remain
+      // visible.
       busyInfo.reset();
       disabler.reset();
 
       wxString title = "Perastage Updates";
       if (result.status == gui::update::CheckStatus::CheckFailed) {
         wxString message = "Could not check for updates.\n\n";
-        message += result.errorMessage.empty()
+        message +=
+            result.errorMessage.empty()
                        ? wxString::FromUTF8(
                              "Please verify your network connection and try again.")
                        : wxString::FromUTF8(result.errorMessage);
@@ -1186,11 +1194,14 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
   }
   if (viewportPanel) {
     std::vector<std::string> mergedSelection;
-    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedFixtures().begin(),
+    mergedSelection.insert(mergedSelection.end(),
+                           cfg.GetSelectedFixtures().begin(),
                            cfg.GetSelectedFixtures().end());
-    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedTrusses().begin(),
+    mergedSelection.insert(mergedSelection.end(),
+                           cfg.GetSelectedTrusses().begin(),
                            cfg.GetSelectedTrusses().end());
-    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedSupports().begin(),
+    mergedSelection.insert(mergedSelection.end(),
+                           cfg.GetSelectedSupports().begin(),
                            cfg.GetSelectedSupports().end());
     mergedSelection.insert(mergedSelection.end(),
                            cfg.GetSelectedSceneObjects().begin(),
@@ -1236,11 +1247,14 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
   }
   if (viewportPanel) {
     std::vector<std::string> mergedSelection;
-    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedFixtures().begin(),
+    mergedSelection.insert(mergedSelection.end(),
+                           cfg.GetSelectedFixtures().begin(),
                            cfg.GetSelectedFixtures().end());
-    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedTrusses().begin(),
+    mergedSelection.insert(mergedSelection.end(),
+                           cfg.GetSelectedTrusses().begin(),
                            cfg.GetSelectedTrusses().end());
-    mergedSelection.insert(mergedSelection.end(), cfg.GetSelectedSupports().begin(),
+    mergedSelection.insert(mergedSelection.end(),
+                           cfg.GetSelectedSupports().begin(),
                            cfg.GetSelectedSupports().end());
     mergedSelection.insert(mergedSelection.end(),
                            cfg.GetSelectedSceneObjects().begin(),
@@ -1333,7 +1347,8 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     if (dlgRes == wxID_OPEN) {
       wxString trussDir =
           wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
-      wxFileDialog fdlg(this, "Select Truss file", trussDir, wxEmptyString,
+      wxFileDialog fdlg(
+          this, "Select Truss file", trussDir, wxEmptyString,
                         wxString::FromUTF8(GetTrussDefinitionFileDialogWildcard()),
                         wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
@@ -1351,7 +1366,8 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
   } else {
     wxString trussDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
-    wxFileDialog fdlg(this, "Select Truss file", trussDir, wxEmptyString,
+    wxFileDialog fdlg(
+        this, "Select Truss file", trussDir, wxEmptyString,
                       wxString::FromUTF8(GetTrussDefinitionFileDialogWildcard()),
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
@@ -1373,10 +1389,9 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
                          "Add truss: selected extension='" + selectedExtension +
                              "' path='" + path + "'.");
   if (!LoadTrussDefinition(path, baseTruss)) {
-    Logger::Instance().Log(
-        Logger::Level::Warn,
-        "Add truss validation failed: extension='" + selectedExtension +
-            "' path='" + path + "'.");
+    Logger::Instance().Log(Logger::Level::Warn,
+                           "Add truss validation failed: extension='" +
+                               selectedExtension + "' path='" + path + "'.");
     wxMessageBox("Unsupported or unreadable truss file. Supported formats are "
                  "GDTF, GTruss, GLB, and 3DS.",
                  "Error", wxOK | wxICON_ERROR);
@@ -1457,8 +1472,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
           "' parsingSucceeded=true symbolFile='" + baseTruss.symbolFile +
           "' dimensionsMm=" + std::to_string(baseTruss.lengthMm) + "x" +
           std::to_string(baseTruss.widthMm) + "x" +
-          std::to_string(baseTruss.heightMm) +
-          " updateSceneRequested=" +
+          std::to_string(baseTruss.heightMm) + " updateSceneRequested=" +
           (updateSceneRequested ? std::string("true") : std::string("false")) +
           ".");
   if (viewportPanel) {
@@ -1468,9 +1482,10 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
   RefreshSummary();
 }
 
-
-// Converts imported OBJ files into GLB assets so MVR exports always reference official GLB resources.
-std::string NormalizeImportedObjectModelPathToGlb(const std::string &selectedPath,
+// Converts imported OBJ files into GLB assets so MVR exports always reference
+// official GLB resources.
+std::string
+NormalizeImportedObjectModelPathToGlb(const std::string &selectedPath,
                                                   const std::string &sceneBasePath,
                                                   std::string &consoleError) {
   namespace fs = std::filesystem;
@@ -1487,25 +1502,28 @@ std::string NormalizeImportedObjectModelPathToGlb(const std::string &selectedPat
   const fs::path importTempDir = tempRoot / "perastage_imported_objects";
   fs::create_directories(importTempDir, ec);
   if (ec) {
-    consoleError = "Failed preparing temporary directory for OBJ import conversion";
+    consoleError =
+        "Failed preparing temporary directory for OBJ import conversion";
     return selectedPath;
   }
 
-  const std::string uniqueSuffix = std::to_string(
-      static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count()));
+  const std::string uniqueSuffix = std::to_string(static_cast<long long>(
+      std::chrono::steady_clock::now().time_since_epoch().count()));
   const std::string targetName =
       sourcePath.stem().string() + "_" + uniqueSuffix + ".glb";
   const fs::path targetPath = importTempDir / targetName;
 
   std::string conversionError;
-  if (!ConvertObjFileToGlb(sourcePath.string(), targetPath.string(), &conversionError)) {
+  if (!ConvertObjFileToGlb(sourcePath.string(), targetPath.string(),
+                           &conversionError)) {
     consoleError = "Failed converting OBJ to GLB: " + conversionError;
     return selectedPath;
   }
 
   if (!sceneBasePath.empty()) {
     const fs::path absTarget = fs::weakly_canonical(targetPath, ec);
-    const fs::path absBase = fs::weakly_canonical(PathUtils::PathFromUtf8(sceneBasePath), ec);
+    const fs::path absBase =
+        fs::weakly_canonical(PathUtils::PathFromUtf8(sceneBasePath), ec);
     if (!ec && !absTarget.empty() && !absBase.empty() &&
         absTarget.string().rfind(absBase.string(), 0) == 0) {
       return fs::relative(absTarget, absBase, ec).string();
@@ -1588,7 +1606,8 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     std::string conversionError;
     path = NormalizeImportedObjectModelPathToGlb(path, base, conversionError);
     if (!conversionError.empty() && ConsolePanel::Instance())
-      ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(conversionError));
+      ConsolePanel::Instance()->AppendMessage(
+          wxString::FromUTF8(conversionError));
     if (!base.empty()) {
       fs::path abs = fs::absolute(path);
       fs::path b = fs::absolute(base);
@@ -1724,9 +1743,10 @@ void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
       sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects(), false);
   };
 
-  const bool hasAnySelection =
-      !cfg.GetSelectedFixtures().empty() || !cfg.GetSelectedTrusses().empty() ||
-      !cfg.GetSelectedSupports().empty() || !cfg.GetSelectedSceneObjects().empty();
+  const bool hasAnySelection = !cfg.GetSelectedFixtures().empty() ||
+                               !cfg.GetSelectedTrusses().empty() ||
+                               !cfg.GetSelectedSupports().empty() ||
+                               !cfg.GetSelectedSceneObjects().empty();
   if (hasAnySelection)
     cfg.PushUndoState("delete selected elements");
 

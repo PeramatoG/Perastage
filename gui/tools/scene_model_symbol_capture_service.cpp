@@ -29,8 +29,10 @@ struct Bounds3D {
   bool valid = false;
 };
 
-// Transforms a point by a Matrix using local-space basis vectors and translation.
-std::array<float, 3> TransformPoint(const Matrix &m, const std::array<float, 3> &p) {
+// Transforms a point by a Matrix using local-space basis vectors and
+// translation.
+std::array<float, 3> TransformPoint(const Matrix &m,
+                                    const std::array<float, 3> &p) {
   return {m.u[0] * p[0] + m.v[0] * p[1] + m.w[0] * p[2] + m.o[0],
           m.u[1] * p[0] + m.v[1] * p[1] + m.w[1] * p[2] + m.o[1],
           m.u[2] * p[0] + m.v[2] * p[1] + m.w[2] * p[2] + m.o[2]};
@@ -47,7 +49,8 @@ void ExtendBounds(Bounds3D &bounds, const std::array<float, 3> &p) {
   bounds.valid = true;
 }
 
-// Temporarily overrides a fixture color during symbol capture and restores it afterward.
+// Temporarily overrides a fixture color during symbol capture and restores it
+// afterward.
 class ScopedFixtureColorOverride {
 public:
   // Applies an optional temporary fixture color override for symbol capture.
@@ -60,8 +63,8 @@ public:
     auto it = fixtures.find(fixtureUuid);
     if (it == fixtures.end())
       return;
-    previous_.emplace_back(it->first, it->second.color);
-    it->second.color = *forcedHex;
+    previous_.emplace_back(it->first, it->second.visualColorHex);
+    it->second.visualColorHex = *forcedHex;
   }
 
   // Restores any fixture colors overridden during symbol capture.
@@ -70,7 +73,7 @@ public:
     for (const auto &[uuid, color] : previous_) {
       auto it = fixtures.find(uuid);
       if (it != fixtures.end())
-        it->second.color = color;
+        it->second.visualColorHex = color;
     }
   }
 
@@ -79,10 +82,12 @@ private:
   std::vector<std::pair<std::string, std::string>> previous_;
 };
 
-// Temporarily isolates the scene to a single model target for deterministic capture.
+// Temporarily isolates the scene to a single model target for deterministic
+// capture.
 class ScopedSingleModelSceneOverride {
 public:
-  // Replaces scene content with only the requested model target for isolated capture.
+  // Replaces scene content with only the requested model target for isolated
+  // capture.
   ScopedSingleModelSceneOverride(ConfigManager &cfg,
                                  const SceneModelSymbolTarget &target,
                                  bool alignToLocalAxes)
@@ -104,7 +109,8 @@ public:
       if (it != originalFixtures_.end()) {
         Fixture fixture = it->second;
         if (alignToLocalAxes)
-          fixture.transform = AlignRotationToIdentityKeepingScale(fixture.transform);
+          fixture.transform =
+              AlignRotationToIdentityKeepingScale(fixture.transform);
         scene.fixtures.emplace(it->first, std::move(fixture));
       }
       break;
@@ -114,7 +120,8 @@ public:
       if (it != originalTrusses_.end()) {
         Truss truss = it->second;
         if (alignToLocalAxes)
-          truss.transform = AlignRotationToIdentityKeepingScale(truss.transform);
+          truss.transform =
+              AlignRotationToIdentityKeepingScale(truss.transform);
         scene.trusses.emplace(it->first, std::move(truss));
       }
       break;
@@ -124,7 +131,8 @@ public:
       if (it != originalSceneObjects_.end()) {
         SceneObject object = it->second;
         if (alignToLocalAxes)
-          object.transform = AlignRotationToIdentityKeepingScale(object.transform);
+          object.transform =
+              AlignRotationToIdentityKeepingScale(object.transform);
         scene.sceneObjects.emplace(it->first, std::move(object));
       }
       break;
@@ -142,10 +150,12 @@ public:
   }
 
 private:
-  // Rebuilds a transform with identity rotation while preserving scale and translation.
+  // Rebuilds a transform with identity rotation while preserving scale and
+  // translation.
   static Matrix AlignRotationToIdentityKeepingScale(const Matrix &source) {
     Matrix identity = MatrixUtils::Identity();
-    return MatrixUtils::ApplyRotationPreservingScale(source, identity, source.o);
+    return MatrixUtils::ApplyRotationPreservingScale(source, identity,
+                                                     source.o);
   }
 
   ConfigManager &cfg_;
@@ -155,10 +165,12 @@ private:
   std::unordered_map<std::string, Support> originalSupports_;
 };
 
-// Saves and restores 2D viewer state so capture does not affect interactive UI state.
+// Saves and restores 2D viewer state so capture does not affect interactive UI
+// state.
 class ScopedViewer2DCaptureState {
 public:
-  // Stores the current 2D viewer state so capture can run without persisting UI changes.
+  // Stores the current 2D viewer state so capture can run without persisting UI
+  // changes.
   explicit ScopedViewer2DCaptureState(Viewer2DPanel &panel) : panel_(panel) {
     const Viewer2DViewState state = panel_.GetViewState();
     offsetXPixels_ = state.offsetPixelsX;
@@ -192,7 +204,8 @@ private:
   bool preferPerastageSvgSymbolsForLayouts_ = false;
 };
 
-// Applies temporary render overrides tailored for high-contrast symbol extraction.
+// Applies temporary render overrides tailored for high-contrast symbol
+// extraction.
 class ScopedViewer2DRenderOverrides {
 public:
   // Applies temporary render overrides optimized for symbol capture.
@@ -230,7 +243,8 @@ void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
   }
 }
 
-// Resolves fixture GDTF geometry bounds for aspect-driven symbol viewport sizing.
+// Resolves fixture GDTF geometry bounds for aspect-driven symbol viewport
+// sizing.
 bool TryResolveFixtureBoundsMmForCapture(ConfigManager &cfg,
                                          const SceneModelSymbolTarget &target,
                                          Bounds3D &bounds) {
@@ -243,8 +257,8 @@ bool TryResolveFixtureBoundsMmForCapture(ConfigManager &cfg,
 
   gui::fixtures::FixtureGdtfResolution resolution;
   std::string error;
-  if (!gui::fixtures::ResolveFixtureGdtfDeterministic(fixtureIt->second, cfg.GetScene(),
-                                                       resolution, error))
+  if (!gui::fixtures::ResolveFixtureGdtfDeterministic(
+          fixtureIt->second, cfg.GetScene(), resolution, error))
     return false;
 
   std::vector<GdtfObject> objects;
@@ -255,16 +269,19 @@ bool TryResolveFixtureBoundsMmForCapture(ConfigManager &cfg,
     if (object.isLens)
       continue;
     for (size_t vi = 0; vi + 2 < object.mesh.vertices.size(); vi += 3) {
-      const std::array<float, 3> local = {
-          object.mesh.vertices[vi], object.mesh.vertices[vi + 1], object.mesh.vertices[vi + 2]};
+      const std::array<float, 3> local = {object.mesh.vertices[vi],
+                                          object.mesh.vertices[vi + 1],
+                                          object.mesh.vertices[vi + 2]};
       ExtendBounds(bounds, TransformPoint(object.transform, local));
     }
   }
   return bounds.valid;
 }
 
-// Returns the expected projected width/height ratio for a symbol view from physical bounds.
-float ComputeCaptureAspectForView(const Bounds3D &bounds, symbols::SymbolView view) {
+// Returns the expected projected width/height ratio for a symbol view from
+// physical bounds.
+float ComputeCaptureAspectForView(const Bounds3D &bounds,
+                                  symbols::SymbolView view) {
   const float x = std::max(1e-3f, bounds.max[0] - bounds.min[0]);
   const float y = std::max(1e-3f, bounds.max[1] - bounds.min[1]);
   const float z = std::max(1e-3f, bounds.max[2] - bounds.min[2]);
@@ -282,10 +299,10 @@ float ComputeCaptureAspectForView(const Bounds3D &bounds, symbols::SymbolView vi
 
 } // namespace
 
-// Captures top/front/side/bottom orthographic renders and converts them into vector symbols.
-SceneModelSymbolCaptureResult
-CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
-                                     ConfigManager &cfg,
+// Captures top/front/side/bottom orthographic renders and converts them into
+// vector symbols.
+SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
+    Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
                                      const SceneModelSymbolTarget &target,
                                      const SceneModelSymbolCaptureOptions &options) {
   SceneModelSymbolCaptureResult result;
@@ -297,8 +314,8 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   }
 
   ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
-  ScopedSingleModelSceneOverride isolatedSceneOverride(cfg, target,
-                                                       options.alignToLocalAxes);
+  ScopedSingleModelSceneOverride isolatedSceneOverride(
+      cfg, target, options.alignToLocalAxes);
   ScopedFixtureColorOverride selectedFixtureColorOverride(
       cfg, target.kind == SceneModelKind::Fixture ? target.uuid : std::string(),
       options.forcedFixtureColor);
@@ -332,10 +349,13 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   };
 
   const std::array<CaptureRequest, 4> requests = {
-      CaptureRequest{Viewer2DView::Front, false, false, symbols::SymbolView::Front},
+      CaptureRequest{Viewer2DView::Front, false, false,
+                     symbols::SymbolView::Front},
       CaptureRequest{Viewer2DView::Top, false, false, symbols::SymbolView::Top},
-      CaptureRequest{Viewer2DView::Side, false, true, symbols::SymbolView::Left},
-      CaptureRequest{Viewer2DView::Top, true, false, symbols::SymbolView::Bottom},
+      CaptureRequest{Viewer2DView::Side, false, true,
+                     symbols::SymbolView::Left},
+      CaptureRequest{Viewer2DView::Top, true, false,
+                     symbols::SymbolView::Bottom},
   };
 
   std::vector<symbols::RenderedSymbolImage> renders;
@@ -346,11 +366,15 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
   for (const auto &request : requests) {
     if (hasFixtureBounds) {
-      const float aspect = ComputeCaptureAspectForView(fixtureBounds, request.symbolView);
-      const int base = std::max(256, std::max(options.viewportSize.GetWidth(),
+      const float aspect =
+          ComputeCaptureAspectForView(fixtureBounds, request.symbolView);
+      const int base =
+          std::max(256, std::max(options.viewportSize.GetWidth(),
                                               options.viewportSize.GetHeight()));
-      const int width = std::max(256, static_cast<int>(aspect >= 1.0f ? base : base * aspect));
-      const int height = std::max(256, static_cast<int>(aspect >= 1.0f ? base / aspect : base));
+      const int width = std::max(
+          256, static_cast<int>(aspect >= 1.0f ? base : base * aspect));
+      const int height = std::max(
+          256, static_cast<int>(aspect >= 1.0f ? base / aspect : base));
       renderer.SetViewportSize(wxSize(width, height));
     } else {
       renderer.SetViewportSize(options.viewportSize);
@@ -365,9 +389,11 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
     symbols::RenderedSymbolImage render;
     render.view = request.symbolView;
-    const bool ok = capturePanel->RenderToRGBA(render.rgba, render.width, render.height);
+    const bool ok =
+        capturePanel->RenderToRGBA(render.rgba, render.width, render.height);
     if (!ok || render.width <= 0 || render.height <= 0) {
-      result.error = "Could not capture all orthographic source images from the 2D viewer.";
+      result.error = "Could not capture all orthographic source images from "
+                     "the 2D viewer.";
       return result;
     }
     if (request.mirrorSideHorizontally)
@@ -375,7 +401,8 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
     renders.push_back(std::move(render));
   }
 
-  auto symbols = symbols::Symbol2DImageBuilder::BuildFromRenderedImages(renders);
+  auto symbols =
+      symbols::Symbol2DImageBuilder::BuildFromRenderedImages(renders);
   if (symbols.size() != requests.size()) {
     result.error = "Could not generate all symbols from captured views.";
     return result;

@@ -413,7 +413,7 @@ void FixtureTablePanel::ReloadData() {
     row.push_back(power);
     row.push_back(weight);
     row.push_back(category);
-    wxString color = wxString::FromUTF8(fixture->color);
+    wxString color = wxString::FromUTF8(fixture->visualColorHex);
     if (!color.IsEmpty()) {
       wxColour col(color);
       wxBitmap bmp(16, 16);
@@ -427,6 +427,25 @@ void FixtureTablePanel::ReloadData() {
       wxDataViewIconText iconText(color, bmp);
       wxVariant var;
       var << iconText;
+      row.push_back(var);
+    } else {
+      wxVariant var;
+      var << wxDataViewIconText();
+      row.push_back(var);
+    }
+    wxString mvrColor = wxString::FromUTF8(fixture->mvrFixtureColorHex);
+    if (!mvrColor.IsEmpty()) {
+      wxColour col(mvrColor);
+      wxBitmap bmp(16, 16);
+      {
+        wxMemoryDC dc(bmp);
+        dc.SetPen(*wxTRANSPARENT_PEN);
+        dc.SetBrush(wxBrush(col));
+        dc.DrawRectangle(0, 0, 16, 16);
+        dc.SelectObject(wxNullBitmap);
+      }
+      wxVariant var;
+      var << wxDataViewIconText(mvrColor, bmp);
       row.push_back(var);
     } else {
       wxVariant var;
@@ -548,8 +567,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         table->SetValue(
             wxVariant(wstr), r,
             FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Weight));
-        if (dictColor && !dictColor->color.empty())
-          SetFixtureColorCell(table, r, dictColor->color);
+        if (dictColor && !dictColor->visualColorHex.empty())
+          SetFixtureColorCell(table, r, dictColor->visualColorHex);
         changed = true;
       }
 
@@ -597,8 +616,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         table->SetValue(
             wxVariant(wstr), i,
             FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Weight));
-        if (dictColor && !dictColor->color.empty())
-          SetFixtureColorCell(table, i, dictColor->color);
+        if (dictColor && !dictColor->visualColorHex.empty())
+          SetFixtureColorCell(table, i, dictColor->visualColorHex);
         changed = true;
       }
 
