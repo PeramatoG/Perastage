@@ -12,6 +12,10 @@ Perastage v1.4.0 delivers a long-anticipated refresh of the modelling and riggin
   series directly in the visible 2D or 3D viewer. Each left-click confirms one
   fixture and starts the next, while right-click or Escape discards only the
   pending fixture; existing Magnet snapping settings remain active.
+- **Continuous truss and object placement** - Add Truss and Add Object now
+  provide the same pointer-driven placement workflow, including live Magnet and
+  axis-lock behavior, viewer navigation, cancellation, and placement-aware
+  Undo.
 
 - **Drag-Move toolbar toggle** - add left-click selection dragging without affecting panning in crowded views.  This project-persistent setting is disabled by default to prevent accidental moves.
 

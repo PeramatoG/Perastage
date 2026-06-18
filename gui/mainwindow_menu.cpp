@@ -51,6 +51,7 @@
 #include <wx/window.h>
 
 #include "addfixturedialog.h"
+#include "addsceneobjectdialog.h"
 #include "addtrussdialog.h"
 #include "autopatcher.h"
 #include "configmanager.h"
@@ -1164,11 +1165,11 @@ void MainWindow::OnPreferences(wxCommandEvent &WXUNUSED(event)) {
 void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
   const bool placementUndoHandled =
       (viewport2DPanel &&
-       viewport2DPanel->UndoContinuousFixturePlacement()) ||
-      (viewportPanel && viewportPanel->UndoContinuousFixturePlacement());
+       viewport2DPanel->UndoContinuousPlacement()) ||
+      (viewportPanel && viewportPanel->UndoContinuousPlacement());
   if (placementUndoHandled) {
     if (consolePanel)
-      consolePanel->AppendMessage("Undo continuous fixture placement");
+      consolePanel->AppendMessage("Undo continuous placement");
     RefreshSummary();
     return;
   }
@@ -1227,9 +1228,9 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
 // Redoes the last undone action and refreshes dependent UI panels.
 void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
   if ((viewport2DPanel &&
-       viewport2DPanel->IsContinuousFixturePlacementActive()) ||
+       viewport2DPanel->IsContinuousPlacementActive()) ||
       (viewportPanel &&
-       viewportPanel->IsContinuousFixturePlacementActive())) {
+       viewportPanel->IsContinuousPlacementActive())) {
     return;
   }
 
@@ -1422,7 +1423,8 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
   if (addDialog.ShowModal() != wxID_OK)
     return;
   const AddTrussRequest addRequest = addDialog.GetRequest();
-  const long qty = addRequest.quantity;
+  const bool continuousPlacement = addRequest.continuousPlacement;
+  const long qty = continuousPlacement ? 1 : addRequest.quantity;
   if (qty <= 0)
     return;
 
@@ -1496,6 +1498,19 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
   if (viewportPanel) {
     viewportPanel->UpdateScene();
     viewportPanel->Refresh();
+  }
+  if (viewport2DPanel) {
+    viewport2DPanel->UpdateScene();
+    viewport2DPanel->Refresh();
+  }
+  if (continuousPlacement && !addedTrussUuids.empty()) {
+    if (viewport2DPanel && viewport2DPanel->IsShownOnScreen()) {
+      viewport2DPanel->BeginContinuousPlacement(
+          ContinuousPlacementType::Truss, addedTrussUuids.front());
+    } else if (viewportPanel && viewportPanel->IsShownOnScreen()) {
+      viewportPanel->BeginContinuousPlacement(
+          ContinuousPlacementType::Truss, addedTrussUuids.front());
+    }
   }
   RefreshSummary();
 }
@@ -1610,8 +1625,12 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     path = WxToUtf8(fdlg.GetPath());
   }
 
-  long qty = wxGetNumberFromUser("Enter object quantity:", wxEmptyString,
-                                 "Add Scene Object", 1, 1, 1000, this);
+  AddSceneObjectDialog addDialog(this);
+  if (addDialog.ShowModal() != wxID_OK)
+    return;
+  const AddSceneObjectRequest addRequest = addDialog.GetRequest();
+  const bool continuousPlacement = addRequest.continuousPlacement;
+  const long qty = continuousPlacement ? 1 : addRequest.quantity;
   if (qty <= 0)
     return;
 
@@ -1651,6 +1670,8 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     scene.layers[layer.uuid] = layer;
   }
 
+  std::vector<std::string> addedObjectUuids;
+  addedObjectUuids.reserve(static_cast<size_t>(qty));
   for (long i = 0; i < qty; ++i) {
     SceneObject obj;
     obj.uuid = wxString::Format("uuid_%lld", static_cast<long long>(baseId + i))
@@ -1667,6 +1688,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     }
     obj.layer = layerName;
     scene.sceneObjects[obj.uuid] = obj;
+    addedObjectUuids.push_back(obj.uuid);
   }
 
   if (sceneObjPanel)
@@ -1674,6 +1696,19 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   if (viewportPanel) {
     viewportPanel->UpdateScene();
     viewportPanel->Refresh();
+  }
+  if (viewport2DPanel) {
+    viewport2DPanel->UpdateScene();
+    viewport2DPanel->Refresh();
+  }
+  if (continuousPlacement && !addedObjectUuids.empty()) {
+    if (viewport2DPanel && viewport2DPanel->IsShownOnScreen()) {
+      viewport2DPanel->BeginContinuousPlacement(
+          ContinuousPlacementType::SceneObject, addedObjectUuids.front());
+    } else if (viewportPanel && viewportPanel->IsShownOnScreen()) {
+      viewportPanel->BeginContinuousPlacement(
+          ContinuousPlacementType::SceneObject, addedObjectUuids.front());
+    }
   }
   RefreshSummary();
 }

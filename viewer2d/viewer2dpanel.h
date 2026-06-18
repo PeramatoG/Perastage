@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "continuous_placement_type.h"
 #include "canvas2d.h"
 #include "viewer3dcontroller.h"
 #include "viewer2d_measure_tool.h"
@@ -153,10 +154,11 @@ public:
   bool IsMeasureToolEnabled() const { return m_measureToolState.enabled; }
   void SetMagnetEnabled(bool enabled);
   bool IsMagnetEnabled() const { return m_magnetEnabled; }
-  void BeginContinuousFixturePlacement(const std::string &fixtureUuid);
-  bool UndoContinuousFixturePlacement();
-  bool IsContinuousFixturePlacementActive() const {
-    return m_continuousFixturePlacement;
+  void BeginContinuousPlacement(ContinuousPlacementType type,
+                                const std::string &elementUuid);
+  bool UndoContinuousPlacement();
+  bool IsContinuousPlacementActive() const {
+    return m_continuousPlacementActive;
   }
   std::optional<Viewer2DRenderOverrides> GetRenderOverrides() const {
     return m_renderOverrides;
@@ -211,11 +213,11 @@ private:
   std::optional<magnet_snap::SnapResult> RestorePendingMagnetSnapPreview();
   void CommitActiveMagnetSnap();
   void FinalizeSelectionDrag();
-  bool AlignContinuousFixtureToPointer(const wxPoint &screenPos);
-  void ConfirmContinuousFixturePlacement();
-  void CancelContinuousFixturePlacement();
-  void EndContinuousFixturePlacementState();
-  void RefreshContinuousFixturePlacementViews();
+  bool AlignContinuousElementToPointer(const wxPoint &screenPos);
+  void ConfirmContinuousPlacement();
+  void CancelContinuousPlacement();
+  void EndContinuousPlacementState();
+  void RefreshContinuousPlacementViews();
   void DrawSelectionDragGizmo(int width, int height);
   void ApplyRectangleSelection(const wxPoint &start, const wxPoint &end,
                                bool selectAcrossAllTables, bool additive);
@@ -307,10 +309,12 @@ private:
   bool m_magnetEnabled = false;
   std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
   bool m_draggedSincePress = false;
-  bool m_continuousFixturePlacement = false;
+  bool m_continuousPlacementActive = false;
+  ContinuousPlacementType m_continuousPlacementType =
+      ContinuousPlacementType::None;
   bool m_continuousPlacementNeedsPointerAlignment = false;
-  std::string m_continuousFixtureUuid;
-  std::vector<std::string> m_continuousPlacedFixtureUuids;
+  std::string m_continuousPlacementUuid;
+  std::vector<std::string> m_continuousPlacedUuids;
   wxLongLong m_dragPressTime = 0;
   bool m_rectSelecting = false;
   bool m_rectSelectionAcrossAllTables = false;

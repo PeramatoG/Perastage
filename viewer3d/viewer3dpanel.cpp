@@ -50,6 +50,7 @@
 #include "scene_object_primitive_editing.h"
 #include "../gui/selection_origin_token.h"
 #include "configmanager.h"
+#include "continuous_placement_scene.h"
 #include "selection_movement_settings.h"
 #include "magnet_snap.h"
 #include "scene_grouping.h"
@@ -1669,7 +1670,7 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
 // Handles mouse button press
 void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
 {
-    if (m_continuousFixturePlacement && event.LeftDown()) {
+    if (m_continuousPlacementActive && event.LeftDown()) {
         m_mode = event.ShiftDown() ? InteractionMode::Pan
                                    : InteractionMode::Orbit;
         m_dragging = true;
@@ -1742,7 +1743,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                                 event.GetX(), event.GetY(), event.LeftUp() ? 1 : 0,
                                 event.MiddleUp() ? 1 : 0, event.RightUp() ? 1 : 0,
                                 m_draggedSincePress ? 1 : 0);
-    if (m_continuousFixturePlacement && event.LeftUp()) {
+    if (m_continuousPlacementActive && event.LeftUp()) {
         const bool navigated = m_draggedSincePress;
         m_dragging = false;
         m_isInteracting = false;
@@ -1755,9 +1756,9 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         m_draggedSincePress = false;
         if (navigated) {
             m_continuousPlacementNeedsPointerAlignment = true;
-            AlignContinuousFixtureToPointer(event.GetPosition());
+            AlignContinuousElementToPointer(event.GetPosition());
         } else {
-            ConfirmContinuousFixturePlacement();
+            ConfirmContinuousPlacement();
         }
         m_forceHoverQuery = true;
         Refresh();
@@ -1966,8 +1967,8 @@ void Viewer3DPanel::ClearAllObjectSelections(const char* undoLabel)
 // Opens the right-click selection and render-style context menu.
 void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
 {
-    if (m_continuousFixturePlacement) {
-        CancelContinuousFixturePlacement();
+    if (m_continuousPlacementActive) {
+        CancelContinuousPlacement();
         return;
     }
     if (m_draggedSincePress)
@@ -2734,157 +2735,167 @@ void Viewer3DPanel::FinalizeSelectionDrag()
     }
 }
 
-// Starts moving a newly created fixture with the pointer until it is placed.
-void Viewer3DPanel::BeginContinuousFixturePlacement(const std::string& fixtureUuid)
+// Starts moving a newly created scene element with the pointer until it is placed.
+void Viewer3DPanel::BeginContinuousPlacement(
+    ContinuousPlacementType type, const std::string& elementUuid)
 {
-    const auto it = ConfigManager::Get().GetScene().fixtures.find(fixtureUuid);
-    if (it == ConfigManager::Get().GetScene().fixtures.end())
+    ConfigManager& cfg = ConfigManager::Get();
+    if (!continuous_placement::Contains(cfg.GetScene(), type, elementUuid))
         return;
+
     ResetSelectionDragState();
-    m_continuousFixturePlacement = true;
+    m_continuousPlacementActive = true;
+    m_continuousPlacementType = type;
     m_continuousPlacementNeedsPointerAlignment = true;
-    m_continuousFixtureUuid = fixtureUuid;
-    m_continuousPlacedFixtureUuids.clear();
+    m_continuousPlacementUuid = elementUuid;
+    m_continuousPlacedUuids.clear();
     m_selectionDragArmed = true;
     m_selectionDragUndoPushed = true;
-    m_selectionDragTarget = HoverTargetTable::Fixtures;
-    m_dragSelectionUuids = {fixtureUuid};
-    m_dragFixtureUuids = {fixtureUuid};
+    m_selectionDragTarget = type == ContinuousPlacementType::Fixture
+                                ? HoverTargetTable::Fixtures
+                            : type == ContinuousPlacementType::Truss
+                                ? HoverTargetTable::Trusses
+                                : HoverTargetTable::SceneObjects;
+    m_dragSelectionUuids = {elementUuid};
+    m_dragFixtureUuids = type == ContinuousPlacementType::Fixture
+                             ? std::vector<std::string>{elementUuid}
+                             : std::vector<std::string>{};
+    m_dragTrussUuids = type == ContinuousPlacementType::Truss
+                           ? std::vector<std::string>{elementUuid}
+                           : std::vector<std::string>{};
+    m_dragSceneObjectUuids = type == ContinuousPlacementType::SceneObject
+                                 ? std::vector<std::string>{elementUuid}
+                                 : std::vector<std::string>{};
     m_lastMousePos = ScreenToClient(wxGetMousePosition());
-    m_selectionDragAnchorMeters = {it->second.transform.o[0] / 1000.0f,
-                                   it->second.transform.o[1] / 1000.0f,
-                                   it->second.transform.o[2] / 1000.0f};
+    m_selectionDragAnchorMeters = continuous_placement::PositionMeters(
+        cfg.GetScene(), type, elementUuid);
     SetFocus();
     UpdateSelectionDragStatusPosition();
     Refresh();
 }
 
-// Commits the current fixture and creates the next pointer-driven copy.
-void Viewer3DPanel::ConfirmContinuousFixturePlacement()
+// Commits the current element and creates the next pointer-driven copy.
+void Viewer3DPanel::ConfirmContinuousPlacement()
 {
     ConfigManager& cfg = ConfigManager::Get();
-    auto it = cfg.GetScene().fixtures.find(m_continuousFixtureUuid);
-    if (it == cfg.GetScene().fixtures.end()) {
-        CancelContinuousFixturePlacement();
+    if (!continuous_placement::Contains(cfg.GetScene(),
+                                        m_continuousPlacementType,
+                                        m_continuousPlacementUuid)) {
+        CancelContinuousPlacement();
         return;
     }
-    Fixture next = it->second;
-    cfg.PushUndoState("place fixture");
-    m_continuousPlacedFixtureUuids.push_back(m_continuousFixtureUuid);
+
+    cfg.PushUndoState(std::string("place ") +
+                      continuous_placement::ElementName(
+                          m_continuousPlacementType));
+    m_continuousPlacedUuids.push_back(m_continuousPlacementUuid);
+    const std::string nextUuid =
+        wxString::Format("uuid_%lld", static_cast<long long>(
+            std::chrono::steady_clock::now().time_since_epoch().count()))
+            .ToStdString();
+    if (!continuous_placement::CloneElement(
+            cfg.GetScene(), m_continuousPlacementType,
+            m_continuousPlacementUuid, nextUuid)) {
+        CancelContinuousPlacement();
+        return;
+    }
     CommitActiveMagnetSnap();
-    next.fixtureId += 1;
-    next.uuid = wxString::Format("uuid_%lld", static_cast<long long>(
-        std::chrono::steady_clock::now().time_since_epoch().count())).ToStdString();
-    cfg.GetScene().fixtures[next.uuid] = next;
-    m_continuousFixtureUuid = next.uuid;
+    const auto placedUuids = m_continuousPlacedUuids;
+    BeginContinuousPlacement(m_continuousPlacementType, nextUuid);
+    m_continuousPlacedUuids = placedUuids;
     m_continuousPlacementNeedsPointerAlignment = false;
-    m_dragSelectionUuids = {next.uuid};
-    m_dragFixtureUuids = {next.uuid};
-    m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
-    m_selectionDragAnchorMeters = {next.transform.o[0] / 1000.0f,
-                                   next.transform.o[1] / 1000.0f,
-                                   next.transform.o[2] / 1000.0f};
-    m_pendingMagnetSnap.reset();
-    RefreshContinuousFixturePlacementViews();
+    RefreshContinuousPlacementViews();
 }
 
-// Removes the uncommitted fixture and ends continuous placement.
-void Viewer3DPanel::CancelContinuousFixturePlacement()
+// Removes the uncommitted element and ends continuous placement.
+void Viewer3DPanel::CancelContinuousPlacement()
 {
     RestorePendingMagnetSnapPreview();
     ConfigManager& cfg = ConfigManager::Get();
-    cfg.GetScene().fixtures.erase(m_continuousFixtureUuid);
-    if (m_continuousPlacedFixtureUuids.empty()) {
+    continuous_placement::EraseElement(cfg.GetScene(),
+                                       m_continuousPlacementType,
+                                       m_continuousPlacementUuid);
+    if (m_continuousPlacedUuids.empty()) {
         if (cfg.CanUndo())
             cfg.Undo();
     } else {
         const MvrScene finalScene = cfg.GetScene();
-        for (size_t i = 0; i <= m_continuousPlacedFixtureUuids.size() &&
+        for (size_t i = 0; i <= m_continuousPlacedUuids.size() &&
                            cfg.CanUndo();
              ++i) {
             cfg.Undo();
         }
-        cfg.PushUndoState("continuous fixture placement");
+        cfg.PushUndoState(std::string("continuous ") +
+                          continuous_placement::ElementName(
+                              m_continuousPlacementType) +
+                          " placement");
         cfg.GetScene() = finalScene;
     }
-    EndContinuousFixturePlacementState();
-    RefreshContinuousFixturePlacementViews();
+    EndContinuousPlacementState();
+    RefreshContinuousPlacementViews();
 }
 
-// Undoes one confirmed fixture while keeping the placement session active.
-bool Viewer3DPanel::UndoContinuousFixturePlacement()
+// Undoes one confirmed element while keeping the placement session active.
+bool Viewer3DPanel::UndoContinuousPlacement()
 {
-    if (!m_continuousFixturePlacement)
+    if (!m_continuousPlacementActive)
         return false;
 
     ConfigManager& cfg = ConfigManager::Get();
     RestorePendingMagnetSnapPreview();
-    if (m_continuousPlacedFixtureUuids.empty()) {
+    if (m_continuousPlacedUuids.empty()) {
         if (cfg.CanUndo())
             cfg.Undo();
-        EndContinuousFixturePlacementState();
-        RefreshContinuousFixturePlacementViews();
+        EndContinuousPlacementState();
+        RefreshContinuousPlacementViews();
         return true;
     }
-    if (m_continuousPlacedFixtureUuids.size() == 1) {
+    if (m_continuousPlacedUuids.size() == 1) {
         if (cfg.CanUndo())
             cfg.Undo();
         if (cfg.CanUndo())
             cfg.Undo();
-        EndContinuousFixturePlacementState();
-        RefreshContinuousFixturePlacementViews();
+        EndContinuousPlacementState();
+        RefreshContinuousPlacementViews();
         return true;
     }
 
-    const std::string restoredFixtureUuid =
-        m_continuousPlacedFixtureUuids.back();
-    m_continuousPlacedFixtureUuids.pop_back();
+    const std::string restoredUuid = m_continuousPlacedUuids.back();
+    m_continuousPlacedUuids.pop_back();
     if (cfg.CanUndo())
         cfg.Undo();
-    auto fixtureIt = cfg.GetScene().fixtures.find(restoredFixtureUuid);
-    if (fixtureIt == cfg.GetScene().fixtures.end()) {
-        EndContinuousFixturePlacementState();
-        RefreshContinuousFixturePlacementViews();
+    if (!continuous_placement::Contains(cfg.GetScene(),
+                                        m_continuousPlacementType,
+                                        restoredUuid)) {
+        EndContinuousPlacementState();
+        RefreshContinuousPlacementViews();
         return true;
     }
-    m_continuousFixtureUuid = restoredFixtureUuid;
-    m_continuousPlacementNeedsPointerAlignment = true;
-    m_selectionDragArmed = true;
-    m_selectionDragMoved = false;
-    m_selectionDragUndoPushed = true;
-    m_selectionDragTarget = HoverTargetTable::Fixtures;
-    m_dragSelectionUuids = {restoredFixtureUuid};
-    m_dragFixtureUuids = {restoredFixtureUuid};
-    m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
-    m_selectionDragAnchorMeters = {
-        fixtureIt->second.transform.o[0] / 1000.0f,
-        fixtureIt->second.transform.o[1] / 1000.0f,
-        fixtureIt->second.transform.o[2] / 1000.0f};
-    m_pendingMagnetSnap.reset();
-    UpdateSelectionDragStatusPosition();
-    RefreshContinuousFixturePlacementViews();
+    const auto placedUuids = m_continuousPlacedUuids;
+    BeginContinuousPlacement(m_continuousPlacementType, restoredUuid);
+    m_continuousPlacedUuids = placedUuids;
+    RefreshContinuousPlacementViews();
     return true;
 }
 
 // Clears placement-only interaction state without changing the scene.
-void Viewer3DPanel::EndContinuousFixturePlacementState()
+void Viewer3DPanel::EndContinuousPlacementState()
 {
-    m_continuousFixturePlacement = false;
+    m_continuousPlacementActive = false;
+    m_continuousPlacementType = ContinuousPlacementType::None;
     m_continuousPlacementNeedsPointerAlignment = false;
-    m_continuousFixtureUuid.clear();
-    m_continuousPlacedFixtureUuids.clear();
+    m_continuousPlacementUuid.clear();
+    m_continuousPlacedUuids.clear();
     ResetSelectionDragState();
 }
 
-// Synchronizes fixture tables and both viewers after a placement history change.
-void Viewer3DPanel::RefreshContinuousFixturePlacementViews()
+// Synchronizes tables and both viewers after a placement history change.
+void Viewer3DPanel::RefreshContinuousPlacementViews()
 {
     if (MainWindow::Instance()) {
         MainWindow::Instance()->RefreshAfterToolSceneUpdate();
         return;
     }
-    if (FixtureTablePanel::Instance())
-        FixtureTablePanel::Instance()->ReloadData();
     UpdateScene();
     if (Viewer2DPanel::Instance())
         Viewer2DPanel::Instance()->UpdateScene();
@@ -2994,11 +3005,11 @@ void Viewer3DPanel::ApplyCameraDrag(const wxMouseEvent& event,
 }
 
 // Aligns the provisional fixture with the raw view-plane position under the pointer.
-bool Viewer3DPanel::AlignContinuousFixtureToPointer(const wxPoint& mousePos)
+bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint& mousePos)
 {
     const RenderSize renderSize = ResolveRenderSize(this);
     if (!renderSize.IsValid() ||
-        !TryBindGlContextForInteraction("continuous fixture alignment")) {
+        !TryBindGlContextForInteraction("continuous element alignment")) {
         return false;
     }
 
@@ -3024,20 +3035,20 @@ bool Viewer3DPanel::AlignContinuousFixtureToPointer(const wxPoint& mousePos)
 void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 {
     wxPoint pos = event.GetPosition();
-    if (m_continuousFixturePlacement) {
+    if (m_continuousPlacementActive) {
         if (m_dragging && event.Dragging()) {
             ApplyCameraDrag(event, pos);
             Refresh();
             return;
         }
         if (m_continuousPlacementNeedsPointerAlignment) {
-            AlignContinuousFixtureToPointer(pos);
+            AlignContinuousElementToPointer(pos);
             Refresh();
             return;
         }
         const RenderSize renderSize = ResolveRenderSize(this);
         if (renderSize.IsValid() &&
-            TryBindGlContextForInteraction("continuous fixture placement")) {
+            TryBindGlContextForInteraction("continuous element placement")) {
             ApplyCameraMatrices(renderSize);
             const int dx = pos.x - m_lastMousePos.x;
             const int dy = pos.y - m_lastMousePos.y;
@@ -3309,8 +3320,8 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
 
     switch (event.GetKeyCode()) {
         case WXK_ESCAPE:
-            if (m_continuousFixturePlacement) {
-                CancelContinuousFixturePlacement();
+            if (m_continuousPlacementActive) {
+                CancelContinuousPlacement();
                 return;
             }
             if (m_measureToolEnabled) {

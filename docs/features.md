@@ -98,17 +98,18 @@ Additional safeguards include:
 ### Data tables
 
 - Dedicated tables for fixtures, trusses, hoists, and objects.
-- Add Fixture offers a continuous placement mode that disables the fixed
-  quantity field and attaches one new fixture at a time to the pointer in the
-  visible 2D or 3D viewer. Left-click confirms each fixture and immediately
-  starts the next copy; right-click or Escape cancels only the pending copy.
+- Add Fixture, Add Truss, and Add Object offer a continuous placement mode that
+  disables the fixed quantity field and attaches one new element at a time to
+  the pointer in the visible 2D or 3D viewer. Left-click confirms each element
+  and immediately starts the next copy; right-click or Escape cancels only the
+  pending copy.
   Magnet snapping and axis-constrained movement follow the current viewer
   toolbar settings, including changes made while placement is active. Holding
   the left button and dragging navigates the active viewer instead of
-  confirming a fixture; releasing the button immediately realigns the pending
-  fixture beneath the pointer. Undo removes the most recently confirmed fixture while
-  leaving a provisional copy attached to the pointer. Undoing the first
-  confirmed fixture, or undoing before any confirmation, cancels continuous
+  confirming an element; releasing the button immediately realigns the pending
+  element beneath the pointer. Undo removes the most recently confirmed element
+  while leaving a provisional copy attached to the pointer. Undoing the first
+  confirmed element, or undoing before any confirmation, cancels continuous
   placement.
 - Add Truss supports quantity, real-world insertion-point coordinates in the active distance units, automatic linear placement from the selected truss bounding-box length, and optional default grouping into one bridge.
 - Multi-row editing helpers include fills, ranges, interpolation, and relative expressions.

@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "continuous_placement_type.h"
 #include <wx/glcanvas.h>
 #include "interaction/selection_drag_math.h"
 #include "viewer3dcamera.h"
@@ -86,10 +87,11 @@ public:
     void SetMagnetEnabled(bool enabled);
     // Returns whether Magnet snapping is currently enabled for 3D selection dragging.
     bool IsMagnetEnabled() const { return m_magnetEnabled; }
-    void BeginContinuousFixturePlacement(const std::string& fixtureUuid);
-    bool UndoContinuousFixturePlacement();
-    bool IsContinuousFixturePlacementActive() const {
-        return m_continuousFixturePlacement;
+    void BeginContinuousPlacement(ContinuousPlacementType type,
+                                  const std::string& elementUuid);
+    bool UndoContinuousPlacement();
+    bool IsContinuousPlacementActive() const {
+        return m_continuousPlacementActive;
     }
 
     enum class HoverTargetTable { None, Fixtures, Trusses, SceneObjects };
@@ -121,10 +123,12 @@ private:
     std::array<float, 3> m_selectionDragAnchorMeters{0.0f, 0.0f, 0.0f};
     viewer3d::SelectionDragAxis m_selectionDragAxis =
         viewer3d::SelectionDragAxis::None;
-    bool m_continuousFixturePlacement = false;
+    bool m_continuousPlacementActive = false;
+    ContinuousPlacementType m_continuousPlacementType =
+        ContinuousPlacementType::None;
     bool m_continuousPlacementNeedsPointerAlignment = false;
-    std::string m_continuousFixtureUuid;
-    std::vector<std::string> m_continuousPlacedFixtureUuids;
+    std::string m_continuousPlacementUuid;
+    std::vector<std::string> m_continuousPlacedUuids;
 
     // Type of interaction currently active (Orbit or Pan)
     enum class InteractionMode { None, Orbit, Pan };
@@ -182,11 +186,11 @@ private:
     void CommitActiveMagnetSnap();
     void UpdateSelectionDragStatusPosition();
     void FinalizeSelectionDrag();
-    bool AlignContinuousFixtureToPointer(const wxPoint& mousePos);
-    void ConfirmContinuousFixturePlacement();
-    void CancelContinuousFixturePlacement();
-    void EndContinuousFixturePlacementState();
-    void RefreshContinuousFixturePlacementViews();
+    bool AlignContinuousElementToPointer(const wxPoint& mousePos);
+    void ConfirmContinuousPlacement();
+    void CancelContinuousPlacement();
+    void EndContinuousPlacementState();
+    void RefreshContinuousPlacementViews();
     void DrawSelectionDragGizmo(const RenderSize& renderSize);
 
     // Renders the full scene

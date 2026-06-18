@@ -29,6 +29,7 @@
 #include "addfixturedialog.h"
 #include "configmanager.h"
 #include "consolepanel.h"
+#include "continuous_placement_type.h"
 #include "fixture.h"
 #include "fixturetablepanel.h"
 #include "gdtfdictionary.h"
@@ -180,9 +181,11 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
   }
   if (continuousPlacement) {
     if (viewport2DPanel && viewport2DPanel->IsShownOnScreen())
-      viewport2DPanel->BeginContinuousFixturePlacement(continuousFixtureUuid);
+      viewport2DPanel->BeginContinuousPlacement(
+          ContinuousPlacementType::Fixture, continuousFixtureUuid);
     else if (viewportPanel && viewportPanel->IsShownOnScreen())
-      viewportPanel->BeginContinuousFixturePlacement(continuousFixtureUuid);
+      viewportPanel->BeginContinuousPlacement(
+          ContinuousPlacementType::Fixture, continuousFixtureUuid);
   }
   RefreshSummary();
 }

@@ -73,7 +73,7 @@ AddTrussDialog::AddTrussDialog(wxWindow *parent)
   const auto unitSystem = ResolveDistanceUnitSystem();
 
   auto *root = new wxBoxSizer(wxVERTICAL);
-  auto *grid = new wxFlexGridSizer(5, 2, 8, 8);
+  auto *grid = new wxFlexGridSizer(6, 2, 8, 8);
   grid->AddGrowableCol(1, 1);
 
   grid->Add(new wxStaticText(this, wxID_ANY, "Quantity:"), 0,
@@ -91,6 +91,13 @@ AddTrussDialog::AddTrussDialog(wxWindow *parent)
   createGroupCtrl_ = new wxCheckBox(this, wxID_ANY, "Create group");
   createGroupCtrl_->SetValue(true);
   grid->Add(createGroupCtrl_, 1, wxEXPAND);
+
+  grid->AddSpacer(1);
+  continuousPlacementCtrl_ =
+      new wxCheckBox(this, wxID_ANY, "Place continuously in the viewer");
+  grid->Add(continuousPlacementCtrl_, 1, wxEXPAND);
+  continuousPlacementCtrl_->Bind(
+      wxEVT_CHECKBOX, &AddTrussDialog::OnContinuousPlacementChanged, this);
 
   root->Add(grid, 1, wxALL | wxEXPAND, 12);
   root->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL), 0,
@@ -112,5 +119,16 @@ AddTrussRequest AddTrussDialog::GetRequest() const {
       static_cast<float>(UiUnitUtils::DistanceDisplayToMillimeters(
           zCtrl_ ? zCtrl_->GetValue() : 0.0, unitSystem))};
   request.createGroup = createGroupCtrl_ ? createGroupCtrl_->GetValue() : true;
+  request.continuousPlacement =
+      continuousPlacementCtrl_ && continuousPlacementCtrl_->GetValue();
   return request;
+}
+
+// Disables fixed-count options while continuous placement is selected.
+void AddTrussDialog::OnContinuousPlacementChanged(wxCommandEvent &event) {
+  const bool enabled = !event.IsChecked();
+  if (quantityCtrl_)
+    quantityCtrl_->Enable(enabled);
+  if (createGroupCtrl_)
+    createGroupCtrl_->Enable(enabled);
 }

@@ -2,6 +2,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/about_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/addfixturedialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/addtrussdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/addsceneobjectdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/addressdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/columnselectiondialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/consolepanel.cpp
