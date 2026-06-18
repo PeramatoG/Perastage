@@ -105,7 +105,8 @@ Additional safeguards include:
   Magnet snapping and axis-constrained movement follow the current viewer
   toolbar settings, including changes made while placement is active. Holding
   the left button and dragging navigates the active viewer instead of
-  confirming a fixture. Undo removes the most recently confirmed fixture while
+  confirming a fixture; releasing the button immediately realigns the pending
+  fixture beneath the pointer. Undo removes the most recently confirmed fixture while
   leaving a provisional copy attached to the pointer. Undoing the first
   confirmed fixture, or undoing before any confirmation, cancels continuous
   placement.

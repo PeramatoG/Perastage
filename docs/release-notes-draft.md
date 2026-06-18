@@ -77,6 +77,8 @@ This release addresses dozens of issues across importing, snapping, editing and 
   use the supported main-window scene update pipeline across all platforms.
   Pointer following now uses the same incremental Magnet preview path as normal
   selection dragging, preventing rapid snap/release flicker near truss edges.
+  After navigating the viewer, releasing the left button now immediately
+  realigns the pending fixture beneath the pointer.
 - **Fixture color compatibility** - corrected the fixture visual-color rename so
   fixture editing and fixture replacement build correctly, while layer colors
   and fixture-summary swatches continue to use their existing model fields

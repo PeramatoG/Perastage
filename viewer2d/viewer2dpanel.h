@@ -211,6 +211,7 @@ private:
   std::optional<magnet_snap::SnapResult> RestorePendingMagnetSnapPreview();
   void CommitActiveMagnetSnap();
   void FinalizeSelectionDrag();
+  bool AlignContinuousFixtureToPointer(const wxPoint &screenPos);
   void ConfirmContinuousFixturePlacement();
   void CancelContinuousFixturePlacement();
   void EndContinuousFixturePlacementState();

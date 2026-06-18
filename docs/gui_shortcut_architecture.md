@@ -105,7 +105,9 @@ behavior without changing shortcut routing.
 A left-button press is confirmed as placement only when it is released without
 navigation movement. Holding and dragging keeps the normal viewer-local
 navigation behavior: pan in the 2D viewer, and orbit or `Shift`-pan in the 3D
-viewer. This mouse gesture does not add a shortcut-registry entry.
+viewer. Releasing the button after navigation immediately realigns the pending
+fixture beneath the pointer without confirming it. This mouse gesture does not
+add a shortcut-registry entry.
 
 The global `Ctrl+Z`/Undo command is session-aware while continuous placement is
 active. It restores the previous placement snapshot, removes the latest

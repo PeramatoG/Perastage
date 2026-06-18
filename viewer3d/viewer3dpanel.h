@@ -182,6 +182,7 @@ private:
     void CommitActiveMagnetSnap();
     void UpdateSelectionDragStatusPosition();
     void FinalizeSelectionDrag();
+    bool AlignContinuousFixtureToPointer(const wxPoint& mousePos);
     void ConfirmContinuousFixturePlacement();
     void CancelContinuousFixturePlacement();
     void EndContinuousFixturePlacementState();

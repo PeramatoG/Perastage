@@ -2901,8 +2901,12 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     const bool navigated = m_draggedSincePress;
     m_dragMode = DragMode::Selection;
     m_draggedSincePress = false;
-    if (!navigated)
+    if (navigated) {
+      m_continuousPlacementNeedsPointerAlignment = true;
+      AlignContinuousFixtureToPointer(event.GetPosition());
+    } else {
       ConfirmContinuousFixturePlacement();
+    }
     RequestRepaint();
     return;
   }
@@ -3336,20 +3340,32 @@ void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
   ClearCursorWorldPosition();
 }
 
+// Aligns the provisional fixture with the raw world position under the pointer.
+bool Viewer2DPanel::AlignContinuousFixtureToPointer(
+    const wxPoint &screenPos) {
+  RestorePendingMagnetSnapPreview();
+  const auto pointerWorld = ComputeWorldPositionFromScreen(screenPos);
+  const auto currentWorld = ComputeSelectionDragCenterMeters();
+  if (!pointerWorld || !currentWorld)
+    return false;
+
+  ApplySelectionDelta({(*pointerWorld)[0] - (*currentWorld)[0],
+                       (*pointerWorld)[1] - (*currentWorld)[1],
+                       (*pointerWorld)[2] - (*currentWorld)[2]});
+  m_continuousPlacementNeedsPointerAlignment = false;
+  m_dragAxis = DragAxis::None;
+  m_dragSelectionMoved = true;
+  m_lastMousePos = screenPos;
+  return true;
+}
+
 // Handles pointer-following placement, selection movement, and view panning.
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   if (m_continuousFixturePlacement &&
       !(m_dragMode == DragMode::View && event.Dragging())) {
     const wxPoint pos = event.GetPosition();
     if (m_continuousPlacementNeedsPointerAlignment) {
-      const auto pointerWorld = ComputeWorldPositionFromScreen(pos);
-      const auto currentWorld = ComputeSelectionDragCenterMeters();
-      if (pointerWorld && currentWorld) {
-        ApplySelectionDelta({(*pointerWorld)[0] - (*currentWorld)[0],
-                             (*pointerWorld)[1] - (*currentWorld)[1],
-                             (*pointerWorld)[2] - (*currentWorld)[2]});
-        m_continuousPlacementNeedsPointerAlignment = false;
-      }
+      AlignContinuousFixtureToPointer(pos);
     } else {
       int dx = pos.x - m_lastMousePos.x;
       int dy = pos.y - m_lastMousePos.y;
