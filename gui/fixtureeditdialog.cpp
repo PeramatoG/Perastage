@@ -19,6 +19,7 @@
 #include "configmanager.h"
 #include "filesystem_path_utils.h"
 #include "fixturepreviewpanel.h"
+#include "fixturetable/fixture_table_columns.h"
 #include "fixturetablepanel.h"
 #include "gdtf_mutation_audit.h"
 #include "gdtfdictionary.h"
