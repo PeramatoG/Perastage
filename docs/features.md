@@ -42,6 +42,10 @@ Perastage is designed for lighting designers, programmers, and technicians who n
   coloring and is shared by fixture type and mode, while Color Filter is the
   optional per-fixture color imported from and exported to the MVR
   `Fixture/Color` node.
+- Stores Type Color by fixture profile and mode in root-level Perastage
+  `UserData`, allowing table swatches, summaries, legends, and type-based
+  viewer colors to survive project save and reopen without using the standard
+  MVR `Fixture/Color` node.
 - Stores Perastage-specific layer appearance metadata, including layer colors, in root-level `UserData/Data` with Perastage-owned `PerastageLayerAppearance` entries instead of writing non-standard color data inside standard `Layer` nodes.
 - Parametric objects exported as Fixture/Truss/Support receive stable non-empty `FixtureID` and globally unique `FixtureIDNumeric` values.
 

@@ -1587,15 +1587,16 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
   parseLayerAppearanceMap(root->FirstChildElement("UserData"));
 
-  struct RootFixtureTypeCategoryInfo {
+  struct RootFixtureTypeInfo {
     std::string category;
     std::string categorySource;
+    std::string visualColorHex;
   };
-  std::unordered_map<std::string, RootFixtureTypeCategoryInfo>
-      rootFixtureCategoryByTypeKey;
+  std::unordered_map<std::string, RootFixtureTypeInfo>
+      rootFixtureTypeInfoByKey;
 
   // Builds the root UserData fixture type key used by Perastage exports.
-  auto buildFixtureTypeCategoryKey = [](const std::string &gdtfSpec,
+  auto buildFixtureTypeInfoKey = [](const std::string &gdtfSpec,
                                         const std::string &gdtfMode,
                                         const std::string &typeName) {
     std::ostringstream key;
@@ -1630,30 +1631,39 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           std::string key =
               Trim(info->Attribute("key") ? info->Attribute("key") : "");
           if (key.empty()) {
-            key = buildFixtureTypeCategoryKey(
+            key = buildFixtureTypeInfoKey(
                 info->Attribute("gdtfSpec") ? info->Attribute("gdtfSpec") : "",
                 info->Attribute("gdtfMode") ? info->Attribute("gdtfMode") : "",
                 info->Attribute("model") ? info->Attribute("model") : "");
           }
           if (key.empty())
             continue;
-          RootFixtureTypeCategoryInfo categoryInfo;
+          RootFixtureTypeInfo typeInfo;
           if (tinyxml2::XMLElement *category =
                   info->FirstChildElement("Category")) {
             if (const char *txt = category->GetText())
-              categoryInfo.category =
+              typeInfo.category =
                   GdtfFixtureCategory::NormalizeCategory(Trim(txt));
           }
           if (tinyxml2::XMLElement *source =
                   info->FirstChildElement("CategorySource")) {
             if (const char *txt = source->GetText())
-              categoryInfo.categorySource = Trim(txt);
+              typeInfo.categorySource = Trim(txt);
           }
-          if (!categoryInfo.category.empty() &&
-              categoryInfo.categorySource.empty())
-            categoryInfo.categorySource = GdtfFixtureCategory::kManualSource;
-          if (!categoryInfo.category.empty())
-            rootFixtureCategoryByTypeKey[key] = categoryInfo;
+          if (!typeInfo.category.empty() &&
+              typeInfo.categorySource.empty())
+            typeInfo.categorySource = GdtfFixtureCategory::kManualSource;
+          if (tinyxml2::XMLElement *visualColor =
+                  info->FirstChildElement("VisualColor")) {
+            if (const char *txt = visualColor->GetText()) {
+              const std::string value = Trim(txt);
+              if (isHexRgb(value))
+                typeInfo.visualColorHex = value;
+            }
+          }
+          if (!typeInfo.category.empty() ||
+              !typeInfo.visualColorHex.empty())
+            rootFixtureTypeInfoByKey[key] = typeInfo;
         }
       }
     }
@@ -2354,14 +2364,17 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         fixture.physicalPropertiesDirty = false;
 
         ReadFixtureCategoryFromUserData(node, fixture);
-        const std::string categoryTypeKey = buildFixtureTypeCategoryKey(
+        const std::string fixtureTypeInfoKey = buildFixtureTypeInfoKey(
             rawGdtfSpec, fixture.gdtfMode, fixture.typeName);
-        auto rootCategoryIt =
-            rootFixtureCategoryByTypeKey.find(categoryTypeKey);
-        if (rootCategoryIt != rootFixtureCategoryByTypeKey.end()) {
-          fixture.category = rootCategoryIt->second.category;
-          fixture.categorySource = rootCategoryIt->second.categorySource;
-          fixture.categorySourceReason.clear();
+        auto rootTypeInfoIt =
+            rootFixtureTypeInfoByKey.find(fixtureTypeInfoKey);
+        if (rootTypeInfoIt != rootFixtureTypeInfoByKey.end()) {
+          if (!rootTypeInfoIt->second.category.empty()) {
+            fixture.category = rootTypeInfoIt->second.category;
+            fixture.categorySource = rootTypeInfoIt->second.categorySource;
+            fixture.categorySourceReason.clear();
+          }
+          fixture.visualColorHex = rootTypeInfoIt->second.visualColorHex;
         }
         const std::optional<GdtfDictionary::Entry> &dictionaryEntry =
             getDictionaryEntryCached(fixture.typeName);

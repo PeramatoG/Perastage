@@ -93,7 +93,7 @@ struct FixtureExportId {
   int numeric = 0;
 };
 
-struct FixtureTypeCategoryExport {
+struct FixtureTypeInfoExport {
   std::string key;
   std::string gdtfSpec;
   std::string gdtfMode;
@@ -101,6 +101,7 @@ struct FixtureTypeCategoryExport {
   std::string model;
   std::string category;
   std::string categorySource;
+  std::string visualColorHex;
 };
 
 static bool TryParseInt(std::string_view text, int &out);
@@ -114,15 +115,15 @@ static FixtureExportId ResolveFixtureExportId(const Fixture &fixture);
 static std::unordered_map<std::string, int> BuildFixtureUnitNumbersForExport(
     const std::unordered_map<std::string, Fixture> &fixtures);
 static std::string
-BuildFixtureTypeCategoryKey(const Fixture &fixture,
+BuildFixtureTypeInfoKey(const Fixture &fixture,
                                                const std::string &gdtfArchivePath);
 static bool IsManualFixtureCategorySource(const std::string &source);
-static void MergeFixtureTypeCategoryExport(
-    std::map<std::string, FixtureTypeCategoryExport> &metadataByType,
+static void MergeFixtureTypeInfoExport(
+    std::map<std::string, FixtureTypeInfoExport> &metadataByType,
     const Fixture &fixture, const std::string &gdtfArchivePath);
-static void AppendFixtureTypeCategoryMetadata(
+static void AppendFixtureTypeMetadata(
     tinyxml2::XMLDocument &doc, tinyxml2::XMLElement *perastageData,
-    const std::map<std::string, FixtureTypeCategoryExport> &metadataByType);
+    const std::map<std::string, FixtureTypeInfoExport> &metadataByType);
 
 static bool ShouldExportSupportHoistInfo(const Support &support);
 static bool NearlyEqualPhysicalValue(float lhs, float rhs);
@@ -671,7 +672,7 @@ SanitizeArchiveRelativePath(const std::string &input,
 
 // Builds a stable fixture type/profile key for root-level category metadata.
 static std::string
-BuildFixtureTypeCategoryKey(const Fixture &fixture,
+BuildFixtureTypeInfoKey(const Fixture &fixture,
                                                const std::string &gdtfArchivePath) {
   std::ostringstream key;
   key << TrimAscii(gdtfArchivePath) << '|' << TrimAscii(fixture.gdtfMode);
@@ -691,22 +692,22 @@ static bool IsManualFixtureCategorySource(const std::string &source) {
   return ToLowerAscii(TrimAscii(source)) == "manual";
 }
 
-// Merges one fixture's category into the type-level export map
-// deterministically.
-static void MergeFixtureTypeCategoryExport(
-    std::map<std::string, FixtureTypeCategoryExport> &metadataByType,
+// Merges one fixture's shared type metadata into the export map.
+static void MergeFixtureTypeInfoExport(
+    std::map<std::string, FixtureTypeInfoExport> &metadataByType,
     const Fixture &fixture, const std::string &gdtfArchivePath) {
   const std::string category = TrimAscii(fixture.category);
-  if (category.empty())
+  const std::string visualColorHex = TrimAscii(fixture.visualColorHex);
+  if (category.empty() && visualColorHex.empty())
     return;
 
-  const std::string key = BuildFixtureTypeCategoryKey(fixture, gdtfArchivePath);
+  const std::string key = BuildFixtureTypeInfoKey(fixture, gdtfArchivePath);
   if (key.empty())
     return;
 
   const std::string source = TrimAscii(fixture.categorySource);
   auto [it, inserted] = metadataByType.try_emplace(key);
-  FixtureTypeCategoryExport &entry = it->second;
+  FixtureTypeInfoExport &entry = it->second;
   if (inserted) {
     entry.key = key;
     entry.gdtfSpec = TrimAscii(gdtfArchivePath);
@@ -714,6 +715,7 @@ static void MergeFixtureTypeCategoryExport(
     entry.model = TrimAscii(fixture.typeName);
     entry.category = category;
     entry.categorySource = source;
+    entry.visualColorHex = visualColorHex;
     return;
   }
 
@@ -724,12 +726,15 @@ static void MergeFixtureTypeCategoryExport(
     entry.category = category;
     entry.categorySource = source;
   }
+  if (!visualColorHex.empty() &&
+      (entry.visualColorHex.empty() || visualColorHex < entry.visualColorHex))
+    entry.visualColorHex = visualColorHex;
 }
 
-// Appends deduplicated fixture category metadata to root Perastage UserData.
-static void AppendFixtureTypeCategoryMetadata(
+// Appends deduplicated fixture type metadata to root Perastage UserData.
+static void AppendFixtureTypeMetadata(
     tinyxml2::XMLDocument &doc, tinyxml2::XMLElement *perastageData,
-    const std::map<std::string, FixtureTypeCategoryExport> &metadataByType) {
+    const std::map<std::string, FixtureTypeInfoExport> &metadataByType) {
   if (!perastageData || metadataByType.empty())
     return;
 
@@ -746,13 +751,20 @@ static void AppendFixtureTypeCategoryMetadata(
     if (!entry.model.empty())
       info->SetAttribute("model", entry.model.c_str());
 
-    tinyxml2::XMLElement *category = doc.NewElement("Category");
-    category->SetText(entry.category.c_str());
-    info->InsertEndChild(category);
-    if (!entry.categorySource.empty()) {
+    if (!entry.category.empty()) {
+      tinyxml2::XMLElement *category = doc.NewElement("Category");
+      category->SetText(entry.category.c_str());
+      info->InsertEndChild(category);
+    }
+    if (!entry.category.empty() && !entry.categorySource.empty()) {
       tinyxml2::XMLElement *source = doc.NewElement("CategorySource");
       source->SetText(entry.categorySource.c_str());
       info->InsertEndChild(source);
+    }
+    if (!entry.visualColorHex.empty()) {
+      tinyxml2::XMLElement *visualColor = doc.NewElement("VisualColor");
+      visualColor->SetText(entry.visualColorHex.c_str());
+      info->InsertEndChild(visualColor);
     }
     map->InsertEndChild(info);
   }
@@ -2655,7 +2667,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     trussExportUuids[uuid] = exportUuid;
   }
   tinyxml2::XMLElement *trussInfoMap = doc.NewElement("TrussInfoMap");
-  std::map<std::string, FixtureTypeCategoryExport> fixtureTypeCategoryMetadata;
+  std::map<std::string, FixtureTypeInfoExport> fixtureTypeMetadata;
 
   int exportedRealFixtureGdtfCount = 0;
   int exportedDummyFixtureGdtfCount = 0;
@@ -2803,7 +2815,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       fixtureGdtfArchivePath =
           registerGdtfResource(f.uuid, fixtureSourceGdtf, fixtureName);
     }
-    MergeFixtureTypeCategoryExport(fixtureTypeCategoryMetadata, f,
+    MergeFixtureTypeInfoExport(fixtureTypeMetadata, f,
                                    fixtureGdtfArchivePath);
 
     const Matrix fixtureMatrixToWrite =
@@ -3620,11 +3632,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     layersNode->InsertEndChild(defaultLayerElem);
   }
 
-  if (!fixtureTypeCategoryMetadata.empty()) {
+  if (!fixtureTypeMetadata.empty()) {
     tinyxml2::XMLElement *rootPerastageDataForFixtures =
         FindOrCreatePerastageDataNode(doc, root);
-    AppendFixtureTypeCategoryMetadata(doc, rootPerastageDataForFixtures,
-                                      fixtureTypeCategoryMetadata);
+    AppendFixtureTypeMetadata(doc, rootPerastageDataForFixtures,
+                                      fixtureTypeMetadata);
   }
 
   if (trussInfoMap->FirstChild()) {

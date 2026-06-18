@@ -34,7 +34,10 @@ Perastage v1.4.0 delivers a long-anticipated refresh of the modelling and riggin
   in plans, summaries, legends, and type-based coloring. Color Filter is
   fixture-specific and exclusively controls the standards-based MVR
   `Fixture/Color` value. Existing fixture dictionaries using `color` continue
-  to load and are saved with the clearer `visual_color` key.
+  to load and are saved with the clearer `visual_color` key. Type Colors,
+  including automatically assigned colors, are preserved in root-level
+  Perastage MVR metadata so fixture tables and summaries recover them when a
+  project is reopened.
 - **Selectable fixtures within groups** - moving a fixture no longer drags its entire group, making it easy to reposition individual fixtures along grouped trusses.
 - **On-drag gizmos and feedback** - a 2D position gizmo and highlighted X/Y/Z readouts provide clear movement direction feedback, matching the 3D viewer.
 - **Group selection and highlights** - selecting a grouped member now highlights and transforms the entire root group (including nested groups) and group hover feedback uses clearer colours that match table selections.  Quick clicks select full groups in the 3D view.

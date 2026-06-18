@@ -1407,6 +1407,8 @@ void MainWindow::SyncSceneData() {
 }
 
 void MainWindow::RefreshAfterSceneChange(bool refreshViewport) {
+  PersistFixtureTypeAutoColors(
+      GetDefaultGuiConfigServices().LegacyConfigManager());
   if (fixturePanel)
     fixturePanel->ReloadData();
   if (trussPanel)

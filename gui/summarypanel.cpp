@@ -19,12 +19,14 @@
 #include "colorstore.h"
 #include "configmanager.h"
 #include "fixturetablepanel.h"
+#include "gdtfdictionary.h"
 #include "guiconfigservices.h"
 #include "table_column_indices.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <algorithm>
 #include <map>
+#include <set>
 #include <unordered_set>
 #include <wx/aui/framemanager.h>
 #include <wx/colordlg.h>
@@ -465,10 +467,18 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
                                            color.Green(), color.Blue())
                               .ToStdString();
     colorCfg.PushUndoState("change fixture type color in project from summary");
+    std::set<std::string> updatedDictionaryKeys;
     for (auto& [uuid, fixture] : fixtures) {
         (void)uuid;
-        if (fixture.typeName == typeName)
-      fixture.visualColorHex = hex;
+        if (fixture.typeName != typeName)
+            continue;
+        fixture.visualColorHex = hex;
+        const std::string dictionaryKey =
+            fixture.gdtfSpec + '\x1f' + fixture.gdtfMode;
+        if (updatedDictionaryKeys.insert(dictionaryKey).second) {
+            GdtfDictionary::UpdateVisualColorForFile(
+                fixture.typeName, fixture.gdtfSpec, fixture.gdtfMode, hex);
+        }
     }
 
     if (FixtureTablePanel::Instance())
