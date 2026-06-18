@@ -255,7 +255,7 @@ public:
     rootSizer->Add(buttonSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     recalculateButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
-      valueCtrl->SetValue(automaticValue);
+      valueCtrl->SetValue(this->automaticValue);
       valueCtrl->SetFocus();
       valueCtrl->SelectAll();
     });
