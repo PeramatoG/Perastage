@@ -1771,10 +1771,8 @@ static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
 
 // Returns true when a truss carries Perastage-specific metadata for export.
 static bool HasTrussInfoMetadata(const Truss &truss) {
-  return !truss.manufacturer.empty() || !truss.model.empty() ||
-         truss.lengthMm != 0.0f || truss.widthMm != 0.0f ||
-         truss.heightMm != 0.0f || truss.weightKg != 0.0f ||
-         !truss.crossSection.empty() || !truss.modelFile.empty() ||
+  return truss.hasManualLoadOverride || !truss.crossSection.empty() ||
+         !truss.modelFile.empty() ||
          !truss.positionName.empty() ||
          truss.sourceRepresentation != Truss::GeometryRepresentation::Unknown ||
          !truss.perastageTypeKey.empty() ||
@@ -1800,21 +1798,13 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
     node->SetText(value.c_str());
     info->InsertEndChild(node);
   };
-  auto addNum = [&](const char *name, float value, const char *unit) {
-    if (value == 0.0f)
-      return;
-    tinyxml2::XMLElement *node = doc.NewElement(name);
-    node->SetAttribute("unit", unit);
-    node->SetText(std::to_string(value).c_str());
-    info->InsertEndChild(node);
-  };
-
-  addTxt("Manufacturer", truss.manufacturer);
-  addTxt("Model", truss.model);
-  addNum("Length", truss.lengthMm, "mm");
-  addNum("Width", truss.widthMm, "mm");
-  addNum("Height", truss.heightMm, "mm");
-  addNum("Weight", truss.weightKg, "kg");
+  if (truss.hasManualLoadOverride) {
+    tinyxml2::XMLElement *load = doc.NewElement("Load");
+    load->SetAttribute("unit", "kg");
+    load->SetAttribute("source", "Manual");
+    load->SetText(std::to_string(truss.manualLoadKg).c_str());
+    info->InsertEndChild(load);
+  }
   addTxt("CrossSection", truss.crossSection);
   addTxt("ModelFile", SanitizeArchiveFileName(truss.modelFile, ""));
   addTxt("PositionName", truss.positionName);

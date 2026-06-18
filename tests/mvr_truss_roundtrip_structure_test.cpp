@@ -2,6 +2,7 @@
  * This file is part of Perastage.
  */
 #include <cassert>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -267,6 +268,34 @@ int main() {
   tinyxml2::XMLElement *trussInfo = trussInfoMap->FirstChildElement("TrussInfo");
   assert(trussInfo != nullptr);
   assert(std::string(trussInfo->Attribute("uuid")) == truss.uuid);
+  assert(trussInfo->FirstChildElement("Manufacturer") == nullptr);
+  assert(trussInfo->FirstChildElement("Model") == nullptr);
+  assert(trussInfo->FirstChildElement("Length") == nullptr);
+  assert(trussInfo->FirstChildElement("Weight") == nullptr);
+  assert(trussInfo->FirstChildElement("Load") == nullptr);
+
+  scene.trusses.at(truss.uuid).manualLoadKg = 123.45f;
+  scene.trusses.at(truss.uuid).hasManualLoadOverride = true;
+  const fs::path manualLoadMvrPath = tempDir / "manual-load.mvr";
+  assert(exporter.ExportToFile(manualLoadMvrPath.string()));
+  const auto manualLoadEntries = ReadArchiveTextEntries(manualLoadMvrPath);
+  tinyxml2::XMLDocument manualLoadXml;
+  assert(manualLoadXml.Parse(
+             manualLoadEntries.at("GeneralSceneDescription.xml").c_str()) ==
+         tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *manualLoadInfo =
+      manualLoadXml.FirstChildElement("GeneralSceneDescription")
+          ->FirstChildElement("UserData")
+          ->FirstChildElement("Data")
+          ->FirstChildElement("TrussInfoMap")
+          ->FirstChildElement("TrussInfo");
+  assert(manualLoadInfo != nullptr);
+  tinyxml2::XMLElement *manualLoad = manualLoadInfo->FirstChildElement("Load");
+  assert(manualLoad != nullptr);
+  assert(std::string(manualLoad->Attribute("unit")) == "kg");
+  assert(std::string(manualLoad->Attribute("source")) == "Manual");
+  scene.trusses.at(truss.uuid).manualLoadKg = 0.0f;
+  scene.trusses.at(truss.uuid).hasManualLoadOverride = false;
 
   cfg.Reset();
   MvrImporter importer;
@@ -280,6 +309,13 @@ int main() {
   assert(!importedTruss.perastageAuxGdtfArchivePath.empty());
   assert(importedTruss.manufacturer == "Perastage");
   assert(importedTruss.model == "Tower 40");
+
+  cfg.Reset();
+  assert(importer.ImportFromFile(manualLoadMvrPath.string(), false, false));
+  const Truss &manualLoadImportedTruss =
+      ConfigManager::Get().GetScene().trusses.begin()->second;
+  assert(manualLoadImportedTruss.hasManualLoadOverride);
+  assert(std::abs(manualLoadImportedTruss.manualLoadKg - 123.45f) < 0.001f);
 
   const fs::path legacyMvrPath = tempDir / "legacy-truss-userdata.mvr";
   {

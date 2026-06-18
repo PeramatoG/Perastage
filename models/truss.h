@@ -48,6 +48,11 @@ struct Truss {
     float weightKg = 0.0f;
     std::string crossSection;
 
+    // Load state is instance metadata and is never part of the truss GDTF.
+    float calculatedLoadKg = 0.0f;
+    float manualLoadKg = 0.0f;
+    bool hasManualLoadOverride = false;
+
     // Optional hang position reference
     std::string position;      // Position UUID or raw vector
     std::string positionName;  // Resolved name from AUXData

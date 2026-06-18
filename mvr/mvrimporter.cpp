@@ -2488,6 +2488,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (cs->GetText())
           truss.crossSection = Trim(cs->GetText());
     }
+    if (tinyxml2::XMLElement *load = info->FirstChildElement("Load"))
+      if (load->GetText()) {
+        float parsed = 0.0f;
+        if (TryParseFloat(Trim(load->GetText()), parsed)) {
+          truss.manualLoadKg = parsed;
+          truss.hasManualLoadOverride = true;
+        }
+      }
     if (tinyxml2::XMLElement *mf = info->FirstChildElement("ModelFile"))
       if (mf->GetText())
         truss.modelFile = mf->GetText();

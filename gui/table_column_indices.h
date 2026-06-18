@@ -61,6 +61,7 @@ enum class Column : int {
   Width,
   Height,
   Weight,
+  Load,
   Count
 };
 } // namespace TrussTableColumns
