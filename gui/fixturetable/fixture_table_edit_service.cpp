@@ -410,11 +410,21 @@ void ApplyFullRowChanges(
       icon << v;
       wxString txt = icon.GetText();
       if (!txt.IsEmpty())
-        next.color = std::string(txt.ToUTF8());
+        next.visualColorHex = std::string(txt.ToUTF8());
       else
-        next.color.clear();
+        next.visualColorHex.clear();
     } else {
-      next.color = std::string(v.GetString().ToUTF8());
+      next.visualColorHex = std::string(v.GetString().ToUTF8());
+    }
+    table->GetValue(
+        v, i,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::MvrColor));
+    if (v.GetType() == "wxDataViewIconText") {
+      wxDataViewIconText icon;
+      icon << v;
+      next.mvrFixtureColorHex = std::string(icon.GetText().ToUTF8());
+    } else {
+      next.mvrFixtureColorHex = std::string(v.GetString().ToUTF8());
     }
 
     const bool fixtureChanged =
@@ -429,7 +439,8 @@ void ApplyFullRowChanges(
         old.category != next.category ||
         old.categorySource != next.categorySource ||
         old.categorySourceReason != next.categorySourceReason ||
-        old.color != next.color;
+        old.visualColorHex != next.visualColorHex ||
+        old.mvrFixtureColorHex != next.mvrFixtureColorHex;
     if (!fixtureChanged)
       continue;
 
@@ -512,9 +523,11 @@ void ApplyAppearanceChanges(FixtureTableEditService::ISceneAdapter &adapter,
                             bool logChanges) {
   auto &scene = adapter.GetScene();
   SceneUpdateTracking tracking;
-  const auto targetRows = ResolveTargetRows(table, rowUuids);
+  const size_t rowCount =
+      std::min(static_cast<size_t>(table->GetItemCount()), rowUuids.size());
+  std::unordered_set<std::string> updatedDictionaryKeys;
 
-  for (size_t row : targetRows) {
+  for (size_t row = 0; row < rowCount; ++row) {
     auto it = scene.fixtures.find(rowUuids[row]);
     if (it == scene.fixtures.end())
       continue;
@@ -524,12 +537,21 @@ void ApplyAppearanceChanges(FixtureTableEditService::ISceneAdapter &adapter,
         value, row,
         FixtureTableColumns::ToIndex(FixtureTableColumns::Column::VisualColor));
     const std::string nextColor = ExtractColorValue(value);
-    if (it->second.color == nextColor)
+    if (it->second.visualColorHex == nextColor)
       continue;
 
     PushUndoIfNeeded(adapter, tracking);
-    it->second.color = nextColor;
+    it->second.visualColorHex = nextColor;
     TrackUpdatedFixture(it->second, tracking, logChanges);
+
+    const std::string dictionaryKey =
+        it->second.typeName + '\x1f' + it->second.gdtfSpec + '\x1f' +
+        it->second.gdtfMode;
+    if (updatedDictionaryKeys.insert(dictionaryKey).second) {
+      GdtfDictionary::UpdateVisualColorForFile(
+          it->second.typeName, it->second.gdtfSpec, it->second.gdtfMode,
+          nextColor);
+    }
   }
 
   AppendChangeLogIfNeeded(tracking, logChanges);
@@ -637,38 +659,55 @@ void PropagateTypeValues(wxDataViewListCtrl *table,
   if (!column || !FixtureTableColumns::IsTypeLevelPropagated(*column))
     return;
 
-  if (FixtureTableColumns::IsVisualColor(*column))
-    return;
-
-  std::unordered_map<std::string, wxString> typeValues;
+  std::unordered_map<std::string, wxVariant> typeValues;
   for (const auto &it : selections) {
     int r = table->ItemToRow(it);
     if (r == wxNOT_FOUND)
       continue;
-    wxVariant vType, vVal;
+    wxVariant vType, vMode, vVal;
     table->GetValue(
         vType, r,
         FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Type));
+    table->GetValue(
+        vMode, r,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Mode));
     table->GetValue(vVal, r, col);
-    typeValues[std::string(vType.GetString().ToUTF8())] = vVal.GetString();
+    std::string key = std::string(vType.GetString().ToUTF8());
+    if (FixtureTableColumns::IsVisualColor(*column)) {
+      key.push_back('\x1f');
+      key += std::string(vMode.GetString().ToUTF8());
+    }
+    typeValues[key] = vVal;
   }
 
   unsigned int rowCount = table->GetItemCount();
   for (unsigned int i = 0; i < rowCount; ++i) {
-    wxVariant vType;
+    wxVariant vType, vMode;
     table->GetValue(
         vType, i,
         FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Type));
-    auto it = typeValues.find(std::string(vType.GetString().ToUTF8()));
+    table->GetValue(
+        vMode, i,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Mode));
+    std::string key = std::string(vType.GetString().ToUTF8());
+    if (FixtureTableColumns::IsVisualColor(*column)) {
+      key.push_back('\x1f');
+      key += std::string(vMode.GetString().ToUTF8());
+    }
+    auto it = typeValues.find(key);
     if (it == typeValues.end())
       continue;
 
     wxVariant currentValue;
     table->GetValue(currentValue, i, col);
-    if (currentValue.GetString() == it->second)
+    if (FixtureTableColumns::IsVisualColor(*column)) {
+      if (ExtractColorValue(currentValue) == ExtractColorValue(it->second))
+        continue;
+    } else if (currentValue.GetString() == it->second.GetString()) {
       continue;
+    }
 
-    table->SetValue(wxVariant(it->second), i, col);
+    table->SetValue(it->second, i, col);
   }
 }
 

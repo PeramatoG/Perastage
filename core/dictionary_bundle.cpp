@@ -6,8 +6,8 @@
 #include "projectutils.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cctype>
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -45,7 +45,8 @@ uint64_t HashBytesFnv1a64(const std::vector<unsigned char> &bytes) {
 }
 
 std::string ToLowerCopy(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(),
+  std::transform(
+      value.begin(), value.end(), value.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   return value;
 }
@@ -97,7 +98,8 @@ bool IsZipByHeader(const fs::path &path) {
          sig[0] == 'P' && sig[1] == 'K';
 }
 
-bool ReadZipEntryBytes(wxZipInputStream &zip, std::vector<unsigned char> &outBytes) {
+bool ReadZipEntryBytes(wxZipInputStream &zip,
+                       std::vector<unsigned char> &outBytes) {
   outBytes.clear();
   unsigned char chunk[4096];
   for (;;) {
@@ -110,7 +112,8 @@ bool ReadZipEntryBytes(wxZipInputStream &zip, std::vector<unsigned char> &outByt
   return true;
 }
 
-bool WriteZipEntryFromBytes(wxZipOutputStream &zip, const std::string &entryName,
+bool WriteZipEntryFromBytes(wxZipOutputStream &zip,
+                            const std::string &entryName,
                             const std::vector<unsigned char> &bytes) {
   auto *entry = new wxZipEntry(entryName);
   entry->SetMethod(wxZIP_METHOD_DEFLATE);
@@ -148,7 +151,8 @@ fs::path MakeTempStagingDir() {
   return dir;
 }
 
-bool SerializeJsonToBytes(const nlohmann::json &json, std::vector<unsigned char> &outBytes) {
+bool SerializeJsonToBytes(const nlohmann::json &json,
+                          std::vector<unsigned char> &outBytes) {
   const std::string text = json.dump(2);
   outBytes.assign(text.begin(), text.end());
   return true;
@@ -170,7 +174,7 @@ nlohmann::json BuildFixturesEntriesJson(
   for (const auto &name : keys) {
     const auto &entry = dict.at(name);
     if (entry.path.empty() && entry.mode.empty() && entry.category.empty() &&
-        entry.color.empty())
+        entry.visualColorHex.empty())
       continue;
 
     nlohmann::json outputEntry = nlohmann::json::object();
@@ -184,7 +188,8 @@ nlohmann::json BuildFixturesEntriesJson(
       const std::string sourceKey = sourcePath.lexically_normal().string();
       auto archiveIt = sourceToArchivePath.find(sourceKey);
       if (archiveIt == sourceToArchivePath.end()) {
-        const std::string archivePath = "assets/" + BaseNameForArchive(sourcePath, assetIndex++);
+        const std::string archivePath =
+            "assets/" + BaseNameForArchive(sourcePath, assetIndex++);
         std::vector<unsigned char> assetBytes;
         if (!ReadFileBytes(sourcePath, assetBytes)) {
           error = "Could not read fixture asset: " + entry.path;
@@ -208,8 +213,8 @@ nlohmann::json BuildFixturesEntriesJson(
       outputEntry["mode"] = entry.mode;
     if (!entry.category.empty())
       outputEntry["category"] = entry.category;
-    if (!entry.color.empty())
-      outputEntry["color"] = entry.color;
+    if (!entry.visualColorHex.empty())
+      outputEntry["visual_color"] = entry.visualColorHex;
 
     if (!outputEntry.empty())
       entries[name] = std::move(outputEntry);
@@ -218,8 +223,8 @@ nlohmann::json BuildFixturesEntriesJson(
   return entries;
 }
 
-nlohmann::json BuildTrussEntriesJson(
-    const std::unordered_map<std::string, std::string> &dict,
+nlohmann::json
+BuildTrussEntriesJson(const std::unordered_map<std::string, std::string> &dict,
     std::vector<AssetPayload> &assets, std::string &error) {
   nlohmann::json entries = nlohmann::json::object();
   std::unordered_map<std::string, std::string> sourceToArchivePath;
@@ -245,7 +250,8 @@ nlohmann::json BuildTrussEntriesJson(
     const std::string sourceKey = sourcePath.lexically_normal().string();
     auto archiveIt = sourceToArchivePath.find(sourceKey);
     if (archiveIt == sourceToArchivePath.end()) {
-      const std::string archivePath = "assets/" + BaseNameForArchive(sourcePath, assetIndex++);
+      const std::string archivePath =
+          "assets/" + BaseNameForArchive(sourcePath, assetIndex++);
       std::vector<unsigned char> assetBytes;
       if (!ReadFileBytes(sourcePath, assetBytes)) {
         error = "Could not read truss asset: " + source;
@@ -268,9 +274,10 @@ nlohmann::json BuildTrussEntriesJson(
   return entries;
 }
 
-bool WriteBundle(const fs::path &outputZipPath, const std::string &dictionaryType,
-                 const nlohmann::json &entries, const std::vector<AssetPayload> &assets,
-                 std::string &error) {
+bool WriteBundle(const fs::path &outputZipPath,
+                 const std::string &dictionaryType,
+                 const nlohmann::json &entries,
+                 const std::vector<AssetPayload> &assets, std::string &error) {
   wxFileOutputStream output(outputZipPath.string());
   if (!output.IsOk()) {
     error = "Could not create ZIP file";
@@ -328,7 +335,8 @@ bool ExtractArchive(const fs::path &zipPath, const fs::path &destination,
     if (entry->IsDir())
       continue;
 
-    const fs::path outPath = destination / PathUtils::PathFromUtf8(entry->GetName().ToStdString());
+    const fs::path outPath =
+        destination / PathUtils::PathFromUtf8(entry->GetName().ToStdString());
     std::error_code ec;
     fs::create_directories(outPath.parent_path(), ec);
 
@@ -351,7 +359,8 @@ bool ExtractArchive(const fs::path &zipPath, const fs::path &destination,
   return true;
 }
 
-bool ReadJsonFile(const fs::path &path, nlohmann::json &outJson, std::string &error) {
+bool ReadJsonFile(const fs::path &path, nlohmann::json &outJson,
+                  std::string &error) {
   std::ifstream in(path);
   if (!in.is_open()) {
     error = "Could not open JSON file: " + path.string();
@@ -386,7 +395,8 @@ bool ResolveEntryFileField(nlohmann::json &entryJson, std::string &pathOut) {
   return false;
 }
 
-void RewriteEntryFileField(nlohmann::json &entryJson, const std::string &rewrittenPath) {
+void RewriteEntryFileField(nlohmann::json &entryJson,
+                           const std::string &rewrittenPath) {
   if (entryJson.is_string()) {
     entryJson = rewrittenPath;
     return;
@@ -410,7 +420,8 @@ bool ExportFixturesBundle(
   if (!error.empty())
     return false;
 
-  return WriteBundle(PathUtils::PathFromUtf8(outputZipPath), "fixtures", entries, assets, error);
+  return WriteBundle(PathUtils::PathFromUtf8(outputZipPath), "fixtures",
+                     entries, assets, error);
 }
 
 bool ExportTrussesBundle(
@@ -421,10 +432,12 @@ bool ExportTrussesBundle(
   if (!error.empty())
     return false;
 
-  return WriteBundle(PathUtils::PathFromUtf8(outputZipPath), "trusses", entries, assets, error);
+  return WriteBundle(PathUtils::PathFromUtf8(outputZipPath), "trusses", entries,
+                     assets, error);
 }
 
-PreparedImport PrepareBundleImport(const std::string &importPath, Type expectedType) {
+PreparedImport PrepareBundleImport(const std::string &importPath,
+                                   Type expectedType) {
   PreparedImport result;
 
   const fs::path path = PathUtils::PathFromUtf8(importPath);
@@ -437,7 +450,8 @@ PreparedImport PrepareBundleImport(const std::string &importPath, Type expectedT
 
   const fs::path stagingDir = MakeTempStagingDir();
   if (stagingDir.empty()) {
-    result.errors.push_back("Could not create temporary staging directory for bundle import");
+    result.errors.push_back(
+        "Could not create temporary staging directory for bundle import");
     return result;
   }
 
@@ -474,12 +488,14 @@ PreparedImport PrepareBundleImport(const std::string &importPath, Type expectedT
   result.is_bundle = true;
   result.staging_directory = stagingDir;
 
-  if (!manifest.contains("dictionary_type") || !manifest["dictionary_type"].is_string()) {
+  if (!manifest.contains("dictionary_type") ||
+      !manifest["dictionary_type"].is_string()) {
     result.errors.push_back("Bundle manifest missing 'dictionary_type'");
     return result;
   }
 
-  const std::string manifestType = manifest["dictionary_type"].get<std::string>();
+  const std::string manifestType =
+      manifest["dictionary_type"].get<std::string>();
   const std::string expectedTypeText = TypeToString(expectedType);
   if (manifestType != expectedTypeText) {
     result.errors.push_back("Bundle dictionary_type mismatch (expected '" +
@@ -498,7 +514,8 @@ PreparedImport PrepareBundleImport(const std::string &importPath, Type expectedT
     return result;
   }
 
-  const fs::path libraryDir = PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath(expectedTypeText));
+  const fs::path libraryDir = PathUtils::PathFromUtf8(
+      ProjectUtils::GetWritableLibraryPath(expectedTypeText));
   std::error_code ec;
   fs::create_directories(libraryDir, ec);
 
@@ -514,8 +531,10 @@ PreparedImport PrepareBundleImport(const std::string &importPath, Type expectedT
     }
 
     const std::string archivePath = assetJson["path"].get<std::string>();
-    const std::string expectedChecksum = assetJson["checksum"].get<std::string>();
-    const fs::path extractedPath = stagingDir / PathUtils::PathFromUtf8(archivePath);
+    const std::string expectedChecksum =
+        assetJson["checksum"].get<std::string>();
+    const fs::path extractedPath =
+        stagingDir / PathUtils::PathFromUtf8(archivePath);
     if (!fs::exists(extractedPath)) {
       result.errors.push_back("Bundle asset not found: " + archivePath);
       continue;
@@ -523,7 +542,8 @@ PreparedImport PrepareBundleImport(const std::string &importPath, Type expectedT
 
     std::vector<unsigned char> bytes;
     if (!ReadFileBytes(extractedPath, bytes)) {
-      result.errors.push_back("Could not read extracted bundle asset: " + archivePath);
+      result.errors.push_back("Could not read extracted bundle asset: " +
+                              archivePath);
       continue;
     }
 
@@ -535,7 +555,8 @@ PreparedImport PrepareBundleImport(const std::string &importPath, Type expectedT
 
     const fs::path destPath = libraryDir / extractedPath.filename();
     std::error_code copyEc;
-    fs::copy_file(extractedPath, destPath, fs::copy_options::overwrite_existing, copyEc);
+    fs::copy_file(extractedPath, destPath, fs::copy_options::overwrite_existing,
+                  copyEc);
     if (copyEc) {
       result.errors.push_back("Could not copy bundle asset into library: " +
                               destPath.string());
@@ -549,15 +570,17 @@ PreparedImport PrepareBundleImport(const std::string &importPath, Type expectedT
     return result;
 
   nlohmann::json rewrittenEntries = manifest["entries"];
-  auto rewriteSingle = [&](nlohmann::json &entryJson, const std::string &entryName) {
+  auto rewriteSingle = [&](nlohmann::json &entryJson,
+                           const std::string &entryName) {
     std::string fileField;
     if (!ResolveEntryFileField(entryJson, fileField))
       return;
 
     const auto importedIt = importedAssetToLibraryPath.find(fileField);
     if (importedIt == importedAssetToLibraryPath.end()) {
-      result.errors.push_back("Entry '" + entryName + "' references unknown bundle asset: " +
-                              fileField);
+      result.errors.push_back(
+          "Entry '" + entryName +
+          "' references unknown bundle asset: " + fileField);
       return;
     }
     RewriteEntryFileField(entryJson, importedIt->second);

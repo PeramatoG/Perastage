@@ -16,8 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvrimporter.h"
-#include "filesystem_path_utils.h"
 #include "configmanager.h"
+#include "filesystem_path_utils.h"
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
 #include "credentialstore.h"
 #endif
@@ -26,34 +26,33 @@
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
 #include "gdtfnet.h"
 #endif
-#include "gdtfloader.h"
-#include "gdtf_catalog_service.h"
-#include "gdtf_import_matching.h"
+#include "fixture_label_overrides.h"
 #include "gdtf_catalog_matcher.h"
+#include "gdtf_catalog_service.h"
 #include "gdtf_fixture_category.h"
+#include "gdtf_import_matching.h"
+#include "gdtfloader.h"
+#include "groupobject.h"
 #include "matrixutils.h"
 #include "primitive_model_resources.h"
 #include "projectutils.h"
 #include "sceneobject.h"
 #include "support.h"
-#include "groupobject.h"
-#include "uuidutils.h"
 #include "trussloader.h"
-#include "fixture_label_overrides.h"
+#include "uuidutils.h"
 
 #include "consolepanel.h"
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
 #include "logindialog.h"
 #endif
-#include "logger.h"
 #include "json.hpp"
+#include "logger.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
 #include <cctype>
 #include <cerrno>
 #include <charconv>
-#include <cstdlib>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -81,9 +80,9 @@
 #include <tinyxml2.h>
 
 // wxWidgets zip support
+#include <wx/listctrl.h>
 #include <wx/wfstream.h>
 #include <wx/wx.h>
-#include <wx/listctrl.h>
 class wxZipStreamLink;
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
@@ -126,7 +125,8 @@ static std::string DecodeLegacyCredentialValue(const std::string &encoded) {
     unsigned int value = 0;
     std::istringstream iss(encoded.substr(i, 2));
     iss >> std::hex >> value;
-    out.push_back(static_cast<char>((static_cast<unsigned char>(value)) ^ kKey));
+    out.push_back(
+        static_cast<char>((static_cast<unsigned char>(value)) ^ kKey));
   }
   return out;
 }
@@ -151,10 +151,10 @@ LoadStoredGdtfShareCredentials() {
   return std::make_pair(username, DecodeLegacyCredentialValue(encodedPassword));
 }
 
-
 static std::string ToLowerCopy(std::string s) {
-  std::transform(s.begin(), s.end(), s.begin(),
-                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
   return s;
 }
 
@@ -229,18 +229,20 @@ static bool IsNearlyEqualRelative(float a, float b, float relEps) {
 }
 
 static bool IsGeometryMatrixContext(const std::string &contextTag) {
-  if (contextTag == "SceneObject/Geometry3D" || contextTag == "Truss/Geometry3D" ||
-      contextTag == "Symbol") {
+  if (contextTag == "SceneObject/Geometry3D" ||
+      contextTag == "Truss/Geometry3D" || contextTag == "Symbol") {
     return true;
   }
   return contextTag.find("Geometry3D") != std::string::npos;
 }
 
-static std::string JoinMatrixContextCounts(const std::unordered_map<std::string, size_t> &counts) {
+static std::string
+JoinMatrixContextCounts(const std::unordered_map<std::string, size_t> &counts) {
   if (counts.empty())
     return "none";
 
-  std::vector<std::pair<std::string, size_t>> sorted(counts.begin(), counts.end());
+  std::vector<std::pair<std::string, size_t>> sorted(counts.begin(),
+                                                     counts.end());
   std::sort(sorted.begin(), sorted.end(), [](const auto &lhs, const auto &rhs) {
     if (lhs.second != rhs.second)
       return lhs.second > rhs.second;
@@ -285,9 +287,8 @@ static bool TryParseFloat(const std::string &text, float &out) {
     return false;
 
   const auto first =
-      std::find_if_not(text.begin(), text.end(), [](unsigned char c) {
-        return std::isspace(c);
-      });
+      std::find_if_not(text.begin(), text.end(),
+                       [](unsigned char c) { return std::isspace(c); });
   if (first == text.end())
     return false;
   const auto last =
@@ -327,7 +328,8 @@ static fs::path ResolveSceneRelativePath(const std::string &basePath,
 }
 
 // Compares path components using platform filesystem case-sensitivity rules.
-static bool SameFilesystemPathComponent(const fs::path &lhs, const fs::path &rhs) {
+static bool SameFilesystemPathComponent(const fs::path &lhs,
+                                        const fs::path &rhs) {
 #if defined(_WIN32)
   return ToLowerAscii(lhs.string()) == ToLowerAscii(rhs.string());
 #else
@@ -335,7 +337,8 @@ static bool SameFilesystemPathComponent(const fs::path &lhs, const fs::path &rhs
 #endif
 }
 
-// Returns true when candidate is inside base after both paths have been normalized.
+// Returns true when candidate is inside base after both paths have been
+// normalized.
 static bool IsPathWithinDirectoryByComponents(const fs::path &candidate,
                                               const fs::path &base) {
   auto candidateIt = candidate.begin();
@@ -367,8 +370,10 @@ static fs::path NormalizedAbsolutePathForImport(const fs::path &path,
   return absolute.lexically_normal();
 }
 
-// Converts imported resource paths to scene-relative references only when they stay under scene.basePath.
-static std::string ToSceneRelativePathIfPossible(const std::string &basePath,
+// Converts imported resource paths to scene-relative references only when they
+// stay under scene.basePath.
+static std::string
+ToSceneRelativePathIfPossible(const std::string &basePath,
                                                  const fs::path &candidatePath) {
   if (candidatePath.empty())
     return {};
@@ -411,7 +416,8 @@ static std::string ResolveScenePathForRead(const std::string &basePath,
 
 // Resolves a scene-provided GDTF spec to the real extracted file path.
 // MVR files may omit ".gdtf" in <GDTFSpec> or use a different filename case,
-// so we progressively try exact, extension-appended and case-insensitive matches.
+// so we progressively try exact, extension-appended and case-insensitive
+// matches.
 static std::string ResolveGdtfPath(const std::string &baseDir,
                                    const std::string &spec) {
   const std::string normalizedSpec = NormalizeArchivePathValue(spec);
@@ -420,7 +426,8 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
 
   fs::path candidate = baseDir.empty()
                            ? PathUtils::PathFromUtf8(normalizedSpec)
-                           : PathUtils::PathFromUtf8(baseDir) / PathUtils::PathFromUtf8(normalizedSpec);
+                           : PathUtils::PathFromUtf8(baseDir) /
+                                 PathUtils::PathFromUtf8(normalizedSpec);
 
   std::error_code ec;
   const std::string candidateExt = ToLowerAscii(candidate.extension().string());
@@ -437,7 +444,8 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
   }
 
 #if defined(_WIN32)
-  // Restricts fallback directory scans to the extracted MVR base directory on Windows.
+  // Restricts fallback directory scans to the extracted MVR base directory on
+  // Windows.
   if (baseDir.empty())
     return {};
   fs::path lookupDir = PathUtils::PathFromUtf8(baseDir);
@@ -448,8 +456,8 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
   if (ec || !fs::exists(lookupDir, ec) || ec)
     return {};
 
-  const std::string expectedStem =
-      ToLowerAscii(Trim(PathUtils::PathFromUtf8(normalizedSpec).filename().stem().string()));
+  const std::string expectedStem = ToLowerAscii(
+      Trim(PathUtils::PathFromUtf8(normalizedSpec).filename().stem().string()));
   const std::string normalizedSpecKey = NormalizeGdtfLookupKey(normalizedSpec);
   for (const auto &entry : fs::directory_iterator(lookupDir, ec)) {
     if (ec)
@@ -467,7 +475,8 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
     // Last fallback: compare normalized names ignoring case and extra blanks
     // before extension.
     if (!normalizedSpecKey.empty() &&
-        NormalizeGdtfLookupKey(entryPath.filename().generic_string()) == normalizedSpecKey) {
+        NormalizeGdtfLookupKey(entryPath.filename().generic_string()) ==
+            normalizedSpecKey) {
       return ToString(entryPath.u8string());
     }
   }
@@ -484,8 +493,8 @@ static std::string DescribeTrussForLog(const Truss &truss) {
   return oss.str();
 }
 
-static Truss::GeometryRepresentation ParseTrussRepresentation(
-    const std::string &value) {
+static Truss::GeometryRepresentation
+ParseTrussRepresentation(const std::string &value) {
   const std::string lower = ToLowerCopy(Trim(value));
   if (lower == "symbolsymdef")
     return Truss::GeometryRepresentation::SymbolSymdef;
@@ -512,8 +521,7 @@ static std::string CieToHex(const std::string &cie) {
   double b = 0.0557 * X - 0.2040 * Yv + 1.0570 * Z;
   auto gamma = [](double c) {
     c = std::max(0.0, c);
-    return c <= 0.0031308 ? 12.92 * c
-                          : 1.055 * std::pow(c, 1.0 / 2.4) - 0.055;
+    return c <= 0.0031308 ? 12.92 * c : 1.055 * std::pow(c, 1.0 / 2.4) - 0.055;
   };
   r = gamma(r);
   g = gamma(g);
@@ -525,8 +533,8 @@ static std::string CieToHex(const std::string &cie) {
   int G = static_cast<int>(std::round(g * 255.0));
   int B = static_cast<int>(std::round(b * 255.0));
   std::ostringstream os;
-  os << '#' << std::uppercase << std::hex << std::setfill('0')
-     << std::setw(2) << R << std::setw(2) << G << std::setw(2) << B;
+  os << '#' << std::uppercase << std::hex << std::setfill('0') << std::setw(2)
+     << R << std::setw(2) << G << std::setw(2) << B;
   return os.str();
 }
 
@@ -560,8 +568,7 @@ static void LogMessage(Logger::Level level, const std::string &msg) {
     const std::string suffix = "... (truncated)";
     std::string panelMsg = msg;
     if (panelMsg.size() > kMaxConsoleMessageLength) {
-      size_t keepLength =
-          kMaxConsoleMessageLength > suffix.size()
+      size_t keepLength = kMaxConsoleMessageLength > suffix.size()
               ? kMaxConsoleMessageLength - suffix.size()
               : 0;
       panelMsg = panelMsg.substr(0, keepLength) + suffix;
@@ -612,8 +619,7 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
   wxDialog dlg(nullptr, wxID_ANY, "Resolve GDTF source conflicts");
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   wxStaticText *subtitle = new wxStaticText(
-      &dlg, wxID_ANY,
-      "Choose which source to keep for each fixture type.");
+      &dlg, wxID_ANY, "Choose which source to keep for each fixture type.");
   subtitle->SetForegroundColour(wxColour(145, 145, 145));
   topSizer->Add(subtitle, 0, wxLEFT | wxRIGHT | wxTOP, 10);
 
@@ -638,7 +644,8 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
 
   wxButton *selectAllMvrButton = new wxButton(&dlg, wxID_ANY, "Select all");
   wxButton *selectAllAppButton = new wxButton(&dlg, wxID_ANY, "Select all");
-  wxButton *selectAllDownloadButton = new wxButton(&dlg, wxID_ANY, "Select all");
+  wxButton *selectAllDownloadButton =
+      new wxButton(&dlg, wxID_ANY, "Select all");
   grid->Add(new wxStaticText(&dlg, wxID_ANY, wxEmptyString));
   grid->Add(selectAllMvrButton, 0, wxALIGN_CENTER_HORIZONTAL);
   grid->Add(selectAllAppButton, 0, wxALIGN_CENTER_HORIZONTAL);
@@ -677,10 +684,9 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
                              }
                              selectAll(existing);
                            });
-  selectAllMvrButton->Bind(wxEVT_BUTTON,
-                           [&mvrBtns, &selectAll](wxCommandEvent &) {
-                             selectAll(mvrBtns);
-                           });
+  selectAllMvrButton->Bind(
+      wxEVT_BUTTON,
+      [&mvrBtns, &selectAll](wxCommandEvent &) { selectAll(mvrBtns); });
   selectAllDownloadButton->Bind(wxEVT_BUTTON,
                                 [&downloadBtns, &selectAll](wxCommandEvent &) {
                                   selectAll(downloadBtns);
@@ -711,7 +717,8 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
   return chosen;
 }
 
-// Returns the preferred fallback GDTF path for download conflicts, prioritizing app fixtures over MVR fixtures.
+// Returns the preferred fallback GDTF path for download conflicts, prioritizing
+// app fixtures over MVR fixtures.
 static std::string GetDownloadFallbackPath(const GdtfConflict &conflict) {
   return !conflict.appPath.empty() ? conflict.appPath : conflict.mvrPath;
 }
@@ -804,8 +811,8 @@ ParseGdtfCatalogEntries(const std::string &listData) {
         gdtf_catalog_matcher::GdtfCatalogModeCandidate parsed;
         if (mode.is_object()) {
           parsed.name = jsonToString(mode.value("name", json{}));
-          parsed.footprint =
-              static_cast<int>(jsonToLongLong(mode.value("dmxFootprint", json{})));
+          parsed.footprint = static_cast<int>(
+              jsonToLongLong(mode.value("dmxFootprint", json{})));
         }
         if (!parsed.name.empty() || parsed.footprint > 0)
           modes.push_back(std::move(parsed));
@@ -830,10 +837,10 @@ ParseGdtfCatalogEntries(const std::string &listData) {
   return entries;
 }
 
-
 static void ApplySupportHoistInfoDefaults(Support &support) {
   if (support.dummyProfileId.empty() && !support.dummyPreset.empty()) {
-    const auto profile = DummyProfileLibrary::FindByDisplayName(support.dummyPreset);
+    const auto profile =
+        DummyProfileLibrary::FindByDisplayName(support.dummyPreset);
     if (profile.has_value())
       support.dummyProfileId = profile->id;
   }
@@ -841,16 +848,16 @@ static void ApplySupportHoistInfoDefaults(Support &support) {
   support.hoistFunction = NormalizeHoistFunction(
       support.hoistFunction.empty() ? support.function : support.hoistFunction);
   support.hoistDataSource = NormalizeHoistDataSource(support.hoistDataSource);
-  support.motorNameSource =
-      ResolveHoistFieldDataSource(support.motorNameSource, support.hoistDataSource);
+  support.motorNameSource = ResolveHoistFieldDataSource(
+      support.motorNameSource, support.hoistDataSource);
   support.motorManufacturerSource = ResolveHoistFieldDataSource(
       support.motorManufacturerSource, support.hoistDataSource);
-  support.motorModelSource =
-      ResolveHoistFieldDataSource(support.motorModelSource, support.hoistDataSource);
-  support.capacitySource =
-      ResolveHoistFieldDataSource(support.capacitySource, support.hoistDataSource);
-  support.weightSource =
-      ResolveHoistFieldDataSource(support.weightSource, support.hoistDataSource);
+  support.motorModelSource = ResolveHoistFieldDataSource(
+      support.motorModelSource, support.hoistDataSource);
+  support.capacitySource = ResolveHoistFieldDataSource(support.capacitySource,
+                                                       support.hoistDataSource);
+  support.weightSource = ResolveHoistFieldDataSource(support.weightSource,
+                                                     support.hoistDataSource);
   support.hoistFunctionSource = ResolveHoistFieldDataSource(
       support.hoistFunctionSource, support.hoistDataSource);
   if (support.function.empty())
@@ -873,16 +880,19 @@ static void ReadFixtureCategoryFromUserData(tinyxml2::XMLElement *fixtureNode,
     if (!info)
       continue;
 
-    if (tinyxml2::XMLElement *categoryNode = info->FirstChildElement("Category")) {
+    if (tinyxml2::XMLElement *categoryNode =
+            info->FirstChildElement("Category")) {
       if (const char *txt = categoryNode->GetText())
         fixture.category = GdtfFixtureCategory::NormalizeCategory(Trim(txt));
     }
 
-    if (tinyxml2::XMLElement *sourceNode = info->FirstChildElement("CategorySource")) {
+    if (tinyxml2::XMLElement *sourceNode =
+            info->FirstChildElement("CategorySource")) {
       if (const char *txt = sourceNode->GetText())
         fixture.categorySource = Trim(txt);
     }
-    if (tinyxml2::XMLElement *reasonNode = info->FirstChildElement("CategoryReason")) {
+    if (tinyxml2::XMLElement *reasonNode =
+            info->FirstChildElement("CategoryReason")) {
       if (const char *txt = reasonNode->GetText())
         fixture.categorySourceReason = Trim(txt);
     }
@@ -901,8 +911,8 @@ struct LegacyFixtureIdentity {
 };
 
 // Reads legacy Perastage fixture identity fields used by older MVR exports.
-static LegacyFixtureIdentity ReadLegacyFixtureIdentityFromUserData(
-    tinyxml2::XMLElement *fixtureNode) {
+static LegacyFixtureIdentity
+ReadLegacyFixtureIdentityFromUserData(tinyxml2::XMLElement *fixtureNode) {
   LegacyFixtureIdentity identity;
   if (!fixtureNode)
     return identity;
@@ -934,8 +944,8 @@ static LegacyFixtureIdentity ReadLegacyFixtureIdentityFromUserData(
 
 static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
                                              Support &support) {
-  for (tinyxml2::XMLElement *ud = supportNode->FirstChildElement("UserData"); ud;
-       ud = ud->NextSiblingElement("UserData")) {
+  for (tinyxml2::XMLElement *ud = supportNode->FirstChildElement("UserData");
+       ud; ud = ud->NextSiblingElement("UserData")) {
     for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
          data = data->NextSiblingElement("Data")) {
       tinyxml2::XMLElement *info = data->FirstChildElement("HoistInfo");
@@ -965,7 +975,8 @@ static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
       readFloat("Weight", support.weightKg);
       readFloat("Load", support.loadKg);
 
-      std::string hoistFunction = readText("RiggingPoint"); // Canonical in new schema.
+      std::string hoistFunction =
+          readText("RiggingPoint"); // Canonical in new schema.
       if (hoistFunction.empty())
         hoistFunction = readText("Function");
       if (!hoistFunction.empty())
@@ -986,8 +997,8 @@ static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
 
       const std::string useDefaults = ToLowerCopy(readText("UseMotorDefaults"));
       if (!useDefaults.empty()) {
-        support.useMotorDefaults =
-            !(useDefaults == "false" || useDefaults == "0" || useDefaults == "no");
+        support.useMotorDefaults = !(useDefaults == "false" ||
+                                     useDefaults == "0" || useDefaults == "no");
       }
 
       const std::string dummyPreset = readText("DummyPreset");
@@ -1038,28 +1049,29 @@ static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
 }
 // Imports an MVR file into the global application scene.
 bool MvrImporter::ImportFromFile(const std::string &filePath,
-                                 bool promptConflicts,
-                                 bool applyDictionary,
+                                 bool promptConflicts, bool applyDictionary,
                                  ProgressCallback progressCallback) {
   MvrImportResult importResult;
   return ImportFromFile(filePath, importResult, MvrImportMode::ReplaceProject,
                         promptConflicts, applyDictionary, progressCallback);
 }
 
-// Imports an MVR file into an import result and optionally replaces the global project.
+// Imports an MVR file into an import result and optionally replaces the global
+// project.
 bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  MvrImportResult &importResult,
-                                 MvrImportMode mode,
-                                 bool promptConflicts,
+                                 MvrImportMode mode, bool promptConflicts,
                                  bool applyDictionary,
                                  ProgressCallback progressCallback) {
   MvrImportOptions options;
   options.promptConflicts = promptConflicts;
   options.applyDictionary = applyDictionary;
-  return ImportFromFile(filePath, importResult, mode, options, progressCallback);
+  return ImportFromFile(filePath, importResult, mode, options,
+                        progressCallback);
 }
 
-// Imports an MVR file into an import result using explicit import behavior options.
+// Imports an MVR file into an import result using explicit import behavior
+// options.
 bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  MvrImportResult &importResult,
                                  MvrImportMode mode,
@@ -1069,7 +1081,8 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
                                   progressCallback);
 }
 
-// Imports an MVR file into the provided scene without resetting global configuration.
+// Imports an MVR file into the provided scene without resetting global
+// configuration.
 bool MvrImporter::ImportSceneFromFile(const std::string &filePath,
                                       MvrScene &targetScene,
                                       bool promptConflicts,
@@ -1081,14 +1094,16 @@ bool MvrImporter::ImportSceneFromFile(const std::string &filePath,
   return ImportSceneFromFile(filePath, targetScene, options, progressCallback);
 }
 
-// Imports an MVR file into the provided scene using explicit import behavior options.
+// Imports an MVR file into the provided scene using explicit import behavior
+// options.
 bool MvrImporter::ImportSceneFromFile(const std::string &filePath,
                                       MvrScene &targetScene,
                                       const MvrImportOptions &options,
                                       ProgressCallback progressCallback) {
   MvrImportResult importResult;
-  const bool imported = ImportFromFile(
-      filePath, importResult, MvrImportMode::ParseOnly, options, progressCallback);
+  const bool imported =
+      ImportFromFile(filePath, importResult, MvrImportMode::ParseOnly, options,
+                     progressCallback);
   if (!imported)
     return false;
 
@@ -1097,13 +1112,15 @@ bool MvrImporter::ImportSceneFromFile(const std::string &filePath,
   return true;
 }
 
-// Extracts an MVR package and parses its scene data into an import result payload.
+// Extracts an MVR package and parses its scene data into an import result
+// payload.
 bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
                                            MvrImportResult &importResult,
                                            MvrImportMode mode,
                                            const MvrImportOptions &options,
                                            ProgressCallback progressCallback) {
-  auto reportProgress = [&](std::string stage, int completed = 0, int total = 0) {
+  auto reportProgress = [&](std::string stage, int completed = 0,
+                            int total = 0) {
     if (!progressCallback)
       return;
     progressCallback(ProgressState{std::move(stage), completed, total});
@@ -1172,10 +1189,10 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
       ++extractedGdtfEntryCount;
     }
   }
-  LogMessage(Logger::Level::Info,
-             "MVR extraction diagnostics: basePath='" +
-                 ToString(tempPath.u8string()) + "', extractedGdtfEntries=" +
-                 std::to_string(extractedGdtfEntryCount));
+  LogMessage(
+      Logger::Level::Info,
+      "MVR extraction diagnostics: basePath='" + ToString(tempPath.u8string()) +
+          "', extractedGdtfEntries=" + std::to_string(extractedGdtfEntryCount));
 
   fs::path sceneFile = tempPath / "GeneralSceneDescription.xml";
   std::error_code sceneFileEc;
@@ -1207,8 +1224,8 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
 
   std::string scenePath = ToString(sceneFile.u8string());
   reportProgress("Parsing scene data...");
-  const bool parsed = ParseSceneXml(scenePath, importResult, options,
-                                    progressCallback);
+  const bool parsed =
+      ParseSceneXml(scenePath, importResult, options, progressCallback);
   if (!parsed)
     return false;
 
@@ -1222,12 +1239,14 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
 }
 
 // Normalizes an MVR archive path so extracted resources can be found reliably.
-std::string MvrImporter::NormalizeArchivePath(const std::string &archivePath) const {
+std::string
+MvrImporter::NormalizeArchivePath(const std::string &archivePath) const {
   return NormalizeArchivePathValue(archivePath);
 }
 
 // Returns a remapped extraction path for long archive entries when one exists.
-std::string MvrImporter::RemapArchivePathIfNeeded(const std::string &archivePath) const {
+std::string
+MvrImporter::RemapArchivePathIfNeeded(const std::string &archivePath) const {
   const std::string normalized = NormalizeArchivePath(archivePath);
   auto it = pathRemap.find(normalized);
   if (it != pathRemap.end())
@@ -1243,12 +1262,16 @@ std::string MvrImporter::CreateTemporaryDirectory() {
     std::error_code ec;
     if (fs::create_directory(fullPath, ec) && !ec) {
       // Return the path encoded as UTF-8 so it can safely be converted back
-      // using PathUtils::PathFromUtf8 or passed to wxWidgets APIs expecting UTF-8 strings.
+      // using PathUtils::PathFromUtf8 or passed to wxWidgets APIs expecting
+      // UTF-8 strings.
       return ToString(fullPath.u8string());
     }
   }
 
-  fs::path fallback = tempBase / ("ps_" + std::to_string(
+  fs::path fallback =
+      tempBase /
+      ("ps_" +
+       std::to_string(
                                       std::chrono::system_clock::now().time_since_epoch().count()));
   fs::create_directory(fallback);
   return ToString(fallback.u8string());
@@ -1269,7 +1292,8 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
   while ((entry.reset(zipStream.GetNextEntry())), entry) {
     // Extract entry names using UTF-8 to preserve special characters
     std::string entryName = entry->GetName().ToUTF8().data();
-    fs::path fullPath = PathUtils::PathFromUtf8(destDir) / PathUtils::PathFromUtf8(entryName);
+    fs::path fullPath =
+        PathUtils::PathFromUtf8(destDir) / PathUtils::PathFromUtf8(entryName);
 
     if (entry->IsDir()) {
       std::string dirUtf8 = ToString(fullPath.u8string());
@@ -1296,9 +1320,12 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
 
     if (!output.is_open()) {
       fs::path longDir = PathUtils::PathFromUtf8(destDir) / "_long";
-      std::string extension = PathUtils::PathFromUtf8(entryName).extension().string();
-      std::string hashBase = std::to_string(std::hash<std::string>{}(normalizedEntryName));
-      wxFileName::Mkdir(wxString::FromUTF8(ToString(longDir.u8string()).c_str()),
+      std::string extension =
+          PathUtils::PathFromUtf8(entryName).extension().string();
+      std::string hashBase =
+          std::to_string(std::hash<std::string>{}(normalizedEntryName));
+      wxFileName::Mkdir(
+          wxString::FromUTF8(ToString(longDir.u8string()).c_str()),
                         wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
 
       for (int suffix = 0; suffix < 64 && !output.is_open(); ++suffix) {
@@ -1306,12 +1333,13 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
         if (suffix > 0)
           candidateName += "_" + std::to_string(suffix);
         candidateName += extension;
-        fs::path candidatePath = longDir / PathUtils::PathFromUtf8(candidateName);
+        fs::path candidatePath =
+            longDir / PathUtils::PathFromUtf8(candidateName);
         output = tryOpenOutput(candidatePath);
         if (output.is_open()) {
           fullPath = candidatePath;
-          pathRemap[normalizedEntryName] = ToString((fs::path("_long") /
-                                                     PathUtils::PathFromUtf8(candidateName))
+          pathRemap[normalizedEntryName] = ToString(
+              (fs::path("_long") / PathUtils::PathFromUtf8(candidateName))
                                                         .u8string());
           remapped = true;
         }
@@ -1320,8 +1348,8 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
 
     if (!output.is_open()) {
       std::ostringstream msg;
-      msg << "Cannot create file while extracting MVR entry. entry='" << entryName
-          << "', path='" << ToString(fullPath.u8string())
+      msg << "Cannot create file while extracting MVR entry. entry='"
+          << entryName << "', path='" << ToString(fullPath.u8string())
           << "', pathLength=" << fullPathLength;
       const std::string loweredEntry = ToLowerAscii(normalizedEntryName);
       const bool isSceneXml =
@@ -1329,13 +1357,13 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
           fs::path(loweredEntry).filename().generic_string() ==
               "generalscenedescription.xml";
       if (isSceneXml) {
-        LogMessage(Logger::Level::Error, msg.str() +
-                                           " (required scene XML; aborting import)");
+        LogMessage(Logger::Level::Error,
+                   msg.str() + " (required scene XML; aborting import)");
         return false;
       }
 
-      LogMessage(Logger::Level::Warn, msg.str() +
-                                       " (asset entry skipped, continuing import)");
+      LogMessage(Logger::Level::Warn,
+                 msg.str() + " (asset entry skipped, continuing import)");
       char discardBuffer[4096];
       while (true) {
         zipStream.Read(discardBuffer, sizeof(discardBuffer));
@@ -1369,12 +1397,14 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
   return true;
 }
 
-// Parses GeneralSceneDescription.xml and populates the import result scene payload.
+// Parses GeneralSceneDescription.xml and populates the import result scene
+// payload.
 bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                 MvrImportResult &importResult,
                                 const MvrImportOptions &options,
                                 ProgressCallback progressCallback) {
-  auto reportProgress = [&](std::string stage, int completed = 0, int total = 0) {
+  auto reportProgress = [&](std::string stage, int completed = 0,
+                            int total = 0) {
     if (!progressCallback)
       return;
     progressCallback(ProgressState{std::move(stage), completed, total});
@@ -1395,14 +1425,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   MvrScene &scene = importResult.scene;
   scene.Clear();
-  scene.basePath = ToString(PathUtils::PathFromUtf8(sceneXmlPath).parent_path().u8string());
-  LogMessage(Logger::Level::Info,
+  scene.basePath =
+      ToString(PathUtils::PathFromUtf8(sceneXmlPath).parent_path().u8string());
+  LogMessage(
+      Logger::Level::Info,
              std::string("MVR import mode: source=") +
                  DescribeMvrImportSourceKind(options.sourceKind) +
-                 ", promptConflicts=" +
-                 (options.promptConflicts ? "true" : "false") +
-                 ", applyDictionary=" +
-                 (options.applyDictionary ? "true" : "false") +
+          ", promptConflicts=" + (options.promptConflicts ? "true" : "false") +
+          ", applyDictionary=" + (options.applyDictionary ? "true" : "false") +
                  ", basePath='" + scene.basePath + "'.");
 
   root->QueryIntAttribute("verMajor", &scene.versionMajor);
@@ -1449,8 +1479,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       out = std::atoi(n->GetText());
   };
 
-  auto fixtureIdOf = [&](tinyxml2::XMLElement *parent,
-                         std::string &textOut,
+  auto fixtureIdOf = [&](tinyxml2::XMLElement *parent, std::string &textOut,
                          int &numericOut) {
     textOut = textOf(parent, "FixtureID");
     intOf(parent, "FixtureIDNumeric", numericOut);
@@ -1465,44 +1494,49 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (!userDataNode)
       return false;
     bool found = false;
-    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data"); data;
-         data = data->NextSiblingElement("Data")) {
+    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data");
+         data; data = data->NextSiblingElement("Data")) {
       const std::string provider = ToLowerCopy(
           Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
       if (provider != "perastage")
         continue;
-      if (tinyxml2::XMLElement *manifest = data->FirstChildElement("TrussSidecarManifest")) {
+      if (tinyxml2::XMLElement *manifest =
+              data->FirstChildElement("TrussSidecarManifest")) {
         found = true;
-        for (tinyxml2::XMLElement *type = manifest->FirstChildElement("Type"); type;
-             type = type->NextSiblingElement("Type")) {
+        for (tinyxml2::XMLElement *type = manifest->FirstChildElement("Type");
+             type; type = type->NextSiblingElement("Type")) {
           const char *key = type->Attribute("key");
           const char *path = type->Attribute("gdtf");
           if (key && path)
             perastageTypeToGdtfPath[Trim(key)] = RemapArchivePathIfNeeded(path);
         }
-        for (tinyxml2::XMLElement *inst = manifest->FirstChildElement("Instance"); inst;
-             inst = inst->NextSiblingElement("Instance")) {
+        for (tinyxml2::XMLElement *inst =
+                 manifest->FirstChildElement("Instance");
+             inst; inst = inst->NextSiblingElement("Instance")) {
           const char *uuid = inst->Attribute("uuid");
           const char *key = inst->Attribute("typeKey");
           if (uuid && key)
-            perastageInstanceToTypeKey[CanonicalizeUuid(Trim(uuid))] = Trim(key);
+            perastageInstanceToTypeKey[CanonicalizeUuid(Trim(uuid))] =
+                Trim(key);
         }
       }
     }
     if (found) {
-      LogMessage(Logger::Level::Info,
+      LogMessage(
+          Logger::Level::Info,
                  std::string("MVR import loaded Perastage sidecar manifest from ") +
                      originLabel);
     }
     return found;
   };
 
-  const bool hasRootManifest =
-      parsePerastageManifest(root->FirstChildElement("UserData"), "GeneralSceneDescription/UserData");
+  const bool hasRootManifest = parsePerastageManifest(
+      root->FirstChildElement("UserData"), "GeneralSceneDescription/UserData");
   if (!hasRootManifest &&
-      parsePerastageManifest(sceneNode->FirstChildElement("UserData"), "legacy Scene/UserData")) {
-    LogMessage(Logger::Level::Warn,
-               "MVR import used legacy Scene/UserData fallback for Perastage sidecar manifest");
+      parsePerastageManifest(sceneNode->FirstChildElement("UserData"),
+                             "legacy Scene/UserData")) {
+    LogMessage(Logger::Level::Warn, "MVR import used legacy Scene/UserData "
+                                    "fallback for Perastage sidecar manifest");
   }
 
   std::unordered_map<std::string, std::string> layerColorByUuid;
@@ -1510,28 +1544,28 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   auto isHexRgb = [](const std::string &color) {
     if (color.size() != 7 || color[0] != '#')
       return false;
-    return std::all_of(color.begin() + 1, color.end(), [](unsigned char ch) {
-      return std::isxdigit(ch) != 0;
-    });
+    return std::all_of(color.begin() + 1, color.end(),
+                       [](unsigned char ch) { return std::isxdigit(ch) != 0; });
   };
   auto parseLayerAppearanceMap = [&](tinyxml2::XMLElement *userDataNode) {
     if (!userDataNode)
       return;
-    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data"); data;
-         data = data->NextSiblingElement("Data")) {
+    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data");
+         data; data = data->NextSiblingElement("Data")) {
       const std::string provider = ToLowerCopy(
           Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
       if (provider != "perastage")
         continue;
-      for (tinyxml2::XMLElement *map = data->FirstChildElement("LayerAppearanceMap"); map;
-           map = map->NextSiblingElement("LayerAppearanceMap")) {
+      for (tinyxml2::XMLElement *map =
+               data->FirstChildElement("LayerAppearanceMap");
+           map; map = map->NextSiblingElement("LayerAppearanceMap")) {
         auto parseAppearanceEntry = [&](tinyxml2::XMLElement *entry) {
           const std::string color =
               Trim(entry->Attribute("color") ? entry->Attribute("color") : "");
           if (!isHexRgb(color))
             return;
-          const std::string uuid =
-              CanonicalizeUuid(Trim(entry->Attribute("uuid") ? entry->Attribute("uuid") : ""));
+          const std::string uuid = CanonicalizeUuid(
+              Trim(entry->Attribute("uuid") ? entry->Attribute("uuid") : ""));
           const std::string name =
               Trim(entry->Attribute("name") ? entry->Attribute("name") : "");
           if (!uuid.empty())
@@ -1540,26 +1574,29 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             layerColorByName[name] = color;
         };
 
-        for (tinyxml2::XMLElement *entry = map->FirstChildElement("PerastageLayerAppearance");
-             entry; entry = entry->NextSiblingElement("PerastageLayerAppearance"))
+        for (tinyxml2::XMLElement *entry =
+                 map->FirstChildElement("PerastageLayerAppearance");
+             entry;
+             entry = entry->NextSiblingElement("PerastageLayerAppearance"))
           parseAppearanceEntry(entry);
-        for (tinyxml2::XMLElement *entry = map->FirstChildElement("Layer"); entry;
-             entry = entry->NextSiblingElement("Layer"))
+        for (tinyxml2::XMLElement *entry = map->FirstChildElement("Layer");
+             entry; entry = entry->NextSiblingElement("Layer"))
           parseAppearanceEntry(entry);
       }
     }
   };
   parseLayerAppearanceMap(root->FirstChildElement("UserData"));
 
-
-  struct RootFixtureTypeCategoryInfo {
+  struct RootFixtureTypeInfo {
     std::string category;
     std::string categorySource;
+    std::string visualColorHex;
   };
-  std::unordered_map<std::string, RootFixtureTypeCategoryInfo> rootFixtureCategoryByTypeKey;
+  std::unordered_map<std::string, RootFixtureTypeInfo>
+      rootFixtureTypeInfoByKey;
 
   // Builds the root UserData fixture type key used by Perastage exports.
-  auto buildFixtureTypeCategoryKey = [](const std::string &gdtfSpec,
+  auto buildFixtureTypeInfoKey = [](const std::string &gdtfSpec,
                                         const std::string &gdtfMode,
                                         const std::string &typeName) {
     std::ostringstream key;
@@ -1579,38 +1616,54 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   auto parseRootFixtureTypeInfoMap = [&](tinyxml2::XMLElement *userDataNode) {
     if (!userDataNode)
       return;
-    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data"); data;
-         data = data->NextSiblingElement("Data")) {
+    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data");
+         data; data = data->NextSiblingElement("Data")) {
       const std::string provider = ToLowerCopy(
           Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
       if (provider != "perastage")
         continue;
-      for (tinyxml2::XMLElement *map = data->FirstChildElement("FixtureTypeInfoMap"); map;
-           map = map->NextSiblingElement("FixtureTypeInfoMap")) {
-        for (tinyxml2::XMLElement *info = map->FirstChildElement("FixtureTypeInfo"); info;
-             info = info->NextSiblingElement("FixtureTypeInfo")) {
-          std::string key = Trim(info->Attribute("key") ? info->Attribute("key") : "");
+      for (tinyxml2::XMLElement *map =
+               data->FirstChildElement("FixtureTypeInfoMap");
+           map; map = map->NextSiblingElement("FixtureTypeInfoMap")) {
+        for (tinyxml2::XMLElement *info =
+                 map->FirstChildElement("FixtureTypeInfo");
+             info; info = info->NextSiblingElement("FixtureTypeInfo")) {
+          std::string key =
+              Trim(info->Attribute("key") ? info->Attribute("key") : "");
           if (key.empty()) {
-            key = buildFixtureTypeCategoryKey(
+            key = buildFixtureTypeInfoKey(
                 info->Attribute("gdtfSpec") ? info->Attribute("gdtfSpec") : "",
                 info->Attribute("gdtfMode") ? info->Attribute("gdtfMode") : "",
                 info->Attribute("model") ? info->Attribute("model") : "");
           }
           if (key.empty())
             continue;
-          RootFixtureTypeCategoryInfo categoryInfo;
-          if (tinyxml2::XMLElement *category = info->FirstChildElement("Category")) {
+          RootFixtureTypeInfo typeInfo;
+          if (tinyxml2::XMLElement *category =
+                  info->FirstChildElement("Category")) {
             if (const char *txt = category->GetText())
-              categoryInfo.category = GdtfFixtureCategory::NormalizeCategory(Trim(txt));
+              typeInfo.category =
+                  GdtfFixtureCategory::NormalizeCategory(Trim(txt));
           }
-          if (tinyxml2::XMLElement *source = info->FirstChildElement("CategorySource")) {
+          if (tinyxml2::XMLElement *source =
+                  info->FirstChildElement("CategorySource")) {
             if (const char *txt = source->GetText())
-              categoryInfo.categorySource = Trim(txt);
+              typeInfo.categorySource = Trim(txt);
           }
-          if (!categoryInfo.category.empty() && categoryInfo.categorySource.empty())
-            categoryInfo.categorySource = GdtfFixtureCategory::kManualSource;
-          if (!categoryInfo.category.empty())
-            rootFixtureCategoryByTypeKey[key] = categoryInfo;
+          if (!typeInfo.category.empty() &&
+              typeInfo.categorySource.empty())
+            typeInfo.categorySource = GdtfFixtureCategory::kManualSource;
+          if (tinyxml2::XMLElement *visualColor =
+                  info->FirstChildElement("VisualColor")) {
+            if (const char *txt = visualColor->GetText()) {
+              const std::string value = Trim(txt);
+              if (isHexRgb(value))
+                typeInfo.visualColorHex = value;
+            }
+          }
+          if (!typeInfo.category.empty() ||
+              !typeInfo.visualColorHex.empty())
+            rootFixtureTypeInfoByKey[key] = typeInfo;
         }
       }
     }
@@ -1622,16 +1675,16 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   auto parseRootTrussInfoMap = [&](tinyxml2::XMLElement *userDataNode) {
     if (!userDataNode)
       return;
-    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data"); data;
-         data = data->NextSiblingElement("Data")) {
+    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data");
+         data; data = data->NextSiblingElement("Data")) {
       const std::string provider = ToLowerCopy(
           Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
       if (provider != "perastage")
         continue;
-      for (tinyxml2::XMLElement *map = data->FirstChildElement("TrussInfoMap"); map;
-           map = map->NextSiblingElement("TrussInfoMap")) {
-        for (tinyxml2::XMLElement *info = map->FirstChildElement("TrussInfo"); info;
-             info = info->NextSiblingElement("TrussInfo")) {
+      for (tinyxml2::XMLElement *map = data->FirstChildElement("TrussInfoMap");
+           map; map = map->NextSiblingElement("TrussInfoMap")) {
+        for (tinyxml2::XMLElement *info = map->FirstChildElement("TrussInfo");
+             info; info = info->NextSiblingElement("TrussInfo")) {
           const std::string uuid = CanonicalizeUuid(
               Trim(info->Attribute("uuid") ? info->Attribute("uuid") : ""));
           if (!uuid.empty())
@@ -1654,13 +1707,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       if (canonicalUid.empty()) {
         if (rawUid.empty())
           continue;
-        std::string seed = "mvr:legacy-position:" + rawUid + ":" + (name ? Trim(name) : "");
+        std::string seed =
+            "mvr:legacy-position:" + rawUid + ":" + (name ? Trim(name) : "");
         const std::string generated = DeriveDeterministicUuid(seed);
         legacyPositionIdToCanonical[rawUid] = generated;
         scene.positions[generated] = name ? name : rawUid;
         LogMessage(Logger::Level::Warn,
-                   "MVR import migrated non-canonical Position uuid '" + rawUid + "' -> '" +
-                       generated + "'");
+                   "MVR import migrated non-canonical Position uuid '" +
+                       rawUid + "' -> '" + generated + "'");
       } else {
         if (canonicalUid != rawUid)
           legacyPositionIdToCanonical[rawUid] = canonicalUid;
@@ -1668,11 +1722,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       }
     }
 
-    std::function<void(tinyxml2::XMLElement *, const Matrix &, std::vector<SymdefGeometry> &)> parseSymdefChildList;
+    std::function<void(tinyxml2::XMLElement *, const Matrix &,
+                       std::vector<SymdefGeometry> &)>
+        parseSymdefChildList;
     parseSymdefChildList = [&](tinyxml2::XMLElement *childList,
                                const Matrix &parent,
                                std::vector<SymdefGeometry> &geometries) {
-      for (tinyxml2::XMLElement *child = childList ? childList->FirstChildElement() : nullptr;
+      for (tinyxml2::XMLElement *child =
+               childList ? childList->FirstChildElement() : nullptr;
            child; child = child->NextSiblingElement()) {
         const char *name = child->Name();
         if (!name)
@@ -1743,8 +1800,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   auto parseMatrixOrIdentity = [&](tinyxml2::XMLElement *parent,
                                    const char *elementName,
-                                   const std::string &contextTag,
-                                   Matrix &out,
+                                   const std::string &contextTag, Matrix &out,
                                    bool inspectScale = false) {
     out = MatrixUtils::Identity();
     if (!parent)
@@ -1771,13 +1827,16 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         const float minNorm = std::min({nu, nv, nw});
         const float maxNorm = std::max({nu, nv, nw});
 
-        const bool finiteNorms = std::isfinite(nu) && std::isfinite(nv) && std::isfinite(nw);
+        const bool finiteNorms =
+            std::isfinite(nu) && std::isfinite(nv) && std::isfinite(nw);
         const bool strictlyPositiveNorms = minNorm > 0.0f;
-        const bool isUniformScale = IsNearlyEqualRelative(nu, nv, kUniformScaleRelativeTolerance) &&
+        const bool isUniformScale =
+            IsNearlyEqualRelative(nu, nv, kUniformScaleRelativeTolerance) &&
                                     IsNearlyEqualRelative(nu, nw, kUniformScaleRelativeTolerance);
         const bool isTinyUniformGeometryScale =
-            finiteNorms && strictlyPositiveNorms && maxNorm <= kTinyScaleMaxNorm &&
-            isUniformScale && IsGeometryMatrixContext(contextTag);
+            finiteNorms && strictlyPositiveNorms &&
+            maxNorm <= kTinyScaleMaxNorm && isUniformScale &&
+            IsGeometryMatrixContext(contextTag);
         if (isTinyUniformGeometryScale) {
           ++matrixScaleAggregation.acceptedTinyUniformScaleCount;
           ++matrixScaleAggregation.acceptedByContext[contextTag];
@@ -1785,15 +1844,18 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
 
         const bool hasInvalidNorm = !finiteNorms || !strictlyPositiveNorms;
-        const bool hasOutlierNorm = minNorm < kMinOutlierNorm || maxNorm > kMaxOutlierNorm;
+        const bool hasOutlierNorm =
+            minNorm < kMinOutlierNorm || maxNorm > kMaxOutlierNorm;
         if (!hasInvalidNorm && !hasOutlierNorm)
           return;
 
         ++matrixScaleAggregation.suspiciousMatrixCount;
         ++matrixScaleAggregation.suspiciousByContext[contextTag];
-        if (matrixScaleAggregation.suspiciousExamples.size() < kMaxSuspiciousExamples) {
+        if (matrixScaleAggregation.suspiciousExamples.size() <
+            kMaxSuspiciousExamples) {
           std::ostringstream oss;
-          oss << contextTag << " (|u|=" << nu << ", |v|=" << nv << ", |w|=" << nw << ")";
+          oss << contextTag << " (|u|=" << nu << ", |v|=" << nv
+              << ", |w|=" << nw << ")";
           matrixScaleAggregation.suspiciousExamples.push_back(oss.str());
         }
       }
@@ -1843,7 +1905,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   std::unordered_map<std::string, GdtfFixtureCategory::InferenceResult>
       categoryInferenceByResolvedPath;
   const std::string kEmptyResolvedPath;
-  auto resolveGdtfPathCached = [&](const std::string &spec) -> const std::string & {
+  auto resolveGdtfPathCached =
+      [&](const std::string &spec) -> const std::string & {
     const std::string normalized = NormalizeArchivePathValue(spec);
     if (normalized.empty())
       return kEmptyResolvedPath;
@@ -1854,23 +1917,28 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
     std::string resolved = ResolveGdtfPath(scene.basePath, normalized);
     if (resolved.empty())
-      resolved = ToString(ResolveSceneRelativePath(scene.basePath, normalized).u8string());
-    return resolvedGdtfPathCache.emplace(normalized, std::move(resolved)).first->second;
+      resolved = ToString(
+          ResolveSceneRelativePath(scene.basePath, normalized).u8string());
+    return resolvedGdtfPathCache.emplace(normalized, std::move(resolved))
+        .first->second;
   };
 
   auto normalizeGdtfSpecForScene = [&](const std::string &spec) {
     const std::string normalized = NormalizeArchivePathValue(spec);
     if (normalized.empty())
       return std::string{};
-    return ToSceneRelativePathIfPossible(scene.basePath, PathUtils::PathFromUtf8(resolveGdtfPathCached(normalized)));
+    return ToSceneRelativePathIfPossible(
+        scene.basePath,
+        PathUtils::PathFromUtf8(resolveGdtfPathCached(normalized)));
   };
 
-  auto getGdtfModesCached = [&](const std::string &gdtfPath)
-      -> const std::vector<std::string> & {
+  auto getGdtfModesCached =
+      [&](const std::string &gdtfPath) -> const std::vector<std::string> & {
     auto cacheIt = gdtfModesCache.find(gdtfPath);
     if (cacheIt != gdtfModesCache.end())
       return cacheIt->second;
-    return gdtfModesCache.emplace(gdtfPath, GetGdtfModes(gdtfPath)).first->second;
+    return gdtfModesCache.emplace(gdtfPath, GetGdtfModes(gdtfPath))
+        .first->second;
   };
 
   auto getGdtfModeChannelCountCached = [&](const std::string &gdtfPath,
@@ -1884,14 +1952,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return count;
   };
 
-  auto resolveExistingGdtfModeCached = [&](const std::string &gdtfPath,
-                                           const std::string &requestedMode,
+  auto resolveExistingGdtfModeCached =
+      [&](const std::string &gdtfPath, const std::string &requestedMode,
                                            std::optional<int> channelCountHint) {
     const std::vector<std::string> &modes = getGdtfModesCached(gdtfPath);
     if (modes.empty())
       return requestedMode;
 
-    const std::string normalizedRequested = ToLowerAscii(Trim(requestedMode));
+        const std::string normalizedRequested =
+            ToLowerAscii(Trim(requestedMode));
     if (!normalizedRequested.empty()) {
       for (const std::string &mode : modes) {
         if (ToLowerAscii(Trim(mode)) == normalizedRequested)
@@ -1938,8 +2007,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
   std::unordered_map<std::string, GdtfFixtureMetadata> gdtfFixtureMetadataCache;
   const GdtfFixtureMetadata kEmptyFixtureMetadata{};
-  auto getFixtureMetadata = [&](const std::string &resolvedGdtfPath)
-      -> const GdtfFixtureMetadata & {
+  auto getFixtureMetadata =
+      [&](const std::string &resolvedGdtfPath) -> const GdtfFixtureMetadata & {
     if (resolvedGdtfPath.empty())
       return kEmptyFixtureMetadata;
 
@@ -1951,7 +2020,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     metadata.fixtureName = Trim(GetGdtfFixtureName(resolvedGdtfPath));
     metadata.hasProperties =
         GetGdtfProperties(resolvedGdtfPath, metadata.weightKg, metadata.powerW);
-    return gdtfFixtureMetadataCache.emplace(resolvedGdtfPath, std::move(metadata))
+    return gdtfFixtureMetadataCache
+        .emplace(resolvedGdtfPath, std::move(metadata))
         .first->second;
   };
 
@@ -1965,7 +2035,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (it == trussDefinitionCache.end()) {
       Truss loaded;
       if (LoadTrussDefinition(resolvedGdtfPath, loaded))
-        it = trussDefinitionCache.emplace(resolvedGdtfPath, std::move(loaded)).first;
+        it = trussDefinitionCache.emplace(resolvedGdtfPath, std::move(loaded))
+                 .first;
       else
         it = trussDefinitionCache.emplace(resolvedGdtfPath, std::nullopt).first;
     }
@@ -1976,10 +2047,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return true;
   };
 
-  auto appendGeometryInstance = [&](std::vector<GeometryInstance> &instances,
-                                    const std::string &fileName,
-                                    const Matrix &localTransform,
-                                    const std::string &instanceKey,
+  auto appendGeometryInstance =
+      [&](std::vector<GeometryInstance> &instances, const std::string &fileName,
+          const Matrix &localTransform, const std::string &instanceKey,
                                     const std::string &sourceSymbolUuid = {},
                                     const std::string &sourceSymdefUuid = {}) {
     std::string normalized = normalizeAndResolveGeometryFileName(fileName);
@@ -2046,19 +2116,21 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   // ---- Helper lambdas for object parsing ----
   int preservedGroupObjectCount = 0;
-  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const std::string &)>
+  std::function<void(tinyxml2::XMLElement *, const std::string &,
+                     const Matrix &, const std::string &)>
       parseChildList;
 
-  auto ensurePositionEntry = [&](const std::string &positionId)
-      -> std::string {
+  auto ensurePositionEntry = [&](const std::string &positionId) -> std::string {
     if (positionId.empty())
       return {};
 
     auto legacyIt = legacyPositionIdToCanonical.find(positionId);
-    const std::string remappedId =
-        legacyIt != legacyPositionIdToCanonical.end() ? legacyIt->second : positionId;
+    const std::string remappedId = legacyIt != legacyPositionIdToCanonical.end()
+                                       ? legacyIt->second
+                                       : positionId;
     const std::string canonicalId = CanonicalizeUuid(remappedId);
-    const std::string normalizedId = canonicalId.empty() ? remappedId : canonicalId;
+    const std::string normalizedId =
+        canonicalId.empty() ? remappedId : canonicalId;
 
     auto it = scene.positions.find(normalizedId);
     if (it != scene.positions.end())
@@ -2113,7 +2185,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         stableUuid = legacyUuid;
       } else if (!rawUuid.empty()) {
         LogMessage(Logger::Level::Warn,
-                   wxString::Format("MVR import: %s UUID '%s' is invalid. Applying deterministic fallback.",
+                   wxString::Format("MVR import: %s UUID '%s' is invalid. "
+                                    "Applying deterministic fallback.",
                                     kind, rawUuid.c_str())
                        .ToStdString());
       }
@@ -2123,13 +2196,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
     if (usedStableUuids.contains(stableUuid)) {
       LogMessage(Logger::Level::Warn,
-                 wxString::Format("MVR import: UUID collision for %s '%s'. Applying controlled fallback UUID.",
+                 wxString::Format("MVR import: UUID collision for %s '%s'. "
+                                  "Applying controlled fallback UUID.",
                                   kind, stableUuid.c_str())
                      .ToStdString());
       int suffix = 1;
       std::string candidate;
       do {
-        candidate = DeriveDeterministicUuid(seed + "#" + std::to_string(suffix++));
+        candidate =
+            DeriveDeterministicUuid(seed + "#" + std::to_string(suffix++));
       } while (usedStableUuids.contains(candidate));
       stableUuid = std::move(candidate);
     }
@@ -2153,15 +2228,17 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   std::unordered_map<std::string, std::optional<GdtfDictionary::Entry>>
       dictionaryEntryByTypeCache;
-  auto getDictionaryEntryCached =
-      [&](const std::string &typeName) -> const std::optional<GdtfDictionary::Entry> & {
-    static const std::optional<GdtfDictionary::Entry> kEmptyEntry = std::nullopt;
+  auto getDictionaryEntryCached = [&](const std::string &typeName)
+      -> const std::optional<GdtfDictionary::Entry> & {
+    static const std::optional<GdtfDictionary::Entry> kEmptyEntry =
+        std::nullopt;
     if (typeName.empty())
       return kEmptyEntry;
     auto it = dictionaryEntryByTypeCache.find(typeName);
     if (it != dictionaryEntryByTypeCache.end())
       return it->second;
-    return dictionaryEntryByTypeCache.emplace(typeName, GdtfDictionary::Get(typeName))
+    return dictionaryEntryByTypeCache
+        .emplace(typeName, GdtfDictionary::Get(typeName))
         .first->second;
   };
 
@@ -2169,11 +2246,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   int trussSymbolSymdefPreservedCount = 0;
   std::unordered_map<std::string, int> trussSymbolSymdefPreservedBySymdef;
 
-  // Parses a Fixture XML node into scene data while preserving its original matching identity.
-  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const Matrix &, const std::string &)>
+  // Parses a Fixture XML node into scene data while preserving its original
+  // matching identity.
+  std::function<void(tinyxml2::XMLElement *, const std::string &,
+                     const Matrix &, const Matrix &, const std::string &)>
       parseFixture = [&](tinyxml2::XMLElement *node,
                          const std::string &layerName,
-                         const Matrix &nodeTransform, const Matrix &localTransform,
+                         const Matrix &nodeTransform,
+                         const Matrix &localTransform,
                          const std::string &parentGroupUuid) {
         Fixture fixture;
         const LegacyFixtureIdentity legacyIdentity =
@@ -2181,9 +2261,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         const char *rawUuidAttr = node->Attribute("uuid");
         const std::string rawFixtureUuid =
             rawUuidAttr ? Trim(rawUuidAttr) : std::string{};
-        fixture.uuid =
-            resolveStableUuid("Fixture", node, layerName, nodeTransform,
-                              legacyIdentity.stableId);
+        fixture.uuid = resolveStableUuid(
+            "Fixture", node, layerName, nodeTransform, legacyIdentity.stableId);
         if (!rawFixtureUuid.empty() && rawFixtureUuid != fixture.uuid)
           fixtureUuidRemap[rawFixtureUuid] = fixture.uuid;
         fixture.layer = layerName;
@@ -2211,8 +2290,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         fixture.originalMvrGdtfSpec = rawGdtfSpec;
         fixture.gdtfMode = textOf(node, "GDTFMode");
         fixture.requestedFixtureName =
-            mvr::gdtf_import_matching::SelectRequestedFixtureName(rawFixtureNodeName,
-                                                                 rawGdtfSpec);
+            mvr::gdtf_import_matching::SelectRequestedFixtureName(
+                rawFixtureNodeName, rawGdtfSpec);
         fixture.focus = textOf(node, "Focus");
         fixture.function = textOf(node, "Function");
         fixture.position = CanonicalizeUuid(textOf(node, "Position"));
@@ -2225,7 +2304,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (tinyxml2::XMLElement *colorNode =
                 node->FirstChildElement("Color")) {
           if (const char *txt = colorNode->GetText())
-            fixture.gelColor = CieToHex(txt);
+            fixture.mvrFixtureColorHex = CieToHex(txt);
         }
         float legacyPowerConsumptionW = 0.0f;
         bool hasLegacyPowerConsumption = false;
@@ -2241,8 +2320,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
         float legacyWeightKg = 0.0f;
         bool hasLegacyWeight = false;
-        if (tinyxml2::XMLElement *wNode =
-                node->FirstChildElement("Weight")) {
+        if (tinyxml2::XMLElement *wNode = node->FirstChildElement("Weight")) {
           if (const char *txt = wNode->GetText()) {
             float parsed = 0.0f;
             if (TryParseFloat(txt, parsed)) {
@@ -2254,40 +2332,49 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         std::string resolvedGdtfPathForFixture;
         if (!fixture.gdtfSpec.empty()) {
           fixture.gdtfSpec = RemapArchivePathIfNeeded(fixture.gdtfSpec);
-          const std::string &resolvedGdtfPath = resolveGdtfPathCached(fixture.gdtfSpec);
+          const std::string &resolvedGdtfPath =
+              resolveGdtfPathCached(fixture.gdtfSpec);
           resolvedGdtfPathForFixture = resolvedGdtfPath;
           fixture.gdtfSpec = normalizeGdtfSpecForScene(fixture.gdtfSpec);
           if (fixture.gdtfSpec.empty() && !rawGdtfSpec.empty())
             fixture.gdtfSpec = RemapArchivePathIfNeeded(rawGdtfSpec);
-          const GdtfFixtureMetadata &metadata = getFixtureMetadata(resolvedGdtfPath);
+          const GdtfFixtureMetadata &metadata =
+              getFixtureMetadata(resolvedGdtfPath);
           fixture.typeName = metadata.fixtureName;
           if (metadata.hasProperties) {
             if (metadata.weightKg > 0.0f)
               fixture.weightKg = metadata.weightKg;
             if (metadata.powerW > 0.0f)
               fixture.powerConsumptionW = metadata.powerW;
-            fixture.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
+            fixture.physicalPropertiesSource =
+                FixturePhysicalPropertiesSource::Gdtf;
             fixture.physicalPropertiesDirty = false;
           }
         }
         if (fixture.weightKg <= 0.0f && hasLegacyWeight) {
           fixture.weightKg = legacyWeightKg;
-          fixture.physicalPropertiesSource = FixturePhysicalPropertiesSource::LegacyMvrFixtureNode;
+          fixture.physicalPropertiesSource =
+              FixturePhysicalPropertiesSource::LegacyMvrFixtureNode;
         }
         if (fixture.powerConsumptionW <= 0.0f && hasLegacyPowerConsumption) {
           fixture.powerConsumptionW = legacyPowerConsumptionW;
-          fixture.physicalPropertiesSource = FixturePhysicalPropertiesSource::LegacyMvrFixtureNode;
+          fixture.physicalPropertiesSource =
+              FixturePhysicalPropertiesSource::LegacyMvrFixtureNode;
         }
         fixture.physicalPropertiesDirty = false;
 
         ReadFixtureCategoryFromUserData(node, fixture);
-        const std::string categoryTypeKey = buildFixtureTypeCategoryKey(
+        const std::string fixtureTypeInfoKey = buildFixtureTypeInfoKey(
             rawGdtfSpec, fixture.gdtfMode, fixture.typeName);
-        auto rootCategoryIt = rootFixtureCategoryByTypeKey.find(categoryTypeKey);
-        if (rootCategoryIt != rootFixtureCategoryByTypeKey.end()) {
-          fixture.category = rootCategoryIt->second.category;
-          fixture.categorySource = rootCategoryIt->second.categorySource;
-          fixture.categorySourceReason.clear();
+        auto rootTypeInfoIt =
+            rootFixtureTypeInfoByKey.find(fixtureTypeInfoKey);
+        if (rootTypeInfoIt != rootFixtureTypeInfoByKey.end()) {
+          if (!rootTypeInfoIt->second.category.empty()) {
+            fixture.category = rootTypeInfoIt->second.category;
+            fixture.categorySource = rootTypeInfoIt->second.categorySource;
+            fixture.categorySourceReason.clear();
+          }
+          fixture.visualColorHex = rootTypeInfoIt->second.visualColorHex;
         }
         const std::optional<GdtfDictionary::Entry> &dictionaryEntry =
             getDictionaryEntryCached(fixture.typeName);
@@ -2338,22 +2425,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             fixture.matrixRaw = txt;
         }
 
-        if (options.applyDictionary && dictionaryEntry && !fixture.typeName.empty()) {
+        if (options.applyDictionary && dictionaryEntry &&
+            !fixture.typeName.empty()) {
           int footprint = 0;
-          if (!resolvedGdtfPathForFixture.empty() && !fixture.gdtfMode.empty()) {
-            footprint = getGdtfModeChannelCountCached(resolvedGdtfPathForFixture,
-                                                      fixture.gdtfMode);
+          if (!resolvedGdtfPathForFixture.empty() &&
+              !fixture.gdtfMode.empty()) {
+            footprint = getGdtfModeChannelCountCached(
+                resolvedGdtfPathForFixture, fixture.gdtfMode);
           }
           pendingGdtfConflictByType.try_emplace(
               fixture.typeName,
-              GdtfConflict{fixture.typeName,
-                           fixture.requestedFixtureName,
-                           fixture.gdtfSpec,
-                           dictionaryEntry->path,
-                           "",
-                           fixture.typeName,
-                           fixture.gdtfMode,
-                           footprint,
+              GdtfConflict{fixture.typeName, fixture.requestedFixtureName,
+                           fixture.gdtfSpec, dictionaryEntry->path, "",
+                           fixture.typeName, fixture.gdtfMode, footprint,
                            true});
         }
 
@@ -2422,15 +2506,18 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         truss.perastageTypeKey = Trim(tk->GetText());
     if (tinyxml2::XMLElement *ag = info->FirstChildElement("AuxGdtf"))
       if (ag->GetText())
-        truss.perastageAuxGdtfArchivePath = RemapArchivePathIfNeeded(Trim(ag->GetText()));
+        truss.perastageAuxGdtfArchivePath =
+            RemapArchivePathIfNeeded(Trim(ag->GetText()));
   };
 
-  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const Matrix &, const std::string &)> parseTruss =
-      [&](tinyxml2::XMLElement *node, const std::string &layerName,
-          const Matrix &nodeTransform, const Matrix &localTransform, const std::string &parentGroupUuid) {
+  std::function<void(tinyxml2::XMLElement *, const std::string &,
+                     const Matrix &, const Matrix &, const std::string &)>
+      parseTruss = [&](tinyxml2::XMLElement *node, const std::string &layerName,
+                       const Matrix &nodeTransform,
+                       const Matrix &localTransform,
+                       const std::string &parentGroupUuid) {
         Truss truss;
-        truss.uuid =
-            resolveStableUuid("Truss", node, layerName, nodeTransform);
+        truss.uuid = resolveStableUuid("Truss", node, layerName, nodeTransform);
         truss.layer = layerName;
         truss.transform = nodeTransform;
         truss.localTransform = localTransform;
@@ -2458,9 +2545,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
         bool gdtfLoadFailed = false;
         if (!truss.gdtfSpec.empty()) {
-          truss.sourceRepresentation = Truss::GeometryRepresentation::PublicGdtf;
+          truss.sourceRepresentation =
+              Truss::GeometryRepresentation::PublicGdtf;
           truss.gdtfSpec = RemapArchivePathIfNeeded(truss.gdtfSpec);
-          const std::string trussGdtfPath = resolveGdtfPathCached(truss.gdtfSpec);
+          const std::string trussGdtfPath =
+              resolveGdtfPathCached(truss.gdtfSpec);
           truss.gdtfSpec = normalizeGdtfSpecForScene(truss.gdtfSpec);
           Truss gdtfTruss;
           if (loadTrussDefinitionCached(trussGdtfPath, gdtfTruss)) {
@@ -2482,7 +2571,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             if (gdtfTruss.weightKg > 0.0f)
               truss.weightKg = gdtfTruss.weightKg;
             if (truss.gdtfMode.empty())
-              truss.gdtfMode = gdtfTruss.gdtfMode.empty() ? "Default" : gdtfTruss.gdtfMode;
+              truss.gdtfMode =
+                  gdtfTruss.gdtfMode.empty() ? "Default" : gdtfTruss.gdtfMode;
           } else {
             gdtfLoadFailed = true;
           }
@@ -2492,19 +2582,22 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 node->FirstChildElement("Geometries")) {
           if (tinyxml2::XMLElement *g3d =
                   geos->FirstChildElement("Geometry3D")) {
-            truss.sourceRepresentation = Truss::GeometryRepresentation::Geometry3D;
+            truss.sourceRepresentation =
+                Truss::GeometryRepresentation::Geometry3D;
             const char *file = g3d->Attribute("fileName");
             if (file)
               truss.symbolFile = normalizeAndResolveGeometryFileName(file);
             Matrix geoMatrix = MatrixUtils::Identity();
-            parseMatrixOrIdentity(g3d, "Matrix", "Truss/Geometry3D", geoMatrix, true);
+            parseMatrixOrIdentity(g3d, "Matrix", "Truss/Geometry3D", geoMatrix,
+                                  true);
             truss.sourceGeometryMatrix = geoMatrix;
             if (const char *type = g3d->Attribute("geometryType"))
               truss.sourceGeometryType = Trim(type);
             truss.transform = MatrixUtils::Multiply(nodeTransform, geoMatrix);
           } else if (tinyxml2::XMLElement *sym =
                          geos->FirstChildElement("Symbol")) {
-            truss.sourceRepresentation = Truss::GeometryRepresentation::SymbolSymdef;
+            truss.sourceRepresentation =
+                Truss::GeometryRepresentation::SymbolSymdef;
             std::vector<SymdefGeometry> symGeometries;
             std::string symType;
             Matrix symMatrix = MatrixUtils::Identity();
@@ -2517,8 +2610,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             truss.sourceGeometryType = symType;
             Matrix symLocal = symMatrix;
             if (!symGeometries.empty()) {
-              truss.symbolFile =
-                  normalizeAndResolveGeometryFileName(symGeometries.front().file);
+              truss.symbolFile = normalizeAndResolveGeometryFileName(
+                  symGeometries.front().file);
               symLocal = MatrixUtils::Multiply(symMatrix,
                                                symGeometries.front().transform);
             }
@@ -2531,16 +2624,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           }
         }
 
-
-        const bool hasGdtfMetadataAuthority = !truss.gdtfSpec.empty() && !gdtfLoadFailed;
+        const bool hasGdtfMetadataAuthority =
+            !truss.gdtfSpec.empty() && !gdtfLoadFailed;
 
         auto rootTrussInfoIt = rootTrussInfoByUuid.find(truss.uuid);
         if (rootTrussInfoIt != rootTrussInfoByUuid.end()) {
-          applyTrussInfo(rootTrussInfoIt->second, truss, hasGdtfMetadataAuthority);
-        } else if (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData")) {
+          applyTrussInfo(rootTrussInfoIt->second, truss,
+                         hasGdtfMetadataAuthority);
+        } else if (tinyxml2::XMLElement *ud =
+                       node->FirstChildElement("UserData")) {
           for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
                data = data->NextSiblingElement("Data")) {
-            if (tinyxml2::XMLElement *info = data->FirstChildElement("TrussInfo")) {
+            if (tinyxml2::XMLElement *info =
+                    data->FirstChildElement("TrussInfo")) {
               applyTrussInfo(info, truss, hasGdtfMetadataAuthority);
               break;
             }
@@ -2553,9 +2649,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           auto typeIt = perastageTypeToGdtfPath.find(truss.perastageTypeKey);
           if (typeIt != perastageTypeToGdtfPath.end()) {
             truss.perastageAuxGdtfArchivePath = typeIt->second;
-            fs::path auxPath = scene.basePath.empty()
+            fs::path auxPath =
+                scene.basePath.empty()
                                    ? PathUtils::PathFromUtf8(typeIt->second)
-                                   : PathUtils::PathFromUtf8(scene.basePath) / PathUtils::PathFromUtf8(typeIt->second);
+                    : PathUtils::PathFromUtf8(scene.basePath) /
+                          PathUtils::PathFromUtf8(typeIt->second);
             Truss sidecar;
             if (LoadTrussDefinition(ToString(auxPath.u8string()), sidecar)) {
               if (truss.manufacturer.empty())
@@ -2576,11 +2674,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
         const fs::path resolvedSymbolPath =
             ResolveSceneRelativePath(scene.basePath, truss.symbolFile);
-        const bool symbolRenderable = IsRenderableTrussGeometry(truss.symbolFile);
+        const bool symbolRenderable =
+            IsRenderableTrussGeometry(truss.symbolFile);
         std::error_code symbolExistsEc;
         const bool symbolExists =
-            symbolRenderable && fs::exists(resolvedSymbolPath, symbolExistsEc) &&
-            !symbolExistsEc;
+            symbolRenderable &&
+            fs::exists(resolvedSymbolPath, symbolExistsEc) && !symbolExistsEc;
         if (!symbolExists) {
           std::ostringstream reason;
           if (truss.symbolFile.empty()) {
@@ -2603,10 +2702,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         scene.trusses[truss.uuid] = truss;
       };
 
-  // Parses a Support XML node into scene data while preserving group-local transforms.
-  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const Matrix &, const std::string &)> parseSupport =
-      [&](tinyxml2::XMLElement *node, const std::string &layerName,
-          const Matrix &nodeTransform, const Matrix &localTransform,
+  // Parses a Support XML node into scene data while preserving group-local
+  // transforms.
+  std::function<void(tinyxml2::XMLElement *, const std::string &,
+                     const Matrix &, const Matrix &, const std::string &)>
+      parseSupport = [&](tinyxml2::XMLElement *node,
+                         const std::string &layerName,
+                         const Matrix &nodeTransform,
+                         const Matrix &localTransform,
           const std::string &parentGroupUuid) {
         Support support;
         support.uuid =
@@ -2662,14 +2765,17 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (supportPosIt != legacyPositionIdToCanonical.end())
           support.position = supportPosIt->second;
 
-        if (tinyxml2::XMLElement *geos = node->FirstChildElement("Geometries")) {
-          for (tinyxml2::XMLElement *g3d = geos->FirstChildElement("Geometry3D"); g3d;
-               g3d = g3d->NextSiblingElement("Geometry3D")) {
+        if (tinyxml2::XMLElement *geos =
+                node->FirstChildElement("Geometries")) {
+          for (tinyxml2::XMLElement *g3d =
+                   geos->FirstChildElement("Geometry3D");
+               g3d; g3d = g3d->NextSiblingElement("Geometry3D")) {
             const char *file = g3d->Attribute("fileName");
             if (!file)
               continue;
             Matrix geoMatrix = MatrixUtils::Identity();
-            parseMatrixOrIdentity(g3d, "Matrix", "Support/Geometry3D", geoMatrix, true);
+            parseMatrixOrIdentity(g3d, "Matrix", "Support/Geometry3D",
+                                  geoMatrix, true);
             appendGeometryInstance(support.geometries, Trim(file), geoMatrix,
                                    BuildSceneObjectGeometryInstanceKey(
                                        support.uuid, "support-geometry3d",
@@ -2677,8 +2783,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           }
 
           size_t symbolIndex = 0;
-          for (tinyxml2::XMLElement *sym = geos->FirstChildElement("Symbol"); sym;
-               sym = sym->NextSiblingElement("Symbol"), ++symbolIndex) {
+          for (tinyxml2::XMLElement *sym = geos->FirstChildElement("Symbol");
+               sym; sym = sym->NextSiblingElement("Symbol"), ++symbolIndex) {
             std::vector<SymdefGeometry> symGeometries;
             Matrix symMatrix = MatrixUtils::Identity();
             std::string symGeometryType;
@@ -2686,7 +2792,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 Trim(sym->Attribute("uuid") ? sym->Attribute("uuid") : "");
             const std::string sourceSymdefUuid =
                 Trim(sym->Attribute("symdef") ? sym->Attribute("symdef") : "");
-            resolveSymdefReference(sym, symGeometries, symGeometryType, symMatrix);
+            resolveSymdefReference(sym, symGeometries, symGeometryType,
+                                   symMatrix);
             size_t symGeometryIndex = 0;
             for (const auto &geo : symGeometries) {
               appendGeometryInstance(
@@ -2694,7 +2801,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   MatrixUtils::Multiply(symMatrix, geo.transform),
                   BuildSceneObjectGeometryInstanceKey(
                       support.uuid, "support-symbol", symbolIndex,
-                      sourceSymdefUuid + "/" + std::to_string(symGeometryIndex)),
+                      sourceSymdefUuid + "/" +
+                          std::to_string(symGeometryIndex)),
                   sourceSymbolUuid, sourceSymdefUuid);
               ++symGeometryIndex;
             }
@@ -2712,11 +2820,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         scene.supports[support.uuid] = support;
       };
 
-  // Parses a SceneObject XML node into scene data while preserving group-local transforms.
-  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const Matrix &, const std::string &)>
+  // Parses a SceneObject XML node into scene data while preserving group-local
+  // transforms.
+  std::function<void(tinyxml2::XMLElement *, const std::string &,
+                     const Matrix &, const Matrix &, const std::string &)>
       parseSceneObj = [&](tinyxml2::XMLElement *node,
                           const std::string &layerName,
-                          const Matrix &nodeTransform, const Matrix &localTransform, const std::string &parentGroupUuid) {
+                          const Matrix &nodeTransform,
+                          const Matrix &localTransform,
+                          const std::string &parentGroupUuid) {
         SceneObject obj;
         obj.uuid =
             resolveStableUuid("SceneObject", node, layerName, nodeTransform);
@@ -2729,26 +2841,31 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           obj.name = nameAttr;
 
         std::string geometryType;
-        std::unordered_map<std::string, std::string> primitiveModelRefByArchiveFile;
+        std::unordered_map<std::string, std::string>
+            primitiveModelRefByArchiveFile;
 
         for (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData"); ud;
              ud = ud->NextSiblingElement("UserData")) {
           for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
                data = data->NextSiblingElement("Data")) {
             const std::string provider = ToLowerCopy(
-                Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
+                Trim(data->Attribute("provider") ? data->Attribute("provider")
+                                                 : ""));
             if (provider != "perastage")
               continue;
-            if (tinyxml2::XMLElement *map = data->FirstChildElement("PrimitiveGeometryMap")) {
-              for (tinyxml2::XMLElement *entry = map->FirstChildElement("Entry"); entry;
-                   entry = entry->NextSiblingElement("Entry")) {
+            if (tinyxml2::XMLElement *map =
+                    data->FirstChildElement("PrimitiveGeometryMap")) {
+              for (tinyxml2::XMLElement *entry =
+                       map->FirstChildElement("Entry");
+                   entry; entry = entry->NextSiblingElement("Entry")) {
                 const char *fileName = entry->Attribute("fileName");
                 const char *modelRef = entry->Attribute("perastageModelRef");
                 if (!modelRef)
                   modelRef = entry->Attribute("modelRef");
                 if (!fileName || !modelRef)
                   continue;
-                primitiveModelRefByArchiveFile[ToLowerCopy(Trim(fileName))] = Trim(modelRef);
+                primitiveModelRefByArchiveFile[ToLowerCopy(Trim(fileName))] =
+                    Trim(modelRef);
               }
             }
           }
@@ -2759,8 +2876,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
         if (tinyxml2::XMLElement *geos =
                 node->FirstChildElement("Geometries")) {
-          for (tinyxml2::XMLElement *g3d = geos->FirstChildElement("Geometry3D"); g3d;
-               g3d = g3d->NextSiblingElement("Geometry3D")) {
+          for (tinyxml2::XMLElement *g3d =
+                   geos->FirstChildElement("Geometry3D");
+               g3d; g3d = g3d->NextSiblingElement("Geometry3D")) {
             const char *file = g3d->Attribute("fileName");
             if (!file)
               continue;
@@ -2769,7 +2887,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               geometryType = Trim(type);
 
             Matrix geoMatrix = MatrixUtils::Identity();
-            parseMatrixOrIdentity(g3d, "Matrix", "SceneObject/Geometry3D", geoMatrix, true);
+            parseMatrixOrIdentity(g3d, "Matrix", "SceneObject/Geometry3D",
+                                  geoMatrix, true);
             std::string fileName = Trim(file);
             auto mappedModelRefIt =
                 primitiveModelRefByArchiveFile.find(ToLowerCopy(fileName));
@@ -2781,15 +2900,17 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               instance.localTransform = geoMatrix;
               obj.geometries.push_back(std::move(instance));
             } else {
-              const std::string instanceKey = BuildSceneObjectGeometryInstanceKey(
-                  obj.uuid, "geometry3d", obj.geometries.size());
-              appendGeometryInstance(obj.geometries, fileName, geoMatrix, instanceKey);
+              const std::string instanceKey =
+                  BuildSceneObjectGeometryInstanceKey(obj.uuid, "geometry3d",
+                                                      obj.geometries.size());
+              appendGeometryInstance(obj.geometries, fileName, geoMatrix,
+                                     instanceKey);
             }
           }
 
           size_t symbolIndex = 0;
-          for (tinyxml2::XMLElement *sym = geos->FirstChildElement("Symbol"); sym;
-               sym = sym->NextSiblingElement("Symbol"), ++symbolIndex) {
+          for (tinyxml2::XMLElement *sym = geos->FirstChildElement("Symbol");
+               sym; sym = sym->NextSiblingElement("Symbol"), ++symbolIndex) {
             std::vector<SymdefGeometry> symGeometries;
             Matrix symMatrix = MatrixUtils::Identity();
             std::string symGeometryType;
@@ -2797,18 +2918,23 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 Trim(sym->Attribute("uuid") ? sym->Attribute("uuid") : "");
             const std::string sourceSymdefUuid =
                 Trim(sym->Attribute("symdef") ? sym->Attribute("symdef") : "");
-            resolveSymdefReference(sym, symGeometries, symGeometryType, symMatrix);
+            resolveSymdefReference(sym, symGeometries, symGeometryType,
+                                   symMatrix);
             if (!symGeometryType.empty())
               geometryType = symGeometryType;
 
             size_t symGeometryIndex = 0;
             for (const auto &geo : symGeometries) {
-              Matrix localTransform = MatrixUtils::Multiply(symMatrix, geo.transform);
-              const std::string instanceKey = BuildSceneObjectGeometryInstanceKey(
+              Matrix localTransform =
+                  MatrixUtils::Multiply(symMatrix, geo.transform);
+              const std::string instanceKey =
+                  BuildSceneObjectGeometryInstanceKey(
                   obj.uuid, "symbol", symbolIndex,
-                  sourceSymdefUuid + "/" + std::to_string(symGeometryIndex));
-              appendGeometryInstance(obj.geometries, geo.file, localTransform, instanceKey,
-                                     sourceSymbolUuid, sourceSymdefUuid);
+                      sourceSymdefUuid + "/" +
+                          std::to_string(symGeometryIndex));
+              appendGeometryInstance(obj.geometries, geo.file, localTransform,
+                                     instanceKey, sourceSymbolUuid,
+                                     sourceSymdefUuid);
               std::ostringstream geometryLog;
               geometryLog << "SceneObject geometry resolved: sceneObject='"
                           << obj.name << "' sceneUuid=" << obj.uuid
@@ -2851,47 +2977,59 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           support.parentGroupUuid = obj.parentGroupUuid;
           support.modelFile = obj.modelFile;
           support.geometries = obj.geometries;
-          for (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData"); ud;
-               ud = ud->NextSiblingElement("UserData")) {
-            for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
-                 data = data->NextSiblingElement("Data")) {
+          for (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData");
+               ud; ud = ud->NextSiblingElement("UserData")) {
+            for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data");
+                 data; data = data->NextSiblingElement("Data")) {
               const std::string provider = ToLowerCopy(
-                  Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
+                  Trim(data->Attribute("provider") ? data->Attribute("provider")
+                                                   : ""));
               if (provider != "perastage")
                 continue;
-              if (tinyxml2::XMLElement *info = data->FirstChildElement("SupportInfo")) {
-                if (tinyxml2::XMLElement *n = info->FirstChildElement("GDTFSpec");
+              if (tinyxml2::XMLElement *info =
+                      data->FirstChildElement("SupportInfo")) {
+                if (tinyxml2::XMLElement *n =
+                        info->FirstChildElement("GDTFSpec");
                     n && n->GetText()) {
-                  support.gdtfSpec = RemapArchivePathIfNeeded(Trim(n->GetText()));
+                  support.gdtfSpec =
+                      RemapArchivePathIfNeeded(Trim(n->GetText()));
                 }
-                if (tinyxml2::XMLElement *n = info->FirstChildElement("GDTFMode");
+                if (tinyxml2::XMLElement *n =
+                        info->FirstChildElement("GDTFMode");
                     n && n->GetText()) {
                   support.gdtfMode = Trim(n->GetText());
                 }
-                if (tinyxml2::XMLElement *n = info->FirstChildElement("Function");
+                if (tinyxml2::XMLElement *n =
+                        info->FirstChildElement("Function");
                     n && n->GetText()) {
                   support.function = Trim(n->GetText());
                 }
-                if (tinyxml2::XMLElement *n = info->FirstChildElement("HoistFunction");
+                if (tinyxml2::XMLElement *n =
+                        info->FirstChildElement("HoistFunction");
                     n && n->GetText()) {
-                  support.hoistFunction = NormalizeHoistFunction(Trim(n->GetText()));
+                  support.hoistFunction =
+                      NormalizeHoistFunction(Trim(n->GetText()));
                 }
-                if (tinyxml2::XMLElement *n = info->FirstChildElement("ChainLength");
+                if (tinyxml2::XMLElement *n =
+                        info->FirstChildElement("ChainLength");
                     n && n->GetText()) {
                   float parsed = 0.0f;
                   if (TryParseFloat(Trim(n->GetText()), parsed))
                     support.chainLength = parsed;
                 }
-                if (tinyxml2::XMLElement *n = info->FirstChildElement("Position");
+                if (tinyxml2::XMLElement *n =
+                        info->FirstChildElement("Position");
                     n && n->GetText()) {
                   support.position = Trim(n->GetText());
                 }
-                if (tinyxml2::XMLElement *n = info->FirstChildElement("PositionName");
+                if (tinyxml2::XMLElement *n =
+                        info->FirstChildElement("PositionName");
                     n && n->GetText()) {
                   support.positionName = Trim(n->GetText());
                 }
                 LogMessage(Logger::Level::Info,
-                           "MVR import reconstructed Support from SceneObject fallback uuid='" +
+                           "MVR import reconstructed Support from SceneObject "
+                           "fallback uuid='" +
                                support.uuid + "'");
               }
             }
@@ -2926,17 +3064,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (!childList)
           return 0;
         int count = 0;
-        for (tinyxml2::XMLElement *child = childList->FirstChildElement(); child;
-             child = child->NextSiblingElement()) {
+        for (tinyxml2::XMLElement *child = childList->FirstChildElement();
+             child; child = child->NextSiblingElement()) {
           const char *name = child->Name();
           if (!name)
             continue;
           const std::string nodeName = name;
-          if (nodeName == "Fixture" || nodeName == "Truss" || nodeName == "Support" ||
-              nodeName == "SceneObject" || nodeName == "GroupObject") {
+          if (nodeName == "Fixture" || nodeName == "Truss" ||
+              nodeName == "Support" || nodeName == "SceneObject" ||
+              nodeName == "GroupObject") {
             ++count;
           }
-          if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList"))
+          if (tinyxml2::XMLElement *inner =
+                  child->FirstChildElement("ChildList"))
             count += countImportSceneNodes(inner);
         }
         return count;
@@ -2949,7 +3089,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   }
   for (tinyxml2::XMLElement *layer = layersNode->FirstChildElement("Layer");
        layer; layer = layer->NextSiblingElement("Layer")) {
-    totalImportNodes += countImportSceneNodes(layer->FirstChildElement("ChildList"));
+    totalImportNodes +=
+        countImportSceneNodes(layer->FirstChildElement("ChildList"));
   }
 
   int importedNodes = 0;
@@ -2966,7 +3107,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
 
   parseChildList = [&](tinyxml2::XMLElement *cl, const std::string &layerName,
-                       const Matrix &parentTransform, const std::string &parentGroupUuid) {
+                       const Matrix &parentTransform,
+                       const std::string &parentGroupUuid) {
     for (tinyxml2::XMLElement *child = cl->FirstChildElement(); child;
          child = child->NextSiblingElement()) {
       const char *name = child->Name();
@@ -2974,7 +3116,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         continue;
 
       Matrix local = MatrixUtils::Identity();
-      parseMatrixOrIdentity(child, "Matrix", std::string("Child/") + name, local, true);
+      parseMatrixOrIdentity(child, "Matrix", std::string("Child/") + name,
+                            local, true);
       Matrix nodeTransform = MatrixUtils::Multiply(parentTransform, local);
 
       std::string nodeName = name;
@@ -2983,21 +3126,26 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         reportNodeProgress("Fixture");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
-              {MvrNodeType::Fixture, referenceUuidForNode("Fixture", child, layerName, nodeTransform)});
+              {MvrNodeType::Fixture,
+               referenceUuidForNode("Fixture", child, layerName,
+                                    nodeTransform)});
         }
       } else if (nodeName == "Truss") {
         parseTruss(child, layerName, nodeTransform, local, parentGroupUuid);
         reportNodeProgress("Truss");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
-              {MvrNodeType::Truss, referenceUuidForNode("Truss", child, layerName, nodeTransform)});
+              {MvrNodeType::Truss,
+               referenceUuidForNode("Truss", child, layerName, nodeTransform)});
         }
       } else if (nodeName == "Support") {
         parseSupport(child, layerName, nodeTransform, local, parentGroupUuid);
         reportNodeProgress("Support");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
-              {MvrNodeType::Support, referenceUuidForNode("Support", child, layerName, nodeTransform)});
+              {MvrNodeType::Support,
+               referenceUuidForNode("Support", child, layerName,
+                                    nodeTransform)});
         }
       } else if (nodeName == "SceneObject") {
         parseSceneObj(child, layerName, nodeTransform, local, parentGroupUuid);
@@ -3005,11 +3153,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
               {MvrNodeType::SceneObject,
-               referenceUuidForNode("SceneObject", child, layerName, nodeTransform)});
+               referenceUuidForNode("SceneObject", child, layerName,
+                                    nodeTransform)});
         }
       } else if (nodeName == "GroupObject") {
         GroupObject group;
-        group.uuid = resolveStableUuid("GroupObject", child, layerName, nodeTransform);
+        group.uuid =
+            resolveStableUuid("GroupObject", child, layerName, nodeTransform);
         group.layer = layerName;
         group.transform = nodeTransform;
         group.localTransform = local;
@@ -3065,7 +3215,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                        layer->FirstChildElement("Color")) {
           if (const char *txt = colorNode->GetText()) {
             const std::string legacyColor = Trim(txt);
-            l.color = isHexRgb(legacyColor) ? legacyColor : CieToHex(legacyColor);
+            l.color =
+                isHexRgb(legacyColor) ? legacyColor : CieToHex(legacyColor);
           }
         }
       }
@@ -3124,7 +3275,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       if (conflict.modeName.empty())
         conflict.modeName = f.gdtfMode;
       if (conflict.footprint <= 0) {
-        const std::string resolvedGdtfPath = resolveFixtureGdtfPathForRead(f.gdtfSpec);
+        const std::string resolvedGdtfPath =
+            resolveFixtureGdtfPathForRead(f.gdtfSpec);
         if (!resolvedGdtfPath.empty() && !f.gdtfMode.empty())
           conflict.footprint =
               getGdtfModeChannelCountCached(resolvedGdtfPath, f.gdtfMode);
@@ -3152,7 +3304,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         reportProgress("Conflict dialog:hide");
         if (!choices.empty()) {
           std::unordered_map<std::string, std::string> selectedPathByType;
-          std::unordered_map<std::string, std::string> downloadFallbackPathByType;
+          std::unordered_map<std::string, std::string>
+              downloadFallbackPathByType;
           std::unordered_map<std::string, std::string> selectedModeByType;
           std::vector<GdtfConflict> downloadRequests;
           for (const auto &conflict : gdtfConflicts) {
@@ -3164,31 +3317,37 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               selectedPathByType[conflict.type] = conflict.mvrPath;
             } else {
               downloadRequests.push_back(conflict);
-              const std::string fallbackPath = GetDownloadFallbackPath(conflict);
+              const std::string fallbackPath =
+                  GetDownloadFallbackPath(conflict);
               selectedPathByType[conflict.type] = fallbackPath;
               downloadFallbackPathByType[conflict.type] = fallbackPath;
             }
           }
 
           if (!downloadRequests.empty()) {
-            auto parseAddressToAbsoluteChannel = [](const std::string &address) {
+            auto parseAddressToAbsoluteChannel =
+                [](const std::string &address) {
               const std::string trimmed = Trim(address);
               const size_t dotPos = trimmed.find('.');
               if (dotPos == std::string::npos)
                 return -1;
-              const int universe = std::atoi(trimmed.substr(0, dotPos).c_str());
-              const int channel = std::atoi(trimmed.substr(dotPos + 1).c_str());
+                  const int universe =
+                      std::atoi(trimmed.substr(0, dotPos).c_str());
+                  const int channel =
+                      std::atoi(trimmed.substr(dotPos + 1).c_str());
               if (universe <= 0 || channel <= 0)
                 return -1;
               return (universe - 1) * 512 + channel;
             };
-            auto inferFootprintFromAddresses = [&](const std::string &typeName) {
+            auto inferFootprintFromAddresses =
+                [&](const std::string &typeName) {
               std::vector<int> channels;
               for (const auto &[fixtureUuid, fixture] : scene.fixtures) {
                 (void)fixtureUuid;
                 if (fixture.typeName != typeName)
                   continue;
-                const int absolute = parseAddressToAbsoluteChannel(fixture.address);
+                    const int absolute =
+                        parseAddressToAbsoluteChannel(fixture.address);
                 if (absolute > 0)
                   channels.push_back(absolute);
               }
@@ -3210,10 +3369,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             std::optional<CredentialStore::Credentials> activeCredentials =
                 CredentialStore::Load();
             auto requestCredentials = [&]() -> bool {
-              const std::string initialUser =
-                  activeCredentials ? activeCredentials->username : std::string();
-              const std::string initialPass =
-                  activeCredentials ? activeCredentials->password : std::string();
+              const std::string initialUser = activeCredentials
+                                                  ? activeCredentials->username
+                                                  : std::string();
+              const std::string initialPass = activeCredentials
+                                                  ? activeCredentials->password
+                                                  : std::string();
               GdtfLoginDialog loginDlg(nullptr, initialUser, initialPass);
               if (loginDlg.ShowModal() != wxID_OK)
                 return false;
@@ -3227,7 +3388,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               return true;
             };
 
-            wxString cookieFileWx = wxFileName::CreateTempFileName("gdtf_mvr_import_");
+            wxString cookieFileWx =
+                wxFileName::CreateTempFileName("gdtf_mvr_import_");
             if (wxFileExists(cookieFileWx))
               wxRemoveFile(cookieFileWx);
             const std::string cookieFile = cookieFileWx.ToStdString();
@@ -3248,7 +3410,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               wxWindow *dialogParent =
                   wxTheApp ? wxDynamicCast(wxTheApp->GetTopWindow(), wxWindow)
                            : nullptr;
-              wxDialog downloadInfoDialog(dialogParent, wxID_ANY, "GDTF download queue",
+              wxDialog downloadInfoDialog(dialogParent, wxID_ANY,
+                                          "GDTF download queue",
                                           wxDefaultPosition, wxSize(1140, 580));
               wxBoxSizer *infoSizer = new wxBoxSizer(wxVERTICAL);
               enum class DownloadRowState {
@@ -3282,32 +3445,36 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               summaryFont.SetWeight(wxFONTWEIGHT_BOLD);
               summaryText->SetFont(summaryFont);
               infoSizer->Add(summaryText, 0, wxLEFT | wxRIGHT | wxTOP, 8);
-              wxStaticText *progressPhaseText =
-                  new wxStaticText(&downloadInfoDialog, wxID_ANY,
-                                   "Preparing download queue...");
+              wxStaticText *progressPhaseText = new wxStaticText(
+                  &downloadInfoDialog, wxID_ANY, "Preparing download queue...");
               progressPhaseText->SetForegroundColour(wxColour(140, 140, 140));
               infoSizer->Add(progressPhaseText, 0, wxLEFT | wxRIGHT | wxTOP, 8);
-              wxGauge *progressGauge =
-                  new wxGauge(&downloadInfoDialog, wxID_ANY,
-                              100,
-                              wxDefaultPosition, wxSize(-1, 6),
-                              wxGA_HORIZONTAL | wxGA_SMOOTH);
+              wxGauge *progressGauge = new wxGauge(
+                  &downloadInfoDialog, wxID_ANY, 100, wxDefaultPosition,
+                  wxSize(-1, 6), wxGA_HORIZONTAL | wxGA_SMOOTH);
               progressGauge->SetForegroundColour(wxColour(80, 145, 90));
               progressGauge->SetBackgroundColour(wxColour(52, 52, 52));
               progressGauge->SetValue(0);
-              infoSizer->Add(progressGauge, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 8);
+              infoSizer->Add(progressGauge, 0,
+                             wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 8);
 
               wxListCtrl *downloadInfoList = new wxListCtrl(
-                  &downloadInfoDialog, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                  &downloadInfoDialog, wxID_ANY, wxDefaultPosition,
+                  wxDefaultSize,
                   wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES);
-              downloadInfoList->InsertColumn(0, "Fixture type", wxLIST_FORMAT_LEFT, 260);
-              downloadInfoList->InsertColumn(1, "Selected GDTF", wxLIST_FORMAT_LEFT, 460);
-              downloadInfoList->InsertColumn(2, "Status", wxLIST_FORMAT_LEFT, 170);
-              downloadInfoList->InsertColumn(3, "Progress", wxLIST_FORMAT_LEFT, 220);
-              downloadInfoList->InsertColumn(4, "Details", wxLIST_FORMAT_LEFT, 180);
+              downloadInfoList->InsertColumn(0, "Fixture type",
+                                             wxLIST_FORMAT_LEFT, 260);
+              downloadInfoList->InsertColumn(1, "Selected GDTF",
+                                             wxLIST_FORMAT_LEFT, 460);
+              downloadInfoList->InsertColumn(2, "Status", wxLIST_FORMAT_LEFT,
+                                             170);
+              downloadInfoList->InsertColumn(3, "Progress", wxLIST_FORMAT_LEFT,
+                                             220);
+              downloadInfoList->InsertColumn(4, "Details", wxLIST_FORMAT_LEFT,
+                                             180);
               infoSizer->Add(downloadInfoList, 1, wxEXPAND | wxALL, 8);
-              wxStaticText *footerSummary =
-                  new wxStaticText(&downloadInfoDialog, wxID_ANY,
+              wxStaticText *footerSummary = new wxStaticText(
+                  &downloadInfoDialog, wxID_ANY,
                                    "0 processed  |  0 downloaded  |  0 fallback");
               footerSummary->SetForegroundColour(wxColour(100, 100, 100));
               infoSizer->Add(footerSummary, 0, wxLEFT | wxRIGHT, 8);
@@ -3318,7 +3485,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               wxBoxSizer *actionSizer = new wxBoxSizer(wxHORIZONTAL);
               wxButton *cancelButton =
                   new wxButton(&downloadInfoDialog, wxID_CANCEL, "Cancel");
-              wxButton *ackButton = new wxButton(&downloadInfoDialog, wxID_OK, "OK");
+              wxButton *ackButton =
+                  new wxButton(&downloadInfoDialog, wxID_OK, "OK");
               ackButton->Disable();
               actionSizer->Add(cancelButton, 0, wxRIGHT, 8);
               actionSizer->Add(ackButton, 0);
@@ -3346,7 +3514,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               cancelButton->Bind(wxEVT_BUTTON, [&](wxCommandEvent &) {
                 cancelRequested.store(true);
                 cancelButton->Disable();
-                progressPhaseText->SetLabel("Cancel requested. Finishing current transfer...");
+                progressPhaseText->SetLabel(
+                    "Cancel requested. Finishing current transfer...");
               });
               ackButton->Bind(wxEVT_BUTTON, [&](wxCommandEvent &) {
                 downloadUiActive->store(false);
@@ -3359,7 +3528,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 long long downloadedBytes = 0;
                 long long totalBytes = -1;
               };
-              std::unordered_map<std::string, DownloadProgressStats> rowProgressByType;
+              std::unordered_map<std::string, DownloadProgressStats>
+                  rowProgressByType;
               const auto queueStartTime = std::chrono::steady_clock::now();
               auto formatBytes = [](long long bytes) -> wxString {
                 if (bytes < 0)
@@ -3401,9 +3571,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   }
                 }
                 footerSummary->SetLabel(
-                    wxString::Format("%d/%zu processed  |  %d downloaded  |  %d fallback  |  %d canceled",
-                                     processed, rowStateByType.size(), downloaded, fallback,
-                                     canceled));
+                    wxString::Format("%d/%zu processed  |  %d downloaded  |  "
+                                     "%d fallback  |  %d canceled",
+                                     processed, rowStateByType.size(),
+                                     downloaded, fallback, canceled));
               };
               auto refreshBytesSummary = [&]() {
                 long long downloaded = 0;
@@ -3411,7 +3582,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 bool hasUnknownTotal = false;
                 for (const auto &[typeKey, progress] : rowProgressByType) {
                   (void)typeKey;
-                  downloaded += std::max<long long>(0, progress.downloadedBytes);
+                  downloaded +=
+                      std::max<long long>(0, progress.downloadedBytes);
                   if (progress.totalBytes > 0) {
                     knownTotal += progress.totalBytes;
                   } else {
@@ -3425,10 +3597,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     std::chrono::duration_cast<std::chrono::seconds>(
                         std::chrono::steady_clock::now() - queueStartTime)
                         .count();
-                if (!hasUnknownTotal && knownTotal > downloaded && elapsed > 0 &&
-                    downloaded > 0) {
-                  const double speed =
-                      static_cast<double>(downloaded) / static_cast<double>(elapsed);
+                if (!hasUnknownTotal && knownTotal > downloaded &&
+                    elapsed > 0 && downloaded > 0) {
+                  const double speed = static_cast<double>(downloaded) /
+                                       static_cast<double>(elapsed);
                   if (speed > 0.0) {
                     const long long remainingSeconds = static_cast<long long>(
                         static_cast<double>(knownTotal - downloaded) / speed);
@@ -3462,7 +3634,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 bool hasUnknownTotal = false;
                 for (const auto &[typeKey, progress] : rowProgressByType) {
                   (void)typeKey;
-                  downloaded += std::max<long long>(0, progress.downloadedBytes);
+                  downloaded +=
+                      std::max<long long>(0, progress.downloadedBytes);
                   if (progress.totalBytes > 0) {
                     knownTotal += progress.totalBytes;
                   } else {
@@ -3490,9 +3663,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 const int safeTotal = std::max(1, total);
                 progressGauge->SetValue((finished * 100) / safeTotal);
               };
-              // Schedules progress updates on the UI thread without blocking worker callbacks.
+              // Schedules progress updates on the UI thread without blocking
+              // worker callbacks.
               auto runOnUiThread = [&](std::function<void()> task) {
-                // Drops worker-thread progress updates to avoid deferred UI races during teardown.
+                // Drops worker-thread progress updates to avoid deferred UI
+                // races during teardown.
                 if (!wxThread::IsMain())
                   return;
                 if (!downloadUiActive->load())
@@ -3504,12 +3679,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               wxYieldIfNeeded();
               for (const GdtfConflict &req : downloadRequests) {
                 const long row = downloadInfoList->InsertItem(
-                    downloadInfoList->GetItemCount(), wxString::FromUTF8(req.type));
+                    downloadInfoList->GetItemCount(),
+                    wxString::FromUTF8(req.type));
                 downloadInfoList->SetItem(row, 1, "-");
                 downloadInfoList->SetItem(row, 2, "Pending");
                 downloadInfoList->SetItem(row, 3, "0 B / ? B");
-                downloadInfoList->SetItem(row, 4, "Waiting to match catalog entry");
-                downloadInfoList->SetItemTextColour(row, rowTextColor(DownloadRowState::Pending));
+                downloadInfoList->SetItem(row, 4,
+                                          "Waiting to match catalog entry");
+                downloadInfoList->SetItemTextColour(
+                    row, rowTextColor(DownloadRowState::Pending));
                 rowByType[req.type] = row;
                 rowStateByType[req.type] = DownloadRowState::Pending;
                 rowProgressByType[req.type] = DownloadProgressStats{};
@@ -3538,24 +3716,28 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               if (catalogResult.snapshot) {
                 listPayload = catalogResult.snapshot->listData;
               }
-              reportProgress(
-                  wxString::Format("[METRIC] GDTF import catalog cache_hit=%d cache_miss=%d cache_age_s=%lld refresh_attempted=%d refresh_succeeded=%d",
+              reportProgress(wxString::Format(
+                                 "[METRIC] GDTF import catalog cache_hit=%d "
+                                 "cache_miss=%d cache_age_s=%lld "
+                                 "refresh_attempted=%d refresh_succeeded=%d",
                                    catalogResult.metrics.cacheHit ? 1 : 0,
                                    catalogResult.metrics.cacheMiss ? 1 : 0,
-                                   static_cast<long long>(catalogResult.metrics.cacheAgeSeconds),
+                                 static_cast<long long>(
+                                     catalogResult.metrics.cacheAgeSeconds),
                                    catalogResult.metrics.refreshAttempted ? 1 : 0,
                                    catalogResult.metrics.refreshSucceeded ? 1 : 0)
                       .ToStdString());
 
-              std::vector<gdtf_catalog_matcher::GdtfCatalogEntry> catalogEntries;
+              std::vector<gdtf_catalog_matcher::GdtfCatalogEntry>
+                  catalogEntries;
               std::string catalogFailureReason;
               if (!listPayload.empty()) {
                 catalogEntries = ParseGdtfCatalogEntries(listPayload);
               }
 
               if (catalogEntries.empty()) {
-                reportProgress(
-                    "[INFO] Cached catalog did not provide usable entries; forcing online refresh.");
+                reportProgress("[INFO] Cached catalog did not provide usable "
+                               "entries; forcing online refresh.");
                 const GdtfCatalogRefreshResult forcedCatalogResult =
                     catalogService.RefreshCatalogIfStale(
                         [&](std::string &onlineListData) {
@@ -3563,14 +3745,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                              &listHttpCode) &&
                                  listHttpCode == 200;
                         },
-                        refreshNowUtc,
-                        0);
+                        refreshNowUtc, 0);
                 if (forcedCatalogResult.snapshot) {
                   listPayload = forcedCatalogResult.snapshot->listData;
                   catalogEntries = ParseGdtfCatalogEntries(listPayload);
                 }
                 reportProgress(
-                    wxString::Format("[METRIC] GDTF import forced_refresh attempted=%d succeeded=%d entries=%zu",
+                    wxString::Format(
+                        "[METRIC] GDTF import forced_refresh attempted=%d "
+                        "succeeded=%d entries=%zu",
                                      forcedCatalogResult.metrics.refreshAttempted ? 1 : 0,
                                      forcedCatalogResult.metrics.refreshSucceeded ? 1 : 0,
                                      catalogEntries.size())
@@ -3578,21 +3761,24 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               }
 
               if (catalogEntries.empty()) {
-                const std::string preview =
-                    listPayload.substr(0, std::min<size_t>(listPayload.size(), 180));
+                const std::string preview = listPayload.substr(
+                    0, std::min<size_t>(listPayload.size(), 180));
                 catalogFailureReason =
-                    wxString::Format("Catalog fetch/parsing failed (HTTP %ld, bytes=%zu)",
+                    wxString::Format(
+                        "Catalog fetch/parsing failed (HTTP %ld, bytes=%zu)",
                                      listHttpCode, listPayload.size())
                         .ToStdString();
                 reportProgress("[WARN] " + catalogFailureReason);
                 if (!preview.empty()) {
-                  reportProgress("[WARN] GDTF catalog payload preview: " + preview);
+                  reportProgress("[WARN] GDTF catalog payload preview: " +
+                                 preview);
                 }
               }
 
               if (!catalogEntries.empty()) {
-                summaryText->SetLabel(wxString::Format(
-                    "Selected fixture types for download (catalog entries: %zu)",
+                summaryText->SetLabel(
+                    wxString::Format("Selected fixture types for download "
+                                     "(catalog entries: %zu)",
                     catalogEntries.size()));
                 progressGauge->SetValue(25);
                 progressPhaseText->SetLabel("Downloading selected fixtures...");
@@ -3600,27 +3786,32 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   if (cancelRequested.load()) {
                     break;
                   }
-                  reportProgress("Downloading selected GDTFs: matching " + req.type + "...");
+                  reportProgress("Downloading selected GDTFs: matching " +
+                                 req.type + "...");
                   if (req.footprint <= 0)
                     req.footprint = inferFootprintFromAddresses(req.type);
-                  const auto bestMatch = gdtf_catalog_matcher::SelectBestDownloadMatch(
-                      req.requestedFixtureName, req.type, req.modeName, req.manufacturer,
-                      req.footprint, catalogEntries);
+                  const auto bestMatch =
+                      gdtf_catalog_matcher::SelectBestDownloadMatch(
+                          req.requestedFixtureName, req.type, req.modeName,
+                          req.manufacturer, req.footprint, catalogEntries);
 
                   if (!bestMatch.found || bestMatch.rid.empty()) {
                     const wxString progressText =
                         rowProgressByType[req.type].totalBytes > 0
-                            ? formatBytes(rowProgressByType[req.type].downloadedBytes) +
+                            ? formatBytes(
+                                  rowProgressByType[req.type].downloadedBytes) +
                                   " / " +
-                                  formatBytes(rowProgressByType[req.type].totalBytes)
+                                  formatBytes(
+                                      rowProgressByType[req.type].totalBytes)
                             : wxString("0 B / ? B");
                     const bool fallsBackToApp =
                         downloadFallbackPathByType[req.type] == req.appPath &&
                         !req.appPath.empty();
-                    updateStatusRow(req.type, "-", fallsBackToApp ? "Fallback to App"
+                    updateStatusRow(req.type, "-",
+                                    fallsBackToApp ? "Fallback to App"
                                                                    : "Fallback to MVR",
-                                    progressText,
-                                    "No catalog match found", DownloadRowState::Fallback);
+                                    progressText, "No catalog match found",
+                                    DownloadRowState::Fallback);
                     updateProgressGauge();
                     wxYieldIfNeeded();
                     continue;
@@ -3630,23 +3821,28 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 #ifdef NDEBUG
                       ProjectUtils::GetWritableLibraryPath("fixtures");
 #else
-                      (PathUtils::PathFromUtf8(
-                           wxStandardPaths::Get().GetExecutablePath().ToStdString())
+                      (PathUtils::PathFromUtf8(wxStandardPaths::Get()
+                                                   .GetExecutablePath()
+                                                   .ToStdString())
                            .parent_path() /
                        "library" / "fixtures")
                           .string();
 #endif
                   fs::create_directories(baseFixturesPath);
                   const std::string filePath =
-                      (fs::path(baseFixturesPath) / (req.type + ".gdtf")).string();
+                      (fs::path(baseFixturesPath) / (req.type + ".gdtf"))
+                          .string();
                   long downloadHttpCode = 0;
                   wxString selectedFixtureName = wxString::FromUTF8(req.type);
                   for (const auto &entry : catalogEntries) {
                     if (entry.rid == bestMatch.rid) {
-                      wxString manufacturer = wxString::FromUTF8(entry.manufacturer);
-                      wxString fixtureName = wxString::FromUTF8(entry.fixtureName);
+                      wxString manufacturer =
+                          wxString::FromUTF8(entry.manufacturer);
+                      wxString fixtureName =
+                          wxString::FromUTF8(entry.fixtureName);
                       if (!manufacturer.empty() && !fixtureName.empty()) {
-                        selectedFixtureName = manufacturer + " / " + fixtureName;
+                        selectedFixtureName =
+                            manufacturer + " / " + fixtureName;
                       } else if (!fixtureName.empty()) {
                         selectedFixtureName = fixtureName;
                       }
@@ -3654,39 +3850,45 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     }
                   }
                   updateStatusRow(req.type, selectedFixtureName, "Downloading",
-                                  "0 B / ? B",
-                                  "Fetching fixture package",
+                                  "0 B / ? B", "Fetching fixture package",
                                   DownloadRowState::Downloading);
-                  reportProgress("Downloading selected GDTFs: downloading " + req.type + "...");
-                  auto formatRowProgress = [&](const DownloadProgressStats &stats,
+                  reportProgress("Downloading selected GDTFs: downloading " +
+                                 req.type + "...");
+                  auto formatRowProgress =
+                      [&](const DownloadProgressStats &stats,
                                                double percent) -> wxString {
-                    wxString totalText =
-                        stats.totalBytes > 0 ? formatBytes(stats.totalBytes)
+                    wxString totalText = stats.totalBytes > 0
+                                             ? formatBytes(stats.totalBytes)
                                              : wxString("? B");
                     wxString bytesText =
                         formatBytes(stats.downloadedBytes) + " / " + totalText;
                     if (stats.totalBytes > 0) {
-                      bytesText += wxString::Format(" (%.0f%%)", std::clamp(percent, 0.0, 100.0));
+                      bytesText += wxString::Format(
+                          " (%.0f%%)", std::clamp(percent, 0.0, 100.0));
                     }
                     return bytesText;
                   };
-                  if (GdtfDownload(bestMatch.rid, filePath, cookieFile,
-                                   downloadHttpCode,
+                  if (GdtfDownload(
+                          bestMatch.rid, filePath, cookieFile, downloadHttpCode,
                                    [&](const GdtfDownloadProgress &progress) {
                                      const long long downloadedBytes =
-                                         std::max<long long>(0, progress.downloadedBytes);
+                                std::max<long long>(0,
+                                                    progress.downloadedBytes);
                                      const long long totalBytes =
-                                         progress.totalBytes > 0 ? progress.totalBytes : -1;
+                                progress.totalBytes > 0 ? progress.totalBytes
+                                                        : -1;
                                      const double percentage = progress.percentage;
                                      const std::string typeKey = req.type;
                                      const wxString selectedFixtureNameCopy =
                                          selectedFixtureName;
-                                     runOnUiThread([=, &rowProgressByType, &updateStatusRow,
-                                                    &formatRowProgress, &updateProgressGauge]() {
+                            runOnUiThread([=, &rowProgressByType,
+                                           &updateStatusRow, &formatRowProgress,
+                                           &updateProgressGauge]() {
                                        auto &stats = rowProgressByType[typeKey];
                                        stats.downloadedBytes = downloadedBytes;
                                        stats.totalBytes = totalBytes;
-                                       updateStatusRow(typeKey, selectedFixtureNameCopy,
+                              updateStatusRow(
+                                  typeKey, selectedFixtureNameCopy,
                                                        "Downloading",
                                                        formatRowProgress(stats, percentage),
                                                        "Fetching fixture package",
@@ -3701,40 +3903,48 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                       selectedModeByType[req.type] = bestMatch.modeName;
                     wxString details = "Downloaded and assigned";
                     if (!bestMatch.modeName.empty())
-                      details += " (Mode: " + wxString::FromUTF8(bestMatch.modeName) + ")";
+                      details +=
+                          " (Mode: " + wxString::FromUTF8(bestMatch.modeName) +
+                          ")";
                     if (!bestMatch.selectionReason.empty())
-                      details += " [" + wxString::FromUTF8(bestMatch.selectionReason) + "]";
+                      details += " [" +
+                                 wxString::FromUTF8(bestMatch.selectionReason) +
+                                 "]";
                     auto &stats = rowProgressByType[req.type];
                     if (stats.totalBytes > 0) {
                       stats.downloadedBytes = stats.totalBytes;
                     }
-                    updateStatusRow(req.type, selectedFixtureName, "Success",
+                    updateStatusRow(
+                        req.type, selectedFixtureName, "Success",
                                     formatRowProgress(rowProgressByType[req.type], 100.0),
-                                    details,
-                                    DownloadRowState::Downloaded);
+                        details, DownloadRowState::Downloaded);
                   } else if (cancelRequested.load()) {
                     const wxString totalText =
                         rowProgressByType[req.type].totalBytes > 0
-                            ? formatBytes(rowProgressByType[req.type].totalBytes)
+                            ? formatBytes(
+                                  rowProgressByType[req.type].totalBytes)
                             : wxString("? B");
-                    updateStatusRow(req.type, selectedFixtureName, "Canceled",
-                                    formatBytes(rowProgressByType[req.type].downloadedBytes) +
+                    updateStatusRow(
+                        req.type, selectedFixtureName, "Canceled",
+                        formatBytes(
+                            rowProgressByType[req.type].downloadedBytes) +
                                         " / " + totalText,
-                                    "Canceled by user",
-                                    DownloadRowState::Canceled);
+                        "Canceled by user", DownloadRowState::Canceled);
                     break;
                   } else {
                     const wxString totalText =
                         rowProgressByType[req.type].totalBytes > 0
-                            ? formatBytes(rowProgressByType[req.type].totalBytes)
+                            ? formatBytes(
+                                  rowProgressByType[req.type].totalBytes)
                             : wxString("? B");
                     const bool fallsBackToApp =
                         downloadFallbackPathByType[req.type] == req.appPath &&
                         !req.appPath.empty();
-                    updateStatusRow(req.type, selectedFixtureName,
-                                    fallsBackToApp ? "Fallback to App"
-                                                   : "Fallback to MVR",
-                                    formatBytes(rowProgressByType[req.type].downloadedBytes) +
+                    updateStatusRow(
+                        req.type, selectedFixtureName,
+                        fallsBackToApp ? "Fallback to App" : "Fallback to MVR",
+                        formatBytes(
+                            rowProgressByType[req.type].downloadedBytes) +
                                         " / " + totalText,
                                     "Download failed", DownloadRowState::Fallback);
                   }
@@ -3749,29 +3959,34 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                       DownloadRowState::Canceled);
                     }
                   }
-                  progressPhaseText->SetLabel("Queue canceled. Keeping downloaded fixtures.");
+                  progressPhaseText->SetLabel(
+                      "Queue canceled. Keeping downloaded fixtures.");
                 } else {
                   progressPhaseText->SetLabel("Queue finished.");
                 }
               } else {
                 if (catalogFailureReason.empty())
                   catalogFailureReason = "Catalog fetch/parsing failed.";
-                summaryText->SetLabel("Selected fixture types for download (catalog load failed: " +
-                                      wxString::FromUTF8(catalogFailureReason) + ")");
+                summaryText->SetLabel("Selected fixture types for download "
+                                      "(catalog load failed: " +
+                                      wxString::FromUTF8(catalogFailureReason) +
+                                      ")");
                 for (const GdtfConflict &req : downloadRequests) {
-                  updateStatusRow(req.type, "-", "Fallback to MVR",
-                                  "0 B / ? B",
-                                  "Failed to load catalog list", DownloadRowState::Fallback);
+                  updateStatusRow(req.type, "-", "Fallback to MVR", "0 B / ? B",
+                                  "Failed to load catalog list",
+                                  DownloadRowState::Fallback);
                 }
                 updateProgressGauge();
-                progressPhaseText->SetLabel("Catalog load failed. " +
+                progressPhaseText->SetLabel(
+                    "Catalog load failed. " +
                                             wxString::FromUTF8(catalogFailureReason) +
                                             ". Keeping MVR originals.");
               }
               isDownloadInfoFinished = true;
               downloadUiActive->store(false);
               cancelButton->Disable();
-              summaryText->SetLabel(summaryText->GetLabel() + " - queue finished");
+              summaryText->SetLabel(summaryText->GetLabel() +
+                                    " - queue finished");
               ackButton->Enable();
               downloadInfoDialog.Hide();
             } else {
@@ -3781,7 +3996,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             if (wxFileExists(cookieFileWx))
               wxRemoveFile(cookieFileWx);
 #else
-            wxMessageBox("GDTF Share download is unavailable in this build target.",
+            wxMessageBox(
+                "GDTF Share download is unavailable in this build target.",
                          "GDTF Share download", wxOK | wxICON_WARNING);
 #endif
             reportProgress("Conflict dialog:hide");
@@ -3795,7 +4011,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           ++appliedFixturesForConflictApply;
           if (totalFixturesForConflictApply > 0 &&
               (appliedFixturesForConflictApply == 1 ||
-               appliedFixturesForConflictApply == totalFixturesForConflictApply ||
+                 appliedFixturesForConflictApply ==
+                     totalFixturesForConflictApply ||
                appliedFixturesForConflictApply % 50 == 0)) {
             reportProgress("Applying GDTF conflict selection...",
                            appliedFixturesForConflictApply,
@@ -3808,16 +4025,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 resolveFixtureGdtfPathForRead(f.gdtfSpec);
             const int previousChannelCount =
                 (!resolvedGdtfPath.empty() && !f.gdtfMode.empty())
-                    ? getGdtfModeChannelCountCached(resolvedGdtfPath, f.gdtfMode)
+                      ? getGdtfModeChannelCountCached(resolvedGdtfPath,
+                                                      f.gdtfMode)
                     : -1;
               const auto selectedPathIt = selectedPathByType.find(typeKey);
               if (selectedPathIt == selectedPathByType.end())
                 continue;
               f.gdtfSpec = selectedPathIt->second;
             f.gdtfSpec = ToSceneRelativePathIfPossible(
-                scene.basePath, PathUtils::PathFromUtf8(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
-            std::string parsed =
-                Trim(GetGdtfFixtureName(resolveFixtureGdtfPathForRead(f.gdtfSpec)));
+                  scene.basePath,
+                  PathUtils::PathFromUtf8(
+                      resolveFixtureGdtfPathForRead(f.gdtfSpec)));
+              std::string parsed = Trim(GetGdtfFixtureName(
+                  resolveFixtureGdtfPathForRead(f.gdtfSpec)));
             if (!parsed.empty())
               f.typeName = parsed;
             const auto &dictEntry = getDictionaryEntryCached(typeKey);
@@ -3830,7 +4050,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 f.gdtfMode = selectedModeIt->second;
               f.gdtfMode = resolveExistingGdtfModeCached(
                   resolveFixtureGdtfPathForRead(f.gdtfSpec), f.gdtfMode,
-                  previousChannelCount > 0 ? std::optional<int>(previousChannelCount)
+                  previousChannelCount > 0
+                      ? std::optional<int>(previousChannelCount)
                                            : std::nullopt);
             }
           }
@@ -3843,7 +4064,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           ++appliedFixturesForDictionaryApply;
           if (totalFixturesForDictionaryApply > 0 &&
               (appliedFixturesForDictionaryApply == 1 ||
-               appliedFixturesForDictionaryApply == totalFixturesForDictionaryApply ||
+               appliedFixturesForDictionaryApply ==
+                   totalFixturesForDictionaryApply ||
                appliedFixturesForDictionaryApply % 50 == 0)) {
             reportProgress("Applying dictionary GDTF mappings...",
                            appliedFixturesForDictionaryApply,
@@ -3855,11 +4077,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 resolveFixtureGdtfPathForRead(dictEntry->path);
             std::error_code dictionaryPathEc;
             if (dictionaryResolvedPath.empty() ||
-                !fs::exists(PathUtils::PathFromUtf8(dictionaryResolvedPath), dictionaryPathEc) ||
+                !fs::exists(PathUtils::PathFromUtf8(dictionaryResolvedPath),
+                            dictionaryPathEc) ||
                 dictionaryPathEc) {
               LogMessage(Logger::Level::Warn,
                          "Skipping dictionary GDTF mapping for fixture '" +
-                             f.instanceName + "' because the mapped path is unavailable: " +
+                             f.instanceName +
+                             "' because the mapped path is unavailable: " +
                              dictEntry->path);
               continue;
             }
@@ -3867,17 +4091,21 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 resolveFixtureGdtfPathForRead(f.gdtfSpec);
             const int previousChannelCount =
                 (!resolvedGdtfPath.empty() && !f.gdtfMode.empty())
-                    ? getGdtfModeChannelCountCached(resolvedGdtfPath, f.gdtfMode)
+                    ? getGdtfModeChannelCountCached(resolvedGdtfPath,
+                                                    f.gdtfMode)
                     : -1;
             f.gdtfSpec = ToSceneRelativePathIfPossible(
-                scene.basePath, PathUtils::PathFromUtf8(dictionaryResolvedPath));
+                scene.basePath,
+                PathUtils::PathFromUtf8(dictionaryResolvedPath));
             if (f.gdtfMode.empty())
               f.gdtfMode = dictEntry->mode;
             f.gdtfMode = resolveExistingGdtfModeCached(
                 dictionaryResolvedPath, f.gdtfMode,
-                previousChannelCount > 0 ? std::optional<int>(previousChannelCount)
+                previousChannelCount > 0
+                    ? std::optional<int>(previousChannelCount)
                                          : std::nullopt);
-            std::string parsed = Trim(GetGdtfFixtureName(dictionaryResolvedPath));
+            std::string parsed =
+                Trim(GetGdtfFixtureName(dictionaryResolvedPath));
             if (!parsed.empty())
               f.typeName = parsed;
           }
@@ -3887,7 +4115,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   }
 
   reportProgress("Applying fixture categories...");
-  const int totalFixturesForCategoryApply = static_cast<int>(scene.fixtures.size());
+  const int totalFixturesForCategoryApply =
+      static_cast<int>(scene.fixtures.size());
   int appliedFixturesForCategoryApply = 0;
   int autoFallbackAppliedCount = 0;
   std::unordered_map<std::string, int> autoFallbackReasons;
@@ -3931,7 +4160,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     }
 
     if (fixture.category.empty() && !fixture.gdtfSpec.empty()) {
-      std::string resolvedCategoryPath = resolveFixtureGdtfPathForRead(fixture.gdtfSpec);
+      std::string resolvedCategoryPath =
+          resolveFixtureGdtfPathForRead(fixture.gdtfSpec);
       if (!resolvedCategoryPath.empty()) {
         resolvedCategoryPath =
             ResolveScenePathForRead(scene.basePath, resolvedCategoryPath);
@@ -3948,23 +4178,26 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           inferred = inferenceCacheIt->second;
         } else {
           inferred = GdtfFixtureCategory::InferFromGdtf(resolvedCategoryPath);
-          categoryInferenceByResolvedPath.emplace(resolvedCategoryPath, inferred);
+          categoryInferenceByResolvedPath.emplace(resolvedCategoryPath,
+                                                  inferred);
         }
       } else {
         inferred = GdtfFixtureCategory::InferFromGdtf(resolvedCategoryPath);
       }
 
-      fixture.category = GdtfFixtureCategory::NormalizeCategory(inferred.category);
+      fixture.category =
+          GdtfFixtureCategory::NormalizeCategory(inferred.category);
       if (fixture.category.empty())
         fixture.category = GdtfFixtureCategory::kUnknown;
       fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
       fixture.categorySourceReason = inferred.reason;
       ++autoFallbackAppliedCount;
-      ++autoFallbackReasons[inferred.reason.empty() ? "unknown" : inferred.reason];
+      ++autoFallbackReasons[inferred.reason.empty() ? "unknown"
+                                                    : inferred.reason];
       ++autoFallbackCategories[fixture.category];
       if (!categoryKey.empty()) {
-        categoryByTypeKey[categoryKey] =
-            {fixture.category, fixture.categorySource, inferred.reason};
+        categoryByTypeKey[categoryKey] = {
+            fixture.category, fixture.categorySource, inferred.reason};
       }
       LogMessage(Logger::Level::Debug,
                  "Auto category fallback: " + fixture.instanceName + " -> " +
@@ -3983,10 +4216,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       pendingCategoryUpdatesByType[fixture.typeName] = fixture.category;
     }
   }
-  auto formatBreakdown = [](const std::unordered_map<std::string, int> &counts) {
+  auto formatBreakdown =
+      [](const std::unordered_map<std::string, int> &counts) {
     if (counts.empty())
       return std::string("none");
-    std::vector<std::pair<std::string, int>> sortedCounts(counts.begin(), counts.end());
+        std::vector<std::pair<std::string, int>> sortedCounts(counts.begin(),
+                                                              counts.end());
     std::sort(sortedCounts.begin(), sortedCounts.end(),
               [](const auto &lhs, const auto &rhs) {
                 if (lhs.second != rhs.second)
@@ -4006,9 +4241,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
   LogMessage(Logger::Level::Info,
              "Auto category fallback applied to " +
-                 std::to_string(autoFallbackAppliedCount) + " fixtures; reasons: " +
-                 formatBreakdown(autoFallbackReasons) + "; categories: " +
-                 formatBreakdown(autoFallbackCategories));
+                 std::to_string(autoFallbackAppliedCount) +
+                 " fixtures; reasons: " + formatBreakdown(autoFallbackReasons) +
+                 "; categories: " + formatBreakdown(autoFallbackCategories));
   GdtfDictionary::UpdateCategoriesBulk(pendingCategoryUpdatesByType);
 
   reportProgress("Building fixtures, trusses, and objects...");
@@ -4022,8 +4257,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         (resolvedFixturesForModeResolve == 1 ||
          resolvedFixturesForModeResolve == totalFixturesForModeResolve ||
          resolvedFixturesForModeResolve % 50 == 0)) {
-      reportProgress("Resolving GDTF modes...",
-                     resolvedFixturesForModeResolve,
+      reportProgress("Resolving GDTF modes...", resolvedFixturesForModeResolve,
                      totalFixturesForModeResolve);
     }
     if (fixture.gdtfSpec.empty())
@@ -4065,13 +4299,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   if (matrixScaleAggregation.suspiciousMatrixCount > 0) {
     std::ostringstream oss;
-    oss << "MVR import matrix anomalies: " << matrixScaleAggregation.suspiciousMatrixCount
+    oss << "MVR import matrix anomalies: "
+        << matrixScaleAggregation.suspiciousMatrixCount
         << " suspicious matrices detected. Contexts: "
         << JoinMatrixContextCounts(matrixScaleAggregation.suspiciousByContext);
     LogMessage(Logger::Level::Warn, oss.str());
 
     for (const std::string &example : matrixScaleAggregation.suspiciousExamples)
-      LogMessage(Logger::Level::Warn, "MVR import suspicious matrix example: " + example);
+      LogMessage(Logger::Level::Warn,
+                 "MVR import suspicious matrix example: " + example);
   }
 
   if (trussSymbolSymdefPreservedCount > 0) {
@@ -4093,7 +4329,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       for (size_t i = 0; i < sortedSymdefCounts.size(); ++i) {
         if (i > 0)
           oss << ", ";
-        oss << "'" << sortedSymdefCounts[i].first << "'=" << sortedSymdefCounts[i].second;
+        oss << "'" << sortedSymdefCounts[i].first
+            << "'=" << sortedSymdefCounts[i].second;
       }
     }
     LogMessage(Logger::Level::Info, oss.str());
@@ -4110,9 +4347,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (preservedSpec.empty())
       continue;
     ++fixturesWithGdtfSpec;
-    const std::string resolvedGdtf = resolveFixtureGdtfPathForRead(preservedSpec);
+    const std::string resolvedGdtf =
+        resolveFixtureGdtfPathForRead(preservedSpec);
     std::error_code resolvedEc;
-    if (!resolvedGdtf.empty() && fs::exists(PathUtils::PathFromUtf8(resolvedGdtf), resolvedEc) &&
+    if (!resolvedGdtf.empty() &&
+        fs::exists(PathUtils::PathFromUtf8(resolvedGdtf), resolvedEc) &&
         !resolvedEc) {
       ++fixturesWithResolvedGdtf;
     } else if (unresolvedGdtfExamples.size() < 5) {
@@ -4121,7 +4360,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   }
 
   std::ostringstream importDiagnostics;
-  importDiagnostics << "MVR import GDTF diagnostics: basePath='" << scene.basePath
+  importDiagnostics << "MVR import GDTF diagnostics: basePath='"
+                    << scene.basePath
                     << "', fixturesWithGdtfSpec=" << fixturesWithGdtfSpec
                     << ", resolvedFixtureGdtfs=" << fixturesWithResolvedGdtf
                     << ", unresolvedFixtureGdtfs="
@@ -4148,10 +4388,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   return true;
 }
 
-// Imports an MVR file and migrates labels after replacing the active project scene.
+// Imports an MVR file and migrates labels after replacing the active project
+// scene.
 bool MvrImporter::ImportAndRegister(const std::string &filePath,
-                                    bool promptConflicts,
-                                    bool applyDictionary,
+                                    bool promptConflicts, bool applyDictionary,
                                     ProgressCallback progressCallback) {
   MvrImportOptions options;
   options.promptConflicts = promptConflicts;
@@ -4165,9 +4405,9 @@ bool MvrImporter::ImportAndRegister(const std::string &filePath,
                                     ProgressCallback progressCallback) {
   MvrImporter importer;
   MvrImportResult importResult;
-  const bool imported = importer.ImportFromFile(
-      filePath, importResult, MvrImportMode::ReplaceProject, options,
-      progressCallback);
+  const bool imported = importer.ImportFromFile(filePath, importResult,
+                                                MvrImportMode::ReplaceProject,
+                                                options, progressCallback);
   if (!imported)
     return false;
 

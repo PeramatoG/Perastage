@@ -72,7 +72,7 @@ size_t HashFixtureValue(const Fixture &fixture) {
   HashCombine(hash, std::hash<std::string>{}(fixture.typeName));
   HashCombine(hash, std::hash<std::string>{}(fixture.gdtfSpec));
   HashCombine(hash, std::hash<std::string>{}(fixture.gdtfMode));
-  HashCombine(hash, std::hash<std::string>{}(fixture.color));
+  HashCombine(hash, std::hash<std::string>{}(fixture.visualColorHex));
   HashCombine(hash, HashMatrixValue(fixture.transform));
   return hash;
 }
@@ -111,11 +111,13 @@ size_t HashSceneMapWithValues(const TMap &items, ValueHasher hasher) {
 
 // Computes a scene-wide hash for data that can affect layout previews.
 size_t LayoutViewerPanel::ComputeSceneContentHash() const {
-  const auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  const auto &scene =
+      GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
   size_t hash = 0;
   HashCombine(hash, HashSceneMapWithValues(scene.fixtures, HashFixtureValue));
   HashCombine(hash, HashSceneMapWithValues(scene.trusses, HashTrussValue));
-  HashCombine(hash, HashSceneMapWithValues(scene.sceneObjects, HashSceneObjectValue));
+  HashCombine(hash,
+              HashSceneMapWithValues(scene.sceneObjects, HashSceneObjectValue));
   HashCombine(hash, HashSceneMapWithValues(scene.supports, HashSupportValue));
   return hash;
 }
@@ -132,7 +134,8 @@ size_t LayoutViewerPanel::HashViewContent(
   HashCombine(seed, std::hash<bool>{}(view.renderOptions.darkMode));
   if (view.renderOptions.forceBottomViewForTopFixtures.has_value()) {
     HashCombine(seed, std::hash<int>{}(1));
-    HashCombine(seed, std::hash<bool>{}(
+    HashCombine(seed,
+                std::hash<bool>{}(
                           view.renderOptions.forceBottomViewForTopFixtures.value()));
   } else {
     HashCombine(seed, std::hash<int>{}(0));
@@ -172,8 +175,10 @@ size_t LayoutViewerPanel::HashViewContent(
   return seed;
 }
 
-// Marks cached layout rasters dirty only when content or LOD changes require it.
-void LayoutViewerPanel::InvalidateRenderIfFrameChanged(bool includeSceneContent) {
+// Marks cached layout rasters dirty only when content or LOD changes require
+// it.
+void LayoutViewerPanel::InvalidateRenderIfFrameChanged(
+    bool includeSceneContent) {
   const double renderZoom = GetRenderZoom();
   const double pageWidth = currentLayout.pageSetup.PageWidthPt();
   const double pageHeight = currentLayout.pageSetup.PageHeightPt();
@@ -347,9 +352,7 @@ void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
 }
 
 // Refreshes the layout viewer after selection-only updates.
-void LayoutViewerPanel::RefreshAfterSelectionOnlyUpdate() {
-  Refresh();
-}
+void LayoutViewerPanel::RefreshAfterSelectionOnlyUpdate() { Refresh(); }
 
 // Invalidates render data after fixture symbol changes.
 void LayoutViewerPanel::RefreshAfterFixtureSymbolUpdate() {

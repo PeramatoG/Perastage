@@ -20,8 +20,8 @@
 
 #include <algorithm>
 #include <array>
-#include <cerrno>
 #include <cctype>
+#include <cerrno>
 #include <charconv>
 #include <chrono>
 #include <cmath>
@@ -47,8 +47,8 @@
 #include "autopatcher.h"
 #include "configmanager.h"
 #include "fixture.h"
-#include "gdtfdictionary.h"
 #include "gdtf_fixture_category.h"
+#include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "hoist_weight_distribution.h"
 #include "layer.h"
@@ -66,9 +66,9 @@ namespace {
 constexpr const char *kPrimitiveCylinderToken = "primitive:cylinder";
 constexpr const char *kPrimitiveCubeToken = "primitive:cube";
 
-
 struct RiderImportTimingStats {
-  std::chrono::steady_clock::time_point startedAt = std::chrono::steady_clock::now();
+  std::chrono::steady_clock::time_point startedAt =
+      std::chrono::steady_clock::now();
   std::unordered_map<std::string, double> phaseMs;
   size_t fixtureCount = 0;
   size_t trussCount = 0;
@@ -81,13 +81,15 @@ void AddRiderImportPhaseTime(RiderImportTimingStats &timing,
                              const std::string &phaseName,
                              std::chrono::steady_clock::time_point startedAt) {
   timing.phaseMs[phaseName] += std::chrono::duration<double, std::milli>(
-      std::chrono::steady_clock::now() - startedAt).count();
+                                   std::chrono::steady_clock::now() - startedAt)
+                                   .count();
 }
 
 // Logs one concise timing line for the completed rider import.
 void LogRiderImportTiming(const RiderImportTimingStats &timing) {
   const auto totalMs = std::chrono::duration<double, std::milli>(
-      std::chrono::steady_clock::now() - timing.startedAt).count();
+                           std::chrono::steady_clock::now() - timing.startedAt)
+                           .count();
   auto phase = [&](const std::string &name) {
     const auto it = timing.phaseMs.find(name);
     return it == timing.phaseMs.end() ? 0.0 : it->second;
@@ -137,24 +139,29 @@ Matrix BuildPipeObjectTransform(float pipeLengthMm, float pipeDiameterMm,
 // Precompiled regexes used by RiderImporter. Keeping them static avoids paying
 // the compilation cost on every import call and makes keyword matching cheap
 // even when processing large riders.
-static const std::regex kTrussLineRe(
-    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss|pipe|pipes|vara|varas)\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b(?:\\s+(?:(?:para|for)\\s+)?(.+))?\\s*$",
+static const std::regex
+    kTrussLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss|pipe|pipes|vara|varas)"
+                 "\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)"
+                 "\\b(?:\\s+(?:(?:para|for)\\s+)?(.+))?\\s*$",
     std::regex::icase);
 static const std::regex kTrussLineNoLengthRe(
-    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss|pipe|pipes|vara|varas)\\s+([^\\n]*?)(?:\\s+(?:para|for)\\s+(.+))?\\s*$",
+    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss|pipe|pipes|vara|varas)\\s+([^\\n]*?)("
+    "?:\\s+(?:para|for)\\s+(.+))?\\s*$",
     std::regex::icase);
-static const std::regex kTrussRe(
-    "(?:truss|pipe|pipes|vara|varas)[^\\n]*?(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b",
+static const std::regex kTrussRe("(?:truss|pipe|pipes|vara|varas)[^\\n]*?(\\d+("
+                                 "?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b",
     std::regex::icase);
 static const std::regex kPipeKeywordRe("\\b(?:pipe|pipes|vara|varas)\\b",
                                        std::regex::icase);
-static const std::regex kLengthWithUnitRe(
-    "(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b", std::regex::icase);
+static const std::regex
+    kLengthWithUnitRe("(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b",
+                      std::regex::icase);
 static const std::regex kHoistLineRe(
     "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:motor(?:es)?|hoist(?:s)?)\\b(.*)$",
     std::regex::icase);
-static const std::regex kHoistCapacityRe(
-    "(\\d+(?:[\\.,]\\d+)?)\\s*(kg|kgs?|kilogramos?|kilos?|t|to|tn|ton|tons?|toneladas?)\\b",
+static const std::regex
+    kHoistCapacityRe("(\\d+(?:[\\.,]\\d+)?)\\s*(kg|kgs?|kilogramos?|kilos?|t|"
+                     "to|tn|ton|tons?|toneladas?)\\b",
     std::regex::icase);
 static const std::regex kHoistTargetRe("\\b(?:para|for)\\s+(.+)$",
                                        std::regex::icase);
@@ -162,19 +169,32 @@ static const std::regex kFixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$",
                                        std::regex::icase);
 static const std::regex kQuantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
 static const std::regex kHangLineRe(
-    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|proyecci[oó]n|led\\s*screen|backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s*(?:\\([^\\)]*\\)|\\[[^\\]]*\\]))*\\s*:?\\s*$",
+    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|proyecci[oó]n|led\\s*screen|"
+    "backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|"
+    "calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s*("
+    "?:\\([^\\)]*\\)|\\[[^\\]]*\\]))*\\s*:?\\s*$",
     std::regex::icase);
 static const std::regex kHangHeaderWithSuffixRe(
-    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|proyecci[oó]n|led\\s*screen|backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s+[^:]*)?\\s*:\\s*$",
+    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|proyecci[oó]n|led\\s*screen|"
+    "backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|"
+    "calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s+["
+    "^:]*)?\\s*:\\s*$",
     std::regex::icase);
 static const std::regex kHangFindRe(
-    "(LX\\d+|lx\\s*sides?|screen|pantalla|proyecci[oó]n|led\\s*screen|backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)",
+    "(LX\\d+|lx\\s*sides?|screen|pantalla|proyecci[oó]n|led\\s*screen|"
+    "backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|"
+    "calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)",
                                     std::regex::icase);
 static const std::regex kHangOnlyRe(
-    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|proyecci[oó]n|led\\s*screen|backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*$",
+    "^\\s*(LX\\d+|lx\\s*sides?|screen|pantalla|proyecci[oó]n|led\\s*screen|"
+    "backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|"
+    "calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)\\s*$",
                                     std::regex::icase);
 static const std::regex kTrailingHangWithCoordinateRe(
-    "(LX\\d+|lx\\s*sides?|screen|pantalla|proyecci[oó]n|led\\s*screen|backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s*((?:\\([^\\)]*\\)|\\[[^\\]]*\\])))?\\s*$",
+    "(LX\\d+|lx\\s*sides?|screen|pantalla|proyecci[oó]n|led\\s*screen|"
+    "backdrops?|tel[oó]n(?:es)?|puente\\s+de\\s+tel[oó]n(?:es)?|floor|efectos?|"
+    "calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?|calle(?:s)?|side(?:s)?)(?:\\s*("
+    "(?:\\([^\\)]*\\)|\\[[^\\]]*\\])))?\\s*$",
     std::regex::icase);
 static const std::regex kParenthesizedCleanupRe("\\([^\\)]*\\)");
 static const std::regex kBracketedCleanupRe("\\[[^\\]]*\\]");
@@ -193,8 +213,8 @@ std::string StripRiderAnnotations(const std::string &line) {
     return {};
 
   std::string stripped = line;
-  stripped = std::regex_replace(stripped, std::regex("\\*\\([^\\)]*\\)\\*"),
-                                " ");
+  stripped =
+      std::regex_replace(stripped, std::regex("\\*\\([^\\)]*\\)\\*"), " ");
   return Trim(stripped);
 }
 
@@ -255,10 +275,12 @@ std::string ResolveHangTargetFallback(const std::string &raw) {
   return NormalizeHangName(candidate);
 }
 
-bool TryExtractTrailingHangWithCoordinate(std::string &text, std::string &hangOut,
+bool TryExtractTrailingHangWithCoordinate(std::string &text,
+                                          std::string &hangOut,
                                           std::string &coordinateSuffixOut) {
   std::smatch trailingHangMatch;
-  if (!std::regex_search(text, trailingHangMatch, kTrailingHangWithCoordinateRe) ||
+  if (!std::regex_search(text, trailingHangMatch,
+                         kTrailingHangWithCoordinateRe) ||
       trailingHangMatch.size() < 2) {
     return false;
   }
@@ -268,7 +290,8 @@ bool TryExtractTrailingHangWithCoordinate(std::string &text, std::string &hangOu
   if (trailingHangMatch.size() > 2 && trailingHangMatch[2].matched)
     coordinateSuffixOut = Trim(trailingHangMatch[2].str());
 
-  text = Trim(text.substr(0, static_cast<size_t>(trailingHangMatch.position(0))));
+  text =
+      Trim(text.substr(0, static_cast<size_t>(trailingHangMatch.position(0))));
   return !hangOut.empty();
 }
 
@@ -301,7 +324,8 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
   }
 
   auto containsWord = [](std::string value, const std::string &needle) {
-    std::transform(value.begin(), value.end(), value.begin(),
+    std::transform(
+        value.begin(), value.end(), value.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return value.find(needle) != std::string::npos;
   };
@@ -389,7 +413,8 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
       fixture.categorySourceReason = "name hint gdtf filename";
 
     if (fixture.category.empty() && std::filesystem::exists(gdtfPath)) {
-      const auto inferred = GdtfFixtureCategory::InferFromGdtf(resolvedGdtfPath);
+      const auto inferred =
+          GdtfFixtureCategory::InferFromGdtf(resolvedGdtfPath);
       if (inferred.category != GdtfFixtureCategory::kUnknown) {
         fixture.category = inferred.category;
         fixture.categorySourceReason = inferred.reason;
@@ -426,9 +451,8 @@ bool TryParseFloat(const std::string &text, float &out) {
     return false;
 
   const auto first =
-      std::find_if_not(text.begin(), text.end(), [](unsigned char c) {
-        return std::isspace(c);
-      });
+      std::find_if_not(text.begin(), text.end(),
+                       [](unsigned char c) { return std::isspace(c); });
   if (first == text.end())
     return false;
   const auto last =
@@ -453,9 +477,8 @@ bool TryParseInt(std::string_view text, int &out) {
     return false;
 
   const auto first =
-      std::find_if_not(text.begin(), text.end(), [](unsigned char c) {
-        return std::isspace(c);
-      });
+      std::find_if_not(text.begin(), text.end(),
+                       [](unsigned char c) { return std::isspace(c); });
   if (first == text.end())
     return false;
   const auto last =
@@ -484,8 +507,9 @@ struct TrussCoordinateOverride {
   float zMm = 0.0f;
 };
 
-std::optional<TrussCoordinateOverride> ParseTrussCoordinateOverride(
-    std::string &text, Units::DistanceUnitSystem unitSystem) {
+std::optional<TrussCoordinateOverride>
+ParseTrussCoordinateOverride(std::string &text,
+                             Units::DistanceUnitSystem unitSystem) {
   const size_t open = text.find('(');
   if (open == std::string::npos)
     return std::nullopt;
@@ -498,7 +522,8 @@ std::optional<TrussCoordinateOverride> ParseTrussCoordinateOverride(
   static const std::regex kCoordinateNumberRe("[-+]?\\d+(?:[\\.,]\\d+)?");
   std::vector<double> values;
   values.reserve(3);
-  for (std::sregex_iterator it(inside.begin(), inside.end(), kCoordinateNumberRe),
+  for (std::sregex_iterator
+           it(inside.begin(), inside.end(), kCoordinateNumberRe),
        end;
        it != end && values.size() < 3; ++it) {
     std::string token = it->str();
@@ -506,8 +531,8 @@ std::optional<TrussCoordinateOverride> ParseTrussCoordinateOverride(
     float parsed = 0.0f;
     if (!TryParseFloat(token, parsed))
       continue;
-    values.push_back(
-        Units::DistanceDisplayToMillimeters(static_cast<double>(parsed), unitSystem));
+    values.push_back(Units::DistanceDisplayToMillimeters(
+        static_cast<double>(parsed), unitSystem));
   }
   if (values.empty())
     return std::nullopt;
@@ -535,8 +560,9 @@ std::optional<TrussCoordinateOverride> ParseTrussCoordinateOverride(
   return override;
 }
 
-std::optional<float> ParseTrussMarginOverrideMm(
-    std::string &text, Units::DistanceUnitSystem unitSystem) {
+std::optional<float>
+ParseTrussMarginOverrideMm(std::string &text,
+                           Units::DistanceUnitSystem unitSystem) {
   const size_t open = text.find('[');
   if (open == std::string::npos)
     return std::nullopt;
@@ -555,14 +581,15 @@ std::optional<float> ParseTrussMarginOverrideMm(
 
   text.erase(open, close - open + 1);
   text = Trim(text);
-  return static_cast<float>(
-      Units::DistanceDisplayToMillimeters(static_cast<double>(parsed), unitSystem));
+  return static_cast<float>(Units::DistanceDisplayToMillimeters(
+      static_cast<double>(parsed), unitSystem));
 }
 
 bool TryParseScreenDimensionsMm(const std::string &text, float &widthMm,
                                 float &heightMm) {
   static const std::regex kScreenDimensionRe(
-      "(\\d+(?:[\\.,]\\d+)?)\\s*(?:m|metros?)?\\s*[xX]\\s*(\\d+(?:[\\.,]\\d+)?)\\s*(?:m|metros?)?",
+      "(\\d+(?:[\\.,]\\d+)?)\\s*(?:m|metros?)?\\s*[xX]\\s*(\\d+(?:[\\.,]\\d+)?)"
+      "\\s*(?:m|metros?)?",
       std::regex::icase);
   std::smatch matches;
   if (!std::regex_search(text, matches, kScreenDimensionRe))
@@ -600,8 +627,7 @@ bool IsRenderableTrussGeometry(const std::string &path) {
   if (path.empty())
     return false;
   std::string ext = std::filesystem::path(path).extension().string();
-  std::transform(ext.begin(), ext.end(), ext.begin(),
-                 [](unsigned char c) {
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
                    return static_cast<char>(std::tolower(c));
                  });
   return ext == ".3ds" || ext == ".glb";
@@ -664,9 +690,8 @@ void ForEachSplitPlusPart(std::string_view s, Callback callback) {
 // Splits a plus-separated string into owned, trimmed, non-empty segments.
 std::vector<std::string> SplitPlus(const std::string &s) {
   std::vector<std::string> out;
-  ForEachSplitPlusPart(s, [&](std::string_view item) {
-    out.emplace_back(item);
-  });
+  ForEachSplitPlusPart(s,
+                       [&](std::string_view item) { out.emplace_back(item); });
   return out;
 }
 
@@ -844,10 +869,9 @@ void AssignImportedHoistNames(std::vector<Support *> &supports) {
     support->motorName = support->name;
   }
 
-  auto assignLeftRightNames = [&](std::vector<Support *> &items,
-                                  const std::string &leftPrefix,
-                                  const std::string &rightPrefix,
-                                  bool omitIndexForSingle) {
+  auto assignLeftRightNames =
+      [&](std::vector<Support *> &items, const std::string &leftPrefix,
+          const std::string &rightPrefix, bool omitIndexForSingle) {
     std::vector<Support *> left;
     std::vector<Support *> right;
     for (Support *support : items) {
@@ -863,14 +887,14 @@ void AssignImportedHoistNames(std::vector<Support *> &supports) {
 
     for (size_t i = 0; i < left.size(); ++i) {
       Support *support = left[i];
-      support->name =
-          BuildIndexedName(leftPrefix, static_cast<int>(i + 1), omitIndexForSingle);
+          support->name = BuildIndexedName(leftPrefix, static_cast<int>(i + 1),
+                                           omitIndexForSingle);
       support->motorName = support->name;
     }
     for (size_t i = 0; i < right.size(); ++i) {
       Support *support = right[i];
-      support->name =
-          BuildIndexedName(rightPrefix, static_cast<int>(i + 1), omitIndexForSingle);
+          support->name = BuildIndexedName(rightPrefix, static_cast<int>(i + 1),
+                                           omitIndexForSingle);
       support->motorName = support->name;
     }
   };
@@ -935,8 +959,8 @@ bool TryParseHoistLine(const std::string &line, const std::string &currentHang,
 
 std::string ResolveHoistFunctionForTarget(const std::string &target) {
   const std::string normalized = NormalizeHangName(target);
-  if (normalized == "PA" || normalized == "P.A." ||
-      normalized == "SIDEFILL" || normalized == "OUTFILL")
+  if (normalized == "PA" || normalized == "P.A." || normalized == "SIDEFILL" ||
+      normalized == "OUTFILL")
     return "Audio";
   if (normalized == "SCREEN" || normalized == "LEDSCREEN" ||
       normalized == "VIDEO")
@@ -1119,8 +1143,8 @@ BuildTrussDictionaryLookupKeys(const std::string &modelToken,
   if (!modelToken.empty())
     pushNormalized("TRUSS " + modelToken);
   const std::string simplifiedModelToken = simplifyModelToken(modelToken);
-  if (!simplifiedModelToken.empty() && simplifiedModelToken !=
-                                          TrussDictionary::NormalizeModelKey(modelToken)) {
+  if (!simplifiedModelToken.empty() &&
+      simplifiedModelToken != TrussDictionary::NormalizeModelKey(modelToken)) {
     pushNormalized(simplifiedModelToken);
     pushNormalized("TRUSS " + simplifiedModelToken);
   }
@@ -1155,7 +1179,6 @@ bool RiderImporter::Import(const std::string &path,
     return false;
   return ImportText(text, std::move(progressCallback));
 }
-
 
 struct ParsedRiderImport {
   std::vector<std::string> fixtureRequests;
@@ -1249,10 +1272,9 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
     }
     const std::string lowerLine = [&line]() {
       std::string lowered = line;
-      std::transform(lowered.begin(), lowered.end(), lowered.begin(),
-                     [](unsigned char c) {
-                       return static_cast<char>(std::tolower(c));
-                     });
+      std::transform(
+          lowered.begin(), lowered.end(), lowered.begin(),
+          [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
       return lowered;
     }();
 
@@ -1351,7 +1373,8 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
         model.clear();
       } else {
         std::string modelForHang = model;
-        if (const auto coordinateSuffix = ExtractParenthesizedToken(modelForHang);
+        if (const auto coordinateSuffix =
+                ExtractParenthesizedToken(modelForHang);
             coordinateSuffix.has_value()) {
           trussCoordinateSuffix = *coordinateSuffix;
         }
@@ -1359,8 +1382,10 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
             marginSuffix.has_value()) {
           trussMarginSuffix = *marginSuffix;
         }
-        modelForHang = std::regex_replace(modelForHang, kParenthesizedCleanupRe, "");
-        modelForHang = std::regex_replace(modelForHang, kBracketedCleanupRe, "");
+        modelForHang =
+            std::regex_replace(modelForHang, kParenthesizedCleanupRe, "");
+        modelForHang =
+            std::regex_replace(modelForHang, kBracketedCleanupRe, "");
         modelForHang = Trim(modelForHang);
         if (std::regex_match(modelForHang, kHangOnlyRe)) {
           hang = modelForHang;
@@ -1448,10 +1473,11 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
         if (std::regex_search(model, targetMatch, kHoistTargetRe) &&
             targetMatch.size() > 1) {
           hang = targetMatch[1].str();
-          model = Trim(model.substr(0, static_cast<size_t>(targetMatch.position(0))));
+          model = Trim(
+              model.substr(0, static_cast<size_t>(targetMatch.position(0))));
         } else if (std::string trailingCoordinateSuffix;
-                   TryExtractTrailingHangWithCoordinate(model, hang,
-                                                        trailingCoordinateSuffix)) {
+                   TryExtractTrailingHangWithCoordinate(
+                       model, hang, trailingCoordinateSuffix)) {
           if (trussCoordinateSuffix.empty())
             trussCoordinateSuffix = trailingCoordinateSuffix;
         } else if (std::regex_match(model, kHangOnlyRe)) {
@@ -1460,7 +1486,8 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
         }
       }
       if (trussCoordinateSuffix.empty()) {
-        const auto it = hangCoordinateSuffixByHang.find(NormalizeHangName(hang));
+        const auto it =
+            hangCoordinateSuffixByHang.find(NormalizeHangName(hang));
         if (it != hangCoordinateSuffixByHang.end())
           trussCoordinateSuffix = it->second;
       }
@@ -1472,7 +1499,8 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
       hang = ResolveHangTargetFallback(hang);
       if (hang.empty())
         hang = NormalizeHangName(currentHang);
-      const bool keepLine = riggingKind == RiggingLineKind::Pipe || hang == "BACKDROP";
+      const bool keepLine =
+          riggingKind == RiggingLineKind::Pipe || hang == "BACKDROP";
       if (!keepLine)
         continue;
 
@@ -1511,7 +1539,8 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
         hang = NormalizeHangName(currentHang);
       if (hang == "FLOOR")
         continue;
-      std::string out = "1 " + riggingKeyword + " " + formatLengthM(lengthM) + "m";
+      std::string out =
+          "1 " + riggingKeyword + " " + formatLengthM(lengthM) + "m";
       if (!hang.empty())
         out += " " + hang;
       riggingLines.push_back(out);
@@ -1520,8 +1549,8 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
       else
         parsed.trussRequests.push_back(out);
       if (hang.rfind("LX", 0) == 0 &&
-          std::find(lxTargetsInRigging.begin(), lxTargetsInRigging.end(), hang) ==
-              lxTargetsInRigging.end()) {
+          std::find(lxTargetsInRigging.begin(), lxTargetsInRigging.end(),
+                    hang) == lxTargetsInRigging.end()) {
         lxTargetsInRigging.push_back(hang);
       }
       continue;
@@ -1598,8 +1627,8 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
       std::ostringstream capText;
       capText << std::fixed << std::setprecision(0) << std::round(capacityKg);
       hoistLines.push_back("MOTOR " + capText.str());
-      hoistLines.back() =
-          std::to_string(quantity) + " " + hoistLines.back() + "Kg FOR " + target;
+      hoistLines.back() = std::to_string(quantity) + " " + hoistLines.back() +
+                          "Kg FOR " + target;
     };
     for (const HoistPreviewRequest &request : hoistRequests) {
       if (request.target == "LX") {
@@ -1635,7 +1664,8 @@ std::string BuildFilteredPreviewText(const ParsedRiderImport &parsed) {
   return parsed.filteredPreviewText;
 }
 
-// Produces scene-import text from parsed rider requests without re-filtering raw text.
+// Produces scene-import text from parsed rider requests without re-filtering
+// raw text.
 std::string BuildSceneImportText(const ParsedRiderImport &parsed) {
   return parsed.filteredPreviewText;
 }
@@ -1670,9 +1700,8 @@ struct ImportedGdtfMetadataCache {
 
     ImportedGdtfMetadata metadata;
     metadata.parsedFixtureName = Trim(GetGdtfFixtureName(resolvedGdtfPath));
-    metadata.hasProperties =
-        GetGdtfProperties(resolvedGdtfPath, metadata.weightKg,
-                          metadata.powerConsumptionW);
+    metadata.hasProperties = GetGdtfProperties(
+        resolvedGdtfPath, metadata.weightKg, metadata.powerConsumptionW);
 
     Fixture categoryProbe;
     categoryProbe.gdtfSpec = resolvedGdtfPath;
@@ -1745,7 +1774,8 @@ bool RiderImporter::ImportText(const std::string &text,
   if (text.empty())
     return false;
   RiderImportTimingStats timing;
-  auto reportProgress = [&](std::string stage, int completed = 0, int total = 0) {
+  auto reportProgress = [&](std::string stage, int completed = 0,
+                            int total = 0) {
     if (!progressCallback)
       return;
     progressCallback(ProgressState{std::move(stage), completed, total});
@@ -1759,8 +1789,9 @@ bool RiderImporter::ImportText(const std::string &text,
   auto phaseStartedAt = std::chrono::steady_clock::now();
   const ParsedRiderImport parsedImport =
       skipFixtureFilterPreview ? ParsedRiderImport{} : ParseRiderImport(text);
-  const std::string parsedImportText =
-      skipFixtureFilterPreview ? std::string{} : BuildSceneImportText(parsedImport);
+  const std::string parsedImportText = skipFixtureFilterPreview
+                                           ? std::string{}
+                                           : BuildSceneImportText(parsedImport);
   AddRiderImportPhaseTime(timing, "filter/reduce text", phaseStartedAt);
   const std::string &textToImport =
       parsedImportText.empty() ? text : parsedImportText;
@@ -1770,10 +1801,13 @@ bool RiderImporter::ImportText(const std::string &text,
   phaseStartedAt = std::chrono::steady_clock::now();
   auto trussDictionaryOpt = TrussDictionary::Load();
   AddRiderImportPhaseTime(timing, "load truss dictionary", phaseStartedAt);
-  const std::unordered_map<std::string, GdtfDictionary::Entry> emptyFixtureDictionary;
-  const auto &fixtureDictionary = fixtureDictionaryOpt ? *fixtureDictionaryOpt : emptyFixtureDictionary;
+  const std::unordered_map<std::string, GdtfDictionary::Entry>
+      emptyFixtureDictionary;
+  const auto &fixtureDictionary =
+      fixtureDictionaryOpt ? *fixtureDictionaryOpt : emptyFixtureDictionary;
   const std::unordered_map<std::string, std::string> emptyTrussDictionary;
-  const auto &trussDictionary = trussDictionaryOpt ? *trussDictionaryOpt : emptyTrussDictionary;
+  const auto &trussDictionary =
+      trussDictionaryOpt ? *trussDictionaryOpt : emptyTrussDictionary;
   reportProgress("Parsing lines...", 2, 6);
   const int totalInputLines = [&]() {
     if (textToImport.empty())
@@ -1906,8 +1940,7 @@ bool RiderImporter::ImportText(const std::string &text,
       l.uuid = name == DEFAULT_LAYER_NAME ? "layer_default" : GenerateUuid();
       l.name = name;
       l.color = layerColor;
-      auto [insertedIt, inserted] =
-          scene.layers.emplace(l.uuid, std::move(l));
+      auto [insertedIt, inserted] = scene.layers.emplace(l.uuid, std::move(l));
       layerPtr = &insertedIt->second;
       layerLookup.emplace(layerPtr->name, layerPtr);
     }
@@ -1963,23 +1996,33 @@ bool RiderImporter::ImportText(const std::string &text,
   std::unordered_map<std::string, TrussCoordinateOverride>
       hangCoordinateOverrides;
   ImportedGdtfMetadataCache importedGdtfMetadataCache;
-  std::unordered_map<std::string, std::optional<GdtfDictionary::Entry>> fixtureDictionaryLookupCache;
-  std::unordered_map<std::string, std::optional<std::string>> trussDictionaryLookupCache;
+  std::unordered_map<std::string, std::optional<GdtfDictionary::Entry>>
+      fixtureDictionaryLookupCache;
+  std::unordered_map<std::string, std::optional<std::string>>
+      trussDictionaryLookupCache;
   int parsedInputLineCount = 0;
 
-  auto lookupFixtureDictionary = [&](const std::string &typeName) -> const std::optional<GdtfDictionary::Entry> & {
+  auto lookupFixtureDictionary = [&](const std::string &typeName)
+      -> const std::optional<GdtfDictionary::Entry> & {
     auto found = fixtureDictionaryLookupCache.find(typeName);
     if (found != fixtureDictionaryLookupCache.end())
       return found->second;
     ++timing.uniqueFixtureLookups;
-    return fixtureDictionaryLookupCache.emplace(typeName, GdtfDictionary::FindInLoadedDictionary(fixtureDictionary, typeName)).first->second;
+    return fixtureDictionaryLookupCache
+        .emplace(typeName, GdtfDictionary::FindInLoadedDictionary(
+                               fixtureDictionary, typeName))
+        .first->second;
   };
-  auto lookupTrussDictionary = [&](const std::string &lookupKey) -> const std::optional<std::string> & {
+  auto lookupTrussDictionary =
+      [&](const std::string &lookupKey) -> const std::optional<std::string> & {
     auto found = trussDictionaryLookupCache.find(lookupKey);
     if (found != trussDictionaryLookupCache.end())
       return found->second;
     ++timing.uniqueTrussLookups;
-    return trussDictionaryLookupCache.emplace(lookupKey, TrussDictionary::FindInLoadedDictionary(trussDictionary, lookupKey)).first->second;
+    return trussDictionaryLookupCache
+        .emplace(lookupKey, TrussDictionary::FindInLoadedDictionary(
+                                trussDictionary, lookupKey))
+        .first->second;
   };
 
   auto addFixtures = [&](int baseQuantity, const std::string &desc) {
@@ -1994,10 +2037,9 @@ bool RiderImporter::ImportText(const std::string &text,
         part = Trim(pm[2]);
       }
       std::string placementKey = Trim(part);
-      std::transform(placementKey.begin(), placementKey.end(), placementKey.begin(),
-                     [](unsigned char c) {
-                       return static_cast<char>(std::tolower(c));
-                     });
+      std::transform(
+          placementKey.begin(), placementKey.end(), placementKey.begin(),
+          [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
       auto &seenTypesForHang = seenFixtureTypesByHangInListing[currentHang];
       if (!placementKey.empty() && seenTypesForHang.count(placementKey) > 0)
         linearPlacementHangs.insert(currentHang);
@@ -2021,8 +2063,8 @@ bool RiderImporter::ImportText(const std::string &text,
           if (layerByType)
             request.layer = "obj " + currentHang;
           else
-            request.layer = currentHang.empty() ? defaultLayer
-                                                : "pos " + currentHang;
+            request.layer =
+                currentHang.empty() ? defaultLayer : "pos " + currentHang;
           screenObjectRequests.push_back(std::move(request));
         }
         return;
@@ -2036,19 +2078,21 @@ bool RiderImporter::ImportText(const std::string &text,
         if (const auto &dictEntry = lookupFixtureDictionary(f.typeName)) {
           f.gdtfSpec = dictEntry->path;
           f.gdtfMode = dictEntry->mode;
-          if (!dictEntry->color.empty())
-            f.color = dictEntry->color;
+          if (!dictEntry->visualColorHex.empty())
+            f.visualColorHex = dictEntry->visualColorHex;
           const std::string dictionaryCategory = Trim(dictEntry->category);
           if (!dictionaryCategory.empty()) {
             f.category = dictionaryCategory;
             f.categorySource = GdtfFixtureCategory::kManualSource;
             f.categorySourceReason.clear();
           }
-          const std::string resolvedGdtfPath = ResolveGdtfPath(scene, f.gdtfSpec);
+          const std::string resolvedGdtfPath =
+              ResolveGdtfPath(scene, f.gdtfSpec);
           phaseStartedAt = std::chrono::steady_clock::now();
-          const ImportedGdtfMetadata &metadata =
-              importedGdtfMetadataCache.Get(scene, resolvedGdtfPath, f.gdtfMode);
-          AddRiderImportPhaseTime(timing, "resolve GDTF metadata", phaseStartedAt);
+          const ImportedGdtfMetadata &metadata = importedGdtfMetadataCache.Get(
+              scene, resolvedGdtfPath, f.gdtfMode);
+          AddRiderImportPhaseTime(timing, "resolve GDTF metadata",
+                                  phaseStartedAt);
           ApplyImportedGdtfMetadata(f, metadata);
         }
         EnsureFixtureCategoryForImport(scene, f);
@@ -2085,8 +2129,9 @@ bool RiderImporter::ImportText(const std::string &text,
         (parsedInputLineCount == 1 ||
          parsedInputLineCount % parsingProgressReportEveryLines == 0 ||
          parsedInputLineCount == totalInputLines)) {
-      reportProgress("Parsing lines... (" + std::to_string(parsedInputLineCount) +
-                         "/" + std::to_string(totalInputLines) + ")",
+      reportProgress("Parsing lines... (" +
+                         std::to_string(parsedInputLineCount) + "/" +
+                         std::to_string(totalInputLines) + ")",
                      2, 6);
     }
     // Remove Windows carriage returns to allow regexes anchored with '$' to
@@ -2178,7 +2223,8 @@ bool RiderImporter::ImportText(const std::string &text,
         std::smatch dm;
         if (std::regex_search(
                 model, dm,
-                std::regex("(\\d+(?:\\.\\d+)?)\\s*[xX]\\s*(\\d+(?:\\.\\d+)?)"))) {
+                std::regex(
+                    "(\\d+(?:\\.\\d+)?)\\s*[xX]\\s*(\\d+(?:\\.\\d+)?)"))) {
           float parsed = 0.0f;
           if (TryParseFloat(dm[1], parsed))
             width = parsed * 10.0f;
@@ -2191,7 +2237,8 @@ bool RiderImporter::ImportText(const std::string &text,
         std::optional<float> marginOverrideMm;
         if (m.size() > 4 && m[4].matched) {
           hang = Trim(m[4]);
-          marginOverrideMm = ParseTrussMarginOverrideMm(hang, distanceUnitSystem);
+          marginOverrideMm =
+              ParseTrussMarginOverrideMm(hang, distanceUnitSystem);
           coordinateOverride =
               ParseTrussCoordinateOverride(hang, distanceUnitSystem);
         } else {
@@ -2327,12 +2374,14 @@ bool RiderImporter::ImportText(const std::string &text,
               phaseStartedAt = std::chrono::steady_clock::now();
               const ImportedTrussDefinitionResult &definition =
                   trussDefinitionCache.Get(*dictPath);
-              AddRiderImportPhaseTime(timing, "resolve truss definitions", phaseStartedAt);
+              AddRiderImportPhaseTime(timing, "resolve truss definitions",
+                                      phaseStartedAt);
               if (definition.loaded) {
                 const Truss &parsed = definition.parsed;
                 if (!parsed.symbolFile.empty())
                   t.symbolFile = parsed.symbolFile;
-                t.modelFile = parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
+                t.modelFile =
+                    parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
                 t.gdtfSpec = parsed.gdtfSpec;
                 t.gdtfMode = parsed.gdtfMode;
                 if (!parsed.manufacturer.empty())
@@ -2365,7 +2414,8 @@ bool RiderImporter::ImportText(const std::string &text,
                 const std::string sideTrussUuid = sideTruss.uuid;
                 phaseStartedAt = std::chrono::steady_clock::now();
                 scene.trusses.emplace(sideTrussUuid, std::move(sideTruss));
-                AddRiderImportPhaseTime(timing, "create trusses", phaseStartedAt);
+                AddRiderImportPhaseTime(timing, "create trusses",
+                                        phaseStartedAt);
                 ++timing.trussCount;
                 importedTrussUuids.push_back(sideTrussUuid);
                 addToLayer(trussLayer, sideTrussUuid);
@@ -2422,8 +2472,8 @@ bool RiderImporter::ImportText(const std::string &text,
                BuildPipeObjectTransform(pipeLengthMm, pipeDiameterMm,
                                         primitiveCylinderHeightMm)});
 
-          importedPipeSpans.push_back({posName, startX, startX + pipeLengthMm, hangY,
-                                       hangZ});
+          importedPipeSpans.push_back(
+              {posName, startX, startX + pipeLengthMm, hangY, hangZ});
           pipeHangNames.insert(posName);
           scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
           addToLayer(pipeObject.layer, pipeObject.uuid);
@@ -2486,7 +2536,8 @@ bool RiderImporter::ImportText(const std::string &text,
         std::optional<float> marginOverrideMm;
         if (m.size() > 3 && m[3].matched) {
           hang = Trim(m[3]);
-          marginOverrideMm = ParseTrussMarginOverrideMm(hang, distanceUnitSystem);
+          marginOverrideMm =
+              ParseTrussMarginOverrideMm(hang, distanceUnitSystem);
           coordinateOverride =
               ParseTrussCoordinateOverride(hang, distanceUnitSystem);
         } else {
@@ -2494,17 +2545,21 @@ bool RiderImporter::ImportText(const std::string &text,
           if (std::regex_search(model, targetMatch, kHoistTargetRe) &&
               targetMatch.size() > 1) {
             hang = Trim(targetMatch[1].str());
-            model = Trim(model.substr(0, static_cast<size_t>(targetMatch.position(0))));
-            marginOverrideMm = ParseTrussMarginOverrideMm(hang, distanceUnitSystem);
+            model = Trim(
+                model.substr(0, static_cast<size_t>(targetMatch.position(0))));
+            marginOverrideMm =
+                ParseTrussMarginOverrideMm(hang, distanceUnitSystem);
             coordinateOverride =
                 ParseTrussCoordinateOverride(hang, distanceUnitSystem);
           } else if (std::string trailingCoordinateSuffix;
-                     TryExtractTrailingHangWithCoordinate(model, hang,
-                                                          trailingCoordinateSuffix)) {
+                     TryExtractTrailingHangWithCoordinate(
+                         model, hang, trailingCoordinateSuffix)) {
             if (!trailingCoordinateSuffix.empty())
               hang += " " + trailingCoordinateSuffix;
-            marginOverrideMm = ParseTrussMarginOverrideMm(hang, distanceUnitSystem);
-            coordinateOverride = ParseTrussCoordinateOverride(hang, distanceUnitSystem);
+            marginOverrideMm =
+                ParseTrussMarginOverrideMm(hang, distanceUnitSystem);
+            coordinateOverride =
+                ParseTrussCoordinateOverride(hang, distanceUnitSystem);
           } else if (std::regex_match(model, kHangOnlyRe)) {
             hang = model;
             model.clear();
@@ -2538,7 +2593,8 @@ bool RiderImporter::ImportText(const std::string &text,
 
             SceneObject pipeObject;
             pipeObject.uuid = GenerateUuid();
-            pipeObject.layer = layerByType ? ("obj " + posName) : ("pos " + posName);
+            pipeObject.layer =
+                layerByType ? ("obj " + posName) : ("pos " + posName);
             pipeObject.name = "PIPE " + posName;
             pipeObject.transform = BuildCylinderPitchY90LocalTransform();
             pipeObject.transform.o[0] = startX + 0.5f * defaultPipeLengthMm;
@@ -2558,7 +2614,8 @@ bool RiderImporter::ImportText(const std::string &text,
           auto resolveOverride = [&](const std::string &posName) {
             TrussCoordinateOverride resolved;
             bool hasResolved = false;
-            if (const auto hangOverrideIt = hangCoordinateOverrides.find(posName);
+            if (const auto hangOverrideIt =
+                    hangCoordinateOverrides.find(posName);
                 hangOverrideIt != hangCoordinateOverrides.end()) {
               resolved = hangOverrideIt->second;
               hasResolved = true;
@@ -2578,7 +2635,8 @@ bool RiderImporter::ImportText(const std::string &text,
               }
               hasResolved = true;
             }
-            return hasResolved ? std::optional<TrussCoordinateOverride>(resolved)
+            return hasResolved
+                       ? std::optional<TrussCoordinateOverride>(resolved)
                                : std::nullopt;
           };
 
@@ -2599,7 +2657,8 @@ bool RiderImporter::ImportText(const std::string &text,
         std::smatch dm;
         if (std::regex_search(
                 model, dm,
-                std::regex("(\\d+(?:\\.\\d+)?)\\s*[xX]\\s*(\\d+(?:\\.\\d+)?)"))) {
+                std::regex(
+                    "(\\d+(?:\\.\\d+)?)\\s*[xX]\\s*(\\d+(?:\\.\\d+)?)"))) {
           float parsed = 0.0f;
           if (TryParseFloat(dm[1], parsed))
             width = parsed * 10.0f;
@@ -2664,12 +2723,14 @@ bool RiderImporter::ImportText(const std::string &text,
               phaseStartedAt = std::chrono::steady_clock::now();
               const ImportedTrussDefinitionResult &definition =
                   trussDefinitionCache.Get(*dictPath);
-              AddRiderImportPhaseTime(timing, "resolve truss definitions", phaseStartedAt);
+              AddRiderImportPhaseTime(timing, "resolve truss definitions",
+                                      phaseStartedAt);
               if (definition.loaded) {
                 const Truss &parsed = definition.parsed;
                 if (!parsed.symbolFile.empty())
                   t.symbolFile = parsed.symbolFile;
-                t.modelFile = parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
+                t.modelFile =
+                    parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
                 t.gdtfSpec = parsed.gdtfSpec;
                 t.gdtfMode = parsed.gdtfMode;
                 if (!parsed.manufacturer.empty())
@@ -2708,12 +2769,10 @@ bool RiderImporter::ImportText(const std::string &text,
           continue;
         length *= 1000.0f;
         std::string lineWithCoordinateOverride = line;
-        const auto lineMarginOverride =
-            ParseTrussMarginOverrideMm(lineWithCoordinateOverride,
-                                       distanceUnitSystem);
-        const auto lineCoordinateOverride =
-            ParseTrussCoordinateOverride(lineWithCoordinateOverride,
-                                         distanceUnitSystem);
+        const auto lineMarginOverride = ParseTrussMarginOverrideMm(
+            lineWithCoordinateOverride, distanceUnitSystem);
+        const auto lineCoordinateOverride = ParseTrussCoordinateOverride(
+            lineWithCoordinateOverride, distanceUnitSystem);
         std::string hang = currentHang;
         ParseTrussMarginOverrideMm(hang, distanceUnitSystem);
         std::optional<TrussCoordinateOverride> coordinateOverride =
@@ -2777,7 +2836,8 @@ bool RiderImporter::ImportText(const std::string &text,
                                         primitiveCylinderHeightMm)});
           scene.sceneObjects.emplace(pipeObject.uuid, pipeObject);
           addToLayer(pipeObject.layer, pipeObject.uuid);
-          importedPipeSpans.push_back({hang, startX, startX + pipeLengthMm, hangY, hangZ});
+          importedPipeSpans.push_back(
+              {hang, startX, startX + pipeLengthMm, hangY, hangZ});
           pipeHangNames.insert(hang);
           continue;
         }
@@ -2843,12 +2903,14 @@ bool RiderImporter::ImportText(const std::string &text,
             phaseStartedAt = std::chrono::steady_clock::now();
             const ImportedTrussDefinitionResult &definition =
                 trussDefinitionCache.Get(*dictPath);
-            AddRiderImportPhaseTime(timing, "resolve truss definitions", phaseStartedAt);
+            AddRiderImportPhaseTime(timing, "resolve truss definitions",
+                                    phaseStartedAt);
             if (definition.loaded) {
               const Truss &parsed = definition.parsed;
               if (!parsed.symbolFile.empty())
                 t.symbolFile = parsed.symbolFile;
-              t.modelFile = parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
+              t.modelFile =
+                  parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
               t.gdtfSpec = parsed.gdtfSpec;
               t.gdtfMode = parsed.gdtfMode;
               t.manufacturer = parsed.manufacturer;
@@ -2935,7 +2997,8 @@ bool RiderImporter::ImportText(const std::string &text,
       phaseStartedAt = std::chrono::steady_clock::now();
       const ImportedTrussDefinitionResult &definition =
           trussDefinitionCache.Get(t.modelFile);
-      AddRiderImportPhaseTime(timing, "resolve truss definitions", phaseStartedAt);
+      AddRiderImportPhaseTime(timing, "resolve truss definitions",
+                              phaseStartedAt);
       resolved = definition.loaded;
       if (resolved)
         parsed = definition.parsed;
@@ -2946,7 +3009,8 @@ bool RiderImporter::ImportText(const std::string &text,
       phaseStartedAt = std::chrono::steady_clock::now();
       const ImportedTrussDefinitionResult &definition =
           trussDefinitionCache.Get(t.gdtfSpec);
-      AddRiderImportPhaseTime(timing, "resolve truss definitions", phaseStartedAt);
+      AddRiderImportPhaseTime(timing, "resolve truss definitions",
+                              phaseStartedAt);
       resolved = definition.loaded;
       if (resolved)
         parsed = definition.parsed;
@@ -2963,7 +3027,8 @@ bool RiderImporter::ImportText(const std::string &text,
         phaseStartedAt = std::chrono::steady_clock::now();
         const ImportedTrussDefinitionResult &definition =
             trussDefinitionCache.Get(*dictPath);
-        AddRiderImportPhaseTime(timing, "resolve truss definitions", phaseStartedAt);
+        AddRiderImportPhaseTime(timing, "resolve truss definitions",
+                                phaseStartedAt);
         resolved = definition.loaded;
         if (resolved)
           parsed = definition.parsed;
@@ -2983,7 +3048,8 @@ bool RiderImporter::ImportText(const std::string &text,
       if (gdtfDefinitionFailed)
         reasons.emplace_back("LoadTrussDefinition(gdtfSpec) returned false");
       if (dictionaryDefinitionFailed)
-        reasons.emplace_back("LoadTrussDefinition(dictionary model) returned false");
+        reasons.emplace_back(
+            "LoadTrussDefinition(dictionary model) returned false");
       if (reasons.empty())
         reasons.emplace_back("missing or non-renderable symbolFile");
 
@@ -3026,7 +3092,8 @@ bool RiderImporter::ImportText(const std::string &text,
         ResolveTrussSymbolPath(t);
     bool symbolLooksRenderable = IsRenderableTrussGeometry(t.symbolFile);
     bool symbolExists =
-        symbolLooksRenderable && std::filesystem::exists(resolvedSymbolPathAfterDefinition);
+        symbolLooksRenderable &&
+        std::filesystem::exists(resolvedSymbolPathAfterDefinition);
     if (!symbolExists) {
       std::ostringstream reason;
       if (t.symbolFile.empty()) {
@@ -3112,8 +3179,10 @@ bool RiderImporter::ImportText(const std::string &text,
       } else {
         sideTrussInfo.leftX = std::min(sideTrussInfo.leftX, sideX);
         sideTrussInfo.rightX = std::max(sideTrussInfo.rightX, sideX);
-        sideTrussInfo.startY = std::min(sideTrussInfo.startY, std::min(startY, endY));
-        sideTrussInfo.endY = std::max(sideTrussInfo.endY, std::max(startY, endY));
+        sideTrussInfo.startY =
+            std::min(sideTrussInfo.startY, std::min(startY, endY));
+        sideTrussInfo.endY =
+            std::max(sideTrussInfo.endY, std::max(startY, endY));
       }
       continue;
     }
@@ -3226,7 +3295,8 @@ bool RiderImporter::ImportText(const std::string &text,
     screenGeometryScale.u = {request.widthMm / 1000.0f, 0.0f, 0.0f};
     screenGeometryScale.v = {0.0f, kScreenThicknessMm / 1000.0f, 0.0f};
     screenGeometryScale.w = {0.0f, 0.0f, request.heightMm / 1000.0f};
-    screenObject.geometries.push_back({kPrimitiveCubeToken, screenGeometryScale});
+    screenObject.geometries.push_back(
+        {kPrimitiveCubeToken, screenGeometryScale});
     scene.sceneObjects[screenObject.uuid] = screenObject;
     addToLayer(screenObject.layer, screenObject.uuid);
   }
@@ -3256,18 +3326,21 @@ bool RiderImporter::ImportText(const std::string &text,
     support.motorModelSource = "Manual";
     support.weightSource = "Manual";
 
-    const std::string normalizedFunction = NormalizeHoistFunction(hoistFunction);
+    const std::string normalizedFunction =
+        NormalizeHoistFunction(hoistFunction);
     std::string layerName = "rig " + normalizedFunction;
     support.layer = layerName;
 
     const std::string supportUuid = support.uuid;
     scene.supports[supportUuid] = support;
     importedSupportUuids.push_back(supportUuid);
-    addToLayer(layerName, supportUuid, ResolveHoistLayerColor(normalizedFunction));
+    addToLayer(layerName, supportUuid,
+               ResolveHoistLayerColor(normalizedFunction));
   };
 
-  auto distributeAcrossTruss = [&](const std::string &positionName, int quantity,
-                                   float capacityKg, float marginMm,
+  auto distributeAcrossTruss = [&](const std::string &positionName,
+                                   int quantity, float capacityKg,
+                                   float marginMm,
                                    const std::string &hoistFunction) {
     if (quantity <= 0)
       return;
@@ -3275,11 +3348,14 @@ bool RiderImporter::ImportText(const std::string &text,
     auto infoIt = trussInfo.find(positionName);
     if (infoIt != trussInfo.end())
       info = infoIt->second;
-    float startX = info.found ? info.startX + marginMm : -500.0f * (quantity - 1);
+    float startX =
+        info.found ? info.startX + marginMm : -500.0f * (quantity - 1);
     float endX = info.found ? info.endX - marginMm : 500.0f * (quantity - 1);
     if (endX < startX)
       std::swap(startX, endX);
-    const float step = quantity > 1 ? (endX - startX) / static_cast<float>(quantity - 1) : 0.0f;
+    const float step = quantity > 1
+                           ? (endX - startX) / static_cast<float>(quantity - 1)
+                           : 0.0f;
     const float y = info.found ? info.y : getHangPos(positionName);
     const float z = info.found ? info.z : getHangHeight(positionName);
     for (int i = 0; i < quantity; ++i)
@@ -3303,7 +3379,8 @@ bool RiderImporter::ImportText(const std::string &text,
       const float sideX = sideInfo.found ? sideInfo.x : fallbackX;
       float startY = sideInfo.found ? sideInfo.startY : sideTrussInfo.startY;
       float endY = sideInfo.found ? sideInfo.endY : sideTrussInfo.endY;
-      const float z = sideInfo.found ? sideInfo.z
+      const float z = sideInfo.found
+                          ? sideInfo.z
                                      : (sideTrussInfo.found ? sideTrussInfo.z
                                                             : getHangHeight("LX SIDES"));
       const float direction = endY >= startY ? 1.0f : -1.0f;
@@ -3311,7 +3388,8 @@ bool RiderImporter::ImportText(const std::string &text,
       endY -= direction * sideMarginMm;
       if ((direction > 0.0f && endY < startY) ||
           (direction < 0.0f && endY > startY)) {
-        const float center = sideInfo.found ? (sideInfo.startY + sideInfo.endY) * 0.5f
+        const float center = sideInfo.found
+                                 ? (sideInfo.startY + sideInfo.endY) * 0.5f
                                             : (startY + endY) * 0.5f;
         startY = center;
         endY = center;
@@ -3328,12 +3406,14 @@ bool RiderImporter::ImportText(const std::string &text,
     placeOnSide(rightSideHoistSpan, rightCount, sideTrussInfo.rightX);
   };
 
-  auto distributePaOrSidefill = [&](const std::string &positionName, int quantity,
-                                     float capacityKg, bool sidefill,
+  auto distributePaOrSidefill = [&](const std::string &positionName,
+                                    int quantity, float capacityKg,
+                                    bool sidefill,
                                      const std::string &hoistFunction) {
     if (quantity <= 0)
       return;
-    const TrussInfo lxInfo = trussInfo.count("LX1") ? trussInfo["LX1"] : TrussInfo{};
+    const TrussInfo lxInfo =
+        trussInfo.count("LX1") ? trussInfo["LX1"] : TrussInfo{};
     const float baseY = lxInfo.found ? lxInfo.y : getHangPos("LX1");
     const float z = lxInfo.found ? lxInfo.z : getHangHeight("LX1");
     const float spanLeft = lxInfo.found ? lxInfo.startX : -3000.0f;
@@ -3346,13 +3426,16 @@ bool RiderImporter::ImportText(const std::string &text,
     auto placeGroup = [&](int count, float anchorX, float xDirection) {
       if (count <= 0)
         return;
-      const int rows = count <= 2 ? count : static_cast<int>(std::ceil(std::sqrt(count)));
-      const int cols = static_cast<int>(std::ceil(static_cast<float>(count) / rows));
+      const int rows =
+          count <= 2 ? count : static_cast<int>(std::ceil(std::sqrt(count)));
+      const int cols =
+          static_cast<int>(std::ceil(static_cast<float>(count) / rows));
       int placed = 0;
       for (int col = 0; col < cols && placed < count; ++col) {
         for (int row = 0; row < rows && placed < count; ++row) {
           float x = anchorX + xDirection * col * 1000.0f;
-          float yPlaced = y + (rows == 1 ? 0.0f : (row - (rows - 1) * 0.5f) * 1000.0f);
+          float yPlaced =
+              y + (rows == 1 ? 0.0f : (row - (rows - 1) * 0.5f) * 1000.0f);
           placeHoist(x, yPlaced, z, capacityKg, positionName, hoistFunction);
           ++placed;
         }
@@ -3364,14 +3447,16 @@ bool RiderImporter::ImportText(const std::string &text,
   };
 
   for (const HoistRequest &request : hoistRequests) {
-    const std::string hoistFunction = ResolveHoistFunctionForTarget(request.target);
+    const std::string hoistFunction =
+        ResolveHoistFunctionForTarget(request.target);
     if (request.target == "LX") {
       std::vector<std::string> lxNames;
       for (const auto &[name, info] : trussInfo) {
         if (info.found && name.rfind("LX", 0) == 0)
           lxNames.push_back(name);
       }
-      std::sort(lxNames.begin(), lxNames.end(), [](const std::string &a, const std::string &b) {
+      std::sort(lxNames.begin(), lxNames.end(),
+                [](const std::string &a, const std::string &b) {
         return ParseTrailingNumber(a) < ParseTrailingNumber(b);
       });
       if (lxNames.empty())
@@ -3384,11 +3469,11 @@ bool RiderImporter::ImportText(const std::string &text,
                               hoistFunction);
       }
     } else if (request.target == "PA") {
-      distributePaOrSidefill("P.A.", request.quantity, request.capacityKg, false,
-                             hoistFunction);
+      distributePaOrSidefill("P.A.", request.quantity, request.capacityKg,
+                             false, hoistFunction);
     } else if (request.target == "SIDEFILL") {
-      distributePaOrSidefill("SIDEFILL", request.quantity, request.capacityKg, true,
-                             hoistFunction);
+      distributePaOrSidefill("SIDEFILL", request.quantity, request.capacityKg,
+                             true, hoistFunction);
     } else if (request.target == "SCREEN") {
       if (request.quantity <= 0)
         continue;
@@ -3398,7 +3483,8 @@ bool RiderImporter::ImportText(const std::string &text,
         info = infoIt->second;
       const float y = info.found ? info.y : getHangPos("SCREEN");
       const float z = info.found ? info.z : getHangHeight("SCREEN");
-      const float span = info.found ? (info.endX - info.startX) : (1000.0f * request.quantity);
+      const float span =
+          info.found ? (info.endX - info.startX) : (1000.0f * request.quantity);
       const float part = span / static_cast<float>(request.quantity + 1);
       const float startX = info.found ? info.startX : (-0.5f * span);
       for (int i = 0; i < request.quantity; ++i) {
@@ -3407,12 +3493,13 @@ bool RiderImporter::ImportText(const std::string &text,
       }
     } else {
       if (IsLxSidesHangName(request.target)) {
-        distributeAcrossSides(request.quantity, request.capacityKg, hoistFunction);
+        distributeAcrossSides(request.quantity, request.capacityKg,
+                              hoistFunction);
         continue;
       }
       const float marginMm = IsLxHangName(request.target) ? 1000.0f : 2000.0f;
-      distributeAcrossTruss(request.target, request.quantity, request.capacityKg,
-                            marginMm, hoistFunction);
+      distributeAcrossTruss(request.target, request.quantity,
+                            request.capacityKg, marginMm, hoistFunction);
     }
   }
 
@@ -3431,7 +3518,8 @@ bool RiderImporter::ImportText(const std::string &text,
   HoistWeightDistribution::ApplyForImportedSupports(
       scene, importedSupportUuids, roundedRiggingTotalsByPosition);
 
-  // Fill any missing fixture categories before placement so downstream distribution can rely on them.
+  // Fill any missing fixture categories before placement so downstream
+  // distribution can rely on them.
   for (const std::string &uuid : importedFixtureUuids) {
     auto fixtureIt = scene.fixtures.find(uuid);
     if (fixtureIt == scene.fixtures.end())
@@ -3521,10 +3609,10 @@ bool RiderImporter::ImportText(const std::string &text,
     return ordered;
   };
 
-  auto placeFixtureGroup = [&](const std::string &pos,
-                               const std::vector<Fixture *> &fixturesVec,
-                               const std::function<void(Fixture &, float, float,
-                                                        float, float)> &applyPlacement) {
+  auto placeFixtureGroup =
+      [&](const std::string &pos, const std::vector<Fixture *> &fixturesVec,
+          const std::function<void(Fixture &, float, float, float, float)>
+              &applyPlacement) {
     if (fixturesVec.empty())
       return;
 
@@ -3552,8 +3640,7 @@ bool RiderImporter::ImportText(const std::string &text,
     if (total == 1) {
       Fixture *fixture = ordered.front();
       if (fixture) {
-        const float centeredX =
-            info.found ? 0.5f * (startX + endX) : 0.0f;
+            const float centeredX = info.found ? 0.5f * (startX + endX) : 0.0f;
         applyPlacement(*fixture, centeredX, baseY, baseZ, width);
       }
       return;
@@ -3569,10 +3656,9 @@ bool RiderImporter::ImportText(const std::string &text,
   };
 
   auto normalizeCategory = [](std::string category) {
-    std::transform(category.begin(), category.end(), category.begin(),
-                   [](unsigned char c) {
-                     return static_cast<char>(std::tolower(c));
-                   });
+    std::transform(
+        category.begin(), category.end(), category.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return category;
   };
 
@@ -3580,7 +3666,8 @@ bool RiderImporter::ImportText(const std::string &text,
       normalizeCategory(GdtfFixtureCategory::kBlinder);
   const std::string strobeCategory =
       normalizeCategory(GdtfFixtureCategory::kStrobe);
-  const std::string washCategory = normalizeCategory(GdtfFixtureCategory::kWash);
+  const std::string washCategory =
+      normalizeCategory(GdtfFixtureCategory::kWash);
   const std::string smokeCategory =
       normalizeCategory(GdtfFixtureCategory::kSmoke);
 
@@ -3601,17 +3688,19 @@ bool RiderImporter::ImportText(const std::string &text,
                                   float endY, bool hasSideSpan, float z) {
     if (ordered.empty())
       return;
-    const int leftCount =
-        static_cast<int>(ordered.size()) / 2 + static_cast<int>(ordered.size()) % 2;
+    const int leftCount = static_cast<int>(ordered.size()) / 2 +
+                          static_cast<int>(ordered.size()) % 2;
     const int rightCount = static_cast<int>(ordered.size()) / 2;
-    auto placeSideGroup = [&](int count, float sideX,
+    auto placeSideGroup =
+        [&](int count, float sideX,
                               const std::function<Fixture *(int)> &pickFixture) {
       if (count <= 0)
         return;
       const float effectiveEndY =
-          hasSideSpan ? endY : startY + static_cast<float>(count - 1) * 500.0f;
-      const float step =
-          count > 1 ? (effectiveEndY - startY) / static_cast<float>(count - 1)
+              hasSideSpan ? endY
+                          : startY + static_cast<float>(count - 1) * 500.0f;
+          const float step = count > 1 ? (effectiveEndY - startY) /
+                                             static_cast<float>(count - 1)
                                    : 0.0f;
       for (int i = 0; i < count; ++i) {
         Fixture *fixture = pickFixture(i);
@@ -3622,9 +3711,8 @@ bool RiderImporter::ImportText(const std::string &text,
         fixture->transform.o[2] = z;
       }
     };
-    placeSideGroup(leftCount, leftX, [&](int i) {
-      return ordered[static_cast<size_t>(i)];
-    });
+    placeSideGroup(leftCount, leftX,
+                   [&](int i) { return ordered[static_cast<size_t>(i)]; });
     placeSideGroup(rightCount, rightX, [&](int i) {
       return ordered[ordered.size() - 1U - static_cast<size_t>(i)];
     });
@@ -3658,22 +3746,26 @@ bool RiderImporter::ImportText(const std::string &text,
       }
     }
   }
-  const float smokeStartY =
-      sideTrussInfo.found ? sideTrussInfo.startY + getHangMargin("LX1") : 1000.0f;
-  const float smokeEndY =
-      sideTrussInfo.found ? sideTrussInfo.endY - getHangMargin("LX1") : smokeStartY;
+  const float smokeStartY = sideTrussInfo.found
+                                ? sideTrussInfo.startY + getHangMargin("LX1")
+                                : 1000.0f;
+  const float smokeEndY = sideTrussInfo.found
+                              ? sideTrussInfo.endY - getHangMargin("LX1")
+                              : smokeStartY;
 
   for (auto &[pos, fixturesVec] : fixturesByPos) {
     if (fixturesVec.empty())
       continue;
     if (IsLxSidesHangName(pos)) {
       const std::vector<Fixture *> ordered = buildSymmetricOrder(fixturesVec);
-      const float startY =
-          sideTrussInfo.found ? sideTrussInfo.startY + getHangMargin("LX1") : 1000.0f;
-      const float endY = sideTrussInfo.found ? sideTrussInfo.endY - getHangMargin("LX1")
+      const float startY = sideTrussInfo.found
+                               ? sideTrussInfo.startY + getHangMargin("LX1")
+                               : 1000.0f;
+      const float endY = sideTrussInfo.found
+                             ? sideTrussInfo.endY - getHangMargin("LX1")
                                              : startY;
-      placeFixturesAsSides(ordered, sideTrussInfo.leftX, sideTrussInfo.rightX, startY,
-                           endY, sideTrussInfo.found,
+      placeFixturesAsSides(ordered, sideTrussInfo.leftX, sideTrussInfo.rightX,
+                           startY, endY, sideTrussInfo.found,
                            sideTrussInfo.found ? sideTrussInfo.z : 1000.0f);
       continue;
     }
@@ -3707,23 +3799,24 @@ bool RiderImporter::ImportText(const std::string &text,
         bottomFixtures.push_back(f);
     }
 
-    const std::vector<Fixture *> orderedSmoke = buildSymmetricOrder(smokeFixtures);
-    placeFixturesAsSides(orderedSmoke, smokeLeftX, smokeRightX, smokeStartY, smokeEndY,
-                         sideTrussInfo.found, 0.0f);
+    const std::vector<Fixture *> orderedSmoke =
+        buildSymmetricOrder(smokeFixtures);
+    placeFixturesAsSides(orderedSmoke, smokeLeftX, smokeRightX, smokeStartY,
+                         smokeEndY, sideTrussInfo.found, 0.0f);
 
-    placeFixtureGroup(pos, bottomFixtures,
-                      [&](Fixture &fixture, float x, float baseY, float baseZ,
-                          float width) {
+    placeFixtureGroup(
+        pos, bottomFixtures,
+        [&](Fixture &fixture, float x, float baseY, float baseZ, float width) {
                         fixture.transform.o[0] = x;
-                        fixture.transform.o[1] =
-                            isBackBottomCategory(fixture) ? baseY + width * 0.5f
+          fixture.transform.o[1] = isBackBottomCategory(fixture)
+                                       ? baseY + width * 0.5f
                                                            : baseY - width * 0.5f;
                         fixture.transform.o[2] = baseZ;
                       });
 
-    placeFixtureGroup(pos, topFrontFixtures,
-                      [&](Fixture &fixture, float x, float baseY, float baseZ,
-                          float width) {
+    placeFixtureGroup(
+        pos, topFrontFixtures,
+        [&](Fixture &fixture, float x, float baseY, float baseZ, float width) {
                         fixture.transform.o[0] = x;
                         fixture.transform.o[1] = baseY - width * 0.5f;
                         fixture.transform.o[2] = baseZ + width * 0.5f;
@@ -3743,14 +3836,15 @@ bool RiderImporter::ImportText(const std::string &text,
 
   AddRiderImportPhaseTime(timing, "place imported objects", placementStartedAt);
   const auto identityStartedAt = std::chrono::steady_clock::now();
-  std::unordered_set<std::string> importedFixtureIdSet(importedFixtureUuids.begin(),
-                                                       importedFixtureUuids.end());
+  std::unordered_set<std::string> importedFixtureIdSet(
+      importedFixtureUuids.begin(), importedFixtureUuids.end());
   int highestExistingFixtureId = 100;
   std::unordered_map<std::string, int> nextUnitByType;
   for (const auto &[uuid, fixture] : scene.fixtures) {
     if (importedFixtureIdSet.count(uuid) != 0)
       continue;
-    highestExistingFixtureId = std::max(highestExistingFixtureId, fixture.fixtureId);
+    highestExistingFixtureId =
+        std::max(highestExistingFixtureId, fixture.fixtureId);
 
     int nextUnit = fixture.unitNumber;
     if (nextUnit <= 0)
@@ -3786,7 +3880,8 @@ bool RiderImporter::ImportText(const std::string &text,
         return a->transform.o[0] < b->transform.o[0];
       return a->transform.o[1] < b->transform.o[1];
     });
-    std::string prefix = vec.empty() ? type : baseName(vec.front()->instanceName);
+    std::string prefix =
+        vec.empty() ? type : baseName(vec.front()->instanceName);
     int nextUnitNumber = nextUnitByType[type] + 1;
     for (size_t i = 0; i < vec.size(); ++i) {
       vec[i]->fixtureId = baseId + static_cast<int>(i);
@@ -3794,11 +3889,11 @@ bool RiderImporter::ImportText(const std::string &text,
       vec[i]->instanceName =
           prefix + " " + std::to_string(nextUnitNumber + static_cast<int>(i));
     }
-    baseId =
-        ((baseId - 1 + static_cast<int>(vec.size()) + 99) / 100) * 100 + 1;
+    baseId = ((baseId - 1 + static_cast<int>(vec.size()) + 99) / 100) * 100 + 1;
   }
 
-  AddRiderImportPhaseTime(timing, "assign fixture identities", identityStartedAt);
+  AddRiderImportPhaseTime(timing, "assign fixture identities",
+                          identityStartedAt);
 
   bool hasDefaultLayer = false;
   for (const auto &[uid, layer] : scene.layers) {

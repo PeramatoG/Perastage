@@ -16,13 +16,13 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
-#include "filesystem_path_utils.h"
 #include "diagnostics/DiagnosticLogger.h"
+#include "filesystem_path_utils.h"
 
 #include <algorithm>
 #include <cctype>
-#include <cmath>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -30,13 +30,12 @@
 #include <functional>
 #include <iomanip>
 #include <iterator>
-#include <wx/event.h>
 #include <map>
 #include <memory>
 #include <optional>
+#include <random>
 #include <set>
 #include <sstream>
-#include <random>
 #include <string>
 #include <thread>
 #include <tinyxml2.h>
@@ -44,6 +43,7 @@
 #include <wx/app.h>
 #include <wx/artprov.h>
 #include <wx/busyinfo.h>
+#include <wx/colour.h>
 #include <wx/event.h>
 #include <wx/filefn.h>
 #include <wx/filename.h>
@@ -55,29 +55,27 @@
 #include <wx/notebook.h>
 #include <wx/numdlg.h>
 #include <wx/progdlg.h>
+#include <wx/settings.h>
 #include <wx/statbmp.h>
 #include <wx/stdpaths.h>
-#include <wx/settings.h>
 #include <wx/textctrl.h>
 #include <wx/tokenzr.h>
 #include <wx/utils.h>
 #include <wx/wfstream.h>
-#include <wx/colour.h>
 class wxZipStreamLink;
 #include <wx/log.h>
-#include <wx/zipstrm.h>
 #include <wx/richtext/richtextbuffer.h>
+#include <wx/zipstrm.h>
 
 #include "json.hpp"
 
 using json = nlohmann::json;
+#include "LayoutManager.h"
+#include "Viewer2DPrintSettings.h"
 #include "addfixturedialog.h"
 #include "app_version.h"
 #include "autopatcher.h"
 #include "configmanager.h"
-#include "guiconfigservices.h"
-#include "magnet_snap.h"
-#include "highlight_status_bar.h"
 #include "consolepanel.h"
 #include "credentialstore.h"
 #include "dictionaryeditdialog.h"
@@ -90,57 +88,57 @@ using json = nlohmann::json;
 #include "gdtfloader.h"
 #include "gdtfnet.h"
 #include "gdtfsearchdialog.h"
+#include "guiconfigservices.h"
+#include "highlight_status_bar.h"
+#include "hoisttablepanel.h"
+#include "layerpanel.h"
 #include "layout2dviewdialog.h"
-#include "LayoutManager.h"
+#include "layout_render_profiler.h"
+#include "layout_render_status_notifier.h"
+#include "layoutpanel.h"
+#include "layouttextutils.h"
+#include "layoutviewerpanel.h"
+#include "layoutviewerpanel_shared.h"
 #include "layoutviewpresets.h"
+#include "legendutils.h"
+#include "logger.h"
+#include "logindialog.h"
+#include "magnet_snap.h"
 #include "mainwindow_io_controller.h"
 #include "mainwindow_layout_controller.h"
 #include "mainwindow_print_controller.h"
 #include "mainwindow_view_controller.h"
-#include "layoutpanel.h"
-#include "layout_render_profiler.h"
-#include "layoutviewerpanel.h"
-#include "layout_render_status_notifier.h"
-#include "layouttextutils.h"
-#include "layoutviewerpanel_shared.h"
-#include "legendutils.h"
-#include "layerpanel.h"
-#include "logindialog.h"
 #include "markdown.h"
-#include "hoisttablepanel.h"
-#include "viewer2dprintdialog.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "preferencesdialog.h"
+#include "print_diagnostics.h"
 #include "projectutils.h"
-#include "logger.h"
-#include "riggingpanel.h"
 #include "riderimporter.h"
 #include "ridertextdialog.h"
+#include "riggingpanel.h"
 #include "sceneobjecttablepanel.h"
 #include "selectfixturetypedialog.h"
 #include "selectnamedialog.h"
 #include "simplecrypt.h"
 #include "splashscreen.h"
 #include "summarypanel.h"
-#include "tableprinter.h"
-#include "Viewer2DPrintSettings.h"
-#include "viewer2dpdfexporter.h"
-#include "print_diagnostics.h"
 #include "support.h"
-#include "update/update_check_preferences.h"
-#include "update/app_update_service.h"
-#include "update/update_notification_dialog.h"
-#include "units/units.h"
+#include "tableprinter.h"
 #include "trussloader.h"
 #include "trusstablepanel.h"
-#include "viewer2dpanel.h"
+#include "units/units.h"
+#include "update/app_update_service.h"
+#include "update/update_check_preferences.h"
+#include "update/update_notification_dialog.h"
 #include "viewer2doffscreenrenderer.h"
+#include "viewer2dpanel.h"
+#include "viewer2dpdfexporter.h"
+#include "viewer2dprintdialog.h"
 #include "viewer2drenderpanel.h"
 #include "viewer2dstate.h"
-#include "viewer3dpanel.h"
 #include "viewer3dcontroller.h"
-#include "LayoutManager.h"
+#include "viewer3dpanel.h"
 #ifdef _WIN32
 #define popen _popen
 #define pclose _pclose
@@ -154,14 +152,16 @@ void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
 namespace {
 
-// Returns true when the status bar text corresponds to fixture symbol auto-update progress.
+// Returns true when the status bar text corresponds to fixture symbol
+// auto-update progress.
 bool IsFixtureSymbolStatusMessage(const wxString &statusText) {
   return statusText.StartsWith("Fixture symbol auto-update");
 }
 
-// Formats a world-space position for the status bar using the active distance units.
-wxString FormatWorldPositionStatusText(
-    const std::array<float, 3> &positionMeters,
+// Formats a world-space position for the status bar using the active distance
+// units.
+wxString
+FormatWorldPositionStatusText(const std::array<float, 3> &positionMeters,
     Units::DistanceUnitSystem distanceUnitSystem) {
   const std::string unitSuffix = Units::DistanceUnitSuffix(distanceUnitSystem);
   std::ostringstream stream;
@@ -187,7 +187,8 @@ constexpr const char *kActiveLayoutNameConfigKey = "layout_active_name";
 bool ProjectContainsLayout(const std::string &layoutName) {
   if (layoutName.empty())
     return false;
-  for (const auto &layout : layouts::LayoutManager::Get().GetLayouts().Items()) {
+  for (const auto &layout :
+       layouts::LayoutManager::Get().GetLayouts().Items()) {
     if (layout.name == layoutName)
       return true;
   }
@@ -206,15 +207,16 @@ std::string ResolveProjectStartupLayoutName(const ConfigManager &cfg) {
   return {};
 }
 
-// Persists missing fixture type auto-colors before scene save and synchronization.
+// Persists missing fixture type auto-colors before scene save and
+// synchronization.
 void PersistFixtureTypeAutoColors(ConfigManager &configManager) {
   auto &scene = configManager.GetScene();
   for (auto &[uuid, fixture] : scene.fixtures) {
     (void)uuid;
-    if (!fixture.color.empty())
+    if (!fixture.visualColorHex.empty())
       continue;
 
-    fixture.color =
+    fixture.visualColorHex =
         Viewer3DController::BuildFixtureTypeAutoColorHex(fixture.gdtfSpec);
   }
 }
@@ -231,10 +233,12 @@ void LogMissingIcon(const std::filesystem::path &path) {
   Logger::Instance().Log(Logger::Level::Warn, message.ToStdString());
 }
 
-// Builds the default UI font with shared sans-serif face resolution and UTF-8 encoding.
+// Builds the default UI font with shared sans-serif face resolution and UTF-8
+// encoding.
 wxFont BuildDefaultUiFont() {
   wxFont defaultFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
-  wxString resolvedFaceName = layoutviewerpanel::detail::ResolveSharedFontFaceName();
+  wxString resolvedFaceName =
+      layoutviewerpanel::detail::ResolveSharedFontFaceName();
   if (!resolvedFaceName.empty()) {
     defaultFont.SetFaceName(resolvedFaceName);
   }
@@ -246,12 +250,11 @@ wxFont BuildDefaultUiFont() {
     const int fallbackSize =
         defaultFont.IsOk() ? defaultFont.GetPointSize() : 10;
     if (resolvedFaceName.empty()) {
-      defaultFont = wxFont(fallbackSize, wxFONTFAMILY_SWISS,
-                           wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+      defaultFont = wxFont(fallbackSize, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
+                           wxFONTWEIGHT_NORMAL);
     } else {
-      defaultFont = wxFont(fallbackSize, wxFONTFAMILY_SWISS,
-                           wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false,
-                           resolvedFaceName);
+      defaultFont = wxFont(fallbackSize, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
+                           wxFONTWEIGHT_NORMAL, false, resolvedFaceName);
     }
     if (wxFontMapper::Get() &&
         wxFontMapper::Get()->IsEncodingAvailable(wxFONTENCODING_UTF8)) {
@@ -263,30 +266,18 @@ wxFont BuildDefaultUiFont() {
 
 const std::vector<std::string> &GetPreferencesDialogConfigKeys() {
   static const std::vector<std::string> kKeys = {
-      "rider_autopatch",
-      "rider_layer_mode",
-      "ui_distance_unit_system",
-      "ui_weight_unit_system",
-      "app_update_startup_mode",
-      "viewer3d_render_style",
-      "viewer3d_invert_orbit",
-      "rider_lx1_height",
-      "rider_lx2_height",
-      "rider_lx3_height",
-      "rider_lx4_height",
-      "rider_lx5_height",
-      "rider_lx6_height",
-      "rider_lx1_pos",
-      "rider_lx2_pos",
-      "rider_lx3_pos",
-      "rider_lx4_pos",
-      "rider_lx5_pos",
-      "rider_lx6_pos",
-      "rider_lx1_margin",
-      "rider_lx2_margin",
-      "rider_lx3_margin",
-      "rider_lx4_margin",
-      "rider_lx5_margin",
+      "rider_autopatch",         "rider_layer_mode",
+      "ui_distance_unit_system", "ui_weight_unit_system",
+      "app_update_startup_mode", "viewer3d_render_style",
+      "viewer3d_invert_orbit",   "rider_lx1_height",
+      "rider_lx2_height",        "rider_lx3_height",
+      "rider_lx4_height",        "rider_lx5_height",
+      "rider_lx6_height",        "rider_lx1_pos",
+      "rider_lx2_pos",           "rider_lx3_pos",
+      "rider_lx4_pos",           "rider_lx5_pos",
+      "rider_lx6_pos",           "rider_lx1_margin",
+      "rider_lx2_margin",        "rider_lx3_margin",
+      "rider_lx4_margin",        "rider_lx5_margin",
       "rider_lx6_margin",
   };
   return kKeys;
@@ -310,7 +301,8 @@ void RestorePreferencesDialogValues(
     preferences.SetValue(key, value);
 }
 
-// Runs a startup update check and prompts for newer versions that were not dismissed.
+// Runs a startup update check and prompts for newer versions that were not
+// dismissed.
 void RunSilentStartupUpdateCheck(MainWindow *window) {
   if (!window)
     return;
@@ -446,8 +438,8 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
   if (!iconPath.empty() && std::filesystem::exists(iconPath, ec)) {
     icon.LoadFile(PathToWxString(iconPath), wxBITMAP_TYPE_ICO);
   } else {
-    LogMissingIcon(
-        iconPath.empty() ? std::filesystem::path("resources/Perastage.ico")
+    LogMissingIcon(iconPath.empty()
+                       ? std::filesystem::path("resources/Perastage.ico")
                          : iconPath);
   }
   if (!icon.IsOk())
@@ -497,7 +489,8 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 }
 
 MainWindow::~MainWindow() {
-  guiConfigServices->LegacyConfigManager().SetProjectArchiveResourceProvider({});
+  guiConfigServices->LegacyConfigManager().SetProjectArchiveResourceProvider(
+      {});
   CleanupFixtureAutoUpdateStatusTimer();
   cursorStatusCallbackLifetimeToken.reset();
   if (viewport2DPanel)
@@ -550,8 +543,8 @@ void MainWindow::Ensure2DViewport() {
   viewport2DPanel = new Viewer2DPanel(this);
   std::weak_ptr<int> lifetimeToken = cursorStatusCallbackLifetimeToken;
   viewport2DPanel->SetCursorWorldPositionCallback(
-      [this, lifetimeToken](
-          const std::optional<std::array<float, 3>> &positionMeters,
+      [this,
+       lifetimeToken](const std::optional<std::array<float, 3>> &positionMeters,
           bool highlighted) {
         if (lifetimeToken.expired() || !GetStatusBar())
           return;
@@ -604,7 +597,8 @@ void MainWindow::Ensure2DViewport() {
     auto &paneSummary = auiManager->GetPane("SummaryPanel");
 
     // 2D default: keep Layers/Summary in the outer right column and place
-    // Render Options in the inner right column between viewport and side column.
+    // Render Options in the inner right column between viewport and side
+    // column.
     if (paneLayers.IsOk()) {
       paneLayers.Right().Layer(1).Row(0).Position(0);
     }
@@ -639,7 +633,8 @@ void MainWindow::Ensure2DViewport() {
   }
 }
 
-// Updates the status bar with a world-space position formatted in the active distance units.
+// Updates the status bar with a world-space position formatted in the active
+// distance units.
 void MainWindow::UpdateCursorWorldPositionInStatusBar(
     const std::optional<std::array<float, 3>> &positionMeters) {
   if (!GetStatusBar())
@@ -650,19 +645,20 @@ void MainWindow::UpdateCursorWorldPositionInStatusBar(
   }
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
-      cfg.GetValue("ui_distance_unit_system"));
-  SetStatusText(FormatWorldPositionStatusText(*positionMeters, distanceUnitSystem),
-                1);
+  const auto distanceUnitSystem =
+      Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+  SetStatusText(
+      FormatWorldPositionStatusText(*positionMeters, distanceUnitSystem), 1);
 }
 
-// Clears the world-position status text and restores the normal status-bar font color.
+// Clears the world-position status text and restores the normal status-bar font
+// color.
 void MainWindow::ClearCursorWorldPositionInStatusBar() {
   if (!GetStatusBar())
     return;
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
-      cfg.GetValue("ui_distance_unit_system"));
+  const auto distanceUnitSystem =
+      Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
   const wxString unitSuffix =
       wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnitSystem));
   const wxString text =
@@ -674,7 +670,8 @@ void MainWindow::ClearCursorWorldPositionInStatusBar() {
   }
 }
 
-// Updates the status bar with a highlighted world-space position during drag interactions.
+// Updates the status bar with a highlighted world-space position during drag
+// interactions.
 void MainWindow::UpdateHighlightedWorldPositionInStatusBar(
     const std::optional<std::array<float, 3>> &positionMeters) {
   if (!GetStatusBar())
@@ -685,8 +682,8 @@ void MainWindow::UpdateHighlightedWorldPositionInStatusBar(
   }
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
-      cfg.GetValue("ui_distance_unit_system"));
+  const auto distanceUnitSystem =
+      Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
   const wxString text =
       FormatWorldPositionStatusText(*positionMeters, distanceUnitSystem);
   if (auto *statusBar = dynamic_cast<HighlightStatusBar *>(GetStatusBar())) {
@@ -719,7 +716,8 @@ Viewer2DOffscreenRenderer *MainWindow::GetOffscreenRenderer() {
 
 bool MainWindow::IsLayout2DViewEditing() const { return layout2DViewEditing; }
 
-// Prompts to save pending project changes while ignoring transient startup state before any project is loaded.
+// Prompts to save pending project changes while ignoring transient startup
+// state before any project is loaded.
 bool MainWindow::ConfirmSaveIfDirty(const wxString &actionLabel,
                                     const wxString &dialogTitle) {
   if ((startupProjectLoadPending || startupSplashInitializationPending ||
@@ -730,8 +728,7 @@ bool MainWindow::ConfirmSaveIfDirty(const wxString &actionLabel,
   if (!GetDefaultGuiConfigServices().LegacyConfigManager().IsDirty())
     return true;
 
-  wxMessageDialog dlg(
-      this,
+  wxMessageDialog dlg(this,
       "Do you want to save changes before " + actionLabel + "?",
       dialogTitle, wxYES_NO | wxCANCEL | wxICON_QUESTION);
 
@@ -771,7 +768,8 @@ void MainWindow::SetStartupProjectLoadPending(bool pending) {
   }
 }
 
-// Cancels pending startup-project loading and defers an external file-open path.
+// Cancels pending startup-project loading and defers an external file-open
+// path.
 void MainWindow::CancelStartupProjectLoadForExternalOpenPath(
     const std::string &path) {
   ProjectUtils::SaveLastProjectPath("");
@@ -787,13 +785,15 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
   if (!startupProjectLoadPending)
     return true;
 
-  wxMessageBox("Please wait until the startup project loading finishes before " +
+  wxMessageBox(
+      "Please wait until the startup project loading finishes before " +
                    actionLabel + ".",
                "Perastage is still loading", wxOK | wxICON_INFORMATION, this);
   return false;
 }
 
-// Loads a project archive and refreshes only the active layout preview during startup.
+// Loads a project archive and refreshes only the active layout preview during
+// startup.
 bool MainWindow::LoadProjectFromPath(const std::string &path,
                                      bool showBlockingLoadUi) {
   diagnostics::DiagnosticLogger::Info(
@@ -844,14 +844,12 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   reportProjectLoadProgress("Loading project file...");
 
   LockViewportInteraction();
-  auto finishLoad = [this]() {
-    UnlockViewportInteraction();
-  };
+  auto finishLoad = [this]() { UnlockViewportInteraction(); };
 
   if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(
           path, [&](const std::string &stage, int completed, int total) {
-            reportProjectLoadProgress(wxString::FromUTF8(stage), false, completed,
-                                      total);
+            reportProjectLoadProgress(wxString::FromUTF8(stage), false,
+                                      completed, total);
           })) {
     projectLoadProgressDialog.reset();
     ClearBlockingProjectLoadUi();
@@ -889,7 +887,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     layoutPanel->SetCurrentLayout(activeLayoutName);
     layoutPanel->ReloadLayouts();
   }
-  // Inactive layouts stay in LayoutManager, but preview caches build lazily when selected.
+  // Inactive layouts stay in LayoutManager, but preview caches build lazily
+  // when selected.
   if (const auto &loadedLayouts =
           layouts::LayoutManager::Get().GetLayouts().Items();
       !loadedLayouts.empty()) {
@@ -958,8 +957,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
 
   if (showBlockingLoadUi) {
     auto previousCompletionCallback = fixtureSymbolAutoUpdateCompletionCallback;
-    fixtureSymbolAutoUpdateCompletionCallback =
-        [this, previousCompletionCallback]() {
+    fixtureSymbolAutoUpdateCompletionCallback = [this,
+                                                 previousCompletionCallback]() {
           if (previousCompletionCallback)
             previousCompletionCallback();
           ClearBlockingProjectLoadUi();
@@ -1016,7 +1015,8 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
   SetStartupProjectLoadPending(false);
 }
 
-// Resets project state, UI-bound data, and active layout context for a fresh session.
+// Resets project state, UI-bound data, and active layout context for a fresh
+// session.
 void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
   activeLayoutName.clear();
   if (layoutViewerPanel)
@@ -1101,8 +1101,7 @@ void MainWindow::SaveCameraSettings() {
     viewport2DPanel->SaveViewToConfig();
 
   if (auiManager) {
-    const std::string perspective =
-        auiManager->SavePerspective().ToStdString();
+    const std::string perspective = auiManager->SavePerspective().ToStdString();
     cfg.SetValue("layout_perspective", perspective);
   }
 }
@@ -1129,7 +1128,6 @@ void MainWindow::SaveUserConfigWithViewport2DState() {
     viewer2d::ApplyState(nullptr, nullptr, cfg, *layoutState, true, false);
 }
 
-
 void MainWindow::UpdateToolBarAvailability() {
   if (!auiManager)
     return;
@@ -1140,7 +1138,8 @@ void MainWindow::UpdateToolBarAvailability() {
   };
 
   const bool hasLayoutViewer = paneShown("LayoutViewer");
-  const bool hasCreationTarget = paneShown("2DViewport") || paneShown("3DViewport") ||
+  const bool hasCreationTarget = paneShown("2DViewport") ||
+                                 paneShown("3DViewport") ||
                                  paneShown("DataNotebook");
   const bool enableViewportTools = !hasLayoutViewer;
 
@@ -1159,8 +1158,8 @@ void MainWindow::UpdateToolBarAvailability() {
     for (const auto &tool : layoutTools) {
       layoutToolBar->EnableTool(tool.id, hasLayoutViewer);
       layoutToolBar->SetToolShortHelp(
-          tool.id,
-          hasLayoutViewer ? tool.help
+          tool.id, hasLayoutViewer
+                       ? tool.help
                           : "Layout tools require an open Layout viewer window");
     }
     layoutToolBar->Refresh();
@@ -1188,11 +1187,16 @@ void MainWindow::UpdateToolBarAvailability() {
   }
 
   if (layoutViewsToolBar) {
-    layoutViewsToolBar->EnableTool(ID_View_Viewport_SelectTool, enableViewportTools);
-    layoutViewsToolBar->EnableTool(ID_View_Viewport_MeasureTool, enableViewportTools);
-    layoutViewsToolBar->EnableTool(ID_View_Viewport_AxisConstraint, enableViewportTools);
-    layoutViewsToolBar->EnableTool(ID_View_Viewport_LeftDragMove, enableViewportTools);
-    layoutViewsToolBar->EnableTool(ID_View_Viewport_Magnet, enableViewportTools);
+    layoutViewsToolBar->EnableTool(ID_View_Viewport_SelectTool,
+                                   enableViewportTools);
+    layoutViewsToolBar->EnableTool(ID_View_Viewport_MeasureTool,
+                                   enableViewportTools);
+    layoutViewsToolBar->EnableTool(ID_View_Viewport_AxisConstraint,
+                                   enableViewportTools);
+    layoutViewsToolBar->EnableTool(ID_View_Viewport_LeftDragMove,
+                                   enableViewportTools);
+    layoutViewsToolBar->EnableTool(ID_View_Viewport_Magnet,
+                                   enableViewportTools);
     layoutViewsToolBar->SetToolShortHelp(
         ID_View_Viewport_SelectTool,
         enableViewportTools ? "Switch to standard selection mode"
@@ -1210,8 +1214,8 @@ void MainWindow::UpdateToolBarAvailability() {
         enableViewportTools ? "Toggle left-click selection dragging"
                             : "Disabled while editing Layout views");
     layoutViewsToolBar->SetToolShortHelp(
-        ID_View_Viewport_Magnet,
-        enableViewportTools ? "Toggle Magnet snapping while dragging"
+        ID_View_Viewport_Magnet, enableViewportTools
+                                     ? "Toggle Magnet snapping while dragging"
                             : "Disabled while editing Layout views");
     layoutViewsToolBar->Refresh();
   }
@@ -1260,7 +1264,8 @@ void MainWindow::UpdateViewMenuChecks() {
   UpdateToolBarAvailability();
 }
 
-// Activates a layout selected from the layout panel after startup loading is complete.
+// Activates a layout selected from the layout panel after startup loading is
+// complete.
 void MainWindow::OnLayoutSelected(wxCommandEvent &event) {
   if (startupProjectLoadPending)
     return;
@@ -1284,7 +1289,8 @@ bool MainWindow::HasActiveLayout2DView() const {
   return false;
 }
 
-// Shows layout-loading status text and enables the busy cursor when the layout viewer is visible.
+// Shows layout-loading status text and enables the busy cursor when the layout
+// viewer is visible.
 void MainWindow::ShowLayoutLoadingIndicator(const wxString &message) {
   if (GetStatusBar())
     SetStatusText(message, 0);
@@ -1309,12 +1315,14 @@ void MainWindow::ClearLayoutLoadingIndicator() {
   layoutRenderCursor.reset();
 }
 
-// Clears the loading indicator when the layout render pipeline reports completion.
+// Clears the loading indicator when the layout render pipeline reports
+// completion.
 void MainWindow::OnLayoutRenderReady(wxCommandEvent &) {
   ClearLayoutLoadingIndicator();
 }
 
-// Mirrors layout-render updates unless fixture symbol generation is currently reporting progress.
+// Mirrors layout-render updates unless fixture symbol generation is currently
+// reporting progress.
 void MainWindow::OnLayoutRenderStatus(wxCommandEvent &event) {
   const wxString statusMessage = event.GetString();
   if (statusMessage.CmpNoCase("Layout render completed.") == 0) {
@@ -1329,7 +1337,8 @@ void MainWindow::OnLayoutRenderStatus(wxCommandEvent &event) {
   ShowLayoutLoadingIndicator(statusMessage);
 }
 
-// Applies the named project layout to the layout viewer and persists it as active.
+// Applies the named project layout to the layout viewer and persists it as
+// active.
 void MainWindow::ActivateLayoutView(const std::string &layoutName) {
   if (!auiManager || layoutName.empty()) {
     ClearLayoutLoadingIndicator();
@@ -1376,8 +1385,7 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
         hasViewId = viewId > 0;
       }
     }
-    if (!hasViewId && selectedLayout &&
-        !selectedLayout->view2dViews.empty()) {
+    if (!hasViewId && selectedLayout && !selectedLayout->view2dViews.empty()) {
       viewId = selectedLayout->view2dViews.front().id;
       hasViewId = viewId > 0;
     }
@@ -1389,14 +1397,18 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
     ApplyLayoutModePerspective();
 }
 
-// Synchronizes pending edits from the active table panel into the scene before save/close operations.
+// Synchronizes pending edits from the active table panel into the scene before
+// save/close operations.
 void MainWindow::SyncSceneData() {
-  // Save uses scene data as source of truth; avoid table-wide resyncs that can overwrite cross-table transforms.
+  // Save uses scene data as source of truth; avoid table-wide resyncs that can
+  // overwrite cross-table transforms.
   PersistFixtureTypeAutoColors(
       GetDefaultGuiConfigServices().LegacyConfigManager());
 }
 
 void MainWindow::RefreshAfterSceneChange(bool refreshViewport) {
+  PersistFixtureTypeAutoColors(
+      GetDefaultGuiConfigServices().LegacyConfigManager());
   if (fixturePanel)
     fixturePanel->ReloadData();
   if (trussPanel)
@@ -1435,7 +1447,8 @@ void MainWindow::SyncLayerVisibilityPanels() {
   }
 }
 
-// Handles startup project-load completion and queues deferred external file opens when needed.
+// Handles startup project-load completion and queues deferred external file
+// opens when needed.
 void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
   bool loaded = event.GetInt() != 0;
   bool clearLastProject = event.GetExtraLong() != 0;

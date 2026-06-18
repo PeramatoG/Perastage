@@ -20,8 +20,8 @@
 #include "dictionary_import.h"
 
 #include <cstddef>
-#include <string>
 #include <optional>
+#include <string>
 #include <unordered_map>
 
 namespace GdtfDictionary {
@@ -34,7 +34,7 @@ namespace GdtfDictionary {
         std::string path; // optional absolute path inside fixtures library
         std::string mode;
         std::string category;
-        std::string color;
+        std::string visualColorHex;
         std::string importedAt; // optional UTC ISO-8601 timestamp
         std::string sha256; // optional file hash for diagnostics
     };
@@ -62,7 +62,7 @@ namespace GdtfDictionary {
     // Lookup priority:
     // 1) Explicit fixture type entry.
     // 2) Any entry sharing the same GDTF file + mode fixture family.
-    std::optional<std::string> GetDefaultColorForFixture(
+    std::optional<std::string> GetDefaultVisualColorForFixture(
         const std::string& type, const std::string& gdtfPath,
         const std::string& mode);
     // Copies a user-selected GDTF into the fixtures library and updates the dictionary.
@@ -78,8 +78,8 @@ namespace GdtfDictionary {
                                const std::string& category);
     void UpdateCategoriesBulk(
         const std::unordered_map<std::string, std::string>& categoriesByType);
-    void UpdateColor(const std::string& type, const std::string& color);
-    void UpdateColorForFile(const std::string& type, const std::string& gdtfPath,
+    void UpdateVisualColor(const std::string& type, const std::string& color);
+    void UpdateVisualColorForFile(const std::string& type, const std::string& gdtfPath,
                             const std::string& mode,
                             const std::string& color);
     DictionaryImportSummary PreviewImportFromFile(

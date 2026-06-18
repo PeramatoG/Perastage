@@ -21,14 +21,14 @@
 #include <wx/init.h>
 
 #include "configmanager.h"
-#include "gdtfdictionary.h"
-#include "projectutils.h"
 #include "fixture.h"
-#include "truss.h"
-#include "sceneobject.h"
-#include "layer.h"
-#include "support.h"
 #include "fixture_label_overrides.h"
+#include "gdtfdictionary.h"
+#include "layer.h"
+#include "projectutils.h"
+#include "sceneobject.h"
+#include "support.h"
+#include "truss.h"
 #include "uuidutils.h"
 
 int main() {
@@ -39,11 +39,15 @@ int main() {
     cfg.Reset();
     MvrScene &scene = cfg.GetScene();
 
-    Layer layer; layer.uuid = "layer1"; layer.name = "Layer1"; layer.color = "#112233";
+    Layer layer;
+    layer.uuid = "layer1";
+    layer.name = "Layer1";
+    layer.color = "#112233";
     scene.layers[layer.uuid] = layer;
 
     // Prepare dummy GDTF files
-    std::filesystem::path tempDir = std::filesystem::temp_directory_path() / "gdtf_roundtrip";
+  std::filesystem::path tempDir =
+      std::filesystem::temp_directory_path() / "gdtf_roundtrip";
     std::filesystem::create_directories(tempDir);
     std::ofstream(tempDir / "orig.gdtf") << "orig";
     std::ofstream(tempDir / "dict.gdtf") << "dict";
@@ -60,13 +64,15 @@ int main() {
     assert(fixtureTypeSpaced.has_value());
     assert(fixtureTypeSpaced->path == fixtureTypeCanonical->path);
     std::ofstream(tempDir / "Dummy 1ch.gdtf") << "dummy";
-    GdtfDictionary::Update("Dummy 1ch", (tempDir / "Dummy 1ch.gdtf").string(), "");
+  GdtfDictionary::Update("Dummy 1ch", (tempDir / "Dummy 1ch.gdtf").string(),
+                         "");
     auto dummyEntry = GdtfDictionary::Get("Dummy 1ch");
     assert(!dummyEntry.has_value());
     GdtfDictionary::Update("Dummy 1ch", (tempDir / "dict.gdtf").string(), "");
     dummyEntry = GdtfDictionary::Get("Dummy 1ch");
     assert(!dummyEntry.has_value());
-    GdtfDictionary::Update("Some Type", (tempDir / "Dummy 1ch.gdtf").string(), "");
+  GdtfDictionary::Update("Some Type", (tempDir / "Dummy 1ch.gdtf").string(),
+                         "");
     auto dummyPathEntry = GdtfDictionary::Get("Some Type");
     assert(!dummyPathEntry.has_value());
     GdtfDictionary::UpdateCategory("TextOnlyType", "Spot");
@@ -74,11 +80,17 @@ int main() {
     assert(textOnlyEntry.has_value());
     assert(textOnlyEntry->category == "Spot");
     assert(textOnlyEntry->path.empty());
-    std::unordered_map<std::string, GdtfDictionary::Entry> categoryPropagationDict;
+  std::unordered_map<std::string, GdtfDictionary::Entry>
+      categoryPropagationDict;
     categoryPropagationDict["Type A"] = {
         (tempDir / "shared.gdtf").string(), "Mode A", "OldA", "", "", ""};
     categoryPropagationDict["Type B"] = {
-        (tempDir / "subdir" / "shared.gdtf").string(), "Mode B", "OldB", "", "", ""};
+      (tempDir / "subdir" / "shared.gdtf").string(),
+      "Mode B",
+      "OldB",
+      "",
+      "",
+      ""};
     assert(GdtfDictionary::Save(categoryPropagationDict));
     GdtfDictionary::UpdateCategoriesBulk({{"Type A", "Wash"}});
     const auto categoryPropagationA = GdtfDictionary::Get("Type A");
@@ -88,20 +100,67 @@ int main() {
     assert(categoryPropagationA->category == "Wash");
     assert(categoryPropagationB->category == "Wash");
 
-    Fixture f; f.uuid = "fx1"; f.instanceName = "Fixture"; f.layer = layer.name; f.typeName = "FixtureType"; f.gdtfSpec = "orig.gdtf"; f.color = "#445566"; f.fixtureIdText = "S101A"; f.fixtureIdNumeric = 101; f.fixtureId = 101; scene.fixtures[f.uuid] = f;
-    Fixture f2; f2.uuid = "fx2"; f2.instanceName = "Fixture 2"; f2.layer = layer.name; f2.typeName = "FixtureType"; f2.gdtfSpec = "orig.gdtf"; f2.fixtureIdText = "S101B"; f2.fixtureIdNumeric = 101; f2.fixtureId = 101; scene.fixtures[f2.uuid] = f2;
-    const std::string nonCanonicalFixtureUuid = "A0B1C2D3-E4F5-4678-9ABC-DEF012345678";
-    Fixture f3; f3.uuid = nonCanonicalFixtureUuid; f3.instanceName = "Fixture 3"; f3.layer = layer.name; f3.typeName = "FixtureType"; f3.gdtfSpec = "orig.gdtf"; f3.fixtureIdText = "S101C"; f3.fixtureIdNumeric = 101; f3.fixtureId = 101; scene.fixtures[f3.uuid] = f3;
-    Fixture f4; f4.uuid = "fx-edited-id"; f4.instanceName = "Edited ID Fixture"; f4.layer = layer.name; f4.typeName = "FixtureType"; f4.gdtfSpec = "orig.gdtf"; f4.fixtureIdText = "Imported ID"; f4.fixtureIdNumeric = 44; f4.fixtureId = 707; scene.fixtures[f4.uuid] = f4;
+  Fixture f;
+  f.uuid = "fx1";
+  f.instanceName = "Fixture";
+  f.layer = layer.name;
+  f.typeName = "FixtureType";
+  f.gdtfSpec = "orig.gdtf";
+  f.visualColorHex = "#445566";
+  f.fixtureIdText = "S101A";
+  f.fixtureIdNumeric = 101;
+  f.fixtureId = 101;
+  scene.fixtures[f.uuid] = f;
+  Fixture f2;
+  f2.uuid = "fx2";
+  f2.instanceName = "Fixture 2";
+  f2.layer = layer.name;
+  f2.typeName = "FixtureType";
+  f2.gdtfSpec = "orig.gdtf";
+  f2.fixtureIdText = "S101B";
+  f2.fixtureIdNumeric = 101;
+  f2.fixtureId = 101;
+  scene.fixtures[f2.uuid] = f2;
+  const std::string nonCanonicalFixtureUuid =
+      "A0B1C2D3-E4F5-4678-9ABC-DEF012345678";
+  Fixture f3;
+  f3.uuid = nonCanonicalFixtureUuid;
+  f3.instanceName = "Fixture 3";
+  f3.layer = layer.name;
+  f3.typeName = "FixtureType";
+  f3.gdtfSpec = "orig.gdtf";
+  f3.fixtureIdText = "S101C";
+  f3.fixtureIdNumeric = 101;
+  f3.fixtureId = 101;
+  scene.fixtures[f3.uuid] = f3;
+  Fixture f4;
+  f4.uuid = "fx-edited-id";
+  f4.instanceName = "Edited ID Fixture";
+  f4.layer = layer.name;
+  f4.typeName = "FixtureType";
+  f4.gdtfSpec = "orig.gdtf";
+  f4.fixtureIdText = "Imported ID";
+  f4.fixtureIdNumeric = 44;
+  f4.fixtureId = 707;
+  scene.fixtures[f4.uuid] = f4;
     viewer2d::ApplyShowLabelNameOverride(cfg, {nonCanonicalFixtureUuid}, 0, true);
-    Truss t; t.uuid = "tr1"; t.name = "Truss"; t.layer = layer.name; scene.trusses[t.uuid] = t;
-    SceneObject o; o.uuid = "obj1"; o.name = "Object"; o.layer = layer.name; scene.sceneObjects[o.uuid] = o;
+  Truss t;
+  t.uuid = "tr1";
+  t.name = "Truss";
+  t.layer = layer.name;
+  scene.trusses[t.uuid] = t;
+  SceneObject o;
+  o.uuid = "obj1";
+  o.name = "Object";
+  o.layer = layer.name;
+  scene.sceneObjects[o.uuid] = o;
     SceneObject cylinderObj;
     cylinderObj.uuid = "obj-cylinder";
     cylinderObj.name = "Cylinder";
     cylinderObj.layer = layer.name;
     GeometryInstance cylinderGeometry;
-    cylinderGeometry.modelFile = "primitive:cylinder;top=200.000000;bottom=450.000000;height=1200.000000";
+  cylinderGeometry.modelFile =
+      "primitive:cylinder;top=200.000000;bottom=450.000000;height=1200.000000";
     cylinderObj.geometries.push_back(cylinderGeometry);
     cylinderObj.modelFile = cylinderGeometry.modelFile;
     scene.sceneObjects[cylinderObj.uuid] = cylinderObj;
@@ -120,16 +179,34 @@ int main() {
     legacyPipeObj.transform.o = {0.0f, 0.0f, 0.0f};
     scene.sceneObjects[legacyPipeObj.uuid] = legacyPipeObj;
 
-    Support sManual; sManual.uuid = "sup-manual"; sManual.name = "Manual Hoist"; sManual.layer = layer.name;
-    sManual.motorName = "ChainMaster D8+"; sManual.motorManufacturer = "ChainMaster"; sManual.motorModel = "D8+"; sManual.dummyPreset = "D8+ 1000kg";
-    sManual.hoistDataSource = "Manual"; sManual.hoistFunction = "Audio";
-    sManual.capacityKg = 700.0f; sManual.weightKg = 40.0f; sManual.loadKg = 325.0f; scene.supports[sManual.uuid] = sManual;
+  Support sManual;
+  sManual.uuid = "sup-manual";
+  sManual.name = "Manual Hoist";
+  sManual.layer = layer.name;
+  sManual.motorName = "ChainMaster D8+";
+  sManual.motorManufacturer = "ChainMaster";
+  sManual.motorModel = "D8+";
+  sManual.dummyPreset = "D8+ 1000kg";
+  sManual.hoistDataSource = "Manual";
+  sManual.hoistFunction = "Audio";
+  sManual.capacityKg = 700.0f;
+  sManual.weightKg = 40.0f;
+  sManual.loadKg = 325.0f;
+  scene.supports[sManual.uuid] = sManual;
 
-    Support sInherited; sInherited.uuid = "sup-inherited"; sInherited.name = "Inherited Hoist"; sInherited.layer = layer.name;
-    sInherited.motorName = "CM Lodestar"; sInherited.motorFixtureUuid = "fx1"; sInherited.useMotorDefaults = false; sInherited.dummyPreset = "Lodestar 500kg";
-    sInherited.hoistDataSource = "Inherited"; scene.supports[sInherited.uuid] = sInherited;
+  Support sInherited;
+  sInherited.uuid = "sup-inherited";
+  sInherited.name = "Inherited Hoist";
+  sInherited.layer = layer.name;
+  sInherited.motorName = "CM Lodestar";
+  sInherited.motorFixtureUuid = "fx1";
+  sInherited.useMotorDefaults = false;
+  sInherited.dummyPreset = "Lodestar 500kg";
+  sInherited.hoistDataSource = "Inherited";
+  scene.supports[sInherited.uuid] = sInherited;
 
-    std::filesystem::path temp = std::filesystem::temp_directory_path() / "roundtrip_test.pera";
+  std::filesystem::path temp =
+      std::filesystem::temp_directory_path() / "roundtrip_test.pera";
     assert(cfg.SaveProject(temp.string()));
 
     cfg.Reset();
@@ -153,7 +230,7 @@ int main() {
     const std::string loadedLegacyPipeToken =
         scene2.sceneObjects.at("obj-legacy-pipe").geometries.front().modelFile;
     assert(loadedLegacyPipeToken == "primitive:cylinder");
-    assert(scene2.fixtures.at("fx1").color == "#445566");
+  assert(scene2.fixtures.at("fx1").visualColorHex == "#445566");
     assert(scene2.fixtures.at("fx1").fixtureIdText == "S101A");
     assert(scene2.fixtures.at("fx1").fixtureIdNumeric == 101);
     assert(scene2.fixtures.at("fx2").fixtureIdText == "S101B");
@@ -161,7 +238,8 @@ int main() {
     assert(scene2.fixtures.at("fx-edited-id").fixtureId == 707);
     assert(scene2.fixtures.at("fx-edited-id").fixtureIdNumeric == 707);
     assert(scene2.fixtures.at("fx-edited-id").fixtureIdText == "707");
-    const std::string canonicalFixtureUuid = CanonicalizeUuid(nonCanonicalFixtureUuid);
+  const std::string canonicalFixtureUuid =
+      CanonicalizeUuid(nonCanonicalFixtureUuid);
     assert(!canonicalFixtureUuid.empty());
     assert(scene2.fixtures.count(canonicalFixtureUuid) == 1);
     const auto fixtureOverrides = viewer2d::LoadFixtureLabelOverrides(cfg);
@@ -190,10 +268,12 @@ int main() {
 
     const auto &loaded = scene2.fixtures.at("fx1");
     assert(std::filesystem::path(loaded.gdtfSpec).filename() == "orig.gdtf");
-    assert(std::filesystem::path(loaded.originalMvrGdtfSpec).filename() == "orig.gdtf");
+  assert(std::filesystem::path(loaded.originalMvrGdtfSpec).filename() ==
+         "orig.gdtf");
 
     std::filesystem::remove(temp);
-    std::filesystem::remove(ProjectUtils::GetDefaultLibraryPath("fixtures") + "/dict.gdtf");
+  std::filesystem::remove(ProjectUtils::GetDefaultLibraryPath("fixtures") +
+                          "/dict.gdtf");
     GdtfDictionary::Save({});
     std::filesystem::remove_all(tempDir);
     return 0;

@@ -19,16 +19,18 @@
 #include "colorstore.h"
 #include "configmanager.h"
 #include "fixturetablepanel.h"
+#include "gdtfdictionary.h"
 #include "guiconfigservices.h"
 #include "table_column_indices.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
-#include <wx/colordlg.h>
-#include <wx/dcmemory.h>
-#include <wx/aui/framemanager.h>
 #include <algorithm>
 #include <map>
+#include <set>
 #include <unordered_set>
+#include <wx/aui/framemanager.h>
+#include <wx/colordlg.h>
+#include <wx/dcmemory.h>
 
 static SummaryPanel* s_instance = nullptr;
 
@@ -140,8 +142,8 @@ void SummaryPanel::ShowFixtureSummary() {
         auto& row = grouped[fix.typeName];
         row.typeName = fix.typeName;
         row.count += 1;
-        if (row.colorHex.empty() && !fix.color.empty())
-            row.colorHex = fix.color;
+        if (row.colorHex.empty() && !fix.visualColorHex.empty())
+            row.colorHex = fix.visualColorHex;
     }
 
     const auto hiddenFixtureTypes =
@@ -208,8 +210,8 @@ void SummaryPanel::ShowFixtureSummaryRows(
         wxBitmap bmp(16, 16);
         wxMemoryDC dc(bmp);
         wxColour color;
-    if (!rowData.colorHex.empty() &&
-        color.Set(wxString::FromUTF8(rowData.colorHex)))
+        if (!rowData.colorHex.empty() &&
+            color.Set(wxString::FromUTF8(rowData.colorHex)))
             dc.SetBrush(wxBrush(color));
         else
             dc.SetBrush(wxBrush(wxColour(128, 128, 128)));
@@ -404,8 +406,7 @@ void SummaryPanel::RefreshVisibleViewers() const {
 
 void SummaryPanel::OnItemValueChanged(wxDataViewEvent& event) {
     if (!table || mode != SummaryMode::Fixture ||
-        event.GetColumn() !=
-            FixtureColumnIndex(FixtureSummaryColumn::Visible))
+      event.GetColumn() != FixtureColumnIndex(FixtureSummaryColumn::Visible))
         return;
     const int row = table->ItemToRow(event.GetItem());
     if (row == wxNOT_FOUND)
@@ -443,8 +444,7 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
         return;
 
     const std::string typeName =
-        table->GetTextValue(
-                 row, FixtureColumnIndex(FixtureSummaryColumn::Type))
+      table->GetTextValue(row, FixtureColumnIndex(FixtureSummaryColumn::Type))
             .ToStdString();
     auto& colorCfg = (*colorConfigManager);
     auto& fixtures = colorCfg.GetScene().fixtures;
@@ -452,8 +452,8 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
     wxColourData data;
     for (const auto& [uuid, fixture] : fixtures) {
         (void)uuid;
-        if (fixture.typeName == typeName && !fixture.color.empty()) {
-            data.SetColour(wxColour(wxString::FromUTF8(fixture.color)));
+    if (fixture.typeName == typeName && !fixture.visualColorHex.empty()) {
+      data.SetColour(wxColour(wxString::FromUTF8(fixture.visualColorHex)));
             break;
         }
     }
@@ -467,10 +467,18 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
                                            color.Green(), color.Blue())
                               .ToStdString();
     colorCfg.PushUndoState("change fixture type color in project from summary");
+    std::set<std::string> updatedDictionaryKeys;
     for (auto& [uuid, fixture] : fixtures) {
         (void)uuid;
-        if (fixture.typeName == typeName)
-            fixture.color = hex;
+        if (fixture.typeName != typeName)
+            continue;
+        fixture.visualColorHex = hex;
+        const std::string dictionaryKey =
+            fixture.gdtfSpec + '\x1f' + fixture.gdtfMode;
+        if (updatedDictionaryKeys.insert(dictionaryKey).second) {
+            GdtfDictionary::UpdateVisualColorForFile(
+                fixture.typeName, fixture.gdtfSpec, fixture.gdtfMode, hex);
+        }
     }
 
     if (FixtureTablePanel::Instance())

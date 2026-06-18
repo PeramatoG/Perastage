@@ -15,8 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "mainwindow.h"
 #include "filesystem_path_utils.h"
+#include "mainwindow.h"
 
 #include <chrono>
 #include <filesystem>
@@ -50,7 +50,8 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
   if (gdtfPath.empty()) {
     wxMessageBox("No GDTF file selected.", "Add fixture", wxOK | wxICON_ERROR);
     if (consolePanel)
-      consolePanel->AppendMessage("[ERROR] Add fixture failed: empty GDTF path");
+      consolePanel->AppendMessage(
+          "[ERROR] Add fixture failed: empty GDTF path");
     return;
   }
   const wxString gdtfPathWx = wxString::FromUTF8(gdtfPath);
@@ -59,9 +60,8 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
     wxMessageBox("The selected GDTF file does not exist.", "Add fixture",
                  wxOK | wxICON_ERROR);
     if (consolePanel)
-      consolePanel->AppendMessage(
-          wxString::Format("[ERROR] Add fixture failed: file not found %s",
-                           gdtfPathWx));
+      consolePanel->AppendMessage(wxString::Format(
+          "[ERROR] Add fixture failed: file not found %s", gdtfPathWx));
     return;
   }
 
@@ -80,9 +80,8 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
     wxMessageBox("Could not read fixture modes from the selected GDTF file.",
                  "Add fixture", wxOK | wxICON_ERROR);
     if (consolePanel)
-      consolePanel->AppendMessage(
-          wxString::Format("[ERROR] Add fixture failed: no modes found in %s",
-                           gdtfPathWx));
+      consolePanel->AppendMessage(wxString::Format(
+          "[ERROR] Add fixture failed: no modes found in %s", gdtfPathWx));
     return;
   }
 
@@ -95,8 +94,8 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
   GetGdtfProperties(gdtfPath, weight, power);
   std::string defaultColor = GetGdtfModelColor(gdtfPath);
   if (auto dictEntry = GdtfDictionary::Get(defaultName)) {
-    if (!dictEntry->color.empty())
-      defaultColor = dictEntry->color;
+    if (!dictEntry->visualColorHex.empty())
+      defaultColor = dictEntry->visualColorHex;
   }
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
@@ -156,7 +155,7 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
     f.powerConsumptionW = power;
     f.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
     f.physicalPropertiesDirty = false;
-    f.color = defaultColor;
+    f.visualColorHex = defaultColor;
     sceneRef.fixtures[f.uuid] = f;
   }
 

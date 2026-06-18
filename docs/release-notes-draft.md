@@ -28,6 +28,16 @@ Perastage v1.4.0 delivers a long-anticipated refresh of the modelling and riggin
 
 ## Improvements
 
+- **Clear fixture color semantics** - fixture tables and edit dialogs now show
+  separate Type Color and Color Filter fields. Type Color remains the
+  Perastage appearance shared by fixtures with the same type and mode and used
+  in plans, summaries, legends, and type-based coloring. Color Filter is
+  fixture-specific and exclusively controls the standards-based MVR
+  `Fixture/Color` value. Existing fixture dictionaries using `color` continue
+  to load and are saved with the clearer `visual_color` key. Type Colors,
+  including automatically assigned colors, are preserved in root-level
+  Perastage MVR metadata so fixture tables and summaries recover them when a
+  project is reopened.
 - **Selectable fixtures within groups** - moving a fixture no longer drags its entire group, making it easy to reposition individual fixtures along grouped trusses.
 - **On-drag gizmos and feedback** - a 2D position gizmo and highlighted X/Y/Z readouts provide clear movement direction feedback, matching the 3D viewer.
 - **Group selection and highlights** - selecting a grouped member now highlights and transforms the entire root group (including nested groups) and group hover feedback uses clearer colours that match table selections.  Quick clicks select full groups in the 3D view.
@@ -50,6 +60,10 @@ Perastage v1.4.0 delivers a long-anticipated refresh of the modelling and riggin
 
 This release addresses dozens of issues across importing, snapping, editing and export workflows, including:
 
+- **Fixture color compatibility** - corrected the fixture visual-color rename so
+  fixture editing and fixture replacement build correctly, while layer colors
+  and fixture-summary swatches continue to use their existing model fields
+  without build errors or lost display colors.
 - **Selection workflow** - using `Ctrl` or `Ctrl+Shift` while clicking in 2D/3D adds to the selection instead of clearing it.  Quick clicks on grouped items select the entire group.
 - **Create-from-text** - normalised rider text now uses the English `FOR` keyword for motor/hoist lines, ensuring consistent import behaviour; text filtering has been optimised for speed and now shares lookup caches across operations.
 - **GDTF persistence** - automatic symbol generation and per-fixture edits update project-owned copies or stable library derivatives without filling the user library with temporary files.  Editing a fixture's weight triggers hoist-load recalculation after the table synchronises.

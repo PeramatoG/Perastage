@@ -18,8 +18,8 @@
 #include "layoutlegenditems.h"
 #include "filesystem_path_utils.h"
 
-#include <filesystem>
 #include <cctype>
+#include <filesystem>
 #include <map>
 
 #include <wx/filename.h>
@@ -64,7 +64,8 @@ std::optional<std::string> NormalizeHexColor(const std::string &raw) {
 }
 } // namespace
 
-// Builds grouped layout legend entries with counts, channels, symbols, and colors.
+// Builds grouped layout legend entries with counts, channels, symbols, and
+// colors.
 std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
   std::map<std::string, LegendAggregate> aggregates;
   const auto &fixtures =
@@ -101,8 +102,9 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
     scene.basePath = basePath;
     gui::fixtures::FixtureGdtfResolution resolution;
     std::string resolutionError;
-    gui::fixtures::ResolveFixtureGdtfDeterministic(
-        fixture, scene, resolution, resolutionError, "build-layout-legend-items");
+    gui::fixtures::ResolveFixtureGdtfDeterministic(fixture, scene, resolution,
+                                                   resolutionError,
+                                                   "build-layout-legend-items");
 
     LegendAggregate &agg = aggregates[typeName];
     agg.count += 1;
@@ -123,7 +125,7 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
       agg.gdtfPath = resolution.selectedPath;
 
     const std::optional<std::string> fixtureColor =
-        NormalizeHexColor(fixture.color);
+        NormalizeHexColor(fixture.visualColorHex);
     if (!fixtureColor.has_value())
       continue;
     if (!agg.firstColor.has_value()) {

@@ -31,6 +31,7 @@ enum class Column : int {
   Weight,
   Category,
   VisualColor,
+  MvrColor,
   Count
 };
 
@@ -50,6 +51,7 @@ bool IsTransform(Column column);
 bool IsPhysicalProperty(Column column);
 bool IsTypeLevelPropagated(Column column);
 bool IsVisualColor(Column column);
+bool IsMvrColor(Column column);
 bool IsCategory(Column column);
 bool IsPatch(Column column);
 void ConfigureColumns(wxDataViewListCtrl *table,

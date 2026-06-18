@@ -60,8 +60,8 @@ constexpr int kFixtureModeColumn =
     TableColumnIndices::ToIndex(FixtureDictionaryColumn::Mode);
 constexpr int kFixtureCategoryColumn =
     TableColumnIndices::ToIndex(FixtureDictionaryColumn::Category);
-constexpr int kFixtureColorColumn =
-    TableColumnIndices::ToIndex(FixtureDictionaryColumn::Color);
+constexpr int kFixtureVisualColorColumn =
+    TableColumnIndices::ToIndex(FixtureDictionaryColumn::VisualColor);
 constexpr int kTrussNameColumn =
     TableColumnIndices::ToIndex(TrussDictionaryColumn::Name);
 constexpr int kTrussFileColumn =
@@ -88,7 +88,7 @@ std::optional<std::string> NormalizeFixtureHexColor(const std::string &raw) {
   return "#" + value;
 }
 
-std::string ExtractFixtureColorText(const wxVariant &value) {
+std::string ExtractFixtureVisualColorText(const wxVariant &value) {
   if (value.GetType() == "wxDataViewIconText") {
     wxDataViewIconText iconText;
     iconText << value;
@@ -129,7 +129,7 @@ bool FixturePathsMatchForColorFamily(const std::string &lhs,
          std::filesystem::equivalent(leftPath, rightPath, ec) && !ec;
 }
 
-void SetFixtureColorCell(wxDataViewListCtrl *table, int row,
+void SetFixtureVisualColorCell(wxDataViewListCtrl *table, int row,
                          const std::string &hexColor) {
   if (!table || row == wxNOT_FOUND)
     return;
@@ -138,7 +138,7 @@ void SetFixtureColorCell(wxDataViewListCtrl *table, int row,
   const auto normalized = NormalizeFixtureHexColor(hexColor);
   if (!normalized.has_value() || normalized->empty()) {
     colorValue << wxDataViewIconText(wxString(), wxNullBitmap);
-    table->SetValue(colorValue, row, kFixtureColorColumn);
+    table->SetValue(colorValue, row, kFixtureVisualColorColumn);
     return;
   }
 
@@ -152,7 +152,7 @@ void SetFixtureColorCell(wxDataViewListCtrl *table, int row,
   }
   colorValue << wxDataViewIconText(wxString::FromUTF8(*normalized),
                                    colorSwatch);
-  table->SetValue(colorValue, row, kFixtureColorColumn);
+  table->SetValue(colorValue, row, kFixtureVisualColorColumn);
 }
 
 bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
@@ -223,7 +223,7 @@ struct FixtureRow {
   std::string path;
   std::string mode;
   std::string category;
-  std::string color;
+  std::string visualColorHex;
   std::string sha256;
 };
 
@@ -823,7 +823,7 @@ bool SaveFixturesSnapshotToFile(
   for (const auto &name : keys) {
     const auto &entry = dict.at(name);
     if (entry.path.empty() && entry.mode.empty() && entry.category.empty() &&
-        entry.color.empty())
+        entry.visualColorHex.empty())
       continue;
     nlohmann::json obj;
     if (!entry.path.empty()) {
@@ -849,8 +849,8 @@ bool SaveFixturesSnapshotToFile(
       obj["mode"] = entry.mode;
     if (!entry.category.empty())
       obj["category"] = entry.category;
-    if (!entry.color.empty())
-      obj["color"] = entry.color;
+    if (!entry.visualColorHex.empty())
+      obj["visual_color"] = entry.visualColorHex;
     if (!obj.empty())
       entries[name] = obj;
   }
@@ -971,8 +971,9 @@ void DictionaryEditDialog::BuildLayout() {
   auto *colorRenderer =
       new ColorfulIconTextRenderer(wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
   colorRenderer->EnableEllipsize(wxELLIPSIZE_NONE);
-  fixtureTable->AppendColumn(new wxDataViewColumn(
-      "Color", colorRenderer, kFixtureColorColumn, 110, wxALIGN_LEFT, flags));
+  fixtureTable->AppendColumn(new wxDataViewColumn("Type Color", colorRenderer,
+                                                  kFixtureVisualColorColumn,
+                                                  110, wxALIGN_LEFT, flags));
   ColumnUtils::EnforceMinColumnWidth(fixtureTable);
   fixturesSelection = BuildDictionarySelectionControls(
       fixturePanel, fixtureSizer, "Active fixtures dictionary",
@@ -1136,7 +1137,8 @@ void DictionaryEditDialog::LoadFixtures() {
   for (const auto &[name, entry] : *dictOpt) {
     if (entry.path.empty())
       continue;
-    FixtureRow row{ name, entry.path, entry.mode, entry.category, entry.color };
+    FixtureRow row{name, entry.path, entry.mode, entry.category,
+                   entry.visualColorHex};
     rows.push_back(row);
   }
   SortFixtureRows(rows);
@@ -1155,7 +1157,7 @@ void DictionaryEditDialog::LoadFixtures() {
     const int rowIndex = fixtureTable->GetItemCount() - 1;
     if (!fileExists && rowIndex >= 0)
       fixtureStore->SetCellTextColour(static_cast<size_t>(rowIndex), 1, *wxRED);
-    SetFixtureColorCell(fixtureTable, rowIndex, row.color);
+    SetFixtureVisualColorCell(fixtureTable, rowIndex, row.visualColorHex);
     fixturePaths.push_back(row.path);
   }
 
@@ -1224,8 +1226,8 @@ DictionaryEditDialog::BuildFixtureSnapshotFromUi() const {
     fixtureTable->GetValue(modeVar, i, kFixtureModeColumn);
     const std::string mode = std::string(modeVar.GetString().ToUTF8());
     wxVariant colorVar;
-    fixtureTable->GetValue(colorVar, i, kFixtureColorColumn);
-    const std::string color = ExtractFixtureColorText(colorVar);
+    fixtureTable->GetValue(colorVar, i, kFixtureVisualColorColumn);
+    const std::string color = ExtractFixtureVisualColorText(colorVar);
     snapshot.push_back(name + '\n' + path + '\n' + mode + '\n' + color);
   }
   std::sort(snapshot.begin(), snapshot.end());
@@ -1407,8 +1409,8 @@ bool DictionaryEditDialog::SaveFixtures() {
     const std::string category = GdtfFixtureCategory::NormalizeCategory(
         std::string(categoryVar.GetString().ToUTF8()));
     wxVariant colorVar;
-    fixtureTable->GetValue(colorVar, i, kFixtureColorColumn);
-    const std::string rawColor = ExtractFixtureColorText(colorVar);
+    fixtureTable->GetValue(colorVar, i, kFixtureVisualColorColumn);
+    const std::string rawColor = ExtractFixtureVisualColorText(colorVar);
     const auto normalizedColor = NormalizeFixtureHexColor(rawColor);
     if (!normalizedColor.has_value()) {
       wxMessageBox(
@@ -1429,7 +1431,7 @@ bool DictionaryEditDialog::SaveFixtures() {
     entry.path = row.path;
     entry.mode = row.mode;
     entry.category = row.category;
-    entry.color = row.color;
+    entry.visualColorHex = row.visualColorHex;
     entry.importedAt = FileImportUtils::NowUtcIso8601();
     if (!row.sha256.empty())
       entry.sha256 = row.sha256;
@@ -1523,7 +1525,8 @@ void DictionaryEditDialog::OnAdd(wxCommandEvent &WXUNUSED(event)) {
     items.push_back(wxString());
     items.push_back(wxString());
     fixtureTable->AppendItem(items);
-    SetFixtureColorCell(fixtureTable, fixtureTable->GetItemCount() - 1, "");
+    SetFixtureVisualColorCell(fixtureTable, fixtureTable->GetItemCount() - 1,
+                              "");
     fixturePaths.push_back(fullPath);
   } else {
     wxString trussDir =
@@ -1591,7 +1594,7 @@ void DictionaryEditDialog::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   }
 }
 
-void DictionaryEditDialog::UpdateFixtureColorForFileAndMode(
+void DictionaryEditDialog::UpdateFixtureVisualColorForFileAndMode(
     int row, const std::string &colorHex) {
   if (!fixtureTable || row < 0 ||
       static_cast<size_t>(row) >= fixturePaths.size())
@@ -1618,11 +1621,11 @@ void DictionaryEditDialog::UpdateFixtureColorForFileAndMode(
         NormalizeFixtureModeKey(std::string(modeVar.GetString().ToUTF8()));
     if (modeKey != targetModeKey)
       continue;
-    SetFixtureColorCell(fixtureTable, i, colorHex);
+    SetFixtureVisualColorCell(fixtureTable, i, colorHex);
   }
 }
 
-void DictionaryEditDialog::SyncFixtureColorForFileAndMode(int row) {
+void DictionaryEditDialog::SyncFixtureVisualColorForFileAndMode(int row) {
   if (!fixtureTable || row < 0 ||
       static_cast<size_t>(row) >= fixturePaths.size())
     return;
@@ -1657,13 +1660,13 @@ void DictionaryEditDialog::SyncFixtureColorForFileAndMode(int row) {
       continue;
 
     wxVariant colorVar;
-    fixtureTable->GetValue(colorVar, i, kFixtureColorColumn);
-    const std::string color = ExtractFixtureColorText(colorVar);
+    fixtureTable->GetValue(colorVar, i, kFixtureVisualColorColumn);
+    const std::string color = ExtractFixtureVisualColorText(colorVar);
     const auto normalizedColor = NormalizeFixtureHexColor(color);
     if (!normalizedColor.has_value() || normalizedColor->empty())
       continue;
 
-    SetFixtureColorCell(fixtureTable, row, *normalizedColor);
+    SetFixtureVisualColorCell(fixtureTable, row, *normalizedColor);
     return;
   }
 }
@@ -2179,7 +2182,7 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
         std::string mode = std::string(dlg.GetStringSelection().ToUTF8());
         table->SetValue(wxVariant(wxString::FromUTF8(mode)), row,
                         kFixtureModeColumn);
-        SyncFixtureColorForFileAndMode(row);
+        SyncFixtureVisualColorForFileAndMode(row);
       }
       return;
     }
@@ -2206,11 +2209,11 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
       UpdateFixtureCategoryForFile(row, selectedCategory);
       return;
     }
-    if (col == kFixtureColorColumn) {
+    if (col == kFixtureVisualColorColumn) {
       wxVariant current;
       table->GetValue(current, row, col);
       wxString colorString =
-          wxString::FromUTF8(ExtractFixtureColorText(current));
+          wxString::FromUTF8(ExtractFixtureVisualColorText(current));
       wxColour initial(colorString);
       if (colorString.IsEmpty() || !initial.IsOk())
         initial = *wxWHITE;
@@ -2224,7 +2227,7 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
           wxString::Format("#%02X%02X%02X", selected.Red(), selected.Green(),
                            selected.Blue())
               .ToStdString();
-      UpdateFixtureColorForFileAndMode(row, hex);
+      UpdateFixtureVisualColorForFileAndMode(row, hex);
       return;
     }
     if (col != kFixtureFileColumn)
@@ -2256,7 +2259,7 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
     }
     table->SetValue(wxVariant(wxString::FromUTF8(mode)), row,
                     kFixtureModeColumn);
-    SyncFixtureColorForFileAndMode(row);
+    SyncFixtureVisualColorForFileAndMode(row);
   } else {
     if (col != kTrussFileColumn)
       return;

@@ -98,6 +98,7 @@ int main() {
   fixture.gdtfMode = "ModeA";
   fixture.category = "Spot";
   fixture.categorySource = "Manual";
+  fixture.visualColorHex = "#336699";
   scene.fixtures[fixture.uuid] = fixture;
 
   Fixture fixtureTwo = fixture;
@@ -124,8 +125,14 @@ int main() {
   assert(rootUserData != nullptr);
   auto *fixtureTypeMap = rootUserData->FirstChildElement("Data")->FirstChildElement("FixtureTypeInfoMap");
   assert(fixtureTypeMap != nullptr);
-  assert(fixtureTypeMap->FirstChildElement("FixtureTypeInfo") != nullptr);
-  assert(fixtureTypeMap->FirstChildElement("FixtureTypeInfo")->NextSiblingElement("FixtureTypeInfo") == nullptr);
+  auto *fixtureTypeInfo =
+      fixtureTypeMap->FirstChildElement("FixtureTypeInfo");
+  assert(fixtureTypeInfo != nullptr);
+  assert(fixtureTypeInfo->NextSiblingElement("FixtureTypeInfo") == nullptr);
+  assert(fixtureTypeInfo->FirstChildElement("VisualColor") != nullptr);
+  assert(std::string(
+             fixtureTypeInfo->FirstChildElement("VisualColor")->GetText()) ==
+         "#336699");
 
   int exportedFixtureCount = 0;
   for (auto *layerNode = root->FirstChildElement("Scene")->FirstChildElement("Layers")->FirstChildElement("Layer");
@@ -155,7 +162,10 @@ int main() {
   assert(loaded.size() == 2);
   const Fixture &loadedFixture = loaded.at("11111111-1111-1111-1111-111111111111");
   assert(loadedFixture.category == "Spot");
+  assert(loadedFixture.visualColorHex == "#336699");
   assert(loaded.at("22222222-2222-2222-2222-222222222222").category == "Spot");
+  assert(loaded.at("22222222-2222-2222-2222-222222222222")
+             .visualColorHex == "#336699");
 
   // Dictionary should be updated with scene (MVR) priority category.
   auto entry = GdtfDictionary::Get("FixtureType");

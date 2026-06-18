@@ -31,6 +31,8 @@ FixtureTablePanel::SceneDataUpdateType UpdateTypeForColumnImpl(int column) {
     return SceneDataUpdateType::kCategoryOnly;
   case Column::VisualColor:
     return SceneDataUpdateType::kAppearanceOnly;
+  case Column::MvrColor:
+    return SceneDataUpdateType::kMetadataOnly;
   case Column::FixtureId:
     return SceneDataUpdateType::kFixtureIdOnly;
   case Column::Type:

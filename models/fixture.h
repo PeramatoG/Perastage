@@ -17,8 +17,8 @@
  */
 #pragma once
 
-#include <string>
 #include "types.h"
+#include <string>
 
 // Tracks where editable fixture physical properties came from.
 enum class FixturePhysicalPropertiesSource {
@@ -33,9 +33,11 @@ struct Fixture {
     std::string uuid;             // Unique identifier from the MVR file
     std::string instanceName;     // Name of this fixture instance (from MVR)
     std::string typeName;         // GDTF fixture type name
-    std::string requestedFixtureName; // Original MVR fixture name used for matching
+  std::string
+      requestedFixtureName; // Original MVR fixture name used for matching
     std::string gdtfSpec;         // GDTF file name
-    std::string originalMvrGdtfSpec; // Original MVR GDTF archive reference preserved for safe restore/export
+  std::string originalMvrGdtfSpec; // Original MVR GDTF archive reference
+                                   // preserved for safe restore/export
     std::string gdtfMode;         // GDTF mode name (optional)
     std::string focus;            // Focus reference UUID (optional)
     std::string function;         // Function string (optional)
@@ -47,11 +49,14 @@ struct Fixture {
     std::string matrixRaw;        // Raw matrix string from XML (to be parsed later)
     Matrix transform;             // Parsed transformation matrix
     Matrix localTransform;         // Local transform relative to parent GroupObject
-    bool hasLocalTransform = false; // True when localTransform was explicitly assigned
+  bool hasLocalTransform =
+      false; // True when localTransform was explicitly assigned
     std::string parentGroupUuid;    // Parent GroupObject UUID when grouped
 
-    std::string color;            // Hex RGB visualization color (e.g., "#RRGGBB")
-    std::string gelColor;         // Optional physical gel/filter color exported as MVR Color
+    // Perastage-only visual color used in plans, summaries, legends, and viewers.
+    std::string visualColorHex;
+    // Official MVR Fixture/Color represented as UI hex and converted to/from CIE xyY.
+    std::string mvrFixtureColorHex;
 
     std::string fixtureIdText;    // FixtureID (free-form string identifier from XML)
     int fixtureId = 0;            // Numeric FixtureID fallback used internally
@@ -66,8 +71,10 @@ struct Fixture {
     float powerConsumptionW = 0.0f; // Power consumption in watts
     float weightKg = 0.0f;          // Fixture weight in kilograms
     FixturePhysicalPropertiesSource physicalPropertiesSource =
-        FixturePhysicalPropertiesSource::Unknown; // Source for editable physical values
-    bool physicalPropertiesDirty = false; // True when the user edited physical values
+      FixturePhysicalPropertiesSource::Unknown; // Source for editable physical
+                                                // values
+  bool physicalPropertiesDirty =
+      false; // True when the user edited physical values
 
     std::string category;         // Fixture category (Spot, Wash, etc.)
     std::string categorySource;   // Category source (Manual, AutoFallback, ...)

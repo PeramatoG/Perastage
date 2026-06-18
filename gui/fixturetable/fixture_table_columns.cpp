@@ -11,10 +11,11 @@ constexpr std::array<const char *, Count()> kLabels = {
     "Fixture ID", "Name",      "Type",        "Layer",    "Hang Pos",
     "Universe",   "Channel",   "Mode",        "Ch Count", "Model file",
     "Pos X",      "Pos Y",     "Pos Z",       "Roll (X)", "Pitch (Y)",
-    "Yaw (Z)",    "Power (W)", "Weight (kg)", "Category", "Color"};
+    "Yaw (Z)",    "Power (W)", "Weight (kg)", "Category", "Type Color",
+    "Color Filter"};
 constexpr std::array<int, Count()> kWidths = {90,  150, 180, 100, 120, 80, 80,
                                               120, 80,  180, 80,  80,  80, 80,
-                                              80,  80,  100, 100, 120, 80};
+                                              80,  80,  100, 100, 120, 90, 90};
 static_assert(kLabels.size() == Count());
 static_assert(kWidths.size() == Count());
 } // namespace
@@ -84,6 +85,9 @@ bool IsTypeLevelPropagated(Column column) {
 // Checks whether a fixture column stores the Perastage visual color.
 bool IsVisualColor(Column column) { return column == Column::VisualColor; }
 
+// Checks whether a fixture column stores the official MVR Fixture/Color.
+bool IsMvrColor(Column column) { return column == Column::MvrColor; }
+
 // Checks whether a fixture column stores the fixture category.
 bool IsCategory(Column column) { return column == Column::Category; }
 
@@ -117,14 +121,16 @@ void ConfigureColumns(wxDataViewListCtrl *table,
         widths[i], wxALIGN_LEFT, flags));
   }
 
+  for (const Column column : {Column::VisualColor, Column::MvrColor}) {
   auto *colorRenderer =
       new ColorfulIconTextRenderer(wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
   colorRenderer->EnableEllipsize(wxELLIPSIZE_NONE);
-  const int colorColumn = ToIndex(Column::VisualColor);
+    const int colorColumn = ToIndex(column);
   table->AppendColumn(new wxDataViewColumn(
       columnLabels[static_cast<size_t>(colorColumn)], colorRenderer,
       colorColumn, widths[static_cast<size_t>(colorColumn)], wxALIGN_LEFT,
       flags));
+  }
 
   ColumnUtils::EnforceMinColumnWidth(table);
 }
