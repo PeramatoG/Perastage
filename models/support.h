@@ -21,6 +21,7 @@
 #include <array>
 #include <cctype>
 #include <cerrno>
+#include <cmath>
 #include <cstdlib>
 #include <optional>
 #include <string>
@@ -154,6 +155,15 @@ inline std::string NormalizeHoistDataSource(const std::string &rawValue) {
 
 inline bool IsManualHoistDataSource(const std::string &source) {
     return NormalizeHoistDataSource(source) == "Manual";
+}
+
+// Returns whether an accepted load value should remain automatically calculated.
+inline bool ShouldUseAutomaticHoistLoad(float previousLoadKg,
+                                        float editedLoadKg,
+                                        float calculatedLoadKg,
+                                        float toleranceKg = 0.001f) {
+    return std::abs(previousLoadKg - editedLoadKg) <= toleranceKg ||
+           std::abs(calculatedLoadKg - editedLoadKg) <= toleranceKg;
 }
 
 inline std::string ResolveHoistFieldDataSource(const std::string &fieldSource,

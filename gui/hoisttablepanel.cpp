@@ -139,6 +139,33 @@ void RecalculateAutomaticLoads(
                                                      roundedTotals);
 }
 
+// Calculates automatic load values without changing the active scene.
+std::unordered_map<std::string, float> CalculateAutomaticLoads(
+    const ConfigManager &cfg, const std::vector<std::string> &supportUuids) {
+  MvrScene scene = cfg.GetScene();
+  for (const std::string &uuid : supportUuids) {
+    auto supportIt = scene.supports.find(uuid);
+    if (supportIt != scene.supports.end())
+      supportIt->second.loadSource = "Auto";
+  }
+  const auto extraWeights = RiggingExtraWeightSettings::ParseEntries(
+      cfg.GetValue(RiggingExtraWeightSettings::ConfigKey()));
+  const auto roundedTotals =
+      HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(
+          scene,
+          RiggingExtraWeightSettings::BuildKilogramsByPosition(extraWeights));
+  HoistWeightDistribution::ApplyForImportedSupports(scene, supportUuids,
+                                                     roundedTotals);
+
+  std::unordered_map<std::string, float> result;
+  for (const std::string &uuid : supportUuids) {
+    auto supportIt = scene.supports.find(uuid);
+    if (supportIt != scene.supports.end())
+      result[uuid] = supportIt->second.loadKg;
+  }
+  return result;
+}
+
 void SetTableAndChildTooltips(wxDataViewListCtrl *table,
                               const wxString &tooltip) {
   if (!table)
@@ -202,6 +229,59 @@ struct RangeParts {
   wxArrayString parts;
   bool usedSeparator = false;
   bool trailingSeparator = false;
+};
+
+enum class LoadEditResult {
+  Cancel,
+  ApplyValue,
+  Recalculate
+};
+
+class LoadEditDialog final : public wxDialog {
+public:
+  // Builds a load editor with direct access to automatic recalculation.
+  LoadEditDialog(wxWindow *parent, const wxString &title,
+                 const wxString &currentValue)
+      : wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize,
+                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+    auto *rootSizer = new wxBoxSizer(wxVERTICAL);
+    valueCtrl = new wxTextCtrl(this, wxID_ANY, currentValue);
+    rootSizer->Add(valueCtrl, 0, wxEXPAND | wxALL, 10);
+
+    auto *buttonSizer = new wxBoxSizer(wxHORIZONTAL);
+    auto *recalculateButton =
+        new wxButton(this, wxID_ANY, "Use automatic value");
+    buttonSizer->Add(recalculateButton, 0, wxRIGHT, 8);
+    buttonSizer->AddStretchSpacer();
+    auto *okButton = new wxButton(this, wxID_OK);
+    buttonSizer->Add(okButton, 0, wxRIGHT, 8);
+    buttonSizer->Add(new wxButton(this, wxID_CANCEL), 0);
+    rootSizer->Add(buttonSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+
+    recalculateButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+      result = LoadEditResult::Recalculate;
+      EndModal(wxID_OK);
+    });
+    Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+      result = LoadEditResult::ApplyValue;
+      EndModal(wxID_OK);
+    }, wxID_OK);
+
+    SetSizerAndFit(rootSizer);
+    okButton->SetDefault();
+    valueCtrl->SetFocus();
+    valueCtrl->SelectAll();
+  }
+
+  // Returns the action selected by the user.
+  LoadEditResult GetResult() const { return result; }
+
+  // Returns the edited load text.
+  wxString GetValue() const { return valueCtrl->GetValue(); }
+
+private:
+  wxTextCtrl *valueCtrl = nullptr;
+  LoadEditResult result = LoadEditResult::Cancel;
 };
 
 bool IsNumChar(char c) {
@@ -628,8 +708,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
   wxVariant current;
   table->GetValue(current, row, col);
-  bool manualLoadRequested = false;
-
+  std::unordered_map<std::string, float> editedAutomaticLoads;
   if (*namedColumn == HoistColumn::Function) {
     wxArrayString choices;
     for (const auto &option : GetHoistFunctionOptions())
@@ -744,17 +823,15 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   }
 
   if (*namedColumn == HoistColumn::Load) {
-    wxArrayString choices;
-    choices.push_back("Automatic (recalculate)");
-    choices.push_back("Manual value...");
-    wxSingleChoiceDialog sourceDialog(this, "Select load source", "Load",
-                                      choices);
-    sourceDialog.SetSelection(0);
-    if (sourceDialog.ShowModal() != wxID_OK)
+    const auto automaticLoads =
+        CalculateAutomaticLoads(guiConfigServices->LegacyConfigManager(),
+                                selectedUuids);
+    LoadEditDialog loadDialog(this, columnLabels[col], current.GetString());
+    if (loadDialog.ShowModal() != wxID_OK)
       return;
 
-    ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
-    if (sourceDialog.GetSelection() == 0) {
+    if (loadDialog.GetResult() == LoadEditResult::Recalculate) {
+      ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
       cfg.PushUndoState("restore automatic hoist load");
       for (const std::string &uuid : selectedUuids) {
         auto supportIt = cfg.GetScene().supports.find(uuid);
@@ -765,15 +842,20 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
       ReloadData();
       return;
     }
-    manualLoadRequested = true;
+    current = wxVariant(loadDialog.GetValue());
+    editedAutomaticLoads = automaticLoads;
   }
 
-  wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col],
-                        current.GetString());
-  if (dlg.ShowModal() != wxID_OK)
-    return;
-
-  wxString value = dlg.GetValue().Trim(true).Trim(false);
+  wxString value;
+  if (*namedColumn == HoistColumn::Load) {
+    value = current.GetString().Trim(true).Trim(false);
+  } else {
+    wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col],
+                          current.GetString());
+    if (dlg.ShowModal() != wxID_OK)
+      return;
+    value = dlg.GetValue().Trim(true).Trim(false);
+  }
 
   const bool numericCol = IsNumericColumn(*namedColumn);
   bool relative = false;
@@ -871,8 +953,8 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   }
 
   ResyncRows(oldOrder, selectedUuids);
-  if (manualLoadRequested)
-    pendingManualLoadUuids.insert(selectedUuids.begin(), selectedUuids.end());
+  pendingAutomaticLoadByUuid.insert(editedAutomaticLoads.begin(),
+                                    editedAutomaticLoads.end());
 
   UpdateSceneData();
   if (Viewer3DPanel::Instance()) {
@@ -1212,11 +1294,17 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
             std::string(v.GetString().ToUTF8()), weightUnit);
         parsed.has_value()) {
       next.loadKg = static_cast<float>(*parsed);
-      if (!Units::NearlyEqualWeightKilograms(old.loadKg, next.loadKg, 0.001))
-        next.loadSource = "Manual";
+      auto automaticIt = pendingAutomaticLoadByUuid.find(old.uuid);
+      if (automaticIt != pendingAutomaticLoadByUuid.end()) {
+        next.loadSource =
+            ShouldUseAutomaticHoistLoad(old.loadKg, next.loadKg,
+                                        automaticIt->second)
+                ? "Auto"
+                : "Manual";
+        if (next.loadSource == "Auto")
+          next.loadKg = automaticIt->second;
+      }
     }
-    if (pendingManualLoadUuids.contains(old.uuid))
-      next.loadSource = "Manual";
 
     next.motorNameSource =
         ResolveHoistFieldDataSource(next.motorNameSource, next.hoistDataSource);
@@ -1287,11 +1375,11 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
   }
 
   if (!anyChanged) {
-    pendingManualLoadUuids.clear();
+    pendingAutomaticLoadByUuid.clear();
     return;
   }
 
-  pendingManualLoadUuids.clear();
+  pendingAutomaticLoadByUuid.clear();
 
   const bool loadsRecalculated = HoistLoadRecalculationPrompt::PromptAndApply(
       cfg, this, changedWeightPositions, false);

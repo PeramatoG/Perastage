@@ -43,6 +43,10 @@ bool NearlyEquals(float a, float b) {
 } // namespace
 
 int main() {
+  assert(ShouldUseAutomaticHoistLoad(80.0f, 80.0f, 95.0f));
+  assert(ShouldUseAutomaticHoistLoad(80.0f, 95.0f, 95.0f));
+  assert(!ShouldUseAutomaticHoistLoad(80.0f, 90.0f, 95.0f));
+
   {
     MvrScene scene;
     scene.fixtures["f1"] = MakeFixture("LX1", 100.0f);

@@ -60,7 +60,7 @@ private:
   std::vector<HoistLoadLimitUtils::LoadLimitState> rowLoadStates;
   std::unordered_map<wxUIntPtr, std::string> rowUuidByKey;
   std::unordered_map<wxUIntPtr, HoistLoadLimitUtils::LoadLimitState> loadStateByKey;
-  std::unordered_set<std::string> pendingManualLoadUuids;
+  std::unordered_map<std::string, float> pendingAutomaticLoadByUuid;
   wxUIntPtr nextRowKey = 1;
   wxString activeHoverTooltip;
   bool dragSelecting = false;
