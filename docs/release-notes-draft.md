@@ -71,6 +71,10 @@ Perastage v1.4.0 delivers a long-anticipated refresh of the modelling and riggin
 
 This release addresses dozens of issues across importing, snapping, editing and export workflows, including:
 
+- **GDTF fixture geometry placement** - fixtures that use top-level geometry
+  definitions through `GeometryReference` now render those parts only at their
+  referenced hierarchy position. Fixture-specific DMX modes also select the
+  correct geometry root without sharing incompatible cached geometry.
 - **Truss creation from scene types** - Add Truss now lists each available
   truss type once instead of showing every placed instance, and reliably
   reuses the original GDTF, GTruss, GLB, or 3DS definition even when the

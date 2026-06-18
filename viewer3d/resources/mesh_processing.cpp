@@ -17,7 +17,7 @@ namespace {
 
 constexpr uint32_t kMeshCacheMagic = 0x4843534Du; // MSCH
 constexpr uint32_t kGdtfCacheMagic = 0x48434747u; // GGCH
-constexpr uint32_t kCacheVersion = 2u;
+constexpr uint32_t kCacheVersion = 3u;
 constexpr float kOverdrawThreshold = 1.05f;
 
 struct CacheHeader {
@@ -65,8 +65,27 @@ bool ReadVector(std::ifstream &in, std::vector<T> &values) {
   return in.good();
 }
 
+// Builds the disk cache path for a source asset.
 std::string BuildCachePath(const std::string &sourcePath) {
   return sourcePath + ".cache";
+}
+
+// Builds a stable hash for mode-specific GDTF disk cache names.
+uint64_t HashCacheToken(const std::string &value) {
+  uint64_t hash = 1469598103934665603ull;
+  for (unsigned char c : value) {
+    hash ^= c;
+    hash *= 1099511628211ull;
+  }
+  return hash;
+}
+
+// Builds the disk cache path for a GDTF mode selection.
+std::string BuildGdtfCachePath(const std::string &sourcePath,
+                               const std::string &modeName) {
+  if (modeName.empty())
+    return BuildCachePath(sourcePath);
+  return sourcePath + "." + std::to_string(HashCacheToken(modeName)) + ".cache";
 }
 
 int64_t GetSourceTimestampNs(const std::string &sourcePath) {
@@ -177,9 +196,11 @@ bool TrySaveMeshCache(const std::string &sourcePath, const Mesh &mesh) {
   return WriteRaw(out, header) && WriteMesh(out, mesh);
 }
 
+// Loads mode-specific GDTF objects from a valid disk cache.
 bool TryLoadGdtfCache(const std::string &gdtfPath,
+                      const std::string &modeName,
                       std::vector<GdtfObject> &outObjects) {
-  std::ifstream in(BuildCachePath(gdtfPath), std::ios::binary);
+  std::ifstream in(BuildGdtfCachePath(gdtfPath, modeName), std::ios::binary);
   if (!in.is_open())
     return false;
 
@@ -204,13 +225,16 @@ bool TryLoadGdtfCache(const std::string &gdtfPath,
   return true;
 }
 
+// Saves mode-specific GDTF objects to the disk cache.
 bool TrySaveGdtfCache(const std::string &gdtfPath,
+                      const std::string &modeName,
                       const std::vector<GdtfObject> &objects) {
   const int64_t sourceTimestampNs = GetSourceTimestampNs(gdtfPath);
   if (sourceTimestampNs < 0)
     return false;
 
-  std::ofstream out(BuildCachePath(gdtfPath), std::ios::binary | std::ios::trunc);
+  std::ofstream out(BuildGdtfCachePath(gdtfPath, modeName),
+                    std::ios::binary | std::ios::trunc);
   if (!out.is_open())
     return false;
 

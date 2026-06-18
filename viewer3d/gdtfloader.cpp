@@ -1447,8 +1447,108 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
     }
 }
 
+// Collects GeometryReference targets from a geometry subtree.
+static void CollectReferencedGeometryNames(tinyxml2::XMLElement* node,
+                                           std::unordered_set<std::string>& referencedNames)
+{
+    if (!node)
+        return;
+    if (std::string_view(node->Name()) == "GeometryReference") {
+        if (const char* geometry = node->Attribute("Geometry"); geometry && !IsBlank(geometry))
+            referencedNames.insert(geometry);
+    }
+    for (tinyxml2::XMLElement* child = node->FirstChildElement(); child;
+         child = child->NextSiblingElement()) {
+        CollectReferencedGeometryNames(child, referencedNames);
+    }
+}
+
+// Resolves render roots from the selected DMX mode and standards-based fallbacks.
+static std::vector<tinyxml2::XMLElement*> ResolveGeometryRoots(
+    tinyxml2::XMLElement* fixtureType,
+    tinyxml2::XMLElement* geometries,
+    const std::unordered_map<std::string, tinyxml2::XMLElement*>& geometryMap,
+    const std::string& modeName)
+{
+    auto resolveModeRoot = [&](tinyxml2::XMLElement* mode) -> tinyxml2::XMLElement* {
+        if (!mode)
+            return nullptr;
+        const char* geometry = mode->Attribute("Geometry");
+        if (!geometry || IsBlank(geometry))
+            return nullptr;
+        auto geometryIt = geometryMap.find(geometry);
+        return geometryIt != geometryMap.end() ? geometryIt->second : nullptr;
+    };
+
+    tinyxml2::XMLElement* dmxModes = fixtureType->FirstChildElement("DMXModes");
+    if (dmxModes && !modeName.empty()) {
+        for (tinyxml2::XMLElement* mode = dmxModes->FirstChildElement("DMXMode"); mode;
+             mode = mode->NextSiblingElement("DMXMode")) {
+            const char* name = mode->Attribute("Name");
+            if (name && modeName == name) {
+                if (tinyxml2::XMLElement* root = resolveModeRoot(mode))
+                    return {root};
+                break;
+            }
+        }
+    }
+
+    if (dmxModes) {
+        for (tinyxml2::XMLElement* mode = dmxModes->FirstChildElement("DMXMode"); mode;
+             mode = mode->NextSiblingElement("DMXMode")) {
+            if (tinyxml2::XMLElement* root = resolveModeRoot(mode))
+                return {root};
+        }
+    }
+
+    std::unordered_set<std::string> referencedNames;
+    for (tinyxml2::XMLElement* geometry = geometries->FirstChildElement(); geometry;
+         geometry = geometry->NextSiblingElement()) {
+        CollectReferencedGeometryNames(geometry, referencedNames);
+    }
+
+    std::vector<tinyxml2::XMLElement*> roots;
+    for (tinyxml2::XMLElement* geometry = geometries->FirstChildElement(); geometry;
+         geometry = geometry->NextSiblingElement()) {
+        const char* name = geometry->Attribute("Name");
+        if (!name || referencedNames.find(name) == referencedNames.end())
+            roots.push_back(geometry);
+    }
+    if (!roots.empty())
+        return roots;
+
+    for (tinyxml2::XMLElement* geometry = geometries->FirstChildElement(); geometry;
+         geometry = geometry->NextSiblingElement()) {
+        roots.push_back(geometry);
+    }
+    return roots;
+}
+
+// Builds the complete top-level geometry lookup used by GeometryReference nodes.
+static std::unordered_map<std::string, tinyxml2::XMLElement*> BuildGeometryMap(
+    tinyxml2::XMLElement* geometries)
+{
+    std::unordered_map<std::string, tinyxml2::XMLElement*> geometryMap;
+    for (tinyxml2::XMLElement* geometry = geometries->FirstChildElement(); geometry;
+         geometry = geometry->NextSiblingElement()) {
+        if (const char* name = geometry->Attribute("Name"); name && !IsBlank(name))
+            geometryMap[name] = geometry;
+    }
+    return geometryMap;
+}
+
+// Loads the default GDTF geometry hierarchy using the first usable DMX mode.
 bool LoadGdtfGeometryTree(const std::string& gdtfPath,
                           GdtfGeometryTree& outTree,
+                          std::string* outError)
+{
+    return LoadGdtfGeometryTree(gdtfPath, outTree, std::string(), outError);
+}
+
+// Loads the GDTF geometry hierarchy for the requested DMX mode.
+bool LoadGdtfGeometryTree(const std::string& gdtfPath,
+                          GdtfGeometryTree& outTree,
+                          const std::string& modeName,
                           std::string* outError)
 {
     std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
@@ -1458,7 +1558,7 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
     outTree.emitterNodeIndices.clear();
 
     std::vector<GdtfObject> outObjects;
-    const bool ok = LoadGdtf(gdtfPath, outObjects, outError);
+    const bool ok = LoadGdtf(gdtfPath, outObjects, modeName, outError);
     if (!ok)
         return false;
 
@@ -1505,14 +1605,9 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
     std::unordered_set<std::string>* failedModelLoads = &entry->failedModelLoads;
 
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
-        std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
-        for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g;
-             g = g->NextSiblingElement()) {
-            if (const char* n = g->Attribute("Name"))
-                geomMap[n] = g;
-        }
-        for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g;
-             g = g->NextSiblingElement()) {
+        const auto geomMap = BuildGeometryMap(geoms);
+        const auto roots = ResolveGeometryRoots(ft, geoms, geomMap, modeName);
+        for (tinyxml2::XMLElement* g : roots) {
             ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir,
                           geomMap, meshCache, outTree, missingModels, failedModelLoads,
                           -1, nullptr, false);
@@ -1522,8 +1617,18 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
     return !outTree.nodes.empty();
 }
 
+// Loads the default GDTF models using the first usable DMX mode.
 bool LoadGdtf(const std::string& gdtfPath,
               std::vector<GdtfObject>& outObjects,
+              std::string* outError)
+{
+    return LoadGdtf(gdtfPath, outObjects, std::string(), outError);
+}
+
+// Loads the GDTF models for the requested DMX mode.
+bool LoadGdtf(const std::string& gdtfPath,
+              std::vector<GdtfObject>& outObjects,
+              const std::string& modeName,
               std::string* outError)
 {
     std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
@@ -1607,12 +1712,9 @@ bool LoadGdtf(const std::string& gdtfPath,
     std::unordered_set<std::string>* failedModelLoads = &entry->failedModelLoads;
     GdtfGeometryTree geometryTree;
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
-        std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
-        for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
-            if (const char* n = g->Attribute("Name"))
-                geomMap[n] = g;
-        }
-        for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
+        const auto geomMap = BuildGeometryMap(geoms);
+        const auto roots = ResolveGeometryRoots(ft, geoms, geomMap, modeName);
+        for (tinyxml2::XMLElement* g : roots) {
             ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap,
                           meshCache, geometryTree, missingModels, failedModelLoads, -1);
         }

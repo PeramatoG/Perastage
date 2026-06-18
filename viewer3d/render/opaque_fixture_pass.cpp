@@ -658,7 +658,9 @@ void OpaqueFixturePass::Render(
           gdtfPathIt->second.attempted)
         gdtfPath = gdtfPathIt->second.resolvedPath;
 
-      auto gdtfIt = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
+      const std::string resourceKey =
+          BuildGdtfResourceKey(gdtfPath, fixture.gdtfMode);
+      auto gdtfIt = controller.m_resourceSyncState.loadedGdtf.find(resourceKey);
       if (gdtfIt != controller.m_resourceSyncState.loadedGdtf.end()) {
         for (const auto &obj : gdtfIt->second) {
           float localMatrix[16];
@@ -837,7 +839,9 @@ void OpaqueFixturePass::Render(
         BuildFixtureSymbolModelKey(f, normalizedGdtfPath);
     const std::string svgSourcePath = normalizedGdtfPath;
 
-    auto itg = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
+    const std::string resourceKey =
+        BuildGdtfResourceKey(gdtfPath, f.gdtfMode);
+    auto itg = controller.m_resourceSyncState.loadedGdtf.find(resourceKey);
 
     bool renderedPerastageSvg = false;
     const bool captureRecordingActive =

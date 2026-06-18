@@ -21,8 +21,10 @@ bool TryLoadMeshCache(const std::string &sourcePath, Mesh &outMesh);
 bool TrySaveMeshCache(const std::string &sourcePath, const Mesh &mesh);
 
 bool TryLoadGdtfCache(const std::string &gdtfPath,
+                      const std::string &modeName,
                       std::vector<GdtfObject> &outObjects);
 bool TrySaveGdtfCache(const std::string &gdtfPath,
+                      const std::string &modeName,
                       const std::vector<GdtfObject> &objects);
 
 } // namespace viewer3d::resources
