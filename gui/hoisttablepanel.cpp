@@ -231,19 +231,15 @@ struct RangeParts {
   bool trailingSeparator = false;
 };
 
-enum class LoadEditResult {
-  Cancel,
-  ApplyValue,
-  Recalculate
-};
-
 class LoadEditDialog final : public wxDialog {
 public:
-  // Builds a load editor with direct access to automatic recalculation.
+  // Builds a load editor that can insert the calculated automatic value.
   LoadEditDialog(wxWindow *parent, const wxString &title,
-                 const wxString &currentValue)
+                 const wxString &currentValue,
+                 const wxString &automaticValue)
       : wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize,
-                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+        automaticValue(automaticValue) {
     auto *rootSizer = new wxBoxSizer(wxVERTICAL);
     valueCtrl = new wxTextCtrl(this, wxID_ANY, currentValue);
     rootSizer->Add(valueCtrl, 0, wxEXPAND | wxALL, 10);
@@ -259,11 +255,11 @@ public:
     rootSizer->Add(buttonSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     recalculateButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
-      result = LoadEditResult::Recalculate;
-      EndModal(wxID_OK);
+      valueCtrl->SetValue(automaticValue);
+      valueCtrl->SetFocus();
+      valueCtrl->SelectAll();
     });
     Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
-      result = LoadEditResult::ApplyValue;
       EndModal(wxID_OK);
     }, wxID_OK);
 
@@ -273,15 +269,12 @@ public:
     valueCtrl->SelectAll();
   }
 
-  // Returns the action selected by the user.
-  LoadEditResult GetResult() const { return result; }
-
   // Returns the edited load text.
   wxString GetValue() const { return valueCtrl->GetValue(); }
 
 private:
   wxTextCtrl *valueCtrl = nullptr;
-  LoadEditResult result = LoadEditResult::Cancel;
+  wxString automaticValue;
 };
 
 bool IsNumChar(char c) {
@@ -826,22 +819,19 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     const auto automaticLoads =
         CalculateAutomaticLoads(guiConfigServices->LegacyConfigManager(),
                                 selectedUuids);
-    LoadEditDialog loadDialog(this, columnLabels[col], current.GetString());
+    wxString automaticValue = current.GetString();
+    const std::string editedUuid = UuidForItem(item);
+    auto automaticIt = automaticLoads.find(editedUuid);
+    if (automaticIt != automaticLoads.end()) {
+      automaticValue = wxString::FromUTF8(Units::FormatWeightFromKilograms(
+          automaticIt->second, ResolveWeightUnitSystem(),
+          Units::ValueFormatContext::Table));
+    }
+    LoadEditDialog loadDialog(this, columnLabels[col], current.GetString(),
+                              automaticValue);
     if (loadDialog.ShowModal() != wxID_OK)
       return;
 
-    if (loadDialog.GetResult() == LoadEditResult::Recalculate) {
-      ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
-      cfg.PushUndoState("restore automatic hoist load");
-      for (const std::string &uuid : selectedUuids) {
-        auto supportIt = cfg.GetScene().supports.find(uuid);
-        if (supportIt != cfg.GetScene().supports.end())
-          supportIt->second.loadSource = "Auto";
-      }
-      RecalculateAutomaticLoads(cfg, selectedUuids);
-      ReloadData();
-      return;
-    }
     current = wxVariant(loadDialog.GetValue());
     editedAutomaticLoads = automaticLoads;
   }
