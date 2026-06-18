@@ -1793,16 +1793,16 @@ void Viewer2DPanel::EndContinuousFixturePlacementState() {
 
 // Synchronizes fixture tables and both viewers after a placement history change.
 void Viewer2DPanel::RefreshContinuousFixturePlacementViews() {
+  if (MainWindow::Instance()) {
+    MainWindow::Instance()->RefreshAfterToolSceneUpdate();
+    return;
+  }
   if (FixtureTablePanel::Instance())
     FixtureTablePanel::Instance()->ReloadData();
   UpdateScene();
   if (Viewer3DPanel::Instance()) {
     Viewer3DPanel::Instance()->UpdateScene();
     Viewer3DPanel::Instance()->Refresh();
-  }
-  if (MainWindow::Instance()) {
-    MainWindow::Instance()->RefreshSummary();
-    MainWindow::Instance()->RefreshRigging();
   }
   RequestRepaint();
 }

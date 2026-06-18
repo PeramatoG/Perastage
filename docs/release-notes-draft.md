@@ -73,7 +73,8 @@ This release addresses dozens of issues across importing, snapping, editing and 
   immediately to Magnet and axis-lock changes, while left-button drags retain
   normal 2D/3D navigation instead of confirming a fixture. Undo now removes
   the latest confirmed fixture while keeping placement active, and cancels the
-  session when it reaches the first fixture.
+  session when it reaches the first fixture. Placement history refreshes now
+  use the supported main-window scene update pipeline across all platforms.
 - **Fixture color compatibility** - corrected the fixture visual-color rename so
   fixture editing and fixture replacement build correctly, while layer colors
   and fixture-summary swatches continue to use their existing model fields
