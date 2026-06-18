@@ -77,6 +77,20 @@ target_link_libraries(trussloader_validation_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME TrussLoaderValidation COMMAND trussloader_validation_test)
 
+add_executable(truss_creation_source_test
+               truss_creation_source_test.cpp
+               ../gui/truss_creation_source.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/logger.cpp
+               ../core/filesystem_path_utils.cpp
+               ../models/truss.cpp)
+target_include_directories(truss_creation_source_test PRIVATE
+                           . ../core ../gui ../models ../third_party)
+target_link_libraries(truss_creation_source_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME TrussCreationSource COMMAND truss_creation_source_test)
+
 
 add_executable(mvr_merge_analyzer_applier_test
                mvr_merge_analyzer_applier_test.cpp

@@ -71,6 +71,10 @@ Perastage v1.4.0 delivers a long-anticipated refresh of the modelling and riggin
 
 This release addresses dozens of issues across importing, snapping, editing and export workflows, including:
 
+- **Truss creation from scene types** - Add Truss now lists each available
+  truss type once instead of showing every placed instance, and reliably
+  reuses the original GDTF, GTruss, GLB, or 3DS definition even when the
+  existing trusses are grouped or use extracted symbol resources.
 - **Continuous fixture placement** - subsequent fixtures now remain directly
   under the pointer after confirming a Magnet-snapped fixture instead of
   inheriting the previous fixture's grouping offset. Placement also responds

@@ -88,6 +88,7 @@
 #include "scene_grouping.h"
 #include "scene_object_primitive_creation.h"
 #include "scene_object_primitive_dialogs.h"
+#include "truss_creation_source.h"
 #include "sceneobjecttablepanel.h"
 #include "selectfixturetypedialog.h"
 #include "selection_movement_settings.h"
@@ -1350,14 +1351,12 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
   std::string defaultName;
 
   if (!scene.trusses.empty()) {
-    std::map<std::string, std::string> nameToFile;
-    for (const auto &[uuid, t] : scene.trusses)
-      if (!t.name.empty() && !t.symbolFile.empty())
-        nameToFile.try_emplace(t.name, t.symbolFile);
+    const std::vector<gui::TrussCreationSource> trussSources =
+        gui::CollectTrussCreationSources(scene.trusses, scene.basePath);
     std::vector<std::string> names;
-    names.reserve(nameToFile.size());
-    for (const auto &[n, _] : nameToFile)
-      names.push_back(n);
+    names.reserve(trussSources.size());
+    for (const gui::TrussCreationSource &source : trussSources)
+      names.push_back(source.displayName);
 
     SelectNameDialog chooseDlg(this, names, "Select Truss", "Choose a truss:");
     int dlgRes = chooseDlg.ShowModal();
@@ -1379,8 +1378,8 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
       int sel = chooseDlg.GetSelection();
       if (sel < 0 || sel >= static_cast<int>(names.size()))
         return;
-      defaultName = names[sel];
-      path = nameToFile[defaultName];
+      defaultName = trussSources[sel].displayName;
+      path = trussSources[sel].definitionPath;
     }
   } else {
     wxString trussDir =
