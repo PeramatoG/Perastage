@@ -16,20 +16,19 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "fixturetablepanel.h"
-#include "fixturetablepanel_update_types.h"
-#include "fixturetablepanel_ui_helpers.h"
 #include "addressdialog.h"
 #include "configmanager.h"
-#include "selection_origin_token.h"
-#include "guiconfigservices.h"
 #include "consolepanel.h"
 #include "fixtureeditdialog.h"
 #include "fixturetable/fixture_table_columns.h"
 #include "fixturetable/fixture_table_edit_service.h"
 #include "fixturetable/fixture_table_parser.h"
+#include "fixturetablepanel_ui_helpers.h"
+#include "fixturetablepanel_update_types.h"
 #include "gdtf_fixture_category.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
+#include "guiconfigservices.h"
 #include "hoist_load_recalculation_prompt.h"
 #include "layerpanel.h"
 #include "mainwindow.h"
@@ -37,8 +36,8 @@
 #include "patchmanager.h"
 #include "projectutils.h"
 #include "riggingpanel.h"
+#include "selection_origin_token.h"
 #include "stringutils.h"
-#include <wx/aui/aui.h>
 #include "summarypanel.h"
 #include "units/unit_label_utils.h"
 #include "units/units.h"
@@ -50,6 +49,7 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include <wx/aui/aui.h>
 #include <wx/choicdlg.h>
 #include <wx/colordlg.h>
 #include <wx/dcmemory.h>
@@ -57,8 +57,8 @@
 #include <wx/filename.h>
 #include <wx/notebook.h>
 #include <wx/tokenzr.h>
-#include <wx/wupdlock.h>
 #include <wx/version.h>
+#include <wx/wupdlock.h>
 
 namespace fs = std::filesystem;
 
@@ -69,28 +69,31 @@ const wxString &DegreeSymbol() {
   return kDegreeSymbol;
 }
 
-class ConfigManagerSceneAdapter : public FixtureTableEditService::ISceneAdapter {
+class ConfigManagerSceneAdapter
+    : public FixtureTableEditService::ISceneAdapter {
 public:
-// Stores an undo checkpoint for fixture table edits.
+  // Stores an undo checkpoint for fixture table edits.
   void PushUndoState(const std::string &description) override {
-    GetDefaultGuiConfigServices().LegacyConfigManager().PushUndoState(description);
+    GetDefaultGuiConfigServices().LegacyConfigManager().PushUndoState(
+        description);
   }
 
-// Exposes the active scene for fixture table edit operations.
-  MvrScene &GetScene() override { return GetDefaultGuiConfigServices().LegacyConfigManager().GetScene(); }
+  // Exposes the active scene for fixture table edit operations.
+  MvrScene &GetScene() override {
+    return GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  }
 
-// Reads the configured distance unit system for formatting and parsing.
+  // Reads the configured distance unit system for formatting and parsing.
   Units::DistanceUnitSystem GetDistanceUnitSystem() const override {
     const auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     return Units::ParseDistanceUnitSystem(
         cfg.GetValue("ui_distance_unit_system"));
   }
 
-// Reads the configured weight unit system for formatting and parsing.
+  // Reads the configured weight unit system for formatting and parsing.
   Units::WeightUnitSystem GetWeightUnitSystem() const override {
     const auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    return Units::ParseWeightUnitSystem(
-        cfg.GetValue("ui_weight_unit_system"));
+    return Units::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
   }
 };
 
@@ -113,8 +116,7 @@ void RefreshViewersForFixtureUpdate(
 }
 
 // Determines whether a scene update type requires rigging panel refresh.
-bool RequiresRiggingRefresh(
-    FixtureTablePanel::SceneDataUpdateType updateType) {
+bool RequiresRiggingRefresh(FixtureTablePanel::SceneDataUpdateType updateType) {
   using SceneDataUpdateType = FixtureTablePanel::SceneDataUpdateType;
   switch (updateType) {
   case SceneDataUpdateType::kWeightOrPosition:
@@ -182,12 +184,15 @@ void SetFixtureColorCell(wxDataViewListCtrl *table, int row,
 
   wxVariant colorValue;
   colorValue << wxDataViewIconText(wxString::FromUTF8(hexColor), bmp);
-  table->SetValue(colorValue, row, 19);
+  table->SetValue(
+      colorValue, row,
+      FixtureTableColumns::ToIndex(FixtureTableColumns::Column::VisualColor));
 }
 } // namespace
 
 // Initializes the fixture table UI, columns, and event bindings.
-FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *services)
+FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
+                                     IGuiConfigServices *services)
     : wxPanel(parent, wxID_ANY),
       guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
   store = new ColorfulDataViewListStore();
@@ -238,22 +243,30 @@ FixtureTablePanel::~FixtureTablePanel() {
 void FixtureTablePanel::InitializeTable() {
   columnLabels = FixtureTableColumns::DefaultLabels();
   auto &cfg = guiConfigServices->LegacyConfigManager();
-  const auto distanceUnit = Units::ParseDistanceUnitSystem(
-      cfg.GetValue("ui_distance_unit_system"));
-  const auto weightUnit = Units::ParseWeightUnitSystem(
-      cfg.GetValue("ui_weight_unit_system"));
+  const auto distanceUnit =
+      Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+  const auto weightUnit =
+      Units::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
   const wxString distanceSuffix =
       wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
   const wxString weightSuffix =
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
-  columnLabels[10] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[11] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[12] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[17] = wxString::FromUTF8(
-      Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
+  columnLabels[FixtureTableColumns::ToIndex(
+      FixtureTableColumns::Column::PositionX)] =
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[FixtureTableColumns::ToIndex(
+      FixtureTableColumns::Column::PositionY)] =
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[FixtureTableColumns::ToIndex(
+      FixtureTableColumns::Column::PositionZ)] =
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[FixtureTableColumns::ToIndex(
+      FixtureTableColumns::Column::Weight)] =
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
   FixtureTableColumns::ConfigureColumns(table, columnLabels);
 }
 
@@ -265,22 +278,30 @@ void FixtureTablePanel::ReloadData() {
   wxWindowUpdateLocker locker(table);
 
   auto &cfg = guiConfigServices->LegacyConfigManager();
-  const auto distanceUnit = Units::ParseDistanceUnitSystem(
-      cfg.GetValue("ui_distance_unit_system"));
-  const auto weightUnit = Units::ParseWeightUnitSystem(
-      cfg.GetValue("ui_weight_unit_system"));
+  const auto distanceUnit =
+      Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+  const auto weightUnit =
+      Units::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
   const wxString distanceSuffix =
       wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
   const wxString weightSuffix =
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
-  columnLabels[10] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[11] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[12] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[17] = wxString::FromUTF8(
-      Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
+  columnLabels[FixtureTableColumns::ToIndex(
+      FixtureTableColumns::Column::PositionX)] =
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[FixtureTableColumns::ToIndex(
+      FixtureTableColumns::Column::PositionY)] =
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[FixtureTableColumns::ToIndex(
+      FixtureTableColumns::Column::PositionZ)] =
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[FixtureTableColumns::ToIndex(
+      FixtureTableColumns::Column::Weight)] =
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
   for (size_t i = 0; i < columnLabels.size(); ++i) {
     if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
       column->SetTitle(columnLabels[i]);
@@ -293,7 +314,8 @@ void FixtureTablePanel::ReloadData() {
   gdtfPathByKey.clear();
   nextRowKey = 1;
 
-  const auto &fixtures = guiConfigServices->LegacyConfigManager().GetScene().fixtures;
+  const auto &fixtures =
+      guiConfigServices->LegacyConfigManager().GetScene().fixtures;
 
   std::vector<std::pair<std::string, const Fixture *>> sorted;
   sorted.reserve(fixtures.size());
@@ -335,7 +357,8 @@ void FixtureTablePanel::ReloadData() {
     }
     std::string fullPath;
     if (!fixture->gdtfSpec.empty()) {
-      const std::string &base = guiConfigServices->LegacyConfigManager().GetScene().basePath;
+      const std::string &base =
+          guiConfigServices->LegacyConfigManager().GetScene().basePath;
       fs::path p = base.empty() ? fs::path(fixture->gdtfSpec)
                                 : fs::path(base) / fixture->gdtfSpec;
       fullPath = p.string();
@@ -430,11 +453,14 @@ void FixtureTablePanel::ReloadData() {
   table->Thaw();
 }
 
-// Handles context-menu editing actions and only applies scene updates when data actually changes.
+// Handles context-menu editing actions and only applies scene updates when data
+// actually changes.
 void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   wxDataViewItem item = event.GetItem();
   int col = event.GetColumn();
-  if (!item.IsOk() || col < 0)
+  const auto namedColumn = FixtureTableColumns::FromIndex(col);
+  if (!item.IsOk() || !namedColumn ||
+      static_cast<size_t>(col) >= columnLabels.size())
     return;
 
   wxDataViewItemArray selections;
@@ -451,7 +477,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   std::vector<std::string> oldOrder = rowUuids;
 
   // Model file column opens file dialog
-  if (col == 9) {
+  if (col ==
+      FixtureTableColumns::ToIndex(FixtureTableColumns::Column::ModelFile)) {
     bool changed = false;
     wxString fixDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
@@ -478,8 +505,11 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
           continue;
 
         wxVariant prevType;
-        table->GetValue(prevType, r, 2);
-        const std::string prevTypeUtf8 = std::string(prevType.GetString().ToUTF8());
+        table->GetValue(
+            prevType, r,
+            FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Type));
+        const std::string prevTypeUtf8 =
+            std::string(prevType.GetString().ToUTF8());
         prevTypes.push_back(prevTypeUtf8);
         if (!prevTypeUtf8.empty())
           prevTypeSet.insert(prevTypeUtf8);
@@ -488,25 +518,36 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
           gdtfPaths.resize(table->GetItemCount());
 
         wxVariant existingModelFile;
-        table->GetValue(existingModelFile, r, 9);
+        table->GetValue(existingModelFile, r,
+                        FixtureTableColumns::ToIndex(
+                            FixtureTableColumns::Column::ModelFile));
         wxVariant existingTypeName;
-        table->GetValue(existingTypeName, r, 2);
+        table->GetValue(
+            existingTypeName, r,
+            FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Type));
 
-        const bool rowChanged =
-            gdtfPaths[static_cast<size_t>(r)] != path ||
-            existingModelFile.GetString() != fileName ||
-            existingTypeName.GetString() != typeName;
+        const bool rowChanged = gdtfPaths[static_cast<size_t>(r)] != path ||
+                                existingModelFile.GetString() != fileName ||
+                                existingTypeName.GetString() != typeName;
         if (!rowChanged)
           continue;
 
         SetGdtfPathForRow(static_cast<unsigned int>(r), path);
-        table->SetValue(wxVariant(fileName), r, 9);
-        table->SetValue(wxVariant(typeName), r, 2);
+        table->SetValue(wxVariant(fileName), r,
+                        FixtureTableColumns::ToIndex(
+                            FixtureTableColumns::Column::ModelFile));
+        table->SetValue(
+            wxVariant(typeName), r,
+            FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Type));
 
         wxString pstr = wxString::Format("%.1f", p);
         wxString wstr = wxString::Format("%.2f", w);
-        table->SetValue(wxVariant(pstr), r, 16);
-        table->SetValue(wxVariant(wstr), r, 17);
+        table->SetValue(
+            wxVariant(pstr), r,
+            FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Power));
+        table->SetValue(
+            wxVariant(wstr), r,
+            FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Weight));
         if (dictColor && !dictColor->color.empty())
           SetFixtureColorCell(table, r, dictColor->color);
         changed = true;
@@ -514,8 +555,11 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
       for (unsigned int i = 0; i < table->GetItemCount(); ++i) {
         wxVariant typeVar;
-        table->GetValue(typeVar, i, 2);
-        const std::string currentType = std::string(typeVar.GetString().ToUTF8());
+        table->GetValue(
+            typeVar, i,
+            FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Type));
+        const std::string currentType =
+            std::string(typeVar.GetString().ToUTF8());
         if (prevTypeSet.find(currentType) == prevTypeSet.end())
           continue;
 
@@ -523,9 +567,13 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
           gdtfPaths.resize(table->GetItemCount());
 
         wxVariant existingModelFile;
-        table->GetValue(existingModelFile, i, 9);
+        table->GetValue(existingModelFile, i,
+                        FixtureTableColumns::ToIndex(
+                            FixtureTableColumns::Column::ModelFile));
         wxVariant existingTypeName;
-        table->GetValue(existingTypeName, i, 2);
+        table->GetValue(
+            existingTypeName, i,
+            FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Type));
 
         const bool rowChanged = gdtfPaths[static_cast<size_t>(i)] != path ||
                                 existingModelFile.GetString() != fileName ||
@@ -534,20 +582,30 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
           continue;
 
         SetGdtfPathForRow(i, path);
-        table->SetValue(wxVariant(fileName), i, 9);
-        table->SetValue(wxVariant(typeName), i, 2);
+        table->SetValue(wxVariant(fileName), i,
+                        FixtureTableColumns::ToIndex(
+                            FixtureTableColumns::Column::ModelFile));
+        table->SetValue(
+            wxVariant(typeName), i,
+            FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Type));
 
         wxString pstr = wxString::Format("%.1f", p);
         wxString wstr = wxString::Format("%.2f", w);
-        table->SetValue(wxVariant(pstr), i, 16);
-        table->SetValue(wxVariant(wstr), i, 17);
+        table->SetValue(
+            wxVariant(pstr), i,
+            FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Power));
+        table->SetValue(
+            wxVariant(wstr), i,
+            FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Weight));
         if (dictColor && !dictColor->color.empty())
           SetFixtureColorCell(table, i, dictColor->color);
         changed = true;
       }
 
-      PropagateTypeValues(selections, 16);
-      PropagateTypeValues(selections, 17);
+      PropagateTypeValues(selections, FixtureTableColumns::ToIndex(
+                                          FixtureTableColumns::Column::Power));
+      PropagateTypeValues(selections, FixtureTableColumns::ToIndex(
+                                          FixtureTableColumns::Column::Weight));
 
       wxString dictMode;
       if (!prevTypes.empty()) {
@@ -557,13 +615,17 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       if (changed)
         ApplyModeForGdtf(path, dictMode);
 
-      // Project table GDTF changes stay project-scoped and do not promote files into the user library.
+      // Project table GDTF changes stay project-scoped and do not promote files
+      // into the user library.
     }
     if (!changed)
       return;
     ResyncRows(oldOrder, selectedUuids);
-    const auto updateType = CombineUpdateTypes(
-        UpdateTypeForColumn(9), UpdateTypeForColumn(16));
+    const auto updateType =
+        CombineUpdateTypes(UpdateTypeForColumn(FixtureTableColumns::ToIndex(
+                               FixtureTableColumns::Column::ModelFile)),
+                           UpdateTypeForColumn(FixtureTableColumns::ToIndex(
+                               FixtureTableColumns::Column::Power)));
     UpdateSceneData(true, updateType);
     RefreshViewersForFixtureUpdate(updateType);
     if (MainWindow::Instance()) {
@@ -573,7 +635,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   }
 
   // Mode column shows available modes of the selected GDTF
-  if (col == 7) {
+  if (col == FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Mode)) {
     int r = table->ItemToRow(item);
     if (r == wxNOT_FOUND)
       return;
@@ -617,21 +679,25 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
                                             std::string(sel.ToUTF8()));
       wxString chStr =
           chCount >= 0 ? wxString::Format("%d", chCount) : wxString();
-      table->SetValue(wxVariant(chStr), sr, 8);
-
+      table->SetValue(wxVariant(chStr), sr,
+                      FixtureTableColumns::ToIndex(
+                          FixtureTableColumns::Column::ChannelCount));
     }
     ApplyModeForGdtf(gdtfPath, sel);
 
     ResyncRows(oldOrder, selectedUuids);
-    const auto updateType = CombineUpdateTypes(
-        UpdateTypeForColumn(7), UpdateTypeForColumn(8));
+    const auto updateType =
+        CombineUpdateTypes(UpdateTypeForColumn(FixtureTableColumns::ToIndex(
+                               FixtureTableColumns::Column::Mode)),
+                           UpdateTypeForColumn(FixtureTableColumns::ToIndex(
+                               FixtureTableColumns::Column::ChannelCount)));
     UpdateSceneData(true, updateType);
     RefreshViewersForFixtureUpdate(updateType);
     return;
   }
 
   // Layer column uses existing layer list
-  if (col == 3) {
+  if (col == FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Layer)) {
     auto layers = guiConfigServices->LegacyConfigManager().GetLayerNames();
     wxArrayString choices;
     for (const auto &n : layers)
@@ -654,14 +720,19 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   }
 
   // Channel column edits both universe and channel
-  if (col == 6) {
+  if (col ==
+      FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Channel)) {
     int r = table->ItemToRow(item);
     if (r == wxNOT_FOUND)
       return;
 
     wxVariant vUni, vCh;
-    table->GetValue(vUni, r, 5);
-    table->GetValue(vCh, r, 6);
+    table->GetValue(
+        vUni, r,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Universe));
+    table->GetValue(
+        vCh, r,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Channel));
     AddressDialog dlg(this, vUni.GetLong(), vCh.GetLong());
     if (dlg.ShowModal() != wxID_OK)
       return;
@@ -694,7 +765,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     counts.reserve(orderedRows.size());
     for (int row : orderedRows) {
       wxVariant vCount;
-      table->GetValue(vCount, row, 8);
+      table->GetValue(vCount, row,
+                      FixtureTableColumns::ToIndex(
+                          FixtureTableColumns::Column::ChannelCount));
       long c = 1;
       if (!vCount.GetString().ToLong(&c))
         c = 1;
@@ -705,13 +778,20 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
     auto addrs = PatchManager::SequentialPatch(counts, newUni, newCh);
     for (size_t i = 0; i < orderedRows.size() && i < addrs.size(); ++i) {
-      table->SetValue(wxVariant(addrs[i].universe), orderedRows[i], 5);
-      table->SetValue(wxVariant(addrs[i].channel), orderedRows[i], 6);
+      table->SetValue(
+          wxVariant(addrs[i].universe), orderedRows[i],
+          FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Universe));
+      table->SetValue(
+          wxVariant(addrs[i].channel), orderedRows[i],
+          FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Channel));
     }
 
     ResyncRows(oldOrder, selectedUuids);
-    const auto updateType = CombineUpdateTypes(
-        UpdateTypeForColumn(5), UpdateTypeForColumn(6));
+    const auto updateType =
+        CombineUpdateTypes(UpdateTypeForColumn(FixtureTableColumns::ToIndex(
+                               FixtureTableColumns::Column::Universe)),
+                           UpdateTypeForColumn(FixtureTableColumns::ToIndex(
+                               FixtureTableColumns::Column::Channel)));
     UpdateSceneData(true, updateType);
     RefreshViewersForFixtureUpdate(updateType);
     return;
@@ -724,11 +804,12 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   wxVariant current;
   table->GetValue(current, baseRow, col);
 
-  if (col == 18) {
+  if (col ==
+      FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Category)) {
     const wxArrayString choices = {
-        "Beam",         "Blinder", "Conventional", "FX",    "Hoist",
-        "Hybrid",       "Laser",   "LED",          "Smoke", "Spot",
-        "Strobe",       "Unknown", "Video",        "Wash"};
+        "Beam",   "Blinder", "Conventional", "FX",    "Hoist",
+        "Hybrid", "Laser",   "LED",          "Smoke", "Spot",
+        "Strobe", "Unknown", "Video",        "Wash"};
     wxSingleChoiceDialog dlg(this, "Select category", "Category", choices);
     if (!current.GetString().empty()) {
       int sel = choices.Index(current.GetString());
@@ -744,7 +825,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       if (r == wxNOT_FOUND)
         continue;
       wxVariant typeValue;
-      table->GetValue(typeValue, r, 2);
+      table->GetValue(
+          typeValue, r,
+          FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Type));
       selectedTypes.insert(std::string(typeValue.GetString().ToUTF8()));
     }
 
@@ -752,7 +835,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     affectedRows.reserve(table->GetItemCount());
     for (unsigned int row = 0; row < table->GetItemCount(); ++row) {
       wxVariant typeValue;
-      table->GetValue(typeValue, row, 2);
+      table->GetValue(
+          typeValue, row,
+          FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Type));
       const std::string typeName = std::string(typeValue.GetString().ToUTF8());
       if (selectedTypes.find(typeName) != selectedTypes.end())
         affectedRows.push_back(row);
@@ -778,11 +863,14 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     const auto updateType = UpdateTypeForColumn(col);
     UpdateSceneData(true, updateType, &affectedRows);
 
-    auto &fixtures = guiConfigServices->LegacyConfigManager().GetScene().fixtures;
+    auto &fixtures =
+        guiConfigServices->LegacyConfigManager().GetScene().fixtures;
     for (const auto row : affectedRows) {
       if (row >= table->GetItemCount())
         continue;
-      store->ClearCellTextColour(row, 18);
+      store->ClearCellTextColour(
+          row,
+          FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Category));
       if (row >= rowUuids.size())
         continue;
       const auto itFixture = fixtures.find(rowUuids[row]);
@@ -796,7 +884,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     return;
   }
 
-  if (col == 19) {
+  if (col ==
+      FixtureTableColumns::ToIndex(FixtureTableColumns::Column::VisualColor)) {
     wxColourData data;
     data.SetChooseFull(true);
     wxColour initial(current.GetString());
@@ -839,12 +928,12 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   bool trailingSpace = raw.EndsWith(" ");
   wxString value = raw.Trim(true).Trim(false);
 
-  bool intCol = (col == 0 || col == 5 || col == 6);
-  bool numericCol =
-      intCol || (col >= 10 && col <= 12) || (col >= 13 && col <= 17);
+  const bool intCol = FixtureTableColumns::IsInteger(*namedColumn);
+  const bool numericCol =
+      intCol || FixtureTableColumns::IsNumeric(*namedColumn);
   bool relative = false;
   double delta = 0.0;
-  if (!intCol && col >= 10 && col <= 15 &&
+  if (!intCol && FixtureTableColumns::IsTransform(*namedColumn) &&
       (value.StartsWith("++") || value.StartsWith("--"))) {
     wxString numStr = value.Mid(2);
     if (numStr.ToDouble(&delta)) {
@@ -863,7 +952,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxVariant cv;
         table->GetValue(cv, r, col);
         wxString cur = cv.GetString();
-        if (col >= 13 && col <= 15) {
+        if (FixtureTableColumns::IsRotation(*namedColumn)) {
           if (!DegreeSymbol().empty())
             cur.Replace(DegreeSymbol(), "");
         }
@@ -871,7 +960,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         cur.ToDouble(&curVal);
         double newVal = curVal + delta;
         wxString out;
-        if (col >= 13 && col <= 15)
+        if (FixtureTableColumns::IsRotation(*namedColumn))
           out = wxString::Format("%.1f", newVal) + DegreeSymbol();
         else
           out = wxString::Format("%.3f", newVal);
@@ -896,7 +985,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
           wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
           return;
         }
-        if (col == 6 && (v1 < 1 || v1 > 512)) {
+        if (col == FixtureTableColumns::ToIndex(
+                       FixtureTableColumns::Column::Channel) &&
+            (v1 < 1 || v1 > 512)) {
           wxMessageBox("Channel out of range (1-512)", "Error",
                        wxOK | wxICON_ERROR);
           return;
@@ -908,7 +999,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
             wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
             return;
           }
-          if (col == 6 && (v2 < 1 || v2 > 512)) {
+          if (col == FixtureTableColumns::ToIndex(
+                         FixtureTableColumns::Column::Channel) &&
+              (v2 < 1 || v2 > 512)) {
             wxMessageBox("Channel out of range (1-512)", "Error",
                          wxOK | wxICON_ERROR);
             return;
@@ -927,9 +1020,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
             selectedRows.push_back(r);
         }
 
-        auto orderedRows =
-            FixtureTableEditService::BuildOrderedRows(selectedRows,
-                                                      selectionOrder);
+        auto orderedRows = FixtureTableEditService::BuildOrderedRows(
+            selectedRows, selectionOrder);
 
         for (size_t i = 0; i < orderedRows.size(); ++i) {
           long val = v1;
@@ -968,7 +1060,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
             val = v1 + static_cast<double>(i);
 
           wxString out;
-          if (col >= 13 && col <= 15)
+          if (FixtureTableColumns::IsRotation(*namedColumn))
             out = wxString::Format("%.1f", val) + DegreeSymbol();
           else
             out = wxString::Format("%.3f", val);
@@ -980,7 +1072,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       }
     }
   } else {
-    if (col == 1 && selections.size() > 1) {
+    if (col ==
+            FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Name) &&
+        selections.size() > 1) {
       int spacePos = value.find_last_of(' ');
       long baseNum = 0;
       if (spacePos != wxNOT_FOUND && value.Mid(spacePos + 1).ToLong(&baseNum)) {
@@ -994,13 +1088,12 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
             selectedRows.push_back(r);
         }
 
-        auto orderedRows =
-            FixtureTableEditService::BuildOrderedRows(selectedRows,
-                                                      selectionOrder);
+        auto orderedRows = FixtureTableEditService::BuildOrderedRows(
+            selectedRows, selectionOrder);
 
         for (size_t i = 0; i < orderedRows.size(); ++i) {
-          wxString newName = prefix + " " +
-                             wxString::Format("%ld", baseNum + (long)i);
+          wxString newName =
+              prefix + " " + wxString::Format("%ld", baseNum + (long)i);
           table->SetValue(wxVariant(newName), orderedRows[i], col);
         }
       } else {
@@ -1021,7 +1114,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   PropagateTypeValues(selections, col);
   const SceneDataUpdateType updateType = UpdateTypeForColumn(col);
   ResyncRows(oldOrder, selectedUuids);
-  if (col == 1) {
+  if (col == FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Name)) {
     std::vector<int> selectedRows;
     selectedRows.reserve(selections.size());
     for (const auto &it : selections) {
@@ -1055,8 +1148,9 @@ FixtureTablePanel::UpdateTypeForColumn(int column) {
 }
 
 // Combines two scene update categories into a safe aggregate update.
-FixtureTablePanel::SceneDataUpdateType FixtureTablePanel::CombineUpdateTypes(
-    SceneDataUpdateType lhs, SceneDataUpdateType rhs) {
+FixtureTablePanel::SceneDataUpdateType
+FixtureTablePanel::CombineUpdateTypes(SceneDataUpdateType lhs,
+                                      SceneDataUpdateType rhs) {
   return CombineUpdateTypesImpl(lhs, rhs);
 }
 
@@ -1130,8 +1224,10 @@ void FixtureTablePanel::HighlightFixture(
 void FixtureTablePanel::HighlightPatchConflicts() {
   // Clear previous highlighting on Universe and Channel columns
   for (unsigned i = 0; i < table->GetItemCount(); ++i) {
-    store->ClearCellTextColour(i, 5);
-    store->ClearCellTextColour(i, 6);
+    store->ClearCellTextColour(
+        i, FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Universe));
+    store->ClearCellTextColour(
+        i, FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Channel));
   }
 
   struct PatchInfo {
@@ -1143,11 +1239,17 @@ void FixtureTablePanel::HighlightPatchConflicts() {
 
   for (unsigned i = 0; i < table->GetItemCount(); ++i) {
     wxVariant v;
-    table->GetValue(v, i, 5);
+    table->GetValue(
+        v, i,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Universe));
     long uni = v.GetLong();
-    table->GetValue(v, i, 6);
+    table->GetValue(
+        v, i,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Channel));
     long ch = v.GetLong();
-    table->GetValue(v, i, 8);
+    table->GetValue(v, i,
+                    FixtureTableColumns::ToIndex(
+                        FixtureTableColumns::Column::ChannelCount));
     long count = 1;
     if (!v.GetString().ToLong(&count))
       count = 1;
@@ -1207,7 +1309,8 @@ void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
   RebuildRowCachesFromRowKeys();
   std::unique_ptr<wxEventBlocker> selectionBlocker;
   if (!notifySelectionChanged)
-    selectionBlocker = std::make_unique<wxEventBlocker>(table, wxEVT_DATAVIEW_SELECTION_CHANGED);
+    selectionBlocker = std::make_unique<wxEventBlocker>(
+        table, wxEVT_DATAVIEW_SELECTION_CHANGED);
   table->UnselectAll();
   selectionOrder.clear();
   std::vector<bool> selectedRows(table->GetItemCount(), false);
@@ -1343,14 +1446,10 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
 }
 
 // Captures mouse focus for drag-style interactions inside the table.
-void FixtureTablePanel::OnLeftDown(wxMouseEvent &evt) {
-  evt.Skip();
-}
+void FixtureTablePanel::OnLeftDown(wxMouseEvent &evt) { evt.Skip(); }
 
 // Releases mouse capture after table drag-style interactions finish.
-void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) {
-  evt.Skip();
-}
+void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) { evt.Skip(); }
 
 // Resets capture state when the system forces mouse capture loss.
 void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
@@ -1504,9 +1603,15 @@ void FixtureTablePanel::UpdatePositionValues(
       continue;
 
     int row = static_cast<int>(pos - rowUuids.begin());
-    table->SetValue(wxVariant(posX), row, 10);
-    table->SetValue(wxVariant(posY), row, 11);
-    table->SetValue(wxVariant(posZ), row, 12);
+    table->SetValue(
+        wxVariant(posX), row,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::PositionX));
+    table->SetValue(
+        wxVariant(posY), row,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::PositionY));
+    table->SetValue(
+        wxVariant(posZ), row,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::PositionZ));
   }
 }
 
@@ -1523,9 +1628,15 @@ void FixtureTablePanel::ApplyPositionValueUpdates(
       continue;
 
     int row = static_cast<int>(pos - rowUuids.begin());
-    table->SetValue(wxVariant(wxString::FromUTF8(update.posX)), row, 10);
-    table->SetValue(wxVariant(wxString::FromUTF8(update.posY)), row, 11);
-    table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row, 12);
+    table->SetValue(
+        wxVariant(wxString::FromUTF8(update.posX)), row,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::PositionX));
+    table->SetValue(
+        wxVariant(wxString::FromUTF8(update.posY)), row,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::PositionY));
+    table->SetValue(
+        wxVariant(wxString::FromUTF8(update.posZ)), row,
+        FixtureTableColumns::ToIndex(FixtureTableColumns::Column::PositionZ));
   }
 }
 
@@ -1538,10 +1649,11 @@ void FixtureTablePanel::PropagateTypeValues(
   FixtureTableEditService::PropagateTypeValues(table, selections, col);
 }
 
-// Persists edited table values back into scene fixtures and refreshes dependents.
-void FixtureTablePanel::UpdateSceneData(bool logChanges,
-                                        SceneDataUpdateType updateType,
-                                        const std::vector<unsigned int> *targetRows) {
+// Persists edited table values back into scene fixtures and refreshes
+// dependents.
+void FixtureTablePanel::UpdateSceneData(
+    bool logChanges, SceneDataUpdateType updateType,
+    const std::vector<unsigned int> *targetRows) {
 
   ConfigManagerSceneAdapter adapter;
   std::unordered_set<std::string> changedWeightPositions;
@@ -1580,8 +1692,7 @@ void FixtureTablePanel::UpdateSceneData(bool logChanges,
       updateType != SceneDataUpdateType::kCategoryOnly)
     RunValidationHighlights(updateType);
 
-  if (RequiresRiggingRefresh(updateType) &&
-      RiggingPanel::Instance())
+  if (RequiresRiggingRefresh(updateType) && RiggingPanel::Instance())
     RiggingPanel::Instance()->RefreshData();
 
   if (SummaryPanel::Instance() && IsActivePage() &&
@@ -1612,7 +1723,8 @@ void FixtureTablePanel::ApplyModeForGdtf(const wxString &path,
       continue;
 
     wxVariant v;
-    table->GetValue(v, i, 7);
+    table->GetValue(
+        v, i, FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Mode));
     wxString currWx = v.GetString();
     std::string curr = std::string(currWx.ToUTF8());
 
@@ -1641,12 +1753,16 @@ void FixtureTablePanel::ApplyModeForGdtf(const wxString &path,
     }
 
     if (chosen != curr)
-      table->SetValue(wxVariant(wxString::FromUTF8(chosen)), i, 7);
+      table->SetValue(
+          wxVariant(wxString::FromUTF8(chosen)), i,
+          FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Mode));
 
     int chCount = GetGdtfModeChannelCount(std::string(path.ToUTF8()), chosen);
     wxString chStr =
         chCount >= 0 ? wxString::Format("%d", chCount) : wxString();
-    table->SetValue(wxVariant(chStr), i, 8);
+    table->SetValue(wxVariant(chStr), i,
+                    FixtureTableColumns::ToIndex(
+                        FixtureTableColumns::Column::ChannelCount));
   }
 }
 
@@ -1655,13 +1771,18 @@ void FixtureTablePanel::HighlightDuplicateFixtureIds() {
   // Clear existing text colour highlights
   for (unsigned i = 0; i < table->GetItemCount(); ++i) {
     store->ClearRowTextColour(i);
-    store->ClearCellTextColour(i, 0); // Fixture ID column
+    store->ClearCellTextColour(
+        i, FixtureTableColumns::ToIndex(
+               FixtureTableColumns::Column::FixtureId)); // Fixture ID column
   }
 
   std::unordered_map<long, std::vector<unsigned>> idRows;
   for (unsigned i = 0; i < table->GetItemCount(); ++i) {
     wxVariant v;
-    table->GetValue(v, i, 0); // Fixture ID column
+    table->GetValue(
+        v, i,
+        FixtureTableColumns::ToIndex(
+            FixtureTableColumns::Column::FixtureId)); // Fixture ID column
     long id = v.GetLong();
     idRows[id].push_back(i);
   }
@@ -1675,7 +1796,8 @@ void FixtureTablePanel::HighlightDuplicateFixtureIds() {
 }
 
 // Runs validation highlight passes that correspond to the update scope.
-void FixtureTablePanel::RunValidationHighlights(SceneDataUpdateType updateType) {
+void FixtureTablePanel::RunValidationHighlights(
+    SceneDataUpdateType updateType) {
   switch (updateType) {
   case SceneDataUpdateType::kPatchOnly:
     HighlightPatchConflicts();
@@ -1706,7 +1828,8 @@ void FixtureTablePanel::RunValidationHighlights(SceneDataUpdateType updateType) 
 void FixtureTablePanel::HighlightAutoFallbackCategories() {
   auto &fixtures = guiConfigServices->LegacyConfigManager().GetScene().fixtures;
   for (unsigned i = 0; i < table->GetItemCount(); ++i) {
-    store->ClearCellTextColour(i, 18);
+    store->ClearCellTextColour(
+        i, FixtureTableColumns::ToIndex(FixtureTableColumns::Column::Category));
 
     if (i >= rowUuids.size())
       continue;
