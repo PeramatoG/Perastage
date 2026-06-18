@@ -140,8 +140,8 @@ void SummaryPanel::ShowFixtureSummary() {
         auto& row = grouped[fix.typeName];
         row.typeName = fix.typeName;
         row.count += 1;
-    if (row.visualColorHexHex.empty() && !fix.visualColorHex.empty())
-      row.visualColorHexHex = fix.visualColorHex;
+        if (row.colorHex.empty() && !fix.visualColorHex.empty())
+            row.colorHex = fix.visualColorHex;
     }
 
     const auto hiddenFixtureTypes =
@@ -208,8 +208,8 @@ void SummaryPanel::ShowFixtureSummaryRows(
         wxBitmap bmp(16, 16);
         wxMemoryDC dc(bmp);
         wxColour color;
-    if (!rowData.visualColorHexHex.empty() &&
-        color.Set(wxString::FromUTF8(rowData.visualColorHexHex)))
+        if (!rowData.colorHex.empty() &&
+            color.Set(wxString::FromUTF8(rowData.colorHex)))
             dc.SetBrush(wxBrush(color));
         else
             dc.SetBrush(wxBrush(wxColour(128, 128, 128)));

@@ -1939,7 +1939,7 @@ bool RiderImporter::ImportText(const std::string &text,
       Layer l;
       l.uuid = name == DEFAULT_LAYER_NAME ? "layer_default" : GenerateUuid();
       l.name = name;
-      l.visualColorHex = layerColor;
+      l.color = layerColor;
       auto [insertedIt, inserted] = scene.layers.emplace(l.uuid, std::move(l));
       layerPtr = &insertedIt->second;
       layerLookup.emplace(layerPtr->name, layerPtr);

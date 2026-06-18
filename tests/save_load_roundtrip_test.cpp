@@ -39,10 +39,10 @@ int main() {
     cfg.Reset();
     MvrScene &scene = cfg.GetScene();
 
-  Layer layer;
-  layer.uuid = "layer1";
-  layer.name = "Layer1";
-  layer.visualColorHex = "#112233";
+    Layer layer;
+    layer.uuid = "layer1";
+    layer.name = "Layer1";
+    layer.color = "#112233";
     scene.layers[layer.uuid] = layer;
 
     // Prepare dummy GDTF files
@@ -247,7 +247,7 @@ int main() {
     const auto &fixture3Override = fixtureOverrides.at(canonicalFixtureUuid);
     assert(fixture3Override.showLabelName[0].has_value());
     assert(*fixture3Override.showLabelName[0]);
-  assert(scene2.layers.at("layer1").visualColorHex == "#112233");
+    assert(scene2.layers.at("layer1").color == "#112233");
 
     const auto &loadedManual = scene2.supports.at("sup-manual");
     assert(loadedManual.motorName == "ChainMaster D8+");
