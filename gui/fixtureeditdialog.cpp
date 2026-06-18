@@ -1091,6 +1091,14 @@ void FixtureEditDialog::ApplyChanges() {
       panel->ApplyModeForGdtf(gdtfPath, wxString::FromUTF8(mode));
     }
   }
+  if (fixtureColorChanged) {
+    wxDataViewItemArray colorSource;
+    colorSource.Add(table->RowToItem(row));
+    panel->PropagateTypeValues(
+        colorSource,
+        FixtureTableColumns::ToIndex(
+            FixtureTableColumns::Column::VisualColor));
+  }
   panel->ResyncRows(oldOrder, selectedUuids);
   auto updateType = FixtureTablePanel::SceneDataUpdateType::kVisualLabelOnly;
   for (size_t i = 0; i < modifiedColumns.size(); ++i) {

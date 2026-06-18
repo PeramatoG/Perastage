@@ -903,8 +903,13 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     return;
   }
 
-  if (col ==
-      FixtureTableColumns::ToIndex(FixtureTableColumns::Column::VisualColor)) {
+  const bool isVisualColor =
+      col ==
+      FixtureTableColumns::ToIndex(FixtureTableColumns::Column::VisualColor);
+  const bool isColorFilter =
+      col == FixtureTableColumns::ToIndex(
+                 FixtureTableColumns::Column::MvrColor);
+  if (isVisualColor || isColorFilter) {
     wxColourData data;
     data.SetChooseFull(true);
     wxColour initial(current.GetString());
@@ -930,7 +935,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       if (r != wxNOT_FOUND)
         table->SetValue(var, r, col);
     }
-    PropagateTypeValues(selections, col);
+    if (isVisualColor)
+      PropagateTypeValues(selections, col);
     ResyncRows(oldOrder, selectedUuids);
     const auto updateType = UpdateTypeForColumn(col);
     UpdateSceneData(true, updateType);

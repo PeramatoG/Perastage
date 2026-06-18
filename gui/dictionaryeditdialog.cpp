@@ -971,7 +971,7 @@ void DictionaryEditDialog::BuildLayout() {
   auto *colorRenderer =
       new ColorfulIconTextRenderer(wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
   colorRenderer->EnableEllipsize(wxELLIPSIZE_NONE);
-  fixtureTable->AppendColumn(new wxDataViewColumn("Visual Color", colorRenderer,
+  fixtureTable->AppendColumn(new wxDataViewColumn("Type Color", colorRenderer,
                                                   kFixtureVisualColorColumn,
                                                   110, wxALIGN_LEFT, flags));
   ColumnUtils::EnforceMinColumnWidth(fixtureTable);

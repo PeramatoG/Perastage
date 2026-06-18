@@ -12,7 +12,7 @@ constexpr std::array<const char *, Count()> kLabels = {
     "Universe",   "Channel",   "Mode",        "Ch Count", "Model file",
     "Pos X",      "Pos Y",     "Pos Z",       "Roll (X)", "Pitch (Y)",
     "Yaw (Z)",    "Power (W)", "Weight (kg)", "Category", "Type Color",
-    "MVR Color"};
+    "Color Filter"};
 constexpr std::array<int, Count()> kWidths = {90,  150, 180, 100, 120, 80, 80,
                                               120, 80,  180, 80,  80,  80, 80,
                                               80,  80,  100, 100, 120, 90, 90};

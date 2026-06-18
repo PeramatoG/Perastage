@@ -37,10 +37,11 @@ Perastage is designed for lighting designers, programmers, and technicians who n
 ### MVR export
 
 - Exports the current scene back to `.mvr` for interoperability.
-- Keeps **Type Color** separate from **MVR Color**: Type Color is a
+- Keeps **Type Color** separate from **Color Filter**: Type Color is a
   Perastage visual used by plans, summaries, legends, and type-based viewer
-  coloring, while MVR Color is the optional standards-based fixture color
-  imported from and exported to the MVR `Fixture/Color` node.
+  coloring and is shared by fixture type and mode, while Color Filter is the
+  optional per-fixture color imported from and exported to the MVR
+  `Fixture/Color` node.
 - Stores Perastage-specific layer appearance metadata, including layer colors, in root-level `UserData/Data` with Perastage-owned `PerastageLayerAppearance` entries instead of writing non-standard color data inside standard `Layer` nodes.
 - Parametric objects exported as Fixture/Truss/Support receive stable non-empty `FixtureID` and globally unique `FixtureIDNumeric` values.
 
