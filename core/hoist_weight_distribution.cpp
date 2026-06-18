@@ -87,7 +87,8 @@ std::vector<Support *> GetSupportsByPosition(MvrScene &scene,
   std::vector<Support *> supports;
   for (auto &[uuid, support] : scene.supports) {
     (void)uuid;
-    if (NormalizePosition(support.positionName) == positionName)
+    if (NormalizePosition(support.positionName) == positionName &&
+        support.loadSource != "Manual")
       supports.push_back(&support);
   }
   return supports;

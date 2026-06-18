@@ -456,10 +456,18 @@ void HoistTablePanel::ReloadData() {
   rowUuidByKey.clear();
   loadStateByKey.clear();
   nextRowKey = 1;
-  const MvrScene &scene = guiConfigServices->LegacyConfigManager().GetScene();
-  auto &supports = guiConfigServices->LegacyConfigManager().GetScene().supports;
+  ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
+  MvrScene &scene = cfg.GetScene();
+  auto &supports = scene.supports;
+  std::vector<std::string> missingAutomaticLoadUuids;
+  for (const auto &[uuid, support] : supports) {
+    if (!HasManualLoad(support) && support.loadKg <= 0.0f)
+      missingAutomaticLoadUuids.push_back(uuid);
+  }
+  if (!missingAutomaticLoadUuids.empty())
+    RecalculateAutomaticLoads(cfg, missingAutomaticLoadUuids);
   const auto extraWeights = RiggingExtraWeightSettings::ParseEntries(
-      guiConfigServices->LegacyConfigManager().GetValue(
+      cfg.GetValue(
           RiggingExtraWeightSettings::ConfigKey()));
 
   std::vector<std::pair<std::string, Support *>> sorted;
