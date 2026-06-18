@@ -87,7 +87,8 @@ std::vector<Support *> GetSupportsByPosition(MvrScene &scene,
   std::vector<Support *> supports;
   for (auto &[uuid, support] : scene.supports) {
     (void)uuid;
-    if (NormalizePosition(support.positionName) == positionName)
+    if (NormalizePosition(support.positionName) == positionName &&
+        support.loadSource != "Manual")
       supports.push_back(&support);
   }
   return supports;
@@ -224,6 +225,7 @@ void ApplyForImportedSupports(MvrScene &scene,
       for (size_t i = 0; i < supports.size(); ++i) {
         const float share = roundedTotal * ((*percentages)[i] / 100.0f);
         supports[i]->loadKg = RoundUpToNextFiveKg(share);
+        supports[i]->loadSource = "Auto";
       }
       continue;
     }
@@ -232,6 +234,7 @@ void ApplyForImportedSupports(MvrScene &scene,
     const float roundedSplit = RoundUpToNextFiveKg(split);
     for (Support *support : supports) {
       support->loadKg = roundedSplit;
+      support->loadSource = "Auto";
     }
   }
 }

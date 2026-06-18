@@ -43,12 +43,19 @@ bool NearlyEquals(float a, float b) {
 } // namespace
 
 int main() {
+  assert(ShouldUseAutomaticHoistLoad(80.0f, 80.0f, 95.0f));
+  assert(ShouldUseAutomaticHoistLoad(80.0f, 95.0f, 95.0f));
+  assert(!ShouldUseAutomaticHoistLoad(80.0f, 90.0f, 95.0f));
+
   {
     MvrScene scene;
     scene.fixtures["f1"] = MakeFixture("LX1", 100.0f);
     scene.trusses["t1"] = MakeTruss("LX1", 50.0f);
     scene.supports["h1"] = MakeHoist("h1", "LX1", -1000.0f, 0.0f, 0.0f);
     scene.supports["h2"] = MakeHoist("h2", "LX1", 1000.0f, 200.0f, 0.0f);
+    scene.supports["manual"] =
+        MakeHoist("manual", "LX1", 0.0f, 100.0f, 0.0f, 321.0f);
+    scene.supports["manual"].loadSource = "Manual";
 
     const auto roundedTotals =
         HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(scene);
@@ -57,6 +64,10 @@ int main() {
 
     assert(NearlyEquals(scene.supports["h1"].loadKg, 80.0f));
     assert(NearlyEquals(scene.supports["h2"].loadKg, 80.0f));
+    assert(scene.supports["h1"].loadSource == "Auto");
+    assert(scene.supports["h2"].loadSource == "Auto");
+    assert(NearlyEquals(scene.supports["manual"].loadKg, 321.0f));
+    assert(scene.supports["manual"].loadSource == "Manual");
   }
 
   {
@@ -74,6 +85,9 @@ int main() {
     assert(NearlyEquals(scene.supports["h1"].loadKg, 40.0f));
     assert(NearlyEquals(scene.supports["h2"].loadKg, 135.0f));
     assert(NearlyEquals(scene.supports["h3"].loadKg, 40.0f));
+    assert(scene.supports["h1"].loadSource == "Auto");
+    assert(scene.supports["h2"].loadSource == "Auto");
+    assert(scene.supports["h3"].loadSource == "Auto");
   }
 
   {

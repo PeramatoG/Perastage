@@ -21,6 +21,7 @@
 #include <array>
 #include <cctype>
 #include <cerrno>
+#include <cmath>
 #include <cstdlib>
 #include <optional>
 #include <string>
@@ -46,6 +47,8 @@ struct Support {
     float capacityKg = 0.0f;
     float weightKg = 0.0f;
     float loadKg = 0.0f;
+    // Identifies whether the current load was calculated or entered manually.
+    std::string loadSource = "Auto";
     std::string motorName;
     std::string motorManufacturer;
     std::string motorModel;
@@ -152,6 +155,15 @@ inline std::string NormalizeHoistDataSource(const std::string &rawValue) {
 
 inline bool IsManualHoistDataSource(const std::string &source) {
     return NormalizeHoistDataSource(source) == "Manual";
+}
+
+// Returns whether an accepted load value should remain automatically calculated.
+inline bool ShouldUseAutomaticHoistLoad(float previousLoadKg,
+                                        float editedLoadKg,
+                                        float calculatedLoadKg,
+                                        float toleranceKg = 0.001f) {
+    return std::abs(previousLoadKg - editedLoadKg) <= toleranceKg ||
+           std::abs(calculatedLoadKg - editedLoadKg) <= toleranceKg;
 }
 
 inline std::string ResolveHoistFieldDataSource(const std::string &fieldSource,

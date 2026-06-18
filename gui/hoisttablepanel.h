@@ -21,6 +21,7 @@
 #include <wx/wx.h>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "colorstore.h"
 #include "hoist_load_limit_utils.h"
@@ -59,6 +60,7 @@ private:
   std::vector<HoistLoadLimitUtils::LoadLimitState> rowLoadStates;
   std::unordered_map<wxUIntPtr, std::string> rowUuidByKey;
   std::unordered_map<wxUIntPtr, HoistLoadLimitUtils::LoadLimitState> loadStateByKey;
+  std::unordered_map<std::string, float> pendingAutomaticLoadByUuid;
   wxUIntPtr nextRowKey = 1;
   wxString activeHoverTooltip;
   bool dragSelecting = false;

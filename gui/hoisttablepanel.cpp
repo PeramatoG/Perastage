@@ -25,9 +25,11 @@
 #include "editable_focus_utils.h"
 #include "guiconfigservices.h"
 #include "hoist_load_recalculation_prompt.h"
+#include "hoist_weight_distribution.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
 #include "riggingpanel.h"
+#include "rigging_extra_weight_settings.h"
 #include "selection_origin_token.h"
 #include "stringutils.h"
 #include "summarypanel.h"
@@ -95,6 +97,75 @@ bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
   return attr.HasColour() && attr.GetColour() == *wxRED;
 }
 
+// Reports whether a hoist load is an explicit user-entered value.
+bool HasManualLoad(const Support &support) {
+  return support.loadSource == "Manual";
+}
+
+// Reports whether an automatic load depends on missing scene weight data.
+bool HasMissingLoadInputs(const MvrScene &scene, const Support &support) {
+  const std::string position = NormalizePositionName(support.positionName);
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    if (NormalizePositionName(fixture.positionName) == position &&
+        fixture.weightKg <= 0.0f)
+      return true;
+  }
+  for (const auto &[uuid, truss] : scene.trusses) {
+    if (NormalizePositionName(truss.positionName) == position &&
+        truss.weightKg <= 0.0f)
+      return true;
+  }
+  for (const auto &[uuid, candidate] : scene.supports) {
+    if (NormalizePositionName(candidate.positionName) != position)
+      continue;
+    const auto effective = ResolveEffectiveSupportData(candidate);
+    if (effective.weightKg <= 0.0f)
+      return true;
+  }
+  return false;
+}
+
+// Recalculates selected automatic hoist loads from current rigging totals.
+void RecalculateAutomaticLoads(
+    ConfigManager &cfg, const std::vector<std::string> &supportUuids) {
+  MvrScene &scene = cfg.GetScene();
+  const auto extraWeights = RiggingExtraWeightSettings::ParseEntries(
+      cfg.GetValue(RiggingExtraWeightSettings::ConfigKey()));
+  const auto roundedTotals =
+      HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(
+          scene,
+          RiggingExtraWeightSettings::BuildKilogramsByPosition(extraWeights));
+  HoistWeightDistribution::ApplyForImportedSupports(scene, supportUuids,
+                                                     roundedTotals);
+}
+
+// Calculates automatic load values without changing the active scene.
+std::unordered_map<std::string, float> CalculateAutomaticLoads(
+    const ConfigManager &cfg, const std::vector<std::string> &supportUuids) {
+  MvrScene scene = cfg.GetScene();
+  for (const std::string &uuid : supportUuids) {
+    auto supportIt = scene.supports.find(uuid);
+    if (supportIt != scene.supports.end())
+      supportIt->second.loadSource = "Auto";
+  }
+  const auto extraWeights = RiggingExtraWeightSettings::ParseEntries(
+      cfg.GetValue(RiggingExtraWeightSettings::ConfigKey()));
+  const auto roundedTotals =
+      HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(
+          scene,
+          RiggingExtraWeightSettings::BuildKilogramsByPosition(extraWeights));
+  HoistWeightDistribution::ApplyForImportedSupports(scene, supportUuids,
+                                                     roundedTotals);
+
+  std::unordered_map<std::string, float> result;
+  for (const std::string &uuid : supportUuids) {
+    auto supportIt = scene.supports.find(uuid);
+    if (supportIt != scene.supports.end())
+      result[uuid] = supportIt->second.loadKg;
+  }
+  return result;
+}
+
 void SetTableAndChildTooltips(wxDataViewListCtrl *table,
                               const wxString &tooltip) {
   if (!table)
@@ -160,6 +231,52 @@ struct RangeParts {
   bool trailingSeparator = false;
 };
 
+class LoadEditDialog final : public wxDialog {
+public:
+  // Builds a load editor that can insert the calculated automatic value.
+  LoadEditDialog(wxWindow *parent, const wxString &title,
+                 const wxString &currentValue,
+                 const wxString &automaticValue)
+      : wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize,
+                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+        automaticValue(automaticValue) {
+    auto *rootSizer = new wxBoxSizer(wxVERTICAL);
+    valueCtrl = new wxTextCtrl(this, wxID_ANY, currentValue);
+    rootSizer->Add(valueCtrl, 0, wxEXPAND | wxALL, 10);
+
+    auto *buttonSizer = new wxBoxSizer(wxHORIZONTAL);
+    auto *recalculateButton =
+        new wxButton(this, wxID_ANY, "Use automatic value");
+    buttonSizer->Add(recalculateButton, 0, wxRIGHT, 8);
+    buttonSizer->AddStretchSpacer();
+    auto *okButton = new wxButton(this, wxID_OK);
+    buttonSizer->Add(okButton, 0, wxRIGHT, 8);
+    buttonSizer->Add(new wxButton(this, wxID_CANCEL), 0);
+    rootSizer->Add(buttonSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+
+    recalculateButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+      valueCtrl->SetValue(this->automaticValue);
+      valueCtrl->SetFocus();
+      valueCtrl->SelectAll();
+    });
+    Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+      EndModal(wxID_OK);
+    }, wxID_OK);
+
+    SetSizerAndFit(rootSizer);
+    okButton->SetDefault();
+    valueCtrl->SetFocus();
+    valueCtrl->SelectAll();
+  }
+
+  // Returns the edited load text.
+  wxString GetValue() const { return valueCtrl->GetValue(); }
+
+private:
+  wxTextCtrl *valueCtrl = nullptr;
+  wxString automaticValue;
+};
+
 bool IsNumChar(char c) {
   return std::isdigit(static_cast<unsigned char>(c)) || c == '.' || c == '-' ||
          c == '+';
@@ -195,16 +312,6 @@ void MarkNumericFieldManualIfEdited(float editedValue, float oldEffectiveValue,
 
   if (!IsManualHoistDataSource(fieldSource))
     fieldValue = oldFieldValue;
-}
-
-void SetAllHoistFieldSources(Support &support, const std::string &source) {
-  const std::string normalized = NormalizeHoistDataSource(source);
-  support.motorNameSource = normalized;
-  support.motorManufacturerSource = normalized;
-  support.motorModelSource = normalized;
-  support.capacitySource = normalized;
-  support.weightSource = normalized;
-  support.hoistFunctionSource = normalized;
 }
 
 std::optional<HoistPresetDefaults> FindPresetDefaults(const Support &support) {
@@ -360,7 +467,6 @@ void HoistTablePanel::InitializeTable() {
       "Function",
       "Motor",
       "Dummy Preset",
-      "Data Source",
       "Layer",
       "Hang Pos",
       wxString::FromUTF8(
@@ -379,7 +485,7 @@ void HoistTablePanel::InitializeTable() {
           Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8()))),
       wxString::FromUTF8(
           Units::LabelWithUnit("Load", std::string(weightSuffix.ToUTF8())))};
-  std::vector<int> widths = {70, 150, 120, 120, 130, 150, 110, 100, 120, 80,
+  std::vector<int> widths = {70, 150, 120, 120, 130, 150, 100, 120, 80,
                              80, 80,  80,  80,  80,  110, 110, 100, 100};
   if (columnLabels.size() != TableColumnIndices::Count<HoistColumn>() ||
       widths.size() != TableColumnIndices::Count<HoistColumn>())
@@ -423,8 +529,19 @@ void HoistTablePanel::ReloadData() {
   rowUuidByKey.clear();
   loadStateByKey.clear();
   nextRowKey = 1;
-  const MvrScene &scene = guiConfigServices->LegacyConfigManager().GetScene();
-  auto &supports = guiConfigServices->LegacyConfigManager().GetScene().supports;
+  ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
+  MvrScene &scene = cfg.GetScene();
+  auto &supports = scene.supports;
+  std::vector<std::string> missingAutomaticLoadUuids;
+  for (const auto &[uuid, support] : supports) {
+    if (!HasManualLoad(support) && support.loadKg <= 0.0f)
+      missingAutomaticLoadUuids.push_back(uuid);
+  }
+  if (!missingAutomaticLoadUuids.empty())
+    RecalculateAutomaticLoads(cfg, missingAutomaticLoadUuids);
+  const auto extraWeights = RiggingExtraWeightSettings::ParseEntries(
+      cfg.GetValue(
+          RiggingExtraWeightSettings::ConfigKey()));
 
   std::vector<std::pair<std::string, Support *>> sorted;
   sorted.reserve(supports.size());
@@ -471,7 +588,6 @@ void HoistTablePanel::ReloadData() {
     wxString motorName = wxString::FromUTF8(effective.motorName);
     wxString dummyPreset =
         wxString::FromUTF8(ResolveDummyProfileDisplayName(support));
-    wxString dataSource = wxString::FromUTF8(support.hoistDataSource);
     wxString layer = support.layer == DEFAULT_LAYER_NAME
                          ? wxString()
                          : wxString::FromUTF8(support.layer);
@@ -505,7 +621,6 @@ void HoistTablePanel::ReloadData() {
     row.push_back(hoistFunction);
     row.push_back(motorName);
     row.push_back(dummyPreset);
-    row.push_back(dataSource);
     row.push_back(layer);
     row.push_back(posName);
     row.push_back(posX);
@@ -522,10 +637,20 @@ void HoistTablePanel::ReloadData() {
     const wxUIntPtr rowKey = nextRowKey++;
     store->AppendItem(row, rowKey);
     const unsigned int rowIndex = static_cast<unsigned int>(rowUuids.size());
-    if (HoistLoadLimitUtils::IsCritical(loadState))
-      store->SetCellTextColour(rowIndex, 18, *wxRED);
+    const bool manualLoad = HasManualLoad(support);
+    const auto extraWeightIt =
+        extraWeights.find(NormalizePositionName(support.positionName));
+    const bool unvalidatedExtraWeight =
+        extraWeightIt != extraWeights.end() &&
+        extraWeightIt->second.requiresValidation;
+    const bool missingLoadInputs = !manualLoad &&
+        (HasMissingLoadInputs(scene, support) || unvalidatedExtraWeight);
+    if (HoistLoadLimitUtils::IsCritical(loadState) || manualLoad ||
+        missingLoadInputs)
+      store->SetCellTextColour(rowIndex, ColumnIndex(HoistColumn::Load),
+                               *wxRED);
     else
-      store->ClearCellTextColour(rowIndex, 18);
+      store->ClearCellTextColour(rowIndex, ColumnIndex(HoistColumn::Load));
     rowUuids.push_back(uuid);
     rowLoadStates.push_back(loadState);
     rowUuidByKey[rowKey] = uuid;
@@ -576,7 +701,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
   wxVariant current;
   table->GetValue(current, row, col);
-
+  std::unordered_map<std::string, float> editedAutomaticLoads;
   if (*namedColumn == HoistColumn::Function) {
     wxArrayString choices;
     for (const auto &option : GetHoistFunctionOptions())
@@ -663,32 +788,6 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     return;
   }
 
-  if (*namedColumn == HoistColumn::DataSource) {
-    wxArrayString choices;
-    choices.push_back("Inherited");
-    choices.push_back("Manual");
-    wxSingleChoiceDialog sdlg(this, "Select data source", "Data Source",
-                              choices);
-    if (sdlg.ShowModal() != wxID_OK)
-      return;
-    wxString sel = sdlg.GetStringSelection();
-    for (const auto &itSel : selections) {
-      int r = table->ItemToRow(itSel);
-      if (r != wxNOT_FOUND)
-        table->SetValue(wxVariant(sel), r, col);
-    }
-    ResyncRows(oldOrder, selectedUuids);
-    UpdateSceneData();
-    ReloadData();
-    if (Viewer3DPanel::Instance()) {
-      Viewer3DPanel::Instance()->UpdateScene();
-      Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
-      Viewer2DPanel::Instance()->UpdateScene();
-    }
-    return;
-  }
-
   if (*namedColumn == HoistColumn::Layer) {
     auto layers = guiConfigServices->LegacyConfigManager().GetLayerNames();
     wxArrayString choices;
@@ -716,12 +815,37 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     return;
   }
 
-  wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col],
-                        current.GetString());
-  if (dlg.ShowModal() != wxID_OK)
-    return;
+  if (*namedColumn == HoistColumn::Load) {
+    const auto automaticLoads =
+        CalculateAutomaticLoads(guiConfigServices->LegacyConfigManager(),
+                                selectedUuids);
+    wxString automaticValue = current.GetString();
+    const std::string editedUuid = UuidForItem(item);
+    auto automaticIt = automaticLoads.find(editedUuid);
+    if (automaticIt != automaticLoads.end()) {
+      automaticValue = wxString::FromUTF8(Units::FormatWeightFromKilograms(
+          automaticIt->second, ResolveWeightUnitSystem(),
+          Units::ValueFormatContext::Table));
+    }
+    LoadEditDialog loadDialog(this, columnLabels[col], current.GetString(),
+                              automaticValue);
+    if (loadDialog.ShowModal() != wxID_OK)
+      return;
 
-  wxString value = dlg.GetValue().Trim(true).Trim(false);
+    current = wxVariant(loadDialog.GetValue());
+    editedAutomaticLoads = automaticLoads;
+  }
+
+  wxString value;
+  if (*namedColumn == HoistColumn::Load) {
+    value = current.GetString().Trim(true).Trim(false);
+  } else {
+    wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col],
+                          current.GetString());
+    if (dlg.ShowModal() != wxID_OK)
+      return;
+    value = dlg.GetValue().Trim(true).Trim(false);
+  }
 
   const bool numericCol = IsNumericColumn(*namedColumn);
   bool relative = false;
@@ -819,6 +943,8 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   }
 
   ResyncRows(oldOrder, selectedUuids);
+  pendingAutomaticLoadByUuid.insert(editedAutomaticLoads.begin(),
+                                    editedAutomaticLoads.end());
 
   UpdateSceneData();
   if (Viewer3DPanel::Instance()) {
@@ -896,10 +1022,24 @@ void HoistTablePanel::UpdateHoverTooltip(const wxPoint &position) {
   if (item.IsOk() && column) {
     const int row = table->ItemToRow(item);
     const int modelColumn = column->GetModelColumn();
-    if (modelColumn == 18 && IsRedCell(store, row, modelColumn) && row >= 0 &&
+    if (modelColumn == ColumnIndex(HoistColumn::Load) &&
+        IsRedCell(store, row, modelColumn) && row >= 0 &&
         static_cast<size_t>(row) < rowLoadStates.size()) {
-      tooltip = wxString::FromUTF8(HoistLoadLimitUtils::TooltipForState(
-          rowLoadStates[static_cast<size_t>(row)]));
+      const std::string uuid = rowUuids[static_cast<size_t>(row)];
+      const auto &scene = guiConfigServices->LegacyConfigManager().GetScene();
+      auto supportIt = scene.supports.find(uuid);
+      if (supportIt != scene.supports.end() &&
+          HasManualLoad(supportIt->second)) {
+        tooltip = "Load was entered manually.";
+      } else if (supportIt != scene.supports.end() &&
+                 HasMissingLoadInputs(scene, supportIt->second)) {
+        tooltip = "Automatic load uses one or more missing weight values.";
+      } else {
+        tooltip = wxString::FromUTF8(HoistLoadLimitUtils::TooltipForState(
+            rowLoadStates[static_cast<size_t>(row)]));
+        if (tooltip.empty())
+          tooltip = "Automatic load uses weight data that requires review.";
+      }
     }
   }
 
@@ -1044,14 +1184,6 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
       next.dummyProfileId = profile.has_value() ? profile->id : "";
     }
 
-    table->GetValue(v, i, ColumnIndex(HoistColumn::DataSource));
-    next.hoistDataSource =
-        NormalizeHoistDataSource(std::string(v.GetString().ToUTF8()));
-    if (IsManualHoistDataSource(next.hoistDataSource))
-      SetAllHoistFieldSources(next, "Manual");
-    else if (NormalizeHoistDataSource(old.hoistDataSource) != "Inherited")
-      SetAllHoistFieldSources(next, "Inherited");
-
     table->GetValue(v, i, ColumnIndex(HoistColumn::Layer));
     std::string layerStr = std::string(v.GetString().ToUTF8());
     if (layerStr.empty())
@@ -1150,8 +1282,19 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     table->GetValue(v, i, ColumnIndex(HoistColumn::Load));
     if (const auto parsed = Units::ParseWeightToKilograms(
             std::string(v.GetString().ToUTF8()), weightUnit);
-        parsed.has_value())
+        parsed.has_value()) {
       next.loadKg = static_cast<float>(*parsed);
+      auto automaticIt = pendingAutomaticLoadByUuid.find(old.uuid);
+      if (automaticIt != pendingAutomaticLoadByUuid.end()) {
+        next.loadSource =
+            ShouldUseAutomaticHoistLoad(old.loadKg, next.loadKg,
+                                        automaticIt->second)
+                ? "Auto"
+                : "Manual";
+        if (next.loadSource == "Auto")
+          next.loadKg = automaticIt->second;
+      }
+    }
 
     next.motorNameSource =
         ResolveHoistFieldDataSource(next.motorNameSource, next.hoistDataSource);
@@ -1192,6 +1335,7 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
         !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg,
                                            0.001) ||
                                 !Units::NearlyEqualWeightKilograms(old.loadKg, next.loadKg, 0.001) ||
+                                old.loadSource != next.loadSource ||
                                 NormalizeHoistDataSource(old.motorNameSource) !=
                                     NormalizeHoistDataSource(next.motorNameSource) ||
                                 NormalizeHoistDataSource(old.motorManufacturerSource) !=
@@ -1220,8 +1364,12 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
       scene.positions[it->second.position] = it->second.positionName;
   }
 
-  if (!anyChanged)
+  if (!anyChanged) {
+    pendingAutomaticLoadByUuid.clear();
     return;
+  }
+
+  pendingAutomaticLoadByUuid.clear();
 
   const bool loadsRecalculated = HoistLoadRecalculationPrompt::PromptAndApply(
       cfg, this, changedWeightPositions, false);

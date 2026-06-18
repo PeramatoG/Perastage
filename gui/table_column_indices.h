@@ -61,6 +61,7 @@ enum class Column : int {
   Width,
   Height,
   Weight,
+  Load,
   Count
 };
 } // namespace TrussTableColumns
@@ -73,7 +74,6 @@ enum class Column : int {
   Function,
   Motor,
   DummyPreset,
-  DataSource,
   Layer,
   HangPosition,
   PositionX,

@@ -230,12 +230,12 @@ void TrussTablePanel::InitializeTable()
                     wxString::FromUTF8(Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8()))),
                     "Roll (X)", "Pitch (Y)", "Yaw (Z)",
                     "Manufacturer", "Model",
-                    wxString::FromUTF8(Units::LabelWithUnit("Length", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Width", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Height", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())))};
+                    wxString::FromUTF8(Units::LabelWithUnit("Length", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Width", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Height", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Load", std::string(weightSuffix.ToUTF8())))};
     std::vector<int> widths = {150, 100, 180, 120,
                                80, 80, 80,
                                80, 80, 80,
                                120, 120,
-                               90, 90, 90, 90};
+                               90, 90, 90, 90, 90};
     if (columnLabels.size() != TableColumnIndices::Count<TrussColumn>() ||
         widths.size() != TableColumnIndices::Count<TrussColumn>())
         return;
@@ -379,15 +379,24 @@ void TrussTablePanel::ReloadData()
                             : wxString();
         wxString weight = wxString::FromUTF8(Units::FormatWeightFromKilograms(
             truss.weightKg, weightUnit, Units::ValueFormatContext::Table));
+        wxString load;
+        if (truss.hasManualLoadOverride) {
+            load = wxString::FromUTF8(Units::FormatWeightFromKilograms(
+                truss.manualLoadKg, weightUnit, Units::ValueFormatContext::Table));
+        }
         row.push_back(manuf);
         row.push_back(modelName);
         row.push_back(len);
         row.push_back(wid);
         row.push_back(hei);
         row.push_back(weight);
+        row.push_back(load);
 
         const wxUIntPtr rowKey = nextRowKey++;
         store->AppendItem(row, rowKey);
+        if (truss.hasManualLoadOverride)
+            store->SetCellTextColour(store->GetCount() - 1,
+                                     ColumnIndex(TrussColumn::Load), *wxRED);
         rowUuids.push_back(uuid);
         rowUuidByKey[rowKey] = uuid;
         modelPathByKey[rowKey] = modelFull;
@@ -1032,6 +1041,19 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
                 std::string(v.GetString().ToUTF8()), weightUnit);
             parsed.has_value())
             next.weightKg = static_cast<float>(*parsed);
+    table->GetValue(v, i, ColumnIndex(TrussColumn::Load));
+        {
+            const std::string loadText = std::string(v.GetString().ToUTF8());
+            if (loadText.empty()) {
+                next.manualLoadKg = 0.0f;
+                next.hasManualLoadOverride = false;
+            } else if (const auto parsed = Units::ParseWeightToKilograms(
+                           loadText, weightUnit);
+                       parsed.has_value()) {
+                next.manualLoadKg = static_cast<float>(*parsed);
+                next.hasManualLoadOverride = true;
+            }
+        }
 
         const bool trussChanged =
         old.name != next.name || old.layer != next.layer ||
@@ -1044,7 +1066,10 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
                                                0.5) ||
         !Units::NearlyEqualDistanceMillimeters(old.heightMm, next.heightMm,
                                                0.5) ||
-            !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
+            !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001) ||
+        old.hasManualLoadOverride != next.hasManualLoadOverride ||
+        !Units::NearlyEqualWeightKilograms(old.manualLoadKg, next.manualLoadKg,
+                                           0.001);
         const bool weightChanged =
             !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
 
