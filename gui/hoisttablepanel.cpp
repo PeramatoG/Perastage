@@ -25,9 +25,11 @@
 #include "editable_focus_utils.h"
 #include "guiconfigservices.h"
 #include "hoist_load_recalculation_prompt.h"
+#include "hoist_weight_distribution.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
 #include "riggingpanel.h"
+#include "rigging_extra_weight_settings.h"
 #include "selection_origin_token.h"
 #include "stringutils.h"
 #include "summarypanel.h"
@@ -93,6 +95,48 @@ bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
 
   const wxDataViewItemAttr &attr = store->cellAttrs[rowIndex][colIndex];
   return attr.HasColour() && attr.GetColour() == *wxRED;
+}
+
+// Reports whether a hoist load is an explicit user-entered value.
+bool HasManualLoad(const Support &support) {
+  return support.loadSource == "Manual";
+}
+
+// Reports whether an automatic load depends on missing scene weight data.
+bool HasMissingLoadInputs(const MvrScene &scene, const Support &support) {
+  const std::string position = NormalizePositionName(support.positionName);
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    if (NormalizePositionName(fixture.positionName) == position &&
+        fixture.weightKg <= 0.0f)
+      return true;
+  }
+  for (const auto &[uuid, truss] : scene.trusses) {
+    if (NormalizePositionName(truss.positionName) == position &&
+        truss.weightKg <= 0.0f)
+      return true;
+  }
+  for (const auto &[uuid, candidate] : scene.supports) {
+    if (NormalizePositionName(candidate.positionName) != position)
+      continue;
+    const auto effective = ResolveEffectiveSupportData(candidate);
+    if (effective.weightKg <= 0.0f)
+      return true;
+  }
+  return false;
+}
+
+// Recalculates selected automatic hoist loads from current rigging totals.
+void RecalculateAutomaticLoads(
+    ConfigManager &cfg, const std::vector<std::string> &supportUuids) {
+  MvrScene &scene = cfg.GetScene();
+  const auto extraWeights = RiggingExtraWeightSettings::ParseEntries(
+      cfg.GetValue(RiggingExtraWeightSettings::ConfigKey()));
+  const auto roundedTotals =
+      HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(
+          scene,
+          RiggingExtraWeightSettings::BuildKilogramsByPosition(extraWeights));
+  HoistWeightDistribution::ApplyForImportedSupports(scene, supportUuids,
+                                                     roundedTotals);
 }
 
 void SetTableAndChildTooltips(wxDataViewListCtrl *table,
@@ -425,6 +469,9 @@ void HoistTablePanel::ReloadData() {
   nextRowKey = 1;
   const MvrScene &scene = guiConfigServices->LegacyConfigManager().GetScene();
   auto &supports = guiConfigServices->LegacyConfigManager().GetScene().supports;
+  const auto extraWeights = RiggingExtraWeightSettings::ParseEntries(
+      guiConfigServices->LegacyConfigManager().GetValue(
+          RiggingExtraWeightSettings::ConfigKey()));
 
   std::vector<std::pair<std::string, Support *>> sorted;
   sorted.reserve(supports.size());
@@ -522,7 +569,31 @@ void HoistTablePanel::ReloadData() {
     const wxUIntPtr rowKey = nextRowKey++;
     store->AppendItem(row, rowKey);
     const unsigned int rowIndex = static_cast<unsigned int>(rowUuids.size());
-    if (HoistLoadLimitUtils::IsCritical(loadState))
+    if (IsManualHoistDataSource(support.hoistFunctionSource))
+      store->SetCellTextColour(rowIndex, ColumnIndex(HoistColumn::Function),
+                               *wxRED);
+    if (IsManualHoistDataSource(support.motorNameSource) ||
+        effective.motorName.empty())
+      store->SetCellTextColour(rowIndex, ColumnIndex(HoistColumn::Motor),
+                               *wxRED);
+    if (IsManualHoistDataSource(support.capacitySource) ||
+        effective.capacityKg <= 0.0f)
+      store->SetCellTextColour(rowIndex, ColumnIndex(HoistColumn::Capacity),
+                               *wxRED);
+    if (IsManualHoistDataSource(support.weightSource) ||
+        effective.weightKg <= 0.0f)
+      store->SetCellTextColour(rowIndex, ColumnIndex(HoistColumn::Weight),
+                               *wxRED);
+    const bool manualLoad = HasManualLoad(support);
+    const auto extraWeightIt =
+        extraWeights.find(NormalizePositionName(support.positionName));
+    const bool unvalidatedExtraWeight =
+        extraWeightIt != extraWeights.end() &&
+        extraWeightIt->second.requiresValidation;
+    const bool missingLoadInputs = !manualLoad &&
+        (HasMissingLoadInputs(scene, support) || unvalidatedExtraWeight);
+    if (HoistLoadLimitUtils::IsCritical(loadState) || manualLoad ||
+        missingLoadInputs)
       store->SetCellTextColour(rowIndex, 18, *wxRED);
     else
       store->ClearCellTextColour(rowIndex, 18);
@@ -576,6 +647,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
   wxVariant current;
   table->GetValue(current, row, col);
+  bool manualLoadRequested = false;
 
   if (*namedColumn == HoistColumn::Function) {
     wxArrayString choices;
@@ -716,6 +788,31 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     return;
   }
 
+  if (*namedColumn == HoistColumn::Load) {
+    wxArrayString choices;
+    choices.push_back("Automatic (recalculate)");
+    choices.push_back("Manual value...");
+    wxSingleChoiceDialog sourceDialog(this, "Select load source", "Load",
+                                      choices);
+    sourceDialog.SetSelection(0);
+    if (sourceDialog.ShowModal() != wxID_OK)
+      return;
+
+    ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
+    if (sourceDialog.GetSelection() == 0) {
+      cfg.PushUndoState("restore automatic hoist load");
+      for (const std::string &uuid : selectedUuids) {
+        auto supportIt = cfg.GetScene().supports.find(uuid);
+        if (supportIt != cfg.GetScene().supports.end())
+          supportIt->second.loadSource = "Auto";
+      }
+      RecalculateAutomaticLoads(cfg, selectedUuids);
+      ReloadData();
+      return;
+    }
+    manualLoadRequested = true;
+  }
+
   wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col],
                         current.GetString());
   if (dlg.ShowModal() != wxID_OK)
@@ -819,6 +916,8 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   }
 
   ResyncRows(oldOrder, selectedUuids);
+  if (manualLoadRequested)
+    pendingManualLoadUuids.insert(selectedUuids.begin(), selectedUuids.end());
 
   UpdateSceneData();
   if (Viewer3DPanel::Instance()) {
@@ -1150,8 +1249,13 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     table->GetValue(v, i, ColumnIndex(HoistColumn::Load));
     if (const auto parsed = Units::ParseWeightToKilograms(
             std::string(v.GetString().ToUTF8()), weightUnit);
-        parsed.has_value())
+        parsed.has_value()) {
       next.loadKg = static_cast<float>(*parsed);
+      if (!Units::NearlyEqualWeightKilograms(old.loadKg, next.loadKg, 0.001))
+        next.loadSource = "Manual";
+    }
+    if (pendingManualLoadUuids.contains(old.uuid))
+      next.loadSource = "Manual";
 
     next.motorNameSource =
         ResolveHoistFieldDataSource(next.motorNameSource, next.hoistDataSource);
@@ -1192,6 +1296,7 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
         !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg,
                                            0.001) ||
                                 !Units::NearlyEqualWeightKilograms(old.loadKg, next.loadKg, 0.001) ||
+                                old.loadSource != next.loadSource ||
                                 NormalizeHoistDataSource(old.motorNameSource) !=
                                     NormalizeHoistDataSource(next.motorNameSource) ||
                                 NormalizeHoistDataSource(old.motorManufacturerSource) !=
@@ -1220,8 +1325,12 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
       scene.positions[it->second.position] = it->second.positionName;
   }
 
-  if (!anyChanged)
+  if (!anyChanged) {
+    pendingManualLoadUuids.clear();
     return;
+  }
+
+  pendingManualLoadUuids.clear();
 
   const bool loadsRecalculated = HoistLoadRecalculationPrompt::PromptAndApply(
       cfg, this, changedWeightPositions, false);

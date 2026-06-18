@@ -224,6 +224,7 @@ void ApplyForImportedSupports(MvrScene &scene,
       for (size_t i = 0; i < supports.size(); ++i) {
         const float share = roundedTotal * ((*percentages)[i] / 100.0f);
         supports[i]->loadKg = RoundUpToNextFiveKg(share);
+        supports[i]->loadSource = "Auto";
       }
       continue;
     }
@@ -232,6 +233,7 @@ void ApplyForImportedSupports(MvrScene &scene,
     const float roundedSplit = RoundUpToNextFiveKg(split);
     for (Support *support : supports) {
       support->loadKg = roundedSplit;
+      support->loadSource = "Auto";
     }
   }
 }

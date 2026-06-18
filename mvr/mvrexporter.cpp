@@ -1847,6 +1847,8 @@ static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
   addNum("Capacity", support.capacityKg, "kg");
   addNum("Weight", support.weightKg, "kg");
   addNum("Load", support.loadKg, "kg");
+  if (tinyxml2::XMLElement *load = info->FirstChildElement("Load"))
+    load->SetAttribute("source", support.loadSource.c_str());
 
   const std::string hoistFunction =
       NormalizeHoistFunction(support.hoistFunction);

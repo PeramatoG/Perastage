@@ -144,6 +144,7 @@ int main() {
   manual.capacityKg = 1250.0f;
   manual.weightKg = 61.0f;
   manual.loadKg = 410.0f;
+  manual.loadSource = "Manual";
   manual.hoistFunction = "Audio";
   manual.motorName = "ChainMaster D8+";
   manual.motorNameSource = "Manual";
@@ -258,6 +259,7 @@ int main() {
   assert(loadedManual.capacityKg == 1250.0f);
   assert(loadedManual.weightKg == 61.0f);
   assert(loadedManual.loadKg == 410.0f);
+  assert(loadedManual.loadSource == "Manual");
   assert(loadedManual.hoistFunction == "Audio");
   assert(loadedManual.motorName == "ChainMaster D8+");
   assert(loadedManual.motorManufacturer == "ChainMaster");

@@ -46,6 +46,8 @@ struct Support {
     float capacityKg = 0.0f;
     float weightKg = 0.0f;
     float loadKg = 0.0f;
+    // Identifies whether the current load was calculated or entered manually.
+    std::string loadSource = "Auto";
     std::string motorName;
     std::string motorManufacturer;
     std::string motorModel;

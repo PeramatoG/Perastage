@@ -57,6 +57,8 @@ int main() {
 
     assert(NearlyEquals(scene.supports["h1"].loadKg, 80.0f));
     assert(NearlyEquals(scene.supports["h2"].loadKg, 80.0f));
+    assert(scene.supports["h1"].loadSource == "Auto");
+    assert(scene.supports["h2"].loadSource == "Auto");
   }
 
   {
@@ -74,6 +76,9 @@ int main() {
     assert(NearlyEquals(scene.supports["h1"].loadKg, 40.0f));
     assert(NearlyEquals(scene.supports["h2"].loadKg, 135.0f));
     assert(NearlyEquals(scene.supports["h3"].loadKg, 40.0f));
+    assert(scene.supports["h1"].loadSource == "Auto");
+    assert(scene.supports["h2"].loadSource == "Auto");
+    assert(scene.supports["h3"].loadSource == "Auto");
   }
 
   {
