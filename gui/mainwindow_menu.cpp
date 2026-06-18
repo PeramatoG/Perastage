@@ -1162,6 +1162,17 @@ void MainWindow::OnPreferences(wxCommandEvent &WXUNUSED(event)) {
 
 // Undoes the last action and refreshes dependent UI panels.
 void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
+  const bool placementUndoHandled =
+      (viewport2DPanel &&
+       viewport2DPanel->UndoContinuousFixturePlacement()) ||
+      (viewportPanel && viewportPanel->UndoContinuousFixturePlacement());
+  if (placementUndoHandled) {
+    if (consolePanel)
+      consolePanel->AppendMessage("Undo continuous fixture placement");
+    RefreshSummary();
+    return;
+  }
+
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   if (!cfg.CanUndo())
     return;
@@ -1215,6 +1226,13 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
 
 // Redoes the last undone action and refreshes dependent UI panels.
 void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
+  if ((viewport2DPanel &&
+       viewport2DPanel->IsContinuousFixturePlacementActive()) ||
+      (viewportPanel &&
+       viewportPanel->IsContinuousFixturePlacementActive())) {
+    return;
+  }
+
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   if (!cfg.CanRedo())
     return;

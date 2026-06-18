@@ -2739,6 +2739,7 @@ void Viewer3DPanel::BeginContinuousFixturePlacement(const std::string& fixtureUu
     ResetSelectionDragState();
     m_continuousFixturePlacement = true;
     m_continuousFixtureUuid = fixtureUuid;
+    m_continuousPlacedFixtureUuids.clear();
     m_selectionDragArmed = true;
     m_selectionDragUndoPushed = true;
     m_selectionDragTarget = HoverTargetTable::Fixtures;
@@ -2763,6 +2764,8 @@ void Viewer3DPanel::ConfirmContinuousFixturePlacement()
         return;
     }
     Fixture next = it->second;
+    cfg.PushUndoState("place fixture");
+    m_continuousPlacedFixtureUuids.push_back(m_continuousFixtureUuid);
     CommitActiveMagnetSnap();
     next.fixtureId += 1;
     next.uuid = wxString::Format("uuid_%lld", static_cast<long long>(
@@ -2776,12 +2779,7 @@ void Viewer3DPanel::ConfirmContinuousFixturePlacement()
                                    next.transform.o[1] / 1000.0f,
                                    next.transform.o[2] / 1000.0f};
     m_pendingMagnetSnap.reset();
-    if (FixtureTablePanel::Instance())
-        FixtureTablePanel::Instance()->ReloadData();
-    UpdateScene();
-    if (Viewer2DPanel::Instance())
-        Viewer2DPanel::Instance()->UpdateScene();
-    Refresh();
+    RefreshContinuousFixturePlacementViews();
 }
 
 // Removes the uncommitted fixture and ends continuous placement.
@@ -2790,14 +2788,98 @@ void Viewer3DPanel::CancelContinuousFixturePlacement()
     RestorePendingMagnetSnapPreview();
     ConfigManager& cfg = ConfigManager::Get();
     cfg.GetScene().fixtures.erase(m_continuousFixtureUuid);
+    if (m_continuousPlacedFixtureUuids.empty()) {
+        if (cfg.CanUndo())
+            cfg.Undo();
+    } else {
+        const MvrScene finalScene = cfg.GetScene();
+        for (size_t i = 0; i <= m_continuousPlacedFixtureUuids.size() &&
+                           cfg.CanUndo();
+             ++i) {
+            cfg.Undo();
+        }
+        cfg.PushUndoState("continuous fixture placement");
+        cfg.GetScene() = finalScene;
+    }
+    EndContinuousFixturePlacementState();
+    RefreshContinuousFixturePlacementViews();
+}
+
+// Undoes one confirmed fixture while keeping the placement session active.
+bool Viewer3DPanel::UndoContinuousFixturePlacement()
+{
+    if (!m_continuousFixturePlacement)
+        return false;
+
+    ConfigManager& cfg = ConfigManager::Get();
+    RestorePendingMagnetSnapPreview();
+    if (m_continuousPlacedFixtureUuids.empty()) {
+        if (cfg.CanUndo())
+            cfg.Undo();
+        EndContinuousFixturePlacementState();
+        RefreshContinuousFixturePlacementViews();
+        return true;
+    }
+    if (m_continuousPlacedFixtureUuids.size() == 1) {
+        if (cfg.CanUndo())
+            cfg.Undo();
+        if (cfg.CanUndo())
+            cfg.Undo();
+        EndContinuousFixturePlacementState();
+        RefreshContinuousFixturePlacementViews();
+        return true;
+    }
+
+    const std::string restoredFixtureUuid =
+        m_continuousPlacedFixtureUuids.back();
+    m_continuousPlacedFixtureUuids.pop_back();
+    if (cfg.CanUndo())
+        cfg.Undo();
+    auto fixtureIt = cfg.GetScene().fixtures.find(restoredFixtureUuid);
+    if (fixtureIt == cfg.GetScene().fixtures.end()) {
+        EndContinuousFixturePlacementState();
+        RefreshContinuousFixturePlacementViews();
+        return true;
+    }
+    m_continuousFixtureUuid = restoredFixtureUuid;
+    m_selectionDragArmed = true;
+    m_selectionDragMoved = false;
+    m_selectionDragUndoPushed = true;
+    m_selectionDragTarget = HoverTargetTable::Fixtures;
+    m_dragSelectionUuids = {restoredFixtureUuid};
+    m_dragFixtureUuids = {restoredFixtureUuid};
+    m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
+    m_selectionDragAnchorMeters = {
+        fixtureIt->second.transform.o[0] / 1000.0f,
+        fixtureIt->second.transform.o[1] / 1000.0f,
+        fixtureIt->second.transform.o[2] / 1000.0f};
+    m_pendingMagnetSnap.reset();
+    UpdateSelectionDragStatusPosition();
+    RefreshContinuousFixturePlacementViews();
+    return true;
+}
+
+// Clears placement-only interaction state without changing the scene.
+void Viewer3DPanel::EndContinuousFixturePlacementState()
+{
     m_continuousFixturePlacement = false;
     m_continuousFixtureUuid.clear();
+    m_continuousPlacedFixtureUuids.clear();
     ResetSelectionDragState();
+}
+
+// Synchronizes fixture tables and both viewers after a placement history change.
+void Viewer3DPanel::RefreshContinuousFixturePlacementViews()
+{
     if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->ReloadData();
     UpdateScene();
     if (Viewer2DPanel::Instance())
         Viewer2DPanel::Instance()->UpdateScene();
+    if (MainWindow::Instance()) {
+        MainWindow::Instance()->RefreshSummary();
+        MainWindow::Instance()->RefreshRigging();
+    }
     Refresh();
 }
 

@@ -154,6 +154,10 @@ public:
   void SetMagnetEnabled(bool enabled);
   bool IsMagnetEnabled() const { return m_magnetEnabled; }
   void BeginContinuousFixturePlacement(const std::string &fixtureUuid);
+  bool UndoContinuousFixturePlacement();
+  bool IsContinuousFixturePlacementActive() const {
+    return m_continuousFixturePlacement;
+  }
   std::optional<Viewer2DRenderOverrides> GetRenderOverrides() const {
     return m_renderOverrides;
   }
@@ -209,6 +213,8 @@ private:
   void FinalizeSelectionDrag();
   void ConfirmContinuousFixturePlacement();
   void CancelContinuousFixturePlacement();
+  void EndContinuousFixturePlacementState();
+  void RefreshContinuousFixturePlacementViews();
   void DrawSelectionDragGizmo(int width, int height);
   void ApplyRectangleSelection(const wxPoint &start, const wxPoint &end,
                                bool selectAcrossAllTables, bool additive);
@@ -302,6 +308,7 @@ private:
   bool m_draggedSincePress = false;
   bool m_continuousFixturePlacement = false;
   std::string m_continuousFixtureUuid;
+  std::vector<std::string> m_continuousPlacedFixtureUuids;
   wxLongLong m_dragPressTime = 0;
   bool m_rectSelecting = false;
   bool m_rectSelectionAcrossAllTables = false;

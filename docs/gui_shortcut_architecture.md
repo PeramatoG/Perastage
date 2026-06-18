@@ -107,6 +107,14 @@ navigation movement. Holding and dragging keeps the normal viewer-local
 navigation behavior: pan in the 2D viewer, and orbit or `Shift`-pan in the 3D
 viewer. This mouse gesture does not add a shortcut-registry entry.
 
+The global `Ctrl+Z`/Undo command is session-aware while continuous placement is
+active. It restores the previous placement snapshot, removes the latest
+confirmed fixture, and keeps that fixture as the provisional pointer-following
+copy. When Undo reaches the first confirmed fixture, or when no fixture has yet
+been confirmed, it restores the pre-dialog scene and ends placement. Redo is
+ignored until the placement session ends so it cannot replace the scene behind
+an active provisional fixture.
+
 ## Consistent editable-focus guard across local key handlers
 
 Panels that handle local key events also reuse `gui::IsEditableWidgetFocused(...)`
