@@ -67,6 +67,9 @@ Perastage v1.4.0 delivers a long-anticipated refresh of the modelling and riggin
 
 This release addresses dozens of issues across importing, snapping, editing and export workflows, including:
 
+- **Continuous fixture placement** - subsequent fixtures now remain directly
+  under the pointer after confirming a Magnet-snapped fixture instead of
+  inheriting the previous fixture's grouping offset.
 - **Fixture color compatibility** - corrected the fixture visual-color rename so
   fixture editing and fixture replacement build correctly, while layer colors
   and fixture-summary swatches continue to use their existing model fields

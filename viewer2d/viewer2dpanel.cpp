@@ -1680,7 +1680,6 @@ void Viewer2DPanel::BeginContinuousFixturePlacement(
 
 // Commits the current fixture and creates the next pointer-driven copy.
 void Viewer2DPanel::ConfirmContinuousFixturePlacement() {
-  CommitActiveMagnetSnap();
   ConfigManager &cfg = ConfigManager::Get();
   auto it = cfg.GetScene().fixtures.find(m_continuousFixtureUuid);
   if (it == cfg.GetScene().fixtures.end()) {
@@ -1688,6 +1687,7 @@ void Viewer2DPanel::ConfirmContinuousFixturePlacement() {
     return;
   }
   Fixture next = it->second;
+  CommitActiveMagnetSnap();
   next.fixtureId += 1;
   next.uuid = wxString::Format(
                   "uuid_%lld", static_cast<long long>(

@@ -2728,7 +2728,6 @@ void Viewer3DPanel::BeginContinuousFixturePlacement(const std::string& fixtureUu
 // Commits the current fixture and creates the next pointer-driven copy.
 void Viewer3DPanel::ConfirmContinuousFixturePlacement()
 {
-    CommitActiveMagnetSnap();
     ConfigManager& cfg = ConfigManager::Get();
     auto it = cfg.GetScene().fixtures.find(m_continuousFixtureUuid);
     if (it == cfg.GetScene().fixtures.end()) {
@@ -2736,6 +2735,7 @@ void Viewer3DPanel::ConfirmContinuousFixturePlacement()
         return;
     }
     Fixture next = it->second;
+    CommitActiveMagnetSnap();
     next.fixtureId += 1;
     next.uuid = wxString::Format("uuid_%lld", static_cast<long long>(
         std::chrono::steady_clock::now().time_since_epoch().count())).ToStdString();
@@ -2743,6 +2743,9 @@ void Viewer3DPanel::ConfirmContinuousFixturePlacement()
     m_continuousFixtureUuid = next.uuid;
     m_dragSelectionUuids = {next.uuid};
     m_dragFixtureUuids = {next.uuid};
+    m_selectionDragAnchorMeters = {next.transform.o[0] / 1000.0f,
+                                   next.transform.o[1] / 1000.0f,
+                                   next.transform.o[2] / 1000.0f};
     m_pendingMagnetSnap.reset();
     if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->ReloadData();
