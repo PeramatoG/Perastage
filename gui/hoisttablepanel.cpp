@@ -17,39 +17,57 @@
  */
 #include "hoisttablepanel.h"
 
-#include "columnutils.h"
 #include "colorfulrenderers.h"
+#include "columnutils.h"
 #include "configmanager.h"
-#include "selection_origin_token.h"
+#include "dataview_edit_commit.h"
+#include "dummyprofilelibrary.h"
 #include "editable_focus_utils.h"
 #include "guiconfigservices.h"
 #include "hoist_load_recalculation_prompt.h"
 #include "layerpanel.h"
-#include "dummyprofilelibrary.h"
 #include "matrixutils.h"
 #include "riggingpanel.h"
+#include "selection_origin_token.h"
 #include "stringutils.h"
 #include "summarypanel.h"
-#include "dataview_edit_commit.h"
 #include "support.h"
+#include "table_column_indices.h"
 #include "units/unit_label_utils.h"
 #include "units/units.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
-#include <wx/aui/aui.h>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <memory>
 #include <optional>
+#include <wx/aui/aui.h>
 #include <wx/choicdlg.h>
 #include <wx/notebook.h>
-#include <wx/wupdlock.h> // freeze/thaw UI during batch edits
 #include <wx/version.h>
+#include <wx/wupdlock.h> // freeze/thaw UI during batch edits
 
 static HoistTablePanel *s_instance = nullptr;
 
 namespace {
+
+using HoistColumn = HoistTableColumns::Column;
+
+// Converts a hoist column to its stable model index.
+constexpr int ColumnIndex(HoistColumn column) {
+  return TableColumnIndices::ToIndex(column);
+}
+
+// Checks whether a hoist column contains numeric data.
+bool IsNumericColumn(HoistColumn column) {
+  return column >= HoistColumn::PositionX && column <= HoistColumn::Load;
+}
+
+// Checks whether a hoist column contains rotation data.
+bool IsRotationColumn(HoistColumn column) {
+  return column >= HoistColumn::Roll && column <= HoistColumn::Yaw;
+}
 
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
@@ -127,7 +145,8 @@ void BindTableHoverEvents(wxDataViewListCtrl *table, Owner *owner,
 
 Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  return Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+  return Units::ParseDistanceUnitSystem(
+      cfg.GetValue("ui_distance_unit_system"));
 }
 
 Units::WeightUnitSystem ResolveWeightUnitSystem() {
@@ -207,9 +226,8 @@ std::optional<HoistPresetDefaults> FindPresetDefaults(const Support &support) {
   return defaults;
 }
 
-
-std::optional<HoistFixtureDefaults> FindFixtureDefaults(const MvrScene &scene,
-                                                       const Support &support) {
+std::optional<HoistFixtureDefaults>
+FindFixtureDefaults(const MvrScene &scene, const Support &support) {
   if (support.motorFixtureUuid.empty())
     return std::nullopt;
   auto it = scene.fixtures.find(support.motorFixtureUuid);
@@ -280,11 +298,12 @@ RangeParts SplitRangeParts(const wxString &value) {
 } // namespace
 
 HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
-    : wxPanel(parent, wxID_ANY), guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
+    : wxPanel(parent, wxID_ANY),
+      guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
   store = new ColorfulDataViewListStore();
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
-  table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                                 wxDV_MULTIPLE | wxDV_ROW_LINES);
+  table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
+                                 wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
   table->AssociateModel(store);
   store->DecRef();
 
@@ -317,7 +336,8 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
   SetSizer(sizer);
 }
 
-// Releases table resources and detaches the hoist pane from AUI layout management.
+// Releases table resources and detaches the hoist pane from AUI layout
+// management.
 HoistTablePanel::~HoistTablePanel() {
   if (wxAuiManager *manager = wxAuiManager::GetManager(this))
     manager->DetachPane(this);
@@ -329,21 +349,46 @@ HoistTablePanel::~HoistTablePanel() {
 void HoistTablePanel::InitializeTable() {
   const auto distanceUnit = ResolveDistanceUnitSystem();
   const auto weightUnit = ResolveWeightUnitSystem();
-  const wxString distanceSuffix = wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
-  const wxString weightSuffix = wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
-  columnLabels = {"Hoist ID",      "Name",          "Type",      "Function",
-                  "Motor",         "Dummy Preset",  "Data Source", "Layer",
-                  "Hang Pos",      wxString::FromUTF8(Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8()))),         wxString::FromUTF8(Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8()))),     wxString::FromUTF8(Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8()))),
-                  "Roll (X)",      "Pitch (Y)",     "Yaw (Z)",
-                  "Chain Length (m)", wxString::FromUTF8(Units::LabelWithUnit("Capacity", std::string(weightSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8()))),
-                  wxString::FromUTF8(Units::LabelWithUnit("Load", std::string(weightSuffix.ToUTF8())))};
-  std::vector<int> widths = {70, 150, 120, 120, 130, 150, 110, 100, 120,
-                             80, 80, 80, 80, 80, 80, 110, 110, 100, 100};
+  const wxString distanceSuffix =
+      wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
+  const wxString weightSuffix =
+      wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
+  columnLabels = {
+      "Hoist ID",
+      "Name",
+      "Type",
+      "Function",
+      "Motor",
+      "Dummy Preset",
+      "Data Source",
+      "Layer",
+      "Hang Pos",
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8()))),
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8()))),
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8()))),
+      "Roll (X)",
+      "Pitch (Y)",
+      "Yaw (Z)",
+      "Chain Length (m)",
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Capacity", std::string(weightSuffix.ToUTF8()))),
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8()))),
+      wxString::FromUTF8(
+          Units::LabelWithUnit("Load", std::string(weightSuffix.ToUTF8())))};
+  std::vector<int> widths = {70, 150, 120, 120, 130, 150, 110, 100, 120, 80,
+                             80, 80,  80,  80,  80,  110, 110, 100, 100};
+  if (columnLabels.size() != TableColumnIndices::Count<HoistColumn>() ||
+      widths.size() != TableColumnIndices::Count<HoistColumn>())
+    return;
   for (size_t i = 0; i < columnLabels.size(); ++i)
     table->AppendColumn(new wxDataViewColumn(
-        columnLabels[i], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
-                                                  wxALIGN_LEFT),
-        i, widths[i], wxALIGN_LEFT,
+        columnLabels[i],
+        new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT, wxALIGN_LEFT), i,
+        widths[i], wxALIGN_LEFT,
         wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE));
   ColumnUtils::EnforceMinColumnWidth(table);
 }
@@ -355,12 +400,18 @@ void HoistTablePanel::ReloadData() {
       wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
   const wxString weightSuffix =
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
-  columnLabels[9] = wxString::FromUTF8(Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[10] = wxString::FromUTF8(Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[11] = wxString::FromUTF8(Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[16] = wxString::FromUTF8(Units::LabelWithUnit("Capacity", std::string(weightSuffix.ToUTF8())));
-  columnLabels[17] = wxString::FromUTF8(Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
-  columnLabels[18] = wxString::FromUTF8(Units::LabelWithUnit("Load", std::string(weightSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(HoistColumn::PositionX)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(HoistColumn::PositionY)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(HoistColumn::PositionZ)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(HoistColumn::Capacity)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Capacity", std::string(weightSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(HoistColumn::Weight)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(HoistColumn::Load)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Load", std::string(weightSuffix.ToUTF8())));
   for (size_t i = 0; i < columnLabels.size(); ++i) {
     if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
       column->SetTitle(columnLabels[i]);
@@ -400,16 +451,16 @@ void HoistTablePanel::ReloadData() {
     wxString name = wxString::FromUTF8(support.name);
     wxString type = wxString::FromUTF8(support.function);
     support.hoistDataSource = NormalizeHoistDataSource(support.hoistDataSource);
-    support.motorNameSource =
-        ResolveHoistFieldDataSource(support.motorNameSource, support.hoistDataSource);
+    support.motorNameSource = ResolveHoistFieldDataSource(
+        support.motorNameSource, support.hoistDataSource);
     support.motorManufacturerSource = ResolveHoistFieldDataSource(
         support.motorManufacturerSource, support.hoistDataSource);
-    support.motorModelSource =
-        ResolveHoistFieldDataSource(support.motorModelSource, support.hoistDataSource);
-    support.capacitySource =
-        ResolveHoistFieldDataSource(support.capacitySource, support.hoistDataSource);
-    support.weightSource =
-        ResolveHoistFieldDataSource(support.weightSource, support.hoistDataSource);
+    support.motorModelSource = ResolveHoistFieldDataSource(
+        support.motorModelSource, support.hoistDataSource);
+    support.capacitySource = ResolveHoistFieldDataSource(
+        support.capacitySource, support.hoistDataSource);
+    support.weightSource = ResolveHoistFieldDataSource(support.weightSource,
+                                                       support.hoistDataSource);
     support.hoistFunctionSource = ResolveHoistFieldDataSource(
         support.hoistFunctionSource, support.hoistDataSource);
     const auto effective =
@@ -418,7 +469,8 @@ void HoistTablePanel::ReloadData() {
     support.hoistFunction = NormalizeHoistFunction(support.hoistFunction);
     wxString hoistFunction = wxString::FromUTF8(effective.hoistFunction);
     wxString motorName = wxString::FromUTF8(effective.motorName);
-    wxString dummyPreset = wxString::FromUTF8(ResolveDummyProfileDisplayName(support));
+    wxString dummyPreset =
+        wxString::FromUTF8(ResolveDummyProfileDisplayName(support));
     wxString dataSource = wxString::FromUTF8(support.hoistDataSource);
     wxString layer = support.layer == DEFAULT_LAYER_NAME
                          ? wxString()
@@ -492,7 +544,9 @@ void HoistTablePanel::ReloadData() {
 void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   wxDataViewItem item = event.GetItem();
   int col = event.GetColumn();
-  if (!item.IsOk() || col < 0)
+  const auto namedColumn = TableColumnIndices::FromIndex<HoistColumn>(col);
+  if (!item.IsOk() || !namedColumn ||
+      static_cast<size_t>(col) >= columnLabels.size())
     return;
 
   // Freeze UI updates while performing bulk table modifications. Without
@@ -523,7 +577,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   wxVariant current;
   table->GetValue(current, row, col);
 
-  if (col == 3) {
+  if (*namedColumn == HoistColumn::Function) {
     wxArrayString choices;
     for (const auto &option : GetHoistFunctionOptions())
       choices.push_back(wxString::FromUTF8(option));
@@ -564,12 +618,13 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     return;
   }
 
-  if (col == 5) {
+  if (*namedColumn == HoistColumn::DummyPreset) {
     ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
     const auto &supports = cfg.GetScene().supports;
 
     wxArrayString choices = BuildDummyPresetChoices();
-    wxSingleChoiceDialog sdlg(this, "Select dummy preset", "Dummy Preset", choices);
+    wxSingleChoiceDialog sdlg(this, "Select dummy preset", "Dummy Preset",
+                              choices);
     if (sdlg.ShowModal() != wxID_OK)
       return;
 
@@ -591,7 +646,8 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
 
     if (!updatedAnyRow) {
-      wxMessageBox("Dummy preset can only be assigned when there is no linked motor fixture.",
+      wxMessageBox("Dummy preset can only be assigned when there is no linked "
+                   "motor fixture.",
                    "Dummy Preset", wxOK | wxICON_INFORMATION, this);
       return;
     }
@@ -607,11 +663,12 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     return;
   }
 
-  if (col == 6) {
+  if (*namedColumn == HoistColumn::DataSource) {
     wxArrayString choices;
     choices.push_back("Inherited");
     choices.push_back("Manual");
-    wxSingleChoiceDialog sdlg(this, "Select data source", "Data Source", choices);
+    wxSingleChoiceDialog sdlg(this, "Select data source", "Data Source",
+                              choices);
     if (sdlg.ShowModal() != wxID_OK)
       return;
     wxString sel = sdlg.GetStringSelection();
@@ -632,7 +689,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     return;
   }
 
-  if (col == 7) {
+  if (*namedColumn == HoistColumn::Layer) {
     auto layers = guiConfigServices->LegacyConfigManager().GetLayerNames();
     wxArrayString choices;
     for (const auto &n : layers)
@@ -641,8 +698,8 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if (sdlg.ShowModal() != wxID_OK)
       return;
     wxString sel = sdlg.GetStringSelection();
-    wxString val = sel == wxString::FromUTF8(DEFAULT_LAYER_NAME) ? wxString()
-                                                                 : sel;
+    wxString val =
+        sel == wxString::FromUTF8(DEFAULT_LAYER_NAME) ? wxString() : sel;
     for (const auto &itSel : selections) {
       int r = table->ItemToRow(itSel);
       if (r != wxNOT_FOUND)
@@ -666,11 +723,10 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
   wxString value = dlg.GetValue().Trim(true).Trim(false);
 
-  bool numericCol = (col >= 9);
+  const bool numericCol = IsNumericColumn(*namedColumn);
   bool relative = false;
   double delta = 0.0;
-  if (numericCol && col <= 18 &&
-      (value.StartsWith("++") || value.StartsWith("--"))) {
+  if (numericCol && (value.StartsWith("++") || value.StartsWith("--"))) {
     wxString numStr = value.Mid(2);
     if (numStr.ToDouble(&delta)) {
       if (value.StartsWith("--"))
@@ -688,7 +744,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxVariant cv;
         table->GetValue(cv, r, col);
         wxString cur = cv.GetString();
-        if (col >= 12 && col <= 14) {
+        if (IsRotationColumn(*namedColumn)) {
           if (!DegreeSymbol().empty())
             cur.Replace(DegreeSymbol(), "");
         }
@@ -696,10 +752,12 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
         cur.ToDouble(&curVal);
         double newVal = curVal + delta;
         wxString out;
-        if (col >= 12 && col <= 14)
+        if (IsRotationColumn(*namedColumn))
           out = wxString::Format("%.1f", newVal) + DegreeSymbol();
         else
-          out = wxString::Format((col >= 15) ? "%.2f" : "%.3f", newVal);
+          out = wxString::Format(
+              (*namedColumn >= HoistColumn::ChainLength) ? "%.2f" : "%.3f",
+              newVal);
         table->SetValue(wxVariant(out), r, col);
       }
     } else {
@@ -740,10 +798,12 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
           val = v1 + static_cast<double>(i);
 
         wxString out;
-        if (col >= 12 && col <= 14)
+        if (IsRotationColumn(*namedColumn))
           out = wxString::Format("%.1f", val) + DegreeSymbol();
         else
-          out = wxString::Format((col >= 15) ? "%.2f" : "%.3f", val);
+          out = wxString::Format(
+              (*namedColumn >= HoistColumn::ChainLength) ? "%.2f" : "%.3f",
+              val);
 
         int r = table->ItemToRow(selections[i]);
         if (r != wxNOT_FOUND)
@@ -916,15 +976,19 @@ void HoistTablePanel::ApplyPositionValueUpdates(
       continue;
 
     int row = static_cast<int>(pos - rowUuids.begin());
-    table->SetValue(wxVariant(wxString::FromUTF8(update.posX)), row, 9);
-    table->SetValue(wxVariant(wxString::FromUTF8(update.posY)), row, 10);
-    table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row, 11);
+    table->SetValue(wxVariant(wxString::FromUTF8(update.posX)), row,
+                    ColumnIndex(HoistColumn::PositionX));
+    table->SetValue(wxVariant(wxString::FromUTF8(update.posY)), row,
+                    ColumnIndex(HoistColumn::PositionY));
+    table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row,
+                    ColumnIndex(HoistColumn::PositionZ));
   }
 }
 
 // Persists edited support table values back into scene supports.
 void HoistTablePanel::UpdateSceneData(bool logChanges) {
-  // Ensure in-place cell editors commit pending values before reading table rows.
+  // Ensure in-place cell editors commit pending values before reading table
+  // rows.
   if (table)
     DataViewEditCommit::CommitPendingEdit(table);
 
@@ -952,35 +1016,35 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     Support next = old;
 
     wxVariant v;
-    table->GetValue(v, i, 1);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::Name));
     next.name = std::string(v.GetString().ToUTF8());
 
-    table->GetValue(v, i, 2);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::Type));
     next.function = std::string(v.GetString().ToUTF8());
 
-    const auto oldEffective =
-        ResolveEffectiveSupportData(old, FindPresetDefaults(old),
-                                    FindFixtureDefaults(scene, old));
+    const auto oldEffective = ResolveEffectiveSupportData(
+        old, FindPresetDefaults(old), FindFixtureDefaults(scene, old));
 
-    table->GetValue(v, i, 3);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::Function));
     const std::string editedHoistFunction =
         NormalizeHoistFunction(std::string(v.GetString().ToUTF8()));
     next.hoistFunction = editedHoistFunction;
 
-    table->GetValue(v, i, 4);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::Motor));
     const std::string editedMotorName = std::string(v.GetString().ToUTF8());
     next.motorName = editedMotorName;
 
-    table->GetValue(v, i, 5);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::DummyPreset));
     next.dummyPreset = std::string(v.GetString().ToUTF8());
     if (next.dummyPreset.empty()) {
       next.dummyProfileId.clear();
     } else {
-      const auto profile = DummyProfileLibrary::FindByDisplayName(next.dummyPreset);
+      const auto profile =
+          DummyProfileLibrary::FindByDisplayName(next.dummyPreset);
       next.dummyProfileId = profile.has_value() ? profile->id : "";
     }
 
-    table->GetValue(v, i, 6);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::DataSource));
     next.hoistDataSource =
         NormalizeHoistDataSource(std::string(v.GetString().ToUTF8()));
     if (IsManualHoistDataSource(next.hoistDataSource))
@@ -988,45 +1052,52 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     else if (NormalizeHoistDataSource(old.hoistDataSource) != "Inherited")
       SetAllHoistFieldSources(next, "Inherited");
 
-    table->GetValue(v, i, 7);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::Layer));
     std::string layerStr = std::string(v.GetString().ToUTF8());
     if (layerStr.empty())
       next.layer.clear();
     else
       next.layer = layerStr;
 
-    table->GetValue(v, i, 8);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::HangPosition));
     next.positionName = std::string(v.GetString().ToUTF8());
 
     const auto distanceUnit = ResolveDistanceUnitSystem();
     const auto weightUnit = ResolveWeightUnitSystem();
-    double xMm = old.transform.o[0], yMm = old.transform.o[1], zMm = old.transform.o[2];
-    table->GetValue(v, i, 9);
-    if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+    double xMm = old.transform.o[0], yMm = old.transform.o[1],
+           zMm = old.transform.o[2];
+    table->GetValue(v, i, ColumnIndex(HoistColumn::PositionX));
+    if (const auto parsed = Units::ParseDistanceToMillimeters(
+            std::string(v.GetString().ToUTF8()), distanceUnit);
+        parsed.has_value())
       xMm = *parsed;
-    table->GetValue(v, i, 10);
-    if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+    table->GetValue(v, i, ColumnIndex(HoistColumn::PositionY));
+    if (const auto parsed = Units::ParseDistanceToMillimeters(
+            std::string(v.GetString().ToUTF8()), distanceUnit);
+        parsed.has_value())
       yMm = *parsed;
-    table->GetValue(v, i, 11);
-    if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+    table->GetValue(v, i, ColumnIndex(HoistColumn::PositionZ));
+    if (const auto parsed = Units::ParseDistanceToMillimeters(
+            std::string(v.GetString().ToUTF8()), distanceUnit);
+        parsed.has_value())
       zMm = *parsed;
 
     double roll = 0, pitch = 0, yaw = 0;
-    table->GetValue(v, i, 12);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::Roll));
     {
       wxString s = v.GetString();
       if (!DegreeSymbol().empty())
             s.Replace(DegreeSymbol(), "");
       s.ToDouble(&roll);
     }
-    table->GetValue(v, i, 13);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::Pitch));
     {
       wxString s = v.GetString();
       if (!DegreeSymbol().empty())
             s.Replace(DegreeSymbol(), "");
       s.ToDouble(&pitch);
     }
-    table->GetValue(v, i, 14);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::Yaw));
     {
       wxString s = v.GetString();
       if (!DegreeSymbol().empty())
@@ -1053,27 +1124,33 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
            static_cast<float>(zMm)});
     }
 
-    table->GetValue(v, i, 15);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::ChainLength));
     double chainLen = 0.0;
     v.GetString().ToDouble(&chainLen);
     next.chainLength = static_cast<float>(chainLen);
 
-    table->GetValue(v, i, 16);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::Capacity));
     float editedCapacityKg = old.capacityKg;
-    if (const auto parsed = Units::ParseWeightToKilograms(std::string(v.GetString().ToUTF8()), weightUnit); parsed.has_value()) {
+    if (const auto parsed = Units::ParseWeightToKilograms(
+            std::string(v.GetString().ToUTF8()), weightUnit);
+        parsed.has_value()) {
       editedCapacityKg = static_cast<float>(*parsed);
       next.capacityKg = editedCapacityKg;
     }
 
-    table->GetValue(v, i, 17);
+    table->GetValue(v, i, ColumnIndex(HoistColumn::Weight));
     float editedWeightKg = old.weightKg;
-    if (const auto parsed = Units::ParseWeightToKilograms(std::string(v.GetString().ToUTF8()), weightUnit); parsed.has_value()) {
+    if (const auto parsed = Units::ParseWeightToKilograms(
+            std::string(v.GetString().ToUTF8()), weightUnit);
+        parsed.has_value()) {
       editedWeightKg = static_cast<float>(*parsed);
       next.weightKg = editedWeightKg;
     }
 
-    table->GetValue(v, i, 18);
-    if (const auto parsed = Units::ParseWeightToKilograms(std::string(v.GetString().ToUTF8()), weightUnit); parsed.has_value())
+    table->GetValue(v, i, ColumnIndex(HoistColumn::Load));
+    if (const auto parsed = Units::ParseWeightToKilograms(
+            std::string(v.GetString().ToUTF8()), weightUnit);
+        parsed.has_value())
       next.loadKg = static_cast<float>(*parsed);
 
     next.motorNameSource =
@@ -1098,7 +1175,8 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
                                 next.hoistFunctionSource, old.hoistFunction,
                                 next.hoistFunction);
 
-    const bool supportChanged = old.name != next.name || old.function != next.function ||
+    const bool supportChanged =
+        old.name != next.name || old.function != next.function ||
                                 old.hoistFunction != next.hoistFunction ||
                                 old.motorName != next.motorName ||
                                 old.motorManufacturer != next.motorManufacturer ||
@@ -1107,11 +1185,12 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
                                 old.dummyPreset != next.dummyPreset ||
                                 NormalizeHoistDataSource(old.hoistDataSource) !=
                                     NormalizeHoistDataSource(next.hoistDataSource) ||
-                                old.layer != next.layer ||
-                                old.positionName != next.positionName || transformChanged ||
-                                old.chainLength != next.chainLength ||
-                                !Units::NearlyEqualWeightKilograms(old.capacityKg, next.capacityKg, 0.001) ||
-                                !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001) ||
+        old.layer != next.layer || old.positionName != next.positionName ||
+        transformChanged || old.chainLength != next.chainLength ||
+        !Units::NearlyEqualWeightKilograms(old.capacityKg, next.capacityKg,
+                                           0.001) ||
+        !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg,
+                                           0.001) ||
                                 !Units::NearlyEqualWeightKilograms(old.loadKg, next.loadKg, 0.001) ||
                                 NormalizeHoistDataSource(old.motorNameSource) !=
                                     NormalizeHoistDataSource(next.motorNameSource) ||
@@ -1155,10 +1234,11 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     RiggingPanel::Instance()->RefreshData();
 }
 
-
 HoistTablePanel *HoistTablePanel::Instance() { return s_instance; }
 
-void HoistTablePanel::SetInstance(HoistTablePanel *panel) { s_instance = panel; }
+void HoistTablePanel::SetInstance(HoistTablePanel *panel) {
+  s_instance = panel;
+}
 
 bool HoistTablePanel::IsActivePage() const {
   if (IsBeingDeleted())
@@ -1170,8 +1250,7 @@ bool HoistTablePanel::IsActivePage() const {
   if (!nb || nb->IsBeingDeleted())
     return false;
   const int selection = nb->GetSelection();
-  if (selection == wxNOT_FOUND ||
-      selection < 0 ||
+  if (selection == wxNOT_FOUND || selection < 0 ||
       selection >= static_cast<int>(nb->GetPageCount()))
     return false;
   return nb->GetPage(static_cast<size_t>(selection)) == this;
@@ -1225,8 +1304,8 @@ void HoistTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
   RebuildRowCachesFromRowKeys();
   std::unique_ptr<wxEventBlocker> selectionBlocker;
   if (!notifySelectionChanged) {
-    selectionBlocker =
-        std::make_unique<wxEventBlocker>(table, wxEVT_DATAVIEW_SELECTION_CHANGED);
+    selectionBlocker = std::make_unique<wxEventBlocker>(
+        table, wxEVT_DATAVIEW_SELECTION_CHANGED);
   }
   table->UnselectAll();
   std::vector<bool> selectedRows(table->GetItemCount(), false);
@@ -1307,7 +1386,8 @@ void HoistTablePanel::DeleteSelected(bool pushUndoState) {
   ResyncRows(order, {});
 }
 
-void HoistTablePanel::ResyncRows(const std::vector<std::string> &oldOrder,
+void HoistTablePanel::ResyncRows(
+    const std::vector<std::string> &oldOrder,
                                  const std::vector<std::string> &selectedUuids) {
   (void)oldOrder;
   RebuildRowCachesFromRowKeys();

@@ -1,52 +1,59 @@
 #include "fixturetablepanel_update_types.h"
 
+#include "fixturetable/fixture_table_columns.h"
 #include "fixturetablepanel.h"
 
 // Resolves the minimal scene update category for a fixture table column.
 FixtureTablePanel::SceneDataUpdateType UpdateTypeForColumnImpl(int column) {
   using SceneDataUpdateType = FixtureTablePanel::SceneDataUpdateType;
-  switch (column) {
-  case 1:
+  const auto namedColumn = FixtureTableColumns::FromIndex(column);
+  if (!namedColumn)
+    return SceneDataUpdateType::kGeneral;
+  using Column = FixtureTableColumns::Column;
+  switch (*namedColumn) {
+  case Column::Name:
     return SceneDataUpdateType::kVisualLabelOnly;
-  case 5:
-  case 6:
-  case 8:
+  case Column::Universe:
+  case Column::Channel:
+  case Column::ChannelCount:
     return SceneDataUpdateType::kPatchOnly;
-  case 10:
-  case 11:
-  case 12:
-  case 13:
-  case 14:
-  case 15:
+  case Column::PositionX:
+  case Column::PositionY:
+  case Column::PositionZ:
+  case Column::Roll:
+  case Column::Pitch:
+  case Column::Yaw:
     return SceneDataUpdateType::kTransformOnly;
-  case 16:
-  case 17:
+  case Column::Power:
+  case Column::Weight:
     return SceneDataUpdateType::kWeightOrPosition;
-  case 18:
+  case Column::Category:
     return SceneDataUpdateType::kCategoryOnly;
-  case 19:
+  case Column::VisualColor:
     return SceneDataUpdateType::kAppearanceOnly;
-  case 0:
+  case Column::FixtureId:
     return SceneDataUpdateType::kFixtureIdOnly;
-  case 2:
-  case 3:
-  case 4:
-  case 7:
-  case 9:
+  case Column::Type:
+  case Column::Layer:
+  case Column::HangPosition:
+  case Column::Mode:
+  case Column::ModelFile:
     return SceneDataUpdateType::kMetadataOnly;
-  default:
+  case Column::Count:
     return SceneDataUpdateType::kGeneral;
   }
+  return SceneDataUpdateType::kGeneral;
 }
 
 // Merges two update categories into the most conservative required update.
-FixtureTablePanel::SceneDataUpdateType CombineUpdateTypesImpl(
-    FixtureTablePanel::SceneDataUpdateType lhs,
-    FixtureTablePanel::SceneDataUpdateType rhs) {
+FixtureTablePanel::SceneDataUpdateType
+CombineUpdateTypesImpl(FixtureTablePanel::SceneDataUpdateType lhs,
+                       FixtureTablePanel::SceneDataUpdateType rhs) {
   using SceneDataUpdateType = FixtureTablePanel::SceneDataUpdateType;
   if (lhs == rhs)
     return lhs;
-  if (lhs == SceneDataUpdateType::kGeneral || rhs == SceneDataUpdateType::kGeneral)
+  if (lhs == SceneDataUpdateType::kGeneral ||
+      rhs == SceneDataUpdateType::kGeneral)
     return SceneDataUpdateType::kGeneral;
   if (lhs == SceneDataUpdateType::kVisualLabelOnly)
     return rhs;

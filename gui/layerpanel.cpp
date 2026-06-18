@@ -20,6 +20,7 @@
 #include "guiconfigservices.h"
 #include "fixturetablepanel.h"
 #include "sceneobjecttablepanel.h"
+#include "table_column_indices.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -32,6 +33,13 @@
 LayerPanel* LayerPanel::s_instance = nullptr;
 
 namespace {
+using LayerColumn = LayerTableColumns::Column;
+
+// Converts a layer column to its stable model index.
+constexpr int ColumnIndex(LayerColumn column) {
+    return TableColumnIndices::ToIndex(column);
+}
+
 void RefreshVisibleViewers() {
     std::function<void(wxWindow*)> visit;
     visit = [&](wxWindow* window) {
@@ -71,7 +79,8 @@ LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config
     auto* visibleColumn = list->AppendToggleColumn("Visible");
     auto* layerColumn = list->AppendTextColumn("Layer");
     auto* colorRenderer = new wxDataViewIconTextRenderer();
-    auto* colorColumn = new wxDataViewColumn("Color", colorRenderer, 2, 40, wxALIGN_CENTER,
+    auto* colorColumn = new wxDataViewColumn("Color", colorRenderer,
+                                             ColumnIndex(LayerColumn::Color), 40, wxALIGN_CENTER,
                                              wxDATAVIEW_COL_RESIZABLE);
     list->AppendColumn(colorColumn);
 
@@ -86,10 +95,13 @@ LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config
         dc.GetTextExtent("Visible", &visibleLabelWidth, nullptr);
         dc.GetTextExtent("Color", &colorLabelWidth, nullptr);
 
-        const int visibleWidth = visibleLabelWidth + 28; // checkbox + header padding
-        const int colorWidth = std::max(colorLabelWidth + 16, 16 + 20); // label or swatch
+    const int visibleWidth =
+        visibleLabelWidth + 28; // checkbox + header padding
+    const int colorWidth =
+        std::max(colorLabelWidth + 16, 16 + 20); // label or swatch
         const int listWidth = std::max(0, list->GetClientSize().GetWidth());
-        const int layerWidth = std::max(120, listWidth - visibleWidth - colorWidth - 8);
+    const int layerWidth =
+        std::max(120, listWidth - visibleWidth - colorWidth - 8);
 
         visibleColumn->SetMinWidth(visibleWidth);
         visibleColumn->SetWidth(visibleWidth);
@@ -139,19 +151,13 @@ LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config
     ReloadLayers();
 }
 
-LayerPanel* LayerPanel::Instance()
-{
-    return s_instance;
-}
+LayerPanel *LayerPanel::Instance() { return s_instance; }
 
-void LayerPanel::SetInstance(LayerPanel* p)
-{
-    s_instance = p;
-}
+void LayerPanel::SetInstance(LayerPanel *p) { s_instance = p; }
 
-void LayerPanel::ReloadLayers()
-{
-    if (!list) return;
+void LayerPanel::ReloadLayers() {
+  if (!list)
+    return;
     list->DeleteAllItems();
 
     std::set<std::string> names;
@@ -163,9 +169,12 @@ void LayerPanel::ReloadLayers()
         if (!ln.empty())
             names.insert(ln);
     };
-    for (const auto& [u,f] : scene.fixtures) collect(f.layer);
-    for (const auto& [u,t] : scene.trusses) collect(t.layer);
-    for (const auto& [u,o] : scene.sceneObjects) collect(o.layer);
+  for (const auto &[u, f] : scene.fixtures)
+    collect(f.layer);
+  for (const auto &[u, t] : scene.trusses)
+    collect(t.layer);
+  for (const auto &[u, o] : scene.sceneObjects)
+    collect(o.layer);
     names.insert(DEFAULT_LAYER_NAME);
 
     auto hidden = (*configManager).GetHiddenLayers();
@@ -209,20 +218,20 @@ void LayerPanel::ReloadLayers()
         sel = 0;
     if (sel >= 0) {
         list->SelectRow(sel);
-        wxString wname = list->GetTextValue(sel,1);
+    wxString wname = list->GetTextValue(sel, ColumnIndex(LayerColumn::Layer));
         (*configManager).SetCurrentLayer(wname.ToStdString());
     }
 }
 
-void LayerPanel::OnCheck(wxDataViewEvent& evt)
-{
+void LayerPanel::OnCheck(wxDataViewEvent &evt) {
     int idx = static_cast<int>(list->ItemToRow(evt.GetItem()));
-    if (idx == wxNOT_FOUND || idx < 0 || idx >= static_cast<int>(list->GetItemCount()))
+  if (idx == wxNOT_FOUND || idx < 0 ||
+      idx >= static_cast<int>(list->GetItemCount()))
         return;
-    wxString wname = list->GetTextValue(idx,1);
+  wxString wname = list->GetTextValue(idx, ColumnIndex(LayerColumn::Layer));
     std::string name = wname.ToStdString();
     wxVariant v;
-    list->GetValue(v, idx, 0);
+  list->GetValue(v, idx, ColumnIndex(LayerColumn::Visible));
     bool checked = v.GetBool();
     auto hidden = (*configManager).GetHiddenLayers();
     if (checked)
@@ -233,21 +242,19 @@ void LayerPanel::OnCheck(wxDataViewEvent& evt)
     RefreshVisibleViewers();
 }
 
-void LayerPanel::OnSelect(wxDataViewEvent& evt)
-{
+void LayerPanel::OnSelect(wxDataViewEvent &evt) {
     unsigned int idx = list->ItemToRow(evt.GetItem());
     if (idx == wxNOT_FOUND)
         return;
-    wxString wname = list->GetTextValue(idx,1);
+  wxString wname = list->GetTextValue(idx, ColumnIndex(LayerColumn::Layer));
     (*configManager).SetCurrentLayer(wname.ToStdString());
 }
 
-void LayerPanel::OnContext(wxDataViewEvent& evt)
-{
+void LayerPanel::OnContext(wxDataViewEvent &evt) {
     unsigned int idx = list->ItemToRow(evt.GetItem());
     if (idx == wxNOT_FOUND)
         return;
-    wxString wname = list->GetTextValue(idx,1);
+  wxString wname = list->GetTextValue(idx, ColumnIndex(LayerColumn::Layer));
     std::string name = wname.ToStdString();
     wxColourData data;
     if (auto c = (*configManager).GetLayerColor(name))
@@ -256,7 +263,9 @@ void LayerPanel::OnContext(wxDataViewEvent& evt)
     if (dlg.ShowModal() != wxID_OK)
         return;
     wxColour col = dlg.GetColourData().GetColour();
-    std::string hex = wxString::Format("#%02X%02X%02X", col.Red(), col.Green(), col.Blue()).ToStdString();
+  std::string hex =
+      wxString::Format("#%02X%02X%02X", col.Red(), col.Green(), col.Blue())
+          .ToStdString();
     (*configManager).PushUndoState("change layer color");
     (*configManager).SetLayerColor(name, hex);
     wxBitmap bmp(16,16);
@@ -267,7 +276,7 @@ void LayerPanel::OnContext(wxDataViewEvent& evt)
     dc.SelectObject(wxNullBitmap);
     wxDataViewIconText icon("", bmp);
     wxVariant vv(icon);
-    list->SetValue(vv, idx, 2);
+  list->SetValue(vv, idx, ColumnIndex(LayerColumn::Color));
     if (Viewer3DPanel::Instance()) {
         Viewer3DPanel::Instance()->SetLayerColor(name, hex);
         Viewer3DPanel::Instance()->Refresh();
@@ -278,8 +287,7 @@ void LayerPanel::OnContext(wxDataViewEvent& evt)
     }
 }
 
-void LayerPanel::OnAddLayer(wxCommandEvent&)
-{
+void LayerPanel::OnAddLayer(wxCommandEvent &) {
     wxTextEntryDialog dlg(this, "Enter new layer name:", "Add Layer");
     if (dlg.ShowModal() != wxID_OK)
         return;
@@ -313,7 +321,8 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
     int sel = list->GetSelectedRow();
     if (sel == wxNOT_FOUND)
         return;
-    wxString wname = list->GetTextValue(sel,1);
+    wxString wname =
+        list->GetTextValue(sel, ColumnIndex(LayerColumn::Layer));
     std::string name = wname.ToStdString();
     if (name == DEFAULT_LAYER_NAME)
     {
@@ -399,15 +408,27 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
 
     auto selFix = cfg.GetSelectedFixtures();
     selFix.erase(std::remove_if(selFix.begin(), selFix.end(),
-        [&](const std::string& u){ return scene.fixtures.find(u) == scene.fixtures.end(); }), selFix.end());
+                              [&](const std::string &u) {
+                                return scene.fixtures.find(u) ==
+                                       scene.fixtures.end();
+                              }),
+               selFix.end());
     cfg.SetSelectedFixtures(selFix);
     auto selTr = cfg.GetSelectedTrusses();
     selTr.erase(std::remove_if(selTr.begin(), selTr.end(),
-        [&](const std::string& u){ return scene.trusses.find(u) == scene.trusses.end(); }), selTr.end());
+                             [&](const std::string &u) {
+                               return scene.trusses.find(u) ==
+                                      scene.trusses.end();
+                             }),
+              selTr.end());
     cfg.SetSelectedTrusses(selTr);
     auto selObj = cfg.GetSelectedSceneObjects();
     selObj.erase(std::remove_if(selObj.begin(), selObj.end(),
-        [&](const std::string& u){ return scene.sceneObjects.find(u) == scene.sceneObjects.end(); }), selObj.end());
+                              [&](const std::string &u) {
+                                return scene.sceneObjects.find(u) ==
+                                       scene.sceneObjects.end();
+                              }),
+               selObj.end());
     cfg.SetSelectedSceneObjects(selObj);
 
     ReloadLayers();
@@ -423,19 +444,18 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
     }
 }
 
-void LayerPanel::OnRenameLayer(wxDataViewEvent& evt)
-{
+void LayerPanel::OnRenameLayer(wxDataViewEvent &evt) {
     if (!list)
         return;
     unsigned int idx = list->ItemToRow(evt.GetItem());
     if (idx == wxNOT_FOUND)
         return;
 
-    wxString oldW = list->GetTextValue(idx,1);
+  wxString oldW = list->GetTextValue(idx, ColumnIndex(LayerColumn::Layer));
     std::string oldName = oldW.ToStdString();
-    if (oldName == DEFAULT_LAYER_NAME)
-    {
-        wxMessageBox("Cannot rename default layer.", "Rename Layer", wxOK | wxICON_ERROR, this);
+  if (oldName == DEFAULT_LAYER_NAME) {
+    wxMessageBox("Cannot rename default layer.", "Rename Layer",
+                 wxOK | wxICON_ERROR, this);
         return;
     }
 

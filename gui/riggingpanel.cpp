@@ -19,8 +19,8 @@
 
 #include <cmath>
 #include <map>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "colorstore.h"
@@ -30,11 +30,19 @@
 #include "hoist_load_recalculation_prompt.h"
 #include "mainwindow.h"
 #include "rigging_extra_weight_settings.h"
+#include "table_column_indices.h"
 #include "units/unit_label_utils.h"
 #include "units/units.h"
 
 namespace {
 constexpr const char *UNASSIGNED_POSITION = "Unassigned";
+
+using RiggingColumn = RiggingTableColumns::Column;
+
+// Converts a rigging column to its stable model index.
+constexpr int ColumnIndex(RiggingColumn column) {
+  return TableColumnIndices::ToIndex(column);
+}
 
 float RoundUpToNextFiveKg(float valueKg) {
   constexpr float kFiveKgStep = 5.0f;
@@ -65,21 +73,31 @@ Units::WeightUnitSystem ResolveWeightUnitSystem() {
 }
 
 wxString BuildRiggingTooltipForColumn(int modelColumn) {
-  switch (modelColumn) {
-  case 4:
+  const auto column = TableColumnIndices::FromIndex<RiggingColumn>(modelColumn);
+  if (!column)
+    return wxString();
+  switch (*column) {
+  case RiggingColumn::FixtureWeight:
     return "Fixture weight includes zero or missing values in this position.";
-  case 5:
+  case RiggingColumn::TrussWeight:
     return "Truss weight includes zero or missing values in this position.";
-  case 6:
+  case RiggingColumn::HoistWeight:
     return "Hoist weight includes zero or missing values in this position.";
-  case 7:
-    return "Extra weight was auto-calculated and must be validated by the user.";
-  case 8:
-  case 9:
-    return "Total weight includes values that need attention (missing weights or pending validation).";
-  default:
+  case RiggingColumn::ExtraWeight:
+    return "Extra weight was auto-calculated and must be validated by the "
+           "user.";
+  case RiggingColumn::TotalWeight:
+  case RiggingColumn::RoundedTotalWeight:
+    return "Total weight includes values that need attention (missing weights "
+           "or pending validation).";
+  case RiggingColumn::Position:
+  case RiggingColumn::Fixtures:
+  case RiggingColumn::Trusses:
+  case RiggingColumn::Hoists:
+  case RiggingColumn::Count:
     return wxString();
   }
+  return wxString();
 }
 
 void SetTableAndChildTooltips(wxDataViewListCtrl *table,
@@ -99,8 +117,7 @@ void SetTableAndChildTooltips(wxDataViewListCtrl *table,
 wxPoint NormalizeMousePositionForTable(wxDataViewListCtrl *table,
                                        const wxMouseEvent &event) {
   wxPoint position = event.GetPosition();
-  wxWindow *sourceWindow =
-      dynamic_cast<wxWindow *>(event.GetEventObject());
+  wxWindow *sourceWindow = dynamic_cast<wxWindow *>(event.GetEventObject());
   if (!table || !sourceWindow || sourceWindow == table)
     return position;
 
@@ -130,13 +147,14 @@ void BindTableHoverEvents(wxDataViewListCtrl *table, Owner *owner,
     bindEvents(it->GetData());
   }
 }
-}
+} // namespace
 
 static RiggingPanel *s_instance = nullptr;
 
 RiggingPanel::RiggingPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   store = new ColorfulDataViewListStore();
-  table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+  table =
+      new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                                  wxDV_ROW_LINES | wxDV_VERT_RULES);
   table->AssociateModel(store);
   store->DecRef();
@@ -159,38 +177,35 @@ RiggingPanel::RiggingPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   const auto weightUnit = ResolveWeightUnitSystem();
   const wxString weightSuffix =
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
-  table->AppendTextColumn("Position", wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
-                          wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
-  table->AppendTextColumn("Fixtures", wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
-                          wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
-  table->AppendTextColumn("Trusses", wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
-                          wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
+  table->AppendTextColumn("Position", wxDATAVIEW_CELL_INERT,
+                          wxCOL_WIDTH_AUTOSIZE, wxALIGN_LEFT,
+                          wxDATAVIEW_COL_RESIZABLE);
+  table->AppendTextColumn("Fixtures", wxDATAVIEW_CELL_INERT,
+                          wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
+                          wxDATAVIEW_COL_RESIZABLE);
+  table->AppendTextColumn("Trusses", wxDATAVIEW_CELL_INERT,
+                          wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
+                          wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Hoists", wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
                           wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Fixture Weight (" + weightSuffix + ")",
-                          wxDATAVIEW_CELL_INERT,
-                          wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
-                          wxDATAVIEW_COL_RESIZABLE);
+                          wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
+                          wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Truss Weight (" + weightSuffix + ")",
-                          wxDATAVIEW_CELL_INERT,
-                          wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
-                          wxDATAVIEW_COL_RESIZABLE);
+                          wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
+                          wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Hoists Weight (" + weightSuffix + ")",
-                          wxDATAVIEW_CELL_INERT,
-                          wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
-                          wxDATAVIEW_COL_RESIZABLE);
+                          wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
+                          wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Extra Weight (" + weightSuffix + ")",
-                          wxDATAVIEW_CELL_EDITABLE,
-                          wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
-                          wxDATAVIEW_COL_RESIZABLE);
+                          wxDATAVIEW_CELL_EDITABLE, wxCOL_WIDTH_AUTOSIZE,
+                          wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Total Weight (" + weightSuffix + ")",
-                          wxDATAVIEW_CELL_INERT,
-                          wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
-                          wxDATAVIEW_COL_RESIZABLE);
+                          wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
+                          wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Rounded Total Weight +5% (" + weightSuffix + ")",
-                          wxDATAVIEW_CELL_INERT,
-                          wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
-                          wxDATAVIEW_COL_RESIZABLE);
+                          wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
+                          wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
 
   ColumnUtils::EnforceMinColumnWidth(table);
 
@@ -237,18 +252,22 @@ void RiggingPanel::RefreshData() {
   const wxString weightSuffix =
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
   if (table->GetColumnCount() >= 10) {
-    table->GetColumn(4)->SetTitle("Fixture Weight (" + weightSuffix + ")");
-    table->GetColumn(5)->SetTitle("Truss Weight (" + weightSuffix + ")");
-    table->GetColumn(6)->SetTitle("Hoists Weight (" + weightSuffix + ")");
-    table->GetColumn(7)->SetTitle("Extra Weight (" + weightSuffix + ")");
-    table->GetColumn(8)->SetTitle("Total Weight (" + weightSuffix + ")");
-    table->GetColumn(9)->SetTitle("Rounded Total Weight +5% (" + weightSuffix +
-                                  ")");
+    table->GetColumn(ColumnIndex(RiggingColumn::FixtureWeight))
+        ->SetTitle("Fixture Weight (" + weightSuffix + ")");
+    table->GetColumn(ColumnIndex(RiggingColumn::TrussWeight))
+        ->SetTitle("Truss Weight (" + weightSuffix + ")");
+    table->GetColumn(ColumnIndex(RiggingColumn::HoistWeight))
+        ->SetTitle("Hoists Weight (" + weightSuffix + ")");
+    table->GetColumn(ColumnIndex(RiggingColumn::ExtraWeight))
+        ->SetTitle("Extra Weight (" + weightSuffix + ")");
+    table->GetColumn(ColumnIndex(RiggingColumn::TotalWeight))
+        ->SetTitle("Total Weight (" + weightSuffix + ")");
+    table->GetColumn(ColumnIndex(RiggingColumn::RoundedTotalWeight))
+        ->SetTitle("Rounded Total Weight +5% (" + weightSuffix + ")");
   }
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto &scene = cfg.GetScene();
-  const auto extraWeights =
-      RiggingExtraWeightSettings::ParseEntries(
+  const auto extraWeights = RiggingExtraWeightSettings::ParseEntries(
           cfg.GetValue(RiggingExtraWeightSettings::ConfigKey()));
   for (const auto &[uuid, fixture] : scene.fixtures) {
     std::string pos = fixture.positionName.empty() ? UNASSIGNED_POSITION
@@ -261,8 +280,8 @@ void RiggingPanel::RefreshData() {
   }
 
   for (const auto &[uuid, truss] : scene.trusses) {
-    std::string pos = truss.positionName.empty() ? UNASSIGNED_POSITION
-                                                 : truss.positionName;
+    std::string pos =
+        truss.positionName.empty() ? UNASSIGNED_POSITION : truss.positionName;
     auto &entry = rows[pos];
     entry.trusses++;
     entry.trussWeight += truss.weightKg;
@@ -294,9 +313,8 @@ void RiggingPanel::RefreshData() {
   rowPositions.clear();
   rowPositions.reserve(rows.size());
   for (const auto &[position, totals] : rows) {
-    float totalWeight =
-        totals.fixtureWeight + totals.trussWeight + totals.hoistWeight +
-        totals.extraWeight;
+    float totalWeight = totals.fixtureWeight + totals.trussWeight +
+                        totals.hoistWeight + totals.extraWeight;
     float roundedFivePercentIncrease = RoundUpToNextFiveKg(totalWeight);
     wxVector<wxVariant> row;
     row.push_back(wxString::FromUTF8(position));
@@ -313,8 +331,8 @@ void RiggingPanel::RefreshData() {
         totals.extraWeight, weightUnit, Units::ValueFormatContext::Table)));
     row.push_back(wxString::FromUTF8(Units::FormatWeightFromKilograms(
         totalWeight, weightUnit, Units::ValueFormatContext::Table)));
-    row.push_back(wxString::FromUTF8(Units::FormatWeightFromKilograms(
-        roundedFivePercentIncrease, weightUnit,
+    row.push_back(wxString::FromUTF8(
+        Units::FormatWeightFromKilograms(roundedFivePercentIncrease, weightUnit,
         Units::ValueFormatContext::Table)));
     unsigned int rowIndex = table->GetItemCount();
     table->AppendItem(row);
@@ -358,12 +376,13 @@ void RiggingPanel::OnItemActivated(wxDataViewEvent &event) {
     return;
   }
 
-  if (event.GetColumn() != 7) {
+  if (event.GetColumn() != ColumnIndex(RiggingColumn::ExtraWeight)) {
     event.Skip();
     return;
   }
 
-  table->EditItem(event.GetItem(), table->GetColumn(7));
+  table->EditItem(event.GetItem(),
+                  table->GetColumn(ColumnIndex(RiggingColumn::ExtraWeight)));
   event.Skip();
 }
 
@@ -375,17 +394,19 @@ void RiggingPanel::OnItemContextMenu(wxDataViewEvent &event) {
 
   const wxDataViewItem item = event.GetItem();
   const int column = event.GetColumn();
-  if (!item.IsOk() || column != 7) {
+  if (!item.IsOk() || column != ColumnIndex(RiggingColumn::ExtraWeight)) {
     event.Skip();
     return;
   }
 
-  table->EditItem(item, table->GetColumn(7));
+  table->EditItem(item,
+                  table->GetColumn(ColumnIndex(RiggingColumn::ExtraWeight)));
   event.Skip();
 }
 
 void RiggingPanel::OnItemEditingStarted(wxDataViewEvent &event) {
-  if (event.GetColumn() == 7 && !shortcutsTemporarilyDisabled) {
+  if (event.GetColumn() == ColumnIndex(RiggingColumn::ExtraWeight) &&
+      !shortcutsTemporarilyDisabled) {
     if (MainWindow::Instance()) {
       MainWindow::Instance()->EnableShortcuts(false);
       shortcutsTemporarilyDisabled = true;
@@ -395,7 +416,8 @@ void RiggingPanel::OnItemEditingStarted(wxDataViewEvent &event) {
 }
 
 void RiggingPanel::OnItemEditingDone(wxDataViewEvent &event) {
-  if (event.GetColumn() == 7 && shortcutsTemporarilyDisabled) {
+  if (event.GetColumn() == ColumnIndex(RiggingColumn::ExtraWeight) &&
+      shortcutsTemporarilyDisabled) {
     if (MainWindow::Instance())
       MainWindow::Instance()->EnableShortcuts(true);
     shortcutsTemporarilyDisabled = false;
@@ -408,7 +430,7 @@ void RiggingPanel::OnItemValueChanged(wxDataViewEvent &event) {
     return;
 
   const int editedColumn = event.GetColumn();
-  if (editedColumn != 7)
+  if (editedColumn != ColumnIndex(RiggingColumn::ExtraWeight))
     return;
 
   const int row = static_cast<int>(table->ItemToRow(event.GetItem()));
@@ -416,10 +438,10 @@ void RiggingPanel::OnItemValueChanged(wxDataViewEvent &event) {
     return;
 
   const auto weightUnit = ResolveWeightUnitSystem();
-  const wxString rawValue =
-      table->GetTextValue(static_cast<unsigned int>(row), 7);
-  const auto parsedKg = Units::ParseWeightToKilograms(
-      std::string(rawValue.ToUTF8()), weightUnit);
+  const wxString rawValue = table->GetTextValue(
+      static_cast<unsigned int>(row), ColumnIndex(RiggingColumn::ExtraWeight));
+  const auto parsedKg =
+      Units::ParseWeightToKilograms(std::string(rawValue.ToUTF8()), weightUnit);
   if (!parsedKg.has_value()) {
     RefreshData();
     return;
@@ -445,7 +467,6 @@ void RiggingPanel::OnItemValueChanged(wxDataViewEvent &event) {
 
   RefreshData();
 }
-
 
 void RiggingPanel::OnMouseMove(wxMouseEvent &event) {
   UpdateHoverTooltip(NormalizeMousePositionForTable(table, event));
