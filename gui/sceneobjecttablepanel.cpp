@@ -29,6 +29,7 @@
 #include "scene_object_primitive_editing.h"
 #include "stringutils.h"
 #include "summarypanel.h"
+#include "table_column_indices.h"
 #include "layoutviewerpanel.h"
 #include "dataview_edit_commit.h"
 #include "viewer2dpanel.h"
@@ -52,6 +53,25 @@ static SceneObjectTablePanel* s_instance = nullptr;
 
 namespace {
 
+using SceneObjectColumn = SceneObjectTableColumns::Column;
+
+// Converts a scene-object column to its stable model index.
+constexpr int ColumnIndex(SceneObjectColumn column) {
+    return TableColumnIndices::ToIndex(column);
+}
+
+// Checks whether a scene-object column contains transform data.
+bool IsTransformColumn(SceneObjectColumn column) {
+    return column >= SceneObjectColumn::PositionX &&
+           column <= SceneObjectColumn::Yaw;
+}
+
+// Checks whether a scene-object column contains rotation data.
+bool IsRotationColumn(SceneObjectColumn column) {
+    return column >= SceneObjectColumn::Roll &&
+           column <= SceneObjectColumn::Yaw;
+}
+
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
@@ -59,7 +79,8 @@ const wxString &DegreeSymbol() {
 
 Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
     auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    return Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+  return Units::ParseDistanceUnitSystem(
+      cfg.GetValue("ui_distance_unit_system"));
 }
 
 struct RangeParts {
@@ -68,8 +89,7 @@ struct RangeParts {
     bool trailingSeparator = false;
 };
 
-bool IsNumChar(char c)
-{
+bool IsNumChar(char c) {
     return std::isdigit(static_cast<unsigned char>(c)) || c == '.' || c == '-' ||
            c == '+';
 }
@@ -101,33 +121,28 @@ void RefreshSceneObjectVisuals() {
     }
 }
 
-RangeParts SplitRangeParts(const wxString& value)
-{
+RangeParts SplitRangeParts(const wxString &value) {
     std::string lower = value.Lower().ToStdString();
     std::string normalized;
     normalized.reserve(lower.size() + 4);
     bool usedSeparator = false;
     bool trailingSeparator = false;
-    for (size_t i = 0; i < lower.size();)
-    {
-        if (lower.compare(i, 4, "thru") == 0)
-        {
+  for (size_t i = 0; i < lower.size();) {
+    if (lower.compare(i, 4, "thru") == 0) {
             normalized.push_back(' ');
             usedSeparator = true;
             trailingSeparator = true;
             i += 4;
             continue;
         }
-        if (lower[i] == 't')
-        {
+    if (lower[i] == 't') {
             char prev = (i > 0) ? lower[i - 1] : '\0';
             char next = (i + 1 < lower.size()) ? lower[i + 1] : '\0';
             bool standalone =
                 (i == 0 || std::isspace(static_cast<unsigned char>(prev))) &&
                 (i + 1 >= lower.size() ||
                  std::isspace(static_cast<unsigned char>(next)));
-            if (standalone || IsNumChar(prev) || IsNumChar(next))
-            {
+      if (standalone || IsNumChar(prev) || IsNumChar(next)) {
                 normalized.push_back(' ');
                 usedSeparator = true;
                 trailingSeparator = true;
@@ -148,11 +163,11 @@ RangeParts SplitRangeParts(const wxString& value)
     return {parts, usedSeparator, trailingSeparator};
 }
 
-std::string ModelRefForDisplay(const SceneObject &object)
-{
+std::string ModelRefForDisplay(const SceneObject &object) {
     const std::string primary = object.GetPrimaryModel();
     if (primary.rfind("primitive:", 0) == 0) {
-        const std::string archivePath = mvr::PrimitiveArchivePathForToken(primary, object.uuid);
+    const std::string archivePath =
+        mvr::PrimitiveArchivePathForToken(primary, object.uuid);
         if (!archivePath.empty())
             return std::filesystem::path(archivePath).filename().string();
     }
@@ -160,26 +175,29 @@ std::string ModelRefForDisplay(const SceneObject &object)
 }
 
 wxString ResolvePrimitivePreviewPath(const SceneObject &object,
-                                     const std::string &basePath)
-{
+                                     const std::string &basePath) {
     const std::string token = object.GetPrimaryModel();
-    std::string archiveRel = mvr::PrimitiveArchivePathForToken(token, object.uuid);
+  std::string archiveRel =
+      mvr::PrimitiveArchivePathForToken(token, object.uuid);
     if (archiveRel.empty())
         archiveRel = mvr::PrimitiveArchivePathForToken(token);
 
     if (!archiveRel.empty() && !basePath.empty()) {
-        std::filesystem::path candidate = std::filesystem::path(basePath) /
-                                          std::filesystem::path(archiveRel);
+    std::filesystem::path candidate =
+        std::filesystem::path(basePath) / std::filesystem::path(archiveRel);
         if (std::filesystem::exists(candidate))
             return wxString::FromUTF8(candidate.string());
     }
 
-    std::filesystem::path cacheDir = std::filesystem::temp_directory_path() /
-                                     "perastage_primitive_preview";
+  std::filesystem::path cacheDir =
+      std::filesystem::temp_directory_path() / "perastage_primitive_preview";
     std::error_code ec;
     std::filesystem::create_directories(cacheDir, ec);
-    std::string fileName = std::filesystem::path(
-        mvr::PrimitiveArchivePathForToken(token, object.uuid)).filename().string();
+  std::string fileName =
+      std::filesystem::path(
+          mvr::PrimitiveArchivePathForToken(token, object.uuid))
+          .filename()
+          .string();
     if (fileName.empty())
         fileName = std::filesystem::path(ModelRefForDisplay(object)).string();
     std::filesystem::path outPath = cacheDir / std::filesystem::path(fileName);
@@ -190,9 +208,10 @@ wxString ResolvePrimitivePreviewPath(const SceneObject &object,
 }
 } // namespace
 
-SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent, IGuiConfigServices* services)
-    : wxPanel(parent, wxID_ANY), guiConfigServices(services ? services : &GetDefaultGuiConfigServices())
-{
+SceneObjectTablePanel::SceneObjectTablePanel(wxWindow *parent,
+                                             IGuiConfigServices *services)
+    : wxPanel(parent, wxID_ANY),
+      guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
     store = new ColorfulDataViewListStore();
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
@@ -227,41 +246,53 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent, IGuiConfigService
     SetSizer(sizer);
 }
 
-// Releases table resources and detaches the scene-object pane from AUI layout management.
-SceneObjectTablePanel::~SceneObjectTablePanel()
-{
+// Releases table resources and detaches the scene-object pane from AUI layout
+// management.
+SceneObjectTablePanel::~SceneObjectTablePanel() {
     if (wxAuiManager *manager = wxAuiManager::GetManager(this))
         manager->DetachPane(this);
     store = nullptr;
 }
 
-void SceneObjectTablePanel::InitializeTable()
-{
+void SceneObjectTablePanel::InitializeTable() {
     const auto distanceUnit = ResolveDistanceUnitSystem();
-    const wxString distanceSuffix = wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
-    columnLabels = {"Name", "Layer", "Model File",
-                    wxString::FromUTF8(Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8()))),
-                    "Roll (X)", "Pitch (Y)", "Yaw (Z)"};
-    std::vector<int> widths = {150, 100, 180,
-                               80, 80, 80,
-                               80, 80, 80};
+  const wxString distanceSuffix =
+      wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
+  columnLabels = {"Name",
+                  "Layer",
+                  "Model File",
+                  wxString::FromUTF8(Units::LabelWithUnit(
+                      "Pos X", std::string(distanceSuffix.ToUTF8()))),
+                  wxString::FromUTF8(Units::LabelWithUnit(
+                      "Pos Y", std::string(distanceSuffix.ToUTF8()))),
+                  wxString::FromUTF8(Units::LabelWithUnit(
+                      "Pos Z", std::string(distanceSuffix.ToUTF8()))),
+                  "Roll (X)",
+                  "Pitch (Y)",
+                  "Yaw (Z)"};
+  std::vector<int> widths = {150, 100, 180, 80, 80, 80, 80, 80, 80};
+  if (columnLabels.size() != TableColumnIndices::Count<SceneObjectColumn>() ||
+      widths.size() != TableColumnIndices::Count<SceneObjectColumn>())
+    return;
     for (size_t i = 0; i < columnLabels.size(); ++i)
         table->AppendColumn(new wxDataViewColumn(
-            columnLabels[i], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
-                                                      wxALIGN_LEFT),
-            i, widths[i], wxALIGN_LEFT,
+        columnLabels[i],
+        new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT, wxALIGN_LEFT), i,
+        widths[i], wxALIGN_LEFT,
             wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE));
     ColumnUtils::EnforceMinColumnWidth(table);
 }
 
-void SceneObjectTablePanel::ReloadData()
-{
+void SceneObjectTablePanel::ReloadData() {
     const auto distanceUnit = ResolveDistanceUnitSystem();
     const wxString distanceSuffix =
         wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
-    columnLabels[3] = wxString::FromUTF8(Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
-    columnLabels[4] = wxString::FromUTF8(Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
-    columnLabels[5] = wxString::FromUTF8(Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(SceneObjectColumn::PositionX)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(SceneObjectColumn::PositionY)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(SceneObjectColumn::PositionZ)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
     for (size_t i = 0; i < columnLabels.size(); ++i) {
         if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
             column->SetTitle(columnLabels[i]);
@@ -273,10 +304,12 @@ void SceneObjectTablePanel::ReloadData()
     rowUuidByKey.clear();
     modelPathByKey.clear();
     nextRowKey = 1;
-    const auto& objs = guiConfigServices->LegacyConfigManager().GetScene().sceneObjects;
+  const auto &objs =
+      guiConfigServices->LegacyConfigManager().GetScene().sceneObjects;
 
     // Copy objects into a sortable vector
-    std::vector<std::pair<std::string, SceneObject>> sortedObjs(objs.begin(), objs.end());
+  std::vector<std::pair<std::string, SceneObject>> sortedObjs(objs.begin(),
+                                                              objs.end());
 
     // Sort by layer and then by name using natural sort for numeric suffixes
     std::sort(sortedObjs.begin(), sortedObjs.end(),
@@ -286,17 +319,18 @@ void SceneObjectTablePanel::ReloadData()
             return StringUtils::NaturalLess(a.second.layer, b.second.layer);
         });
 
-    for (const auto& [uuid, obj] : sortedObjs)
-    {
+  for (const auto &[uuid, obj] : sortedObjs) {
         wxVector<wxVariant> row;
 
         wxString name = wxString::FromUTF8(obj.name);
-        wxString layer = obj.layer == DEFAULT_LAYER_NAME ? wxString()
+    wxString layer = obj.layer == DEFAULT_LAYER_NAME
+                         ? wxString()
                                                           : wxString::FromUTF8(obj.layer);
         const std::string primaryModel = obj.GetPrimaryModel();
         wxString model;
         wxString modelFullPath;
-        const std::string &base = guiConfigServices->LegacyConfigManager().GetScene().basePath;
+    const std::string &base =
+        guiConfigServices->LegacyConfigManager().GetScene().basePath;
         if (primaryModel.rfind("primitive:", 0) == 0) {
             modelFullPath = ResolvePrimitivePreviewPath(obj, base);
             if (!modelFullPath.IsEmpty())
@@ -304,9 +338,12 @@ void SceneObjectTablePanel::ReloadData()
             else
                 model = wxString::FromUTF8(ModelRefForDisplay(obj));
         } else if (!primaryModel.empty()) {
-            wxFileName fullPath(base.empty() ? wxString::FromUTF8(primaryModel)
+      wxFileName fullPath(
+          base.empty()
+              ? wxString::FromUTF8(primaryModel)
                                              : wxString::FromUTF8((std::filesystem::path(base) /
-                                                                   std::filesystem::path(primaryModel)).string()));
+                                    std::filesystem::path(primaryModel))
+                                       .string()));
             modelFullPath = fullPath.GetFullPath();
             model = fullPath.GetFullName();
         }
@@ -349,12 +386,15 @@ void SceneObjectTablePanel::ReloadData()
         SummaryPanel::Instance()->ShowSceneObjectSummary();
 }
 
-// Handles context-menu edits and updates scene/rendering only when an actual table value changes.
-void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
-{
+// Handles context-menu edits and updates scene/rendering only when an actual
+// table value changes.
+void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
     wxDataViewItem item = event.GetItem();
     int col = event.GetColumn();
-    if (!item.IsOk() || col < 0)
+  const auto namedColumn =
+      TableColumnIndices::FromIndex<SceneObjectColumn>(col);
+  if (!item.IsOk() || !namedColumn ||
+      static_cast<size_t>(col) >= columnLabels.size())
         return;
 
     // Freeze UI updates while performing bulk table modifications. Without
@@ -370,8 +410,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
 
     // Preserve selection and current row order before edits
     std::vector<std::string> selectedUuids;
-    for (const auto& it : selections)
-    {
+  for (const auto &it : selections) {
         const std::string uuid = UuidForItem(it);
         if (!uuid.empty())
             selectedUuids.push_back(uuid);
@@ -385,8 +424,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
     wxVariant current;
     table->GetValue(current, row, col);
     
-    if (col == 1)
-    {
+  if (*namedColumn == SceneObjectColumn::Layer) {
         auto layers = guiConfigServices->LegacyConfigManager().GetLayerNames();
         wxArrayString choices;
         for (const auto& n : layers)
@@ -395,9 +433,9 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
         if (sdlg.ShowModal() != wxID_OK)
             return;
         wxString sel = sdlg.GetStringSelection();
-        wxString val = sel == wxString::FromUTF8(DEFAULT_LAYER_NAME) ? wxString() : sel;
-        for (const auto& itSel : selections)
-        {
+    wxString val =
+        sel == wxString::FromUTF8(DEFAULT_LAYER_NAME) ? wxString() : sel;
+    for (const auto &itSel : selections) {
             int r = table->ItemToRow(itSel);
             if (r != wxNOT_FOUND)
                 table->SetValue(wxVariant(val), r, col);
@@ -411,17 +449,20 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
         return;
     }
 
-    if (col == 2)
-    {
-        wxString initialDir = wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("objects"));
-        if (row >= 0 && static_cast<size_t>(row) < modelPaths.size() && !modelPaths[static_cast<size_t>(row)].IsEmpty()) {
+  if (*namedColumn == SceneObjectColumn::ModelFile) {
+    wxString initialDir =
+        wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("objects"));
+    if (row >= 0 && static_cast<size_t>(row) < modelPaths.size() &&
+        !modelPaths[static_cast<size_t>(row)].IsEmpty()) {
             wxFileName current(modelPaths[static_cast<size_t>(row)]);
             if (current.DirExists())
                 initialDir = current.GetPath();
         }
 
-        wxFileDialog fdlg(this, "Select Object Model", initialDir, wxEmptyString,
-                          "3D files (*.glb;*.gltf;*.3ds;*.obj)|*.glb;*.gltf;*.3ds;*.obj|All files|*.*",
+    wxFileDialog fdlg(
+        this, "Select Object Model", initialDir, wxEmptyString,
+        "3D files (*.glb;*.gltf;*.3ds;*.obj)|*.glb;*.gltf;*.3ds;*.obj|All "
+        "files|*.*",
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
         if (fdlg.ShowModal() != wxID_OK)
             return;
@@ -429,8 +470,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
         wxString selectedPath = fdlg.GetPath();
         wxString displayName = wxFileName(selectedPath).GetFullName();
         bool changed = false;
-        for (const auto& itSel : selections)
-        {
+    for (const auto &itSel : selections) {
             int r = table->ItemToRow(itSel);
             if (r == wxNOT_FOUND)
                 continue;
@@ -461,39 +501,35 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
         return;
     }
 
-    wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col], current.GetString());
+  wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col],
+                        current.GetString());
     if (dlg.ShowModal() != wxID_OK)
         return;
 
     wxString value = dlg.GetValue().Trim(true).Trim(false);
 
-    bool numericCol = (col >= 3);
+  const bool numericCol = IsTransformColumn(*namedColumn);
     bool relative = false;
     double delta = 0.0;
-    if (numericCol && col <= 8 && (value.StartsWith("++") || value.StartsWith("--")))
-    {
+  if (numericCol && (value.StartsWith("++") || value.StartsWith("--"))) {
         wxString numStr = value.Mid(2);
-        if (numStr.ToDouble(&delta))
-        {
+    if (numStr.ToDouble(&delta)) {
             if (value.StartsWith("--"))
                 delta = -delta;
             relative = true;
         }
     }
 
-    if (numericCol)
-    {
-        if (relative)
-        {
-            for (const auto& it : selections)
-            {
+  if (numericCol) {
+    if (relative) {
+      for (const auto &it : selections) {
                 int r = table->ItemToRow(it);
                 if (r == wxNOT_FOUND)
                     continue;
                 wxVariant cv;
                 table->GetValue(cv, r, col);
                 wxString cur = cv.GetString();
-                if (col >= 6) {
+        if (IsRotationColumn(*namedColumn)) {
                     if (!DegreeSymbol().empty())
                         cur.Replace(DegreeSymbol(), "");
                 }
@@ -501,53 +537,43 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
                 cur.ToDouble(&curVal);
                 double newVal = curVal + delta;
                 wxString out;
-                if (col >= 6)
+        if (IsRotationColumn(*namedColumn))
                     out = wxString::Format("%.1f", newVal) + DegreeSymbol();
                 else
                     out = wxString::Format("%.3f", newVal);
                 table->SetValue(wxVariant(out), r, col);
             }
-        }
-        else
-        {
+    } else {
             RangeParts range = SplitRangeParts(value);
             wxArrayString parts = range.parts;
-            if (parts.size() == 0 || parts.size() > 2)
-            {
+      if (parts.size() == 0 || parts.size() > 2) {
                 wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
                 return;
             }
             if (range.usedSeparator && parts.size() != 2 &&
-                !(parts.size() == 1 && range.trailingSeparator))
-            {
+          !(parts.size() == 1 && range.trailingSeparator)) {
                 wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
                 return;
             }
 
             double v1, v2 = 0.0;
-            if (!parts[0].ToDouble(&v1))
-            {
+      if (!parts[0].ToDouble(&v1)) {
                 wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
                 return;
             }
             bool interp = false;
             bool sequential = false;
-            if (parts.size() == 2)
-            {
-                if (!parts[1].ToDouble(&v2))
-                {
+      if (parts.size() == 2) {
+        if (!parts[1].ToDouble(&v2)) {
                     wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
                     return;
                 }
                 interp = selections.size() > 1;
-            }
-            else if (range.usedSeparator && range.trailingSeparator)
-            {
+      } else if (range.usedSeparator && range.trailingSeparator) {
                 sequential = selections.size() > 1;
             }
 
-            for (size_t i = 0; i < selections.size(); ++i)
-            {
+      for (size_t i = 0; i < selections.size(); ++i) {
                 double val = v1;
                 if (interp)
                     val = v1 + (v2 - v1) * i / (selections.size() - 1);
@@ -555,7 +581,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
                     val = v1 + static_cast<double>(i);
 
                 wxString out;
-                if (col >= 6)
+        if (IsRotationColumn(*namedColumn))
                     out = wxString::Format("%.1f", val) + DegreeSymbol();
                 else
                     out = wxString::Format("%.3f", val);
@@ -565,11 +591,8 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
                     table->SetValue(wxVariant(out), r, col);
             }
         }
-    }
-    else
-    {
-        for (const auto& it : selections)
-        {
+  } else {
+    for (const auto &it : selections) {
             int r = table->ItemToRow(it);
             if (r != wxNOT_FOUND)
                 table->SetValue(wxVariant(value), r, col);
@@ -602,8 +625,7 @@ void SceneObjectTablePanel::OnLeftDown(wxMouseEvent& evt)
     evt.Skip();
 }
 
-void SceneObjectTablePanel::OnLeftDClick(wxMouseEvent& evt)
-{
+void SceneObjectTablePanel::OnLeftDClick(wxMouseEvent &evt) {
     wxDataViewItem item;
     wxDataViewColumn* col;
     table->HitTest(evt.GetPosition(), item, col);
@@ -615,8 +637,8 @@ void SceneObjectTablePanel::OnLeftDClick(wxMouseEvent& evt)
 
     const std::string uuid = rowUuids[static_cast<size_t>(row)];
     ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
-    const bool edited = scene_object_primitives::EditPrimitiveObjectByUuid(
-        this, cfg, uuid);
+  const bool edited =
+      scene_object_primitives::EditPrimitiveObjectByUuid(this, cfg, uuid);
     if (edited) {
         if (Viewer3DPanel::Instance()) {
             Viewer3DPanel::Instance()->UpdateScene();
@@ -632,25 +654,21 @@ void SceneObjectTablePanel::OnLeftDClick(wxMouseEvent& evt)
     evt.Skip();
 }
 
-void SceneObjectTablePanel::OnLeftUp(wxMouseEvent& evt)
-{
-    if (dragSelecting)
-    {
+void SceneObjectTablePanel::OnLeftUp(wxMouseEvent &evt) {
+  if (dragSelecting) {
         dragSelecting = false;
         ReleaseMouse();
     }
     evt.Skip();
 }
 
-void SceneObjectTablePanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(evt))
-{
+void SceneObjectTablePanel::OnCaptureLost(
+    wxMouseCaptureLostEvent &WXUNUSED(evt)) {
     dragSelecting = false;
 }
 
-void SceneObjectTablePanel::OnMouseMove(wxMouseEvent& evt)
-{
-    if (!dragSelecting || !evt.Dragging())
-    {
+void SceneObjectTablePanel::OnMouseMove(wxMouseEvent &evt) {
+  if (!dragSelecting || !evt.Dragging()) {
         evt.Skip();
         return;
     }
@@ -658,8 +676,7 @@ void SceneObjectTablePanel::OnMouseMove(wxMouseEvent& evt)
     wxDataViewColumn* col;
     table->HitTest(evt.GetPosition(), item, col);
     int row = table->ItemToRow(item);
-    if (row != wxNOT_FOUND)
-    {
+  if (row != wxNOT_FOUND) {
         int minRow = std::min(startRow, row);
         int maxRow = std::max(startRow, row);
         table->UnselectAll();
@@ -669,8 +686,7 @@ void SceneObjectTablePanel::OnMouseMove(wxMouseEvent& evt)
     evt.Skip();
 }
 
-void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
-{
+void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
     RebuildRowCachesFromRowKeys();
     const selection::Origin origin = selection::CurrentOrigin();
     if (origin == selection::Origin::Viewer2D ||
@@ -684,8 +700,7 @@ void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
     table->GetSelections(selections);
     std::vector<std::string> uuids;
     uuids.reserve(selections.size());
-    for (const auto& it : selections)
-    {
+  for (const auto &it : selections) {
         const std::string uuid = UuidForItem(it);
         if (!uuid.empty())
             uuids.push_back(uuid);
@@ -712,14 +727,12 @@ void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
     evt.Skip();
 }
 
-void SceneObjectTablePanel::UpdateSelectionHighlight()
-{
+void SceneObjectTablePanel::UpdateSelectionHighlight() {
     size_t rowCount = table->GetItemCount();
     std::vector<bool> selectedRows(rowCount, false);
     wxDataViewItemArray selections;
     table->GetSelections(selections);
-    for (const auto& it : selections)
-    {
+  for (const auto &it : selections) {
         int r = table->ItemToRow(it);
         if (r != wxNOT_FOUND && static_cast<size_t>(r) < rowCount)
             selectedRows[r] = true;
@@ -751,9 +764,12 @@ void SceneObjectTablePanel::UpdatePositionValues(
             continue;
 
         int row = static_cast<int>(pos - rowUuids.begin());
-        table->SetValue(wxVariant(posX), row, 3);
-        table->SetValue(wxVariant(posY), row, 4);
-        table->SetValue(wxVariant(posZ), row, 5);
+    table->SetValue(wxVariant(posX), row,
+                    ColumnIndex(SceneObjectColumn::PositionX));
+    table->SetValue(wxVariant(posY), row,
+                    ColumnIndex(SceneObjectColumn::PositionY));
+    table->SetValue(wxVariant(posZ), row,
+                    ColumnIndex(SceneObjectColumn::PositionZ));
     }
 }
 
@@ -769,19 +785,21 @@ void SceneObjectTablePanel::ApplyPositionValueUpdates(
             continue;
 
         int row = static_cast<int>(pos - rowUuids.begin());
-        table->SetValue(wxVariant(wxString::FromUTF8(update.posX)), row, 3);
-        table->SetValue(wxVariant(wxString::FromUTF8(update.posY)), row, 4);
-        table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row, 5);
+    table->SetValue(wxVariant(wxString::FromUTF8(update.posX)), row,
+                    ColumnIndex(SceneObjectColumn::PositionX));
+    table->SetValue(wxVariant(wxString::FromUTF8(update.posY)), row,
+                    ColumnIndex(SceneObjectColumn::PositionY));
+    table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row,
+                    ColumnIndex(SceneObjectColumn::PositionZ));
     }
 }
 
 // Applies edited scene object table values back into the scene data model.
-void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
-{
-    // Ensure in-place cell editors commit pending values before reading table rows.
+void SceneObjectTablePanel::UpdateSceneData(bool logChanges) {
+  // Ensure in-place cell editors commit pending values before reading table
+  // rows.
     if (table)
         DataViewEditCommit::CommitPendingEdit(table);
-
 
     (void)logChanges;
     ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
@@ -790,16 +808,15 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
     bool anyChanged = false;
     bool undoPushed = false;
     auto pushUndoIfNeeded = [&]() {
-        if (!undoPushed)
-        {
+    if (!undoPushed) {
             cfg.PushUndoState("edit scene object");
             undoPushed = true;
         }
     };
 
-    // Persist row values only when editable scene object data differs from scene data.
-    for (size_t i = 0; i < count; ++i)
-    {
+  // Persist row values only when editable scene object data differs from scene
+  // data.
+  for (size_t i = 0; i < count; ++i) {
         auto it = scene.sceneObjects.find(rowUuids[i]);
         if (it == scene.sceneObjects.end())
             continue;
@@ -808,17 +825,18 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
         SceneObject next = old;
         wxVariant v;
 
-        table->GetValue(v, i, 0);
+    table->GetValue(v, i, ColumnIndex(SceneObjectColumn::Name));
         next.name = std::string(v.GetString().ToUTF8());
 
-        table->GetValue(v, i, 1);
+    table->GetValue(v, i, ColumnIndex(SceneObjectColumn::Layer));
         std::string layerStr = std::string(v.GetString().ToUTF8());
         if (layerStr.empty())
             next.layer.clear();
         else
             next.layer = layerStr;
 
-        const bool hasPrimitiveModel = old.GetPrimaryModel().rfind("primitive:", 0) == 0;
+    const bool hasPrimitiveModel =
+        old.GetPrimaryModel().rfind("primitive:", 0) == 0;
         if (!modelFileEditCommitPending)
             next.modelFile = old.modelFile;
         else if (hasPrimitiveModel)
@@ -828,38 +846,45 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
                 scene.basePath, old.modelFile, std::string(modelPaths[i].ToUTF8()),
                 old.geometries.empty() ? std::string() : old.GetPrimaryModel());
         else {
-            table->GetValue(v, i, 2);
+      table->GetValue(v, i, ColumnIndex(SceneObjectColumn::ModelFile));
             next.modelFile = std::string(v.GetString().ToUTF8());
         }
 
         const auto distanceUnit = ResolveDistanceUnitSystem();
-        double xMm = old.transform.o[0], yMm = old.transform.o[1], zMm = old.transform.o[2];
-        table->GetValue(v, i, 3);
-        if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+    double xMm = old.transform.o[0], yMm = old.transform.o[1],
+           zMm = old.transform.o[2];
+    table->GetValue(v, i, ColumnIndex(SceneObjectColumn::PositionX));
+    if (const auto parsed = Units::ParseDistanceToMillimeters(
+            std::string(v.GetString().ToUTF8()), distanceUnit);
+        parsed.has_value())
             xMm = *parsed;
-        table->GetValue(v, i, 4);
-        if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+    table->GetValue(v, i, ColumnIndex(SceneObjectColumn::PositionY));
+    if (const auto parsed = Units::ParseDistanceToMillimeters(
+            std::string(v.GetString().ToUTF8()), distanceUnit);
+        parsed.has_value())
             yMm = *parsed;
-        table->GetValue(v, i, 5);
-        if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+    table->GetValue(v, i, ColumnIndex(SceneObjectColumn::PositionZ));
+    if (const auto parsed = Units::ParseDistanceToMillimeters(
+            std::string(v.GetString().ToUTF8()), distanceUnit);
+        parsed.has_value())
             zMm = *parsed;
 
         double roll = 0, pitch = 0, yaw = 0;
-        table->GetValue(v, i, 6);
+    table->GetValue(v, i, ColumnIndex(SceneObjectColumn::Roll));
         {
             wxString s = v.GetString();
             if (!DegreeSymbol().empty())
             s.Replace(DegreeSymbol(), "");
             s.ToDouble(&roll);
         }
-        table->GetValue(v, i, 7);
+    table->GetValue(v, i, ColumnIndex(SceneObjectColumn::Pitch));
         {
             wxString s = v.GetString();
             if (!DegreeSymbol().empty())
             s.Replace(DegreeSymbol(), "");
             s.ToDouble(&pitch);
         }
-        table->GetValue(v, i, 8);
+    table->GetValue(v, i, ColumnIndex(SceneObjectColumn::Yaw));
         {
             wxString s = v.GetString();
             if (!DegreeSymbol().empty())
@@ -876,22 +901,19 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
             std::abs(static_cast<double>(currentEuler[1]) - pitch) > 0.05 ||
             std::abs(static_cast<double>(currentEuler[0]) - yaw) > 0.05;
 
-        if (transformChanged)
-        {
+    if (transformChanged) {
             Matrix rot = MatrixUtils::EulerToMatrix(static_cast<float>(yaw),
                                                     static_cast<float>(pitch),
                                                     static_cast<float>(roll));
             next.transform = MatrixUtils::ApplyRotationPreservingScale(
                 old.transform, rot,
-                {static_cast<float>(xMm),
-                 static_cast<float>(yMm),
+          {static_cast<float>(xMm), static_cast<float>(yMm),
                  static_cast<float>(zMm)});
         }
 
-        const bool objectChanged = old.name != next.name ||
-                                   old.layer != next.layer ||
-                                   old.modelFile != next.modelFile ||
-                                   transformChanged;
+    const bool objectChanged =
+        old.name != next.name || old.layer != next.layer ||
+        old.modelFile != next.modelFile || transformChanged;
         if (!objectChanged)
             continue;
 
@@ -1010,8 +1032,7 @@ void SceneObjectTablePanel::SelectByUuid(const std::vector<std::string>& uuids,
     store->SetSelectedRows(selectedRows);
 }
 
-void SceneObjectTablePanel::DeleteSelected(bool pushUndoState)
-{
+void SceneObjectTablePanel::DeleteSelected(bool pushUndoState) {
     RebuildRowCachesFromRowKeys();
     wxDataViewItemArray selections;
     table->GetSelections(selections);
@@ -1068,8 +1089,7 @@ void SceneObjectTablePanel::DeleteSelected(bool pushUndoState)
         Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
         Viewer3DPanel::Instance()->UpdateScene();
         Viewer3DPanel::Instance()->Refresh();
-    }
-    else if (Viewer2DPanel::Instance()) {
+  } else if (Viewer2DPanel::Instance()) {
         Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
         Viewer2DPanel::Instance()->UpdateScene();
     }
@@ -1081,15 +1101,14 @@ void SceneObjectTablePanel::DeleteSelected(bool pushUndoState)
     ResyncRows(order, {});
 }
 
-void SceneObjectTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
-                                       const std::vector<std::string>& selectedUuids)
-{
+void SceneObjectTablePanel::ResyncRows(
+    const std::vector<std::string> &oldOrder,
+    const std::vector<std::string> &selectedUuids) {
     (void)oldOrder;
     RebuildRowCachesFromRowKeys();
 
     table->UnselectAll();
-    for (const auto& uuid : selectedUuids)
-    {
+  for (const auto &uuid : selectedUuids) {
         auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
         if (pos != rowUuids.end())
             table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
@@ -1115,7 +1134,8 @@ void SceneObjectTablePanel::RebuildRowCachesFromRowKeys() {
     }
 }
 
-std::string SceneObjectTablePanel::UuidForItem(const wxDataViewItem& item) const {
+std::string
+SceneObjectTablePanel::UuidForItem(const wxDataViewItem &item) const {
     if (!store || !item.IsOk())
         return {};
     const wxUIntPtr rowKey = store->GetItemData(item);
@@ -1137,14 +1157,12 @@ void SceneObjectTablePanel::SetModelPathForRow(unsigned int row,
     modelPathByKey[rowKey] = modelPath;
 }
 
-void SceneObjectTablePanel::OnColumnSorted(wxDataViewEvent& event)
-{
+void SceneObjectTablePanel::OnColumnSorted(wxDataViewEvent &event) {
     RebuildRowCachesFromRowKeys();
     wxDataViewItemArray selections;
     table->GetSelections(selections);
     std::vector<std::string> selectedUuids;
-    for (const auto& it : selections)
-    {
+  for (const auto &it : selections) {
         const std::string uuid = UuidForItem(it);
         if (!uuid.empty())
             selectedUuids.push_back(uuid);
@@ -1154,8 +1172,7 @@ void SceneObjectTablePanel::OnColumnSorted(wxDataViewEvent& event)
     event.Skip();
 }
 
-void SceneObjectTablePanel::OnItemActivated(wxDataViewEvent &event)
-{
+void SceneObjectTablePanel::OnItemActivated(wxDataViewEvent &event) {
     const wxDataViewItem item = event.GetItem();
     const int row = table->ItemToRow(item);
     if (row == wxNOT_FOUND || static_cast<size_t>(row) >= rowUuids.size()) {
@@ -1165,8 +1182,8 @@ void SceneObjectTablePanel::OnItemActivated(wxDataViewEvent &event)
 
     const std::string uuid = rowUuids[static_cast<size_t>(row)];
     ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
-    const bool edited = scene_object_primitives::EditPrimitiveObjectByUuid(
-        this, cfg, uuid);
+  const bool edited =
+      scene_object_primitives::EditPrimitiveObjectByUuid(this, cfg, uuid);
     if (!edited)
         return;
 

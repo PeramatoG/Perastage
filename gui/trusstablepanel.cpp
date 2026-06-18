@@ -30,6 +30,7 @@
 #include "riggingpanel.h"
 #include "stringutils.h"
 #include "summarypanel.h"
+#include "table_column_indices.h"
 #include "dataview_edit_commit.h"
 #include "trussdictionary.h"
 #include "trussloader.h"
@@ -57,6 +58,23 @@ namespace fs = std::filesystem;
 
 namespace {
 
+using TrussColumn = TrussTableColumns::Column;
+
+// Converts a truss column to its stable model index.
+constexpr int ColumnIndex(TrussColumn column) {
+    return TableColumnIndices::ToIndex(column);
+}
+
+// Checks whether a truss column contains editable transform data.
+bool IsTransformColumn(TrussColumn column) {
+    return column >= TrussColumn::PositionX && column <= TrussColumn::Yaw;
+}
+
+// Checks whether a truss column contains rotation data.
+bool IsRotationColumn(TrussColumn column) {
+    return column >= TrussColumn::Roll && column <= TrussColumn::Yaw;
+}
+
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
@@ -68,10 +86,10 @@ std::string NormalizePositionName(const std::string &positionName) {
     return positionName.empty() ? kUnassignedPosition : positionName;
 }
 
-
 Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
     auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    return Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+  return Units::ParseDistanceUnitSystem(
+      cfg.GetValue("ui_distance_unit_system"));
 }
 
 Units::WeightUnitSystem ResolveWeightUnitSystem() {
@@ -85,11 +103,9 @@ struct RangeParts {
     bool trailingSeparator = false;
 };
 
-
-
-void AppendTrussUpdateLog(const std::vector<std::pair<std::string, std::string>>& updates,
-                          bool logChanges)
-{
+void AppendTrussUpdateLog(
+    const std::vector<std::pair<std::string, std::string>> &updates,
+    bool logChanges) {
     if (!logChanges)
         return;
 
@@ -182,10 +198,10 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
     table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
                 &TrussTablePanel::OnSelectionChanged, this);
 
-    table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
-                &TrussTablePanel::OnContextMenu, this);
-    table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED,
-                &TrussTablePanel::OnColumnSorted, this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &TrussTablePanel::OnContextMenu,
+              this);
+  table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &TrussTablePanel::OnColumnSorted,
+              this);
 
     Bind(wxEVT_MOUSE_CAPTURE_LOST, &TrussTablePanel::OnCaptureLost, this);
 
@@ -220,6 +236,9 @@ void TrussTablePanel::InitializeTable()
                                80, 80, 80,
                                120, 120,
                                90, 90, 90, 90};
+    if (columnLabels.size() != TableColumnIndices::Count<TrussColumn>() ||
+        widths.size() != TableColumnIndices::Count<TrussColumn>())
+        return;
     for (size_t i = 0; i < columnLabels.size(); ++i)
         table->AppendColumn(new wxDataViewColumn(
             columnLabels[i], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
@@ -240,20 +259,27 @@ void TrussTablePanel::ReloadData()
         wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
     const wxString weightSuffix =
         wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
-    columnLabels[4] = wxString::FromUTF8(Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
-    columnLabels[5] = wxString::FromUTF8(Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
-    columnLabels[6] = wxString::FromUTF8(Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
-    columnLabels[12] = wxString::FromUTF8(Units::LabelWithUnit("Length", std::string(distanceSuffix.ToUTF8())));
-    columnLabels[13] = wxString::FromUTF8(Units::LabelWithUnit("Width", std::string(distanceSuffix.ToUTF8())));
-    columnLabels[14] = wxString::FromUTF8(Units::LabelWithUnit("Height", std::string(distanceSuffix.ToUTF8())));
-    columnLabels[15] = wxString::FromUTF8(Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(TrussColumn::PositionX)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(TrussColumn::PositionY)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(TrussColumn::PositionZ)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(TrussColumn::Length)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Length", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(TrussColumn::Width)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Width", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(TrussColumn::Height)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Height", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(TrussColumn::Weight)] = wxString::FromUTF8(
+      Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
     for (size_t i = 0; i < columnLabels.size(); ++i) {
         if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
             column->SetTitle(columnLabels[i]);
     }
 
-    std::unique_ptr<wxEventBlocker> selectionBlocker = std::make_unique<wxEventBlocker>(
-        table, wxEVT_DATAVIEW_SELECTION_CHANGED);
+  std::unique_ptr<wxEventBlocker> selectionBlocker =
+      std::make_unique<wxEventBlocker>(table, wxEVT_DATAVIEW_SELECTION_CHANGED);
 
     table->DeleteAllItems();
     rowUuids.clear();
@@ -339,12 +365,14 @@ void TrussTablePanel::ReloadData()
         wxString modelName = wxString::FromUTF8(truss.model);
         wxString len = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
             truss.lengthMm, distanceUnit, Units::ValueFormatContext::Table));
-        wxString wid = truss.widthMm > 0.0f
+    wxString wid =
+        truss.widthMm > 0.0f
                            ? wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
                                  truss.widthMm, distanceUnit,
                                  Units::ValueFormatContext::Table))
                            : wxString();
-        wxString hei = truss.heightMm > 0.0f
+    wxString hei =
+        truss.heightMm > 0.0f
                             ? wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
                                   truss.heightMm, distanceUnit,
                                   Units::ValueFormatContext::Table))
@@ -378,12 +406,14 @@ void TrussTablePanel::ReloadData()
         SummaryPanel::Instance()->ShowTrussSummary();
 }
 
-// Handles context-menu editing workflows and avoids expensive refreshes when no row values change.
-void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
-{
+// Handles context-menu editing workflows and avoids expensive refreshes when no
+// row values change.
+void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
     wxDataViewItem item = event.GetItem();
     int col = event.GetColumn();
-    if (!item.IsOk() || col < 0)
+  const auto namedColumn = TableColumnIndices::FromIndex<TrussColumn>(col);
+  if (!item.IsOk() || !namedColumn ||
+      static_cast<size_t>(col) >= columnLabels.size())
         return;
 
     // Freeze UI updates while performing bulk table modifications to avoid
@@ -398,8 +428,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
         selections.push_back(item);
 
     std::vector<std::string> selectedUuids;
-    for (const auto& it : selections)
-    {
+  for (const auto &it : selections) {
         const std::string uuid = UuidForItem(it);
         if (!uuid.empty())
             selectedUuids.push_back(uuid);
@@ -414,8 +443,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
     table->GetValue(current, row, col);
 
     // Layer column uses a dropdown of existing layers
-    if (col == 1)
-    {
+  if (*namedColumn == TrussColumn::Layer) {
         auto layers = guiConfigServices->LegacyConfigManager().GetLayerNames();
         wxArrayString choices;
         for (const auto& n : layers)
@@ -424,37 +452,34 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
         if (sdlg.ShowModal() != wxID_OK)
             return;
         wxString sel = sdlg.GetStringSelection();
-        wxString val = sel == wxString::FromUTF8(DEFAULT_LAYER_NAME) ? wxString() : sel;
-        for (const auto& itSel : selections)
-        {
+    wxString val =
+        sel == wxString::FromUTF8(DEFAULT_LAYER_NAME) ? wxString() : sel;
+    for (const auto &itSel : selections) {
             int r = table->ItemToRow(itSel);
             if (r != wxNOT_FOUND)
                 table->SetValue(wxVariant(val), r, col);
         }
         ResyncRows(oldOrder, selectedUuids);
         UpdateSceneData();
-        if (Viewer3DPanel::Instance())
-        {
+    if (Viewer3DPanel::Instance()) {
             Viewer3DPanel::Instance()->UpdateScene();
             Viewer3DPanel::Instance()->Refresh();
-        }
-        else if (Viewer2DPanel::Instance())
-        {
+    } else if (Viewer2DPanel::Instance()) {
             Viewer2DPanel::Instance()->UpdateScene();
         }
         return;
     }
 
     // Model File column opens file dialog
-    if (col == 2)
-    {
+  if (*namedColumn == TrussColumn::ModelFile) {
         wxString trussDir =
             wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
         wxFileDialog fdlg(this, "Select Truss Model", trussDir, wxEmptyString,
-                          "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All files|*.*",
+                      "Truss files "
+                      "(*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*."
+                      "glb|All files|*.*",
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
-        if (fdlg.ShowModal() == wxID_OK)
-        {
+    if (fdlg.ShowModal() == wxID_OK) {
             bool changed = false;
             wxString selPath = fdlg.GetPath();
             std::string archivePath(selPath.ToUTF8());
@@ -469,13 +494,12 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
             // read before any table values are overwritten by parsed data.
             {
                 wxVariant mv;
-                table->GetValue(mv, row, 11);
+        table->GetValue(mv, row, ColumnIndex(TrussColumn::Model));
                 modelNameWx = mv.GetString();
                 modelKey = std::string(modelNameWx.ToUTF8());
             }
 
-            if (LoadTrussDefinition(archivePath, parsed))
-            {
+      if (LoadTrussDefinition(archivePath, parsed)) {
                 if (!parsed.symbolFile.empty())
                     geomPath = parsed.symbolFile;
                 manuf = wxString::FromUTF8(parsed.manufacturer);
@@ -496,8 +520,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                 modelPaths.resize(table->GetItemCount());
             if (symbolPaths.size() < table->GetItemCount())
                 symbolPaths.resize(table->GetItemCount());
-            for (const auto& itSel : selections)
-            {
+      for (const auto &itSel : selections) {
                 int r = table->ItemToRow(itSel);
                 if (r == wxNOT_FOUND)
                     continue;
@@ -509,47 +532,57 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                     modelPaths[static_cast<size_t>(r)] != archivePathWx ||
                     symbolPaths[static_cast<size_t>(r)] != geomPathWx;
 
-                SetModelPathsForRow(static_cast<unsigned int>(r),
-                                    archivePathWx, geomPathWx);
+        SetModelPathsForRow(static_cast<unsigned int>(r), archivePathWx,
+                            geomPathWx);
                 wxVariant existingModelFile;
-                table->GetValue(existingModelFile, r, 2);
-                if (existingModelFile.GetString() != fileName)
-                {
-                    table->SetValue(wxVariant(fileName), r, 2);
+        table->GetValue(existingModelFile, r,
+                        ColumnIndex(TrussColumn::ModelFile));
+        if (existingModelFile.GetString() != fileName) {
+          table->SetValue(wxVariant(fileName), r,
+                          ColumnIndex(TrussColumn::ModelFile));
                     changed = true;
                 }
                 changed = changed || pathChanged;
-                if (parsedOk)
-                {
-                    table->SetValue(wxVariant(manuf), r, 10);
-                    table->SetValue(wxVariant(modelNameWx), r, 11);
-                    table->SetValue(wxVariant(lenStr), r, 12);
-                    table->SetValue(wxVariant(widStr), r, 13);
-                    table->SetValue(wxVariant(heiStr), r, 14);
-                    table->SetValue(wxVariant(weightStr), r, 15);
+        if (parsedOk) {
+          table->SetValue(wxVariant(manuf), r,
+                          ColumnIndex(TrussColumn::Manufacturer));
+          table->SetValue(wxVariant(modelNameWx), r,
+                          ColumnIndex(TrussColumn::Model));
+          table->SetValue(wxVariant(lenStr), r,
+                          ColumnIndex(TrussColumn::Length));
+          table->SetValue(wxVariant(widStr), r,
+                          ColumnIndex(TrussColumn::Width));
+          table->SetValue(wxVariant(heiStr), r,
+                          ColumnIndex(TrussColumn::Height));
+          table->SetValue(wxVariant(weightStr), r,
+                          ColumnIndex(TrussColumn::Weight));
                 }
             }
             // Apply the model file to any other rows that share the original
             // model name from the rider.  This lets multiple trusses with the
             // same rider-specified model get updated in one action and ensures
             // the dictionary entry uses that rider key.
-            for (unsigned int i = 0; i < table->GetItemCount(); ++i)
-            {
+      for (unsigned int i = 0; i < table->GetItemCount(); ++i) {
                 wxVariant mv;
-                table->GetValue(mv, i, 11);
-                if (mv.GetString() == wxString::FromUTF8(modelKey))
-                {
+        table->GetValue(mv, i, ColumnIndex(TrussColumn::Model));
+        if (mv.GetString() == wxString::FromUTF8(modelKey)) {
                     SetModelPathsForRow(i, wxString::FromUTF8(archivePath),
                                         wxString::FromUTF8(geomPath));
-                    table->SetValue(wxVariant(fileName), i, 2);
-                    if (parsedOk)
-                    {
-                        table->SetValue(wxVariant(manuf), i, 10);
-                        table->SetValue(wxVariant(modelNameWx), i, 11);
-                        table->SetValue(wxVariant(lenStr), i, 12);
-                        table->SetValue(wxVariant(widStr), i, 13);
-                        table->SetValue(wxVariant(heiStr), i, 14);
-                        table->SetValue(wxVariant(weightStr), i, 15);
+          table->SetValue(wxVariant(fileName), i,
+                          ColumnIndex(TrussColumn::ModelFile));
+          if (parsedOk) {
+            table->SetValue(wxVariant(manuf), i,
+                            ColumnIndex(TrussColumn::Manufacturer));
+            table->SetValue(wxVariant(modelNameWx), i,
+                            ColumnIndex(TrussColumn::Model));
+            table->SetValue(wxVariant(lenStr), i,
+                            ColumnIndex(TrussColumn::Length));
+            table->SetValue(wxVariant(widStr), i,
+                            ColumnIndex(TrussColumn::Width));
+            table->SetValue(wxVariant(heiStr), i,
+                            ColumnIndex(TrussColumn::Height));
+            table->SetValue(wxVariant(weightStr), i,
+                            ColumnIndex(TrussColumn::Weight));
                     }
                     changed = true;
                 }
@@ -559,52 +592,45 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
             TrussDictionary::Update(modelKey, archivePath);
             ResyncRows(oldOrder, selectedUuids);
             UpdateSceneData();
-            if (Viewer3DPanel::Instance())
-            {
+      if (Viewer3DPanel::Instance()) {
                 Viewer3DPanel::Instance()->UpdateScene();
                 Viewer3DPanel::Instance()->Refresh();
-            }
-            else if (Viewer2DPanel::Instance())
-            {
+      } else if (Viewer2DPanel::Instance()) {
                 Viewer2DPanel::Instance()->UpdateScene();
             }
         }
         return;
     }
 
-    wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col], current.GetString());
+  wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col],
+                        current.GetString());
     if (dlg.ShowModal() != wxID_OK)
         return;
 
     wxString value = dlg.GetValue().Trim(true).Trim(false);
 
-    bool numericCol = (col >= 4 && col <= 9);
+  const bool numericCol = IsTransformColumn(*namedColumn);
     bool relative = false;
     double delta = 0.0;
-    if (numericCol && (value.StartsWith("++") || value.StartsWith("--")))
-    {
+  if (numericCol && (value.StartsWith("++") || value.StartsWith("--"))) {
         wxString numStr = value.Mid(2);
-        if (numStr.ToDouble(&delta))
-        {
+    if (numStr.ToDouble(&delta)) {
             if (value.StartsWith("--"))
                 delta = -delta;
             relative = true;
         }
     }
 
-    if (numericCol)
-    {
-        if (relative)
-        {
-            for (const auto& it : selections)
-            {
+  if (numericCol) {
+    if (relative) {
+      for (const auto &it : selections) {
                 int r = table->ItemToRow(it);
                 if (r == wxNOT_FOUND)
                     continue;
                 wxVariant cv;
                 table->GetValue(cv, r, col);
                 wxString cur = cv.GetString();
-                if (col >= 7) {
+        if (IsRotationColumn(*namedColumn)) {
                     if (!DegreeSymbol().empty())
                         cur.Replace(DegreeSymbol(), "");
                 }
@@ -612,53 +638,43 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                 cur.ToDouble(&curVal);
                 double newVal = curVal + delta;
                 wxString out;
-                if (col >= 7)
+        if (IsRotationColumn(*namedColumn))
                     out = wxString::Format("%.1f", newVal) + DegreeSymbol();
                 else
                     out = wxString::Format("%.3f", newVal);
                 table->SetValue(wxVariant(out), r, col);
             }
-        }
-        else
-        {
+    } else {
             RangeParts range = SplitRangeParts(value);
             wxArrayString parts = range.parts;
-            if (parts.size() == 0 || parts.size() > 2)
-            {
+      if (parts.size() == 0 || parts.size() > 2) {
                 wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
                 return;
             }
             if (range.usedSeparator && parts.size() != 2 &&
-                !(parts.size() == 1 && range.trailingSeparator))
-            {
+          !(parts.size() == 1 && range.trailingSeparator)) {
                 wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
                 return;
             }
 
             double v1, v2 = 0.0;
-            if (!parts[0].ToDouble(&v1))
-            {
+      if (!parts[0].ToDouble(&v1)) {
                 wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
                 return;
             }
             bool interp = false;
             bool sequential = false;
-            if (parts.size() == 2)
-            {
-                if (!parts[1].ToDouble(&v2))
-                {
+      if (parts.size() == 2) {
+        if (!parts[1].ToDouble(&v2)) {
                     wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
                     return;
                 }
                 interp = selections.size() > 1;
-            }
-            else if (range.usedSeparator && range.trailingSeparator)
-            {
+      } else if (range.usedSeparator && range.trailingSeparator) {
                 sequential = selections.size() > 1;
             }
 
-            for (size_t i = 0; i < selections.size(); ++i)
-            {
+      for (size_t i = 0; i < selections.size(); ++i) {
                 double val = v1;
                 if (interp)
                     val = v1 + (v2 - v1) * i / (selections.size() - 1);
@@ -666,7 +682,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                     val = v1 + static_cast<double>(i);
 
                 wxString out;
-                if (col >= 7)
+        if (IsRotationColumn(*namedColumn))
                     out = wxString::Format("%.1f", val) + DegreeSymbol();
                 else
                     out = wxString::Format("%.3f", val);
@@ -676,11 +692,8 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                     table->SetValue(wxVariant(out), r, col);
             }
         }
-    }
-    else
-    {
-        for (const auto& it : selections)
-        {
+  } else {
+    for (const auto &it : selections) {
             int r = table->ItemToRow(it);
             if (r != wxNOT_FOUND)
                 table->SetValue(wxVariant(value), r, col);
@@ -717,25 +730,20 @@ void TrussTablePanel::OnLeftDown(wxMouseEvent& evt)
     evt.Skip();
 }
 
-void TrussTablePanel::OnLeftUp(wxMouseEvent& evt)
-{
-    if (dragSelecting)
-    {
+void TrussTablePanel::OnLeftUp(wxMouseEvent &evt) {
+  if (dragSelecting) {
         dragSelecting = false;
         ReleaseMouse();
     }
     evt.Skip();
 }
 
-void TrussTablePanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(evt))
-{
+void TrussTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
     dragSelecting = false;
 }
 
-void TrussTablePanel::OnMouseMove(wxMouseEvent& evt)
-{
-    if (!dragSelecting || !evt.Dragging())
-    {
+void TrussTablePanel::OnMouseMove(wxMouseEvent &evt) {
+  if (!dragSelecting || !evt.Dragging()) {
         evt.Skip();
         return;
     }
@@ -743,8 +751,7 @@ void TrussTablePanel::OnMouseMove(wxMouseEvent& evt)
     wxDataViewColumn* col;
     table->HitTest(evt.GetPosition(), item, col);
     int row = table->ItemToRow(item);
-    if (row != wxNOT_FOUND)
-    {
+  if (row != wxNOT_FOUND) {
         int minRow = std::min(startRow, row);
         int maxRow = std::max(startRow, row);
         table->UnselectAll();
@@ -754,8 +761,7 @@ void TrussTablePanel::OnMouseMove(wxMouseEvent& evt)
     evt.Skip();
 }
 
-void TrussTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
-{
+void TrussTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
     RebuildRowCachesFromRowKeys();
     const selection::Origin origin = selection::CurrentOrigin();
     if (origin == selection::Origin::Viewer2D ||
@@ -769,8 +775,7 @@ void TrussTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
     table->GetSelections(selections);
     std::vector<std::string> uuids;
     uuids.reserve(selections.size());
-    for (const auto& it : selections)
-    {
+  for (const auto &it : selections) {
         const std::string uuid = UuidForItem(it);
         if (!uuid.empty())
             uuids.push_back(uuid);
@@ -797,14 +802,12 @@ void TrussTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
     evt.Skip();
 }
 
-void TrussTablePanel::UpdateSelectionHighlight()
-{
+void TrussTablePanel::UpdateSelectionHighlight() {
     size_t rowCount = table->GetItemCount();
     std::vector<bool> selectedRows(rowCount, false);
     wxDataViewItemArray selections;
     table->GetSelections(selections);
-    for (const auto& it : selections)
-    {
+  for (const auto &it : selections) {
         int r = table->ItemToRow(it);
         if (r != wxNOT_FOUND && static_cast<size_t>(r) < rowCount)
             selectedRows[r] = true;
@@ -836,9 +839,9 @@ void TrussTablePanel::UpdatePositionValues(
             continue;
 
         int row = static_cast<int>(pos - rowUuids.begin());
-        table->SetValue(wxVariant(posX), row, 4);
-        table->SetValue(wxVariant(posY), row, 5);
-        table->SetValue(wxVariant(posZ), row, 6);
+    table->SetValue(wxVariant(posX), row, ColumnIndex(TrussColumn::PositionX));
+    table->SetValue(wxVariant(posY), row, ColumnIndex(TrussColumn::PositionY));
+    table->SetValue(wxVariant(posZ), row, ColumnIndex(TrussColumn::PositionZ));
     }
 }
 
@@ -854,9 +857,12 @@ void TrussTablePanel::ApplyPositionValueUpdates(
             continue;
 
         int row = static_cast<int>(pos - rowUuids.begin());
-        table->SetValue(wxVariant(wxString::FromUTF8(update.posX)), row, 4);
-        table->SetValue(wxVariant(wxString::FromUTF8(update.posY)), row, 5);
-        table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row, 6);
+        table->SetValue(wxVariant(wxString::FromUTF8(update.posX)), row,
+                        ColumnIndex(TrussColumn::PositionX));
+        table->SetValue(wxVariant(wxString::FromUTF8(update.posY)), row,
+                        ColumnIndex(TrussColumn::PositionY));
+        table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row,
+                        ColumnIndex(TrussColumn::PositionZ));
     }
 }
 
@@ -883,25 +889,21 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
     std::unordered_set<std::string> changedWeightPositions;
     std::vector<std::pair<std::string, std::string>> updatedTrusses;
 
-    auto makeKey = [](const std::string& n,
-                      const std::string& m,
-                      const std::string& mo) {
-        return n + "" + m + "" + mo;
-    };
+  auto makeKey = [](const std::string &n, const std::string &m,
+                    const std::string &mo) { return n + "" + m + "" + mo; };
 
     bool undoPushed = false;
     bool anyChanged = false;
     auto pushUndoIfNeeded = [&]() {
-        if (!undoPushed)
-        {
+    if (!undoPushed) {
             cfg.PushUndoState("edit truss");
             undoPushed = true;
         }
     };
 
-    // First pass: compute row updates and track canonical dimensions per truss group.
-    for (size_t i = 0; i < count; ++i)
-    {
+  // First pass: compute row updates and track canonical dimensions per truss
+  // group.
+  for (size_t i = 0; i < count; ++i) {
         auto it = scene.trusses.find(rowUuids[i]);
         if (it == scene.trusses.end())
             continue;
@@ -910,10 +912,10 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
         Truss next = old;
         wxVariant v;
 
-        table->GetValue(v, i, 0);
+    table->GetValue(v, i, ColumnIndex(TrussColumn::Name));
         next.name = std::string(v.GetString().mb_str());
 
-        table->GetValue(v, i, 1);
+    table->GetValue(v, i, ColumnIndex(TrussColumn::Layer));
         std::string layerStr = std::string(v.GetString().mb_str());
         if (layerStr.empty())
             next.layer.clear();
@@ -927,7 +929,7 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
             next.symbolFile = gui::PreserveSceneResourceReferenceForTableSync(
                 scene.basePath, old.symbolFile, std::string(modelPaths[i].ToUTF8()));
         else {
-            table->GetValue(v, i, 2);
+      table->GetValue(v, i, ColumnIndex(TrussColumn::ModelFile));
             next.symbolFile = std::string(v.GetString().ToUTF8());
         }
 
@@ -936,42 +938,49 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
                 scene.basePath, old.modelFile, std::string(modelPaths[i].ToUTF8()),
                 old.symbolFile);
         else {
-            table->GetValue(v, i, 2);
+      table->GetValue(v, i, ColumnIndex(TrussColumn::ModelFile));
             next.modelFile = std::string(v.GetString().ToUTF8());
         }
 
-        table->GetValue(v, i, 3);
+    table->GetValue(v, i, ColumnIndex(TrussColumn::HangPosition));
         next.positionName = std::string(v.GetString().mb_str());
 
         const auto distanceUnit = ResolveDistanceUnitSystem();
         const auto weightUnit = ResolveWeightUnitSystem();
-        double xMm = old.transform.o[0], yMm = old.transform.o[1], zMm = old.transform.o[2];
-        table->GetValue(v, i, 4);
-        if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+    double xMm = old.transform.o[0], yMm = old.transform.o[1],
+           zMm = old.transform.o[2];
+    table->GetValue(v, i, ColumnIndex(TrussColumn::PositionX));
+    if (const auto parsed = Units::ParseDistanceToMillimeters(
+            std::string(v.GetString().ToUTF8()), distanceUnit);
+        parsed.has_value())
             xMm = *parsed;
-        table->GetValue(v, i, 5);
-        if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+    table->GetValue(v, i, ColumnIndex(TrussColumn::PositionY));
+    if (const auto parsed = Units::ParseDistanceToMillimeters(
+            std::string(v.GetString().ToUTF8()), distanceUnit);
+        parsed.has_value())
             yMm = *parsed;
-        table->GetValue(v, i, 6);
-        if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+    table->GetValue(v, i, ColumnIndex(TrussColumn::PositionZ));
+    if (const auto parsed = Units::ParseDistanceToMillimeters(
+            std::string(v.GetString().ToUTF8()), distanceUnit);
+        parsed.has_value())
             zMm = *parsed;
 
         double roll = 0, pitch = 0, yaw = 0;
-        table->GetValue(v, i, 7);
+    table->GetValue(v, i, ColumnIndex(TrussColumn::Roll));
         {
             wxString s = v.GetString();
             if (!DegreeSymbol().empty())
             s.Replace(DegreeSymbol(), "");
             s.ToDouble(&roll);
         }
-        table->GetValue(v, i, 8);
+    table->GetValue(v, i, ColumnIndex(TrussColumn::Pitch));
         {
             wxString s = v.GetString();
             if (!DegreeSymbol().empty())
             s.Replace(DegreeSymbol(), "");
             s.ToDouble(&pitch);
         }
-        table->GetValue(v, i, 9);
+    table->GetValue(v, i, ColumnIndex(TrussColumn::Yaw));
         {
             wxString s = v.GetString();
             if (!DegreeSymbol().empty())
@@ -988,62 +997,58 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
             std::abs(static_cast<double>(currentEuler[1]) - pitch) > 0.05 ||
             std::abs(static_cast<double>(currentEuler[0]) - yaw) > 0.05;
 
-        if (transformChanged)
-        {
+    if (transformChanged) {
             Matrix rot = MatrixUtils::EulerToMatrix(static_cast<float>(yaw),
                                                     static_cast<float>(pitch),
                                                     static_cast<float>(roll));
             next.transform = MatrixUtils::ApplyRotationPreservingScale(
                 old.transform, rot,
-                {static_cast<float>(xMm),
-                 static_cast<float>(yMm),
+          {static_cast<float>(xMm), static_cast<float>(yMm),
                  static_cast<float>(zMm)});
         }
 
-        table->GetValue(v, i, 10);
+    table->GetValue(v, i, ColumnIndex(TrussColumn::Manufacturer));
         next.manufacturer = std::string(v.GetString().mb_str());
-        table->GetValue(v, i, 11);
+    table->GetValue(v, i, ColumnIndex(TrussColumn::Model));
         next.model = std::string(v.GetString().mb_str());
 
-        table->GetValue(v, i, 12);
+    table->GetValue(v, i, ColumnIndex(TrussColumn::Length));
         if (const auto parsed = Units::ParseDistanceToMillimeters(
                 std::string(v.GetString().ToUTF8()), distanceUnit);
             parsed.has_value())
             next.lengthMm = static_cast<float>(*parsed);
-        table->GetValue(v, i, 13);
+    table->GetValue(v, i, ColumnIndex(TrussColumn::Width));
         if (const auto parsed = Units::ParseDistanceToMillimeters(
                 std::string(v.GetString().ToUTF8()), distanceUnit);
             parsed.has_value())
             next.widthMm = static_cast<float>(*parsed);
-        table->GetValue(v, i, 14);
+    table->GetValue(v, i, ColumnIndex(TrussColumn::Height));
         if (const auto parsed = Units::ParseDistanceToMillimeters(
                 std::string(v.GetString().ToUTF8()), distanceUnit);
             parsed.has_value())
             next.heightMm = static_cast<float>(*parsed);
-        table->GetValue(v, i, 15);
+    table->GetValue(v, i, ColumnIndex(TrussColumn::Weight));
         if (const auto parsed = Units::ParseWeightToKilograms(
                 std::string(v.GetString().ToUTF8()), weightUnit);
             parsed.has_value())
             next.weightKg = static_cast<float>(*parsed);
 
         const bool trussChanged =
-            old.name != next.name ||
-            old.layer != next.layer ||
-            old.modelFile != next.modelFile ||
-            old.symbolFile != next.symbolFile ||
-            old.positionName != next.positionName ||
-            transformChanged ||
-            old.manufacturer != next.manufacturer ||
-            old.model != next.model ||
-            !Units::NearlyEqualDistanceMillimeters(old.lengthMm, next.lengthMm, 0.5) ||
-            !Units::NearlyEqualDistanceMillimeters(old.widthMm, next.widthMm, 0.5) ||
-            !Units::NearlyEqualDistanceMillimeters(old.heightMm, next.heightMm, 0.5) ||
+        old.name != next.name || old.layer != next.layer ||
+        old.modelFile != next.modelFile || old.symbolFile != next.symbolFile ||
+        old.positionName != next.positionName || transformChanged ||
+        old.manufacturer != next.manufacturer || old.model != next.model ||
+        !Units::NearlyEqualDistanceMillimeters(old.lengthMm, next.lengthMm,
+                                               0.5) ||
+        !Units::NearlyEqualDistanceMillimeters(old.widthMm, next.widthMm,
+                                               0.5) ||
+        !Units::NearlyEqualDistanceMillimeters(old.heightMm, next.heightMm,
+                                               0.5) ||
             !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
         const bool weightChanged =
             !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
 
-        if (trussChanged)
-        {
+    if (trussChanged) {
             pushUndoIfNeeded();
             anyChanged = true;
             if (weightChanged) {
@@ -1089,15 +1094,15 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
         const float weightKg = dit->second.weight;
 
         if (it->second.lengthMm != lenMm || it->second.widthMm != widMm ||
-            it->second.heightMm != heiMm || it->second.weightKg != weightKg)
-        {
+        it->second.heightMm != heiMm || it->second.weightKg != weightKg) {
             pushUndoIfNeeded();
             anyChanged = true;
             it->second.lengthMm = lenMm;
             it->second.widthMm = widMm;
             it->second.heightMm = heiMm;
             it->second.weightKg = weightKg;
-            changedWeightPositions.insert(NormalizePositionName(it->second.positionName));
+      changedWeightPositions.insert(
+          NormalizePositionName(it->second.positionName));
 
             wxString lenStr = wxString::Format("%.2f", lenMm / 1000.0f);
             wxString widStr =
@@ -1105,10 +1110,10 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
             wxString heiStr =
                 heiMm > 0.0f ? wxString::Format("%.2f", heiMm / 1000.0f) : wxString();
             wxString weiStr = wxString::Format("%.2f", weightKg);
-            table->SetValue(wxVariant(lenStr), i, 12);
-            table->SetValue(wxVariant(widStr), i, 13);
-            table->SetValue(wxVariant(heiStr), i, 14);
-            table->SetValue(wxVariant(weiStr), i, 15);
+      table->SetValue(wxVariant(lenStr), i, ColumnIndex(TrussColumn::Length));
+      table->SetValue(wxVariant(widStr), i, ColumnIndex(TrussColumn::Width));
+      table->SetValue(wxVariant(heiStr), i, ColumnIndex(TrussColumn::Height));
+      table->SetValue(wxVariant(weiStr), i, ColumnIndex(TrussColumn::Weight));
 
             if (changedTrussIds.insert(it->second.uuid).second)
                 updatedTrusses.emplace_back(it->second.name, it->second.uuid);
@@ -1120,7 +1125,8 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
     if (!anyChanged)
         return;
 
-    HoistLoadRecalculationPrompt::PromptAndApply(cfg, this, changedWeightPositions);
+  HoistLoadRecalculationPrompt::PromptAndApply(cfg, this,
+                                               changedWeightPositions);
 
     if (SummaryPanel::Instance() && IsActivePage())
         SummaryPanel::Instance()->ShowTrussSummary();
@@ -1229,8 +1235,7 @@ void TrussTablePanel::SelectByUuid(const std::vector<std::string>& uuids,
     store->SetSelectedRows(selectedRows);
 }
 
-void TrussTablePanel::DeleteSelected(bool pushUndoState)
-{
+void TrussTablePanel::DeleteSelected(bool pushUndoState) {
     RebuildRowCachesFromRowKeys();
     wxDataViewItemArray selections;
     table->GetSelections(selections);
@@ -1286,8 +1291,7 @@ void TrussTablePanel::DeleteSelected(bool pushUndoState)
         Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
         Viewer3DPanel::Instance()->UpdateScene();
         Viewer3DPanel::Instance()->Refresh();
-    }
-    else if (Viewer2DPanel::Instance()) {
+  } else if (Viewer2DPanel::Instance()) {
         Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
         Viewer2DPanel::Instance()->UpdateScene();
     }
@@ -1301,15 +1305,14 @@ void TrussTablePanel::DeleteSelected(bool pushUndoState)
     ResyncRows(oldOrder, {});
 }
 
-void TrussTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
-                                 const std::vector<std::string>& selectedUuids)
-{
+void TrussTablePanel::ResyncRows(
+    const std::vector<std::string> &oldOrder,
+    const std::vector<std::string> &selectedUuids) {
     (void)oldOrder;
     RebuildRowCachesFromRowKeys();
 
     table->UnselectAll();
-    for (const auto& uuid : selectedUuids)
-    {
+  for (const auto &uuid : selectedUuids) {
         auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
         if (pos != rowUuids.end())
             table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
@@ -1366,14 +1369,12 @@ void TrussTablePanel::SetModelPathsForRow(unsigned int row,
     symbolPathByKey[rowKey] = symbolPath;
 }
 
-void TrussTablePanel::OnColumnSorted(wxDataViewEvent& event)
-{
+void TrussTablePanel::OnColumnSorted(wxDataViewEvent &event) {
     RebuildRowCachesFromRowKeys();
     wxDataViewItemArray selections;
     table->GetSelections(selections);
     std::vector<std::string> selectedUuids;
-    for (const auto& it : selections)
-    {
+  for (const auto &it : selections) {
         const std::string uuid = UuidForItem(it);
         if (!uuid.empty())
             selectedUuids.push_back(uuid);

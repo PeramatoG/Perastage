@@ -20,6 +20,7 @@
 #include "configmanager.h"
 #include "fixturetablepanel.h"
 #include "guiconfigservices.h"
+#include "table_column_indices.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <wx/colordlg.h>
@@ -32,6 +33,19 @@
 static SummaryPanel* s_instance = nullptr;
 
 namespace {
+using FixtureSummaryColumn = FixtureSummaryTableColumns::Column;
+using ObjectSummaryColumn = ObjectSummaryTableColumns::Column;
+
+// Converts a fixture summary column to its stable model index.
+constexpr int FixtureColumnIndex(FixtureSummaryColumn column) {
+    return TableColumnIndices::ToIndex(column);
+}
+
+// Converts an object summary column to its stable model index.
+constexpr int ObjectColumnIndex(ObjectSummaryColumn column) {
+    return TableColumnIndices::ToIndex(column);
+}
+
 bool IsRefreshTargetAlive(wxWindow* window) {
     return window && !window->IsBeingDeleted();
 }
@@ -40,17 +54,19 @@ bool IsRefreshTargetAlive(wxWindow* window) {
 SummaryPanel::SummaryPanel(wxWindow* parent, ConfigManager* visibilityConfig,
                            ConfigManager* colorConfig)
     : wxPanel(parent, wxID_ANY),
-      visibilityConfigManager(visibilityConfig
+      visibilityConfigManager(
+          visibilityConfig
                                   ? visibilityConfig
                                   : &GetDefaultGuiConfigServices().LegacyConfigManager()),
-      colorConfigManager(colorConfig
+      colorConfigManager(
+          colorConfig
                              ? colorConfig
                              : (visibilityConfigManager
                                     ? visibilityConfigManager
-                                    : &GetDefaultGuiConfigServices().LegacyConfigManager()))
-{
+                     : &GetDefaultGuiConfigServices().LegacyConfigManager())) {
     store = new ColorfulDataViewListStore();
-    table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxDV_ROW_LINES);
+  table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
+                                 wxDefaultSize, wxDV_ROW_LINES);
     table->AssociateModel(store);
     store->DecRef();
 
@@ -67,18 +83,11 @@ SummaryPanel::SummaryPanel(wxWindow* parent, ConfigManager* visibilityConfig,
             ApplyInitialColumnWidths();
         evt.Skip();
     });
-
 }
 
-SummaryPanel* SummaryPanel::Instance()
-{
-    return s_instance;
-}
+SummaryPanel *SummaryPanel::Instance() { return s_instance; }
 
-void SummaryPanel::SetInstance(SummaryPanel* panel)
-{
-    s_instance = panel;
-}
+void SummaryPanel::SetInstance(SummaryPanel *panel) { s_instance = panel; }
 
 void SummaryPanel::SetVisibleRefreshTargets(Viewer2DPanel* viewer2D,
                                             Viewer3DPanel* viewer3D) {
@@ -106,9 +115,10 @@ void SummaryPanel::UpdatePaneCaption(const wxString& suffix) {
     manager->Update();
 }
 
-void SummaryPanel::ShowSummary(const std::vector<std::pair<std::string,int>>& items)
-{
-    if (!table || !store) return;
+void SummaryPanel::ShowSummary(
+    const std::vector<std::pair<std::string, int>> &items) {
+  if (!table || !store)
+    return;
     EnsureColumnsForMode(SummaryMode::Generic);
     store->DeleteAllItems();
     for (const auto& [name, count] : items) {
@@ -119,10 +129,10 @@ void SummaryPanel::ShowSummary(const std::vector<std::pair<std::string,int>>& it
     }
 }
 
-void SummaryPanel::ShowFixtureSummary()
-{
+void SummaryPanel::ShowFixtureSummary() {
     UpdatePaneCaption("Fixtures");
-    if (!table || !store) return;
+  if (!table || !store)
+    return;
     std::map<std::string, FixtureSummaryRow> grouped;
     const auto& fixtures = (*visibilityConfigManager).GetScene().fixtures;
     for (const auto& [uuid, fix] : fixtures) {
@@ -148,8 +158,7 @@ void SummaryPanel::ShowFixtureSummary()
     ShowFixtureSummaryRows(rows);
 }
 
-void SummaryPanel::ShowTrussSummary()
-{
+void SummaryPanel::ShowTrussSummary() {
     UpdatePaneCaption("Trusses");
     std::map<std::string,int> counts;
     const auto& trusses = (*visibilityConfigManager).GetScene().trusses;
@@ -159,10 +168,10 @@ void SummaryPanel::ShowTrussSummary()
     ShowSummary(items);
 }
 
-void SummaryPanel::ShowHoistSummary()
-{
+void SummaryPanel::ShowHoistSummary() {
     UpdatePaneCaption("Hoists");
-    if (!table) return;
+  if (!table)
+    return;
 
     std::map<std::string, int> hoistCounts;
     const auto& supports = (*visibilityConfigManager).GetScene().supports;
@@ -170,13 +179,13 @@ void SummaryPanel::ShowHoistSummary()
         std::string type = support.function.empty() ? "Hoist" : support.function;
         hoistCounts[type]++;
     }
-    std::vector<std::pair<std::string, int>> hoistItems(hoistCounts.begin(), hoistCounts.end());
+  std::vector<std::pair<std::string, int>> hoistItems(hoistCounts.begin(),
+                                                      hoistCounts.end());
 
     ShowSummary(hoistItems);
 }
 
-void SummaryPanel::ShowSceneObjectSummary()
-{
+void SummaryPanel::ShowSceneObjectSummary() {
     UpdatePaneCaption("Objects");
     std::map<std::string,int> counts;
     const auto& objs = (*visibilityConfigManager).GetScene().sceneObjects;
@@ -199,7 +208,8 @@ void SummaryPanel::ShowFixtureSummaryRows(
         wxBitmap bmp(16, 16);
         wxMemoryDC dc(bmp);
         wxColour color;
-        if (!rowData.colorHex.empty() && color.Set(wxString::FromUTF8(rowData.colorHex)))
+    if (!rowData.colorHex.empty() &&
+        color.Set(wxString::FromUTF8(rowData.colorHex)))
             dc.SetBrush(wxBrush(color));
         else
             dc.SetBrush(wxBrush(wxColour(128, 128, 128)));
@@ -221,7 +231,8 @@ void SummaryPanel::EnsureColumnsForMode(SummaryMode requestedMode) {
 
     bool recreatedControl = false;
     while (table->GetColumnCount() > 0) {
-        wxDataViewColumn* firstColumn = table->GetColumn(0);
+    wxDataViewColumn *firstColumn =
+        table->GetColumn(ObjectColumnIndex(ObjectSummaryColumn::CountValue));
         if (!firstColumn)
             break;
         if (!table->DeleteColumn(firstColumn)) {
@@ -242,7 +253,8 @@ void SummaryPanel::EnsureColumnsForMode(SummaryMode requestedMode) {
                                 wxDATAVIEW_COL_RESIZABLE);
         auto* colorRenderer = new wxDataViewIconTextRenderer();
         table->AppendColumn(new wxDataViewColumn(
-            "Color", colorRenderer, 3, 80, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE));
+        "Color", colorRenderer, FixtureColumnIndex(FixtureSummaryColumn::Color),
+        80, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE));
     } else {
         table->AppendTextColumn("Count", wxDATAVIEW_CELL_INERT, 60, wxALIGN_LEFT,
                                 wxDATAVIEW_COL_RESIZABLE);
@@ -263,8 +275,8 @@ void SummaryPanel::BindTableEvents() {
     });
     table->Bind(wxEVT_DATAVIEW_ITEM_VALUE_CHANGED,
                 &SummaryPanel::OnItemValueChanged, this);
-    table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
-                &SummaryPanel::OnItemActivated, this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &SummaryPanel::OnItemActivated,
+              this);
     table->Bind(wxEVT_MOTION, &SummaryPanel::OnMouseMove, this);
     table->Bind(wxEVT_LEAVE_WINDOW, &SummaryPanel::OnMouseLeave, this);
 }
@@ -277,10 +289,14 @@ void SummaryPanel::ApplyInitialColumnWidths() {
 
     const int tableWidth = std::max(0, table->GetClientSize().GetWidth());
     if (mode == SummaryMode::Fixture) {
-        auto* visibleColumn = table->GetColumn(0);
-        auto* countColumn = table->GetColumn(1);
-        auto* typeColumn = table->GetColumn(2);
-        auto* colorColumn = table->GetColumn(3);
+    auto *visibleColumn =
+        table->GetColumn(FixtureColumnIndex(FixtureSummaryColumn::Visible));
+    auto *countColumn =
+        table->GetColumn(FixtureColumnIndex(FixtureSummaryColumn::CountValue));
+    auto *typeColumn =
+        table->GetColumn(FixtureColumnIndex(FixtureSummaryColumn::Type));
+    auto *colorColumn =
+        table->GetColumn(FixtureColumnIndex(FixtureSummaryColumn::Color));
         if (!visibleColumn || !countColumn || !typeColumn || !colorColumn)
             return;
 
@@ -296,7 +312,8 @@ void SummaryPanel::ApplyInitialColumnWidths() {
         const int visibleWidth = visibleLabelWidth + 30;
         const int countWidth = countLabelWidth + 20;
         const int colorWidth = std::max(60, colorLabelWidth + 24);
-        const int typeWidth = std::max(120, tableWidth - visibleWidth - countWidth - colorWidth - 8);
+    const int typeWidth =
+        std::max(120, tableWidth - visibleWidth - countWidth - colorWidth - 8);
 
         visibleColumn->SetMinWidth(visibleWidth);
         visibleColumn->SetWidth(visibleWidth);
@@ -309,8 +326,10 @@ void SummaryPanel::ApplyInitialColumnWidths() {
         return;
     }
 
-    auto* countColumn = table->GetColumn(0);
-    auto* typeColumn = table->GetColumn(1);
+  auto *countColumn =
+      table->GetColumn(ObjectColumnIndex(ObjectSummaryColumn::CountValue));
+  auto *typeColumn =
+      table->GetColumn(ObjectColumnIndex(ObjectSummaryColumn::Type));
     if (!countColumn || !typeColumn)
         return;
 
@@ -339,8 +358,8 @@ void SummaryPanel::RecreateTableControl() {
         sizer->Detach(table);
     table->Destroy();
 
-    table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                                   wxDV_ROW_LINES);
+  table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
+                                 wxDefaultSize, wxDV_ROW_LINES);
     table->AssociateModel(store);
     store->DecRef();
     BindTableEvents();
@@ -359,19 +378,19 @@ void SummaryPanel::RefreshFixtureVisibilityStyles() {
         (*visibilityConfigManager).GetHiddenFixtureTypes();
     for (unsigned int row = 0; row < table->GetItemCount(); ++row) {
         store->ClearRowTextColour(row);
-        wxString typeName = table->GetTextValue(static_cast<int>(row), 2);
-        if (hiddenFixtureTypes.find(typeName.ToStdString()) != hiddenFixtureTypes.end())
+    wxString typeName = table->GetTextValue(
+        static_cast<int>(row), FixtureColumnIndex(FixtureSummaryColumn::Type));
+    if (hiddenFixtureTypes.find(typeName.ToStdString()) !=
+        hiddenFixtureTypes.end())
             store->SetRowTextColour(row, *wxRED);
     }
     table->Refresh();
 }
 
 void SummaryPanel::RefreshVisibleViewers() const {
-    Viewer2DPanel* viewer2D = visibleRefreshViewer2D
-                                  ? visibleRefreshViewer2D
+  Viewer2DPanel *viewer2D = visibleRefreshViewer2D ? visibleRefreshViewer2D
                                   : Viewer2DPanel::Instance();
-    Viewer3DPanel* viewer3D = visibleRefreshViewer3D
-                                  ? visibleRefreshViewer3D
+  Viewer3DPanel *viewer3D = visibleRefreshViewer3D ? visibleRefreshViewer3D
                                   : Viewer3DPanel::Instance();
     if (IsRefreshTargetAlive(viewer2D)) {
         viewer2D->UpdateScene(true);
@@ -384,7 +403,9 @@ void SummaryPanel::RefreshVisibleViewers() const {
 }
 
 void SummaryPanel::OnItemValueChanged(wxDataViewEvent& event) {
-    if (!table || mode != SummaryMode::Fixture || event.GetColumn() != 0)
+    if (!table || mode != SummaryMode::Fixture ||
+        event.GetColumn() !=
+            FixtureColumnIndex(FixtureSummaryColumn::Visible))
         return;
     const int row = table->ItemToRow(event.GetItem());
     if (row == wxNOT_FOUND)
@@ -392,12 +413,14 @@ void SummaryPanel::OnItemValueChanged(wxDataViewEvent& event) {
 
     wxVariant value = event.GetValue();
     if (!value.IsType("bool"))
-        table->GetValue(value, row, 0);
+    table->GetValue(value, row,
+                    FixtureColumnIndex(FixtureSummaryColumn::Visible));
     const bool visible = value.GetBool();
-    const std::string typeName = table->GetTextValue(row, 2).ToStdString();
+  const std::string typeName =
+      table->GetTextValue(row, FixtureColumnIndex(FixtureSummaryColumn::Type))
+          .ToStdString();
 
-    auto hiddenFixtureTypes =
-        (*visibilityConfigManager).GetHiddenFixtureTypes();
+  auto hiddenFixtureTypes = (*visibilityConfigManager).GetHiddenFixtureTypes();
     if (visible)
         hiddenFixtureTypes.erase(typeName);
     else
@@ -415,10 +438,14 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
     if (!table || mode != SummaryMode::Fixture)
         return;
     const int row = table->ItemToRow(event.GetItem());
-    if (row == wxNOT_FOUND || event.GetColumn() != 3)
+    if (row == wxNOT_FOUND ||
+        event.GetColumn() != FixtureColumnIndex(FixtureSummaryColumn::Color))
         return;
 
-    const std::string typeName = table->GetTextValue(row, 2).ToStdString();
+    const std::string typeName =
+        table->GetTextValue(
+                 row, FixtureColumnIndex(FixtureSummaryColumn::Type))
+            .ToStdString();
     auto& colorCfg = (*colorConfigManager);
     auto& fixtures = colorCfg.GetScene().fixtures;
 
@@ -436,8 +463,9 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
         return;
 
     const wxColour color = dlg.GetColourData().GetColour();
-    const std::string hex = wxString::Format("#%02X%02X%02X", color.Red(), color.Green(),
-                                             color.Blue()).ToStdString();
+  const std::string hex = wxString::Format("#%02X%02X%02X", color.Red(),
+                                           color.Green(), color.Blue())
+                              .ToStdString();
     colorCfg.PushUndoState("change fixture type color in project from summary");
     for (auto& [uuid, fixture] : fixtures) {
         (void)uuid;
@@ -454,7 +482,8 @@ void SummaryPanel::OnItemActivated(wxDataViewEvent& event) {
     dc.SetPen(*wxBLACK_PEN);
     dc.DrawRectangle(0, 0, 16, 16);
     dc.SelectObject(wxNullBitmap);
-    table->SetValue(wxVariant(wxDataViewIconText("", bmp)), row, 3);
+  table->SetValue(wxVariant(wxDataViewIconText("", bmp)), row,
+                  FixtureColumnIndex(FixtureSummaryColumn::Color));
     RefreshVisibleViewers();
 }
 
@@ -473,7 +502,8 @@ void SummaryPanel::OnMouseMove(wxMouseEvent& event) {
         const int row = table->ItemToRow(item);
         if (row != wxNOT_FOUND) {
             wxVariant value;
-            table->GetValue(value, row, 0);
+      table->GetValue(value, row,
+                      FixtureColumnIndex(FixtureSummaryColumn::Visible));
             if (!value.GetBool())
                 tooltip = "Fixture type hidden: not rendered in 2D/3D viewers.";
         }
