@@ -1663,6 +1663,7 @@ void Viewer2DPanel::FinalizeSelectionDrag() {
 void Viewer2DPanel::BeginContinuousFixturePlacement(
     const std::string &fixtureUuid) {
   m_continuousFixturePlacement = true;
+  m_continuousPlacementNeedsPointerAlignment = true;
   m_continuousFixtureUuid = fixtureUuid;
   m_continuousPlacedFixtureUuids.clear();
   m_dragMode = DragMode::Selection;
@@ -1702,6 +1703,7 @@ void Viewer2DPanel::ConfirmContinuousFixturePlacement() {
                   .ToStdString();
   cfg.GetScene().fixtures[next.uuid] = next;
   m_continuousFixtureUuid = next.uuid;
+  m_continuousPlacementNeedsPointerAlignment = false;
   m_dragSelectionUuids = {next.uuid};
   m_dragFixtureUuids = {next.uuid};
   m_dragAxis = DragAxis::None;
@@ -1767,6 +1769,7 @@ bool Viewer2DPanel::UndoContinuousFixturePlacement() {
     return true;
   }
   m_continuousFixtureUuid = restoredFixtureUuid;
+  m_continuousPlacementNeedsPointerAlignment = true;
   m_dragMode = DragMode::Selection;
   m_dragTarget = DragTarget::Fixtures;
   m_dragSelectionUuids = {restoredFixtureUuid};
@@ -1781,6 +1784,7 @@ bool Viewer2DPanel::UndoContinuousFixturePlacement() {
 // Clears placement-only interaction state without changing the scene.
 void Viewer2DPanel::EndContinuousFixturePlacementState() {
   m_continuousFixturePlacement = false;
+  m_continuousPlacementNeedsPointerAlignment = false;
   m_continuousFixtureUuid.clear();
   m_continuousPlacedFixtureUuids.clear();
   m_dragMode = DragMode::None;
@@ -3337,17 +3341,20 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   if (m_continuousFixturePlacement &&
       !(m_dragMode == DragMode::View && event.Dragging())) {
     const wxPoint pos = event.GetPosition();
-    const auto pointerWorld = ComputeWorldPositionFromScreen(pos);
-    const auto currentWorld = ComputeSelectionDragCenterMeters();
-    if (pointerWorld && currentWorld) {
-      std::array<float, 3> delta{
-          (*pointerWorld)[0] - (*currentWorld)[0],
-          (*pointerWorld)[1] - (*currentWorld)[1],
-          (*pointerWorld)[2] - (*currentWorld)[2]};
+    if (m_continuousPlacementNeedsPointerAlignment) {
+      const auto pointerWorld = ComputeWorldPositionFromScreen(pos);
+      const auto currentWorld = ComputeSelectionDragCenterMeters();
+      if (pointerWorld && currentWorld) {
+        ApplySelectionDelta({(*pointerWorld)[0] - (*currentWorld)[0],
+                             (*pointerWorld)[1] - (*currentWorld)[1],
+                             (*pointerWorld)[2] - (*currentWorld)[2]});
+        m_continuousPlacementNeedsPointerAlignment = false;
+      }
+    } else {
+      int dx = pos.x - m_lastMousePos.x;
+      int dy = pos.y - m_lastMousePos.y;
       if (selection_movement_settings::IsAxisConstrainedMovementEnabled(
               ConfigManager::Get())) {
-        const int dx = pos.x - m_lastMousePos.x;
-        const int dy = pos.y - m_lastMousePos.y;
         if (m_dragAxis == DragAxis::None &&
             (std::abs(dx) >= kSelectionDragStartThresholdPx ||
              std::abs(dy) >= kSelectionDragStartThresholdPx)) {
@@ -3355,26 +3362,23 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
                            ? DragAxis::Horizontal
                            : DragAxis::Vertical;
         }
-        std::array<float, 2> projectedDelta{};
-        if (m_view == Viewer2DView::Top || m_view == Viewer2DView::Bottom)
-          projectedDelta = {delta[0], delta[1]};
-        else if (m_view == Viewer2DView::Front)
-          projectedDelta = {delta[0], delta[2]};
-        else
-          projectedDelta = {delta[1], delta[2]};
         if (m_dragAxis == DragAxis::Horizontal)
-          projectedDelta[1] = 0.0f;
+          dy = 0;
         else if (m_dragAxis == DragAxis::Vertical)
-          projectedDelta[0] = 0.0f;
-        delta = MapDragDelta(projectedDelta[0], projectedDelta[1]);
+          dx = 0;
       } else {
         m_dragAxis = DragAxis::None;
       }
-      ApplySelectionDelta(delta);
-      m_dragSelectionMoved = true;
-      RequestRepaint();
+      const float pixelsPerMeter = PIXELS_PER_METER * m_zoom;
+      if ((dx != 0 || dy != 0) && pixelsPerMeter > 0.0f) {
+        ApplySelectionDelta(
+            MapDragDelta(static_cast<float>(dx) / pixelsPerMeter,
+                         static_cast<float>(-dy) / pixelsPerMeter));
+      }
     }
+    m_dragSelectionMoved = true;
     m_lastMousePos = pos;
+    RequestRepaint();
     return;
   }
   wxPoint pos = event.GetPosition();

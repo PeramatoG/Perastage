@@ -122,6 +122,7 @@ private:
     viewer3d::SelectionDragAxis m_selectionDragAxis =
         viewer3d::SelectionDragAxis::None;
     bool m_continuousFixturePlacement = false;
+    bool m_continuousPlacementNeedsPointerAlignment = false;
     std::string m_continuousFixtureUuid;
     std::vector<std::string> m_continuousPlacedFixtureUuids;
 

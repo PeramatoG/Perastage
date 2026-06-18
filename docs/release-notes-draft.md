@@ -75,6 +75,8 @@ This release addresses dozens of issues across importing, snapping, editing and 
   the latest confirmed fixture while keeping placement active, and cancels the
   session when it reaches the first fixture. Placement history refreshes now
   use the supported main-window scene update pipeline across all platforms.
+  Pointer following now uses the same incremental Magnet preview path as normal
+  selection dragging, preventing rapid snap/release flicker near truss edges.
 - **Fixture color compatibility** - corrected the fixture visual-color rename so
   fixture editing and fixture replacement build correctly, while layer colors
   and fixture-summary swatches continue to use their existing model fields

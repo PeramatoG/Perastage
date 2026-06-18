@@ -2738,6 +2738,7 @@ void Viewer3DPanel::BeginContinuousFixturePlacement(const std::string& fixtureUu
         return;
     ResetSelectionDragState();
     m_continuousFixturePlacement = true;
+    m_continuousPlacementNeedsPointerAlignment = true;
     m_continuousFixtureUuid = fixtureUuid;
     m_continuousPlacedFixtureUuids.clear();
     m_selectionDragArmed = true;
@@ -2772,6 +2773,7 @@ void Viewer3DPanel::ConfirmContinuousFixturePlacement()
         std::chrono::steady_clock::now().time_since_epoch().count())).ToStdString();
     cfg.GetScene().fixtures[next.uuid] = next;
     m_continuousFixtureUuid = next.uuid;
+    m_continuousPlacementNeedsPointerAlignment = false;
     m_dragSelectionUuids = {next.uuid};
     m_dragFixtureUuids = {next.uuid};
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
@@ -2842,6 +2844,7 @@ bool Viewer3DPanel::UndoContinuousFixturePlacement()
         return true;
     }
     m_continuousFixtureUuid = restoredFixtureUuid;
+    m_continuousPlacementNeedsPointerAlignment = true;
     m_selectionDragArmed = true;
     m_selectionDragMoved = false;
     m_selectionDragUndoPushed = true;
@@ -2863,6 +2866,7 @@ bool Viewer3DPanel::UndoContinuousFixturePlacement()
 void Viewer3DPanel::EndContinuousFixturePlacementState()
 {
     m_continuousFixturePlacement = false;
+    m_continuousPlacementNeedsPointerAlignment = false;
     m_continuousFixtureUuid.clear();
     m_continuousPlacedFixtureUuids.clear();
     ResetSelectionDragState();
@@ -2999,17 +3003,22 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
         if (renderSize.IsValid() &&
             TryBindGlContextForInteraction("continuous fixture placement")) {
             ApplyCameraMatrices(renderSize);
-            if (const auto pointer =
-                    ProjectMouseToSelectionDragViewPlane(pos, renderSize)) {
-                std::array<float, 3> worldDelta{
-                    (*pointer)[0] - m_selectionDragAnchorMeters[0],
-                    (*pointer)[1] - m_selectionDragAnchorMeters[1],
-                    (*pointer)[2] - m_selectionDragAnchorMeters[2]};
+            if (m_continuousPlacementNeedsPointerAlignment) {
+                if (const auto pointer =
+                        ProjectMouseToSelectionDragViewPlane(pos, renderSize)) {
+                    ApplySelectionDragDelta(
+                        {(*pointer)[0] - m_selectionDragAnchorMeters[0],
+                         (*pointer)[1] - m_selectionDragAnchorMeters[1],
+                         (*pointer)[2] - m_selectionDragAnchorMeters[2]});
+                    m_continuousPlacementNeedsPointerAlignment = false;
+                    m_selectionDragMoved = true;
+                }
+            } else {
+                const int dx = pos.x - m_lastMousePos.x;
+                const int dy = pos.y - m_lastMousePos.y;
                 if (selection_movement_settings::IsAxisConstrainedMovementEnabled(
                         ConfigManager::Get())) {
                     const auto projectedAxes = BuildProjectedDragAxes(renderSize);
-                    const int dx = pos.x - m_lastMousePos.x;
-                    const int dy = pos.y - m_lastMousePos.y;
                     if (m_selectionDragAxis ==
                             viewer3d::SelectionDragAxis::None &&
                         (std::abs(dx) >= kSelectionDragStartThresholdPx ||
@@ -3018,21 +3027,36 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
                             viewer3d::SelectDragAxisFromMouseDelta(
                                 dx, -dy, projectedAxes);
                     }
-                    const auto axis =
-                        AxisVectorFromSelectionDragAxis(m_selectionDragAxis);
-                    const float distance = worldDelta[0] * axis[0] +
-                                           worldDelta[1] * axis[1] +
-                                           worldDelta[2] * axis[2];
-                    worldDelta = {axis[0] * distance, axis[1] * distance,
-                                  axis[2] * distance};
+                    const double axisDeltaMeters =
+                        viewer3d::ComputeDragMetersOnAxis(
+                            dx, -dy, m_selectionDragAxis, projectedAxes);
+                    if (axisDeltaMeters != 0.0) {
+                        const auto axis =
+                            AxisVectorFromSelectionDragAxis(m_selectionDragAxis);
+                        ApplySelectionDragDelta(
+                            {axis[0] * static_cast<float>(axisDeltaMeters),
+                             axis[1] * static_cast<float>(axisDeltaMeters),
+                             axis[2] * static_cast<float>(axisDeltaMeters)});
+                        m_selectionDragMoved = true;
+                    }
                 } else {
                     m_selectionDragAxis =
                         viewer3d::SelectionDragAxis::None;
+                    const auto lastPoint =
+                        ProjectMouseToSelectionDragViewPlane(m_lastMousePos,
+                                                             renderSize);
+                    const auto currentPoint =
+                        ProjectMouseToSelectionDragViewPlane(pos, renderSize);
+                    if (lastPoint && currentPoint) {
+                        ApplySelectionDragDelta(
+                            {(*currentPoint)[0] - (*lastPoint)[0],
+                             (*currentPoint)[1] - (*lastPoint)[1],
+                             (*currentPoint)[2] - (*lastPoint)[2]});
+                        m_selectionDragMoved = true;
+                    }
                 }
-                ApplySelectionDragDelta(worldDelta);
-                m_selectionDragMoved = true;
-                Refresh();
             }
+            Refresh();
         }
         m_lastMousePos = pos;
         return;

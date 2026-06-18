@@ -307,6 +307,7 @@ private:
   std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
   bool m_draggedSincePress = false;
   bool m_continuousFixturePlacement = false;
+  bool m_continuousPlacementNeedsPointerAlignment = false;
   std::string m_continuousFixtureUuid;
   std::vector<std::string> m_continuousPlacedFixtureUuids;
   wxLongLong m_dragPressTime = 0;
