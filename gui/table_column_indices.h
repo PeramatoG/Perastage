@@ -74,7 +74,6 @@ enum class Column : int {
   Function,
   Motor,
   DummyPreset,
-  DataSource,
   Layer,
   HangPosition,
   PositionX,

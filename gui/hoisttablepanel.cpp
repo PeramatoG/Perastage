@@ -241,16 +241,6 @@ void MarkNumericFieldManualIfEdited(float editedValue, float oldEffectiveValue,
     fieldValue = oldFieldValue;
 }
 
-void SetAllHoistFieldSources(Support &support, const std::string &source) {
-  const std::string normalized = NormalizeHoistDataSource(source);
-  support.motorNameSource = normalized;
-  support.motorManufacturerSource = normalized;
-  support.motorModelSource = normalized;
-  support.capacitySource = normalized;
-  support.weightSource = normalized;
-  support.hoistFunctionSource = normalized;
-}
-
 std::optional<HoistPresetDefaults> FindPresetDefaults(const Support &support) {
   std::optional<DummyHoistProfile> profile;
   if (!support.dummyProfileId.empty())
@@ -404,7 +394,6 @@ void HoistTablePanel::InitializeTable() {
       "Function",
       "Motor",
       "Dummy Preset",
-      "Data Source",
       "Layer",
       "Hang Pos",
       wxString::FromUTF8(
@@ -423,7 +412,7 @@ void HoistTablePanel::InitializeTable() {
           Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8()))),
       wxString::FromUTF8(
           Units::LabelWithUnit("Load", std::string(weightSuffix.ToUTF8())))};
-  std::vector<int> widths = {70, 150, 120, 120, 130, 150, 110, 100, 120, 80,
+  std::vector<int> widths = {70, 150, 120, 120, 130, 150, 100, 120, 80,
                              80, 80,  80,  80,  80,  110, 110, 100, 100};
   if (columnLabels.size() != TableColumnIndices::Count<HoistColumn>() ||
       widths.size() != TableColumnIndices::Count<HoistColumn>())
@@ -518,7 +507,6 @@ void HoistTablePanel::ReloadData() {
     wxString motorName = wxString::FromUTF8(effective.motorName);
     wxString dummyPreset =
         wxString::FromUTF8(ResolveDummyProfileDisplayName(support));
-    wxString dataSource = wxString::FromUTF8(support.hoistDataSource);
     wxString layer = support.layer == DEFAULT_LAYER_NAME
                          ? wxString()
                          : wxString::FromUTF8(support.layer);
@@ -552,7 +540,6 @@ void HoistTablePanel::ReloadData() {
     row.push_back(hoistFunction);
     row.push_back(motorName);
     row.push_back(dummyPreset);
-    row.push_back(dataSource);
     row.push_back(layer);
     row.push_back(posName);
     row.push_back(posX);
@@ -569,21 +556,6 @@ void HoistTablePanel::ReloadData() {
     const wxUIntPtr rowKey = nextRowKey++;
     store->AppendItem(row, rowKey);
     const unsigned int rowIndex = static_cast<unsigned int>(rowUuids.size());
-    if (IsManualHoistDataSource(support.hoistFunctionSource))
-      store->SetCellTextColour(rowIndex, ColumnIndex(HoistColumn::Function),
-                               *wxRED);
-    if (IsManualHoistDataSource(support.motorNameSource) ||
-        effective.motorName.empty())
-      store->SetCellTextColour(rowIndex, ColumnIndex(HoistColumn::Motor),
-                               *wxRED);
-    if (IsManualHoistDataSource(support.capacitySource) ||
-        effective.capacityKg <= 0.0f)
-      store->SetCellTextColour(rowIndex, ColumnIndex(HoistColumn::Capacity),
-                               *wxRED);
-    if (IsManualHoistDataSource(support.weightSource) ||
-        effective.weightKg <= 0.0f)
-      store->SetCellTextColour(rowIndex, ColumnIndex(HoistColumn::Weight),
-                               *wxRED);
     const bool manualLoad = HasManualLoad(support);
     const auto extraWeightIt =
         extraWeights.find(NormalizePositionName(support.positionName));
@@ -594,9 +566,10 @@ void HoistTablePanel::ReloadData() {
         (HasMissingLoadInputs(scene, support) || unvalidatedExtraWeight);
     if (HoistLoadLimitUtils::IsCritical(loadState) || manualLoad ||
         missingLoadInputs)
-      store->SetCellTextColour(rowIndex, 18, *wxRED);
+      store->SetCellTextColour(rowIndex, ColumnIndex(HoistColumn::Load),
+                               *wxRED);
     else
-      store->ClearCellTextColour(rowIndex, 18);
+      store->ClearCellTextColour(rowIndex, ColumnIndex(HoistColumn::Load));
     rowUuids.push_back(uuid);
     rowLoadStates.push_back(loadState);
     rowUuidByKey[rowKey] = uuid;
@@ -726,32 +699,6 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
-    if (Viewer3DPanel::Instance()) {
-      Viewer3DPanel::Instance()->UpdateScene();
-      Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
-      Viewer2DPanel::Instance()->UpdateScene();
-    }
-    return;
-  }
-
-  if (*namedColumn == HoistColumn::DataSource) {
-    wxArrayString choices;
-    choices.push_back("Inherited");
-    choices.push_back("Manual");
-    wxSingleChoiceDialog sdlg(this, "Select data source", "Data Source",
-                              choices);
-    if (sdlg.ShowModal() != wxID_OK)
-      return;
-    wxString sel = sdlg.GetStringSelection();
-    for (const auto &itSel : selections) {
-      int r = table->ItemToRow(itSel);
-      if (r != wxNOT_FOUND)
-        table->SetValue(wxVariant(sel), r, col);
-    }
-    ResyncRows(oldOrder, selectedUuids);
-    UpdateSceneData();
-    ReloadData();
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
@@ -995,10 +942,24 @@ void HoistTablePanel::UpdateHoverTooltip(const wxPoint &position) {
   if (item.IsOk() && column) {
     const int row = table->ItemToRow(item);
     const int modelColumn = column->GetModelColumn();
-    if (modelColumn == 18 && IsRedCell(store, row, modelColumn) && row >= 0 &&
+    if (modelColumn == ColumnIndex(HoistColumn::Load) &&
+        IsRedCell(store, row, modelColumn) && row >= 0 &&
         static_cast<size_t>(row) < rowLoadStates.size()) {
-      tooltip = wxString::FromUTF8(HoistLoadLimitUtils::TooltipForState(
-          rowLoadStates[static_cast<size_t>(row)]));
+      const std::string uuid = rowUuids[static_cast<size_t>(row)];
+      const auto &scene = guiConfigServices->LegacyConfigManager().GetScene();
+      auto supportIt = scene.supports.find(uuid);
+      if (supportIt != scene.supports.end() &&
+          HasManualLoad(supportIt->second)) {
+        tooltip = "Load was entered manually.";
+      } else if (supportIt != scene.supports.end() &&
+                 HasMissingLoadInputs(scene, supportIt->second)) {
+        tooltip = "Automatic load uses one or more missing weight values.";
+      } else {
+        tooltip = wxString::FromUTF8(HoistLoadLimitUtils::TooltipForState(
+            rowLoadStates[static_cast<size_t>(row)]));
+        if (tooltip.empty())
+          tooltip = "Automatic load uses weight data that requires review.";
+      }
     }
   }
 
@@ -1142,14 +1103,6 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
           DummyProfileLibrary::FindByDisplayName(next.dummyPreset);
       next.dummyProfileId = profile.has_value() ? profile->id : "";
     }
-
-    table->GetValue(v, i, ColumnIndex(HoistColumn::DataSource));
-    next.hoistDataSource =
-        NormalizeHoistDataSource(std::string(v.GetString().ToUTF8()));
-    if (IsManualHoistDataSource(next.hoistDataSource))
-      SetAllHoistFieldSources(next, "Manual");
-    else if (NormalizeHoistDataSource(old.hoistDataSource) != "Inherited")
-      SetAllHoistFieldSources(next, "Inherited");
 
     table->GetValue(v, i, ColumnIndex(HoistColumn::Layer));
     std::string layerStr = std::string(v.GetString().ToUTF8());

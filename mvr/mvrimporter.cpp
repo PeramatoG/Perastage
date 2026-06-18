@@ -973,11 +973,9 @@ static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
 
       readFloat("Capacity", support.capacityKg);
       readFloat("Weight", support.weightKg);
-      readFloat("Load", support.loadKg);
       if (tinyxml2::XMLElement *load = info->FirstChildElement("Load")) {
-        const char *source = load->Attribute("source");
-        support.loadSource =
-            source && std::string(source) == "Auto" ? "Auto" : "Manual";
+        readFloat("Load", support.loadKg);
+        support.loadSource = "Manual";
       }
 
       std::string hoistFunction =

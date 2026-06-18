@@ -100,6 +100,8 @@ int main() {
   linked.motorName = "CM Lodestar";
   linked.useMotorDefaults = false;
   linked.hoistDataSource = "Inherited";
+  linked.loadKg = 100.0f;
+  linked.loadSource = "Auto";
   scene.supports[linked.uuid] = linked;
 
   Support dummy;
@@ -197,6 +199,22 @@ int main() {
       assert(current->FirstChildElement("Geometries") != nullptr);
       assert(current->FirstChildElement("GDTFSpec") != nullptr);
       assert(current->FirstChildElement("GDTFMode") != nullptr);
+      tinyxml2::XMLElement *data =
+          current->FirstChildElement("UserData")->FirstChildElement("Data");
+      tinyxml2::XMLElement *info = data->FirstChildElement("HoistInfo");
+      assert(info != nullptr);
+      assert(info->FirstChildElement("Load") == nullptr);
+    }
+    if (std::string(current->Name()) == "Support" &&
+        current->Attribute("uuid") &&
+        std::string(current->Attribute("uuid")) == "sup-manual") {
+      tinyxml2::XMLElement *data =
+          current->FirstChildElement("UserData")->FirstChildElement("Data");
+      tinyxml2::XMLElement *info = data->FirstChildElement("HoistInfo");
+      assert(info != nullptr);
+      tinyxml2::XMLElement *load = info->FirstChildElement("Load");
+      assert(load != nullptr);
+      assert(load->Attribute("source") == nullptr);
     }
     if (std::string(current->Name()) == "Support" &&
         current->Attribute("uuid") &&
