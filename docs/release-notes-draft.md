@@ -122,6 +122,9 @@ Behind the scenes, this release includes numerous optimisations and refactorings
 - **Fixture export metadata** - Perastage fixture category information has been moved to root-level type metadata and the export relies on standard fixture `uuid` and `name` attributes.  Legacy import fallback has been preserved.
 - **Locale and build validation** - added text-locale validation at startup to prevent regressions in string conversion.  Debian/Linux test builds now link test executables with shared diagnostics and config service sources for better reliability.
 - **Cross-platform builds** - improved GCC and Clang build reliability by separating lightweight GDTF data types from loader declarations, updating UTF-8 filesystem handling, separating portable timestamp representations and refining CI diagnostics for Windows and macOS installers.
+- **Continuous placement architecture** - placement types now live with the
+  scene model interfaces so Windows and other out-of-source builds resolve the
+  shared viewer header consistently.
 - **Importer performance** - improved rider truss and fixture imports by caching truss definitions and GDTF metadata, reusing cleanup regular expressions and normalisation patterns, avoiding unnecessary string copies and intermediate lists, and separating filtering logic from scene creation.  Applying rider text filters no longer recomputes the same work multiple times during import.
 - **Creation performance** - loading fixture and truss dictionaries only once per import and adding concise phase timing diagnostics reduce import time and ease future optimisation.
 - **Table reloads and hover rendering** - reloading truss tables preserves current selections without triggering side effects, and grouped-hover rendering now uses the same highlight state as direct 3D drawing.
