@@ -102,7 +102,10 @@ Additional safeguards include:
   quantity field and attaches one new fixture at a time to the pointer in the
   visible 2D or 3D viewer. Left-click confirms each fixture and immediately
   starts the next copy; right-click or Escape cancels only the pending copy.
-  Magnet snapping follows the current viewer toolbar setting.
+  Magnet snapping and axis-constrained movement follow the current viewer
+  toolbar settings, including changes made while placement is active. Holding
+  the left button and dragging navigates the active viewer instead of
+  confirming a fixture.
 - Add Truss supports quantity, real-world insertion-point coordinates in the active distance units, automatic linear placement from the selected truss bounding-box length, and optional default grouping into one bridge.
 - Multi-row editing helpers include fills, ranges, interpolation, and relative expressions.
 - **Group** and **Ungroup** in the Edit menu create and remove MVR-compatible GroupObject hierarchy from the active cross-table selection across fixtures, trusses, hoists, and scene objects while preserving world placement and hang-position assignments; after grouping, clicking a member selects the full group across related tables, and the selection highlights and moves/rotates the full group, including nested groups, while hovering a grouped member uses a more yellow primary highlight and a paler related-green highlight on the other group members in the 3D view and related tables using the same row style as table selection.

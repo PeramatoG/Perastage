@@ -102,6 +102,11 @@ the fixture currently attached to the pointer. Fixtures already confirmed with
 left-click remain in the scene. Right-click provides the same cancellation
 behavior without changing shortcut routing.
 
+A left-button press is confirmed as placement only when it is released without
+navigation movement. Holding and dragging keeps the normal viewer-local
+navigation behavior: pan in the 2D viewer, and orbit or `Shift`-pan in the 3D
+viewer. This mouse gesture does not add a shortcut-registry entry.
+
 ## Consistent editable-focus guard across local key handlers
 
 Panels that handle local key events also reuse `gui::IsEditableWidgetFocused(...)`

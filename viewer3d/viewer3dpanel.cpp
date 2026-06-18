@@ -1670,7 +1670,17 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
 void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
 {
     if (m_continuousFixturePlacement && event.LeftDown()) {
-        ConfirmContinuousFixturePlacement();
+        m_mode = event.ShiftDown() ? InteractionMode::Pan
+                                   : InteractionMode::Orbit;
+        m_dragging = true;
+        m_controller.SetInteracting(true);
+        m_isInteracting = true;
+        m_cameraMoving = true;
+        m_lastInteractionTime = std::chrono::steady_clock::now();
+        m_draggedSincePress = false;
+        m_lastMousePos = event.GetPosition();
+        SetFocus();
+        CaptureMouse();
         return;
     }
     viewer3d::diagnostics::Logf("Mouse interaction start pos=(%d,%d) left=%d middle=%d right=%d shift=%d ctrl=%d",
@@ -1732,6 +1742,23 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                                 event.GetX(), event.GetY(), event.LeftUp() ? 1 : 0,
                                 event.MiddleUp() ? 1 : 0, event.RightUp() ? 1 : 0,
                                 m_draggedSincePress ? 1 : 0);
+    if (m_continuousFixturePlacement && event.LeftUp()) {
+        const bool navigated = m_draggedSincePress;
+        m_dragging = false;
+        m_isInteracting = false;
+        m_cameraMoving = false;
+        m_controller.SetInteracting(false);
+        m_controller.SetCameraMoving(false);
+        m_mode = InteractionMode::None;
+        if (HasCapture())
+            ReleaseMouse();
+        m_draggedSincePress = false;
+        if (!navigated)
+            ConfirmContinuousFixturePlacement();
+        m_forceHoverQuery = true;
+        Refresh();
+        return;
+    }
     if (event.LeftUp() && m_rectSelecting)
     {
         if (HasCapture())
@@ -2717,6 +2744,7 @@ void Viewer3DPanel::BeginContinuousFixturePlacement(const std::string& fixtureUu
     m_selectionDragTarget = HoverTargetTable::Fixtures;
     m_dragSelectionUuids = {fixtureUuid};
     m_dragFixtureUuids = {fixtureUuid};
+    m_lastMousePos = ScreenToClient(wxGetMousePosition());
     m_selectionDragAnchorMeters = {it->second.transform.o[0] / 1000.0f,
                                    it->second.transform.o[1] / 1000.0f,
                                    it->second.transform.o[2] / 1000.0f};
@@ -2743,6 +2771,7 @@ void Viewer3DPanel::ConfirmContinuousFixturePlacement()
     m_continuousFixtureUuid = next.uuid;
     m_dragSelectionUuids = {next.uuid};
     m_dragFixtureUuids = {next.uuid};
+    m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
     m_selectionDragAnchorMeters = {next.transform.o[0] / 1000.0f,
                                    next.transform.o[1] / 1000.0f,
                                    next.transform.o[2] / 1000.0f};
@@ -2846,25 +2875,84 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
     glMatrixMode(GL_MODELVIEW);
 }
 
-// Handles mouse movement (orbit or pan)
+// Applies the standard orbit or pan response for an active camera drag.
+void Viewer3DPanel::ApplyCameraDrag(const wxMouseEvent& event,
+                                    const wxPoint& mousePos)
+{
+    const int dx = mousePos.x - m_lastMousePos.x;
+    const int dy = mousePos.y - m_lastMousePos.y;
+    if (dx == 0 && dy == 0)
+        return;
+
+    m_draggedSincePress = true;
+    m_isInteracting = true;
+    m_cameraMoving = true;
+    m_lastInteractionTime = std::chrono::steady_clock::now();
+
+    if (m_mode == InteractionMode::Orbit &&
+        (event.LeftIsDown() || event.RightIsDown())) {
+        const float orbitPitchDirection =
+            IsOrbitInversionEnabled() ? 1.0f : -1.0f;
+        m_camera.Orbit(static_cast<float>(dx) * 0.5f,
+                       orbitPitchDirection * static_cast<float>(dy) * 0.5f);
+    } else if (m_mode == InteractionMode::Pan &&
+               (event.MiddleIsDown() || event.RightIsDown() ||
+                event.ShiftDown())) {
+        m_camera.Pan(-dx * 0.01f, dy * 0.01f);
+    }
+    m_lastMousePos = mousePos;
+}
+
+// Handles mouse movement for placement, selection, orbit, and pan.
 void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 {
     wxPoint pos = event.GetPosition();
     if (m_continuousFixturePlacement) {
+        if (m_dragging && event.Dragging()) {
+            ApplyCameraDrag(event, pos);
+            Refresh();
+            return;
+        }
         const RenderSize renderSize = ResolveRenderSize(this);
         if (renderSize.IsValid() &&
             TryBindGlContextForInteraction("continuous fixture placement")) {
             ApplyCameraMatrices(renderSize);
             if (const auto pointer =
                     ProjectMouseToSelectionDragViewPlane(pos, renderSize)) {
-                ApplySelectionDragDelta(
-                    {(*pointer)[0] - m_selectionDragAnchorMeters[0],
-                     (*pointer)[1] - m_selectionDragAnchorMeters[1],
-                     (*pointer)[2] - m_selectionDragAnchorMeters[2]});
+                std::array<float, 3> worldDelta{
+                    (*pointer)[0] - m_selectionDragAnchorMeters[0],
+                    (*pointer)[1] - m_selectionDragAnchorMeters[1],
+                    (*pointer)[2] - m_selectionDragAnchorMeters[2]};
+                if (selection_movement_settings::IsAxisConstrainedMovementEnabled(
+                        ConfigManager::Get())) {
+                    const auto projectedAxes = BuildProjectedDragAxes(renderSize);
+                    const int dx = pos.x - m_lastMousePos.x;
+                    const int dy = pos.y - m_lastMousePos.y;
+                    if (m_selectionDragAxis ==
+                            viewer3d::SelectionDragAxis::None &&
+                        (std::abs(dx) >= kSelectionDragStartThresholdPx ||
+                         std::abs(dy) >= kSelectionDragStartThresholdPx)) {
+                        m_selectionDragAxis =
+                            viewer3d::SelectDragAxisFromMouseDelta(
+                                dx, -dy, projectedAxes);
+                    }
+                    const auto axis =
+                        AxisVectorFromSelectionDragAxis(m_selectionDragAxis);
+                    const float distance = worldDelta[0] * axis[0] +
+                                           worldDelta[1] * axis[1] +
+                                           worldDelta[2] * axis[2];
+                    worldDelta = {axis[0] * distance, axis[1] * distance,
+                                  axis[2] * distance};
+                } else {
+                    m_selectionDragAxis =
+                        viewer3d::SelectionDragAxis::None;
+                }
+                ApplySelectionDragDelta(worldDelta);
                 m_selectionDragMoved = true;
                 Refresh();
             }
         }
+        m_lastMousePos = pos;
         return;
     }
     viewer3d::diagnostics::Logf("Mouse move pos=(%d,%d) dragging=%d selectionDrag=%d rect=%d",
@@ -2949,30 +3037,9 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
     }
 
     if (m_dragging && event.Dragging())
-    {
-        int dx = pos.x - m_lastMousePos.x;
-        int dy = pos.y - m_lastMousePos.y;
-
-        m_draggedSincePress = true;
-        m_isInteracting = true;
-        m_cameraMoving = true;
-        m_lastInteractionTime = std::chrono::steady_clock::now();
-
-        if (m_mode == InteractionMode::Orbit &&
-            (event.LeftIsDown() || event.RightIsDown()))
-        {
-            const float orbitPitchDirection = IsOrbitInversionEnabled() ? 1.0f : -1.0f;
-            m_camera.Orbit(static_cast<float>(dx) * 0.5f,
-                           orbitPitchDirection * static_cast<float>(dy) * 0.5f);
-        }
-        else if (m_mode == InteractionMode::Pan &&
-                 (event.MiddleIsDown() || event.RightIsDown() || event.ShiftDown()))
-        {
-            m_camera.Pan(-dx * 0.01f, dy * 0.01f);
-        }
-    }
-
-    m_lastMousePos = pos;
+        ApplyCameraDrag(event, pos);
+    else
+        m_lastMousePos = pos;
 
     // Mark that the mouse has moved so OnPaint can update hover info
     m_mouseMoved = true;

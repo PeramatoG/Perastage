@@ -1673,6 +1673,8 @@ void Viewer2DPanel::BeginContinuousFixturePlacement(
   m_dragSceneObjectUuids.clear();
   m_dragSelectionMoved = false;
   m_dragSelectionPushedUndo = true;
+  m_dragAxis = DragAxis::None;
+  m_lastMousePos = ScreenToClient(wxGetMousePosition());
   m_pendingMagnetSnap.reset();
   SetFocus();
   RequestRepaint();
@@ -1699,6 +1701,7 @@ void Viewer2DPanel::ConfirmContinuousFixturePlacement() {
   m_continuousFixtureUuid = next.uuid;
   m_dragSelectionUuids = {next.uuid};
   m_dragFixtureUuids = {next.uuid};
+  m_dragAxis = DragAxis::None;
   m_pendingMagnetSnap.reset();
   if (FixtureTablePanel::Instance())
     FixtureTablePanel::Instance()->ReloadData();
@@ -2603,7 +2606,11 @@ void Viewer2DPanel::TrackHoverHitTestTelemetry(std::chrono::microseconds duratio
 // Handles left-button press setup for view dragging, selection dragging, and rectangle selection.
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   if (m_continuousFixturePlacement && event.LeftDown()) {
-    ConfirmContinuousFixturePlacement();
+    CaptureMouse();
+    m_draggedSincePress = false;
+    m_dragMode = DragMode::View;
+    m_lastMousePos = event.GetPosition();
+    MarkInteractionActivity();
     return;
   }
   if (event.LeftDown()) {
@@ -2813,6 +2820,18 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
 
 // Completes mouse-driven interaction and applies click or rectangle selections.
 void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
+  if (m_continuousFixturePlacement && event.LeftUp()) {
+    if (HasCapture())
+      ReleaseMouse();
+    const bool navigated = m_draggedSincePress;
+    m_dragMode = DragMode::Selection;
+    m_draggedSincePress = false;
+    if (!navigated)
+      ConfirmContinuousFixturePlacement();
+    RequestRepaint();
+    return;
+  }
+
   if (event.LeftUp() && m_dragMode == DragMode::RectSelection) {
     const wxRect dirtyRect =
         BuildSelectionRectDirtyRegion(m_rectSelectStart, m_rectSelectEnd);
@@ -3242,17 +3261,49 @@ void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
   ClearCursorWorldPosition();
 }
 
+// Handles pointer-following placement, selection movement, and view panning.
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
-  if (m_continuousFixturePlacement) {
-    const auto pointerWorld = ComputeWorldPositionFromScreen(event.GetPosition());
+  if (m_continuousFixturePlacement &&
+      !(m_dragMode == DragMode::View && event.Dragging())) {
+    const wxPoint pos = event.GetPosition();
+    const auto pointerWorld = ComputeWorldPositionFromScreen(pos);
     const auto currentWorld = ComputeSelectionDragCenterMeters();
     if (pointerWorld && currentWorld) {
-      ApplySelectionDelta({(*pointerWorld)[0] - (*currentWorld)[0],
-                           (*pointerWorld)[1] - (*currentWorld)[1],
-                           (*pointerWorld)[2] - (*currentWorld)[2]});
+      std::array<float, 3> delta{
+          (*pointerWorld)[0] - (*currentWorld)[0],
+          (*pointerWorld)[1] - (*currentWorld)[1],
+          (*pointerWorld)[2] - (*currentWorld)[2]};
+      if (selection_movement_settings::IsAxisConstrainedMovementEnabled(
+              ConfigManager::Get())) {
+        const int dx = pos.x - m_lastMousePos.x;
+        const int dy = pos.y - m_lastMousePos.y;
+        if (m_dragAxis == DragAxis::None &&
+            (std::abs(dx) >= kSelectionDragStartThresholdPx ||
+             std::abs(dy) >= kSelectionDragStartThresholdPx)) {
+          m_dragAxis = std::abs(dx) >= std::abs(dy)
+                           ? DragAxis::Horizontal
+                           : DragAxis::Vertical;
+        }
+        std::array<float, 2> projectedDelta{};
+        if (m_view == Viewer2DView::Top || m_view == Viewer2DView::Bottom)
+          projectedDelta = {delta[0], delta[1]};
+        else if (m_view == Viewer2DView::Front)
+          projectedDelta = {delta[0], delta[2]};
+        else
+          projectedDelta = {delta[1], delta[2]};
+        if (m_dragAxis == DragAxis::Horizontal)
+          projectedDelta[1] = 0.0f;
+        else if (m_dragAxis == DragAxis::Vertical)
+          projectedDelta[0] = 0.0f;
+        delta = MapDragDelta(projectedDelta[0], projectedDelta[1]);
+      } else {
+        m_dragAxis = DragAxis::None;
+      }
+      ApplySelectionDelta(delta);
       m_dragSelectionMoved = true;
       RequestRepaint();
     }
+    m_lastMousePos = pos;
     return;
   }
   wxPoint pos = event.GetPosition();

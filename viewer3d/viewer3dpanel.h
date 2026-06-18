@@ -148,6 +148,7 @@ private:
     void OnKeyDown(wxKeyEvent& event);
     void OnMouseEnter(wxMouseEvent& event);
     void OnMouseLeave(wxMouseEvent& event);
+    void ApplyCameraDrag(const wxMouseEvent& event, const wxPoint& mousePos);
 
     // Clear all selected scene object types and refresh related UI state.
     void ClearAllObjectSelections(const char* undoLabel);
