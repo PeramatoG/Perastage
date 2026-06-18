@@ -32,7 +32,7 @@ struct ReplacementFixtureTemplate {
   std::string gdtfMode;
   float weightKg = 0.0f;
   float powerConsumptionW = 0.0f;
-  std::string color;
+  std::string visualColorHex;
 };
 
 // Normalizes a GDTF path into a comparable lowercase filename token.
@@ -181,7 +181,7 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     replacement.gdtfMode = picked.gdtfMode;
     replacement.weightKg = picked.weightKg;
     replacement.powerConsumptionW = picked.powerConsumptionW;
-    replacement.color = picked.color;
+    replacement.visualColorHex = picked.visualColorHex;
   } else if (sourceSelection == 1) {
     auto dict = GdtfDictionary::Load();
     if (!dict || dict->empty()) {
@@ -212,7 +212,8 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     replacement.typeName = entries[static_cast<size_t>(idx)].first;
     replacement.gdtfSpec = entries[static_cast<size_t>(idx)].second.path;
     replacement.gdtfMode = entries[static_cast<size_t>(idx)].second.mode;
-    replacement.color = entries[static_cast<size_t>(idx)].second.color;
+    replacement.visualColorHex =
+        entries[static_cast<size_t>(idx)].second.visualColorHex;
   } else {
     wxString fixDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
@@ -248,13 +249,14 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
   GetGdtfProperties(replacement.gdtfSpec, weight, power);
   replacement.weightKg = weight;
   replacement.powerConsumptionW = power;
-  if (replacement.color.empty())
-    replacement.color = GetGdtfModelColor(replacement.gdtfSpec);
+  if (replacement.visualColorHex.empty())
+    replacement.visualColorHex = GetGdtfModelColor(replacement.gdtfSpec);
 
   cfg.PushUndoState("replace selected fixtures");
   auto &scene = cfg.GetScene();
   const std::string replacementColor = ResolveReplacementColor(
-      scene, selectedUuids, replacement.gdtfSpec, replacement.color);
+      scene, selectedUuids, replacement.gdtfSpec,
+      replacement.visualColorHex);
   for (const std::string &uuid : selectedUuids) {
     auto it = scene.fixtures.find(uuid);
     if (it == scene.fixtures.end())

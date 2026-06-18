@@ -57,9 +57,9 @@ Perastage v1.4.0 delivers a long-anticipated refresh of the modelling and riggin
 This release addresses dozens of issues across importing, snapping, editing and export workflows, including:
 
 - **Fixture color compatibility** - corrected the fixture visual-color rename so
-  fixture editing builds correctly, while layer colors and fixture-summary
-  swatches continue to use their existing model fields without build errors or
-  lost display colors.
+  fixture editing and fixture replacement build correctly, while layer colors
+  and fixture-summary swatches continue to use their existing model fields
+  without build errors or lost display colors.
 - **Selection workflow** - using `Ctrl` or `Ctrl+Shift` while clicking in 2D/3D adds to the selection instead of clearing it.  Quick clicks on grouped items select the entire group.
 - **Create-from-text** - normalised rider text now uses the English `FOR` keyword for motor/hoist lines, ensuring consistent import behaviour; text filtering has been optimised for speed and now shares lookup caches across operations.
 - **GDTF persistence** - automatic symbol generation and per-fixture edits update project-owned copies or stable library derivatives without filling the user library with temporary files.  Editing a fixture's weight triggers hoist-load recalculation after the table synchronises.
