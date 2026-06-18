@@ -29,9 +29,12 @@ public:
     std::string GetFixtureName() const;
     int GetFixtureId() const;
     std::string GetMode() const;
+    bool IsContinuousPlacementEnabled() const;
 private:
     wxSpinCtrl* unitsCtrl = nullptr;
+    wxCheckBox* continuousPlacementCtrl = nullptr;
     wxTextCtrl* nameCtrl = nullptr;
     wxTextCtrl* idCtrl = nullptr;
     wxChoice* modeCtrl = nullptr;
+    void OnContinuousPlacementChanged(wxCommandEvent& event);
 };

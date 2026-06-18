@@ -145,6 +145,7 @@ configure_file(
 
 add_executable(${PROJECT_NAME} main.cpp
     models/fixture.cpp
+    models/continuous_placement_scene.cpp
     models/layer.cpp
     models/mvrscene.cpp
     models/sceneobject.cpp

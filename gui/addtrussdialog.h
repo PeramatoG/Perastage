@@ -22,6 +22,7 @@
 #include <wx/dialog.h>
 
 class wxCheckBox;
+class wxCommandEvent;
 class wxSpinCtrl;
 class wxSpinCtrlDouble;
 
@@ -29,6 +30,7 @@ struct AddTrussRequest {
   int quantity = 1;
   std::array<float, 3> insertionPointMm{0.0f, 0.0f, 0.0f};
   bool createGroup = true;
+  bool continuousPlacement = false;
 };
 
 class AddTrussDialog final : public wxDialog {
@@ -38,9 +40,12 @@ public:
   AddTrussRequest GetRequest() const;
 
 private:
+  void OnContinuousPlacementChanged(wxCommandEvent &event);
+
   wxSpinCtrl *quantityCtrl_ = nullptr;
   wxSpinCtrlDouble *xCtrl_ = nullptr;
   wxSpinCtrlDouble *yCtrl_ = nullptr;
   wxSpinCtrlDouble *zCtrl_ = nullptr;
   wxCheckBox *createGroupCtrl_ = nullptr;
+  wxCheckBox *continuousPlacementCtrl_ = nullptr;
 };

@@ -2,6 +2,7 @@
 
 #include <cassert>
 
+// Verifies scene history restoration for standard and continuous placement flows.
 int main() {
   HistoryManager history;
   SelectionState selection;
@@ -23,5 +24,31 @@ int main() {
   assert(history.CanRedo());
 
   assert(history.Redo(session.GetScene(), selection) == "add fixture");
+
+  HistoryManager placementHistory;
+  SelectionState placementSelection;
+  MvrScene placementScene;
+  placementHistory.PushUndoState(placementScene, placementSelection,
+                                 "add fixture");
+
+  Fixture firstPending;
+  firstPending.uuid = "pending-1";
+  placementScene.fixtures[firstPending.uuid] = firstPending;
+  placementHistory.PushUndoState(placementScene, placementSelection,
+                                 "place fixture");
+
+  Fixture secondPending = firstPending;
+  secondPending.uuid = "pending-2";
+  placementScene.fixtures[secondPending.uuid] = secondPending;
+
+  assert(placementHistory.Undo(placementScene, placementSelection) ==
+         "place fixture");
+  assert(placementScene.fixtures.size() == 1);
+  assert(placementScene.fixtures.contains(firstPending.uuid));
+  assert(!placementScene.fixtures.contains(secondPending.uuid));
+
+  assert(placementHistory.Undo(placementScene, placementSelection) ==
+         "add fixture");
+  assert(placementScene.fixtures.empty());
   return 0;
 }

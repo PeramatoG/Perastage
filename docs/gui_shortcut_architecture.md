@@ -93,6 +93,30 @@ This makes shortcut behavior deterministic and keeps one single decision point f
 Viewer-specific direct handling for these migrated shortcuts is intentionally avoided,
 so routing stays centralized in GUI.
 
+## Continuous placement cancellation
+
+`Escape` remains a viewer-local interaction key rather than a registered global
+shortcut. While continuous placement from Add Fixture, Add Truss, or Add Object
+owns the focused 2D or 3D viewer, it takes precedence over measure-tool
+cancellation and discards only the element currently attached to the pointer.
+Elements already confirmed with left-click remain in the scene. Right-click
+provides the same cancellation behavior without changing shortcut routing.
+
+A left-button press is confirmed as placement only when it is released without
+navigation movement. Holding and dragging keeps the normal viewer-local
+navigation behavior: pan in the 2D viewer, and orbit or `Shift`-pan in the 3D
+viewer. Releasing the button after navigation immediately realigns the pending
+element beneath the pointer without confirming it. This mouse gesture does not
+add a shortcut-registry entry.
+
+The global `Ctrl+Z`/Undo command is session-aware while continuous placement is
+active. It restores the previous placement snapshot, removes the latest
+confirmed element, and keeps that element as the provisional pointer-following
+copy. When Undo reaches the first confirmed element, or when no element has yet
+been confirmed, it restores the pre-dialog scene and ends placement. Redo is
+ignored until the placement session ends so it cannot replace the scene behind
+an active provisional element.
+
 ## Consistent editable-focus guard across local key handlers
 
 Panels that handle local key events also reuse `gui::IsEditableWidgetFocused(...)`

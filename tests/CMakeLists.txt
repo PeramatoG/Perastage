@@ -1362,6 +1362,13 @@ target_include_directories(history_manager_test PRIVATE ../core ../models ../thi
 target_link_libraries(history_manager_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME HistoryManager COMMAND history_manager_test)
 
+add_executable(continuous_placement_scene_test
+               continuous_placement_scene_test.cpp
+               ../models/continuous_placement_scene.cpp)
+target_include_directories(continuous_placement_scene_test PRIVATE
+                           .. ../models)
+add_test(NAME ContinuousPlacementScene COMMAND continuous_placement_scene_test)
+
 add_executable(layer_visibility_state_test
                layer_visibility_state_test.cpp
                ../core/configservices.cpp

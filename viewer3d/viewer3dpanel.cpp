@@ -50,6 +50,7 @@
 #include "scene_object_primitive_editing.h"
 #include "../gui/selection_origin_token.h"
 #include "configmanager.h"
+#include "continuous_placement_scene.h"
 #include "selection_movement_settings.h"
 #include "magnet_snap.h"
 #include "scene_grouping.h"
@@ -1669,6 +1670,20 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
 // Handles mouse button press
 void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
 {
+    if (m_continuousPlacementActive && event.LeftDown()) {
+        m_mode = event.ShiftDown() ? InteractionMode::Pan
+                                   : InteractionMode::Orbit;
+        m_dragging = true;
+        m_controller.SetInteracting(true);
+        m_isInteracting = true;
+        m_cameraMoving = true;
+        m_lastInteractionTime = std::chrono::steady_clock::now();
+        m_draggedSincePress = false;
+        m_lastMousePos = event.GetPosition();
+        SetFocus();
+        CaptureMouse();
+        return;
+    }
     viewer3d::diagnostics::Logf("Mouse interaction start pos=(%d,%d) left=%d middle=%d right=%d shift=%d ctrl=%d",
                                 event.GetX(), event.GetY(), event.LeftDown() ? 1 : 0,
                                 event.MiddleDown() ? 1 : 0, event.RightDown() ? 1 : 0,
@@ -1728,6 +1743,27 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                                 event.GetX(), event.GetY(), event.LeftUp() ? 1 : 0,
                                 event.MiddleUp() ? 1 : 0, event.RightUp() ? 1 : 0,
                                 m_draggedSincePress ? 1 : 0);
+    if (m_continuousPlacementActive && event.LeftUp()) {
+        const bool navigated = m_draggedSincePress;
+        m_dragging = false;
+        m_isInteracting = false;
+        m_cameraMoving = false;
+        m_controller.SetInteracting(false);
+        m_controller.SetCameraMoving(false);
+        m_mode = InteractionMode::None;
+        if (HasCapture())
+            ReleaseMouse();
+        m_draggedSincePress = false;
+        if (navigated) {
+            m_continuousPlacementNeedsPointerAlignment = true;
+            AlignContinuousElementToPointer(event.GetPosition());
+        } else {
+            ConfirmContinuousPlacement();
+        }
+        m_forceHoverQuery = true;
+        Refresh();
+        return;
+    }
     if (event.LeftUp() && m_rectSelecting)
     {
         if (HasCapture())
@@ -1931,6 +1967,10 @@ void Viewer3DPanel::ClearAllObjectSelections(const char* undoLabel)
 // Opens the right-click selection and render-style context menu.
 void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
 {
+    if (m_continuousPlacementActive) {
+        CancelContinuousPlacement();
+        return;
+    }
     if (m_draggedSincePress)
         return;
 
@@ -2695,6 +2735,173 @@ void Viewer3DPanel::FinalizeSelectionDrag()
     }
 }
 
+// Starts moving a newly created scene element with the pointer until it is placed.
+void Viewer3DPanel::BeginContinuousPlacement(
+    ContinuousPlacementType type, const std::string& elementUuid)
+{
+    ConfigManager& cfg = ConfigManager::Get();
+    if (!continuous_placement::Contains(cfg.GetScene(), type, elementUuid))
+        return;
+
+    ResetSelectionDragState();
+    m_continuousPlacementActive = true;
+    m_continuousPlacementType = type;
+    m_continuousPlacementNeedsPointerAlignment = true;
+    m_continuousPlacementUuid = elementUuid;
+    m_continuousPlacedUuids.clear();
+    m_selectionDragArmed = true;
+    m_selectionDragUndoPushed = true;
+    m_selectionDragTarget = type == ContinuousPlacementType::Fixture
+                                ? HoverTargetTable::Fixtures
+                            : type == ContinuousPlacementType::Truss
+                                ? HoverTargetTable::Trusses
+                                : HoverTargetTable::SceneObjects;
+    m_dragSelectionUuids = {elementUuid};
+    m_dragFixtureUuids = type == ContinuousPlacementType::Fixture
+                             ? std::vector<std::string>{elementUuid}
+                             : std::vector<std::string>{};
+    m_dragTrussUuids = type == ContinuousPlacementType::Truss
+                           ? std::vector<std::string>{elementUuid}
+                           : std::vector<std::string>{};
+    m_dragSceneObjectUuids = type == ContinuousPlacementType::SceneObject
+                                 ? std::vector<std::string>{elementUuid}
+                                 : std::vector<std::string>{};
+    m_lastMousePos = ScreenToClient(wxGetMousePosition());
+    m_selectionDragAnchorMeters = continuous_placement::PositionMeters(
+        cfg.GetScene(), type, elementUuid);
+    SetFocus();
+    UpdateSelectionDragStatusPosition();
+    Refresh();
+}
+
+// Commits the current element and creates the next pointer-driven copy.
+void Viewer3DPanel::ConfirmContinuousPlacement()
+{
+    ConfigManager& cfg = ConfigManager::Get();
+    if (!continuous_placement::Contains(cfg.GetScene(),
+                                        m_continuousPlacementType,
+                                        m_continuousPlacementUuid)) {
+        CancelContinuousPlacement();
+        return;
+    }
+
+    cfg.PushUndoState(std::string("place ") +
+                      continuous_placement::ElementName(
+                          m_continuousPlacementType));
+    m_continuousPlacedUuids.push_back(m_continuousPlacementUuid);
+    const std::string nextUuid =
+        wxString::Format("uuid_%lld", static_cast<long long>(
+            std::chrono::steady_clock::now().time_since_epoch().count()))
+            .ToStdString();
+    if (!continuous_placement::CloneElement(
+            cfg.GetScene(), m_continuousPlacementType,
+            m_continuousPlacementUuid, nextUuid)) {
+        CancelContinuousPlacement();
+        return;
+    }
+    CommitActiveMagnetSnap();
+    const auto placedUuids = m_continuousPlacedUuids;
+    BeginContinuousPlacement(m_continuousPlacementType, nextUuid);
+    m_continuousPlacedUuids = placedUuids;
+    m_continuousPlacementNeedsPointerAlignment = false;
+    RefreshContinuousPlacementViews();
+}
+
+// Removes the uncommitted element and ends continuous placement.
+void Viewer3DPanel::CancelContinuousPlacement()
+{
+    RestorePendingMagnetSnapPreview();
+    ConfigManager& cfg = ConfigManager::Get();
+    continuous_placement::EraseElement(cfg.GetScene(),
+                                       m_continuousPlacementType,
+                                       m_continuousPlacementUuid);
+    if (m_continuousPlacedUuids.empty()) {
+        if (cfg.CanUndo())
+            cfg.Undo();
+    } else {
+        const MvrScene finalScene = cfg.GetScene();
+        for (size_t i = 0; i <= m_continuousPlacedUuids.size() &&
+                           cfg.CanUndo();
+             ++i) {
+            cfg.Undo();
+        }
+        cfg.PushUndoState(std::string("continuous ") +
+                          continuous_placement::ElementName(
+                              m_continuousPlacementType) +
+                          " placement");
+        cfg.GetScene() = finalScene;
+    }
+    EndContinuousPlacementState();
+    RefreshContinuousPlacementViews();
+}
+
+// Undoes one confirmed element while keeping the placement session active.
+bool Viewer3DPanel::UndoContinuousPlacement()
+{
+    if (!m_continuousPlacementActive)
+        return false;
+
+    ConfigManager& cfg = ConfigManager::Get();
+    RestorePendingMagnetSnapPreview();
+    if (m_continuousPlacedUuids.empty()) {
+        if (cfg.CanUndo())
+            cfg.Undo();
+        EndContinuousPlacementState();
+        RefreshContinuousPlacementViews();
+        return true;
+    }
+    if (m_continuousPlacedUuids.size() == 1) {
+        if (cfg.CanUndo())
+            cfg.Undo();
+        if (cfg.CanUndo())
+            cfg.Undo();
+        EndContinuousPlacementState();
+        RefreshContinuousPlacementViews();
+        return true;
+    }
+
+    const std::string restoredUuid = m_continuousPlacedUuids.back();
+    m_continuousPlacedUuids.pop_back();
+    if (cfg.CanUndo())
+        cfg.Undo();
+    if (!continuous_placement::Contains(cfg.GetScene(),
+                                        m_continuousPlacementType,
+                                        restoredUuid)) {
+        EndContinuousPlacementState();
+        RefreshContinuousPlacementViews();
+        return true;
+    }
+    const auto placedUuids = m_continuousPlacedUuids;
+    BeginContinuousPlacement(m_continuousPlacementType, restoredUuid);
+    m_continuousPlacedUuids = placedUuids;
+    RefreshContinuousPlacementViews();
+    return true;
+}
+
+// Clears placement-only interaction state without changing the scene.
+void Viewer3DPanel::EndContinuousPlacementState()
+{
+    m_continuousPlacementActive = false;
+    m_continuousPlacementType = ContinuousPlacementType::None;
+    m_continuousPlacementNeedsPointerAlignment = false;
+    m_continuousPlacementUuid.clear();
+    m_continuousPlacedUuids.clear();
+    ResetSelectionDragState();
+}
+
+// Synchronizes tables and both viewers after a placement history change.
+void Viewer3DPanel::RefreshContinuousPlacementViews()
+{
+    if (MainWindow::Instance()) {
+        MainWindow::Instance()->RefreshAfterToolSceneUpdate();
+        return;
+    }
+    UpdateScene();
+    if (Viewer2DPanel::Instance())
+        Viewer2DPanel::Instance()->UpdateScene();
+    Refresh();
+}
+
 // Draws the axis gizmo for an armed or active selection drag.
 void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
 {
@@ -2769,10 +2976,126 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
     glMatrixMode(GL_MODELVIEW);
 }
 
-// Handles mouse movement (orbit or pan)
+// Applies the standard orbit or pan response for an active camera drag.
+void Viewer3DPanel::ApplyCameraDrag(const wxMouseEvent& event,
+                                    const wxPoint& mousePos)
+{
+    const int dx = mousePos.x - m_lastMousePos.x;
+    const int dy = mousePos.y - m_lastMousePos.y;
+    if (dx == 0 && dy == 0)
+        return;
+
+    m_draggedSincePress = true;
+    m_isInteracting = true;
+    m_cameraMoving = true;
+    m_lastInteractionTime = std::chrono::steady_clock::now();
+
+    if (m_mode == InteractionMode::Orbit &&
+        (event.LeftIsDown() || event.RightIsDown())) {
+        const float orbitPitchDirection =
+            IsOrbitInversionEnabled() ? 1.0f : -1.0f;
+        m_camera.Orbit(static_cast<float>(dx) * 0.5f,
+                       orbitPitchDirection * static_cast<float>(dy) * 0.5f);
+    } else if (m_mode == InteractionMode::Pan &&
+               (event.MiddleIsDown() || event.RightIsDown() ||
+                event.ShiftDown())) {
+        m_camera.Pan(-dx * 0.01f, dy * 0.01f);
+    }
+    m_lastMousePos = mousePos;
+}
+
+// Aligns the provisional fixture with the raw view-plane position under the pointer.
+bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint& mousePos)
+{
+    const RenderSize renderSize = ResolveRenderSize(this);
+    if (!renderSize.IsValid() ||
+        !TryBindGlContextForInteraction("continuous element alignment")) {
+        return false;
+    }
+
+    ApplyCameraMatrices(renderSize);
+    RestorePendingMagnetSnapPreview();
+    const auto pointer =
+        ProjectMouseToSelectionDragViewPlane(mousePos, renderSize);
+    if (!pointer)
+        return false;
+
+    ApplySelectionDragDelta(
+        {(*pointer)[0] - m_selectionDragAnchorMeters[0],
+         (*pointer)[1] - m_selectionDragAnchorMeters[1],
+         (*pointer)[2] - m_selectionDragAnchorMeters[2]});
+    m_continuousPlacementNeedsPointerAlignment = false;
+    m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
+    m_selectionDragMoved = true;
+    m_lastMousePos = mousePos;
+    return true;
+}
+
+// Handles mouse movement for placement, selection, orbit, and pan.
 void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 {
     wxPoint pos = event.GetPosition();
+    if (m_continuousPlacementActive) {
+        if (m_dragging && event.Dragging()) {
+            ApplyCameraDrag(event, pos);
+            Refresh();
+            return;
+        }
+        if (m_continuousPlacementNeedsPointerAlignment) {
+            AlignContinuousElementToPointer(pos);
+            Refresh();
+            return;
+        }
+        const RenderSize renderSize = ResolveRenderSize(this);
+        if (renderSize.IsValid() &&
+            TryBindGlContextForInteraction("continuous element placement")) {
+            ApplyCameraMatrices(renderSize);
+            const int dx = pos.x - m_lastMousePos.x;
+            const int dy = pos.y - m_lastMousePos.y;
+            if (selection_movement_settings::IsAxisConstrainedMovementEnabled(
+                    ConfigManager::Get())) {
+                const auto projectedAxes = BuildProjectedDragAxes(renderSize);
+                if (m_selectionDragAxis ==
+                        viewer3d::SelectionDragAxis::None &&
+                    (std::abs(dx) >= kSelectionDragStartThresholdPx ||
+                     std::abs(dy) >= kSelectionDragStartThresholdPx)) {
+                    m_selectionDragAxis =
+                        viewer3d::SelectDragAxisFromMouseDelta(
+                            dx, -dy, projectedAxes);
+                }
+                const double axisDeltaMeters =
+                    viewer3d::ComputeDragMetersOnAxis(
+                        dx, -dy, m_selectionDragAxis, projectedAxes);
+                if (axisDeltaMeters != 0.0) {
+                    const auto axis =
+                        AxisVectorFromSelectionDragAxis(m_selectionDragAxis);
+                    ApplySelectionDragDelta(
+                        {axis[0] * static_cast<float>(axisDeltaMeters),
+                         axis[1] * static_cast<float>(axisDeltaMeters),
+                         axis[2] * static_cast<float>(axisDeltaMeters)});
+                    m_selectionDragMoved = true;
+                }
+            } else {
+                m_selectionDragAxis =
+                    viewer3d::SelectionDragAxis::None;
+                const auto lastPoint =
+                    ProjectMouseToSelectionDragViewPlane(m_lastMousePos,
+                                                         renderSize);
+                const auto currentPoint =
+                    ProjectMouseToSelectionDragViewPlane(pos, renderSize);
+                if (lastPoint && currentPoint) {
+                    ApplySelectionDragDelta(
+                        {(*currentPoint)[0] - (*lastPoint)[0],
+                         (*currentPoint)[1] - (*lastPoint)[1],
+                         (*currentPoint)[2] - (*lastPoint)[2]});
+                    m_selectionDragMoved = true;
+                }
+            }
+            Refresh();
+        }
+        m_lastMousePos = pos;
+        return;
+    }
     viewer3d::diagnostics::Logf("Mouse move pos=(%d,%d) dragging=%d selectionDrag=%d rect=%d",
                                 pos.x, pos.y, event.Dragging() ? 1 : 0,
                                 m_selectionDragArmed ? 1 : 0, m_rectSelecting ? 1 : 0);
@@ -2855,30 +3178,9 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
     }
 
     if (m_dragging && event.Dragging())
-    {
-        int dx = pos.x - m_lastMousePos.x;
-        int dy = pos.y - m_lastMousePos.y;
-
-        m_draggedSincePress = true;
-        m_isInteracting = true;
-        m_cameraMoving = true;
-        m_lastInteractionTime = std::chrono::steady_clock::now();
-
-        if (m_mode == InteractionMode::Orbit &&
-            (event.LeftIsDown() || event.RightIsDown()))
-        {
-            const float orbitPitchDirection = IsOrbitInversionEnabled() ? 1.0f : -1.0f;
-            m_camera.Orbit(static_cast<float>(dx) * 0.5f,
-                           orbitPitchDirection * static_cast<float>(dy) * 0.5f);
-        }
-        else if (m_mode == InteractionMode::Pan &&
-                 (event.MiddleIsDown() || event.RightIsDown() || event.ShiftDown()))
-        {
-            m_camera.Pan(-dx * 0.01f, dy * 0.01f);
-        }
-    }
-
-    m_lastMousePos = pos;
+        ApplyCameraDrag(event, pos);
+    else
+        m_lastMousePos = pos;
 
     // Mark that the mouse has moved so OnPaint can update hover info
     m_mouseMoved = true;
@@ -3018,6 +3320,10 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
 
     switch (event.GetKeyCode()) {
         case WXK_ESCAPE:
+            if (m_continuousPlacementActive) {
+                CancelContinuousPlacement();
+                return;
+            }
             if (m_measureToolEnabled) {
                 SetMeasureToolEnabled(false);
                 return;

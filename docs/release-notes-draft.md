@@ -8,6 +8,15 @@ Perastage v1.4.0 delivers a long-anticipated refresh of the modelling and riggin
 
 ## New features
 
+- **Continuous fixture placement** - Add Fixture can now place an open-ended
+  series directly in the visible 2D or 3D viewer. Each left-click confirms one
+  fixture and starts the next, while right-click or Escape discards only the
+  pending fixture; existing Magnet snapping settings remain active.
+- **Continuous truss and object placement** - Add Truss and Add Object now
+  provide the same pointer-driven placement workflow, including live Magnet and
+  axis-lock behavior, viewer navigation, cancellation, and placement-aware
+  Undo.
+
 - **Drag-Move toolbar toggle** - add left-click selection dragging without affecting panning in crowded views.  This project-persistent setting is disabled by default to prevent accidental moves.
 
 - **Magnet snapping mode** - enable optional snapping of fixtures and objects when dragging in 2D/3D.  Snaps preserve hang positions and MVR compatibility, and can group trusses on commit.  Disabled by default.
@@ -62,6 +71,18 @@ Perastage v1.4.0 delivers a long-anticipated refresh of the modelling and riggin
 
 This release addresses dozens of issues across importing, snapping, editing and export workflows, including:
 
+- **Continuous fixture placement** - subsequent fixtures now remain directly
+  under the pointer after confirming a Magnet-snapped fixture instead of
+  inheriting the previous fixture's grouping offset. Placement also responds
+  immediately to Magnet and axis-lock changes, while left-button drags retain
+  normal 2D/3D navigation instead of confirming a fixture. Undo now removes
+  the latest confirmed fixture while keeping placement active, and cancels the
+  session when it reaches the first fixture. Placement history refreshes now
+  use the supported main-window scene update pipeline across all platforms.
+  Pointer following now uses the same incremental Magnet preview path as normal
+  selection dragging, preventing rapid snap/release flicker near truss edges.
+  After navigating the viewer, releasing the left button now immediately
+  realigns the pending fixture beneath the pointer.
 - **Fixture color compatibility** - corrected the fixture visual-color rename so
   fixture editing and fixture replacement build correctly, while layer colors
   and fixture-summary swatches continue to use their existing model fields
@@ -101,6 +122,9 @@ Behind the scenes, this release includes numerous optimisations and refactorings
 - **Fixture export metadata** - Perastage fixture category information has been moved to root-level type metadata and the export relies on standard fixture `uuid` and `name` attributes.  Legacy import fallback has been preserved.
 - **Locale and build validation** - added text-locale validation at startup to prevent regressions in string conversion.  Debian/Linux test builds now link test executables with shared diagnostics and config service sources for better reliability.
 - **Cross-platform builds** - improved GCC and Clang build reliability by separating lightweight GDTF data types from loader declarations, updating UTF-8 filesystem handling, separating portable timestamp representations and refining CI diagnostics for Windows and macOS installers.
+- **Continuous placement architecture** - placement types now live with the
+  scene model interfaces so Windows and other out-of-source builds resolve the
+  shared viewer header consistently.
 - **Importer performance** - improved rider truss and fixture imports by caching truss definitions and GDTF metadata, reusing cleanup regular expressions and normalisation patterns, avoiding unnecessary string copies and intermediate lists, and separating filtering logic from scene creation.  Applying rider text filters no longer recomputes the same work multiple times during import.
 - **Creation performance** - loading fixture and truss dictionaries only once per import and adding concise phase timing diagnostics reduce import time and ease future optimisation.
 - **Table reloads and hover rendering** - reloading truss tables preserves current selections without triggering side effects, and grouped-hover rendering now uses the same highlight state as direct 3D drawing.

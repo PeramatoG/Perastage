@@ -29,11 +29,13 @@
 #include "addfixturedialog.h"
 #include "configmanager.h"
 #include "consolepanel.h"
+#include "continuous_placement_type.h"
 #include "fixture.h"
 #include "fixturetablepanel.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "guiconfigservices.h"
+#include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 
 namespace {
@@ -45,6 +47,7 @@ std::string Utf8StemFromPath(const std::string &path) {
 
 } // namespace
 
+// Adds fixtures from a validated GDTF path using fixed or continuous placement.
 void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
                                         const std::string &suggestedName) {
   if (gdtfPath.empty()) {
@@ -99,7 +102,8 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
   }
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  int count = dlg.GetUnitCount();
+  const bool continuousPlacement = dlg.IsContinuousPlacementEnabled();
+  int count = continuousPlacement ? 1 : dlg.GetUnitCount();
   std::string name = dlg.GetFixtureName();
   int startId = dlg.GetFixtureId();
   std::string mode = dlg.GetMode();
@@ -159,11 +163,29 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
     sceneRef.fixtures[f.uuid] = f;
   }
 
+  const std::string continuousFixtureUuid =
+      continuousPlacement
+          ? wxString::Format("uuid_%lld_0", static_cast<long long>(baseId))
+                .ToStdString()
+          : std::string();
+
   if (fixturePanel)
     fixturePanel->ReloadData();
   if (viewportPanel) {
     viewportPanel->UpdateScene();
     viewportPanel->Refresh();
+  }
+  if (viewport2DPanel) {
+    viewport2DPanel->UpdateScene();
+    viewport2DPanel->Refresh();
+  }
+  if (continuousPlacement) {
+    if (viewport2DPanel && viewport2DPanel->IsShownOnScreen())
+      viewport2DPanel->BeginContinuousPlacement(
+          ContinuousPlacementType::Fixture, continuousFixtureUuid);
+    else if (viewportPanel && viewportPanel->IsShownOnScreen())
+      viewportPanel->BeginContinuousPlacement(
+          ContinuousPlacementType::Fixture, continuousFixtureUuid);
   }
   RefreshSummary();
 }
