@@ -8,6 +8,11 @@ Perastage v1.4.0 delivers a long-anticipated refresh of the modelling and riggin
 
 ## New features
 
+- **Continuous fixture placement** - Add Fixture can now place an open-ended
+  series directly in the visible 2D or 3D viewer. Each left-click confirms one
+  fixture and starts the next, while right-click or Escape discards only the
+  pending fixture; existing Magnet snapping settings remain active.
+
 - **Drag-Move toolbar toggle** - add left-click selection dragging without affecting panning in crowded views.  This project-persistent setting is disabled by default to prevent accidental moves.
 
 - **Magnet snapping mode** - enable optional snapping of fixtures and objects when dragging in 2D/3D.  Snaps preserve hang positions and MVR compatibility, and can group trusses on commit.  Disabled by default.

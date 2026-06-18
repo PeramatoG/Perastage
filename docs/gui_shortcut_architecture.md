@@ -93,6 +93,15 @@ This makes shortcut behavior deterministic and keeps one single decision point f
 Viewer-specific direct handling for these migrated shortcuts is intentionally avoided,
 so routing stays centralized in GUI.
 
+## Continuous placement cancellation
+
+`Escape` remains a viewer-local interaction key rather than a registered global
+shortcut. While Add Fixture continuous placement owns the focused 2D or 3D
+viewer, it takes precedence over measure-tool cancellation and discards only
+the fixture currently attached to the pointer. Fixtures already confirmed with
+left-click remain in the scene. Right-click provides the same cancellation
+behavior without changing shortcut routing.
+
 ## Consistent editable-focus guard across local key handlers
 
 Panels that handle local key events also reuse `gui::IsEditableWidgetFocused(...)`

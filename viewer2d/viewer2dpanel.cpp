@@ -1659,6 +1659,80 @@ void Viewer2DPanel::FinalizeSelectionDrag() {
   }
 }
 
+// Starts moving a newly created fixture with the pointer until it is placed.
+void Viewer2DPanel::BeginContinuousFixturePlacement(
+    const std::string &fixtureUuid) {
+  m_continuousFixturePlacement = true;
+  m_continuousFixtureUuid = fixtureUuid;
+  m_dragMode = DragMode::Selection;
+  m_dragTarget = DragTarget::Fixtures;
+  m_dragSelectionUuids = {fixtureUuid};
+  m_dragFixtureUuids = {fixtureUuid};
+  m_dragTrussUuids.clear();
+  m_dragSupportUuids.clear();
+  m_dragSceneObjectUuids.clear();
+  m_dragSelectionMoved = false;
+  m_dragSelectionPushedUndo = true;
+  m_pendingMagnetSnap.reset();
+  SetFocus();
+  RequestRepaint();
+}
+
+// Commits the current fixture and creates the next pointer-driven copy.
+void Viewer2DPanel::ConfirmContinuousFixturePlacement() {
+  CommitActiveMagnetSnap();
+  ConfigManager &cfg = ConfigManager::Get();
+  auto it = cfg.GetScene().fixtures.find(m_continuousFixtureUuid);
+  if (it == cfg.GetScene().fixtures.end()) {
+    CancelContinuousFixturePlacement();
+    return;
+  }
+  Fixture next = it->second;
+  next.fixtureId += 1;
+  next.uuid = wxString::Format(
+                  "uuid_%lld", static_cast<long long>(
+                                   std::chrono::steady_clock::now()
+                                       .time_since_epoch()
+                                       .count()))
+                  .ToStdString();
+  cfg.GetScene().fixtures[next.uuid] = next;
+  m_continuousFixtureUuid = next.uuid;
+  m_dragSelectionUuids = {next.uuid};
+  m_dragFixtureUuids = {next.uuid};
+  m_pendingMagnetSnap.reset();
+  if (FixtureTablePanel::Instance())
+    FixtureTablePanel::Instance()->ReloadData();
+  UpdateScene();
+  if (Viewer3DPanel::Instance()) {
+    Viewer3DPanel::Instance()->UpdateScene();
+    Viewer3DPanel::Instance()->Refresh();
+  }
+  RequestRepaint();
+}
+
+// Removes the uncommitted fixture and ends continuous placement.
+void Viewer2DPanel::CancelContinuousFixturePlacement() {
+  RestorePendingMagnetSnapPreview();
+  ConfigManager &cfg = ConfigManager::Get();
+  cfg.GetScene().fixtures.erase(m_continuousFixtureUuid);
+  m_continuousFixturePlacement = false;
+  m_continuousFixtureUuid.clear();
+  m_dragMode = DragMode::None;
+  m_dragTarget = DragTarget::None;
+  m_dragSelectionUuids.clear();
+  m_dragFixtureUuids.clear();
+  m_pendingMagnetSnap.reset();
+  NotifyHighlightedWorldPosition(std::nullopt);
+  if (FixtureTablePanel::Instance())
+    FixtureTablePanel::Instance()->ReloadData();
+  UpdateScene();
+  if (Viewer3DPanel::Instance()) {
+    Viewer3DPanel::Instance()->UpdateScene();
+    Viewer3DPanel::Instance()->Refresh();
+  }
+  RequestRepaint();
+}
+
 // Selects scene items inside a dragged screen rectangle.
 void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
                                             const wxPoint &end,
@@ -2528,6 +2602,10 @@ void Viewer2DPanel::TrackHoverHitTestTelemetry(std::chrono::microseconds duratio
 
 // Handles left-button press setup for view dragging, selection dragging, and rectangle selection.
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
+  if (m_continuousFixturePlacement && event.LeftDown()) {
+    ConfirmContinuousFixturePlacement();
+    return;
+  }
   if (event.LeftDown()) {
     CaptureMouse();
     m_draggedSincePress = false;
@@ -3020,6 +3098,10 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
 
 // Opens the fixture filter menu when right-clicking empty fixture-table space.
 void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
+  if (m_continuousFixturePlacement) {
+    CancelContinuousFixturePlacement();
+    return;
+  }
   if (!m_enableSelection || !event.RightUp()) {
     event.Skip();
     return;
@@ -3161,6 +3243,18 @@ void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
 }
 
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
+  if (m_continuousFixturePlacement) {
+    const auto pointerWorld = ComputeWorldPositionFromScreen(event.GetPosition());
+    const auto currentWorld = ComputeSelectionDragCenterMeters();
+    if (pointerWorld && currentWorld) {
+      ApplySelectionDelta({(*pointerWorld)[0] - (*currentWorld)[0],
+                           (*pointerWorld)[1] - (*currentWorld)[1],
+                           (*pointerWorld)[2] - (*currentWorld)[2]});
+      m_dragSelectionMoved = true;
+      RequestRepaint();
+    }
+    return;
+  }
   wxPoint pos = event.GetPosition();
   NotifyCursorWorldPosition(pos);
 
@@ -3279,6 +3373,10 @@ void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
 }
 
 void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
+  if (m_continuousFixturePlacement && event.GetKeyCode() == WXK_ESCAPE) {
+    CancelContinuousFixturePlacement();
+    return;
+  }
   if (!m_mouseInside) {
     event.Skip();
     return;

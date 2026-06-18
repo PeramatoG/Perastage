@@ -86,6 +86,7 @@ public:
     void SetMagnetEnabled(bool enabled);
     // Returns whether Magnet snapping is currently enabled for 3D selection dragging.
     bool IsMagnetEnabled() const { return m_magnetEnabled; }
+    void BeginContinuousFixturePlacement(const std::string& fixtureUuid);
 
     enum class HoverTargetTable { None, Fixtures, Trusses, SceneObjects };
 
@@ -116,6 +117,8 @@ private:
     std::array<float, 3> m_selectionDragAnchorMeters{0.0f, 0.0f, 0.0f};
     viewer3d::SelectionDragAxis m_selectionDragAxis =
         viewer3d::SelectionDragAxis::None;
+    bool m_continuousFixturePlacement = false;
+    std::string m_continuousFixtureUuid;
 
     // Type of interaction currently active (Orbit or Pan)
     enum class InteractionMode { None, Orbit, Pan };
@@ -172,6 +175,8 @@ private:
     void CommitActiveMagnetSnap();
     void UpdateSelectionDragStatusPosition();
     void FinalizeSelectionDrag();
+    void ConfirmContinuousFixturePlacement();
+    void CancelContinuousFixturePlacement();
     void DrawSelectionDragGizmo(const RenderSize& renderSize);
 
     // Renders the full scene

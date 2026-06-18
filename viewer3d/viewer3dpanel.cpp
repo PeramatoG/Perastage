@@ -1669,6 +1669,10 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
 // Handles mouse button press
 void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
 {
+    if (m_continuousFixturePlacement && event.LeftDown()) {
+        ConfirmContinuousFixturePlacement();
+        return;
+    }
     viewer3d::diagnostics::Logf("Mouse interaction start pos=(%d,%d) left=%d middle=%d right=%d shift=%d ctrl=%d",
                                 event.GetX(), event.GetY(), event.LeftDown() ? 1 : 0,
                                 event.MiddleDown() ? 1 : 0, event.RightDown() ? 1 : 0,
@@ -1931,6 +1935,10 @@ void Viewer3DPanel::ClearAllObjectSelections(const char* undoLabel)
 // Opens the right-click selection and render-style context menu.
 void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
 {
+    if (m_continuousFixturePlacement) {
+        CancelContinuousFixturePlacement();
+        return;
+    }
     if (m_draggedSincePress)
         return;
 
@@ -2695,6 +2703,72 @@ void Viewer3DPanel::FinalizeSelectionDrag()
     }
 }
 
+// Starts moving a newly created fixture with the pointer until it is placed.
+void Viewer3DPanel::BeginContinuousFixturePlacement(const std::string& fixtureUuid)
+{
+    const auto it = ConfigManager::Get().GetScene().fixtures.find(fixtureUuid);
+    if (it == ConfigManager::Get().GetScene().fixtures.end())
+        return;
+    ResetSelectionDragState();
+    m_continuousFixturePlacement = true;
+    m_continuousFixtureUuid = fixtureUuid;
+    m_selectionDragArmed = true;
+    m_selectionDragUndoPushed = true;
+    m_selectionDragTarget = HoverTargetTable::Fixtures;
+    m_dragSelectionUuids = {fixtureUuid};
+    m_dragFixtureUuids = {fixtureUuid};
+    m_selectionDragAnchorMeters = {it->second.transform.o[0] / 1000.0f,
+                                   it->second.transform.o[1] / 1000.0f,
+                                   it->second.transform.o[2] / 1000.0f};
+    SetFocus();
+    UpdateSelectionDragStatusPosition();
+    Refresh();
+}
+
+// Commits the current fixture and creates the next pointer-driven copy.
+void Viewer3DPanel::ConfirmContinuousFixturePlacement()
+{
+    CommitActiveMagnetSnap();
+    ConfigManager& cfg = ConfigManager::Get();
+    auto it = cfg.GetScene().fixtures.find(m_continuousFixtureUuid);
+    if (it == cfg.GetScene().fixtures.end()) {
+        CancelContinuousFixturePlacement();
+        return;
+    }
+    Fixture next = it->second;
+    next.fixtureId += 1;
+    next.uuid = wxString::Format("uuid_%lld", static_cast<long long>(
+        std::chrono::steady_clock::now().time_since_epoch().count())).ToStdString();
+    cfg.GetScene().fixtures[next.uuid] = next;
+    m_continuousFixtureUuid = next.uuid;
+    m_dragSelectionUuids = {next.uuid};
+    m_dragFixtureUuids = {next.uuid};
+    m_pendingMagnetSnap.reset();
+    if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->ReloadData();
+    UpdateScene();
+    if (Viewer2DPanel::Instance())
+        Viewer2DPanel::Instance()->UpdateScene();
+    Refresh();
+}
+
+// Removes the uncommitted fixture and ends continuous placement.
+void Viewer3DPanel::CancelContinuousFixturePlacement()
+{
+    RestorePendingMagnetSnapPreview();
+    ConfigManager& cfg = ConfigManager::Get();
+    cfg.GetScene().fixtures.erase(m_continuousFixtureUuid);
+    m_continuousFixturePlacement = false;
+    m_continuousFixtureUuid.clear();
+    ResetSelectionDragState();
+    if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->ReloadData();
+    UpdateScene();
+    if (Viewer2DPanel::Instance())
+        Viewer2DPanel::Instance()->UpdateScene();
+    Refresh();
+}
+
 // Draws the axis gizmo for an armed or active selection drag.
 void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
 {
@@ -2773,6 +2847,23 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
 void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 {
     wxPoint pos = event.GetPosition();
+    if (m_continuousFixturePlacement) {
+        const RenderSize renderSize = ResolveRenderSize(this);
+        if (renderSize.IsValid() &&
+            TryBindGlContextForInteraction("continuous fixture placement")) {
+            ApplyCameraMatrices(renderSize);
+            if (const auto pointer =
+                    ProjectMouseToSelectionDragViewPlane(pos, renderSize)) {
+                ApplySelectionDragDelta(
+                    {(*pointer)[0] - m_selectionDragAnchorMeters[0],
+                     (*pointer)[1] - m_selectionDragAnchorMeters[1],
+                     (*pointer)[2] - m_selectionDragAnchorMeters[2]});
+                m_selectionDragMoved = true;
+                Refresh();
+            }
+        }
+        return;
+    }
     viewer3d::diagnostics::Logf("Mouse move pos=(%d,%d) dragging=%d selectionDrag=%d rect=%d",
                                 pos.x, pos.y, event.Dragging() ? 1 : 0,
                                 m_selectionDragArmed ? 1 : 0, m_rectSelecting ? 1 : 0);
@@ -3018,6 +3109,10 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
 
     switch (event.GetKeyCode()) {
         case WXK_ESCAPE:
+            if (m_continuousFixturePlacement) {
+                CancelContinuousFixturePlacement();
+                return;
+            }
             if (m_measureToolEnabled) {
                 SetMeasureToolEnabled(false);
                 return;

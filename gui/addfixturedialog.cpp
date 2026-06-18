@@ -17,6 +17,7 @@
  */
 #include "addfixturedialog.h"
 
+// Builds the fixture creation dialog and its placement controls.
 AddFixtureDialog::AddFixtureDialog(wxWindow* parent,
                                    const wxString& defaultName,
                                    const std::vector<std::string>& modes)
@@ -30,6 +31,17 @@ AddFixtureDialog::AddFixtureDialog(wxWindow* parent,
     unitsCtrl->SetRange(1, 9999);
     unitsCtrl->SetValue(1);
     grid->Add(unitsCtrl, 1, wxEXPAND);
+
+    grid->Add(new wxStaticText(this, wxID_ANY, "Placement:"), 0,
+              wxALIGN_CENTER_VERTICAL);
+    continuousPlacementCtrl =
+        new wxCheckBox(this, wxID_ANY, "Place continuously in the viewer");
+    continuousPlacementCtrl->SetToolTip(
+        "Left-click places each fixture; right-click or Escape cancels the "
+        "fixture currently attached to the pointer.");
+    continuousPlacementCtrl->Bind(
+        wxEVT_CHECKBOX, &AddFixtureDialog::OnContinuousPlacementChanged, this);
+    grid->Add(continuousPlacementCtrl, 1, wxEXPAND);
 
     grid->Add(new wxStaticText(this, wxID_ANY, "Name:"), 0, wxALIGN_CENTER_VERTICAL);
     nameCtrl = new wxTextCtrl(this, wxID_ANY, defaultName);
@@ -56,22 +68,36 @@ AddFixtureDialog::AddFixtureDialog(wxWindow* parent,
     SetSize(wxSize(450, GetSize().GetHeight()));
 }
 
+// Returns the requested fixed fixture quantity.
 int AddFixtureDialog::GetUnitCount() const {
     return unitsCtrl->GetValue();
 }
 
+// Returns the instance name entered for new fixtures.
 std::string AddFixtureDialog::GetFixtureName() const {
     return std::string(nameCtrl->GetValue().mb_str());
 }
 
+// Returns the starting fixture identifier.
 int AddFixtureDialog::GetFixtureId() const {
     long v = 0;
     idCtrl->GetValue().ToLong(&v);
     return static_cast<int>(v);
 }
 
+// Returns the selected GDTF mode.
 std::string AddFixtureDialog::GetMode() const {
     if (modeCtrl->GetCount() > 0)
         return std::string(modeCtrl->GetStringSelection().mb_str());
     return {};
+}
+
+// Returns whether pointer-driven continuous placement is enabled.
+bool AddFixtureDialog::IsContinuousPlacementEnabled() const {
+    return continuousPlacementCtrl->GetValue();
+}
+
+// Disables the fixed quantity while continuous placement is selected.
+void AddFixtureDialog::OnContinuousPlacementChanged(wxCommandEvent&) {
+    unitsCtrl->Enable(!continuousPlacementCtrl->GetValue());
 }
