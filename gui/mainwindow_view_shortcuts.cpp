@@ -8,6 +8,7 @@
 
 namespace {
 
+// Returns whether the named AUI pane is currently visible.
 bool IsPaneShown(wxAuiManager *manager, const char *name) {
   if (!manager)
     return false;
@@ -15,6 +16,7 @@ bool IsPaneShown(wxAuiManager *manager, const char *name) {
   return pane.IsOk() && pane.IsShown();
 }
 
+// Returns whether a window is the same as or contained by another window.
 bool IsChildOrSame(const wxWindow *root, const wxWindow *window) {
   if (!root || !window)
     return false;
@@ -29,14 +31,17 @@ bool IsChildOrSame(const wxWindow *root, const wxWindow *window) {
 
 } // namespace
 
+// Applies the top view shortcut to the active viewport.
 void MainWindow::OnViewportTopView(wxCommandEvent &WXUNUSED(event)) {
   ApplyViewportShortcut(Viewer2DView::Top);
 }
 
+// Applies the front view shortcut to the active viewport.
 void MainWindow::OnViewportFrontView(wxCommandEvent &WXUNUSED(event)) {
   ApplyViewportShortcut(Viewer2DView::Front);
 }
 
+// Applies the side view shortcut to the active viewport.
 void MainWindow::OnViewportSideView(wxCommandEvent &WXUNUSED(event)) {
   ApplyViewportShortcut(Viewer2DView::Side);
 }
@@ -110,6 +115,7 @@ void MainWindow::OnViewportAxisConstraint(wxCommandEvent &WXUNUSED(event)) {
   preferences.SetValue(
       selection_movement_settings::kAxisConstrainedMovementConfigKey,
       axisConstraintEnabled ? "0" : "1");
+  preferences.SaveUserConfig();
   SyncAxisConstraintToolToggleState();
 }
 
@@ -123,9 +129,11 @@ void MainWindow::OnViewportLeftDragMove(wxCommandEvent &WXUNUSED(event)) {
   preferences.SetValue(
       selection_movement_settings::kLeftDragSelectionMovementConfigKey,
       enabled ? "0" : "1");
+  preferences.SaveUserConfig();
   SyncLeftDragMoveToolToggleState();
 }
 
+// Fits the viewport that currently owns keyboard focus.
 bool MainWindow::ApplyFitShortcut() {
   const wxWindow *focusedWindow = wxWindow::FindFocus();
   const bool focusIn2D = IsChildOrSame(viewport2DPanel, focusedWindow) ||
@@ -140,6 +148,7 @@ bool MainWindow::ApplyFitShortcut() {
   return false;
 }
 
+// Applies a standard view shortcut to the active or only visible viewport.
 void MainWindow::ApplyViewportShortcut(Viewer2DView view) {
   const bool is2DShown = IsPaneShown(auiManager, "2DViewport");
   const bool is3DShown = IsPaneShown(auiManager, "3DViewport");

@@ -20,8 +20,10 @@
 #include "LayoutManager.h"
 #include "LayoutImageResourceRegistry.h"
 #include "logger.h"
+#include "magnet_snap.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
+#include "selection_movement_settings.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -38,6 +40,39 @@
 
 namespace {
 constexpr const char *kHiddenLayersConfigKey = "view_hidden_layers";
+
+struct RestoredUserPreference {
+  const char *key = nullptr;
+  std::optional<std::string> value;
+};
+
+// Captures user-level interaction preferences before project config loading.
+std::vector<RestoredUserPreference> CaptureUserInteractionPreferences(
+    const ConfigManager &config) {
+  return {
+      {magnet_snap::kMagnetEnabledConfigKey,
+       config.GetValue(magnet_snap::kMagnetEnabledConfigKey)},
+      {selection_movement_settings::kAxisConstrainedMovementConfigKey,
+       config.GetValue(
+           selection_movement_settings::kAxisConstrainedMovementConfigKey)},
+      {selection_movement_settings::kLeftDragSelectionMovementConfigKey,
+       config.GetValue(
+           selection_movement_settings::kLeftDragSelectionMovementConfigKey)}};
+}
+
+// Restores user-level interaction preferences after project config loading.
+void RestoreUserInteractionPreferences(
+    ConfigManager &config,
+    const std::vector<RestoredUserPreference> &preferences) {
+  for (const auto &preference : preferences) {
+    if (!preference.key)
+      continue;
+    if (preference.value)
+      config.SetValue(preference.key, *preference.value);
+    else
+      config.RemoveKey(preference.key);
+  }
+}
 constexpr const char *kHiddenFixtureTypesConfigKey = "view_hidden_fixture_types";
 constexpr const char *kLayoutsConfigKey = "layouts_collection";
 
@@ -540,12 +575,15 @@ bool ConfigManager::LoadProject(const std::string &path,
 
   const bool hasUserView2dDarkMode = HasKey("view2d_dark_mode");
   const float userView2dDarkMode = GetFloat("view2d_dark_mode");
+  const auto userInteractionPreferences =
+      CaptureUserInteractionPreferences(*this);
   auto restoreUserPreferences = [this, hasUserView2dDarkMode,
-                                 userView2dDarkMode]() {
-    if (!hasUserView2dDarkMode)
-      return;
+                                 userView2dDarkMode,
+                                 userInteractionPreferences]() {
     RevisionGuard guard(*this);
-    SetFloat("view2d_dark_mode", userView2dDarkMode);
+    if (hasUserView2dDarkMode)
+      SetFloat("view2d_dark_mode", userView2dDarkMode);
+    RestoreUserInteractionPreferences(*this, userInteractionPreferences);
   };
 
   bool ok = projectSession.LoadProject(
