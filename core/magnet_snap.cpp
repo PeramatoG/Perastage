@@ -58,6 +58,17 @@ float WeightedLength(const std::array<float, 3> &v,
   return std::sqrt(x * x + y * y + z * z);
 }
 
+// Returns a snap translation that leaves fully ignored axes untouched.
+std::array<float, 3> BuildSnapTranslationDelta(
+    const std::array<float, 3> &delta, const SnapSettings &settings) {
+  std::array<float, 3> result = delta;
+  for (int axis = 0; axis < 3; ++axis) {
+    if (settings.axisWeights[axis] <= 1e-5f)
+      result[axis] = 0.0f;
+  }
+  return result;
+}
+
 // Returns a normalized vector or a safe fallback.
 std::array<float, 3> Normalize(const std::array<float, 3> &v) {
   const float len = Length(v);
@@ -328,7 +339,7 @@ void ConsiderFacePair(const SnapSource &source, ObjectType targetType,
   result.targetUuid = targetUuid;
   result.sourceType = source.type;
   result.targetType = targetType;
-  result.translationDeltaMm = delta;
+  result.translationDeltaMm = BuildSnapTranslationDelta(delta, settings);
   result.needsGrouping = kind == SnapKind::TrussToTruss;
   best = result;
 }
@@ -397,7 +408,7 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
       result.targetUuid = uuid;
       result.sourceType = source.type;
       result.targetType = ObjectType::Truss;
-      result.translationDeltaMm = delta;
+      result.translationDeltaMm = BuildSnapTranslationDelta(delta, settings);
       result.needsGrouping = true;
       best = result;
     }

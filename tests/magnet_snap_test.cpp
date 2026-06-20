@@ -92,8 +92,7 @@ int main() {
       scene, {magnet_snap::ObjectType::Truss, "top-view-source"},
       topViewSettings);
   assert(topViewSnap);
-  assert(std::fabs(topViewSnap->translationDeltaMm[2] -
-                   scene.trusses["target"].transform.o[2]) > 0.001f);
+  assert(std::fabs(topViewSnap->translationDeltaMm[2]) < 0.001f);
   scene.trusses.erase("top-view-source");
 
   Fixture fixture;
