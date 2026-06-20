@@ -47,7 +47,9 @@ int main() {
       hadOriginal ? ReadFile(dictPath) : std::string{};
 
   const std::filesystem::path fixtureFile = fixturesDir / "color_fixture.gdtf";
+  const std::filesystem::path unknownFixtureFile = fixturesDir / "mystery_fixture.gdtf";
   WriteFile(fixtureFile, "fixture");
+  WriteFile(unknownFixtureFile, "not a zip archive");
 
   nlohmann::json entries = nlohmann::json::object();
   entries["ColorOnlyType"] = {{"color", "#112233"}};
@@ -71,6 +73,12 @@ int main() {
   assert(fullIt != loadedOpt->end());
   assert(fullIt->second.visualColorHex == "#ABCDEF");
 
+  assert(GdtfDictionary::BuildPerastageCanonicalGdtfFileName(
+             unknownFixtureFile.string()) ==
+         "Unknown@mystery_fixture@Perastage.gdtf");
+  assert(GdtfDictionary::IsPerastageNamedGdtfFile(
+      "Manufacturer@Fixture@Perastage.gdtf"));
+
   assert(GdtfDictionary::Save(*loadedOpt));
 
   nlohmann::json savedRoot;
@@ -87,6 +95,7 @@ int main() {
   assert(!savedRoot["entries"]["FullType"].contains("color"));
 
   std::filesystem::remove(fixtureFile);
+  std::filesystem::remove(unknownFixtureFile);
   if (hadOriginal)
     WriteFile(dictPath, originalContent);
   else

@@ -249,7 +249,7 @@ std::string NormalizeTypeKey(const std::string &type) {
 
 // Returns true when the filename optional-comment segment marks a
 // Perastage-authored GDTF.
-bool IsPerastageNamedGdtfFile(const std::filesystem::path &path) {
+bool IsPerastageNamedGdtfFilePath(const std::filesystem::path &path) {
   const std::string stem = path.stem().string();
   const size_t firstAt = stem.find('@');
   if (firstAt == std::string::npos)
@@ -321,7 +321,7 @@ BuildPerastageCanonicalGdtfFileName(const std::filesystem::path &sourcePath) {
                                      fixtureTypeName);
 
   if (manufacturerName.empty())
-    manufacturerName = "Unknow";
+    manufacturerName = "Unknown";
   if (fixtureTypeName.empty())
     fixtureTypeName = sourcePath.stem().string();
 
@@ -332,7 +332,7 @@ BuildPerastageCanonicalGdtfFileName(const std::filesystem::path &sourcePath) {
   manufacturerName = TrimAsciiWhitespace(manufacturerName);
   fixtureTypeName = TrimAsciiWhitespace(fixtureTypeName);
   if (manufacturerName.empty())
-    manufacturerName = "Unknow";
+    manufacturerName = "Unknown";
   if (fixtureTypeName.empty())
     fixtureTypeName = sourcePath.stem().string();
   return manufacturerName + "@" + fixtureTypeName + "@Perastage.gdtf";
@@ -962,6 +962,18 @@ void UpdateDictionaryEntry(const std::string &type, const Entry &entry) {
   Save(dict);
 }
 
+// Builds the canonical @Perastage derivative filename for a GDTF file.
+std::string BuildPerastageCanonicalGdtfFileName(const std::string &gdtfPath) {
+  return BuildPerastageCanonicalGdtfFileName(PathUtils::PathFromUtf8(gdtfPath));
+}
+
+// Returns true when a GDTF path already has canonical Perastage derivative naming.
+bool IsPerastageNamedGdtfFile(const std::string &gdtfPath) {
+  if (gdtfPath.empty())
+    return false;
+  return IsPerastageNamedGdtfFilePath(PathUtils::PathFromUtf8(gdtfPath));
+}
+
 // Creates or refreshes a stable @Perastage derivative for a library-owned GDTF.
 std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
     const std::string &type, const std::string &gdtfPath,
@@ -982,9 +994,10 @@ std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
     return std::nullopt;
 
   const fs::path dest =
-      IsPerastageNamedGdtfFile(src)
-                            ? file.parent_path() / src.filename()
-                            : file.parent_path() / BuildPerastageCanonicalGdtfFileName(src);
+      IsPerastageNamedGdtfFilePath(src)
+          ? file.parent_path() / src.filename()
+          : file.parent_path() /
+                BuildPerastageCanonicalGdtfFileName(src.string());
   const auto copyResult = FileImportUtils::CopyWithConflictPolicy(
       src, dest, FileImportUtils::ConflictPolicy::Overwrite);
   if (!copyResult.success)

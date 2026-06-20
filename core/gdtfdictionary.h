@@ -67,6 +67,10 @@ namespace GdtfDictionary {
         const std::string& mode);
     // Copies a user-selected GDTF into the fixtures library and updates the dictionary.
     void Update(const std::string& type, const std::string& gdtfPath, const std::string& mode = {}, const std::string& category = {});
+    // Builds the stable @Perastage derivative filename for a GDTF path.
+    std::string BuildPerastageCanonicalGdtfFileName(const std::string& gdtfPath);
+    // Returns true when a GDTF filename already uses Perastage derivative naming.
+    bool IsPerastageNamedGdtfFile(const std::string& gdtfPath);
     // Creates or overwrites the stable @Perastage derivative for a library fixture and updates the dictionary.
     std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
         const std::string& type, const std::string& gdtfPath,
