@@ -133,6 +133,7 @@ int main() {
 
   Fixture fixture;
   fixture.uuid = "fixture";
+  fixture.layer = "MAC500";
   fixture.transform = Translated(1510.0f, 160.0f, 0.0f);
   scene.fixtures[fixture.uuid] = fixture;
   auto fixtureSnap = magnet_snap::FindSnap(
@@ -156,6 +157,9 @@ int main() {
 
   assert(magnet_snap::ApplyCommittedSnapGrouping(scene, *fixtureSnap));
   assert(scene.fixtures[fixture.uuid].parentGroupUuid == groupUuid);
+  assert(scene.fixtures[fixture.uuid].layer ==
+         scene.groupObjects[groupUuid].layer);
+  assert(scene.trusses["target"].layer == scene.groupObjects[groupUuid].layer);
 
   SceneObject object;
   object.uuid = "object";
