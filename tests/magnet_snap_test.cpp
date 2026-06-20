@@ -48,6 +48,19 @@ int main() {
   assert(!magnet_snap::FindSnap(
       scene, {magnet_snap::ObjectType::Truss, "source"}));
 
+  MvrScene sideSurfaceScene;
+  AddTruss(sideSurfaceScene, "target", 0.0f);
+  AddTruss(sideSurfaceScene, "source", 0.0f);
+  sideSurfaceScene.trusses["source"].transform.o[1] = 550.0f;
+  magnet_snap::SnapSettings topSideSettings;
+  topSideSettings.axisWeights[2] = 0.0f;
+  auto sideSurfaceSnap = magnet_snap::FindSnap(
+      sideSurfaceScene, {magnet_snap::ObjectType::Truss, "source"},
+      topSideSettings);
+  assert(sideSurfaceSnap);
+  assert(std::fabs(sideSurfaceSnap->translationDeltaMm[1] + 250.0f) < 0.001f);
+  assert(std::fabs(sideSurfaceSnap->translationDeltaMm[2]) < 0.001f);
+
   scene.trusses["source"].transform.o[0] = 3250.0f;
   snap = magnet_snap::FindSnap(scene,
                                {magnet_snap::ObjectType::Truss, "source"});

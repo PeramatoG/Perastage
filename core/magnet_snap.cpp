@@ -19,6 +19,8 @@ struct Bounds {
 struct Face {
   std::array<float, 3> center{};
   std::array<float, 3> normal{};
+  int axis = 0;
+  float sign = 1.0f;
 };
 
 // Returns the vector scaled by a scalar factor.
@@ -163,6 +165,20 @@ std::optional<Bounds> MakeTrussGroupBounds(const MvrScene &scene,
   return aggregate;
 }
 
+// Returns whether a point lies inside an oriented bounds volume.
+bool BoundsContainsPoint(const Bounds &bounds, const std::array<float, 3> &point) {
+  const std::array<std::array<float, 3>, 3> basis = {
+      Normalize(bounds.transform.u), Normalize(bounds.transform.v),
+      Normalize(bounds.transform.w)};
+  const auto relative = Subtract(point, bounds.transform.o);
+  for (int axis = 0; axis < 3; ++axis) {
+    const float projected = Dot(relative, basis[axis]);
+    if (std::fabs(projected) > bounds.size[axis] * 0.5f)
+      return false;
+  }
+  return true;
+}
+
 // Returns transformed bounds for objects with known dimensions.
 std::optional<Bounds> GetBounds(const MvrScene &scene, ObjectType type,
                                 const std::string &uuid) {
@@ -189,27 +205,39 @@ std::optional<Bounds> GetBounds(const MvrScene &scene, ObjectType type,
 
 // Builds oriented box face centers from object transform axes.
 std::vector<Face> BuildFaces(const Bounds &bounds, bool trussPrimaryFaces) {
-  std::vector<int> axes{0, 1, 2};
-  if (trussPrimaryFaces) {
-    const auto maxIt = std::max_element(bounds.size.begin(), bounds.size.end());
-    const int longAxis = static_cast<int>(std::distance(bounds.size.begin(), maxIt));
-    const float minSize = *std::min_element(bounds.size.begin(), bounds.size.end());
-    const bool elongated = bounds.size[longAxis] >= minSize * 1.4f;
-    if (elongated)
-      axes = {longAxis};
-  }
-
+  (void)trussPrimaryFaces;
   const std::array<std::array<float, 3>, 3> basis = {
       Normalize(bounds.transform.u), Normalize(bounds.transform.v),
       Normalize(bounds.transform.w)};
   std::vector<Face> faces;
-  for (int axis : axes) {
+  for (int axis : {0, 1, 2}) {
     const auto offset = Scale(basis[axis], bounds.size[axis] * 0.5f);
-    faces.push_back({Add(bounds.transform.o, offset), basis[axis]});
+    faces.push_back({Add(bounds.transform.o, offset), basis[axis], axis, 1.0f});
     faces.push_back({Add(bounds.transform.o, Scale(offset, -1.0f)),
-                     Scale(basis[axis], -1.0f)});
+                     Scale(basis[axis], -1.0f), axis, -1.0f});
   }
   return faces;
+}
+
+// Finds the nearest point on a specific oriented bounds face.
+std::array<float, 3> ClosestPointOnFace(const Bounds &bounds, const Face &face,
+                                        const std::array<float, 3> &point) {
+  const std::array<std::array<float, 3>, 3> basis = {
+      Normalize(bounds.transform.u), Normalize(bounds.transform.v),
+      Normalize(bounds.transform.w)};
+  const auto relative = Subtract(point, bounds.transform.o);
+  std::array<float, 3> local{};
+  for (int axis = 0; axis < 3; ++axis) {
+    const float halfSize = bounds.size[axis] * 0.5f;
+    local[axis] = Dot(relative, basis[axis]);
+    local[axis] = std::clamp(local[axis], -halfSize, halfSize);
+  }
+  local[face.axis] = face.sign * bounds.size[face.axis] * 0.5f;
+
+  std::array<float, 3> closest = bounds.transform.o;
+  for (int axis = 0; axis < 3; ++axis)
+    closest = Add(closest, Scale(basis[axis], local[axis]));
+  return closest;
 }
 
 
@@ -322,12 +350,12 @@ bool GroupContainsTruss(const MvrScene &scene, const std::string &groupUuid,
 // Tests a source and target face pair and stores the closest snap result.
 void ConsiderFacePair(const SnapSource &source, ObjectType targetType,
                       const std::string &targetUuid, SnapKind kind,
-                      const Face &sourceFace, const Face &targetFace,
-                      const SnapSettings &settings, float &bestDistance,
-                      std::optional<SnapResult> &best) {
-  const std::array<float, 3> delta = {targetFace.center[0] - sourceFace.center[0],
-                                     targetFace.center[1] - sourceFace.center[1],
-                                     targetFace.center[2] - sourceFace.center[2]};
+                      const Face &sourceFace, const Bounds &targetBounds,
+                      const Face &targetFace, const SnapSettings &settings,
+                      float &bestDistance, std::optional<SnapResult> &best) {
+  const auto targetPoint =
+      ClosestPointOnFace(targetBounds, targetFace, sourceFace.center);
+  const std::array<float, 3> delta = Subtract(targetPoint, sourceFace.center);
   const float distance = WeightedLength(delta, settings.axisWeights);
   if (distance > settings.thresholdMm || distance >= bestDistance)
     return;
@@ -364,10 +392,14 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
                                    const Bounds &targetBounds) {
       if (uuid == source.uuid)
         return;
+      if (targetType == ObjectType::TrussGroup &&
+          BoundsContainsPoint(targetBounds, sourceBounds->transform.o))
+        return;
       for (const auto &sourceFace : sourceFaces) {
         for (const auto &targetFace : BuildFaces(targetBounds, true))
           ConsiderFacePair(source, targetType, uuid, SnapKind::TrussToTruss,
-                           sourceFace, targetFace, settings, bestDistance, best);
+                           sourceFace, targetBounds, targetFace, settings,
+                           bestDistance, best);
       }
     };
     for (const auto &[uuid, group] : scene.groupObjects) {
@@ -423,7 +455,8 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
     for (const auto &sourceFace : sourceFaces) {
       for (const auto &targetFace : BuildFaces(bounds, false))
         ConsiderFacePair(source, targetType, uuid, SnapKind::SceneObjectToObject,
-                         sourceFace, targetFace, settings, bestDistance, best);
+                         sourceFace, bounds, targetFace, settings, bestDistance,
+                         best);
     }
   };
   for (const auto &[uuid, truss] : scene.trusses)
