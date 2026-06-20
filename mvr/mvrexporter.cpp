@@ -136,8 +136,8 @@ static tinyxml2::XMLElement *
 FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
                                                             tinyxml2::XMLElement *node);
 
-static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
-                                           tinyxml2::XMLElement *supportData,
+static void AppendSupportHoistInfoMetadata(tinyxml2::XMLDocument &doc,
+                                           tinyxml2::XMLElement *hoistInfoMap,
                                            const Support &support);
 static bool IsCanonicalUuidString(const std::string &value);
 static std::string ExportLayerUuid(const std::string &layerUuid,
@@ -1280,6 +1280,12 @@ static bool ValidateMvr16Export(
                          cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
               return false;
             }
+            if (cur->FirstChildElement("UserData")) {
+              wxLogError("MVR export validation failed: Support uuid '%s' "
+                         "contains direct UserData",
+                         cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+              return false;
+            }
           }
         }
 
@@ -1645,7 +1651,7 @@ int ComputeAbsoluteDmx(int universe1Based, int address1Based) {
 
 static bool ShouldExportSupportHoistInfo(const Support &support) {
   return support.capacityKg != 0.0f || support.weightKg != 0.0f ||
-         support.loadKg != 0.0f || !support.hoistFunction.empty() ||
+         support.loadKg != 0.0f ||
          !support.motorName.empty() || !support.motorManufacturer.empty() ||
          !support.motorModel.empty() || !support.motorFixtureUuid.empty() ||
          !support.useMotorDefaults || !support.dummyProfileId.empty() ||
@@ -1820,10 +1826,13 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
   trussInfoMap->InsertEndChild(info);
 }
 
-// Appends Perastage support hoist metadata into the supplied Data element.
-static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
-                                           tinyxml2::XMLElement *supportData,
+// Appends root-level Perastage hoist metadata keyed by Support UUID.
+static void AppendSupportHoistInfoMetadata(tinyxml2::XMLDocument &doc,
+                                           tinyxml2::XMLElement *hoistInfoMap,
                                            const Support &support) {
+  if (!hoistInfoMap)
+    return;
+
   tinyxml2::XMLElement *info = doc.NewElement("HoistInfo");
   info->SetAttribute("uuid", support.uuid.c_str());
 
@@ -1853,12 +1862,13 @@ static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
     info->InsertEndChild(load);
   }
 
+  const std::string officialFunction =
+      NormalizeHoistFunction(support.function.empty() ? support.hoistFunction
+                                                      : support.function);
   const std::string hoistFunction =
       NormalizeHoistFunction(support.hoistFunction);
-  if (!hoistFunction.empty()) {
+  if (!hoistFunction.empty() && hoistFunction != officialFunction)
     addText("RiggingPoint", hoistFunction);
-    addText("Function", hoistFunction); // Compatibility alias for older builds.
-  }
 
   addText("MotorName", support.motorName);
   addText("MotorManufacturer", support.motorManufacturer);
@@ -1893,10 +1903,10 @@ static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
           ResolveHoistFieldDataSource(support.weightSource, source));
   const std::string hoistFunctionSource =
       ResolveHoistFieldDataSource(support.hoistFunctionSource, source);
-  addText("RiggingPointSource", hoistFunctionSource);
-  addText("FunctionSource", hoistFunctionSource); // Compatibility alias.
+  if (!hoistFunction.empty() && hoistFunction != officialFunction)
+    addText("RiggingPointSource", hoistFunctionSource);
 
-  supportData->InsertEndChild(info);
+  hoistInfoMap->InsertEndChild(info);
 }
 
 static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
@@ -2662,6 +2672,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     trussExportUuids[uuid] = exportUuid;
   }
   tinyxml2::XMLElement *trussInfoMap = doc.NewElement("TrussInfoMap");
+  tinyxml2::XMLElement *hoistInfoMap = doc.NewElement("HoistInfoMap");
   std::map<std::string, FixtureTypeInfoExport> fixtureTypeMetadata;
 
   int exportedRealFixtureGdtfCount = 0;
@@ -3190,9 +3201,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
                                  " with empty Geometries because no source geometry is available");
     }
 
-    if (!s.function.empty()) {
+    const std::string supportFunction =
+        s.function.empty() ? NormalizeHoistFunction(s.hoistFunction)
+                           : s.function;
+    if (!supportFunction.empty()) {
       tinyxml2::XMLElement *e = doc.NewElement("Function");
-      e->SetText(s.function.c_str());
+      e->SetText(supportFunction.c_str());
       se->InsertEndChild(e);
     }
     tinyxml2::XMLElement *chainLength = doc.NewElement("ChainLength");
@@ -3224,35 +3238,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     supportIdNumeric->SetText(std::to_string(supportNumericId).c_str());
     se->InsertEndChild(supportIdNumeric);
 
-    tinyxml2::XMLElement *data = FindOrCreatePerastageDataNode(doc, se);
-    tinyxml2::XMLElement *info = doc.NewElement("SupportInfo");
-    info->SetAttribute("uuid", s.uuid.c_str());
-    auto addSupportInfo = [&](const char *n, const std::string &v) {
-      if (!v.empty()) {
-        tinyxml2::XMLElement *e = doc.NewElement(n);
-        e->SetText(v.c_str());
-        info->InsertEndChild(e);
-      }
-    };
-    auto addSupportNum = [&](const char *n, float v) {
-      if (v > 0.0f) {
-        tinyxml2::XMLElement *e = doc.NewElement(n);
-        e->SetText(std::to_string(v).c_str());
-        info->InsertEndChild(e);
-      }
-    };
-    addSupportInfo("GDTFSpec", supportGdtfArchivePath);
-    addSupportInfo("GDTFMode", s.gdtfMode);
-    addSupportInfo("Function", s.function);
-    addSupportInfo("HoistFunction", s.hoistFunction);
-    addSupportNum("ChainLength", s.chainLength);
-    addSupportInfo("Position",
-                   resolvePositionReference(s.position, s.positionName));
-    addSupportInfo("PositionName", s.positionName);
-    if (info->FirstChild())
-      data->InsertEndChild(info);
     if (ShouldExportSupportHoistInfo(s))
-      AppendSupportHoistInfoUserData(doc, data, s);
+      AppendSupportHoistInfoMetadata(doc, hoistInfoMap, s);
 
     parent->InsertEndChild(se);
   };
@@ -3640,6 +3627,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     rootPerastageDataForTrusses->InsertEndChild(trussInfoMap);
   } else {
     doc.DeleteNode(trussInfoMap);
+  }
+
+  if (hoistInfoMap->FirstChild()) {
+    tinyxml2::XMLElement *rootPerastageDataForHoists =
+        FindOrCreatePerastageDataNode(doc, root);
+    rootPerastageDataForHoists->InsertEndChild(hoistInfoMap);
+  } else {
+    doc.DeleteNode(hoistInfoMap);
   }
 
   sceneNode->InsertEndChild(layersNode);

@@ -182,6 +182,33 @@ int main() {
   assert(xml.Parse(xmlIt->second.c_str()) == tinyxml2::XML_SUCCESS);
   tinyxml2::XMLElement *root = xml.FirstChildElement("GeneralSceneDescription");
   assert(root != nullptr);
+  tinyxml2::XMLElement *rootUserData = root->FirstChildElement("UserData");
+  assert(rootUserData != nullptr);
+  tinyxml2::XMLElement *rootData = rootUserData->FirstChildElement("Data");
+  assert(rootData != nullptr);
+  tinyxml2::XMLElement *hoistInfoMap = rootData->FirstChildElement("HoistInfoMap");
+  assert(hoistInfoMap != nullptr);
+  bool foundManualHoistInfo = false;
+  bool foundLinkedHoistInfo = false;
+  for (tinyxml2::XMLElement *info = hoistInfoMap->FirstChildElement("HoistInfo");
+       info; info = info->NextSiblingElement("HoistInfo")) {
+    const char *uuid = info->Attribute("uuid");
+    assert(uuid != nullptr);
+    if (std::string(uuid) == "sup-linked") {
+      foundLinkedHoistInfo = true;
+      assert(info->FirstChildElement("Load") == nullptr);
+      assert(info->FirstChildElement("Function") == nullptr);
+    }
+    if (std::string(uuid) == "sup-manual") {
+      foundManualHoistInfo = true;
+      tinyxml2::XMLElement *load = info->FirstChildElement("Load");
+      assert(load != nullptr);
+      assert(load->Attribute("source") == nullptr);
+      assert(info->FirstChildElement("Function") == nullptr);
+    }
+  }
+  assert(foundLinkedHoistInfo);
+  assert(foundManualHoistInfo);
   bool foundLinkedSupport = false;
   bool foundLogicalOnlySupport = false;
   bool foundEmptySceneObjectPlaceholder = false;
@@ -199,22 +226,16 @@ int main() {
       assert(current->FirstChildElement("Geometries") != nullptr);
       assert(current->FirstChildElement("GDTFSpec") != nullptr);
       assert(current->FirstChildElement("GDTFMode") != nullptr);
-      tinyxml2::XMLElement *data =
-          current->FirstChildElement("UserData")->FirstChildElement("Data");
-      tinyxml2::XMLElement *info = data->FirstChildElement("HoistInfo");
-      assert(info != nullptr);
-      assert(info->FirstChildElement("Load") == nullptr);
+      assert(current->FirstChildElement("UserData") == nullptr);
+      assert(current->FirstChildElement("SupportInfo") == nullptr);
+      assert(current->FirstChildElement("HoistInfo") == nullptr);
     }
     if (std::string(current->Name()) == "Support" &&
         current->Attribute("uuid") &&
         std::string(current->Attribute("uuid")) == "sup-manual") {
-      tinyxml2::XMLElement *data =
-          current->FirstChildElement("UserData")->FirstChildElement("Data");
-      tinyxml2::XMLElement *info = data->FirstChildElement("HoistInfo");
-      assert(info != nullptr);
-      tinyxml2::XMLElement *load = info->FirstChildElement("Load");
-      assert(load != nullptr);
-      assert(load->Attribute("source") == nullptr);
+      assert(current->FirstChildElement("UserData") == nullptr);
+      assert(current->FirstChildElement("SupportInfo") == nullptr);
+      assert(current->FirstChildElement("HoistInfo") == nullptr);
     }
     if (std::string(current->Name()) == "Support" &&
         current->Attribute("uuid") &&
