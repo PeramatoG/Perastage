@@ -1705,6 +1705,56 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
   parseRootTrussInfoMap(root->FirstChildElement("UserData"));
 
+  std::unordered_map<std::string, std::vector<std::string>>
+      rootPrimitiveModelRefsBySceneObjectAndFile;
+  // Collects root-level Perastage primitive geometry metadata by SceneObject
+  // UUID and archive file name.
+  auto parseRootPrimitiveGeometryMap = [&](tinyxml2::XMLElement *userDataNode) {
+    if (!userDataNode)
+      return;
+    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data");
+         data; data = data->NextSiblingElement("Data")) {
+      const std::string provider = ToLowerCopy(
+          Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
+      if (provider != "perastage")
+        continue;
+      for (tinyxml2::XMLElement *map =
+               data->FirstChildElement("PrimitiveGeometryMap");
+           map; map = map->NextSiblingElement("PrimitiveGeometryMap")) {
+        for (tinyxml2::XMLElement *entry = map->FirstChildElement("Entry");
+             entry; entry = entry->NextSiblingElement("Entry")) {
+          const char *fileName = entry->Attribute("fileName");
+          const char *modelRef = entry->Attribute("perastageModelRef");
+          if (!fileName || !modelRef)
+            continue;
+          const std::string rawSceneObjectUuid = Trim(
+              entry->Attribute("sceneObjectUuid")
+                  ? entry->Attribute("sceneObjectUuid")
+                  : "");
+          const std::string canonicalSceneObjectUuid =
+              CanonicalizeUuid(rawSceneObjectUuid);
+          if (rawSceneObjectUuid.empty() && canonicalSceneObjectUuid.empty())
+            continue;
+          const std::string normalizedFileName = ToLowerCopy(Trim(fileName));
+          if (!canonicalSceneObjectUuid.empty()) {
+            const std::string key =
+                canonicalSceneObjectUuid + "|" + normalizedFileName;
+            rootPrimitiveModelRefsBySceneObjectAndFile[key].push_back(
+                Trim(modelRef));
+          }
+          if (!rawSceneObjectUuid.empty() &&
+              rawSceneObjectUuid != canonicalSceneObjectUuid) {
+            const std::string key =
+                rawSceneObjectUuid + "|" + normalizedFileName;
+            rootPrimitiveModelRefsBySceneObjectAndFile[key].push_back(
+                Trim(modelRef));
+          }
+        }
+      }
+    }
+  };
+  parseRootPrimitiveGeometryMap(root->FirstChildElement("UserData"));
+
   std::unordered_map<std::string, tinyxml2::XMLElement *> rootHoistInfoByUuid;
   // Collects root-level Perastage hoist metadata by exported Support UUID.
   auto parseRootHoistInfoMap = [&](tinyxml2::XMLElement *userDataNode) {
@@ -2940,11 +2990,42 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             parseMatrixOrIdentity(g3d, "Matrix", "SceneObject/Geometry3D",
                                   geoMatrix, true);
             std::string fileName = Trim(file);
+            const std::string rawSceneObjectUuid = Trim(
+                node->Attribute("uuid") ? node->Attribute("uuid") : "");
+            const std::string normalizedFileName = ToLowerCopy(fileName);
+            const std::string rootPrimitiveKey =
+                obj.uuid + "|" + normalizedFileName;
+            auto rootMappedModelRefIt =
+                rootPrimitiveModelRefsBySceneObjectAndFile.find(
+                    rootPrimitiveKey);
+            if (rootMappedModelRefIt ==
+                    rootPrimitiveModelRefsBySceneObjectAndFile.end() &&
+                !rawSceneObjectUuid.empty()) {
+              rootMappedModelRefIt =
+                  rootPrimitiveModelRefsBySceneObjectAndFile.find(
+                      rawSceneObjectUuid + "|" + normalizedFileName);
+            }
             auto mappedModelRefIt =
                 primitiveModelRefByArchiveFile.find(ToLowerCopy(fileName));
-            if (mappedModelRefIt != primitiveModelRefByArchiveFile.end()) {
+            const std::string *mappedModelRef = nullptr;
+            if (rootMappedModelRefIt !=
+                    rootPrimitiveModelRefsBySceneObjectAndFile.end() &&
+                !rootMappedModelRefIt->second.empty()) {
+              if (rootMappedModelRefIt->second.size() > 1) {
+                LogMessage(Logger::Level::Warn,
+                           "MVR import found ambiguous root "
+                           "PrimitiveGeometryMap entries for SceneObject " +
+                               obj.uuid + " and file " + fileName +
+                               "; using the first entry");
+              }
+              mappedModelRef = &rootMappedModelRefIt->second.front();
+            } else if (mappedModelRefIt !=
+                       primitiveModelRefByArchiveFile.end()) {
+              mappedModelRef = &mappedModelRefIt->second;
+            }
+            if (mappedModelRef) {
               GeometryInstance instance;
-              instance.modelFile = mappedModelRefIt->second;
+              instance.modelFile = *mappedModelRef;
               instance.instanceKey = BuildSceneObjectGeometryInstanceKey(
                   obj.uuid, "geometry3d", obj.geometries.size());
               instance.localTransform = geoMatrix;
