@@ -50,6 +50,8 @@
 #include "fixture_label_overrides.h"
 #include "fixturetablepanel.h"
 #include "gdtf_mutation_audit.h"
+#include "gdtfdictionary.h"
+#include "gdtfloader.h"
 #include "hoisttablepanel.h"
 #include "layoutviewerpanel.h"
 #include "mvrexporter.h"
@@ -574,60 +576,11 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
                wxOK | wxICON_INFORMATION);
 }
 
+// Exports the effective current GDTF for a selected fixture type.
 void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
   namespace fs = std::filesystem;
-  auto createTempDir = []() {
-    auto now = std::chrono::system_clock::now().time_since_epoch().count();
-    std::string folderName = "GDTF_" + std::to_string(now);
-    fs::path base = fs::temp_directory_path();
-    fs::path full = base / folderName;
-    fs::create_directory(full);
-    return full.string();
-  };
-  auto extractZip = [](const std::string &zipPath, const std::string &destDir) {
-    if (!fs::exists(zipPath)) {
-      if (ConsolePanel::Instance()) {
-        wxString msg = "GDTF: cannot open " + wxString::FromUTF8(zipPath);
-        ConsolePanel::Instance()->AppendMessage(msg);
-      }
-      return false;
-    }
-    wxLogNull logNo;
-    wxFileInputStream input(zipPath);
-    if (!input.IsOk()) {
-      if (ConsolePanel::Instance()) {
-        wxString msg = "GDTF: cannot open " + wxString::FromUTF8(zipPath);
-        ConsolePanel::Instance()->AppendMessage(msg);
-      }
-      return false;
-    }
-    wxZipInputStream zipStream(input);
-    std::unique_ptr<wxZipEntry> entry;
-    while ((entry.reset(zipStream.GetNextEntry())), entry) {
-      std::string filename = entry->GetName().ToStdString();
-      std::string fullPath = destDir + "/" + filename;
-      if (entry->IsDir()) {
-        wxFileName::Mkdir(fullPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
-        continue;
-      }
-      wxFileName::Mkdir(wxFileName(fullPath).GetPath(), wxS_DIR_DEFAULT,
-                        wxPATH_MKDIR_FULL);
-      std::ofstream output(fullPath, std::ios::binary);
-      if (!output.is_open())
-        return false;
-      char buffer[4096];
-      while (true) {
-        zipStream.Read(buffer, sizeof(buffer));
-        size_t bytes = zipStream.LastRead();
-        if (bytes == 0)
-          break;
-        output.write(buffer, bytes);
-      }
-      output.close();
-    }
-    return true;
-  };
-  const auto &fixtures = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures;
+  auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  const auto &fixtures = scene.fixtures;
   std::set<std::string> types;
   for (const auto &[uuid, f] : fixtures)
     if (!f.typeName.empty())
@@ -653,85 +606,89 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
   if (!chosen || chosen->gdtfSpec.empty())
     return;
 
-  fs::path src = chosen->gdtfSpec;
-  const std::string &base = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().basePath;
-  if (src.is_relative() && !base.empty())
-    src = fs::path(base) / src;
-  if (!fs::exists(src)) {
+  const std::string chosenTypeName = chosen->typeName;
+  const std::string chosenGdtfSpec = chosen->gdtfSpec;
+  fs::path originalSrc = PathUtils::PathFromUtf8(chosenGdtfSpec);
+  const std::string &base = scene.basePath;
+  if (originalSrc.is_relative() && !base.empty())
+    originalSrc = fs::path(base) / originalSrc;
+  if (!fs::exists(originalSrc)) {
     wxMessageBox("GDTF file not found.", "Error", wxOK | wxICON_ERROR);
     return;
   }
 
+  fs::path effectiveSrc = originalSrc;
+  bool usingDerivative =
+      GdtfDictionary::IsPerastageNamedGdtfFile(effectiveSrc.string());
+  if (!usingDerivative &&
+      (chosen->weightKg != 0.0f || chosen->powerConsumptionW != 0.0f)) {
+    auto derivative = GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
+        chosenTypeName, effectiveSrc.string(), chosen->gdtfMode,
+        chosen->category);
+    if (!derivative || derivative->path.empty()) {
+      wxMessageBox("Could not create the Perastage fixture derivative.",
+                   "Export Fixture", wxOK | wxICON_ERROR);
+      return;
+    }
+    effectiveSrc = PathUtils::PathFromUtf8(derivative->path);
+    usingDerivative = true;
+    if (!SetGdtfProperties(effectiveSrc.string(), chosen->weightKg,
+                           chosen->powerConsumptionW,
+                           GdtfMutationAudit::BuildPerastageModifiedBy())) {
+      wxMessageBox("Could not update the Perastage fixture derivative.",
+                   "Export Fixture", wxOK | wxICON_ERROR);
+      return;
+    }
+    const std::string derivativeSpec = effectiveSrc.filename().string();
+    for (auto &[uuid, fixture] : scene.fixtures) {
+      if (fixture.typeName == chosenTypeName &&
+          fixture.gdtfSpec == chosenGdtfSpec)
+        fixture.gdtfSpec = derivativeSpec;
+    }
+    if (fixtureTablePanel)
+      fixtureTablePanel->ReloadData();
+    RefreshAfterSceneChange();
+  }
+
   wxString fixDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
+  const std::string defaultName =
+      usingDerivative ? effectiveSrc.filename().string()
+                      : PathUtils::PathFromUtf8(chosenGdtfSpec)
+                            .filename()
+                            .string();
   wxFileDialog saveDlg(this, "Save Fixture", fixDir,
-                       wxString::FromUTF8(sel) + ".gdtf", "*.gdtf",
+                       wxString::FromUTF8(defaultName), "*.gdtf",
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDlg.ShowModal() != wxID_OK)
     return;
 
-  std::string tempDir = createTempDir();
-  if (!extractZip(src.string(), tempDir)) {
-    wxMessageBox("Failed to read GDTF.", "Error", wxOK | wxICON_ERROR);
+  const fs::path target =
+      PathUtils::PathFromUtf8(std::string(saveDlg.GetPath().ToUTF8()));
+  std::error_code equivalentError;
+  if (fs::exists(target, equivalentError) &&
+      fs::equivalent(target, originalSrc, equivalentError)) {
+    const int answer = wxMessageBox(
+        "This will overwrite the original GDTF library asset. Perastage "
+        "normally preserves originals and exports a derived copy instead.\n\n"
+        "Do you want to overwrite the original GDTF file?",
+        "Overwrite Original GDTF", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
+        this);
+    if (answer != wxYES)
+      return;
+  }
+
+  std::error_code copyError;
+  fs::create_directories(target.parent_path(), copyError);
+  copyError.clear();
+  fs::copy_file(effectiveSrc, target, fs::copy_options::overwrite_existing,
+                copyError);
+  if (copyError) {
+    wxMessageBox(
+        "Failed to write file: " + wxString::FromUTF8(copyError.message()),
+        "Error", wxOK | wxICON_ERROR);
     return;
   }
-
-  fs::path descPath = fs::path(tempDir) / "description.xml";
-  tinyxml2::XMLDocument doc;
-  if (doc.LoadFile(descPath.string().c_str()) != tinyxml2::XML_SUCCESS) {
-    fs::remove_all(tempDir);
-    wxMessageBox("Failed to parse description.xml.", "Error",
-                 wxOK | wxICON_ERROR);
-    return;
-  }
-
-  tinyxml2::XMLElement *ft = GdtfMutationAudit::EnsureFixtureType(doc);
-  if (!ft) {
-    fs::remove_all(tempDir);
-    wxMessageBox("Invalid GDTF file.", "Error", wxOK | wxICON_ERROR);
-    return;
-  }
-
-  const std::optional<float> weightKg =
-      (chosen->weightKg != 0.0f) ? std::optional<float>(chosen->weightKg)
-                                 : std::nullopt;
-  const std::optional<float> powerConsumptionW =
-      (chosen->powerConsumptionW != 0.0f)
-          ? std::optional<float>(chosen->powerConsumptionW)
-          : std::nullopt;
-  GdtfMutationAudit::ApplyPhysicalPropertiesWithAudit(
-      ft, doc, weightKg, powerConsumptionW,
-      "Exported fixture with updated physical properties from Perastage",
-      GdtfMutationAudit::BuildPerastageModifiedBy());
-
-  doc.SaveFile(descPath.string().c_str());
-
-  wxFileOutputStream out(std::string(saveDlg.GetPath().mb_str()));
-  if (!out.IsOk()) {
-    fs::remove_all(tempDir);
-    wxMessageBox("Failed to write file.", "Error", wxOK | wxICON_ERROR);
-    return;
-  }
-  wxZipOutputStream zip(out);
-  for (auto &p : fs::recursive_directory_iterator(tempDir)) {
-    if (!p.is_regular_file())
-      continue;
-    std::string rel = fs::relative(p.path(), tempDir).string();
-    auto *entry = new wxZipEntry(rel);
-    entry->SetMethod(wxZIP_METHOD_DEFLATE);
-    zip.PutNextEntry(entry);
-    std::ifstream in(p.path(), std::ios::binary);
-    char buf[4096];
-    while (in.good()) {
-      in.read(buf, sizeof(buf));
-      std::streamsize s = in.gcount();
-      if (s > 0)
-        zip.Write(buf, s);
-    }
-    zip.CloseEntry();
-  }
-  zip.Close();
-  fs::remove_all(tempDir);
 
   wxMessageBox("Fixture exported successfully.", "Export Fixture",
                wxOK | wxICON_INFORMATION);
