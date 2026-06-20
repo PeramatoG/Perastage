@@ -75,6 +75,67 @@ std::string Utf8StringFromPath(const std::filesystem::path &path) {
   return std::string(utf8.begin(), utf8.end());
 }
 
+// Copies a generated fixture GDTF into the project and returns its
+// scene-relative path.
+bool CopyFixtureGdtfIntoProject(const std::filesystem::path &sourcePath,
+                                const std::filesystem::path &projectBasePath,
+                                std::string &relativeSpecOut,
+                                std::string &errorOut) {
+  relativeSpecOut.clear();
+  errorOut.clear();
+  if (sourcePath.empty() || projectBasePath.empty()) {
+    errorOut = "Could not prepare a project-local fixture GDTF copy.";
+    return false;
+  }
+
+  std::error_code ec;
+  if (!std::filesystem::exists(sourcePath, ec) || ec ||
+      !std::filesystem::is_regular_file(sourcePath, ec) || ec) {
+    errorOut = "The generated Perastage fixture GDTF does not exist.";
+    return false;
+  }
+
+  const std::filesystem::path fixturesDir = projectBasePath / "fixtures";
+  std::filesystem::create_directories(fixturesDir, ec);
+  if (ec) {
+    errorOut = "Could not create the project fixtures folder.";
+    return false;
+  }
+
+  const std::filesystem::path targetPath = fixturesDir / sourcePath.filename();
+  const std::filesystem::path canonicalSource =
+      std::filesystem::weakly_canonical(sourcePath, ec);
+  if (ec) {
+    errorOut = "Could not resolve the generated Perastage fixture GDTF path.";
+    return false;
+  }
+  ec.clear();
+  const std::filesystem::path canonicalTarget =
+      std::filesystem::weakly_canonical(targetPath, ec);
+  const bool sameFile = !ec && canonicalSource == canonicalTarget;
+  ec.clear();
+  if (!sameFile) {
+    std::filesystem::copy_file(
+        sourcePath, targetPath, std::filesystem::copy_options::overwrite_existing,
+        ec);
+    if (ec) {
+      errorOut =
+          "Could not copy the generated Perastage fixture GDTF into the project.";
+      return false;
+    }
+  }
+
+  const std::filesystem::path relativePath =
+      std::filesystem::relative(targetPath, projectBasePath, ec);
+  if (ec) {
+    errorOut = "Could not compute the project-relative fixture GDTF path.";
+    return false;
+  }
+
+  relativeSpecOut = relativePath.generic_string();
+  return true;
+}
+
 // Ensures saved project files use the Perastage project extension.
 std::string EnsureProjectFileExtension(const std::string &path) {
   if (path.empty())
@@ -639,7 +700,17 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
                    "Export Fixture", wxOK | wxICON_ERROR);
       return;
     }
-    const std::string derivativeSpec = effectiveSrc.filename().string();
+    std::string derivativeSpec = effectiveSrc.string();
+    if (!scene.basePath.empty()) {
+      std::string copyError;
+      if (!CopyFixtureGdtfIntoProject(effectiveSrc, fs::path(scene.basePath),
+                                      derivativeSpec, copyError)) {
+        wxMessageBox(wxString::FromUTF8(copyError), "Export Fixture",
+                     wxOK | wxICON_ERROR);
+        return;
+      }
+      effectiveSrc = fs::path(scene.basePath) / fs::path(derivativeSpec);
+    }
     for (auto &[uuid, fixture] : scene.fixtures) {
       if (fixture.typeName == chosenTypeName &&
           fixture.gdtfSpec == chosenGdtfSpec)
