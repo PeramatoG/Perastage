@@ -118,6 +118,7 @@ using json = nlohmann::json;
 #include "ridertextdialog.h"
 #include "riggingpanel.h"
 #include "sceneobjecttablepanel.h"
+#include "selection_movement_settings.h"
 #include "selectfixturetypedialog.h"
 #include "selectnamedialog.h"
 #include "simplecrypt.h"
@@ -279,6 +280,9 @@ const std::vector<std::string> &GetPreferencesDialogConfigKeys() {
       "rider_lx2_margin",        "rider_lx3_margin",
       "rider_lx4_margin",        "rider_lx5_margin",
       "rider_lx6_margin",
+      magnet_snap::kMagnetEnabledConfigKey,
+      selection_movement_settings::kAxisConstrainedMovementConfigKey,
+      selection_movement_settings::kLeftDragSelectionMovementConfigKey,
   };
   return kKeys;
 }
@@ -534,6 +538,7 @@ void MainWindow::Ensure3DViewport() {
 
   if (summaryPanel)
     summaryPanel->SetVisibleRefreshTargets(viewport2DPanel, viewportPanel);
+  ApplyViewportMovementToolState();
 }
 
 void MainWindow::Ensure2DViewport() {
@@ -586,6 +591,7 @@ void MainWindow::Ensure2DViewport() {
 
   if (summaryPanel)
     summaryPanel->SetVisibleRefreshTargets(viewport2DPanel, viewportPanel);
+  ApplyViewportMovementToolState();
 
   auiManager->Update();
 
@@ -941,6 +947,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   }
   if (viewport2DRenderPanel)
     viewport2DRenderPanel->ApplyConfig();
+  ApplyViewportMovementToolState();
   if (layerPanel)
     layerPanel->ReloadLayers();
 
@@ -1508,13 +1515,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     }
     if (viewport2DRenderPanel)
       viewport2DRenderPanel->ApplyConfig();
-    const bool magnetEnabled =
-        GetDefaultGuiConfigServices().Preferences().GetValue(
-            magnet_snap::kMagnetEnabledConfigKey) == "1";
-    if (viewportPanel)
-      viewportPanel->SetMagnetEnabled(magnetEnabled);
-    if (viewport2DPanel)
-      viewport2DPanel->SetMagnetEnabled(magnetEnabled);
+    ApplyViewportMovementToolState();
     SyncViewportToolToggleState(
         (viewport2DPanel && viewport2DPanel->IsMeasureToolEnabled()) ||
         (viewportPanel && viewportPanel->IsMeasureToolEnabled()));
@@ -1599,6 +1600,7 @@ void MainWindow::RefreshAfterFixtureSymbolUpdate() {
     viewport2DPanel->UpdateScene(true);
     viewport2DPanel->Refresh();
   }
+  ApplyViewportMovementToolState();
   if (layoutViewerPanel)
     layoutViewerPanel->RefreshAfterFixtureSymbolUpdate();
 }

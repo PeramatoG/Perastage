@@ -84,9 +84,19 @@ public:
     // Returns whether the 3D measure tool is currently enabled.
     bool IsMeasureToolEnabled() const { return m_measureToolEnabled; }
     // Enables or disables Magnet snapping for 3D selection dragging.
-    void SetMagnetEnabled(bool enabled);
+    void SetMagnetEnabled(bool enabled, bool persist = true);
     // Returns whether Magnet snapping is currently enabled for 3D selection dragging.
     bool IsMagnetEnabled() const { return m_magnetEnabled; }
+    void SetLeftDragSelectionMovementEnabled(bool enabled);
+    // Returns whether left-click selection dragging is enabled in the 3D viewport.
+    bool IsLeftDragSelectionMovementEnabled() const {
+        return m_leftDragSelectionMovementEnabled;
+    }
+    void SetAxisConstrainedMovementEnabled(bool enabled);
+    // Returns whether 3D selection movement is constrained to axes.
+    bool IsAxisConstrainedMovementEnabled() const {
+        return m_axisConstrainedMovementEnabled;
+    }
     void BeginContinuousPlacement(ContinuousPlacementType type,
                                   const std::string& elementUuid);
     bool UndoContinuousPlacement();
@@ -113,6 +123,8 @@ private:
     bool m_selectionDragMoved = false;
     bool m_selectionDragUndoPushed = false;
     bool m_magnetEnabled = false;
+    bool m_leftDragSelectionMovementEnabled = false;
+    bool m_axisConstrainedMovementEnabled = true;
     std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
     wxLongLong m_selectionDragPressTime = 0;
     HoverTargetTable m_selectionDragTarget = HoverTargetTable::None;

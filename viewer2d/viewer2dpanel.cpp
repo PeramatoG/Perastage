@@ -490,6 +490,12 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
   m_controller.SetSelectionOutlineEnabled(m_enableSelection);
   m_magnetEnabled = ConfigManager::Get().GetValue(
                         magnet_snap::kMagnetEnabledConfigKey) == "1";
+  m_leftDragSelectionMovementEnabled =
+      selection_movement_settings::IsLeftDragSelectionMovementEnabled(
+          ConfigManager::Get());
+  m_axisConstrainedMovementEnabled =
+      selection_movement_settings::IsAxisConstrainedMovementEnabled(
+          ConfigManager::Get());
   m_glContext = new wxGLContext(this);
   if (m_enableSelection) {
     StartDragTableUpdateWorker();
@@ -749,12 +755,26 @@ void Viewer2DPanel::SetMeasureToolEnabled(bool enabled) {
 }
 
 // Enables or disables Magnet snapping for selection dragging.
-void Viewer2DPanel::SetMagnetEnabled(bool enabled) {
+void Viewer2DPanel::SetMagnetEnabled(bool enabled, bool persist) {
   m_magnetEnabled = enabled;
   m_pendingMagnetSnap.reset();
+  if (!persist)
+    return;
   ConfigManager::Get().SetValue(magnet_snap::kMagnetEnabledConfigKey,
                                 enabled ? "1" : "0");
   ConfigManager::Get().SaveUserConfig();
+}
+
+// Enables or disables left-click selection dragging.
+void Viewer2DPanel::SetLeftDragSelectionMovementEnabled(bool enabled) {
+  m_leftDragSelectionMovementEnabled = enabled;
+}
+
+// Enables or disables axis-constrained selection movement.
+void Viewer2DPanel::SetAxisConstrainedMovementEnabled(bool enabled) {
+  m_axisConstrainedMovementEnabled = enabled;
+  if (!enabled)
+    m_dragAxis = DragAxis::None;
 }
 
 // Converts a mouse position in window coordinates into the current 2D world position.
@@ -2747,10 +2767,6 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     if (!m_enableSelection || !IsShownOnScreen())
       return;
 
-    const bool leftDragSelectionMovement =
-        selection_movement_settings::IsLeftDragSelectionMovementEnabled(
-            ConfigManager::Get());
-
     if (event.ControlDown()) {
       m_dragMode = DragMode::RectSelection;
       m_rectSelecting = true;
@@ -2760,7 +2776,7 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
       return;
     }
 
-    if (!leftDragSelectionMovement)
+    if (!m_leftDragSelectionMovementEnabled)
       return;
 
     const RenderSize renderSize = ResolveRenderSize(this);
@@ -3405,8 +3421,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     } else {
       int dx = pos.x - m_lastMousePos.x;
       int dy = pos.y - m_lastMousePos.y;
-      if (selection_movement_settings::IsAxisConstrainedMovementEnabled(
-              ConfigManager::Get())) {
+      if (m_axisConstrainedMovementEnabled) {
         if (m_dragAxis == DragAxis::None &&
             (std::abs(dx) >= kSelectionDragStartThresholdPx ||
              std::abs(dy) >= kSelectionDragStartThresholdPx)) {
@@ -3462,10 +3477,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
       return;
 
     if (dx != 0 || dy != 0) {
-      const bool axisConstrainedMovement =
-          selection_movement_settings::IsAxisConstrainedMovementEnabled(
-              ConfigManager::Get());
-      if (axisConstrainedMovement) {
+      if (m_axisConstrainedMovementEnabled) {
         if (m_dragAxis == DragAxis::None) {
           int absDx = std::abs(dx);
           int absDy = std::abs(dy);

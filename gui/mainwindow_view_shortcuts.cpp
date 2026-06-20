@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 
+#include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
 #include "selection_movement_settings.h"
@@ -52,12 +53,7 @@ void MainWindow::SyncViewportToolToggleState(bool measureEnabled) {
     return;
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, !measureEnabled);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, measureEnabled);
-  SyncAxisConstraintToolToggleState();
-  SyncLeftDragMoveToolToggleState();
-  layoutViewsToolBar->ToggleTool(
-      ID_View_Viewport_Magnet,
-      GetDefaultGuiConfigServices().Preferences().GetValue(
-          magnet_snap::kMagnetEnabledConfigKey) == "1");
+  ApplyViewportMovementToolState();
   layoutViewsToolBar->Refresh();
 }
 
@@ -81,6 +77,38 @@ void MainWindow::SyncLeftDragMoveToolToggleState() {
       GetDefaultGuiConfigServices().Preferences().GetValue(
           selection_movement_settings::kLeftDragSelectionMovementConfigKey) ==
           "1");
+}
+
+// Applies the persisted movement tool state to the toolbar and active viewports.
+void MainWindow::ApplyViewportMovementToolState() {
+  auto &preferences = GetDefaultGuiConfigServices().Preferences();
+  const bool axisConstraintEnabled =
+      preferences.GetValue(
+          selection_movement_settings::kAxisConstrainedMovementConfigKey) !=
+      "0";
+  const bool leftDragMoveEnabled =
+      preferences.GetValue(
+          selection_movement_settings::kLeftDragSelectionMovementConfigKey) ==
+      "1";
+  const bool magnetEnabled =
+      preferences.GetValue(magnet_snap::kMagnetEnabledConfigKey) == "1";
+
+  if (viewport2DPanel) {
+    viewport2DPanel->SetAxisConstrainedMovementEnabled(axisConstraintEnabled);
+    viewport2DPanel->SetLeftDragSelectionMovementEnabled(leftDragMoveEnabled);
+    viewport2DPanel->SetMagnetEnabled(magnetEnabled, false);
+  }
+  if (viewportPanel) {
+    viewportPanel->SetAxisConstrainedMovementEnabled(axisConstraintEnabled);
+    viewportPanel->SetLeftDragSelectionMovementEnabled(leftDragMoveEnabled);
+    viewportPanel->SetMagnetEnabled(magnetEnabled, false);
+  }
+  SyncAxisConstraintToolToggleState();
+  SyncLeftDragMoveToolToggleState();
+  if (layoutViewsToolBar) {
+    layoutViewsToolBar->ToggleTool(ID_View_Viewport_Magnet, magnetEnabled);
+    layoutViewsToolBar->Refresh();
+  }
 }
 
 // Switches the viewport interaction back to standard selection mode.
@@ -116,7 +144,7 @@ void MainWindow::OnViewportAxisConstraint(wxCommandEvent &WXUNUSED(event)) {
       selection_movement_settings::kAxisConstrainedMovementConfigKey,
       axisConstraintEnabled ? "0" : "1");
   preferences.SaveUserConfig();
-  SyncAxisConstraintToolToggleState();
+  ApplyViewportMovementToolState();
 }
 
 // Toggles project-level left-click selection dragging.
@@ -130,7 +158,7 @@ void MainWindow::OnViewportLeftDragMove(wxCommandEvent &WXUNUSED(event)) {
       selection_movement_settings::kLeftDragSelectionMovementConfigKey,
       enabled ? "0" : "1");
   preferences.SaveUserConfig();
-  SyncLeftDragMoveToolToggleState();
+  ApplyViewportMovementToolState();
 }
 
 // Fits the viewport that currently owns keyboard focus.
@@ -177,11 +205,8 @@ void MainWindow::OnViewportMagnet(wxCommandEvent &WXUNUSED(event)) {
   auto &preferences = GetDefaultGuiConfigServices().Preferences();
   const bool enabled =
       preferences.GetValue(magnet_snap::kMagnetEnabledConfigKey) != "1";
-  if (viewport2DPanel)
-    viewport2DPanel->SetMagnetEnabled(enabled);
-  if (viewportPanel)
-    viewportPanel->SetMagnetEnabled(enabled);
-  SyncViewportToolToggleState(
-      (viewport2DPanel && viewport2DPanel->IsMeasureToolEnabled()) ||
-      (viewportPanel && viewportPanel->IsMeasureToolEnabled()));
+  preferences.SetValue(magnet_snap::kMagnetEnabledConfigKey,
+                       enabled ? "1" : "0");
+  preferences.SaveUserConfig();
+  ApplyViewportMovementToolState();
 }

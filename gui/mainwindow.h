@@ -87,6 +87,7 @@ public:
   void SyncViewportToolToggleState(bool measureEnabled);
   void SyncAxisConstraintToolToggleState();
   void SyncLeftDragMoveToolToggleState();
+  void ApplyViewportMovementToolState();
   void Ensure2DViewportAvailable();
   Viewer2DPanel *GetLayoutCapturePanel() const;
   Viewer2DOffscreenRenderer *GetOffscreenRenderer();
