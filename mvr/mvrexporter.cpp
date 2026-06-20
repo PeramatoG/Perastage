@@ -21,6 +21,7 @@
 #include "dummyprofilelibrary.h"
 #include "filesystem_path_utils.h"
 #include "gdtf_mutation_audit.h"
+#include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "logger.h"
 #include "matrixutils.h"
@@ -2288,6 +2289,74 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     return ec ? fs::absolute(src).generic_string() : weak.generic_string();
   };
 
+  auto findExistingFileByName = [&](const fs::path &directory,
+                                    const std::string &fileName) {
+    if (directory.empty() || fileName.empty())
+      return fs::path();
+
+    std::error_code ec;
+    const fs::path exactCandidate = directory / fileName;
+    if (fs::exists(exactCandidate, ec) && !ec &&
+        fs::is_regular_file(exactCandidate, ec) && !ec)
+      return exactCandidate;
+    ec.clear();
+
+    if (!fs::exists(directory, ec) || ec || !fs::is_directory(directory, ec) ||
+        ec)
+      return fs::path();
+
+    const std::string targetName = ToLowerAscii(fileName);
+    for (const fs::directory_entry &entry : fs::directory_iterator(directory, ec)) {
+      if (ec)
+        break;
+      if (!entry.is_regular_file(ec) || ec) {
+        ec.clear();
+        continue;
+      }
+      if (ToLowerAscii(entry.path().filename().generic_string()) == targetName)
+        return entry.path();
+    }
+    return fs::path();
+  };
+
+  auto resolveGdtfSourcePathForExport = [&](const std::string &rawGdtfPath) {
+    const std::string normalized = normalizeSourcePath(rawGdtfPath);
+    std::error_code ec;
+    if (fs::exists(normalized, ec) && !ec &&
+        fs::is_regular_file(normalized, ec) && !ec)
+      return normalized;
+
+    const fs::path rawPath(rawGdtfPath);
+    const std::string fileName = rawPath.filename().generic_string();
+    std::vector<fs::path> lookupDirs;
+    if (!scene.basePath.empty())
+      lookupDirs.push_back(fs::path(scene.basePath));
+    const fs::path activeDictionaryPath =
+        PathUtils::PathFromUtf8(GdtfDictionary::GetActiveDictionaryFilePath());
+    if (!activeDictionaryPath.empty() && activeDictionaryPath.has_parent_path())
+      lookupDirs.push_back(activeDictionaryPath.parent_path());
+    lookupDirs.push_back(
+        PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("fixtures")));
+    lookupDirs.push_back(ProjectUtils::GetBaseLibraryPath("fixtures"));
+
+    std::unordered_set<std::string> visitedDirs;
+    for (const fs::path &dir : lookupDirs) {
+      const std::string dirKey = dir.generic_string();
+      if (dirKey.empty() || !visitedDirs.insert(dirKey).second)
+        continue;
+      const fs::path resolved = findExistingFileByName(dir, fileName);
+      if (!resolved.empty()) {
+        Logger::Instance().Log(
+            Logger::Level::Info,
+            "MVR export resolved missing fixture GDTF '" + rawGdtfPath +
+                "' to library file '" + resolved.generic_string() + "'.");
+        return resolved.generic_string();
+      }
+    }
+
+    return normalized;
+  };
+
   auto registerResource = [&](const std::string &rawSource,
                               const std::string &preferredArchivePath,
                               bool allowReuseBySource = true) -> std::string {
@@ -2316,8 +2385,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     std::string fileName = preferredName;
     if (fileName.empty())
       fileName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
+    const std::string sourcePath = resolveGdtfSourcePathForExport(rawGdtfPath);
     std::string archivePath =
-        registerResource(rawGdtfPath, fileName, allowReuseBySource);
+        registerResource(sourcePath, fileName, allowReuseBySource);
     if (!objectUuid.empty() && !archivePath.empty())
       gdtfArchiveByObjectUuid[objectUuid] = archivePath;
     return archivePath;
