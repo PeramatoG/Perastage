@@ -298,7 +298,7 @@ int main() {
   Fixture fAt;
   fAt.uuid = "fx-at";
   fAt.instanceName = "At Fixture";
-  fAt.gdtfSpec = (tempDir / "@PerastageFixture.gdtf").generic_string();
+  fAt.gdtfSpec = "@PerastageFixture.gdtf";
   fAt.address = "21.1";
   scene.fixtures[fAt.uuid] = fAt;
 
@@ -586,6 +586,8 @@ int main() {
   bool sawPrimitivePipeBakedMatrixCanonicalized = false;
   bool sawPrimitivePipePositionPreserved = false;
   bool sawPrimitivePipeBakedPositionPreserved = false;
+  int sceneObjectCount = 0;
+  int sceneObjectsWithMatrixBeforeGeometries = 0;
   int mvrGeometryTrussCount = 0;
   int mvrGeometryTrussesWithGeometry3d = 0;
   int mvrGeometryTrussesWithRenderableGdtf = 0;
@@ -766,6 +768,23 @@ int main() {
       tinyxml2::XMLElement *cur = stack.back();
       stack.pop_back();
       if (std::string(cur->Name()) == "SceneObject") {
+        ++sceneObjectCount;
+        assert(cur->FirstChildElement("UserData") == nullptr);
+        int matrixOrder = -1;
+        int geometriesOrder = -1;
+        int childOrder = 0;
+        for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
+             child = child->NextSiblingElement(), ++childOrder) {
+          const std::string childName = child->Name() ? child->Name() : "";
+          if (childName == "Matrix" && matrixOrder < 0)
+            matrixOrder = childOrder;
+          if (childName == "Geometries" && geometriesOrder < 0)
+            geometriesOrder = childOrder;
+        }
+        assert(matrixOrder >= 0);
+        assert(geometriesOrder >= 0);
+        assert(matrixOrder < geometriesOrder);
+        ++sceneObjectsWithMatrixBeforeGeometries;
         const char *sceneObjectUuid = cur->Attribute("uuid");
         auto *geometries = cur->FirstChildElement("Geometries");
         if (sceneObjectUuid && geometries) {
@@ -868,6 +887,8 @@ int main() {
   assert(sawPrimitivePipeBakedMatrixCanonicalized);
   assert(sawPrimitivePipePositionPreserved);
   assert(sawPrimitivePipeBakedPositionPreserved);
+  assert(sceneObjectCount >= 3);
+  assert(sceneObjectsWithMatrixBeforeGeometries == sceneObjectCount);
   assert(mvrGeometryTrussCount == static_cast<int>(scene.trusses.size()));
   assert(mvrGeometryTrussesWithGeometry3d == mvrGeometryTrussCount);
   assert(mvrGeometryTrussesWithRenderableGdtf == mvrGeometryTrussCount);
@@ -914,6 +935,9 @@ int main() {
   tinyxml2::XMLElement *rootUserData = root->FirstChildElement("UserData");
   assert(rootUserData != nullptr);
   bool sawRootTrussInfoMap = false;
+  bool sawRootPrimitiveGeometryMap = false;
+  bool sawSpherePrimitiveMapEntry = false;
+  bool sawPipePrimitiveMapEntry = false;
   bool sawRepairedTrussInfo = false;
   bool sawCanonicalTrussInfo = false;
   for (tinyxml2::XMLElement *data = rootUserData->FirstChildElement("Data");
@@ -921,6 +945,27 @@ int main() {
     const char *provider = data->Attribute("provider");
     if (provider == nullptr || std::string(provider) != "Perastage")
       continue;
+    for (tinyxml2::XMLElement *map =
+             data->FirstChildElement("PrimitiveGeometryMap");
+         map; map = map->NextSiblingElement("PrimitiveGeometryMap")) {
+      sawRootPrimitiveGeometryMap = true;
+      for (tinyxml2::XMLElement *entry = map->FirstChildElement("Entry");
+           entry; entry = entry->NextSiblingElement("Entry")) {
+        const char *sceneObjectUuid = entry->Attribute("sceneObjectUuid");
+        const char *fileName = entry->Attribute("fileName");
+        const char *modelRef = entry->Attribute("perastageModelRef");
+        assert(sceneObjectUuid != nullptr);
+        assert(fileName != nullptr);
+        assert(modelRef != nullptr);
+        assert(entry->Attribute("modelRef") == nullptr);
+        if (std::string(sceneObjectUuid) == primitiveSphere.uuid &&
+            std::string(modelRef) == primitiveSphere.modelFile)
+          sawSpherePrimitiveMapEntry = true;
+        if (std::string(sceneObjectUuid) == primitivePipe.uuid &&
+            std::string(modelRef) == primitivePipeGeo.modelFile)
+          sawPipePrimitiveMapEntry = true;
+      }
+    }
     for (tinyxml2::XMLElement *map = data->FirstChildElement("TrussInfoMap");
          map; map = map->NextSiblingElement("TrussInfoMap")) {
       sawRootTrussInfoMap = true;
@@ -937,6 +982,9 @@ int main() {
     }
   }
   assert(sawRootTrussInfoMap);
+  assert(sawRootPrimitiveGeometryMap);
+  assert(sawSpherePrimitiveMapEntry);
+  assert(sawPipePrimitiveMapEntry);
   assert(sawRepairedTrussInfo);
   assert(sawCanonicalTrussInfo);
 
@@ -1077,6 +1125,66 @@ int main() {
   assert(gdtfAuthorityTrussCount == static_cast<int>(scene.trusses.size()));
   assert(gdtfAuthorityTrussesWithGeometry3d == 0);
   assert(gdtfAuthorityTrussesWithRenderableGdtf == gdtfAuthorityTrussCount);
+
+  MvrImporter primitiveImporter;
+  assert(primitiveImporter.ImportFromFile(mvrPath.generic_string(), false,
+                                          false));
+  const MvrScene &roundtripScene = ConfigManager::Get().GetScene();
+  bool sawRoundtripPrimitiveSphere = false;
+  bool sawRoundtripPrimitivePipe = false;
+  for (const auto &[uuid, obj] : roundtripScene.sceneObjects) {
+    if (obj.name == primitiveSphere.name &&
+        obj.modelFile == primitiveSphere.modelFile)
+      sawRoundtripPrimitiveSphere = true;
+    if (obj.name == primitivePipe.name && !obj.geometries.empty() &&
+        obj.geometries.front().modelFile == primitivePipeGeo.modelFile)
+      sawRoundtripPrimitivePipe = true;
+  }
+  assert(sawRoundtripPrimitiveSphere);
+  assert(sawRoundtripPrimitivePipe);
+
+  const fs::path legacyPrimitiveMvrPath = tempDir / "legacy_primitive.mvr";
+  const std::string legacyPrimitiveUuid =
+      "22222222-2222-4222-8222-222222222222";
+  {
+    wxFileOutputStream legacyPrimitiveOut(
+        legacyPrimitiveMvrPath.generic_string());
+    assert(legacyPrimitiveOut.IsOk());
+    wxZipOutputStream legacyPrimitiveZip(legacyPrimitiveOut);
+    const std::string legacyPrimitiveXml =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+        "provider=\"Perastage\" providerVersion=\"" +
+        std::string(app::kVersion) +
+        "\"><Scene><Layers><Layer name=\"Default\"><ChildList>"
+        "<SceneObject uuid=\"" +
+        legacyPrimitiveUuid +
+        "\" name=\"Legacy Primitive\">"
+        "<Geometries><Geometry3D fileName=\"primitive_cube.glb\">"
+        "<Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
+        "</Geometry3D></Geometries>"
+        "<UserData><Data provider=\"Perastage\">"
+        "<PrimitiveGeometryMap><Entry fileName=\"PRIMITIVE_CUBE.GLB\" "
+        "perastageModelRef=\"primitive:cube\"/>"
+        "</PrimitiveGeometryMap></Data></UserData>"
+        "<Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
+        "</SceneObject></ChildList></Layer></Layers></Scene>"
+        "</GeneralSceneDescription>";
+    assert(legacyPrimitiveZip.PutNextEntry("GeneralSceneDescription.xml"));
+    legacyPrimitiveZip.Write(legacyPrimitiveXml.data(),
+                             legacyPrimitiveXml.size());
+    legacyPrimitiveZip.Close();
+  }
+
+  MvrImporter legacyPrimitiveImporter;
+  assert(legacyPrimitiveImporter.ImportFromFile(
+      legacyPrimitiveMvrPath.generic_string(), false, false));
+  const MvrScene &legacyPrimitiveScene = ConfigManager::Get().GetScene();
+  assert(legacyPrimitiveScene.sceneObjects.count(legacyPrimitiveUuid) == 1);
+  const SceneObject &legacyPrimitive =
+      legacyPrimitiveScene.sceneObjects.at(legacyPrimitiveUuid);
+  assert(!legacyPrimitive.geometries.empty());
+  assert(legacyPrimitive.geometries.front().modelFile == "primitive:cube");
 
   const fs::path legacyMvrPath = tempDir / "legacy_positions.mvr";
   {
