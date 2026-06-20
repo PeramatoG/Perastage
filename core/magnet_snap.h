@@ -33,7 +33,6 @@ struct SnapResult {
   ObjectType sourceType = ObjectType::SceneObject;
   ObjectType targetType = ObjectType::SceneObject;
   std::array<float, 3> translationDeltaMm{0.0f, 0.0f, 0.0f};
-  std::array<float, 3> committedTranslationDeltaMm{0.0f, 0.0f, 0.0f};
   bool needsGrouping = false;
 };
 
@@ -44,9 +43,6 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
 
 // Applies a translation-only snap result through scene_grouping transform helpers.
 bool ApplySnapTransform(MvrScene &scene, const SnapResult &result);
-
-// Applies the deferred snap delta that should only happen after release.
-bool ApplyCommittedSnapTransform(MvrScene &scene, const SnapResult &result);
 
 // Creates or extends official MVR GroupObjects after a committed snap.
 bool ApplyCommittedSnapGrouping(MvrScene &scene, const SnapResult &result);

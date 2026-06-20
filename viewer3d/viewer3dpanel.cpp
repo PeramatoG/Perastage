@@ -2663,15 +2663,13 @@ std::optional<magnet_snap::SnapResult> Viewer3DPanel::RestorePendingMagnetSnapPr
     return previous;
 }
 
-// Commits deferred Magnet alignment and grouping after a successful 3D snap.
+// Commits deferred Magnet grouping after a successful 3D snap.
 void Viewer3DPanel::CommitActiveMagnetSnap()
 {
-    if (!m_pendingMagnetSnap)
+    if (!m_pendingMagnetSnap || !m_pendingMagnetSnap->needsGrouping)
         return;
     ConfigManager& cfg = ConfigManager::Get();
-    magnet_snap::ApplyCommittedSnapTransform(cfg.GetScene(), *m_pendingMagnetSnap);
-    if (m_pendingMagnetSnap->needsGrouping)
-        magnet_snap::ApplyCommittedSnapGrouping(cfg.GetScene(), *m_pendingMagnetSnap);
+    magnet_snap::ApplyCommittedSnapGrouping(cfg.GetScene(), *m_pendingMagnetSnap);
 }
 
 // Applies a world-space delta to every object in the active selection drag.

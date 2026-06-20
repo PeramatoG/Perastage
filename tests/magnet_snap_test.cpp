@@ -105,7 +105,7 @@ int main() {
       scene, {magnet_snap::ObjectType::Truss, "top-view-source"},
       topViewSettings);
   assert(topViewSnap);
-  assert(std::fabs(topViewSnap->translationDeltaMm[2]) < 0.001f);
+  assert(std::fabs(topViewSnap->translationDeltaMm[2]) > 0.001f);
   scene.trusses.erase("top-view-source");
 
   MvrScene elevatedFixtureScene;
@@ -123,16 +123,10 @@ int main() {
   assert(elevatedFixtureSnap->targetUuid == "elevated-truss");
   assert(std::fabs(elevatedFixtureSnap->translationDeltaMm[1] + 10.0f) <
          0.001f);
-  assert(std::fabs(elevatedFixtureSnap->translationDeltaMm[2]) < 0.001f);
-  assert(std::fabs(elevatedFixtureSnap->committedTranslationDeltaMm[2] -
-                   7000.0f) < 0.001f);
+  assert(std::fabs(elevatedFixtureSnap->translationDeltaMm[2] - 7000.0f) <
+         0.001f);
   assert(magnet_snap::ApplySnapTransform(elevatedFixtureScene,
                                          *elevatedFixtureSnap));
-  assert(std::fabs(elevatedFixtureScene.fixtures[elevatedFixture.uuid]
-                       .transform.o[2] -
-                   3000.0f) < 0.001f);
-  assert(magnet_snap::ApplyCommittedSnapTransform(elevatedFixtureScene,
-                                                  *elevatedFixtureSnap));
   assert(std::fabs(elevatedFixtureScene.fixtures[elevatedFixture.uuid]
                        .transform.o[2] -
                    10000.0f) < 0.001f);
