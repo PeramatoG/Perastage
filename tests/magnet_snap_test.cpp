@@ -110,10 +110,10 @@ int main() {
 
   MvrScene elevatedFixtureScene;
   AddTruss(elevatedFixtureScene, "elevated-truss", 0.0f);
-  elevatedFixtureScene.trusses["elevated-truss"].transform.o[2] = 5000.0f;
+  elevatedFixtureScene.trusses["elevated-truss"].transform.o[2] = 10000.0f;
   Fixture elevatedFixture;
   elevatedFixture.uuid = "elevated-fixture";
-  elevatedFixture.transform = Translated(1510.0f, 160.0f, 0.0f);
+  elevatedFixture.transform = Translated(1510.0f, 160.0f, 3000.0f);
   elevatedFixtureScene.fixtures[elevatedFixture.uuid] = elevatedFixture;
   auto elevatedFixtureSnap = magnet_snap::FindSnap(
       elevatedFixtureScene,
@@ -124,6 +124,18 @@ int main() {
   assert(std::fabs(elevatedFixtureSnap->translationDeltaMm[1] + 10.0f) <
          0.001f);
   assert(std::fabs(elevatedFixtureSnap->translationDeltaMm[2]) < 0.001f);
+  assert(std::fabs(elevatedFixtureSnap->committedTranslationDeltaMm[2] -
+                   7000.0f) < 0.001f);
+  assert(magnet_snap::ApplySnapTransform(elevatedFixtureScene,
+                                         *elevatedFixtureSnap));
+  assert(std::fabs(elevatedFixtureScene.fixtures[elevatedFixture.uuid]
+                       .transform.o[2] -
+                   3000.0f) < 0.001f);
+  assert(magnet_snap::ApplyCommittedSnapTransform(elevatedFixtureScene,
+                                                  *elevatedFixtureSnap));
+  assert(std::fabs(elevatedFixtureScene.fixtures[elevatedFixture.uuid]
+                       .transform.o[2] -
+                   10000.0f) < 0.001f);
 
   Fixture fixture;
   fixture.uuid = "fixture";

@@ -1604,12 +1604,14 @@ Viewer2DPanel::RestorePendingMagnetSnapPreview() {
   return previous;
 }
 
-// Commits deferred Magnet grouping after a successful truss snap.
+// Commits deferred Magnet alignment and grouping after a successful snap.
 void Viewer2DPanel::CommitActiveMagnetSnap() {
-  if (!m_pendingMagnetSnap || !m_pendingMagnetSnap->needsGrouping)
+  if (!m_pendingMagnetSnap)
     return;
   ConfigManager &cfg = ConfigManager::Get();
-  magnet_snap::ApplyCommittedSnapGrouping(cfg.GetScene(), *m_pendingMagnetSnap);
+  magnet_snap::ApplyCommittedSnapTransform(cfg.GetScene(), *m_pendingMagnetSnap);
+  if (m_pendingMagnetSnap->needsGrouping)
+    magnet_snap::ApplyCommittedSnapGrouping(cfg.GetScene(), *m_pendingMagnetSnap);
 }
 
 void Viewer2DPanel::ApplySelectionDelta(

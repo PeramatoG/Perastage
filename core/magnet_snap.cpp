@@ -368,6 +368,7 @@ void ConsiderFacePair(const SnapSource &source, ObjectType targetType,
   result.sourceType = source.type;
   result.targetType = targetType;
   result.translationDeltaMm = BuildSnapTranslationDelta(delta, settings);
+  result.committedTranslationDeltaMm = delta;
   result.needsGrouping = kind == SnapKind::TrussToTruss;
   best = result;
 }
@@ -441,6 +442,7 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
       result.sourceType = source.type;
       result.targetType = ObjectType::Truss;
       result.translationDeltaMm = BuildSnapTranslationDelta(delta, settings);
+      result.committedTranslationDeltaMm = delta;
       result.needsGrouping = true;
       best = result;
     }
@@ -477,6 +479,23 @@ bool ApplySnapTransform(MvrScene &scene, const SnapResult &result) {
     transform.o[axis] += result.translationDeltaMm[axis];
   scene_grouping::SetTargetWorldTransform(scene, target, transform);
   return true;
+}
+
+// Applies the deferred snap delta that should only happen after release.
+bool ApplyCommittedSnapTransform(MvrScene &scene, const SnapResult &result) {
+  if (!result.snapped)
+    return false;
+  SnapResult remaining = result;
+  bool hasRemainingDelta = false;
+  for (int axis = 0; axis < 3; ++axis) {
+    remaining.translationDeltaMm[axis] =
+        result.committedTranslationDeltaMm[axis] - result.translationDeltaMm[axis];
+    if (std::fabs(remaining.translationDeltaMm[axis]) > 1e-5f)
+      hasRemainingDelta = true;
+  }
+  if (!hasRemainingDelta)
+    return false;
+  return ApplySnapTransform(scene, remaining);
 }
 
 // Creates or extends official MVR GroupObjects after a committed snap.
