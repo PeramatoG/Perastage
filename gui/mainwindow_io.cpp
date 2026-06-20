@@ -645,8 +645,8 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
           fixture.gdtfSpec == chosenGdtfSpec)
         fixture.gdtfSpec = derivativeSpec;
     }
-    if (fixtureTablePanel)
-      fixtureTablePanel->ReloadData();
+    if (fixturePanel)
+      fixturePanel->ReloadData();
     RefreshAfterSceneChange();
   }
 
