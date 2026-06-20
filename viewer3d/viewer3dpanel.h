@@ -181,6 +181,8 @@ private:
         const wxPoint& mousePos, const RenderSize& renderSize) const;
     void ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters);
     std::optional<magnet_snap::SnapSource> BuildActiveMagnetSource() const;
+    magnet_snap::SnapSettings BuildActiveMagnetSettings(
+        const magnet_snap::SnapSource& source) const;
     std::optional<magnet_snap::SnapResult> FindActiveMagnetSnap() const;
     std::optional<magnet_snap::SnapResult> RestorePendingMagnetSnapPreview();
     void CommitActiveMagnetSnap();

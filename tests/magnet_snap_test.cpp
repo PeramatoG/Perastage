@@ -48,6 +48,19 @@ int main() {
   assert(!magnet_snap::FindSnap(
       scene, {magnet_snap::ObjectType::Truss, "source"}));
 
+  MvrScene sideSurfaceScene;
+  AddTruss(sideSurfaceScene, "target", 0.0f);
+  AddTruss(sideSurfaceScene, "source", 0.0f);
+  sideSurfaceScene.trusses["source"].transform.o[1] = 550.0f;
+  magnet_snap::SnapSettings topSideSettings;
+  topSideSettings.axisWeights[2] = 0.0f;
+  auto sideSurfaceSnap = magnet_snap::FindSnap(
+      sideSurfaceScene, {magnet_snap::ObjectType::Truss, "source"},
+      topSideSettings);
+  assert(sideSurfaceSnap);
+  assert(std::fabs(sideSurfaceSnap->translationDeltaMm[1] + 250.0f) < 0.001f);
+  assert(std::fabs(sideSurfaceSnap->translationDeltaMm[2]) < 0.001f);
+
   scene.trusses["source"].transform.o[0] = 3250.0f;
   snap = magnet_snap::FindSnap(scene,
                                {magnet_snap::ObjectType::Truss, "source"});
@@ -71,13 +84,52 @@ int main() {
   scene.trusses.erase("loose");
 
   AddTruss(scene, "source-2", 6250.0f);
-  scene.trusses["source-2"].transform.o[0] = 3250.0f;
   auto snap2 = magnet_snap::FindSnap(
       scene, {magnet_snap::ObjectType::Truss, "source-2"});
   assert(snap2);
+  assert(snap2->targetUuid == groupUuid);
   assert(magnet_snap::ApplyCommittedSnapGrouping(scene, *snap2));
   assert(scene.trusses["source-2"].parentGroupUuid == groupUuid);
   assert(scene.groupObjects.size() == 1);
+
+  AddTruss(scene, "interior-candidate", 3250.0f);
+  assert(!magnet_snap::FindSnap(
+      scene, {magnet_snap::ObjectType::Truss, "interior-candidate"}));
+  scene.trusses.erase("interior-candidate");
+
+  magnet_snap::SnapSettings topViewSettings;
+  topViewSettings.axisWeights[2] = 0.0f;
+  AddTruss(scene, "top-view-source", 9250.0f);
+  scene.trusses["top-view-source"].transform.o[2] = 1000.0f;
+  auto topViewSnap = magnet_snap::FindSnap(
+      scene, {magnet_snap::ObjectType::Truss, "top-view-source"},
+      topViewSettings);
+  assert(topViewSnap);
+  assert(std::fabs(topViewSnap->translationDeltaMm[2]) > 0.001f);
+  scene.trusses.erase("top-view-source");
+
+  MvrScene elevatedFixtureScene;
+  AddTruss(elevatedFixtureScene, "elevated-truss", 0.0f);
+  elevatedFixtureScene.trusses["elevated-truss"].transform.o[2] = 10000.0f;
+  Fixture elevatedFixture;
+  elevatedFixture.uuid = "elevated-fixture";
+  elevatedFixture.transform = Translated(1510.0f, 160.0f, 3000.0f);
+  elevatedFixtureScene.fixtures[elevatedFixture.uuid] = elevatedFixture;
+  auto elevatedFixtureSnap = magnet_snap::FindSnap(
+      elevatedFixtureScene,
+      {magnet_snap::ObjectType::Fixture, elevatedFixture.uuid},
+      topViewSettings);
+  assert(elevatedFixtureSnap);
+  assert(elevatedFixtureSnap->targetUuid == "elevated-truss");
+  assert(std::fabs(elevatedFixtureSnap->translationDeltaMm[1] + 10.0f) <
+         0.001f);
+  assert(std::fabs(elevatedFixtureSnap->translationDeltaMm[2] - 7000.0f) <
+         0.001f);
+  assert(magnet_snap::ApplySnapTransform(elevatedFixtureScene,
+                                         *elevatedFixtureSnap));
+  assert(std::fabs(elevatedFixtureScene.fixtures[elevatedFixture.uuid]
+                       .transform.o[2] -
+                   10000.0f) < 0.001f);
 
   Fixture fixture;
   fixture.uuid = "fixture";

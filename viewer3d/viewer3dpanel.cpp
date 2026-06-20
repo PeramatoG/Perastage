@@ -2611,18 +2611,39 @@ std::optional<magnet_snap::SnapSource> Viewer3DPanel::BuildActiveMagnetSource() 
     return std::nullopt;
 }
 
+
+// Builds camera-weighted Magnet settings for the active 3D view.
+magnet_snap::SnapSettings Viewer3DPanel::BuildActiveMagnetSettings(
+    const magnet_snap::SnapSource& source) const
+{
+    magnet_snap::SnapSettings settings;
+    settings.thresholdMm = source.type == magnet_snap::ObjectType::Fixture
+                               ? magnet_snap::kDefaultSnapDistanceMm * 2.0f
+                               : magnet_snap::kDefaultSnapDistanceMm;
+
+    constexpr float kPi = 3.14159265358979323846f;
+    constexpr float kMinimumViewAxisWeight = 0.2f;
+    const float yawRad = m_camera.GetYaw() * kPi / 180.0f;
+    const float pitchRad = m_camera.GetPitch() * kPi / 180.0f;
+    const std::array<float, 3> forward = {
+        -std::cos(pitchRad) * std::sin(yawRad),
+        std::cos(pitchRad) * std::cos(yawRad),
+        -std::sin(pitchRad),
+    };
+    for (int axis = 0; axis < 3; ++axis)
+        settings.axisWeights[axis] = std::max(
+            kMinimumViewAxisWeight, 1.0f - std::fabs(forward[axis]));
+    return settings;
+}
+
 // Finds the current Magnet snap candidate for the active 3D drag.
 std::optional<magnet_snap::SnapResult> Viewer3DPanel::FindActiveMagnetSnap() const
 {
     auto source = BuildActiveMagnetSource();
     if (!source)
         return std::nullopt;
-    magnet_snap::SnapSettings settings;
-    settings.thresholdMm = source->type == magnet_snap::ObjectType::Fixture
-                               ? magnet_snap::kDefaultSnapDistanceMm * 2.0f
-                               : magnet_snap::kDefaultSnapDistanceMm;
     return magnet_snap::FindSnap(ConfigManager::Get().GetScene(), *source,
-                                 settings);
+                                 BuildActiveMagnetSettings(*source));
 }
 
 // Restores the raw mouse-following transform before applying the next 3D drag delta.
@@ -2642,7 +2663,7 @@ std::optional<magnet_snap::SnapResult> Viewer3DPanel::RestorePendingMagnetSnapPr
     return previous;
 }
 
-// Commits deferred Magnet grouping after a successful 3D truss snap.
+// Commits deferred Magnet grouping after a successful 3D snap.
 void Viewer3DPanel::CommitActiveMagnetSnap()
 {
     if (!m_pendingMagnetSnap || !m_pendingMagnetSnap->needsGrouping)

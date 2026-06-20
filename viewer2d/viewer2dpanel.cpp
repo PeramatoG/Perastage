@@ -1563,12 +1563,31 @@ std::optional<magnet_snap::SnapSource> Viewer2DPanel::BuildActiveMagnetSource() 
   return std::nullopt;
 }
 
+// Builds view-aware Magnet settings for the active 2D projection.
+magnet_snap::SnapSettings Viewer2DPanel::BuildActiveMagnetSettings() const {
+  magnet_snap::SnapSettings settings;
+  switch (m_view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    settings.axisWeights[2] = 0.0f;
+    break;
+  case Viewer2DView::Front:
+    settings.axisWeights[1] = 0.0f;
+    break;
+  case Viewer2DView::Side:
+    settings.axisWeights[0] = 0.0f;
+    break;
+  }
+  return settings;
+}
+
 // Finds the current Magnet snap candidate for the active single-object drag.
 std::optional<magnet_snap::SnapResult> Viewer2DPanel::FindActiveMagnetSnap() const {
   auto source = BuildActiveMagnetSource();
   if (!source)
     return std::nullopt;
-  return magnet_snap::FindSnap(ConfigManager::Get().GetScene(), *source);
+  return magnet_snap::FindSnap(ConfigManager::Get().GetScene(), *source,
+                               BuildActiveMagnetSettings());
 }
 
 // Restores the raw mouse-following transform before applying the next drag delta.
@@ -1585,7 +1604,7 @@ Viewer2DPanel::RestorePendingMagnetSnapPreview() {
   return previous;
 }
 
-// Commits deferred Magnet grouping after a successful truss snap.
+// Commits deferred Magnet grouping after a successful snap.
 void Viewer2DPanel::CommitActiveMagnetSnap() {
   if (!m_pendingMagnetSnap || !m_pendingMagnetSnap->needsGrouping)
     return;
