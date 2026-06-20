@@ -679,15 +679,20 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
   }
 
   std::error_code copyError;
-  fs::create_directories(target.parent_path(), copyError);
-  copyError.clear();
-  fs::copy_file(effectiveSrc, target, fs::copy_options::overwrite_existing,
-                copyError);
-  if (copyError) {
-    wxMessageBox(
-        "Failed to write file: " + wxString::FromUTF8(copyError.message()),
-        "Error", wxOK | wxICON_ERROR);
-    return;
+  const bool targetIsEffectiveSource =
+      fs::exists(target, copyError) &&
+      fs::equivalent(target, effectiveSrc, copyError);
+  if (!targetIsEffectiveSource) {
+    fs::create_directories(target.parent_path(), copyError);
+    copyError.clear();
+    fs::copy_file(effectiveSrc, target, fs::copy_options::overwrite_existing,
+                  copyError);
+    if (copyError) {
+      wxMessageBox(
+          "Failed to write file: " + wxString::FromUTF8(copyError.message()),
+          "Error", wxOK | wxICON_ERROR);
+      return;
+    }
   }
 
   wxMessageBox("Fixture exported successfully.", "Export Fixture",
