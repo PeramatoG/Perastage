@@ -974,23 +974,27 @@ int main() {
   }
   assert(supportNode != nullptr);
   assert(supportNode->FirstChildElement("Geometries") != nullptr);
-  auto *supportUserData = supportNode->FirstChildElement("UserData");
-  assert(supportUserData != nullptr);
-  assert(supportUserData->NextSiblingElement("UserData") == nullptr);
-  auto *supportData = supportUserData->FirstChildElement("Data");
-  assert(supportData != nullptr);
-  auto *supportInfo = supportData->FirstChildElement("SupportInfo");
-  assert(supportInfo != nullptr);
-  auto *hoistInfo = supportData->FirstChildElement("HoistInfo");
-  assert(hoistInfo != nullptr);
-  auto *capacityNode = hoistInfo->FirstChildElement("Capacity");
-  assert(capacityNode != nullptr && capacityNode->GetText() != nullptr &&
-         std::string(capacityNode->GetText()) == "1000.000000");
-  auto *supportPositionNode = supportInfo->FirstChildElement("Position");
+  assert(supportNode->FirstChildElement("UserData") == nullptr);
+  assert(supportNode->FirstChildElement("SupportInfo") == nullptr);
+  assert(supportNode->FirstChildElement("HoistInfo") == nullptr);
+  auto *supportPositionNode = supportNode->FirstChildElement("Position");
   assert(supportPositionNode != nullptr &&
          supportPositionNode->GetText() != nullptr);
   assert(CanonicalizeUuid(supportPositionNode->GetText()) ==
          std::string(supportPositionNode->GetText()));
+  auto *rootHoistInfoMap = rootUserData->FirstChildElement("Data")->FirstChildElement("HoistInfoMap");
+  assert(rootHoistInfoMap != nullptr);
+  tinyxml2::XMLElement *hoistInfo = nullptr;
+  for (auto *info = rootHoistInfoMap->FirstChildElement("HoistInfo"); info;
+       info = info->NextSiblingElement("HoistInfo")) {
+    if (info->Attribute("uuid") != nullptr &&
+        std::string(info->Attribute("uuid")) == sup.uuid)
+      hoistInfo = info;
+  }
+  assert(hoistInfo != nullptr);
+  auto *capacityNode = hoistInfo->FirstChildElement("Capacity");
+  assert(capacityNode != nullptr && capacityNode->GetText() != nullptr &&
+         std::string(capacityNode->GetText()) == "1000.000000");
 
   std::unordered_map<std::string, std::string> fixtureTypeIdByTrussUuid;
   for (const auto &[trussUuid, gdtfSpec] : trussGdtfByUuid) {
