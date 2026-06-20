@@ -22,6 +22,7 @@ struct SnapSource {
 
 struct SnapSettings {
   float thresholdMm = kDefaultSnapDistanceMm;
+  std::array<float, 3> axisWeights{1.0f, 1.0f, 1.0f};
 };
 
 struct SnapResult {

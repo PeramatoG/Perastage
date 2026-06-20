@@ -49,6 +49,15 @@ float Length(const std::array<float, 3> &v) {
   return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 }
 
+// Returns the weighted vector length in millimeters.
+float WeightedLength(const std::array<float, 3> &v,
+                     const std::array<float, 3> &weights) {
+  const float x = v[0] * weights[0];
+  const float y = v[1] * weights[1];
+  const float z = v[2] * weights[2];
+  return std::sqrt(x * x + y * y + z * z);
+}
+
 // Returns a normalized vector or a safe fallback.
 std::array<float, 3> Normalize(const std::array<float, 3> &v) {
   const float len = Length(v);
@@ -303,13 +312,13 @@ bool GroupContainsTruss(const MvrScene &scene, const std::string &groupUuid,
 void ConsiderFacePair(const SnapSource &source, ObjectType targetType,
                       const std::string &targetUuid, SnapKind kind,
                       const Face &sourceFace, const Face &targetFace,
-                      float thresholdMm, float &bestDistance,
+                      const SnapSettings &settings, float &bestDistance,
                       std::optional<SnapResult> &best) {
   const std::array<float, 3> delta = {targetFace.center[0] - sourceFace.center[0],
                                      targetFace.center[1] - sourceFace.center[1],
                                      targetFace.center[2] - sourceFace.center[2]};
-  const float distance = Length(delta);
-  if (distance > thresholdMm || distance >= bestDistance)
+  const float distance = WeightedLength(delta, settings.axisWeights);
+  if (distance > settings.thresholdMm || distance >= bestDistance)
     return;
   bestDistance = distance;
   SnapResult result;
@@ -340,18 +349,32 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
   if (source.type == ObjectType::Truss ||
       source.type == ObjectType::TrussGroup) {
     const auto sourceFaces = BuildFaces(*sourceBounds, true);
+    auto considerTrussTarget = [&](ObjectType targetType, const std::string &uuid,
+                                   const Bounds &targetBounds) {
+      if (uuid == source.uuid)
+        return;
+      for (const auto &sourceFace : sourceFaces) {
+        for (const auto &targetFace : BuildFaces(targetBounds, true))
+          ConsiderFacePair(source, targetType, uuid, SnapKind::TrussToTruss,
+                           sourceFace, targetFace, settings, bestDistance, best);
+      }
+    };
+    for (const auto &[uuid, group] : scene.groupObjects) {
+      (void)group;
+      if (source.type == ObjectType::TrussGroup && uuid == source.uuid)
+        continue;
+      if (source.type == ObjectType::Truss &&
+          GroupContainsTruss(scene, uuid, source.uuid))
+        continue;
+      if (auto targetBounds = MakeTrussGroupBounds(scene, uuid))
+        considerTrussTarget(ObjectType::TrussGroup, uuid, *targetBounds);
+    }
     for (const auto &[uuid, truss] : scene.trusses) {
-      if (uuid == source.uuid ||
+      if (uuid == source.uuid || !truss.parentGroupUuid.empty() ||
           (source.type == ObjectType::TrussGroup &&
            GroupContainsTruss(scene, source.uuid, uuid)))
         continue;
-      const Bounds targetBounds = MakeTrussBounds(truss);
-      for (const auto &sourceFace : sourceFaces) {
-        for (const auto &targetFace : BuildFaces(targetBounds, true))
-          ConsiderFacePair(source, ObjectType::Truss, uuid,
-                           SnapKind::TrussToTruss, sourceFace, targetFace,
-                           settings.thresholdMm, bestDistance, best);
-      }
+      considerTrussTarget(ObjectType::Truss, uuid, MakeTrussBounds(truss));
     }
     return best;
   }
@@ -363,7 +386,7 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
       const std::array<float, 3> closest =
           ClosestPointOnSurface(targetBounds, insertion);
       const std::array<float, 3> delta = Subtract(closest, insertion);
-      const float distance = Length(delta);
+      const float distance = WeightedLength(delta, settings.axisWeights);
       if (distance > settings.thresholdMm || distance >= bestDistance)
         continue;
       bestDistance = distance;
@@ -389,8 +412,7 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
     for (const auto &sourceFace : sourceFaces) {
       for (const auto &targetFace : BuildFaces(bounds, false))
         ConsiderFacePair(source, targetType, uuid, SnapKind::SceneObjectToObject,
-                         sourceFace, targetFace, settings.thresholdMm,
-                         bestDistance, best);
+                         sourceFace, targetFace, settings, bestDistance, best);
     }
   };
   for (const auto &[uuid, truss] : scene.trusses)
@@ -418,6 +440,14 @@ bool ApplyCommittedSnapGrouping(MvrScene &scene, const SnapResult &result) {
   if (!result.needsGrouping)
     return false;
   if (result.kind == SnapKind::TrussToTruss) {
+    if (result.targetType == ObjectType::TrussGroup &&
+        result.sourceType == ObjectType::Truss) {
+      scene_grouping::ObjectSelection addSelection;
+      addSelection.trusses = {result.sourceUuid};
+      return scene_grouping::AddSelectionToGroup(scene, addSelection,
+                                                 result.targetUuid)
+          .changed;
+    }
     auto targetIt = scene.trusses.find(result.targetUuid);
     if (targetIt == scene.trusses.end())
       return false;

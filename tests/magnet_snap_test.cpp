@@ -71,13 +71,30 @@ int main() {
   scene.trusses.erase("loose");
 
   AddTruss(scene, "source-2", 6250.0f);
-  scene.trusses["source-2"].transform.o[0] = 3250.0f;
   auto snap2 = magnet_snap::FindSnap(
       scene, {magnet_snap::ObjectType::Truss, "source-2"});
   assert(snap2);
+  assert(snap2->targetUuid == groupUuid);
   assert(magnet_snap::ApplyCommittedSnapGrouping(scene, *snap2));
   assert(scene.trusses["source-2"].parentGroupUuid == groupUuid);
   assert(scene.groupObjects.size() == 1);
+
+  AddTruss(scene, "interior-candidate", 3250.0f);
+  assert(!magnet_snap::FindSnap(
+      scene, {magnet_snap::ObjectType::Truss, "interior-candidate"}));
+  scene.trusses.erase("interior-candidate");
+
+  magnet_snap::SnapSettings topViewSettings;
+  topViewSettings.axisWeights[2] = 0.0f;
+  AddTruss(scene, "top-view-source", 9250.0f);
+  scene.trusses["top-view-source"].transform.o[2] = 1000.0f;
+  auto topViewSnap = magnet_snap::FindSnap(
+      scene, {magnet_snap::ObjectType::Truss, "top-view-source"},
+      topViewSettings);
+  assert(topViewSnap);
+  assert(std::fabs(topViewSnap->translationDeltaMm[2] -
+                   scene.trusses["target"].transform.o[2]) > 0.001f);
+  scene.trusses.erase("top-view-source");
 
   Fixture fixture;
   fixture.uuid = "fixture";
