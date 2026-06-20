@@ -207,13 +207,12 @@ int main() {
   fs::create_directories(tempDir / "C");
   fs::create_directories(tempDir / "case_a");
   fs::create_directories(tempDir / "case_b");
-  fs::create_directories(tempDir / "fixtures");
 
   std::ofstream(tempDir / "A" / "Same.gdtf") << "A";
   std::ofstream(tempDir / "B" / "Same.gdtf") << "B";
   std::ofstream(tempDir / "case_a" / "CaseOnly.gdtf") << "CASE A";
   std::ofstream(tempDir / "case_b" / "caseonly.gdtf") << "CASE B";
-  std::ofstream(tempDir / "fixtures" / "@PerastageFixture.gdtf") << "AT";
+  std::ofstream(tempDir / "@PerastageFixture.gdtf") << "AT";
   std::ofstream(tempDir / "mesh.3ds") << "mesh";
   std::ofstream(tempDir / "models" / "truss_model.3ds") << "truss";
   std::ofstream(tempDir / "models" / "support_model.3ds") << "support";
@@ -299,7 +298,7 @@ int main() {
   Fixture fAt;
   fAt.uuid = "fx-at";
   fAt.instanceName = "At Fixture";
-  fAt.gdtfSpec = "fixtures/@PerastageFixture.gdtf";
+  fAt.gdtfSpec = "@PerastageFixture.gdtf";
   fAt.address = "21.1";
   scene.fixtures[fAt.uuid] = fAt;
 

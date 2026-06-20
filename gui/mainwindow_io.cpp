@@ -75,8 +75,8 @@ std::string Utf8StringFromPath(const std::filesystem::path &path) {
   return std::string(utf8.begin(), utf8.end());
 }
 
-// Copies a generated fixture GDTF into the project and returns its
-// scene-relative path.
+// Copies a generated fixture GDTF into the project MVR root and returns its
+// archive-relative file name.
 bool CopyFixtureGdtfIntoProject(const std::filesystem::path &sourcePath,
                                 const std::filesystem::path &projectBasePath,
                                 std::string &relativeSpecOut,
@@ -95,14 +95,14 @@ bool CopyFixtureGdtfIntoProject(const std::filesystem::path &sourcePath,
     return false;
   }
 
-  const std::filesystem::path fixturesDir = projectBasePath / "fixtures";
-  std::filesystem::create_directories(fixturesDir, ec);
+  std::filesystem::create_directories(projectBasePath, ec);
   if (ec) {
-    errorOut = "Could not create the project fixtures folder.";
+    errorOut = "Could not prepare the project MVR resource folder.";
     return false;
   }
 
-  const std::filesystem::path targetPath = fixturesDir / sourcePath.filename();
+  const std::filesystem::path targetPath =
+      projectBasePath / sourcePath.filename();
   const std::filesystem::path canonicalSource =
       std::filesystem::weakly_canonical(sourcePath, ec);
   if (ec) {
@@ -116,11 +116,12 @@ bool CopyFixtureGdtfIntoProject(const std::filesystem::path &sourcePath,
   ec.clear();
   if (!sameFile) {
     std::filesystem::copy_file(
-        sourcePath, targetPath, std::filesystem::copy_options::overwrite_existing,
-        ec);
+        sourcePath, targetPath,
+        std::filesystem::copy_options::overwrite_existing, ec);
     if (ec) {
       errorOut =
-          "Could not copy the generated Perastage fixture GDTF into the project.";
+          "Could not copy the generated Perastage fixture GDTF into the "
+          "project MVR root.";
       return false;
     }
   }
@@ -128,7 +129,7 @@ bool CopyFixtureGdtfIntoProject(const std::filesystem::path &sourcePath,
   const std::filesystem::path relativePath =
       std::filesystem::relative(targetPath, projectBasePath, ec);
   if (ec) {
-    errorOut = "Could not compute the project-relative fixture GDTF path.";
+    errorOut = "Could not compute the project MVR fixture GDTF reference.";
     return false;
   }
 
