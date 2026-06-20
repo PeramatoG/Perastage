@@ -36,6 +36,7 @@
 #include "matrixutils.h"
 #include "primitive_model_resources.h"
 #include "projectutils.h"
+#include "scene_grouping.h"
 #include "sceneobject.h"
 #include "support.h"
 #include "trussloader.h"
@@ -3239,6 +3240,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     LogMessage(Logger::Level::Info,
                "MVR import preserved GroupObject count=" +
                    std::to_string(preservedGroupObjectCount));
+  }
+  const std::size_t repairedGroupLayerCount =
+      scene_grouping::SynchronizeGroupObjectLayerOwnership(scene);
+  if (repairedGroupLayerCount > 0) {
+    LogMessage(Logger::Level::Info,
+               "MVR import repaired " +
+                   std::to_string(repairedGroupLayerCount) +
+                   " GroupObject child layer assignment(s)");
   }
 
   auto resolveFixtureGdtfPathForRead = [&](const std::string &spec) {

@@ -20,6 +20,7 @@
 #include "mvrscene.h"
 
 #include <array>
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -45,6 +46,9 @@ struct OperationResult {
   std::vector<std::string> affectedSupports;
   std::vector<std::string> affectedSceneObjects;
 };
+
+// Synchronizes GroupObject children to the layer owned by their parent group.
+std::size_t SynchronizeGroupObjectLayerOwnership(MvrScene &scene);
 
 // Creates one MVR-compatible GroupObject from the selected scene entities.
 OperationResult GroupSelection(MvrScene &scene,

@@ -27,7 +27,7 @@ int main() {
 
   Fixture fixture;
   fixture.uuid = "fixture-a";
-  fixture.layer = "No Layer";
+  fixture.layer = "MAC500";
   fixture.position = "lx1-position";
   fixture.positionName = "LX1";
   fixture.transform = Translated(1000.0f, 0.0f, 0.0f);
@@ -35,7 +35,7 @@ int main() {
 
   Truss truss;
   truss.uuid = "truss-a";
-  truss.layer = "No Layer";
+  truss.layer = "LX1";
   truss.position = "lx1-position";
   truss.positionName = "LX1";
   truss.transform = Translated(3000.0f, 0.0f, 0.0f);
@@ -51,6 +51,9 @@ int main() {
   assert(scene.groupObjects.size() == 1);
   assert(scene.fixtures[fixture.uuid].parentGroupUuid == groupResult.groupUuid);
   assert(scene.trusses[truss.uuid].parentGroupUuid == groupResult.groupUuid);
+  assert(scene.groupObjects[groupResult.groupUuid].layer == "LX1");
+  assert(scene.fixtures[fixture.uuid].layer == "LX1");
+  assert(scene.trusses[truss.uuid].layer == "LX1");
   assert(scene.fixtures[fixture.uuid].positionName == "LX1");
   assert(scene.trusses[truss.uuid].positionName == "LX1");
   assert(NearlyEqual(scene.fixtures[fixture.uuid].transform.o[0], 1000.0f));
@@ -66,6 +69,8 @@ int main() {
   assert(scene.groupObjects.empty());
   assert(scene.fixtures[fixture.uuid].parentGroupUuid.empty());
   assert(scene.trusses[truss.uuid].parentGroupUuid.empty());
+  assert(scene.fixtures[fixture.uuid].layer == "LX1");
+  assert(scene.trusses[truss.uuid].layer == "LX1");
   assert(scene.fixtures[fixture.uuid].positionName == "LX1");
   assert(scene.trusses[truss.uuid].positionName == "LX1");
   assert(NearlyEqual(scene.fixtures[fixture.uuid].transform.o[0], 1000.0f));
@@ -135,6 +140,47 @@ int main() {
                      1100.0f));
   assert(NearlyEqual(groupedDragScene.trusses[groupedTruss.uuid].transform.o[0],
                      3100.0f));
+
+  MvrScene existingGroupScene;
+  Fixture addedFixture;
+  addedFixture.uuid = "added-fixture";
+  addedFixture.layer = "MAC500";
+  addedFixture.transform = Translated(500.0f, 0.0f, 0.0f);
+  existingGroupScene.fixtures[addedFixture.uuid] = addedFixture;
+  Truss existingTruss;
+  existingTruss.uuid = "existing-truss";
+  existingTruss.layer = "LX1";
+  existingTruss.transform = Translated(1500.0f, 0.0f, 0.0f);
+  existingGroupScene.trusses[existingTruss.uuid] = existingTruss;
+  scene_grouping::ObjectSelection existingGroupSelection;
+  existingGroupSelection.trusses = {existingTruss.uuid};
+  const scene_grouping::OperationResult existingGroupResult =
+      scene_grouping::GroupSelection(existingGroupScene, existingGroupSelection);
+  assert(!existingGroupResult.changed);
+  GroupObject existingGroup;
+  existingGroup.uuid = "existing-group";
+  existingGroup.layer = "LX1";
+  existingGroup.transform = Translated(1500.0f, 0.0f, 0.0f);
+  existingGroup.children.push_back({MvrNodeType::Truss, existingTruss.uuid});
+  existingGroupScene.groupObjects[existingGroup.uuid] = existingGroup;
+  existingGroupScene.trusses[existingTruss.uuid].parentGroupUuid =
+      existingGroup.uuid;
+  scene_grouping::ObjectSelection addFixtureSelection;
+  addFixtureSelection.fixtures = {addedFixture.uuid};
+  assert(scene_grouping::AddSelectionToGroup(existingGroupScene,
+                                             addFixtureSelection,
+                                             existingGroup.uuid)
+             .changed);
+  assert(existingGroupScene.fixtures[addedFixture.uuid].layer == "LX1");
+  assert(existingGroupScene.trusses[existingTruss.uuid].layer == "LX1");
+  assert(NearlyEqual(existingGroupScene.fixtures[addedFixture.uuid]
+                         .transform.o[0],
+                     500.0f));
+
+  existingGroupScene.fixtures[addedFixture.uuid].layer = "MAC500";
+  assert(scene_grouping::SynchronizeGroupObjectLayerOwnership(
+             existingGroupScene) == 1);
+  assert(existingGroupScene.fixtures[addedFixture.uuid].layer == "LX1");
 
   const scene_grouping::OperationResult fixtureDetachResult =
       scene_grouping::RemoveSelectionFromGroup(scene, childSelection);

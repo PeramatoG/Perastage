@@ -71,6 +71,7 @@ Perastage v1.4.0 delivers a long-anticipated refresh of the modelling and riggin
 
 This release addresses dozens of issues across importing, snapping, editing and export workflows, including:
 
+- **GroupObject layer ownership** - fixtures added to truss-based groups now immediately adopt the truss/group layer, while existing trusses and groups keep their original layer across save, reopen, MVR import and MVR export.
 - **GDTF fixture geometry placement** - fixtures that use top-level geometry
   definitions through `GeometryReference` now render those parts only at their
   referenced hierarchy position. Fixture-specific DMX modes also select the
