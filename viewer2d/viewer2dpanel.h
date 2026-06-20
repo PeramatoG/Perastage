@@ -152,8 +152,18 @@ public:
       const std::optional<Viewer2DRenderOverrides> &overrides);
   void SetMeasureToolEnabled(bool enabled);
   bool IsMeasureToolEnabled() const { return m_measureToolState.enabled; }
-  void SetMagnetEnabled(bool enabled);
+  void SetMagnetEnabled(bool enabled, bool persist = true);
   bool IsMagnetEnabled() const { return m_magnetEnabled; }
+  void SetLeftDragSelectionMovementEnabled(bool enabled);
+  // Returns whether left-click selection dragging is enabled.
+  bool IsLeftDragSelectionMovementEnabled() const {
+    return m_leftDragSelectionMovementEnabled;
+  }
+  void SetAxisConstrainedMovementEnabled(bool enabled);
+  // Returns whether selection movement is constrained to axes.
+  bool IsAxisConstrainedMovementEnabled() const {
+    return m_axisConstrainedMovementEnabled;
+  }
   void BeginContinuousPlacement(ContinuousPlacementType type,
                                 const std::string &elementUuid);
   bool UndoContinuousPlacement();
@@ -308,6 +318,8 @@ private:
   bool m_dragSelectionMoved = false;
   bool m_dragSelectionPushedUndo = false;
   bool m_magnetEnabled = false;
+  bool m_leftDragSelectionMovementEnabled = false;
+  bool m_axisConstrainedMovementEnabled = true;
   std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
   bool m_draggedSincePress = false;
   bool m_continuousPlacementActive = false;

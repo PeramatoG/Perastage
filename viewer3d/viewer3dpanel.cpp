@@ -868,6 +868,12 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
 {
     m_magnetEnabled = ConfigManager::Get().GetValue(
                           magnet_snap::kMagnetEnabledConfigKey) == "1";
+    m_leftDragSelectionMovementEnabled =
+        selection_movement_settings::IsLeftDragSelectionMovementEnabled(
+            ConfigManager::Get());
+    m_axisConstrainedMovementEnabled =
+        selection_movement_settings::IsAxisConstrainedMovementEnabled(
+            ConfigManager::Get());
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
     Bind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this, wxEVT_VIEWER_REFRESH);
     m_zoomInteractionTimer.SetOwner(this);
@@ -1707,8 +1713,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
 
         if (event.LeftDown() && !event.ShiftDown() && !event.MiddleDown() &&
             !event.RightDown() &&
-            selection_movement_settings::IsLeftDragSelectionMovementEnabled(
-                ConfigManager::Get())) {
+            m_leftDragSelectionMovementEnabled) {
             if (PrepareSelectionDrag(event.GetPosition())) {
                 m_lastMousePos = event.GetPosition();
                 m_draggedSincePress = false;
@@ -2176,13 +2181,29 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
 
 
 // Enables or disables Magnet snapping for 3D selection dragging.
-void Viewer3DPanel::SetMagnetEnabled(bool enabled)
+void Viewer3DPanel::SetMagnetEnabled(bool enabled, bool persist)
 {
     m_magnetEnabled = enabled;
     m_pendingMagnetSnap.reset();
+    if (!persist)
+        return;
     ConfigManager::Get().SetValue(magnet_snap::kMagnetEnabledConfigKey,
                                   enabled ? "1" : "0");
     ConfigManager::Get().SaveUserConfig();
+}
+
+// Enables or disables left-click selection dragging in the 3D viewport.
+void Viewer3DPanel::SetLeftDragSelectionMovementEnabled(bool enabled)
+{
+    m_leftDragSelectionMovementEnabled = enabled;
+}
+
+// Enables or disables axis-constrained selection movement in the 3D viewport.
+void Viewer3DPanel::SetAxisConstrainedMovementEnabled(bool enabled)
+{
+    m_axisConstrainedMovementEnabled = enabled;
+    if (!enabled)
+        m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
 }
 
 // Resets interaction state after wxWidgets reports lost mouse capture.
@@ -3073,8 +3094,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
             ApplyCameraMatrices(renderSize);
             const int dx = pos.x - m_lastMousePos.x;
             const int dy = pos.y - m_lastMousePos.y;
-            if (selection_movement_settings::IsAxisConstrainedMovementEnabled(
-                    ConfigManager::Get())) {
+            if (m_axisConstrainedMovementEnabled) {
                 const auto projectedAxes = BuildProjectedDragAxes(renderSize);
                 if (m_selectionDragAxis ==
                         viewer3d::SelectionDragAxis::None &&
@@ -3151,8 +3171,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
             if (renderSize.IsValid() &&
                 TryBindGlContextForInteraction("OnMouseMove")) {
                 ApplyCameraMatrices(renderSize);
-                if (selection_movement_settings::IsAxisConstrainedMovementEnabled(
-                        ConfigManager::Get())) {
+                if (m_axisConstrainedMovementEnabled) {
                     const auto projectedAxes = BuildProjectedDragAxes(renderSize);
                     if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None) {
                         m_selectionDragAxis = viewer3d::SelectDragAxisFromMouseDelta(

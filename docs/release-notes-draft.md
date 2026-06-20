@@ -102,6 +102,7 @@ This release addresses dozens of issues across importing, snapping, editing and 
 - **Scene object naming** - edited names in the Data View persist across saves and are exported through MVR, supporting technical naming workflows like cable waypoints.  Fixture IDs remain as edited instead of reverting when reopening or exporting projects.
 - **Magnet snapping** - fixture-to-truss snaps align to the actual truss edge height, stay aligned when the snapped truss or group moves, and only snap after an intentional drag starts.  Truss runs can snap to loose trusses using run bounds while ignoring attached fixtures.
 - **Drag feedback** - the X/Y/Z status display remains visible and changes colour reliably while moving objects in 2D/3D.
+- **Viewport movement toggles** - Drag Move, Axis Lock and Magnet now keep their saved state synchronized with the active 2D/3D viewers when opening projects or switching saved layouts.
 - **Command-bar parsing** - improved parsing of `t` and `thru` sequences distributes position/rotation values as expected.
 - **Truss export/import** - MVR exports no longer embed local file paths, preserve layer colour metadata in a standards-compliant UserData block, and store fixture colours as gel/filter data only when intended.  Round-trip exports retain support objects and write truss children in the correct schema order.
 - **Geometry models** - GLB/3DS trusses remain visible even when metadata is missing, and unsupported formats are rejected clearly.  Newly added scene objects reuse existing primitive data immediately.
