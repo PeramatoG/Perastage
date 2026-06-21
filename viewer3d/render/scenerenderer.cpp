@@ -124,20 +124,6 @@ std::array<float, 3> TransformNormal(const std::array<float, 3> &n,
   return NormalizeVector(x, y, z);
 }
 
-// Transforms a point by the supplied model matrix.
-std::array<float, 3> TransformPoint(const std::array<float, 3> &p,
-                                    const float *modelMatrix) {
-  if (!modelMatrix)
-    return p;
-  const float x = modelMatrix[0] * p[0] + modelMatrix[4] * p[1] +
-                  modelMatrix[8] * p[2] + modelMatrix[12];
-  const float y = modelMatrix[1] * p[0] + modelMatrix[5] * p[1] +
-                  modelMatrix[9] * p[2] + modelMatrix[13];
-  const float z = modelMatrix[2] * p[0] + modelMatrix[6] * p[1] +
-                  modelMatrix[10] * p[2] + modelMatrix[14];
-  return {x, y, z};
-}
-
 // Maps a diffuse lighting value to the sketch ink palette.
 InkColor QuantizeInkTone(float diffuseFactor) {
   // 3-ink white-model palette with lighting weight:
@@ -414,7 +400,7 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   glUniform3f(program.lightToneUniform, 1.0f, 1.0f, 1.0f);
   glUniform1f(program.darkThresholdUniform, 0.10f);
   glUniform1f(program.lightThresholdUniform, 0.30f);
-  glUniform1i(program.twoSidedNormalsUniform, sketchFill ? GL_TRUE : GL_FALSE);
+  glUniform1i(program.twoSidedNormalsUniform, GL_FALSE);
 
   glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
   glEnableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
@@ -494,25 +480,6 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
     const float vz = v2z - v0z;
     const std::array<float, 3> triangleNormal = NormalizeVector(
         uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
-    const std::array<float, 3> p0World =
-        TransformPoint({v0x, v0y, v0z}, effectiveModelMatrix);
-    const std::array<float, 3> p1World =
-        TransformPoint({v1x, v1y, v1z}, effectiveModelMatrix);
-    const std::array<float, 3> p2World =
-        TransformPoint({v2x, v2y, v2z}, effectiveModelMatrix);
-    std::array<float, 3> worldTriNormal = NormalizeVector(
-        (p1World[1] - p0World[1]) * (p2World[2] - p0World[2]) -
-            (p1World[2] - p0World[2]) * (p2World[1] - p0World[1]),
-        (p1World[2] - p0World[2]) * (p2World[0] - p0World[0]) -
-            (p1World[0] - p0World[0]) * (p2World[2] - p0World[2]),
-        (p1World[0] - p0World[0]) * (p2World[1] - p0World[1]) -
-            (p1World[1] - p0World[1]) * (p2World[0] - p0World[0]));
-    if (mirrored) {
-      worldTriNormal[0] = -worldTriNormal[0];
-      worldTriNormal[1] = -worldTriNormal[1];
-      worldTriNormal[2] = -worldTriNormal[2];
-    }
-
     for (int v = 0; v < 3; ++v) {
       const uint32_t idx = tri[v];
       const float vx = mesh.vertices[idx * 3] * scale;
@@ -530,16 +497,8 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
         }
       }
 
-      std::array<float, 3> worldNormal =
+      const std::array<float, 3> worldNormal =
           TransformNormal(localNormal, effectiveModelMatrix);
-      const float dotWorld = worldNormal[0] * worldTriNormal[0] +
-                             worldNormal[1] * worldTriNormal[1] +
-                             worldNormal[2] * worldTriNormal[2];
-      if (dotWorld < 0.0f) {
-        worldNormal[0] = -worldNormal[0];
-        worldNormal[1] = -worldNormal[1];
-        worldNormal[2] = -worldNormal[2];
-      }
 
       const float ndotl = worldNormal[0] * lightDir[0] +
                           worldNormal[1] * lightDir[1] +
