@@ -104,6 +104,14 @@ std::array<float, 3> TransformPoint(const std::array<float, 3> &p,
   return {x, y, z};
 }
 
+// Computes an orientation-stable ink diffuse value for two-sided Sketch fills.
+float ComputeTwoSidedInkDiffuse(const std::array<float, 3> &normal,
+                                const std::array<float, 3> &lightDir) {
+  const float ndotl = normal[0] * lightDir[0] + normal[1] * lightDir[1] +
+                      normal[2] * lightDir[2];
+  return std::abs(ndotl);
+}
+
 InkColor QuantizeInkTone(float diffuseFactor) {
   // 3-ink white-model palette with lighting weight:
   // white 70%, light gray 20%, dark gray 10%.
@@ -181,7 +189,7 @@ ThreeToneInkProgram CreateThreeToneInkProgram() {
     varying vec3 vNormal;
     void main() {
       vec3 normal = normalize(vNormal);
-      float ndotl = max(dot(normal, normalize(uLightDir)), 0.0);
+      float ndotl = abs(dot(normal, normalize(uLightDir)));
       vec3 tone = uLightTone;
       if (ndotl <= uDarkThreshold)
         tone = uDarkTone;
@@ -527,10 +535,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
         worldNormal[2] = -worldNormal[2];
       }
 
-      const float ndotl = worldNormal[0] * lightDir[0] +
-                          worldNormal[1] * lightDir[1] +
-                          worldNormal[2] * lightDir[2];
-      const float diffuse = std::max(0.0f, ndotl);
+      const float diffuse = ComputeTwoSidedInkDiffuse(worldNormal, lightDir);
       const InkColor tone = QuantizeInkTone(diffuse);
       glColor3f(tone.r, tone.g, tone.b);
       glNormal3f(worldNormal[0], worldNormal[1], worldNormal[2]);
