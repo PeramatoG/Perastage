@@ -2455,23 +2455,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
         return entry.path().generic_string();
       }
     }
-    ec.clear();
-    fs::recursive_directory_iterator it(basePath, ec);
-    const fs::recursive_directory_iterator end;
-    while (!ec && it != end) {
-      const fs::directory_entry entry = *it;
-      std::error_code regularEc;
-      if (!entry.is_regular_file(regularEc) || regularEc)
-        it.increment(ec);
-      else {
-        if (ToLowerAscii(entry.path().filename().generic_string()) ==
-            requestedLower) {
-          return entry.path().generic_string();
-        }
-        it.increment(ec);
-      }
-    }
-
     return {};
   };
 

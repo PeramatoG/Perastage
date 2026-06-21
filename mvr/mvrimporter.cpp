@@ -206,6 +206,33 @@ static std::string NormalizeGdtfLookupKey(const std::string &value) {
   return ToLowerAscii(stem + ext);
 }
 
+// Normalizes fixture names for filename-based GDTF identity matching.
+static std::string NormalizeFixtureNameLookupKey(std::string value) {
+  value = ToLowerAscii(Trim(value));
+  value.erase(std::remove_if(value.begin(), value.end(),
+                             [](unsigned char ch) {
+                               return std::isspace(ch) != 0 || ch == '_' ||
+                                      ch == '-';
+                             }),
+              value.end());
+  return value;
+}
+
+// Extracts the fixture-name segment from a Perastage canonical GDTF filename.
+static std::string ExtractPerastageFixtureNameFromFileName(
+    const fs::path &path) {
+  const std::string stem = path.stem().string();
+  const size_t firstAt = stem.find('@');
+  if (firstAt == std::string::npos)
+    return {};
+  const size_t secondAt = stem.find('@', firstAt + 1);
+  if (secondAt == std::string::npos)
+    return {};
+  if (NormalizeFixtureNameLookupKey(stem.substr(secondAt + 1)) != "perastage")
+    return {};
+  return stem.substr(firstAt + 1, secondAt - firstAt - 1);
+}
+
 static std::string ExtractDigitSignature(const std::string &text) {
   std::string digits;
   digits.reserve(text.size());
@@ -459,6 +486,8 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
 
   const std::string expectedStem = ToLowerAscii(
       Trim(PathUtils::PathFromUtf8(normalizedSpec).filename().stem().string()));
+  const std::string expectedFixtureNameKey =
+      NormalizeFixtureNameLookupKey(expectedStem);
   const std::string normalizedSpecKey = NormalizeGdtfLookupKey(normalizedSpec);
   for (const auto &entry : fs::directory_iterator(lookupDir, ec)) {
     if (ec)
@@ -478,6 +507,14 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
     if (!normalizedSpecKey.empty() &&
         NormalizeGdtfLookupKey(entryPath.filename().generic_string()) ==
             normalizedSpecKey) {
+      return ToString(entryPath.u8string());
+    }
+
+    const std::string perastageFixtureName =
+        ExtractPerastageFixtureNameFromFileName(entryPath.filename());
+    if (!perastageFixtureName.empty() &&
+        NormalizeFixtureNameLookupKey(perastageFixtureName) ==
+            expectedFixtureNameKey) {
       return ToString(entryPath.u8string());
     }
   }

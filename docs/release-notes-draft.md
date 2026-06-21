@@ -73,7 +73,7 @@ This release addresses dozens of issues across importing, snapping, editing and 
 
 - **Sketch mode lighting** - sketch rendering now uses the same corrected mesh normals as the standard 3D render path and avoids winding-based normal flips, preventing isolated models from appearing lit from the wrong side while preserving the existing ink-style appearance.
 - **GDTF derivative export consistency** - fixture export now uses Perastage-processed derivatives when required, defaults to the canonical `Manufacturer@FixtureType@Perastage.gdtf` filename, applies the same derivative naming to MVR-embedded canonicalized GDTFs and generated symbol copies, preserves original GDTF library assets by default, warns before overwriting an original file, refreshes fixture table references after derivative promotion, and safely handles exporting to the already-current derivative file.
-- **Imported MVR GDTF saving** - projects created from imported MVR files now keep embedded GDTF resources and fallback dummy fixtures resolvable during save even when resources are nested or canonical export naming rewrites the final `.gdtf` archive names.
+- **Imported MVR GDTF saving** - projects created from imported MVR files now keep embedded GDTF resources and fallback dummy fixtures synchronized during save when canonical export naming rewrites the final `.gdtf` archive names.
 - **GroupObject layer ownership** - fixtures added to truss-based groups now immediately adopt the truss/group layer, while existing trusses and groups keep their original layer across save, reopen, MVR import and MVR export.
 - **GDTF fixture geometry placement** - fixtures that use top-level geometry
   definitions through `GeometryReference` now render those parts only at their
