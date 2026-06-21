@@ -217,10 +217,21 @@ bool ReorderFixtureTypeChildren(tinyxml2::XMLElement *fixtureType) {
          child = child->NextSiblingElement(name))
       ordered.push_back(child);
   }
-  for (tinyxml2::XMLNode *node : ordered) {
-    fixtureType->UnlinkNode(node);
-    fixtureType->InsertEndChild(node);
+  tinyxml2::XMLDocument *doc = fixtureType->GetDocument();
+  std::vector<tinyxml2::XMLNode *> cloned;
+  cloned.reserve(ordered.size());
+  for (tinyxml2::XMLNode *node : ordered)
+    cloned.push_back(node->DeepClone(doc));
+
+  for (tinyxml2::XMLNode *node = fixtureType->FirstChild(); node;) {
+    tinyxml2::XMLNode *next = node->NextSibling();
+    if (node->ToElement())
+      fixtureType->DeleteChild(node);
+    node = next;
   }
+
+  for (tinyxml2::XMLNode *node : cloned)
+    fixtureType->InsertEndChild(node);
   return true;
 }
 
