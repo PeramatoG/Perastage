@@ -232,6 +232,8 @@ inline void BuildFlatShadingBuffers(Mesh& mesh)
     mesh.flatVertices.reserve(mesh.indices.size() * 3);
     mesh.flatNormals.reserve(mesh.indices.size() * 3);
 
+    const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
+
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
         const uint32_t i0 = mesh.indices[i];
         const uint32_t i1 = mesh.indices[i + 1];
@@ -255,6 +257,26 @@ inline void BuildFlatShadingBuffers(Mesh& mesh)
             nx /= len;
             ny /= len;
             nz /= len;
+
+            if (hasNormals) {
+                const float avgNx = (mesh.normals[i0 * 3] +
+                                     mesh.normals[i1 * 3] +
+                                     mesh.normals[i2 * 3]) / 3.0f;
+                const float avgNy = (mesh.normals[i0 * 3 + 1] +
+                                     mesh.normals[i1 * 3 + 1] +
+                                     mesh.normals[i2 * 3 + 1]) / 3.0f;
+                const float avgNz = (mesh.normals[i0 * 3 + 2] +
+                                     mesh.normals[i1 * 3 + 2] +
+                                     mesh.normals[i2 * 3 + 2]) / 3.0f;
+                const float avgLen = std::sqrt(avgNx * avgNx + avgNy * avgNy +
+                                               avgNz * avgNz);
+                const float dot = nx * avgNx + ny * avgNy + nz * avgNz;
+                if (avgLen > 0.0f && dot < 0.0f) {
+                    nx = -nx;
+                    ny = -ny;
+                    nz = -nz;
+                }
+            }
         } else {
             nx = 0.0f;
             ny = 0.0f;
