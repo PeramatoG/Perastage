@@ -2410,12 +2410,44 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   const std::string primitiveTempDir = CreateTempDir();
 
   auto normalizeSourcePath = [&](const std::string &rawPath) {
-    fs::path src = fs::path(rawPath);
+    fs::path src = PathUtils::PathFromUtf8(rawPath);
     if (src.is_relative() && !scene.basePath.empty())
-      src = fs::path(scene.basePath) / src;
+      src = PathUtils::PathFromUtf8(scene.basePath) / src;
     std::error_code ec;
     fs::path weak = fs::weakly_canonical(src, ec);
     return ec ? fs::absolute(src).generic_string() : weak.generic_string();
+  };
+
+  auto findSiblingResourceByFileName =
+      [&](const std::string &rawSource) -> std::string {
+    if (rawSource.empty() || scene.basePath.empty())
+      return {};
+
+    const fs::path sourcePath = PathUtils::PathFromUtf8(rawSource);
+    const fs::path requestedFileName = sourcePath.filename();
+    if (requestedFileName.empty())
+      return {};
+
+    const fs::path basePath = PathUtils::PathFromUtf8(scene.basePath);
+    std::error_code ec;
+    if (!fs::exists(basePath, ec) || ec)
+      return {};
+
+    const std::string requestedLower =
+        ToLowerAscii(requestedFileName.generic_string());
+    for (const auto &entry : fs::directory_iterator(basePath, ec)) {
+      if (ec)
+        break;
+      std::error_code regularEc;
+      if (!entry.is_regular_file(regularEc) || regularEc)
+        continue;
+      if (ToLowerAscii(entry.path().filename().generic_string()) ==
+          requestedLower) {
+        return entry.path().generic_string();
+      }
+    }
+
+    return {};
   };
 
   auto registerResource = [&](const std::string &rawSource,
@@ -2424,6 +2456,18 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     if (rawSource.empty())
       return {};
     std::string normalizedSource = normalizeSourcePath(rawSource);
+    std::error_code sourceExistsEc;
+    if (!fs::exists(PathUtils::PathFromUtf8(normalizedSource), sourceExistsEc) ||
+        sourceExistsEc) {
+      const std::string siblingSource = findSiblingResourceByFileName(rawSource);
+      if (!siblingSource.empty()) {
+        normalizedSource = normalizeSourcePath(siblingSource);
+        Logger::Instance().Log(
+            Logger::Level::Info,
+            "MVR export resolved packaged resource '" + rawSource +
+                "' by filename in scene resources: " + normalizedSource);
+      }
+    }
     auto srcIt = sourceToArchivePath.find(normalizedSource);
     if (allowReuseBySource && srcIt != sourceToArchivePath.end())
       return srcIt->second;
@@ -2443,10 +2487,23 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     if (rawGdtfPath.empty())
       return {};
 
+    std::string namingGdtfPath = rawGdtfPath;
+    std::error_code namingExistsEc;
+    if (!fs::exists(PathUtils::PathFromUtf8(normalizeSourcePath(namingGdtfPath)),
+                    namingExistsEc) ||
+        namingExistsEc) {
+      const std::string siblingSource =
+          findSiblingResourceByFileName(rawGdtfPath);
+      if (!siblingSource.empty())
+        namingGdtfPath = siblingSource;
+    }
+
     std::string fileName = preferredName;
-    if (ToLowerAscii(fs::path(rawGdtfPath).extension().string()) == ".gdtf" &&
+    if (ToLowerAscii(PathUtils::PathFromUtf8(rawGdtfPath).extension().string()) ==
+            ".gdtf" &&
         !GdtfDictionary::IsPerastageNamedGdtfFile(rawGdtfPath)) {
-      fileName = GdtfDictionary::BuildPerastageCanonicalGdtfFileName(rawGdtfPath);
+      fileName =
+          GdtfDictionary::BuildPerastageCanonicalGdtfFileName(namingGdtfPath);
     }
     if (fileName.empty())
       fileName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
