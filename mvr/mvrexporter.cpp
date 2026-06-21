@@ -2427,7 +2427,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     return ec ? fs::absolute(src).generic_string() : weak.generic_string();
   };
 
-  auto findSiblingResourceByFileName =
+  auto findSceneResourceByFileName =
       [&](const std::string &rawSource) -> std::string {
     if (rawSource.empty() || scene.basePath.empty())
       return {};
@@ -2455,6 +2455,48 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
         return entry.path().generic_string();
       }
     }
+    ec.clear();
+    fs::recursive_directory_iterator it(basePath, ec);
+    const fs::recursive_directory_iterator end;
+    while (!ec && it != end) {
+      const fs::directory_entry entry = *it;
+      std::error_code regularEc;
+      if (!entry.is_regular_file(regularEc) || regularEc)
+        it.increment(ec);
+      else {
+        if (ToLowerAscii(entry.path().filename().generic_string()) ==
+            requestedLower) {
+          return entry.path().generic_string();
+        }
+        it.increment(ec);
+      }
+    }
+
+    return {};
+  };
+
+  auto resolveExistingResourceSourcePath =
+      [&](const std::string &rawSource) -> std::string {
+    if (rawSource.empty())
+      return {};
+
+    std::string normalizedSource = normalizeSourcePath(rawSource);
+    std::error_code sourceExistsEc;
+    if (fs::exists(PathUtils::PathFromUtf8(normalizedSource), sourceExistsEc) &&
+        !sourceExistsEc) {
+      return normalizedSource;
+    }
+
+    const std::string sceneResourceSource =
+        findSceneResourceByFileName(rawSource);
+    if (!sceneResourceSource.empty()) {
+      normalizedSource = normalizeSourcePath(sceneResourceSource);
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "MVR export resolved packaged resource '" + rawSource +
+              "' by filename in scene resources: " + normalizedSource);
+      return normalizedSource;
+    }
 
     return {};
   };
@@ -2464,19 +2506,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
                               bool allowReuseBySource = true) -> std::string {
     if (rawSource.empty())
       return {};
-    std::string normalizedSource = normalizeSourcePath(rawSource);
-    std::error_code sourceExistsEc;
-    if (!fs::exists(PathUtils::PathFromUtf8(normalizedSource), sourceExistsEc) ||
-        sourceExistsEc) {
-      const std::string siblingSource = findSiblingResourceByFileName(rawSource);
-      if (!siblingSource.empty()) {
-        normalizedSource = normalizeSourcePath(siblingSource);
-        Logger::Instance().Log(
-            Logger::Level::Info,
-            "MVR export resolved packaged resource '" + rawSource +
-                "' by filename in scene resources: " + normalizedSource);
-      }
-    }
+    std::string normalizedSource = resolveExistingResourceSourcePath(rawSource);
+    if (normalizedSource.empty())
+      normalizedSource = normalizeSourcePath(rawSource);
     auto srcIt = sourceToArchivePath.find(normalizedSource);
     if (allowReuseBySource && srcIt != sourceToArchivePath.end())
       return srcIt->second;
@@ -2496,28 +2528,31 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     if (rawGdtfPath.empty())
       return {};
 
-    std::string namingGdtfPath = rawGdtfPath;
-    std::error_code namingExistsEc;
-    if (!fs::exists(PathUtils::PathFromUtf8(normalizeSourcePath(namingGdtfPath)),
-                    namingExistsEc) ||
-        namingExistsEc) {
-      const std::string siblingSource =
-          findSiblingResourceByFileName(rawGdtfPath);
-      if (!siblingSource.empty())
-        namingGdtfPath = siblingSource;
+    std::string resolvedGdtfPath = resolveExistingResourceSourcePath(rawGdtfPath);
+    if (resolvedGdtfPath.empty()) {
+      resolvedGdtfPath = ResolveFallbackFixtureGdtfPath();
+      if (!resolvedGdtfPath.empty()) {
+        Logger::Instance().Log(
+            Logger::Level::Warn,
+            "MVR export could not resolve fixture GDTF '" + rawGdtfPath +
+                "'. Using fallback '" +
+                fs::path(resolvedGdtfPath).filename().generic_string() + "'.");
+      }
     }
+    const std::string gdtfSourceForExport =
+        resolvedGdtfPath.empty() ? rawGdtfPath : resolvedGdtfPath;
 
     std::string fileName = preferredName;
     if (ToLowerAscii(PathUtils::PathFromUtf8(rawGdtfPath).extension().string()) ==
             ".gdtf" &&
         !GdtfDictionary::IsPerastageNamedGdtfFile(rawGdtfPath)) {
       fileName =
-          GdtfDictionary::BuildPerastageCanonicalGdtfFileName(namingGdtfPath);
+          GdtfDictionary::BuildPerastageCanonicalGdtfFileName(gdtfSourceForExport);
     }
     if (fileName.empty())
       fileName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
     std::string archivePath =
-        registerResource(rawGdtfPath, fileName, allowReuseBySource);
+        registerResource(gdtfSourceForExport, fileName, allowReuseBySource);
     if (!objectUuid.empty() && !archivePath.empty())
       gdtfArchiveByObjectUuid[objectUuid] = archivePath;
     return archivePath;
@@ -3028,6 +3063,29 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
         if (dummyFallbackFixtureExamples.size() < 5)
           dummyFallbackFixtureExamples.push_back(fixtureExportName +
                                                  " (uuid=" + f.uuid + ")");
+      }
+    }
+    if (!fixtureSourceGdtf.empty()) {
+      const std::string resolvedFixtureSource =
+          resolveExistingResourceSourcePath(fixtureSourceGdtf);
+      if (!resolvedFixtureSource.empty()) {
+        fixtureSourceGdtf = resolvedFixtureSource;
+      } else if (!usedDummyFallbackForFixture) {
+        const std::string fallbackGdtf = ResolveFallbackFixtureGdtfPath();
+        if (!fallbackGdtf.empty()) {
+          Logger::Instance().Log(
+              Logger::Level::Warn,
+              "Fixture '" + fixtureExportName + "' (uuid=" + f.uuid +
+                  ") references missing GDTF '" + fixtureSourceGdtf +
+                  "'. Using fallback '" +
+                  fs::path(fallbackGdtf).filename().generic_string() +
+                  "' for MVR export.");
+          fixtureSourceGdtf = fallbackGdtf;
+          usedDummyFallbackForFixture = true;
+          if (dummyFallbackFixtureExamples.size() < 5)
+            dummyFallbackFixtureExamples.push_back(fixtureExportName +
+                                                   " (uuid=" + f.uuid + ")");
+        }
       }
     }
     if (usedDummyFallbackForFixture)

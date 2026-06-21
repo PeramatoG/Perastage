@@ -274,6 +274,9 @@ bool TryReadGdtfIdentityFromDescription(const std::filesystem::path &sourcePath,
                                         std::string &fixtureTypeOut) {
   manufacturerOut.clear();
   fixtureTypeOut.clear();
+  std::error_code ec;
+  if (!fs::exists(sourcePath, ec) || ec)
+    return false;
   wxFileInputStream input(wxString::FromUTF8(sourcePath.string()));
   if (!input.IsOk())
     return false;
