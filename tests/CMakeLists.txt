@@ -208,6 +208,14 @@ add_executable(ui_unit_utils_test
 target_include_directories(ui_unit_utils_test PRIVATE ../core)
 add_test(NAME UiUnitUtilsRoundTrip COMMAND ui_unit_utils_test)
 
+add_executable(gdtf_canonicalizer_test
+               gdtf_canonicalizer_test.cpp
+               ../core/gdtf_canonicalizer.cpp
+               ../core/gdtf_mutation_audit.cpp)
+target_include_directories(gdtf_canonicalizer_test PRIVATE ../core ../third_party)
+target_link_libraries(gdtf_canonicalizer_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME GdtfCanonicalizerExportRules COMMAND gdtf_canonicalizer_test)
+
 add_executable(gdtf_fixture_category_test
                gdtf_fixture_category_test.cpp
                ../core/gdtf_fixture_category.cpp)
@@ -387,6 +395,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
@@ -421,6 +430,7 @@ add_executable(project_support_userdata_roundtrip_test project_support_userdata_
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
@@ -482,6 +492,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
@@ -503,6 +514,7 @@ add_test(NAME MvrGdtfImportMatching COMMAND mvr_gdtf_import_matching_test)
 add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -552,6 +564,7 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
@@ -587,6 +600,7 @@ add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
@@ -622,6 +636,7 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
@@ -658,6 +673,7 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../mvr/primitive_model_resources.cpp
                ../viewer3d/culling/bounds_cache_system.cpp
                ../viewer3d/culling/primitive_bounds_utils.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
@@ -693,6 +709,7 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
@@ -727,6 +744,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
@@ -769,6 +787,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
@@ -1214,6 +1233,7 @@ set_library_env(RiderImportBenchmark)
 
 add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
@@ -1236,6 +1256,7 @@ set_library_env(Loader3dsNativeDimensions)
 
 add_executable(gdtfloader_channel_modes_test gdtfloader_channel_modes_test.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
@@ -1249,6 +1270,7 @@ set_library_env(GdtfLoaderChannelModeSummaries)
 
 add_executable(gdtfloader_geometry_roots_test gdtfloader_geometry_roots_test.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
@@ -1263,6 +1285,7 @@ set_library_env(GdtfLoaderGeometryRoots)
 
 add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
@@ -1283,6 +1306,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/guiconfigservices.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
@@ -1306,7 +1330,6 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
-               ../core/gdtf_mutation_audit.cpp
                consolepanel_stub.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(symbol_fixture_applier_gdtf_test PRIVATE
@@ -1324,6 +1347,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
