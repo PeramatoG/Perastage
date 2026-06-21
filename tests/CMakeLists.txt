@@ -1231,6 +1231,11 @@ add_test(NAME RiderImportBenchmark COMMAND rider_import_benchmark
 set_library_env(RiderImportBenchmark)
 
 
+add_executable(meshprimitives_cube_normals_test meshprimitives_cube_normals_test.cpp
+               ../viewer3d/meshprimitives.cpp)
+target_include_directories(meshprimitives_cube_normals_test PRIVATE ../viewer3d)
+add_test(NAME MeshPrimitivesCubeNormals COMMAND meshprimitives_cube_normals_test)
+
 add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
                ../viewer3d/gdtfloader.cpp
                ../core/gdtf_canonicalizer.cpp
