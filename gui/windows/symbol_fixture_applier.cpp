@@ -159,6 +159,7 @@ bool IsPathWithinDirectory(const fs::path &path, const fs::path &directory) {
   return true;
 }
 
+// Copies a fixture GDTF into the project fixtures folder using derivative naming.
 bool EnsureSceneLocalGdtfCopy(const fs::path &sourcePath,
                               const fs::path &sceneBasePath,
                               Fixture &fixture,
@@ -177,7 +178,8 @@ bool EnsureSceneLocalGdtfCopy(const fs::path &sourcePath,
     return false;
   }
 
-  const fs::path targetPath = sceneFixturesDir / sourcePath.filename();
+  const fs::path targetPath = sceneFixturesDir /
+      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(sourcePath.string());
   fs::copy_file(sourcePath, targetPath, fs::copy_options::overwrite_existing, ec);
   if (ec) {
     errorMessage = "Could not copy fixture GDTF into the scene folder.";
@@ -583,6 +585,7 @@ bool RewriteGdtf(const fs::path &sourcePath,
 
 } // namespace
 
+// Applies generated SVG symbol views to the selected fixture GDTF.
 bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
                                const std::string &fixtureUuid,
                                std::string &errorMessage,
@@ -690,6 +693,14 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
   }
 
   if (options.updateSceneCopy && !writableScenePath.empty()) {
+    if (!scene.basePath.empty() &&
+        !GdtfDictionary::IsPerastageNamedGdtfFile(writableScenePath)) {
+      if (!EnsureSceneLocalGdtfCopy(fs::path(writableScenePath), fs::path(scene.basePath),
+                                    fixtureIt->second, writableScenePath,
+                                    errorMessage)) {
+        return false;
+      }
+    }
     if (!RewriteGdtf(writableScenePath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
                      bottomSvgPath, errorMessage)) {
       return false;
