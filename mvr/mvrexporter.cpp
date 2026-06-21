@@ -22,6 +22,7 @@
 #include "filesystem_path_utils.h"
 #include "gdtf_mutation_audit.h"
 #include "gdtf_canonicalizer.h"
+#include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "logger.h"
 #include "matrixutils.h"
@@ -2443,6 +2444,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       return {};
 
     std::string fileName = preferredName;
+    if (ToLowerAscii(fs::path(rawGdtfPath).extension().string()) == ".gdtf" &&
+        !GdtfDictionary::IsPerastageNamedGdtfFile(rawGdtfPath)) {
+      fileName = GdtfDictionary::BuildPerastageCanonicalGdtfFileName(rawGdtfPath);
+    }
     if (fileName.empty())
       fileName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
     std::string archivePath =
