@@ -960,6 +960,31 @@ static bool ValidateMvr16Export(
   std::unordered_set<std::string> referencedPositionUuids;
   std::unordered_set<std::string> exportedTrussUuids;
 
+
+  auto validateChildOrder = [](tinyxml2::XMLElement *objectNode,
+                               const std::vector<std::string> &officialOrder) {
+    int lastIndex = -1;
+    std::string lastName;
+    for (tinyxml2::XMLElement *child = objectNode->FirstChildElement(); child;
+         child = child->NextSiblingElement()) {
+      const std::string childName = child->Name() ? child->Name() : "";
+      auto it = std::find(officialOrder.begin(), officialOrder.end(), childName);
+      if (it == officialOrder.end())
+        continue;
+      const int index = static_cast<int>(std::distance(officialOrder.begin(), it));
+      if (index < lastIndex) {
+        wxLogError("MVR export validation failed: %s uuid '%s' writes child %s after %s, violating MVR 1.6 order",
+                   objectNode->Name() ? objectNode->Name() : "Object",
+                   objectNode->Attribute("uuid") ? objectNode->Attribute("uuid") : "",
+                   childName.c_str(), lastName.c_str());
+        return false;
+      }
+      lastIndex = index;
+      lastName = childName;
+    }
+    return true;
+  };
+
   if (tinyxml2::XMLElement *scene = root->FirstChildElement("Scene")) {
     if (tinyxml2::XMLElement *layers = scene->FirstChildElement("Layers")) {
       for (tinyxml2::XMLElement *layer = layers->FirstChildElement("Layer");
@@ -1028,6 +1053,8 @@ static bool ValidateMvr16Export(
       }
 
       if (std::string(cur->Name()) == "Truss") {
+        if (!validateChildOrder(cur, {"Matrix", "Classing", "Position", "Geometries", "Function", "GDTFSpec", "GDTFMode", "CastShadow", "Addresses", "Alignments", "CustomCommands", "Overwrites", "Connections", "ChildPosition", "ChildList", "FixtureID", "FixtureIDNumeric", "UnitNumber", "CustomIdType", "CustomId"}))
+          return false;
         const std::string trussUuid =
             TrimAscii(cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
         if (!IsCanonicalUuidString(trussUuid)) {
@@ -1046,6 +1073,8 @@ static bool ValidateMvr16Export(
       }
 
       if (std::string(cur->Name()) == "Fixture") {
+        if (!validateChildOrder(cur, {"Matrix", "Classing", "GDTFSpec", "GDTFMode", "Focus", "CastShadow", "DMXInvertPan", "DMXInvertTilt", "Position", "Function", "FixtureID", "FixtureIDNumeric", "UnitNumber", "ChildPosition", "Addresses", "Protocols", "Alignments", "CustomCommands", "Overwrites", "Connections", "Color", "CustomIdType", "CustomId", "Mappings", "Gobo", "ChildList"}))
+          return false;
         if (cur->FirstChildElement("UserData")) {
           wxLogError("MVR export validation failed: Fixture uuid '%s' contains "
                      "direct UserData",
@@ -1097,6 +1126,11 @@ static bool ValidateMvr16Export(
           return false;
         }
 
+        if (!numericIds.insert(fixtureNumeric).second) {
+          wxLogError("MVR export validation failed: FixtureIDNumeric must be globally unique positive integer");
+          return false;
+        }
+
         if (auto *addresses = cur->FirstChildElement("Addresses"); addresses) {
           std::unordered_set<int> usedBreaks;
           for (auto *addressNode = addresses->FirstChildElement("Address");
@@ -1135,10 +1169,34 @@ static bool ValidateMvr16Export(
       }
 
       if (std::string(cur->Name()) == "SceneObject") {
+        if (!validateChildOrder(cur, {"Matrix", "Classing", "Geometries", "GDTFSpec", "GDTFMode", "CastShadow", "Addresses", "Alignments", "CustomCommands", "Overwrites", "Connections", "FixtureID", "FixtureIDNumeric", "UnitNumber", "CustomId", "CustomIdType", "ChildList"}))
+          return false;
         if (cur->FirstChildElement("UserData")) {
           wxLogError("MVR export validation failed: SceneObject uuid '%s' "
                      "must not contain direct UserData",
                      cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+          return false;
+        }
+        auto *sceneObjectIdNode = cur->FirstChildElement("FixtureID");
+        auto *sceneObjectNumNode = cur->FirstChildElement("FixtureIDNumeric");
+        const std::string sceneObjectId =
+            sceneObjectIdNode && sceneObjectIdNode->GetText()
+                ? TrimAscii(sceneObjectIdNode->GetText())
+                : "";
+        const std::string sceneObjectNumericText =
+            sceneObjectNumNode && sceneObjectNumNode->GetText()
+                ? TrimAscii(sceneObjectNumNode->GetText())
+                : "";
+        int sceneObjectNumeric = 0;
+        if (sceneObjectId.empty() ||
+            !TryParseInt(sceneObjectNumericText, sceneObjectNumeric) ||
+            sceneObjectNumeric <= 0) {
+          wxLogError("MVR export validation failed: SceneObject uuid '%s' must have FixtureID and FixtureIDNumeric",
+                     cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+          return false;
+        }
+        if (!numericIds.insert(sceneObjectNumeric).second) {
+          wxLogError("MVR export validation failed: FixtureIDNumeric must be globally unique positive integer");
           return false;
         }
         int matrixOrder = -1;
@@ -1159,6 +1217,28 @@ static bool ValidateMvr16Export(
                      cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
           return false;
         }
+      }
+
+      if (std::string(cur->Name()) == "GroupObject") {
+        if (!validateChildOrder(cur, {"Matrix", "Classing", "ChildList"}))
+          return false;
+        if (cur->FirstChildElement("UserData")) {
+          wxLogError("MVR export validation failed: GroupObject uuid '%s' contains direct UserData",
+                     cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+          return false;
+        }
+      }
+
+      if ((std::string(cur->Name()) == "Fixture" ||
+           std::string(cur->Name()) == "SceneObject" ||
+           std::string(cur->Name()) == "Support" ||
+           std::string(cur->Name()) == "Truss") &&
+          cur->FirstChildElement("GDTFSpec") &&
+          !cur->FirstChildElement("GDTFMode")) {
+        wxLogError("MVR export validation failed: %s uuid '%s' has GDTFSpec without GDTFMode",
+                   cur->Name(),
+                   cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+        return false;
       }
 
       if (std::string(cur->Name()) == "Position") {
@@ -1285,6 +1365,8 @@ static bool ValidateMvr16Export(
           }
 
           if (std::string(tagName) == "Support") {
+            if (!validateChildOrder(cur, {"Matrix", "Classing", "Position", "Geometries", "Function", "ChainLength", "GDTFSpec", "GDTFMode", "CastShadow", "Addresses", "Alignments", "CustomCommands", "Overwrites", "Connections", "FixtureID", "FixtureIDNumeric", "UnitNumber", "CustomIdType", "CustomId", "ChildList"}))
+              return false;
             if (!cur->FirstChildElement("Geometries")) {
               wxLogError("MVR export validation failed: Support uuid '%s' has "
                          "no Geometries",
@@ -1443,6 +1525,7 @@ static bool ValidateMvr16Export(
     }
   }
 
+  std::unordered_set<std::string> lowercaseArchiveEntries;
   for (const auto &[archivePath, count] : archiveEntryCount) {
     if (!IsValidMvrFileName(archivePath)) {
       wxLogError("MVR export validation failed: ZIP entry '%s' is not a "
@@ -1452,6 +1535,12 @@ static bool ValidateMvr16Export(
     }
     if (archivePath.empty()) {
       wxLogError("MVR export validation failed: found empty ZIP entry path");
+      return false;
+    }
+    const std::string lowercaseArchivePath = ToLowerAscii(archivePath);
+    if (!lowercaseArchiveEntries.insert(lowercaseArchivePath).second) {
+      wxLogError("MVR export validation failed: ZIP entries must not differ only by case: '%s'",
+                 archivePath);
       return false;
     }
     if (count != 1) {
@@ -2041,6 +2130,45 @@ static bool ZipDir(const std::string &srcDir, const std::string &dstZip) {
   return true;
 }
 
+
+// Inserts a GDTF FixtureType child at the standard schema position.
+static tinyxml2::XMLElement *InsertGdtfFixtureTypeChildInOrder(
+    tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc,
+    const char *name) {
+  tinyxml2::XMLElement *node = doc.NewElement(name);
+  static constexpr const char *kOrder[] = {
+      "AttributeDefinitions", "Wheels", "PhysicalDescriptions", "Models",
+      "Geometries", "DMXModes", "Revisions", "FTPresets", "Protocols"};
+
+  int targetIndex = -1;
+  for (int i = 0; i < static_cast<int>(sizeof(kOrder) / sizeof(kOrder[0])); ++i) {
+    if (std::string(name) == kOrder[i]) {
+      targetIndex = i;
+      break;
+    }
+  }
+
+  tinyxml2::XMLElement *previous = nullptr;
+  if (targetIndex >= 0) {
+    for (tinyxml2::XMLElement *child = fixtureType->FirstChildElement(); child;
+         child = child->NextSiblingElement()) {
+      for (int i = targetIndex + 1; i < static_cast<int>(sizeof(kOrder) / sizeof(kOrder[0]));
+           ++i) {
+        if (std::string(child->Name()) == kOrder[i]) {
+          tinyxml2::XMLNode *inserted =
+              previous ? fixtureType->InsertAfterChild(previous, node)
+                       : fixtureType->InsertFirstChild(node);
+          return inserted ? inserted->ToElement() : nullptr;
+        }
+      }
+      previous = child;
+    }
+  }
+
+  tinyxml2::XMLNode *inserted = fixtureType->InsertEndChild(node);
+  return inserted ? inserted->ToElement() : nullptr;
+}
+
 // Creates a temporary patched GDTF copy for intentional MVR export overrides.
 static std::string CreatePatchedGdtf(const std::string &gdtfPath,
                                      const GdtfOverrides &ov) {
@@ -2090,7 +2218,7 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
     tinyxml2::XMLElement *model =
         models ? models->FirstChildElement("Model") : nullptr;
     if (!models)
-      models = ft->InsertNewChildElement("Models");
+      models = InsertGdtfFixtureTypeChildInOrder(ft, doc, "Models");
     if (!model)
       model = models->InsertNewChildElement("Model");
     if (ov.hasLengthMm)
@@ -2475,7 +2603,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
 
     auto reserveId = [&](int candidate) {
       if (candidate > 0)
-        usedIds.insert(candidate);
+        return usedIds.insert(candidate).second;
+      return false;
     };
     for (const auto &[uid, f] : scene.fixtures) {
       reserveId(ResolveFixtureExportId(f).numeric);
@@ -2498,7 +2627,19 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       result[uid] = {fixtureId.text, fixtureId.numeric};
     }
 
-    for (const auto &[uid, t] : scene.trusses) {
+    auto sortedKeys = [](const auto &map) {
+      std::vector<std::string> keys;
+      keys.reserve(map.size());
+      for (const auto &[uid, value] : map) {
+        (void)value;
+        keys.push_back(uid);
+      }
+      std::sort(keys.begin(), keys.end());
+      return keys;
+    };
+
+    for (const std::string &uid : sortedKeys(scene.trusses)) {
+      const Truss &t = scene.trusses.at(uid);
       int numeric = allocId();
       std::string stringId = TrimAscii(t.name);
       if (stringId.empty())
@@ -2506,7 +2647,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       result[uid] = {stringId, numeric};
     }
 
-    for (const auto &[uid, s] : scene.supports) {
+    for (const std::string &uid : sortedKeys(scene.supports)) {
+      const Support &s = scene.supports.at(uid);
       int numeric = allocId();
       std::string stringId = TrimAscii(s.name);
       if (stringId.empty())
@@ -2514,9 +2656,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       result[uid] = {stringId, numeric};
     }
 
-    for (const auto &[uid, obj] : scene.sceneObjects) {
-      int numeric = allocId();
-      result[uid] = {std::to_string(numeric), numeric};
+    for (const std::string &uid : sortedKeys(scene.sceneObjects)) {
+      const SceneObject &obj = scene.sceneObjects.at(uid);
+      int numeric = 0;
+      if (obj.fixtureIdNumeric > 0 && reserveId(obj.fixtureIdNumeric))
+        numeric = obj.fixtureIdNumeric;
+      else
+        numeric = allocId();
+      std::string stringId = TrimAscii(obj.fixtureIdText);
+      if (stringId.empty())
+        stringId = std::to_string(numeric);
+      result[uid] = {stringId, numeric};
     }
     return result;
   };
@@ -2863,9 +3013,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     addStr("GDTFSpec", fixtureGdtfArchivePath);
     // Keep fixture GDTF payloads byte-preserved unless the user intentionally
     // edits type-level physical properties that must be exported through GDTF.
-    addStr("GDTFMode", f.gdtfMode);
-    if (!f.mvrFixtureColorHex.empty())
-      addStr("Color", HexToCie(f.mvrFixtureColorHex));
+    if (!fixtureGdtfArchivePath.empty())
+      addStr("GDTFMode", f.gdtfMode.empty() ? "Default" : f.gdtfMode);
     if (!f.position.empty() || !f.positionName.empty())
       addStr("Position", resolvePositionReference(f.position, f.positionName));
     addStr("FixtureID", fixtureExportId.text);
@@ -2896,6 +3045,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
                 .ToStdString());
       }
     }
+
+    if (!f.mvrFixtureColorHex.empty())
+      addStr("Color", HexToCie(f.mvrFixtureColorHex));
 
     parent->InsertEndChild(fe);
   };
@@ -3247,9 +3399,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       e->SetText(supportGdtfArchivePath.c_str());
       se->InsertEndChild(e);
     }
-    if (!s.gdtfMode.empty()) {
+    if (!supportGdtfArchivePath.empty()) {
       tinyxml2::XMLElement *e = doc.NewElement("GDTFMode");
-      e->SetText(s.gdtfMode.c_str());
+      e->SetText(s.gdtfMode.empty() ? "Default" : s.gdtfMode.c_str());
       se->InsertEndChild(e);
     }
 
@@ -3484,6 +3636,25 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       doc.DeleteNode(oe);
       return;
     }
+
+    auto sceneObjectIdIt = assignedIds.find(obj.uuid);
+    int sceneObjectNumericId = sceneObjectIdIt != assignedIds.end()
+                                   ? sceneObjectIdIt->second.second
+                                   : 0;
+    if (sceneObjectNumericId <= 0)
+      sceneObjectNumericId = 1;
+    std::string sceneObjectFixtureId = sceneObjectIdIt != assignedIds.end()
+                                           ? sceneObjectIdIt->second.first
+                                           : std::to_string(sceneObjectNumericId);
+    if (sceneObjectFixtureId.empty())
+      sceneObjectFixtureId = std::to_string(sceneObjectNumericId);
+    auto appendSceneObjectText = [&](const char *name, const std::string &value) {
+      tinyxml2::XMLElement *element = doc.NewElement(name);
+      element->SetText(value.c_str());
+      oe->InsertEndChild(element);
+    };
+    appendSceneObjectText("FixtureID", sceneObjectFixtureId);
+    appendSceneObjectText("FixtureIDNumeric", std::to_string(sceneObjectNumericId));
 
     parent->InsertEndChild(oe);
   };

@@ -48,6 +48,8 @@ struct SceneObject {
     Matrix localTransform;
     bool hasLocalTransform = false;
     std::string parentGroupUuid;
+    std::string fixtureIdText;
+    int fixtureIdNumeric = 0;
 
     // Returns the first available model reference for this scene object.
     std::string GetPrimaryModel() const {
