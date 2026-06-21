@@ -45,6 +45,7 @@ enum class SketchInteractionWireframeMode {
   HighlightSelectedOnly = 3
 };
 
+// Reads the configured wireframe simplification mode used while sketch rendering is interactive.
 SketchInteractionWireframeMode ReadSketchInteractionWireframeMode() {
   const float rawValue = ConfigManager::Get().GetFloat(
       "viewer3d_sketch_interaction_wireframe_mode");
@@ -61,6 +62,7 @@ SketchInteractionWireframeMode ReadSketchInteractionWireframeMode() {
   }
 }
 
+// Reads the configured sketch wireframe triangle step and clamps it to a safe range.
 int ReadSketchInteractionWireframeStep() {
   const float rawStep = ConfigManager::Get().GetFloat(
       "viewer3d_sketch_interaction_wireframe_step");
@@ -68,6 +70,7 @@ int ReadSketchInteractionWireframeStep() {
   return std::clamp(step, 1, 12);
 }
 
+// Returns line rendering settings for the current interaction and wireframe state.
 LineRenderProfile GetLineRenderProfile(bool isInteracting, bool wireframeMode,
                                        bool adaptiveEnabled) {
   (void)isInteracting;
@@ -76,6 +79,7 @@ LineRenderProfile GetLineRenderProfile(bool isInteracting, bool wireframeMode,
   return {wireframeMode ? 1.0f : 2.0f, true};
 }
 
+// Returns a normalized direction with a stable fallback for near-zero vectors.
 std::array<float, 3> NormalizeVector(float x, float y, float z) {
   const float length = std::sqrt(x * x + y * y + z * z);
   if (length <= 1e-6f)
@@ -83,6 +87,7 @@ std::array<float, 3> NormalizeVector(float x, float y, float z) {
   return {x / length, y / length, z / length};
 }
 
+// Transforms a normal using the inverse-transpose of the model matrix.
 std::array<float, 3> TransformNormal(const std::array<float, 3> &n,
                                      const float *modelMatrix) {
   if (!modelMatrix)
@@ -119,19 +124,7 @@ std::array<float, 3> TransformNormal(const std::array<float, 3> &n,
   return NormalizeVector(x, y, z);
 }
 
-std::array<float, 3> TransformPoint(const std::array<float, 3> &p,
-                                    const float *modelMatrix) {
-  if (!modelMatrix)
-    return p;
-  const float x = modelMatrix[0] * p[0] + modelMatrix[4] * p[1] +
-                  modelMatrix[8] * p[2] + modelMatrix[12];
-  const float y = modelMatrix[1] * p[0] + modelMatrix[5] * p[1] +
-                  modelMatrix[9] * p[2] + modelMatrix[13];
-  const float z = modelMatrix[2] * p[0] + modelMatrix[6] * p[1] +
-                  modelMatrix[10] * p[2] + modelMatrix[14];
-  return {x, y, z};
-}
-
+// Maps a diffuse lighting value to the sketch ink palette.
 InkColor QuantizeInkTone(float diffuseFactor) {
   // 3-ink white-model palette with lighting weight:
   // white 70%, light gray 20%, dark gray 10%.
@@ -357,18 +350,11 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.vboNormals) == GL_TRUE &&
                                glIsBuffer(mesh.eboTriangles) == GL_TRUE;
-  const bool flatGpuHandlesValid =
-      glIsBuffer(mesh.vboFlatVertices) == GL_TRUE &&
-      glIsBuffer(mesh.vboFlatNormals) == GL_TRUE;
   const bool canUseGpuPath = mesh.buffersReady && mesh.vao != 0 &&
                              mesh.vboVertices != 0 && mesh.vboNormals != 0 &&
                              mesh.eboTriangles != 0 && gpuHandlesValid &&
                              mesh.triangleIndexCount > 0;
-  const bool canUseSketchFlatPath =
-      sketchFill && mesh.buffersReady && mesh.vao != 0 &&
-      mesh.vboFlatVertices != 0 && mesh.vboFlatNormals != 0 &&
-      mesh.flatVertexCount > 0 && flatGpuHandlesValid;
-  if (!canUseGpuPath && !canUseSketchFlatPath)
+  if (!canUseGpuPath)
     return false;
 
   const ThreeToneInkProgram &program = GetThreeToneInkProgram();
@@ -414,28 +400,21 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   glUniform3f(program.lightToneUniform, 1.0f, 1.0f, 1.0f);
   glUniform1f(program.darkThresholdUniform, 0.10f);
   glUniform1f(program.lightThresholdUniform, 0.30f);
-  glUniform1i(program.twoSidedNormalsUniform, sketchFill ? GL_TRUE : GL_FALSE);
+  glUniform1i(program.twoSidedNormalsUniform, GL_FALSE);
 
-  glBindBuffer(GL_ARRAY_BUFFER,
-               canUseSketchFlatPath ? mesh.vboFlatVertices : mesh.vboVertices);
+  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
   glEnableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
   glVertexAttribPointer(static_cast<GLuint>(program.positionAttrib), 3,
                         GL_FLOAT, GL_FALSE, 0, nullptr);
 
-  glBindBuffer(GL_ARRAY_BUFFER,
-               canUseSketchFlatPath ? mesh.vboFlatNormals : mesh.vboNormals);
+  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboNormals);
   glEnableVertexAttribArray(static_cast<GLuint>(program.normalAttrib));
   glVertexAttribPointer(static_cast<GLuint>(program.normalAttrib), 3, GL_FLOAT,
                         GL_FALSE, 0, nullptr);
 
-  if (canUseSketchFlatPath) {
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glDrawArrays(GL_TRIANGLES, 0, mesh.flatVertexCount);
-  } else {
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
-    glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
-                   nullptr);
-  }
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
+  glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
+                 nullptr);
 
   glDisableVertexAttribArray(static_cast<GLuint>(program.normalAttrib));
   glDisableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
@@ -501,25 +480,6 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
     const float vz = v2z - v0z;
     const std::array<float, 3> triangleNormal = NormalizeVector(
         uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
-    const std::array<float, 3> p0World =
-        TransformPoint({v0x, v0y, v0z}, effectiveModelMatrix);
-    const std::array<float, 3> p1World =
-        TransformPoint({v1x, v1y, v1z}, effectiveModelMatrix);
-    const std::array<float, 3> p2World =
-        TransformPoint({v2x, v2y, v2z}, effectiveModelMatrix);
-    std::array<float, 3> worldTriNormal = NormalizeVector(
-        (p1World[1] - p0World[1]) * (p2World[2] - p0World[2]) -
-            (p1World[2] - p0World[2]) * (p2World[1] - p0World[1]),
-        (p1World[2] - p0World[2]) * (p2World[0] - p0World[0]) -
-            (p1World[0] - p0World[0]) * (p2World[2] - p0World[2]),
-        (p1World[0] - p0World[0]) * (p2World[1] - p0World[1]) -
-            (p1World[1] - p0World[1]) * (p2World[0] - p0World[0]));
-    if (mirrored) {
-      worldTriNormal[0] = -worldTriNormal[0];
-      worldTriNormal[1] = -worldTriNormal[1];
-      worldTriNormal[2] = -worldTriNormal[2];
-    }
-
     for (int v = 0; v < 3; ++v) {
       const uint32_t idx = tri[v];
       const float vx = mesh.vertices[idx * 3] * scale;
@@ -527,7 +487,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
       const float vz = mesh.vertices[idx * 3 + 2] * scale;
 
       std::array<float, 3> localNormal = triangleNormal;
-      if (!sketchFill && hasNormals) {
+      if (hasNormals) {
         const float nx = mesh.normals[idx * 3];
         const float ny = mesh.normals[idx * 3 + 1];
         const float nz = mesh.normals[idx * 3 + 2];
@@ -537,16 +497,8 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
         }
       }
 
-      std::array<float, 3> worldNormal =
+      const std::array<float, 3> worldNormal =
           TransformNormal(localNormal, effectiveModelMatrix);
-      const float dotWorld = worldNormal[0] * worldTriNormal[0] +
-                             worldNormal[1] * worldTriNormal[1] +
-                             worldNormal[2] * worldTriNormal[2];
-      if (dotWorld < 0.0f) {
-        worldNormal[0] = -worldNormal[0];
-        worldNormal[1] = -worldNormal[1];
-        worldNormal[2] = -worldNormal[2];
-      }
 
       const float ndotl = worldNormal[0] * lightDir[0] +
                           worldNormal[1] * lightDir[1] +
