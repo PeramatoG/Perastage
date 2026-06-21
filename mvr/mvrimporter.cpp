@@ -2939,6 +2939,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         obj.parentGroupUuid = parentGroupUuid;
         if (const char *nameAttr = node->Attribute("name"))
           obj.name = nameAttr;
+        fixtureIdOf(node, obj.fixtureIdText, obj.fixtureIdNumeric);
 
         std::string geometryType;
         std::unordered_map<std::string, std::string>
