@@ -107,7 +107,7 @@ This release addresses dozens of issues across importing, snapping, editing and 
 - **Command-bar parsing** - improved parsing of `t` and `thru` sequences distributes position/rotation values as expected.
 - **Truss and support export/import** - MVR exports no longer embed local file paths, preserve layer colour metadata in a standards-compliant UserData block, and store fixture colours as gel/filter data only when intended.  Round-trip exports retain support objects, keep support-specific hoist metadata in root-level Perastage UserData instead of under Support nodes, write fixture, truss, support and scene-object children in the correct schema order, and preserve deterministic scene-object IDs for standards-compliant MVR 1.6 exchange.
 - **Geometry models** - GLB/3DS trusses remain visible even when metadata is missing, and unsupported formats are rejected clearly.  Newly added scene objects reuse existing primitive data immediately.
-- **3D Sketch shading** - flat-shaded mesh faces now follow valid imported vertex-normal orientation, transformed normals and two-sided ink lighting, preventing inverted lighting on affected models.
+- **3D Sketch shading** - flat-shaded mesh faces now follow valid imported vertex-normal orientation, transformed normals and balanced ink lighting, preventing inverted lighting on affected models.
 - **Dimension labels** - 3D truss height labels now show both value and unit suffix in the selected project distance units.
 - **Picking and selection** - hollow/U-shaped meshes are selected by their geometry rather than by bounding boxes, and quick-click fixture selection works even if the precise release pick misses.
 

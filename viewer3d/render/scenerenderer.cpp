@@ -104,12 +104,18 @@ std::array<float, 3> TransformPoint(const std::array<float, 3> &p,
   return {x, y, z};
 }
 
-// Computes an orientation-stable ink diffuse value for two-sided Sketch fills.
-float ComputeTwoSidedInkDiffuse(const std::array<float, 3> &normal,
-                                const std::array<float, 3> &lightDir) {
-  const float ndotl = normal[0] * lightDir[0] + normal[1] * lightDir[1] +
-                      normal[2] * lightDir[2];
-  return std::abs(ndotl);
+// Computes ink diffuse with the same key/fill-light balance as Sketch GPU.
+float ComputeInkDiffuse(const std::array<float, 3> &normal,
+                        const std::array<float, 3> &keyLightDir) {
+  const std::array<float, 3> fillLightDir =
+      NormalizeVector(-0.35f, 0.55f, 0.45f);
+  const float key = normal[0] * keyLightDir[0] + normal[1] * keyLightDir[1] +
+                    normal[2] * keyLightDir[2];
+  const float fill = normal[0] * fillLightDir[0] + normal[1] * fillLightDir[1] +
+                     normal[2] * fillLightDir[2];
+  return std::clamp(0.08f + std::max(0.0f, key) +
+                        0.28f * std::max(0.0f, fill),
+                    0.0f, 1.0f);
 }
 
 InkColor QuantizeInkTone(float diffuseFactor) {
@@ -189,7 +195,11 @@ ThreeToneInkProgram CreateThreeToneInkProgram() {
     varying vec3 vNormal;
     void main() {
       vec3 normal = normalize(vNormal);
-      float ndotl = abs(dot(normal, normalize(uLightDir)));
+      vec3 keyLightDir = normalize(uLightDir);
+      vec3 fillLightDir = normalize(vec3(-0.35, 0.55, 0.45));
+      float ndotl = clamp(0.08 + max(dot(normal, keyLightDir), 0.0) +
+                          0.28 * max(dot(normal, fillLightDir), 0.0),
+                          0.0, 1.0);
       vec3 tone = uLightTone;
       if (ndotl <= uDarkThreshold)
         tone = uDarkTone;
@@ -535,7 +545,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
         worldNormal[2] = -worldNormal[2];
       }
 
-      const float diffuse = ComputeTwoSidedInkDiffuse(worldNormal, lightDir);
+      const float diffuse = ComputeInkDiffuse(worldNormal, lightDir);
       const InkColor tone = QuantizeInkTone(diffuse);
       glColor3f(tone.r, tone.g, tone.b);
       glNormal3f(worldNormal[0], worldNormal[1], worldNormal[2]);
