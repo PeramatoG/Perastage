@@ -21,6 +21,7 @@
 #include "dummyprofilelibrary.h"
 #include "filesystem_path_utils.h"
 #include "gdtf_mutation_audit.h"
+#include "gdtf_canonicalizer.h"
 #include "gdtfloader.h"
 #include "logger.h"
 #include "matrixutils.h"
@@ -3952,6 +3953,26 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
           CreatePatchedGdtf(entry.sourcePath.string(), cit->second);
       if (!tmp.empty())
         entry.sourcePath = fs::path(tmp);
+    }
+    if (ToLowerAscii(fs::path(entry.archivePath).extension().string()) == ".gdtf") {
+      fs::path canonicalPath =
+          fs::temp_directory_path() /
+          ("perastage-canonical-" +
+           SanitizeArchiveFileName(entry.archivePath, "fixture.gdtf"));
+      GdtfCanonicalizer::Options canonicalOptions;
+      canonicalOptions.allowFixtureTypeIdRepair = true;
+      canonicalOptions.stableIdSeed = entry.archivePath + "|" + entry.sourcePath.string();
+      canonicalOptions.sourceLabel = entry.archivePath + " from " + entry.sourcePath.string();
+      const GdtfCanonicalizer::Result canonicalResult =
+          GdtfCanonicalizer::CanonicalizeArchive(entry.sourcePath, canonicalPath,
+                                                canonicalOptions);
+      if (!canonicalResult.success) {
+        for (const std::string &error : canonicalResult.errors)
+          m_exportWarnings.push_back("GDTF canonicalization failed: " + error);
+        zip.Close();
+        return false;
+      }
+      entry.sourcePath = canonicalPath;
     }
     ++plannedArchiveEntries[entry.archivePath];
   }

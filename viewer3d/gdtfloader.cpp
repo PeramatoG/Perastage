@@ -18,6 +18,7 @@
 #include "gdtfloader.h"
 #include "filesystem_path_utils.h"
 #include "gdtf_mutation_audit.h"
+#include "gdtf_canonicalizer.h"
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "matrixutils.h"
@@ -1958,11 +1959,19 @@ bool SetGdtfProperties(const std::string& gdtfPath,
     }
     powerNode->SetAttribute("Value", wxString::Format("%.3f", powerW).ToStdString().c_str());
 
-    GdtfMutationAudit::StampPerastageMutationMetadata(fixtureType, doc);
     GdtfMutationAudit::AppendRevision(
         fixtureType, doc,
         "Updated fixture physical properties (Weight/PowerConsumption) from Perastage",
         modifiedByProgram);
+
+    GdtfCanonicalizer::Options canonicalOptions;
+    canonicalOptions.allowFixtureTypeIdRepair = true;
+    canonicalOptions.stableIdSeed = gdtfPath;
+    canonicalOptions.sourceLabel = gdtfPath;
+    const GdtfCanonicalizer::Result canonicalResult =
+        GdtfCanonicalizer::CanonicalizeDescription(doc, canonicalOptions);
+    if (!canonicalResult.success)
+        return false;
 
     doc.SaveFile(descPath.c_str());
     if (!ZipDir(extraction.Path(), gdtfPath))

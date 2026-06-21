@@ -2,6 +2,15 @@
 
 This document defines how Perastage writes and version-stamps GDTF files, with a focus on `description.xml` mutations and long-term compatibility behavior.
 
+
+## Export canonicalization policy
+
+Perastage is permissive when importing GDTF/MVR data and strict when exporting it. Loading a legacy or externally generated GDTF must not rewrite the user's source file just because it was read, but every GDTF that leaves Perastage is normalized through the shared `core/gdtf_canonicalizer` layer before it is written directly or embedded in an MVR archive.
+
+The canonicalizer enforces the official GDTF `FixtureType` child order (`AttributeDefinitions`, `Wheels`, `PhysicalDescriptions`, `Models`, `Geometries`, `DMXModes`, `Revisions`, `FTPresets`, `Protocols`), removes non-standard `FixtureType` children such as legacy `PerastageMutationAudit`, preserves valid standard sections and resources, validates required root/fixture structure, and repairs Perastage-owned placeholder `FixtureTypeID` values with deterministic stable IDs when safe.
+
+Any canonicalization mutation is recorded with a standard GDTF `Revision` only. Perastage-specific GDTF metadata must not use custom XML nodes; legacy `PerastageMutationAudit` is read-only compatibility metadata and is never written on export. Perastage-specific MVR metadata remains restricted to root-level `GeneralSceneDescription/UserData/Data[@provider="Perastage"]`; object-level MVR `UserData` is not exported for Fixture, SceneObject, Support, Truss, or GroupObject.
+
 ## 1) Inventory of GDTF write points in Perastage
 
 Perastage currently mutates GDTF archives at the following integration points.
@@ -11,12 +20,13 @@ Perastage currently mutates GDTF archives at the following integration points.
 | Viewer 3D API | `viewer3d/gdtfloader.cpp` | `SetGdtfProperties(...)` | Writes `PhysicalDescriptions/Properties` (`Weight`, `PowerConsumption`), appends a standard `Revision`, rewrites `.gdtf`. |
 | GUI symbol workflow | `gui/windows/symbol_fixture_applier.cpp` | `RewriteGdtf(...)` + `AppendMutationAuditMetadata(...)` (called by `ApplySymbolsToFixtureGdtf(...)`) | Writes/updates SVG symbol assets and model SVG offsets, appends a standard `Revision`, rewrites `.gdtf`. |
 | Project symbol cache manifest | `core/symbol_cache_manifest.cpp` | `SymbolCacheManifest::ValidateFixture(...)`, `MarkFixtureSymbolsValid(...)` | Stores project-level metadata in `.pstg` packages so startup can skip deep GDTF inspection only when the referenced GDTF hash and required view metadata still match. |
-| MVR export patching | `mvr/mvrexporter.cpp` | `CreatePatchedGdtf(...)` | Creates temporary patched GDTF copies for export overrides (manufacturer/model/physical properties/color/dimensions), and appends a standard `Revision` when patched. |
+| MVR export patching | `mvr/mvrexporter.cpp` | `CreatePatchedGdtf(...)` + export resource canonicalization | Creates temporary patched GDTF copies for export overrides (manufacturer/model/physical properties/color/dimensions), appends a standard `Revision` when patched, and canonicalizes every `.gdtf` before it is packaged. |
 | Shared audit helpers | `core/gdtf_mutation_audit.cpp` | `StampPerastageMutationMetadata(...)`, `AppendRevision(...)`, `ApplyPhysicalPropertiesWithAudit(...)` | Centralizes standard GDTF revision-appending semantics used by write flows. |
 
 ### Notes on ownership
 
 - `core/gdtf_mutation_audit.{h,cpp}` is the single owner of Perastage GDTF revision semantics.
+- `core/gdtf_canonicalizer.{h,cpp}` is the shared owner of export-time GDTF structural canonicalization and validation.
 - Write call sites in other modules must use this helper API instead of hand-rolling custom revision XML shapes.
 - Fixture SVG symbols remain stored inside their corresponding GDTF files; the `.pstg` symbol cache manifest stores metadata only and never stores SVG payloads.
 - Fixture display color is no longer persisted by mutating `description.xml` model `Color` values in place. The persisted source of truth for default color selection is the Perastage dictionary/project data layer, while `GetGdtfModelColor(...)` remains read-only for legacy fallback reads.
@@ -86,6 +96,7 @@ A GDTF mutation change is accepted only if all conditions below hold:
    - Legacy/no-audit and unknown-schema files remain readable through fallback behavior.
 4. **Archive integrity**
    - Rewritten `.gdtf` keeps `description.xml` readable and required referenced resources present.
+   - Exported `.gdtf` content has official `FixtureType` child order and contains no `PerastageMutationAudit` node.
 5. **No workflow regressions**
    - Existing fixture rendering/import/export/symbol flows continue operating for non-mutated files.
 
@@ -96,13 +107,15 @@ A GDTF mutation change is accepted only if all conditions below hold:
 - [ ] Apply fixture symbol generation to a fixture and verify the `.gdtf` receives updated top, bottom, front, and side SVG entries and offsets.
 - [ ] Edit fixture color via dictionary/project workflow and verify fixture color persists after reopening without mutating model `Color` in the source `.gdtf`.
 - [ ] Edit fixture physical properties and verify weight/power values persist after reopening.
-- [ ] Inspect resulting `description.xml` and verify no new `PerastageMutationAudit` node is present and `Revision` attributes follow the policy format.
+- [ ] Inspect resulting `description.xml` and verify no new `PerastageMutationAudit` node is present, `FixtureType` children follow the official order, and `Revision` attributes follow the policy format.
 - [ ] Export an MVR that triggers patched GDTF overrides and verify the exported patched GDTF carries standard revision metadata.
 - [ ] Confirm legacy GDTF (without `PerastageMutationAudit`) remains loadable.
 - [ ] Confirm unknown/future `SchemaVersion` triggers safe fallback behavior (no hard failure due only to version mismatch).
 
 ### Automated tests relevant to this policy
 
+- `tests/gdtf_canonicalizer_test.cpp`
+  - validates export canonicalization order, legacy metadata removal, stable placeholder FixtureTypeID repair, and duplicate revision prevention.
 - `tests/gdtfloader_set_properties_test.cpp`
   - validates physical-properties mutation and persisted XML changes.
 - `tests/symbol_fixture_applier_gdtf_test.cpp`

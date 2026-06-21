@@ -26,6 +26,7 @@
 #include "guiconfigservices.h"
 #include "gdtfdictionary.h"
 #include "gdtf_mutation_audit.h"
+#include "gdtf_canonicalizer.h"
 #include "windows/symbol_preview_exporter.h"
 
 namespace fs = std::filesystem;
@@ -415,11 +416,22 @@ bool AppendMutationAuditMetadata(std::string &descriptionXml,
   }
 
   tinyxml2::XMLElement *fixtureType = GdtfMutationAudit::EnsureFixtureType(doc);
-  GdtfMutationAudit::StampPerastageMutationMetadata(fixtureType, doc);
   GdtfMutationAudit::AppendRevision(
       fixtureType, doc,
       BuildSymbolRevisionAction(payloads, topPath, sidePath, frontPath, bottomPath),
       GdtfMutationAudit::BuildPerastageModifiedBy());
+
+  GdtfCanonicalizer::Options canonicalOptions;
+  canonicalOptions.allowFixtureTypeIdRepair = true;
+  canonicalOptions.stableIdSeed = topPath + sidePath + frontPath + bottomPath;
+  const GdtfCanonicalizer::Result canonicalResult =
+      GdtfCanonicalizer::CanonicalizeDescription(doc, canonicalOptions);
+  if (!canonicalResult.success) {
+    errorMessage = canonicalResult.errors.empty()
+                       ? "Could not canonicalize description.xml."
+                       : canonicalResult.errors.front();
+    return false;
+  }
 
   tinyxml2::XMLPrinter printer;
   doc.Print(&printer);
