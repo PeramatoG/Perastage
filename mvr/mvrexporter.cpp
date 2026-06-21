@@ -162,8 +162,14 @@ static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kPerastageUserDataSchemaVersion = "1.0";
 static constexpr const char *kDummyFallbackFixtureGdtfFileName =
     "Dummy 1ch.gdtf";
+static constexpr const char *kPerastageNamedDummyFallbackFixtureGdtfFileName =
+    "Perastage@Dummy_1ch@Perastage.gdtf";
+static constexpr const char *kUnknownNamedDummyFallbackFixtureGdtfFileName =
+    "Unknown@Dummy_1ch@Perastage.gdtf";
 static constexpr const char *kLegacyFallbackFixtureGdtfFileName =
     "Generic 1ch.gdtf";
+static constexpr const char *kPerastageNamedLegacyFallbackFixtureGdtfFileName =
+    "Generic@Generic_1ch@Perastage.gdtf";
 static constexpr const char *kPhysicalPropertiesRevisionText =
     "Updated physical properties for Perastage MVR export";
 
@@ -539,9 +545,12 @@ static std::string SanitizeArchiveFileName(const std::string &input,
 static std::string ResolveFallbackFixtureGdtfPath() {
   static const std::string resolvedPath = []() {
     const fs::path basePath = ProjectUtils::GetBaseLibraryPath("fixtures");
-    const std::array<fs::path, 2> candidates = {
+    const std::array<fs::path, 5> candidates = {
         basePath / kDummyFallbackFixtureGdtfFileName,
+        basePath / kPerastageNamedDummyFallbackFixtureGdtfFileName,
+        basePath / kUnknownNamedDummyFallbackFixtureGdtfFileName,
         basePath / kLegacyFallbackFixtureGdtfFileName,
+        basePath / kPerastageNamedLegacyFallbackFixtureGdtfFileName,
     };
     for (const fs::path &fallbackPath : candidates) {
       std::error_code ec;

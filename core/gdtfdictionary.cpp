@@ -233,7 +233,12 @@ bool IsDummy1ChFallbackPath(const std::string &gdtfPath) {
     return false;
   const std::string fileName =
       PathUtils::PathFromUtf8(gdtfPath).filename().string();
-  return NormalizeAsciiKey(fileName) == "dummy1ch.gdtf";
+  const std::string normalizedFileName = NormalizeAsciiKey(fileName);
+  return normalizedFileName == "dummy1ch.gdtf" ||
+         normalizedFileName == "generic1ch.gdtf" ||
+         normalizedFileName == "perastagedummy1chperastage.gdtf" ||
+         normalizedFileName == "unknowndummy1chperastage.gdtf" ||
+         normalizedFileName == "genericgeneric1chperastage.gdtf";
 }
 
 std::string NormalizeTypeKey(const std::string &type) {
@@ -277,7 +282,8 @@ bool TryReadGdtfIdentityFromDescription(const std::filesystem::path &sourcePath,
   std::unique_ptr<wxZipEntry> entry;
   std::string descriptionXml;
   while ((entry.reset(zipInput.GetNextEntry())), entry) {
-    if (entry->GetName().CmpNoCase("description.xml") != 0)
+    const fs::path entryPath(entry->GetName().ToStdString());
+    if (NormalizeAsciiKey(entryPath.filename().string()) != "description.xml")
       continue;
     char buffer[4096];
     while (true) {
