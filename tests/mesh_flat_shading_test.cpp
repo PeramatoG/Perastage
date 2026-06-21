@@ -61,10 +61,29 @@ static void TestDegenerateTriangleUsesFallbackNormal()
     }
 }
 
+// Verifies normal transforms match OpenGL column-major model matrices.
+static void TestNormalTransformUsesModelOrientation()
+{
+    const float rotateZ90[16] = {
+        0.0f, 1.0f, 0.0f, 0.0f,
+        -1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f,
+    };
+
+    const std::array<float, 3> normal = TransformNormal({1.0f, 0.0f, 0.0f},
+                                                        rotateZ90);
+
+    assert(NearlyEqual(normal[0], 0.0f));
+    assert(NearlyEqual(normal[1], 1.0f));
+    assert(NearlyEqual(normal[2], 0.0f));
+}
+
 // Runs mesh flat-shading buffer regression checks.
 int main()
 {
     TestFlatNormalsAlignWithVertexNormals();
     TestDegenerateTriangleUsesFallbackNormal();
+    TestNormalTransformUsesModelOrientation();
     return 0;
 }
