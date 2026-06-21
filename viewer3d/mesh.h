@@ -217,6 +217,34 @@ inline void ComputeNormals(Mesh& mesh)
     }
 }
 
+// Aligns a normalized face normal with averaged vertex normals when available.
+inline void AlignFaceNormalWithVertexNormals(const Mesh& mesh, bool hasNormals,
+                                            uint32_t i0, uint32_t i1,
+                                            uint32_t i2, float& nx,
+                                            float& ny, float& nz)
+{
+    if (!hasNormals)
+        return;
+
+    const float avgNx = (mesh.normals[i0 * 3] +
+                         mesh.normals[i1 * 3] +
+                         mesh.normals[i2 * 3]) / 3.0f;
+    const float avgNy = (mesh.normals[i0 * 3 + 1] +
+                         mesh.normals[i1 * 3 + 1] +
+                         mesh.normals[i2 * 3 + 1]) / 3.0f;
+    const float avgNz = (mesh.normals[i0 * 3 + 2] +
+                         mesh.normals[i1 * 3 + 2] +
+                         mesh.normals[i2 * 3 + 2]) / 3.0f;
+    const float avgLen = std::sqrt(avgNx * avgNx + avgNy * avgNy +
+                                   avgNz * avgNz);
+    const float dot = nx * avgNx + ny * avgNy + nz * avgNz;
+    if (avgLen > 0.0f && dot < 0.0f) {
+        nx = -nx;
+        ny = -ny;
+        nz = -nz;
+    }
+}
+
 // Builds a triangle stream with duplicated vertices and per-face normals so
 // GL_FLAT can be rendered through the GPU path without immediate mode.
 inline void BuildFlatShadingBuffers(Mesh& mesh)
@@ -258,25 +286,8 @@ inline void BuildFlatShadingBuffers(Mesh& mesh)
             ny /= len;
             nz /= len;
 
-            if (hasNormals) {
-                const float avgNx = (mesh.normals[i0 * 3] +
-                                     mesh.normals[i1 * 3] +
-                                     mesh.normals[i2 * 3]) / 3.0f;
-                const float avgNy = (mesh.normals[i0 * 3 + 1] +
-                                     mesh.normals[i1 * 3 + 1] +
-                                     mesh.normals[i2 * 3 + 1]) / 3.0f;
-                const float avgNz = (mesh.normals[i0 * 3 + 2] +
-                                     mesh.normals[i1 * 3 + 2] +
-                                     mesh.normals[i2 * 3 + 2]) / 3.0f;
-                const float avgLen = std::sqrt(avgNx * avgNx + avgNy * avgNy +
-                                               avgNz * avgNz);
-                const float dot = nx * avgNx + ny * avgNy + nz * avgNz;
-                if (avgLen > 0.0f && dot < 0.0f) {
-                    nx = -nx;
-                    ny = -ny;
-                    nz = -nz;
-                }
-            }
+            AlignFaceNormalWithVertexNormals(mesh, hasNormals, i0, i1, i2,
+                                             nx, ny, nz);
         } else {
             nx = 0.0f;
             ny = 0.0f;

@@ -157,7 +157,6 @@ struct ThreeToneInkProgram {
   GLint lightToneUniform = -1;
   GLint darkThresholdUniform = -1;
   GLint lightThresholdUniform = -1;
-  GLint twoSidedNormalsUniform = -1;
 };
 
 // Compiles a GLSL shader object and returns zero when compilation fails.
@@ -207,12 +206,9 @@ ThreeToneInkProgram CreateThreeToneInkProgram() {
     uniform vec3 uLightTone;
     uniform float uDarkThreshold;
     uniform float uLightThreshold;
-    uniform bool uTwoSidedNormals;
     varying vec3 vNormal;
     void main() {
       vec3 normal = normalize(vNormal);
-      if (uTwoSidedNormals && !gl_FrontFacing)
-        normal = -normal;
       float ndotl = max(dot(normal, normalize(uLightDir)), 0.0);
       vec3 tone = uLightTone;
       if (ndotl <= uDarkThreshold)
@@ -268,8 +264,6 @@ ThreeToneInkProgram CreateThreeToneInkProgram() {
       glGetUniformLocation(result.program, "uDarkThreshold");
   result.lightThresholdUniform =
       glGetUniformLocation(result.program, "uLightThreshold");
-  result.twoSidedNormalsUniform =
-      glGetUniformLocation(result.program, "uTwoSidedNormals");
   return result;
 }
 
@@ -377,8 +371,7 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
       program.projectionUniform < 0 || program.normalMatrixUniform < 0 ||
       program.lightDirUniform < 0 || program.darkToneUniform < 0 ||
       program.midToneUniform < 0 || program.lightToneUniform < 0 ||
-      program.darkThresholdUniform < 0 || program.lightThresholdUniform < 0 ||
-      program.twoSidedNormalsUniform < 0) {
+      program.darkThresholdUniform < 0 || program.lightThresholdUniform < 0) {
     return false;
   }
 
@@ -414,7 +407,6 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   glUniform3f(program.lightToneUniform, 1.0f, 1.0f, 1.0f);
   glUniform1f(program.darkThresholdUniform, 0.10f);
   glUniform1f(program.lightThresholdUniform, 0.30f);
-  glUniform1i(program.twoSidedNormalsUniform, sketchFill ? GL_TRUE : GL_FALSE);
 
   glBindBuffer(GL_ARRAY_BUFFER,
                canUseSketchFlatPath ? mesh.vboFlatVertices : mesh.vboVertices);
@@ -499,8 +491,23 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
     const float vx = v2x - v0x;
     const float vy = v2y - v0y;
     const float vz = v2z - v0z;
-    const std::array<float, 3> triangleNormal = NormalizeVector(
-        uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+    float triNx = uy * vz - uz * vy;
+    float triNy = uz * vx - ux * vz;
+    float triNz = ux * vy - uy * vx;
+    const float triLen = std::sqrt(triNx * triNx + triNy * triNy +
+                                   triNz * triNz);
+    if (triLen > 0.0f) {
+      triNx /= triLen;
+      triNy /= triLen;
+      triNz /= triLen;
+      AlignFaceNormalWithVertexNormals(mesh, hasNormals, tri[0], tri[1],
+                                       tri[2], triNx, triNy, triNz);
+    } else {
+      triNx = 0.0f;
+      triNy = 0.0f;
+      triNz = 1.0f;
+    }
+    const std::array<float, 3> triangleNormal = {triNx, triNy, triNz};
     const std::array<float, 3> p0World =
         TransformPoint({v0x, v0y, v0z}, effectiveModelMatrix);
     const std::array<float, 3> p1World =
@@ -542,7 +549,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
       const float dotWorld = worldNormal[0] * worldTriNormal[0] +
                              worldNormal[1] * worldTriNormal[1] +
                              worldNormal[2] * worldTriNormal[2];
-      if (dotWorld < 0.0f) {
+      if (!sketchFill && dotWorld < 0.0f) {
         worldNormal[0] = -worldNormal[0];
         worldNormal[1] = -worldNormal[1];
         worldNormal[2] = -worldNormal[2];
@@ -1085,25 +1092,8 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale,
           nx /= len;
           ny /= len;
           nz /= len;
-          if (hasNormals) {
-            const float avgNx = ((*normalData)[i0 * 3] + (*normalData)[i1 * 3] +
-                                 (*normalData)[i2 * 3]) /
-                                3.0f;
-            const float avgNy =
-                ((*normalData)[i0 * 3 + 1] + (*normalData)[i1 * 3 + 1] +
-                 (*normalData)[i2 * 3 + 1]) /
-                3.0f;
-            const float avgNz =
-                ((*normalData)[i0 * 3 + 2] + (*normalData)[i1 * 3 + 2] +
-                 (*normalData)[i2 * 3 + 2]) /
-                3.0f;
-            const float alignment = nx * avgNx + ny * avgNy + nz * avgNz;
-            if (alignment < 0.0f) {
-              nx = -nx;
-              ny = -ny;
-              nz = -nz;
-            }
-          }
+          AlignFaceNormalWithVertexNormals(mesh, hasNormals, i0, i1, i2, nx,
+                                           ny, nz);
           glNormal3f(nx, ny, nz);
         } else {
           glNormal3f(0.0f, 0.0f, 1.0f);
@@ -1126,24 +1116,8 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale,
             faceNx /= faceLen;
             faceNy /= faceLen;
             faceNz /= faceLen;
-            const float avgNx = ((*normalData)[i0 * 3] + (*normalData)[i1 * 3] +
-                                 (*normalData)[i2 * 3]) /
-                                3.0f;
-            const float avgNy =
-                ((*normalData)[i0 * 3 + 1] + (*normalData)[i1 * 3 + 1] +
-                 (*normalData)[i2 * 3 + 1]) /
-                3.0f;
-            const float avgNz =
-                ((*normalData)[i0 * 3 + 2] + (*normalData)[i1 * 3 + 2] +
-                 (*normalData)[i2 * 3 + 2]) /
-                3.0f;
-            const float alignment =
-                faceNx * avgNx + faceNy * avgNy + faceNz * avgNz;
-            if (alignment < 0.0f) {
-              faceNx = -faceNx;
-              faceNy = -faceNy;
-              faceNz = -faceNz;
-            }
+            AlignFaceNormalWithVertexNormals(mesh, hasNormals, i0, i1, i2,
+                                             faceNx, faceNy, faceNz);
           } else {
             faceNx = 0.0f;
             faceNy = 0.0f;
