@@ -26,6 +26,7 @@
 namespace {
 constexpr float kPi = 3.14159265358979323846f;
 
+// Returns a lower-case copy of a primitive type string.
 std::string ToLower(std::string value)
 {
     std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
@@ -34,6 +35,7 @@ std::string ToLower(std::string value)
     return value;
 }
 
+// Appends one position vertex to a mesh.
 void AddVertex(Mesh& mesh, float x, float y, float z)
 {
     mesh.vertices.push_back(x);
@@ -42,6 +44,7 @@ void AddVertex(Mesh& mesh, float x, float y, float z)
 }
 }
 
+// Builds a cube mesh with outward-facing triangle winding.
 Mesh BuildCubeMesh(float sizeX, float sizeY, float sizeZ)
 {
     Mesh mesh;
@@ -61,23 +64,25 @@ Mesh BuildCubeMesh(float sizeX, float sizeY, float sizeZ)
     };
 
     mesh.indices = {
-        0, 1, 2, 0, 2, 3,
-        4, 6, 5, 4, 7, 6,
-        0, 4, 5, 0, 5, 1,
-        1, 5, 6, 1, 6, 2,
-        2, 6, 7, 2, 7, 3,
-        3, 7, 4, 3, 4, 0,
+        0, 2, 1, 0, 3, 2,
+        4, 5, 6, 4, 6, 7,
+        0, 5, 4, 0, 1, 5,
+        1, 6, 5, 1, 2, 6,
+        2, 7, 6, 2, 3, 7,
+        3, 4, 7, 3, 0, 4,
     };
 
     ComputeNormals(mesh);
     return mesh;
 }
 
+// Builds a cylinder mesh with matching top and bottom radii.
 Mesh BuildCylinderMesh(float radius, float height, int segments)
 {
     return BuildCylinderMesh(radius, radius, height, segments);
 }
 
+// Builds a cylinder or truncated cone mesh around the Z axis.
 Mesh BuildCylinderMesh(float topRadius, float bottomRadius, float height, int segments)
 {
     Mesh mesh;
@@ -126,6 +131,7 @@ Mesh BuildCylinderMesh(float topRadius, float bottomRadius, float height, int se
     return mesh;
 }
 
+// Builds a UV sphere mesh centered at the origin.
 Mesh BuildSphereMesh(float radius, int rings, int segments)
 {
     Mesh mesh;
@@ -164,6 +170,7 @@ Mesh BuildSphereMesh(float radius, int rings, int segments)
     return mesh;
 }
 
+// Builds a supported primitive mesh from a primitive type string.
 bool BuildPrimitiveMesh(const std::string& primitiveType, Mesh& outMesh)
 {
     const std::string type = ToLower(primitiveType);
