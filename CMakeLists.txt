@@ -308,6 +308,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ${_wx_libs}
 )
 
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE Dbghelp)
+endif()
+
 
 
 

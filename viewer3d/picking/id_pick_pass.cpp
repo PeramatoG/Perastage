@@ -15,6 +15,7 @@
 #include "viewer3dcontroller.h"
 
 #include <algorithm>
+#include <wx/log.h>
 
 namespace {
 bool MatricesEqual(const std::array<double, 16> &a,
@@ -53,10 +54,14 @@ std::array<float, 3> IdPickPass::GetPickColor(const std::string &uuid) {
 }
 
 void IdPickPass::EnsureFramebufferSize(int width, int height) {
-  if (width <= 0 || height <= 0)
+  if (width <= 0 || height <= 0) {
+    m_framebufferUsable = false;
     return;
+  }
   if (m_fbo != 0 && m_width == width && m_height == height)
     return;
+
+  m_framebufferUsable = false;
 
   if (m_depthRenderbuffer != 0)
     glDeleteRenderbuffers(1, &m_depthRenderbuffer);
@@ -82,8 +87,21 @@ void IdPickPass::EnsureFramebufferSize(int width, int height) {
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                             GL_RENDERBUFFER, m_depthRenderbuffer);
 
+  const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (status != GL_FRAMEBUFFER_COMPLETE) {
+    if (!m_loggedFramebufferFailure) {
+      wxLogWarning(
+          "Viewer3D ID picking framebuffer is incomplete (status=0x%04x). Falling back to ray picking for this session.",
+          static_cast<unsigned int>(status));
+      m_loggedFramebufferFailure = true;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    return;
+  }
+
   m_width = width;
   m_height = height;
+  m_framebufferUsable = true;
   m_dirty = true;
 }
 
@@ -91,7 +109,7 @@ void IdPickPass::RebuildIfNeeded(
     int width, int height,
     const std::unordered_set<std::string> &hiddenLayers) {
   EnsureFramebufferSize(width, height);
-  if (m_fbo == 0 || width <= 0 || height <= 0)
+  if (m_fbo == 0 || !m_framebufferUsable || width <= 0 || height <= 0)
     return;
 
   int viewport[4] = {0, 0, 0, 0};
@@ -185,8 +203,8 @@ bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
                             const std::unordered_set<std::string> &hiddenLayers,
                             std::string &outUuid) {
   RebuildIfNeeded(width, height, hiddenLayers);
-  if (m_fbo == 0 || mouseX < 0 || mouseY < 0 || mouseX >= width ||
-      mouseY >= height)
+  if (m_fbo == 0 || !m_framebufferUsable || mouseX < 0 || mouseY < 0 ||
+      mouseX >= width || mouseY >= height)
     return false;
 
   const int sampleY = height - mouseY;
