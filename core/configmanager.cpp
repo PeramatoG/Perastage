@@ -501,6 +501,7 @@ void ConfigManager::SetProjectArchiveResourceProvider(
 
 // Saves the current project state as a packaged archive with config, scene content, and used resources.
 bool ConfigManager::SaveProject(const std::string &path) {
+  lastProjectSaveError.clear();
   layouts::LayoutManager::Get().PrepareImageResourcesForSave();
   layouts::LayoutManager::Get().SaveToConfig(*this);
   SetValue(kHiddenLayersConfigKey,
@@ -522,8 +523,14 @@ bool ConfigManager::SaveProject(const std::string &path) {
         MvrExportOptions projectExportOptions;
         projectExportOptions.trussGeometryExportMode =
             MvrTrussGeometryExportMode::Standard;
-        const bool exported = exporter.ExportToBuffer(sceneBytes, projectExportOptions);
+        const bool exported =
+            exporter.ExportToBuffer(sceneBytes, projectExportOptions);
         const auto sceneExportEnd = std::chrono::steady_clock::now();
+        for (const std::string &warning : exporter.GetExportWarnings()) {
+          Logger::Instance().Log(Logger::Level::Warn,
+                                 "Project save MVR export warning: " +
+                                     warning);
+        }
         Logger::Instance().Log(
             Logger::Level::Info,
             "Project save scene serialization duration_ms=" +
@@ -531,6 +538,10 @@ bool ConfigManager::SaveProject(const std::string &path) {
                                    sceneExportEnd - sceneExportStart)
                                    .count()) +
                 " scene_bytes=" + std::to_string(sceneBytes.size()));
+        if (!exported) {
+          Logger::Instance().Log(Logger::Level::Error,
+                                 "Project save scene MVR serialization failed.");
+        }
         return exported;
       },
       [this]() {
@@ -560,7 +571,15 @@ bool ConfigManager::SaveProject(const std::string &path) {
       });
   if (ok)
     projectSession.MarkSaved();
+  else
+    lastProjectSaveError =
+        "Project archive could not be written. See the diagnostic log for the failing save stage.";
   return ok;
+}
+
+// Returns the last user-facing project save failure summary.
+const std::string &ConfigManager::GetLastProjectSaveError() const {
+  return lastProjectSaveError;
 }
 
 // Loads a project package and restores optional symbol cache metadata.

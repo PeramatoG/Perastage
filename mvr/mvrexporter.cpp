@@ -2401,8 +2401,23 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   };
 
   wxFileOutputStream output(filePath);
-  if (!output.IsOk())
+  auto failExport = [&](const std::string &operation,
+                        const std::string &entryName,
+                        const std::string &sourcePath,
+                        const std::string &reason) {
+    std::ostringstream message;
+    message << "MVR export failed during " << operation;
+    if (!entryName.empty())
+      message << " entry='" << entryName << "'";
+    if (!sourcePath.empty())
+      message << " source='" << sourcePath << "'";
+    message << ": " << reason;
+    m_exportWarnings.push_back(message.str());
+    Logger::Instance().Log(Logger::Level::Error, message.str());
     return false;
+  };
+  if (!output.IsOk())
+    return failExport("OpenOutput", {}, filePath, "could not open output file");
 
   wxZipOutputStream zip(output);
 
@@ -4082,7 +4097,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
         for (const std::string &error : canonicalResult.errors)
           m_exportWarnings.push_back("GDTF canonicalization failed: " + error);
         zip.Close();
-        return false;
+        return failExport("CanonicalizeGdtf", entry.archivePath,
+                          entry.sourcePath.string(),
+                          "canonicalizer reported errors");
       }
       entry.sourcePath = canonicalPath;
     }
@@ -4103,42 +4120,87 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   std::unordered_set<std::string> writtenArchiveEntries;
   {
     if (!writtenArchiveEntries.insert("GeneralSceneDescription.xml").second) {
-      wxLogError(
-          "MVR export failed: duplicate ZIP entry GeneralSceneDescription.xml");
       zip.Close();
-      return false;
+      return failExport("WriteXml", "GeneralSceneDescription.xml", {},
+                        "duplicate ZIP entry");
     }
     auto *entry = new wxZipEntry("GeneralSceneDescription.xml");
     entry->SetMethod(wxZIP_METHOD_DEFLATE);
-    zip.PutNextEntry(entry);
+    if (!zip.PutNextEntry(entry)) {
+      zip.Close();
+      return failExport("WriteXml", "GeneralSceneDescription.xml", {},
+                        "could not create ZIP entry");
+    }
     zip.Write(xmlData.c_str(), xmlData.size());
-    zip.CloseEntry();
+    if (!zip.IsOk()) {
+      zip.CloseEntry();
+      zip.Close();
+      return failExport("WriteXml", "GeneralSceneDescription.xml", {},
+                        "could not write XML bytes");
+    }
+    if (!zip.CloseEntry()) {
+      zip.Close();
+      return failExport("WriteXml", "GeneralSceneDescription.xml", {},
+                        "could not close ZIP entry");
+    }
   }
 
   for (const auto &resource : resourceEntries) {
     if (!fs::exists(resource.sourcePath) || resource.archivePath.empty())
       continue;
     if (!writtenArchiveEntries.insert(resource.archivePath).second) {
-      wxLogError("MVR export failed: duplicate ZIP entry %s",
-                 resource.archivePath);
       zip.Close();
-      return false;
+      return failExport("WriteResource", resource.archivePath,
+                        resource.sourcePath.string(), "duplicate ZIP entry");
     }
     auto *e = new wxZipEntry(resource.archivePath);
     e->SetMethod(wxZIP_METHOD_DEFLATE);
-    zip.PutNextEntry(e);
+    if (!zip.PutNextEntry(e)) {
+      zip.Close();
+      return failExport("WriteResource", resource.archivePath,
+                        resource.sourcePath.string(),
+                        "could not create ZIP entry");
+    }
     std::ifstream in(resource.sourcePath, std::ios::binary);
+    if (!in.is_open()) {
+      zip.CloseEntry();
+      zip.Close();
+      return failExport("WriteResource", resource.archivePath,
+                        resource.sourcePath.string(),
+                        "could not open source file");
+    }
     char buf[4096];
     while (in.good()) {
       in.read(buf, sizeof(buf));
       std::streamsize s = in.gcount();
-      if (s > 0)
+      if (s > 0) {
         zip.Write(buf, s);
+        if (!zip.IsOk()) {
+          zip.CloseEntry();
+          zip.Close();
+          return failExport("WriteResource", resource.archivePath,
+                            resource.sourcePath.string(),
+                            "could not write resource bytes");
+        }
+      }
     }
-    zip.CloseEntry();
+    if (in.bad()) {
+      zip.CloseEntry();
+      zip.Close();
+      return failExport("WriteResource", resource.archivePath,
+                        resource.sourcePath.string(),
+                        "could not read source file");
+    }
+    if (!zip.CloseEntry()) {
+      zip.Close();
+      return failExport("WriteResource", resource.archivePath,
+                        resource.sourcePath.string(),
+                        "could not close ZIP entry");
+    }
   }
 
-  zip.Close();
+  if (!zip.Close())
+    return failExport("FinalizeArchive", {}, filePath, "could not close ZIP");
   return true;
 }
 
@@ -4161,12 +4223,29 @@ bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes,
   const std::string tempPath = tempFile.GetFullPath().ToStdString();
   const bool exported = ExportToFile(tempPath, options);
   if (!exported) {
+    Logger::Instance().Log(Logger::Level::Error,
+                           "MVR export-to-buffer failed while writing " +
+                               tempPath);
+    wxRemoveFile(tempFile.GetFullPath());
+    return false;
+  }
+  std::error_code sizeEc;
+  const auto tempSize = fs::exists(tempPath, sizeEc) && !sizeEc
+                            ? fs::file_size(tempPath, sizeEc)
+                            : 0;
+  if (sizeEc || tempSize == 0) {
+    Logger::Instance().Log(
+        Logger::Level::Error,
+        "MVR export-to-buffer produced an empty or unreadable file '" +
+            tempPath + "' size=" + std::to_string(tempSize));
     wxRemoveFile(tempFile.GetFullPath());
     return false;
   }
 
   std::ifstream input(tempPath, std::ios::binary);
   if (!input.is_open()) {
+    Logger::Instance().Log(Logger::Level::Error,
+                           "MVR export-to-buffer could not open " + tempPath);
     wxRemoveFile(tempFile.GetFullPath());
     return false;
   }
@@ -4174,15 +4253,27 @@ bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes,
   input.seekg(0, std::ios::end);
   const std::streampos size = input.tellg();
   input.seekg(0, std::ios::beg);
-  if (size > 0) {
-    outBytes.resize(static_cast<size_t>(size));
-    input.read(reinterpret_cast<char *>(outBytes.data()), size);
+  if (size <= 0) {
+    input.close();
+    wxRemoveFile(tempFile.GetFullPath());
+    Logger::Instance().Log(Logger::Level::Error,
+                           "MVR export-to-buffer read zero bytes from " +
+                               tempPath);
+    return false;
   }
+  outBytes.resize(static_cast<size_t>(size));
+  input.read(reinterpret_cast<char *>(outBytes.data()), size);
 
   const bool readOk = input.good() || input.eof();
   input.close();
   wxRemoveFile(tempFile.GetFullPath());
-  return readOk;
+  if (!readOk || outBytes.empty()) {
+    Logger::Instance().Log(Logger::Level::Error,
+                           "MVR export-to-buffer failed to read payload from " +
+                               tempPath);
+    return false;
+  }
+  return true;
 }
 
 // Return non-fatal validation and packaging warnings captured during export.

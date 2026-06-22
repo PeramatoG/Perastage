@@ -16,6 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "credentialstore.h"
+#include "apppaths.h"
+#include "logger.h"
 #include "simplecrypt.h"
 #include "json.hpp"
 #include <wx/stdpaths.h>
@@ -28,19 +30,29 @@ namespace CredentialStore {
 
 static std::string GetCredFile()
 {
-    wxString dir = wxStandardPaths::Get().GetUserDataDir();
-    fs::path p = fs::path(dir.ToStdString());
+    fs::path p = AppPaths::GetUserDataDir();
     std::error_code ec;
     fs::create_directories(p, ec);
     if (ec) {
         ec.clear();
-        p = fs::path(wxStandardPaths::Get().GetTempDir().ToStdString()) / "Perastage";
+        p = AppPaths::GetUserDataTempFallbackDir();
         fs::create_directories(p, ec);
         if (ec)
             return {};
     }
-    p /= "gdtf_credentials.json";
-    return p.string();
+    const fs::path target = p / "gdtf_credentials.json";
+    const fs::path legacy =
+        fs::path(wxStandardPaths::Get().GetUserDataDir().ToStdString()) /
+        "gdtf_credentials.json";
+    if (target != legacy && !fs::exists(target, ec) && fs::exists(legacy, ec)) {
+        ec.clear();
+        fs::copy_file(legacy, target, fs::copy_options::skip_existing, ec);
+        Logger::Instance().Log(
+            ec ? Logger::Level::Warn : Logger::Level::Info,
+            ec ? "Could not migrate GDTF credentials to local app data."
+               : "Migrated GDTF credentials to local app data.");
+    }
+    return target.string();
 }
 
 bool Save(const Credentials& cred)

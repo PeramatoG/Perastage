@@ -309,11 +309,15 @@ void MainWindow::OnSave(wxCommandEvent &event) {
   FlushPendingFixtureSymbolLibraryUpdates();
   SaveUserConfigWithViewport2DState();
   if (!cfg.SaveProject(currentProjectPath)) {
+    const std::string reason = cfg.GetLastProjectSaveError().empty()
+                                   ? "See the diagnostic log for details."
+                                   : cfg.GetLastProjectSaveError();
     diagnostics::DiagnosticLogger::Error(
         "Project save failed: " +
-        diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath));
-    wxMessageBox("Failed to save project.", "Error", wxOK | wxICON_ERROR,
-                 this);
+        diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath) +
+        " - " + reason);
+    wxMessageBox("Failed to save project.\n\n" + wxString::FromUTF8(reason),
+                 "Error", wxOK | wxICON_ERROR, this);
   } else {
     diagnostics::DiagnosticLogger::Info(
         "Project save completed: " +
@@ -381,10 +385,15 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   FlushPendingFixtureSymbolLibraryUpdates();
   SaveUserConfigWithViewport2DState();
   if (!cfg.SaveProject(currentProjectPath)) {
+    const std::string reason = cfg.GetLastProjectSaveError().empty()
+                                   ? "See the diagnostic log for details."
+                                   : cfg.GetLastProjectSaveError();
     diagnostics::DiagnosticLogger::Error(
         "Project save-as failed: " +
-        diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath));
-    wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
+        diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath) +
+        " - " + reason);
+    wxMessageBox("Failed to save project.\n\n" + wxString::FromUTF8(reason),
+                 "Error", wxICON_ERROR);
   } else {
     diagnostics::DiagnosticLogger::Info(
         "Project save-as completed: " +

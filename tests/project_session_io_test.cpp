@@ -1,8 +1,10 @@
 #include "configservices.h"
 
 #include <cassert>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <vector>
 
 int main() {
   namespace fs = std::filesystem;
@@ -59,6 +61,22 @@ int main() {
   assert(loadOk);
   assert(loadConfigCalled);
   assert(loadSceneCalled);
+
+  const fs::path zeroSceneProjectPath = tempDir / "zero_scene.pera";
+  ProjectSession zeroSceneSession;
+  const bool zeroSceneSaveOk = zeroSceneSession.SaveProject(
+      zeroSceneProjectPath.string(),
+      [](std::vector<std::uint8_t> &out) {
+        const std::string config = "{\"mode\":\"test\"}";
+        out.assign(config.begin(), config.end());
+        return true;
+      },
+      [](std::vector<std::uint8_t> &out) {
+        out.clear();
+        return true;
+      });
+  assert(!zeroSceneSaveOk);
+  assert(!fs::exists(zeroSceneProjectPath));
 
   const fs::path jsonPath = tempDir / "config_only.json";
   {

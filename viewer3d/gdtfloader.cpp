@@ -429,7 +429,21 @@ static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
     std::unique_ptr<wxZipEntry> entry;
     while ((entry.reset(zipStream.GetNextEntry())), entry) {
         std::string filename = entry->GetName().ToStdString();
-        std::string fullPath = destDir + "/" + filename;
+        std::replace(filename.begin(), filename.end(), '\\', '/');
+        fs::path relativeEntryPath = PathUtils::PathFromUtf8(filename);
+        if (filename.empty() || relativeEntryPath.is_absolute() ||
+            relativeEntryPath.has_root_name() ||
+            filename.find(':') != std::string::npos ||
+            std::any_of(relativeEntryPath.begin(), relativeEntryPath.end(),
+                        [](const fs::path& part) { return part == ".."; })) {
+            if (ConsolePanel::Instance()) {
+                wxString msg = wxString::Format("GDTF: skipped unsafe archive entry %s", wxString::FromUTF8(filename));
+                ConsolePanel::Instance()->AppendMessage(msg);
+            }
+            continue;
+        }
+        fs::path destinationPath = PathUtils::PathFromUtf8(destDir) / relativeEntryPath;
+        std::string fullPath = destinationPath.string();
         
         if (entry->IsDir()) {
             wxFileName::Mkdir(fullPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);

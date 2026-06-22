@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvrimporter.h"
+#include "apppaths.h"
 #include "configmanager.h"
 #include "filesystem_path_utils.h"
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
@@ -135,8 +136,7 @@ static std::string DecodeLegacyCredentialValue(const std::string &encoded) {
 static std::optional<std::pair<std::string, std::string>>
 LoadStoredGdtfShareCredentials() {
   const fs::path credPath =
-      fs::path(wxStandardPaths::Get().GetUserDataDir().ToStdString()) /
-      "gdtf_credentials.json";
+      AppPaths::GetUserDataDir() / "gdtf_credentials.json";
   std::ifstream in(credPath);
   if (!in.is_open())
     return std::nullopt;
@@ -1339,8 +1339,25 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
   while ((entry.reset(zipStream.GetNextEntry())), entry) {
     // Extract entry names using UTF-8 to preserve special characters
     std::string entryName = entry->GetName().ToUTF8().data();
+    const std::string normalizedUnsafeCheck = NormalizeSlashes(entryName);
+    const fs::path relativeEntryPath = PathUtils::PathFromUtf8(normalizedUnsafeCheck);
+    if (normalizedUnsafeCheck.empty() || relativeEntryPath.is_absolute() ||
+        relativeEntryPath.has_root_name() ||
+        normalizedUnsafeCheck.find(':') != std::string::npos ||
+        std::any_of(relativeEntryPath.begin(), relativeEntryPath.end(),
+                    [](const fs::path &part) { return part == ".."; })) {
+      LogMessage(Logger::Level::Warn,
+                 "Skipping unsafe MVR archive entry: " + entryName);
+      char discardBuffer[4096];
+      while (true) {
+        zipStream.Read(discardBuffer, sizeof(discardBuffer));
+        if (zipStream.LastRead() == 0)
+          break;
+      }
+      continue;
+    }
     fs::path fullPath =
-        PathUtils::PathFromUtf8(destDir) / PathUtils::PathFromUtf8(entryName);
+        PathUtils::PathFromUtf8(destDir) / relativeEntryPath;
 
     if (entry->IsDir()) {
       std::string dirUtf8 = ToString(fullPath.u8string());
