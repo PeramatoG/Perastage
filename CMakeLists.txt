@@ -312,6 +312,12 @@ if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE Dbghelp)
 endif()
 
+if(MSVC)
+    target_link_options(${PROJECT_NAME} PRIVATE
+        "/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/resources/Perastage.manifest"
+    )
+endif()
+
 
 
 
