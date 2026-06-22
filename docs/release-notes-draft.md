@@ -10,6 +10,11 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Improved 3D fixture picking reliability by safely skipping malformed mesh triangles during ID-buffer picking instead of crashing.
+- Hardened 3D ID-buffer picking setup so incomplete OpenGL framebuffers fall back to ray-based selection.
+- Windows crash reports now include a matching `.dmp` minidump file for post-crash analysis with release `.pdb` symbols.
+- Improved Windows diagnostic OS version reporting so modern Windows versions are identified more accurately.
+
 - Fixed the Perastage Updates dialog so Yes and No close the prompt correctly and the per-version reminder suppression can be saved from the startup update prompt.
 
 ## Stability and diagnostics

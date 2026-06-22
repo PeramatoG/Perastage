@@ -19,6 +19,7 @@
 #include "mesh.h"
 #include "meshprimitives.h"
 #include "opaque_pass_utils.h"
+#include "pick_mesh_validation.h"
 #include "resources/resource_sync_system.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
@@ -26,19 +27,50 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdint>
 #include <iomanip>
 #include <sstream>
 #include <string_view>
 #include <unordered_map>
+#include <wx/log.h>
+#include <set>
 #include <vector>
 
 namespace {
+// Logs invalid scene-object pick mesh data once for each rendered mesh context.
+void LogInvalidObjectPickMeshOnce(const Mesh &mesh, const SceneObject &object,
+                                  const std::string &meshName) {
+  static std::set<std::string> loggedKeys;
+  const std::string key = object.uuid + "|" + meshName + "|" +
+                          std::to_string(reinterpret_cast<uintptr_t>(&mesh));
+  if (!loggedKeys.insert(key).second)
+    return;
+
+  const PickMeshValidationStats stats = ValidatePickMeshIndices(mesh);
+  wxLogWarning(
+      "Skipping invalid scene-object picking triangles: object=\"%s\" uuid=%s mesh=\"%s\" invalidTriangles=%zu invalidIndices=%zu vertexCount=%zu indexCount=%zu",
+      object.name.c_str(), object.uuid.c_str(), meshName.c_str(),
+      stats.invalidTriangleCount, stats.invalidIndexCount, stats.vertexCount,
+      stats.indexCount);
+}
+
 // Draws mesh triangles with the active OpenGL color for ID picking.
-void DrawMeshSolidForPick(const Mesh &mesh, float scale) {
+void DrawMeshSolidForPick(const Mesh &mesh, float scale, const SceneObject &object,
+                          const std::string &meshName) {
+  bool loggedInvalidData = false;
   glPushMatrix();
   glScalef(scale, scale, scale);
   glBegin(GL_TRIANGLES);
   for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+    if (!IsPickTriangleIndexRangeValid(mesh, i)) {
+      if (!loggedInvalidData) {
+        glEnd();
+        LogInvalidObjectPickMeshOnce(mesh, object, meshName);
+        glBegin(GL_TRIANGLES);
+        loggedInvalidData = true;
+      }
+      continue;
+    }
     const uint32_t i0 = mesh.indices[i];
     const uint32_t i1 = mesh.indices[i + 1];
     const uint32_t i2 = mesh.indices[i + 2];
@@ -295,12 +327,14 @@ void OpaqueObjectPass::Render(
         float matrix[16];
         MatrixToArray(object.transform, matrix);
         controller.ApplyTransform(matrix, true);
-        for (const auto &part : objectMeshParts) {
+        for (size_t partIndex = 0; partIndex < objectMeshParts.size(); ++partIndex) {
+          const auto &part = objectMeshParts[partIndex];
           float localMatrix[16];
           MatrixToArray(part.localTransform, localMatrix);
           glPushMatrix();
           controller.ApplyTransform(localMatrix, false);
-          DrawMeshSolidForPick(*part.mesh, RENDER_SCALE);
+          DrawMeshSolidForPick(*part.mesh, RENDER_SCALE, object,
+                               "object-mesh-" + std::to_string(partIndex));
           glPopMatrix();
         }
         glPopMatrix();
@@ -314,7 +348,7 @@ void OpaqueObjectPass::Render(
       const Mesh &fallbackMesh = IsPipeSceneObject(object)
                                      ? FallbackSceneObjectCylinderMesh()
                                      : FallbackSceneObjectCubeMesh();
-      DrawMeshSolidForPick(fallbackMesh, 0.3f);
+      DrawMeshSolidForPick(fallbackMesh, 0.3f, object, "fallback-mesh");
       glPopMatrix();
     }
     return;
