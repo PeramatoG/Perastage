@@ -33,6 +33,8 @@ private:
   int m_width = 0;
   int m_height = 0;
   bool m_dirty = true;
+  bool m_framebufferUsable = false;
+  bool m_loggedFramebufferFailure = false;
   size_t m_lastSceneVersion = static_cast<size_t>(-1);
   std::unordered_set<std::string> m_lastHiddenLayers;
   std::array<int, 4> m_lastViewport = {0, 0, 0, 0};

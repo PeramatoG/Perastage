@@ -12,6 +12,12 @@
 #include <sstream>
 #include <vector>
 
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 #include <wx/platinfo.h>
 #include <wx/utils.h>
 #include <wx/version.h>
@@ -49,12 +55,43 @@ std::string WxVersionString() {
   return stream.str();
 }
 
-// Returns operating-system details available through wxWidgets.
+#if defined(_WIN32)
+// Returns the native Windows version without relying on compatibility manifests.
+std::string NativeWindowsVersionDescription() {
+  using RtlGetVersionFn = LONG(WINAPI *)(OSVERSIONINFOW *);
+  HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+  if (!ntdll)
+    return {};
+
+  auto rtlGetVersion = reinterpret_cast<RtlGetVersionFn>(
+      GetProcAddress(ntdll, "RtlGetVersion"));
+  if (!rtlGetVersion)
+    return {};
+
+  OSVERSIONINFOW versionInfo{};
+  versionInfo.dwOSVersionInfoSize = sizeof(versionInfo);
+  if (rtlGetVersion(&versionInfo) != 0)
+    return {};
+
+  std::ostringstream stream;
+  stream << "Windows native " << versionInfo.dwMajorVersion << '.'
+         << versionInfo.dwMinorVersion << " build "
+         << versionInfo.dwBuildNumber;
+  return stream.str();
+}
+#endif
+
+// Returns operating-system details available through wxWidgets and native APIs.
 std::string OperatingSystemDescription() {
   const wxPlatformInfo &platformInfo = wxPlatformInfo::Get();
   std::ostringstream stream;
   stream << ToUtf8(platformInfo.GetOperatingSystemDescription()) << " (";
   stream << ToUtf8(platformInfo.GetBitnessName()) << ')';
+#if defined(_WIN32)
+  const std::string nativeVersion = NativeWindowsVersionDescription();
+  if (!nativeVersion.empty())
+    stream << "; " << nativeVersion;
+#endif
   return stream.str();
 }
 

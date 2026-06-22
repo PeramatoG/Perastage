@@ -20,10 +20,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <set>
 #include <unordered_map>
+#include <string>
 #include <vector>
 
 #include "configmanager.h"
@@ -33,6 +35,7 @@
 #include "mesh.h"
 #include "opaque_pass_utils.h"
 #include "perastage_svg_symbol_builder.h"
+#include "pick_mesh_validation.h"
 #include "scenedatamanager.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "universe_color.h"
@@ -506,12 +509,48 @@ void CancelFixtureRotationForLayoutSvg(const Matrix &fixtureTransform,
   glMultMatrixf(inverseRotation);
 }
 
+// Logs invalid fixture pick mesh data once for each rendered mesh context.
+void LogInvalidFixturePickMeshOnce(const Mesh &mesh, const Fixture &fixture,
+                                   const std::string &uuid,
+                                   const std::string &gdtfPath,
+                                   const std::string &meshName) {
+  static std::set<std::string> loggedKeys;
+  const std::string key = uuid + "|" + gdtfPath + "|" + meshName + "|" +
+                          std::to_string(reinterpret_cast<uintptr_t>(&mesh));
+  if (!loggedKeys.insert(key).second)
+    return;
+
+  const PickMeshValidationStats stats = ValidatePickMeshIndices(mesh);
+  Logger::Instance().Log(
+      Logger::Level::Warn,
+      "Skipping invalid fixture picking triangles: fixture=\"" +
+          fixture.instanceName + "\" uuid=" + uuid + " gdtf=\"" +
+          gdtfPath + "\" mesh=\"" + meshName +
+          "\" invalidTriangles=" +
+          std::to_string(stats.invalidTriangleCount) +
+          " invalidIndices=" + std::to_string(stats.invalidIndexCount) +
+          " vertexCount=" + std::to_string(stats.vertexCount) +
+          " indexCount=" + std::to_string(stats.indexCount));
+}
+
 // Draws mesh triangles with the current flat OpenGL color for ID picking.
-void DrawMeshSolidForPick(const Mesh &mesh, float scale) {
+void DrawMeshSolidForPick(const Mesh &mesh, float scale, const Fixture &fixture,
+                          const std::string &uuid, const std::string &gdtfPath,
+                          const std::string &meshName) {
+  bool loggedInvalidData = false;
   glPushMatrix();
   glScalef(scale, scale, scale);
   glBegin(GL_TRIANGLES);
   for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+    if (!IsPickTriangleIndexRangeValid(mesh, i)) {
+      if (!loggedInvalidData) {
+        glEnd();
+        LogInvalidFixturePickMeshOnce(mesh, fixture, uuid, gdtfPath, meshName);
+        glBegin(GL_TRIANGLES);
+        loggedInvalidData = true;
+      }
+      continue;
+    }
     const uint32_t i0 = mesh.indices[i];
     const uint32_t i1 = mesh.indices[i + 1];
     const uint32_t i2 = mesh.indices[i + 2];
@@ -662,16 +701,19 @@ void OpaqueFixturePass::Render(
           BuildGdtfResourceKey(gdtfPath, fixture.gdtfMode);
       auto gdtfIt = controller.m_resourceSyncState.loadedGdtf.find(resourceKey);
       if (gdtfIt != controller.m_resourceSyncState.loadedGdtf.end()) {
-        for (const auto &obj : gdtfIt->second) {
+        for (size_t meshIndex = 0; meshIndex < gdtfIt->second.size(); ++meshIndex) {
+          const auto &obj = gdtfIt->second[meshIndex];
           float localMatrix[16];
           MatrixToArray(obj.transform, localMatrix);
           glPushMatrix();
           controller.ApplyTransform(localMatrix, false);
-          DrawMeshSolidForPick(obj.mesh, RENDER_SCALE);
+          DrawMeshSolidForPick(obj.mesh, RENDER_SCALE, fixture, uuid, gdtfPath,
+                               "gdtf-mesh-" + std::to_string(meshIndex));
           glPopMatrix();
         }
       } else {
-        DrawMeshSolidForPick(FallbackFixtureCubeMesh(), 0.2f);
+        DrawMeshSolidForPick(FallbackFixtureCubeMesh(), 0.2f, fixture, uuid,
+                             gdtfPath, "fallback-cube");
       }
       glPopMatrix();
     }
