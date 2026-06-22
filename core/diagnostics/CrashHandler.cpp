@@ -17,7 +17,7 @@
 
 #if defined(_WIN32)
 #include <windows.h>
-#include <DbgHelp.h>
+#include <minidumpapiset.h>
 #endif
 
 namespace diagnostics {
