@@ -49,6 +49,13 @@ std::string NormalizeArchivePath(std::string value) {
   return value;
 }
 
+// Returns the filename portion of a normalized archive entry path.
+std::string ArchiveFileName(const std::string &value) {
+  const std::string normalized = NormalizeArchivePath(value);
+  const size_t slash = normalized.find_last_of('/');
+  return slash == std::string::npos ? normalized : normalized.substr(slash + 1);
+}
+
 // Reads the current ZIP entry into memory.
 bool ReadCurrentZipEntry(wxZipInputStream &zip, std::string &out) {
   out.clear();
@@ -350,7 +357,7 @@ Result CanonicalizeArchive(const fs::path &sourcePath, const fs::path &destinati
   if (!ReadZipEntries(sourcePath, entries, result))
     return result;
   auto descIt = std::find_if(entries.begin(), entries.end(), [](const ZipEntryData &entry) {
-    return Lower(NormalizeArchivePath(entry.name)) == "description.xml";
+    return Lower(ArchiveFileName(entry.name)) == "description.xml";
   });
   if (descIt == entries.end()) {
     AddError(result, options, "missing description.xml in GDTF archive");
@@ -382,7 +389,7 @@ Result ValidateArchive(const fs::path &sourcePath, const Options &options) {
   if (!ReadZipEntries(sourcePath, entries, result))
     return result;
   auto descIt = std::find_if(entries.begin(), entries.end(), [](const ZipEntryData &entry) {
-    return Lower(NormalizeArchivePath(entry.name)) == "description.xml";
+    return Lower(ArchiveFileName(entry.name)) == "description.xml";
   });
   if (descIt == entries.end()) {
     AddError(result, options, "missing description.xml in GDTF archive");

@@ -1,10 +1,13 @@
 #include "gdtf_canonicalizer.h"
 
 #include <cassert>
+#include <filesystem>
 #include <string>
 #include <vector>
 
 #include <tinyxml2.h>
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
 
 namespace {
 
@@ -48,6 +51,21 @@ std::string MinimalGdtf(const std::string &fixtureTypeInner) {
          "<GDTF DataVersion=\"1.2\"><FixtureType Name=\"Demo\" Manufacturer=\"Perastage\" "
          "FixtureTypeID=\"308EA87D-7164-42DE-8106-A6D273F57A51\">" +
          fixtureTypeInner + "</FixtureType></GDTF>";
+}
+
+// Writes a test GDTF archive with description.xml in a nested root folder.
+void WriteNestedDescriptionArchive(const std::filesystem::path &path) {
+  wxFileOutputStream output(path.string());
+  assert(output.IsOk());
+  wxZipOutputStream zip(output);
+  auto *entry = new wxZipEntry("Dummy 1ch/description.xml");
+  entry->SetMethod(wxZIP_METHOD_DEFLATE);
+  assert(zip.PutNextEntry(entry));
+  const std::string description = MinimalGdtf(
+      "<AttributeDefinitions/><Models/><PhysicalDescriptions/><Geometries/><DMXModes/>");
+  zip.Write(description.c_str(), description.size());
+  assert(zip.CloseEntry());
+  assert(zip.Close());
 }
 
 } // namespace
@@ -99,6 +117,20 @@ int main() {
     GdtfCanonicalizer::Result result = GdtfCanonicalizer::CanonicalizeDescription(doc);
     assert(result.success);
     assert(!result.changed);
+  }
+
+  {
+    const std::filesystem::path tempDir =
+        std::filesystem::temp_directory_path() / "gdtf_canonicalizer_test";
+    std::filesystem::create_directories(tempDir);
+    const std::filesystem::path source = tempDir / "nested_description.gdtf";
+    const std::filesystem::path dest = tempDir / "canonicalized.gdtf";
+    WriteNestedDescriptionArchive(source);
+    GdtfCanonicalizer::Result result =
+        GdtfCanonicalizer::CanonicalizeArchive(source, dest);
+    assert(result.success);
+    assert(std::filesystem::exists(dest));
+    std::filesystem::remove_all(tempDir);
   }
 
   return 0;
