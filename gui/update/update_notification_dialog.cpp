@@ -2,6 +2,7 @@
 
 #include <wx/button.h>
 #include <wx/checkbox.h>
+#include <wx/event.h>
 #include <wx/dialog.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -47,6 +48,12 @@ UpdateNotificationChoice ShowAvailableUpdateDialog(
   buttonSizer->AddStretchSpacer(1);
   wxButton *yesButton = new wxButton(&dialog, wxID_YES, "Yes");
   wxButton *noButton = new wxButton(&dialog, wxID_NO, "No");
+  yesButton->Bind(wxEVT_BUTTON, [&dialog](wxCommandEvent &) {
+    dialog.EndModal(wxID_YES);
+  });
+  noButton->Bind(wxEVT_BUTTON, [&dialog](wxCommandEvent &) {
+    dialog.EndModal(wxID_NO);
+  });
   buttonSizer->Add(yesButton, 0, wxRIGHT, 8);
   buttonSizer->Add(noButton, 0);
   topSizer->Add(buttonSizer, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 12);
