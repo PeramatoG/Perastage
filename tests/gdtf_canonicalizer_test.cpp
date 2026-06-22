@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -68,6 +69,20 @@ void WriteNestedDescriptionArchive(const std::filesystem::path &path) {
   assert(zip.Close());
 }
 
+// Returns whether a ZIP archive contains an entry with the requested name.
+bool ArchiveContainsEntry(const std::filesystem::path &path,
+                          const std::string &entryName) {
+  wxFileInputStream input(path.string());
+  assert(input.IsOk());
+  wxZipInputStream zip(input);
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    if (entry->GetName().ToStdString() == entryName)
+      return true;
+  }
+  return false;
+}
+
 } // namespace
 
 // Verifies that legacy FixtureType structure is canonicalized for export.
@@ -130,6 +145,8 @@ int main() {
         GdtfCanonicalizer::CanonicalizeArchive(source, dest);
     assert(result.success);
     assert(std::filesystem::exists(dest));
+    assert(ArchiveContainsEntry(dest, "description.xml"));
+    assert(!ArchiveContainsEntry(dest, "Dummy 1ch/description.xml"));
     std::filesystem::remove_all(tempDir);
   }
 
