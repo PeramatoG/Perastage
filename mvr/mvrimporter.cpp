@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvrimporter.h"
+#include "apppaths.h"
 #include "configmanager.h"
 #include "filesystem_path_utils.h"
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
@@ -135,8 +136,7 @@ static std::string DecodeLegacyCredentialValue(const std::string &encoded) {
 static std::optional<std::pair<std::string, std::string>>
 LoadStoredGdtfShareCredentials() {
   const fs::path credPath =
-      fs::path(wxStandardPaths::Get().GetUserDataDir().ToStdString()) /
-      "gdtf_credentials.json";
+      AppPaths::GetUserDataDir() / "gdtf_credentials.json";
   std::ifstream in(credPath);
   if (!in.is_open())
     return std::nullopt;
@@ -204,6 +204,33 @@ static std::string NormalizeGdtfLookupKey(const std::string &value) {
   if (ext.empty())
     ext = ".gdtf";
   return ToLowerAscii(stem + ext);
+}
+
+// Normalizes fixture names for filename-based GDTF identity matching.
+static std::string NormalizeFixtureNameLookupKey(std::string value) {
+  value = ToLowerAscii(Trim(value));
+  value.erase(std::remove_if(value.begin(), value.end(),
+                             [](unsigned char ch) {
+                               return std::isspace(ch) != 0 || ch == '_' ||
+                                      ch == '-';
+                             }),
+              value.end());
+  return value;
+}
+
+// Extracts the fixture-name segment from a Perastage canonical GDTF filename.
+static std::string ExtractPerastageFixtureNameFromFileName(
+    const fs::path &path) {
+  const std::string stem = path.stem().string();
+  const size_t firstAt = stem.find('@');
+  if (firstAt == std::string::npos)
+    return {};
+  const size_t secondAt = stem.find('@', firstAt + 1);
+  if (secondAt == std::string::npos)
+    return {};
+  if (NormalizeFixtureNameLookupKey(stem.substr(secondAt + 1)) != "perastage")
+    return {};
+  return stem.substr(firstAt + 1, secondAt - firstAt - 1);
 }
 
 static std::string ExtractDigitSignature(const std::string &text) {
@@ -459,6 +486,8 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
 
   const std::string expectedStem = ToLowerAscii(
       Trim(PathUtils::PathFromUtf8(normalizedSpec).filename().stem().string()));
+  const std::string expectedFixtureNameKey =
+      NormalizeFixtureNameLookupKey(expectedStem);
   const std::string normalizedSpecKey = NormalizeGdtfLookupKey(normalizedSpec);
   for (const auto &entry : fs::directory_iterator(lookupDir, ec)) {
     if (ec)
@@ -478,6 +507,14 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
     if (!normalizedSpecKey.empty() &&
         NormalizeGdtfLookupKey(entryPath.filename().generic_string()) ==
             normalizedSpecKey) {
+      return ToString(entryPath.u8string());
+    }
+
+    const std::string perastageFixtureName =
+        ExtractPerastageFixtureNameFromFileName(entryPath.filename());
+    if (!perastageFixtureName.empty() &&
+        NormalizeFixtureNameLookupKey(perastageFixtureName) ==
+            expectedFixtureNameKey) {
       return ToString(entryPath.u8string());
     }
   }
@@ -1302,8 +1339,25 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
   while ((entry.reset(zipStream.GetNextEntry())), entry) {
     // Extract entry names using UTF-8 to preserve special characters
     std::string entryName = entry->GetName().ToUTF8().data();
+    const std::string normalizedUnsafeCheck = NormalizeSlashes(entryName);
+    const fs::path relativeEntryPath = PathUtils::PathFromUtf8(normalizedUnsafeCheck);
+    if (normalizedUnsafeCheck.empty() || relativeEntryPath.is_absolute() ||
+        relativeEntryPath.has_root_name() ||
+        normalizedUnsafeCheck.find(':') != std::string::npos ||
+        std::any_of(relativeEntryPath.begin(), relativeEntryPath.end(),
+                    [](const fs::path &part) { return part == ".."; })) {
+      LogMessage(Logger::Level::Warn,
+                 "Skipping unsafe MVR archive entry: " + entryName);
+      char discardBuffer[4096];
+      while (true) {
+        zipStream.Read(discardBuffer, sizeof(discardBuffer));
+        if (zipStream.LastRead() == 0)
+          break;
+      }
+      continue;
+    }
     fs::path fullPath =
-        PathUtils::PathFromUtf8(destDir) / PathUtils::PathFromUtf8(entryName);
+        PathUtils::PathFromUtf8(destDir) / relativeEntryPath;
 
     if (entry->IsDir()) {
       std::string dirUtf8 = ToString(fullPath.u8string());

@@ -9,6 +9,8 @@
 #include <string>
 
 #include <wx/init.h>
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
 
 #include "dictionary_json_contract.h"
 #include "gdtfdictionary.h"
@@ -31,6 +33,22 @@ void WriteFile(const std::filesystem::path &path, const std::string &content) {
   assert(out.good());
 }
 
+// Writes a GDTF archive with description.xml stored below a root folder.
+void WriteNestedDescriptionGdtf(const std::filesystem::path &path) {
+  wxFileOutputStream output(path.string());
+  assert(output.IsOk());
+  wxZipOutputStream zip(output);
+  auto *entry = new wxZipEntry("Dummy 1ch/description.xml");
+  entry->SetMethod(wxZIP_METHOD_DEFLATE);
+  assert(zip.PutNextEntry(entry));
+  const std::string description =
+      "<GDTF DataVersion=\"1.2\"><FixtureType Manufacturer=\"Perastage\" "
+      "Name=\"Dummy 1ch\" /></GDTF>";
+  zip.Write(description.c_str(), description.size());
+  assert(zip.CloseEntry());
+  assert(zip.Close());
+}
+
 } // namespace
 
 int main() {
@@ -48,8 +66,11 @@ int main() {
 
   const std::filesystem::path fixtureFile = fixturesDir / "color_fixture.gdtf";
   const std::filesystem::path unknownFixtureFile = fixturesDir / "mystery_fixture.gdtf";
+  const std::filesystem::path nestedDummyFixtureFile =
+      fixturesDir / "Dummy 1ch.gdtf";
   WriteFile(fixtureFile, "fixture");
   WriteFile(unknownFixtureFile, "not a zip archive");
+  WriteNestedDescriptionGdtf(nestedDummyFixtureFile);
 
   nlohmann::json entries = nlohmann::json::object();
   entries["ColorOnlyType"] = {{"color", "#112233"}};
@@ -76,8 +97,19 @@ int main() {
   assert(GdtfDictionary::BuildPerastageCanonicalGdtfFileName(
              unknownFixtureFile.string()) ==
          "Unknown@mystery_fixture@Perastage.gdtf");
+  assert(GdtfDictionary::BuildPerastageCanonicalGdtfFileName(
+             nestedDummyFixtureFile.string()) ==
+         "Perastage@Dummy_1ch@Perastage.gdtf");
   assert(GdtfDictionary::IsPerastageNamedGdtfFile(
       "Manufacturer@Fixture@Perastage.gdtf"));
+  GdtfDictionary::Update("Some Type", nestedDummyFixtureFile.string(), "");
+  auto dummyCanonicalPathEntry = GdtfDictionary::Get("Some Type");
+  assert(!dummyCanonicalPathEntry.has_value());
+  GdtfDictionary::Update(
+      "Some Type", (fixturesDir / "Perastage@Dummy_1ch@Perastage.gdtf").string(),
+      "");
+  dummyCanonicalPathEntry = GdtfDictionary::Get("Some Type");
+  assert(!dummyCanonicalPathEntry.has_value());
 
   assert(GdtfDictionary::Save(*loadedOpt));
 
@@ -96,6 +128,7 @@ int main() {
 
   std::filesystem::remove(fixtureFile);
   std::filesystem::remove(unknownFixtureFile);
+  std::filesystem::remove(nestedDummyFixtureFile);
   if (hadOriginal)
     WriteFile(dictPath, originalContent);
   else

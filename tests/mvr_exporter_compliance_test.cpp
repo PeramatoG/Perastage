@@ -191,6 +191,25 @@ static void AssertGeneratedGdtfVersioning(const fs::path &gdtfPath) {
   assert(std::string(revision->Attribute("ModifiedBy")) == expectedModifiedBy);
 }
 
+// Writes a minimal valid GDTF archive for exporter resource resolution tests.
+static void WriteMinimalGdtfArchive(const fs::path &gdtfPath,
+                                    const std::string &fixtureName) {
+  wxFileOutputStream output(gdtfPath.generic_string());
+  assert(output.IsOk());
+  wxZipOutputStream zip(output);
+  auto *entry = new wxZipEntry("description.xml");
+  entry->SetMethod(wxZIP_METHOD_DEFLATE);
+  assert(zip.PutNextEntry(entry));
+  const std::string description =
+      "<GDTF DataVersion=\"1.2\"><FixtureType Name=\"" + fixtureName +
+      "\" Manufacturer=\"Acme\"><Revisions><Revision Text=\"Initial\" "
+      "Date=\"2026-01-01T00:00:00\" ModifiedBy=\"Acme\"/></Revisions>"
+      "<Models/></FixtureType></GDTF>";
+  zip.Write(description.c_str(), description.size());
+  assert(zip.CloseEntry());
+  assert(zip.Close());
+}
+
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
@@ -213,6 +232,7 @@ int main() {
   std::ofstream(tempDir / "case_a" / "CaseOnly.gdtf") << "CASE A";
   std::ofstream(tempDir / "case_b" / "caseonly.gdtf") << "CASE B";
   std::ofstream(tempDir / "@PerastageFixture.gdtf") << "AT";
+  WriteMinimalGdtfArchive(tempDir / "SiblingOnly.gdtf", "SiblingOnly");
   std::ofstream(tempDir / "mesh.3ds") << "mesh";
   std::ofstream(tempDir / "models" / "truss_model.3ds") << "truss";
   std::ofstream(tempDir / "models" / "support_model.3ds") << "support";
@@ -301,6 +321,15 @@ int main() {
   fAt.gdtfSpec = "@PerastageFixture.gdtf";
   fAt.address = "21.1";
   scene.fixtures[fAt.uuid] = fAt;
+
+  Fixture fSiblingResolved;
+  fSiblingResolved.uuid = "fx-sibling-resolved";
+  fSiblingResolved.instanceName = "Sibling Resolved";
+  fSiblingResolved.typeName = "SiblingOnly";
+  fSiblingResolved.gdtfSpec = "missing_import_folder/SiblingOnly.gdtf";
+  fSiblingResolved.gdtfMode = "Default";
+  fSiblingResolved.address = "22.1";
+  scene.fixtures[fSiblingResolved.uuid] = fSiblingResolved;
 
   Fixture fEditedId;
   fEditedId.uuid = "fx-edited-id";
@@ -509,6 +538,7 @@ int main() {
   }
   assert(caseOnlyEntryCount == 2);
   assert(entries.count("@PerastageFixture.gdtf") == 1);
+  assert(entries.count("Acme@SiblingOnly@Perastage.gdtf") == 1);
   auto xmlIt = mvrGeometryEntries.find("GeneralSceneDescription.xml");
   assert(xmlIt != mvrGeometryEntries.end());
   std::string xml = xmlIt->second;

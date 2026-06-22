@@ -46,6 +46,7 @@ public:
     void ClearValues();
 
     bool SaveProject(const std::string& path);
+    const std::string& GetLastProjectSaveError() const;
     bool LoadProject(const std::string& path,
                      LoadProjectProgressCallback progressCallback = {});
     void SetProjectArchiveResourceProvider(ProjectArchiveResourceProvider provider);
@@ -151,6 +152,7 @@ private:
     HistoryManager historyManager;
     LayerVisibilityState layerVisibilityState;
     symbol_cache::SymbolCacheManifest symbolCacheManifest;
+    std::string lastProjectSaveError;
 
     bool suppressRevision = false;
 };

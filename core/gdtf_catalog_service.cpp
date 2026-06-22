@@ -1,4 +1,6 @@
 #include "gdtf_catalog_service.h"
+#include "apppaths.h"
+#include "logger.h"
 
 #include <chrono>
 #include <filesystem>
@@ -15,8 +17,24 @@ namespace {
 namespace fs = std::filesystem;
 
 fs::path GetCatalogCachePath() {
-  const wxString userDataDir = wxStandardPaths::Get().GetUserDataDir();
-  return fs::path(userDataDir.ToStdString()) / "gdtf_catalog_cache.json";
+  fs::path dir = AppPaths::GetUserDataDir();
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+  if (ec)
+    dir = AppPaths::GetUserDataTempFallbackDir();
+  const fs::path target = dir / "gdtf_catalog_cache.json";
+  const fs::path legacy =
+      fs::path(wxStandardPaths::Get().GetUserDataDir().ToStdString()) /
+      "gdtf_catalog_cache.json";
+  if (target != legacy && !fs::exists(target, ec) && fs::exists(legacy, ec)) {
+    ec.clear();
+    fs::copy_file(legacy, target, fs::copy_options::skip_existing, ec);
+    Logger::Instance().Log(
+        ec ? Logger::Level::Warn : Logger::Level::Info,
+        ec ? "Could not migrate GDTF catalog cache to local app data."
+           : "Migrated GDTF catalog cache to local app data.");
+  }
+  return target;
 }
 
 bool ParseIsoDateTimeUtc(const std::string &text, wxDateTime &out) {

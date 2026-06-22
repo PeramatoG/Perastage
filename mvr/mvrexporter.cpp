@@ -162,8 +162,14 @@ static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kPerastageUserDataSchemaVersion = "1.0";
 static constexpr const char *kDummyFallbackFixtureGdtfFileName =
     "Dummy 1ch.gdtf";
+static constexpr const char *kPerastageNamedDummyFallbackFixtureGdtfFileName =
+    "Perastage@Dummy_1ch@Perastage.gdtf";
+static constexpr const char *kUnknownNamedDummyFallbackFixtureGdtfFileName =
+    "Unknown@Dummy_1ch@Perastage.gdtf";
 static constexpr const char *kLegacyFallbackFixtureGdtfFileName =
     "Generic 1ch.gdtf";
+static constexpr const char *kPerastageNamedLegacyFallbackFixtureGdtfFileName =
+    "Generic@Generic_1ch@Perastage.gdtf";
 static constexpr const char *kPhysicalPropertiesRevisionText =
     "Updated physical properties for Perastage MVR export";
 
@@ -539,9 +545,12 @@ static std::string SanitizeArchiveFileName(const std::string &input,
 static std::string ResolveFallbackFixtureGdtfPath() {
   static const std::string resolvedPath = []() {
     const fs::path basePath = ProjectUtils::GetBaseLibraryPath("fixtures");
-    const std::array<fs::path, 2> candidates = {
+    const std::array<fs::path, 5> candidates = {
         basePath / kDummyFallbackFixtureGdtfFileName,
+        basePath / kPerastageNamedDummyFallbackFixtureGdtfFileName,
+        basePath / kUnknownNamedDummyFallbackFixtureGdtfFileName,
         basePath / kLegacyFallbackFixtureGdtfFileName,
+        basePath / kPerastageNamedLegacyFallbackFixtureGdtfFileName,
     };
     for (const fs::path &fallbackPath : candidates) {
       std::error_code ec;
@@ -2392,8 +2401,23 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   };
 
   wxFileOutputStream output(filePath);
-  if (!output.IsOk())
+  auto failExport = [&](const std::string &operation,
+                        const std::string &entryName,
+                        const std::string &sourcePath,
+                        const std::string &reason) {
+    std::ostringstream message;
+    message << "MVR export failed during " << operation;
+    if (!entryName.empty())
+      message << " entry='" << entryName << "'";
+    if (!sourcePath.empty())
+      message << " source='" << sourcePath << "'";
+    message << ": " << reason;
+    m_exportWarnings.push_back(message.str());
+    Logger::Instance().Log(Logger::Level::Error, message.str());
     return false;
+  };
+  if (!output.IsOk())
+    return failExport("OpenOutput", {}, filePath, "could not open output file");
 
   wxZipOutputStream zip(output);
 
@@ -2410,12 +2434,69 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   const std::string primitiveTempDir = CreateTempDir();
 
   auto normalizeSourcePath = [&](const std::string &rawPath) {
-    fs::path src = fs::path(rawPath);
+    fs::path src = PathUtils::PathFromUtf8(rawPath);
     if (src.is_relative() && !scene.basePath.empty())
-      src = fs::path(scene.basePath) / src;
+      src = PathUtils::PathFromUtf8(scene.basePath) / src;
     std::error_code ec;
     fs::path weak = fs::weakly_canonical(src, ec);
     return ec ? fs::absolute(src).generic_string() : weak.generic_string();
+  };
+
+  auto findSceneResourceByFileName =
+      [&](const std::string &rawSource) -> std::string {
+    if (rawSource.empty() || scene.basePath.empty())
+      return {};
+
+    const fs::path sourcePath = PathUtils::PathFromUtf8(rawSource);
+    const fs::path requestedFileName = sourcePath.filename();
+    if (requestedFileName.empty())
+      return {};
+
+    const fs::path basePath = PathUtils::PathFromUtf8(scene.basePath);
+    std::error_code ec;
+    if (!fs::exists(basePath, ec) || ec)
+      return {};
+
+    const std::string requestedLower =
+        ToLowerAscii(requestedFileName.generic_string());
+    for (const auto &entry : fs::directory_iterator(basePath, ec)) {
+      if (ec)
+        break;
+      std::error_code regularEc;
+      if (!entry.is_regular_file(regularEc) || regularEc)
+        continue;
+      if (ToLowerAscii(entry.path().filename().generic_string()) ==
+          requestedLower) {
+        return entry.path().generic_string();
+      }
+    }
+    return {};
+  };
+
+  auto resolveExistingResourceSourcePath =
+      [&](const std::string &rawSource) -> std::string {
+    if (rawSource.empty())
+      return {};
+
+    std::string normalizedSource = normalizeSourcePath(rawSource);
+    std::error_code sourceExistsEc;
+    if (fs::exists(PathUtils::PathFromUtf8(normalizedSource), sourceExistsEc) &&
+        !sourceExistsEc) {
+      return normalizedSource;
+    }
+
+    const std::string sceneResourceSource =
+        findSceneResourceByFileName(rawSource);
+    if (!sceneResourceSource.empty()) {
+      normalizedSource = normalizeSourcePath(sceneResourceSource);
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "MVR export resolved packaged resource '" + rawSource +
+              "' by filename in scene resources: " + normalizedSource);
+      return normalizedSource;
+    }
+
+    return {};
   };
 
   auto registerResource = [&](const std::string &rawSource,
@@ -2423,7 +2504,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
                               bool allowReuseBySource = true) -> std::string {
     if (rawSource.empty())
       return {};
-    std::string normalizedSource = normalizeSourcePath(rawSource);
+    std::string normalizedSource = resolveExistingResourceSourcePath(rawSource);
+    if (normalizedSource.empty())
+      normalizedSource = normalizeSourcePath(rawSource);
     auto srcIt = sourceToArchivePath.find(normalizedSource);
     if (allowReuseBySource && srcIt != sourceToArchivePath.end())
       return srcIt->second;
@@ -2443,15 +2526,31 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     if (rawGdtfPath.empty())
       return {};
 
+    std::string resolvedGdtfPath = resolveExistingResourceSourcePath(rawGdtfPath);
+    if (resolvedGdtfPath.empty()) {
+      resolvedGdtfPath = ResolveFallbackFixtureGdtfPath();
+      if (!resolvedGdtfPath.empty()) {
+        Logger::Instance().Log(
+            Logger::Level::Warn,
+            "MVR export could not resolve fixture GDTF '" + rawGdtfPath +
+                "'. Using fallback '" +
+                fs::path(resolvedGdtfPath).filename().generic_string() + "'.");
+      }
+    }
+    const std::string gdtfSourceForExport =
+        resolvedGdtfPath.empty() ? rawGdtfPath : resolvedGdtfPath;
+
     std::string fileName = preferredName;
-    if (ToLowerAscii(fs::path(rawGdtfPath).extension().string()) == ".gdtf" &&
+    if (ToLowerAscii(PathUtils::PathFromUtf8(rawGdtfPath).extension().string()) ==
+            ".gdtf" &&
         !GdtfDictionary::IsPerastageNamedGdtfFile(rawGdtfPath)) {
-      fileName = GdtfDictionary::BuildPerastageCanonicalGdtfFileName(rawGdtfPath);
+      fileName =
+          GdtfDictionary::BuildPerastageCanonicalGdtfFileName(gdtfSourceForExport);
     }
     if (fileName.empty())
       fileName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
     std::string archivePath =
-        registerResource(rawGdtfPath, fileName, allowReuseBySource);
+        registerResource(gdtfSourceForExport, fileName, allowReuseBySource);
     if (!objectUuid.empty() && !archivePath.empty())
       gdtfArchiveByObjectUuid[objectUuid] = archivePath;
     return archivePath;
@@ -2962,6 +3061,29 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
         if (dummyFallbackFixtureExamples.size() < 5)
           dummyFallbackFixtureExamples.push_back(fixtureExportName +
                                                  " (uuid=" + f.uuid + ")");
+      }
+    }
+    if (!fixtureSourceGdtf.empty()) {
+      const std::string resolvedFixtureSource =
+          resolveExistingResourceSourcePath(fixtureSourceGdtf);
+      if (!resolvedFixtureSource.empty()) {
+        fixtureSourceGdtf = resolvedFixtureSource;
+      } else if (!usedDummyFallbackForFixture) {
+        const std::string fallbackGdtf = ResolveFallbackFixtureGdtfPath();
+        if (!fallbackGdtf.empty()) {
+          Logger::Instance().Log(
+              Logger::Level::Warn,
+              "Fixture '" + fixtureExportName + "' (uuid=" + f.uuid +
+                  ") references missing GDTF '" + fixtureSourceGdtf +
+                  "'. Using fallback '" +
+                  fs::path(fallbackGdtf).filename().generic_string() +
+                  "' for MVR export.");
+          fixtureSourceGdtf = fallbackGdtf;
+          usedDummyFallbackForFixture = true;
+          if (dummyFallbackFixtureExamples.size() < 5)
+            dummyFallbackFixtureExamples.push_back(fixtureExportName +
+                                                   " (uuid=" + f.uuid + ")");
+        }
       }
     }
     if (usedDummyFallbackForFixture)
@@ -3975,7 +4097,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
         for (const std::string &error : canonicalResult.errors)
           m_exportWarnings.push_back("GDTF canonicalization failed: " + error);
         zip.Close();
-        return false;
+        return failExport("CanonicalizeGdtf", entry.archivePath,
+                          entry.sourcePath.string(),
+                          "canonicalizer reported errors");
       }
       entry.sourcePath = canonicalPath;
     }
@@ -3996,42 +4120,87 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   std::unordered_set<std::string> writtenArchiveEntries;
   {
     if (!writtenArchiveEntries.insert("GeneralSceneDescription.xml").second) {
-      wxLogError(
-          "MVR export failed: duplicate ZIP entry GeneralSceneDescription.xml");
       zip.Close();
-      return false;
+      return failExport("WriteXml", "GeneralSceneDescription.xml", {},
+                        "duplicate ZIP entry");
     }
     auto *entry = new wxZipEntry("GeneralSceneDescription.xml");
     entry->SetMethod(wxZIP_METHOD_DEFLATE);
-    zip.PutNextEntry(entry);
+    if (!zip.PutNextEntry(entry)) {
+      zip.Close();
+      return failExport("WriteXml", "GeneralSceneDescription.xml", {},
+                        "could not create ZIP entry");
+    }
     zip.Write(xmlData.c_str(), xmlData.size());
-    zip.CloseEntry();
+    if (!zip.IsOk()) {
+      zip.CloseEntry();
+      zip.Close();
+      return failExport("WriteXml", "GeneralSceneDescription.xml", {},
+                        "could not write XML bytes");
+    }
+    if (!zip.CloseEntry()) {
+      zip.Close();
+      return failExport("WriteXml", "GeneralSceneDescription.xml", {},
+                        "could not close ZIP entry");
+    }
   }
 
   for (const auto &resource : resourceEntries) {
     if (!fs::exists(resource.sourcePath) || resource.archivePath.empty())
       continue;
     if (!writtenArchiveEntries.insert(resource.archivePath).second) {
-      wxLogError("MVR export failed: duplicate ZIP entry %s",
-                 resource.archivePath);
       zip.Close();
-      return false;
+      return failExport("WriteResource", resource.archivePath,
+                        resource.sourcePath.string(), "duplicate ZIP entry");
     }
     auto *e = new wxZipEntry(resource.archivePath);
     e->SetMethod(wxZIP_METHOD_DEFLATE);
-    zip.PutNextEntry(e);
+    if (!zip.PutNextEntry(e)) {
+      zip.Close();
+      return failExport("WriteResource", resource.archivePath,
+                        resource.sourcePath.string(),
+                        "could not create ZIP entry");
+    }
     std::ifstream in(resource.sourcePath, std::ios::binary);
+    if (!in.is_open()) {
+      zip.CloseEntry();
+      zip.Close();
+      return failExport("WriteResource", resource.archivePath,
+                        resource.sourcePath.string(),
+                        "could not open source file");
+    }
     char buf[4096];
     while (in.good()) {
       in.read(buf, sizeof(buf));
       std::streamsize s = in.gcount();
-      if (s > 0)
+      if (s > 0) {
         zip.Write(buf, s);
+        if (!zip.IsOk()) {
+          zip.CloseEntry();
+          zip.Close();
+          return failExport("WriteResource", resource.archivePath,
+                            resource.sourcePath.string(),
+                            "could not write resource bytes");
+        }
+      }
     }
-    zip.CloseEntry();
+    if (in.bad()) {
+      zip.CloseEntry();
+      zip.Close();
+      return failExport("WriteResource", resource.archivePath,
+                        resource.sourcePath.string(),
+                        "could not read source file");
+    }
+    if (!zip.CloseEntry()) {
+      zip.Close();
+      return failExport("WriteResource", resource.archivePath,
+                        resource.sourcePath.string(),
+                        "could not close ZIP entry");
+    }
   }
 
-  zip.Close();
+  if (!zip.Close())
+    return failExport("FinalizeArchive", {}, filePath, "could not close ZIP");
   return true;
 }
 
@@ -4054,12 +4223,29 @@ bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes,
   const std::string tempPath = tempFile.GetFullPath().ToStdString();
   const bool exported = ExportToFile(tempPath, options);
   if (!exported) {
+    Logger::Instance().Log(Logger::Level::Error,
+                           "MVR export-to-buffer failed while writing " +
+                               tempPath);
+    wxRemoveFile(tempFile.GetFullPath());
+    return false;
+  }
+  std::error_code sizeEc;
+  const auto tempSize = fs::exists(tempPath, sizeEc) && !sizeEc
+                            ? fs::file_size(tempPath, sizeEc)
+                            : 0;
+  if (sizeEc || tempSize == 0) {
+    Logger::Instance().Log(
+        Logger::Level::Error,
+        "MVR export-to-buffer produced an empty or unreadable file '" +
+            tempPath + "' size=" + std::to_string(tempSize));
     wxRemoveFile(tempFile.GetFullPath());
     return false;
   }
 
   std::ifstream input(tempPath, std::ios::binary);
   if (!input.is_open()) {
+    Logger::Instance().Log(Logger::Level::Error,
+                           "MVR export-to-buffer could not open " + tempPath);
     wxRemoveFile(tempFile.GetFullPath());
     return false;
   }
@@ -4067,15 +4253,27 @@ bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes,
   input.seekg(0, std::ios::end);
   const std::streampos size = input.tellg();
   input.seekg(0, std::ios::beg);
-  if (size > 0) {
-    outBytes.resize(static_cast<size_t>(size));
-    input.read(reinterpret_cast<char *>(outBytes.data()), size);
+  if (size <= 0) {
+    input.close();
+    wxRemoveFile(tempFile.GetFullPath());
+    Logger::Instance().Log(Logger::Level::Error,
+                           "MVR export-to-buffer read zero bytes from " +
+                               tempPath);
+    return false;
   }
+  outBytes.resize(static_cast<size_t>(size));
+  input.read(reinterpret_cast<char *>(outBytes.data()), size);
 
   const bool readOk = input.good() || input.eof();
   input.close();
   wxRemoveFile(tempFile.GetFullPath());
-  return readOk;
+  if (!readOk || outBytes.empty()) {
+    Logger::Instance().Log(Logger::Level::Error,
+                           "MVR export-to-buffer failed to read payload from " +
+                               tempPath);
+    return false;
+  }
+  return true;
 }
 
 // Return non-fatal validation and packaging warnings captured during export.
