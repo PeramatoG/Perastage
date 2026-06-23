@@ -18,11 +18,15 @@
 #if defined(_WIN32)
 #include <windows.h>
 #include <minidumpapiset.h>
+#include <iomanip>
 #endif
 
 namespace diagnostics {
 namespace {
 std::atomic_flag g_handlingCrash = ATOMIC_FLAG_INIT;
+#if defined(_WIN32)
+void *g_vectoredExceptionHandler = nullptr;
+#endif
 
 // Returns a human-readable signal name for crash reports.
 const char *SignalName(int signalNumber) {
@@ -88,6 +92,101 @@ bool WriteWindowsMinidump(const std::filesystem::path &dumpPath,
   CloseHandle(file);
   return ok == TRUE;
 }
+
+// Returns true when a Windows exception represents a serious native crash.
+bool IsSeriousWindowsException(DWORD exceptionCode) {
+  switch (exceptionCode) {
+  case EXCEPTION_ACCESS_VIOLATION:
+  case EXCEPTION_ILLEGAL_INSTRUCTION:
+  case EXCEPTION_STACK_OVERFLOW:
+  case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+  case EXCEPTION_DATATYPE_MISALIGNMENT:
+  case EXCEPTION_FLT_DIVIDE_BY_ZERO:
+  case EXCEPTION_INT_DIVIDE_BY_ZERO:
+    return true;
+  default:
+    return false;
+  }
+}
+
+// Resolves the module path that contains a faulting Windows instruction address.
+std::string ResolveFaultingModulePath(void *address) {
+  if (!address)
+    return {};
+
+  HMODULE module = nullptr;
+  if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                              GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                          reinterpret_cast<LPCWSTR>(address), &module)) {
+    return {};
+  }
+
+  wchar_t path[MAX_PATH] = {};
+  const DWORD length = GetModuleFileNameW(module, path, MAX_PATH);
+  if (length == 0)
+    return {};
+
+  const int utf8Length = WideCharToMultiByte(CP_UTF8, 0, path, -1, nullptr, 0,
+                                            nullptr, nullptr);
+  if (utf8Length <= 0)
+    return {};
+
+  std::string utf8(static_cast<std::size_t>(utf8Length - 1), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, path, -1, utf8.data(), utf8Length, nullptr,
+                      nullptr);
+  return utf8;
+}
+
+// Appends Windows exception metadata to crash report details.
+void AppendWindowsExceptionDetails(std::ostringstream &details,
+                                   EXCEPTION_POINTERS *exceptionInfo) {
+  if (!exceptionInfo || !exceptionInfo->ExceptionRecord) {
+    details << "\nWindows exception context: unavailable";
+    return;
+  }
+
+  EXCEPTION_RECORD *record = exceptionInfo->ExceptionRecord;
+  details << "\nWindows exception context: available";
+  details << "\nException code: 0x" << std::hex << std::setw(8)
+          << std::setfill('0') << record->ExceptionCode << std::dec;
+  details << "\nException address: " << record->ExceptionAddress;
+  const std::string modulePath =
+      ResolveFaultingModulePath(record->ExceptionAddress);
+  if (!modulePath.empty())
+    details << "\nFaulting module: " << modulePath;
+}
+
+// Writes a Windows crash report after an already-attempted native minidump capture.
+void WriteWindowsExceptionCrashReport(const std::filesystem::path &reportPath,
+                                      const std::filesystem::path &dumpPath,
+                                      bool dumpWritten,
+                                      const std::string &dumpError,
+                                      EXCEPTION_POINTERS *exceptionInfo) {
+  std::ostringstream details;
+  details << "Unhandled structured exception";
+  AppendWindowsExceptionDetails(details, exceptionInfo);
+  details << "\nMinidump exception context: "
+          << (exceptionInfo ? "real Windows exception context" : "unavailable");
+  if (dumpWritten) {
+    details << "\nWindows minidump: " << dumpPath.string();
+    DiagnosticLogger::Error("Windows minidump written: " + dumpPath.string());
+  } else {
+    details << "\nWindows minidump unavailable: " << dumpError;
+    DiagnosticLogger::Error("Unable to write Windows minidump: " + dumpError);
+  }
+  details << "\nText stack trace: best-effort backward-cpp capture";
+
+  std::ofstream out(reportPath, std::ios::out | std::ios::trunc);
+  if (out.is_open()) {
+    out << DiagnosticReport::BuildTextReport(
+        "Unhandled structured exception", details.str(), CaptureStackTrace());
+    out.close();
+    DiagnosticLogger::Error("Crash report written: " + reportPath.string());
+  } else {
+    DiagnosticLogger::Error("Unable to write crash report file.");
+  }
+  DiagnosticLogger::Flush();
+}
 #endif
 
 // Writes a crash report without involving GUI objects.
@@ -113,6 +212,9 @@ void WriteCrashReport(const std::string &reason, const std::string &details,
           dumpError)) {
     enrichedDetails += enrichedDetails.empty() ? "" : "\n";
     enrichedDetails += "Windows minidump: " + dumpPath.string();
+    enrichedDetails += "\nMinidump exception context: " +
+                       std::string(exceptionInfo ? "real Windows exception context"
+                                                 : "unavailable");
     DiagnosticLogger::Error("Windows minidump written: " + dumpPath.string());
   } else {
     enrichedDetails += enrichedDetails.empty() ? "" : "\n";
@@ -135,22 +237,44 @@ void WriteCrashReport(const std::string &reason, const std::string &details,
 }
 
 #if defined(_WIN32)
+// Handles a serious Windows exception by writing a dump before text stack capture.
+LONG HandleWindowsException(EXCEPTION_POINTERS *exceptionInfo, LONG handledResult) {
+  if (g_handlingCrash.test_and_set())
+    return handledResult;
+
+  if (!exceptionInfo || !exceptionInfo->ExceptionRecord ||
+      !IsSeriousWindowsException(exceptionInfo->ExceptionRecord->ExceptionCode)) {
+    g_handlingCrash.clear();
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+
+  std::string directoryError;
+  if (!DiagnosticPaths::EnsureDirectory(DiagnosticPaths::CrashReportsDirectory(),
+                                        &directoryError)) {
+    DiagnosticLogger::Error("Unable to create crash report directory: " +
+                            directoryError);
+    DiagnosticLogger::Flush();
+    return handledResult;
+  }
+
+  const std::filesystem::path reportPath = DiagnosticPaths::NewCrashReportFile();
+  const std::filesystem::path dumpPath = reportPath.parent_path() /
+                                        reportPath.stem().concat(".dmp");
+  std::string dumpError;
+  const bool dumpWritten = WriteWindowsMinidump(dumpPath, exceptionInfo, dumpError);
+  WriteWindowsExceptionCrashReport(reportPath, dumpPath, dumpWritten, dumpError,
+                                   exceptionInfo);
+  return handledResult;
+}
+
 // Handles Windows structured exceptions by creating a local crash report.
 LONG WINAPI HandleWindowsUnhandledException(EXCEPTION_POINTERS *exceptionInfo) {
-  if (g_handlingCrash.test_and_set())
-    return EXCEPTION_EXECUTE_HANDLER;
+  return HandleWindowsException(exceptionInfo, EXCEPTION_EXECUTE_HANDLER);
+}
 
-  std::ostringstream details;
-  details << "Unhandled structured exception";
-  if (exceptionInfo && exceptionInfo->ExceptionRecord) {
-    details << "\nException code: 0x" << std::hex
-            << exceptionInfo->ExceptionRecord->ExceptionCode;
-    details << "\nException address: "
-            << exceptionInfo->ExceptionRecord->ExceptionAddress;
-  }
-  WriteCrashReport("Unhandled structured exception", details.str(),
-                   CaptureStackTrace(), exceptionInfo);
-  return EXCEPTION_EXECUTE_HANDLER;
+// Handles first-chance Windows exceptions before CRT signal translation can lose context.
+LONG WINAPI HandleWindowsVectoredException(EXCEPTION_POINTERS *exceptionInfo) {
+  return HandleWindowsException(exceptionInfo, EXCEPTION_CONTINUE_SEARCH);
 }
 #endif
 
@@ -200,6 +324,9 @@ void CrashHandler::Initialize() {
   (void)backwardSignalHandling;
   InstallSignalHandlers();
 #if defined(_WIN32)
+  if (!g_vectoredExceptionHandler)
+    g_vectoredExceptionHandler =
+        AddVectoredExceptionHandler(1, HandleWindowsVectoredException);
   SetUnhandledExceptionFilter(HandleWindowsUnhandledException);
 #endif
   std::set_terminate(HandleTerminate);
