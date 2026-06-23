@@ -1,5 +1,7 @@
 #include "id_pick_pass.h"
 
+#include "picking_coordinate_utils.h"
+
 #include <GL/glew.h>
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -203,14 +205,25 @@ bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
                             const std::unordered_set<std::string> &hiddenLayers,
                             std::string &outUuid) {
   RebuildIfNeeded(width, height, hiddenLayers);
-  if (m_fbo == 0 || !m_framebufferUsable || mouseX < 0 || mouseY < 0 ||
-      mouseX >= width || mouseY >= height)
+  if (m_fbo == 0 || !m_framebufferUsable)
     return false;
 
-  const int sampleY = height - mouseY;
+  int framebufferX = 0;
+  int framebufferY = 0;
+  if (!TryConvertMouseToFramebufferPoint(mouseX, mouseY, width, height,
+                                         framebufferX, framebufferY)) {
+    if (!m_loggedInvalidReadCoordinates) {
+      wxLogWarning(
+          "Viewer3D ID picking skipped an out-of-range read at mouse=(%d,%d), framebuffer=(%d,%d).",
+          mouseX, mouseY, width, height);
+      m_loggedInvalidReadCoordinates = true;
+    }
+    return false;
+  }
+
   unsigned char pixel[3] = {0, 0, 0};
   glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
-  glReadPixels(mouseX, sampleY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
+  glReadPixels(framebufferX, framebufferY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   const uint32_t pickId = (static_cast<uint32_t>(pixel[0]) << 16) |

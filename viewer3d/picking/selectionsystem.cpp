@@ -1,5 +1,7 @@
 #include "selectionsystem.h"
 
+#include "picking_coordinate_utils.h"
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -136,10 +138,18 @@ bool ProjectBoundingBox(const ISelectionContext::BoundingBox &bb,
   return visible;
 }
 
+// Builds a world-space ray from validated mouse coordinates.
 bool BuildMouseRay(int mouseX, int mouseY, int screenHeight,
                    const ProjectionSnapshot &projection, Ray &outRay) {
-  const double winX = static_cast<double>(mouseX);
-  const double winY = static_cast<double>(screenHeight - mouseY);
+  int framebufferX = 0;
+  int framebufferY = 0;
+  if (!TryConvertMouseToFramebufferPoint(mouseX, mouseY, projection.viewport[2],
+                                         screenHeight, framebufferX,
+                                         framebufferY)) {
+    return false;
+  }
+  const double winX = static_cast<double>(framebufferX);
+  const double winY = static_cast<double>(framebufferY);
 
   double nearX = 0.0;
   double nearY = 0.0;
@@ -169,17 +179,26 @@ bool BuildMouseRay(int mouseX, int mouseY, int screenHeight,
   return true;
 }
 
+// Reads and unprojects the depth value under a validated mouse coordinate.
 bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
                              const ProjectionSnapshot &projection,
                              std::array<double, 3> &outWorldPoint) {
-  const int sampleY = screenHeight - mouseY;
+  int framebufferX = 0;
+  int framebufferY = 0;
+  if (!TryConvertMouseToFramebufferPoint(mouseX, mouseY, projection.viewport[2],
+                                         screenHeight, framebufferX,
+                                         framebufferY)) {
+    return false;
+  }
+
   float depth = 1.0f;
-  glReadPixels(mouseX, sampleY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
+  glReadPixels(framebufferX, framebufferY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT,
+               &depth);
   if (depth >= 1.0f)
     return false;
 
-  const double winX = static_cast<double>(mouseX);
-  const double winY = static_cast<double>(sampleY);
+  const double winX = static_cast<double>(framebufferX);
+  const double winY = static_cast<double>(framebufferY);
   double worldX = 0.0;
   double worldY = 0.0;
   double worldZ = 0.0;
