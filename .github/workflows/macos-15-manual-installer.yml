@@ -1,5 +1,5 @@
 # macOS installer workflow for Perastage
-# Builds and stages the macOS application using vcpkg and CMake.
+# Builds and stages the macOS 15 Apple Silicon application using vcpkg and CMake.
 
 name: macOS 15 Manual Installer Build
 
@@ -24,6 +24,9 @@ jobs:
       VCPKG_PACKAGES:    ${{ github.workspace }}/.vcpkg-cache/packages
       VCPKG_TRIPLET:     arm64-osx
 
+      # Keep this workflow compatible with macOS 15.x Apple Silicon systems.
+      MACOSX_DEPLOYMENT_TARGET: "15.0"
+
     steps:
       # ── 1. Checkout ────────────────────────────────────────────────────────
       - name: Checkout repository
@@ -31,17 +34,24 @@ jobs:
         with:
           ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
 
-      # ── 2. Print macOS runner diagnostics ───────────────────────────────────
-      - name: Print macOS runner diagnostics
+      # ── 2. Record macOS toolchain diagnostics ───────────────────────────────
+      - name: Record macOS toolchain diagnostics
         run: |
+          set -euo pipefail
           sw_vers
-          xcodebuild -version
+          uname -m
           uname -a
+          xcodebuild -version
+          clang++ --version
+          cmake --version
+          ninja --version || true
           sysctl -n machdep.cpu.brand_string || true
+          xcrun --sdk macosx --show-sdk-path
 
       # ── 3. Install macOS build tools ────────────────────────────────────────
       - name: Install macOS build tools
         run: |
+          set -euo pipefail
           brew update
           brew install autoconf autoconf-archive automake libtool ninja dylibbundler
 
@@ -54,16 +64,16 @@ jobs:
             .vcpkg-cache/downloads
             .vcpkg-cache/installed
             .vcpkg-cache/packages
-          key: ${{ runner.os }}-vcpkg-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/macos-15-manual-installer.yml') }}
+          key: macos-15-deployment-${{ env.MACOSX_DEPLOYMENT_TARGET }}-vcpkg-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/macos-15-manual-installer.yml') }}
           restore-keys: |
-            ${{ runner.os }}-vcpkg-arm64-osx-
-            ${{ runner.os }}-vcpkg-
+            macos-15-deployment-${{ env.MACOSX_DEPLOYMENT_TARGET }}-vcpkg-arm64-osx-
 
       # ── 5. Prepare vcpkg cache folders ──────────────────────────────────────
       # These folders must exist before bootstrap because VCPKG_DOWNLOADS is
       # already visible to vcpkg during bootstrap.
       - name: Prepare vcpkg folders
         run: |
+          set -euo pipefail
           mkdir -p "$VCPKG_DOWNLOADS"
           mkdir -p "$VCPKG_INSTALLED"
           mkdir -p "$VCPKG_PACKAGES"
@@ -71,6 +81,7 @@ jobs:
       # ── 6. Bootstrap vcpkg ──────────────────────────────────────────────────
       - name: Bootstrap vcpkg
         run: |
+          set -euo pipefail
           if [ -d "$VCPKG_ROOT/.git" ]; then
             echo "Updating existing vcpkg checkout..."
             git -C "$VCPKG_ROOT" fetch --depth 1 origin master
@@ -82,9 +93,53 @@ jobs:
 
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
 
-      # ── 7. Install vcpkg packages ───────────────────────────────────────────
+      # ── 7. Diagnose restored vcpkg SDK metadata ─────────────────────────────
+      - name: Diagnose restored vcpkg SDK metadata
+        run: |
+          set -euo pipefail
+          echo "xcode-select path:"
+          xcode-select -p
+          echo "Xcode version:"
+          xcodebuild -version
+          echo "Current macOS SDK path:"
+          xcrun --sdk macosx --show-sdk-path
+
+          for cache_dir in "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"; do
+            if [ -d "$cache_dir" ]; then
+              echo "Scanning $cache_dir for cached Xcode SDK paths..."
+              if ! grep -R -n -F "/Applications/Xcode_" "$cache_dir" 2>/dev/null; then
+                echo "No cached Xcode SDK paths found in $cache_dir."
+              fi
+            else
+              echo "$cache_dir does not exist; skipping SDK metadata scan."
+            fi
+          done
+
+      # ── 8. Install vcpkg packages ───────────────────────────────────────────
       - name: Install vcpkg packages
         run: |
+          set -euo pipefail
+          current_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
+          stale_sdk_paths="$(
+            for cache_dir in "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"; do
+              if [ -d "$cache_dir" ]; then
+                grep -R -h -o -E "/Applications/Xcode_[^[:space:]]*/SDKs/MacOSX\.sdk" "$cache_dir" 2>/dev/null || true
+              fi
+            done | sort -u | grep -F -v -x "$current_sdk_path" || true
+          )"
+
+          if [ -n "$stale_sdk_paths" ]; then
+            echo "Stale macOS SDK path metadata was found in the restored vcpkg cache."
+            echo "Current SDK path: $current_sdk_path"
+            echo "Stale SDK path(s):"
+            echo "$stale_sdk_paths"
+            echo "Deleting and recreating vcpkg installed and packages caches before rebuilding dependencies."
+            rm -rf "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"
+            mkdir -p "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"
+          else
+            echo "No stale macOS SDK path metadata found in the restored vcpkg cache."
+          fi
+
           "$VCPKG_ROOT/vcpkg" install \
             wxwidgets:$VCPKG_TRIPLET \
             tinyxml2:$VCPKG_TRIPLET \
@@ -94,27 +149,76 @@ jobs:
             nanovg:$VCPKG_TRIPLET \
             podofo:$VCPKG_TRIPLET \
             meshoptimizer:$VCPKG_TRIPLET \
+            backward-cpp:$VCPKG_TRIPLET \
             --x-install-root="$VCPKG_INSTALLED" \
             --x-packages-root="$VCPKG_PACKAGES" \
             --downloads-root="$VCPKG_DOWNLOADS"
 
-      # ── 8. Configure CMake ──────────────────────────────────────────────────
+      # ── 9. Configure CMake ──────────────────────────────────────────────────
       - name: Configure CMake
         run: |
-          cmake -S . -B build \
+          set -euo pipefail
+          rm -rf build
+          current_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
+
+          cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_SYSROOT="$current_sdk_path" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" \
+            -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -g" \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET="$VCPKG_TRIPLET" \
             -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"
 
-      # ── 9. Build project ────────────────────────────────────────────────────
+      # ── 10. Build project ───────────────────────────────────────────────────
       - name: Build project
         run: |
-          cmake --build build --config Release --parallel 2 --verbose
+          set -o pipefail
+          mkdir -p build
+          cmake --build build --config Release --parallel 1 --verbose 2>&1 | tee build/macos-build.log
+          build_status=${PIPESTATUS[0]}
+          if [ "$build_status" -ne 0 ]; then
+            echo "::group::Focused compiler diagnostics"
+            first_error_line="$(grep -n -m 1 -E '(^|[:[:space:]])error:' build/macos-build.log | cut -d: -f1 || true)"
+            if [ -n "$first_error_line" ]; then
+              start_line=$(( first_error_line > 40 ? first_error_line - 40 : 1 ))
+              end_line=$(( first_error_line + 120 ))
+              sed -n "${start_line},${end_line}p" build/macos-build.log
+            else
+              echo "No compiler error marker was found in build/macos-build.log."
+              tail -n 200 build/macos-build.log
+            fi
+            echo "::endgroup::"
+            echo "::group::Linker and SDK failure summary"
+            echo "Lines containing 'No rule to make target':"
+            grep -n -F "No rule to make target" build/macos-build.log || true
+            echo "Lines containing '/Applications/Xcode_':"
+            grep -n -F "/Applications/Xcode_" build/macos-build.log || true
+            echo "Lines containing 'libiconv.tbd':"
+            grep -n -F "libiconv.tbd" build/macos-build.log || true
+            echo "Last 120 lines of build log:"
+            tail -n 120 build/macos-build.log
+            echo "::endgroup::"
+            exit "$build_status"
+          fi
 
-      # ── 10. Stage distribution folder ───────────────────────────────────────
+      - name: Upload macOS build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-macos15-build-diagnostics
+          if-no-files-found: warn
+          path: |
+            build/macos-build.log
+            build/CMakeFiles/CMakeOutput.log
+            build/CMakeFiles/CMakeError.log
+            .vcpkg-cache/**/*.log
+
+      # ── 11. Stage distribution folder ───────────────────────────────────────
       - name: Stage distribution folder
         run: |
+          set -euo pipefail
           cmake --build build --config Release --target perastage_stage
           find out/install/Release -maxdepth 6 -print || true
           test -d out/install/Release/Perastage.app
@@ -125,9 +229,30 @@ jobs:
           test -f out/install/Release/Perastage.app/Contents/Resources/resources/Perastage_logo.png
           test -d out/install/Release/Perastage.app/Contents/Resources/resources/icons
 
-      # ── 11. Validate and prepare staged macOS app bundle ────────────────────
+      # ── 12. Collect macOS symbols ───────────────────────────────────────────
+      - name: Collect macOS symbols
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          APP_BIN="out/install/Release/Perastage.app/Contents/MacOS/Perastage"
+          SYMBOLS_DIR="out/symbols/macos"
+          rm -rf "$SYMBOLS_DIR"
+          mkdir -p "$SYMBOLS_DIR"
+          dsymutil "$APP_BIN" -o "$SYMBOLS_DIR/Perastage.dSYM"
+          strip -S "$APP_BIN" || true
+          (cd "$SYMBOLS_DIR" && zip -r "../../Perastage-$VERSION-macOS-symbols.zip" .)
+          test -f "out/Perastage-$VERSION-macOS-symbols.zip"
+
+      - name: Upload macOS symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: Perastage-macos15-symbols
+          path: out/Perastage-*-macOS-symbols.zip
+
+      # ── 13. Validate staged app bundle ──────────────────────────────────────
       - name: Validate staged app bundle
         run: |
+          set -euo pipefail
           test -d out/install/Release/Perastage.app
           test -f out/install/Release/Perastage.app/Contents/Info.plist
           test -f out/install/Release/Perastage.app/Contents/MacOS/Perastage
@@ -143,10 +268,13 @@ jobs:
 
       - name: Remove quarantine from staged app bundle
         run: |
+          set -euo pipefail
           xattr -cr "out/install/Release/Perastage.app" || true
 
+      # ── 14. Bundle dynamic libraries and sign the app ───────────────────────
       - name: Bundle dylibs and ad-hoc sign staged app
         run: |
+          set -euo pipefail
           APP_PATH="out/install/Release/Perastage.app"
           BIN_PATH="$APP_PATH/Contents/MacOS/Perastage"
           FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
@@ -158,8 +286,8 @@ jobs:
             -x "$BIN_PATH" \
             -d "$FRAMEWORKS_PATH" \
             -p "@executable_path/../Frameworks/" \
-            -s "$VCPKG_INSTALLED/lib" \
-            -s "$VCPKG_INSTALLED/tools"
+            -s "$VCPKG_INSTALLED/$VCPKG_TRIPLET/lib" \
+            -s "$VCPKG_INSTALLED/$VCPKG_TRIPLET/tools"
 
           # Sign nested dynamic libraries and helper binaries before signing the bundle.
           while IFS= read -r file_path; do
@@ -183,28 +311,115 @@ jobs:
 
           # Fail on missing non-system runtime dependencies.
           MISSING_DEPS=0
-          while IFS= read -r dep_line; do
-            dep_path="$(echo "$dep_line" | awk '{print $1}')"
-            case "$dep_path" in
-              @executable_path/*|@loader_path/*|/System/*|/usr/lib/*) ;;
-              *)
-                echo "Unexpected runtime dependency: $dep_path"
-                MISSING_DEPS=1
-                ;;
-            esac
-          done < <(otool -L "$BIN_PATH" | tail -n +2)
+          while IFS= read -r macho_file; do
+            if ! file "$macho_file" | grep -q "Mach-O"; then
+              continue
+            fi
+
+            while IFS= read -r dep_line; do
+              dep_path="$(echo "$dep_line" | awk '{print $1}')"
+              case "$dep_path" in
+                "$macho_file"|"$(basename "$macho_file")":|@executable_path/*|@loader_path/*|/System/*|/usr/lib/*) ;;
+                *)
+                  echo "Unexpected runtime dependency in $macho_file: $dep_path"
+                  MISSING_DEPS=1
+                  ;;
+              esac
+            done < <(otool -L "$macho_file" | tail -n +2)
+          done < <(find "$APP_PATH/Contents" -type f)
+
           test "$MISSING_DEPS" -eq 0
 
-      # ── 12. Upload staged build ─────────────────────────────────────────────
+      # ── 15. Validate macOS deployment targets ───────────────────────────────
+      - name: Validate macOS deployment targets
+        run: |
+          set -euo pipefail
+          APP_PATH="out/install/Release/Perastage.app"
+
+          python3 - "$APP_PATH" "$MACOSX_DEPLOYMENT_TARGET" <<'PY'
+          import pathlib
+          import re
+          import subprocess
+          import sys
+
+          app_path = pathlib.Path(sys.argv[1])
+          target_version = tuple(int(part) for part in sys.argv[2].split(".")[:2])
+
+          def is_macho_file(path: pathlib.Path) -> bool:
+              result = subprocess.run(["file", str(path)], capture_output=True, text=True, check=False)
+              return "Mach-O" in result.stdout
+
+          def read_min_versions(path: pathlib.Path) -> list[tuple[int, int]]:
+              result = subprocess.run(["otool", "-l", str(path)], capture_output=True, text=True, check=True)
+              versions: list[tuple[int, int]] = []
+              current_command = ""
+
+              for raw_line in result.stdout.splitlines():
+                  line = raw_line.strip()
+
+                  if line.startswith("cmd "):
+                      current_command = line.split(" ", 1)[1]
+                      continue
+
+                  if current_command == "LC_BUILD_VERSION" and line.startswith("minos "):
+                      match = re.search(r"minos\s+(\d+)\.(\d+)", line)
+                      if match:
+                          versions.append((int(match.group(1)), int(match.group(2))))
+
+                  if current_command == "LC_VERSION_MIN_MACOSX" and line.startswith("version "):
+                      match = re.search(r"version\s+(\d+)\.(\d+)", line)
+                      if match:
+                          versions.append((int(match.group(1)), int(match.group(2))))
+
+              return versions
+
+          failures: list[str] = []
+          checked = 0
+
+          for file_path in app_path.rglob("*"):
+              if not file_path.is_file() or not is_macho_file(file_path):
+                  continue
+
+              checked += 1
+              versions = read_min_versions(file_path)
+              relative_path = file_path.relative_to(app_path)
+
+              if not versions:
+                  print(f"warning: no deployment target found for {relative_path}")
+                  continue
+
+              highest_version = max(versions)
+              print(f"{relative_path}: minimum macOS {highest_version[0]}.{highest_version[1]}")
+
+              if highest_version > target_version:
+                  failures.append(
+                      f"{relative_path} requires macOS {highest_version[0]}.{highest_version[1]}, "
+                      f"expected <= {target_version[0]}.{target_version[1]}"
+                  )
+
+          if checked == 0:
+              raise SystemExit("No Mach-O files were found in the app bundle.")
+
+          if failures:
+              print("Deployment target validation failed:")
+              for failure in failures:
+                  print(f"  - {failure}")
+              raise SystemExit(1)
+
+          print(f"Deployment target validation passed for {checked} Mach-O file(s).")
+          PY
+
+      # ── 16. Upload staged build ─────────────────────────────────────────────
       - name: Upload staged distribution
         uses: actions/upload-artifact@v4
         with:
-          name: Perastage-macos-staged
+          name: Perastage-macos15-staged
           path: out/install/Release
 
-      # ── 13. Build DMG package ───────────────────────────────────────────────
+      # ── 17. Build DMG package ───────────────────────────────────────────────
       - name: Build macOS DMG
         run: |
+          set -euo pipefail
           APP_PATH="out/install/Release/Perastage.app"
           VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Contents/Info.plist")"
           DMG_NAME="Perastage-${VERSION}-macos-arm64.dmg"
@@ -225,9 +440,10 @@ jobs:
           rm -rf "$DMG_ROOT"
           find out/installer -name "*.dmg" -print
 
-      # ── 14. Validate generated DMG ──────────────────────────────────────────
+      # ── 18. Validate generated DMG ──────────────────────────────────────────
       - name: Validate generated DMG
         run: |
+          set -euo pipefail
           DMG_FILE="$(find out/installer -name "*.dmg" -print -quit)"
           if [ -z "$DMG_FILE" ]; then
             echo "DMG not found"
@@ -251,22 +467,23 @@ jobs:
           plutil -lint "$MOUNT_DIR/Perastage.app/Contents/Info.plist"
           codesign --verify --deep --verbose=2 "$MOUNT_DIR/Perastage.app"
 
-      # ── 15. Collect DMG package ─────────────────────────────────────────────
+      # ── 19. Collect DMG package ─────────────────────────────────────────────
       - name: Collect macOS DMG
         run: |
+          set -euo pipefail
           mkdir -p out/installer
           dmg_file="$(find out/installer -name "*.dmg" -print -quit)"
           if [ -z "$dmg_file" ]; then
-            echo "DMG not found under build/"
+            echo "DMG not found under out/installer"
             exit 1
           fi
           echo "Using DMG: $dmg_file"
           xattr -c "$dmg_file" || true
           find out/installer -maxdepth 2 -name "*.dmg" -print
 
-      # ── 16. Upload DMG package ──────────────────────────────────────────────
+      # ── 20. Upload DMG package ──────────────────────────────────────────────
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
-          name: Perastage-macos-dmg
+          name: Perastage-macos15-dmg
           path: out/installer/*.dmg
