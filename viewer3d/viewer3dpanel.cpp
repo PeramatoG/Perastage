@@ -1080,7 +1080,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     if (!reusedBasePass) {
         const auto fullRenderStart = std::chrono::steady_clock::now();
-        Render(renderSize);
+        Render(renderSize, false);
         const auto fullRenderElapsedMs =
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - fullRenderStart)
@@ -1094,8 +1094,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         }
     }
 
-    // Ensure the OpenGL context is current before drawing overlays
+    // Ensure the OpenGL context and camera matrices are current before overlays.
     SetCurrent(*m_glContext);
+    ApplyCameraMatrices(renderSize);
 
     const int w = renderSize.width;
     const int h = renderSize.height;
@@ -1219,7 +1220,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
 
     bool highlightChanged = false;
-    bool rerenderedAfterFixtureHighlightChange = false;
     if (oldHoverUuid != m_hoverUuid || oldHasHover != m_hasHover) {
         const auto highlightUpdateStart = std::chrono::steady_clock::now();
         highlightChanged = true;
@@ -1233,12 +1233,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     m_mouseMoved = false;
 
-    if (highlightChanged && activeTable == HoverTargetTable::Fixtures) {
-        Render(renderSize);
-        SetCurrent(*m_glContext);
-        reusedBasePass = false;
-        rerenderedAfterFixtureHighlightChange = true;
-    }
+    DrawSelectionOverlay(renderSize);
 
     // Draw labels before swapping buffers to avoid losing them.
     if ((!highlightOnlyRefresh || !reusedBasePass) && !pauseHeavyTasks &&
@@ -1298,8 +1293,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_highlightUpdateSamplesInCurrentWindow = 0;
     }
 
-    if ((!highlightChanged && highlightRefreshPendingAtFrameStart) ||
-        rerenderedAfterFixtureHighlightChange)
+    if (!highlightChanged && highlightRefreshPendingAtFrameStart)
         m_highlightRefreshPending = false;
     if (highlightChanged && !rerenderedAfterFixtureHighlightChange)
         Refresh(false);
@@ -1317,8 +1311,9 @@ void Viewer3DPanel::OnResize(wxSizeEvent& event)
     Refresh();
 }
 
-// Renders the full 3D scene
-void Viewer3DPanel::Render(const RenderSize& renderSize)
+// Renders the 3D scene with optional selection and hover overlays.
+void Viewer3DPanel::Render(const RenderSize& renderSize,
+                           bool renderSelectionOverlay)
 {
     viewer3d::diagnostics::Log("Viewer3DPanel::Render start.");
     if (!IsShownOnScreen()) {
@@ -1353,11 +1348,25 @@ void Viewer3DPanel::Render(const RenderSize& renderSize)
 
     m_controller.SetCameraMoving(m_cameraMoving);
     m_controller.RenderScene(IsWireframeRenderStyle(renderStyle),
-                             ToSceneRenderMode(renderStyle));
+                             ToSceneRenderMode(renderStyle),
+                             Viewer2DView::Top, true, 0, 0.35f, 0.35f,
+                             0.35f, false, false, false,
+                             renderSelectionOverlay);
 
     glFlush();
     ValidateGlStateAfterRender("Viewer3DPanel::Render", width, height);
     viewer3d::diagnostics::Log("Viewer3DPanel::Render end.");
+}
+
+// Draws hover and selection overlays without redrawing or recapturing the base scene.
+void Viewer3DPanel::DrawSelectionOverlay(const RenderSize& renderSize)
+{
+    if (!m_glContext || !SetCurrent(*m_glContext))
+        return;
+
+    ApplyCameraMatrices(renderSize);
+    const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
+    m_controller.RenderSelectionOverlay(ToSceneRenderMode(renderStyle));
 }
 
 // Exports the current 3D view to a PNG image chosen by the user.
@@ -1898,8 +1907,9 @@ void Viewer3DPanel::SynchronizeHoverHighlight()
 {
     ++m_highlightRevision;
     m_highlightRefreshPending = true;
-    if (m_basePassCache)
-        m_basePassCache->Invalidate();
+    wxLogDebug("Viewer3D hover highlight changed: uuid=%s revision=%llu",
+               m_hoverUuid.c_str(),
+               static_cast<unsigned long long>(m_highlightRevision));
     m_controller.SetHighlightUuid(m_hoverUuid);
 
     const MvrScene& scene = ConfigManager::Get().GetScene();

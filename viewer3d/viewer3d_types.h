@@ -79,6 +79,7 @@ struct RenderFrameContext {
   bool skipOutlinesForCurrentFrame = false;
   bool idOnlyPass = false;
   bool selectionOverlayPass = false;
+  bool renderSelectionOverlay = true;
 
   bool colorByFixtureType = false;
   bool colorByLayer = false;

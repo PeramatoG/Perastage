@@ -988,7 +988,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      int gridStyle, float gridR, float gridG,
                                      float gridB, bool gridOnTop,
                                      bool is2DViewer,
-                                     bool preferPerastageSvgSymbolsForLayouts) {
+                                     bool preferPerastageSvgSymbolsForLayouts,
+                                     bool renderSelectionOverlay) {
   ConfigManager &cfg = ConfigManager::Get();
   m_impl->activeRenderMode = mode;
 
@@ -1006,6 +1007,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.is2DViewer = is2DViewer;
   context.preferPerastageSvgSymbolsForLayouts =
       preferPerastageSvgSymbolsForLayouts;
+  context.renderSelectionOverlay = renderSelectionOverlay;
 
   m_impl->useAdaptiveLineProfile =
       cfg.GetFloat("viewer3d_adaptive_line_profile") >= 0.5f;
@@ -1088,6 +1090,34 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 
   RenderPipeline pipeline(*this);
   pipeline.Execute(context);
+}
+
+// Renders only transient hover, group-hover, and selection overlays.
+void Viewer3DController::RenderSelectionOverlay(Viewer2DRenderMode mode,
+                                                Viewer2DView view,
+                                                bool is2DViewer) {
+  ConfigManager &cfg = ConfigManager::Get();
+
+  RenderFrameContext context;
+  context.mode = mode;
+  context.view = view;
+  context.is2DViewer = is2DViewer;
+  context.useLighting = true;
+  const CullingSettings culling = GetCullingSettings3D(cfg);
+  context.useFrustumCulling = culling.enabled;
+  context.minCullingPixels =
+      context.is2DViewer ? culling.minPixels2D : culling.minPixels3D;
+  context.hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
+  const Viewer3DRenderStyle renderStyle =
+      ResolveRenderStyleForContext(cfg, context.is2DViewer);
+  context.whiteModelStyle = IsWhiteModelRenderStyle(renderStyle);
+  context.texturedStyle = IsTexturedRenderStyle(renderStyle);
+  context.renderSelectionOverlay = true;
+
+  Viewer3DViewFrustumSnapshot frustum{};
+  const VisibleSet &visibleSet =
+      PrepareRenderFrame(context, frustum);
+  SelectionOverlayPass::Render(*this, context, visibleSet);
 }
 
 // Prepares and returns render Frame.
@@ -1293,7 +1323,8 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
                           resolveSymbolView, getPickColor);
   OpaqueFixturePass::Render(*this, context, visibleSet, getTypeColor,
                             getLayerColor, resolveSymbolView, getPickColor);
-  SelectionOverlayPass::Render(*this, context, visibleSet);
+  if (context.renderSelectionOverlay)
+    SelectionOverlayPass::Render(*this, context, visibleSet);
   HoistSymbolRenderer::Render(*this, context);
 }
 

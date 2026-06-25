@@ -118,6 +118,10 @@ void LogHighlightTextureState(bool highlight, bool groupHighlight,
                               bool selected, bool useTexture) {
   if (!highlight && !groupHighlight && !selected)
     return;
+  static bool loggedHighlightTextureState = false;
+  if (loggedHighlightTextureState)
+    return;
+  loggedHighlightTextureState = true;
 
   const TextureUnitZeroState state = CaptureTextureUnitZeroState();
   wxLogDebug(

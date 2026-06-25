@@ -96,7 +96,11 @@ public:
                    int gridStyle = 0, float gridR = 0.35f, float gridG = 0.35f,
                    float gridB = 0.35f, bool gridOnTop = false,
                    bool is2DViewer = false,
-                   bool preferPerastageSvgSymbolsForLayouts = false);
+                   bool preferPerastageSvgSymbolsForLayouts = false,
+                   bool renderSelectionOverlay = true);
+  void RenderSelectionOverlay(Viewer2DRenderMode mode = Viewer2DRenderMode::White,
+                              Viewer2DView view = Viewer2DView::Top,
+                              bool is2DViewer = false);
 
   void SetDarkMode(bool enabled);
   void SetInteracting(bool interacting);

@@ -7,7 +7,9 @@
 #else
 #include <GL/gl.h>
 #endif
+#include <wx/log.h>
 
+// Releases cached framebuffer resources owned by the base-pass cache.
 BasePassFramebufferCache::~BasePassFramebufferCache() {
   if (m_depthRenderbuffer != 0)
     glDeleteRenderbuffers(1, &m_depthRenderbuffer);
@@ -17,8 +19,14 @@ BasePassFramebufferCache::~BasePassFramebufferCache() {
     glDeleteFramebuffers(1, &m_fbo);
 }
 
-void BasePassFramebufferCache::Invalidate() { m_hasSnapshot = false; }
+// Invalidates the cached clean base-scene framebuffer snapshot.
+void BasePassFramebufferCache::Invalidate() {
+  if (m_hasSnapshot)
+    wxLogDebug("BasePassFramebufferCache invalidated");
+  m_hasSnapshot = false;
+}
 
+// Abandons GL resources when the owning context is no longer current.
 void BasePassFramebufferCache::AbandonResources() {
   m_fbo = 0;
   m_colorTexture = 0;
@@ -28,6 +36,7 @@ void BasePassFramebufferCache::AbandonResources() {
   m_hasSnapshot = false;
 }
 
+// Ensures the cache framebuffer matches the requested framebuffer size.
 void BasePassFramebufferCache::EnsureFramebufferSize(int width, int height) {
   if (width <= 0 || height <= 0)
     return;
@@ -63,6 +72,7 @@ void BasePassFramebufferCache::EnsureFramebufferSize(int width, int height) {
   m_hasSnapshot = false;
 }
 
+// Restores a matching clean base-scene snapshot into the default framebuffer.
 bool BasePassFramebufferCache::RestoreToDefaultFramebuffer(
     int width, int height, size_t cameraFingerprint,
     const std::unordered_set<std::string> &hiddenLayers,
@@ -74,8 +84,13 @@ bool BasePassFramebufferCache::RestoreToDefaultFramebuffer(
   const bool cameraChanged = m_lastCameraFingerprint != cameraFingerprint;
   const bool layersChanged = m_lastHiddenLayers != hiddenLayers;
   const bool sceneChanged = m_lastSceneVersion != sceneVersion;
-  if (viewportChanged || cameraChanged || layersChanged || sceneChanged)
+  if (viewportChanged || cameraChanged || layersChanged || sceneChanged) {
+    wxLogDebug(
+        "BasePassFramebufferCache restore skipped: viewportChanged=%d cameraChanged=%d layersChanged=%d sceneChanged=%d",
+        viewportChanged ? 1 : 0, cameraChanged ? 1 : 0, layersChanged ? 1 : 0,
+        sceneChanged ? 1 : 0);
     return false;
+  }
 
   glBindFramebuffer(GL_READ_FRAMEBUFFER, m_fbo);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -83,9 +98,11 @@ bool BasePassFramebufferCache::RestoreToDefaultFramebuffer(
                     GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  wxLogDebug("BasePassFramebufferCache restored clean base scene");
   return true;
 }
 
+// Captures the current default framebuffer as a clean base-scene snapshot.
 void BasePassFramebufferCache::CaptureFromDefaultFramebuffer(
     int width, int height, size_t cameraFingerprint,
     const std::unordered_set<std::string> &hiddenLayers,
@@ -105,4 +122,5 @@ void BasePassFramebufferCache::CaptureFromDefaultFramebuffer(
   m_lastHiddenLayers = hiddenLayers;
   m_lastSceneVersion = sceneVersion;
   m_hasSnapshot = true;
+  wxLogDebug("BasePassFramebufferCache captured clean base scene");
 }
