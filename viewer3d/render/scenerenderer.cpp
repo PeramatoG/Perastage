@@ -107,7 +107,7 @@ void RestoreMeshVaoElementBindingAndUnbind(const Mesh &mesh,
 
 // Logs VAO and EBO state for macOS highlight diagnostics.
 void LogMeshVaoDiagnostic(const Mesh &mesh, const char *label) {
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(NDEBUG)
   GLint currentVao = 0;
   GLint currentEbo = 0;
   glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &currentVao);
