@@ -420,6 +420,7 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   glDisableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
   glUseProgram(static_cast<GLuint>(priorProgram));
   RestoreFrontFace(previousFrontFace);
   if (sketchFill && cullWasEnabled)
@@ -849,6 +850,7 @@ void SceneRenderer::DrawMeshWireframe(
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
     glPopMatrix();
   } else if (!m_controller.IsCaptureOnly()) {
     glBegin(GL_LINES);
@@ -1000,6 +1002,7 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale,
     glDisableClientState(GL_VERTEX_ARRAY);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
     glPopMatrix();
   } else if (!m_controller.IsCaptureOnly()) {
     const bool textureEnabled =
