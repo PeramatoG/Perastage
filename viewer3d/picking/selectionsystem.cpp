@@ -251,7 +251,8 @@ bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
                              const ProjectionSnapshot &projection,
                              std::array<double, 3> &outWorldPoint) {
   if (!viewer3d::render::HasCurrentOpenGLContext()) {
-    wxLogWarning("Picking: skipped due to invalid context before depth read.");
+    wxLogDebug("Picking: skipped due to invalid context before depth read.");
+    DisableDepthReadPickingForSession();
     return false;
   }
 
@@ -259,10 +260,11 @@ bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
   glGetIntegerv(GL_VIEWPORT, currentViewport);
   if (currentViewport[2] <= 0 || currentViewport[3] <= 0 ||
       projection.viewport[2] <= 0 || projection.viewport[3] <= 0) {
-    wxLogWarning(
+    wxLogDebug(
         "Picking: skipped due to invalid viewport before depth read viewport=(%d,%d,%d,%d).",
         currentViewport[0], currentViewport[1], currentViewport[2],
         currentViewport[3]);
+    DisableDepthReadPickingForSession();
     return false;
   }
 
@@ -277,7 +279,7 @@ bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
   if (framebufferX < currentViewport[0] || framebufferY < currentViewport[1] ||
       framebufferX >= currentViewport[0] + currentViewport[2] ||
       framebufferY >= currentViewport[1] + currentViewport[3]) {
-    wxLogWarning(
+    wxLogDebug(
         "Picking: skipped due to out-of-viewport depth read mouse=(%d,%d) framebuffer=(%d,%d) viewport=(%d,%d,%d,%d).",
         mouseX, mouseY, framebufferX, framebufferY, currentViewport[0],
         currentViewport[1], currentViewport[2], currentViewport[3]);
@@ -294,14 +296,16 @@ bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
     readFramebuffer = framebuffer;
   glGetIntegerv(GL_READ_BUFFER, &readBuffer);
   if (readFramebuffer == 0) {
-    wxLogWarning(
+    wxLogDebug(
         "Picking: skipped depth read because no controlled read framebuffer is bound.");
+    DisableDepthReadPickingForSession();
     return false;
   }
   if (readBuffer == GL_NONE) {
-    wxLogWarning(
+    wxLogDebug(
         "Picking: skipped depth read because the active read buffer is GL_NONE framebuffer=%d readFramebuffer=%d.",
         framebuffer, readFramebuffer);
+    DisableDepthReadPickingForSession();
     return false;
   }
 
@@ -309,7 +313,7 @@ bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
       GLEW_ARB_framebuffer_object) {
     const GLenum framebufferStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
     if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
-      wxLogWarning(
+      wxLogDebug(
           "Picking: skipped depth read because read framebuffer is incomplete status=0x%04x framebuffer=%d readFramebuffer=%d.",
           static_cast<unsigned int>(framebufferStatus), framebuffer,
           readFramebuffer);
@@ -324,7 +328,7 @@ bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
                &depth);
   const GLenum readError = viewer3d::render::DrainOpenGLErrors();
   if (readError != GL_NO_ERROR) {
-    wxLogWarning(
+    wxLogDebug(
         "Picking: glReadPixels depth read failed error=0x%04x framebuffer=%d readFramebuffer=%d readBuffer=0x%04x viewport=(%d,%d,%d,%d) vendor=%s renderer=%s. Depth-read picking is disabled for this session.",
         static_cast<unsigned int>(readError), framebuffer, readFramebuffer,
         static_cast<unsigned int>(readBuffer), currentViewport[0],

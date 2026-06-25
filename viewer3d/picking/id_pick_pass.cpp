@@ -93,7 +93,7 @@ void IdPickPass::EnsureFramebufferSize(int width, int height) {
   const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
   if (status != GL_FRAMEBUFFER_COMPLETE) {
     if (!m_loggedFramebufferFailure) {
-      wxLogWarning(
+      wxLogDebug(
           "Viewer3D ID picking framebuffer is incomplete (status=0x%04x). Falling back to ray picking for this session.",
           static_cast<unsigned int>(status));
       m_loggedFramebufferFailure = true;
@@ -233,7 +233,7 @@ bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
   glReadPixels(framebufferX, framebufferY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
   const GLenum readError = viewer3d::render::DrainOpenGLErrors();
   if (readError != GL_NO_ERROR) {
-    wxLogWarning(
+    wxLogDebug(
         "Picking: glReadPixels ID read failed error=0x%04x mouse=(%d,%d) framebuffer=(%d,%d) size=(%d,%d) vendor=%s renderer=%s.",
         static_cast<unsigned int>(readError), mouseX, mouseY, framebufferX,
         framebufferY, width, height, viewer3d::render::SafeGlString(GL_VENDOR),
