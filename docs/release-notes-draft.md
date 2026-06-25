@@ -12,6 +12,10 @@ Changes since **v1.4.0**.
 
 - Improved 3D fixture picking reliability by safely skipping malformed mesh triangles during ID-buffer picking instead of crashing.
 - Hardened 3D ID-buffer picking setup so incomplete OpenGL framebuffers fall back to ray-based selection.
+- Simplified 3D hover and selection highlighting so highlighted objects are drawn in the normal scene pass instead of a separate overlay pass or cached framebuffer refresh.
+- Fixed 3D mesh GPU draw paths so VAO element-buffer bindings are preserved during highlight, wireframe, and shaded rendering.
+- Changed 3D hover picking to avoid the offscreen ID-buffer render path, reducing hover-related OpenGL side effects on macOS and Intel drivers.
+- Reset transient OpenGL state at the start of each 3D frame to prevent stale hover-highlight state from affecting subsequent macOS renders.
 - Windows crash reports now include a matching `.dmp` minidump file for post-crash analysis with release `.pdb` symbols.
 - Improved Windows diagnostic OS version reporting so modern Windows versions are identified more accurately.
 

@@ -58,7 +58,6 @@
 #include "viewer2dpanel.h"
 #include "viewer3dviewfit.h"
 #include "viewer3d_render_style.h"
-#include "base_pass_framebuffer_cache.h"
 #include "gl_state_guard.h"
 #include "navigation_diagnostics.h"
 #include "ui_render_size.h"
@@ -137,6 +136,37 @@ void ValidateGlStateAfterRender(const char* stage, int expectedWidth,
     wxASSERT_MSG(validFramebuffer,
                  "Unexpected non-default framebuffer after 3D render.");
     wxASSERT_MSG(validViewport, "Unexpected viewport after 3D render.");
+}
+
+// Resets transient OpenGL state before drawing a new 3D frame.
+void ApplyKnownViewer3DFrameState(int width, int height) {
+    glstate::ApplyKnownBaseOnscreenState(width, height);
+
+    if (GLEW_VERSION_2_0)
+        glUseProgram(0);
+    if (GLEW_VERSION_3_0 || GLEW_ARB_vertex_array_object)
+        glBindVertexArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_TEXTURE_2D);
+
+    glDisable(GL_BLEND);
+    glDisable(GL_STENCIL_TEST);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_POLYGON_OFFSET_FILL);
+    glDisable(GL_LINE_SMOOTH);
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LESS);
+    glEnable(GL_DEPTH_TEST);
+
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+    glShadeModel(GL_SMOOTH);
 }
 
 bool IsFastInteractionModeEnabled()
@@ -889,7 +919,6 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
     });
     m_threadRunning = true;
     m_lastResourceSyncCheck = std::chrono::steady_clock::now();
-    m_basePassCache = std::make_unique<BasePassFramebufferCache>();
     m_refreshThread = std::thread(&Viewer3DPanel::RefreshLoop, this);
 }
 
@@ -905,13 +934,6 @@ Viewer3DPanel::~Viewer3DPanel()
     if (HasCapture())
         ReleaseMouse();
     StopRefreshThread();
-    if (m_basePassCache && m_glContext && IsShownOnScreen()) {
-        SetCurrent(*m_glContext);
-        m_basePassCache.reset();
-    } else if (m_basePassCache) {
-        m_basePassCache->AbandonResources();
-        m_basePassCache.reset();
-    }
     delete m_glContext;
     m_glContext = nullptr;
     SetInstance(nullptr);
@@ -1037,17 +1059,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
 
     const bool highlightRefreshPendingAtFrameStart = m_highlightRefreshPending;
-    const bool highlightOnlyRefresh =
-        highlightRefreshPendingAtFrameStart &&
-        !m_controller.IsResourceSyncPending() &&
-        !m_selectionRefreshPending &&
-        !m_cameraMoving &&
-        !m_isInteracting &&
-        !m_mouseMoved &&
-        !m_forceHoverQuery;
+    const bool highlightOnlyRefresh = false;
     const size_t cameraFingerprint = ComputeCameraFingerprint(m_camera);
     const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
-    const size_t sceneVersion = m_controller.GetSceneVersionSnapshot();
 
     m_controller.UpdateFrameStateLightweight();
 
@@ -1071,30 +1085,17 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         return;
     }
 
-    bool reusedBasePass = false;
-    if (highlightOnlyRefresh && m_basePassCache) {
-        reusedBasePass = m_basePassCache->RestoreToDefaultFramebuffer(
-            renderSize.width, renderSize.height, cameraFingerprint,
-            hiddenLayers, sceneVersion);
-    }
+    wxLogTrace("viewer3d_perf", "Viewer3DPanel frame render mode=full");
+    const auto fullRenderStart = std::chrono::steady_clock::now();
+    Render(renderSize);
+    const auto fullRenderElapsedMs =
+        std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - fullRenderStart)
+            .count();
+    m_fullRenderMsAccumInCurrentWindow += fullRenderElapsedMs;
+    ++m_fullRenderSamplesInCurrentWindow;
 
-    if (!reusedBasePass) {
-        const auto fullRenderStart = std::chrono::steady_clock::now();
-        Render(renderSize);
-        const auto fullRenderElapsedMs =
-            std::chrono::duration<double, std::milli>(
-                std::chrono::steady_clock::now() - fullRenderStart)
-                .count();
-        m_fullRenderMsAccumInCurrentWindow += fullRenderElapsedMs;
-        ++m_fullRenderSamplesInCurrentWindow;
-        if (m_basePassCache && !m_cameraMoving && !m_isInteracting) {
-            m_basePassCache->CaptureFromDefaultFramebuffer(
-                renderSize.width, renderSize.height, cameraFingerprint,
-                hiddenLayers, sceneVersion);
-        }
-    }
-
-    // Ensure the OpenGL context is current before drawing overlays
+    // Ensure the OpenGL context is current before drawing overlays.
     SetCurrent(*m_glContext);
 
     const int w = renderSize.width;
@@ -1219,7 +1220,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
 
     bool highlightChanged = false;
-    bool rerenderedAfterFixtureHighlightChange = false;
     if (oldHoverUuid != m_hoverUuid || oldHasHover != m_hasHover) {
         const auto highlightUpdateStart = std::chrono::steady_clock::now();
         highlightChanged = true;
@@ -1233,16 +1233,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     m_mouseMoved = false;
 
-    if (highlightChanged && activeTable == HoverTargetTable::Fixtures) {
-        Render(renderSize);
-        SetCurrent(*m_glContext);
-        reusedBasePass = false;
-        rerenderedAfterFixtureHighlightChange = true;
-    }
-
     // Draw labels before swapping buffers to avoid losing them.
-    if ((!highlightOnlyRefresh || !reusedBasePass) && !pauseHeavyTasks &&
-        !skipLabelWork) {
+    if (!pauseHeavyTasks && !skipLabelWork) {
         if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
             m_controller.DrawFixtureLabels(w, h);
         else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
@@ -1257,10 +1249,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         DrawSelectionDragGizmo(renderSize);
     DrawMeasureOverlay(renderSize);
 
-    if (reusedBasePass)
-        ++m_highlightRefreshesInCurrentWindow;
-    else
-        ++m_fullRefreshesInCurrentWindow;
+    ++m_fullRefreshesInCurrentWindow;
 
     const auto telemetryNow = std::chrono::steady_clock::now();
     if (m_refreshTelemetryWindowStart.time_since_epoch().count() == 0)
@@ -1298,10 +1287,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_highlightUpdateSamplesInCurrentWindow = 0;
     }
 
-    if ((!highlightChanged && highlightRefreshPendingAtFrameStart) ||
-        rerenderedAfterFixtureHighlightChange)
+    if (!highlightChanged && highlightRefreshPendingAtFrameStart)
         m_highlightRefreshPending = false;
-    if (highlightChanged && !rerenderedAfterFixtureHighlightChange)
+    if (highlightChanged)
         Refresh(false);
     if (m_selectionRefreshPending)
         m_selectionRefreshPending = false;
@@ -1334,8 +1322,8 @@ void Viewer3DPanel::Render(const RenderSize& renderSize)
     static unsigned long long s_renderFrameId = 0;
     const int width = renderSize.width;
     const int height = renderSize.height;
-    glstate::ApplyKnownBaseOnscreenState(width, height);
-    const RenderSize viewportSize{width, height, "glstate::ApplyKnownBaseOnscreenState(framebuffer-px)"};
+    ApplyKnownViewer3DFrameState(width, height);
+    const RenderSize viewportSize{width, height, "ApplyKnownViewer3DFrameState(framebuffer-px)"};
 
     const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
     ApplyViewer3DClearColorForStyle(renderStyle);
@@ -1898,8 +1886,9 @@ void Viewer3DPanel::SynchronizeHoverHighlight()
 {
     ++m_highlightRevision;
     m_highlightRefreshPending = true;
-    if (m_basePassCache)
-        m_basePassCache->Invalidate();
+    wxLogDebug("Viewer3D hover highlight changed: uuid=%s revision=%llu",
+               m_hoverUuid.c_str(),
+               static_cast<unsigned long long>(m_highlightRevision));
     m_controller.SetHighlightUuid(m_hoverUuid);
 
     const MvrScene& scene = ConfigManager::Get().GetScene();

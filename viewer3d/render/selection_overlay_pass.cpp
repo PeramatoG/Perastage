@@ -108,6 +108,7 @@ void AppendUuidIfRenderable(
 void SelectionOverlayPass::Render(Viewer3DController &controller,
                                   const RenderFrameContext &context,
                                   const Viewer3DVisibleSet &visibleSet) {
+  wxLogDebug("SelectionOverlayPass executed");
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();

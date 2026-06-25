@@ -1293,7 +1293,6 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
                           resolveSymbolView, getPickColor);
   OpaqueFixturePass::Render(*this, context, visibleSet, getTypeColor,
                             getLayerColor, resolveSymbolView, getPickColor);
-  SelectionOverlayPass::Render(*this, context, visibleSet);
   HoistSymbolRenderer::Render(*this, context);
 }
 
