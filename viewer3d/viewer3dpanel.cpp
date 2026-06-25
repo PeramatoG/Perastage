@@ -1295,7 +1295,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     if (!highlightChanged && highlightRefreshPendingAtFrameStart)
         m_highlightRefreshPending = false;
-    if (highlightChanged && !rerenderedAfterFixtureHighlightChange)
+    if (highlightChanged)
         Refresh(false);
     if (m_selectionRefreshPending)
         m_selectionRefreshPending = false;
