@@ -143,6 +143,7 @@ void IdPickPass::RebuildIfNeeded(
   glViewport(0, 0, width, height);
   glDisable(GL_BLEND);
   glEnable(GL_DEPTH_TEST);
+  glDisable(GL_CULL_FACE);
   glDisable(GL_LIGHTING);
   glDisable(GL_TEXTURE_2D);
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);

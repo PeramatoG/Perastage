@@ -14,7 +14,7 @@ Changes since **v1.4.0**.
 - Hardened 3D ID-buffer picking setup so incomplete OpenGL framebuffers fall back to ray-based selection.
 - Simplified 3D hover and selection highlighting so highlighted objects are drawn in the normal scene pass instead of a separate overlay pass or cached framebuffer refresh.
 - Fixed 3D mesh GPU draw paths so VAO element-buffer bindings are preserved during highlight, wireframe, and shaded rendering.
-- Changed 3D hover and click picking to trust valid ID-buffer hits first, treat confirmed empty ID pixels as no hit, and keep depth/ray confirmation as an opt-in diagnostic fallback.
+- Changed 3D hover and click picking to trust valid ID-buffer hits first, treat confirmed empty ID pixels as no hit, support two-sided ID picking for inverted faces, and keep depth/ray confirmation as an opt-in diagnostic fallback.
 - Prevented recoverable 3D picking fallback conditions during mouse movement from showing blocking warning dialogs.
 - Reset transient OpenGL state at the start of each 3D frame to prevent stale hover-highlight state from affecting subsequent macOS renders.
 - Windows crash reports now include a matching `.dmp` minidump file for post-crash analysis with release `.pdb` symbols.
