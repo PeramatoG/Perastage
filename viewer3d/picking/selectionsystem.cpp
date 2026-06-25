@@ -1,5 +1,8 @@
 #include "selectionsystem.h"
 
+#include "picking_coordinate_utils.h"
+#include "render/opengl_state_guard.h"
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -136,10 +139,18 @@ bool ProjectBoundingBox(const ISelectionContext::BoundingBox &bb,
   return visible;
 }
 
+// Builds a world-space ray from validated mouse coordinates.
 bool BuildMouseRay(int mouseX, int mouseY, int screenHeight,
                    const ProjectionSnapshot &projection, Ray &outRay) {
-  const double winX = static_cast<double>(mouseX);
-  const double winY = static_cast<double>(screenHeight - mouseY);
+  int framebufferX = 0;
+  int framebufferY = 0;
+  if (!TryConvertMouseToFramebufferPoint(mouseX, mouseY, projection.viewport[2],
+                                         screenHeight, framebufferX,
+                                         framebufferY)) {
+    return false;
+  }
+  const double winX = static_cast<double>(framebufferX);
+  const double winY = static_cast<double>(framebufferY);
 
   double nearX = 0.0;
   double nearY = 0.0;
@@ -169,17 +180,74 @@ bool BuildMouseRay(int mouseX, int mouseY, int screenHeight,
   return true;
 }
 
+// Reads and unprojects the depth value under a validated mouse coordinate.
 bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
                              const ProjectionSnapshot &projection,
                              std::array<double, 3> &outWorldPoint) {
-  const int sampleY = screenHeight - mouseY;
+  if (!viewer3d::render::HasCurrentOpenGLContext()) {
+    wxLogWarning("Picking: skipped due to invalid context before depth read.");
+    return false;
+  }
+
+  int currentViewport[4] = {0, 0, 0, 0};
+  glGetIntegerv(GL_VIEWPORT, currentViewport);
+  if (currentViewport[2] <= 0 || currentViewport[3] <= 0 ||
+      projection.viewport[2] <= 0 || projection.viewport[3] <= 0) {
+    wxLogWarning(
+        "Picking: skipped due to invalid viewport before depth read viewport=(%d,%d,%d,%d).",
+        currentViewport[0], currentViewport[1], currentViewport[2],
+        currentViewport[3]);
+    return false;
+  }
+
+  int framebufferX = 0;
+  int framebufferY = 0;
+  if (!TryConvertMouseToFramebufferPoint(mouseX, mouseY, projection.viewport[2],
+                                         screenHeight, framebufferX,
+                                         framebufferY)) {
+    return false;
+  }
+
+  if (framebufferX < currentViewport[0] || framebufferY < currentViewport[1] ||
+      framebufferX >= currentViewport[0] + currentViewport[2] ||
+      framebufferY >= currentViewport[1] + currentViewport[3]) {
+    wxLogWarning(
+        "Picking: skipped due to out-of-viewport depth read mouse=(%d,%d) framebuffer=(%d,%d) viewport=(%d,%d,%d,%d).",
+        mouseX, mouseY, framebufferX, framebufferY, currentViewport[0],
+        currentViewport[1], currentViewport[2], currentViewport[3]);
+    return false;
+  }
+
+  GLint framebuffer = 0;
+  GLint readFramebuffer = 0;
+  GLint readBuffer = GL_BACK;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &framebuffer);
+  if (GLEW_VERSION_3_0 || GLEW_EXT_framebuffer_blit)
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFramebuffer);
+  else
+    readFramebuffer = framebuffer;
+  glGetIntegerv(GL_READ_BUFFER, &readBuffer);
+
+  viewer3d::render::ClearOpenGLErrors();
   float depth = 1.0f;
-  glReadPixels(mouseX, sampleY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
-  if (depth >= 1.0f)
+  glReadPixels(framebufferX, framebufferY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT,
+               &depth);
+  const GLenum readError = viewer3d::render::DrainOpenGLErrors();
+  if (readError != GL_NO_ERROR) {
+    wxLogWarning(
+        "Picking: glReadPixels depth read failed error=0x%04x framebuffer=%d readFramebuffer=%d readBuffer=0x%04x viewport=(%d,%d,%d,%d) vendor=%s renderer=%s.",
+        static_cast<unsigned int>(readError), framebuffer, readFramebuffer,
+        static_cast<unsigned int>(readBuffer), currentViewport[0],
+        currentViewport[1], currentViewport[2], currentViewport[3],
+        viewer3d::render::SafeGlString(GL_VENDOR),
+        viewer3d::render::SafeGlString(GL_RENDERER));
+    return false;
+  }
+  if (depth < 0.0f || depth >= 1.0f || !std::isfinite(depth))
     return false;
 
-  const double winX = static_cast<double>(mouseX);
-  const double winY = static_cast<double>(sampleY);
+  const double winX = static_cast<double>(framebufferX);
+  const double winY = static_cast<double>(framebufferY);
   double worldX = 0.0;
   double worldY = 0.0;
   double worldZ = 0.0;
@@ -416,7 +484,8 @@ bool SelectionSystem::GetHoverUuidAt(int mouseX, int mouseY, int width,
     return false;
 
   const bool cameraMoving = m_controller.IsCameraMoving();
-  const bool useIdBuffer = IsIdBufferPickingEnabled(cfg);
+  // Hover picking avoids the offscreen ID render path to keep hover side-effect free.
+  const bool useIdBuffer = false;
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   QueryMetrics metrics;
   std::string bestUuid;

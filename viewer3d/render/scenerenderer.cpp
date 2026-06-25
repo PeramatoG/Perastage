@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <wx/log.h>
 
 namespace {
 constexpr float kPrimaryHighlightR = 0.78f;
@@ -77,6 +78,48 @@ LineRenderProfile GetLineRenderProfile(bool isInteracting, bool wireframeMode,
   if (!adaptiveEnabled)
     return {wireframeMode ? 1.0f : 2.0f, false};
   return {wireframeMode ? 1.0f : 2.0f, true};
+}
+
+// Restores the mesh VAO element binding and unbinds the VAO safely.
+void RestoreMeshVaoElementBindingAndUnbind(const Mesh &mesh,
+                                           const char *label) {
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
+#ifndef NDEBUG
+  GLint currentEbo = 0;
+  glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &currentEbo);
+  if (static_cast<GLuint>(currentEbo) != mesh.eboTriangles) {
+    wxLogError(
+        "Mesh VAO EBO invariant failed in %s: vao=%u expectedEbo=%u currentEbo=%u",
+        label, mesh.vao, mesh.eboTriangles, static_cast<GLuint>(currentEbo));
+  }
+#endif
+  glBindVertexArray(0);
+#ifndef NDEBUG
+  GLint currentVao = 0;
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &currentVao);
+  if (currentVao != 0) {
+    wxLogError("Mesh VAO remained bound after %s: vao=%u currentVao=%u",
+               label, mesh.vao, static_cast<GLuint>(currentVao));
+  }
+#endif
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+// Logs VAO and EBO state for macOS highlight diagnostics.
+void LogMeshVaoDiagnostic(const Mesh &mesh, const char *label) {
+#ifdef __APPLE__
+  GLint currentVao = 0;
+  GLint currentEbo = 0;
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &currentVao);
+  glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &currentEbo);
+  wxLogDebug(
+      "Highlight VAO diagnostic %s: meshVao=%u eboTriangles=%u eboLines=%u currentVao=%u currentEbo=%u",
+      label, mesh.vao, mesh.eboTriangles, mesh.eboLines,
+      static_cast<GLuint>(currentVao), static_cast<GLuint>(currentEbo));
+#else
+  (void)mesh;
+  (void)label;
+#endif
 }
 
 // Returns a normalized direction with a stable fallback for near-zero vectors.
@@ -418,7 +461,7 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
 
   glDisableVertexAttribArray(static_cast<GLuint>(program.normalAttrib));
   glDisableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  RestoreMeshVaoElementBindingAndUnbind(mesh, "DrawMeshThreeToneInkGpu");
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glUseProgram(static_cast<GLuint>(priorProgram));
   RestoreFrontFace(previousFrontFace);
@@ -726,9 +769,14 @@ void SceneRenderer::DrawMeshWithOutline(
       }
       if (highlight || groupHighlight || selected) {
         setHighlightOrSelectionColor();
-        if (!glIsEnabled(GL_LIGHTING))
+        const GLboolean highlightLightingWasEnabled = glIsEnabled(GL_LIGHTING);
+        if (!highlightLightingWasEnabled)
           glEnable(GL_LIGHTING);
+        LogMeshVaoDiagnostic(mesh, "before-highlight-draw");
         DrawMesh(mesh, scale, modelMatrix);
+        LogMeshVaoDiagnostic(mesh, "after-highlight-draw");
+        if (!highlightLightingWasEnabled)
+          glDisable(GL_LIGHTING);
       } else if (usePureWhiteFillInWhiteMode) {
         const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
         if (fillLightingWasEnabled)
@@ -785,7 +833,11 @@ void SceneRenderer::DrawMeshWithOutline(
 
       if (unlit)
         glDisable(GL_LIGHTING);
+      if (highlight || groupHighlight || selected)
+        LogMeshVaoDiagnostic(mesh, "before-highlight-draw");
       DrawMesh(mesh, scale, modelMatrix, useTexture);
+      if (highlight || groupHighlight || selected)
+        LogMeshVaoDiagnostic(mesh, "after-highlight-draw");
       if (unlit)
         glEnable(GL_LIGHTING);
     }
@@ -848,6 +900,7 @@ void SceneRenderer::DrawMeshWireframe(
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
 
     glDisableClientState(GL_VERTEX_ARRAY);
+    RestoreMeshVaoElementBindingAndUnbind(mesh, "DrawMeshWireframe");
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glPopMatrix();
   } else if (!m_controller.IsCaptureOnly()) {
@@ -983,7 +1036,6 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale,
     }
 
     if (allowGpuFlatTriangles) {
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
       glDrawArrays(GL_TRIANGLES, 0, mesh.flatVertexCount);
     } else {
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
@@ -998,7 +1050,7 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale,
     }
     glDisableClientState(GL_NORMAL_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    RestoreMeshVaoElementBindingAndUnbind(mesh, "DrawMesh");
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glPopMatrix();
   } else if (!m_controller.IsCaptureOnly()) {

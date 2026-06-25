@@ -1501,6 +1501,12 @@ foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
     endif()
 endforeach()
 
+add_executable(picking_coordinate_utils_test
+               picking_coordinate_utils_test.cpp
+               ../viewer3d/picking/picking_coordinate_utils.cpp)
+target_include_directories(picking_coordinate_utils_test PRIVATE ../viewer3d/picking)
+add_test(NAME PickingCoordinateUtils COMMAND picking_coordinate_utils_test)
+
 add_executable(pick_mesh_validation_test
                pick_mesh_validation_test.cpp
                ../viewer3d/render/pick_mesh_validation.cpp)

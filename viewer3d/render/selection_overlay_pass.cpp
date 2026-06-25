@@ -13,11 +13,13 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <wx/log.h>
 
 #include "configmanager.h"
 #include "opaque_fixture_pass.h"
 #include "opaque_object_pass.h"
 #include "opaque_truss_pass.h"
+#include "opengl_state_guard.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
@@ -66,6 +68,16 @@ bool ContainsUuid(const std::vector<std::string> &uuids,
   return std::find(uuids.begin(), uuids.end(), uuid) != uuids.end();
 }
 
+// Returns whether the UUID belongs to any hover, group-hover, or selection overlay.
+bool IsUuidInSelectionOverlay(
+    const std::string &uuid, const std::string &highlightUuid,
+    const std::unordered_set<std::string> &groupHighlightUuids,
+    const std::unordered_set<std::string> &selectedUuids) {
+  return uuid == highlightUuid ||
+         groupHighlightUuids.find(uuid) != groupHighlightUuids.end() ||
+         selectedUuids.find(uuid) != selectedUuids.end();
+}
+
 void AppendUuidIfRenderable(
     const std::string &uuid,
     const std::unordered_map<std::string, Fixture> &fixtures,
@@ -96,6 +108,7 @@ void AppendUuidIfRenderable(
 void SelectionOverlayPass::Render(Viewer3DController &controller,
                                   const RenderFrameContext &context,
                                   const Viewer3DVisibleSet &visibleSet) {
+  wxLogDebug("SelectionOverlayPass executed");
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
@@ -105,11 +118,9 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
       [&](const std::vector<std::string> &sourceUuids,
           std::vector<std::string> &targetUuids) {
         for (const auto &uuid : sourceUuids) {
-          if (uuid == controller.m_highlightUuid ||
-              controller.m_groupHighlightUuids.find(uuid) !=
-                  controller.m_groupHighlightUuids.end() ||
-              controller.m_selectedUuids.find(uuid) !=
-                  controller.m_selectedUuids.end()) {
+          if (IsUuidInSelectionOverlay(uuid, controller.m_highlightUuid,
+                                       controller.m_groupHighlightUuids,
+                                       controller.m_selectedUuids)) {
             targetUuids.push_back(uuid);
           }
         }
@@ -162,18 +173,28 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
     return std::array<float, 3>{1.0f, 1.0f, 1.0f};
   };
 
-  RenderFrameContext overlayContext = context;
-  overlayContext.skipCapture = true;
-  overlayContext.selectionOverlayPass = true;
-  GLint previousDepthFunc = GL_LESS;
-  glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
-  glDepthFunc(GL_LEQUAL);
-  OpaqueObjectPass::Render(controller, overlayContext, overlaySet,
-                           getLayerColor, resolveSymbolView, getPickColor);
-  OpaqueTrussPass::Render(controller, overlayContext, overlaySet, getLayerColor,
-                          resolveSymbolView, getPickColor);
-  OpaqueFixturePass::Render(controller, overlayContext, overlaySet,
-                            getTypeColor, getLayerColor, resolveSymbolView,
-                            getPickColor);
-  glDepthFunc(static_cast<GLenum>(previousDepthFunc));
+  wxLogDebug("Highlight: begin hover=%d group=%llu selected=%llu",
+             controller.m_highlightUuid.empty() ? 0 : 1,
+             static_cast<unsigned long long>(controller.m_groupHighlightUuids.size()),
+             static_cast<unsigned long long>(controller.m_selectedUuids.size()));
+  {
+    viewer3d::render::OpenGLStateGuard stateGuard;
+
+    RenderFrameContext overlayContext = context;
+    overlayContext.skipCapture = true;
+    overlayContext.selectionOverlayPass = true;
+    GLint previousDepthFunc = GL_LESS;
+    glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+    glDepthFunc(GL_LEQUAL);
+    OpaqueObjectPass::Render(controller, overlayContext, overlaySet,
+                             getLayerColor, resolveSymbolView, getPickColor);
+    OpaqueTrussPass::Render(controller, overlayContext, overlaySet, getLayerColor,
+                            resolveSymbolView, getPickColor);
+    OpaqueFixturePass::Render(controller, overlayContext, overlaySet,
+                              getTypeColor, getLayerColor, resolveSymbolView,
+                              getPickColor);
+    glDepthFunc(static_cast<GLenum>(previousDepthFunc));
+  }
+  wxLogDebug(
+      "Highlight: restored OpenGL state for hover, group, and selected overlays");
 }
