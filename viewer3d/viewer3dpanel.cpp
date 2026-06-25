@@ -138,6 +138,37 @@ void ValidateGlStateAfterRender(const char* stage, int expectedWidth,
     wxASSERT_MSG(validViewport, "Unexpected viewport after 3D render.");
 }
 
+// Resets transient OpenGL state before drawing a new 3D frame.
+void ApplyKnownViewer3DFrameState(int width, int height) {
+    glstate::ApplyKnownBaseOnscreenState(width, height);
+
+    if (GLEW_VERSION_2_0)
+        glUseProgram(0);
+    if (GLEW_VERSION_3_0 || GLEW_ARB_vertex_array_object)
+        glBindVertexArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_TEXTURE_2D);
+
+    glDisable(GL_BLEND);
+    glDisable(GL_STENCIL_TEST);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_POLYGON_OFFSET_FILL);
+    glDisable(GL_LINE_SMOOTH);
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LESS);
+    glEnable(GL_DEPTH_TEST);
+
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+    glShadeModel(GL_SMOOTH);
+}
+
 bool IsFastInteractionModeEnabled()
 {
     return ConfigManager::Get().GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
@@ -1291,8 +1322,8 @@ void Viewer3DPanel::Render(const RenderSize& renderSize)
     static unsigned long long s_renderFrameId = 0;
     const int width = renderSize.width;
     const int height = renderSize.height;
-    glstate::ApplyKnownBaseOnscreenState(width, height);
-    const RenderSize viewportSize{width, height, "glstate::ApplyKnownBaseOnscreenState(framebuffer-px)"};
+    ApplyKnownViewer3DFrameState(width, height);
+    const RenderSize viewportSize{width, height, "ApplyKnownViewer3DFrameState(framebuffer-px)"};
 
     const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
     ApplyViewer3DClearColorForStyle(renderStyle);
