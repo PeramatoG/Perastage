@@ -420,7 +420,6 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   glDisableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
   glUseProgram(static_cast<GLuint>(priorProgram));
   RestoreFrontFace(previousFrontFace);
   if (sketchFill && cullWasEnabled)
@@ -784,11 +783,16 @@ void SceneRenderer::DrawMeshWithOutline(
         m_controller.SetGLColor(useTexture ? 1.0f : r, useTexture ? 1.0f : g,
                                 useTexture ? 1.0f : b);
 
+      const GLboolean textureWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+      if (!useTexture && textureWasEnabled)
+        glDisable(GL_TEXTURE_2D);
       if (unlit)
         glDisable(GL_LIGHTING);
       DrawMesh(mesh, scale, modelMatrix, useTexture);
       if (unlit)
         glEnable(GL_LIGHTING);
+      if (!useTexture && textureWasEnabled)
+        glEnable(GL_TEXTURE_2D);
     }
   }
   if (m_controller.GetCaptureCanvas()) {
@@ -850,7 +854,6 @@ void SceneRenderer::DrawMeshWireframe(
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
     glPopMatrix();
   } else if (!m_controller.IsCaptureOnly()) {
     glBegin(GL_LINES);
@@ -1002,7 +1005,6 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale,
     glDisableClientState(GL_VERTEX_ARRAY);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
     glPopMatrix();
   } else if (!m_controller.IsCaptureOnly()) {
     const bool textureEnabled =
