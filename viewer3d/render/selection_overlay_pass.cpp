@@ -68,6 +68,15 @@ bool ContainsUuid(const std::vector<std::string> &uuids,
   return std::find(uuids.begin(), uuids.end(), uuid) != uuids.end();
 }
 
+// Returns whether the UUID belongs to any hover, group-hover, or selection overlay.
+bool IsUuidInSelectionOverlay(const Viewer3DController &controller,
+                              const std::string &uuid) {
+  return uuid == controller.m_highlightUuid ||
+         controller.m_groupHighlightUuids.find(uuid) !=
+             controller.m_groupHighlightUuids.end() ||
+         controller.m_selectedUuids.find(uuid) != controller.m_selectedUuids.end();
+}
+
 void AppendUuidIfRenderable(
     const std::string &uuid,
     const std::unordered_map<std::string, Fixture> &fixtures,
@@ -107,11 +116,7 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
       [&](const std::vector<std::string> &sourceUuids,
           std::vector<std::string> &targetUuids) {
         for (const auto &uuid : sourceUuids) {
-          if (uuid == controller.m_highlightUuid ||
-              controller.m_groupHighlightUuids.find(uuid) !=
-                  controller.m_groupHighlightUuids.end() ||
-              controller.m_selectedUuids.find(uuid) !=
-                  controller.m_selectedUuids.end()) {
+          if (IsUuidInSelectionOverlay(controller, uuid)) {
             targetUuids.push_back(uuid);
           }
         }
@@ -164,7 +169,10 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
     return std::array<float, 3>{1.0f, 1.0f, 1.0f};
   };
 
-  wxLogDebug("Highlight: begin");
+  wxLogDebug("Highlight: begin hover=%d group=%llu selected=%llu",
+             controller.m_highlightUuid.empty() ? 0 : 1,
+             static_cast<unsigned long long>(controller.m_groupHighlightUuids.size()),
+             static_cast<unsigned long long>(controller.m_selectedUuids.size()));
   {
     viewer3d::render::OpenGLStateGuard stateGuard;
 
@@ -183,5 +191,6 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
                               getPickColor);
     glDepthFunc(static_cast<GLenum>(previousDepthFunc));
   }
-  wxLogDebug("Highlight: restored OpenGL state");
+  wxLogDebug(
+      "Highlight: restored OpenGL state for hover, group, and selected overlays");
 }

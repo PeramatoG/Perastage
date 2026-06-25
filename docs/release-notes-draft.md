@@ -19,7 +19,7 @@ Changes since **v1.4.0**.
 
 ## Stability and diagnostics
 
-- Hardened 3D hover picking and highlight rendering to avoid unsafe OpenGL pixel reads and restore critical render state after hover highlights on Intel Windows drivers and macOS.
+- Hardened 3D hover picking plus hover, group, and selected highlight rendering to avoid unsafe OpenGL pixel reads and restore critical render state after overlay highlights on Intel Windows drivers and macOS.
 - Hardened 3D picking coordinate validation to avoid unsafe OpenGL reads near viewport edges and during zero-sized or out-of-range viewer states.
 - Improved Windows crash dumps so native access violations are captured from the original exception context before best-effort text stack reporting.
 
