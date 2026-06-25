@@ -256,6 +256,10 @@ private:
                      const CanvasFill *fill) const override;
   void RecordText(float x, float y, const std::string &text,
                   const CanvasTextStyle &style) const override;
+  PickReadResult ReadPickUuidAtDetailed(
+      int mouseX, int mouseY, int width, int height,
+      const std::unordered_set<std::string> &hiddenLayers,
+      std::string &outUuid) override;
   bool ReadPickUuidAt(int mouseX, int mouseY, int width, int height,
                       const std::unordered_set<std::string> &hiddenLayers,
                       std::string &outUuid) override;

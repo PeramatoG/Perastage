@@ -204,12 +204,13 @@ void IdPickPass::RebuildIfNeeded(
 }
 
 // Reads the UUID encoded in the ID-picking framebuffer at the requested pixel.
-bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
-                            const std::unordered_set<std::string> &hiddenLayers,
-                            std::string &outUuid) {
+IdPickPass::ReadResult IdPickPass::ReadUuidAtDetailed(
+    int mouseX, int mouseY, int width, int height,
+    const std::unordered_set<std::string> &hiddenLayers, std::string &outUuid) {
+  outUuid.clear();
   RebuildIfNeeded(width, height, hiddenLayers);
   if (m_fbo == 0 || !m_framebufferUsable)
-    return false;
+    return ReadResult::Unavailable;
 
   int framebufferX = 0;
   int framebufferY = 0;
@@ -221,8 +222,7 @@ bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
           mouseX, mouseY, width, height);
       m_loggedInvalidReadCoordinates = true;
     }
-    outUuid.clear();
-    return false;
+    return ReadResult::Miss;
   }
 
   viewer3d::render::OpenGLStateGuard stateGuard;
@@ -238,19 +238,27 @@ bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
         static_cast<unsigned int>(readError), mouseX, mouseY, framebufferX,
         framebufferY, width, height, viewer3d::render::SafeGlString(GL_VENDOR),
         viewer3d::render::SafeGlString(GL_RENDERER));
-    return false;
+    return ReadResult::Unavailable;
   }
 
   const uint32_t pickId = (static_cast<uint32_t>(pixel[0]) << 16) |
                           (static_cast<uint32_t>(pixel[1]) << 8) |
                           static_cast<uint32_t>(pixel[2]);
   if (pickId == 0)
-    return false;
+    return ReadResult::Miss;
 
   auto it = m_pickIdToUuid.find(pickId);
   if (it == m_pickIdToUuid.end())
-    return false;
+    return ReadResult::Miss;
 
   outUuid = it->second;
-  return true;
+  return ReadResult::Hit;
+}
+
+// Reads whether the ID-picking framebuffer contains a UUID at the requested pixel.
+bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
+                            const std::unordered_set<std::string> &hiddenLayers,
+                            std::string &outUuid) {
+  return ReadUuidAtDetailed(mouseX, mouseY, width, height, hiddenLayers,
+                            outUuid) == ReadResult::Hit;
 }

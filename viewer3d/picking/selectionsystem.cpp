@@ -585,8 +585,10 @@ bool SelectionSystem::GetHoverUuidAt(int mouseX, int mouseY, int width,
 
   if (useIdBuffer) {
     std::string pickedUuid;
-    if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
-                                    pickedUuid) &&
+    const ISelectionContext::PickReadResult pickResult =
+        m_controller.ReadPickUuidAtDetailed(mouseX, mouseY, width, height,
+                                            hiddenLayers, pickedUuid);
+    if (pickResult == ISelectionContext::PickReadResult::Hit &&
         IsUuidValidForTarget(pickedUuid, target, hiddenLayers, m_controller,
                              nullptr)) {
       metrics.usedIdPath = true;
@@ -596,6 +598,10 @@ bool SelectionSystem::GetHoverUuidAt(int mouseX, int mouseY, int width,
       LogQueryMetrics("hover_uuid(id)", metrics, m_queryTelemetry,
                       ++m_queryCounter);
       return true;
+    }
+    if (pickResult != ISelectionContext::PickReadResult::Unavailable) {
+      outUuid.clear();
+      return false;
     }
   }
 
@@ -711,8 +717,10 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
 
   if (useIdBuffer) {
     std::string pickedUuid;
-    if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
-                                    pickedUuid)) {
+    const ISelectionContext::PickReadResult pickResult =
+        m_controller.ReadPickUuidAtDetailed(mouseX, mouseY, width, height,
+                                            hiddenLayers, pickedUuid);
+    if (pickResult == ISelectionContext::PickReadResult::Hit) {
       const auto &fixtures = SceneDataManager::Instance().GetFixtures();
       auto fixtureIt = fixtures.find(pickedUuid);
       if (fixtureIt != fixtures.end()) {
@@ -747,6 +755,11 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
           }
         }
       }
+    }
+    if (!found && pickResult != ISelectionContext::PickReadResult::Unavailable) {
+      if (outUuid)
+        outUuid->clear();
+      return false;
     }
     if (found) {
       m_queryTelemetry.totalQueries++;
@@ -925,8 +938,10 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
   std::string bestUuid;
   if (useIdBuffer) {
     std::string pickedUuid;
-    if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
-                                    pickedUuid)) {
+    const ISelectionContext::PickReadResult pickResult =
+        m_controller.ReadPickUuidAtDetailed(mouseX, mouseY, width, height,
+                                            hiddenLayers, pickedUuid);
+    if (pickResult == ISelectionContext::PickReadResult::Hit) {
       const auto &trusses = SceneDataManager::Instance().GetTrusses();
       auto trussIt = trusses.find(pickedUuid);
       if (trussIt != trusses.end()) {
@@ -944,6 +959,11 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
           }
         }
       }
+    }
+    if (!found && pickResult != ISelectionContext::PickReadResult::Unavailable) {
+      if (outUuid)
+        outUuid->clear();
+      return false;
     }
     if (found) {
       m_queryTelemetry.totalQueries++;
@@ -1100,8 +1120,10 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
   std::string bestUuid;
   if (useIdBuffer) {
     std::string pickedUuid;
-    if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
-                                    pickedUuid)) {
+    const ISelectionContext::PickReadResult pickResult =
+        m_controller.ReadPickUuidAtDetailed(mouseX, mouseY, width, height,
+                                            hiddenLayers, pickedUuid);
+    if (pickResult == ISelectionContext::PickReadResult::Hit) {
       const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
       auto objectIt = sceneObjects.find(pickedUuid);
       if (objectIt != sceneObjects.end()) {
@@ -1118,6 +1140,11 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
           }
         }
       }
+    }
+    if (!found && pickResult != ISelectionContext::PickReadResult::Unavailable) {
+      if (outUuid)
+        outUuid->clear();
+      return false;
     }
     if (found) {
       m_queryTelemetry.totalQueries++;
