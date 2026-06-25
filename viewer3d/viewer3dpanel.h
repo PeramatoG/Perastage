@@ -208,9 +208,7 @@ private:
     void DrawSelectionDragGizmo(const RenderSize& renderSize);
 
     // Renders the full scene
-    void Render(const RenderSize& renderSize, bool renderSelectionOverlay = true);
-    // Draws transient 3D hover and selection overlays over the current base frame.
-    void DrawSelectionOverlay(const RenderSize& renderSize);
+    void Render(const RenderSize& renderSize);
     void ApplyCameraMatrices(const RenderSize& renderSize, double fovYDegrees = 45.0);
     bool ExportCurrentViewToPng();
 
@@ -280,7 +278,6 @@ private:
     bool m_hasSampleBuffers = false;
 
     Viewer3DController m_controller;
-    std::unique_ptr<class BasePassFramebufferCache> m_basePassCache;
 
     std::atomic<bool> m_threadRunning{false};
     std::atomic<bool> m_shuttingDown{false};

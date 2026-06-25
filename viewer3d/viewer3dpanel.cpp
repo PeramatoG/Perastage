@@ -58,7 +58,6 @@
 #include "viewer2dpanel.h"
 #include "viewer3dviewfit.h"
 #include "viewer3d_render_style.h"
-#include "base_pass_framebuffer_cache.h"
 #include "gl_state_guard.h"
 #include "navigation_diagnostics.h"
 #include "ui_render_size.h"
@@ -889,7 +888,6 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
     });
     m_threadRunning = true;
     m_lastResourceSyncCheck = std::chrono::steady_clock::now();
-    m_basePassCache = std::make_unique<BasePassFramebufferCache>();
     m_refreshThread = std::thread(&Viewer3DPanel::RefreshLoop, this);
 }
 
@@ -905,13 +903,6 @@ Viewer3DPanel::~Viewer3DPanel()
     if (HasCapture())
         ReleaseMouse();
     StopRefreshThread();
-    if (m_basePassCache && m_glContext && IsShownOnScreen()) {
-        SetCurrent(*m_glContext);
-        m_basePassCache.reset();
-    } else if (m_basePassCache) {
-        m_basePassCache->AbandonResources();
-        m_basePassCache.reset();
-    }
     delete m_glContext;
     m_glContext = nullptr;
     SetInstance(nullptr);
@@ -1037,17 +1028,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
 
     const bool highlightRefreshPendingAtFrameStart = m_highlightRefreshPending;
-    const bool highlightOnlyRefresh =
-        highlightRefreshPendingAtFrameStart &&
-        !m_controller.IsResourceSyncPending() &&
-        !m_selectionRefreshPending &&
-        !m_cameraMoving &&
-        !m_isInteracting &&
-        !m_mouseMoved &&
-        !m_forceHoverQuery;
-    const size_t cameraFingerprint = ComputeCameraFingerprint(m_camera);
-    const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
-    const size_t sceneVersion = m_controller.GetSceneVersionSnapshot();
+    const bool highlightOnlyRefresh = false;
 
     m_controller.UpdateFrameStateLightweight();
 
@@ -1071,32 +1052,18 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         return;
     }
 
-    bool reusedBasePass = false;
-    if (highlightOnlyRefresh && m_basePassCache) {
-        reusedBasePass = m_basePassCache->RestoreToDefaultFramebuffer(
-            renderSize.width, renderSize.height, cameraFingerprint,
-            hiddenLayers, sceneVersion);
-    }
+    wxLogTrace("viewer3d_perf", "Viewer3DPanel frame render mode=full");
+    const auto fullRenderStart = std::chrono::steady_clock::now();
+    Render(renderSize);
+    const auto fullRenderElapsedMs =
+        std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - fullRenderStart)
+            .count();
+    m_fullRenderMsAccumInCurrentWindow += fullRenderElapsedMs;
+    ++m_fullRenderSamplesInCurrentWindow;
 
-    if (!reusedBasePass) {
-        const auto fullRenderStart = std::chrono::steady_clock::now();
-        Render(renderSize, false);
-        const auto fullRenderElapsedMs =
-            std::chrono::duration<double, std::milli>(
-                std::chrono::steady_clock::now() - fullRenderStart)
-                .count();
-        m_fullRenderMsAccumInCurrentWindow += fullRenderElapsedMs;
-        ++m_fullRenderSamplesInCurrentWindow;
-        if (m_basePassCache && !m_cameraMoving && !m_isInteracting) {
-            m_basePassCache->CaptureFromDefaultFramebuffer(
-                renderSize.width, renderSize.height, cameraFingerprint,
-                hiddenLayers, sceneVersion);
-        }
-    }
-
-    // Ensure the OpenGL context and camera matrices are current before overlays.
+    // Ensure the OpenGL context is current before drawing overlays.
     SetCurrent(*m_glContext);
-    ApplyCameraMatrices(renderSize);
 
     const int w = renderSize.width;
     const int h = renderSize.height;
@@ -1233,11 +1200,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     m_mouseMoved = false;
 
-    DrawSelectionOverlay(renderSize);
-
     // Draw labels before swapping buffers to avoid losing them.
-    if ((!highlightOnlyRefresh || !reusedBasePass) && !pauseHeavyTasks &&
-        !skipLabelWork) {
+    if (!pauseHeavyTasks && !skipLabelWork) {
         if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
             m_controller.DrawFixtureLabels(w, h);
         else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
@@ -1311,9 +1275,8 @@ void Viewer3DPanel::OnResize(wxSizeEvent& event)
     Refresh();
 }
 
-// Renders the 3D scene with optional selection and hover overlays.
-void Viewer3DPanel::Render(const RenderSize& renderSize,
-                           bool renderSelectionOverlay)
+// Renders the full 3D scene
+void Viewer3DPanel::Render(const RenderSize& renderSize)
 {
     viewer3d::diagnostics::Log("Viewer3DPanel::Render start.");
     if (!IsShownOnScreen()) {
@@ -1348,25 +1311,11 @@ void Viewer3DPanel::Render(const RenderSize& renderSize,
 
     m_controller.SetCameraMoving(m_cameraMoving);
     m_controller.RenderScene(IsWireframeRenderStyle(renderStyle),
-                             ToSceneRenderMode(renderStyle),
-                             Viewer2DView::Top, true, 0, 0.35f, 0.35f,
-                             0.35f, false, false, false,
-                             renderSelectionOverlay);
+                             ToSceneRenderMode(renderStyle));
 
     glFlush();
     ValidateGlStateAfterRender("Viewer3DPanel::Render", width, height);
     viewer3d::diagnostics::Log("Viewer3DPanel::Render end.");
-}
-
-// Draws hover and selection overlays without redrawing or recapturing the base scene.
-void Viewer3DPanel::DrawSelectionOverlay(const RenderSize& renderSize)
-{
-    if (!m_glContext || !SetCurrent(*m_glContext))
-        return;
-
-    ApplyCameraMatrices(renderSize);
-    const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
-    m_controller.RenderSelectionOverlay(ToSceneRenderMode(renderStyle));
 }
 
 // Exports the current 3D view to a PNG image chosen by the user.
