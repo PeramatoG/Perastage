@@ -484,7 +484,8 @@ bool SelectionSystem::GetHoverUuidAt(int mouseX, int mouseY, int width,
     return false;
 
   const bool cameraMoving = m_controller.IsCameraMoving();
-  const bool useIdBuffer = IsIdBufferPickingEnabled(cfg);
+  // Hover picking avoids the offscreen ID render path to keep hover side-effect free.
+  const bool useIdBuffer = false;
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   QueryMetrics metrics;
   std::string bestUuid;
