@@ -26,8 +26,10 @@
 #include <algorithm>
 #include <array>
 #include <cfloat>
+#include <cctype>
 #include <cmath>
 #include <cstring>
+#include <string>
 #include <unordered_set>
 #include <wx/log.h>
 
@@ -66,8 +68,34 @@ bool IsFastInteractionModeEnabled(const ConfigManager &cfg) {
   return cfg.GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
+// Returns a lowercase copy for driver-name compatibility checks.
+std::string ToLowerAscii(const char *value) {
+  std::string result = value ? value : "";
+  std::transform(result.begin(), result.end(), result.begin(),
+                 [](unsigned char ch) {
+                   return static_cast<char>(std::tolower(ch));
+                 });
+  return result;
+}
+
+// Returns whether the current OpenGL driver should use offscreen ID picking.
+bool IsIdBufferPickingSupportedByDriver() {
+#ifdef __APPLE__
+  return false;
+#else
+  const std::string vendor =
+      ToLowerAscii(reinterpret_cast<const char *>(glGetString(GL_VENDOR)));
+  const std::string renderer =
+      ToLowerAscii(reinterpret_cast<const char *>(glGetString(GL_RENDERER)));
+  return vendor.find("intel") == std::string::npos &&
+         renderer.find("intel") == std::string::npos;
+#endif
+}
+
+// Returns whether ID-buffer picking is enabled and safe for this driver.
 bool IsIdBufferPickingEnabled(const ConfigManager &cfg) {
-  return cfg.GetFloat("viewer3d_pick_use_id_buffer") >= 0.5f;
+  return cfg.GetFloat("viewer3d_pick_use_id_buffer") >= 0.5f &&
+         IsIdBufferPickingSupportedByDriver();
 }
 
 bool IsAmbiguousDepthConfirmEnabled(const ConfigManager &cfg) {
