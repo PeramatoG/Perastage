@@ -104,8 +104,8 @@ void AppendUuidIfRenderable(
   }
 }
 
-// Leaves fixed-function texture unit 0 in a safe state after overlay draws.
-void ResetTextureUnitZeroAfterOverlay() {
+// Leaves fixed-function texture unit 0 in a safe untextured state.
+void ResetTextureUnitZeroForOverlay() {
   GLint previousActiveTexture = GL_TEXTURE0;
   glGetIntegerv(GL_ACTIVE_TEXTURE, &previousActiveTexture);
   glActiveTexture(GL_TEXTURE0);
@@ -115,6 +115,7 @@ void ResetTextureUnitZeroAfterOverlay() {
 }
 } // namespace
 
+// Renders hover, group-hover, and selection overlays for visible scene items.
 void SelectionOverlayPass::Render(Viewer3DController &controller,
                                   const RenderFrameContext &context,
                                   const Viewer3DVisibleSet &visibleSet) {
@@ -188,6 +189,7 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
              static_cast<unsigned long long>(controller.m_selectedUuids.size()));
   {
     viewer3d::render::OpenGLStateGuard stateGuard;
+    ResetTextureUnitZeroForOverlay();
 
     RenderFrameContext overlayContext = context;
     overlayContext.skipCapture = true;
@@ -204,7 +206,7 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
                               getPickColor);
     glDepthFunc(static_cast<GLenum>(previousDepthFunc));
   }
-  ResetTextureUnitZeroAfterOverlay();
+  ResetTextureUnitZeroForOverlay();
   wxLogDebug(
       "Highlight: restored OpenGL state for hover, group, and selected overlays");
 }

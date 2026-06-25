@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <wx/log.h>
 
 namespace {
 constexpr float kPrimaryHighlightR = 0.78f;
@@ -36,6 +37,12 @@ struct InkColor {
 struct LineRenderProfile {
   float lineWidth = 1.0f;
   bool enableLineSmoothing = false;
+};
+
+struct TextureUnitZeroState {
+  GLint activeTexture = GL_TEXTURE0;
+  GLint textureBinding2D = 0;
+  GLboolean texture2DEnabled = GL_FALSE;
 };
 
 enum class SketchInteractionWireframeMode {
@@ -77,6 +84,47 @@ LineRenderProfile GetLineRenderProfile(bool isInteracting, bool wireframeMode,
   if (!adaptiveEnabled)
     return {wireframeMode ? 1.0f : 2.0f, false};
   return {wireframeMode ? 1.0f : 2.0f, true};
+}
+
+// Captures fixed-function texture unit 0 state without changing caller state.
+TextureUnitZeroState CaptureTextureUnitZeroState() {
+  TextureUnitZeroState state;
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &state.activeTexture);
+  glActiveTexture(GL_TEXTURE0);
+  state.texture2DEnabled = glIsEnabled(GL_TEXTURE_2D);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &state.textureBinding2D);
+  glActiveTexture(static_cast<GLenum>(state.activeTexture));
+  return state;
+}
+
+// Forces fixed-function texture unit 0 into an untextured draw state.
+void ForceTextureUnitZeroUntextured(const TextureUnitZeroState &state) {
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glDisable(GL_TEXTURE_2D);
+  glActiveTexture(static_cast<GLenum>(state.activeTexture));
+}
+
+// Restores fixed-function texture unit 0 state captured before a draw.
+void RestoreTextureUnitZeroState(const TextureUnitZeroState &state) {
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(state.textureBinding2D));
+  state.texture2DEnabled ? glEnable(GL_TEXTURE_2D) : glDisable(GL_TEXTURE_2D);
+  glActiveTexture(static_cast<GLenum>(state.activeTexture));
+}
+
+// Logs the texture state used by highlight and selection mesh draws.
+void LogHighlightTextureState(bool highlight, bool groupHighlight,
+                              bool selected, bool useTexture) {
+  if (!highlight && !groupHighlight && !selected)
+    return;
+
+  const TextureUnitZeroState state = CaptureTextureUnitZeroState();
+  wxLogDebug(
+      "Highlight texture state: texture2D=%d binding2D=%d activeTexture=0x%04x highlight=%d groupHighlight=%d selected=%d useTexture=%d",
+      state.texture2DEnabled == GL_TRUE ? 1 : 0, state.textureBinding2D,
+      static_cast<unsigned int>(state.activeTexture), highlight ? 1 : 0,
+      groupHighlight ? 1 : 0, selected ? 1 : 0, useTexture ? 1 : 0);
 }
 
 // Returns a normalized direction with a stable fallback for near-zero vectors.
@@ -518,6 +566,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
 }
 } // namespace
 
+// Draws a mesh with optional highlight, selection, wireframe, and capture output.
 void SceneRenderer::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
     bool groupHighlight, bool selected, float cx, float cy, float cz,
@@ -726,9 +775,16 @@ void SceneRenderer::DrawMeshWithOutline(
       }
       if (highlight || groupHighlight || selected) {
         setHighlightOrSelectionColor();
-        if (!glIsEnabled(GL_LIGHTING))
+        LogHighlightTextureState(highlight, groupHighlight, selected, false);
+        const TextureUnitZeroState textureState = CaptureTextureUnitZeroState();
+        ForceTextureUnitZeroUntextured(textureState);
+        const GLboolean highlightLightingWasEnabled = glIsEnabled(GL_LIGHTING);
+        if (!highlightLightingWasEnabled)
           glEnable(GL_LIGHTING);
         DrawMesh(mesh, scale, modelMatrix);
+        if (!highlightLightingWasEnabled)
+          glDisable(GL_LIGHTING);
+        RestoreTextureUnitZeroState(textureState);
       } else if (usePureWhiteFillInWhiteMode) {
         const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
         if (fillLightingWasEnabled)
@@ -783,11 +839,17 @@ void SceneRenderer::DrawMeshWithOutline(
         m_controller.SetGLColor(useTexture ? 1.0f : r, useTexture ? 1.0f : g,
                                 useTexture ? 1.0f : b);
 
+      LogHighlightTextureState(highlight, groupHighlight, selected, useTexture);
+      const TextureUnitZeroState textureState = CaptureTextureUnitZeroState();
+      if (!useTexture)
+        ForceTextureUnitZeroUntextured(textureState);
       if (unlit)
         glDisable(GL_LIGHTING);
       DrawMesh(mesh, scale, modelMatrix, useTexture);
       if (unlit)
         glEnable(GL_LIGHTING);
+      if (!useTexture)
+        RestoreTextureUnitZeroState(textureState);
     }
   }
   if (m_controller.GetCaptureCanvas()) {
@@ -916,6 +978,10 @@ void SceneRenderer::DrawMeshWireframe(
 // mirrored transforms.
 void SceneRenderer::DrawMesh(const Mesh &mesh, float scale,
                              const float *modelMatrix, bool useTexture) {
+  const TextureUnitZeroState textureState = CaptureTextureUnitZeroState();
+  if (!useTexture)
+    ForceTextureUnitZeroUntextured(textureState);
+
   const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
   if (cullWasEnabled)
     glDisable(GL_CULL_FACE);
@@ -1157,6 +1223,8 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale,
   RestoreFrontFace(previousFrontFace);
   if (cullWasEnabled)
     glEnable(GL_CULL_FACE);
+  if (!useTexture)
+    RestoreTextureUnitZeroState(textureState);
 }
 
 // Draw the 2D reference grid with configurable spacing and a moderate centered
