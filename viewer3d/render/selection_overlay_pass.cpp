@@ -71,10 +71,8 @@ bool ContainsUuid(const std::vector<std::string> &uuids,
 // Returns whether the UUID belongs to any hover, group-hover, or selection overlay.
 bool IsUuidInSelectionOverlay(const Viewer3DController &controller,
                               const std::string &uuid) {
-  return uuid == controller.m_highlightUuid ||
-         controller.m_groupHighlightUuids.find(uuid) !=
-             controller.m_groupHighlightUuids.end() ||
-         controller.m_selectedUuids.find(uuid) != controller.m_selectedUuids.end();
+  return controller.IsUuidHighlighted(uuid) ||
+         controller.IsUuidGroupHighlighted(uuid) || controller.IsUuidSelected(uuid);
 }
 
 void AppendUuidIfRenderable(
