@@ -1,6 +1,7 @@
 #include "id_pick_pass.h"
 
 #include "picking_coordinate_utils.h"
+#include "render/opengl_state_guard.h"
 
 #include <GL/glew.h>
 #ifdef __APPLE__
@@ -110,6 +111,7 @@ void IdPickPass::EnsureFramebufferSize(int width, int height) {
 void IdPickPass::RebuildIfNeeded(
     int width, int height,
     const std::unordered_set<std::string> &hiddenLayers) {
+  viewer3d::render::OpenGLStateGuard stateGuard;
   EnsureFramebufferSize(width, height);
   if (m_fbo == 0 || !m_framebufferUsable || width <= 0 || height <= 0)
     return;
@@ -221,10 +223,21 @@ bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
     return false;
   }
 
+  viewer3d::render::OpenGLStateGuard stateGuard;
   unsigned char pixel[3] = {0, 0, 0};
+  viewer3d::render::ClearOpenGLErrors();
   glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
   glReadPixels(framebufferX, framebufferY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  const GLenum readError = viewer3d::render::DrainOpenGLErrors();
+  if (readError != GL_NO_ERROR) {
+    wxLogWarning(
+        "Picking: glReadPixels ID read failed error=0x%04x mouse=(%d,%d) framebuffer=(%d,%d) size=(%d,%d) vendor=%s renderer=%s.",
+        static_cast<unsigned int>(readError), mouseX, mouseY, framebufferX,
+        framebufferY, width, height, viewer3d::render::SafeGlString(GL_VENDOR),
+        viewer3d::render::SafeGlString(GL_RENDERER));
+    return false;
+  }
 
   const uint32_t pickId = (static_cast<uint32_t>(pixel[0]) << 16) |
                           (static_cast<uint32_t>(pixel[1]) << 8) |

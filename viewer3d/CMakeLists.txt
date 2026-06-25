@@ -23,6 +23,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/render/perastage_svg_symbol_builder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/pick_mesh_validation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/opaque_truss_pass.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/render/opengl_state_guard.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/selection_overlay_pass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/render_pipeline.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/viewer3d_render_style.cpp

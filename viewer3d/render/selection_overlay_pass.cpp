@@ -13,11 +13,13 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <wx/log.h>
 
 #include "configmanager.h"
 #include "opaque_fixture_pass.h"
 #include "opaque_object_pass.h"
 #include "opaque_truss_pass.h"
+#include "opengl_state_guard.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
@@ -162,18 +164,24 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
     return std::array<float, 3>{1.0f, 1.0f, 1.0f};
   };
 
-  RenderFrameContext overlayContext = context;
-  overlayContext.skipCapture = true;
-  overlayContext.selectionOverlayPass = true;
-  GLint previousDepthFunc = GL_LESS;
-  glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
-  glDepthFunc(GL_LEQUAL);
-  OpaqueObjectPass::Render(controller, overlayContext, overlaySet,
-                           getLayerColor, resolveSymbolView, getPickColor);
-  OpaqueTrussPass::Render(controller, overlayContext, overlaySet, getLayerColor,
-                          resolveSymbolView, getPickColor);
-  OpaqueFixturePass::Render(controller, overlayContext, overlaySet,
-                            getTypeColor, getLayerColor, resolveSymbolView,
-                            getPickColor);
-  glDepthFunc(static_cast<GLenum>(previousDepthFunc));
+  wxLogDebug("Highlight: begin");
+  {
+    viewer3d::render::OpenGLStateGuard stateGuard;
+
+    RenderFrameContext overlayContext = context;
+    overlayContext.skipCapture = true;
+    overlayContext.selectionOverlayPass = true;
+    GLint previousDepthFunc = GL_LESS;
+    glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+    glDepthFunc(GL_LEQUAL);
+    OpaqueObjectPass::Render(controller, overlayContext, overlaySet,
+                             getLayerColor, resolveSymbolView, getPickColor);
+    OpaqueTrussPass::Render(controller, overlayContext, overlaySet, getLayerColor,
+                            resolveSymbolView, getPickColor);
+    OpaqueFixturePass::Render(controller, overlayContext, overlaySet,
+                              getTypeColor, getLayerColor, resolveSymbolView,
+                              getPickColor);
+    glDepthFunc(static_cast<GLenum>(previousDepthFunc));
+  }
+  wxLogDebug("Highlight: restored OpenGL state");
 }
