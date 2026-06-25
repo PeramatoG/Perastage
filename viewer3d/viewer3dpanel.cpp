@@ -1029,6 +1029,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     const bool highlightRefreshPendingAtFrameStart = m_highlightRefreshPending;
     const bool highlightOnlyRefresh = false;
+    const size_t cameraFingerprint = ComputeCameraFingerprint(m_camera);
+    const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
 
     m_controller.UpdateFrameStateLightweight();
 
@@ -1216,10 +1218,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         DrawSelectionDragGizmo(renderSize);
     DrawMeasureOverlay(renderSize);
 
-    if (reusedBasePass)
-        ++m_highlightRefreshesInCurrentWindow;
-    else
-        ++m_fullRefreshesInCurrentWindow;
+    ++m_fullRefreshesInCurrentWindow;
 
     const auto telemetryNow = std::chrono::steady_clock::now();
     if (m_refreshTelemetryWindowStart.time_since_epoch().count() == 0)
