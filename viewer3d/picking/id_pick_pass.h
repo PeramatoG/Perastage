@@ -15,6 +15,11 @@ public:
   explicit IdPickPass(Viewer3DController &controller);
   ~IdPickPass();
 
+  enum class ReadResult { Unavailable, Miss, Hit };
+
+  ReadResult ReadUuidAtDetailed(
+      int mouseX, int mouseY, int width, int height,
+      const std::unordered_set<std::string> &hiddenLayers, std::string &outUuid);
   bool ReadUuidAt(int mouseX, int mouseY, int width, int height,
                   const std::unordered_set<std::string> &hiddenLayers,
                   std::string &outUuid);

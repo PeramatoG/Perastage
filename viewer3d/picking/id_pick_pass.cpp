@@ -93,7 +93,7 @@ void IdPickPass::EnsureFramebufferSize(int width, int height) {
   const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
   if (status != GL_FRAMEBUFFER_COMPLETE) {
     if (!m_loggedFramebufferFailure) {
-      wxLogWarning(
+      wxLogDebug(
           "Viewer3D ID picking framebuffer is incomplete (status=0x%04x). Falling back to ray picking for this session.",
           static_cast<unsigned int>(status));
       m_loggedFramebufferFailure = true;
@@ -143,6 +143,7 @@ void IdPickPass::RebuildIfNeeded(
   glViewport(0, 0, width, height);
   glDisable(GL_BLEND);
   glEnable(GL_DEPTH_TEST);
+  glDisable(GL_CULL_FACE);
   glDisable(GL_LIGHTING);
   glDisable(GL_TEXTURE_2D);
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -203,24 +204,26 @@ void IdPickPass::RebuildIfNeeded(
   m_dirty = false;
 }
 
-bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
-                            const std::unordered_set<std::string> &hiddenLayers,
-                            std::string &outUuid) {
+// Reads the UUID encoded in the ID-picking framebuffer at the requested pixel.
+IdPickPass::ReadResult IdPickPass::ReadUuidAtDetailed(
+    int mouseX, int mouseY, int width, int height,
+    const std::unordered_set<std::string> &hiddenLayers, std::string &outUuid) {
+  outUuid.clear();
   RebuildIfNeeded(width, height, hiddenLayers);
   if (m_fbo == 0 || !m_framebufferUsable)
-    return false;
+    return ReadResult::Unavailable;
 
   int framebufferX = 0;
   int framebufferY = 0;
   if (!TryConvertMouseToFramebufferPoint(mouseX, mouseY, width, height,
                                          framebufferX, framebufferY)) {
     if (!m_loggedInvalidReadCoordinates) {
-      wxLogWarning(
+      wxLogDebug(
           "Viewer3D ID picking skipped an out-of-range read at mouse=(%d,%d), framebuffer=(%d,%d).",
           mouseX, mouseY, width, height);
       m_loggedInvalidReadCoordinates = true;
     }
-    return false;
+    return ReadResult::Miss;
   }
 
   viewer3d::render::OpenGLStateGuard stateGuard;
@@ -231,24 +234,32 @@ bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
   glReadPixels(framebufferX, framebufferY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
   const GLenum readError = viewer3d::render::DrainOpenGLErrors();
   if (readError != GL_NO_ERROR) {
-    wxLogWarning(
+    wxLogDebug(
         "Picking: glReadPixels ID read failed error=0x%04x mouse=(%d,%d) framebuffer=(%d,%d) size=(%d,%d) vendor=%s renderer=%s.",
         static_cast<unsigned int>(readError), mouseX, mouseY, framebufferX,
         framebufferY, width, height, viewer3d::render::SafeGlString(GL_VENDOR),
         viewer3d::render::SafeGlString(GL_RENDERER));
-    return false;
+    return ReadResult::Unavailable;
   }
 
   const uint32_t pickId = (static_cast<uint32_t>(pixel[0]) << 16) |
                           (static_cast<uint32_t>(pixel[1]) << 8) |
                           static_cast<uint32_t>(pixel[2]);
   if (pickId == 0)
-    return false;
+    return ReadResult::Miss;
 
   auto it = m_pickIdToUuid.find(pickId);
   if (it == m_pickIdToUuid.end())
-    return false;
+    return ReadResult::Miss;
 
   outUuid = it->second;
-  return true;
+  return ReadResult::Hit;
+}
+
+// Reads whether the ID-picking framebuffer contains a UUID at the requested pixel.
+bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
+                            const std::unordered_set<std::string> &hiddenLayers,
+                            std::string &outUuid) {
+  return ReadUuidAtDetailed(mouseX, mouseY, width, height, hiddenLayers,
+                            outUuid) == ReadResult::Hit;
 }

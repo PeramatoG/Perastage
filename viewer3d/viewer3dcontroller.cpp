@@ -618,14 +618,35 @@ void Viewer3DController::RecordText(float x, float y, const std::string &text,
   m_impl->captureCanvas->DrawText(x, y, text, style);
 }
 
+// Reads and classifies the ID-buffer pick result at the requested pixel.
+ISelectionContext::PickReadResult Viewer3DController::ReadPickUuidAtDetailed(
+    int mouseX, int mouseY, int width, int height,
+    const std::unordered_set<std::string> &hiddenLayers, std::string &outUuid) {
+  if (!m_impl->idPickPass) {
+    outUuid.clear();
+    return ISelectionContext::PickReadResult::Unavailable;
+  }
+
+  switch (m_impl->idPickPass->ReadUuidAtDetailed(mouseX, mouseY, width, height,
+                                                 hiddenLayers, outUuid)) {
+  case IdPickPass::ReadResult::Hit:
+    return ISelectionContext::PickReadResult::Hit;
+  case IdPickPass::ReadResult::Miss:
+    return ISelectionContext::PickReadResult::Miss;
+  case IdPickPass::ReadResult::Unavailable:
+    return ISelectionContext::PickReadResult::Unavailable;
+  }
+
+  outUuid.clear();
+  return ISelectionContext::PickReadResult::Unavailable;
+}
+
 // Reads and returns pick UUID At.
 bool Viewer3DController::ReadPickUuidAt(
     int mouseX, int mouseY, int width, int height,
     const std::unordered_set<std::string> &hiddenLayers, std::string &outUuid) {
-  if (!m_impl->idPickPass)
-    return false;
-  return m_impl->idPickPass->ReadUuidAt(mouseX, mouseY, width, height,
-                                        hiddenLayers, outUuid);
+  return ReadPickUuidAtDetailed(mouseX, mouseY, width, height, hiddenLayers,
+                                outUuid) == ISelectionContext::PickReadResult::Hit;
 }
 
 // Handles d Controller.
