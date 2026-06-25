@@ -203,6 +203,7 @@ void IdPickPass::RebuildIfNeeded(
   m_dirty = false;
 }
 
+// Reads the UUID encoded in the ID-picking framebuffer at the requested pixel.
 bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
                             const std::unordered_set<std::string> &hiddenLayers,
                             std::string &outUuid) {
@@ -215,11 +216,12 @@ bool IdPickPass::ReadUuidAt(int mouseX, int mouseY, int width, int height,
   if (!TryConvertMouseToFramebufferPoint(mouseX, mouseY, width, height,
                                          framebufferX, framebufferY)) {
     if (!m_loggedInvalidReadCoordinates) {
-      wxLogWarning(
+      wxLogDebug(
           "Viewer3D ID picking skipped an out-of-range read at mouse=(%d,%d), framebuffer=(%d,%d).",
           mouseX, mouseY, width, height);
       m_loggedInvalidReadCoordinates = true;
     }
+    outUuid.clear();
     return false;
   }
 
