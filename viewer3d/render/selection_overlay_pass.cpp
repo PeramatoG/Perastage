@@ -103,6 +103,16 @@ void AppendUuidIfRenderable(
     return;
   }
 }
+
+// Leaves fixed-function texture unit 0 in a safe state after overlay draws.
+void ResetTextureUnitZeroAfterOverlay() {
+  GLint previousActiveTexture = GL_TEXTURE0;
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &previousActiveTexture);
+  glActiveTexture(GL_TEXTURE0);
+  glDisable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glActiveTexture(static_cast<GLenum>(previousActiveTexture));
+}
 } // namespace
 
 void SelectionOverlayPass::Render(Viewer3DController &controller,
@@ -194,6 +204,7 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
                               getPickColor);
     glDepthFunc(static_cast<GLenum>(previousDepthFunc));
   }
+  ResetTextureUnitZeroAfterOverlay();
   wxLogDebug(
       "Highlight: restored OpenGL state for hover, group, and selected overlays");
 }

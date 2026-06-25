@@ -783,16 +783,11 @@ void SceneRenderer::DrawMeshWithOutline(
         m_controller.SetGLColor(useTexture ? 1.0f : r, useTexture ? 1.0f : g,
                                 useTexture ? 1.0f : b);
 
-      const GLboolean textureWasEnabled = glIsEnabled(GL_TEXTURE_2D);
-      if (!useTexture && textureWasEnabled)
-        glDisable(GL_TEXTURE_2D);
       if (unlit)
         glDisable(GL_LIGHTING);
       DrawMesh(mesh, scale, modelMatrix, useTexture);
       if (unlit)
         glEnable(GL_LIGHTING);
-      if (!useTexture && textureWasEnabled)
-        glEnable(GL_TEXTURE_2D);
     }
   }
   if (m_controller.GetCaptureCanvas()) {
