@@ -33,7 +33,7 @@ Changes since **v1.4.0**.
 
 ## Build, packaging and CI
 
-- Kept MVR-xchange build includes isolated to module directories, completed dialog header dependencies, and clarified wxString conditionals so Windows builds do not shadow standard library headers or depend on ambiguous wxWidgets conversions.
+- Improved the MVR-xchange TCP publisher with safer dialog shutdown, specification-aligned JSON responses, commit broadcasting, and explicit DNS-SD discovery diagnostics so unavailable mDNS backends no longer appear to start successfully.
 
 ## Documentation
 

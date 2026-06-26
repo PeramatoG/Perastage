@@ -8,15 +8,28 @@
 MvrXchangeDialog::MvrXchangeDialog(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, "MVR-xchange", wxDefaultPosition, wxSize(560, 420)),
       settings_(LoadMvrXchangeSettings()), service_(std::make_unique<MvrXchangeService>()) {
-  service_->SetLogCallback([this](const std::string &message) {
-    wxTheApp->CallAfter([this, message] { AppendLog(wxString::FromUTF8(message)); RefreshState(); });
+  std::weak_ptr<bool> weakLifetime = lifetimeToken_;
+  service_->SetLogCallback([this, weakLifetime](const std::string &message) {
+    wxTheApp->CallAfter([this, weakLifetime, message] {
+      if (weakLifetime.expired() || shuttingDown_) return;
+      AppendLog(wxString::FromUTF8(message));
+      RefreshState();
+    });
   });
   BuildLayout();
   RefreshState();
 }
 
-// Stops the service when the dialog is destroyed.
-MvrXchangeDialog::~MvrXchangeDialog() { service_->Stop(); }
+// Detaches callbacks and stops the service before dialog controls are destroyed.
+MvrXchangeDialog::~MvrXchangeDialog() {
+  shuttingDown_ = true;
+  lifetimeToken_.reset();
+  if (service_) {
+    service_->SetLogCallback(nullptr);
+    service_->Stop();
+  }
+  logCtrl_ = nullptr;
+}
 
 // Builds the dialog controls for service status, settings, and manual publishing.
 void MvrXchangeDialog::BuildLayout() {
@@ -51,6 +64,7 @@ void MvrXchangeDialog::BuildLayout() {
 
 // Refreshes status labels and button enablement from the service state.
 void MvrXchangeDialog::RefreshState() {
+  if (shuttingDown_ || IsBeingDeleted() || !statusText_) return;
   const bool running = service_->IsRunning();
   statusText_->SetLabel(running ? wxString::Format("Running on port %d", service_->Port()) : wxString("Stopped"));
   startButton_->Enable(!running);
@@ -59,7 +73,10 @@ void MvrXchangeDialog::RefreshState() {
 }
 
 // Appends a status line to the dialog log area.
-void MvrXchangeDialog::AppendLog(const wxString &message) { logCtrl_->AppendText(message + "\n"); }
+void MvrXchangeDialog::AppendLog(const wxString &message) {
+  if (shuttingDown_ || IsBeingDeleted() || !logCtrl_) return;
+  logCtrl_->AppendText(message + "\n");
+}
 
 // Starts the MVR-xchange publisher with the current dialog settings.
 void MvrXchangeDialog::OnStart(wxCommandEvent &) {

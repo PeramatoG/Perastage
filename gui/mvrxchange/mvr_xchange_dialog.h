@@ -1,6 +1,7 @@
 #pragma once
 #include "xchange/mvr_xchange_service.h"
 #include <memory>
+#include <atomic>
 #include <wx/button.h>
 #include <wx/dialog.h>
 #include <wx/event.h>
@@ -22,6 +23,8 @@ private:
 
   MvrXchangeSettings settings_;
   std::unique_ptr<MvrXchangeService> service_;
+  std::shared_ptr<bool> lifetimeToken_ = std::make_shared<bool>(true);
+  std::atomic<bool> shuttingDown_{false};
   wxStaticText *statusText_ = nullptr;
   wxTextCtrl *stationNameCtrl_ = nullptr;
   wxTextCtrl *groupNameCtrl_ = nullptr;

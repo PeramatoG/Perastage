@@ -2,6 +2,7 @@
 #include "mvr_xchange_commit.h"
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace mvr::xchange {
 
@@ -14,14 +15,11 @@ struct Message {
   std::string comment;
 };
 
-std::string EscapeJson(const std::string &value);
-std::optional<std::string> ExtractJsonString(const std::string &json, const std::string &key);
-Message ParseMessage(const std::string &json);
-std::string BuildJoinRet(const std::string &stationUuid, const std::string &stationName, const std::string &groupName);
-std::string BuildLeaveRet(const std::string &stationUuid);
+std::optional<Message> ParseMessage(const std::string &json);
+std::string BuildJoinRet(const std::string &stationUuid, const std::string &stationName, const std::vector<MvrXchangeCommit> &commits);
+std::string BuildLeaveRet();
 std::string BuildCommit(const MvrXchangeCommit &commit);
-std::string BuildCommitRet(const std::string &fileUuid, bool ok, const std::string &error = {});
-std::string BuildRequestRet(const MvrXchangeCommit &commit);
-std::string BuildError(const std::string &type, const std::string &error);
+std::string BuildCommitRet(bool ok, const std::string &message = {});
+std::string BuildRequestError(const std::string &message);
 
 }

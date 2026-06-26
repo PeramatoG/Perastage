@@ -27,12 +27,16 @@ std::string CurrentUtcTimestamp() {
 bool MvrXchangeService::Start(const MvrXchangeSettings &settings) {
   if (IsRunning()) return true;
   settings_ = settings;
-  if (!tcpServer_.Start(settings_, [this](const std::string &fileUuid) { return ResolveRequest(fileUuid); }, [this](const std::string &msg) { Log(msg); })) {
+  if (!tcpServer_.Start(settings_, [this](const std::string &fileUuid) { return ResolveRequest(fileUuid); }, [this] { return GetLocalCommits(); }, [this](const std::string &msg) { Log(msg); })) {
     Log("MVR-xchange service failed to start.");
     return false;
   }
-  mdnsService_.Start(settings_, tcpServer_.Port());
-  Log("MVR-xchange service started.");
+  if (!mdnsService_.Start(settings_, tcpServer_.Port())) {
+    Log("MVR-xchange mDNS advertisement failed: " + mdnsService_.LastError());
+    tcpServer_.Stop();
+    return false;
+  }
+  Log("MVR-xchange service started on TCP port " + std::to_string(tcpServer_.Port()) + ".");
   return true;
 }
 

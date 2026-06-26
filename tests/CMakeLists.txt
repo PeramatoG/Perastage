@@ -1521,5 +1521,5 @@ add_executable(mvr_xchange_protocol_test
     ../mvr/xchange/mvr_xchange_message.cpp
     ../mvr/xchange/mvr_xchange_packet.cpp
 )
-target_include_directories(mvr_xchange_protocol_test PRIVATE ${CMAKE_SOURCE_DIR}/mvr)
+target_include_directories(mvr_xchange_protocol_test PRIVATE ${CMAKE_SOURCE_DIR}/mvr ${CMAKE_SOURCE_DIR}/third_party)
 add_test(NAME MvrXchangeProtocol COMMAND mvr_xchange_protocol_test)
