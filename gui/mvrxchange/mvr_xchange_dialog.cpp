@@ -41,11 +41,21 @@ void MvrXchangeDialog::BuildLayout() {
   groupNameCtrl_ = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(settings_.groupName));
   stationUuidCtrl_ = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(settings_.stationUuid), wxDefaultPosition, wxDefaultSize, wxTE_READONLY);
   portCtrl_ = new wxTextCtrl(this, wxID_ANY, settings_.port > 0 ? wxString::Format("%d", settings_.port) : wxString("Auto"));
+  interfaceChoice_ = new wxChoice(this, wxID_ANY);
+  interfaceChoice_->Append("Auto / All suitable interfaces");
+  interfaces_ = ListMvrXchangeNetworkInterfaces();
+  int selectedInterfaceIndex = 0;
+  for (std::size_t i = 0; i < interfaces_.size(); ++i) {
+    interfaceChoice_->Append(wxString::FromUTF8(FormatMvrXchangeNetworkInterface(interfaces_[i])));
+    if (!settings_.selectedInterfaceId.empty() && (settings_.selectedInterfaceId == interfaces_[i].id || settings_.selectedInterfaceId == interfaces_[i].ipv4Address)) selectedInterfaceIndex = static_cast<int>(i + 1);
+  }
+  interfaceChoice_->SetSelection(selectedInterfaceIndex);
   grid->Add(new wxStaticText(this, wxID_ANY, "Status:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(statusText_, 1, wxEXPAND);
   grid->Add(new wxStaticText(this, wxID_ANY, "Station name:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(stationNameCtrl_, 1, wxEXPAND);
   grid->Add(new wxStaticText(this, wxID_ANY, "Group name:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(groupNameCtrl_, 1, wxEXPAND);
   grid->Add(new wxStaticText(this, wxID_ANY, "Station UUID:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(stationUuidCtrl_, 1, wxEXPAND);
-  grid->Add(new wxStaticText(this, wxID_ANY, "Port:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(portCtrl_, 1, wxEXPAND);
+  grid->Add(new wxStaticText(this, wxID_ANY, "Network interface:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(interfaceChoice_, 1, wxEXPAND);
+  grid->Add(new wxStaticText(this, wxID_ANY, "TCP port:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(portCtrl_, 1, wxEXPAND);
   root->Add(grid, 0, wxEXPAND | wxALL, 12);
   auto *buttons = new wxBoxSizer(wxHORIZONTAL);
   startButton_ = new wxButton(this, wxID_ANY, "Start");
@@ -84,6 +94,8 @@ void MvrXchangeDialog::OnStart(wxCommandEvent &) {
   settings_.groupName = groupNameCtrl_->GetValue().ToStdString();
   long port = 0;
   if (portCtrl_->GetValue().ToLong(&port)) settings_.port = static_cast<int>(port); else settings_.port = 0;
+  const int selectedInterfaceIndex = interfaceChoice_ ? interfaceChoice_->GetSelection() : 0;
+  settings_.selectedInterfaceId = selectedInterfaceIndex > 0 && static_cast<std::size_t>(selectedInterfaceIndex - 1) < interfaces_.size() ? interfaces_[static_cast<std::size_t>(selectedInterfaceIndex - 1)].id : std::string{};
   SaveMvrXchangeSettings(settings_);
   if (!service_->Start(settings_)) AppendLog("Service failed to start.");
   RefreshState();

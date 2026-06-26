@@ -6,6 +6,7 @@ struct MvrXchangeSettings {
   std::string groupName = "Default";
   std::string stationUuid;
   int port = 0;
+  std::string selectedInterfaceId;
 };
 
 MvrXchangeSettings LoadMvrXchangeSettings();

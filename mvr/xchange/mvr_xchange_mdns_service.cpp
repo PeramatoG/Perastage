@@ -1,4 +1,5 @@
 #include "mvr_xchange_mdns_service.h"
+#include "mvr_xchange_network_interfaces.h"
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -56,24 +57,13 @@ std::string LocalHostName() {
 }
 
 // Returns the first available IPv4 address for A-record responses.
-sockaddr_in LocalIpv4Address() {
+sockaddr_in Ipv4AddressFromString(const std::string &ipAddress) {
   sockaddr_in fallback{};
   fallback.sin_family = AF_INET;
   inet_pton(AF_INET, "127.0.0.1", &fallback.sin_addr);
-  const std::string host = LocalHostName();
-  addrinfo hints{};
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_STREAM;
-  addrinfo *result = nullptr;
-  if (getaddrinfo(host.c_str(), nullptr, &hints, &result) != 0) return fallback;
-  for (addrinfo *it = result; it; it = it->ai_next) {
-    if (it->ai_family == AF_INET && it->ai_addrlen >= sizeof(sockaddr_in)) {
-      sockaddr_in addr = *reinterpret_cast<sockaddr_in *>(it->ai_addr);
-      freeaddrinfo(result);
-      return addr;
-    }
-  }
-  freeaddrinfo(result);
+  sockaddr_in selected{};
+  selected.sin_family = AF_INET;
+  if (inet_pton(AF_INET, ipAddress.c_str(), &selected.sin_addr) == 1) return selected;
   return fallback;
 }
 
@@ -107,6 +97,7 @@ std::string LocalAddressSummary() {
 
 #ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
 struct MdnsServiceRecords {
+  mdns_record_t discoveryPtr{};
   mdns_record_t ptr{};
   mdns_record_t groupPtr{};
   mdns_record_t srv{};
@@ -119,6 +110,9 @@ struct MdnsServiceRecords {
 // Builds mDNS records for answering service, group, instance, and host queries.
 MdnsServiceRecords BuildRecords(const MvrXchangeMdnsService *service, const sockaddr_in &address) {
   MdnsServiceRecords records;
+  records.discoveryPtr.name = MdnsStringLiteral(kDiscoveryService);
+  records.discoveryPtr.type = MDNS_RECORDTYPE_PTR;
+  records.discoveryPtr.data.ptr.name = MdnsStringLiteral(kServiceType);
   records.ptr.name = MdnsStringLiteral(kServiceType);
   records.ptr.type = MDNS_RECORDTYPE_PTR;
   records.ptr.data.ptr.name = MdnsString(service->ServiceInstanceName());
@@ -166,10 +160,10 @@ static int MdnsCallback(int sock, const sockaddr *from, size_t addrlen, mdns_ent
   size_t offset = nameOffset;
   const mdns_string_t queryName = mdns_string_extract(data, size, &offset, nameBuffer, sizeof(nameBuffer));
   const std::string query(queryName.str, queryName.length);
-  const auto records = BuildRecords(service, LocalIpv4Address());
+  const auto records = BuildRecords(service, Ipv4AddressFromString(service->AdvertisedIpAddress()));
   const bool any = rtype == MDNS_RECORDTYPE_ANY;
   if (query == kDiscoveryService && (rtype == MDNS_RECORDTYPE_PTR || any)) {
-    SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.ptr, nullptr, 0);
+    SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.discoveryPtr, nullptr, 0);
   } else if ((query == service->ServiceType() || query == service->GroupServiceName()) && (rtype == MDNS_RECORDTYPE_PTR || any)) {
     const mdns_record_t answer = query == service->GroupServiceName() ? records.groupPtr : records.ptr;
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, answer, records.additional.data(), records.additional.size());
@@ -193,6 +187,9 @@ bool MvrXchangeMdnsService::Start(const MvrXchangeSettings &settings, int port) 
   port_ = port;
   hostName_ = LocalHostName();
   qualifiedHostName_ = hostName_ + ".local.";
+  const auto selectedInterface = SelectMvrXchangeNetworkInterface(settings.selectedInterfaceId);
+  advertisedIpAddress_ = selectedInterface.ipv4Address;
+  selectedInterfaceDescription_ = FormatMvrXchangeNetworkInterface(selectedInterface);
   groupServiceName_ = SanitizeDnsLabel(settings.groupName, "Default") + "." + kServiceType;
   serviceInstanceName_ = SanitizeDnsLabel(serviceName_, "Perastage") + "." + kServiceType;
 #ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
@@ -201,10 +198,11 @@ bool MvrXchangeMdnsService::Start(const MvrXchangeSettings &settings, int port) 
   running_ = true;
   Announce(false);
   worker_ = std::thread(&MvrXchangeMdnsService::Run, this);
-  wxLogMessage("MVR-xchange mDNS advertised via mdns: service=%s group=%s station=%s uuid=%s port=%d host=%s interfaces=%s",
+  wxLogMessage("MVR-xchange mDNS advertised via mdns: service=%s group=%s station=%s uuid=%s port=%d host=%s selectedInterface=%s advertisedA=%s candidates=%s",
                wxString::FromUTF8(ServiceType()), wxString::FromUTF8(GroupServiceName()),
                wxString::FromUTF8(serviceName_), wxString::FromUTF8(stationUuid_), port,
-               wxString::FromUTF8(qualifiedHostName_), wxString::FromUTF8(LocalAddressSummary()));
+               wxString::FromUTF8(qualifiedHostName_), wxString::FromUTF8(selectedInterfaceDescription_),
+               wxString::FromUTF8(advertisedIpAddress_), wxString::FromUTF8(LocalAddressSummary()));
   return true;
 #else
   lastError_ = "MVR-xchange mDNS advertisement failed because the vcpkg mdns backend is not available in this build. Install the vcpkg mdns port and rebuild Perastage.";
@@ -264,6 +262,12 @@ const std::string &MvrXchangeMdnsService::StationName() const { return serviceNa
 // Returns the advertised station UUID.
 const std::string &MvrXchangeMdnsService::StationUuid() const { return stationUuid_; }
 
+// Returns the IPv4 address advertised in the mDNS A record.
+std::string MvrXchangeMdnsService::AdvertisedIpAddress() const { return advertisedIpAddress_; }
+
+// Returns the selected interface description used for diagnostics.
+std::string MvrXchangeMdnsService::SelectedInterfaceDescription() const { return selectedInterfaceDescription_; }
+
 // Returns the advertised TCP port.
 int MvrXchangeMdnsService::Port() const { return port_; }
 
@@ -308,7 +312,7 @@ bool MvrXchangeMdnsService::OpenSocket() {
 void MvrXchangeMdnsService::Announce(bool goodbye) {
 #ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
   if (socket_ < 0) return;
-  const auto records = BuildRecords(this, LocalIpv4Address());
+  const auto records = BuildRecords(this, Ipv4AddressFromString(advertisedIpAddress_));
   std::array<char, 2048> buffer{};
   if (goodbye) {
     mdns_goodbye_multicast(socket_, buffer.data(), buffer.size(), records.ptr, nullptr, 0, records.additional.data(), records.additional.size());

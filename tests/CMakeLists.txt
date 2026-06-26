@@ -1519,7 +1519,11 @@ add_executable(mvr_xchange_protocol_test
     mvr_xchange_protocol_test.cpp
     ../mvr/xchange/mvr_xchange_commit.cpp
     ../mvr/xchange/mvr_xchange_message.cpp
+    ../mvr/xchange/mvr_xchange_network_interfaces.cpp
     ../mvr/xchange/mvr_xchange_packet.cpp
 )
 target_include_directories(mvr_xchange_protocol_test PRIVATE ${CMAKE_SOURCE_DIR}/mvr ${CMAKE_SOURCE_DIR}/third_party)
+if(WIN32)
+    target_link_libraries(mvr_xchange_protocol_test PRIVATE iphlpapi ws2_32)
+endif()
 add_test(NAME MvrXchangeProtocol COMMAND mvr_xchange_protocol_test)

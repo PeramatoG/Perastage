@@ -167,6 +167,7 @@ add_executable(${PROJECT_NAME} main.cpp
     mvr/primitive_model_resources.cpp
     mvr/xchange/mvr_xchange_commit.cpp
     mvr/xchange/mvr_xchange_mdns_service.cpp
+    mvr/xchange/mvr_xchange_network_interfaces.cpp
     mvr/xchange/mvr_xchange_message.cpp
     mvr/xchange/mvr_xchange_packet.cpp
     mvr/xchange/mvr_xchange_service.cpp
@@ -236,7 +237,7 @@ add_subdirectory(viewer_common)
 
 if(WIN32)
     target_sources(${PROJECT_NAME} PRIVATE resources/Perastage.rc)
-    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32 iphlpapi)
 endif()
 if(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS)
     target_compile_definitions(${PROJECT_NAME} PRIVATE PERASTAGE_MVR_XCHANGE_ENABLE_MDNS=1)

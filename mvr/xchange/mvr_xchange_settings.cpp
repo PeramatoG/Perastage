@@ -31,6 +31,8 @@ MvrXchangeSettings LoadMvrXchangeSettings() {
   if (config.Read("/MvrXchange/StationUUID", &stationUuid)) settings.stationUuid = stationUuid.ToStdString();
   long port = 0;
   if (config.Read("/MvrXchange/Port", &port)) settings.port = static_cast<int>(port);
+  wxString selectedInterfaceId;
+  if (config.Read("/MvrXchange/SelectedInterfaceId", &selectedInterfaceId)) settings.selectedInterfaceId = selectedInterfaceId.ToStdString();
   if (settings.stationUuid.empty()) settings.stationUuid = GenerateMvrXchangeUuid();
   return settings;
 }
@@ -42,5 +44,6 @@ void SaveMvrXchangeSettings(const MvrXchangeSettings &settings) {
   config.Write("/MvrXchange/GroupName", wxString::FromUTF8(settings.groupName));
   config.Write("/MvrXchange/StationUUID", wxString::FromUTF8(settings.stationUuid));
   config.Write("/MvrXchange/Port", static_cast<long>(settings.port));
+  config.Write("/MvrXchange/SelectedInterfaceId", wxString::FromUTF8(settings.selectedInterfaceId));
   config.Flush();
 }

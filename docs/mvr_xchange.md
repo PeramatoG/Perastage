@@ -40,6 +40,14 @@ The intended backend does not require a manual Bonjour or Avahi installation. If
 5. Click **Publish Current MVR** to export the current scene into memory and announce it as a new MVR revision.
 6. In a compatible client such as grandMA3, open the MVR-xchange view, select the same group name, select the same physical network interface, enable MVR-xchange, and request the published MVR revision.
 
+## Network interface and port debugging
+
+The dialog includes a **Network interface** selector. Use **Auto / All suitable interfaces** for normal LAN use, or choose **Loopback 127.0.0.1** when grandMA3 is running on the same machine and is watching loopback. If grandMA3 is watching Ethernet or Wi-Fi, select the matching Perastage interface so the advertised A record matches that address.
+
+The TCP port can stay on **Auto** because the mDNS SRV record advertises the effective port. For repeatable debugging, set a fixed port such as `42424`, restart the service, and allow that port through Windows Firewall for private networks.
+
+After Start, check the log for `MVR-xchange selected interface`, `MVR-xchange advertised A record`, `MVR_JOIN`, and `MVR_REQUEST`. If only a raw TCP connection appears and no `MVR_JOIN` follows, the client connected but did not complete the MVR-xchange handshake.
+
 ## Testing with grandMA3
 
 - Keep the group name identical on both applications. The default group is `Default`.
@@ -50,9 +58,9 @@ The intended backend does not require a manual Bonjour or Avahi installation. If
 ## Troubleshooting
 
 - **Windows Firewall prompt appears:** Allow Perastage on the intended private network so grandMA3 can connect to the TCP listener.
-- **Service is not visible:** Check that the dialog reports the `mdns` backend and does not show a disabled-backend error.
-- **Wrong interface:** Make sure grandMA3 is watching the same Ethernet/Wi-Fi interface that Perastage logs in its local address diagnostics.
-- **Loopback vs LAN:** A loopback advertisement is not visible to another computer. Use a real LAN interface for cross-device testing.
+- **Service is not visible:** Check that the dialog reports the `mdns` backend, matching group name, matching selected interface, and no disabled-backend error.
+- **Wrong interface:** Make sure grandMA3 is watching the same Ethernet/Wi-Fi or loopback interface selected in Perastage, and that the logged advertised A record matches that interface.
+- **Loopback vs LAN:** A loopback advertisement is not visible to another computer. Use loopback only for same-machine tests and a real LAN interface for cross-device testing.
 - **No published files:** Start the service and click **Publish Current MVR** before requesting a file. Perastage does not export silently on request.
 
 ## Settings

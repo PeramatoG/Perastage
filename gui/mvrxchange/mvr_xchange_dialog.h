@@ -1,8 +1,10 @@
 #pragma once
 #include "xchange/mvr_xchange_service.h"
+#include "xchange/mvr_xchange_network_interfaces.h"
 #include <memory>
 #include <atomic>
 #include <wx/button.h>
+#include <wx/choice.h>
 #include <wx/dialog.h>
 #include <wx/event.h>
 #include <wx/stattext.h>
@@ -30,6 +32,8 @@ private:
   wxTextCtrl *groupNameCtrl_ = nullptr;
   wxTextCtrl *stationUuidCtrl_ = nullptr;
   wxTextCtrl *portCtrl_ = nullptr;
+  wxChoice *interfaceChoice_ = nullptr;
+  std::vector<MvrXchangeNetworkInterface> interfaces_;
   wxTextCtrl *logCtrl_ = nullptr;
   wxButton *startButton_ = nullptr;
   wxButton *stopButton_ = nullptr;

@@ -28,6 +28,7 @@ private:
   bool SendPacket(int fd, const std::vector<uint8_t> &packet);
   void AddClient(int fd);
   void RemoveClient(int fd);
+  void MarkClientJoined(int fd);
 
   MvrXchangeSettings settings_;
   CommitResolver resolver_;
@@ -39,6 +40,7 @@ private:
   std::thread thread_;
   mutable std::mutex clientsMutex_;
   std::vector<int> clientFds_;
+  std::vector<int> joinedClientFds_;
   std::mutex clientThreadsMutex_;
   std::vector<std::thread> clientThreads_;
 };

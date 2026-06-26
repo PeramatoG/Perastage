@@ -17,6 +17,8 @@ public:
   const std::string &QualifiedHostName() const;
   const std::string &StationName() const;
   const std::string &StationUuid() const;
+  std::string AdvertisedIpAddress() const;
+  std::string SelectedInterfaceDescription() const;
   int Port() const;
 
 private:
@@ -33,6 +35,8 @@ private:
   std::string hostName_;
   std::string qualifiedHostName_;
   std::string stationUuid_;
+  std::string advertisedIpAddress_;
+  std::string selectedInterfaceDescription_;
   int port_ = 0;
   int socket_ = -1;
   std::thread worker_;

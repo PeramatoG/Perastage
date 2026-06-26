@@ -1,5 +1,6 @@
 #include "xchange/mvr_xchange_commit.h"
 #include "xchange/mvr_xchange_message.h"
+#include "xchange/mvr_xchange_network_interfaces.h"
 #include "xchange/mvr_xchange_packet.h"
 #include "json.hpp"
 #include <cassert>
@@ -59,6 +60,7 @@ static void TestMessages() {
   assert(joinJson["Provider"] == "Perastage");
   assert(joinJson["StationUUID"] == "station");
   assert(joinJson["Commits"].size() == 1);
+  assert(joinJson["Files"].size() == 1);
 
   const auto errorJson = nlohmann::json::parse(mvr::xchange::BuildRequestError("The MVR is not available on this client"));
   assert(errorJson["Type"] == "MVR_REQUEST_RET");
@@ -66,10 +68,21 @@ static void TestMessages() {
   assert(errorJson["Message"] == "The MVR is not available on this client");
 }
 
+// Verifies that loopback is always available for same-machine MVR-xchange tests.
+static void TestNetworkInterfaces() {
+  const auto interfaces = ListMvrXchangeNetworkInterfaces();
+  bool foundLoopback = false;
+  for (const auto &iface : interfaces) foundLoopback = foundLoopback || iface.ipv4Address == "127.0.0.1";
+  assert(foundLoopback);
+  const auto loopback = SelectMvrXchangeNetworkInterface("127.0.0.1");
+  assert(loopback.ipv4Address == "127.0.0.1");
+}
+
 // Runs focused non-GUI MVR-xchange protocol coverage.
 int main() {
   TestCommitStore();
   TestPackets();
   TestMessages();
+  TestNetworkInterfaces();
   return 0;
 }

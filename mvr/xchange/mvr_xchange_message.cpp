@@ -59,6 +59,7 @@ std::string BuildJoinRet(const std::string &stationUuid, const std::string &stat
   json["StationUUID"] = stationUuid;
   json["Commits"] = nlohmann::json::array();
   for (const auto &commit : commits) json["Commits"].push_back(CommitToJson(commit));
+  json["Files"] = json["Commits"];
   return json.dump();
 }
 

@@ -36,6 +36,13 @@ bool MvrXchangeService::Start(const MvrXchangeSettings &settings) {
     tcpServer_.Stop();
     return false;
   }
+  Log("MVR-xchange mDNS backend: " + mdnsService_.BackendName());
+  Log("MVR-xchange service type: " + mdnsService_.ServiceType());
+  Log("MVR-xchange group service: " + mdnsService_.GroupServiceName());
+  Log("MVR-xchange station UUID: " + settings_.stationUuid);
+  Log("MVR-xchange TCP listen: 0.0.0.0:" + std::to_string(tcpServer_.Port()));
+  Log("MVR-xchange selected interface: " + mdnsService_.SelectedInterfaceDescription());
+  Log("MVR-xchange advertised A record: " + mdnsService_.AdvertisedIpAddress());
   Log("MVR-xchange service started on TCP port " + std::to_string(tcpServer_.Port()) + ".");
   return true;
 }
