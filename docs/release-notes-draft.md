@@ -33,6 +33,8 @@ Changes since **v1.4.0**.
 
 ## Build, packaging and CI
 
+- Kept MVR-xchange build includes isolated to module directories so Windows builds do not shadow standard library headers.
+
 ## Documentation
 
 ## Compatibility notes

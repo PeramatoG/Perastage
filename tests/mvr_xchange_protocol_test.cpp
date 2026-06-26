@@ -1,6 +1,6 @@
-#include "mvr/xchange/mvr_xchange_commit.h"
-#include "mvr/xchange/mvr_xchange_message.h"
-#include "mvr/xchange/mvr_xchange_packet.h"
+#include "xchange/mvr_xchange_commit.h"
+#include "xchange/mvr_xchange_message.h"
+#include "xchange/mvr_xchange_packet.h"
 #include <cassert>
 #include <string>
 
