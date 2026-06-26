@@ -33,7 +33,7 @@ Changes since **v1.4.0**.
 
 ## Build, packaging and CI
 
-- Kept MVR-xchange build includes isolated to module directories so Windows builds do not shadow standard library headers.
+- Kept MVR-xchange build includes isolated to module directories and completed dialog header dependencies so Windows builds do not shadow standard library headers or depend on transitive wxWidgets declarations.
 
 ## Documentation
 

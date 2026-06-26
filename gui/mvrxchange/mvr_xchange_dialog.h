@@ -3,6 +3,8 @@
 #include <memory>
 #include <wx/button.h>
 #include <wx/dialog.h>
+#include <wx/event.h>
+#include <wx/stattext.h>
 #include <wx/textctrl.h>
 
 class MvrXchangeDialog : public wxDialog {
