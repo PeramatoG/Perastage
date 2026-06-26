@@ -80,6 +80,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu_builders.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu_text_utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvrxchange/mvr_xchange_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_print.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferencesdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferences/gdtf_credentials_panel.cpp

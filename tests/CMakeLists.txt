@@ -1514,3 +1514,12 @@ target_include_directories(pick_mesh_validation_test PRIVATE
                            ../viewer3d
                            ../viewer3d/render)
 add_test(NAME PickMeshValidation COMMAND pick_mesh_validation_test)
+
+add_executable(mvr_xchange_protocol_test
+    mvr_xchange_protocol_test.cpp
+    ../mvr/xchange/mvr_xchange_commit.cpp
+    ../mvr/xchange/mvr_xchange_message.cpp
+    ../mvr/xchange/mvr_xchange_packet.cpp
+)
+target_include_directories(mvr_xchange_protocol_test PRIVATE ${CMAKE_SOURCE_DIR})
+add_test(NAME MvrXchangeProtocol COMMAND mvr_xchange_protocol_test)

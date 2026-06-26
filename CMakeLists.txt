@@ -158,6 +158,13 @@ add_executable(${PROJECT_NAME} main.cpp
     mvr/mvrscenemerger.cpp
     mvr/mvrexporter.cpp
     mvr/primitive_model_resources.cpp
+    mvr/xchange/mvr_xchange_commit.cpp
+    mvr/xchange/mvr_xchange_mdns_service.cpp
+    mvr/xchange/mvr_xchange_message.cpp
+    mvr/xchange/mvr_xchange_packet.cpp
+    mvr/xchange/mvr_xchange_service.cpp
+    mvr/xchange/mvr_xchange_settings.cpp
+    mvr/xchange/mvr_xchange_tcp_server.cpp
 )
 
 if(APPLE)
@@ -194,6 +201,7 @@ endif()
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_SOURCE_DIR}
     ${CMAKE_BINARY_DIR}/generated
 )
 
@@ -222,6 +230,7 @@ add_subdirectory(viewer_common)
 
 if(WIN32)
     target_sources(${PROJECT_NAME} PRIVATE resources/Perastage.rc)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32)
 endif()
 
 # Mark as GUI application (no console)

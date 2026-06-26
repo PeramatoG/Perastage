@@ -6,6 +6,8 @@ Changes since **v1.4.0**.
 
 ## New features
 
+- Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
+
 ## Improvements
 
 ## Fixes

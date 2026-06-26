@@ -160,6 +160,7 @@ private:
   void OnDistributeHoistWeights(wxCommandEvent &event); // Recalculate hoist weights by position
   void OnImportMVR(wxCommandEvent &event); // Handle the Import MVR action
   void OnExportMVR(wxCommandEvent &event); // Handle the Export MVR action
+  void OnMvrXchange(wxCommandEvent &event); // Open the MVR-xchange publisher dialog
   void OnExportTruss(wxCommandEvent &event);       // Export truss metadata
   void OnExportFixture(wxCommandEvent &event);     // Export fixture GDTF
   void OnExportSceneObject(wxCommandEvent &event); // Export scene object model
