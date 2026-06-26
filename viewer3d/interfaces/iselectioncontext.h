@@ -16,6 +16,8 @@ public:
   using VisibleSet = Viewer3DVisibleSet;
   using ViewFrustumSnapshot = Viewer3DViewFrustumSnapshot;
 
+  enum class PickReadResult { Unavailable, Miss, Hit };
+
   virtual ~ISelectionContext() = default;
 
   virtual void ApplyHighlightUuid(const std::string &uuid) = 0;
@@ -46,6 +48,10 @@ public:
   virtual ICanvas2D *GetCaptureCanvas() const = 0;
   virtual void RecordText(float x, float y, const std::string &text,
                           const CanvasTextStyle &style) const = 0;
+  virtual PickReadResult ReadPickUuidAtDetailed(
+      int mouseX, int mouseY, int width, int height,
+      const std::unordered_set<std::string> &hiddenLayers,
+      std::string &outUuid) = 0;
   virtual bool ReadPickUuidAt(int mouseX, int mouseY, int width, int height,
                               const std::unordered_set<std::string> &hiddenLayers,
                               std::string &outUuid) = 0;

@@ -25,9 +25,11 @@
 #include "units/units.h"
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cfloat>
 #include <cmath>
 #include <cstring>
+#include <string>
 #include <unordered_set>
 #include <wx/log.h>
 
@@ -74,6 +76,70 @@ bool IsAmbiguousDepthConfirmEnabled(const ConfigManager &cfg) {
   return cfg.GetFloat("viewer3d_pick_confirm_depth_ambiguous") >= 0.5f;
 }
 
+// Returns whether a GL renderer string appears to be an Intel Windows driver.
+bool IsWindowsIntelRenderer() {
+#ifdef _WIN32
+  const char *vendor = viewer3d::render::SafeGlString(GL_VENDOR);
+  const char *renderer = viewer3d::render::SafeGlString(GL_RENDERER);
+  const std::string vendorText = vendor ? vendor : "";
+  const std::string rendererText = renderer ? renderer : "";
+  auto containsIntel = [](std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return text.find("intel") != std::string::npos;
+  };
+  return containsIntel(vendorText) || containsIntel(rendererText);
+#else
+  return false;
+#endif
+}
+
+// Stores the session-level depth-read picking disable state.
+bool &DepthReadPickingDisabledForSession() {
+  static bool disabledForSession = false;
+  return disabledForSession;
+}
+
+// Returns whether depth-buffer picking may use glReadPixels for this session.
+bool IsDepthReadPickingAllowed(const ConfigManager &cfg, const char **outReason) {
+  if (!IsAmbiguousDepthConfirmEnabled(cfg)) {
+    if (outReason)
+      *outReason = "viewer3d_pick_confirm_depth_ambiguous is disabled";
+    return false;
+  }
+  if (DepthReadPickingDisabledForSession()) {
+    if (outReason)
+      *outReason = "depth-read picking was disabled after an earlier GL error";
+    return false;
+  }
+  if (IsWindowsIntelRenderer()) {
+    if (outReason)
+      *outReason = "depth-read picking is disabled on Windows Intel OpenGL drivers";
+    return false;
+  }
+  if (outReason)
+    *outReason = "enabled";
+  return true;
+}
+
+// Disables depth-buffer picking for the remainder of the session.
+void DisableDepthReadPickingForSession() {
+  DepthReadPickingDisabledForSession() = true;
+}
+
+// Returns whether this query should perform optional depth confirmation.
+bool ShouldConfirmDepthForQuery(bool confirmDepth, const ConfigManager &cfg) {
+  if (!confirmDepth)
+    return false;
+  const char *reason = nullptr;
+  const bool allowed = IsDepthReadPickingAllowed(cfg, &reason);
+  if (!allowed)
+    wxLogDebug("Picking: skipped depth confirmation because %s.",
+               reason ? reason : "depth-read picking is not allowed");
+  return allowed;
+}
+
+// Captures the current OpenGL projection matrices and viewport.
 ProjectionSnapshot CaptureProjectionSnapshot() {
   ProjectionSnapshot snapshot;
   glGetDoublev(GL_MODELVIEW_MATRIX, snapshot.model);
@@ -185,7 +251,8 @@ bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
                              const ProjectionSnapshot &projection,
                              std::array<double, 3> &outWorldPoint) {
   if (!viewer3d::render::HasCurrentOpenGLContext()) {
-    wxLogWarning("Picking: skipped due to invalid context before depth read.");
+    wxLogDebug("Picking: skipped due to invalid context before depth read.");
+    DisableDepthReadPickingForSession();
     return false;
   }
 
@@ -193,10 +260,11 @@ bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
   glGetIntegerv(GL_VIEWPORT, currentViewport);
   if (currentViewport[2] <= 0 || currentViewport[3] <= 0 ||
       projection.viewport[2] <= 0 || projection.viewport[3] <= 0) {
-    wxLogWarning(
+    wxLogDebug(
         "Picking: skipped due to invalid viewport before depth read viewport=(%d,%d,%d,%d).",
         currentViewport[0], currentViewport[1], currentViewport[2],
         currentViewport[3]);
+    DisableDepthReadPickingForSession();
     return false;
   }
 
@@ -211,7 +279,7 @@ bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
   if (framebufferX < currentViewport[0] || framebufferY < currentViewport[1] ||
       framebufferX >= currentViewport[0] + currentViewport[2] ||
       framebufferY >= currentViewport[1] + currentViewport[3]) {
-    wxLogWarning(
+    wxLogDebug(
         "Picking: skipped due to out-of-viewport depth read mouse=(%d,%d) framebuffer=(%d,%d) viewport=(%d,%d,%d,%d).",
         mouseX, mouseY, framebufferX, framebufferY, currentViewport[0],
         currentViewport[1], currentViewport[2], currentViewport[3]);
@@ -227,6 +295,32 @@ bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
   else
     readFramebuffer = framebuffer;
   glGetIntegerv(GL_READ_BUFFER, &readBuffer);
+  if (readFramebuffer == 0) {
+    wxLogDebug(
+        "Picking: skipped depth read because no controlled read framebuffer is bound.");
+    DisableDepthReadPickingForSession();
+    return false;
+  }
+  if (readBuffer == GL_NONE) {
+    wxLogDebug(
+        "Picking: skipped depth read because the active read buffer is GL_NONE framebuffer=%d readFramebuffer=%d.",
+        framebuffer, readFramebuffer);
+    DisableDepthReadPickingForSession();
+    return false;
+  }
+
+  if (GLEW_VERSION_3_0 || GLEW_EXT_framebuffer_object ||
+      GLEW_ARB_framebuffer_object) {
+    const GLenum framebufferStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
+    if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
+      wxLogDebug(
+          "Picking: skipped depth read because read framebuffer is incomplete status=0x%04x framebuffer=%d readFramebuffer=%d.",
+          static_cast<unsigned int>(framebufferStatus), framebuffer,
+          readFramebuffer);
+      DisableDepthReadPickingForSession();
+      return false;
+    }
+  }
 
   viewer3d::render::ClearOpenGLErrors();
   float depth = 1.0f;
@@ -234,13 +328,14 @@ bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
                &depth);
   const GLenum readError = viewer3d::render::DrainOpenGLErrors();
   if (readError != GL_NO_ERROR) {
-    wxLogWarning(
-        "Picking: glReadPixels depth read failed error=0x%04x framebuffer=%d readFramebuffer=%d readBuffer=0x%04x viewport=(%d,%d,%d,%d) vendor=%s renderer=%s.",
+    wxLogDebug(
+        "Picking: glReadPixels depth read failed error=0x%04x framebuffer=%d readFramebuffer=%d readBuffer=0x%04x viewport=(%d,%d,%d,%d) vendor=%s renderer=%s. Depth-read picking is disabled for this session.",
         static_cast<unsigned int>(readError), framebuffer, readFramebuffer,
         static_cast<unsigned int>(readBuffer), currentViewport[0],
         currentViewport[1], currentViewport[2], currentViewport[3],
         viewer3d::render::SafeGlString(GL_VENDOR),
         viewer3d::render::SafeGlString(GL_RENDERER));
+    DisableDepthReadPickingForSession();
     return false;
   }
   if (depth < 0.0f || depth >= 1.0f || !std::isfinite(depth))
@@ -483,28 +578,30 @@ bool SelectionSystem::GetHoverUuidAt(int mouseX, int mouseY, int width,
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
 
-  const bool cameraMoving = m_controller.IsCameraMoving();
-  // Hover picking avoids the offscreen ID render path to keep hover side-effect free.
-  const bool useIdBuffer = false;
+  const bool useIdBuffer = IsIdBufferPickingEnabled(cfg);
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   QueryMetrics metrics;
   std::string bestUuid;
 
   if (useIdBuffer) {
     std::string pickedUuid;
-    if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
-                                    pickedUuid) &&
+    const ISelectionContext::PickReadResult pickResult =
+        m_controller.ReadPickUuidAtDetailed(mouseX, mouseY, width, height,
+                                            hiddenLayers, pickedUuid);
+    if (pickResult == ISelectionContext::PickReadResult::Hit &&
         IsUuidValidForTarget(pickedUuid, target, hiddenLayers, m_controller,
                              nullptr)) {
       metrics.usedIdPath = true;
-      if (cameraMoving || !IsAmbiguousDepthConfirmEnabled(cfg) || !confirmDepth) {
-        outUuid = pickedUuid;
-        metrics.total = std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::steady_clock::now() - queryStart);
-        LogQueryMetrics("hover_uuid(id)", metrics, m_queryTelemetry,
-                        ++m_queryCounter);
-        return true;
-      }
+      outUuid = pickedUuid;
+      metrics.total = std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::steady_clock::now() - queryStart);
+      LogQueryMetrics("hover_uuid(id)", metrics, m_queryTelemetry,
+                      ++m_queryCounter);
+      return true;
+    }
+    if (pickResult != ISelectionContext::PickReadResult::Unavailable) {
+      outUuid.clear();
+      return false;
     }
   }
 
@@ -531,7 +628,8 @@ bool SelectionSystem::GetHoverUuidAt(int mouseX, int mouseY, int width,
   const auto depthReadStart = std::chrono::steady_clock::now();
   bool hasDepthWorldPoint = false;
   std::array<double, 3> depthWorldPoint{};
-  const bool shouldReadDepth = confirmDepth &&
+  const bool allowDepthConfirmation = ShouldConfirmDepthForQuery(confirmDepth, cfg);
+  const bool shouldReadDepth = allowDepthConfirmation &&
                                (projectionChanged || m_queryCache.depthMouseX != mouseX ||
                                 m_queryCache.depthMouseY != mouseY ||
                                 m_queryCache.depthHeight != height);
@@ -543,7 +641,7 @@ bool SelectionSystem::GetHoverUuidAt(int mouseX, int mouseY, int width,
     m_queryCache.depthMouseY = mouseY;
     m_queryCache.depthHeight = height;
   }
-  if (confirmDepth) {
+  if (allowDepthConfirmation) {
     hasDepthWorldPoint = m_queryCache.hasDepthWorldPoint;
     depthWorldPoint = m_queryCache.depthWorldPoint;
   }
@@ -611,7 +709,6 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   ConfigManager &cfg = ConfigManager::Get();
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
-  const bool cameraMoving = m_controller.IsCameraMoving();
   const bool useIdBuffer = IsIdBufferPickingEnabled(cfg);
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   QueryMetrics metrics;
@@ -620,8 +717,10 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
 
   if (useIdBuffer) {
     std::string pickedUuid;
-    if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
-                                    pickedUuid)) {
+    const ISelectionContext::PickReadResult pickResult =
+        m_controller.ReadPickUuidAtDetailed(mouseX, mouseY, width, height,
+                                            hiddenLayers, pickedUuid);
+    if (pickResult == ISelectionContext::PickReadResult::Hit) {
       const auto &fixtures = SceneDataManager::Instance().GetFixtures();
       auto fixtureIt = fixtures.find(pickedUuid);
       if (fixtureIt != fixtures.end()) {
@@ -653,13 +752,14 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
               *outUuid = pickedUuid;
             found = true;
             metrics.usedIdPath = true;
-            if (!cameraMoving && IsAmbiguousDepthConfirmEnabled(cfg) &&
-                confirmDepth) {
-              found = false;
-            }
           }
         }
       }
+    }
+    if (!found && pickResult != ISelectionContext::PickReadResult::Unavailable) {
+      if (outUuid)
+        outUuid->clear();
+      return false;
     }
     if (found) {
       m_queryTelemetry.totalQueries++;
@@ -698,7 +798,8 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   const auto depthReadStart = std::chrono::steady_clock::now();
   bool hasDepthWorldPoint = false;
   std::array<double, 3> depthWorldPoint{};
-  const bool shouldReadDepth = confirmDepth &&
+  const bool allowDepthConfirmation = ShouldConfirmDepthForQuery(confirmDepth, cfg);
+  const bool shouldReadDepth = allowDepthConfirmation &&
                                (projectionChanged || m_queryCache.depthMouseX != mouseX ||
                                 m_queryCache.depthMouseY != mouseY ||
                                 m_queryCache.depthHeight != height);
@@ -710,7 +811,7 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
     m_queryCache.depthMouseY = mouseY;
     m_queryCache.depthHeight = height;
   }
-  if (confirmDepth) {
+  if (allowDepthConfirmation) {
     hasDepthWorldPoint = m_queryCache.hasDepthWorldPoint;
     depthWorldPoint = m_queryCache.depthWorldPoint;
   }
@@ -830,7 +931,6 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
   ConfigManager &cfg = ConfigManager::Get();
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
-  const bool cameraMoving = m_controller.IsCameraMoving();
   const bool useIdBuffer = IsIdBufferPickingEnabled(cfg);
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   QueryMetrics metrics;
@@ -838,8 +938,10 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
   std::string bestUuid;
   if (useIdBuffer) {
     std::string pickedUuid;
-    if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
-                                    pickedUuid)) {
+    const ISelectionContext::PickReadResult pickResult =
+        m_controller.ReadPickUuidAtDetailed(mouseX, mouseY, width, height,
+                                            hiddenLayers, pickedUuid);
+    if (pickResult == ISelectionContext::PickReadResult::Hit) {
       const auto &trusses = SceneDataManager::Instance().GetTrusses();
       auto trussIt = trusses.find(pickedUuid);
       if (trussIt != trusses.end()) {
@@ -854,13 +956,14 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
               *outUuid = pickedUuid;
             found = true;
             metrics.usedIdPath = true;
-            if (!cameraMoving && IsAmbiguousDepthConfirmEnabled(cfg) &&
-                confirmDepth) {
-              found = false;
-            }
           }
         }
       }
+    }
+    if (!found && pickResult != ISelectionContext::PickReadResult::Unavailable) {
+      if (outUuid)
+        outUuid->clear();
+      return false;
     }
     if (found) {
       m_queryTelemetry.totalQueries++;
@@ -898,7 +1001,8 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
   const auto depthReadStart = std::chrono::steady_clock::now();
   bool hasDepthWorldPoint = false;
   std::array<double, 3> depthWorldPoint{};
-  const bool shouldReadDepth = confirmDepth &&
+  const bool allowDepthConfirmation = ShouldConfirmDepthForQuery(confirmDepth, cfg);
+  const bool shouldReadDepth = allowDepthConfirmation &&
                                (projectionChanged || m_queryCache.depthMouseX != mouseX ||
                                 m_queryCache.depthMouseY != mouseY ||
                                 m_queryCache.depthHeight != height);
@@ -910,7 +1014,7 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
     m_queryCache.depthMouseY = mouseY;
     m_queryCache.depthHeight = height;
   }
-  if (confirmDepth) {
+  if (allowDepthConfirmation) {
     hasDepthWorldPoint = m_queryCache.hasDepthWorldPoint;
     depthWorldPoint = m_queryCache.depthWorldPoint;
   }
@@ -1009,7 +1113,6 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
   ConfigManager &cfg = ConfigManager::Get();
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
-  const bool cameraMoving = m_controller.IsCameraMoving();
   const bool useIdBuffer = IsIdBufferPickingEnabled(cfg);
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   QueryMetrics metrics;
@@ -1017,8 +1120,10 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
   std::string bestUuid;
   if (useIdBuffer) {
     std::string pickedUuid;
-    if (m_controller.ReadPickUuidAt(mouseX, mouseY, width, height, hiddenLayers,
-                                    pickedUuid)) {
+    const ISelectionContext::PickReadResult pickResult =
+        m_controller.ReadPickUuidAtDetailed(mouseX, mouseY, width, height,
+                                            hiddenLayers, pickedUuid);
+    if (pickResult == ISelectionContext::PickReadResult::Hit) {
       const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
       auto objectIt = sceneObjects.find(pickedUuid);
       if (objectIt != sceneObjects.end()) {
@@ -1032,13 +1137,14 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
               *outUuid = pickedUuid;
             found = true;
             metrics.usedIdPath = true;
-            if (!cameraMoving && IsAmbiguousDepthConfirmEnabled(cfg) &&
-                confirmDepth) {
-              found = false;
-            }
           }
         }
       }
+    }
+    if (!found && pickResult != ISelectionContext::PickReadResult::Unavailable) {
+      if (outUuid)
+        outUuid->clear();
+      return false;
     }
     if (found) {
       m_queryTelemetry.totalQueries++;
@@ -1076,7 +1182,8 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
   const auto depthReadStart = std::chrono::steady_clock::now();
   bool hasDepthWorldPoint = false;
   std::array<double, 3> depthWorldPoint{};
-  const bool shouldReadDepth = confirmDepth &&
+  const bool allowDepthConfirmation = ShouldConfirmDepthForQuery(confirmDepth, cfg);
+  const bool shouldReadDepth = allowDepthConfirmation &&
                                (projectionChanged || m_queryCache.depthMouseX != mouseX ||
                                 m_queryCache.depthMouseY != mouseY ||
                                 m_queryCache.depthHeight != height);
@@ -1088,7 +1195,7 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
     m_queryCache.depthMouseY = mouseY;
     m_queryCache.depthHeight = height;
   }
-  if (confirmDepth) {
+  if (allowDepthConfirmation) {
     hasDepthWorldPoint = m_queryCache.hasDepthWorldPoint;
     depthWorldPoint = m_queryCache.depthWorldPoint;
   }
