@@ -27,7 +27,7 @@ void MvrXchangeDialog::BuildLayout() {
   stationNameCtrl_ = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(settings_.stationName));
   groupNameCtrl_ = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(settings_.groupName));
   stationUuidCtrl_ = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(settings_.stationUuid), wxDefaultPosition, wxDefaultSize, wxTE_READONLY);
-  portCtrl_ = new wxTextCtrl(this, wxID_ANY, settings_.port > 0 ? wxString::Format("%d", settings_.port) : "Auto");
+  portCtrl_ = new wxTextCtrl(this, wxID_ANY, settings_.port > 0 ? wxString::Format("%d", settings_.port) : wxString("Auto"));
   grid->Add(new wxStaticText(this, wxID_ANY, "Status:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(statusText_, 1, wxEXPAND);
   grid->Add(new wxStaticText(this, wxID_ANY, "Station name:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(stationNameCtrl_, 1, wxEXPAND);
   grid->Add(new wxStaticText(this, wxID_ANY, "Group name:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(groupNameCtrl_, 1, wxEXPAND);
@@ -52,7 +52,7 @@ void MvrXchangeDialog::BuildLayout() {
 // Refreshes status labels and button enablement from the service state.
 void MvrXchangeDialog::RefreshState() {
   const bool running = service_->IsRunning();
-  statusText_->SetLabel(running ? wxString::Format("Running on port %d", service_->Port()) : "Stopped");
+  statusText_->SetLabel(running ? wxString::Format("Running on port %d", service_->Port()) : wxString("Stopped"));
   startButton_->Enable(!running);
   stopButton_->Enable(running);
   publishButton_->Enable(running);
