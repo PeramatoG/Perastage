@@ -33,7 +33,7 @@ Changes since **v1.4.0**.
 
 ## Build, packaging and CI
 
-- Improved the MVR-xchange TCP publisher with safer dialog shutdown, specification-aligned JSON responses, commit broadcasting, and explicit DNS-SD discovery diagnostics so unavailable mDNS backends no longer appear to start successfully.
+- Improved the MVR-xchange TCP publisher with safer dialog shutdown, specification-aligned JSON responses, commit broadcasting, and the vcpkg mdns discovery backend and explicit mDNS diagnostics so unavailable mDNS backends no longer appear to start successfully.
 
 ## Documentation
 
