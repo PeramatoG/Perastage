@@ -168,6 +168,9 @@ add_executable(${PROJECT_NAME} main.cpp
     mvr/xchange/mvr_xchange_commit.cpp
     mvr/xchange/mvr_xchange_mdns_service.cpp
     mvr/xchange/mvr_xchange_network_interfaces.cpp
+    mvr/xchange/mvr_xchange_remote_station.cpp
+    mvr/xchange/mvr_xchange_station_registry.cpp
+    mvr/xchange/mvr_xchange_tcp_client.cpp
     mvr/xchange/mvr_xchange_message.cpp
     mvr/xchange/mvr_xchange_packet.cpp
     mvr/xchange/mvr_xchange_service.cpp

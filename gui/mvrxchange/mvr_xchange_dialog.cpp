@@ -56,6 +56,8 @@ void MvrXchangeDialog::BuildLayout() {
   grid->Add(new wxStaticText(this, wxID_ANY, "Station UUID:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(stationUuidCtrl_, 1, wxEXPAND);
   grid->Add(new wxStaticText(this, wxID_ANY, "Network interface:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(interfaceChoice_, 1, wxEXPAND);
   grid->Add(new wxStaticText(this, wxID_ANY, "TCP port:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(portCtrl_, 1, wxEXPAND);
+  remoteStationsText_ = new wxStaticText(this, wxID_ANY, "Remote stations: 0 discovered, 0 incoming joined, 0 outgoing joined");
+  grid->Add(new wxStaticText(this, wxID_ANY, "Remote stations:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(remoteStationsText_, 1, wxEXPAND);
   root->Add(grid, 0, wxEXPAND | wxALL, 12);
   auto *buttons = new wxBoxSizer(wxHORIZONTAL);
   startButton_ = new wxButton(this, wxID_ANY, "Start");
@@ -80,6 +82,17 @@ void MvrXchangeDialog::RefreshState() {
   startButton_->Enable(!running);
   stopButton_->Enable(running);
   publishButton_->Enable(running);
+  if (remoteStationsText_) {
+    std::size_t discovered = 0;
+    std::size_t incoming = 0;
+    std::size_t outgoing = 0;
+    for (const auto &station : service_->GetKnownStations()) {
+      if (station.discovered) ++discovered;
+      if (station.incomingJoined) ++incoming;
+      if (station.outgoingJoined) ++outgoing;
+    }
+    remoteStationsText_->SetLabel(wxString::Format("%zu discovered, %zu incoming joined, %zu outgoing joined", discovered, incoming, outgoing));
+  }
 }
 
 // Appends a status line to the dialog log area.

@@ -2,6 +2,7 @@
 #include "xchange/mvr_xchange_message.h"
 #include "xchange/mvr_xchange_network_interfaces.h"
 #include "xchange/mvr_xchange_packet.h"
+#include "xchange/mvr_xchange_station_registry.h"
 #include "json.hpp"
 #include <cassert>
 #include <string>
@@ -54,6 +55,24 @@ static void TestMessages() {
   assert(commitJson["StationUUID"] == "station");
   assert(commitJson["ForStationsUUID"].is_array());
 
+  const auto outgoingJoinJson = nlohmann::json::parse(mvr::xchange::BuildJoin("station", "Perastage", {commit}));
+  assert(outgoingJoinJson["Type"] == "MVR_JOIN");
+  assert(outgoingJoinJson["Provider"] == "Perastage");
+  assert(outgoingJoinJson["verMajor"] == 1);
+  assert(outgoingJoinJson["verMinor"] == 6);
+  assert(outgoingJoinJson["StationUUID"] == "station");
+  assert(outgoingJoinJson["Commits"].size() == 1);
+  assert(outgoingJoinJson["Files"].size() == 1);
+
+  auto parsedJoin = mvr::xchange::ParseMessage(outgoingJoinJson.dump());
+  assert(parsedJoin);
+  assert(parsedJoin->type == "MVR_JOIN");
+  assert(parsedJoin->provider == "Perastage");
+  assert(parsedJoin->stationName == "Perastage");
+  assert(parsedJoin->verMajor == 1);
+  assert(parsedJoin->verMinor == 6);
+  assert(parsedJoin->commits.size() == 1);
+
   const auto joinJson = nlohmann::json::parse(mvr::xchange::BuildJoinRet("station", "Perastage", {commit}));
   assert(joinJson["Type"] == "MVR_JOIN_RET");
   assert(joinJson["OK"] == true);
@@ -61,11 +80,50 @@ static void TestMessages() {
   assert(joinJson["StationUUID"] == "station");
   assert(joinJson["Commits"].size() == 1);
   assert(joinJson["Files"].size() == 1);
+  auto parsedJoinRet = mvr::xchange::ParseMessage(joinJson.dump());
+  assert(parsedJoinRet);
+  assert(parsedJoinRet->type == "MVR_JOIN_RET");
+  assert(parsedJoinRet->ok);
+  assert(parsedJoinRet->commits.size() == 1);
 
   const auto errorJson = nlohmann::json::parse(mvr::xchange::BuildRequestError("The MVR is not available on this client"));
   assert(errorJson["Type"] == "MVR_REQUEST_RET");
   assert(errorJson["OK"] == false);
   assert(errorJson["Message"] == "The MVR is not available on this client");
+}
+
+// Verifies remote station registry self-filtering, deduplication, and join states.
+static void TestStationRegistry() {
+  MvrXchangeStationRegistry registry;
+  registry.SetLocalIdentity("local", "Perastage._mvrxchange._tcp.local.", 42424);
+  MvrXchangeRemoteStation own;
+  own.stationUuid = "local";
+  own.ipAddress = "127.0.0.1";
+  own.port = 42424;
+  assert(!registry.UpsertDiscovered(own));
+
+  MvrXchangeRemoteStation discovered;
+  discovered.stationUuid = "remote";
+  discovered.stationName = "grandMA3";
+  discovered.serviceInstanceName = "grandMA3._mvrxchange._tcp.local.";
+  discovered.ipAddress = "127.0.0.1";
+  discovered.port = 50000;
+  assert(registry.UpsertDiscovered(discovered));
+  assert(registry.List().size() == 1);
+  assert(registry.List()[0].discovered);
+
+  MvrXchangeRemoteStation incoming = discovered;
+  incoming.provider = "grandMA3";
+  incoming.verMajor = 1;
+  incoming.verMinor = 6;
+  incoming.commits.push_back({"file", "remote", "remote.mvr", {}, {}, {1}});
+  assert(registry.UpsertIncomingJoin(incoming));
+  assert(registry.List().size() == 1);
+  assert(registry.List()[0].incomingJoined);
+  assert(registry.List()[0].commits.size() == 1);
+  assert(registry.MarkOutgoingJoined("remote", "127.0.0.1", 50000));
+  assert(registry.List()[0].outgoingJoined);
+  assert(registry.JoinedStations().size() == 1);
 }
 
 // Verifies that loopback is always available for same-machine MVR-xchange tests.
@@ -83,6 +141,7 @@ int main() {
   TestCommitStore();
   TestPackets();
   TestMessages();
+  TestStationRegistry();
   TestNetworkInterfaces();
   return 0;
 }

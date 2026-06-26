@@ -12,10 +12,18 @@ struct Message {
   std::string stationUuid;
   std::string stationName;
   std::string groupName;
+  std::string provider;
+  std::string text;
   std::string comment;
+  int verMajor = 0;
+  int verMinor = 0;
+  bool ok = false;
+  std::size_t filesCount = 0;
+  std::vector<MvrXchangeCommit> commits;
 };
 
 std::optional<Message> ParseMessage(const std::string &json);
+std::string BuildJoin(const std::string &stationUuid, const std::string &stationName, const std::vector<MvrXchangeCommit> &commits);
 std::string BuildJoinRet(const std::string &stationUuid, const std::string &stationName, const std::vector<MvrXchangeCommit> &commits);
 std::string BuildLeaveRet();
 std::string BuildCommit(const MvrXchangeCommit &commit);

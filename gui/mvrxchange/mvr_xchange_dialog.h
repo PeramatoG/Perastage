@@ -28,6 +28,7 @@ private:
   std::shared_ptr<bool> lifetimeToken_ = std::make_shared<bool>(true);
   std::atomic<bool> shuttingDown_{false};
   wxStaticText *statusText_ = nullptr;
+  wxStaticText *remoteStationsText_ = nullptr;
   wxTextCtrl *stationNameCtrl_ = nullptr;
   wxTextCtrl *groupNameCtrl_ = nullptr;
   wxTextCtrl *stationUuidCtrl_ = nullptr;

@@ -1,6 +1,6 @@
 # MVR-xchange TCP Mode publisher
 
-MVR-xchange lets compatible applications discover each other on a local network and exchange MVR revisions. Perastage's current integration acts as a TCP Mode publisher/server for the current scene.
+MVR-xchange lets compatible applications discover each other on a local network and exchange MVR revisions. Perastage's current integration acts as a minimal TCP Mode station and publisher for the current scene.
 
 ## Supported in this version
 
@@ -10,7 +10,9 @@ MVR-xchange lets compatible applications discover each other on a local network 
 - TXT records containing `StationName` and `StationUUID`.
 - Manual **Publish Current MVR** revisions using the existing Perastage MVR exporter.
 - In-memory history for the most recent published revisions.
-- Basic TCP Mode handling for `MVR_JOIN`, `MVR_LEAVE`, `MVR_COMMIT`, and `MVR_REQUEST` message flows.
+- Basic TCP Mode handling for `MVR_JOIN`, `MVR_JOIN_RET`, `MVR_LEAVE`, `MVR_COMMIT`, and `MVR_REQUEST` message flows.
+- Remote station tracking for discovered, incoming joined, and outgoing joined station states.
+- Outgoing `MVR_JOIN` message construction and short-lived TCP client support for station handshakes and commit announcements.
 - Requests for a known `FileUUID` return the matching MVR binary packet. Requests with an empty `FileUUID` or `latest` return the latest published revision when one exists.
 
 ## Discovery requirements
@@ -40,6 +42,19 @@ The intended backend does not require a manual Bonjour or Avahi installation. If
 5. Click **Publish Current MVR** to export the current scene into memory and announce it as a new MVR revision.
 6. In a compatible client such as grandMA3, open the MVR-xchange view, select the same group name, select the same physical network interface, enable MVR-xchange, and request the published MVR revision.
 
+
+## TCP Mode join flow
+
+A TCP Mode station must both advertise itself and participate in the group handshake. The minimal Perastage flow is:
+
+1. Perastage registers `_mvrxchange._tcp.local.` and the selected group subservice, such as `Default._mvrxchange._tcp.local.`.
+2. Perastage tracks remote stations that are discovered through mDNS or that send an incoming `MVR_JOIN`.
+3. Perastage answers incoming `MVR_JOIN` with `MVR_JOIN_RET` including local station identity and current commit metadata.
+4. Perastage can send outgoing `MVR_JOIN` and parse `MVR_JOIN_RET` for remote stations with known endpoints.
+5. Published MVR revisions are announced through `MVR_COMMIT` to joined stations when an endpoint is available.
+
+The dialog shows remote station counts for discovered, incoming joined, and outgoing joined stations. These counts help distinguish a raw TCP connection from a completed MVR-xchange handshake.
+
 ## Network interface and port debugging
 
 The dialog includes a **Network interface** selector. Use **Auto / All suitable interfaces** for normal LAN use, or choose **Loopback 127.0.0.1** when grandMA3 is running on the same machine and is watching loopback. If grandMA3 is watching Ethernet or Wi-Fi, select the matching Perastage interface so the advertised A record matches that address.
@@ -62,6 +77,7 @@ After Start, check the log for `MVR-xchange selected interface`, `MVR-xchange ad
 - **Wrong interface:** Make sure grandMA3 is watching the same Ethernet/Wi-Fi or loopback interface selected in Perastage, and that the logged advertised A record matches that interface.
 - **Loopback vs LAN:** A loopback advertisement is not visible to another computer. Use loopback only for same-machine tests and a real LAN interface for cross-device testing.
 - **No published files:** Start the service and click **Publish Current MVR** before requesting a file. Perastage does not export silently on request.
+- **Incoming join but no visible station:** Check whether the log also shows an outgoing `MVR_JOIN`, a `MVR_JOIN_RET OK=true`, different station UUIDs, the same group name, and a matching interface. If only an incoming `MVR_JOIN` is visible, Perastage can answer the client but may not yet have a resolved endpoint for the reverse join.
 
 ## Settings
 

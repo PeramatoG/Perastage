@@ -3,7 +3,6 @@
 #include "mvr_xchange_packet.h"
 #include <algorithm>
 #include <cstring>
-#include <wx/log.h>
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -49,7 +48,7 @@ MvrXchangeTcpServer::MvrXchangeTcpServer() = default;
 MvrXchangeTcpServer::~MvrXchangeTcpServer() { Stop(); }
 
 // Starts the MVR-xchange TCP Mode listener on the configured port.
-bool MvrXchangeTcpServer::Start(const MvrXchangeSettings &settings, CommitResolver resolver, CommitListProvider commitListProvider, LogCallback logCallback) {
+bool MvrXchangeTcpServer::Start(const MvrXchangeSettings &settings, CommitResolver resolver, CommitListProvider commitListProvider, LogCallback logCallback, JoinCallback joinCallback) {
   if (running_) return true;
 #ifdef _WIN32
   WSADATA data;
@@ -75,6 +74,7 @@ bool MvrXchangeTcpServer::Start(const MvrXchangeSettings &settings, CommitResolv
   resolver_ = std::move(resolver);
   commitListProvider_ = std::move(commitListProvider);
   logCallback_ = std::move(logCallback);
+  joinCallback_ = std::move(joinCallback);
   running_ = true;
   thread_ = std::thread(&MvrXchangeTcpServer::Run, this);
   return true;
@@ -165,7 +165,23 @@ void MvrXchangeTcpServer::HandleClient(int clientFd) {
       auto msg = mvr::xchange::ParseMessage(line);
       if (!msg) { if (logCallback_) logCallback_("MVR-xchange received malformed JSON from " + endpoint + "."); SendJson(clientFd, mvr::xchange::BuildRequestError("Malformed JSON message.")); continue; }
       if (logCallback_) logCallback_("MVR-xchange received message " + msg->type + " from " + endpoint + ".");
-      if (msg->type == "MVR_JOIN") { auto commits = commitListProvider_ ? commitListProvider_() : std::vector<MvrXchangeCommit>{}; MarkClientJoined(clientFd); SendJson(clientFd, mvr::xchange::BuildJoinRet(settings_.stationUuid, settings_.stationName, commits)); if (logCallback_) logCallback_("MVR-xchange sent MVR_JOIN_RET to " + endpoint + ", commits=" + std::to_string(commits.size()) + "."); }
+      if (msg->type == "MVR_JOIN") {
+        if (logCallback_) logCallback_("MVR-xchange received MVR_JOIN from " + endpoint + ": provider=" + msg->provider + " station=" + msg->stationName + " uuid=" + msg->stationUuid + " version=" + std::to_string(msg->verMajor) + "." + std::to_string(msg->verMinor) + " commits=" + std::to_string(msg->commits.size()) + " files=" + std::to_string(msg->filesCount) + ".");
+        MvrXchangeRemoteStation station;
+        station.stationUuid = msg->stationUuid;
+        station.stationName = msg->stationName;
+        station.provider = msg->provider;
+        station.verMajor = msg->verMajor;
+        station.verMinor = msg->verMinor;
+        station.ipAddress = endpoint.substr(0, endpoint.find(':'));
+        station.incomingJoined = true;
+        station.commits = msg->commits;
+        if (joinCallback_) joinCallback_(station);
+        auto commits = commitListProvider_ ? commitListProvider_() : std::vector<MvrXchangeCommit>{};
+        MarkClientJoined(clientFd);
+        SendJson(clientFd, mvr::xchange::BuildJoinRet(settings_.stationUuid, settings_.stationName, commits));
+        if (logCallback_) logCallback_("MVR-xchange sent MVR_JOIN_RET to " + endpoint + ", commits=" + std::to_string(commits.size()) + ".");
+      }
       else if (msg->type == "MVR_LEAVE") { SendJson(clientFd, mvr::xchange::BuildLeaveRet()); disconnectReason = "explicit MVR_LEAVE"; RemoveClient(clientFd); CloseSocketFd(clientFd); if (logCallback_) logCallback_("MVR-xchange TCP client disconnected from " + endpoint + ", reason=" + disconnectReason + "."); return; }
       else if (msg->type == "MVR_COMMIT") { SendJson(clientFd, mvr::xchange::BuildCommitRet(true)); if (logCallback_) logCallback_("MVR-xchange sent MVR_COMMIT_RET to " + endpoint + "."); }
       else if (msg->type == "MVR_REQUEST") {
