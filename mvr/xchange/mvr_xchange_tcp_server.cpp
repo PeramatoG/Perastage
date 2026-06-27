@@ -166,7 +166,7 @@ void MvrXchangeTcpServer::HandleClient(int clientFd) {
       if (!msg) { if (logCallback_) logCallback_("MVR-xchange received malformed JSON from " + endpoint + "."); SendJson(clientFd, mvr::xchange::BuildRequestError("Malformed JSON message.")); continue; }
       if (logCallback_) logCallback_("MVR-xchange received message " + msg->type + " from " + endpoint + ".");
       if (msg->type == "MVR_JOIN") {
-        if (logCallback_) logCallback_("MVR-xchange received MVR_JOIN from " + endpoint + ": provider=" + msg->provider + " station=" + msg->stationName + " uuid=" + msg->stationUuid + " version=" + std::to_string(msg->verMajor) + "." + std::to_string(msg->verMinor) + " commits=" + std::to_string(msg->commits.size()) + " files=" + std::to_string(msg->filesCount) + ".");
+        if (logCallback_) logCallback_("MVR-xchange received MVR_JOIN from " + endpoint + ":\n  provider=" + msg->provider + "\n  station=" + msg->stationName + "\n  uuid=" + msg->stationUuid + "\n  version=" + std::to_string(msg->verMajor) + "." + std::to_string(msg->verMinor) + "\n  commits=" + std::to_string(msg->commits.size()) + "\n  files=" + std::to_string(msg->filesCount));
         MvrXchangeRemoteStation station;
         station.stationUuid = msg->stationUuid;
         station.stationName = msg->stationName;

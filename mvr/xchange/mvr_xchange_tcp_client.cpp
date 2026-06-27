@@ -7,7 +7,10 @@
 #include <ws2tcpip.h>
 #else
 #include <arpa/inet.h>
+#include <cerrno>
+#include <fcntl.h>
 #include <netinet/in.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
@@ -19,6 +22,54 @@ void CloseSocketFd(int fd) {
   closesocket(fd);
 #else
   close(fd);
+#endif
+}
+
+
+// Sets a socket into blocking or non-blocking mode.
+bool SetSocketBlocking(int fd, bool blocking) {
+#ifdef _WIN32
+  u_long mode = blocking ? 0 : 1;
+  return ioctlsocket(fd, FIONBIO, &mode) == 0;
+#else
+  const int flags = fcntl(fd, F_GETFL, 0);
+  if (flags < 0) return false;
+  const int updated = blocking ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
+  return fcntl(fd, F_SETFL, updated) == 0;
+#endif
+}
+
+// Waits for a non-blocking connection to complete or time out.
+bool WaitForConnect(int fd) {
+  fd_set writeSet;
+  FD_ZERO(&writeSet);
+  FD_SET(fd, &writeSet);
+  timeval timeout{};
+  timeout.tv_sec = 2;
+  timeout.tv_usec = 0;
+  if (select(fd + 1, nullptr, &writeSet, nullptr, &timeout) <= 0) return false;
+  int error = 0;
+#ifdef _WIN32
+  int len = sizeof(error);
+#else
+  socklen_t len = sizeof(error);
+#endif
+  if (getsockopt(fd, SOL_SOCKET, SO_ERROR, reinterpret_cast<char *>(&error), &len) != 0) return false;
+  return error == 0;
+}
+
+// Applies short send and receive timeouts to an outgoing client socket.
+void ApplySocketTimeouts(int fd) {
+#ifdef _WIN32
+  DWORD timeout = 2000;
+  setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char *>(&timeout), sizeof(timeout));
+  setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char *>(&timeout), sizeof(timeout));
+#else
+  timeval timeout{};
+  timeout.tv_sec = 2;
+  timeout.tv_usec = 0;
+  setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+  setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 #endif
 }
 
@@ -78,8 +129,17 @@ bool MvrXchangeTcpClient::Connect(const MvrXchangeRemoteStation &station, int &f
   addr.sin_family = AF_INET;
   addr.sin_port = htons(static_cast<uint16_t>(station.port));
   if (inet_pton(AF_INET, station.ipAddress.c_str(), &addr.sin_addr) != 1) { CloseSocketFd(fd); fd = -1; return false; }
+  ApplySocketTimeouts(fd);
+  SetSocketBlocking(fd, false);
   if (logCallback) logCallback("MVR-xchange connecting to discovered station " + StationDisplayName(station) + " at " + station.ipAddress + ":" + std::to_string(station.port) + ".");
-  if (connect(fd, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) != 0) { CloseSocketFd(fd); fd = -1; if (logCallback) logCallback("MVR-xchange connection failed to " + StationDisplayName(station) + "."); return false; }
+  const int result = connect(fd, reinterpret_cast<sockaddr *>(&addr), sizeof(addr));
+#ifdef _WIN32
+  const bool pending = result != 0 && WSAGetLastError() == WSAEWOULDBLOCK;
+#else
+  const bool pending = result != 0 && errno == EINPROGRESS;
+#endif
+  if (result != 0 && (!pending || !WaitForConnect(fd))) { CloseSocketFd(fd); fd = -1; if (logCallback) logCallback("MVR-xchange connection failed or timed out to " + StationDisplayName(station) + "."); return false; }
+  SetSocketBlocking(fd, true);
   return true;
 }
 

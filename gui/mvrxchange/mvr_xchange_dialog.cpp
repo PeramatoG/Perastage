@@ -56,14 +56,15 @@ void MvrXchangeDialog::BuildLayout() {
   grid->Add(new wxStaticText(this, wxID_ANY, "Station UUID:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(stationUuidCtrl_, 1, wxEXPAND);
   grid->Add(new wxStaticText(this, wxID_ANY, "Network interface:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(interfaceChoice_, 1, wxEXPAND);
   grid->Add(new wxStaticText(this, wxID_ANY, "TCP port:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(portCtrl_, 1, wxEXPAND);
-  remoteStationsText_ = new wxStaticText(this, wxID_ANY, "Remote stations: 0 discovered, 0 incoming joined, 0 outgoing joined");
+  remoteStationsText_ = new wxTextCtrl(this, wxID_ANY, "0 discovered, 0 incoming joined, 0 outgoing joined", wxDefaultPosition, wxSize(-1, 70), wxTE_MULTILINE | wxTE_READONLY);
   grid->Add(new wxStaticText(this, wxID_ANY, "Remote stations:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(remoteStationsText_, 1, wxEXPAND);
   root->Add(grid, 0, wxEXPAND | wxALL, 12);
   auto *buttons = new wxBoxSizer(wxHORIZONTAL);
   startButton_ = new wxButton(this, wxID_ANY, "Start");
   stopButton_ = new wxButton(this, wxID_ANY, "Stop");
   publishButton_ = new wxButton(this, wxID_ANY, "Publish Current MVR");
-  buttons->Add(startButton_, 0, wxRIGHT, 8); buttons->Add(stopButton_, 0, wxRIGHT, 8); buttons->Add(publishButton_, 0, wxRIGHT, 8); buttons->AddStretchSpacer(); buttons->Add(new wxButton(this, wxID_CLOSE, "Close"));
+  discoverButton_ = new wxButton(this, wxID_ANY, "Discover Now");
+  buttons->Add(startButton_, 0, wxRIGHT, 8); buttons->Add(stopButton_, 0, wxRIGHT, 8); buttons->Add(discoverButton_, 0, wxRIGHT, 8); buttons->Add(publishButton_, 0, wxRIGHT, 8); buttons->AddStretchSpacer(); buttons->Add(new wxButton(this, wxID_CLOSE, "Close"));
   root->Add(buttons, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 12);
   logCtrl_ = new wxTextCtrl(this, wxID_ANY, {}, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
   root->Add(logCtrl_, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 12);
@@ -71,6 +72,7 @@ void MvrXchangeDialog::BuildLayout() {
   startButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnStart, this);
   stopButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnStop, this);
   publishButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnPublish, this);
+  discoverButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnDiscover, this);
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Close(); }, wxID_CLOSE);
 }
 
@@ -82,16 +84,27 @@ void MvrXchangeDialog::RefreshState() {
   startButton_->Enable(!running);
   stopButton_->Enable(running);
   publishButton_->Enable(running);
+  discoverButton_->Enable(running);
   if (remoteStationsText_) {
     std::size_t discovered = 0;
     std::size_t incoming = 0;
     std::size_t outgoing = 0;
-    for (const auto &station : service_->GetKnownStations()) {
+    wxString summary;
+    const auto stations = service_->GetKnownStations();
+    for (const auto &station : stations) {
       if (station.discovered) ++discovered;
       if (station.incomingJoined) ++incoming;
       if (station.outgoingJoined) ++outgoing;
     }
-    remoteStationsText_->SetLabel(wxString::Format("%zu discovered, %zu incoming joined, %zu outgoing joined", discovered, incoming, outgoing));
+    summary << wxString::Format("%zu discovered, %zu incoming joined, %zu outgoing joined", discovered, incoming, outgoing);
+    for (const auto &station : stations) {
+      summary << "\n" << wxString::FromUTF8(station.stationName.empty() ? station.serviceInstanceName : station.stationName)
+              << " | " << wxString::FromUTF8(station.ipAddress) << ":" << station.port
+              << (station.discovered ? " | discovered" : "")
+              << (station.incomingJoined ? " | incoming joined" : "")
+              << (station.outgoingJoined ? " | outgoing joined" : "");
+    }
+    remoteStationsText_->SetValue(summary);
   }
 }
 
@@ -116,6 +129,9 @@ void MvrXchangeDialog::OnStart(wxCommandEvent &) {
 
 // Stops the MVR-xchange publisher.
 void MvrXchangeDialog::OnStop(wxCommandEvent &) { service_->Stop(); RefreshState(); }
+
+// Runs an immediate MVR-xchange station discovery pass.
+void MvrXchangeDialog::OnDiscover(wxCommandEvent &) { service_->DiscoverNow(); RefreshState(); }
 
 // Publishes the current scene as a new MVR revision.
 void MvrXchangeDialog::OnPublish(wxCommandEvent &) {

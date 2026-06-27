@@ -12,7 +12,10 @@ MVR-xchange lets compatible applications discover each other on a local network 
 - In-memory history for the most recent published revisions.
 - Basic TCP Mode handling for `MVR_JOIN`, `MVR_JOIN_RET`, `MVR_LEAVE`, `MVR_COMMIT`, and `MVR_REQUEST` message flows.
 - Remote station tracking for discovered, incoming joined, and outgoing joined station states.
+- Group-qualified DNS-SD service instances in the `<station>.<group>._mvrxchange._tcp.local.` form used by compatible stations.
+- Active mDNS discovery of stations in the selected group and outgoing `MVR_JOIN` attempts to resolved stations.
 - Outgoing `MVR_JOIN` message construction and short-lived TCP client support for station handshakes and commit announcements.
+- Canonical lowercase UUID handling for local and remote MVR-xchange `StationUUID` and `FileUUID` values using Perastage's shared UUID utilities.
 - Requests for a known `FileUUID` return the matching MVR binary packet. Requests with an empty `FileUUID` or `latest` return the latest published revision when one exists.
 
 ## Discovery requirements
@@ -49,11 +52,17 @@ A TCP Mode station must both advertise itself and participate in the group hands
 
 1. Perastage registers `_mvrxchange._tcp.local.` and the selected group subservice, such as `Default._mvrxchange._tcp.local.`.
 2. Perastage tracks remote stations that are discovered through mDNS or that send an incoming `MVR_JOIN`.
-3. Perastage answers incoming `MVR_JOIN` with `MVR_JOIN_RET` including local station identity and current commit metadata.
-4. Perastage can send outgoing `MVR_JOIN` and parse `MVR_JOIN_RET` for remote stations with known endpoints.
-5. Published MVR revisions are announced through `MVR_COMMIT` to joined stations when an endpoint is available.
+3. Perastage actively queries the selected group service for PTR/SRV/TXT/A records and stores discovered stations.
+4. Perastage answers incoming `MVR_JOIN` with `MVR_JOIN_RET` including local station identity and current commit metadata.
+5. Perastage sends outgoing `MVR_JOIN` and parses `MVR_JOIN_RET` for resolved remote stations.
+6. Published MVR revisions are announced through `MVR_COMMIT` to joined stations when an endpoint is available.
 
-The dialog shows remote station counts for discovered, incoming joined, and outgoing joined stations. These counts help distinguish a raw TCP connection from a completed MVR-xchange handshake.
+The dialog shows remote station counts and a simple station list for discovered, incoming joined, and outgoing joined stations. These counts help distinguish a raw TCP connection from a completed MVR-xchange handshake. Use **Discover Now** to run an immediate discovery pass instead of waiting for the periodic discovery loop.
+
+
+## UUID policy
+
+MVR-xchange station and file identifiers use Perastage's shared `core/uuidutils.h` helpers. Locally generated `StationUUID` and `FileUUID` values are canonical lowercase UUID strings in `8-4-4-4-12` form. UUIDs read from settings, JSON messages, and mDNS TXT records are canonicalized before storage and comparison so uppercase remote station UUIDs still deduplicate correctly.
 
 ## Network interface and port debugging
 
@@ -73,10 +82,10 @@ After Start, check the log for `MVR-xchange selected interface`, `MVR-xchange ad
 ## Troubleshooting
 
 - **Windows Firewall prompt appears:** Allow Perastage on the intended private network so grandMA3 can connect to the TCP listener.
-- **Service is not visible:** Check that the dialog reports the `mdns` backend, matching group name, matching selected interface, and no disabled-backend error.
+- **Service is not visible:** Check that the dialog reports the `mdns` backend, matching group name, matching selected interface, and no disabled-backend error. Also check for `MVR-xchange discovered station` logs; if grandMA3 shows only its own service, active discovery did not resolve Perastage or the selected group/interface does not match.
 - **Wrong interface:** Make sure grandMA3 is watching the same Ethernet/Wi-Fi or loopback interface selected in Perastage, and that the logged advertised A record matches that interface.
 - **Loopback vs LAN:** A loopback advertisement is not visible to another computer. Use loopback only for same-machine tests and a real LAN interface for cross-device testing.
-- **No published files:** Start the service and click **Publish Current MVR** before requesting a file. Perastage does not export silently on request.
+- **No published files:** Start the service and click **Publish Current MVR** before requesting a file. Empty `FileUUID` requests return the latest published revision when one exists; if no revision exists, Perastage returns an error instead of exporting from the network thread.
 - **Incoming join but no visible station:** Check whether the log also shows an outgoing `MVR_JOIN`, a `MVR_JOIN_RET OK=true`, different station UUIDs, the same group name, and a matching interface. If only an incoming `MVR_JOIN` is visible, Perastage can answer the client but may not yet have a resolved endpoint for the reverse join.
 
 ## Settings

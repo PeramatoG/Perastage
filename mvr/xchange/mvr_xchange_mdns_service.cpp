@@ -1,8 +1,9 @@
 #include "mvr_xchange_mdns_service.h"
+#include "mvr_xchange_dns_names.h"
 #include "mvr_xchange_network_interfaces.h"
+#include "../../core/uuidutils.h"
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <chrono>
 #include <cstring>
 #include <sstream>
@@ -24,9 +25,6 @@
 #endif
 
 namespace {
-constexpr const char *kServiceType = "_mvrxchange._tcp.local.";
-constexpr const char *kDiscoveryService = "_services._dns-sd._udp.local.";
-
 // Converts a std::string into an mdns_string_t view.
 #ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
 mdns_string_t MdnsString(const std::string &value) { return {value.c_str(), value.size()}; }
@@ -35,25 +33,11 @@ mdns_string_t MdnsString(const std::string &value) { return {value.c_str(), valu
 mdns_string_t MdnsStringLiteral(const char *value) { return {value, std::strlen(value)}; }
 #endif
 
-// Sanitizes one DNS label while keeping user-visible names recognizable.
-std::string SanitizeDnsLabel(const std::string &value, const std::string &fallback) {
-  std::string out;
-  for (unsigned char ch : value) {
-    if (std::isalnum(ch) || ch == '-') out.push_back(static_cast<char>(ch));
-    else if (ch == ' ' || ch == '_' || ch == '.') out.push_back('-');
-  }
-  while (!out.empty() && out.front() == '-') out.erase(out.begin());
-  while (!out.empty() && out.back() == '-') out.pop_back();
-  if (out.empty()) out = fallback;
-  if (out.size() > 63) out.resize(63);
-  return out;
-}
-
 // Returns the local host name without relying on platform-specific GUI APIs.
 std::string LocalHostName() {
   char hostname[256]{};
   if (gethostname(hostname, sizeof(hostname)) != 0 || hostname[0] == '\0') return "perastage";
-  return SanitizeDnsLabel(hostname, "perastage");
+  return mvr::xchange::SanitizeDnsLabel(hostname, "perastage");
 }
 
 // Returns the first available IPv4 address for A-record responses.
@@ -110,10 +94,10 @@ struct MdnsServiceRecords {
 // Builds mDNS records for answering service, group, instance, and host queries.
 MdnsServiceRecords BuildRecords(const MvrXchangeMdnsService *service, const sockaddr_in &address) {
   MdnsServiceRecords records;
-  records.discoveryPtr.name = MdnsStringLiteral(kDiscoveryService);
+  records.discoveryPtr.name = MdnsStringLiteral(mvr::xchange::kMvrXchangeDiscoveryService);
   records.discoveryPtr.type = MDNS_RECORDTYPE_PTR;
-  records.discoveryPtr.data.ptr.name = MdnsStringLiteral(kServiceType);
-  records.ptr.name = MdnsStringLiteral(kServiceType);
+  records.discoveryPtr.data.ptr.name = MdnsStringLiteral(mvr::xchange::kMvrXchangeServiceType);
+  records.ptr.name = MdnsStringLiteral(mvr::xchange::kMvrXchangeServiceType);
   records.ptr.type = MDNS_RECORDTYPE_PTR;
   records.ptr.data.ptr.name = MdnsString(service->ServiceInstanceName());
   records.groupPtr.name = MdnsString(service->GroupServiceName());
@@ -162,7 +146,7 @@ static int MdnsCallback(int sock, const sockaddr *from, size_t addrlen, mdns_ent
   const std::string query(queryName.str, queryName.length);
   const auto records = BuildRecords(service, Ipv4AddressFromString(service->AdvertisedIpAddress()));
   const bool any = rtype == MDNS_RECORDTYPE_ANY;
-  if (query == kDiscoveryService && (rtype == MDNS_RECORDTYPE_PTR || any)) {
+  if (query == mvr::xchange::kMvrXchangeDiscoveryService && (rtype == MDNS_RECORDTYPE_PTR || any)) {
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.discoveryPtr, nullptr, 0);
   } else if ((query == service->ServiceType() || query == service->GroupServiceName()) && (rtype == MDNS_RECORDTYPE_PTR || any)) {
     const mdns_record_t answer = query == service->GroupServiceName() ? records.groupPtr : records.ptr;
@@ -183,15 +167,15 @@ bool MvrXchangeMdnsService::Start(const MvrXchangeSettings &settings, int port) 
   Stop();
   lastError_.clear();
   serviceName_ = settings.stationName.empty() ? "Perastage" : settings.stationName;
-  stationUuid_ = settings.stationUuid;
+  stationUuid_ = CanonicalizeUuid(settings.stationUuid);
   port_ = port;
   hostName_ = LocalHostName();
   qualifiedHostName_ = hostName_ + ".local.";
   const auto selectedInterface = SelectMvrXchangeNetworkInterface(settings.selectedInterfaceId);
   advertisedIpAddress_ = selectedInterface.ipv4Address;
   selectedInterfaceDescription_ = FormatMvrXchangeNetworkInterface(selectedInterface);
-  groupServiceName_ = SanitizeDnsLabel(settings.groupName, "Default") + "." + kServiceType;
-  serviceInstanceName_ = SanitizeDnsLabel(serviceName_, "Perastage") + "." + kServiceType;
+  groupServiceName_ = mvr::xchange::BuildMvrXchangeGroupServiceName(settings.groupName);
+  serviceInstanceName_ = mvr::xchange::BuildMvrXchangeServiceInstanceName(serviceName_, settings.groupName);
 #ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
   if (!OpenSocket()) return false;
   stopRequested_ = false;
@@ -244,7 +228,7 @@ std::string MvrXchangeMdnsService::BackendName() const {
 }
 
 // Returns the official MVR-xchange service type advertised by this module.
-std::string MvrXchangeMdnsService::ServiceType() const { return kServiceType; }
+std::string MvrXchangeMdnsService::ServiceType() const { return mvr::xchange::kMvrXchangeServiceType; }
 
 // Returns the group subservice name used for discovery and diagnostics.
 const std::string &MvrXchangeMdnsService::GroupServiceName() const { return groupServiceName_; }

@@ -22,13 +22,14 @@ private:
   void OnStart(wxCommandEvent &event);
   void OnStop(wxCommandEvent &event);
   void OnPublish(wxCommandEvent &event);
+  void OnDiscover(wxCommandEvent &event);
 
   MvrXchangeSettings settings_;
   std::unique_ptr<MvrXchangeService> service_;
   std::shared_ptr<bool> lifetimeToken_ = std::make_shared<bool>(true);
   std::atomic<bool> shuttingDown_{false};
   wxStaticText *statusText_ = nullptr;
-  wxStaticText *remoteStationsText_ = nullptr;
+  wxTextCtrl *remoteStationsText_ = nullptr;
   wxTextCtrl *stationNameCtrl_ = nullptr;
   wxTextCtrl *groupNameCtrl_ = nullptr;
   wxTextCtrl *stationUuidCtrl_ = nullptr;
@@ -39,4 +40,5 @@ private:
   wxButton *startButton_ = nullptr;
   wxButton *stopButton_ = nullptr;
   wxButton *publishButton_ = nullptr;
+  wxButton *discoverButton_ = nullptr;
 };

@@ -1,9 +1,10 @@
 #include "mvr_xchange_station_registry.h"
+#include "../../core/uuidutils.h"
 #include <algorithm>
 
 // Stores the local station identity so registry updates can ignore self records.
 void MvrXchangeStationRegistry::SetLocalIdentity(const std::string &stationUuid, const std::string &serviceInstanceName, int localPort) {
-  localStationUuid_ = stationUuid;
+  localStationUuid_ = CanonicalizeUuid(stationUuid);
   localServiceInstanceName_ = serviceInstanceName;
   localPort_ = localPort;
 }
@@ -11,6 +12,7 @@ void MvrXchangeStationRegistry::SetLocalIdentity(const std::string &stationUuid,
 // Inserts or updates a station discovered through mDNS.
 bool MvrXchangeStationRegistry::UpsertDiscovered(MvrXchangeRemoteStation station) {
   station.discovered = true;
+  station.stationUuid = CanonicalizeUuid(station.stationUuid);
   if (IsOwnStation(station)) return false;
   auto it = FindStation(station);
   if (it == stations_.end()) { stations_.push_back(std::move(station)); return true; }
@@ -26,6 +28,7 @@ bool MvrXchangeStationRegistry::UpsertDiscovered(MvrXchangeRemoteStation station
 // Inserts or updates a station that sent an incoming MVR_JOIN.
 bool MvrXchangeStationRegistry::UpsertIncomingJoin(MvrXchangeRemoteStation station) {
   station.incomingJoined = true;
+  station.stationUuid = CanonicalizeUuid(station.stationUuid);
   if (IsOwnStation(station)) return false;
   auto it = FindStation(station);
   if (it == stations_.end()) { stations_.push_back(std::move(station)); return true; }
@@ -44,7 +47,7 @@ bool MvrXchangeStationRegistry::UpsertIncomingJoin(MvrXchangeRemoteStation stati
 // Marks a known station as successfully joined by Perastage.
 bool MvrXchangeStationRegistry::MarkOutgoingJoined(const std::string &stationUuid, const std::string &ipAddress, int port) {
   MvrXchangeRemoteStation key;
-  key.stationUuid = stationUuid;
+  key.stationUuid = CanonicalizeUuid(stationUuid);
   key.ipAddress = ipAddress;
   key.port = port;
   auto it = FindStation(key);

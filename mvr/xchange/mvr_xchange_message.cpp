@@ -1,4 +1,5 @@
 #include "mvr_xchange_message.h"
+#include "../../core/uuidutils.h"
 #include "json.hpp"
 
 namespace mvr::xchange {
@@ -14,8 +15,8 @@ nlohmann::json CommitToJson(const MvrXchangeCommit &commit) {
   json["verMajor"] = kMvrVersionMajor;
   json["verMinor"] = kMvrVersionMinor;
   json["FileSize"] = commit.FileSize();
-  json["FileUUID"] = commit.fileUuid;
-  json["StationUUID"] = commit.stationUuid;
+  json["FileUUID"] = CanonicalizeUuid(commit.fileUuid);
+  json["StationUUID"] = CanonicalizeUuid(commit.stationUuid);
   json["ForStationsUUID"] = nlohmann::json::array();
   if (!commit.comment.empty()) json["Comment"] = commit.comment;
   if (!commit.fileName.empty()) json["FileName"] = commit.fileName;
@@ -31,8 +32,8 @@ std::string JsonStringValue(const nlohmann::json &json, const char *key) {
 // Converts one JSON commit object into a lightweight commit metadata record.
 MvrXchangeCommit CommitFromJson(const nlohmann::json &json) {
   MvrXchangeCommit commit;
-  commit.fileUuid = JsonStringValue(json, "FileUUID");
-  commit.stationUuid = JsonStringValue(json, "StationUUID");
+  commit.fileUuid = CanonicalizeUuid(JsonStringValue(json, "FileUUID"));
+  commit.stationUuid = CanonicalizeUuid(JsonStringValue(json, "StationUUID"));
   commit.fileName = JsonStringValue(json, "FileName");
   commit.comment = JsonStringValue(json, "Comment");
   return commit;
@@ -68,9 +69,9 @@ std::optional<Message> ParseMessage(const std::string &jsonText) {
   msg.type = JsonStringValue(json, "Type");
   if (msg.type.empty()) msg.type = JsonStringValue(json, "MessageType");
   if (msg.type.empty()) return std::nullopt;
-  msg.fileUuid = JsonStringValue(json, "FileUUID");
-  msg.stationUuid = JsonStringValue(json, "StationUUID");
-  if (msg.stationUuid.empty()) msg.stationUuid = JsonStringValue(json, "FromStationUUID");
+  msg.fileUuid = CanonicalizeUuid(JsonStringValue(json, "FileUUID"));
+  msg.stationUuid = CanonicalizeUuid(JsonStringValue(json, "StationUUID"));
+  if (msg.stationUuid.empty()) msg.stationUuid = CanonicalizeUuid(JsonStringValue(json, "FromStationUUID"));
   msg.stationName = JsonStringValue(json, "StationName");
   msg.groupName = JsonStringValue(json, "GroupName");
   msg.provider = JsonStringValue(json, "Provider");
@@ -99,7 +100,7 @@ std::string BuildJoinMessage(const char *type, const std::string &stationUuid, c
   json["StationName"] = stationName;
   json["verMajor"] = kMvrVersionMajor;
   json["verMinor"] = kMvrVersionMinor;
-  json["StationUUID"] = stationUuid;
+  json["StationUUID"] = CanonicalizeUuid(stationUuid);
   json["Commits"] = nlohmann::json::array();
   for (const auto &commit : commits) json["Commits"].push_back(CommitToJson(commit));
   json["Files"] = json["Commits"];

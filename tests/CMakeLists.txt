@@ -1518,7 +1518,9 @@ add_test(NAME PickMeshValidation COMMAND pick_mesh_validation_test)
 add_executable(mvr_xchange_protocol_test
     mvr_xchange_protocol_test.cpp
     ../mvr/xchange/mvr_xchange_commit.cpp
+    ../mvr/xchange/mvr_xchange_dns_names.cpp
     ../mvr/xchange/mvr_xchange_message.cpp
+    ../core/uuidutils.cpp
     ../mvr/xchange/mvr_xchange_network_interfaces.cpp
     ../mvr/xchange/mvr_xchange_station_registry.cpp
     ../mvr/xchange/mvr_xchange_packet.cpp
