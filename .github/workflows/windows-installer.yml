@@ -90,6 +90,7 @@ jobs:
             podofo:x64-windows `
             meshoptimizer:x64-windows `
             backward-cpp:x64-windows `
+            mdns:x64-windows `
             --x-install-root="$env:VCPKG_INSTALLED" `
             --x-packages-root="$env:VCPKG_PACKAGES" `
             --downloads-root="$env:VCPKG_DOWNLOADS"
