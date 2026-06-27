@@ -6,6 +6,8 @@ Changes since **v1.4.0**.
 
 ## New features
 
+- Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
+
 ## Improvements
 
 ## Fixes
@@ -30,6 +32,8 @@ Changes since **v1.4.0**.
 - Improved Windows crash dumps so native access violations are captured from the original exception context before best-effort text stack reporting.
 
 ## Build, packaging and CI
+
+- Improved the MVR-xchange TCP publisher with safer dialog shutdown, specification-aligned JSON responses, commit broadcasting, and the vcpkg mdns discovery backend, explicit mDNS interface selection, and detailed TCP/protocol diagnostics, remote station tracking, and the active mDNS group discovery, group-qualified service instance names, canonical UUID reuse, non-blocking diagnostics, and outgoing join-flow pieces needed to distinguish incoming and outgoing MVR-xchange handshakes without repeated modal message boxes, and visible advertised IP/port status in the dialog.
 
 ## Documentation
 

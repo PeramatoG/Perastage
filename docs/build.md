@@ -12,6 +12,8 @@ This document covers baseline and advanced build behavior for Perastage. It is t
 
 If you install dependencies with vcpkg (classic mode), make sure `meshoptimizer` is included in the package list together with the existing Perastage dependencies.
 
+MVR-xchange discovery uses the vcpkg `mdns` port when `PERASTAGE_ENABLE_MVR_XCHANGE_MDNS` is enabled. Install it with the triplet that matches your build, for example `vcpkg install mdns:x64-windows`, `vcpkg install mdns:x64-linux`, or `vcpkg install mdns:x64-osx`.
+
 ## Quick Build (All Platforms)
 
 ```bash

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "mvrxchange/mvr_xchange_dialog.h"
 #include "filesystem_path_utils.h"
 #include "mainwindow_io_controller.h"
 
@@ -875,4 +876,10 @@ void MainWindow::OnExportCSV(wxCommandEvent &WXUNUSED(event)) {
 
   if (ctrl)
     TablePrinter::ExportCSV(this, ctrl, type, GetDefaultGuiConfigServices().LegacyConfigManager());
+}
+
+// Opens the MVR-xchange publisher dialog.
+void MainWindow::OnMvrXchange(wxCommandEvent &WXUNUSED(event)) {
+  MvrXchangeDialog dialog(this);
+  dialog.ShowModal();
 }

@@ -20,6 +20,7 @@ project(Perastage VERSION ${PERASTAGE_PROJECT_VERSION} LANGUAGES CXX)
 set(PERASTAGE_APP_VERSION "${PROJECT_VERSION}")
 set(PERASTAGE_APP_VERSION_DISPLAY "${PROJECT_VERSION}")
 option(PERASTAGE_ASSOCIATE_PSTG "Register .pstg file association during packaging/installation where supported" ON)
+option(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS "Enable MVR-xchange mDNS discovery using the vcpkg mdns package" ON)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -116,6 +117,12 @@ else()
 endif()
 find_package(ZLIB REQUIRED)
 find_package(Backward CONFIG REQUIRED)
+if(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS)
+    find_package(mdns CONFIG REQUIRED)
+    message(STATUS "MVR-xchange mDNS backend enabled: vcpkg mdns")
+else()
+    message(WARNING "MVR-xchange mDNS backend disabled by PERASTAGE_ENABLE_MVR_XCHANGE_MDNS=OFF.")
+endif()
 
 execute_process(
     COMMAND git rev-parse --short=12 HEAD
@@ -158,6 +165,19 @@ add_executable(${PROJECT_NAME} main.cpp
     mvr/mvrscenemerger.cpp
     mvr/mvrexporter.cpp
     mvr/primitive_model_resources.cpp
+    mvr/xchange/mvr_xchange_commit.cpp
+    mvr/xchange/mvr_xchange_dns_names.cpp
+    mvr/xchange/mvr_xchange_mdns_discovery.cpp
+    mvr/xchange/mvr_xchange_mdns_service.cpp
+    mvr/xchange/mvr_xchange_network_interfaces.cpp
+    mvr/xchange/mvr_xchange_remote_station.cpp
+    mvr/xchange/mvr_xchange_station_registry.cpp
+    mvr/xchange/mvr_xchange_tcp_client.cpp
+    mvr/xchange/mvr_xchange_message.cpp
+    mvr/xchange/mvr_xchange_packet.cpp
+    mvr/xchange/mvr_xchange_service.cpp
+    mvr/xchange/mvr_xchange_settings.cpp
+    mvr/xchange/mvr_xchange_tcp_server.cpp
 )
 
 if(APPLE)
@@ -222,6 +242,11 @@ add_subdirectory(viewer_common)
 
 if(WIN32)
     target_sources(${PROJECT_NAME} PRIVATE resources/Perastage.rc)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32 iphlpapi)
+endif()
+if(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE PERASTAGE_MVR_XCHANGE_ENABLE_MDNS=1)
+    target_link_libraries(${PROJECT_NAME} PRIVATE mdns::mdns)
 endif()
 
 # Mark as GUI application (no console)
