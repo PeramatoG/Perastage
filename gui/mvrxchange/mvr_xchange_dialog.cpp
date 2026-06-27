@@ -80,7 +80,8 @@ void MvrXchangeDialog::BuildLayout() {
 void MvrXchangeDialog::RefreshState() {
   if (shuttingDown_ || IsBeingDeleted() || !statusText_) return;
   const bool running = service_->IsRunning();
-  statusText_->SetLabel(running ? wxString::Format("Running on port %d", service_->Port()) : wxString("Stopped"));
+  const wxString endpoint = wxString::FromUTF8(service_->AdvertisedIpAddress()) + wxString::Format(":%d", service_->Port());
+  statusText_->SetLabel(running ? wxString("Running on ") + endpoint : wxString("Stopped"));
   startButton_->Enable(!running);
   stopButton_->Enable(running);
   publishButton_->Enable(running);

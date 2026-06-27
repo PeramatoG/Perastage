@@ -53,7 +53,7 @@ bool MvrXchangeService::Start(const MvrXchangeSettings &settings) {
   discoveryStopRequested_ = false;
   discoveryThread_ = std::thread(&MvrXchangeService::DiscoveryLoop, this);
   Log("MVR-xchange active station discovery started.");
-  Log("MVR-xchange service started on TCP port " + std::to_string(tcpServer_.Port()) + ".");
+  Log("MVR-xchange service started on TCP " + mdnsService_.AdvertisedIpAddress() + ":" + std::to_string(tcpServer_.Port()) + ".");
   return true;
 }
 
@@ -71,6 +71,9 @@ bool MvrXchangeService::IsRunning() const { return tcpServer_.IsRunning(); }
 
 // Returns the active TCP listening port.
 int MvrXchangeService::Port() const { return tcpServer_.Port(); }
+
+// Returns the IP address advertised for incoming MVR-xchange connections.
+std::string MvrXchangeService::AdvertisedIpAddress() const { return mdnsService_.AdvertisedIpAddress(); }
 
 // Exports the current scene, stores it as a bounded commit, and announces it.
 bool MvrXchangeService::PublishCurrentScene(const std::string &comment) {

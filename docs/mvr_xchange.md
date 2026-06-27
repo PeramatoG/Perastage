@@ -41,7 +41,7 @@ The intended backend does not require a manual Bonjour or Avahi installation. If
 1. Open or create a scene in Perastage.
 2. Choose **File → MVR-xchange...**.
 3. Review the station name, group name, station UUID, and port.
-4. Click **Start** to start the TCP Mode service and mDNS advertisement.
+4. Click **Start** to start the TCP Mode service and mDNS advertisement. The dialog status shows the advertised IP address and TCP port, for example `Running on 192.168.1.50:42424`.
 5. Click **Publish Current MVR** to export the current scene into memory and announce it as a new MVR revision.
 6. In a compatible client such as grandMA3, open the MVR-xchange view, select the same group name, select the same physical network interface, enable MVR-xchange, and request the published MVR revision.
 

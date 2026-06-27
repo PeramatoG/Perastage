@@ -20,6 +20,7 @@ public:
   void Stop();
   bool IsRunning() const;
   int Port() const;
+  std::string AdvertisedIpAddress() const;
   bool PublishCurrentScene(const std::string &comment);
   std::vector<MvrXchangeCommit> GetLocalCommits() const;
   std::vector<MvrXchangeRemoteStation> GetKnownStations() const;
