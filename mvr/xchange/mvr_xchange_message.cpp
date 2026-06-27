@@ -36,6 +36,8 @@ MvrXchangeCommit CommitFromJson(const nlohmann::json &json) {
   commit.stationUuid = CanonicalizeUuid(JsonStringValue(json, "StationUUID"));
   commit.fileName = JsonStringValue(json, "FileName");
   commit.comment = JsonStringValue(json, "Comment");
+  const auto fileSize = json.find("FileSize");
+  if (fileSize != json.end() && fileSize->is_number_unsigned()) commit.payload.resize(fileSize->get<std::size_t>());
   return commit;
 }
 
@@ -69,9 +71,14 @@ std::optional<Message> ParseMessage(const std::string &jsonText) {
   msg.type = JsonStringValue(json, "Type");
   if (msg.type.empty()) msg.type = JsonStringValue(json, "MessageType");
   if (msg.type.empty()) return std::nullopt;
+  const auto fileUuidIt = json.find("FileUUID");
+  msg.fileUuidSpecified = fileUuidIt != json.end() && !JsonStringValue(json, "FileUUID").empty();
   msg.fileUuid = CanonicalizeUuid(JsonStringValue(json, "FileUUID"));
-  msg.stationUuid = CanonicalizeUuid(JsonStringValue(json, "StationUUID"));
-  if (msg.stationUuid.empty()) msg.stationUuid = CanonicalizeUuid(JsonStringValue(json, "FromStationUUID"));
+  const auto stationUuid = JsonStringValue(json, "StationUUID");
+  const auto fromStationUuid = JsonStringValue(json, "FromStationUUID");
+  msg.stationUuidSpecified = !stationUuid.empty() || !fromStationUuid.empty();
+  msg.stationUuid = CanonicalizeUuid(stationUuid);
+  if (msg.stationUuid.empty()) msg.stationUuid = CanonicalizeUuid(fromStationUuid);
   msg.stationName = JsonStringValue(json, "StationName");
   msg.groupName = JsonStringValue(json, "GroupName");
   msg.provider = JsonStringValue(json, "Provider");
@@ -86,6 +93,35 @@ std::optional<Message> ParseMessage(const std::string &jsonText) {
     if (msg.commits.empty()) AppendCommitsFromJsonArray(*filesIt, msg.commits);
   }
   return msg;
+}
+
+// Validates required fields for official MVR-xchange message types handled by Perastage.
+std::string ValidateMessage(const Message &message) {
+  if (message.type == "MVR_JOIN" || message.type == "MVR_JOIN_RET") {
+    if (message.stationUuid.empty()) return message.type + " is missing a valid StationUUID.";
+    if (message.stationName.empty()) return message.type + " is missing StationName.";
+    if (message.provider.empty()) return message.type + " is missing Provider.";
+    for (const auto &commit : message.commits) {
+      if (commit.fileUuid.empty()) return message.type + " contains a commit with an invalid FileUUID.";
+      if (commit.stationUuid.empty()) return message.type + " contains a commit with an invalid StationUUID.";
+    }
+    return {};
+  }
+  if (message.type == "MVR_LEAVE") {
+    if (message.stationUuid.empty()) return "MVR_LEAVE is missing a valid StationUUID.";
+    return {};
+  }
+  if (message.type == "MVR_COMMIT") {
+    if (message.fileUuid.empty()) return "MVR_COMMIT is missing a valid FileUUID.";
+    if (message.stationUuid.empty()) return "MVR_COMMIT is missing a valid StationUUID.";
+    return {};
+  }
+  if (message.type == "MVR_REQUEST") {
+    if (message.fileUuidSpecified && message.fileUuid.empty()) return "MVR_REQUEST contains an invalid FileUUID.";
+    return {};
+  }
+  if (message.type == "MVR_REQUEST_RET" || message.type == "MVR_COMMIT_RET" || message.type == "MVR_LEAVE_RET") return {};
+  return "Unsupported MVR-xchange message type.";
 }
 
 // Builds a JOIN-style message with local station identity and commit metadata.

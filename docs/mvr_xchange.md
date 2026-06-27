@@ -16,13 +16,13 @@ MVR-xchange lets compatible applications discover each other on a local network 
 - Active mDNS discovery of stations in the selected group and outgoing `MVR_JOIN` attempts to resolved stations.
 - Outgoing `MVR_JOIN` message construction and short-lived TCP client support for station handshakes and commit announcements.
 - Canonical lowercase UUID handling for local and remote MVR-xchange `StationUUID` and `FileUUID` values using Perastage's shared UUID utilities.
-- Requests for a known `FileUUID` return the matching MVR binary packet. Requests with an empty `FileUUID` or `latest` return the latest published revision when one exists.
+- Requests for a known `FileUUID` return the matching non-empty MVR binary packet. Requests with an empty `FileUUID` use the specification-defined latest-revision behavior and return the latest published revision when one exists.
 
 ## Discovery requirements
 
 Perastage uses the vcpkg `mdns` port for MVR-xchange discovery. The CMake option `PERASTAGE_ENABLE_MVR_XCHANGE_MDNS` defaults to `ON`; when it is enabled, CMake requires the `mdns` package and links the `mdns::mdns` target. If the option is turned `OFF`, Perastage builds a disabled backend that reports a clear runtime error instead of pretending discovery is active.
 
-The dialog log reports the service type, group service name, station name, station UUID, advertised TCP port, backend name (`mdns`), host name, and local address diagnostics. These diagnostics are written to the dialog log and application log without blocking modal message boxes. Use this information to compare Perastage's advertised interface with the interface selected in the receiving application.
+The dialog log reports the service type, group service name, station name, station UUID, advertised TCP port, backend name (`mdns`), host name, selected interface, advertised address, discovered stations, resolved endpoints, failed resolutions, and transfer byte counts. These diagnostics are written to the dialog log and application log without blocking modal message boxes. Use this information to compare Perastage's advertised interface with the interface selected in the receiving application.
 
 ## Build dependency
 
@@ -60,9 +60,28 @@ The current MVR-xchange specification says TCP Mode uses mDNS discovery, the `_m
 The dialog shows remote station counts and a simple station list for discovered, incoming joined, and outgoing joined stations. These counts help distinguish a raw TCP connection from a completed MVR-xchange handshake. Use **Discover Now** to run an immediate discovery pass instead of waiting for the periodic discovery loop.
 
 
+## Compliance and hardening notes
+
+Perastage implements the official TCP Mode exchange path conservatively:
+
+- Supported official flows: mDNS/DNS-SD service advertisement, same-group discovery, `MVR_JOIN`, `MVR_JOIN_RET`, `MVR_LEAVE`, `MVR_COMMIT`, `MVR_COMMIT_RET`, `MVR_REQUEST`, and `MVR_REQUEST_RET` error responses.
+- Supported packet payloads: JSON UTF-8 packets for protocol messages and MVR file packets for successful file requests. Multi-packet payload reassembly is not currently implemented; Perastage emits single-packet JSON and MVR file payloads.
+- Message parsing rejects malformed JSON, missing required identity fields, invalid UUIDs in required UUID fields, and unsupported message types without crashing the service. Unsupported official session migration messages are not acted on by the TCP publisher.
+- Published revisions are kept in a bounded in-memory history. Each revision records the canonical `FileUUID`, local `StationUUID`, file name, comment, creation timestamp, file size, and MVR payload.
+- Perastage only serves already-published in-memory MVR payloads. It does not export a new MVR from a network worker, and it refuses empty payloads. Manual publishing validates that the exported archive contains `GeneralSceneDescription.xml` before the revision is announced.
+- Unknown `FileUUID` requests receive a standard `MVR_REQUEST_RET` error. Empty `FileUUID` requests use the specification-defined latest-file behavior and return an error when no revision is available.
+
+The following items are intentionally outside this implementation:
+
+- WebSocket Mode and DNS-routable session hosting.
+- `MVR_NEW_SESSION_HOST` based migration or mode switching.
+- Proprietary Peraviz Live Link, incremental synchronization, private messages, automatic Peraviz launch, or automatic scene-change publishing.
+
+If a specification detail is ambiguous in the local copy of the MVR documentation, Perastage keeps the behavior conservative and documents the assumption here instead of adding private behavior to the official MVR-xchange layer.
+
 ## UUID policy
 
-MVR-xchange station and file identifiers use Perastage's shared `core/uuidutils.h` helpers. Locally generated `StationUUID` and `FileUUID` values are canonical lowercase UUID strings in `8-4-4-4-12` form. UUIDs read from settings, JSON messages, and mDNS TXT records are canonicalized before storage and comparison so uppercase remote station UUIDs still deduplicate correctly.
+MVR-xchange station and file identifiers use Perastage's shared `core/uuidutils.h` helpers. Locally generated `StationUUID` and `FileUUID` values are canonical lowercase UUID strings in `8-4-4-4-12` form. UUIDs read from settings, JSON messages, and mDNS TXT records are canonicalized before storage and comparison so uppercase or dashless remote station UUIDs still deduplicate correctly. Invalid UUIDs are rejected for protocol fields where the official message requires a UUID, including `StationUUID` in join/leave messages and `FileUUID`/`StationUUID` in commit messages.
 
 ## Network interface and port debugging
 
@@ -85,7 +104,7 @@ After Start, check the log for `MVR-xchange selected interface`, `MVR-xchange ad
 - **Service is not visible:** Check that the dialog reports the `mdns` backend, matching group name, matching selected interface, and no disabled-backend error. Also check for `MVR-xchange discovered station` logs; if grandMA3 shows only its own service, active discovery did not resolve Perastage or the selected group/interface does not match.
 - **Wrong interface:** Make sure grandMA3 is watching the same Ethernet/Wi-Fi or loopback interface selected in Perastage, and that the logged advertised A record matches that interface.
 - **Loopback vs LAN:** A loopback advertisement is not visible to another computer. Use loopback only for same-machine tests and a real LAN interface for cross-device testing.
-- **No published files:** Start the service and click **Publish Current MVR** before requesting a file. Empty `FileUUID` requests return the latest published revision when one exists; if no revision exists, Perastage returns an error instead of exporting from the network thread.
+- **No published files:** Start the service and click **Publish Current MVR** before requesting a file. Empty `FileUUID` requests return the latest published revision when one exists; if no revision exists, Perastage returns an error instead of exporting from the network thread. Literal placeholder values such as `latest` are not treated as a standard FileUUID request.
 - **Incoming join but no visible station:** Check whether the log also shows an outgoing `MVR_JOIN`, a `MVR_JOIN_RET OK=true`, different station UUIDs, the same group name, and a matching interface. If only an incoming `MVR_JOIN` is visible, Perastage can answer the client but may not yet have a resolved endpoint for the reverse join.
 
 ## Settings
