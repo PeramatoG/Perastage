@@ -150,6 +150,7 @@ jobs:
             podofo:$VCPKG_TRIPLET \
             meshoptimizer:$VCPKG_TRIPLET \
             backward-cpp:$VCPKG_TRIPLET \
+            mdns:$VCPKG_TRIPLET \
             --x-install-root="$VCPKG_INSTALLED" \
             --x-packages-root="$VCPKG_PACKAGES" \
             --downloads-root="$VCPKG_DOWNLOADS"
