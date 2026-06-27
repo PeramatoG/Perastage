@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
+#include <iterator>
 #include <sstream>
 
 namespace {
@@ -21,6 +22,12 @@ std::string CurrentUtcTimestamp() {
   std::ostringstream out;
   out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
   return out.str();
+}
+
+// Checks that an exported MVR archive has the required scene description entry.
+bool ContainsGeneralSceneDescription(const std::vector<uint8_t> &bytes) {
+  static constexpr char kEntryName[] = "GeneralSceneDescription.xml";
+  return std::search(bytes.begin(), bytes.end(), std::begin(kEntryName), std::end(kEntryName) - 1) != bytes.end();
 }
 }
 
@@ -83,6 +90,10 @@ bool MvrXchangeService::PublishCurrentScene(const std::string &comment) {
     Log("MVR-xchange publish failed because the current scene could not be exported.");
     return false;
   }
+  if (!ContainsGeneralSceneDescription(bytes)) {
+    Log("MVR-xchange publish failed because the exported MVR archive does not contain GeneralSceneDescription.xml.");
+    return false;
+  }
   MvrXchangeCommit commit;
   commit.fileUuid = GenerateMvrXchangeUuid();
   commit.stationUuid = CanonicalizeUuid(settings_.stationUuid);
@@ -96,6 +107,7 @@ bool MvrXchangeService::PublishCurrentScene(const std::string &comment) {
   }
   tcpServer_.BroadcastCommit(commit);
   SendCommitToJoinedStations(commit);
+  Log("MVR-xchange published revision FileUUID=" + commit.fileUuid + ", bytes=" + std::to_string(commit.FileSize()) + ", created=" + commit.timestampUtc + ".");
   return true;
 }
 
@@ -122,7 +134,7 @@ void MvrXchangeService::SetLogCallback(LogCallback callback) { logCallback_ = st
 // Resolves a request by FileUUID, treating an empty FileUUID as the latest commit.
 std::optional<MvrXchangeCommit> MvrXchangeService::ResolveRequest(const std::string &fileUuid) const {
   std::lock_guard lock(mutex_);
-  if (fileUuid.empty() || fileUuid == "latest" || fileUuid == "LATEST") return commits_.Latest();
+  if (fileUuid.empty()) return commits_.Latest();
   return commits_.FindByFileUuid(fileUuid);
 }
 

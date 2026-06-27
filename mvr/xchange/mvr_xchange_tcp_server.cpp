@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 #endif
 
@@ -38,6 +39,21 @@ std::string FormatEndpoint(const sockaddr_in &addr) {
   char host[INET_ADDRSTRLEN]{};
   inet_ntop(AF_INET, &addr.sin_addr, host, sizeof(host));
   return std::string(host) + ":" + std::to_string(ntohs(addr.sin_port));
+}
+
+// Applies bounded send and receive timeouts to an accepted client socket.
+void ApplySocketTimeouts(int fd) {
+#ifdef _WIN32
+  DWORD timeout = 5000;
+  setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char *>(&timeout), sizeof(timeout));
+  setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char *>(&timeout), sizeof(timeout));
+#else
+  timeval timeout{};
+  timeout.tv_sec = 5;
+  timeout.tv_usec = 0;
+  setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+  setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+#endif
 }
 }
 
@@ -138,6 +154,7 @@ void MvrXchangeTcpServer::Run() {
     socklen_t len = sizeof(client);
     int fd = static_cast<int>(accept(listenFd_, reinterpret_cast<sockaddr *>(&client), &len));
     if (fd < 0) continue;
+    ApplySocketTimeouts(fd);
     if (logCallback_) logCallback_("MVR-xchange TCP client connected from " + FormatEndpoint(client) + ".");
     std::lock_guard lock(clientThreadsMutex_);
     clientThreads_.emplace_back(&MvrXchangeTcpServer::HandleClient, this, fd);
@@ -165,6 +182,13 @@ void MvrXchangeTcpServer::HandleClient(int clientFd) {
       auto msg = mvr::xchange::ParseMessage(line);
       if (!msg) { if (logCallback_) logCallback_("MVR-xchange received malformed JSON from " + endpoint + "."); SendJson(clientFd, mvr::xchange::BuildRequestError("Malformed JSON message.")); continue; }
       if (logCallback_) logCallback_("MVR-xchange received message " + msg->type + " from " + endpoint + ".");
+      const std::string validationError = mvr::xchange::ValidateMessage(*msg);
+      if (!validationError.empty()) {
+        if (logCallback_) logCallback_("MVR-xchange rejected " + msg->type + " from " + endpoint + ": " + validationError);
+        if (msg->type == "MVR_COMMIT") SendJson(clientFd, mvr::xchange::BuildCommitRet(false, validationError));
+        else SendJson(clientFd, mvr::xchange::BuildRequestError(validationError));
+        continue;
+      }
       if (msg->type == "MVR_JOIN") {
         if (logCallback_) logCallback_("MVR-xchange received MVR_JOIN from " + endpoint + ":\n  provider=" + msg->provider + "\n  station=" + msg->stationName + "\n  uuid=" + msg->stationUuid + "\n  version=" + std::to_string(msg->verMajor) + "." + std::to_string(msg->verMinor) + "\n  commits=" + std::to_string(msg->commits.size()) + "\n  files=" + std::to_string(msg->filesCount));
         MvrXchangeRemoteStation station;
@@ -186,8 +210,8 @@ void MvrXchangeTcpServer::HandleClient(int clientFd) {
       else if (msg->type == "MVR_COMMIT") { SendJson(clientFd, mvr::xchange::BuildCommitRet(true)); if (logCallback_) logCallback_("MVR-xchange sent MVR_COMMIT_RET to " + endpoint + "."); }
       else if (msg->type == "MVR_REQUEST") {
         auto commit = resolver_ ? resolver_(msg->fileUuid) : std::nullopt;
-        if (!commit) { SendJson(clientFd, mvr::xchange::BuildRequestError("The MVR is not available on this client")); if (logCallback_) logCallback_("MVR-xchange sent MVR_REQUEST_RET error to " + endpoint + "."); }
-        else { const auto payloadPacket = mvr::xchange::EncodePacket(mvr::xchange::PacketType::MvrFile, commit->payload); SendPacket(clientFd, payloadPacket); if (logCallback_) logCallback_("MVR-xchange sent MVR binary payload to " + endpoint + ", bytes=" + std::to_string(commit->payload.size()) + "."); }
+        if (!commit || commit->payload.empty()) { SendJson(clientFd, mvr::xchange::BuildRequestError("The MVR is not available on this client")); if (logCallback_) logCallback_("MVR-xchange sent MVR_REQUEST_RET error to " + endpoint + " for FileUUID=" + msg->fileUuid + "."); }
+        else { const auto payloadPacket = mvr::xchange::EncodePacket(mvr::xchange::PacketType::MvrFile, commit->payload); SendPacket(clientFd, payloadPacket); if (logCallback_) logCallback_("MVR-xchange sent MVR binary payload to " + endpoint + ", FileUUID=" + commit->fileUuid + ", bytes=" + std::to_string(commit->payload.size()) + "."); }
       } else { SendJson(clientFd, mvr::xchange::BuildRequestError("Unsupported MVR-xchange message.")); if (logCallback_) logCallback_("MVR-xchange received unsupported message " + msg->type + " from " + endpoint + "."); }
     }
   }

@@ -45,7 +45,9 @@ static void TestMessages() {
   assert(msg);
   assert(msg->type == "MVR_REQUEST");
   assert(msg->fileUuid == "abcdefab-cdef-abcd-efab-cdefabcdefab");
+  assert(mvr::xchange::ValidateMessage(*msg).empty());
   assert(!mvr::xchange::ParseMessage("not json"));
+  assert(!mvr::xchange::ParseMessage("[]"));
 
   MvrXchangeCommit commit{"ABCDEFAB-CDEF-ABCD-EFAB-CDEFABCDEFAB", "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE", "scene.mvr", "Manual", {}, {1, 2, 3}};
   const auto commitJson = nlohmann::json::parse(mvr::xchange::BuildCommit(commit));
@@ -56,6 +58,12 @@ static void TestMessages() {
   assert(commitJson["FileUUID"] == "abcdefab-cdef-abcd-efab-cdefabcdefab");
   assert(commitJson["StationUUID"] == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
   assert(commitJson["ForStationsUUID"].is_array());
+  auto parsedCommit = mvr::xchange::ParseMessage(commitJson.dump());
+  assert(parsedCommit);
+  assert(parsedCommit->type == "MVR_COMMIT");
+  assert(parsedCommit->fileUuid == "abcdefab-cdef-abcd-efab-cdefabcdefab");
+  assert(parsedCommit->stationUuid == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+  assert(mvr::xchange::ValidateMessage(*parsedCommit).empty());
 
   const auto outgoingJoinJson = nlohmann::json::parse(mvr::xchange::BuildJoin("AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE", "Perastage", {commit}));
   assert(outgoingJoinJson["Type"] == "MVR_JOIN");
@@ -74,6 +82,8 @@ static void TestMessages() {
   assert(parsedJoin->verMajor == 1);
   assert(parsedJoin->verMinor == 6);
   assert(parsedJoin->commits.size() == 1);
+  assert(parsedJoin->commits[0].FileSize() == 3);
+  assert(mvr::xchange::ValidateMessage(*parsedJoin).empty());
 
   const auto joinJson = nlohmann::json::parse(mvr::xchange::BuildJoinRet("AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE", "Perastage", {commit}));
   assert(joinJson["Type"] == "MVR_JOIN_RET");
@@ -87,11 +97,35 @@ static void TestMessages() {
   assert(parsedJoinRet->type == "MVR_JOIN_RET");
   assert(parsedJoinRet->ok);
   assert(parsedJoinRet->commits.size() == 1);
+  assert(mvr::xchange::ValidateMessage(*parsedJoinRet).empty());
 
   const auto errorJson = nlohmann::json::parse(mvr::xchange::BuildRequestError("The MVR is not available on this client"));
   assert(errorJson["Type"] == "MVR_REQUEST_RET");
   assert(errorJson["OK"] == false);
   assert(errorJson["Message"] == "The MVR is not available on this client");
+}
+
+// Verifies malformed official messages are parsed safely and rejected with clear errors.
+static void TestMalformedMessages() {
+  auto invalidJoinUuid = mvr::xchange::ParseMessage("{\"Type\":\"MVR_JOIN\",\"Provider\":\"Other\",\"StationName\":\"Desk\",\"StationUUID\":\"not-a-uuid\"}");
+  assert(invalidJoinUuid);
+  assert(!mvr::xchange::ValidateMessage(*invalidJoinUuid).empty());
+
+  auto missingProvider = mvr::xchange::ParseMessage("{\"Type\":\"MVR_JOIN\",\"StationName\":\"Desk\",\"StationUUID\":\"BBBBBBBB-CCCC-DDDD-EEEE-FFFFFFFFFFFF\"}");
+  assert(missingProvider);
+  assert(mvr::xchange::ValidateMessage(*missingProvider) == "MVR_JOIN is missing Provider.");
+
+  auto invalidCommitUuid = mvr::xchange::ParseMessage("{\"Type\":\"MVR_COMMIT\",\"FileUUID\":\"bad\",\"StationUUID\":\"BBBBBBBB-CCCC-DDDD-EEEE-FFFFFFFFFFFF\"}");
+  assert(invalidCommitUuid);
+  assert(mvr::xchange::ValidateMessage(*invalidCommitUuid) == "MVR_COMMIT is missing a valid FileUUID.");
+
+  auto invalidRequestUuid = mvr::xchange::ParseMessage("{\"Type\":\"MVR_REQUEST\",\"FileUUID\":\"latest\"}");
+  assert(invalidRequestUuid);
+  assert(mvr::xchange::ValidateMessage(*invalidRequestUuid) == "MVR_REQUEST contains an invalid FileUUID.");
+
+  auto unknown = mvr::xchange::ParseMessage("{\"Type\":\"PRIVATE_SYNC\",\"StationUUID\":\"BBBBBBBB-CCCC-DDDD-EEEE-FFFFFFFFFFFF\"}");
+  assert(unknown);
+  assert(mvr::xchange::ValidateMessage(*unknown) == "Unsupported MVR-xchange message type.");
 }
 
 // Verifies MVR-xchange DNS-SD naming helpers.
@@ -105,6 +139,8 @@ static void TestCanonicalUuidUse() {
   const auto generated = GenerateUuid();
   assert(CanonicalizeUuid(generated) == generated);
   assert(CanonicalizeUuid("ABCDEFABCDEFABCDEFABCDEFABCDEFAB") == "abcdefab-cdef-abcd-efab-cdefabcdefab");
+  assert(CanonicalizeUuid("ABCDEFAB-CDEF-ABCD-EFAB-CDEFABCDEFAB") == "abcdefab-cdef-abcd-efab-cdefabcdefab");
+  assert(CanonicalizeUuid("not-a-uuid").empty());
 }
 
 // Verifies remote station registry self-filtering, deduplication, and join states.
@@ -156,6 +192,7 @@ int main() {
   TestCommitStore();
   TestPackets();
   TestMessages();
+  TestMalformedMessages();
   TestDnsNames();
   TestCanonicalUuidUse();
   TestStationRegistry();
