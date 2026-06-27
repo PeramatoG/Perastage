@@ -1,12 +1,11 @@
 #include "mvr_xchange_service.h"
 #include "../mvrexporter.h"
 #include "../../core/uuidutils.h"
+#include "../../core/logger.h"
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
 #include <sstream>
-#include <wx/log.h>
-#include <wx/string.h>
 
 namespace {
 // Formats the current UTC time for commit metadata.
@@ -210,8 +209,8 @@ void MvrXchangeService::LogStationCounts() const {
   Log("MVR-xchange remote stations: discovered=" + std::to_string(discovered) + ", incoming joined=" + std::to_string(incoming) + ", outgoing joined=" + std::to_string(outgoing) + ".");
 }
 
-// Writes a service message to wx logging and the optional callback.
+// Writes a service message to the application log and optional callback.
 void MvrXchangeService::Log(const std::string &message) const {
-  wxLogMessage("%s", wxString::FromUTF8(message));
+  Logger::Instance().Log(Logger::Level::Info, message);
   if (logCallback_) logCallback_(message);
 }

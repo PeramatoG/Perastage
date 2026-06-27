@@ -22,7 +22,7 @@ MVR-xchange lets compatible applications discover each other on a local network 
 
 Perastage uses the vcpkg `mdns` port for MVR-xchange discovery. The CMake option `PERASTAGE_ENABLE_MVR_XCHANGE_MDNS` defaults to `ON`; when it is enabled, CMake requires the `mdns` package and links the `mdns::mdns` target. If the option is turned `OFF`, Perastage builds a disabled backend that reports a clear runtime error instead of pretending discovery is active.
 
-The dialog log reports the service type, group service name, station name, station UUID, advertised TCP port, backend name (`mdns`), host name, and local address diagnostics. Use this information to compare Perastage's advertised interface with the interface selected in the receiving application.
+The dialog log reports the service type, group service name, station name, station UUID, advertised TCP port, backend name (`mdns`), host name, and local address diagnostics. These diagnostics are written to the dialog log and application log without blocking modal message boxes. Use this information to compare Perastage's advertised interface with the interface selected in the receiving application.
 
 ## Build dependency
 
@@ -48,7 +48,7 @@ The intended backend does not require a manual Bonjour or Avahi installation. If
 
 ## TCP Mode join flow
 
-A TCP Mode station must both advertise itself and participate in the group handshake. The minimal Perastage flow is:
+The current MVR-xchange specification says TCP Mode uses mDNS discovery, the `_mvrxchange._tcp.local.` service, a group subservice such as `Default._mvrxchange._tcp.local.`, TXT records with `StationName` and `StationUUID`, and peer-to-peer `MVR_JOIN` messages to stations registered in the same group. Perastage follows that flow for the minimal publisher path:
 
 1. Perastage registers `_mvrxchange._tcp.local.` and the selected group subservice, such as `Default._mvrxchange._tcp.local.`.
 2. Perastage tracks remote stations that are discovered through mDNS or that send an incoming `MVR_JOIN`.

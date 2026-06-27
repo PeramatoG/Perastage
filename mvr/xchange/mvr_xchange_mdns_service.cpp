@@ -2,14 +2,13 @@
 #include "mvr_xchange_dns_names.h"
 #include "mvr_xchange_network_interfaces.h"
 #include "../../core/uuidutils.h"
+#include "../../core/logger.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstring>
 #include <sstream>
 #include <vector>
-#include <wx/log.h>
-#include <wx/string.h>
 #ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
 #include <mdns.h>
 #endif
@@ -182,15 +181,20 @@ bool MvrXchangeMdnsService::Start(const MvrXchangeSettings &settings, int port) 
   running_ = true;
   Announce(false);
   worker_ = std::thread(&MvrXchangeMdnsService::Run, this);
-  wxLogMessage("MVR-xchange mDNS advertised via mdns: service=%s group=%s station=%s uuid=%s port=%d host=%s selectedInterface=%s advertisedA=%s candidates=%s",
-               wxString::FromUTF8(ServiceType()), wxString::FromUTF8(GroupServiceName()),
-               wxString::FromUTF8(serviceName_), wxString::FromUTF8(stationUuid_), port,
-               wxString::FromUTF8(qualifiedHostName_), wxString::FromUTF8(selectedInterfaceDescription_),
-               wxString::FromUTF8(advertisedIpAddress_), wxString::FromUTF8(LocalAddressSummary()));
+  Logger::Instance().Log(Logger::Level::Info, "MVR-xchange mDNS advertised via mdns: service=" + ServiceType() +
+                         " group=" + GroupServiceName() +
+                         " instance=" + ServiceInstanceName() +
+                         " station=" + serviceName_ +
+                         " uuid=" + stationUuid_ +
+                         " port=" + std::to_string(port) +
+                         " host=" + qualifiedHostName_ +
+                         " selectedInterface=" + selectedInterfaceDescription_ +
+                         " advertisedA=" + advertisedIpAddress_ +
+                         " candidates=" + LocalAddressSummary());
   return true;
 #else
   lastError_ = "MVR-xchange mDNS advertisement failed because the vcpkg mdns backend is not available in this build. Install the vcpkg mdns port and rebuild Perastage.";
-  wxLogError("%s", wxString::FromUTF8(lastError_));
+  Logger::Instance().Log(Logger::Level::Error, lastError_);
   return false;
 #endif
 }
