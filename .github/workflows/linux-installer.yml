@@ -120,6 +120,7 @@ jobs:
             podofo:x64-linux \
             meshoptimizer:x64-linux \
             backward-cpp:x64-linux \
+            mdns:x64-linux \
             --x-install-root="$VCPKG_INSTALLED" \
             --x-packages-root="$VCPKG_PACKAGES" \
             --downloads-root="$VCPKG_DOWNLOADS"

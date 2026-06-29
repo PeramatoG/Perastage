@@ -6,6 +6,8 @@ Changes since **v1.4.0**.
 
 ## New features
 
+- Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
+
 ## Improvements
 
 ## Fixes
@@ -24,6 +26,7 @@ Changes since **v1.4.0**.
 
 ## Stability and diagnostics
 
+- Hardened MVR-xchange TCP Mode protocol handling with stricter UUID validation, safer malformed-message responses, bounded latest-revision requests, non-empty payload checks, archive sanity checks, clearer transfer diagnostics, and additional deterministic protocol tests.
 - Disabled optional depth-read picking by default and skipped it on Windows Intel OpenGL drivers to avoid unsafe depth-buffer reads during normal selection.
 - Hardened 3D hover picking plus hover, group, and selected highlight rendering to avoid unsafe OpenGL pixel reads and restore critical render state after overlay highlights on Intel Windows drivers and macOS.
 - Hardened 3D picking coordinate validation to avoid unsafe OpenGL reads near viewport edges and during zero-sized or out-of-range viewer states.
@@ -31,8 +34,12 @@ Changes since **v1.4.0**.
 
 ## Build, packaging and CI
 
+- Added the mdns vcpkg port to installer CI dependency setup so MVR-xchange mDNS-enabled builds can configure reliably on all packaged platforms.
+- Improved the MVR-xchange TCP publisher with safer dialog shutdown, specification-aligned JSON responses, commit broadcasting, and the vcpkg mdns discovery backend, explicit mDNS interface selection, and detailed TCP/protocol diagnostics, remote station tracking, and the active mDNS group discovery, group-qualified service instance names, canonical UUID reuse, non-blocking diagnostics, and outgoing join-flow pieces needed to distinguish incoming and outgoing MVR-xchange handshakes without repeated modal message boxes, and visible advertised IP/port status in the dialog.
+
 ## Documentation
 
+- Updated the MVR-xchange documentation with a compliance summary, supported official flows, conservative latest-request behavior, and explicit out-of-scope notes for WebSocket Mode and private live synchronization.
 ## Compatibility notes
 
 ## Downloads and installation

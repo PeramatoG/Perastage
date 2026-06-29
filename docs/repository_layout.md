@@ -10,7 +10,7 @@ This page provides a quick map of the main Perastage modules. For exhaustive fil
 | `core/` | Core logic, import helpers, dictionaries, patching, layout and print support logic. |
 | `gui/` | wxWidgets windows, dialogs, menus, and interaction panels. |
 | `models/` | Scene data models for fixtures, trusses, hoists, and objects. |
-| `mvr/` | MVR importer/exporter implementation. |
+| `mvr/` | MVR importer/exporter implementation, including the isolated `mvr/xchange/` TCP Mode publisher module. |
 | `viewer3d/` | 3D rendering engine and camera/view tooling. |
 | `viewer2d/` | 2D plan view rendering and capture tools. |
 | `library/` | Bundled fixture/truss/object data and example assets. |
