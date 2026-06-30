@@ -72,6 +72,7 @@ public:
   void EnqueueExternalOpenPath(const std::string &path);
   void CancelStartupProjectLoadForExternalOpenPath(const std::string &path);
   bool OpenPathFromCommandLine(const std::string &path);
+  bool ImportMvrWithUserChoice(const std::string &path);
   void ResetProject(bool applyLayoutDefaultsForNewProject = false); // Clear current project
   bool IsStartupProjectLoadPending() const { return startupProjectLoadPending; }
   bool IsStartupInitializationPending() const { return startupSplashInitializationPending; }

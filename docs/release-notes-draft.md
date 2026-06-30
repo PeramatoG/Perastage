@@ -6,7 +6,7 @@ Changes since **v1.4.0**.
 
 ## New features
 
-- Added MVR-xchange remote file requests so Perastage can obtain advertised MVR revisions from compatible TCP Mode stations and import them into the current project.
+- Added MVR-xchange remote file requests with a selectable advertised-MVR list, Console-styled transfer log, and the standard import choice to open as a new project or merge into the current project.
 - Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
 
 ## Improvements
