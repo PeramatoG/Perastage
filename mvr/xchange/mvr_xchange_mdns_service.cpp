@@ -278,16 +278,14 @@ void MvrXchangeMdnsService::Run() {
 #endif
 }
 
-// Opens the IPv4 mDNS socket on all available interfaces.
+// Opens the IPv4 mDNS socket on the interface selected for advertisement.
 bool MvrXchangeMdnsService::OpenSocket() {
 #ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
-  sockaddr_in address{};
-  address.sin_family = AF_INET;
-  address.sin_addr.s_addr = INADDR_ANY;
+  sockaddr_in address = Ipv4AddressFromString(advertisedIpAddress_);
   address.sin_port = htons(MDNS_PORT);
   socket_ = mdns_socket_open_ipv4(&address);
   if (socket_ < 0) {
-    lastError_ = "The vcpkg mdns backend could not open UDP port 5353 for _mvrxchange._tcp.local.";
+    lastError_ = "The vcpkg mdns backend could not open UDP port 5353 for _mvrxchange._tcp.local on " + advertisedIpAddress_ + ".";
     return false;
   }
   return true;
