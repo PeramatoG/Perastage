@@ -39,6 +39,7 @@ void MvrXchangeDialog::BuildLayout() {
   grid->AddGrowableCol(1, 1);
   statusText_ = new wxStaticText(this, wxID_ANY, "Stopped");
   stationNameCtrl_ = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(settings_.stationName));
+  stationNameCtrl_->SetInsertionPoint(0);
   groupNameCtrl_ = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(settings_.groupName));
   stationUuidCtrl_ = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(settings_.stationUuid), wxDefaultPosition, wxDefaultSize, wxTE_READONLY);
   portCtrl_ = new wxTextCtrl(this, wxID_ANY, settings_.port > 0 ? wxString::Format("%d", settings_.port) : wxString("Auto"));
