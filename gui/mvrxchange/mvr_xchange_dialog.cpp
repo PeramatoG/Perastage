@@ -224,14 +224,18 @@ void MvrXchangeDialog::RefreshAvailableFiles(const std::vector<MvrXchangeRemoteS
 // Applies the same font and color style used by the Console panel output.
 void MvrXchangeDialog::ApplyConsoleLogStyle() {
   if (!logCtrl_) return;
+  const wxFont consoleFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+  const wxColour consoleText(0, 255, 0);
   logCtrl_->SetBackgroundColour(*wxBLACK);
-  logCtrl_->SetForegroundColour(wxColour(0, 255, 0));
-  logCtrl_->SetFont(wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+  logCtrl_->SetForegroundColour(consoleText);
+  logCtrl_->SetFont(consoleFont);
+  logCtrl_->SetDefaultStyle(wxTextAttr(consoleText, *wxBLACK, consoleFont));
 }
 
 // Appends a status line to the dialog log area.
 void MvrXchangeDialog::AppendLog(const wxString &message) {
   if (shuttingDown_ || IsBeingDeleted() || !logCtrl_) return;
+  ApplyConsoleLogStyle();
   logCtrl_->AppendText(message + "\n");
 }
 
