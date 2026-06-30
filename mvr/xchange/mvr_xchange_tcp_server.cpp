@@ -41,17 +41,15 @@ std::string FormatEndpoint(const sockaddr_in &addr) {
   return std::string(host) + ":" + std::to_string(ntohs(addr.sin_port));
 }
 
-// Applies bounded send and receive timeouts to an accepted client socket.
+// Applies a bounded send timeout while allowing persistent peer joins to stay idle.
 void ApplySocketTimeouts(int fd) {
 #ifdef _WIN32
   DWORD timeout = 5000;
-  setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char *>(&timeout), sizeof(timeout));
   setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char *>(&timeout), sizeof(timeout));
 #else
   timeval timeout{};
   timeout.tv_sec = 5;
   timeout.tv_usec = 0;
-  setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
   setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 #endif
 }
