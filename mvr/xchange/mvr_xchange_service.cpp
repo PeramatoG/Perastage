@@ -128,6 +128,7 @@ bool MvrXchangeService::PublishCurrentScene(const std::string &comment) {
     commits_.Add(commit);
   }
   tcpServer_.BroadcastCommit(commit);
+  DiscoverStationsOnce();
   SendCommitToJoinedStations(commit);
   Log("MVR-xchange published revision FileUUID=" + commit.fileUuid + ", bytes=" + std::to_string(commit.FileSize()) + ", created=" + commit.timestampUtc + ".");
   return true;
@@ -194,9 +195,10 @@ void MvrXchangeService::SendCommitToJoinedStations(const MvrXchangeCommit &commi
   const auto joined = [&] { std::lock_guard lock(mutex_); return stationRegistry_.JoinedStations(); }();
   int sent = 0;
   int failed = 0;
+  int skipped = 0;
   const auto localCommits = GetLocalCommits();
   for (const auto &station : joined) {
-    if (station.ipAddress.empty() || station.port <= 0) continue;
+    if (station.ipAddress.empty() || station.port <= 0) { ++skipped; continue; }
     MvrXchangeRemoteStation refreshedStation;
     tcpClient_.SendJoin(station, settings_, localCommits, refreshedStation, [this](const std::string &msg) { Log(msg); });
     if (tcpClient_.SendCommit(station, commit, [this](const std::string &msg) { Log(msg); })) ++sent;
@@ -208,7 +210,7 @@ void MvrXchangeService::SendCommitToJoinedStations(const MvrXchangeCommit &commi
     if (discovered > 0) Log("MVR-xchange has " + std::to_string(discovered) + " discovered station(s) but 0 joined station(s); no MVR_COMMIT was sent.");
     else Log("MVR-xchange did not send MVR_COMMIT because there are no joined remote stations.");
   } else {
-    Log("MVR-xchange sent MVR_COMMIT to " + std::to_string(sent) + " joined station(s), " + std::to_string(failed) + " failed.");
+    Log("MVR-xchange sent MVR_COMMIT to " + std::to_string(sent) + " joined station(s), " + std::to_string(failed) + " failed, " + std::to_string(skipped) + " without advertised endpoints.");
   }
 }
 
