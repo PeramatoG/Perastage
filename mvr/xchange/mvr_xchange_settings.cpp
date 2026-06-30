@@ -1,5 +1,6 @@
 #include "mvr_xchange_settings.h"
 #include "../../core/uuidutils.h"
+#include <cctype>
 #include <wx/config.h>
 #include <wx/stdpaths.h>
 #include <wx/string.h>
@@ -14,17 +15,41 @@ std::string LocalHostDisplayName() {
   if (dot != std::string::npos) host.resize(dot);
   if (host.empty()) host = wxGetHostName().ToStdString();
   if (host.empty()) host = "localhost";
-  std::string display;
-  for (char ch : host) {
-    if (ch == '-') display += " - ";
-    else display.push_back(ch);
-  }
-  return display;
+  return host;
 }
 
 // Builds the default MVR-xchange station name shown to remote clients.
 std::string DefaultMvrXchangeStationName() {
   return "Perastage on " + LocalHostDisplayName();
+}
+
+// Normalizes a station label for conservative persisted-default repair checks.
+std::string NormalizeStationLabel(const std::string &value) {
+  std::string normalized;
+  for (unsigned char ch : value) {
+    if (std::isalnum(ch)) normalized.push_back(static_cast<char>(std::tolower(ch)));
+  }
+  return normalized;
+}
+
+// Removes the default Perastage prefix from a normalized station label.
+std::string StripDefaultStationPrefix(std::string value) {
+  static const std::string prefix = NormalizeStationLabel("Perastage on");
+  if (value.rfind(prefix, 0) == 0) value.erase(0, prefix.size());
+  return value;
+}
+
+// Checks whether a saved station name looks like a truncated generated default.
+bool ShouldUseDefaultStationName(const std::string &stationName, const std::string &defaultStationName, const std::string &hostName) {
+  if (stationName.empty() || stationName == "Perastage") return true;
+  const std::string normalizedStation = NormalizeStationLabel(stationName);
+  const std::string normalizedDefault = NormalizeStationLabel(defaultStationName);
+  if (normalizedStation == normalizedDefault) return false;
+  const std::string stationHostPart = StripDefaultStationPrefix(normalizedStation);
+  const std::string normalizedHost = NormalizeStationLabel(hostName);
+  if (stationHostPart.size() < 8 || normalizedHost.empty()) return false;
+  return normalizedDefault.find(normalizedStation) != std::string::npos ||
+         normalizedHost.find(stationHostPart) != std::string::npos;
 }
 }
 
@@ -45,7 +70,9 @@ MvrXchangeSettings LoadMvrXchangeSettings() {
   if (config.Read("/MvrXchange/Port", &port)) settings.port = static_cast<int>(port);
   wxString selectedInterfaceId;
   if (config.Read("/MvrXchange/SelectedInterfaceId", &selectedInterfaceId)) settings.selectedInterfaceId = selectedInterfaceId.ToStdString();
-  if (settings.stationName.empty() || settings.stationName == "Perastage") settings.stationName = DefaultMvrXchangeStationName();
+  const std::string hostName = LocalHostDisplayName();
+  const std::string defaultStationName = DefaultMvrXchangeStationName();
+  if (ShouldUseDefaultStationName(settings.stationName, defaultStationName, hostName)) settings.stationName = defaultStationName;
   if (settings.stationUuid.empty()) settings.stationUuid = GenerateMvrXchangeUuid();
   return settings;
 }
