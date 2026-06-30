@@ -4,12 +4,33 @@
 #include <wx/config.h>
 #include <wx/string.h>
 #include <wx/utils.h>
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 
 namespace {
+#ifdef _WIN32
+// Returns the Windows DNS host name without triggering reverse DNS lookup delays.
+std::string WindowsDnsHostName() {
+  char buffer[256]{};
+  DWORD size = static_cast<DWORD>(sizeof(buffer));
+  if (!GetComputerNameExA(ComputerNamePhysicalDnsHostname, buffer, &size) || buffer[0] == '\0') return {};
+  return buffer;
+}
+#endif
+
 // Returns the local host name used in the default MVR-xchange station label.
 std::string LocalHostDisplayName() {
+#ifdef _WIN32
+  std::string host = WindowsDnsHostName();
+  if (host.empty()) host = wxGetHostName().ToStdString();
+#else
   std::string host = wxGetHostName().ToStdString();
+#endif
   const std::size_t dot = host.find('.');
   if (dot != std::string::npos) host.resize(dot);
   if (host.empty()) host = "localhost";

@@ -15,7 +15,7 @@ Changes since **v1.4.0**.
 ## Fixes
 
 - Improved MVR-xchange compatibility with clients such as grandMA3 by keeping joined TCP Mode peer connections available for immediate publish broadcasts, using a grandMA3 endpoint fallback when discovery only reports an incoming join, refreshing discovery before manual publishes, and sending each join refresh and commit announcement over the same TCP connection before waiting for acknowledgements.
-- Fixed MVR-xchange station naming so generated default names use the local computer name without slow full-host lookups, repair older truncated defaults, and no longer open with the station-name field selected.
+- Fixed MVR-xchange station naming so generated default names use the full Windows DNS computer name without slow reverse lookups, repair older truncated defaults, and no longer open with the station-name field selected or horizontally scrolled.
 - Simplified MVR-xchange file names so manual publishes use a readable project-name-and-timestamp pattern instead of exposing the internal file UUID.
 - Improved 3D fixture picking reliability by safely skipping malformed mesh triangles during ID-buffer picking instead of crashing.
 - Hardened 3D ID-buffer picking setup so incomplete OpenGL framebuffers fall back to ray-based selection.
