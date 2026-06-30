@@ -10,7 +10,7 @@ Changes since **v1.4.0**.
 
 ## Improvements
 
-- MVR-xchange now labels the default Perastage station with the local computer name, making it easier to identify in other applications.
+- MVR-xchange now labels the default Perastage station with the local computer name, preferring the full host name when available, making it easier to identify in other applications.
 
 ## Fixes
 

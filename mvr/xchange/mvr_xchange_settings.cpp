@@ -9,7 +9,10 @@
 namespace {
 // Returns the local host name used in the default MVR-xchange station label.
 std::string LocalHostDisplayName() {
-  std::string host = wxGetHostName().ToStdString();
+  std::string host = wxGetFullHostName().ToStdString();
+  const std::size_t dot = host.find('.');
+  if (dot != std::string::npos) host.resize(dot);
+  if (host.empty()) host = wxGetHostName().ToStdString();
   if (host.empty()) host = "localhost";
   std::string display;
   for (char ch : host) {
