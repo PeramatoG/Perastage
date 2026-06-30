@@ -40,9 +40,9 @@ The intended backend does not require a manual Bonjour or Avahi installation. If
 
 1. Open or create a scene in Perastage.
 2. Choose **File → MVR-xchange...**.
-3. Review the station name, group name, station UUID, and port.
+3. Review the station name, group name, station UUID, and port. New/default installations use a station label like `Perastage on PERAMATO - DESKTOP`, preferring the full host name when available; custom station names are preserved.
 4. Click **Start** to start the TCP Mode service and mDNS advertisement. The dialog status shows the advertised IP address and TCP port, for example `Running on 192.168.1.50:42424`.
-5. Click **Publish Current MVR** to export the current scene into memory and announce it as a new MVR revision.
+5. Click **Publish Current MVR** to export the current scene into memory and announce it as a new MVR revision. Perastage announces a user-friendly file name based on the current project name and UTC publish timestamp instead of exposing the internal `FileUUID` in the suggested file name.
 6. In a compatible client such as grandMA3, open the MVR-xchange view, select the same group name, select the same physical network interface, enable MVR-xchange, and request the published MVR revision.
 
 
@@ -52,12 +52,12 @@ The current MVR-xchange specification says TCP Mode uses mDNS discovery, the `_m
 
 1. Perastage registers `_mvrxchange._tcp.local.` and the selected group subservice, such as `Default._mvrxchange._tcp.local.`.
 2. Perastage tracks remote stations that are discovered through mDNS or that send an incoming `MVR_JOIN`.
-3. Perastage actively queries the selected group service for PTR/SRV/TXT/A records and stores discovered stations.
+3. Perastage actively queries both the selected group service and the base `_mvrxchange._tcp.local.` service for PTR/SRV/TXT/A records, then stores discovered stations with reachable TCP endpoints.
 4. Perastage answers incoming `MVR_JOIN` with `MVR_JOIN_RET` including local station identity and current commit metadata.
 5. Perastage sends outgoing `MVR_JOIN` and parses `MVR_JOIN_RET` for resolved remote stations.
-6. Published MVR revisions are announced through `MVR_COMMIT` to joined stations when an endpoint is available.
+6. Publishing a revision runs an immediate discovery pass, then opens one TCP connection per reachable joined station, sends an updated `MVR_JOIN`, waits for `MVR_JOIN_RET`, sends `MVR_COMMIT` on the same connection, and waits for `MVR_COMMIT_RET`. Keeping the join refresh and commit announcement on one connection follows the TCP Mode expectation that a connection starts with `MVR_JOIN` and the specification note that repeat joins can refresh the latest MVR file list.
 
-The dialog shows remote station counts and a simple station list for discovered, incoming joined, and outgoing joined stations. These counts help distinguish a raw TCP connection from a completed MVR-xchange handshake. Use **Discover Now** to run an immediate discovery pass instead of waiting for the periodic discovery loop.
+The dialog shows remote station counts and a simple station list for discovered, incoming joined, and outgoing joined stations. These counts help distinguish a raw TCP connection from a completed MVR-xchange handshake. Use **Discover Now** to run an immediate discovery pass instead of waiting for the periodic discovery loop. If a remote station only opens an incoming join connection and does not advertise a reachable TCP endpoint, Perastage cannot push a later `MVR_COMMIT` to that station through standard TCP Mode; the latest commit list is still returned on the station's next `MVR_JOIN`.
 
 
 ## Compliance and hardening notes
@@ -67,7 +67,7 @@ Perastage implements the official TCP Mode exchange path conservatively:
 - Supported official flows: mDNS/DNS-SD service advertisement, same-group discovery, `MVR_JOIN`, `MVR_JOIN_RET`, `MVR_LEAVE`, `MVR_COMMIT`, `MVR_COMMIT_RET`, `MVR_REQUEST`, and `MVR_REQUEST_RET` error responses.
 - Supported packet payloads: JSON UTF-8 packets for protocol messages and MVR file packets for successful file requests. Multi-packet payload reassembly is not currently implemented; Perastage emits single-packet JSON and MVR file payloads.
 - Message parsing rejects malformed JSON, missing required identity fields, invalid UUIDs in required UUID fields, and unsupported message types without crashing the service. Unsupported official session migration messages are not acted on by the TCP publisher.
-- Published revisions are kept in a bounded in-memory history. Each revision records the canonical `FileUUID`, local `StationUUID`, file name, comment, creation timestamp, file size, and MVR payload.
+- Published revisions are kept in a bounded in-memory history. Each revision records the canonical `FileUUID`, local `StationUUID`, user-friendly file name, comment, creation timestamp, file size, and MVR payload.
 - Perastage only serves already-published in-memory MVR payloads. It does not export a new MVR from a network worker, and it refuses empty payloads. Manual publishing validates that the exported archive contains `GeneralSceneDescription.xml` before the revision is announced.
 - Unknown `FileUUID` requests receive a standard `MVR_REQUEST_RET` error. Empty `FileUUID` requests use the specification-defined latest-file behavior and return an error when no revision is available.
 

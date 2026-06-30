@@ -1,4 +1,5 @@
 #include "mvr_xchange_dialog.h"
+#include "../mainwindow.h"
 #include <wx/app.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -136,6 +137,8 @@ void MvrXchangeDialog::OnDiscover(wxCommandEvent &) { service_->DiscoverNow(); R
 
 // Publishes the current scene as a new MVR revision.
 void MvrXchangeDialog::OnPublish(wxCommandEvent &) {
-  if (!service_->PublishCurrentScene("Manual publish from Perastage")) AppendLog("Publish failed.");
+  std::string projectName;
+  if (auto *mainWindow = dynamic_cast<MainWindow *>(GetParent())) projectName = mainWindow->GetCurrentProjectDisplayName().ToStdString();
+  if (!service_->PublishCurrentScene("Manual publish from Perastage", projectName)) AppendLog("Publish failed.");
   RefreshState();
 }
