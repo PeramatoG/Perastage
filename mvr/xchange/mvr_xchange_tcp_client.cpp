@@ -112,9 +112,15 @@ bool MvrXchangeTcpClient::SendCommit(const MvrXchangeRemoteStation &station, con
   int fd = -1;
   if (!Connect(station, fd, logCallback)) return false;
   const bool sent = SendJson(fd, mvr::xchange::BuildCommit(commit));
+  std::string response;
+  const bool received = sent && ReceiveJson(fd, response);
   CloseSocketFd(fd);
-  if (logCallback) logCallback(sent ? "MVR-xchange sent MVR_COMMIT to " + StationDisplayName(station) + "." : "MVR-xchange failed to send MVR_COMMIT to " + StationDisplayName(station) + ".");
-  return sent;
+  if (!sent) { if (logCallback) logCallback("MVR-xchange failed to send MVR_COMMIT to " + StationDisplayName(station) + "."); return false; }
+  if (!received) { if (logCallback) logCallback("MVR-xchange sent MVR_COMMIT to " + StationDisplayName(station) + " but did not receive MVR_COMMIT_RET."); return false; }
+  auto message = mvr::xchange::ParseMessage(response);
+  const bool ok = message && message->type == "MVR_COMMIT_RET" && message->ok;
+  if (logCallback) logCallback(ok ? "MVR-xchange sent MVR_COMMIT to " + StationDisplayName(station) + " and received MVR_COMMIT_RET." : "MVR-xchange MVR_COMMIT was not acknowledged by " + StationDisplayName(station) + ".");
+  return ok;
 }
 
 // Opens a short-lived TCP connection to a discovered MVR-xchange station.

@@ -12,6 +12,8 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Improved MVR-xchange compatibility with clients such as grandMA3 by refreshing the advertised commit list before each manual commit announcement and waiting for commit acknowledgements.
+- Simplified MVR-xchange file names so manual publishes use a readable station-name-and-timestamp pattern instead of exposing the internal file UUID.
 - Improved 3D fixture picking reliability by safely skipping malformed mesh triangles during ID-buffer picking instead of crashing.
 - Hardened 3D ID-buffer picking setup so incomplete OpenGL framebuffers fall back to ray-based selection.
 - Simplified 3D hover and selection highlighting so highlighted objects are drawn in the normal scene pass instead of a separate overlay pass or cached framebuffer refresh.

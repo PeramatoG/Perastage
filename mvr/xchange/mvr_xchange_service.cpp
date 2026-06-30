@@ -4,6 +4,7 @@
 #include "../../core/logger.h"
 #include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <iomanip>
 #include <iterator>
 #include <sstream>
@@ -28,6 +29,27 @@ std::string CurrentUtcTimestamp() {
 bool ContainsGeneralSceneDescription(const std::vector<uint8_t> &bytes) {
   static constexpr char kEntryName[] = "GeneralSceneDescription.xml";
   return std::search(bytes.begin(), bytes.end(), std::begin(kEntryName), std::end(kEntryName) - 1) != bytes.end();
+}
+
+// Converts a display name into a filesystem-friendly MVR base name.
+std::string SanitizeMvrFileBaseName(std::string name) {
+  for (char &ch : name) {
+    const unsigned char value = static_cast<unsigned char>(ch);
+    if (!std::isalnum(value) && ch != '-' && ch != '_' && ch != ' ') ch = '-';
+  }
+  while (!name.empty() && (name.front() == ' ' || name.front() == '-' || name.front() == '_')) name.erase(name.begin());
+  while (!name.empty() && (name.back() == ' ' || name.back() == '-' || name.back() == '_')) name.pop_back();
+  return name.empty() ? std::string("Perastage") : name;
+}
+
+// Builds the user-facing filename announced with an MVR-xchange commit.
+std::string BuildCommitFileName(const std::string &displayName, const std::string &timestampUtc) {
+  std::string compactTimestamp = timestampUtc;
+  for (char &ch : compactTimestamp) {
+    if (ch == ':' || ch == '-' || ch == 'T') ch = '_';
+  }
+  if (!compactTimestamp.empty() && compactTimestamp.back() == 'Z') compactTimestamp.pop_back();
+  return SanitizeMvrFileBaseName(displayName) + "-" + compactTimestamp + ".mvr";
 }
 }
 
@@ -97,9 +119,9 @@ bool MvrXchangeService::PublishCurrentScene(const std::string &comment) {
   MvrXchangeCommit commit;
   commit.fileUuid = GenerateMvrXchangeUuid();
   commit.stationUuid = CanonicalizeUuid(settings_.stationUuid);
-  commit.fileName = "Perastage-" + commit.fileUuid + ".mvr";
   commit.comment = comment;
   commit.timestampUtc = CurrentUtcTimestamp();
+  commit.fileName = BuildCommitFileName(settings_.stationName, commit.timestampUtc);
   commit.payload = std::move(bytes);
   {
     std::lock_guard lock(mutex_);
@@ -172,8 +194,11 @@ void MvrXchangeService::SendCommitToJoinedStations(const MvrXchangeCommit &commi
   const auto joined = [&] { std::lock_guard lock(mutex_); return stationRegistry_.JoinedStations(); }();
   int sent = 0;
   int failed = 0;
+  const auto localCommits = GetLocalCommits();
   for (const auto &station : joined) {
     if (station.ipAddress.empty() || station.port <= 0) continue;
+    MvrXchangeRemoteStation refreshedStation;
+    tcpClient_.SendJoin(station, settings_, localCommits, refreshedStation, [this](const std::string &msg) { Log(msg); });
     if (tcpClient_.SendCommit(station, commit, [this](const std::string &msg) { Log(msg); })) ++sent;
     else ++failed;
   }
