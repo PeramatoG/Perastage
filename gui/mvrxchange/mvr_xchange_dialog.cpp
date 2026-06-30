@@ -4,6 +4,8 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/thread.h>
+#include <wx/filename.h>
+#include <fstream>
 
 // Creates the MVR-xchange publisher dialog and loads persisted settings.
 MvrXchangeDialog::MvrXchangeDialog(wxWindow *parent)
@@ -65,8 +67,9 @@ void MvrXchangeDialog::BuildLayout() {
   startButton_ = new wxButton(this, wxID_ANY, "Start");
   stopButton_ = new wxButton(this, wxID_ANY, "Stop");
   publishButton_ = new wxButton(this, wxID_ANY, "Publish Current MVR");
+  requestButton_ = new wxButton(this, wxID_ANY, "Request Latest Remote MVR");
   discoverButton_ = new wxButton(this, wxID_ANY, "Discover Now");
-  buttons->Add(startButton_, 0, wxRIGHT, 8); buttons->Add(stopButton_, 0, wxRIGHT, 8); buttons->Add(discoverButton_, 0, wxRIGHT, 8); buttons->Add(publishButton_, 0, wxRIGHT, 8); buttons->AddStretchSpacer(); buttons->Add(new wxButton(this, wxID_CLOSE, "Close"));
+  buttons->Add(startButton_, 0, wxRIGHT, 8); buttons->Add(stopButton_, 0, wxRIGHT, 8); buttons->Add(discoverButton_, 0, wxRIGHT, 8); buttons->Add(publishButton_, 0, wxRIGHT, 8); buttons->Add(requestButton_, 0, wxRIGHT, 8); buttons->AddStretchSpacer(); buttons->Add(new wxButton(this, wxID_CLOSE, "Close"));
   root->Add(buttons, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 12);
   logCtrl_ = new wxTextCtrl(this, wxID_ANY, {}, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
   root->Add(logCtrl_, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 12);
@@ -74,6 +77,7 @@ void MvrXchangeDialog::BuildLayout() {
   startButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnStart, this);
   stopButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnStop, this);
   publishButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnPublish, this);
+  requestButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnRequest, this);
   discoverButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnDiscover, this);
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Close(); }, wxID_CLOSE);
   startButton_->SetFocus();
@@ -88,6 +92,7 @@ void MvrXchangeDialog::RefreshState() {
   startButton_->Enable(!running);
   stopButton_->Enable(running);
   publishButton_->Enable(running);
+  requestButton_->Enable(running);
   discoverButton_->Enable(running);
   if (remoteStationsText_) {
     std::size_t discovered = 0;
@@ -142,5 +147,37 @@ void MvrXchangeDialog::OnPublish(wxCommandEvent &) {
   std::string projectName;
   if (auto *mainWindow = dynamic_cast<MainWindow *>(GetParent())) projectName = mainWindow->GetCurrentProjectDisplayName().ToStdString();
   if (!service_->PublishCurrentScene("Manual publish from Perastage", projectName)) AppendLog("Publish failed.");
+  RefreshState();
+}
+
+// Requests the newest advertised remote MVR payload and imports it into the project.
+void MvrXchangeDialog::OnRequest(wxCommandEvent &) {
+  service_->DiscoverNow();
+  const auto stations = service_->GetKnownStations();
+  for (const auto &station : stations) {
+    if (station.commits.empty()) continue;
+    const auto &metadata = station.commits.back();
+    auto commit = service_->RequestRemoteCommit(station.stationUuid, metadata.fileUuid);
+    if (!commit || commit->payload.empty()) {
+      AppendLog(wxString("MVR-xchange request failed for FileUUID=") + wxString::FromUTF8(metadata.fileUuid) + ".");
+      continue;
+    }
+    wxFileName tempFile(wxFileName::CreateTempFileName("perastage_mvr_xchange_"));
+    tempFile.SetExt("mvr");
+    std::ofstream out(tempFile.GetFullPath().ToStdString(), std::ios::binary);
+    out.write(reinterpret_cast<const char *>(commit->payload.data()), static_cast<std::streamsize>(commit->payload.size()));
+    out.close();
+    if (!out) {
+      AppendLog("MVR-xchange could not write the requested MVR payload to a temporary file.");
+      return;
+    }
+    if (auto *mainWindow = dynamic_cast<MainWindow *>(GetParent())) {
+      AppendLog(wxString("Importing requested MVR-xchange file ") + wxString::FromUTF8(metadata.fileUuid) + ".");
+      mainWindow->OpenPathFromCommandLine(tempFile.GetFullPath().ToStdString());
+    }
+    RefreshState();
+    return;
+  }
+  AppendLog("No remote MVR-xchange files are currently advertised. Click Discover Now and try again.");
   RefreshState();
 }

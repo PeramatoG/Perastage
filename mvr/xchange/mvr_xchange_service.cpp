@@ -165,6 +165,27 @@ void MvrXchangeService::DiscoverNow() {
   if (IsRunning()) DiscoverStationsOnce();
 }
 
+
+// Requests an advertised remote MVR commit payload by station and FileUUID.
+std::optional<MvrXchangeCommit> MvrXchangeService::RequestRemoteCommit(const std::string &stationUuid, const std::string &fileUuid) {
+  const std::string canonicalStationUuid = CanonicalizeUuid(stationUuid);
+  const std::string canonicalFileUuid = CanonicalizeUuid(fileUuid);
+  const auto stations = GetKnownStations();
+  auto stationIt = std::find_if(stations.begin(), stations.end(), [&](const MvrXchangeRemoteStation &station) {
+    return !canonicalStationUuid.empty() && station.stationUuid == canonicalStationUuid;
+  });
+  if (stationIt == stations.end()) {
+    Log("MVR-xchange request failed because the remote station is no longer known.");
+    return std::nullopt;
+  }
+  const auto endpoint = ResolveOutgoingEndpoint(*stationIt);
+  if (endpoint.ipAddress.empty() || endpoint.port <= 0) {
+    Log("MVR-xchange request failed because the remote station has no reachable endpoint.");
+    return std::nullopt;
+  }
+  return tcpClient_.RequestCommit(endpoint, canonicalFileUuid, [this](const std::string &msg) { Log(msg); });
+}
+
 // Installs a log callback for GUI-safe status forwarding.
 void MvrXchangeService::SetLogCallback(LogCallback callback) { logCallback_ = std::move(callback); }
 

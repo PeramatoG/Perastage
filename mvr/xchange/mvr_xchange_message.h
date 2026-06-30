@@ -31,6 +31,7 @@ std::string BuildJoinRet(const std::string &stationUuid, const std::string &stat
 std::string BuildLeaveRet();
 std::string BuildCommit(const MvrXchangeCommit &commit);
 std::string BuildCommitRet(bool ok, const std::string &message = {});
+std::string BuildRequest(const std::string &fileUuid, const std::string &fromStationUuid = {});
 std::string BuildRequestError(const std::string &message);
 
 }

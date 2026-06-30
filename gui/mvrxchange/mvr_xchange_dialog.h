@@ -23,6 +23,7 @@ private:
   void OnStop(wxCommandEvent &event);
   void OnPublish(wxCommandEvent &event);
   void OnDiscover(wxCommandEvent &event);
+  void OnRequest(wxCommandEvent &event);
 
   MvrXchangeSettings settings_;
   std::unique_ptr<MvrXchangeService> service_;
@@ -40,5 +41,6 @@ private:
   wxButton *startButton_ = nullptr;
   wxButton *stopButton_ = nullptr;
   wxButton *publishButton_ = nullptr;
+  wxButton *requestButton_ = nullptr;
   wxButton *discoverButton_ = nullptr;
 };
