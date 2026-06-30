@@ -42,7 +42,7 @@ The intended backend does not require a manual Bonjour or Avahi installation. If
 2. Choose **File → MVR-xchange...**.
 3. Review the station name, group name, station UUID, and port.
 4. Click **Start** to start the TCP Mode service and mDNS advertisement. The dialog status shows the advertised IP address and TCP port, for example `Running on 192.168.1.50:42424`.
-5. Click **Publish Current MVR** to export the current scene into memory and announce it as a new MVR revision. Perastage announces a user-friendly file name based on the station name and UTC publish timestamp instead of exposing the internal `FileUUID` in the suggested file name.
+5. Click **Publish Current MVR** to export the current scene into memory and announce it as a new MVR revision. Perastage announces a user-friendly file name based on the current project name and UTC publish timestamp instead of exposing the internal `FileUUID` in the suggested file name.
 6. In a compatible client such as grandMA3, open the MVR-xchange view, select the same group name, select the same physical network interface, enable MVR-xchange, and request the published MVR revision.
 
 
@@ -57,7 +57,7 @@ The current MVR-xchange specification says TCP Mode uses mDNS discovery, the `_m
 5. Perastage sends outgoing `MVR_JOIN` and parses `MVR_JOIN_RET` for resolved remote stations.
 6. Publishing a revision runs an immediate discovery pass, then opens one TCP connection per reachable joined station, sends an updated `MVR_JOIN`, waits for `MVR_JOIN_RET`, sends `MVR_COMMIT` on the same connection, and waits for `MVR_COMMIT_RET`. Keeping the join refresh and commit announcement on one connection follows the TCP Mode expectation that a connection starts with `MVR_JOIN` and the specification note that repeat joins can refresh the latest MVR file list.
 
-The dialog shows remote station counts and a simple station list for discovered, incoming joined, and outgoing joined stations. These counts help distinguish a raw TCP connection from a completed MVR-xchange handshake. Use **Discover Now** to run an immediate discovery pass instead of waiting for the periodic discovery loop.
+The dialog shows remote station counts and a simple station list for discovered, incoming joined, and outgoing joined stations. These counts help distinguish a raw TCP connection from a completed MVR-xchange handshake. Use **Discover Now** to run an immediate discovery pass instead of waiting for the periodic discovery loop. If a remote station only opens an incoming join connection and does not advertise a reachable TCP endpoint, Perastage cannot push a later `MVR_COMMIT` to that station through standard TCP Mode; the latest commit list is still returned on the station's next `MVR_JOIN`.
 
 
 ## Compliance and hardening notes

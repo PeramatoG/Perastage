@@ -21,7 +21,7 @@ public:
   bool IsRunning() const;
   int Port() const;
   std::string AdvertisedIpAddress() const;
-  bool PublishCurrentScene(const std::string &comment);
+  bool PublishCurrentScene(const std::string &comment, const std::string &fileNameBase = {});
   std::vector<MvrXchangeCommit> GetLocalCommits() const;
   std::vector<MvrXchangeRemoteStation> GetKnownStations() const;
   void DiscoverNow();

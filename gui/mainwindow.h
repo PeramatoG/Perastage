@@ -77,6 +77,7 @@ public:
   bool IsStartupInitializationPending() const { return startupSplashInitializationPending; }
   bool IsMvrImportPipelineActive() const { return mvrImportPipelineActive; }
   bool CanProcessExternalOpenPath() const;
+  wxString GetCurrentProjectDisplayName() const;
 
   static MainWindow *Instance();
   static void SetInstance(MainWindow *inst);

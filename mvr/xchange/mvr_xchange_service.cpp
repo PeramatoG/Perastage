@@ -105,7 +105,7 @@ int MvrXchangeService::Port() const { return tcpServer_.Port(); }
 std::string MvrXchangeService::AdvertisedIpAddress() const { return mdnsService_.AdvertisedIpAddress(); }
 
 // Exports the current scene, stores it as a bounded commit, and announces it.
-bool MvrXchangeService::PublishCurrentScene(const std::string &comment) {
+bool MvrXchangeService::PublishCurrentScene(const std::string &comment, const std::string &fileNameBase) {
   std::vector<uint8_t> bytes;
   MvrExporter exporter;
   if (!exporter.ExportToBuffer(bytes) || bytes.empty()) {
@@ -121,7 +121,7 @@ bool MvrXchangeService::PublishCurrentScene(const std::string &comment) {
   commit.stationUuid = CanonicalizeUuid(settings_.stationUuid);
   commit.comment = comment;
   commit.timestampUtc = CurrentUtcTimestamp();
-  commit.fileName = BuildCommitFileName(settings_.stationName, commit.timestampUtc);
+  commit.fileName = BuildCommitFileName(fileNameBase.empty() ? settings_.stationName : fileNameBase, commit.timestampUtc);
   commit.payload = std::move(bytes);
   {
     std::lock_guard lock(mutex_);
