@@ -1,6 +1,7 @@
 #include "mvr_xchange_tcp_client.h"
 #include "mvr_xchange_message.h"
 #include "mvr_xchange_packet.h"
+#include "../../core/uuidutils.h"
 #include <cstring>
 #ifdef _WIN32
 #include <winsock2.h>
@@ -161,6 +162,40 @@ bool MvrXchangeTcpClient::SendJoinThenCommit(const MvrXchangeRemoteStation &stat
   const bool ok = commitMessage && commitMessage->type == "MVR_COMMIT_RET" && commitMessage->ok;
   if (logCallback) logCallback(ok ? "MVR-xchange sent MVR_JOIN and MVR_COMMIT to " + StationDisplayName(station) + " and received MVR_COMMIT_RET." : "MVR-xchange MVR_COMMIT was not acknowledged by " + StationDisplayName(station) + ".");
   return ok;
+}
+
+// Requests one advertised MVR file from a remote MVR-xchange station.
+std::optional<MvrXchangeCommit> MvrXchangeTcpClient::RequestCommit(const MvrXchangeRemoteStation &station, const std::string &fileUuid, LogCallback logCallback) {
+  int fd = -1;
+  if (!Connect(station, fd, logCallback)) return std::nullopt;
+  const bool sent = SendJson(fd, mvr::xchange::BuildRequest(fileUuid, station.stationUuid));
+  std::vector<uint8_t> buffer;
+  char chunk[4096];
+  while (sent) {
+    const int n = static_cast<int>(recv(fd, chunk, sizeof(chunk), 0));
+    if (n <= 0) break;
+    buffer.insert(buffer.end(), chunk, chunk + n);
+    if (auto packet = mvr::xchange::TryDecodePacket(buffer)) {
+      CloseSocketFd(fd);
+      if (packet->type == mvr::xchange::PacketType::MvrFile) {
+        MvrXchangeCommit commit;
+        commit.fileUuid = CanonicalizeUuid(fileUuid);
+        commit.stationUuid = CanonicalizeUuid(station.stationUuid);
+        commit.payload = std::move(packet->payload);
+        if (logCallback) logCallback("MVR-xchange received requested MVR payload from " + StationDisplayName(station) + ", bytes=" + std::to_string(commit.payload.size()) + ".");
+        return commit;
+      }
+      if (packet->type == mvr::xchange::PacketType::Json && logCallback) {
+        const std::string response(packet->payload.begin(), packet->payload.end());
+        auto message = mvr::xchange::ParseMessage(response);
+        logCallback("MVR-xchange request was rejected by " + StationDisplayName(station) + (message && !message->text.empty() ? ": " + message->text : "."));
+      }
+      return std::nullopt;
+    }
+  }
+  CloseSocketFd(fd);
+  if (logCallback) logCallback("MVR-xchange request failed while receiving from " + StationDisplayName(station) + ".");
+  return std::nullopt;
 }
 
 // Opens a short-lived TCP connection to a discovered MVR-xchange station.

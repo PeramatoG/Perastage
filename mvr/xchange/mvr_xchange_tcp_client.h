@@ -3,6 +3,7 @@
 #include "mvr_xchange_remote_station.h"
 #include "mvr_xchange_settings.h"
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -13,6 +14,7 @@ public:
   bool SendJoin(const MvrXchangeRemoteStation &station, const MvrXchangeSettings &settings, const std::vector<MvrXchangeCommit> &localCommits, MvrXchangeRemoteStation &joinedStation, LogCallback logCallback);
   bool SendCommit(const MvrXchangeRemoteStation &station, const MvrXchangeCommit &commit, LogCallback logCallback);
   bool SendJoinThenCommit(const MvrXchangeRemoteStation &station, const MvrXchangeSettings &settings, const std::vector<MvrXchangeCommit> &localCommits, const MvrXchangeCommit &commit, MvrXchangeRemoteStation &joinedStation, LogCallback logCallback);
+  std::optional<MvrXchangeCommit> RequestCommit(const MvrXchangeRemoteStation &station, const std::string &fileUuid, LogCallback logCallback);
 
 private:
   bool Connect(const MvrXchangeRemoteStation &station, int &fd, LogCallback logCallback);

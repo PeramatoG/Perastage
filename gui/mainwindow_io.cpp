@@ -249,6 +249,13 @@ bool MainWindow::OpenPathFromCommandLine(const std::string &path) {
   return ioController->OpenPathFromCommandLine(path);
 }
 
+// Imports an MVR file through the normal user choice dialog.
+bool MainWindow::ImportMvrWithUserChoice(const std::string &path) {
+  if (!CanProcessExternalOpenPath())
+    return false;
+  return ioController->ImportMvrWithUserChoice(path);
+}
+
 // Queues an external open path and processes it immediately only when startup is fully ready.
 void MainWindow::EnqueueExternalOpenPath(const std::string &path) {
   QueueDeferredStartupOpenPath(path);

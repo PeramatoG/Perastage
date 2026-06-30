@@ -6,6 +6,7 @@ Changes since **v1.4.0**.
 
 ## New features
 
+- Added MVR-xchange remote file requests with a larger selectable advertised-MVR list, Console-styled transfer log, corrected station-name alignment, and the standard import choice to open as a new project or merge into the current project.
 - Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
 
 ## Improvements
@@ -14,6 +15,8 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed the MVR-xchange log text styling so transfer messages use the same readable Console colors and monospaced font.
+- Fixed MVR-xchange mDNS advertisement so the service responder binds to the selected advertised interface, improving visibility in peer service lists when multiple local interfaces are available.
 - Improved MVR-xchange compatibility with clients such as grandMA3 by keeping joined TCP Mode peer connections available for immediate publish broadcasts, using a grandMA3 endpoint fallback when discovery only reports an incoming join, refreshing discovery before manual publishes, and sending each join refresh and commit announcement over the same TCP connection before waiting for acknowledgements.
 - Fixed MVR-xchange station naming so generated default names use the full Windows DNS computer name without slow reverse lookups, repair older truncated defaults, and no longer open with the station-name field selected or horizontally scrolled.
 - Simplified MVR-xchange file names so manual publishes use a readable project-name-and-timestamp pattern instead of exposing the internal file UUID.
