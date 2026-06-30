@@ -10,6 +10,8 @@ Changes since **v1.4.0**.
 
 ## Improvements
 
+- MVR-xchange now labels the default Perastage station with the local computer name, making it easier to identify in other applications.
+
 ## Fixes
 
 - Improved MVR-xchange compatibility with clients such as grandMA3 by refreshing discovery before manual publishes and sending each join refresh and commit announcement over the same TCP connection before waiting for acknowledgements.

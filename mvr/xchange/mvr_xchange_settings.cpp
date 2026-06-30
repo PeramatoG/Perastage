@@ -3,6 +3,27 @@
 #include <wx/config.h>
 #include <wx/stdpaths.h>
 #include <wx/string.h>
+#include <wx/utils.h>
+
+
+namespace {
+// Returns the local host name used in the default MVR-xchange station label.
+std::string LocalHostDisplayName() {
+  std::string host = wxGetHostName().ToStdString();
+  if (host.empty()) host = "localhost";
+  std::string display;
+  for (char ch : host) {
+    if (ch == '-') display += " - ";
+    else display.push_back(ch);
+  }
+  return display;
+}
+
+// Builds the default MVR-xchange station name shown to remote clients.
+std::string DefaultMvrXchangeStationName() {
+  return "Perastage on " + LocalHostDisplayName();
+}
+}
 
 // Generates a canonical UUID string for MVR-xchange station and file identities.
 std::string GenerateMvrXchangeUuid() { return CanonicalizeUuid(GenerateUuid()); }
@@ -21,6 +42,7 @@ MvrXchangeSettings LoadMvrXchangeSettings() {
   if (config.Read("/MvrXchange/Port", &port)) settings.port = static_cast<int>(port);
   wxString selectedInterfaceId;
   if (config.Read("/MvrXchange/SelectedInterfaceId", &selectedInterfaceId)) settings.selectedInterfaceId = selectedInterfaceId.ToStdString();
+  if (settings.stationName.empty() || settings.stationName == "Perastage") settings.stationName = DefaultMvrXchangeStationName();
   if (settings.stationUuid.empty()) settings.stationUuid = GenerateMvrXchangeUuid();
   return settings;
 }

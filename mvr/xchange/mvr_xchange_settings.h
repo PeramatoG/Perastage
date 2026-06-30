@@ -2,7 +2,7 @@
 #include <string>
 
 struct MvrXchangeSettings {
-  std::string stationName = "Perastage";
+  std::string stationName;
   std::string groupName = "Default";
   std::string stationUuid;
   int port = 0;
