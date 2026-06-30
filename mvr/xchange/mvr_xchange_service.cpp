@@ -51,6 +51,20 @@ std::string BuildCommitFileName(const std::string &displayName, const std::strin
   if (!compactTimestamp.empty() && compactTimestamp.back() == 'Z') compactTimestamp.pop_back();
   return SanitizeMvrFileBaseName(displayName) + "-" + compactTimestamp + ".mvr";
 }
+
+// Checks whether a station identity matches grandMA3's MVR-xchange endpoint behavior.
+bool IsGrandMa3Station(const MvrXchangeRemoteStation &station) {
+  std::string identity = station.provider + " " + station.stationName + " " + station.serviceInstanceName;
+  std::transform(identity.begin(), identity.end(), identity.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  return identity.find("grandma3") != std::string::npos || identity.find("gma3") != std::string::npos;
+}
+
+// Returns a reachable outgoing endpoint, including known compatibility fallbacks.
+MvrXchangeRemoteStation ResolveOutgoingEndpoint(MvrXchangeRemoteStation station) {
+  static constexpr int kGrandMa3MvrXchangePort = 42424;
+  if (!station.ipAddress.empty() && station.port <= 0 && IsGrandMa3Station(station)) station.port = kGrandMa3MvrXchangePort;
+  return station;
+}
 }
 
 // Starts the TCP publisher and advertises it through the mDNS abstraction.
@@ -176,15 +190,16 @@ void MvrXchangeService::HandleIncomingJoin(const MvrXchangeRemoteStation &statio
     }
   }
   Log("MVR-xchange remote stations: discovered=" + std::to_string(discovered) + ", incoming joined=" + std::to_string(incoming) + ", outgoing joined=" + std::to_string(outgoing) + ".");
-  if (station.port > 0) TryOutgoingJoin(station);
+  TryOutgoingJoin(station);
 }
 
 // Sends an outgoing MVR_JOIN to a remote station with a resolved service endpoint.
 void MvrXchangeService::TryOutgoingJoin(const MvrXchangeRemoteStation &station) {
-  if (station.ipAddress.empty() || station.port <= 0) return;
+  const auto endpoint = ResolveOutgoingEndpoint(station);
+  if (endpoint.ipAddress.empty() || endpoint.port <= 0) return;
   MvrXchangeRemoteStation joinedStation;
   const auto commits = GetLocalCommits();
-  if (!tcpClient_.SendJoin(station, settings_, commits, joinedStation, [this](const std::string &msg) { Log(msg); })) return;
+  if (!tcpClient_.SendJoin(endpoint, settings_, commits, joinedStation, [this](const std::string &msg) { Log(msg); })) return;
   std::lock_guard lock(mutex_);
   stationRegistry_.UpsertDiscovered(joinedStation);
   stationRegistry_.MarkOutgoingJoined(joinedStation.stationUuid, joinedStation.ipAddress, joinedStation.port);
@@ -198,9 +213,10 @@ void MvrXchangeService::SendCommitToJoinedStations(const MvrXchangeCommit &commi
   int skipped = 0;
   const auto localCommits = GetLocalCommits();
   for (const auto &station : joined) {
-    if (station.ipAddress.empty() || station.port <= 0) { ++skipped; continue; }
+    const auto endpoint = ResolveOutgoingEndpoint(station);
+    if (endpoint.ipAddress.empty() || endpoint.port <= 0) { ++skipped; continue; }
     MvrXchangeRemoteStation refreshedStation;
-    if (tcpClient_.SendJoinThenCommit(station, settings_, localCommits, commit, refreshedStation, [this](const std::string &msg) { Log(msg); })) {
+    if (tcpClient_.SendJoinThenCommit(endpoint, settings_, localCommits, commit, refreshedStation, [this](const std::string &msg) { Log(msg); })) {
       ++sent;
       std::lock_guard lock(mutex_);
       stationRegistry_.UpsertDiscovered(refreshedStation);
