@@ -55,7 +55,7 @@ The current MVR-xchange specification says TCP Mode uses mDNS discovery, the `_m
 3. Perastage actively queries both the selected group service and the base `_mvrxchange._tcp.local.` service for PTR/SRV/TXT/A records, then stores discovered stations with reachable TCP endpoints.
 4. Perastage answers incoming `MVR_JOIN` with `MVR_JOIN_RET` including local station identity and current commit metadata.
 5. Perastage sends outgoing `MVR_JOIN` and parses `MVR_JOIN_RET` for resolved remote stations.
-6. Publishing a revision runs an immediate discovery pass, then announces the revision through an updated `MVR_JOIN` commit list followed by `MVR_COMMIT` to joined stations when an endpoint is available. The extra join refresh follows the specification note that repeat joins can refresh the latest MVR file list and helps clients that only update their file grid from join metadata.
+6. Publishing a revision runs an immediate discovery pass, then opens one TCP connection per reachable joined station, sends an updated `MVR_JOIN`, waits for `MVR_JOIN_RET`, sends `MVR_COMMIT` on the same connection, and waits for `MVR_COMMIT_RET`. Keeping the join refresh and commit announcement on one connection follows the TCP Mode expectation that a connection starts with `MVR_JOIN` and the specification note that repeat joins can refresh the latest MVR file list.
 
 The dialog shows remote station counts and a simple station list for discovered, incoming joined, and outgoing joined stations. These counts help distinguish a raw TCP connection from a completed MVR-xchange handshake. Use **Discover Now** to run an immediate discovery pass instead of waiting for the periodic discovery loop.
 

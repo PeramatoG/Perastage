@@ -12,6 +12,7 @@ public:
 
   bool SendJoin(const MvrXchangeRemoteStation &station, const MvrXchangeSettings &settings, const std::vector<MvrXchangeCommit> &localCommits, MvrXchangeRemoteStation &joinedStation, LogCallback logCallback);
   bool SendCommit(const MvrXchangeRemoteStation &station, const MvrXchangeCommit &commit, LogCallback logCallback);
+  bool SendJoinThenCommit(const MvrXchangeRemoteStation &station, const MvrXchangeSettings &settings, const std::vector<MvrXchangeCommit> &localCommits, const MvrXchangeCommit &commit, MvrXchangeRemoteStation &joinedStation, LogCallback logCallback);
 
 private:
   bool Connect(const MvrXchangeRemoteStation &station, int &fd, LogCallback logCallback);

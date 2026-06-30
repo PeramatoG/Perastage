@@ -200,9 +200,14 @@ void MvrXchangeService::SendCommitToJoinedStations(const MvrXchangeCommit &commi
   for (const auto &station : joined) {
     if (station.ipAddress.empty() || station.port <= 0) { ++skipped; continue; }
     MvrXchangeRemoteStation refreshedStation;
-    tcpClient_.SendJoin(station, settings_, localCommits, refreshedStation, [this](const std::string &msg) { Log(msg); });
-    if (tcpClient_.SendCommit(station, commit, [this](const std::string &msg) { Log(msg); })) ++sent;
-    else ++failed;
+    if (tcpClient_.SendJoinThenCommit(station, settings_, localCommits, commit, refreshedStation, [this](const std::string &msg) { Log(msg); })) {
+      ++sent;
+      std::lock_guard lock(mutex_);
+      stationRegistry_.UpsertDiscovered(refreshedStation);
+      stationRegistry_.MarkOutgoingJoined(refreshedStation.stationUuid, refreshedStation.ipAddress, refreshedStation.port);
+    } else {
+      ++failed;
+    }
   }
   if (joined.empty()) {
     const auto stations = GetKnownStations();
