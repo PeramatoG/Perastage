@@ -41,7 +41,7 @@ std::string CommitDisplayName(const MvrXchangeCommit &commit) {
 // Creates the MVR-xchange dialog and loads persisted settings.
 MvrXchangeDialog::MvrXchangeDialog(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, "MVR-xchange", wxDefaultPosition,
-               wxSize(920, 680), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+               wxSize(1150, 850), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       settings_(LoadMvrXchangeSettings()), service_(std::make_unique<MvrXchangeService>()) {
   std::weak_ptr<bool> weakLifetime = lifetimeToken_;
   service_->SetLogCallback([this, weakLifetime](const std::string &message) {
@@ -68,7 +68,7 @@ MvrXchangeDialog::~MvrXchangeDialog() {
 
 // Builds the dialog controls for service status, settings, file requests, and logging.
 void MvrXchangeDialog::BuildLayout() {
-  SetMinSize(wxSize(840, 620));
+  SetMinSize(wxSize(1050, 775));
   SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
 
   auto *root = new wxBoxSizer(wxVERTICAL);
@@ -90,6 +90,8 @@ void MvrXchangeDialog::BuildLayout() {
   statusText_ = new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "Stopped");
   stationNameCtrl_ = new wxTextCtrl(settingsBox->GetStaticBox(), wxID_ANY, wxString::FromUTF8(settings_.stationName));
   stationNameCtrl_->SetSelection(0, 0);
+  stationNameCtrl_->SetInsertionPoint(0);
+  stationNameCtrl_->ShowPosition(0);
   groupNameCtrl_ = new wxTextCtrl(settingsBox->GetStaticBox(), wxID_ANY, wxString::FromUTF8(settings_.groupName));
   stationUuidCtrl_ = new wxTextCtrl(settingsBox->GetStaticBox(), wxID_ANY, wxString::FromUTF8(settings_.stationUuid), wxDefaultPosition, wxDefaultSize, wxTE_READONLY);
   portCtrl_ = new wxTextCtrl(settingsBox->GetStaticBox(), wxID_ANY, settings_.port > 0 ? wxString::Format("%d", settings_.port) : wxString("Auto"));
@@ -115,7 +117,7 @@ void MvrXchangeDialog::BuildLayout() {
   remoteStationsText_ = new wxStaticText(remoteBox->GetStaticBox(), wxID_ANY, "0 discovered, 0 incoming joined, 0 outgoing joined");
   remoteStationsText_->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
   remoteBox->Add(remoteStationsText_, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
-  availableFilesList_ = new wxDataViewListCtrl(remoteBox->GetStaticBox(), wxID_ANY, wxDefaultPosition, wxSize(-1, 180), wxDV_ROW_LINES | wxDV_SINGLE);
+  availableFilesList_ = new wxDataViewListCtrl(remoteBox->GetStaticBox(), wxID_ANY, wxDefaultPosition, wxSize(-1, 225), wxDV_ROW_LINES | wxDV_SINGLE);
   const int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
   availableFilesList_->AppendTextColumn("Station", wxDATAVIEW_CELL_INERT, 170, wxALIGN_LEFT, flags);
   availableFilesList_->AppendTextColumn("MVR file", wxDATAVIEW_CELL_INERT, 230, wxALIGN_LEFT, flags);
@@ -126,7 +128,7 @@ void MvrXchangeDialog::BuildLayout() {
   root->Add(remoteBox, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 14);
 
   auto *logBox = new wxStaticBoxSizer(wxVERTICAL, this, "Log");
-  logCtrl_ = new wxTextCtrl(logBox->GetStaticBox(), wxID_ANY, {}, wxDefaultPosition, wxSize(-1, 130), wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
+  logCtrl_ = new wxTextCtrl(logBox->GetStaticBox(), wxID_ANY, {}, wxDefaultPosition, wxSize(-1, 160), wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
   ApplyConsoleLogStyle();
   logBox->Add(logCtrl_, 1, wxEXPAND | wxALL, 10);
   root->Add(logBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 14);
@@ -155,6 +157,11 @@ void MvrXchangeDialog::BuildLayout() {
   availableFilesList_->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &MvrXchangeDialog::OnAvailableFileActivated, this);
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Close(); }, wxID_CLOSE);
   startButton_->SetFocus();
+  wxTheApp->CallAfter([this] {
+    if (shuttingDown_ || IsBeingDeleted() || !stationNameCtrl_) return;
+    stationNameCtrl_->SetInsertionPoint(0);
+    stationNameCtrl_->ShowPosition(0);
+  });
 }
 
 // Refreshes status labels, remote file rows, and button enablement from the service state.
