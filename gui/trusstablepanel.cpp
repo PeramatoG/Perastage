@@ -569,35 +569,6 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
                           ColumnIndex(TrussColumn::Weight));
                 }
             }
-            // Apply the model file to any other rows that share the original
-            // model name from the rider.  This lets multiple trusses with the
-            // same rider-specified model get updated in one action and ensures
-            // the dictionary entry uses that rider key.
-      for (unsigned int i = 0; i < table->GetItemCount(); ++i) {
-                wxVariant mv;
-        table->GetValue(mv, i, ColumnIndex(TrussColumn::Model));
-        if (mv.GetString() == wxString::FromUTF8(modelKey)) {
-                    SetModelPathsForRow(i, wxString::FromUTF8(archivePath),
-                                        wxString::FromUTF8(geomPath));
-          table->SetValue(wxVariant(fileName), i,
-                          ColumnIndex(TrussColumn::ModelFile));
-          if (parsedOk) {
-            table->SetValue(wxVariant(manuf), i,
-                            ColumnIndex(TrussColumn::Manufacturer));
-            table->SetValue(wxVariant(modelNameWx), i,
-                            ColumnIndex(TrussColumn::Model));
-            table->SetValue(wxVariant(lenStr), i,
-                            ColumnIndex(TrussColumn::Length));
-            table->SetValue(wxVariant(widStr), i,
-                            ColumnIndex(TrussColumn::Width));
-            table->SetValue(wxVariant(heiStr), i,
-                            ColumnIndex(TrussColumn::Height));
-            table->SetValue(wxVariant(weightStr), i,
-                            ColumnIndex(TrussColumn::Weight));
-                    }
-                    changed = true;
-                }
-            }
             if (!changed)
                 return;
             TrussDictionary::Update(modelKey, archivePath);
