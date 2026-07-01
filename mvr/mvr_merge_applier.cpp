@@ -164,11 +164,17 @@ void RemapImportedReferences(MvrScene &scene,
         RemapImportedUuidReference(support.motorFixtureUuid, analysis);
     support.parentGroupUuid =
         RemapImportedUuidReference(support.parentGroupUuid, analysis);
+    for (auto &geometry : support.geometries)
+      geometry.sourceSymdefUuid =
+          RemapImportedUuidReference(geometry.sourceSymdefUuid, analysis);
   }
 
   for (auto &[uuid, object] : scene.sceneObjects) {
     object.parentGroupUuid =
         RemapImportedUuidReference(object.parentGroupUuid, analysis);
+    for (auto &geometry : object.geometries)
+      geometry.sourceSymdefUuid =
+          RemapImportedUuidReference(geometry.sourceSymdefUuid, analysis);
   }
 
   for (auto &[uuid, group] : scene.groupObjects) {

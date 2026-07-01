@@ -15,6 +15,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed MVR merge imports so incoming fixture, truss, hoist, scene-object, and symbol resources are copied from the selected MVR package into the current scene before references are applied, preventing merged models from resolving against the already-open MVR.
 - Fixed the MVR-xchange log text styling so transfer messages use the same readable Console colors and monospaced font.
 - Fixed MVR-xchange remote imports so merging keeps the current project name, while opening a requested MVR as a new project uses the advertised MVR file name.
 - Fixed MVR-xchange mDNS advertisement so the service responder binds to the selected advertised interface, improving visibility in peer service lists when multiple local interfaces are available.

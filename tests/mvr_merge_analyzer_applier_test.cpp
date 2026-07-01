@@ -327,6 +327,7 @@ static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
   const std::filesystem::path importedBase = tempDir / "incoming_mvr";
 
   WriteGdtfFile(targetBase / "shared" / "fixture.gdtf", "current fixture");
+  WriteGdtfFile(targetBase / "symbols" / "symdef.3ds", "current symdef");
   WriteGdtfFile(importedBase / "shared" / "fixture.gdtf", "incoming fixture");
   WriteGdtfFile(importedBase / "truss" / "type.gdtf", "incoming truss gdtf");
   WriteGdtfFile(importedBase / "truss" / "symbol.3ds", "incoming symbol");
@@ -335,6 +336,12 @@ static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
   WriteGdtfFile(importedBase / "truss" / "aux.gdtf", "incoming truss aux");
   WriteGdtfFile(importedBase / "objects" / "object.3ds", "incoming object");
   WriteGdtfFile(importedBase / "objects" / "geometry.3ds", "incoming geometry");
+  WriteGdtfFile(importedBase / "supports" / "hoist.gdtf",
+                "incoming hoist gdtf");
+  WriteGdtfFile(importedBase / "supports" / "hoist.3ds",
+                "incoming hoist model");
+  WriteGdtfFile(importedBase / "supports" / "hoist_child.3ds",
+                "incoming hoist child");
   WriteGdtfFile(importedBase / "symbols" / "symdef.3ds", "incoming symdef");
   WriteGdtfFile(importedBase / "symbols" / "symdef_child.3ds",
                 "incoming symdef child");
@@ -343,6 +350,7 @@ static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
   target.basePath = targetBase.string();
   target.fixtures["current-fixture"] = MakeTypedFixture(
       "current-fixture", "Current", "shared/fixture.gdtf", "Mode A");
+  target.symdefFiles["incoming-symdef"] = "symbols/symdef.3ds";
 
   MvrScene imported;
   imported.basePath = importedBase.string();
@@ -362,7 +370,17 @@ static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
   object.modelFile = "objects/object.3ds";
   object.geometries.push_back(
       GeometryInstance{"objects/geometry.3ds", Matrix{}});
+  object.geometries.front().sourceSymdefUuid = "incoming-symdef";
   imported.sceneObjects[object.uuid] = object;
+
+  Support support;
+  support.uuid = "incoming-support";
+  support.gdtfSpec = "supports/hoist.gdtf";
+  support.modelFile = "supports/hoist.3ds";
+  support.geometries.push_back(
+      GeometryInstance{"supports/hoist_child.3ds", Matrix{}});
+  support.geometries.front().sourceSymdefUuid = "incoming-symdef";
+  imported.supports[support.uuid] = support;
 
   imported.symdefFiles["incoming-symdef"] = "symbols/symdef.3ds";
   imported.symdefGeometries["incoming-symdef"] = {
@@ -387,11 +405,20 @@ static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
   assert(ResourceExists(targetBase, mergedTruss.modelFile));
   assert(ResourceExists(targetBase, mergedTruss.perastageAuxGdtfArchivePath));
 
+  const Support &mergedSupport = target.supports.at("incoming-support");
+  assert(ResourceExists(targetBase, mergedSupport.gdtfSpec));
+  assert(ResourceExists(targetBase, mergedSupport.modelFile));
+  assert(
+      ResourceExists(targetBase, mergedSupport.geometries.front().modelFile));
+
   const SceneObject &mergedObject = target.sceneObjects.at("incoming-object");
   assert(ResourceExists(targetBase, mergedObject.modelFile));
   assert(ResourceExists(targetBase, mergedObject.geometries.front().modelFile));
   const std::string mergedSymdefUuid =
       mvr::RemapImportedUuidReference("incoming-symdef", analysis);
+  assert(mergedSupport.geometries.front().sourceSymdefUuid == mergedSymdefUuid);
+  assert(mergedObject.geometries.front().sourceSymdefUuid == mergedSymdefUuid);
+  assert(mergedSymdefUuid != "incoming-symdef");
   assert(ResourceExists(targetBase, target.symdefFiles.at(mergedSymdefUuid)));
   assert(ResourceExists(
       targetBase, target.symdefGeometries.at(mergedSymdefUuid).front().file));
@@ -405,6 +432,9 @@ static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
   assert(ResourceExists(reloadedBase, mergedTruss.symbolFile));
   assert(
       ResourceExists(reloadedBase, mergedObject.geometries.front().modelFile));
+  assert(ResourceExists(reloadedBase, mergedSupport.gdtfSpec));
+  assert(
+      ResourceExists(reloadedBase, mergedSupport.geometries.front().modelFile));
 }
 
 // Verifies duplicate patch addresses are warnings and do not block apply.

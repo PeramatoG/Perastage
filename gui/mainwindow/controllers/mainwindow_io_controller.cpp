@@ -490,8 +490,10 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
   MvrImportResult importResult;
   MvrImporter mergeImporter;
   owner->LockViewportInteraction();
+  MvrImportOptions importOptions;
+  importOptions.sourceKind = MvrImportSourceKind::MergeImport;
   const bool imported = mergeImporter.ImportFromFile(
-      pathUtf8, importResult, MvrImportMode::ParseOnly, true, true);
+      pathUtf8, importResult, MvrImportMode::ParseOnly, importOptions);
   owner->UnlockViewportInteraction();
 
   if (!imported) {
