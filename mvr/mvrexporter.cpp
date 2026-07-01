@@ -1901,8 +1901,10 @@ static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
 // Returns true when a truss carries Perastage-specific metadata for export.
 static bool HasTrussInfoMetadata(const Truss &truss) {
   return truss.hasManualLoadOverride || !truss.crossSection.empty() ||
-         !truss.modelFile.empty() ||
-         !truss.positionName.empty() ||
+         !truss.modelFile.empty() || !truss.positionName.empty() ||
+         !truss.manufacturer.empty() || !truss.model.empty() ||
+         truss.lengthMm > 0.0f || truss.widthMm > 0.0f ||
+         truss.heightMm > 0.0f || truss.weightKg > 0.0f ||
          truss.sourceRepresentation != Truss::GeometryRepresentation::Unknown ||
          !truss.perastageTypeKey.empty() ||
          !truss.perastageAuxGdtfArchivePath.empty();
@@ -1934,6 +1936,16 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
     load->SetText(std::to_string(truss.manualLoadKg).c_str());
     info->InsertEndChild(load);
   }
+  addTxt("Manufacturer", truss.manufacturer);
+  addTxt("Model", truss.model);
+  if (truss.lengthMm > 0.0f)
+    addTxt("Length", std::to_string(truss.lengthMm));
+  if (truss.widthMm > 0.0f)
+    addTxt("Width", std::to_string(truss.widthMm));
+  if (truss.heightMm > 0.0f)
+    addTxt("Height", std::to_string(truss.heightMm));
+  if (truss.weightKg > 0.0f)
+    addTxt("Weight", std::to_string(truss.weightKg));
   addTxt("CrossSection", truss.crossSection);
   addTxt("ModelFile", SanitizeArchiveFileName(truss.modelFile, ""));
   addTxt("PositionName", truss.positionName);

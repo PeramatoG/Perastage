@@ -11,7 +11,7 @@ Changes since **v1.4.0**.
 
 ## Improvements
 
-- Improved exported truss GDTF files so Perastage-generated or Perastage-normalized trusses use canonical `Manufacturer@Model@Perastage.gdtf` archive names and stricter GDTF truss structure metadata.
+- Improved exported truss GDTF files so Perastage-generated or Perastage-normalized trusses use canonical `Manufacturer@Model@Perastage.gdtf` archive names, stricter GDTF truss structure metadata, and preserve edited truss values across save/reopen roundtrips.
 - MVR-xchange now labels the default Perastage station with the local computer name, preferring the full host name when available, making it easier to identify in other applications.
 
 ## Fixes

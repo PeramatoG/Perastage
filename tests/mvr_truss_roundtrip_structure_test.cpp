@@ -323,10 +323,18 @@ int main() {
   tinyxml2::XMLElement *trussInfo = trussInfoMap->FirstChildElement("TrussInfo");
   assert(trussInfo != nullptr);
   assert(std::string(trussInfo->Attribute("uuid")) == truss.uuid);
-  assert(trussInfo->FirstChildElement("Manufacturer") == nullptr);
-  assert(trussInfo->FirstChildElement("Model") == nullptr);
-  assert(trussInfo->FirstChildElement("Length") == nullptr);
-  assert(trussInfo->FirstChildElement("Weight") == nullptr);
+  assert(std::string(trussInfo->FirstChildElement("Manufacturer")->GetText()) ==
+         truss.manufacturer);
+  assert(std::string(trussInfo->FirstChildElement("Model")->GetText()) ==
+         truss.model);
+  assert(std::abs(std::stof(trussInfo->FirstChildElement("Length")->GetText()) -
+                  truss.lengthMm) < 0.001f);
+  assert(std::abs(std::stof(trussInfo->FirstChildElement("Width")->GetText()) -
+                  truss.widthMm) < 0.001f);
+  assert(std::abs(std::stof(trussInfo->FirstChildElement("Height")->GetText()) -
+                  truss.heightMm) < 0.001f);
+  assert(std::abs(std::stof(trussInfo->FirstChildElement("Weight")->GetText()) -
+                  truss.weightKg) < 0.001f);
   assert(trussInfo->FirstChildElement("Load") == nullptr);
 
   scene.trusses.at(truss.uuid).manualLoadKg = 123.45f;
@@ -364,6 +372,11 @@ int main() {
   assert(!importedTruss.perastageAuxGdtfArchivePath.empty());
   assert(importedTruss.manufacturer == "Perastage");
   assert(importedTruss.model == "Tower 40");
+  assert(std::abs(importedTruss.lengthMm - truss.lengthMm) < 0.001f);
+  assert(std::abs(importedTruss.widthMm - truss.widthMm) < 0.001f);
+  assert(std::abs(importedTruss.heightMm - truss.heightMm) < 0.001f);
+  assert(std::abs(importedTruss.weightKg - truss.weightKg) < 0.001f);
+  assert(importedTruss.crossSection == truss.crossSection);
 
   cfg.Reset();
   assert(importer.ImportFromFile(manualLoadMvrPath.string(), false, false));
