@@ -318,9 +318,11 @@ void TrussTablePanel::ReloadData()
         std::string displayPath;
         std::string symbolFullPath;
         const std::string &base = cfg.GetScene().basePath;
-        if (!truss.modelFile.empty()) {
-            fs::path p = base.empty() ? fs::path(truss.modelFile)
-                                     : fs::path(base) / truss.modelFile;
+        const std::string modelReference =
+            !truss.gdtfSpec.empty() ? truss.gdtfSpec : truss.modelFile;
+        if (!modelReference.empty()) {
+            fs::path p = base.empty() ? fs::path(modelReference)
+                                     : fs::path(base) / modelReference;
             displayPath = p.string();
         } else if (!truss.symbolFile.empty()) {
             fs::path p = base.empty() ? fs::path(truss.symbolFile)
