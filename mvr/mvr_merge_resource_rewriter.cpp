@@ -185,6 +185,16 @@ void RewriteImportedSceneResourceReferences(const MvrScene &target,
                              rewrittenByOriginal);
   }
 
+  for (auto &[uuid, support] : imported.supports) {
+    RewriteResourceReference(target, imported, support.gdtfSpec,
+                             rewrittenByOriginal);
+    RewriteResourceReference(target, imported, support.modelFile,
+                             rewrittenByOriginal);
+    for (auto &geometry : support.geometries)
+      RewriteResourceReference(target, imported, geometry.modelFile,
+                               rewrittenByOriginal);
+  }
+
   for (auto &[uuid, object] : imported.sceneObjects) {
     RewriteResourceReference(target, imported, object.modelFile,
                              rewrittenByOriginal);
