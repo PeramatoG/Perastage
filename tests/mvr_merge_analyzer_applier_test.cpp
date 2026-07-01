@@ -437,6 +437,43 @@ static void VerifyImportedResourcesAreRewrittenIntoTargetBasePath() {
       ResourceExists(reloadedBase, mergedSupport.geometries.front().modelFile));
 }
 
+// Verifies merge imports into unsaved scenes create a resource base for models.
+static void VerifyMergeIntoEmptyBasePathCreatesResourceRoot() {
+  const std::filesystem::path tempDir = std::filesystem::temp_directory_path() /
+                                        "perastage_mvr_merge_empty_base_test";
+  std::filesystem::remove_all(tempDir);
+  const std::filesystem::path importedBase = tempDir / "incoming_mvr";
+
+  WriteGdtfFile(importedBase / "fixture.gdtf", "incoming fixture");
+  WriteGdtfFile(importedBase / "models" / "object.3ds", "incoming object");
+
+  MvrScene target;
+  MvrScene imported;
+  imported.basePath = importedBase.string();
+  imported.fixtures["incoming-fixture"] = MakeTypedFixture(
+      "incoming-fixture", "Incoming", "fixture.gdtf", "Mode A");
+  SceneObject object;
+  object.uuid = "incoming-object";
+  object.modelFile = "models/object.3ds";
+  object.geometries.push_back(
+      GeometryInstance{"models/object.3ds", Matrix{}});
+  imported.sceneObjects[object.uuid] = object;
+
+  const mvr::MvrMergeAnalysis analysis =
+      mvr::AnalyzeImportedSceneMerge(target, imported);
+  const mvr::MvrSceneMergeResult result =
+      mvr::ApplyImportedSceneMerge(target, imported, analysis);
+
+  assert(result.fixturesAdded == 1);
+  assert(!target.basePath.empty());
+  const std::filesystem::path targetBase = target.basePath;
+  assert(ResourceExists(targetBase,
+                        target.fixtures.at("incoming-fixture").gdtfSpec));
+  assert(ResourceExists(
+      targetBase,
+      target.sceneObjects.at("incoming-object").geometries.front().modelFile));
+}
+
 // Verifies duplicate patch addresses are warnings and do not block apply.
 static void VerifyDuplicatePatchAddressWarningDoesNotBlockMerge() {
   MvrScene target;
@@ -538,6 +575,7 @@ int main() {
   VerifySameLayerNameWithDifferentUuidRenamesIncomingLayer();
   VerifySymdefUuidCollisionWithDifferentGeometryFilesRemapsSymbol();
   VerifyImportedResourcesAreRewrittenIntoTargetBasePath();
+  VerifyMergeIntoEmptyBasePathCreatesResourceRoot();
   VerifyDuplicatePatchAddressWarningDoesNotBlockMerge();
   VerifyCancelBeforeApplyLeavesTargetUnchanged();
   VerifyFailureDuringApplyLeavesTargetUnchanged();
