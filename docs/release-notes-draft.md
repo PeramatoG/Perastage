@@ -16,6 +16,7 @@ Changes since **v1.4.0**.
 ## Fixes
 
 - Fixed the MVR-xchange log text styling so transfer messages use the same readable Console colors and monospaced font.
+- Fixed MVR-xchange remote imports so merging keeps the current project name, while opening a requested MVR as a new project uses the advertised MVR file name.
 - Fixed MVR-xchange mDNS advertisement so the service responder binds to the selected advertised interface, improving visibility in peer service lists when multiple local interfaces are available.
 - Improved MVR-xchange compatibility with clients such as grandMA3 by keeping joined TCP Mode peer connections available for immediate publish broadcasts, using a grandMA3 endpoint fallback when discovery only reports an incoming join, refreshing discovery before manual publishes, and sending each join refresh and commit announcement over the same TCP connection before waiting for acknowledgements.
 - Fixed MVR-xchange station naming so generated default names use the full Windows DNS computer name without slow reverse lookups, repair older truncated defaults, and no longer open with the station-name field selected or horizontally scrolled.

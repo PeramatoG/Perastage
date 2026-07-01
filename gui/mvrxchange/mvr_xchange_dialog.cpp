@@ -36,6 +36,40 @@ std::string CommitDisplayName(const MvrXchangeCommit &commit) {
   return commit.fileUuid;
 }
 
+// Returns a filesystem-safe MVR filename from advertised commit metadata.
+wxString RequestedMvrFileName(const std::string &fileName, const std::string &fileUuid) {
+  wxString name = wxString::FromUTF8(fileName.empty() ? fileUuid : fileName);
+  name.Trim(true).Trim(false);
+  if (name.empty())
+    name = "requested-mvr";
+
+  for (wxString::iterator it = name.begin(); it != name.end(); ++it) {
+    if (*it == '/' || *it == '\\' || *it == ':' || *it == '*' ||
+        *it == '?' || *it == '"' || *it == '<' || *it == '>' ||
+        *it == '|') {
+      *it = '_';
+    }
+  }
+
+  wxFileName filename(name);
+  if (filename.GetExt().IsEmpty())
+    filename.SetExt("mvr");
+  return filename.GetFullName();
+}
+
+// Creates a unique temporary path that preserves the advertised MVR filename.
+wxString CreateRequestedMvrTempPath(const std::string &fileName, const std::string &fileUuid) {
+  wxFileName tempDir(wxFileName::CreateTempFileName("perastage_mvr_xchange_"));
+  const wxString tempPath = tempDir.GetFullPath();
+  if (!tempPath.empty())
+    wxRemoveFile(tempPath);
+  if (!wxFileName::Mkdir(tempPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL))
+    return {};
+
+  wxFileName requestedFile(tempPath, RequestedMvrFileName(fileName, fileUuid));
+  return requestedFile.GetFullPath();
+}
+
 } // namespace
 
 // Creates the MVR-xchange dialog and loads persisted settings.
@@ -299,11 +333,13 @@ std::optional<MvrXchangeDialog::AvailableMvrFile> MvrXchangeDialog::SelectedAvai
 
 // Writes a requested MVR payload to a temporary file and runs the normal import choice flow.
 bool MvrXchangeDialog::ImportRequestedCommit(const AvailableMvrFile &file, const MvrXchangeCommit &commit) {
-  wxFileName tempFile(wxFileName::CreateTempFileName("perastage_mvr_xchange_"));
-  const wxString originalPath = tempFile.GetFullPath();
-  if (!originalPath.empty()) wxRemoveFile(originalPath);
-  tempFile.SetExt("mvr");
-  std::ofstream out(tempFile.GetFullPath().ToStdString(), std::ios::binary);
+  const wxString tempPath = CreateRequestedMvrTempPath(file.fileName, file.fileUuid);
+  if (tempPath.empty()) {
+    AppendLog("MVR-xchange could not create a temporary folder for the requested MVR payload.");
+    return false;
+  }
+
+  std::ofstream out(tempPath.ToStdString(), std::ios::binary);
   out.write(reinterpret_cast<const char *>(commit.payload.data()), static_cast<std::streamsize>(commit.payload.size()));
   out.close();
   if (!out) {
@@ -312,7 +348,7 @@ bool MvrXchangeDialog::ImportRequestedCommit(const AvailableMvrFile &file, const
   }
   if (auto *mainWindow = dynamic_cast<MainWindow *>(GetParent())) {
     AppendLog(wxString("Importing requested MVR-xchange file ") + wxString::FromUTF8(file.fileUuid) + ".");
-    return mainWindow->ImportMvrWithUserChoice(tempFile.GetFullPath().ToStdString());
+    return mainWindow->ImportMvrWithUserChoice(tempPath.ToStdString());
   }
   return false;
 }

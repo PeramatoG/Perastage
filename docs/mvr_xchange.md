@@ -17,6 +17,7 @@ MVR-xchange lets compatible applications discover each other on a local network 
 - Outgoing `MVR_JOIN` message construction and short-lived TCP client support for station handshakes and commit announcements.
 - Canonical lowercase UUID handling for local and remote MVR-xchange `StationUUID` and `FileUUID` values using Perastage's shared UUID utilities.
 - Requests for a known `FileUUID` return the matching non-empty MVR binary packet. Requests with an empty `FileUUID` use the specification-defined latest-revision behavior and return the latest published revision when one exists.
+- Requested remote MVR payloads keep the advertised MVR file name when opened as a new project, while merge imports preserve the current project name.
 
 ## Discovery requirements
 
