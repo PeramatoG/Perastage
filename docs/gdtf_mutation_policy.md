@@ -30,6 +30,7 @@ Perastage currently mutates GDTF archives at the following integration points.
 - `core/gdtf_canonicalizer.{h,cpp}` is the shared owner of export-time GDTF structural canonicalization and validation.
 - Write call sites in other modules must use this helper API instead of hand-rolling custom revision XML shapes.
 - Truss GDTF files generated, completed, normalized, or modified by Perastage are exported as derived Perastage-owned copies named `Manufacturer@Model@Perastage.gdtf`; external or library source GDTF files are read as inputs and are not overwritten.
+- GDTF model dimensions are written in meters. Perastage truss dimensions are stored in millimeters, so truss GDTF generation converts length, width, and height from millimeters to meters at export time.
 - Fixture SVG symbols remain stored inside their corresponding GDTF files; the `.pstg` symbol cache manifest stores metadata only and never stores SVG payloads.
 - Fixture display color is no longer persisted by mutating `description.xml` model `Color` values in place. The persisted source of truth for default color selection is the Perastage dictionary/project data layer, while `GetGdtfModelColor(...)` remains read-only for legacy fallback reads.
 

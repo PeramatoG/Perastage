@@ -70,7 +70,10 @@ static std::string ReadFixtureTypeIdFromGdtf(const fs::path &gdtfPath) {
 
 // Verifies generated truss GDTF archives use the canonical Structure root.
 static void AssertGeneratedTrussGdtfStructure(const fs::path &gdtfPath,
-                                             const std::string &crossSection) {
+                                             const std::string &crossSection,
+                                             float expectedLengthMeters,
+                                             float expectedWidthMeters,
+                                             float expectedHeightMeters) {
   const auto entries = ReadArchiveTextEntries(gdtfPath);
   auto it = entries.find("description.xml");
   assert(it != entries.end());
@@ -86,6 +89,14 @@ static void AssertGeneratedTrussGdtfStructure(const fs::path &gdtfPath,
   assert(fixtureType != nullptr);
   assert(fixtureType->Attribute("FixtureTypeID") != nullptr);
   assert(fixtureType->FirstChildElement("PerastageMutationAudit") == nullptr);
+
+  tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
+  assert(models != nullptr);
+  tinyxml2::XMLElement *model = models->FirstChildElement("Model");
+  assert(model != nullptr);
+  assert(std::abs(model->FloatAttribute("Length") - expectedLengthMeters) < 0.001f);
+  assert(std::abs(model->FloatAttribute("Width") - expectedWidthMeters) < 0.001f);
+  assert(std::abs(model->FloatAttribute("Height") - expectedHeightMeters) < 0.001f);
 
   tinyxml2::XMLElement *geometries = fixtureType->FirstChildElement("Geometries");
   assert(geometries != nullptr);
@@ -506,7 +517,7 @@ int main() {
   assert(BuildTrussGdtfFromInstance(typeA, gdtfA1, &error));
   assert(BuildTrussGdtfFromInstance(typeASame, gdtfA2, &error));
   assert(BuildTrussGdtfFromInstance(typeB, gdtfB, &error));
-  AssertGeneratedTrussGdtfStructure(gdtfA1, "GenericTruss");
+  AssertGeneratedTrussGdtfStructure(gdtfA1, "GenericTruss", 3.0f, 0.4f, 0.4f);
   assert(ReadFixtureTypeIdFromGdtf(gdtfA1) == ReadFixtureTypeIdFromGdtf(gdtfA2));
   assert(ReadFixtureTypeIdFromGdtf(gdtfA1) != ReadFixtureTypeIdFromGdtf(gdtfB));
 

@@ -101,6 +101,11 @@ static std::string Trim(std::string value) {
   return value;
 }
 
+// Converts Perastage truss dimensions from millimeters to GDTF meters.
+static float MillimetersToGdtfMeters(float millimeters) {
+  return millimeters / 1000.0f;
+}
+
 static std::string Slug(const std::string &input, const std::string &fallback) {
   std::string out;
   out.reserve(input.size());
@@ -316,9 +321,9 @@ static std::string BuildDescriptionXml(const TrussSourceData &data) {
   auto *models = doc.NewElement("Models");
   auto *mainModel = doc.NewElement("Model");
   mainModel->SetAttribute("Name", "Main");
-  mainModel->SetAttribute("Length", data.lengthMm / 1000.0f);
-  mainModel->SetAttribute("Width", data.widthMm / 1000.0f);
-  mainModel->SetAttribute("Height", data.heightMm / 1000.0f);
+  mainModel->SetAttribute("Length", MillimetersToGdtfMeters(data.lengthMm));
+  mainModel->SetAttribute("Width", MillimetersToGdtfMeters(data.widthMm));
+  mainModel->SetAttribute("Height", MillimetersToGdtfMeters(data.heightMm));
   mainModel->SetAttribute("PrimitiveType", "Base");
   mainModel->SetAttribute("File", "main");
   models->InsertEndChild(mainModel);
