@@ -782,25 +782,61 @@ static void AppendFixtureTypeMetadata(
   perastageData->InsertEndChild(map);
 }
 
-// Builds the preferred root-level GDTF archive filename for a truss.
+// Builds the canonical root-level Perastage GDTF archive filename for a truss.
 static std::string BuildTrussGdtfArchiveName(const Truss &truss) {
-  std::string baseName = TrimAscii(truss.model);
-  if (baseName.empty()) {
-    if (truss.lengthMm > 0.0f) {
-      const int lengthMeters =
-          static_cast<int>(std::lround(truss.lengthMm / 1000.0f));
-      if (lengthMeters > 0)
-        baseName = "truss " + std::to_string(lengthMeters) + "m";
-    }
+  std::string fallbackModel = TrimAscii(truss.model);
+  if (fallbackModel.empty() && truss.lengthMm > 0.0f) {
+    const int lengthMm = static_cast<int>(std::lround(truss.lengthMm));
+    if (lengthMm > 0)
+      fallbackModel = "Truss_" + std::to_string(lengthMm) + "mm";
   }
-  if (baseName.empty())
-    baseName = "truss";
+  if (fallbackModel.empty())
+    fallbackModel = "Truss";
 
-  fs::path candidate(baseName);
-  if (candidate.extension().empty())
-    baseName += ".gdtf";
+  return SanitizeArchiveFileName(
+      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(
+          truss.manufacturer, truss.model, fallbackModel),
+      "Unknown@Truss@Perastage.gdtf");
+}
 
-  return SanitizeArchiveFileName(baseName, "truss.gdtf");
+// Builds the stable source identity used to share edited truss type metadata.
+static std::string BuildTrussSourceMetadataKey(const Truss &truss) {
+  std::string key = TrimAscii(truss.gdtfSpec);
+  if (key.empty())
+    key = TrimAscii(truss.modelFile);
+  if (key.empty())
+    key = TrimAscii(truss.symbolFile);
+  return key;
+}
+
+// Copies edited type-level truss metadata when the source provides a value.
+static void MergeTrussTypeMetadata(Truss &target, const Truss &source) {
+  if (!source.manufacturer.empty())
+    target.manufacturer = source.manufacturer;
+  if (!source.model.empty())
+    target.model = source.model;
+  if (!source.crossSection.empty())
+    target.crossSection = source.crossSection;
+  if (source.lengthMm > 0.0f)
+    target.lengthMm = source.lengthMm;
+  if (source.widthMm > 0.0f)
+    target.widthMm = source.widthMm;
+  if (source.heightMm > 0.0f)
+    target.heightMm = source.heightMm;
+  if (source.weightKg > 0.0f)
+    target.weightKg = source.weightKg;
+}
+
+// Returns a truss copy with shared edited type metadata applied.
+static Truss BuildEffectiveTrussTypeMetadata(
+    const Truss &truss,
+    const std::unordered_map<std::string, Truss> &metadataBySourceKey) {
+  Truss effective = truss;
+  const std::string sourceKey = BuildTrussSourceMetadataKey(truss);
+  auto it = metadataBySourceKey.find(sourceKey);
+  if (it != metadataBySourceKey.end())
+    MergeTrussTypeMetadata(effective, it->second);
+  return effective;
 }
 
 // Builds the internal truss type key used for export-time resource reuse.
@@ -1905,8 +1941,10 @@ static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
 // Returns true when a truss carries Perastage-specific metadata for export.
 static bool HasTrussInfoMetadata(const Truss &truss) {
   return truss.hasManualLoadOverride || !truss.crossSection.empty() ||
-         !truss.modelFile.empty() ||
-         !truss.positionName.empty() ||
+         !truss.modelFile.empty() || !truss.positionName.empty() ||
+         !truss.manufacturer.empty() || !truss.model.empty() ||
+         truss.lengthMm > 0.0f || truss.widthMm > 0.0f ||
+         truss.heightMm > 0.0f || truss.weightKg > 0.0f ||
          truss.sourceRepresentation != Truss::GeometryRepresentation::Unknown ||
          !truss.perastageTypeKey.empty() ||
          !truss.perastageAuxGdtfArchivePath.empty();
@@ -1938,6 +1976,16 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
     load->SetText(std::to_string(truss.manualLoadKg).c_str());
     info->InsertEndChild(load);
   }
+  addTxt("Manufacturer", truss.manufacturer);
+  addTxt("Model", truss.model);
+  if (truss.lengthMm > 0.0f)
+    addTxt("Length", std::to_string(truss.lengthMm));
+  if (truss.widthMm > 0.0f)
+    addTxt("Width", std::to_string(truss.widthMm));
+  if (truss.heightMm > 0.0f)
+    addTxt("Height", std::to_string(truss.heightMm));
+  if (truss.weightKg > 0.0f)
+    addTxt("Weight", std::to_string(truss.weightKg));
   addTxt("CrossSection", truss.crossSection);
   addTxt("ModelFile", SanitizeArchiveFileName(truss.modelFile, ""));
   addTxt("PositionName", truss.positionName);
@@ -2521,8 +2569,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
 
   auto registerGdtfResource =
       [&](const std::string &objectUuid, const std::string &rawGdtfPath,
-                                  const std::string &preferredName,
-                                  bool allowReuseBySource = true) -> std::string {
+          const std::string &preferredName, bool allowReuseBySource = true,
+          bool usePreferredDerivativeName = false) -> std::string {
     if (rawGdtfPath.empty())
       return {};
 
@@ -2541,7 +2589,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
         resolvedGdtfPath.empty() ? rawGdtfPath : resolvedGdtfPath;
 
     std::string fileName = preferredName;
-    if (ToLowerAscii(PathUtils::PathFromUtf8(rawGdtfPath).extension().string()) ==
+    if (!usePreferredDerivativeName &&
+        ToLowerAscii(PathUtils::PathFromUtf8(rawGdtfPath).extension().string()) ==
             ".gdtf" &&
         !GdtfDictionary::IsPerastageNamedGdtfFile(rawGdtfPath)) {
       fileName =
@@ -2956,6 +3005,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   tinyxml2::XMLElement *trussInfoMap = doc.NewElement("TrussInfoMap");
   tinyxml2::XMLElement *hoistInfoMap = doc.NewElement("HoistInfoMap");
   std::map<std::string, FixtureTypeInfoExport> fixtureTypeMetadata;
+  std::unordered_map<std::string, Truss> trussTypeMetadataBySourceKey;
+  for (const auto &[uuid, truss] : scene.trusses) {
+    (void)uuid;
+    const std::string sourceKey = BuildTrussSourceMetadataKey(truss);
+    if (sourceKey.empty())
+      continue;
+    MergeTrussTypeMetadata(trussTypeMetadataBySourceKey[sourceKey], truss);
+  }
 
   int exportedRealFixtureGdtfCount = 0;
   int exportedDummyFixtureGdtfCount = 0;
@@ -3181,6 +3238,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   };
 
   auto exportTruss = [&](tinyxml2::XMLElement *parent, const Truss &t) {
+    const Truss effectiveTruss =
+        BuildEffectiveTrussTypeMetadata(t, trussTypeMetadataBySourceKey);
     tinyxml2::XMLElement *te = doc.NewElement("Truss");
     const auto exportUuidIt = trussExportUuids.find(t.uuid);
     const std::string exportedTrussUuid =
@@ -3213,7 +3272,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       fixtureNumericId = 1;
     std::string fixtureId = std::to_string(fixtureNumericId);
 
-    std::string trussTypeKey = BuildTrussTypeKey(t);
+    std::string trussTypeKey = BuildTrussTypeKey(effectiveTruss);
     std::string trussGdtfArchivePath;
     auto trussArchiveIt = trussArchiveByTypeKey.find(trussTypeKey);
     if (trussArchiveIt != trussArchiveByTypeKey.end()) {
@@ -3236,18 +3295,18 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
             ("perastage-truss-export-" +
              (t.uuid.empty() ? std::string("truss") : t.uuid) + ".gdtf");
         std::string conversionError;
-        if (BuildTrussGdtfFromInstance(t, tempPath, &conversionError))
+        if (BuildTrussGdtfFromInstance(effectiveTruss, tempPath, &conversionError))
           trussSourceGdtf = tempPath.string();
       }
 
-      std::string trussPreferredName = BuildTrussGdtfArchiveName(t);
+      std::string trussPreferredName = BuildTrussGdtfArchiveName(effectiveTruss);
       trussGdtfArchivePath = registerGdtfResource(
-          exportedTrussUuid, trussSourceGdtf, trussPreferredName, true);
+          exportedTrussUuid, trussSourceGdtf, trussPreferredName, true, true);
       if (!trussGdtfArchivePath.empty())
         trussArchiveByTypeKey[trussTypeKey] = trussGdtfArchivePath;
     }
     const std::string exportTrussTypeKey =
-        BuildExportTrussTypeKey(t, trussGdtfArchivePath);
+        BuildExportTrussTypeKey(effectiveTruss, trussGdtfArchivePath);
     if (!trussTypeKey.empty()) {
       trussExportTypeKeyByTypeKey[trussTypeKey] = exportTrussTypeKey;
       trussInstanceToTypeKey[exportedTrussUuid] = exportTrussTypeKey;
@@ -3256,15 +3315,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     if (!trussGdtfArchivePath.empty()) {
       auto &ov = gdtfOverrides[trussGdtfArchivePath];
       ov.hasLengthMm = true;
-      ov.lengthMm = t.lengthMm;
+      ov.lengthMm = effectiveTruss.lengthMm;
       ov.hasWidthMm = true;
-      ov.widthMm = t.widthMm;
+      ov.widthMm = effectiveTruss.widthMm;
       ov.hasHeightMm = true;
-      ov.heightMm = t.heightMm;
+      ov.heightMm = effectiveTruss.heightMm;
       ov.hasWeightKg = true;
-      ov.weightKg = t.weightKg;
-      ov.manufacturer = t.manufacturer;
-      ov.model = t.model;
+      ov.weightKg = effectiveTruss.weightKg;
+      ov.manufacturer = effectiveTruss.manufacturer;
+      ov.model = effectiveTruss.model;
     }
 
     const bool writeWorldTransform = t.parentGroupUuid.empty();
@@ -3436,7 +3495,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     addInt("CustomId", t.customId);
     addInt("CustomIdType", t.customIdType);
 
-    AppendTrussInfoMetadata(doc, trussInfoMap, t, exportedTrussUuid,
+    AppendTrussInfoMetadata(doc, trussInfoMap, effectiveTruss, exportedTrussUuid,
                             exportTrussTypeKey, trussGdtfArchivePath);
 
     parent->InsertEndChild(te);

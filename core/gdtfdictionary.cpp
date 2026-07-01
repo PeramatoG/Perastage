@@ -320,19 +320,14 @@ bool TryReadGdtfIdentityFromDescription(const std::filesystem::path &sourcePath,
   return !manufacturerOut.empty() || !fixtureTypeOut.empty();
 }
 
-// Builds a canonical Perastage export filename using parsed GDTF identity
-// values.
-std::string
-BuildPerastageCanonicalGdtfFileName(const std::filesystem::path &sourcePath) {
-  std::string manufacturerName;
-  std::string fixtureTypeName;
-  TryReadGdtfIdentityFromDescription(sourcePath, manufacturerName,
-                                     fixtureTypeName);
-
+// Builds a canonical Perastage export filename from identity values.
+std::string BuildPerastageCanonicalGdtfFileNameFromIdentity(
+    std::string manufacturerName, std::string fixtureTypeName,
+    const std::string &fallbackStem) {
   if (manufacturerName.empty())
     manufacturerName = "Unknown";
   if (fixtureTypeName.empty())
-    fixtureTypeName = sourcePath.stem().string();
+    fixtureTypeName = fallbackStem;
 
   std::replace(manufacturerName.begin(), manufacturerName.end(), '@', '_');
   std::replace(manufacturerName.begin(), manufacturerName.end(), ' ', '_');
@@ -343,8 +338,19 @@ BuildPerastageCanonicalGdtfFileName(const std::filesystem::path &sourcePath) {
   if (manufacturerName.empty())
     manufacturerName = "Unknown";
   if (fixtureTypeName.empty())
-    fixtureTypeName = sourcePath.stem().string();
+    fixtureTypeName = "Fixture";
   return manufacturerName + "@" + fixtureTypeName + "@Perastage.gdtf";
+}
+
+// Builds a canonical Perastage export filename using parsed GDTF identity values.
+std::string
+BuildPerastageCanonicalGdtfFileName(const std::filesystem::path &sourcePath) {
+  std::string manufacturerName;
+  std::string fixtureTypeName;
+  TryReadGdtfIdentityFromDescription(sourcePath, manufacturerName,
+                                     fixtureTypeName);
+  return BuildPerastageCanonicalGdtfFileNameFromIdentity(
+      manufacturerName, fixtureTypeName, sourcePath.stem().string());
 }
 
 std::optional<std::string>
@@ -974,6 +980,14 @@ void UpdateDictionaryEntry(const std::string &type, const Entry &entry) {
 // Builds the canonical @Perastage derivative filename for a GDTF file.
 std::string BuildPerastageCanonicalGdtfFileName(const std::string &gdtfPath) {
   return BuildPerastageCanonicalGdtfFileName(PathUtils::PathFromUtf8(gdtfPath));
+}
+
+// Builds the canonical @Perastage derivative filename from explicit identity values.
+std::string BuildPerastageCanonicalGdtfFileName(
+    const std::string &manufacturer, const std::string &model,
+    const std::string &fallbackStem) {
+  return BuildPerastageCanonicalGdtfFileNameFromIdentity(
+      TrimAsciiWhitespace(manufacturer), TrimAsciiWhitespace(model), fallbackStem);
 }
 
 // Returns true when a GDTF path already has canonical Perastage derivative naming.
