@@ -166,6 +166,11 @@ std::string BuildCommitRet(bool ok, const std::string &message) {
   return nlohmann::json{{"Type", "MVR_COMMIT_RET"}, {"OK", ok}, {"Message", message}}.dump();
 }
 
+// Builds the official MVR_REQUEST message for one advertised file.
+std::string BuildRequest(const std::string &fileUuid, const std::string &fromStationUuid) {
+  return nlohmann::json{{"Type", "MVR_REQUEST"}, {"FileUUID", CanonicalizeUuid(fileUuid)}, {"FromStationUUID", CanonicalizeUuid(fromStationUuid)}}.dump();
+}
+
 // Builds the official MVR_REQUEST_RET error response.
 std::string BuildRequestError(const std::string &message) {
   return nlohmann::json{{"Type", "MVR_REQUEST_RET"}, {"OK", false}, {"Message", message}}.dump();

@@ -153,6 +153,7 @@ std::vector<MvrXchangeRemoteStation> MvrXchangeMdnsDiscovery::DiscoverStations(c
   DiscoveryContext context;
   context.groupServiceName = groupServiceName;
   QueryAndReceive(socketFd, MDNS_RECORDTYPE_PTR, groupServiceName, context);
+  QueryAndReceive(socketFd, MDNS_RECORDTYPE_PTR, mvr::xchange::kMvrXchangeServiceType, context);
   std::set<std::string> queriedHosts;
   for (const auto &entry : context.byInstance) {
     QueryAndReceive(socketFd, MDNS_RECORDTYPE_SRV, entry.first, context);

@@ -10,6 +10,7 @@ public:
   explicit MainWindowIoController(MainWindow &owner);
   void OnImportMVR(wxCommandEvent &event);
   bool OpenPathFromCommandLine(const std::string &pathUtf8);
+  bool ImportMvrWithUserChoice(const std::string &pathUtf8);
   bool MergeMvrFromPath(const std::string &pathUtf8);
 
 private:

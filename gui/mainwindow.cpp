@@ -1079,6 +1079,17 @@ void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
   UpdateTitle();
 }
 
+
+// Returns the current project name displayed in the main window title.
+wxString MainWindow::GetCurrentProjectDisplayName() const {
+  if (!currentProjectPath.empty()) {
+    wxFileName fn(wxString::FromUTF8(currentProjectPath));
+    return fn.GetName();
+  }
+  if (!currentProjectDisplayName.IsEmpty()) return currentProjectDisplayName;
+  return "Untitled";
+}
+
 void MainWindow::UpdateTitle() {
   wxString title = app::kName;
   if (!currentProjectPath.empty()) {

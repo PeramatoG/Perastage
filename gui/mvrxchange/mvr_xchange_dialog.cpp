@@ -1,12 +1,81 @@
 #include "mvr_xchange_dialog.h"
+#include "../mainwindow.h"
 #include <wx/app.h>
+#include <wx/filefn.h>
+#include <wx/filename.h>
 #include <wx/sizer.h>
+#include <wx/statbox.h>
 #include <wx/stattext.h>
+#include <wx/settings.h>
 #include <wx/thread.h>
+#include <fstream>
 
-// Creates the MVR-xchange publisher dialog and loads persisted settings.
+namespace {
+
+// Formats bytes for the MVR file list.
+wxString FormatFileSize(std::size_t bytes) {
+  if (bytes >= 1024u * 1024u)
+    return wxString::Format("%.1f MB", static_cast<double>(bytes) / (1024.0 * 1024.0));
+  if (bytes >= 1024u)
+    return wxString::Format("%.1f KB", static_cast<double>(bytes) / 1024.0);
+  return wxString::Format("%zu B", bytes);
+}
+
+// Returns the most useful display name for a remote station.
+std::string StationDisplayName(const MvrXchangeRemoteStation &station) {
+  if (!station.stationName.empty()) return station.stationName;
+  if (!station.serviceInstanceName.empty()) return station.serviceInstanceName;
+  if (!station.ipAddress.empty()) return station.ipAddress + ":" + std::to_string(station.port);
+  return "Unknown station";
+}
+
+// Returns the most useful display name for an advertised MVR file.
+std::string CommitDisplayName(const MvrXchangeCommit &commit) {
+  if (!commit.fileName.empty()) return commit.fileName;
+  if (!commit.comment.empty()) return commit.comment;
+  return commit.fileUuid;
+}
+
+// Returns a filesystem-safe MVR filename from advertised commit metadata.
+wxString RequestedMvrFileName(const std::string &fileName, const std::string &fileUuid) {
+  wxString name = wxString::FromUTF8(fileName.empty() ? fileUuid : fileName);
+  name.Trim(true).Trim(false);
+  if (name.empty())
+    name = "requested-mvr";
+
+  for (wxString::iterator it = name.begin(); it != name.end(); ++it) {
+    if (*it == '/' || *it == '\\' || *it == ':' || *it == '*' ||
+        *it == '?' || *it == '"' || *it == '<' || *it == '>' ||
+        *it == '|') {
+      *it = '_';
+    }
+  }
+
+  wxFileName filename(name);
+  if (filename.GetExt().IsEmpty())
+    filename.SetExt("mvr");
+  return filename.GetFullName();
+}
+
+// Creates a unique temporary path that preserves the advertised MVR filename.
+wxString CreateRequestedMvrTempPath(const std::string &fileName, const std::string &fileUuid) {
+  wxFileName tempDir(wxFileName::CreateTempFileName("perastage_mvr_xchange_"));
+  const wxString tempPath = tempDir.GetFullPath();
+  if (!tempPath.empty())
+    wxRemoveFile(tempPath);
+  if (!wxFileName::Mkdir(tempPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL))
+    return {};
+
+  wxFileName requestedFile(tempPath, RequestedMvrFileName(fileName, fileUuid));
+  return requestedFile.GetFullPath();
+}
+
+} // namespace
+
+// Creates the MVR-xchange dialog and loads persisted settings.
 MvrXchangeDialog::MvrXchangeDialog(wxWindow *parent)
-    : wxDialog(parent, wxID_ANY, "MVR-xchange", wxDefaultPosition, wxSize(560, 420)),
+    : wxDialog(parent, wxID_ANY, "MVR-xchange", wxDefaultPosition,
+               wxSize(1150, 850), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       settings_(LoadMvrXchangeSettings()), service_(std::make_unique<MvrXchangeService>()) {
   std::weak_ptr<bool> weakLifetime = lifetimeToken_;
   service_->SetLogCallback([this, weakLifetime](const std::string &message) {
@@ -31,17 +100,36 @@ MvrXchangeDialog::~MvrXchangeDialog() {
   logCtrl_ = nullptr;
 }
 
-// Builds the dialog controls for service status, settings, and manual publishing.
+// Builds the dialog controls for service status, settings, file requests, and logging.
 void MvrXchangeDialog::BuildLayout() {
+  SetMinSize(wxSize(1050, 775));
+  SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
+
   auto *root = new wxBoxSizer(wxVERTICAL);
+  auto *title = new wxStaticText(this, wxID_ANY, "MVR-xchange");
+  wxFont titleFont = title->GetFont();
+  titleFont.SetPointSize(titleFont.GetPointSize() + 4);
+  titleFont.SetWeight(wxFONTWEIGHT_BOLD);
+  title->SetFont(titleFont);
+  auto *subtitle = new wxStaticText(
+      this, wxID_ANY,
+      "Publish the current scene or request advertised MVR revisions from compatible TCP Mode stations.");
+  subtitle->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+  root->Add(title, 0, wxLEFT | wxRIGHT | wxTOP, 14);
+  root->Add(subtitle, 0, wxLEFT | wxRIGHT | wxBOTTOM, 14);
+
+  auto *settingsBox = new wxStaticBoxSizer(wxVERTICAL, this, "Station settings");
   auto *grid = new wxFlexGridSizer(2, 8, 8);
   grid->AddGrowableCol(1, 1);
-  statusText_ = new wxStaticText(this, wxID_ANY, "Stopped");
-  stationNameCtrl_ = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(settings_.stationName));
-  groupNameCtrl_ = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(settings_.groupName));
-  stationUuidCtrl_ = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(settings_.stationUuid), wxDefaultPosition, wxDefaultSize, wxTE_READONLY);
-  portCtrl_ = new wxTextCtrl(this, wxID_ANY, settings_.port > 0 ? wxString::Format("%d", settings_.port) : wxString("Auto"));
-  interfaceChoice_ = new wxChoice(this, wxID_ANY);
+  statusText_ = new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "Stopped");
+  stationNameCtrl_ = new wxTextCtrl(settingsBox->GetStaticBox(), wxID_ANY, wxString::FromUTF8(settings_.stationName));
+  stationNameCtrl_->SetSelection(0, 0);
+  stationNameCtrl_->SetInsertionPoint(0);
+  stationNameCtrl_->ShowPosition(0);
+  groupNameCtrl_ = new wxTextCtrl(settingsBox->GetStaticBox(), wxID_ANY, wxString::FromUTF8(settings_.groupName));
+  stationUuidCtrl_ = new wxTextCtrl(settingsBox->GetStaticBox(), wxID_ANY, wxString::FromUTF8(settings_.stationUuid), wxDefaultPosition, wxDefaultSize, wxTE_READONLY);
+  portCtrl_ = new wxTextCtrl(settingsBox->GetStaticBox(), wxID_ANY, settings_.port > 0 ? wxString::Format("%d", settings_.port) : wxString("Auto"));
+  interfaceChoice_ = new wxChoice(settingsBox->GetStaticBox(), wxID_ANY);
   interfaceChoice_->Append("Auto / All suitable interfaces");
   interfaces_ = ListMvrXchangeNetworkInterfaces();
   int selectedInterfaceIndex = 0;
@@ -50,33 +138,67 @@ void MvrXchangeDialog::BuildLayout() {
     if (!settings_.selectedInterfaceId.empty() && (settings_.selectedInterfaceId == interfaces_[i].id || settings_.selectedInterfaceId == interfaces_[i].ipv4Address)) selectedInterfaceIndex = static_cast<int>(i + 1);
   }
   interfaceChoice_->SetSelection(selectedInterfaceIndex);
-  grid->Add(new wxStaticText(this, wxID_ANY, "Status:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(statusText_, 1, wxEXPAND);
-  grid->Add(new wxStaticText(this, wxID_ANY, "Station name:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(stationNameCtrl_, 1, wxEXPAND);
-  grid->Add(new wxStaticText(this, wxID_ANY, "Group name:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(groupNameCtrl_, 1, wxEXPAND);
-  grid->Add(new wxStaticText(this, wxID_ANY, "Station UUID:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(stationUuidCtrl_, 1, wxEXPAND);
-  grid->Add(new wxStaticText(this, wxID_ANY, "Network interface:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(interfaceChoice_, 1, wxEXPAND);
-  grid->Add(new wxStaticText(this, wxID_ANY, "TCP port:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(portCtrl_, 1, wxEXPAND);
-  remoteStationsText_ = new wxTextCtrl(this, wxID_ANY, "0 discovered, 0 incoming joined, 0 outgoing joined", wxDefaultPosition, wxSize(-1, 70), wxTE_MULTILINE | wxTE_READONLY);
-  grid->Add(new wxStaticText(this, wxID_ANY, "Remote stations:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(remoteStationsText_, 1, wxEXPAND);
-  root->Add(grid, 0, wxEXPAND | wxALL, 12);
+  grid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "Status:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(statusText_, 1, wxEXPAND);
+  grid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "Station name:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(stationNameCtrl_, 1, wxEXPAND);
+  grid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "Group name:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(groupNameCtrl_, 1, wxEXPAND);
+  grid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "Station UUID:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(stationUuidCtrl_, 1, wxEXPAND);
+  grid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "Network interface:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(interfaceChoice_, 1, wxEXPAND);
+  grid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "TCP port:"), 0, wxALIGN_CENTER_VERTICAL); grid->Add(portCtrl_, 1, wxEXPAND);
+  settingsBox->Add(grid, 0, wxEXPAND | wxALL, 10);
+  root->Add(settingsBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 14);
+
+  auto *remoteBox = new wxStaticBoxSizer(wxVERTICAL, this, "Remote MVR files");
+  remoteStationsText_ = new wxStaticText(remoteBox->GetStaticBox(), wxID_ANY, "0 discovered, 0 incoming joined, 0 outgoing joined");
+  remoteStationsText_->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+  remoteBox->Add(remoteStationsText_, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
+  availableFilesList_ = new wxDataViewListCtrl(remoteBox->GetStaticBox(), wxID_ANY, wxDefaultPosition, wxSize(-1, 225), wxDV_ROW_LINES | wxDV_SINGLE);
+  const int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
+  availableFilesList_->AppendTextColumn("Station", wxDATAVIEW_CELL_INERT, 170, wxALIGN_LEFT, flags);
+  availableFilesList_->AppendTextColumn("MVR file", wxDATAVIEW_CELL_INERT, 230, wxALIGN_LEFT, flags);
+  availableFilesList_->AppendTextColumn("Size", wxDATAVIEW_CELL_INERT, 90, wxALIGN_LEFT, flags);
+  availableFilesList_->AppendTextColumn("File UUID", wxDATAVIEW_CELL_INERT, 250, wxALIGN_LEFT, flags);
+  availableFilesList_->AppendTextColumn("Comment", wxDATAVIEW_CELL_INERT, 220, wxALIGN_LEFT, flags);
+  remoteBox->Add(availableFilesList_, 1, wxEXPAND | wxALL, 10);
+  root->Add(remoteBox, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 14);
+
+  auto *logBox = new wxStaticBoxSizer(wxVERTICAL, this, "Log");
+  logCtrl_ = new wxTextCtrl(logBox->GetStaticBox(), wxID_ANY, {}, wxDefaultPosition, wxSize(-1, 160), wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
+  ApplyConsoleLogStyle();
+  logBox->Add(logCtrl_, 1, wxEXPAND | wxALL, 10);
+  root->Add(logBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 14);
+
   auto *buttons = new wxBoxSizer(wxHORIZONTAL);
   startButton_ = new wxButton(this, wxID_ANY, "Start");
   stopButton_ = new wxButton(this, wxID_ANY, "Stop");
-  publishButton_ = new wxButton(this, wxID_ANY, "Publish Current MVR");
   discoverButton_ = new wxButton(this, wxID_ANY, "Discover Now");
-  buttons->Add(startButton_, 0, wxRIGHT, 8); buttons->Add(stopButton_, 0, wxRIGHT, 8); buttons->Add(discoverButton_, 0, wxRIGHT, 8); buttons->Add(publishButton_, 0, wxRIGHT, 8); buttons->AddStretchSpacer(); buttons->Add(new wxButton(this, wxID_CLOSE, "Close"));
-  root->Add(buttons, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 12);
-  logCtrl_ = new wxTextCtrl(this, wxID_ANY, {}, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
-  root->Add(logCtrl_, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 12);
+  publishButton_ = new wxButton(this, wxID_ANY, "Publish Current MVR");
+  requestButton_ = new wxButton(this, wxID_ANY, "Request Selected MVR");
+  buttons->Add(startButton_, 0, wxRIGHT, 8);
+  buttons->Add(stopButton_, 0, wxRIGHT, 8);
+  buttons->Add(discoverButton_, 0, wxRIGHT, 8);
+  buttons->AddStretchSpacer();
+  buttons->Add(publishButton_, 0, wxRIGHT, 8);
+  buttons->Add(requestButton_, 0, wxRIGHT, 8);
+  buttons->Add(new wxButton(this, wxID_CLOSE, "Close"), 0);
+  root->Add(buttons, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 14);
+
   SetSizer(root);
   startButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnStart, this);
   stopButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnStop, this);
   publishButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnPublish, this);
+  requestButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnRequest, this);
   discoverButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnDiscover, this);
+  availableFilesList_->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &MvrXchangeDialog::OnAvailableFileActivated, this);
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Close(); }, wxID_CLOSE);
+  startButton_->SetFocus();
+  wxTheApp->CallAfter([this] {
+    if (shuttingDown_ || IsBeingDeleted() || !stationNameCtrl_) return;
+    stationNameCtrl_->SetInsertionPoint(0);
+    stationNameCtrl_->ShowPosition(0);
+  });
 }
 
-// Refreshes status labels and button enablement from the service state.
+// Refreshes status labels, remote file rows, and button enablement from the service state.
 void MvrXchangeDialog::RefreshState() {
   if (shuttingDown_ || IsBeingDeleted() || !statusText_) return;
   const bool running = service_->IsRunning();
@@ -86,32 +208,68 @@ void MvrXchangeDialog::RefreshState() {
   stopButton_->Enable(running);
   publishButton_->Enable(running);
   discoverButton_->Enable(running);
-  if (remoteStationsText_) {
-    std::size_t discovered = 0;
-    std::size_t incoming = 0;
-    std::size_t outgoing = 0;
-    wxString summary;
-    const auto stations = service_->GetKnownStations();
-    for (const auto &station : stations) {
-      if (station.discovered) ++discovered;
-      if (station.incomingJoined) ++incoming;
-      if (station.outgoingJoined) ++outgoing;
-    }
-    summary << wxString::Format("%zu discovered, %zu incoming joined, %zu outgoing joined", discovered, incoming, outgoing);
-    for (const auto &station : stations) {
-      summary << "\n" << wxString::FromUTF8(station.stationName.empty() ? station.serviceInstanceName : station.stationName)
-              << " | " << wxString::FromUTF8(station.ipAddress) << ":" << station.port
-              << (station.discovered ? " | discovered" : "")
-              << (station.incomingJoined ? " | incoming joined" : "")
-              << (station.outgoingJoined ? " | outgoing joined" : "");
-    }
-    remoteStationsText_->SetValue(summary);
+  const auto stations = service_->GetKnownStations();
+  RefreshAvailableFiles(stations);
+  requestButton_->Enable(running && SelectedAvailableFile().has_value());
+  std::size_t discovered = 0;
+  std::size_t incoming = 0;
+  std::size_t outgoing = 0;
+  for (const auto &station : stations) {
+    if (station.discovered) ++discovered;
+    if (station.incomingJoined) ++incoming;
+    if (station.outgoingJoined) ++outgoing;
   }
+  if (remoteStationsText_) {
+    remoteStationsText_->SetLabel(wxString::Format("%zu discovered, %zu incoming joined, %zu outgoing joined", discovered, incoming, outgoing));
+  }
+}
+
+// Rebuilds the remote MVR file list from advertised station commit metadata.
+void MvrXchangeDialog::RefreshAvailableFiles(const std::vector<MvrXchangeRemoteStation> &stations) {
+  if (!availableFilesList_) return;
+  const int selectedRow = availableFilesList_->GetSelectedRow();
+  availableFiles_.clear();
+  availableFilesList_->DeleteAllItems();
+  for (const auto &station : stations) {
+    for (const auto &commit : station.commits) {
+      AvailableMvrFile file;
+      file.stationUuid = station.stationUuid;
+      file.stationName = StationDisplayName(station);
+      file.fileUuid = commit.fileUuid;
+      file.fileName = CommitDisplayName(commit);
+      file.comment = commit.comment;
+      file.fileSize = commit.FileSize();
+      availableFiles_.push_back(file);
+      wxVector<wxVariant> row;
+      row.push_back(wxVariant(wxString::FromUTF8(file.stationName)));
+      row.push_back(wxVariant(wxString::FromUTF8(file.fileName)));
+      row.push_back(wxVariant(FormatFileSize(file.fileSize)));
+      row.push_back(wxVariant(wxString::FromUTF8(file.fileUuid)));
+      row.push_back(wxVariant(wxString::FromUTF8(file.comment)));
+      availableFilesList_->AppendItem(row);
+    }
+  }
+  if (!availableFiles_.empty()) {
+    const unsigned rowToSelect = selectedRow >= 0 && static_cast<std::size_t>(selectedRow) < availableFiles_.size() ? static_cast<unsigned>(selectedRow) : 0;
+    availableFilesList_->SelectRow(rowToSelect);
+  }
+}
+
+// Applies the same font and color style used by the Console panel output.
+void MvrXchangeDialog::ApplyConsoleLogStyle() {
+  if (!logCtrl_) return;
+  const wxFont consoleFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+  const wxColour consoleText(0, 255, 0);
+  logCtrl_->SetBackgroundColour(*wxBLACK);
+  logCtrl_->SetForegroundColour(consoleText);
+  logCtrl_->SetFont(consoleFont);
+  logCtrl_->SetDefaultStyle(wxTextAttr(consoleText, *wxBLACK, consoleFont));
 }
 
 // Appends a status line to the dialog log area.
 void MvrXchangeDialog::AppendLog(const wxString &message) {
   if (shuttingDown_ || IsBeingDeleted() || !logCtrl_) return;
+  ApplyConsoleLogStyle();
   logCtrl_->AppendText(message + "\n");
 }
 
@@ -136,6 +294,61 @@ void MvrXchangeDialog::OnDiscover(wxCommandEvent &) { service_->DiscoverNow(); R
 
 // Publishes the current scene as a new MVR revision.
 void MvrXchangeDialog::OnPublish(wxCommandEvent &) {
-  if (!service_->PublishCurrentScene("Manual publish from Perastage")) AppendLog("Publish failed.");
+  std::string projectName;
+  if (auto *mainWindow = dynamic_cast<MainWindow *>(GetParent())) projectName = mainWindow->GetCurrentProjectDisplayName().ToStdString();
+  if (!service_->PublishCurrentScene("Manual publish from Perastage", projectName)) AppendLog("Publish failed.");
   RefreshState();
+}
+
+// Requests the selected advertised remote MVR payload and imports it into the project.
+void MvrXchangeDialog::OnRequest(wxCommandEvent &) {
+  const auto selectedFile = SelectedAvailableFile();
+  if (!selectedFile) {
+    AppendLog("Select an advertised remote MVR file before requesting it.");
+    return;
+  }
+  auto commit = service_->RequestRemoteCommit(selectedFile->stationUuid, selectedFile->fileUuid);
+  if (!commit || commit->payload.empty()) {
+    AppendLog(wxString("MVR-xchange request failed for FileUUID=") + wxString::FromUTF8(selectedFile->fileUuid) + ".");
+    RefreshState();
+    return;
+  }
+  ImportRequestedCommit(*selectedFile, *commit);
+  RefreshState();
+}
+
+// Requests the activated remote MVR row.
+void MvrXchangeDialog::OnAvailableFileActivated(wxDataViewEvent &) {
+  wxCommandEvent event;
+  OnRequest(event);
+}
+
+// Returns metadata for the currently selected advertised MVR file.
+std::optional<MvrXchangeDialog::AvailableMvrFile> MvrXchangeDialog::SelectedAvailableFile() const {
+  if (!availableFilesList_) return std::nullopt;
+  const int row = availableFilesList_->GetSelectedRow();
+  if (row < 0 || static_cast<std::size_t>(row) >= availableFiles_.size()) return std::nullopt;
+  return availableFiles_[static_cast<std::size_t>(row)];
+}
+
+// Writes a requested MVR payload to a temporary file and runs the normal import choice flow.
+bool MvrXchangeDialog::ImportRequestedCommit(const AvailableMvrFile &file, const MvrXchangeCommit &commit) {
+  const wxString tempPath = CreateRequestedMvrTempPath(file.fileName, file.fileUuid);
+  if (tempPath.empty()) {
+    AppendLog("MVR-xchange could not create a temporary folder for the requested MVR payload.");
+    return false;
+  }
+
+  std::ofstream out(tempPath.ToStdString(), std::ios::binary);
+  out.write(reinterpret_cast<const char *>(commit.payload.data()), static_cast<std::streamsize>(commit.payload.size()));
+  out.close();
+  if (!out) {
+    AppendLog("MVR-xchange could not write the requested MVR payload to a temporary file.");
+    return false;
+  }
+  if (auto *mainWindow = dynamic_cast<MainWindow *>(GetParent())) {
+    AppendLog(wxString("Importing requested MVR-xchange file ") + wxString::FromUTF8(file.fileUuid) + ".");
+    return mainWindow->ImportMvrWithUserChoice(tempPath.ToStdString());
+  }
+  return false;
 }

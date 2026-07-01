@@ -25,3 +25,12 @@ Support is a standard MVR scene node and is preserved as `<Support>` during impo
 ## Symbol/Symdef UUID handling
 
 MVR `Symbol` nodes represent geometry instances defined by a referenced `Symdef`. MVR 1.6 requires every exported `Symbol` to carry both a canonical `uuid` attribute for the symbol instance and a non-empty `symdef` reference. Perastage preserves an imported Symbol UUID when it is valid and belongs to preserved Symbol/Symdef geometry; if the original Symbol UUID is missing, invalid, or collides with another exported Symbol, Perastage derives a deterministic replacement from the container type, container UUID, Symdef UUID, Symbol matrix, and stable index context so repeated exports of the same scene remain logically stable.
+
+
+## MVR-xchange request/import behavior
+
+Perastage can now request an advertised MVR revision from a compatible MVR-xchange TCP Mode station. The request uses the standard `MVR_REQUEST` message with the selected `FileUUID`, expects the peer to return an MVR file packet, writes the payload to a temporary `.mvr` file, and then runs the same MVR import policy used by **File > Import MVR...**.
+
+The dialog lists advertised remote revisions from the discovered station list so the user can choose the exact MVR file to request. Publishing still uses `MVR_COMMIT` announcements, while requesting/importing keeps the MVR payload unchanged and relies on the existing importer for project integration. After a payload is received, Perastage shows the normal import choice so users can open it as a new project or merge it into the current project.
+
+Perastage binds the mDNS responder to the interface selected for the advertised MVR-xchange address. When multiple adapters exist on the same computer, select the same network interface in Perastage and the peer application so service discovery and TCP file exchange use the same local link.

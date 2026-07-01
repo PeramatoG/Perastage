@@ -6,12 +6,22 @@ Changes since **v1.4.0**.
 
 ## New features
 
+- Added MVR-xchange remote file requests with a larger selectable advertised-MVR list, Console-styled transfer log, corrected station-name alignment, and the standard import choice to open as a new project or merge into the current project.
 - Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
 
 ## Improvements
 
+- MVR-xchange now labels the default Perastage station with the local computer name, preferring the full host name when available, making it easier to identify in other applications.
+
 ## Fixes
 
+- Fixed MVR merge imports so incoming fixture, truss, hoist, scene-object, and symbol resources are copied into a valid merge resource root before references are applied, including when merging into an empty or unsaved scene.
+- Fixed the MVR-xchange log text styling so transfer messages use the same readable Console colors and monospaced font.
+- Fixed MVR-xchange remote imports so merging keeps the current project name, while opening a requested MVR as a new project uses the advertised MVR file name.
+- Fixed MVR-xchange mDNS advertisement so the service responder binds to the selected advertised interface, improving visibility in peer service lists when multiple local interfaces are available.
+- Improved MVR-xchange compatibility with clients such as grandMA3 by keeping joined TCP Mode peer connections available for immediate publish broadcasts, using a grandMA3 endpoint fallback when discovery only reports an incoming join, refreshing discovery before manual publishes, and sending each join refresh and commit announcement over the same TCP connection before waiting for acknowledgements.
+- Fixed MVR-xchange station naming so generated default names use the full Windows DNS computer name without slow reverse lookups, repair older truncated defaults, and no longer open with the station-name field selected or horizontally scrolled.
+- Simplified MVR-xchange file names so manual publishes use a readable project-name-and-timestamp pattern instead of exposing the internal file UUID.
 - Improved 3D fixture picking reliability by safely skipping malformed mesh triangles during ID-buffer picking instead of crashing.
 - Hardened 3D ID-buffer picking setup so incomplete OpenGL framebuffers fall back to ray-based selection.
 - Simplified 3D hover and selection highlighting so highlighted objects are drawn in the normal scene pass instead of a separate overlay pass or cached framebuffer refresh.

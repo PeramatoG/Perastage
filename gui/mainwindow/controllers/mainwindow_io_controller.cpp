@@ -395,6 +395,23 @@ void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
   }
 }
 
+
+// Imports an MVR file after asking whether to open or merge it.
+bool MainWindowIoController::ImportMvrWithUserChoice(const std::string &pathUtf8) {
+  if (!ownerRef_)
+    return false;
+
+  switch (ShowMvrImportChoiceDialog(ownerRef_)) {
+  case MvrImportChoice::OpenAsNewProject:
+    return ImportMvrWithOfficialPolicy(pathUtf8);
+  case MvrImportChoice::MergeIntoCurrentProject:
+    return MergeMvrFromPath(pathUtf8);
+  case MvrImportChoice::Cancel:
+    return false;
+  }
+  return false;
+}
+
 // Merges an MVR file into the current scene.
 bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
   constexpr const char *kLayoutsConfigKey = "layouts_collection";
@@ -473,8 +490,10 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
   MvrImportResult importResult;
   MvrImporter mergeImporter;
   owner->LockViewportInteraction();
+  MvrImportOptions importOptions;
+  importOptions.sourceKind = MvrImportSourceKind::MergeImport;
   const bool imported = mergeImporter.ImportFromFile(
-      pathUtf8, importResult, MvrImportMode::ParseOnly, true, true);
+      pathUtf8, importResult, MvrImportMode::ParseOnly, importOptions);
   owner->UnlockViewportInteraction();
 
   if (!imported) {
