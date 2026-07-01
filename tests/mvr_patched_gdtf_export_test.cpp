@@ -125,14 +125,15 @@ int main() {
   assert(exporter.ExportToFile(mvrPath.string()));
 
   const auto mvrEntries = ReadArchiveEntries(mvrPath);
-  std::string patchedGdtfBytes;
-  for (const auto &[entryName, content] : mvrEntries) {
-    if (entryName.size() >= 5 && entryName.substr(entryName.size() - 5) == ".gdtf") {
-      patchedGdtfBytes = content;
-      break;
-    }
-  }
-  assert(!patchedGdtfBytes.empty());
+  const std::string expectedGdtfName = "Perastage_QA@Truss_QA_Model@Perastage.gdtf";
+  auto patchedIt = mvrEntries.find(expectedGdtfName);
+  assert(patchedIt != mvrEntries.end());
+  const std::string patchedGdtfBytes = patchedIt->second;
+
+  auto gsdIt = mvrEntries.find("GeneralSceneDescription.xml");
+  assert(gsdIt != mvrEntries.end());
+  assert(gsdIt->second.find("<GDTFSpec>" + expectedGdtfName + "</GDTFSpec>") !=
+         std::string::npos);
 
   const fs::path extractedGdtfPath = tempDir / "patched_truss.gdtf";
   {

@@ -782,25 +782,21 @@ static void AppendFixtureTypeMetadata(
   perastageData->InsertEndChild(map);
 }
 
-// Builds the preferred root-level GDTF archive filename for a truss.
+// Builds the canonical root-level Perastage GDTF archive filename for a truss.
 static std::string BuildTrussGdtfArchiveName(const Truss &truss) {
-  std::string baseName = TrimAscii(truss.model);
-  if (baseName.empty()) {
-    if (truss.lengthMm > 0.0f) {
-      const int lengthMeters =
-          static_cast<int>(std::lround(truss.lengthMm / 1000.0f));
-      if (lengthMeters > 0)
-        baseName = "truss " + std::to_string(lengthMeters) + "m";
-    }
+  std::string fallbackModel = TrimAscii(truss.model);
+  if (fallbackModel.empty() && truss.lengthMm > 0.0f) {
+    const int lengthMm = static_cast<int>(std::lround(truss.lengthMm));
+    if (lengthMm > 0)
+      fallbackModel = "Truss_" + std::to_string(lengthMm) + "mm";
   }
-  if (baseName.empty())
-    baseName = "truss";
+  if (fallbackModel.empty())
+    fallbackModel = "Truss";
 
-  fs::path candidate(baseName);
-  if (candidate.extension().empty())
-    baseName += ".gdtf";
-
-  return SanitizeArchiveFileName(baseName, "truss.gdtf");
+  return SanitizeArchiveFileName(
+      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(
+          truss.manufacturer, truss.model, fallbackModel),
+      "Unknown@Truss@Perastage.gdtf");
 }
 
 // Builds the internal truss type key used for export-time resource reuse.
@@ -2521,8 +2517,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
 
   auto registerGdtfResource =
       [&](const std::string &objectUuid, const std::string &rawGdtfPath,
-                                  const std::string &preferredName,
-                                  bool allowReuseBySource = true) -> std::string {
+          const std::string &preferredName, bool allowReuseBySource = true,
+          bool usePreferredDerivativeName = false) -> std::string {
     if (rawGdtfPath.empty())
       return {};
 
@@ -2541,7 +2537,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
         resolvedGdtfPath.empty() ? rawGdtfPath : resolvedGdtfPath;
 
     std::string fileName = preferredName;
-    if (ToLowerAscii(PathUtils::PathFromUtf8(rawGdtfPath).extension().string()) ==
+    if (!usePreferredDerivativeName &&
+        ToLowerAscii(PathUtils::PathFromUtf8(rawGdtfPath).extension().string()) ==
             ".gdtf" &&
         !GdtfDictionary::IsPerastageNamedGdtfFile(rawGdtfPath)) {
       fileName =
@@ -3242,7 +3239,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
 
       std::string trussPreferredName = BuildTrussGdtfArchiveName(t);
       trussGdtfArchivePath = registerGdtfResource(
-          exportedTrussUuid, trussSourceGdtf, trussPreferredName, true);
+          exportedTrussUuid, trussSourceGdtf, trussPreferredName, true, true);
       if (!trussGdtfArchivePath.empty())
         trussArchiveByTypeKey[trussTypeKey] = trussGdtfArchivePath;
     }

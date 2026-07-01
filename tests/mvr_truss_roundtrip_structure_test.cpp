@@ -67,6 +67,50 @@ static std::string ReadFixtureTypeIdFromGdtf(const fs::path &gdtfPath) {
   return id;
 }
 
+
+// Verifies generated truss GDTF archives use the canonical Structure root.
+static void AssertGeneratedTrussGdtfStructure(const fs::path &gdtfPath,
+                                             const std::string &crossSection) {
+  const auto entries = ReadArchiveTextEntries(gdtfPath);
+  auto it = entries.find("description.xml");
+  assert(it != entries.end());
+
+  tinyxml2::XMLDocument doc;
+  assert(doc.Parse(it->second.c_str()) == tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *root = doc.FirstChildElement("GDTF");
+  assert(root != nullptr);
+  assert(root->Attribute("DataVersion") != nullptr);
+  assert(std::string(root->Attribute("DataVersion")) == "1.2");
+
+  tinyxml2::XMLElement *fixtureType = root->FirstChildElement("FixtureType");
+  assert(fixtureType != nullptr);
+  assert(fixtureType->Attribute("FixtureTypeID") != nullptr);
+  assert(fixtureType->FirstChildElement("PerastageMutationAudit") == nullptr);
+
+  tinyxml2::XMLElement *geometries = fixtureType->FirstChildElement("Geometries");
+  assert(geometries != nullptr);
+  assert(geometries->FirstChildElement("Geometry") == nullptr);
+  tinyxml2::XMLElement *structure = geometries->FirstChildElement("Structure");
+  assert(structure != nullptr);
+  assert(std::string(structure->Attribute("Name")) == "Root");
+  assert(std::string(structure->Attribute("Model")) == "Main");
+  assert(std::string(structure->Attribute("StructureType")) == "Detail");
+  assert(std::string(structure->Attribute("CrossSectionType")) ==
+         "TrussFramework");
+  assert(std::string(structure->Attribute("TrussCrossSection")) == crossSection);
+  assert(fixtureType->FirstChildElement("Magnet") == nullptr);
+
+  tinyxml2::XMLElement *dmxModes = fixtureType->FirstChildElement("DMXModes");
+  assert(dmxModes != nullptr);
+  tinyxml2::XMLElement *mode = dmxModes->FirstChildElement("DMXMode");
+  assert(mode != nullptr);
+  assert(std::string(mode->Attribute("Name")) == "Default");
+  assert(std::string(mode->Attribute("Geometry")) == "Root");
+  tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
+  assert(revisions != nullptr);
+  assert(revisions->FirstChildElement("Revision") != nullptr);
+}
+
 // Returns the first Symbol UUID exported in GeneralSceneDescription.xml.
 static std::string ReadFirstSymbolUuid(const fs::path &mvrPath) {
   const auto entries = ReadArchiveTextEntries(mvrPath);
@@ -449,6 +493,7 @@ int main() {
   typeA.widthMm = 400.0f;
   typeA.heightMm = 400.0f;
   typeA.weightKg = 40.0f;
+  typeA.crossSection = "GenericTruss";
 
   Truss typeASame = typeA;
   Truss typeB = typeA;
@@ -461,6 +506,7 @@ int main() {
   assert(BuildTrussGdtfFromInstance(typeA, gdtfA1, &error));
   assert(BuildTrussGdtfFromInstance(typeASame, gdtfA2, &error));
   assert(BuildTrussGdtfFromInstance(typeB, gdtfB, &error));
+  AssertGeneratedTrussGdtfStructure(gdtfA1, "GenericTruss");
   assert(ReadFixtureTypeIdFromGdtf(gdtfA1) == ReadFixtureTypeIdFromGdtf(gdtfA2));
   assert(ReadFixtureTypeIdFromGdtf(gdtfA1) != ReadFixtureTypeIdFromGdtf(gdtfB));
 

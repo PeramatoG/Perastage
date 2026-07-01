@@ -16,8 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "truss_gdtf_builder.h"
-#include "app_version.h"
 #include "filesystem_path_utils.h"
+#include "gdtf_mutation_audit.h"
 
 #include "json.hpp"
 #include "logger.h"
@@ -32,8 +32,6 @@
 #include <array>
 #include <cctype>
 #include <cstdint>
-#include <chrono>
-#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <memory>
@@ -79,21 +77,6 @@ std::string BuildDeterministicUuid(const std::string &seed) {
   return BytesToUuid(bytes);
 }
 
-// Builds the current UTC timestamp used by generated GDTF revisions.
-std::string BuildRevisionTimestampUtcNow() {
-  using Clock = std::chrono::system_clock;
-  const std::time_t nowTime = Clock::to_time_t(Clock::now());
-  std::tm utcTm{};
-#if defined(_WIN32)
-  gmtime_s(&utcTm, &nowTime);
-#else
-  gmtime_r(&nowTime, &utcTm);
-#endif
-  std::ostringstream stamp;
-  stamp << std::put_time(&utcTm, "%Y-%m-%dT%H:%M:%SZ");
-  return stamp.str();
-}
-
 struct TrussSourceData {
   std::string manufacturer;
   std::string model;
@@ -104,6 +87,7 @@ struct TrussSourceData {
   fs::path geometryPath;
   fs::path symbolPath;
   std::string typeKey;
+  std::string crossSection;
 };
 
 static std::string Trim(std::string value) {
@@ -272,6 +256,7 @@ static std::string BuildStableFixtureTypeId(const TrussSourceData &data) {
   seed << "perastage-truss-type:v2|" << data.typeKey << '|'
        << Slug(data.manufacturer, "manufacturer") << '|'
        << Slug(data.model, "model") << '|'
+       << Slug(data.crossSection, "cross_section") << '|'
        << Slug(data.geometryPath.generic_string(), "geometry") << '|'
        << Slug(data.symbolPath.generic_string(), "symbol") << '|'
        << std::fixed << std::setprecision(3) << data.lengthMm << '|'
@@ -298,9 +283,12 @@ static std::string BuildDescriptionXml(const TrussSourceData &data) {
 
   auto *fixtureType = doc.NewElement("FixtureType");
   const std::string fixtureName = data.model.empty() ? "Truss" : data.model;
+  const std::string manufacturer =
+      Trim(data.manufacturer).empty() ? "Unknown" : Trim(data.manufacturer);
   fixtureType->SetAttribute("Name", fixtureName.c_str());
   fixtureType->SetAttribute("ShortName", fixtureName.c_str());
-  fixtureType->SetAttribute("Manufacturer", data.manufacturer.c_str());
+  fixtureType->SetAttribute("LongName", fixtureName.c_str());
+  fixtureType->SetAttribute("Manufacturer", manufacturer.c_str());
   fixtureType->SetAttribute("FixtureTypeID", BuildStableFixtureTypeId(data).c_str());
   root->InsertEndChild(fixtureType);
 
@@ -315,13 +303,15 @@ static std::string BuildDescriptionXml(const TrussSourceData &data) {
   attributes->InsertEndChild(attributesNode);
   fixtureType->InsertEndChild(attributes);
 
-  auto *physical = doc.NewElement("PhysicalDescriptions");
-  auto *properties = doc.NewElement("Properties");
-  auto *weight = doc.NewElement("Weight");
-  weight->SetAttribute("Value", data.weightKg);
-  properties->InsertEndChild(weight);
-  physical->InsertEndChild(properties);
-  fixtureType->InsertEndChild(physical);
+  if (data.weightKg > 0.0f) {
+    auto *physical = doc.NewElement("PhysicalDescriptions");
+    auto *properties = doc.NewElement("Properties");
+    auto *weight = doc.NewElement("Weight");
+    weight->SetAttribute("Value", data.weightKg);
+    properties->InsertEndChild(weight);
+    physical->InsertEndChild(properties);
+    fixtureType->InsertEndChild(physical);
+  }
 
   auto *models = doc.NewElement("Models");
   auto *mainModel = doc.NewElement("Model");
@@ -335,10 +325,15 @@ static std::string BuildDescriptionXml(const TrussSourceData &data) {
   fixtureType->InsertEndChild(models);
 
   auto *geometries = doc.NewElement("Geometries");
-  auto *geometry = doc.NewElement("Geometry");
-  geometry->SetAttribute("Name", "Root");
-  geometry->SetAttribute("Model", "Main");
-  geometries->InsertEndChild(geometry);
+  auto *structure = doc.NewElement("Structure");
+  const std::string trussCrossSection =
+      Trim(data.crossSection).empty() ? "GenericTruss" : Trim(data.crossSection);
+  structure->SetAttribute("Name", "Root");
+  structure->SetAttribute("Model", "Main");
+  structure->SetAttribute("StructureType", "Detail");
+  structure->SetAttribute("CrossSectionType", "TrussFramework");
+  structure->SetAttribute("TrussCrossSection", trussCrossSection.c_str());
+  geometries->InsertEndChild(structure);
   fixtureType->InsertEndChild(geometries);
 
   auto *dmxModes = doc.NewElement("DMXModes");
@@ -354,21 +349,16 @@ static std::string BuildDescriptionXml(const TrussSourceData &data) {
   dmxModes->InsertEndChild(mode);
   fixtureType->InsertEndChild(dmxModes);
 
-  auto *revisions = doc.NewElement("Revisions");
-  auto *revision = doc.NewElement("Revision");
-  revision->SetAttribute("Date", BuildRevisionTimestampUtcNow().c_str());
-  revision->SetAttribute("UserID", 0);
-  const std::string modifiedBy = std::string("Perastage ") + app::kVersion;
-  revision->SetAttribute("ModifiedBy", modifiedBy.c_str());
-  revision->SetAttribute("Text", "Generated Perastage auxiliary truss fixture type for MVR export");
-  revisions->InsertEndChild(revision);
-  fixtureType->InsertEndChild(revisions);
+  GdtfMutationAudit::AppendRevision(
+      fixtureType, doc, "Generated canonical Perastage truss GDTF",
+      GdtfMutationAudit::BuildPerastageModifiedBy());
 
   tinyxml2::XMLPrinter printer;
   doc.Print(&printer);
   return printer.CStr();
 }
 
+// Builds a truss GDTF archive from normalized source data.
 static bool BuildFromSourceData(const TrussSourceData &data,
                                 const fs::path &outGdtfPath,
                                 std::string *outError) {
@@ -413,6 +403,7 @@ static bool BuildFromSourceData(const TrussSourceData &data,
 
 } // namespace
 
+// Converts a legacy .gtruss archive into a Perastage-authored GDTF archive.
 bool ConvertLegacyGtrussToGdtf(const fs::path &gtrussPath,
                                const fs::path &outGdtfPath,
                                std::string *outError) {
@@ -422,6 +413,7 @@ bool ConvertLegacyGtrussToGdtf(const fs::path &gtrussPath,
   return BuildFromSourceData(source, outGdtfPath, outError);
 }
 
+// Builds a Perastage-authored GDTF archive for one truss instance.
 bool BuildTrussGdtfFromInstance(const Truss &truss, const fs::path &outGdtfPath,
                                 std::string *outError) {
   TrussSourceData source;
@@ -432,6 +424,7 @@ bool BuildTrussGdtfFromInstance(const Truss &truss, const fs::path &outGdtfPath,
   source.heightMm = truss.heightMm;
   source.weightKg = truss.weightKg;
   source.typeKey = truss.perastageTypeKey;
+  source.crossSection = truss.crossSection;
 
   auto pickGeometry = [&](const std::string &path) {
     fs::path p = PathUtils::PathFromUtf8(path);
