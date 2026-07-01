@@ -20,6 +20,7 @@ Perastage currently mutates GDTF archives at the following integration points.
 | Viewer 3D API | `viewer3d/gdtfloader.cpp` | `SetGdtfProperties(...)` | Writes `PhysicalDescriptions/Properties` (`Weight`, `PowerConsumption`), appends a standard `Revision`, rewrites `.gdtf`. |
 | GUI symbol workflow | `gui/windows/symbol_fixture_applier.cpp` | `RewriteGdtf(...)` + `AppendMutationAuditMetadata(...)` (called by `ApplySymbolsToFixtureGdtf(...)`) | Writes/updates SVG symbol assets and model SVG offsets, appends a standard `Revision`, rewrites `.gdtf`. |
 | Project symbol cache manifest | `core/symbol_cache_manifest.cpp` | `SymbolCacheManifest::ValidateFixture(...)`, `MarkFixtureSymbolsValid(...)` | Stores project-level metadata in `.pstg` packages so startup can skip deep GDTF inspection only when the referenced GDTF hash and required view metadata still match. |
+| Truss GDTF generation | `core/truss_gdtf_builder.cpp` | `BuildTrussGdtfFromInstance(...)`, `ConvertLegacyGtrussToGdtf(...)` | Creates Perastage-owned truss GDTF archives with a standard `Structure` root geometry, deterministic `FixtureTypeID`, standard `Revision`, and no custom XML nodes. |
 | MVR export patching | `mvr/mvrexporter.cpp` | `CreatePatchedGdtf(...)` + export resource canonicalization | Creates temporary patched GDTF copies for export overrides (manufacturer/model/physical properties/color/dimensions), appends a standard `Revision` when patched, and canonicalizes every `.gdtf` before it is packaged. |
 | Shared audit helpers | `core/gdtf_mutation_audit.cpp` | `StampPerastageMutationMetadata(...)`, `AppendRevision(...)`, `ApplyPhysicalPropertiesWithAudit(...)` | Centralizes standard GDTF revision-appending semantics used by write flows. |
 
@@ -28,6 +29,8 @@ Perastage currently mutates GDTF archives at the following integration points.
 - `core/gdtf_mutation_audit.{h,cpp}` is the single owner of Perastage GDTF revision semantics.
 - `core/gdtf_canonicalizer.{h,cpp}` is the shared owner of export-time GDTF structural canonicalization and validation.
 - Write call sites in other modules must use this helper API instead of hand-rolling custom revision XML shapes.
+- Truss GDTF files generated, completed, normalized, or modified by Perastage are exported as derived Perastage-owned copies named `Manufacturer@Model@Perastage.gdtf`; external or library source GDTF files are read as inputs and are not overwritten.
+- GDTF model dimensions are written in meters. Perastage truss dimensions are stored in millimeters, so truss GDTF generation converts length, width, and height from millimeters to meters at export time.
 - Fixture SVG symbols remain stored inside their corresponding GDTF files; the `.pstg` symbol cache manifest stores metadata only and never stores SVG payloads.
 - Fixture display color is no longer persisted by mutating `description.xml` model `Color` values in place. The persisted source of truth for default color selection is the Perastage dictionary/project data layer, while `GetGdtfModelColor(...)` remains read-only for legacy fallback reads.
 

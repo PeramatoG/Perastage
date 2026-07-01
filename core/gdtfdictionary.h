@@ -69,6 +69,10 @@ namespace GdtfDictionary {
     void Update(const std::string& type, const std::string& gdtfPath, const std::string& mode = {}, const std::string& category = {});
     // Builds the stable @Perastage derivative filename for a GDTF path.
     std::string BuildPerastageCanonicalGdtfFileName(const std::string& gdtfPath);
+    // Builds the stable @Perastage derivative filename from explicit identity values.
+    std::string BuildPerastageCanonicalGdtfFileName(
+        const std::string& manufacturer, const std::string& model,
+        const std::string& fallbackStem = "");
     // Returns true when a GDTF filename already uses Perastage derivative naming.
     bool IsPerastageNamedGdtfFile(const std::string& gdtfPath);
     // Creates or overwrites the stable @Perastage derivative for a library fixture and updates the dictionary.

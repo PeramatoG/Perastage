@@ -67,6 +67,61 @@ static std::string ReadFixtureTypeIdFromGdtf(const fs::path &gdtfPath) {
   return id;
 }
 
+
+// Verifies generated truss GDTF archives use the canonical Structure root.
+static void AssertGeneratedTrussGdtfStructure(const fs::path &gdtfPath,
+                                             const std::string &crossSection,
+                                             float expectedLengthMeters,
+                                             float expectedWidthMeters,
+                                             float expectedHeightMeters) {
+  const auto entries = ReadArchiveTextEntries(gdtfPath);
+  auto it = entries.find("description.xml");
+  assert(it != entries.end());
+
+  tinyxml2::XMLDocument doc;
+  assert(doc.Parse(it->second.c_str()) == tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *root = doc.FirstChildElement("GDTF");
+  assert(root != nullptr);
+  assert(root->Attribute("DataVersion") != nullptr);
+  assert(std::string(root->Attribute("DataVersion")) == "1.2");
+
+  tinyxml2::XMLElement *fixtureType = root->FirstChildElement("FixtureType");
+  assert(fixtureType != nullptr);
+  assert(fixtureType->Attribute("FixtureTypeID") != nullptr);
+  assert(fixtureType->FirstChildElement("PerastageMutationAudit") == nullptr);
+
+  tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
+  assert(models != nullptr);
+  tinyxml2::XMLElement *model = models->FirstChildElement("Model");
+  assert(model != nullptr);
+  assert(std::abs(model->FloatAttribute("Length") - expectedLengthMeters) < 0.001f);
+  assert(std::abs(model->FloatAttribute("Width") - expectedWidthMeters) < 0.001f);
+  assert(std::abs(model->FloatAttribute("Height") - expectedHeightMeters) < 0.001f);
+
+  tinyxml2::XMLElement *geometries = fixtureType->FirstChildElement("Geometries");
+  assert(geometries != nullptr);
+  assert(geometries->FirstChildElement("Geometry") == nullptr);
+  tinyxml2::XMLElement *structure = geometries->FirstChildElement("Structure");
+  assert(structure != nullptr);
+  assert(std::string(structure->Attribute("Name")) == "Root");
+  assert(std::string(structure->Attribute("Model")) == "Main");
+  assert(std::string(structure->Attribute("StructureType")) == "Detail");
+  assert(std::string(structure->Attribute("CrossSectionType")) ==
+         "TrussFramework");
+  assert(std::string(structure->Attribute("TrussCrossSection")) == crossSection);
+  assert(fixtureType->FirstChildElement("Magnet") == nullptr);
+
+  tinyxml2::XMLElement *dmxModes = fixtureType->FirstChildElement("DMXModes");
+  assert(dmxModes != nullptr);
+  tinyxml2::XMLElement *mode = dmxModes->FirstChildElement("DMXMode");
+  assert(mode != nullptr);
+  assert(std::string(mode->Attribute("Name")) == "Default");
+  assert(std::string(mode->Attribute("Geometry")) == "Root");
+  tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
+  assert(revisions != nullptr);
+  assert(revisions->FirstChildElement("Revision") != nullptr);
+}
+
 // Returns the first Symbol UUID exported in GeneralSceneDescription.xml.
 static std::string ReadFirstSymbolUuid(const fs::path &mvrPath) {
   const auto entries = ReadArchiveTextEntries(mvrPath);
@@ -268,10 +323,18 @@ int main() {
   tinyxml2::XMLElement *trussInfo = trussInfoMap->FirstChildElement("TrussInfo");
   assert(trussInfo != nullptr);
   assert(std::string(trussInfo->Attribute("uuid")) == truss.uuid);
-  assert(trussInfo->FirstChildElement("Manufacturer") == nullptr);
-  assert(trussInfo->FirstChildElement("Model") == nullptr);
-  assert(trussInfo->FirstChildElement("Length") == nullptr);
-  assert(trussInfo->FirstChildElement("Weight") == nullptr);
+  assert(std::string(trussInfo->FirstChildElement("Manufacturer")->GetText()) ==
+         truss.manufacturer);
+  assert(std::string(trussInfo->FirstChildElement("Model")->GetText()) ==
+         truss.model);
+  assert(std::abs(std::stof(trussInfo->FirstChildElement("Length")->GetText()) -
+                  truss.lengthMm) < 0.001f);
+  assert(std::abs(std::stof(trussInfo->FirstChildElement("Width")->GetText()) -
+                  truss.widthMm) < 0.001f);
+  assert(std::abs(std::stof(trussInfo->FirstChildElement("Height")->GetText()) -
+                  truss.heightMm) < 0.001f);
+  assert(std::abs(std::stof(trussInfo->FirstChildElement("Weight")->GetText()) -
+                  truss.weightKg) < 0.001f);
   assert(trussInfo->FirstChildElement("Load") == nullptr);
 
   scene.trusses.at(truss.uuid).manualLoadKg = 123.45f;
@@ -309,6 +372,11 @@ int main() {
   assert(!importedTruss.perastageAuxGdtfArchivePath.empty());
   assert(importedTruss.manufacturer == "Perastage");
   assert(importedTruss.model == "Tower 40");
+  assert(std::abs(importedTruss.lengthMm - truss.lengthMm) < 0.001f);
+  assert(std::abs(importedTruss.widthMm - truss.widthMm) < 0.001f);
+  assert(std::abs(importedTruss.heightMm - truss.heightMm) < 0.001f);
+  assert(std::abs(importedTruss.weightKg - truss.weightKg) < 0.001f);
+  assert(importedTruss.crossSection == truss.crossSection);
 
   cfg.Reset();
   assert(importer.ImportFromFile(manualLoadMvrPath.string(), false, false));
@@ -449,6 +517,7 @@ int main() {
   typeA.widthMm = 400.0f;
   typeA.heightMm = 400.0f;
   typeA.weightKg = 40.0f;
+  typeA.crossSection = "GenericTruss";
 
   Truss typeASame = typeA;
   Truss typeB = typeA;
@@ -461,6 +530,7 @@ int main() {
   assert(BuildTrussGdtfFromInstance(typeA, gdtfA1, &error));
   assert(BuildTrussGdtfFromInstance(typeASame, gdtfA2, &error));
   assert(BuildTrussGdtfFromInstance(typeB, gdtfB, &error));
+  AssertGeneratedTrussGdtfStructure(gdtfA1, "GenericTruss", 3.0f, 0.4f, 0.4f);
   assert(ReadFixtureTypeIdFromGdtf(gdtfA1) == ReadFixtureTypeIdFromGdtf(gdtfA2));
   assert(ReadFixtureTypeIdFromGdtf(gdtfA1) != ReadFixtureTypeIdFromGdtf(gdtfB));
 

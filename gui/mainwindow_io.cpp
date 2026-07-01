@@ -596,8 +596,10 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
   }
 }
 
+// Exports a selected truss as a Perastage-owned canonical GDTF.
 void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
-  const auto &trusses = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().trusses;
+  auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  auto &trusses = scene.trusses;
   std::set<std::string> names;
   for (const auto &[uuid, t] : trusses)
     names.insert(t.name);
@@ -612,8 +614,9 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
     return;
 
   std::string sel = dlg.GetSelectedName();
-  const Truss *chosen = nullptr;
-  for (const auto &[uuid, t] : trusses) {
+  Truss *chosen = nullptr;
+  for (auto &entry : trusses) {
+    Truss &t = entry.second;
     if (t.name == sel) {
       chosen = &t;
       break;
@@ -622,10 +625,15 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
   if (!chosen)
     return;
 
+  const std::string canonicalFileName =
+      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(
+          chosen->manufacturer,
+          chosen->model.empty() ? chosen->name : chosen->model,
+          chosen->name.empty() ? sel : chosen->name);
   wxString trussDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
   wxFileDialog saveDlg(this, "Save Truss", trussDir,
-                       wxString::FromUTF8(sel) + ".gdtf",
+                       wxString::FromUTF8(canonicalFileName),
                        "GDTF files (*.gdtf)|*.gdtf",
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDlg.ShowModal() != wxID_OK)
@@ -633,7 +641,6 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
 
   namespace fs = std::filesystem;
   std::string modelPath = chosen->symbolFile;
-  const auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
   if (fs::path(modelPath).is_relative() && !scene.basePath.empty())
     modelPath = (fs::path(scene.basePath) / modelPath).string();
   if (!fs::exists(modelPath)) {
@@ -644,12 +651,17 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
   Truss exportTruss = *chosen;
   exportTruss.symbolFile = modelPath;
   std::string error;
-  if (!BuildTrussGdtfFromInstance(
-          exportTruss, std::string(saveDlg.GetPath().mb_str()), &error)) {
+  const std::string exportedPath = std::string(saveDlg.GetPath().mb_str());
+  if (!BuildTrussGdtfFromInstance(exportTruss, exportedPath, &error)) {
     wxMessageBox(error.empty() ? "Failed to export truss GDTF." : error,
                  "Error", wxOK | wxICON_ERROR);
     return;
   }
+
+  chosen->gdtfSpec = exportedPath;
+  chosen->modelFile = exportedPath;
+  chosen->perastageAuxGdtfArchivePath = canonicalFileName;
+  chosen->gdtfMode = chosen->gdtfMode.empty() ? "Default" : chosen->gdtfMode;
 
   wxMessageBox("Truss exported successfully.", "Export Truss",
                wxOK | wxICON_INFORMATION);
