@@ -866,7 +866,10 @@ void TrussTablePanel::OnItemActivated(wxDataViewEvent &event) {
 }
 
 // Applies edited truss table values back into the scene data model.
-void TrussTablePanel::UpdateSceneData(bool logChanges)
+void TrussTablePanel::UpdateSceneData(
+    bool logChanges,
+    std::unordered_set<std::string> *changedWeightPositionsOut,
+    bool promptForHoistRecalculation)
 {
     // Ensure in-place cell editors commit pending values before reading table rows.
     if (table)
@@ -1145,8 +1148,13 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
     if (!anyChanged)
         return;
 
-  HoistLoadRecalculationPrompt::PromptAndApply(cfg, this,
-                                               changedWeightPositions);
+  if (changedWeightPositionsOut)
+    changedWeightPositionsOut->insert(changedWeightPositions.begin(),
+                                      changedWeightPositions.end());
+
+  if (promptForHoistRecalculation)
+    HoistLoadRecalculationPrompt::PromptAndApply(cfg, this,
+                                                 changedWeightPositions);
 
     if (SummaryPanel::Instance() && IsActivePage())
         SummaryPanel::Instance()->ShowTrussSummary();

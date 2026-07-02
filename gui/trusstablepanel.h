@@ -23,6 +23,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include "colorstore.h"
 #include "positionvalueupdate.h"
 
@@ -51,7 +52,9 @@ public:
     static TrussTablePanel* Instance();
     static void SetInstance(TrussTablePanel* panel);
 
-    void UpdateSceneData(bool logChanges = true);
+    void UpdateSceneData(bool logChanges = true,
+                         std::unordered_set<std::string> *changedWeightPositionsOut = nullptr,
+                         bool promptForHoistRecalculation = true);
 
 private:
     ColorfulDataViewListStore* store;

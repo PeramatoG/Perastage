@@ -21,6 +21,7 @@
 #include "fixturepreviewpanel.h"
 #include "gdtf_metadata_summary.h"
 #include "gdtfdictionary.h"
+#include "hoist_load_recalculation_prompt.h"
 #include "guiconfigservices.h"
 #include "projectutils.h"
 #include "table_column_indices.h"
@@ -31,6 +32,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <unordered_set>
 
 namespace {
 using TrussColumn = TrussTableColumns::Column;
@@ -320,7 +322,8 @@ void TrussEditDialog::ApplyChanges() {
                              static_cast<unsigned int>(i));
   }
 
-  panel->UpdateSceneData(true);
+  std::unordered_set<std::string> changedWeightPositions;
+  panel->UpdateSceneData(true, &changedWeightPositions, false);
 
   if (crossSectionModified && row >= 0 &&
       static_cast<size_t>(row) < panel->rowUuids.size()) {
@@ -342,6 +345,10 @@ void TrussEditDialog::ApplyChanges() {
   UpdateMetadataSummary();
   UpdatePreview();
   panel->ReloadData();
+
+  HoistLoadRecalculationPrompt::PromptAndApply(
+      GetDefaultGuiConfigServices().LegacyConfigManager(), panel,
+      changedWeightPositions);
   if (Viewer3DPanel::Instance()) {
     Viewer3DPanel::Instance()->UpdateScene();
     Viewer3DPanel::Instance()->Refresh();
