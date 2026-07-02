@@ -18,6 +18,8 @@
 #include "trusseditdialog.h"
 
 #include "configmanager.h"
+#include "fixturepreviewpanel.h"
+#include "gdtf_metadata_summary.h"
 #include "gdtfdictionary.h"
 #include "guiconfigservices.h"
 #include "projectutils.h"
@@ -63,14 +65,17 @@ std::string ResolveTrussResourcePath(const std::string &basePath,
 
 // Builds the truss editing dialog with MVR and GDTF fields.
 TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
-    : wxDialog(p, wxID_ANY, "Edit Truss", wxDefaultPosition, wxSize(760, 620)),
+    : wxDialog(p, wxID_ANY, "Edit Truss", wxDefaultPosition, wxSize(980, 720)),
       panel(p), row(r) {
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
+  wxBoxSizer *contentSizer = new wxBoxSizer(wxHORIZONTAL);
   wxBoxSizer *formSizer = new wxBoxSizer(wxHORIZONTAL);
   wxStaticBoxSizer *mvrSizer =
       new wxStaticBoxSizer(wxVERTICAL, this, "MVR instance");
   wxStaticBoxSizer *gdtfSizer =
       new wxStaticBoxSizer(wxVERTICAL, this, "GDTF truss type");
+  wxStaticBoxSizer *metadataSizer =
+      new wxStaticBoxSizer(wxVERTICAL, this, "GDTF metadata");
   wxFlexGridSizer *mvrGrid = new wxFlexGridSizer(2, 5, 5);
   wxFlexGridSizer *gdtfGrid = new wxFlexGridSizer(2, 5, 5);
   mvrGrid->AddGrowableCol(1, 1);
@@ -108,6 +113,29 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
                 wxALIGN_CENTER_VERTICAL);
   gdtfGrid->Add(crossSectionCtrl, 1, wxEXPAND);
 
+  wxFlexGridSizer *metadataGrid = new wxFlexGridSizer(2, 4, 8);
+  metadataGrid->AddGrowableCol(1, 1);
+  const std::array<wxString, 8> metadataLabels = {
+      "Manufacturer", "Description", "Creation date", "UserID",
+      "ModifiedBy",   "Revision",    "Last modified", "Version"};
+  for (size_t i = 0; i < metadataLabels.size(); ++i) {
+    metadataGrid->Add(new wxStaticText(this, wxID_ANY, metadataLabels[i]), 0,
+                      wxALIGN_CENTER_VERTICAL);
+    if (i == 1) {
+      metadataDescriptionCtrl =
+          new wxTextCtrl(this, wxID_ANY, "-", wxDefaultPosition, wxSize(-1, 90),
+                         wxTE_MULTILINE | wxTE_READONLY);
+      metadataDescriptionCtrl->SetMinSize(wxSize(300, 90));
+      metadataValueLabels[i] = nullptr;
+      metadataGrid->Add(metadataDescriptionCtrl, 1, wxEXPAND);
+      continue;
+    }
+    metadataValueLabels[i] = new wxStaticText(this, wxID_ANY, "-");
+    metadataValueLabels[i]->Wrap(320);
+    metadataGrid->Add(metadataValueLabels[i], 1, wxEXPAND);
+  }
+  metadataSizer->Add(metadataGrid, 1, wxEXPAND | wxALL, 6);
+
   mvrSizer->Add(mvrGrid, 1, wxEXPAND | wxALL, 6);
   gdtfSizer->Add(gdtfGrid, 1, wxEXPAND | wxALL, 6);
   gdtfSizer->Add(
@@ -115,9 +143,20 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
                        "Editing these fields creates or updates the truss "
                        "GDTF. MVR-only fields remain project-scoped."),
       0, wxLEFT | wxRIGHT | wxBOTTOM, 6);
+  wxBoxSizer *leftSizer = new wxBoxSizer(wxVERTICAL);
+  leftSizer->Add(metadataSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
   formSizer->Add(mvrSizer, 1, wxEXPAND | wxALL, 10);
   formSizer->Add(gdtfSizer, 1, wxEXPAND | wxALL, 10);
-  topSizer->Add(formSizer, 1, wxEXPAND);
+  leftSizer->Add(formSizer, 1, wxEXPAND);
+  contentSizer->Add(leftSizer, 1, wxEXPAND);
+
+  wxStaticBoxSizer *previewSizer =
+      new wxStaticBoxSizer(wxVERTICAL, this, "3D preview");
+  preview = new FixturePreviewPanel(this);
+  preview->SetMinSize(wxSize(280, 280));
+  previewSizer->Add(preview, 1, wxEXPAND | wxALL, 6);
+  contentSizer->Add(previewSizer, 0, wxEXPAND | wxTOP | wxRIGHT | wxBOTTOM, 10);
+  topSizer->Add(contentSizer, 1, wxEXPAND);
 
   wxStdDialogButtonSizer *buttons = new wxStdDialogButtonSizer();
   buttons->AddButton(new wxButton(this, wxID_APPLY));
@@ -132,6 +171,8 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
 
   SetSizerAndFit(topSizer);
   SetMinSize(GetSize());
+  UpdateMetadataSummary();
+  UpdatePreview();
 }
 
 // Marks a table-backed field as user-modified.
@@ -151,6 +192,59 @@ void TrussEditDialog::OnOk(wxCommandEvent &) {
 
 // Closes the dialog without applying pending edits.
 void TrussEditDialog::OnCancel(wxCommandEvent &) { EndModal(wxID_CANCEL); }
+
+// Resolves the current truss GDTF path for metadata and preview display.
+std::string TrussEditDialog::ResolveCurrentGdtfPath() const {
+  if (!panel || row < 0 || static_cast<size_t>(row) >= panel->rowUuids.size())
+    return {};
+
+  const auto &scene =
+      GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  auto it = scene.trusses.find(panel->rowUuids[static_cast<size_t>(row)]);
+  if (it == scene.trusses.end())
+    return {};
+  return ResolveTrussResourcePath(scene.basePath, it->second.gdtfSpec);
+}
+
+// Updates the read-only GDTF metadata section from the current GDTF.
+void TrussEditDialog::UpdateMetadataSummary() {
+  GdtfMetadataSummary metadata;
+  const bool loaded =
+      LoadGdtfMetadataSummary(ResolveCurrentGdtfPath(), metadata);
+  const wxString unavailable = wxString("-");
+  auto toValueOrFallback = [&](const std::string &value) -> wxString {
+    if (!loaded || value.empty())
+      return unavailable;
+    return wxString::FromUTF8(value);
+  };
+  const std::array<wxString, 8> values = {
+      toValueOrFallback(metadata.manufacturer),
+      toValueOrFallback(metadata.description),
+      toValueOrFallback(metadata.creationDate),
+      toValueOrFallback(metadata.userId),
+      toValueOrFallback(metadata.modifiedBy),
+      toValueOrFallback(metadata.revision),
+      toValueOrFallback(metadata.lastModified),
+      toValueOrFallback(metadata.version)};
+  for (size_t i = 0; i < metadataValueLabels.size() && i < values.size(); ++i) {
+    if (i == 1 && metadataDescriptionCtrl) {
+      metadataDescriptionCtrl->SetValue(values[i]);
+      metadataDescriptionCtrl->ShowPosition(0);
+      continue;
+    }
+    if (metadataValueLabels[i]) {
+      metadataValueLabels[i]->SetLabel(values[i]);
+      metadataValueLabels[i]->Wrap(320);
+    }
+  }
+  Layout();
+}
+
+// Updates the embedded 3D preview from the current GDTF.
+void TrussEditDialog::UpdatePreview() {
+  if (preview)
+    preview->LoadFixture(ResolveCurrentGdtfPath());
+}
 
 // Creates or refreshes the Perastage-authored truss GDTF.
 bool TrussEditDialog::EnsureGdtfForEditedTruss() {
@@ -243,6 +337,8 @@ void TrussEditDialog::ApplyChanges() {
   if (gdtfColumnChanged)
     EnsureGdtfForEditedTruss();
 
+  UpdateMetadataSummary();
+  UpdatePreview();
   panel->ReloadData();
   if (Viewer3DPanel::Instance()) {
     Viewer3DPanel::Instance()->UpdateScene();

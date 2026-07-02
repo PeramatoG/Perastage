@@ -17,10 +17,13 @@
  */
 #pragma once
 
+#include <array>
+#include <string>
 #include <vector>
 
 #include <wx/wx.h>
 
+class FixturePreviewPanel;
 class TrussTablePanel;
 
 class TrussEditDialog : public wxDialog {
@@ -35,11 +38,17 @@ private:
   void OnCancel(wxCommandEvent &event);
   void ApplyChanges();
   bool EnsureGdtfForEditedTruss();
+  std::string ResolveCurrentGdtfPath() const;
+  void UpdateMetadataSummary();
+  void UpdatePreview();
 
   TrussTablePanel *panel = nullptr;
   int row = -1;
   std::vector<wxControl *> ctrls;
   wxTextCtrl *crossSectionCtrl = nullptr;
+  wxTextCtrl *metadataDescriptionCtrl = nullptr;
+  FixturePreviewPanel *preview = nullptr;
+  std::array<wxStaticText *, 8> metadataValueLabels{};
   std::vector<bool> modifiedColumns;
   bool crossSectionModified = false;
   bool applied = false;
