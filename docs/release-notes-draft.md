@@ -17,6 +17,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed the Trusses table so hoist-load recalculation prompts only appear when an edit can change a position rigging total, such as weight or hang-position changes, instead of dimension-only edits like width or height.
 - Fixed MVR merge imports so incoming fixture, truss, hoist, scene-object, and symbol resources are copied into a valid merge resource root before references are applied, including when merging into an empty or unsaved scene.
 - Fixed the MVR-xchange log text styling so transfer messages use the same readable Console colors and monospaced font.
 - Fixed MVR-xchange remote imports so merging keeps the current project name, while opening a requested MVR as a new project uses the advertised MVR file name.
