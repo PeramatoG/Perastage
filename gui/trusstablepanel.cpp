@@ -891,8 +891,28 @@ void TrussTablePanel::UpdateSceneData(
     std::unordered_set<std::string> changedWeightPositions;
     std::vector<std::pair<std::string, std::string>> updatedTrusses;
 
-  auto makeKey = [](const std::string &n, const std::string &m,
-                    const std::string &mo) { return n + "" + m + "" + mo; };
+  auto makeKey = [](const std::string &prefix, const std::string &value) {
+    return prefix + "" + value;
+  };
+  auto makeMetadataKey = [&](const Truss &truss) {
+    return makeKey("metadata", truss.name + "" + truss.manufacturer +
+                                   "" + truss.model);
+  };
+  auto makeTypeKey = [&](const Truss &truss) {
+    if (!truss.perastageTypeKey.empty())
+      return makeKey("type", truss.perastageTypeKey);
+    if (!truss.gdtfSpec.empty())
+      return makeKey("gdtf", truss.gdtfSpec);
+    if (!truss.modelFile.empty())
+      return makeKey("modelFile", truss.modelFile);
+    if (!truss.symbolFile.empty())
+      return makeKey("symbolFile", truss.symbolFile);
+    return makeMetadataKey(truss);
+  };
+  auto rememberDimensions = [&](const std::string &key, const Truss &source) {
+    dims[key] = {source.lengthMm, source.widthMm, source.heightMm,
+                 source.weightKg};
+  };
 
     bool undoPushed = false;
     bool anyChanged = false;
@@ -1082,14 +1102,19 @@ void TrussTablePanel::UpdateSceneData(
         }
 
         const Truss& canonicalSource = trussChanged ? it->second : old;
-        std::string key = makeKey(canonicalSource.name,
-                                  canonicalSource.manufacturer,
-                                  canonicalSource.model);
+        const std::string sourceTypeKey = makeTypeKey(old);
+        const std::string currentTypeKey = makeTypeKey(canonicalSource);
+        const std::string metadataKey = makeMetadataKey(canonicalSource);
 
-        if (trussChanged || !dims.count(key))
-        {
-            dims[key] = {canonicalSource.lengthMm, canonicalSource.widthMm,
-                         canonicalSource.heightMm, canonicalSource.weightKg};
+        if (trussChanged) {
+            rememberDimensions(sourceTypeKey, canonicalSource);
+            rememberDimensions(currentTypeKey, canonicalSource);
+            rememberDimensions(metadataKey, canonicalSource);
+        } else {
+            if (!dims.count(sourceTypeKey))
+                rememberDimensions(sourceTypeKey, canonicalSource);
+            if (!dims.count(metadataKey))
+                rememberDimensions(metadataKey, canonicalSource);
         }
     }
 
@@ -1100,10 +1125,9 @@ void TrussTablePanel::UpdateSceneData(
         if (it == scene.trusses.end())
             continue;
 
-        std::string key = makeKey(it->second.name,
-                                  it->second.manufacturer,
-                                  it->second.model);
-        auto dit = dims.find(key);
+        auto dit = dims.find(makeTypeKey(it->second));
+        if (dit == dims.end())
+            dit = dims.find(makeMetadataKey(it->second));
         if (dit == dims.end())
             continue;
 
