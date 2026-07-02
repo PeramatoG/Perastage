@@ -1062,11 +1062,12 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
                                            0.001);
         const bool weightChanged =
             !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
+        const bool hangPositionChanged = old.positionName != next.positionName;
 
     if (trussChanged) {
             pushUndoIfNeeded();
             anyChanged = true;
-            if (weightChanged) {
+            if (weightChanged || hangPositionChanged) {
                 changedWeightPositions.insert(NormalizePositionName(old.positionName));
                 changedWeightPositions.insert(NormalizePositionName(next.positionName));
             }
@@ -1108,16 +1109,20 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
         const float heiMm = dit->second.hei;
         const float weightKg = dit->second.weight;
 
+        const bool synchronizedWeightChanged =
+            !Units::NearlyEqualWeightKilograms(it->second.weightKg, weightKg, 0.001);
         if (it->second.lengthMm != lenMm || it->second.widthMm != widMm ||
-        it->second.heightMm != heiMm || it->second.weightKg != weightKg) {
+        it->second.heightMm != heiMm || synchronizedWeightChanged) {
             pushUndoIfNeeded();
             anyChanged = true;
             it->second.lengthMm = lenMm;
             it->second.widthMm = widMm;
             it->second.heightMm = heiMm;
             it->second.weightKg = weightKg;
+            if (synchronizedWeightChanged) {
       changedWeightPositions.insert(
           NormalizePositionName(it->second.positionName));
+            }
 
             wxString lenStr = wxString::Format("%.2f", lenMm / 1000.0f);
             wxString widStr =
