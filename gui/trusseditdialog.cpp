@@ -68,8 +68,9 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
     : wxDialog(p, wxID_ANY, "Edit Truss", wxDefaultPosition, wxSize(980, 720)),
       panel(p), row(r) {
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
-  wxBoxSizer *contentSizer = new wxBoxSizer(wxHORIZONTAL);
-  wxBoxSizer *formSizer = new wxBoxSizer(wxHORIZONTAL);
+  wxBoxSizer *contentSizer = new wxBoxSizer(wxVERTICAL);
+  wxBoxSizer *topRowSizer = new wxBoxSizer(wxHORIZONTAL);
+  wxBoxSizer *bottomRowSizer = new wxBoxSizer(wxHORIZONTAL);
   wxStaticBoxSizer *mvrSizer =
       new wxStaticBoxSizer(wxVERTICAL, this, "MVR instance");
   wxStaticBoxSizer *gdtfSizer =
@@ -134,6 +135,7 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
     metadataValueLabels[i]->Wrap(320);
     metadataGrid->Add(metadataValueLabels[i], 1, wxEXPAND);
   }
+  metadataSizer->SetMinSize(wxSize(360, 190));
   metadataSizer->Add(metadataGrid, 1, wxEXPAND | wxALL, 6);
 
   mvrSizer->Add(mvrGrid, 1, wxEXPAND | wxALL, 6);
@@ -143,19 +145,19 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
                        "Editing these fields creates or updates the truss "
                        "GDTF. MVR-only fields remain project-scoped."),
       0, wxLEFT | wxRIGHT | wxBOTTOM, 6);
-  wxBoxSizer *leftSizer = new wxBoxSizer(wxVERTICAL);
-  leftSizer->Add(metadataSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
-  formSizer->Add(mvrSizer, 1, wxEXPAND | wxALL, 10);
-  formSizer->Add(gdtfSizer, 1, wxEXPAND | wxALL, 10);
-  leftSizer->Add(formSizer, 1, wxEXPAND);
-  contentSizer->Add(leftSizer, 1, wxEXPAND);
-
   wxStaticBoxSizer *previewSizer =
       new wxStaticBoxSizer(wxVERTICAL, this, "3D preview");
+  previewSizer->SetMinSize(wxSize(360, 190));
   preview = new FixturePreviewPanel(this);
-  preview->SetMinSize(wxSize(280, 280));
+  preview->SetMinSize(wxSize(320, 160));
   previewSizer->Add(preview, 1, wxEXPAND | wxALL, 6);
-  contentSizer->Add(previewSizer, 0, wxEXPAND | wxTOP | wxRIGHT | wxBOTTOM, 10);
+
+  topRowSizer->Add(metadataSizer, 1, wxEXPAND | wxALL, 10);
+  topRowSizer->Add(previewSizer, 1, wxEXPAND | wxALL, 10);
+  bottomRowSizer->Add(mvrSizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+  bottomRowSizer->Add(gdtfSizer, 1, wxEXPAND | wxRIGHT | wxBOTTOM, 10);
+  contentSizer->Add(topRowSizer, 0, wxEXPAND);
+  contentSizer->Add(bottomRowSizer, 1, wxEXPAND);
   topSizer->Add(contentSizer, 1, wxEXPAND);
 
   wxStdDialogButtonSizer *buttons = new wxStdDialogButtonSizer();
