@@ -27,6 +27,7 @@
 #include "positionvalueupdate.h"
 
 class IGuiConfigServices;
+class TrussEditDialog;
 
 class TrussTablePanel : public wxPanel
 {
@@ -82,5 +83,8 @@ private:
     void OnLeftUp(wxMouseEvent& evt);
     void OnMouseMove(wxMouseEvent& evt);
     void OnCaptureLost(wxMouseCaptureLostEvent& evt);
+    void OnItemActivated(wxDataViewEvent& event);
     void UpdateSelectionHighlight();
+
+    friend class TrussEditDialog;
 };

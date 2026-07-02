@@ -33,6 +33,7 @@
 #include "table_column_indices.h"
 #include "dataview_edit_commit.h"
 #include "trussdictionary.h"
+#include "trusseditdialog.h"
 #include "trussloader.h"
 #include "units/unit_label_utils.h"
 #include "units/units.h"
@@ -197,6 +198,8 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
     table->Bind(wxEVT_MOTION, &TrussTablePanel::OnMouseMove, this);
     table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
                 &TrussTablePanel::OnSelectionChanged, this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
+              &TrussTablePanel::OnItemActivated, this);
 
   table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &TrussTablePanel::OnContextMenu,
               this);
@@ -846,6 +849,20 @@ void TrussTablePanel::ApplyPositionValueUpdates(
         table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row,
                         ColumnIndex(TrussColumn::PositionZ));
     }
+}
+
+// Opens the truss edit dialog for the activated table row.
+void TrussTablePanel::OnItemActivated(wxDataViewEvent &event) {
+  const wxDataViewItem item =
+      event.GetItem().IsOk() ? event.GetItem() : table->GetSelection();
+  if (!item.IsOk())
+    return;
+  const int row = table->ItemToRow(item);
+  if (row < 0 || static_cast<size_t>(row) >= rowUuids.size())
+    return;
+
+  TrussEditDialog dialog(this, row);
+  dialog.ShowModal();
 }
 
 // Applies edited truss table values back into the scene data model.
