@@ -1,13 +1,30 @@
 # Perastage
 
-![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
-![Build: CMake](https://img.shields.io/badge/Build-CMake-064F8C)
+<p align="center">
+  <a href="https://github.com/PeramatoG/Perastage/releases/latest">
+    <img alt="Latest Release" src="https://img.shields.io/github/v/release/PeramatoG/Perastage?label=latest%20release&style=for-the-badge">
+  </a>
+  <a href="https://github.com/PeramatoG/Perastage/releases/latest">
+    <img alt="Latest Release Downloads" src="https://img.shields.io/github/downloads/PeramatoG/Perastage/latest/total?label=latest%20release%20downloads&style=for-the-badge">
+  </a>
+  <a href="https://github.com/PeramatoG/Perastage/releases">
+    <img alt="Total Downloads" src="https://img.shields.io/github/downloads/PeramatoG/Perastage/total?label=total%20downloads&style=for-the-badge">
+  </a>
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-blue?style=for-the-badge">
+  <img alt="C++20" src="https://img.shields.io/badge/C%2B%2B-20-blue?style=for-the-badge">
+  <img alt="Build" src="https://img.shields.io/badge/build-CMake-064F8C?style=for-the-badge">
+  <img alt="wxWidgets" src="https://img.shields.io/badge/wxWidgets-3.3.1-green?style=for-the-badge">
+  <a href="https://github.com/PeramatoG/Perastage/blob/main/LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/PeramatoG/Perastage?style=for-the-badge">
+  </a>
+</p>
 
 ![Perastage 3D View](resources/perastage3d.png)
 
-Perastage is a free, cross-platform desktop viewer for MVR files.  
+Perastage is a free, cross-platform desktop application for viewing, editing, and exporting MVR-based stage files.
+
 **Help website:** https://perastage.luismaperamato.com/  
-**Releases:** https://github.com/PeramatoG/Perastage/releases/latest  
+**Latest release:** https://github.com/PeramatoG/Perastage/releases/latest
 **Screenshots:** `resources/perastage3d.png`
 
 It is designed to open an MVR project quickly, inspect its contents in a clear visual way, and make it easier to review fixtures, trusses, hoists, objects, and general scene structure without needing a full real-time DMX visualizer.
