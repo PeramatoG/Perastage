@@ -2,34 +2,32 @@
 
 <p align="center">
   <a href="https://github.com/PeramatoG/Perastage/releases/latest">
-    <img alt="Latest Release" src="https://img.shields.io/github/v/release/PeramatoG/Perastage?label=latest%20release&style=for-the-badge">
+    <img alt="Latest Release" src="https://img.shields.io/github/v/release/PeramatoG/Perastage?label=release&style=flat-square">
   </a>
   <a href="https://github.com/PeramatoG/Perastage/releases/latest">
-    <img alt="Latest Release Downloads" src="https://img.shields.io/github/downloads/PeramatoG/Perastage/latest/total?label=latest%20release%20downloads&style=for-the-badge">
+    <img alt="Latest Release Downloads" src="https://img.shields.io/github/downloads/PeramatoG/Perastage/latest/total?label=latest%20downloads&style=flat-square">
   </a>
   <a href="https://github.com/PeramatoG/Perastage/releases">
-    <img alt="Total Downloads" src="https://img.shields.io/github/downloads/PeramatoG/Perastage/total?label=total%20downloads&style=for-the-badge">
+    <img alt="Total Downloads" src="https://img.shields.io/github/downloads/PeramatoG/Perastage/total?label=total%20downloads&style=flat-square">
   </a>
-  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-blue?style=for-the-badge">
-  <img alt="C++20" src="https://img.shields.io/badge/C%2B%2B-20-blue?style=for-the-badge">
-  <img alt="Build" src="https://img.shields.io/badge/build-CMake-064F8C?style=for-the-badge">
-  <img alt="wxWidgets" src="https://img.shields.io/badge/wxWidgets-3.3.1-green?style=for-the-badge">
-  <a href="https://github.com/PeramatoG/Perastage/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/PeramatoG/Perastage?style=for-the-badge">
+  <img alt="C++20" src="https://img.shields.io/badge/C%2B%2B-20-blue?style=flat-square">
+  <img alt="wxWidgets" src="https://img.shields.io/badge/wxWidgets-3.3.1-green?style=flat-square">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square">
+  <a href="https://github.com/PeramatoG/Perastage/blob/main/LICENSE.txt">
+    <img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square">
   </a>
 </p>
 
 ![Perastage 3D View](resources/perastage3d.png)
 
-Perastage is a free, cross-platform desktop application for viewing, editing, and exporting MVR-based stage files.
-
-**Help website:** https://perastage.luismaperamato.com/  
-**Latest release:** https://github.com/PeramatoG/Perastage/releases/latest
-**Screenshots:** `resources/perastage3d.png`
+**Perastage is a free, cross-platform desktop application for viewing, editing, and exporting MVR-based stage files.**
 
 It is designed to open an MVR project quickly, inspect its contents in a clear visual way, and make it easier to review fixtures, trusses, hoists, objects, and general scene structure without needing a full real-time DMX visualizer.
 
 Perastage is **not** a real-time DMX visualizer. Its main purpose is to provide a fast and practical way to view, check, and work with MVR files that use GDTF libraries.
+
+**Help website:** https://perastage.luismaperamato.com/  
+**Latest release:** https://github.com/PeramatoG/Perastage/releases/latest  
 
 ## What Perastage is for
 
