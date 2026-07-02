@@ -76,6 +76,59 @@ bool IsRotationColumn(TrussColumn column) {
     return column >= TrussColumn::Roll && column <= TrussColumn::Yaw;
 }
 
+// Checks whether a truss column stores shared truss type dimensions.
+bool IsSharedTrussTypeDimensionColumn(TrussColumn column) {
+    return column == TrussColumn::Length || column == TrussColumn::Width ||
+           column == TrussColumn::Height || column == TrussColumn::Weight;
+}
+
+// Builds the table key used to match visible truss type rows.
+std::string BuildVisibleTrussTypeKey(wxDataViewListCtrl *table, int row) {
+    if (!table || row == wxNOT_FOUND)
+        return {};
+
+    wxVariant name;
+    wxVariant manufacturer;
+    wxVariant model;
+    table->GetValue(name, row, ColumnIndex(TrussColumn::Name));
+    table->GetValue(manufacturer, row, ColumnIndex(TrussColumn::Manufacturer));
+    table->GetValue(model, row, ColumnIndex(TrussColumn::Model));
+    return std::string(name.GetString().ToUTF8()) + "" +
+           std::string(manufacturer.GetString().ToUTF8()) + "" +
+           std::string(model.GetString().ToUTF8());
+}
+
+// Propagates edited truss type dimensions in the table before scene syncing.
+void PropagateSharedTrussTypeDimensionValues(wxDataViewListCtrl *table,
+                                             const wxDataViewItemArray &selections,
+                                             TrussColumn column) {
+    if (!table || !IsSharedTrussTypeDimensionColumn(column))
+        return;
+
+    const int col = ColumnIndex(column);
+    std::unordered_map<std::string, wxVariant> valuesByType;
+    for (const auto &item : selections) {
+        const int row = table->ItemToRow(item);
+        if (row == wxNOT_FOUND)
+            continue;
+        wxVariant value;
+        table->GetValue(value, row, col);
+        valuesByType[BuildVisibleTrussTypeKey(table, row)] = value;
+    }
+
+    const unsigned int rowCount = table->GetItemCount();
+    for (unsigned int row = 0; row < rowCount; ++row) {
+        auto it = valuesByType.find(BuildVisibleTrussTypeKey(table, row));
+        if (it == valuesByType.end())
+            continue;
+        wxVariant current;
+        table->GetValue(current, row, col);
+        if (current.GetString() == it->second.GetString())
+            continue;
+        table->SetValue(it->second, row, col);
+    }
+}
+
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
@@ -684,6 +737,8 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
                 table->SetValue(wxVariant(value), r, col);
         }
     }
+
+    PropagateSharedTrussTypeDimensionValues(table, selections, *namedColumn);
 
     ResyncRows(oldOrder, selectedUuids);
 
