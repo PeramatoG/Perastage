@@ -76,6 +76,59 @@ bool IsRotationColumn(TrussColumn column) {
     return column >= TrussColumn::Roll && column <= TrussColumn::Yaw;
 }
 
+// Checks whether a truss column stores shared truss type dimensions.
+bool IsSharedTrussTypeDimensionColumn(TrussColumn column) {
+    return column == TrussColumn::Length || column == TrussColumn::Width ||
+           column == TrussColumn::Height || column == TrussColumn::Weight;
+}
+
+// Builds the table key used to match visible truss type rows.
+std::string BuildVisibleTrussTypeKey(wxDataViewListCtrl *table, int row) {
+    if (!table || row == wxNOT_FOUND)
+        return {};
+
+    wxVariant name;
+    wxVariant manufacturer;
+    wxVariant model;
+    table->GetValue(name, row, ColumnIndex(TrussColumn::Name));
+    table->GetValue(manufacturer, row, ColumnIndex(TrussColumn::Manufacturer));
+    table->GetValue(model, row, ColumnIndex(TrussColumn::Model));
+    return std::string(name.GetString().ToUTF8()) + "" +
+           std::string(manufacturer.GetString().ToUTF8()) + "" +
+           std::string(model.GetString().ToUTF8());
+}
+
+// Propagates edited truss type dimensions in the table before scene syncing.
+void PropagateSharedTrussTypeDimensionValues(wxDataViewListCtrl *table,
+                                             const wxDataViewItemArray &selections,
+                                             TrussColumn column) {
+    if (!table || !IsSharedTrussTypeDimensionColumn(column))
+        return;
+
+    const int col = ColumnIndex(column);
+    std::unordered_map<std::string, wxVariant> valuesByType;
+    for (const auto &item : selections) {
+        const int row = table->ItemToRow(item);
+        if (row == wxNOT_FOUND)
+            continue;
+        wxVariant value;
+        table->GetValue(value, row, col);
+        valuesByType[BuildVisibleTrussTypeKey(table, row)] = value;
+    }
+
+    const unsigned int rowCount = table->GetItemCount();
+    for (unsigned int row = 0; row < rowCount; ++row) {
+        auto it = valuesByType.find(BuildVisibleTrussTypeKey(table, row));
+        if (it == valuesByType.end())
+            continue;
+        wxVariant current;
+        table->GetValue(current, row, col);
+        if (current.GetString() == it->second.GetString())
+            continue;
+        table->SetValue(it->second, row, col);
+    }
+}
+
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
@@ -685,6 +738,8 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
         }
     }
 
+    PropagateSharedTrussTypeDimensionValues(table, selections, *namedColumn);
+
     ResyncRows(oldOrder, selectedUuids);
 
     UpdateSceneData();
@@ -866,10 +921,7 @@ void TrussTablePanel::OnItemActivated(wxDataViewEvent &event) {
 }
 
 // Applies edited truss table values back into the scene data model.
-void TrussTablePanel::UpdateSceneData(
-    bool logChanges,
-    std::unordered_set<std::string> *changedWeightPositionsOut,
-    bool promptForHoistRecalculation)
+void TrussTablePanel::UpdateSceneData(bool logChanges)
 {
     // Ensure in-place cell editors commit pending values before reading table rows.
     if (table)
@@ -891,28 +943,8 @@ void TrussTablePanel::UpdateSceneData(
     std::unordered_set<std::string> changedWeightPositions;
     std::vector<std::pair<std::string, std::string>> updatedTrusses;
 
-  auto makeKey = [](const std::string &prefix, const std::string &value) {
-    return prefix + "" + value;
-  };
-  auto makeMetadataKey = [&](const Truss &truss) {
-    return makeKey("metadata", truss.name + "" + truss.manufacturer +
-                                   "" + truss.model);
-  };
-  auto makeTypeKey = [&](const Truss &truss) {
-    if (!truss.perastageTypeKey.empty())
-      return makeKey("type", truss.perastageTypeKey);
-    if (!truss.gdtfSpec.empty())
-      return makeKey("gdtf", truss.gdtfSpec);
-    if (!truss.modelFile.empty())
-      return makeKey("modelFile", truss.modelFile);
-    if (!truss.symbolFile.empty())
-      return makeKey("symbolFile", truss.symbolFile);
-    return makeMetadataKey(truss);
-  };
-  auto rememberDimensions = [&](const std::string &key, const Truss &source) {
-    dims[key] = {source.lengthMm, source.widthMm, source.heightMm,
-                 source.weightKg};
-  };
+  auto makeKey = [](const std::string &n, const std::string &m,
+                    const std::string &mo) { return n + "" + m + "" + mo; };
 
     bool undoPushed = false;
     bool anyChanged = false;
@@ -1102,19 +1134,14 @@ void TrussTablePanel::UpdateSceneData(
         }
 
         const Truss& canonicalSource = trussChanged ? it->second : old;
-        const std::string sourceTypeKey = makeTypeKey(old);
-        const std::string currentTypeKey = makeTypeKey(canonicalSource);
-        const std::string metadataKey = makeMetadataKey(canonicalSource);
+        std::string key = makeKey(canonicalSource.name,
+                                  canonicalSource.manufacturer,
+                                  canonicalSource.model);
 
-        if (trussChanged) {
-            rememberDimensions(sourceTypeKey, canonicalSource);
-            rememberDimensions(currentTypeKey, canonicalSource);
-            rememberDimensions(metadataKey, canonicalSource);
-        } else {
-            if (!dims.count(sourceTypeKey))
-                rememberDimensions(sourceTypeKey, canonicalSource);
-            if (!dims.count(metadataKey))
-                rememberDimensions(metadataKey, canonicalSource);
+        if (trussChanged || !dims.count(key))
+        {
+            dims[key] = {canonicalSource.lengthMm, canonicalSource.widthMm,
+                         canonicalSource.heightMm, canonicalSource.weightKg};
         }
     }
 
@@ -1125,9 +1152,10 @@ void TrussTablePanel::UpdateSceneData(
         if (it == scene.trusses.end())
             continue;
 
-        auto dit = dims.find(makeTypeKey(it->second));
-        if (dit == dims.end())
-            dit = dims.find(makeMetadataKey(it->second));
+        std::string key = makeKey(it->second.name,
+                                  it->second.manufacturer,
+                                  it->second.model);
+        auto dit = dims.find(key);
         if (dit == dims.end())
             continue;
 
@@ -1172,13 +1200,8 @@ void TrussTablePanel::UpdateSceneData(
     if (!anyChanged)
         return;
 
-  if (changedWeightPositionsOut)
-    changedWeightPositionsOut->insert(changedWeightPositions.begin(),
-                                      changedWeightPositions.end());
-
-  if (promptForHoistRecalculation)
-    HoistLoadRecalculationPrompt::PromptAndApply(cfg, this,
-                                                 changedWeightPositions);
+  HoistLoadRecalculationPrompt::PromptAndApply(cfg, this,
+                                               changedWeightPositions);
 
     if (SummaryPanel::Instance() && IsActivePage())
         SummaryPanel::Instance()->ShowTrussSummary();
