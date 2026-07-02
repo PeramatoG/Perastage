@@ -2785,7 +2785,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
 
     auto logFixtureIdRepair = [&](const Fixture &fixture, int originalId,
                                   int repairedId) {
-      std::string fixtureName = TrimAscii(fixture.name);
+      std::string fixtureName = TrimAscii(fixture.instanceName);
       if (fixtureName.empty())
         fixtureName = fixture.uuid.empty() ? "unnamed fixture" : fixture.uuid;
       const std::string message =
