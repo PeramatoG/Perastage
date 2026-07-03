@@ -40,6 +40,7 @@ constexpr int ColumnIndex(LayerColumn column) {
     return TableColumnIndices::ToIndex(column);
 }
 
+// Refreshes open viewer panels after layer visibility or color changes.
 void RefreshVisibleViewers() {
     std::function<void(wxWindow*)> visit;
     visit = [&](wxWindow* window) {
@@ -72,6 +73,7 @@ void RefreshVisibleViewers() {
 }
 } // namespace
 
+// Builds the layer list panel and wires layer management events.
 LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config)
     : wxPanel(parent, wxID_ANY), configManager(config ? config : &GetDefaultGuiConfigServices().LegacyConfigManager())
 {
@@ -151,10 +153,13 @@ LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config
     ReloadLayers();
 }
 
+// Returns the globally registered layer panel instance.
 LayerPanel *LayerPanel::Instance() { return s_instance; }
 
+// Stores the globally registered layer panel instance.
 void LayerPanel::SetInstance(LayerPanel *p) { s_instance = p; }
 
+// Rebuilds the visible layer rows from the current scene and visibility state.
 void LayerPanel::ReloadLayers() {
   if (!list)
     return;
@@ -223,6 +228,7 @@ void LayerPanel::ReloadLayers() {
     }
 }
 
+// Applies visibility checkbox changes to the hidden-layer set.
 void LayerPanel::OnCheck(wxDataViewEvent &evt) {
     int idx = static_cast<int>(list->ItemToRow(evt.GetItem()));
   if (idx == wxNOT_FOUND || idx < 0 ||
@@ -242,6 +248,7 @@ void LayerPanel::OnCheck(wxDataViewEvent &evt) {
     RefreshVisibleViewers();
 }
 
+// Updates the current layer when the selected row changes.
 void LayerPanel::OnSelect(wxDataViewEvent &evt) {
     unsigned int idx = list->ItemToRow(evt.GetItem());
     if (idx == wxNOT_FOUND)
@@ -250,6 +257,7 @@ void LayerPanel::OnSelect(wxDataViewEvent &evt) {
     (*configManager).SetCurrentLayer(wname.ToStdString());
 }
 
+// Opens the layer color picker for the context-menu row.
 void LayerPanel::OnContext(wxDataViewEvent &evt) {
     unsigned int idx = list->ItemToRow(evt.GetItem());
     if (idx == wxNOT_FOUND)
@@ -287,6 +295,7 @@ void LayerPanel::OnContext(wxDataViewEvent &evt) {
     }
 }
 
+// Adds a new named layer to the scene.
 void LayerPanel::OnAddLayer(wxCommandEvent &) {
     wxTextEntryDialog dlg(this, "Enter new layer name:", "Add Layer");
     if (dlg.ShowModal() != wxID_OK)
@@ -314,6 +323,7 @@ void LayerPanel::OnAddLayer(wxCommandEvent &) {
     ReloadLayers();
 }
 
+// Deletes the selected non-default layer and any contained elements when confirmed.
 void LayerPanel::OnDeleteLayer(wxCommandEvent&)
 {
     if (!list)
@@ -444,9 +454,14 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
     }
 }
 
+// Renames the activated layer when the layer-name column is activated.
 void LayerPanel::OnRenameLayer(wxDataViewEvent &evt) {
     if (!list)
         return;
+    if (evt.GetColumn() != ColumnIndex(LayerColumn::Layer)) {
+        evt.Skip();
+        return;
+    }
     unsigned int idx = list->ItemToRow(evt.GetItem());
     if (idx == wxNOT_FOUND)
         return;
