@@ -1590,16 +1590,11 @@ void HoistTablePanel::SetLoadStateForRow(
   loadStateByKey[rowKey] = state;
 }
 
+// Reapplies UUID-based selection after user-driven column sorting changes row order.
 void HoistTablePanel::OnColumnSorted(wxDataViewEvent &event) {
   RebuildRowCachesFromRowKeys();
-  wxDataViewItemArray selections;
-  table->GetSelections(selections);
-  std::vector<std::string> selectedUuids;
-  for (const auto &it : selections) {
-    const std::string uuid = UuidForItem(it);
-    if (!uuid.empty())
-      selectedUuids.push_back(uuid);
-  }
+  const std::vector<std::string> selectedUuids =
+      guiConfigServices->LegacyConfigManager().GetSelectedSupports();
   std::vector<std::string> oldOrder = rowUuids;
   ResyncRows(oldOrder, selectedUuids);
   event.Skip();
