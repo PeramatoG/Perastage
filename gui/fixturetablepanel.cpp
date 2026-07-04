@@ -63,6 +63,21 @@
 namespace fs = std::filesystem;
 
 namespace {
+
+// Converts UUID selection order into the current row indexes for row-based edits.
+std::vector<int> BuildRowsFromSelectionOrderUuids(
+    const std::vector<std::string> &selectionOrderUuids,
+    const std::vector<std::string> &rowUuids) {
+  std::vector<int> rows;
+  rows.reserve(selectionOrderUuids.size());
+  for (const auto &uuid : selectionOrderUuids) {
+    auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
+    if (pos != rowUuids.end())
+      rows.push_back(static_cast<int>(pos - rowUuids.begin()));
+  }
+  return rows;
+}
+
 // Returns the UTF-8 degree symbol used across fixture table labels.
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
@@ -777,8 +792,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         selectedRows.push_back(row);
     }
 
-    auto orderedRows =
-        FixtureTableEditService::BuildOrderedRows(selectedRows, selectionOrder);
+    auto orderedRows = FixtureTableEditService::BuildOrderedRows(
+        selectedRows,
+        BuildRowsFromSelectionOrderUuids(selectionOrderUuids, rowUuids));
 
     std::vector<int> counts;
     counts.reserve(orderedRows.size());
@@ -1046,7 +1062,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         }
 
         auto orderedRows = FixtureTableEditService::BuildOrderedRows(
-            selectedRows, selectionOrder);
+            selectedRows,
+            BuildRowsFromSelectionOrderUuids(selectionOrderUuids, rowUuids));
 
         for (size_t i = 0; i < orderedRows.size(); ++i) {
           long val = v1;
@@ -1114,7 +1131,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         }
 
         auto orderedRows = FixtureTableEditService::BuildOrderedRows(
-            selectedRows, selectionOrder);
+            selectedRows,
+            BuildRowsFromSelectionOrderUuids(selectionOrderUuids, rowUuids));
 
         for (size_t i = 0; i < orderedRows.size(); ++i) {
           wxString newName =
@@ -1310,7 +1328,7 @@ void FixtureTablePanel::HighlightPatchConflicts() {
 // Clears all current table row selections.
 void FixtureTablePanel::ClearSelection() {
   table->UnselectAll();
-  selectionOrder.clear();
+  selectionOrderUuids.clear();
   UpdateSelectionHighlight();
 }
 
@@ -1337,14 +1355,14 @@ void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
     selectionBlocker = std::make_unique<wxEventBlocker>(
         table, wxEVT_DATAVIEW_SELECTION_CHANGED);
   table->UnselectAll();
-  selectionOrder.clear();
+  selectionOrderUuids.clear();
   std::vector<bool> selectedRows(table->GetItemCount(), false);
   for (const auto &u : uuids) {
     auto pos = std::find(rowUuids.begin(), rowUuids.end(), u);
     if (pos != rowUuids.end()) {
       int row = static_cast<int>(pos - rowUuids.begin());
       table->SelectRow(row);
-      selectionOrder.push_back(row);
+      selectionOrderUuids.push_back(u);
       if (row >= 0 && static_cast<size_t>(row) < selectedRows.size())
         selectedRows[row] = true;
     }
@@ -1390,16 +1408,6 @@ void FixtureTablePanel::DeleteSelected(bool pushUndoState) {
       rowUuidByKey.erase(rowKey);
       gdtfPathByKey.erase(rowKey);
       store->DeleteItem(r);
-      for (auto itSel = selectionOrder.begin();
-           itSel != selectionOrder.end();) {
-        if (*itSel == r)
-          itSel = selectionOrder.erase(itSel);
-        else {
-          if (*itSel > r)
-            --(*itSel);
-          ++itSel;
-        }
-      }
     }
   }
 
@@ -1429,7 +1437,7 @@ void FixtureTablePanel::DeleteSelected(bool pushUndoState) {
   if (RiggingPanel::Instance())
     RiggingPanel::Instance()->RefreshData();
 
-  selectionOrder.clear();
+  selectionOrderUuids.clear();
   ResyncRows(oldOrder, {}, &oldPaths);
 }
 
@@ -1549,24 +1557,24 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
       currentRows.push_back(r);
     }
   }
-  // Preserve existing order but drop unselected rows
-  std::vector<int> newOrder;
-  for (int r : selectionOrder)
-    if (std::find(currentRows.begin(), currentRows.end(), r) !=
-        currentRows.end())
-      newOrder.push_back(r);
-  // Append newly selected rows in the order reported
-  for (int r : currentRows)
-    if (std::find(newOrder.begin(), newOrder.end(), r) == newOrder.end())
-      newOrder.push_back(r);
-  selectionOrder.swap(newOrder);
-
-  std::vector<std::string> orderedUuids;
-  orderedUuids.reserve(selectionOrder.size());
-  for (int rowIndex : selectionOrder) {
+  std::vector<std::string> currentUuids;
+  currentUuids.reserve(currentRows.size());
+  for (int rowIndex : currentRows) {
     if (rowIndex >= 0 && static_cast<size_t>(rowIndex) < rowUuids.size())
-      orderedUuids.push_back(rowUuids[static_cast<size_t>(rowIndex)]);
+      currentUuids.push_back(rowUuids[static_cast<size_t>(rowIndex)]);
   }
+
+  // Preserve selection order by UUID so table sorting cannot retarget it by row.
+  std::vector<std::string> orderedUuids;
+  for (const auto &uuid : selectionOrderUuids)
+    if (std::find(currentUuids.begin(), currentUuids.end(), uuid) !=
+        currentUuids.end())
+      orderedUuids.push_back(uuid);
+  for (const auto &uuid : currentUuids)
+    if (std::find(orderedUuids.begin(), orderedUuids.end(), uuid) ==
+        orderedUuids.end())
+      orderedUuids.push_back(uuid);
+  selectionOrderUuids = orderedUuids;
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
   if (orderedUuids != cfg.GetSelectedFixtures()) {
     cfg.PushUndoState("fixture selection");
@@ -1877,12 +1885,11 @@ void FixtureTablePanel::ResyncRows(
   (void)oldOrder;
   (void)oldPaths;
   RebuildRowCachesFromRowKeys();
-  selectionOrder.clear();
-  selectionOrder.reserve(selectedUuids.size());
+  selectionOrderUuids.clear();
+  selectionOrderUuids.reserve(selectedUuids.size());
   for (const auto &uuid : selectedUuids) {
-    auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
-    if (pos != rowUuids.end())
-      selectionOrder.push_back(static_cast<int>(pos - rowUuids.begin()));
+    if (std::find(rowUuids.begin(), rowUuids.end(), uuid) != rowUuids.end())
+      selectionOrderUuids.push_back(uuid);
   }
 
   {
@@ -1948,14 +1955,8 @@ void FixtureTablePanel::SetGdtfPathForRow(unsigned int row,
 // Rebuilds row caches after user-driven column sorting changes row order.
 void FixtureTablePanel::OnColumnSorted(wxDataViewEvent &event) {
   RebuildRowCachesFromRowKeys();
-  wxDataViewItemArray selections;
-  table->GetSelections(selections);
-  std::vector<std::string> selectedUuids;
-  for (const auto &it : selections) {
-    const std::string uuid = UuidForItem(it);
-    if (!uuid.empty())
-      selectedUuids.push_back(uuid);
-  }
+  const std::vector<std::string> selectedUuids =
+      guiConfigServices->LegacyConfigManager().GetSelectedFixtures();
   std::vector<std::string> oldOrder = rowUuids;
   ResyncRows(oldOrder, selectedUuids);
   event.Skip();
