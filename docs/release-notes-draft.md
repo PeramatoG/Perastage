@@ -17,6 +17,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed Layers visibility checkbox double-clicks so they only toggle visibility and no longer open the layer rename dialog.
 - Fixed MVR export so duplicate fixture numeric IDs are repaired with the next available number, logged as non-blocking warnings, and no longer prevent saving the MVR file.
 - Fixed first-attempt truss weight edits by propagating shared truss type weights before scene synchronization and hoist-load recalculation.
 - Fixed the Trusses table so hoist-load recalculation prompts only appear when an edit can change a position rigging total, such as weight or hang-position changes, instead of dimension-only edits like width or height.
