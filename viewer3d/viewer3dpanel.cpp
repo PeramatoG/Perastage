@@ -1059,7 +1059,10 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     ++m_fullRenderSamplesInCurrentWindow;
 
     // Ensure the OpenGL context is current before drawing overlays.
-    gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer3DPanel", "SetCurrent");
+    if (!gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer3DPanel",
+                                      "OnPaint overlays")) {
+        return;
+    }
 
     const int w = renderSize.width;
     const int h = renderSize.height;
@@ -1330,7 +1333,12 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
     if (path.empty())
         return false;
 
-    gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer3DPanel", "SetCurrent");
+    if (!gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer3DPanel",
+                                      "ExportImage")) {
+        wxMessageBox("OpenGL is not initialized yet.", "Export image",
+                     wxOK | wxICON_ERROR, this);
+        return false;
+    }
     if (!InitGL() || !m_glInitialized) {
         wxMessageBox("OpenGL is not initialized yet.", "Export image",
                      wxOK | wxICON_ERROR, this);
