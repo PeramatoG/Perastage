@@ -95,14 +95,20 @@ Layout2DViewRasterResult Layout2DViewRasterizer::Rasterize(
     const Layout2DViewRasterCacheInput &cacheInput) const {
   Layout2DViewRasterResult result;
   if (!request.view) {
+    result.failureReason =
+        Layout2DViewRasterFailureReason::MissingViewDefinition;
     result.diagnosticMessage = "missing 2D view definition";
     return result;
   }
   if (request.renderSize.GetWidth() <= 0 || request.renderSize.GetHeight() <= 0) {
+    result.failureReason = Layout2DViewRasterFailureReason::InvalidFrameSize;
     result.diagnosticMessage = "invalid frame size";
     return result;
   }
   if (!cacheInput.hasCapture || !cacheInput.hasRenderState) {
+    result.failureReason = !cacheInput.hasCapture
+                               ? Layout2DViewRasterFailureReason::MissingCaptureData
+                               : Layout2DViewRasterFailureReason::MissingRenderState;
     result.diagnosticMessage = "missing capture data or render state";
     return result;
   }
@@ -120,9 +126,13 @@ Layout2DViewRasterResult Layout2DViewRasterizer::Rasterize(
   if (cacheInput.restoredFromPersistentCache) {
     if (!cacheInput.buffer || !cacheInput.viewState) {
       result.rejectedRestoredPersistentCache = true;
+      result.failureReason =
+          Layout2DViewRasterFailureReason::MissingCaptureData;
       result.diagnosticMessage = "missing command-buffer cache data";
     } else if (cacheInput.buffer->commands.empty()) {
       result.rejectedRestoredPersistentCache = true;
+      result.failureReason =
+          Layout2DViewRasterFailureReason::EmptyCommandBuffer;
       result.diagnosticMessage = "empty command buffer";
     } else if (gui::layoutcache::RenderCommandBufferCacheToRgba(
                    request.renderSize, *cacheInput.buffer, *cacheInput.viewState,
@@ -133,19 +143,25 @@ Layout2DViewRasterResult Layout2DViewRasterizer::Rasterize(
       return result;
     } else {
       result.rejectedRestoredPersistentCache = true;
+      result.failureReason =
+          Layout2DViewRasterFailureReason::CommandBufferRasterizationFailed;
       result.diagnosticMessage = "RenderCommandBufferCacheToRgba failed";
     }
   }
 
   if (!capturePanel_) {
+    result.failureReason = Layout2DViewRasterFailureReason::MissingCapturePanel;
     result.diagnosticMessage = "missing capture panel";
     return result;
   }
   if (!offscreenRenderer_) {
+    result.failureReason =
+        Layout2DViewRasterFailureReason::MissingOffscreenRenderer;
     result.diagnosticMessage = "missing offscreen renderer";
     return result;
   }
   if (!cacheInput.renderState) {
+    result.failureReason = Layout2DViewRasterFailureReason::MissingRenderState;
     result.diagnosticMessage = "missing render state";
     return result;
   }
@@ -178,10 +194,13 @@ Layout2DViewRasterResult Layout2DViewRasterizer::Rasterize(
 
   if (!capturePanel_->RenderToRGBA(result.rgbaPixels, result.width,
                                    result.height, request.renderSize)) {
+    result.failureReason = Layout2DViewRasterFailureReason::RenderToRgbaFailed;
     result.diagnosticMessage = "Viewer2DPanel::RenderToRGBA failed";
     return result;
   }
   if (result.width <= 0 || result.height <= 0 || result.rgbaPixels.empty()) {
+    result.failureReason =
+        Layout2DViewRasterFailureReason::InvalidRgbaDimensions;
     result.diagnosticMessage = "invalid RGBA dimensions";
     return result;
   }
