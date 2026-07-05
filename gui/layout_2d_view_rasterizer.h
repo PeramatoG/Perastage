@@ -38,6 +38,21 @@ struct Layout2DViewDefinition;
 
 namespace gui::layoutraster {
 
+enum class Layout2DViewRasterFailureReason {
+  None,
+  MissingViewDefinition,
+  InvalidFrameSize,
+  MissingCaptureData,
+  MissingCapturePanel,
+  MissingOffscreenRenderer,
+  MissingRenderState,
+  EmptyCommandBuffer,
+  CommandBufferRasterizationFailed,
+  RenderToRgbaFailed,
+  InvalidRgbaDimensions,
+  TextureUploadFailed
+};
+
 struct Layout2DViewRasterRequest {
   const layouts::Layout2DViewDefinition *view = nullptr;
   wxSize renderSize{0, 0};
@@ -68,6 +83,8 @@ struct Layout2DViewRasterResult {
   int width = 0;
   int height = 0;
   std::vector<unsigned char> rgbaPixels;
+  Layout2DViewRasterFailureReason failureReason =
+      Layout2DViewRasterFailureReason::None;
   std::string diagnosticMessage;
 };
 

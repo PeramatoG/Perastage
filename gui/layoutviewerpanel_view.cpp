@@ -19,6 +19,11 @@
 
 #include <algorithm>
 #include <memory>
+#include <vector>
+
+#include <wx/bitmap.h>
+#include <wx/dcmemory.h>
+#include <wx/image.h>
 
 // Include GLEW or other OpenGL loader first if present
 #ifdef _WIN32
@@ -35,12 +40,165 @@
 #  include <GL/glu.h>
 #endif
 
+#ifndef GL_CLAMP_TO_EDGE
+#define GL_CLAMP_TO_EDGE 0x812F
+#endif
+
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "LayoutManager.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
 
+namespace {
+
+constexpr const char *kLayout2DViewFailurePlaceholderText =
+    "2D view render unavailable";
+constexpr const char *kLayout2DViewFailurePlaceholderHint =
+    "See diagnostics log";
+
+// Draws one subtle filled rectangle for a failed interactive preview item.
+void DrawFailurePlaceholderBackground(const wxRect &frameRect) {
+  glColor4ub(238, 240, 242, 255);
+  glBegin(GL_QUADS);
+  glVertex2f(static_cast<float>(frameRect.GetLeft()),
+             static_cast<float>(frameRect.GetTop()));
+  glVertex2f(static_cast<float>(frameRect.GetRight()),
+             static_cast<float>(frameRect.GetTop()));
+  glVertex2f(static_cast<float>(frameRect.GetRight()),
+             static_cast<float>(frameRect.GetBottom()));
+  glVertex2f(static_cast<float>(frameRect.GetLeft()),
+             static_cast<float>(frameRect.GetBottom()));
+  glEnd();
+
+  glColor4ub(185, 190, 196, 255);
+  glLineWidth(1.0f);
+  glBegin(GL_LINE_LOOP);
+  glVertex2f(static_cast<float>(frameRect.GetLeft()),
+             static_cast<float>(frameRect.GetTop()));
+  glVertex2f(static_cast<float>(frameRect.GetRight()),
+             static_cast<float>(frameRect.GetTop()));
+  glVertex2f(static_cast<float>(frameRect.GetRight()),
+             static_cast<float>(frameRect.GetBottom()));
+  glVertex2f(static_cast<float>(frameRect.GetLeft()),
+             static_cast<float>(frameRect.GetBottom()));
+  glEnd();
+}
+
+// Builds an RGBA texture containing the preview failure message.
+unsigned int CreateFailurePlaceholderTextTexture(const wxRect &frameRect,
+                                                 wxSize &textureSize) {
+  const bool showHint = frameRect.GetWidth() >= 180 && frameRect.GetHeight() >= 70;
+  wxFont titleFont = wxFontInfo(10).Bold();
+  wxFont hintFont = wxFontInfo(9);
+  int titleWidth = 0;
+  int titleHeight = 0;
+  int hintWidth = 0;
+  int hintHeight = 0;
+  {
+    wxMemoryDC measureDc;
+    measureDc.SetFont(titleFont);
+    measureDc.GetTextExtent(kLayout2DViewFailurePlaceholderText, &titleWidth,
+                            &titleHeight);
+    if (showHint) {
+      measureDc.SetFont(hintFont);
+      measureDc.GetTextExtent(kLayout2DViewFailurePlaceholderHint, &hintWidth,
+                              &hintHeight);
+    }
+  }
+  const int padding = 8;
+  const int bmpWidth =
+      std::max(titleWidth, showHint ? hintWidth : 0) + padding * 2;
+  const int bmpHeight =
+      titleHeight + (showHint ? hintHeight + 4 : 0) + padding * 2;
+  if (bmpWidth <= 0 || bmpHeight <= 0)
+    return 0;
+
+  wxBitmap bitmap(bmpWidth, bmpHeight, 32);
+  {
+    wxMemoryDC dc(bitmap);
+    dc.SetBackground(wxBrush(wxColour(238, 240, 242)));
+    dc.Clear();
+    dc.SetFont(titleFont);
+    dc.SetTextForeground(wxColour(88, 94, 102));
+    dc.DrawText(kLayout2DViewFailurePlaceholderText, padding, padding);
+    if (showHint) {
+      dc.SetFont(hintFont);
+      dc.SetTextForeground(wxColour(112, 118, 126));
+      dc.DrawText(kLayout2DViewFailurePlaceholderHint, padding,
+                  padding + titleHeight + 4);
+    }
+    dc.SelectObject(wxNullBitmap);
+  }
+
+  wxImage image = bitmap.ConvertToImage();
+  if (!image.IsOk() || !image.GetData())
+    return 0;
+  std::vector<unsigned char> pixels(static_cast<size_t>(bmpWidth) * bmpHeight *
+                                    4);
+  const unsigned char *rgb = image.GetData();
+  for (int i = 0; i < bmpWidth * bmpHeight; ++i) {
+    pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
+    pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
+    pixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
+    pixels[static_cast<size_t>(i) * 4 + 3] = 255;
+  }
+
+  unsigned int texture = 0;
+  glGenTextures(1, &texture);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bmpWidth, bmpHeight, 0, GL_RGBA,
+               GL_UNSIGNED_BYTE, pixels.data());
+  textureSize = wxSize(bmpWidth, bmpHeight);
+  return texture;
+}
+
+// Draws the preview-only failure placeholder text inside the layout view frame.
+void DrawFailurePlaceholderText(const wxRect &frameRect) {
+  wxSize textureSize;
+  const unsigned int texture =
+      CreateFailurePlaceholderTextTexture(frameRect, textureSize);
+  if (texture == 0)
+    return;
+
+  const int left = frameRect.GetLeft() +
+                   (frameRect.GetWidth() - textureSize.GetWidth()) / 2;
+  const int top = frameRect.GetTop() +
+                  (frameRect.GetHeight() - textureSize.GetHeight()) / 2;
+  const int right = left + textureSize.GetWidth();
+  const int bottom = top + textureSize.GetHeight();
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  glColor4ub(255, 255, 255, 255);
+  glBegin(GL_QUADS);
+  glTexCoord2f(0.0f, 1.0f);
+  glVertex2f(static_cast<float>(left), static_cast<float>(top));
+  glTexCoord2f(1.0f, 1.0f);
+  glVertex2f(static_cast<float>(right), static_cast<float>(top));
+  glTexCoord2f(1.0f, 0.0f);
+  glVertex2f(static_cast<float>(right), static_cast<float>(bottom));
+  glTexCoord2f(0.0f, 0.0f);
+  glVertex2f(static_cast<float>(left), static_cast<float>(bottom));
+  glEnd();
+  glDisable(GL_TEXTURE_2D);
+  glDeleteTextures(1, &texture);
+}
+
+// Draws the non-printing placeholder for a failed Layout 2D preview item.
+void DrawFailurePlaceholder(const wxRect &frameRect) {
+  DrawFailurePlaceholderBackground(frameRect);
+  if (frameRect.GetWidth() >= 120 && frameRect.GetHeight() >= 36)
+    DrawFailurePlaceholderText(frameRect);
+}
+
+} // namespace
+
+// Returns the currently editable Layout 2D view.
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
   if (currentLayout.view2dViews.empty())
     return nullptr;
@@ -56,6 +214,7 @@ layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
   return &currentLayout.view2dViews.front();
 }
 
+// Returns the currently editable Layout 2D view without mutating state.
 const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
     const {
   if (currentLayout.view2dViews.empty())
@@ -102,12 +261,14 @@ void LayoutViewerPanel::RefreshEditedViewById(int viewId) {
   Refresh();
 }
 
+// Emits a request to edit the selected Layout 2D view.
 void LayoutViewerPanel::OnEditView(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::View2D)
     return;
   EmitEditViewRequest();
 }
 
+// Deletes the selected Layout 2D view from the current layout.
 void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::View2D)
     return;
@@ -159,6 +320,7 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
   Refresh();
 }
 
+// Toggles the visible frame for the selected Layout 2D view.
 void LayoutViewerPanel::OnToggleViewFrame(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::View2D)
     return;
@@ -176,6 +338,7 @@ void LayoutViewerPanel::OnToggleViewFrame(wxCommandEvent &) {
   Refresh();
 }
 
+// Updates the selected Layout 2D view frame and invalidates cached rendering.
 void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
                                     bool updatePosition) {
   layouts::Layout2DViewDefinition *view = GetEditableView();
@@ -217,6 +380,7 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
   Refresh();
 }
 
+// Draws one interactive Layout 2D view preview element.
 void LayoutViewerPanel::DrawViewElement(
     const layouts::Layout2DViewDefinition &view, Viewer2DPanel *capturePanel,
     Viewer2DOffscreenRenderer *offscreenRenderer, int activeViewId) {
@@ -319,6 +483,8 @@ void LayoutViewerPanel::DrawViewElement(
                static_cast<float>(frameRect.GetBottom()));
     glEnd();
     glDisable(GL_TEXTURE_2D);
+  } else if (cache.hasLastRenderFailure) {
+    DrawFailurePlaceholder(frameRect);
   } else {
     glColor4ub(240, 240, 240, 255);
     glBegin(GL_QUADS);

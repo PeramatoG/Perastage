@@ -2258,6 +2258,16 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
+        cache.hasLastRenderFailure = true;
+        cache.lastRenderFailureReason =
+            !cache.hasCapture
+                ? gui::layoutraster::Layout2DViewRasterFailureReason::
+                      MissingCaptureData
+                : gui::layoutraster::Layout2DViewRasterFailureReason::
+                      MissingRenderState;
+        cache.lastRenderFailureMessage =
+            !GetFrameRect(view.frame, frameRect) ? "invalid frame size"
+                                                : "missing capture data or render state";
         continue;
       }
   
@@ -2266,6 +2276,10 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
+        cache.hasLastRenderFailure = true;
+        cache.lastRenderFailureReason =
+            gui::layoutraster::Layout2DViewRasterFailureReason::InvalidFrameSize;
+        cache.lastRenderFailureMessage = "invalid frame size";
         continue;
       }
   
@@ -2308,9 +2322,19 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       if (rasterResult.rejectedRestoredPersistentCache)
         cache.restoredFromPersistentCache = false;
       if (!rasterResult.success) {
-        wxLogTrace("layoutviewer_raster",
-                   "Rasterizing 2D view id=%d failed: %s", view.id,
-                   wxString::FromUTF8(rasterResult.diagnosticMessage).c_str());
+        cache.hasLastRenderFailure = true;
+        cache.lastRenderFailureReason = rasterResult.failureReason;
+        cache.lastRenderFailureMessage = rasterResult.diagnosticMessage;
+        if (cache.lastLoggedFailureContentHash != viewContentHash ||
+            cache.lastLoggedFailureMessage != rasterResult.diagnosticMessage) {
+          wxLogTrace("layoutviewer_raster",
+                     "Rasterizing 2D view id=%d failed size=%dx%d zoom=%.3f hash=%zu: %s",
+                     view.id, renderSize.GetWidth(), renderSize.GetHeight(),
+                     renderZoom, viewContentHash,
+                     wxString::FromUTF8(rasterResult.diagnosticMessage).c_str());
+          cache.lastLoggedFailureContentHash = viewContentHash;
+          cache.lastLoggedFailureMessage = rasterResult.diagnosticMessage;
+        }
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -2337,6 +2361,15 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
                                            cache.pboBytes);
       if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(),
                                cache.textureSize, true)) {
+        cache.hasLastRenderFailure = true;
+        cache.lastRenderFailureReason =
+            gui::layoutraster::Layout2DViewRasterFailureReason::
+                TextureUploadFailed;
+        cache.lastRenderFailureMessage = "GPU texture upload failed";
+        wxLogTrace("layoutviewer_raster",
+                   "Uploading 2D view texture id=%d failed size=%dx%d zoom=%.3f hash=%zu: %s",
+                   view.id, width, height, renderZoom, viewContentHash,
+                   cache.lastRenderFailureMessage.c_str());
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -2349,6 +2382,10 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = viewContentHash;
+      cache.hasLastRenderFailure = false;
+      cache.lastRenderFailureReason =
+          gui::layoutraster::Layout2DViewRasterFailureReason::None;
+      cache.lastRenderFailureMessage.clear();
       cache.persistentRgba = pixels;
       cache.persistentRgbaSize = cache.textureSize;
       cache.persistentRgbaRenderZoom = renderZoom;
