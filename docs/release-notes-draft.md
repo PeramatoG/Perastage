@@ -126,3 +126,4 @@ If you encounter any problems installing or running Perastage, please open an is
 - Centralized wxGLCanvas attribute selection, OpenGL context binding diagnostics, and GLEW initialization ownership across shared viewer components for the 3D, 2D, Layout, and Fixture Preview panels.
 - Encapsulated Layout 2D view preview rasterization behind a focused service while preserving the existing Viewer2D-based rendering path and PDF export separation.
 - Added visible, non-printing diagnostics for failed Layout 2D preview textures while keeping PDF export behavior unchanged.
+- Fixed Windows build compatibility for Layout 2D preview diagnostics.
