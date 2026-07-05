@@ -33,6 +33,7 @@
 #endif
 
 #include <GL/glew.h>
+#include "gl_context_utils.h"
 // Include GLEW or other OpenGL loader first if present
 #ifdef __APPLE__
 #  define GL_SILENCE_DEPRECATION
@@ -44,6 +45,7 @@
 #endif
 
 #include "layoutviewerpanel.h"
+#include "../viewer_common/gl_canvas_config.h"
 #include "layout_view_cache_archive.h"
 #include "layoutviewerpanel_helpers.h"
 #include "layout_render_status_notifier.h"
@@ -488,8 +490,8 @@ wxDEFINE_EVENT(EVT_LAYOUT_RENDER_READY, wxCommandEvent);
 wxDEFINE_EVENT(EVT_LAYOUT_VIEW_SELECTED, wxCommandEvent);
 
 LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
-    : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition,
-                 wxDefaultSize,
+    : wxGLCanvas(parent, wxID_ANY, gl_lifecycle::GetStandardCanvasAttributes(),
+                 wxDefaultPosition, wxDefaultSize,
                  wxFULL_REPAINT_ON_RESIZE | wxWANTS_CHARS) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   glContext_ = new wxGLContext(this);
@@ -874,7 +876,10 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     if (!isReadyToRender_) {
       return;
     }
-    SetCurrent(*glContext_);
+    if (!gl_lifecycle::TrySetCurrent(*this, glContext_, "LayoutViewerPanel",
+                                      "OnPaint")) {
+      return;
+    }
     if (legendDataDirty_)
       RefreshLegendData();
     if (!renderPending && NeedsRenderRebuild()) {
@@ -1268,7 +1273,9 @@ void LayoutViewerPanel::ClearLoadingTextTexture() {
     loadingTextTextureSize_ = wxSize(0, 0);
     return;
   }
-  SetCurrent(*glContext_);
+  if (!gl_lifecycle::TrySetCurrent(*this, glContext_, "LayoutViewerPanel",
+                                    "ClearLoadingTextTexture"))
+    return;
   glDeleteTextures(1, &loadingTextTexture_);
   loadingTextTexture_ = 0;
   loadingTextTextureSize_ = wxSize(0, 0);
@@ -2076,19 +2083,20 @@ bool LayoutViewerPanel::InitGL() {
     return false;
   if (!IsShownOnScreen())
     return false;
-  if (!SetCurrent(*glContext_))
+  if (!gl_lifecycle::TrySetCurrent(*this, glContext_, "LayoutViewerPanel",
+                                    "InitGL"))
     return false;
 
   if (!glInitialized_) {
-    glewExperimental = GL_TRUE;
-    const GLenum glewResult = glewInit();
-    if (glewResult != GLEW_OK) {
-      Logger::Instance().Log(
-          std::string("LayoutViewerPanel: GLEW init failed: ") +
-          reinterpret_cast<const char *>(glewGetErrorString(glewResult)));
+    const GLEWInitResult initResult =
+        gl_lifecycle::InitializeGlew(*this, *glContext_, "LayoutViewerPanel");
+    if (!initResult.success) {
+      Logger::Instance().Log(initResult.message);
       return false;
     }
-    glGetError();
+    if (initResult.isWarningOnly) {
+      wxLogDebug("%s", initResult.message);
+    }
     glInitialized_ = true;
   }
 
@@ -2942,7 +2950,9 @@ void LayoutViewerPanel::ClearCachedTexture(ViewCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  SetCurrent(*glContext_);
+  if (!gl_lifecycle::TrySetCurrent(*this, glContext_, "LayoutViewerPanel",
+                                    "ClearCachedTexture<ViewCache>"))
+    return;
   if (cache.texture != 0) {
     glDeleteTextures(1, &cache.texture);
     cache.texture = 0;
@@ -2970,7 +2980,9 @@ void LayoutViewerPanel::ClearCachedTexture(LegendCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  SetCurrent(*glContext_);
+  if (!gl_lifecycle::TrySetCurrent(*this, glContext_, "LayoutViewerPanel",
+                                    "ClearCachedTexture<LegendCache>"))
+    return;
   if (cache.texture != 0) {
     glDeleteTextures(1, &cache.texture);
     cache.texture = 0;
@@ -2998,7 +3010,9 @@ void LayoutViewerPanel::ClearCachedTexture(EventTableCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  SetCurrent(*glContext_);
+  if (!gl_lifecycle::TrySetCurrent(*this, glContext_, "LayoutViewerPanel",
+                                    "ClearCachedTexture<EventTableCache>"))
+    return;
   if (cache.texture != 0) {
     glDeleteTextures(1, &cache.texture);
     cache.texture = 0;
@@ -3026,7 +3040,9 @@ void LayoutViewerPanel::ClearCachedTexture(TextCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  SetCurrent(*glContext_);
+  if (!gl_lifecycle::TrySetCurrent(*this, glContext_, "LayoutViewerPanel",
+                                    "ClearCachedTexture<TextCache>"))
+    return;
   if (cache.texture != 0) {
     glDeleteTextures(1, &cache.texture);
     cache.texture = 0;
@@ -3054,7 +3070,9 @@ void LayoutViewerPanel::ClearCachedTexture(ImageCache &cache) {
     cache.pboBytes = 0;
     return;
   }
-  SetCurrent(*glContext_);
+  if (!gl_lifecycle::TrySetCurrent(*this, glContext_, "LayoutViewerPanel",
+                                    "ClearCachedTexture<ImageCache>"))
+    return;
   if (cache.texture != 0) {
     glDeleteTextures(1, &cache.texture);
     cache.texture = 0;

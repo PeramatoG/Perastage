@@ -121,3 +121,6 @@ sudo pacman -U Perastage-1.4.0-arch-x86_64.pkg.tar.zst
 ## Need help?
 
 If you encounter any problems installing or running Perastage, please open an issue on GitHub or contact the developer. Including a diagnostic report (available from the Help menu) makes it much easier to investigate problems.
+
+## Internal changes
+- Centralized wxGLCanvas attribute selection, OpenGL context binding diagnostics, and GLEW initialization ownership across shared viewer components for the 3D, 2D, Layout, and Fixture Preview panels.
