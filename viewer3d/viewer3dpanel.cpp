@@ -28,7 +28,7 @@
 #include <windows.h>
 #endif
 #include <GL/glew.h>
-#include "glew_init_utils.h"
+#include "gl_context_utils.h"
 // macOS ships OpenGL headers in the framework; include them conditionally.
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -61,6 +61,7 @@
 #include "gl_state_guard.h"
 #include "navigation_diagnostics.h"
 #include "ui_render_size.h"
+#include "../viewer_common/gl_canvas_config.h"
 #include "../viewer_common/measure_overlay_style.h"
 #include "units/units.h"
 #include <wx/dcclient.h>
@@ -835,10 +836,6 @@ void DrawSelectionDragArrowhead(const std::array<float, 3>& origin,
     glEnd();
 }
 
-struct GlCanvasSelection {
-    const int* attribs = nullptr;
-};
-
 int GetRequestedViewerAASamples()
 {
     const int quality = std::clamp(static_cast<int>(std::lround(ConfigManager::Get().GetFloat("viewer3d_aa_quality"))), 0, 2);
@@ -852,46 +849,11 @@ int GetRequestedViewerAASamples()
     }
 }
 
-GlCanvasSelection SelectGlCanvasAttributes()
-{
-    static const int attrsNoMsaa[] = {
-        WX_GL_RGBA,
-        WX_GL_DOUBLEBUFFER,
-        WX_GL_DEPTH_SIZE, 24,
-        0
-    };
-    static const int attrs2x[] = {
-        WX_GL_RGBA,
-        WX_GL_DOUBLEBUFFER,
-        WX_GL_DEPTH_SIZE, 24,
-        WX_GL_SAMPLE_BUFFERS, 1,
-        WX_GL_SAMPLES, 2,
-        0
-    };
-    static const int attrs4x[] = {
-        WX_GL_RGBA,
-        WX_GL_DOUBLEBUFFER,
-        WX_GL_DEPTH_SIZE, 24,
-        WX_GL_SAMPLE_BUFFERS, 1,
-        WX_GL_SAMPLES, 4,
-        0
-    };
-
-    const int requested = GetRequestedViewerAASamples();
-    if (requested >= 4 && wxGLCanvas::IsDisplaySupported(attrs4x))
-        return {attrs4x};
-    if (requested >= 2 && wxGLCanvas::IsDisplaySupported(attrs2x))
-        return {attrs2x};
-    if (requested >= 4 && wxGLCanvas::IsDisplaySupported(attrs2x))
-        return {attrs2x};
-    return {attrsNoMsaa};
-}
-
 }
 
 // Creates the 3D panel, OpenGL context, and refresh worker.
 Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
-    : wxGLCanvas(parent, wxID_ANY, SelectGlCanvasAttributes().attribs,
+    : wxGLCanvas(parent, wxID_ANY, gl_lifecycle::GetMsaaCanvasAttributes(GetRequestedViewerAASamples()),
                  wxDefaultPosition, wxDefaultSize,
                  wxFULL_REPAINT_ON_RESIZE | wxWANTS_CHARS),
     m_glContext(new wxGLContext(this))
@@ -959,7 +921,8 @@ bool Viewer3DPanel::TryBindGlContextForInteraction(const char* caller)
         return false;
     }
 
-    if (!SetCurrent(*m_glContext)) {
+    if (!gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer3DPanel",
+                                      callerName)) {
         viewer3d::diagnostics::Logf("%s skipped GL interaction binding: SetCurrent failed.",
                                     callerName);
         return false;
@@ -998,7 +961,7 @@ bool Viewer3DPanel::InitGL()
     }
     if (!m_glInitialized) {
         const GLEWInitResult initResult =
-            InitializeGlewForCurrentContext(*this, *m_glContext, "Viewer3DPanel");
+            gl_lifecycle::InitializeGlew(*this, *m_glContext, "Viewer3DPanel");
         if (!initResult.success) {
             wxLogError("%s", initResult.message);
             return false;
@@ -1096,7 +1059,10 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     ++m_fullRenderSamplesInCurrentWindow;
 
     // Ensure the OpenGL context is current before drawing overlays.
-    SetCurrent(*m_glContext);
+    if (!gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer3DPanel",
+                                      "OnPaint overlays")) {
+        return;
+    }
 
     const int w = renderSize.width;
     const int h = renderSize.height;
@@ -1313,7 +1279,7 @@ void Viewer3DPanel::Render(const RenderSize& renderSize)
         viewer3d::diagnostics::Log("Viewer3DPanel::Render skipped because the panel is hidden.");
         return;
     }
-    if (!m_glContext || !SetCurrent(*m_glContext)) {
+    if (!m_glContext || !gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer3DPanel", "Render")) {
         viewer3d::diagnostics::Log("Viewer3DPanel::Render skipped because SetCurrent failed.");
         wxASSERT_MSG(false, "Unable to make 3D GL context current for render.");
         return;
@@ -1367,7 +1333,12 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
     if (path.empty())
         return false;
 
-    SetCurrent(*m_glContext);
+    if (!gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer3DPanel",
+                                      "ExportImage")) {
+        wxMessageBox("OpenGL is not initialized yet.", "Export image",
+                     wxOK | wxICON_ERROR, this);
+        return false;
+    }
     if (!InitGL() || !m_glInitialized) {
         wxMessageBox("OpenGL is not initialized yet.", "Export image",
                      wxOK | wxICON_ERROR, this);

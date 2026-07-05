@@ -29,7 +29,7 @@
 #endif
 
 #include <GL/glew.h>
-#include "glew_init_utils.h"
+#include "gl_context_utils.h"
 // macOS uses the OpenGL framework headers; guard includes for cross-platform builds.
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -65,6 +65,7 @@
 #include "viewer2dpanel_helpers.h"
 #include "gl_state_guard.h"
 #include "units/units.h"
+#include "../viewer_common/gl_canvas_config.h"
 #include "../viewer_common/measure_overlay_style.h"
 #include "ui_render_size.h"
 #include <wx/app.h>
@@ -479,8 +480,8 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
 
 Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
                              bool persistViewState, bool enableSelection)
-    : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize,
-                 wxFULL_REPAINT_ON_RESIZE),
+    : wxGLCanvas(parent, wxID_ANY, gl_lifecycle::GetStandardCanvasAttributes(),
+                 wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE),
       m_allowOffscreenRender(allowOffscreenRender),
       m_interactionResumeTimer(this, kInteractionPauseTimerId),
       m_hoverHitTestTimer(this, kHoverHitTestTimerId),
@@ -920,7 +921,8 @@ bool Viewer2DPanel::TryBindGlContextForInteraction() {
     return false;
   }
 
-  if (!SetCurrent(*m_glContext)) {
+  if (!gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer2DPanel",
+                                    "interaction picking")) {
     Logger::Instance().Log(
         Logger::Level::Warn,
         "Viewer2DPanel: interaction picking context-bind failure; glContextBindFailed=true.");
@@ -944,7 +946,7 @@ void Viewer2DPanel::InitGL() {
 #endif
   if (!m_glInitialized) {
     const GLEWInitResult initResult =
-        InitializeGlewForCurrentContext(*this, *m_glContext, "Viewer2DPanel");
+        gl_lifecycle::InitializeGlew(*this, *m_glContext, "Viewer2DPanel");
     if (!initResult.success) {
       wxLogError("%s", initResult.message);
       return;
@@ -960,7 +962,8 @@ void Viewer2DPanel::InitGL() {
     return;
   }
 
-  if (!SetCurrent(*m_glContext)) {
+  if (!gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer2DPanel",
+                                    "InitGL reuse")) {
     return;
   }
 }

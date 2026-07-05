@@ -13,7 +13,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/picking/id_pick_pass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/picking/picking_coordinate_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/gl_primitive_renderer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/render/glew_init_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/base_pass_framebuffer_cache.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/hoist_symbol_renderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/lighting_profile.cpp
