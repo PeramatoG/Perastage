@@ -2753,33 +2753,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
 
   auto assignIds = [&]() {
     int nextNumericId = 1;
+    std::unordered_set<int> reservedFixtureIds;
+    std::unordered_set<int> assignedFixtureIds;
     std::unordered_set<int> usedIds;
-
-    auto reserveId = [&](int candidate) {
-      if (candidate > 0)
-        return usedIds.insert(candidate).second;
-      return false;
-    };
-    for (const auto &[uid, f] : scene.fixtures) {
-      reserveId(ResolveFixtureExportId(f).numeric);
-    }
-
-    auto allocId = [&]() {
-      while (usedIds.contains(nextNumericId))
-        ++nextNumericId;
-      usedIds.insert(nextNumericId);
-      return nextNumericId++;
-    };
-
-    std::unordered_map<std::string, std::pair<std::string, int>> result;
-    for (const auto &[uid, f] : scene.fixtures) {
-      FixtureExportId fixtureId = ResolveFixtureExportId(f);
-      if (fixtureId.numeric <= 0) {
-        fixtureId.numeric = allocId();
-        fixtureId.text = std::to_string(fixtureId.numeric);
-      }
-      result[uid] = {fixtureId.text, fixtureId.numeric};
-    }
 
     auto sortedKeys = [](const auto &map) {
       std::vector<std::string> keys;
@@ -2791,6 +2767,54 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       std::sort(keys.begin(), keys.end());
       return keys;
     };
+
+    for (const std::string &uid : sortedKeys(scene.fixtures)) {
+      const Fixture &fixture = scene.fixtures.at(uid);
+      const int candidate = ResolveFixtureExportId(fixture).numeric;
+      if (candidate > 0)
+        reservedFixtureIds.insert(candidate);
+    }
+    usedIds = reservedFixtureIds;
+
+    auto allocId = [&]() {
+      while (usedIds.contains(nextNumericId))
+        ++nextNumericId;
+      usedIds.insert(nextNumericId);
+      return nextNumericId++;
+    };
+
+    auto logFixtureIdRepair = [&](const Fixture &fixture, int originalId,
+                                  int repairedId) {
+      std::string fixtureName = TrimAscii(fixture.instanceName);
+      if (fixtureName.empty())
+        fixtureName = fixture.uuid.empty() ? "unnamed fixture" : fixture.uuid;
+      const std::string message =
+          "MVR export reassigned duplicate FixtureIDNumeric " +
+          std::to_string(originalId) + " for fixture '" + fixtureName +
+          "' to the next available value " + std::to_string(repairedId) + ".";
+      m_exportWarnings.push_back(message);
+      Logger::Instance().Log(Logger::Level::Warn, message);
+    };
+
+    std::unordered_map<std::string, std::pair<std::string, int>> result;
+    for (const std::string &uid : sortedKeys(scene.fixtures)) {
+      const Fixture &f = scene.fixtures.at(uid);
+      FixtureExportId fixtureId = ResolveFixtureExportId(f);
+      if (fixtureId.numeric > 0) {
+        if (!assignedFixtureIds.insert(fixtureId.numeric).second) {
+          const int originalId = fixtureId.numeric;
+          fixtureId.numeric = allocId();
+          fixtureId.text = std::to_string(fixtureId.numeric);
+          logFixtureIdRepair(f, originalId, fixtureId.numeric);
+        }
+      } else {
+        fixtureId.numeric = allocId();
+        fixtureId.text = std::to_string(fixtureId.numeric);
+      }
+      if (fixtureId.text.empty())
+        fixtureId.text = std::to_string(fixtureId.numeric);
+      result[uid] = {fixtureId.text, fixtureId.numeric};
+    }
 
     for (const std::string &uid : sortedKeys(scene.trusses)) {
       const Truss &t = scene.trusses.at(uid);
@@ -2813,7 +2837,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     for (const std::string &uid : sortedKeys(scene.sceneObjects)) {
       const SceneObject &obj = scene.sceneObjects.at(uid);
       int numeric = 0;
-      if (obj.fixtureIdNumeric > 0 && reserveId(obj.fixtureIdNumeric))
+      if (obj.fixtureIdNumeric > 0 &&
+          usedIds.insert(obj.fixtureIdNumeric).second)
         numeric = obj.fixtureIdNumeric;
       else
         numeric = allocId();
@@ -3073,9 +3098,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       }
     };
     auto idIt = assignedIds.find(f.uuid);
-    FixtureExportId fixtureExportId = ResolveFixtureExportId(f);
-    if (fixtureExportId.numeric <= 0 && idIt != assignedIds.end())
-      fixtureExportId = {idIt->second.first, idIt->second.second};
+    FixtureExportId fixtureExportId =
+        idIt != assignedIds.end()
+            ? FixtureExportId{idIt->second.first, idIt->second.second}
+            : ResolveFixtureExportId(f);
     if (fixtureExportId.numeric <= 0) {
       fixtureExportId.numeric = 1;
       fixtureExportId.text = "1";

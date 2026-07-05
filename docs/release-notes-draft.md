@@ -6,6 +6,7 @@ Changes since **v1.4.0**.
 
 ## New features
 
+- Added an Edit Truss dialog from double-clicking the Trusses table, including MVR instance fields, GDTF metadata, a reusable 3D preview arranged above the GDTF truss type fields, and automatic Perastage GDTF creation when type metadata is edited on a model-only truss.
 - Added MVR-xchange remote file requests with a larger selectable advertised-MVR list, Console-styled transfer log, corrected station-name alignment, and the standard import choice to open as a new project or merge into the current project.
 - Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
 
@@ -16,6 +17,11 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed table selection highlights so sorting fixtures, trusses, hoists, or scene objects keeps the same UUID-backed elements selected, and fixture multi-selection actions preserve the original selection order after sorting.
+- Fixed Layers visibility checkbox double-clicks so they only toggle visibility and no longer open the layer rename dialog.
+- Fixed MVR export so duplicate fixture numeric IDs are repaired with the next available number, logged as non-blocking warnings, and no longer prevent saving the MVR file.
+- Fixed first-attempt truss weight edits by propagating shared truss type weights before scene synchronization and hoist-load recalculation.
+- Fixed the Trusses table so hoist-load recalculation prompts only appear when an edit can change a position rigging total, such as weight or hang-position changes, instead of dimension-only edits like width or height.
 - Fixed MVR merge imports so incoming fixture, truss, hoist, scene-object, and symbol resources are copied into a valid merge resource root before references are applied, including when merging into an empty or unsaved scene.
 - Fixed the MVR-xchange log text styling so transfer messages use the same readable Console colors and monospaced font.
 - Fixed MVR-xchange remote imports so merging keeps the current project name, while opening a requested MVR as a new project uses the advertised MVR file name.

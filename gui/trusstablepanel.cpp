@@ -33,6 +33,7 @@
 #include "table_column_indices.h"
 #include "dataview_edit_commit.h"
 #include "trussdictionary.h"
+#include "trusseditdialog.h"
 #include "trussloader.h"
 #include "units/unit_label_utils.h"
 #include "units/units.h"
@@ -73,6 +74,59 @@ bool IsTransformColumn(TrussColumn column) {
 // Checks whether a truss column contains rotation data.
 bool IsRotationColumn(TrussColumn column) {
     return column >= TrussColumn::Roll && column <= TrussColumn::Yaw;
+}
+
+// Checks whether a truss column stores shared truss type dimensions.
+bool IsSharedTrussTypeDimensionColumn(TrussColumn column) {
+    return column == TrussColumn::Length || column == TrussColumn::Width ||
+           column == TrussColumn::Height || column == TrussColumn::Weight;
+}
+
+// Builds the table key used to match visible truss type rows.
+std::string BuildVisibleTrussTypeKey(wxDataViewListCtrl *table, int row) {
+    if (!table || row == wxNOT_FOUND)
+        return {};
+
+    wxVariant name;
+    wxVariant manufacturer;
+    wxVariant model;
+    table->GetValue(name, row, ColumnIndex(TrussColumn::Name));
+    table->GetValue(manufacturer, row, ColumnIndex(TrussColumn::Manufacturer));
+    table->GetValue(model, row, ColumnIndex(TrussColumn::Model));
+    return std::string(name.GetString().ToUTF8()) + "" +
+           std::string(manufacturer.GetString().ToUTF8()) + "" +
+           std::string(model.GetString().ToUTF8());
+}
+
+// Propagates edited truss type dimensions in the table before scene syncing.
+void PropagateSharedTrussTypeDimensionValues(wxDataViewListCtrl *table,
+                                             const wxDataViewItemArray &selections,
+                                             TrussColumn column) {
+    if (!table || !IsSharedTrussTypeDimensionColumn(column))
+        return;
+
+    const int col = ColumnIndex(column);
+    std::unordered_map<std::string, wxVariant> valuesByType;
+    for (const auto &item : selections) {
+        const int row = table->ItemToRow(item);
+        if (row == wxNOT_FOUND)
+            continue;
+        wxVariant value;
+        table->GetValue(value, row, col);
+        valuesByType[BuildVisibleTrussTypeKey(table, row)] = value;
+    }
+
+    const unsigned int rowCount = table->GetItemCount();
+    for (unsigned int row = 0; row < rowCount; ++row) {
+        auto it = valuesByType.find(BuildVisibleTrussTypeKey(table, row));
+        if (it == valuesByType.end())
+            continue;
+        wxVariant current;
+        table->GetValue(current, row, col);
+        if (current.GetString() == it->second.GetString())
+            continue;
+        table->SetValue(it->second, row, col);
+    }
 }
 
 const wxString &DegreeSymbol() {
@@ -197,6 +251,8 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
     table->Bind(wxEVT_MOTION, &TrussTablePanel::OnMouseMove, this);
     table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
                 &TrussTablePanel::OnSelectionChanged, this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
+              &TrussTablePanel::OnItemActivated, this);
 
   table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &TrussTablePanel::OnContextMenu,
               this);
@@ -682,6 +738,8 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
         }
     }
 
+    PropagateSharedTrussTypeDimensionValues(table, selections, *namedColumn);
+
     ResyncRows(oldOrder, selectedUuids);
 
     UpdateSceneData();
@@ -846,6 +904,20 @@ void TrussTablePanel::ApplyPositionValueUpdates(
         table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row,
                         ColumnIndex(TrussColumn::PositionZ));
     }
+}
+
+// Opens the truss edit dialog for the activated table row.
+void TrussTablePanel::OnItemActivated(wxDataViewEvent &event) {
+  const wxDataViewItem item =
+      event.GetItem().IsOk() ? event.GetItem() : table->GetSelection();
+  if (!item.IsOk())
+    return;
+  const int row = table->ItemToRow(item);
+  if (row < 0 || static_cast<size_t>(row) >= rowUuids.size())
+    return;
+
+  TrussEditDialog dialog(this, row);
+  dialog.ShowModal();
 }
 
 // Applies edited truss table values back into the scene data model.
@@ -1045,11 +1117,12 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
                                            0.001);
         const bool weightChanged =
             !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
+        const bool hangPositionChanged = old.positionName != next.positionName;
 
     if (trussChanged) {
             pushUndoIfNeeded();
             anyChanged = true;
-            if (weightChanged) {
+            if (weightChanged || hangPositionChanged) {
                 changedWeightPositions.insert(NormalizePositionName(old.positionName));
                 changedWeightPositions.insert(NormalizePositionName(next.positionName));
             }
@@ -1091,16 +1164,20 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
         const float heiMm = dit->second.hei;
         const float weightKg = dit->second.weight;
 
+        const bool synchronizedWeightChanged =
+            !Units::NearlyEqualWeightKilograms(it->second.weightKg, weightKg, 0.001);
         if (it->second.lengthMm != lenMm || it->second.widthMm != widMm ||
-        it->second.heightMm != heiMm || it->second.weightKg != weightKg) {
+        it->second.heightMm != heiMm || synchronizedWeightChanged) {
             pushUndoIfNeeded();
             anyChanged = true;
             it->second.lengthMm = lenMm;
             it->second.widthMm = widMm;
             it->second.heightMm = heiMm;
             it->second.weightKg = weightKg;
+            if (synchronizedWeightChanged) {
       changedWeightPositions.insert(
           NormalizePositionName(it->second.positionName));
+            }
 
             wxString lenStr = wxString::Format("%.2f", lenMm / 1000.0f);
             wxString widStr =
@@ -1367,16 +1444,11 @@ void TrussTablePanel::SetModelPathsForRow(unsigned int row,
     symbolPathByKey[rowKey] = symbolPath;
 }
 
+// Reapplies UUID-based selection after user-driven column sorting changes row order.
 void TrussTablePanel::OnColumnSorted(wxDataViewEvent &event) {
     RebuildRowCachesFromRowKeys();
-    wxDataViewItemArray selections;
-    table->GetSelections(selections);
-    std::vector<std::string> selectedUuids;
-  for (const auto &it : selections) {
-        const std::string uuid = UuidForItem(it);
-        if (!uuid.empty())
-            selectedUuids.push_back(uuid);
-    }
+    const std::vector<std::string> selectedUuids =
+        guiConfigServices->LegacyConfigManager().GetSelectedTrusses();
     std::vector<std::string> oldOrder = rowUuids;
     ResyncRows(oldOrder, selectedUuids);
     event.Skip();

@@ -98,7 +98,7 @@ private:
 
     bool dragSelecting = false;
     int startRow = -1;
-    std::vector<int> selectionOrder;
+    std::vector<std::string> selectionOrderUuids;
     std::unordered_set<std::string> manualCategoryUuidsPending;
     IGuiConfigServices *guiConfigServices = nullptr;
 
