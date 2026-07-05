@@ -22,7 +22,7 @@
 #endif
 
 #include <GL/glew.h>
-#include "glew_init_utils.h"
+#include "gl_context_utils.h"
 // macOS ships OpenGL headers via the framework; use conditional includes for portability.
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -35,6 +35,7 @@
 
 #include <wx/wx.h>
 #include "fixturepreviewpanel.h"
+#include "../viewer_common/gl_canvas_config.h"
 #include "ui_render_size.h"
 #include <cfloat>
 #include <array>
@@ -162,7 +163,8 @@ wxBEGIN_EVENT_TABLE(FixturePreviewPanel, wxGLCanvas)
 wxEND_EVENT_TABLE()
 
 FixturePreviewPanel::FixturePreviewPanel(wxWindow* parent)
-    : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxSize(200,200), wxFULL_REPAINT_ON_RESIZE)
+    : wxGLCanvas(parent, wxID_ANY, gl_lifecycle::GetStandardCanvasAttributes(),
+                 wxDefaultPosition, wxSize(200,200), wxFULL_REPAINT_ON_RESIZE)
 {
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
     m_glContext = new wxGLContext(this);
@@ -186,7 +188,7 @@ void FixturePreviewPanel::InitGL()
     }
     if(!m_glInitialized){
         const GLEWInitResult initResult =
-            InitializeGlewForCurrentContext(*this, *m_glContext, "FixturePreviewPanel");
+            gl_lifecycle::InitializeGlew(*this, *m_glContext, "FixturePreviewPanel");
         if (!initResult.success) {
             wxLogError("%s", initResult.message);
             return;
