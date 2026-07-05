@@ -46,7 +46,7 @@
 
 #include "layoutviewerpanel.h"
 #include "../viewer_common/gl_canvas_config.h"
-#include "layout_view_cache_archive.h"
+#include "layout_2d_view_rasterizer.h"
 #include "layoutviewerpanel_helpers.h"
 #include "layout_render_status_notifier.h"
 #include "layout_render_profiler.h"
@@ -2269,97 +2269,56 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      std::vector<unsigned char> pixels;
-      int width = 0;
-      int height = 0;
-      const bool hasPersistentRaster =
-          cache.persistentRgbaSize == renderSize &&
-          cache.persistentRgbaContentHash == HashViewContent(view) &&
-          std::abs(cache.persistentRgbaRenderZoom - renderZoom) < 0.000001 &&
-          cache.persistentRgba.size() ==
-              static_cast<size_t>(renderSize.GetWidth()) *
-                  static_cast<size_t>(renderSize.GetHeight()) * 4;
-      if (hasPersistentRaster) {
-        pixels = cache.persistentRgba;
-        width = renderSize.GetWidth();
-        height = renderSize.GetHeight();
+      gui::layoutraster::Layout2DViewRasterizer rasterizer(
+          cfg, offscreenRenderer, capturePanel);
+      const size_t viewContentHash = HashViewContent(view);
+      gui::layoutraster::Layout2DViewRasterRequest rasterRequest;
+      rasterRequest.view = &view;
+      rasterRequest.renderSize = renderSize;
+      rasterRequest.renderZoom = renderZoom;
+      rasterRequest.contentHash = viewContentHash;
+
+      gui::layoutraster::Layout2DViewRasterCacheInput rasterCacheInput;
+      rasterCacheInput.hasCapture = cache.hasCapture;
+      rasterCacheInput.hasRenderState = cache.hasRenderState;
+      rasterCacheInput.restoredFromPersistentCache = cache.restoredFromPersistentCache;
+      rasterCacheInput.buffer = &cache.buffer;
+      rasterCacheInput.viewState = &cache.viewState;
+      rasterCacheInput.renderState = &cache.renderState;
+      rasterCacheInput.symbols = cache.symbols.get();
+      rasterCacheInput.persistentRgba = &cache.persistentRgba;
+      rasterCacheInput.persistentRgbaSize = cache.persistentRgbaSize;
+      rasterCacheInput.persistentRgbaRenderZoom = cache.persistentRgbaRenderZoom;
+      rasterCacheInput.persistentRgbaContentHash = cache.persistentRgbaContentHash;
+
+      if (!rasterCacheInput.restoredFromPersistentCache &&
+          !rasterCacheInput.persistentRgba->empty()) {
+        wxLogTrace("layoutviewer_raster",
+                   "Rasterizing 2D view id=%d from persistent RGBA cache when valid.",
+                   view.id);
       }
-      const bool attemptedPersistentCache =
-          cache.restoredFromPersistentCache && !hasPersistentRaster;
-      const bool renderedFromPersistentCache =
-          attemptedPersistentCache &&
-          gui::layoutcache::RenderCommandBufferCacheToRgba(
-              renderSize, cache.buffer, cache.viewState, cache.symbols.get(),
-              renderZoom, pixels, width, height);
-      if (attemptedPersistentCache && !renderedFromPersistentCache)
+      if (!capturePanel || !offscreenRenderer) {
+        wxLogTrace("layoutviewer_raster",
+                   "Rasterizing 2D view id=%d without capture panel; only cached paths can succeed.",
+                   view.id);
+      }
+
+      gui::layoutraster::Layout2DViewRasterResult rasterResult =
+          rasterizer.Rasterize(rasterRequest, rasterCacheInput);
+      if (rasterResult.rejectedRestoredPersistentCache)
         cache.restoredFromPersistentCache = false;
-      std::shared_ptr<viewer2d::ScopedViewer2DState> stateGuard;
-      if (!hasPersistentRaster && !renderedFromPersistentCache) {
-        if (!capturePanel || !offscreenRenderer) {
-          ClearCachedTexture(cache);
-          cache.textureSize = wxSize(0, 0);
-          cache.renderZoom = 0.0;
-          continue;
-        }
-        offscreenRenderer->SetViewportSize(renderSize);
-        offscreenRenderer->PrepareForCapture();
-
-        viewer2d::Viewer2DState renderState = cache.renderState;
-        if (renderZoom != 1.0) {
-          renderState.camera.zoom *= static_cast<float>(renderZoom);
-        }
-        renderState.camera.viewportWidth = renderSize.GetWidth();
-        renderState.camera.viewportHeight = renderSize.GetHeight();
-
-        stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-            capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
-      }
-
-      bool rendered = hasPersistentRaster || renderedFromPersistentCache;
-      if (!hasPersistentRaster && !renderedFromPersistentCache) {
-        if (!capturePanel) {
-          ClearCachedTexture(cache);
-          cache.textureSize = wxSize(0, 0);
-          cache.renderZoom = 0.0;
-          continue;
-        }
-        const auto previousOverrides = capturePanel->GetRenderOverrides();
-        const bool previousPreferLayoutSvgSymbols =
-            capturePanel->GetPreferPerastageSvgSymbolsForLayouts();
-        struct ScopedCapturePanelRestore {
-          Viewer2DPanel *panel = nullptr;
-          std::optional<Viewer2DRenderOverrides> overrides;
-          bool preferLayoutSvgSymbols = false;
-          ~ScopedCapturePanelRestore() {
-            if (!panel)
-              return;
-            panel->SetRenderOverrides(overrides);
-            panel->SetPreferPerastageSvgSymbolsForLayouts(preferLayoutSvgSymbols);
-          }
-        } scopedRestore{capturePanel, previousOverrides,
-                        previousPreferLayoutSvgSymbols};
-
-        Viewer2DRenderOverrides previewOverrides =
-            previousOverrides.value_or(Viewer2DRenderOverrides{});
-        previewOverrides.drawFixtureLabels = true;
-        previewOverrides.symbolCaptureRenderProfile = false;
-        capturePanel->SetRenderOverrides(previewOverrides);
-        capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
-        gui::layoutstatus::PostLayoutRenderStatus(
-            this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
-            wxString::Format(
-                "Rendering 2D view id=%d (%zu/%zu): capturing scene objects...",
-                view.id, processedRenderItems,
-                std::max<size_t>(1, totalRenderItems)));
-        rendered = capturePanel->RenderToRGBA(pixels, width, height, renderSize);
-      }
-      if (!rendered || width <= 0 || height <= 0) {
+      if (!rasterResult.success) {
+        wxLogTrace("layoutviewer_raster",
+                   "Rasterizing 2D view id=%d failed: %s", view.id,
+                   wxString::FromUTF8(rasterResult.diagnosticMessage).c_str());
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         continue;
       }
-
+      std::vector<unsigned char> pixels = std::move(rasterResult.rgbaPixels);
+      const int width = rasterResult.width;
+      const int height = rasterResult.height;
       if (!ensureGlReady()) {
         clearLoadingState();
         NotifyRenderReady();
@@ -2389,14 +2348,14 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
                            view.id));
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
-      cache.contentHash = HashViewContent(view);
+      cache.contentHash = viewContentHash;
       cache.persistentRgba = pixels;
       cache.persistentRgbaSize = cache.textureSize;
       cache.persistentRgbaRenderZoom = renderZoom;
       cache.persistentRgbaContentHash = cache.contentHash;
       profiler.RecordRenderedElement();
       std::vector<unsigned char>().swap(pixels);
-      if (hasPersistentRaster)
+      if (rasterResult.reusedPersistentRaster)
         continue;
       const bool hasMoreWork = NeedsRenderRebuild();
       profiler.Finish(hasMoreWork ? "incremental_pending" : "completed");
