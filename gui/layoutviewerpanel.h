@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -28,6 +29,7 @@
 #include "LayoutCollection.h"
 #include "configservices.h"
 #include "canvas2d.h"
+#include "layout_2d_view_rasterizer.h"
 #include "symbolcache.h"
 #include "viewer2dpanel.h"
 #include "viewer2dstate.h"
@@ -93,6 +95,12 @@ private:
     wxSize persistentRgbaSize{0, 0};
     double persistentRgbaRenderZoom = 0.0;
     size_t persistentRgbaContentHash = 0;
+    bool hasLastRenderFailure = false;
+    std::string lastRenderFailureMessage;
+    gui::layoutraster::Layout2DViewRasterFailureReason lastRenderFailureReason =
+        gui::layoutraster::Layout2DViewRasterFailureReason::None;
+    size_t lastLoggedFailureContentHash = 0;
+    std::string lastLoggedFailureMessage;
   };
 
   struct LegendCache {
