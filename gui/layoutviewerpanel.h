@@ -46,6 +46,7 @@ public:
   ~LayoutViewerPanel();
 
   void SetLayoutDefinition(const layouts::LayoutDefinition &layout);
+  void ResetPreviewCachesForProjectLoad();
   layouts::Layout2DViewDefinition *GetEditableView();
   const layouts::Layout2DViewDefinition *GetEditableView() const;
   bool DeleteSelectedElement();

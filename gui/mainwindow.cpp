@@ -868,8 +868,10 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     return false;
   }
   loadProfiler.EndPhase();
-  if (layoutViewerPanel)
+  if (layoutViewerPanel) {
+    layoutViewerPanel->ResetPreviewCachesForProjectLoad();
     layoutViewerPanel->LoadPersistentViewCacheFromProject(path);
+  }
   viewer2d::ReconcileFixtureLabelOverridesWithScene(
       GetDefaultGuiConfigServices().LegacyConfigManager());
 

@@ -66,6 +66,7 @@
 #include "gl_state_guard.h"
 #include "units/units.h"
 #include "../viewer_common/gl_canvas_config.h"
+#include "../viewer_common/gl_framebuffer_capture_target.h"
 #include "../viewer_common/measure_overlay_style.h"
 #include "ui_render_size.h"
 #include <wx/app.h>
@@ -89,6 +90,30 @@ static constexpr float PIXELS_PER_METER = 25.0f;
 namespace {
 constexpr size_t kMaxCapturePixels = 8192u * 8192u;
 constexpr size_t kMaxCaptureBytes = 64u * 1024u * 1024u;
+
+class ScopedReadBufferPackAlignmentState {
+public:
+  // Captures read-buffer and pack-alignment state before a pixel read.
+  ScopedReadBufferPackAlignmentState() {
+    glGetIntegerv(GL_READ_BUFFER, &readBuffer_);
+    glGetIntegerv(GL_PACK_ALIGNMENT, &packAlignment_);
+  }
+
+  ScopedReadBufferPackAlignmentState(
+      const ScopedReadBufferPackAlignmentState &) = delete;
+  ScopedReadBufferPackAlignmentState &
+  operator=(const ScopedReadBufferPackAlignmentState &) = delete;
+
+  // Restores read-buffer and pack-alignment state after a pixel read.
+  ~ScopedReadBufferPackAlignmentState() {
+    glReadBuffer(static_cast<GLenum>(readBuffer_));
+    glPixelStorei(GL_PACK_ALIGNMENT, packAlignment_);
+  }
+
+private:
+  GLint readBuffer_ = GL_BACK;
+  GLint packAlignment_ = 4;
+};
 
 wxRect BuildSelectionRectDirtyRegion(const wxPoint &a, const wxPoint &b) {
   const int x = std::min(a.x, b.x);
@@ -999,16 +1024,12 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   if (!resolvedSize.IsValid())
     return;
 
-#if defined(__WXGTK__) || defined(__WXOSX__)
   if (m_captureFramebufferSizeOverride) {
     glDisable(GL_SCISSOR_TEST);
     glViewport(0, 0, w, h);
   } else {
     glstate::ApplyKnownBaseOnscreenState(w, h);
   }
-#else
-  glstate::ApplyKnownBaseOnscreenState(w, h);
-#endif
   const RenderSize viewportSize{w, h, "RenderInternal(active-framebuffer-px)"};
 
   glMatrixMode(GL_PROJECTION);
@@ -1350,68 +1371,71 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   width = w;
   height = h;
 
-  bool previousForce = m_forceOffscreenRender;
+  struct ForceOffscreenGuard {
+    Viewer2DPanel &panel;
+    bool previous;
+
+    // Restores the panel offscreen-render flag after capture.
+    ~ForceOffscreenGuard() { panel.m_forceOffscreenRender = previous; }
+  } forceGuard{*this, m_forceOffscreenRender};
   m_forceOffscreenRender = true;
+
   InitGL();
-  if (!m_glInitialized) {
-    m_forceOffscreenRender = previousForce;
+  if (!m_glInitialized)
     return false;
-  }
-  glstate::ScopedFramebufferViewportScissorState stateGuard;
-#if defined(__WXGTK__) || defined(__WXOSX__)
-  GLuint fbo = 0;
-  GLuint colorTexture = 0;
-  GLuint depthStencilRbo = 0;
-  glGenFramebuffers(1, &fbo);
-  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
-  glGenTextures(1, &colorTexture);
-  glBindTexture(GL_TEXTURE_2D, colorTexture);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
-               nullptr);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                         colorTexture, 0);
-
-  glGenRenderbuffers(1, &depthStencilRbo);
-  glBindRenderbuffer(GL_RENDERBUFFER, depthStencilRbo);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
-                            GL_RENDERBUFFER, depthStencilRbo);
-
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    glDeleteRenderbuffers(1, &depthStencilRbo);
-    glDeleteTextures(1, &colorTexture);
-    glDeleteFramebuffers(1, &fbo);
-    m_forceOffscreenRender = previousForce;
-    return false;
+  glcapture::FramebufferCaptureTarget target;
+  ScopedReadBufferPackAlignmentState readStateGuard;
+  glstate::ScopedFramebufferViewportScissorState framebufferStateGuard;
+  if (!target.Initialize(w, h) || !target.IsComplete()) {
+    wxLogWarning(wxString::Format(
+        "Viewer2D RenderToRGBA FBO capture unavailable; using "
+        "back-buffer fallback. %s",
+        wxString::FromUTF8(target.Diagnostic())));
+    return RenderToRGBABackBufferFallback(pixels, w, h);
   }
 
-  m_captureFramebufferSizeOverride = wxSize(w, h);
-  RenderInternal(false);
-  m_captureFramebufferSizeOverride.reset();
+  target.BindForRendering();
+  {
+    struct CaptureSizeOverrideGuard {
+      Viewer2DPanel &panel;
 
-  glReadBuffer(GL_COLOR_ATTACHMENT0);
+      // Clears the temporary capture framebuffer size override after capture.
+      ~CaptureSizeOverrideGuard() {
+        panel.m_captureFramebufferSizeOverride.reset();
+      }
+    } captureSizeGuard{*this};
+
+    m_captureFramebufferSizeOverride = wxSize(w, h);
+    RenderInternal(false);
+  }
+
+  target.BindForReading();
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
 
-  glDeleteRenderbuffers(1, &depthStencilRbo);
-  glDeleteTextures(1, &colorTexture);
-  glDeleteFramebuffers(1, &fbo);
-#else
-  m_captureFramebufferSizeOverride = wxSize(w, h);
+  return true;
+}
+
+// Captures RGBA pixels from the legacy back buffer path when FBO capture fails.
+bool Viewer2DPanel::RenderToRGBABackBufferFallback(
+    std::vector<unsigned char> &pixels, int width, int height) {
+  wxLogWarning(
+      "Viewer2D RenderToRGBA is using the temporary GL_BACK fallback path");
+
+  struct CaptureSizeOverrideGuard {
+    Viewer2DPanel &panel;
+
+    // Clears the temporary capture framebuffer size override after fallback capture.
+    ~CaptureSizeOverrideGuard() { panel.m_captureFramebufferSizeOverride.reset(); }
+  } captureSizeGuard{*this};
+
+  m_captureFramebufferSizeOverride = wxSize(width, height);
   RenderInternal(false);
-  m_captureFramebufferSizeOverride.reset();
 
   glReadBuffer(GL_BACK);
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
-  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-#endif
-
-  m_forceOffscreenRender = previousForce;
+  glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
   return true;
 }
 
