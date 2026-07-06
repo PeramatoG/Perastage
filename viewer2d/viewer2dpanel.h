@@ -208,6 +208,8 @@ private:
   void RequestRepaint(const wxRect &dirtyRect);
   void ResetRepaintCoalescing();
   void TrackRefreshTelemetry();
+  bool RenderToRGBABackBufferFallback(std::vector<unsigned char> &pixels,
+                                      int width, int height);
 
   std::array<float, 3> MapDragDelta(float dxMeters, float dyMeters) const;
   std::optional<std::array<float, 3>> ComputeSelectionDragCenterMeters() const;
