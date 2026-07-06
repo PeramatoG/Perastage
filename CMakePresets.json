@@ -110,7 +110,7 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_TOOLCHAIN_FILE": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_TARGET_TRIPLET": "x64-windows",
         "CMAKE_CXX_STANDARD": "20",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
@@ -121,6 +121,10 @@
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "set"
       }
     },
     {
@@ -131,7 +135,7 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_TOOLCHAIN_FILE": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_TARGET_TRIPLET": "x64-windows",
         "CMAKE_CXX_STANDARD": "20",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
@@ -142,6 +146,10 @@
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "set"
       }
     },
     {
@@ -152,7 +160,7 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_TOOLCHAIN_FILE": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_TARGET_TRIPLET": "x64-windows",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_CXX_STANDARD": "20",
@@ -173,7 +181,7 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_TOOLCHAIN_FILE": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_TARGET_TRIPLET": "x64-windows",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_CXX_STANDARD": "20",
@@ -197,7 +205,8 @@
         "perastage_stage"
       ],
       "jobs": 8,
-      "verbose": false
+      "verbose": false,
+      "configuration": "Release"
     },
     {
       "name": "win-debug-build",
@@ -205,7 +214,8 @@
       "description": "Builds the Windows debug version",
       "configurePreset": "win-x64-debug",
       "jobs": 8,
-      "verbose": false
+      "verbose": false,
+      "configuration": "Debug"
     },
     {
       "name": "mac-release-build",
