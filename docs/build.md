@@ -8,6 +8,7 @@ This document covers baseline and advanced build behavior for Perastage. It is t
 - C++20-capable compiler/toolchain.
 - wxWidgets 3.3.1 or compatible development package.
 - Required libraries:
+  - wxWidgets
   - tinyxml2
   - OpenGL / GLU
   - GLEW
@@ -19,7 +20,7 @@ This document covers baseline and advanced build behavior for Perastage. It is t
   - backward-cpp
   - mdns, when `PERASTAGE_ENABLE_MVR_XCHANGE_MDNS` is enabled
 
-## vcpkg dependency setup
+## Windows vcpkg dependency setup
 
 Perastage can be built with vcpkg in classic mode. On Windows, the recommended local convention is to install vcpkg in:
 
@@ -27,21 +28,26 @@ Perastage can be built with vcpkg in classic mode. On Windows, the recommended l
 C:/vcpkg
 ```
 
+The shared Windows presets in `CMakePresets.json` use this default path directly:
+
+```text
+C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+```
+
+This avoids conflicts with Visual Studio Developer PowerShell, which may set `VCPKG_ROOT` to Visual Studio's internal vcpkg directory.
+
 Install the required Windows dependencies with:
 
 ```powershell
-C:\vcpkg\vcpkg.exe install tinyxml2:x64-windows curl:x64-windows glew:x64-windows meshoptimizer:x64-windows nanovg:x64-windows podofo:x64-windows zlib:x64-windows backward-cpp:x64-windows mdns:x64-windows
+C:\vcpkg\vcpkg.exe install wxwidgets:x64-windows tinyxml2:x64-windows curl:x64-windows glew:x64-windows meshoptimizer:x64-windows nanovg:x64-windows podofo:x64-windows zlib:x64-windows backward-cpp:x64-windows mdns:x64-windows
 ```
 
-The shared project presets use `VCPKG_ROOT` so the repository does not hard-code a developer-specific path.
+If your vcpkg installation is not in `C:/vcpkg`, use one of these options:
 
-On a normal PowerShell session, `VCPKG_ROOT` should point to the vcpkg installation used for Perastage:
+1. Edit the Windows `CMAKE_TOOLCHAIN_FILE` values in `CMakePresets.json`.
+2. Create a local `CMakeUserPresets.json` file that overrides `CMAKE_TOOLCHAIN_FILE`.
 
-```powershell
-[Environment]::SetEnvironmentVariable("VCPKG_ROOT", "C:\vcpkg", "User")
-```
-
-Then close and reopen terminals and IDEs so they pick up the updated environment.
+`CMakeUserPresets.json` is local to each developer machine and should not be committed.
 
 ## CMake presets strategy
 
@@ -54,13 +60,11 @@ CMakeUserPresets.json
 
 `CMakePresets.json` is the shared project-level preset file and is tracked in Git.
 
-`CMakeUserPresets.json` is local to each developer machine and should not be committed. Use it when a local toolchain path or environment override is needed.
+`CMakeUserPresets.json` is local to each developer machine. Use it only when local toolchain paths or environment overrides are needed.
 
-This is especially useful on Windows because Visual Studio Developer PowerShell may set `VCPKG_ROOT` to Visual Studio's internal vcpkg directory instead of the vcpkg installation used for Perastage.
+## Optional local Windows user presets
 
-## Local Windows user presets
-
-Create a local file named:
+If your vcpkg installation is not located at `C:/vcpkg`, create a local file named:
 
 ```text
 CMakeUserPresets.json
@@ -70,7 +74,7 @@ in the repository root.
 
 This file should not be committed. It should contain local machine settings only.
 
-Example for a Windows machine using vcpkg in `C:/vcpkg`:
+Example for a Windows machine using vcpkg in `D:/tools/vcpkg`:
 
 ```json
 {
@@ -79,19 +83,19 @@ Example for a Windows machine using vcpkg in `C:/vcpkg`:
     {
       "name": "local-win-x64-debug-ninja",
       "displayName": "Local Windows x64 Debug (Ninja)",
-      "description": "Local Debug Ninja build using the developer vcpkg installation.",
+      "description": "Local Debug Ninja build using a custom vcpkg installation.",
       "inherits": "win-x64-debug-ninja",
-      "environment": {
-        "VCPKG_ROOT": "C:/vcpkg"
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "D:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake"
       }
     },
     {
       "name": "local-win-x64-release-ninja",
       "displayName": "Local Windows x64 Release (Ninja)",
-      "description": "Local Release Ninja build using the developer vcpkg installation.",
+      "description": "Local Release Ninja build using a custom vcpkg installation.",
       "inherits": "win-x64-release-ninja",
-      "environment": {
-        "VCPKG_ROOT": "C:/vcpkg"
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "D:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake"
       }
     }
   ],
@@ -114,68 +118,73 @@ Example for a Windows machine using vcpkg in `C:/vcpkg`:
 }
 ```
 
-If your vcpkg installation is in another location, adjust the `VCPKG_ROOT` value.
-
-For example:
-
-```json
-"VCPKG_ROOT": "D:/tools/vcpkg"
-```
+For the recommended `C:/vcpkg` setup, this local file is not required.
 
 ## Visual Studio workflow on Windows
 
-For the Visual Studio IDE workflow, prefer the local presets from `CMakeUserPresets.json`.
+For the standard Windows setup, install vcpkg in `C:/vcpkg` and use the shared Windows presets directly.
 
 Typical setup:
 
-1. Install vcpkg dependencies.
-2. Create `CMakeUserPresets.json` in the repository root.
-3. Set the local `VCPKG_ROOT` value inside `CMakeUserPresets.json`.
-4. Open the repository folder in Visual Studio.
-5. Select `Local Machine`.
-6. Select a local configure preset such as `Local Windows x64 Debug (Ninja)`.
-7. Select a local build preset such as `Local Build Windows Debug (Ninja)`.
+1. Install vcpkg in `C:/vcpkg`.
+2. Install the required vcpkg dependencies.
+3. Open the repository folder in Visual Studio.
+4. Select `Local Machine`.
+5. Select a Windows configure preset such as `Windows x64 Debug (Ninja)`.
+6. Select a Windows build preset such as `Build Windows Debug (Ninja)`.
 
-This keeps the public repository portable while still allowing each development machine to define its own vcpkg path.
+If Visual Studio shows stale configuration errors after changing presets, close Visual Studio and remove the local `.vs` folder and the affected build directory before configuring again.
 
 ## Command-line build
 
-After the environment is configured, list available presets:
+List available presets:
 
 ```powershell
 cmake --list-presets
 ```
 
-Configure a Windows Debug Ninja build using the local user preset:
+Configure a Windows Debug Ninja build:
 
 ```powershell
-cmake --preset local-win-x64-debug-ninja
-```
-
-Build it:
-
-```powershell
-cmake --build --preset local-win-debug-build-ninja
-```
-
-Configure a Windows Release Ninja build using the local user preset:
-
-```powershell
-cmake --preset local-win-x64-release-ninja
-```
-
-Build it:
-
-```powershell
-cmake --build --preset local-win-release-build-ninja
-```
-
-If you want to use the shared preset directly from a Developer PowerShell that overrides `VCPKG_ROOT`, set the process variable first:
-
-```powershell
-$env:VCPKG_ROOT = "C:\vcpkg"
 cmake --preset win-x64-debug-ninja
+```
+
+Build it:
+
+```powershell
 cmake --build --preset win-debug-build-ninja
+```
+
+Configure a Windows Release Ninja build:
+
+```powershell
+cmake --preset win-x64-release-ninja
+```
+
+Build it:
+
+```powershell
+cmake --build --preset win-release-build-ninja
+```
+
+## macOS presets
+
+The macOS presets use `VCPKG_ROOT`, because the vcpkg installation path is usually developer-specific on macOS.
+
+Make sure `VCPKG_ROOT` points to your macOS vcpkg installation before configuring:
+
+```bash
+export VCPKG_ROOT=/path/to/vcpkg
+cmake --preset mac-arm64-debug
+cmake --build --preset mac-debug-build
+```
+
+For a Release build:
+
+```bash
+export VCPKG_ROOT=/path/to/vcpkg
+cmake --preset mac-arm64-release
+cmake --build --preset mac-release-build
 ```
 
 ## WSL/Linux presets
@@ -211,10 +220,10 @@ For regular development, prefer the project presets because they keep build dire
 
 Tests are normally enabled for Debug builds.
 
-For a Windows local Debug Ninja build:
+For a Windows Debug Ninja build:
 
 ```powershell
-ctest --test-dir build/local-win-x64-debug-ninja --output-on-failure
+ctest --test-dir build/win-x64-debug-ninja --output-on-failure
 ```
 
 For a WSL/Linux Debug build:
@@ -234,6 +243,12 @@ ctest --test-dir build/wsl-x64-debug --output-on-failure
 If CMake reports that a required dependency cannot be found, for example:
 
 ```text
+Could not find a package configuration file provided by "wxWidgets"
+```
+
+or:
+
+```text
 Could NOT find ZLIB (missing: ZLIB_LIBRARY ZLIB_INCLUDE_DIR)
 ```
 
@@ -242,30 +257,21 @@ or a similar error for `tinyxml2`, `CURL`, `GLEW`, `meshoptimizer`, `nanovg`, `p
 First verify that the dependency is installed in the intended vcpkg instance. For example:
 
 ```powershell
-C:\vcpkg\vcpkg.exe install zlib:x64-windows
+C:\vcpkg\vcpkg.exe install wxwidgets:x64-windows
 ```
 
-Then verify which vcpkg instance CMake is using:
+Then verify that the expected vcpkg instance exists:
 
 ```powershell
-echo $env:VCPKG_ROOT
-Test-Path "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
-Test-Path "$env:VCPKG_ROOT\installed\x64-windows\include\zlib.h"
+Test-Path "C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
+Test-Path "C:\vcpkg\installed\x64-windows\share\wxwidgets"
+Test-Path "C:\vcpkg\installed\x64-windows\include\zlib.h"
 ```
 
-The expected `VCPKG_ROOT` value depends on your local setup. On the recommended Windows setup it is:
+If the error path contains Visual Studio's internal vcpkg, for example:
 
 ```text
-C:\vcpkg
+C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
 
-Visual Studio Developer PowerShell may set `VCPKG_ROOT` to Visual Studio's internal vcpkg directory instead. In that case, CMake may fail to find dependencies even if they are installed in `C:/vcpkg`.
-
-For Visual Studio IDE builds, prefer a local `CMakeUserPresets.json` preset that sets the intended vcpkg root.
-
-For command-line builds from a shell where `VCPKG_ROOT` has been overridden, set the process variable before configuring:
-
-```powershell
-$env:VCPKG_ROOT = "C:\vcpkg"
-cmake --preset win-x64-debug-ninja
-```
+then Visual Studio is using its own vcpkg instance instead of the recommended `C:/vcpkg` installation. Make sure the updated `CMakePresets.json` is being used, clear the CMake cache, and remove stale `.vs` or build folders if needed.
