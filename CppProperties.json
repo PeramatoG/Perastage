@@ -6,7 +6,7 @@
         "msvc_x64_x64"
       ],
       "includePath": [
-        "${env.VCPKG_ROOT}\\installed\\x64-windows\\include",
+        "C:/vcpkg/installed/x64-windows/include",
         "${env.INCLUDE}",
         "${workspaceRoot}\\**"
       ],
@@ -18,7 +18,7 @@
       ],
       "intelliSenseMode": "windows-msvc-x64",
       "cppStandard": "c++20",
-      "compileCommands": "${workspaceRoot}\\out\\build\\x64-Debug\\compile_commands.json"
+      "compileCommands": "${workspaceRoot}\\build\\win-x64-debug-ninja\\compile_commands.json"
     }
   ]
 }
