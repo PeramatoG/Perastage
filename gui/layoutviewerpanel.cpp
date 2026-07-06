@@ -521,11 +521,37 @@ LayoutViewerPanel::~LayoutViewerPanel() {
   delete glContext_;
 }
 
+// Clears project-scoped Layout preview render caches before applying a new project.
+void LayoutViewerPanel::ResetPreviewCachesForProjectLoad() {
+  ClearCachedTexture();
+  pendingPersistentViewCacheJson_.clear();
+  pendingPersistentViewCacheRasters_.clear();
+
+  captureInProgress = false;
+  renderDirty = true;
+  renderPending = false;
+  isLoading = false;
+  loadingRequested = false;
+  loadingTimer_.Stop();
+  renderDelayTimer_.Stop();
+  legendDataDirty_ = true;
+  legendItems_.clear();
+  legendDataHash = 0;
+  hasSceneContentHash = false;
+  lastSceneContentHash = 0;
+  pendingFrameCommit_ = false;
+  deferredResizeFrame_.reset();
+  layoutVersion++;
+  viewRenderVersion++;
+  InvalidateSelectionIndexCache();
+}
+
 // Applies a layout snapshot, preserving selection and scheduling texture rebuilds when renderable data changes.
 void LayoutViewerPanel::SetLayoutDefinition(
     const layouts::LayoutDefinition &layout) {
   if (IsSameRenderableLayout(currentLayout, layout)) {
-    currentLayout.name = layout.name;
+    currentLayout = layout;
+    InvalidateSelectionIndexCache();
     legendDataDirty_ = true;
     RefreshLegendData();
     HydratePendingPersistentViewCache();

@@ -1389,8 +1389,8 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
     return false;
 
   glcapture::FramebufferCaptureTarget target;
-  glstate::ScopedFramebufferViewportScissorState framebufferStateGuard;
   ScopedReadBufferPackAlignmentState readStateGuard;
+  glstate::ScopedFramebufferViewportScissorState framebufferStateGuard;
   if (!target.Initialize(w, h) || !target.IsComplete()) {
     wxLogWarning(wxString::Format(
         "Viewer2D RenderToRGBA FBO capture unavailable; using "

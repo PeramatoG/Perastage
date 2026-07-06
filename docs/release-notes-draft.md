@@ -17,6 +17,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed Layout View so opening another project cannot briefly reuse the previous project's cached layout preview before the new layout rebuilds.
 - Fixed table selection highlights so sorting fixtures, trusses, hoists, or scene objects keeps the same UUID-backed elements selected, and fixture multi-selection actions preserve the original selection order after sorting.
 - Fixed Layers visibility checkbox double-clicks so they only toggle visibility and no longer open the layer rename dialog.
 - Fixed MVR export so duplicate fixture numeric IDs are repaired with the next available number, logged as non-blocking warnings, and no longer prevent saving the MVR file.

@@ -42,6 +42,8 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_render_to_rgba_fbo_boundary.sh)
     add_test(NAME LayoutPreviewFailureDiagnostics
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_preview_failure_diagnostics.sh)
+    add_test(NAME LayoutProjectLoadCacheReset
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
     add_test(NAME LibraryUserDataPolicy
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_library_user_data_policy.sh)
     add_test(NAME DictionaryPathsPolicy
