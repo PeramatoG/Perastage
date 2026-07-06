@@ -1,12 +1,11 @@
 {
   "configurations": [
     {
+      "name": "x64-Debug",
       "inheritEnvironments": [
         "msvc_x64_x64"
       ],
-      "name": "x64-Debug",
       "includePath": [
-        "C:/vcpkg/installed/x64-windows/include",
         "${env.VCPKG_ROOT}\\installed\\x64-windows\\include",
         "${env.INCLUDE}",
         "${workspaceRoot}\\**"
