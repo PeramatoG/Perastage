@@ -15,7 +15,7 @@ Keep Perastage clean and modular while continuing to deliver new features, follo
 
 3. **Architecture and build conventions**
    - Keep explicit source ownership in CMake (no `GLOB_RECURSE` for project source registration).
-   - Respect module boundaries described in `docs/architecture.md` and `perastage_tree.md`.
+   - Respect module boundaries described in `docs/architecture.md` and `docs/perastage_tree.md`.
 
 4. **Mandatory checks before closing changes**
    - Run and keep green:

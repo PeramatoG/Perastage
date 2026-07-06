@@ -13,7 +13,7 @@ Perastage/
 |-- CMakePresets.json            # Supported local configure/build presets.
 |-- README.md                    # Product overview, features, and entry links.
 |-- help.md                      # In-app help content.
-|-- perastage_tree.md            # High-level repository map.
+|-- docs/                        # User documentation, architecture notes, repository map, and docs website assets.
 |-- AGENTS.md                    # Repository guidance for automated coding agents.
 |-- VERSION                      # Single project version source.
 |-- cmake/                       # CMake templates and helper scripts.
@@ -37,7 +37,6 @@ Perastage/
 |-- mvr/                         # MVR format import/export modules and MVR-xchange networking.
 |-- packaging/                   # Installer, desktop integration, and package metadata.
 |-- tests/                       # Automated tests and lightweight checks.
-|-- docs/                        # User documentation, architecture notes, and docs website assets.
 |-- library/                     # Packaged runtime content (fixtures, trusses, etc.).
 |-- resources/                   # Visual/platform resources (icons, fonts, .rc).
 |-- third_party/                 # Vendored third-party headers.
