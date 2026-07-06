@@ -1,39 +1,47 @@
 # Viewer2D state ownership
 
-Viewer2D state is intentionally classified before deeper Layout/offscreen refactors. This document keeps runtime interaction state, user preference/config state, and project/Layout definition state separate so temporary Layout preview rendering does not accidentally become persistent application or project state.
+Viewer2D state is intentionally classified before deeper Layout/offscreen refactors. This document records the current ownership model and the intended future separation between runtime state, user preferences/config state, and project/Layout persistent state. The goal is to let future work separate these paths without changing rendering output, project files, Layout JSON, PDF export, print preview, or printing behavior.
 
-## Ownership categories
+## Current problem
 
-| Category | Owner | Examples | Persistence rule |
-| --- | --- | --- | --- |
-| Runtime-only state | Active Viewer2D panels, render panels, and temporary capture guards | Current interactive panel offsets, zoom, viewport size, view while the user is navigating, temporary capture state, dragging, hover, measurement, selection overlays, repaint throttling, capture-in-progress flags, render overrides, and offscreen capture-panel setup | Must not be persisted just because a Layout preview needs a temporary render. Temporary preview capture must restore the previous state through `viewer2d::ScopedViewer2DState` or an equivalent scoped mechanism. |
-| User preference/config state | `ConfigManager` and intentional editor preference actions | Default 2D render mode, dark mode, grid visibility, grid style, grid color, grid draw order, ruler visibility and colors, label visibility, label font sizes, label offsets, top-fixtures inversion, hidden layers, hidden fixture types, and the persisted editor camera when the user intentionally changes the editor view | May survive application sessions only when changed through normal editor preference or view flows. Layout preview capture/rasterization must not call `SaveUserConfig` or introduce new config persistence. |
-| Project/Layout definition state | `layouts::Layout2DViewDefinition` stored in the project/Layout model | Embedded Layout 2D view frame, camera, render options, layers, drawFrame, zIndex, and id | Belongs to the project/Layout model. Runtime navigation and temporary capture state must not mutate or save project/Layout definitions unless the user is editing the Layout definition itself. |
+The current Viewer2D state flow mixes several responsibilities through shared code paths:
 
-## Current Viewer2D state bridge
+- live panel/runtime state, such as the active camera while a user pans or zooms;
+- user preferences stored in `ConfigManager`, such as default grid, ruler, label, and dark-mode settings;
+- project/Layout persistent state stored in embedded Layout 2D view definitions;
+- temporary Layout preview/capture state used to render embedded 2D views through the existing Viewer2D pipeline.
 
-`viewer2d::Viewer2DState` is a bridge structure used by both editor state capture and Layout 2D view rendering. It currently contains:
+`viewer2d::Viewer2DState`, `ConfigManager`, `viewer2d::ScopedViewer2DState`, Layout preview capture, Layout rasterization, and editor preferences currently overlap. Some values are temporary runtime/capture values, some should survive between projects as user preferences, and some belong to persistent project/Layout definitions. This document makes those boundaries explicit for future refactors without changing current behavior.
 
-- `layouts::Layout2DViewCameraState` for camera/view values.
-- `layouts::Layout2DViewRenderOptions` for render preferences and embedded view render options.
-- `layouts::Layout2DViewLayers` for hidden layers and hidden fixture types.
+## Current state structures
 
-`viewer2d::CaptureState(...)` currently reads camera values from a `Viewer2DPanel` when one is available, and reads render options, labels, grid, ruler, and layer visibility from `ConfigManager`. `viewer2d::ApplyState(...)` currently writes many of those values back into `ConfigManager` because the editor still uses shared config-backed Viewer2D state. This behavior is documented here as existing behavior, not as a target architecture.
+- `viewer2d::Viewer2DState` is the current bridge snapshot used by both editor capture and embedded Layout 2D view rendering. It groups camera, render-option, and layer state even though those fields do not all have the same long-term owner.
+- `layouts::Layout2DViewCameraState` stores the camera/view fields used by an embedded Layout 2D view, including offsets, zoom, viewport dimensions, and selected view.
+- `layouts::Layout2DViewRenderOptions` stores rendering choices used by the Viewer2D path, including render mode, dark mode, grid, ruler, labels, and top-fixture inversion. Some of these values are user preferences in the editor and project/Layout state when embedded in a Layout definition.
+- `layouts::Layout2DViewLayers` stores hidden layers and hidden fixture types for a Layout 2D view. This is transitional because the editor also exposes similar visibility through `ConfigManager`.
+- `layouts::Layout2DViewDefinition` is the project/Layout persistent definition for an embedded Layout 2D view. It owns the frame, camera, render options, layer visibility, draw-frame setting, z-index, and id for that Layout element.
+- `viewer2d::CaptureState(...)` reads the live panel camera when a panel is available, falls back to camera values in `ConfigManager` otherwise, and reads render/layer options from `ConfigManager`.
+- `viewer2d::ApplyState(...)` currently writes the supplied state into `ConfigManager` and optionally refreshes the Viewer2D panels. When `persistCameraToConfig` is false, the camera is applied to the panel without committing camera values to config.
+- `viewer2d::ScopedViewer2DState` is the scoped temporary preview/capture mechanism. It captures the previous Viewer2D state, applies a replacement state, and restores the previous state on scope exit.
+- `viewer2d::FromLayoutDefinition(...)` converts project/Layout persistent state from a `Layout2DViewDefinition` into the bridge `Viewer2DState` used by the current render path.
+- `viewer2d::ToLayoutDefinition(...)` converts a `Viewer2DState` snapshot into project/Layout persistent state, including the supplied Layout frame.
+- `viewer2d::CaptureLayoutDefinition(...)` captures current editor state and converts it into a `Layout2DViewDefinition` when the user is creating or updating an embedded Layout 2D view.
 
-The lightweight ownership map in `viewer2d/viewer2dstate.h` and `viewer2d/viewer2dstate.cpp` identifies known Viewer2D config keys as user preference/config state. Future refactors should use that map as a checklist when moving runtime-only state away from shared configuration.
+## Ownership classification
 
-## Layout preview capture and rasterization rules
+| Ownership category | Current fields and examples | Current persistence expectation |
+| --- | --- | --- |
+| Runtime state | Active live panel camera while the user pans/zooms, transient viewport dimensions, temporary capture framebuffer override, temporary offscreen capture state, repaint/render scheduling flags, capture-in-progress flags, command-buffer capture metadata, render overrides used only for capture, hover/drag/selection overlay state | Runtime-only values must not be serialized into Layout definitions or saved to user configuration unless an explicit editor action owns that persistence. |
+| User preferences/config state | Default Viewer2D dark mode, grid visibility/style/color, ruler visibility/color, label display preferences, label font sizes and offsets, fixture label defaults, render mode defaults, top-fixture inversion defaults, general editor preferences that should survive between projects | User preferences/config state belongs to `ConfigManager` and should survive application sessions, but should not be overwritten by project restore unless the value is explicitly project-owned. |
+| Project/Layout persistent state | `Layout2DViewDefinition::frame`, stored camera for an embedded Layout 2D view, render options stored in a Layout definition, hidden layers or hidden fixture types stored as part of a Layout 2D view, draw-frame and z-index information, the Layout 2D view id | Project/Layout persistent state belongs to the project/Layout model and may be serialized only through the existing Layout/project save paths. |
+| Ambiguous/transitional state | Hidden layers currently exposed through `ConfigManager`, `view2d_dark_mode` currently preserved during project load as a user preference, `forceBottomViewForTopFixtures` which may come from config or a Layout definition depending on context | Future refactors should resolve these one at a time with compatibility notes and should not change project file or Layout JSON formats accidentally. |
 
-Interactive Layout preview 2D views may temporarily apply a `layouts::Layout2DViewDefinition` to the capture panel so the existing Viewer2D render path can produce command buffers or RGBA pixels. That temporary application is runtime-only capture state.
+## Rules for future refactors
 
-Layout preview capture/rasterization code must:
-
-- Use `viewer2d::ScopedViewer2DState` or an equivalent scoped restore mechanism when applying temporary 2D view state.
-- Pass `persistCameraToConfig = false` or an equivalent non-persistent mode for temporary preview captures.
-- Avoid direct `SaveUserConfig`, project save, or Layout definition save calls.
-- Leave `LayoutViewerPanel` as the owner of interactive preview caches, OpenGL texture ids, PBO state, persistent RGBA cache, failure diagnostics, frame drawing, selection handles, and preview placeholders.
-- Keep PDF/export/print separate from the interactive preview texture path and preview placeholder/failure diagnostic state.
-
-## Future FBO/offscreen cleanup note
-
-The current `Viewer2DOffscreenRenderer` still uses a hidden/off-screen wx window and `Viewer2DPanel` for capture. Replacing or reducing that dependency with a more explicit framebuffer/render-target capture path is a separate future task. The FBO/offscreen cleanup should not be mixed with Viewer2D state ownership changes; state boundaries should be clarified first, then the rendering target can be refactored with less risk.
+- Temporary Layout preview capture must not permanently mutate user Viewer2D preferences.
+- Applying an embedded Layout 2D view for preview must be scoped and restored through `viewer2d::ScopedViewer2DState` or an equivalent scoped temporary Layout preview/capture path.
+- Project load must not leak the previous project's Layout preview cache, command-buffer cache, persistent RGBA cache, texture state, PBO state, or failure diagnostic state.
+- PDF/export/print must not depend on Layout preview texture, PBO, persistent RGBA cache, or failure diagnostic state.
+- Runtime-only fields must not be serialized into Layout definitions unless explicitly intended and documented as project/Layout persistent state.
+- User preferences should not be overwritten by project restore unless the value is explicitly project-owned.
+- Future FBO/offscreen cleanup should stay separate from state ownership cleanup. Replacing or reducing the hidden wx offscreen host is a rendering-target task, not a reason to merge runtime, config, and project/Layout ownership.
