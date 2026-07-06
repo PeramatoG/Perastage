@@ -381,4 +381,19 @@ FodyWeavers.xsd
 *.pdb
 *.so
 *.dylib
-/library/trusses/truss_dictionary.json.bak
+
+# macOS local files
+.DS_Store
+
+# Manual backup files
+*.bak
+
+# Local AI/editor assistant settings
+.claude/
+
+# Godot local/editor cache
+.godot/
+**/.godot/
+
+# Peraviz lives in its own repository
+peraviz/
