@@ -56,7 +56,9 @@ Changes since **v1.4.0**.
 
 ## Documentation
 
+- Added Viewer2D state ownership documentation to clarify runtime-only, user preference/config, and project/Layout definition boundaries before future offscreen rendering refactors.
 - Updated the MVR-xchange documentation with a compliance summary, supported official flows, conservative latest-request behavior, and explicit out-of-scope notes for WebSocket Mode and private live synchronization.
+
 ## Compatibility notes
 
 ## Downloads and installation

@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <array>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 
@@ -49,8 +50,71 @@ const std::array<const char *, 3> kRulerColorGKeys = {
     "ruler_axis_x_color_g", "ruler_axis_y_color_g", "ruler_axis_z_color_g"};
 const std::array<const char *, 3> kRulerColorBKeys = {
     "ruler_axis_x_color_b", "ruler_axis_y_color_b", "ruler_axis_z_color_b"};
+
+const std::array<Viewer2DStateConfigKeyOwnership, 41>
+    kViewer2DStateConfigKeyOwnership = {{
+        {"view2d_offset_x", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"view2d_offset_y", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"view2d_zoom", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"view2d_view", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"view2d_render_mode", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"view2d_dark_mode", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"view2d_top_fixtures_inverted",
+         Viewer2DStateOwnership::UserPreferenceConfig},
+        {"grid_show", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"grid_style", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"grid_color_r", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"grid_color_g", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"grid_color_b", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"grid_draw_above", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"ruler_show", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"ruler_axis_x_color_r", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"ruler_axis_y_color_r", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"ruler_axis_z_color_r", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"ruler_axis_x_color_g", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"ruler_axis_y_color_g", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"ruler_axis_z_color_g", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"ruler_axis_x_color_b", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"ruler_axis_y_color_b", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"ruler_axis_z_color_b", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_show_name_top", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_show_name_front", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_show_name_side", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_show_id_top", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_show_id_front", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_show_id_side", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_show_dmx_top", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_show_dmx_front", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_show_dmx_side", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_offset_distance_top",
+         Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_offset_distance_front",
+         Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_offset_distance_side",
+         Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_offset_angle_top", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_offset_angle_front",
+         Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_offset_angle_side",
+         Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_font_size_name", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_font_size_id", Viewer2DStateOwnership::UserPreferenceConfig},
+        {"label_font_size_dmx", Viewer2DStateOwnership::UserPreferenceConfig},
+    }};
 } // namespace
 
+// Returns whether the key is known Viewer2D user preference/config state.
+bool IsViewer2DUserPreferenceConfigKey(std::string_view key) {
+  return std::any_of(kViewer2DStateConfigKeyOwnership.begin(),
+                     kViewer2DStateConfigKeyOwnership.end(),
+                     [key](const Viewer2DStateConfigKeyOwnership &entry) {
+                       return entry.key == key &&
+                              entry.ownership ==
+                                  Viewer2DStateOwnership::UserPreferenceConfig;
+                     });
+}
+
+// Captures the current Viewer2D camera, render options, and layer visibility.
 Viewer2DState CaptureState(const Viewer2DPanel *panel,
                            const ConfigManager &cfg) {
   Viewer2DState state;
@@ -120,6 +184,7 @@ Viewer2DState CaptureState(const Viewer2DPanel *panel,
   return state;
 }
 
+// Applies a captured Viewer2D state to config and optionally refreshes panels.
 void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
                 ConfigManager &cfg, const Viewer2DState &state,
                 bool persistCameraToConfig, bool updatePanels) {
@@ -194,6 +259,7 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
     renderPanel->ApplyConfig();
 }
 
+// Applies a temporary Viewer2D state and saves the previous state for restore.
 ScopedViewer2DState::ScopedViewer2DState(Viewer2DPanel *applyPanel,
                                          Viewer2DRenderPanel *applyRenderPanel,
                                          ConfigManager &cfg,
@@ -211,12 +277,15 @@ ScopedViewer2DState::ScopedViewer2DState(Viewer2DPanel *applyPanel,
              persistCameraToConfig_, true);
 }
 
+// Restores the previously captured state when the guard leaves scope.
 ScopedViewer2DState::~ScopedViewer2DState() { Restore(); }
 
+// Moves ownership of an active scoped Viewer2D state guard.
 ScopedViewer2DState::ScopedViewer2DState(ScopedViewer2DState &&other) noexcept {
   *this = std::move(other);
 }
 
+// Transfers restore responsibility from another scoped Viewer2D state guard.
 ScopedViewer2DState &
 ScopedViewer2DState::operator=(ScopedViewer2DState &&other) noexcept {
   if (this == &other)
@@ -241,6 +310,7 @@ ScopedViewer2DState::operator=(ScopedViewer2DState &&other) noexcept {
   return *this;
 }
 
+// Restores the previous Viewer2D state if this guard is still active.
 void ScopedViewer2DState::Restore() {
   if (!cfg_ || restored_)
     return;
@@ -256,6 +326,7 @@ void ScopedViewer2DState::Restore() {
   restored_ = true;
 }
 
+// Converts a Layout 2D view definition into a Viewer2D state snapshot.
 Viewer2DState FromLayoutDefinition(const layouts::Layout2DViewDefinition &view) {
   Viewer2DState state;
   state.camera = view.camera;
@@ -264,6 +335,7 @@ Viewer2DState FromLayoutDefinition(const layouts::Layout2DViewDefinition &view) 
   return state;
 }
 
+// Fills editor-only render options that are not embedded in older definitions.
 void ApplyEditorRenderOptions(Viewer2DState &state, const ConfigManager &cfg) {
   if (!state.renderOptions.forceBottomViewForTopFixtures.has_value()) {
     state.renderOptions.forceBottomViewForTopFixtures =
@@ -271,6 +343,7 @@ void ApplyEditorRenderOptions(Viewer2DState &state, const ConfigManager &cfg) {
   }
 }
 
+// Converts a Viewer2D state snapshot into a Layout 2D view definition.
 layouts::Layout2DViewDefinition ToLayoutDefinition(
     const Viewer2DState &state, const layouts::Layout2DViewFrame &frame) {
   layouts::Layout2DViewDefinition view;
@@ -287,6 +360,7 @@ layouts::Layout2DViewDefinition ToLayoutDefinition(
   return view;
 }
 
+// Captures the current Viewer2D state as a Layout 2D view definition.
 layouts::Layout2DViewDefinition CaptureLayoutDefinition(
     const Viewer2DPanel *panel, const ConfigManager &cfg,
     const layouts::Layout2DViewFrame &frame) {
