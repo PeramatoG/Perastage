@@ -53,6 +53,46 @@ if [[ "$render_body" == *"GL_BACK"* ]]; then
   exit 1
 fi
 
+render_internal_body="$(python3 - "$panel_cpp" <<'PY'
+import re
+import sys
+text = open(sys.argv[1], encoding='utf-8').read()
+match = re.search(r'void Viewer2DPanel::RenderInternal\(bool swapBuffers\) \{[\s\S]*?const RenderSize viewportSize', text)
+if not match:
+    sys.exit(1)
+print(match.group(0))
+PY
+)"
+
+if [[ "$render_internal_body" != *"if (m_captureFramebufferSizeOverride)"* ||
+      "$render_internal_body" != *"glDisable(GL_SCISSOR_TEST)"* ||
+      "$render_internal_body" != *"glViewport(0, 0, w, h)"* ]]; then
+  echo "RenderInternal must use the active capture framebuffer by disabling scissor and setting the viewport" >&2
+  exit 1
+fi
+
+capture_branch="$(python3 - "$panel_cpp" <<'PY'
+import re
+import sys
+text = open(sys.argv[1], encoding='utf-8').read()
+match = re.search(r'if \(m_captureFramebufferSizeOverride\) \{[\s\S]*?\n  \} else \{', text)
+if not match:
+    sys.exit(1)
+print(match.group(0))
+PY
+)"
+
+if [[ "$capture_branch" == *"ApplyKnownBaseOnscreenState"* ||
+      "$capture_branch" == *"glBindFramebuffer(GL_FRAMEBUFFER, 0"* ]]; then
+  echo "RenderInternal must not bind framebuffer 0 while a capture framebuffer override is active" >&2
+  exit 1
+fi
+
+if [[ "$render_internal_body" != *"ApplyKnownBaseOnscreenState"* ]]; then
+  echo "RenderInternal must keep the normal onscreen ApplyKnownBaseOnscreenState path" >&2
+  exit 1
+fi
+
 if ! rg -n "RenderToRGBABackBufferFallback" "$panel_cpp" "$panel_h" >/dev/null; then
   echo "GL_BACK fallback must be isolated in a clearly named RenderToRGBABackBufferFallback helper" >&2
   exit 1

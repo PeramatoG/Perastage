@@ -139,8 +139,9 @@ void FramebufferCaptureTarget::BindForRendering() const {
   glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
 }
 
-// Binds the color attachment as the source for pixel reads.
+// Binds the framebuffer and color attachment as the source for pixel reads.
 void FramebufferCaptureTarget::BindForReading() const {
+  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
   glReadBuffer(GL_COLOR_ATTACHMENT0);
 }
 
