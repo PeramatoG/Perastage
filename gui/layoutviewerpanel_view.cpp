@@ -33,22 +33,21 @@
 #endif
 
 #ifdef __APPLE__
-#  include <OpenGL/gl.h>
-#  include <OpenGL/glu.h>
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
 #else
-#  include <GL/gl.h>
-#  include <GL/glu.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
 #endif
 
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
 #endif
 
+#include "LayoutManager.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
-#include "LayoutManager.h"
-#include "viewer2doffscreenrenderer.h"
-#include "viewer2dstate.h"
+#include "layout_2d_view_capture_service.h"
 
 namespace {
 
@@ -88,7 +87,8 @@ void DrawFailurePlaceholderBackground(const wxRect &frameRect) {
 // Builds an RGBA texture containing the preview failure message.
 unsigned int CreateFailurePlaceholderTextTexture(const wxRect &frameRect,
                                                  wxSize &textureSize) {
-  const bool showHint = frameRect.GetWidth() >= 180 && frameRect.GetHeight() >= 70;
+  const bool showHint =
+      frameRect.GetWidth() >= 180 && frameRect.GetHeight() >= 70;
   wxFont titleFont = wxFontInfo(10).Bold();
   wxFont hintFont = wxFontInfo(9);
   int titleWidth = 0;
@@ -166,8 +166,8 @@ void DrawFailurePlaceholderText(const wxRect &frameRect) {
   if (texture == 0)
     return;
 
-  const int left = frameRect.GetLeft() +
-                   (frameRect.GetWidth() - textureSize.GetWidth()) / 2;
+  const int left =
+      frameRect.GetLeft() + (frameRect.GetWidth() - textureSize.GetWidth()) / 2;
   const int top = frameRect.GetTop() +
                   (frameRect.GetHeight() - textureSize.GetHeight()) / 2;
   const int right = left + textureSize.GetWidth();
@@ -215,8 +215,8 @@ layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
 }
 
 // Returns the currently editable Layout 2D view without mutating state.
-const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
-    const {
+const layouts::Layout2DViewDefinition *
+LayoutViewerPanel::GetEditableView() const {
   if (currentLayout.view2dViews.empty())
     return nullptr;
   if (selectedElementType == SelectedElementType::View2D &&
@@ -231,7 +231,8 @@ const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
   return nullptr;
 }
 
-// Marks one 2D view cache dirty and schedules a rebuild only for the updated view element.
+// Marks one 2D view cache dirty and schedules a rebuild only for the updated
+// view element.
 void LayoutViewerPanel::RefreshEditedViewById(int viewId) {
   if (viewId <= 0)
     return;
@@ -280,7 +281,7 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
     auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     cfg.PushUndoState("delete layout 2d view");
     if (layouts::LayoutManager::Get().RemoveLayout2DView(currentLayout.name,
-                                                        viewId)) {
+                                                         viewId)) {
       auto &views = currentLayout.view2dViews;
       views.erase(std::remove_if(views.begin(), views.end(),
                                  [viewId](const auto &entry) {
@@ -331,8 +332,7 @@ void LayoutViewerPanel::OnToggleViewFrame(wxCommandEvent &) {
   if (!currentLayout.name.empty()) {
     auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     cfg.PushUndoState("toggle layout 2d view border");
-    layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name,
-                                                     *view);
+    layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name, *view);
   }
   RequestRenderRebuild();
   Refresh();
@@ -370,8 +370,7 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
     return;
   }
   if (!currentLayout.name.empty()) {
-    layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name,
-                                                     *view);
+    layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name, *view);
   }
   InvalidateRenderIfFrameChanged(false);
   if (NeedsRenderRebuild()) {
@@ -386,71 +385,50 @@ void LayoutViewerPanel::DrawViewElement(
     Viewer2DOffscreenRenderer *offscreenRenderer, int activeViewId) {
   ViewCache &cache = GetViewCache(view.id);
   const size_t viewContentHash = HashViewContent(view);
-  const bool needsCapture =
-      !cache.hasCapture || !cache.hasRenderState ||
-      cache.captureVersion != viewRenderVersion ||
-      !cache.hasCaptureContentHash || cache.captureContentHash != viewContentHash;
-  if (!captureInProgress && !cache.captureInProgress && needsCapture &&
-      capturePanel) {
-    captureInProgress = true;
-    cache.captureInProgress = true;
-    const int viewId = view.id;
-    const size_t captureContentHash = viewContentHash;
-    const int fallbackViewportWidth = view.camera.viewportWidth > 0
-                                          ? view.camera.viewportWidth
-                                          : view.frame.width;
-    const int fallbackViewportHeight = view.camera.viewportHeight > 0
-                                           ? view.camera.viewportHeight
-                                           : view.frame.height;
-    ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    viewer2d::Viewer2DState layoutState =
-        viewer2d::FromLayoutDefinition(view);
-    layoutState.renderOptions.darkMode = false;
-    cache.renderState = layoutState;
-    cache.hasRenderState = true;
-    if (offscreenRenderer && fallbackViewportWidth > 0 &&
-        fallbackViewportHeight > 0) {
-      offscreenRenderer->SetViewportSize(
-          wxSize(fallbackViewportWidth, fallbackViewportHeight));
-      offscreenRenderer->PrepareForCapture();
-    }
-    auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-        capturePanel, nullptr, cfg, layoutState, nullptr, nullptr, false);
-    capturePanel->CaptureFrameNow(
-        [this, viewId, stateGuard, fallbackViewportWidth, fallbackViewportHeight,
-         capturePanel, captureContentHash](CommandBuffer buffer,
-                                           Viewer2DViewState state) {
-          ViewCache &cache = GetViewCache(viewId);
-          cache.buffer = std::move(buffer);
-          cache.viewState = state;
-          if (cache.viewState.viewportWidth <= 0 &&
-              fallbackViewportWidth > 0) {
-            cache.viewState.viewportWidth = fallbackViewportWidth;
-          }
-          if (cache.viewState.viewportHeight <= 0 &&
-              fallbackViewportHeight > 0) {
-            cache.viewState.viewportHeight = fallbackViewportHeight;
-          }
-          cache.symbols.reset();
-          if (capturePanel) {
-            cache.symbols = capturePanel->GetBottomSymbolCacheSnapshot();
-          }
-          cache.hasCapture = !cache.buffer.commands.empty();
-          cache.captureContentHash = captureContentHash;
-          cache.hasCaptureContentHash = true;
-          cache.captureVersion = viewRenderVersion;
-          cache.restoredFromPersistentCache = false;
-          cache.captureInProgress = false;
-          captureInProgress = false;
-          cache.renderDirty = true;
-          renderDirty = true;
-          cache.textureSize = wxSize(0, 0);
-          cache.renderZoom = 0.0;
-          RequestRenderRebuild();
-          Refresh();
-        },
-        true, true);
-  }
+  gui::layoutcapture::ScheduleLayout2DViewCaptureIfNeeded(
+      gui::layoutcapture::Layout2DViewCaptureRequest{
+          &view, capturePanel, offscreenRenderer, viewRenderVersion,
+          viewContentHash, captureInProgress, cache.captureInProgress,
+          cache.hasCapture, cache.hasRenderState, cache.hasCaptureContentHash,
+          cache.captureContentHash, cache.captureVersion, false},
+      gui::layoutcapture::Layout2DViewCaptureCallbacks{
+          [this](bool inProgress) { captureInProgress = inProgress; },
+          [&cache](bool inProgress) { cache.captureInProgress = inProgress; },
+          [&cache](const viewer2d::Viewer2DState &renderState) {
+            cache.renderState = renderState;
+            cache.hasRenderState = true;
+          },
+          [this, viewId = view.id](
+              CommandBuffer buffer, Viewer2DViewState state,
+              std::shared_ptr<const SymbolDefinitionSnapshot> symbols,
+              int fallbackViewportWidth, int fallbackViewportHeight,
+              size_t captureContentHash, int captureVersion) {
+            ViewCache &cache = GetViewCache(viewId);
+            cache.buffer = std::move(buffer);
+            cache.viewState = state;
+            if (cache.viewState.viewportWidth <= 0 &&
+                fallbackViewportWidth > 0) {
+              cache.viewState.viewportWidth = fallbackViewportWidth;
+            }
+            if (cache.viewState.viewportHeight <= 0 &&
+                fallbackViewportHeight > 0) {
+              cache.viewState.viewportHeight = fallbackViewportHeight;
+            }
+            cache.symbols = std::move(symbols);
+            cache.hasCapture = !cache.buffer.commands.empty();
+            cache.captureContentHash = captureContentHash;
+            cache.hasCaptureContentHash = true;
+            cache.captureVersion = captureVersion;
+            cache.restoredFromPersistentCache = false;
+            cache.captureInProgress = false;
+            captureInProgress = false;
+            cache.renderDirty = true;
+            renderDirty = true;
+            cache.textureSize = wxSize(0, 0);
+            cache.renderZoom = 0.0;
+            RequestRenderRebuild();
+            Refresh();
+          }});
 
   wxRect frameRect;
   if (!GetFrameRect(view.frame, frameRect))
@@ -476,8 +454,7 @@ void LayoutViewerPanel::DrawViewElement(
     glVertex2f(static_cast<float>(frameRight),
                static_cast<float>(frameRect.GetTop()));
     glTexCoord2f(1.0f, 0.0f);
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameBottom));
+    glVertex2f(static_cast<float>(frameRight), static_cast<float>(frameBottom));
     glTexCoord2f(0.0f, 0.0f);
     glVertex2f(static_cast<float>(frameRect.GetLeft()),
                static_cast<float>(frameRect.GetBottom()));
@@ -492,8 +469,7 @@ void LayoutViewerPanel::DrawViewElement(
                static_cast<float>(frameRect.GetTop()));
     glVertex2f(static_cast<float>(frameRect.GetRight()),
                static_cast<float>(frameRect.GetTop()));
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameBottom));
+    glVertex2f(static_cast<float>(frameRight), static_cast<float>(frameBottom));
     glVertex2f(static_cast<float>(frameRect.GetLeft()),
                static_cast<float>(frameRect.GetBottom()));
     glEnd();
@@ -512,8 +488,7 @@ void LayoutViewerPanel::DrawViewElement(
                static_cast<float>(frameRect.GetTop()));
     glVertex2f(static_cast<float>(frameRight),
                static_cast<float>(frameRect.GetTop()));
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameBottom));
+    glVertex2f(static_cast<float>(frameRight), static_cast<float>(frameBottom));
     glVertex2f(static_cast<float>(frameRect.GetLeft()),
                static_cast<float>(frameRect.GetBottom()));
     glEnd();
