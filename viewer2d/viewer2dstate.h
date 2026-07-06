@@ -19,6 +19,8 @@
 
 #include "LayoutCollection.h"
 
+#include <string_view>
+
 #include <wx/weakref.h>
 
 class ConfigManager;
@@ -27,11 +29,24 @@ class Viewer2DRenderPanel;
 
 namespace viewer2d {
 
+enum class Viewer2DStateOwnership {
+  RuntimeOnly,
+  UserPreferenceConfig,
+  ProjectLayoutDefinition
+};
+
+struct Viewer2DStateConfigKeyOwnership {
+  std::string_view key;
+  Viewer2DStateOwnership ownership;
+};
+
 struct Viewer2DState {
   layouts::Layout2DViewCameraState camera;
   layouts::Layout2DViewRenderOptions renderOptions;
   layouts::Layout2DViewLayers layers;
 };
+
+bool IsViewer2DUserPreferenceConfigKey(std::string_view key);
 
 Viewer2DState CaptureState(const Viewer2DPanel *panel,
                            const ConfigManager &cfg);
