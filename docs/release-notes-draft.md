@@ -125,6 +125,8 @@ sudo pacman -U Perastage-1.4.0-arch-x86_64.pkg.tar.zst
 If you encounter any problems installing or running Perastage, please open an issue on GitHub or contact the developer. Including a diagnostic report (available from the Help menu) makes it much easier to investigate problems.
 
 ## Internal changes
+
+- Unified Viewer2D RGBA capture around a real framebuffer target on all platforms while keeping the existing hidden-host offscreen preview architecture and a conservative back-buffer fallback.
 - Centralized wxGLCanvas attribute selection, OpenGL context binding diagnostics, and GLEW initialization ownership across shared viewer components for the 3D, 2D, Layout, and Fixture Preview panels.
 - Encapsulated Layout 2D view preview capture and rasterization behind focused services while preserving the existing Viewer2D-based rendering path and PDF export separation.
 - Added visible, non-printing diagnostics for failed Layout 2D preview textures while keeping PDF export behavior unchanged.

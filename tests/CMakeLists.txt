@@ -38,6 +38,8 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_view_capture_boundary.sh)
     add_test(NAME Viewer2DStateOwnershipBoundary
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_state_ownership_boundary.sh)
+    add_test(NAME Viewer2DRenderToRGBAFboBoundary
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_render_to_rgba_fbo_boundary.sh)
     add_test(NAME LayoutPreviewFailureDiagnostics
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_preview_failure_diagnostics.sh)
     add_test(NAME LibraryUserDataPolicy
