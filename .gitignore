@@ -370,11 +370,16 @@ MigrationBackup/
 FodyWeavers.xsd
 
 # ---------------------------------------------------------------------------
+# Project-specific local files
 # ---------------------------------------------------------------------------
 
+# Local CMake user presets
+CMakeUserPresets.json
 
-# Exported builds (keep out of repo)
-
+# Exported builds
+dist/
+release/
+packages/
 
 # Common native artifacts
 *.dll
