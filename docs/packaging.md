@@ -2,15 +2,72 @@
 
 This document describes the supported distribution and file-association behavior for Perastage.
 
+## Packaging source of truth
+
+Perastage currently has two different build contexts:
+
+- **Local developer builds** use the CMake presets documented in [Build and dependency guide](build.md).
+- **GitHub Actions release builds** use dedicated workflow environments and may use their own dependency cache paths.
+
+Do not assume that local dependency paths, such as `C:/vcpkg`, also apply to CI workflows. CI packaging workflows define their own paths inside the GitHub Actions workspace.
+
 ## Windows Packaging
 
 The official Windows installer workflow uses Inno Setup:
 
+- Workflow: `.github/workflows/windows-installer.yml`
 - Script: `packaging/windows/Perastage.iss`
-- Build Release and run `perastage_stage` first.
-- Compile the installer script in Inno Setup.
+- Build Release and run `perastage_stage` before compiling the installer.
 - Optional associations can include `.pstg` and `.mvr`.
 - Installer binaries target `DefaultDirName={autopf}\Perastage` (standard Program Files install).
+
+### Windows CI packaging flow
+
+The Windows installer workflow is the authoritative CI packaging flow. It performs these high-level steps:
+
+1. Check out the requested source ref.
+2. Bootstrap a CI-local vcpkg checkout inside the GitHub Actions workspace.
+3. Install the required Windows dependencies into the CI vcpkg cache.
+4. Configure and build Perastage in Release mode.
+5. Run the `perastage_stage` target.
+6. Collect debug symbols.
+7. Build the Inno Setup installer.
+8. Upload the staged application, installer, and symbols as workflow artifacts.
+
+This CI flow intentionally uses workspace-local vcpkg paths and cache directories. That is separate from the recommended local Windows development setup, which uses the CMake presets described in [Build and dependency guide](build.md).
+
+### Local Windows installer flow
+
+For local packaging work, first make sure the normal Windows Release build works from the repository root.
+
+Recommended local staging flow:
+
+```powershell
+cmake --preset win-x64-release
+cmake --build --preset win-release-build
+cmake --build --preset win-release-stage
+```
+
+If using the Ninja Release preset instead:
+
+```powershell
+cmake --preset win-x64-release-ninja
+cmake --build --preset win-release-build-ninja
+cmake --build --preset win-release-stage-ninja
+```
+
+Then compile the Inno Setup script:
+
+```powershell
+$version = (cmake -P packaging/windows/get_project_version.cmake |
+  Select-String -Pattern '-- ([0-9]+\.[0-9]+\.[0-9]+)$').Matches[0].Groups[1].Value
+
+iscc /DMyAppVersion=$version packaging/windows/Perastage.iss
+```
+
+The generated installer is written to:
+
+- `out/installer/Perastage_<version>_Setup.exe`
 
 ### Writable data model for support
 
@@ -27,43 +84,18 @@ Perastage bootstrap/migration behavior on startup is non-destructive:
 
 Operationally, this means support can tell users:
 
-- “You do not need admin rights to edit your library.”
-- “Use **Tools → Open user library folder** to jump to the editable location.”
+- "You do not need admin rights to edit your library."
+- "Use **Tools -> Open user library folder** to jump to the editable location."
 
-### Recommended End-to-End Windows Installer Flow
-
-From a Developer PowerShell at repository root:
-
-```powershell
-cmake -S . -B out/build/x64-Release -G "Visual Studio 17 2022" -A x64
-cmake --build out/build/x64-Release --config Release
-cmake --build out/build/x64-Release --config Release --target perastage_stage
-```
-
-Then compile the Inno Setup script:
-
-```powershell
-$version = (cmake -P packaging/windows/get_project_version.cmake |
-  Select-String -Pattern '-- ([0-9]+\.[0-9]+\.[0-9]+)$').Matches[0].Groups[1].Value
-iscc /DMyAppVersion=$version packaging/windows/Perastage.iss
-```
-
-The generated installer is written to:
-
-- `out/installer/Perastage_<version>_Setup.exe`
-
-### Version Source of Truth
+### Version source of truth
 
 Perastage version is defined in one place:
 
 - `VERSION` at the repository root.
 
-When you want a new global version for generated artifacts, update that file only.
-The root CMake configuration reads it into `project(Perastage VERSION ...)`, and
-the helper script `packaging/windows/get_project_version.cmake` passes it to Inno
-Setup (`/DMyAppVersion=...`).
+When you want a new global version for generated artifacts, update that file only. The root CMake configuration reads it into `project(Perastage VERSION ...)`, and the helper script `packaging/windows/get_project_version.cmake` passes it to Inno Setup (`/DMyAppVersion=...`).
 
-### Enabling `.mvr` Association in the Installer
+### Enabling `.mvr` association in the installer
 
 The Inno Setup script already includes an optional task named `assoc_mvr`.
 
@@ -78,10 +110,9 @@ When selected, the installer registers:
 - Open command: `"Perastage.exe" "%1"`
 - Extension mapping: `.mvr -> Perastage.MVR`
 
-The uninstall behavior is conservative and removes Perastage-owned registration
-values without aggressively deleting global extension ownership.
+The uninstall behavior is conservative and removes Perastage-owned registration values without aggressively deleting global extension ownership.
 
-### Association Notes
+### Association notes
 
 - Installer writes association entries under `Software\Classes`.
 - Uninstall behavior is conservative and avoids aggressive global extension ownership cleanup.
@@ -166,12 +197,6 @@ GUI alternative:
 
 GitHub Actions artifacts are downloaded as ZIP files, which may preserve or add quarantine metadata. For public releases, prefer attaching the `.dmg` directly as a GitHub Release asset.
 
-## Related Documents
-
-- [Build and dependency guide](build.md)
-- [Storage policy (installation vs user profile)](storage_policy.md)
-- [Troubleshooting](troubleshooting.md)
-
 ## Release debug symbols
 
 Release workflows preserve matching debug symbols as separate ZIP assets for maintainers:
@@ -182,3 +207,9 @@ Release workflows preserve matching debug symbols as separate ZIP assets for mai
 - Arch Linux: `Perastage-<version>-ArchLinux-symbols.zip` contains the generated debug package when makepkg produces one.
 
 Users do not need these files to run Perastage. They are uploaded with release assets so maintainers can match a local crash report to the exact binary build that shipped.
+
+## Related Documents
+
+- [Build and dependency guide](build.md)
+- [Storage policy (installation vs user profile)](storage_policy.md)
+- [Troubleshooting](troubleshooting.md)
