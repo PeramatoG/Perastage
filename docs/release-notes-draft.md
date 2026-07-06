@@ -127,6 +127,7 @@ If you encounter any problems installing or running Perastage, please open an is
 
 ## Internal changes
 
+- Moved the high-level repository map into the documentation tree and aligned repository layout references and guard checks with the current module structure.
 - Documented Viewer2D state ownership boundaries to prepare for separating runtime state, user preferences, and project/Layout persistent state.
 - Unified and hardened Viewer2D RGBA capture around a real framebuffer target on all platforms while keeping the existing hidden-host offscreen preview architecture and a conservative back-buffer fallback.
 - Centralized wxGLCanvas attribute selection, OpenGL context binding diagnostics, and GLEW initialization ownership across shared viewer components for the 3D, 2D, Layout, and Fixture Preview panels.

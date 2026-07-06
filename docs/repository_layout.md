@@ -1,6 +1,6 @@
 # Repository Layout
 
-This page provides a concise map of the main Perastage repository areas. For the broader high-level tree, see [perastage_tree.md](../perastage_tree.md). For architectural boundaries and contribution rules, see [Architecture](architecture.md).
+This page provides a concise map of the main Perastage repository areas. For the broader high-level tree, see [perastage_tree.md](perastage_tree.md). For architectural boundaries and contribution rules, see [Architecture](architecture.md).
 
 ## Top-level structure
 
@@ -48,7 +48,7 @@ Perastage documentation is intentionally split by audience and responsibility:
 |------|---------|
 | `README.md` | Short project overview, highlights, and entry links. |
 | `help.md` | In-app help content. |
-| [perastage_tree.md](../perastage_tree.md) | Root-level high-level repository map used by architecture guard scripts. |
+| [perastage_tree.md](perastage_tree.md) | High-level repository map used by architecture guard scripts. |
 | `docs/build.md` | Build requirements, dependency setup, and local CMake workflows. |
 | `docs/packaging.md` | Release packaging, installers, desktop integration, and platform distribution notes. |
 | `docs/troubleshooting.md` | Known failure modes and practical fixes. |
@@ -62,7 +62,7 @@ Avoid duplicating long sections across documentation files. Prefer one source of
 
 ## Related documents
 
-- [perastage_tree.md](../perastage_tree.md)
+- [perastage_tree.md](perastage_tree.md)
 - [Architecture](architecture.md)
 - [Documentation Policy](documentation_policy.md)
 - [Build and dependency guide](build.md)
