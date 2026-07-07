@@ -237,6 +237,14 @@ target_include_directories(gdtf_canonicalizer_test PRIVATE ../core ../third_part
 target_link_libraries(gdtf_canonicalizer_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfCanonicalizerExportRules COMMAND gdtf_canonicalizer_test)
 
+
+add_executable(gdtf_metadata_summary_test
+               gdtf_metadata_summary_test.cpp
+               ../core/gdtf_metadata_summary.cpp)
+target_include_directories(gdtf_metadata_summary_test PRIVATE ../core)
+target_link_libraries(gdtf_metadata_summary_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME GdtfMetadataSummary COMMAND gdtf_metadata_summary_test)
+
 add_executable(gdtf_fixture_category_test
                gdtf_fixture_category_test.cpp
                ../core/gdtf_fixture_category.cpp)
