@@ -17,7 +17,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
-- Fixed geometry-only MVR trusses so rigging warnings flag invalid weights, Edit Truss previews direct GLB/3DS geometry without generating a GDTF, and Add Truss shows readable names instead of internal type keys.
+- Fixed geometry-only MVR trusses so rigging warnings reliably flag invalid weights, Edit Truss previews direct GLB/3DS geometry without generating a GDTF, and Add Truss shows readable names instead of internal type keys.
 - Fixed Layout View so opening another project cannot briefly reuse the previous project's cached layout preview before the new layout rebuilds.
 - Fixed table selection highlights so sorting fixtures, trusses, hoists, or scene objects keeps the same UUID-backed elements selected, and fixture multi-selection actions preserve the original selection order after sorting.
 - Fixed Layers visibility checkbox double-clicks so they only toggle visibility and no longer open the layer rename dialog.

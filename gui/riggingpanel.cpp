@@ -334,8 +334,8 @@ void RiggingPanel::RefreshData() {
     row.push_back(wxString::FromUTF8(
         Units::FormatWeightFromKilograms(roundedFivePercentIncrease, weightUnit,
         Units::ValueFormatContext::Table)));
-    unsigned int rowIndex = table->GetItemCount();
-    table->AppendItem(row);
+    unsigned int rowIndex = store->GetItemCount();
+    store->AppendItem(row);
     rowPositions.push_back(position);
 
     const bool fixtureWeightZero = totals.hasZeroWeightFixture;
