@@ -45,6 +45,7 @@
 #include "editable_focus_utils.h"
 #include "configmanager.h"
 #include "continuous_placement_scene.h"
+#include "diagnostics/DiagnosticReport.h"
 #include "selection_movement_settings.h"
 #include "scene_grouping.h"
 #include "canvas2d.h"
@@ -1363,11 +1364,17 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   }
   const int w = renderSize.width;
   const int h = renderSize.height;
-  if (w <= 0 || h <= 0)
+  if (w <= 0 || h <= 0) {
+    diagnostics::DiagnosticReport::RecordViewer2DCaptureFailure(
+        w, h, "Invalid capture target size");
     return false;
+  }
 
-  if (!TryAllocateCaptureBuffer(pixels, w, h))
+  if (!TryAllocateCaptureBuffer(pixels, w, h)) {
+    diagnostics::DiagnosticReport::RecordViewer2DCaptureFailure(
+        w, h, "Unable to allocate capture buffer");
     return false;
+  }
   width = w;
   height = h;
 
@@ -1381,17 +1388,19 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   m_forceOffscreenRender = true;
 
   InitGL();
-  if (!m_glInitialized)
+  if (!m_glInitialized) {
+    diagnostics::DiagnosticReport::RecordViewer2DCaptureFailure(
+        w, h, "OpenGL initialization failed");
     return false;
+  }
 
   glcapture::FramebufferCaptureTarget target;
   ScopedReadBufferPackAlignmentState readStateGuard;
   glstate::ScopedFramebufferViewportScissorState framebufferStateGuard;
   if (!target.Initialize(w, h) || !target.IsComplete()) {
-    wxLogWarning(wxString::Format(
-        "Viewer2D RenderToRGBA FBO capture unavailable; using "
-        "back-buffer fallback. %s",
-        wxString::FromUTF8(target.Diagnostic())));
+    const std::string diagnostic = target.Diagnostic();
+    diagnostics::DiagnosticReport::RecordViewer2DBackBufferFallback(
+        w, h, diagnostic.empty() ? "FBO unavailable" : diagnostic);
     return RenderToRGBABackBufferFallback(pixels, w, h);
   }
 
@@ -1413,6 +1422,7 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   target.BindForReading();
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+  diagnostics::DiagnosticReport::RecordViewer2DFboCapture(w, h);
 
   return true;
 }
@@ -1420,9 +1430,6 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
 // Captures RGBA pixels from the legacy back buffer path when FBO capture fails.
 bool Viewer2DPanel::RenderToRGBABackBufferFallback(
     std::vector<unsigned char> &pixels, int width, int height) {
-  wxLogWarning(
-      "Viewer2D RenderToRGBA is using the temporary GL_BACK fallback path");
-
   struct CaptureSizeOverrideGuard {
     Viewer2DPanel &panel;
 
@@ -1439,6 +1446,7 @@ bool Viewer2DPanel::RenderToRGBABackBufferFallback(
   return true;
 }
 
+// Handles paint events by refreshing interaction state and rendering the view.
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
   ResetRepaintCoalescing();

@@ -26,6 +26,30 @@ namespace diagnostics {
 namespace {
 std::mutex g_openGlMutex;
 OpenGLInfo g_openGlInfo;
+std::mutex g_viewer2DCaptureMutex;
+Viewer2DCaptureInfo g_viewer2DCaptureInfo;
+
+// Formats a capture size for diagnostics without including scene data.
+std::string FormatCaptureSize(int width, int height) {
+  std::ostringstream stream;
+  stream << width << 'x' << height;
+  return stream.str();
+}
+
+// Returns true when a backend transition should be logged.
+bool ShouldLogViewer2DBackendTransition(Viewer2DCaptureBackend previous,
+                                        Viewer2DCaptureBackend current,
+                                        std::uint64_t currentCount) {
+  if (current == Viewer2DCaptureBackend::Fbo && currentCount == 1)
+    return true;
+  if (current == Viewer2DCaptureBackend::BackBufferFallback &&
+      currentCount == 1)
+    return true;
+  return (previous == Viewer2DCaptureBackend::Fbo &&
+          current == Viewer2DCaptureBackend::BackBufferFallback) ||
+         (previous == Viewer2DCaptureBackend::BackBufferFallback &&
+          current == Viewer2DCaptureBackend::Fbo);
+}
 
 // Converts a wxString value into UTF-8 text for reports.
 std::string ToUtf8(const wxString &text) {
@@ -117,6 +141,31 @@ void AppendSystemInfo(std::ostringstream &stream) {
   }
 }
 
+// Appends Viewer2D RGBA capture diagnostics to a diagnostic text stream.
+void AppendViewer2DCaptureInfo(std::ostringstream &stream) {
+  const Viewer2DCaptureInfo captureInfo =
+      DiagnosticReport::GetViewer2DCaptureInfo();
+  stream << "Viewer2D RGBA capture backend: "
+         << DiagnosticReport::Viewer2DCaptureBackendName(captureInfo.backend)
+         << '\n';
+  stream << "Viewer2D FBO captures: " << captureInfo.fboSuccessCount << '\n';
+  stream << "Viewer2D fallback captures: " << captureInfo.fallbackCount << '\n';
+  stream << "Viewer2D capture failures: " << captureInfo.failureCount << '\n';
+  if (captureInfo.backend == Viewer2DCaptureBackend::NotUsed) {
+    stream << "Viewer2D last capture size: not used\n";
+  } else {
+    stream << "Viewer2D last capture size: "
+           << FormatCaptureSize(captureInfo.lastWidth, captureInfo.lastHeight)
+           << '\n';
+  }
+  stream << "Viewer2D fallback ever used: "
+         << (captureInfo.fallbackEverUsed ? "yes" : "no") << '\n';
+  stream << "Viewer2D last capture diagnostic: "
+         << (captureInfo.lastDiagnostic.empty() ? "none"
+                                                : captureInfo.lastDiagnostic)
+         << '\n';
+}
+
 } // namespace
 
 // Stores OpenGL driver details after a valid context is initialized.
@@ -129,6 +178,85 @@ void DiagnosticReport::SetOpenGLInfo(OpenGLInfo info) {
 OpenGLInfo DiagnosticReport::GetOpenGLInfo() {
   std::lock_guard<std::mutex> lock(g_openGlMutex);
   return g_openGlInfo;
+}
+
+// Records a successful Viewer2D RGBA capture through the FBO path.
+void DiagnosticReport::RecordViewer2DFboCapture(int width, int height) {
+  bool shouldLog = false;
+  {
+    std::lock_guard<std::mutex> lock(g_viewer2DCaptureMutex);
+    const Viewer2DCaptureBackend previous = g_viewer2DCaptureInfo.backend;
+    g_viewer2DCaptureInfo.backend = Viewer2DCaptureBackend::Fbo;
+    ++g_viewer2DCaptureInfo.fboSuccessCount;
+    g_viewer2DCaptureInfo.lastWidth = width;
+    g_viewer2DCaptureInfo.lastHeight = height;
+    g_viewer2DCaptureInfo.lastDiagnostic.clear();
+    shouldLog = ShouldLogViewer2DBackendTransition(
+        previous, Viewer2DCaptureBackend::Fbo,
+        g_viewer2DCaptureInfo.fboSuccessCount);
+  }
+  if (shouldLog) {
+    DiagnosticLogger::Info("Viewer2D RGBA capture backend=FBO size=" +
+                           FormatCaptureSize(width, height));
+  }
+}
+
+// Records a Viewer2D RGBA capture through the GL_BACK fallback path.
+void DiagnosticReport::RecordViewer2DBackBufferFallback(
+    int width, int height, const std::string &reason) {
+  bool shouldLog = false;
+  {
+    std::lock_guard<std::mutex> lock(g_viewer2DCaptureMutex);
+    const Viewer2DCaptureBackend previous = g_viewer2DCaptureInfo.backend;
+    g_viewer2DCaptureInfo.backend = Viewer2DCaptureBackend::BackBufferFallback;
+    ++g_viewer2DCaptureInfo.fallbackCount;
+    g_viewer2DCaptureInfo.lastWidth = width;
+    g_viewer2DCaptureInfo.lastHeight = height;
+    g_viewer2DCaptureInfo.lastDiagnostic = reason;
+    g_viewer2DCaptureInfo.fallbackEverUsed = true;
+    shouldLog = ShouldLogViewer2DBackendTransition(
+        previous, Viewer2DCaptureBackend::BackBufferFallback,
+        g_viewer2DCaptureInfo.fallbackCount);
+  }
+  if (shouldLog) {
+    DiagnosticLogger::Warning(
+        "Viewer2D RGBA capture backend=GL_BACK fallback size=" +
+        FormatCaptureSize(width, height) + " reason=" +
+        (reason.empty() ? "unspecified" : reason));
+  }
+}
+
+// Records a definitive Viewer2D RGBA capture failure.
+void DiagnosticReport::RecordViewer2DCaptureFailure(
+    int width, int height, const std::string &reason) {
+  std::lock_guard<std::mutex> lock(g_viewer2DCaptureMutex);
+  g_viewer2DCaptureInfo.backend = Viewer2DCaptureBackend::Failed;
+  ++g_viewer2DCaptureInfo.failureCount;
+  g_viewer2DCaptureInfo.lastWidth = width;
+  g_viewer2DCaptureInfo.lastHeight = height;
+  g_viewer2DCaptureInfo.lastDiagnostic = reason;
+}
+
+// Returns the latest Viewer2D RGBA capture diagnostics.
+Viewer2DCaptureInfo DiagnosticReport::GetViewer2DCaptureInfo() {
+  std::lock_guard<std::mutex> lock(g_viewer2DCaptureMutex);
+  return g_viewer2DCaptureInfo;
+}
+
+// Converts a Viewer2D RGBA capture backend to stable report text.
+std::string DiagnosticReport::Viewer2DCaptureBackendName(
+    Viewer2DCaptureBackend backend) {
+  switch (backend) {
+  case Viewer2DCaptureBackend::NotUsed:
+    return "Not used";
+  case Viewer2DCaptureBackend::Fbo:
+    return "FBO";
+  case Viewer2DCaptureBackend::BackBufferFallback:
+    return "GL_BACK fallback";
+  case Viewer2DCaptureBackend::Failed:
+    return "Failed";
+  }
+  return "Unknown";
 }
 
 // Builds a complete plain-text diagnostic report for crashes or manual export.
@@ -147,6 +275,10 @@ std::string DiagnosticReport::BuildTextReport(const std::string &reason,
   stream << "Build and system information\n";
   stream << "----------------------------\n";
   AppendSystemInfo(stream);
+
+  stream << "\nViewer2D capture diagnostics\n";
+  stream << "----------------------------\n";
+  AppendViewer2DCaptureInfo(stream);
 
   if (!eventDetails.empty()) {
     stream << "\nEvent details\n";

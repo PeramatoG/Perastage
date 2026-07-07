@@ -7,7 +7,15 @@
 - `Viewer2DPanel::RenderToRGBA(...)` resolves the requested framebuffer size, enables the existing offscreen-render flag temporarily, renders into a dedicated framebuffer capture target, and reads pixels from `GL_COLOR_ATTACHMENT0`.
 - The framebuffer capture target owns only OpenGL objects: a framebuffer, a color texture attachment, and a depth/stencil renderbuffer. It does not create or own an OpenGL context.
 - The capture path preserves temporary Viewer2D state by restoring the offscreen-render flag, the capture framebuffer size override, framebuffer binding, viewport, scissor state, read buffer, and pixel pack alignment after capture.
-- If framebuffer creation or completeness checks fail on a driver, `RenderToRGBA(...)` logs the diagnostic and uses the legacy `GL_BACK` read path as a conservative fallback.
+- If framebuffer creation or completeness checks fail on a driver, `RenderToRGBA(...)` records the FBO diagnostic reason and uses the legacy `GL_BACK` read path as a conservative fallback.
+
+## Local diagnostics
+
+- Manual diagnostic reports include the active or most recent Viewer2D RGBA capture backend: not used, FBO, GL_BACK fallback, or failed.
+- The report also includes FBO capture count, fallback count, failure count, the last capture size, and the latest fallback or failure diagnostic when one exists.
+- Successful FBO capture is logged with low noise: the first FBO success is recorded, and later backend transitions are recorded without logging every capture.
+- Fallback use is recorded with the framebuffer failure or completeness reason, but repeated fallback captures update counters silently instead of producing per-frame log spam.
+- Diagnostics remain local to the application and exported reports are never sent automatically.
 
 ## Architecture boundaries
 
