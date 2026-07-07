@@ -21,7 +21,7 @@ static bool WriteArchive(const fs::path &path,
     return false;
   wxZipOutputStream zip(output);
   for (const auto &[name, contents] : entries) {
-    auto *entry = new wxZipEntry(name);
+    auto *entry = new wxZipEntry(wxString::FromUTF8(name.c_str()));
     entry->SetMethod(wxZIP_METHOD_DEFLATE);
     zip.PutNextEntry(entry);
     zip.Write(contents.data(), contents.size());
@@ -56,6 +56,7 @@ static void TestArchiveLookup(const fs::path &dir) {
   read = gdtf::ReadGdtfArchive(upper);
   assert(read.Success());
   assert(read.descriptionEntryPath == "Folder/DESCRIPTION.XML");
+  assert(read.usedCompatibilityDescriptionFallback);
 
   const fs::path missing = dir / "missing.gdtf";
   assert(WriteArchive(missing, {{"models/model.glb", "model"}}));
@@ -65,16 +66,23 @@ static void TestArchiveLookup(const fs::path &dir) {
   assert(read.diagnostics.back().code ==
          gdtf::ArchiveDiagnosticCode::MissingDescriptionXml);
 
+  const fs::path rootWins = dir / "root_wins.gdtf";
+  assert(WriteArchive(rootWins, {{"description.xml", GdtfXml("")},
+                                 {"Nested/DESCRIPTION.XML", GdtfXml("")}}));
+  read = gdtf::ReadGdtfArchive(rootWins);
+  assert(read.Success());
+  assert(read.descriptionEntryPath == "description.xml");
+
   const fs::path duplicate = dir / "duplicate.gdtf";
-  assert(WriteArchive(duplicate, {{"description.xml", GdtfXml("")},
-                                  {"Nested/DESCRIPTION.XML", GdtfXml("")}}));
+  assert(WriteArchive(duplicate, {{"A/description.xml", GdtfXml("")},
+                                  {"B/DESCRIPTION.XML", GdtfXml("")}}));
   read = gdtf::ReadGdtfArchive(duplicate);
   assert(!read.Success());
-  bool foundDuplicate = false;
+  bool foundAmbiguous = false;
   for (const auto &diagnostic : read.diagnostics)
-    foundDuplicate |= diagnostic.code ==
-                      gdtf::ArchiveDiagnosticCode::DuplicateDescriptionXml;
-  assert(foundDuplicate);
+    foundAmbiguous |= diagnostic.code ==
+                      gdtf::ArchiveDiagnosticCode::AmbiguousDescriptionXml;
+  assert(foundAmbiguous);
 }
 
 // Verifies malformed and incomplete description documents are diagnosed.

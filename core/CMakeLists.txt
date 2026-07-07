@@ -15,6 +15,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfdictionary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_archive_reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_description_reader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_insertion_preparation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_category.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_metadata_summary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_service.cpp

@@ -182,8 +182,8 @@ const char *ToString(GdtfFieldOwnership ownership) {
 }
 
 // Converts a field value-kind enum to a stable diagnostic string.
-const char *ToString(GdtfFieldValueKind valueKind) {
-  switch (valueKind) {
+const char *ToString(GdtfFieldValueKind defaultValueKind) {
+  switch (defaultValueKind) {
   case GdtfFieldValueKind::DocumentValue:
     return "document value";
   case GdtfFieldValueKind::ContextSelection:

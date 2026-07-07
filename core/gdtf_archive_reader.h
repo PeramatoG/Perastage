@@ -14,8 +14,14 @@ enum class ArchiveDiagnosticCode {
   NoReadableEntries,
   MissingDescriptionXml,
   DuplicateDescriptionXml,
+  AmbiguousDescriptionXml,
+  NonCanonicalDescriptionXml,
+  EmptyDescriptionXml,
+  UnsafeEntryPath,
   EntryReadFailed,
-  EntryTooLarge
+  EntryTooLarge,
+  FilesystemError,
+  UnexpectedException
 };
 
 struct ArchiveDiagnostic {
@@ -37,6 +43,8 @@ struct ArchiveReadResult {
   std::string descriptionEntryPath;
   std::vector<ArchiveEntry> entries;
   std::vector<ArchiveDiagnostic> diagnostics;
+  bool usedCompatibilityDescriptionFallback = false;
+  bool standardsCompliantDescriptionLocation = false;
 
   bool Success() const;
 };

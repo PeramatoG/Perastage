@@ -33,12 +33,12 @@ void AssertFixtureFieldClassification() {
       gdtf::FindGdtfFieldDescriptor(gdtf::GdtfFieldId::FixtureId);
   assert(fixtureId->ownership ==
          gdtf::GdtfFieldOwnership::MvrProjectInstanceLevel);
-  assert(fixtureId->valueKind == gdtf::GdtfFieldValueKind::HostProjectValue);
+  assert(fixtureId->defaultValueKind == gdtf::GdtfFieldValueKind::HostProjectValue);
   assert(fixtureId->hostDialogEditable);
   assert(!fixtureId->sessionValueSupported);
   const auto *mode = gdtf::FindGdtfFieldDescriptor(gdtf::GdtfFieldId::ModeName);
   assert(mode->ownership == gdtf::GdtfFieldOwnership::ContextSpecific);
-  assert(mode->valueKind == gdtf::GdtfFieldValueKind::ContextSelection);
+  assert(mode->defaultValueKind == gdtf::GdtfFieldValueKind::ContextSelection);
   assert(mode->sessionValueSupported);
   assert(fields[8].id == gdtf::GdtfFieldId::ChannelCount);
   assert(fields[8].derived);
@@ -52,9 +52,9 @@ void AssertTrussFieldClassification() {
   assert(fields.size() == 18);
   assert(fields[10].id == gdtf::GdtfFieldId::Manufacturer);
   assert(fields[10].ownership == gdtf::GdtfFieldOwnership::GdtfTypeLevel);
-  assert(fields[10].valueKind == gdtf::GdtfFieldValueKind::DocumentValue);
+  assert(fields[10].defaultValueKind == gdtf::GdtfFieldValueKind::DocumentValue);
   assert(fields[16].id == gdtf::GdtfFieldId::TrussLoad);
-  assert(fields[16].valueKind == gdtf::GdtfFieldValueKind::DerivedReadOnly);
+  assert(fields[16].defaultValueKind == gdtf::GdtfFieldValueKind::DerivedReadOnly);
   assert(fields[17].id == gdtf::GdtfFieldId::TrussCrossSection);
 }
 
@@ -117,18 +117,39 @@ void AssertValidationBehavior() {
   assert(!session.Validate().empty());
 }
 
+// Verifies operation and effective value kind are internally consistent.
+void AssertCapabilityInvariant(const gdtf::GdtfFieldCapability &capability) {
+  if (capability.operation == gdtf::GdtfFieldEditOperation::DocumentMutation)
+    assert(capability.valueKind == gdtf::GdtfFieldValueKind::DocumentValue);
+  if (capability.operation == gdtf::GdtfFieldEditOperation::ContextSelection)
+    assert(capability.valueKind == gdtf::GdtfFieldValueKind::ContextSelection);
+  if (capability.operation == gdtf::GdtfFieldEditOperation::ReadOnly)
+    assert(!capability.editable);
+}
+
 // Verifies project fixture capabilities classify document edits and selections.
 void AssertProjectFixtureCapabilities() {
   const auto context = MakeFixtureContext();
+  for (const auto &[fieldId, capability] : context.fieldCapabilities)
+    AssertCapabilityInvariant(capability);
   assert(gdtf::FindFieldCapability(context, gdtf::GdtfFieldId::Weight)
              ->operation == gdtf::GdtfFieldEditOperation::DocumentMutation);
   assert(gdtf::FindFieldCapability(context, gdtf::GdtfFieldId::PowerConsumption)
              ->operation == gdtf::GdtfFieldEditOperation::DocumentMutation);
+  assert(gdtf::FindFieldCapability(context, gdtf::GdtfFieldId::FixtureTypeName)
+             ->operation == gdtf::GdtfFieldEditOperation::ContextSelection);
+  assert(gdtf::FindFieldCapability(context, gdtf::GdtfFieldId::FixtureTypeName)
+             ->valueKind == gdtf::GdtfFieldValueKind::ContextSelection);
   assert(gdtf::FindFieldCapability(context, gdtf::GdtfFieldId::ModeName)
              ->operation == gdtf::GdtfFieldEditOperation::ContextSelection);
+  assert(gdtf::FindFieldCapability(context, gdtf::GdtfFieldId::ModeName)
+             ->valueKind == gdtf::GdtfFieldValueKind::ContextSelection);
   assert(gdtf::FindFieldCapability(context,
                                    gdtf::GdtfFieldId::SourceFileReference)
              ->operation == gdtf::GdtfFieldEditOperation::ContextSelection);
+  assert(gdtf::FindFieldCapability(context,
+                                   gdtf::GdtfFieldId::SourceFileReference)
+             ->valueKind == gdtf::GdtfFieldValueKind::ContextSelection);
   assert(!gdtf::FindFieldCapability(context, gdtf::GdtfFieldId::Universe));
 }
 
@@ -170,11 +191,23 @@ void AssertStandaloneContext() {
   auto readOnly = gdtf::BuildStandaloneGdtfEditorContext(path);
   assert(readOnly.kind == gdtf::GdtfEditorContextKind::StandaloneFile);
   assert(!readOnly.editingAllowed);
+  const auto *readOnlyType =
+      gdtf::FindFieldCapability(readOnly, gdtf::GdtfFieldId::FixtureTypeName);
+  assert(readOnlyType);
+  assert(readOnlyType->operation == gdtf::GdtfFieldEditOperation::ReadOnly);
+  assert(readOnlyType->valueKind == gdtf::GdtfFieldValueKind::DocumentValue);
   gdtf::GdtfEditSession readOnlySession(readOnly);
   assert(!readOnlySession.SetValue(gdtf::GdtfFieldId::FixtureTypeName, "New"));
 
   auto editable = gdtf::BuildStandaloneGdtfEditorContext(
       path, gdtf::GdtfWritePolicy::SaveAsNewStandaloneFile);
+  const auto *editableType =
+      gdtf::FindFieldCapability(editable, gdtf::GdtfFieldId::FixtureTypeName);
+  assert(editableType);
+  assert(editableType->operation == gdtf::GdtfFieldEditOperation::DocumentMutation);
+  assert(editableType->valueKind == gdtf::GdtfFieldValueKind::DocumentValue);
+  for (const auto &[fieldId, capability] : editable.fieldCapabilities)
+    AssertCapabilityInvariant(capability);
   gdtf::GdtfEditSession editableSession(editable);
   assert(editableSession.SetValue(gdtf::GdtfFieldId::FixtureTypeName, "New"));
   assert(!editableSession.SetValue(gdtf::GdtfFieldId::ModeName, "Mode 2"));

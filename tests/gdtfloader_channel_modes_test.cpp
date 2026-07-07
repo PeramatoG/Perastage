@@ -127,6 +127,16 @@ int main()
     assert(expandedChannels[2].channel == 15);
     assert(expandedChannels[3].channel == 16);
 
+    float weight = 1.0f;
+    float power = 1.0f;
+    assert(GetGdtfModes("/tmp/perastage_missing_loader_modes.gdtf").empty());
+    assert(GetGdtfFixtureName("/tmp/perastage_missing_loader_name.gdtf").empty());
+    assert(!GetGdtfProperties("/tmp/perastage_missing_loader_props.gdtf",
+                              weight, power));
+    assert(weight == 0.0f);
+    assert(power == 0.0f);
+    assert(GetGdtfModelColor("/tmp/perastage_missing_loader_color.gdtf").empty());
+
     std::error_code ec;
     std::filesystem::remove(gdtfPath, ec);
     return 0;

@@ -365,24 +365,39 @@ static std::string FindModelFile(const std::string& baseDir,
     return {};
 }
 
+// Creates a unique temporary extraction directory without throwing.
 static std::string CreateTempDir()
 {
-    auto now = std::chrono::system_clock::now().time_since_epoch().count();
-    std::string folderName = "GDTF_" + std::to_string(now);
-    fs::path base = fs::temp_directory_path();
-    fs::path full = base / folderName;
-    fs::create_directory(full);
-    return full.string();
+    std::error_code ec;
+    fs::path base = fs::temp_directory_path(ec);
+    if (ec || base.empty())
+        return {};
+
+    const auto now = std::chrono::system_clock::now().time_since_epoch().count();
+    for (int attempt = 0; attempt < 32; ++attempt) {
+        fs::path full = base / ("GDTF_" + std::to_string(now) + "_" +
+                                std::to_string(attempt));
+        if (fs::create_directory(full, ec))
+            return full.string();
+        if (ec && !fs::exists(full, ec))
+            return {};
+        ec.clear();
+    }
+    return {};
 }
 
 struct TempExtraction
 {
+    // Extracts a GDTF archive into a temporary directory for legacy loading.
     explicit TempExtraction(const std::string& zipPath)
     {
         dir = CreateTempDir();
+        if (dir.empty())
+            return;
         extracted = ExtractZip(zipPath, dir);
     }
 
+    // Removes temporary extraction data without throwing during cleanup.
     ~TempExtraction()
     {
         if (!dir.empty()) {
@@ -391,8 +406,10 @@ struct TempExtraction
         }
     }
 
+    // Reports whether archive extraction completed successfully.
     bool IsValid() const { return extracted; }
 
+    // Releases ownership of the extraction directory to the caller.
     std::string Release()
     {
         std::string out = std::move(dir);
@@ -400,6 +417,7 @@ struct TempExtraction
         return out;
     }
 
+    // Returns the temporary extraction directory path.
     const std::string& Path() const { return dir; }
 
 private:
@@ -407,9 +425,11 @@ private:
     bool extracted = false;
 };
 
+// Extracts a ZIP archive into a destination directory while skipping unsafe paths.
 static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
 {
-    if (!fs::exists(zipPath)) {
+    std::error_code ec;
+    if (!fs::exists(PathUtils::PathFromUtf8(zipPath), ec) || ec) {
         if (ConsolePanel::Instance()) {
             wxString msg = wxString::Format("GDTF: cannot open %s", wxString::FromUTF8(zipPath));
             ConsolePanel::Instance()->AppendMessage(msg);
@@ -471,10 +491,51 @@ static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
     return true;
 }
 
+// Finds the extracted description.xml using the tolerant read priority.
+static std::string FindExtractedDescriptionPath(const std::string& extractedDir)
+{
+    std::error_code ec;
+    const fs::path root = PathUtils::PathFromUtf8(extractedDir);
+    const fs::path canonical = root / "description.xml";
+    if (fs::is_regular_file(canonical, ec) && !ec)
+        return canonical.string();
+    ec.clear();
+
+    std::vector<fs::path> rootCaseInsensitive;
+    std::vector<fs::path> nested;
+    if (!fs::exists(root, ec) || ec)
+        return {};
+
+    for (fs::recursive_directory_iterator it(root, fs::directory_options::none, ec), end;
+         !ec && it != end; it.increment(ec)) {
+        if (!it->is_regular_file(ec) || ec) {
+            ec.clear();
+            continue;
+        }
+        std::string name = it->path().filename().string();
+        std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        if (name != "description.xml")
+            continue;
+        const bool rootEntry = it->path().parent_path() == root;
+        if (rootEntry)
+            rootCaseInsensitive.push_back(it->path());
+        else
+            nested.push_back(it->path());
+    }
+    if (rootCaseInsensitive.size() == 1)
+        return rootCaseInsensitive.front().string();
+    if (rootCaseInsensitive.empty() && nested.size() == 1)
+        return nested.front().string();
+    return {};
+}
+
+// Finds the FixtureType element without creating or normalizing XML nodes.
 static tinyxml2::XMLElement* GetFixtureType(tinyxml2::XMLDocument& doc)
 {
-    tinyxml2::XMLElement* ft = GdtfMutationAudit::EnsureFixtureType(doc);
-    return ft;
+    tinyxml2::XMLElement* root = doc.FirstChildElement("GDTF");
+    return root ? root->FirstChildElement("FixtureType") : nullptr;
 }
 
 static bool ParseXmlWithEscapedControlFallback(const std::string& filePath,
@@ -1231,7 +1292,14 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
     entry.extractedDir = extraction.Release();
 
     entry.doc = std::make_unique<tinyxml2::XMLDocument>();
-    std::string descPath = entry.extractedDir + "/description.xml";
+    std::string descPath = FindExtractedDescriptionPath(entry.extractedDir);
+    if (descPath.empty()) {
+        fs::remove_all(entry.extractedDir, ec);
+        g_failedGdtfCache[stableKey] = timestamp;
+        setReason("Missing or ambiguous description.xml inside GDTF file");
+        g_gdtfFailureReasons[stableKey] = failureReason ? *failureReason : "unknown error";
+        return nullptr;
+    }
     if (!ParseXmlWithEscapedControlFallback(descPath, *entry.doc)) {
         fs::remove_all(entry.extractedDir, ec);
         g_failedGdtfCache[stableKey] = timestamp;
@@ -1646,6 +1714,7 @@ bool LoadGdtf(const std::string& gdtfPath,
               const std::string& modeName,
               std::string* outError)
 {
+    try {
     std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
 
     outObjects.clear();
@@ -1772,6 +1841,17 @@ bool LoadGdtf(const std::string& gdtfPath,
 
     entry->emptyGeometryLogCount = 0;
     return true;
+    } catch (const std::exception& error) {
+        outObjects.clear();
+        if (outError)
+            *outError = error.what();
+        return false;
+    } catch (...) {
+        outObjects.clear();
+        if (outError)
+            *outError = "Unknown error while loading GDTF.";
+        return false;
+    }
 }
 
 int GetGdtfModeChannelCount(const std::string& gdtfPath,
@@ -1799,17 +1879,21 @@ int GetGdtfModeChannelCount(const std::string& gdtfPath,
 
 std::vector<std::string> GetGdtfModes(const std::string& gdtfPath)
 {
-    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+    try {
+        std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
 
-    std::vector<std::string> result;
-    if (gdtfPath.empty())
-        return result;
+        std::vector<std::string> result;
+        if (gdtfPath.empty())
+            return result;
 
-    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
-    if (!entry)
-        return result;
+        GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+        if (!entry)
+            return result;
 
-    return entry->modes;
+        return entry->modes;
+    } catch (...) {
+        return {};
+    }
 }
 
 std::vector<GdtfChannelInfo> GetGdtfModeChannels(
@@ -1834,50 +1918,64 @@ std::vector<GdtfChannelInfo> GetGdtfModeChannels(
 
 std::string GetGdtfFixtureName(const std::string& gdtfPath)
 {
-    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+    try {
+        std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
 
-    if (gdtfPath.empty())
+        if (gdtfPath.empty())
+            return {};
+
+        GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+        if (!entry)
+            return {};
+
+        return entry->fixtureName;
+    } catch (...) {
         return {};
-
-    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
-    if (!entry)
-        return {};
-
-    return entry->fixtureName;
+    }
 }
 
 bool GetGdtfProperties(const std::string& gdtfPath,
                        float& outWeightKg,
                        float& outPowerW)
 {
-    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
-
     outWeightKg = 0.0f;
     outPowerW = 0.0f;
-    if (gdtfPath.empty())
-        return false;
+    try {
+        std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
 
-    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
-    if (!entry)
-        return false;
+        if (gdtfPath.empty())
+            return false;
 
-    outWeightKg = entry->weightKg;
-    outPowerW = entry->powerW;
-    return entry->propertiesParsed;
+        GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+        if (!entry)
+            return false;
+
+        outWeightKg = entry->weightKg;
+        outPowerW = entry->powerW;
+        return entry->propertiesParsed;
+    } catch (...) {
+        outWeightKg = 0.0f;
+        outPowerW = 0.0f;
+        return false;
+    }
 }
 
 std::string GetGdtfModelColor(const std::string& gdtfPath)
 {
-    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+    try {
+        std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
 
-    if (gdtfPath.empty())
+        if (gdtfPath.empty())
+            return {};
+
+        GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+        if (!entry)
+            return {};
+
+        return entry->modelColor;
+    } catch (...) {
         return {};
-
-    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
-    if (!entry)
-        return {};
-
-    return entry->modelColor;
+    }
 }
 
 static bool ZipDir(const std::string& srcDir, const std::string& dstZip)

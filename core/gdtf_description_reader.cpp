@@ -2,7 +2,11 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <initializer_list>
+#include <cmath>
+#include <iomanip>
+#include <sstream>
 #include <set>
 
 #include <tinyxml2.h>
@@ -27,6 +31,72 @@ std::string LowerAscii(std::string value) {
     return static_cast<char>(std::tolower(c));
   });
   return value;
+}
+
+// Parses a float attribute from a small set of accepted GDTF attribute names.
+bool ParseFloatAttribute(const tinyxml2::XMLElement *element,
+                         std::initializer_list<const char *> names,
+                         float &outValue) {
+  if (!element)
+    return false;
+  for (const char *name : names) {
+    if (!name)
+      continue;
+    if (const char *raw = element->Attribute(name)) {
+      char *end = nullptr;
+      const float parsed = std::strtof(raw, &end);
+      if (end && end != raw && *end == '\0') {
+        outValue = parsed;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Converts GDTF xyY color text to a display hex RGB value when possible.
+std::string ParseModelColorHex(const tinyxml2::XMLElement *fixtureType) {
+  const tinyxml2::XMLElement *models =
+      fixtureType ? fixtureType->FirstChildElement("Models") : nullptr;
+  const tinyxml2::XMLElement *model =
+      models ? models->FirstChildElement("Model") : nullptr;
+  const char *raw = model ? model->Attribute("Color") : nullptr;
+  if (!raw)
+    return {};
+
+  std::string text = raw;
+  std::replace(text.begin(), text.end(), ',', ' ');
+  std::stringstream input(text);
+  double x = 0.0;
+  double y = 0.0;
+  double luminance = 0.0;
+  if (!(input >> x >> y >> luminance) || y <= 0.0)
+    return {};
+
+  const double X = x * (luminance / y);
+  const double Z = (1.0 - x - y) * (luminance / y);
+  auto gamma = [](double c) {
+    c = std::max(0.0, c);
+    return c <= 0.0031308 ? 12.92 * c
+                           : 1.055 * std::pow(c, 1.0 / 2.4) - 0.055;
+  };
+  const int red = static_cast<int>(
+      std::round(std::clamp(gamma(3.2406 * X - 1.5372 * luminance - 0.4986 * Z),
+                            0.0, 1.0) *
+                 255.0));
+  const int green = static_cast<int>(
+      std::round(std::clamp(gamma(-0.9689 * X + 1.8758 * luminance + 0.0415 * Z),
+                            0.0, 1.0) *
+                 255.0));
+  const int blue = static_cast<int>(
+      std::round(std::clamp(gamma(0.0557 * X - 0.2040 * luminance + 1.0570 * Z),
+                            0.0, 1.0) *
+                 255.0));
+  std::ostringstream output;
+  output << '#' << std::uppercase << std::hex << std::setfill('0')
+         << std::setw(2) << red << std::setw(2) << green << std::setw(2)
+         << blue;
+  return output.str();
 }
 
 // Adds a structured diagnostic to the description snapshot.
@@ -157,9 +227,41 @@ GdtfDescriptionSnapshot ReadGdtfDescription(
           fixtureType->FirstChildElement("DMXModes")) {
     for (const tinyxml2::XMLElement *mode = dmxModes->FirstChildElement("DMXMode");
          mode; mode = mode->NextSiblingElement("DMXMode")) {
-      snapshot.dmxModeNames.push_back(FirstAttribute(mode, {"Name"}));
+      if (std::string modeName = FirstAttribute(mode, {"Name"});
+          !modeName.empty())
+        snapshot.dmxModeNames.push_back(std::move(modeName));
+    }
+  } else {
+    AddDiagnostic(snapshot, DescriptionDiagnosticCode::MissingDmxModes,
+                  "description.xml does not contain a DMXModes element.");
+  }
+  if (snapshot.dmxModeNames.empty()) {
+    AddDiagnostic(snapshot, DescriptionDiagnosticCode::MissingUsableDmxMode,
+                  "description.xml does not contain a usable named DMXMode.");
+  }
+
+  if (const tinyxml2::XMLElement *physicalDescriptions =
+          fixtureType->FirstChildElement("PhysicalDescriptions")) {
+    if (const tinyxml2::XMLElement *properties =
+            physicalDescriptions->FirstChildElement("Properties")) {
+      if (const tinyxml2::XMLElement *weight =
+              properties->FirstChildElement("Weight")) {
+        snapshot.weightKgPresent =
+            ParseFloatAttribute(weight, {"Value", "value"}, snapshot.weightKg);
+      }
+      for (const tinyxml2::XMLElement *power =
+               properties->FirstChildElement("PowerConsumption");
+           power; power = power->NextSiblingElement("PowerConsumption")) {
+        float parsed = 0.0f;
+        if (ParseFloatAttribute(power, {"Value", "PowerConsumption", "value"},
+                                parsed)) {
+          snapshot.powerConsumptionW += parsed;
+          snapshot.powerConsumptionWPresent = true;
+        }
+      }
     }
   }
+  snapshot.modelColorHex = ParseModelColorHex(fixtureType);
 
   if (const tinyxml2::XMLElement *wheels = fixtureType->FirstChildElement("Wheels")) {
     for (const tinyxml2::XMLElement *wheel = wheels->FirstChildElement("Wheel");

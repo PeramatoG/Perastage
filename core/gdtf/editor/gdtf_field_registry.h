@@ -57,7 +57,7 @@ enum class GdtfFieldValueKind {
 struct GdtfFieldDescriptor {
   GdtfFieldId id;
   GdtfFieldOwnership ownership;
-  GdtfFieldValueKind valueKind;
+  GdtfFieldValueKind defaultValueKind;
   const char *stableName;
   const char *displayName;
   bool hostDialogEditable = false;
@@ -71,6 +71,6 @@ std::vector<GdtfFieldDescriptor> CurrentFixtureEditFieldDescriptors();
 std::vector<GdtfFieldDescriptor> CurrentTrussEditFieldDescriptors();
 bool IsGdtfSessionValueSupported(GdtfFieldId id);
 const char *ToString(GdtfFieldOwnership ownership);
-const char *ToString(GdtfFieldValueKind valueKind);
+const char *ToString(GdtfFieldValueKind defaultValueKind);
 
 } // namespace gdtf

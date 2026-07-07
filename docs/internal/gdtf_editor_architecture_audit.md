@@ -164,3 +164,11 @@ Final context support is intentionally conservative: project fixtures expose wei
 Apply requests now separate document changes from context-selection changes. Existing Fixture Edit and Truss Edit dialogs, write paths, preview behavior, table updates, undo/redo, hoist recalculation, viewer refresh, physical-property mutation, and truss GDTF generation remain unchanged.
 
 The next recommended checkpoint is to extract the first reusable GDTF metadata panel.
+
+## Downloaded GDTF insertion preparation correction
+
+The downloaded-GDTF insertion failure predated Checkpoint 03A: the field-capability changes did not touch `MainWindow::AddFixtureFromGdtfPath(...)` or the GDTF Share download route. The add-to-project path still used legacy `viewer3d/gdtfloader.cpp` helpers for identity and mode discovery. Those helpers extracted archives into a temporary directory with throwing filesystem operations and then assumed the selected description was exactly `<temp>/description.xml`, so environmental filesystem failures or non-canonical but unambiguous archives could fail without useful application diagnostics.
+
+The corrected path prepares fixture insertion with a non-GUI read-only service before opening `AddFixtureDialog`. Identity and ordered DMX modes now come from the shared archive/description services; invalid, ambiguous, unsafe, or mode-less GDTFs produce structured diagnostics and a concise user-facing failure instead of silently returning. The workflow logs validation, archive-read, description-read, mode-read, dialog-opened, inserted, and failed stages without logging credentials or full catalog payloads.
+
+Read/import tolerance is now explicit: canonical root `description.xml` wins; one root case-insensitive match is accepted with a compatibility warning; one unique nested candidate is accepted only when no root candidate exists; ambiguous or unsafe candidates fail. Reading and insertion remain non-mutating and do not canonicalize downloaded files. Explicit Perastage mutation, generation, canonicalization, and export paths remain responsible for standards-compliant root `description.xml` output.

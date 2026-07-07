@@ -28,14 +28,15 @@ BuildStandaloneGdtfEditorContext(const std::filesystem::path &sourcePath,
     context.initialValues.modeName = description.dmxModeNames.front();
   context.initialValues.sourceFileReference =
       sourcePath.filename().generic_string();
-  context.fieldCapabilities[GdtfFieldId::FixtureTypeName] =
-      MakeDocumentEditCapability();
-  context.fieldCapabilities[GdtfFieldId::Manufacturer] =
-      MakeDocumentEditCapability();
-  context.fieldCapabilities[GdtfFieldId::ModelName] = MakeDocumentEditCapability();
-  context.fieldCapabilities[GdtfFieldId::Weight] = MakeDocumentEditCapability();
-  context.fieldCapabilities[GdtfFieldId::PowerConsumption] =
-      MakeDocumentEditCapability();
+  const auto documentCapability = context.editingAllowed
+                                      ? MakeDocumentEditCapability()
+                                      : MakeReadOnlyCapability(
+                                            GdtfFieldValueKind::DocumentValue);
+  context.fieldCapabilities[GdtfFieldId::FixtureTypeName] = documentCapability;
+  context.fieldCapabilities[GdtfFieldId::Manufacturer] = documentCapability;
+  context.fieldCapabilities[GdtfFieldId::ModelName] = documentCapability;
+  context.fieldCapabilities[GdtfFieldId::Weight] = documentCapability;
+  context.fieldCapabilities[GdtfFieldId::PowerConsumption] = documentCapability;
   context.fieldCapabilities[GdtfFieldId::ModeName] =
       MakeReadOnlyCapability(GdtfFieldValueKind::ContextSelection);
   context.fieldCapabilities[GdtfFieldId::SourceFileReference] =

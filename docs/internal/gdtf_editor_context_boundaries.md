@@ -107,7 +107,7 @@ The next approved checkpoint is reusable panel extraction from the existing `Fix
 Checkpoint 03A separates four decisions that were previously represented by one ambiguous editability flag:
 
 - **Field ownership** describes where the value belongs: GDTF type data, MVR/project instance data, derived data, project classification overrides, context-specific host selections, or unsupported future work.
-- **Value kind** describes what the edit-session value represents: a GDTF document value, a context selection, a derived read-only presentation value, a host/project value, or an unsupported future value.
+- **Default value kind** in the global descriptor documents the usual field meaning, while the active context capability supplies the effective value kind. The effective kind describes what the edit-session value represents: a GDTF document value, a context selection, a derived read-only presentation value, a host/project value, or an unsupported future value.
 - **Host-dialog editability** records whether the current Fixture Edit or Truss Edit dialog can edit the value on its existing project-specific path.
 - **Context capability** is the final authority used by `GdtfEditSession` for visibility, editability, and whether a successful change is a document mutation or a context/host selection.
 
@@ -131,3 +131,9 @@ Dirty tracking is data-driven from context capabilities and explicit session sto
 Existing `FixtureEditDialog` and `TrussEditDialog` runtime paths remain unchanged in this correction. Their Apply/OK behavior, table writes, derivative creation, `SetGdtfProperties`, fixture type propagation, visual color behavior, mode application, truss GDTF generation, metadata display, previews, undo/redo, hoist recalculation, and viewer refresh remain on the existing code paths.
 
 The next approved checkpoint is to extract the first reusable GDTF metadata panel while keeping current host apply semantics intact.
+
+## Downloaded GDTF insertion boundary
+
+Downloaded GDTF insertion now uses `PrepareGdtfFixtureInsertion(...)` before the Add Fixture dialog is shown. The service is non-GUI and read-only: it validates file existence, regular-file status, non-empty size, archive readability, description readability, FixtureType identity, and ordered named DMX modes without mutating the project or rewriting the archive. Compatibility fallbacks for non-canonical `description.xml` locations are logged and allowed only when unambiguous. Ambiguous, unsafe, malformed, or mode-less files fail with diagnostics instead of escaping exceptions or silently returning.
+
+Checkpoint 03A did not originally modify the GDTF Share download or `AddFixtureFromGdtfPath(...)` flow; the insertion failure was in the pre-existing legacy discovery path. The next approved checkpoint remains the first reusable GDTF metadata panel extraction.
