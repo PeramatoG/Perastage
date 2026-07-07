@@ -19,7 +19,7 @@
 
 #include "configmanager.h"
 #include "fixturepreviewpanel.h"
-#include "../core/gdtf_metadata_summary.h"
+#include "gdtf_metadata_summary.h"
 #include "gdtfdictionary.h"
 #include "guiconfigservices.h"
 #include "projectutils.h"

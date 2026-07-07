@@ -17,49 +17,12 @@
  */
 #include "gdtf_metadata_summary.h"
 
-#include <initializer_list>
-#include <memory>
-#include <tinyxml2.h>
+#include "gdtf_archive_reader.h"
+#include "gdtf_description_reader.h"
+
 #include <wx/datetime.h>
-#include <wx/string.h>
-#include <wx/wfstream.h>
-#include <wx/zipstrm.h>
 
 namespace {
-
-// Returns the first non-empty attribute value from a metadata element.
-std::string FirstNonEmptyAttribute(tinyxml2::XMLElement *element,
-                                   std::initializer_list<const char *> names) {
-  if (!element)
-    return "";
-  for (const char *name : names) {
-    if (!name)
-      continue;
-    if (const char *value = element->Attribute(name); value && *value)
-      return value;
-  }
-  return "";
-}
-
-// Extracts the ModifiedBy attribute from a GDTF revision element.
-std::string ExtractRevisionModifiedBy(tinyxml2::XMLElement *revision) {
-  if (!revision)
-    return {};
-  if (const char *modifiedBy = revision->Attribute("ModifiedBy");
-      modifiedBy && *modifiedBy) {
-    return modifiedBy;
-  }
-  return {};
-}
-
-// Extracts the UserID attribute from a GDTF revision element.
-std::string ExtractRevisionUserId(tinyxml2::XMLElement *revision) {
-  if (!revision)
-    return "0";
-  if (const char *userId = revision->Attribute("UserID"); userId && *userId)
-    return userId;
-  return "0";
-}
 
 // Formats a GDTF timestamp for compact display.
 std::string FormatMetadataTimestamp(const std::string &value) {
@@ -80,6 +43,23 @@ std::string FormatMetadataTimestamp(const std::string &value) {
 
   return value;
 }
+
+// Copies the latest ordered revision fields into the presentation summary.
+void ApplyLatestRevision(const gdtf::GdtfDescriptionSnapshot &snapshot,
+                         GdtfMetadataSummary &summary) {
+  if (snapshot.revisions.empty())
+    return;
+
+  const gdtf::GdtfRevisionInfo &firstRevision = snapshot.revisions.front();
+  const gdtf::GdtfRevisionInfo &latestRevision = snapshot.revisions.back();
+  if (summary.revision.empty())
+    summary.revision = latestRevision.text;
+  summary.lastModified = latestRevision.date;
+  summary.modifiedBy = latestRevision.modifiedBy;
+  summary.userId = latestRevision.userId.empty() ? "0" : latestRevision.userId;
+  if (summary.creationDate.empty())
+    summary.creationDate = firstRevision.date;
+}
 } // namespace
 
 // Loads a compact metadata summary from a GDTF archive.
@@ -90,83 +70,27 @@ bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
   if (gdtfPath.empty())
     return false;
 
-  wxFileInputStream input(wxString::FromUTF8(gdtfPath));
-  if (!input.IsOk())
+  gdtf::ArchiveReadResult archive = gdtf::ReadGdtfArchive(gdtfPath);
+  if (!archive.Success())
     return false;
 
-  wxZipInputStream zipInput(input);
-  std::unique_ptr<wxZipEntry> entry;
-  std::string descriptionXml;
-  while ((entry.reset(zipInput.GetNextEntry())), entry) {
-    if (entry->GetName().CmpNoCase("description.xml") != 0)
-      continue;
-    char buffer[4096];
-    while (true) {
-      zipInput.Read(buffer, sizeof(buffer));
-      const size_t count = zipInput.LastRead();
-      if (count == 0)
-        break;
-      descriptionXml.append(buffer, buffer + count);
-    }
-    break;
-  }
-  if (descriptionXml.empty())
+  std::vector<std::string> entryPaths;
+  entryPaths.reserve(archive.entries.size());
+  for (const gdtf::ArchiveEntry &entry : archive.entries)
+    entryPaths.push_back(entry.path);
+
+  gdtf::GdtfDescriptionSnapshot snapshot =
+      gdtf::ReadGdtfDescription(archive.descriptionXml, entryPaths);
+  if (!snapshot.Success())
     return false;
 
-  tinyxml2::XMLDocument doc;
-  if (doc.Parse(descriptionXml.c_str(), descriptionXml.size()) !=
-      tinyxml2::XML_SUCCESS) {
-    return false;
-  }
+  outSummary.manufacturer = snapshot.manufacturer;
+  outSummary.description = snapshot.description;
+  outSummary.creationDate = snapshot.createDate;
+  outSummary.revision = snapshot.revision;
+  outSummary.version = snapshot.dataVersion;
 
-  tinyxml2::XMLElement *root = doc.FirstChildElement("GDTF");
-  tinyxml2::XMLElement *fixtureType =
-      root ? root->FirstChildElement("FixtureType")
-           : doc.FirstChildElement("FixtureType");
-  if (!fixtureType)
-    return false;
-
-  outSummary.manufacturer =
-      FirstNonEmptyAttribute(fixtureType, {"Manufacturer"});
-  outSummary.description = FirstNonEmptyAttribute(fixtureType, {"Description"});
-  outSummary.creationDate = FirstNonEmptyAttribute(
-      fixtureType, {"CreateDate", "CreationDate", "DateCreated"});
-  outSummary.revision = FirstNonEmptyAttribute(
-      fixtureType, {"Revision", "DataVersion", "Version"});
-
-  if (root) {
-    if (outSummary.version.empty())
-      outSummary.version = FirstNonEmptyAttribute(
-          root, {"DataVersion", "Version", "CreatedWith"});
-    if (outSummary.creationDate.empty())
-      outSummary.creationDate = FirstNonEmptyAttribute(
-          root, {"CreateDate", "CreationDate", "DateCreated"});
-  }
-
-  tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
-  if (revisions) {
-    tinyxml2::XMLElement *firstRevision =
-        revisions->FirstChildElement("Revision");
-    tinyxml2::XMLElement *latestRevision = nullptr;
-    for (tinyxml2::XMLElement *rev = revisions->FirstChildElement("Revision");
-         rev; rev = rev->NextSiblingElement("Revision")) {
-      latestRevision = rev;
-    }
-    if (latestRevision) {
-      if (outSummary.revision.empty()) {
-        outSummary.revision = FirstNonEmptyAttribute(
-            latestRevision, {"Text", "Comment", "Version"});
-      }
-      outSummary.lastModified =
-          FirstNonEmptyAttribute(latestRevision, {"Date", "TimeStamp"});
-      outSummary.modifiedBy = ExtractRevisionModifiedBy(latestRevision);
-      outSummary.userId = ExtractRevisionUserId(latestRevision);
-      if (outSummary.creationDate.empty()) {
-        outSummary.creationDate =
-            FirstNonEmptyAttribute(firstRevision, {"Date", "TimeStamp"});
-      }
-    }
-  }
+  ApplyLatestRevision(snapshot, outSummary);
 
   if (outSummary.version.empty())
     outSummary.version = outSummary.revision;

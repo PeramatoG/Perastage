@@ -97,3 +97,49 @@ This checkpoint documents the current GDTF viewing and editing responsibilities 
 - The metadata summary implementation was moved from `gui/` to `core/` and the GUI source list no longer owns that file.
 - `FixtureEditDialog` and `TrussEditDialog` only changed their include path for the metadata service; Apply/OK, physical property mutation, truss builder, preview, and viewer refresh logic were not redesigned.
 - A small unit test was added for metadata summary loading using a generated in-memory GDTF archive, avoiding persistent binary fixtures.
+
+## Checkpoint 02 read-only archive/document boundary
+
+Checkpoint 02 adds a small read-only core foundation that separates archive access from semantic `description.xml` parsing:
+
+- `core/gdtf_archive_reader.{h,cpp}` owns opening a `.gdtf` archive, normalizing archive-relative entry names, inventorying entries, locating `description.xml` case-insensitively, detecting missing or duplicate case-insensitive description entries, and returning exact description XML text with structured diagnostics. It never extracts files permanently and never writes to the input archive.
+- `core/gdtf_description_reader.{h,cpp}` owns the basic serialization-neutral document snapshot for root `DataVersion`, `FixtureType` identity fields, thumbnail references, ordered revisions, ordered DMX mode names, ordered wheels, and ordered wheel slots with resource references. Public types use standard C++ containers and strings and do not expose GUI widgets, project state, MVR state, or mutable XML node pointers.
+- The archive implementation still privately depends on wx ZIP streams because this checkpoint intentionally avoids a new archive dependency. That dependency is isolated to `gdtf_archive_reader.cpp` and is not exposed through public headers.
+
+`core/gdtf_metadata_summary.cpp` is now a presentation adapter over these read services. It no longer owns direct ZIP traversal or direct `description.xml` archive lookup, and the existing Fixture Edit and Truss Edit metadata fields keep their prior fallback behavior and timestamp formatting.
+
+## Duplicate GDTF readers that remain after Checkpoint 02
+
+The following read responsibilities were identified during the review and remain intentionally out of scope for this checkpoint:
+
+- `viewer3d/gdtfloader.cpp` still owns temporary extraction, `description.xml` parsing, geometry/model loading, DMX modes/channels, fixture names, and physical-property reads through functions such as `LoadGdtf`, `GetGdtfModes`, `GetGdtfFixtureName`, and `GetGdtfProperties`.
+- `core/gdtfdictionary.cpp` still opens GDTF archives in its dictionary identity and canonical filename path.
+- `core/gdtf_fixture_category.cpp` still opens and parses `description.xml` to infer fixture categories, including wheel/beam/signals used by category heuristics.
+- `core/trussloader.cpp` still opens GDTF truss archives, extracts resources, and reads truss-specific description data.
+- `core/symbols/PerastageSvgSymbol.cpp` still reads full ZIP entry maps and parses `description.xml` for embedded symbol workflows.
+- `gui/fixtureeditdialog.cpp` still has a direct thumbnail reader for preview image display and still calls viewer-loader APIs for modes, channels, physical properties, and preview content.
+- `mvr/mvrimporter.cpp` and `mvr/mvrexporter.cpp` still own MVR package ZIP traversal, embedded GDTF resource handling, export patching/canonicalization, and import/export-specific reference resolution.
+
+These paths should migrate incrementally only where the new read contract fits their ownership. MVR package behavior, mutation, derivative naming, and rendering remain separate responsibilities.
+
+## Perastage/Peraviz semantic compatibility rules
+
+The new read-layer public contract is intentionally serialization-neutral so it can remain compatible with Peraviz without sharing GUI or project implementation details. The shared rules for future expansion are:
+
+- Prefer official GDTF/MVR specification semantics over Perastage-specific assumptions.
+- Represent repeated GDTF families as ordered collections with stable identity instead of fixed singleton fields.
+- Preserve unknown/custom data as unread semantic data or diagnostics; do not reinterpret vendor extensions as standard fields.
+- Keep archive reads non-mutating: no canonicalization, renaming, derivative archive creation, or rewrite behavior belongs in the read layer.
+- Keep editor state, project dirty state, undo/redo, runtime rendering, and MVR instance/package state outside the core document snapshot.
+
+## Gobo regression fixture and follow-up evidence
+
+`tests/gdtf_read_services_test.cpp` includes a generated archive/XML regression with two distinct gobo wheels, multiple ordered slots per wheel, and separate media references. This protects the new read-only snapshot from collapsing, overwriting, or reordering wheel and slot collections.
+
+The missing-gobo runtime symptom is not fixed in this checkpoint. Evidence from the current code review shows that runtime gobo display remains downstream of `viewer3d/gdtfloader.cpp` geometry/resource extraction and channel/wheel-slot handling, especially `LoadGdtf`, the extracted `description.xml` path handling, and channel-set `WheelSlotIndex` labeling. A safe next migration target is to extract a read-only resource/reference view from `viewer3d/gdtfloader.cpp` behind the new archive/document services before changing rendering or DMX runtime behavior.
+
+## Checkpoint 02 verification notes
+
+- Added focused tests for valid archives, case-insensitive `description.xml` lookup, missing and duplicate description entries, malformed XML, missing root/FixtureType, ordered revisions, ordered DMX modes, repeated gobo wheels/slots, unknown elements, metadata-summary compatibility, and Unicode archive paths/entry names.
+- Added `tests/check_gdtf_metadata_summary_boundary.sh` to keep `gdtf_metadata_summary.cpp` from reintroducing direct ZIP traversal or direct `description.xml` archive lookup.
+- No GDTF or MVR write path was changed.
