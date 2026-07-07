@@ -402,3 +402,6 @@ packages/
 
 # Peraviz lives in its own repository
 peraviz/
+/.vscode/extensions.json
+/.vscode/launch.json
+/.vscode/settings.json
