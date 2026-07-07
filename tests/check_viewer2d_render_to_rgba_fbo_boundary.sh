@@ -102,7 +102,7 @@ fallback_body="$(python3 - "$panel_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()
-match = re.search(r'bool Viewer2DPanel::RenderToRGBABackBufferFallback\([\s\S]*?\n}\n\nvoid Viewer2DPanel::OnPaint', text)
+match = re.search(r'bool Viewer2DPanel::RenderToRGBABackBufferFallback\([\s\S]*?\n}\n\n(?:// .*\n)?void Viewer2DPanel::OnPaint', text)
 if not match:
     sys.exit(1)
 print(match.group(0))
