@@ -20,6 +20,14 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_canonicalizer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_mutation_audit.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_document.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_edit_session.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_editable_values.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_editor_context.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_field_registry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/project_fixture_gdtf_context.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/project_truss_gdtf_context.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/standalone_gdtf_context.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfnet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/geometry/RdpSimplifier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/guiconfigservices.cpp

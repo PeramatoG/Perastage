@@ -52,6 +52,8 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_dictionary_paths.sh)
     add_test(NAME GdtfMetadataSummaryBoundary
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_metadata_summary_boundary.sh)
+    add_test(NAME GdtfEditorCoreBoundary
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_core_boundary.sh)
     add_test(NAME ProjectRestoreImportOptions
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_project_restore_import_options.sh)
 endif()
@@ -257,6 +259,22 @@ add_executable(gdtf_read_services_test
 target_include_directories(gdtf_read_services_test PRIVATE ../core)
 target_link_libraries(gdtf_read_services_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfReadServices COMMAND gdtf_read_services_test)
+
+add_executable(gdtf_editor_context_test
+               gdtf_editor_context_test.cpp
+               ../core/gdtf_archive_reader.cpp
+               ../core/gdtf_description_reader.cpp
+               ../core/gdtf/editor/gdtf_document.cpp
+               ../core/gdtf/editor/gdtf_edit_session.cpp
+               ../core/gdtf/editor/gdtf_editable_values.cpp
+               ../core/gdtf/editor/gdtf_editor_context.cpp
+               ../core/gdtf/editor/gdtf_field_registry.cpp
+               ../core/gdtf/editor/project_fixture_gdtf_context.cpp
+               ../core/gdtf/editor/project_truss_gdtf_context.cpp
+               ../core/gdtf/editor/standalone_gdtf_context.cpp)
+target_include_directories(gdtf_editor_context_test PRIVATE .. ../core)
+target_link_libraries(gdtf_editor_context_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME GdtfEditorContext COMMAND gdtf_editor_context_test)
 
 add_executable(gdtf_fixture_category_test
                gdtf_fixture_category_test.cpp
