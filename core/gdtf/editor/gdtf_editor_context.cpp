@@ -42,4 +42,30 @@ const char *ToString(GdtfWritePolicy policy) {
   return "unsupported/not yet available";
 }
 
+// Finds a field capability declared by the active editor context.
+const GdtfFieldCapability *FindFieldCapability(const GdtfEditorContext &context,
+                                               GdtfFieldId fieldId) {
+  if (auto it = context.fieldCapabilities.find(fieldId);
+      it != context.fieldCapabilities.end())
+    return &it->second;
+  return nullptr;
+}
+
+// Creates a visible read-only capability for inspection-only fields.
+GdtfFieldCapability MakeReadOnlyCapability(GdtfFieldValueKind valueKind) {
+  return {true, false, valueKind, GdtfFieldEditOperation::ReadOnly};
+}
+
+// Creates an editable capability for GDTF document/type mutations.
+GdtfFieldCapability MakeDocumentEditCapability() {
+  return {true, true, GdtfFieldValueKind::DocumentValue,
+          GdtfFieldEditOperation::DocumentMutation};
+}
+
+// Creates an editable capability for host/context selections.
+GdtfFieldCapability MakeContextSelectionCapability() {
+  return {true, true, GdtfFieldValueKind::ContextSelection,
+          GdtfFieldEditOperation::ContextSelection};
+}
+
 } // namespace gdtf

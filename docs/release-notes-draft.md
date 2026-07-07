@@ -45,6 +45,7 @@ Changes since **v1.4.0**.
 
 ## Stability and diagnostics
 
+- Hardened the internal GDTF editor session model so unsupported project, MVR, derived, and host-only fields can no longer be accepted as silent edits, with dirty tracking now tied to explicit context capabilities.
 - Added local, low-noise diagnostics that identify the Viewer2D RGBA capture backend in manual diagnostic reports, including capture counts, last size, and fallback or failure reasons without changing rendering behavior.
 - Hardened MVR-xchange TCP Mode protocol handling with stricter UUID validation, safer malformed-message responses, bounded latest-revision requests, non-empty payload checks, archive sanity checks, clearer transfer diagnostics, and additional deterministic protocol tests.
 - Disabled optional depth-read picking by default and skipped it on Windows Intel OpenGL drivers to avoid unsafe depth-buffer reads during normal selection.

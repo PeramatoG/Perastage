@@ -2,7 +2,6 @@
 
 #include "gdtf_field_registry.h"
 
-#include <map>
 #include <optional>
 #include <string>
 
@@ -20,7 +19,6 @@ struct GdtfEditableValues {
   std::optional<float> trussHeightMm;
   std::optional<std::string> trussCrossSection;
   std::optional<std::string> sourceFileReference;
-  std::map<GdtfFieldId, std::string> presentationValues;
 };
 
 bool SetEditableValue(GdtfEditableValues &values, GdtfFieldId fieldId,

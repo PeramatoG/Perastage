@@ -101,3 +101,33 @@ Ambiguous truss decisions: model file is context-specific because the host may p
 ## Next checkpoint
 
 The next approved checkpoint is reusable panel extraction from the existing `FixtureEditDialog` and `TrussEditDialog`. That work should keep the apply semantics in the existing project hosts while moving reusable field presentation into shared panels.
+
+## Checkpoint 03A capability correction
+
+Checkpoint 03A separates four decisions that were previously represented by one ambiguous editability flag:
+
+- **Field ownership** describes where the value belongs: GDTF type data, MVR/project instance data, derived data, project classification overrides, context-specific host selections, or unsupported future work.
+- **Value kind** describes what the edit-session value represents: a GDTF document value, a context selection, a derived read-only presentation value, a host/project value, or an unsupported future value.
+- **Host-dialog editability** records whether the current Fixture Edit or Truss Edit dialog can edit the value on its existing project-specific path.
+- **Context capability** is the final authority used by `GdtfEditSession` for visibility, editability, and whether a successful change is a document mutation or a context/host selection.
+
+The field registry remains the authoritative classification source. `GdtfEditableValues` now stores only explicitly supported session values and has no generic presentation fallback. This prevents MVR/project fields such as universe, layer, transform, visual color, fixture category, MVR color, truss name, truss load, and channel count from being silently accepted as GDTF session edits.
+
+### Context capabilities after Checkpoint 03A
+
+| Context | Document mutation fields | Context selection fields | Read-only inspection fields | Explicitly excluded from session edits |
+| --- | --- | --- | --- | --- |
+| Project fixture | Weight, power consumption | Fixture type/name presentation, selected mode, source GDTF reference | Channel count | Fixture ID, instance name, layer, hang position, universe, DMX address, transform, fixture category, visual color, MVR color |
+| Project truss | Manufacturer, model, length, width, height, weight, cross section | Source/model reference | Truss load | Truss instance name, layer, hang position, transform |
+| Standalone read-only | None | None | Mode and source reference may be exposed for inspection | All edits |
+| Standalone editable future policy | Fixture type/name, manufacturer, model, weight, power consumption | None | Mode and source reference remain inspection-only | Project selected mode, source path mutation, MVR/project fields |
+
+Selected mode is a context selection because the current project fixture workflow selects which existing GDTF `DMXMode` the fixture instance uses; it does not edit a mode definition in `description.xml`. Source file reference is also a host selection because it chooses or displays the archive/model reference used by Perastage rather than mutating a standard GDTF document field.
+
+`GdtfApplyRequest` now separates `changedDocumentFields` from `changedContextFields` so future host adapters do not need to infer the distinction from ownership. `GdtfApplyResult` still reports downstream host effects such as derivative creation, project resynchronization, viewer refresh, hoist/load recalculation, and project dirty state independently.
+
+Dirty tracking is data-driven from context capabilities and explicit session storage. Every successful changed `SetValue(...)` call is represented in dirty state, restoring the initial value clears it, and rejected fields leave values, dirty state, and apply requests unchanged.
+
+Existing `FixtureEditDialog` and `TrussEditDialog` runtime paths remain unchanged in this correction. Their Apply/OK behavior, table writes, derivative creation, `SetGdtfProperties`, fixture type propagation, visual color behavior, mode application, truss GDTF generation, metadata display, previews, undo/redo, hoist recalculation, and viewer refresh remain on the existing code paths.
+
+The next approved checkpoint is to extract the first reusable GDTF metadata panel while keeping current host apply semantics intact.

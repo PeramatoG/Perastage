@@ -152,3 +152,15 @@ Checkpoint 03 introduces non-GUI GDTF editor architecture types under `core/gdtf
 The exact current Fixture Edit and Truss Edit field ownership classifications, ambiguous field decisions, context adapter behavior, and remaining unmigrated dialog responsibilities are documented in `docs/internal/gdtf_editor_context_boundaries.md`. Existing Fixture Edit and Truss Edit runtime behavior remains unchanged in this checkpoint: apply logic, table updates, approved physical-property mutation, truss GDTF generation, previews, dirty state updates, viewer refreshes, and hoist/load prompts are still owned by the existing GUI/table-panel code paths.
 
 The next approved checkpoint remains reusable panel extraction from the existing dialogs. Startup routing, standalone `.gdtf` windows, `.gdtf` command-line opening, installer file associations, raw XML editing, new GDTF attributes, rendering changes, and MVR/GDTF write-path replacements remain out of scope.
+
+## Checkpoint 03A correction: editability and dirty tracking
+
+Checkpoint 03A fixes the editor-domain model before reusable GUI panel extraction. The root issue was that the field registry used one boolean for several different concepts: whether a value is editable in an existing host dialog, whether it is a GDTF document value, whether it is a context selection, and whether the common edit session can store it. Because `SetEditableValue(...)` also had a generic presentation-value fallback while dirty tracking used a separate fixed list, host/project fields could be accepted without becoming dirty.
+
+The corrected model introduces explicit field value kinds and per-context capabilities. Ownership remains about where a field belongs, value kind describes what the session value represents, host-dialog editability describes current dialog behavior, and context capability is the final authority for session visibility, editability, and apply categorization.
+
+Final context support is intentionally conservative: project fixtures expose weight and power as document edits plus fixture type/name presentation, selected mode, and source GDTF reference as context selections; project trusses expose manufacturer, model, dimensions, weight, and cross section as type/generation fields plus source/model reference as a context selection; standalone contexts are read-only by default and future editable standalone policy only enables genuine document/type values. Selected mode is not modeled as a GDTF mode-definition edit, and source reference is not modeled as a document mutation.
+
+Apply requests now separate document changes from context-selection changes. Existing Fixture Edit and Truss Edit dialogs, write paths, preview behavior, table updates, undo/redo, hoist recalculation, viewer refresh, physical-property mutation, and truss GDTF generation remain unchanged.
+
+The next recommended checkpoint is to extract the first reusable GDTF metadata panel.

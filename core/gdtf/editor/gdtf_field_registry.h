@@ -46,19 +46,31 @@ enum class GdtfFieldOwnership {
   UnsupportedFuture
 };
 
+enum class GdtfFieldValueKind {
+  DocumentValue,
+  ContextSelection,
+  DerivedReadOnly,
+  HostProjectValue,
+  UnsupportedFuture
+};
+
 struct GdtfFieldDescriptor {
   GdtfFieldId id;
   GdtfFieldOwnership ownership;
+  GdtfFieldValueKind valueKind;
   const char *stableName;
   const char *displayName;
-  bool independentlyEditable = false;
+  bool hostDialogEditable = false;
+  bool sessionValueSupported = false;
+  bool derived = false;
   bool repeatedFamily = false;
 };
 
 const GdtfFieldDescriptor *FindGdtfFieldDescriptor(GdtfFieldId id);
 std::vector<GdtfFieldDescriptor> CurrentFixtureEditFieldDescriptors();
 std::vector<GdtfFieldDescriptor> CurrentTrussEditFieldDescriptors();
-bool IsGdtfFieldIndependentlyEditable(GdtfFieldId id);
+bool IsGdtfSessionValueSupported(GdtfFieldId id);
 const char *ToString(GdtfFieldOwnership ownership);
+const char *ToString(GdtfFieldValueKind valueKind);
 
 } // namespace gdtf
