@@ -22,7 +22,7 @@
 #include "fixturetable/fixture_table_columns.h"
 #include "fixturetablepanel.h"
 #include "gdtf_mutation_audit.h"
-#include "gdtf_metadata_summary.h"
+#include "../core/gdtf_metadata_summary.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "guiconfigservices.h"

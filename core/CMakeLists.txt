@@ -14,6 +14,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/filesystem_path_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfdictionary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_category.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_metadata_summary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_canonicalizer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_mutation_audit.cpp
