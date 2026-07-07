@@ -50,6 +50,8 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_library_user_data_policy.sh)
     add_test(NAME DictionaryPathsPolicy
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_dictionary_paths.sh)
+    add_test(NAME GdtfMetadataSummaryBoundary
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_metadata_summary_boundary.sh)
     add_test(NAME ProjectRestoreImportOptions
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_project_restore_import_options.sh)
 endif()
@@ -240,10 +242,21 @@ add_test(NAME GdtfCanonicalizerExportRules COMMAND gdtf_canonicalizer_test)
 
 add_executable(gdtf_metadata_summary_test
                gdtf_metadata_summary_test.cpp
+               ../core/gdtf_archive_reader.cpp
+               ../core/gdtf_description_reader.cpp
                ../core/gdtf_metadata_summary.cpp)
 target_include_directories(gdtf_metadata_summary_test PRIVATE ../core)
 target_link_libraries(gdtf_metadata_summary_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfMetadataSummary COMMAND gdtf_metadata_summary_test)
+
+add_executable(gdtf_read_services_test
+               gdtf_read_services_test.cpp
+               ../core/gdtf_archive_reader.cpp
+               ../core/gdtf_description_reader.cpp
+               ../core/gdtf_metadata_summary.cpp)
+target_include_directories(gdtf_read_services_test PRIVATE ../core)
+target_link_libraries(gdtf_read_services_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME GdtfReadServices COMMAND gdtf_read_services_test)
 
 add_executable(gdtf_fixture_category_test
                gdtf_fixture_category_test.cpp
