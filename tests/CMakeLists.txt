@@ -81,9 +81,6 @@ add_test(NAME PlatformLocaleSetup COMMAND platform_locale_test)
 
 add_executable(trussloader_validation_test
                trussloader_validation_test.cpp
-               ../core/trussloader.cpp
-               ../core/truss_gdtf_builder.cpp
-               ../core/logger.cpp
                ../models/truss.cpp)
 target_include_directories(trussloader_validation_test PRIVATE
                            . ../core ../models ../third_party)
@@ -94,17 +91,25 @@ add_test(NAME TrussLoaderValidation COMMAND trussloader_validation_test)
 add_executable(truss_creation_source_test
                truss_creation_source_test.cpp
                ../gui/truss_creation_source.cpp
-               ../core/trussloader.cpp
-               ../core/truss_gdtf_builder.cpp
-               ../core/logger.cpp
                ../core/filesystem_path_utils.cpp
                ../models/truss.cpp)
 target_include_directories(truss_creation_source_test PRIVATE
                            . ../core ../gui ../models ../third_party)
-target_link_libraries(truss_creation_source_test PRIVATE
-                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME TrussCreationSource COMMAND truss_creation_source_test)
 
+add_executable(rigging_weight_validation_test
+               rigging_weight_validation_test.cpp)
+target_include_directories(rigging_weight_validation_test PRIVATE ../gui)
+add_test(NAME RiggingWeightValidation COMMAND rigging_weight_validation_test)
+
+add_executable(preview_resource_test
+               preview_resource_test.cpp
+               ../gui/preview_resource.cpp
+               ../core/filesystem_path_utils.cpp
+               ../models/truss.cpp)
+target_include_directories(preview_resource_test PRIVATE
+                           . ../core ../gui ../models)
+add_test(NAME PreviewResourceDispatch COMMAND preview_resource_test)
 
 add_executable(mvr_merge_analyzer_applier_test
                mvr_merge_analyzer_applier_test.cpp
@@ -296,9 +301,6 @@ add_executable(dictionary_seed_merge_backup_test
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
                ../core/trussdictionary.cpp
-               ../core/trussloader.cpp
-               ../core/truss_gdtf_builder.cpp
-               ../core/logger.cpp
                ../models/truss.cpp
                ../models/mvrscene.cpp)
 target_include_directories(dictionary_seed_merge_backup_test PRIVATE
@@ -470,9 +472,6 @@ add_executable(truss_path_encoding_regression_test
                ../core/filesystem_path_utils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/trussdictionary.cpp
-               ../core/trussloader.cpp
-               ../core/truss_gdtf_builder.cpp
-               ../core/logger.cpp
                ../models/truss.cpp)
 target_include_directories(truss_path_encoding_regression_test PRIVATE
                            . ../core ../models ../third_party)

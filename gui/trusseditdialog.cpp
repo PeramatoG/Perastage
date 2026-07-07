@@ -23,6 +23,7 @@
 #include "gdtfdictionary.h"
 #include "guiconfigservices.h"
 #include "projectutils.h"
+#include "preview_resource.h"
 #include "table_column_indices.h"
 #include "truss_gdtf_builder.h"
 #include "trusstablepanel.h"
@@ -242,10 +243,22 @@ void TrussEditDialog::UpdateMetadataSummary() {
   Layout();
 }
 
-// Updates the embedded 3D preview from the current GDTF.
+// Updates the embedded 3D preview from the best available renderable resource.
 void TrussEditDialog::UpdatePreview() {
-  if (preview)
-    preview->LoadFixture(ResolveCurrentGdtfPath());
+  if (!preview || !panel || row < 0 ||
+      static_cast<size_t>(row) >= panel->rowUuids.size())
+    return;
+
+  const auto &scene =
+      GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  auto it = scene.trusses.find(panel->rowUuids[static_cast<size_t>(row)]);
+  if (it == scene.trusses.end()) {
+    preview->LoadResource({});
+    return;
+  }
+
+  preview->LoadResource(
+      gui::ResolveTrussPreviewResourcePath(it->second, scene.basePath));
 }
 
 // Creates or refreshes the Perastage-authored truss GDTF.

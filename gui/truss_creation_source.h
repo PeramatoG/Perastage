@@ -9,6 +9,7 @@
 namespace gui {
 
 struct TrussCreationSource {
+  std::string identityKey;
   std::string displayName;
   std::string definitionPath;
 };

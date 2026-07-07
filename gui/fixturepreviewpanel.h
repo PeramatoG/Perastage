@@ -33,6 +33,9 @@ public:
     // simple cube will be displayed instead.
     void LoadFixture(const std::string& gdtfPath);
 
+    // Loads a supported preview resource and falls back to a cube on failure.
+    void LoadResource(const std::string& resourcePath);
+
 private:
     void OnPaint(wxPaintEvent& evt);
     void OnResize(wxSizeEvent& evt);
@@ -44,6 +47,8 @@ private:
 
     void InitGL();
     void Render();
+    bool LoadDirectModel(const std::string& modelPath);
+    void UpdateBoundsAndCamera();
 
     wxGLContext* m_glContext = nullptr;
     bool m_glInitialized = false;
