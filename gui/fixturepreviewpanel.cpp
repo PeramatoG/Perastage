@@ -35,12 +35,16 @@
 
 #include <wx/wx.h>
 #include "fixturepreviewpanel.h"
+#include "preview_resource.h"
+#include "loader3ds.h"
+#include "loaderglb.h"
 #include "../viewer_common/gl_canvas_config.h"
 #include "ui_render_size.h"
 #include <cfloat>
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 static constexpr float RENDER_SCALE = 0.001f;
 
@@ -205,14 +209,55 @@ void FixturePreviewPanel::InitGL()
     glClearColor(0.08f,0.08f,0.08f,1.0f);
 }
 
-void FixturePreviewPanel::LoadFixture(const std::string& gdtfPath)
+// Loads a direct GLB or 3DS model into the preview object list.
+bool FixturePreviewPanel::LoadDirectModel(const std::string& modelPath)
+{
+    Mesh mesh;
+    const gui::PreviewResourceKind kind = gui::GetPreviewResourceKind(modelPath);
+    bool loaded = false;
+    if (kind == gui::PreviewResourceKind::Glb)
+        loaded = LoadGLB(modelPath, mesh);
+    else if (kind == gui::PreviewResourceKind::ThreeDs)
+        loaded = Load3DS(modelPath, mesh);
+
+    if (!loaded || mesh.vertices.empty() || mesh.indices.empty())
+        return false;
+
+    GdtfObject object;
+    object.mesh = std::move(mesh);
+    object.transform = Matrix{};
+    m_objects.push_back(std::move(object));
+    return true;
+}
+
+// Loads a supported preview resource and falls back to a cube on failure.
+void FixturePreviewPanel::LoadResource(const std::string& resourcePath)
 {
     m_objects.clear();
     m_hasModel = false;
-    if(!gdtfPath.empty()){
-        m_hasModel = LoadGdtf(gdtfPath, m_objects);
+    const gui::PreviewResourceKind kind = gui::GetPreviewResourceKind(resourcePath);
+    if(!resourcePath.empty()){
+        if (kind == gui::PreviewResourceKind::Gdtf)
+            m_hasModel = LoadGdtf(resourcePath, m_objects);
+        else if (kind == gui::PreviewResourceKind::Glb ||
+                 kind == gui::PreviewResourceKind::ThreeDs)
+            m_hasModel = LoadDirectModel(resourcePath);
     }
+    UpdateBoundsAndCamera();
+    Refresh();
+}
+
+// Loads a GDTF fixture model into the preview panel.
+void FixturePreviewPanel::LoadFixture(const std::string& gdtfPath)
+{
+    LoadResource(gdtfPath);
+}
+
+// Updates the preview bounding box and camera framing for current objects.
+void FixturePreviewPanel::UpdateBoundsAndCamera()
+{
     if(m_hasModel){
+        bool hasBounds = false;
         m_bbMin[0]=m_bbMin[1]=m_bbMin[2]=FLT_MAX;
         m_bbMax[0]=m_bbMax[1]=m_bbMax[2]=-FLT_MAX;
         for(const auto& obj : m_objects){
@@ -227,9 +272,13 @@ void FixturePreviewPanel::LoadFixture(const std::string& gdtfPath)
                     m_bbMin[j] = std::min(m_bbMin[j], p[j]);
                     m_bbMax[j] = std::max(m_bbMax[j], p[j]);
                 }
+                hasBounds = true;
             }
         }
-    } else {
+        if (!hasBounds)
+            m_hasModel = false;
+    }
+    if(!m_hasModel){
         m_bbMin[0]=m_bbMin[1]=m_bbMin[2]=-0.1f;
         m_bbMax[0]=m_bbMax[1]=m_bbMax[2]=0.1f;
     }
@@ -243,7 +292,6 @@ void FixturePreviewPanel::LoadFixture(const std::string& gdtfPath)
     float radius = std::max({sizeX,sizeY,sizeZ})*0.5f;
     if(radius < 0.1f) radius = 0.1f;
     m_camera.SetDistance(radius*3.0f);
-    Refresh();
 }
 
 void FixturePreviewPanel::Render()

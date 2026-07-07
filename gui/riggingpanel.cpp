@@ -30,6 +30,7 @@
 #include "hoist_load_recalculation_prompt.h"
 #include "mainwindow.h"
 #include "rigging_extra_weight_settings.h"
+#include "rigging_weight_validation.h"
 #include "table_column_indices.h"
 #include "units/unit_label_utils.h"
 #include "units/units.h"
@@ -274,8 +275,8 @@ void RiggingPanel::RefreshData() {
                                                    : fixture.positionName;
     auto &entry = rows[pos];
     entry.fixtures++;
-    entry.fixtureWeight += fixture.weightKg;
-    if (fixture.weightKg <= 0.0f)
+    if (!gui::rigging::AccumulateValidPhysicalWeightKg(
+            fixture.weightKg, entry.fixtureWeight))
       entry.hasZeroWeightFixture = true;
   }
 
@@ -284,8 +285,8 @@ void RiggingPanel::RefreshData() {
         truss.positionName.empty() ? UNASSIGNED_POSITION : truss.positionName;
     auto &entry = rows[pos];
     entry.trusses++;
-    entry.trussWeight += truss.weightKg;
-    if (truss.weightKg <= 0.0f)
+    if (!gui::rigging::AccumulateValidPhysicalWeightKg(truss.weightKg,
+                                                       entry.trussWeight))
       entry.hasZeroWeightTruss = true;
   }
 
@@ -294,8 +295,8 @@ void RiggingPanel::RefreshData() {
                                                    : support.positionName;
     auto &entry = rows[pos];
     entry.hoists++;
-    entry.hoistWeight += support.weightKg;
-    if (support.weightKg <= 0.0f)
+    if (!gui::rigging::AccumulateValidPhysicalWeightKg(support.weightKg,
+                                                       entry.hoistWeight))
       entry.hasZeroWeightHoist = true;
   }
 
@@ -306,10 +307,9 @@ void RiggingPanel::RefreshData() {
     }
   }
 
-  // Ensure both the view and the custom store start from a clean state so
-  // text colours get recalculated on every refresh.
+  // Clear the custom store through one path so rows and colour attributes stay
+  // synchronized.
   store->DeleteAllItems();
-  table->DeleteAllItems();
   rowPositions.clear();
   rowPositions.reserve(rows.size());
   for (const auto &[position, totals] : rows) {
@@ -343,22 +343,30 @@ void RiggingPanel::RefreshData() {
     const bool hoistWeightZero = totals.hasZeroWeightHoist;
 
     if (fixtureWeightZero)
-      store->SetCellTextColour(rowIndex, 4, *wxRED);
+      store->SetCellTextColour(
+          rowIndex, ColumnIndex(RiggingColumn::FixtureWeight), *wxRED);
     if (trussWeightZero)
-      store->SetCellTextColour(rowIndex, 5, *wxRED);
+      store->SetCellTextColour(
+          rowIndex, ColumnIndex(RiggingColumn::TrussWeight), *wxRED);
     if (hoistWeightZero)
-      store->SetCellTextColour(rowIndex, 6, *wxRED);
+      store->SetCellTextColour(
+          rowIndex, ColumnIndex(RiggingColumn::HoistWeight), *wxRED);
 
     if (totals.hasAutoUnvalidatedExtraWeight)
-      store->SetCellTextColour(rowIndex, 7, *wxRED);
+      store->SetCellTextColour(
+          rowIndex, ColumnIndex(RiggingColumn::ExtraWeight), *wxRED);
 
     if (fixtureWeightZero || trussWeightZero || hoistWeightZero) {
-      store->SetCellTextColour(rowIndex, 8, *wxRED);
-      store->SetCellTextColour(rowIndex, 9, *wxRED);
+      store->SetCellTextColour(
+          rowIndex, ColumnIndex(RiggingColumn::TotalWeight), *wxRED);
+      store->SetCellTextColour(
+          rowIndex, ColumnIndex(RiggingColumn::RoundedTotalWeight), *wxRED);
     }
     if (totals.hasAutoUnvalidatedExtraWeight) {
-      store->SetCellTextColour(rowIndex, 8, *wxRED);
-      store->SetCellTextColour(rowIndex, 9, *wxRED);
+      store->SetCellTextColour(
+          rowIndex, ColumnIndex(RiggingColumn::TotalWeight), *wxRED);
+      store->SetCellTextColour(
+          rowIndex, ColumnIndex(RiggingColumn::RoundedTotalWeight), *wxRED);
     }
   }
 
