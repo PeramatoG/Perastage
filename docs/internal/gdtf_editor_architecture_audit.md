@@ -143,3 +143,12 @@ The missing-gobo runtime symptom is not fixed in this checkpoint. Evidence from 
 - Added focused tests for valid archives, case-insensitive `description.xml` lookup, missing and duplicate description entries, malformed XML, missing root/FixtureType, ordered revisions, ordered DMX modes, repeated gobo wheels/slots, unknown elements, metadata-summary compatibility, and Unicode archive paths/entry names.
 - Added `tests/check_gdtf_metadata_summary_boundary.sh` to keep `gdtf_metadata_summary.cpp` from reintroducing direct ZIP traversal or direct `description.xml` archive lookup.
 - No GDTF or MVR write path was changed.
+
+
+## Checkpoint 03 editing-domain boundary update
+
+Checkpoint 03 introduces non-GUI GDTF editor architecture types under `core/gdtf/editor/`. The new layer formalizes a read-only `gdtf::GdtfDocument`, separate `gdtf::GdtfEditableValues`, `gdtf::GdtfEditSession` dirty tracking and validation, explicit `GdtfSourceKind` and `GdtfWritePolicy` values, field ownership descriptors, standalone/project fixture/project truss context adapters, and GUI-independent apply request/result structures.
+
+The exact current Fixture Edit and Truss Edit field ownership classifications, ambiguous field decisions, context adapter behavior, and remaining unmigrated dialog responsibilities are documented in `docs/internal/gdtf_editor_context_boundaries.md`. Existing Fixture Edit and Truss Edit runtime behavior remains unchanged in this checkpoint: apply logic, table updates, approved physical-property mutation, truss GDTF generation, previews, dirty state updates, viewer refreshes, and hoist/load prompts are still owned by the existing GUI/table-panel code paths.
+
+The next approved checkpoint remains reusable panel extraction from the existing dialogs. Startup routing, standalone `.gdtf` windows, `.gdtf` command-line opening, installer file associations, raw XML editing, new GDTF attributes, rendering changes, and MVR/GDTF write-path replacements remain out of scope.

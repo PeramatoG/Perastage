@@ -131,6 +131,7 @@ If you encounter any problems installing or running Perastage, please open an is
 - Isolated volatile build version and diagnostic metadata into a dedicated build-info translation unit so version-only changes no longer force broad C++ recompilation.
 - Moved GDTF metadata summary loading into the shared core layer and documented the current GDTF editor architecture boundaries for future reusable editor work.
 - Added a centralized read-only GDTF archive and description snapshot foundation in core, including ordered wheel/slot preservation and focused regression coverage for future editor work.
+- Added non-GUI GDTF editor architecture models for document snapshots, editable values, edit sessions, source/write policy, field ownership, project fixture/truss contexts, standalone contexts, and apply-result side effects while keeping existing dialogs and write paths unchanged.
 
 - Moved the high-level repository map into the documentation tree and aligned repository layout references and guard checks with the current module structure.
 - Documented Viewer2D state ownership boundaries to prepare for separating runtime state, user preferences, and project/Layout persistent state.
