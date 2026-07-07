@@ -1,6 +1,6 @@
 #include "diagnostics/DiagnosticReport.h"
 
-#include "BuildInfo.h"
+#include "build_info.h"
 #include "diagnostics/DiagnosticLogger.h"
 #include "diagnostics/DiagnosticPaths.h"
 
@@ -121,12 +121,17 @@ std::string OperatingSystemDescription() {
 
 // Appends build and runtime metadata to a diagnostic text stream.
 void AppendSystemInfo(std::ostringstream &stream) {
-  stream << "Perastage version: " << build_info::kVersionDisplay << '\n';
-  stream << "Git commit: " << build_info::kGitCommit << '\n';
-  stream << "Build timestamp: " << build_info::kBuildTimestampUtc << '\n';
-  stream << "Build type: " << build_info::kBuildType << '\n';
-  stream << "Target platform: " << build_info::kTargetPlatform << '\n';
-  stream << "Compiler: " << build_info::kCompiler << '\n';
+  stream << "Perastage version: "
+         << perastage::build_info::appVersionDisplay() << '\n';
+  stream << "Git commit: " << perastage::build_info::gitCommit() << '\n';
+  stream << "Build timestamp: "
+         << perastage::build_info::buildTimestampUtc() << '\n';
+  stream << "Build type: " << perastage::build_info::buildConfiguration()
+         << '\n';
+  stream << "Target platform: " << perastage::build_info::targetPlatform()
+         << '\n';
+  stream << "Compiler: " << perastage::build_info::compilerDescription()
+         << '\n';
   stream << "Operating system: " << OperatingSystemDescription() << '\n';
   stream << "wxWidgets version: " << WxVersionString() << '\n';
 

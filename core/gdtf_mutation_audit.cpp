@@ -1,6 +1,7 @@
 #include "gdtf_mutation_audit.h"
 
 #include "app_version.h"
+#include "build_info.h"
 
 #include <chrono>
 #include <ctime>
@@ -142,7 +143,8 @@ tinyxml2::XMLElement *EnsureRevisionsNode(tinyxml2::XMLElement *fixtureType,
 
 // Builds the standard ModifiedBy value for Perastage-authored GDTF revisions.
 std::string BuildPerastageModifiedBy() {
-  return std::string("Perastage ") + app::kVersion;
+  return std::string("Perastage ") +
+         std::string(perastage::build_info::appVersion());
 }
 
 // Checks whether an equivalent Perastage revision already exists.

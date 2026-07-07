@@ -1,5 +1,6 @@
 #include "splashscreen.h"
 #include "app_version.h"
+#include "build_info.h"
 #include "logger.h"
 #include "projectutils.h"
 #include <algorithm>
@@ -136,8 +137,9 @@ void SplashScreen::Show() {
 
   wxBitmap logoBmp = BuildSplashBitmap();
   wxStaticBitmap *logo = new wxStaticBitmap(panel, wxID_ANY, logoBmp);
-  const wxString appInfoText = wxString::FromUTF8(app::kName) + " " +
-                               wxString::FromUTF8(app::kVersionDisplay);
+  const wxString appInfoText =
+      wxString::FromUTF8(app::kName) + " " +
+      wxString::FromUTF8(perastage::build_info::appVersionDisplay().data());
   wxStaticText *appInfoLabel =
       new wxStaticText(panel, wxID_ANY, appInfoText, wxDefaultPosition,
                        wxDefaultSize, wxALIGN_CENTER);

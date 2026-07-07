@@ -17,6 +17,7 @@
  */
 #include "mvrexporter.h"
 #include "app_version.h"
+#include "build_info.h"
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
 #include "filesystem_path_utils.h"
@@ -995,7 +996,7 @@ static bool ValidateMvr16Export(
     return false;
   }
   if (std::string(providerVersion) == "1.0" &&
-      std::string(app::kVersion) != "1.0") {
+      std::string(perastage::build_info::appVersion()) != "1.0") {
     wxLogError("MVR export validation failed: providerVersion fell back to 1.0 "
                "instead of the Perastage app version");
     return false;
@@ -2895,7 +2896,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   root->SetAttribute("verMajor", 1);
   root->SetAttribute("verMinor", 6);
   root->SetAttribute("provider", kMvrProvider);
-  root->SetAttribute("providerVersion", app::kVersion);
+  root->SetAttribute("providerVersion",
+                     perastage::build_info::appVersion().data());
   doc.InsertEndChild(root);
 
   if (HasLayerAppearanceMetadata(scene)) {

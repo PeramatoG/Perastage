@@ -1,6 +1,7 @@
 #include "app_update_service.h"
 
 #include "app_version.h"
+#include "build_info.h"
 #include "json.hpp"
 
 #include <curl/curl.h>
@@ -89,7 +90,9 @@ CheckResult AppUpdateService::CheckForUpdates() const {
 }
 
 // Returns the canonical version string embedded at build time.
-std::string AppUpdateService::ReadCurrentVersion() const { return app::kVersion; }
+std::string AppUpdateService::ReadCurrentVersion() const {
+  return std::string(perastage::build_info::appVersion());
+}
 
 // Retrieves the latest non-draft, non-prerelease GitHub release and extracts its fields.
 bool AppUpdateService::QueryLatestStableRelease(std::string &versionOut,

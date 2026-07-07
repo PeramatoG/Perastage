@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "BuildInfo.h"
+#include "build_info.h"
 #include "filesystem_path_utils.h"
 #include "app_version.h"
 #include "configmanager.h"
@@ -260,10 +260,12 @@ bool MyApp::OnInit() {
   diagnostics::DiagnosticLogger::Initialize();
   diagnostics::CrashHandler::Initialize();
   diagnostics::DiagnosticLogger::Info(
-      std::string("Perastage startup: version=") + build_info::kVersionDisplay +
-      " commit=" + build_info::kGitCommit +
-      " build_type=" + build_info::kBuildType +
-      " platform=" + build_info::kTargetPlatform +
+      std::string("Perastage startup: version=") +
+      std::string(perastage::build_info::appVersionDisplay()) +
+      " commit=" + std::string(perastage::build_info::gitCommit()) +
+      " build_type=" +
+      std::string(perastage::build_info::buildConfiguration()) +
+      " platform=" + std::string(perastage::build_info::targetPlatform()) +
       " text_locale=" + localeSetup.activeLocale);
   if (!localeSetup.note.empty())
     diagnostics::DiagnosticLogger::Warning("Startup text locale: " + localeSetup.note);

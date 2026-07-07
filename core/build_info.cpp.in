@@ -1,0 +1,41 @@
+#include "build_info.h"
+
+#ifndef PERASTAGE_BUILD_CONFIGURATION
+#define PERASTAGE_BUILD_CONFIGURATION "@PERASTAGE_BUILD_TYPE_TEXT@"
+#endif
+
+namespace perastage::build_info {
+namespace {
+constexpr std::string_view kAppVersion = "@PERASTAGE_APP_VERSION@";
+constexpr std::string_view kAppVersionDisplay =
+    "@PERASTAGE_APP_VERSION_DISPLAY@";
+constexpr std::string_view kGitCommit = "@PERASTAGE_GIT_COMMIT@";
+constexpr std::string_view kBuildTimestampUtc =
+    "@PERASTAGE_BUILD_TIMESTAMP_UTC@";
+constexpr std::string_view kBuildConfiguration = PERASTAGE_BUILD_CONFIGURATION;
+constexpr std::string_view kTargetPlatform = "@PERASTAGE_TARGET_PLATFORM@";
+constexpr std::string_view kCompilerDescription = "@PERASTAGE_COMPILER_TEXT@";
+} // namespace
+
+// Returns the semantic application version embedded in this build.
+std::string_view appVersion() noexcept { return kAppVersion; }
+
+// Returns the user-facing application version embedded in this build.
+std::string_view appVersionDisplay() noexcept { return kAppVersionDisplay; }
+
+// Returns the Git commit identifier embedded in this build.
+std::string_view gitCommit() noexcept { return kGitCommit; }
+
+// Returns the UTC build timestamp embedded in this build.
+std::string_view buildTimestampUtc() noexcept { return kBuildTimestampUtc; }
+
+// Returns the build configuration embedded in this build.
+std::string_view buildConfiguration() noexcept { return kBuildConfiguration; }
+
+// Returns the target platform description embedded in this build.
+std::string_view targetPlatform() noexcept { return kTargetPlatform; }
+
+// Returns the compiler description embedded in this build.
+std::string_view compilerDescription() noexcept { return kCompilerDescription; }
+
+} // namespace perastage::build_info
