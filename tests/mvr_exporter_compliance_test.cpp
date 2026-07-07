@@ -18,6 +18,7 @@
 #include <wx/zipstrm.h>
 
 #include "app_version.h"
+#include "build_info.h"
 #include "configmanager.h"
 #include "fixture.h"
 #include "matrixutils.h"
@@ -187,7 +188,7 @@ static void AssertGeneratedGdtfVersioning(const fs::path &gdtfPath) {
   tinyxml2::XMLElement *revision = revisions->FirstChildElement("Revision");
   assert(revision != nullptr);
   const std::string expectedModifiedBy =
-      std::string("Perastage ") + app::kVersion;
+      std::string("Perastage ") + std::string(perastage::build_info::appVersion());
   assert(std::string(revision->Attribute("ModifiedBy")) == expectedModifiedBy);
 }
 
@@ -555,9 +556,9 @@ int main() {
   assert(root->IntAttribute("verMajor") == 1);
   assert(root->IntAttribute("verMinor") == 6);
   assert(std::string(root->Attribute("provider")) == "Perastage");
-  assert(std::string(root->Attribute("providerVersion")) == app::kVersion);
+  assert(std::string(root->Attribute("providerVersion")) == perastage::build_info::appVersion());
   assert(std::string(root->Attribute("providerVersion")) != "1.0" ||
-         std::string(app::kVersion) == "1.0");
+         std::string(perastage::build_info::appVersion()) == "1.0");
 
   assert(ReadFixtureUnitNumber(root, "unit-order-bottom") == 1);
   assert(ReadFixtureUnitNumber(root, "unit-order-left") == 2);
@@ -1185,7 +1186,7 @@ int main() {
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
         "provider=\"Perastage\" providerVersion=\"" +
-        std::string(app::kVersion) +
+        std::string(perastage::build_info::appVersion()) +
         "\"><Scene><Layers><Layer name=\"Default\"><ChildList>"
         "<SceneObject uuid=\"" +
         legacyPrimitiveUuid +
@@ -1225,7 +1226,7 @@ int main() {
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
         "provider=\"Perastage\" providerVersion=\"" +
-        std::string(app::kVersion) +
+        std::string(perastage::build_info::appVersion()) +
         "\">"
         "<UserData><Data provider=\"Perastage\" ver=\"" +
         std::string(kPerastageUserDataSchemaVersion) +

@@ -751,6 +751,7 @@ add_test(NAME MvrTrussRoundtripStructure COMMAND mvr_truss_roundtrip_structure_t
 set_library_env(MvrTrussRoundtripStructure)
 
 add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
+               ${PERASTAGE_GENERATED_BUILD_INFO_CPP}
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp

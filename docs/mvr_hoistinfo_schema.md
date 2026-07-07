@@ -42,5 +42,5 @@ Legacy `MotorInfo` payload blocks are still parsed and migrated internally to th
 
 ## Versioning policy
 
-- `GeneralSceneDescription@providerVersion` is exported from `app::kVersion` and identifies the Perastage application build that created the MVR file.
+- `GeneralSceneDescription@providerVersion` is exported from `perastage::build_info::appVersion()` and identifies the Perastage application build that created the MVR file.
 - `UserData/Data@ver` stays on the Perastage user-data schema version (`1.0`) and only changes when the Perastage custom payload schema changes.

@@ -41,7 +41,7 @@ Perastage appends `<Revision />` under `<FixtureType>/<Revisions>` and ensures `
 Perastage writes these attributes:
 
 - `Date`: UTC timestamp in ISO-8601 `YYYY-MM-DDTHH:MM:SSZ`.
-- `ModifiedBy`: caller-provided string, or default value returned by `BuildPerastageModifiedBy()` (`"Perastage " + app::kVersion`).
+- `ModifiedBy`: caller-provided string, or default value returned by `BuildPerastageModifiedBy()` (`"Perastage " + perastage::build_info::appVersion()`).
 - `Text`: human-readable action summary (for example: model color update, fixture symbol views applied, MVR export patch action).
   - Note: this remains an example because MVR export patching can still record color-related patch actions in the exported temporary copy, but the direct in-place model-color mutation API was removed.
 - `UserID`: integer; default `0`.

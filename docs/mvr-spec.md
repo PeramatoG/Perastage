@@ -146,7 +146,7 @@ The second XML node is the mandatory GeneralSceneDescription node. The attribute
 
 The current version of MVR reflected by this document is 1.6.
 
-Perastage exporter policy: `providerVersion` maps to the Perastage app version (`app::kVersion`), while custom `UserData/Data@ver` values version Perastage-owned payload schemas.
+Perastage exporter policy: `providerVersion` maps to the Perastage app version (`perastage::build_info::appVersion()`), while custom `UserData/Data@ver` values version Perastage-owned payload schemas.
 
 
 ##### Table 3 — *GeneralSceneDescription Node Children*

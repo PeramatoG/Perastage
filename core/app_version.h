@@ -21,15 +21,4 @@ namespace app {
 
 constexpr const char *kName = "Perastage";
 
-#ifndef PERASTAGE_APP_VERSION
-#define PERASTAGE_APP_VERSION "1.0.0"
-#endif
-
-#ifndef PERASTAGE_APP_VERSION_DISPLAY
-#define PERASTAGE_APP_VERSION_DISPLAY "1.0.0"
-#endif
-
-constexpr const char *kVersion = PERASTAGE_APP_VERSION;
-constexpr const char *kVersionDisplay = PERASTAGE_APP_VERSION_DISPLAY;
-
 } // namespace app

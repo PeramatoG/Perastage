@@ -144,13 +144,15 @@ else()
 endif()
 set(PERASTAGE_TARGET_PLATFORM "${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
 set(PERASTAGE_COMPILER_TEXT "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+set(PERASTAGE_GENERATED_BUILD_INFO_CPP "${CMAKE_BINARY_DIR}/generated/build_info.cpp")
 configure_file(
-    "${CMAKE_SOURCE_DIR}/cmake/BuildInfo.h.in"
-    "${CMAKE_BINARY_DIR}/generated/BuildInfo.h"
+    "${CMAKE_SOURCE_DIR}/core/build_info.cpp.in"
+    "${PERASTAGE_GENERATED_BUILD_INFO_CPP}"
     @ONLY
 )
 
 add_executable(${PROJECT_NAME} main.cpp
+    "${PERASTAGE_GENERATED_BUILD_INFO_CPP}"
     models/fixture.cpp
     models/continuous_placement_scene.cpp
     models/layer.cpp
@@ -213,15 +215,12 @@ if(APPLE)
 endif()
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
-target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_BINARY_DIR}/generated
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API=1
 )
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE
-    PERASTAGE_APP_VERSION="${PERASTAGE_APP_VERSION}"
-    PERASTAGE_APP_VERSION_DISPLAY="${PERASTAGE_APP_VERSION_DISPLAY}"
-    PERASTAGE_BUILD_CONFIGURATION="$<CONFIG>"
-    PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API=1
+set_source_files_properties("${PERASTAGE_GENERATED_BUILD_INFO_CPP}" PROPERTIES
+    COMPILE_DEFINITIONS "PERASTAGE_BUILD_CONFIGURATION=\"$<CONFIG>\""
 )
 
 if(MSVC)
@@ -401,11 +400,11 @@ if(WIN32)
     set(PERASTAGE_VCPKG_RELEASE_DLLS "")
     set(PERASTAGE_VCPKG_DEBUG_DLLS "")
     foreach(_vcpkg_bin IN LISTS PERASTAGE_VCPKG_BIN_DIRS)
-        file(GLOB _vcpkg_bin_dlls CONFIGURE_DEPENDS "${_vcpkg_bin}/*.dll")
+        file(GLOB _vcpkg_bin_dlls "${_vcpkg_bin}/*.dll")
         list(APPEND PERASTAGE_VCPKG_RELEASE_DLLS ${_vcpkg_bin_dlls})
     endforeach()
     foreach(_vcpkg_debug_bin IN LISTS PERASTAGE_VCPKG_DEBUG_BIN_DIRS)
-        file(GLOB _vcpkg_debug_bin_dlls CONFIGURE_DEPENDS "${_vcpkg_debug_bin}/*.dll")
+        file(GLOB _vcpkg_debug_bin_dlls "${_vcpkg_debug_bin}/*.dll")
         list(APPEND PERASTAGE_VCPKG_DEBUG_DLLS ${_vcpkg_debug_bin_dlls})
     endforeach()
     list(REMOVE_DUPLICATES PERASTAGE_VCPKG_RELEASE_DLLS)
@@ -459,7 +458,7 @@ if(WIN32)
 
     set(PERASTAGE_WX_RUNTIME_DLLS "")
     foreach(wx_pattern IN LISTS PERASTAGE_WX_DLL_PATTERNS)
-        file(GLOB PERASTAGE_WX_GLOB CONFIGURE_DEPENDS "${wx_pattern}")
+        file(GLOB PERASTAGE_WX_GLOB "${wx_pattern}")
         list(APPEND PERASTAGE_WX_RUNTIME_DLLS ${PERASTAGE_WX_GLOB})
     endforeach()
     list(REMOVE_DUPLICATES PERASTAGE_WX_RUNTIME_DLLS)

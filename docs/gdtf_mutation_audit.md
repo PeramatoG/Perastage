@@ -26,7 +26,7 @@ legacy shape and semantics of Perastage mutation metadata (for example the
 
 ## Relationship with Perastage app version
 
-Each standard GDTF revision uses `ModifiedBy="Perastage " + app::kVersion`.
+Each standard GDTF revision uses `ModifiedBy="Perastage " + perastage::build_info::appVersion()`.
 In short:
 
 - **GDTF DataVersion** = GDTF compatibility version, for example `1.2`.

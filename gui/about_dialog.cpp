@@ -18,6 +18,7 @@
 #include "about_dialog.h"
 
 #include "app_version.h"
+#include "build_info.h"
 
 #include <initializer_list>
 
@@ -120,8 +121,9 @@ wxSizer *CreateAboutContent(wxDialog *dialog) {
 
   auto *contentSizer = new wxBoxSizer(wxVERTICAL);
 
-  const wxString titleText = wxString::FromUTF8(app::kName) + " " +
-                             wxString::FromUTF8(app::kVersionDisplay);
+  const wxString titleText =
+      wxString::FromUTF8(app::kName) + " " +
+      wxString::FromUTF8(perastage::build_info::appVersionDisplay().data());
   auto *title = new wxStaticText(dialog, wxID_ANY, titleText);
   wxFont titleFont = title->GetFont();
   titleFont.MakeBold();

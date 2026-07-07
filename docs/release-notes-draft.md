@@ -128,6 +128,7 @@ sudo pacman -U Perastage-1.4.0-arch-x86_64.pkg.tar.zst
 If you encounter any problems installing or running Perastage, please open an issue on GitHub or contact the developer. Including a diagnostic report (available from the Help menu) makes it much easier to investigate problems.
 
 ## Internal changes
+- Isolated volatile build version and diagnostic metadata into a dedicated build-info translation unit so version-only changes no longer force broad C++ recompilation.
 - Moved GDTF metadata summary loading into the shared core layer and documented the current GDTF editor architecture boundaries for future reusable editor work.
 
 - Moved the high-level repository map into the documentation tree and aligned repository layout references and guard checks with the current module structure.

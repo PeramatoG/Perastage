@@ -24,6 +24,7 @@
 #include <wx/notebook.h>
 
 #include "app_version.h"
+#include "build_info.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "highlight_status_bar.h"
@@ -448,7 +449,10 @@ void MainWindow::SetupLayout() {
   SetStatusWidths(3, statusWidths);
   SetStatusText("Ready", 0);
   SetStatusText("X: -- m  Y: -- m  Z: -- m", 1);
-  SetStatusText("Version " + wxString::FromUTF8(app::kVersionDisplay), 2);
+  SetStatusText("Version " +
+                    wxString::FromUTF8(
+                        perastage::build_info::appVersionDisplay().data()),
+                2);
 
   // Ensure the View menu reflects the actual pane visibility
   UpdateViewMenuChecks();
