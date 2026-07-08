@@ -39,9 +39,11 @@ public:
 private:
   wxString ValueOrFallback(const std::string &value) const;
   void SetValues(const std::array<wxString, 8> &values);
-  void RewrapValueLabels();
+  void RewrapValueLabels(bool force = false);
   int WrapWidth() const;
 
   wxTextCtrl *descriptionCtrl = nullptr;
   std::array<wxStaticText *, 8> valueLabels{};
+  std::array<wxString, 8> currentValues{};
+  int lastAppliedWrapWidth = -1;
 };

@@ -26,7 +26,8 @@
 namespace {
 constexpr const char *kUnavailableValue = "-";
 constexpr int kDescriptionHeight = 90;
-constexpr int kMinimumWrapWidth = 300;
+constexpr int kMinimumValueWrapWidth = 120;
+constexpr int kInitialValueWrapWidth = 300;
 constexpr int kLabelColumnWidth = 110;
 constexpr int kSizerPadding = 24;
 
@@ -40,6 +41,8 @@ std::array<wxString, 8> MetadataFieldLabels() {
 // Builds the reusable read-only GDTF metadata presentation panel.
 GdtfMetadataPanel::GdtfMetadataPanel(wxWindow *parent)
     : wxPanel(parent, wxID_ANY) {
+  currentValues.fill(wxString(kUnavailableValue));
+
   wxFlexGridSizer *grid = new wxFlexGridSizer(2, 4, 8);
   grid->AddGrowableCol(1, 1);
 
@@ -52,7 +55,8 @@ GdtfMetadataPanel::GdtfMetadataPanel(wxWindow *parent)
                                        wxDefaultPosition,
                                        wxSize(-1, kDescriptionHeight),
                                        wxTE_MULTILINE | wxTE_READONLY);
-      descriptionCtrl->SetMinSize(wxSize(kMinimumWrapWidth, kDescriptionHeight));
+      descriptionCtrl->SetMinSize(
+          wxSize(kInitialValueWrapWidth, kDescriptionHeight));
       descriptionCtrl->ShowPosition(0);
       valueLabels[i] = nullptr;
       grid->Add(descriptionCtrl, 1, wxEXPAND);
@@ -60,7 +64,7 @@ GdtfMetadataPanel::GdtfMetadataPanel(wxWindow *parent)
     }
 
     valueLabels[i] = new wxStaticText(this, wxID_ANY, kUnavailableValue);
-    valueLabels[i]->Wrap(kMinimumWrapWidth);
+    valueLabels[i]->Wrap(kInitialValueWrapWidth);
     grid->Add(valueLabels[i], 1, wxEXPAND);
   }
 
@@ -100,33 +104,37 @@ wxString GdtfMetadataPanel::ValueOrFallback(const std::string &value) const {
 
 // Replaces all displayed metadata values and refreshes layout.
 void GdtfMetadataPanel::SetValues(const std::array<wxString, 8> &values) {
-  for (size_t i = 0; i < valueLabels.size() && i < values.size(); ++i) {
-    if (i == 1 && descriptionCtrl) {
-      descriptionCtrl->SetValue(values[i]);
-      descriptionCtrl->ShowPosition(0);
-      continue;
-    }
-    if (valueLabels[i])
-      valueLabels[i]->SetLabel(values[i]);
+  currentValues = values;
+  if (descriptionCtrl) {
+    descriptionCtrl->SetValue(currentValues[1]);
+    descriptionCtrl->ShowPosition(0);
   }
-  RewrapValueLabels();
+  RewrapValueLabels(true);
   Layout();
 }
 
-// Rewraps static metadata values using the current panel width.
-void GdtfMetadataPanel::RewrapValueLabels() {
+// Rewraps static metadata values from their stored unwrapped text.
+void GdtfMetadataPanel::RewrapValueLabels(bool force) {
   const int width = WrapWidth();
-  for (wxStaticText *label : valueLabels) {
-    if (label)
-      label->Wrap(width);
+  if (!force && width == lastAppliedWrapWidth)
+    return;
+
+  lastAppliedWrapWidth = width;
+  for (size_t i = 0; i < valueLabels.size(); ++i) {
+    wxStaticText *label = valueLabels[i];
+    if (!label)
+      continue;
+    label->SetLabel(currentValues[i]);
+    label->Wrap(width);
   }
 }
 
-// Computes a stable wrap width for long metadata values.
+// Computes a stable wrap width for the current value column.
 int GdtfMetadataPanel::WrapWidth() const {
   const int clientWidth = GetClientSize().GetWidth();
   if (clientWidth <= 0)
-    return kMinimumWrapWidth;
-  return std::max(kMinimumWrapWidth,
-                  clientWidth - kLabelColumnWidth - kSizerPadding);
+    return kInitialValueWrapWidth;
+
+  const int valueWidth = clientWidth - kLabelColumnWidth - kSizerPadding;
+  return std::max(kMinimumValueWrapWidth, valueWidth);
 }

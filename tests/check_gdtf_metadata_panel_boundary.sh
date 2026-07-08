@@ -65,6 +65,28 @@ if ! rg -q "wxTE_MULTILINE \| wxTE_READONLY" "$panel_source"; then
   echo "Description control must remain multiline and read-only." >&2
   exit 1
 fi
+
+if ! rg -q "std::array<wxString, 8> currentValues" "$panel_header" || \
+   ! rg -q "currentValues = values" "$panel_source" || \
+   ! rg -q "label->SetLabel\(currentValues\[i\]\)" "$panel_source"; then
+  echo "GdtfMetadataPanel must rewrap from stored unwrapped presentation values." >&2
+  exit 1
+fi
+if ! rg -q "kMinimumValueWrapWidth = 120" "$panel_source" || \
+   ! rg -q "kInitialValueWrapWidth = 300" "$panel_source" || \
+   ! rg -q "std::max\(kMinimumValueWrapWidth, valueWidth\)" "$panel_source"; then
+  echo "GdtfMetadataPanel must use actual value-column width with a small safe lower bound." >&2
+  exit 1
+fi
+if ! rg -q "lastAppliedWrapWidth" "$panel_header" "$panel_source" || \
+   ! rg -q "if \(!force && width == lastAppliedWrapWidth\)" "$panel_source"; then
+  echo "GdtfMetadataPanel must avoid repeated same-width resize rewrites." >&2
+  exit 1
+fi
+if rg -q "std::max\(kMinimumWrapWidth" "$panel_source"; then
+  echo "GdtfMetadataPanel must not force a 300-pixel width for narrow value columns." >&2
+  exit 1
+fi
 if ! python3 - <<'PY'
 from pathlib import Path
 source = Path('gui/gdtf/gdtf_metadata_panel.cpp').read_text()

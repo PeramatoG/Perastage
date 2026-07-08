@@ -177,7 +177,7 @@ Final PR #2125 validation restored the legacy fixture-power fallback in the shar
 
 ## Checkpoint 05A reusable metadata panel start
 
-Checkpoint 05A starts the reusable GUI migration without creating the complete `GdtfEditorPanel`. `gui/gdtf/GdtfMetadataPanel` now owns only the read-only metadata presentation for manufacturer, description, creation date, UserID, ModifiedBy, revision, last modified, and version. It keeps unavailable or empty values displayed as `-`, preserves the multiline read-only description control, and handles value wrapping inside the panel.
+Checkpoint 05A starts the reusable GUI migration without creating the complete `GdtfEditorPanel`. `gui/gdtf/GdtfMetadataPanel` now owns only the read-only metadata presentation for manufacturer, description, creation date, UserID, ModifiedBy, revision, last modified, and version. It keeps unavailable or empty values displayed as `-`, preserves the multiline read-only description control, and handles reversible value wrapping inside the panel from stored unwrapped presentation values.
 
 Metadata source-path resolution remains owned by the existing host dialogs. `FixtureEditDialog` still resolves the current fixture GDTF path from its edit control or table row, and `TrussEditDialog` still resolves the current truss GDTF path through the scene truss resource reference. Metadata loading remains in `core/` through `LoadGdtfMetadataSummary(...)`; the reusable panel receives an already loaded `GdtfMetadataSummary` or an unavailable-state command.
 

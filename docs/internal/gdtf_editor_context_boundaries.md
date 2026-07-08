@@ -140,7 +140,7 @@ Checkpoint 03A did not originally modify the GDTF Share download or `AddFixtureF
 
 ## Checkpoint 05A reusable metadata presentation boundary
 
-Checkpoint 05A begins the reusable GUI migration by extracting `GdtfMetadataPanel` from the current Fixture Edit and Truss Edit dialogs. The panel is presentation-only: it owns the metadata labels, read-only multiline description control, unavailable-value fallback, and wrapping/layout behavior. It does not own project rows, table state, `ConfigManager`, scene objects, MVR state, viewer refresh, undo/redo, mutation, derivative creation, truss generation, startup routing, or file associations.
+Checkpoint 05A begins the reusable GUI migration by extracting `GdtfMetadataPanel` from the current Fixture Edit and Truss Edit dialogs. The panel is presentation-only: it owns the metadata labels, read-only multiline description control, unavailable-value fallback, and reversible wrapping/layout behavior based on stored unwrapped presentation values. It does not own project rows, table state, `ConfigManager`, scene objects, MVR state, viewer refresh, undo/redo, mutation, derivative creation, truss generation, startup routing, or file associations.
 
 Host dialogs continue to own source-path resolution and call `LoadGdtfMetadataSummary(...)` from `core/`. Fixture Edit and Truss Edit then pass the loaded `GdtfMetadataSummary` into the panel or call `SetUnavailable()` when loading fails. No mutation or apply semantics changed in this checkpoint, and the complete `GdtfEditorPanel` remains out of scope.
 
