@@ -20,6 +20,8 @@
 #include "configmanager.h"
 #include "fixturepreviewpanel.h"
 #include "gdtf/gdtf_metadata_panel.h"
+#include "gdtf/gdtf_physical_properties_panel.h"
+#include "gdtf/gdtf_type_identity_panel.h"
 #include "gdtf_metadata_summary.h"
 #include "gdtfdictionary.h"
 #include "guiconfigservices.h"
@@ -33,6 +35,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <optional>
 
 namespace {
 using TrussColumn = TrussTableColumns::Column;
@@ -80,25 +83,24 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
   wxStaticBoxSizer *metadataSizer =
       new wxStaticBoxSizer(wxVERTICAL, this, "GDTF metadata");
   wxFlexGridSizer *mvrGrid = new wxFlexGridSizer(2, 5, 5);
-  wxFlexGridSizer *gdtfGrid = new wxFlexGridSizer(2, 5, 5);
   mvrGrid->AddGrowableCol(1, 1);
-  gdtfGrid->AddGrowableCol(1, 1);
 
   auto *table = panel->table;
   ctrls.resize(panel->columnLabels.size(), nullptr);
   modifiedColumns.assign(panel->columnLabels.size(), false);
 
   for (size_t i = 0; i < panel->columnLabels.size(); ++i) {
+    if (IsGdtfTrussColumn(i))
+      continue;
     wxVariant value;
     table->GetValue(value, row, static_cast<unsigned int>(i));
     wxTextCtrl *control = new wxTextCtrl(this, wxID_ANY, value.GetString());
     control->Bind(wxEVT_TEXT,
                   [this, i](wxCommandEvent &) { MarkColumnModified(i); });
     ctrls[i] = control;
-    wxFlexGridSizer *grid = IsGdtfTrussColumn(i) ? gdtfGrid : mvrGrid;
-    grid->Add(new wxStaticText(this, wxID_ANY, panel->columnLabels[i]), 0,
-              wxALIGN_CENTER_VERTICAL);
-    grid->Add(control, 1, wxEXPAND);
+    mvrGrid->Add(new wxStaticText(this, wxID_ANY, panel->columnLabels[i]), 0,
+                 wxALIGN_CENTER_VERTICAL);
+    mvrGrid->Add(control, 1, wxEXPAND);
   }
 
   wxString crossSection;
@@ -109,19 +111,60 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
     if (it != scene.trusses.end())
       crossSection = wxString::FromUTF8(it->second.crossSection);
   }
-  crossSectionCtrl = new wxTextCtrl(this, wxID_ANY, crossSection);
-  crossSectionCtrl->Bind(
-      wxEVT_TEXT, [this](wxCommandEvent &) { crossSectionModified = true; });
-  gdtfGrid->Add(new wxStaticText(this, wxID_ANY, "Cross section"), 0,
-                wxALIGN_CENTER_VERTICAL);
-  gdtfGrid->Add(crossSectionCtrl, 1, wxEXPAND);
+
+  auto tableValue = [&](TrussColumn column) {
+    wxVariant value;
+    table->GetValue(value, row, ColumnIndex(column));
+    return std::string(value.GetString().ToUTF8());
+  };
+
+  typeIdentityPanel = new GdtfTypeIdentityPanel(this);
+  typeIdentityPanel->ConfigureFields({
+      {GdtfTypeIdentityField::Manufacturer, "Manufacturer",
+       tableValue(TrussColumn::Manufacturer)},
+      {GdtfTypeIdentityField::ModelName, "Model", tableValue(TrussColumn::Model)},
+  });
+  typeIdentityPanel->SetChangeCallback(
+      [this](GdtfTypeIdentityField field, const std::string &) {
+        if (field == GdtfTypeIdentityField::Manufacturer)
+          MarkColumnModified(ColumnIndex(TrussColumn::Manufacturer));
+        else if (field == GdtfTypeIdentityField::ModelName)
+          MarkColumnModified(ColumnIndex(TrussColumn::Model));
+      });
+
+  physicalPropertiesPanel = new GdtfPhysicalPropertiesPanel(this);
+  physicalPropertiesPanel->ConfigureFields({
+      {GdtfPhysicalPropertyField::Length, "Length",
+       tableValue(TrussColumn::Length)},
+      {GdtfPhysicalPropertyField::Width, "Width", tableValue(TrussColumn::Width)},
+      {GdtfPhysicalPropertyField::Height, "Height",
+       tableValue(TrussColumn::Height)},
+      {GdtfPhysicalPropertyField::Weight, "Weight",
+       tableValue(TrussColumn::Weight)},
+      {GdtfPhysicalPropertyField::CrossSection, "Cross section",
+       std::string(crossSection.ToUTF8())},
+  });
+  physicalPropertiesPanel->SetChangeCallback(
+      [this](GdtfPhysicalPropertyField field, const std::string &) {
+        if (field == GdtfPhysicalPropertyField::Length)
+          MarkColumnModified(ColumnIndex(TrussColumn::Length));
+        else if (field == GdtfPhysicalPropertyField::Width)
+          MarkColumnModified(ColumnIndex(TrussColumn::Width));
+        else if (field == GdtfPhysicalPropertyField::Height)
+          MarkColumnModified(ColumnIndex(TrussColumn::Height));
+        else if (field == GdtfPhysicalPropertyField::Weight)
+          MarkColumnModified(ColumnIndex(TrussColumn::Weight));
+        else if (field == GdtfPhysicalPropertyField::CrossSection)
+          crossSectionModified = true;
+      });
 
   metadataPanel = new GdtfMetadataPanel(this);
   metadataSizer->SetMinSize(wxSize(360, 190));
   metadataSizer->Add(metadataPanel, 1, wxEXPAND | wxALL, 6);
 
   mvrSizer->Add(mvrGrid, 1, wxEXPAND | wxALL, 6);
-  gdtfSizer->Add(gdtfGrid, 1, wxEXPAND | wxALL, 6);
+  gdtfSizer->Add(typeIdentityPanel, 0, wxEXPAND | wxALL, 6);
+  gdtfSizer->Add(physicalPropertiesPanel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 6);
   gdtfSizer->Add(
       new wxStaticText(this, wxID_ANY,
                        "Editing these fields creates or updates the truss "
@@ -287,9 +330,35 @@ void TrussEditDialog::ApplyChanges() {
   for (size_t i = 0; i < ctrls.size(); ++i) {
     if (!modifiedColumns[i])
       continue;
-    if (auto *control = wxDynamicCast(ctrls[i], wxTextCtrl))
+    if (i == static_cast<size_t>(ColumnIndex(TrussColumn::Manufacturer)) &&
+        typeIdentityPanel) {
+      auto value = typeIdentityPanel->GetFieldValue(
+          GdtfTypeIdentityField::Manufacturer);
+      panel->table->SetValue(
+          wxVariant(wxString::FromUTF8(value.value_or(std::string()).c_str())), row,
+          static_cast<unsigned int>(i));
+    } else if (i == static_cast<size_t>(ColumnIndex(TrussColumn::Model)) &&
+               typeIdentityPanel) {
+      auto value = typeIdentityPanel->GetFieldValue(GdtfTypeIdentityField::ModelName);
+      panel->table->SetValue(
+          wxVariant(wxString::FromUTF8(value.value_or(std::string()).c_str())), row,
+          static_cast<unsigned int>(i));
+    } else if (physicalPropertiesPanel && IsGdtfTrussColumn(i)) {
+      const auto field = i == static_cast<size_t>(ColumnIndex(TrussColumn::Length))
+                             ? GdtfPhysicalPropertyField::Length
+                         : i == static_cast<size_t>(ColumnIndex(TrussColumn::Width))
+                             ? GdtfPhysicalPropertyField::Width
+                         : i == static_cast<size_t>(ColumnIndex(TrussColumn::Height))
+                             ? GdtfPhysicalPropertyField::Height
+                             : GdtfPhysicalPropertyField::Weight;
+      auto value = physicalPropertiesPanel->GetFieldValue(field);
+      panel->table->SetValue(
+          wxVariant(wxString::FromUTF8(value.value_or(std::string()).c_str())), row,
+          static_cast<unsigned int>(i));
+    } else if (auto *control = wxDynamicCast(ctrls[i], wxTextCtrl)) {
       panel->table->SetValue(wxVariant(control->GetValue()), row,
                              static_cast<unsigned int>(i));
+    }
   }
 
   panel->UpdateSceneData(true);
@@ -303,8 +372,11 @@ void TrussEditDialog::ApplyChanges() {
       if (!hasTableChanges)
         GetDefaultGuiConfigServices().LegacyConfigManager().PushUndoState(
             "edit truss GDTF metadata");
-      it->second.crossSection =
-          std::string(crossSectionCtrl->GetValue().ToUTF8());
+      auto value = physicalPropertiesPanel
+                       ? physicalPropertiesPanel->GetFieldValue(
+                             GdtfPhysicalPropertyField::CrossSection)
+                       : std::optional<std::string>();
+      it->second.crossSection = value.value_or(std::string());
     }
   }
 

@@ -182,3 +182,19 @@ Checkpoint 05A starts the reusable GUI migration without creating the complete `
 Metadata source-path resolution remains owned by the existing host dialogs. `FixtureEditDialog` still resolves the current fixture GDTF path from its edit control or table row, and `TrussEditDialog` still resolves the current truss GDTF path through the scene truss resource reference. Metadata loading remains in `core/` through `LoadGdtfMetadataSummary(...)`; the reusable panel receives an already loaded `GdtfMetadataSummary` or an unavailable-state command.
 
 Fixture Edit and Truss Edit now share one metadata presentation component. Their Apply/OK behavior, physical-property mutation, derivative creation, truss GDTF generation, table writes, undo state, previews, viewer refresh, and hoist/load recalculation behavior are unchanged. The next approved reusable panel extraction is `GdtfPhysicalPropertiesPanel`.
+
+## Checkpoint 05 completion: reusable editor panels
+
+Checkpoint 05A introduced the reusable read-only `GdtfMetadataPanel`. Checkpoint 05B, 05C, and 05D complete the remaining reusable GDTF panel extraction for the current Fixture Edit and Truss Edit dialogs.
+
+- `GdtfPhysicalPropertiesPanel` presents typed physical/type fields using `GdtfPhysicalPropertyField` values for power consumption, weight, length, width, height, and cross section.
+- `GdtfTypeIdentityPanel` presents typed identity/source fields using `GdtfTypeIdentityField` values for fixture type name, manufacturer, model name, and source file reference.
+- `GdtfModesPanel` presents ordered mode selection, derived channel count, and read-only channel rows. It keeps exact mode strings and exposes only user mode-selection callbacks.
+
+Programmatic setters and panel configuration are non-notifying so dialog initialization, metadata refresh, source browsing updates, and post-apply refreshes do not create false modifications. User edits are reported through typed field callbacks and are translated by the host dialogs to the existing fixture or truss column semantics.
+
+Fixture Edit now composes metadata, type/source, physical properties, and modes as reusable GDTF panels. Category, visual color, MVR color, patch, transform, layer, hang position, fixture ID, and instance name remain host/project fields. Fixture physical writes, derivative creation, revision audit, shared type propagation, mode application, table resync, scene updates, hoist recalculation, and viewer refresh remain host-owned.
+
+Truss Edit now composes metadata, manufacturer/model identity, and physical/type fields as reusable GDTF panels. MVR instance fields remain outside common GDTF panels. Truss generation, table and scene update ordering, undo behavior, generated source/model updates, metadata refresh, preview refresh, and viewer refresh remain host-owned.
+
+Checkpoint 05 is complete after these reusable panels. Checkpoint 06 is next: compose the reusable panels into `GdtfEditorPanel` without introducing session/apply adapters yet.

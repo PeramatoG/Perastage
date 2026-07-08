@@ -22,6 +22,9 @@
 #include "fixturetable/fixture_table_columns.h"
 #include "fixturetablepanel.h"
 #include "gdtf/gdtf_metadata_panel.h"
+#include "gdtf/gdtf_modes_panel.h"
+#include "gdtf/gdtf_physical_properties_panel.h"
+#include "gdtf/gdtf_type_identity_panel.h"
 #include "gdtf_mutation_audit.h"
 #include "gdtf_metadata_summary.h"
 #include "gdtfdictionary.h"
@@ -280,8 +283,6 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       wxVERTICAL, this, "GDTF (shared for this fixture type)");
   wxFlexGridSizer *fixtureGrid = new wxFlexGridSizer(2, 5, 5);
   fixtureGrid->AddGrowableCol(1, 1);
-  wxFlexGridSizer *gdtfGrid = new wxFlexGridSizer(2, 5, 5);
-  gdtfGrid->AddGrowableCol(1, 1);
 
   auto *table = panel->table; // friend access
   ctrls.resize(panel->columnLabels.size(), nullptr);
@@ -291,17 +292,17 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   table->GetValue(initType, row, 2);
   originalType = initType.GetString();
 
-  const std::set<size_t> gdtfColumns = {2, 7, 8, 9, 16, 17, 18};
+  const std::set<size_t> gdtfColumns = {};
   auto addLabeledControl = [&](size_t index, wxWindow *controlWindow,
                                wxSizer *nestedSizer, bool isGdtfField) {
-    wxFlexGridSizer *targetGrid = isGdtfField ? gdtfGrid : fixtureGrid;
-    targetGrid->Add(
+    (void)isGdtfField;
+    fixtureGrid->Add(
         new wxStaticText(this, wxID_ANY, panel->columnLabels[index]), 0,
                     wxALIGN_CENTER_VERTICAL);
     if (nestedSizer)
-      targetGrid->Add(nestedSizer, 1, wxEXPAND);
+      fixtureGrid->Add(nestedSizer, 1, wxEXPAND);
     else
-      targetGrid->Add(controlWindow, 1, wxEXPAND);
+      fixtureGrid->Add(controlWindow, 1, wxEXPAND);
   };
 
   for (size_t i = 0; i < panel->columnLabels.size(); ++i) {
@@ -309,42 +310,8 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     table->GetValue(v, row, i);
     wxWindow *controlWindow = nullptr;
     wxSizer *nestedSizer = nullptr;
-    if (i == 7) {
-      wxString gdtfPath;
-      if ((size_t)row < panel->gdtfPaths.size())
-        gdtfPath = panel->gdtfPaths[row];
-      modeChoice = new wxChoice(this, wxID_ANY);
-      auto modes = GetGdtfModes(gdtfPath.ToStdString());
-      for (const auto &m : modes)
-        modeChoice->Append(wxString::FromUTF8(m));
-      int sel = modeChoice->FindString(v.GetString());
-      if (sel != wxNOT_FOUND)
-        modeChoice->SetSelection(sel);
-      modeChoice->Bind(wxEVT_CHOICE, [this, i](wxCommandEvent &) {
-        MarkColumnModified(i);
-        UpdateChannels(true);
-      });
-      ctrls[i] = modeChoice;
-      controlWindow = modeChoice;
-    } else if (i == 8) {
-      chCountCtrl =
-          new wxTextCtrl(this, wxID_ANY, v.GetString(), wxDefaultPosition,
-                         wxDefaultSize, wxTE_READONLY);
-      ctrls[i] = chCountCtrl;
-      controlWindow = chCountCtrl;
-    } else if (i == 9) {
-      wxBoxSizer *hs = new wxBoxSizer(wxHORIZONTAL);
-      modelCtrl = new wxTextCtrl(this, wxID_ANY);
-      if ((size_t)row < panel->gdtfPaths.size())
-        modelCtrl->SetValue(panel->gdtfPaths[row]);
-      modelCtrl->Bind(wxEVT_TEXT,
-                      [this, i](wxCommandEvent &) { MarkColumnModified(i); });
-      hs->Add(modelCtrl, 1, wxEXPAND | wxRIGHT, 5);
-      wxButton *browse = new wxButton(this, wxID_ANY, "...");
-      hs->Add(browse, 0);
-      browse->Bind(wxEVT_BUTTON, &FixtureEditDialog::OnBrowse, this);
-      ctrls[i] = modelCtrl;
-      nestedSizer = hs;
+    if (i == 2 || i == 7 || i == 8 || i == 9 || i == 16 || i == 17) {
+      continue;
     } else if (i == 18) {
       auto *category = new wxChoice(this, wxID_ANY);
       const wxArrayString values = {
@@ -390,33 +357,88 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     addLabeledControl(i, controlWindow, nestedSizer, gdtfColumns.count(i) > 0);
   }
 
-  if (ctrls.size() > 16) {
-    if (auto *powerCtrl = wxDynamicCast(ctrls[16], wxTextCtrl))
-      ParseFloatOrDefault(powerCtrl->GetValue(), originalPowerW);
-  }
-  if (ctrls.size() > 17) {
-    if (auto *weightCtrl = wxDynamicCast(ctrls[17], wxTextCtrl))
-      ParseFloatOrDefault(weightCtrl->GetValue(), originalWeightKg);
-  }
+
+  wxString initialGdtfPath;
+  if (static_cast<size_t>(row) < panel->gdtfPaths.size())
+    initialGdtfPath = panel->gdtfPaths[row];
+
+  wxVariant typeValue;
+  table->GetValue(typeValue, row, 2);
+  typeIdentityPanel = new GdtfTypeIdentityPanel(this);
+  typeIdentityPanel->ConfigureFields({
+      {GdtfTypeIdentityField::FixtureTypeName, "Type",
+       std::string(typeValue.GetString().ToUTF8())},
+      {GdtfTypeIdentityField::SourceFileReference, "Model file",
+       std::string(initialGdtfPath.ToUTF8()), true, true, true, "..."},
+  });
+  typeIdentityPanel->SetChangeCallback(
+      [this](GdtfTypeIdentityField field, const std::string &) {
+        if (field == GdtfTypeIdentityField::FixtureTypeName)
+          MarkColumnModified(FixtureTableColumns::ToIndex(
+              FixtureTableColumns::Column::Type));
+        else if (field == GdtfTypeIdentityField::SourceFileReference)
+          MarkColumnModified(FixtureTableColumns::ToIndex(
+              FixtureTableColumns::Column::ModelFile));
+      });
+  typeIdentityPanel->SetActionCallback(
+      [this](GdtfTypeIdentityField field) {
+        if (field == GdtfTypeIdentityField::SourceFileReference) {
+          wxCommandEvent event;
+          OnBrowse(event);
+        }
+      });
+
+  wxVariant powerValue;
+  wxVariant weightValue;
+  table->GetValue(powerValue, row, FixtureTableColumns::ToIndex(
+                                FixtureTableColumns::Column::Power));
+  table->GetValue(weightValue, row, FixtureTableColumns::ToIndex(
+                                 FixtureTableColumns::Column::Weight));
+  ParseFloatOrDefault(powerValue.GetString(), originalPowerW);
+  ParseFloatOrDefault(weightValue.GetString(), originalWeightKg);
+  physicalPropertiesPanel = new GdtfPhysicalPropertiesPanel(this);
+  physicalPropertiesPanel->ConfigureFields({
+      {GdtfPhysicalPropertyField::PowerConsumption, "Power",
+       std::string(powerValue.GetString().ToUTF8())},
+      {GdtfPhysicalPropertyField::Weight, "Weight",
+       std::string(weightValue.GetString().ToUTF8())},
+  });
+  physicalPropertiesPanel->SetChangeCallback(
+      [this](GdtfPhysicalPropertyField field, const std::string &) {
+        if (field == GdtfPhysicalPropertyField::PowerConsumption)
+          MarkColumnModified(FixtureTableColumns::ToIndex(
+              FixtureTableColumns::Column::Power));
+        else if (field == GdtfPhysicalPropertyField::Weight)
+          MarkColumnModified(FixtureTableColumns::ToIndex(
+              FixtureTableColumns::Column::Weight));
+      });
+
+  wxVariant modeValue;
+  table->GetValue(modeValue, row, FixtureTableColumns::ToIndex(
+                               FixtureTableColumns::Column::Mode));
+  modesPanel = new GdtfModesPanel(this);
+  modesPanel->SetModes(GetGdtfModes(std::string(initialGdtfPath.ToUTF8())));
+  modesPanel->SetSelectedMode(std::string(modeValue.GetString().ToUTF8()));
+  modesPanel->SetModeSelectionCallback([this](const std::string &) {
+    MarkColumnModified(FixtureTableColumns::ToIndex(
+        FixtureTableColumns::Column::Mode));
+    UpdateChannels(true);
+  });
 
   fixtureSpecificSizer->Add(fixtureGrid, 1, wxEXPAND | wxALL, 6);
 
   metadataPanel = new GdtfMetadataPanel(this);
   metadataSizer->Add(metadataPanel, 1, wxEXPAND | wxALL, 6);
 
-  gdtfGeneralSizer->Add(gdtfGrid, 1, wxEXPAND | wxALL, 6);
-  gdtfGeneralSizer->Add(
-      new wxStaticText(this, wxID_ANY,
-                       "Changes in this column update the GDTF file and append "
-                       "a GDTF revision entry."),
-      0, wxLEFT | wxRIGHT | wxBOTTOM, 6);
-
-  channelList = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
-                               wxSize(-1, 150), wxTE_MULTILINE | wxTE_READONLY);
-  gdtfGeneralSizer->Add(new wxStaticText(this, wxID_ANY, "Mode channels"), 0,
-                        wxLEFT | wxRIGHT | wxTOP, 6);
-  gdtfGeneralSizer->Add(channelList, 1, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND,
-                        6);
+  gdtfGeneralSizer->Add(typeIdentityPanel, 0, wxEXPAND | wxALL, 6);
+  gdtfGeneralSizer->Add(new wxStaticText(this, wxID_ANY,
+                                         "Type, source, and mode controls select project fixture context."),
+                        0, wxLEFT | wxRIGHT | wxBOTTOM, 6);
+  gdtfGeneralSizer->Add(physicalPropertiesPanel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 6);
+  gdtfGeneralSizer->Add(new wxStaticText(this, wxID_ANY,
+                                         "Power and weight edits update the GDTF file and append a revision entry."),
+                        0, wxLEFT | wxRIGHT | wxBOTTOM, 6);
+  gdtfGeneralSizer->Add(modesPanel, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 6);
 
   wxBoxSizer *formSizer = new wxBoxSizer(wxHORIZONTAL);
   wxBoxSizer *leftColumnSizer = new wxBoxSizer(wxVERTICAL);
@@ -493,7 +515,7 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   if (fdlg.ShowModal() != wxID_OK)
     return;
   wxString path = fdlg.GetPath();
-  modelCtrl->SetValue(path);
+  typeIdentityPanel->SetFieldValue(GdtfTypeIdentityField::SourceFileReference, std::string(path.ToUTF8()));
   MarkColumnModified(9);
   if (preview)
     preview->LoadFixture(std::string(path.ToUTF8()));
@@ -503,30 +525,31 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
         wxString::FromUTF8(GetGdtfFixtureName(std::string(path.ToUTF8())));
     if (typeName.empty())
       typeName = fdlg.GetFilename();
-    static_cast<wxTextCtrl *>(ctrls[2])->SetValue(typeName);
+    typeIdentityPanel->SetFieldValue(GdtfTypeIdentityField::FixtureTypeName, std::string(typeName.ToUTF8()));
     MarkColumnModified(2);
     float w = 0.f, p = 0.f;
     GetGdtfProperties(std::string(path.ToUTF8()), w, p);
     if (ctrls.size() > 16)
-      static_cast<wxTextCtrl *>(ctrls[16])->SetValue(
-          wxString::Format("%.1f", p));
+      physicalPropertiesPanel->SetFieldValue(
+          GdtfPhysicalPropertyField::PowerConsumption,
+          std::string(wxString::Format("%.1f", p).ToUTF8()));
     if (ctrls.size() > 16)
       MarkColumnModified(16);
     if (ctrls.size() > 17)
-      static_cast<wxTextCtrl *>(ctrls[17])->SetValue(
-          wxString::Format("%.2f", w));
+      physicalPropertiesPanel->SetFieldValue(
+          GdtfPhysicalPropertyField::Weight,
+          std::string(wxString::Format("%.2f", w).ToUTF8()));
     if (ctrls.size() > 17)
       MarkColumnModified(17);
   }
   // repopulate modes
-  if (modeChoice) {
-    modeChoice->Clear();
+  if (modesPanel) {
     auto modes = GetGdtfModes(std::string(path.ToUTF8()));
-    for (const auto &m : modes)
-      modeChoice->Append(wxString::FromUTF8(m));
-    if (!modeChoice->IsEmpty()) {
-      modeChoice->SetSelection(0);
-      MarkColumnModified(7);
+    modesPanel->SetModes(modes);
+    if (!modes.empty()) {
+      modesPanel->SetSelectedMode(modes.front());
+      MarkColumnModified(FixtureTableColumns::ToIndex(
+          FixtureTableColumns::Column::Mode));
     }
   }
   UpdateChannels(true);
@@ -625,7 +648,7 @@ void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
 }
 
 void FixtureEditDialog::UpdateVisualizers() {
-  wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  wxString gdtfPath = typeIdentityPanel ? wxString::FromUTF8(typeIdentityPanel->GetFieldValue(GdtfTypeIdentityField::SourceFileReference).value_or(std::string())) : wxString();
   if (gdtfPath.empty() && panel && row >= 0 &&
       static_cast<size_t>(row) < panel->gdtfPaths.size()) {
     gdtfPath = panel->gdtfPaths[row];
@@ -664,7 +687,7 @@ void FixtureEditDialog::UpdateVisualizers() {
 }
 
 void FixtureEditDialog::UpdateMetadataSummary() {
-  wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  wxString gdtfPath = typeIdentityPanel ? wxString::FromUTF8(typeIdentityPanel->GetFieldValue(GdtfTypeIdentityField::SourceFileReference).value_or(std::string())) : wxString();
   if (gdtfPath.empty() && panel && row >= 0 &&
       static_cast<size_t>(row) < panel->gdtfPaths.size()) {
     gdtfPath = panel->gdtfPaths[row];
@@ -681,56 +704,38 @@ void FixtureEditDialog::UpdateMetadataSummary() {
 }
 
 void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
-  wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  wxString gdtfPath = typeIdentityPanel ? wxString::FromUTF8(typeIdentityPanel->GetFieldValue(GdtfTypeIdentityField::SourceFileReference).value_or(std::string())) : wxString();
   if (gdtfPath.empty() && panel && row >= 0 &&
       static_cast<size_t>(row) < panel->gdtfPaths.size()) {
     gdtfPath = panel->gdtfPaths[row];
   }
-  wxString mode = modeChoice ? modeChoice->GetStringSelection() : wxString();
+  wxString mode = modesPanel ? wxString::FromUTF8(modesPanel->GetSelectedMode()) : wxString();
   if (preview)
     preview->LoadFixture(std::string(gdtfPath.ToUTF8()));
   if (gdtfPath.empty() || mode.empty()) {
-    channelList->SetValue("");
-    if (chCountCtrl)
-      chCountCtrl->SetValue("");
+    if (modesPanel)
+      modesPanel->ClearModeDetails();
     return;
   }
   auto channels = GetGdtfModeChannels(std::string(gdtfPath.ToUTF8()),
                                       std::string(mode.ToUTF8()));
-  wxString msg;
+  std::vector<GdtfModeChannelPresentation> channelRows;
   for (const auto &ch : channels) {
-    wxString func = wxString::FromUTF8(ch.function);
-    while (true) {
-      const int sectionStart = func.Find('[');
-      if (sectionStart == wxNOT_FOUND)
-        break;
-      const wxString remainder = func.Mid(static_cast<size_t>(sectionStart));
-      const int sectionEndRelative = remainder.Find(']');
-      if (sectionEndRelative == wxNOT_FOUND) {
-        func = func.Left(static_cast<size_t>(sectionStart));
-        break;
-      }
-      const size_t sectionEnd =
-          static_cast<size_t>(sectionStart + sectionEndRelative);
-      func = func.Left(static_cast<size_t>(sectionStart)) +
-             func.Mid(sectionEnd + 1);
-    }
-    func.Trim(true).Trim(false);
-    if (func.empty())
-      func = "-";
-    const wxString channelLabel =
-        ch.isVirtual ? wxString("V") : wxString::Format("%d", ch.channel);
-    msg += channelLabel + ": " + func + "\n";
+    channelRows.push_back({
+        ch.isVirtual ? std::string("V") :
+                       std::string(wxString::Format("%d", ch.channel).ToUTF8()),
+        FormatGdtfModeFunctionLabel(ch.function),
+    });
   }
-  channelList->SetValue(msg);
+  if (modesPanel)
+    modesPanel->SetChannels(channelRows);
   int chCount = GetGdtfModeChannelCount(std::string(gdtfPath.ToUTF8()),
                                         std::string(mode.ToUTF8()));
-  if (chCountCtrl) {
-    chCountCtrl->SetValue(chCount >= 0 ? wxString::Format("%d", chCount)
-                                       : wxString());
-    if (markChannelCountDirty)
-      MarkColumnModified(8);
-  }
+  if (modesPanel)
+    modesPanel->SetChannelCount(chCount >= 0 ? std::string(wxString::Format("%d", chCount).ToUTF8()) : std::string());
+  if (markChannelCountDirty)
+    MarkColumnModified(FixtureTableColumns::ToIndex(
+        FixtureTableColumns::Column::ChannelCount));
 }
 
 void FixtureEditDialog::OnApply(wxCommandEvent &) { ApplyChanges(); }
@@ -746,7 +751,7 @@ void FixtureEditDialog::ApplyChanges() {
   if (!panel)
     return;
   auto *table = panel->table;
-  wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+  wxString gdtfPath = typeIdentityPanel ? wxString::FromUTF8(typeIdentityPanel->GetFieldValue(GdtfTypeIdentityField::SourceFileReference).value_or(std::string())) : wxString();
 
   std::vector<std::string> oldOrder = panel->rowUuids;
   std::vector<std::string> selectedUuids;
@@ -762,16 +767,38 @@ void FixtureEditDialog::ApplyChanges() {
   for (size_t i = 0; i < ctrls.size(); ++i) {
     if (i >= modifiedColumns.size() || !modifiedColumns[i])
       continue;
-    if (i == 7 && modeChoice) {
-      table->SetValue(wxVariant(modeChoice->GetStringSelection()), row, i);
-    } else if (i == 8 && chCountCtrl) {
-      table->SetValue(wxVariant(chCountCtrl->GetValue()), row, i);
-    } else if (i == 9 && modelCtrl) {
+    if (i == 7 && modesPanel) {
+      table->SetValue(wxVariant(wxString::FromUTF8(modesPanel->GetSelectedMode())), row, i);
+    } else if (i == 8 && modesPanel) {
+      int chCount = GetGdtfModeChannelCount(std::string(gdtfPath.ToUTF8()),
+                                            modesPanel->GetSelectedMode());
+      table->SetValue(wxVariant(chCount >= 0 ? wxString::Format("%d", chCount)
+                                             : wxString()),
+                      row, i);
+    } else if (i == 9 && typeIdentityPanel) {
       wxFileName fn(gdtfPath);
       table->SetValue(wxVariant(fn.GetFullName()), row, i);
       if ((size_t)row >= panel->gdtfPaths.size())
         panel->gdtfPaths.resize(row + 1);
       panel->gdtfPaths[row] = gdtfPath;
+    } else if (i == 2 && typeIdentityPanel) {
+      auto value = typeIdentityPanel->GetFieldValue(
+          GdtfTypeIdentityField::FixtureTypeName);
+      table->SetValue(
+          wxVariant(wxString::FromUTF8(value.value_or(std::string()).c_str())), row,
+          i);
+    } else if (i == 16 && physicalPropertiesPanel) {
+      auto value = physicalPropertiesPanel->GetFieldValue(
+          GdtfPhysicalPropertyField::PowerConsumption);
+      table->SetValue(
+          wxVariant(wxString::FromUTF8(value.value_or(std::string()).c_str())), row,
+          i);
+    } else if (i == 17 && physicalPropertiesPanel) {
+      auto value = physicalPropertiesPanel->GetFieldValue(
+          GdtfPhysicalPropertyField::Weight);
+      table->SetValue(
+          wxVariant(wxString::FromUTF8(value.value_or(std::string()).c_str())), row,
+          i);
     } else if (i == 18) {
       auto *category = wxDynamicCast(ctrls[i], wxChoice);
       if (category)
@@ -844,10 +871,18 @@ void FixtureEditDialog::ApplyChanges() {
     if (ctrls.size() > 17) {
       float newPowerW = originalPowerW;
       float newWeightKg = originalWeightKg;
-      if (auto *powerCtrl = wxDynamicCast(ctrls[16], wxTextCtrl))
-        ParseFloatOrDefault(powerCtrl->GetValue(), newPowerW);
-      if (auto *weightCtrl = wxDynamicCast(ctrls[17], wxTextCtrl))
-        ParseFloatOrDefault(weightCtrl->GetValue(), newWeightKg);
+      if (physicalPropertiesPanel) {
+        ParseFloatOrDefault(
+            wxString::FromUTF8(physicalPropertiesPanel
+                                   ->GetFieldValue(GdtfPhysicalPropertyField::PowerConsumption)
+                                   .value_or(std::string())),
+            newPowerW);
+        ParseFloatOrDefault(
+            wxString::FromUTF8(physicalPropertiesPanel
+                                   ->GetFieldValue(GdtfPhysicalPropertyField::Weight)
+                                   .value_or(std::string())),
+            newWeightKg);
+      }
       const bool gdtfPhysicalChanged =
           std::fabs(newPowerW - originalPowerW) > 0.01f ||
           std::fabs(newWeightKg - originalWeightKg) > 0.01f;
@@ -860,8 +895,10 @@ void FixtureEditDialog::ApplyChanges() {
           if (derivative && !derivative->path.empty()) {
             writableGdtfPath = derivative->path;
             gdtfPath = wxString::FromUTF8(derivative->path);
-            if (modelCtrl)
-              modelCtrl->SetValue(gdtfPath);
+            if (typeIdentityPanel)
+              typeIdentityPanel->SetFieldValue(
+                  GdtfTypeIdentityField::SourceFileReference,
+                  std::string(gdtfPath.ToUTF8()));
             if (panel && row >= 0) {
               if (static_cast<size_t>(row) >= panel->gdtfPaths.size())
                 panel->gdtfPaths.resize(static_cast<size_t>(row) + 1);
@@ -890,11 +927,10 @@ void FixtureEditDialog::ApplyChanges() {
 
     if (gdtfMetadataChanged) {
       std::string mode =
-          modeChoice ? std::string(modeChoice->GetStringSelection().ToUTF8())
-                     : std::string();
+          modesPanel ? modesPanel->GetSelectedMode() : std::string();
       // Project fixture metadata edits stay project-scoped and do not promote
       // files into the user library.
-      panel->ApplyModeForGdtf(gdtfPath, wxString::FromUTF8(mode));
+      panel->ApplyModeForGdtf(gdtfPath, wxString::FromUTF8(mode.c_str()));
     }
   }
   if (fixtureColorChanged) {
