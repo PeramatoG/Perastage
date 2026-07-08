@@ -167,3 +167,13 @@ The composite does not change context semantics. `GdtfEditorContext`, `GdtfField
 Programmatic composite updates are non-notifying, including configuration changes, aggregate presentation replacement, unavailable-state refreshes, metadata updates, identity or physical field setters, and mode presentation updates. This keeps future Fixture Edit, Truss Edit, standalone read-only, and standalone editable hosts responsible for deciding when user intent should become an apply request.
 
 Current Fixture Edit and Truss Edit dialogs are intentionally not migrated in Checkpoint 06. Checkpoint 07 will migrate those dialogs to the composite while keeping source path resolution, loaders, derivative creation, truss generation, undo/redo, scene updates, viewer refresh, and hoist/load recalculation in the host layer.
+
+## Host composition boundary after Checkpoint 07
+
+Checkpoint 07 migrates Fixture Edit and Truss Edit from direct reusable child-panel ownership to `GdtfEditorPanel`. Each host dialog now owns exactly one composite panel, while the composite remains the only GUI owner of the metadata, type identity, physical properties, and modes child panels.
+
+Fixture Edit configures metadata, fixture type/source identity, power/weight physical properties, and modes/channels as visible composite sections. Truss Edit configures metadata, manufacturer/model identity, and physical dimensions/weight/cross-section sections while hiding modes/channels. Hidden sections consume no host layout space, and programmatic composite updates remain non-notifying.
+
+The migration does not move host context decisions into the composite. Fixture Edit still owns fixture source-path fallback, GDTF browsing, preview, symbols, thumbnail, mode application, table writes, derivative creation, physical-property mutation, revision/audit behavior, shared-property propagation, undo, hoist/load recalculation prompts, and Viewer2D/Viewer3D refresh. Truss Edit still owns resource resolution, geometry-only preview behavior, truss GDTF generation policy, model/source updates, scene mutation, undo, table reload, and viewer refresh.
+
+Direct `GdtfEditSession` binding and context/apply adapters remain intentionally deferred. Checkpoint 08 is the next controlled step and should introduce the adapter migration without changing the Checkpoint 07 host-composition ownership boundary.

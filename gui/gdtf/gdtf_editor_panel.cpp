@@ -138,6 +138,32 @@ void GdtfEditorPanel::SetModesPresentation(
   modesPanel->SetPresentation(presentation);
 }
 
+// Replaces the mode list without notifying callbacks.
+void GdtfEditorPanel::SetModes(const std::vector<std::string> &modes) {
+  modesPanel->SetModes(modes);
+}
+
+// Selects a mode without notifying callbacks.
+void GdtfEditorPanel::SetSelectedMode(const std::string &mode) {
+  modesPanel->SetSelectedMode(mode);
+}
+
+// Sets the derived channel count without notifying callbacks.
+void GdtfEditorPanel::SetChannelCount(const std::string &channelCount) {
+  modesPanel->SetChannelCount(channelCount);
+}
+
+// Sets the visible channel rows without notifying callbacks.
+void GdtfEditorPanel::SetChannels(
+    const std::vector<GdtfModeChannelPresentation> &channels) {
+  modesPanel->SetChannels(channels);
+}
+
+// Clears derived mode details without notifying callbacks.
+void GdtfEditorPanel::ClearModeDetails() {
+  modesPanel->ClearModeDetails();
+}
+
 // Enables or disables user mode selection.
 void GdtfEditorPanel::SetModeSelectionEnabled(bool enabled) {
   modesPanel->SetModeSelectionEnabled(enabled);

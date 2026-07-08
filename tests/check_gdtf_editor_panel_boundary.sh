@@ -44,7 +44,7 @@ for token in GdtfEditorPanelLayout GdtfEditorSectionConfiguration GdtfEditorPane
     exit 1
   fi
 done
-for api in Configure SetPresentation SetUnavailable SetIdentityChangeCallback SetIdentityActionCallback SetPhysicalPropertyChangeCallback SetModeSelectionCallback GetIdentityValue GetPhysicalPropertyValue GetSelectedMode SetIdentityValue SetPhysicalPropertyValue SetPhysicalPropertyValidation SetModesPresentation SetMetadata SetMetadataUnavailable; do
+for api in Configure SetPresentation SetUnavailable SetIdentityChangeCallback SetIdentityActionCallback SetPhysicalPropertyChangeCallback SetModeSelectionCallback GetIdentityValue GetPhysicalPropertyValue GetSelectedMode SetIdentityValue SetPhysicalPropertyValue SetPhysicalPropertyValidation SetModesPresentation SetModes SetSelectedMode SetChannelCount SetChannels ClearModeDetails SetMetadata SetMetadataUnavailable; do
   if ! rg -q "$api" "$panel_header"; then
     echo "Missing public forwarding API: $api" >&2
     exit 1
@@ -100,8 +100,34 @@ if rg -q "gdtf_editor_panel" "${child_files[@]}"; then
   echo "Reusable child panels must not depend on the composite panel." >&2
   exit 1
 fi
-if rg -q "GdtfEditorPanel" "$fixture_header" "$fixture_source" "$truss_header" "$truss_source"; then
-  echo "Fixture Edit and Truss Edit must not be migrated to GdtfEditorPanel in Checkpoint 06." >&2
+for header in "$fixture_header" "$truss_header"; do
+  if [[ $(rg -c "GdtfEditorPanel \*gdtfEditorPanel|GdtfEditorPanel\* gdtfEditorPanel" "$header") -ne 1 ]]; then
+    echo "${header} must own exactly one GdtfEditorPanel pointer." >&2
+    exit 1
+  fi
+done
+for source in "$fixture_source" "$truss_source"; do
+  if [[ $(rg -c "new GdtfEditorPanel\(this\)" "$source") -ne 1 ]]; then
+    echo "${source} must instantiate exactly one GdtfEditorPanel with wx parent ownership." >&2
+    exit 1
+  fi
+done
+for child in GdtfMetadataPanel GdtfTypeIdentityPanel GdtfPhysicalPropertiesPanel GdtfModesPanel; do
+  if rg -q "${child} \*|${child}\*|new ${child}\(" "$fixture_header" "$fixture_source" "$truss_header" "$truss_source"; then
+    echo "Host dialogs must not own or directly instantiate ${child}." >&2
+    exit 1
+  fi
+done
+if ! rg -q "gdtfConfiguration.modes.title = \"Modes and channels\"" "$fixture_source"; then
+  echo "Fixture Edit must keep the composite modes section visible with a host title." >&2
+  exit 1
+fi
+if ! rg -q "gdtfConfiguration.modes.visible = false" "$truss_source"; then
+  echo "Truss Edit must hide the composite modes section." >&2
+  exit 1
+fi
+if rg -q "gdtf/gdtf_(metadata|type_identity|physical_properties|modes)_panel\.h" "$fixture_source" "$truss_source"; then
+  echo "Host sources must not include obsolete direct child-panel headers." >&2
   exit 1
 fi
 
@@ -110,4 +136,4 @@ if rg -q "Fit\(" "$panel_source"; then
   exit 1
 fi
 
-echo "OK: GDTF editor panel composition boundary checks passed."
+echo "OK: GDTF editor panel Checkpoint 07 composition boundary checks passed."

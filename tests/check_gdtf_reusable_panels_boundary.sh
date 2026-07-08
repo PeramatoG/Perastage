@@ -29,16 +29,12 @@ if rg -q "ConfigManager|GuiConfigServices|FixtureTablePanel|TrussTablePanel|scen
   echo "Reusable GDTF panels must not depend on project, table, viewer, mutation, or editor-session services." >&2
   exit 1
 fi
-if ! rg -q "GdtfPhysicalPropertiesPanel\* physicalPropertiesPanel" gui/fixtureeditdialog.h gui/trusseditdialog.h; then
-  echo "Fixture and Truss edit dialogs must own the reusable physical properties panel." >&2
+if rg -q "GdtfPhysicalPropertiesPanel \*|GdtfPhysicalPropertiesPanel\*|GdtfTypeIdentityPanel \*|GdtfTypeIdentityPanel\*|GdtfModesPanel \*|GdtfModesPanel\*" gui/fixtureeditdialog.h gui/trusseditdialog.h; then
+  echo "Fixture and Truss edit dialogs must access reusable child panels through GdtfEditorPanel." >&2
   exit 1
 fi
-if ! rg -q "GdtfTypeIdentityPanel\* typeIdentityPanel|GdtfTypeIdentityPanel \*typeIdentityPanel" gui/fixtureeditdialog.h gui/trusseditdialog.h; then
-  echo "Fixture and Truss edit dialogs must own the reusable type identity panel." >&2
-  exit 1
-fi
-if ! rg -q "GdtfModesPanel\* modesPanel" gui/fixtureeditdialog.h; then
-  echo "Fixture edit dialog must own the reusable modes panel." >&2
+if ! rg -q "GdtfEditorPanel \*gdtfEditorPanel|GdtfEditorPanel\* gdtfEditorPanel" gui/fixtureeditdialog.h gui/trusseditdialog.h; then
+  echo "Fixture and Truss edit dialogs must own the reusable GdtfEditorPanel composite." >&2
   exit 1
 fi
 if rg -q "modeChoice|chCountCtrl|modelCtrl|channelList|crossSectionCtrl" gui/fixtureeditdialog.h gui/trusseditdialog.h; then

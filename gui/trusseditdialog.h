@@ -24,9 +24,7 @@
 #include <wx/wx.h>
 
 class FixturePreviewPanel;
-class GdtfMetadataPanel;
-class GdtfPhysicalPropertiesPanel;
-class GdtfTypeIdentityPanel;
+class GdtfEditorPanel;
 class TrussTablePanel;
 
 class TrussEditDialog : public wxDialog {
@@ -48,9 +46,7 @@ private:
   TrussTablePanel *panel = nullptr;
   int row = -1;
   std::vector<wxControl *> ctrls;
-  GdtfTypeIdentityPanel *typeIdentityPanel = nullptr;
-  GdtfPhysicalPropertiesPanel *physicalPropertiesPanel = nullptr;
-  GdtfMetadataPanel *metadataPanel = nullptr;
+  GdtfEditorPanel *gdtfEditorPanel = nullptr;
   FixturePreviewPanel *preview = nullptr;
   std::vector<bool> modifiedColumns;
   bool crossSectionModified = false;

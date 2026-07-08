@@ -34,9 +34,6 @@ class wxStaticBoxSizer;
 // Selects the top-level arrangement used by the reusable GDTF editor panel.
 enum class GdtfEditorPanelLayout { SingleColumn, TwoColumn };
 
-// Identifies configurable sections in the reusable GDTF editor panel.
-enum class GdtfEditorSection { Metadata, TypeIdentity, PhysicalProperties, Modes };
-
 struct GdtfEditorSectionConfiguration {
   bool visible = true;
   bool expanded = true;
@@ -87,6 +84,11 @@ public:
   void SetPhysicalPropertyValidation(GdtfPhysicalPropertyField field,
                                      const std::string &message);
   void SetModesPresentation(const GdtfModesPresentation &presentation);
+  void SetModes(const std::vector<std::string> &modes);
+  void SetSelectedMode(const std::string &mode);
+  void SetChannelCount(const std::string &channelCount);
+  void SetChannels(const std::vector<GdtfModeChannelPresentation> &channels);
+  void ClearModeDetails();
   void SetModeSelectionEnabled(bool enabled);
   void SetMetadata(const GdtfMetadataSummary &summary);
   void SetMetadataUnavailable();

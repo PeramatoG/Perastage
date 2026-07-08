@@ -26,18 +26,20 @@ if ! rg -q "void SetMetadata\(const GdtfMetadataSummary &summary\)" "$panel_head
   echo "GdtfMetadataPanel must expose the presentation-only SetMetadata/SetUnavailable API." >&2
   exit 1
 fi
-if ! rg -q "GdtfMetadataPanel\*? metadataPanel|GdtfMetadataPanel \*metadataPanel" "$fixture_header" || \
-   ! rg -q "GdtfMetadataPanel \*metadataPanel" "$truss_header"; then
-  echo "Fixture and Truss edit dialogs must own a GdtfMetadataPanel pointer." >&2
+if rg -q "GdtfMetadataPanel\*|GdtfMetadataPanel \*" "$fixture_header" "$truss_header"; then
+  echo "Fixture and Truss edit dialogs must not own GdtfMetadataPanel directly." >&2
+  exit 1
+fi
+if ! rg -q "GdtfEditorPanel \*gdtfEditorPanel|GdtfEditorPanel\* gdtfEditorPanel" "$fixture_header" "$truss_header"; then
+  echo "Fixture and Truss edit dialogs must receive metadata through GdtfEditorPanel." >&2
   exit 1
 fi
 if rg -q "metadataDescriptionCtrl|metadataValueLabels|metadataGrid|metadataLabels" "$fixture_header" "$fixture_source" "$truss_header" "$truss_source"; then
   echo "Fixture and Truss edit dialogs must not keep duplicated metadata controls or label grids." >&2
   exit 1
 fi
-if ! rg -q "new GdtfMetadataPanel\(this\)" "$fixture_source" || \
-   ! rg -q "new GdtfMetadataPanel\(this\)" "$truss_source"; then
-  echo "Both edit dialogs must construct GdtfMetadataPanel." >&2
+if rg -q "new GdtfMetadataPanel\(this\)" "$fixture_source" "$truss_source"; then
+  echo "Host dialogs must not construct GdtfMetadataPanel directly." >&2
   exit 1
 fi
 if [[ $(rg -c "UpdateMetadataSummary\(\);" "$fixture_source") -ne 2 ]]; then
