@@ -4,7 +4,10 @@
 #include <cctype>
 #include <cstdint>
 #include <exception>
+#include <fstream>
+#include <iterator>
 #include <memory>
+#include <optional>
 #include <system_error>
 
 #include <wx/string.h>
@@ -22,15 +25,157 @@ struct DescriptionCandidate {
 
 // Converts ASCII characters to lower case for stable archive-key comparison.
 std::string LowerAscii(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
-    return static_cast<char>(std::tolower(c));
-  });
+  std::transform(
+      value.begin(), value.end(), value.begin(),
+      [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   return value;
 }
 
+struct RawZipEntryName {
+  std::string bytes;
+  bool utf8Flag = false;
+};
+
+struct DecodedZipEntryName {
+  std::string path;
+  bool usedUtf8Fallback = false;
+  bool failed = false;
+};
+
+// Converts a filesystem path to UTF-8 text for wxWidgets file streams.
+std::string PathToUtf8(const std::filesystem::path &path) {
+  const std::u8string utf8 = path.u8string();
+  return std::string(utf8.begin(), utf8.end());
+}
+
+// Reports whether raw bytes contain only portable ASCII characters.
+bool IsAscii(const std::string &value) {
+  return std::all_of(value.begin(), value.end(),
+                     [](unsigned char c) { return c < 0x80; });
+}
+
+// Reports whether raw bytes are a well-formed UTF-8 sequence.
+bool IsValidUtf8(const std::string &value) {
+  size_t i = 0;
+  while (i < value.size()) {
+    const unsigned char c = static_cast<unsigned char>(value[i]);
+    size_t extra = 0;
+    uint32_t code = 0;
+    if (c <= 0x7F) {
+      ++i;
+      continue;
+    }
+    if ((c & 0xE0) == 0xC0) {
+      extra = 1;
+      code = c & 0x1F;
+      if (code == 0)
+        return false;
+    } else if ((c & 0xF0) == 0xE0) {
+      extra = 2;
+      code = c & 0x0F;
+    } else if ((c & 0xF8) == 0xF0) {
+      extra = 3;
+      code = c & 0x07;
+    } else
+      return false;
+    if (i + extra >= value.size())
+      return false;
+    for (size_t j = 1; j <= extra; ++j) {
+      const unsigned char t = static_cast<unsigned char>(value[i + j]);
+      if ((t & 0xC0) != 0x80)
+        return false;
+      code = (code << 6) | (t & 0x3F);
+    }
+    if ((extra == 1 && code < 0x80) || (extra == 2 && code < 0x800) ||
+        (extra == 3 && code < 0x10000) || code > 0x10FFFF ||
+        (code >= 0xD800 && code <= 0xDFFF))
+      return false;
+    i += extra + 1;
+  }
+  return true;
+}
+
+// Reads a little-endian 16-bit value from ZIP metadata.
+uint16_t ReadLe16(const std::vector<unsigned char> &data, size_t offset) {
+  return static_cast<uint16_t>(data[offset]) |
+         (static_cast<uint16_t>(data[offset + 1]) << 8);
+}
+
+// Reads a little-endian 32-bit value from ZIP metadata.
+uint32_t ReadLe32(const std::vector<unsigned char> &data, size_t offset) {
+  return static_cast<uint32_t>(data[offset]) |
+         (static_cast<uint32_t>(data[offset + 1]) << 8) |
+         (static_cast<uint32_t>(data[offset + 2]) << 16) |
+         (static_cast<uint32_t>(data[offset + 3]) << 24);
+}
+
+// Locates the ZIP end-of-central-directory record in bounded trailing data.
+std::optional<size_t>
+FindEndOfCentralDirectory(const std::vector<unsigned char> &data) {
+  if (data.size() < 22)
+    return std::nullopt;
+  const size_t maxComment = 0xffff;
+  const size_t minOffset =
+      data.size() > 22 + maxComment ? data.size() - 22 - maxComment : 0;
+  for (size_t i = data.size() - 22;; --i) {
+    if (ReadLe32(data, i) == 0x06054b50)
+      return i;
+    if (i == minOffset)
+      break;
+  }
+  return std::nullopt;
+}
+
+// Reads raw ZIP central-directory entry names before wxWidgets decodes them.
+std::vector<RawZipEntryName>
+ReadRawCentralDirectoryNames(const std::filesystem::path &path) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input)
+    return {};
+  std::vector<unsigned char> data((std::istreambuf_iterator<char>(input)), {});
+  const std::optional<size_t> eocdOffset = FindEndOfCentralDirectory(data);
+  if (!eocdOffset)
+    return {};
+
+  const uint16_t entryCount = ReadLe16(data, *eocdOffset + 10);
+  size_t i = ReadLe32(data, *eocdOffset + 16);
+  std::vector<RawZipEntryName> names;
+  for (uint16_t entryIndex = 0;
+       entryIndex < entryCount && i + 46 <= data.size(); ++entryIndex) {
+    if (ReadLe32(data, i) != 0x02014b50)
+      break;
+    const uint16_t flags = ReadLe16(data, i + 8);
+    const uint16_t nameLen = ReadLe16(data, i + 28);
+    const uint16_t extraLen = ReadLe16(data, i + 30);
+    const uint16_t commentLen = ReadLe16(data, i + 32);
+    if (i + 46u + nameLen + extraLen + commentLen > data.size())
+      break;
+    names.push_back(
+        {std::string(reinterpret_cast<const char *>(&data[i + 46]), nameLen),
+         (flags & (1u << 11)) != 0});
+    i += 46u + nameLen + extraLen + commentLen;
+  }
+  return names;
+}
+
+// Decodes one raw ZIP entry name according to GDTF compatibility policy.
+DecodedZipEntryName DecodeZipEntryName(const RawZipEntryName &raw) {
+  DecodedZipEntryName decoded;
+  if (raw.utf8Flag || !IsAscii(raw.bytes)) {
+    if (!IsValidUtf8(raw.bytes)) {
+      decoded.failed = true;
+      return decoded;
+    }
+    decoded.path = raw.bytes;
+    decoded.usedUtf8Fallback = !raw.utf8Flag && !IsAscii(raw.bytes);
+    return decoded;
+  }
+  decoded.path = raw.bytes;
+  return decoded;
+}
+
 // Normalizes ZIP entry names to archive-relative paths with forward slashes.
-std::string NormalizeArchivePath(const wxString &name) {
-  std::string path = name.ToUTF8().data();
+std::string NormalizeArchivePath(std::string path) {
   std::replace(path.begin(), path.end(), '\\', '/');
   while (path.rfind("./", 0) == 0)
     path.erase(0, 2);
@@ -39,14 +184,14 @@ std::string NormalizeArchivePath(const wxString &name) {
 
 // Reports whether a normalized archive path is unsafe to materialize or trust.
 bool IsUnsafeArchivePath(const std::string &path) {
-  if (path.empty() || path.front() == '/' || path.find(':') != std::string::npos)
+  if (path.empty() || path.front() == '/' ||
+      path.find(':') != std::string::npos)
     return true;
   size_t start = 0;
   while (start <= path.size()) {
     const size_t slash = path.find('/', start);
-    const std::string part =
-        path.substr(start, slash == std::string::npos ? std::string::npos
-                                                      : slash - start);
+    const std::string part = path.substr(
+        start, slash == std::string::npos ? std::string::npos : slash - start);
     if (part == "..")
       return true;
     if (slash == std::string::npos)
@@ -65,7 +210,8 @@ std::string ArchiveFileName(const std::string &path) {
 // Adds a structured diagnostic to the archive result.
 void AddDiagnostic(ArchiveReadResult &result, ArchiveDiagnosticCode code,
                    std::string message, std::string entryPath = {}) {
-  result.diagnostics.push_back({code, std::move(message), std::move(entryPath)});
+  result.diagnostics.push_back(
+      {code, std::move(message), std::move(entryPath)});
 }
 
 // Reports whether an archive diagnostic prevents a usable read result.
@@ -86,14 +232,21 @@ bool IsFatalDiagnostic(ArchiveDiagnosticCode code) {
   case ArchiveDiagnosticCode::EntryTooLarge:
   case ArchiveDiagnosticCode::FilesystemError:
   case ArchiveDiagnosticCode::UnexpectedException:
+  case ArchiveDiagnosticCode::FilenameDecodeFailed:
+  case ArchiveDiagnosticCode::FilenameEncodingAmbiguous:
     return true;
+  case ArchiveDiagnosticCode::Utf8FlagMissing:
+  case ArchiveDiagnosticCode::Utf8FallbackUsed:
+  case ArchiveDiagnosticCode::LegacyFilenameEncodingUsed:
+    return false;
   }
   return true;
 }
 
 // Selects description.xml using canonical-first tolerant read rules.
-void SelectDescriptionCandidate(ArchiveReadResult &result,
-                                const std::vector<DescriptionCandidate> &candidates) {
+void SelectDescriptionCandidate(
+    ArchiveReadResult &result,
+    const std::vector<DescriptionCandidate> &candidates) {
   std::vector<DescriptionCandidate> exactRoot;
   std::vector<DescriptionCandidate> rootCaseInsensitive;
   std::vector<DescriptionCandidate> nested;
@@ -109,9 +262,10 @@ void SelectDescriptionCandidate(ArchiveReadResult &result,
   }
 
   if (exactRoot.size() > 1) {
-    AddDiagnostic(result, ArchiveDiagnosticCode::DuplicateDescriptionXml,
-                  "The GDTF archive contains multiple canonical description.xml entries.",
-                  exactRoot.front().path);
+    AddDiagnostic(
+        result, ArchiveDiagnosticCode::DuplicateDescriptionXml,
+        "The GDTF archive contains multiple canonical description.xml entries.",
+        exactRoot.front().path);
     return;
   }
   if (!exactRoot.empty()) {
@@ -125,14 +279,16 @@ void SelectDescriptionCandidate(ArchiveReadResult &result,
     result.descriptionXml = rootCaseInsensitive.front().xml;
     result.descriptionEntryPath = rootCaseInsensitive.front().path;
     result.usedCompatibilityDescriptionFallback = true;
-    AddDiagnostic(result, ArchiveDiagnosticCode::NonCanonicalDescriptionXml,
-                  "Using non-standard root description.xml name for compatibility.",
-                  rootCaseInsensitive.front().path);
+    AddDiagnostic(
+        result, ArchiveDiagnosticCode::NonCanonicalDescriptionXml,
+        "Using non-standard root description.xml name for compatibility.",
+        rootCaseInsensitive.front().path);
     return;
   }
   if (rootCaseInsensitive.size() > 1) {
     AddDiagnostic(result, ArchiveDiagnosticCode::DuplicateDescriptionXml,
-                  "The GDTF archive contains multiple root case-insensitive description.xml entries.",
+                  "The GDTF archive contains multiple root case-insensitive "
+                  "description.xml entries.",
                   rootCaseInsensitive.front().path);
     return;
   }
@@ -142,14 +298,16 @@ void SelectDescriptionCandidate(ArchiveReadResult &result,
     result.descriptionEntryPath = nested.front().path;
     result.usedCompatibilityDescriptionFallback = true;
     AddDiagnostic(result, ArchiveDiagnosticCode::NonCanonicalDescriptionXml,
-                  "Using nested description.xml for compatibility; canonical GDTF stores it at the archive root.",
+                  "Using nested description.xml for compatibility; canonical "
+                  "GDTF stores it at the archive root.",
                   nested.front().path);
     return;
   }
   if (nested.size() > 1) {
-    AddDiagnostic(result, ArchiveDiagnosticCode::AmbiguousDescriptionXml,
-                  "The GDTF archive contains multiple nested description.xml candidates.",
-                  nested.front().path);
+    AddDiagnostic(
+        result, ArchiveDiagnosticCode::AmbiguousDescriptionXml,
+        "The GDTF archive contains multiple nested description.xml candidates.",
+        nested.front().path);
     return;
   }
 
@@ -172,6 +330,27 @@ bool ReadCurrentEntry(wxZipInputStream &zipInput, std::string &out,
     if (total > maxBytes)
       return false;
     out.append(buffer, buffer + count);
+  }
+  return zipInput.GetLastError() == wxSTREAM_NO_ERROR ||
+         zipInput.GetLastError() == wxSTREAM_EOF;
+}
+
+// Copies the current ZIP entry to disk with a bounded write loop.
+bool WriteCurrentEntry(wxZipInputStream &zipInput,
+                       const std::filesystem::path &outPath) {
+  std::ofstream output(outPath, std::ios::binary);
+  if (!output.is_open())
+    return false;
+
+  char buffer[4096];
+  while (true) {
+    zipInput.Read(buffer, sizeof(buffer));
+    const size_t count = zipInput.LastRead();
+    if (count == 0)
+      break;
+    output.write(buffer, static_cast<std::streamsize>(count));
+    if (!output.good())
+      return false;
   }
   return zipInput.GetLastError() == wxSTREAM_NO_ERROR ||
          zipInput.GetLastError() == wxSTREAM_EOF;
@@ -211,22 +390,42 @@ ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath) {
       return result;
     }
 
-    wxFileInputStream input(
-        wxString::FromUTF8(sourcePath.generic_string().c_str()));
+    wxFileInputStream input(wxString::FromUTF8(PathToUtf8(sourcePath)));
     if (!input.IsOk()) {
       AddDiagnostic(result, ArchiveDiagnosticCode::OpenFailed,
                     "Could not open GDTF archive.");
       return result;
     }
 
+    const std::vector<RawZipEntryName> rawNames =
+        ReadRawCentralDirectoryNames(sourcePath);
     wxZipInputStream zipInput(input);
     std::unique_ptr<wxZipEntry> entry;
+    size_t entryIndex = 0;
     std::vector<DescriptionCandidate> descriptionCandidates;
     while ((entry.reset(zipInput.GetNextEntry())), entry) {
-      const std::string entryPath = NormalizeArchivePath(entry->GetName());
+      DecodedZipEntryName decodedName;
+      if (entryIndex < rawNames.size()) {
+        decodedName = DecodeZipEntryName(rawNames[entryIndex]);
+      } else {
+        const wxScopedCharBuffer utf8 = entry->GetName().ToUTF8();
+        decodedName.path = utf8 ? std::string(utf8.data()) : std::string();
+      }
+      ++entryIndex;
+      std::string entryPath = NormalizeArchivePath(decodedName.path);
+      if (decodedName.failed) {
+        AddDiagnostic(
+            result, ArchiveDiagnosticCode::FilenameDecodeFailed,
+            "A GDTF archive entry filename could not be decoded safely.");
+        continue;
+      }
       ArchiveEntry inventoryEntry;
       inventoryEntry.path = entryPath;
       inventoryEntry.directory = entry->IsDir();
+      inventoryEntry.nameUsedUtf8CompatibilityFallback =
+          decodedName.usedUtf8Fallback;
+      if (decodedName.usedUtf8Fallback)
+        ++result.utf8FlagMissingEntryCount;
       const wxFileOffset size = entry->GetSize();
       if (size >= 0) {
         inventoryEntry.sizeKnown = true;
@@ -261,6 +460,14 @@ ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath) {
       }
     }
 
+    if (result.utf8FlagMissingEntryCount > 0) {
+      AddDiagnostic(result, ArchiveDiagnosticCode::Utf8FallbackUsed,
+                    "GDTF archive uses valid UTF-8 filenames without the ZIP "
+                    "UTF-8 flag; compatibility fallback applied to " +
+                        std::to_string(result.utf8FlagMissingEntryCount) +
+                        " entries.");
+    }
+
     if (result.entries.empty()) {
       AddDiagnostic(result, ArchiveDiagnosticCode::NoReadableEntries,
                     "The GDTF archive does not contain readable entries.");
@@ -270,7 +477,8 @@ ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath) {
       return result;
     }
     if (result.descriptionXml.empty() ||
-        result.descriptionXml.find_first_not_of(" \t\r\n") == std::string::npos) {
+        result.descriptionXml.find_first_not_of(" \t\r\n") ==
+            std::string::npos) {
       AddDiagnostic(result, ArchiveDiagnosticCode::EmptyDescriptionXml,
                     "description.xml is empty.", result.descriptionEntryPath);
       result.descriptionXml.clear();
@@ -292,6 +500,163 @@ ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath) {
                   "Unknown error while reading GDTF archive.");
   }
 
+  return result;
+}
+
+// Extracts a GDTF archive using the shared Unicode-safe entry-name policy.
+ArchiveReadResult
+ExtractGdtfArchive(const std::filesystem::path &sourcePath,
+                   const std::filesystem::path &destinationRoot) {
+  ArchiveReadResult result;
+  result.sourcePath = sourcePath;
+  try {
+    if (sourcePath.empty() || destinationRoot.empty()) {
+      AddDiagnostic(result, ArchiveDiagnosticCode::EmptySourcePath,
+                    "GDTF source or destination path is empty.");
+      return result;
+    }
+
+    std::error_code ec;
+    std::filesystem::create_directories(destinationRoot, ec);
+    if (ec) {
+      AddDiagnostic(result, ArchiveDiagnosticCode::FilesystemError,
+                    "Could not create GDTF extraction directory.");
+      return result;
+    }
+
+    wxFileInputStream input(wxString::FromUTF8(PathToUtf8(sourcePath)));
+    if (!input.IsOk()) {
+      AddDiagnostic(result, ArchiveDiagnosticCode::OpenFailed,
+                    "Could not open GDTF archive.");
+      return result;
+    }
+
+    const std::vector<RawZipEntryName> rawNames =
+        ReadRawCentralDirectoryNames(sourcePath);
+    wxZipInputStream zipInput(input);
+    std::unique_ptr<wxZipEntry> entry;
+    size_t entryIndex = 0;
+    while ((entry.reset(zipInput.GetNextEntry())), entry) {
+      DecodedZipEntryName decodedName;
+      if (entryIndex < rawNames.size()) {
+        decodedName = DecodeZipEntryName(rawNames[entryIndex]);
+      } else {
+        const wxScopedCharBuffer utf8 = entry->GetName().ToUTF8();
+        decodedName.path = utf8 ? std::string(utf8.data()) : std::string();
+      }
+      ++entryIndex;
+
+      const std::string entryPath = NormalizeArchivePath(decodedName.path);
+      if (decodedName.failed) {
+        AddDiagnostic(
+            result, ArchiveDiagnosticCode::FilenameDecodeFailed,
+            "A GDTF archive entry filename could not be decoded safely.");
+        continue;
+      }
+
+      ArchiveEntry inventoryEntry;
+      inventoryEntry.path = entryPath;
+      inventoryEntry.directory = entry->IsDir();
+      inventoryEntry.nameUsedUtf8CompatibilityFallback =
+          decodedName.usedUtf8Fallback;
+      if (decodedName.usedUtf8Fallback)
+        ++result.utf8FlagMissingEntryCount;
+      const wxFileOffset size = entry->GetSize();
+      if (size >= 0) {
+        inventoryEntry.sizeKnown = true;
+        inventoryEntry.size = static_cast<std::uint64_t>(size);
+      }
+      result.entries.push_back(inventoryEntry);
+
+      if (IsUnsafeArchivePath(entryPath)) {
+        AddDiagnostic(result, ArchiveDiagnosticCode::UnsafeEntryPath,
+                      "The GDTF archive contains an unsafe entry path.",
+                      entryPath);
+        continue;
+      }
+
+      std::u8string relativeUtf8;
+      relativeUtf8.reserve(entryPath.size());
+      for (char ch : entryPath)
+        relativeUtf8.push_back(static_cast<char8_t>(ch));
+      const std::filesystem::path relative =
+          std::filesystem::path(std::move(relativeUtf8));
+      const std::filesystem::path destinationPath = destinationRoot / relative;
+      const std::filesystem::path normalizedRoot =
+          std::filesystem::weakly_canonical(destinationRoot, ec);
+      if (ec) {
+        AddDiagnostic(result, ArchiveDiagnosticCode::FilesystemError,
+                      "Could not resolve GDTF extraction directory.",
+                      entryPath);
+        return result;
+      }
+      ec.clear();
+
+      if (entry->IsDir()) {
+        std::filesystem::create_directories(destinationPath, ec);
+        if (ec) {
+          AddDiagnostic(result, ArchiveDiagnosticCode::FilesystemError,
+                        "Could not create GDTF extraction subdirectory.",
+                        entryPath);
+        }
+        continue;
+      }
+
+      std::filesystem::create_directories(destinationPath.parent_path(), ec);
+      if (ec) {
+        AddDiagnostic(result, ArchiveDiagnosticCode::FilesystemError,
+                      "Could not create GDTF extraction parent directory.",
+                      entryPath);
+        continue;
+      }
+
+      const std::filesystem::path normalizedDestination =
+          std::filesystem::weakly_canonical(destinationPath.parent_path(), ec);
+      if (ec || normalizedDestination.native().rfind(normalizedRoot.native(),
+                                                     0) != 0) {
+        AddDiagnostic(
+            result, ArchiveDiagnosticCode::UnsafeEntryPath,
+            "The GDTF archive entry would extract outside the destination.",
+            entryPath);
+        continue;
+      }
+      ec.clear();
+
+      if (!WriteCurrentEntry(zipInput, destinationPath)) {
+        AddDiagnostic(result, ArchiveDiagnosticCode::EntryReadFailed,
+                      "Could not extract a GDTF archive entry.", entryPath);
+      }
+    }
+
+    if (result.utf8FlagMissingEntryCount > 0) {
+      AddDiagnostic(result, ArchiveDiagnosticCode::Utf8FallbackUsed,
+                    "GDTF archive uses valid UTF-8 filenames without the ZIP "
+                    "UTF-8 flag; compatibility fallback applied to " +
+                        std::to_string(result.utf8FlagMissingEntryCount) +
+                        " entries.");
+    }
+    if (result.entries.empty()) {
+      AddDiagnostic(result, ArchiveDiagnosticCode::NoReadableEntries,
+                    "The GDTF archive does not contain readable entries.");
+    }
+  } catch (const std::filesystem::filesystem_error &error) {
+    AddDiagnostic(
+        result, ArchiveDiagnosticCode::FilesystemError,
+        std::string("Filesystem error while extracting GDTF archive: ") +
+            error.what());
+  } catch (const std::system_error &error) {
+    AddDiagnostic(result, ArchiveDiagnosticCode::FilesystemError,
+                  std::string("System error while extracting GDTF archive: ") +
+                      error.what());
+  } catch (const std::exception &error) {
+    AddDiagnostic(
+        result, ArchiveDiagnosticCode::UnexpectedException,
+        std::string("Unexpected error while extracting GDTF archive: ") +
+            error.what());
+  } catch (...) {
+    AddDiagnostic(result, ArchiveDiagnosticCode::UnexpectedException,
+                  "Unknown error while extracting GDTF archive.");
+  }
   return result;
 }
 

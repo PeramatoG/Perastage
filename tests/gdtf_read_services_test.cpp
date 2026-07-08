@@ -1,6 +1,9 @@
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -14,9 +17,83 @@
 
 namespace fs = std::filesystem;
 
+// Reads a whole binary file into memory for ZIP metadata assertions.
+static std::vector<unsigned char> ReadBinary(const fs::path &path) {
+  std::ifstream input(path, std::ios::binary);
+  return std::vector<unsigned char>((std::istreambuf_iterator<char>(input)),
+                                    {});
+}
+
+// Writes a whole binary file after in-place ZIP metadata patching.
+static void WriteBinary(const fs::path &path,
+                        const std::vector<unsigned char> &data) {
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output.write(reinterpret_cast<const char *>(data.data()),
+               static_cast<std::streamsize>(data.size()));
+}
+
+// Reads a little-endian 32-bit integer from ZIP test data.
+static uint32_t ReadLe32(const std::vector<unsigned char> &data,
+                         size_t offset) {
+  return static_cast<uint32_t>(data[offset]) |
+         (static_cast<uint32_t>(data[offset + 1]) << 8) |
+         (static_cast<uint32_t>(data[offset + 2]) << 16) |
+         (static_cast<uint32_t>(data[offset + 3]) << 24);
+}
+
+// Reads a little-endian 16-bit integer from ZIP test data.
+static uint16_t ReadLe16(const std::vector<unsigned char> &data,
+                         size_t offset) {
+  return static_cast<uint16_t>(data[offset]) |
+         (static_cast<uint16_t>(data[offset + 1]) << 8);
+}
+
+// Writes a little-endian 16-bit integer to ZIP test data.
+static void WriteLe16(std::vector<unsigned char> &data, size_t offset,
+                      uint16_t value) {
+  data[offset] = static_cast<unsigned char>(value & 0xff);
+  data[offset + 1] = static_cast<unsigned char>((value >> 8) & 0xff);
+}
+
+// Forces or clears the ZIP UTF-8 filename flag in local and central headers.
+static void PatchUtf8Flags(const fs::path &path, bool enabled) {
+  std::vector<unsigned char> data = ReadBinary(path);
+  for (size_t i = 0; i + 46 <= data.size(); ++i) {
+    const uint32_t signature = ReadLe32(data, i);
+    if (signature != 0x04034b50 && signature != 0x02014b50)
+      continue;
+    const size_t flagOffset = i + (signature == 0x04034b50 ? 6 : 8);
+    uint16_t flags = ReadLe16(data, flagOffset);
+    if (enabled)
+      flags = static_cast<uint16_t>(flags | (1u << 11));
+    else
+      flags = static_cast<uint16_t>(flags & ~(1u << 11));
+    WriteLe16(data, flagOffset, flags);
+  }
+  WriteBinary(path, data);
+}
+
+// Reports whether all ZIP central-directory entries consistently use UTF-8
+// flags.
+static bool CentralDirectoryUtf8FlagsMatch(const fs::path &path,
+                                           bool expected) {
+  const std::vector<unsigned char> data = ReadBinary(path);
+  bool sawCentralEntry = false;
+  for (size_t i = 0; i + 46 <= data.size(); ++i) {
+    if (ReadLe32(data, i) != 0x02014b50)
+      continue;
+    sawCentralEntry = true;
+    const bool hasFlag = (ReadLe16(data, i + 8) & (1u << 11)) != 0;
+    if (hasFlag != expected)
+      return false;
+  }
+  return sawCentralEntry;
+}
+
 // Writes a ZIP/GDTF archive with the requested text entries.
-static bool WriteArchive(const fs::path &path,
-                         const std::vector<std::pair<std::string, std::string>> &entries) {
+static bool
+WriteArchive(const fs::path &path,
+             const std::vector<std::pair<std::string, std::string>> &entries) {
   wxFileOutputStream output(wxString::FromUTF8(path.generic_string().c_str()));
   if (!output.IsOk())
     return false;
@@ -53,9 +130,11 @@ static bool HasArchiveDiagnostic(const gdtf::ArchiveReadResult &read,
   return false;
 }
 
-// Reports whether a description snapshot contains the requested diagnostic code.
-static bool HasDescriptionDiagnostic(const gdtf::GdtfDescriptionSnapshot &snapshot,
-                                     gdtf::DescriptionDiagnosticCode code) {
+// Reports whether a description snapshot contains the requested diagnostic
+// code.
+static bool
+HasDescriptionDiagnostic(const gdtf::GdtfDescriptionSnapshot &snapshot,
+                         gdtf::DescriptionDiagnosticCode code) {
   for (const auto &diagnostic : snapshot.diagnostics) {
     if (diagnostic.code == code)
       return true;
@@ -63,7 +142,8 @@ static bool HasDescriptionDiagnostic(const gdtf::GdtfDescriptionSnapshot &snapsh
   return false;
 }
 
-// Verifies two floating point values are close enough for parsed metadata tests.
+// Verifies two floating point values are close enough for parsed metadata
+// tests.
 static bool NearlyEqual(float left, float right) {
   return std::fabs(left - right) < 0.001f;
 }
@@ -106,8 +186,8 @@ static void TestArchiveLookup(const fs::path &dir) {
   assert(!read.Success());
   bool foundAmbiguous = false;
   for (const auto &diagnostic : read.diagnostics)
-    foundAmbiguous |= diagnostic.code ==
-                      gdtf::ArchiveDiagnosticCode::AmbiguousDescriptionXml;
+    foundAmbiguous |=
+        diagnostic.code == gdtf::ArchiveDiagnosticCode::AmbiguousDescriptionXml;
   assert(foundAmbiguous);
 
   const fs::path zeroBytes = dir / "zero_bytes.gdtf";
@@ -115,16 +195,20 @@ static void TestArchiveLookup(const fs::path &dir) {
   read = gdtf::ReadGdtfArchive(zeroBytes);
   assert(!read.Success());
   assert(read.descriptionEntryPath == "description.xml");
-  assert(HasArchiveDiagnostic(read, gdtf::ArchiveDiagnosticCode::EmptyDescriptionXml));
-  assert(!HasArchiveDiagnostic(read, gdtf::ArchiveDiagnosticCode::MissingDescriptionXml));
+  assert(HasArchiveDiagnostic(
+      read, gdtf::ArchiveDiagnosticCode::EmptyDescriptionXml));
+  assert(!HasArchiveDiagnostic(
+      read, gdtf::ArchiveDiagnosticCode::MissingDescriptionXml));
 
   const fs::path whitespace = dir / "whitespace.gdtf";
   assert(WriteArchive(whitespace, {{"description.xml", " \n\t"}}));
   read = gdtf::ReadGdtfArchive(whitespace);
   assert(!read.Success());
   assert(read.descriptionEntryPath == "description.xml");
-  assert(HasArchiveDiagnostic(read, gdtf::ArchiveDiagnosticCode::EmptyDescriptionXml));
-  assert(!HasArchiveDiagnostic(read, gdtf::ArchiveDiagnosticCode::MissingDescriptionXml));
+  assert(HasArchiveDiagnostic(
+      read, gdtf::ArchiveDiagnosticCode::EmptyDescriptionXml));
+  assert(!HasArchiveDiagnostic(
+      read, gdtf::ArchiveDiagnosticCode::MissingDescriptionXml));
 }
 
 // Verifies malformed and incomplete description documents are diagnosed.
@@ -154,18 +238,17 @@ static void TestPowerParsing() {
     return gdtf::ReadGdtfDescription(GdtfXml(content));
   };
 
-  gdtf::GdtfDescriptionSnapshot snapshot = readPower(
-      "<PhysicalDescriptions><Properties>"
-      "<PowerConsumption Value=\"120\"/>"
-      "</Properties></PhysicalDescriptions>");
+  gdtf::GdtfDescriptionSnapshot snapshot =
+      readPower("<PhysicalDescriptions><Properties>"
+                "<PowerConsumption Value=\"120\"/>"
+                "</Properties></PhysicalDescriptions>");
   assert(snapshot.powerConsumptionWPresent);
   assert(NearlyEqual(snapshot.powerConsumptionW, 120.0f));
 
-  snapshot = readPower(
-      "<PhysicalDescriptions><Properties>"
-      "<PowerConsumption Value=\"120\"/>"
-      "<PowerConsumption Value=\"30.5\"/>"
-      "</Properties></PhysicalDescriptions>");
+  snapshot = readPower("<PhysicalDescriptions><Properties>"
+                       "<PowerConsumption Value=\"120\"/>"
+                       "<PowerConsumption Value=\"30.5\"/>"
+                       "</Properties></PhysicalDescriptions>");
   assert(snapshot.powerConsumptionWPresent);
   assert(NearlyEqual(snapshot.powerConsumptionW, 150.5f));
 
@@ -208,12 +291,15 @@ static void TestPowerParsing() {
 
 // Verifies ordered metadata, revisions, and DMX modes are preserved.
 static void TestOrderedDocumentData() {
-  const std::string xml = GdtfXml(
-      "<Revisions>"
-      "<Revision Text=\"Initial\" Date=\"2026-01-03T04:05:06\" UserID=\"7\" ModifiedBy=\"A\"/>"
-      "<Revision Text=\"Updated\" Date=\"2026-01-04T05:06:07Z\" UserID=\"8\" ModifiedBy=\"B\"/>"
-      "</Revisions>"
-      "<DMXModes><DMXMode Name=\"Standard\"/><DMXMode Name=\"Extended\"/></DMXModes>");
+  const std::string xml =
+      GdtfXml("<Revisions>"
+              "<Revision Text=\"Initial\" Date=\"2026-01-03T04:05:06\" "
+              "UserID=\"7\" ModifiedBy=\"A\"/>"
+              "<Revision Text=\"Updated\" Date=\"2026-01-04T05:06:07Z\" "
+              "UserID=\"8\" ModifiedBy=\"B\"/>"
+              "</Revisions>"
+              "<DMXModes><DMXMode Name=\"Standard\"/><DMXMode "
+              "Name=\"Extended\"/></DMXModes>");
   gdtf::GdtfDescriptionSnapshot snapshot = gdtf::ReadGdtfDescription(xml);
   assert(snapshot.Success());
   assert(snapshot.dataVersion == "1.2");
@@ -222,22 +308,23 @@ static void TestOrderedDocumentData() {
   assert(snapshot.revisions.size() == 2);
   assert(snapshot.revisions[0].text == "Initial");
   assert(snapshot.revisions[1].modifiedBy == "B");
-  assert((snapshot.dmxModeNames == std::vector<std::string>{"Standard", "Extended"}));
+  assert((snapshot.dmxModeNames ==
+          std::vector<std::string>{"Standard", "Extended"}));
 }
 
 // Verifies repeated wheels and ordered gobo slot references remain independent.
 static void TestGoboWheelCollections() {
-  const std::string xml = GdtfXml(
-      "<Wheels>"
-      "<Wheel Name=\"Gobo Wheel A\">"
-      "<Slot Name=\"Open A\" MediaFileName=\"a_open\"/>"
-      "<Slot Name=\"Breakup A\" MediaFileName=\"a_breakup\"/>"
-      "</Wheel>"
-      "<Wheel Name=\"Gobo Wheel B\">"
-      "<Slot Name=\"Open B\" MediaFileName=\"b_open\"/>"
-      "<Slot Name=\"Dots B\" MediaFileName=\"b_dots\"/>"
-      "</Wheel>"
-      "</Wheels>");
+  const std::string xml =
+      GdtfXml("<Wheels>"
+              "<Wheel Name=\"Gobo Wheel A\">"
+              "<Slot Name=\"Open A\" MediaFileName=\"a_open\"/>"
+              "<Slot Name=\"Breakup A\" MediaFileName=\"a_breakup\"/>"
+              "</Wheel>"
+              "<Wheel Name=\"Gobo Wheel B\">"
+              "<Slot Name=\"Open B\" MediaFileName=\"b_open\"/>"
+              "<Slot Name=\"Dots B\" MediaFileName=\"b_dots\"/>"
+              "</Wheel>"
+              "</Wheels>");
   gdtf::GdtfDescriptionSnapshot snapshot = gdtf::ReadGdtfDescription(
       xml, {"description.xml", "wheels/a_open.png", "wheels/a_breakup.png",
             "wheels/b_open.png", "wheels/b_dots.png"});
@@ -249,62 +336,68 @@ static void TestGoboWheelCollections() {
   assert(snapshot.wheels[1].slots.size() == 2);
   assert(snapshot.wheels[0].slots[1].mediaFileName == "a_breakup");
   assert(snapshot.wheels[1].slots[1].mediaFileName == "b_dots");
-  assert(!HasDescriptionDiagnostic(snapshot,
-                                   gdtf::DescriptionDiagnosticCode::MissingWheelMediaResource));
+  assert(!HasDescriptionDiagnostic(
+      snapshot, gdtf::DescriptionDiagnosticCode::MissingWheelMediaResource));
 }
 
 // Verifies GDTF wheel MediaFileName resource lookup uses wheels basenames.
 static void TestWheelMediaResolution() {
-  const std::string xml = GdtfXml(
-      "<Wheels><Wheel Name=\"Gobo\"><Slot Name=\"Slot\" MediaFileName=\"Gobo1\"/>"
-      "</Wheel></Wheels>");
+  const std::string xml = GdtfXml("<Wheels><Wheel Name=\"Gobo\"><Slot "
+                                  "Name=\"Slot\" MediaFileName=\"Gobo1\"/>"
+                                  "</Wheel></Wheels>");
 
   gdtf::GdtfDescriptionSnapshot snapshot =
       gdtf::ReadGdtfDescription(xml, {"description.xml", "wheels/Gobo1.png"});
   assert(snapshot.Success());
-  assert(!HasDescriptionDiagnostic(snapshot,
-                                   gdtf::DescriptionDiagnosticCode::MissingWheelMediaResource));
+  assert(!HasDescriptionDiagnostic(
+      snapshot, gdtf::DescriptionDiagnosticCode::MissingWheelMediaResource));
   assert(snapshot.wheels[0].slots[0].mediaFileName == "Gobo1");
 
   snapshot =
       gdtf::ReadGdtfDescription(xml, {"description.xml", "wheels/Gobo1.svg"});
   assert(snapshot.Success());
-  assert(!HasDescriptionDiagnostic(snapshot,
-                                   gdtf::DescriptionDiagnosticCode::MissingWheelMediaResource));
+  assert(!HasDescriptionDiagnostic(
+      snapshot, gdtf::DescriptionDiagnosticCode::MissingWheelMediaResource));
 
-  snapshot =
-      gdtf::ReadGdtfDescription(xml, {"description.xml", "resources/Gobo1.png"});
-  assert(HasDescriptionDiagnostic(snapshot,
-                                  gdtf::DescriptionDiagnosticCode::MissingWheelMediaResource));
+  snapshot = gdtf::ReadGdtfDescription(
+      xml, {"description.xml", "resources/Gobo1.png"});
+  assert(HasDescriptionDiagnostic(
+      snapshot, gdtf::DescriptionDiagnosticCode::MissingWheelMediaResource));
 
   snapshot = gdtf::ReadGdtfDescription(
       xml, {"description.xml", "wheels/Gobo1.png", "wheels/Gobo1.svg"});
-  assert(HasDescriptionDiagnostic(snapshot,
-                                  gdtf::DescriptionDiagnosticCode::AmbiguousWheelMediaResource));
+  assert(HasDescriptionDiagnostic(
+      snapshot, gdtf::DescriptionDiagnosticCode::AmbiguousWheelMediaResource));
 
   snapshot =
       gdtf::ReadGdtfDescription(xml, {"description.xml", "wheels/gobo1.png"});
   assert(HasDescriptionDiagnostic(
-      snapshot, gdtf::DescriptionDiagnosticCode::NonCanonicalWheelMediaCaseMatch));
+      snapshot,
+      gdtf::DescriptionDiagnosticCode::NonCanonicalWheelMediaCaseMatch));
 }
 
-// Verifies unknown content remains non-fatal and metadata summary stays compatible.
+// Verifies unknown content remains non-fatal and metadata summary stays
+// compatible.
 static void TestUnknownUnicodeAndSummary(const fs::path &dir) {
-  const std::string xml = GdtfXml(
-      "<CustomVendorNode CustomAttribute=\"kept\"/>"
-      "<Revisions>"
-      "<Revision Text=\"Initial\" Date=\"2026-01-03T04:05:06\" UserID=\"42\" ModifiedBy=\"Tester\"/>"
-      "<Revision Text=\"Updated\" Date=\"2026-01-04T05:06:07Z\" UserID=\"43\" ModifiedBy=\"Maintainer\"/>"
-      "</Revisions>");
+  const std::string xml =
+      GdtfXml("<CustomVendorNode CustomAttribute=\"kept\"/>"
+              "<Revisions>"
+              "<Revision Text=\"Initial\" Date=\"2026-01-03T04:05:06\" "
+              "UserID=\"42\" ModifiedBy=\"Tester\"/>"
+              "<Revision Text=\"Updated\" Date=\"2026-01-04T05:06:07Z\" "
+              "UserID=\"43\" ModifiedBy=\"Maintainer\"/>"
+              "</Revisions>");
   gdtf::GdtfDescriptionSnapshot snapshot = gdtf::ReadGdtfDescription(xml);
   assert(snapshot.Success());
   bool foundUnknown = false;
   for (const auto &diagnostic : snapshot.diagnostics)
-    foundUnknown |= diagnostic.code == gdtf::DescriptionDiagnosticCode::UnknownElement;
+    foundUnknown |=
+        diagnostic.code == gdtf::DescriptionDiagnosticCode::UnknownElement;
   assert(foundUnknown);
 
   const fs::path unicodePath = dir / std::string("metadata_ñ_测试.gdtf");
-  assert(WriteArchive(unicodePath, {{std::string("assets/ñ.txt"), "ok"}, {"description.xml", xml}}));
+  assert(WriteArchive(unicodePath, {{std::string("assets/ñ.txt"), "ok"},
+                                    {"description.xml", xml}}));
   gdtf::ArchiveReadResult read = gdtf::ReadGdtfArchive(unicodePath);
   assert(read.Success());
   bool foundUnicodeEntry = false;
@@ -324,6 +417,119 @@ static void TestUnknownUnicodeAndSummary(const fs::path &dir) {
   assert(summary.version == "1.2");
 }
 
+// Verifies ZIP filename UTF-8 compatibility fallback and strict invalid-name
+// diagnostics.
+static void TestUnicodeZipFilenameCompatibility(const fs::path &dir) {
+  const std::string unicodeName =
+      "wheels/191130000002 FINE 360 BEAM Φ113金属图案盘二 02.png";
+  const std::string mediaName =
+      "191130000002 FINE 360 BEAM Φ113金属图案盘二 02";
+  const std::string xml = GdtfXml(
+      "<Wheels><Wheel Name=\"Gobo\"><Slot Name=\"Unicode\" MediaFileName=\"" +
+      mediaName +
+      "\"/></Wheel></Wheels>"
+      "<DMXModes><DMXMode Name=\"16BT \"/></DMXModes>");
+
+  const fs::path missingFlag = dir / "unicode_missing_flag.gdtf";
+  assert(WriteArchive(missingFlag,
+                      {{unicodeName, "png"}, {"description.xml", xml}}));
+  PatchUtf8Flags(missingFlag, false);
+  gdtf::ArchiveReadResult read = gdtf::ReadGdtfArchive(missingFlag);
+  assert(read.Success());
+  assert(read.utf8FlagMissingEntryCount == 1);
+  assert(HasArchiveDiagnostic(read,
+                              gdtf::ArchiveDiagnosticCode::Utf8FallbackUsed));
+  bool foundUnicodeEntry = false;
+  for (const auto &entry : read.entries) {
+    foundUnicodeEntry |=
+        entry.path == unicodeName && entry.nameUsedUtf8CompatibilityFallback;
+  }
+  assert(foundUnicodeEntry);
+  assert(read.descriptionEntryPath == "description.xml");
+
+  std::vector<std::string> paths;
+  for (const auto &entry : read.entries)
+    paths.push_back(entry.path);
+  gdtf::GdtfDescriptionSnapshot snapshot =
+      gdtf::ReadGdtfDescription(read.descriptionXml, paths);
+  assert(snapshot.Success());
+  assert(snapshot.dmxModeNames.size() == 1);
+  assert(snapshot.dmxModeNames[0] == "16BT ");
+  assert(!HasDescriptionDiagnostic(
+      snapshot, gdtf::DescriptionDiagnosticCode::MissingWheelMediaResource));
+
+  const fs::path utf8Flag = dir / "unicode_with_flag.gdtf";
+  assert(
+      WriteArchive(utf8Flag, {{unicodeName, "png"}, {"description.xml", xml}}));
+  PatchUtf8Flags(utf8Flag, true);
+  read = gdtf::ReadGdtfArchive(utf8Flag);
+  assert(read.Success());
+  assert(read.utf8FlagMissingEntryCount == 0);
+  assert(!HasArchiveDiagnostic(read,
+                               gdtf::ArchiveDiagnosticCode::Utf8FallbackUsed));
+
+  const fs::path asciiNoFlag = dir / "ascii_no_flag.gdtf";
+  assert(WriteArchive(asciiNoFlag, {{"wheels/plain.png", "png"},
+                                    {"description.xml", GdtfXml("")}}));
+  PatchUtf8Flags(asciiNoFlag, false);
+  read = gdtf::ReadGdtfArchive(asciiNoFlag);
+  assert(read.Success());
+  assert(read.utf8FlagMissingEntryCount == 0);
+  assert(!HasArchiveDiagnostic(read,
+                               gdtf::ArchiveDiagnosticCode::Utf8FallbackUsed));
+
+  const fs::path invalidFlagged = dir / "invalid_flagged.gdtf";
+  assert(WriteArchive(invalidFlagged,
+                      {{unicodeName, "png"}, {"description.xml", xml}}));
+  std::vector<unsigned char> data = ReadBinary(invalidFlagged);
+  for (size_t i = 0; i + unicodeName.size() <= data.size(); ++i) {
+    if (std::equal(unicodeName.begin(), unicodeName.end(), data.begin() + i))
+      data[i] = 0xff;
+  }
+  WriteBinary(invalidFlagged, data);
+  PatchUtf8Flags(invalidFlagged, true);
+  read = gdtf::ReadGdtfArchive(invalidFlagged);
+  assert(!read.Success());
+  assert(HasArchiveDiagnostic(
+      read, gdtf::ArchiveDiagnosticCode::FilenameDecodeFailed));
+}
+
+// Verifies Perastage-created ZIP entries carry UTF-8 filename metadata for
+// Unicode names.
+static void TestUnicodeZipWriteMetadata(const fs::path &dir) {
+  const fs::path path = dir / "unicode_written.gdtf";
+  assert(WriteArchive(path, {{"wheels/Φ113金属图案盘二.png", "png"},
+                             {"description.xml", GdtfXml("")}}));
+  assert(CentralDirectoryUtf8FlagsMatch(path, true));
+  gdtf::ArchiveReadResult read = gdtf::ReadGdtfArchive(path);
+  assert(read.Success());
+  assert(read.utf8FlagMissingEntryCount == 0);
+}
+
+// Verifies Unicode fallback filenames extract to native filesystem paths.
+static void TestUnicodeZipExtractionCompatibility(const fs::path &dir) {
+  const std::string unicodeName =
+      "wheels/191130000002 FINE 360 BEAM Φ113金属图案盘二 02.png";
+  const fs::path archivePath = dir / "unicode_extract_missing_flag.gdtf";
+  assert(WriteArchive(
+      archivePath, {{unicodeName, "png"}, {"description.xml", GdtfXml("")}}));
+  PatchUtf8Flags(archivePath, false);
+
+  const fs::path extractedRoot = dir / "extracted_unicode";
+  gdtf::ArchiveReadResult result =
+      gdtf::ExtractGdtfArchive(archivePath, extractedRoot);
+  assert(!result.entries.empty());
+  assert(result.utf8FlagMissingEntryCount == 1);
+  assert(HasArchiveDiagnostic(result,
+                              gdtf::ArchiveDiagnosticCode::Utf8FallbackUsed));
+  std::u8string relativeUtf8;
+  relativeUtf8.reserve(unicodeName.size());
+  for (char ch : unicodeName)
+    relativeUtf8.push_back(static_cast<char8_t>(ch));
+  assert(fs::is_regular_file(extractedRoot / fs::path(relativeUtf8)));
+  assert(fs::is_regular_file(extractedRoot / "description.xml"));
+}
+
 // Runs focused read-layer regression tests using temporary archives only.
 int main() {
   wxInitializer initializer;
@@ -339,6 +545,9 @@ int main() {
   TestGoboWheelCollections();
   TestWheelMediaResolution();
   TestUnknownUnicodeAndSummary(dir);
+  TestUnicodeZipFilenameCompatibility(dir);
+  TestUnicodeZipWriteMetadata(dir);
+  TestUnicodeZipExtractionCompatibility(dir);
 
   fs::remove_all(dir);
   return 0;

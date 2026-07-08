@@ -143,10 +143,12 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
   std::string base = sceneRef.basePath;
   std::string spec = gdtfPath;
   if (!base.empty()) {
-    fs::path abs = fs::absolute(gdtfPath);
-    fs::path b = fs::absolute(base);
-    if (abs.string().rfind(b.string(), 0) == 0)
-      spec = fs::relative(abs, b).string();
+    fs::path abs = fs::absolute(PathUtils::PathFromUtf8(gdtfPath));
+    fs::path b = fs::absolute(PathUtils::PathFromUtf8(base));
+    const std::string absUtf8 = PathUtils::PathToUtf8(abs);
+    const std::string baseUtf8 = PathUtils::PathToUtf8(b);
+    if (absUtf8.rfind(baseUtf8, 0) == 0)
+      spec = PathUtils::PathToUtf8(fs::relative(abs, b));
   }
 
   auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
@@ -198,16 +200,7 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
                 .ToStdString()
           : std::string();
 
-  if (fixturePanel)
-    fixturePanel->ReloadData();
-  if (viewportPanel) {
-    viewportPanel->UpdateScene();
-    viewportPanel->Refresh();
-  }
-  if (viewport2DPanel) {
-    viewport2DPanel->UpdateScene();
-    viewport2DPanel->Refresh();
-  }
+  RefreshAfterSceneChange(true);
   if (continuousPlacement) {
     if (viewport2DPanel && viewport2DPanel->IsShownOnScreen())
       viewport2DPanel->BeginContinuousPlacement(
