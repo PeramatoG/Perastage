@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -21,7 +22,12 @@ enum class ArchiveDiagnosticCode {
   EntryReadFailed,
   EntryTooLarge,
   FilesystemError,
-  UnexpectedException
+  UnexpectedException,
+  Utf8FlagMissing,
+  Utf8FallbackUsed,
+  LegacyFilenameEncodingUsed,
+  FilenameDecodeFailed,
+  FilenameEncodingAmbiguous
 };
 
 struct ArchiveDiagnostic {
@@ -35,6 +41,7 @@ struct ArchiveEntry {
   std::uint64_t size = 0;
   bool sizeKnown = false;
   bool directory = false;
+  bool nameUsedUtf8CompatibilityFallback = false;
 };
 
 struct ArchiveReadResult {
@@ -45,6 +52,7 @@ struct ArchiveReadResult {
   std::vector<ArchiveDiagnostic> diagnostics;
   bool usedCompatibilityDescriptionFallback = false;
   bool standardsCompliantDescriptionLocation = false;
+  std::size_t utf8FlagMissingEntryCount = 0;
 
   bool Success() const;
 };

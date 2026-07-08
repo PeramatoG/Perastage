@@ -17,6 +17,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed GDTF imports with Unicode resource filenames whose ZIP entries omit UTF-8 filename metadata, allowing affected fixtures to insert normally while reporting a concise compatibility warning and leaving the original archive unchanged.
 - Fixed adding downloaded GDTF Share fixtures to a project by validating the archive with non-throwing read diagnostics before opening Add Fixture, while preserving the downloaded file unchanged.
 - Improved downloaded GDTF fixture insertion compatibility by preserving WiringObject-based power fallback metadata, resolving wheel media resources from standard `wheels/` archive entries, and reporting empty `description.xml` files with clearer diagnostics.
 - Fixed geometry-only MVR trusses so rigging warnings reliably flag invalid weights, Edit Truss previews direct GLB/3DS geometry without generating a GDTF, and Add Truss shows readable names instead of internal type keys.
@@ -62,6 +63,7 @@ Changes since **v1.4.0**.
 
 ## Documentation
 
+- Added internal documentation for tolerant GDTF Unicode ZIP filename decoding, diagnostics, path safety, and standards-compliant write expectations.
 - Added Viewer2D state ownership documentation to clarify runtime-only, user preference/config, and project/Layout definition boundaries before future offscreen rendering refactors.
 - Updated the MVR-xchange documentation with a compliance summary, supported official flows, conservative latest-request behavior, and explicit out-of-scope notes for WebSocket Mode and private live synchronization.
 
