@@ -352,7 +352,10 @@ std::string ComputeGdtfSemanticFingerprint(const std::string &path,
   }
 
   std::map<std::string, std::vector<unsigned char>> entries;
-  while (std::unique_ptr<wxZipEntry> entry(zip.GetNextEntry())) {
+  while (true) {
+    std::unique_ptr<wxZipEntry> entry(zip.GetNextEntry());
+    if (!entry)
+      break;
     if (entry->IsDir())
       continue;
     const std::string normalized = NormalizeGdtfEntryPath(entry->GetName().ToStdString());
