@@ -1610,3 +1610,5 @@ if(WIN32)
     target_link_libraries(mvr_xchange_protocol_test PRIVATE iphlpapi ws2_32)
 endif()
 add_test(NAME MvrXchangeProtocol COMMAND mvr_xchange_protocol_test)
+
+add_test(NAME GdtfReusablePanelsBoundary COMMAND ${CMAKE_SOURCE_DIR}/tests/check_gdtf_reusable_panels_boundary.sh)

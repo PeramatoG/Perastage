@@ -25,6 +25,8 @@
 
 class FixturePreviewPanel;
 class GdtfMetadataPanel;
+class GdtfPhysicalPropertiesPanel;
+class GdtfTypeIdentityPanel;
 class TrussTablePanel;
 
 class TrussEditDialog : public wxDialog {
@@ -46,7 +48,8 @@ private:
   TrussTablePanel *panel = nullptr;
   int row = -1;
   std::vector<wxControl *> ctrls;
-  wxTextCtrl *crossSectionCtrl = nullptr;
+  GdtfTypeIdentityPanel *typeIdentityPanel = nullptr;
+  GdtfPhysicalPropertiesPanel *physicalPropertiesPanel = nullptr;
   GdtfMetadataPanel *metadataPanel = nullptr;
   FixturePreviewPanel *preview = nullptr;
   std::vector<bool> modifiedColumns;

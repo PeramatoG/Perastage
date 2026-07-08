@@ -145,3 +145,15 @@ Checkpoint 05A begins the reusable GUI migration by extracting `GdtfMetadataPane
 Host dialogs continue to own source-path resolution and call `LoadGdtfMetadataSummary(...)` from `core/`. Fixture Edit and Truss Edit then pass the loaded `GdtfMetadataSummary` into the panel or call `SetUnavailable()` when loading fails. No mutation or apply semantics changed in this checkpoint, and the complete `GdtfEditorPanel` remains out of scope.
 
 The next approved panel extraction is `GdtfPhysicalPropertiesPanel`, keeping the existing project-host apply semantics intact until a later context-adapter migration.
+
+## Reusable GUI panel boundary after Checkpoint 05
+
+Checkpoint 05 is complete with four reusable GUI panels under `gui/gdtf/`: the previously merged `GdtfMetadataPanel` plus the new physical properties, type identity, and modes panels. These panels are wxWidgets presentation/input components only. They own controls, local presentation state, typed field IDs, non-notifying programmatic setters, and user-change/action callbacks.
+
+The panels do not own project context, table rows, write policy, undo, GDTF mutation, derivative creation, truss generation, viewer refresh, MVR behavior, or `GdtfEditSession` binding. Fixture Edit and Truss Edit remain responsible for translating typed panel callbacks into existing project/table fields and for preserving all current apply semantics.
+
+Fixture composition after Checkpoint 05: metadata, type/source identity, physical power/weight, modes/count/channels, fixture/project fields, preview, symbols, thumbnail, and host Apply/OK/Cancel controls. Category, colors, MVR fields, patch, transform, layer, hang position, fixture ID, and instance name remain outside reusable GDTF panels.
+
+Truss composition after Checkpoint 05: metadata, manufacturer/model identity, dimensions/weight/cross-section physical type fields, MVR/project instance fields, preview, and host Apply/OK/Cancel controls. Geometry-only truss behavior and GDTF generation policy remain in the host dialog.
+
+Checkpoint 06 should compose these reusable panels into `GdtfEditorPanel`. Direct `GdtfEditSession` binding and apply adapters remain later controlled migrations.
