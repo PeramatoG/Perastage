@@ -57,6 +57,8 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_dictionary_paths.sh)
     add_test(NAME GdtfMetadataSummaryBoundary
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_metadata_summary_boundary.sh)
+    add_test(NAME GdtfMetadataPanelBoundary
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_metadata_panel_boundary.sh)
     add_test(NAME GdtfEditorCoreBoundary
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_core_boundary.sh)
     add_test(NAME ProjectRestoreImportOptions

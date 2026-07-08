@@ -137,3 +137,11 @@ The next approved checkpoint is to extract the first reusable GDTF metadata pane
 Downloaded GDTF insertion now uses `PrepareGdtfFixtureInsertion(...)` before the Add Fixture dialog is shown. The service is non-GUI and read-only: it validates file existence, regular-file status, non-empty size, archive readability, description readability, FixtureType identity, and ordered named DMX modes without mutating the project or rewriting the archive. Compatibility fallbacks for non-canonical `description.xml` locations are logged and allowed only when unambiguous. Ambiguous, unsafe, malformed, or mode-less files fail with diagnostics instead of escaping exceptions or silently returning.
 
 Checkpoint 03A did not originally modify the GDTF Share download or `AddFixtureFromGdtfPath(...)` flow; the insertion failure was in the pre-existing legacy discovery path. The next approved checkpoint remains the first reusable GDTF metadata panel extraction.
+
+## Checkpoint 05A reusable metadata presentation boundary
+
+Checkpoint 05A begins the reusable GUI migration by extracting `GdtfMetadataPanel` from the current Fixture Edit and Truss Edit dialogs. The panel is presentation-only: it owns the metadata labels, read-only multiline description control, unavailable-value fallback, and wrapping/layout behavior. It does not own project rows, table state, `ConfigManager`, scene objects, MVR state, viewer refresh, undo/redo, mutation, derivative creation, truss generation, startup routing, or file associations.
+
+Host dialogs continue to own source-path resolution and call `LoadGdtfMetadataSummary(...)` from `core/`. Fixture Edit and Truss Edit then pass the loaded `GdtfMetadataSummary` into the panel or call `SetUnavailable()` when loading fails. No mutation or apply semantics changed in this checkpoint, and the complete `GdtfEditorPanel` remains out of scope.
+
+The next approved panel extraction is `GdtfPhysicalPropertiesPanel`, keeping the existing project-host apply semantics intact until a later context-adapter migration.
