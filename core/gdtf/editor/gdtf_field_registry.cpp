@@ -7,66 +7,95 @@ namespace {
 
 constexpr std::array<GdtfFieldDescriptor, 29> kDescriptors = {{
     {GdtfFieldId::FixtureId, GdtfFieldOwnership::MvrProjectInstanceLevel,
-     "fixture_id", "Fixture ID", true, false},
+     GdtfFieldValueKind::HostProjectValue, "fixture_id", "Fixture ID", true,
+     false, false, false},
     {GdtfFieldId::FixtureInstanceName,
-     GdtfFieldOwnership::MvrProjectInstanceLevel, "fixture_instance_name",
-     "Name", true, false},
+     GdtfFieldOwnership::MvrProjectInstanceLevel,
+     GdtfFieldValueKind::HostProjectValue, "fixture_instance_name", "Name",
+     true, false, false, false},
     {GdtfFieldId::FixtureTypeName, GdtfFieldOwnership::GdtfTypeLevel,
-     "fixture_type_name", "Type", true, false},
-    {GdtfFieldId::Layer, GdtfFieldOwnership::MvrProjectInstanceLevel, "layer",
-     "Layer", true, false},
+     GdtfFieldValueKind::DocumentValue, "fixture_type_name", "Type", true,
+     true, false, false},
+    {GdtfFieldId::Layer, GdtfFieldOwnership::MvrProjectInstanceLevel,
+     GdtfFieldValueKind::HostProjectValue, "layer", "Layer", true, false,
+     false, false},
     {GdtfFieldId::HangPosition, GdtfFieldOwnership::MvrProjectInstanceLevel,
-     "hang_position", "Hang position", true, false},
+     GdtfFieldValueKind::HostProjectValue, "hang_position", "Hang position",
+     true, false, false, false},
     {GdtfFieldId::Universe, GdtfFieldOwnership::MvrProjectInstanceLevel,
-     "universe", "Universe", true, false},
+     GdtfFieldValueKind::HostProjectValue, "universe", "Universe", true,
+     false, false, false},
     {GdtfFieldId::DmxAddress, GdtfFieldOwnership::MvrProjectInstanceLevel,
-     "dmx_address", "Channel", true, false},
-    {GdtfFieldId::ModeName, GdtfFieldOwnership::ContextSpecific, "mode_name",
-     "Mode", true, false},
+     GdtfFieldValueKind::HostProjectValue, "dmx_address", "Channel", true,
+     false, false, false},
+    {GdtfFieldId::ModeName, GdtfFieldOwnership::ContextSpecific,
+     GdtfFieldValueKind::ContextSelection, "mode_name", "Mode", true, true,
+     false, false},
     {GdtfFieldId::ChannelCount, GdtfFieldOwnership::DerivedReadOnly,
-     "channel_count", "Ch Count", false, false},
+     GdtfFieldValueKind::DerivedReadOnly, "channel_count", "Ch Count", false,
+     false, true, false},
     {GdtfFieldId::SourceFileReference, GdtfFieldOwnership::ContextSpecific,
-     "source_file_reference", "Model File", true, false},
+     GdtfFieldValueKind::ContextSelection, "source_file_reference", "Model File",
+     true, true, false, false},
     {GdtfFieldId::PositionX, GdtfFieldOwnership::MvrProjectInstanceLevel,
-     "position_x", "Position X", true, false},
+     GdtfFieldValueKind::HostProjectValue, "position_x", "Position X", true,
+     false, false, false},
     {GdtfFieldId::PositionY, GdtfFieldOwnership::MvrProjectInstanceLevel,
-     "position_y", "Position Y", true, false},
+     GdtfFieldValueKind::HostProjectValue, "position_y", "Position Y", true,
+     false, false, false},
     {GdtfFieldId::PositionZ, GdtfFieldOwnership::MvrProjectInstanceLevel,
-     "position_z", "Position Z", true, false},
-    {GdtfFieldId::Roll, GdtfFieldOwnership::MvrProjectInstanceLevel, "roll",
-     "Roll", true, false},
-    {GdtfFieldId::Pitch, GdtfFieldOwnership::MvrProjectInstanceLevel, "pitch",
-     "Pitch", true, false},
-    {GdtfFieldId::Yaw, GdtfFieldOwnership::MvrProjectInstanceLevel, "yaw",
-     "Yaw", true, false},
+     GdtfFieldValueKind::HostProjectValue, "position_z", "Position Z", true,
+     false, false, false},
+    {GdtfFieldId::Roll, GdtfFieldOwnership::MvrProjectInstanceLevel,
+     GdtfFieldValueKind::HostProjectValue, "roll", "Roll", true, false,
+     false, false},
+    {GdtfFieldId::Pitch, GdtfFieldOwnership::MvrProjectInstanceLevel,
+     GdtfFieldValueKind::HostProjectValue, "pitch", "Pitch", true, false,
+     false, false},
+    {GdtfFieldId::Yaw, GdtfFieldOwnership::MvrProjectInstanceLevel,
+     GdtfFieldValueKind::HostProjectValue, "yaw", "Yaw", true, false,
+     false, false},
     {GdtfFieldId::PowerConsumption, GdtfFieldOwnership::GdtfTypeLevel,
-     "power_consumption", "Power", true, false},
-    {GdtfFieldId::Weight, GdtfFieldOwnership::GdtfTypeLevel, "weight", "Weight",
-     true, false},
+     GdtfFieldValueKind::DocumentValue, "power_consumption", "Power", true,
+     true, false, false},
+    {GdtfFieldId::Weight, GdtfFieldOwnership::GdtfTypeLevel,
+     GdtfFieldValueKind::DocumentValue, "weight", "Weight", true, true, false,
+     false},
     {GdtfFieldId::FixtureCategory,
-     GdtfFieldOwnership::ProjectClassificationOverride, "fixture_category",
-     "Category", true, false},
+     GdtfFieldOwnership::ProjectClassificationOverride,
+     GdtfFieldValueKind::HostProjectValue, "fixture_category", "Category", true,
+     false, false, false},
     {GdtfFieldId::VisualColor,
-     GdtfFieldOwnership::ProjectClassificationOverride, "visual_color",
-     "Visual color", true, false},
+     GdtfFieldOwnership::ProjectClassificationOverride,
+     GdtfFieldValueKind::HostProjectValue, "visual_color", "Visual color", true,
+     false, false, false},
     {GdtfFieldId::MvrFixtureColor, GdtfFieldOwnership::MvrProjectInstanceLevel,
-     "mvr_fixture_color", "MVR color", true, false},
+     GdtfFieldValueKind::HostProjectValue, "mvr_fixture_color", "MVR color",
+     true, false, false, false},
     {GdtfFieldId::Manufacturer, GdtfFieldOwnership::GdtfTypeLevel,
-     "manufacturer", "Manufacturer", true, false},
-    {GdtfFieldId::ModelName, GdtfFieldOwnership::GdtfTypeLevel, "model_name",
-     "Model", true, false},
+     GdtfFieldValueKind::DocumentValue, "manufacturer", "Manufacturer", true,
+     true, false, false},
+    {GdtfFieldId::ModelName, GdtfFieldOwnership::GdtfTypeLevel,
+     GdtfFieldValueKind::DocumentValue, "model_name", "Model", true, true,
+     false, false},
     {GdtfFieldId::TrussName, GdtfFieldOwnership::MvrProjectInstanceLevel,
-     "truss_name", "Name", true, false},
+     GdtfFieldValueKind::HostProjectValue, "truss_name", "Name", true, false,
+     false, false},
     {GdtfFieldId::TrussLength, GdtfFieldOwnership::GdtfTypeLevel,
-     "truss_length", "Length", true, false},
-    {GdtfFieldId::TrussWidth, GdtfFieldOwnership::GdtfTypeLevel, "truss_width",
-     "Width", true, false},
+     GdtfFieldValueKind::DocumentValue, "truss_length", "Length", true, true,
+     false, false},
+    {GdtfFieldId::TrussWidth, GdtfFieldOwnership::GdtfTypeLevel,
+     GdtfFieldValueKind::DocumentValue, "truss_width", "Width", true, true,
+     false, false},
     {GdtfFieldId::TrussHeight, GdtfFieldOwnership::GdtfTypeLevel,
-     "truss_height", "Height", true, false},
+     GdtfFieldValueKind::DocumentValue, "truss_height", "Height", true, true,
+     false, false},
     {GdtfFieldId::TrussCrossSection, GdtfFieldOwnership::GdtfTypeLevel,
-     "truss_cross_section", "Cross section", true, false},
-    {GdtfFieldId::TrussLoad, GdtfFieldOwnership::DerivedReadOnly, "truss_load",
-     "Load", false, false},
+     GdtfFieldValueKind::DocumentValue, "truss_cross_section", "Cross section",
+     true, true, false, false},
+    {GdtfFieldId::TrussLoad, GdtfFieldOwnership::DerivedReadOnly,
+     GdtfFieldValueKind::DerivedReadOnly, "truss_load", "Load", false, false,
+     true, false},
 }};
 
 } // namespace
@@ -105,8 +134,7 @@ std::vector<GdtfFieldDescriptor> CurrentFixtureEditFieldDescriptors() {
            *FindGdtfFieldDescriptor(GdtfFieldId::MvrFixtureColor)}};
 }
 
-// Returns the fields currently shown by Edit Truss in table-column order plus
-// cross section.
+// Returns the fields currently shown by Edit Truss in table-column order plus cross section.
 std::vector<GdtfFieldDescriptor> CurrentTrussEditFieldDescriptors() {
   return {{*FindGdtfFieldDescriptor(GdtfFieldId::TrussName),
            *FindGdtfFieldDescriptor(GdtfFieldId::Layer),
@@ -128,10 +156,10 @@ std::vector<GdtfFieldDescriptor> CurrentTrussEditFieldDescriptors() {
            *FindGdtfFieldDescriptor(GdtfFieldId::TrussCrossSection)}};
 }
 
-// Reports whether a field may be edited as independent session state.
-bool IsGdtfFieldIndependentlyEditable(GdtfFieldId id) {
+// Reports whether a field has explicit storage in the GDTF edit session model.
+bool IsGdtfSessionValueSupported(GdtfFieldId id) {
   const auto *descriptor = FindGdtfFieldDescriptor(id);
-  return descriptor && descriptor->independentlyEditable;
+  return descriptor && descriptor->sessionValueSupported;
 }
 
 // Converts a field ownership enum to a stable diagnostic string.
@@ -148,6 +176,23 @@ const char *ToString(GdtfFieldOwnership ownership) {
   case GdtfFieldOwnership::ContextSpecific:
     return "context-specific";
   case GdtfFieldOwnership::UnsupportedFuture:
+    return "unsupported/future";
+  }
+  return "unknown";
+}
+
+// Converts a field value-kind enum to a stable diagnostic string.
+const char *ToString(GdtfFieldValueKind defaultValueKind) {
+  switch (defaultValueKind) {
+  case GdtfFieldValueKind::DocumentValue:
+    return "document value";
+  case GdtfFieldValueKind::ContextSelection:
+    return "context selection";
+  case GdtfFieldValueKind::DerivedReadOnly:
+    return "derived/read-only";
+  case GdtfFieldValueKind::HostProjectValue:
+    return "host/project value";
+  case GdtfFieldValueKind::UnsupportedFuture:
     return "unsupported/future";
   }
   return "unknown";

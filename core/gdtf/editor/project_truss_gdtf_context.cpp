@@ -28,6 +28,22 @@ BuildProjectTrussGdtfEditorContext(const ProjectTrussGdtfContextInput &input) {
   context.initialValues.sourceFileReference = input.truss.gdtfSpec.empty()
                                                   ? input.truss.modelFile
                                                   : input.truss.gdtfSpec;
+  context.fieldCapabilities[GdtfFieldId::Manufacturer] =
+      MakeDocumentEditCapability();
+  context.fieldCapabilities[GdtfFieldId::ModelName] = MakeDocumentEditCapability();
+  context.fieldCapabilities[GdtfFieldId::TrussLength] =
+      MakeDocumentEditCapability();
+  context.fieldCapabilities[GdtfFieldId::TrussWidth] =
+      MakeDocumentEditCapability();
+  context.fieldCapabilities[GdtfFieldId::TrussHeight] =
+      MakeDocumentEditCapability();
+  context.fieldCapabilities[GdtfFieldId::Weight] = MakeDocumentEditCapability();
+  context.fieldCapabilities[GdtfFieldId::TrussCrossSection] =
+      MakeDocumentEditCapability();
+  context.fieldCapabilities[GdtfFieldId::SourceFileReference] =
+      MakeContextSelectionCapability();
+  context.fieldCapabilities[GdtfFieldId::TrussLoad] =
+      MakeReadOnlyCapability(GdtfFieldValueKind::DerivedReadOnly);
   return context;
 }
 

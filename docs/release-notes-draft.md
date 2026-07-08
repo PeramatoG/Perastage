@@ -17,6 +17,8 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed adding downloaded GDTF Share fixtures to a project by validating the archive with non-throwing read diagnostics before opening Add Fixture, while preserving the downloaded file unchanged.
+- Improved downloaded GDTF fixture insertion compatibility by preserving WiringObject-based power fallback metadata, resolving wheel media resources from standard `wheels/` archive entries, and reporting empty `description.xml` files with clearer diagnostics.
 - Fixed geometry-only MVR trusses so rigging warnings reliably flag invalid weights, Edit Truss previews direct GLB/3DS geometry without generating a GDTF, and Add Truss shows readable names instead of internal type keys.
 - Fixed Layout View so opening another project cannot briefly reuse the previous project's cached layout preview before the new layout rebuilds.
 - Fixed table selection highlights so sorting fixtures, trusses, hoists, or scene objects keeps the same UUID-backed elements selected, and fixture multi-selection actions preserve the original selection order after sorting.
@@ -45,6 +47,7 @@ Changes since **v1.4.0**.
 
 ## Stability and diagnostics
 
+- Hardened the internal GDTF editor session model so unsupported project, MVR, derived, and host-only fields can no longer be accepted as silent edits, with dirty tracking now tied to explicit context capabilities and read-only contexts reporting truthful read-only field capabilities.
 - Added local, low-noise diagnostics that identify the Viewer2D RGBA capture backend in manual diagnostic reports, including capture counts, last size, and fallback or failure reasons without changing rendering behavior.
 - Hardened MVR-xchange TCP Mode protocol handling with stricter UUID validation, safer malformed-message responses, bounded latest-revision requests, non-empty payload checks, archive sanity checks, clearer transfer diagnostics, and additional deterministic protocol tests.
 - Disabled optional depth-read picking by default and skipped it on Windows Intel OpenGL drivers to avoid unsafe depth-buffer reads during normal selection.

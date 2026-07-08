@@ -4,6 +4,7 @@
 #include "gdtf_editable_values.h"
 
 #include <filesystem>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -36,6 +37,20 @@ enum class GdtfEditorContextKind {
   FutureProjectObject
 };
 
+enum class GdtfFieldEditOperation {
+  Unsupported,
+  ReadOnly,
+  DocumentMutation,
+  ContextSelection
+};
+
+struct GdtfFieldCapability {
+  bool visible = false;
+  bool editable = false;
+  GdtfFieldValueKind valueKind = GdtfFieldValueKind::UnsupportedFuture;
+  GdtfFieldEditOperation operation = GdtfFieldEditOperation::Unsupported;
+};
+
 struct GdtfEditorContext {
   GdtfEditorContextKind kind = GdtfEditorContextKind::StandaloneFile;
   std::filesystem::path sourcePath;
@@ -43,6 +58,7 @@ struct GdtfEditorContext {
   GdtfWritePolicy writePolicy = GdtfWritePolicy::ReadOnly;
   GdtfDocument document;
   GdtfEditableValues initialValues;
+  std::map<GdtfFieldId, GdtfFieldCapability> fieldCapabilities;
   bool editingAllowed = false;
   std::string stableHostId;
   std::string hostLabel;
@@ -54,7 +70,8 @@ struct GdtfApplyRequest {
   std::filesystem::path sourcePath;
   GdtfWritePolicy writePolicy = GdtfWritePolicy::ReadOnly;
   GdtfEditableValues values;
-  std::set<GdtfFieldId> changedFields;
+  std::set<GdtfFieldId> changedDocumentFields;
+  std::set<GdtfFieldId> changedContextFields;
 };
 
 struct GdtfApplyResult {
@@ -72,5 +89,10 @@ struct GdtfApplyResult {
 
 const char *ToString(GdtfSourceKind kind);
 const char *ToString(GdtfWritePolicy policy);
+const GdtfFieldCapability *FindFieldCapability(const GdtfEditorContext &context,
+                                               GdtfFieldId fieldId);
+GdtfFieldCapability MakeReadOnlyCapability(GdtfFieldValueKind valueKind);
+GdtfFieldCapability MakeDocumentEditCapability();
+GdtfFieldCapability MakeContextSelectionCapability();
 
 } // namespace gdtf

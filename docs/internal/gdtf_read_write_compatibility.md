@@ -1,0 +1,25 @@
+# GDTF read/write compatibility policy
+
+Perastage separates tolerant read/import behavior from explicit write behavior.
+
+## Tolerant read and import
+
+Reading a GDTF must be non-mutating and should maximize interoperability with files produced by other software. Perastage accepts the canonical archive root `description.xml` first. If that exact entry is absent, it may accept one root case-insensitive match such as `DESCRIPTION.XML` with a compatibility diagnostic. If no root candidate exists, it may accept one unique nested case-insensitive `description.xml` candidate as a non-standard compatibility fallback.
+
+The reader rejects ambiguous or unsafe input instead of guessing. Multiple root case-insensitive candidates, multiple nested candidates when no root exists, unsafe archive paths, unreadable or empty selected descriptions, malformed XML, missing `GDTF`, missing `FixtureType`, and fixture insertion archives without usable named `DMXMode` entries fail with structured diagnostics.
+
+Public GDTF read and fixture insertion preparation boundaries convert malformed archives, filesystem failures, ZIP failures, XML failures, and unexpected exceptions into diagnostics. These paths must not let ordinary invalid input escape into the GUI event loop as exceptions.
+
+Read-only semantic extraction keeps legacy fixture insertion metadata behavior where it is already proven. Explicit positive `PhysicalDescriptions/Properties/PowerConsumption` values are summed first. Only when no positive explicit power exists, Perastage recursively inspects `Geometries` for consumer `WiringObject` elements and sums positive `ElectricalPayLoad` or compatibility-spelled `ElectricalPayload` values. The fallback is read-only and does not normalize or write the source archive.
+
+Wheel slot `MediaFileName` is resolved according to GDTF resource semantics instead of as a complete archive path. The XML value is preserved exactly, treated as a basename without extension, and resolved only against canonical `wheels/<MediaFileName>.png` or `wheels/<MediaFileName>.svg` resources. Exact case-sensitive canonical matches are accepted first. A single case-insensitive match is accepted only with an explicit compatibility diagnostic, missing media remains a non-fatal warning, and multiple matching resources are reported as ambiguous instead of guessed. Unrelated archive entries with the same basename outside `wheels/` are not accepted for wheel media.
+
+The known ZIP compatibility issue where a producer stores Unicode filenames without the ZIP UTF-8 flag is not addressed by this PR. That recovery path is deferred to a separate compatibility task because guessing an alternate filename encoding must be scoped and tested independently.
+
+## Fixture insertion preparation
+
+`PrepareGdtfFixtureInsertion(...)` is a non-GUI read-only service used before the Add Fixture dialog opens. It validates the source file, reads archive identity and modes through the shared read-only services, returns fixture display name, ordered DMX modes, optional physical values, optional model color, standards-compliance status, compatibility-fallback status, and structured diagnostics. It does not show dialogs, mutate the scene, modify the GDTF, extract files permanently, or invent missing modes.
+
+## Standards-compliant writes
+
+Tolerant reads do not canonicalize or rewrite input files. Explicit Perastage writes remain standards-oriented: mutation, generated derivative, canonicalization, and export paths must write `description.xml` at the archive root and use the approved Perastage canonicalization and mutation policy for the operation. Unknown resources and custom XML are preserved where the existing writer supports preservation. This policy does not broaden the current writer into a complete GDTF schema rewriter.

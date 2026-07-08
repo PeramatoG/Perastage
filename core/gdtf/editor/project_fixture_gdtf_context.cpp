@@ -24,6 +24,17 @@ GdtfEditorContext BuildProjectFixtureGdtfEditorContext(
   context.initialValues.weightKg = input.fixture.weightKg;
   context.initialValues.powerConsumptionW = input.fixture.powerConsumptionW;
   context.initialValues.sourceFileReference = input.fixture.gdtfSpec;
+  context.fieldCapabilities[GdtfFieldId::FixtureTypeName] =
+      MakeContextSelectionCapability();
+  context.fieldCapabilities[GdtfFieldId::ModeName] =
+      MakeContextSelectionCapability();
+  context.fieldCapabilities[GdtfFieldId::SourceFileReference] =
+      MakeContextSelectionCapability();
+  context.fieldCapabilities[GdtfFieldId::Weight] = MakeDocumentEditCapability();
+  context.fieldCapabilities[GdtfFieldId::PowerConsumption] =
+      MakeDocumentEditCapability();
+  context.fieldCapabilities[GdtfFieldId::ChannelCount] =
+      MakeReadOnlyCapability(GdtfFieldValueKind::DerivedReadOnly);
   return context;
 }
 

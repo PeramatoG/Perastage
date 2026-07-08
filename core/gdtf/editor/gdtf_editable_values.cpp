@@ -24,7 +24,7 @@ std::string FormatFloat(float value) { return std::to_string(value); }
 // Assigns an editable value when the field belongs to the GDTF editor model.
 bool SetEditableValue(GdtfEditableValues &values, GdtfFieldId fieldId,
                       const std::string &value) {
-  if (!IsGdtfFieldIndependentlyEditable(fieldId))
+  if (!IsGdtfSessionValueSupported(fieldId))
     return false;
   switch (fieldId) {
   case GdtfFieldId::FixtureTypeName:
@@ -76,8 +76,7 @@ bool SetEditableValue(GdtfEditableValues &values, GdtfFieldId fieldId,
     values.sourceFileReference = value;
     return true;
   default:
-    values.presentationValues[fieldId] = value;
-    return true;
+    return false;
   }
 }
 
@@ -118,9 +117,6 @@ std::optional<std::string> GetEditableValue(const GdtfEditableValues &values,
   case GdtfFieldId::SourceFileReference:
     return values.sourceFileReference;
   default:
-    if (auto it = values.presentationValues.find(fieldId);
-        it != values.presentationValues.end())
-      return it->second;
     return std::nullopt;
   }
 }
@@ -136,8 +132,7 @@ bool operator==(const GdtfEditableValues &lhs, const GdtfEditableValues &rhs) {
          lhs.trussWidthMm == rhs.trussWidthMm &&
          lhs.trussHeightMm == rhs.trussHeightMm &&
          lhs.trussCrossSection == rhs.trussCrossSection &&
-         lhs.sourceFileReference == rhs.sourceFileReference &&
-         lhs.presentationValues == rhs.presentationValues;
+         lhs.sourceFileReference == rhs.sourceFileReference;
 }
 
 // Compares two editable value sets for inequality.

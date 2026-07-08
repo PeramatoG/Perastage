@@ -1,26 +1,28 @@
 #include "gdtf_edit_session.h"
 
-#include <array>
+#include <optional>
+#include <utility>
 
 namespace gdtf {
 namespace {
 
-constexpr std::array<GdtfFieldId, 11> kEditableFields = {
-    GdtfFieldId::FixtureTypeName,
-    GdtfFieldId::Manufacturer,
-    GdtfFieldId::ModelName,
-    GdtfFieldId::ModeName,
-    GdtfFieldId::Weight,
-    GdtfFieldId::PowerConsumption,
-    GdtfFieldId::TrussLength,
-    GdtfFieldId::TrussWidth,
-    GdtfFieldId::TrussHeight,
-    GdtfFieldId::TrussCrossSection,
-    GdtfFieldId::SourceFileReference};
-
 // Reports whether a numeric optional value is negative.
 bool IsNegative(const std::optional<float> &value) {
   return value.has_value() && *value < 0.0f;
+}
+
+// Reports whether a capability supports editable session storage.
+bool SupportsEditableSessionValue(const GdtfFieldCapability &capability) {
+  return capability.editable &&
+         (capability.operation == GdtfFieldEditOperation::DocumentMutation ||
+          capability.operation == GdtfFieldEditOperation::ContextSelection);
+}
+
+// Reports whether a field capability should participate in validation.
+bool SupportsValidation(const GdtfEditorContext &context, GdtfFieldId fieldId) {
+  const auto *capability = FindFieldCapability(context, fieldId);
+  return capability && capability->visible && capability->editable &&
+         IsGdtfSessionValueSupported(fieldId);
 }
 
 } // namespace
@@ -52,8 +54,14 @@ const GdtfEditorContext &GdtfEditSession::Context() const { return context_; }
 bool GdtfEditSession::SetValue(GdtfFieldId fieldId, const std::string &value) {
   if (!context_.editingAllowed)
     return false;
-  if (!SetEditableValue(currentValues_, fieldId, value))
+  const auto *capability = FindFieldCapability(context_, fieldId);
+  if (!capability || !SupportsEditableSessionValue(*capability) ||
+      !IsGdtfSessionValueSupported(fieldId))
     return false;
+  auto nextValues = currentValues_;
+  if (!SetEditableValue(nextValues, fieldId, value))
+    return false;
+  currentValues_ = std::move(nextValues);
   RecomputeDirtyFields();
   return true;
 }
@@ -77,21 +85,27 @@ bool GdtfEditSession::RequiresApply() const { return IsDirty(); }
 // Validates current values without using GUI or project services.
 std::vector<GdtfValidationDiagnostic> GdtfEditSession::Validate() const {
   std::vector<GdtfValidationDiagnostic> diagnostics;
-  if (IsNegative(currentValues_.weightKg))
+  if (SupportsValidation(context_, GdtfFieldId::Weight) &&
+      IsNegative(currentValues_.weightKg))
     diagnostics.push_back({GdtfFieldId::Weight, "Weight cannot be negative."});
-  if (IsNegative(currentValues_.powerConsumptionW))
+  if (SupportsValidation(context_, GdtfFieldId::PowerConsumption) &&
+      IsNegative(currentValues_.powerConsumptionW))
     diagnostics.push_back({GdtfFieldId::PowerConsumption,
                            "Power consumption cannot be negative."});
-  if (IsNegative(currentValues_.trussLengthMm))
+  if (SupportsValidation(context_, GdtfFieldId::TrussLength) &&
+      IsNegative(currentValues_.trussLengthMm))
     diagnostics.push_back(
         {GdtfFieldId::TrussLength, "Truss length cannot be negative."});
-  if (IsNegative(currentValues_.trussWidthMm))
+  if (SupportsValidation(context_, GdtfFieldId::TrussWidth) &&
+      IsNegative(currentValues_.trussWidthMm))
     diagnostics.push_back(
         {GdtfFieldId::TrussWidth, "Truss width cannot be negative."});
-  if (IsNegative(currentValues_.trussHeightMm))
+  if (SupportsValidation(context_, GdtfFieldId::TrussHeight) &&
+      IsNegative(currentValues_.trussHeightMm))
     diagnostics.push_back(
         {GdtfFieldId::TrussHeight, "Truss height cannot be negative."});
-  if (currentValues_.fixtureTypeName && currentValues_.fixtureTypeName->empty())
+  if (SupportsValidation(context_, GdtfFieldId::FixtureTypeName) &&
+      currentValues_.fixtureTypeName && currentValues_.fixtureTypeName->empty())
     diagnostics.push_back(
         {GdtfFieldId::FixtureTypeName, "Fixture type name cannot be empty."});
   return diagnostics;
@@ -110,15 +124,25 @@ GdtfApplyRequest GdtfEditSession::BuildApplyRequest() const {
   request.sourcePath = context_.sourcePath;
   request.writePolicy = context_.writePolicy;
   request.values = currentValues_;
-  request.changedFields = dirtyFields_;
+  for (const auto fieldId : dirtyFields_) {
+    const auto *capability = FindFieldCapability(context_, fieldId);
+    if (!capability)
+      continue;
+    if (capability->operation == GdtfFieldEditOperation::DocumentMutation)
+      request.changedDocumentFields.insert(fieldId);
+    else if (capability->operation == GdtfFieldEditOperation::ContextSelection)
+      request.changedContextFields.insert(fieldId);
+  }
   return request;
 }
 
-// Recomputes dirty fields from the initial and current editable value
-// snapshots.
+// Recomputes dirty fields from capabilities and editable value snapshots.
 void GdtfEditSession::RecomputeDirtyFields() {
   dirtyFields_.clear();
-  for (const auto fieldId : kEditableFields) {
+  for (const auto &[fieldId, capability] : context_.fieldCapabilities) {
+    if (!SupportsEditableSessionValue(capability) ||
+        !IsGdtfSessionValueSupported(fieldId))
+      continue;
     if (GetEditableValue(initialValues_, fieldId) !=
         GetEditableValue(currentValues_, fieldId))
       dirtyFields_.insert(fieldId);

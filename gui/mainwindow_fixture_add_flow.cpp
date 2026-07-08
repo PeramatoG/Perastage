@@ -33,16 +33,47 @@
 #include "fixture.h"
 #include "fixturetablepanel.h"
 #include "gdtfdictionary.h"
-#include "gdtfloader.h"
+#include "gdtf_fixture_insertion_preparation.h"
 #include "guiconfigservices.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
+#include "diagnostics/DiagnosticLogger.h"
 
 namespace {
 
+// Returns a UTF-8 filename stem for fallback fixture naming.
 std::string Utf8StemFromPath(const std::string &path) {
   const auto stem = std::filesystem::path(path).stem().u8string();
   return std::string(stem.begin(), stem.end());
+}
+
+// Writes fixture insertion preparation diagnostics to the app log and console.
+void LogPreparationDiagnostics(
+    const gdtf::GdtfFixtureInsertionPreparation &preparation,
+    ConsolePanel *consolePanel) {
+  const std::string filename =
+      diagnostics::DiagnosticLogger::FileNameOnly(
+          preparation.sourcePath.generic_string());
+  for (const auto &diagnostic : preparation.diagnostics) {
+    const std::string message =
+        "GDTF insertion " + diagnostic.stage + " [" + diagnostic.code +
+        "] " + filename + ": " + diagnostic.message +
+        (diagnostic.detail.empty() ? std::string()
+                                   : " (" + diagnostic.detail + ")");
+    if (diagnostic.severity ==
+        gdtf::FixtureInsertionDiagnosticSeverity::Error) {
+      diagnostics::DiagnosticLogger::Error(message);
+      if (consolePanel)
+        consolePanel->AppendMessage("[ERROR] " + message);
+    } else if (diagnostic.severity ==
+               gdtf::FixtureInsertionDiagnosticSeverity::Warning) {
+      diagnostics::DiagnosticLogger::Warning(message);
+      if (consolePanel)
+        consolePanel->AppendMessage("[WARN] " + message);
+    } else {
+      diagnostics::DiagnosticLogger::Info(message);
+    }
+  }
 }
 
 } // namespace
@@ -59,18 +90,21 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
   }
   const wxString gdtfPathWx = wxString::FromUTF8(gdtfPath);
 
-  if (!std::filesystem::exists(PathUtils::PathFromUtf8(gdtfPath))) {
-    wxMessageBox("The selected GDTF file does not exist.", "Add fixture",
-                 wxOK | wxICON_ERROR);
-    if (consolePanel)
-      consolePanel->AppendMessage(wxString::Format(
-          "[ERROR] Add fixture failed: file not found %s", gdtfPathWx));
+  const auto preparation =
+      gdtf::PrepareGdtfFixtureInsertion(PathUtils::PathFromUtf8(gdtfPath));
+  LogPreparationDiagnostics(preparation, consolePanel);
+  if (!preparation.success) {
+    const auto *error = gdtf::FirstError(preparation);
+    const std::string reason =
+        error ? error->message : "The selected GDTF file could not be read.";
+    wxMessageBox(wxString("Could not add the selected GDTF fixture.\n") +
+                     wxString::FromUTF8(reason),
+                 "Add fixture", wxOK | wxICON_ERROR);
     return;
   }
 
-  std::string defaultName = suggestedName;
-  if (defaultName.empty())
-    defaultName = GetGdtfFixtureName(gdtfPath);
+  std::string defaultName =
+      suggestedName.empty() ? preparation.fixtureDisplayName : suggestedName;
   if (defaultName.empty())
     defaultName = Utf8StemFromPath(gdtfPath);
 
@@ -78,24 +112,19 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
     consolePanel->AppendMessage(
         wxString::Format("[INFO] Loading GDTF fixture from: %s", gdtfPathWx));
 
-  std::vector<std::string> modes = GetGdtfModes(gdtfPath);
-  if (modes.empty()) {
-    wxMessageBox("Could not read fixture modes from the selected GDTF file.",
-                 "Add fixture", wxOK | wxICON_ERROR);
-    if (consolePanel)
-      consolePanel->AppendMessage(wxString::Format(
-          "[ERROR] Add fixture failed: no modes found in %s", gdtfPathWx));
-    return;
-  }
+  std::vector<std::string> modes = preparation.dmxModeNames;
 
+  diagnostics::DiagnosticLogger::Info(
+      "GDTF insertion dialog opened for " +
+      diagnostics::DiagnosticLogger::FileNameOnly(gdtfPath) + " modes=" +
+      std::to_string(modes.size()));
   AddFixtureDialog dlg(this, wxString::FromUTF8(defaultName), modes);
   if (dlg.ShowModal() != wxID_OK)
     return;
 
-  float weight = 0.0f;
-  float power = 0.0f;
-  GetGdtfProperties(gdtfPath, weight, power);
-  std::string defaultColor = GetGdtfModelColor(gdtfPath);
+  float weight = preparation.weightKg.value_or(0.0f);
+  float power = preparation.powerConsumptionW.value_or(0.0f);
+  std::string defaultColor = preparation.modelColorHex;
   if (auto dictEntry = GdtfDictionary::Get(defaultName)) {
     if (!dictEntry->visualColorHex.empty())
       defaultColor = dictEntry->visualColorHex;
@@ -188,4 +217,8 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
           ContinuousPlacementType::Fixture, continuousFixtureUuid);
   }
   RefreshSummary();
+  diagnostics::DiagnosticLogger::Info(
+      "GDTF fixture insertion completed for " +
+      diagnostics::DiagnosticLogger::FileNameOnly(gdtfPath) + " count=" +
+      std::to_string(count) + " mode=" + mode);
 }

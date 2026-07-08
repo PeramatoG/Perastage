@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cmath>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -21,7 +22,7 @@ static bool WriteArchive(const fs::path &path,
     return false;
   wxZipOutputStream zip(output);
   for (const auto &[name, contents] : entries) {
-    auto *entry = new wxZipEntry(name);
+    auto *entry = new wxZipEntry(wxString::FromUTF8(name.c_str()));
     entry->SetMethod(wxZIP_METHOD_DEFLATE);
     zip.PutNextEntry(entry);
     zip.Write(contents.data(), contents.size());
@@ -42,6 +43,31 @@ static std::string GdtfXml(const std::string &fixtureTypeContent) {
          fixtureTypeContent + "</FixtureType></GDTF>";
 }
 
+// Reports whether an archive result contains the requested diagnostic code.
+static bool HasArchiveDiagnostic(const gdtf::ArchiveReadResult &read,
+                                 gdtf::ArchiveDiagnosticCode code) {
+  for (const auto &diagnostic : read.diagnostics) {
+    if (diagnostic.code == code)
+      return true;
+  }
+  return false;
+}
+
+// Reports whether a description snapshot contains the requested diagnostic code.
+static bool HasDescriptionDiagnostic(const gdtf::GdtfDescriptionSnapshot &snapshot,
+                                     gdtf::DescriptionDiagnosticCode code) {
+  for (const auto &diagnostic : snapshot.diagnostics) {
+    if (diagnostic.code == code)
+      return true;
+  }
+  return false;
+}
+
+// Verifies two floating point values are close enough for parsed metadata tests.
+static bool NearlyEqual(float left, float right) {
+  return std::fabs(left - right) < 0.001f;
+}
+
 // Verifies basic archive opening and description lookup behavior.
 static void TestArchiveLookup(const fs::path &dir) {
   const fs::path valid = dir / "valid.gdtf";
@@ -56,6 +82,7 @@ static void TestArchiveLookup(const fs::path &dir) {
   read = gdtf::ReadGdtfArchive(upper);
   assert(read.Success());
   assert(read.descriptionEntryPath == "Folder/DESCRIPTION.XML");
+  assert(read.usedCompatibilityDescriptionFallback);
 
   const fs::path missing = dir / "missing.gdtf";
   assert(WriteArchive(missing, {{"models/model.glb", "model"}}));
@@ -65,16 +92,39 @@ static void TestArchiveLookup(const fs::path &dir) {
   assert(read.diagnostics.back().code ==
          gdtf::ArchiveDiagnosticCode::MissingDescriptionXml);
 
+  const fs::path rootWins = dir / "root_wins.gdtf";
+  assert(WriteArchive(rootWins, {{"description.xml", GdtfXml("")},
+                                 {"Nested/DESCRIPTION.XML", GdtfXml("")}}));
+  read = gdtf::ReadGdtfArchive(rootWins);
+  assert(read.Success());
+  assert(read.descriptionEntryPath == "description.xml");
+
   const fs::path duplicate = dir / "duplicate.gdtf";
-  assert(WriteArchive(duplicate, {{"description.xml", GdtfXml("")},
-                                  {"Nested/DESCRIPTION.XML", GdtfXml("")}}));
+  assert(WriteArchive(duplicate, {{"A/description.xml", GdtfXml("")},
+                                  {"B/DESCRIPTION.XML", GdtfXml("")}}));
   read = gdtf::ReadGdtfArchive(duplicate);
   assert(!read.Success());
-  bool foundDuplicate = false;
+  bool foundAmbiguous = false;
   for (const auto &diagnostic : read.diagnostics)
-    foundDuplicate |= diagnostic.code ==
-                      gdtf::ArchiveDiagnosticCode::DuplicateDescriptionXml;
-  assert(foundDuplicate);
+    foundAmbiguous |= diagnostic.code ==
+                      gdtf::ArchiveDiagnosticCode::AmbiguousDescriptionXml;
+  assert(foundAmbiguous);
+
+  const fs::path zeroBytes = dir / "zero_bytes.gdtf";
+  assert(WriteArchive(zeroBytes, {{"description.xml", ""}}));
+  read = gdtf::ReadGdtfArchive(zeroBytes);
+  assert(!read.Success());
+  assert(read.descriptionEntryPath == "description.xml");
+  assert(HasArchiveDiagnostic(read, gdtf::ArchiveDiagnosticCode::EmptyDescriptionXml));
+  assert(!HasArchiveDiagnostic(read, gdtf::ArchiveDiagnosticCode::MissingDescriptionXml));
+
+  const fs::path whitespace = dir / "whitespace.gdtf";
+  assert(WriteArchive(whitespace, {{"description.xml", " \n\t"}}));
+  read = gdtf::ReadGdtfArchive(whitespace);
+  assert(!read.Success());
+  assert(read.descriptionEntryPath == "description.xml");
+  assert(HasArchiveDiagnostic(read, gdtf::ArchiveDiagnosticCode::EmptyDescriptionXml));
+  assert(!HasArchiveDiagnostic(read, gdtf::ArchiveDiagnosticCode::MissingDescriptionXml));
 }
 
 // Verifies malformed and incomplete description documents are diagnosed.
@@ -96,6 +146,64 @@ static void TestDescriptionFailures() {
   assert(!missingFixture.Success());
   assert(missingFixture.diagnostics.front().code ==
          gdtf::DescriptionDiagnosticCode::MissingFixtureType);
+}
+
+// Verifies explicit and WiringObject fallback power parsing.
+static void TestPowerParsing() {
+  auto readPower = [](const std::string &content) {
+    return gdtf::ReadGdtfDescription(GdtfXml(content));
+  };
+
+  gdtf::GdtfDescriptionSnapshot snapshot = readPower(
+      "<PhysicalDescriptions><Properties>"
+      "<PowerConsumption Value=\"120\"/>"
+      "</Properties></PhysicalDescriptions>");
+  assert(snapshot.powerConsumptionWPresent);
+  assert(NearlyEqual(snapshot.powerConsumptionW, 120.0f));
+
+  snapshot = readPower(
+      "<PhysicalDescriptions><Properties>"
+      "<PowerConsumption Value=\"120\"/>"
+      "<PowerConsumption Value=\"30.5\"/>"
+      "</Properties></PhysicalDescriptions>");
+  assert(snapshot.powerConsumptionWPresent);
+  assert(NearlyEqual(snapshot.powerConsumptionW, 150.5f));
+
+  snapshot = readPower(
+      "<PhysicalDescriptions><Properties>"
+      "<PowerConsumption Value=\"120\"/>"
+      "</Properties></PhysicalDescriptions>"
+      "<Geometries><Geometry>"
+      "<WiringObject ComponentType=\"Consumer\" ElectricalPayLoad=\"50\"/>"
+      "</Geometry></Geometries>");
+  assert(snapshot.powerConsumptionWPresent);
+  assert(NearlyEqual(snapshot.powerConsumptionW, 120.0f));
+
+  snapshot = readPower(
+      "<Geometries><Geometry>"
+      "<WiringObject ComponentType=\"Consumer\" ElectricalPayLoad=\"50\"/>"
+      "</Geometry></Geometries>");
+  assert(snapshot.powerConsumptionWPresent);
+  assert(NearlyEqual(snapshot.powerConsumptionW, 50.0f));
+
+  snapshot = readPower(
+      "<Geometries><Geometry><Geometry>"
+      "<WiringObject ComponentType=\"Consumer\" ElectricalPayLoad=\"25\"/>"
+      "</Geometry></Geometry></Geometries>");
+  assert(snapshot.powerConsumptionWPresent);
+  assert(NearlyEqual(snapshot.powerConsumptionW, 25.0f));
+
+  snapshot = readPower(
+      "<Geometries><Geometry>"
+      "<WiringObject ComponentType=\"Consumer\" ElectricalPayLoad=\"20\"/>"
+      "<WiringObject ComponentType=\"Consumer\" ElectricalPayload=\"22\"/>"
+      "<WiringObject ComponentType=\"Source\" ElectricalPayLoad=\"999\"/>"
+      "<WiringObject ComponentType=\"Consumer\" ElectricalPayLoad=\"0\"/>"
+      "<WiringObject ComponentType=\"Consumer\" ElectricalPayLoad=\"-1\"/>"
+      "<WiringObject ComponentType=\"Consumer\" ElectricalPayLoad=\"invalid\"/>"
+      "</Geometry></Geometries>");
+  assert(snapshot.powerConsumptionWPresent);
+  assert(NearlyEqual(snapshot.powerConsumptionW, 42.0f));
 }
 
 // Verifies ordered metadata, revisions, and DMX modes are preserved.
@@ -122,12 +230,12 @@ static void TestGoboWheelCollections() {
   const std::string xml = GdtfXml(
       "<Wheels>"
       "<Wheel Name=\"Gobo Wheel A\">"
-      "<Slot Name=\"Open A\" MediaFileName=\"wheels/a_open.png\"/>"
-      "<Slot Name=\"Breakup A\" MediaFileName=\"wheels/a_breakup.png\"/>"
+      "<Slot Name=\"Open A\" MediaFileName=\"a_open\"/>"
+      "<Slot Name=\"Breakup A\" MediaFileName=\"a_breakup\"/>"
       "</Wheel>"
       "<Wheel Name=\"Gobo Wheel B\">"
-      "<Slot Name=\"Open B\" MediaFileName=\"wheels/b_open.png\"/>"
-      "<Slot Name=\"Dots B\" MediaFileName=\"wheels/b_dots.png\"/>"
+      "<Slot Name=\"Open B\" MediaFileName=\"b_open\"/>"
+      "<Slot Name=\"Dots B\" MediaFileName=\"b_dots\"/>"
       "</Wheel>"
       "</Wheels>");
   gdtf::GdtfDescriptionSnapshot snapshot = gdtf::ReadGdtfDescription(
@@ -139,8 +247,45 @@ static void TestGoboWheelCollections() {
   assert(snapshot.wheels[1].name == "Gobo Wheel B");
   assert(snapshot.wheels[0].slots.size() == 2);
   assert(snapshot.wheels[1].slots.size() == 2);
-  assert(snapshot.wheels[0].slots[1].mediaFileName == "wheels/a_breakup.png");
-  assert(snapshot.wheels[1].slots[1].mediaFileName == "wheels/b_dots.png");
+  assert(snapshot.wheels[0].slots[1].mediaFileName == "a_breakup");
+  assert(snapshot.wheels[1].slots[1].mediaFileName == "b_dots");
+  assert(!HasDescriptionDiagnostic(snapshot,
+                                   gdtf::DescriptionDiagnosticCode::MissingWheelMediaResource));
+}
+
+// Verifies GDTF wheel MediaFileName resource lookup uses wheels basenames.
+static void TestWheelMediaResolution() {
+  const std::string xml = GdtfXml(
+      "<Wheels><Wheel Name=\"Gobo\"><Slot Name=\"Slot\" MediaFileName=\"Gobo1\"/>"
+      "</Wheel></Wheels>");
+
+  gdtf::GdtfDescriptionSnapshot snapshot =
+      gdtf::ReadGdtfDescription(xml, {"description.xml", "wheels/Gobo1.png"});
+  assert(snapshot.Success());
+  assert(!HasDescriptionDiagnostic(snapshot,
+                                   gdtf::DescriptionDiagnosticCode::MissingWheelMediaResource));
+  assert(snapshot.wheels[0].slots[0].mediaFileName == "Gobo1");
+
+  snapshot =
+      gdtf::ReadGdtfDescription(xml, {"description.xml", "wheels/Gobo1.svg"});
+  assert(snapshot.Success());
+  assert(!HasDescriptionDiagnostic(snapshot,
+                                   gdtf::DescriptionDiagnosticCode::MissingWheelMediaResource));
+
+  snapshot =
+      gdtf::ReadGdtfDescription(xml, {"description.xml", "resources/Gobo1.png"});
+  assert(HasDescriptionDiagnostic(snapshot,
+                                  gdtf::DescriptionDiagnosticCode::MissingWheelMediaResource));
+
+  snapshot = gdtf::ReadGdtfDescription(
+      xml, {"description.xml", "wheels/Gobo1.png", "wheels/Gobo1.svg"});
+  assert(HasDescriptionDiagnostic(snapshot,
+                                  gdtf::DescriptionDiagnosticCode::AmbiguousWheelMediaResource));
+
+  snapshot =
+      gdtf::ReadGdtfDescription(xml, {"description.xml", "wheels/gobo1.png"});
+  assert(HasDescriptionDiagnostic(
+      snapshot, gdtf::DescriptionDiagnosticCode::NonCanonicalWheelMediaCaseMatch));
 }
 
 // Verifies unknown content remains non-fatal and metadata summary stays compatible.
@@ -189,8 +334,10 @@ int main() {
 
   TestArchiveLookup(dir);
   TestDescriptionFailures();
+  TestPowerParsing();
   TestOrderedDocumentData();
   TestGoboWheelCollections();
+  TestWheelMediaResolution();
   TestUnknownUnicodeAndSummary(dir);
 
   fs::remove_all(dir);
