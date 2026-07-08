@@ -3,6 +3,7 @@
 #include <cassert>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include <wx/filename.h>
 #include <wx/init.h>
@@ -143,6 +144,91 @@ void TestFailedGenerationDoesNotMarkManifestValid() {
   assert(result.status == symbol_cache::ValidationStatus::MissingManifest);
 }
 
+
+// Writes a GDTF archive with caller-controlled ZIP entry ordering.
+bool WriteGdtfArchive(const fs::path &path,
+                      const std::vector<std::pair<std::string, std::string>> &entries) {
+  wxFileName::Mkdir(WxStringFromPath(path.parent_path()), wxS_DIR_DEFAULT,
+                    wxPATH_MKDIR_FULL);
+  wxFileOutputStream output(WxStringFromPath(path));
+  if (!output.IsOk())
+    return false;
+  wxZipOutputStream zip(output);
+  if (!zip.IsOk())
+    return false;
+  for (const auto &[name, content] : entries) {
+    if (!zip.PutNextEntry(name))
+      return false;
+    zip.Write(content.data(), content.size());
+  }
+  zip.Close();
+  return output.IsOk();
+}
+
+// Verifies semantic GDTF fingerprints ignore ZIP packaging metadata and order.
+void TestSemanticFingerprintIgnoresZipPackaging() {
+  const fs::path tempRoot = fs::temp_directory_path() / "perastage_semantic_gdtf";
+  std::error_code ec;
+  fs::remove_all(tempRoot, ec);
+  fs::create_directories(tempRoot);
+
+  const std::string description = "<GDTF><FixtureType Name=\"Semantic\"/></GDTF>";
+  const std::string svg = "<svg><path d=\"M0 0L1 1\"/></svg>";
+  const std::string glb = "glb-bytes";
+  const fs::path first = tempRoot / "first.gdtf";
+  const fs::path second = tempRoot / "second.gdtf";
+  assert(WriteGdtfArchive(first, {{"description.xml", description},
+                                  {"models/svg/front.svg", svg},
+                                  {"models/glb/body.glb", glb}}));
+  assert(WriteGdtfArchive(second, {{"models/glb/body.glb", glb},
+                                   {"models/svg/front.svg", svg},
+                                   {"description.xml", description}}));
+
+  std::string errorA;
+  std::string errorB;
+  const std::string hashA = symbol_cache::ComputeGdtfSemanticFingerprint(ToUtf8String(first), errorA);
+  const std::string hashB = symbol_cache::ComputeGdtfSemanticFingerprint(ToUtf8String(second), errorB);
+  assert(errorA.empty());
+  assert(errorB.empty());
+  assert(hashA == hashB);
+  assert(hashA.rfind("gdtfsymfnv1a64v1:", 0) == 0);
+
+  const fs::path changedDescription = tempRoot / "changed_description.gdtf";
+  const fs::path changedSvg = tempRoot / "changed_svg.gdtf";
+  const fs::path changedModel = tempRoot / "changed_model.gdtf";
+  assert(WriteGdtfArchive(changedDescription, {{"description.xml", description + " "},
+                                               {"models/svg/front.svg", svg},
+                                               {"models/glb/body.glb", glb}}));
+  assert(WriteGdtfArchive(changedSvg, {{"description.xml", description},
+                                       {"models/svg/front.svg", svg + " "},
+                                       {"models/glb/body.glb", glb}}));
+  assert(WriteGdtfArchive(changedModel, {{"description.xml", description},
+                                         {"models/svg/front.svg", svg},
+                                         {"models/glb/body.glb", glb + "2"}}));
+  std::string error;
+  assert(symbol_cache::ComputeGdtfSemanticFingerprint(ToUtf8String(changedDescription), error) != hashA);
+  assert(symbol_cache::ComputeGdtfSemanticFingerprint(ToUtf8String(changedSvg), error) != hashA);
+  assert(symbol_cache::ComputeGdtfSemanticFingerprint(ToUtf8String(changedModel), error) != hashA);
+
+  symbol_cache::SymbolCacheManifest manifest;
+  auto request = BuildRequest("fnv1a64:e4092621d6b68c8c:297001");
+  manifest.MarkFixtureSymbolsValid(request, "2026-06-01T00:00:00Z");
+  auto semanticRequest = BuildRequest(hashA);
+  const auto result = manifest.ValidateFixture(semanticRequest);
+  assert(!result.valid);
+  assert(result.status == symbol_cache::ValidationStatus::GdtfHashChanged);
+
+  const fs::path malformed = tempRoot / "malformed.gdtf";
+  std::ofstream bad(malformed, std::ios::binary);
+  bad << "not a zip";
+  bad.close();
+  std::string malformedError;
+  assert(symbol_cache::ComputeGdtfSemanticFingerprint(ToUtf8String(malformed), malformedError).empty());
+  assert(!malformedError.empty());
+
+  fs::remove_all(tempRoot, ec);
+}
+
 // Writes a minimal project archive containing the symbol cache manifest entry.
 bool WriteProjectArchiveWithManifest(const fs::path &projectPath) {
   wxFileName::Mkdir(WxStringFromPath(projectPath.parent_path()), wxS_DIR_DEFAULT,
@@ -201,5 +287,6 @@ int main() {
   TestSuccessfulGenerationUpdatesManifest();
   TestFailedGenerationDoesNotMarkManifestValid();
   TestProjectArchivePathUsesUtf8();
+  TestSemanticFingerprintIgnoresZipPackaging();
   return 0;
 }

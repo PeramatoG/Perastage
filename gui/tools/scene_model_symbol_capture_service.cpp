@@ -1,15 +1,14 @@
 #include "tools/scene_model_symbol_capture_service.h"
 
 #include <array>
-#include <cfloat>
 #include <string>
 #include <unordered_map>
 
 #include "configmanager.h"
 #include "fixture.h"
 #include "fixtures/fixture_gdtf_resolution.h"
-#include "gdtfloader.h"
 #include "matrixutils.h"
+#include "tools/fixture_geometry_bounds.h"
 #include "sceneobject.h"
 #include "support.h"
 #include "symbols/Symbol2DImageBuilder.h"
@@ -22,32 +21,6 @@ namespace tools {
 namespace {
 
 constexpr float kSymbolRdpEpsilon = 1.0f;
-
-struct Bounds3D {
-  std::array<float, 3> min = {FLT_MAX, FLT_MAX, FLT_MAX};
-  std::array<float, 3> max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
-  bool valid = false;
-};
-
-// Transforms a point by a Matrix using local-space basis vectors and
-// translation.
-std::array<float, 3> TransformPoint(const Matrix &m,
-                                    const std::array<float, 3> &p) {
-  return {m.u[0] * p[0] + m.v[0] * p[1] + m.w[0] * p[2] + m.o[0],
-          m.u[1] * p[0] + m.v[1] * p[1] + m.w[1] * p[2] + m.o[1],
-          m.u[2] * p[0] + m.v[2] * p[1] + m.w[2] * p[2] + m.o[2]};
-}
-
-// Expands 3D bounds to include a single transformed point.
-void ExtendBounds(Bounds3D &bounds, const std::array<float, 3> &p) {
-  bounds.min[0] = std::min(bounds.min[0], p[0]);
-  bounds.min[1] = std::min(bounds.min[1], p[1]);
-  bounds.min[2] = std::min(bounds.min[2], p[2]);
-  bounds.max[0] = std::max(bounds.max[0], p[0]);
-  bounds.max[1] = std::max(bounds.max[1], p[1]);
-  bounds.max[2] = std::max(bounds.max[2], p[2]);
-  bounds.valid = true;
-}
 
 // Temporarily overrides a fixture color during symbol capture and restores it
 // afterward.
@@ -243,11 +216,10 @@ void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
   }
 }
 
-// Resolves fixture GDTF geometry bounds for aspect-driven symbol viewport
-// sizing.
+// Resolves fixture GDTF geometry bounds for aspect-driven symbol viewport sizing.
 bool TryResolveFixtureBoundsMmForCapture(ConfigManager &cfg,
                                          const SceneModelSymbolTarget &target,
-                                         Bounds3D &bounds) {
+                                         FixtureGeometryBounds &bounds) {
   if (target.kind != SceneModelKind::Fixture || target.uuid.empty())
     return false;
   const auto &fixtures = cfg.GetScene().fixtures;
@@ -261,26 +233,12 @@ bool TryResolveFixtureBoundsMmForCapture(ConfigManager &cfg,
           fixtureIt->second, cfg.GetScene(), resolution, error))
     return false;
 
-  std::vector<GdtfObject> objects;
-  if (!LoadGdtf(resolution.selectedPath, objects, &error))
-    return false;
-
-  for (const auto &object : objects) {
-    if (object.isLens)
-      continue;
-    for (size_t vi = 0; vi + 2 < object.mesh.vertices.size(); vi += 3) {
-      const std::array<float, 3> local = {object.mesh.vertices[vi],
-                                          object.mesh.vertices[vi + 1],
-                                          object.mesh.vertices[vi + 2]};
-      ExtendBounds(bounds, TransformPoint(object.transform, local));
-    }
-  }
-  return bounds.valid;
+  return ComputeFixtureGeometryBoundsMm(resolution.selectedPath, bounds, error);
 }
 
 // Returns the expected projected width/height ratio for a symbol view from
 // physical bounds.
-float ComputeCaptureAspectForView(const Bounds3D &bounds,
+float ComputeCaptureAspectForView(const FixtureGeometryBounds &bounds,
                                   symbols::SymbolView view) {
   const float x = std::max(1e-3f, bounds.max[0] - bounds.min[0]);
   const float y = std::max(1e-3f, bounds.max[1] - bounds.min[1]);
@@ -360,9 +318,11 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
 
   std::vector<symbols::RenderedSymbolImage> renders;
   renders.reserve(requests.size());
-  Bounds3D fixtureBounds;
+  FixtureGeometryBounds fixtureBounds;
   const bool hasFixtureBounds =
       TryResolveFixtureBoundsMmForCapture(cfg, target, fixtureBounds);
+  if (hasFixtureBounds)
+    result.fixtureBoundsMm = fixtureBounds;
 
   for (const auto &request : requests) {
     if (hasFixtureBounds) {

@@ -194,6 +194,8 @@ struct GdtfCacheEntry
     std::unordered_map<std::string, std::vector<GdtfChannelInfo>> modeChannels;
     std::unordered_map<std::string, int> modeChannelCounts;
     std::unordered_map<std::string, Mesh> meshCache;
+    std::unordered_map<std::string, GdtfGeometryTree> geometryTreeCache;
+    std::unordered_map<std::string, std::vector<GdtfObject>> flatObjectCache;
     std::string fixtureName;
     bool propertiesParsed = false;
     float weightKg = 0.0f;
@@ -281,6 +283,47 @@ static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
             mesh.vertices[vi + 2] *= sz;
         }
     }
+}
+
+
+// Builds a stable cache key for a generated primitive mesh.
+static std::string BuildPrimitiveMeshCacheKey(const GdtfModelInfo& modelInfo)
+{
+    std::ostringstream oss;
+    oss << "primitive|" << ToLower(modelInfo.primitiveType) << '|'
+        << std::setprecision(9) << modelInfo.length << '|'
+        << modelInfo.width << '|' << modelInfo.height;
+    return oss.str();
+}
+
+// Returns a primitive mesh from the per-archive cache or builds it once.
+static bool GetCachedPrimitiveMesh(const GdtfModelInfo& modelInfo,
+                                   std::unordered_map<std::string, Mesh>& meshCache,
+                                   Mesh& mesh)
+{
+    GdtfModelInfo adjusted = modelInfo;
+    constexpr float kDefaultMeters = 0.1f;
+    if (adjusted.length <= 0.0f)
+        adjusted.length = kDefaultMeters;
+    if (adjusted.width <= 0.0f)
+        adjusted.width = kDefaultMeters;
+    if (adjusted.height <= 0.0f)
+        adjusted.height = kDefaultMeters;
+
+    const std::string key = BuildPrimitiveMeshCacheKey(adjusted);
+    auto it = meshCache.find(key);
+    if (it != meshCache.end()) {
+        mesh = it->second;
+        return true;
+    }
+
+    Mesh generated;
+    if (!BuildPrimitiveMesh(adjusted.primitiveType, generated))
+        return false;
+    ApplyModelDimensions(generated, adjusted);
+    auto inserted = meshCache.emplace(key, std::move(generated)).first;
+    mesh = inserted->second;
+    return true;
 }
 
 // Builds a box primitive scaled from model dimensions using visible defaults for missing size components.
@@ -1458,20 +1501,8 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             }
 
             if (!haveMesh && IsPrimitiveTypeDefined(modelInfo.primitiveType)) {
-                GdtfModelInfo adjusted = modelInfo;
-                constexpr float kDefaultMeters = 0.1f;
-                if (adjusted.length <= 0.0f)
-                    adjusted.length = kDefaultMeters;
-                if (adjusted.width <= 0.0f)
-                    adjusted.width = kDefaultMeters;
-                if (adjusted.height <= 0.0f)
-                    adjusted.height = kDefaultMeters;
-                if (BuildPrimitiveMesh(modelInfo.primitiveType, mesh)) {
-                    ApplyModelDimensions(mesh, adjusted);
+                if (GetCachedPrimitiveMesh(modelInfo, meshCache, mesh))
                     haveMesh = true;
-                    if (ConsolePanel::Instance())
-                        ConsolePanel::Instance()->AppendMessage(wxString::Format("GDTF: using primitive fallback for model %s", wxString::FromUTF8(modelInfo.file)));
-                }
             }
 
             if (!haveMesh && (modelInfo.length > 0.0f || modelInfo.width > 0.0f || modelInfo.height > 0.0f)) {
@@ -1595,6 +1626,105 @@ static std::unordered_map<std::string, tinyxml2::XMLElement*> BuildGeometryMap(
     return geometryMap;
 }
 
+
+// Parses model definitions from the fixture XML into renderable model metadata.
+static std::unordered_map<std::string, GdtfModelInfo> BuildModelInfoMap(GdtfCacheEntry& entry)
+{
+    std::unordered_map<std::string, GdtfModelInfo> models;
+    tinyxml2::XMLElement* ft = entry.fixtureType;
+    if (!ft)
+        return models;
+    if (tinyxml2::XMLElement* modelList = ft->FirstChildElement("Models")) {
+        for (tinyxml2::XMLElement* m = modelList->FirstChildElement("Model");
+             m; m = m->NextSiblingElement("Model")) {
+            const char* name = m->Attribute("Name");
+            const char* file = m->Attribute("File");
+            const char* primitiveType = m->Attribute("PrimitiveType");
+            const bool hasName = name && !IsBlank(name);
+            const bool hasFile = file && !IsBlank(file);
+            const std::string primitive = primitiveType ? primitiveType : "";
+            const bool hasPrimitive = IsPrimitiveTypeDefined(primitive);
+            if (hasName && !hasFile && !hasPrimitive) {
+                if (ConsolePanel::Instance() && entry.emptyModelFileLogged.insert(name).second) {
+                    wxString msg = wxString::Format(
+                        "GDTF: Model %s has empty File and undefined PrimitiveType",
+                        wxString::FromUTF8(name));
+                    ConsolePanel::Instance()->AppendMessage(msg);
+                }
+                continue;
+            }
+            if (!hasName)
+                continue;
+
+            GdtfModelInfo info;
+            info.name = name;
+            if (hasFile)
+                info.file = file;
+            info.primitiveType = primitive;
+            m->QueryFloatAttribute("Length", &info.length);
+            m->QueryFloatAttribute("Width", &info.width);
+            m->QueryFloatAttribute("Height", &info.height);
+            models[name] = info;
+        }
+    }
+    return models;
+}
+
+// Builds or reuses the canonical geometry tree for one cached GDTF and DMX mode.
+static bool BuildGdtfGeometryTreeFromCache(GdtfCacheEntry& entry,
+                                           const std::string& modeName,
+                                           GdtfGeometryTree& outTree)
+{
+    const std::string modeKey = modeName.empty() ? std::string("<default>") : modeName;
+    auto cached = entry.geometryTreeCache.find(modeKey);
+    if (cached != entry.geometryTreeCache.end()) {
+        outTree = cached->second;
+        return !outTree.nodes.empty();
+    }
+
+    GdtfGeometryTree built;
+    const auto models = BuildModelInfoMap(entry);
+    if (tinyxml2::XMLElement* geoms = entry.fixtureType->FirstChildElement("Geometries")) {
+        const auto geomMap = BuildGeometryMap(geoms);
+        const auto roots = ResolveGeometryRoots(entry.fixtureType, geoms, geomMap, modeName);
+        for (tinyxml2::XMLElement* g : roots) {
+            ParseGeometry(g, MatrixUtils::Identity(), models, entry.extractedDir, geomMap,
+                          entry.meshCache, built, &entry.missingModelsLogged,
+                          &entry.failedModelLoads, -1);
+        }
+    }
+
+    outTree = built;
+    entry.geometryTreeCache[modeKey] = std::move(built);
+    return !outTree.nodes.empty();
+}
+
+// Derives flat render objects from the canonical geometry tree for one DMX mode.
+static bool BuildGdtfFlatObjectsFromCache(GdtfCacheEntry& entry,
+                                          const std::string& modeName,
+                                          std::vector<GdtfObject>& outObjects)
+{
+    const std::string modeKey = modeName.empty() ? std::string("<default>") : modeName;
+    auto cached = entry.flatObjectCache.find(modeKey);
+    if (cached != entry.flatObjectCache.end()) {
+        outObjects = cached->second;
+        return !outObjects.empty();
+    }
+
+    GdtfGeometryTree tree;
+    if (!BuildGdtfGeometryTreeFromCache(entry, modeName, tree))
+        return false;
+
+    std::vector<GdtfObject> flat;
+    for (const GdtfNode3D& node : tree.nodes) {
+        if (node.hasMesh)
+            flat.push_back({node.mesh, node.worldTransform, node.isLens});
+    }
+    outObjects = flat;
+    entry.flatObjectCache[modeKey] = std::move(flat);
+    return !outObjects.empty();
+}
+
 // Loads the default GDTF geometry hierarchy using the first usable DMX mode.
 bool LoadGdtfGeometryTree(const std::string& gdtfPath,
                           GdtfGeometryTree& outTree,
@@ -1614,11 +1744,8 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
     outTree.nodes.clear();
     outTree.axisNodeIndices.clear();
     outTree.emitterNodeIndices.clear();
-
-    std::vector<GdtfObject> outObjects;
-    const bool ok = LoadGdtf(gdtfPath, outObjects, modeName, outError);
-    if (!ok)
-        return false;
+    if (outError)
+        outError->clear();
 
     bool cachedFailure = false;
     bool fromCache = false;
@@ -1627,52 +1754,17 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
     GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath, &cachedFailure, &fromCache,
                                           &failureReason, &cacheKey);
     if (!entry || !entry->fixtureType) {
-        if (outError && outError->empty())
+        if (outError)
             *outError = failureReason.empty() ? "unknown error" : failureReason;
         return false;
     }
 
-    tinyxml2::XMLElement* ft = entry->fixtureType;
-    std::unordered_map<std::string, GdtfModelInfo> models;
-    if (tinyxml2::XMLElement* modelList = ft->FirstChildElement("Models")) {
-        for (tinyxml2::XMLElement* m = modelList->FirstChildElement("Model");
-             m; m = m->NextSiblingElement("Model")) {
-            const char* name = m->Attribute("Name");
-            const char* file = m->Attribute("File");
-            const char* primitiveType = m->Attribute("PrimitiveType");
-            bool hasName = name && !IsBlank(name);
-            bool hasFile = file && !IsBlank(file);
-            std::string primitive = primitiveType ? primitiveType : "";
-            bool hasPrimitive = IsPrimitiveTypeDefined(primitive);
-            if (!hasName || (!hasFile && !hasPrimitive))
-                continue;
-
-            GdtfModelInfo info;
-            if (hasFile)
-                info.file = file;
-            info.primitiveType = primitive;
-            m->QueryFloatAttribute("Length", &info.length);
-            m->QueryFloatAttribute("Width", &info.width);
-            m->QueryFloatAttribute("Height", &info.height);
-            models[name] = info;
-        }
+    if (!BuildGdtfGeometryTreeFromCache(*entry, modeName, outTree)) {
+        if (outError)
+            *outError = "No geometry with models found";
+        return false;
     }
-
-    std::unordered_map<std::string, Mesh>& meshCache = entry->meshCache;
-    std::unordered_set<std::string>* missingModels = &entry->missingModelsLogged;
-    std::unordered_set<std::string>* failedModelLoads = &entry->failedModelLoads;
-
-    if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
-        const auto geomMap = BuildGeometryMap(geoms);
-        const auto roots = ResolveGeometryRoots(ft, geoms, geomMap, modeName);
-        for (tinyxml2::XMLElement* g : roots) {
-            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir,
-                          geomMap, meshCache, outTree, missingModels, failedModelLoads,
-                          -1, nullptr, false);
-        }
-    }
-
-    return !outTree.nodes.empty();
+    return true;
 }
 
 // Loads the default GDTF models using the first usable DMX mode.
@@ -1732,66 +1824,7 @@ bool LoadGdtf(const std::string& gdtfPath,
 
     g_gdtfFailedAttempts.erase(cacheKey.empty() ? gdtfPath : cacheKey);
 
-    tinyxml2::XMLElement* ft = entry->fixtureType;
-
-    std::unordered_map<std::string, GdtfModelInfo> models;
-    if (tinyxml2::XMLElement* modelList = ft->FirstChildElement("Models")) {
-        for (tinyxml2::XMLElement* m = modelList->FirstChildElement("Model"); m; m = m->NextSiblingElement("Model")) {
-            const char* name = m->Attribute("Name");
-            const char* file = m->Attribute("File");
-            const char* primitiveType = m->Attribute("PrimitiveType");
-            bool hasName = name && !IsBlank(name);
-            bool hasFile = file && !IsBlank(file);
-            std::string primitive = primitiveType ? primitiveType : "";
-            bool hasPrimitive = IsPrimitiveTypeDefined(primitive);
-            if (hasName && !hasFile && !hasPrimitive) {
-                if (ConsolePanel::Instance() && entry->emptyModelFileLogged.insert(name).second) {
-                    wxString msg = wxString::Format(
-                        "GDTF: Model %s has empty File and undefined PrimitiveType",
-                        wxString::FromUTF8(name));
-                    ConsolePanel::Instance()->AppendMessage(msg);
-                }
-                continue;
-            }
-            if (hasName) {
-                GdtfModelInfo info;
-                if (hasFile)
-                    info.file = file;
-                info.primitiveType = primitive;
-                m->QueryFloatAttribute("Length", &info.length);
-                m->QueryFloatAttribute("Width", &info.width);
-                m->QueryFloatAttribute("Height", &info.height);
-                models[name] = info;
-            }
-        }
-    }
-
-    std::unordered_map<std::string, Mesh>& meshCache = entry->meshCache;
-    std::unordered_set<std::string>* missingModels = &entry->missingModelsLogged;
-    std::unordered_set<std::string>* failedModelLoads = &entry->failedModelLoads;
-    GdtfGeometryTree geometryTree;
-    if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
-        const auto geomMap = BuildGeometryMap(geoms);
-        const auto roots = ResolveGeometryRoots(ft, geoms, geomMap, modeName);
-        for (tinyxml2::XMLElement* g : roots) {
-            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap,
-                          meshCache, geometryTree, missingModels, failedModelLoads, -1);
-        }
-    }
-
-    for (const GdtfNode3D& node : geometryTree.nodes) {
-        if (node.hasMesh)
-            outObjects.push_back({node.mesh, node.worldTransform, node.isLens});
-    }
-
-    if (ConsolePanel::Instance() && !fromCache) {
-        wxString msg = wxString::Format("GDTF: loaded %zu objects from %s",
-                                       outObjects.size(),
-                                       wxString::FromUTF8(gdtfPath));
-        ConsolePanel::Instance()->AppendMessage(msg);
-    }
-
-    if (outObjects.empty()) {
+    if (!BuildGdtfFlatObjectsFromCache(*entry, modeName, outObjects)) {
         constexpr const char* kEmptyGeometryReason = "No geometry with models found";
         size_t count = ++entry->emptyGeometryLogCount;
 
@@ -1814,7 +1847,13 @@ bool LoadGdtf(const std::string& gdtfPath,
         return false;
     }
 
-    entry->emptyGeometryLogCount = 0;
+    if (ConsolePanel::Instance() && !fromCache) {
+        wxString msg = wxString::Format("GDTF: loaded %zu objects from %s",
+                                       outObjects.size(),
+                                       wxString::FromUTF8(gdtfPath));
+        ConsolePanel::Instance()->AppendMessage(msg);
+    }
+
     return true;
     } catch (const std::exception& error) {
         outObjects.clear();

@@ -58,6 +58,8 @@ Changes since **v1.4.0**.
 
 ## Internal changes
 
+- Improved GDTF geometry loading and symbol-cache validation by sharing one cached geometry build, caching primitive meshes by dimensions, reusing fixture bounds during symbol generation, and switching generated-symbol manifests to a versioned semantic GDTF fingerprint that is stable across ZIP repackaging.
+
 - Started the reusable GDTF editor GUI migration by sharing the read-only metadata panel between Fixture Edit and Truss Edit, without changing metadata loading, apply behavior, or GDTF mutation paths.
 
 ## Build, packaging and CI
@@ -137,6 +139,7 @@ sudo pacman -U Perastage-1.4.0-arch-x86_64.pkg.tar.zst
 If you encounter any problems installing or running Perastage, please open an issue on GitHub or contact the developer. Including a diagnostic report (available from the Help menu) makes it much easier to investigate problems.
 
 ## Internal changes
+
 - Isolated volatile build version and diagnostic metadata into a dedicated build-info translation unit so version-only changes no longer force broad C++ recompilation.
 - Moved GDTF metadata summary loading into the shared core layer and documented the current GDTF editor architecture boundaries for future reusable editor work.
 - Added a centralized read-only GDTF archive and description snapshot foundation in core, including ordered wheel/slot preservation and focused regression coverage for future editor work.

@@ -26,6 +26,7 @@
 // to the desired bounding box dimensions in meters as specified in the
 // GDTF file. When any of these are zero the raw mesh size is used.
 struct GdtfModelInfo {
+    std::string name;
     std::string file;
     std::string primitiveType;
     float length = 0.0f; // meters

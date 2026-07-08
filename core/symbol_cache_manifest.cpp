@@ -1,16 +1,20 @@
 #include "symbol_cache_manifest.h"
 #include "filesystem_path_utils.h"
 
+#include <algorithm>
 #include <array>
+#include <cctype>
 #include <chrono>
 #include <ctime>
 #include <exception>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <utility>
+#include <vector>
 
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
@@ -287,37 +291,116 @@ const std::vector<FixtureSymbolCacheEntry> &SymbolCacheManifest::Entries() const
   return entries;
 }
 
-// Computes a stable FNV-1a content hash for a GDTF file.
-std::string ComputeFileContentHash(const std::string &path,
-                                   std::string &errorMessage) {
-  std::ifstream input(path, std::ios::binary);
-  if (!input.is_open()) {
-    errorMessage = "Could not open GDTF file for symbol cache hashing.";
+// Normalizes a ZIP entry path for deterministic GDTF semantic fingerprinting.
+static std::string NormalizeGdtfEntryPath(std::string path) {
+  std::replace(path.begin(), path.end(), '\\', '/');
+  while (!path.empty() && path.front() == '/')
+    path.erase(path.begin());
+  std::string normalized;
+  bool previousSlash = false;
+  for (char ch : path) {
+    if (ch == '/') {
+      if (!previousSlash)
+        normalized.push_back('/');
+      previousSlash = true;
+    } else {
+      normalized.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+      previousSlash = false;
+    }
+  }
+  return normalized;
+}
+
+// Reports whether a normalized GDTF entry affects generated Perastage symbols.
+static bool IsSymbolRelevantGdtfEntry(const std::string &path) {
+  if (path == "description.xml")
+    return true;
+  constexpr std::array<const char *, 10> prefixes = {
+      "models/svg/",      "models/svg_front/", "models/svg_side/",
+      "models/gltf_low/", "models/gltf/",      "models/gltf_high/",
+      "models/glb/",      "models/3ds_low/",   "models/3ds/",
+      "models/3ds_high/"};
+  for (const char *prefix : prefixes) {
+    if (path.rfind(prefix, 0) == 0)
+      return true;
+  }
+  return false;
+}
+
+// Updates an FNV-1a hash with raw bytes.
+static void UpdateFnv1a(std::uint64_t &hash, const void *data, size_t size) {
+  const auto *bytes = static_cast<const unsigned char *>(data);
+  for (size_t i = 0; i < size; ++i) {
+    hash ^= bytes[i];
+    hash *= 1099511628211ull;
+  }
+}
+
+// Computes a versioned semantic fingerprint over symbol-relevant uncompressed GDTF entries.
+std::string ComputeGdtfSemanticFingerprint(const std::string &path,
+                                           std::string &errorMessage) {
+  wxFileInputStream input(WxStringFromUtf8Path(path));
+  if (!input.IsOk()) {
+    errorMessage = "Could not open GDTF archive for semantic fingerprinting.";
+    return {};
+  }
+
+  wxZipInputStream zip(input);
+  if (!zip.IsOk()) {
+    errorMessage = "Could not read GDTF archive for semantic fingerprinting.";
+    return {};
+  }
+
+  std::map<std::string, std::vector<unsigned char>> entries;
+  while (std::unique_ptr<wxZipEntry> entry(zip.GetNextEntry())) {
+    if (entry->IsDir())
+      continue;
+    const std::string normalized = NormalizeGdtfEntryPath(entry->GetName().ToStdString());
+    if (!IsSymbolRelevantGdtfEntry(normalized))
+      continue;
+
+    std::vector<unsigned char> bytes;
+    std::array<char, 8192> buffer{};
+    while (true) {
+      zip.Read(buffer.data(), buffer.size());
+      const size_t count = zip.LastRead();
+      if (count == 0)
+        break;
+      const auto *begin = reinterpret_cast<const unsigned char *>(buffer.data());
+      bytes.insert(bytes.end(), begin, begin + count);
+    }
+    entries[normalized] = std::move(bytes);
+  }
+
+  if (entries.find("description.xml") == entries.end()) {
+    errorMessage = "GDTF semantic fingerprint requires description.xml.";
     return {};
   }
 
   std::uint64_t hash = 1469598103934665603ull;
-  std::uint64_t size = 0;
-  std::array<char, 8192> buffer{};
-  while (input) {
-    input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-    const std::streamsize count = input.gcount();
-    for (std::streamsize i = 0; i < count; ++i) {
-      hash ^= static_cast<unsigned char>(buffer[static_cast<size_t>(i)]);
-      hash *= 1099511628211ull;
-    }
-    size += static_cast<std::uint64_t>(count);
-  }
-
-  if (!input.eof()) {
-    errorMessage = "Could not read the complete GDTF file for symbol cache hashing.";
-    return {};
+  std::uint64_t payloadSize = 0;
+  constexpr char version[] = "gdtf-symbol-fnv1a64-v1\n";
+  UpdateFnv1a(hash, version, sizeof(version) - 1);
+  for (const auto &[name, bytes] : entries) {
+    UpdateFnv1a(hash, name.data(), name.size());
+    const char separator = '\0';
+    UpdateFnv1a(hash, &separator, 1);
+    if (!bytes.empty())
+      UpdateFnv1a(hash, bytes.data(), bytes.size());
+    UpdateFnv1a(hash, &separator, 1);
+    payloadSize += static_cast<std::uint64_t>(name.size() + bytes.size());
   }
 
   std::ostringstream out;
-  out << "fnv1a64:" << std::hex << std::setw(16) << std::setfill('0') << hash
-      << ":" << std::dec << size;
+  out << "gdtfsymfnv1a64v1:" << std::hex << std::setw(16) << std::setfill('0')
+      << hash << ":" << std::dec << entries.size() << ":" << payloadSize;
   return out.str();
+}
+
+// Computes the current semantic GDTF content fingerprint used by symbol cache validation.
+std::string ComputeFileContentHash(const std::string &path,
+                                   std::string &errorMessage) {
+  return ComputeGdtfSemanticFingerprint(path, errorMessage);
 }
 
 // Returns the complete set of views required before manifest validation can skip inspection.
