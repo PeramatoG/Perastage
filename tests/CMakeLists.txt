@@ -24,6 +24,11 @@ add_library(perastage_test_path_utils STATIC
             ../core/filesystem_path_utils.cpp)
 target_include_directories(perastage_test_path_utils PRIVATE ../core)
 
+add_library(perastage_test_gdtf_archive_reader STATIC
+            ../core/gdtf_archive_reader.cpp)
+target_include_directories(perastage_test_gdtf_archive_reader PRIVATE ../core)
+target_link_libraries(perastage_test_gdtf_archive_reader PRIVATE ${wxWidgets_LIBRARIES})
+
 find_program(BASH_EXECUTABLE bash)
 if(BASH_EXECUTABLE)
     add_test(NAME DocsPerastageTreeModules
@@ -1565,6 +1570,12 @@ foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
         "../viewer3d/loader3ds.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
         "../viewer3d/loaderglb.cpp" IN_LIST PERASTAGE_TEST_SOURCES))
         target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_path_utils)
+    endif()
+    if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_gdtf_archive_reader" AND
+       PERASTAGE_TEST_SOURCES AND
+       "../viewer3d/gdtfloader.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
+       NOT ("../core/gdtf_archive_reader.cpp" IN_LIST PERASTAGE_TEST_SOURCES))
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_gdtf_archive_reader)
     endif()
 endforeach()
 

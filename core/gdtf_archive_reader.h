@@ -59,4 +59,8 @@ struct ArchiveReadResult {
 
 ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath);
 
+ArchiveReadResult
+ExtractGdtfArchive(const std::filesystem::path &sourcePath,
+                   const std::filesystem::path &destinationRoot);
+
 } // namespace gdtf

@@ -506,6 +506,30 @@ static void TestUnicodeZipWriteMetadata(const fs::path &dir) {
   assert(read.utf8FlagMissingEntryCount == 0);
 }
 
+// Verifies Unicode fallback filenames extract to native filesystem paths.
+static void TestUnicodeZipExtractionCompatibility(const fs::path &dir) {
+  const std::string unicodeName =
+      "wheels/191130000002 FINE 360 BEAM Φ113金属图案盘二 02.png";
+  const fs::path archivePath = dir / "unicode_extract_missing_flag.gdtf";
+  assert(WriteArchive(
+      archivePath, {{unicodeName, "png"}, {"description.xml", GdtfXml("")}}));
+  PatchUtf8Flags(archivePath, false);
+
+  const fs::path extractedRoot = dir / "extracted_unicode";
+  gdtf::ArchiveReadResult result =
+      gdtf::ExtractGdtfArchive(archivePath, extractedRoot);
+  assert(!result.entries.empty());
+  assert(result.utf8FlagMissingEntryCount == 1);
+  assert(HasArchiveDiagnostic(result,
+                              gdtf::ArchiveDiagnosticCode::Utf8FallbackUsed));
+  std::u8string relativeUtf8;
+  relativeUtf8.reserve(unicodeName.size());
+  for (char ch : unicodeName)
+    relativeUtf8.push_back(static_cast<char8_t>(ch));
+  assert(fs::is_regular_file(extractedRoot / fs::path(relativeUtf8)));
+  assert(fs::is_regular_file(extractedRoot / "description.xml"));
+}
+
 // Runs focused read-layer regression tests using temporary archives only.
 int main() {
   wxInitializer initializer;
@@ -523,6 +547,7 @@ int main() {
   TestUnknownUnicodeAndSummary(dir);
   TestUnicodeZipFilenameCompatibility(dir);
   TestUnicodeZipWriteMetadata(dir);
+  TestUnicodeZipExtractionCompatibility(dir);
 
   fs::remove_all(dir);
   return 0;

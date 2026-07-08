@@ -17,6 +17,7 @@
  */
 #include "gdtfloader.h"
 #include "filesystem_path_utils.h"
+#include "gdtf_archive_reader.h"
 #include "gdtf_mutation_audit.h"
 #include "gdtf_canonicalizer.h"
 #include "loader3ds.h"
@@ -428,67 +429,39 @@ private:
 // Extracts a ZIP archive into a destination directory while skipping unsafe paths.
 static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
 {
-    std::error_code ec;
-    if (!fs::exists(PathUtils::PathFromUtf8(zipPath), ec) || ec) {
-        if (ConsolePanel::Instance()) {
-            wxString msg = wxString::Format("GDTF: cannot open %s", wxString::FromUTF8(zipPath));
+    const fs::path sourcePath = PathUtils::PathFromUtf8(zipPath);
+    const fs::path destinationRoot = PathUtils::PathFromUtf8(destDir);
+    const gdtf::ArchiveReadResult result =
+        gdtf::ExtractGdtfArchive(sourcePath, destinationRoot);
+    if (ConsolePanel::Instance()) {
+        for (const gdtf::ArchiveDiagnostic& diagnostic : result.diagnostics) {
+            if (diagnostic.code == gdtf::ArchiveDiagnosticCode::None)
+                continue;
+            wxString msg = wxString::Format(
+                "GDTF: %s%s",
+                wxString::FromUTF8(diagnostic.message),
+                diagnostic.entryPath.empty()
+                    ? wxString()
+                    : wxString::Format(" (%s)",
+                                       wxString::FromUTF8(diagnostic.entryPath)));
             ConsolePanel::Instance()->AppendMessage(msg);
         }
-        return false;
     }
-    wxLogNull logNo;
-    wxFileInputStream input(zipPath);
-    if (!input.IsOk()) {
-        if (ConsolePanel::Instance()) {
-            wxString msg = wxString::Format("GDTF: cannot open %s", wxString::FromUTF8(zipPath));
-            ConsolePanel::Instance()->AppendMessage(msg);
-        }
-        return false;
-    }
-    wxZipInputStream zipStream(input);
-    std::unique_ptr<wxZipEntry> entry;
-    while ((entry.reset(zipStream.GetNextEntry())), entry) {
-        std::string filename = entry->GetName().ToStdString();
-        std::replace(filename.begin(), filename.end(), '\\', '/');
-        fs::path relativeEntryPath = PathUtils::PathFromUtf8(filename);
-        if (filename.empty() || relativeEntryPath.is_absolute() ||
-            relativeEntryPath.has_root_name() ||
-            filename.find(':') != std::string::npos ||
-            std::any_of(relativeEntryPath.begin(), relativeEntryPath.end(),
-                        [](const fs::path& part) { return part == ".."; })) {
-            if (ConsolePanel::Instance()) {
-                wxString msg = wxString::Format("GDTF: skipped unsafe archive entry %s", wxString::FromUTF8(filename));
-                ConsolePanel::Instance()->AppendMessage(msg);
-            }
-            continue;
-        }
-        fs::path destinationPath = PathUtils::PathFromUtf8(destDir) / relativeEntryPath;
-        std::string fullPath = destinationPath.string();
-        
-        if (entry->IsDir()) {
-            wxFileName::Mkdir(fullPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
-            continue;
-        }
-        wxFileName::Mkdir(wxFileName(fullPath).GetPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
-        std::ofstream output(fullPath, std::ios::binary);
-        if (!output.is_open()) {
-            if (ConsolePanel::Instance()) {
-                wxString msg = wxString::Format("GDTF: cannot create %s", wxString::FromUTF8(fullPath));
-                ConsolePanel::Instance()->AppendMessage(msg);
-            }
-            return false;
-        }
-        char buffer[4096];
-        while (true) {
-            zipStream.Read(buffer, sizeof(buffer));
-            size_t bytes = zipStream.LastRead();
-            if (bytes == 0)
-                break;
-            output.write(buffer, bytes);
-        }
-        output.close();
-    }
-    return true;
+    const bool hasFatalDiagnostic =
+        std::any_of(result.diagnostics.begin(), result.diagnostics.end(),
+                    [](const gdtf::ArchiveDiagnostic& diagnostic) {
+                        switch (diagnostic.code) {
+                        case gdtf::ArchiveDiagnosticCode::None:
+                        case gdtf::ArchiveDiagnosticCode::NonCanonicalDescriptionXml:
+                        case gdtf::ArchiveDiagnosticCode::Utf8FlagMissing:
+                        case gdtf::ArchiveDiagnosticCode::Utf8FallbackUsed:
+                        case gdtf::ArchiveDiagnosticCode::LegacyFilenameEncodingUsed:
+                            return false;
+                        default:
+                            return true;
+                        }
+                    });
+    return !result.entries.empty() && !hasFatalDiagnostic;
 }
 
 // Finds the extracted description.xml using the tolerant read priority.
@@ -1193,7 +1166,7 @@ static bool ComputeGdtfContentHash(const fs::path& absPath, uint64_t& hash)
 static std::string BuildGdtfStableCacheKey(const fs::path& absPath, uint64_t hash)
 {
     std::ostringstream oss;
-    oss << absPath.filename().string() << '|'
+    oss << PathUtils::PathToUtf8(absPath.filename()) << '|'
         << std::hex << std::setw(16) << std::setfill('0') << hash;
     return oss.str();
 }
@@ -1221,7 +1194,7 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
     }
 
     std::error_code ec;
-    fs::path absPath = fs::absolute(gdtfPath, ec);
+    fs::path absPath = fs::absolute(PathUtils::PathFromUtf8(gdtfPath), ec);
     if (ec)
     {
         setReason("Cannot resolve absolute GDTF path");
@@ -1284,7 +1257,7 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
 
     GdtfCacheEntry entry;
     entry.timestamp = timestamp;
-    TempExtraction extraction(absPath.string());
+    TempExtraction extraction(PathUtils::PathToUtf8(absPath));
     if (!extraction.IsValid()) {
         g_failedGdtfCache[stableKey] = timestamp;
         setReason("Unable to extract GDTF archive (corrupted or unreadable file)");

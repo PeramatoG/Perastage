@@ -42,6 +42,12 @@ struct DecodedZipEntryName {
   bool failed = false;
 };
 
+// Converts a filesystem path to UTF-8 text for wxWidgets file streams.
+std::string PathToUtf8(const std::filesystem::path &path) {
+  const std::u8string utf8 = path.u8string();
+  return std::string(utf8.begin(), utf8.end());
+}
+
 // Reports whether raw bytes contain only portable ASCII characters.
 bool IsAscii(const std::string &value) {
   return std::all_of(value.begin(), value.end(),
@@ -328,6 +334,27 @@ bool ReadCurrentEntry(wxZipInputStream &zipInput, std::string &out,
   return zipInput.GetLastError() == wxSTREAM_NO_ERROR ||
          zipInput.GetLastError() == wxSTREAM_EOF;
 }
+
+// Copies the current ZIP entry to disk with a bounded write loop.
+bool WriteCurrentEntry(wxZipInputStream &zipInput,
+                       const std::filesystem::path &outPath) {
+  std::ofstream output(outPath, std::ios::binary);
+  if (!output.is_open())
+    return false;
+
+  char buffer[4096];
+  while (true) {
+    zipInput.Read(buffer, sizeof(buffer));
+    const size_t count = zipInput.LastRead();
+    if (count == 0)
+      break;
+    output.write(buffer, static_cast<std::streamsize>(count));
+    if (!output.good())
+      return false;
+  }
+  return zipInput.GetLastError() == wxSTREAM_NO_ERROR ||
+         zipInput.GetLastError() == wxSTREAM_EOF;
+}
 } // namespace
 
 // Reports whether the archive read found one usable description.xml payload.
@@ -363,8 +390,7 @@ ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath) {
       return result;
     }
 
-    wxFileInputStream input(
-        wxString::FromUTF8(sourcePath.generic_string().c_str()));
+    wxFileInputStream input(wxString::FromUTF8(PathToUtf8(sourcePath)));
     if (!input.IsOk()) {
       AddDiagnostic(result, ArchiveDiagnosticCode::OpenFailed,
                     "Could not open GDTF archive.");
@@ -474,6 +500,163 @@ ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath) {
                   "Unknown error while reading GDTF archive.");
   }
 
+  return result;
+}
+
+// Extracts a GDTF archive using the shared Unicode-safe entry-name policy.
+ArchiveReadResult
+ExtractGdtfArchive(const std::filesystem::path &sourcePath,
+                   const std::filesystem::path &destinationRoot) {
+  ArchiveReadResult result;
+  result.sourcePath = sourcePath;
+  try {
+    if (sourcePath.empty() || destinationRoot.empty()) {
+      AddDiagnostic(result, ArchiveDiagnosticCode::EmptySourcePath,
+                    "GDTF source or destination path is empty.");
+      return result;
+    }
+
+    std::error_code ec;
+    std::filesystem::create_directories(destinationRoot, ec);
+    if (ec) {
+      AddDiagnostic(result, ArchiveDiagnosticCode::FilesystemError,
+                    "Could not create GDTF extraction directory.");
+      return result;
+    }
+
+    wxFileInputStream input(wxString::FromUTF8(PathToUtf8(sourcePath)));
+    if (!input.IsOk()) {
+      AddDiagnostic(result, ArchiveDiagnosticCode::OpenFailed,
+                    "Could not open GDTF archive.");
+      return result;
+    }
+
+    const std::vector<RawZipEntryName> rawNames =
+        ReadRawCentralDirectoryNames(sourcePath);
+    wxZipInputStream zipInput(input);
+    std::unique_ptr<wxZipEntry> entry;
+    size_t entryIndex = 0;
+    while ((entry.reset(zipInput.GetNextEntry())), entry) {
+      DecodedZipEntryName decodedName;
+      if (entryIndex < rawNames.size()) {
+        decodedName = DecodeZipEntryName(rawNames[entryIndex]);
+      } else {
+        const wxScopedCharBuffer utf8 = entry->GetName().ToUTF8();
+        decodedName.path = utf8 ? std::string(utf8.data()) : std::string();
+      }
+      ++entryIndex;
+
+      const std::string entryPath = NormalizeArchivePath(decodedName.path);
+      if (decodedName.failed) {
+        AddDiagnostic(
+            result, ArchiveDiagnosticCode::FilenameDecodeFailed,
+            "A GDTF archive entry filename could not be decoded safely.");
+        continue;
+      }
+
+      ArchiveEntry inventoryEntry;
+      inventoryEntry.path = entryPath;
+      inventoryEntry.directory = entry->IsDir();
+      inventoryEntry.nameUsedUtf8CompatibilityFallback =
+          decodedName.usedUtf8Fallback;
+      if (decodedName.usedUtf8Fallback)
+        ++result.utf8FlagMissingEntryCount;
+      const wxFileOffset size = entry->GetSize();
+      if (size >= 0) {
+        inventoryEntry.sizeKnown = true;
+        inventoryEntry.size = static_cast<std::uint64_t>(size);
+      }
+      result.entries.push_back(inventoryEntry);
+
+      if (IsUnsafeArchivePath(entryPath)) {
+        AddDiagnostic(result, ArchiveDiagnosticCode::UnsafeEntryPath,
+                      "The GDTF archive contains an unsafe entry path.",
+                      entryPath);
+        continue;
+      }
+
+      std::u8string relativeUtf8;
+      relativeUtf8.reserve(entryPath.size());
+      for (char ch : entryPath)
+        relativeUtf8.push_back(static_cast<char8_t>(ch));
+      const std::filesystem::path relative =
+          std::filesystem::path(std::move(relativeUtf8));
+      const std::filesystem::path destinationPath = destinationRoot / relative;
+      const std::filesystem::path normalizedRoot =
+          std::filesystem::weakly_canonical(destinationRoot, ec);
+      if (ec) {
+        AddDiagnostic(result, ArchiveDiagnosticCode::FilesystemError,
+                      "Could not resolve GDTF extraction directory.",
+                      entryPath);
+        return result;
+      }
+      ec.clear();
+
+      if (entry->IsDir()) {
+        std::filesystem::create_directories(destinationPath, ec);
+        if (ec) {
+          AddDiagnostic(result, ArchiveDiagnosticCode::FilesystemError,
+                        "Could not create GDTF extraction subdirectory.",
+                        entryPath);
+        }
+        continue;
+      }
+
+      std::filesystem::create_directories(destinationPath.parent_path(), ec);
+      if (ec) {
+        AddDiagnostic(result, ArchiveDiagnosticCode::FilesystemError,
+                      "Could not create GDTF extraction parent directory.",
+                      entryPath);
+        continue;
+      }
+
+      const std::filesystem::path normalizedDestination =
+          std::filesystem::weakly_canonical(destinationPath.parent_path(), ec);
+      if (ec || normalizedDestination.native().rfind(normalizedRoot.native(),
+                                                     0) != 0) {
+        AddDiagnostic(
+            result, ArchiveDiagnosticCode::UnsafeEntryPath,
+            "The GDTF archive entry would extract outside the destination.",
+            entryPath);
+        continue;
+      }
+      ec.clear();
+
+      if (!WriteCurrentEntry(zipInput, destinationPath)) {
+        AddDiagnostic(result, ArchiveDiagnosticCode::EntryReadFailed,
+                      "Could not extract a GDTF archive entry.", entryPath);
+      }
+    }
+
+    if (result.utf8FlagMissingEntryCount > 0) {
+      AddDiagnostic(result, ArchiveDiagnosticCode::Utf8FallbackUsed,
+                    "GDTF archive uses valid UTF-8 filenames without the ZIP "
+                    "UTF-8 flag; compatibility fallback applied to " +
+                        std::to_string(result.utf8FlagMissingEntryCount) +
+                        " entries.");
+    }
+    if (result.entries.empty()) {
+      AddDiagnostic(result, ArchiveDiagnosticCode::NoReadableEntries,
+                    "The GDTF archive does not contain readable entries.");
+    }
+  } catch (const std::filesystem::filesystem_error &error) {
+    AddDiagnostic(
+        result, ArchiveDiagnosticCode::FilesystemError,
+        std::string("Filesystem error while extracting GDTF archive: ") +
+            error.what());
+  } catch (const std::system_error &error) {
+    AddDiagnostic(result, ArchiveDiagnosticCode::FilesystemError,
+                  std::string("System error while extracting GDTF archive: ") +
+                      error.what());
+  } catch (const std::exception &error) {
+    AddDiagnostic(
+        result, ArchiveDiagnosticCode::UnexpectedException,
+        std::string("Unexpected error while extracting GDTF archive: ") +
+            error.what());
+  } catch (...) {
+    AddDiagnostic(result, ArchiveDiagnosticCode::UnexpectedException,
+                  "Unknown error while extracting GDTF archive.");
+  }
   return result;
 }
 
